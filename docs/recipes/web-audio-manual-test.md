@@ -15,7 +15,9 @@
    silently fail to resume the context. **This is the most likely
    reason web audio was inaudible before.**
 2. **Deferred music startup.** `start_default_music_when_ready` (in
-   `audio/runtime.rs`) replaces the old Startup-time `play()` call.
+   `crates/ambition_audio/src/library.rs:544` — this said `audio/runtime.rs` <!-- cite-ok: names the pre-carve path this correction replaces -->
+   until 2026-09-03, a path that has not existed since the audio domain became
+   its own crate) replaces the old Startup-time `play()` call.
    It polls each Update for (a) `AudioUnlockState.unlocked` (first
    user gesture observed) and (b) `asset_server.is_loaded(handle)`
    for the default music track. The first `play()` only fires after

@@ -528,6 +528,34 @@ the 129 placeholder actors ARE the 129 demanded characters. The warnings name
 match exactly, which is suggestive and is not proof. ⇒ Cheapest next step is to
 log both sets once and intersect them, not to change the barrier.
 
+### ✔ FIXED 2026-09-03: a quality transition is a SWAP, never a demote
+
+The ramp above had a cause one layer away from the reveal: the barrier is
+innocent (all 129 sheets are `Ready` when the cover lifts), and it is
+`converge_character_residency_to_active_quality` that turned the cast into
+placeholders. It called `demote_stale_realizations` — every in-use sheet went
+`Ready → Declared`, un-claiming every body's render family — and re-demanded
+them at one character per frame at Full. A headless boot converges Potato→Ultra
+after the cover; a host whose settings apply a frame late does the same thing
+for one frame. Measured both ways the same afternoon: e7's run (convergence
+after the cover) drew 129 placeholders; a run at HEAD where the transition
+landed BEFORE the cover drew 0 — the order was a race, never a guarantee.
+
+**The fix:** a worn sheet is REPLACED, never retired. The convergence re-demands
+the in-use stale tokens without touching their realizations; the materializer's
+`Ready` early-return is now "Ready AT THE ACTIVE TIER" and re-realizes a
+stale-tier sheet in place (`publish` replaces it); the renderer already keeps a
+body's old binding until the new texture is loaded (`texture_is_ready`) and
+rebinds then. Only sheets nobody wears are retired, which is where the memory
+falls. Guard: `a_worn_character_keeps_its_sheet_resident_through_the_transition`
+— TWO worn characters (wider than the Full ration, so the second is not reached
+on frame 0), asserting at every frame of the transition that both stay `Ready`
+and neither is ever recorded retired; red on frame 0 with retire-first
+restored. ⚠ With one character the guard passes vacuously: retire and
+re-realize happen inside one update. What remains of the ramp is the ration
+itself (1/frame at Full), which is now invisible — the old tier draws until the
+new one lands.
+
 ## Open work
 
 ### 1. Stage-specific observability

@@ -767,7 +767,13 @@ production block. It is not.
   variants. Their systems are registered by a different crate,
   `ambition_platformer2d_runtime` (`combat_schedule.rs`, `player_schedule.rs`),
   and they are not leaves: **`possession` is referenced 87 times outside
-  `abilities/` and `teleport` 61**. `PossessionState` is read by
+  `abilities/` and `teleport` 61** — counted WITHIN THE MONOLITH
+  (`grep -rn <name> --include=*.rs crates/ambition_platformer2d_actor_monolith/src`
+  minus that crate's own `abilities/`), which is the scope that matters for
+  "would this leave the kernel cleanly". ⚠ The method is spelled out because
+  without it the figure is unreproducible: the same grep across `crates` and
+  `game` gives 256 and 603, and I briefly took my own recorded numbers for
+  stale on 2026-09-03 before rebuilding the scope. `PossessionState` is read by
   `body_custody.rs`, `control/authority.rs`, `features/ecs/dormancy.rs` and
   `control/input_systems.rs`, and `possession.rs` exposes
   `resolve_controlled_subject`, `holding_ascend`/`holding_descend` and

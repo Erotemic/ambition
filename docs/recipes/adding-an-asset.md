@@ -70,7 +70,8 @@ text manifest next to the ignored payload. Two things fall out:
 
 Worked example: `game/ambition_content/assets/data/vanity_card.ron` (committed)
 describes `game/ambition_content/assets/vanity_card/*.png` (ignored), consumed
-by `game/ambition_content/src/vanity_card.rs`.
+by `game/ambition_content/src/presentation/vanity_card_made_this_meme.rs` —
+this said `src/vanity_card.rs` until 2026-09-03, before the presentation carve. <!-- cite-ok: names the pre-carve path this correction replaces -->
 
 ## Generated assets
 

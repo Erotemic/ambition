@@ -723,12 +723,19 @@ pub fn demand_worn_character_sheets(
 /// The transition is three moves and no new machinery:
 ///
 /// 1. compare each resident realization's TIER against the active one;
-/// 2. retire the stale ones back to `Declared` — dropping the
+/// 2. re-demand the stale ones a body is WEARING, without retiring them: the
+///    materializer re-realizes a `Ready`-at-another-tier sheet in place and the
+///    renderer rebinds each body once the new texture is loaded, so no body is
+///    ever between two realizations. ⛔ Retiring first (the shape until
+///    2026-09-03) put every in-use body on the placeholder rectangle for as long
+///    as the ration took to reach it -- one character per frame at Full, 129
+///    frames for the hall -- whenever the transition landed after the cover
+///    lifted, which a headless boot and a host whose settings apply a frame late
+///    both do;
+/// 3. retire the stale ones nobody wears -- dropping the
 ///    [`CharacterSpriteAsset`](ambition_sprite_sheet::character::CharacterSpriteAsset)
 ///    drops its strong `Handle<Image>`, and Bevy frees the image once the last
-///    strong handle goes, so residency FALLS with no evictor anywhere;
-/// 3. demand them again, which the materializer four systems later satisfies at
-///    the new tier.
+///    strong handle goes, so residency FALLS with no evictor anywhere.
 ///
 /// Logical identity never moves: the same `character_id`, the same demand token,
 /// the same body entity, the same gameplay authority. Only the physical
@@ -737,7 +744,9 @@ pub fn demand_worn_character_sheets(
 /// `UserSettings`, the same source the materializer reads. Comparing
 /// against one authority and stamping from another is how a transition becomes a
 /// loop: every frame retires a realization that is immediately remade with the
-/// tier it just failed.
+/// tier it just failed. The in-use half stays stale until the ration reaches it,
+/// so this runs every frame of a transition; it requests each token once
+/// (pending tokens are skipped) and logs once per token set.
 pub fn converge_character_residency_to_active_quality(
     // NOT `Res`: this writes. But it is READ first (see below), because a
     // `ResMut` deref-mut marks `GameAssets` changed for every reader downstream,
@@ -760,17 +769,10 @@ pub fn converge_character_residency_to_active_quality(
     let active = crate::character_sprites::character_sprite_tier(budget.as_ref());
     // Read through the immutable deref: nothing is stale on almost every frame,
     // and taking the mutable borrow anyway would republish `GameAssets` at 60Hz.
-    if !assets.characters.has_stale_realizations(active) {
+    let stale = assets.characters.stale_realizations(active);
+    if stale.is_empty() {
         return;
     }
-    let stale = assets.characters.demote_stale_realizations(active);
-    // ⛔ RE-DEMAND ONLY WHAT IS IN USE. Retiring walks every resident
-    // realization, so committing the hub after the hall retires the whole
-    // gallery cast — and re-demanding all of it decoded ~125 FULL sheets into
-    // a room that places five of them, after the reveal, in the open (the
-    // entry hitch in reverse, and bigger). A character somebody wears or a
-    // live actor names comes back at the new tier; the rest stay retired,
-    // and the next room that places one demands it then.
     let in_use: std::collections::BTreeSet<&str> = worn
         .iter()
         .map(|worn| worn.0.as_str())
@@ -780,16 +782,35 @@ pub fn converge_character_residency_to_active_quality(
                 .filter_map(|config| config.sprite_character_id.as_deref()),
         )
         .collect();
-    let (re_demanded, left_retired): (Vec<String>, Vec<String>) = stale
+    let (wearing, unworn): (Vec<(String, String)>, Vec<(String, String)>) = stale
         .into_iter()
-        .partition(|id| in_use.contains(id.as_str()));
+        .partition(|(_, id)| in_use.contains(id.as_str()));
+    let pending: std::collections::BTreeSet<String> =
+        demand.pending().map(str::to_string).collect();
+    let re_demanded: Vec<String> = wearing
+        .iter()
+        .map(|(_, id)| id.clone())
+        .filter(|id| !pending.contains(id))
+        .collect::<std::collections::BTreeSet<_>>()
+        .into_iter()
+        .collect();
+    let retired = if unworn.is_empty() {
+        std::collections::BTreeSet::new()
+    } else {
+        assets
+            .characters
+            .retire_realizations(unworn.into_iter().map(|(token, _)| token))
+    };
+    if re_demanded.is_empty() && retired.is_empty() {
+        // Everything stale is already on its way through the ration.
+        return;
+    }
     bevy::log::info!(
         target: "ambition_platformer2d::character_sprites",
-        "quality transition to {active:?}: retired {} character realization(s); \
-         re-demanded {} in use, left {} retired",
-        re_demanded.len() + left_retired.len(),
+        "quality transition to {active:?}: re-demanded {} in use (kept drawable until \
+         re-realized), retired {} unworn",
         re_demanded.len(),
-        left_retired.len(),
+        retired.len(),
     );
     demand.request_all(re_demanded);
 }

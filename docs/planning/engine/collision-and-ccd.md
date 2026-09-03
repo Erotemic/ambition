@@ -44,8 +44,17 @@ segment from `vel * dt` and disagrees with the kernel; `SweepSample`'s
 `TODO(compat-remove)` is the plan to delete it. Teleports needed no exclusion:
 the sample spans simulation-phase entry to exit, so a blink or room transfer is
 not inside the segment by construction. Guarded by
-`movement::tests::hazard_sweep` (5 cases, every motion policy), poison-verified
-in both halves.
+`movement::tests::hazard_sweep`, poison-verified in both halves.
+⚠ **This said "5 cases" and the module now holds SEVEN — re-counted 2026-09-03.**
+The original five are still there and still describe this paragraph exactly
+(steps over a thin hazard, stops short, standing in it, teleport is not
+traversal, no sample means endpoint only). Two edge cases were added since:
+`walking_a_floor_flush_with_a_hazards_top_face_is_not_a_hit` and
+`a_hanging_body_is_not_judged_by_the_hazard_gate`. ⇒ Counted as `#[test]`
+functions in
+`crates/ambition_platformer2d_core/src/movement/tests/hazard_sweep.rs`; the
+method is stated because "cases" could as easily have meant motion policies, and
+a reader who counts differently cannot otherwise tell growth from a mismatch.
 
 ⛔ **The axis-swept arm ran the gate one tick stale, and that was the harder
 half.** `apply_world_hazard_gate` sat at the end of `update_body_simulation_

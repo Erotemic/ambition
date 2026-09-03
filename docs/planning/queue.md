@@ -887,8 +887,31 @@ The one unresolved developer-policy choice from the session-ownership work is in
   reports the population — *"ambition_demo_mary_o_app 48 of 63 run bare
   (visible)"*, 784 tests across 29 crates — so the hiding was instrumented all
   along; nobody had connected the survey to this row.
-  ⇒ Next: `40` UI nodes with no `DeclaredHudRoot`, in a demo, at the minimum
-  feature set. That is the whole remaining question —
+  ✔ **ANSWERED AND FIXED 2026-09-03 — THE GUARD WAS WRONG, NOT THE ENGINE.**
+  Printed the forty instead of counting them: **every one is the demo's OWN
+  declared HUD** — five readouts × (panel, portrait, stocks row, four stock pips,
+  stock count). `engine_owned_ui_node_count` filtered
+  `Without<DeclaredHudRoot>`, which excludes the ROOT and counts its children;
+  the nodes beneath carry `DeclaredHudPortrait`, `DeclaredHudStock`,
+  `DeclaredHudStockCount` or no marker at all (`hud/declared.rs:240-300`).
+  ⛔ **And the doctrine it guards explicitly ALLOWS what it was flagging** — *"A
+  demo that wants a HUD declares one — that is what `owns` means in the demos
+  doctrine."* ⇒ Ownership is the SUBTREE, so the helper now walks `ChildOf` to a
+  declared root rather than checking one marker. ⚠ Walking, not parent-checking:
+  the stock pips are grandchildren, so one level would still have counted twenty.
+  ⭐ **That single filter turned TWO of the three `ov1` failures green** —
+  `the_presentation_plugin_adds_no_hud_and_no_menu` AND
+  `visible_mary_o_presentation_retires_and_relaunches_with_the_session`, which
+  shares the helper. 6 passed / 1 failed where it was 4 / 3.
+  ⇒ **The one that remains names its own cause** and is not a filter artifact:
+  *"this composition wrote a `VfxMessage::CoinPop` and drew nothing:
+  `fx::vfx_spawn_messages` is not scheduled here, which is the whole of the
+  coin-pop report and not a Mary-O bug"* (`game/ambition_demo_mary_o_app/tests/ov1_draws_the_world.rs:410`). A
+  missing system registration in this composition, stated by the test itself.
+  ⇒ So the mary_o red is **four**, not six: that one plus the three
+  `painted_blocks`.
+  ⓘ Held out of the tree while `383484`'s `--rust` gate window is open; it is a
+  test-only change to `ov1_draws_the_world.rs`. That is the whole remaining question —
   `engine_owned_ui_node_count` filters `Without<DeclaredHudRoot>`, so what to
   learn is which plugin spawns those forty.
   ⊙ **TWO ELIMINATED BY READING, 2026-09-03** (no build; recorded so the next
@@ -977,7 +1000,11 @@ The one unresolved developer-policy choice from the session-ownership work is in
   edge … t3 seat 1 at (416,204) is 16 units outside a 800x450 frame centred
   (0,0)"*. That last is a CAMERA FRAMING assertion, unrelated to the other four
   causes, and 16 units on one body-frame is the kind of margin that may be a
-  tuning question rather than a defect.
+  tuning question rather than a defect. ⇒ **FILED 2026-09-03 as
+  [`awaiting-maintainer-decision.md`](awaiting-maintainer-decision.md) entry 50**,
+  because which artefact is wrong — the camera or the assertion's zero tolerance
+  — depends on whether a platform fighter's camera may lag a fast body for a
+  frame, and that is a feel ruling. ⛔ Do not "fix" it from this row.
 
   ⚠ **AND THE INFERENCE THIS REPLACES WAS WRONG, kept because it is the lesson.** I first wrote: `cargo test -p
   ambition_demo_sanic_app --lib --features capture,input,visible` now shows ZERO

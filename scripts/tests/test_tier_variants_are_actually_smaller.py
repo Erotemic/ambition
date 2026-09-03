@@ -53,7 +53,21 @@ import os
 import subprocess
 from pathlib import Path
 
+import sys
+import pathlib
 import pytest
+
+# ⛔ THE GATE WAS AN ENV VARIABLE NOTHING SET, so these ratchets had never
+# been evaluated by any lane while planning called them ratchets. It now
+# DETECTS the canonical box -- a checkout whose sprite tree holds real
+# files generated them; one holding symlinks is borrowing another
+# checkout's. The variable remains as an override.
+sys.path.insert(0, str(pathlib.Path(__file__).resolve().parents[1] / "lib"))
+from canonical_assets import assets_are_canonical, why_not  # noqa: E402
+
+_REPO = pathlib.Path(__file__).resolve().parents[2]
+ASSETS_ARE_CANONICAL = assets_are_canonical(_REPO)
+NOT_CANONICAL_REASON = why_not(_REPO)
 
 REPO = Path(
     subprocess.run(
@@ -110,19 +124,7 @@ def offenders() -> dict[str, dict[str, float]]:
     return found
 
 
-@pytest.mark.skipif(
-    not os.environ.get("AMBITION_ASSETS_ARE_CANONICAL"),
-    reason=(
-        "⛔ THE SPRITE TREE IS GITIGNORED AND MACHINE-LOCAL. Every PNG under "
-        "assets/sprites* is generated, and a worktree SYMLINKS the main "
-        "checkout's copies (mirror_assets_for_worktree.py), so this asserts "
-        "one machine's generated state. On a box that generates them correctly "
-        "the KNOWN_ lists below read as stale and this fails for the wrong "
-        "reason. Opt in with AMBITION_ASSETS_ARE_CANONICAL=1 where the assets "
-        "are known-good; the SCRIPT's own behaviour is pinned unconditionally "
-        "by the fixture tests at the bottom."
-    ),
-)
+@pytest.mark.skipif(not ASSETS_ARE_CANONICAL, reason=NOT_CANONICAL_REASON)
 def test_no_new_sheet_ships_a_tier_variant_that_is_not_smaller():
     found = offenders()
     new = set(found) - KNOWN_UNSCALED
@@ -135,10 +137,7 @@ def test_no_new_sheet_ships_a_tier_variant_that_is_not_smaller():
     )
 
 
-@pytest.mark.skipif(
-    not os.environ.get("AMBITION_ASSETS_ARE_CANONICAL"),
-    reason="asserts machine-local generated assets; see the note above",
-)
+@pytest.mark.skipif(not ASSETS_ARE_CANONICAL, reason=NOT_CANONICAL_REASON)
 def test_the_known_list_does_not_rot():
     """⛔ A RATCHET THAT ONLY EVER GROWS IS NOT A RATCHET. If a name here has
     been fixed, the list must lose it — otherwise the guard silently permits a
@@ -152,10 +151,7 @@ def test_the_known_list_does_not_rot():
     )
 
 
-@pytest.mark.skipif(
-    not os.environ.get("AMBITION_ASSETS_ARE_CANONICAL"),
-    reason="asserts machine-local generated assets; see the note above",
-)
+@pytest.mark.skipif(not ASSETS_ARE_CANONICAL, reason=NOT_CANONICAL_REASON)
 def test_the_measurement_can_see_a_sheet_that_does_scale():
     """⭐ POSITIVE CONTROL. Both tests above are absence assertions; if `collect`
     returned nothing they would pass forever. This pins that the tree really
@@ -215,10 +211,7 @@ def missing_variants() -> dict[str, list[str]]:
     return out
 
 
-@pytest.mark.skipif(
-    not os.environ.get("AMBITION_ASSETS_ARE_CANONICAL"),
-    reason="asserts machine-local generated assets; see the note above",
-)
+@pytest.mark.skipif(not ASSETS_ARE_CANONICAL, reason=NOT_CANONICAL_REASON)
 def test_no_new_sheet_ships_without_a_reduced_variant():
     found = missing_variants()
     new = set(found) - KNOWN_MISSING_VARIANTS
@@ -230,10 +223,7 @@ def test_no_new_sheet_ships_without_a_reduced_variant():
     )
 
 
-@pytest.mark.skipif(
-    not os.environ.get("AMBITION_ASSETS_ARE_CANONICAL"),
-    reason="asserts machine-local generated assets; see the note above",
-)
+@pytest.mark.skipif(not ASSETS_ARE_CANONICAL, reason=NOT_CANONICAL_REASON)
 def test_the_missing_variant_list_does_not_rot():
     found = missing_variants()
     fixed = KNOWN_MISSING_VARIANTS - set(found)

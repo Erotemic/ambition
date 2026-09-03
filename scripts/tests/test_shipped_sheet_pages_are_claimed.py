@@ -42,7 +42,20 @@ import subprocess
 import sys
 from pathlib import Path
 
+import pathlib
 import pytest
+
+# ⛔ THE GATE WAS AN ENV VARIABLE NOTHING SET, so these ratchets had never
+# been evaluated by any lane while planning called them ratchets. It now
+# DETECTS the canonical box -- a checkout whose sprite tree holds real
+# files generated them; one holding symlinks is borrowing another
+# checkout's. The variable remains as an override.
+sys.path.insert(0, str(pathlib.Path(__file__).resolve().parents[1] / "lib"))
+from canonical_assets import assets_are_canonical, why_not  # noqa: E402
+
+_REPO = pathlib.Path(__file__).resolve().parents[2]
+ASSETS_ARE_CANONICAL = assets_are_canonical(_REPO)
+NOT_CANONICAL_REASON = why_not(_REPO)
 
 REPO = Path(
     subprocess.run(
@@ -62,15 +75,11 @@ KNOWN_STRANDED_SHEETS = {
 }
 
 CANONICAL = pytest.mark.skipif(
-    not os.environ.get("AMBITION_ASSETS_ARE_CANONICAL"),
-    reason=(
-        "⛔ THE SPRITE TREE IS GITIGNORED AND MACHINE-LOCAL. Every PNG under "
-        "assets/sprites*/ is generated, and a worktree SYMLINKS the main "
-        "checkout's copies. On a box that regenerates cleanly the KNOWN_ list "
-        "reads as stale and this fails for the wrong reason. Opt in with "
-        "AMBITION_ASSETS_ARE_CANONICAL=1 where the assets are known-good; the "
-        "script's own behaviour is pinned unconditionally below."
-    ),
+    not ASSETS_ARE_CANONICAL,
+    # ⛔ A SKIP THAT ONLY SAYS "set this variable" is how five assertions sat
+    # unevaluated while planning called them a ratchet. This one names the
+    # tree it looked at and what it found there.
+    reason=NOT_CANONICAL_REASON,
 )
 
 

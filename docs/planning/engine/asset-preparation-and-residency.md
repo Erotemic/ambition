@@ -466,6 +466,34 @@ form:
 Keep this semantic ownership. Do not replace it with a disconnected global
 cache merely to centralize bookkeeping.
 
+## ⛔ RETRACTED 2026-09-03: the placeholders are a MISSING SPAWN MARKER, and the tier only changed how long it showed
+
+> ⛔⛔ **THE HEADING BELOW SAID "a TIER-SCALED RAMP, NOT A BUG IN CLAIMING", AND
+> BOTH HALVES ARE WRONG.** It IS a bug in claiming: nothing spawns a room NPC's
+> `FeatureVisual` at all, so every interactable NPC in every room waits out
+> `UNCLAIMED_STAND_IN_GRACE_FRAMES` and is then drawn by the stand-in the
+> detector spawns. See *"nothing spawns a room NPC's visual"* below for the
+> trace, and `d0d05d963` for the measurement that killed the texture-readiness
+> explanation.
+>
+> ⇒ **The tier was never the cause.** It changes the RATION, so it changes how
+> many frames the cast spends unclaimed and therefore whether the 5-frame grace
+> is crossed — Potato realizes 16 characters a frame and clears the grace, Full
+> realizes one and does not. That is why 0-at-Potato/129-at-Ultra looked like
+> the whole story: the tier is a magnifier on a defect that is present at every
+> tier.
+>
+> ⚠ **Ruled a DEFECT, not a design call** (ambition-df, 2026-09-03): *"a room NPC
+> drawing the unclaimed placeholder for five frames in every room is the 'some
+> spawn path is missing its family marker' the warning names, and the fix is the
+> marker."* ⇒ The guard ships AFTER the fix, asserting the property the fix
+> establishes — an interactable NPC's view is claimed on the frame its body
+> exists, never by the stand-in — poisoned by dropping the marker. ⛔ Not as a
+> pin of today's behaviour.
+>
+> The measurement below is kept because it is correct as a measurement; only its
+> conclusion is retracted.
+
 ## ⭐ MEASURED 2026-09-03: the unclaimed-body placeholders are a TIER-SCALED RAMP, not a bug in claiming
 
 Two headless `capture_scene hall_of_characters player 640x360 --warmup 400` runs
@@ -683,9 +711,125 @@ that point from `spawn_dynamic_feature_visuals`, a pure consumer of
 neither road has reached yet is warned about by the first model and spawned by
 neither.
 
-⇒ **The open question is now one layer up and does not need another capture:
-which of the two roads owns a room's `NpcSpawn-…` actors, and why has it not run
-by the time the cover lifts?** ⚠ Note this is the same seam the barrier sits on:
+⛔⛔ **RETRACTED WITHIN THE HOUR — I READ HALF A FUNCTION AND STATED A PROPERTY
+OF THE WHOLE.** This section said *"neither road owns them, and the placeholder
+path is the only road a room NPC has"*. **That is wrong.** ambition-df caught it:
+`spawn_room_visuals` does NOT stop at geometry — `rendering/world.rs:221-232`
+iterates `spec.placements` and calls `spawn_authored_interactable` for every
+`PlacementSchema::Interactable`, which spawns a `FeatureVisual { id: record.id }`
+for exactly the `NpcSpawn-…` ids in the warnings (`:187` does enemies, `:200`
+bosses). **The ROOM spawner owns a room NPC's visual**, and the five markers are
+the right filter for dynamic bodies.
+
+⇒ **So the question is TIMING, not membership.** Why does `spawn_room_visuals`
+land its interactable visuals more than 5 frames after those bodies'
+`FeatureViewIndex` rows exist at Ultra, and within 5 at Potato? Two candidates
+(df): its session caller is gated on something tier-dependent (a `theme_loaded`
+gate was read and retracted for `painted_blocks` the same evening, and the
+parallax theme at Ultra is bigger and later), or `spawn_authored_interactable`
+itself returns without spawning — it has an early `return` at `:1018` for a kind
+that is neither Actor nor Switch, and a sprite it waits on may not be ready.
+⇒ Either way the fix is in the ROOM SPAWNER'S GATE or in the stand-in's grace
+being counted from the wrong clock — ⛔ **not a marker on the NPC bundle.**
+⇒ The measurement that names it: the frame `spawn_room_visuals` runs for the
+hall, against the frame each `NpcSpawn` row first appears in `FeatureViewIndex`.
+
+✔✔ **ANSWERED 2026-09-03 — THE PARALLAX GATE DEFERS THE WHOLE ROOM SPAWN.**
+Found by yardrat and ambition-df; both citations verified here independently.
+`sync_session_room_visuals` (`ambition_render/src/platformer_presentation.rs:198`)
+computes `wants_parallax` from `quality.budget.parallax.enabled` and, when the
+room's `ParallaxTheme` has no layer registered yet, **`return`s at line 260** —
+and `spawn_room_visuals` is called at **line 274**, after it. So every room
+visual waits on the backdrop, interactable NPCs included.
+
+⇒ **Which is exactly the tier split, with no tier-scaling in it.** Potato
+disables parallax outright (`settings/video/tests.rs:144` asserts
+`!potato.parallax.enabled`), so the gate never engages and the visuals spawn at
+once — 0 placeholders. Ultra wants parallax, waits for the theme, and the whole
+cast crosses the 5-frame grace while it loads: 129 stand-ins, ~370 ms after the
+reveal.
+
+⭐ **CORROBORATED BY A COUNT NOBODY HAD TAKEN**: `hall_of_characters.ldtk`
+contains **exactly 129 `NpcSpawn` instances** — and **zero `EnemySpawn`, zero
+`BossSpawn`**. So the 129 warnings are the ENTIRE cast, not a subset, which is
+what a whole-function deferral predicts and what a per-body claiming problem
+does not.
+⚠ **And it makes df's cross-check untestable in this room**: enemies and bosses
+lower through the same function downstream of the same `return`, so they should
+burst too — but the hall has none. That prediction needs a room with enemy
+spawns, and it is worth running, because it separates "the gate defers
+everything" from "the gate defers interactables".
+
+⇒ **Fix shape (df): scope the early return to the parallax spawn alone**, so a
+missing backdrop stops the backdrop rather than the room. ⓘ Assigned by 383484;
+⛔ not to be started in the main checkout while their gate window is open.
+
+⚠ **WHAT SURVIVES THE RETRACTION**, because it was measured rather than read:
+the texture-readiness instrument printed nothing (so `!texture_is_ready` is not
+where they stop), `upgrade_actor_sprites` cannot create a visual, and the
+placeholder is not excluded from its query — so the stand-in *can* become the
+body. What does not survive is the claim that it is the ONLY road.
+⚠ And my probe's result — `DynamicFeatureViews` holds 0 facts for an
+NPC-shaped entity — is still TRUE and no longer EVIDENCE of anything: the
+dynamic road was never the owner, so its silence is correct behaviour.
+
+⭐ **THE LESSON, since it cost a routed conclusion:** I grepped the first ~30
+lines of `spawn_room_visuals`, saw blocks/water/climbable/loading-zones, and
+wrote "geometry, not actors". The placements loop is forty lines further down.
+⇒ A claim about what a function does NOT handle needs the whole function, and
+`grep -A 30` is not the whole function.
+
+Superseded reading, kept because the marker census in it is correct and is what
+made the timing question askable:
+
+- `spawn_room_visuals` iterates `world.blocks`, `water_regions`,
+  `climbable_regions` and `spec.loading_zones` — geometry — **and then
+  `spec.placements`, which is the half I missed**.
+- `rebuild_dynamic_feature_views` (`ambition_sim_view/src/facts.rs:517`) selects
+  by MARKER: `EncounterMob`, `RuntimeStagedActor`, `PostBossNpc`, the two reward
+  chests, and `SpawnOrigin::Dynamic` loot.
+- The interactable-NPC bundle (`features/ecs/spawn_actors.rs:732`) carries
+  `EnemyActorBundle` + `FeatureBaseBundle` (so a `FeatureId`), cluster, brain,
+  action set, `ActorControl`, `ActorInteraction`, `WornCharacter` — **and none
+  of those five markers.**
+
+⇒ So a room NPC is in `FeatureViewIndex` (the detector complains) and in
+`DynamicFeatureViews` (the spawner) **never**. Its `FeatureVisual` is created by
+`draw_unclaimed_feature_views` itself, as the placeholder — which carries
+`FeatureVisual { id }` (`rendering/features.rs:283`) and is **not** excluded by
+`upgrade_actor_sprites`' query. **The stand-in is the entity that becomes the
+body.**
+
+⛔ **Which makes `UNCLAIMED_STAND_IN_GRACE_FRAMES` a MANDATORY 5-frame delay on
+every interactable NPC in every room**, not a diagnostic threshold — and the
+129-wide burst is simply the whole Hall cast crossing it in the same frame,
+~370 ms after the cover lifted.
+
+⚠ **AND IT VINDICATES THE WARNING'S OWN WORDING, which this page dismissed.**
+*"Some spawn path is missing its family marker"* is recorded above as pointing
+at a spawn bug that *"at least in this reproduction is not what it is"*. On this
+reading it is exactly what it is. ⇒ That earlier sentence was written when the
+count looked like a tier-scaled ramp, and it should not be read as a ruling.
+
+✔ **EXECUTED, not only read (2026-09-03).** The trace above was confirmed by
+running the rebuilder against an NPC-shaped entity — `FeatureId`,
+`CenteredAabb`, `ActorDisposition`, `ActorConfig`, and none of the five markers,
+exactly as `spawn_actors.rs:732` builds one:
+
+```text
+PROBE RESULT: DynamicFeatureViews holds 0 fact(s); NpcSpawn present = false
+```
+
+⇒ Zero facts. Nothing downstream can give that body a sprite, so the stand-in is
+its only road, and the fix is to give interactable NPCs a view the spawner
+already recognises — which removes the burst in EVERY room, not just the Hall.
+
+⛔ **The probe was a THROWAWAY and is deliberately not in the tree.** Shipped as
+a test it would assert that an NPC publishes nothing — pinning today's defect as
+the expected behaviour, so the eventual fix would arrive as a red test and read
+like a regression. ⇒ The guard ships AFTER the fix, asserting what the fix
+establishes (an interactable NPC's view is claimed on the frame its body exists,
+never by the stand-in) and poisoned by dropping the marker. ⚠ Note this is the same seam the barrier sits on:
 the barrier asks `CharacterSheetState::Ready` (a REALIZATION fact) while the
 thing that actually draws needs a `FeatureVisual` ENTITY, and nothing makes the
 cover wait for the second.

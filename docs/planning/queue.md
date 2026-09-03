@@ -2040,6 +2040,30 @@ product ruling.
   Full-tier gap is wider. ⇒ This is not a polish row — the mechanism that fixed
   the hall exists and the first room does not use it, and the host has now put a
   203 ms frame on what that costs.
+  ⛔⛔ **AND THAT READING WAS WRONG — CORRECTED THE SAME NIGHT, by df's question
+  rather than by my measurement.** *"A frame spike under a cover is cover time,
+  not a hitch"* is this campaign's own rule, applied to the hall six paragraphs
+  up, and I did not apply it to my own finding. The run's route lines settle it:
+
+  ```text
+  [2.246s] [game-mode]  0.930s f    0  initial playing
+           spikes at wall 2.386 (125.3 ms) and 2.589 (203.3 ms)
+  [5.179s] [world-event] 3.863s f 1131  room-loaded central_hub_complex
+  ```
+
+  ⇒ **Both spikes land between `initial playing` and `room-loaded`** — during the
+  first room's load, which is exactly when the load screen with its "Load the
+  first room's art" row is up. ⚠ `[game-mode] initial playing` at FRAME 0 is not
+  "the player is in the world"; it is the same trap that made an offscreen
+  capture report eighteen pops earlier the same day.
+  ⇒ **So the honest statement is: three spikes, all before the first room
+  finished loading, and the bundle cannot say whether a curtain covered them.**
+  The claim that this is "the last user-visible hitch" is withdrawn — it needs
+  the route's presentation state at 2.4-2.6 s, which nobody has yet read.
+  ⭐ What survives untouched is the COMPARISON, because both halves are measured
+  the same way: the hall decodes more and spikes zero WITH a cover, and the
+  startup burst spikes twice at whatever cover it has. That still says the cover
+  mechanism works; it no longer says a player sees the startup one.
 - **Four LDtk preview tilesets decode the FULL player sheet on every boot**
   (7.6 MP, `../sprites/player_robot_v3_spritesheet.png`, declared as
   `sprite_player_robot_v3` in all four `.ldtk` worlds for editor entity

@@ -514,3 +514,40 @@ Doc surface re-checked at the same tip: `check_doc_links.py` 279 documents / 970
 `check_planning_citations.py` **1475 citations across 182 planning files, all resolved**. Still
 zero `.rs` files under this whole window — `git diff --name-only db050bcf6..HEAD` lists nine
 files, all docs and `scripts/`, which is why no Rust claim is made here.
+
+## ⛔ CORRECTION to the roster above, by the same error the file is about
+The entry says *"there is no unmerged peer work left."* **That sentence is false, and it is the
+day's own methodology finding committed one more time: a claim wider than the tool's scope.**
+What I actually verified was that the three peers who talked to me tonight had each pushed and
+been merged. I then wrote a sentence about the whole repository.
+
+`git for-each-ref` over every local and remote ref finds **seven refs carrying content that is
+not in main.** None is from tonight; all predate this window and their authors are gone.
+
+| ref | tip | dated | files vs main | .rs | behind main |
+|---|---|---|---|---|---|
+| `rescue/specials-are-real-moves-tail` | `88000c757` | 08-27 | 10 | 9 | 2125 |
+| `cube-churn-focus-rows` | `6a8ed9a93` | 09-02 | 7 | 5 | 1167 |
+| `asset-road-labels` | `124630f78` | 09-02 | 3 | 2 | 1135 |
+| `capture-press-during` | `d7264cee1` | 09-02 | 1 (`queue.md`) | 0 | 1116 |
+| `d129-population-instrument` | `6367a400c` | 09-02 | 5 | 4 | 1107 |
+| `web-gpu-wait` | `2d623308f` | 09-02 | 3 | 3 | 961 |
+| `agent/runner-names-an-unusable-interpreter` | `4dbd587dd` | 09-02 | 1 (`run_tests.py`) | 0 | 871 |
+
+⚠ **I did NOT merge them and the reason is not that they are worthless.** Every one is 871–2125
+commits behind main and five touch Rust, so each is a real integration owing a full
+`./run_tests.sh --rust` — that is new work, and this window was explicitly a wind-down.
+
+⛔⛔ **And here is the limit of what the table proves, stated so nobody reads past it:** a
+non-empty `git diff main...<ref>` means the BRANCH's content is not in main. It does **not** mean
+the WORK is unmerged — main may carry an equivalent fix by another route, which is the ordinary
+fate of a branch a thousand commits behind. **I did not check supersession for a single one of
+these.** Whoever picks them up must diff the intent, not the text, or they will re-land something
+already fixed. That check is the owed work, not the merge.
+
+⭐ One is worth naming for lane 1: **`d129-population-instrument` (`6367a400c`) — "the warning
+that fired 111 times was asserting a cause it could not know."** It touches
+`image_stages.rs`, `rendering/actors/mod.rs`, `quality_convergence_tests.rs`,
+`character/assets.rs` and `asset-preparation-and-residency.md` — i.e. exactly the surface of the
+goal's open lane-1 question about the "111 actors not materialized" warning and its second cause.
+If any stranded branch deserves the supersession check first, it is that one.

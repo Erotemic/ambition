@@ -348,6 +348,20 @@ as regression.
 at all, which is the failure the header rule above is about. The rule is that the
 number must be reproducible BY THE READER, not that it must be absent.
 
+⛔ **AND THE WORST CASE IS A NUMBER THAT IS ALREADY RATCHETED SOMEWHERE ELSE: a
+page repeating one inherits the ratchet's job without the ratchet.** The
+feature-gated test count went 783 → 784 overnight on 2026-09-03 — one test
+joined — and the gate footer, which `test_the_gate_states_how_many_tests_it_skips.py`
+pins, moved with it while two planning copies did not. ⇒ Where a guard already
+holds a figure, a page should say **where to read it**, not what it currently
+is; the pointer never rots and the copy always will.
+⚠ **AND THE FIX IS NOT AN OVERWRITE.** Of those two copies, one QUOTED what the
+footer said at a named SHA and the other carried a DATED measurement — both true
+as written, and silently editing either to make it current would falsify a
+citation to chase a number. Put the delta BESIDE the original and point at the
+ratchet. The same rule that says do not retype a live figure says do not rewrite
+a dated one.
+
 ⭐ **AND SOME FIGURES SHOULD BE APPROXIMATE ON PURPOSE.**
 `game/systemic-progression.md` (2026-08-13) says `ParticipantId` "has ~150
 references" beside three EXACT absence claims. Re-checked 2026-09-03, after
@@ -417,6 +431,55 @@ demonstrated. `engine/engine-1.0-architecture-program.md`'s
 `reset_*`/`restore_*` count is the worked example — 12 on the page, 13 names
 from the obvious grep, 3 of them tests, and no way to tell which count the page
 meant.
+
+### ⛔ A BARE FILENAME IS NOT AN ADDRESS IN A 63-CRATE WORKSPACE
+
+`file.rs:123` reads like a citation and often is not one. Three separate rows <!-- cite-ok: these are QUOTED bad citations; the row's subject is that they do not resolve -->
+written on 2026-09-03 cited `duel_arena.rs:67` (2 tracked matches), <!-- cite-ok: these are QUOTED bad citations; the row's subject is that they do not resolve -->
+`facts.rs:517` (2) and `world.rs:187` (3) — all generic-sounding names, which <!-- cite-ok: these are QUOTED bad citations; the row's subject is that they do not resolve -->
+is exactly the population most likely to exist several times over. A reader
+following one lands in the wrong file, finds nothing resembling the claim, and
+concludes the ROW is wrong.
+
+⭐ `check_planning_citations.py` catches these and says `AMBIGUOUS: N tracked
+files match this suffix`, which is the cheap end of the fix. ⚠ It only helps if
+you READ the result: one of the three shipped for a commit because the tail of
+the output says `1 unresolved:` where a clean run says `all resolved.` — same
+shape, same place, and a glance cannot tell them apart. Grep for both words
+rather than eyeballing the tail.
+
+⇒ Write the workspace-relative path the first time. It costs nothing at the
+keyboard and there is no version of "the reader will figure out which one" that
+survives a carve moving one of the candidates.
+
+### ⭐ A ROW'S PREMISES ARE SEPARABLE FROM ITS MEASUREMENT, and usually cheaper
+
+A finding whose measurement needs a full build is not therefore unmaintainable
+on a box that cannot do one. Most rows rest on a handful of PREMISES — a SHA is
+still an ancestor, the failing target still exists, the file the argument names
+is still last touched by the commit blamed for it, the lockfile still pins the
+version the panic came from — and every one of those re-checks in seconds with
+no compiler.
+
+⭐ **Demonstrated 2026-09-03 on a box at 12 GB free, which could not start a
+Rust lane at all.** The feature-union row and the capability-demo row both had
+all of their premises re-verified: SHAs still ancestors, all four failing
+targets present, `view_cones.rs` still last touched by the 0.19 port
+(`09bb065a9`) three days on, `bevy_ecs` still pinned at 0.19.1. In the union's
+case the premise that mattered got STRONGER by surviving — "nothing has run
+this combination since the port" is a claim about the passage of time.
+
+⛔ **AND THE ROW MUST SAY WHICH HALF WAS NOT CHECKED.** A row listing four
+verified facts invites the reading that the fifth was checked too, and the
+fifth is usually the one the row is about — the failure tally, the panic, the
+number. Name it as unverified and tell the reader what would verify it.
+
+⇒ Two practical consequences. A constrained box can keep most of the planning
+surface honest, so "I cannot run the suite" is not a reason to leave a row
+alone. And when a premise DOES break — a target renamed, a SHA orphaned, a file
+touched by something newer — that is a bigger finding than a drifted number,
+because it means the row's argument has quietly stopped applying while its
+figure still looked plausible.
 
 ### ⭐ Some findings only exist BETWEEN two plans
 

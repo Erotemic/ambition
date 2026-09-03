@@ -12,6 +12,17 @@ ancestors of HEAD, re-checked 2026-09-03 with `git merge-base --is-ancestor`
 rather than `git cat-file` — an orphaned commit resolves under the second and
 not the first.
 
+⚠ **AND THE DISTANCE FROM THAT BASELINE IS NOW THE THING TO KNOW.** All five
+SHAs are still ancestors (re-checked 2026-09-03 late, after this branch merged
+`origin/main` at `867567a79`), which is the weakest of the guarantees this
+header can offer: it says the reviews HAPPENED in this history, not that what
+they concluded is still true. Roughly ninety commits landed between the
+`aa106cbe7` gate and that merge, including the five actor-monolith carves and
+the `hurtbox` move — so treat every section below as reviewed-at-its-SHA and
+re-measure before quoting a number, rather than reading the header as a
+statement about HEAD. ⇒ Where a section carries its own dated re-measurement,
+that date wins over this one.
+
 ⚠ **THE GATE LINE ABOVE IS NO LONGER REPRODUCIBLE, and the reason was never a
 regression in what it measured.** For most of 2026-09-03 the workspace job was
 RED on two schedule tests added that morning
@@ -33,6 +44,18 @@ right replacement is a measured run rather than an arithmetic adjustment. The
 most recent one is the exhaustive plan on `c2b7f83c7` (an ancestor of HEAD):
 **48 of 52 jobs in 84.9 minutes**, every failure of which is filed in
 [`queue.md`](queue.md) with the run it was reproduced on.
+
+⭐ **RE-GATED 2026-09-03 late on the twice-merged tree, and these are the
+numbers to quote until someone runs the Rust lane:** `scripts/tests` **802
+passed / 13 skipped / 0 failed**; `check_absence_contracts.py` **37 of 37**,
+with the capability footprint at 50 crates linked and 23 a movement-only game
+never asked for, and the rollback wire format at 409 stable names / 123 encoded
+types across 12 crates; `check_planning_citations` all resolved and `--vanished`
+0 across all five corpora; `check_doc_links` 278 documents / 961 local links;
+`./run_tests.sh --maintenance` 4/4 on the audits a 12 GB volume permits, with
+the cold `cargo doc` ratchet dropped and named. ⛔ **The Rust lane is NOT among
+them** — this volume is below the runner's own floor and it refuses to start —
+so nothing here is a statement about compilation or about any Rust test.
 
 ⭐ Re-verified at `6d2327903` (2026-09-03): the actor-monolith section below, the
 only part of this page this pass re-read against the code. Everything else keeps
@@ -147,6 +170,21 @@ why a reference count cannot find this.
 | `ambition_abilities` (`4c31111f9`) | the WIELDED ability kit |
 
 **The kernel's own source went 112,733 → 101,042 lines in that day, −11,691.**
+⚠ **IT IS A RAW `src/` LINE COUNT, AND THE DIFFERENT-LOOKING PAIR IN
+[`queue.md`](queue.md) IS THE SAME RULER FROM A DIFFERENT STARTING POINT.**
+That row reads `108,364 → 98,808` because 108,364 is the compile ratchet's
+STORED BASELINE, not where the crate stood at the start of the day; 112,733 is.
+⭐ Confirmed by running the ratchet 2026-09-03 late: it reports
+`largest_unit_lines … 108,364 -> 98,509`; a `wc -l` over the crate's `src/`
+gives **98,509**; and a `git ls-files`-driven count, which sees only TRACKED
+files and so would differ if anything untracked were sitting in the tree, gives
+98,509 as well — three methods, no spread — so the two agree to the line once you
+stop comparing a day's delta with a ratchet's drift-from-baseline. (Both fell
+further after `hurtbox` followed its owner out.) ⚠ **I first wrote this note
+saying they were different INSTRUMENTS. They are not** — a wrong explanation of
+a real confusion, corrected the same hour by running the tool instead of
+reasoning about it. ⇒ Quote the reference point with the number, not just the
+method.
 
 ⛔ **AND THE METRIC THIS PAGE USED TO WATCH MOVES THE WRONG WAY.** The monolith's
 `[dependencies]` table went 29 → 33 across those same carves, because a kernel

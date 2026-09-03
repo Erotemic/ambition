@@ -416,6 +416,12 @@ The one unresolved developer-policy choice from the session-ownership work is in
     The tool's own reading: *"Something got bigger or grew a dependency edge."*
   * ⛔ **PATH** `critical_path_crates` 14 → 15. Longer is worse *"even if every
     crate got smaller"*, because parallelism cannot compress a serial chain.
+    ⚠ **Re-run 2026-09-03 late: 14 → 16, one longer again** — the abilities and
+    encounter-features carves each added a crate to the serial chain, which is
+    the price the `ambition_match` footprint row already predicted in writing
+    ("a crate between combat and the kernel lengthens the serial chain; that is
+    the honest price"). The prediction held; the row records it rather than
+    treating the movement as news.
   * ⚠ **UNPRICED** `ambition_body_seed`, `ambition_held_items`,
     `ambition_registry_core`, `ambition_world_items` — all four D33
     destinations — carry NO measured compile cost and are priced at the
@@ -423,6 +429,13 @@ The one unresolved developer-policy choice from the session-ownership work is in
     estimate**: the tool states size predicts compile cost at only R²=0.12, so
     every SECONDS figure above is wrong for these four by an unknown factor.
     `python3 scripts/compile_collect.py` measures them.
+    ⚠ **Re-run 2026-09-03 late: it is SEVEN now, not four** —
+    `ambition_abilities`, `ambition_encounter_features` and `ambition_match`
+    joined as their carves landed. ⛔ Which is the shape to notice rather than
+    the number: every D33 carve creates an unpriced destination, so the
+    placeholder's blast radius grows with the campaign and the ruling to
+    re-freeze the baseline ONCE at the end, with all destinations priced
+    together, gets more right the longer it is held.
   ⊙ **RE-RUN 2026-09-03 after five more carves, and the campaign's two best
   numbers are here rather than in any prose:**
   * ⭐ **THE MONOLITH IS UNDER 100,000 LINES.** `largest_unit_lines`
@@ -481,7 +494,12 @@ The one unresolved developer-policy choice from the session-ownership work is in
   rollback setup.
   ⭐ **Reproduced in BOTH exhaustive runs of 2026-09-03**, identically, including
   the first on `7ca535427` — before `ambition_abilities` existed — so it is
-  pre-existing and not a carve regression. ⚠ I first hypothesised mid-suite disk
+  pre-existing and not a carve regression.
+  ✔ **PREMISES RE-CHECKED 2026-09-03 late without a build:** `7ca535427` is
+  still an ancestor of HEAD; the test still exists, at
+  `examples/capability_demo/tests/rollback_round_trip.rs:115`; and `Cargo.lock`
+  still pins `bevy_ecs 0.19.1`, so the panic's frame is the same crate version
+  it was raised in. ⛔ The panic ITSELF needs a build and was not re-run. ⚠ I first hypothesised mid-suite disk
   exhaustion for this job and that was WRONG: `external consumer: outlander`
   failed for that reason and passes now, while this one fails the same way on a
   tree with room to spare. A plausible cause is not a diagnosis; running it twice
@@ -491,6 +509,42 @@ The one unresolved developer-policy choice from the session-ownership work is in
   `ambition_input`, `ambition_platformer2d_core`), so a double registration
   between one of those and the facade is the first place to look. Owner: whoever
   holds the capability-demo/SDK surface.
+- ▢ **~47 GB ON THE SHARED VOLUME IS UNACCOUNTED FOR, AND THE NEW BINDMOUNT
+  RULE DESCRIBES EXACTLY THIS SHAPE. REPORTED, NOT ACTED ON.**
+  Measured 2026-09-03 late on the calculex box, where `/dev/vda1` reads **278 GB
+  used of 290, 12 GB free** — below `check_disk_headroom.py`'s 40 GB floor, so
+  no Rust lane can start here at all. Walking the volume accounts for about
+  **231 GB**: `/home/agent` 224 (of which `.cache/ambition-targets` is 176, one
+  store, `BOUND` and healthy per `target_bindmount.sh --status`), `/usr` 5.4,
+  `/var` 1.1, `/tmp` 0.24. The repo itself is NOT on this volume — it is
+  virtiofs — so it is not the remainder.
+  ⛔ **AGENTS.md's binding rule, added the same day, names this shape:** the
+  bind mounts the backing store OVER `<worktree>/target`, so artifacts built
+  before the bind are HIDDEN rather than removed and still occupy every byte;
+  binding an 81 GB unbound worktree moved a volume 34 → 33 GB free. A shadowed
+  copy is invisible to `du`, which can only walk what the mount exposes. That
+  makes it the leading candidate for the gap and NOT a demonstrated one.
+  ⚠ **WHAT WAS RULED OUT, so nobody repeats it:** deleted-but-open files hold
+  **0 bytes** (`lsof +L1`), and the two `vda1[...]` bind mounts point at the
+  SAME backing store from two paths, which is one copy and not two.
+  ⇒ **The prescribed action is the one taken here: report the size and stop.**
+  Confirming a shadowed copy means unmounting, and removing one is `rm -rf`
+  under a `target/` — ⛔ **Jon's call, not an agent's, and not less so because
+  the bytes may be an agent's own.** The volume is also shared with other
+  sessions' worktrees, so anything reclaimed here could be someone's live build.
+  ⓘ Practical consequence until it is resolved: this box runs `--tool-tests`,
+  `--maintenance` (minus its `cargo doc` job) and every pure-Python checker, and
+  cannot run a Rust lane. Route Rust gating to a box with headroom.
+
+- ✔ **CLOSED 2026-09-03 by `scripts/lib/canonical_assets.py`** — the first of
+  the two candidate shapes below, and taken by another session rather than by
+  the one that filed it, which is the point of filing a decision instead of
+  guessing at it. The condition is DETECTED rather than remembered: a checkout
+  whose sprite tree holds real files generated them and is canonical; one
+  holding symlinks is borrowing another checkout's and its assets are not its
+  own to ratchet; an absent tree has nothing to check. ⇒ The gate stays, which
+  the row insisted on, and stops depending on anyone exporting a variable.
+  Original row kept below for its reasoning.
 - ▢ **TEN ASSET RATCHETS ARE GATED BEHIND AN ENVIRONMENT VARIABLE NOTHING SETS,
   AND TWO PLANNING PARAGRAPHS CALL THEM RATCHETS ANYWAY.**
   `scripts/tests/test_shipped_sheet_pages_are_claimed.py` (5 assertions) and
@@ -521,15 +575,168 @@ The one unresolved developer-policy choice from the session-ownership work is in
   only when `assets/sprites/` is a real directory rather than a symlink; or
   publishing a measured census as a checked-in baseline so the guards compare
   against a recorded state instead of a local tree. ⛔ Do not simply remove the
-  skipif. ⓘ Not diagnosable on this box either way: `assets/sprites*` does not
-  exist here at all, so even opting in tonight would have skipped on the
-  directory check underneath.
+  skipif. ⓘ **CORRECTION (2026-09-03 late): my "not diagnosable on this box" note was
+  WRONG, and wrong because I globbed the repo root.** The trees live at
+  `crates/ambition_platformer2d_actor_monolith/assets/sprites*`, and this
+  checkout has four of them holding **425 real PNGs and zero symlinks** — it is
+  canonical by the new detector, which returns True here. ⇒ So the ten
+  assertions run on this box now, for the first time, and my reason for not
+  diagnosing it was an artifact of looking in the wrong directory rather than a
+  fact about the machine.
+
+- ▢ **`why_not()` IN THE NEW CANONICAL-ASSETS DETECTOR STATES A CAUSE IT NEVER
+  CHECKED.** `scripts/lib/canonical_assets.py:92` returns, for ANY checkout
+  where at least one sprite tree exists, *"N sprite tree(s) present but holding
+  SYMLINKS — this is a mirrored worktree borrowing another checkout's generated
+  assets"*. It never looks at whether a single file is a symlink; only the
+  no-trees branch above it is derived. ⛔ So a checkout that skips for a
+  DIFFERENT reason — trees present but empty, which `assets_are_canonical`
+  handles as `real + linked == 0` → False — is told it is a mirrored worktree
+  and pointed at `mirror_assets_for_worktree.py` for a problem it does not
+  have.
+  ⚠ **The docstring is what makes this worth filing rather than shrugging at:**
+  *"A skip reason that says what was LOOKED AT, not just that it skipped"*, with
+  the rationale that a vague skip is how ten assertions sat unevaluated. The
+  function's stated purpose is precisely the thing it does not do.
+  ⓘ Found by calling it on this box, where `assets_are_canonical` returns TRUE
+  and `why_not` nonetheless reports symlinks — the two disagree because only
+  one of them measures. Reported to the session that wrote it; the fix is to
+  derive the message from the same counts the predicate uses, and it is small.
+  ⭐ Not a reason to revert the module, which correctly closes the row above.
+
+- ▢ **EVERY INTERACTABLE ROOM NPC IS DRAWN BY A PLACEHOLDER FOR ITS FIRST
+  FRAMES, BECAUSE ITS BUNDLE CARRIES NONE OF THE FIVE MARKERS THE VIEW
+  REBUILD SELECTS ON.** Traced by e7 2026-09-03, ruled a DEFECT and not a
+  design call. `rebuild_dynamic_feature_views`
+  (`crates/ambition_sim_view/src/facts.rs:517`) selects by MARKER —
+  `EncounterMob`, `RuntimeStagedActor`, `PostBossNpc`, the two reward chests
+  (`EncounterRewardChest`, `BossRewardChest`), and `SpawnOrigin::Dynamic` loot
+  by construction PROVENANCE. The peaceful-NPC bundle in
+  `crates/ambition_platformer2d_actor_monolith/src/features/ecs/spawn_actors.rs`
+  carries none of them. ⇒ The NPC lands in `FeatureViewIndex` and never in
+  `DynamicFeatureViews`, so its `FeatureVisual` is created by
+  `draw_unclaimed_feature_views` as the PLACEHOLDER — which
+  `upgrade_actor_sprites`' query does not exclude, so **the stand-in entity
+  becomes the body** and `UNCLAIMED_STAND_IN_GRACE_FRAMES` becomes a mandatory
+  5-frame placeholder on every interactable NPC in every room.
+  ⛔⛔ **RETRACTED THE SAME HOUR — THE MARKER READING IS WRONG, AND SO IS MY
+  CONFIRMATION OF IT.** `spawn_room_visuals`
+  (`crates/ambition_render/src/rendering/world.rs:221-232`) iterates
+  `spec.placements` and calls `spawn_authored_interactable` for every
+  `Interactable`, which spawns the `FeatureVisual` for exactly the NPC ids —
+  the same channel that handles enemies at :187 and bosses at :200. ⇒ **A room
+  NPC's visual is supposed to come from the ROOM SPAWNER.** The five dynamic
+  markers are the right filter for DYNAMIC bodies, and the NPC bundle carrying
+  none of them is EXPECTED, not the defect.
+  ⚠ **I verified three links of a chain that is not the operative path**, and
+  reported the mechanism as closed. Every check below was individually true;
+  the premise underneath them — that the dynamic rebuild is where a room NPC's
+  view should come from — was never checked, because it was the assumption the
+  trace arrived with. ⭐ **A confirmed mechanism is not a confirmed
+  DIAGNOSIS**: the links held and the chain was still the wrong one.
+  ⇒ **THE OPEN QUESTION IS TIMING, NOT MARKERS.** Why do the room spawner's
+  visuals land more than 5 frames after the bodies' `FeatureViewIndex` rows at
+  Ultra and within 5 at Potato? Candidates: a tier-dependent gate on the room
+  spawner's session caller (a `theme_loaded` gate was read there and retracted
+  for painted_blocks — it may be this), or `spawn_authored_interactable`
+  returning early on an unready sprite. ⛔ **The fix shape is NOT a marker on
+  the NPC bundle**; it is the room spawner's gate, or the stand-in's grace
+  clock. The probe is the frame of `spawn_room_visuals` against the frame each
+  row appears — which needs a build.
+  ⭐⭐ **AND THE GATE IS FOUND, BY READING, 2026-09-03 late — IT IS THE PARALLAX
+  THEME.** `sync_session_room_visuals`
+  (`crates/ambition_render/src/platformer_presentation.rs:198`) calls
+  `spawn_room_visuals` at :274. At :244-262, BEFORE that call, it computes
+  `wants_parallax` from `quality.budget.parallax.enabled` (defaulting TRUE),
+  and if parallax is wanted while the room's `ParallaxTheme` has none of its
+  layers loaded it **`return`s early** — with the comment *"Leave `presented`
+  unset so the next frame retries"*. So no room visual of any kind spawns until
+  the PARALLAX ART is resident.
+  ⭐ **THAT IS THE TIER DEPENDENCE, EXACTLY AS OBSERVED.**
+  `crates/ambition_persistence/src/settings/video/tests.rs:144` asserts
+  `!potato.parallax.enabled` — parallax is OFF at Potato, so `wants_parallax` is
+  false, the gate never engages, and room visuals spawn immediately, within the
+  5-frame grace. At Ultra parallax is on, so every room visual — the NPC's
+  included — waits on parallax layer loads, which is asset-bound and trivially
+  exceeds 5 frames. ⇒ **A backdrop's residency gates every interactable's
+  visual**, which is the actual defect: the two have no reason to share a
+  deadline.
+  ⭐ **AND IT PREDICTS A DISCRIMINATOR, which is what makes it cheap to test.**
+  The gate is in front of ALL of `spawn_room_visuals`, so at Ultra it should
+  delay AUTHORED room enemies
+  (`crates/ambition_render/src/rendering/world.rs:187`) and bosses (:200) as
+  much as NPCs — they are downstream of the same early return. ⇒ But NOT
+  encounter-WAVE mobs or runtime-staged actors: those carry `EncounterMob`
+  (added at `spawn_actors.rs:1348`) and `RuntimeStagedActor` (:305), so the
+  dynamic rebuild gives them a view by a second road the gate does not touch.
+  ⛔ **So the shape to look for is authored-vs-dynamic, NOT npc-vs-everything.**
+  If NPCs alone are late while authored room enemies are on time, this
+  explanation is wrong and something NPC-specific is in play.
+  ✔ **OWNED 2026-09-03 late by the session holding the presentation lane**,
+  which had read this same gate that evening and retracted it for
+  painted_blocks — right mechanism, wrong failure, found twice from two
+  directions. ⭐ **The authored-vs-dynamic discriminator is the ACCEPTANCE
+  CRITERION and is checked BEFORE the fix is written**: NPCs alone late while
+  authored room enemies are on time ⇒ this explanation is wrong and they stop.
+  Fix shape as stated: scope the early return to the parallax spawn.
+  ⛔ Still needs a build to CONFIRM the frame numbers; the mechanism above is
+  read from source and the tier assertion from an existing test. ⇒ The fix
+  candidate this points at is scoping that early return to the parallax spawn
+  alone rather than to the whole function — not the grace clock, which would
+  only widen the window the backdrop is already blowing through.
+  ⓘ Kept below rather than deleted, because the individual findings stay true
+  and the retraction is only legible beside what it retracts:
+  **THE SELECTOR AND THE BUNDLE, re-checked 2026-09-03 late without a build:** `crates/ambition_sim_view/src/facts.rs:517`
+  is exactly
+  `rebuild_dynamic_feature_views`, its filters are the five named above and no
+  others, and a scan of the NPC spawn function's whole body finds **zero**
+  occurrences of any of the five. ⭐ **AND THE THIRD LINK CHECKS TOO:**
+  `upgrade_actor_sprites` (`crates/ambition_render/src/rendering/actors/mod.rs:639`)
+  queries `(Entity, &FeatureVisual, Option<&BoundFeatureKind>,
+  Option<&BoundSpriteQuality>)` with **no `Without<>` filter of any kind**, so
+  nothing in its signature excludes a placeholder `FeatureVisual` — which is
+  precisely the step that lets the stand-in become the body. ⛔ Not checked: the
+  runtime consequence itself, that the stand-in is what actually draws, which
+  needs a build. ⇒ So every link a grep can reach holds, and what remains
+  unverified is the observation, not the mechanism.
+  ⛔ **SUPERSEDED — see the retraction at the top of this row.** The original
+  prescription was: the NPC bundle carries whatever
+  `rebuild_dynamic_feature_views` selects on, or the actor family claims its
+  view on spawn. That is aimed at the wrong path; the room spawner already owns
+  this visual. ⛔ **THE GUARD SHIPS AFTER THE FIX**, asserting the property the fix
+  establishes — an interactable NPC's view is claimed the frame its body
+  exists, never by the stand-in — and poisoned by dropping the marker. A guard
+  written first would pin TODAY'S behaviour, which is the bug. e7 has a
+  throwaway probe and is deliberately not shipping it; e7 writes the real guard
+  once the fix lands.
+  ⓘ **THE PLACEHOLDER IS ALREADY MARKED, which the guard will want and the fix
+  should NOT use.** `crates/ambition_render/src/rendering/features.rs` defines
+  `UnclaimedBodyPlaceholder` alongside `UNCLAIMED_STAND_IN_GRACE_FRAMES: u32 = 5`
+  (line 354), and its own test queries `(&FeatureVisual, &UnclaimedBodyPlaceholder)`
+  — so "is this visual the stand-in?" is answerable in one component today, and
+  the guard can assert on it directly instead of inferring from a frame count.
+  ⛔ **But adding `Without<UnclaimedBodyPlaceholder>` to `upgrade_actor_sprites`
+  is NOT the fix and must not be mistaken for one.** It would stop the stand-in
+  being upgraded into the body and leave the NPC with no real view at all —
+  still absent from `DynamicFeatureViews`, now with nothing drawing it. The
+  defect is that the NPC never enters the rebuild; the query is where the
+  symptom becomes visible, not where the cause lives.
+  ⓘ Needs an owner who can BUILD. Declined here 2026-09-03: this box is at
+  11.8 GB free of 290, below the 40 GB floor, so the Rust lane refuses to start
+  and the fix could not be gated.
 
 - ▢ **THE FEATURE UNION IS RED: 48 failures against 6,968 passes, and 37 of
   them are ONE system.** Measured 2026-09-03 at `dbfb1a2ca` by running the gate's
   own union job standalone (`cargo test --workspace --no-fail-fast --features
   <the 80-entry union>`, the exact command `run_tests.py --list` prints under
-  `--run-everything-you-probably-dont-need-this`). Four targets failed:
+  `--run-everything-you-probably-dont-need-this`). ⚠ **The union is 82 entries
+  as of 2026-09-03 late, not 80** — `ambition_abilities/test-support` and the
+  encounter-features entry joined with their carves, which is the union doing
+  exactly what it is for. ⇒ Do not retype it here: the command PRINTS the list,
+  and `--list` costs nothing because it plans without building. That is also the
+  cheapest way to re-check this row on a box that cannot run the job — the plan
+  is 52 jobs and the union's feature set is one `grep` away, while the failures
+  below need a build. Four targets failed:
   `ambition_demo_smash_app --test smash_it`, `ambition_demo_sanic_app --lib` and
   `--test sanic_it`, `ambition_demo_mary_o_app --test mary_o_it`.
   ⛔ **THE DOMINANT CAUSE IS A SINGLE PARAMETER.** 37 of the 48 are the same
@@ -542,6 +749,19 @@ The one unresolved developer-policy choice from the session-ownership work is in
   system parameter into a hard failure where 0.18 skipped. `view_cones.rs` was
   last touched by the 0.19 port (`09bb065a9`), which is consistent with the port
   having created this and nothing having run the combination since.
+  ✔ **EVERY PREMISE RE-CHECKED 2026-09-03 late WITHOUT A BUILD, and all hold:**
+  `dbfb1a2ca` is still an ancestor of HEAD; all four failing targets still exist
+  (`smash_it.rs`, `sanic_it`, `mary_o_it`, the sanic lib);
+  `crates/ambition_portal2d_presentation/src/view_cones.rs` is still there with
+  `ConeRigAssets` at line 745; and it is STILL last touched by `09bb065a9`
+  (2026-08-31), so nothing has gone near it since the port — which is the row's
+  actual argument, and it got stronger by staying true for another three days.
+  ⛔ **WHAT COULD NOT BE RE-CHECKED IS THE ONLY THING THAT NEEDS A BUILD: the
+  48/6,968 tally itself.** Two of the row's numbers moved (the union 80 → 82,
+  the UI-node assertion 40 → 16) and both are recorded above; a third — the
+  failure count — is unknown on the current tree and should be assumed stale
+  rather than quoted. ⇒ Re-run the union job on a box with headroom before
+  treating 48 or 37 as today's figures.
   ⚠ **THE OTHER ~11 ARE A DIFFERENT CLASS AND MAY NOT BE DEFECTS AT ALL.** They
   are mary_o assertions, and at least one fails BY CONSTRUCTION under an
   all-features build: `the_presentation_plugin_adds_no_hud_and_no_menu` asserts
@@ -720,7 +940,7 @@ The one unresolved developer-policy choice from the session-ownership work is in
   ⇒ **The one that remains names its own cause** and is not a filter artifact:
   *"this composition wrote a `VfxMessage::CoinPop` and drew nothing:
   `fx::vfx_spawn_messages` is not scheduled here, which is the whole of the
-  coin-pop report and not a Mary-O bug"* (`game/ambition_demo_mary_o_app/tests/ov1_draws_the_world.rs:410`). A
+  coin-pop report and not a Mary-O bug"* (`game/ambition_demo_mary_o_app/tests/ov1_draws_the_world.rs:364`). A
   missing system registration in this composition, stated by the test itself.
   ⇒ So the mary_o red is **four**, not six: that one plus the three
   `painted_blocks`.
@@ -838,6 +1058,12 @@ The one unresolved developer-policy choice from the session-ownership work is in
   ⛔ **AND THE REASON NOBODY SAW IT: the union job lives inside `if not only and
   everything`**, so a default gate run never attempts it — the same blindness
   the coverage footer now states as 783 tests across 29 crates (`65f4030b5`).
+  ⚠ **Re-measured 2026-09-03 late: 784 across the same 29 crates.** The footer
+  already says 784 (`2dc2fcb71`, "one joined today"); this line quotes what it
+  said at `65f4030b5` and is left as the quotation it is. ⇒ The figure moves
+  whenever anyone adds a feature-gated test, which is the reason
+  `test_the_gate_states_how_many_tests_it_skips.py` ratchets the footer rather
+  than trusting prose — **read the footer, not this number.**
   A per-crate green says nothing here, exactly as the jab-string row records.
 
 - ✔ **`hall_transition_cover` WAS RED IN PARALLEL, a SECOND-ORDER COST OF THE
@@ -1342,6 +1568,18 @@ OPTIONAL dep + feature, never used:
   ambition_platformer2d --all-targets` is clean; the workspace no-warnings gate
   is clean; and the capability footprint is UNCHANGED at 47/20, which is the
   row's own claim about redundancy holding up under measurement.
+  ✔ **THE FIVE OPTIONAL EDGES ARE STILL THERE AND STILL UNUSED — re-verified
+  2026-09-03 late**, on a tree ~90 commits past the original measurement and
+  after five carves, which is exactly when a "never used" claim is most likely
+  to have quietly stopped being true. Each crate still DECLARES its dependency
+  in `Cargo.toml`, and a search of the whole crate directory (`src/`, tests and
+  `build.rs`, not just `src/**`) finds zero files naming it, in all five. So
+  the row's remaining work is unchanged and its size claim still holds.
+  ⚠ The re-check is a source grep, not a build: it can see a name that is never
+  written and cannot see one reached through a macro. That is the same instrument
+  the original measurement used, so the two are comparable — which is the point
+  — but neither is proof that removing the edge compiles. The PLAIN edge below
+  was cut only after `cargo check --all-targets`, and these should be too.
   ⭐ **THE SENTINEL'S LOCKFILE CAME WITH IT, and the guard is what said so.**
   `check_absence_contracts.py` runs `cargo tree --locked` in the sentinel's own
   workspace and threw `CalledProcessError … exit status 101` the moment the
@@ -1419,6 +1657,22 @@ OPTIONAL dep + feature, never used:
   which usually survives the move.
   ⚠ The same blindness covers `//!` module headers in code — a doc comment
   naming where a sibling lives is prose too.
+
+  ⭐ **AND ONE HALF OF THIS IS NOW MECHANISABLE**, added to
+  [`engine/pickup-carve-checklist.md`](engine/pickup-carve-checklist.md)
+  2026-09-03: `scripts/orphaned_symbols.py` catches the sub-case where the carve
+  rerouted around a function and left it standing for the tests. Every doc
+  naming it still RESOLVES — the symbol exists — while every sentence about it
+  is false, which is precisely the blindness this row describes, in the one
+  shape a checker can find. Its motivating case is on main: `6c9fb2b58`
+  rerouted onto `retire_realizations`, left `demote_stale_realizations` behind, <!-- cite-ok: naming the retired function IS the example; it is what the reroute left behind -->
+  and three planning sites went on calling the dead one live.
+  ⛔ **IT DOES NOT REPLACE THE GREP.** It finds names that lost their callers;
+  it cannot see a sentence that describes a location correctly-shaped and
+  wrong — *"which stayed in the kernel"* names no symbol at all. Run both.
+  ⓘ Measured across the abilities carve for calibration: delta of ONE, a
+  `test_support.rs` helper, benign. A carve whose delta is several DOMAIN
+  functions has left its callers somewhere, and the names say where.
 
 - ▢ **D33 — continue actor-monolith decomposition by coherent ownership.** Pick a
   carve that removes a real authority/dependency edge from the residual actor
@@ -2075,7 +2329,12 @@ OPTIONAL dep + feature, never used:
   rule at the end of it. Then `ambition_body_seed` (`962dba34d`),
   `ambition_match` (`7e625e5a5`), `ambition_encounter_features` (`b67c1348f`)
   and `ambition_abilities` (`4c31111f9`). The kernel's own source fell
-  112,733 → 101,042 lines in that day.
+  112,733 → 101,042 lines in that day — a raw `src/` line count from the day's
+  start. ⚠ The compile-cost row above reads `108,364 → 98,808` for the same
+  crate because 108,364 is the RATCHET'S STORED BASELINE, not that morning's
+  value: same ruler, different reference point. Verified by running the ratchet
+  2026-09-03 late — it reports `largest_unit_lines 108,364 -> 98,509` and a
+  plain `wc -l` over `src/` gives 98,509 too.
   * ⇒ **The prediction failed because it looked for edges rather than for
     OWNERSHIP.** A module "named 79 times by the rest of the kernel" is not
     thereby internal; every one of those names is a candidate boundary, and four
@@ -2085,6 +2344,14 @@ OPTIONAL dep + feature, never used:
     room to cut looked absent: the monolith's `[dependencies]` table went
     29 → 33 across those same carves, because a kernel that stops CONTAINING a
     domain starts DEPENDING on it. Success reads as regression there.
+    ✔ **Re-measured 2026-09-03 late: still 33 `ambition_*` entries (52 total).**
+    ⭐ The count HOLDING across the abilities and encounter-features carves is
+    the more interesting reading, and it is the one this row is about: those
+    domains were already depended upon before they were crates, so drawing the
+    boundary named an edge that existed rather than adding one. ⇒ Which is why
+    the number is diagnostic and not a score — it rises when a carve exposes a
+    NEW edge and holds when it only makes an old one visible, and neither is
+    good or bad without asking which happened.
 - ▢ **D166 — make the character-authoring boundary load-bearing where a real
   character still bypasses it.** Prepared character definitions are already
   immutable and the first Smash fighter facet exists. Re-measure the current
@@ -2130,6 +2397,15 @@ OPTIONAL dep + feature, never used:
   ⇒ `SpawnActorRequest.name` is INERT for any request naming a character. Pinned
   by `a_staged_actor_naming_a_character_takes_the_characters_label_not_its_requests`,
   which is attributable because its catalog is EMPTY and could join nothing.
+  ✔ **PREMISES RE-CHECKED 2026-09-03 late without a build:** that test still
+  exists — `ambition_platformer2d_actor_monolith/src/construction/tests.rs` —
+  and `game/ambition_content/src/duel_arena.rs:67` still cites it by name — the
+  bare filename is AMBIGUOUS, two tracked files carry it — so the pin and its citation
+  have not drifted apart; `SMASH_FIGHTER_KIT` is still live at 12 references,
+  which is the row's point that it stayed an ability GRANT rather than being
+  retired; and the three ids the row names as authoring from their own demo
+  crates still have no `authored/<id>.rs` anywhere in the tree. ⛔ Not
+  re-checked: whether the tests still PASS, which needs a build.
   Seven comments cited two identifiers that do not exist (`smash_fighter_kit()`,
   `character_id_for_display_name`); all seven now name what is really there.
   ✔ RE-CENSUSED 2026-09-02 AND STILL NO CANDIDATE — the sweep is recorded in the owner doc rather than left as an instruction. Three populations searched (id-keyed branches; writes to `definition.vitals`/`.locomotion`/`.movement_tuning` outside `authored/`; demo writes to facts a demo does not own) and every hit is a character authoring its OWN facts. ⚠ ONE ASYMMETRY, explicitly NOT a slice: `CharacterDefinition` has 22 `with_*` builders and none for `vitals`, so every character assigns the public field — an ergonomic gap with no second road to delete, and the five-part test needs one. ⛔ NOT a residual: eleven grid fighters on the

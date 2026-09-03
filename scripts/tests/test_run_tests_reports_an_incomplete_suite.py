@@ -167,6 +167,49 @@ def test_a_maintenance_lane_that_only_reads_keeps_its_exemption(
     assert json.loads(status.read_text())["state"] == "done"
 
 
+def test_every_job_that_invokes_cargo_declares_that_it_builds(monkeypatch):
+    """⛔⛔ THE FLAG IS ONLY AS GOOD AS ITS COVERAGE, and its default is False.
+
+    `Job.builds` defaults to False so a NEW job is treated as cheap — the
+    honest default, because anything else would have the runner assert
+    knowledge about jobs nobody has classified. ⚠ The cost of that honesty is
+    that an unflagged cargo job is INVISIBLE to the disk guards, which is the
+    exact defect the flag was added to fix, one job later.
+
+    ⇒ So the argv is checked here for the cases it CAN see. A direct `cargo`
+    invocation has no excuse for being unflagged. The one that cannot be caught
+    this way is the reason the flag exists at all — `check_doc_link_ratchet.py`
+    shells out three frames down — so it is asserted by name rather than by
+    shape, and a reader who adds another wrapper like it must do the same.
+    """
+    plans = {
+        "maintenance": run_tests.build_maintenance_jobs(),
+        "detached tools": run_tests.build_detached_tool_jobs(),
+    }
+    unflagged = [
+        (lane, j.name)
+        for lane, jobs in plans.items()
+        for j in jobs
+        if not j.builds and any(
+            arg == run_tests.CARGO or str(arg).endswith("/cargo") or arg == "cargo"
+            for arg in j.argv
+        )
+    ]
+    assert not unflagged, (
+        "these jobs invoke cargo but do not declare `builds=True`, so the disk "
+        f"guards cannot see them in an exempt lane: {unflagged}"
+    )
+
+    # ⭐ THE WRAPPER CASE, asserted by name because no argv check can find it.
+    doc_links = [j for j in plans["maintenance"] if "intra-doc links" in j.name]
+    assert doc_links, "the intra-doc-link ratchet left the maintenance plan"
+    assert all(j.builds for j in doc_links), (
+        "the intra-doc-link ratchet runs `cargo doc` per crate through a Python "
+        "wrapper; without `builds=True` the maintenance lane's exemption lets a "
+        "full volume start it"
+    )
+
+
 def _last_test_run(status_path: Path) -> subprocess.CompletedProcess:
     return subprocess.run(
         [sys.executable, str(REPO / "scripts" / "last_test_run.py"),

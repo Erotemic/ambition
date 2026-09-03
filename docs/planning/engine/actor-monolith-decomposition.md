@@ -775,6 +775,33 @@ weighing the two options.** The choice looked open — a new
 `ambition_platformer2d_actor_monolith` — **the exact edge this carve removes**,
 and the one the sibling crates' policy rows forbid regaining.
 ⇒ **A new `ActorConstructionParams` variant; the recipe STAYS in the kernel.**
+
+⛔ **CORRECTION FROM CUTTING IT (2026-09-03): no new variant was needed, because
+the REQUEST ALREADY EXISTED.** `ambition_encounter`'s wave director emits
+`EncounterEvent::SpawnCommand { id, character, kind, pos, size }` — all
+primitives — onto the ordinary event bus (`crates/ambition_encounter/src/waves.rs:141`).
+The kernel was not missing a protocol; it had a SERVER buried inside the
+adapter: `drive_wave_encounters` pulled its own `SpawnCommand`s out of a LOCAL
+vector and built the bodies itself, so driving and serving were one system and
+the request never had to travel.
+⇒ The cut was therefore to separate them, not to invent a channel:
+`features::serve_encounter_spawn_commands` reads the bus and constructs. The
+conclusion the design reached — *orchestration leaves, construction stays* —
+held; the mechanism it proposed was more than the code needed. **Read what the
+domain already emits before designing a request vocabulary for it.**
+
+✔ **(a) IS CUT, 2026-09-03.** `EncounterMobSeed` is
+`ambition_encounter::mob_seed::EncounterMobSeed` (not re-exported from the
+kernel), and the server is its own system.
+⭐ The driver's shrink is the evidence: it no longer takes the character
+catalog, the prepared cast or the authored sheets — every one a
+body-construction input it needed only because it served its own requests.
+✔ Guarded and poison-verified: the server must be ordered `.after(WaveEncounterDriven)`,
+or it reads requests a tick late while every existing test still passes (they
+assert the EVENT, not that a body was built).
+⚠ **Stated rather than implied: there is still no test that a wave request
+produces an ECS mob.** The guard pins the wiring, not the behaviour; the gap
+predates this cut.
 The portal-gun precedent does not transfer because a portal-gun pickup is a
 simple authored entity while a mob IS an actor, and actor construction is
 definitionally the kernel's. That is the doctrine line exactly: *orchestration*

@@ -13,7 +13,13 @@
 > ASPIRATION.** The page asks for *"a coherent language of frames"* while warning
 > against building *"a grand frame graph before we need it"*. What exists is the
 > first and not the second: `crates/ambition_geometry/src/reference_frame.rs`,
-> **816 lines, 11 public types**, referenced from **16 crates**.
+> **816 lines, 11 public types**, referenced from **17 crates** — the last
+> by `grep -rl 'reference_frame::\|AccelerationFrame\|GameplayFramePolicy'` over
+> `crates/` and `game/`, counted by owning crate. ⚠ It read **16** when this block
+> was written hours earlier the same day; `ambition_abilities` arrived in between.
+> ⇒ The instrument is here because the number moved while the page was being
+> written, which is the shortest possible demonstration of why a transcribed
+> count needs one.
 >
 > | the manifesto's phrase | what carries it at HEAD |
 > |---|---|

@@ -105,6 +105,36 @@ kernel's own `items/` module), which ends with no edge to point at, so do not
 size it against the earlier slices. The owner doc carries the measurement and
 why a reference count cannot find this.
 
+⚠ **THAT PARAGRAPH WAS OVERTAKEN THE NEXT DAY. Five crates left the kernel on
+2026-09-03**, and the one it named as "internal, no edge to point at" — the
+`items/` module — was the first of them:
+
+| crate | what left |
+|---|---|
+| `ambition_held_items` (`bbfa38a3d`) | the PRESSED collectible: `items/pickup` |
+| `ambition_body_seed` (`962dba34d`) | `ActorClusterSeed`/`ActorMotionPath`/`ActorBody` |
+| `ambition_match` (`7e625e5a5`) | the versus match, prepared |
+| `ambition_encounter_features` (`b67c1348f`) | the room-feature side of encounters |
+| `ambition_abilities` (`4c31111f9`) | the WIELDED ability kit |
+
+**The kernel's own source went 112,733 → 101,042 lines in that day, −11,691.**
+
+⛔ **AND THE METRIC THIS PAGE USED TO WATCH MOVES THE WRONG WAY.** The monolith's
+`[dependencies]` table went 29 → 33 across those same carves, because a kernel
+that stops CONTAINING a domain starts DEPENDING on it — it keeps the rollback
+ledger, the checkpoint policy, or an inter-crate schedule edge, each of which
+needs the crate named in the manifest. ⇒ Reading the dependency table for carve
+progress reports every success as a regression. What shrinks is the SOURCE; what
+grows is the manifest; both are the same event.
+
+⇒ So the honest statement is the opposite of the one above: **the carve had
+plenty of edge left, and finding it needed a per-module ownership question
+rather than a reference count.** Two of those five also proved a directory can
+hold two unrelated families —
+[`engine/actor-monolith-decomposition.md`](engine/actor-monolith-decomposition.md)
+carries the measurements, including why `possession`/`teleport`/`trapdoor`/
+`flyline` stayed behind in a directory named `abilities/`.
+
 See [`engine/actor-monolith-decomposition.md`](engine/actor-monolith-decomposition.md)
 and [`engine/controlled-character-actor-kernel.md`](engine/controlled-character-actor-kernel.md).
 

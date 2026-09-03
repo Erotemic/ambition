@@ -878,6 +878,45 @@ condition that hid a defect once.
 in the carve — a kernel-side world-gating plugin holding both, not one road
 leaving with the encounter.
 
+#### What is LEFT, measured after the cuts (2026-09-03)
+
+The adapter's kernel seams went **7 → 3**, and only ONE is a logic dependency:
+
+| seam | file | kind |
+|---|---|---|
+| `clear_encounter_reward_ecs` | `systems.rs` | ⛔ a real dependency, and a QUESTION — see below |
+| `serve_encounter_spawn_commands` | `mod.rs` | a registration, not a dependency; it leaves when the plugin does |
+| `sync_authored_gated_lock_walls` | `mod.rs` | seam (d): a deliberate co-location, never a dependency |
+
+`loading.rs` (207 lines), `switch_index.rs` (36) and now `lock_walls.rs` name no
+kernel seam at all — `lock_walls.rs`'s last one was a DOC LINK to a kernel
+function, repointed at the published set.
+
+⛔ **AND THE LAST REAL SEAM IS NOT A MECHANICAL INVERSION. It is a policy
+question, and it is being left open on purpose.** `clear_encounter_reward_ecs`
+fires when the switch arming an encounter turns OFF: it despawns the reward
+chest and clears the persisted `reward_dropped` flag so a re-clear pays out
+again. Inverting it the way (b) went would mean reacting to a published fact —
+but the fact is not `Reset`:
+
+* the reward clear runs on **every** switch-off, while the `Reset` command is
+  written only when the phase is NOT in flight, so the two do not coincide;
+* reacting to `EncounterEvent::Reset` would be equivalent only if an in-flight
+  encounter can never hold a stale chest or a set `reward_dropped` flag. That is
+  probably true — chests spawn on `Completed` — but *probably* is how a save-flag
+  defect ships;
+* and the trigger is a SWITCH, whose index and activation queue are kernel-side,
+  so "switch off ⇒ retire this encounter's reward" may be encounter policy or may
+  be room-feature policy. Nothing in the code settles which.
+
+⇒ **This one needs the owner's answer, not a refactor.** The question is: *does
+the encounter domain own "my reward is retired", or does the feature layer own
+"a chest whose encounter is no longer cleared goes away"?* The first is a new
+published fact; the second is a rule the feature layer can evaluate for itself
+from `ClearedEncounters`, which already exists. The second is smaller and needs
+no new vocabulary — but it changes WHEN the save flag clears, which is player-
+visible.
+
 **Guards that pin it**, same shape as `ambition_world_items`/`ambition_held_items`:
 three policy rows (`engine.<crate>-manifest-allow`,
 `engine.<crate>-source-purity`, `engine.runtime-manifest-allow`), both

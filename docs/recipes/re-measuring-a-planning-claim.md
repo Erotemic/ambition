@@ -580,6 +580,43 @@ Cpu adapter and loads `sprites_potato` while the other loads the base tree.
 ⇒ Neither is wrong. A residency figure without the composition named beside it is
 not a measurement, it is a number.
 
+### ⛔ When you CORRECT a count, re-test the members you inherited
+
+The most expensive error of 2026-09-03 was not a stale number or a bad grep. It
+was a correction that corrected only the part I was looking at.
+
+The decomposition plan said eight kernel modules were "already islands". I
+re-measured, found six more, and published **14** — with a rule stated in the
+same paragraph: *no out-edges, and nothing pointing back except
+`rollback_registration` and `snapshot_impls`*. The real answer by that rule is
+**11**. `causal`, `body_mode` and `music` have zero out-edges but are read — by
+`features` (8 refs), `avatar` (1) and `audio` (4).
+
+⇒ **The arithmetic shows exactly where the rigour stopped.** Sixteen modules have
+zero out-edges. I applied the in-edge half of the rule to the SIX I was adding,
+and to the two I excluded by name — 16 − 2 = 14. I never applied it to the EIGHT
+I had inherited from the sentence above, because they arrived already labelled
+"islands" and my job felt like *extending* the list. The published number was
+neither the loose rule (16) nor the stated rule (11): it was **the stated rule
+applied only to the members I happened to be holding**.
+
+⭐ **A correction inherits the credibility of the thing it corrects.** "8 → 14,
+re-measured" reads as though all fourteen were measured, and the six new ones
+were. That is what makes this worse than an ordinary stale figure: a stale
+figure announces its age, while a half-re-measured list announces the opposite
+of its age. ⇒ **Re-run the rule over the WHOLE population, including the members
+you are keeping.** If a claim's rule is worth stating, it is worth applying to
+the names you did not touch — and if that is too expensive, say which members
+were re-tested and which were carried forward.
+
+⚠ Two cheap habits would each have caught it. **State the rule as a filter and
+run it**, rather than stating it in prose and hand-checking; the eleven fell out
+of a six-line script that no more trusted the old list than the new. And **run
+the control against your own tree**: I only found this because a peer made me
+date the number, so I measured `origin/main` (11) and then my own branch
+expecting 14 — the control returned 11 with an identical module list, which
+proved the gap was never drift. See [checks-that-did-not-run](checks-that-did-not-run.md).
+
 ### ⚠ A disagreeing re-measurement is only DRIFT if both sides measured the same thing
 
 This page spends most of its length on numbers that went stale, so it needs the

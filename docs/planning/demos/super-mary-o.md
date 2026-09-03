@@ -206,7 +206,7 @@ Remaining acceptance work
   earlier, or is "the reward waits up there and you must climb for it" the intended
   feel? Original investigation record below.
 
-  ⭐ **FILED AS DECISION 38 (2026-09-03)** in
+  ⭐ **FILED AS DECISION 46 (2026-09-03)** in
   [`../awaiting-maintainer-decision.md`](../awaiting-maintainer-decision.md),
   which is where a question whose next step is Jon's authoring judgement
   belongs. It arrived from the other end — writing the floor half of the form

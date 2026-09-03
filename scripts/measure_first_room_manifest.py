@@ -63,8 +63,15 @@ IMAGE = re.compile(
 VIA = re.compile(r"\bvia\s+(\S+)")
 UNKNOWN_DEMAND = re.compile(r"\bdemand=unknown\b")
 # The rolling `[image-census]` window line, for the denominator below.
+#: ⭐ THE RESIDENT MB IS CAPTURED TOO, and it exists NOWHERE ELSE in a bundle.
+#: `asset_activity.csv` carries `images_resident` as a COUNT and no byte column,
+#: so the only record of how much memory the images actually hold is this line.
+#: `docs/planning/engine/asset-preparation-and-residency.md` Open work 4 is
+#: waiting on exactly that number to choose a residency budget.
+#: ⚠ Optional group: an older capture's line may stop after the megapixels.
 IMAGE_CENSUS = re.compile(
     r"\[image-census\][^|]*\|\s*total (\d+) images,\s*([0-9.]+)MP"
+    r"(?:,\s*([0-9.]+)MB resident)?"
 )
 ROOM_LOADED = re.compile(r"\[world-event\]\s+([0-9.]+)s\s+f\s*(\d+)\s+room-loaded\s+(\S+)")
 FIRST_ROOM_ART = re.compile(
@@ -94,6 +101,7 @@ def parse(lines) -> dict:
     room_loaded: tuple[float, int, str] | None = None
     first_room_art: dict | None = None
     census_total: tuple[int, float] | None = None
+    census_resident_mb: float | None = None
 
     for raw in lines:
         line = STAMP.sub("", raw.rstrip("\n"))
@@ -136,11 +144,16 @@ def parse(lines) -> dict:
         hit = IMAGE_CENSUS.search(line)
         if hit:
             census_total = (int(hit.group(1)), float(hit.group(2)))
+            # kept SEPARATE from `census_total` so the pair's shape — and every
+            # test that reads it — stays what it was.
+            if hit.group(3):
+                census_resident_mb = float(hit.group(3))
     return {
         "images": images,
         "room_loaded": room_loaded,
         "first_room_art": first_room_art,
         "census_total": census_total,
+        "census_resident_mb": census_resident_mb,
     }
 
 

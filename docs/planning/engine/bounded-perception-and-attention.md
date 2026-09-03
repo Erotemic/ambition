@@ -42,10 +42,21 @@
   test GREEN while its comment claimed to catch exactly that. The out-of-view
   peer now sits NEARER (340) than the right answer (450), so its exclusion is
   observable.
-  ▢ **STILL OPEN:** routing `TargetBelief` bodies to the provider at the
-  `build_world_view` call site in `actors/update.rs` — the change that actually
-  stops building the view — and the bounded `TacticalWorld` representation, which
-  is the larger half and is what the density table above prices.
+  ✔ **THE ROUTING LANDED (`0520d3d12`, "Seven of nine brain templates stop
+  building a WorldView to find one foe") — this row said STILL OPEN after the
+  change shipped.** `actors/update.rs` now reads *"⭐⭐ ONLY `TacticalWorld`
+  BUILDS A VIEW NOW"* at the `build_world_view` call site; `TargetBelief` bodies
+  take `perception::nearest_hostile_peer`, and the census's `kept` comes from
+  whichever road ran rather than from the view.
+
+  ⭐ **And the two-halves problem this row raises was the thing that had to be
+  solved, not avoided.** `WorldMemory::update` decays everything NOT seen this
+  tick, so a body on the cheap road still owes the memory a seen set —
+  `update_from_seen(sim_time, dt, seen)` takes it as borrowed `SeenActor`s, and
+  the memory fold runs on BOTH roads.
+
+  ▢ **STILL OPEN:** the bounded `TacticalWorld` representation, which is the
+  larger half and is what the density table above prices.
 
   ⛔⛔ **AND THE ROUTING IS BIGGER THAN "USE THE CHEAP PROVIDER", because the
   belief has TWO halves and only one of them is the nearest hostile.** Read the

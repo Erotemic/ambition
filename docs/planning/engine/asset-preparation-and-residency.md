@@ -1248,7 +1248,7 @@ sheet, 44 MP at Quarter, 7 frames under the cover on a warm page cache vs 32
 cold). That is the eviction question stated with numbers: today's policy is
 "retire everything the destination does not place", and a budget policy
 would instead keep the last room's cast resident while the total stays under
-a limit. ⚠ Still open: the limit itself (a host number — `resident_mb` at
+a limit. ✔ **THE NUMBER IS NOW IN EVERY CAPTURE'S OWN SUMMARY** (2026-09-02): the bundle summary's *Assets and render resources* section prints `Resident image BYTES at end` — 313.1 MB on `desktop-timeline-run-20260902T215256Z`. It lives only in the `[image-census]` stderr line; `asset_activity.csv` counts resident IMAGES and carries no byte column, which is why this had been "waiting on a host number" that every capture already contained. ⚠ Still open: the limit itself (a host number — `resident_mb` at
 Full on the 3090 after a hub→hall→hub walk is the input), and the neighbour
 prefetch remains the only road that decodes in the open on purpose.
 ⛔ **AND THE 2026-09-02 HOST RUN DOES NOT SUPPLY IT, though it looks like it

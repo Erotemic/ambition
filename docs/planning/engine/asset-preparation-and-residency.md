@@ -1027,6 +1027,24 @@ measured.
 Choose a budget from rendered measurements. "One character per frame" is a
 current useful bound, not a universal theorem.
 
+⭐ **THE HALL AT FULL, HEADLESS, WITH THE CAP GONE (2026-09-03, this VM, 12
+vCPU / 3 IO threads):** `hall_transition_cover::the_halls_transition_bills_its_whole_cast_and_covers_the_wait`
+— **barrier released after 135 frames with 129/129 realized.** That is the
+RATION floor (one Full sheet started per frame, 129 sheets) plus six frames;
+decode kept pace with it here. ⇒ On the host the floor is different: at 300
+fps 135 frames is 0.45 s, and Jon's Quarter run decoded 130 images / 36 MP
+inside `wait_ms 292` (~123 MP/s aggregate on the 3090's four IO threads), so
+**434 MP at Full predicts a cover hold of ~3.5 s, DECODE-bound, not
+ration-bound.** The two levers that move a decode-bound hold, neither of which
+touches pixels: Bevy's IO pool is capped at 4 threads by default
+(`bevy_app` `task_pool_plugin.rs`: 25%, max 4 — 16 cores get 4), so a
+`TaskPoolPlugin` setting on the host could double decode throughput during a
+covered load at the price of compute threads the cover does not need; and the
+PNG format itself (a QOI or zstd-raw sheet decodes several times faster — a
+pipeline change, Jon's). A bigger COVERED ration would not help the host (it is
+not ration-bound there) and would only shorten this VM's number. The host walk
+at Full measures which bound applies; do not add the knob before it.
+
 ### 3a. ⛔⛔ REMOVED 2026-09-02 BY JON'S RULING: there is NO room-level sprite tier cap
 
 **Jon, on the 3090 at Ultra, profile run `desktop-timeline-run-20260902T215256Z`:

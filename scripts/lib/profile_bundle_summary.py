@@ -361,7 +361,20 @@ def room_reveal_tells(log: str) -> dict:
             continue
         spike = FRAME_SPIKE.search(body)
         if spike:
-            spikes.append((float(spike.group(1)), float(spike.group(2))))
+            # ⛔⛔ TWO CLOCKS ON ONE LINE, AND THEY ARE NOT THE SAME CLOCK.
+            # `[   2.386s] [frame-spike]    1.071s   125.3ms` carries the
+            # STAMPER's wall time (2.386) and the GAME's own elapsed time
+            # (1.071) — 1.3 s apart on a real host capture. The transition line
+            # is a `tracing` record with no game clock at all, so the only
+            # quantity both share is the stamp. Ordering a spike's GAME time
+            # against a transition's STAMP compares different origins; it
+            # happened to give the right verdict on the first host bundle
+            # (every spike preceded the reveal either way) and would be wrong
+            # on any run where a spike follows it — which is the case the tell
+            # exists to detect.
+            spikes.append(
+                {"stamp": at, "game": float(spike.group(1)), "ms": float(spike.group(2))}
+            )
         move = ROOM_TRANSITION.search(body)
         if move:
             transitions.append(
@@ -429,8 +442,14 @@ def room_reveal_lines(log: str) -> list[str]:
 
         last = tells["transitions"][-1]
         if last["at"] is not None:
-            after = [(at, ms) for at, ms in tells["spikes"] if at > last["at"]]
-            worst = max((ms for _, ms in after), default=0.0)
+            # Same clock on both sides: the stamp.
+            after = [
+                s
+                for s in tells["spikes"]
+                if s["stamp"] is not None and s["stamp"] > last["at"]
+            ]
+            unplaceable = [s for s in tells["spikes"] if s["stamp"] is None]
+            worst = max((s["ms"] for s in after), default=0.0)
             lines += [
                 f"Frames over {33.4:.1f} ms AFTER the last transition was logged "
                 f"(t={last['at']:.3f}s): **{len(after)}**"
@@ -443,6 +462,13 @@ def room_reveal_lines(log: str) -> list[str]:
                 "cover is for.",
                 "",
             ]
+            if unplaceable:
+                lines += [
+                    f"⚠ {len(unplaceable)} spike(s) carry no `[  N.NNNs]` stamp "
+                    "and cannot be placed against the reveal, so they are "
+                    "neither counted nor dismissed.",
+                    "",
+                ]
             if tells["spike_cap_hit"]:
                 lines += [
                     "⛔ **THE SPIKE LOG HIT ITS 60-LINE CAP, so this count is a "

@@ -78,7 +78,11 @@ def test_the_before_capture_is_reported_as_the_failure_it_was():
     tells = summary.room_reveal_tells(before_log())
     assert tells["placeholders"]["never materialized"] == 111
     assert tells["transitions"][-1]["asset_wait_ms"] == 3.0, "the cover did not wait"
-    after = [ms for at, ms in tells["spikes"] if at > tells["transitions"][-1]["at"]]
+    after = [
+        s["ms"]
+        for s in tells["spikes"]
+        if s["stamp"] is not None and s["stamp"] > tells["transitions"][-1]["at"]
+    ]
     assert len(after) == 9, "nine hitches after the cover lifted"
     assert max(after) == 355.0
 
@@ -222,3 +226,96 @@ def test_an_unstamped_capture_refuses_to_place_spikes_rather_than_guessing():
         "an unplaceable spike count must be omitted, not printed as if the "
         "boundary were known"
     )
+
+
+# ── Lines taken verbatim from the first real host bundle ──────────────────
+#
+# `desktop-timeline-run-20260902T215256Z`, the first host capture carrying the
+# `f NNN` frame stamp and the first-room lines. Every fixture above this point
+# was authored from the emitter source; these are copied out of a capture.
+#
+# ⛔⛔ AND THEY CARRY THE DEFECT THAT ONLY REAL DATA EXPOSED: a `[frame-spike]`
+# line holds TWO clocks — the stamper's wall time in the `[   N.NNNs]` prefix
+# and the GAME's own elapsed time in the body — and on this bundle they are
+# 1.3 s apart. The transition line is a `tracing` record with no game clock, so
+# the stamp is the only quantity both share. Ordering a spike's GAME time
+# against a transition's STAMP compares different origins.
+HOST_LINES = """\
+[    2.386s] [frame-spike]    1.071s   125.3ms
+[    2.589s] [frame-spike]    1.274s   203.3ms
+[    5.334s] [frame-spike]    4.018s   122.8ms
+[    5.174s] [first-room-art] room 'central_hub_complex' ready after 29 updates (2 of them waiting only on GPU uploads): 12 assets, 4 characters
+[    7.767s] [world-event]    6.452s f   1864 room-transition begin seq=1 central_hub_complex -> hall_of_characters covered=true
+[    8.066s] [world-event]    6.750s f   1919 room-loaded hall_of_characters
+[    8.321s] 2026-09-02T21:53:06.229701Z  INFO ambition_platformer2d::room_transition::performance: room transition 1 central_hub_complex -> hall_of_characters: construction_preflight_ms=Some(2.333752) asset_manifest_ms=Some(1.357278) asset_wait_ms=Some(292.033299) ready_ms=Some(295.7) cover_present_ms=Some(4.0) commit_enqueue_ms=Some(1.0) commit_to_first_frame_ms=Some(2.0) loading_visible_ms=0.000 covered=true prefetch_hit=false loading_visible=false
+"""
+
+
+def test_the_real_host_bundle_lines_parse_to_what_the_raw_log_says():
+    """Hand-checked against the capture: 0 placeholder warnings, one
+    transition with asset_wait_ms=292.03 and covered=true, three spikes."""
+    tells = summary.room_reveal_tells(HOST_LINES)
+    assert sum(tells["placeholders"].values()) == 0
+    assert len(tells["transitions"]) == 1
+    move = tells["transitions"][0]
+    assert (move["source"], move["target"]) == ("central_hub_complex", "hall_of_characters")
+    assert move["asset_wait_ms"] == 292.033299
+    assert move["covered"] is True
+    assert move["at"] == 8.321, (
+        "the transition's time is the COMPLETION line's stamp, not the "
+        "`room-transition begin` marker three lines earlier — reading the "
+        "begin line gives 7.767 and dates the reveal too early"
+    )
+    assert len(tells["spikes"]) == 3
+
+
+def test_spikes_are_ordered_on_the_stamp_not_the_games_own_clock():
+    """⛔ THE DEFECT REAL DATA FOUND. Both clocks put every spike before the
+    reveal on THIS bundle, so the verdict was right by luck; a run with a spike
+    between the two clocks' 1.3 s offset would have been misreported."""
+    tells = summary.room_reveal_tells(HOST_LINES)
+    stamps = sorted(s["stamp"] for s in tells["spikes"])
+    games = sorted(s["game"] for s in tells["spikes"])
+    assert stamps == [2.386, 2.589, 5.334]
+    assert games == [1.071, 1.274, 4.018]
+    assert stamps != games, (
+        "premise: the two clocks really do differ on real output, which is what "
+        "makes ordering on the wrong one a defect rather than a style choice"
+    )
+
+    text = "\n".join(summary.room_reveal_lines(HOST_LINES))
+    assert "AFTER the last transition was logged (t=8.321s): **0**" in text, text
+
+
+def test_a_spike_the_two_clocks_disagree_about_is_placed_by_the_stamp():
+    """⛔⛔ THE ARM THAT ACTUALLY PINS THE FIX, and the first version of this
+    file did not have it. On the real bundle both clocks put every spike before
+    the reveal, so ordering on the wrong one gave the right answer and poisoning
+    the fix left the tests GREEN. This spike is stamped AFTER the transition
+    (9.000 > 8.321) while its game clock reads BEFORE it (7.700 < 8.321) — the
+    1.3 s offset the capture actually shows. Only the stamp can place it.
+    """
+    lines = HOST_LINES + "[    9.000s] [frame-spike]    7.700s   150.0ms\n"
+    tells = summary.room_reveal_tells(lines)
+    late = [s for s in tells["spikes"] if s["ms"] == 150.0][0]
+    assert late["stamp"] > 8.321 and late["game"] < 8.321, (
+        "premise: this spike is after the reveal by the stamp and before it by "
+        "the game clock — if that stops being true the test proves nothing"
+    )
+
+    text = "\n".join(summary.room_reveal_lines(lines))
+    assert "**1**, worst 150.0 ms" in text, (
+        "a spike after the reveal must be COUNTED; ordering on the game clock "
+        "hides it, which is exactly the failure this tell exists to catch\n" + text
+    )
+
+
+def test_the_host_capture_meets_all_three_reveal_tells():
+    """⭐ THE CAMPAIGN'S OWN ACCEPTANCE, on the first host run that could answer
+    it: zero placeholder warnings (was 111), a cover that waited (292 ms, was
+    3), and no >33.4 ms frame after the reveal (was nine, 89-355 ms)."""
+    tells = summary.room_reveal_tells(HOST_LINES)
+    text = "\n".join(summary.room_reveal_lines(HOST_LINES))
+    assert sum(tells["placeholders"].values()) == 0
+    assert tells["transitions"][0]["asset_wait_ms"] > 100
+    assert "**0**" in text

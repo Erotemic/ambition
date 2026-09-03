@@ -222,7 +222,38 @@ worth of pixels per frame, which at the gallery's Quarter tier is sixteen
 sheets a frame and the whole cast in ~8 frames (`take_within_budget`, the
 areal ration that replaced the head count the same day); the guard
 `the_reveal_waits_for_every_placed_character_not_just_the_realized_ones` is red
-when the remainder is dropped. **Host tell, still owed — AND CHECKED NOW
+when the remainder is dropped. ✔✔ **HOST TELL MET — ALL THREE, ON `desktop-timeline-run-20260902T215256Z`
+(2026-09-02).** The reveal-barrier fix is CONFIRMED on real hardware; this row
+said "still owed" until the capture existed.
+
+```text
+tell                                    2026-09-01        this capture
+placeholder-rectangle warnings                 111                   0
+asset_wait_ms (the cover waiting)                3            292.033
+frames > 33.4 ms after the reveal    9 (89-355 ms)                   0
+```
+
+The three spikes in the run are stamped 2.386 s, 2.589 s and 5.334 s — all
+before the transition completes at 8.321 s, i.e. **the startup burst, not the
+hall reveal**. The hall entry produced no spike at all.
+
+⛔⛔ **AND VALIDATING THE READER AGAINST THAT CAPTURE FOUND A DEFECT IN IT — A
+`[frame-spike]` LINE CARRIES TWO CLOCKS.** `[   2.386s] [frame-spike]
+1.071s  125.3ms` holds the stamper's wall time AND the game's own elapsed
+time, 1.3 s apart here. The transition line is a `tracing` record with no game
+clock, so the stamp is the only quantity both share — and the parser was
+ordering a spike's GAME time against a transition's STAMP. ⇒ On this bundle
+both clocks agree (every spike precedes the reveal), so the verdict above was
+right BY LUCK; a run with a spike inside the offset would have been
+misreported. Fixed, and pinned by an arm where the two clocks disagree —
+the first version of that test could not fail, because the real fixture cannot
+discriminate.
+
+⚠ Also corrected: the transition's time is the COMPLETION line's stamp
+(8.321 s), not the `room-transition begin` marker three lines earlier
+(7.767 s). My hand-check misread that; the parser had it right.
+
+**Host tell, still owed — AND CHECKED NOW
 RATHER THAN READ (2026-09-02):** zero placeholder-rectangle warnings at the hall
 reveal, `asset_wait_ms` in the seconds (129 frames of ration at least), no
 >33.4 ms frames after the cover lifts. The profiling bundle summary grows a

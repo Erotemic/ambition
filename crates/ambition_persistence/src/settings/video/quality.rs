@@ -774,3 +774,72 @@ impl Default for VisualQualitySettings {
         }
     }
 }
+
+/// The visual quality a running process has RESOLVED: the boot override if one
+/// is in force, else the persisted setting, with the raster environment
+/// overrides folded in.
+///
+/// ⛔ THIS IS THE ONE AUTHORITY, and it lives below every consumer on purpose.
+/// The render side publishes it as a resource and keeps it true every frame;
+/// character residency -- the room-transition ration, the global materializer,
+/// the quality convergence -- reads it, or derives it through the SAME
+/// [`Self::from_settings`] when no publisher is installed. Until 2026-09-03 the
+/// room path read this resource while the other two called
+/// `UserSettings::resolved_budget()` directly, so a forced
+/// `AMBITION_QUALITY_PROFILE=potato` over a persisted High materialized the
+/// first ration of a room's cast at Potato and the remainder at High, and
+/// convergence then retired the Potato half (GPT review of 2026-09-03, item 2).
+///
+/// ⭐ THE BOOT OVERRIDE WINS, AND IT IS NOT WRITTEN BACK. `AMBITION_QUALITY_PROFILE`
+/// (which `run_game.sh` sets from the launcher config) forces the tier for the
+/// life of the process. It resolves the tier's own budget table rather than the
+/// user's stored `custom` one, so a forced Medium is the same Medium everywhere.
+/// While an override is in force the settings menu cannot change quality.
+#[derive(bevy::prelude::Resource, Clone, Debug, PartialEq)]
+pub struct ResolvedVisualQuality {
+    pub profile: VisualQualityProfile,
+    pub budget: VisualQualityBudget,
+}
+
+impl Default for ResolvedVisualQuality {
+    fn default() -> Self {
+        let (profile, mut budget) = match profile_override_from_env() {
+            Some(forced) => (forced, VisualQualityBudget::for_profile(forced)),
+            None => {
+                let settings = VisualQualitySettings::default();
+                (settings.profile, settings.resolved_budget())
+            }
+        };
+        budget.raster = budget.raster.with_env_overrides();
+        Self { profile, budget }
+    }
+}
+
+impl ResolvedVisualQuality {
+    /// Resolve from the persisted settings, the override winning.
+    pub fn from_settings(settings: &crate::settings::UserSettings) -> Self {
+        let (profile, mut budget) = match profile_override_from_env() {
+            Some(forced) => (forced, VisualQualityBudget::for_profile(forced)),
+            None => (
+                settings.video.quality.profile,
+                settings.video.quality.resolved_budget(),
+            ),
+        };
+        budget.raster = budget.raster.with_env_overrides();
+        Self { profile, budget }
+    }
+
+    /// The published resource when a publisher is installed, else the same
+    /// resolution derived from the settings -- so a composition without the
+    /// render plugin still agrees with one that has it.
+    pub fn current<'a>(
+        published: Option<&'a Self>,
+        settings: Option<&crate::settings::UserSettings>,
+    ) -> std::borrow::Cow<'a, Self> {
+        match (published, settings) {
+            (Some(live), _) => std::borrow::Cow::Borrowed(live),
+            (None, Some(settings)) => std::borrow::Cow::Owned(Self::from_settings(settings)),
+            (None, None) => std::borrow::Cow::Owned(Self::default()),
+        }
+    }
+}

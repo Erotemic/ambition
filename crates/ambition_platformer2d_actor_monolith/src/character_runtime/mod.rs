@@ -754,6 +754,7 @@ pub fn converge_character_residency_to_active_quality(
     assets: Option<ResMut<ambition_sprite_sheet::game_assets::GameAssets>>,
     demand: Option<ResMut<CharacterLoadDemand>>,
     settings: Option<Res<ambition_persistence::settings::UserSettings>>,
+    resolved: Option<Res<ambition_persistence::settings::ResolvedVisualQuality>>,
     // WHO STILL USES A RETIRED SHEET: a body wearing the character, or a live
     // actor whose config names it. Only those are re-demanded; the rest stay
     // retired until something asks for them again.
@@ -763,7 +764,15 @@ pub fn converge_character_residency_to_active_quality(
     let (Some(mut assets), Some(mut demand)) = (assets, demand) else {
         return;
     };
-    let budget = settings.map(|settings| settings.video.quality.resolved_budget());
+    // ONE AUTHORITY: the published resolution when the render side is
+    // installed, the same resolution derived from settings when it is not --
+    // never `resolved_budget()` alone, which ignores a boot override the room
+    // path honours and split one cast across two tiers (2026-09-03).
+    let quality = ambition_persistence::settings::ResolvedVisualQuality::current(
+        resolved.as_deref(),
+        settings.as_deref(),
+    );
+    let budget = Some(quality.budget.clone());
     // ONE tier, the user's, everywhere. The room a character stands in has no
     // say (Jon, 2026-09-02: no lower tier for gallery previews).
     let active = crate::character_sprites::character_sprite_tier(budget.as_ref());
@@ -863,6 +872,7 @@ pub fn materialize_demanded_character_sheets(
     asset_server: Option<Res<AssetServer>>,
     layouts: Option<ResMut<Assets<TextureAtlasLayout>>>,
     settings: Option<Res<ambition_persistence::settings::UserSettings>>,
+    resolved: Option<Res<ambition_persistence::settings::ResolvedVisualQuality>>,
 ) {
     // The ledger and the demand come first and separately: the no-pipeline path
     // still has to SETTLE what was staged, so it cannot be inside a destructuring
@@ -899,9 +909,15 @@ pub fn materialize_demanded_character_sheets(
         }
         return;
     };
-    // Same source `ResolvedVisualQuality` mirrors, read directly so the engine
-    // does not depend on the render crate to know its own texture budget.
-    let budget = settings.map(|settings| settings.video.quality.resolved_budget());
+    // THE SAME AUTHORITY THE ROOM PATH READS. `ResolvedVisualQuality` lives in
+    // persistence so this crate can read it without the render crate; when no
+    // publisher is installed it is derived through the same function, so the
+    // boot override wins on every road or on none.
+    let quality = ambition_persistence::settings::ResolvedVisualQuality::current(
+        resolved.as_deref(),
+        settings.as_deref(),
+    );
+    let budget = Some(quality.budget.clone());
     let fallback_registry = PreparedCharacterRegistry::default();
     let assets = &mut *assets;
     materialize_character_demand(

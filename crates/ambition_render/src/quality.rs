@@ -7,55 +7,9 @@ use bevy::camera::RenderTarget;
 use bevy::prelude::*;
 use bevy::render::view::Msaa;
 
-use ambition_persistence::settings::{
-    profile_override_from_env, DetectedGpuClass, UserSettings, VisualQualityBudget,
-    VisualQualityProfile,
-};
+use ambition_persistence::settings::{DetectedGpuClass, UserSettings, VisualQualityProfile};
 
-#[derive(Resource, Clone, Debug, PartialEq)]
-pub struct ResolvedVisualQuality {
-    pub profile: VisualQualityProfile,
-    pub budget: VisualQualityBudget,
-}
-
-impl Default for ResolvedVisualQuality {
-    fn default() -> Self {
-        let (profile, mut budget) = match profile_override_from_env() {
-            Some(forced) => (forced, VisualQualityBudget::for_profile(forced)),
-            None => {
-                let settings = ambition_persistence::settings::VisualQualitySettings::default();
-                (settings.profile, settings.resolved_budget())
-            }
-        };
-        budget.raster = budget.raster.with_env_overrides();
-        Self { profile, budget }
-    }
-}
-
-impl ResolvedVisualQuality {
-    /// ⭐ THE BOOT OVERRIDE WINS, AND IT IS NOT WRITTEN BACK. `AMBITION_QUALITY_PROFILE`
-    /// (which `run_game.sh` sets from the launcher config) forces the tier for
-    /// the life of the process. It resolves the tier's own budget table rather
-    /// than the user's stored `custom` one, so a forced Medium is the same
-    /// Medium everywhere.
-    ///
-    /// ⚠ While an override is in force the settings menu cannot change quality:
-    /// this runs every frame and will put the forced tier straight back. That is
-    /// the intended behaviour of a forced profile, and the reason
-    /// `log_quality_profile_override` says so once at startup rather than
-    /// leaving someone to discover it by clicking.
-    pub fn from_settings(settings: &UserSettings) -> Self {
-        let (profile, mut budget) = match profile_override_from_env() {
-            Some(forced) => (forced, VisualQualityBudget::for_profile(forced)),
-            None => (
-                settings.video.quality.profile,
-                settings.video.quality.resolved_budget(),
-            ),
-        };
-        budget.raster = budget.raster.with_env_overrides();
-        Self { profile, budget }
-    }
-}
+pub use ambition_persistence::settings::ResolvedVisualQuality;
 
 /// The resource and the system that keeps it true, together.
 ///

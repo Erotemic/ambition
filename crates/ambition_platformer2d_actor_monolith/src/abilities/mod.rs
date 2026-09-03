@@ -6,7 +6,9 @@
 //!
 //! * [`traversal`] — `possession`, `teleport`, `trapdoor`, `flyline`. Registered
 //!   by `ambition_platformer2d_runtime`, not by the item-pickup family, and
-//!   `possession` is named 87 times outside this directory (`teleport` 61) by
+//!   `possession` is named 87 times outside this directory (`teleport` 61) by (counted within
+//!   the actor monolith, minus its own `abilities/`; across `crates` and `game`
+//!   the same grep gives 256 and 603, so the scope is part of the figure)
 //!   `crate::body_custody`, `crate::control::authority`,
 //!   `crate::features::ecs::dormancy` and `crate::control::input_systems`. That
 //!   is control authority; carving it into an abilities crate would rename the

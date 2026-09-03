@@ -199,9 +199,14 @@ for both.
 ## Waiting on a long command
 
 - To wait on a long command, read state it WROTE — for the suite that is
-  `target/run_tests_status.json` (`state`: running/done/crashed, plus
-  `current_job` and `current_started` so a slow job is distinguishable from a
-  wedged one, and `completed` with each finished job's seconds). Every run also
+  `target/run_tests_status.json` (`state`: running/done/**aborted**/crashed,
+  plus `current_job` and `current_started` so a slow job is distinguishable from
+  a wedged one, and `completed` with each finished job's seconds). ⛔ **CHECK
+  THE STATE, NOT JUST `failed`** — a suite the disk floor stopped part-way has
+  an empty `failed` list because every job that RAN passed; `aborted` plus
+  `never_ran` is the only thing that says the plan did not finish.
+  `scripts/last_test_run.py` applies that rule for you and refuses rather than
+  answering. Every run also
   appends what it cost to `dev/ambition_dev_measurements/run_tests_cost.jsonl` — wall clock, and how much
   of it was libtest actually executing rather than cargo building. ⛔ never poll
   with `pgrep -f <script>`: the polling shell's own command line contains the

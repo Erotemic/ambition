@@ -854,9 +854,25 @@ input: possibly a driver on any host rather than time on the one 3090.
 > `potato|low|medium|high|ultra` (`settings/video/quality.rs`), and
 > `capture_scene`'s own help already says `AMBITION_QUALITY_PROFILE=ultra`.
 > `from_label` returns `None` on an unparseable value *"so a typo boots the user's
-> OWN setting instead of silently substituting a tier they did not choose"*, and
-> its contract adds *"callers are expected to say so out loud"* — `capture_scene`
-> does not, which is why a typo looked exactly like a run that worked.
+> OWN setting instead of silently substituting a tier they did not choose"*.
+>
+> ⓘ **And the warning for that case EXISTS and is well written** —
+> `log_quality_profile_override` (`ambition_render/src/quality.rs:182`) warns
+> *"…is not a profile; using the saved setting instead. Expected one of: potato,
+> low, medium, high, ultra"*. It simply never fired: **neither** run printed it,
+> the valid one included, and neither printed the success message either. So
+> `VisualQualityPlugin::build`'s logger does not run in this tool's composition.
+> ⇒ The gap is the composition, not a missing message, which is a smaller and
+> more fixable thing than "capture_scene should warn".
+>
+> ⛔ **AND THE LEVER IS INERT HERE, NOT MERELY UNREPORTED.** Both runs loaded a
+> byte-identical asset set — 2 images from `sprite_packs/full/` and 14 from
+> `sprites_potato` — so `AMBITION_QUALITY_PROFILE` changed nothing about what
+> became resident, valid label or not. ⇒ Which sharpens the finding: **119.4 MB
+> is the figure for the asset set this room loads, and on this evidence that set
+> does not move with the tier at all.** If residency is meant to vary by quality,
+> that is worth knowing on its own; if it is not, then the tier caveat on this
+> entry may not matter and the number above may already be the answer.
 
 ### D-RASTER-3's remaining half
 

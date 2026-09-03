@@ -122,6 +122,20 @@ actual product requirement.
 - ▢ **Inspection/diagnostics/workbench.** Build read-only discoverability from
   domain-contributed descriptors rather than a new simulation authority. Owner:
   [`engine/inspection-diagnostics-and-workbench.md`](engine/inspection-diagnostics-and-workbench.md).
+- ▢ **Moveset observatory M3 — art/geometry agreement.** Six of seven milestones
+  are closed and ten of ten exit criteria hold;
+  [`moveset-inspector.md`](moveset-inspector.md) is the owner. ⭐ Re-measured
+  2026-09-03, the remainder is **a COMPOSITION, not a publication**: the camera
+  transform's components are already published per view and consumed by
+  production render systems (`CameraViewState`'s `center_world`,
+  `visible_view`, `orthographic_scale`, `zoom_multiplier`, `target_world`, plus
+  `CameraViewport`'s rect), and a grep for `world_to_screen`/`screen_from_world`
+  finds nothing — no helper composes them. So this is a small seam to add, not a
+  renderer change to negotiate.
+  ⛔ **LISTED HERE BECAUSE IT HAD NO INBOUND LINK AT ALL.** Its only referrer was
+  `overnight-goal-agent3.md`, a closed receipt retired on 2026-09-03 — and
+  retiring it left an OPEN plan unreachable by the README's route. Do not remove
+  this row without giving the plan another way in.
 - ▢ **Localization/accessibility.** Grow when actual translation/accessibility
   product requirements exist. Owner:
   [`engine/ui-localization-and-accessibility.md`](engine/ui-localization-and-accessibility.md).

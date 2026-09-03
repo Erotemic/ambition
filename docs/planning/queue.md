@@ -436,6 +436,26 @@ The one unresolved developer-policy choice from the session-ownership work is in
   regressions need a carve owner to say whether +31.8k lines is a deliberate
   landing; the four unpriced crates need a measurement, not a ruling.
 
+  ⇒ ⭐ **RULED 2026-09-03: THE RATCHET STAYS RED UNTIL THE CARVE CAMPAIGN ENDS,
+  THEN IS RE-FROZEN ONCE WITH EVERY DESTINATION PRICED.** Re-freezing per carve
+  is the tempting move and it is wrong for the reason this row already gives —
+  `--update` rewrites every number at once, so each carve would bank its own
+  regressions alongside its wins, and after five carves nobody could say which
+  of the accumulated numbers was ever examined. ⛔ A ratchet re-frozen at every
+  landing is not a ratchet; it is a record of the last landing.
+  * **So a red ratchet is the EXPECTED state during D33, not a defect to
+    triage.** Five crates left the actor monolith on 2026-09-03 alone. The
+    figure to watch meanwhile is `critical_path_crates` (14 → 15 at the last
+    reading): per-crate sizes fall as a carve splits them, but a longer SERIAL
+    chain cannot be compressed by parallelism, so that is the one that says
+    whether the campaign is buying compile time or spending it.
+  * **The re-freeze has a prerequisite, not just a date.** All four unpriced
+    destinations must carry a measured compile cost first
+    (`python3 scripts/compile_collect.py`) — freezing a baseline that contains
+    placeholders at the population median would bake R²=0.12 guesses in as
+    though they were measurements, which is the same class of error as the
+    unreproducible figures `README.md` now warns about.
+
 - ▢ **THE FEATURE UNION IS RED: 48 failures against 6,968 passes, and 37 of
   them are ONE system.** Measured 2026-09-03 at `dbfb1a2ca` by running the gate's
   own union job standalone (`cargo test --workspace --no-fail-fast --features

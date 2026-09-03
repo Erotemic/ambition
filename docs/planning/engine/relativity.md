@@ -195,6 +195,17 @@ Exactly one app links it and it is the one this doc names. The five zeros are
 meaningful because the sixth is not zero: a grep that finds nothing everywhere
 is indistinguishable from a broken grep.
 
+⭐ **RE-DERIVED 2026-09-03, AFTER FIVE CRATES WERE CARVED OUT OF THE ACTOR
+KERNEL: the VERDICT holds and the TREE SIZES do not.** `ambition_app` still
+links 0 and `ambition_demo_twintrack_app` still links 2 — which is the claim
+this table exists to make. The tree column moved with the carves
+(`ambition_app` 2,686 → 2,758; twintrack 1,849 → 1,917), because a carve splits
+one node into two and the totals count nodes. ⇒ **The two columns age
+differently and should be read differently**: the linkage count is the
+assertion, re-derivable with
+`cargo tree -p <app> | grep -c "ambition_relativity v"`; the tree size is
+corroborating context that will drift on every carve and is not worth chasing.
+
 ⛔ **AND IT WAS FALSE FOR THE FIRST THREE WEEKS THIS PAGE ASSERTED IT.** The
 status header above is dated 2026-08-12. `relativity` was listed in the facade's
 `all_capabilities` until **2026-09-01**, and `game/ambition_content` takes

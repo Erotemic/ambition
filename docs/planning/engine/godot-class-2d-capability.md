@@ -326,6 +326,30 @@ A clean external/minimal game can compose supported capabilities, diagnose
 configuration/content failures, run tests, and produce a release artifact
 without importing implementation crates.
 
+> ⭐ **MEASURED 2026-09-03 against the three out-of-workspace consumers, and the
+> "without importing implementation crates" clause splits them two to one.**
+>
+> | consumer | `[dependencies]` reach |
+> |---|---|
+> | `fixtures/minimal_game` | `ambition_platformer2d` only |
+> | `fixtures/external_consumer` (outlander) | `ambition_platformer2d` only |
+> | `examples/capability_demo` | **four implementation crates** — `ambition_content_pack`, `ambition_causal`, `ambition_input`, `ambition_platformer2d_core` |
+>
+> ⚠ **The third is not obviously a violation, which is why it is recorded rather
+> than filed as a gap.** The capability demo exists to prove that a capability
+> can register its own content schema without editing a central enum — its own
+> header says *"`ambition_content_pack` never heard of pulses; the schema is
+> registered by the capability that owns it"* — and that is a claim about
+> EXTENSION, which the facade does not currently surface. ⇒ So C5 has two
+> readings and the page should say which it means: if a game extending the
+> engine must also go through the facade, this demo is the gap; if extension is
+> allowed to name the crates it extends, C5 is about CONSUMPTION and the two
+> fixtures already satisfy it.
+>
+> Either way the fixtures are the evidence for C5 and the demo is not — and it
+> is the demo whose lockfile the abilities carve had to update, which is how the
+> distinction surfaced.
+
 ### Gate C6 — agent-first operability
 
 A capable LLM agent can perform a representative cross-domain game change using

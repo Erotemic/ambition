@@ -612,6 +612,24 @@ that"* above describes the ramp's LENGTH correctly and its SHAPE wrongly; the
 warning is a per-actor latch that trips after 5 consecutive unclaimed frames, so
 what the burst says is that at that instant NONE of the 129 was claimed.
 
+⛔⛔ **AND THE BURST IS AFTER THE REVEAL, BOTH RUNS — so the barrier releases
+before the bodies can bind at Full.** ambition-df named the fork: burst BEFORE
+the reveal line means the placeholders were under the cover and the count tell is
+clean; AFTER means the cover lifts on bodies whose textures are not ready, and
+that is the next defect. Measured (the `[first-room-art]` line carries no
+timestamp of its own, so it is bracketed by the timestamped lines either side):
+
+```text
+run 1   reveal ∈ [12:59:58.915767, 12:59:58.974449]   burst 12:59:59.343069   → 369-427 ms AFTER
+run 2   reveal ∈ [13:07:27.348005, 13:07:27.397024]   burst 13:07:27.713077   → 316-365 ms AFTER
+```
+
+⇒ **The open question this hands on, in df's words: the barrier already waits on
+the demanded characters' textures for the `164 assets` it counts, so WHICH 129
+IMAGES ARE NOT IN THAT SET?** That is a set difference between what
+`inspect_demanded_characters` waits on and what the 129 warned actors need — not
+another capture.
+
 ⚠ What the run does establish, and it is worth having: at Full the cast loads
 `sprite_packs/full/ultrapack_*.png` and at Potato `sprites_potato/*` — so the
 override does reach the materializer's tier, and the 129/0 split is the areal

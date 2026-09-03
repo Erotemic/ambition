@@ -522,16 +522,28 @@ The one unresolved developer-policy choice from the session-ownership work is in
   `--features capture,input,visible` the room loads at **frame 1** and all four
   tests still fail with the same message. ⇒ Whatever it is, it is not the room
   being late and not a system dying before the blocks are made.
-  ⭐ **THE REMAINING HYPOTHESIS IS ONE BISECTION, and it is bounded to two runs.**
-  `mary_o_it` declares `required-features = ["capture"]` and its helpers need
-  `visible` (`build_windowed_demo_app` and `RenderMode` are both behind it), so
-  the minimum set is `capture,visible`. ⇒ Run
-  `cargo test -p ambition_demo_mary_o_app --test mary_o_it --features
-  capture,visible -- painted_blocks`, then again adding `input`. If the first
-  passes, the feature that takes block drawing away is named by the difference;
-  if both fail, the cause is in the minimum set and the union is irrelevant to
-  it. Either answer is worth more than the "under the union" framing the row
-  started with. ⚠ I wrote the
+  ⛔⛔ **THAT BISECTION CANNOT RUN AS WRITTEN, and the row got two manifest facts
+  wrong (checked 2026-09-03 against `game/ambition_demo_mary_o_app/Cargo.toml`).**
+  (1) `visible` ALREADY INCLUDES `input`
+  (`visible = [..., "input", ...]`, line 28), so "run `capture,visible`, then
+  again adding `input`" is the SAME RUN TWICE and can distinguish nothing.
+  (2) `mary_o_it` does NOT declare `required-features` — the `[[test]]` entry
+  (lines 46-48) has none; `required-features = ["capture"]` is on the `[[bin]]`
+  `capture_mary_o` (line 56). ⇒ Reading a manifest fact off the neighbouring
+  stanza is how a plan gets built on a constraint that is not there.
+  ⭐ **AND THE ROW'S OWN LOGIC ALREADY ANSWERS IT.** Because `capture` ⊃
+  `visible` ⊃ `input`, the run it reports as already done —
+  *"at `--features capture,input,visible` the room loads at frame 1 and all four
+  tests still fail"* — IS the minimum set. By the row's stated rule (*"if both
+  fail, the cause is in the minimum set and the union is irrelevant to it"*), the
+  union is irrelevant: these tests fail whenever they are BUILT, and the union's
+  only contribution is building them.
+  ⇒ **Which reframes the whole row.** `ov1_draws_the_world` and
+  `painted_blocks` are `#![cfg(feature = "visible")]` and the crate's
+  `default = []`, so a plain `cargo test -p ambition_demo_mary_o_app` compiles
+  them to NOTHING and reports green. They are not union-specific failures; they
+  are tests that only exist under `visible`, failing there, invisible everywhere
+  else. ⚠ Still to confirm with one run at `--features capture` alone. ⚠ I wrote the
   settle fix, ran it, saw it change nothing, and reverted it rather than ship a
   loop whose comment claimed a cause it had not established.
   ⊙ **HALF-ANSWERED: it is NOT the ConeRigAssets group.**

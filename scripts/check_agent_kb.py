@@ -17,6 +17,12 @@ import sys
 from collections import defaultdict
 from pathlib import Path
 
+#: ⭐ ONE definition of "this is a code span, not navigation", shared with
+#: `check_doc_links.py`. Two copies of that rule is how the two checkers came to
+#: disagree about one file in the first place.
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+from check_doc_links import _blank_code_spans  # noqa: E402
+
 ROOT = Path(__file__).resolve().parents[1]
 
 REQUIRED_FILES = [
@@ -452,7 +458,14 @@ def check_markdown_links(errors: list[str]) -> None:
         if not path.exists():
             continue
         text = path.read_text(encoding="utf-8", errors="replace")
-        for match in link_re.finditer(text):
+        # ⛔ A LINK INSIDE A CODE SPAN IS AN EXAMPLE, NOT NAVIGATION, and this
+        # check called one broken for it: `yardrat-open-measurements.md` writes
+        # `[text](other.md#anchor)` in backticks to NAME the class of link it is
+        # discussing, and this exited 1 on it while `check_doc_links.py` --
+        # scanning the same tree -- reported 927 links clean. Two link checkers
+        # printing two answers about one file.
+        # ⇒ Reuse that checker's blanking rather than write a second rule.
+        for match in link_re.finditer(_blank_code_spans(text)):
             target = match.group(1).strip()
             if not target or target.startswith(("http://", "https://", "mailto:", "#")):
                 continue

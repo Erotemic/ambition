@@ -218,6 +218,19 @@ class Job:
     # job that must honor an out-of-tree crate's own config — the external
     # consumer fixture's isolated target-dir — has to run from that directory.
     cwd: str | None = None
+    # ⛔⛔ DOES THIS JOB WRITE TO THE TARGET DIRECTORY? The disk guards key on
+    # THIS, not on which lane asked, because the two disagree: `--maintenance`
+    # is exempt from the floor on the grounds that hygiene audits are pure
+    # Python, and one of its jobs — the intra-doc-link ratchet — shells out to
+    # `cargo doc -p <crate> --no-deps` per crate. ⚠ Found 2026-09-03 by running
+    # that lane on a volume at 12 GB: the lane the guard waves through is the
+    # one that can still fill the disk. An argv check cannot see it either, the
+    # argv is `python3 scripts/check_doc_link_ratchet.py`.
+    #
+    # ⇒ Default False, so a NEW job is treated as cheap. That is the wrong
+    # default for safety and the right one for honesty: anything else would
+    # silently claim knowledge about jobs nobody has classified.
+    builds: bool = False
 
 
 @dataclass
@@ -778,6 +791,9 @@ def build_maintenance_jobs() -> list[Job]:
         Job(
             "broken intra-doc links (ratchet; cold cargo doc, minutes)",
             [sys.executable, "scripts/check_doc_link_ratchet.py", "--check"],
+            # The one maintenance job that is not pure Python: it runs
+            # `cargo doc -p <crate> --no-deps` for every crate.
+            builds=True,
         ),
         Job(
             "zone names (ratchet)",
@@ -1106,7 +1122,12 @@ def run(jobs: list[Job], list_only: bool, timings_json: str | None = None,
     #
     # One refusal up front, naming the remedy, is worth more than any amount of diagnosing that.
     free_gb = free_gb_on_target()
-    if not (tool_tests_only or maintenance_only) and free_gb < MIN_FREE_GB:
+    # ⚠ THE EXEMPTION IS FOR LANES THAT DO NOT BUILD, and membership in one is
+    # not proof of that: `--maintenance`'s intra-doc-link ratchet runs
+    # `cargo doc` per crate. The lane still gets its exemption, but only while
+    # nothing in its plan writes to the target directory.
+    exempt = (tool_tests_only or maintenance_only) and not any(j.builds for j in jobs)
+    if not exempt and free_gb < MIN_FREE_GB:
         print(
             f"REFUSING: {free_gb:.1f} GB free on {target_dir()}, and a full suite "
             f"needs about "
@@ -1155,7 +1176,8 @@ def run(jobs: list[Job], list_only: bool, timings_json: str | None = None,
             # right, but a suite below the hard floor is about to fail for a
             # reason nobody will be able to read.
             free_now = free_gb_on_target()
-            if free_now < ABORT_FREE_GB and not (tool_tests_only or maintenance_only):
+            guarded = j.builds or not (tool_tests_only or maintenance_only)
+            if free_now < ABORT_FREE_GB and guarded:
                 print(
                     f"\n\033[31m  REFUSING TO START `{j.name}`: "
                     f"{free_now:.1f} GB free on {target_dir()}.\033[0m\n"

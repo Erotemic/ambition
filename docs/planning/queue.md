@@ -1165,7 +1165,7 @@ OPTIONAL dep + feature, never used:
      that moves or splits can leave a prefix covering nothing — or, worse,
      covering types its reason never described, which the file itself warns
      about. ⛔ There is no assertion for this on purpose: the audit is
-     `list_what_every_waiver_actually_covers`, an `#[ignore]`d listing meant to
+     `probe_what_every_waiver_actually_covers`, an `#[ignore]`d listing meant to
      be READ against each waiver's rationale. Run it after a crate move.
      ⛔ **AND DO NOT TRY TO CHECK IT STATICALLY — I did, on 2026-09-03, and the
      check is meaningless.** `waiver()` matches with `type_name.contains(needle)`,

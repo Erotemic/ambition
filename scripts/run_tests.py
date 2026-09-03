@@ -625,9 +625,26 @@ def build_jobs(only: list[str], heavy: bool, libtest_args: list[str],
     # Heavy pass: rerun including #[ignore]d tests, plus the shipping-entrypoint
     # acceptance cycles (full app boot). Whole-suite, non-fast only.
     if heavy and not only:
-        jobs.append(Job("workspace (+ ignored)",
+        # ⛔⛔ `--include-ignored` ALONE MADE THIS LANE RED BY DESIGN, so its red
+        # carried no information. `#[ignore]` here means three unrelated things
+        # and the flag honours none of them:
+        #   * PROBES that panic or only print — `d71_transaction_census`'s two
+        #     ended in `panic!` to report a census, so the lane could not pass;
+        #   * tests VALID ONLY ALONE — `ambition_app` has one `[[test]]` target,
+        #     so every `tests/` file is a module of `app_it` sharing a process,
+        #     and a sibling booting its own app satisfies their assertions. That
+        #     failure is GREEN, which is worse;
+        #   * ordinary slow tests, the only kind `--include-ignored` suits.
+        # ⇒ Probes are named `probe_*` and skipped here; everything else runs
+        # SERIALLY so the isolation-required ones mean what they say. The serial
+        # cost is accepted in the plan whose whole job is to run everything.
+        # `scripts/tests/test_probe_tests_are_named_probe.py` keeps the naming
+        # honest, so this `--skip` cannot quietly stop matching.
+        jobs.append(Job("workspace (+ ignored, probes skipped, serial)",
                         cargo_test(["--workspace"],
-                                   list(libtest_args) + ["--include-ignored"])))
+                                   list(libtest_args)
+                                   + ["--include-ignored", "--skip", "probe_",
+                                      "--test-threads=1"])))
         jobs.append(Job("acceptance: headless cycle",
                         ["./run_game.sh", "--", "--headless-acceptance-cycle"]))
         jobs.append(Job("acceptance: headless 120 ticks",

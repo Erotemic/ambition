@@ -437,7 +437,7 @@ fn print_snapshot(app: &mut App, label: &str) {
 /// The measurement. Print-only; it asserts nothing on purpose.
 #[test]
 #[ignore = "print-only probe for the misplaced bubble-shield ring (queue D55)"]
-fn print_where_the_bubble_shield_ring_is_put() {
+fn probe_where_the_bubble_shield_ring_is_put() {
     let mut app = hall_app();
     // Let the Hall settle before anything is pressed, so the numbers are not a
     // half-loaded room's.

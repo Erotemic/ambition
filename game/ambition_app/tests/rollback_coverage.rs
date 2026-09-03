@@ -333,7 +333,7 @@ pub(crate) fn waived_components(
 /// hide the next one.
 #[test]
 #[ignore = "audit listing: prints what the ceiling is holding; read it, do not assert on it"]
-fn list_what_the_shipped_ceiling_is_still_holding() {
+fn probe_what_the_shipped_ceiling_is_still_holding() {
     let mut app =
         ambition_app::app::build_visible_app(ambition_app::app::VisibleRenderMode::NoWindow, true);
     for _ in 0..8 {
@@ -359,7 +359,7 @@ fn list_what_the_shipped_ceiling_is_still_holding() {
 /// audit listing is for comparing each current type against its waiver rationale.
 #[test]
 #[ignore = "audit listing: prints what each waiver covers; read it, do not assert on it"]
-fn list_what_every_waiver_actually_covers() {
+fn probe_what_every_waiver_actually_covers() {
     for room in ["combat_calibration_lab", "mockingbird_arena"] {
         let mut sim = Platformer2dSimHarness::new_with_options(
             ambition_app::rl_sim::Platformer2dSimHarnessOptions::default()

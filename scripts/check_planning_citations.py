@@ -287,6 +287,28 @@ def crate_names() -> set[str]:
     return names
 
 
+def still_a_field(text: str) -> set[str]:
+    """Names the HEAD tree still defines AS A FIELD.
+
+    ⛔ SUBTRACTED FROM THE DIFFERENTIAL, NEVER ADDED TO THE BASELINE, and the
+    asymmetry is the whole point. `item_names` deliberately drops `FIELD`
+    because a field in the BASELINE index invents names the doc never cited --
+    the measured case was `ambition_demo_pocket`, reported vanished while the
+    crate is alive. Dropping it on BOTH sides then created the mirror error: a
+    name that was an item at the baseline and is a FIELD now gets reported,
+    although the row citing it resolves perfectly.
+
+    ⚠ MEASURED 2026-09-03 on a 2026-08-13 baseline: 3 of 45 findings were this
+    shape -- `attacks` (`boss_encounter/src/pattern/profile.rs:73`), `grounded`
+    (`combat/src/hit_reaction.rs:412`) and `combat`. All three are short,
+    generic names, which is exactly the population `FIELD` is too weak to make
+    claims ABOUT and strong enough to REFUTE claims about. Asking "is it still
+    defined as anything?" can only remove findings, so the documented failure
+    cannot come back through this door.
+    """
+    return set(FIELD.findall(text))
+
+
 def vanished_report(docs: list[Path], since: str, defined: set[str]) -> int:
     """Bare citations naming something that WAS defined at `since` and is not now.
 
@@ -308,16 +330,18 @@ def vanished_report(docs: list[Path], since: str, defined: set[str]) -> int:
     if ".." in since:
         base, head = since.split("..", 1)
         head = head or "HEAD"
+        head_text = source_text_at(head)
         was = item_names(source_text_at(base))
-        now = item_names(source_text_at(head))
+        now = item_names(head_text)
         # ⛔ Crate names come from the working tree either way: a name Cargo.toml
         # still declares is not vanished, whatever a historical tree said.
-        gone = was - now - crate_names()
+        gone = was - now - crate_names() - still_a_field(head_text)
         print(f"indexed {len(was)} defined name(s) at {base}, {len(now)} at {head}; "
               f"{len(gone)} left between them", file=sys.stderr)
     else:
         was = item_names(source_text_at(since))
-        gone = was - item_names(source_text()) - crate_names()
+        head_text = source_text()
+        gone = was - item_names(head_text) - crate_names() - still_a_field(head_text)
         print(f"indexed {len(was)} defined name(s) at {since}; "
               f"{len(gone)} of them no longer defined at HEAD "
               f"(⚠ that is REF→WORKING TREE, not REF→a carve — pass `A..B` to "

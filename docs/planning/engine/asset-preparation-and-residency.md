@@ -1440,20 +1440,57 @@ the tier defect.
 
 ⚠ **AND THE SAME PER-MACHINE CAVEAT APPLIES TO ALL OF IT**: packs and sheets
 alike are gitignored generated output, and the clean generation that would
-separate staleness from a pipeline defect has not run. ▢ Whether a shipped build
-needs the per-target PNGs at all once packs cover a sheet is the question worth
-the most megabytes here, and it is not answered: the fallback exists, 15 sheets
-depend on it, and nothing measured says what happens to the other 197 if their
-PNGs were omitted.
+separate staleness from a pipeline defect has not run. ⛔⛔ **AND THE OPEN QUESTION I LEFT HERE — "does a shipped build need the
+per-target PNGs once packs cover a sheet?" — WAS BUILT ON A FALSE PREMISE, AND
+THE ANSWER IS THE OPPOSITE.** Packs do not cover characters at all. Read
+2026-09-02 (`scripts/measure_pack_reachability.py`):
+`build_prop_sprite_asset_packed` is the ONLY production consumer of the pack,
+it has ONE call site — the intro prop loop — and it runs only for rows whose
+4th tuple element is `Some(target)`. Exactly one row is: `intro_cart`.
+`load_character_sprites_in` takes the per-target `*_spritesheet.ron` every
+time. So omitting the per-target PNGs would not save 197 sheets' worth of
+bytes; it would remove every character's only road to its art.
+
+⭐ **The reachability runs the other way: 442.6 MB of pack pages on this
+machine, 5.2 MB on a page any consumer can reach — 98.8% unreachable.** The
+reachability is a source fact and reads the same on any checkout; the megabytes
+are this machine's generated output. ⚠ This is NOT a claim the pack is wrong —
+packing every target is what a packer should do, and the finding is that
+adoption never followed. Narrowing the generator, adopting the pack for
+characters, or dropping the tiers nobody reads are decisions, not measurements.
+
+ⓘ It also explains a capture I had misread: `sprites_0_25x/noether_spritesheet.png`
+decoding for a character the pack fully covers is not a fallback and not a
+defect — it is that character's only road. And the quarter pack's 154 pages have
+a median of 0.26 MP, so NOT ONE clears `NOTABLE_MEGAPIXELS` (1.0): the `[image]`
+ledger can never show pack usage at that tier, and "both roads loaded in one
+run" was never something that capture could tell me.
 
 ⚠⚠ **AND THE OCCUPANCY CENSUS BELOW COVERS 44% OF THE TREE, NOT THE TREE.** It
 asks how much of a CLAIMED page is sampled, and says nothing about pages no
-manifest claims at all. `--orphans` measures those: **15 files per tier, 775 MP
-and 61.8 MB at Full — 16-18% of every tier's PNG bytes, and more megapixels than
-every censused page combined.** Mostly extra pages of split sheets
-(`pointed_polygon_spritesheet.2/.3/.4`) plus three whole sheets
-(`gnu_ton_boss_body`, `gnu_ton_boss_full`, `giant_gnu_body`) that **nothing in
-the repository references** — checked across `.rs`, `.ron`, `.json` and `.py`.
+manifest claims at all. `scripts/measure_orphan_shipped_pages.py` measures
+those across all four tiers, in **two buckets that do not deserve the same
+confidence**:
+
+* ⭐ **STRANDED PAGES — 44 files, 92.0 MB.** `<base>_spritesheet.<n>.png` beside
+  a manifest that does not name it. A sheet's pages resolve ONLY through its
+  manifest, so these are unreachable by construction. Four sheets:
+  `pointed_polygon` (20 pages, 43.8 MB), `pugnacious_polygon` (12, 35.8),
+  `projectile_polygon` (8, 9.5), `carl_stargan` (4, 2.9). ⓘ All four manifests
+  are SINGLE-PAGE (`image: "x.png"`) with no `images:` list at all — I first
+  described this as "a list that shrank", which the tree does not show; the
+  siblings are left from a time the sheet was multi-page, which makes the
+  reachability conclusion stronger, not weaker.
+* ⚠ **UNMENTIONED — 769 files, 26.7 MB, UPPER BOUND ONLY.** Named in no
+  manifest and in no committed `.rs`/`.ron`/`.ldtk`/`.toml`/`.json`/`.py`. A
+  path assembled at runtime (`format!("sprites/{name}.png")`) is named nowhere
+  either and would land here while being perfectly live — the `gnu_ton_boss`
+  sheets are the likely example. A research prompt, not a delete list.
+
+Ratcheted by `scripts/tests/test_shipped_sheet_pages_are_claimed.py` on the
+four stranded sheets, so the count cannot grow; poisoned both directions (drop
+a name → new-orphan test red; add a fixed name → rot test red). It deletes
+nothing and asks for nothing to be deleted.
 
 ⛔ **THE COST IS PACKAGE SIZE, NOT RESIDENCY.** No manifest names them, so
 nothing decodes them; but `package_asset_guard.py` records *"every regular

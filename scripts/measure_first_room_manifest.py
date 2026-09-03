@@ -166,8 +166,28 @@ def report(parsed: dict) -> int:
         return 2
 
     at, frame, room = loaded
-    before = [i for i in images if i["at"] < at]
-    after = [i for i in images if i["at"] >= at]
+    # ⛔⛔ COMPARE FRAMES, NOT TIMES, AND THE EMITTER SAYS SO. asset_census.rs
+    # stamps `[image]` with "the same frame stamp as `[world-event]`, so 'before
+    # or after room-loaded' is a comparison of two integers rather than of two
+    # wall clocks: the census runs in `Last`, after a long activation frame's
+    # work, so its time can read AFTER a `room-loaded` that the insertion in
+    # `PreUpdate` of the same frame actually preceded."
+    #
+    # That is not hypothetical on the 2026-09-02 host bundle: the player sheet's
+    # second decode is frame 1129 against `room-loaded` at frame 1131 — two
+    # frames BEFORE it — while its game clock reads 3.924 s against 3.863 s,
+    # i.e. after. Ordering by time moved 7.6 MP into the wrong bucket and made
+    # "6 images / 16.1 MP before the first room" out of 7 / 23.7.
+    if frame is not None and all(i["frame"] is not None for i in images):
+        ordered_by = "frame"
+        before = [i for i in images if i["frame"] < frame]
+        after = [i for i in images if i["frame"] >= frame]
+    else:
+        # An older capture with no `f NNN` column. Time is all there is, and the
+        # report says which was used rather than letting a reader assume.
+        ordered_by = "game time (no frame column in this capture)"
+        before = [i for i in images if i["at"] < at]
+        after = [i for i in images if i["at"] >= at]
 
     # ⛔⛔ THE DENOMINATOR, FIRST, BECAUSE THIS LIST IS A SAMPLE AND READS LIKE A
     # POPULATION. `[image]` prints only for decodes at or above
@@ -189,6 +209,7 @@ def report(parsed: dict) -> int:
             "decoded in total. The counts below are a floor."
         )
     print(f"first room-loaded: {room} at {at:.3f}s (frame {frame})")
+    print(f"ordered by:        {ordered_by}")
     if art:
         print(
             f"first-room-art:    room '{art['room']}' ready after {art['updates']} "

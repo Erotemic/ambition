@@ -597,15 +597,37 @@ def main() -> int:
             for m in FILE_LINE.finditer(line):
                 checked += 1
                 path, want = m.group(1), int(m.group(2))
-                hits = [p for p in by_suffix.get(Path(path).name, [])
-                        if p.endswith(path)]
+                # ⛔ SORTED. `tracked` is a SET, so `by_suffix`'s lists come out
+                # in a per-process order — Python randomises string hashing — and
+                # an unsorted list made both the chosen candidate and the printed
+                # message vary run to run over an unchanged tree.
+                hits = sorted(p for p in by_suffix.get(Path(path).name, [])
+                              if p.endswith(path))
                 if not hits:
                     findings.append((str(rel), lineno, m.group(0), "no such file"))
                     continue
-                n = len((REPO / hits[0]).read_text(errors="replace").splitlines())
-                if want > n:
-                    findings.append((str(rel), lineno, m.group(0),
-                                     f"{hits[0]} has {n} lines"))
+                # ⛔⛔ EVERY CANDIDATE, NOT `hits[0]`. A suffix like
+                # `game_assets/mod.rs` can match two tracked files, and checking
+                # an ARBITRARY one made this report depend on `git ls-files`
+                # ordering: the same citation came back "unresolved" and
+                # "all resolved" on alternate runs of the same tree, which sent
+                # me hunting a git race that did not exist. A checker whose
+                # answer is not a function of its input is worse than no checker.
+                lengths = {
+                    hit: len((REPO / hit).read_text(errors="replace").splitlines())
+                    for hit in hits
+                }
+                if not any(want <= n for n in lengths.values()):
+                    worst = ", ".join(f"{h} has {n} lines" for h, n in lengths.items())
+                    findings.append((str(rel), lineno, m.group(0), worst))
+                elif len(hits) > 1:
+                    # It resolves against ONE of several — deterministic now, but
+                    # the reader cannot tell which file the row means.
+                    findings.append((
+                        str(rel), lineno, m.group(0),
+                        f"AMBIGUOUS: {len(hits)} tracked files match this suffix "
+                        f"({', '.join(hits)}) — name the full path",
+                    ))
             for m in PATH_CITE.finditer(line):
                 cite = m.group(1)
                 # An elided path (`tools/.../specs/x.ron`) names a shape, not a

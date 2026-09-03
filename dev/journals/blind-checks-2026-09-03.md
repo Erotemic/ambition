@@ -251,26 +251,43 @@ not a law.
 | 45 | The carve checklist's own exclusion table | It filed `snapshot_impls` under `characters/src/brain/{…}`; the path is `characters/src/snapshot_impls.rs`, at the crate ROOT, and it trips TWO contracts. Four contract names were also elided to `the-motion-model-…`, which is not greppable — the one thing that table owes its reader | `eee69a969` |
 | 46 | Every lane, over a crate built under its OWN defaults | ⭐ A THIRD BLINDNESS AXIS, beside gated code and warm fingerprints. `ambition_input`'s default feature set is EMPTY, so built alone its only use of `WALK_AXIS_CAP` is not compiled and the const warns — while the workspace check unifies `input` ON and sees nothing. `cargo check -p X` and the workspace check are DIFFERENT PROGRAMS, which is the jab-string lesson in reverse (that test was green per-crate and red under the union; this is green under the union and red per-crate). ⇒ Measured the population: of 25 crates with an empty `default` AND cfg-gated source, FOUR warn when built alone, and all four report the SAME THREE warnings — one root cause in `ambition_dialog`, whose methods are called only inside `systems.rs`'s 17 `#[cfg(feature = "input")]` blocks and `ui`-gated `bridge.rs` | `b62aac79d` fixes the input one; the dialog one is RECORDED not fixed — six methods needing cfgs across two features in a crate I do not own is a change to make on purpose, not in passing |
 
-## ⚠ A TRANSIENT I OBSERVED THREE TIMES AND HAVE NOT EXPLAINED
+## ⛔⛔ A TRANSIENT I EXPLAINED WRONG, AND THE DATA TO CATCH IT WAS ALREADY IN FRONT OF ME
 
 `check_planning_citations.py` reported `1 unresolved` and then, re-run seconds
-later with nothing changed, `all resolved`. Three times on 2026-09-03, each
-time immediately after a `git fetch`/`git rebase` in a tree three agents write
-to.
+later over an unchanged tree, `all resolved`. I saw it four times, always just
+after a `git fetch`, and wrote it up as *probably* a race between the checker's
+`git ls-files` and another agent's index write — labelled unconfirmed, which was
+honest, and **wrong**.
 
-⭐ **The plausible mechanism is that its file index is `git ls-files`**, so a
-concurrent git operation writing `.git/index` can hand it a momentarily
-incomplete list — and a citation whose target file is missing from that list
-reads as unresolved. ⛔ **I have NOT confirmed that**, and the honest reason is
-that reproducing it means racing another agent's git deliberately.
+⭐ **RACING MY OWN GIT REPRODUCED IT — and the reproduction refuted the
+hypothesis rather than confirming it.** The `reading N tracked files` line read
+**3293 in the clean runs and 3293 in the failing ones**, so the index was never
+short; and the failing citation was **the same line every time**. Both facts were
+in output I had already read.
 
-⇒ Two things follow, and the first matters more:
-  * **Re-run before believing a SINGLE failure from a tree other agents are
-    writing to.** Every one of the three cleared on the next run. A finding you
-    cannot reproduce twice in a shared tree is not yet a finding.
-  * ⚠ And the converse is the dangerous half: if the index can be momentarily
-    short, a run can also PASS over files it did not see. A green from one run
-    is worth exactly as little as a red.
+⇒ THE REAL CAUSE, and it was mine: I had added the citation
+`` `game_assets/mod.rs:561` ``, and TWO tracked files end with that suffix. The
+line-number check read `hits[0]` — and `hits` came from `tracked`, a **SET**, so
+its order is per-process (Python randomises string hashing). Half the time it
+measured the monolith's shorter `game_assets/mod.rs` and reported my line 561 as
+past the end.
+
+* `hits` is sorted, and the line check now tries EVERY candidate;
+* an ambiguous `file:line` is REPORTED as ambiguous instead of silently resolved
+  against an arbitrary file — four existed in the tree and are now full paths;
+* `test_planning_citations_are_deterministic.py` pins it: two runs over one
+  document must agree, and both poisons (unsorted hits, `hits[0]`) redden it.
+
+⛔⛔ **THE LESSON IS NOT "check for nondeterminism". It is that a PLAUSIBLE
+MECHANISM IS NOT EVIDENCE.** Mine was coherent, fitted every observation, named
+a real shared-tree hazard — and was refuted by a number printed on the same
+screen as the failure. ⇒ Before believing a mechanism, ask what it PREDICTS that
+the alternative does not, and go and look. A race predicts a varying file count;
+there wasn't one.
+
+⚠ The operational rule I drew from the wrong theory happens to be right anyway,
+and stands: re-run before believing a single failure. But it was right by
+accident, which is worth knowing about a rule.
 
 ⛔⛔ **AND FOUR OF MY OWN MEASUREMENTS OVER-REPORTED BEFORE I CHECKED THEM**,
 which is the through-line of the whole night: `Path.resolve()` escaping the

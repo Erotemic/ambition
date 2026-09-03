@@ -510,7 +510,7 @@ vanity-card
 `asset-manifest`, `held-item` and `shrine-sheet`; the review that flagged the
 drift said nine and missed `shrine-sheet` too; the correction that followed said
 TEN and was overtaken within the day by `entity-sprite`
-(`game_assets/mod.rs:561`, added by `dde5547cb` — itself a commit about a
+(`crates/ambition_sprite_sheet/src/game_assets/mod.rs:561`, added by `dde5547cb` — itself a commit about a
 MIS-STAMPED road). ⇒ Nobody's hand-kept copy has ever been right, including the
 one written to fix the others, which is the argument for deriving it rather than
 restating it — a road is added by passing a new string literal at a call site,

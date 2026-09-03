@@ -878,7 +878,7 @@ open unless marked; ⛔ several may already be done — grep before working one.
 
 * ▣ **Finding 4 (non-Up-B) / D252 — the back air is dead content for the whole
   cast.** GPT's diagnosis is the same one the queue row records and the same one
-  the fix acted on: `abilities.rs:228` says an airborne non-flyer may not turn,
+  the fix acted on: `crates/ambition_platformer2d_core/src/movement/abilities.rs:228` says an airborne non-flyer may not turn,
   `kernel.rs:427` applies `facing_intent` unconditionally, so the body turns to
   face the back input and `attack_dir_from_axis` folds the reversal away. ✔ Fixed
   at the PRODUCER (`brain/player.rs`), not in the shared kernel — the human

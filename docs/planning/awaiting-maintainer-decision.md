@@ -598,6 +598,17 @@ four content worlds declare `pxHei 2484` against a 2468-pixel file, and
 patch preserves sanic's framing as a fraction, i.e. whatever that stale
 declaration was already showing.
 
+⚠ **IF THE SUITE TELLS YOU THIS PATCH NO LONGER APPLIES, CHECK THE INDEX BEFORE
+BELIEVING IT.** The targets live in the `game/ambition_map_assets` SUBMODULE, and
+on 2026-09-03 `test_a_patch_against_this_tree_still_applies` failed on it —
+"either the tree moved under it or the patch was never test-applied" — while
+`git apply --cached --check` inside that submodule accepted it cleanly. Four
+`.ldtk` worlds were simply dirty from another session's work in progress. Acting
+on the failure as written would have withdrawn a correct patch, or regenerated
+it on top of somebody's unfinished edits. The checker now separates the two
+causes and SKIPS with the dirty files named, so this should not recur; the note
+stays because the wrong reading was one sentence away from a bad decision.
+
 ⛔ **Jon's submodule, so it waits** — applying it needs a commit in
 `game/ambition_map_assets` plus a pointer bump. ▢ And it is untested against the
 LDtk editor itself, which needs Jon opening a world.

@@ -1958,6 +1958,15 @@ regression. Poison-verified in every direction, with a positive control
 asserting the tree really does contain correctly-scaled variants — otherwise
 two absence assertions would pass forever on an empty measurement.
 
+⛔ **THE RATCHET IS REAL AND IT RUNS NOWHERE.** Its five assertions are behind
+`@pytest.mark.skipif(not os.environ.get("AMBITION_ASSETS_ARE_CANONICAL"))`, and
+**nothing in the repository sets that variable** — re-checked 2026-09-03 late,
+whole tree, one hit per file and all of them the skipif and its own prose. The
+gate is correct in intent (the sprite tree is gitignored and machine-local, so
+on a box that regenerates cleanly the KNOWN_ list reads as stale and the guard
+fails for the wrong reason), but no lane opts in, so the suite has never once
+evaluated these. See the queue row filed the same day.
+
 ⭐⭐ **ONE PROP READS THE SHARED SPRITE PACK. 197 TARGETS ARE IN IT, AND 98.8%
 OF ITS BYTES ARE UNREACHABLE — MEASURED 2026-09-02**
 (`scripts/measure_pack_reachability.py`). `build_prop_sprite_asset_packed` is
@@ -2127,6 +2136,11 @@ Ratcheted by `scripts/tests/test_shipped_sheet_pages_are_claimed.py` on the
 four stranded sheets, so the count cannot grow; poisoned both directions (drop
 a name → new-orphan test red; add a fixed name → rot test red). It deletes
 nothing and asks for nothing to be deleted.
+
+⛔ **SAME GATE, SAME CONSEQUENCE:** its five assertions carry the
+`AMBITION_ASSETS_ARE_CANONICAL` skipif too, so "the count cannot grow" is a
+property of a guard that no lane runs. Ten assertions across the two files are
+skipped in every suite invocation.
 
 ⛔ **THE COST IS PACKAGE SIZE, NOT RESIDENCY.** No manifest names them, so
 nothing decodes them; but `package_asset_guard.py` records *"every regular

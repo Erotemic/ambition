@@ -19,7 +19,10 @@ Useful forms::
     ./run_tests.sh --heavy
 
 Every run writes `target/run_tests_status.json` (or `--status-json PATH`) with a
-state of `running`, `done`, or `crashed`, plus its pid and final tally. External
+state of `running`, `done`, `aborted` (stopped early on the disk floor) or
+`crashed`, plus its pid and final tally. ⛔ ONLY `done` MEANS THE PLAN RAN: the
+other terminal states also carry `exit_code`, and `aborted` names the job it
+refused to start in `aborted_on_disk` with a `never_ran` count. External
 waiters should read that status file rather than process-scan for `run_tests.py`.
 An empty job plan or unknown package is an error; the process exits nonzero when
 any selected job fails."""
@@ -215,6 +218,19 @@ class Job:
     # job that must honor an out-of-tree crate's own config — the external
     # consumer fixture's isolated target-dir — has to run from that directory.
     cwd: str | None = None
+    # ⛔⛔ DOES THIS JOB WRITE TO THE TARGET DIRECTORY? The disk guards key on
+    # THIS, not on which lane asked, because the two disagree: `--maintenance`
+    # is exempt from the floor on the grounds that hygiene audits are pure
+    # Python, and one of its jobs — the intra-doc-link ratchet — shells out to
+    # `cargo doc -p <crate> --no-deps` per crate. ⚠ Found 2026-09-03 by running
+    # that lane on a volume at 12 GB: the lane the guard waves through is the
+    # one that can still fill the disk. An argv check cannot see it either, the
+    # argv is `python3 scripts/check_doc_link_ratchet.py`.
+    #
+    # ⇒ Default False, so a NEW job is treated as cheap. That is the wrong
+    # default for safety and the right one for honesty: anything else would
+    # silently claim knowledge about jobs nobody has classified.
+    builds: bool = False
 
 
 @dataclass
@@ -775,6 +791,9 @@ def build_maintenance_jobs() -> list[Job]:
         Job(
             "broken intra-doc links (ratchet; cold cargo doc, minutes)",
             [sys.executable, "scripts/check_doc_link_ratchet.py", "--check"],
+            # The one maintenance job that is not pure Python: it runs
+            # `cargo doc -p <crate> --no-deps` for every crate.
+            builds=True,
         ),
         Job(
             "zone names (ratchet)",
@@ -1103,7 +1122,12 @@ def run(jobs: list[Job], list_only: bool, timings_json: str | None = None,
     #
     # One refusal up front, naming the remedy, is worth more than any amount of diagnosing that.
     free_gb = free_gb_on_target()
-    if not (tool_tests_only or maintenance_only) and free_gb < MIN_FREE_GB:
+    # ⚠ THE EXEMPTION IS FOR LANES THAT DO NOT BUILD, and membership in one is
+    # not proof of that: `--maintenance`'s intra-doc-link ratchet runs
+    # `cargo doc` per crate. The lane still gets its exemption, but only while
+    # nothing in its plan writes to the target directory.
+    exempt = (tool_tests_only or maintenance_only) and not any(j.builds for j in jobs)
+    if not exempt and free_gb < MIN_FREE_GB:
         print(
             f"REFUSING: {free_gb:.1f} GB free on {target_dir()}, and a full suite "
             f"needs about "
@@ -1154,7 +1178,8 @@ def run(jobs: list[Job], list_only: bool, timings_json: str | None = None,
             # right, but a suite below the hard floor is about to fail for a
             # reason nobody will be able to read.
             free_now = free_gb_on_target()
-            if free_now < ABORT_FREE_GB and not (tool_tests_only or maintenance_only):
+            guarded = j.builds or not (tool_tests_only or maintenance_only)
+            if free_now < ABORT_FREE_GB and guarded:
                 print(
                     f"\n\033[31m  REFUSING TO START `{j.name}`: "
                     f"{free_now:.1f} GB free on {target_dir()}.\033[0m\n"
@@ -1239,26 +1264,40 @@ def run(jobs: list[Job], list_only: bool, timings_json: str | None = None,
               f"bind is present and the volume is genuinely full, report it and "
               f"stop rather than reclaiming (AGENTS.md).")
 
-    write_status(status, {**base, "state": "done", "finished_jobs": len(results),
+    # ⛔⛔ AN ABANDONED RUN IS NOT A PASSING RUN, AND THE STATUS FILE IS WHERE
+    # THAT GETS DECIDED — not the shell exit code.
+    #
+    # The jobs that DID run all passed, so `failed` is empty and both the
+    # terminal state and the serialized `exit_code` would otherwise say `done`
+    # / `0`. The shell sees the `return 1` below either way; a WAITER does not.
+    # ⚠ This file exists precisely for readers who are not the shell — the
+    # autonomous runs poll it — so a green record of a suite that stopped two
+    # thirds of the way through is the same "silence reads as success" failure
+    # the disk check exists to prevent, moved one level out. Caught in review
+    # 2026-09-03, after the between-jobs abort shipped with only the `return 1`.
+    incomplete = aborted_on_disk is not None
+    exit_code = 1 if (failed or incomplete) else 0
+    write_status(status, {**base,
+                          "state": "aborted" if incomplete else "done",
+                          "finished_jobs": len(results),
                           "passed": passed, "failed": failed,
                           "seconds": round(total, 1),
                           **wall_time_split(results),
                           "completed": completed_rows(results),
                           "current_job": None,
+                          # Named, not just counted: a reader deciding whether
+                          # to trust the run needs to know WHERE it stopped and
+                          # how much of the plan never happened.
+                          "aborted_on_disk": aborted_on_disk,
+                          "never_ran": len(jobs) - len(results),
                           "free_gb_at_end": round(free_after, 1),
                           "disk_gb_spent": round(spent, 1),
-                          "exit_code": 1 if failed else 0})
+                          "exit_code": exit_code})
     print(f"  status written to {status}")
-    if aborted_on_disk is not None:
-        # ⛔ AN ABANDONED RUN IS NOT A PASSING RUN, and nothing else here would
-        # say so: the jobs that DID run all passed, so `failed` is empty and the
-        # exit code would be 0. A suite that stopped early must never look green
-        # — that is the same "silence reads as success" failure the disk check
-        # exists to prevent, one level up.
+    if incomplete:
         print(f"\n\033[31m  INCOMPLETE: stopped before `{aborted_on_disk}` — "
               f"{len(jobs) - len(results)} job(s) never ran.\033[0m")
-        return 1
-    return 1 if failed else 0
+    return exit_code
 
 
 #: What `scripts/tests` and the repo's checkers import AT MODULE SCOPE, so a
@@ -1430,10 +1469,13 @@ def main() -> int:
               "top. And it needs DISK: the run exhausted a 290 GB volume "
               "mid-suite, because every feature job builds its own variant of "
               "the graph and cargo never prunes the last one. "
-              "`check_disk_headroom.py` refuses below 40 GB before the first "
-              "job, but it does NOT re-check between jobs, so a suite that "
-              "starts above the floor can still die of ENOSPC halfway and "
-              "report it as a link error. If you are mid-edit, a focused test "
+              f"`check_disk_headroom.py` refuses below {MIN_FREE_GB:.0f} GB "
+              f"before the first job, and this runner now re-checks BETWEEN "
+              f"jobs against a hard {ABORT_FREE_GB:.0f} GB floor -- it stops "
+              "and names the job it would not start, rather than letting the "
+              "next one die of ENOSPC and report it as a link error. A stopped "
+              "suite exits nonzero and its status file says `aborted`. If you "
+              "are mid-edit, a focused test "
               "almost certainly answers your question faster and just as "
               "well.")
     if not args.list:

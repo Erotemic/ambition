@@ -343,7 +343,9 @@ Add durable lessons to `dev/benchmark-candidates/`; never transient project stat
 * For long-running commands, read state they wrote rather than polling process
   names:
 
-  * `target/run_tests_status.json`
+  * `target/run_tests_status.json` — only `state: done` means the plan ran;
+    `aborted` is a suite the disk floor stopped part-way, and its `failed` list
+    is empty because every job that started passed.
   * `dev/ambition_dev_measurements/run_tests_cost.jsonl`
 
 Do not poll with `pgrep -f <script>`; the polling command can match itself.

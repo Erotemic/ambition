@@ -120,7 +120,14 @@ part.
 - `engine_rename_campaign.md` — header-bearing, and accurate on every claim.
   Confirms the sample.
 - `game/bosses.md` — **no header, two months unread — the oldest page here — and
-  accurate.** ⇒ Because it is DESIGN LANGUAGE, not status. What rots is a
+  accurate.** ⇒ Because it is DESIGN LANGUAGE, not status.
+  ⭐ **And the class has a mechanical tell, measured 2026-09-03:** `vision.md`,
+  `game/vision.md` and `game/ambition.md` carry **zero backticked identifiers
+  between them**. A page with no names, paths or counts has nothing the workspace
+  can falsify, so a re-verification pass on one buys nothing. ⇒ Count the
+  backticks before spending a pass: they are the page's surface area against the
+  code, and a page with none is either doctrine (leave it) or a status page that
+  forgot to cite anything (the real problem). What rots is a
   sentence about the current state of the code; a sentence about what a boss IS
   can sit unread for a year. Do not read a missing header on a design page as a
   reason to distrust it, and do not spend a re-verification pass on one.
@@ -244,6 +251,18 @@ POINTED AT**, and on 2026-09-03 that cost an open plan its only way in:
 the sole referrer of `moveset-inspector.md` — which is OPEN, with M3
 outstanding. Deleting the receipt made an open plan unreachable by the route
 [`README.md`](README.md) describes.
+
+⛔ **AND THERE IS A THIRD REFERENCE CLASS THE PROSE SWEEP CANNOT SEE:
+`source_doc` FIELDS IN THE WORKSPACE-POLICY TOMLs.** Learned twice, the second
+time the hard way: `engine/architecture.md` earns its keep on 15 of them, and on
+2026-09-03 I deleted `engine/decomposition.md` — zero inbound prose links, its
+rule fully absorbed downstream, both usual halves passing — and **eight policy
+rows cited it**. `every_source_doc_names_a_real_file_and_heading` went red in the
+feature-union job within the hour. ⇒ Run this too:
+
+```sh
+grep -rn "<path>" tests/ambition_workspace_policy/policies/*.toml
+```
 
 ⇒ **Before deleting a page, grep its OUTBOUND links too**, and check each target
 is reachable another way:

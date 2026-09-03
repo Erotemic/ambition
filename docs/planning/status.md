@@ -343,6 +343,10 @@ part of [`README.md`](README.md), not a second review-status ledger.
   architecture.
 - **Sanic, Super Mary-O, Hollow Lite, and focused demos** remain useful acceptance
   customers for movement, collision, authoring, encounters, and presentation.
+  Their acceptance lists are owned by [`demos/sanic.md`](demos/sanic.md),
+  [`demos/super-mary-o.md`](demos/super-mary-o.md) and
+  [`demos/hollow-lite.md`](demos/hollow-lite.md) — this page defers to them and
+  must not restate their status.
 - The external-consumer fixture is the proof that public capability/package
   boundaries work outside the flagship composition.
 

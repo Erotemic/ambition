@@ -40,6 +40,36 @@ silently re-points every page that cited the original.
 
 ## Open decisions
 
+### 48. Is near-identical CPU play on a symmetric stage acceptable, or a defect?
+
+A test has been deferring this to you since before its queue row was pruned, and
+the deferral is the only record left of it.
+
+`two_cpus_wearing_one_character_stop_being_a_perfect_reflection`
+(`game/ambition_demo_smash_app/tests/the_stage_kills.rs:1806`) seats two CPUs on
+the SAME character on a mirrored stage and asserts they diverge by more than a
+pixel. It passes. Its failure text says what a pass means and hands you the
+question in the same breath:
+
+> *"⛔ this is NOT one mind played twice — the two seats draw from different
+> streams, and the sibling guards listed above prove it. What it says is that a
+> symmetric stage plus symmetric information leaves two different streams almost
+> nothing to diverge ON at this difficulty. Whether that is acceptable is a
+> product decision (queue D167); do NOT answer it by unmirroring the spawns or by
+> adding noise."*
+
+⇒ **The engineering half is settled and guarded** — the determinism is real, the
+divergence is real, and the test forbids the two cheap fixes that would hide the
+question. What is unanswered is whether two CPUs that play almost identically on
+a symmetric stage read as a broken AI or as a fair mirror match.
+
+⛔ **Queue row `D167` no longer exists.** It is in no live planning document — not
+`queue.md`, not `tracks.md`, not this file — and survives only in the archived
+pre-prune queue. So the question was never answered and never re-filed; it fell
+out of the planning system and its only trace is an assertion message nobody
+reads unless the test fails. Filed here 2026-09-03 to put it back where a
+decision can be made.
+
 ### 47. The boss-crate reassessment you asked for on 2026-07-16 is now due
 
 Your ruling that day (`maintainer-decisions.md`, 2026-07-16) was *"defer any boss

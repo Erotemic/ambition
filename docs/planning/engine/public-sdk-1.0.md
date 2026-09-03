@@ -60,6 +60,21 @@
 > they are held to is the RIGHT one"* has a concrete first answer: it is the
 > right one plus fifty-one crate aliases.
 >
+> ✔ **AND 0031'S SECOND COST WAS PAID IN FULL, which is the happier half.** That
+> ADR also measured composition: *"`build_windowed_app` is ~65 lines a consumer
+> must write in a specific order"* — asset source before `DefaultPlugins`, then
+> `init_engine_states`, then `PlatformerEnginePlugins::fixed_tick()`, then
+> `PlatformerHostPlugins`, then the shell, then `PlatformerAssetsPlugin`, each
+> for a reason the consumer had to know. At HEAD that function is **9 lines**
+> (`fixtures/external_consumer/src/lib.rs:523`) and holds no order at all:
+> `PlatformerApp::windowed(…)`, optionally `.without_gpu()`, `.mount(…)`,
+> `.build()`. The sequence moved inside the builder, where it belongs.
+>
+> ⇒ **So this ADR has one complaint decisively closed and one quietly worse.**
+> Worth holding both: a reader who only sees the 9-line builder concludes the
+> facade problem is solved, and a reader who only counts crate aliases concludes
+> nothing was done. The composition leak is gone; the namespace mirror is not.
+>
 > ⚠ **This is the COMPATIBILITY question, not the linking one, and they have
 > different answers.** A facade alias makes the crate graph part of the public
 > API — 0031's actual concern. It does NOT decide what a consumer LINKS: the

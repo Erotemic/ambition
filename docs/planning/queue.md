@@ -579,9 +579,42 @@ The one unresolved developer-policy choice from the session-ownership work is in
   `--features capture,input,visible` the room loads at **frame 1** and all four
   tests still fail with the same message. ⇒ Whatever it is, it is not the room
   being late and not a system dying before the blocks are made.
-  ⭐⭐ **READ TO A NAMED MECHANISM 2026-09-03, and it is a THIRD answer neither
-  of the row's two options anticipated: A PARALLAX-ART GATE WITHHOLDS THE WHOLE
-  ROOM.** Not "another feature owns block drawing" and not "the room never
+  ✔✔ **MEASURED 2026-09-03 AND THE `painted_blocks` GROUP IS GONE — 4/4 PASS.**
+  `cargo test -p ambition_demo_mary_o_app --features capture --test mary_o_it`
+  reads **57 passed / 3 failed / 3 ignored**, against the 5 passed / 6 FAILED
+  this row recorded at `f21153b7b`, and **not one of the three survivors is a
+  painted_blocks test**:
+
+  ```text
+  ov1_draws_the_world::a_vfx_message_this_demo_writes_is_drawn_by_this_demo
+  ov1_draws_the_world::the_presentation_plugin_adds_no_hud_and_no_menu
+  ov1_draws_the_world::visible_mary_o_presentation_retires_and_relaunches_with_the_session
+  ```
+
+  Also 4/4 at `--features visible` and at `--features capture,visible`. ⚠ 404
+  commits landed between that measurement and this one and I did not bisect
+  which fixed it — the finding is that the group no longer reproduces, not what
+  cured it.
+  ⛔⛔ **AND I RETRACT THE DIAGNOSIS I PUBLISHED AN HOUR EARLIER IN THIS ROW.** I
+  read `spawn_room_visuals`'s session caller, found a `theme_loaded` gate that
+  returns before the block loop, matched it to a comment warning that the room's
+  visuals must not be *"held hostage to a backdrop that is never coming"*, and
+  wrote it up as the mechanism. **It explains a failure that does not occur.**
+  The reading may still describe a real latent hazard — a theme whose art never
+  arrives is indistinguishable there from one still loading — but it is not the
+  cause of these tests, and I labelled it a source reading precisely because
+  this was possible. ⇒ **A coherent mechanism that matches a comment's own
+  warning is still a hypothesis; one test run outranks it.**
+  ⚠ **THE TWO SURVIVING CLASSES ARE ALREADY CHARACTERISED ABOVE** and neither is
+  a mary_o defect: the vfx one panics *"`fx::vfx_spawn_messages` is not scheduled
+  here, which is the whole of the coin-pop report and not a Mary-O bug"*, and
+  `the_presentation_plugin_adds_no_hud_and_no_menu` fails BY CONSTRUCTION under
+  an all-presentation build (0 expected, 40 actual). ▢ The genuinely new one is
+  `visible_mary_o_presentation_retires_and_relaunches_with_the_session`, which
+  this row has never named.
+
+  ⊙ **The superseded reading, kept because the retraction is the lesson:** a
+  parallax-art gate withholds the whole room. Not "another feature owns block drawing" and not "the room never
   reaches the state" — the blocks are built by a path that refuses to run.
 
   `spawn_room_visuals` (which loops `world.blocks` and is the ONLY caller of

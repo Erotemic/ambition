@@ -521,7 +521,17 @@ The one unresolved developer-policy choice from the session-ownership work is in
   early" was the obvious reading — and it is wrong. Run at
   `--features capture,input,visible` the room loads at **frame 1** and all four
   tests still fail with the same message. ⇒ Whatever it is, it is not the room
-  being late and not a system dying before the blocks are made. ⚠ I wrote the
+  being late and not a system dying before the blocks are made.
+  ⭐ **THE REMAINING HYPOTHESIS IS ONE BISECTION, and it is bounded to two runs.**
+  `mary_o_it` declares `required-features = ["capture"]` and its helpers need
+  `visible` (`build_windowed_demo_app` and `RenderMode` are both behind it), so
+  the minimum set is `capture,visible`. ⇒ Run
+  `cargo test -p ambition_demo_mary_o_app --test mary_o_it --features
+  capture,visible -- painted_blocks`, then again adding `input`. If the first
+  passes, the feature that takes block drawing away is named by the difference;
+  if both fail, the cause is in the minimum set and the union is irrelevant to
+  it. Either answer is worth more than the "under the union" framing the row
+  started with. ⚠ I wrote the
   settle fix, ran it, saw it change nothing, and reverted it rather than ship a
   loop whose comment claimed a cause it had not established.
   ⊙ **HALF-ANSWERED: it is NOT the ConeRigAssets group.**

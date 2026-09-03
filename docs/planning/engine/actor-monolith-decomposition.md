@@ -888,6 +888,19 @@ condition that hid a defect once.
 in the carve — a kernel-side world-gating plugin holding both, not one road
 leaving with the encounter.
 
+✔ **(d) IS CUT, 2026-09-03.** `world::gating::WorldGatingSchedulePlugin` holds
+both writers, composed by the runtime; the encounter plugin schedules neither and
+leaves a note saying where they went and why. The adjacency is now stated by a
+plugin named for the invariant instead of surviving by accident of history.
+✔ Guarded and poison-verified: both writers must be scheduled by that plugin,
+both `.after(FeatureWorldOverlaySet)` and both members of `WorldPrep`. A writer
+that lost the overlay edge would write into a list the rebuild is about to clear
+— collision that silently is not there, with nothing red. Dropping either road
+from the plugin turns the guard red naming the missing one.
+⚠ The pre-existing `gated_lock_walls` tests register that system into their own
+app, so they prove the SYSTEM and say nothing about the wiring. This is the
+wiring.
+
 #### What is LEFT, measured after the cuts (2026-09-03)
 
 The adapter's kernel seams went **7 → 3**, and only ONE is a logic dependency:

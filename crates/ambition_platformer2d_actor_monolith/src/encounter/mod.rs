@@ -92,31 +92,16 @@ impl bevy::prelude::Plugin for EncounterSimulationSchedulePlugin {
                 .in_set(ambition_platformer2d_shared_tangle::schedule::Platformer2dSimulationPhaseMonolith::Progression)
                 .after(EncounterLifecycleSet),
         );
-        // The lock-wall contribution runs a phase EARLIER, in WorldPrep: it
-        // derives the seal walls onto the collision overlay's `gate_solids` from
-        // the registry phase, right after the overlay is cleared/rebuilt and
-        // before any WorldPrep collision consumer (enemy actor sweeps) — so the
-        // walls are present for this frame's collision exactly as the old
-        // base-resident blocks were, without mutating the authored base.
-        app.add_systems(
-            sim,
-            contribute_encounter_lock_walls
-                .after(ambition_platformer2d_shared_tangle::schedule::FeatureWorldOverlaySet)
-                .before(ambition_combat::hazards::update_ecs_hazards)
-                .in_set(ambition_platformer2d_shared_tangle::schedule::Platformer2dSimulationPhaseMonolith::WorldPrep),
-        );
-        // ITS SIBLING: the walls an AUTHORED CONDITION opens rather than an
-        // encounter phase. Same slot, same reasons, and registered beside it so
-        // the two roads into `gate_solids` are visible in one place — this one
-        // arrived from `ambition_content`, where being invisible next to its
-        // sibling was part of how it went unnoticed that its data lived in Rust.
-        app.add_systems(
-            sim,
-            crate::world::gated_lock_walls::sync_authored_gated_lock_walls
-                .after(ambition_platformer2d_shared_tangle::schedule::FeatureWorldOverlaySet)
-                .before(ambition_combat::hazards::update_ecs_hazards)
-                .in_set(ambition_platformer2d_shared_tangle::schedule::Platformer2dSimulationPhaseMonolith::WorldPrep),
-        );
+        // ⭐ THE TWO `gate_solids` ROADS MOVED OUT (2026-09-03), together, to
+        // `world::gating::WorldGatingSchedulePlugin`. They were registered here
+        // — including `sync_authored_gated_lock_walls`, which is NOT an
+        // encounter system — because being visible beside its sibling is
+        // load-bearing: the authored one arrived from `ambition_content`, and
+        // being invisible next to this one is how it went unnoticed that its
+        // data lived in Rust. Keeping them here meant this plugin scheduled a
+        // system belonging to neither encounters nor itself, and a carve that
+        // moved this plugin would have split the pair. A plugin named for the
+        // invariant holds them now.
     }
 }
 

@@ -165,6 +165,28 @@ is a signal and not a lock. And a page under a header is still fair game for
 somebody fixing a fact they can prove — the header says who is working it, not
 who owns it.
 
+### ⛔ RETIRING A PAGE CAN ORPHAN WHAT IT LINKED TO
+
+The retirement test — zero inbound references AND full absorption of its content
+— is about the page being retired. ⚠ **It says nothing about the pages that page
+POINTED AT**, and on 2026-09-03 that cost an open plan its only way in:
+`overnight-goal-agent3.md` was a closed receipt, correctly retired, and it was
+the sole referrer of `moveset-inspector.md` — which is OPEN, with M3
+outstanding. Deleting the receipt made an open plan unreachable by the route
+[`README.md`](README.md) describes.
+
+⇒ **Before deleting a page, grep its OUTBOUND links too**, and check each target
+is reachable another way:
+
+```sh
+grep -oE '\]\(([^)]+\.md)' <page> | cut -d'(' -f2 | while read t; do
+  echo "$t -> $(grep -rl "$(basename "$t")" docs/planning --include=*.md | grep -vc "<page>")"
+done
+```
+
+A target that reaches zero needs a row somewhere first. That is what
+`tracks.md`'s moveset-observatory row is for, and why it says so in the row.
+
 ### ⛔ A NUMBER TYPED INTO PROSE IS A CLAIM WITH NOTHING HOLDING IT
 
 Five separate figures on these pages drifted in the SAME NIGHT (2026-09-03), and

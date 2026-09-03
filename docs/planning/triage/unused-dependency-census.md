@@ -64,17 +64,28 @@ tidiness.
 
 ## Confirmed results, 34 crates
 
-**Genuinely unused, confirmed under default AND `--all-features`:**
+**FIVE confirmed under default AND `--all-features`** — these are the only rows
+that have been through both stages:
 
 | crate | dependency | class |
 |---|---|---|
 | `ambition_abilities` | `ambition_boss_encounter` | STRANDED — remove |
 | `ambition_abilities` | `ambition_gameplay_trace` | STRANDED — remove |
 | `ambition_content_pack` | `thiserror` | STRANDED — remove (0 occurrences, and the crate has no `derive(…Error)` at all) |
-| `ambition_input` | `bevy_input` | REDUNDANT-UMBRELLA — `bevy::input` used 11× |
 | `ambition_abilities` | `ambition_items` | DOC-ONLY — **ruled: keep both** |
 | `ambition_damage` | `ambition_projectiles` | MISFILED **and** doc-linked (`crates/ambition_damage/src/lib.rs:1082`) |
+
+⚠ **DETECTOR ONLY — classified but NOT yet confirmed, because the run was
+stopped before reaching them. Do not act on these two:**
+
+| crate | dependency | provisional class |
+|---|---|---|
+| `ambition_input` | `bevy_input` | REDUNDANT-UMBRELLA — never named, `bevy::input` used 11× |
 | `ambition_encounter_features` | `ambition_interaction` | MISFILED — both uses in `tests.rs` |
+
+⇒ Both look safe and neither is a guess, but "looks safe" is what the
+default-features detector said about `ron` too. One `cargo rustc -p <crate>
+--lib --all-features -- -W unused_crate_dependencies` each settles them.
 
 ⭐ **`ambition_abilities` is the carve-strandage case and it is worth its own
 sentence.** Its two stranded deps are in the crate carved that same night, it

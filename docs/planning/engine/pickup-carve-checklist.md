@@ -224,6 +224,39 @@ flyline, possession, mark/recall". Repointing the path alone would have left a
 sentence that resolves and lies: two of those five did not move. A citation
 carries its neighbours with it — re-read the sentence, not only the path.
 
+### ⛔⛔ COUNT THE SHAPE, NEVER THE NAME — the trap every carve's guard walks into
+
+A carve ends with a guard proving the moved systems still sit where they used to.
+The obvious guard looks a system up by name. **It cannot work.** Bevy 0.19
+strips `system.name()` to a placeholder unless `bevy_ecs`'s `debug` feature is
+on, and that feature is enabled NOWHERE in this workspace — so a lookup doing
+`format!("{}", system.name())` and `rsplit("::")` matches nothing, and reports it
+as *"X must be scheduled by Y"* when X is scheduled perfectly.
+
+⚠ **It has caught three carves in two days**, which is why it is here rather than
+in a comment: this session's first attempt, `ambition_encounter_features`'s
+`world_gating` and `encounter_spawn_service` tests (both red on a tree where the
+systems ARE registered), and the abilities carve's own first draft. Worse, the
+failure is composition-dependent — the same test can pass under one `-p` and
+fail under `--workspace`, because feature unification differs per build graph —
+so "it passed for me" is not evidence.
+
+⇒ **The shape that works**, and both carved crates already use it:
+
+```rust
+graph.hierarchy().graph().contains_edge(set_node, NodeId::System(key))  // membership
+graph.dependency().graph().contains_edge(a, b)                          // order
+graph.system_sets.get_key(Set.intern())                                 // existence
+```
+
+Count direct members and assert the number. `ambition_held_items/src/schedule_tests.rs`
+and `ambition_abilities/src/schedule_tests.rs` are the two worked examples.
+
+⭐ And assert the ABSENCE too: a carved plugin must not configure a set it does
+not own. ⚠ Assert it as absence FROM THE GRAPH, not as an empty set — a set no
+plugin has named is not in the graph at all, so `get_key(...).is_none()` is the
+check and a member count panics in the lookup instead.
+
 ### The lockfiles are plural
 
 `fixtures/minimal_game/Cargo.lock` is the one the footprint ratchet reads, and

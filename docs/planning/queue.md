@@ -647,77 +647,22 @@ The one unresolved developer-policy choice from the session-ownership work is in
   are not findings at all. Widening the assertions would have erased the
   difference.
 
-- ▢ **`why_not()` IN THE NEW CANONICAL-ASSETS DETECTOR STATES A CAUSE IT NEVER
-  CHECKED.** `scripts/lib/canonical_assets.py:92` returns, for ANY checkout
-  where at least one sprite tree exists, *"N sprite tree(s) present but holding
-  SYMLINKS — this is a mirrored worktree borrowing another checkout's generated
-  assets"*. It never looks at whether a single file is a symlink; only the
-  no-trees branch above it is derived. ⛔ So a checkout that skips for a
-  DIFFERENT reason — trees present but empty, which `assets_are_canonical`
-  handles as `real + linked == 0` → False — is told it is a mirrored worktree
-  and pointed at `mirror_assets_for_worktree.py` for a problem it does not
-  have.
-  ⚠ **The docstring is what makes this worth filing rather than shrugging at:**
-  *"A skip reason that says what was LOOKED AT, not just that it skipped"*, with
-  the rationale that a vague skip is how ten assertions sat unevaluated. The
-  function's stated purpose is precisely the thing it does not do.
-  ⓘ Found by calling it on this box, where `assets_are_canonical` returns TRUE
-  and `why_not` nonetheless reports symlinks — the two disagree because only
-  one of them measures. Reported to the session that wrote it; the fix is to
-  derive the message from the same counts the predicate uses, and it is small.
-  ⭐ Not a reason to revert the module, which correctly closes the row above.
+✔ **RETIRED 2026-09-03 — two rows whose work landed.** The file's own contract at the top says
+completed investigations do not stay here; both of these were still carrying `▢`, which made the
+queue read as an execution authority for work already done.
 
-- ▢ **NINE DEBUG BINARIES IN ONE CRATE ARE 99.8% THE SAME PROGRAM: ~5.6 GB ON
-  DISK THAT COLLAPSES TO ~0.7 GB.** Jon asked 2026-09-03 whether folding the
-  probe executables into one modal program yields one 3 GB file or one ~500 MB
-  file. ⭐ **MEASURED: the latter, and by a wider margin than the question
-  assumed.**
-  `game/ambition_demo_smash_app/src/bin/` holds nine: `capture_probe`,
-  `ladder_probe`, `ladder_rig`, `match_diagram`, `match_report`, `match_shots`,
-  `roll_probe`, `select_walkthrough`, `stage_diagram`.
+* **`why_not()` stating a cause it never checked** — fixed. The message is derived from the same
+  counts the predicate uses (`_scan_tree_files`), and a guard pins that the two agree. It has
+  since been strengthened twice more: a freshness precondition, and an exhaustive scan replacing
+  the 25-file sample that let a regenerated PREFIX classify a borrowing tree as canonical.
+* **Nine debug binaries at 99.8% the same program** — done, and measured rather than predicted.
+  `smash_tool` is one modal `clap` CLI: **4.79 GB → 0.50 GB, output byte-identical**, with
+  `test_documented_bin_targets_exist.py` guarding the documented entry points. ⭐ The row's own
+  "try the one-line lever first" was tried and REJECTED on measurement: `split-debuginfo=unpacked`
+  shrank the executable 41% but wrote 532 MB of `.dwo`, so total on disk went UP 324 MB — the
+  redundancy it exploits is exactly what the collapse had already removed, and harder. Recorded at
+  the setting in `Cargo.toml` so nobody re-runs it.
 
-```text
-  binary            size    defined symbols
-  ladder_probe      634M    502,262
-  roll_probe        633M    501,899
-  ladder_rig        634M    502,053
-  capture_probe     635M    502,165
-  stage_diagram     474M    267,675
-  ------------------------------------------
-  union of the five         503,084
-  sum if kept separate    2,276,054
-```
-
-  ⇒ **The union is 822 symbols larger than the LARGEST single binary — 0.16%.**
-  `ladder_probe` and `roll_probe` share 501,778 of their ~502,000 defined
-  symbols (99.88%); each contributes a few hundred of its own (484 and 121).
-  Section sizes say the same thing: `.debug_str` 182 MB, `.debug_info` 76 MB and
-  `.debug_line` 41 MB are the same size in all of them, including
-  `stage_diagram`, whose `.text` is half the others'.
-  ⇒ One modal binary should land near the largest current one. Those five are
-  3.0 GB today → **~0.64 GB, a ~2.4 GB saving**; all nine are ~5.6 GB →
-  **~0.7 GB, a ~4.9 GB saving**, per full build, plus one link instead of nine.
-  ⛔ **A SYMBOL UNION IS A PROXY FOR SIZE, NOT A SIZE.** The collapsed figure is
-  predicted, not measured — confirming it needs a build, and this box is at
-  12 GB free, below the runner's 40 GB floor. Whoever has headroom should build
-  one merged bin and check before anyone restructures nine files.
-  ⭐ **TRY THE ONE-LINE LEVER FIRST.** `[profile.dev]` already sets
-  `debug = "line-tables-only"`, so the obvious debug-info saving is spent — but
-  it does NOT set `split-debuginfo`, which on Linux stops DWARF being copied
-  into each executable. That is one line in `Cargo.toml` against nine rewritten
-  `main`s, and it may take most of the win. Measure it before doing the work.
-  ✔ **JON RULED 2026-09-03: DO IT — a modal CLI with `clap`, related binaries
-  combined, standalone executables kept for the game and the four demos.** The
-  plan is [`modal-cli-binary-collapse.md`](modal-cli-binary-collapse.md), which
-  carries the scope decision (collapse WITHIN a crate, never across — a
-  cross-crate `capture_*` tool would link every demo at once and the capability
-  footprint ratchet exists to refuse that), the feature-fragmentation constraint
-  the naive version misses, and Phase 0: confirm the prediction with a build
-  before writing any code, and try `split-debuginfo` first because it is one
-  line and may take most of the win.
-  ⚠ The trade-off, so it is not discovered later: one binary means any probe
-  edit relinks all of them. That is close to free here — they already share
-  ~100% of their code, so any shared-crate edit already relinks all nine.
 
 - ▢ **EVERY INTERACTABLE ROOM NPC IS DRAWN BY A PLACEHOLDER FOR ITS FIRST
   FRAMES, BECAUSE ITS BUNDLE CARRIES NONE OF THE FIVE MARKERS THE VIEW

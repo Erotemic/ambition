@@ -305,6 +305,28 @@ say where the file ISN'T. Only re-poisoning AFTER the change caught it.
 none of the old one's evidence. Ask which of its old failures it still catches
 before you believe it.
 
+⛔⛔ **AND THE GUARD DOES NOT HAVE TO CHANGE FOR ITS POISON VERDICT TO GO
+STALE — THE CODE UNDER IT IS ENOUGH.** Later the same day, an unmodified guard
+had its implementation replaced beneath it, and the person holding it said so
+before anyone asked: *"my earlier poison verdict was stale the moment the
+implementation under the guard changed, and I would have been carrying it
+forward as if it still meant something."* ⇒ A poison result is evidence about a
+PAIR — this assertion against that implementation — and replacing either half
+retires it. The loosening rule above is the special case where you changed the
+assertion; this is the commoner one, where you did not touch the test at all
+and it stopped meaning what it meant.
+
+⭐⭐ **THE SHARPEST FORM, AND THE ONE WORTH REMEMBERING: A TEST ASSERTING THAT
+TWO THINGS AGREE IS SILENTLY A TEST OF WHATEVER MAKES THEM AGREE.** The guard in
+question asserted that a detector's verdict and its stated reason match. They
+matched *usually* — both functions shelled out to the same external checker,
+separately, over a mutable generated tree, so anything regenerating between the
+two calls would have made them disagree for no defect at all. The guard did not
+catch that; **it was resting on it.** ⇒ When a test asserts a relationship
+rather than a value, ask what enforces the relationship, and whether that thing
+is guaranteed or merely usual. If it is merely usual, the guard has a hidden
+dependency and will one day fail for a reason that is not a defect.
+
 ⚠ Two habits that make it cheaper: a tool one call away beats an hour of reading
 (`discover_all_targets()`, `grep -l <shared module>`), and when two of your own
 measurements disagree, the coherent one is not automatically the true one.

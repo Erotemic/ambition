@@ -3,7 +3,7 @@ id: bevy-native-data-driven-ecs
 aliases: []
 status: current
 authority: durable-concept
-last_verified: 2026-07-18
+last_verified: 2026-09-03
 related_adrs:
   - docs/adr/0002-engine-must-be-bevy-native.md
   - docs/adr/0003-data-specs-and-asset-loading.md
@@ -44,6 +44,29 @@ authored/generated data
   saves, and generated-asset specifications.
 - One domain owns each noncommutative state machine. Multiple append-only
   registrations are fine; multiple mutable authorities are not.
+
+### Worked example: "multiple mutable authorities are not fine" (2026-09-03)
+
+The rule above is easy to agree with and hard to spot, because the second
+authority is usually a POSITION rather than a second system. `SwitchActivationQueue`
+was drained inside the actor kernel's encounter adapter, and the drain toggled a
+persisted switch inline. Four unrelated policies — a quest flag, `FlipGravity`,
+four `SetGravity` faces, an encounter reset — read that toggle from inside the
+same loop, and every one of them "knew" the switch's new value only because it
+happened to run after the line that wrote it.
+
+⇒ **What made it one authority again**: one system drains the queue in order,
+performs the persisted write, and publishes the POST-toggle value as a fact.
+Consumers react to the fact and none re-derives it. Nothing about the rule
+required inventing a protocol — it required noticing that "after this line"
+was doing the work an owner should.
+
+⚠ **The guard shape is worth copying.** A second author does not look like two
+`set_switch` calls; it looks like the queue being read twice. So the test leaves
+the queue unconsumed and asserts the switch does NOT flip again — *"a SECOND
+drain of an EMPTY queue must not toggle again"*. Poison it the other way too:
+publish in reverse order and assert the consumer's order claim goes red, because
+order is part of a queue's value and the checksum says so.
 
 ## Smells
 

@@ -8,6 +8,25 @@ history.
 
 This file intentionally does not retain answered decision transcripts.
 
+> ✔ **PREMISES RE-MEASURED 2026-09-03. Every question here still rests on a fact
+> that is still true**, which is the thing that decides whether answering them is
+> a good use of your time. A decision resting on a premise the code has moved past
+> costs you the answer AND the discovery that it was moot.
+>
+> Checked against HEAD: the windbox vocabulary is still authored by nothing (39);
+> the puppy slug, stochastic parrot and burning flying shark still carry no
+> `standing_height` (36); `REACH_TOLERANCE` is still one global `2.0` at
+> `ambition_characters/src/brain/fighter/options.rs:183` (35);
+> `BodyMelee::ranged_cooldown` is still the implemented half with presentation
+> unresolved (33); the `"gauntlet_fireball"` visual still reproduces the old
+> sprite rather than the catalog energy ball (42). ⇒ **And none of the fifteen has
+> quietly been answered in [`maintainer-decisions.md`](maintainer-decisions.md)**,
+> which this file's own rule would make a defect.
+>
+> ⚠ Two entries gained a fact worth having before you answer: 36 needs FOUR rows
+> rather than three (the shark has a separate hall variant), and 39's answer costs
+> one authored field on one move rather than an implementation.
+
 ⛔ **NUMBERING: TAKE ONE ABOVE THE HIGHEST NUMBER PRESENT, and check first.**
 The entries are NOT in numeric order — the top block runs newest-first and an
 older ascending block follows it — so the number nearest the insertion point is

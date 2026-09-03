@@ -39,7 +39,10 @@ where
     registrar.require_rollback::<ambition_held_items::SettledItem>(OWNER, "entity:settled_item");
     // `RoomScopedEntity` governs lifetime, not rewindability; moving world
     // items therefore require their own rollback registration.
-    registrar.require_rollback::<ambition_world_items::world_item::WorldItem>(OWNER, "entity:world_item");
+    registrar.require_rollback::<ambition_world_items::world_item::WorldItem>(
+        OWNER,
+        "entity:world_item",
+    );
     registrar
         .require_rollback::<crate::gravity::GravityFlipSwitch>(OWNER, "entity:gravity_flip_switch");
     // the heal shrine, for the same reason as the portal gun pickup
@@ -99,7 +102,7 @@ where
         OWNER,
         "projectile.allegiance",
     );
-    registrar.rollback_resource_optional_canonical::<crate::character_runtime::ActiveMatch>(
+    registrar.rollback_resource_optional_canonical::<ambition_match::ActiveMatch>(
         OWNER,
         "resource.active_match",
     );
@@ -158,12 +161,11 @@ where
             OWNER,
             "map.resource.possession_state",
         );
-    registrar.rollback_component_canonical::<crate::character_runtime::MatchSeat>(
+    registrar.rollback_component_canonical::<ambition_match::MatchSeat>(OWNER, "actor.match_seat");
+    registrar.rollback_component_cursor::<ambition_body_seed::ActorMotionPath>(
         OWNER,
-        "actor.match_seat",
+        "actor.motion_path",
     );
-    registrar
-        .rollback_component_cursor::<ambition_body_seed::ActorMotionPath>(OWNER, "actor.motion_path");
     registrar.rollback_component_canonical::<crate::features::ecs::perception::Perception>(
         OWNER,
         "actor.perception",
@@ -231,7 +233,7 @@ where
         OWNER,
         "actor.stashed_action_set",
     );
-    registrar.rollback_component_clone_probed::<crate::avatar::PersonaBaseline>(
+    registrar.rollback_component_clone_probed::<ambition_body_seed::PersonaBaseline>(
         OWNER,
         "actor.persona_baseline",
         |baseline| {
@@ -594,19 +596,20 @@ where
     // ⭐ PROBED, NOT PRESENCE-ONLY. Each of these is a NUMBER that decides an
     // outcome — where a recall puts a body, which tick a bomb goes off — and a
     // presence probe satisfies the coverage oracle while seeing none of it.
-    registrar.rollback_component_clone_probed::<crate::abilities::traversal::mark_recall::PlayerMark>(
-        OWNER,
-        "ability.player_mark",
-        // WHERE the mark is, not merely that one exists. Recall teleports to this
-        // position, so a rewind across setting or moving the mark that kept the
-        // future position puts the body somewhere the resimulation never chose.
-        |mark| match mark.pos {
-            Some(pos) => {
-                ((pos.x.to_bits() as u64) << 32) ^ (pos.y.to_bits() as u64) ^ 0x9e37_79b9
-            }
-            None => 0,
-        },
-    );
+    registrar
+        .rollback_component_clone_probed::<crate::abilities::traversal::mark_recall::PlayerMark>(
+            OWNER,
+            "ability.player_mark",
+            // WHERE the mark is, not merely that one exists. Recall teleports to this
+            // position, so a rewind across setting or moving the mark that kept the
+            // future position puts the body somewhere the resimulation never chose.
+            |mark| match mark.pos {
+                Some(pos) => {
+                    ((pos.x.to_bits() as u64) << 32) ^ (pos.y.to_bits() as u64) ^ 0x9e37_79b9
+                }
+                None => 0,
+            },
+        );
     registrar.rollback_component_clone_probed::<crate::abilities::ranged::bomb::BombFuse>(
         OWNER,
         "ability.bomb_fuse",

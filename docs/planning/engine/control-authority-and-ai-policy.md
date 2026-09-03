@@ -125,7 +125,7 @@ rather than inferred:
    `ambition_platformer2d_core`, and everything the encoder reads is pinned with
    it. Moving `Brain` "up" is not available — up is where the dependents are.
 2. **`BrainSnapshot.attack_kit: Vec<AttackCandidate>`**, by value
-   (`snapshot.rs:87`). ⭐ This pin is STABLE rather than accidental:
+   (`crates/ambition_characters/src/brain/snapshot.rs:87`). ⭐ This pin is STABLE rather than accidental:
    `ambition_combat` *consumes* that vocabulary
    (`use ambition_characters::brain::attack_kit::…` across `evaluation`,
    `rollout`, `decision`, `moveset`), which is the correct dependency direction.

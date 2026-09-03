@@ -44,6 +44,7 @@ members = [
     "crates/ambition_world_items",
     "crates/ambition_held_items",
     "crates/ambition_body_seed",
+    "crates/ambition_match",
     "crates/ambition_inventory_ui",
     "crates/ambition_platformer2d_ldtk",
     "crates/ambition_load",

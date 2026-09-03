@@ -6,8 +6,9 @@
 
 use bevy::prelude::*;
 
-use super::{CharacterLoadDemand, CharacterLoadStates, CharacterMaterializationService};
+use super::{CharacterLoadStates, CharacterMaterializationService};
 use ambition_characters::actor::character_catalog::CharacterCatalog;
+use ambition_characters::load_demand::CharacterLoadDemand;
 
 /// A staged character that has not reached any terminal state.
 ///
@@ -567,10 +568,10 @@ impl LateMatchCriticalArt {
 /// here would report a missing manifest as a performance violation every frame of
 /// every match.
 pub fn report_late_match_critical_art(
-    roster: Option<Res<super::staging::MatchParticipantRoster>>,
+    roster: Option<Res<ambition_match::MatchParticipantRoster>>,
     states: Option<Res<CharacterLoadStates>>,
-    active: Option<Res<super::seating::ActiveMatch>>,
-    prepared: Option<Res<super::prepared_match::PreparedMatch>>,
+    active: Option<Res<ambition_match::ActiveMatch>>,
+    prepared: Option<Res<ambition_match::PreparedMatch>>,
     tick: Option<Res<ambition_time::SimTick>>,
     late: Option<ResMut<LateMatchCriticalArt>>,
 ) {
@@ -587,7 +588,7 @@ pub fn report_late_match_critical_art(
     else {
         return;
     };
-    if prepared.rules().opening_phase(elapsed) != super::prepared_match::OpeningPhase::Live {
+    if prepared.rules().opening_phase(elapsed) != ambition_match::OpeningPhase::Live {
         return;
     }
     late.live_frames += 1;

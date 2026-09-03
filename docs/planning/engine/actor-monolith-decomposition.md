@@ -861,7 +861,7 @@ body is assembled) stays with the kernel that owns bodies.
 The adapter today computes `cleared_specs` by filtering encounters whose
 `ambition_encounter::EncounterPhase` is `Completed`, then PUSHES that list into
 `crate::features::sync_encounter_reward_chests_ecs`
-(`encounter/systems.rs:557`); `clear_encounter_reward_ecs` (`:447`) is the same
+(`encounter/systems.rs:557` <!-- cite-ok: pre-carve path; the adapter is crates/ambition_encounter_features since 32a911a7d -->); `clear_encounter_reward_ecs` (`:447`) is the same
 shape in reverse. Both facts — *cleared*, and *a prior clear must be dropped* —
 are already owned by `ambition_encounter`, which has the phase, the lifecycle
 events and `EncounterLifecycleSet`.
@@ -1040,8 +1040,8 @@ INTO `ambition_encounter`. Measured, it can, and the list is short.
 `ambition_content`, `ambition_platformer2d` (the facade) and
 `ambition_platformer2d_host` — all three ABOVE the encounter domain. Every one of
 those mentions is a COMMENT, an `include_str!` path to a content asset
-(`encounter/loading.rs:23`), or a log TARGET string literal
-(`encounter/systems.rs:119`). None is a crate dependency. ⚠ A `cargo tree`-shaped
+(`encounter/loading.rs:23` <!-- cite-ok: pre-carve path, now ambition_encounter_features/src/loading.rs -->), or a log TARGET string literal
+(`encounter/systems.rs:119` <!-- cite-ok: pre-carve path, now ambition_encounter_features/src/systems.rs -->). None is a crate dependency. ⚠ A `cargo tree`-shaped
 reading of the module would have reported three impossible edges.
 
 ⛔⛔ **CORRECTION, 2026-09-03 — THE DESTINATION IN THIS SPEC IS WRONG, and the
@@ -1060,7 +1060,7 @@ contract holds. That is a decision with a real cost (a new crate; the footprint
 ratchet counts crates) and is not taken here.
 
 ⚠ **AND THE DEPENDENCY COUNT BELOW WAS WRONG TOO — five and two, not four and
-one.** `ambition_characters` (production, `systems.rs:177`) and
+one.** `ambition_characters` (production, `crates/ambition_encounter_features/src/systems.rs:177`) and
 `ambition_asset_manager` (tests) were missing, because the measurement piped the
 crate list through `head -14` and reported the truncated output as complete. The
 true list is 18 distinct tokens, of which `ambition_app` and
@@ -1162,7 +1162,7 @@ allow-lists are `exact = true` and the compiler cannot see them.
 Promoted out of the encounter carve, which could not finish its last seam because
 of this. **Nothing cut; the spec is the deliverable.**
 
-`drive_wave_encounters` ends with ~90 lines (`encounter/systems.rs:337`–`427`)
+`drive_wave_encounters` ends with ~90 lines (`encounter/systems.rs:337` <!-- cite-ok: pre-split measurement; the drain is ambition_encounter::switches now -->–`427`)
 that `std::mem::take` the `SwitchActivationQueue` and run FOUR unrelated policies
 over every activation:
 
@@ -1249,7 +1249,7 @@ references that remain are in four files, and they are not one kind of thing:
 | `mod.rs` | `character_sprites::{SpriteMaterialization, character_sprite_tier, materialize_declared_character_sprite, demand_character_fx_sheets}`, `assets::platformer_assets` | the ASSET seam — load demand and materialization; leaves with the sprite domain, not with this frontier |
 | `prepared_match.rs` | `features::ecs::actor_clusters::ActorClusterSeed` <!-- cite-ok: the pre-cut path, measured that night --> (the `PreparedSeat.seed` field and `new_character_in`), `avatar::starting_character::InitialBodyPolicy` (×3), and in activation only: `enemy_component_snapshot`, `enemy_default_brain`, `FeatureBaseBundle`, `EnemyActorBundle`, `LocalPlayer`, `participant_seat::player_slot_of` | ONE prepared value holding a kernel type, one policy value, and construction |
 | `live_match_clock.rs` | `features::stocks_match::StocksMatchSettled` | a message read |
-| `presentation.rs` | `avatar::PersonaBaseline` | a component inserted at staging |
+| `presentation.rs` | `avatar::PersonaBaseline` <!-- cite-ok: the pre-cut path, measured that night; it is `ambition_body_seed::PersonaBaseline` since D33 cut 3 --> | a component inserted at staging |
 
 ⇒ **The seam is `PreparedSeat.seed`.** Preparation builds an `ActorClusterSeed` so
 that activation can spawn without a lookup (this module's own contract: *"activation
@@ -1272,23 +1272,39 @@ rule had been written twice (preparation and the kernel); it is
 by construction. The absence contract pinning `build_default_action_set` to one file
 now exempts the compiler's new home instead of `starting_character.rs`.
 
+**Landed 2026-09-03, cuts 1–2b (`83460e3f3`, `7ba40886e`, `62bdc8ba3`, `7e625e5a5`):**
+the body seed is `ambition_body_seed` (the kernel binds it to the tick through a
+`SeedActorMut` trait and keeps `ActorMut`); the physical baseline joined it; the
+character load demand is `ambition_characters::load_demand` (the drainer passes a
+per-token cost, not a tier); and the versus match — roster, rules, `prepare_match`,
+the plan and the receipt — is `ambition_match`, with the kernel keeping
+`character_runtime::match_activation` (spawn, control binding, opening hold, view)
+and the live match clock. `prepare_match` takes `home_body_spawns_a_body: bool`; the
+wrapper system still reads the kernel's `InitialBodyPolicy` and answers it. Two
+crates, so the footprint ratchet rose 46 → 48 (crates, not bytes; the monolith shed
+~3,400 lines) and the compile-cost ratchet's critical path grew — each carve puts a
+crate between combat and the kernel, which is the honest price of a serial chain and
+is recorded, not banked. ⚠ Owed: the 3,387-line match test module stayed in the
+kernel (it is mostly activation tests and runs against the moved code through the
+kernel's dependency); its pure preparation half belongs in `ambition_match`.
+
+**What is left in `character_runtime/` after 2b** (measured): `mod.rs` (demand
+materialization — the asset seam), `definition.rs`, `audit.rs`, `hurtbox.rs`,
+`presentation.rs`, `live_match_clock.rs`, `match_activation.rs`, and the tests.
+
 **Next cut, in order:**
 
-1. **The body seed leaves the kernel** — `ActorClusterSeed`, `ActorMotionPath`,
-   `ActorBody`, both constructors, `into_components`, `sprite_render_size_for_name_in`
-   and the hurt-feedback tag rule, into a crate below the kernel that depends on
-   exactly what the file already depends on. The kernel keeps `ActorMut`,
-   `ActorClusterQueryData` and the two simulation-binding methods (as a kernel trait
-   over the foreign seed). After this, `prepare_match` names the kernel only through
-   `InitialBodyPolicy`, which is a value.
-2. **`InitialBodyPolicy`** is an avatar policy the match REFUSES by name; it moves to
-   shared vocabulary or the match takes a bool. Then `prepare_match` and the six
-   clean files are a preparation crate (`ambition_match` is the honest name: roster,
-   rules, seats, clock, receipt), and the kernel keeps `realize_seat` /
-   `activate_the_prepared_match` / `release_the_opening_hold` /
-   `declare_the_match_cast_as_the_view` — construction, by the same doctrine line the
-   encounter design reached independently the same night.
-3. `PersonaBaseline` and `StocksMatchSettled` are each one name; they follow their
+1. ✔ **The body seed leaves the kernel** (`83460e3f3`, above).
+2. ✔ **`InitialBodyPolicy` → a value; `ambition_match` cut** (`7ba40886e`, `7e625e5a5`).
+   `prepare_match` takes `home_body_spawns_a_body: bool`
+   (`ambition_match/src/prepared.rs:579`); the wrapper `prepare_the_match` — now in
+   the kernel's `character_runtime/match_activation.rs` — reads the policy component
+   and answers it. That wrapper is the kernel's on purpose (it is the system that
+   activates), so the policy dependency is where it belongs and nothing further is
+   owed here. The clock stayed in the kernel: it reads `features::stocks_match`.
+3. ✔ `PersonaBaseline` is `ambition_body_seed::PersonaBaseline` (the record of what a persona
+   took from a body sits beside `DisplacedPhysicals`, which it carries); `presentation.rs`
+   names nothing in the kernel now. `StocksMatchSettled` stays with the clock. Was: they follow their
    owners when the preparation crate exists, not before.
 
 ⚠ The one contradiction this measurement surfaced and did NOT change: a prepared
@@ -1306,6 +1322,58 @@ Do this last. Once outer domains are gone, the remaining dependency graph will
 show whether body state, movement, decision integration and construction still
 need one crate or have another stable seam. Do not pre-split this core because a
 source file is large.
+
+**First measurement, 2026-09-03 (after cuts 1–2b, before the abilities and encounter
+carves land): `python3 scripts/measure_kernel_module_graph.py --edges 10`.** Production
+lines per top-level module and the `crate::<module>` references each makes; tests
+excluded from the edges. A textual count — a shape, not a bill.
+
+```text
+module                   prod    all  out-edges (module:refs)
+features                23677  38197  construction:30 character_runtime:14 world:12 avatar:10 causal:8 control:6 abilities:4 items:3
+abilities                4962   8585  ability_cooldown:4 features:2 projectile:2 control:2 enemy_projectile:1 avatar:1 character_runtime:1
+character_runtime        3843  11468  character_sprites:7 features:5 avatar:2 control:1 participant_seat:1 assets:1
+world                    3286   5419  features:8 construction:5 session:3 character_runtime:2 encounter:1
+avatar                   2999   7291  body_mode:1 control:1
+schedule                 2578   2578  control:2 avatar:1 participant_seat:1
+items                    2023   2153  abilities:17 shrine:3 session:2 construction:2 character_runtime:1 ability_cooldown:1
+session                  2022   3446  avatar:8 items:5 world:5 features:4 abilities:4 assets:2 construction:1
+construction             2019   5710  features:15 world:4 shrine:1
+control                  1258   1613  abilities:4 features:1
+projectile               1231   2631  avatar:2 features:2
+character_sprites        1205   1867  assets:3 character_roster:1
+encounter                1105   2056  features:1
+causal                    752    752  
+audio                     672   1308  music:4
+rollback_registration     667    667  features:28 abilities:10 character_runtime:5 session:5 avatar:4 shrine:3 world:3 gravity:2
+gravity                   574    574  session:1 schedule:1
+    30  features -> construction   (and 15 back)
+    28  rollback_registration -> features
+    17  items -> abilities
+    15  construction -> features   (and 30 back)
+    14  features -> character_runtime   (and 5 back)
+    12  features -> world   (and 8 back)
+    11  snapshot_impls -> features
+    10  rollback_registration -> abilities
+    10  features -> avatar
+     8  world -> features   (and 12 back)
+```
+
+What the shape says, without pre-splitting anything: `features` (23.7k production
+lines — the actor tick, spawn, damage, brains) is the centre, and its heaviest edge
+is MUTUAL with `construction` (30/15) — the seed-to-body road runs both ways. Its
+other out-edges are to the two halves this frontier just carved around
+(`character_runtime` 14, `avatar` 10) and to `world` (12/8, also mutual). The
+modules with NO out-edges and nothing pointing back except registration
+(`causal`, `action_scheme`, `body_mode`, `time`, `music`, `cutscene`, `quest`,
+`world_facts`) are already islands; that they are still in this crate is inertia,
+not coupling, and each is a small cut. `rollback_registration` (28 → features, 10 →
+abilities) and `snapshot_impls` (11 → features) are the two files that name
+everything, which is what a registration file is for — they are not coupling, they
+are the ledger. ⇒ The candidate seam the doc predicted ("body state, movement,
+decision integration and construction") shows up as the `features`↔`construction`
+loop; whether it is one crate or two is decided by which direction the 30 and the 15
+run, which is the next measurement, not this one.
 
 ## Explicit non-goals
 

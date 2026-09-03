@@ -293,3 +293,32 @@ pub struct BodyGeometry<'a> {
     pub live: &'a mut Vec2,
     pub base: &'a mut Vec2,
 }
+
+/// What cast a body's PERSONA was built from.
+///
+/// The record `apply_worn_character_gameplay` keeps of its own work: the id it
+/// last applied and the registry generation it read. Nothing else writes it.
+///
+/// It exists because a cast replacement changes nothing ON a body — not its worn
+/// character, not its abilities — so the derive's change-detection filter could
+/// not see one, and a rebalanced or hot-reloaded character left every live body
+/// wearing the retired kit. `project_prepared_character_definitions` DID notice,
+/// and stamped its own marker with the new generation regardless, which made the
+/// failure worse than a missed update: the body recorded that it was current, so
+/// nothing would ever revisit it.
+///
+/// deliberately a SECOND marker rather than sharing
+/// `ProjectedCharacterKit` (the kernel's presentation projection). That one is the
+/// projection's record of the body facts IT grants — authored hurtboxes, movement feel, motion
+/// model. One writer, one record, each stamped only after its own work is applied. it also carries
+/// `displaced`, which is NOT a memo — it is the only surviving record of what a persona took from
+/// this body, and retraction is driven from it. `Eq` is gone with it: a mass is an `f32`.
+#[derive(bevy::prelude::Component, Clone, Debug, PartialEq)]
+pub struct PersonaBaseline {
+    pub id: String,
+    pub generation: ambition_characters::prepared::CharacterCatalogGeneration,
+    /// See [`DisplacedPhysicals`].
+    /// Grows once per field, at the first persona that overrides that field, and
+    /// is carried forward verbatim through every later re-wear.
+    pub displaced: DisplacedPhysicals,
+}

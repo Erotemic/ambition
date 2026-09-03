@@ -156,6 +156,9 @@ pub use ambition_combat as combat;
 pub use ambition_gameplay_trace as gameplay_trace;
 // The conversation authority — and, under `ui`, the Yarn host glue that used to
 // sit in the monolith as `actors:dialog`.
+/// The body seed every construction path spawns from; a game that builds an
+/// NPC by hand names it from here.
+pub use ambition_body_seed as body_seed;
 pub use ambition_conversation as conversation;
 #[cfg(feature = "ambition_cutscene")]
 pub use ambition_cutscene as cutscene;
@@ -177,6 +180,12 @@ pub use ambition_encounter as encounter;
 pub use ambition_encounter_features as encounter_features;
 pub use ambition_entity_catalog as entity_catalog;
 pub use ambition_game_shell as game_shell;
+/// The PRESSED collectible: `GroundItem`, `ItemCustody`, the held specs and
+/// the pickup / use / throw / physics / residency chain it owns (D33,
+/// 2026-09-03). Not under [`actors`] any more, for the same reason as
+/// [`world_items`]: `actors` IS the actor monolith, and the kernel keeps only
+/// checkpoint policy over these components.
+pub use ambition_held_items as held_items;
 pub use ambition_input as input;
 #[cfg(feature = "ambition_inventory_ui")]
 pub use ambition_inventory_ui as inventory_ui;
@@ -184,31 +193,15 @@ pub use ambition_inventory_ui as inventory_ui;
 pub use ambition_items as items;
 pub use ambition_load as load;
 pub use ambition_load_presentation as load_presentation;
+/// The versus match, prepared: roster, rules, plan and receipt. The kernel
+/// activates it; a game stages and reads it from here.
+pub use ambition_match as versus_match;
 #[cfg(feature = "ambition_menu")]
 pub use ambition_menu as menu;
 pub use ambition_mount as mount;
 #[cfg(feature = "ambition_persistence")]
 pub use ambition_persistence as persistence;
 pub use ambition_platformer2d_actor_monolith as actors;
-/// The physical life of a touched collectible: `WorldItem`, its motion, and the
-/// touch-collect pass.
-///
-/// ⭐ IT IS NOT UNDER [`actors`] ANY MORE, and the path change is the point.
-/// `actors` IS the actor monolith, so a game importing
-/// `actors::items::WorldItem` was naming the kernel for something the kernel no
-/// longer owns (D33, 2026-09-02). `actors::items::pickup` still holds the
-/// PRESSED pickup — a held weapon taken with `Attack` — which is a different
-/// domain that stayed.
-pub use ambition_world_items as world_items;
-/// The PRESSED collectible: `GroundItem`, `ItemCustody`, the held specs and
-/// the pickup / use / throw / physics / residency chain it owns (D33,
-/// 2026-09-03). Not under [`actors`] any more, for the same reason as
-/// [`world_items`]: `actors` IS the actor monolith, and the kernel keeps only
-/// checkpoint policy over these components.
-pub use ambition_held_items as held_items;
-/// The body seed every construction path spawns from; a game that builds an
-/// NPC by hand names it from here.
-pub use ambition_body_seed as body_seed;
 pub use ambition_platformer2d_core as engine_core;
 pub use ambition_platformer2d_host as host;
 #[cfg(feature = "ambition_platformer2d_ldtk")]
@@ -240,6 +233,16 @@ pub use ambition_touch_input as touch_input;
 pub use ambition_ui_nav as ui_nav;
 #[cfg(feature = "ambition_vfx")]
 pub use ambition_vfx as vfx;
+/// The physical life of a touched collectible: `WorldItem`, its motion, and the
+/// touch-collect pass.
+///
+/// ⭐ IT IS NOT UNDER [`actors`] ANY MORE, and the path change is the point.
+/// `actors` IS the actor monolith, so a game importing
+/// `actors::items::WorldItem` was naming the kernel for something the kernel no
+/// longer owns (D33, 2026-09-02). `actors::items::pickup` still holds the
+/// PRESSED pickup — a held weapon taken with `Attack` — which is a different
+/// domain that stayed.
+pub use ambition_world_items as world_items;
 /// Participants: local seats and the device/channel topology that feeds them.
 ///
 /// This is a curated control-authority surface. A consumer should not need to
@@ -254,8 +257,10 @@ pub mod participant {
 /// Items as simulation state, when the item capability is installed.
 #[cfg(feature = "ambition_items")]
 pub mod item {
+    pub use ambition_held_items::{
+        GroundItem, ItemCustody, ItemStruckBody, ItemWorldPos, SettledItem,
+    };
     pub use ambition_items::{Inventory, Item, ItemGrantRequested, OwnedItems};
-    pub use ambition_held_items::{GroundItem, ItemCustody, ItemStruckBody, ItemWorldPos, SettledItem};
 }
 
 /// User-facing gameplay settings, when persistence/settings support is installed.
@@ -308,7 +313,7 @@ pub mod actor {
     /// `ambition_platformer2d_runtime` since and was simply never re-exported — so
     /// the finding described the FACADE, not the engine, which is the more
     /// embarrassing of the two and the harder one to notice.
-    pub use ambition_platformer2d_actor_monolith::character_runtime::MatchSeat;
+    pub use ambition_match::MatchSeat;
 
     /// Declaring a MATCH: who is in it, who drives them, and what it costs to
     /// lose.
@@ -319,7 +324,7 @@ pub mod actor {
     ///
     /// A second consumer is the only instrument that finds this class, which is
     /// the entire argument for keeping one.
-    pub use ambition_platformer2d_actor_monolith::character_runtime::{
+    pub use ambition_match::{
         ControlAuthority, ControllerBinding, MatchParticipant, MatchParticipantRoster,
         MatchPreparationProblems, PreparedMatch, RosterProblem, RosterSeating,
     };
@@ -349,13 +354,18 @@ pub mod actor {
     pub use ambition_platformer2d_actor_monolith::construction::ActorConstructionRegistry;
 
     pub use ambition_characters::actor::{BodyCombat, BodyHealth, Health};
+    /// WHICH MOVE THE BODY IS PLAYING, and where in it. Read by any driver that
+    /// has to know whether the press it made became the move it asked for.
+    pub use ambition_combat::moveset::MovePlayback;
+    /// WHAT THE BODY IS RIDING, when it is riding something. An observer that
+    /// cannot see this reports a mounted body's own locomotion as if it were
+    /// driving.
+    pub use ambition_mount::RidingOn;
     /// Canonical fallback body size for a body not yet materialized.
     pub use ambition_platformer2d_core::default_player_body_size as default_body_size;
     /// Where the body is, and how it moves.
     pub use ambition_platformer2d_core::movement::{transit_body, TransitVelocity};
     pub use ambition_platformer2d_core::BodyClusterQueryData;
-    pub use ambition_platformer2d_core::{BodyFlightState, BodyMode, BodyMotionFacts};
-    pub use ambition_platformer2d_shared_tangle::body::BodyKinematics;
     /// ⭐ WHETHER THE BODY IS STANDING ON SOMETHING — the companion to
     /// [`BodyFlightState`], and a question every observer of a body asks.
     ///
@@ -366,13 +376,13 @@ pub mod actor {
     /// what to do about it: *"if it needs crate-shaped facade paths, those are
     /// SDK gaps."* These three rows are those gaps, closed rather than waived.
     pub use ambition_platformer2d_core::BodyGroundState;
-    /// WHICH MOVE THE BODY IS PLAYING, and where in it. Read by any driver that
-    /// has to know whether the press it made became the move it asked for.
-    pub use ambition_combat::moveset::MovePlayback;
-    /// WHAT THE BODY IS RIDING, when it is riding something. An observer that
-    /// cannot see this reports a mounted body's own locomotion as if it were
-    /// driving.
-    pub use ambition_mount::RidingOn;
+    pub use ambition_platformer2d_core::{BodyFlightState, BodyMode, BodyMotionFacts};
+    pub use ambition_platformer2d_shared_tangle::body::BodyKinematics;
+    /// The body-local safe-position state used by reset/hazard observers.
+    ///
+    /// The implementation type still carries its historical player-centric name;
+    /// the SDK does not.
+    pub use ambition_platformer2d_shared_tangle::safe_position::PlayerSafetyState as BodySafetyState;
     /// WHOSE SHOT THIS IS. The other half of the same question `RidingOn`
     /// answers for a mount: a projectile is somebody's, and an observer that
     /// cannot follow the link credits a stage hazard to a fighter.
@@ -398,11 +408,6 @@ pub mod actor {
     pub use ambition_sim_view::{BodyPoseView, ClipRequest};
     /// The 56 semantic body states a pose row can be.
     pub use ambition_sprite_sheet::character::CharacterAnim;
-    /// The body-local safe-position state used by reset/hazard observers.
-    ///
-    /// The implementation type still carries its historical player-centric name;
-    /// the SDK does not.
-    pub use ambition_platformer2d_shared_tangle::safe_position::PlayerSafetyState as BodySafetyState;
 
     /// Boss spawn policy belongs to actor construction at the SDK boundary even
     /// though its implementation is split between the catalog and encounter crates.
@@ -489,11 +494,11 @@ pub mod character {
     pub use ambition_platformer2d_actor_monolith::character_runtime::registered_portrait_target;
     /// What a character looks like, and whether its art has arrived.
     pub use ambition_platformer2d_actor_monolith::character_runtime::CharacterLoadStates;
-    pub use ambition_platformer2d_actor_monolith::character_sprites::portrait_for_declared_character;
-    pub use ambition_platformer2d_actor_monolith::character_sprites::sheet_for_declared_character;
     /// The sheet tier every character is realized at: the user's setting, and
     /// nothing else — no room, view or distance may lower it (Jon, 2026-09-02).
     pub use ambition_platformer2d_actor_monolith::character_sprites::character_sprite_tier;
+    pub use ambition_platformer2d_actor_monolith::character_sprites::portrait_for_declared_character;
+    pub use ambition_platformer2d_actor_monolith::character_sprites::sheet_for_declared_character;
     pub use ambition_sprite_sheet::character::sheets::AuthoredSheets;
     pub use ambition_sprite_sheet::character::CharacterSheetState;
     pub use ambition_sprite_sheet::AuthoredSheetAppExt;
@@ -513,8 +518,6 @@ pub mod sim {
     pub use ambition_platformer2d_core::InputFrameMode;
     /// The deterministic per-tick input artifact used by replay and harnesses.
     pub use ambition_platformer2d_core::InputStream;
-    /// Simulation time. Not wall time — a game reads the clock the sim advances.
-    pub use ambition_time::WorldTime;
     /// WHICH TICK IT IS. The absolute fixed-step counter every recorded artifact
     /// names itself by — a screenshot, a take, a trace row.
     ///
@@ -522,6 +525,8 @@ pub mod sim {
     /// supported customer had to spell `runtime::SimTick`, and a crate-shaped
     /// path in the SDK's own customers is an SDK gap rather than a waiver.
     pub use ambition_platformer2d_runtime::SimTick;
+    /// Simulation time. Not wall time — a game reads the clock the sim advances.
+    pub use ambition_time::WorldTime;
 
     /// One frame of input, and the one seam that delivers it.
     pub use ambition_input::AttackStrengthHint;
@@ -726,12 +731,9 @@ pub use bevy;
 /// must not reach back through an entity to the authoritative component, which
 /// is the coupling this surface exists to remove.
 pub mod observation {
-    /// The runtime's combat geometry, as the production debug overlay draws it:
-    /// effective hurtboxes with the rule that produced them, exact live strike
-    /// volumes in world space, and each strike's hit-once memory.
-    pub use ambition_sim_view::{
-        CombatBodyGeometryView, CombatGeometryView, CombatStrikeGeometryView, HurtboxSource,
-    };
+    /// The vocabulary an observation is expressed in. A consumer that can read a
+    /// volume must be able to name its shape and its bounds.
+    pub use ambition_platformer2d_core::{Aabb, AabbExt, CombatVolume, Vec2};
     /// The engine's own stable identity for a simulated entity.
     ///
     /// ⛔ A RAW ENTITY ID IS NOT AN IDENTITY: an entity index depends on every
@@ -739,9 +741,12 @@ pub mod observation {
     /// same body differently and a byte-diff of two recordings reports physics
     /// that did not change.
     pub use ambition_platformer2d_shared_tangle::sim_id::SimId;
-    /// The vocabulary an observation is expressed in. A consumer that can read a
-    /// volume must be able to name its shape and its bounds.
-    pub use ambition_platformer2d_core::{Aabb, AabbExt, CombatVolume, Vec2};
+    /// The runtime's combat geometry, as the production debug overlay draws it:
+    /// effective hurtboxes with the rule that produced them, exact live strike
+    /// volumes in world space, and each strike's hit-once memory.
+    pub use ambition_sim_view::{
+        CombatBodyGeometryView, CombatGeometryView, CombatStrikeGeometryView, HurtboxSource,
+    };
 }
 
 /// Engine assembly helpers most games need first.

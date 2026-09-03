@@ -28,12 +28,12 @@ use ambition_app::rl_sim::{
 // `ambition_input` is not a direct dep of the app crate; the facade re-exports
 // it as `ambition_platformer2d::input`, which is the path every other test here
 // reaches it by.
-use ambition_platformer2d::actors::character_runtime::{
-    ControllerBinding, MatchParticipant, MatchParticipantRoster,
-};
 use ambition_platformer2d::input::{
     assign_local_seat_devices, track_local_device_order, InputParticipant, LocalDeviceOrder,
     LocalSeatDeviceOwnership, Platformer2dInputActionMonolith,
+};
+use ambition_platformer2d::versus_match::{
+    ControllerBinding, MatchParticipant, MatchParticipantRoster,
 };
 use bevy::prelude::*;
 use leafwing_input_manager::prelude::InputMap;
@@ -115,7 +115,7 @@ fn two_human_roster() -> MatchParticipantRoster {
         ],
         seating: ambition_platformer2d::actor::RosterSeating::default(),
         published_by: None,
-        rules: ambition_platformer2d::actors::character_runtime::MatchRules {
+        rules: ambition_platformer2d::versus_match::MatchRules {
             item_spawns: None,
             // Not suspended: an opening hold would keep both fighters still and let
             // every assertion below pass for the wrong reason.

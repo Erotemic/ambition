@@ -182,11 +182,31 @@ def test_focused_detached_tool_lane_does_not_run_unrelated_ldtk_suite():
     assert job.argv[job.argv.index("-k") + 1] == "timeout"
 
 
-def test_maintenance_lane_is_only_periodic_agent_kb_hygiene():
+def test_the_maintenance_lane_holds_only_periodic_hygiene():
+    """The lane exists so a housekeeping failure cannot delay a Rust edit, so
+    what must not appear in it is ROUTINE VALIDATION — a cargo build, a test
+    binary, anything on the path of an ordinary change.
+
+    ⚠ THIS ASSERTED THE EXACT CONTENTS UNTIL 2026-09-03 (`len(jobs) == 1`, and
+    the one job's name), which made it a test of a LIST rather than of the
+    property. It reddened when the two CI-only ratchets moved into the lane —
+    a change the lane is precisely for. A guard that fails on the thing it
+    should permit is pinning the fix, not the gap.
+    """
     jobs = run_tests.build_maintenance_jobs()
-    assert len(jobs) == 1
-    assert jobs[0].name == "agent KB (periodic doc/index hygiene)"
-    assert jobs[0].argv[-1] == "scripts/check_agent_kb.py"
+    assert jobs, "the lane must not be empty, or every assertion here is vacuous"
+    for job in jobs:
+        assert job.argv[-1].startswith("scripts/") or job.argv[-1] == "--check", (
+            f"{job.name!r} does not run a repository script: {job.argv}"
+        )
+        assert "cargo" not in " ".join(job.argv).lower(), (
+            f"{job.name!r} runs cargo. Routine validation belongs in the default "
+            "plan; this lane exists so housekeeping cannot delay a Rust edit."
+        )
+    names = {job.argv[1] if len(job.argv) > 1 else "" for job in jobs}
+    assert "scripts/check_agent_kb.py" in names, (
+        "the agent-KB audit is the lane's founding member; if it moved, say where"
+    )
 
 
 def _doctest_jobs(jobs):

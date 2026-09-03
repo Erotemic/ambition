@@ -27,8 +27,8 @@ use bevy::state::app::StatesPlugin;
 use bevy::time::TimeUpdateStrategy;
 use bevy::transform::TransformPlugin;
 
-use ambition_platformer2d::actors::character_runtime::{ActiveMatch, MatchSeat};
 use ambition_platformer2d::characters::actor::{BodyHealth, DeathPolicy, Health};
+use ambition_platformer2d::versus_match::{ActiveMatch, MatchSeat};
 
 const POOL: i32 = 50;
 

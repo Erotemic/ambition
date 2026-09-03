@@ -21,7 +21,7 @@
 
 use bevy::prelude::Resource;
 
-use super::CharacterLoadDemand;
+use ambition_characters::load_demand::CharacterLoadDemand;
 
 /// Anything that knows which characters it needs art for.
 ///
@@ -305,7 +305,7 @@ pub struct MatchParticipantRoster {
     /// all rather than the rules being decided by construction: the engine does
     /// not get an opinion about a match's economy. What changed is that it says
     /// so ONCE.
-    pub rules: super::prepared_match::MatchRules,
+    pub rules: crate::prepared::MatchRules,
     /// Whether anybody has agreed to seat this roster yet. See
     /// [`RosterSeating`].
     pub seating: RosterSeating,
@@ -624,7 +624,7 @@ impl StagesCharacters for DirectStartupSpec {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::character_runtime::CharacterLoadDemand;
+    use ambition_characters::load_demand::CharacterLoadDemand;
 
     /// §4.8's one shared projection. Two semantically different stagings that
     /// name the same cast must produce the same demand, or "the room worked and the
@@ -741,7 +741,7 @@ mod tests {
 #[cfg(test)]
 mod roster_validation_tests {
     use super::*;
-    use crate::character_runtime::ControllerBinding;
+    use crate::staging::ControllerBinding;
 
     /// The policies a composition PUBLISHES, keyed the way assembly keys
     /// them.

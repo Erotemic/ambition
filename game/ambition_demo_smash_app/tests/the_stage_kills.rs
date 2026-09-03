@@ -2254,7 +2254,7 @@ fn a_second_match_is_not_ended_by_the_first_matchs_verdict() {
     for _ in 0..600 {
         if app
             .world()
-            .get_resource::<ambition_platformer2d::actors::character_runtime::ActiveMatch>()
+            .get_resource::<ambition_platformer2d::versus_match::ActiveMatch>()
             .is_some()
         {
             break;
@@ -2263,7 +2263,7 @@ fn a_second_match_is_not_ended_by_the_first_matchs_verdict() {
     }
     assert!(
         app.world()
-            .get_resource::<ambition_platformer2d::actors::character_runtime::ActiveMatch>()
+            .get_resource::<ambition_platformer2d::versus_match::ActiveMatch>()
             .is_some(),
         "match one never seated a cast, so there is nothing for Exit Match to stop"
     );

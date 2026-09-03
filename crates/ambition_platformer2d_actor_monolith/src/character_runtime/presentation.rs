@@ -488,7 +488,7 @@ pub fn grant_prepared_character_body(
         if kit != KitOwnership::PersonaDerive {
             commands
                 .entity(entity)
-                .insert(crate::avatar::PersonaBaseline {
+                .insert(ambition_body_seed::PersonaBaseline {
                     id: prepared.id.as_str().to_string(),
                     generation,
                     displaced: Default::default(),

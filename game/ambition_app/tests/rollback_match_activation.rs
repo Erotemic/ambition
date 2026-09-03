@@ -10,7 +10,7 @@
 use ambition_app::rl_sim::{
     AgentAction, AmbitionSim, Platformer2dSimHarness, Platformer2dSimHarnessOptions, TimestepMode,
 };
-use ambition_platformer2d::actors::character_runtime::{
+use ambition_platformer2d::versus_match::{
     ActiveMatch, ControllerBinding, MatchParticipant, MatchParticipantRoster, MatchSeat,
 };
 
@@ -47,7 +47,7 @@ fn two_cpu_roster() -> MatchParticipantRoster {
         // A fixture's roster has no publisher: nothing else in this App claims
         // one, which is the case `None` is for.
         published_by: None,
-        rules: ambition_platformer2d::actors::character_runtime::MatchRules {
+        rules: ambition_platformer2d::versus_match::MatchRules {
             item_spawns: None,
             opens_suspended: true,
             // No ceremony in a rollback fixture: the stage that owns the opening
@@ -578,7 +578,7 @@ fn two_local_seats_drive_independently_under_a_rollback_host() {
         ],
         seating: ambition_platformer2d::actor::RosterSeating::default(),
         published_by: None,
-        rules: ambition_platformer2d::actors::character_runtime::MatchRules {
+        rules: ambition_platformer2d::versus_match::MatchRules {
             item_spawns: None,
             // Not suspended: this test is about INPUT reaching a body, and an
             // opening hold would keep both fighters still and pass for the wrong
@@ -721,7 +721,7 @@ fn human_roster(count: usize) -> MatchParticipantRoster {
             .collect(),
         seating: ambition_platformer2d::actor::RosterSeating::default(),
         published_by: None,
-        rules: ambition_platformer2d::actors::character_runtime::MatchRules {
+        rules: ambition_platformer2d::versus_match::MatchRules {
             item_spawns: None,
             opens_suspended: false,
             // No ceremony in a rollback fixture: the stage that owns the opening

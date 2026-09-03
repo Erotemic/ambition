@@ -15,11 +15,14 @@ This page is the dual of
 ran actually run* — and it exists because on 2026-09-02 a single day's work
 turned up SEVEN members of the same family in one gate script; an eighth was
 already sitting in the backlog unrecognised, and a ninth surfaced the same night.
-A tenth, eleventh and twelfth followed on 2026-09-03.
+Several more followed on 2026-09-03, from two agents on the same day.
 
-⭐ **THE FINDING IS NOT THE COUNT. It is that most of them were found by
-accident** — by running a suite for an unrelated reason, by an external reviewer
-reading source, by running `cargo check` by hand before the gate. Not one was
+⭐ **THE FINDING IS NOT THE COUNT. It is that most were found by accident** — by running a suite for an unrelated reason, by an external reviewer
+reading source, by running `cargo check` by hand before the gate. ⭐ **#11 IS
+THE FIRST ONE FOUND ON PURPOSE**, by the audit in "Running this audit yourself"
+below — asking of every `scripts/check_*.py` whether the gate, the pytest lane
+or CI names it. That is what a deliberate search buys, and it is why the ratio
+above is a fact about the past rather than a law. Not one was
 found by the checking system noticing its own hole. A gate cannot audit its own
 coverage, because the same assumption that makes a job skip also makes the
 report say it ran.
@@ -81,7 +84,7 @@ cited `run_tests.py:368`, `:588` and `:590`. One merge later they were `:375`,
 claims that quietly stop being true. Grep for the job's name string or its gate
 expression; those survive edits that line numbers do not.
 
-## The twelve, and what each one teaches
+## The members, and what each one teaches
 
 | # | the check | how it lied | status |
 |---|---|---|---|
@@ -97,6 +100,7 @@ expression; those survive edits that line numbers do not.
 | 11 | `./run_tests.sh --rust` itself | **exits 2 having run NOTHING** when the Python lane's `tree_sitter_rust` is missing, and says so in a voice that reads as informational: *"this interpreter cannot run the Python lane … affected: 1 planned job(s) … fix: scripts/setup/python_tools.sh"*. One affected job aborts the whole RUST lane, and the header it prints is indistinguishable from a normal preamble — a reader who does not check `$?` sees a run that appears to have started | fixed on this host by `scripts/setup/python_tools.sh`; the lane then ran 6957 tests. ⚠ **STRUCTURALLY LIVE ELSEWHERE**: any host missing that tool gets the same silent no-op |
 | 12 | `./run_tests.sh --heavy` | is re-enabled wholesale by `--heavy`, which runs `cargo test --workspace --include-ignored`. `#[ignore]` conflates TWO unrelated reasons — *slow, run on demand* and **invalid unless run alone** — and `--include-ignored` cannot tell them apart. `parallax_theme_retires_on_walk` says so in its own header: `ambition_app` has ONE `[[test]]` target, so every file under `tests/` is a module of `app_it` sharing a process, and *"a sibling booting its own app would populate `Assets<Image>` underneath this one's assertions"*. Under `--heavy` it runs beside 6957 others | ⛔ **STRUCTURALLY LIVE, AND THE LANE CANNOT BE GREEN.** `#[ignore]` in this repo carries at least three unrelated meanings and `--include-ignored` honours none of them: (a) **must run alone** — `parallax_theme_retires_on_walk`, `hall_redecode_census`, whose assertions a sibling's `Assets<Image>` can satisfy, so the failure is a GREEN result that measured nothing; (b) **panics BY DESIGN to print a census** — `d71_transaction_census`'s two probes end in `panic!`, VERIFIED 2026-09-03 by running one with `--ignored`: `test result: FAILED. 0 passed; 1 failed`; (c) print-only probes and audit listings across 7 files whose own reasons say *"read it, do not assert on it"*. ⇒ So the plan that exists to run EVERYTHING is red the moment it runs, for reasons that are all by design |
 | 7 | the coverage footer | said `- the wasm/web build LINK (the wasm CHECK ran)` **unconditionally**, while the job is appended only `if wasm_target_installed()`. No target → no web job, all green, exit 0, and a report that it was checked | fixed `159e76ba8` |
+| 11 | the two **CI-ONLY ratchets** (`check_doc_link_ratchet`, `check_zone_name_ratchet`) | are invoked by `.github/workflows/test.yml --check` and by NOTHING ELSE — not the gate, not the pytest lane. Measured 2026-09-03 by asking, for every `scripts/check_*.py`, whether the gate, the pytest lane or CI names it: 14 of 16 are reachable locally and these two are not. ⛔ So a developer never sees them, and the doc-link one had accumulated TWO unseen regressions (`ambition_characters` 24→26, `ambition_platformer2d_core` 34→35). ⚠ It is also the slowest guard in the repo — a cold `cargo doc` over 9 crates, which TIMED OUT at 300 s in the sweep that found it, so "run every guard" quietly skips it unless you budget for it | ✔ **FIXED the same day.** The two regressions are repaired and `ambition_body_seed` added to its tracked crates (`bf4e6f353`), and both ratchets now run in `./run_tests.sh --maintenance` — the lane that exists for periodic hygiene and already owned `check_agent_kb`. 3/3 jobs, 147 s, of which the doc-link ratchet is 133 s. ⭐ NOT in the default plan on purpose: a cold `cargo doc` over nine crates is the wrong price on every dev cycle, and "reachable by one local command" was the actual gap, not "runs constantly" |
 
 Between #5 and #6 the web path had **zero behavioural coverage**: one job could
 not execute code, and the other executed the wrong branch of it. The hole that
@@ -156,8 +160,7 @@ lose precision — it manufactures the more interesting answer.
 
 Everything above is a check that did not execute. The other half of the family
 executed perfectly and asked the wrong question, and it is the larger half:
-thirty-seven instances from the same two nights, each with the commit that
-fixed it, are tabulated in
+forty-six instances, each with the commit that fixed it, are tabulated in
 [`../../dev/journals/blind-checks-2026-09-03.md`](../../dev/journals/blind-checks-2026-09-03.md).
 ⇒ **Do not add that count to the ten above** — different question, different
 population. #10 is the boundary case and belongs to both lists.
@@ -202,6 +205,41 @@ rediscovering. Four passes, cheapest first:
 4. **Poison it — and check the poison landed in the guard's POPULATION.** Two of
    three poisons on the sheet-presence check hit files it deliberately ignores,
    and each printed a green that could have been taken for proof.
+
+5. **Ask WHICH LANE names each guard.** For every `scripts/check_*.py`, does the
+   gate, the pytest lane, or CI mention it? On 2026-09-03: 14 of 16 reachable
+   locally, and the two that were not (`check_doc_link_ratchet`,
+   `check_zone_name_ratchet`) were CI-only — one of them holding two unread
+   regressions. This is the pass that found entry #11, and it is the first
+   entry on this page found on purpose rather than by accident.
+
+7. **Build a crate under its OWN defaults.** `cargo check -p <crate>` with no
+   feature flags is a build NO LANE PERFORMS: the workspace check unifies
+   features on, and the union enables everything. On 2026-09-03, of 25 crates
+   with an empty `default` and cfg-gated source, FOUR warned this way and every
+   lane was clean. ⭐ It is the jab-string lesson in reverse — that test was
+   green per-crate and red under the union; these are green under the union and
+   red per-crate. Both say the same thing: a feature set is a PROGRAM.
+
+6. **Ask which guards have a TEST OF THEIR OWN.** Three of sixteen had none,
+   including `check_doc_links`, which the DEFAULT GATE runs. Writing one found a
+   rule the module applied to one matcher of two. ⭐ Prioritise the guards whose
+   best possible score is ZERO — they cannot distinguish "nothing is wrong" from
+   "I measured nothing", so their population floor is the arm to test, and the
+   floor is exactly what nobody writes a test for.
+
+⛔⛔ **AND WHEN YOU LOOSEN A GUARD TO ADMIT A LEGITIMATE CASE, RE-RUN THE
+POISON AFTERWARDS.** This is how a working guard quietly stops working, and it
+happened on 2026-09-03 inside an hour of the guard being written. A carve-table
+check required every path in a row to resolve; a row that named a HISTORICAL
+path beside the live one failed for being more informative, so the rule was
+loosened to "at least one path must resolve". ⇒ The original defect stopped
+firing: that row's prose says *"NOT under `brain/`"*, and `brain/` counted as a
+path that resolves, so the rule was satisfiable by the very word the row uses to
+say where the file ISN'T. Only re-poisoning AFTER the change caught it.
+⭐ The generalisation: a loosened predicate is a NEW predicate, and it inherits
+none of the old one's evidence. Ask which of its old failures it still catches
+before you believe it.
 
 ⚠ Two habits that make it cheaper: a tool one call away beats an hour of reading
 (`discover_all_targets()`, `grep -l <shared module>`), and when two of your own

@@ -230,3 +230,69 @@ when the tool was one call away.** `discover_all_targets()` and
 | 35 | A docstring that describes a test, taken as the test | Three guards green for reasons unrelated to what they guard: the citation checker's population (no `::` → never extracted), the sheet-presence check exiting 0 when it could not import, the absence contracts' "require a hit" half never written (ambition-e7, `d3c86dc79` / `f4693ac7b` / `e4e545d29`) | *(theirs; listed here because the shape is the integrator's to watch for)* |
 | 36 | A pathspec commit that names a file you edited | A `git reset` to origin by another agent in the shared tree reverted the file first; the commit landed without it and nothing complained — read the reflog before re-typing | `986f61d83` |
 | 37 | Bisecting a merge-heavy day by `rev-list` index | An index is not an ancestry chain; a GOOD on a side branch bounded nothing on the line that mattered (yardrat) — bisect the ancestry, not the list | *(method)* |
+
+## The third set (2026-09-03, found by running the audit rather than by accident)
+
+⭐ **THE DIFFERENCE FROM THE FIRST TWO SETS: these came from deliberate passes**
+— running every guard and reading its real exit code, asking which lane names
+each guard, asking which guards have a test. The recipes page's headline is that
+seven of its first ten were found BY ACCIDENT; that is a fact about the past,
+not a law.
+
+| # | The check | Why it could not fail | Fixed in |
+|---|---|---|---|
+| 38 | `capability-footprint-may-not-grow`, green for six weeks | A ratchet asks ONE question — did a crate ENTER the closure? Nothing looked the other way, so a DEPARTURE pruned the closure and the counts by hand and left every sub-list naming the crate. Five stale names across two lists, one twelve days old, and `reachable_only_through_the_facade` — the list a carve decision is taken off — was 3/4 wrong | `51600d168`, `8ad9ebc2b` |
+| 39 | The rollback CODEC-SHAPE ledger, over a codec that MOVED | `CODEC_MARKER` did not know `SnapshotCursor`, so a file whose only impls are cursor codecs was never in the population. D33 cut 1 carved one into a new crate and the ledger simply stopped containing it; what reddened was the SOURCE file shrinking, and the destination was silent. ⛔ A codec does not have to CHANGE to leave its ledger — it only has to move into a crate the filter does not recognise | `36706b667` |
+| 40 | `check_no_warnings.py` printing OK, twice, an hour apart | It PARSES diagnostics rather than setting `-D warnings`, so it reuses the build fingerprint — and cached crates do not re-emit warnings. Both OKs were warm reads; the warnings appeared the moment something rebuilt the crate. ⚠ The script documents this trap in its own docstring and I still took the OK | `b252d81ca`, `a4aafc568` |
+| 41 | `check_agent_kb.py` exiting 1 on a broken link that was an EXAMPLE | It ran its link regex over raw text while `check_doc_links.py`, scanning the same tree, blanked code spans and reported 927 links clean. The "broken link" was `` `[text](other.md#anchor)` `` in backticks — a page NAMING the construct it was discussing. Two link checkers, one file, two answers | `6f0eed496` |
+| 42 | The doc-link ratchet's own ADVICE | "⭐ … improved — run `--update` to bank it" printed ALWAYS; the ⛔ risen block only under `--check`. A plain run showed ROSE in its table, said nothing, exited 0, and advised the one command that banks the regression. Two crates had risen unread | `bf4e6f353` |
+| 43 | The whole gate, in every agent worktree | The tool-venv store is keyed by DIRECTORY BASENAME; a worktree's is `agent-worktree1`, not `ambition`. The resolver fell to a bare `python3` and the runner refused: *"missing: soundfile, tree_sitter_rust"*. ⛔ The modules were not missing. Same shape as `check_authored_levels_survive` matching `.worktrees` against an absolute path — a path-derived identity right in the main checkout and wrong where the agents work | `891b8799f` |
+| 44 | The demand-road list, ONE DAY after it was corrected | It said SEVEN, a review said NINE, a re-derivation said TEN — and `entity-sprite` made it ELEVEN within the day, added by a commit that was itself about a mis-stamped road. Four hand-kept copies, four wrong | `d764cf9e5`, guarded `9abc89fcf` |
+| 45 | The carve checklist's own exclusion table | It filed `snapshot_impls` under `characters/src/brain/{…}`; the path is `characters/src/snapshot_impls.rs`, at the crate ROOT, and it trips TWO contracts. Four contract names were also elided to `the-motion-model-…`, which is not greppable — the one thing that table owes its reader | `eee69a969` |
+| 46 | Every lane, over a crate built under its OWN defaults | ⭐ A THIRD BLINDNESS AXIS, beside gated code and warm fingerprints. `ambition_input`'s default feature set is EMPTY, so built alone its only use of `WALK_AXIS_CAP` is not compiled and the const warns — while the workspace check unifies `input` ON and sees nothing. `cargo check -p X` and the workspace check are DIFFERENT PROGRAMS, which is the jab-string lesson in reverse (that test was green per-crate and red under the union; this is green under the union and red per-crate). ⇒ Measured the population: of 25 crates with an empty `default` AND cfg-gated source, FOUR warn when built alone, and all four report the SAME THREE warnings — one root cause in `ambition_dialog`, whose methods are called only inside `systems.rs`'s 17 `#[cfg(feature = "input")]` blocks and `ui`-gated `bridge.rs` | `b62aac79d` fixes the input one; the dialog one is RECORDED not fixed — six methods needing cfgs across two features in a crate I do not own is a change to make on purpose, not in passing |
+
+## ⛔⛔ A TRANSIENT I EXPLAINED WRONG, AND THE DATA TO CATCH IT WAS ALREADY IN FRONT OF ME
+
+`check_planning_citations.py` reported `1 unresolved` and then, re-run seconds
+later over an unchanged tree, `all resolved`. I saw it four times, always just
+after a `git fetch`, and wrote it up as *probably* a race between the checker's
+`git ls-files` and another agent's index write — labelled unconfirmed, which was
+honest, and **wrong**.
+
+⭐ **RACING MY OWN GIT REPRODUCED IT — and the reproduction refuted the
+hypothesis rather than confirming it.** The `reading N tracked files` line read
+**3293 in the clean runs and 3293 in the failing ones**, so the index was never
+short; and the failing citation was **the same line every time**. Both facts were
+in output I had already read.
+
+⇒ THE REAL CAUSE, and it was mine: I had added the citation
+`` `game_assets/mod.rs:561` ``, and TWO tracked files end with that suffix. The
+line-number check read `hits[0]` — and `hits` came from `tracked`, a **SET**, so
+its order is per-process (Python randomises string hashing). Half the time it
+measured the monolith's shorter `game_assets/mod.rs` and reported my line 561 as
+past the end.
+
+* `hits` is sorted, and the line check now tries EVERY candidate;
+* an ambiguous `file:line` is REPORTED as ambiguous instead of silently resolved
+  against an arbitrary file — four existed in the tree and are now full paths;
+* `test_planning_citations_are_deterministic.py` pins it: two runs over one
+  document must agree, and both poisons (unsorted hits, `hits[0]`) redden it.
+
+⛔⛔ **THE LESSON IS NOT "check for nondeterminism". It is that a PLAUSIBLE
+MECHANISM IS NOT EVIDENCE.** Mine was coherent, fitted every observation, named
+a real shared-tree hazard — and was refuted by a number printed on the same
+screen as the failure. ⇒ Before believing a mechanism, ask what it PREDICTS that
+the alternative does not, and go and look. A race predicts a varying file count;
+there wasn't one.
+
+⚠ The operational rule I drew from the wrong theory happens to be right anyway,
+and stands: re-run before believing a single failure. But it was right by
+accident, which is worth knowing about a rule.
+
+⛔⛔ **AND FOUR OF MY OWN MEASUREMENTS OVER-REPORTED BEFORE I CHECKED THEM**,
+which is the through-line of the whole night: `Path.resolve()` escaping the
+worktree; `[0-9a-f]{7,40}` calling twenty rollback CHECKSUMS unresolved commits;
+`waiver()` prefixes read as crate names when they are deliberately crate-agnostic
+SUBSTRINGS (49 of 149 "dead", all correct); and a name-based scan for
+"live-tree" test arms that missed four in one file. ⇒ Every one was caught by
+reading a handful of the hits before believing the count. Nothing else worked.

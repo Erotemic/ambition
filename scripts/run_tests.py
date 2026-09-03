@@ -681,12 +681,28 @@ def build_maintenance_jobs() -> list[Job]:
     than routine code validation. Keeping that ownership explicit prevents an
     ungenerated local `.agent/index` or planning-corpus housekeeping issue from
     delaying every Rust edit while retaining a one-command audit lane.
+
+    ⛔ AND THE TWO CI-ONLY RATCHETS LIVE HERE NOW. Until 2026-09-03
+    `check_doc_link_ratchet.py` and `check_zone_name_ratchet.py` were invoked by
+    `.github/workflows/test.yml` and by NOTHING ELSE — not this runner, not the
+    pytest lane — so no local command reached them, and the doc-link one had
+    quietly accumulated two regressions. They are periodic hygiene by nature,
+    and the doc-link ratchet is a cold `cargo doc` over nine crates: exactly why
+    it does not belong in the default plan and does belong here.
     """
     return [
         Job(
             "agent KB (periodic doc/index hygiene)",
             [sys.executable, "scripts/check_agent_kb.py"],
-        )
+        ),
+        Job(
+            "broken intra-doc links (ratchet; cold cargo doc, minutes)",
+            [sys.executable, "scripts/check_doc_link_ratchet.py", "--check"],
+        ),
+        Job(
+            "zone names (ratchet)",
+            [sys.executable, "scripts/check_zone_name_ratchet.py", "--check"],
+        ),
     ]
 
 

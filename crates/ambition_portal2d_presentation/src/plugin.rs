@@ -127,7 +127,31 @@ impl Plugin for PortalPresentationPlugin {
                 Update,
                 (
                     view_cones::handle_portal_view_cone_dump_hotkey,
-                    view_cones::sync_portal_view_cones,
+                    // ⛔⛔ GUARDED BECAUSE BEVY 0.19 MADE A MISSING PARAMETER
+                    // FATAL. `ConeRigAssets` takes `ResMut<Assets<Image>>`,
+                    // `<Mesh>` and `<ColorMaterial>`; 0.18 skipped a system whose
+                    // params were absent, 0.19 panics the schedule. A composition
+                    // that installs portal presentation without a render stack —
+                    // every headless demo app — took the whole app down with it:
+                    // 37 of the feature union's 48 failures were this one line.
+                    //
+                    // ⭐ NOT A NEW POLICY. `engine/headless-verification.md`
+                    // already ruled on this class: *"the fix is usually NOT to
+                    // register the resource. A gizmo or mesh system with no
+                    // render stack should be `run_if(resource_exists::<..>)`-
+                    // guarded so it skips … because registering render assets one
+                    // at a time into a headless app is fitting the app to the
+                    // test."* `avatar::trail.rs` is the named pattern.
+                    //
+                    // ⚠ ALL THREE, not the one that happened to fail first. That
+                    // doc records three of these hiding in succession on
+                    // 2026-09-02 — a missing `Assets<TextureAtlasLayout>`, then
+                    // `GizmoConfigStore`, then `Assets<Mesh>` — each looking
+                    // identical to the last. Chained `run_if`s are ANDed.
+                    view_cones::sync_portal_view_cones
+                        .run_if(resource_exists::<Assets<Image>>)
+                        .run_if(resource_exists::<Assets<Mesh>>)
+                        .run_if(resource_exists::<Assets<ColorMaterial>>),
                     view_cones::debug_portal_view_zones,
                     view_cones::flush_portal_view_cone_debug_dump,
                 )

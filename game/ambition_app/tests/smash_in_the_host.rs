@@ -408,8 +408,8 @@ fn two_participants_start_a_match_and_can_still_pause_it() {
 /// The seat is what makes the difference, so the seat is what this asserts.
 #[test]
 fn a_seated_fighter_keeps_its_omniscient_senses() {
-    use ambition_platformer2d::actors::character_runtime::MatchSeat;
     use ambition_platformer2d::actors::features::ecs::perception::Perception;
+    use ambition_platformer2d::versus_match::MatchSeat;
 
     let mut app = shell_host_app();
     settle(&mut app);
@@ -453,7 +453,7 @@ fn a_seated_fighter_keeps_its_omniscient_senses() {
 
 #[test]
 fn a_two_participant_roster_actually_seats_two_bodies() {
-    use ambition_platformer2d::actors::character_runtime::MatchSeat;
+    use ambition_platformer2d::versus_match::MatchSeat;
 
     let mut app = shell_host_app();
     settle(&mut app);
@@ -563,7 +563,7 @@ fn a_two_participant_roster_actually_seats_two_bodies() {
 /// are tested by seating/character construction instead.
 #[test]
 fn an_adopted_seat_and_a_spawned_seat_agree_on_every_roster_declared_field() {
-    use ambition_platformer2d::actors::character_runtime::MatchSeat;
+    use ambition_platformer2d::versus_match::MatchSeat;
 
     let mut app = shell_host_app();
     settle(&mut app);
@@ -637,8 +637,8 @@ fn an_adopted_seat_and_a_spawned_seat_agree_on_every_roster_declared_field() {
 
 #[test]
 fn a_keyboard_player_and_a_pad_player_drive_different_fighters() {
-    use ambition_platformer2d::actors::character_runtime::MatchSeat;
     use ambition_platformer2d::engine_core::BodyKinematics;
+    use ambition_platformer2d::versus_match::MatchSeat;
     use bevy::input::gamepad::GamepadButton;
 
     fn pad_set(app: &mut App, pad: Entity, button: GamepadButton, value: f32) {
@@ -935,7 +935,7 @@ fn a_decided_match_freezes_the_local_seating() {
 /// that the two seats DIFFER, in the direction their characters authored.
 #[test]
 fn the_puppy_slug_forced_onto_the_stage_keeps_the_body_it_authored() {
-    use ambition_platformer2d::actors::character_runtime::MatchSeat;
+    use ambition_platformer2d::versus_match::MatchSeat;
 
     const SLUG: &str = "npc_puppy_slug";
     const OPPONENT: &str = "goblin";
@@ -1170,7 +1170,7 @@ fn the_puppy_slug_forced_onto_the_stage_keeps_the_body_it_authored() {
 /// fighter.
 #[test]
 fn two_seated_fighters_carry_their_own_frame_data_for_the_same_verb() {
-    use ambition_platformer2d::actors::character_runtime::MatchSeat;
+    use ambition_platformer2d::versus_match::MatchSeat;
 
     let mut app = shell_host_app();
     settle(&mut app);
@@ -1262,8 +1262,8 @@ fn two_seated_fighters_carry_their_own_frame_data_for_the_same_verb() {
 /// a lift" is the claim that says two different tables arrived.
 #[test]
 fn oiler_seated_in_the_host_rides_his_own_geyser() {
-    use ambition_platformer2d::actors::character_runtime::MatchSeat;
     use ambition_platformer2d::entity_catalog::AttackDir;
+    use ambition_platformer2d::versus_match::MatchSeat;
 
     let mut app = shell_host_app();
     settle(&mut app);
@@ -1504,7 +1504,7 @@ fn a_grid_fighter_that_authors_no_feel_is_seated_on_the_wandering_enemys_body() 
     let seated: Vec<(usize, f32, f32, f32)> = {
         let world = app.world_mut();
         let mut query = world.query::<(
-            &ambition_platformer2d::actors::character_runtime::MatchSeat,
+            &ambition_platformer2d::versus_match::MatchSeat,
             &ambition_platformer2d::engine_core::AuthoredMovementTuning,
         )>();
         let mut rows: Vec<(usize, f32, f32, f32)> = query
@@ -1622,9 +1622,9 @@ fn george_carries_the_knockback_weight_his_own_facet_authors() {
     settle(&mut app);
     launch_row(&mut app, "Smash");
     settle(&mut app);
-    let registry = app
-        .world()
-        .resource::<ambition_platformer2d::characters::prepared::PreparedCharacterRegistry>();
+    let registry =
+        app.world()
+            .resource::<ambition_platformer2d::characters::prepared::PreparedCharacterRegistry>();
     let george = registry
         .get(SMASH_GEORGE_BOOUL)
         .expect("George is not registered in the shipped host, so this measures nothing");
@@ -1733,7 +1733,7 @@ fn a_fighter_picked_in_smash_does_not_follow_the_player_into_ambition() {
         let world = app.world_mut();
         let mut q = world.query_filtered::<
             &ambition_platformer2d::character::WornCharacter,
-            With<ambition_platformer2d::actors::character_runtime::MatchSeat>,
+            With<ambition_platformer2d::versus_match::MatchSeat>,
         >();
         q.iter(world).map(|worn| worn.id().to_owned()).collect()
     };
@@ -1949,14 +1949,14 @@ fn start_and_report(app: &mut App) -> MatchStart {
         app.update();
         if app
             .world()
-            .get_resource::<ambition_platformer2d::actors::character_runtime::MatchPreparationProblems>()
+            .get_resource::<ambition_platformer2d::versus_match::MatchPreparationProblems>()
             .is_some()
         {
             return MatchStart::PreparationRefused;
         }
         if app
             .world()
-            .get_resource::<ambition_platformer2d::actors::character_runtime::ActiveMatch>()
+            .get_resource::<ambition_platformer2d::versus_match::ActiveMatch>()
             .is_some()
         {
             // COUNT THE ORPHANS TOO, or this oracle goes green over a broken
@@ -1970,12 +1970,11 @@ fn start_and_report(app: &mut App) -> MatchStart {
             // A seat count cannot see that, so it would report `Activated{2}` about a stage you
             // cannot play.
             let world = app.world_mut();
-            let mut seated =
-                world.query::<&ambition_platformer2d::actors::character_runtime::MatchSeat>();
+            let mut seated = world.query::<&ambition_platformer2d::versus_match::MatchSeat>();
             let seats = seated.iter(world).count();
             let mut loose = world.query_filtered::<Entity, (
                 With<ambition_platformer2d::actors::control::components::LocalPlayer>,
-                Without<ambition_platformer2d::actors::character_runtime::MatchSeat>,
+                Without<ambition_platformer2d::versus_match::MatchSeat>,
             )>();
             let orphans = loose.iter(world).count();
             assert_eq!(
@@ -2024,10 +2023,8 @@ fn a_respawning_fighter_is_briefly_untouchable_and_an_eliminated_one_is_not() {
 
     let bodies: Vec<Entity> = {
         let world = app.world_mut();
-        let mut q = world.query_filtered::<
-            Entity,
-            With<ambition_platformer2d::actors::character_runtime::MatchSeat>,
-        >();
+        let mut q =
+            world.query_filtered::<Entity, With<ambition_platformer2d::versus_match::MatchSeat>>();
         q.iter(world).collect()
     };
     let victim = *bodies.first().expect("a live match has fighters");
@@ -2049,10 +2046,8 @@ fn a_respawning_fighter_is_briefly_untouchable_and_an_eliminated_one_is_not() {
     // instrument the opening countdown uses.
     {
         let world = app.world_mut();
-        let mut others = world.query_filtered::<
-            Entity,
-            With<ambition_platformer2d::actors::character_runtime::MatchSeat>,
-        >();
+        let mut others =
+            world.query_filtered::<Entity, With<ambition_platformer2d::versus_match::MatchSeat>>();
         // the VICTIM too. Suspending only its opponent was not enough: a
         // CPU-driven body walks itself off a platform-fighter stage, loses the
         // next stock on its own, and takes a fresh grant with it. Nothing here
@@ -2164,7 +2159,7 @@ fn wait_for_the_round_to_go_live(app: &mut App) {
         let held = {
             let world = app.world_mut();
             let mut q = world.query_filtered::<
-                &ambition_platformer2d::actors::character_runtime::MatchSeat,
+                &ambition_platformer2d::versus_match::MatchSeat,
                 With<ambition_platformer2d::characters::control::ScriptedControl>,
             >();
             q.iter(world).count()
@@ -2213,7 +2208,7 @@ fn settle_the_match_by_knockout(app: &mut App) {
         .copied();
     let running = app
         .world()
-        .get_resource::<ambition_platformer2d::actors::character_runtime::ActiveMatch>()
+        .get_resource::<ambition_platformer2d::versus_match::ActiveMatch>()
         .cloned()
         .expect("a live match to settle");
     let tick = |app: &mut App| {
@@ -2230,10 +2225,7 @@ fn settle_the_match_by_knockout(app: &mut App) {
 
     let victims: Vec<Entity> = {
         let world = app.world_mut();
-        let mut q = world.query::<(
-            Entity,
-            &ambition_platformer2d::actors::character_runtime::MatchSeat,
-        )>();
+        let mut q = world.query::<(Entity, &ambition_platformer2d::versus_match::MatchSeat)>();
         let mut rows: Vec<(usize, Entity)> = q.iter(world).map(|(e, seat)| (seat.0, e)).collect();
         rows.sort_by_key(|(seat, _)| *seat);
         assert!(
@@ -2298,7 +2290,7 @@ fn settle_the_match_by_knockout(app: &mut App) {
 fn seat_positions(app: &mut App) -> Vec<f32> {
     let world = app.world_mut();
     let mut q = world.query::<(
-        &ambition_platformer2d::actors::character_runtime::MatchSeat,
+        &ambition_platformer2d::versus_match::MatchSeat,
         &ambition_platformer2d::engine_core::BodyKinematics,
     )>();
     let mut rows: Vec<(usize, f32)> = q
@@ -2343,7 +2335,7 @@ fn a_quick_forward_smash_barely_travels_but_plain_forward_still_walks() {
     let seat_zero_x = |app: &mut App| -> f32 {
         let world = app.world_mut();
         let mut q = world.query::<(
-            &ambition_platformer2d::actors::character_runtime::MatchSeat,
+            &ambition_platformer2d::versus_match::MatchSeat,
             &ambition_platformer2d::engine_core::BodyKinematics,
         )>();
         q.iter(world)
@@ -2354,7 +2346,7 @@ fn a_quick_forward_smash_barely_travels_but_plain_forward_still_walks() {
     let seat_zero_move = |app: &mut App| -> Option<String> {
         let world = app.world_mut();
         let mut q = world.query::<(
-            &ambition_platformer2d::actors::character_runtime::MatchSeat,
+            &ambition_platformer2d::versus_match::MatchSeat,
             Option<&ambition_platformer2d::combat::moveset::MovePlayback>,
         )>();
         q.iter(world)
@@ -2598,7 +2590,7 @@ fn the_match_clock_does_not_start_until_the_cast_is_released() {
         held = {
             let world = app.world_mut();
             let mut q = world.query_filtered::<
-                &ambition_platformer2d::actors::character_runtime::MatchSeat,
+                &ambition_platformer2d::versus_match::MatchSeat,
                 With<ambition_platformer2d::characters::control::ScriptedControl>,
             >();
             q.iter(world).count()
@@ -2616,7 +2608,7 @@ fn the_match_clock_does_not_start_until_the_cast_is_released() {
     let counted = |app: &App| {
         let active = app
             .world()
-            .get_resource::<ambition_platformer2d::actors::character_runtime::ActiveMatch>()
+            .get_resource::<ambition_platformer2d::versus_match::ActiveMatch>()
             .cloned()
             .expect("a match is live");
         app.world().resource::<LiveMatchTicks>().of(&active)
@@ -2636,7 +2628,7 @@ fn the_match_clock_does_not_start_until_the_cast_is_released() {
         let still_held = {
             let world = app.world_mut();
             let mut q = world.query_filtered::<
-                &ambition_platformer2d::actors::character_runtime::MatchSeat,
+                &ambition_platformer2d::versus_match::MatchSeat,
                 With<ambition_platformer2d::characters::control::ScriptedControl>,
             >();
             q.iter(world).count() > 0
@@ -2699,7 +2691,7 @@ fn a_settled_match_withdraws_the_exit_row_while_the_winner_card_is_still_up() {
     // itself writes — rather than by reaching into the settlement resource.
     let running = app
         .world()
-        .get_resource::<ambition_platformer2d::actors::character_runtime::ActiveMatch>()
+        .get_resource::<ambition_platformer2d::versus_match::ActiveMatch>()
         .cloned()
         .expect("a live match");
     app.world_mut().insert_resource(
@@ -2710,7 +2702,7 @@ fn a_settled_match_withdraws_the_exit_row_while_the_winner_card_is_still_up() {
 
     let active = app
         .world()
-        .get_resource::<ambition_platformer2d::actors::character_runtime::ActiveMatch>()
+        .get_resource::<ambition_platformer2d::versus_match::ActiveMatch>()
         .cloned();
     assert!(
         active.is_some(),
@@ -2763,10 +2755,8 @@ fn a_respawned_fighter_can_recover_before_it_has_landed() {
 
     let victim = {
         let world = app.world_mut();
-        let mut q = world.query_filtered::<
-            Entity,
-            With<ambition_platformer2d::actors::character_runtime::MatchSeat>,
-        >();
+        let mut q =
+            world.query_filtered::<Entity, With<ambition_platformer2d::versus_match::MatchSeat>>();
         q.iter(world).next().expect("a live match has fighters")
     };
 
@@ -2962,7 +2952,7 @@ fn two_cpus_can_fight_each_other() {
             );
         let follow = resolved.follow_world;
         let mut q = world.query::<(
-            &ambition_platformer2d::actors::character_runtime::MatchSeat,
+            &ambition_platformer2d::versus_match::MatchSeat,
             &ambition_platformer2d::engine_core::BodyKinematics,
         )>();
         let mut cast: Vec<(usize, f32, f32)> = q
@@ -3022,9 +3012,7 @@ fn two_cpus_can_fight_each_other() {
 /// thing works. A reproduction that content repaired is history, not coverage.
 #[test]
 fn a_preparation_refusal_is_shown_instead_of_ready() {
-    use ambition_platformer2d::actors::character_runtime::{
-        MatchPreparationProblems, RosterProblem,
-    };
+    use ambition_platformer2d::versus_match::{MatchPreparationProblems, RosterProblem};
 
     let mut app = open_the_lobby();
     cycle_role(&mut app, 0, 2);
@@ -3404,9 +3392,8 @@ fn a_draw_does_not_rebuild_the_cast_it_just_finished() {
     // Down to the last stock apiece.
     let bodies: Vec<Entity> = {
         let world = app.world_mut();
-        let mut q = world.query_filtered::<Entity, With<
-            ambition_platformer2d::actors::character_runtime::MatchSeat,
-        >>();
+        let mut q =
+            world.query_filtered::<Entity, With<ambition_platformer2d::versus_match::MatchSeat>>();
         q.iter(world).collect()
     };
     assert_eq!(
@@ -3473,7 +3460,7 @@ fn a_draw_does_not_rebuild_the_cast_it_just_finished() {
     }
 
     let world = app.world_mut();
-    let mut seats = world.query::<&ambition_platformer2d::actors::character_runtime::MatchSeat>();
+    let mut seats = world.query::<&ambition_platformer2d::versus_match::MatchSeat>();
     let rebuilt = seats.iter(world).count();
     assert_eq!(
         rebuilt, 0,
@@ -3484,7 +3471,7 @@ fn a_draw_does_not_rebuild_the_cast_it_just_finished() {
     );
     assert!(
         world
-            .get_resource::<ambition_platformer2d::actors::character_runtime::ActiveMatch>()
+            .get_resource::<ambition_platformer2d::versus_match::ActiveMatch>()
             .is_some(),
         "the finished match's receipt is gone, so nothing can tell the ruleset \
          which match it just decided"
@@ -4002,8 +3989,8 @@ fn a_fighter_from_another_game_reads_its_percent_against_this_stages_pool() {
 /// So this seats two of them for real and asks the LIVE body.
 #[test]
 fn report_what_an_unarmed_fighter_swings_once_the_stage_has_armed_it() {
-    use ambition_platformer2d::actors::character_runtime::MatchSeat;
     use ambition_platformer2d::entity_catalog::AttackDir::*;
+    use ambition_platformer2d::versus_match::MatchSeat;
 
     let presses: [(
         &str,
@@ -4122,7 +4109,7 @@ fn report_what_an_unarmed_fighter_swings_once_the_stage_has_armed_it() {
 /// shot spared as an ally.
 #[test]
 fn report_the_factions_and_teams_a_seated_fighter_carries() {
-    use ambition_platformer2d::actors::character_runtime::MatchSeat;
+    use ambition_platformer2d::versus_match::MatchSeat;
 
     let mut app = shell_host_app();
     settle(&mut app);
@@ -4170,8 +4157,8 @@ fn report_the_factions_and_teams_a_seated_fighter_carries() {
 /// stops this file passing over a fighter that quietly lost both.
 #[test]
 fn a_fighter_with_no_dash_still_covers_ground_on_the_stage() {
-    use ambition_platformer2d::actors::character_runtime::MatchSeat;
     use ambition_platformer2d::engine_core::BodyKinematics;
+    use ambition_platformer2d::versus_match::MatchSeat;
 
     let mut app = open_the_lobby();
     decide_a_solo_match(&mut app);
@@ -4401,7 +4388,7 @@ const SPECIAL_KEY: KeyCode = KeyCode::KeyG;
 /// Seat a person (seat 0, on the keyboard) as `fighter` against one CPU, start
 /// the match, and hand back the person's body once the opening hold is off.
 fn a_person_fighting_as(fighter: &str) -> (App, Entity) {
-    use ambition_platformer2d::actors::character_runtime::MatchSeat;
+    use ambition_platformer2d::versus_match::MatchSeat;
 
     let mut app = open_the_lobby();
     cycle_role(&mut app, 0, 1); // the person takes the only source (the keyboard)
@@ -4633,8 +4620,8 @@ fn holding_shield_raises_a_guard_and_fires_no_authored_move() {
 /// walks in and swings.
 #[test]
 fn a_cpu_fighter_raises_a_guard_without_pressing_a_physical_button() {
-    use ambition_platformer2d::actors::character_runtime::MatchSeat;
     use ambition_platformer2d::engine_core::BodyKinematics;
+    use ambition_platformer2d::versus_match::MatchSeat;
 
     let (mut app, person) = a_person_fighting_as(OTHER_PREPARED_FIGHTER);
     let cpu = {
@@ -4737,7 +4724,7 @@ fn pad_click(
 ///
 /// Slot 1 is the pad because the pad explicitly presses that card's role control.
 fn a_pad_player_fighting_as(fighter: &str) -> (App, Entity, Entity) {
-    use ambition_platformer2d::actors::character_runtime::MatchSeat;
+    use ambition_platformer2d::versus_match::MatchSeat;
 
     let mut app = shell_host_app();
     // ONE pad: under the couch policy that is two seats, the keyboard's and this
@@ -4958,7 +4945,7 @@ fn on_the_smash_pad_a_held_player_can_mash_free() {
     // Somebody else on the stage is the captor; which body it is does not
     // matter to the question, only that it is not the captive.
     let captor = {
-        use ambition_platformer2d::actors::character_runtime::MatchSeat;
+        use ambition_platformer2d::versus_match::MatchSeat;
         let world = app.world_mut();
         let mut seats = world.query::<(bevy::prelude::Entity, &MatchSeat)>();
         seats
@@ -5046,7 +5033,7 @@ fn on_the_smash_pad_attacking_while_holding_pummels() {
 
     // Somebody to hold. Which body does not matter; that it is not the captor does.
     let captive = {
-        use ambition_platformer2d::actors::character_runtime::MatchSeat;
+        use ambition_platformer2d::versus_match::MatchSeat;
         let world = app.world_mut();
         let mut seats = world.query::<(bevy::prelude::Entity, &MatchSeat)>();
         seats
@@ -5116,7 +5103,7 @@ fn on_the_smash_pad_forward_and_attack_while_holding_throws() {
         .expect("this fighter authors no forward throw, so this could not reach one");
 
     let captive = {
-        use ambition_platformer2d::actors::character_runtime::MatchSeat;
+        use ambition_platformer2d::versus_match::MatchSeat;
         let world = app.world_mut();
         let mut seats = world.query::<(bevy::prelude::Entity, &MatchSeat)>();
         seats
@@ -5932,8 +5919,8 @@ fn a_fighter_with_a_multi_frame_portrait_gets_one_frame_on_the_hud() {
 /// binding layer reads it.
 #[test]
 fn a_pad_claiming_the_first_card_leaves_the_keyboard_driving_the_second() {
-    use ambition_platformer2d::actors::character_runtime::MatchSeat;
     use ambition_platformer2d::engine_core::BodyKinematics;
+    use ambition_platformer2d::versus_match::MatchSeat;
     use bevy::input::gamepad::GamepadButton;
 
     fn pad_set(app: &mut App, pad: Entity, button: GamepadButton, value: f32) {
@@ -6114,7 +6101,7 @@ fn the_return_countdown_does_not_arm_on_a_speculative_verdict() {
     });
     let running = app
         .world()
-        .get_resource::<ambition_platformer2d::actors::character_runtime::ActiveMatch>()
+        .get_resource::<ambition_platformer2d::versus_match::ActiveMatch>()
         .cloned()
         .expect("a live match");
     settle_the_match_by_knockout(&mut app);
@@ -6198,12 +6185,12 @@ fn the_sudden_death_card_outlives_the_tick_that_raised_it() {
 
     let active = app
         .world()
-        .get_resource::<ambition_platformer2d::actors::character_runtime::ActiveMatch>()
+        .get_resource::<ambition_platformer2d::versus_match::ActiveMatch>()
         .cloned()
         .expect("a live match");
     let limit = app
         .world()
-        .get_resource::<ambition_platformer2d::actors::character_runtime::PreparedMatch>()
+        .get_resource::<ambition_platformer2d::versus_match::PreparedMatch>()
         .map(|prepared| prepared.rules().time_limit_ticks)
         .expect("the staged match declares a plan");
     assert!(
@@ -6313,7 +6300,7 @@ fn the_winner_card_does_not_show_a_speculative_verdict() {
     app.world_mut().insert_resource(predicted);
     let running = app
         .world()
-        .get_resource::<ambition_platformer2d::actors::character_runtime::ActiveMatch>()
+        .get_resource::<ambition_platformer2d::versus_match::ActiveMatch>()
         .cloned()
         .expect("a live match");
     settle_the_match_by_knockout(&mut app);

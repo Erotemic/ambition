@@ -1977,7 +1977,7 @@ fn a_silent_character_gives_back_the_bodys_own_mass_and_health() {
     assert_eq!(mass(&app), Some(DUELIST_MASS));
     assert_eq!(
         app.world().get::<PersonaBaseline>(body).unwrap().displaced,
-        crate::character_runtime::DisplacedPhysicals {
+        ambition_body_seed::DisplacedPhysicals {
             max_health: Some(BODY_MAX_HEALTH),
             mass: Some(Some(BODY_MASS)),
             // Neither persona in this fixture authors a weight, so no persona
@@ -2013,7 +2013,7 @@ fn a_silent_character_gives_back_the_bodys_own_mass_and_health() {
     // rather than to the persona that just left.
     assert_eq!(
         app.world().get::<PersonaBaseline>(body).unwrap().displaced,
-        crate::character_runtime::DisplacedPhysicals {
+        ambition_body_seed::DisplacedPhysicals {
             max_health: Some(BODY_MAX_HEALTH),
             mass: Some(Some(BODY_MASS)),
             // Neither persona in this fixture authors a weight, so no persona

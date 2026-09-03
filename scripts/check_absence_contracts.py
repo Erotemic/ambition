@@ -226,8 +226,10 @@ ABSENCE_CONTRACTS: list[dict] = [
             # HOW TO TELL THEM APART, when this next goes red: grep the path this list already
             # names for the write.
             #
-            # Activation stayed the one writer.
-            ":(exclude)crates/ambition_platformer2d_actor_monolith/src/character_runtime/prepared_match.rs",
+            # Activation stayed the one writer. 2026-09-03: activation's file is
+            # `match_activation.rs` (preparation left for `ambition_match`); the
+            # exemption moved with the writer, it did not widen.
+            ":(exclude)crates/ambition_platformer2d_actor_monolith/src/character_runtime/match_activation.rs",
             ":(exclude)game/ambition_app/src/app/versus.rs",
         ],
         "patterns": [

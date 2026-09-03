@@ -699,7 +699,7 @@ mod authored_enemy_reads_its_character {
             .resource::<ambition_characters::prepared::PreparedCharacterRegistry>()
             .generation();
         let world = app.world_mut();
-        let mut q = world.query::<&crate::avatar::PersonaBaseline>();
+        let mut q = world.query::<&ambition_body_seed::PersonaBaseline>();
         let baseline = q
             .iter(world)
             .next()

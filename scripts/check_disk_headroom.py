@@ -73,8 +73,19 @@ def main() -> int:
             "⚠ do not start a build. A mid-build ENOSPC does not say 'disk full' — "
             "it surfaces as unrelated compile errors in whichever crate was "
             "unlucky, and the real cause appears nowhere.\n\n"
-            f"  Look first: du -sh {where}/* | sort -h\n"
-            f"  Free it:    cargo clean            (then expect one full rebuild)",
+            f"  Look first: du -sh {where}/debug/* | sort -h\n"
+            # ⭐ INCREMENTAL FIRST, AND IT IS NOT A DETAIL. `debug/incremental`
+            # was 31 GB and later 9.7 GB on one agent worktree in a single day,
+            # and dropping it costs a slower NEXT incremental build rather than
+            # a full rebuild, because `debug/deps` survives. Jumping straight to
+            # `cargo clean` buys the same space and a 40-minute rebuild.
+            f"  Cheap first: rm -rf {where}/debug/incremental   "
+            "(keeps deps/; costs one slower incremental build)\n"
+            f"  Then:        rm -rf {where}/profiling {where}/wasm32-unknown-unknown {where}/doc\n"
+            f"  Last resort: cargo clean            (then expect one full rebuild)\n\n"
+            "⚠ THE VOLUME IS SHARED with the main checkout and every other agent "
+            "worktree, so `du` YOUR target before cleaning someone else's: on "
+            "2026-09-03 the main tree held 270 GB and one worktree 99 GB.",
             file=sys.stderr,
         )
         return 1

@@ -432,11 +432,9 @@ fn every_smash_fighter_lands_between_the_stages_floor_and_its_ceiling() {
     let mut somebody_sat_on_the_floor = false;
     for id in grid.ids() {
         let authored = registry.get(id).and_then(|prepared| prepared.abilities);
-        let effective = ambition_platformer2d::actors::character_runtime::effective_abilities(
-            authored,
-            Some(rules),
-        )
-        .expect("a declaring stage always answers");
+        let effective =
+            ambition_platformer2d::versus_match::effective_abilities(authored, Some(rules))
+                .expect("a declaring stage always answers");
         if effective == floor {
             somebody_sat_on_the_floor = true;
         } else {
@@ -898,7 +896,7 @@ fn every_fighter_on_the_smash_grid_gets_a_body_that_can_air_dodge() {
     // The stage's own declaration, from the stage's own roster builder rather
     // than a literal — the same source the kit census reads.
     let roster = ambition_demo_smash::smash_roster(grid.ids().take(2));
-    let rules = ambition_platformer2d::actors::character_runtime::MatchRules {
+    let rules = ambition_platformer2d::versus_match::MatchRules {
         body: roster.rules.body,
         ..Default::default()
     };

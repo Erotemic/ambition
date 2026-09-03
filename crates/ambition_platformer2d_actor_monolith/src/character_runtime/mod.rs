@@ -10,11 +10,8 @@ pub mod audit;
 pub mod definition;
 pub mod hurtbox;
 pub mod live_match_clock;
-pub mod physical_baseline;
-pub mod prepared_match;
+pub mod match_activation;
 pub mod presentation;
-pub mod seating;
-pub mod staging;
 
 #[cfg(test)]
 // Test-only preparation seams supplied by `ambition_characters::test-support`.
@@ -35,20 +32,15 @@ pub use hurtbox::{
     resolve_hurtboxes, AuthoredHurtboxes, BodyPoseClock, HurtboxSelection, ResolvedHurtboxes,
     POSE_AIRBORNE, POSE_HITSTUN, POSE_IDLE,
 };
-pub use physical_baseline::{
-    BaselineBoundary, BodyGeometry, DisplacedPhysicals, PhysicalBaseline, PhysicalRetraction,
-};
-pub use prepared_match::{
-    activate_the_prepared_match, declare_the_match_cast_as_the_view, effective_abilities,
-    prepare_match, prepare_the_match, release_the_opening_hold, seat_placement, ControlAuthority,
-    MatchPreparationProblems, MatchRules, OpeningPhase, PreparedMatch, PreparedSeat, OPENING_BEATS,
+pub use match_activation::{
+    activate_the_prepared_match, declare_the_match_cast_as_the_view, prepare_the_match,
+    release_the_opening_hold,
 };
 pub use presentation::{
     authorize_staged_character_presentation_sources, grant_prepared_character_body,
     inherit_projectile_presentation_sources, project_prepared_character_definitions,
     provider_of_character, publish_body_presentation_sources, KitOwnership, ProjectedCharacterKit,
 };
-pub use seating::{match_participants, ActiveMatch, MatchInstance, MatchSeat};
 
 #[cfg(test)]
 use ambition_characters::actor::definition::CharacterDefinition;
@@ -85,11 +77,6 @@ pub(crate) fn fixture_cast(ids: &[&str]) -> PreparedCharacterRegistry {
     }
     registry
 }
-pub use staging::{
-    ControllerBinding, DirectStartupSpec, MatchItemSpawns, MatchParticipant,
-    MatchParticipantRoster, NormalizedEffort, RoomStagingPlan, RosterProblem, RosterSeating,
-    StagesCharacters,
-};
 
 use std::collections::{BTreeMap, BTreeSet};
 
@@ -102,96 +89,7 @@ use ambition_sprite_sheet::character::{CharacterSheetState, CharacterSpriteAsset
 
 use crate::assets::platformer_assets::Platformer2dAssetCatalog;
 
-/// Character tokens a session has staged and therefore needs art for.
-///
-/// A token is a catalog id or an authored display name — whatever content wrote.
-/// Requests accumulate until the materializer drains them, so a submitter never
-/// has to know whether the decode already happened.
-#[derive(Resource, Default, Debug, Clone)]
-pub struct CharacterLoadDemand {
-    /// Tokens demanded and not yet taken. Every token is realized at the
-    /// user's tier: nothing on a demand may ask for fewer pixels than the
-    /// setting (Jon, 2026-09-02 — the room tier cap that carried a per-token
-    /// floor here is gone, mechanism and all).
-    pending: BTreeSet<String>,
-}
-
-impl CharacterLoadDemand {
-    /// Ask for one character's art. Idempotent, and cheap enough to call every
-    /// time a body's identity changes.
-    pub fn request(&mut self, token: impl Into<String>) {
-        let token = token.into();
-        if !token.trim().is_empty() {
-            self.pending.insert(token);
-        }
-    }
-
-    /// Ask for many.
-    pub fn request_all<I, S>(&mut self, tokens: I)
-    where
-        I: IntoIterator<Item = S>,
-        S: Into<String>,
-    {
-        for token in tokens {
-            self.request(token);
-        }
-    }
-
-    /// Tokens demanded and not yet taken by the materializer.
-    pub fn pending(&self) -> impl Iterator<Item = &str> {
-        self.pending.iter().map(String::as_str)
-    }
-
-    pub fn is_empty(&self) -> bool {
-        self.pending.is_empty()
-    }
-
-    fn take(&mut self) -> Vec<String> {
-        std::mem::take(&mut self.pending).into_iter().collect()
-    }
-
-    /// Take pending tokens until one frame's PIXEL ration is spent, leaving the
-    /// rest for the next call. A token's cost is the active tier's areal units
-    /// (`materialization_units`); the first token is always taken, so a single
-    /// Full character still starts this frame and the ration can never strand
-    /// a token.
-    fn take_within_budget(
-        &mut self,
-        budget_units: usize,
-        tier: TextureResolutionScale,
-    ) -> Vec<String> {
-        let mut taken = Vec::new();
-        let mut spent = 0usize;
-        let cost = materialization_units(tier);
-        while let Some(token) = self.pending.iter().next().cloned() {
-            if !taken.is_empty() && spent + cost > budget_units {
-                break;
-            }
-            self.pending.remove(&token);
-            spent += cost;
-            taken.push(token);
-        }
-        taken
-    }
-
-    /// Take at most `limit` pending tokens (all of them for `limit == 0`),
-    /// leaving the rest pending for the next call.
-    #[cfg_attr(not(test), allow(dead_code))]
-    fn take_bounded(&mut self, limit: usize) -> Vec<String> {
-        if limit == 0 || self.pending.len() <= limit {
-            return self.take();
-        }
-        let mut taken = Vec::with_capacity(limit);
-        for _ in 0..limit {
-            let Some(token) = self.pending.iter().next().cloned() else {
-                break;
-            };
-            self.pending.remove(&token);
-            taken.push(token);
-        }
-        taken
-    }
-}
+use ambition_characters::load_demand::CharacterLoadDemand;
 
 /// How many characters may BEGIN materialising on one frame.
 ///
@@ -594,7 +492,9 @@ pub fn materialize_character_demand(
     // several in one frame is what produced a 516ms frame on hardware. Anything
     // not taken stays pending and is taken next frame.
     let tier = crate::character_sprites::character_sprite_tier(quality);
-    for token in demand.take_within_budget(MATERIALIZATION_UNITS_PER_FRAME, tier) {
+    for token in
+        demand.take_within_budget(MATERIALIZATION_UNITS_PER_FRAME, materialization_units(tier))
+    {
         // Whose cues this character will emit under, resolved BEFORE any decode:
         // the cast is a roster, not a report on the art, and it must be right for a
         // character whose sheet never resolves.
@@ -790,7 +690,7 @@ pub fn demand_actor_character_sheets(
 /// demand is a SET, so asking twice for the same character is free. This system
 /// makes the roster case EARLY, it does not make the spawn case wrong.
 pub fn demand_rostered_character_sheets(
-    roster: Option<Res<staging::MatchParticipantRoster>>,
+    roster: Option<Res<ambition_match::MatchParticipantRoster>>,
     demand: Option<ResMut<CharacterLoadDemand>>,
 ) {
     let (Some(roster), Some(mut demand)) = (roster, demand) else {
@@ -1096,12 +996,12 @@ impl Plugin for CharacterRuntimePlugin {
                 // and it replays correctly precisely because the plan it reads
                 // was decided outside the window and cannot have changed.
                 (
-                    prepared_match::activate_the_prepared_match,
+                    match_activation::activate_the_prepared_match,
                     // The ceremony's other end: the tick the hold comes off.
                     // Chained after activation so a match whose ruleset declares
                     // NO countdown still releases on the tick it is built — the
                     // behaviour every match had before ceremonies existed.
-                    prepared_match::release_the_opening_hold,
+                    match_activation::release_the_opening_hold,
                 )
                     .chain()
                     // Preparation needs an ASSEMBLED content composition, and a
@@ -1159,13 +1059,13 @@ impl Plugin for CharacterRuntimePlugin {
                 (
                     // The same requirement as the activation registration above,
                     // named the same way.
-                    prepared_match::prepare_the_match.run_if(resource_exists::<
+                    match_activation::prepare_the_match.run_if(resource_exists::<
                         ambition_characters::actor::character_catalog::CharacterCatalog,
                     >),
                     // The camera's answer for a match with no local participant.
                     // In `Update` beside preparation because it is a projection
                     // FOR presentation, not simulation state.
-                    prepared_match::declare_the_match_cast_as_the_view,
+                    match_activation::declare_the_match_cast_as_the_view,
                 ),
             )
             .add_systems(

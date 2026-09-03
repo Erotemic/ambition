@@ -224,7 +224,7 @@ fn scope_for_source(
 /// who claimed what.
 #[cfg(feature = "input")]
 fn sources_for_channel(
-    roster: Option<&crate::character_runtime::MatchParticipantRoster>,
+    roster: Option<&ambition_match::MatchParticipantRoster>,
     channel: ambition_input::ParticipantId,
 ) -> ambition_input::BindingSources {
     match roster.and_then(|r| r.local_channel_plan().source_for(channel)) {
@@ -264,7 +264,7 @@ fn sources_for_channel(
 #[cfg(feature = "input")]
 pub fn seat_input_participants_for_roster(
     mut commands: Commands,
-    roster: Option<Res<crate::character_runtime::MatchParticipantRoster>>,
+    roster: Option<Res<ambition_match::MatchParticipantRoster>>,
     offer: Option<Res<ambition_input::LocalSeatOffer>>,
     existing: Query<(Entity, &InputParticipant)>,
     settings: Option<Res<ambition_persistence::settings::UserSettings>>,
@@ -1039,10 +1039,8 @@ mod focus_gate_tests {
     /// is not touched by what the keyboard player picked.
     #[test]
     fn a_preset_change_reaches_the_primary_beside_a_second_seat() {
-        use crate::character_runtime::{
-            ControllerBinding, MatchParticipant, MatchParticipantRoster,
-        };
         use ambition_input::{ActionBindings, PhysicalControl};
+        use ambition_match::{ControllerBinding, MatchParticipant, MatchParticipantRoster};
 
         let mut app = App::new();
         app.insert_resource(UserSettings::default());
@@ -1117,10 +1115,8 @@ mod focus_gate_tests {
     /// nobody overrode.
     #[test]
     fn a_binding_override_reaches_the_primarys_map_and_labels_beside_a_second_seat() {
-        use crate::character_runtime::{
-            ControllerBinding, MatchParticipant, MatchParticipantRoster,
-        };
         use ambition_input::{ActionBindings, BindingOverride, PhysicalControl, SeatBindings};
+        use ambition_match::{ControllerBinding, MatchParticipant, MatchParticipantRoster};
 
         let mut app = App::new();
         app.insert_resource(UserSettings::default());
@@ -1237,9 +1233,7 @@ mod focus_gate_tests {
     /// silently become a second player in every game on it.
     #[test]
     fn declaring_a_human_seat_creates_it_and_undeclaring_it_takes_it_away() {
-        use crate::character_runtime::{
-            ControllerBinding, MatchParticipant, MatchParticipantRoster,
-        };
+        use ambition_match::{ControllerBinding, MatchParticipant, MatchParticipantRoster};
 
         let mut app = App::new();
         app.add_systems(
@@ -1340,9 +1334,7 @@ mod focus_gate_tests {
     /// Player two's bindings must not include player one's keyboard.
     #[test]
     fn a_declared_seat_is_bound_to_a_controller_and_not_the_keyboard() {
-        use crate::character_runtime::{
-            ControllerBinding, MatchParticipant, MatchParticipantRoster,
-        };
+        use ambition_match::{ControllerBinding, MatchParticipant, MatchParticipantRoster};
 
         let mut app = App::new();
         // Channels are dense now, so one person is one seat however many controllers are in the
@@ -1394,9 +1386,7 @@ mod focus_gate_tests {
     /// plan the session is sized from.
     #[test]
     fn a_sparse_couch_seats_one_participant_per_person() {
-        use crate::character_runtime::{
-            ControllerBinding, MatchParticipant, MatchParticipantRoster,
-        };
+        use ambition_match::{ControllerBinding, MatchParticipant, MatchParticipantRoster};
 
         let mut app = App::new();
         app.add_systems(
@@ -2180,7 +2170,7 @@ mod focus_gate_tests {
 #[cfg(feature = "input")]
 pub fn freeze_local_seating_for_the_decided_match(
     mut commands: Commands,
-    roster: Option<Res<crate::character_runtime::MatchParticipantRoster>>,
+    roster: Option<Res<ambition_match::MatchParticipantRoster>>,
     order: Res<ambition_input::LocalDeviceOrder>,
     existing: Option<Res<ambition_input::LocalSeatTopology>>,
 ) {

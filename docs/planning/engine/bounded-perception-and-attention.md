@@ -508,14 +508,14 @@ problem.
 
 **`Perception` is a policy, not a view.** It is the enum
 `Omniscient | Sighted { viewport_half }`, and the ONLY runtime construction of a
-value is `perception.rs:449`, always `Sighted { DEFAULT_VIEWPORT_HALF }`.
+value is `crates/ambition_platformer2d_actor_monolith/src/features/ecs/perception.rs:449`, always `Sighted { DEFAULT_VIEWPORT_HALF }`.
 `Omniscient` is reached exclusively through `Default` on an absent component. So
 every `Perception` in the world holds the identical value, and its presence is
 *by construction* the same fact as `PerceptionMemory`'s presence —
 `ensure_perception` inserts both together and gates on `Without<PerceptionMemory>`,
 which its own comment states: *"Missing memory ⟺ missing perception"*.
 
-The doc comment at `perception.rs:22` says *"a per-body override rides in
+The doc comment at `crates/ambition_platformer2d_actor_monolith/src/features/ecs/perception.rs:22` says *"a per-body override rides in
 `Perception::Sighted` for a character that wants"* one. Nothing overrides it.
 That sentence describes a capability, not a behaviour — treat it as a TODO.
 

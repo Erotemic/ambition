@@ -360,7 +360,8 @@ pub fn drive_wave_encounters(
             ambition_encounter::switches::SwitchAction::FlipGravity => {
                 commands.queue(|world: &mut bevy::prelude::World| {
                     let mut base = world
-                        .resource_mut::<ambition_platformer2d_shared_tangle::gravity::BaseGravity>();
+                        .resource_mut::<ambition_platformer2d_shared_tangle::gravity::BaseGravity>(
+                        );
                     base.dir = -base.dir;
                 });
             }

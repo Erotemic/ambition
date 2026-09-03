@@ -247,7 +247,9 @@ one.** "Might" is a direction, not a ruling. Recording what it would have to
 attach to, because the input already exists and is not vestigial:
 `ActorDefinition.mass` is `Option<f32>`, read at spawn as
 `definition.vitals.mass.unwrap_or(1.0)`, merged by
-`character_runtime/physical_baseline.rs`, and rollback-registered under the
+`ambition_body_seed/src/physical_baseline.rs` (it was
+`character_runtime/physical_baseline.rs` <!-- cite-ok --> until D33 cut 2a moved
+the file whole, `7ba40886e`), and rollback-registered under the
 stable name `mount.mass`. So a mass-scaled recoil would read a live,
 rollback-safe value rather than needing a new authored field. ⛔ What is NOT
 decided: the curve (linear in mass? inverse? clamped?), whether an unauthored

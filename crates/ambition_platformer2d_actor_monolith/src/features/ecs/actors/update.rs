@@ -1514,7 +1514,7 @@ pub fn apply_actor_contact_damage(
                 // move that wants a damaging body state grants it as a move —
                 // Sanic's ball dash, a super form, a spiked shell — and none of
                 // those flows through this permanent trait.
-                Has<crate::character_runtime::MatchSeat>,
+                Has<ambition_match::MatchSeat>,
                 Option<super::super::actor_clusters::ActorClusterQueryData>,
             ),
             // Bosses are contact attackers through THIS shared system now (fable

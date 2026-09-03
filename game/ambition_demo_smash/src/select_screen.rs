@@ -1568,9 +1568,7 @@ pub fn sync_select_cards(
 /// Project readiness/refusal state onto START and the prompt.
 pub fn sync_select_chrome(
     select: Res<SmashSelect>,
-    refusal: Option<
-        Res<ambition_platformer2d::actors::character_runtime::MatchPreparationProblems>,
-    >,
+    refusal: Option<Res<ambition_platformer2d::versus_match::MatchPreparationProblems>>,
     mut start_button: Query<&mut BorderColor, With<StartButton>>,
     mut prompt: Query<&mut Text, With<SelectPrompt>>,
 ) {

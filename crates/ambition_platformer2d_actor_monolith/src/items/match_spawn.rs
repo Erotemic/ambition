@@ -47,8 +47,8 @@ const SALT_WHICH_POINT: u64 = 1;
 /// Drop one item on the ticks the match's rules say to.
 pub fn spawn_match_items(
     mut commands: Commands,
-    prepared: Option<Res<crate::character_runtime::PreparedMatch>>,
-    active: Option<Res<crate::character_runtime::ActiveMatch>>,
+    prepared: Option<Res<ambition_match::PreparedMatch>>,
+    active: Option<Res<ambition_match::ActiveMatch>>,
     // HOW LONG THIS MATCH HAS BEEN FOUGHT — the same reading the timeout uses,
     // which is the whole point of the row this closes.
     live: Res<crate::character_runtime::live_match_clock::LiveMatchTicks>,
@@ -144,7 +144,7 @@ pub fn spawn_match_items(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::character_runtime::MatchItemSpawns;
+    use ambition_match::MatchItemSpawns;
 
     /// One match's context, for the draws these tests inspect directly. The
     /// value is arbitrary — what matters is that it is the SAME one across a

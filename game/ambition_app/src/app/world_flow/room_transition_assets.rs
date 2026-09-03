@@ -19,7 +19,9 @@ use bevy::prelude::{
 use bevy::time::Real;
 
 use ambition_platformer2d::actors::features::RoomContentStagingRegistry;
-use ambition_platformer2d::asset_manager::image_stages::{AppGpuPreparedImages, RenderWorldPresent};
+use ambition_platformer2d::asset_manager::image_stages::{
+    AppGpuPreparedImages, RenderWorldPresent,
+};
 use ambition_platformer2d::asset_manager::platformer_assets::Platformer2dAssetCatalog;
 use ambition_platformer2d::entity_catalog::placements::PlacementSchema;
 use ambition_platformer2d::load::{
@@ -171,7 +173,7 @@ pub(crate) struct RoomTransitionAssetContext<'w, 's> {
     /// `materialize_demanded_character_sheets`. The transition hands it the
     /// cast the per-frame ration did not realize on the transition frame.
     pub(crate) character_load_demand:
-        Option<ResMut<'w, ambition_platformer2d::actors::character_runtime::CharacterLoadDemand>>,
+        Option<ResMut<'w, ambition_platformer2d::characters::load_demand::CharacterLoadDemand>>,
     /// Registered character definitions. A character may be declared ONLY through
     /// `register_character`, in which case this is the only place its sheet is
     /// named — so the synchronous room decode has to consult it or a
@@ -200,8 +202,11 @@ pub(crate) struct RoomTransitionAssetContext<'w, 's> {
     /// actor's config names the sprite it swapped to. Both are residency
     /// owners a room commit must keep (`RoomResidencyOwners`).
     pub(crate) roster: Option<Res<'w, ambition_platformer2d::actor::MatchParticipantRoster>>,
-    pub(crate) actor_configs:
-        bevy::prelude::Query<'w, 's, &'static ambition_platformer2d::combat::actor_tuning::ActorConfig>,
+    pub(crate) actor_configs: bevy::prelude::Query<
+        'w,
+        's,
+        &'static ambition_platformer2d::combat::actor_tuning::ActorConfig,
+    >,
     pub(crate) authored_sheets:
         Res<'w, ambition_platformer2d::sprite_sheet::character::sheets::AuthoredSheets>,
     pub(crate) prefetch: Option<ResMut<'w, RoomPreparationPrefetchState>>,
@@ -431,8 +436,7 @@ pub(crate) fn demand_room_character_sheets(
     // stages — that is content knowledge it legitimately has — but the decode
     // itself is the engine's, so every application gets it whether or not it has
     // a room-transition step at all.
-    let mut demand =
-        ambition_platformer2d::actors::character_runtime::CharacterLoadDemand::default();
+    let mut demand = ambition_platformer2d::characters::load_demand::CharacterLoadDemand::default();
     demand.request_all(names.iter().map(String::as_str));
     // A retired sheet this room or a worn body needs comes straight back (a
     // quality change between two commits can leave one at the wrong tier);
@@ -493,7 +497,7 @@ impl RoomCharacterRemainder {
     /// Hand the remainder to the engine's global demand.
     pub(crate) fn forward_into(
         &self,
-        demand: &mut ambition_platformer2d::actors::character_runtime::CharacterLoadDemand,
+        demand: &mut ambition_platformer2d::characters::load_demand::CharacterLoadDemand,
     ) {
         demand.request_all(self.tokens.iter().map(String::as_str));
     }
@@ -555,7 +559,9 @@ impl RoomResidencyOwners {
 /// identity: the match roster's fighters and every live actor's swapped sprite.
 pub(crate) fn residency_claims<'a>(
     roster: Option<&ambition_platformer2d::actor::MatchParticipantRoster>,
-    actor_configs: impl IntoIterator<Item = &'a ambition_platformer2d::combat::actor_tuning::ActorConfig>,
+    actor_configs: impl IntoIterator<
+        Item = &'a ambition_platformer2d::combat::actor_tuning::ActorConfig,
+    >,
 ) -> Vec<String> {
     let mut claims: Vec<String> = roster
         .into_iter()
@@ -1042,10 +1048,8 @@ pub(crate) fn contribute_room_transition_assets_system(
     // them one per frame from then on.
     // `bevy::platform::time::Instant` is sub-frame on wasm and native alike.
     let manifest_started = bevy::platform::time::Instant::now();
-    let claimed: Vec<String> = residency_claims(
-        context.roster.as_deref(),
-        context.actor_configs.iter(),
-    );
+    let claimed: Vec<String> =
+        residency_claims(context.roster.as_deref(), context.actor_configs.iter());
     let owners = RoomResidencyOwners::for_room(
         &room_set,
         active.target_room,
@@ -1646,7 +1650,8 @@ mod tests {
             Vec2::new(64.0, 256.0),
             Vec::new(),
         );
-        let room_set = RoomSet::from_parts("arena", vec![RoomSpec::new("arena", world)], Vec::new());
+        let room_set =
+            RoomSet::from_parts("arena", vec![RoomSpec::new("arena", world)], Vec::new());
         let registry = Default::default();
         let catalog =
             ambition_platformer2d::characters::actor::character_catalog::CharacterCatalog::from_data(
@@ -1655,9 +1660,11 @@ mod tests {
                 ),
             );
         let mut roster = ambition_platformer2d::actor::MatchParticipantRoster::default();
-        roster.participants.push(ambition_platformer2d::actor::MatchParticipant::new(
-            ambition_platformer2d::entity_catalog::CharacterId::new("npc_pirate_admiral"),
-        ));
+        roster
+            .participants
+            .push(ambition_platformer2d::actor::MatchParticipant::new(
+                ambition_platformer2d::entity_catalog::CharacterId::new("npc_pirate_admiral"),
+            ));
         let claims = residency_claims(Some(&roster), []);
         assert_eq!(claims, vec!["npc_pirate_admiral".to_string()]);
         let owners = RoomResidencyOwners::for_room(
@@ -1670,7 +1677,11 @@ mod tests {
             &catalog,
         );
         for id in ["npc_pirate_admiral", "worn_one"] {
-            assert!(owners.0.contains(id), "{id} must survive the commit: {:?}", owners.0);
+            assert!(
+                owners.0.contains(id),
+                "{id} must survive the commit: {:?}",
+                owners.0
+            );
         }
         assert!(!owners.0.contains("somebody_else"));
     }

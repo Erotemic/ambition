@@ -1230,7 +1230,7 @@ fn hud_face(
 
 pub fn publish_smash_hud(
     fighters: bevy::prelude::Query<(
-        &ambition_platformer2d::actors::character_runtime::MatchSeat,
+        &ambition_platformer2d::versus_match::MatchSeat,
         &ambition_platformer2d::characters::actor::BodyHealth,
         Option<&ambition_platformer2d::actor::FighterStocks>,
         // ⭐ THE PUNCH READS THE FREEZE. `hitstop_timer` is non-zero exactly
@@ -1359,12 +1359,8 @@ pub fn publish_smash_hud(
 /// the state existed to prevent. The system is now a pure function of the clock
 /// in fact as well as in prose.
 fn announce_the_opening_countdown(
-    active: Option<
-        bevy::prelude::Res<ambition_platformer2d::actors::character_runtime::ActiveMatch>,
-    >,
-    prepared: Option<
-        bevy::prelude::Res<ambition_platformer2d::actors::character_runtime::PreparedMatch>,
-    >,
+    active: Option<bevy::prelude::Res<ambition_platformer2d::versus_match::ActiveMatch>>,
+    prepared: Option<bevy::prelude::Res<ambition_platformer2d::versus_match::PreparedMatch>>,
     tick: Option<bevy::prelude::Res<ambition_platformer2d::time::SimTick>>,
     settled: Option<
         bevy::prelude::Res<
@@ -1379,7 +1375,7 @@ fn announce_the_opening_countdown(
     >,
     mut readouts: bevy::prelude::ResMut<ambition_platformer2d::presentation::HudReadouts>,
 ) {
-    use ambition_platformer2d::actors::character_runtime::OpeningPhase;
+    use ambition_platformer2d::versus_match::OpeningPhase;
     let (Some(active), Some(prepared), Some(tick)) = (active, prepared, tick) else {
         return;
     };
@@ -1875,9 +1871,7 @@ fn return_to_the_select_screen_when_the_match_ends(
             ambition_platformer2d::actors::features::stocks_match::StocksMatchSettled,
         >,
     >,
-    active: Option<
-        bevy::prelude::Res<ambition_platformer2d::actors::character_runtime::ActiveMatch>,
-    >,
+    active: Option<bevy::prelude::Res<ambition_platformer2d::versus_match::ActiveMatch>>,
     // ⛔ `Option`: absent means there is no rollback host, and the module's own
     // doc says that case confirms everything.
     boundary: Option<
@@ -1994,9 +1988,7 @@ fn announce_the_winner(
             ambition_platformer2d::actors::features::stocks_match::StocksMatchSettled,
         >,
     >,
-    active: Option<
-        bevy::prelude::Res<ambition_platformer2d::actors::character_runtime::ActiveMatch>,
-    >,
+    active: Option<bevy::prelude::Res<ambition_platformer2d::versus_match::ActiveMatch>>,
     // ⛔ `Option`: absent means there is no rollback host, and that module's own
     // doc says the absent case confirms everything.
     boundary: Option<
@@ -2004,16 +1996,12 @@ fn announce_the_winner(
     >,
     // Whether a side is a person or a team is a fact about the match that was prepared, and the
     // plan is the only thing that still knows it once fighters start being removed.
-    prepared: Option<
-        bevy::prelude::Res<ambition_platformer2d::actors::character_runtime::PreparedMatch>,
-    >,
+    prepared: Option<bevy::prelude::Res<ambition_platformer2d::versus_match::PreparedMatch>>,
     // WHICH MATCH has already had its card written — see the rising-edge note.
-    mut announced: bevy::prelude::Local<
-        Option<ambition_platformer2d::actors::character_runtime::MatchInstance>,
-    >,
+    mut announced: bevy::prelude::Local<Option<ambition_platformer2d::versus_match::MatchInstance>>,
     // Use surviving fighters only to resolve display names for the winning side.
     fighters: bevy::prelude::Query<(
-        &ambition_platformer2d::actors::character_runtime::MatchSeat,
+        &ambition_platformer2d::versus_match::MatchSeat,
         Option<&ambition_platformer2d::combat::targeting::MatchTeam>,
         &bevy::prelude::Name,
     )>,
@@ -2332,9 +2320,7 @@ impl bevy::prelude::Plugin for SmashSelectPlugin {
 fn offer_to_exit_the_match(
     mut commands: bevy::prelude::Commands,
     router: bevy::prelude::Res<ambition_platformer2d::game_shell::ShellRouter>,
-    active: Option<
-        bevy::prelude::Res<ambition_platformer2d::actors::character_runtime::ActiveMatch>,
-    >,
+    active: Option<bevy::prelude::Res<ambition_platformer2d::versus_match::ActiveMatch>>,
     // The SETTLEMENT, and it is what the comment below is about. Optional
     // because a composition may reach this route before the stocks feature has
     // installed anything, and there the honest answer is "not settled".
@@ -2404,9 +2390,7 @@ fn abandon_the_match_when_the_shell_asks(
     // WHICH MATCH is being stopped. The ask is made outside the simulation, so
     // it cannot be re-made by a resimulation and cannot ride a channel that
     // rewinds — it names its match instead. See `MatchAbandonRequest`.
-    active: Option<
-        bevy::prelude::Res<ambition_platformer2d::actors::character_runtime::ActiveMatch>,
-    >,
+    active: Option<bevy::prelude::Res<ambition_platformer2d::versus_match::ActiveMatch>>,
 ) {
     let asked_to_stop = asked.read().count() > 0;
     if !asked_to_stop {
@@ -2451,7 +2435,7 @@ fn open_the_sudden_death_round(
     mut fighters: bevy::prelude::Query<
         (
             bevy::prelude::Entity,
-            &ambition_platformer2d::actors::character_runtime::MatchSeat,
+            &ambition_platformer2d::versus_match::MatchSeat,
             Option<&ambition_platformer2d::combat::targeting::MatchTeam>,
             &mut ambition_platformer2d::characters::actor::BodyHealth,
             // ⛔⛔ THE STOCKS, WHICH THIS ROUND IS DEFINED BY AND NEVER TOUCHED.
@@ -3029,13 +3013,13 @@ impl bevy::prelude::Plugin for SmashExperiencePlugin {
                 // game; the witness here says WHICH GAME, which is the only one
                 // that matters when two providers share a host.
                 .releasing_witnessed::<
-                    ambition_platformer2d::actors::character_runtime::ActiveMatch,
-                    ambition_platformer2d::actors::character_runtime::PreparedMatch,
+                    ambition_platformer2d::versus_match::ActiveMatch,
+                    ambition_platformer2d::versus_match::PreparedMatch,
                 >(|plan, owner| plan.is_published_by(owner.as_str()))
                 // declared AFTER the activation above, which reads it as its
                 // witness: releases run in declaration order.
                 .releasing_owned::<
-                    ambition_platformer2d::actors::character_runtime::PreparedMatch,
+                    ambition_platformer2d::versus_match::PreparedMatch,
                 >(|plan, owner| plan.is_published_by(owner.as_str()))
                 // AND THE RULES LEAVE WITH THE MATCH. Removing the
                 // declaration IS the exit (AE6) — the projection folds it over

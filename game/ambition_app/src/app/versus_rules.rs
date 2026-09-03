@@ -10,10 +10,10 @@ use std::collections::BTreeMap;
 
 use bevy::prelude::*;
 
-use ambition_platformer2d::actors::character_runtime::{seat_placement, MatchSeat};
 use ambition_platformer2d::characters::actor::{BodyCombat, BodyHealth};
 use ambition_platformer2d::combat::targeting::MatchTeam;
 use ambition_platformer2d::engine_core as ae;
+use ambition_platformer2d::versus_match::{seat_placement, MatchSeat};
 
 /// Round wins needed to take the match. Best of three.
 pub const ROUNDS_TO_WIN: u8 = 2;
@@ -172,13 +172,13 @@ fn countdown_may_advance(active_match: bool) -> bool {
 
 pub fn settle_versus_round(
     time: Res<ambition_platformer2d::time::WorldTime>,
-    roster: Option<Res<ambition_platformer2d::actors::character_runtime::MatchParticipantRoster>>,
+    roster: Option<Res<ambition_platformer2d::versus_match::MatchParticipantRoster>>,
     geometry: Option<
         ambition_platformer2d::platformer::lifecycle::SessionWorldRef<ae::RoomGeometry>,
     >,
     // Whether every participant on the roster actually HAS a body yet.
     // Seating retries until they all do; the countdown must not run ahead of it.
-    active_match: Option<Res<ambition_platformer2d::actors::character_runtime::ActiveMatch>>,
+    active_match: Option<Res<ambition_platformer2d::versus_match::ActiveMatch>>,
     mut state: ResMut<VersusMatch>,
     mut commands: Commands,
     // A round boundary must not enumerate the transient entity families that might exist.
@@ -577,7 +577,7 @@ pub const ANNOUNCE_HUD_SLOT: &str = "versus_announce";
 /// Publish the scoreboard.
 pub fn publish_versus_hud(
     state: Option<Res<VersusMatch>>,
-    roster: Option<Res<ambition_platformer2d::actors::character_runtime::MatchParticipantRoster>>,
+    roster: Option<Res<ambition_platformer2d::versus_match::MatchParticipantRoster>>,
     fighters: Query<(&MatchSeat, Option<&MatchTeam>, &BodyHealth, &Name)>,
     mut readouts: ResMut<ambition_platformer2d::presentation::HudReadouts>,
 ) {

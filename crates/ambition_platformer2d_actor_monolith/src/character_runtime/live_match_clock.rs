@@ -19,9 +19,9 @@
 
 use bevy::prelude::{Res, ResMut, Resource};
 
-use super::seating::{ActiveMatch, MatchInstance};
-use super::PreparedMatch;
 use crate::features::stocks_match::StocksMatchSettled;
+use ambition_match::PreparedMatch;
+use ambition_match::{ActiveMatch, MatchInstance};
 
 /// Ticks THIS match has spent being fought — ceremony and pauses excluded.
 ///
@@ -194,7 +194,7 @@ pub fn count_the_live_match_ticks(
                 .ticks_since_activation(tick.get())
                 .map(|raw| prepared.rules().opening_phase(raw))
         })
-        .is_some_and(|phase| !matches!(phase, super::prepared_match::OpeningPhase::Live));
+        .is_some_and(|phase| !matches!(phase, ambition_match::OpeningPhase::Live));
     if held {
         return;
     }

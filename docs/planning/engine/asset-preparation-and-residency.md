@@ -175,6 +175,16 @@ changing when the quality setting does."* The fix is one incremental command,
 `./scripts/regen/quality_variants.sh` — **not run here**, because regenerating
 ~166 binary art files is Jon's call, not a side effect of a performance run.
 
+⊙ **RE-MEASURED 2026-09-03: 82 stale files, and the worst is now 9.8 days
+behind.** Roughly half were regenerated in the interval and the remainder aged,
+so FEWER FILES AND A LONGER LAG is the honest reading, not progress on the
+figure that matters. Still Jon's call and still not run here.
+⭐ The "three characters with no variant at all" half is UNCHANGED and was
+re-derived rather than assumed: the checker prints FIVE rows, which is three
+characters — `performer` missing all three reduced tiers, `actor` and `medic`
+missing Potato. Counting rows would have reported a rise from three to five that
+never happened.
+
 ⚠ This is a DEMAND measurement — megapixels asked for — not a hitch measurement.
 The frame cost of materializing them is a GPU-upload question and this machine
 rasterises in software; that half still needs real hardware.
@@ -491,15 +501,23 @@ disagreed** — this list, a code comment, and a reviewer's reading. Every strin
 literal reaching `note_demand` / `load_sheet_image` / `load_sprite_pages`:
 
 ```text
-asset-manifest   boss-sheet   character-sheet   fx-sheet   held-item
-parallax         portrait     projectile-art    shrine-sheet   vanity-card
+asset-manifest   boss-sheet   character-sheet   entity-sprite   fx-sheet
+held-item        parallax     portrait          projectile-art  shrine-sheet
+vanity-card
 ```
 
-**TEN live roads.** This list named seven and omitted `asset-manifest`,
-`held-item` and `shrine-sheet`; the review that flagged the drift said nine and
-missed `shrine-sheet` too. ⇒ Nobody's hand-kept copy was right, which is the
-argument for deriving it rather than restating it — a road is added by passing a
-new string literal at a call site, and nothing makes the prose follow. UI chrome is small, loaded once and not what a room's reveal waits on;
+**ELEVEN live roads, re-derived 2026-09-03.** This list named seven and omitted
+`asset-manifest`, `held-item` and `shrine-sheet`; the review that flagged the
+drift said nine and missed `shrine-sheet` too; the correction that followed said
+TEN and was overtaken within the day by `entity-sprite`
+(`crates/ambition_sprite_sheet/src/game_assets/mod.rs:561`, added by `dde5547cb` — itself a commit about a
+MIS-STAMPED road). ⇒ Nobody's hand-kept copy has ever been right, including the
+one written to fix the others, which is the argument for deriving it rather than
+restating it — a road is added by passing a new string literal at a call site,
+and nothing makes the prose follow.
+⭐ **Derive it in one line rather than trust this paragraph:**
+`git grep -hoE '(note_demand|load_sheet_image|load_sprite_pages)\([^)]*"[a-z][a-z0-9-]*"' -- '*.rs'`
+and read the literal out of each hit. UI chrome is small, loaded once and not what a room's reveal waits on;
 labelling it would make the ledger's rows less comparable, not more.
 
 ⛔⛔ **A `demand=unknown` MAY BE A RE-DECODE RATHER THAN AN UNROUTED LOAD, and

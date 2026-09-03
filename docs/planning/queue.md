@@ -405,6 +405,37 @@ The one unresolved developer-policy choice from the session-ownership work is in
 
 ## Current execution order
 
+- ▢ **THE COMPILE-COST RATCHET FAILS THE GATE, and its five messages are the
+  D33 campaign's own accounting.** Measured 2026-09-03 by running `./run_tests.sh`
+  to completion: **9/10 jobs passed in 2023 s**, the tenth being
+  `compile-cost ratchet`. Baseline frozen at `11ef33c5b5a5` (2026-08-27),
+  headroom 2%.
+  * ⛔ **REGRESSED** `worst_edit_cost_lines` (`ambition_geometry`) 540,227 →
+    572,035 (+31,808 against a +10,804 budget), and `edit_cost_lines`
+    (`ambition_platformer2d_core`) 537,395 → 568,724 (+31,329 against +10,747).
+    The tool's own reading: *"Something got bigger or grew a dependency edge."*
+  * ⛔ **PATH** `critical_path_crates` 14 → 15. Longer is worse *"even if every
+    crate got smaller"*, because parallelism cannot compress a serial chain.
+  * ⚠ **UNPRICED** `ambition_body_seed`, `ambition_held_items`,
+    `ambition_registry_core`, `ambition_world_items` — all four D33
+    destinations — carry NO measured compile cost and are priced at the
+    population median 2.9059 ms/line. ⭐ **That is a placeholder, not an
+    estimate**: the tool states size predicts compile cost at only R²=0.12, so
+    every SECONDS figure above is wrong for these four by an unknown factor.
+    `python3 scripts/compile_collect.py` measures them.
+  * ⭐ **CARVED — two real wins the baseline is not holding**:
+    `worst_edit_cost_seconds` 1,702.5 → 1,648.9 (−53.6 s) and
+    `edit_cost_seconds` (the monolith) 1,264.9 → 1,139.5 (−125.4 s). The
+    monolith's share of workspace edit cost fell 50.5% → 48.5%. The tool warns
+    that an unfrozen win is slack: *"the guard is holding 125.4 s and the next
+    regression that size lands silently."*
+  ⇒ **NOT RE-FROZEN HERE, deliberately.** `--update` rewrites every number at
+  once, so banking the two wins would bank the two regressions with them — the
+  identical trap the doc-link ratchet had (`bf4e6f353`), where the advice to
+  bank an improvement printed while the regressions stayed hidden. The
+  regressions need a carve owner to say whether +31.8k lines is a deliberate
+  landing; the four unpriced crates need a measurement, not a ruling.
+
 - ▢ **THE FEATURE UNION IS RED: 48 failures against 6,968 passes, and 37 of
   them are ONE system.** Measured 2026-09-03 at `dbfb1a2ca` by running the gate's
   own union job standalone (`cargo test --workspace --no-fail-fast --features
@@ -429,6 +460,13 @@ The one unresolved developer-policy choice from the session-ownership work is in
   once is *supposed* to do. Whether those tests should be feature-scoped, or the
   union should exclude them, is a judgement for whoever owns the demos doctrine
   — do not "fix" them by widening the assertion.
+  ⭐ **AND I CHECKED WHETHER THAT RULING ALREADY EXISTS, so nobody repeats the
+  grep: it does not.** `docs/planning/demos/` and `engine/` state the doctrine
+  the test asserts, and nothing rules on what a demo should assert under an
+  ALL-FEATURES build. ⚠ That check is worth doing before filing anything as "a
+  judgement call" — the `ConeRigAssets` group above was filed that way for a day
+  and `engine/headless-verification.md` had already ruled on it, with a named
+  pattern to copy.
   ⚠ The `painted_blocks` pair is a THIRD cause, read far enough to aim the next
   person: the helper looks for an entity matching `(&BlockVisual, &Sprite)` whose
   `geo_id` is the placement's, and panics *"no block visual is drawing GeoId …"*
@@ -440,8 +478,26 @@ The one unresolved developer-policy choice from the session-ownership work is in
   room never reach the state that spawns them? Neither is answered here; both are
   a build away, and the answer decides whether this joins the doctrine group above
   or the `ConeRigAssets` group.
-  ⇒ **The fix for the 37 is a design choice, which is why this is a row and not
-  a commit**: skip the system when its assets are absent (`If<…>`, or a
+  ✔ **THE 37 ARE FIXED (`a3924b2b2`), and my "design choice" framing was wrong.**
+  `engine/headless-verification.md` had already ruled on this exact class —
+  *"the fix is usually NOT to register the resource. A gizmo or mesh system with
+  no render stack should be `run_if(resource_exists::<..>)`-guarded so it
+  skips"* — with `avatar::trail.rs` as the named pattern, and that same
+  paragraph already names `Assets<Mesh>` as one of three that hid in succession
+  on 2026-09-02. All three of `ConeRigAssets`' resources are guarded, not just
+  the one that failed first, because that doc records those three surfacing one
+  after another.
+  ⚠ **VERIFIED ON ONE TARGET, NOT COUNTED ACROSS THE UNION.** `cargo test -p
+  ambition_demo_sanic_app --lib --features capture,input,visible` now shows ZERO
+  `ConeRigAssets` panics where it failed on them before. The full union is a
+  ~40-minute rebuild that took the shared volume to 100% last time, so "37" is
+  an inference from the class rather than an observed count. ⇒ The next union
+  run should read 11-ish, and that target's remaining failure
+  (`published_local_sanic_forms_bind_through_game_assets`, an asset
+  materialization assertion) is a FOURTH cause, distinct from the doctrine and
+  `painted_blocks` groups.
+  ⇒ **The original framing, kept because it was the error**: I called this a
+  design choice: skip the system when its assets are absent (`If<…>`, or a
   `resource_exists` run condition) versus provision the assets in every
   composition that installs portal presentation. The first says a cone rig with
   nowhere to draw should stand down; the second says the composition is
@@ -946,9 +1002,40 @@ OPTIONAL dep + feature, never used:
   sixteen never-asked-for crates ("gating a facade edge cuts nothing"). The
   value is that the graph stops claiming an edge nobody uses.
 
-  ⇒ **The PLAIN one is worth cutting first**: the facade is what every game
-  links, and a declared-unused edge there is what the next reader will justify
-  rather than question.
+  ✔ **THE PLAIN ONE IS CUT (2026-09-03).** `ambition_platformer2d` no longer
+  declares `ambition_interaction`. Verified rather than assumed at each step:
+  nothing in the whole crate directory names it (not `src/`, not tests, not
+  `build.rs`), so no feature combination can need it; `cargo check -p
+  ambition_platformer2d --all-targets` is clean; the workspace no-warnings gate
+  is clean; and the capability footprint is UNCHANGED at 47/20, which is the
+  row's own claim about redundancy holding up under measurement.
+  ⭐ **THE SENTINEL'S LOCKFILE CAME WITH IT, and the guard is what said so.**
+  `check_absence_contracts.py` runs `cargo tree --locked` in the sentinel's own
+  workspace and threw `CalledProcessError … exit status 101` the moment the
+  edge left — which is exactly what its docstring promises: *"a dependency
+  change that alters the sentinel's lockfile must arrive WITH that lockfile, or
+  this check fails loudly instead of silently rewriting it."* Three lockfiles
+  each lost one line (`Cargo.lock`, `fixtures/minimal_game`,
+  `examples/capability_demo`).
+  ⇒ **The five OPTIONAL ones are still open, and TRIAGED 2026-09-03 so the
+  ruling is cheap.** All five are still unnamed in their crate's `.rs`
+  (re-derived, not carried forward). ⛔ **None is mechanical**, and the reason is
+  not the compiler — it is INTENT. An optional dep is wired into a feature
+  definition, so removing it edits a declared seam and every dependent that
+  enables that feature:
+
+  | declaration | the feature it backs | who enables it | shape |
+  |---|---|---|---|
+  | `ambition_characters` → `ambition_causal` | `causal = ["dep:ambition_causal"]` | the monolith's own `causal` | ⚠ a NO-OP feature: it pulls the dep and does nothing else, and its comment says *"Publish this capability's causal facts (brain decisions, for now)"* — a seam declared ahead of its use |
+  | `game/ambition_app` → `ambition_causal` | `causal = ["ambition_platformer2d/causal", "dep:ambition_causal"]` | `ambition_app_tools` | ⭐ the feature does MORE than pull the dep, so dropping the `dep:` alone leaves it meaningful — the smallest safe edit of the five |
+  | `ambition_sim_view` → `ambition_portal2d` | `portal = ["dep:ambition_portal2d", "…actor_monolith/portal"]` | nothing in a manifest; the gate's feature UNION does | same shape as above |
+  | `ambition_platformer2d` → `ambition_sfx_bank` | inside a feature array (`crates/ambition_platformer2d/Cargo.toml:79`) | — | needs reading before touching |
+  | `ambition_touch_input` → `ambition_cutscene` | inside a feature array (`crates/ambition_touch_input/Cargo.toml:30`) | — | needs reading before touching |
+
+  ⇒ **A no-op feature that exists to declare a future seam is not debt, and
+  removing it would delete the intent.** That is a maintainer's ruling, not a
+  cleanup, which is why this row stays ▢ rather than being finished the way the
+  PLAIN one was.
 
   ⛔⛔ **DO NOT REMOVE BLIND — it needs the compiler on each crate's feature
   combinations.** Dropping an optional dep changes feature RESOLUTION, not just
@@ -982,7 +1069,7 @@ OPTIONAL dep + feature, never used:
 
   1. **`python scripts/modules_md.py`** — must print *"MODULES.md up to date"*.
      A carve moves modules; the maps are generated and go stale silently.
-     (72 crates as of 2026-09-03, after D33 cut 1 added `ambition_body_seed`;
+     (73 crates as of 2026-09-03, after D33 cut 2b added `ambition_match`;
      70 the day before. ⛔ AND IT WAS STALE WHEN THAT CUT LANDED — not from the
      cut: `4ac56a996` added `ambition_encounter/src/mob_seed.rs` and left its
      map at 17 modules. Regenerated in the post-carve pass, which is what this
@@ -1051,7 +1138,7 @@ OPTIONAL dep + feature, never used:
 
      | If your carve moves… | it trips |
      |---|---|
-     | `character_runtime/prepared_match.rs` | `a-second-writer-of-a-match-global-must-answer-ownership` |
+     | `character_runtime/match_activation.rs` | `a-second-writer-of-a-match-global-must-answer-ownership` |
      | `character_runtime/presentation.rs` | `the-provider-resolver-is-confined-to-one-file` |
      | `character_runtime/definition.rs` | `registration-does-not-demand-art` |
      | `ambition_combat/src/moveset/mod.rs` | `ending-a-move-goes-through-the-one-teardown-path` |
@@ -1103,6 +1190,43 @@ OPTIONAL dep + feature, never used:
      unwatched since long before any carve.
      ⇒ Items 1–8 are ledgers a MERGE does not touch. The lane is how you find
      the ones nobody has thought to list yet.
+
+  9b. **⛔⛔ A NEW `Resource` OR `Message` IN A SIMULATED WORLD OWES ITS ROLLBACK
+     DECLARATION, and only the app's oracles say so.**
+
+     ```bash
+     cargo test -p ambition_app --test app_it -- \
+       rollback_coverage rollback_schema rollback_exit_oracle   # ~36 s
+     ```
+
+     ⛔ NO PER-CRATE RUN REACHES THEM. They live in `app_it`, against the
+     composed app, so a crate's own suite is green while the declaration is
+     missing. Contributed by ambition-df 2026-09-03 after those oracles caught
+     TWO undeclared encounter resources from calculex's switch-loop split —
+     declared derived at `2eaa0f479`'s parent. ⚠ A carve is not the only thing
+     that trips this: any commit that adds simulated state does.
+
+  11. **⛔⛔ THE COMPILE-COST RATCHET IS A PER-CARVE LEDGER AND IT IS RED.**
+     `python3 scripts/compile_ratchet.py` — 2 s, in the default gate, and it
+     fails the gate today. It is the ledger the D33 campaign is accumulating
+     debt in, and every one of its five messages is about a carve:
+     `REGRESSED` ×2, `PATH` (the serial chain got longer), `UNPRICED` (a new
+     crate has no measured cost), `CARVED` (a win whose baseline is now stale).
+     ⇒ A carve that adds a crate touches ALL of them at once, which is why it
+     belongs on this list rather than in a campaign doc.
+
+  10. **⛔ IF THE CARVE'S DESTINATION HOLDS DOC COMMENTS, add it to
+     `check_doc_link_ratchet.py`'s `CRATES` — IN THE CARVE'S OWN COMMIT.** That
+     list carries the instruction already ("when architecture moves out of a
+     tracked crate, add its destination in the same change so the ratchet does
+     not mistake reduced coverage for improvement") and cut 1 did not follow it.
+     ⭐ The failure mode is the opposite of a red: the monolith read as
+     **improved**, 63 → 59, because four broken doc links LEFT with the carved
+     code and one arrived in an untracked crate. A ratchet that only ever falls
+     is measuring its own shrinking population. Added after the fact at
+     `bf4e6f353`; it is one line in the carve if you remember.
+     ⚠ Reachable locally only since `3e85e4071` — it is a cold `cargo doc` over
+     nine crates and lives in `./run_tests.sh --maintenance`, not the gate.
 
   ⛔⛔ RE-MEASURED 2026-08-31: the owner doc's
   "only four dependencies are single-path" list is STALE — `ambition_dev_tools`
@@ -2125,9 +2249,9 @@ OPTIONAL dep + feature, never used:
   ⛔ AND THE CODE'S OWN DOC WAS WRONG TOO: the no-feature module claimed the take
   *"carries no `causal` array at all"*. It always carried `[]`.
 
-- ▢ **CAPABILITY FOOTPRINT: 47 crates linked, 20 a movement-only game never
-  asked for — and the count CANNOT fall by a manifest edit.** (⚠ this number has drifted FIVE times; `python3 scripts/check_absence_contracts.py | grep footprint` prints the live pair. 45/18 as of `479f9d3e4`, when `ambition_registry_core`
-  entered the closure; 46/19 as of `bbfa38a3d`, when `ambition_held_items` did; 47/20 as of `83460e3f3`, D33 cut 1, when `ambition_body_seed` did. ⭐ EVERY ONE OF THOSE RISES IS A CARVE PAYING ITS DEBT — do not read the series as regression.) (Scheduled
+- ▢ **CAPABILITY FOOTPRINT: 48 crates linked, 21 a movement-only game never
+  asked for — and the count CANNOT fall by a manifest edit.** (⚠ this number has drifted SIX times; `python3 scripts/check_absence_contracts.py | grep footprint` prints the live pair. 45/18 as of `479f9d3e4`, when `ambition_registry_core`
+  entered the closure; 46/19 as of `bbfa38a3d`, when `ambition_held_items` did; 47/20 as of `83460e3f3`, D33 cut 1, when `ambition_body_seed` did; 48/21 as of `7e625e5a5`, cut 2b, when `ambition_match` did. ⭐ EVERY ONE OF THOSE RISES IS A CARVE PAYING ITS DEBT — do not read the series as regression.) (Scheduled
   2026-09-02 from ambition-da's docs pass; re-worded the same night after
   ambition-da re-derived it, `2068bcd31`.) The instrument is installed:
   `capability-footprint-may-not-grow` in `scripts/check_absence_contracts.py`

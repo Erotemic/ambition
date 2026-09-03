@@ -25,6 +25,7 @@ use ambition_characters::actor::character_catalog::CharacterCatalog;
 use ambition_characters::actor::WornCharacter;
 use ambition_characters::brain::{ActionSet, RangedExecution};
 
+use ambition_body_seed::PersonaBaseline;
 use ambition_combat::moveset::ActorMoveset;
 use ambition_combat::worn_kit::WornKit;
 use ambition_platformer2d_core::movement::MotionModel;
@@ -285,8 +286,8 @@ fn wear_kit(
 }
 
 fn match_kit_for_seat<'a>(
-    roster: Option<&'a crate::character_runtime::MatchParticipantRoster>,
-    seat: Option<&crate::character_runtime::MatchSeat>,
+    roster: Option<&'a ambition_match::MatchParticipantRoster>,
+    seat: Option<&ambition_match::MatchSeat>,
 ) -> Option<&'a ActionSet> {
     roster?.participants.get(seat?.0)?.action_set.as_ref()
 }
@@ -329,7 +330,7 @@ pub fn apply_worn_character_gameplay(
     // What the MATCH decided, when one is running. `Option` because most
     // compositions are not a match, which is the ordinary case rather than a
     // degraded one.
-    roster: Option<Res<crate::character_runtime::MatchParticipantRoster>>,
+    roster: Option<Res<ambition_match::MatchParticipantRoster>>,
     mut commands: Commands,
     mut worn: Query<(
         Entity,
@@ -366,7 +367,7 @@ pub fn apply_worn_character_gameplay(
         (
             Option<&PersonaBaseline>,
             // Which seat this body holds, if it is in a match at all.
-            Option<&crate::character_runtime::MatchSeat>,
+            Option<&ambition_match::MatchSeat>,
             Has<ambition_characters::actor::RecharacterizeBody>,
         ),
     )>,
@@ -454,7 +455,7 @@ pub fn apply_worn_character_gameplay(
             let incoming = registry
                 .as_deref()
                 .and_then(|registry| registry.get(id))
-                .map(crate::character_runtime::PhysicalBaseline::of);
+                .map(ambition_body_seed::PhysicalBaseline::of);
             // What a persona has taken from this body, extended with whatever
             // the INCOMING one is about to take. Recorded before the write, and
             // only for fields no persona has claimed yet.
@@ -469,12 +470,12 @@ pub fn apply_worn_character_gameplay(
                 );
             if let Some(physical) = incoming {
                 physical.apply_to_body(
-                    crate::character_runtime::BaselineBoundary::Replacement,
+                    ambition_body_seed::BaselineBoundary::Replacement,
                     &mut commands.entity(entity),
                     health.as_deref_mut(),
                     combat_tuning.as_deref_mut(),
                     None,
-                    crate::character_runtime::PhysicalRetraction::resolve(incoming, displaced),
+                    ambition_body_seed::PhysicalRetraction::resolve(incoming, displaced),
                 );
             }
 
@@ -598,35 +599,6 @@ pub fn apply_worn_character_gameplay(
             }
         }
     }
-}
-
-/// What cast a body's PERSONA was built from.
-///
-/// The record `apply_worn_character_gameplay` keeps of its own work: the id it
-/// last applied and the registry generation it read. Nothing else writes it.
-///
-/// It exists because a cast replacement changes nothing ON a body — not its worn
-/// character, not its abilities — so the derive's change-detection filter could
-/// not see one, and a rebalanced or hot-reloaded character left every live body
-/// wearing the retired kit. `project_prepared_character_definitions` DID notice,
-/// and stamped its own marker with the new generation regardless, which made the
-/// failure worse than a missed update: the body recorded that it was current, so
-/// nothing would ever revisit it.
-///
-/// deliberately a SECOND marker rather than sharing
-/// [`ProjectedCharacterKit`](crate::character_runtime::ProjectedCharacterKit). That one is the
-/// projection's record of the body facts IT grants — authored hurtboxes, movement feel, motion
-/// model. One writer, one record, each stamped only after its own work is applied. it also carries
-/// `displaced`, which is NOT a memo — it is the only surviving record of what a persona took from
-/// this body, and retraction is driven from it. `Eq` is gone with it: a mass is an `f32`.
-#[derive(Component, Clone, Debug, PartialEq)]
-pub struct PersonaBaseline {
-    pub id: String,
-    pub generation: ambition_characters::prepared::CharacterCatalogGeneration,
-    /// See [`DisplacedPhysicals`](crate::character_runtime::DisplacedPhysicals).
-    /// Grows once per field, at the first persona that overrides that field, and
-    /// is carried forward verbatim through every later re-wear.
-    pub displaced: crate::character_runtime::DisplacedPhysicals,
 }
 
 /// Gate the raw player-control frame by the effective worn kit before direct body/effect

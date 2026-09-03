@@ -357,7 +357,7 @@ fn only_the_tied_sides_are_carried_into_the_sudden_death_round() {
         health.set_damage_taken(damage);
         app.world_mut()
             .spawn((
-                ambition_platformer2d::actors::character_runtime::MatchSeat(index),
+                ambition_platformer2d::versus_match::MatchSeat(index),
                 MatchTeam(format!("seat{index}")),
                 health,
                 // ⛔⛔ TWO STOCKS EACH, AND THE FIXTURE HAD NONE AT ALL. A
@@ -628,7 +628,7 @@ fn announced_outcome(outcome: ambition_platformer2d::actor::MatchVerdict) -> Opt
 
     let mut app = App::new();
     app.init_resource::<ambition_platformer2d::presentation::HudReadouts>();
-    let active = ambition_platformer2d::actors::character_runtime::ActiveMatch::for_test(2, None);
+    let active = ambition_platformer2d::versus_match::ActiveMatch::for_test(2, None);
     let mut settled =
         ambition_platformer2d::actors::features::stocks_match::StocksMatchSettled::default();
     settled.settle(&active, outcome);

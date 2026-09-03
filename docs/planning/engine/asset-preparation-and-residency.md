@@ -303,7 +303,24 @@ while the hall was decoding quarter-tier art, which is a fraction of the pixels
 Full asks for. ⇒ **Re-take the >33.4 ms count after the cap is removed**, on the
 same route, before calling the hitch closed. ⚠ The prediction to check it
 against: if the barrier is what fixed it, the count stays 0 at Full; if the cap
-was doing the work, it comes back. The profiling bundle summary grows a
+was doing the work, it comes back. 
+⛔⛔ **AND VALIDATING THE READER AGAINST THAT CAPTURE FOUND A DEFECT IN IT — A
+`[frame-spike]` LINE CARRIES TWO CLOCKS.** `[   2.386s] [frame-spike]
+1.071s  125.3ms` holds the stamper's wall time AND the game's own elapsed
+time, 1.3 s apart here. The transition line is a `tracing` record with no game
+clock, so the stamp is the only quantity both share — and the parser was
+ordering a spike's GAME time against a transition's STAMP. ⇒ On this bundle
+both clocks agree (every spike precedes the reveal), so the verdict above was
+right BY LUCK; a run with a spike inside the offset would have been
+misreported. Fixed, and pinned by an arm where the two clocks disagree —
+the first version of that test could not fail, because the real fixture cannot
+discriminate.
+
+⚠ Also corrected: the transition's time is the COMPLETION line's stamp
+(8.321 s), not the `room-transition begin` marker three lines earlier
+(7.767 s). My hand-check misread that; the parser had it right.
+
+The profiling bundle summary grows a
 **Room reveal** section parsing all three out of the game's own stamped log, so
 a host capture states its own verdict instead of needing someone to read stderr
 and judge — which is how the 2026-09-01 capture's 111 warnings became evidence

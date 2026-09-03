@@ -137,3 +137,94 @@ def test_the_after_bucket_is_not_counted_as_boot_work(capsys):
 
 if __name__ == "__main__":
     raise SystemExit(pytest.main([__file__, "-q"]))
+
+
+# ── The denominator, found only by running it on a real bundle ────────────
+
+HOST_CENSUS = (
+    "[   11.243s] [image-census]   10.002s +130 images (+36.2MP) | total 252 images, "
+    "78.3MP, 313.1MB resident | gpu +130 (+36.2MP) insert→gpu p50 4ms max 9ms\n"
+)
+
+
+def test_the_report_says_it_is_a_sample_not_a_population():
+    """⛔⛔ `[image]` PRINTS ONLY DECODES >= 1.0 MP (NOTABLE_MEGAPIXELS). On the
+    real host bundle that is ELEVEN printed lines against TWO HUNDRED AND
+    FIFTY-TWO images actually decoded. "6 images before room-loaded" reads as
+    the whole boot and is 4% of it by count.
+
+    Found by running the script on a real capture and reconciling its 11 lines
+    against df's brief, which said 98 — not by reading the emitter, which
+    prints the threshold check several screens from the format string.
+    """
+    module = load()
+    out = module.parse((BOOT + HOST_CENSUS).splitlines())
+    assert out["census_total"] == (252, 78.3)
+
+
+def test_the_bound_is_printed_before_the_counts(capsys):
+    module = load()
+    module.report(module.parse((BOOT + HOST_CENSUS).splitlines()))
+    out = capsys.readouterr().out
+    assert "SAMPLE, NOT POPULATION" in out
+    assert out.index("SAMPLE, NOT POPULATION") < out.index("decoded BEFORE"), (
+        "the caveat must precede the numbers it bounds — a reader who meets "
+        "the count first has already formed the belief"
+    )
+    assert "252 images / 78.3 MP" in out
+
+
+def test_a_log_with_no_census_line_says_the_counts_are_a_floor(capsys):
+    """Absent is not zero: with no `[image-census]` there is no denominator,
+    and the report must say the counts are a floor rather than imply totals."""
+    module = load()
+    module.report(module.parse(BOOT.splitlines()))
+    out = capsys.readouterr().out
+    assert "no `[image-census]` line" in out and "a floor" in out
+
+
+# ── Ordering: frames, not times ───────────────────────────────────────────
+
+HOST_FRAME_ORDER = """\
+[image]    1.021s f      0 3072x2468    7.6MP live=0 game://sprites/player_robot_v3_spritesheet.png first demanded via asset-manifest
+[image]    3.924s f   1129 3072x2468    7.6MP live=0 sprites/player_robot_v3_spritesheet.png demand→insert 9ms via character-sheet
+[world-event]    3.863s f   1131 room-loaded central_hub_complex
+"""
+
+
+def test_before_and_after_are_decided_by_frame_not_by_time(capsys):
+    """⛔⛔ THE EMITTER ADDED THE FRAME COLUMN FOR EXACTLY THIS, and says so:
+    the census runs in `Last`, after a long activation frame's work, so its
+    time can read AFTER a `room-loaded` that the same frame's `PreUpdate`
+    insertion actually preceded.
+
+    On the real host bundle the player sheet's second decode is frame 1129
+    against room-loaded at frame 1131 — two frames BEFORE — while its game
+    clock reads 3.924 s against 3.863 s, i.e. after. Ordering by time put
+    7.6 MP in the wrong bucket and turned 7 images / 23.7 MP into 6 / 16.1.
+    """
+    module = load()
+    parsed = module.parse(HOST_FRAME_ORDER.splitlines())
+    late = [i for i in parsed["images"] if i["frame"] == 1129][0]
+    assert late["at"] > parsed["room_loaded"][0], (
+        "premise: by TIME this decode looks like it came after the room loaded"
+    )
+    assert late["frame"] < parsed["room_loaded"][1], (
+        "premise: by FRAME it came before — the two orderings disagree, which "
+        "is what makes this a defect rather than a preference"
+    )
+
+    module.report(parsed)
+    out = capsys.readouterr().out
+    assert "ordered by:        frame" in out, out
+    assert "decoded BEFORE room-loaded: 2 images, 15.2 MP" in out, out
+
+
+def test_a_capture_with_no_frame_column_says_it_fell_back_to_time(capsys):
+    """Older captures have no `f NNN`. Time is all there is — and the report
+    must name which ordering it used rather than letting a reader assume the
+    stronger one."""
+    module = load()
+    module.report(module.parse(BOOT.splitlines()))
+    out = capsys.readouterr().out
+    assert "ordered by:        game time (no frame column" in out, out

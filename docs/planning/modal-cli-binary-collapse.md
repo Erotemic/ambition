@@ -140,10 +140,38 @@ longer knows those `[[bin]]` targets. ⇒ **Every bin rename or removal strands
 its artifact forever** unless someone deletes it by name, which is what
 reclaimed the space here. Worth remembering the next time a target is renamed.
 
-⛔ **`split-debuginfo` STILL UNTRIED** — the one-line lever the plan said to
-attempt FIRST. The collapse's 89.6% does not tell us whether the cheap
-experiment would have got most of it, and that matters before this is proposed
-for another crate.
+✔ **`split-debuginfo` TRIED 2026-09-03, AND IT DOES NOT PAY HERE.** The plan
+said attempt it first because it is one line; measured, it is the smaller lever
+and the two overlap.
+
+```text
+                        executable      .dwo        total on disk
+line-tables-only            510 MB      0 MB            510 MB
++ split-debuginfo=unpacked  302 MB    532 MB            834 MB   (9,938 files)
+```
+
+⇒ The executable shrank 41%, and the **total on disk went UP by 324 MB.** The
+`.dwo` set is SHARED, so unpacking wins only when many executables would each
+carry their own copy of the same DWARF — which is exactly the redundancy the
+collapse already removed, and removed harder: 4.79 GB → 0.50 GB against this
+lever's roughly 1.3 GB had it been applied to the nine.
+⚠ **It is also not cheap to adopt.** Changing `[profile.dev]` invalidates every
+crate: the experiment recompiled **352, of which 342 were third-party**, at
+7m24s against the control's 2m53s. "One line" describes the edit, not the cost.
+⇒ Left UNSET, with the measurement recorded at the setting in `Cargo.toml` so
+the next person does not re-run it. Revisit only if a crate ever has many
+binaries again.
+
+⭐ **AND A WORKSPACE-ONLY CLEAN IS THE RIGHT RESET, confirmed empirically.**
+`cargo clean -p` over all 77 workspace packages removed **48,931 files and
+129.6 GiB**, taking the volume from 2 GB free to 123 GB, and the rebuild after
+it compiled **60 crates, ALL OURS, ZERO third-party**. So the expensive
+dependency graph survives a full reset of our own code. ⇒ That is the command to
+reach for when the volume is short — not `cargo clean`, which throws away the
+third-party compiles too.
+ⓘ Where the space actually was: `debug/deps/` held **106.7 GB in 337
+executables** against 17.8 GB of `.rlib` — test and bin artifacts, not
+libraries. Cleaning libraries would have missed it.
 
 ## Status
 

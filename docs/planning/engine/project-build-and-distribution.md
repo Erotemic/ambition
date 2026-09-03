@@ -182,6 +182,27 @@ unactionable.
 
 ### B4 — generated-content/bootstrap contract
 
+> ⭐ **THE ASK ITSELF, RUN END TO END 2026-09-03 AFTER FIVE CARVES:
+> `./run_headless.sh --ticks 600` → `headless run completed: 600 ticks`, exit 0.**
+> Jon's standing ask is that a fresh clone reaches a runnable game; this is the
+> nearest thing to it that a box with no display can execute, and it passes on a
+> tree where `ambition_held_items`, `ambition_body_seed`, `ambition_match`,
+> `ambition_encounter_features` and `ambition_abilities` all left the actor
+> kernel the same day. It validates the sandbox world first, then steps the sim
+> shell, and it builds in RELEASE (`target/release/headless`) — so this also
+> exercises the optimized profile that the dev-profile discussion below is
+> about.
+>
+> ⚠ **What it does NOT prove**, so nobody quotes it further than it goes: this
+> tree is not a fresh clone. It has generated content, fetched fonts and the
+> sampled instrument libraries already in place, which are exactly the
+> prerequisites the rows below record as the things a clone lacks. A real
+> fresh-clone proof needs a clone; this proves the SIMULATION composes and runs
+> after the carves, which is the half a carve campaign puts at risk.
+>
+> Incidentally measured from its own census line: **661 systems in `Update`**.
+
+
 A clean checkout should have an explicit path to produce every required generated
 artifact or obtain it from the intended cache/submodule. Cache keys must include
 all source dependencies that affect output.

@@ -34,6 +34,13 @@ form in these docs — is never counted. Verified by poisoning: renaming one to
 `build_prop_sprite_asset_packed_totally_invented` left the run at the same 526
 citations and still printed "all resolved".
 
+⭐ ONE NARROW SLICE OF THE BARE FORM *IS* CHECKED, by `--vanished REF`: a bare
+name that WAS a definition at REF and is not one at HEAD. The name's own history
+supplies the precision, so no heuristic has to decide what is "code-shaped", and
+it answers the question a decomposition carve actually raises — which rows cite
+an item the carve renamed or removed. It does NOT report names that never
+existed; that is the 542 below, deliberately left alone.
+
 ⚠ AND EXTENDING IT TO BARE NAMES IS NOT AN IMPROVEMENT, which is why this is a
 documented bound rather than a TODO. `docs/planning/` holds 1490 distinct bare
 backticked snake_case tokens; 948 resolve to a defined name and 542 do not, of
@@ -132,6 +139,85 @@ NOISE = {
     "u8", "u16", "u32", "u64", "u128", "i8", "i16", "i32", "i64", "i128",
     "f32", "f64",
 }
+
+
+# A BARE backticked identifier -- no `::`, so `SYMBOL` never sees it, and it is
+# the commonest citation form in these docs.
+BARE = re.compile(r"`([A-Za-z_][A-Za-z0-9_]{2,})`")
+
+
+def source_text_at(ref: str, suffixes: tuple[str, ...] = (".rs", ".py")) -> str:
+    """`source_text`, but for a tree that is not checked out.
+
+    ⭐ THIS IS WHAT MAKES THE BARE-NAME CHECK PRECISE INSTEAD OF NOISY. Asking
+    "does this bare name resolve?" yields ~408 findings that are mostly correct
+    citations of things that are not Rust items -- content keys, directories,
+    upstream Bevy API, CSV columns. Asking "was it a definition at REF and is it
+    not one now?" answers a different question with almost no false positives,
+    because the name's OWN HISTORY proves it was once a real item here.
+
+    ⚠ ONE `git cat-file --batch`, not one `git show` per file. The tree holds
+    thousands of sources; a process each takes minutes and this takes under a
+    second.
+    """
+    listing = subprocess.run(
+        ["git", "ls-tree", "-r", "--name-only", ref],
+        cwd=REPO, capture_output=True, text=True, check=True,
+    ).stdout.split("\n")
+    paths = [p for p in listing if p.endswith(suffixes)]
+    if not paths:
+        return ""
+    proc = subprocess.run(
+        ["git", "cat-file", "--batch"],
+        cwd=REPO, input="".join(f"{ref}:{p}\n" for p in paths).encode(),
+        capture_output=True, check=True,
+    )
+    out, chunks, i = proc.stdout, [], 0
+    while i < len(out):
+        nl = out.find(b"\n", i)
+        if nl < 0:
+            break
+        # `<oid> blob <size>`. Every path came from `ls-tree` ON THIS REF, so
+        # a `missing` answer is unreachable and is NOT handled: a branch that
+        # cannot run is a branch no test can hold honest.
+        size = int(out[i:nl].split()[2])
+        chunks.append(out[nl + 1 : nl + 1 + size].decode("utf-8", "replace"))
+        i = nl + 1 + size + 1
+    return "\n".join(chunks)
+
+
+def vanished_report(docs: list[Path], since: str, defined: set[str]) -> int:
+    """Bare citations naming something that WAS defined at `since` and is not now.
+
+    This is the post-carve pass: a carve that renames or removes an item leaves
+    every planning row citing it silently stale, and `SYMBOL` cannot see those
+    rows because the rows spell the name bare.
+    """
+    was = defined_names(source_text_at(since))
+    gone = was - defined
+    print(f"indexed {len(was)} defined name(s) at {since}; "
+          f"{len(gone)} of them no longer defined at HEAD", file=sys.stderr)
+    findings = []
+    for doc in docs:
+        # A doc passed by absolute path may sit outside the tree (a fixture, a
+        # poison). Reporting it is more useful than raising.
+        rel = doc.relative_to(REPO) if doc.is_relative_to(REPO) else doc
+        for lineno, line in enumerate(doc.read_text(errors="replace").splitlines(), 1):
+            if MARKER in line:
+                continue
+            for m in BARE.finditer(line):
+                if m.group(1) in gone:
+                    findings.append((str(rel), lineno, m.group(0)))
+    print(f"\n{len(findings)} bare citation(s) of a name that vanished since {since}")
+    for rel, lineno, cite in findings:
+        print(f"  {rel}:{lineno}\n    {cite}")
+    if findings:
+        print("""
+⇒ EACH IS A ROW THE CARVE LEFT BEHIND. The name was a definition in this tree
+  at the baseline and is not one at HEAD, so the row cites something that no
+  longer exists under that name. Repoint the row, or -- if the row is
+  RECORDING the old name on purpose -- mark the line and it stops reporting.""")
+    return len(findings)
 
 
 def repo_files() -> list[Path]:
@@ -298,6 +384,11 @@ def main() -> int:
         help="also check backticked citations in Rust COMMENTS (the fabricated "
              "name that prompted this script reached one, where nothing looks)",
     )
+    parser.add_argument(
+        "--vanished", metavar="REF",
+        help="report BARE backticked citations of names that were defined at "
+             "REF and are not defined at HEAD -- the post-carve pass",
+    )
     parser.add_argument("paths", nargs="*", type=Path,
                         default=[REPO / "docs" / "planning"])
     args = parser.parse_args()
@@ -416,6 +507,10 @@ def main() -> int:
                 if tail not in defined:
                     findings.append((str(rel), lineno, m.group(0),
                                      "nothing DEFINES this name"))
+
+    if args.vanished:
+        n = vanished_report(docs, args.vanished, defined)
+        return 1 if (n and args.strict) else 0
 
     print(f"\nchecked {checked} citation(s) across {len(docs)} planning file(s)")
     if not findings:

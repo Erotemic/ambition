@@ -1,6 +1,6 @@
 //! Authored silhouettes, through the REAL damage path, for every body family.
 //!
-//! `tests.rs` beside this file proves the resolver picks the right timeline. That
+//! `ambition_combat::hurtbox_resolution`'s own tests proves the resolver picks the right timeline. That
 //! is a pure function, and proving it in isolation is exactly how §7.10 shipped a
 //! feature that resolved correctly and reached nobody: the volumes were published
 //! into `DamageableVolumes`, and `apply_hitbox_damage` never read that component —
@@ -24,8 +24,9 @@ use ambition_platformer2d_core as ae;
 use ambition_platformer2d_core::AabbExt;
 use ambition_vfx::vfx::VfxMessage;
 
-use super::{AuthoredHurtboxes, HurtboxDoc, HurtboxVolume, ResolvedHurtboxes};
 use crate::features::refresh_body_damageable_volumes;
+use ambition_combat::hurtbox_resolution::{AuthoredHurtboxes, ResolvedHurtboxes};
+use ambition_entity_catalog::{HurtboxDoc, HurtboxVolume};
 
 /// The body's coarse box: 28 wide, 40 tall, centred on the origin.
 const COARSE_HALF: ae::Vec2 = ae::Vec2::new(14.0, 20.0);
@@ -74,7 +75,7 @@ fn fight_app() -> App {
     app.add_systems(
         Update,
         (
-            super::resolve_body_hurtboxes,
+            ambition_combat::hurtbox_resolution::resolve_body_hurtboxes,
             refresh_body_damageable_volumes,
             apply_hitbox_damage,
             capture_hits,

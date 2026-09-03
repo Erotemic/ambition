@@ -1,5 +1,9 @@
 //! Hurtboxes resolved from simulation state and clocks, independent of rendering.
 //!
+//! Combat geometry over prepared character facts; the actor kernel schedules the
+//! two systems and registers the components. (Carved from the kernel's
+//! `character_runtime`, D33, 2026-09-03.)
+//!
 //! Active move overrides use the move clock; body status poses use their own
 //! deterministic timers or locomotion phase; default shapes are static. A body
 //! without authored hurtboxes may use the sprite-derived compatibility box, but
@@ -163,7 +167,7 @@ pub fn resolve_hurtboxes(
 pub fn resolve_body_hurtboxes(
     mut bodies: Query<(
         &AuthoredHurtboxes,
-        Option<&ambition_combat::moveset::MovePlayback>,
+        Option<&crate::moveset::MovePlayback>,
         Option<&BodyPoseClock>,
         &mut ResolvedHurtboxes,
     )>,
@@ -215,8 +219,6 @@ pub fn advance_body_pose_clocks(
     }
 }
 
-#[cfg(test)]
-mod damage_tests;
 #[cfg(test)]
 mod tests;
 

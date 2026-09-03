@@ -134,16 +134,15 @@ pub use ecs::{
     rebuild_feature_ecs_world_overlay, refresh_body_damageable_volumes,
     refresh_boss_damageable_volumes, refresh_breakable_damageable_volumes,
     route_boss_strikes_to_limbs, select_actor_targets, serve_encounter_spawn_commands,
-    snapshot_body_contact, spawn_encounter_mob,
-    spawn_projectiles_from_brain_actions, spawn_room_feature_entities_from_plan,
-    sync_actor_poses_from_feature_aabbs, sync_actor_read_model, sync_boss_actor_components,
-    sync_boss_encounter_phase, sync_ecs_actors_with_save, sync_ecs_bosses_with_save,
-    sync_ecs_switches_from_save, sync_encounter_reward_chests_ecs, tick_actor_brains,
-    tick_and_despawn_hitboxes, tick_boss_brains_system, tick_gameplay_banner, tick_npc_idle_barks,
-    tick_pending_challenges, trigger_boss_attack_moves, update_ecs_bosses, update_ecs_breakables,
-    update_ecs_falling_chests, update_ecs_hazards, ActorConstructionContext, ActorSteering,
-    ChallengeRequested, EncounterRewardSyncPlugin, FactionRelations,
-    FeatureWorldOverlaySet, FriendlyFire,
+    snapshot_body_contact, spawn_encounter_mob, spawn_projectiles_from_brain_actions,
+    spawn_room_feature_entities_from_plan, sync_actor_poses_from_feature_aabbs,
+    sync_actor_read_model, sync_boss_actor_components, sync_boss_encounter_phase,
+    sync_ecs_actors_with_save, sync_ecs_bosses_with_save, sync_ecs_switches_from_save,
+    sync_encounter_reward_chests_ecs, tick_actor_brains, tick_and_despawn_hitboxes,
+    tick_boss_brains_system, tick_gameplay_banner, tick_npc_idle_barks, tick_pending_challenges,
+    trigger_boss_attack_moves, update_ecs_bosses, update_ecs_breakables, update_ecs_falling_chests,
+    update_ecs_hazards, ActorConstructionContext, ActorSteering, ChallengeRequested,
+    EncounterRewardSyncPlugin, FactionRelations, FeatureWorldOverlaySet, FriendlyFire,
     HazardTickSet, HeldItem, Hitbox, HitboxAnchor, HitboxHits, HitboxKnockback, HitboxLifetime,
     OccurrenceContinuity, PendingChallenge, PickupArt, PickupCollect, PickupCollectLock,
     PickupMagnetize, RoomContentStagingError, RoomContentStagingRegistrationError,
@@ -250,7 +249,7 @@ pub fn register_damage_facing_volume_publication(app: &mut bevy::prelude::App) {
             .before(ambition_platformer2d_shared_tangle::schedule::CombatSet::Resolve)
             // The one intra-crate edge that is genuinely between two systems: the
             // character runtime resolves the silhouette this reads.
-            .after(crate::character_runtime::hurtbox::resolve_body_hurtboxes),
+            .after(ambition_combat::hurtbox_resolution::resolve_body_hurtboxes),
     );
 }
 

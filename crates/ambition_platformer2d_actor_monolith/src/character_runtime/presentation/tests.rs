@@ -772,7 +772,7 @@ fn a_character_that_stops_authoring_hurtboxes_has_them_retracted() {
     settle(&mut app);
     assert!(
         app.world()
-            .get::<super::super::AuthoredHurtboxes>(body)
+            .get::<ambition_combat::hurtbox_resolution::AuthoredHurtboxes>(body)
             .is_some(),
         "the first cast must grant the hurtbox doc at all"
     );
@@ -790,7 +790,7 @@ fn a_character_that_stops_authoring_hurtboxes_has_them_retracted() {
 
     assert!(
         app.world()
-            .get::<super::super::AuthoredHurtboxes>(body)
+            .get::<ambition_combat::hurtbox_resolution::AuthoredHurtboxes>(body)
             .is_none(),
         "the body kept the retired cast's authored hurtboxes: retraction asked the \
          NEW registry what the OLD definition granted, and the new one grants \

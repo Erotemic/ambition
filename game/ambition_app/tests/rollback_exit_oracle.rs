@@ -421,7 +421,7 @@ fn every_presence_only_probe_is_named_with_its_reason() {
             "authored encounter definition; immutable at runtime",
         ),
         (
-            "ambition_platformer2d_actor_monolith::character_runtime::hurtbox::AuthoredHurtboxes",
+            "ambition_combat::hurtbox_resolution::AuthoredHurtboxes",
             "authored hurtbox document; immutable at runtime",
         ),
         (

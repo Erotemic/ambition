@@ -14,6 +14,14 @@ censuses sampled in the same frame.
 Also lifts the always-on `[frame-spike]` / `[frame-census]` / `[image]` /
 `[image-census]` lines, so a bundle taken without the census gate still has
 frame timings.
+
+⚠ `image_arrivals.csv` HOLDS CENSUS WINDOWS, NOT INDIVIDUAL IMAGES, and its
+name reads the other way. On the 2026-09-02 host bundle it has 3 rows for 3
+`[image-census]` windows while 11 images actually decoded — those are in
+`image_decodes.csv`. Counting rows in the file whose name says "arrivals" and
+reporting "3 images arrived" is a mistake the filename invites; the summary's
+own key line ("images reaching Assets<Image> per census window") says it
+correctly and is the wording to keep.
 """
 
 from __future__ import annotations

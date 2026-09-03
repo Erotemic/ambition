@@ -229,14 +229,26 @@ Ambition pain it would remove.
     is requested twice more in `game/ambition_app/src/app/scene_setup.rs:328`
     and `:351` — the debug HUD and the **quest panel**, and a quest log is
     product UI.
-    ⭐ **The real pain is stronger than the row claims and is a BUILD pain, not a
-    residency one.** `JetBrainsMono-Regular.ttf` is embedded at COMPILE time by
-    `embed_core_assets!` as `FONT_DEBUG_MONO_URL`
-    (`crates/ambition_asset_manager/src/platformer_assets/embedded.rs:64`), so a
-    tree missing that file fails `cargo check --workspace` outright. That
-    happened on the calculex host on 2026-09-02 and cost a build. ⇒ If this item
-    is ever taken, the thing worth removing is the COMPILE-time embed, and that
-    needs the quest panel answered first — not the two overlays.
+    ⭐ **There is a real COMPILE-time edge here, but it is narrower than I first
+    wrote.** `JetBrainsMono-Regular.ttf` is untracked and gitignored
+    (`.gitignore:156`, fetched by `scripts/grab_font_assets.py`) and it is
+    `include_bytes!`d by `embed_core_assets!` as `FONT_DEBUG_MONO_URL`
+    (`crates/ambition_asset_manager/src/platformer_assets/embedded.rs:64`) — so
+    on a fresh clone the file is absent and the embed cannot compile.
+    ⛔ **CORRECTION, same day:** I first wrote here that a tree missing the file
+    *"fails `cargo check --workspace` outright"*. **I could not reproduce that
+    mechanism and am retracting it.** The `include_bytes!` sits behind
+    `#[cfg(feature = "static_core_assets")]`, which only `visible_web` enables
+    (`ambition_platformer2d_actor_monolith/Cargo.toml:174`,
+    `game/ambition_app/Cargo.toml:93`); no member's default features enable it,
+    and under `resolver = "2"` a workspace-wide feature resolution does not turn
+    it on. ⇒ The compile-time dependency is real for a **`visible_web` build**
+    and not for a default workspace check. What actually failed on this host on
+    2026-09-02 I cannot now reconstruct, so it is recorded as unexplained rather
+    than attributed to this edge.
+    ⇒ If this item is ever taken, the thing worth removing is the COMPILE-time
+    embed on the web path, and that needs the quest panel answered first — not
+    the two overlays.
 - ▢ **`Rem` sizing for UI accessibility scaling.** `FontSize::Rem` plus the
   `RemSize` resource is a global UI text scale for free. Wants a concrete
   accessibility or Steam-Deck legibility requirement first; do not convert

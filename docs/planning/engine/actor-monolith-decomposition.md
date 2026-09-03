@@ -1463,6 +1463,25 @@ which `construction` (2,019 lines) is a crate below the kernel and `features` is
 customer, exactly as `ambition_body_seed` is now. Not cut: the doc says this last,
 and the outer domains (`abilities`, `encounter`) left only tonight.
 
+⭐ **AND THE DISPATCH SIDE IS SMALLER THAN THE 30 SUGGESTS — MEASURED
+2026-09-03.** The 30 above is `features` → `construction`, the CONSUMPTION
+direction, and it is not the side an inversion has to move. The side that moves
+is `construction` naming its recipes, and that is:
+>
+| | |
+|---|---|
+| production files that name `features::` | **1** — `construction/mod.rs` |
+| references in it | **16** |
+| distinct recipes named | **5** — `apply_summon_effects`, `ecs::spawn_runtime_minion`, `ecs::spawn_static::lower_interactable_placement`, `ecs::spawn_static::lower_pickup_placement`, `giant_hand_plans` |
+| the other file | `construction/tests.rs` (38), which follows the production shape |
+
+⇒ **So the inversion is one production file and five registrations**, not a
+thirty-site sweep — the same shape and roughly the same size as the encounter
+carve's `ConstructionDomain`/`RecipeDispatch` inversion, which is the precedent
+the paragraph above already points at. ⚠ The 2,019-line figure for `construction`
+is unchanged and is NOT the work: moving the crate is the consequence of the
+inversion, not the inversion.
+
 ## The doctrine's own "does not belong" list, measured against the kernel (2026-09-03)
 
 [`../../architecture/package-and-capability-boundaries.md`](../../architecture/package-and-capability-boundaries.md)

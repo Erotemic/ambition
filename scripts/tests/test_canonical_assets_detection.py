@@ -148,3 +148,34 @@ def test_the_live_repo_answers_and_the_answer_matches_its_tree(tmp_path):
         f"the detector says canonical={verdict} while the tree "
         f"{'holds symlinks' if any_linked else 'holds real files'}"
     )
+
+
+def test_the_predicate_and_the_reason_share_one_freshness_run(tmp_path, monkeypatch):
+    """⛔⛔ A REASON DERIVED FROM A DIFFERENT RUN THAN THE DECISION CAN CONTRADICT IT.
+
+    `assets_are_canonical` and `why_not` both need the freshness answer, and the
+    first version of each shelled out ITSELF — two executions of
+    `check_quality_variants_are_fresh.py` over a MUTABLE generated tree, which
+    can disagree if anything regenerates between them. ⚠ That is the same defect
+    the symlink path already had and fixed by sharing `_sample_tree_files`,
+    reintroduced one function later; a guard asserting the two agree is written
+    against this property, so it is pinned rather than left as a comment.
+    """
+    _tree(tmp_path, files=3, linked=False)
+    calls = []
+
+    def counted(repo):
+        calls.append(repo)
+        return (True, "counted")
+
+    ca._freshness.cache_clear()
+    monkeypatch.setattr(ca, "_run_freshness_check", counted)
+    try:
+        ca.assets_are_canonical(tmp_path, env={})
+        ca.why_not(tmp_path)
+        assert len(calls) == 1, (
+            f"the freshness checker ran {len(calls)} times for one question — "
+            "the predicate and the reason can now disagree"
+        )
+    finally:
+        ca._freshness.cache_clear()

@@ -34,6 +34,7 @@ Nothing here should be read as evidence that they do.
 
 from __future__ import annotations
 
+import functools
 import os
 import subprocess
 import sys
@@ -79,7 +80,34 @@ def _sample_tree_files(repo: Path) -> tuple[int, int]:
     return real, linked
 
 
+@functools.lru_cache(maxsize=8)
+def _freshness(repo_key: str) -> tuple[bool, str]:
+    """One execution of the freshness checker per repo, per process.
+
+    ⛔⛔ THE PREDICATE AND THE REASON MUST NOT ASK TWICE. `assets_are_canonical`
+    and `why_not` both need this answer, and the first version of each ran the
+    checker itself — two subprocess executions over a MUTABLE generated tree,
+    which can disagree if anything regenerates between them. ⚠ That is the same
+    defect I fixed on the symlink path by making both share
+    `_sample_tree_files`, reintroduced one function later on the freshness path;
+    caught 2026-09-03 when a guard asserting the two agree was written against
+    it. A reason derived from a different run than the decision is how the two
+    come to contradict each other.
+
+    ⚠ Deliberately per PROCESS and not per call: a lane or a test run is short,
+    and a stale answer inside one is a smaller hazard than an inconsistent
+    pair. Long-lived callers that regenerate assets mid-run should call
+    `_freshness.cache_clear()`.
+    """
+    return _run_freshness_check(Path(repo_key))
+
+
 def variants_are_fresh(repo: Path) -> tuple[bool, str]:
+    """Cached front door — see `_freshness` for why the caching is load-bearing."""
+    return _freshness(str(repo.resolve()))
+
+
+def _run_freshness_check(repo: Path) -> tuple[bool, str]:
     """Are the generated quality tiers current with their sources?
 
     ⛔ OWNING THE FILES IS NOT THE SAME AS THEM BEING CURRENT, and the size

@@ -8,7 +8,8 @@
 //! freeze had a seat at the table and nobody sat in it.
 
 use super::*;
-use crate::features::ecs::actor_clusters::{ActorBody, ActorClusterSeed};
+use crate::features::ecs::actor_clusters::SeedActorMut;
+use ambition_body_seed::{ActorBody, ActorClusterSeed};
 use ambition_characters::actor::control::ActorControlFrame;
 use ambition_entity_catalog::placements::CharacterBrain;
 

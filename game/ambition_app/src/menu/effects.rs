@@ -6,9 +6,7 @@
 use bevy::prelude::*;
 
 use ambition_platformer2d::actors::avatar::PlayerHealRequested;
-use ambition_platformer2d::actors::items::pickup::{
-    equip_held_spec, held_spec_for_item, item_in_hand, unequip_held, StashedActionSet,
-};
+use ambition_platformer2d::held_items::{equip_held_spec, held_spec_for_item, item_in_hand, unequip_held, StashedActionSet};
 use ambition_platformer2d::characters::brain::ActionSet;
 use ambition_platformer2d::combat::held_items::HeldItem;
 use ambition_platformer2d::engine_core::BodyMana;
@@ -213,7 +211,7 @@ pub(crate) fn apply_menu_action(
                 }
                 #[cfg(feature = "portal")]
                 if is_portal_gun {
-                    ambition_platformer2d::actors::items::pickup::equip_portal_gun(
+                    ambition_platformer2d::held_items::equip_portal_gun(
                         commands,
                         player,
                         &mut action_set,

@@ -767,7 +767,7 @@ mod default_profile_tests {
     /// A minimal body for the two parameters `resolve_npc_brain` needs only when
     /// a character's default is its own `BrainProfile`.
     fn test_body() -> ambition_combat::actor_tuning::ActorConfig {
-        crate::features::ecs::actor_clusters::ActorClusterSeed::new_peaceful_npc(
+        ambition_body_seed::ActorClusterSeed::new_peaceful_npc(
             "probe",
             "Probe",
             ae::Aabb::new(ae::Vec2::ZERO, ae::Vec2::new(8.0, 12.0)),

@@ -4,6 +4,20 @@
 instance/count boundary for held weapons/abilities and persistent occurrence
 behavior across residency/restore.
 
+> ⭐ **THIS PAGE IS THE PRESSED HALF, and since 2026-09-02 that is a crate
+> boundary rather than a distinction in prose.** Items split by COLLECT TRIGGER:
+> a `GroundItem` taken with a deliberate `Attack` press — everything below — is
+> `actor_monolith::items::pickup`, which stayed in the kernel; a `WorldItem` you
+> merely walk into is `ambition_world_items`, carved out by `69641a83f`. ⚠ The
+> two are easy to conflate from either side and the vocabulary does not warn
+> you: both are "items", both are "pickups", and `ItemPickupSet` belongs to the
+> pressed one alone. ⇒ Nothing on this page is about the touched collectible; if
+> the question is "what happens when a body walks over it", the answer is in
+> `crates/ambition_world_items/MODULES.md`, which carries the same orientation
+> from the other side. ⛔ The pressed carve is NOT done — it stopped at a
+> schedule-ownership fork now answered by D33; see
+> [`actor-monolith-decomposition.md`](actor-monolith-decomposition.md).
+
 ## Goal
 
 Keep these concepts separate:

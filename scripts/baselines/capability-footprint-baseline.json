@@ -27,12 +27,13 @@
     "2026-08-17 — baseline moved by the `ambition_conversation` carve (D33 step 2). ADDED ['ambition_conversation'] to the closure AND to `never_asked_for`; REMOVED []. The ratchet stopped it and was right to: a new crate name genuinely entered the sentinel's closure. ⚠ NOTHING NEW IS LINKED — this is the conversation-continuity authority, ledger, hold and break rule that had been compiling inside `ambition_platformer2d_actor_monolith` since it was written; the monolith depends on it unconditionally, so the same code arrives by the same route under its own name. ⭐ it joins `never_asked_for` rather than the wanted half, and that is the honest entry: a movement-only game asked for neither dialogue nor conversation, and `ambition_dialog` and `ambition_ui_nav` were already counted unwanted for exactly this reason. ⛔ so the count reads 16 where it read 15, and the carve did NOT cause that — it NAMED it. The number that would mean something is a consumer linking code it did not already link, and this is not that. Shedding it needs the capability to become optional at the monolith's edge, which is the §4 obligation, not this move.",
     "2026-08-17 — baseline moved by the `ambition_boss_encounter` carve (D33). ADDED ['ambition_boss_encounter'] to the closure AND to `never_asked_for`; REMOVED []. The ratchet stopped it and was right to: a new crate name genuinely entered the sentinel's closure. ⚠ NOTHING NEW IS LINKED — this is the boss data model, catalog, phase tick, encounter entity and reward chests that had been compiling inside `ambition_platformer2d_actor_monolith` since they were written; the monolith depends on it unconditionally, so the same code arrives by the same route under its own name. ⭐ it joins `never_asked_for`, which is the honest half: a movement-only game asked for no bosses, and `ambition_encounter` was already counted unwanted for exactly that reason. ⛔ so the count reads 17 where it read 16, and the carve did NOT cause that — it NAMED it. What it bought is elsewhere: 7,635 lines left the largest compilation unit in the workspace, and the boss domain now answers upward, so a boss edit no longer rebuilds 114k lines of unrelated actor code. Shedding it from the closure needs the capability to become optional at the monolith's edge — the §4 obligation, not this move."
   ],
-  "measured_on": "2026-08-22",
+  "measured_on": "2026-09-03",
   "sentinel": "fixtures/minimal_game (declares `ambition_platformer2d` and nothing else)",
   "ambition_closure": [
     "ambition_asset_manager",
     "ambition_audio",
     "ambition_binding",
+    "ambition_body_seed",
     "ambition_boss_encounter",
     "ambition_character_sprites",
     "ambition_characters",
@@ -47,6 +48,7 @@
     "ambition_game_shell",
     "ambition_gameplay_trace",
     "ambition_geometry",
+    "ambition_held_items",
     "ambition_input",
     "ambition_interaction",
     "ambition_items",
@@ -76,15 +78,17 @@
     "ambition_vfx",
     "ambition_world_items"
   ],
-  "closure_size": 45,
+  "closure_size": 47,
   "never_asked_for": [
     "ambition_audio",
+    "ambition_body_seed",
     "ambition_boss_encounter",
     "ambition_conversation",
     "ambition_cutscene",
     "ambition_damage",
     "ambition_dialog",
     "ambition_encounter",
+    "ambition_held_items",
     "ambition_items",
     "ambition_menu",
     "ambition_mount",
@@ -97,21 +101,21 @@
     "ambition_vfx",
     "ambition_world_items"
   ],
-  "never_asked_for_count": 18,
+  "never_asked_for_count": 20,
   "reachable_via_ambition_platformer2d_actor_monolith_alone": [
     "ambition_audio",
+    "ambition_body_seed",
     "ambition_boss_encounter",
     "ambition_conversation",
     "ambition_cutscene",
     "ambition_damage",
     "ambition_dialog",
     "ambition_encounter",
+    "ambition_held_items",
     "ambition_items",
     "ambition_menu",
     "ambition_mount",
     "ambition_persistence",
-    "ambition_platformer2d_ldtk",
-    "ambition_portal2d",
     "ambition_projectiles",
     "ambition_registry_core",
     "ambition_sfx",
@@ -121,10 +125,7 @@
     "ambition_world_items"
   ],
   "reachable_only_through_the_facade": [
-    "ambition_inventory_ui",
-    "ambition_portal2d_presentation",
-    "ambition_render",
-    "ambition_touch_input"
+    "ambition_render"
   ],
   "why_the_split_matters": "The second list can be closed by making facade edges optional — a manifest change. The first cannot: a game that needs actors needs `ambition_platformer2d_actor_monolith`, which brings them. That is what makes the footprint irreducible without moving code, which is §4's carve condition.",
   "facade_only_four_are_not_a_quick_win": {
@@ -172,5 +173,8 @@
   "damage_entered_the_closure_2026_08_26": "⭐ DECLARED GROWTH, and the same shape as the mount row above. `ambition_damage` is victim-side damage resolution carved out of the actor monolith (D33); every consumer of the monolith links it because the monolith's own actor and boss damage roads call into it. ⚠ the same code was linked before, inside the monolith — what changed is that it is COUNTABLE, which is what this ratchet is for. ⭐⭐ AND THE CARVE MADE AN INVISIBLE EDGE SAY ITSELF: the module reads gameplay settings for the assist-mode damage scale, so `ambition_damage` names `ambition_persistence`. That cost nothing to notice while it lived in a crate that already had it, and a damage resolver depending on a settings store is worth someone's judgement. ⇒ the way out is the mount row's, and neither has it: the closure should follow the plugin a game INSTALLS, not the dependency its crate declares.",
   "world_items_entered_the_closure_2026_09_02": "⭐ DECLARED GROWTH, not a leak, and the same shape as the mount and damage rows above. `ambition_world_items` is the TOUCHED COLLECTIBLE carved out of the actor monolith (D33, 2026-09-02): `WorldItem`, its motion, and the touch-collect pass, split from `items::pickup` along the collect TRIGGER (touched vs pressed). ⚠ THE SAME CODE WAS LINKED BEFORE, INSIDE THE MONOLITH — this is a crate boundary drawn through code the sentinel already carried, not new code entering the closure. The monolith still names it (`rollback_registration` registers `WorldItem` and `ItemMotion`), so every consumer of the monolith links it; the facade also re-exports it as `world_items` because `actors` IS the monolith and a game must not name the kernel for a domain the kernel gave up. ⛔ THE RATCHET IS COUNTING CRATES, NOT BYTES, and that is worth saying out loud every time this row shape appears: closure_size 43 -> 44 records that one more `ambition_*` crate is linked, while the linked CODE went slightly down (the monolith shed ~1,044 lines). A reader who takes closure_size as a size metric will read a carve as a regression.",
   "damage_and_mount_classified_2026_09_02": "Both entered the closure 2026-08-26 and were never added to `reachable_via_ambition_platformer2d_actor_monolith_alone`, so that list held entries which were not the same set as `never_asked_for` and its summary sentence stopped being literally true. Re-derived at f1445c142: both are UNCONDITIONAL dependencies of `ambition_platformer2d_actor_monolith` (its Cargo.toml names them) as well as unconditional facade edges, so both behave like `ambition_audio` — cuttable at the facade, worthless to cut, because the monolith brings them regardless. The conclusion the file already drew was correct; only the list was stale.",
-  "registry_core_entered_the_closure_2026_09_03": "⭐ DECLARED GROWTH, same shape as the mount/damage/world_items rows: `ambition_registry_core` is the registration PROTOCOL (identity meta, new/idempotent/conflict classification, canonical rows) extracted from `ConstructionRegistry` and adopted by it and `RollbackRegistry` (triage/ambition-registry-core.md, phases R2-R3). It is dependency-free and ~150 lines; the code it replaced was linked before, inside shared_tangle and the runtime, so the linked CODE shrank while the crate count rose 44 -> 45. ⛔ THE RATCHET COUNTS CRATES, NOT BYTES. It reaches the sentinel through shared_tangle (which everything links), so it is in `reachable_via_..._monolith_alone` and `never_asked_for` alike — a movement-only game does not ask for a registry protocol, it asks for shared_tangle, and this rides along."
+  "registry_core_entered_the_closure_2026_09_03": "⭐ DECLARED GROWTH, same shape as the mount/damage/world_items rows: `ambition_registry_core` is the registration PROTOCOL (identity meta, new/idempotent/conflict classification, canonical rows) extracted from `ConstructionRegistry` and adopted by it and `RollbackRegistry` (triage/ambition-registry-core.md, phases R2-R3). It is dependency-free and ~150 lines; the code it replaced was linked before, inside shared_tangle and the runtime, so the linked CODE shrank while the crate count rose 44 -> 45. ⛔ THE RATCHET COUNTS CRATES, NOT BYTES. It reaches the sentinel through shared_tangle (which everything links), so it is in `reachable_via_..._monolith_alone` and `never_asked_for` alike — a movement-only game does not ask for a registry protocol, it asks for shared_tangle, and this rides along.",
+  "held_items_entered_the_closure_2026_09_03": "⭐ DECLARED GROWTH, the same shape as the world_items row: `ambition_held_items` is the PRESSED collectible carved out of the actor monolith's `items::pickup` (D33, 2026-09-03) — GroundItem, ItemCustody, the held specs, pickup / use / throw / physics / residency and the schedule they own. The monolith depends on it (checkpoint policy over its components), so every consumer of the monolith links it; the facade exports it as `held_items`. ⛔ THE RATCHET COUNTS CRATES, NOT BYTES: closure 45 -> 46 while the monolith shed ~1,350 lines and the linked code went slightly DOWN. A reader taking closure_size as size reads a carve as a regression.",
+  "sub_lists_pruned_2026_09_03": "⛔ FIVE CRATES WERE LISTED AS REACHABLE WHILE NOT BEING IN `ambition_closure` AT ALL, and had been for up to twelve days. Removed here: reachable_via_ambition_platformer2d_actor_monolith_alone -> ambition_platformer2d_ldtk, ambition_portal2d; reachable_only_through_the_facade -> ambition_inventory_ui, ambition_portal2d_presentation, ambition_touch_input. The departures were KNOWN — this file's own `ldtk_left_the_closure_2026_08_22` row records the first one — but only `ambition_closure` and the counts were pruned with them, because `capability_footprint_violations` reports crates that ENTER and nothing looked the other way. ⚠ IT CHANGES A CARVE DECISION, which is why it is not tidying: `reachable_only_through_the_facade` is the 'closable by a manifest change?' list and it falls from FOUR to ONE (`ambition_render`), so the `facade_only_four_are_not_a_quick_win` note below is now about one crate and 90 call sites, not four and 170. ⭐ The closure itself was re-measured live the same day and matches exactly: 46, zero entered, zero left, so `ambition_closure` was the authority and the sub-lists were the drift. Guarded now by `scripts/tests/test_capability_footprint_baseline_is_coherent.py`.",
+  "body_seed_entered_the_closure_2026_09_03": "⭐ DECLARED GROWTH, the same shape as the held_items row: `ambition_body_seed` is the actor BODY SEED carved out of the actor monolith's `features/ecs/actor_clusters.rs` (D33, character preparation versus actor simulation, 2026-09-03) — `ActorClusterSeed`, `ActorMotionPath`, `ActorBody`, both constructors and `into_components`, plus the patrol-path cursor encoder the orphan rule sent with them. Measured before it moved: that region named nothing in the kernel. The monolith consumes it (every construction road spawns from the seed; `SeedActorMut` binds it to the tick), so every consumer of the monolith links it; the facade exports it as `body_seed`. ⛔ THE RATCHET COUNTS CRATES, NOT BYTES: closure 46 -> 47 while the monolith shed ~1,120 lines and the linked code did not grow."
 }

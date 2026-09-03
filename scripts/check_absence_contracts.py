@@ -635,7 +635,7 @@ ABSENCE_CONTRACTS: list[dict] = [
             # The exemption is the same ONE file it always was; only its address changed, and this
             # guard catching the move is the guard working.
             ":!crates/ambition_characters/src/prepared.rs",
-            ":!crates/ambition_platformer2d_actor_monolith/src/avatar/starting_character.rs",
+            ":!crates/ambition_combat/src/worn_kit.rs",
             ":!crates/ambition_characters/src/actor/character_catalog/mod.rs",
         ],
         "patterns": [r"\bbuild_default_action_set\b"],
@@ -655,7 +655,10 @@ ABSENCE_CONTRACTS: list[dict] = [
             "no prepared value to weigh against. Two files, still one decision "
             "per character; the day a registered character is resolved in both "
             "is the day this contract has stopped meaning anything, so read "
-            "them together before adding a third."
+            "them together before adding a third. "
+            "2026-09-03: the unregistered-id caller moved out of the actor kernel "
+            "with the worn-kit compiler (`ambition_combat::worn_kit::WornKit::resolve`); "
+            "the kernel no longer reads the catalog's default set at all."
         ),
     },
     {
@@ -1093,6 +1096,28 @@ def capability_footprint_violations(root: Path) -> list[str]:
     return sorted(sentinel_linked_closure(root) - set(baseline["ambition_closure"]))
 
 
+def capability_footprint_departures(root: Path) -> list[str]:
+    """Crates the frozen closure still names that the sentinel no longer links.
+
+    ⛔ THE RATCHET WAS ONE-DIRECTIONAL FOR SIX WEEKS AND THAT IS HOW THE BASELINE
+    ROTTED. Growth is the violation, so growth is all it looked for -- and a
+    DEPARTURE left the closure and the counts pruned by whoever noticed, while
+    every sub-list that named the crate kept naming it. On 2026-09-03 five such
+    names were found across two lists, one of them twelve days old, and they were
+    not cosmetic: `reachable_only_through_the_facade` is the "closable by a
+    manifest edit?" list a carve decision is taken off, and three of its four
+    entries had already left.
+
+    ⭐ A DEPARTURE IS GOOD NEWS AND STILL FAILS, on purpose. The footprint
+    shrinking is the outcome the whole campaign wants; what must not happen is
+    the shrink landing while the record of it does not. Red here means "re-freeze
+    the baseline IN THIS COMMIT", which is the same discipline the checklist
+    already applies to a carve that adds a crate.
+    """
+    baseline = json.loads((root / CAPABILITY_FOOTPRINT_BASELINE).read_text())
+    return sorted(set(baseline["ambition_closure"]) - sentinel_linked_closure(root))
+
+
 ROLLBACK_SCHEMA_BASELINE = (
     "scripts/baselines/rollback-schema-baseline.json"
 )
@@ -1419,16 +1444,14 @@ def allowlist_violations(
     return sorted(named - allowed - baseline), sorted(baseline - named)
 
 
-def cargo_binary() -> str:
-    """`cargo`, found even when PATH does not have it.
-
-    This runs from the goal-guard hook, and the hook's PATH has no cargo — a
-    lesson this repo paid for twice, because a check that can only ever report
-    "command not found" can never pass and wedges the run it was supposed to
-    guard. So the rustup location is tried before giving up on PATH.
-    """
-    rustup = Path.home() / ".cargo" / "bin" / "cargo"
-    return str(rustup) if rustup.exists() else "cargo"
+#: ⭐ MOVED to `scripts/lib/cargo_bin.py` 2026-09-02 and re-exported here, so the
+#: name every call site in this file already uses keeps working. The lesson this
+#: docstring recorded — "a check that can only ever report `command not found`
+#: can never pass" — was true and was only applied in four of six places;
+#: `check_capability_ships.py` and the sub-workspace lockfile test called bare
+#: `cargo` and crashed on a machine where rustup's cargo is not on PATH.
+sys.path.insert(0, str(Path(__file__).resolve().parent / "lib"))
+from cargo_bin import cargo_binary  # noqa: E402,F401
 
 
 @functools.cache
@@ -1606,6 +1629,18 @@ def main() -> int:
             print(f"       still named — {summary}")
 
     grown = capability_footprint_violations(root)
+    left = capability_footprint_departures(root)
+    if left:
+        broken += 1
+        print("  RED  capability-footprint-baseline-is-stale")
+        print(
+            "       ⭐ THE FOOTPRINT SHRANK, which is the outcome the campaign "
+            "wants — but the baseline still names crates the sentinel no longer "
+            "links, and every sub-list that names them goes stale silently. "
+            "Re-freeze it in THIS commit."
+        )
+        for crate in left:
+            print(f"       LEFT   {crate} is no longer in the consumer's closure")
     if not grown:
         footprint = json.loads((root / CAPABILITY_FOOTPRINT_BASELINE).read_text())
         print(

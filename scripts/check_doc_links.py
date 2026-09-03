@@ -91,8 +91,31 @@ def local_target_exists(root: Path, source: Path, target: str) -> bool:
     return candidate.exists()
 
 
+# ⛔ A LINK INSIDE A CODE SPAN IS AN EXAMPLE, NOT A LINK, and this checker used
+# to fail on one. `docs/planning/yardrat-open-measurements.md` explains why a
+# link checker for anchors is not worth building, and quotes the syntax it is
+# talking about as `` `[text](other.md#anchor)` `` — inside backticks, which is
+# how a document names a construct rather than uses it. The gate reported it as
+# a broken local link, so the page could not say what it was about.
+#
+# ⚠ Fenced blocks are covered by the same rule: a ```` ``` ```` block full of
+# example markdown is documentation of a form, never navigation.
+CODE_SPAN_RE = re.compile(r"`{1,3}[^`]*`{1,3}|^```.*?^```", re.S | re.M)
+
+
+def _blank_code_spans(text: str) -> str:
+    """Replace code spans with spaces, PRESERVING OFFSETS.
+
+    Offsets matter: `line_for_offset` counts newlines up to the match, so
+    deleting the spans would report every later finding on the wrong line —
+    a checker that points at the wrong line is worse than one that stays quiet.
+    """
+    return CODE_SPAN_RE.sub(lambda m: " " * len(m.group(0)), text)
+
+
 def collect_links(text: str):
-    for match in LINK_RE.finditer(text):
+    scannable = _blank_code_spans(text)
+    for match in LINK_RE.finditer(scannable):
         target = match.group(1)
         if target:
             yield match.start(1), target

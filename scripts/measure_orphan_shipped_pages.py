@@ -39,14 +39,34 @@ baked manifest and no road, and the generator produces them anyway.
 
 ⛔ THIS BUCKET DELIBERATELY IGNORES `claimed`. A handful of reduced tiers do
 carry a `*_portraits.ron`, which would mark their PNG claimed — but that `.ron`
-is never baked either, so claimedness is the WRONG question here and counting
-only unclaimed files understates the population.
+is never baked either (`PortraitSheetRegistry::from_baked_table` reads only the
+baked table), so claimedness is the WRONG question here and counting only
+unclaimed files understates the population.
+
+ⓘ THE MISSING MANIFESTS ARE POLICY; THE PRESENT IMAGES ARE THE ANOMALY.
+`check_quality_variants_are_fresh.py::absent_variants` already records that
+portraits are *"published SELECTIVELY, so their absence is policy"* — 160
+`_portraits.ron` at full against 9 per reduced tier. This bucket is not
+contradicting that. It asks the other half of the question: why is the PNG
+generated at a tier where the manifest is deliberately not published, and why
+are the 9 that ARE published unreadable by a build that bakes only full-res?
 
 ⚠ UNMENTIONED FILES (upper bound only). Every other PNG under `sprites*/` whose
 filename appears in no baked manifest and in no committed `.rs`/`.ron`/`.ldtk`/
 `.toml`/`.json`/`.py`. A path assembled at runtime — `format!("sprites/{name}.png")`
 — is named nowhere and would land here while being perfectly live. This bucket
 is a research prompt, NOT a delete list.
+
+⭐ EACH BUCKET CARRIES AN AGE SIGNAL, because "stale leftover" and "the
+pipeline makes this every time" are different problems with different fixes and
+they look identical in a file listing. Each file is compared against a reference
+the same run should have written — a stranded page against its own manifest, an
+unmanifested sheet against a manifested sibling, a reduced-tier portrait against
+its full-resolution counterpart. A file OLDER than its reference was left behind
+by an earlier render; one written in the SAME run is being produced now.
+
+⚠ mtimes are per-machine and a copy or rsync rewrites them. The signal is the
+CONTRAST BETWEEN BUCKETS in one tree with one history, not the absolute dates.
 
 ⛔⛔ EVERYTHING HERE IS GITIGNORED, GENERATED, PER-MACHINE. `assets/sprites*/` is
 generated output, and a worktree SYMLINKS the main checkout's copies
@@ -183,6 +203,33 @@ def unmentioned(pngs: list[Path], claimed: set[str], skip: set[str]) -> list[Pat
     return [p for p in candidates if p.name not in declared]
 
 
+def age_signal(paths: list[Path], reference) -> dict:
+    """How many of `paths` predate the file `reference(path)` says they should
+    match. `older` means an earlier render left them; `same_run` means the
+    pipeline still produces them, and a clean regen elsewhere will too."""
+    older = same_run = 0
+    deltas: list[float] = []
+    for path in paths:
+        ref = reference(path)
+        if ref is None or not ref.exists():
+            continue
+        delta = (path.stat().st_mtime - ref.stat().st_mtime) / 86400
+        deltas.append(delta)
+        if delta < 0:
+            older += 1
+        else:
+            same_run += 1
+    if not deltas:
+        return {"comparable": 0}
+    deltas.sort()
+    return {
+        "comparable": len(deltas),
+        "older_than_reference": older,
+        "same_run_or_newer": same_run,
+        "median_delta_days": round(deltas[len(deltas) // 2], 2),
+    }
+
+
 def census(assets: Path = ASSETS, tiers: list[str] | None = None) -> dict:
     pngs, claimed = scan(assets, tiers or TIER_DIRS)
     stranded = stranded_pages(pngs, claimed)
@@ -199,9 +246,23 @@ def census(assets: Path = ASSETS, tiers: list[str] | None = None) -> dict:
             {"path": str(p.relative_to(assets)), "bytes": p.stat().st_size}
             for p in sorted(paths, key=lambda q: -q.stat().st_size)
         ]
+    def own_manifest(png: Path) -> Path | None:
+        return png.parent / f"{png.name.split('_spritesheet.')[0]}_spritesheet.ron"
+
+    def manifested_sibling(png: Path) -> Path | None:
+        return next(iter(sorted(png.parent.glob("*_spritesheet.ron"))), None)
+
+    def full_resolution_twin(png: Path) -> Path | None:
+        return assets / "sprites" / png.name
+
     return {
         "total_pngs": len(pngs),
         "claimed": len([p for p in pngs if key(p) in claimed]),
+        "ages": {
+            "stranded_pages": age_signal(stranded, own_manifest),
+            "sheets_without_manifest": age_signal(unmanifested, manifested_sibling),
+            "reduced_tier_portraits": age_signal(portraits, full_resolution_twin),
+        },
         "stranded_pages": rows(stranded),
         "sheets_without_manifest": rows(unmanifested),
         "reduced_tier_portraits": rows(portraits),
@@ -227,9 +288,23 @@ def main(argv: list[str]) -> int:
         print(json.dumps(out, indent=2))
         return 0
 
-    def show(title, rows, note):
+    def show(title, rows, note, age_key=None):
         total = sum(r["bytes"] for r in rows)
         print(f"\n=== {title}: {len(rows)} file(s), {total / 1e6:.1f} MB ===")
+        age = (out.get("ages") or {}).get(age_key or "")
+        if age and age.get("comparable"):
+            verdict = (
+                "STALE — every one predates its reference"
+                if age["same_run_or_newer"] == 0
+                else "STILL PRODUCED — a clean regen will make these again"
+                if age["older_than_reference"] == 0
+                else "MIXED"
+            )
+            print(
+                f"   age: {age['older_than_reference']} older / "
+                f"{age['same_run_or_newer']} same-run of {age['comparable']} "
+                f"comparable, median {age['median_delta_days']:+} days → {verdict}"
+            )
         print(note)
         for row in rows[:10]:
             print(f"   {row['bytes'] / 1e6:7.2f} MB  {row['path']}")
@@ -243,12 +318,14 @@ def main(argv: list[str]) -> int:
         "⭐ A numbered sibling its own manifest does not name. A sheet's pages\n"
         "   resolve only through its manifest, so there is no other road to\n"
         "   these — unreachable by construction.",
+        age_key="stranded_pages",
     )
     show(
         "SHEETS WITH NO MANIFEST", out["sheets_without_manifest"],
         "⭐ No `<base>_spritesheet.ron` beside it. build.rs bakes the spec index\n"
         "   from the .ron files on disk and every loader needs a spec, so a fresh\n"
         "   build has no road to these at all.",
+        age_key="sheets_without_manifest",
     )
     show(
         "REDUCED-TIER PORTRAITS", out["reduced_tier_portraits"],
@@ -256,6 +333,7 @@ def main(argv: list[str]) -> int:
         "   portraits have no quality-tier variants. The generator makes them\n"
         "   anyway, and nothing can reach them. Counted regardless of claimedness:\n"
         "   a reduced-tier .ron is never baked either.",
+        age_key="reduced_tier_portraits",
     )
     show(
         "UNMENTIONED", out["unmentioned"],

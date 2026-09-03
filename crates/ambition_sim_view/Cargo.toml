@@ -29,6 +29,7 @@ ambition_platformer2d_actor_monolith = { path = "../ambition_platformer2d_actor_
 # `WorldItem` / `ItemMotion` for the item facts this view publishes; the two
 # moved out of the actor monolith in D33.
 ambition_world_items = { path = "../ambition_world_items" }
+ambition_held_items = { path = "../ambition_held_items" }
 ambition_projectiles = { path = "../ambition_projectiles" }
 ambition_combat = { path = "../ambition_combat" }
 ambition_dialog = { path = "../ambition_dialog" }

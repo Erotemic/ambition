@@ -8,7 +8,61 @@ history.
 
 This file intentionally does not retain answered decision transcripts.
 
+⛔ **NUMBERING: TAKE ONE ABOVE THE HIGHEST NUMBER PRESENT, and check first.**
+The entries are NOT in numeric order — the top block runs newest-first and an
+older ascending block follows it — so the number nearest the insertion point is
+not the highest. Two sessions have now collided by assuming it was
+(`cce4f764b` "Renumber my decision to 30: I collided with an existing 28", and
+again on 2026-09-03). ⚠ And because answered entries are DELETED rather than
+archived, gaps are normal and a missing number is not a free one: re-using it
+silently re-points every page that cited the original.
+
+    grep -oE '^### [0-9]+\.' awaiting-maintainer-decision.md | tr -d '#. ' | sort -n | tail -1
+
 ## Open decisions
+
+### 46. Does 1-1 want a fourth ?-block over floor, so the fire form's floor-refusal can be played?
+
+`refuse_a_weaker_form_pickup` is Mary-O's rule that a form on the FLOOR may not
+replace a stronger one. It now has a played acceptance test on the shipped app
+(`weaker_form_refusal.rs`), but only for the EQUAL rung — a tall Mary-O meeting
+a second wand. The strictly-weaker rung (fire meeting a wand) is **unreachable
+in 1-1 as authored**, and the obstacle is level geometry rather than engineering.
+
+Reaching fire spends TWO of 1-1's three `Toward(Lantern)` ?-blocks
+(small→wand→tall, tall→lantern→fire), so a wand left walking needs the third.
+⛔ **The third, at x=1920, stands over a pit.** Measured by dropping a body into
+its column: from above she lands ON the block (centre 256, feet on its top
+face); from below the face she falls to y≈969 in a 448-tall room, dies, and
+respawns at the level start. No body can stand under it to bonk it.
+
+⚠ **This is not a hole in the rule and not a missing test of it.** The equal
+rung is the stronger arm for the comparison the rule actually makes — a `<`
+written where `<=` belongs still refuses a wand offered to a fire Mary-O, and
+lets a second wand re-equip a tall one — so the boundary is covered and the
+interior is not. The question is only whether the interior is worth authoring
+for.
+
+Choose one:
+
+- **author a fourth ?-block over floor in 1-1** — smallest change, and it also
+  gives a player a place to reach fire without crossing the pit;
+- **build the fixture in 1-3 instead** — it already authors a `Question` at 256
+  AND an `AlwaysWand` at 1696, so the scenario exists there with no new content;
+- **leave it** — the boundary arm covers the comparison, and the interior arm
+  would cost a scripted pit-edge jump, which is a test about jump tuning wearing
+  this rule's name.
+
+⚠ **AND THIS QUESTION IS OLDER THAN THIS ROW.**
+[`demos/super-mary-o.md`](demos/super-mary-o.md) has carried a product question
+since 2026-08-14 about the fire form's DISCOVERABILITY — *"should the beacon
+walk to you like the wand, should 1-1 place a reachable second block earlier, or
+is 'the reward waits up there and you must climb for it' the intended feel?"* —
+reached from the other direction, a player who could not find the reward. Same
+level, same three blocks, and answering either answers both. The new fact this
+row adds is that the third block has no standing position under it at all.
+
+⛔ No content was authored to answer this: authored levels are Jon's.
 
 ### 37. Should the F9 rollback proof pulse survive a gameplay-session change?
 
@@ -346,6 +400,14 @@ instead. George is the same: `bivalence_weak`/`bivalence_strong`,
 `excluded_middle_windup/launch/ascent/gate/tail`, `modus_ponens_*`, `reductio_*`,
 beside moves called `bivalence`, `excluded_middle`, `commitment`.
 
+✔ **RE-MEASURED 2026-09-02 evening and the claim reproduces exactly**:
+`pirate_admiral_vfx` 14 rows / 0 named, `george_booul_vfx` 21 / 1 named — 34 of
+35, unchanged. ⓘ Wider context the row did not have: across all 13 fx sheets it
+is **196 rows, 120 named, 76 named by nothing**, and `pirate_admiral_vfx` is the
+only sheet with NO row named by anything. So the two named here are the extreme
+of a spread, not isolated cases — which strengthens "wire them" and weakens
+"they were superseded", because eleven other sheets are partly wired.
+
 ⇒ **Wire them, or were they superseded?** The row→move pairing is unambiguous
 from the names, but WHEN in a timeline each fires and at what scale is a feel
 ruling, which is why it is here rather than done. Residency's interest was the
@@ -354,13 +416,169 @@ decoded, because no realized character's moveset names a row of them.
 
 ### The LDtk editor-preview tileset is 7.6 MP the runtime never draws
 
-Every world file declares `sprite_player_robot_v3 = ../sprites/player_robot_v3_
-spritesheet.png` (3072×2484) so the editor can draw entity previews, and
-`bevy_ecs_ldtk` decodes every tileset of a project when the project loads — on
-every boot and every world load, at FULL tier, beside whatever tier the game
-actually realizes. The runtime never draws it. Fix is one line per world in the
-map submodule (point it at the `sprites_0_25x` copy, 0.5 MP; the editor preview
-survives at a quarter resolution). ⛔ Jon's file, so it waits.
+**FIVE** world files declare `sprite_player_robot_v3 = ../sprites/player_robot_v3_
+spritesheet.png` so the editor can draw entity previews, and `bevy_ecs_ldtk`
+decodes every tileset of a project when the project loads — on every boot and
+every world load, at FULL tier, beside whatever tier the game actually realizes.
+
+⭐ **MEASURED 2026-09-02 (`scripts/measure_ldtk_tileset_usage.py`), and the two
+things that were assumed are now checked.** NO LEVEL LAYER in any of the five
+uses the tileset (`layerInstances[].__tilesetDefUid`, across 1/11/60/1/1
+levels); its only consumer is one entity definition per world, `PlayerStart`,
+cropping the top-left tile. So "editor previews only" is measured — which
+matters, because a layer using it would have made a cheaper tier a QUALITY
+decision instead of a free one. And it is five worlds, not four: the four
+`ambition_content` ones plus `ambition_demo_sanic/worlds/sanic_speedway.ldtk`.
+`mary_o` does not reference the sheet.
+
+⛔⛔ **AND IT IS NOT "one line per world".** `tileRect`, `uiTileRect`,
+`tileGridSize`, `pxWid` and `pxHei` are all TILESET PIXEL coordinates. Change
+only the `relPath` and the 256×256 crop that framed one animation frame spans a
+third of an 832-pixel image — the preview breaks while the JSON still looks
+plausible, and nothing in the game reports it. The tiers are also not exact
+fractions and the x and y factors differ (`sprites_0_25x` of 3072×2468 is
+832×653, not 768×617), so there is no constant to scale by.
+
+⇒ **A prepared patch is waiting: `dev/patches/ldtk-player-tileset-retarget-20260902.patch`**
+(`patch -p1 <` or `git apply`, both verified; regenerate with
+`scripts/propose_ldtk_tileset_retarget.py --tier <tier>`). It recomputes every
+pixel field from the real PNG header and preserves each crop as a FRACTION of
+the image. Boot decode for this tileset goes 7.6 MP → ~0.54 MP.
+
+ⓘ It also fixes two stale declarations found by reading the real header: the
+four content worlds declare `pxHei 2484` against a 2468-pixel file, and
+`sanic_speedway` declares `1681×1728, tileGridSize 224` for that same file. ⚠ The
+patch preserves sanic's framing as a fraction, i.e. whatever that stale
+declaration was already showing.
+
+⛔ **Jon's submodule, so it waits** — applying it needs a commit in
+`game/ambition_map_assets` plus a pointer bump. ▢ And it is untested against the
+LDtk editor itself, which needs Jon opening a world.
+
+### How tall is a puppy slug? The base is unauthored, its variants are not (2026-09-02)
+
+⭐ Found while re-measuring the pirate-sizing report's *"zero rows author
+`standing_height`"* claim, which is now **23 of 149**
+(`scripts/measure_character_data_coverage.py`). Two of the twenty-three are
+puppy slugs, and the third member of the family is not:
+
+```text
+npc_puppy_slug            (falls to the 48.0 default — nobody chose it)
+npc_puppy_slug_variant2   41.7
+npc_puppy_slug_velvet     30.9
+```
+
+⛔ **So the BASE crawler stands taller than both of its own variants, at exactly
+the player robot's height** — which is the symptom Jon reported for the pirates
+(*"as tall as the player robot who is supposed to be chibi"*). `npc_puppy_slug`
+and `npc_puppy_slug_velvet` publish the SAME 128 px frame, and land at 48.0 and
+30.9: a 55% difference between two characters drawn at one size, where one side
+is a decision and the other is a default.
+
+⭐ **AND IT IS THE ONLY FAMILY IN THE CATALOG LIKE THIS.** Swept every
+base/variant pair (one row name a strict `_`-prefix of another) across all 149
+rows: `npc_puppy_slug` is the *sole* case where one side authors a height and
+the other does not. Every other family is all-authored or all-default. ⇒ That
+uniqueness is what makes it read as an omission rather than a convention — if
+leaving the base to `body_kind` were the house style, it would be visible
+somewhere else.
+
+⚠ **It is still not obviously a bug** — a base breed may be meant to be larger —
+which is why this is a question and not a fix. What is odd is the SHAPE: the two
+variants were deliberately sized and the thing they are variants OF was left to
+`body_kind`. ⇒ **What height should `npc_puppy_slug` be?** It is placed in
+`hall_of_characters`, `intro` and five levels of `sandbox`, so whatever it is
+now is visible in play.
+
+### The shared sprite pack is 442.6 MB and one prop reads it (raised 2026-09-02)
+
+⭐ **MEASURED** (`scripts/measure_pack_reachability.py`).
+`build_prop_sprite_asset_packed` is the ultrapack's ONLY production consumer; it
+has ONE call site, the intro prop loop; and it runs only for
+`intro_prop_sprite_rows()` entries whose 4th tuple element is `Some(target)`.
+**Exactly one row is: `intro_cart`.** Characters have no pack road at all —
+`load_character_sprites_in` takes the per-target `*_spritesheet.ron` every time.
+All four tiers pack the same 197 targets. On one machine: **442.6 MB of pack
+pages, 5.2 MB on a page any consumer can reach — 98.8% unreachable.**
+
+⚠ **NOT A DEFECT REPORT.** Packing every target is what a packer should do; the
+finding is that adoption never followed. Reachability is a SOURCE fact and reads
+the same on any checkout; the megabytes are generated, gitignored, per-machine.
+
+⇒ **Three answers are all reasonable and none is an agent's call:** adopt the
+pack for characters (it was built for that, and `project_ultrapack` design intent
+says the two roads should converge); narrow the generator to pack only what a
+consumer opts into; or leave it, on the grounds that a packer that packs
+everything is correct and the cost is disk nobody is paying attention to. ⛔ What
+is NOT reasonable is dropping the per-target PNGs to "save" the duplication —
+they are every character's only road.
+
+### Portraits are generated at four tiers and only full resolution is readable (raised 2026-09-02)
+
+`bake_portrait_manifests` collects portrait manifests from `assets/sprites` ONLY
+and says why: *"Portraits are presentation products and currently have no
+quality-tier variants"*. The generator emits the PNGs at all four tiers anyway —
+**487 files, 14.2 MB, with no road**
+(`scripts/measure_orphan_shipped_pages.py`).
+
+ⓘ The missing `.ron`s are POLICY, not a bug —
+`check_quality_variants_are_fresh.py` records that portraits are *"published
+SELECTIVELY"*. ⛔ But the 9 that ARE published per reduced tier cannot be read
+either: `PortraitSheetRegistry` is built `from_baked_table(BAKED_PORTRAIT_RONS)`
+and `build.rs` bakes from `assets/sprites`. A deliberate selective publication
+produces files no build can load.
+
+⭐⭐ **AND THE MEASUREMENT NARROWS THE ANSWER — 2026-09-02,
+`scripts/measure_portrait_tier_headroom.py`.** Portrait draw size is chosen by
+VIEWPORT, never by quality tier: `DialogLayoutProfile::for_viewport` picks
+**56×62** (phone landscape), **82×94** (phone portrait / small tablet) or
+**104×120** (everything else), consulting no quality setting. So no quality tier
+can select a portrait resolution — the window size does. Against `alice`:
+
+```text
+tier              frame     @1x display          @2x display
+sprites          256x320    covers every box     covers every box
+sprites_0_5x     128x160    covers every box     smallest box only
+sprites_0_25x      64x80    smallest box only    UPSCALES ALWAYS
+sprites_potato     16x20    UPSCALES ALWAYS      UPSCALES ALWAYS
+```
+
+⇒ **Nothing wants a Potato portrait**: at 16×20 it is under even the 56×62 box
+at 1×. `sprites_0_25x` is defensible only on a phone-landscape viewport at 1×
+display scale — the least likely combination, since phones are high-DPI. Only
+`sprites_0_5x` has a real case, and only at 1×. ⚠ A tier under the box it is
+drawn into is not a cheaper portrait; it is a blurrier one, which is the
+failure Jon's standing rule forbids.
+
+⭐ **THE ANSWER IS ALREADY WRITTEN — `dev/patches/portrait-tiers-are-never-baked-20260902.patch`**
+(`git apply` it from the repo root). It stops
+`scripts/generate_visual_quality_variants.py` copying `*_portraits.png` into the
+three reduced tiers, which is 487 files / 14.2 MB that nothing can load, since
+`bake_portrait_manifests` collects from `assets/sprites` only. It is a patch and
+not a commit because it changes generated assets on the next unfiltered regen —
+that is Jon's call, not mine. ⓘ It touches a MAIN-REPO script, so applying it
+needs no submodule commit and no pointer bump.
+
+⚠ Filed as a pointer 2026-09-03 because the patch existed for a day with NOTHING
+in the repository naming it — the decision row asked the question and the answer
+sat in a directory nobody had reason to open. The other three patches in
+`dev/patches/` are each named by a doc; this one was not.
+
+ⓘ Residency is already bounded independently: `RetainedHudImages` holds one
+entry per portrait ACTUALLY SHOWN (~1.3–2.0 MP each), not the 163 baked
+manifests — so the tiers would save package size, not runtime memory.
+
+⭐ **AND THEY ARE STILL BEING PRODUCED, not left over.** Age signal
+(`measure_orphan_shipped_pages.py`): 439 of 475 comparable portrait files were
+written in the same run as their full-resolution twin or after it, median +3.07
+days — against the stranded sheet pages, where 44 of 44 predate their manifest.
+⇒ **A clean regen on another machine will reproduce these**, so the "wait for
+yardrat" answer that covers the stranded pages does not cover this row.
+
+⇒ **Stop generating them, start baking them, or leave them?** The measurement
+says at most one tier (`0_5x`) could ever be wanted and two certainly cannot.
+The comment says portraits have no tier variants *currently*, which reads as
+intent that may change — and that is the part an agent cannot know.
 
 ### 44. Should `SmashChargeSpec` keep a game-mode name for a general mechanism?
 

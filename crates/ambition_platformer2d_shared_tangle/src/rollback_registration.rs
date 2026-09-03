@@ -251,4 +251,10 @@ where
         OWNER,
         "message.camera_shake_request",
     );
+    // A gravity cycle is a request from outside the simulation (a dev hotkey,
+    // the menu); an abandoned branch's request must not replay after a rewind.
+    registrar.clear_message_on_rollback::<crate::gravity::AmbientGravityRequest>(
+        OWNER,
+        "message.ambient_gravity_request",
+    );
 }

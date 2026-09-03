@@ -27,7 +27,13 @@ def worlds() -> dict[str, set[str]]:
     """Every authored world, by file name, mapped to its level identifiers."""
     found: dict[str, set[str]] = {}
     for path in sorted(REPO.rglob("*.ldtk")):
-        if SKIP_PARTS & set(path.parts):
+        # ⛔⛔ RELATIVE PARTS, NOT ABSOLUTE. `SKIP_PARTS` contains `.worktrees`,
+        # and an agent slot's own root IS `<repo>/.worktrees/<slot>` — so
+        # matching against the ABSOLUTE path skipped every world in the tree and
+        # this guard reported "found no .ldtk worlds at all" in every worktree
+        # the project's agents actually work in. Measured 2026-09-02: 12 worlds
+        # found, 0 kept by the absolute test, 12 by this one.
+        if SKIP_PARTS & set(path.relative_to(REPO).parts):
             continue
         try:
             data = json.loads(path.read_text())

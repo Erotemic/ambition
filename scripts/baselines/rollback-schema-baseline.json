@@ -246,6 +246,7 @@
     "message.actor_action",
     "message.actor_died",
     "message.actor_stimulus",
+    "message.ambient_gravity_request",
     "message.attacks_clanked",
     "message.blocked_body_hit",
     "message.body_knocked_out",

@@ -408,7 +408,7 @@ fn spawn_fighter(
         );
     }
     let aabb = ambition_platformer2d_core::Aabb::new(at, body / 2.0);
-    let mut seed = crate::features::ecs::actor_clusters::ActorClusterSeed::new(
+    let mut seed = ambition_body_seed::ActorClusterSeed::new(
         character_id.to_string(),
         prepared.display_name.clone(),
         aabb,

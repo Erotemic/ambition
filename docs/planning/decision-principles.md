@@ -1,6 +1,6 @@
 # Decision principles — how to choose like Jon when operating autonomously
 
-*(Jon's own criteria, verbatim — relocated from `docs/vision/driving_decision_principles.md` into the planning stack, 2026-07-05. Read this before any architectural choice; [`vision.md`](vision.md) §8 is the digest.)*
+*(Jon's own criteria, verbatim — relocated from `docs/vision/driving_decision_principles.md` <!-- cite-ok: the path is named because it is GONE --> into the planning stack, 2026-07-05. Read this before any architectural choice; [`vision.md`](vision.md) §8 is the digest.)*
 
 If you need to make an architecture decision while operating autonomously, use these criteria to make the choice Jon would most likely make.
 

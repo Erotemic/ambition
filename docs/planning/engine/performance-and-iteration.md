@@ -748,6 +748,32 @@ reachable only through an `autonomous_profile`. A perception-reading arm needs
 one of those wired to the hall, and it is the arm that would finally price the
 attention work.
 
+✔ **RE-CHECKED 2026-09-02, and the first half HOLDS: no authored catalog preset
+names `Fighter` or `Smash`.** The catalog's `brain:` values are
+`patrol_peaceful` (43), `stand_still` (37), `melee_brute_striker` (20),
+`melee_brute_brute` (4), `skirmisher_ranger` (2), `wanderer_puppy_slug` (1) and
+7 empty; `melee_brute_striker` binds to `MeleeBrute`, not `Fighter`.
+
+⭐ **BUT THE SECOND HALF IS CLOSER THAN IT READS.** Eight `autonomous_profiles`
+are authored in the catalog — `medium_striker`, `cellular_duelist`, `patroller`,
+`robot_duelist`, `pirate_boarder`, `pirate_boarder_heavy`, `skirmisher`,
+`door_guard` — and they are WIRED, through `authored/*.rs` and encounter RONs
+rather than a catalog field. **And the hall places three of their customers**:
+`goblin`, `npc_lab_raider` and `npc_pirate_raider` all appear as `NpcSpawn`
+values in `hall_of_characters`, and `authored/goblin.rs` /
+`authored/npc_lab_raider.rs` both name `medium_striker`.
+
+▢ **The one link I could not close by reading**: whether that path actually
+yields a `Fighter` brain at runtime, or whether the catalog's own `brain:` field
+wins first. That needs a run, not a grep. ⇒ If it does yield one, the arm this
+row is waiting for may already be reachable in the hall and only needs
+measuring.
+
+⚠ Method note, because the cheap check misleads twice: characters do NOT name a
+profile through an `autonomous_profile:` field — grepping for one reports ZERO
+users and reads as "nothing is wired". They reference it by local name through
+`BrainProfileRef`, from authored Rust and encounter data.
+
 ## ⛔⛔ WITHDRAWN, SAME DAY: the mark repair changed NOTHING measurable
 
 Earlier today this section claimed the one-sided sim-phase marks had been
@@ -1341,6 +1367,29 @@ percentage win.
 
 The funded architecture is explicit demand/preparation/device materialization and
 residency ownership. See the focused asset plan.
+
+⛔ **BEFORE ANYONE ADDS AN IO-POOL KNOB FOR THIS: the measured spike is not in
+the IO pool.** PNG decode runs on Bevy's IO task pool, and that pool is small by
+default — `bevy_app-0.19.1/src/task_pool_plugin.rs:73-127`, "25% of cores for
+IO, at least 1, no more than 4", where the count truncates and then rounds up at
+a fraction of 0.5 and clamps to `[1, 4]`:
+
+```text
+ 8-9   logical CPUs -> 2 IO threads
+10-13  logical CPUs -> 3 IO threads
+14+    logical CPUs -> 4 IO threads
+```
+
+⚠ **So two machines comparing the same scene can be comparing two pool sizes** —
+13 cores gets three threads and 14 gets four, which is a boundary neither box
+advertises. Record `nproc` beside any decode-sensitive capture.
+
+⭐ But the row above already says the spike is DOWNSTREAM of decode:
+`extract_render_asset<GpuImage>` is render-world extraction/upload, not the
+decode itself, and the 468/466/373 ms frames were pinned to one sheet's
+megapixels ARRIVING together. Widening the decode pool makes them arrive faster
+at the step that is already the bottleneck. Separate the extract cost from the
+decode cost in one capture before spending a knob on either.
 
 ### Startup: important, but the capability hypothesis did not survive
 

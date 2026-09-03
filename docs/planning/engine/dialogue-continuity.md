@@ -140,6 +140,12 @@ explicit answer rather than a default nobody chose.
   half-applied rule. A third actor joining or leaving is still not addressed and
   should still not be invented yet — but the place it would go is now one
   `else` branch with a comment on it.
+  ✔ **Re-verified against the code 2026-09-02 and it holds exactly**:
+  `crates/ambition_conversation/src/rules.rs:32` is
+  `let [a, b] = participants.as_slice() else { … return; };` — a let-else, so a
+  conversation with one or three participants leaves the rule without applying
+  half of it. Nothing has quietly generalised it, and the `else` is still the
+  one place a third actor would be handled.
 
 ## What this does NOT change
 

@@ -6,9 +6,13 @@ ignored lockfiles are not repository state and do not affect the checked set."""
 from __future__ import annotations
 
 import subprocess
+import sys
 from pathlib import Path
 
 import pytest
+
+sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "lib"))
+from cargo_bin import cargo_binary  # noqa: E402
 
 REPO = Path(__file__).resolve().parents[2]
 
@@ -54,7 +58,7 @@ def test_the_repo_still_has_sub_workspaces_to_check():
 )
 def test_the_lockfile_resolves_without_updating(workspace: Path):
     result = subprocess.run(
-        ["cargo", "tree", "--locked", "--prefix", "none", "--edges", "normal"],
+        [cargo_binary(), "tree", "--locked", "--prefix", "none", "--edges", "normal"],
         cwd=workspace,
         capture_output=True,
         text=True,

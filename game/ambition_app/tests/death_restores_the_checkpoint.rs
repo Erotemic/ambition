@@ -29,8 +29,8 @@ const REWARD: &str = "ground_gun_sword";
 /// not a property the engine reads — which is exactly the point of the fixture.
 const TEMPORARY: &str = "ground_grapple";
 
-type Custody = ambition_platformer2d::actors::items::pickup::ItemCustody;
-type Ground = ambition_platformer2d::actors::items::pickup::GroundItem;
+type Custody = ambition_platformer2d::held_items::ItemCustody;
+type Ground = ambition_platformer2d::held_items::GroundItem;
 
 /// Every live occurrence of `authored`, and whether each is in a hand.
 ///
@@ -608,9 +608,9 @@ fn equip_the_minted_item(
     >,
 ) {
     let (player, mut action_set) = bodies.single_mut().expect("one primary body");
-    let spec = ambition_platformer2d::actors::items::pickup::held_spec_for_item(MINTED_ITEM)
+    let spec = ambition_platformer2d::held_items::held_spec_for_item(MINTED_ITEM)
         .expect("the javelin is a wired weapon with a held spec");
-    ambition_platformer2d::actors::items::pickup::equip_held_spec(
+    ambition_platformer2d::held_items::equip_held_spec(
         &mut commands,
         player,
         &mut action_set,

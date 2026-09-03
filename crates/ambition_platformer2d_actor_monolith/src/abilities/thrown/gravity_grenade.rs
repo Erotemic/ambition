@@ -16,7 +16,7 @@ use ambition_platformer2d_shared_tangle::lifecycle::{
     SessionScopedEntity, SessionSpawnScope, SpawnSessionScopedExt,
 };
 
-use crate::items::pickup::{GroundItem, Release, ReleasedAs};
+use ambition_held_items::{GroundItem, Release, ReleasedAs};
 use ambition_platformer2d_core as ae;
 use ambition_platformer2d_shared_tangle::gravity::{GravityZone, TemporaryZone};
 

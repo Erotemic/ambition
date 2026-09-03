@@ -46,6 +46,9 @@ import subprocess
 import sys
 from pathlib import Path
 
+sys.path.insert(0, str(Path(__file__).resolve().parent / "lib"))
+from cargo_bin import cargo_binary  # noqa: E402
+
 REPO = Path(__file__).resolve().parents[1]
 
 # Features that no shipping persona turns on. `desktop_dev` pulls `dev_tools`,
@@ -79,7 +82,7 @@ PLAIN_MOD = re.compile(r"(?:pub(?:\([^)]*\))?\s+)?mod\s+(?P<module>\w+)\s*;")
 @functools.cache
 def _crate_roots() -> list[Path]:
     out = subprocess.run(
-        ["cargo", "metadata", "--no-deps", "--format-version", "1"],
+        [cargo_binary(), "metadata", "--no-deps", "--format-version", "1"],
         cwd=REPO,
         capture_output=True,
         text=True,

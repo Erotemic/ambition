@@ -449,6 +449,82 @@ pub enum ItemPickupSet {
     WieldedAbilities,
 }
 
+/// Ordered stages for a loose item's physical life in the world, inside
+/// [`Platformer2dSimulationPhaseMonolith::PlayerSimulation`].
+///
+/// ⛔⛔ THE CARVE THAT CREATED `ambition_world_items` LOST THIS ORDERING, and the
+/// loss was invisible. `step_item_motion` / `collect_world_items` used to sit in
+/// [`ItemPickupSet::CoreHeldItems`] — nested in `PlayerSimulation`, `.after`
+/// [`crate::lifecycle::BodyCustodySettled`] — and came out registered only
+/// `.in_set(GameplayGated)`. That set answers a DIFFERENT question, and says so
+/// in its own doc comment: gameplay MODE, not which session owns the
+/// simulation. So the carved systems ran without session authorization and
+/// without a phase edge, and a schedule that never advanced `SimTick` could
+/// still move an item.
+///
+/// ⭐ IT IS VOCABULARY HERE RATHER THAN A DEPENDENCY ON THE KERNEL. Naming
+/// `ItemPickupSet` from `ambition_world_items` would put the monolith back in
+/// the carved crate's ordering, and relying on the kernel's plugin to configure
+/// these sets first would make correctness depend on plugin insertion order.
+/// The owning plugin configures these itself, against labels both packages
+/// already speak.
+///
+/// [`PreCollect`](Self::PreCollect) is an extension slot with no systems of its
+/// own: a rule that must veto or amend a collection — Mary-O refusing a weaker
+/// form, say — belongs between motion and collection, in the SAME schedule, not
+/// on a cross-schedule `.before()` edge that orders nothing.
+#[derive(SystemSet, Debug, Hash, PartialEq, Eq, Clone, Copy)]
+pub enum WorldItemSet {
+    /// A loose item advances to where it is this tick.
+    Motion,
+    /// Extension slot: rules that decide whether a touch may collect.
+    PreCollect,
+    /// Touch-to-collect resolves against the position motion just produced.
+    Collect,
+}
+
+/// The ordered steps of one tick of the PRESSED held-item domain — what
+/// [`ItemPickupSet::CoreHeldItems`] is made of, so a system that is not the
+/// domain's can say WHERE in the chain it runs without naming a leaf function.
+///
+/// ⭐ WRITTEN DOWN AHEAD OF THE CARVE, not after it. The kernel's
+/// `ItemPickupSimulationPlugin` registered thirteen systems as ONE `.chain()`
+/// in which the domain's own steps were interleaved with a shrine, a gun and a
+/// match spawn from other modules, each in a load-bearing place ("BEFORE the
+/// pickup, and that placement is load-bearing"; "before the physics that
+/// settles it"). A carve that moved the domain's systems and left the others
+/// would have had to choose between dropping those edges and having the carved
+/// crate name the kernel — the exact fork `ambition_world_items` lost its phase
+/// to (D33 rule, `actor-monolith-decomposition.md`). These steps are the third
+/// answer: the domain's plugin chains its steps and owns the set; anything
+/// else attaches `.after`/`.before` a STEP. The guard
+/// (`held_item_steps_are_a_chain_and_the_attached_systems_sit_where_they_say`)
+/// asserts membership and order by shape, never by system name.
+///
+/// [`Release`](Self::Release) runs first because it reads a hand that has
+/// already settled and must never mistake an item the pickup takes THIS tick
+/// for one nobody is holding; [`Settle`](Self::Settle) precedes
+/// [`Physics`](Self::Physics) so an item whose support moved goes with it this
+/// tick; [`Residency`](Self::Residency) is last so it sees the custody the tick
+/// actually settled on.
+#[derive(SystemSet, Debug, Hash, PartialEq, Eq, Clone, Copy)]
+pub enum HeldItemStep {
+    /// A released/thrown item nobody holds returns to the world.
+    Release,
+    /// An empty hand takes an overlapping item.
+    Pickup,
+    /// The held item is USED (a ranged fire, a swing).
+    Use,
+    /// The held item leaves the hand.
+    Throw,
+    /// Loose items re-validate their support before they move.
+    Settle,
+    /// Loose items move.
+    Physics,
+    /// Residency and the whereabouts ledger follow the custody just settled.
+    Residency,
+}
+
 /// Ordered authority boundaries for one autonomous actor decision, inside
 /// [`Platformer2dSimulationPhaseMonolith::WorldPrep`].
 ///

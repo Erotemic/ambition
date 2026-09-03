@@ -912,8 +912,14 @@ def coverage_notice(
         scope = "this package filter" if filtered else "the default BACKBONE plan"
         notices.append(
             f"\n  ⚠ this was {scope}, which does NOT cover:\n"
-            "      - tests behind #[cfg(feature = \"...\")] (only a per-crate\n"
-            "        `cargo test -p <crate> --features ...` compiles them)\n"
+            "      - tests behind #[cfg(feature = \"...\")] — MEASURED 2026-09-03 at\n"
+            "        783 tests across 29 crates, the largest single omission this\n"
+            "        footer names. `python3 scripts/feature_gated_tests.py` prints\n"
+            "        the current figure per crate (it says itself that the count is\n"
+            "        approximate); `--verify <crate>` asks cargo for the exact pair.\n"
+            "        ⛔ A GREEN DEFAULT RUN IS SILENT ABOUT ALL OF THEM: the union\n"
+            "        job that executes them lives inside `if not only and\n"
+            "        everything`, so nothing here even attempts them.\n"
             "      - the external-consumer fixtures (own workspace + lockfile, so\n"
             "        an umbrella API break stays invisible to a workspace build)\n"
             + (
@@ -925,7 +931,7 @@ def coverage_notice(
                      "        wasm32-unknown-unknown` — a #[cfg] break on that target\n"
                      "        is invisible to every other job.\n"
             ) +
-            "    All three: --run-everything-you-probably-dont-need-this (~25 min).\n"
+            "    All three: --run-everything-you-probably-dont-need-this (49 jobs).\n"
             "    That is the right trade for a dev cycle and the wrong one before a\n"
             "    release or after touching features, an SDK surface, or the web path."
         )
@@ -1127,9 +1133,11 @@ def main() -> int:
                     dest="run_everything", action="store_true",
                     help="the exhaustive plan: a cargo test -p per crate with "
                          "its feature-gated tests, the external-consumer "
-                         "fixtures, the wasm check. ~33 jobs, ~25 MINUTES, "
-                         "~17%% of it actually executing tests. There is no "
-                         "CI and Jon "
+                         "fixtures, the wasm check. 49 jobs (counted from "
+                         "--list, 2026-09-03; the ~33 this said was written "
+                         "when the workspace was smaller and it grew with the "
+                         "crate count). ~17%% of it actually executes tests. "
+                         "There is no CI and Jon "
                          "sweeps this periodically himself, so in a dev cycle "
                          "the default plan or a focused test is what you want.")
     # Compatibility flag: the backbone is now the default, so `--fast` is a reported no-op.

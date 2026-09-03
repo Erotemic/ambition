@@ -149,7 +149,7 @@ pub struct PreparedSeat {
     pub definition: PreparedCharacterDefinition,
     /// The owned pre-spawn cluster, built from the character authorities
     /// during preparation and never re-derived.
-    pub seed: crate::features::ecs::actor_clusters::ActorClusterSeed,
+    pub seed: ambition_body_seed::ActorClusterSeed,
     /// The body box this fighter was resolved to occupy.
     pub body_px: Vec2,
     pub faction: ambition_combat::components::ActorFaction,
@@ -771,7 +771,7 @@ pub fn prepare_match(
         // says: a stage seats fighters, and a body excluded from the save and
         // skipped by targeting would be a seat nobody can fight.
         body.practice_target = false;
-        let mut seed = crate::features::ecs::actor_clusters::ActorClusterSeed::new_character_in(
+        let mut seed = ambition_body_seed::ActorClusterSeed::new_character_in(
             authored_sheets,
             catalog,
             body_id.clone(),
@@ -806,31 +806,18 @@ pub fn prepare_match(
         // Everything below that asks "what can this body do" asks THIS, so the kit, the body's
         // abilities and the AI's capability read can never disagree.
         let seat_abilities = effective_abilities(definition.abilities, rules.abilities);
-        let mut overlay_name = Name::new(definition.display_name.clone());
-        let mut overlay_action_set = participant
-            .action_set
-            .clone()
-            .or_else(|| definition.kit.action_set().cloned())
-            .unwrap_or_default();
-        let mut moveset = ambition_combat::moveset::ActorMoveset(Default::default());
-        let mut identity_kit = ambition_characters::brain::action_set::IdentityKit::default();
-        let mut overlay_combat_kit =
-            ambition_combat::components::CombatKit::from_action_set(&overlay_action_set);
-        let _ = crate::avatar::apply_worn_character_overlay(
+        // THE KIT THIS SEAT WEARS, resolved below the kernel by the one compiler
+        // spawn and re-wear also use, so a seated fighter and the same character
+        // walking a room can never disagree about what it fights with.
+        let worn = ambition_combat::worn_kit::WornKit::resolve(
             catalog,
             Some(registry),
-            &mut overlay_name,
-            &mut overlay_action_set,
-            &mut moveset,
-            &mut identity_kit,
-            Some(&mut overlay_combat_kit),
             participant.character.as_str(),
             // NOT `seed.body.0.abilities.abilities` — that is the pre-mask set,
             // and deriving the kit against it is exactly the ordering §3 names.
             seat_abilities.unwrap_or(seed.body.0.abilities.abilities),
             participant.action_set.as_ref(),
         );
-        let moveset = moveset.0;
         // See `MatchRules::body_over`.
         let built_body = seed
             .config
@@ -852,9 +839,9 @@ pub fn prepare_match(
             team: Some(team_for(index, participant.team.as_ref())),
             authority,
             match_kit: participant.action_set.clone(),
-            identity_kit,
-            action_set: overlay_action_set,
-            combat_kit: overlay_combat_kit,
+            identity_kit: worn.identity,
+            action_set: worn.action_set,
+            combat_kit: worn.combat_kit,
             effective_abilities: seat_abilities,
             // THE BODY, RESOLVED BESIDE THE VERBS — and it has to be, or
             // the stage grants a verb whose window never opens. See
@@ -870,7 +857,7 @@ pub fn prepare_match(
             // there. See `MatchParticipant::body`.
             effective_movement_tuning: rules
                 .body_over(participant.body.or(definition.movement_tuning), built_body),
-            moveset,
+            moveset: worn.moveset,
         });
     }
 

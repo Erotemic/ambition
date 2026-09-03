@@ -26,6 +26,34 @@ row was never true".
                 to tell these from a real path by regex, so they are marked, not
                 matched. Expect them: they were a fifth of one sweep's findings.
 
+⛔⛔ WHAT IT DOES NOT LOOK AT, MEASURED 2026-09-02 — AND "all resolved" MUST NOT
+BE READ AS "every citation in the row is real". `SYMBOL` requires at least one
+`::`, so only QUALIFIED names and `file.rs:123` citations are extracted. A BARE
+backticked identifier — `build_prop_sprite_asset_packed`, the commonest citation
+form in these docs — is never counted. Verified by poisoning: renaming one to
+`build_prop_sprite_asset_packed_totally_invented` left the run at the same 526
+citations and still printed "all resolved".
+
+⭐ ONE NARROW SLICE OF THE BARE FORM *IS* CHECKED, by `--vanished REF`: a bare
+name that WAS a definition at REF and is not one at HEAD. The name's own history
+supplies the precision, so no heuristic has to decide what is "code-shaped", and
+it answers the question a decomposition carve actually raises — which rows cite
+an item the carve renamed or removed. It does NOT report names that never
+existed; that is the 542 below, deliberately left alone.
+
+⚠ AND EXTENDING IT TO BARE NAMES IS NOT AN IMPROVEMENT, which is why this is a
+documented bound rather than a TODO. `docs/planning/` holds 1490 distinct bare
+backticked snake_case tokens; 948 resolve to a defined name and 542 do not, of
+which 408 are code-shaped. The non-resolvers are dominated by things that are
+CORRECT and are not Rust items: room and content keys (`hall_of_characters`,
+`carl_stargan`), directories (`sprites_0_25x`), test binaries (`app_it`),
+upstream API (`add_systems`, `configure_sets`), and CSV columns
+(`resident_mb`). That is ~408 findings, mostly legitimate — a worklist nobody
+would finish, which is worse than the gap.
+
+⇒ So a bare-name citation is checked by a READER, not by this script. When a row
+turns on one, verify it by hand and say so.
+
 ⚠ THIS IS A LINTER FOR PROSE AND IT WILL HAVE FALSE POSITIVES. It cannot know
 about upstream crates, external tools, or names that only appear in generated
 code. It is a WORKLIST, not a gate, and it exits 0 unless `--strict` is passed.
@@ -64,6 +92,39 @@ FILE_LINE = re.compile(r"`([A-Za-z0-9_./-]+\.(?:rs|py|ron|toml|sh|md)):(\d+)`")
 # `module::thing` / `Type::method` -- at least one `::`, ordinary Rust idents.
 SYMBOL = re.compile(r"`([A-Za-z_][A-Za-z0-9_]*(?:::[A-Za-z_][A-Za-z0-9_]*)+)`")
 
+# ⛔⛔ A PATH WITHOUT A LINE NUMBER WAS NOT BEING CHECKED AT ALL. `FILE_LINE`
+# requires the `:123` suffix, and almost no planning row writes one: prose cites
+# `features/ecs/footstool.rs`, not `…:168`. MEASURED 2026-09-02: the sweep that
+# reported "all 353 citations resolve" was true and judged NONE of the 319 bare
+# paths in the same files, one of which had been dead since `00030e603`.
+#
+# ⭐ THE HARD PART IS THAT THE REPOSITORY ABBREVIATES ON PURPOSE, so a plain
+# existence test reports the abbreviation instead of the rot — the "teaches its
+# reader to skim" failure this file already warns about, which would be worse
+# than no check. Three conventions are all correct and all common:
+#
+#     platformer2d_core/src/abilities.rs   crates/ambition_platformer2d_core/…
+#     actor_monolith/src/…/grapple.rs      …ambition_platformer2d_actor_monolith
+#     core/draw.py                         inside the sprite-renderer SUBMODULE
+#
+# ⭐ SO THE RULE IS ORDERED CONTAINMENT, not a suffix match: the basename must
+# name a real file, and every component the citation writes must appear in that
+# file's path IN ORDER, where a component matches either exactly or as the tail
+# of an `ambition_`-prefixed crate directory. All three above resolve;
+# `features/ecs/footstool.rs` does not, because `footstool.rs` lives in
+# `crates/ambition_combat/src/` and that path contains neither `features` nor
+# `ecs`. That is the finding, and it is what a reader following the row hits.
+PATH_SUFFIXES = ("rs", "py", "ron", "toml", "sh", "wgsl", "ldtk", "json", "md")
+PATH_CITE = re.compile(
+    r"`([A-Za-z0-9_][A-Za-z0-9_./-]*/[A-Za-z0-9_.-]+\.(?:"
+    + "|".join(PATH_SUFFIXES)
+    + r"))`(?!:)"
+)
+#: ⚠ A BUILD OUTPUT IS NOT ROT. Rows cite `target/run_tests_status.json` by its
+#: real path, which is the correct way to name one; it is absent because nothing
+#: has been built in this checkout yet, not because the row is wrong.
+GENERATED_PREFIXES = ("target/", "dist/", "build/")
+
 #: Segments that are never a definition to look for on their own.
 NOISE = {
     "self", "crate", "super", "std", "core", "alloc",
@@ -78,6 +139,186 @@ NOISE = {
     "u8", "u16", "u32", "u64", "u128", "i8", "i16", "i32", "i64", "i128",
     "f32", "f64",
 }
+
+
+# A BARE backticked identifier -- no `::`, so `SYMBOL` never sees it, and it is
+# the commonest citation form in these docs.
+BARE = re.compile(r"`([A-Za-z_][A-Za-z0-9_]{2,})`")
+
+
+def source_text_at(ref: str, suffixes: tuple[str, ...] = (".rs", ".py")) -> str:
+    """`source_text`, but for a tree that is not checked out.
+
+    ⭐ THIS IS WHAT MAKES THE BARE-NAME CHECK PRECISE INSTEAD OF NOISY. Asking
+    "does this bare name resolve?" yields ~408 findings that are mostly correct
+    citations of things that are not Rust items -- content keys, directories,
+    upstream Bevy API, CSV columns. Asking "was it a definition at REF and is it
+    not one now?" answers a different question with almost no false positives,
+    because the name's OWN HISTORY proves it was once a real item here.
+
+    ⚠ ONE `git cat-file --batch`, not one `git show` per file. The tree holds
+    thousands of sources; a process each takes minutes and this takes under a
+    second.
+    """
+    listing = subprocess.run(
+        ["git", "ls-tree", "-r", "--name-only", ref],
+        cwd=REPO, capture_output=True, text=True, check=True,
+    ).stdout.split("\n")
+    paths = [p for p in listing if p.endswith(suffixes)]
+    if not paths:
+        return ""
+    proc = subprocess.run(
+        ["git", "cat-file", "--batch"],
+        cwd=REPO, input="".join(f"{ref}:{p}\n" for p in paths).encode(),
+        capture_output=True, check=True,
+    )
+    out, chunks, i = proc.stdout, [], 0
+    while i < len(out):
+        nl = out.find(b"\n", i)
+        if nl < 0:
+            break
+        # `<oid> blob <size>`. Every path came from `ls-tree` ON THIS REF, so
+        # a `missing` answer is unreachable and is NOT handled: a branch that
+        # cannot run is a branch no test can hold honest.
+        size = int(out[i:nl].split()[2])
+        chunks.append(out[nl + 1 : nl + 1 + size].decode("utf-8", "replace"))
+        i = nl + 1 + size + 1
+    return "\n".join(chunks)
+
+
+def item_names(text: str) -> set[str]:
+    """`defined_names` WITHOUT the field rule, for the vanished differential.
+
+    ⛔ `FIELD` IS TOO WEAK TO CARRY A REGRESSION CLAIM, measured on the first
+    real run: it put `ambition_demo_pocket` in the baseline index and not in
+    HEAD's, so the check reported five rows as citing a vanished name -- while
+    the crate is alive at `game/ambition_demo_pocket` and in the workspace
+    members. A field name is not the thing the doc row is citing, and fields are
+    renamed constantly; every TRUE positive in that run came from `DEFINITION`.
+    """
+    return set(DEFINITION.findall(text)) | set(BARE_ITEM.findall(text))
+
+
+#: A git abbreviation in this repo is 7-12 characters; a full object name is 40.
+#: ⛔ 16 AND 32 ARE NOT SHAs AND MUST NOT BE ASKED ABOUT. `runtime-frame-history.md`
+#: is full of 16-hex ROLLBACK CHECKSUMS and the campaign docs carry 32-hex hashes;
+#: a first pass that matched `[0-9a-f]{7,40}` called twenty of them "unresolved
+#: commits", which is a checker teaching its reader to skim.
+COMMIT = re.compile(r"`([0-9a-f]{7,12}|[0-9a-f]{40})`")
+
+
+def submodule_paths(root: Path) -> list[str]:
+    """Initialised submodules, which own commits this repository cannot see."""
+    out = subprocess.run(
+        ["git", "config", "--file", ".gitmodules", "--get-regexp", "path"],
+        cwd=root, capture_output=True, text=True,
+    ).stdout.split()
+    paths = out[1::2]
+    return [p for p in paths if (root / p / ".git").exists()]
+
+
+def unresolved_commits(root: Path, docs: list[Path]) -> tuple[list, list[str]]:
+    """Backticked commit names no reachable repository holds.
+
+    ⭐ SUBMODULE COMMITS ARE REAL CITATIONS AND ARE NOT IN THIS OBJECT STORE.
+    Seven of the eight the first survey flagged were exactly that, and each says
+    so in its own prose ("SUBMODULES (`db7e72f` in the map assets…)"). Asking the
+    submodule is a fact; guessing from the sentence would be a heuristic.
+
+    ⚠ An UNINITIALISED submodule cannot answer, so its name is returned and
+    printed. A check that silently skipped it would report a clean run whose
+    cleanliness depended on a directory being empty.
+    """
+    seen: dict[str, list[tuple[str, int]]] = {}
+    for doc in docs:
+        rel = doc.relative_to(root) if doc.is_relative_to(root) else doc
+        for lineno, line in enumerate(doc.read_text(errors="replace").splitlines(), 1):
+            if MARKER in line:
+                continue
+            for m in COMMIT.finditer(line):
+                seen.setdefault(m.group(1), []).append((str(rel), lineno))
+    if not seen:
+        return [], []
+
+    def missing_in(cwd: Path, names: list[str]) -> list[str]:
+        query = "\n".join(f"{n}^{{commit}}" for n in names)
+        result = subprocess.run(
+            ["git", "cat-file", "--batch-check"], cwd=cwd,
+            input=query, capture_output=True, text=True,
+        ).stdout.splitlines()
+        return [n for n, line in zip(names, result) if "missing" in line]
+
+    outstanding = missing_in(root, list(seen))
+    all_subs = subprocess.run(
+        ["git", "config", "--file", ".gitmodules", "--get-regexp", "path"],
+        cwd=root, capture_output=True, text=True,
+    ).stdout.split()[1::2]
+    live = submodule_paths(root)
+    for sub in live:
+        if not outstanding:
+            break
+        outstanding = missing_in(root / sub, outstanding)
+    findings = [
+        (rel, lineno, f"`{name}`") for name in outstanding for rel, lineno in seen[name]
+    ]
+    return findings, sorted(set(all_subs) - set(live))
+
+
+CRATE_NAME = re.compile(r'^name\s*=\s*"([^"]+)"', re.M)
+
+
+def crate_names() -> set[str]:
+    """Every crate the workspace currently declares, from its manifests.
+
+    ⛔ A CRATE NAME IS NOT AN ITEM, and the index cannot tell the difference: a
+    `mod ambition_platformer2d_actor_monolith` at the baseline that is not there
+    now made the differential report the MONOLITH as vanished while the crate is
+    alive and named in `Cargo.toml`. The manifest is the authority on whether a
+    crate exists, so ask it rather than infer from a `mod` line.
+    """
+    names = set()
+    for rel in repo_files():
+        if rel.name != "Cargo.toml":
+            continue
+        try:
+            names.update(CRATE_NAME.findall((REPO / rel).read_text(errors="replace")))
+        except OSError:
+            continue
+    return names
+
+
+def vanished_report(docs: list[Path], since: str, defined: set[str]) -> int:
+    """Bare citations naming something that WAS defined at `since` and is not now.
+
+    This is the post-carve pass: a carve that renames or removes an item leaves
+    every planning row citing it silently stale, and `SYMBOL` cannot see those
+    rows because the rows spell the name bare.
+    """
+    was = item_names(source_text_at(since))
+    gone = was - item_names(source_text()) - crate_names()
+    print(f"indexed {len(was)} defined name(s) at {since}; "
+          f"{len(gone)} of them no longer defined at HEAD", file=sys.stderr)
+    findings = []
+    for doc in docs:
+        # A doc passed by absolute path may sit outside the tree (a fixture, a
+        # poison). Reporting it is more useful than raising.
+        rel = doc.relative_to(REPO) if doc.is_relative_to(REPO) else doc
+        for lineno, line in enumerate(doc.read_text(errors="replace").splitlines(), 1):
+            if MARKER in line:
+                continue
+            for m in BARE.finditer(line):
+                if m.group(1) in gone:
+                    findings.append((str(rel), lineno, m.group(0)))
+    print(f"\n{len(findings)} bare citation(s) of a name that vanished since {since}")
+    for rel, lineno, cite in findings:
+        print(f"  {rel}:{lineno}\n    {cite}")
+    if findings:
+        print("""
+⇒ EACH IS A ROW THE CARVE LEFT BEHIND. The name was a definition in this tree
+  at the baseline and is not one at HEAD, so the row cites something that no
+  longer exists under that name. Repoint the row, or -- if the row is
+  RECORDING the old name on purpose -- mark the line and it stops reporting.""")
+    return len(findings)
 
 
 def repo_files() -> list[Path]:
@@ -187,6 +428,54 @@ def defined_names(text: str) -> set[str]:
     return names
 
 
+def submodule_files() -> list[str]:
+    """Every file a SUBMODULE tracks, as a path from the superproject root.
+
+    ⛔ THE SUBMODULE'S OWN ROOT IS THE CONVENTION its docs cite from.
+    `engine/sprite-renderer.md` documents the renderer and writes `core/draw.py`,
+    which is exactly right from inside `tools/ambition_sprite2d_renderer/` and
+    names nothing at all when joined to the superproject. Six such citations were
+    the largest single group in the first path sweep; they are correct prose and
+    must not report. Ordered containment does the rest — the components resolve
+    against the real path once the real path is in the index.
+    """
+    listing = subprocess.run(
+        ["git", "submodule", "--quiet", "foreach", "--recursive",
+         'git ls-files | sed "s|^|$displaypath/|"'],
+        cwd=REPO, capture_output=True, text=True,
+    )
+    return listing.stdout.split()
+
+
+def _same_component(have: str, want: str) -> bool:
+    """One path component, allowing the crate-directory abbreviation.
+
+    `ambition_characters` IS `characters` for citation purposes, and
+    `ambition_platformer2d_actor_monolith` is `actor_monolith`: prose drops the
+    vendor prefix and as much of the crate path as still reads unambiguously.
+    Anchored on `_` so it stays a word boundary — `combat` must not match
+    `ambition_precombat`.
+    """
+    return have == want or have.endswith("_" + want)
+
+
+def path_resolves(cite: str, by_name: dict[str, list[str]]) -> bool:
+    """Does `cite` name a real file, allowing the repository's abbreviations?"""
+    parts = cite.split("/")
+    for candidate in by_name.get(parts[-1], []):
+        have = candidate.split("/")
+        i = 0
+        for want in parts:
+            while i < len(have) and not _same_component(have[i], want):
+                i += 1
+            if i == len(have):
+                break
+            i += 1
+        else:
+            return True
+    return False
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--strict", action="store_true",
@@ -195,6 +484,11 @@ def main() -> int:
         "--comments", action="store_true",
         help="also check backticked citations in Rust COMMENTS (the fabricated "
              "name that prompted this script reached one, where nothing looks)",
+    )
+    parser.add_argument(
+        "--vanished", metavar="REF",
+        help="report BARE backticked citations of names that were defined at "
+             "REF and are not defined at HEAD -- the post-carve pass",
     )
     parser.add_argument("paths", nargs="*", type=Path,
                         default=[REPO / "docs" / "planning"])
@@ -221,6 +515,13 @@ def main() -> int:
     by_suffix: dict[str, list[str]] = {}
     for p in tracked:
         by_suffix.setdefault(Path(p).name, []).append(p)
+    # ⛔ SUBMODULE FILES BELONG IN THE PATH INDEX AND NOT IN `by_suffix`.
+    # `FILE_LINE` opens the file it resolves to and counts its lines; the path
+    # check only asks whether it exists. Keeping the wider index separate means
+    # adding submodules cannot change what the line-number pass already reports.
+    by_path_name: dict[str, list[str]] = {}
+    for p in list(tracked) + submodule_files():
+        by_path_name.setdefault(Path(p).name, []).append(p)
 
     findings: list[tuple[str, int, str, str]] = []
     checked = 0
@@ -280,6 +581,16 @@ def main() -> int:
                 if want > n:
                     findings.append((str(rel), lineno, m.group(0),
                                      f"{hits[0]} has {n} lines"))
+            for m in PATH_CITE.finditer(line):
+                cite = m.group(1)
+                # An elided path (`tools/.../specs/x.ron`) names a shape, not a
+                # file, and a build output is absent by construction.
+                if cite.startswith(GENERATED_PREFIXES) or "..." in cite:
+                    continue
+                checked += 1
+                if not path_resolves(cite, by_path_name):
+                    findings.append((str(rel), lineno, m.group(0),
+                                     "no file at this path"))
             for m in SYMBOL.finditer(line):
                 checked += 1
                 parts = m.group(1).split("::")
@@ -297,6 +608,29 @@ def main() -> int:
                 if tail not in defined:
                     findings.append((str(rel), lineno, m.group(0),
                                      "nothing DEFINES this name"))
+
+    if args.vanished:
+        n = vanished_report(docs, args.vanished, defined)
+        return 1 if (n and args.strict) else 0
+
+    # ⭐ COMMIT NAMES ARE CITATIONS TOO, and nothing checked them until
+    # 2026-09-03. A fabricated SHA is invisible exactly the way a fabricated
+    # symbol was: it looks like evidence and nobody types it into `git show`.
+    # The survey that added this found 225 of them and ZERO fabricated, which is
+    # the reason to guard it now rather than after the first one.
+    commit_findings, dark_submodules = unresolved_commits(REPO, docs)
+    checked += len(commit_findings)
+    findings.extend(
+        (rel, lineno, cite, "no commit with this name, here or in any submodule")
+        for rel, lineno, cite in commit_findings
+    )
+    if dark_submodules:
+        print(
+            f"\n⚠ {len(dark_submodules)} submodule(s) are NOT initialised, so a "
+            f"commit name they own cannot be verified: {', '.join(dark_submodules)}\n"
+            "  `git submodule update --init` to close the gap. Until then a clean "
+            "run is clean ONLY for the repositories that answered."
+        )
 
     print(f"\nchecked {checked} citation(s) across {len(docs)} planning file(s)")
     if not findings:

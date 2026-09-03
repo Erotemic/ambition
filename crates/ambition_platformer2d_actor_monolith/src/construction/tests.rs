@@ -416,7 +416,7 @@ fn the_same_room_plans_once_its_held_item_resolves() {
 
     let items = app
         .world_mut()
-        .query::<&crate::items::pickup::GroundItem>()
+        .query::<&ambition_held_items::GroundItem>()
         .iter(app.world())
         .count();
     assert_eq!(items, 1, "the authored pickup reached the world");
@@ -461,7 +461,7 @@ fn a_rejected_plan_spawns_nothing() {
 
     let items = app
         .world_mut()
-        .query::<&crate::items::pickup::GroundItem>()
+        .query::<&ambition_held_items::GroundItem>()
         .iter(app.world())
         .count();
     assert_eq!(

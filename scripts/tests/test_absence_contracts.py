@@ -23,14 +23,62 @@ import pytest
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
+REPO = Path(__file__).resolve().parents[2]
+
 from check_absence_contracts import (  # noqa: E402
     ABSENCE_CONTRACTS,
     strip_comments_for,
     violations,
 )
 
+# ⭐ THREE CONTRACT FAMILIES, GUARDED THREE DIFFERENT WAYS — AND THAT ASYMMETRY
+# IS PRINCIPLED, not an oversight anyone should tidy. Checked 2026-09-02:
+#
+#   ABSENCE_CONTRACTS (25)   each carries its OWN patterns, so each can be
+#                            individually wrong and each needs its own fixture.
+#                            That is why VIOLATING_LINE is parametrized over all
+#                            of them, in both directions.
+#   DEPENDENCY_CONTRACTS (6) share ONE mechanism (graph reachability) and differ
+#                            only in data. Proving the algorithm fires once
+#                            proves it for all six, so the fire tests are
+#                            synthetic graphs and the per-contract test is the
+#                            LIVE one — plus `a_contract_naming_a_crate_that_
+#                            does_not_exist_is_reported`, which is what stops a
+#                            renamed crate turning a contract into a silent pass.
+#   MODULE_ALLOWLISTS (4)    share a mechanism too, but permit-a-set-and-forbid-
+#                            the-rest can be EVADED by re-spelling an import, so
+#                            they get evasion tests AND a per-contract vacuity
+#                            control (`..._baseline_is_not_silently_empty`).
+#
+# ⇒ Do not "make them consistent". A per-contract fire test for the dependency
+# family would restate one algorithm six times; the absence family cannot borrow
+# that argument because there is no shared algorithm to prove.
+
 # One line that each contract must reject, written the way real code would.
+#
+# ⭐ THE EIGHT BELOW WERE ADDED 2026-09-02, closing the last of the skips. A
+# contract with no line here is SKIPPED by both tests in this file — so it is
+# asserted green against the live tree and has never been shown capable of
+# firing at all. Eight of twenty-five were in that state; the tree being clean
+# is exactly what makes a never-fired pattern indistinguishable from a working
+# one.
 VIOLATING_LINE = {
+    "the-two-move-drivers-do-not-author-their-own-presses":
+        "    if frame.attack_pressed { return Ok(()); }",
+    "the-recorders-do-not-resolve-their-own-combat-geometry":
+        "    let volumes = world.resource::<DamageableVolumes>();",
+    "ending-a-move-goes-through-the-one-teardown-path":
+        "        commands.entity(body).remove::<MovePlayback>();",
+    "the-brain-codec-names-the-fighter-only-through-the-enum-variant":
+        "        let decoded = fighter::BrainState::decode(bytes)?;",
+    "the-character-domain-is-not-named-after-a-character":
+        "pub const PLAYER_ROBOT_REACH: f32 = 48.0;",
+    "the-character-fold-is-not-a-public-capability":
+        "pub fn finalize_cast(world: &mut World) -> StagedCharacter { todo!() }",
+    "the-actor-mirrors-stay-deleted":
+        "    let intent = ActorIntent::default();",
+    "no-build-legacy-body-then-patch-it":
+        "    adopt_character_intrinsics(&mut body, &spec);",
     "the-generic-brain-does-not-grow-new-platform-fighter-edges":
         "    let cfg: fighter::FighterCfg = todo!();",
     "player-input-frame-mirror-does-not-return": "pub struct PlayerInputFrame;",
@@ -98,6 +146,69 @@ def confirm_patterns(contract: dict) -> list[re.Pattern]:
 # That is not covered by the live run — only 3 of the 17 contracts have any text in the tree
 # that their grep prefilter hits and the comment-stripper then discards, so 14 of them have never
 # had their prose path exercised by anything but this.
+@pytest.mark.parametrize("contract", ABSENCE_CONTRACTS, ids=lambda c: c["id"])
+def test_every_path_a_contract_names_still_exists(contract):
+    """⛔⛔ A CARVE MOVES THE FILE AND THE CONTRACT KEEPS THE OLD PATH.
+
+    Eleven of these contracts pin *"this belongs to ONE file"* by EXCLUDING that
+    file by path (`:!crates/…/presentation.rs`). Both halves rot silently when a
+    carve moves code, and they rot in opposite directions:
+
+      an INCLUDE path that no longer exists  -> the contract scans NOTHING and
+                                                passes forever. Vacuity.
+      an EXCLUDE path that no longer exists  -> the owner it protected has moved,
+                                                and the exclusion now excuses a
+                                                path nobody writes to. The rule
+                                                looks intact and guards a ghost.
+
+    ⚠ THIS IS NOT THE LOUD CASE. A carve that moves the owner usually makes the
+    contract flag the NEW location, which is red and obvious. This catches the
+    quiet one: the exclusion left behind, pointing at nothing. Three D33 carves
+    are in flight as of 2026-09-02 and the path→contract map in `queue.md`'s D33
+    row lists which files trip which rule.
+
+    ⇒ When this fails, MOVE the path. Widening it to a directory, or deleting
+    the contract, launders the rule the carve was supposed to preserve.
+    """
+    for raw in contract.get("paths", []):
+        path = re.sub(r"^:(!|\(exclude\))", "", raw)
+        assert (REPO / path).exists(), (
+            f"{contract['id']} names `{raw}`, which does not exist. If a carve "
+            "moved it, point this entry at the new path in the same commit — do "
+            "not widen it and do not drop it."
+        )
+
+
+@pytest.mark.parametrize("contract", ABSENCE_CONTRACTS, ids=lambda c: c["id"])
+def test_every_contract_fires_on_a_line_that_violates_it(contract):
+    """⛔⛔ THIS TEST DID NOT EXIST, AND THE MODULE DOCSTRING SAID IT DID.
+
+    The header above promises two things — *"feed each contract a line that
+    VIOLATES it and require a hit"* and *"feed each contract that same text as a
+    DOC COMMENT and require silence"*. Only the second was implemented.
+    `VIOLATING_LINE` was read in exactly one place, the silence test, so **no
+    entry in it had ever been checked for actually violating anything**.
+
+    Found 2026-09-02 by poisoning: changing `ActorIntent` to
+    `SomethingHarmless` in the table left the whole file green at 87 passed. A
+    fixture that no longer matches its pattern is indistinguishable from one
+    that does, which makes the silence test's green mean less than it reads:
+    prose is silent for a pattern that never fires either.
+
+    ⇒ Together the two directions are the guard: this one says the pattern
+    catches the thing it forbids, the next says it stays quiet on prose
+    describing the removal. Neither is worth much alone.
+    """
+    line = VIOLATING_LINE.get(contract["id"])
+    if line is None:
+        pytest.skip(f"{contract['id']} states no violating line")
+    assert any(pattern.search(line) for pattern in confirm_patterns(contract)), (
+        f"{contract['id']}'s fixture {line!r} matches none of its patterns, so "
+        "the silence test below is comparing prose against a pattern that never "
+        "fires — and the contract has never been shown able to catch anything"
+    )
+
+
 @pytest.mark.parametrize("contract", ABSENCE_CONTRACTS, ids=lambda c: c["id"])
 def test_no_contract_fires_on_prose_describing_the_removal(contract):
     """Documenting a removal must not break the guard that verified it."""

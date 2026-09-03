@@ -174,7 +174,7 @@ fn session_presentation_is_ready(
 /// `sync_visuals` has mirrored the player transform.
 ///
 /// Carved out of `app/plugins.rs::install_player_visual_systems` per
-/// OVERNIGHT-TODO #6. Lives in `presentation/rendering.rs` because
+/// OVERNIGHT-TODO #6. Lives here in `ambition_render/src/rendering/` because
 /// both subsystems chain `.after(sync_visuals)` and are presentation-
 /// only — the body_mode + bubble_shield modules own the systems but
 /// the schedule ordering is a presentation concern.

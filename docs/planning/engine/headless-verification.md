@@ -15,12 +15,14 @@ windowing stripped, the actual systems intact:
   step it one frame with an input, read an `AgentObservation` back. Set state
   (teleport, grant ability, spawn, inject geometry), step N frames, assert on the
   result. This is the substrate.
-- **Binaries** (`game/ambition_app/src/bin/`) — `headless` (fixed-tick run + trace
-  dump), `trace_replay` (replay a recorded trace, detect determinism divergence),
-  `rl_random_walker` / `rl_smoke` (policy-driven fuzzing), `capture_scene`
-  (state → PNG; see "Render-to-disk" below).
+- **Binaries** (`game/ambition_app_tools/src/bin/`) — `headless` (fixed-tick run +
+  trace dump), `trace_replay` (replay a recorded trace, detect determinism
+  divergence), `rl_random_walker` / `rl_smoke` (policy-driven fuzzing),
+  `capture_scene` (state → PNG; see "Render-to-disk" below). ⚠ NOT
+  `ambition_app/src/bin/`, which holds only `ambition_game_bin.rs` — these are
+  `-p ambition_app_tools`, which is what `./run_headless.sh` invokes.
 - **Integration tests** — ONE aggregated target, `app_it`
-  (`game/ambition_app/tests/app_it.rs`, with `autotests = false`); the ~50 sibling
+  (`game/ambition_app/tests/app_it.rs`, with `autotests = false`); the 148 sibling
   `.rs` files are its MODULES, not separate targets. Run a single module with
   `cargo test -p ambition_app --test app_it -- <module_name>`. They drive
   `Platformer2dSimHarness` and assert on resulting state.
@@ -208,13 +210,13 @@ one at a time into a headless app is fitting the app to the test. See B3 in
 
 - **`crates/ambition_sim_harness/`** owns the reusable headless surface:
   `runtime.rs` (`Platformer2dSimHarness`), `action.rs`, `observation.rs`, `options.rs`,
-  `reward.rs`, `random_policy.rs`. The old `ambition_app/src/rl_sim/runtime.rs`
+  `reward.rs`, `random_policy.rs`. The old `ambition_app/src/rl_sim/runtime.rs` <!-- cite-ok: the sentence says it is gone -->
   is gone; `game/ambition_app/src/rl_sim/mod.rs` survives as the thin Ambition
   BINDING — it re-exports the harness and supplies the one product-specific
   piece, the composition that installs Ambition content +
   `AmbitionGameSimulationPlugin` onto the harness App. A demo or test with different
   content calls `ambition_sim_harness::Platformer2dSimHarness::build` with its own
   composition and never links the app crate.
-- `game/ambition_app/src/bin/` for the driver binaries.
+- `game/ambition_app_tools/src/bin/` for the driver binaries.
 - `game/ambition_app/tests/app_it.rs` for the build → step → assert pattern.
 - `ambition_gameplay_trace/` (trace buffer + dump), the `actor_trace` OOB recorder.

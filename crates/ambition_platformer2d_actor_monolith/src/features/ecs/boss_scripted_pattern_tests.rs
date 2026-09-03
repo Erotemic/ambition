@@ -1,4 +1,5 @@
 use super::*;
+use crate::features::ecs::actor_clusters::SeedActorMut;
 use ambition_characters::brain::boss_pattern::BossAttackProfile;
 // ⛔ NAMED, because this fixture used to live INSIDE `ambition_boss_encounter`
 // and reached these through `use super::*`. It came back to sit beside the
@@ -536,7 +537,7 @@ fn boss_motion_respects_world_collision_against_a_wall() {
     // `integrate_boss_bodies` → `ActorMut::update`, direct-velocity). This
     // exercises the flight-limb wall-collision sweep — the same guard the old
     // bespoke float had — over the REAL integration a boss now uses.
-    let mut seed = super::actor_clusters::ActorClusterSeed::new(
+    let mut seed = ambition_body_seed::ActorClusterSeed::new(
         "test_warden",
         "Clockwork Warden",
         aabb,
@@ -554,7 +555,7 @@ fn boss_motion_respects_world_collision_against_a_wall() {
     seed.config.tuning.flight_direct_velocity = true;
     // A floating boss: is_aerial forces flight into the body's movement kit.
     seed.body =
-        super::actor_clusters::ActorBody::from_kit(ae::AbilitySet::NONE, true, seed.kin.size);
+        ambition_body_seed::ActorBody::from_kit(ae::AbilitySet::NONE, true, seed.kin.size);
     let behavior = BossBehaviorProfile::clockwork_warden();
     // World: a wall at x=400 blocks any rightward chase past it.
     let world = ae::World::new(

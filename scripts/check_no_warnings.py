@@ -1,6 +1,15 @@
 #!/usr/bin/env python3
 """Run the normal Cargo check and fail if it emits Rust warnings.
 
+⛔ DEFAULT FEATURES ONLY, and the OK line says so because it was read as more
+than it is. Code behind a non-default `#[cfg(feature = ...)]` is not compiled
+here at all, so it cannot warn here: on 2026-09-03 this printed clean while the
+union build emitted three warnings (two unused imports in the monolith's
+`causal.rs`, an unused doc comment in `ladder_probe.rs`), all in gated code.
+Extending this run to the feature union is NOT the fix -- that is a full
+workspace rebuild of ~25 minutes, which is the wrong price on every dev cycle.
+Stating the bound is.
+
 The checker parses diagnostics instead of setting `RUSTFLAGS=-D warnings`, so it
 reuses the normal build fingerprint and cache. Cached crates do not re-emit old
 warnings; `--fresh` requests the stronger cold-check behavior when needed.
@@ -101,7 +110,15 @@ def main() -> int:
         return 1
 
     scope = ", ".join(args.package) if args.package else "workspace"
-    print(f"OK: {scope} --all-targets compiled with no warnings.")
+    print(f"OK: {scope} --all-targets compiled with no warnings, under DEFAULT features.")
+    print(
+        "   \u26a0 Code behind a NON-DEFAULT `#[cfg(feature = ...)]` is not compiled by "
+        "this run and is not covered by that OK.\n"
+        "     Only the union build sees it: the command `run_tests.py --list "
+        "--run-everything-you-probably-dont-need-this` prints under\n"
+        "     'one graph, every gated test'. Three warnings were living there on "
+        "2026-09-03 while this line read clean (`170d4293d`)."
+    )
     return 0
 
 

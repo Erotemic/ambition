@@ -546,7 +546,7 @@ fn construct_authored_ground_item(
         root.entity(),
         (
             bevy::prelude::Name::new(format!("Ground item: {}", spec.name)),
-            crate::items::pickup::GroundItem {
+            ambition_held_items::GroundItem {
                 spec: held.clone(),
                 pos: spec.pos,
                 vel: ambition_platformer2d_core::Vec2::ZERO,
@@ -558,7 +558,7 @@ fn construct_authored_ground_item(
             // predicate can see, and stepping it drops the whole authored
             // population out of the world (measured: a room rebuild came back
             // with zero ground items where it had fifteen).
-            crate::items::pickup::SettledItem::default(),
+            ambition_held_items::SettledItem::default(),
         ),
     );
 }

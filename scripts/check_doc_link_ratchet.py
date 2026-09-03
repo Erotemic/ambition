@@ -14,6 +14,9 @@ import subprocess
 import sys
 
 REPO = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+
+sys.path.insert(0, os.path.join(REPO, "scripts", "lib"))
+from cargo_bin import cargo_binary  # noqa: E402
 BASELINE = os.path.join(REPO, "dev", "doc_link_ratchet_baseline.json")
 
 # Keep the ratchet on crates whose doc comments define the main runtime model;
@@ -42,7 +45,7 @@ WARNING = re.compile(
 def measure(crate: str) -> tuple[int, str]:
     """`(broken link count, raw output)` for one crate."""
     result = subprocess.run(
-        ["cargo", "doc", "-p", crate, "--no-deps"],
+        [cargo_binary(), "doc", "-p", crate, "--no-deps"],
         cwd=REPO,
         capture_output=True,
         text=True,

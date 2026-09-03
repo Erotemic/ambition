@@ -71,13 +71,23 @@ moves over inventing new crates.
 
 ## Current measured dependency shape
 
-The last reconciled census on 2026-08-29 distinguished three different numbers:
+The census distinguishes three different numbers. Re-measured 2026-09-03; the
+2026-08-29 values are kept beside them because the DELTA is the whole point — a
+carve that lifts a domain out of the monolith adds a dependency EDGE to the
+crate it created, so these rise while the debt they measure falls.
 
-| measure | value |
-|---|---:|
-| `ambition_*` lines in the monolith `[dependencies]` table | 28 |
-| direct edges in the default resolved graph | 27 |
-| full default resolved closure | 34 |
+| measure | 2026-08-29 | 2026-09-03 |
+|---|---:|---:|
+| `ambition_*` lines in the monolith `[dependencies]` table | 28 | 30 |
+| direct edges in the default resolved graph | 27 | 29 |
+| full default resolved closure | 34 | 35 |
+
+⚠ Count the ROOT out. `cargo tree -p <crate> --prefix none` prints the crate
+itself as its first line, so a naive `grep -c` reports 30 and 36 here and
+silently erases the manifest-lines-exceed-edges gap the census exists to show.
+
+The +2 on the first two rows is `ambition_world_items` and `ambition_held_items`
+(D33 carves, 2026-09-02/03).
 
 Do not compare these as though they were the same metric. Before a footprint
 carve, run `cargo tree -i <dependency>`; another path may already keep the crate
@@ -534,9 +544,25 @@ preserved, because the author had checked the ordering and not the membership.
 on it, and the OWNING plugin does both the `configure_sets` (nesting in
 `PlayerSimulation`, `.after(BodyCustodySettled)`, each variant `GameplayGated`)
 and the `add_systems`; the kernel merely composes the plugin.
-⚠ SHA deliberately not cited here — that fix is yardrat's and had not landed on
-this remote when this rule was written. Fill it in when it does, rather than
-citing a commit nobody can resolve.
+⇒ **It landed: `d220accee`**, with the guard in `dbec94824`. (The SHA was
+deliberately left blank when this rule was written, because the fix was on
+another machine and citing a commit nobody could resolve is worse than citing
+none.)
+
+⛔⛔ **AND WRITING THE GUARD FOUND A SECOND WAY TO BE VACUOUS**, one this rule
+did not anticipate and every carved crate will meet. Bevy 0.19 reports a system
+as `"<Enable the debug feature to see the name>"` unless `bevy_ecs`'s `debug`
+feature is on, and a carved crate that takes `bevy` with
+`default-features = false` does not turn it on. So the name-based membership
+lookup in the monolith's own `actor_decision_phase_tests` — the obvious thing to
+copy — works there only because something ELSE in that build enables the
+feature. Copied into `ambition_world_items` it passed under `--workspace` and
+failed under `-p ambition_world_items`: a guard whose verdict depends on who
+else is in the build, which is the same defect as a guard whose edges depend on
+who else configured them. ⇒ **Identify a system by SHAPE, not by name**: assert
+the member COUNT of each set against the number the plugin adds. It is exact
+rather than approximate whenever the plugin's systems are the only ones present,
+which on a bare `App` they are.
 
 ⇒ **WHAT IT MEANS FOR A CARVE IN PROGRESS**, and the pickup cut is the worked
 example: split a set family BY VARIANT so one crate owns one variant's rules end
@@ -651,7 +677,19 @@ deleted. Do not replace one central switch with another.
 it.** `src/items/` is 6580 lines against `ambition_items`' 1975, which reads like
 a domain sitting in the wrong crate. It is not:
 
-* 1864 of those lines are `pickup/tests.rs`, plus ~270 more in sibling test
+⛔ **THE DEFENCE BELOW IS A DATED RECORD AND EVENTS OVERTOOK IT. Re-measured
+2026-09-03: `src/items/` is 2153 lines, not 6580** — two carves came out of this
+very directory (`ambition_world_items` 1328 lines, 2026-09-02; the much larger
+`ambition_held_items` 3454, 2026-09-03), and `ambition_items` is 2011. So the
+argument was right about what it measured (most of the 6580 was test code, and
+`ambition_items` already owned the catalog) and was NOT a reason the directory
+would stay put: what left was the collectible lifecycle, along the collect
+TRIGGER seam, which this reading did not consider. Kept rather than rewritten —
+the reasoning is sound and the conclusion is superseded, which is the useful
+thing for the next carve to see.
+
+
+* 1864 of those lines are `pickup/tests.rs`, plus ~270 more in sibling test <!-- cite-ok: the pre-cut path (moved to ambition_held_items 2026-09-03), kept as the record -->
   modules — about **4.4k lines of production code**, not 6.6k;
 * `ambition_items` already owns what the doc asks a domain to own — the 24-slot
   catalog, owned-item state, the shop, and the `item_catalog` content schema;
@@ -778,9 +816,10 @@ weighing the two options.** The choice looked open — a new
 `ActorConstructionParams` variant (kernel keeps the recipe) versus
 `ambition_encounter` implementing its own `ConstructionDomain` like
 `ambition_portal2d`. It is not: `spawn_encounter_mob` builds its body with
-`super::actor_clusters::ActorClusterSeed::new_character_in`
-(`features/ecs/spawn_actors.rs:2011`), and `ActorClusterSeed`
-(`features/ecs/actor_clusters.rs:285`) is the actor kernel's body builder. For
+`ActorClusterSeed::new_character_in` (`features/ecs/spawn_actors.rs:2010`),
+which was the actor kernel's body builder when this was written (the seed is
+`ambition_body_seed::ActorClusterSeed` since the same night — a VALUE the
+kernel spawns from; `spawn_encounter_mob` itself is still the kernel's). For
 `ambition_encounter` to own the construct fn it would have to depend on
 `ambition_platformer2d_actor_monolith` — **the exact edge this carve removes**,
 and the one the sibling crates' policy rows forbid regaining.
@@ -1059,6 +1098,70 @@ drain, not four readers racing the same queue.
 Prepared character/content ownership should continue moving toward character
 and provider packages. The residual actor kernel consumes prepared body/action
 facts rather than becoming the content compiler/catalog.
+
+**Measured 2026-09-03, from the seam rather than the line count.** `character_runtime/`
+is 13,888 lines with tests (production: `mod.rs` 1,235, `prepared_match.rs` 1,611,
+`staging.rs` 833, `audit.rs` 618, `presentation.rs` 598, `live_match_clock.rs` 474,
+`physical_baseline.rs` 295, `hurtbox.rs` 277, `seating.rs` 267, `definition.rs` 82).
+Six of those files name NOTHING in the kernel (`definition`, `staging`, `seating`,
+`physical_baseline`, `hurtbox`, `audit`); they are carve-clean today. The kernel
+references that remain are in four files, and they are not one kind of thing:
+
+| File | Kernel names | What it is |
+|---|---|---|
+| `mod.rs` | `character_sprites::{SpriteMaterialization, character_sprite_tier, materialize_declared_character_sprite, demand_character_fx_sheets}`, `assets::platformer_assets` | the ASSET seam — load demand and materialization; leaves with the sprite domain, not with this frontier |
+| `prepared_match.rs` | `features::ecs::actor_clusters::ActorClusterSeed` <!-- cite-ok: the pre-cut path, measured that night --> (the `PreparedSeat.seed` field and `new_character_in`), `avatar::starting_character::InitialBodyPolicy` (×3), and in activation only: `enemy_component_snapshot`, `enemy_default_brain`, `FeatureBaseBundle`, `EnemyActorBundle`, `LocalPlayer`, `participant_seat::player_slot_of` | ONE prepared value holding a kernel type, one policy value, and construction |
+| `live_match_clock.rs` | `features::stocks_match::StocksMatchSettled` | a message read |
+| `presentation.rs` | `avatar::PersonaBaseline` | a component inserted at staging |
+
+⇒ **The seam is `PreparedSeat.seed`.** Preparation builds an `ActorClusterSeed` so
+that activation can spawn without a lookup (this module's own contract: *"activation
+performs no authority lookups"*). The seed is the kernel's construction value — and
+measured, it is not kernel-typed at all: every field of `ActorClusterSeed` is a
+`core`/`characters`/`combat`/`shared_tangle`/`vfx` type, its two constructors read
+only the catalog and the authored sheets, and the 1,000-line seed region of
+`actor_clusters.rs` (lines 54–1016) contains ZERO `crate::` references. What binds
+it to the kernel is where it is DEFINED, plus two methods that hand it to the
+simulation step (`as_actor_mut`, `update_for_test`) and `into_components`'s return
+type, whose members are all lower-crate components too.
+
+**Landed 2026-09-03 (`944e082c4`): the worn-kit compiler.** What a character id
+resolves to on a body — name, action set, moveset, identity baseline, durable
+`CombatKit`, how it fires — was compiled in the kernel's `avatar` module and is
+`ambition_combat::worn_kit::WornKit::resolve` now; the kernel's three roads (spawn
+bundle, runtime re-wear, `prepare_match`) consume the value. The authored-overlay
+rule had been written twice (preparation and the kernel); it is
+`ambition_characters::prepared::overlay_authored_moves`, once. Zero behaviour change
+by construction. The absence contract pinning `build_default_action_set` to one file
+now exempts the compiler's new home instead of `starting_character.rs`.
+
+**Next cut, in order:**
+
+1. **The body seed leaves the kernel** — `ActorClusterSeed`, `ActorMotionPath`,
+   `ActorBody`, both constructors, `into_components`, `sprite_render_size_for_name_in`
+   and the hurt-feedback tag rule, into a crate below the kernel that depends on
+   exactly what the file already depends on. The kernel keeps `ActorMut`,
+   `ActorClusterQueryData` and the two simulation-binding methods (as a kernel trait
+   over the foreign seed). After this, `prepare_match` names the kernel only through
+   `InitialBodyPolicy`, which is a value.
+2. **`InitialBodyPolicy`** is an avatar policy the match REFUSES by name; it moves to
+   shared vocabulary or the match takes a bool. Then `prepare_match` and the six
+   clean files are a preparation crate (`ambition_match` is the honest name: roster,
+   rules, seats, clock, receipt), and the kernel keeps `realize_seat` /
+   `activate_the_prepared_match` / `release_the_opening_hold` /
+   `declare_the_match_cast_as_the_view` — construction, by the same doctrine line the
+   encounter design reached independently the same night.
+3. `PersonaBaseline` and `StocksMatchSettled` are each one name; they follow their
+   owners when the preparation crate exists, not before.
+
+⚠ The one contradiction this measurement surfaced and did NOT change: a prepared
+`Authored` character with `ranged_execution: ChargedProjectile` (the V3 robot: both an
+action set with `ranged: Some(bolt)` and the charge execution) gets a preparation
+moveset that INCLUDES the ranged verb while the worn kit reports the charge path.
+The persona derivation drops the ranged verb for an `Unauthored` charged kit and the
+preparation derivation never does; whether the V3 press is owned once is a content
+question (`player_robot_moveset.rs` says the slot "says the robot throws something,
+the execution says the throw charges"). Recorded, not resolved.
 
 ### Central kernel split
 

@@ -48,10 +48,21 @@ health carries across timeline generations only for the same `SessionScopeId`, a
 foreign session reads no health from it, and session-mirrored process resources
 are re-established at activation. ADR 0027 owns the durable rule.
 
-The next architectural convergence is canonical **construction and
-reconstitution**: new room, transition, replay, restore, and persistent
-occurrence reconstruction should share semantic construction rather than grow
-parallel reset/restore ledgers.
+✔ **THAT CONVERGENCE LANDED — corrected 2026-09-03.** This section named
+canonical **construction and reconstitution** as the NEXT one: new room,
+transition, replay, restore and persistent occurrence reconstruction sharing
+semantic construction rather than growing parallel reset/restore ledgers. All
+five run one constructor now. `construction-and-reconstitution.md`'s C3 is
+*"✔ CLOSED 2026-08-31"* — `758e9df37` puts the file's occurrence ledger in place
+at `SessionScopeSet::Activate` so a save load prepares its first room against
+the saved facts rather than building and correcting — and `../roadmap.md`'s P1
+says *"This item is closed; the owner doc's C3 records the proof."*
+
+⚠ **WHAT IS NEXT IS DELIBERATELY NOT ANSWERED HERE.** This page is the
+capability map and says so in its own opening: it does not own execution order.
+Naming a successor would be making the priority call in the one document that
+disclaims it. ⇒ [`../roadmap.md`](../roadmap.md) carries the P-order and
+[`../queue.md`](../queue.md) the immediate work.
 
 Use [`simulation-authority-and-determinism.md`](simulation-authority-and-determinism.md)
 and [`construction-and-reconstitution.md`](construction-and-reconstitution.md).

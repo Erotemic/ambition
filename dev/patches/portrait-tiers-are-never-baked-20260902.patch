@@ -1,0 +1,155 @@
+PROPOSED, NOT APPLIED — stop publishing portraits at reduced sprite tiers
+
+    cd <repo root> && patch -p1 < dev/patches/portrait-tiers-are-never-baked-20260902.patch
+    # or: git apply dev/patches/portrait-tiers-are-never-baked-20260902.patch
+
+ⓘ THIS IS A MAIN-REPO SCRIPT, NOT THE RENDERER SUBMODULE. The brief that asked
+for this expected a change in `tools/ambition_sprite2d_renderer`; the producer
+is `scripts/generate_visual_quality_variants.py`, which is tracked here. So
+applying it needs no submodule commit and no pointer bump — but it DOES change
+generated assets on the next unfiltered regen, which is why it is a patch and
+not a commit.
+
+WHAT IT DOES. `*_portraits.png` is not a sheet page, so it falls into the
+generator's `loose_srcs` bucket and `resize_png` copies it into all three
+reduced tiers. **487 files / 14.2 MB that nothing can load.**
+`ambition_sprite_sheet/build.rs::bake_portrait_manifests` collects portrait
+manifests from `assets/sprites` ONLY, and `PortraitSheetRegistry` is built
+`from_baked_table(BAKED_PORTRAIT_RONS)` and reads nothing else.
+
+⭐ AND A CHEAPER PORTRAIT WOULD NOT BE WANTED EVEN IF IT COULD BE LOADED.
+Portrait draw size is chosen by VIEWPORT, never by quality tier:
+`DialogLayoutProfile::for_viewport` picks **56x62** (phone landscape), **82x94**
+(phone portrait / small tablet) or **104x120** (everything else), consulting no
+quality setting anywhere in that path. Against a 256x320 authored frame:
+
+    tier              frame     @1x display          @2x display
+    sprites          256x320    covers every box     covers every box
+    sprites_0_5x     128x160    covers every box     smallest box only
+    sprites_0_25x      64x80    smallest box only    UPSCALES ALWAYS
+    sprites_potato     16x20    UPSCALES ALWAYS      UPSCALES ALWAYS
+
+A tier under the box it is drawn into is not a cheaper portrait, it is a
+blurrier one — the failure Jon's standing rule forbids. Only `0_5x` has any
+case at all, and only at 1x.
+
+⛔ ONE PREDICATE, USED AT BOTH SITES, AND THAT IS THE POINT. `prune_orphans`
+deletes a variant only when its SOURCE counterpart is gone — and a reduced-tier
+portrait's source is alive at full resolution, so a change that merely stopped
+publishing would leave all 14.2 MB on disk forever. Sharing
+`publishes_at_reduced_tier` between the publish selection and the prune means
+the next unfiltered regen removes what is already there by the same rule that
+stops new ones appearing.
+
+⚠ THE FILES ARE STILL BEING PRODUCED, not left over: 439 of 475 comparable
+portrait files were written in the same run as their full-resolution twin or
+after it (median +3.07 days), against 44 of 44 stranded sheet pages that
+PREDATE their manifest. So a clean regen elsewhere reproduces these and cannot
+settle them. ⚠ mtimes are per-machine and a copy rewrites them; the evidence is
+the contrast between buckets inside one tree, not the absolute dates.
+
+HOW YOU KNOW IT WORKED (the tell, before/after one unfiltered variant run):
+
+    scripts/measure_orphan_shipped_pages.py
+
+  REDUCED-TIER PORTRAITS: 487 file(s), 14.2 MB   ->   0 file(s), 0.0 MB
+
+⚠ BOTH HALVES MUST MOVE, and that is the point of the shared predicate. New
+portraits stop being published AND `prune_orphans` deletes the 487 already on
+disk — because a reduced-tier portrait's source is alive at full resolution, a
+change that only stopped publishing would leave every one of them in place. If
+the count drops but not to zero, the prune half did not take.
+
+⛔ AND ONE THING MUST NOT MOVE: the full-resolution portraits. `sprites/` holds
+164 `_portraits.png` with 164 `_portraits.ron`; that pair is what
+`bake_portrait_manifests` reads and it must be untouched. If the full-res count
+changes, the predicate is matching too widely.
+
+▢ WHAT IS NOT INCLUDED, AND WHY. The brief also asked to stop emitting the
+`gnu_ton_boss` `_full` / `_body` / `_hands` layer renders (16 files, 13.6 MB
+with no manifest). They are NOT accidental intermediates: they are declared
+`OUTPUT_FILES` of the gnu_ton_boss generator, and the ADR 0020 mount split
+(`giant_gnu_body` = scholar-less body, `giant_gnu_hands` = hands, composited
+hands-z-front) is the reason they exist. Removing them is a decision about that
+mount, not cleanup, so it is recorded rather than patched.
+
+⛔ TWO THINGS FOUND WHILE CHECKING THAT, both worth a separate look:
+  * The generator's own header says *"the runtime consumes the split body/hands
+    pair"*. It does not — nothing in the workspace names `gnu_ton_boss_body`,
+    `_hands`, `_full` or `giant_gnu_body`, and none of them has a `.ron`, so no
+    loader could reach them. A stale doc comment asserting a live contract.
+  * `gnu_ton_boss_full_spritesheet.png` is byte-identical to the manifested
+    `gnu_ton_boss_spritesheet.png` (same sha256, different inodes) — the
+    generator says so itself, "alias for _full (back-compat)". That duplicate
+    is ~5.1 MB across the four tiers and needs no ADR ruling to drop.
+
+diff --git a/scripts/generate_visual_quality_variants.py b/scripts/generate_visual_quality_variants.py
+index 8f1af6051..611f0fea1 100644
+--- a/scripts/generate_visual_quality_variants.py
++++ b/scripts/generate_visual_quality_variants.py
+@@ -731,6 +731,32 @@ def is_diagnostic_png(rel_path: Path) -> bool:
+     return name == "canonicals_contact_sheet.png" or name.endswith(_DIAGNOSTIC_SUFFIXES)
+ 
+ 
++def publishes_at_reduced_tier(rel_path: Path) -> bool:
++    """Whether a loose PNG belongs under `sprites_0_5x` / `_0_25x` / `_potato`.
++
++    ⛔ A PORTRAIT DOES NOT. `ambition_sprite_sheet/build.rs::bake_portrait_manifests`
++    collects portrait manifests from `assets/sprites` ONLY, and
++    `PortraitSheetRegistry::from_baked_table` reads nothing else — so a portrait
++    under a reduced tier has no road at runtime, no matter what is beside it.
++    487 such files (14.2 MB) were being published and could never be loaded.
++
++    ⭐ AND A CHEAPER ONE WOULD NOT BE WANTED IF IT COULD BE. Portrait draw size
++    is chosen by VIEWPORT, never by quality tier:
++    `DialogLayoutProfile::for_viewport` picks 56x62, 82x94 or 104x120 and
++    consults no quality setting. Against a 256x320 authored frame, `0_25x`
++    (64x80) is under the largest box at 1x and `potato` (16x20) is under the
++    SMALLEST at any scale. A tier below the box it is drawn into is not a
++    cheaper portrait, it is a blurrier one.
++
++    Used by BOTH the publish selection and `prune_orphans`, so the files already
++    on disk are removed by the same rule that stops new ones appearing. A policy
++    that only stopped publishing would leave the 14.2 MB in place forever,
++    because a reduced-tier portrait's source counterpart still exists at full
++    resolution and `prune_orphans` would keep it.
++    """
++    return not rel_path.name.endswith("_portraits.png")
++
++
+ def _resized_dim(original: int, scale: float, min_px: int) -> int:
+     return max(min_px, round(original * scale))
+ 
+@@ -1209,7 +1235,14 @@ def prune_orphans(src: Path, dst: Path) -> int:
+     for path in sorted(dst.rglob("*")):
+         if not path.is_file():
+             continue
+-        if (src / _source_counterpart(path.relative_to(dst))).exists():
++        rel = path.relative_to(dst)
++        if not publishes_at_reduced_tier(rel):
++            # the policy no longer publishes this at a reduced tier, so it is an
++            # orphan even though its full-resolution source is alive and well
++            path.unlink()
++            removed += 1
++            continue
++        if (src / _source_counterpart(rel)).exists():
+             continue
+         path.unlink()
+         removed += 1
+@@ -1305,8 +1338,14 @@ def generate_sprite_variants(
+     loose_srcs: list[Path] = []
+     for png in sorted(src.rglob("*.png")):
+         rel = png.relative_to(src)
+-        if png.resolve() in sheet_pngs or is_diagnostic_png(rel):
+-            continue  # a sheet page, or a human-only diagnostic that never ships
++        if (
++            png.resolve() in sheet_pngs
++            or is_diagnostic_png(rel)
++            or not publishes_at_reduced_tier(rel)
++        ):
++            # a sheet page, a human-only diagnostic that never ships, or a
++            # portrait, which is only ever baked at full resolution
++            continue
+         if selects(rel.with_suffix("").as_posix(), selectors) or selects(
+             png.stem, selectors
+         ):

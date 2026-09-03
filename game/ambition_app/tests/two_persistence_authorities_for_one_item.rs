@@ -30,8 +30,8 @@ const AUTHORED_REWARD_ITEM: Item = Item::GunSword;
 /// throws it — the mint happens on the ordinary pressed action.
 const COUNTED_ITEM: Item = Item::Javelin;
 
-type Custody = ambition_platformer2d::actors::items::pickup::ItemCustody;
-type Ground = ambition_platformer2d::actors::items::pickup::GroundItem;
+type Custody = ambition_platformer2d::held_items::ItemCustody;
+type Ground = ambition_platformer2d::held_items::GroundItem;
 type Held = ambition_platformer2d::combat::held_items::HeldItem;
 
 fn body(sim: &mut Platformer2dSimHarness) -> Entity {
@@ -120,7 +120,7 @@ fn hand_item(sim: &mut Platformer2dSimHarness) -> Option<Item> {
         .ok()
         .flatten()
         .cloned();
-    ambition_platformer2d::actors::items::pickup::item_in_hand(
+    ambition_platformer2d::held_items::item_in_hand(
         held.as_ref(),
         #[cfg(feature = "portal")]
         gun.as_ref(),
@@ -238,9 +238,9 @@ fn equip_the_counted_item(
     >,
 ) {
     let (player, mut action_set) = bodies.single_mut().expect("one primary body");
-    let spec = ambition_platformer2d::actors::items::pickup::held_spec_for_item(COUNTED_ITEM)
+    let spec = ambition_platformer2d::held_items::held_spec_for_item(COUNTED_ITEM)
         .expect("the javelin is a wired weapon with a held spec");
-    ambition_platformer2d::actors::items::pickup::equip_held_spec(
+    ambition_platformer2d::held_items::equip_held_spec(
         &mut commands,
         player,
         &mut action_set,

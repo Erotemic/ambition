@@ -44,7 +44,7 @@ Landed:
   restart.
 
 Remaining acceptance work
-(**this list is the single source; status.md and tracks.md refer here**):
+(**this list is the single source; [`status.md`](../status.md) and [`tracks.md`](../tracks.md) refer here**):
 
 - ✅ **The secret pipe and underground room** (landed 2026-07-21). A warp pipe
   between pits A and B drops into a coin vault dug under the ground slab, in the
@@ -205,6 +205,26 @@ Remaining acceptance work
   beacon walk to you like the wand, should 1-1 place a reachable second block
   earlier, or is "the reward waits up there and you must climb for it" the intended
   feel? Original investigation record below.
+
+  ⭐ **FILED AS DECISION 46 (2026-09-03)** in
+  [`../awaiting-maintainer-decision.md`](../awaiting-maintainer-decision.md),
+  which is where a question whose next step is Jon's authoring judgement
+  belongs. It arrived from the other end — writing the floor half of the form
+  ladder's acceptance test — and carries one fact this row does not have.
+
+  ⛔ **1-1's THIRD ladder block, at x=1920, STANDS OVER A PIT.** Measured by
+  dropping a body into each column: x=192 and x=960 both settle on floor at
+  y=400 and bonk normally; x=1920 lands her ON the block from above (centre 256,
+  feet on its top face) and, entered from below the face, drops her to y≈969 in
+  a 448-tall room — out of the world, dead, respawned at the level start. So
+  there is no standing position under it at all.
+
+  ⇒ That sharpens the option "should 1-1 place a reachable second block
+  earlier": the third block is not merely awkward to reach, it cannot be bonked
+  from the ground by any body. ⚠ It does NOT contradict this row's account of
+  the SECOND block — "past pit A, behind a warp pipe" is a route fact, and the
+  route is not what was measured here (the probe teleports into the column). The
+  new fact is about the third.
 
 - ✔ **RETIRED 2026-08-20 — the superseded "no way to get the fire flower" record.**
   It claimed *"nothing in the codebase has ever bonked a ?-block while

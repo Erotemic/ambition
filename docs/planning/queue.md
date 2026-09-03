@@ -405,6 +405,42 @@ The one unresolved developer-policy choice from the session-ownership work is in
 
 ## Current execution order
 
+- ▢ **THE FEATURE UNION IS RED: 48 failures against 6,968 passes, and 37 of
+  them are ONE system.** Measured 2026-09-03 at `dbfb1a2ca` by running the gate's
+  own union job standalone (`cargo test --workspace --no-fail-fast --features
+  <the 80-entry union>`, the exact command `run_tests.py --list` prints under
+  `--run-everything-you-probably-dont-need-this`). Four targets failed:
+  `ambition_demo_smash_app --test smash_it`, `ambition_demo_sanic_app --lib` and
+  `--test sanic_it`, `ambition_demo_mary_o_app --test mary_o_it`.
+  ⛔ **THE DOMINANT CAUSE IS A SINGLE PARAMETER.** 37 of the 48 are the same
+  panic: *"Encountered an error in system
+  `ambition_portal2d_presentation::view_cones::sync_portal_view_cones`:
+  Parameter `ConeRigAssets<'_>::meshes` failed validation: Resource does not
+  exist"*. `ConeRigAssets` takes `ResMut<Assets<Image>>`, `ResMut<Assets<Mesh>>`
+  and `ResMut<Assets<ColorMaterial>>`; the union puts `portal_render` into demo
+  compositions that never provision mesh assets, and Bevy 0.19 turns a missing
+  system parameter into a hard failure where 0.18 skipped. `view_cones.rs` was
+  last touched by the 0.19 port (`09bb065a9`), which is consistent with the port
+  having created this and nothing having run the combination since.
+  ⚠ **THE OTHER ~11 ARE A DIFFERENT CLASS AND MAY NOT BE DEFECTS AT ALL.** They
+  are mary_o assertions, and at least one fails BY CONSTRUCTION under an
+  all-features build: `the_presentation_plugin_adds_no_hud_and_no_menu` asserts
+  0 UI nodes and gets 40, which is what enabling every presentation feature at
+  once is *supposed* to do. Whether those tests should be feature-scoped, or the
+  union should exclude them, is a judgement for whoever owns the demos doctrine
+  — do not "fix" them by widening the assertion. The `painted_blocks` pair
+  (*"no block visual is drawing GeoId …"*) is a third thing again and unread.
+  ⇒ **The fix for the 37 is a design choice, which is why this is a row and not
+  a commit**: skip the system when its assets are absent (`If<…>`, or a
+  `resource_exists` run condition) versus provision the assets in every
+  composition that installs portal presentation. The first says a cone rig with
+  nowhere to draw should stand down; the second says the composition is
+  incomplete. Bevy's own message suggests the first.
+  ⛔ **AND THE REASON NOBODY SAW IT: the union job lives inside `if not only and
+  everything`**, so a default gate run never attempts it — the same blindness
+  the coverage footer now states as 783 tests across 29 crates (`65f4030b5`).
+  A per-crate green says nothing here, exactly as the jab-string row records.
+
 - ✔ **`hall_transition_cover` WAS RED IN PARALLEL, a SECOND-ORDER COST OF THE
   COMPOSITION FIX — CLOSED 2026-09-02 evening.** The fixture waits for FACTS now
   (`wait_for_a_session_room_set`, `settle_resident_pages` — every resident
@@ -632,6 +668,36 @@ The one unresolved developer-policy choice from the session-ownership work is in
 
 </details>
 
+- ✔ **DEV GRAVITY CYCLE PUBLISHES A REQUEST; THE SIM APPLIES IT (2026-09-03).**
+  `AmbientGravityRequest::Cycle` in `shared_tangle::gravity`; the hotkey and
+  the developer menu's Gravity row both WRITE it (the menu through
+  `Messages<_>` so a fixture without the gravity plugin renders the row as a
+  no-op rather than failing the menu system's parameter validation); the
+  kernel's gravity plugin applies it in the sim, chained before
+  `resolve_active_gravity`, so a request made this frame is felt this tick.
+  The waiver is gone and the guard reads 0 unwaived without it; unit guard
+  `a_cycle_request_is_applied_by_the_sim_and_steps_one_cardinal`. The row as
+  filed: `cycle_dev_gravity` (`game/ambition_app/src/menu/kaleidoscope_app.rs`) wrote
+  `BaseGravity` — a canonically rollback-registered resource — directly from
+  `Update`. In a rollback session that is a real desync source: the value is
+  restored on every rewind, the toggle is not replayed with it, and the peer
+  never saw the toggle at all. Nothing crashes; the runs simply drift.
+  ⭐ **The fix has a precedent rather than needing a design**: publish a request
+  the sim consumes, the `ClockScaleRequest` / D33 shape. Engine work, no product
+  judgement, small. (It was waived meanwhile in
+  `scripts/check_rollback_mutators_run_in_sim.py::WAIVERS` with this row named;
+  the waiver left with the fix.)
+  ▢ **And the same row owes a second question it must not assert.**
+  `restore_inventory_from_save` writes `BodyWallet` from `Update` while applying
+  a save. At session activation no sim tick has advanced, so there is nothing to
+  diverge from — but `session/durable_horizon.rs` states plainly that *"THE
+  `Update` ADOPTER STAYS. A file can also arrive after activation (a mid-session
+  load), and adoption is idempotent"*. ⇒ The pre-first-tick condition is **not
+  provable from the code** and is not claimed. Idempotence makes the write
+  consistent with itself, which is not the same as consistent with a peer that
+  never applied it. Someone who knows whether a mid-session load can happen
+  inside a live GGRS session should answer it; until then the waiver says so.
+
 - ▢ **D72 — continue Super Smash Siblings as a product/engine customer from the
   current parity inventory.** Do not resurrect the historical fun-push campaign.
   Re-read [`demos/smash-parity-inventory.md`](demos/smash-parity-inventory.md)
@@ -847,11 +913,159 @@ The one unresolved developer-policy choice from the session-ownership work is in
   clean.** Do not re-run the generalised form and act on its raw numbers without
   the per-module re-export cross-check — it over-reports by design.
 
+- ▢ **SIX WORKSPACE DEPENDENCY DECLARATIONS ARE NEVER NAMED IN THEIR CRATE'S
+  SOURCE — graph honesty, NOT a footprint win.** (Measured 2026-09-02.) Every
+  crate's `src/**/*.rs` was searched for each `ambition_*` dependency its
+  `Cargo.toml` declares:
+
+```text
+PLAIN (unconditional) edge, never used:
+  ambition_platformer2d        -> ambition_interaction
+OPTIONAL dep + feature, never used:
+  ambition_characters          -> ambition_causal        (feature `causal`)
+  ambition_platformer2d        -> ambition_sfx_bank
+  ambition_sim_view            -> ambition_portal2d
+  ambition_touch_input         -> ambition_cutscene
+  game/ambition_app            -> ambition_causal
+```
+
+  ⛔ **SIZE IT HONESTLY: REMOVING THESE CUTS NOTHING FROM THE CLOSURE.**
+  `ambition_interaction` is declared by six crates including
+  `ambition_platformer2d_actor_monolith`, so the facade's edge is redundant, not
+  load-bearing — the same fact the capability row above already states about all
+  sixteen never-asked-for crates ("gating a facade edge cuts nothing"). The
+  value is that the graph stops claiming an edge nobody uses.
+
+  ⇒ **The PLAIN one is worth cutting first**: the facade is what every game
+  links, and a declared-unused edge there is what the next reader will justify
+  rather than question.
+
+  ⛔⛔ **DO NOT REMOVE BLIND — it needs the compiler on each crate's feature
+  combinations.** Dropping an optional dep changes feature RESOLUTION, not just
+  a line, and only a build says what that does. ⇒ Left for the abilities carve
+  to pick up rather than done here.
+
+  ⚠ **What the scan can and cannot see, because the obvious caveat is the wrong
+  one.** A `cfg(feature)`-gated `use` IS visible to a text scan — control:
+  `ambition_content_pack` is an optional dep of `ambition_audio`,
+  `ambition_boss_encounter`, `ambition_characters` and `ambition_combat`, all of
+  which have `cfg(feature)` blocks, and the scan correctly did not flag any of
+  them. What it would miss is a macro-generated path or a build script; checked,
+  and only `ambition_app` has a `build.rs`, which does not mention `causal`. No
+  crate here renames a dependency with `package = "…"`, so the Cargo name is the
+  code name. Five further candidates were excluded because they ARE used, from
+  `tests/` rather than `src/` (`ambition_platformer2d_host` ×2,
+  `examples/capability_demo`, `ambition_app` → `ambition_demo_pocket`,
+  `ambition_content` → `ambition_content_cli`) — those are dev-dependency
+  questions, not unused ones.
+
 - ▢ **D33 — continue actor-monolith decomposition by coherent ownership.** Pick a
   carve that removes a real authority/dependency edge from the residual actor
   kernel, moves registration/tests with the domain, and improves capability or
   compile/test isolation. Do not carve by LOC and do not promise frame-time
-  improvement without a measurement. ⛔⛔ RE-MEASURED 2026-08-31: the owner doc's
+  improvement without a measurement.
+
+  ⭐ **WHAT EVERY CARVE OWES AFTER IT LANDS (added 2026-09-02, from three rows
+  that were stale within a week of the merge that closed them).** None of this is
+  new work invented for carves — it is the paperwork a merge does not touch,
+  because the code lives in one file and the claim about it lives in another:
+
+  1. **`python scripts/modules_md.py`** — must print *"MODULES.md up to date"*.
+     A carve moves modules; the maps are generated and go stale silently.
+     (Clean for all 71 crates as of 2026-09-03 — it was 70 the day before;
+     three carves added `ambition_held_items`, `ambition_world_items` and
+     `ambition_registry_core`, and one dev crate landed.)
+  2. **`python scripts/check_planning_citations.py`** — a carve renames or moves
+     the very symbols the planning rows cite. ⭐ **AND THEN `--vanished <the
+     carve's parent SHA>`**, which catches what the default run cannot see:
+     `SYMBOL` needs a `::`, so a BARE backticked name — the commonest form in
+     these docs — is never checked, and a carve's removals are usually spelled
+     bare. It reports a bare name that WAS a definition at that SHA and is not
+     one now; the name's own history supplies the precision, so nothing has to
+     guess what is "code-shaped". This is the removed/renamed half of item 4,
+     without item 4's `head -1` or its `length >= 8` heuristic.
+     ⛔ IT COMPARES REF→**HEAD**, NOT REF→THE CARVE, so run it while HEAD *is*
+     the carve. Run a day later, `--vanished <that carve>^` sweeps up every
+     removal since and attributes none of them — the three carves of 2026-09-02
+     returned 10, 1 and 0 hits when run on 09-03, and the 10 were mostly the
+     tier-cap revert, nothing to do with the carve named.
+     ⚠ AND PREFER A FRESH WINDOW to a wide one. Measured
+     2026-09-03 over a week: 37 hits, and on inspection essentially all were
+     rows RECORDING a removal ("Deleted: `FpsOverlayState`", "the view is
+     DELETED") rather than rows made stale by one — docs/planning is clean on
+     this axis, and a wide window is archaeology. A fresh window is not, because
+     the rows have not been rewritten in past tense yet.
+  3. **`python scripts/check_doc_links.py`**.
+  4. **The ▢ rows that NAME A SYMBOL the carve touched.** Three were found stale
+     in one sweep on 2026-09-02 (`bounded-perception`'s routing row, `queue.md`'s
+     `string_id!` row, and the capability-footprint count) — from three different
+     authors, none careless: a merge lands code and the row lives in a file the
+     merge never touches. Run this over your own range:
+
+     ```bash
+     git diff -U0 <base>..<head> -- '*.rs' | grep -E '^[+-][^+-]' \
+       | grep -oE '\b(fn|struct|enum|trait) [A-Za-z_][A-Za-z0-9_]*' | awk '{print $NF}' \
+       | awk 'length($0) >= 8 || /_/' | sort -u \
+       | while read s; do
+           grep -rn "\`[^\`]*\b$s\b[^\`]*\`" docs/planning --include=*.md | head -1
+         done
+     ```
+
+     ⚠ The two filters are load-bearing. Without `length >= 8 || /_/` the symbol
+     list is `and`, `id`, `str` and the output is thousands of English words;
+     without the BACKTICK requirement it matches prose rather than citations.
+     ⛔ And it only finds rows that NAME something — a row describing the carve
+     without naming a symbol ("the encounter adapter's seams still cross") stays
+     invisible and still has to be read.
+  5. **The capability footprint, if the carve ADDS a crate.** `closure_size` and
+     `never_asked_for_count` move in `capability-footprint-baseline.json`, and the
+     row above that quotes them must move in the same commit. It lagged twice.
+  6. **⛔ The debt ledger is not laundered**: the destination joins in the SAME
+     commit. A carve that only re-exports has moved nothing, and the source
+     crate's line count falling is not evidence on its own.
+  7. **⛔⛔ IF AN ABSENCE CONTRACT GOES RED, MOVE ITS EXCLUSION — DO NOT WIDEN
+     IT.** **Eleven of the 25** contracts in `check_absence_contracts.py` pin
+     *"this belongs to ONE file"* by EXCLUDING that file by path. A carve that
+     moves the owner makes the contract flag the NEW location — it reads as "my
+     carve broke an architectural rule" when it only moved the rule's home.
+     ⇒ Point the exclusion at the new path IN THE SAME COMMIT; widening the
+     paths or deleting the contract launders the rule the carve was meant to
+     preserve, and looks like a clean carve in the diff. ⚠ Such a contract is
+     invisible when you grep for the file it protects — it names that file in a
+     `:!` path rather than in its rule, which is why this is a table:
+
+     | If your carve moves… | it trips |
+     |---|---|
+     | `character_runtime/prepared_match.rs` | `a-second-writer-of-a-match-global-must-answer-ownership` |
+     | `character_runtime/presentation.rs` | `the-provider-resolver-is-confined-to-one-file` |
+     | `character_runtime/definition.rs` | `registration-does-not-demand-art` |
+     | `ambition_combat/src/moveset/mod.rs` | `ending-a-move-goes-through-the-one-teardown-path` |
+     | `avatar/starting_character.rs` | `the-motion-model-…`, `the-movement-tuning-…`, `the-catalog-axis-tuning-…`, `the-catalog-default-action-set-…` |
+     | `avatar/mod.rs` | `the-movement-tuning-resolver-is-confined-to-one-file` |
+     | `characters/src/prepared.rs` | `the-catalog-axis-tuning-…`, `the-catalog-default-action-set-…`, `registration-does-not-demand-art` |
+     | `characters/src/actor/character_catalog/mod.rs` | `the-catalog-axis-tuning-…`, `the-catalog-default-action-set-…` |
+     | `characters/src/brain/{fighter,state_machine,snapshot_impls,mod}` | `the-generic-brain-does-not-grow-new-platform-fighter-edges` |
+     | `app/versus.rs`, `demo_smash/src/lib.rs` | `the-global-roster-is-retired-only-by-its-owner` |
+     | `schedule/input_systems.rs` | `the-seat-topology-has-one-engine-side-creator` |
+     | `ldtk_tools/ldtk/paths.py` | `the-worlds-path-is-confined-to-ldtk-paths` |
+
+     ⚠ And `the-character-domain-is-not-named-after-a-character` guards ALL of
+     `crates/ambition_characters/` by PATTERN rather than by exclusion, so it is
+     live for any carve landing code there whichever file moves.
+     ✔ Since 2026-09-02 a parametrized test asserts every path a contract names
+     still EXISTS, so the quiet half of this rots loudly now: an exclusion left
+     behind guards a ghost, and an include root that vanishes makes the contract
+     scan nothing and pass forever.
+  8. **⚠ IF THE CARVE MOVES A CRATE, re-read its `WAIVED` prefix in
+     `rollback_coverage.rs`.** Twenty-two of that file's 31 waivers are
+     NAMESPACE-WIDE (`ambition_render::`, `ambition_input::`, …), so a crate
+     that moves or splits can leave a prefix covering nothing — or, worse,
+     covering types its reason never described, which the file itself warns
+     about. ⛔ There is no assertion for this on purpose: the audit is
+     `list_what_every_waiver_actually_covers`, an `#[ignore]`d listing meant to
+     be READ against each waiver's rationale. Run it after a crate move.
+
+  ⛔⛔ RE-MEASURED 2026-08-31: the owner doc's
   "only four dependencies are single-path" list is STALE — `ambition_dev_tools`
   and `ambition_mount` have 6 dependents, `ambition_items` 5, `ambition_damage`
   3, and the FACADE every game depends on names all four directly. ✔ ALL FOUR
@@ -1165,12 +1379,33 @@ The one unresolved developer-policy choice from the session-ownership work is in
   reads authored records. Neither has to move for the domain to leave, and
   neither needs an inversion designed first — which is what "one construction
   seam to resolve" (written an hour earlier, on the coarser cut) got wrong.
-  ⚠ The tests are a separate 1,789 lines (`pickup/tests.rs`) and are NOT included
+  ⚠ The tests are a separate 1,789 lines (`pickup/tests.rs`) and are NOT included <!-- cite-ok: the pre-cut path (moved to ambition_held_items 2026-09-03), kept as the record -->
   in that count; they move with the code and are most of the remaining work.
   ⚠ And the consumer surface is real: games name `actors::items::pickup::` about
   twenty times across `ambition_app`'s tests and the smash demo, so the carve ends
   with a facade export and a re-point, exactly as `ambition_world_items` did.
 
+  ✔ **CUT 2026-09-03: `ambition_held_items`.** The partition held as
+  measured (the plugin block and `restore_custody_to_checkpoint` stay; the
+  domain, `conditions.rs` and the tests move; `minted_horizon.rs` stays) with
+  one addition the checklist did not have: the `CoreHeldItems` chain was
+  thirteen links with the kernel's shrine, gun and match spawn INTERLEAVED
+  between the domain's steps, so `HeldItemStep {Release, Pickup, Use, Throw,
+  Settle, Physics, Residency}` became `shared_tangle` vocabulary first
+  (`4aabf8259`, guard by shape in the kernel) and the domain moved with its
+  chain intact. `HeldItemSimulationPlugin` configures `CoreHeldItems` end to
+  end (phase, custody edge, the seven steps) and registers its ten systems;
+  the kernel's `ItemPickupSimulationPlugin` keeps the two sibling variants,
+  the three-variant chain and its three attachments (`.before(Release)`;
+  `after(Use).before(Throw)`; `after(Throw).before(Settle)`). Guards:
+  `ambition_held_items::schedule_tests` (the plugin alone: phase, custody
+  edge, chain, one system per step, gating) and the kernel's
+  `held_item_steps` (its attachments, beside the domain's plugin). Rollback
+  baseline byte-identical; kernel 1,182 tests (31 moved with the domain, all
+  green there); footprint 45 → 46 declared. The name-based enumeration test
+  that moved could only pass by another crate's `bevy_ecs/debug` and was
+  replaced by the count guard. The execution order below is kept as the
+  record of what it predicted.
   ▢ **THE EXECUTION ORDER, so this is startable rather than merely sized.**
   Written after `ambition_world_items`, whose one surprise was step 2 — the
   systems' `configure_sets` rules, which live far from the `add_systems` line and
@@ -1183,8 +1418,8 @@ The one unresolved developer-policy choice from the session-ownership work is in
   2. The new crate takes everything in `items/pickup/mod.rs` EXCEPT the plugin
      block and `restore_custody_to_checkpoint` — ⚠ bound them by NAME, not by
      the line numbers above, which have already moved once, plus
-     `pickup/conditions.rs` (80 lines, zero `crate::` references) and
-     `pickup/tests.rs`. ⚠ `pickup/minted_horizon.rs` STAYS for now: its single
+     `pickup/conditions.rs` (80 lines, zero `crate::` references) and <!-- cite-ok: the pre-cut path (moved to ambition_held_items 2026-09-03), kept as the record -->
+     `pickup/tests.rs`. ⚠ `pickup/minted_horizon.rs` STAYS for now: its single <!-- cite-ok: the pre-cut path (moved to ambition_held_items 2026-09-03), kept as the record -->
      kernel reference is `session::durable_horizon::SaveRestored`, a one-field
      bool with 40 references across 13 files, which is its own move and not this
      one's.
@@ -1208,29 +1443,30 @@ The one unresolved developer-policy choice from the session-ownership work is in
   checkpoint policy, not item policy — but it should be stated in its doc
   comment, or the next reader will "fix" it by dragging it after the domain.
 
-  ⛔⛔ **AND A SECOND THING THAT IS NOT MECHANICAL, FOUND BY STARTING THE CUT AND
-  STOPPING (2026-09-02).** The partition itself is clean — 511 lines stay, 1,347
-  move, and they reconstruct the file exactly — and the new crate compiles down
-  to four missing deps (`ambition_entity_catalog`, `ambition_input`,
-  `ambition_mount`, plus an optional `ambition_portal2d` behind a `portal`
-  feature). ⚠ **What is NOT decided is who owns the SCHEDULE, and it is a fork
-  with a wrong branch:**
-  * `pickup/tests.rs` (1,789 lines, moving) does `app.add_plugins(super::ItemPickupSimulationPlugin)`
-    — the plugin that STAYS. So the moved tests cannot build their App without
-    either the kernel or a plugin of their own;
-  * if the new crate publishes its own plugin that also `configure_sets`, the
-    set rules exist in two crates — and `ItemPickupSet::CoreHeldItems` being
-    `.in_set(PlayerSimulation)` and `.after(BodyCustodySettled)` is exactly the
-    kind of fact that goes missing when it is split;
-  * if the kernel keeps all `configure_sets` and merely adds the new crate's
-    systems plugin, the new crate's own unit tests register systems into sets
-    nothing configured, so their ordering assertions pass vacuously.
-  ⇒ **Decide schedule ownership BEFORE cutting, and write the answer here.** The
-  sibling carve shipped a live phase-membership defect by moving `add_systems`
-  and leaving `configure_sets`; this fork is the same hazard one level up, and it
-  is not a thing to settle at the end of a long session.
-  ⚠ The scaffold built while finding this was deleted rather than left
-  half-landed — it was untracked and nothing was committed.
+  ✔ **THE SCHEDULE-OWNERSHIP FORK IS SETTLED, AND THE CUT IS SPEC'D END TO END:**
+  [`engine/pickup-carve-checklist.md`](engine/pickup-carve-checklist.md).
+  Starting the cut and stopping is what found the fork — the partition is clean
+  (511 lines stay, 1,347 move, verified to reconstruct the file) and the blocker
+  was never code: the moved tests build a plugin that STAYS, and every way of
+  splitting a set's rules from its systems loses something, one of them
+  silently. ⇒ Answered by the D33 rule in
+  [`engine/actor-monolith-decomposition.md`](engine/actor-monolith-decomposition.md)
+  — the carved crate's plugin does BOTH its `configure_sets` and its
+  `add_systems`; a set two crates order on is `shared_tangle` vocabulary with
+  exactly one configuring owner — plus the one thing that rule does not cover,
+  which the checklist carries: the three `ItemPickupSet` variants are `.chain()`ed
+  to each other and that INTER-VARIANT edge stays with the kernel.
+  ⭐ Worked precedent, the sibling carve now closed: `d220accee` (the fix) and
+  `dbec94824` (the guard — phase MEMBERSHIP by set-member COUNT, because Bevy
+  0.19 strips system names without `bevy_ecs`'s `debug` feature and a name lookup
+  is green or red depending on who else is in the build).
+  ⇒ **And it WAS mechanical once the fork was settled: cut 2026-09-03 as
+  `ambition_held_items` — the receipt is above.** ⚠ This paragraph predicted
+  "what remains is a CPU job rather than a design one" and that prediction is
+  spent; it is kept only because the sequence is the transferable part — the
+  cut was blocked by ONE design question, the question was answerable in
+  minutes once someone stated the three branches and their costs, and the 3,454
+  lines that followed needed no judgement at all.
 
   ⛔⛔ **AND THE "SIZED … BY REFERENCE" LINE ABOVE POINTS AT NOTHING, MEASURED
   2026-09-02 LATE.** Those counts (`ambition_encounter` 66, `ambition_mount` 57,
@@ -1373,7 +1609,7 @@ The one unresolved developer-policy choice from the session-ownership work is in
   membership differs (`hunny_horror_boss` alone is 59 edges nobody had counted).
   Left as prose rather than a number so it cannot go stale again.
   ⭐ THE INSTRUMENT LANDED 2026-09-02, and it RANKS because the separation it was
-  asked for CANNOT BE MADE. `tools/ambition_sprite2d_renderer/scripts/measure_clip_population.py`
+  asked for CANNOT BE MADE. `tools/ambition_sprite2d_renderer/scripts/measure_clip_population.py` <!-- cite-ok: on an unmerged submodule branch, deliberately -->
   (the renderer submodule's script, not this repo's `scripts/`), branch `d129-composited-frames` @ `c6a9712` — ⚠ NOT in the
   checked-in submodule pointer (`125adf8`), deliberately: the pointer is Jon's to
   move. ⛔⛔ **The drawing canvas IS the logical frame, so the ink beyond it was
@@ -1445,7 +1681,7 @@ The one unresolved developer-policy choice from the session-ownership work is in
   render here" qualifier on this row, and the worklist is the whole roster.
   ⭐ **THE RESULT IS ON THE RECORD, not just in this row**:
   `ambition_dev_measurements` branch `sprite-clip-census-20260902` @ `c0e3889`,
-  `summaries/sprite-clip-census-20260902.md` — the run, its provenance, and the
+  `summaries/sprite-clip-census-20260902.md` <!-- cite-ok: a path in ambition_dev_measurements @ c0e3889, not this repo --> — the run, its provenance, and the
   two caveats a reader must not lose. ⚠ The 228K per-edge JSON is deliberately
   NOT committed: that repo ignores `profiles/` by design and tracks only the
   readable half. ⛔ Neither submodule pointer is bumped — the instrument
@@ -1850,8 +2086,9 @@ The one unresolved developer-policy choice from the session-ownership work is in
   ⛔ AND THE CODE'S OWN DOC WAS WRONG TOO: the no-feature module claimed the take
   *"carries no `causal` array at all"*. It always carried `[]`.
 
-- ▢ **CAPABILITY FOOTPRINT: 44 crates linked, 16 a movement-only game never
-  asked for — and the count CANNOT fall by a manifest edit.** (Scheduled
+- ▢ **CAPABILITY FOOTPRINT: 46 crates linked, 19 a movement-only game never
+  asked for — and the count CANNOT fall by a manifest edit.** (⚠ this number has drifted FOUR times; `python3 scripts/check_absence_contracts.py | grep footprint` prints the live pair. 45/18 as of `479f9d3e4`, when `ambition_registry_core`
+  entered the closure; 46/19 as of `bbfa38a3d`, when `ambition_held_items` did.) (Scheduled
   2026-09-02 from ambition-da's docs pass; re-worded the same night after
   ambition-da re-derived it, `2068bcd31`.) The instrument is installed:
   `capability-footprint-may-not-grow` in `scripts/check_absence_contracts.py`
@@ -1867,23 +2104,44 @@ The one unresolved developer-policy choice from the session-ownership work is in
   migration over those 170 call sites; neither is mechanical. ⚠ A carve that
   adds a crate RAISES the count (`ambition_world_items`, 43 → 44: crates, not
   bytes) — the two lines of work must not be scored against each other, which
-  `engine/capability-and-runtime-composition.md` now says. Owed: the baseline's
-  `reachable_via_ambition_platformer2d_actor_monolith_alone` list is stale
-  (`ambition_damage`, `ambition_mount` entered 2026-08-26 after it was written);
-  ambition-da repairs it in one commit after the `items/` carve lands.
-- ▢ **`string_id!` IS DEFINED THREE TIMES, byte-identical; the owner is decided
-  by the dependency graph.** (Scheduled 2026-09-02.) `ambition_load` depends on
-  `bevy` and nothing else in the workspace; `ambition_game_shell` already depends
-  on it; `ambition_load_presentation` on both — so `#[macro_export]` on
-  `ambition_load`'s copy, delete two, no new crate or edge. Check the bevy
-  `default-features = false` mismatch and that the exported macro spells
-  `::core::fmt`; run the wasm CHECK (a macro move is a cfg-drift shape). Design:
-  `triage/stable-identifier-centralization.md`. Assigned to ambition-da.
+  `engine/capability-and-runtime-composition.md` now says. ✔ The baseline's sub-lists are repaired
+  (2026-09-03). The owed item named only the ENTERING half (`ambition_damage`,
+  `ambition_mount`, done at `f1445c142`); measuring found the other direction
+  was worse — FIVE crates that had left the closure were still listed as
+  reachable, so `reachable_only_through_the_facade` fell from four to one and
+  the 170 call sites above are really 90, `ambition_render` alone. ⭐ The two
+  lists are now equal: all 19 arrive through the monolith alone, so no facade
+  cut removes any of them, which makes the honest acceptance above stronger
+  rather than weaker. Guarded by
+  `scripts/tests/test_capability_footprint_baseline_is_coherent.py` — the
+  ratchet only ever looked for crates ENTERING.
+- ✔ **`string_id!` was defined THREE times; it is written once now.** Fixed by
+  `02a796d2c`, exactly as this row specified: `#[macro_export]` on
+  `ambition_load`'s copy (`crates/ambition_load/src/id.rs:19`), the other two
+  deleted, no new crate or edge. Re-verified 2026-09-03 —
+  `git grep "macro_rules! string_id"` returns ONE hit, and the three consumers
+  (`ambition_load`, `ambition_game_shell`, `ambition_load_presentation`) all read
+  it. ⛔ The `::core::fmt` requirement this row flagged is not only met but
+  written down where it can survive: the macro's doc comment says *"an exported
+  macro expands at the CALL SITE, where a `use std::fmt;` may not exist — relying
+  on one is the difference between a macro that moves and a macro that only
+  appears to"*, which is the one sentence a future edit would otherwise
+  rediscover. Design record: `triage/stable-identifier-centralization.md`.
 - ▢ **`ambition_registry_core`: R2 + R3 LANDED 2026-09-03 (crate + two pilots:
   construction, rollback; rollback baseline byte-identical); next is R4 — decide
   which of `PlacementLoweringRegistry` / `RoomContentStagingRegistry` migrate
   and which of the seven silent-overwrite registries must say "replace" in
-  place. Design and evaluation in `triage/ambition-registry-core.md`.** The
+  place. Design and evaluation in `triage/ambition-registry-core.md`.**
+  ✔ **R4's FIRST HALF IS ANSWERED IN CODE — re-read 2026-09-03: BOTH migrated.**
+  `PlacementLoweringRegistry` (`platformer2d_world/src/placements.rs:198`) takes
+  `RegistrationMeta` and `classify`. `RoomContentStagingRegistry`
+  (`actor_monolith/src/features/ecs/spawn/content_staging.rs:57`) takes `RegistrationMeta` and
+  `require_non_empty` and **deliberately does not take `classify`**, saying why
+  in place — *"NO `PartialEq`, AND THEREFORE NO `ambition_registry_core::classify`"*
+  — which is exactly the opt-out the crate's own docs prescribe for a registry
+  whose policy differs. ⇒ Four consumers now, not two. ⚠ The SECOND half of R4 is
+  untouched: the seven silent-overwrite registries still have to say "replace" in
+  place, and that is what remains of this row. The
   inventory row that preceded it, kept for the record:
   **INVENTORY THE 31 REGISTRIES BEFORE DESIGNING `ambition_registry_core`.**
   (Scheduled 2026-09-02.) 27 became 31 in six weeks; the only registry-shaped
@@ -2034,7 +2292,12 @@ product ruling.
   `awaiting gpu` frames of late-arriving art. AND since the readiness term
   landed, `asset_wait_ms` INCLUDES the upload and the reveal should show no
   `[image-gpu]` line after it — if one appears after the cover lifts, name the
-  file; it came by a road the manifest does not list.
+  file; it came by a road the manifest does not list. ⭐ And the DECODE half
+  (2026-09-03): at Full the hold is predicted ~3.5 s decode-bound on four IO
+  threads; a second walk with `AMBITION_IO_THREADS=8` (desktop host knob,
+  unset = Bevy's default of 4) beside the plain one says whether the cover's
+  `wait_ms` is the IO pool's — if it halves, the lever is threads; if it does
+  not, the lever is the sheet format.
   **Tells added 2026-09-02 evening, same walk:** (a) GAME START — the load
   screen shows a "Load the first room's art" row, and the `[image] … f NNN …
   sprites/player_robot_v3_spritesheet.png` line carries a FRAME STAMP ≤ the

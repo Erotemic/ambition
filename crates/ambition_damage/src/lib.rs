@@ -897,8 +897,16 @@ fn knockback_reaction_scale(knockback: Option<&ambition_combat::HitKnockback>) -
 // here is the PLAYER half: `apply_player_hit_events`, `publish_kernel_reset_death` and
 // `void_pending_player_hits_at_lifecycle_ boundaries` all take
 // `PlayerSafetyState`/`PlayerBodyFrameOutput`, which are the avatar's, not combat's.
+// ⛔ `pub`, NOT `pub(crate)`, AND THE PUBLIC API ALREADY SAID SO.
+// `BodyReactionApplied` is a `pub` message with a `pub reaction: BodyReaction`
+// field, so a downstream crate could always READ the value and could not NAME
+// its type -- the monolith's own `causal` tests died on
+// `error[E0603]: struct BodyReaction is private` trying to. It is `pub` in
+// `ambition_combat::hit_reaction`; this re-export was the only thing narrowing
+// it, and narrowing a type that a public field hands out is a leak rather than
+// an encapsulation. Found by the exhaustive plan 2026-09-03.
 #[cfg(feature = "causal")]
-pub(crate) use ambition_combat::hit_reaction::BodyReaction;
+pub use ambition_combat::hit_reaction::BodyReaction;
 pub(crate) use ambition_combat::hit_reaction::{apply_body_hit_reaction, BodyReactionOutcome};
 #[cfg(test)]
 pub(crate) use ambition_combat::hit_reaction::hit_response_tuning;

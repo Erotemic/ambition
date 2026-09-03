@@ -55,6 +55,10 @@ ambition_platformer2d_actor_monolith = { path = "../../crates/ambition_platforme
     "input",
     "portal",
 ] }
+# The pressed collectible (D33, 2026-09-03): the portal adapters equip/unequip
+# the gun through its held-spec road and order against its throw.
+ambition_held_items = { path = "../../crates/ambition_held_items", features = ["portal"] }
+ambition_body_seed = { path = "../../crates/ambition_body_seed" }
 ambition_sprite_sheet = { path = "../../crates/ambition_sprite_sheet" }
 ambition_projectiles = { path = "../../crates/ambition_projectiles" }
 ambition_render = { path = "../../crates/ambition_render" }

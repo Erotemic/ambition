@@ -290,7 +290,7 @@ fn velocity_transform_rotates_through_perpendicular_portals() {
 #[test]
 fn in_flight_ground_item_travels_through_the_portal_pair() {
     use crate::portal::{sync_ground_items_to_transitable, sync_transitable_to_ground_items};
-    use ambition_platformer2d_actor_monolith::items::pickup::GroundItem;
+    use ambition_held_items::GroundItem;
     let mut app = App::new();
     // The map convention is the session's, and the teleport reads it from here.
     app.init_resource::<ambition_portal2d::PortalTuning>();
@@ -322,7 +322,7 @@ fn in_flight_ground_item_travels_through_the_portal_pair() {
     let item = app
         .world_mut()
         .spawn(GroundItem {
-            spec: ambition_platformer2d_actor_monolith::items::pickup::axe_spec(),
+            spec: ambition_held_items::axe_spec(),
             pos: Vec2::new(20.0, 200.0),
             vel: Vec2::new(-300.0, 0.0),
             half_extent: Vec2::splat(12.0),

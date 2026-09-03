@@ -294,7 +294,12 @@ Ambition pain it would remove.
   explicitly deprioritized it relative to the main games.
 - ▢ **Sanic / Super Mary-O / Hollow Lite.** Retain their focused acceptance lists
   as movement/collision/world-authoring/encounter customers; do not duplicate
-  those lists here.
+  those lists here — they are
+  [`demos/sanic.md`](demos/sanic.md), [`demos/super-mary-o.md`](demos/super-mary-o.md)
+  and [`demos/hollow-lite.md`](demos/hollow-lite.md). ⚠ The links are the point,
+  not decoration: `demos/sanic.md` states that *"this list is the single source;
+  status.md and tracks.md refer here"*, and until 2026-09-03 neither file named
+  it, so the deferral was true and unfollowable.
 - ▢ **Player-facing authored-art repairs.** Morph-ball presentation, shrine/glider
   presentation and similar content fixes remain product work unless a reproduced
   defect demonstrates a reusable renderer/authoring-system problem.

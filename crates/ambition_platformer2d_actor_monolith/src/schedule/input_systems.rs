@@ -527,6 +527,18 @@ pub struct SeatBurstTriggerState(pub ambition_persistence::settings::GameplayEdg
 ///
 /// ✔ Latched. Every seat's frame folds into `SlotControlLatches` on the FEEL clock and drains
 /// on the TICK clock, so a tap that opens and closes between two ticks reaches the sim.
+///
+/// ⛔ GATED, and it was the one system in this module that was NOT. The module
+/// header states the rule -- *"All gated behind the `input` feature except the
+/// context claim"* -- `schedule/mod.rs` already re-exports it under the gate,
+/// and its sibling `populate_menu_control_frame_from_actions` carries the
+/// attribute. Without it `--no-default-features` failed with seven errors, all
+/// of them in this one body: `ActionState`,
+/// `Platformer2dInputActionMonolith`, `SeatBurstTriggerState` and the four
+/// `ambition_input` readers are every one of them behind `input` at the `use`
+/// site. Found by the exhaustive plan 2026-09-03; nothing but that lane builds
+/// this crate without its defaults.
+#[cfg(feature = "input")]
 pub fn populate_seat_control_frames(
     mode: Res<State<GameMode>>,
     // Whether a conversation stops the world for everybody. Default `false`

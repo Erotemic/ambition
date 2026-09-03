@@ -12,7 +12,7 @@
 use bevy::prelude::*;
 
 use ambition_combat::events::{HitEvent, HitMode, HitSource, HitTarget};
-use crate::items::pickup::{GroundItem, Release, ReleasedAs};
+use ambition_held_items::{GroundItem, Release, ReleasedAs};
 use ambition_platformer2d_core as ae;
 
 /// Held-item id the bomb grants.

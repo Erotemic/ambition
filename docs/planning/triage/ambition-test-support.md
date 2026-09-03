@@ -5,10 +5,11 @@
 > **RE-MEASURED against `92e60d62b` (2026-09-02), six weeks on. The problem is
 > still real and Layer 2 has largely LANDED UNDER ANOTHER NAME.**
 >
-> - `ambition_test_support` does not exist, and neither does the
->   `ambition_registry_core` proposed beside it in
->   [`ambition-registry-core.md`](ambition-registry-core.md). No Cargo.toml
->   mentions either name.
+> - `ambition_test_support` does not exist. ⚠ **`ambition_registry_core` NOW
+>   DOES** — landed `479f9d3e4`, after this was written; the sentence pairing
+>   the two is no longer true of both, and only the first half stands. See
+>   [`ambition-registry-core.md`](ambition-registry-core.md), which carries what
+>   the crate is and its four current consumers. (Corrected 2026-09-03.)
 > - ⭐ **But `crates/ambition_sim_harness` DOES**, extracted the same day this
 >   note was written (`6bcd53d45`, "Extract ambition_sim_harness below the
 >   product shell (track 4)") and already depended on by 6 manifests. Its

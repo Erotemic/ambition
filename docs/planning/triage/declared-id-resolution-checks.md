@@ -66,6 +66,14 @@ Do not recreate the old boot-time validation proposal or duplicate these tests.
    customer and this item is not "unfinished", it is ANSWERED. ⛔ Reopen only on a
    named site, never on the count.
 
+   ⚠ **Re-ran both greps 2026-09-02: the closure holds.** The silent-discard
+   shape is still ABSENT across `crates/` and `game/` — zero
+   `resolve*(..).unwrap_or(..)` and zero `.unwrap_or_default()` — and both guard
+   tests cited in item 1 still exist in `declared_art_resolves.rs`. Deliberately
+   not restating the resolver count: a multi-line-aware scan of `fn *resolve*`
+   returning `Option` counts definitions and gives a different number than the
+   pass above, and per the line directly above, the count is not what reopens
+   this.
    ⭐ **RE-RUN 2026-09-03, exactly as this item instructs — and the conclusion
    holds while one of its supporting numbers does not.**
    ✔ **The load-bearing result reproduces:** both silent-discard greps are still

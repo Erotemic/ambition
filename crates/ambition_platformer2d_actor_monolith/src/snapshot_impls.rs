@@ -11,7 +11,7 @@
 
 use ambition_platformer2d_core::snapshot::{
     put_bool, put_f32, put_i32, put_str, put_u32, put_u64, put_u8, put_vec2, Reader,
-    SnapshotCursor, SnapshotState,
+    SnapshotState,
 };
 
 // ── A live MATCH's per-body state (AA2 / AC2) ────────────────────────────────
@@ -263,27 +263,6 @@ impl SnapshotState for crate::features::stocks_match::StocksMatchSettled {
     }
 }
 
-// The orphan rule forced it the moment the type moved down: `SnapshotState` is core's and the type
-// is core's, so this crate may implement neither. Same shape as `BossEncounter` immediately below.
-
-impl SnapshotCursor for crate::features::ActorMotionPath {
-    fn encode_cursor(&self, out: &mut Vec<u8>) {
-        match &self.0 {
-            Some(motion) => {
-                let (segment, dir) = motion.cursor();
-                put_bool(out, true);
-                put_u32(out, segment as u32);
-                put_i32(out, dir);
-            }
-            // A body with no path is a state a body with a path can reach.
-            None => put_bool(out, false),
-        }
-    }
-}
-
-/// `Omniscient` reads the global `ActorTarget`; `Sighted` carries its viewport. Not a
-/// unit enum, so `snapshot_unit_enum!` cannot have it — but the discriminant is still
-/// explicit for exactly the same reason.
 impl SnapshotState for crate::features::ecs::perception::Perception {
     fn encode(&self, out: &mut Vec<u8>) {
         use crate::features::ecs::perception::Perception as P;

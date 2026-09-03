@@ -876,46 +876,12 @@ fn throwing_a_menu_equipped_item_mints_an_identity_under_the_thrower() {
     );
 }
 
-/// The production pickup plugin must register custody release for stow/equip
-/// so a held authored item can round-trip through inventory without losing its
-/// identity. The schedule is initialized explicitly before enumerating systems.
-#[test]
-fn the_production_plugin_registers_the_custody_release() {
-    let mut app = App::new();
-    app.add_plugins(super::ItemPickupSimulationPlugin);
-    let label = {
-        use ambition_platformer2d_shared_tangle::schedule::SimScheduleExt;
-        app.sim_schedule()
-    };
-    // Initialize the schedule against the app's world before enumeration.
-    let names: Vec<String> = app
-        .world_mut()
-        .resource_scope::<bevy::ecs::schedule::Schedules, Vec<String>>(|world, mut schedules| {
-            let schedule = schedules
-                .get_mut(label)
-                .expect("the plugin added systems to the sim schedule, so it exists");
-            schedule.initialize(world).expect("the sim schedule builds");
-            schedule
-                .systems()
-                .map(|systems| systems.map(|(_, s)| format!("{}", s.name())).collect())
-                .unwrap_or_default()
-        });
-    assert!(
-        !names.is_empty(),
-        "the sim schedule enumerated NO systems, so the assertion below could \
-         only ever fail — this measures the enumeration, not the registration"
-    );
-    assert!(
-        names
-            .iter()
-            .any(|name| name.contains("return_released_items")),
-        "`return_released_items` is not in the production sim schedule. The \
-         behaviour test below lists it in a chain of its own, so it stays GREEN \
-         when the registration is deleted — which is exactly how an authored axe \
-         goes back to ceasing to exist through the menu. Registered systems: {}",
-        names.len()
-    );
-}
+// The production plugin's registration of `return_released_items` is pinned
+// by SHAPE in `schedule_tests` (the Release step holds exactly one system):
+// the name-based enumeration that stood here read
+// `<Enable the debug feature to see the name>` for every system under
+// `-p ambition_held_items` and could only pass when some other crate in the
+// build turned `bevy_ecs/debug` on.
 
 /// Falsified by dropping `return_released_items` from the schedule below: the
 /// stowed axe stays `Held` by an empty hand, `items_in_world` reports 0, and the

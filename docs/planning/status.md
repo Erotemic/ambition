@@ -1,11 +1,13 @@
 # HEAD orientation
 
-**Reviewed baseline:** `abe196d9d` (2026-09-02 21:00Z, the day-end gate of the
-asset/planning goal: five of six gate jobs green at `be4b9969c`, the sixth a
-stale `MODULES.md` regenerated at `2739a927c`). The asset and performance
-sections were re-verified at this baseline; the rollback and item paragraphs at
-`881310ec7` (2026-09-02); other sections were last reviewed at `4e5f59cf`
-(2026-08-30).
+**Reviewed baseline:** `aa106cbe7` (2026-09-03 ~00:30Z, the second night's
+gate: workspace 6933/6933, five of six jobs green, the sixth three Python tests
+red on a missing Pillow in the tool venv — fixed in setup at `75fab498f`). The
+asset and performance sections were re-verified at this baseline (Jon's
+ruling on the room tier cap, the reveal barrier's host confirmation, the
+attention budget); the rollback and item paragraphs at `881310ec7`
+(2026-09-02) plus the world-item phase repair (`d220accee`); other sections
+were last reviewed at `4e5f59cf` (2026-08-30).
 
 This file is a current orientation page. It intentionally does not preserve the
 chronology of how the repository reached this state. Use git history, dated
@@ -228,8 +230,23 @@ deleted, and `extend_with_intro_sprite_entries` now adds intro PROPS only. ⛔ T
 ~26 MP is therefore a number for a road that no longer exists — it has NOT been
 re-measured, so treat it as "was", not as current waste, until a host boot says
 what the figure is now.
-The hall-entry fix itself (reveal barrier + gallery tier cap) still awaits its
-host confirmation; the tells are in `queue.md`.
+✔ **The reveal barrier's COUNT tells are CONFIRMED on the host (2026-09-02
+evening, `desktop-timeline-run-20260902T215256Z`)**: placeholder warnings
+111 → **0**, and `asset_wait_ms` 3 → **292** — the cover is up for the wait.
+Both are tier-independent.
+
+⚠ **THE TIMING TELL IS NOT CONFIRMED FOR THE SHIPPED PROGRAM, and this is not a
+formality.** That run also had the gallery tier cap, which was cutting the very
+decode load the barrier holds the cover for — the two fixes were measured
+together and only one of them survives Jon's ruling. So "frames over 33.4 ms
+after the last transition 9 → 0" is a fact about a program that no longer
+exists, and a re-walk at the user's tier owes that number. `queue.md` carries
+the checklist. Detail in `engine/asset-preparation-and-residency.md`.
+⛔ **And the "gallery tier cap" half of this sentence is spent**: Jon removed the
+room-level sprite tier cap on 2026-09-02 (*"I DO NOT WANT A LOWER QUALITY TIER
+FOR GALLERY PREVIEWS"*), so there is no tier-cap change left to confirm. The
+tier is the user's setting everywhere.
+⇒ What the same run says is still open is STARTUP, not the hall.
 
 Later the same day: sheet images load render-world-only by default
 (`68d38076e`; captures byte-identical, peak RSS −141 MB in the hall at
@@ -343,6 +360,10 @@ part of [`README.md`](README.md), not a second review-status ledger.
   architecture.
 - **Sanic, Super Mary-O, Hollow Lite, and focused demos** remain useful acceptance
   customers for movement, collision, authoring, encounters, and presentation.
+  Their acceptance lists are owned by [`demos/sanic.md`](demos/sanic.md),
+  [`demos/super-mary-o.md`](demos/super-mary-o.md) and
+  [`demos/hollow-lite.md`](demos/hollow-lite.md) — this page defers to them and
+  must not restate their status.
 - The external-consumer fixture is the proof that public capability/package
   boundaries work outside the flagship composition.
 

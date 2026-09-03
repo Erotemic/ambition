@@ -8,19 +8,42 @@ nothing looks wrong on screen, because the art is correct, merely larger than
 asked for. That is why it survived: the failure is invisible in the only place
 anyone looks.
 
+⭐ TWO INSTRUMENTS, TWO DIFFERENT FAILURES, AND NEITHER SEES THE OTHER'S.
+`check_quality_variants_are_fresh.py` asks whether a tier file is OLDER than the
+art it derives from — stale art at the right size. This one asks whether it is
+the same SIZE as the full sheet — current art at the wrong size. A megapixel
+census cannot tell those apart, and running only one leaves half the tree
+unchecked. Run both.
+
 ⛔⛔ THIS IS THE OPPOSITE OF A QUALITY REGRESSION. Jon's standing rule is that
 nothing may draw FEWER pixels than the setting asks for. These sheets draw MORE.
 Correcting them removes no pixels from any tier that requested them.
+
+⛔⛔ AND NOTHING IN THE REPOSITORY SETS `AMBITION_ASSETS_ARE_CANONICAL` — checked
+2026-09-02: not `run_tests.py`, not `.github/workflows/`, not `scripts/regen/`.
+So every test below the opt-in is **run by hand or not at all**. That is the
+right call for assertions about one machine's gitignored generated tree, and it
+means these are INSTRUMENTS YOU RUN, not guards that watch. The tests that
+actually watch are the unconditional fixture ones at the bottom of this file;
+they are what keeps this from being a check that cannot fail.
+
+⇒ Run the opt-in half deliberately, on a box whose assets you believe:
+`AMBITION_ASSETS_ARE_CANONICAL=1 python3 -m pytest <this file>`.
 
 ⭐ A RATCHET, NOT A WALL. Four sheets are already in this state and fixing them
 means regenerating committed art, which is not this test's call. The four are
 named with the date they were measured; the test fails on a FIFTH. Cousin of
 the compile-cost and doc-link ratchets.
 
-Measured 2026-09-02 by `scripts/measure_tier_variant_scaling.py`:
-`actor` 9.03 MP, `author` 8.36, `medic` 7.54, `officer` 8.64 — each identical at
-Full, 0_5x and 0_25x. A room asking for those tiers decodes 67.2 MP where the
-tier promises ~10.5.
+⛔ THE KNOWN LIST IS EMPTY, AND THAT IS THE FINDING. It held four names measured
+2026-09-02 on one machine (`actor` 9.03 MP, `author` 8.36, `medic` 7.54,
+`officer` 8.64 — each identical at Full, 0_5x and 0_25x, 67.2 MP where the tier
+promises ~10.5). A fresh-clone generation elsewhere produced all four correctly
+scaled. The variant script RESIZES for every module-kind target and cannot
+produce an unscaled tier; the unscaled copies came from the renderer's own
+`publish` CLI aimed at a tier dest, whose module `render` does `del opts`. So an
+unscaled variant is a per-tier-CLI trace, never an expected state — see the
+reconciliation in `docs/planning/engine/asset-preparation-and-residency.md`.
 """
 
 from __future__ import annotations
@@ -39,16 +62,26 @@ REPO = Path(
 )
 SCRIPT = REPO / "scripts/measure_tier_variant_scaling.py"
 
-# ⛔ KNOWN, MEASURED 2026-09-02, AND NOT A LICENCE. Each of these publishes a
-# 0_5x and a 0_25x variant identical in total page megapixels to its Full sheet.
-# Remove a name when its variants are regenerated; do NOT add one to make a red
-# test green — that is the whole thing this list exists to prevent.
-KNOWN_UNSCALED = {
-    "actor_spritesheet.ron",
-    "author_spritesheet.ron",
-    "medic_spritesheet.ron",
-    "officer_spritesheet.ron",
-}
+# ⛔⛔ EMPTIED 2026-09-02, WITH THE REASON, AFTER TWO BOXES DISAGREED.
+#
+# This list held `actor`, `author`, `medic`, `officer`. A fresh-clone generation
+# on another machine produced CORRECTLY SCALED variants for all four, and the
+# reconciliation says why: `generate_visual_quality_variants.py` sends every
+# `module`-kind target to `build_sheet_variant`, which RESIZES the full sheet.
+# Those four are module-kind, so through that script they scale.
+#
+# The unscaled copies came from a different road — the renderer's own `publish`
+# CLI aimed at a tier `--dest-root`, which calls the target module's `render`,
+# whose body is `del opts` and throws the `quality_scale` away.
+#
+# ⇒ So an unscaled variant is NOT the expected state anywhere; it is the trace
+# of a per-tier CLI render. A box carrying one should fail this test and fix it
+# by re-running the variant script. Encoding those four as "known" would have
+# taught every future reader that the tree is meant to look like this.
+#
+# Do NOT add a name to make a red test green — that is what this list exists to
+# prevent, and the reason it is empty rather than deleted.
+KNOWN_UNSCALED: set[str] = set()
 
 
 def load():
@@ -157,7 +190,14 @@ if __name__ == "__main__":
 # 2026-09-02: `performer` (9.03 MP) publishes neither 0_5x nor 0_25x, and is
 # byte-identical to `actor`, which publishes both and shrinks neither. The same
 # artwork therefore fails to get cheaper by TWO different mechanisms.
-KNOWN_MISSING_VARIANTS = {"performer_spritesheet.ron"}
+# ⛔ EMPTIED 2026-09-02 FOR THE SAME REASON AS `KNOWN_UNSCALED` ABOVE.
+# `performer`'s full sheet was rendered 2026-08-29, a week after this box last
+# ran the variant script — so its variants are absent here for the same reason
+# 82 other tier files are STALE here (`check_quality_variants_are_fresh.py`
+# reports both, and exits 1 on this checkout). That is one machine's
+# un-regenerated tree, not a property of the sheet, and encoding it as "known"
+# would teach a future reader that `performer` is expected to ship without tiers.
+KNOWN_MISSING_VARIANTS: set[str] = set()
 
 
 def missing_variants() -> dict[str, list[str]]:

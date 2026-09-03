@@ -196,6 +196,15 @@ pub use ambition_platformer2d_actor_monolith as actors;
 /// PRESSED pickup — a held weapon taken with `Attack` — which is a different
 /// domain that stayed.
 pub use ambition_world_items as world_items;
+/// The PRESSED collectible: `GroundItem`, `ItemCustody`, the held specs and
+/// the pickup / use / throw / physics / residency chain it owns (D33,
+/// 2026-09-03). Not under [`actors`] any more, for the same reason as
+/// [`world_items`]: `actors` IS the actor monolith, and the kernel keeps only
+/// checkpoint policy over these components.
+pub use ambition_held_items as held_items;
+/// The body seed every construction path spawns from; a game that builds an
+/// NPC by hand names it from here.
+pub use ambition_body_seed as body_seed;
 pub use ambition_platformer2d_core as engine_core;
 pub use ambition_platformer2d_host as host;
 #[cfg(feature = "ambition_platformer2d_ldtk")]
@@ -242,9 +251,7 @@ pub mod participant {
 #[cfg(feature = "ambition_items")]
 pub mod item {
     pub use ambition_items::{Inventory, Item, ItemGrantRequested, OwnedItems};
-    pub use ambition_platformer2d_actor_monolith::items::pickup::{
-        GroundItem, ItemCustody, ItemStruckBody, ItemWorldPos, SettledItem,
-    };
+    pub use ambition_held_items::{GroundItem, ItemCustody, ItemStruckBody, ItemWorldPos, SettledItem};
 }
 
 /// User-facing gameplay settings, when persistence/settings support is installed.
@@ -495,7 +502,7 @@ pub mod sim {
     pub use ambition_platformer2d_shared_tangle::physics::PhysicsSandboxSettings;
     pub use ambition_platformer2d_shared_tangle::schedule::{
         BossSteerSlot, GameMode, Platformer2dSimulationPhaseMonolith, PresentationSetupSet,
-        SimSchedule, SimScheduleExt, SimulationSetupSet,
+        SimSchedule, SimScheduleExt, SimulationSetupSet, WorldItemSet,
     };
 
     /// How device/screen/body axes are interpreted by scripted or participant input.
@@ -682,7 +689,7 @@ pub mod world {
     pub use ambition_platformer2d_shared_tangle::frame_env::ResolvedMotionFrame;
     /// The authored/base gravity and its resolved live field.
     pub use ambition_platformer2d_shared_tangle::gravity::{
-        gravity_dir_or_default, BaseGravity, GravityField,
+        gravity_dir_or_default, AmbientGravityRequest, BaseGravity, GravityField,
     };
     /// Everything needed to author a room, in one import.
     pub use ambition_platformer2d_world::prelude;

@@ -115,7 +115,7 @@ pub use ecs::actor_bundles::{
     ChestBundle, EnemyActorBundle, FeatureBaseBundle, FeatureLifecycleBundle,
     FeatureRenderedBundle, PickupBundle,
 };
-pub use ecs::actor_clusters::{ActorClusterSeed, ActorMotionPath, ActorMut};
+pub use ecs::actor_clusters::ActorMut;
 // ⭐ NAMED FROM `ambition_combat`, where the actor's kit vocabulary and its
 // config now live (D33, 2026-08-27). Re-exported here only because the
 // monolith's own module tree is a public surface many callers still walk.

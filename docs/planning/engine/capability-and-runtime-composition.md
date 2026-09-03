@@ -36,8 +36,17 @@ Its demonstrated value is:
 >
 > `scripts/check_absence_contracts.py` runs
 > **`capability-footprint-may-not-grow`**, which reports the program's headline
-> number every time the gate runs: **43 crates linked, 16 of them a
-> movement-only game never asked for.** It ratchets — a new crate entering the
+> number every time the gate runs: **45 crates linked, 18 of them a
+> movement-only game never asked for** (`479f9d3e4`, when
+> `ambition_registry_core` entered the closure).
+> ⛔ **DO NOT RETYPE IT — re-derive:**
+> `python3 scripts/check_absence_contracts.py | grep footprint`, which prints
+> the live pair from `scripts/baselines/capability-footprint-baseline.json`.
+> ⚠ It has now drifted FOUR times — 43/16 → 44/16 → 44/17 → 45/18 — and the
+> fourth happened INSIDE the edit that corrected the third, hours apart. A
+> hand-copied ratchet value is a claim with nothing holding it, which is the very
+> failure §2e is about; the command is the only form of this fact that stays
+> true. It ratchets — a new crate entering the
 > minimal consumer's closure turns it RED, naming each one — and its failure
 > text is this page's §2e in one sentence: *"a perfectly semantic API can still
 > force a movement-only game to compile and link every unrelated gameplay
@@ -116,14 +125,22 @@ answer is that the cheap version of this work is already finished.
   nothing. A game that needs actors needs the monolith, and the monolith brings
   them. That is the §4 carve condition, i.e. `actor-monolith-decomposition.md`
   (D33) — not a manifest edit.
-- ⚠ **Two of the 16 were never classified**, and re-deriving them is what cost
-  the time this note exists to save. `ambition_damage` and `ambition_mount`
-  entered the closure on 2026-08-26, AFTER the baseline's
-  `reachable_via_ambition_platformer2d_actor_monolith_alone` list was written, so
-  that list has 16 entries which are not the same 16 as `never_asked_for`. Both
-  are unconditional facade edges AND monolith dependencies
-  (`ambition_platformer2d_actor_monolith/Cargo.toml`), so both behave like
-  `ambition_audio`: cuttable at the facade, worthless to cut.
+- ✔ **CLOSED 2026-09-03 — the two lists are the same set again, and it now
+  says something stronger.** `ambition_damage` and `ambition_mount` entered the
+  closure on 2026-08-26 after the
+  `reachable_via_ambition_platformer2d_actor_monolith_alone` list was written and
+  were classified at `f1445c142`; the drift in the OTHER direction was found the
+  same week and was larger — five crates that had LEFT the closure were still
+  listed as reachable, because the ratchet reports crates that ENTER and nothing
+  looked the other way. Pruned against a live re-measurement (46, zero entered,
+  zero left), and guarded by
+  `scripts/tests/test_capability_footprint_baseline_is_coherent.py`.
+  ⇒ **All 19 that a movement-only game never asked for arrive through the
+  monolith alone** — the two lists are now literally equal — so no facade cut
+  removes a single one. `ambition_render` is the only crate reachable only
+  through the facade, and it is asked for (90 in-repo call sites). Both of the
+  2026-08-26 pair behave like `ambition_audio`: cuttable at the facade,
+  worthless to cut.
 
 ⭐ **And the baseline records why "make the edges optional" undersold itself the
 first time.** The four facade-only crates are named through `ambition::` by
@@ -211,7 +228,11 @@ the same day that edge landed. Anyone re-measuring should run
 `scripts/check_absence_contracts.py` rather than a fresh `cargo tree`.
 
 ⭐ **What an independent measurement DID add**, having agreed with the baseline
-at `closure_size = 45`: the closure is insensitive to what a consumer asks for.
+at the `closure_size` of the day (45 then; 46 since `bbfa38a3d` added
+`ambition_held_items` — the pair drifts with every carve, so
+`python3 scripts/check_absence_contracts.py | grep footprint` prints the live
+one rather than this sentence): the closure is insensitive to what a consumer
+asks for.
 `fixtures/external_consumer` requests TWO capabilities and
 `fixtures/minimal_game` requests ONE, and both inherit the SAME ten optional
 capability crates. The baseline uses only the one-capability sentinel, so this is

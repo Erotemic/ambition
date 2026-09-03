@@ -366,8 +366,18 @@ impl PluginGroup for PlatformerEnginePlugins {
             .add(ambition_platformer2d_actor_monolith::avatar::trail::PlayerTrailPlugin)
             // Gravity zones/switches + the ambient-gravity snapshot.
             .add(ambition_platformer2d_actor_monolith::gravity::GravityPlugin)
-            // Item pickup simulation: the PRESSED pickup (a held weapon taken
-            // with `Attack`), plus throw, custody and the ground-item physics.
+            // The PRESSED collectible: a held weapon taken with `Attack`, its
+            // use, throw, ground physics and custody-driven residency, and
+            // the schedule they own (`ItemPickupSet::CoreHeldItems`, configured
+            // end to end by this plugin — D33, 2026-09-03).
+            .add(ambition_held_items::HeldItemSimulationPlugin)
+            // The kernel's residue of that domain: the two sibling variants
+            // (thrown-item effects, wielded abilities), the three-variant
+            // chain, and the shrine / gun / match-spawn systems that attach to
+            // the domain's steps. ⛔ Composed beside the domain's plugin, not
+            // adding it: a composition with only this plugin gets the chain and
+            // no core; with only the domain's, a core and no chain. Order
+            // between the two does not matter — each configures its own sets.
             .add(ambition_platformer2d_actor_monolith::items::pickup::ItemPickupSimulationPlugin)
             // ⭐ ITS SIBLING, AND THE TWO ARE COMPOSED HERE RATHER THAN ONE
             // ADDING THE OTHER: the TOUCHED collectible — where it is, whether

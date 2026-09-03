@@ -63,9 +63,19 @@ note is trying not to make.
 - ⛔ **"multiple simultaneously resident rooms" is UNBUILT, and the model is
   singular by type.** `RoomSet` carries `pub active: usize`
   (`crates/ambition_platformer2d_world/src/rooms/room_graph.rs:142`) — ONE index,
-  not a set — and no residency-state type exists anywhere in `crates/`. Portals
-  do not change this: `ambition_portal2d` is room-scoped state that is cleared on
-  room reset, not a second resident room.
+  not a set — and no ROOM-residency state type exists anywhere in `crates/`.
+  Portals do not change this: `ambition_portal2d` is room-scoped state that is
+  cleared on room reset, not a second resident room.
+  ⚠ **Re-checked 2026-09-03 and narrowed from "no residency-state type" to "no
+  ROOM-residency state type", because the looser wording is now falsifiable by a
+  grep that proves nothing.** `crates/ambition_sprite_sheet/src/fx.rs` gained
+  `FxResidency { Core, OwnedByCharacter }` (`06a494f4e`), which is ASSET
+  residency — whether a sheet decodes at boot or with the character that names
+  it — a different axis entirely. `RoomResidencyOwners` likewise exists, in
+  `game/`, and is the room-commit retire set rather than a second resident room.
+  ⇒ The argument here is untouched: `RoomSet.active` is still a `usize`, checked
+  at the line cited above. Only the sentence needed narrowing, so a reader who
+  greps `Residency` does not read a hit as a refutation.
 - ◐ **"resource budgets for resident rooms, views, assets and background work" —
   ONE of the four is runtime policy and three are TEST RATCHETS**, which is a
   distinction worth keeping: a test budget fails a build, it does not bound a

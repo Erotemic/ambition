@@ -90,6 +90,51 @@ _MUTABLE_PARAM_TYPE = re.compile(
 # which is a strong claim and should read like one — so both entries below cite
 # the code that makes them true rather than asserting it.
 WAIVERS: dict[str, str] = {
+    # ── added 2026-09-02 with the widening, triaged by ambition-df ───────────
+    # These six appeared the moment `rollback_types` stopped reading one file.
+    # Each is waived with the reason its drift across a rewind does not matter,
+    # in this table's existing idiom: state what was CHECKED, not what the name
+    # suggests.
+    "ask_for_the_split_observer_view": (
+        "⛔ a CAPTURE BINARY, never a rollback host. "
+        "`game/ambition_demo_twintrack_app/src/bin/capture_twintrack.rs` builds "
+        "its own app to record a comparison; it starts no GGRS session, so "
+        "`TwinTrackExperiment` has no timeline to be inconsistent with."
+    ),
+    "materialize_projectiles_for_this_tick": (
+        "⛔ the FIGHTER HARNESS builds its OWN app and cannot be composed into a "
+        "rollback host. Checked rather than inferred: `fighter_harness.rs` does "
+        "`App::new()` + `MinimalPlugins` and steps it with `self.app.update()`; "
+        "the file contains no GGRS/rollback reference of any kind; and "
+        "`FighterHarness` appears in exactly ONE file in the workspace — its own "
+        "— so no composition can hand it a session. `ProjectileSeqCounter` "
+        "therefore never rewinds under it. One reason for all three harness "
+        "systems."
+    ),
+    "spawn_projectiles_from_brain_actions": (
+        "⛔ fighter harness — same composition as "
+        "`materialize_projectiles_for_this_tick`: it steps the sim from `Update` "
+        "with no rollback host, so `BodyKinematics`/`BodyMelee` do not rewind."
+    ),
+    "tick_body_cooldowns": (
+        "⛔ fighter harness — same composition again. Checked at the registration, "
+        "not inferred from the file name: `fighter_harness.rs` adds all three of "
+        "these to `Update` in the app it builds itself, and that app installs no "
+        "GGRS host, so `BodyMelee` is never restored and there is no history for "
+        "the cooldown tick to be inconsistent with."
+    ),
+    "restore_inventory_from_save": (
+        "⚠ WAIVED FOR THE ACTIVATION CASE ONLY, AND THE OTHER CASE IS OPEN. "
+        "It writes `BodyWallet` from `Update` while applying a save. At session "
+        "activation no sim tick has advanced, so there is no history to diverge "
+        "from. ⛔ BUT THE CODE EXPLICITLY SUPPORTS A MID-SESSION LOAD — "
+        "`durable_horizon.rs` says 'THE `Update` ADOPTER STAYS. A file can also "
+        "arrive after activation (a mid-session load), and adoption is "
+        "idempotent' — so the pre-first-tick condition is NOT provable from the "
+        "code and is not asserted here. Idempotence makes the write consistent "
+        "with itself, which is not the same as consistent with a peer that never "
+        "applied it. Queue row owes the mid-session question."
+    ),
     "handle_ldtk_hot_reload": (
         "⛔ a hot reload DISCARDS the rollback timeline rather than continuing "
         "it. `restart_local_ggrs_after_hot_reload` runs in the same module and "
@@ -175,13 +220,28 @@ def _production_sources(repo: Path = REPO) -> tuple[tuple[Path, str], ...]:
 
 @functools.cache
 def rollback_types(repo: Path = REPO) -> set[str]:
-    """Every type registered for canonical rollback, by its bare name."""
-    registry = repo / ROLLBACK_REGISTRY.relative_to(REPO)
-    if not registry.is_file():
-        return set()
+    """Every type registered for canonical rollback, by its bare name.
+
+    ⛔⛔ THIS READ ONE FILE UNTIL 2026-09-02, AND THE GUARD WAS GREEN OVER 1% OF
+    ITS OWN STATED POPULATION. It scanned only
+    `crates/ambition_platformer2d_runtime/src/rollback/mod.rs`, which holds a
+    single `rollback_component_canonical::<…>` — `MovingPlatformSet`. The
+    workspace holds **87 such registrations across 10 files, naming 113 types**
+    (`ambition_characters`, `ambition_combat`, `platformer2d_core`,
+    `actor_monolith`, `shared_tangle`, `projectiles`, …). So "4 systems mutate
+    rollback state, none registered into a non-rewinding schedule" read as a
+    clean bill of health for rollback and certified one type.
+
+    ⭐ Registration is DISTRIBUTED — each crate owns its own
+    `rollback_registration.rs` — so any single-file registry is a snapshot of
+    one crate, not the source of truth this docstring always claimed to read.
+    Scanning the same production sources the mutator scan uses keeps the two
+    halves over one population by construction.
+    """
     return {
         m.group(1).strip().split("::")[-1]
-        for m in _CANONICAL.finditer(registry.read_text(errors="replace"))
+        for _path, text in _production_sources(repo)
+        for m in _CANONICAL.finditer(text)
     }
 
 

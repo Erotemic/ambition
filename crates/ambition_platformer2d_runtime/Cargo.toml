@@ -21,6 +21,7 @@ ambition_platformer2d_actor_monolith = { path = "../ambition_platformer2d_actor_
 # `WorldItemSimulationPlugin`, composed beside `ItemPickupSimulationPlugin`
 # above so neither item domain registers the other.
 ambition_world_items = { path = "../ambition_world_items" }
+ambition_held_items = { path = "../ambition_held_items" }
 # The registration protocol the rollback registry answers (blank identity
 # refused, new/idempotent/conflict, canonical rows). Dependency-free.
 ambition_registry_core = { path = "../ambition_registry_core" }
@@ -96,7 +97,7 @@ causal = ["dep:ambition_causal", "ambition_platformer2d_actor_monolith/causal", 
 # Forward the sim-relevant feature gates so a consumer can opt into the same
 # optional subsystems the plugin group conditionally bundles. Kept minimal for
 # the first assembly; widened as more plugins migrate in.
-portal = ["dep:ambition_portal2d", "ambition_platformer2d_actor_monolith/portal"]
+portal = ["dep:ambition_portal2d", "ambition_held_items/portal", "ambition_platformer2d_actor_monolith/portal"]
 # The LDtk runtime spine and its rollback row, offered to a game that has an
 # LDtk world. Default-OFF: see the dependency's own note.
 ldtk = ["dep:ambition_platformer2d_ldtk", "ambition_platformer2d_ldtk/ldtk_runtime"]

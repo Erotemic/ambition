@@ -11,6 +11,7 @@
 | [`entity`](src/entity.rs) | The encounter as a first-class ENTITY. |
 | [`events`](src/events.rs) | `EncounterEvent` — the output stream of the encounter lifecycle reducer and the wave director. |
 | [`lifecycle`](src/lifecycle.rs) | Generic encounter lifecycle authority. |
+| [`mob_seed`](src/mob_seed.rs) | The wave-mob spawn REQUEST vocabulary. |
 | [`music`](src/music.rs) | The single encounter→audio music-intent stream. |
 | [`objective`](src/objective.rs) | Generic encounter OBJECTIVES (§5): a small predicate vocabulary over participants, elapsed time, and received signals. |
 | [`participants`](src/participants.rs) | Generic encounter PARTICIPANTS (§3): membership as relations, not boss-specific `Vec<Entity>`. |
@@ -24,7 +25,7 @@
 | [`timeline`](src/timeline.rs) | Generic encounter TIMELINE (§6): ordered beats `{ when: Trigger, then: [Effect] }` that advance as triggers fire. |
 | [`waves`](src/waves.rs) | Wave POLICY: the spawn-cadence director for wave/arena encounters. |
 
-_17 crate-root modules. Regenerate: `python scripts/modules_md.py --write`._
+_18 crate-root modules. Regenerate: `python scripts/modules_md.py --write`._
 
 <!-- END generated module map -->
 

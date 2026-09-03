@@ -84,7 +84,7 @@ pub fn blink_system(
     // ⭐ EVERY DRIVEN BODY, not the one the primary seat happens to hold.
     // `ControlledSubject` is singular by construction, so a possessed body or a
     // second seat holding the same item simply never acted.
-    driven: crate::items::pickup::DrivenBodies,
+    driven: ambition_held_items::DrivenBodies,
     mut bodies: Query<(
         Entity,
         ae::BodyClusterQueryData,
@@ -135,7 +135,7 @@ pub fn blink_system(
         let gravity_dir = resolved_frame.down();
         let facing = cluster_item.kinematics.facing;
         let dir =
-            crate::items::pickup::ability_aim_world(&c, facing, gravity_dir).normalize_or_zero();
+            ambition_held_items::ability_aim_world(&c, facing, gravity_dir).normalize_or_zero();
         if dir == ae::Vec2::ZERO {
             continue;
         }

@@ -8,6 +8,12 @@ the FULL page at every stage — decode, upload, residency — while the tier sy
 believes it saved 4x or 16x, and nothing looks wrong on screen because the art
 is correct, merely larger than asked for.
 
+⭐ AND IT IS NOT THE FRESHNESS CHECK. `check_quality_variants_are_fresh.py`
+asks whether a tier file is OLDER than the art it derives from; this asks
+whether it is the same SIZE as the full sheet. Stale art at the right size and
+current art at the wrong size are different failures with different fixes, and
+a megapixel census cannot tell them apart.
+
 ⛔⛔ THIS IS THE OPPOSITE OF A QUALITY REGRESSION AND MUST NOT BE CONFUSED WITH
 ONE. Jon's standing rule is that nothing may draw FEWER pixels than the setting
 asks for. This measures sheets that draw MORE — full-resolution art delivered
@@ -21,9 +27,21 @@ repacks per tier: `noether`'s 0_5x page is TALLER than its Full page
 total across pages is genuinely smaller. Measured by page dimensions alone this
 script reported six offenders; measured by what residency actually pays, four.
 
+⭐ `--ages` ANSWERS THE QUESTION THE OFFENDER LIST CANNOT: is a bad variant a
+LEFTOVER from an earlier render, or did the generator produce it in the same run
+as its own full-resolution sheet? Those have different fixes, and a clean regen
+elsewhere only settles the first. Measured 2026-09-02: three of the four were
+written WITHIN MINUTES of their own full sheet — a live defect, not staleness —
+while `officer`'s variants predate its full sheet by ten hours, which is the
+other mechanism.
+
+⚠ mtimes are per-machine and a copy rewrites them; read the CONTRAST inside one
+tree, never the absolute dates.
+
 Usage:
     scripts/measure_tier_variant_scaling.py
     scripts/measure_tier_variant_scaling.py --all          # every sheet, not just offenders
+    scripts/measure_tier_variant_scaling.py --ages         # stale leftover, or made now?
 """
 
 from __future__ import annotations
@@ -110,9 +128,56 @@ def collect() -> dict[Path, dict[str, tuple[float, int]]]:
     return rows
 
 
+def report_ages(names: list[str]) -> None:
+    """For each named sheet, when its variants were written against its own
+    full-resolution sheet and against the tier's median.
+
+    ⛔ THE MEDIAN IS THE CONTROL. A variant that is merely old tells you
+    nothing; a variant that is old *while the rest of its tier is new* was
+    skipped by the run that rewrote the others.
+    """
+    import datetime
+    import statistics
+
+    for tier, _ in TIERS[1:3]:
+        tier_dir = ASSETS / tier
+        sheets = list(tier_dir.glob("*_spritesheet.png"))
+        if not sheets:
+            continue
+        times = sorted(sheet.stat().st_mtime for sheet in sheets)
+        median = statistics.median(times)
+        print(
+            f"\n{tier}: {len(sheets)} sheets, median "
+            f"{datetime.datetime.fromtimestamp(median):%Y-%m-%d %H:%M}"
+        )
+        for name in names:
+            variant = tier_dir / f"{name}_spritesheet.png"
+            full = ASSETS / "sprites" / f"{name}_spritesheet.png"
+            if not variant.exists() or not full.exists():
+                print(f"   {name:<12} absent at this tier")
+                continue
+            at = variant.stat().st_mtime
+            gap = (at - full.stat().st_mtime) / 3600
+            verdict = (
+                "SAME RUN as its own full sheet — a live generator defect"
+                if abs(gap) < 1
+                else f"written {gap:+.1f} h from its own full sheet — regenerated apart"
+            )
+            print(
+                f"   {name:<12} {datetime.datetime.fromtimestamp(at):%Y-%m-%d %H:%M} "
+                f"({(at - median) / 86400:+.1f} d vs median, "
+                f"rank {sum(1 for x in times if x < at)}/{len(times)})  {verdict}"
+            )
+
+
 def main(argv: list[str]) -> int:
     ap = argparse.ArgumentParser(description=__doc__)
     ap.add_argument("--all", action="store_true", help="every sheet, not just offenders")
+    ap.add_argument(
+        "--ages",
+        action="store_true",
+        help="was an offending variant left over, or made in the same run?",
+    )
     args = ap.parse_args(argv)
 
     rows = collect()
@@ -162,6 +227,13 @@ def main(argv: list[str]) -> int:
                 (per["sprites"][0] for rel, per in rows.items() if rel.name == name), 0.0
             )
             print(f"  {full_mp:6.2f} MP  {name:<44} missing {', '.join(absent)}")
+    if args.ages:
+        named = [rel.name.replace("_spritesheet.ron", "") for rel, _, _ in offenders]
+        if not named:
+            print("\nno offenders to age-check.")
+        else:
+            report_ages(named)
+
     if offenders:
         wasted = sum(mp for _, full, failed in offenders for mp in failed.values())
         asked = sum(

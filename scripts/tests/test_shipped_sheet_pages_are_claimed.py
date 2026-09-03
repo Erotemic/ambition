@@ -11,6 +11,17 @@ pages, 92.0 MB**, from four sheets whose manifests are single-page (`image:
 time the sheet was multi-page. A sheet's pages resolve ONLY through its
 manifest, so these are unreachable by construction.
 
+⛔⛔ AND NOTHING IN THE REPOSITORY SETS `AMBITION_ASSETS_ARE_CANONICAL` — checked
+2026-09-02: not `run_tests.py`, not `.github/workflows/`, not `scripts/regen/`.
+So every test below the opt-in is **run by hand or not at all**. That is the
+right call for assertions about one machine's gitignored generated tree, and it
+means these are INSTRUMENTS YOU RUN, not guards that watch. The tests that
+actually watch are the unconditional fixture ones at the bottom of this file;
+they are what keeps this from being a check that cannot fail.
+
+⇒ Run the opt-in half deliberately, on a box whose assets you believe:
+`AMBITION_ASSETS_ARE_CANONICAL=1 python3 -m pytest <this file>`.
+
 ⭐ A RATCHET, NOT A WALL. The four are named with the date they were measured;
 the test fails on a FIFTH. Whether the existing four are stale outputs or a
 live generator defect is what a clean regen on another machine decides — this
@@ -323,6 +334,46 @@ def test_reduced_tier_portraits_are_counted_even_when_a_ron_claims_them(tmp_path
     assert [str(p.relative_to(tmp_path)) for p in found] == [
         "sprites_0_5x/alice_portraits.png"
     ], "the full-resolution portrait is reachable; the reduced one is not"
+
+
+def test_the_age_signal_separates_stale_from_still_produced(tmp_path):
+    """⭐ THE DISTINCTION THE BUCKETS COULD NOT MAKE ON THEIR OWN. "Left by an
+    earlier render" and "the pipeline makes this every time" look identical in a
+    file listing, and they have different fixes: a clean regen elsewhere removes
+    the first and REPRODUCES the second. Measured 2026-09-02, every stranded page
+    predates its manifest (44/44) while the unmanifested sheets and reduced-tier
+    portraits are mostly same-run — so yardrat's regen settles one bucket and
+    cannot settle the other two.
+    """
+    module = load()
+    old_file = tmp_path / "old.png"
+    new_file = tmp_path / "new.png"
+    reference = tmp_path / "ref.ron"
+    old_file.write_bytes(b"x")
+    reference.write_bytes(b"x")
+    new_file.write_bytes(b"x")
+    import os
+
+    os.utime(old_file, (0, reference.stat().st_mtime - 86400))
+    os.utime(new_file, (0, reference.stat().st_mtime + 86400))
+
+    signal = module.age_signal([old_file, new_file], lambda _p: reference)
+    assert signal["comparable"] == 2
+    assert signal["older_than_reference"] == 1
+    assert signal["same_run_or_newer"] == 1
+
+
+def test_the_age_signal_reports_zero_comparable_rather_than_a_verdict(tmp_path):
+    """⛔ A missing reference must not read as 'not stale'. With nothing to
+    compare against, the honest output is `comparable: 0` and no counts — a
+    bucket silently scored 0-older/0-newer would print STILL PRODUCED."""
+    module = load()
+    orphan = tmp_path / "a.png"
+    orphan.write_bytes(b"x")
+    assert module.age_signal([orphan], lambda _p: None) == {"comparable": 0}
+    assert module.age_signal([orphan], lambda _p: tmp_path / "gone.ron") == {
+        "comparable": 0
+    }
 
 
 def test_key_does_not_resolve_through_a_symlink(tmp_path):

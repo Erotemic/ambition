@@ -4,6 +4,7 @@
 //! invariants — all driven through the cluster scratch views without a renderer.
 
 use super::*;
+use crate::features::ecs::actor_clusters::SeedActorMut;
 use ambition_combat::events::{FeatureCombatTuning};
 
 /// Build a peaceful actor (the unified cluster) with a patrol radius and a
@@ -15,7 +16,7 @@ fn world_with_patrolling_npc(
     patrol_radius: f32,
 ) -> (
     ae::World,
-    super::ecs::actor_clusters::ActorClusterSeed,
+    ambition_body_seed::ActorClusterSeed,
     ambition_characters::brain::Brain,
     ae::BodyClusterScratch,
 ) {
@@ -43,7 +44,7 @@ fn world_with_patrolling_npc(
             brain_override: None,
         },
     );
-    let (seed, _render) = super::ecs::actor_clusters::ActorClusterSeed::new_peaceful_npc(
+    let (seed, _render) = ambition_body_seed::ActorClusterSeed::new_peaceful_npc(
         id.clone(),
         id.clone(),
         aabb,
@@ -79,7 +80,7 @@ fn world_with_patrolling_npc(
 /// brain snapshot, tick the catalog brain into a frame, then integrate the
 /// body through the unified `ActorMut::update`.
 fn tick_peaceful(
-    seed: &mut super::ecs::actor_clusters::ActorClusterSeed,
+    seed: &mut ambition_body_seed::ActorClusterSeed,
     brain: &mut ambition_characters::brain::Brain,
     world: &ae::World,
     target: ae::Vec2,
@@ -306,7 +307,7 @@ fn aerial_enemy_respects_world_collision_against_a_wall() {
         ],
     );
     let aabb = ae::Aabb::new(ae::Vec2::new(200.0, 300.0), ae::Vec2::new(20.0, 16.0));
-    let mut enemy = super::ecs::actor_clusters::ActorClusterSeed::new(
+    let mut enemy = ambition_body_seed::ActorClusterSeed::new(
         "shark_a",
         "Burning Flying Shark",
         aabb,
@@ -371,7 +372,7 @@ fn patrol_enemy_respects_world_collision_against_a_wall() {
         start_offset_seconds: 0.0,
     };
     let paths = vec![("skitter_path".to_string(), path)];
-    let mut enemy = super::ecs::actor_clusters::ActorClusterSeed::new(
+    let mut enemy = ambition_body_seed::ActorClusterSeed::new(
         "path_skitter",
         "path_skitter",
         aabb,
@@ -435,7 +436,7 @@ fn sideways_wall_contact_is_reported_without_mutating_facing() {
         ],
     );
     let aabb = enemy_aabb(ae::Vec2::new(286.0, 300.0));
-    let mut enemy = super::ecs::actor_clusters::ActorClusterSeed::new(
+    let mut enemy = ambition_body_seed::ActorClusterSeed::new(
         "sideways_walker",
         "sideways_walker",
         aabb,
@@ -508,7 +509,7 @@ fn slug_step_on_platform(platform_velocity: ae::Vec2) -> f32 {
         vec![platform],
     );
     let aabb = ae::Aabb::new(ae::Vec2::new(200.0, 492.0), ae::Vec2::new(10.0, 8.0));
-    let mut enemy = super::ecs::actor_clusters::ActorClusterSeed::new(
+    let mut enemy = ambition_body_seed::ActorClusterSeed::new(
         "slug",
         "PuppySlug",
         aabb,
@@ -575,7 +576,7 @@ fn a_normal_actor_surface_normal_tracks_live_gravity() {
             )],
         );
         let aabb = ae::Aabb::new(ae::Vec2::new(500.0, 500.0), ae::Vec2::new(14.0, 23.0));
-        let mut enemy = super::ecs::actor_clusters::ActorClusterSeed::new(
+        let mut enemy = ambition_body_seed::ActorClusterSeed::new(
             "walker",
             "Goblin",
             aabb,
@@ -625,7 +626,7 @@ fn movement_integration_does_not_auto_turn_at_a_wall() {
         ],
     );
     let aabb = ae::Aabb::new(ae::Vec2::new(500.0, 476.0), ae::Vec2::new(14.0, 23.0));
-    let mut body = super::ecs::actor_clusters::ActorClusterSeed::new(
+    let mut body = ambition_body_seed::ActorClusterSeed::new(
         "walker",
         "Snake",
         aabb,
@@ -669,7 +670,7 @@ fn stopping_in_open_space_preserves_facing() {
         )],
     );
     let aabb = ae::Aabb::new(ae::Vec2::new(500.0, 476.0), ae::Vec2::new(14.0, 23.0));
-    let mut body = super::ecs::actor_clusters::ActorClusterSeed::new(
+    let mut body = ambition_body_seed::ActorClusterSeed::new(
         "fighter",
         "fighter",
         aabb,

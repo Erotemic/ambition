@@ -346,8 +346,13 @@ a FLOOR and says so. Guarded by
 `test_room_reveal_tells_are_read_from_the_log.py`, whose BEFORE fixture is the
 2026-09-01 capture's shape — 111 warnings, `asset_wait_ms=3`, nine spikes of
 89-355 ms after the transition line. The hitches now happen
-UNDER the cover, which is what a cover is for; the tier cap (3a) makes them
-small; the upload pacer / render-world-only knobs below make them smaller.
+UNDER the cover, which is what a cover is for; the upload pacer /
+render-world-only knobs below make them smaller. ⛔ **This sentence used to name
+"the tier cap (3a)" as a third thing making them small — that mechanism was
+REMOVED by Jon's ruling the same day** (§3a), so it is not a lever any more, and
+the measurements that had it running (the hall leg of the
+2026-09-02 timing tell) inherited a condition the shipped program no longer
+has.
 
 **Two mechanisms, and the lever for each — to MEASURE, not yet to change:**
 
@@ -373,7 +378,8 @@ small; the upload pacer / render-world-only knobs below make them smaller.
   touch overlay, render targets) that never go through the funnel.
   Measurement (`capture_scene hall_of_characters player … --warmup 400`,
   Quarter, llvmpipe): the two captures are **byte-identical** (md5
-  `c0312413be50`) and peak RSS is **1533 MB → 1392 MB**; the 141 MB is the
+  `c0312413be50` <!-- cite-ok: an md5 of the capture, not a commit -->) and
+  peak RSS is **1533 MB → 1392 MB**; the 141 MB is the
   hall's 131 MB of decoded pages plus their extract clone. On the 3090 the
   same CPU bytes leave the process at every tier (2.2 GB at Full was mostly
   this copy), and the extract zone becomes a move.
@@ -1037,6 +1043,83 @@ speaks, not that a manifest would resolve it.
 
 The tell after Jon's relPath retarget is the same two spikes gone or halved.
 
+### ✔ 2c. WHY THE 111 WERE ONLY *DECLARED* AT REVEAL — answered 2026-09-02 by reading
+
+The goal named three candidate causes — prefetch scope, retired realizations, or
+re-decode. **It is prefetch scope plus rationing, and the other two are ruled
+out at their source.**
+
+⛔ **NOT RETIRED REALIZATIONS.** `demote_stale_realizations(active)` retires a
+sheet only when `asset.requested_tier != active`, and its caller
+(`character_runtime/mod.rs:855-870`) computes `active` from the USER's budget
+alone — *"ONE tier, the user's, everywhere. The room a character stands in has no
+say (Jon, 2026-09-02: no lower tier for gallery previews)"* — then early-returns
+through `has_stale_realizations`. A hall entry changes no tier, so it demotes
+nothing. ⇒ This hypothesis was live only while a room-level cap existed; **Jon's
+ruling removing that cap (§3a) also removed this cause.**
+
+⛔ **NOT RE-DECODE.** The census reports `re-decodes N` directly and the hall
+runs measured 0.
+
+⭐ **IT IS THE PREFETCH SCOPE, AND THE RATION MAKES IT VISIBLE FOR SECONDS.**
+The cover waited on a manifest that held *"only the realized sheets' pages"*, so
+a character that content had DECLARED but nothing had materialized was never
+part of what the barrier waited for. Materialization is then rationed:
+`MAX_CHARACTERS_MATERIALIZED_PER_FRAME = 1`, and the budget is spent in areal
+units where **a Full-tier character costs 16 and a Quarter costs 1**
+(`materialization_units`). ⇒ At Full, one character per frame — 111 of them is
+~111 frames, which is the three seconds of art the capture recorded arriving in
+the open.
+
+⇒ **The reveal-barrier fix addresses exactly this**: the barrier now waits for
+every PLACED character rather than every realized one, so a `Declared` sheet
+with no terminal outcome holds the cover. ✔ Confirmed on the host — 111 → 0
+placeholder warnings, `asset_wait_ms` 3 → 292, nine frames >33.4 ms → zero.
+
+ⓘ The ration itself is untouched and should stay: it is what keeps the
+materialization from becoming one enormous frame. The fix moved the WAIT, not
+the pace.
+
+### ✔ 2d. WHAT IS LEFT IN THE STARTUP BURST, ITEM BY ITEM — 2026-09-02
+
+The hall is fixed and the same run says the remaining host hitch is STARTUP. So
+the 7 notable decodes before `room-loaded` were each asked *why are you here?*
+
+```text
+7.6 MP  game://…/player_robot_v3_spritesheet.png  LDtk editor-preview tileset  → FIXABLE
+7.6 MP  sprites/player_robot_v3_spritesheet.png   the player's own sheet       → needed
+3.0 MP  vanity_card_parts.png                     the boot card ON SCREEN      → needed
+2.0 MP  boss_spritesheet.png                      fallback boss body           → eager by design
+1.3 MP  sprite_packs/full/ultrapack_4.png         intro_cart's pack page       → needed
+1.2 MP  generic_exotic_fx_spritesheet.png         engine core fx               → needed
+1.0 MP  <runtime-generated>                       an atlas/render target       → not content
+```
+
+⇒ **ONE of the seven is removable, and it is the largest.** The LDtk
+editor-preview tileset is 7.6 MP the runtime never draws; the prepared patch
+takes it to ~0.54 MP. Everything else is either on screen at that moment
+(vanity card), the thing the player is about to be (the player sheet), or
+deliberately eager (the fallback boss body — one sheet every boss may need).
+
+⛔ **So after the retarget the startup burst is IRREDUCIBLE WITHOUT A PRODUCT
+DECISION** — not showing the boot card, or making the fallback boss body lazy.
+Both are Jon's calls and neither is an engine defect. ✔ **And §2's engine-side question is answered by the capture
+itself: they ARE two `AssetId`s.** The same file decoded TWICE in one run — a
+single id would have been served from `Assets<Image>` the second time, which is
+what the ledger's `re-decodes` term counts and it read 0, because by path they
+are two different assets. Bevy keys an asset by `(source, path)` and never by
+bytes, so `game://sprites/x.png` and `sprites/x.png` cannot dedupe however
+identical the file is. ⇒ **A cover that waited for both would pay twice**, and
+the retarget is therefore the right fix rather than a symptom patch: it removes
+one of the two demands instead of trying to merge them.
+
+▢ What remains is a DESIGN question nobody needs to answer today: whether the
+asset layer should dedupe by content hash across sources. It would have caught
+this and it is a large change for one known instance.
+
+⚠ Bounded by the same sample as §2: `[image]` prints only decodes ≥ 1.0 MP, so
+these seven stand for 252 images / 78.3 MP and the small remainder is unaudited.
+
 ### 3. Pace expensive completion, not declarations
 
 Staging/demand and expensive materialization are different operations. Declare
@@ -1062,7 +1145,14 @@ covered load at the price of compute threads the cover does not need; and the
 PNG format itself (a QOI or zstd-raw sheet decodes several times faster — a
 pipeline change, Jon's). A bigger COVERED ration would not help the host (it is
 not ration-bound there) and would only shorten this VM's number. The host walk
-at Full measures which bound applies; do not add the knob before it.
+at Full measures which bound applies. The threads half is a knob now
+(`AMBITION_IO_THREADS=8`, desktop host only, `cli.rs`
+`ambition_task_pool_plugin`; unset = Bevy's default) so the walk can be an
+A/B in one sitting: same route twice, the cover's `wait_ms` and the
+`[image-census]` `insert→gpu` terms side by side. Headless on this VM the
+hold is the ration floor (135 frames) and the knob cannot move it — which is
+the prediction for a NON-decode-bound host too, and the reason the number
+has to come from the 3090.
 
 ### 3a. ⛔⛔ REMOVED 2026-09-02 BY JON'S RULING: there is NO room-level sprite tier cap
 
@@ -1159,7 +1249,7 @@ sheet, 44 MP at Quarter, 7 frames under the cover on a warm page cache vs 32
 cold). That is the eviction question stated with numbers: today's policy is
 "retire everything the destination does not place", and a budget policy
 would instead keep the last room's cast resident while the total stays under
-a limit. ⚠ Still open: the limit itself (a host number — `resident_mb` at
+a limit. ✔ **THE NUMBER IS NOW IN EVERY CAPTURE'S OWN SUMMARY** (2026-09-02): the bundle summary's *Assets and render resources* section prints `Resident image BYTES at end` — 313.1 MB on `desktop-timeline-run-20260902T215256Z`. It lives only in the `[image-census]` stderr line; `asset_activity.csv` counts resident IMAGES and carries no byte column, which is why this had been "waiting on a host number" that every capture already contained. ⚠ Still open: the limit itself (a host number — `resident_mb` at
 Full on the 3090 after a hub→hall→hub walk is the input), and the neighbour
 prefetch remains the only road that decodes in the open on purpose.
 ⛔ **AND THE 2026-09-02 HOST RUN DOES NOT SUPPLY IT, though it looks like it
@@ -1431,6 +1521,174 @@ at the main checkout's, file by file — `sprites_0_25x/author_spritesheet.png`
 here IS `/home/joncrall/code/ambition/...` there. I measured one set of bytes
 twice and called the second read independent evidence.
 
+⭐⭐ **AND THE "WAIT FOR A CLEAN REGEN" DEFERRAL IS NO LONGER THE ONLY ROAD —
+MEASURED 2026-09-02, `--ages`.** The leading alternative to a generator defect
+was that these are leftovers an earlier render abandoned. They are not: at BOTH
+reduced tiers the four are the NEWEST files present (ranks 201–204 of 205),
+written 2026-08-27, 4.5 days after the tier's median of 08-22.
+
+```text
+sheet      0_5x    0_25x   its own full sheet   reading
+actor      09:48   09:49   09:47                same run as its full sheet
+author     09:52   09:53   09:52                same run as its full sheet
+medic      09:46   09:46   09:46                same run as its full sheet
+officer    09:50   09:51   19:53                variants predate it by 10 h
+```
+
+⇒ **Three of the four were written within MINUTES of their own full-resolution
+sheet**, so a live run produced a full sheet and an unshrunk "reduced" one
+together — a generator defect on that code path, not stale output. ⛔ **`officer`
+is a DIFFERENT mechanism**: its variants predate its own full sheet by ten
+hours, i.e. its full sheet was re-rendered later and its variants were never
+regenerated. A fix aimed only at the first mechanism leaves `officer` broken.
+
+⚠ mtimes are per-machine and a copy rewrites them; the evidence is the contrast
+inside one tree — the four being the newest files at their tier while the tier's
+median is four days older is the part that carries the argument.
+
+⭐⭐ **AND `actor` IS THE PRE-RENAME DUPLICATE OF `performer` — TRACED
+2026-09-02 BY ASKING THE GENERATOR INSTEAD OF READING IT.**
+`discover_all_targets()` reports 51 `config` and 158 `module` targets, and
+**`actor` IS NOT IN THE REGISTRY AT ALL.** `Actor` was renamed to `Performer`
+(recorded in `awaiting-maintainer-decision.md` §44), and
+`sprites/actor_spritesheet.png` is **byte-identical** to
+`sprites/performer_spritesheet.png` — same sha256, different inodes in both the
+worktree and the main checkout, so this is real duplication and not a symlink.
+**Nothing in the workspace names `actor` as a sprite target.**
+
+⇒ That explains two of the five names at once, and neither is a live generator
+defect: `actor`'s reduced variants are **pre-rename leftovers the generator can
+never regenerate**, because it no longer knows the name; and `performer` has
+**no** variants because the new name never had any generated. ⇒ **18 `actor_*`
+files, 14.5 MB, ship as a manifested, bakeable target nothing requests.**
+
+⛔ **THREE HYPOTHESES DIED ON THE WAY, recorded so nobody retraces them.** (1)
+"Sheets lacking `source_frame_width` fail to downscale" — 54 of 54 that declare
+it are fine, but so are 147 of 151 that do not, so it is necessary-at-best and
+explains nothing. (2) "The 08-27 run produced them" — `generic_world_fx` was
+written that same day and is fine. (3) "They are the YAML-authored `config`
+targets that re-render instead of downscaling" — the exact opposite:
+`alice`, which downscales correctly, IS `config`; `author`/`medic`/`officer` are
+`module`. ⭐ I built all three by reading the generator and comparing configs;
+the answer came from RUNNING `discover_all_targets()` and asking it.
+
+ⓘ **A SWEEP FOR OTHER DEAD TARGETS FOUND ONE, AND THE SWEEP'S BOUNDS ARE THE
+INTERESTING PART.** Of 212 sheet targets, exactly one is BOTH absent from
+`discover_all_targets()` AND unnamed by engine or content: `pirate_heavy_v2`
+(10 files, 2.58 MB, unique bytes — not a duplicate of the four named
+`pirate_heavy_*` sheets). ⛔ **The other 27 targets nothing names ARE NOT A
+FINDING**: they are authored characters not yet wired, and content breadth is
+not gated here — a guard over them would pressure exactly the thing the project
+wants unpressured. No ratchet was written for this.
+
+⚠ **The sweep is bounded in both directions and neither bound is small.** A
+quoted-string grep over `.rs`/`.ron`/`.json` alone reports **106** of 212 dead,
+because the character catalogs are YAML and `git grep` does not enter
+submodules. A bare-name grep over every text type reports **ZERO**, because the
+renderer defines a module per target and `assets/sprites/<name>_spritesheet.yaml`
+names itself — a generated file naming itself is not a reference. The usable
+predicate excludes the asset trees and the renderer, and it still MISSES
+`actor`, whose bare name collides with `ACTOR_CONSTRUCTION_DOMAIN = "actor"`.
+⇒ Short target names cannot be settled by grep; `actor` was found by asking the
+registry, not by searching.
+
+⭐⭐ **✔ MECHANISM FOUND 2026-09-02 — `author`, `medic` and `officer` SHARE A
+RENDERER FAMILY WHOSE SHEET PATH TAKES NO QUALITY SCALE.** All four of
+`performer`, `author`, `medic`, `officer` — and no other target — import
+`targets/characters/_authored_swing_fighter.py`. That module's two entry points
+do not agree:
+
+```python
+def render(self, out_dir, actor_metadata: dict):            # the SHEET — no scale
+def render_portraits(self, out_dir, *, clips=None, quality_scale=None):
+```
+
+and each target's `build_spritesheet` calls `_FIGHTER.render(out_dir, ACTOR_METADATA)`,
+dropping `opts` entirely — so the sheet renders at full resolution whatever tier
+was asked for, while the portrait path threads the scale through.
+
+⛔ **AND SOMEONE ALREADY FIXED THIS ONCE, FOR THE OTHER HALF.** `render_portraits`
+carries the comment *"⛔ A QUALITY TIER SCALES THE PORTRAIT TOO. Ignoring
+`quality_scale`…"* — the same defect was found and fixed for portraits, and the
+sheet path beside it was never given the same treatment. ⇒ The cluster that kept
+reappearing all day — four names sharing three symptoms — is **one shared module**,
+and `actor` is only in it because `actor` is `performer`'s old name.
+
+⛔⛔ **AND THAT IS NOT THE ROAD THE TIER FILES COME FROM — CORRECTED THE SAME
+DAY, after yardrat's fresh-clone generation produced CORRECTLY SCALED variants
+for all four.** Two boxes disagreeing is what forced the reconciliation; the
+mechanism above is real and it is not what bit here.
+
+**WHICH ROAD PRODUCES A TIER FILE TODAY.**
+`generate_visual_quality_variants.py` chooses per sheet:
+`source_publishable_targets()` keeps only `kind == "config"` targets, and a unit
+gets `target` set only if it is in that dict AND its `.ron` sits directly in
+`assets/sprites`. Those go to `publish_source_quality_target` — a **re-render**
+at `quality_scale`. **Everything else, including every `module`-kind target,
+goes to `build_sheet_variant`, which RESIZES the full sheet's isolated frames.**
+`author`, `medic`, `officer` and `performer` are `module`-kind, so through this
+script they take the resize road and scale correctly.
+
+⇒ **That is why a fresh box is clean and this one is not.** A fresh clone's
+tiers are produced entirely by that script. This box's four files were written
+2026-08-27 09:46–09:53, minutes after their own full sheets, by a DIFFERENT
+invocation: the renderer's own `publish` CLI, which takes `--quality-scale` and
+`--dest-root`, calls `render_sheet(out_dir, **opts)` and installs straight into
+the tier directory. For a `module` target that lands in `medic.render`, whose
+body is:
+
+```python
+def render(out_dir: str | Path, **opts):
+    del opts                      # ⛔ quality_scale, explicitly discarded
+    return _FIGHTER.render(out_dir, ACTOR_METADATA)
+```
+
+⇒ **CAN THE RENDER DEFECT STILL BITE? Yes, but only one way in.** A direct
+renderer `publish`/`render` aimed at a tier `--dest-root` renders full size and
+installs it, silently, because `del opts` throws away the scale the caller
+passed. It cannot bite through `generate_visual_quality_variants.py` at all. ⇒
+So the tier files on any box that ran only the variant script are correct, and
+the ratchet must NOT encode this box's stale per-tier render as the expected
+state — `KNOWN_UNSCALED` is emptied, and a box with stale renders now fails,
+which is the truthful outcome because those files really are wrong there.
+
+⭐⭐ **AND THE WIDER CONTEXT, WHICH THE ROW WAS MISSING: THIS BOX'S VARIANT TREE
+HAS NOT BEEN REGENERATED SINCE 2026-08-22.** `check_quality_variants_are_fresh.py`
+already exists for exactly this and reports, on this checkout today, **82
+published tier files older than the full-resolution art they derive from** and
+**5 source manifests with no variant at a tier the game ships** (exit 1). Its own
+message names the consequence: *"the game loads these under the Low / Medium /
+Potato visual quality profiles, so it is drawing OLD art at those settings and
+current art at High — which looks like the character changing when the quality
+setting does."*
+
+```text
+9.8 days behind   boss, goblin, dividing_mite, exploding_mite, ninja_shadow_duelist   (full re-rendered 09-01)
+8.4 / 6.3 / 5.6 / 5.5 / 4.7 days   oiler, carl_stargan, trex_enemy, perfect_cellular_automaton, generic_world_fx
+0.4 days          officer                                (its full sheet was re-rendered 08-27 19:53)
+missing entirely  performer (0_5x, 0_25x, potato) · actor, medic (potato)
+```
+
+⇒ **So the four unshrunk sheets are not a special defect; they are four files in
+a tree that is broadly out of date here**, and the per-tier CLI render explains
+only why those four are the wrong SIZE rather than merely the wrong VINTAGE.
+⛔ Two different failures that a megapixel census cannot tell apart: stale art
+at the right size, and current art at the wrong size. `performer` having no
+variants is the same cause as the 82 — its full sheet was rendered 08-29, a week
+after the last variant run.
+
+ⓘ The checker reports rather than fails **by design** — `scripts/setup/generated_content.sh`
+says so in as many words, and records that the checker *"already existed and
+nothing called it"*, which was the original defect. ⇒ Nothing here is a new gap;
+the fix is one command (`./scripts/regen/quality_variants.sh`, incremental) on
+whichever box cares, and it is not run here because regenerating assets on a
+shared tree is not this agent's call.
+
+⇒ **The renderer fix is still worth making** — `del opts` discards a scale a
+caller deliberately passed — and is drafted UNVALIDATED at
+`dev/patches/swing-fighter-render-honours-quality-scale-20260902.patch`. It is
+in a submodule and needs one render on a box that can run the renderer.
+
 ⇒ **WHAT IS AND IS NOT ESTABLISHED.** Established: on this machine's generated
 assets, four sheets' 0_5x/0_25x pages and manifests are full-size, and a room
 asking for those tiers pays for them. NOT established: that any other machine
@@ -1535,9 +1793,20 @@ a median of 0.26 MP, so NOT ONE clears `NOTABLE_MEGAPIXELS` (1.0): the `[image]`
 ledger can never show pack usage at that tier, and "both roads loaded in one
 run" was never something that capture could tell me.
 
-⚠⚠ **AND THE OCCUPANCY CENSUS BELOW COVERS 44% OF THE TREE, NOT THE TREE.** It
+⚠⚠ **AND THE OCCUPANCY CENSUS BELOW COVERS HALF THE TREE, NOT THE TREE.** It
 asks how much of a CLAIMED page is sampled, and says nothing about pages no
-manifest claims at all. `scripts/measure_orphan_shipped_pages.py` measures
+manifest claims at all. Re-measured 2026-09-02 across all four tiers: of 2172
+PNGs, **1043 are claimed — 49% by megapixels, but 81% by BYTES** (the "44%"
+this line used to carry predated the four-tier sweep).
+
+⛔ **THE TWO DENOMINATORS DISAGREE BY FOUR TIMES, AND THE BYTE ONE IS THE ONE
+THAT SHIPS.** The unclaimed population is 51% of the tree's megapixels and only
+**19% of its bytes** — 120 MB of 630 MB — because stranded pages are
+large-dimension and mostly empty, so they compress to almost nothing. A reader
+who takes "half the megapixels are unreachable" as "half the package is
+recoverable" will be wrong by a factor of four. Megapixels are the right unit
+for decode and residency; bytes are the right unit for install size, and this
+finding is an install-size finding. `scripts/measure_orphan_shipped_pages.py` measures
 those across all four tiers, in **four buckets that do not deserve the same
 confidence** — three that carry a reason and one that is an upper bound:
 
@@ -1575,12 +1844,51 @@ confidence** — three that carry a reason and one that is an upper bound:
   that `.ron` is never baked either, so claimedness is simply the wrong question
   here. ⇒ This is generator over-production against a stated engine intent, not
   an engine gap.
+
+  ⓘ **The missing manifests are POLICY; the present images are the anomaly.**
+  `check_quality_variants_are_fresh.py::absent_variants` already records that
+  portraits are *"published SELECTIVELY, so their absence is policy"* — 160
+  `_portraits.ron` at full against 9 per reduced tier. The open half is why the
+  PNG is generated at a tier whose manifest is deliberately withheld — and why
+  the 9 that ARE published per reduced tier cannot be read either:
+  `PortraitSheetRegistry` is built `from_baked_table(BAKED_PORTRAIT_RONS)`, and
+  `build.rs` bakes from `assets/sprites` only. A deliberate selective
+  publication produces files no build can load.
+
+  ⭐⭐ **AND THE NINE NAME FOUR FAMILIAR SHEETS.** They are `actor`, `author`,
+  `medic`, `officer` plus five pirates — and `actor`, `author`, `medic`,
+  `officer` are FOUR OF THE FIVE sheets whose reduced tiers are not reduced, and
+  are among the 15 the pack does not cover. ⇒ A **third** symptom on the same
+  four names. ⚠ Still a LEAD, not a diagnosis, and the disconfirming halves
+  belong with it: the five pirates carry the portrait symptom without the other
+  two, and `performer` carries the tier symptom without this one. If it were one
+  cause the sets would coincide, and they do not.
 * ⚠ **UNMENTIONED — 300 files, 1.6 MB, UPPER BOUND ONLY.** Named in no manifest
   and in no committed `.rs`/`.ron`/`.ldtk`/`.toml`/`.json`/`.py`. A path
   assembled at runtime (`format!("sprites/{name}.png")`) is named nowhere either
   and would land here while being perfectly live. A research prompt, not a
   delete list — and now small enough that it is no longer where the megabytes
   are.
+
+⭐⭐ **AND AN AGE SIGNAL SPLITS THE THREE INTO TWO DIFFERENT PROBLEMS —
+measured 2026-09-02, and it changes what a clean regen can settle.** Each file
+is compared against the reference the same run should have written (a stranded
+page against its own manifest, an unmanifested sheet against a manifested
+sibling, a reduced-tier portrait against its full-resolution twin):
+
+```text
+stranded pages          44 older /   0 same-run of  44   median -1.97 d  STALE
+sheets without manifest  4 older /  12 same-run of  16   median +0.00 d  still produced
+reduced-tier portraits  36 older / 439 same-run of 475   median +3.07 d  still produced
+```
+
+⇒ **The 92 MB of stranded pages were left by an earlier render — a clean regen
+removes them.** The other 27.8 MB is written by the CURRENT pipeline, in the
+same run as the art beside it, so **yardrat's clean generation will reproduce
+both buckets and cannot settle them.** Those two need a pipeline change or a
+decision, not a regen. ⚠ mtimes are per-machine and a copy rewrites them; the
+evidence is the CONTRAST between buckets in one tree with one history, not the
+absolute dates.
 
 ⇒ **119.8 MB across the three explained buckets, against 1.6 MB still
 speculative.** The first pass had 26.7 MB sitting in "named nowhere, but so is
@@ -1750,15 +2058,19 @@ in `ambition_render/src/rendering/actors/mod.rs:721` reports only the first:
 *"nothing demanded it, so the engine never decoded its sheet"*. That is the
 warning the host run saw 111 times on the Hall reveal, so its diagnosis is
 evidence for a cause it never checked.
-The two are not distinguishable today: `demote_stale_realizations_outside`
-removes the token from `sheets` and deliberately leaves `declared` intact (the
-entry is the recipe for re-making it), so a retired realization and one that was
-never made are the SAME state, and nothing records that a retirement happened.
+The two are not distinguishable today: `demote_stale_realizations` removes the
+token from `sheets` and deliberately leaves `declared` intact (the entry is the
+recipe for re-making it), so a retired realization and one that was never made
+are the SAME state, and nothing records that a retirement happened. (It was
+`demote_stale_realizations_outside` when this row was written <!-- cite-ok -->:
+the `_outside` named the cap's `(floor, ceiling)` range, and `06a494f4e` took
+the range and the suffix away together.)
 ⇒ A retirement followed by a re-demand IS accidental re-preparation, which puts
 this squarely in this section rather than in observability.
 ✔ **FIXED THE SAME DAY.** `CharacterSpriteAssets` now keeps a `retired` trace
-(token → the tier whose pixels it actually held), written by
-`demote_stale_realizations_outside` and cleared by both publish paths the moment
+(token → the tier whose pixels it actually held), written by `retire_tokens`
+— the shared helper BOTH retirement roads go through, `demote_stale_realizations`
+and `retire_realizations_except` — and cleared by both publish paths the moment
 the token is resident again — so a character that comes back stops being
 described by a retirement it recovered from. `retired_tier(token)` exposes it and
 the warning now says either *"declared as 'X' and RETIRED from Full — it was

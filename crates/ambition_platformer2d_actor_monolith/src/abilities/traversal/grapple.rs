@@ -38,7 +38,7 @@ pub fn grapple_system(
     // ⭐ EVERY DRIVEN BODY, not the one the primary seat happens to hold.
     // `ControlledSubject` is singular by construction, so a possessed body or a
     // second seat holding the same item simply never acted.
-    driven: crate::items::pickup::DrivenBodies,
+    driven: ambition_held_items::DrivenBodies,
     mut bodies: Query<(
         Entity,
         &ActorControl,
@@ -65,7 +65,7 @@ pub fn grapple_system(
         }
         // The body's per-tick resolved frame (ADR 0024 frame law).
         let gravity_dir = resolved_frame.down();
-        let dir = crate::items::pickup::ability_aim_world(&c, kin.facing, gravity_dir)
+        let dir = ambition_held_items::ability_aim_world(&c, kin.facing, gravity_dir)
             .normalize_or_zero();
         if dir == ae::Vec2::ZERO {
             continue;

@@ -115,8 +115,8 @@ fn the_item_domain_answers_about_custody_and_says_so_when_it_cannot() {
     let (authored, at) = {
         let mut query = sim.world_mut().query::<(
             &SimId,
-            &ambition_platformer2d::actors::items::pickup::GroundItem,
-            &ambition_platformer2d::actors::items::pickup::ItemCustody,
+            &ambition_platformer2d::held_items::GroundItem,
+            &ambition_platformer2d::held_items::ItemCustody,
         )>();
         let found: Vec<(SimId, (f32, f32))> = query
             .iter(sim.world())

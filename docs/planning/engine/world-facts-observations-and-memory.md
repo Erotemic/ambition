@@ -65,6 +65,33 @@ An LLM adapter must sit above deterministic world state, not below it.
 
 ## Open design questions — deliberately unresolved
 
+⭐ **THREE OF THESE HAVE SHIPPED ANSWERS FOR THE TACTICAL-BELIEF SLICE, and this
+page did not know (checked 2026-09-03).** They are NOT answers for the general
+fact/memory program — that is still open, and the layer below is one customer,
+not the design. But a reader re-deriving them from scratch would be redoing work
+that is already in the tree and already rollback-registered. See
+[`bounded-perception-and-attention.md`](bounded-perception-and-attention.md).
+
+- *"How is observation permission determined: proximity, line-of-sight, room,
+  explicit communication, something else?"* — for a body perceiving other
+  BODIES it is **viewport containment**, and deliberately not line-of-sight:
+  `peer_is_visible_to_body` is
+  `perception.knows_bodies_anywhere() || viewport.contains(peer.pos)`. No
+  raycast, no room test. The omniscience escape is a policy, not a fallback.
+- *"What parts, if any, participate in deterministic rollback?"* — the actor's
+  remembered-actor set does. `WorldMemory` is rollback state with a
+  `from_snapshot` road in `snapshot_impls.rs`, which is why the attention
+  budget's ordering carries an id tiebreak: two peers at equal distance must be
+  kept in the same order on every host or the snapshot diverges.
+- *"How long should memories persist, and what is saved?"* — partially, and only
+  the second half: what is CARRIED each tick is bounded at
+  `TACTICAL_ATTENTION` (16), hostiles first and nearer first, with the remainder
+  kept as counts and one distance rather than dropped silently. ⚠ That bounds
+  the per-tick kept set, NOT retention over time, which is still open.
+
+⚠ The remaining questions below are untouched by that work.
+
+
 - Typed facts/components versus an extensible fact registry?
 - Which events deserve durable history and which are ephemeral messages?
 - How is observation permission determined: proximity, line-of-sight, room,

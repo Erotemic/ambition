@@ -236,7 +236,7 @@ mod tests {
         // AND Special — the protagonist fires all three. Ranged still comes only
         // from the ActionSet + legacy projectile pipeline (not the moveset).
         let abilities = AbilitySet::sandbox_all();
-        let action_set = crate::avatar::bundles::default_player_action_set(abilities);
+        let action_set = ambition_combat::worn_kit::default_player_action_set(abilities);
         let moveset = ambition_combat::moveset::build_actor_moveset(
             None,
             action_set.melee.as_ref(),
@@ -318,7 +318,7 @@ mod tests {
         let ab = AbilitySet::sandbox_all();
 
         // Canonical player: gate keeps melee/ranged/special; scheme shows them.
-        let action_set = crate::avatar::bundles::default_player_action_set(ab);
+        let action_set = ambition_combat::worn_kit::default_player_action_set(ab);
         let moveset = ambition_combat::moveset::build_actor_moveset(
             None,
             action_set.melee.as_ref(),

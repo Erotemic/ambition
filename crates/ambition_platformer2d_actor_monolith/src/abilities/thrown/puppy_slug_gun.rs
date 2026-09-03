@@ -50,7 +50,7 @@ pub fn fire_puppy_slug_gun_system(
     // ⭐ EVERY DRIVEN BODY, not the one the primary seat happens to hold.
     // `ControlledSubject` is singular by construction, so a possessed body or a
     // second seat holding the same item simply never fired.
-    driven: crate::items::pickup::DrivenBodies,
+    driven: ambition_held_items::DrivenBodies,
     character_catalog: Res<ambition_characters::actor::character_catalog::CharacterCatalog>,
     authored_sheets: Res<ambition_sprite_sheet::character::sheets::AuthoredSheets>,
     // the summoned ally IS a character (`npc_puppy_slug`), so this road needs

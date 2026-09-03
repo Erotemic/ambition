@@ -29,7 +29,7 @@ use bevy::prelude::{App, Commands, Update};
 #[test]
 fn a_body_built_from_a_named_character_remembers_which_one() {
     let cast = crate::character_runtime::fixture_cast(&["npc_pirate_quartermaster"]);
-    let seed = crate::features::ecs::actor_clusters::ActorClusterSeed::new_character_in(
+    let seed = ambition_body_seed::ActorClusterSeed::new_character_in(
         &Default::default(),
         &crate::character_roster::catalog(),
         "cove_pirate".to_string(),
@@ -82,7 +82,7 @@ fn body_driven_by(
         definition,
         &ambition_characters::prepared::CharacterBindings::default(),
     );
-    let seed = crate::features::ecs::actor_clusters::ActorClusterSeed::new_character_in(
+    let seed = ambition_body_seed::ActorClusterSeed::new_character_in(
         &Default::default(),
         &ambition_characters::actor::character_catalog::CharacterCatalog::empty(),
         "test".to_string(),

@@ -50,7 +50,7 @@ pub fn heal_save_shrine_system(
     // ⭐ EVERY DRIVEN BODY HEALS. A shrine heals the body that touched it, and
     // "the body that touched it" was one entity by construction — so a couch's
     // second seat could stand in the shrine and press interact forever.
-    driven: crate::items::pickup::DrivenBodies,
+    driven: ambition_held_items::DrivenBodies,
     mut bodies: Query<(
         &ActorControl,
         &BodyKinematics,

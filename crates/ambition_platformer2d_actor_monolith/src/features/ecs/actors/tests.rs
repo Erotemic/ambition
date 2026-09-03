@@ -228,9 +228,9 @@ fn aerial_actors_crowd_at_a_wider_radius_than_ground() {
     );
 }
 
-fn burning_shark_enemy() -> super::actor_clusters::ActorClusterSeed {
+fn burning_shark_enemy() -> ambition_body_seed::ActorClusterSeed {
     let aabb = ae::Aabb::new(ae::Vec2::ZERO, ae::Vec2::new(126.0, 52.0));
-    let mut seed = super::actor_clusters::ActorClusterSeed::new(
+    let mut seed = ambition_body_seed::ActorClusterSeed::new(
         "burning_shark".to_string(),
         "Burning Shark".to_string(),
         aabb,

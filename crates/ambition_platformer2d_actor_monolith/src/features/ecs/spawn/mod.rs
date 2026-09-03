@@ -591,7 +591,7 @@ impl RoomFeatureConstructionPlan {
                     // (`Item::from_held_item_id`) and the narrow lookup answers
                     // `None` for it — which sent a javelin down the "no item spec
                     // answers to that id" arm and lost it a second time.
-                    match crate::items::pickup::held_spec_by_id(&description.held_item) {
+                    match ambition_held_items::held_spec_by_id(&description.held_item) {
                         Some(held) => {
                             requests.push(crate::construction::ActorConstructionRequest {
                                 sim_id: sim_id.clone(),
@@ -609,7 +609,7 @@ impl RoomFeatureConstructionPlan {
                                             held_item: description.held_item.clone(),
                                             pos: at,
                                             half_extent:
-                                                crate::items::pickup::MINTED_ITEM_HALF_EXTENT,
+                                                ambition_held_items::MINTED_ITEM_HALF_EXTENT,
                                         },
                                         held,
                                     },

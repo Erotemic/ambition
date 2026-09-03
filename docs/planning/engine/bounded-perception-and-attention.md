@@ -42,10 +42,21 @@
   test GREEN while its comment claimed to catch exactly that. The out-of-view
   peer now sits NEARER (340) than the right answer (450), so its exclusion is
   observable.
-  ▢ **STILL OPEN:** routing `TargetBelief` bodies to the provider at the
-  `build_world_view` call site in `actors/update.rs` — the change that actually
-  stops building the view — and the bounded `TacticalWorld` representation, which
-  is the larger half and is what the density table above prices.
+  ✔ **THE ROUTING LANDED (`0520d3d12`, "Seven of nine brain templates stop
+  building a WorldView to find one foe") — this row said STILL OPEN after the
+  change shipped.** `actors/update.rs` now reads *"⭐⭐ ONLY `TacticalWorld`
+  BUILDS A VIEW NOW"* at the `build_world_view` call site; `TargetBelief` bodies
+  take `perception::nearest_hostile_peer`, and the census's `kept` comes from
+  whichever road ran rather than from the view.
+
+  ⭐ **And the two-halves problem this row raises was the thing that had to be
+  solved, not avoided.** `WorldMemory::update` decays everything NOT seen this
+  tick, so a body on the cheap road still owes the memory a seen set —
+  `update_from_seen(sim_time, dt, seen)` takes it as borrowed `SeenActor`s, and
+  the memory fold runs on BOTH roads.
+
+  ▢ **STILL OPEN:** the bounded `TacticalWorld` representation, which is the
+  larger half and is what the density table above prices.
 
   ⛔⛔ **AND THE ROUTING IS BIGGER THAN "USE THE CHEAP PROVIDER", because the
   belief has TWO halves and only one of them is the nearest hostile.** Read the
@@ -88,11 +99,15 @@
   What the cut left out is the aggregate remainder,
   `WorldView.remainder: AttentionRemainder { actors, hostiles,
   nearest_unattended_hostile_dist_sq }` — the pressure a crowd exerts even when
-  nothing in it is attended. **16 from the measurement, not taste:** `kept`
-  saturates at ~14.4 in the shipped hall (n = 65 and 130 alike), so at ship
-  density the cap never binds and every shipped view is byte-identical to
-  before; it binds in the regime the budget is FOR, where `kept` reached 113
-  at 4x the viewport and `Decide` went 0.24 → 1.99 ms/tick linear in `kept`.
+  nothing in it is attended. **16 from the measurement, not taste:** the MEAN
+  `kept` saturates at ~14.4 in a 130-body hall at the shipped viewport (n = 65
+  and 130 alike), so the mean never reaches the cap there — but the densest
+  single viewer in that configuration saw 21 and is cut to 16 (`kept_max` 21 →
+  16 at 480x320 in yardrat's re-run below; population 130 re-brained to
+  `medium_striker`, NOT the shipped cast, which is authored `stand_still` and
+  builds no view at all). It binds hard in the regime the budget is FOR, where
+  `visible` reaches 124 at 6x the viewport and `kept` reads 16.0 flat; before
+  the cap `Decide` went 0.24 → 1.99 ms/tick there, linear in `kept`.
   Guards: `a_crowd_is_attended_to_hostiles_first_and_the_rest_is_counted` (40
   visible → 16 actors, all hostile; the capped view's `nearest_hostile()` is
   the uncapped scan's; the remainder counts 24/4 and names foe_17's distance;
@@ -109,7 +124,69 @@
   `WorldMemory` VALUES differ from before only where the cap binds — no shipped
   room — and ADR 0034 covers that class. Measured next: the density sweep on an
   untenanted box (yardrat's queue) — the prediction is `visible` climbing with
-  extent and `kept` flat at 16.
+  extent and `kept` flat at 16. ⛔ **The first sweep (yardrat, 2026-09-03)
+  read `kept = visible` on every row (kept_max 129) and it was the CENSUS, not
+  the cap:** `TacticalWorld` also `needs_target_belief`, so the cheap road's
+  uncapped `visible_count` was recorded first and the view road's post-cut
+  count was unreachable for every brain that builds a view. The census now
+  reports from the view when one was built (`update.rs`); the re-run is the
+  acceptance, and `visible` at 960x640 reading 56.1 — the old table's `kept` —
+  is the control that the instrument still measures what it did.
+
+  ⛔⛔ **RAN 2026-09-03, AND THE PREDICTION IS CURRENTLY UNTESTABLE — the CENSUS
+  cannot see the budget for the brains the budget governs.** `kept` equals
+  `visible` on every arm and `kept_max` reaches 129:
+
+  ```text
+  extent        views   offered  visible    kept  kept_max
+  480x320       36249     130.0     14.4    14.4        21
+  960x640       26703     130.0     56.1    56.1       104
+  1440x960      22446     130.0     93.9    93.9       119
+  1920x1280     21027     130.0    113.2   113.2       124
+  2880x1920     17157     130.0    124.3   124.3       129
+  ```
+
+  ⭐ **THE REPORTING BRANCH IS UNREACHABLE, not the cap.** In
+  `features/ecs/actors/update.rs` the census records from the cheap road when
+  `needs_target_belief()` holds and only ELSE from the built view — and
+  `needs_target_belief()` is true for `TargetBelief` **and** `TacticalWorld`,
+  while `needs_world_view()` is true for `TacticalWorld` alone. So a world-view
+  brain always takes the first arm and is recorded as its uncapped
+  `visible().count()`. The arm reporting the post-cap `world_view.actors.len()`
+  cannot be reached by any brain that builds a world view. `medium_striker` is
+  `template: Smash`, i.e. `TacticalWorld` — exactly the population the budget
+  governs and exactly the one the instrument cannot see.
+
+  ⚠ **THIS IS NOT EVIDENCE THE CAP FAILS.** `attend()` reads correctly and the
+  unit guards exercise it directly (40 visible → 16, hostiles first,
+  deterministic ties). The narrower true statement is that this sweep measures
+  the PRE-CUT quantity, so neither half of the prediction can be confirmed or
+  refuted by it. ⭐ The row is self-consistent with that reading: `visible` here
+  reproduces the old pre-cap `kept` table exactly where the extents match —
+  960x640 reads 56.1 against the 56.1 recorded further down this page.
+
+  ✔ **RE-RUN PAST THE CENSUS FIX (`697abd994`), same script, population,
+  brain — THE BUDGET WORKS, and the control holds twice over:**
+
+  ```text
+  extent        views   offered  visible    kept  kept_max     (before: kept / kept_max)
+  480x320       35862     130.0     14.4    12.8        16      14.4 / 21
+  960x640       25542     130.0     56.1    15.2        16      56.1 / 104
+  1440x960      22059     130.0     93.9    15.7        16      93.9 / 119
+  1920x1280     21414     130.0    113.2    16.0        16     113.2 / 124
+  2880x1920     19995     130.0    124.3    16.0        16     124.3 / 129
+  ```
+
+  `offered` is flat at 130.0 and `visible` reproduces the pre-fix run to the
+  decimal, so the only column that moved is the one the commit touched. Two
+  readings: `kept` (a MEAN over viewers) approaches 16 rather than snapping to
+  it — a viewer at the crowd's edge sees fewer even when the room mean is 56 —
+  while `kept_max` binds at 16 from the first arm. And at the SHIPPED viewport
+  the densest viewer saw 21 before the cap and 16 after: the budget binds for
+  the densest viewers even at 480x320 in this configuration (130 bodies
+  re-brained to `medium_striker`; the shipped cast is `stand_still` and builds
+  no view, which is what makes the real hall cheap and unmeasurable at once).
+  Timings not reported (doc edits ran alongside); counts are the verdict.
 
 ## The rule
 

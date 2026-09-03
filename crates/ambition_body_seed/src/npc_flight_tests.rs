@@ -52,7 +52,7 @@ fn cast_saying_with(
         ..Default::default()
     });
     definition.vitals.max_health = max_health;
-    let finalized = crate::character_runtime::prepare_and_finalize_for_test(
+    let finalized = ambition_characters::prepared::prepare_and_finalize_for_test(
         definition,
         &ambition_characters::prepared::CharacterBindings::default(),
     );
@@ -146,7 +146,7 @@ fn an_incomplete_character_uses_peaceful_npc_defaults() {
     // the state ~150 NPC placements are in.
     let bare = {
         let mut registry = ambition_characters::prepared::PreparedCharacterRegistry::default();
-        let finalized = crate::character_runtime::prepare_and_finalize_for_test(
+        let finalized = ambition_characters::prepared::prepare_and_finalize_for_test(
             ambition_characters::actor::definition::CharacterDefinition::new(
                 "npc_test_flyer",
                 "Test Flyer",

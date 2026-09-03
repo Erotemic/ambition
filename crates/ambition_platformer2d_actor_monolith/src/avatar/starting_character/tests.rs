@@ -949,23 +949,6 @@ fn gate_routes_a_technique_attack_slot_into_the_sanctioned_edge() {
     );
 }
 
-/// A typo in a known catalog row is content corruption, not permission to gain
-/// the host protagonist's code kit. Validation reports the bad row; the runtime
-/// fallback is deliberately inert.
-#[test]
-fn malformed_authored_resolution_is_safe_peaceful_not_host_code() {
-    let (set, execution) = resolve_playable_action_set(
-        // the catalog HAS a row for it; its preset is what does not resolve
-        true,
-        None,
-        ambition_platformer2d_core::AbilitySet::sandbox_all(),
-    );
-    assert!(set.melee.is_none());
-    assert!(set.ranged.is_none());
-    assert!(set.special.is_none());
-    assert_eq!(execution, RangedExecution::MovesetVerb);
-}
-
 /// Gate 1: the canonical player's `Special("bubble_shield")` was
 /// a PHANTOM — `default_player_action_set` declared it, but the player's moveset
 /// was built melee-only, so `trigger_moveset_moves` (which fires `special_pressed`
@@ -979,7 +962,7 @@ fn pressing_special_starts_the_real_players_folded_bubble_shield_move() {
     use bevy::prelude::*;
 
     // The REAL bundle authorities + the REAL moveset build (bundles.rs:135).
-    let action_set = crate::avatar::bundles::default_player_action_set(
+    let action_set = ambition_combat::worn_kit::default_player_action_set(
         ambition_platformer2d_core::AbilitySet::sandbox_all(),
     );
     assert!(
@@ -989,7 +972,7 @@ fn pressing_special_starts_the_real_players_folded_bubble_shield_move() {
         ),
         "the canonical player declares the bubble_shield special capability"
     );
-    let moveset = build_actor_moveset(
+    let moveset = ambition_combat::moveset::build_actor_moveset(
         None,
         action_set.melee.as_ref(),
         None,
@@ -1060,10 +1043,10 @@ fn the_bubble_shield_special_move_holds_the_guard_up() {
     use ambition_characters::control::ActorControl;
     use bevy::prelude::*;
 
-    let action_set = crate::avatar::bundles::default_player_action_set(
+    let action_set = ambition_combat::worn_kit::default_player_action_set(
         ambition_platformer2d_core::AbilitySet::sandbox_all(),
     );
-    let moveset = build_actor_moveset(
+    let moveset = ambition_combat::moveset::build_actor_moveset(
         None,
         action_set.melee.as_ref(),
         None,
@@ -1864,7 +1847,7 @@ fn the_spawned_and_the_rewarn_host_kit_are_one_construction() {
     // probe caught this test comparing two empty contracts because of it.
     let mut abilities = ambition_platformer2d_core::AbilitySet::basic();
     abilities.attack = true;
-    let action_set = crate::avatar::bundles::default_player_action_set(abilities);
+    let action_set = ambition_combat::worn_kit::default_player_action_set(abilities);
 
     let spawned = crate::avatar::PlayerSimulationBundle::from_scratch(
         crate::avatar::primary_player_scratch(
@@ -1873,7 +1856,7 @@ fn the_spawned_and_the_rewarn_host_kit_are_one_construction() {
         ),
         ambition_characters::actor::Health::new(10),
     );
-    let rewarn = crate::avatar::starting_character::derive_persona_moveset(
+    let rewarn = ambition_combat::worn_kit::derive_persona_moveset(
         &action_set,
         ambition_characters::brain::RangedExecution::ChargedProjectile,
         None,
@@ -2624,7 +2607,7 @@ fn only_a_press_that_resolves_to_the_bubble_raises_the_guard() {
     use ambition_characters::control::ActorControl;
     use bevy::prelude::*;
 
-    let action_set = crate::avatar::bundles::default_player_action_set(
+    let action_set = ambition_combat::worn_kit::default_player_action_set(
         ambition_platformer2d_core::AbilitySet::sandbox_all(),
     );
     assert!(

@@ -302,6 +302,7 @@ marker.runtime_staged_actor	component-clone	RuntimeStagedActor	bevy_ggrs clone s
 message.actor_action	message-clear	ActorActionMessage	clear abandoned-future message buffer in LoadWorld::Mapping
 message.actor_died	message-clear	ActorDiedMessage	clear abandoned-future message buffer in LoadWorld::Mapping
 message.actor_stimulus	message-clear	ActorStimulus	clear abandoned-future message buffer in LoadWorld::Mapping
+message.ambient_gravity_request	message-clear	AmbientGravityRequest	clear abandoned-future message buffer in LoadWorld::Mapping
 message.attacks_clanked	message-clear	AttacksClanked	clear abandoned-future message buffer in LoadWorld::Mapping
 message.blocked_body_hit	message-clear	BlockedBodyHit	clear abandoned-future message buffer in LoadWorld::Mapping
 message.body_knocked_out	message-clear	BodyKnockedOut	clear abandoned-future message buffer in LoadWorld::Mapping

@@ -186,6 +186,68 @@ A clean checkout should have an explicit path to produce every required generate
 artifact or obtain it from the intended cache/submodule. Cache keys must include
 all source dependencies that affect output.
 
+⚠ **Measured on a genuinely fresh clone, 2026-09-02, and this row had three
+live violations — two now closed.** They shared one shape: the producing command
+EXISTED and nothing called it, so the artifact was missing on every machine
+except the one that had run the command by hand.
+
+⚠ **A FOURTH TURNED UP ON 2026-09-03 AND IT IS A DIFFERENT SHAPE**, so the
+enumeration above should not be read as closed. `Pillow` was missing from the
+repo venv: `scripts/tests/test_asset_writes_do_not_follow_worktree_symlinks.py`
+loads `scripts/generate_visual_quality_variants.py` to reach one guard function,
+that script's `from PIL import Image` is at MODULE scope, and three tests went
+red at collection with `ModuleNotFoundError: No module named 'PIL'` — from a
+file whose name is about symlinks. ⛔ Here no producing command was missing;
+the SUITE acquired a dependency and setup never learned about it, which is the
+same fresh-clone failure by a different road and would not be found by looking
+for uncalled commands. ⇒ Fixed in `scripts/setup/python_tools.sh`, and the rest
+of that class was swept rather than guessed: parsing every module-scope import
+under `scripts/` leaves three unresolved and NONE reachable from a test
+(`networkx`, `scriptconfig`, and `ambition_sprite2d_renderer`, which arrives via
+a `sys.path` insert). The sweep method is recorded beside the install list so
+the next added dependency re-runs it.
+
+- ✔ **Bundled UI fonts.** `ambition_render`'s typography test `include_bytes!`s
+  three faces from a git-ignored directory, so their absence is not a missing
+  picture at runtime — `cargo check --all-targets` exits 101, and TWO gate jobs
+  run exactly that command. `scripts/grab_font_assets.py` had been in the tree
+  the whole time; `scripts/setup/generated_content.sh` now runs it.
+- ✔ **Sampled instrument libraries.** Opt-in behind a flag, so a default clone
+  rendered the whole catalogue through General MIDI and reported success —
+  indistinguishable downstream from the real cues. Now installed by default, and
+  the renderer refuses rather than shipping stand-ins.
+- ▢ **The `.ipfs` sidecars still have no hydration command**, which is the
+  remaining instance of exactly this class: six git-ignored payload directories
+  whose only restore path is a manual `ipfs get`. ⛔ Do NOT fold this into
+  feature work — `dev/journals/code_smells.md` (2026-07-19) records it as
+  backlog-only because Jon owns asset distribution. Noted here so B4's exit
+  criterion is not read as met while it is outstanding. ⚠ The fonts sidecar that
+  entry names (`.../assets/fonts/bundled.ipfs`) is itself absent now, so that
+  payload has lost even its CID.
+  ⭐ **AND NOW THE CONSEQUENCE IS MEASURED, which the row was missing.** It is
+  not only that a payload cannot be restored: on a fresh clone
+  **`package_asset_guard.py compose` FAILS**, so no shippable asset tree can be
+  produced at all. Measured 2026-09-03, `--profile steamdeck --materialize link`:
+
+  ```text
+  asset contract failed:
+  runtime-declared assets are absent from the composed desktop source roots:
+    - vanity_card/frame_00.png … frame_08.png   (9 files)
+        declared by manifest:data/vanity_card.ron:11-22:path
+  ```
+
+  ⚠ **Exactly nine files, all one family, and nothing else is missing** — so
+  this is the whole gap between a fresh clone and a composable package, not a
+  sample of a larger one. The sidecar `assets/vanity_card.ipfs` declares that
+  family (`rel_path: vanity_card`, 51 items, 12.67 MiB) and nothing fetches it.
+  ⛔ Still backlog-only and still not to be folded into feature work; the number
+  is here so the size of the gap is known before Jon decides, rather than
+  discovered by whoever first tries to cut a build.
+  ⚠ Do not confuse this with the vanity card `scripts/regen/sprites.sh` DOES
+  build: that exporter writes `vanity_card_made_this_meme`, a different,
+  TRACKED manifest. The missing family is `data/vanity_card.ron`, and running
+  the regen does not produce it.
+
 ### B5 — platform prerequisites
 
 Desktop remains the primary local path. Android/web/cross targets should use

@@ -651,8 +651,13 @@ they are every character's only road.
 `bake_portrait_manifests` collects portrait manifests from `assets/sprites` ONLY
 and says why: *"Portraits are presentation products and currently have no
 quality-tier variants"*. The generator emits the PNGs at all four tiers anyway —
-**487 files, 14.2 MB, with no road**
-(`scripts/measure_orphan_shipped_pages.py`).
+**438 files, 13.4 MB, with no road**
+(`scripts/measure_orphan_shipped_pages.py`, re-run 2026-09-03; its
+`REDUCED-TIER PORTRAITS` section). ⚠ This entry read **487 files, 14.2 MB** when
+raised on 2026-09-02 — the figure drifted by 49 files in a day, which is what a
+generated population does. ⇒ The decision is unaffected; the drift is only worth
+noting because the entry quotes a size to argue the cost is worth acting on, and
+that size is a moving number with a one-command instrument beside it.
 
 ⓘ The missing `.ron`s are POLICY, not a bug —
 `check_quality_variants_are_fresh.py` records that portraits are *"published

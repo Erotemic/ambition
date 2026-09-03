@@ -42,6 +42,15 @@ Choose one:
   would cost a scripted pit-edge jump, which is a test about jump tuning wearing
   this rule's name.
 
+⚠ **AND THIS QUESTION IS OLDER THAN THIS ROW.**
+[`demos/super-mary-o.md`](demos/super-mary-o.md) has carried a product question
+since 2026-08-14 about the fire form's DISCOVERABILITY — *"should the beacon
+walk to you like the wand, should 1-1 place a reachable second block earlier, or
+is 'the reward waits up there and you must climb for it' the intended feel?"* —
+reached from the other direction, a player who could not find the reward. Same
+level, same three blocks, and answering either answers both. The new fact this
+row adds is that the third block has no standing position under it at all.
+
 ⛔ No content was authored to answer this: authored levels are Jon's.
 
 ### 37. Should the F9 rollback proof pulse survive a gameplay-session change?

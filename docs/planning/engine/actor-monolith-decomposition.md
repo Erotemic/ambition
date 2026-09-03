@@ -1023,6 +1023,33 @@ set), and finally `clear_encounter_reward_ecs` — which was a real dependency a
 a genuine open question until the switch-loop split made its trigger
 observable.
 
+⛔ **AND A CARVE CAN FOSSILIZE A DISAGREEMENT IT DID NOT CAUSE. One did.**
+Moving the encounter feature side into `ambition_encounter_features` put the two
+halves of the switch gate in two crates: `encounter_armed` stayed in
+`ambition_encounter`, the completion adapter went to the new crate. Neither moved
+wrongly, and the seam is right — but the split made visible a policy
+contradiction that had been sitting in one file:
+
+* `encounter_armed` arms on **ANY** red link (module doc, and
+  `any_off_switch_arms_a_multi_switch_encounter` pins it);
+* completion asked for the **FIRST** linked switch and greened only that one.
+
+⇒ With two switches on one encounter, completion greened one, the other stayed
+red, the encounter stayed armed, and the driver's *"a terminal encounter still
+armed is reset and started again"* restarted the fight under a player still in
+the trigger. **Greening one switch could never satisfy a rule that asks about
+all of them.** Fixed 2026-09-03: `switch_ids_for_encounter` returns every link
+and the adapter greens all of them, guarded in both directions and poisoned both
+ways.
+
+⚠ **No authored world reaches it** — exactly one non-empty `target_encounter`
+link exists across all five, and no encounter has two — so it was a latent
+supported-API defect, not a shipped regression. ⇒ **Worth recording on this page
+because it is a carve lesson**: the split did not introduce the bug, and it did
+not hide it either; it made two halves that had always disagreed live far enough
+apart that the disagreement had to be written down. That is an argument FOR the
+carve, and it is the second time this page has had to say so.
+
 ⛔ **AND THE LAST REAL SEAM IS NOT A MECHANICAL INVERSION. It is a policy
 question, and it is being left open on purpose.** `clear_encounter_reward_ecs`
 fires when the switch arming an encounter turns OFF: it despawns the reward
@@ -1323,7 +1350,32 @@ why this paragraph is kept as EVIDENCE and marked rather than rewritten —
 tests (production: `mod.rs` 1,132, `match_activation.rs` 658, `audit.rs` 619,
 `presentation.rs` 600, `live_match_clock.rs` 474, `definition.rs` 82) — six
 production files where there were ten, and `match_activation.rs` is new, the
-wrapper the match cut left behind. The kernel
+
+| file | then | now |
+|---|---|---|
+| `prepared_match.rs` | 1,611 | ⛔ gone from the crate |
+| `staging.rs` | 833 | → `ambition_match/src/staging.rs` |
+| `physical_baseline.rs` | 295 | → `ambition_body_seed/src/physical_baseline.rs` |
+| `hurtbox.rs` | 277 | ⛔ gone — hurtbox resolution is `ambition_combat` (`c2f080270`) |
+| `seating.rs` | 267 | → `ambition_match/src/seating.rs` |
+| `mod.rs` | 1,235 | 1,132 |
+| `audit.rs` / `presentation.rs` / `live_match_clock.rs` / `definition.rs` | 618 / 598 / 474 / 82 | 619 / 600 / 474 / 82 |
+| `match_activation.rs` | — | **658**, and it was never in the list |
+
+⇒ **The old sentence "six of those files name NOTHING in the kernel
+(`definition`, `staging`, `seating`, `physical_baseline`, `hurtbox`, `audit`);
+they are carve-clean today" was a correct PREDICTION and is now a stale
+INVENTORY** — four of its six have since been carved out. What remains of it:
+`definition.rs`'s only reference to the kernel is a **doc link** in a `//!`
+comment (line 5, `[`super::CharacterLoadStates`]`), so it names nothing in code;
+`audit.rs` does import — `use super::{CharacterLoadStates,
+CharacterMaterializationService}` at line 9 — but from `character_runtime`'s own
+`mod.rs`, not from the wider kernel, so those two types travel with it.
+
+⚠ A doc link is the third thing today to make an unused reference look live
+(see [`../../recipes/re-measuring-a-planning-claim.md`](../../recipes/re-measuring-a-planning-claim.md));
+when scoring "names nothing", score CODE lines, because `grep -c 'super::'`
+counts prose. The kernel
 references that remain are in four files, and they are not one kind of thing:
 
 | File | Kernel names | What it is |
@@ -1378,6 +1430,31 @@ the tests. ⚠ `hurtbox.rs` was on this list until the combat carve took it; it 
 either; its home would need audio + sfx + projectiles, which no crate below the
 kernel has — a "character presentation" package is the honest destination and it
 is not cut.
+
+⭐ **`presentation.rs` PRICED, 2026-09-03 — and "names nothing in the kernel" is
+one type away from exactly true.** 600 lines with **zero `crate::` references**
+(control: its sibling `mod.rs` has 8, so the zero is the file's and not the
+grep's). ⚠ The size list above says **598** for this same file and both numbers
+are right: 600 is `wc -l`, 598 is production, and the two-line gap is the
+`#[cfg(test)] mod tests;` declaration at lines 599-600 — the tests themselves
+live in a sibling file. Re-verified 2026-09-03 at `f978ea57a`; every figure in
+this block still holds exactly. It names one kernel type and one only: `use super::CharacterLoadStates`
+at line 13. The other `super::` is a doc link to `StagedCast` in prose.
+
+| what it reaches for | count |
+|---|---|
+| `ambition_characters` | 19 |
+| `ambition_combat` | 12 |
+| `ambition_sfx` | 9 |
+| the `platformer2d` stack | 9 |
+| `ambition_sprite_sheet` / `ambition_audio` | 3 / 3 |
+| `ambition_projectiles` / `ambition_body_seed` | 1 / 1 |
+
+⇒ **So the extraction is one dependency question, not a survey**: where
+`CharacterLoadStates` goes. Everything else it needs is already in crates below
+it, which is what makes this a "character presentation" package rather than a
+kernel file — and why the list above says its HOME needs settling before it is
+cut, not that the cut is hard.
 
 **Next cut, in order:**
 
@@ -1485,7 +1562,40 @@ other out-edges are to the two halves this frontier just carved around
 modules with NO out-edges and nothing pointing back except registration
 (`causal`, `action_scheme`, `body_mode`, `time`, `music`, `cutscene`, `quest`,
 `world_facts`) are already islands; that they are still in this crate is inertia,
-not coupling, and each is a small cut. `rollback_registration` (28 → features, 10 →
+not coupling, and each is a small cut.
+
+⛔ **THE COUNT IS 11, AND MY OWN "14" ON THIS LINE WAS WRONG — RETRACTED
+2026-09-03, same day it was written.** I re-measured by the rule this paragraph
+states (no out-edges; nothing pointing back except `rollback_registration` and
+`snapshot_impls`) and got **11**, on BOTH `origin/main` (`0f0f89d42`) and this
+branch (`50b328436`) — identical module lists, so this is not tree drift:
+
+    action_scheme  brain_tick  config  cutscene  dev  enemy_projectile
+    host  quest  safe_pos_tests  time  world_facts
+
+⛔ **Three of the eight inherited from the older text do NOT satisfy the rule**,
+and that is where 14 came from: `causal` is referenced by `features` (8),
+`body_mode` by `avatar` (1), `music` by `audio` (4). Confirmed twice by
+different instruments — the module graph, and a direct `grep -rl 'causal::'`
+over the crate, which names the same three importers.
+
+⚠ **How the error was made, because the shape recurs:** sixteen modules have
+zero out-edges. I tested the in-edge half of the rule against the SIX I was
+adding and against the two I excluded by name (`character_roster`,
+`participant_seat`), and not against the EIGHT I inherited from the paragraph
+above — 16 − 2 = 14. So the number was neither the loose rule (16) nor the
+stated one (11); it was the stated rule applied to only the members I happened
+to be looking at. ⇒ **Inheriting a prior claim's members without re-testing them
+is the same defect as citing a stale count** — the list looked re-measured
+because part of it was.
+
+⇒ 10 if you exclude `safe_pos_tests`, which is test-only (`prod=0, all=240`).
+⇒ **The direction, correctly stated:** the loose "zero out-edges" population is
+16 and the strict one is 11; the gap is five modules that are read but read
+nothing. Any report citing a number here should say WHICH rule it used and at
+which SHA, and re-run
+`scripts/measure_kernel_module_graph.py` first — the instrument is one command
+and the answer moved within a day. `rollback_registration` (28 → features, 10 →
 abilities) and `snapshot_impls` (11 → features) are the two files that name
 everything, which is what a registration file is for — they are not coupling, they
 are the ledger. ⇒ The candidate seam the doc predicted ("body state, movement,
@@ -1506,6 +1616,39 @@ the recipes REGISTER into the protocol and the protocol stops naming them — af
 which `construction` (2,019 lines) is a crate below the kernel and `features` is its
 customer, exactly as `ambition_body_seed` is now. Not cut: the doc says this last,
 and the outer domains (`abilities`, `encounter`) left only tonight.
+
+⭐ **AND THE DISPATCH SIDE IS SMALLER THAN THE 30 SUGGESTS — MEASURED
+2026-09-03.** The 30 above is `features` → `construction`, the CONSUMPTION
+direction, and it is not the side an inversion has to move. The side that moves
+is `construction` naming its recipes, and that is:
+>
+| | |
+|---|---|
+| production files that name `features::` | **1** — `construction/mod.rs` |
+| references in it | **16** total, of which **15 are code** — line 1639 is a prose comment, and one of the 15 is the `use` at line 17 |
+| distinct callables named | **6** — `spawn_staged_actor_into`, `spawn_runtime_minion_into`, `spawn_enemy_with_faction_into` (×3), `spawn_boss_with_overrides_into`, `is_limbed_host` (×2), `giant_hand_plans` (×2) |
+| distinct types named | **3** — `SpawnActorKind`, `SpawnActorRequest`, `GiantHandPlan` |
+| the other file | `construction/tests.rs` (38), which follows the production shape |
+
+⛔ **THE RECIPE LIST HERE WAS WRONG UNTIL 2026-09-03 AND IS NOW RE-TAKEN FROM THE
+FILE.** It previously read *"5 — `apply_summon_effects`, `ecs::spawn_runtime_minion`,
+`ecs::spawn_static::lower_interactable_placement`, `ecs::spawn_static::lower_pickup_placement`,
+`giant_hand_plans`"*. Four of those five names **do not occur in `construction/mod.rs`
+at all** (`apply_summon_effects` 0, `lower_pickup_placement` 0,
+`lower_interactable_placement` 0, and the minion is spelled
+`spawn_runtime_minion_into`); only `giant_hand_plans` was right. The COUNTS in
+this table were correct and re-verify exactly — 1 production file, 16 references,
+tests.rs at 38 — which is precisely what made the row look measured. ⇒ **A table
+can have a true count and a false membership**, and the count is the part a
+reader checks. See
+[`../../recipes/re-measuring-a-planning-claim.md`](../../recipes/re-measuring-a-planning-claim.md).
+
+⇒ **So the inversion is one production file and five registrations**, not a
+thirty-site sweep — the same shape and roughly the same size as the encounter
+carve's `ConstructionDomain`/`RecipeDispatch` inversion, which is the precedent
+the paragraph above already points at. ⚠ The 2,019-line figure for `construction`
+is unchanged and is NOT the work: moving the crate is the consequence of the
+inversion, not the inversion.
 
 ## The doctrine's own "does not belong" list, measured against the kernel (2026-09-03)
 

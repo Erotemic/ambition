@@ -42,7 +42,7 @@ should survive crate moves. Exact current symbols and files belong in source,
 | [`patch-overlays-and-repo-state.md`](patch-overlays-and-repo-state.md) | preparing overlays or broad file replacements |
 | [`llm-spatial-authoring-discipline.md`](llm-spatial-authoring-discipline.md) | placing gates, walls, hitboxes, one-ways, breakables, or encounter geometry |
 | [`brainstorms-design-incubation.md`](brainstorms-design-incubation.md) | handling Jon's active brainstorm space correctly |
-| [`anti-llmism-style-guide.md`](anti-llmism-style-guide.md) | writing prose anywhere in this repository — docs, comments, commit messages |
+| [`anti-llmism-style-guide.md`](anti-llmism-style-guide.md) | writing or auditing player-facing text — Yarn dialogue, barks, banter, cutscenes, fallback lines. Its general rhetorical rules MAY be applied to documentation; its hard bans are scoped to dialogue |
 
 ## Specialized references
 

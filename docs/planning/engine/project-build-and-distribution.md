@@ -147,6 +147,22 @@ live violations — two now closed.** They shared one shape: the producing comma
 EXISTED and nothing called it, so the artifact was missing on every machine
 except the one that had run the command by hand.
 
+⚠ **A FOURTH TURNED UP ON 2026-09-03 AND IT IS A DIFFERENT SHAPE**, so the
+enumeration above should not be read as closed. `Pillow` was missing from the
+repo venv: `scripts/tests/test_asset_writes_do_not_follow_worktree_symlinks.py`
+loads `scripts/generate_visual_quality_variants.py` to reach one guard function,
+that script's `from PIL import Image` is at MODULE scope, and three tests went
+red at collection with `ModuleNotFoundError: No module named 'PIL'` — from a
+file whose name is about symlinks. ⛔ Here no producing command was missing;
+the SUITE acquired a dependency and setup never learned about it, which is the
+same fresh-clone failure by a different road and would not be found by looking
+for uncalled commands. ⇒ Fixed in `scripts/setup/python_tools.sh`, and the rest
+of that class was swept rather than guessed: parsing every module-scope import
+under `scripts/` leaves three unresolved and NONE reachable from a test
+(`networkx`, `scriptconfig`, and `ambition_sprite2d_renderer`, which arrives via
+a `sys.path` insert). The sweep method is recorded beside the install list so
+the next added dependency re-runs it.
+
 - ✔ **Bundled UI fonts.** `ambition_render`'s typography test `include_bytes!`s
   three faces from a git-ignored directory, so their absence is not a missing
   picture at runtime — `cargo check --all-targets` exits 101, and TWO gate jobs

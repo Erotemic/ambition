@@ -12,6 +12,17 @@ ancestors of HEAD, re-checked 2026-09-03 with `git merge-base --is-ancestor`
 rather than `git cat-file` — an orphaned commit resolves under the second and
 not the first.
 
+⚠ **AND THE DISTANCE FROM THAT BASELINE IS NOW THE THING TO KNOW.** All five
+SHAs are still ancestors (re-checked 2026-09-03 late, after this branch merged
+`origin/main` at `867567a79`), which is the weakest of the guarantees this
+header can offer: it says the reviews HAPPENED in this history, not that what
+they concluded is still true. Roughly ninety commits landed between the
+`aa106cbe7` gate and that merge, including the five actor-monolith carves and
+the `hurtbox` move — so treat every section below as reviewed-at-its-SHA and
+re-measure before quoting a number, rather than reading the header as a
+statement about HEAD. ⇒ Where a section carries its own dated re-measurement,
+that date wins over this one.
+
 ⚠ **THE GATE LINE ABOVE IS NO LONGER REPRODUCIBLE, and the reason was never a
 regression in what it measured.** For most of 2026-09-03 the workspace job was
 RED on two schedule tests added that morning

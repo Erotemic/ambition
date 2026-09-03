@@ -969,12 +969,17 @@ fn a_requirement_of_none_empties_a_belief_it_stopped_maintaining() {
 /// populations, in both a SPARSE arrangement (bodies spread far apart, the
 /// hall's shape) and a DENSE one (bodies inside one another's viewports).
 ///
-/// ⛔ IT ASSERTS THE SHAPE, NOT A CONSTANT. `kept` saturating in the sparse arm
-/// is what makes hall measurements uninformative; `kept` growing in the dense
-/// arm is what makes a budget worth building. A test that pinned exact counts
-/// would break on any viewport tuning and would say nothing about either.
+/// ⛔ IT ASSERTS THE SHAPE, NOT A CONSTANT. `offered` (visible peers)
+/// saturating in the sparse arm is what makes hall measurements
+/// uninformative; `offered` growing in the dense arm is the regime a budget is
+/// for — and since 2026-09-03 the budget EXISTS, so the dense arm also shows it
+/// working: `kept` (actors carried exactly) stays at `TACTICAL_ATTENTION`
+/// while `offered` climbs, and the difference is counted in the remainder. A
+/// test that pinned exact counts would break on any viewport tuning and would
+/// say nothing about either.
 #[test]
-fn kept_saturates_when_bodies_are_spread_and_grows_when_they_are_dense() {
+fn offered_saturates_when_bodies_are_spread_grows_when_dense_and_the_budget_caps_kept() {
+    use ambition_characters::perception::TACTICAL_ATTENTION;
     let relations = {
         let mut r = FactionRelations::default();
         r.set_mutual_hostile(ActorFaction::Enemy, ActorFaction::Boss, true);
@@ -983,9 +988,10 @@ fn kept_saturates_when_bodies_are_spread_and_grows_when_they_are_dense() {
     let world = arena_world();
     let viewer = body(ae::Vec2::new(0.0, 180.0), ActorFaction::Enemy);
 
-    // How many actors the viewer keeps, given `count` peers laid out `spacing`
-    // apart along the floor, centred on the viewer.
-    let kept = |count: usize, spacing: f32| -> usize {
+    // (offered, kept) for the viewer, given `count` peers laid out `spacing`
+    // apart along the floor, centred on the viewer: offered = visible peers,
+    // kept = the actors the view carries exactly.
+    let attend = |count: usize, spacing: f32| -> (usize, usize) {
         let peers: Vec<_> = (0..count)
             .map(|i| {
                 let offset = (i as f32 - count as f32 / 2.0) * spacing;
@@ -996,7 +1002,7 @@ fn kept_saturates_when_bodies_are_spread_and_grows_when_they_are_dense() {
                 )
             })
             .collect();
-        build_world_view(
+        let view = build_world_view(
             &viewer,
             &peers,
             &[],
@@ -1007,44 +1013,49 @@ fn kept_saturates_when_bodies_are_spread_and_grows_when_they_are_dense() {
                 viewport_half: DEFAULT_VIEWPORT_HALF,
             },
             0.0,
-        )
-        .actors
-        .len()
+        );
+        (view.actors.len() + view.remainder.actors, view.actors.len())
     };
 
-    // ── SPARSE: the hall's shape. The viewport bounds the kept set, so
+    // ── SPARSE: the hall's shape. The viewport bounds the offered set, so
     //    population stops mattering long before 200. ───────────────────────────
-    let sparse: Vec<usize> = [16usize, 64, 130, 200]
+    let sparse: Vec<(usize, usize)> = [16usize, 64, 130, 200]
         .iter()
-        .map(|n| kept(*n, 120.0))
+        .map(|n| attend(*n, 120.0))
         .collect();
     assert!(
-        sparse[3] <= sparse[1] + 2,
-        "a SPARSE room's kept set must saturate -- that is why a hall \
-         measurement cannot justify attention work. kept at 16/64/130/200 = {sparse:?}"
+        sparse[3].0 <= sparse[1].0 + 2,
+        "a SPARSE room's offered set must saturate -- that is why a hall \
+         measurement cannot justify attention work. (offered, kept) at 16/64/130/200 = {sparse:?}"
     );
 
-    // ── DENSE: bodies inside one another's viewports. Now kept tracks
-    //    population, which is the room the plan says must exist. ───────────────
-    let dense: Vec<usize> = [16usize, 64, 130, 200]
+    // ── DENSE: bodies inside one another's viewports. Offered tracks
+    //    population — the room the plan says must exist — and the budget caps
+    //    what is carried exactly. ──────────────────────────────────────────────
+    let dense: Vec<(usize, usize)> = [16usize, 64, 130, 200]
         .iter()
-        .map(|n| kept(*n, 4.0))
+        .map(|n| attend(*n, 4.0))
         .collect();
     assert!(
-        dense[3] > dense[0] * 4,
-        "the DENSE arrangement must make kept track population, or this \
-         instrument cannot show a budget flattening it. kept at 16/64/130/200 = {dense:?}"
+        dense[3].0 > dense[0].0 * 4,
+        "the DENSE arrangement must make OFFERED track population, or this \
+         instrument cannot show a budget flattening it. (offered, kept) at 16/64/130/200 = {dense:?}"
     );
     assert!(
-        dense[3] > sparse[3] * 3,
+        dense[3].0 > sparse[3].0 * 3,
         "dense must differ from sparse at the same population, or the two arms \
          are measuring the same room: dense {} vs sparse {}",
-        dense[3],
-        sparse[3]
+        dense[3].0,
+        sparse[3].0
+    );
+    assert!(
+        dense.iter().all(|(_, kept)| *kept <= TACTICAL_ATTENTION)
+            && dense[3].1 == TACTICAL_ATTENTION,
+        "the budget flattens KEPT at TACTICAL_ATTENTION while offered climbs: {dense:?}"
     );
 
     println!(
-        "attention acceptance -- kept per viewer at 16/64/130/200\n  \
+        "attention acceptance -- (offered, kept) per viewer at 16/64/130/200\n  \
          sparse (120px apart): {sparse:?}\n  dense  (4px apart):   {dense:?}"
     );
 }
@@ -1389,4 +1400,103 @@ fn a_target_belief_body_still_pursues_a_foe_it_has_lost_sight_of() {
         "the cheap road must pursue too — a dropped fold shows up HERE and \
          nowhere else, because a body that can see its foe never consults memory"
     );
+}
+
+/// THE ATTENTION BUDGET BINDS: a crowd of forty visible peers yields exactly
+/// `TACTICAL_ATTENTION` actors, hostiles before friends and nearer before
+/// farther, and the remainder counts what was left out — with the nearest
+/// hostile the capped view names being the one the uncapped scan names.
+///
+/// Poison: drop the hostile-first key and a near friend displaces the
+/// farthest kept foe (the hostile count below moves); drop the id tiebreak
+/// and the shuffled arm differs.
+#[test]
+fn a_crowd_is_attended_to_hostiles_first_and_the_rest_is_counted() {
+    use ambition_characters::perception::TACTICAL_ATTENTION;
+    let mut relations = FactionRelations::default();
+    relations.set_mutual_hostile(ActorFaction::Enemy, ActorFaction::Boss, true);
+    let world = arena_world();
+    let perception = Perception::Sighted {
+        viewport_half: DEFAULT_VIEWPORT_HALF,
+    };
+    let viewer = body(ae::Vec2::new(0.0, 0.0), ActorFaction::Enemy);
+    // 20 foes at 10, 20, ... 200 px and 20 friends at 5, 15, ... 195 px —
+    // every friend NEARER than the foe after it, so distance alone would keep
+    // ten of each and hostile-first keeps sixteen foes.
+    let mut peers: Vec<PerceptionPeer> = (1..=20)
+        .map(|i| {
+            peer(
+                &format!("foe_{i:02}"),
+                ae::Vec2::new(10.0 * i as f32, 0.0),
+                ActorFaction::Boss,
+            )
+        })
+        .chain((1..=20).map(|i| {
+            peer(
+                &format!("pal_{i:02}"),
+                ae::Vec2::new(10.0 * i as f32 - 5.0, 0.0),
+                ActorFaction::Enemy,
+            )
+        }))
+        .collect();
+    let view = build_world_view(&viewer, &peers, &[], &[], &world, &relations, perception, 0.0);
+    assert_eq!(view.actors.len(), TACTICAL_ATTENTION);
+    assert!(
+        view.actors.iter().all(|a| a.hostile_to_self),
+        "sixteen foes outrank every nearer friend: {:?}",
+        view.actors.iter().map(|a| a.id.as_str()).collect::<Vec<_>>()
+    );
+    assert_eq!(
+        view.nearest_hostile().map(|a| a.pos),
+        Some(ae::Vec2::new(10.0, 0.0)),
+        "the capped view names the same nearest foe the uncapped scan would"
+    );
+    assert_eq!(view.remainder.actors, 40 - TACTICAL_ATTENTION);
+    assert_eq!(view.remainder.hostiles, 20 - TACTICAL_ATTENTION);
+    assert_eq!(
+        view.remainder.nearest_unattended_hostile_dist_sq,
+        Some(170.0 * 170.0),
+        "foe_17 is the nearest foe that did not make the cut"
+    );
+
+    // Input order does not change who is kept, or in what order.
+    let kept: Vec<String> = view.actors.iter().map(|a| a.id.clone()).collect();
+    peers.reverse();
+    peers.swap(3, 29);
+    let shuffled = build_world_view(&viewer, &peers, &[], &[], &world, &relations, perception, 0.0);
+    assert_eq!(
+        shuffled.actors.iter().map(|a| a.id.clone()).collect::<Vec<_>>(),
+        kept,
+        "attention is a deterministic function of the peers, not of their order"
+    );
+    assert_eq!(shuffled.remainder, view.remainder);
+}
+
+/// Below the cap nothing changes: every visible peer is carried, in the
+/// peers' own order, and the remainder is zero — which is every shipped room
+/// today (`kept` saturates at ~14).
+#[test]
+fn below_the_attention_cap_the_view_is_what_it_always_was() {
+    let mut relations = FactionRelations::default();
+    relations.set_mutual_hostile(ActorFaction::Enemy, ActorFaction::Boss, true);
+    let world = arena_world();
+    let perception = Perception::Sighted {
+        viewport_half: DEFAULT_VIEWPORT_HALF,
+    };
+    let viewer = body(ae::Vec2::new(0.0, 0.0), ActorFaction::Enemy);
+    let peers: Vec<PerceptionPeer> = [
+        ("far_foe", 200.0, ActorFaction::Boss),
+        ("near_pal", 20.0, ActorFaction::Enemy),
+        ("near_foe", 40.0, ActorFaction::Boss),
+    ]
+    .into_iter()
+    .map(|(id, x, faction)| peer(id, ae::Vec2::new(x, 0.0), faction))
+    .collect();
+    let view = build_world_view(&viewer, &peers, &[], &[], &world, &relations, perception, 0.0);
+    assert_eq!(
+        view.actors.iter().map(|a| a.id.as_str()).collect::<Vec<_>>(),
+        vec!["far_foe", "near_pal", "near_foe"],
+        "uncapped: the peers' own order, friends included"
+    );
+    assert_eq!(view.remainder, Default::default());
 }

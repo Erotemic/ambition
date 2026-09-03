@@ -641,11 +641,17 @@ pub fn build_world_view(
     // Terrain, projectiles and pickups keep the tactical extent under both
     // policies: omniscience is a claim about where BODIES are, not a licence to
     // fold a whole room's geometry into one tick's line-of-fire query.
-    let actors = peers
-        .iter()
-        // A body is not its own peer. This is the whole job `peers_seen_by`
-        // used to do by copying the other 129 rows.
-        .filter(|p| peer_is_visible_to_body(perception, &viewport, body, p))
+    // ⭐ THE ATTENTION BUDGET (bounded-perception-and-attention.md): at most
+    // `TACTICAL_ATTENTION` visible peers are carried EXACTLY, hostiles before
+    // friends and nearer before farther, ties on id; the rest are counted
+    // into the remainder. At the hall's density (`kept` ~14) this never binds
+    // and the view is what it always was; at 4x the viewport `kept` reached
+    // 113 and this is what caps the linear-in-`kept` term. Selected on
+    // BORROWED peers, so no `PerceivedActor` is built for a peer that is not
+    // kept — construction was the whole cost.
+    let (attended, remainder) = attend(peers, body, relations, perception, &viewport);
+    let actors = attended
+        .into_iter()
         .map(|p| PerceivedActor {
             id: p.id.clone(),
             pos: p.pos,
@@ -727,7 +733,64 @@ pub fn build_world_view(
         terrain,
         portals,
         sim_time,
+        remainder,
     }
+}
+
+/// The peers a body attends to, in the order they are kept, and what it did
+/// not: the visible peers (`peer_is_visible_to_body`) ranked hostile-first,
+/// then by squared distance, then by id, cut at
+/// [`ambition_characters::perception::TACTICAL_ATTENTION`].
+///
+/// ⛔ DETERMINISTIC BY CONSTRUCTION. `WorldMemory` is rollback state and
+/// reads the kept set, so two peers at equal distance must be kept in the
+/// same order on every host — the id tiebreak is not a nicety.
+fn attend<'p>(
+    peers: &'p [PerceptionPeer],
+    body: &PerceptionBody,
+    relations: &FactionRelations,
+    perception: Perception,
+    viewport: &Viewport,
+) -> (
+    Vec<&'p PerceptionPeer>,
+    ambition_characters::perception::AttentionRemainder,
+) {
+    use ambition_characters::perception::{AttentionRemainder, TACTICAL_ATTENTION};
+    let mut visible: Vec<(bool, f32, &'p PerceptionPeer)> = peers
+        .iter()
+        // A body is not its own peer. This is the whole job `peers_seen_by`
+        // used to do by copying the other 129 rows.
+        .filter(|p| peer_is_visible_to_body(perception, viewport, body, p))
+        .map(|p| {
+            (
+                peer_is_hostile_to_body(body, relations, p),
+                (p.pos - body.pos).length_squared(),
+                p,
+            )
+        })
+        .collect();
+    if visible.len() <= TACTICAL_ATTENTION {
+        // The common case, and the shipped one: every visible peer is kept,
+        // in the peers' own (deterministic) order, exactly as before the cap.
+        let kept = visible.into_iter().map(|(_, _, p)| p).collect();
+        return (kept, AttentionRemainder::default());
+    }
+    visible.sort_by(|a, b| {
+        b.0.cmp(&a.0)
+            .then(a.1.total_cmp(&b.1))
+            .then_with(|| a.2.id.cmp(&b.2.id))
+    });
+    let beyond = visible.split_off(TACTICAL_ATTENTION);
+    let remainder = AttentionRemainder {
+        actors: beyond.len(),
+        hostiles: beyond.iter().filter(|(hostile, _, _)| *hostile).count(),
+        nearest_unattended_hostile_dist_sq: beyond
+            .iter()
+            .filter(|(hostile, _, _)| *hostile)
+            .map(|(_, d, _)| *d)
+            .min_by(f32::total_cmp),
+    };
+    (visible.into_iter().map(|(_, _, p)| p).collect(), remainder)
 }
 
 /// Distill an engine `BlockKind` to the perception `SolidKind`, or `None` for

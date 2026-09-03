@@ -76,6 +76,40 @@
   ⚠ Found by reading `update` before writing the routing, not after. The
   provider and its equivalence guards are right and land as they are; what would
   have been wrong is the call site that used them.
+  ✔ **Routed 2026-09-02 (`0520d3d12`):** seven of nine templates stop building
+  a view; `update` takes the narrowed iterator.
+
+* ✔ **Increment 3 (2026-09-03): the ATTENTION BUDGET — the `TacticalWorld`
+  view is bounded.** `build_world_view` carries at most
+  `TACTICAL_ATTENTION` (= 16) peers exactly: the visible peers ranked
+  hostile-first, then by squared distance, then by id (deterministic — the
+  kept set feeds `WorldMemory`, which is rollback state), cut at the cap, on
+  BORROWED peers so no `PerceivedActor` is built for a peer that is not kept.
+  What the cut left out is the aggregate remainder,
+  `WorldView.remainder: AttentionRemainder { actors, hostiles,
+  nearest_unattended_hostile_dist_sq }` — the pressure a crowd exerts even when
+  nothing in it is attended. **16 from the measurement, not taste:** `kept`
+  saturates at ~14.4 in the shipped hall (n = 65 and 130 alike), so at ship
+  density the cap never binds and every shipped view is byte-identical to
+  before; it binds in the regime the budget is FOR, where `kept` reached 113
+  at 4x the viewport and `Decide` went 0.24 → 1.99 ms/tick linear in `kept`.
+  Guards: `a_crowd_is_attended_to_hostiles_first_and_the_rest_is_counted` (40
+  visible → 16 actors, all hostile; the capped view's `nearest_hostile()` is
+  the uncapped scan's; the remainder counts 24/4 and names foe_17's distance;
+  input order changes nothing) and
+  `below_the_attention_cap_the_view_is_what_it_always_was`. The acceptance
+  instrument was renamed to what it now shows —
+  `offered_saturates_when_bodies_are_spread_grows_when_dense_and_the_budget_caps_kept`
+  — and the census row gained a `visible=` term (density, pre-cut) beside
+  `kept=` (post-cut, the cost driver); `scripts/measure_perception_density.sh`
+  prints both. ⚠ NOT yet built: salience beyond hostility and distance
+  (is-attacking-me, time-to-collision, recent damage, watchlist promotion) and
+  the crowd's spatial aggregation (`SpatialCell`); the remainder is counts and
+  one distance. ⚠ The rollback schema did not move (no new registered state);
+  `WorldMemory` VALUES differ from before only where the cap binds — no shipped
+  room — and ADR 0034 covers that class. Measured next: the density sweep on an
+  untenanted box (yardrat's queue) — the prediction is `visible` climbing with
+  extent and `kept` flat at 16.
 
 ## The rule
 
@@ -583,11 +617,12 @@ measurement. The hall says the current design is adequate for the hall.
 
 ### ✔ THE ACCEPTANCE INSTRUMENT EXISTS, and it measured both rooms (2026-09-02)
 
-`kept_saturates_when_bodies_are_spread_and_grows_when_they_are_dense`
-(`features/ecs/perception/tests.rs`). `build_world_view` is a pure function over
-slices, so the dense room needs no `App`, no schedule and no fixture of
-`tick_actor_brains`'s 145-line signature — one viewer, N peers, count
-`view.actors`.
+`offered_saturates_when_bodies_are_spread_grows_when_dense_and_the_budget_caps_kept`
+(`features/ecs/perception/tests.rs`; renamed 2026-09-03 when the budget landed
+— it now also asserts `kept` flat at the cap while `offered` climbs).
+`build_world_view` is a pure function over slices, so the dense room needs no
+`App`, no schedule and no fixture of `tick_actor_brains`'s 145-line signature —
+one viewer, N peers, count `view.actors` + `view.remainder.actors`.
 
 ```text
 kept per viewer          16     64    130    200

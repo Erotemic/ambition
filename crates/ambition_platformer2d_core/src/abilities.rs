@@ -122,7 +122,7 @@ pub struct AbilitySet {
     /// can establish a capture relationship, hold a captive across several of
     /// its own moves, and end the hold with a throw.
     ///
-    /// deliberately NOT folded under [`Self:attack`]. A grab is not a kind of slash: it
+    /// deliberately NOT folded under [`Self::attack`]. A grab is not a kind of slash: it
     /// beats a shield rather than being stopped by one, it selects a counterpart instead of
     /// damaging everything it overlaps, and it outlives the move that started it.
     ///

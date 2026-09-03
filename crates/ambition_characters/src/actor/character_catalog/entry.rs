@@ -903,7 +903,7 @@ pub struct ActionSetPreset {
 #[derive(Clone, Debug, Deserialize, Serialize, PartialEq)]
 #[serde(deny_unknown_fields)]
 pub struct CharacterCatalogData {
-    /// A character could carry a [`crate:brain:BrainProfile`] by VALUE
+    /// A character could carry a [`crate::brain::BrainProfile`] by VALUE
     /// (`CharacterDefinition:autonomous_profile`) or name a [`BrainPreset`] by key — and those
     /// are different vocabularies read by different roads, so the old architecture coupled
     /// autonomous policy to body identity.

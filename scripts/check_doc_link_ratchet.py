@@ -33,6 +33,12 @@ CRATES = [
     "ambition_boss_encounter",
     "ambition_items",
     "ambition_menu",
+    # D33 cut 1 (2026-09-03): the body seed left the monolith, taking
+    # ActorClusterSeed / ActorMotionPath / ActorBody and their doc comments with
+    # it. Added AFTER the fact rather than in the carve's own commit, which is
+    # the failure this list's comment predicts — the monolith's count falls and
+    # reads as a repair.
+    "ambition_body_seed",
 ]
 
 # rustdoc's two shapes for this class.
@@ -118,11 +124,24 @@ def main() -> int:
         print(f"\nbaseline written: {BASELINE}")
         return 0
 
-    if fell:
+    if fell and not risen:
         print()
         print(f"⭐ {', '.join(fell)} improved — run --update to bank it, in this commit.")
+    elif fell and risen:
+        # ⛔⛔ THE ADVICE AND THE FINDING WERE ASYMMETRIC, and the asymmetry
+        # pointed one way: "run --update to bank it" printed ALWAYS, while the
+        # risen block printed only under --check. A plain run therefore told you
+        # to bank an improvement without ever showing you the regressions --
+        # and `--update` rewrites EVERY count, so following that advice converts
+        # a rise into the new normal. Found 2026-09-03 with two crates risen.
+        print()
+        print(f"⭐ {', '.join(fell)} improved — but ⛔ DO NOT --update YET.")
+        print("   `--update` rewrites EVERY count, so it would bank the rises")
+        print("   below as the new baseline. Fix or account for those first.")
 
-    if risen and args.check:
+    # Printed whether or not --check was passed: a run that shows "ROSE" in its
+    # table and then says nothing about it is why the rises above went unread.
+    if risen:
         print()
         print(f"⛔ {len(risen)} crate(s) gained broken doc links: {', '.join(risen)}")
         print("   Run `cargo doc -p <crate> --no-deps` and read the warnings: each is")

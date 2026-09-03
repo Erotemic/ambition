@@ -66,6 +66,26 @@ Do not recreate the old boot-time validation proposal or duplicate these tests.
    customer and this item is not "unfinished", it is ANSWERED. ⛔ Reopen only on a
    named site, never on the count.
 
+   ⭐ **RE-RUN 2026-09-03, exactly as this item instructs — and the conclusion
+   holds while one of its supporting numbers does not.**
+   ✔ **The load-bearing result reproduces:** both silent-discard greps are still
+   empty across `crates/` and `game/` — no `resolve*(..).unwrap_or_default()`,
+   no `resolve*(..).unwrap_or(..)`. The shape is still not being reintroduced,
+   so the item stays ANSWERED.
+   ⚠ **But the resolver POPULATION figure is instrument-dependent and should not
+   be leaned on.** Counting `fn *resolve*` returning `Option` gives a different
+   answer for every way of asking: **12** matching on one line, **14** with a
+   3-line grep window, **29** with an 8-line window, and **34** (28 distinct
+   names) from a scan that reads each signature to its body brace while tracking
+   paren depth. The recorded trend "14 → 42" therefore compares two numbers that
+   may not have come from the same instrument, and no consistent instrument
+   reproduces either endpoint today.
+   ⇒ **This is evidence FOR this item's own closing rule**, not against it.
+   *"Reopen only on a named site, never on the count"* is exactly right: the
+   count moves under the measurer's `-A` flag, and the named-site test does not.
+   The growth argument was never the reason this item closed — the empty grep
+   was.
+
 3. **Typed/generated ids only when the owning pipeline is already open.** If the
    sprite/content pipeline naturally exposes stable generated symbols, use them
    to make impossible references unrepresentable. Do not open a standalone

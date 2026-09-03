@@ -1464,19 +1464,36 @@ modules with NO out-edges and nothing pointing back except registration
 `world_facts`) are already islands; that they are still in this crate is inertia,
 not coupling, and each is a small cut.
 
-⭐ **AND THE COUNT IS 14, NOT 8 — RE-MEASURED 2026-09-03 with this paragraph's own
-rule** (no out-edges; nothing pointing back except `rollback_registration` and
-`snapshot_impls`). All eight named above still hold at 0 out-edges. **Six more
-now qualify**: `brain_tick`, `config`, `dev`, `enemy_projectile`, `host`, and
-`safe_pos_tests`. ⚠ Two of the sixteen zero-out-edge modules do NOT qualify, and
-naming them is the point of doing this by rule rather than by count —
-`character_roster` (in from `character_sprites`) and `participant_seat` (in from
-`character_runtime` and `schedule`) are still coupled.
->
-⇒ 13 if you exclude `safe_pos_tests`, which is test-only (`prod=0, all=240`).
-⇒ **The direction is the finding**: the number grew because the night's carves
-removed edges, so a figure quoted from before them understates the result. Any
-report that cites "eight" should re-run
+⛔ **THE COUNT IS 11, AND MY OWN "14" ON THIS LINE WAS WRONG — RETRACTED
+2026-09-03, same day it was written.** I re-measured by the rule this paragraph
+states (no out-edges; nothing pointing back except `rollback_registration` and
+`snapshot_impls`) and got **11**, on BOTH `origin/main` (`0f0f89d42`) and this
+branch (`50b328436`) — identical module lists, so this is not tree drift:
+
+    action_scheme  brain_tick  config  cutscene  dev  enemy_projectile
+    host  quest  safe_pos_tests  time  world_facts
+
+⛔ **Three of the eight inherited from the older text do NOT satisfy the rule**,
+and that is where 14 came from: `causal` is referenced by `features` (8),
+`body_mode` by `avatar` (1), `music` by `audio` (4). Confirmed twice by
+different instruments — the module graph, and a direct `grep -rl 'causal::'`
+over the crate, which names the same three importers.
+
+⚠ **How the error was made, because the shape recurs:** sixteen modules have
+zero out-edges. I tested the in-edge half of the rule against the SIX I was
+adding and against the two I excluded by name (`character_roster`,
+`participant_seat`), and not against the EIGHT I inherited from the paragraph
+above — 16 − 2 = 14. So the number was neither the loose rule (16) nor the
+stated one (11); it was the stated rule applied to only the members I happened
+to be looking at. ⇒ **Inheriting a prior claim's members without re-testing them
+is the same defect as citing a stale count** — the list looked re-measured
+because part of it was.
+
+⇒ 10 if you exclude `safe_pos_tests`, which is test-only (`prod=0, all=240`).
+⇒ **The direction, correctly stated:** the loose "zero out-edges" population is
+16 and the strict one is 11; the gap is five modules that are read but read
+nothing. Any report citing a number here should say WHICH rule it used and at
+which SHA, and re-run
 `scripts/measure_kernel_module_graph.py` first — the instrument is one command
 and the answer moved within a day. `rollback_registration` (28 → features, 10 →
 abilities) and `snapshot_impls` (11 → features) are the two files that name

@@ -1066,6 +1066,38 @@ placeholder warnings, `asset_wait_ms` 3 → 292, nine frames >33.4 ms → zero.
 materialization from becoming one enormous frame. The fix moved the WAIT, not
 the pace.
 
+### ✔ 2d. WHAT IS LEFT IN THE STARTUP BURST, ITEM BY ITEM — 2026-09-02
+
+The hall is fixed and the same run says the remaining host hitch is STARTUP. So
+the 7 notable decodes before `room-loaded` were each asked *why are you here?*
+
+```text
+7.6 MP  game://…/player_robot_v3_spritesheet.png  LDtk editor-preview tileset  → FIXABLE
+7.6 MP  sprites/player_robot_v3_spritesheet.png   the player's own sheet       → needed
+3.0 MP  vanity_card_parts.png                     the boot card ON SCREEN      → needed
+2.0 MP  boss_spritesheet.png                      fallback boss body           → eager by design
+1.3 MP  sprite_packs/full/ultrapack_4.png         intro_cart's pack page       → needed
+1.2 MP  generic_exotic_fx_spritesheet.png         engine core fx               → needed
+1.0 MP  <runtime-generated>                       an atlas/render target       → not content
+```
+
+⇒ **ONE of the seven is removable, and it is the largest.** The LDtk
+editor-preview tileset is 7.6 MP the runtime never draws; the prepared patch
+takes it to ~0.54 MP. Everything else is either on screen at that moment
+(vanity card), the thing the player is about to be (the player sheet), or
+deliberately eager (the fallback boss body — one sheet every boss may need).
+
+⛔ **So after the retarget the startup burst is IRREDUCIBLE WITHOUT A PRODUCT
+DECISION** — not showing the boot card, or making the fallback boss body lazy.
+Both are Jon's calls and neither is an engine defect. ▢ The engine-side question
+that remains is the one §2 raised: whether the `game://` scheme and the plain
+path resolve to two `AssetId`s over the same bytes, because the retarget cures
+the symptom (a 7.6 MP tileset) without answering whether a cover that waits for
+both would pay twice.
+
+⚠ Bounded by the same sample as §2: `[image]` prints only decodes ≥ 1.0 MP, so
+these seven stand for 252 images / 78.3 MP and the small remainder is unaudited.
+
 ### 3. Pace expensive completion, not declarations
 
 Staging/demand and expensive materialization are different operations. Declare

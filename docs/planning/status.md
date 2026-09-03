@@ -47,7 +47,11 @@ most recent one is the exhaustive plan on `c2b7f83c7` (an ancestor of HEAD):
 
 ⭐ **RE-GATED 2026-09-03 late on the twice-merged tree, and these are the
 numbers to quote until someone runs the Rust lane:** `scripts/tests` **802
-passed / 13 skipped / 0 failed**; `check_absence_contracts.py` **37 of 37**,
+passed / 13 skipped / 0 failed** — ⚠ **now 819 passed / 3 skipped / 1 failed**,
+because `scripts/lib/canonical_assets.py` landed and switched on ten asset
+ratchets that no lane had ever evaluated. The red is one of them
+(`test_the_known_list_does_not_rot`, four names that no longer strand pages)
+and it is a real finding rather than a regression — see [`queue.md`](queue.md); `check_absence_contracts.py` **37 of 37**,
 with the capability footprint at 50 crates linked and 23 a movement-only game
 never asked for, and the rollback wire format at 409 stable names / 123 encoded
 types across 12 crates; `check_planning_citations` all resolved and `--vanished`

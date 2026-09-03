@@ -1157,13 +1157,27 @@ The goal named three candidate causes — prefetch scope, retired realizations, 
 re-decode. **It is prefetch scope plus rationing, and the other two are ruled
 out at their source.**
 
-⛔ **NOT RETIRED REALIZATIONS.** `demote_stale_realizations(active)` retires a
-sheet only when `asset.requested_tier != active`, and its caller
-(`character_runtime/mod.rs:855-870`) computes `active` from the USER's budget
+⛔ **NOT RETIRED REALIZATIONS.** The convergence retires a sheet only when
+`asset.requested_tier != active`, and it computes `active` from the USER's budget
 alone — *"ONE tier, the user's, everywhere. The room a character stands in has no
 say (Jon, 2026-09-02: no lower tier for gallery previews)"* — then early-returns
-through `has_stale_realizations`. A hall entry changes no tier, so it demotes
-nothing. ⇒ This hypothesis was live only while a room-level cap existed; **Jon's
+when `stale_realizations(active)` is empty. A hall entry changes no tier, so it
+retires nothing.
+⚠ **RE-VERIFIED AGAINST THE CODE 2026-09-03, after `6c9fb2b58` rewrote this
+function.** The ruling stands and THE MECHANISM NAMES IN IT DID NOT: it called
+`demote_stale_realizations(active)` and early-returned through
+`has_stale_realizations` when this was written, and both are now production-dead
+(definitions and tests only — `converge_character_residency_to_active_quality`
+reaches `stale_realizations` + `retire_realizations` instead). The line citation
+it carried, `character_runtime/mod.rs:855-870`, now lands in a different
+function's parameter list.
+⭐ **And this is NOT the contradiction it looks like.** The ✔ FIXED section above
+concludes retired realizations WERE a cause of the 129-placeholder Ultra run.
+Both are true: that run is a quality TRANSITION (Potato→Ultra) and this row is a
+hall ENTRY at an unchanged tier, which still reaches the empty-`stale`
+early-return on the function's first lines. Two sections of one page naming the
+same function for opposite verdicts are describing two different EVENTS, and a
+reader who takes either as the general answer gets it wrong. ⇒ This hypothesis was live only while a room-level cap existed; **Jon's
 ruling removing that cap (§3a) also removed this cause.**
 
 ⛔ **NOT RE-DECODE.** The census reports `re-decodes N` directly and the hall
@@ -2184,8 +2198,10 @@ the range and the suffix away together.)
 this squarely in this section rather than in observability.
 ✔ **FIXED THE SAME DAY.** `CharacterSpriteAssets` now keeps a `retired` trace
 (token → the tier whose pixels it actually held), written by `retire_tokens`
-— the shared helper BOTH retirement roads go through, `demote_stale_realizations`
-and `retire_realizations_except` — and cleared by both publish paths the moment
+— the shared helper EVERY retirement road goes through (`demote_stale_realizations`,
+`retire_realizations_except`, and since `6c9fb2b58` the convergence's
+`retire_realizations`, which is the only one with a production caller today) —
+and cleared by both publish paths the moment
 the token is resident again — so a character that comes back stops being
 described by a retirement it recovered from. `retired_tier(token)` exposes it and
 the warning now says either *"declared as 'X' and RETIRED from Full — it was

@@ -1060,7 +1060,7 @@ contract holds. That is a decision with a real cost (a new crate; the footprint
 ratchet counts crates) and is not taken here.
 
 ⚠ **AND THE DEPENDENCY COUNT BELOW WAS WRONG TOO — five and two, not four and
-one.** `ambition_characters` (production, `systems.rs:177`) and
+one.** `ambition_characters` (production, `ambition_encounter_features/src/systems.rs:177` <!-- cite-ok: measured pre-carve in encounter/systems.rs -->) and
 `ambition_asset_manager` (tests) were missing, because the measurement piped the
 crate list through `head -14` and reported the truncated output as complete. The
 true list is 18 distinct tokens, of which `ambition_app` and

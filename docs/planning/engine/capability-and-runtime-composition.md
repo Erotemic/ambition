@@ -36,14 +36,16 @@ Its demonstrated value is:
 >
 > `scripts/check_absence_contracts.py` runs
 > **`capability-footprint-may-not-grow`**, which reports the program's headline
-> number every time the gate runs: **45 crates linked, 18 of them a
-> movement-only game never asked for** (`479f9d3e4`, when
-> `ambition_registry_core` entered the closure).
-> ⛔ **DO NOT RETYPE IT — re-derive:**
-> `python3 scripts/check_absence_contracts.py | grep footprint`, which prints
-> the live pair from `scripts/baselines/capability-footprint-baseline.json`.
-> ⚠ It has now drifted FOUR times — 43/16 → 44/16 → 44/17 → 45/18 — and the
-> fourth happened INSIDE the edit that corrected the third, hours apart. A
+> number every time the gate runs. ⛔ **THE NUMBER IS NOT QUOTED HERE ANY MORE —
+> re-derive it:** `python3 scripts/check_absence_contracts.py | grep footprint`,
+> which prints the live pair from
+> `scripts/baselines/capability-footprint-baseline.json`, and that file's dated
+> `*_entered_the_closure_*` rows say why each crate is there.
+> ⚠ The quoted pair drifted FOUR times in a week — 43/16 → 44/16 → 44/17 →
+> 45/18 — and then FOUR carves landed in one night (2026-09-03: body_seed,
+> match, encounter_features, abilities: → 48/21 → 49/22 → 50/23), every one a
+> crate boundary drawn through code the sentinel already linked. A number that
+> moves faster than the paragraph quoting it is not a fact the paragraph can hold. A
 > hand-copied ratchet value is a claim with nothing holding it, which is the very
 > failure §2e is about; the command is the only form of this fact that stays
 > true. It ratchets — a new crate entering the

@@ -257,6 +257,31 @@ not own. ⚠ Assert it as absence FROM THE GRAPH, not as an empty set — a set 
 plugin has named is not in the graph at all, so `get_key(...).is_none()` is the
 check and a member count panics in the lookup instead.
 
+### ⭐ Prune by mtime, not by profile — the carve campaign's disk bill
+
+A carve multiplies the feature-matrix variants a feature job resolves, and cargo
+never prunes the last one. Measured 2026-09-03 after five carves in a day:
+`target/debug/deps` alone reached **141 GB**, and the box could no longer run its
+own suite — the runner's own floor is 40 GB and one `cargo test --workspace`
+spends 14 GB in under three minutes.
+
+⛔ **Deleting whole profiles is the expensive way and I did it first.**
+`target/{profiling,release,wasm32-unknown-unknown,outlander}` plus incremental,
+four separate reclaims, bought ~26 GB and cost a rebuild of each.
+
+⇒ **The cheap lever keeps the warm base and drops only the variants:**
+
+```sh
+find target/debug/deps target/debug/examples -maxdepth 1 -type f -mmin +240 -delete
+find target/debug/incremental -mindepth 1 -maxdepth 1 -type d -exec rm -rf {} +
+```
+
+**That freed 104 GB in one pass — 26 GB → 130 GB** — with no full rebuild,
+because everything a current build still references has a recent mtime. ⚠ Run it
+BETWEEN gates, never during one. `cargo clean` remains the last resort: it works,
+and its price is one full rebuild of everything, which on a shared box is
+everyone's price and not just yours.
+
 ### The lockfiles are plural
 
 `fixtures/minimal_game/Cargo.lock` is the one the footprint ratchet reads, and

@@ -627,6 +627,10 @@ pub fn materialize_character_demand(
                 &character_id,
                 asset_server,
                 layouts,
+                // The same budget the pages beside it just used: a fighter's own
+                // effect art must not arrive at a different tier from the
+                // fighter.
+                quality,
             );
             if !owed.is_empty() {
                 bevy::log::info!(

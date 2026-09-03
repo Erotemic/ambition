@@ -61,6 +61,25 @@ entity.
   format;
 - participant entitlement and physical custody are not inferred from each other.
 
+⚠ **TWO OF THESE ARE WRITTEN AS UNIVERSALS AND HOLD ONLY FOR OCCURRENCE-MODEL
+ITEMS** — noticed while measuring I3, and worth fixing when question 45 is
+answered rather than guessed at now:
+
+- *"drop/rematerialization … not by fabricating an unrelated replacement"* — the
+  portal gun's drop spawns a fresh `PortalGunPickup` unrelated to the token that
+  was consumed. Under the ENTITLEMENT reading nothing is fabricated in place of
+  an occurrence, because there is no occurrence; under the OCCURRENCE reading it
+  is exactly what the invariant forbids;
+- *"participant entitlement and physical custody are not inferred from each
+  other"* — ⛔ and this one is looser than it looks for EVERY item, not just the
+  gun: `MenuAction::Equip` grants physical custody straight from the roster
+  (`equip_portal_gun`, or `held_spec_for_item` → `equip_held_spec`), which is
+  inferring custody from entitlement unless the invariant is read as being about
+  the SIMULATION only.
+
+⇒ Neither is a defect to fix today; both are the same under-specification, and
+answering question 45 is what makes them precise.
+
 ## Remaining migration pressure
 
 ### I1 — body inventory replaces process-global equipped mirrors — ✔ CLOSED 2026-09-02
@@ -83,6 +102,31 @@ schema bump: the clone snapshot lost a field the session checksum never saw.
 
 ### I2 — held weapon/ability occurrence continuity
 
+⭐ **THE NINE ARE NAMED NOW (2026-09-02), and they are nine PAYLOADS ON ONE
+ROAD rather than nine roads — which is the part that decides how big this is.**
+`Item::held_item_id()` returns `Some` for exactly nine rows:
+
+```text
+axe   javelin   gun_sword   puppy_slug_gun   bomb        <- carried objects
+fireball   blink   grapple   mark_recall                 <- gauntlet abilities
+```
+
+All nine reach the body the same way — `held_spec_for_item` → a `HeldItemSpec`
+→ `equip_held_spec` → a `HeldItem` component — and `Item::PortalGun` is
+deliberately NOT among them (`held_item_id` is `None`; it equips its own
+component, which is what I3 is about). ⇒ **I2 is a question about ONE road's
+behaviour under five operations, not about reconciling nine.** The row's
+phrasing invites the second reading and it costs a lot more.
+
+⚠ **WHAT IS STILL UNMEASURED, stated so nobody mistakes the above for the
+answer:** whether that one road preserves identity across pickup, room
+transition, drop, save/load and replay. Naming the population and finding it
+shares a road is where this analysis stopped; the five operations were not
+tested. ⛔ The split in the list above is also a HYPOTHESIS worth checking
+first — five look like carried objects and four like granted abilities, and if
+an ability has no world form then "occurrence identity" cannot mean the same
+thing for it, exactly as it does not for the portal gun.
+
 The nine held weapon/ability cases are the real customer. A pickup, room
 transition, drop, save/load and replay should preserve whatever occurrence
 identity/provenance the item's policy says matters while still supporting durable
@@ -96,6 +140,40 @@ hack.
 Special pickup roads that despawn on pickup and manufacture a replacement on
 drop should converge toward the same occurrence/custody model as ordinary held
 items when that model can express their semantics.
+
+⭐⭐ **MEASURED 2026-09-02, and the row's own escape clause — *"when that model
+can express their semantics"* — is the whole answer. It cannot, because the
+portal gun is not an occurrence.** Read side by side:
+
+| | ordinary held item | portal gun |
+|---|---|---|
+| in the world | `GroundItem` with a `SimId` | `PortalGunPickup`, no identity |
+| pickup | `HeldItem` + `ItemCustody::Held { holder }`; the object PERSISTS | pickup entity despawned; `PortalGun { active }` + `StashedActionSet` on the body; `owned.grant(Item::PortalGun, 1)` |
+| drop | the same object returns to the ground | `unequip_portal_gun`, then `spawn_room_scoped(PortalGunPickup { … })` — a FRESH token |
+| durable record | custody + the whereabouts ledger, rebuilt by `restore_custody_to_checkpoint` | `OwnedItems`, granted on pickup and **never revoked on drop** |
+
+⇒ **The gun is an ENTITLEMENT with a cosmetic world token.** "Dropping" it is
+unequip-plus-spawn-a-re-pickup, and it never loses you the gun: the menu
+re-equips straight from `OwnedItems`
+(`menu/effects.rs` → `equip_portal_gun`, no check that a token exists), and the
+dropped token is room-scoped so leaving the room destroys it with no
+consequence. The code says this out loud where it is decided — *"The gun is a
+single item: it doesn't exist until you pick it up — picking up the one world
+item IS getting the portal gun."*
+
+✔ **AND THE ACCOUNTING IS SAFE, checked rather than assumed:**
+`OwnedItems::grant` clamps a `is_unique()` category to 1, so the two roads
+cannot inflate a count. What they can do is coexist — after a drop there are two
+independent ways to hold the gun again (the menu, and the token), which is
+harmless today precisely BECAUSE the gun is an entitlement.
+
+⛔ **SO I3 IS A DECISION, NOT AN IMPLEMENTATION.** Converging the gun onto the
+occurrence/custody model would give it an identity its semantics never use, and
+would make "drop" mean something it does not mean for this item. The question —
+is a unique capability item an ENTITLEMENT or an OCCURRENCE? — is recorded in
+[`../awaiting-maintainer-decision.md`](../awaiting-maintainer-decision.md).
+⚠ Whoever answers it should note that the two readings differ observably in one
+place only: whether dropping the gun and walking away can ever lose it.
 
 ### I4 — unloaded-room disposition
 

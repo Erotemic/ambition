@@ -503,6 +503,11 @@ mod tests {
 pub fn stamp_gpu_prepared_images(
     gpu_images: Res<bevy::render::render_asset::RenderAssets<bevy::render::texture::GpuImage>>,
     started_at: Res<ImageStageClock>,
+    // ⛔ THIS APP'S SET, not the process ledger. Asset ids are App-local and this
+    // repository has measured them colliding, so a global "id 7 is prepared"
+    // let one App's upload lift another App's cover. The `Arc` inside is the
+    // same one this App's main world reads; a sibling App holds a different one.
+    prepared_here: Option<Res<image_stages::AppGpuPreparedImages>>,
 ) {
     let mut ledger = image_stages::ledger();
     if ledger.awaiting_gpu().is_empty() {
@@ -519,6 +524,16 @@ pub fn stamp_gpu_prepared_images(
         .collect();
     if prepared.is_empty() {
         return;
+    }
+    // ⭐ THE AUTHORITATIVE WRITE, and it happens BEFORE the ledger mirror below
+    // and independently of it. The ledger's `gpu_prepared` consumes a row and
+    // returns `None` when there is nothing to report — a census concern. Reveal
+    // readiness must not inherit that early-exit, so it is stamped here for
+    // every id the GPU actually has.
+    if let Some(prepared_here) = prepared_here.as_deref() {
+        for id in &prepared {
+            prepared_here.mark_prepared(*id);
+        }
     }
     let now = Instant::now();
     let live = ledger.gameplay_live();
@@ -666,10 +681,20 @@ impl Plugin for ImageStagePlugin {
             // not on the process ledger: a sibling App in the same process has
             // its own answer. Inserted BEFORE the sub-app is borrowed.
             app.insert_resource(image_stages::RenderWorldPresent(true));
+            // ⭐ ONE SET, BOTH WORLDS, THIS App. The main world reads it as the
+            // reveal-readiness term and the render sub-app writes it; they share
+            // the `Arc` because they are the same App. A second rendering App
+            // builds its own, so preparation in one cannot settle the other even
+            // when their local asset ids collide.
+            let prepared_here = image_stages::AppGpuPreparedImages::default();
+            app.insert_resource(prepared_here.clone());
             let Some(render_app) = app.get_sub_app_mut(RenderApp) else {
                 return;
             };
-            render_app.insert_resource(clock).add_systems(
+            render_app
+                .insert_resource(prepared_here)
+                .insert_resource(clock)
+                .add_systems(
                 Render,
                 (
                     stamp_gpu_prepared_images.after(RenderSystems::PrepareAssets),

@@ -65,6 +65,7 @@
     "ambition_platformer2d_world",
     "ambition_projectile_spec",
     "ambition_projectiles",
+    "ambition_registry_core",
     "ambition_render",
     "ambition_sfx",
     "ambition_sfx_bank",
@@ -75,7 +76,7 @@
     "ambition_vfx",
     "ambition_world_items"
   ],
-  "closure_size": 44,
+  "closure_size": 45,
   "never_asked_for": [
     "ambition_audio",
     "ambition_boss_encounter",
@@ -89,26 +90,30 @@
     "ambition_mount",
     "ambition_persistence",
     "ambition_projectiles",
+    "ambition_registry_core",
     "ambition_sfx",
     "ambition_sfx_bank",
     "ambition_ui_nav",
     "ambition_vfx",
     "ambition_world_items"
   ],
-  "never_asked_for_count": 17,
+  "never_asked_for_count": 18,
   "reachable_via_ambition_platformer2d_actor_monolith_alone": [
     "ambition_audio",
     "ambition_boss_encounter",
     "ambition_conversation",
     "ambition_cutscene",
+    "ambition_damage",
     "ambition_dialog",
     "ambition_encounter",
     "ambition_items",
     "ambition_menu",
+    "ambition_mount",
     "ambition_persistence",
     "ambition_platformer2d_ldtk",
     "ambition_portal2d",
     "ambition_projectiles",
+    "ambition_registry_core",
     "ambition_sfx",
     "ambition_sfx_bank",
     "ambition_ui_nav",
@@ -165,5 +170,7 @@
   },
   "mount_entered_the_closure_2026_08_26": "⭐ DECLARED GROWTH, not a leak. `ambition_mount` is the MOUNT PAIR carved out of the actor monolith (D33): the monolith's construction and spawn roads BUILD pairs, so every consumer of the monolith links the crate that owns them. ⛔ EXACTLY the shape `ambition_boss_encounter` already has in this list, and for the same reason — a carved domain the composition still names. ⚠ the carve did NOT make the footprint worse in substance: the same code was linked before, inside the monolith. What changed is that it is now COUNTABLE, which is what this ratchet is for. ⇒ the way out for both is the same and neither has it yet: a movement-only game should not install the domain's plugin, and the closure should follow the installation rather than the dependency.",
   "damage_entered_the_closure_2026_08_26": "⭐ DECLARED GROWTH, and the same shape as the mount row above. `ambition_damage` is victim-side damage resolution carved out of the actor monolith (D33); every consumer of the monolith links it because the monolith's own actor and boss damage roads call into it. ⚠ the same code was linked before, inside the monolith — what changed is that it is COUNTABLE, which is what this ratchet is for. ⭐⭐ AND THE CARVE MADE AN INVISIBLE EDGE SAY ITSELF: the module reads gameplay settings for the assist-mode damage scale, so `ambition_damage` names `ambition_persistence`. That cost nothing to notice while it lived in a crate that already had it, and a damage resolver depending on a settings store is worth someone's judgement. ⇒ the way out is the mount row's, and neither has it: the closure should follow the plugin a game INSTALLS, not the dependency its crate declares.",
-  "world_items_entered_the_closure_2026_09_02": "⭐ DECLARED GROWTH, not a leak, and the same shape as the mount and damage rows above. `ambition_world_items` is the TOUCHED COLLECTIBLE carved out of the actor monolith (D33, 2026-09-02): `WorldItem`, its motion, and the touch-collect pass, split from `items::pickup` along the collect TRIGGER (touched vs pressed). ⚠ THE SAME CODE WAS LINKED BEFORE, INSIDE THE MONOLITH — this is a crate boundary drawn through code the sentinel already carried, not new code entering the closure. The monolith still names it (`rollback_registration` registers `WorldItem` and `ItemMotion`), so every consumer of the monolith links it; the facade also re-exports it as `world_items` because `actors` IS the monolith and a game must not name the kernel for a domain the kernel gave up. ⛔ THE RATCHET IS COUNTING CRATES, NOT BYTES, and that is worth saying out loud every time this row shape appears: closure_size 43 -> 44 records that one more `ambition_*` crate is linked, while the linked CODE went slightly down (the monolith shed ~1,044 lines). A reader who takes closure_size as a size metric will read a carve as a regression."
+  "world_items_entered_the_closure_2026_09_02": "⭐ DECLARED GROWTH, not a leak, and the same shape as the mount and damage rows above. `ambition_world_items` is the TOUCHED COLLECTIBLE carved out of the actor monolith (D33, 2026-09-02): `WorldItem`, its motion, and the touch-collect pass, split from `items::pickup` along the collect TRIGGER (touched vs pressed). ⚠ THE SAME CODE WAS LINKED BEFORE, INSIDE THE MONOLITH — this is a crate boundary drawn through code the sentinel already carried, not new code entering the closure. The monolith still names it (`rollback_registration` registers `WorldItem` and `ItemMotion`), so every consumer of the monolith links it; the facade also re-exports it as `world_items` because `actors` IS the monolith and a game must not name the kernel for a domain the kernel gave up. ⛔ THE RATCHET IS COUNTING CRATES, NOT BYTES, and that is worth saying out loud every time this row shape appears: closure_size 43 -> 44 records that one more `ambition_*` crate is linked, while the linked CODE went slightly down (the monolith shed ~1,044 lines). A reader who takes closure_size as a size metric will read a carve as a regression.",
+  "damage_and_mount_classified_2026_09_02": "Both entered the closure 2026-08-26 and were never added to `reachable_via_ambition_platformer2d_actor_monolith_alone`, so that list held entries which were not the same set as `never_asked_for` and its summary sentence stopped being literally true. Re-derived at f1445c142: both are UNCONDITIONAL dependencies of `ambition_platformer2d_actor_monolith` (its Cargo.toml names them) as well as unconditional facade edges, so both behave like `ambition_audio` — cuttable at the facade, worthless to cut, because the monolith brings them regardless. The conclusion the file already drew was correct; only the list was stale.",
+  "registry_core_entered_the_closure_2026_09_03": "⭐ DECLARED GROWTH, same shape as the mount/damage/world_items rows: `ambition_registry_core` is the registration PROTOCOL (identity meta, new/idempotent/conflict classification, canonical rows) extracted from `ConstructionRegistry` and adopted by it and `RollbackRegistry` (triage/ambition-registry-core.md, phases R2-R3). It is dependency-free and ~150 lines; the code it replaced was linked before, inside shared_tangle and the runtime, so the linked CODE shrank while the crate count rose 44 -> 45. ⛔ THE RATCHET COUNTS CRATES, NOT BYTES. It reaches the sentinel through shared_tangle (which everything links), so it is in `reachable_via_..._monolith_alone` and `never_asked_for` alike — a movement-only game does not ask for a registry protocol, it asks for shared_tangle, and this rides along."
 }

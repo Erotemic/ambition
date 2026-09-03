@@ -65,6 +65,7 @@ members = [
     "crates/ambition_sfx_bank",
     "crates/ambition_sprite_sheet",
     "crates/ambition_time",
+    "crates/ambition_registry_core",
     "crates/ambition_gameplay_trace",
     "crates/ambition_touch_input",
     "crates/ambition_ui_nav",

@@ -775,7 +775,7 @@ impl bevy::prelude::Plugin for SmashRulesPlugin {
         app.add_systems(
             sim,
             crate::bomb::burn_fuses_and_answer_impacts
-                .after(ambition_platformer2d::actors::items::pickup::ItemPickupSet::CoreHeldItems)
+                .after(ambition_platformer2d::platformer::schedule::ItemPickupSet::CoreHeldItems)
                 .in_set(ambition_platformer2d::platformer::schedule::CombatSet::Settle),
         );
         // WHAT ENDS A RIDE, and what the shark does afterwards.

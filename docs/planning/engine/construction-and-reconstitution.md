@@ -302,7 +302,8 @@ lifecycle paths against a fresh entry:
 | `a_freshly_entered_room_is_a_population_worth_comparing` | the premise: two empty censuses are equal, so the room must author a real population |
 | `leaving_a_room_and_returning_rebuilds_what_entering_it_built` | the reference arm — a transition has always been canonical |
 | `replaying_a_room_rebuilds_what_entering_it_builds` | the replay rebuilds rather than repairs |
-| `a_replay_reconstructs_the_room_without_retiring_the_body_playing_it` | the body playing the room is not swept with it, and arrives at the room's spawn |
+| `a_replay_leaves_the_home_avatar_standing_at_spawn` | the HOME AVATAR is not retired with the room and returns at the room's spawn |
+| `a_replay_follows_the_body_you_are_actually_driving` | ⛔ the separate claim: while possessing, `PrimaryPlayer` is the body you are NOT driving |
 | `an_object_in_your_hands_survives_a_replay_and_is_not_re_authored` | BOTH retention legs: `RoomResident` and the durable-fact input |
 | `a_replay_does_not_adopt_what_the_attempt_created` | the attempt-residue leg |
 | `loading_a_save_builds_the_room_a_re_entry_builds` | the durable road produces the population the in-session roads produce |

@@ -34,6 +34,26 @@ deployment boundary where Rust provider crates are impractical.
 
 See [`godot-class-2d-capability.md`](godot-class-2d-capability.md).
 
+> **⭐ THE LADDER IS NOT ASPIRATIONAL — every rung but one has a named
+> implementation, measured `544d716fe` (2026-09-02):**
+>
+> | rung | what implements it |
+> |---|---|
+> | provider-owned prepared content | `PlatformerAuthoredCatalogRegistry`, `SchemaRegistry`, `ContentPackDraft` |
+> | prepared deterministic rules / orchestration | ◐ **partial** — `PreparedCondition` / `PreparedCommand` are validated immutable values (`crates/ambition_platformer2d_shared_tangle/src/authored_logic/prepared.rs:63`, `:80`; consumed by `world/authored_switch_commands` and rollback-registered as `derived.authored_switch_commands`); no general rule/sequencing representation |
+> | semantic domain commands and observations | `SemanticActionId`, `ActionRegistry`, `InstalledActions` (`ambition_input/src/semantic.rs`) |
+> | Rust Bevy plugin/provider crate | `game/ambition_demo_pocket` — a FOURTH-provider acceptance fixture whose manifest says it exists to prove the provider surface admits another author |
+> | game crate / host composition | `ShellComposition` (`platformer2d_provider/src/composition.rs`) |
+>
+> ⇒ **So the page's own self-assessment checks out**, which is worth recording
+> rather than assuming: the gap it names is the gap the code has. The
+> orchestration rung is the only one without a general representation, and it is
+> partial rather than empty — the prepared-call substrate is real and
+> rollback-registered.
+>
+> ⛔ A rung having an implementation is not the same as that rung being GOOD. This
+> table says the ladder exists, not that its steps are the right height.
+
 ⭐ **the orchestration rung is new and is the one identified gap** — authoring is
 strong for nouns and weak for verbs and relationships over time. It is owned by
 [`authored-gameplay-logic-and-orchestration.md`](authored-gameplay-logic-and-orchestration.md).

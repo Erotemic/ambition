@@ -72,6 +72,31 @@ Particle counts, trail density, expensive shaders and other purely visual work
 follow the active quality/raster budget. Lower quality must preserve semantic
 readability rather than delete gameplay information.
 
+> ⛔⛔ **MEASURED `3593ccb9f` (2026-09-02): THE FX ART DOES NOT FOLLOW IT.** The rule
+> above is true of particle counts and shader scale and false of the sheets
+> themselves. Three of the eleven asset loaders never receive the quality budget,
+> and two of them are the FX pair:
+>
+> - `load_fx_sheets` (`crates/ambition_platformer2d_actor_monolith/src/character_sprites/assets.rs:740`) — the boot core;
+> - `ensure_fx_sheet_loaded` (`crates/ambition_platformer2d_actor_monolith/src/character_sprites/assets.rs:772`) — the per-character owned road;
+> - ✔ `load_prop_sheet_for_target` (`crates/ambition_platformer2d_actor_monolith/src/character_sprites/assets.rs:838`) — **NOT a gap, checked separately.** It passes `TextureResolutionScale::Full` explicitly and says why in place: *"this path never consults a quality budget, so nothing was asked for beyond `Full` and nothing but the authored PNG was loaded"*. Its docstring also scopes it to a demo that registers one animated prop outside the asset catalog. A documented decision on a narrow road is not an oversight, and an audit that counts it as one is inflating itself.
+>
+> `load_fx_sheets` builds its set `with_sprite_folder(…)`, a FIXED folder, so it
+> cannot select a variant even though the variants are authored and on disk: 12
+> fx PNGs in `sprites/` (1.3 MB), 12 in `sprites_0_25x/` (964 KB), 12 in
+> `sprites_potato/` (**68 KB**). Measured in the hall: `fx-sheet` is **7.7 MP at
+> Potato, High and Ultra alike**.
+>
+> ⭐ **AND IT IS INVISIBLE WHERE THE MEASUREMENTS ARE TAKEN.** At Ultra,
+> full-resolution FX art is exactly right, so a 3090 sees no defect. It costs
+> only the configurations that ASKED for less — Steam Deck, mobile, web,
+> weak-GPU desktop — which is the target class this engine's vision names.
+>
+> ⛔ A ROUTING defect, not a proposal to draw fewer pixels: the fix gives a
+> Potato user the 68 KB sheets they chose and changes nothing at Ultra. Owner for
+> the residency half:
+> [`asset-preparation-and-residency.md`](asset-preparation-and-residency.md).
+
 ### Reference frames are explicit
 
 An effect that is gravity-relative, surface-relative, attacker-facing or world

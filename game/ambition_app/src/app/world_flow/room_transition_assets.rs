@@ -19,7 +19,7 @@ use bevy::prelude::{
 use bevy::time::Real;
 
 use ambition_platformer2d::actors::features::RoomContentStagingRegistry;
-use ambition_platformer2d::asset_manager::image_stages::RenderWorldPresent;
+use ambition_platformer2d::asset_manager::image_stages::{AppGpuPreparedImages, RenderWorldPresent};
 use ambition_platformer2d::asset_manager::platformer_assets::Platformer2dAssetCatalog;
 use ambition_platformer2d::entity_catalog::placements::PlacementSchema;
 use ambition_platformer2d::load::{
@@ -153,6 +153,10 @@ pub(crate) struct RoomTransitionAssetContext<'w, 's> {
     /// resource is inserted only by the App that installs the census's render
     /// systems, and a headless sibling in the same process must not inherit it.
     pub(crate) render_world: Option<Res<'w, RenderWorldPresent>>,
+    /// What THIS App has actually uploaded. Beside `render_world` because they
+    /// are one question in two halves — does this App draw, and has it drawn
+    /// THIS image — and because the process ledger can answer neither.
+    pub(crate) prepared_here: Option<Res<'w, AppGpuPreparedImages>>,
     /// Main-world images are the readiness authority for handles that were
     /// inserted directly instead of requested through `AssetServer`.
     pub(crate) images: Option<Res<'w, Assets<Image>>>,
@@ -192,6 +196,12 @@ pub(crate) struct RoomTransitionAssetContext<'w, 's> {
             bevy::prelude::With<ambition_platformer2d::characters::control::DrivingParticipant>,
         )>,
     >,
+    /// The match roster names its fighters before any body wears them; a live
+    /// actor's config names the sprite it swapped to. Both are residency
+    /// owners a room commit must keep (`RoomResidencyOwners`).
+    pub(crate) roster: Option<Res<'w, ambition_platformer2d::actor::MatchParticipantRoster>>,
+    pub(crate) actor_configs:
+        bevy::prelude::Query<'w, 's, &'static ambition_platformer2d::combat::actor_tuning::ActorConfig>,
     pub(crate) authored_sheets:
         Res<'w, ambition_platformer2d::sprite_sheet::character::sheets::AuthoredSheets>,
     pub(crate) prefetch: Option<ResMut<'w, RoomPreparationPrefetchState>>,
@@ -490,19 +500,29 @@ impl RoomCharacterRemainder {
 }
 
 /// The character ids that stay resident across a room commit: the destination's
-/// cast, whatever a body wears, and the one-hop neighbours' placed casts (the
+/// cast, whatever a body wears, the one-hop neighbours' placed casts (the
 /// prefetch decodes those in the open, and retiring them would only make it
-/// decode them again). A resident character page belongs to a realization and
-/// a realization belongs to one of these owners; anything else leaves with the
-/// room it was for. Canonical ids, because the table is retired by id.
+/// decode them again), and every other CLAIM the caller knows — a match roster
+/// names its fighters before any body wears them, a live actor's config names
+/// the sprite it swapped to. A resident character page belongs to a
+/// realization and a realization belongs to one of these owners; anything
+/// else leaves with the room it was for. Canonical ids, because the table is
+/// retired by id.
+///
+/// ⛔ THE ROSTER IS AN OWNER, found the hard way (2026-09-03): the Smash arena's
+/// first-room commit retired the two fighters the roster had already demanded
+/// — they are neither placed nor staged nor worn until they spawn — and their
+/// sheets decoded again in the open after activation, re-binding the drawn
+/// quads mid-match (`zero_duration_pump` caught the anchor shift).
 pub(crate) struct RoomResidencyOwners(pub(crate) std::collections::BTreeSet<String>);
 
 impl RoomResidencyOwners {
-    pub(crate) fn for_room(
+    pub(crate) fn for_room<'a>(
         room_set: &RoomSet,
         room_index: usize,
         staged_actor_names: &[String],
         worn: &[String],
+        claimed: impl IntoIterator<Item = &'a str>,
         registry: &ambition_platformer2d::characters::prepared::PreparedCharacterRegistry,
         character_catalog: &ambition_platformer2d::characters::actor::character_catalog::CharacterCatalog,
     ) -> Self {
@@ -511,6 +531,7 @@ impl RoomResidencyOwners {
             None => Vec::new(),
         };
         tokens.extend(worn.iter().cloned());
+        tokens.extend(claimed.into_iter().map(str::to_string));
         for index in room_set.neighboring_room_indices_of(room_index) {
             tokens.extend(room_character_tokens(&room_set.rooms[index], &[]));
         }
@@ -528,6 +549,25 @@ impl RoomResidencyOwners {
                 .collect(),
         )
     }
+}
+
+/// The residency claims that are neither a room's placements nor a worn
+/// identity: the match roster's fighters and every live actor's swapped sprite.
+pub(crate) fn residency_claims<'a>(
+    roster: Option<&ambition_platformer2d::actor::MatchParticipantRoster>,
+    actor_configs: impl IntoIterator<Item = &'a ambition_platformer2d::combat::actor_tuning::ActorConfig>,
+) -> Vec<String> {
+    let mut claims: Vec<String> = roster
+        .into_iter()
+        .flat_map(|roster| roster.participants.iter())
+        .map(|participant| participant.character.as_str().to_string())
+        .collect();
+    claims.extend(
+        actor_configs
+            .into_iter()
+            .filter_map(|config| config.sprite_character_id.clone()),
+    );
+    claims
 }
 
 fn add_room_specific_sprites(
@@ -749,6 +789,12 @@ pub(crate) fn inspect_room_asset_manifest(
     // every App in the process; only the caller knows whether ITS App has a
     // render world that will ever stamp stage 3.
     render_world: RenderWorldPresent,
+    // ⛔ AND THIS App's PREPARED SET, for the same reason one step further in.
+    // `RenderWorldPresent` says whether this App draws; this says what it has
+    // actually uploaded. The process ledger cannot answer the second question
+    // either — asset ids are App-local and collide across Apps, so a sibling
+    // App's upload was able to satisfy this App's reveal.
+    prepared_here: Option<&AppGpuPreparedImages>,
     manifest: &RoomAssetManifest,
 ) -> RoomAssetReadiness {
     let mut readiness = RoomAssetReadiness {
@@ -786,10 +832,19 @@ pub(crate) fn inspect_room_asset_manifest(
         // prepared on the first frame AFTER the cover lifts — measured as every
         // sheet of the hall's reveal in one render frame. Waiting here turns
         // that frame into cover time. Headless (no render world) the term is
-        // always false; see `ImageStageLedger::is_awaiting_gpu`.
-        if ambition_platformer2d::asset_manager::image_stages::ledger()
-            .is_awaiting_gpu(dependency.asset_id.untyped(), render_world)
-        {
+        // always false; see `AppGpuPreparedImages::is_awaiting_gpu`.
+        //
+        // ⛔ THE APP-LOCAL SET DECIDES; THE LEDGER ONLY MIRRORS. A missing set
+        // beside a present render world is a composition the census plugin does
+        // not build — it inserts both together — so the fallback exists to keep
+        // today's behaviour rather than to be relied on, and it is the global
+        // answer with the global flaw.
+        let awaiting = match prepared_here {
+            Some(prepared) => prepared.is_awaiting_gpu(dependency.asset_id.untyped(), render_world),
+            None => ambition_platformer2d::asset_manager::image_stages::ledger()
+                .is_awaiting_gpu(dependency.asset_id.untyped(), render_world),
+        };
+        if awaiting {
             readiness
                 .pending
                 .push(format!("{} (gpu upload)", dependency.label));
@@ -987,11 +1042,16 @@ pub(crate) fn contribute_room_transition_assets_system(
     // them one per frame from then on.
     // `bevy::platform::time::Instant` is sub-frame on wasm and native alike.
     let manifest_started = bevy::platform::time::Instant::now();
+    let claimed: Vec<String> = residency_claims(
+        context.roster.as_deref(),
+        context.actor_configs.iter(),
+    );
     let owners = RoomResidencyOwners::for_room(
         &room_set,
         active.target_room,
         &active.staged_actor_names,
         &worn,
+        claimed.iter().map(String::as_str),
         &prepared_characters,
         character_catalog,
     );
@@ -1043,6 +1103,7 @@ pub(crate) fn contribute_room_transition_assets_system(
         asset_server,
         context.images.as_deref(),
         RenderWorldPresent::from_option(context.render_world.as_deref()),
+        context.prepared_here.as_deref(),
         &manifest,
     );
     inspect_demanded_characters(
@@ -1114,6 +1175,7 @@ pub(crate) fn poll_room_transition_asset_readiness_system(
     asset_server: Res<AssetServer>,
     images: Option<Res<Assets<Image>>>,
     render_world: Option<Res<RenderWorldPresent>>,
+    prepared_here: Option<Res<AppGpuPreparedImages>>,
     assets: Option<Res<GameAssets>>,
     character_load_states: Option<
         Res<ambition_platformer2d::actors::character_runtime::CharacterLoadStates>,
@@ -1157,6 +1219,7 @@ pub(crate) fn poll_room_transition_asset_readiness_system(
         &asset_server,
         images.as_deref(),
         RenderWorldPresent::from_option(render_world.as_deref()),
+        prepared_here.as_deref(),
         manifest,
     );
     if let Some(assets) = assets.as_deref() {
@@ -1342,10 +1405,13 @@ pub(crate) fn prefetch_neighbor_room_preparation_system(
     // Grouped because they are one question — is this dependency ready, and for
     // an App with which render world — and because a Bevy system stops at
     // sixteen params.
-    (asset_server, images, render_world): (
+    (asset_server, images, render_world, prepared_here): (
         Res<AssetServer>,
         Option<Res<Assets<Image>>>,
         Option<Res<RenderWorldPresent>>,
+        // Grouped with the render-world fact because they are one question:
+        // does this App draw, and has it uploaded THIS image.
+        Option<Res<AppGpuPreparedImages>>,
     ),
     (mut layouts, mut character_load_states, prepared_characters, authored_sheets): (
         ResMut<Assets<TextureAtlasLayout>>,
@@ -1546,6 +1612,7 @@ pub(crate) fn prefetch_neighbor_room_preparation_system(
             &asset_server,
             images.as_deref(),
             RenderWorldPresent::from_option(render_world.as_deref()),
+            prepared_here.as_deref(),
             &entry.manifest,
         )
         .is_terminal()
@@ -1562,6 +1629,51 @@ mod tests {
     // rather than by prelude glob — so the trait has to be named too.
     use bevy::asset::AssetApp;
     use bevy::prelude::App;
+
+    /// A room commit keeps what the ROSTER and a live actor's swapped sprite
+    /// name, not only what the room places and a body wears: the Smash arena
+    /// places nobody, and its two fighters are demanded by the roster before
+    /// any body wears them. Retiring them at the first-room commit decoded
+    /// them again in the open after activation and re-bound the drawn quads
+    /// mid-match (`zero_duration_pump`, 2026-09-03). Poison: drop `claimed`
+    /// from `for_room` and the fighter leaves the owner set.
+    #[test]
+    fn the_roster_and_a_live_actors_swapped_sprite_are_residency_owners() {
+        use ambition_platformer2d::world::prelude::{AuthoredWorld, Vec2};
+        let world = AuthoredWorld::new(
+            "Arena",
+            Vec2::new(640.0, 360.0),
+            Vec2::new(64.0, 256.0),
+            Vec::new(),
+        );
+        let room_set = RoomSet::from_parts("arena", vec![RoomSpec::new("arena", world)], Vec::new());
+        let registry = Default::default();
+        let catalog =
+            ambition_platformer2d::characters::actor::character_catalog::CharacterCatalog::from_data(
+                ambition_platformer2d::characters::actor::character_catalog::parse_catalog(
+                    ambition_content::character_catalog::CHARACTER_CATALOG_RON,
+                ),
+            );
+        let mut roster = ambition_platformer2d::actor::MatchParticipantRoster::default();
+        roster.participants.push(ambition_platformer2d::actor::MatchParticipant::new(
+            ambition_platformer2d::entity_catalog::CharacterId::new("npc_pirate_admiral"),
+        ));
+        let claims = residency_claims(Some(&roster), []);
+        assert_eq!(claims, vec!["npc_pirate_admiral".to_string()]);
+        let owners = RoomResidencyOwners::for_room(
+            &room_set,
+            0,
+            &[],
+            &["worn_one".to_string()],
+            claims.iter().map(String::as_str),
+            &registry,
+            &catalog,
+        );
+        for id in ["npc_pirate_admiral", "worn_one"] {
+            assert!(owners.0.contains(id), "{id} must survive the commit: {:?}", owners.0);
+        }
+        assert!(!owners.0.contains("somebody_else"));
+    }
 
     /// A character the room DEMANDED but the ration has not yet realized holds
     /// the reveal; one nothing declares does not (nothing will ever arrive for
@@ -1739,6 +1851,9 @@ mod tests {
             Some(app.world().resource::<Assets<Image>>()),
             // This App builds no render world, so nothing is ever owed a GPU.
             RenderWorldPresent(false),
+            // No render world in this fixture, so no App-local prepared set
+            // either — the GPU term is off and nothing may wait on it.
+            None,
             &manifest,
         );
         assert!(
@@ -1813,6 +1928,9 @@ mod tests {
             Some(app.world().resource::<Assets<Image>>()),
             // This App builds no render world, so nothing is ever owed a GPU.
             RenderWorldPresent(false),
+            // No render world in this fixture, so no App-local prepared set
+            // either — the GPU term is off and nothing may wait on it.
+            None,
             &manifest,
         );
         assert!(readiness.failed.is_empty(), "{:?}", readiness.failed);
@@ -1853,6 +1971,9 @@ mod tests {
                 &asset_server,
                 Some(app.world().resource::<Assets<Image>>()),
                 render_world,
+                // This fixture parameterises the render-world fact and never
+                // stamps a GPU copy, so there is no App-local set to consult.
+                None,
                 &manifest,
             )
         };
@@ -1955,6 +2076,9 @@ mod tests {
             Some(app.world().resource::<Assets<Image>>()),
             // This App builds no render world, so nothing is ever owed a GPU.
             RenderWorldPresent(false),
+            // No render world in this fixture, so no App-local prepared set
+            // either — the GPU term is off and nothing may wait on it.
+            None,
             &manifest,
         );
 

@@ -775,9 +775,10 @@ The one unresolved developer-policy choice from the session-ownership work is in
   `Msaa::Off` recovers nothing):
   [`../../dev/journals/kaleidoscope-what-churns-and-what-does-not-2026-08-31.md`](../../dev/journals/kaleidoscope-what-churns-and-what-does-not-2026-08-31.md).
 
-- ▢ **THE `features` FACADE LAUNDERS 34 LOWER-CRATE NAMES, so 27% of the
-  kernel's apparent coupling to it is not coupling at all.** (Measured
-  2026-09-02, `scripts/measure_facade_reexport_coupling.py`.)
+- ✔ **THE `features` FACADE LAUNDERED 34 LOWER-CRATE NAMES, so 27% of the
+  kernel's apparent coupling to it was not coupling at all — CLOSED 2026-09-02,
+  `RE-EXPORT 45 (27%) → 0 (0%)`.** (Measured by
+  `scripts/measure_facade_reexport_coupling.py`, which ships with it.)
   ⭐ **HOW IT WAS FOUND:** a per-file sizing of `items/conditions.rs` reported
   SEVEN references into the kernel. Six were one type — `crate::features::HeldItem`
   — and `HeldItem` is `ambition_combat`'s, reached through
@@ -833,9 +834,15 @@ The one unresolved developer-policy choice from the session-ownership work is in
   actual re-export list.
   ✔ What survived the check was small and is now done: `control::DrivingParticipant`
   (8 uses, really `ambition_characters::control::DrivingParticipant`).
-  ⚠ One genuine case is LEFT ON PURPOSE: `character_runtime::prepare_and_finalize_for_test`
-  (33 uses, really `ambition_characters`) is test-support, and its hub file is
-  open in another session tonight.
+  ✔ **AND THE ONE CASE I LEFT "ON PURPOSE" TURNS OUT NOT TO BE A CASE.**
+  `character_runtime::prepare_and_finalize_for_test` (33 uses, really
+  `ambition_characters::prepared`) looked like the same laundering, and the row
+  said it was deferred only because its hub file was open in another session.
+  Read afterwards: the re-export is `#[cfg(test)] pub(crate) use`. It is
+  test-only AND crate-private, so no consumer can reach it and nothing is being
+  laundered — it is an ordinary local alias for a test helper, which is what
+  those are for. ⇒ **Do not re-point it.** The `features` case was a problem
+  because it was `pub`: a name a consumer could learn the wrong path to.
   ⇒ **The `features` facade was the real hub; the rest of the kernel is close to
   clean.** Do not re-run the generalised form and act on its raw numbers without
   the per-module re-export cross-check — it over-reports by design.
@@ -1134,16 +1141,23 @@ The one unresolved developer-policy choice from the session-ownership work is in
   left:
 
   ```text
-  items/pickup/mod.rs                        1,860 lines
-    impl Plugin block          (53-253)        201 lines   21 refs
-    restore_custody_to_checkpoint (775-1089)   315 lines    2 refs
-    everything else                          1,344 lines    0 refs
+  items/pickup/mod.rs                        1,858 lines
+    impl Plugin block          (51-251)        201 lines   21 refs
+    restore_custody_to_checkpoint (773-1087)   315 lines    2 refs
+    everything else                          1,342 lines    0 refs
   ```
 
   ⛔ **CHECKED IN ALL THREE PATH FORMS, because this row has already been wrong
-  twice by grepping only one.** The 1,344-line remainder contains exactly ONE
+  twice by grepping only one.** The 1,342-line remainder contains exactly ONE
   `crate::` reference — `crate::items`, its own parent module — and ZERO
   `super::` paths. It names nothing outside itself.
+  ⚠ **RE-VERIFIED AFTER THE DAY'S OTHER COMMITS and the figures moved by two
+  lines** (1,860 → 1,858; 1,344 → 1,342), because `ItemPickupSet` left this file
+  for `shared_tangle` and a shorter re-export replaced the enum. The SHAPE — 201
+  plugin lines holding 21 of 23 refs, the checkpoint function holding the other
+  2, the remainder holding none — is unchanged. ⇒ Re-derive the line numbers
+  before cutting; they are the one part of this row that moves under ordinary
+  work.
 
   ⇒ **THE CARVE IS: move 1,344 lines, leave 516.** Ground-item physics, custody,
   pickup, throw, held-item specs and aim are free-standing; the entanglement is a
@@ -1156,6 +1170,67 @@ The one unresolved developer-policy choice from the session-ownership work is in
   ⚠ And the consumer surface is real: games name `actors::items::pickup::` about
   twenty times across `ambition_app`'s tests and the smash demo, so the carve ends
   with a facade export and a re-point, exactly as `ambition_world_items` did.
+
+  ▢ **THE EXECUTION ORDER, so this is startable rather than merely sized.**
+  Written after `ambition_world_items`, whose one surprise was step 2 — the
+  systems' `configure_sets` rules, which live far from the `add_systems` line and
+  which that carve dropped (see the regression in the owner doc).
+  1. **Read the plugin's `configure_sets` FIRST and write down every set the
+     moving systems join, what each set is nested `in_set`, and every
+     `.before`/`.after` edge it carries.** ⛔ This is step one and not step four
+     because skipping it is how `world_items` lost `.in_set(PlayerSimulation)`
+     and `.after(BodyCustodySettled)` while its comment claimed otherwise.
+  2. The new crate takes everything in `items/pickup/mod.rs` EXCEPT the plugin
+     block and `restore_custody_to_checkpoint` — ⚠ bound them by NAME, not by
+     the line numbers above, which have already moved once, plus
+     `pickup/conditions.rs` (80 lines, zero `crate::` references) and
+     `pickup/tests.rs`. ⚠ `pickup/minted_horizon.rs` STAYS for now: its single
+     kernel reference is `session::durable_horizon::SaveRestored`, a one-field
+     bool with 40 references across 13 files, which is its own move and not this
+     one's.
+  3. The kernel keeps a file holding the plugin and the checkpoint function,
+     importing the moved types. ✔ Verified feasible: neither calls a
+     file-private helper — the only non-`pub` functions in the file are `build`
+     (the `Plugin` trait method) and a `map_entities` trait impl.
+  4. `ItemPickupSet` is already in `shared_tangle::schedule` (`b80598c01`), so
+     the kernel's plugin and the new crate can both name it without either naming
+     the other.
+  5. Facade export + re-point the ~20 game references, as `world_items` did.
+  6. The usual tail, all of which `world_items` needed and none of which its
+     first pass remembered: two policy rows (manifest-allow + source-purity,
+     both poison-verified), `scripts/modules_md.py --write`, the two
+     sub-workspace lockfiles, and a declared entry in
+     `capability-footprint-baseline.json` — ⚠ the ratchet WILL fire, because it
+     counts crates.
+  ⚠ **AND THE ONE THING THAT IS NOT MECHANICAL**: `restore_custody_to_checkpoint`
+  stays in the kernel while the types it operates on leave, so it becomes a
+  kernel system reading a foreign crate's components. That is legitimate — it is
+  checkpoint policy, not item policy — but it should be stated in its doc
+  comment, or the next reader will "fix" it by dragging it after the domain.
+
+  ⛔⛔ **AND A SECOND THING THAT IS NOT MECHANICAL, FOUND BY STARTING THE CUT AND
+  STOPPING (2026-09-02).** The partition itself is clean — 511 lines stay, 1,347
+  move, and they reconstruct the file exactly — and the new crate compiles down
+  to four missing deps (`ambition_entity_catalog`, `ambition_input`,
+  `ambition_mount`, plus an optional `ambition_portal2d` behind a `portal`
+  feature). ⚠ **What is NOT decided is who owns the SCHEDULE, and it is a fork
+  with a wrong branch:**
+  * `pickup/tests.rs` (1,789 lines, moving) does `app.add_plugins(super::ItemPickupSimulationPlugin)`
+    — the plugin that STAYS. So the moved tests cannot build their App without
+    either the kernel or a plugin of their own;
+  * if the new crate publishes its own plugin that also `configure_sets`, the
+    set rules exist in two crates — and `ItemPickupSet::CoreHeldItems` being
+    `.in_set(PlayerSimulation)` and `.after(BodyCustodySettled)` is exactly the
+    kind of fact that goes missing when it is split;
+  * if the kernel keeps all `configure_sets` and merely adds the new crate's
+    systems plugin, the new crate's own unit tests register systems into sets
+    nothing configured, so their ordering assertions pass vacuously.
+  ⇒ **Decide schedule ownership BEFORE cutting, and write the answer here.** The
+  sibling carve shipped a live phase-membership defect by moving `add_systems`
+  and leaving `configure_sets`; this fork is the same hazard one level up, and it
+  is not a thing to settle at the end of a long session.
+  ⚠ The scaffold built while finding this was deleted rather than left
+  half-landed — it was untracked and nothing was committed.
 
   ⛔⛔ **AND THE "SIZED … BY REFERENCE" LINE ABOVE POINTS AT NOTHING, MEASURED
   2026-09-02 LATE.** Those counts (`ambition_encounter` 66, `ambition_mount` 57,
@@ -1804,7 +1879,13 @@ The one unresolved developer-policy choice from the session-ownership work is in
   `default-features = false` mismatch and that the exported macro spells
   `::core::fmt`; run the wasm CHECK (a macro move is a cfg-drift shape). Design:
   `triage/stable-identifier-centralization.md`. Assigned to ambition-da.
-- ▢ **INVENTORY THE 31 REGISTRIES BEFORE DESIGNING `ambition_registry_core`.**
+- ▢ **`ambition_registry_core`: R2 + R3 LANDED 2026-09-03 (crate + two pilots:
+  construction, rollback; rollback baseline byte-identical); next is R4 — decide
+  which of `PlacementLoweringRegistry` / `RoomContentStagingRegistry` migrate
+  and which of the seven silent-overwrite registries must say "replace" in
+  place. Design and evaluation in `triage/ambition-registry-core.md`.** The
+  inventory row that preceded it, kept for the record:
+  **INVENTORY THE 31 REGISTRIES BEFORE DESIGNING `ambition_registry_core`.**
   (Scheduled 2026-09-02.) 27 became 31 in six weeks; the only registry-shaped
   trait is `RollbackRegistrar`, one domain's hook. The doc's argument is semantic
   drift, so the first deliverable is a table of how all 31 answer the four
@@ -1931,6 +2012,14 @@ product ruling.
   decodes under it) and the tells are the same ones — zero "nothing demanded
   it" warnings, no >33 ms frame after the cover lifts, and every `[image]`
   line in the hall window reading `sprites/` (Full), none `sprites_0_25x/`.
+  ⭐ **AND THE PREDICTION, WRITTEN DOWN BEFORE THE CAPTURE so it cannot be
+  rationalised after it: if the reveal BARRIER is what fixed the hitch, the
+  >33.4 ms count after the cover lifts stays 0 at Full; if the room tier CAP was
+  doing the work, it comes back.** That is a real risk rather than a formality —
+  the cap was cutting the decode load the barrier holds the cover for, so the
+  two fixes were tested together and only one of them survives. ⚠ Until that
+  walk exists, the two COUNT tells (placeholders, cover held) are confirmed and
+  tier-independent; the TIMING tell is not confirmed for the shipped program.
   Original tells, still the checklist: zero "nothing demanded it" warnings at
   the hall reveal, `asset_wait_ms` in the seconds (the cover visibly holding),
   no >33 ms frames after the cover lifts. In the same run: `image_arrivals`
@@ -1970,6 +2059,49 @@ product ruling.
   bundle summary states the hall-reveal verdict itself since `01ca0b006`
   (placeholder rectangles by diagnosis, `asset_wait_ms` per transition,
   spikes after the cover) — read the summary first, the raw log second.
+  ⭐⭐ **AND THE HOST NOW SAYS THIS ROW IS THE LAST USER-VISIBLE HITCH IN THE RUN
+  (2026-09-02, `desktop-timeline-run-20260902T215256Z`, 3090, windowed).** That
+  capture has exactly THREE frames over 33.4 ms and all three are BEFORE the
+  transition; `asset_activity.csv` puts two of them inside the startup decode
+  burst, and the hall's larger burst costs none:
+
+  ```text
+    wall_s  images   MP    MB     spikes in that window
+     2.262      0   0.0     0
+     2.989     98  20.7  82.8     125.3 ms @2.386, 203.3 ms @2.589
+     8.002    250  71.2 284.7     none — the hub → hall entry, cover held 292 ms
+  ```
+
+  ⇒ **The hall decodes MORE (128 images / 116 MB) than startup (98 / 83) and
+  costs ZERO spikes, because a cover holds for it.** ⚠ Conservative, too: the
+  hall leg ran under the room tier cap while startup art did not, so the real
+  Full-tier gap is wider. ⇒ This is not a polish row — the mechanism that fixed
+  the hall exists and the first room does not use it, and the host has now put a
+  203 ms frame on what that costs.
+  ⛔⛔ **AND THAT READING WAS WRONG — CORRECTED THE SAME NIGHT, by df's question
+  rather than by my measurement.** *"A frame spike under a cover is cover time,
+  not a hitch"* is this campaign's own rule, applied to the hall six paragraphs
+  up, and I did not apply it to my own finding. The run's route lines settle it:
+
+  ```text
+  [2.246s] [game-mode]  0.930s f    0  initial playing
+           spikes at wall 2.386 (125.3 ms) and 2.589 (203.3 ms)
+  [5.179s] [world-event] 3.863s f 1131  room-loaded central_hub_complex
+  ```
+
+  ⇒ **Both spikes land between `initial playing` and `room-loaded`** — during the
+  first room's load, which is exactly when the load screen with its "Load the
+  first room's art" row is up. ⚠ `[game-mode] initial playing` at FRAME 0 is not
+  "the player is in the world"; it is the same trap that made an offscreen
+  capture report eighteen pops earlier the same day.
+  ⇒ **So the honest statement is: three spikes, all before the first room
+  finished loading, and the bundle cannot say whether a curtain covered them.**
+  The claim that this is "the last user-visible hitch" is withdrawn — it needs
+  the route's presentation state at 2.4-2.6 s, which nobody has yet read.
+  ⭐ What survives untouched is the COMPARISON, because both halves are measured
+  the same way: the hall decodes more and spikes zero WITH a cover, and the
+  startup burst spikes twice at whatever cover it has. That still says the cover
+  mechanism works; it no longer says a player sees the startup one.
 - **Four LDtk preview tilesets decode the FULL player sheet on every boot**
   (7.6 MP, `../sprites/player_robot_v3_spritesheet.png`, declared as
   `sprite_player_robot_v3` in all four `.ldtk` worlds for editor entity
@@ -1982,6 +2114,14 @@ product ruling.
   at boot, `sprites/…` by the realization after the first `room-loaded` (host
   captures `015511Z`/`015909Z`) — a pair the re-decode census cannot see
   because two sources are two asset ids.
+  ⭐ **SIZED ON THE NO-GPU VM, 2026-09-02 (`4a52f1903`): it is 32% of the hall's
+  resident megapixels at Potato and 76× the copy actually on screen** (7.6 MP
+  undrawn against 0.1 MP drawn). ⛔ AND IT IS BYTE-IDENTICAL AT POTATO, HIGH AND
+  ULTRA — a tileset declaration carries its own `relPath`, so no quality tier can
+  reach it. That makes it WORSE the lower the setting: it is a fixed 7.6 MP on
+  top of a total that shrinks from 29.9 MP at Ultra to 24.1 MP at Potato, which
+  is most of why the hall's never-drawn headroom rises from 8.8× to 26.8× as the
+  tier drops. A residency ratio taken at a low tier is measuring this row.
 - **Why the capture runs on for minutes after the window closes:** reproduces
   nowhere headless (0.4 s drain for 4.2M zones on the VM). One capture with
   `TRACY_NO_SYS_TRACE=1 scripts/profile_desktop.sh` decides whether it is Tracy's

@@ -28,20 +28,18 @@ use ambition_platformer2d_shared_tangle::schedule::SimScheduleExt;
 #[cfg(feature = "portal")]
 use ambition_portal2d::PortalGun;
 
-/// Public schedule labels for held-item and ground-item simulation.
+/// The item schedule labels now live in
+/// [`ambition_platformer2d_shared_tangle::schedule::ItemPickupSet`], with the
+/// reason they had to leave: two packages outside this crate order against
+/// them. Re-exported here because this module's own registrations read the
+/// short name.
 ///
-/// Other modules should order against these sets rather than concrete system
-/// functions. That keeps cross-subsystem dependencies stable while item pickup
-/// continues moving out of `app/plugins.rs`.
-#[derive(SystemSet, Debug, Hash, PartialEq, Eq, Clone, Copy)]
-pub enum ItemPickupSet {
-    /// Held-item pickup/use/throw plus ground-item physics.
-    CoreHeldItems,
-    /// Bombs, gravity grenades, and other effects armed by thrown items.
-    ThrownItemEffects,
-    /// Wielded movement/combat abilities and ability cooldown maintenance.
-    WieldedAbilities,
-}
+/// ⚠ IT IS `pub(crate)`: the three consumers outside this crate
+/// (`ambition_platformer2d_runtime`'s portal schedule, `ambition_content`'s
+/// portal plugin, the smash demo) name `shared_tangle` directly now. A `pub`
+/// re-export would have cost them nothing to keep and would have left this
+/// module as the discovery path for a label it no longer owns.
+pub(crate) use ambition_platformer2d_shared_tangle::schedule::ItemPickupSet;
 
 /// Module-local plugin for held-item, pickup, thrown-item, and wielded-item
 /// simulation systems.

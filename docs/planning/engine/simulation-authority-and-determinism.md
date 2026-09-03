@@ -23,6 +23,18 @@ composition, lifetime boundaries, and explicit phase ownership.
 > constraint. It compares engine set pins against engine-installed systems so
 > host/game-only extension sets are not mistaken for real ordering. Green at
 > `0ac499bb1`: **2 app-filled sets, all waived with a reason.**
+>
+> **And a THIRD, an absence contract rather than a script:**
+> `central-rollback-does-not-enumerate-domains` in `check_absence_contracts.py`
+> pins `platformer2d_runtime/src/rollback/mod.rs` — the host may compose a
+> domain's ONE public rollback offer (`register_rollback_state`) and may NOT
+> reach through that seam to name any concrete gameplay type from
+> `ambition_platformer2d_actor_monolith`, `ambition_boss_encounter` or
+> `ambition_characters`. That is this program's "central rollback does not own
+> domain censuses" rule, enforced by grep rather than by review, and green.
+> ⚠ `rollback-wire-format-changes-are-declared` is a fourth, in the same file:
+> 406 stable names across 123 encoded types in 11 crates, and a wire-format
+> change that does not declare itself fails it.
 
 ## Goal
 
@@ -229,8 +241,10 @@ changes the result.
 Re-verified 2026-09-02:
 
 - possession candidates (`abilities/traversal/possession.rs:226`) and the pickup
-  magnet / collector (`features/ecs/pickups.rs`, `items/world_item.rs`) go
-  through `sim_selection::winner_by`, whose final key is `SimId`;
+  magnet / collector (`features/ecs/pickups.rs`, and
+  `crates/ambition_world_items/src/world_item.rs` since `69641a83f` carved the
+  touched collectible out of the kernel) go through `sim_selection::winner_by`,
+  whose final key is `SimId`;
 - ✔ projectile victims: `step_projectiles` ordered its first-wins loop by
   distance-along-the-leg then the victim's position — and two bodies on one
   spawn point tie on all of it, so a stable sort handed the decision back to

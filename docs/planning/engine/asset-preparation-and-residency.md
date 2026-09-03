@@ -77,9 +77,16 @@ own 43% of the whole session's decode work, at seven sheets of about 4096² each
 ```
 
 ⇒ This is upstream of §3 (pacing) and §4 (budgets): **pacing a demand and
-budgeting a residency are both cheaper when the demand is smaller.** Fewer pages,
-a lower quality tier for gallery previews, or eviction all attack the 43% before
-any scheduling machinery has to.
+budgeting a residency are both cheaper when the demand is smaller.** Fewer pages
+or eviction attack the 43% before any scheduling machinery has to.
+⛔⛔ **THE THIRD LEVER THIS SENTENCE USED TO OFFER — "a lower quality tier for
+gallery previews" — IS RULED OUT, 2026-09-02.** Jon, after an Ultra host capture
+drew the hall from `sprites_0_25x`: *"I DO NOT WANT A LOWER QUALITY TIER FOR
+GALLERY PREVIEWS."* The standing rule is wider than this paragraph: nothing may
+draw fewer pixels than the user's quality setting asks for, for any room, view or
+distance reason, without his explicit yes. ⚠ §3a below and the measurements that
+followed it were built on that lever; they are kept as measurements and marked,
+not deleted. See `maintainer-decisions.md`, 2026-09-02.
 
 ⚠ The worst in-play frame moved the right way against 2026-08-29 — 516 ms → 199
 ms — but on a HEAVIER hall, and still not a controlled A/B. The rendered A/B the
@@ -222,21 +229,81 @@ worth of pixels per frame, which at the gallery's Quarter tier is sixteen
 sheets a frame and the whole cast in ~8 frames (`take_within_budget`, the
 areal ration that replaced the head count the same day); the guard
 `the_reveal_waits_for_every_placed_character_not_just_the_realized_ones` is red
-when the remainder is dropped. ✔✔ **HOST TELL MET — ALL THREE, ON `desktop-timeline-run-20260902T215256Z`
-(2026-09-02).** The reveal-barrier fix is CONFIRMED on real hardware; this row
-said "still owed" until the capture existed.
+when the remainder is dropped. ⭐⭐ **HOST TELL PAID, 2026-09-02 — Jon's Ultra run
+`desktop-timeline-run-20260902T215256Z`, and all three named tells come back
+clean.** The bundle's own **Room reveal** section:
 
 ```text
-tell                                    2026-09-01        this capture
-placeholder-rectangle warnings                 111                   0
-asset_wait_ms (the cover waiting)                3            292.033
-frames > 33.4 ms after the reveal    9 (89-355 ms)                   0
+  never materialized      0        (111 on 2026-09-01)
+  retired                 0
+  undeclared              0
+  total                   0
+  seq  wait_ms  covered  move
+    1      292     True  central_hub_complex -> hall_of_characters
+  frames over 33.4 ms AFTER the last transition (t=8.321s):  0   (nine on 2026-09-01)
 ```
 
-The three spikes in the run are stamped 2.386 s, 2.589 s and 5.334 s — all
-before the transition completes at 8.321 s, i.e. **the startup burst, not the
-hall reveal**. The hall entry produced no spike at all.
+⇒ **The reveal barrier holds on the host**: nothing draws a placeholder, the
+cover is up for the wait, and the nine 89-355 ms frames are gone.
 
+⭐⭐ **AND THE SAME RUN SAYS WHERE THE REMAINING HOST HITCH IS: STARTUP, NOT THE
+HALL — and the two are the same shape with and without a cover.** The run has
+exactly three frames over 33.4 ms, all BEFORE the transition, and
+`asset_activity.csv` puts them inside a decode burst:
+
+```text
+  wall_s  decoded_images  decoded_MP  decoded_MB     frame spikes in the window
+   2.262        0            0.0           0
+   2.989       98           20.7          82.8        125.3 ms @2.386, 203.3 ms @2.589
+   ...
+   6.997      122           42.1         168.5
+   8.002      250           71.2         284.7        none — the hub → hall entry
+```
+
+⇒ **The hall entry decodes MORE than the startup burst — 128 images and 116 MB
+against 98 and 83 — and costs ZERO spikes, because the cover holds for it.** The
+startup burst has no cover and costs a 203 ms frame and a 125 ms frame.
+⚠ AND THE COMPARISON IS CONSERVATIVE: the hall was under the room tier cap in
+this run (quarter-tier art), while startup art was at the setting's own tier, so
+the hall's real Full-tier load is larger still and the gap widens.
+⇒ **The reveal barrier is not a hall fix, it is a mechanism the first room does
+not yet use.** That is the same conclusion the headless work reached from the
+other end, now with host frames attached.
+  ⛔⛔ **AND THAT READING WAS WRONG — CORRECTED THE SAME NIGHT, by df's question
+  rather than by my measurement.** *"A frame spike under a cover is cover time,
+  not a hitch"* is this campaign's own rule, applied to the hall six paragraphs
+  up, and I did not apply it to my own finding. The run's route lines settle it:
+
+  ```text
+  [2.246s] [game-mode]  0.930s f    0  initial playing
+           spikes at wall 2.386 (125.3 ms) and 2.589 (203.3 ms)
+  [5.179s] [world-event] 3.863s f 1131  room-loaded central_hub_complex
+  ```
+
+  ⇒ **Both spikes land between `initial playing` and `room-loaded`** — during the
+  first room's load, which is exactly when the load screen with its "Load the
+  first room's art" row is up. ⚠ `[game-mode] initial playing` at FRAME 0 is not
+  "the player is in the world"; it is the same trap that made an offscreen
+  capture report eighteen pops earlier the same day.
+  ⇒ **So the honest statement is: three spikes, all before the first room
+  finished loading, and the bundle cannot say whether a curtain covered them.**
+  The claim that this is "the last user-visible hitch" is withdrawn — it needs
+  the route's presentation state at 2.4-2.6 s, which nobody has yet read.
+  ⭐ What survives untouched is the COMPARISON, because both halves are measured
+  the same way: the hall decodes more and spikes zero WITH a cover, and the
+  startup burst spikes twice at whatever cover it has. That still says the cover
+  mechanism works; it no longer says a player sees the startup one.
+
+⛔⛔ **BUT ONE OF THE THREE IS CONFOUNDED AND MUST BE RE-TAKEN.** This is the run
+in which Jon saw blur — the ROOM TIER CAP was live and the hall drew from
+`sprites_0_25x/` (§3a). The two COUNT tells are tier-independent and stand: a
+placeholder means an actor resolved no sprite at all, and the cover either held
+or it did not. **The TIMING tell is not**: "0 frames over 33.4 ms" was measured
+while the hall was decoding quarter-tier art, which is a fraction of the pixels
+Full asks for. ⇒ **Re-take the >33.4 ms count after the cap is removed**, on the
+same route, before calling the hitch closed. ⚠ The prediction to check it
+against: if the barrier is what fixed it, the count stays 0 at Full; if the cap
+was doing the work, it comes back. 
 ⛔⛔ **AND VALIDATING THE READER AGAINST THAT CAPTURE FOUND A DEFECT IN IT — A
 `[frame-spike]` LINE CARRIES TWO CLOCKS.** `[   2.386s] [frame-spike]
 1.071s  125.3ms` holds the stamper's wall time AND the game's own elapsed
@@ -253,10 +320,7 @@ discriminate.
 (8.321 s), not the `room-transition begin` marker three lines earlier
 (7.767 s). My hand-check misread that; the parser had it right.
 
-**Host tell, still owed — AND CHECKED NOW
-RATHER THAN READ (2026-09-02):** zero placeholder-rectangle warnings at the hall
-reveal, `asset_wait_ms` in the seconds (129 frames of ration at least), no
->33.4 ms frames after the cover lifts. The profiling bundle summary grows a
+The profiling bundle summary grows a
 **Room reveal** section parsing all three out of the game's own stamped log, so
 a host capture states its own verdict instead of needing someone to read stderr
 and judge — which is how the 2026-09-01 capture's 111 warnings became evidence
@@ -905,6 +969,22 @@ sheets / 9.4 MP to **4 / 2.8 MP**; the 9 owned sheets are 6.7 MP and each
 arrives only with its fighter (the host run of 2026-09-02 evening, taken
 before this landed, still shows `fx-sheet 10×7.7MP` never drawn in the hub).
 
+⭐ **THE BOOT POPULATION, from Jon's host run (2026-09-03,
+`scripts/measure_first_room_manifest.py` over
+`desktop-timeline-run-20260902T215256Z`).** The run's only two spikes off the
+hall (125 ms and 203 ms at 2.4–2.6 s) sit between `initial playing` and the
+first `room-loaded`, i.e. under the shell's load screen. What decoded before
+that `room-loaded`, by the `[image]` ledger (≥ ~1 MP lines; the census counts
+98 small files besides): **6 images / 16.1 MP** — `unknown` 8.6 MP (the 7.6 MP
+LDtk preview tileset, Jon's relPath, plus a 1.0 MP runtime-generated image),
+`vanity-card` 3.0, `boss-sheet` 2.0 (the fallback boss body, eager by design:
+one sheet every boss may need), `character-sheet` 1.3, `fx-sheet` 1.2. ⇒ The
+startup burst is the tileset first and everything else a distant second; the
+`prepare-first-room-art` cover already waits for the 38 assets the first room
+names, and a cover that also waited for the shell's own art would be a longer
+cover — a product choice, not a defect. The tell after Jon's relPath retarget
+is the same two spikes gone or halved.
+
 ### 3. Pace expensive completion, not declarations
 
 Staging/demand and expensive materialization are different operations. Declare
@@ -1012,9 +1092,17 @@ would instead keep the last room's cast resident while the total stays under
 a limit. ⚠ Still open: the limit itself (a host number — `resident_mb` at
 Full on the 3090 after a hub→hall→hub walk is the input), and the neighbour
 prefetch remains the only road that decodes in the open on purpose.
+⛔ **AND THE 2026-09-02 HOST RUN DOES NOT SUPPLY IT, though it looks like it
+does.** `desktop-timeline-run-20260902T215256Z` reports *"decoded images 0 → 252
+(78.3 MP, 313.1 MB of decode work); images resident at end 251"* — ⚠ that is
+DECODE WORK over the run and a count at the end, not a steady-state residency,
+and the hall leg of it ran under the room tier cap (quarter-tier art), so it is
+not the FULL figure this limit needs. It is also a one-way walk: hub → hall, with
+no return leg. ⇒ The input is still owed, and whoever takes the capture should
+make it hub → hall → hub at Full with the cap gone.
 
-⚠ **Parallax is the one road that ACCUMULATES, and its ceiling is known
-(read from the code 2026-09-02, not yet measured on a walk).**
+⚠ **Parallax WAS the one road that ACCUMULATED — superseded the same evening
+by the retire below; kept as the sizing.** (Read from the code 2026-09-02.)
 `ensure_parallax_layers_for_room` lazy-loads a theme's four layers on first
 visit and nothing releases them: `ParallaxLayerSet` has `ensure_theme_loaded`
 and no retire. Nine themes × 4 layers = 37 files, **21.2 MP at Full** (every
@@ -1025,6 +1113,195 @@ that keeps the active theme and the one-hop neighbours' would bound it at
 ≤3 themes. Bounded and small next to a hall cast at Full, which is why it is
 recorded rather than built; the `resident by road: parallax` term after a
 multi-zone walk is the measurement.
+
+⭐ **BUILT AND MEASURED 2026-09-02 (`f1445c142`). And the accumulation was not a
+caller's omission — it was a GUARANTEE OF THE TYPE**, which is why the fix had to
+start in `ambition_sprite_sheet` and not at a call site:
+
+- `ParallaxLayerSet`'s whole API was `get`, `ensure_theme_loaded`, `len`,
+  `is_empty` over a PRIVATE map; no `remove`, `clear` or `retain` existed and
+  nothing outside its module named the type;
+- `GameAssets` is assigned once, by `bind_game_assets` on `Startup`, so the
+  accumulating set lives for the whole process;
+- the one path that looks like a release,
+  `refresh_parallax_layers_on_quality_change`, despawns `ParallaxLayerVisual`
+  ENTITIES and respawns them without touching the handle store.
+
+`ParallaxLayerSet::retain_themes` is the eviction API and owns no policy;
+`world_flow::parallax_residency` owns the rule (active + one-hop), ordered after
+the prefetch. Verified end to end by `scripts/measure_parallax_retire.sh`:
+`[Hub, Basement, Boss]` → `[Hub, Basement]`, and the retired theme's images leave
+`Assets<Image>` — asserted separately, because dropping a handle is necessary and
+not sufficient when a spawned visual may hold a clone.
+
+⚠ **Two corrections to the estimate above, both downward.** The ceiling is
+reached less often than "visits every zone" suggests, and the rule's own bound is
+looser than what is ever loaded:
+
+- ⛔ **`NEIGHBOR_PREFETCH_ROOM_BUDGET` is 4** — the prefetch prepares at most four
+  neighbours however many a room has. `central_hub_main` has 21 exits into six
+  biomes, so the rule PERMITS six themes there, but only **three** are ever
+  resident (`[Hub, Basement, Boss]`, measured). Sizing this leak from adjacency
+  overestimates it by double.
+- The route that would test it is not the obvious one: `central_hub_main` and
+  `hall_of_characters` BOTH resolve to `ParallaxTheme::Hub` (`biome: hall` is not
+  a `from_key` key, so it falls through to `visual_theme: default`), so the hall
+  door crosses no theme boundary and a retire assertion on it passes while doing
+  nothing. The fixture walks `tech_bros_door` into Basement instead.
+
+#### ⭐ The hall by TIER after the cap removal (calculex VM, software rasterizer, ff1ce535b)
+
+`capture_scene hall_of_characters player 640x360 --warmup 400`, tier forced with
+`AMBITION_QUALITY_PROFILE` and **verified from `[census] visual_quality
+profile=`** rather than assumed. ⛔ Counts, not clocks: this box has no GPU, so
+the megapixel and image figures transfer and the frame times do not.
+
+| tier | images | resident MP | MB | character-sheet | fx-sheet | parallax | UNROUTED |
+|---|---|---|---|---|---|---|---|
+| Potato | 234 | 24.1 | 96.5 | 137 × 4.2MP | 10 × 7.7MP | 4 × 0.0MP | 8 × **7.6MP** |
+| High | 235 | 29.9 | 119.4 | 138 × 5.4MP | 10 × 7.7MP | 4 × 2.4MP | 8 × **7.6MP** |
+| Ultra | 235 | 29.9 | 119.4 | 138 × 5.4MP | 10 × 7.7MP | 4 × 2.4MP | 8 × **7.6MP** |
+
+⭐ **THE UNROUTED POPULATION IGNORES THE TIER, AND IT IS THE BIGGEST SINGLE
+THING IN THE ROOM.** `game://sprites/player_robot_v3_spritesheet.png` is 7.6 MP
+at Potato, at High and at Ultra — byte-identical across all three. At Potato that
+one file is **32% of the hall's entire resident megapixels**, and it is the road
+the census names `UNROUTED(no demand)`: decoded with nobody claiming to have
+asked for it. An image that arrives without a demand stamp also arrives without a
+quality path, so the tier cannot reach it.
+
+⛔⛔ **AND IT IS A SECOND COPY OF A SHEET THE ROOM ALREADY HAS AT THE RIGHT
+TIER. The census names the cause in its own line:**
+
+```text
+[image]  0.923s f 0 3072x2468 7.6MP live=0 game://sprites/player_robot_v3_spritesheet.png
+         demand=unknown (not through load_sheet_image)
+[image-drawn] 1.412s 0.1MP sprites_potato/player_robot_v3_spritesheet.png
+         demand→draw 128ms via character-sheet
+```
+
+Frame **0**, before gameplay, 3072×2468, and `demand=unknown (not through
+load_sheet_image)` — the instrument says exactly which road was skipped. Half a
+second later the SAME character's sheet arrives again through the demand road at
+the resolved tier, 0.1 MP, and that is the copy the game actually draws. The
+7.6 MP one appears in `never drawn` for the rest of the run.
+
+⛔ **AND THE LOADER IS NOT OURS — CORRECTED 2026-09-02 after this was first
+written up.** It is `bevy_ecs_ldtk` loading every project tileset: all four
+`.ldtk` worlds declare `sprite_player_robot_v3` with
+`relPath=../sprites/player_robot_v3_spritesheet.png` at 3072×2484, for EDITOR
+entity previews. Verified in all four world files. So `demand=unknown` is
+accurate and the road is genuinely absent — but the fix is retargeting four
+declarations at `../sprites_0_25x/…` in the map submodule, which is Jon's, and
+the row that owns it is in [`../queue.md`](../queue.md). ⚠ Do not go looking for
+this in our character-sprite loader; an earlier version of this paragraph would
+have sent a reader there.
+
+⇒ **So this is not "one image ignored the tier". It is a DUPLICATE: 7.6 MP
+loaded at boot by the LDtk spine, never drawn, alongside the 0.1 MP copy the
+realization loads and the game actually draws.** At Potato that duplicate is 32% of the hall's resident megapixels and
+76× the drawn copy.
+
+⛔ **AND THE VARIANT IT SHOULD HAVE USED EXISTS.** All four are on disk for that
+sheet — `sprites/` **4.3 MB**, `sprites_0_5x/` 2.2 MB, `sprites_0_25x/` 844 KB,
+`sprites_potato/` **56 KB**. The Potato run decoded the 4.3 MB one. That is
+**77× the bytes** of the variant its own tier authored, for the single largest
+image in the room, and the seven other unrouted files are ~0.0 MP each — so this
+one file IS the unrouted population in any sense that costs memory.
+
+⇒ **So "the tier decides how many pixels the hall holds" is true of 5.8 MP of it
+and false of 7.6 MP of it.** Potato → Ultra moves 24.1 → 29.9 MP; the unrouted
+7.6 MP is constant underneath. ⛔ This is a ROUTING observation, not a proposal to
+draw fewer pixels — the fix is a demand stamp, after which that sheet honours
+whatever tier the user chose, at whatever size that tier says.
+
+⛔⛔ **AND A SECOND ROAD IGNORES THE TIER, LARGER THAN THE FIRST: `fx-sheet` is
+7.7 MP at Potato, High and Ultra alike.** This one is not a routing gap — the FX
+sheets DO carry a demand stamp (`via fx-sheet`). The cause is one missing
+parameter, visible in the signature:
+
+```rust
+let characters = character_sprites::load_character_sprites_in(…, quality);
+let entities   = load_entity_sprites(catalog, asset_server, quality);
+let fx         = character_sprites::load_fx_sheets(asset_server, layouts, &config.sprite_folder);
+```
+
+`load_fx_sheets` is the only one of the three that never receives the quality
+budget. It builds its set `with_sprite_folder(sprite_folder)` — a fixed folder —
+so it cannot select a variant even though the variants exist: 12 fx PNGs in
+`sprites/` (1.3 MB), 12 in `sprites_0_25x/` (964 KB) and 12 in `sprites_potato/`
+(**68 KB**). The Potato run decoded `sprites/generic_exotic_fx_spritesheet.png`
+at 1216×958.
+
+⭐ **AND THIS ONE IS INVISIBLE ON THE MACHINE THAT WOULD NOTICE IT LEAST.** At
+Ultra, full-resolution FX is exactly right, so the 3090 sees no defect at all. It
+costs only the configurations that ASKED for less — Steam Deck, mobile, web, and
+a weak-GPU desktop — which is the target class `../../planning/vision.md` names
+and the one no 3090 measurement can reach. Together with the undrawn duplicate
+above, **15.3 of the hall's 24.1 resident MP at Potato — 63% — is art that does
+not respond to the tier at all.**
+
+⭐ **AUDITED ACROSS EVERY LOADER, so this is a complete list rather than one
+example.** Of the eleven `load_*`/`ensure_*` entry points in the asset path,
+**seven take the quality budget and three do not**:
+
+| takes `quality` | does NOT |
+|---|---|
+| `load_character_sprites_in`, `load_entity_sprites`, `load_game_assets`, `ensure_boss_sheets_loaded`, `ensure_theme_loaded`, `load_parallax_layers_for_theme`, `ensure_parallax_layers_for_room` | ⛔ `load_fx_sheets`, ⛔ `ensure_fx_sheet_loaded`, ✔ `load_prop_sheet_for_target` (deliberate — see below) |
+
+`load_sheet_image` is the eleventh and is correctly absent from both columns: it
+is the primitive that takes an already-resolved path, so the caller owns the
+choice.
+
+⛔ **BOTH FX LOADERS MISS IT — the boot core AND the per-character owned road** —
+which is why all ten resident fx sheets are full-resolution rather than just the
+four core ones. ⚠ **`load_prop_sheet_for_target` IS NOT ONE OF THEM, corrected after checking
+rather than leaving it "unmeasured".** It hard-codes `TextureResolutionScale::Full`
+and states the reason in place — *"this path never consults a quality budget, so
+nothing was asked for beyond `Full` and nothing but the authored PNG was
+loaded"* — and its docstring scopes it to a demo registering one animated prop
+outside the asset catalog. Prop variants do exist (30 PNGs each in `sprites/`
+304 KB, `sprites_potato/` 120 KB, `sprites_0_25x/` 136 KB), so it COULD tier;
+it deliberately does not, on a narrow road, and says so.
+
+⛔ **So the gap is TWO loaders, not three.** `ensure_fx_sheet_loaded` also
+hard-codes `Full` — but unlike the prop loader it gives no reason, which is the
+difference between a decision and an omission. That distinction is the whole
+value of the audit: a count that lumps them together would have reported 50%
+more than exists and pointed a fix at code that is already correct.
+
+⛔ Routing again, not pixels: the fix gives a Potato user the 68 KB sheets they
+asked for and changes nothing at Ultra.
+
+⚠ **NEVER-DRAWN HEADROOM, same runs.** What the room holds against what it puts
+on screen:
+
+| tier | resident | never drawn | DRAWN | headroom |
+|---|---|---|---|---|
+| Potato | 24.1 MP / 234 img | 23.2 MP / 214 img | **0.9 MP** | **26.8×** |
+| High | 29.9 MP / 235 img | 26.5 MP / 211 img | **3.4 MP** | **8.8×** |
+| Ultra | 29.9 MP / 235 img | 26.5 MP / 211 img | **3.4 MP** | **8.8×** |
+
+⭐ **The headroom GROWS as the tier drops — 8.8× to 26.8× — which is the
+duplicate above showing through.** Lowering the tier shrinks what is drawn
+(3.4 → 0.9 MP) but the 7.6 MP undrawn copy does not shrink with it, so it becomes
+a larger share of a smaller total: nearly a third of everything resident at
+Potato. A residency ratio measured at a low tier is therefore dominated by
+whatever ignores the tier.
+
+⛔ **NOT comparable to the "5.8×" in `../tracks.md`**, and this row must not be
+read as correcting it. That figure is a host walk-in; this is a 640×360 staged
+capture, and a smaller viewport draws fewer sprites, which inflates headroom by
+construction. Same instrument, different question.
+
+⚠ **High and Ultra are identical here** (29.9 MP, 119.4 MB, same road split), so
+for this room's residency the ceiling is reached at High. And the reveal barrier
+held **10 updates** at both Potato and Ultra — the tier did not change what the
+room waited for.
+
+⛔ Not comparable to the 434 MP host figure above: that is a walked-in hall on
+real hardware, this is a staged capture at 640×360 on a software rasterizer. The
+two answer different questions and no delta between them means anything.
 
 ### 5. Eliminate accidental re-preparation/reload
 

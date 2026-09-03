@@ -601,6 +601,7 @@ dependencies = [
  "ambition_platformer2d_shared_tangle",
  "ambition_platformer2d_world",
  "ambition_projectiles",
+ "ambition_registry_core",
  "ambition_sfx",
  "ambition_sim_view",
  "ambition_sprite_sheet",
@@ -619,6 +620,7 @@ dependencies = [
  "ambition_binding",
  "ambition_platformer2d_core",
  "ambition_projectile_spec",
+ "ambition_registry_core",
  "bevy",
  "tracing",
 ]
@@ -671,6 +673,10 @@ dependencies = [
  "bevy",
  "serde",
 ]
+
+[[package]]
+name = "ambition_registry_core"
+version = "0.1.0"
 
 [[package]]
 name = "ambition_render"

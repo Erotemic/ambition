@@ -86,6 +86,18 @@ Its demonstrated value is:
 >   headless/demo consumers cannot accidentally omit required behaviour. Green
 >   at `ce25540b1`.
 >
+> **A fourth, and it is a PROHIBITION rather than a number:**
+> `engine-crates-do-not-consume-the-umbrella-facade`
+> (`check_absence_contracts.py`) forbids
+> `ambition_platformer2d_actor_monolith` from depending on `ambition_platformer2d`.
+> Its stated reason is this program's thesis in one sentence — an engine crate
+> reaching back through the facade "is circular by construction, and it is how a
+> headless consumer ends up compiling the render stack".
+> ⚠ **And it records a deliberate exception that belongs on this page:** the rule
+> is scoped to ENGINE crates because `ambition_content` DOES depend on the facade
+> today, and whether that should stop is "a MEASUREMENT question the campaign
+> defers rather than a rule". Green at `ec6d5150b`.
+>
 > ⛔ **A program with three green guards and one red-capable number is in a very
 > different state from one with none, and a reader could not tell that from this
 > page.** Name a guard where its program lives, or the next session re-derives

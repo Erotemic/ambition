@@ -1184,7 +1184,9 @@ pub fn void_pending_player_hits_at_lifecycle_boundaries(
 /// facade exists to prevent.
 ///
 /// ONE member, for the same reason as
-/// [`the actor crate's `world::overlay::FeatureWorldOverlaySet``]: the system beside it in the
+/// `ambition_platformer2d_shared_tangle::schedule::FeatureWorldOverlaySet` (which
+/// lived in the actor crate when this was written, and moved down on
+/// 2026-09-03): the system beside it in the
 /// tuple (`publish_kernel_reset_death`) is deliberately NOT gated on
 /// `gameplay_allowed` while this one is, so a set spanning both would hand
 /// consumers an ordering against a system with different run conditions. One

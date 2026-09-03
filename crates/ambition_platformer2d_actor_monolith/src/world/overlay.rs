@@ -14,22 +14,13 @@ use bevy::prelude::*;
 use ambition_combat::*;
 
 
-/// Rebuild the transient collision blocks contributed by ECS-owned features.
-/// The set `rebuild_feature_ecs_world_overlay` runs in, so a consumer can order
-/// against a NAME instead of against this function.
+/// The set `rebuild_feature_ecs_world_overlay` runs in.
 ///
-/// six places order against that function today — four in `ambition_content` (`bosses`,
-/// `falling_sand`, `falling_sand_sim`, `intro`), one in the monolith's own `encounter`, one more on
-/// `update_ecs_hazards` beside it.
-///
-/// deliberately a ONE-MEMBER set. The obvious alternative — a set spanning
-/// this system and `update_ecs_hazards` next to it in the chain — would make
-/// `.after(set)` STRICTER than the `.after(rebuild_feature_ecs_world_overlay)` it
-/// replaces, because consumers would newly wait for hazards too. One member
-/// makes the swap exactly equivalent, which is what lets it be made without a
-/// judgement call about scheduling in a rollback-critical chain.
-#[derive(bevy::prelude::SystemSet, Clone, Copy, Debug, PartialEq, Eq, Hash)]
-pub struct FeatureWorldOverlaySet;
+/// ⭐ MOVED DOWN to `shared_tangle::schedule` (2026-09-03, the encounter seam
+/// design): five ordering edges outside this crate already named it, and two
+/// more crates described it in prose because they could not. Its rationale —
+/// including WHY it stays a one-member set — lives with the definition now.
+pub use ambition_platformer2d_shared_tangle::schedule::FeatureWorldOverlaySet;
 
 pub fn rebuild_feature_ecs_world_overlay(
     mut overlay: ResMut<FeatureEcsWorldOverlay>,
@@ -104,5 +95,69 @@ pub fn rebuild_feature_ecs_world_overlay(
                 art_color: None,
             });
         }
+    }
+}
+
+/// The one line that makes five external ordering edges mean anything.
+///
+/// ⛔ `FeatureWorldOverlaySet` is `shared_tangle` vocabulary now, and three
+/// `ambition_content` plugins plus the Mary-O and Sanic demos order `.after()`
+/// it. All five of those edges are satisfied by a SINGLE
+/// `.in_set(FeatureWorldOverlaySet)` on `rebuild_feature_ecs_world_overlay` in
+/// `WorldPrepSchedulePlugin`. Delete that one call and every consumer keeps
+/// compiling, keeps its `.after(..)`, and silently waits for an empty set —
+/// which is the D33 defect shape exactly: the ordering is gone and nothing is
+/// red.
+///
+/// ⭐ SO THIS ASSERTS MEMBERSHIP, NOT EXISTENCE. A test that checked the system
+/// is merely scheduled would stay green through that deletion.
+#[cfg(test)]
+mod overlay_set_membership {
+    use bevy::ecs::schedule::{NodeId, Schedules, SystemSet as _};
+    use bevy::prelude::App;
+
+    use ambition_platformer2d_shared_tangle::schedule::FeatureWorldOverlaySet;
+    use ambition_platformer2d_shared_tangle::schedule::SimScheduleExt as _;
+
+    #[test]
+    fn the_overlay_rebuild_is_a_member_of_the_set_its_consumers_order_against() {
+        let mut app = App::new();
+        app.add_plugins(crate::features::WorldPrepSchedulePlugin);
+        let sim = app.sim_schedule();
+        let schedules = app.world().resource::<Schedules>();
+        let schedule = schedules
+            .get(sim)
+            .expect("WorldPrepSchedulePlugin must have created the sim schedule");
+        let graph = schedule.graph();
+
+        let set_key = graph
+            .system_sets
+            .get_key(FeatureWorldOverlaySet.intern())
+            .expect(
+                "FeatureWorldOverlaySet must be a registered SystemSet — five \
+                 ordering edges outside this crate name it",
+            );
+        let system_key = {
+            let mut found = None;
+            for (key, system, _) in graph.systems.iter() {
+                let name = format!("{}", system.name());
+                if name.rsplit("::").next() == Some("rebuild_feature_ecs_world_overlay") {
+                    assert!(found.is_none(), "the leaf name must resolve to one system");
+                    found = Some(key);
+                }
+            }
+            found.expect("rebuild_feature_ecs_world_overlay must be scheduled")
+        };
+
+        assert!(
+            graph
+                .hierarchy()
+                .graph()
+                .contains_edge(NodeId::Set(set_key), NodeId::System(system_key)),
+            "rebuild_feature_ecs_world_overlay must be a MEMBER of \
+             FeatureWorldOverlaySet. Without that membership the set is empty, \
+             and three ambition_content plugins plus two demos order .after() \
+             nothing — compiling, green, and unordered."
+        );
     }
 }

@@ -499,3 +499,26 @@ twelve times the pixels — because one composition seeds visual quality from th
 Cpu adapter and loads `sprites_potato` while the other loads the base tree.
 ⇒ Neither is wrong. A residency figure without the composition named beside it is
 not a measurement, it is a number.
+
+### ⚠ A disagreeing re-measurement is only DRIFT if both sides measured the same thing
+
+This page spends most of its length on numbers that went stale, so it needs the
+opposite rule beside them or it teaches over-correction.
+
+An entry raised 2026-09-02 says *"the shared sprite pack is 442.6 MB and one prop
+reads it"*, over *"197 targets"*. Re-run on another machine the next day, the same
+script reported **164 targets** and the directory measured **318 MB**. Two figures
+disagreeing by a quarter, one day later, with the instrument named — the shape
+this page has been correcting all day.
+
+⛔ **It is not drift.** Sprite packs are generated and gitignored, and the sibling
+script says so of its own subject: *"these are gitignored generated files, and
+this is ONE machine's tree."* Two machines with different regeneration histories
+produce different populations, and neither number is wrong or stale.
+
+⇒ **The load-bearing half verified exactly** — *"1 target(s) opt into the pack —
+`intro_cart`"* — which is what the entry actually argues from. ⇒ **So before
+correcting a number, ask whether the thing it counts is repository content or
+build output.** Repository content that disagrees is drift. Build output that
+disagrees is two machines, and rewriting one machine's figure with another's
+manufactures a finding out of a build directory.

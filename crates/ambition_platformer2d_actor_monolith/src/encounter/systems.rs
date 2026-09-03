@@ -176,19 +176,17 @@ pub fn drive_wave_encounters(
         // completion, so it must not lag a frame behind a mirror.
         &ambition_characters::actor::BodyHealth,
     )>,
-    reward_chests: Query<
-        (
-            Entity,
-            &ambition_combat::components::EncounterRewardChest,
-            &ambition_combat::components::FeatureId,
-            Option<&ambition_combat::components::Opened>,
-        ),
-        With<ambition_combat::components::ChestFeature>,
-    >,
+    // ⭐ THE CHEST QUERY LEFT WITH THE REWARD RETIRE (2026-09-03). This system
+    // drives waves; it has no business reading an encounter's reward entities,
+    // and it only ever did because the retire was wedged into its switch loop.
 ) {
-    let Some(session_scope) = commands.spawn_scope() else {
+    // The session gate stays: this system spawns nothing now, but it wrote
+    // persisted switch state and quest flags before the drain split out, and
+    // gating the whole driver on a live session is the behaviour it has always
+    // had.
+    if commands.spawn_scope().is_none() {
         return;
-    };
+    }
     let active_area = session_world.active_spec().id.clone();
     if player_body_q.is_empty() {
         return;
@@ -420,7 +418,8 @@ pub fn drive_wave_encounters(
 /// completion, reward-chest sync, music request, presentation read-model,
 /// save projection, and the trace sink for every encounter event.
 pub fn apply_wave_encounter_effects(
-    mut commands: SessionCommands<'_, '_>,
+    // Not `mut`: this adapter stopped spawning when the reward sync left.
+    commands: SessionCommands<'_, '_>,
     mut events_in: MessageReader<EncounterEventMsg>,
     encounters: Query<(
         &Encounter,

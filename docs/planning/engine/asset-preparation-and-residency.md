@@ -1425,6 +1425,36 @@ regenerated. A fix aimed only at the first mechanism leaves `officer` broken.
 inside one tree — the four being the newest files at their tier while the tier's
 median is four days older is the part that carries the argument.
 
+⭐⭐ **AND `actor` IS THE PRE-RENAME DUPLICATE OF `performer` — TRACED
+2026-09-02 BY ASKING THE GENERATOR INSTEAD OF READING IT.**
+`discover_all_targets()` reports 51 `config` and 158 `module` targets, and
+**`actor` IS NOT IN THE REGISTRY AT ALL.** `Actor` was renamed to `Performer`
+(recorded in `awaiting-maintainer-decision.md` §44), and
+`sprites/actor_spritesheet.png` is **byte-identical** to
+`sprites/performer_spritesheet.png` — same sha256, different inodes in both the
+worktree and the main checkout, so this is real duplication and not a symlink.
+**Nothing in the workspace names `actor` as a sprite target.**
+
+⇒ That explains two of the five names at once, and neither is a live generator
+defect: `actor`'s reduced variants are **pre-rename leftovers the generator can
+never regenerate**, because it no longer knows the name; and `performer` has
+**no** variants because the new name never had any generated. ⇒ **18 `actor_*`
+files, 14.5 MB, ship as a manifested, bakeable target nothing requests.**
+
+⛔ **THREE HYPOTHESES DIED ON THE WAY, recorded so nobody retraces them.** (1)
+"Sheets lacking `source_frame_width` fail to downscale" — 54 of 54 that declare
+it are fine, but so are 147 of 151 that do not, so it is necessary-at-best and
+explains nothing. (2) "The 08-27 run produced them" — `generic_world_fx` was
+written that same day and is fine. (3) "They are the YAML-authored `config`
+targets that re-render instead of downscaling" — the exact opposite:
+`alice`, which downscales correctly, IS `config`; `author`/`medic`/`officer` are
+`module`. ⭐ I built all three by reading the generator and comparing configs;
+the answer came from RUNNING `discover_all_targets()` and asking it.
+
+▢ **`author`, `medic` and `officer` remain unexplained** — `module`-kind, written
+minutes after their own full sheets, genuinely unshrunk. Their mechanism is
+still open.
+
 ⇒ **WHAT IS AND IS NOT ESTABLISHED.** Established: on this machine's generated
 assets, four sheets' 0_5x/0_25x pages and manifests are full-size, and a room
 asking for those tiers pays for them. NOT established: that any other machine

@@ -495,11 +495,11 @@ fn every_presence_only_probe_is_named_with_its_reason() {
             "authored switch payload; immutable at runtime",
         ),
         (
-            "ambition_platformer2d_actor_monolith::items::pickup::GroundItem",
+            "ambition_held_items::GroundItem",
             "authored item spec; immutable while it lies on the ground",
         ),
         (
-            "ambition_platformer2d_actor_monolith::items::pickup::StashedActionSet",
+            "ambition_held_items::StashedActionSet",
             "authored action set held across a possession",
         ),
         (

@@ -57,7 +57,7 @@ pub fn fire_vortex_system(
     // ⭐ EVERY DRIVEN BODY, not the one the primary seat happens to hold.
     // `ControlledSubject` is singular by construction, so a possessed body or a
     // second seat holding the same item simply never fired.
-    driven: crate::items::pickup::DrivenBodies,
+    driven: ambition_held_items::DrivenBodies,
     mut bodies: Query<(
         &ActorControl,
         &BodyKinematics,
@@ -100,7 +100,7 @@ pub fn fire_vortex_system(
         }
         // The body's per-tick resolved frame (ADR 0024 frame law).
         let gravity_dir = resolved_frame.down();
-        let aim = crate::items::pickup::ability_aim_world(&c, kin.facing, gravity_dir)
+        let aim = ambition_held_items::ability_aim_world(&c, kin.facing, gravity_dir)
             .normalize_or_zero();
         if aim == ae::Vec2::ZERO {
             continue;

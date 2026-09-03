@@ -1,8 +1,15 @@
 # The pickup carve — an executable checklist
 
-**State:** SPEC ONLY, nothing cut. Written 2026-09-03 for whoever cuts it, so
-that they do no design. Every number below was re-derived against HEAD; the ones
-that move under ordinary work are marked ⚠ RE-DERIVE.
+**State:** EXECUTED 2026-09-03 (`ambition_held_items`; queue D33 row carries
+the receipt). Written the same day as a spec so the cutter did no design, and
+it held — with one addition found by cutting: the `CoreHeldItems` chain
+interleaved three KERNEL systems between the domain's steps, which neither §0
+nor D33 covered. `HeldItemStep` (`shared_tangle::schedule`) is the answer —
+the domain chains its steps as sets, the kernel's systems attach
+`.before`/`.after` a step — landed before the move (`4aabf8259`) so the chain
+moved intact. Kept as the record of what a carve checklist has to contain.
+Every number below was re-derived against HEAD when written; the ones that
+move under ordinary work are marked ⚠ RE-DERIVE.
 
 Sources: the pickup row in [`../queue.md`](../queue.md), the D33 rule in
 [`actor-monolith-decomposition.md`](actor-monolith-decomposition.md), and the
@@ -28,7 +35,7 @@ which is exactly what D33 requires.
 
 ⛔ **THE ADDITION, AND IT IS THE PART THAT WOULD HAVE BEEN LOST.** The three
 variants are not independent — they are `.chain()`ed in a single call at
-`crates/ambition_platformer2d_actor_monolith/src/items/pickup/mod.rs:69`:
+`crates/ambition_platformer2d_actor_monolith/src/items/pickup/mod.rs:69`: <!-- cite-ok: the pre-cut path, kept as the record -->
 
 ```text
 (CoreHeldItems, ThrownItemEffects, WieldedAbilities)
@@ -46,7 +53,7 @@ can name both sides. The new crate cannot name the kernel and must not try.
 
 ⇒ **The split, stated so it can be executed without re-deciding:**
 * **new crate** configures `CoreHeldItems` alone — `.in_set(PlayerSimulation)`,
-  `.after(BodyCustodySettled)` (`crates/ambition_platformer2d_actor_monolith/src/items/pickup/mod.rs:81`) — and registers its members;
+  `.after(BodyCustodySettled)` (`crates/ambition_platformer2d_actor_monolith/src/items/pickup/mod.rs:81`) — and registers its members; <!-- cite-ok: the pre-cut path, kept as the record -->
 * **kernel** configures `ThrownItemEffects` and `WieldedAbilities`, registers
   their members, AND declares the three-variant `.chain()`;
 * neither crate configures a variant it has no systems in.
@@ -62,14 +69,14 @@ lives with the plugin that owns two of its three links.
 The queue row's third objection was that a carved crate's tests *"register
 systems into sets nothing configured, so their ordering assertions pass
 vacuously."* Measured against the file that would move,
-`crates/ambition_platformer2d_actor_monolith/src/items/pickup/tests.rs`:
+`crates/ambition_platformer2d_actor_monolith/src/items/pickup/tests.rs`: <!-- cite-ok: the pre-cut path, kept as the record -->
 
 * it holds **93 assertions and not one of them names a set, a phase, or an
   ordering edge** — no `in_set`, no `.before`/`.after`, no `ItemPickupSet`,
   no `PlayerSimulation`, no `BodyCustodySettled` (the single textual hit is prose
-  in a doc comment at `crates/ambition_platformer2d_actor_monolith/src/items/pickup/tests.rs:762`);
+  in a doc comment at `crates/ambition_platformer2d_actor_monolith/src/items/pickup/tests.rs:762`); <!-- cite-ok: the pre-cut path, kept as the record -->
 * **exactly one** of its dozen-plus `App::new()` tests adds a plugin at all —
-  `the_production_plugin_registers_the_custody_release` (`crates/ambition_platformer2d_actor_monolith/src/items/pickup/tests.rs:883`), and it
+  `the_production_plugin_registers_the_custody_release` (`crates/ambition_platformer2d_actor_monolith/src/items/pickup/tests.rs:883`), and it <!-- cite-ok: the pre-cut path, kept as the record -->
   is an ENUMERATION test: it initializes the sim schedule and asserts a system
   name is present.
 
@@ -119,7 +126,7 @@ partial cut that was made and deleted: `ambition_entity_catalog`,
 feature. ⚠ RE-DERIVE by compiling — this is the one list a spec cannot fix in
 advance, and it was measured on a slightly different partition.
 
-⚠ **The `portal` feature is not optional bookkeeping.** `crates/ambition_platformer2d_actor_monolith/src/items/pickup/mod.rs:184` registers
+⚠ **The `portal` feature is not optional bookkeeping.** `crates/ambition_platformer2d_actor_monolith/src/items/pickup/mod.rs:184` registers <!-- cite-ok: the pre-cut path, kept as the record -->
 `ambition_portal2d::arm_portal_pickups` into `CoreHeldItems` under
 `#[cfg(feature = "portal")]`, and a THIRD crate — the content layer's
 `AmbitionPortalAdaptersPlugin` — orders its own system `.after(arm_portal_pickups)`

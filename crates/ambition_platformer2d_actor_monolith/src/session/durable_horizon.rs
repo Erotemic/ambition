@@ -232,7 +232,7 @@ pub fn persist_occurrence_horizon_to_save(
     custodians: Query<&SimId>,
     // The occurrences whose custody survives a process boundary, because the item
     // domain saves `ItemCustody` and applies it again on load.
-    durably_held: Query<&SimId, With<crate::items::pickup::ItemCustody>>,
+    durably_held: Query<&SimId, With<ambition_held_items::ItemCustody>>,
     mut save: ResMut<AmbitionGameSave>,
 ) {
     if !restored.0 {

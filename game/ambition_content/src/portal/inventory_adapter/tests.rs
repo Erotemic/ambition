@@ -133,7 +133,7 @@ fn dropping_the_gun_clears_the_catalog_slot_that_picking_it_up_set() {
     );
     // The hand IS the catalog's view of it (I1): no slot to name any more.
     assert_eq!(
-        ambition_platformer2d_actor_monolith::items::pickup::item_in_hand(
+        ambition_held_items::item_in_hand(
             None,
             app.world().get::<PortalGun>(player),
         ),
@@ -150,7 +150,7 @@ fn dropping_the_gun_clears_the_catalog_slot_that_picking_it_up_set() {
         "the drop detaches the gun"
     );
     assert_eq!(
-        ambition_platformer2d_actor_monolith::items::pickup::item_in_hand(
+        ambition_held_items::item_in_hand(
             None,
             app.world().get::<PortalGun>(player),
         ),

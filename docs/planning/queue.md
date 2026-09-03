@@ -1171,6 +1171,27 @@ The one unresolved developer-policy choice from the session-ownership work is in
   twenty times across `ambition_app`'s tests and the smash demo, so the carve ends
   with a facade export and a re-point, exactly as `ambition_world_items` did.
 
+  ✔ **CUT 2026-09-03: `ambition_held_items`.** The partition held as
+  measured (the plugin block and `restore_custody_to_checkpoint` stay; the
+  domain, `conditions.rs` and the tests move; `minted_horizon.rs` stays) with
+  one addition the checklist did not have: the `CoreHeldItems` chain was
+  thirteen links with the kernel's shrine, gun and match spawn INTERLEAVED
+  between the domain's steps, so `HeldItemStep {Release, Pickup, Use, Throw,
+  Settle, Physics, Residency}` became `shared_tangle` vocabulary first
+  (`4aabf8259`, guard by shape in the kernel) and the domain moved with its
+  chain intact. `HeldItemSimulationPlugin` configures `CoreHeldItems` end to
+  end (phase, custody edge, the seven steps) and registers its ten systems;
+  the kernel's `ItemPickupSimulationPlugin` keeps the two sibling variants,
+  the three-variant chain and its three attachments (`.before(Release)`;
+  `after(Use).before(Throw)`; `after(Throw).before(Settle)`). Guards:
+  `ambition_held_items::schedule_tests` (the plugin alone: phase, custody
+  edge, chain, one system per step, gating) and the kernel's
+  `held_item_steps` (its attachments, beside the domain's plugin). Rollback
+  baseline byte-identical; kernel 1,182 tests (31 moved with the domain, all
+  green there); footprint 45 → 46 declared. The name-based enumeration test
+  that moved could only pass by another crate's `bevy_ecs/debug` and was
+  replaced by the count guard. The execution order below is kept as the
+  record of what it predicted.
   ▢ **THE EXECUTION ORDER, so this is startable rather than merely sized.**
   Written after `ambition_world_items`, whose one surprise was step 2 — the
   systems' `configure_sets` rules, which live far from the `add_systems` line and

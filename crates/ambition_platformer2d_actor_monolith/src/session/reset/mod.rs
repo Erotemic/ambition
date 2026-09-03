@@ -435,7 +435,7 @@ pub fn clear_transient_on_sandbox_reset(
                 With<ambition_portal2d::PlacedPortal>,
                 With<ambition_portal2d::PortalShot>,
                 With<ambition_portal2d::PortalGunPickup>,
-                With<crate::items::pickup::GroundItem>,
+                With<ambition_held_items::GroundItem>,
                 With<crate::abilities::thrown::puppy_slug_gun::PuppySlugAlly>,
             )>,
             // the rebuilt room's own contents are NOT this system's business.
@@ -446,7 +446,7 @@ pub fn clear_transient_on_sandbox_reset(
         Entity,
         (
             Or<(
-                With<crate::items::pickup::GroundItem>,
+                With<ambition_held_items::GroundItem>,
                 With<crate::abilities::thrown::puppy_slug_gun::PuppySlugAlly>,
             )>,
             // the rebuilt room's own contents are NOT this system's business.
@@ -457,7 +457,7 @@ pub fn clear_transient_on_sandbox_reset(
         (
             Entity,
             &mut ambition_characters::brain::ActionSet,
-            Option<&crate::items::pickup::StashedActionSet>,
+            Option<&ambition_held_items::StashedActionSet>,
         ),
         With<ambition_platformer2d_shared_tangle::markers::PlayerEntity>,
     >,
@@ -474,7 +474,7 @@ pub fn clear_transient_on_sandbox_reset(
         }
         commands
             .entity(player)
-            .remove::<crate::items::pickup::StashedActionSet>();
+            .remove::<ambition_held_items::StashedActionSet>();
         commands
             .entity(player)
             .remove::<ambition_combat::held_items::HeldItem>();

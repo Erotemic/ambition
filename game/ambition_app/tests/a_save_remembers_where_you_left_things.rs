@@ -30,8 +30,8 @@ use bevy::prelude::Entity;
 
 use crate::common::{base, fixed_60hz_room_sim, possess_the_authored_enemy};
 
-type Custody = ambition_platformer2d::actors::items::pickup::ItemCustody;
-type Ground = ambition_platformer2d::actors::items::pickup::GroundItem;
+type Custody = ambition_platformer2d::held_items::ItemCustody;
+type Ground = ambition_platformer2d::held_items::GroundItem;
 type Held = ambition_platformer2d::combat::held_items::HeldItem;
 type SaveRestored = ambition_platformer2d::actors::session::durable_horizon::SaveRestored;
 

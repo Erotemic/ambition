@@ -4,7 +4,7 @@
 //!   it's held a plain `Attack` drops / moves the mark at the player's feet.
 //! - The `Blink` button recalls the player to the mark (instant teleport).
 //! - `Shield + Attack` still throws the item away through the generic
-//!   [`crate::items::pickup::throw_held_item_system`] path.
+//!   [`ambition_held_items::throw_held_item_system`] path.
 //!
 //! The held spec has no melee/ranged verb, so the throw system would normally
 //! treat it as a "pure throwable" and throw it on a plain `Attack`. Like the
@@ -51,7 +51,7 @@ pub fn mark_recall_system(
     // ⭐ EVERY DRIVEN BODY, not the one the primary seat happens to hold.
     // `ControlledSubject` is singular by construction, so a possessed body or a
     // second seat holding the same item simply never acted.
-    driven: crate::items::pickup::DrivenBodies,
+    driven: ambition_held_items::DrivenBodies,
     mut players: Query<(
         Entity,
         &ActorControl,

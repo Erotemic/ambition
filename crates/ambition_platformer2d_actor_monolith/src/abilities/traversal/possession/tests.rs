@@ -651,7 +651,7 @@ fn the_possession_projection_leaves_item_custody_alone() {
     let item = app
         .world_mut()
         .spawn((
-            crate::items::pickup::GroundItem {
+            ambition_held_items::GroundItem {
                 spec: ambition_characters::brain::HeldItemSpec {
                     id: "axe".into(),
                     melee: None,

@@ -194,7 +194,7 @@ const MANA_REGEN_PER_SEC: f32 = 14.0;
 /// rather than a dead verb, which is why it outlived the verbs' own fix.
 pub fn regen_player_mana(
     time: Res<ambition_time::WorldTime>,
-    driven: crate::items::pickup::DrivenBodies,
+    driven: ambition_held_items::DrivenBodies,
     mut manas: Query<&mut ambition_platformer2d_core::BodyMana>,
     primary: Query<Entity, (With<PlayerEntity>, With<PrimaryPlayer>)>,
 ) {

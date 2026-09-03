@@ -48,7 +48,7 @@ pub fn interact_ecs_actors_and_switches(
     // `ActingParticipant` keys the buffered interact off the body's OWN driving
     // slot — and only the subject was singular, so a couch's second seat could
     // stand on a switch and press interact forever.
-    driven: crate::items::pickup::DrivenBodies,
+    driven: ambition_held_items::DrivenBodies,
     // the buffered interact belongs to the SEAT DRIVING THE ACTING BODY,
     // not to slot 0. Under possession those are different controllers, and
     // reading slot 0 meant a possessed body's interaction spent — and was gated

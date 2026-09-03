@@ -23,7 +23,7 @@ pub fn open_ecs_chests(
     // `ActingParticipant` keys the buffered interact off the body's OWN driving
     // slot — and only the subject was singular, so a couch's second seat could
     // stand on a chest and press interact forever.
-    driven: crate::items::pickup::DrivenBodies,
+    driven: ambition_held_items::DrivenBodies,
     // the buffered interact belongs to the SEAT DRIVING THE ACTING BODY.
     // Slot 0 was the wrong source the moment a body other than the home avatar
     // can be driven: a possessed actor's chest open spent the home seat's press.

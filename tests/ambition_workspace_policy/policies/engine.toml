@@ -1771,6 +1771,11 @@ allow = ["ambition_platformer2d_actor_monolith", "ambition_projectiles", "ambiti
     # lands back in the kernel. `WorldItemSimulationPlugin` sits beside
     # `ItemPickupSimulationPlugin`, its sibling across the touched/pressed split.
     "ambition_world_items",
+    # The PRESSED collectible (D33, 2026-09-03), the other half of that split:
+    # `HeldItemSimulationPlugin` owns `ItemPickupSet::CoreHeldItems` end to end
+    # and the runtime adds it beside the kernel's `ItemPickupSimulationPlugin`,
+    # which keeps the other two variants and the three-variant chain.
+    "ambition_held_items",
     # One diagnostic resource, `GameplayTraceBuffer` — the same shape as the
     # `ambition_causal` row above.
     "ambition_gameplay_trace"]
@@ -2888,6 +2893,30 @@ rationale = "A collectible's PRESENCE is this crate's; its MEANING and its PICTU
 source_doc = "docs/architecture/architecture-boundaries.md"
 severity = "error"
 roots = ["crates/ambition_world_items/src"]
+forbid = ["ambition_platformer2d_actor_monolith", "ambition_render", "ambition_menu", "ambition_app", "ambition_content", "ambition_dev_tools"]
+
+[[policy]]
+id = "engine.ambition_held_items-manifest-allow"
+scope = "engine"
+kind = "dependency-allowlist"
+owners = ["ambition_held_items"]
+watch_paths = ["crates/ambition_held_items/Cargo.toml"]
+rationale = "ambition_held_items owns the PRESSED collectible -- a GroundItem in the world, the empty hand that takes it, the held spec it overlays on the action set, use, throw, ground physics and custody-driven residency (D33, 2026-09-03). The list is the carve, measured by compiling: bodies and geometry from platformer2d_core, the action set and held specs from ambition_characters, the HeldItem component from ambition_combat, the item vocabulary from ambition_items, the rider hand position from ambition_mount, lifecycle/schedule/custody vocabulary from shared_tangle, the room set the whereabouts ledger reads from platformer2d_world, the simulation clock from ambition_time, and the portal gun behind the `portal` feature. It must NEVER regain ambition_platformer2d_actor_monolith -- that edge is what the carve removed; the kernel depends on this crate for checkpoint policy over its components, never the reverse"
+source_doc = "docs/architecture/architecture-boundaries.md"
+severity = "error"
+allow = ["ambition_platformer2d_core", "ambition_characters", "ambition_combat", "ambition_items", "ambition_mount", "ambition_platformer2d_shared_tangle", "ambition_platformer2d_world", "ambition_time", "ambition_portal2d", "ambition_entity_catalog", "ambition_input", "ambition_sfx"]
+manifest = "crates/ambition_held_items/Cargo.toml"
+
+[[policy]]
+id = "engine.ambition_held_items-source-purity"
+scope = "engine"
+kind = "forbidden-source-reference"
+owners = ["ambition_held_items"]
+watch_paths = ["crates/ambition_held_items/src"]
+rationale = "A held item's PHYSICS and CUSTODY are this crate's; the checkpoint policy that restores custody, the shrine, the guns and the match spawn that attach to its steps are the kernel's, and its PICTURE is ambition_render's -- so naming any of them would be this crate reaching back up into its consumers. ambition_dev_tools is forbidden for the same reason it is forbidden of the kernel: a simulation crate must not read developer state"
+source_doc = "docs/architecture/architecture-boundaries.md"
+severity = "error"
+roots = ["crates/ambition_held_items/src"]
 forbid = ["ambition_platformer2d_actor_monolith", "ambition_render", "ambition_menu", "ambition_app", "ambition_content", "ambition_dev_tools"]
 
 # ── the 2026-08-31 carves get the guards the 2026-09-02 one already had ──

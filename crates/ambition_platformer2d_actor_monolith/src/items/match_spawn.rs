@@ -110,7 +110,7 @@ pub fn spawn_match_items(
     // `held_spec_by_id`, the WIDE lookup — the same one the checkpoint rebuild
     // uses, and for the same reason: an id that came from the item catalog
     // rather than the brain's registry answers `None` to the narrow one.
-    let Some(spec) = crate::items::pickup::held_spec_by_id(id) else {
+    let Some(spec) = ambition_held_items::held_spec_by_id(id) else {
         // ⛔ A ROW NAMING AN ITEM THAT DOES NOT EXIST DROPS NOTHING, and says so
         // once rather than every interval: an authored table is content, and
         // content can name something that has been removed.
@@ -124,7 +124,7 @@ pub fn spawn_match_items(
         ambition_platformer2d_shared_tangle::sim_id::SimId::match_spawn(activated_on, ordinal)
     });
     let mut spawned = commands.spawn_room_scoped((
-        crate::items::pickup::GroundItem {
+        ambition_held_items::GroundItem {
             spec,
             // AT REST. A dropped item falls under `ground_item_physics` from
             // wherever the stage put its point; giving it a velocity here would
@@ -132,7 +132,7 @@ pub fn spawn_match_items(
             // presentation the stage owns.
             vel: ae::Vec2::ZERO,
             pos: point,
-            half_extent: crate::items::pickup::MINTED_ITEM_HALF_EXTENT,
+            half_extent: ambition_held_items::MINTED_ITEM_HALF_EXTENT,
         },
         Name::new(format!("Match item: {id}")),
     ));

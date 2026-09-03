@@ -33,8 +33,8 @@ fn sandbox_reset_clears_portals_held_items_and_summons() {
 
     let ground = app
         .world_mut()
-        .spawn(crate::items::pickup::GroundItem {
-            spec: crate::items::pickup::axe_spec(),
+        .spawn(ambition_held_items::GroundItem {
+            spec: ambition_held_items::axe_spec(),
             pos: ae::Vec2::ZERO,
             vel: ae::Vec2::ZERO,
             half_extent: ae::Vec2::splat(18.0),
@@ -49,10 +49,10 @@ fn sandbox_reset_clears_portals_held_items_and_summons() {
             .spawn((
                 ambition_platformer2d_shared_tangle::markers::PlayerEntity,
                 ambition_characters::brain::ActionSet::default(),
-                crate::items::pickup::StashedActionSet(
+                ambition_held_items::StashedActionSet(
                     ambition_characters::brain::ActionSet::default(),
                 ),
-                ambition_combat::held_items::HeldItem::new(crate::items::pickup::axe_spec()),
+                ambition_combat::held_items::HeldItem::new(ambition_held_items::axe_spec()),
             ))
             .id();
     #[cfg(feature = "portal")]
@@ -64,7 +64,7 @@ fn sandbox_reset_clears_portals_held_items_and_summons() {
     app.update();
     assert!(app
         .world()
-        .get::<crate::items::pickup::GroundItem>(ground)
+        .get::<ambition_held_items::GroundItem>(ground)
         .is_some());
     assert!(app
         .world()
@@ -85,7 +85,7 @@ fn sandbox_reset_clears_portals_held_items_and_summons() {
     );
     assert!(
         app.world()
-            .get::<crate::items::pickup::GroundItem>(ground)
+            .get::<ambition_held_items::GroundItem>(ground)
             .is_some(),
         "a refused reset despawned a dropped item"
     );
@@ -95,7 +95,7 @@ fn sandbox_reset_clears_portals_held_items_and_summons() {
     app.update();
     assert!(
         app.world()
-            .get::<crate::items::pickup::GroundItem>(ground)
+            .get::<ambition_held_items::GroundItem>(ground)
             .is_none(),
         "ground item despawned on reset"
     );
@@ -120,7 +120,7 @@ fn sandbox_reset_clears_portals_held_items_and_summons() {
     );
     assert!(
         app.world()
-            .get::<crate::items::pickup::StashedActionSet>(player)
+            .get::<ambition_held_items::StashedActionSet>(player)
             .is_none(),
         "stashed action set cleared"
     );
@@ -151,8 +151,8 @@ fn the_transient_clear_spares_the_rebuilt_rooms_own_items() {
         .world_mut()
         .spawn((
             RoomScopedEntity,
-            crate::items::pickup::GroundItem {
-                spec: crate::items::pickup::axe_spec(),
+            ambition_held_items::GroundItem {
+                spec: ambition_held_items::axe_spec(),
                 pos: ae::Vec2::new(64.0, 0.0),
                 vel: ae::Vec2::ZERO,
                 half_extent: ae::Vec2::splat(18.0),
@@ -164,8 +164,8 @@ fn the_transient_clear_spares_the_rebuilt_rooms_own_items() {
     // it back — this system is its only retirement.
     let dropped = app
         .world_mut()
-        .spawn(crate::items::pickup::GroundItem {
-            spec: crate::items::pickup::axe_spec(),
+        .spawn(ambition_held_items::GroundItem {
+            spec: ambition_held_items::axe_spec(),
             pos: ae::Vec2::new(-64.0, 0.0),
             vel: ae::Vec2::ZERO,
             half_extent: ae::Vec2::splat(18.0),
@@ -177,14 +177,14 @@ fn the_transient_clear_spares_the_rebuilt_rooms_own_items() {
 
     assert!(
         app.world()
-            .get::<crate::items::pickup::GroundItem>(authored)
+            .get::<ambition_held_items::GroundItem>(authored)
             .is_some(),
         "the reset despawned the pickup it had just authored from the room's \
          own records, so the rebuilt room came back short of itself"
     );
     assert!(
         app.world()
-            .get::<crate::items::pickup::GroundItem>(dropped)
+            .get::<ambition_held_items::GroundItem>(dropped)
             .is_none(),
         "a session-scoped dropped weapon survived the sandbox reset — nothing \
          else retires one, so sparing it leaks the old attempt into the new game"

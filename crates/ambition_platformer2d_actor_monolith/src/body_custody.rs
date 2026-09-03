@@ -40,7 +40,7 @@ pub fn project_body_custody(
             Entity,
             &ambition_platformer2d_shared_tangle::lifecycle::InCustodyOf,
         ),
-        Without<crate::items::pickup::GroundItem>,
+        Without<ambition_held_items::GroundItem>,
     >,
 ) {
     use ambition_platformer2d_shared_tangle::lifecycle::InCustodyOf;

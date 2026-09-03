@@ -15,12 +15,12 @@
 //!   marker to ground items and keeps it in sync with the `GroundItem` body around
 //!   transit.
 //!
-//! [`GroundItem`]: ambition_platformer2d_actor_monolith::items::pickup::GroundItem
+//! [`GroundItem`]: ambition_held_items::GroundItem
 //! [`PortalTransitable`]: ambition_portal2d::PortalTransitable
 
 use bevy::prelude::*;
 
-use ambition_platformer2d_actor_monolith::items::pickup::GroundItem;
+use ambition_held_items::GroundItem;
 use ambition_portal2d::PortalTransitable;
 
 /// Attach the portal-core [`PortalTransitable`] marker to any [`GroundItem`] that

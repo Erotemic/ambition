@@ -35,8 +35,8 @@ where
         OWNER,
         "entity:transform_beat",
     );
-    registrar.require_rollback::<crate::items::pickup::GroundItem>(OWNER, "entity:ground_item");
-    registrar.require_rollback::<crate::items::pickup::SettledItem>(OWNER, "entity:settled_item");
+    registrar.require_rollback::<ambition_held_items::GroundItem>(OWNER, "entity:ground_item");
+    registrar.require_rollback::<ambition_held_items::SettledItem>(OWNER, "entity:settled_item");
     // `RoomScopedEntity` governs lifetime, not rewindability; moving world
     // items therefore require their own rollback registration.
     registrar.require_rollback::<ambition_world_items::world_item::WorldItem>(OWNER, "entity:world_item");
@@ -227,7 +227,7 @@ where
     );
     registrar
         .rollback_map_entities::<crate::features::PendingChallenge>(OWNER, "map.pending_challenge");
-    registrar.rollback_component_clone::<crate::items::pickup::StashedActionSet>(
+    registrar.rollback_component_clone::<ambition_held_items::StashedActionSet>(
         OWNER,
         "actor.stashed_action_set",
     );
@@ -282,7 +282,7 @@ where
     );
     registrar.rollback_component_clone::<crate::features::PickupArt>(OWNER, "feature.pickup_art");
     registrar
-        .rollback_component_clone::<crate::items::pickup::GroundItem>(OWNER, "item.ground_item");
+        .rollback_component_clone::<ambition_held_items::GroundItem>(OWNER, "item.ground_item");
     // ⭐ SLEEP IS SIMULATION STATE, and this one is presence/absence rather than
     // a value. `ground_item_physics` skips a settled object entirely, so a
     // rewind past the frame an object landed must also un-settle it — otherwise
@@ -302,15 +302,15 @@ where
     // one in a hand. It replaced a velocity heuristic that WAS rollback state by
     // accident (`GroundItem` carries `vel`), so this is the same coverage moved
     // to the fact that actually decides.
-    registrar.rollback_component_clone_probed::<crate::items::pickup::ReleasedAs>(
+    registrar.rollback_component_clone_probed::<ambition_held_items::ReleasedAs>(
         OWNER,
         "item.released_as",
         |released| match released.0 {
-            crate::items::pickup::Release::Throw => 1,
-            crate::items::pickup::Release::Drop => 2,
+            ambition_held_items::Release::Throw => 1,
+            ambition_held_items::Release::Drop => 2,
         },
     );
-    registrar.rollback_component_clone_probed::<crate::items::pickup::SettledItem>(
+    registrar.rollback_component_clone_probed::<ambition_held_items::SettledItem>(
         OWNER,
         "item.settled_item",
         |settled| settled.impact_speed.to_bits() as u64,
@@ -328,17 +328,17 @@ where
     // body is holding it through that body's stable identity — a restore that
     // hands the item to the wrong holder changes this census and would not
     // change a presence count.
-    registrar.rollback_component_clone_entity_set::<crate::items::pickup::ItemCustody>(
+    registrar.rollback_component_clone_entity_set::<ambition_held_items::ItemCustody>(
         OWNER,
         "item.item_custody",
         |custody| match custody {
-            crate::items::pickup::ItemCustody::InWorld => Vec::new(),
-            crate::items::pickup::ItemCustody::Held { holder } => {
+            ambition_held_items::ItemCustody::InWorld => Vec::new(),
+            ambition_held_items::ItemCustody::Held { holder } => {
                 vec![*holder]
             }
         },
     );
-    registrar.rollback_map_entities::<crate::items::pickup::ItemCustody>(OWNER, "map.item_custody");
+    registrar.rollback_map_entities::<ambition_held_items::ItemCustody>(OWNER, "map.item_custody");
     // The pickup's ATTRACTION POLICY rides the same entity as the pickup, so a
     // rewind that recreates a dropped coin has to recreate whether it comes to
     // you. Authored at spawn and never mutated — but "never mutated" is not

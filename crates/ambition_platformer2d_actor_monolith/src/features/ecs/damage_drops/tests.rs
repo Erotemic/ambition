@@ -92,7 +92,7 @@ fn every_death_drop_is_room_scoped_and_states_its_parent() {
     // `GroundItem` drops are precisely the ones that were never checked.
     let mut drops = world.query_filtered::<(Entity, Option<&FeatureId>, Option<&Name>), Or<(
         With<PickupFeature>,
-        With<crate::items::pickup::GroundItem>,
+        With<ambition_held_items::GroundItem>,
     )>>();
     let dropped: Vec<(Entity, String)> = drops
         .iter(world)

@@ -87,7 +87,7 @@ pub fn fire_dive_system(
     // ⭐ EVERY DRIVEN BODY, not the one the primary seat happens to hold.
     // `ControlledSubject` is singular by construction, so a possessed body or a
     // second seat holding the same item simply never acted.
-    driven: crate::items::pickup::DrivenBodies,
+    driven: ambition_held_items::DrivenBodies,
     mut players: Query<(
         Entity,
         &ActorControl,
@@ -122,7 +122,7 @@ pub fn fire_dive_system(
         // The body's per-tick resolved frame (ADR 0024 frame law).
         let frame = resolved_frame.basis();
         let facing = clusters.kinematics.facing;
-        let local_aim = crate::items::pickup::ability_aim_local(&c, facing);
+        let local_aim = ambition_held_items::ability_aim_local(&c, facing);
         let local_dir = dive_dir(local_aim, facing).normalize_or_zero();
         let dir = frame.to_world(local_dir).normalize_or_zero();
         let from = clusters.kinematics.pos;

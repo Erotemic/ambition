@@ -435,14 +435,18 @@ pub enum PerceptionRequirement {
 /// How many other actors a `TacticalWorld` view carries exactly; every
 /// visible actor beyond that is folded into [`AttentionRemainder`].
 ///
-/// ⭐ 16, FROM THE MEASUREMENT AND NOT FROM TASTE. `kept` per viewer saturates
-/// at ~14.4 in the shipped hall (n = 65 and 130 alike) and is 5-12 at
-/// smaller casts, so at ship density this cap never binds and a fighter's
-/// view is exactly what it was. It binds in the regime the attention budget
-/// is FOR — density, where `kept` climbed to 113 at 4x the viewport and
-/// `Decide` went 0.24 → 1.99 ms/tick, linear in `kept` at ~23 µs per
-/// perceived peer. The budget caps that term; a fighter attending to sixteen
-/// costs what the hall costs today whatever the crowd around it.
+/// ⭐ 16, FROM THE MEASUREMENT AND NOT FROM TASTE. The MEAN `kept` per viewer
+/// saturates at ~14.4 in a 130-body hall at the shipped viewport (n = 65 and
+/// 130 alike) and is 5-12 at smaller casts, so the mean never reaches the cap
+/// there; the densest single viewer in that run saw 21 and is cut to 16
+/// (yardrat's sweep, 2026-09-03: `kept_max` 21 → 16 at 480x320, population
+/// 130 re-brained to `medium_striker` — NOT the shipped cast, which is
+/// authored `stand_still` and builds no view). It binds hard in the regime
+/// the budget is FOR — density, where `visible` climbed to 124 at 6x the
+/// viewport and `kept` reads 16.0 flat; before the cap `Decide` went 0.24 →
+/// 1.99 ms/tick there, linear in `kept` at ~23 µs per perceived peer. The
+/// budget caps that term; a fighter attending to sixteen costs what the hall
+/// costs today whatever the crowd around it.
 ///
 /// ⛔ SELECTION IS DETERMINISTIC AND HOSTILES COME FIRST: a foe is never
 /// displaced from attention by a nearer friend, so `nearest_hostile()` on the

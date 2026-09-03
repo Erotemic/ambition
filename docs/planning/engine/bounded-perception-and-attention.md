@@ -88,11 +88,15 @@
   What the cut left out is the aggregate remainder,
   `WorldView.remainder: AttentionRemainder { actors, hostiles,
   nearest_unattended_hostile_dist_sq }` — the pressure a crowd exerts even when
-  nothing in it is attended. **16 from the measurement, not taste:** `kept`
-  saturates at ~14.4 in the shipped hall (n = 65 and 130 alike), so at ship
-  density the cap never binds and every shipped view is byte-identical to
-  before; it binds in the regime the budget is FOR, where `kept` reached 113
-  at 4x the viewport and `Decide` went 0.24 → 1.99 ms/tick linear in `kept`.
+  nothing in it is attended. **16 from the measurement, not taste:** the MEAN
+  `kept` saturates at ~14.4 in a 130-body hall at the shipped viewport (n = 65
+  and 130 alike), so the mean never reaches the cap there — but the densest
+  single viewer in that configuration saw 21 and is cut to 16 (`kept_max` 21 →
+  16 at 480x320 in yardrat's re-run below; population 130 re-brained to
+  `medium_striker`, NOT the shipped cast, which is authored `stand_still` and
+  builds no view at all). It binds hard in the regime the budget is FOR, where
+  `visible` reaches 124 at 6x the viewport and `kept` reads 16.0 flat; before
+  the cap `Decide` went 0.24 → 1.99 ms/tick there, linear in `kept`.
   Guards: `a_crowd_is_attended_to_hostiles_first_and_the_rest_is_counted` (40
   visible → 16 actors, all hostile; the capped view's `nearest_hostile()` is
   the uncapped scan's; the remainder counts 24/4 and names foe_17's distance;

@@ -1529,9 +1529,23 @@ is `construction` naming its recipes, and that is:
 | | |
 |---|---|
 | production files that name `features::` | **1** — `construction/mod.rs` |
-| references in it | **16** |
-| distinct recipes named | **5** — `apply_summon_effects`, `ecs::spawn_runtime_minion`, `ecs::spawn_static::lower_interactable_placement`, `ecs::spawn_static::lower_pickup_placement`, `giant_hand_plans` |
+| references in it | **16** total, of which **15 are code** — line 1639 is a prose comment, and one of the 15 is the `use` at line 17 |
+| distinct callables named | **6** — `spawn_staged_actor_into`, `spawn_runtime_minion_into`, `spawn_enemy_with_faction_into` (×3), `spawn_boss_with_overrides_into`, `is_limbed_host` (×2), `giant_hand_plans` (×2) |
+| distinct types named | **3** — `SpawnActorKind`, `SpawnActorRequest`, `GiantHandPlan` |
 | the other file | `construction/tests.rs` (38), which follows the production shape |
+
+⛔ **THE RECIPE LIST HERE WAS WRONG UNTIL 2026-09-03 AND IS NOW RE-TAKEN FROM THE
+FILE.** It previously read *"5 — `apply_summon_effects`, `ecs::spawn_runtime_minion`,
+`ecs::spawn_static::lower_interactable_placement`, `ecs::spawn_static::lower_pickup_placement`,
+`giant_hand_plans`"*. Four of those five names **do not occur in `construction/mod.rs`
+at all** (`apply_summon_effects` 0, `lower_pickup_placement` 0,
+`lower_interactable_placement` 0, and the minion is spelled
+`spawn_runtime_minion_into`); only `giant_hand_plans` was right. The COUNTS in
+this table were correct and re-verify exactly — 1 production file, 16 references,
+tests.rs at 38 — which is precisely what made the row look measured. ⇒ **A table
+can have a true count and a false membership**, and the count is the part a
+reader checks. See
+[`../../recipes/re-measuring-a-planning-claim.md`](../../recipes/re-measuring-a-planning-claim.md).
 
 ⇒ **So the inversion is one production file and five registrations**, not a
 thirty-site sweep — the same shape and roughly the same size as the encounter

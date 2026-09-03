@@ -14,7 +14,15 @@
 > - **42** distinct `pub struct *Id` newtypes at HEAD, against **23** at
 >   `159daa235` (2026-07-23). The population nearly doubled in six weeks. Ten
 >   wrap `String` directly, two wrap an integer, none wrap `&'static str`.
-> - **`macro_rules! string_id` is defined THREE TIMES**, in
+> - ✔ **`macro_rules! string_id` IS NOW DEFINED ONCE — landed by ambition-da
+>   (`02a796d2c`) after this was measured; verified 2026-09-02.** The sole
+>   definition is `ambition_load/src/id.rs`, `#[macro_export]`ed, and the other
+>   two consume it. ⇒ **This half of the inventory is spent, and it decided
+>   itself**: the dependency graph picked the owner (`ambition_load` depends on
+>   `bevy` and nothing else in the workspace), so no derive macro, no newtype
+>   crate and no new edge were needed for it. The measurement below is kept as
+>   the record of what motivated the move.
+> - **`macro_rules! string_id` WAS defined THREE TIMES**, in
 >   `ambition_load_presentation/src/model.rs`, `ambition_game_shell/src/id.rs`
 >   and `ambition_load/src/id.rs` — covering `LoadExperienceId`/`LoadActivityId`/
 >   `LoadPresentationOwnerId`; `ShellRouteId`/`ShellExperienceId`/

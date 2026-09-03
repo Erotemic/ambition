@@ -992,8 +992,25 @@ OPTIONAL dep + feature, never used:
   this check fails loudly instead of silently rewriting it."* Three lockfiles
   each lost one line (`Cargo.lock`, `fixtures/minimal_game`,
   `examples/capability_demo`).
-  ⇒ **The five OPTIONAL ones are still open** and still need the compiler on
-  each crate's feature combinations, which is a different and larger job.
+  ⇒ **The five OPTIONAL ones are still open, and TRIAGED 2026-09-03 so the
+  ruling is cheap.** All five are still unnamed in their crate's `.rs`
+  (re-derived, not carried forward). ⛔ **None is mechanical**, and the reason is
+  not the compiler — it is INTENT. An optional dep is wired into a feature
+  definition, so removing it edits a declared seam and every dependent that
+  enables that feature:
+
+  | declaration | the feature it backs | who enables it | shape |
+  |---|---|---|---|
+  | `ambition_characters` → `ambition_causal` | `causal = ["dep:ambition_causal"]` | the monolith's own `causal` | ⚠ a NO-OP feature: it pulls the dep and does nothing else, and its comment says *"Publish this capability's causal facts (brain decisions, for now)"* — a seam declared ahead of its use |
+  | `game/ambition_app` → `ambition_causal` | `causal = ["ambition_platformer2d/causal", "dep:ambition_causal"]` | `ambition_app_tools` | ⭐ the feature does MORE than pull the dep, so dropping the `dep:` alone leaves it meaningful — the smallest safe edit of the five |
+  | `ambition_sim_view` → `ambition_portal2d` | `portal = ["dep:ambition_portal2d", "…actor_monolith/portal"]` | nothing in a manifest; the gate's feature UNION does | same shape as above |
+  | `ambition_platformer2d` → `ambition_sfx_bank` | inside a feature array (`crates/ambition_platformer2d/Cargo.toml:79`) | — | needs reading before touching |
+  | `ambition_touch_input` → `ambition_cutscene` | inside a feature array (`crates/ambition_touch_input/Cargo.toml:30`) | — | needs reading before touching |
+
+  ⇒ **A no-op feature that exists to declare a future seam is not debt, and
+  removing it would delete the intent.** That is a maintainer's ruling, not a
+  cleanup, which is why this row stays ▢ rather than being finished the way the
+  PLAIN one was.
 
   ⛔⛔ **DO NOT REMOVE BLIND — it needs the compiler on each crate's feature
   combinations.** Dropping an optional dep changes feature RESOLUTION, not just

@@ -100,6 +100,23 @@ the ways they were healthy are worth copying:
   `characters_seen > 80` floor, AND a synthetic misplaced row proving the scan
   fires.
 
+⚠ **AND A SECOND ATTEMPT TO WIDEN `check_planning_citations` DIED THE SAME WAY
+AS THE FIRST.** It validates `file.rs:123` but not a backticked path with no
+line number, so I measured those: **120 in `docs/planning`, 9 that do not exist
+from the repo root — and all 9 are legitimate.** Four are doc-relative
+(`game/multiplayer.md` inside `docs/planning/roadmap.md` resolves fine), two are
+relative to a submodule root (`docs/actor_contract.md` lives in the sprite
+renderer), one is a short form of a real file, one contains a literal `…`, and
+the last is a HISTORICAL PROVENANCE note — *"relocated from
+`docs/vision/driving_decision_principles.md`"* — which is correct precisely
+because the file is gone.
+
+⇒ A path in a doc resolves against THREE different bases and sometimes against
+none on purpose. That is the same reason the checker refuses to match
+schematics, and it is now measured twice: the bare-name population is 408
+false-ish findings, and the bare-path population is 9 of 9. **The scope is
+right; the gap should stay documented rather than closed.**
+
 Beyond `scripts/`, three more checked and CLEAR:
 
 * `rollback_coverage.rs` is `#![cfg(feature = "rl_sim")]`, which is the shape

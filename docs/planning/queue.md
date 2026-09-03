@@ -1321,6 +1321,18 @@ OPTIONAL dep + feature, never used:
   ambition_platformer2d --all-targets` is clean; the workspace no-warnings gate
   is clean; and the capability footprint is UNCHANGED at 47/20, which is the
   row's own claim about redundancy holding up under measurement.
+  ✔ **THE FIVE OPTIONAL EDGES ARE STILL THERE AND STILL UNUSED — re-verified
+  2026-09-03 late**, on a tree ~90 commits past the original measurement and
+  after five carves, which is exactly when a "never used" claim is most likely
+  to have quietly stopped being true. Each crate still DECLARES its dependency
+  in `Cargo.toml`, and a search of the whole crate directory (`src/`, tests and
+  `build.rs`, not just `src/**`) finds zero files naming it, in all five. So
+  the row's remaining work is unchanged and its size claim still holds.
+  ⚠ The re-check is a source grep, not a build: it can see a name that is never
+  written and cannot see one reached through a macro. That is the same instrument
+  the original measurement used, so the two are comparable — which is the point
+  — but neither is proof that removing the edge compiles. The PLAIN edge below
+  was cut only after `cargo check --all-targets`, and these should be too.
   ⭐ **THE SENTINEL'S LOCKFILE CAME WITH IT, and the guard is what said so.**
   `check_absence_contracts.py` runs `cargo tree --locked` in the sentinel's own
   workspace and threw `CalledProcessError … exit status 101` the moment the

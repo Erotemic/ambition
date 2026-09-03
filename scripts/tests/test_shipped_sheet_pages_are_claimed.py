@@ -63,6 +63,20 @@ CANONICAL = pytest.mark.skipif(
 )
 
 
+# ⛔ KNOWN, MEASURED 2026-09-02. Four sheet renders with no `.ron` at any of the
+# four tiers (16 files, 13.6 MB) — `_full`, `_body` and `_hands` layer outputs
+# left beside the manifested `gnu_ton_boss` / `giant_gnu` sheets the boss really
+# uses. ⚠ The BOSS IS FINE: `gnu_ton_boss_spritesheet.ron` and
+# `giant_gnu_spritesheet.ron` both exist and are claimed. These are extra
+# renders, not missing art.
+KNOWN_UNMANIFESTED_SHEETS = {
+    "giant_gnu_body",
+    "gnu_ton_boss_body",
+    "gnu_ton_boss_full",
+    "gnu_ton_boss_hands",
+}
+
+
 def load():
     spec = importlib.util.spec_from_file_location("orphan_pages", SCRIPT)
     module = importlib.util.module_from_spec(spec)
@@ -123,6 +137,36 @@ def test_the_census_can_see_claimed_pages():
     )
 
 
+def unmanifested_sheets() -> set[str]:
+    module = load()
+    if not (module.ASSETS / "sprites").is_dir():
+        pytest.skip("the actor-monolith sprite tree is absent")
+    return {
+        row["path"].split("/")[-1][: -len("_spritesheet.png")]
+        for row in module.census()["sheets_without_manifest"]
+    }
+
+
+@CANONICAL
+def test_no_new_sheet_ships_without_a_manifest():
+    new = unmanifested_sheets() - KNOWN_UNMANIFESTED_SHEETS
+    assert not new, (
+        "a `<base>_spritesheet.png` ships with no `<base>_spritesheet.ron` "
+        "beside it, so build.rs bakes no spec for it and no loader can reach "
+        f"it: {sorted(new)}. Generate the manifest, or record why the render "
+        "is kept unmanifested."
+    )
+
+
+@CANONICAL
+def test_the_unmanifested_list_does_not_rot():
+    fixed = KNOWN_UNMANIFESTED_SHEETS - unmanifested_sheets()
+    assert not fixed, (
+        f"{sorted(fixed)} now ship a manifest — remove them from "
+        "KNOWN_UNMANIFESTED_SHEETS so a regression is caught"
+    )
+
+
 # ── The SCRIPT's behaviour, on fixtures, unconditionally ──────────────────
 
 
@@ -172,6 +216,60 @@ def test_a_numbered_page_with_no_manifest_is_not_called_stranded(tmp_path):
     _png(tier / "ghost_spritesheet.1.png")
     pngs, claimed = module.scan(tmp_path, ["sprites"])
     assert module.stranded_pages(pngs, claimed) == []
+
+
+def test_a_sheet_with_no_ron_is_reported_and_one_with_a_ron_is_not(tmp_path):
+    """⭐ The distinction the bucket rests on. `build.rs` bakes the spec index
+    from `*_spritesheet.ron` on disk, so the manifest's presence is the whole
+    question — not whether the PNG looks like a sheet."""
+    module = load()
+    tier = tmp_path / "sprites"
+    _png(tier / "orphan_spritesheet.png")
+    _png(tier / "kept_spritesheet.png")
+    (tier / "kept_spritesheet.ron").write_text('(image: "kept_spritesheet.png")')
+
+    pngs, claimed = module.scan(tmp_path, ["sprites"])
+    found = module.sheets_without_manifest(pngs, claimed)
+    assert [p.name for p in found] == ["orphan_spritesheet.png"]
+
+
+def test_a_manifest_that_names_another_page_still_counts_as_a_manifest(tmp_path):
+    """⛔⛔ THE DISCRIMINATING CASE, AND THE OTHER FIXTURES DO NOT PROVIDE IT.
+
+    In every natural fixture "unclaimed" and "has no .ron" coincide, so a
+    `sheets_without_manifest` that ignored the `.ron` entirely still passed
+    them — I poisoned it exactly that way and got six green. This is the only
+    shape that separates the two conditions: a sheet PNG its own manifest does
+    NOT name, so it is unclaimed, while a manifest for it plainly exists.
+
+    It must NOT be reported here: `build.rs` bakes a spec from that `.ron`, so
+    the "no spec exists" claim this bucket rests on is false for it. It belongs
+    in the weaker bucket instead.
+    """
+    module = load()
+    tier = tmp_path / "sprites"
+    _png(tier / "lonely_spritesheet.png")
+    _png(tier / "lonely_spritesheet.0.png")
+    (tier / "lonely_spritesheet.ron").write_text('(image: "lonely_spritesheet.0.png")')
+
+    pngs, claimed = module.scan(tmp_path, ["sprites"])
+    assert module.key(tier / "lonely_spritesheet.png") not in claimed, (
+        "premise: the manifest does not name this page, so it is unclaimed"
+    )
+    assert module.sheets_without_manifest(pngs, claimed) == [], (
+        "a manifest exists for this sheet, so the no-spec claim does not apply"
+    )
+
+
+def test_a_claimed_sheet_is_never_called_unmanifested(tmp_path):
+    """⛔ A manifest may name a page that is not its own basename. Claimed wins
+    over the filename heuristic, or a legitimately-shared page reads as orphaned."""
+    module = load()
+    tier = tmp_path / "sprites"
+    _png(tier / "shared_spritesheet.png")
+    (tier / "other_spritesheet.ron").write_text('(image: "shared_spritesheet.png")')
+    pngs, claimed = module.scan(tmp_path, ["sprites"])
+    assert module.sheets_without_manifest(pngs, claimed) == []
 
 
 def test_key_does_not_resolve_through_a_symlink(tmp_path):

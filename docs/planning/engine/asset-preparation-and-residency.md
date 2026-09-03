@@ -1513,11 +1513,25 @@ confidence**:
   described this as "a list that shrank", which the tree does not show; the
   siblings are left from a time the sheet was multi-page, which makes the
   reachability conclusion stronger, not weaker.
-* ⚠ **UNMENTIONED — 769 files, 26.7 MB, UPPER BOUND ONLY.** Named in no
-  manifest and in no committed `.rs`/`.ron`/`.ldtk`/`.toml`/`.json`/`.py`. A
-  path assembled at runtime (`format!("sprites/{name}.png")`) is named nowhere
-  either and would land here while being perfectly live — the `gnu_ton_boss`
-  sheets are the likely example. A research prompt, not a delete list.
+* ⭐ **SHEETS WITH NO MANIFEST — 16 files, 13.6 MB.** `<base>_spritesheet.png`
+  with no `<base>_spritesheet.ron` beside it.
+  `ambition_sprite_sheet/build.rs::collect_spritesheet_rons` bakes the spec
+  index by scanning these four tier dirs for `*_spritesheet.ron`, and every
+  loader goes through a spec (`try_load_spec_for_target(target)?`), so a sheet
+  with no manifest has no spec and no road. All 16 are four `gnu_ton_boss`
+  renders × four tiers: `gnu_ton_boss_full`, `gnu_ton_boss_body`,
+  `gnu_ton_boss_hands`, `giant_gnu_body` — `_full`/`_body`/`_hands` layer
+  outputs left beside the sheets the boss really uses. ⚠ **THE BOSS IS FINE:**
+  `gnu_ton_boss_spritesheet.ron` and `giant_gnu_spritesheet.ron` both exist and
+  are claimed. These are extra renders, not missing art — I checked, because
+  `attack_geometry/mod.rs` derives its metrics from
+  `gnu_ton_boss_spritesheet.ron` and a genuinely absent manifest there would
+  have been a content defect rather than waste.
+* ⚠ **UNMENTIONED — 753 files, 13.0 MB, UPPER BOUND ONLY.** Named in no
+  manifest and in no committed `.rs`/`.ron`/`.ldtk`/`.toml`/`.json`/`.py`, and
+  not a sheet name. A path assembled at runtime (`format!("sprites/{name}.png")`)
+  is named nowhere either and would land here while being perfectly live. A
+  research prompt, not a delete list.
 
 Ratcheted by `scripts/tests/test_shipped_sheet_pages_are_claimed.py` on the
 four stranded sheets, so the count cannot grow; poisoned both directions (drop

@@ -22,6 +22,14 @@ which is not what the tree shows: the manifest names one image and the numbered
 siblings are left from a time the sheet was multi-page. The reachability
 conclusion is stronger that way, not weaker — there is no list to consult.
 
+⭐ SHEETS WITH NO MANIFEST (high confidence). `<base>_spritesheet.png` with no
+`<base>_spritesheet.ron` beside it. `ambition_sprite_sheet/build.rs` bakes the
+spec index by scanning these four tier dirs for `*_spritesheet.ron`, and every
+loader goes through a spec (`try_load_spec_for_target(target)?`), so a sheet
+with no manifest has no spec and therefore no road. ⚠ A build made while the
+`.ron` still existed would carry a stale embedded spec; this says what a fresh
+build can reach.
+
 ⚠ UNMENTIONED FILES (upper bound only). Every other PNG under `sprites*/` whose
 filename appears in no baked manifest and in no committed `.rs`/`.ron`/`.ldtk`/
 `.toml`/`.json`/`.py`. A path assembled at runtime — `format!("sprites/{name}.png")`
@@ -112,6 +120,22 @@ def stranded_pages(pngs: list[Path], claimed: set[str]) -> list[Path]:
     return out
 
 
+def sheets_without_manifest(pngs: list[Path], claimed: set[str]) -> list[Path]:
+    """`x_spritesheet.png` with no `x_spritesheet.ron` beside it.
+
+    Distinct from a stranded page: there is no manifest at all, so the whole
+    sheet is unreachable rather than one of its pages. `build.rs` bakes the
+    spec index from the `.ron` files on disk, and every loader needs a spec.
+    """
+    out = []
+    for png in pngs:
+        if key(png) in claimed or not png.name.endswith("_spritesheet.png"):
+            continue
+        if not (png.parent / f"{png.name[:-4]}.ron").exists():
+            out.append(png)
+    return out
+
+
 def unmentioned(pngs: list[Path], claimed: set[str], skip: set[str]) -> list[Path]:
     """Unclaimed PNGs whose filename appears in no committed source file.
 
@@ -140,7 +164,9 @@ def unmentioned(pngs: list[Path], claimed: set[str], skip: set[str]) -> list[Pat
 def census(assets: Path = ASSETS, tiers: list[str] | None = None) -> dict:
     pngs, claimed = scan(assets, tiers or TIER_DIRS)
     stranded = stranded_pages(pngs, claimed)
-    rest = unmentioned(pngs, claimed, {key(p) for p in stranded})
+    unmanifested = sheets_without_manifest(pngs, claimed)
+    seen = {key(p) for p in stranded} | {key(p) for p in unmanifested}
+    rest = unmentioned(pngs, claimed, seen)
     def rows(paths):
         return [
             {"path": str(p.relative_to(assets)), "bytes": p.stat().st_size}
@@ -150,6 +176,7 @@ def census(assets: Path = ASSETS, tiers: list[str] | None = None) -> dict:
         "total_pngs": len(pngs),
         "claimed": len([p for p in pngs if key(p) in claimed]),
         "stranded_pages": rows(stranded),
+        "sheets_without_manifest": rows(unmanifested),
         "unmentioned": rows(rest),
     }
 
@@ -188,6 +215,12 @@ def main(argv: list[str]) -> int:
         "⭐ A numbered sibling its own manifest does not name. A sheet's pages\n"
         "   resolve only through its manifest, so there is no other road to\n"
         "   these — unreachable by construction.",
+    )
+    show(
+        "SHEETS WITH NO MANIFEST", out["sheets_without_manifest"],
+        "⭐ No `<base>_spritesheet.ron` beside it. build.rs bakes the spec index\n"
+        "   from the .ron files on disk and every loader needs a spec, so a fresh\n"
+        "   build has no road to these at all.",
     )
     show(
         "UNMENTIONED", out["unmentioned"],

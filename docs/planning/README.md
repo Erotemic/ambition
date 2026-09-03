@@ -258,7 +258,7 @@ A target that reaches zero needs a row somewhere first. That is what
 `tracks.md`'s moveset-observatory row is for, and why it says so in the row.
 
 ⛔⛔ **AND "ZERO INBOUND REFERENCES" IS ALMOST ALWAYS MEASURED OVER `docs/`
-ALONE.** On 2026-09-03 `engine/decomposition.md` was retired on exactly that
+ALONE.** On 2026-09-03 `engine/decomposition.md` was retired on exactly that <!-- cite-ok: this paragraph records dead paths on purpose -->
 finding, and nine rows in `tests/ambition_workspace_policy/policies/*.toml` were
 still citing it — TOML strings, which no `.md` sweep and no markdown-link
 checker reads.
@@ -266,7 +266,7 @@ checker reads.
 ⇒ **Measured the same day, so the size of the gap is known**: 140 distinct
 `docs/**.md` paths are cited from NON-markdown files, and **ten of them do not
 exist** — nine in crate `Cargo.toml` `description` fields
-(`docs/current/state.md`, `docs/systems/architecture.md`,
+(`docs/current/state.md`, `docs/systems/architecture.md`, <!-- cite-ok: this paragraph records dead paths on purpose -->
 `docs/planning/engine/decomposition.md#E5`) and one in `scripts/regen/sprites.sh`.
 Some are years stale. Nothing checks them: `check_doc_links.py` walks `docs/`,
 `check_planning_citations.py` walks `docs/planning/`.

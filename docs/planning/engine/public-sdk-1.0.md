@@ -30,6 +30,60 @@
 > is a fifth contract in the same file, and green, which is a different question
 > again.
 
+> **MEASURED 2026-09-03 — ADR 0031's OWN NUMBERS, RE-TAKEN, and they answer the
+> question the block above leaves open.** That ADR's Context is the case for this
+> program, and it is quantitative: *"`crates/ambition_platformer2d/src/lib.rs` is
+> 114 lines. Fifty of them are `pub use`, and roughly forty are
+> `pub use ambition_x as x`"*, under the heading **"the public API of this engine
+> is currently the list of crates it happens to be built from … a namespace
+> mirror"**.
+>
+> | ADR 0031 (Context) | at HEAD |
+> |---|---|
+> | lib.rs 114 lines | **998** |
+> | 50 `pub use` | **159** |
+> | ~40 `pub use ambition_x as x` | **51** |
+>
+> ⭐ **The remedy landed and the symptom grew, and both halves are true.** Of
+> those 998 lines, **456 are doc comments** and 39 are `#[cfg]` gates; the module
+> doc opens *"the supported API is organized by game concepts (`actor`,
+> `character`, `participant`, `session`, `sim`, `world`…)"*. That is a curated,
+> documented, feature-gated facade — not the namespace mirror 0031 described.
+> ⛔ But the one number 0031 named as the DEFECT — crates re-exported under their
+> own names — went from about forty to **fifty-one**. The concept organisation was
+> added ALONGSIDE the mirror rather than in place of it.
+>
+> ⇒ **So the surface is now two surfaces**, and the ratchet above cannot see the
+> difference: a consumer naming `ambition_platformer2d::actor` and one naming
+> `ambition_platformer2d::encounter` (the crate, aliased) both pass, while only
+> the first is the API this program is trying to build. ⇒ *"Whether the surface
+> they are held to is the RIGHT one"* has a concrete first answer: it is the
+> right one plus fifty-one crate aliases.
+>
+> ✔ **AND 0031'S SECOND COST WAS PAID IN FULL, which is the happier half.** That
+> ADR also measured composition: *"`build_windowed_app` is ~65 lines a consumer
+> must write in a specific order"* — asset source before `DefaultPlugins`, then
+> `init_engine_states`, then `PlatformerEnginePlugins::fixed_tick()`, then
+> `PlatformerHostPlugins`, then the shell, then `PlatformerAssetsPlugin`, each
+> for a reason the consumer had to know. At HEAD that function is **9 lines**
+> (`fixtures/external_consumer/src/lib.rs:523`) and holds no order at all:
+> `PlatformerApp::windowed(…)`, optionally `.without_gpu()`, `.mount(…)`,
+> `.build()`. The sequence moved inside the builder, where it belongs.
+>
+> ⇒ **So this ADR has one complaint decisively closed and one quietly worse.**
+> Worth holding both: a reader who only sees the 9-line builder concludes the
+> facade problem is solved, and a reader who only counts crate aliases concludes
+> nothing was done. The composition leak is gone; the namespace mirror is not.
+>
+> ⚠ **This is the COMPATIBILITY question, not the linking one, and they have
+> different answers.** A facade alias makes the crate graph part of the public
+> API — 0031's actual concern. It does NOT decide what a consumer LINKS: the
+> actor monolith reaches every `never_asked_for` crate on its own, so cutting a
+> facade edge changes no footprint number. See
+> [`capability-and-runtime-composition.md`](capability-and-runtime-composition.md),
+> where I got that backwards and retracted it. Same edges, two unrelated
+> consequences.
+
 ## Goal
 
 Design the engine surface a game developer should actually want to use.

@@ -13,7 +13,7 @@ implemented_by:
   - crates/ambition_platformer2d_actor_monolith/assets/sprites/
 related_docs:
   - docs/concepts/llm-spatial-authoring-discipline.md
-last_verified: 2026-05-21
+last_verified: 2026-09-03
 ---
 
 # Cryptography crew
@@ -27,6 +27,14 @@ architect", Alice is not strictly "the cryptographer." Each character
 gets a unique silhouette and a personality; the cryptographic
 inspiration shows up in name, palette, prop, and dialog rather than in
 literal job titles.
+
+> ✔ **RE-VERIFIED 2026-09-03, three and a half months on: the roster is real and
+> fully realised.** All thirteen names are entries in
+> `game/ambition_content/assets/data/character_catalog.ron`, and all thirteen have
+> spritesheet art on disk. Alice and Bob reach further into content than the other
+> eleven — movesets, dialogue — but none of the crew is a name without a
+> character behind it. ⇒ The page describes a cast that exists, so its
+> anti-stereotype rules below are live art direction rather than aspiration.
 
 ## Anti-stereotype rule
 

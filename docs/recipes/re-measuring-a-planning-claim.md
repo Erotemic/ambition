@@ -274,7 +274,7 @@ level up: not an instrument that cannot see, but two instruments that see
 different things and report them in the same vocabulary.
 
 
-## Sweeping every named test at once — and what the yield tells you
+### Sweeping every named test at once — and what the yield tells you
 
 A `✔` that names a test is only worth its ink if the test still exists. That is
 mechanically checkable across the whole plan set, so it is worth doing once
@@ -309,7 +309,7 @@ reviewer attention than it returns, and the false-positive rate before filtering
 answers "renamed or deleted?" in one command — which is the difference between
 repointing a citation and reopening a closed row.
 
-## Five shapes a stale planning page actually takes
+### Five shapes a stale planning page actually takes
 
 ⭐ Measured, not theorised: these are every distinct way the five oldest pages in
 `docs/planning` had gone wrong when they were re-measured on 2026-09-03. Sorted
@@ -356,3 +356,59 @@ repository**, and the fifth is only visible if someone re-runs the instrument.
 None of them is a broken link, a missing file, or a failing test. That is why
 re-measurement is a person's job here and why the yield stays high — a page can
 be green, well-written, internally cited, and two months wrong.
+
+### ⛔ The instrument error that reports ABSENCE, which is the dangerous direction
+
+A wrong count invites a second look because a number looks like a claim. A wrong
+ZERO looks like a finished check, and it ends the investigation.
+
+Two produced false absences on 2026-09-03, an hour apart:
+
+- **`grep -E "a\|b"`.** Under `-E`, alternation is `|`; `\|` is a LITERAL pipe.
+  The pattern silently searched for the string `a|b`, matched nothing, and the
+  three items it "proved missing" were all present. (`grep "a\|b"` — basic
+  regex — is the form where `\|` alternates. The two spellings are exact
+  opposites and both are silent.)
+- **Searching the wrong tree.** `grep -r gated_by assets/` returned 0 and the
+  authored levels live in `game/ambition_map_assets/`. The real answer was 2.
+
+⭐ **FIVE in one session, which is why this has its own heading.** Beyond the two
+above: grepping authored worlds for `"goblin_cantina"` WITH quotes returned 0
+while the room exists; `grep -rl 'a\|b'` reported files as matching when only
+the second name did, so a file was credited with a name it does not contain; and
+searching `assets/` and `game/ambition_content/assets/` for character art
+returned "no art" for all thirteen characters, because the sprites live under
+`crates/ambition_platformer2d_actor_monolith/assets/sprites_potato`. ⇒ Every one
+looked like a finding. None was.
+
+⇒ **Before believing a zero, prove the instrument can see a POSITIVE.** Run it
+against something you already know is there — a room you just read, a character
+you know ships. It costs one command and it is the only thing that separates
+"absent" from "I asked wrong". Both errors above survive any
+amount of re-reading and die instantly to one control search — and a zero is
+exactly the result nobody re-reads, because it agrees with having finished.
+
+### The mirror: a frightening POSITIVE that the rule's own kind explains
+
+The section above is about believing a zero. This is the same error inverted, and
+it produced the most alarming number of the day.
+
+Sweeping every source path literal in `tests/ambition_workspace_policy/policies/*.toml`
+for files that do not exist returns **45 unresolved out of 365** — in the data
+driving a gate, which reads like forty-five rules quietly governing nothing.
+
+⇒ **All 45 belong to `kind = "forbidden-path"` rules, where a path that does NOT
+exist is the PASSING state.** `engine.actor-portal-facade-gone` lists
+`…/src/portal/{mod,plugin,transit,gun,presentation}.rs` precisely because the
+portal facade was deleted; the day those paths resolve, the rule fails, which is
+its whole job. Split by `kind`, the real count of unresolved paths in rules that
+need their targets present is **zero**.
+
+⚠ The check that dissolves it is one line — group the findings by the `kind`
+field before reading them — and the temptation not to run it is strongest
+exactly when the raw number is large enough to feel like a discovery.
+
+⇒ **The general rule, and it is the same one both directions:** a
+presence/absence sweep over rule DATA is meaningless until you know what each
+rule ASSERTS. Existence is evidence only relative to a claim, and half the claims
+in a policy engine are negative.

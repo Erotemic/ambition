@@ -1,6 +1,6 @@
 ---
 status: current
-last_verified: 2026-07-18
+last_verified: 2026-09-03
 related_docs:
   - docs/concepts/engine-mental-model.md
   - docs/concepts/content-and-provider-boundaries.md
@@ -78,7 +78,46 @@ docs/architecture/architecture-boundary-allowlist.txt
 ```
 
 Every scanned `spawn*.rs` file must appear exactly once and its recorded count
-must equal the current raw `commands.spawn(` count. A removed file, missing row,
+must equal the current raw `commands.spawn(` count.
+
+⛔ **AND "SCANNED" IS NARROWER THAN THIS SECTION READS — MEASURED 2026-09-03.**
+The gate (`tests/ambition_workspace_policy/src/custom/lifecycle.rs`) walks
+`features/ecs` recursively but keeps only files whose **FILE NAME** starts with
+`spawn`. Today that is exactly two: `spawn_actors.rs` and `spawn_static.rs`, both
+allowlisted at 0.
+
+⇒ **The directory named `features/ecs/spawn/` is therefore invisible to the gate
+that exists to govern room-feature spawns.** Its seven files — `mod.rs`,
+`portal_construction.rs`, `content_staging.rs`, `capability_lanes.rs`,
+`gravity_construction.rs`, `character_spawn_plan.rs`, `tests.rs` — are named for
+what they construct, so none begins with `spawn`. ⚠ **No production violation
+today**: all six production files are at 0 raw spawns, and the single
+`commands.spawn(` under that directory is in `tests.rs`. The gap is that a new
+raw spawn in any of them would fail nothing.
+
+⭐ **AND IT CLOSED BY REFACTOR, NOT BY DECISION.** `cdd0a0a0d` (2026-06-14)
+split `features/ecs/spawn.rs` into `spawn/mod.rs` + `spawn/tests.rs`. Before that
+commit the file was named `spawn.rs` and WAS scanned; after it, neither half
+matched, and the allowlist has not needed to mention them since. The commit's own
+subject is *"split 6 more test-heavy modules + fix source-scanner paths"* — so
+scanner paths were on its author's mind, and this one still went. ⇒ Nothing
+failed, because a name-matching gate cannot report the file it stopped matching.
+
+✔ **FIXED THE SAME DAY.** The filter now tests the path RELATIVE TO the scan
+root, so `spawn_actors.rs` and `spawn/portal_construction.rs` answer one rule and
+splitting a file into a directory cannot undo it again. The allowlist grew from
+two rows to nine — **coverage, not permission**: every production file added is
+at 0 and was already at 0, and the single allowed raw spawn is `spawn/tests.rs=1`,
+test scaffolding that builds a bare entity to drive this gate's own subject.
+The vacuity assertion is now a FLOOR (`scanned >= 9`) rather than `> 0`, because
+`> 0` was true throughout the three blind months and proved nothing.
+
+⭐ **The blindness was demonstrated, not argued.** With a raw `commands.spawn(`
+added to `spawn/portal_construction.rs`, the pre-fix gate — old filter, old
+allowlist — reports `test result: ok`. The same tree with the path filter reports
+*"1 raw commands.spawn calls; exact reviewed count is 0"*. ⇒ That pair is the
+evidence this gate was worth widening; a green run over a planted violation is
+the only proof a scanner's population was wrong. A removed file, missing row,
 or excess allowance is a failure. Reduce counts by moving creation through the
 canonical scoped construction seam. Increase a count only when a raw spawn is
 intentional, cannot use that seam, and the same patch explains why.

@@ -16,7 +16,7 @@ related_docs:
   - docs/concepts/ldtk-world-composition.md
   - docs/recipes/ldtk-authoring.md
   - docs/tools/ldtk-tools.md
-last_verified: 2026-05-21
+last_verified: 2026-09-03
 ---
 
 # LLM spatial authoring discipline
@@ -86,7 +86,16 @@ some lifecycle state (encounter active, boss alive, switch off).
   the entry ledge), not the bottom of the ladder. The player needs
   to descend INTO the fight; you're stopping them climbing back OUT.
 - **Mob encounter:** gate the hallway-to-arena passage at the
-  doorway, mirroring `LockWall` in `mob_lab` / `goblin_cantina`.
+  doorway, mirroring `LockWall` in `goblin_cantina`.
+  ⚠ **This example named `mob_lab` too until 2026-09-03; that room is gone.**
+  `goblin_cantina` is live — it is in `hall_of_characters.ldtk` and
+  `sandbox.ldtk`, both of which author `LockWall` — but `mob_lab` appears in no
+  authored world, only in a `ledge_grab` test fixture, an archived roadmap, a
+  journal and an `ambition_ldtk_tools` example. ⇒ Half of a worked example
+  pointing at a room that is not there is worse than no example on a page that
+  tells an agent to **read the map before placing anything**: the first thing it
+  would read is absent, and the page gives it no way to tell that from its own
+  mistake.
 - **One-way descent:** prefer `BreakablePlatform { trigger: OnStand,
   respawn: Never }` over a Solid that gets removed — the breakable
   pattern carries the "you can only go down" semantics in the entity

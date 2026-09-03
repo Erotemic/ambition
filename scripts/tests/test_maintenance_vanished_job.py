@@ -10,7 +10,7 @@ FUNCTION and not the corpus. The first real run returned 45 findings.
 findings and exits 0 — verified 2026-09-03 at this baseline: 13 findings, exit 0
 bare, exit 1 with `--strict`. A maintenance job that lists real problems and
 reports success is the same failure one level down, and it is the shape this lane
-was extended to stop. See `docs/recipes/checks-that-did-not-run.md`, member 13.
+was extended to stop. See `docs/recipes/checks-that-did-not-run.md`, member 14.
 
 ⚠ These read the plan as TEXT rather than importing it, the way
 `test_probe_tests_are_named_probe.py` does: `run_tests.py` resolves sibling

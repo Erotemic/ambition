@@ -5,7 +5,9 @@ was not, with the commit that fixed it so a reader can verify rather than take
 it. Entries are from the working night of **2026-09-02 UTC**; the filename
 carries the day it was collated.
 
-⚠ These are **ambition-e7's** instances only. A second set from the same night
+⚠ Rows 1–46 are **ambition-e7's** instances only; **row 47 was appended by
+ambition-calculex on 2026-09-03**, attributed inline and with its own SHA, which
+is the protocol this note asks for. A second set from the same night
 (debug-feature system names under `-p`, exact allowlists after a merge, `.venv`
 resolution, `head -N` truncating the grep that had the answer) belongs here too
 and should be appended by whoever holds those commits — an unattributed line
@@ -250,6 +252,7 @@ not a law.
 | 44 | The demand-road list, ONE DAY after it was corrected | It said SEVEN, a review said NINE, a re-derivation said TEN — and `entity-sprite` made it ELEVEN within the day, added by a commit that was itself about a mis-stamped road. Four hand-kept copies, four wrong | `d764cf9e5`, guarded `9abc89fcf` |
 | 45 | The carve checklist's own exclusion table | It filed `snapshot_impls` under `characters/src/brain/{…}`; the path is `characters/src/snapshot_impls.rs`, at the crate ROOT, and it trips TWO contracts. Four contract names were also elided to `the-motion-model-…`, which is not greppable — the one thing that table owes its reader | `eee69a969` |
 | 46 | Every lane, over a crate built under its OWN defaults | ⭐ A THIRD BLINDNESS AXIS, beside gated code and warm fingerprints. `ambition_input`'s default feature set is EMPTY, so built alone its only use of `WALK_AXIS_CAP` is not compiled and the const warns — while the workspace check unifies `input` ON and sees nothing. `cargo check -p X` and the workspace check are DIFFERENT PROGRAMS, which is the jab-string lesson in reverse (that test was green per-crate and red under the union; this is green under the union and red per-crate). ⇒ Measured the population: of 25 crates with an empty `default` AND cfg-gated source, FOUR warn when built alone, and all four report the SAME THREE warnings — one root cause in `ambition_dialog`, whose methods are called only inside `systems.rs`'s 17 `#[cfg(feature = "input")]` blocks and `ui`-gated `bridge.rs` | `b62aac79d` fixes the input one; the dialog one is RECORDED not fixed — six methods needing cfgs across two features in a crate I do not own is a change to make on purpose, not in passing |
+| 47 | `check_planning_citations.py --vanished REF`, as a lane job | ⛔ **CAUGHT AT WIRING TIME, NOT IN PRODUCTION** — recorded because the shape is the point, not the damage. The check PRINTS every finding and exits **0**; `--strict` is what makes it exit 1. Measured at the baseline it was wired with: **13 findings, exit 0 bare, exit 1 with `--strict`**. So the naive wiring of a check whose whole defect was that nobody ran it would have been a lane job that lists real problems and reports success — the same blindness one level down, inside the lane added to cure it. ⚠ And its own unit tests were green throughout: they exercise `vanished_report`, which returns a COUNT, never the process exit | `14e5beeb0` (ambition-calculex) |
 
 ## ⛔⛔ A TRANSIENT I EXPLAINED WRONG, AND THE DATA TO CATCH IT WAS ALREADY IN FRONT OF ME
 

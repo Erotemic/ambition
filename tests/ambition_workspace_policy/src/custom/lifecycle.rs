@@ -1,6 +1,19 @@
 //! The raw-spawn allowlist gate (custom scanner). Room-authored spawn modules
-//! under `features/ecs/spawn*.rs` must not add raw `commands.spawn(...)` sites
+//! under `features/ecs/spawn*` must not add raw `commands.spawn(...)` sites
 //! beyond a per-file allowlist — use `SpawnScopedExt` lifecycle helpers instead.
+//!
+//! ⛔ THE SUBJECT IS A PATH PREFIX, NOT A FILE NAME, AND IT COST THIS GATE THREE
+//! MONTHS OF COVERAGE TO LEARN THAT. Until 2026-09-03 the filter asked whether
+//! the FILE NAME began with `spawn`, which was the same question while the module
+//! was a single `features/ecs/spawn.rs`. `cdd0a0a0d` (2026-06-14) split that file
+//! into `spawn/mod.rs` + `spawn/tests.rs`; neither name begins with `spawn`, so
+//! the directory named for exactly what this gate governs became invisible to it,
+//! and six production files sat ungoverned. Nothing failed — a name-matching gate
+//! cannot report the file it stopped matching.
+//!
+//! ⇒ So the test is now `features/ecs/spawn…` on the path RELATIVE TO the scan
+//! root, which answers `spawn_actors.rs` and `spawn/portal_construction.rs` with
+//! one rule and cannot be undone by splitting a file into a directory again.
 //! The allowlist (path=count) is `docs/architecture/architecture-boundary-allowlist.txt`.
 
 use std::collections::{BTreeMap, BTreeSet};
@@ -67,11 +80,16 @@ pub fn run(ws: &Workspace, report: &mut Report) {
     let mut seen = BTreeSet::new();
 
     for file in workspace::rust_sources_under(&spawn_dir) {
-        let name = file
-            .file_name()
-            .and_then(|n| n.to_str())
-            .unwrap_or_default();
-        if !name.starts_with("spawn") {
+        // Relative to the SCAN ROOT (`features/ecs`), so `spawn_actors.rs` and
+        // `spawn/portal_construction.rs` both begin with `spawn` and a future
+        // `spawn/foo/bar.rs` still would. Matching the file name instead is what
+        // let the `spawn/` directory escape this gate for three months.
+        let under = file
+            .strip_prefix(&spawn_dir)
+            .expect("scanned file under the spawn scan root")
+            .to_string_lossy()
+            .replace('\\', "/");
+        if !under.starts_with("spawn") {
             continue;
         }
         scanned += 1;
@@ -115,9 +133,14 @@ pub fn run(ws: &Workspace, report: &mut Report) {
             detail: format!("stale inventory row for missing or unscanned file: {stale}"),
         });
     }
+    // ⛔ A FLOOR, NOT `> 0`. The bug this gate carried for three months left it
+    // scanning two files and passing, so "scanned something" was true throughout
+    // and proved nothing. Nine is what the path rule sees today; a split or a
+    // rename may raise it, and only a DELETION should lower it — which is a
+    // review, not a silent pass.
     assert!(
-        scanned > 0,
-        "raw-spawn gate scanned no spawn*.rs files under {SPAWN_DIR} — vacuous"
+        scanned >= 9,
+        "raw-spawn gate scanned {scanned} files under {SPAWN_DIR}, expected at          least 9 — a filter that stops matching is how this gate went blind before"
     );
 }
 

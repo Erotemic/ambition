@@ -1369,7 +1369,11 @@ materialization — the asset seam), `definition.rs`, `audit.rs`, `hurtbox.rs`,
 ⭐ **`presentation.rs` PRICED, 2026-09-03 — and "names nothing in the kernel" is
 one type away from exactly true.** 600 lines with **zero `crate::` references**
 (control: its sibling `mod.rs` has 8, so the zero is the file's and not the
-grep's). It names one kernel type and one only: `use super::CharacterLoadStates`
+grep's). ⚠ The size list above says **598** for this same file and both numbers
+are right: 600 is `wc -l`, 598 is production, and the two-line gap is the
+`#[cfg(test)] mod tests;` declaration at lines 599-600 — the tests themselves
+live in a sibling file. Re-verified 2026-09-03 at `f978ea57a`; every figure in
+this block still holds exactly. It names one kernel type and one only: `use super::CharacterLoadStates`
 at line 13. The other `super::` is a doc link to `StagedCast` in prose.
 
 | what it reaches for | count |

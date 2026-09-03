@@ -21,6 +21,7 @@ import json
 import os
 import re
 import sys
+from pathlib import Path
 
 ADAPTER = re.compile(r"AdapterInfo \{[^}]*\}")
 PERCENT = re.compile(r"\s*[0-9]+(\.[0-9]+)?%")
@@ -396,6 +397,87 @@ def room_reveal_tells(log: str) -> dict:
     }
 
 
+def _first_room_parser():
+    """The boot-population parser, IMPORTED rather than reimplemented.
+
+    ⛔⛔ TWO IMPLEMENTATIONS OF ONE QUESTION EVENTUALLY PRINT TWO ANSWERS. This
+    section asks exactly what `scripts/measure_first_room_manifest.py` asks, and
+    that script already carries the three things a second copy would get wrong:
+    it orders by FRAME (the census runs in `Last`, so its clock can read after a
+    `room-loaded` the same frame's `PreUpdate` preceded), it knows `[image]`
+    prints only decodes >= 1.0 MP, and it parses both the stamped and unstamped
+    line shapes. Importing keeps one definition to be wrong in.
+
+    Returns `None` when the script is absent, so a bundle summary never fails
+    over a missing sibling.
+    """
+    import importlib.util
+
+    script = Path(__file__).resolve().parents[1] / "measure_first_room_manifest.py"
+    if not script.exists():
+        return None
+    spec = importlib.util.spec_from_file_location("first_room_manifest", script)
+    module = importlib.util.module_from_spec(spec)
+    sys.modules[spec.name] = module
+    spec.loader.exec_module(module)
+    return module
+
+
+def boot_population_lines(log: str) -> list[str]:
+    """What decoded before the first room, which is where the hitch now is.
+
+    The hall reveal is fixed; the same host run says the remaining hitch is
+    STARTUP. This puts the boot population in the capture's own summary so a
+    walk answers it without a second command and without the reader having to
+    know that ordering by clock puts a 7.6 MP decode in the wrong bucket.
+    """
+    module = _first_room_parser()
+    if module is None:
+        return []
+    parsed = module.parse(log.splitlines())
+    images, loaded = parsed["images"], parsed["room_loaded"]
+    if not images or not loaded:
+        return []
+
+    framed = all(image["frame"] is not None for image in images) and loaded[1] is not None
+    if framed:
+        before = [i for i in images if i["frame"] < loaded[1]]
+        ordered = "frame"
+    else:
+        before = [i for i in images if i["at"] < loaded[0]]
+        ordered = "game time (no frame column in this capture)"
+
+    total = parsed["census_total"]
+    lines = ["## Boot population (what decoded before the first room)", ""]
+    if total:
+        lines += [
+            f"⚠ SAMPLE, NOT POPULATION: `[image]` prints only decodes >= "
+            f"{module.NOTABLE_MP if hasattr(module, 'NOTABLE_MP') else 1.0} MP. "
+            f"This run decoded {total[0]} images / {total[1]} MP in total; "
+            f"{len(images)} were notable enough to print.",
+            "",
+        ]
+    else:
+        lines += [
+            "⚠ No `[image-census]` line in this log, so there is no denominator "
+            "and the counts below are a FLOOR, not a total.",
+            "",
+        ]
+    by_road: dict[str, list[float]] = {}
+    for image in before:
+        by_road.setdefault(image["road"] or "(no demand stamp)", []).append(image["mp"])
+    lines += [
+        "```text",
+        f"ordered by: {ordered}",
+        f"before {loaded[2]}: {len(before)} image(s), "
+        f"{sum(i['mp'] for i in before):.1f} MP",
+    ]
+    for road, mps in sorted(by_road.items(), key=lambda kv: -sum(kv[1])):
+        lines.append(f"  {road:<22} {len(mps):3d}  {sum(mps):6.1f} MP")
+    lines += ["```", ""]
+    return lines
+
+
 def room_reveal_lines(log: str) -> list[str]:
     tells = room_reveal_tells(log)
     if not tells["transitions"] and not any(tells["placeholders"].values()):
@@ -664,6 +746,7 @@ def build_summary(bundle: Bundle) -> str:
     # frame-time story, and a reader who has just seen the spike list needs the
     # reveal beside it to know whether those spikes were under the cover.
     lines += room_reveal_lines(log)
+    lines += boot_population_lines(log)
 
     # ── Views and cameras ────────────────────────────────────────────────
     section(lines, "Cameras and views")

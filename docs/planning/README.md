@@ -98,6 +98,35 @@ true, and the header is just its receipt. A header added without the re-reading
 would be worse than none, because it would buy the next reader's trust without
 earning it.
 
+### ⭐ Some findings only exist BETWEEN two plans
+
+Three times on 2026-09-02/03 the useful result came from reading two focused
+plans against each other rather than either against the code. In each case both
+pages were individually accurate and the conclusion was in neither.
+
+- **`capability-and-runtime-composition.md` × `actor-monolith-decomposition.md`**
+  — the footprint's remaining 16 crates cannot be cut by any manifest change,
+  because every one arrives through the actor monolith. The footprint page knew
+  its number; the carve page knew its scope; neither said that one is the other's
+  only lever.
+- **`room-transition-loading.md` T2 × `asset-preparation-and-residency.md`
+  open work 4** — T2's "resident memory without a budget" warning had its
+  eviction half answered in the asset page, on the same day, and its prefetch
+  half answered by a constant neither page named.
+- **`platformer-navigation-and-reachability.md` × `agentic-character-runtime.md`**
+  — the agentic page waits on three foundations, two of which now exist, so
+  navigation is its last gate. The navigation page looks like a deprioritised
+  capability until you know it is somebody else's blocker.
+
+⇒ **So when a plan says "waits for X", "owned by Y", or "the residual is Z", go
+READ X, Y and Z before believing the row.** A cross-plan dependency is invisible
+from both ends by construction: each page states its own half correctly, and the
+join is written down nowhere.
+
+⚠ This is also why `Owner:` lines and `See also` links are load-bearing rather
+than decorative — they are the only machine-followable record of a join that
+otherwise lives in one session's head.
+
 ### ⚠ A guard sweep at SCRIPT granularity misses most of the guards
 
 Earlier on 2026-09-02 every `scripts/check_*.py` was checked against this

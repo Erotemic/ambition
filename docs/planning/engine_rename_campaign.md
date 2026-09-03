@@ -10,7 +10,7 @@
 > flag-day refactor. The focused actor carve remains
 > [`engine/actor-monolith-decomposition.md`](engine/actor-monolith-decomposition.md).
 
-> ⭐ **RE-VERIFIED 2026-09-03, three weeks on, and the page is still true — with
+> ⭐ **RE-VERIFIED against `5ac5c218d` (2026-09-03), three weeks on, and the page is still true — with
 > ONE candidate half-built that it does not know about.** A page that is
 > accurate and looks stale costs a reader the same hour as one that is wrong, so
 > the numbers are here rather than the date alone. Each was measured with the

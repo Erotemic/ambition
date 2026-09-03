@@ -4,7 +4,7 @@
 > to carry a leafwing fork right now. Everything Ambition-side is already
 > landed and inert until the dependency changes.
 
-> ⛔⛔ **RE-CHECKED 2026-09-03: THE DEPENDENCY ALREADY CHANGED, AND THIS PAGE'S
+> ⛔⛔ **RE-CHECKED against `5ac5c218d` (2026-09-03): THE DEPENDENCY ALREADY CHANGED, AND THIS PAGE'S
 > OWN ESCAPE HATCH WAS TAKEN WITHOUT THE RE-MEASURE IT ASKS FOR.** The last
 > line below says *"bumping to a newer leafwing … may obsolete this —
 > re-measure before carrying anything."* The bump happened:

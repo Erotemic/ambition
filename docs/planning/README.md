@@ -98,6 +98,34 @@ true, and the header is just its receipt. A header added without the re-reading
 would be worse than none, because it would buy the next reader's trust without
 earning it.
 
+⭐ **FOUR MORE DATA POINTS, 2026-09-03, and they SHARPEN the rule rather than
+confirm it.** The sample above pairs "carries a date" with "is accurate". Two of
+these four break that pairing, and the two ways they break it are the useful
+part.
+
+- `engine_rename_campaign.md` — header-bearing, and accurate on every claim.
+  Confirms the sample.
+- `game/bosses.md` — **no header, two months unread — the oldest page here — and
+  accurate.** ⇒ Because it is DESIGN LANGUAGE, not status. What rots is a
+  sentence about the current state of the code; a sentence about what a boss IS
+  can sit unread for a year. Do not read a missing header on a design page as a
+  reason to distrust it, and do not spend a re-verification pass on one.
+- `triage/leafwing-clash-scan-patch-2026-07-23.md` — **carries a date, and had
+  drifted materially**: its dependency moved 0.20 → 0.21, which is the exact
+  event its own last line names as the thing that might obsolete it. ⛔ **The
+  date it carries is `**State:** TRIAGE, 2026-07-23` — the day it was WRITTEN.**
+  That is not the same fact as a date it was CHECKED against, and this file is
+  what proves the two must not be conflated. ⇒ A receipt must date the CHECK.
+- `engine/relativity.md` — dated status line, accurate in substance, but half of
+  one clause was SPENT: "local Rust compile … remain" had been satisfied dozens
+  of times by the gate. ⇒ A dated line ages differently from the claims under
+  it; re-reading has to ask whether each clause is still OPEN, not only whether
+  it is still TRUE.
+
+⇒ **So the refined rule: date the CHECK, not the writing; and status rots while
+design does not.** A `> **Verified against <sha> (<date>).**` header says both
+things correctly, which is why it is the form to use.
+
 ### ⭐ Some findings only exist BETWEEN two plans
 
 Three times on 2026-09-02/03 the useful result came from reading two focused

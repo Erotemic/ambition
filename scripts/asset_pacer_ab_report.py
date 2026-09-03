@@ -121,7 +121,17 @@ def main() -> int:
         return 2
 
     kinds = {r["adapter_kind"] for r in every if r["adapter_kind"]}
-    print(f"adapter    {adapters.pop()}  ({kinds.pop()} adapter)")
+    # ⛔ `kinds` GETS THE SAME REFUSAL AS ITS SIBLINGS. `adapters` and `tiers`
+    # are checked for empty AND for disagreement above, and then popped safely;
+    # `kinds` was popped with neither check, so a run set that named no
+    # adapter_kind raised `KeyError` instead of refusing, and two disagreeing
+    # kinds printed an ARBITRARY one — a set's pop order is per-process.
+    if len(kinds) > 1:
+        print(f"refusing to report: arms disagree on adapter kind {sorted(kinds)}",
+              file=sys.stderr)
+        return 2
+    kind = kinds.pop() if kinds else "unnamed"
+    print(f"adapter    {adapters.pop()}  ({kind} adapter)")
     print(f"tier       {tiers.pop()}  (seeded automatically for this adapter, not chosen)")
     print(f"reps       {min(len(v) for v in runs.values())} per arm, interleaved")
     print()

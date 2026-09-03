@@ -21,6 +21,38 @@ silently re-points every page that cited the original.
 
 ## Open decisions
 
+### 47. The boss-crate reassessment you asked for on 2026-07-16 is now due
+
+Your ruling that day (`maintainer-decisions.md`, 2026-07-16) was *"defer any boss
+crate carve until boss behavior converges onto the canonical moveset/action
+path"*, with a follow-up in the same row: *"reassess afterward whether a separate
+boss crate still exists as a coherent subsystem."*
+
+⭐ **The carve landed on 2026-08-17** — `725de8c26`, *"Carve the boss domain out
+of the actor monolith into ambition_boss_encounter"* — so "afterward" arrived
+seventeen days ago and nothing asked the follow-up question.
+
+Measured at HEAD, as the input to it:
+
+| | |
+|---|---|
+| size | **47 files, 14,635 lines** |
+| in-tree consumers | **9** — `actor_monolith`, `runtime`, `provider`, `damage`, `sim_view`, `abilities`, `content_cli`, the `platformer2d` facade, and `ambition_content` |
+| closure | in `never_asked_for`: a movement-only game links it |
+
+⇒ **The engineering reading is that it does cohere** — a domain with nine
+consumers is not a grab-bag someone forgot to delete. ⚠ But nine consumers is
+also a lot of surface for one domain, and whether that breadth is the boss
+domain being genuinely central or the carve having taken too much with it is a
+judgement about what a boss IS, which is why this is here rather than in
+`tracks.md`.
+
+⛔ **Related and stale:** `tracks.md`'s trigger list still carries *"Boss crate
+extraction — wait until boss vocabulary/ownership is coherent"* under the heading
+**"Do not promote these until the trigger exists"**. The trigger fired a month
+ago. That row wants deleting or rewriting as the reassessment; it is in another
+agent's hot file, so it is reported rather than edited.
+
 ### 46. Does 1-1 want a fourth ?-block over floor, so the fire form's floor-refusal can be played?
 
 `refuse_a_weaker_form_pickup` is Mary-O's rule that a form on the FLOOR may not

@@ -9,6 +9,23 @@ five touched files compile and the new helper's behaviour is exercised directly,
 but no sheet has been rendered with it. Validate with one render on a box that
 can run the renderer.
 
+HOW YOU KNOW IT WORKED (one render each way, on a box that can run the renderer):
+
+  1. THE DEFECT, now loud — this must FAIL with a ValueError naming the target,
+     instead of writing a full-resolution sheet into a reduced tier directory:
+
+       ambition_sprite2d_renderer publish --target medic \
+           --quality-scale 0.25 --dest-root <...>/assets/sprites_0_25x
+
+  2. THE ORDINARY PATH, unchanged — a publish with no `--quality-scale` (or 1.0)
+     must render and install exactly as before. The guard returns early on
+     `None` and on 1.0, so a normal regen must not notice this patch at all.
+     `scripts/regen/sprites.sh --target medic` is the realistic form.
+
+⚠ If (1) still succeeds, the helper is not reached — check that the target's
+`render` calls it rather than opening with `del opts`. If (2) fails, the guard
+is rejecting a scale it should pass through.
+
 WHAT IT DOES. `performer`, `author`, `medic` and `officer` — the four targets
 that import `_authored_swing_fighter.py`, and no others — each opened their
 `render` with `del opts`. A caller that passed a scale:

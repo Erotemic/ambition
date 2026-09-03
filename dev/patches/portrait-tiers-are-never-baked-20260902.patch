@@ -48,6 +48,23 @@ PREDATE their manifest. So a clean regen elsewhere reproduces these and cannot
 settle them. ⚠ mtimes are per-machine and a copy rewrites them; the evidence is
 the contrast between buckets inside one tree, not the absolute dates.
 
+HOW YOU KNOW IT WORKED (the tell, before/after one unfiltered variant run):
+
+    scripts/measure_orphan_shipped_pages.py
+
+  REDUCED-TIER PORTRAITS: 487 file(s), 14.2 MB   ->   0 file(s), 0.0 MB
+
+⚠ BOTH HALVES MUST MOVE, and that is the point of the shared predicate. New
+portraits stop being published AND `prune_orphans` deletes the 487 already on
+disk — because a reduced-tier portrait's source is alive at full resolution, a
+change that only stopped publishing would leave every one of them in place. If
+the count drops but not to zero, the prune half did not take.
+
+⛔ AND ONE THING MUST NOT MOVE: the full-resolution portraits. `sprites/` holds
+164 `_portraits.png` with 164 `_portraits.ron`; that pair is what
+`bake_portrait_manifests` reads and it must be untouched. If the full-res count
+changes, the predicate is matching too widely.
+
 ▢ WHAT IS NOT INCLUDED, AND WHY. The brief also asked to stop emitting the
 `gnu_ton_boss` `_full` / `_body` / `_hands` layer renders (16 files, 13.6 MB
 with no manifest). They are NOT accidental intermediates: they are declared

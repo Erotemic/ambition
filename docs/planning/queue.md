@@ -512,7 +512,19 @@ The one unresolved developer-policy choice from the session-ownership work is in
   is the subject. ⇒ First question for whoever picks it up: under the union, does
   some other presentation feature take ownership of block drawing, or does the
   room never reach the state that spawns them? Neither is answered here; both are
-  a build away. ⊙ **HALF-ANSWERED 2026-09-03: it is NOT the ConeRigAssets group.**
+  a build away. ⊙ **NARROWED 2026-09-03 by two builds, and TWO HYPOTHESES ARE
+  DEAD.** (a) It is NOT the ConeRigAssets group — after the three guards no
+  missing-parameter panic remains in the union and these three still fail
+  identically. (b) It is NOT a settle problem either, which is the one I expected:
+  `cavern()` runs a FIXED 90 updates and the union log shows
+  `room-loaded mary_o_1_2` only at frame 625, so "the helper photographs too
+  early" was the obvious reading — and it is wrong. Run at
+  `--features capture,input,visible` the room loads at **frame 1** and all four
+  tests still fail with the same message. ⇒ Whatever it is, it is not the room
+  being late and not a system dying before the blocks are made. ⚠ I wrote the
+  settle fix, ran it, saw it change nothing, and reverted it rather than ship a
+  loop whose comment claimed a cause it had not established.
+  ⊙ **HALF-ANSWERED: it is NOT the ConeRigAssets group.**
   After the three guards there is no missing-parameter panic left anywhere in
   the union, and these three still fail with the same message — so the blocks
   are absent for a reason of their own, not because a system died before making

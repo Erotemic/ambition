@@ -176,7 +176,7 @@ pub fn drive_wave_encounters(
         // completion, so it must not lag a frame behind a mirror.
         &ambition_characters::actor::BodyHealth,
     )>,
-    reward_chests: Query<
+    _reward_chests: Query<
         (
             Entity,
             &ambition_combat::components::EncounterRewardChest,

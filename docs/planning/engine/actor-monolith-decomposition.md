@@ -963,6 +963,65 @@ goes stale silently.
 ⛔ And run `cargo test -p ambition_workspace_policy`, not `cargo check`: the
 allow-lists are `exact = true` and the compiler cannot see them.
 
+### The switch-activation loop — four policies sharing one drained queue (SPEC, 2026-09-03)
+
+Promoted out of the encounter carve, which could not finish its last seam because
+of this. **Nothing cut; the spec is the deliverable.**
+
+`drive_wave_encounters` ends with ~90 lines (`encounter/systems.rs:337`–`427`)
+that `std::mem::take` the `SwitchActivationQueue` and run FOUR unrelated policies
+over every activation:
+
+| policy | what it does |
+|---|---|
+| quest flags | sets `test_switch_toggled` and `switch_<id>_used`, and pushes a quest event — for EVERY activation, whatever its action |
+| `FlipGravity` | inverts `BaseGravity.dir`, persists the switch, `continue` |
+| `SetGravity{Down,Up,Left,Right}` | sets `BaseGravity.dir` to a cardinal face, persists the switch ON, `continue` |
+| `ResetEncounter` | TOGGLES the persisted switch, resets a terminal encounter, and retires its reward |
+
+**Measured shape.** One producer — `features/ecs/effect_bus.rs:51` is the only
+`push`. One consumer — this loop is the only drain (`session/teardown.rs:158`
+clears it at teardown). The payload is
+`SwitchActivation { id, action: String, target_encounter: String }`
+(`crates/ambition_encounter/src/registry.rs:61`), so the action is a STRING
+matched with `==` and `strip_prefix`, and an unrecognised action falls through
+the `ResetEncounter` guard silently.
+
+⛔ **WHY THIS BLOCKS THE ENCOUNTER CARVE.** The reward retire is not attached to
+the adapter by encounter logic — it is attached by POSITION inside this loop,
+after a save-mutating toggle and behind three early `continue`s. Nothing can
+observe that edge from outside: run before the drain and neither the queue nor
+the toggle has happened; run after and both are gone. Moving the registration
+alone would mean re-implementing the filter beside the original, which is the
+shape `adopt_loaded_save`'s own comment warns about — *"a test that
+re-implemented this policy beside it would have agreed with the bug"*.
+
+⇒ **THE SEAM: a drained activation becomes a published fact PER ACTION KIND, each
+consumer reacts to its own, and the save toggle is owned by exactly one of
+them.** Concretely:
+
+1. **Type the action.** A string matched three ways is why an unknown action is
+   silently a no-op. An enum makes an unhandled kind a compile error at each
+   consumer, which is the `CapabilityLanes` idiom this repo already uses.
+2. **One system drains and publishes**, in the domain that owns the queue
+   (`ambition_encounter::switches`), turning the queue into per-kind facts. It
+   owns the persisted switch write, so the toggle has exactly one author.
+3. **Each policy reacts to its own fact, from the crate that owns it**: gravity
+   to `shared_tangle::gravity`, quest flags to the quest/effect layer, encounter
+   reset to `ambition_encounter`, reward retire to the feature layer — the last
+   of which is what lets the encounter adapter finish leaving.
+4. ⚠ **The toggle is the hazard.** `ResetEncounter` reads and writes
+   `save.switch(id)` in one step and the reward branch keys off the RESULT. Split
+   carelessly and two systems both toggle, or none does. The publisher owns it
+   and the fact carries the post-toggle value.
+
+⚠ **Order is part of the value** — `SwitchActivationQueue::checksum` says so, and
+the queue is rollback-registered because a rewind that re-pushes predicted
+activations double-applies an encounter reset. Any split must keep one ordered
+drain, not four readers racing the same queue.
+
+▢ Not started. The encounter carve's remaining seam is downstream of this one.
+
 ### Character preparation versus actor simulation
 
 Prepared character/content ownership should continue moving toward character

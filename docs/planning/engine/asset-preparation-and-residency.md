@@ -512,8 +512,12 @@ read the code that settles it.** The cover lifts CORRECTLY: all 129 sheets are
 When the headless profile converges Potato→Ultra (t≈14.9 s in the log above) it
 calls `demote_stale_realizations`, which takes every IN-USE sheet from `Ready`
 back to `Declared` — dropping every body's render family — and re-demands them
-at one character per frame at Full. **129 frames of placeholder is exactly
-that.** ⚠ It is not headless-only: the same happens on a host for any frame
+at one character per frame at Full. **129 actors' worth of placeholder is
+exactly that** — ⚠ not 129 FRAMES of it, which is what this sentence said until
+2026-09-03: the warnings arrive in one burst inside a millisecond (as the
+paragraph twelve lines above already noted), because the warning is a per-actor
+latch tripping after 5 consecutive unclaimed frames. The RAMP is 129 frames
+long; the WARNING is one frame wide and 129 actors deep. ⚠ It is not headless-only: the same happens on a host for any frame
 where the resolved budget differs from the setting, because the adapter seed
 lands before settings apply.
 

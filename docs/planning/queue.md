@@ -2141,6 +2141,14 @@ OPTIONAL dep + feature, never used:
     room to cut looked absent: the monolith's `[dependencies]` table went
     29 → 33 across those same carves, because a kernel that stops CONTAINING a
     domain starts DEPENDING on it. Success reads as regression there.
+    ✔ **Re-measured 2026-09-03 late: still 33 `ambition_*` entries (52 total).**
+    ⭐ The count HOLDING across the abilities and encounter-features carves is
+    the more interesting reading, and it is the one this row is about: those
+    domains were already depended upon before they were crates, so drawing the
+    boundary named an edge that existed rather than adding one. ⇒ Which is why
+    the number is diagnostic and not a score — it rises when a carve exposes a
+    NEW edge and holds when it only makes an old one visible, and neither is
+    good or bad without asking which happened.
 - ▢ **D166 — make the character-authoring boundary load-bearing where a real
   character still bypasses it.** Prepared character definitions are already
   immutable and the first Smash fighter facet exists. Re-measure the current

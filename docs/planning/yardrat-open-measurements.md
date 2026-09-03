@@ -58,7 +58,7 @@ tail of an `ambition_`-prefixed crate directory).
   `tools/ambition_sprite2d_renderer/mockingbird_boss_sprite_generator.py`) are  <!-- cite-ok: this row's subject IS the dead citation -->
   NOT ignored and want ordinary MOVED triage.
 
-✔ **CLOSED 2026-09-03 — all seven repointed or re-derived** (see the commit for which was which; two of the seven turned out not to be repoints at all, and the mapping below was WRONG on the first one I checked: `features/ecs/bosses.rs`'s comment names `tick_boss_brains_system`, which lives in `ambition_boss_encounter/src/ecs/tick.rs`, not where the file's basename history pointed). What remains open is the ASSET half only.
+✔ **CLOSED 2026-09-03 — all seven repointed or re-derived** (see the commit for which was which; two of the seven turned out not to be repoints at all, and the mapping below was WRONG on the first one I checked: `features/ecs/bosses.rs`'s comment names `tick_boss_brains_system`, which lives in `ambition_boss_encounter/src/ecs/tick.rs`, not where the file's basename history pointed). What remains open is the ASSET half only.  <!-- cite-ok: this row's subject IS the dead citation -->
 
 ⭐ **The moved half, as triaged:** Every one
 has real history — `git log --all --diff-filter=AD` finds the commit that moved

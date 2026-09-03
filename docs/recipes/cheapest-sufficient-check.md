@@ -211,7 +211,18 @@ for both.
   of it was libtest actually executing rather than cargo building. ⛔ never poll
   with `pgrep -f <script>`: the polling shell's own command line contains the
   pattern, so it matches ITSELF and the loop sleeps forever (seven stranded,
-  2026-07-31). Better still, don't poll — a backgrounded command reports its exit.
+  2026-07-31).
+  ⚠ **AND THE INVERTED FORM IS THE ONE THAT GETS PAST THIS PARAGRAPH.** Waiting
+  for a process to be GONE — `until ! pgrep -f "run_tests.py"; do sleep 5; done`
+  — reads as the opposite of polling for it, and strands identically and for the
+  identical reason: the `until` shell's own command line contains the pattern,
+  so the condition is never true and the wait outlives the thing it waited for.
+  **Six stranded that way on 2026-09-03**, by someone who had read this bullet
+  the same evening and had even quoted it in a commit message. The rule is about
+  the PATTERN matching the WAITER, not about the direction of the test.
+  ⇒ Match something that cannot contain the pattern — the status file's `state`
+  field, `wait` on a known pid, or the runner's own exit — and if you must use
+  `pgrep`, `pgrep -f "[r]un_tests.py"` keeps the bracket out of the match. Better still, don't poll — a backgrounded command reports its exit.
 
 ### When the suite REFUSES on headroom (2026-08-05)
 

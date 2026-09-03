@@ -1119,6 +1119,22 @@ row exists to say so.
 `ambition_gameplay_trace`, `ambition_time`; dev-only
 `ambition_platformer2d_ldtk` and `ambition_asset_manager`.
 
+✔ **CUT 2026-09-03.** `crates/ambition_encounter_features` exists; the actor
+kernel's `encounter/` module is gone. Full suite green — `./run_tests.sh --rust`
+ran **6957 tests, 6957 passed**, workspace `--all-targets` clean, 36 policy rows,
+37/37 absence contracts.
+⭐ **No registration landed back in the kernel** (the `ambition_world_items`
+rule). Three things moved instead of becoming a kernel→features edge: the switch
+index registers itself into the `shared_tangle` `FeatureInteractionSet::SwitchIndex`
+slot from its own plugin; `WorldGatingSchedulePlugin` moved to the RUNTIME,
+because the two `gate_solids` roads now span two crates and only the runtime can
+name both — seam (d)'s adjacency preserved, its host changed again; and
+`EncounterSpawnServicePlugin` moved there for the same reason.
+⚠ **Two kernel guards went red during the carve and both were right.** The
+FeatureInteraction chain guard reported `SwitchIndex`'s member missing the moment
+it moved; it composes both plugins now, through a TEST-ONLY dev-dependency so the
+kernel keeps no production edge. Neither guard was relaxed to pass.
+
 **The tail, and none of it is optional**: `engine.<crate>-manifest-allow` and
 `engine.<crate>-source-purity` (the purity row forbidding the monolith,
 poison-verified with a REAL `use` line); the footprint baseline row in the shape

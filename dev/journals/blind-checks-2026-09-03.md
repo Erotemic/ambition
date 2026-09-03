@@ -100,6 +100,22 @@ the ways they were healthy are worth copying:
   `characters_seen > 80` floor, AND a synthetic misplaced row proving the scan
   fires.
 
+Beyond `scripts/`, three more checked and CLEAR:
+
+* `rollback_coverage.rs` is `#![cfg(feature = "rl_sim")]`, which is the shape
+  that usually means "runs nowhere" — but `run_tests.py:515` runs
+  `cargo test -p ambition_app --features "rl_sim causal"` deliberately, so it
+  does run. ⓘ Worth knowing rather than acting on: its `WAIVED` list is 31
+  patterns of which **22 are namespace-wide** (`ambition_asset_manager::`,
+  `ambition_input::`, …), so its effective population is "sim state minus 22
+  namespaces". The file says so itself — *"this list is the part of the test
+  that can lie"* — and already documents one waiver as narrower than it reads.
+* `check_zone_name_ratchet` is CI-wired with `--check` and already refuses a
+  zero-observation sweep in its own words.
+* `feature_gated_tests.py` reports 29 crates hiding 783 tests behind features,
+  with its own over/under-counting caveat — an honest instrument, and the gate
+  runs the union anyway.
+
 ⇒ The guards in `scripts/tests/` are, on the whole, built with the vacuity
 question already asked. The entries above are exceptions, not a pattern — and
 `test_absence_contracts` (21) is the one that had the floor and was missing the

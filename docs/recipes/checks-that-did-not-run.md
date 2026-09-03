@@ -302,6 +302,17 @@ looking at it. It was never in the repository; everyone else's gate was green.
 ⇒ Before calling a generated-artifact mismatch repo rot, check whether the
 generator's INPUT is at the commit the repository asked for.
 
+⚠ **And check every submodule, not the one that failed.** The same `git
+submodule status` on calculex 2026-09-03 showed **two more** off-pointer —
+`tools/ambition_music_renderer` (checkout `a113b786`, recorded `b2c005b5`, on a
+branch named `agent/…`) and `tools/ambition_sprite2d_renderer` (`125adf81` vs
+`aba1c1eb`). Neither breaks the default lane, because detached developer-tool
+tests are omitted from it. ⇒ **But `./run_tests.sh --tool-tests` on this machine
+is not testing what the repository records**, and a green or red result from it
+here would describe somebody's work-in-progress branch. Left alone deliberately:
+an `agent/` branch in a submodule is someone's state, and syncing it to the
+pointer would discard work no failure asked me to touch.
+
 On the calculex VM on 2026-09-02, `rustup target list --installed` returned
 exactly one target, `x86_64-unknown-linux-gnu`. No `wasm32-unknown-unknown`, no
 `aarch64-linux-android`, `ANDROID_NDK_HOME` unset. A full green gate on that box

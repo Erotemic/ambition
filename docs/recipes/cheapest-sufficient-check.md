@@ -223,7 +223,14 @@ for both.
   a commit message; the rest came from earlier sessions. ⇒ It is a recurring
   cross-session pattern, not one agent's lapse, and the cost is invisible: a
   stranded waiter consumes nothing and reports nothing, so it is only ever found
-  by someone auditing process lists for another reason. The rule is about
+  by someone auditing process lists for another reason.
+  ⚠ **AND THE SELF-MATCH IS ONLY ONE VARIANT.** A fifteenth was found the same
+  day: a `tail -f` monitor on a scratch log, still running after **1 day 4.5
+  hours** because the file it tails had been DELETED. `tail -f` on a removed
+  inode never emits and never exits — the pattern was fine, the subject was
+  gone. ⇒ The family is *a watcher that outlives its subject*, and the fix is
+  the same either way: wait on something that ends. A command that exits, a
+  pid, a status file with a terminal state — never an open-ended follow. The rule is about
   the PATTERN matching the WAITER, not about the direction of the test.
   ⇒ Match something that cannot contain the pattern — the status file's `state`
   field, `wait` on a known pid, or the runner's own exit — and if you must use

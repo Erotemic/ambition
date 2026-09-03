@@ -79,6 +79,41 @@ def test_the_patch_announces_that_it_has_not_landed(patch: Path):
     )
 
 
+def owning_repo(target: str) -> tuple[Path, int]:
+    """The repo that actually HOLDS `target`, and the `-p` level to reach it.
+
+    ⛔ A PATH INSIDE A SUBMODULE IS NOT IN THE OUTER REPO'S INDEX. `git apply`
+    from the repo root can read those files off disk, so a working-tree check
+    appears to work — but `--cached` there sees a gitlink and nothing else, so
+    the committed-state comparison below has to run INSIDE the submodule.
+    """
+    parts = Path(target).parts
+    for depth in range(len(parts) - 1, 0, -1):
+        candidate = REPO.joinpath(*parts[:depth])
+        if (candidate / ".git").exists():
+            return candidate, 1 + depth
+    return REPO, 1
+
+
+def apply_check(repo: Path, patch: Path, strip: int, cached: bool) -> subprocess.CompletedProcess:
+    argv = ["git", "apply", "--check", f"-p{strip}"]
+    if cached:
+        argv.append("--cached")
+    return subprocess.run(
+        argv + [str(patch)], cwd=repo, capture_output=True, text=True
+    )
+
+
+def dirty_targets(repo: Path, targets: list[str], strip: int) -> list[str]:
+    """Which of the patch's targets have uncommitted edits in their own repo."""
+    inside = ["/".join(Path(t).parts[strip - 1:]) for t in targets]
+    result = subprocess.run(
+        ["git", "status", "--porcelain", "--"] + inside,
+        cwd=repo, capture_output=True, text=True,
+    )
+    return [line[3:].strip() for line in result.stdout.splitlines() if line.strip()]
+
+
 def target_paths(patch: Path) -> list[str]:
     """The `b/` side of every file header — what the patch would write."""
     return [
@@ -107,29 +142,71 @@ def test_a_patch_against_this_tree_still_applies(patch: Path):
     assert targets, f"{patch.name} has no `+++ b/` file header — is it a patch?"
     if not any((REPO / t).exists() for t in targets):
         pytest.skip(f"upstream patch; none of {targets} exists in this tree")
-    result = subprocess.run(
-        ["git", "apply", "--check", str(patch)], cwd=REPO, capture_output=True, text=True
-    )
+    repo, strip = owning_repo(targets[0])
+    result = apply_check(repo, patch, strip, cached=False)
+    if result.returncode == 0:
+        return
+
+    # ⛔⛔ "DOES NOT APPLY" HAS TWO CAUSES AND ONLY ONE OF THEM IS A DEFECT.
+    #
+    # A patch is stale when the COMMITTED tree moved under it — that is the
+    # finding, and it means repair or withdraw. A patch also stops applying
+    # while somebody has uncommitted edits to the same files, which says
+    # nothing about the patch at all. ⚠ Found 2026-09-03: this test failed on
+    # `ldtk-player-tileset-retarget-20260902.patch` with "the tree moved under
+    # it or the patch was never test-applied" while the patch applied CLEANLY
+    # to the index — five `.ldtk` worlds in the `game/ambition_map_assets`
+    # submodule were dirty from another session's work in progress. Acting on
+    # that reading would have withdrawn a correct patch, or regenerated it
+    # against somebody else's unfinished edits and baked them in.
+    #
+    # ⇒ Ask the index before accusing the patch.
+    against_index = apply_check(repo, patch, strip, cached=True)
+    if against_index.returncode == 0:
+        dirty = dirty_targets(repo, targets, strip)
+        pytest.skip(
+            f"{patch.name} applies to the committed tree but not the working "
+            f"one: {len(dirty)} of its target(s) have uncommitted edits "
+            f"({', '.join(dirty[:4])}{'…' if len(dirty) > 4 else ''}) in "
+            f"{repo.name}. The patch is fine; this checkout is mid-edit."
+        )
+
     assert result.returncode == 0, (
         f"{patch.name} no longer applies:\n{result.stderr.strip()}\n"
-        "⇒ Either the tree moved under it or the patch was never test-applied. "
-        "Repair it or withdraw it; a decision row pointing at an unusable answer "
-        "is worse than one pointing at nothing."
+        f"⇒ And it does not apply to {repo.name}'s COMMITTED state either, so "
+        "this is not somebody's work in progress: either the tree moved under "
+        "it or the patch was never test-applied. Repair it or withdraw it; a "
+        "decision row pointing at an unusable answer is worse than one "
+        "pointing at nothing."
     )
 
 
 def test_the_patches_that_cannot_be_checked_here_are_named():
     """⛔ ABSENT IS NOT ZERO. If every patch targeted an upstream path the test
     above would skip on all of them and the file would report green while
-    checking nothing. Name them out loud instead."""
-    upstream = [
-        patch.name for patch in patch_files()
-        if not any((REPO / t).exists() for t in target_paths(patch))
-    ]
-    checked = len(patch_files()) - len(upstream)
+    checking nothing. Name them out loud instead.
+
+    ⚠ THERE ARE NOW TWO WAYS TO SKIP, and the second one is reachable by
+    accident: a checkout with uncommitted edits to every patched file would
+    skip everything and still show green. Both are counted here, so the
+    apply check cannot quietly stop checking anything.
+    """
+    upstream, mid_edit = [], []
+    for patch in patch_files():
+        targets = target_paths(patch)
+        if not any((REPO / t).exists() for t in targets):
+            upstream.append(patch.name)
+            continue
+        repo, strip = owning_repo(targets[0])
+        if apply_check(repo, patch, strip, cached=False).returncode != 0 and \
+                apply_check(repo, patch, strip, cached=True).returncode == 0:
+            mid_edit.append(patch.name)
+    checked = len(patch_files()) - len(upstream) - len(mid_edit)
     assert checked, (
-        "NO patch in dev/patches/ targets a path in this tree, so the "
-        f"apply check verified nothing. Upstream-only: {upstream}"
+        "NO patch in dev/patches/ was actually apply-checked, so this file "
+        f"verified nothing. Upstream-only: {upstream}. Blocked by uncommitted "
+        f"edits in this checkout: {mid_edit} — commit or stash that work and "
+        "run again; those patches are unverified, not passing."
     )
 
 

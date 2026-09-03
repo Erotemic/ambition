@@ -12,18 +12,27 @@ ancestors of HEAD, re-checked 2026-09-03 with `git merge-base --is-ancestor`
 rather than `git cat-file` — an orphaned commit resolves under the second and
 not the first.
 
-⚠ **THE GATE LINE ABOVE IS NO LONGER REPRODUCIBLE, and the reason is not a
-regression in what it measured.** As of 2026-09-03 the workspace job is RED on
-two schedule tests added that morning
+⚠ **THE GATE LINE ABOVE IS NO LONGER REPRODUCIBLE, and the reason was never a
+regression in what it measured.** For most of 2026-09-03 the workspace job was
+RED on two schedule tests added that morning
 (`world_gating::tests::both_gate_solids_writers_are_scheduled_after_the_overlay_rebuild`
 and `encounter_spawn_service::spawn_request_service_order::the_spawn_server_runs_after_the_wave_driver`,
-`b67c1348f`). ⛔ **The systems they name are scheduled correctly** —
+`b67c1348f`). ⛔ **The systems they name were scheduled correctly all along** —
 `WorldGatingSchedulePlugin` registers `contribute_encounter_lock_walls` — but the
-tests look systems up by `system.name()`, which Bevy 0.19 strips to a
+tests looked systems up by `system.name()`, which Bevy 0.19 strips to a
 placeholder unless `bevy_ecs`'s `debug` feature is on, and it is enabled nowhere
-in this workspace. So "workspace N/N" is not a number this page can carry
-forward until those two are converted to the count-by-shape form the carve
-checklist documents.
+in this workspace.
+
+✅ **Both were rewritten by shape at `32a5cd0c3` and are green.** Re-run
+2026-09-03 late, not taken on report: `cargo test -p
+ambition_platformer2d_runtime --lib` → 52 passed, 0 failed, both names present
+in the output. ⚠ **That does not restore the 6933 above as a live number.** The
+figure is a COUNT of a composition that changed the same day — five crates left
+the actor monolith — so it describes a workspace that no longer exists, and the
+right replacement is a measured run rather than an arithmetic adjustment. The
+most recent one is the exhaustive plan on `c2b7f83c7` (an ancestor of HEAD):
+**48 of 52 jobs in 84.9 minutes**, every failure of which is filed in
+[`queue.md`](queue.md) with the run it was reproduced on.
 
 ⭐ Re-verified at `6d2327903` (2026-09-03): the actor-monolith section below, the
 only part of this page this pass re-read against the code. Everything else keeps

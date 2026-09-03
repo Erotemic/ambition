@@ -157,6 +157,27 @@ def main() -> int:
         print("REFUSED: finished with no jobs recorded — nothing ran.")
         return 2
 
+    # ⛔⛔ A RUN THAT STOPPED EARLY IS NOT A RUN THAT PASSED, and every check
+    # above this line would wave it through: the jobs it DID finish are all
+    # `ok`, the file is fresh, the tree has not moved. Without this the last
+    # line of this script prints `all 31 jobs passed` for a 49-job plan that
+    # died of ENOSPC at job 32 — which is the whole failure this file exists to
+    # refuse, arriving in the one shape it was not looking for.
+    # ⚠ Found 2026-09-03 in review of the between-jobs disk abort: the abort
+    # returned 1 to ITS shell but serialized `done`/`0`, and this reader
+    # believed the file. Both ends are fixed; this is the end that agents read.
+    if state != "done":
+        detail = status.get("aborted_on_disk")
+        never = status.get("never_ran")
+        where = f" before `{detail}`" if detail else ""
+        short = f", {never} job(s) never ran" if never else ""
+        print(
+            f"REFUSED: this run is `{state}`, not `done` — it stopped{where}"
+            f"{short}. The jobs listed above really did pass; the SUITE did not "
+            "finish, so this is not a verdict on the tree."
+        )
+        return 2
+
     failed = [job.get("job") for job in jobs if not job.get("ok")]
     if failed:
         print(f"\n{len(failed)} job(s) FAILED: {', '.join(str(f) for f in failed)}")

@@ -420,6 +420,12 @@ def build_jobs(only: list[str], heavy: bool, libtest_args: list[str],
                     # (left the monolith in `355874fe1`), `audio/runtime.rs` and
                     # `src/vanity_card.rs`. A doctrine page whose address is
                     # wrong is worse than a stale plan: it is read as current.
+                    # ⭐ AND IT COSTS ONE SECOND. Measured 2026-09-03: 15s for
+                    # `docs/planning` alone, 16s for all five. The expensive part
+                    # is indexing the source tree — 24,767 defined names — not
+                    # reading documents, so four more corpora are free. Do not
+                    # narrow this back for speed; the price was never in the
+                    # scanning.
                     "docs/planning",
                     "docs/concepts",
                     "docs/systems",

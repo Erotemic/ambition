@@ -585,8 +585,33 @@ The one unresolved developer-policy choice from the session-ownership work is in
   `upgrade_actor_sprites`' query does not exclude, so **the stand-in entity
   becomes the body** and `UNCLAIMED_STAND_IN_GRACE_FRAMES` becomes a mandatory
   5-frame placeholder on every interactable NPC in every room.
-  ✔ **THE SELECTOR AND THE BUNDLE WERE RE-CHECKED HERE 2026-09-03 late without
-  a build, and both premises hold**: `crates/ambition_sim_view/src/facts.rs:517`
+  ⛔⛔ **RETRACTED THE SAME HOUR — THE MARKER READING IS WRONG, AND SO IS MY
+  CONFIRMATION OF IT.** `spawn_room_visuals`
+  (`crates/ambition_render/src/rendering/world.rs:221-232`) iterates
+  `spec.placements` and calls `spawn_authored_interactable` for every
+  `Interactable`, which spawns the `FeatureVisual` for exactly the NPC ids —
+  the same channel that handles enemies at :187 and bosses at :200. ⇒ **A room
+  NPC's visual is supposed to come from the ROOM SPAWNER.** The five dynamic
+  markers are the right filter for DYNAMIC bodies, and the NPC bundle carrying
+  none of them is EXPECTED, not the defect.
+  ⚠ **I verified three links of a chain that is not the operative path**, and
+  reported the mechanism as closed. Every check below was individually true;
+  the premise underneath them — that the dynamic rebuild is where a room NPC's
+  view should come from — was never checked, because it was the assumption the
+  trace arrived with. ⭐ **A confirmed mechanism is not a confirmed
+  DIAGNOSIS**: the links held and the chain was still the wrong one.
+  ⇒ **THE OPEN QUESTION IS TIMING, NOT MARKERS.** Why do the room spawner's
+  visuals land more than 5 frames after the bodies' `FeatureViewIndex` rows at
+  Ultra and within 5 at Potato? Candidates: a tier-dependent gate on the room
+  spawner's session caller (a `theme_loaded` gate was read there and retracted
+  for painted_blocks — it may be this), or `spawn_authored_interactable`
+  returning early on an unready sprite. ⛔ **The fix shape is NOT a marker on
+  the NPC bundle**; it is the room spawner's gate, or the stand-in's grace
+  clock. The probe is the frame of `spawn_room_visuals` against the frame each
+  row appears — which needs a build.
+  ⓘ Kept below rather than deleted, because the individual findings stay true
+  and the retraction is only legible beside what it retracts:
+  **THE SELECTOR AND THE BUNDLE, re-checked 2026-09-03 late without a build:** `crates/ambition_sim_view/src/facts.rs:517`
   is exactly
   `rebuild_dynamic_feature_views`, its filters are the five named above and no
   others, and a scan of the NPC spawn function's whole body finds **zero**
@@ -599,15 +624,28 @@ The one unresolved developer-policy choice from the session-ownership work is in
   runtime consequence itself, that the stand-in is what actually draws, which
   needs a build. ⇒ So every link a grep can reach holds, and what remains
   unverified is the observation, not the mechanism.
-  ⇒ **The fix is the marker, not the grace window.** Either the NPC bundle
-  carries whatever `rebuild_dynamic_feature_views` selects on, or the actor
-  family claims its view on spawn, so the stand-in never has to become the
-  body. ⛔ **THE GUARD SHIPS AFTER THE FIX**, asserting the property the fix
+  ⛔ **SUPERSEDED — see the retraction at the top of this row.** The original
+  prescription was: the NPC bundle carries whatever
+  `rebuild_dynamic_feature_views` selects on, or the actor family claims its
+  view on spawn. That is aimed at the wrong path; the room spawner already owns
+  this visual. ⛔ **THE GUARD SHIPS AFTER THE FIX**, asserting the property the fix
   establishes — an interactable NPC's view is claimed the frame its body
   exists, never by the stand-in — and poisoned by dropping the marker. A guard
   written first would pin TODAY'S behaviour, which is the bug. e7 has a
   throwaway probe and is deliberately not shipping it; e7 writes the real guard
   once the fix lands.
+  ⓘ **THE PLACEHOLDER IS ALREADY MARKED, which the guard will want and the fix
+  should NOT use.** `crates/ambition_render/src/rendering/features.rs` defines
+  `UnclaimedBodyPlaceholder` alongside `UNCLAIMED_STAND_IN_GRACE_FRAMES: u32 = 5`
+  (line 354), and its own test queries `(&FeatureVisual, &UnclaimedBodyPlaceholder)`
+  — so "is this visual the stand-in?" is answerable in one component today, and
+  the guard can assert on it directly instead of inferring from a frame count.
+  ⛔ **But adding `Without<UnclaimedBodyPlaceholder>` to `upgrade_actor_sprites`
+  is NOT the fix and must not be mistaken for one.** It would stop the stand-in
+  being upgraded into the body and leave the NPC with no real view at all —
+  still absent from `DynamicFeatureViews`, now with nothing drawing it. The
+  defect is that the NPC never enters the rebuild; the query is where the
+  symptom becomes visible, not where the cause lives.
   ⓘ Needs an owner who can BUILD. Declined here 2026-09-03: this box is at
   11.8 GB free of 290, below the 40 GB floor, so the Rust lane refuses to start
   and the fix could not be gated.

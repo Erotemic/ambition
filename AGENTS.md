@@ -342,6 +342,10 @@ Add durable lessons to `dev/benchmark-candidates/`; never transient project stat
   * `dev/ambition_dev_measurements/run_tests_cost.jsonl`
 
 Do not poll with `pgrep -f <script>`; the polling command can match itself.
+This includes waiting for ABSENCE (`until ! pgrep -f run_tests.py`), which reads
+as the opposite and strands the same way — the rule is that the pattern matches
+the waiter, not that the test points one way. Six shells stranded that way
+2026-09-03. Use `pgrep -f "[r]un_tests.py"` if you must, or read the status file.
 
 ## Comments
 

@@ -133,7 +133,21 @@ def test_the_skip_reason_names_what_it_looked_at(tmp_path):
 def test_the_live_repo_answers_and_the_answer_matches_its_tree(tmp_path):
     """Run against the real checkout: whatever it says, it must AGREE with what
     the tree actually is. A detector that cannot be wrong here is one that
-    hard-codes its answer."""
+    hard-codes its answer.
+
+    ⛔⛔ THE ANSWER HAS THREE STATES, NOT TWO, since the freshness precondition
+    landed (2026-09-03). Real files can now read False because the tier
+    variants are stale build output — the intended loud skip. This test asserted
+    the two-state world and so FAILED on the first stale box that ran it, while
+    passing on the freshly regenerated box that wrote the precondition. The
+    box, not the code, decided the verdict.
+
+    ⇒ Split the two axes rather than widen the assertion. FILE OWNERSHIP is
+    what this test is about, so hold regeneration history constant and assert
+    it exactly as before. Then require any live False on an unmirrored tree to
+    be EXPLAINED by the freshness check — which is what keeps a detector stuck
+    at False from passing here by accident.
+    """
     trees = ca.sprite_trees(REPO)
     verdict = ca.assets_are_canonical(REPO, env={})
     if not trees:
@@ -144,7 +158,25 @@ def test_the_live_repo_answers_and_the_answer_matches_its_tree(tmp_path):
         assert verdict is False
         return
     any_linked = any(p.is_symlink() for p in pngs)
-    assert verdict is (not any_linked), (
+
+    # Axis 1 — file ownership, with this box's regeneration history held
+    # constant. Box-independent: the original invariant, on the axis it meant.
+    assert ca.assets_are_canonical(REPO, env={}, fresh=FRESH) is (not any_linked), (
+        f"with freshness stubbed fresh the detector says "
+        f"{ca.assets_are_canonical(REPO, env={}, fresh=FRESH)} while the tree "
+        f"{'holds symlinks' if any_linked else 'holds real files'}"
+    )
+
+    # Axis 2 — the live verdict. It may legitimately differ from axis 1 in
+    # exactly one direction, and only with the freshness check named as cause.
+    if verdict is (not any_linked):
+        return
+    assert verdict is False, (
         f"the detector says canonical={verdict} while the tree "
         f"{'holds symlinks' if any_linked else 'holds real files'}"
+    )
+    reason = ca.why_not(REPO)
+    assert "check_quality_variants_are_fresh" in reason, (
+        "a live False on a tree of real files is only allowed when the "
+        f"freshness check is what said so, and why_not() said: {reason}"
     )

@@ -114,6 +114,34 @@ lives; the prose links are not it.
 
 ---
 
+## ⛔ AN IDENTIFIER THAT DOES NOT RESOLVE IS USUALLY HISTORY, NOT ROT
+
+Two sweeps, both of which looked like rich seams and both of which were almost
+entirely false positives. Recorded together because the SHAPE is the finding and
+a third session will otherwise try a third one.
+
+| swept | places | real findings |
+|---|---:|---:|
+| SHA-shaped citations in `docs/planning` | 371 | 0 |
+| `D<number>` queue-row citations | 78 | 0 |
+
+⭐ **BOTH CLASSES ARE STABLE HISTORICAL IDENTIFIERS BY DESIGN.** `queue.md`
+names only 8 D-numbers because *"a closed row is a receipt, not a case file"* —
+the README's own closed-row template is `✔ **D123 — …**`, so a D-number
+deliberately OUTLIVES the row and resolves through `git log`, not through the
+current file. And a SHA that resolves nowhere in this checkout is routinely a
+submodule commit or an unpushed branch elsewhere.
+
+⇒ **Before building a checker for an identifier class, measure its false-positive
+rate against the tree — not its finding count.** Both of these would have shipped
+a worklist of 78 and 33 entries that a reader must dismiss one at a time, which
+is the "teaches its reader to skim" failure `check_planning_citations.py`'s own
+docstring warns about. ⚠ The classes that DID pay were the ones where the
+identifier is supposed to resolve NOW: bare file paths in prose (1 real finding
+in 460, and it had been dead since `00030e603`) and policy `source_doc` anchors.
+
+---
+
 ## ⛔ A SHA you cite for your OWN unmerged commit does not survive your rebase
 
 Cost me ten dead citations and would have shipped them. Writing

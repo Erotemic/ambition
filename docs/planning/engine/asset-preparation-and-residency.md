@@ -1089,11 +1089,19 @@ deliberately eager (the fallback boss body — one sheet every boss may need).
 
 ⛔ **So after the retarget the startup burst is IRREDUCIBLE WITHOUT A PRODUCT
 DECISION** — not showing the boot card, or making the fallback boss body lazy.
-Both are Jon's calls and neither is an engine defect. ▢ The engine-side question
-that remains is the one §2 raised: whether the `game://` scheme and the plain
-path resolve to two `AssetId`s over the same bytes, because the retarget cures
-the symptom (a 7.6 MP tileset) without answering whether a cover that waits for
-both would pay twice.
+Both are Jon's calls and neither is an engine defect. ✔ **And §2's engine-side question is answered by the capture
+itself: they ARE two `AssetId`s.** The same file decoded TWICE in one run — a
+single id would have been served from `Assets<Image>` the second time, which is
+what the ledger's `re-decodes` term counts and it read 0, because by path they
+are two different assets. Bevy keys an asset by `(source, path)` and never by
+bytes, so `game://sprites/x.png` and `sprites/x.png` cannot dedupe however
+identical the file is. ⇒ **A cover that waited for both would pay twice**, and
+the retarget is therefore the right fix rather than a symptom patch: it removes
+one of the two demands instead of trying to merge them.
+
+▢ What remains is a DESIGN question nobody needs to answer today: whether the
+asset layer should dedupe by content hash across sources. It would have caught
+this and it is a large change for one known instance.
 
 ⚠ Bounded by the same sample as §2: `[image]` prints only decodes ≥ 1.0 MP, so
 these seven stand for 252 images / 78.3 MP and the small remainder is unaudited.

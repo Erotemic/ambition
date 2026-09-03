@@ -137,3 +137,47 @@ def test_the_after_bucket_is_not_counted_as_boot_work(capsys):
 
 if __name__ == "__main__":
     raise SystemExit(pytest.main([__file__, "-q"]))
+
+
+# ── The denominator, found only by running it on a real bundle ────────────
+
+HOST_CENSUS = (
+    "[   11.243s] [image-census]   10.002s +130 images (+36.2MP) | total 252 images, "
+    "78.3MP, 313.1MB resident | gpu +130 (+36.2MP) insert→gpu p50 4ms max 9ms\n"
+)
+
+
+def test_the_report_says_it_is_a_sample_not_a_population():
+    """⛔⛔ `[image]` PRINTS ONLY DECODES >= 1.0 MP (NOTABLE_MEGAPIXELS). On the
+    real host bundle that is ELEVEN printed lines against TWO HUNDRED AND
+    FIFTY-TWO images actually decoded. "6 images before room-loaded" reads as
+    the whole boot and is 4% of it by count.
+
+    Found by running the script on a real capture and reconciling its 11 lines
+    against df's brief, which said 98 — not by reading the emitter, which
+    prints the threshold check several screens from the format string.
+    """
+    module = load()
+    out = module.parse((BOOT + HOST_CENSUS).splitlines())
+    assert out["census_total"] == (252, 78.3)
+
+
+def test_the_bound_is_printed_before_the_counts(capsys):
+    module = load()
+    module.report(module.parse((BOOT + HOST_CENSUS).splitlines()))
+    out = capsys.readouterr().out
+    assert "SAMPLE, NOT POPULATION" in out
+    assert out.index("SAMPLE, NOT POPULATION") < out.index("decoded BEFORE"), (
+        "the caveat must precede the numbers it bounds — a reader who meets "
+        "the count first has already formed the belief"
+    )
+    assert "252 images / 78.3 MP" in out
+
+
+def test_a_log_with_no_census_line_says_the_counts_are_a_floor(capsys):
+    """Absent is not zero: with no `[image-census]` there is no denominator,
+    and the report must say the counts are a floor rather than imply totals."""
+    module = load()
+    module.report(module.parse(BOOT.splitlines()))
+    out = capsys.readouterr().out
+    assert "no `[image-census]` line" in out and "a floor" in out

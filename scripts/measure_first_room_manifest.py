@@ -62,6 +62,10 @@ IMAGE = re.compile(
 # `demand_phrase()` has exactly three shapes; the road is the token after `via`.
 VIA = re.compile(r"\bvia\s+(\S+)")
 UNKNOWN_DEMAND = re.compile(r"\bdemand=unknown\b")
+# The rolling `[image-census]` window line, for the denominator below.
+IMAGE_CENSUS = re.compile(
+    r"\[image-census\][^|]*\|\s*total (\d+) images,\s*([0-9.]+)MP"
+)
 ROOM_LOADED = re.compile(r"\[world-event\]\s+([0-9.]+)s\s+f\s*(\d+)\s+room-loaded\s+(\S+)")
 FIRST_ROOM_ART = re.compile(
     r"\[first-room-art\]\s+room '([^']+)' ready after (\d+) updates "
@@ -89,6 +93,7 @@ def parse(lines) -> dict:
     images: list[dict] = []
     room_loaded: tuple[float, int, str] | None = None
     first_room_art: dict | None = None
+    census_total: tuple[int, float] | None = None
 
     for raw in lines:
         line = STAMP.sub("", raw.rstrip("\n"))
@@ -128,7 +133,15 @@ def parse(lines) -> dict:
                     "assets": int(hit.group(4)),
                     "characters": int(hit.group(5)),
                 }
-    return {"images": images, "room_loaded": room_loaded, "first_room_art": first_room_art}
+        hit = IMAGE_CENSUS.search(line)
+        if hit:
+            census_total = (int(hit.group(1)), float(hit.group(2)))
+    return {
+        "images": images,
+        "room_loaded": room_loaded,
+        "first_room_art": first_room_art,
+        "census_total": census_total,
+    }
 
 
 def report(parsed: dict) -> int:
@@ -156,6 +169,25 @@ def report(parsed: dict) -> int:
     before = [i for i in images if i["at"] < at]
     after = [i for i in images if i["at"] >= at]
 
+    # ⛔⛔ THE DENOMINATOR, FIRST, BECAUSE THIS LIST IS A SAMPLE AND READS LIKE A
+    # POPULATION. `[image]` prints only for decodes at or above
+    # `ImageCensus::NOTABLE_MEGAPIXELS` (1.0 MP). On the 2026-09-02 host bundle
+    # that is 11 printed lines against 252 images actually decoded — 4% by
+    # count, about half the megapixels. Anyone reading "6 images before
+    # room-loaded" without this believes they have seen the boot.
+    total = parsed.get("census_total")
+    if total:
+        print(
+            f"⚠ SAMPLE, NOT POPULATION: `[image]` prints only decodes >= 1.0 MP. "
+            f"This run's census reports {total[0]} images / {total[1]:.1f} MP "
+            f"decoded in total; {len(images)} were notable enough to print."
+        )
+    else:
+        print(
+            "⚠ SAMPLE, NOT POPULATION: `[image]` prints only decodes >= 1.0 MP, "
+            "and this log has no `[image-census]` line to say how many were "
+            "decoded in total. The counts below are a floor."
+        )
     print(f"first room-loaded: {room} at {at:.3f}s (frame {frame})")
     if art:
         print(

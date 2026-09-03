@@ -30,6 +30,45 @@
 > is a fifth contract in the same file, and green, which is a different question
 > again.
 
+> **MEASURED 2026-09-03 — ADR 0031's OWN NUMBERS, RE-TAKEN, and they answer the
+> question the block above leaves open.** That ADR's Context is the case for this
+> program, and it is quantitative: *"`crates/ambition_platformer2d/src/lib.rs` is
+> 114 lines. Fifty of them are `pub use`, and roughly forty are
+> `pub use ambition_x as x`"*, under the heading **"the public API of this engine
+> is currently the list of crates it happens to be built from … a namespace
+> mirror"**.
+>
+> | ADR 0031 (Context) | at HEAD |
+> |---|---|
+> | lib.rs 114 lines | **998** |
+> | 50 `pub use` | **159** |
+> | ~40 `pub use ambition_x as x` | **51** |
+>
+> ⭐ **The remedy landed and the symptom grew, and both halves are true.** Of
+> those 998 lines, **456 are doc comments** and 39 are `#[cfg]` gates; the module
+> doc opens *"the supported API is organized by game concepts (`actor`,
+> `character`, `participant`, `session`, `sim`, `world`…)"*. That is a curated,
+> documented, feature-gated facade — not the namespace mirror 0031 described.
+> ⛔ But the one number 0031 named as the DEFECT — crates re-exported under their
+> own names — went from about forty to **fifty-one**. The concept organisation was
+> added ALONGSIDE the mirror rather than in place of it.
+>
+> ⇒ **So the surface is now two surfaces**, and the ratchet above cannot see the
+> difference: a consumer naming `ambition_platformer2d::actor` and one naming
+> `ambition_platformer2d::encounter` (the crate, aliased) both pass, while only
+> the first is the API this program is trying to build. ⇒ *"Whether the surface
+> they are held to is the RIGHT one"* has a concrete first answer: it is the
+> right one plus fifty-one crate aliases.
+>
+> ⚠ **This is the COMPATIBILITY question, not the linking one, and they have
+> different answers.** A facade alias makes the crate graph part of the public
+> API — 0031's actual concern. It does NOT decide what a consumer LINKS: the
+> actor monolith reaches every `never_asked_for` crate on its own, so cutting a
+> facade edge changes no footprint number. See
+> [`capability-and-runtime-composition.md`](capability-and-runtime-composition.md),
+> where I got that backwards and retracted it. Same edges, two unrelated
+> consequences.
+
 ## Goal
 
 Design the engine surface a game developer should actually want to use.

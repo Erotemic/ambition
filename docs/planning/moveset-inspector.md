@@ -1935,7 +1935,7 @@ Required regression tests for M1 — **all ten are in place**:
 | 1 | N fighters produce N selectable fighters with zero takes | `check_takes_discovery.mjs` |
 | 2 | two recordings do not limit the picker to two | `check_takes_discovery.mjs` |
 | 3 | subject/target ids and roles survive serialization | `combat_observation::tests::a_seated_scenario_serializes_roles_identities_and_both_geometries` |
-| 4 | a published empty `DamageableVolumes` produces no hurtbox | `an_intangible_body_publishes_no_hurtbox_and_names_the_reason` |
+| 4 | a published empty `DamageableVolumes` produces no hurtbox | `the_artifact_distinguishes_intangible_from_a_coarse_fallback` (`ambition_sim_harness/tests/combat_observation_it.rs:131`) |
 | 5 | unpublished damageable geometry falls back to the coarse box | same test — both bodies, both answers, in one fixture |
 | 6 | circle/OBB/convex strike geometry survives serialization | `every_volume_shape_survives_serialization`, `test_a_strike_is_drawn_in_its_real_shape` |
 | 7 | target-owned strikes are not attributed to the subject | `a_strike_belongs_to_its_owners_side_not_to_the_owner` |

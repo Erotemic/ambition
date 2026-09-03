@@ -10,6 +10,42 @@
 > flag-day refactor. The focused actor carve remains
 > [`engine/actor-monolith-decomposition.md`](engine/actor-monolith-decomposition.md).
 
+> ⭐ **RE-VERIFIED 2026-09-03, three weeks on, and the page is still true — with
+> ONE candidate half-built that it does not know about.** A page that is
+> accurate and looks stale costs a reader the same hour as one that is wrong, so
+> the numbers are here rather than the date alone. Each was measured with the
+> method the claim it checks already uses.
+>
+> - **The rename campaign is still closed.** `scripts/check_retired_crate_names.py`:
+>   *"No retired crate name is live (14 tracked)."*
+> - **Split persistence — not started.** `ambition_persistence` exists; neither
+>   `ambition_user_settings` nor `ambition_game_save` does.
+> - **Feel tuning — not started, and the page never said where it lives.**
+>   `Platformer2dFeelTuningMonolith` is in `crates/ambition_combat/src/feel.rs`
+>   and is named 135 times.
+> - **Snapshot vocabulary — not started.** `ambition_snapshot` does not exist.
+> - **The actor carve is live and its tracked metric has not moved.** The
+>   monolith's `[dependencies]` table holds **28** `ambition_*` lines, counted
+>   the way the decomposition page counts them (that section only — a whole-file
+>   grep says 34 and includes six `[dev-dependencies]`).
+>
+> ⛔⛔ **AND THE INPUT SPLIT IS HALF BUILT, WHICH CHANGES WHAT THE SECTION BELOW
+> IS ASKING FOR.** `ambition_input` exists — but it is the WHOLE of the proposed
+> split, not the generic half, and `ambition_platformer2d_input` does not exist.
+> Two consequences the page predates:
+>
+> 1. **`ControlFrame` already moved, the other way.** The section below assigns
+>    it to the platformer crate; it lives in `ambition_platformer2d_core` today,
+>    and `ambition_input` keeps only a re-export carrying its own
+>    `TODO(compat-remove)`. So that line item is not "to do" — it is "finish
+>    removing the compat re-export".
+> 2. **The everything-enum is still closed, and its seam is now measurable.**
+>    `Platformer2dInputActionMonolith` has **36 variants — 9 `Menu*` and 27
+>    gameplay** — and 448 references. That 9/27 split is exactly the shell-vs-
+>    platformer boundary the section proposes, so the split is a named partition
+>    rather than a judgement call. ⚠ It sits in the crate the section wants to be
+>    the GENERIC one, which is the reverse of where it should end up.
+
 # Candidate Engine Restructures by Difficulty
 
 ## Extended abstract

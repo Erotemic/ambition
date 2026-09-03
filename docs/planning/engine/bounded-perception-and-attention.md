@@ -118,6 +118,42 @@
   acceptance, and `visible` at 960x640 reading 56.1 — the old table's `kept` —
   is the control that the instrument still measures what it did.
 
+  ⛔⛔ **RAN 2026-09-03, AND THE PREDICTION IS CURRENTLY UNTESTABLE — the CENSUS
+  cannot see the budget for the brains the budget governs.** `kept` equals
+  `visible` on every arm and `kept_max` reaches 129:
+
+  ```text
+  extent        views   offered  visible    kept  kept_max
+  480x320       36249     130.0     14.4    14.4        21
+  960x640       26703     130.0     56.1    56.1       104
+  1440x960      22446     130.0     93.9    93.9       119
+  1920x1280     21027     130.0    113.2   113.2       124
+  2880x1920     17157     130.0    124.3   124.3       129
+  ```
+
+  ⭐ **THE REPORTING BRANCH IS UNREACHABLE, not the cap.** In
+  `features/ecs/actors/update.rs` the census records from the cheap road when
+  `needs_target_belief()` holds and only ELSE from the built view — and
+  `needs_target_belief()` is true for `TargetBelief` **and** `TacticalWorld`,
+  while `needs_world_view()` is true for `TacticalWorld` alone. So a world-view
+  brain always takes the first arm and is recorded as its uncapped
+  `visible().count()`. The arm reporting the post-cap `world_view.actors.len()`
+  cannot be reached by any brain that builds a world view. `medium_striker` is
+  `template: Smash`, i.e. `TacticalWorld` — exactly the population the budget
+  governs and exactly the one the instrument cannot see.
+
+  ⚠ **THIS IS NOT EVIDENCE THE CAP FAILS.** `attend()` reads correctly and the
+  unit guards exercise it directly (40 visible → 16, hostiles first,
+  deterministic ties). The narrower true statement is that this sweep measures
+  the PRE-CUT quantity, so neither half of the prediction can be confirmed or
+  refuted by it. ⭐ The row is self-consistent with that reading: `visible` here
+  reproduces the old pre-cap `kept` table exactly where the extents match —
+  960x640 reads 56.1 against the 56.1 recorded further down this page.
+
+  ⇒ Re-run once the branch is reachable. ⚠ Until then do NOT read a `kept` above
+  16 on this sweep as a budget failure, which is what the script's own *"a row
+  where `kept` exceeds 16 is a bug"* invites.
+
 ## The rule
 
 > A brain does not receive the room. It receives a **bounded tactical

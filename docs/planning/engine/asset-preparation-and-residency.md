@@ -974,16 +974,36 @@ before this landed, still shows `fx-sheet 10×7.7MP` never drawn in the hub).
 `desktop-timeline-run-20260902T215256Z`).** The run's only two spikes off the
 hall (125 ms and 203 ms at 2.4–2.6 s) sit between `initial playing` and the
 first `room-loaded`, i.e. under the shell's load screen. What decoded before
-that `room-loaded`, by the `[image]` ledger (≥ ~1 MP lines; the census counts
-98 small files besides): **6 images / 16.1 MP** — `unknown` 8.6 MP (the 7.6 MP
-LDtk preview tileset, Jon's relPath, plus a 1.0 MP runtime-generated image),
-`vanity-card` 3.0, `boss-sheet` 2.0 (the fallback boss body, eager by design:
-one sheet every boss may need), `character-sheet` 1.3, `fx-sheet` 1.2. ⇒ The
-startup burst is the tileset first and everything else a distant second; the
-`prepare-first-room-art` cover already waits for the 38 assets the first room
-names, and a cover that also waited for the shell's own art would be a longer
-cover — a product choice, not a defect. The tell after Jon's relPath retarget
-is the same two spikes gone or halved.
+that `room-loaded`, ordered **by frame** (the census runs in `Last`, so its
+clock can read after a `room-loaded` the same frame's `PreUpdate` preceded):
+**7 images / 23.7 MP**, of **252 images / 78.3 MP decoded in total** — ⚠ the
+`[image]` ledger prints only decodes ≥ 1.0 MP (`NOTABLE_MEGAPIXELS`), so these
+7 are 3% of the boot by count and every figure here is a floor.
+
+By road: `character-sheet` 8.9 MP, `unknown` 8.6, `vanity-card` 3.0,
+`boss-sheet` 2.0, `fx-sheet` 1.2. Five of the seven (15.1 MP) arrived on a road
+a manifest speaks; the two `unknown` (8.6 MP) carry no demand stamp and are
+counted neither way.
+
+⭐ **The largest item is the player sheet, and it decodes TWICE.**
+`game://sprites/player_robot_v3_spritesheet.png` at frame 0 with no demand
+stamp, and `sprites/player_robot_v3_spritesheet.png` at frame 1129 via
+`character-sheet` — 3072×2468, 7.6 MP, both times. That one sheet is 15.2 MP of
+the 23.7 across the two roads, and the second decode is 69 ms. Whether the
+`game://` scheme and the plain path resolve to two `AssetId`s for the same
+bytes is the question worth asking before any cover is widened: a cover that
+waits for both still pays for both.
+
+⇒ The `prepare-first-room-art` cover already waits for the 38 assets the first
+room names. ⚠ 38 assets is not comparable to 7 images — a manifest asset may be
+several pages, and the cover counts what it NAMED rather than what decoded. A
+cover that also waited for the shell's own art would be a longer cover, which
+is a product choice, not a defect.
+
+⛔ COVERABLE IS AN UPPER BOUND: it says the image arrived on a road the manifest
+speaks, not that a manifest would resolve it.
+
+The tell after Jon's relPath retarget is the same two spikes gone or halved.
 
 ### 3. Pace expensive completion, not declarations
 

@@ -179,7 +179,15 @@ independently on 2026-09-03, in three different shapes:
 | **file path** into a carve's residue | the directory | `demos/sanic.md` and decision 40 cited `items/pickup/mod.rs`; the domain left for `ambition_held_items` and the path survives as the kernel's schedule residue |
 | **line number** inside a growing file | the file | `check_planning_citations.py` verifies only that the file is LONG ENOUGH; a `:NN` pointing at the wrong line passes |
 
-⇒ **The one defence that works is to cite a NAME beside the location.** A path or
+⭐ **AND THE SECTION-ANCHOR SHAPE HAS A CLEAN FIX, demonstrated in this repo.**
+`engine/boss-design.md` numbers its headings in the heading TEXT — `## 8. BD1 —
+the three atoms, landed` — so its internal *"see §8"* is still exact months
+later. `vision.md`'s sections were positional, and a rewrite silently moved §8
+from "Principles digest" to "Execution". ⇒ **A page that expects to be cited by
+section should number its headings explicitly**; then the anchor is a name, and
+this whole class stops applying to it.
+
+⇒ **Otherwise the one defence that works is to cite a NAME beside the location.** A path or
 a line number degrades silently; `fire_held_ranged_system` or
 `aabb_path_contacts` fails loudly the moment it moves, because the name is what
 the citation checker actually resolves. ⚠ **And a carve that leaves residue is

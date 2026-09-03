@@ -307,11 +307,20 @@ pages were individually accurate and the conclusion was in neither.
   page said 43/16 while `queue.md` said 44/16. Three retyped copies, three
   different values, one printed source. ⇒ Quote the line the gate PRINTS.
   ⛔ **AND THIS PARAGRAPH PROVED ITS OWN POINT ON 2026-09-03**: re-running
-  `scripts/check_absence_contracts.py` prints **`49 crates linked, 22 a
-  movement-only game never asked for`**. The passage warning against retyped
+  `scripts/check_absence_contracts.py` printed, that morning, `49 crates linked,
+  22 a movement-only game never asked for`. The passage warning against retyped
   numbers had itself retyped one, and it went stale the ordinary way — crates
   kept joining the closure. ⇒ Which is the argument for the rule, not against
   it: do not copy 49 either. Run the contract.
+  ⛔⛔ **AND 49 WENT STALE THE SAME DAY — the third instance in one paragraph.**
+  By that evening the contract printed `50 crates linked, 23`, because
+  `ambition_abilities` and `ambition_encounter_features` joined the closure.
+  ⭐ So the paragraph now demonstrates the rule THREE times (16, then 49, then
+  50) and every retyped value it has ever carried has expired, including the ones
+  written by someone who had just finished explaining why not to retype them.
+  ⇒ The number is deliberately NOT restated here a fourth time. `queue.md`'s
+  footprint row carries the dated series with the commit each rise came from,
+  which is the one place a series belongs; everywhere else, run the contract.
   (Corrected 2026-09-03; the ratchet itself was healthy — the baseline JSON has
   carried 44/17 since `ff1ce535b`, a deliberate bump, so this was documentation
   drift and not a footprint regression that slipped a guard.)

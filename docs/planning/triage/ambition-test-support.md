@@ -12,7 +12,14 @@
 >   the crate is and its four current consumers. (Corrected 2026-09-03.)
 > - ⭐ **But `crates/ambition_sim_harness` DOES**, extracted the same day this
 >   note was written (`6bcd53d45`, "Extract ambition_sim_harness below the
->   product shell (track 4)") and already depended on by 6 manifests. Its
+>   product shell (track 4)") and already depended on by **4 crates** —
+>   `actor_monolith`, `examples/capability_demo`, `ambition_app`,
+>   `ambition_app_tools`. ⚠ **This row said "6 manifests" until 2026-09-03, and
+>   the difference is the instrument.** Six FILES match
+>   `grep -rl ambition_sim_harness --include=Cargo.toml`: those four, plus the
+>   crate's OWN manifest and the workspace root that declares the shared
+>   dependency. Neither of the last two consumes it, so the count that sounded
+>   like reach was a count of string occurrences. Its
 >   `Platformer2dSimHarness` offers `build`, `step`/`step_n`/`step_frame`,
 >   `set_timestep`, `reset_episode`, `drive_seat`, rollback setup and health,
 >   and `world`/`world_mut`/`app_mut` — which is the **Layer 2 — engine/session

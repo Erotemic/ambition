@@ -79,6 +79,20 @@ pub struct ImageStages {
     pub inserted_at: Option<Instant>,
     #[cfg(not(target_arch = "wasm32"))]
     pub gpu_prepared_at: Option<Instant>,
+    /// THE READINESS FACT, on every target: this App's render world has
+    /// prepared the image.
+    ///
+    /// ⛔⛔ SEPARATE FROM THE TIMESTAMP ABOVE BECAUSE `Instant` IS NATIVE-ONLY,
+    /// AND CONFLATING THEM PUT A HOLE IN THE WEB REVEAL. `is_gpu_prepared` used
+    /// to read `gpu_prepared_at.is_some()`, so on wasm it was always `false`,
+    /// so `is_awaiting_gpu` was always `false`, so the browser lifted its cover
+    /// the moment pixels reached `Assets<Image>` — without waiting for the GPU
+    /// upload the whole barrier exists to move under the cover. Every branch
+    /// type-checks, so a wasm compile check cannot see it; found by review
+    /// 2026-09-02.
+    ///
+    /// ⇒ A READINESS DECISION READS THIS. A report reads the timestamp.
+    pub gpu_prepared: bool,
     /// The first frame this image would actually be DRAWN — the fourth stage.
     ///
     /// ⭐⭐ THE OTHER THREE ARE ALL ABOUT THE ASSET ARRIVING. Demand, insert and
@@ -130,6 +144,7 @@ impl ImageStages {
             inserted_at: None,
             #[cfg(not(target_arch = "wasm32"))]
             gpu_prepared_at: None,
+            gpu_prepared: false,
             #[cfg(not(target_arch = "wasm32"))]
             first_drawn_at: None,
             megapixels: 0.0,
@@ -448,37 +463,43 @@ impl ImageStageLedger {
 
     /// The render world has stamped `id` prepared (stage 3). The proof the
     /// readiness term above asks for.
-    #[cfg(not(target_arch = "wasm32"))]
+    ///
+    /// ⭐ ONE DEFINITION FOR EVERY TARGET. There used to be two — a native one
+    /// reading the timestamp and a wasm one hardcoded to `false` — which is
+    /// what made the browser skip the GPU wait entirely.
     pub fn is_gpu_prepared(&self, id: UntypedAssetId) -> bool {
-        self.rows
-            .get(&id)
-            .is_some_and(|row| row.gpu_prepared_at.is_some())
-    }
-
-    /// No stage-3 stamp exists on the web (the stamper is native-only, and no
-    /// App inserts [`RenderWorldPresent(true)`](RenderWorldPresent) there), so
-    /// nothing is ever proven — and nothing is ever owed, because the term
-    /// above is off.
-    #[cfg(target_arch = "wasm32")]
-    pub fn is_gpu_prepared(&self, _id: UntypedAssetId) -> bool {
-        false
+        self.rows.get(&id).is_some_and(|row| row.gpu_prepared)
     }
 
     /// The render world saw `id` prepared. Returns the row for reporting.
-    #[cfg(not(target_arch = "wasm32"))]
-    pub fn gpu_prepared(&mut self, id: UntypedAssetId, at: Instant) -> Option<ImageStages> {
+    ///
+    /// ⭐ `at` IS OPTIONAL BECAUSE THE WEB HAS NO `Instant`, and the readiness
+    /// fact must be recordable without one. Passing `None` still marks the
+    /// image prepared; it only forgoes the duration a report would print.
+    pub fn gpu_prepared(
+        &mut self,
+        id: UntypedAssetId,
+        #[cfg(not(target_arch = "wasm32"))] at: Option<Instant>,
+    ) -> Option<ImageStages> {
         let position = self
             .awaiting_gpu
             .iter()
             .position(|awaiting| *awaiting == id)?;
         self.awaiting_gpu.swap_remove(position);
         let row = self.row(id);
-        row.gpu_prepared_at = Some(at);
+        row.gpu_prepared = true;
+        #[cfg(not(target_arch = "wasm32"))]
+        {
+            row.gpu_prepared_at = at;
+        }
         let snapshot = row.clone();
         self.gpu_prepared_total += 1;
         self.gpu_prepared_megapixels += snapshot.megapixels;
         self.window_gpu_prepared += 1;
         self.window_gpu_megapixels += snapshot.megapixels;
+        // The DURATION is telemetry and needs two `Instant`s; the counts above
+        // are the fact and are kept on every target.
+        #[cfg(not(target_arch = "wasm32"))]
         if let Some(d) = snapshot.insert_to_gpu() {
             self.window_insert_to_gpu.push(d);
         }
@@ -831,7 +852,7 @@ mod tests {
         assert_eq!(ledger.awaiting_gpu(), &[id(1)]);
 
         let row = ledger
-            .gpu_prepared(id(1), t0 + Duration::from_millis(150))
+            .gpu_prepared(id(1), Some(t0 + Duration::from_millis(150)))
             .expect("an awaited image reports when prepared");
         assert_eq!(row.insert_to_gpu(), Some(Duration::from_millis(30)));
         assert!(ledger.awaiting_gpu().is_empty());
@@ -894,7 +915,7 @@ mod tests {
             ledger.is_awaiting_gpu(id(11), rendering),
             "not yet stamped inserted: the GPU has not proven anything, so owed"
         );
-        ledger.gpu_prepared(id(10), t0 + Duration::from_millis(5));
+        ledger.gpu_prepared(id(10), Some(t0 + Duration::from_millis(5)));
         assert!(
             !ledger.is_awaiting_gpu(id(10), rendering),
             "prepared: ready"
@@ -905,6 +926,66 @@ mod tests {
         assert!(
             ledger.is_awaiting_gpu(id(12), rendering),
             "dropped before upload: no proof, so still owed if anything still asks"
+        );
+    }
+
+    /// ⛔⛔ THE READINESS FACT MUST NOT DEPEND ON A TIMESTAMP — THIS IS THE WEB
+    /// REVEAL HOLE. `is_gpu_prepared` read `gpu_prepared_at.is_some()`, and
+    /// `Instant` is native-only, so on wasm it was a stub returning `false`:
+    /// nothing was ever prepared, so `is_awaiting_gpu` was never true, so the
+    /// browser lifted its cover the instant pixels reached `Assets<Image>` —
+    /// skipping the GPU upload the barrier exists to move under the cover.
+    ///
+    /// ⭐ THE WEB CASE IS REACHABLE FROM A NATIVE TEST: passing `None` for the
+    /// timestamp is exactly what a clockless target does. Every branch
+    /// type-checks, so the wasm CHECK could not see this; a stamp without a
+    /// clock is what it takes.
+    #[test]
+    fn a_gpu_stamp_with_no_clock_still_makes_the_image_ready() {
+        let mut ledger = ImageStageLedger::default();
+        let rendering = RenderWorldPresent(true);
+        let t0 = Instant::now();
+        ledger.inserted(id(40), 1.0, None, None, t0);
+        assert!(
+            ledger.is_awaiting_gpu(id(40), rendering),
+            "premise: inserted and unprepared is owed"
+        );
+
+        // The clockless stamp — what the web does.
+        assert!(ledger.gpu_prepared(id(40), None).is_some());
+        assert!(
+            ledger.is_gpu_prepared(id(40)),
+            "a target with no Instant still PROVED the GPU has it; readiness is \
+             a fact, not a duration"
+        );
+        assert!(
+            !ledger.is_awaiting_gpu(id(40), rendering),
+            "so the reveal must stop waiting — on the web exactly as on native"
+        );
+
+        // And the telemetry is honestly absent rather than faked.
+        let row = ledger.rows.get(&id(40)).expect("the row exists");
+        assert!(row.gpu_prepared, "the fact is recorded");
+        assert!(
+            row.gpu_prepared_at.is_none(),
+            "and no timestamp was invented to carry it"
+        );
+    }
+
+    /// A native stamp records BOTH, so the report keeps its duration.
+    #[test]
+    fn a_gpu_stamp_with_a_clock_records_the_fact_and_the_duration() {
+        let mut ledger = ImageStageLedger::default();
+        let t0 = Instant::now();
+        ledger.inserted(id(41), 1.0, None, None, t0);
+        let stamped = ledger
+            .gpu_prepared(id(41), Some(t0 + Duration::from_millis(7)))
+            .expect("the row was awaiting");
+        assert!(stamped.gpu_prepared);
+        assert_eq!(
+            stamped.insert_to_gpu(),
+            Some(Duration::from_millis(7)),
+            "the native road still measures insert→gpu"
         );
     }
 
@@ -1183,7 +1264,7 @@ mod tests {
     #[test]
     fn a_prepared_report_for_an_image_nobody_awaited_is_none() {
         let mut ledger = ImageStageLedger::default();
-        assert!(ledger.gpu_prepared(id(3), Instant::now()).is_none());
+        assert!(ledger.gpu_prepared(id(3), Some(Instant::now())).is_none());
         // And a removal before preparation stops the wait, and is counted as a
         // decode nobody drew.
         ledger.inserted(id(4), 1.5, None, None, Instant::now());
@@ -1192,11 +1273,11 @@ mod tests {
             .expect("dropped before the GPU saw it");
         assert_eq!(dropped.megapixels, 1.5);
         assert!(ledger.awaiting_gpu().is_empty());
-        assert!(ledger.gpu_prepared(id(4), Instant::now()).is_none());
+        assert!(ledger.gpu_prepared(id(4), Some(Instant::now())).is_none());
         assert_eq!(ledger.dropped_before_gpu, 1);
         // A removal AFTER preparation is an ordinary retirement.
         ledger.inserted(id(5), 1.0, None, None, Instant::now());
-        ledger.gpu_prepared(id(5), Instant::now());
+        ledger.gpu_prepared(id(5), Some(Instant::now()));
         assert!(ledger.removed(id(5)).is_none());
         assert_eq!(ledger.dropped_before_gpu, 1);
     }

@@ -58,6 +58,9 @@ from pathlib import Path
 import shutil
 import sys
 
+sys.path.insert(0, str(Path(__file__).resolve().parent / "lib"))
+from publish_safely import break_mirrored_destination  # noqa: E402
+
 from PIL import Image
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
@@ -695,9 +698,14 @@ def break_symlink_before_write(path: Path) -> None:
     ⚠ The main checkout is what other sessions build and gate from, so this is
     not a tidiness rule — it is the difference between regenerating your own
     assets and quietly editing everyone else's.
+
+    ⇒ **The implementation now lives in `scripts/lib/publish_safely.py`**, shared
+    with every other publisher into a mirrored tree — the SFX bank and its dump
+    were writing straight through the link while this generator was already
+    safe, and one guarded road out of four is not a guarded invariant. This stays
+    as the name the call sites here already use.
     """
-    if path.is_symlink():
-        path.unlink()
+    break_mirrored_destination(path)
 
 
 def page_filenames(record: Struct) -> list[str]:

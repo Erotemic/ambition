@@ -1071,6 +1071,21 @@ OPTIONAL dep + feature, never used:
      `list_what_every_waiver_actually_covers`, an `#[ignore]`d listing meant to
      be READ against each waiver's rationale. Run it after a crate move.
 
+  9. **⛔⛔ AND THEN RUN THE REPO-TOOLING LANE. THIS LIST IS NOT A SUBSTITUTE
+     FOR IT.** `python3 -m pytest scripts/tests -q -m "not detached_tool"` —
+     about 60 s. Added 2026-09-03 because the cut-1 pass walked items 1–8, found
+     two real things, reported clean — and the lane was RED the whole time, on
+     two ledgers no item names: the rollback CODEC-SHAPE baseline
+     (`scripts/tests/rollback_codec_shape.txt`) and a sub-workspace lockfile
+     (`examples/capability_demo/Cargo.lock`). ⭐ The codec one is the sharp
+     lesson: **a codec can leave the ledger by MOVING.** `CODEC_MARKER` did not
+     know `SnapshotCursor`, so the carved-out impl's new crate was not in the
+     population at all — a shape change there would have been invisible.
+     Fixed at `36706b667`; 20 codec files → 22, and one of the two had been
+     unwatched since long before any carve.
+     ⇒ Items 1–8 are ledgers a MERGE does not touch. The lane is how you find
+     the ones nobody has thought to list yet.
+
   ⛔⛔ RE-MEASURED 2026-08-31: the owner doc's
   "only four dependencies are single-path" list is STALE — `ambition_dev_tools`
   and `ambition_mount` have 6 dependents, `ambition_items` 5, `ambition_damage`

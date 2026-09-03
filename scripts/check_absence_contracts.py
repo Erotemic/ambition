@@ -1419,16 +1419,14 @@ def allowlist_violations(
     return sorted(named - allowed - baseline), sorted(baseline - named)
 
 
-def cargo_binary() -> str:
-    """`cargo`, found even when PATH does not have it.
-
-    This runs from the goal-guard hook, and the hook's PATH has no cargo — a
-    lesson this repo paid for twice, because a check that can only ever report
-    "command not found" can never pass and wedges the run it was supposed to
-    guard. So the rustup location is tried before giving up on PATH.
-    """
-    rustup = Path.home() / ".cargo" / "bin" / "cargo"
-    return str(rustup) if rustup.exists() else "cargo"
+#: ⭐ MOVED to `scripts/lib/cargo_bin.py` 2026-09-02 and re-exported here, so the
+#: name every call site in this file already uses keeps working. The lesson this
+#: docstring recorded — "a check that can only ever report `command not found`
+#: can never pass" — was true and was only applied in four of six places;
+#: `check_capability_ships.py` and the sub-workspace lockfile test called bare
+#: `cargo` and crashed on a machine where rustup's cargo is not on PATH.
+sys.path.insert(0, str(Path(__file__).resolve().parent / "lib"))
+from cargo_bin import cargo_binary  # noqa: E402,F401
 
 
 @functools.cache

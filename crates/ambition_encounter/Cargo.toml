@@ -11,6 +11,9 @@ crate-type = ["rlib"]
 
 [dependencies]
 ambition_platformer2d_core = { path = "../ambition_platformer2d_core" }
+# The wave-mob request vocabulary names `placements::CharacterBrain`. A LEAF
+# with zero `ambition_*` dependencies, so this adds no closure beyond itself.
+ambition_entity_catalog = { path = "../ambition_entity_catalog" }
 # The content compiler, OPTIONAL and default-OFF for the same reason as
 # `ambition_items`: a game that never validates its content must not link a
 # compiler. The encounter capability OWNS the `encounter_waves` schema, so the

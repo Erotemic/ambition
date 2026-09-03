@@ -123,7 +123,9 @@ pub use damage::apply_feature_hit_events;
 pub use damage_predicates::{
     ecs_hit_event_hits_actor, ecs_hit_event_hits_boss, ecs_hit_event_hits_breakable,
 };
-pub use encounter_rewards::{clear_encounter_reward_ecs, sync_encounter_reward_chests_ecs};
+pub use encounter_rewards::{
+    clear_encounter_reward_ecs, sync_encounter_reward_chests_ecs, EncounterRewardSyncPlugin,
+};
 pub use falling_chest::update_ecs_falling_chests;
 pub use hazards::{update_ecs_hazards, HazardTickSet};
 pub use held_items::HeldItem;
@@ -150,14 +152,15 @@ pub use save_sync::{
     sync_ecs_actors_with_save, sync_ecs_bosses_with_save, sync_ecs_switches_from_save,
 };
 pub use spawn::{
-    spawn_encounter_mob, spawn_room_feature_entities_from_plan, ActorConstructionContext,
+    serve_encounter_spawn_commands, spawn_encounter_mob, spawn_room_feature_entities_from_plan,
+    ActorConstructionContext,
     OccurrenceContinuity, RoomContentStagingError, RoomContentStagingRegistrationError,
     RoomContentStagingRegistry, RoomFeatureConstructionError, RoomFeatureConstructionPlan,
     RoomFeatureConstructionReceipt,
 };
 pub(crate) use spawn::{spawn_runtime_minion, spawn_runtime_minion_into};
 pub use spawn_actors::{
-    apply_spawn_actor_requests, apply_summon_effects, EncounterMobSeed, GiantHandPlan,
+    apply_spawn_actor_requests, apply_summon_effects, GiantHandPlan,
     SpawnActorKind, SpawnActorRequest,
 };
 pub(crate) use spawn_actors::{

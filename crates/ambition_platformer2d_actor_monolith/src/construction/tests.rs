@@ -2441,7 +2441,7 @@ fn an_encounter_wave_giant_is_refused_before_it_spawns() {
             fixture_cast(),
             SessionSpawnScope::UNSCOPED,
             "enc",
-            crate::features::EncounterMobSeed {
+            ambition_encounter::mob_seed::EncounterMobSeed {
                 id: "wave_gnu".to_string(),
                 character: Some("fixture_giant"),
                 brain: ambition_entity_catalog::placements::CharacterBrain::Custom(

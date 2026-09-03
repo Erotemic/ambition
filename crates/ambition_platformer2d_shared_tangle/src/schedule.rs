@@ -401,6 +401,33 @@ pub enum WorldPrepSet {
 }
 
 /// Public schedule labels for held-item and ground-item simulation.
+/// The set `rebuild_feature_ecs_world_overlay` runs in, so a consumer can order
+/// against a NAME instead of against a function in the actor kernel.
+///
+/// ⭐ IT LIVES HERE, NOT IN THE ACTOR KERNEL, and the evidence is older than the
+/// encounter carve that finally moved it. FIVE ordering edges outside the
+/// monolith already name this set — three in `ambition_content`
+/// (`bosses`, `falling_sand`, `falling_sand_sim`) and one each in the Mary-O and
+/// Sanic demos — and to say WHEN their own systems run they had to name
+/// `ambition_platformer2d_actor_monolith`, or the facade's `actors` alias for it.
+/// ⛔ AND TWO MORE COULD NOT NAME IT AT ALL: `ambition_combat::hazards` and
+/// `ambition_damage` each describe this set in PROSE, citing it as the precedent
+/// for publishing a one-member set *"a general crate consumed by content owed
+/// its consumers a name to order against and did not have one"* — and then each
+/// had to invent its own set instead, because the one they were citing was
+/// unreachable. The set held up as the example of publishable vocabulary was the
+/// one nobody outside could speak.
+///
+/// ⚠ DELIBERATELY A ONE-MEMBER SET, and that is load-bearing rather than
+/// tidiness: the obvious alternative — spanning this system and
+/// `update_ecs_hazards` beside it in the chain — would make `.after(set)`
+/// STRICTER than the `.after(rebuild_feature_ecs_world_overlay)` it replaced,
+/// because consumers would newly wait for hazards too. One member makes the swap
+/// exactly equivalent, which is what allowed it without a judgement call about
+/// ordering inside a rollback-critical chain.
+#[derive(SystemSet, Debug, Hash, PartialEq, Eq, Clone, Copy)]
+pub struct FeatureWorldOverlaySet;
+
 ///
 /// Consumers order against these sets rather than concrete system functions,
 /// which keeps cross-subsystem dependencies stable while item pickup keeps

@@ -153,9 +153,20 @@ impl bevy::prelude::Plugin for EncounterRegistryPlugin {
         // Adding it edited no central enum — see `authored_commands`.
         crate::authored_commands::publish_authored_commands(app);
         let sim = app.sim_schedule();
+        app.init_resource::<crate::rewards::ClearedEncounters>();
         app.add_systems(
             sim,
-            crate::lifecycle::reduce_encounter_lifecycles.in_set(crate::EncounterLifecycleSet),
+            // The publisher is CHAINED after the reducer and inside the same
+            // set, so anything ordering `.after(EncounterLifecycleSet)` reads a
+            // cleared list that agrees with the phases it can observe. It is
+            // this domain answering "which encounters owe a reward" instead of
+            // the actor kernel reading our phase representation to work it out.
+            (
+                crate::lifecycle::reduce_encounter_lifecycles,
+                crate::rewards::publish_cleared_encounters,
+            )
+                .chain()
+                .in_set(crate::EncounterLifecycleSet),
         );
     }
 }

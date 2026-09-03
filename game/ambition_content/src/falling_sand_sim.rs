@@ -245,7 +245,7 @@ impl Plugin for FallingSandSimPlugin {
                     // The projection contributes settled sand to the collision
                     // overlay, which the rebuild clears each frame — run after
                     // it (the same WorldPrep contract the gates use).
-                    .after(ambition_platformer2d_actor_monolith::features::FeatureWorldOverlaySet)
+                    .after(ambition_platformer2d_shared_tangle::schedule::FeatureWorldOverlaySet)
                     .in_set(Platformer2dSimulationPhaseMonolith::WorldPrep)
                     .in_set(FallingSandSimSet),
             )

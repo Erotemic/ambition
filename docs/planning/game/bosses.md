@@ -68,17 +68,25 @@ player chooses "Challenge it"* in dialogue — the same body, the same `Brain` +
   `game/ambition_content/tests/aerial_authoring.rs` and in
   `crates/ambition_combat/src/brain/smash/action/tests.rs`.
 
-* ⛔ **"Placed in the Noether Chamber via LDtk" names a room that does not
-  exist.** There is no Noether Chamber in any world file. The PCA is authored
-  into `hall_of_characters.ldtk` (and `sandbox.ldtk`) as the entity
-  `hall_perfect_cellular_automaton`. The only "Noether" in the world data is a
-  *character*, `hall_npc_emmy_noether`.
-  ⚠ I checked the obvious rename before concluding this, because Noether's
-  theorem IS the symmetry/conservation law and `symmetry_chamber` exists — but
-  it is a synthetic combat-test `Stage` in
-  `crates/ambition_combat/src/brain/smash/arena.rs:89`, not a room. So the
-  chamber was not renamed; the placement line describes an arrangement the
-  content no longer has.
+* ⛔⛔ **RETRACTED, SAME DAY — the placement line is CORRECT and my correction
+  was wrong.** I wrote here that *"Placed in the Noether Chamber via LDtk"*
+  named a room that does not exist. It does exist: it is the level
+  **`symmetry_room`** in `sandbox.ldtk`, and the PCA is placed in it exactly as
+  this page describes — an `NpcSpawn` with `character_id:
+  perfect_cellular_automaton`, `dialogue_id: perfect_cellular_automaton`,
+  `brain_override: stand_still` and the prompt *"Challenge the Perfect Cell-ular
+  Automaton"*. A dormant NPC with a Challenge branch, which is the encounter
+  this page specifies.
+  ⭐ Noether's theorem IS the symmetry/conservation law, and the actor kernel's
+  switch code calls that room's cardinal gravity switches *"Noether Chamber
+  kernel faces"* — so the design name and the level id are the same place.
+  ⚠ **How I got it wrong is the useful part, and it is the error this session
+  kept finding in other people's rows.** I DID suspect the rename and went
+  looking for it — but I checked ONE candidate, `symmetry_chamber`, found it was
+  a synthetic combat-test `Stage` rather than a level, and stopped. The actual
+  match was `symmetry_room`, one word away, in a world file I had already listed.
+  Chasing a hypothesis and stopping at the first near-miss reads exactly like
+  having chased it, which is why the write-up sounded careful and was not.
 
 * ⚠ **A sibling this page does not mention.** `imperfect_cellular_automaton` is
   fully authored in `character_catalog.ron:850` — its own display name,

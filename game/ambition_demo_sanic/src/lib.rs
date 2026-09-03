@@ -1318,7 +1318,7 @@ impl Plugin for SanicRulesPlugin {
             .in_set(ambition_platformer2d::platformer::schedule::Platformer2dSimulationPhaseMonolith::GameplayEffects);
         let monitor_overlay = monitors::contribute_broken_monitors_to_overlay
             .in_set(ambition_platformer2d::platformer::schedule::Platformer2dSimulationPhaseMonolith::WorldPrep)
-            .after(ambition_platformer2d::actors::features::FeatureWorldOverlaySet);
+            .after(ambition_platformer2d::platformer::schedule::FeatureWorldOverlaySet);
         if self.hosted {
             app.add_systems(
                 sim,

@@ -19,7 +19,7 @@
 //! the reconcile stopped running, the ranged assertions would fail.
 
 use ambition_platformer2d::actors::features::spawn_encounter_mob;
-use ambition_platformer2d::actors::features::EncounterMobSeed;
+use ambition_platformer2d::encounter::mob_seed::EncounterMobSeed;
 use ambition_platformer2d::platformer::feature_overlay::FeatureEcsWorldOverlay;
 use bevy::prelude::*;
 
@@ -638,7 +638,7 @@ fn the_authored_spark_arcs_bounces_and_expires() {
 #[test]
 fn her_spark_damages_a_snake_through_the_shared_hit_pipeline() {
     use ambition_platformer2d::actors::features::{
-        apply_feature_hit_events, spawn_encounter_mob, EncounterMobSeed,
+        apply_feature_hit_events, spawn_encounter_mob,
     };
     use ambition_platformer2d::combat::components::ActorIdentity;
     use ambition_platformer2d::combat::events::{GameplayBanner, HitEvent, SetFlagRequested};

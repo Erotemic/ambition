@@ -105,3 +105,54 @@ pub fn sync_encounter_reward_chests_ecs(
 
 #[cfg(test)]
 mod reward_sync_tests;
+
+/// The feature layer REACTING to the encounter domain's published fact.
+///
+/// ⭐ THE DIRECTION IS THE POINT. This used to be a call: an adapter inside the
+/// actor kernel read `EncounterLifecycle::phase`, filtered for `Completed`,
+/// assembled `(id, spec)` pairs and pushed them into
+/// [`sync_encounter_reward_chests_ecs`]. That adapter was the only reason the
+/// kernel had to know how an encounter represents "completed". The domain
+/// publishes [`ambition_encounter::rewards::ClearedEncounters`] now, and a
+/// reward chest is a room FEATURE, which this layer owns — so the feature layer
+/// reads the fact and the adapter has nothing to do.
+pub fn sync_encounter_reward_chests(
+    mut commands: ambition_platformer2d_shared_tangle::lifecycle::SessionCommands<'_, '_>,
+    save: bevy::prelude::Res<ambition_persistence::save::AmbitionGameSave>,
+    cleared: bevy::prelude::Res<ambition_encounter::rewards::ClearedEncounters>,
+    chests: bevy::prelude::Query<
+        (Entity, &EncounterRewardChest, &FeatureId, Option<&Opened>),
+        With<ChestFeature>,
+    >,
+) {
+    // No live session scope means nothing is spawnable this tick, which is the
+    // same gate the adapter used before this system existed.
+    let Some(session_scope) = commands.spawn_scope() else {
+        return;
+    };
+    sync_encounter_reward_chests_ecs(&mut commands, session_scope, save.data(), &cleared.0, &chests);
+}
+
+/// Composes [`sync_encounter_reward_chests`] on the feature side.
+///
+/// Ordered `.after(EncounterLifecycleSet)` — the set the domain publishes its
+/// cleared list inside — so this reads a list that agrees with the phases the
+/// same tick settled. The runtime adds this beside the other feature plugins;
+/// no registration for it lands in the encounter adapter.
+pub struct EncounterRewardSyncPlugin;
+
+impl bevy::prelude::Plugin for EncounterRewardSyncPlugin {
+    fn build(&self, app: &mut bevy::prelude::App) {
+        use ambition_platformer2d_shared_tangle::schedule::SimScheduleExt as _;
+        use bevy::prelude::IntoScheduleConfigs as _;
+        let sim = app.sim_schedule();
+        app.add_systems(
+            sim,
+            sync_encounter_reward_chests
+                .in_set(
+                    ambition_platformer2d_shared_tangle::schedule::Platformer2dSimulationPhaseMonolith::Progression,
+                )
+                .after(ambition_encounter::EncounterLifecycleSet),
+        );
+    }
+}

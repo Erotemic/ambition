@@ -134,7 +134,7 @@ impl Plugin for FallingSandRoomPlugin {
                     // overlay, which the rebuild clears each frame — run after
                     // it, and after the sim half so spout state is synced and
                     // the settled ledger is current for the tile exclusion.
-                    .after(ambition_platformer2d_actor_monolith::features::FeatureWorldOverlaySet)
+                    .after(ambition_platformer2d_shared_tangle::schedule::FeatureWorldOverlaySet)
                     .after(FallingSandSimSet)
                     .in_set(ambition_platformer2d_shared_tangle::schedule::Platformer2dSimulationPhaseMonolith::WorldPrep),
             )

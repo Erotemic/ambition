@@ -12,8 +12,11 @@ use super::*;
 /// two `ambition_content` plugins (`bosses`, `intro`) order against this
 /// function by name across a crate boundary. Same shape as
 /// `crate::strike::EffectExecutionSet` and
-/// `crate::…::FeatureWorldOverlaySet`: a general crate consumed by content owed
-/// its consumers a name to order against and did not have one.
+/// `ambition_platformer2d_shared_tangle::schedule::FeatureWorldOverlaySet`: a
+/// general crate consumed by content owed its consumers a name to order against
+/// and did not have one. ⭐ That one is nameable from here now — it moved down
+/// out of the actor kernel on 2026-09-03, partly BECAUSE this comment and its
+/// twin in `ambition_damage` had to describe it in prose.
 ///
 /// ONE member, so `.before(HazardTickSet)` is exactly the
 /// `.before(update_ecs_hazards)` it replaces. The system sits inside a long

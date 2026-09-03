@@ -32,7 +32,7 @@ fn fireball_damages_enemy_on_intersect() {
                 &crate::character_runtime::fixture_cast(&["fixture_striker"]),
                 ambition_platformer2d_shared_tangle::lifecycle::SessionSpawnScope::UNSCOPED,
                 "projectile_test",
-                crate::features::EncounterMobSeed {
+                ambition_encounter::mob_seed::EncounterMobSeed {
                     id: "test_enemy".into(),
                     character: Some("fixture_striker"),
                     brain: ambition_entity_catalog::placements::CharacterBrain::Custom(
@@ -312,7 +312,7 @@ fn a_shot_reaching_two_bodies_hits_the_nearer_one_whichever_was_spawned_first() 
                         &crate::character_runtime::fixture_cast(&["fixture_striker"]),
                         ambition_platformer2d_shared_tangle::lifecycle::SessionSpawnScope::UNSCOPED,
                         "projectile_test",
-                        crate::features::EncounterMobSeed {
+                        ambition_encounter::mob_seed::EncounterMobSeed {
                             id: id.into(),
                             character: Some("fixture_striker"),
                             brain: ambition_entity_catalog::placements::CharacterBrain::Custom(
@@ -404,7 +404,7 @@ fn a_shot_does_not_damage_a_victim_standing_behind_a_wall() {
                 &crate::character_runtime::fixture_cast(&["fixture_striker"]),
                 ambition_platformer2d_shared_tangle::lifecycle::SessionSpawnScope::UNSCOPED,
                 "projectile_test",
-                crate::features::EncounterMobSeed {
+                ambition_encounter::mob_seed::EncounterMobSeed {
                     id: "walled_enemy".into(),
                     character: Some("fixture_striker"),
                     brain: ambition_entity_catalog::placements::CharacterBrain::Custom(
@@ -642,7 +642,7 @@ fn the_body_a_stacked_shot_strikes(spawn_order: [&'static str; 2]) -> String {
                     &crate::character_runtime::fixture_cast(&["fixture_striker"]),
                     ambition_platformer2d_shared_tangle::lifecycle::SessionSpawnScope::UNSCOPED,
                     "projectile_test",
-                    crate::features::EncounterMobSeed {
+                    ambition_encounter::mob_seed::EncounterMobSeed {
                         id: id.into(),
                         character: Some("fixture_striker"),
                         brain: ambition_entity_catalog::placements::CharacterBrain::Custom(

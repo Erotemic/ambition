@@ -470,6 +470,16 @@ rather than one thing.
 
 Several completed slices established rules that should guide future ones:
 
+- ⭐ **READ WHAT THE DOMAIN ALREADY EMITS BEFORE DESIGNING A REQUEST VOCABULARY
+  FOR IT** (2026-09-03, the encounter cut). The seam design for the encounter
+  mob spawn specified a new `ActorConstructionParams` variant. Cutting it found
+  the request already existed — `ambition_encounter` emits
+  `EncounterEvent::SpawnCommand` on the ordinary bus — and the kernel was not
+  missing a protocol, it had a SERVER buried inside the adapter, pulling its own
+  requests out of a local vector so the request never had to travel. The cut was
+  to SEPARATE driving from serving, not to build a channel. A carve that starts
+  by designing vocabulary will design vocabulary; start by reading what already
+  crosses the seam.
 - A forwarding/re-export edge can be worth deleting even when total closure does
   not move; it makes ownership honest and prevents future callers from learning
   the wrong path.
@@ -814,6 +824,33 @@ kernel spawns from; `spawn_encounter_mob` itself is still the kernel's). For
 `ambition_platformer2d_actor_monolith` — **the exact edge this carve removes**,
 and the one the sibling crates' policy rows forbid regaining.
 ⇒ **A new `ActorConstructionParams` variant; the recipe STAYS in the kernel.**
+
+⛔ **CORRECTION FROM CUTTING IT (2026-09-03): no new variant was needed, because
+the REQUEST ALREADY EXISTED.** `ambition_encounter`'s wave director emits
+`EncounterEvent::SpawnCommand { id, character, kind, pos, size }` — all
+primitives — onto the ordinary event bus (`crates/ambition_encounter/src/waves.rs:141`).
+The kernel was not missing a protocol; it had a SERVER buried inside the
+adapter: `drive_wave_encounters` pulled its own `SpawnCommand`s out of a LOCAL
+vector and built the bodies itself, so driving and serving were one system and
+the request never had to travel.
+⇒ The cut was therefore to separate them, not to invent a channel:
+`features::serve_encounter_spawn_commands` reads the bus and constructs. The
+conclusion the design reached — *orchestration leaves, construction stays* —
+held; the mechanism it proposed was more than the code needed. **Read what the
+domain already emits before designing a request vocabulary for it.**
+
+✔ **(a) IS CUT, 2026-09-03.** `EncounterMobSeed` is
+`ambition_encounter::mob_seed::EncounterMobSeed` (not re-exported from the
+kernel), and the server is its own system.
+⭐ The driver's shrink is the evidence: it no longer takes the character
+catalog, the prepared cast or the authored sheets — every one a
+body-construction input it needed only because it served its own requests.
+✔ Guarded and poison-verified: the server must be ordered `.after(WaveEncounterDriven)`,
+or it reads requests a tick late while every existing test still passes (they
+assert the EVENT, not that a body was built).
+⚠ **Stated rather than implied: there is still no test that a wave request
+produces an ECS mob.** The guard pins the wiring, not the behaviour; the gap
+predates this cut.
 The portal-gun precedent does not transfer because a portal-gun pickup is a
 simple authored entity while a mob IS an actor, and actor construction is
 definitionally the kernel's. That is the doctrine line exactly: *orchestration*
@@ -834,6 +871,22 @@ in the kernel — they are room-feature systems — and the adapter disappears
 because the call direction reverses. No new vocabulary is needed beyond making
 the fact readable.
 
+✔ **(b) IS CUT, 2026-09-03.** `ambition_encounter::rewards::ClearedEncounters` is
+published by the domain, chained after its lifecycle reducer and inside
+`EncounterLifecycleSet`; the kernel's `sync_encounter_reward_chests` reads it,
+composed by the RUNTIME as `EncounterRewardSyncPlugin` so no registration lands
+back in the adapter.
+⭐ **The adapter shrank in a way that proves the direction changed: it no longer
+spawns anything.** The chest query left with the sync, and the reward call was
+its only use of `commands`. Its session guard was KEPT — it gates the whole
+system on a live session, and dropping it would newly run the trace, quest,
+banner and music projections in a session-less world, which is a behaviour change
+for whoever removes the last caller.
+✔ Guarded and poison-verified on MEMBERSHIP: every system
+`EncounterRegistryPlugin` schedules must be inside `EncounterLifecycleSet`, or
+consumers ordering `.after()` it read last tick's list — a chest one tick late,
+or absent on the tick an encounter resets, with nothing red.
+
 **(c) `FeatureWorldOverlaySet` is `shared_tangle` vocabulary, and the evidence
 predates this carve.** It is defined at
 `crates/ambition_platformer2d_actor_monolith/src/world/overlay.rs:32` and used as
@@ -849,6 +902,18 @@ itself the one nobody outside can name.** Move it to
 two prose references become real edges. This is worth doing whether or not the
 encounter carve proceeds.
 
+✔ **(c) IS CUT, 2026-09-03.** The set lives in `shared_tangle::schedule`; all
+five consumers name it from there (`ambition_content` directly, the demos through
+the facade's `platformer::schedule::` path they already use for every other
+schedule label) and **zero references reach it through the monolith**. The two
+prose citations now name the real path.
+✔ Guarded and poison-verified with a MEMBERSHIP assertion, not an existence
+check: all five external edges are satisfied by ONE
+`.in_set(FeatureWorldOverlaySet)` on `rebuild_feature_ecs_world_overlay`, and
+deleting that single call leaves every consumer compiling, still carrying its
+`.after(..)`, waiting on an empty set. The guard goes red on that deletion; an
+existence check would not.
+
 **(d) ⛔ One of the named seams is NOT a dependency, and must not be treated as
 one.** `crate::world::gated_lock_walls::sync_authored_gated_lock_walls` is
 scheduled by the encounter plugin but is not an encounter system: it is the
@@ -862,6 +927,101 @@ condition that hid a defect once.
 in the carve — a kernel-side world-gating plugin holding both, not one road
 leaving with the encounter.
 
+✔ **(d) IS CUT, 2026-09-03.** `world::gating::WorldGatingSchedulePlugin` holds
+both writers, composed by the runtime; the encounter plugin schedules neither and
+leaves a note saying where they went and why. The adjacency is now stated by a
+plugin named for the invariant instead of surviving by accident of history.
+✔ Guarded and poison-verified: both writers must be scheduled by that plugin,
+both `.after(FeatureWorldOverlaySet)` and both members of `WorldPrep`. A writer
+that lost the overlay edge would write into a list the rebuild is about to clear
+— collision that silently is not there, with nothing red. Dropping either road
+from the plugin turns the guard red naming the missing one.
+⚠ The pre-existing `gated_lock_walls` tests register that system into their own
+app, so they prove the SYSTEM and say nothing about the wiring. This is the
+wiring.
+
+#### What is LEFT, measured after the cuts (2026-09-03)
+
+The adapter's kernel seams went **7 → 3**, and only ONE is a logic dependency:
+
+| seam | file | kind |
+|---|---|---|
+| `clear_encounter_reward_ecs` | `systems.rs` | ⛔ a real dependency, and a QUESTION — see below |
+| `serve_encounter_spawn_commands` | `mod.rs` | a registration, not a dependency; it leaves when the plugin does |
+| `sync_authored_gated_lock_walls` | `mod.rs` | seam (d): a deliberate co-location, never a dependency |
+
+`loading.rs` (207 lines), `switch_index.rs` (36) and now `lock_walls.rs` name no
+kernel seam at all — `lock_walls.rs`'s last one was a DOC LINK to a kernel
+function, repointed at the published set.
+
+⛔ **AND THE LAST REAL SEAM IS NOT A MECHANICAL INVERSION. It is a policy
+question, and it is being left open on purpose.** `clear_encounter_reward_ecs`
+fires when the switch arming an encounter turns OFF: it despawns the reward
+chest and clears the persisted `reward_dropped` flag so a re-clear pays out
+again. Inverting it the way (b) went would mean reacting to a published fact —
+but the fact is not `Reset`:
+
+* the reward clear runs on **every** switch-off, while the `Reset` command is
+  written only when the phase is NOT in flight, so the two do not coincide;
+* reacting to `EncounterEvent::Reset` would be equivalent only if an in-flight
+  encounter can never hold a stale chest or a set `reward_dropped` flag. That is
+  probably true — chests spawn on `Completed` — but *probably* is how a save-flag
+  defect ships;
+* and the trigger is a SWITCH, whose index and activation queue are kernel-side,
+  so "switch off ⇒ retire this encounter's reward" may be encounter policy or may
+  be room-feature policy. Nothing in the code settles which.
+
+⛔⛔ **THE HYPOTHESIS IS FALSE, AND DELIBERATELY SO — resolved 2026-09-03 by
+reading the other reset road.** The question was whether *an in-flight encounter
+can ever hold a stale reward chest or a set looted flag.* It can:
+
+* `apply_encounter_cleanup` reacts to `Completed | Failed | Reset` and releases
+  or despawns the encounter's SPAWNED PARTICIPANTS. It does not touch reward
+  chests or the save flag.
+* So a **player-death reset** — the road the module doc names — leaves the chest
+  standing and `encounter_..._reward_looted` set. `sync_encounter_reward_chests_ecs`
+  then reconciles the existing chest's `Opened` marker against that flag rather
+  than paying out again.
+* Only the explicit SWITCH re-arm despawns the chest and clears the flag, which
+  is what its comment says it is for: *"so the next clear pays out fresh"*.
+
+⇒ **The switch-off clear is load-bearing, not redundant**, and the coherent rule
+underneath it is: *dying and re-running an encounter does not re-pay its reward;
+deliberately re-arming it does.*
+⛔ **So the inversion sketched above is disqualified on behaviour, not on
+taste.** A feature-layer system reacting to `EncounterEvent::Reset` would clear
+the flag on death-resets too and enable repeat payouts. This is exactly what
+"probably true" would have shipped.
+✔ **AND THAT TEST IS WRITTEN** (2026-09-03):
+`a_reset_does_not_retire_the_reward_chest` puts a reward chest in the world,
+sends a `Reset` event, runs `apply_encounter_cleanup`, and asserts the chest
+survives. Poison-verified by making cleanup retire chests on an end event —
+which is exactly the refactor that looks right, frees the encounter adapter's
+last kernel seam, and would pay a looted encounter out twice.
+
+✔ **RULED 2026-09-03: the reward clear STAYS WHERE IT SITS, and the trigger must
+not be written twice.** The switch is the feature layer's input, the chest is its
+entity and `reward_looted` is its save fact, so *"a switch-off retires the
+reward"* is room-feature policy today and stays that way — no new published fact,
+no change to WHEN the flag clears.
+⛔ **And it cannot be moved by registration alone**, which is the part worth
+recording: the reward retire is attached to the adapter by POSITION inside a
+save-mutating drain — after a toggle, behind three early `continue`s — and FOUR
+unrelated policies (a quest flag, `FlipGravity`, the four `SetGravity` faces, the
+encounter reset) share that one queue. The clear is stuck to the adapter by that
+LOOP, not by encounter logic. Moving only the registration would mean
+re-implementing the filter beside the original.
+⇒ Its release is downstream of the switch-loop split, specced above as its own
+frontier item.
+
+⇒ **The remaining question was an owner's, and it is answered.** The question is: *does
+the encounter domain own "my reward is retired", or does the feature layer own
+"a chest whose encounter is no longer cleared goes away"?* The first is a new
+published fact; the second is a rule the feature layer can evaluate for itself
+from `ClearedEncounters`, which already exists. The second is smaller and needs
+no new vocabulary — but it changes WHEN the save flag clears, which is player-
+visible.
+
 **Guards that pin it**, same shape as `ambition_world_items`/`ambition_held_items`:
 three policy rows (`engine.<crate>-manifest-allow`,
 `engine.<crate>-source-purity`, `engine.runtime-manifest-allow`), both
@@ -873,6 +1033,65 @@ sub-workspace lockfiles — `fixtures/minimal_game/Cargo.lock` is committed and
 goes stale silently.
 ⛔ And run `cargo test -p ambition_workspace_policy`, not `cargo check`: the
 allow-lists are `exact = true` and the compiler cannot see them.
+
+### The switch-activation loop — four policies sharing one drained queue (SPEC, 2026-09-03)
+
+Promoted out of the encounter carve, which could not finish its last seam because
+of this. **Nothing cut; the spec is the deliverable.**
+
+`drive_wave_encounters` ends with ~90 lines (`encounter/systems.rs:337`–`427`)
+that `std::mem::take` the `SwitchActivationQueue` and run FOUR unrelated policies
+over every activation:
+
+| policy | what it does |
+|---|---|
+| quest flags | sets `test_switch_toggled` and `switch_<id>_used`, and pushes a quest event — for EVERY activation, whatever its action |
+| `FlipGravity` | inverts `BaseGravity.dir`, persists the switch, `continue` |
+| `SetGravity{Down,Up,Left,Right}` | sets `BaseGravity.dir` to a cardinal face, persists the switch ON, `continue` |
+| `ResetEncounter` | TOGGLES the persisted switch, resets a terminal encounter, and retires its reward |
+
+**Measured shape.** One producer — `features/ecs/effect_bus.rs:51` is the only
+`push`. One consumer — this loop is the only drain (`session/teardown.rs:158`
+clears it at teardown). The payload is
+`SwitchActivation { id, action: String, target_encounter: String }`
+(`crates/ambition_encounter/src/registry.rs:61`), so the action is a STRING
+matched with `==` and `strip_prefix`, and an unrecognised action falls through
+the `ResetEncounter` guard silently.
+
+⛔ **WHY THIS BLOCKS THE ENCOUNTER CARVE.** The reward retire is not attached to
+the adapter by encounter logic — it is attached by POSITION inside this loop,
+after a save-mutating toggle and behind three early `continue`s. Nothing can
+observe that edge from outside: run before the drain and neither the queue nor
+the toggle has happened; run after and both are gone. Moving the registration
+alone would mean re-implementing the filter beside the original, which is the
+shape `adopt_loaded_save`'s own comment warns about — *"a test that
+re-implemented this policy beside it would have agreed with the bug"*.
+
+⇒ **THE SEAM: a drained activation becomes a published fact PER ACTION KIND, each
+consumer reacts to its own, and the save toggle is owned by exactly one of
+them.** Concretely:
+
+1. **Type the action.** A string matched three ways is why an unknown action is
+   silently a no-op. An enum makes an unhandled kind a compile error at each
+   consumer, which is the `CapabilityLanes` idiom this repo already uses.
+2. **One system drains and publishes**, in the domain that owns the queue
+   (`ambition_encounter::switches`), turning the queue into per-kind facts. It
+   owns the persisted switch write, so the toggle has exactly one author.
+3. **Each policy reacts to its own fact, from the crate that owns it**: gravity
+   to `shared_tangle::gravity`, quest flags to the quest/effect layer, encounter
+   reset to `ambition_encounter`, reward retire to the feature layer — the last
+   of which is what lets the encounter adapter finish leaving.
+4. ⚠ **The toggle is the hazard.** `ResetEncounter` reads and writes
+   `save.switch(id)` in one step and the reward branch keys off the RESULT. Split
+   carelessly and two systems both toggle, or none does. The publisher owns it
+   and the fact carries the post-toggle value.
+
+⚠ **Order is part of the value** — `SwitchActivationQueue::checksum` says so, and
+the queue is rollback-registered because a rewind that re-pushes predicted
+activations double-applies an encounter reset. Any split must keep one ordered
+drain, not four readers racing the same queue.
+
+▢ Not started. The encounter carve's remaining seam is downstream of this one.
 
 ### Character preparation versus actor simulation
 

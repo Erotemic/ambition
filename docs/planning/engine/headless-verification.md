@@ -150,6 +150,41 @@ nothing).
 The sibling capture is `ambition_platformer2d_actor_monolith/examples/render_room_geometry.rs capture`
 (geometry only, no render stack).
 
+## ⭐ A MACHINE WITH NO GPU CAN RUN THIS — measured 2026-09-03
+
+`capture_scene` runs on the calculex host, which has no `/dev/dri`, no display
+and no `nvidia-smi`. Mesa's **lavapipe** presents a working Vulkan device
+(`llvmpipe (LLVM 20.1.2, 256 bits)`, `PHYSICAL_DEVICE_TYPE_CPU`), and the tool
+renders offscreen, so no window and no `Xvfb` is needed.
+
+The default plan's own render acceptance —
+`capture_scene central_hub_complex player … 320x180 --warmup 20` — produced a
+correct 320×180 frame: room geometry, doors and their labels, the parallax
+background, the driven character, and the HUD line *"Drop through the floor
+opening to reach the stitched basement"*.
+
+⭐ **AND THE GPU STAGES OF THE IMAGE LEDGER ARE GENUINELY EXERCISED**, which the
+headless room runs cannot do because they compose no render app:
+
+```text
+gpu +117 (+21.4MP)  insert→gpu p50 151ms max 220ms | awaiting gpu 0
+never drawn 106 (20.8MP) | re-decodes 0 | dropped before gpu 0
+```
+
+⇒ So *"an agent CAN spot-check visuals"* is true on a GPU-less host too, and
+"always draw blind" work has no excuse here either. It also means the ledger's
+stage 3 (GPU) and stage 4 (first draw) — invisible to
+`scripts/headless_room_frame.sh`, whose `[census] render_pass_summary` reports
+`cpu_spans=0 gpu_spans=0` — have a road on this machine.
+
+⛔⛔ **NEVER QUOTE ITS TIMINGS AS HARDWARE NUMBERS.** `insert→gpu p50 151ms` is a
+SOFTWARE rasterizer moving bytes with the CPU; a real adapter is orders of
+magnitude away. This arm answers *"does it render, and is the picture right"*,
+never *"how fast does it render"*. A row that mixes an llvmpipe millisecond into
+a hardware budget is worse than no row.
+⚠ And the picture being right is a claim about THIS composition at THIS size —
+320×180 with 20 warmup frames. It is not a substitute for looking at the game.
+
 ## When a headless app dies naming nothing
 
 ⛔⛔ **`Parameter <Enable the debug feature to see the name> failed validation:

@@ -43,9 +43,15 @@ pub(in crate::encounter) fn desired_lock_wall_blocks<'a>(
 }
 
 /// Contribute the encounter lock walls to the per-frame collision overlay.
-/// Runs in `WorldPrep` after [`crate::features::rebuild_feature_ecs_world_overlay`]
-/// has cleared `gate_solids`, so the contribution is a clean per-frame derive of
-/// the encounter entities' live phase — no base mutation, no reconcile.
+/// Runs in `WorldPrep` after
+/// [`ambition_platformer2d_shared_tangle::schedule::FeatureWorldOverlaySet`] has
+/// cleared `gate_solids`, so the contribution is a clean per-frame derive of the
+/// encounter entities' live phase — no base mutation, no reconcile.
+///
+/// ⚠ Names the SET, not the actor kernel's function. The ordering is against the
+/// set (it is `shared_tangle` vocabulary as of 2026-09-03), and pointing the
+/// prose at a kernel function was the last thing in this file that named the
+/// crate this module is trying to leave.
 pub fn contribute_encounter_lock_walls(
     encounters: Query<(&Encounter, &EncounterLifecycle, &EncounterLockWall)>,
     mut overlay: ResMut<FeatureEcsWorldOverlay>,

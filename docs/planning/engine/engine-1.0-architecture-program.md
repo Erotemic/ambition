@@ -67,6 +67,37 @@ disclaims it. ⇒ [`../roadmap.md`](../roadmap.md) carries the P-order and
 Use [`simulation-authority-and-determinism.md`](simulation-authority-and-determinism.md)
 and [`construction-and-reconstitution.md`](construction-and-reconstitution.md).
 
+### Re-measured 2026-09-03 — the convergence is narrower than the sentence above
+
+*"New room, transition, replay, restore, and persistent occurrence
+reconstruction should share semantic construction"* reads as one program over
+five operations. Measured against the kernel, those operations already go
+through **three different canonical authorities**, and only one of them is
+construction:
+
+| authority | what it owns | example |
+|---|---|---|
+| **construction** | building an authoritative occurrence | `ConstructionDomain` — 3 production implementors: `ActorConstruction`, `GravityZoneConstruction`, `PortalGunConstruction` (the last outside the kernel entirely) |
+| **transit** | relocating a body that already exists | `restore_checkpoint_on_session_start` moves through `ae::movement::transit_body`, *"the ONE transit authority (ADR 0024)"* — not a raw position write |
+| **resource hydration** | save → resources, no entity involved | `restore_inventory_from_save` writes `OwnedItems`, `BodyWallet` and the minted baselines |
+
+The kernel has **12** `reset_*`/`restore_*` entry points. They distribute across
+those three, plus in-place baseline restores that argue their own case:
+`EnemyState::reset_to_spawn` deliberately re-projects nothing, because
+*"`tuning`/`brain_profile` are projected once at spawn and never mutate at
+runtime … they already hold the baseline"*.
+
+⇒ **The paths that actually RECONSTRUCT already reach the construction road** —
+`items/pickup/mod.rs`, `items/pickup/minted_horizon.rs` and `session/reset/mod.rs`
+all name it. The ones that do not are not parallel ledgers; they are a different
+authority doing a different job.
+⚠ **So the risk this gate names is real but should be stated as one question, not
+five:** *does a new ENTITY-reconstruction path grow its own ledger instead of
+naming a `ConstructionDomain`?* A reader who takes the sentence at face value
+will go looking for convergence between checkpoint transit and inventory
+hydration, which should never converge — they share a trigger (a restore) and
+nothing else.
+
 ## Capability programs
 
 ### E1 — simulation authority, determinism and lifetime

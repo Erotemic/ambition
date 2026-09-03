@@ -192,11 +192,21 @@ def test_the_maintenance_lane_holds_only_periodic_hygiene():
     property. It reddened when the two CI-only ratchets moved into the lane —
     a change the lane is precisely for. A guard that fails on the thing it
     should permit is pinning the fix, not the gap.
+
+    ⛔ AND IT HAPPENED AGAIN THE SAME DAY, which is why the check now reads the
+    whole argv. The first relaxation replaced the list with `argv[-1]` — a
+    script path OR the literal `--check`, because those were the two shapes then
+    in the lane. That is still the LIST, spelled as a suffix rule: the vanished
+    job ends in `--strict` and was rejected for running "not a repository
+    script" while its second argument was `scripts/check_planning_citations.py`.
+    ⇒ The property is "this job runs a repository script and not cargo", and it
+    does not care where in the argv the script appears. A proxy that enumerates
+    today's shapes will keep failing on tomorrow's, one relaxation at a time.
     """
     jobs = run_tests.build_maintenance_jobs()
     assert jobs, "the lane must not be empty, or every assertion here is vacuous"
     for job in jobs:
-        assert job.argv[-1].startswith("scripts/") or job.argv[-1] == "--check", (
+        assert any(str(a).startswith("scripts/") for a in job.argv), (
             f"{job.name!r} does not run a repository script: {job.argv}"
         )
         assert "cargo" not in " ".join(job.argv).lower(), (

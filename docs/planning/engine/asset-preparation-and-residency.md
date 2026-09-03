@@ -1579,9 +1579,20 @@ a median of 0.26 MP, so NOT ONE clears `NOTABLE_MEGAPIXELS` (1.0): the `[image]`
 ledger can never show pack usage at that tier, and "both roads loaded in one
 run" was never something that capture could tell me.
 
-⚠⚠ **AND THE OCCUPANCY CENSUS BELOW COVERS 44% OF THE TREE, NOT THE TREE.** It
+⚠⚠ **AND THE OCCUPANCY CENSUS BELOW COVERS HALF THE TREE, NOT THE TREE.** It
 asks how much of a CLAIMED page is sampled, and says nothing about pages no
-manifest claims at all. `scripts/measure_orphan_shipped_pages.py` measures
+manifest claims at all. Re-measured 2026-09-02 across all four tiers: of 2172
+PNGs, **1043 are claimed — 49% by megapixels, but 81% by BYTES** (the "44%"
+this line used to carry predated the four-tier sweep).
+
+⛔ **THE TWO DENOMINATORS DISAGREE BY FOUR TIMES, AND THE BYTE ONE IS THE ONE
+THAT SHIPS.** The unclaimed population is 51% of the tree's megapixels and only
+**19% of its bytes** — 120 MB of 630 MB — because stranded pages are
+large-dimension and mostly empty, so they compress to almost nothing. A reader
+who takes "half the megapixels are unreachable" as "half the package is
+recoverable" will be wrong by a factor of four. Megapixels are the right unit
+for decode and residency; bytes are the right unit for install size, and this
+finding is an install-size finding. `scripts/measure_orphan_shipped_pages.py` measures
 those across all four tiers, in **four buckets that do not deserve the same
 confidence** — three that carry a reason and one that is an upper bound:
 

@@ -102,6 +102,31 @@ schema bump: the clone snapshot lost a field the session checksum never saw.
 
 ### I2 — held weapon/ability occurrence continuity
 
+⭐ **THE NINE ARE NAMED NOW (2026-09-02), and they are nine PAYLOADS ON ONE
+ROAD rather than nine roads — which is the part that decides how big this is.**
+`Item::held_item_id()` returns `Some` for exactly nine rows:
+
+```text
+axe   javelin   gun_sword   puppy_slug_gun   bomb        <- carried objects
+fireball   blink   grapple   mark_recall                 <- gauntlet abilities
+```
+
+All nine reach the body the same way — `held_spec_for_item` → a `HeldItemSpec`
+→ `equip_held_spec` → a `HeldItem` component — and `Item::PortalGun` is
+deliberately NOT among them (`held_item_id` is `None`; it equips its own
+component, which is what I3 is about). ⇒ **I2 is a question about ONE road's
+behaviour under five operations, not about reconciling nine.** The row's
+phrasing invites the second reading and it costs a lot more.
+
+⚠ **WHAT IS STILL UNMEASURED, stated so nobody mistakes the above for the
+answer:** whether that one road preserves identity across pickup, room
+transition, drop, save/load and replay. Naming the population and finding it
+shares a road is where this analysis stopped; the five operations were not
+tested. ⛔ The split in the list above is also a HYPOTHESIS worth checking
+first — five look like carried objects and four like granted abilities, and if
+an ability has no world form then "occurrence identity" cannot mean the same
+thing for it, exactly as it does not for the portal gun.
+
 The nine held weapon/ability cases are the real customer. A pickup, room
 transition, drop, save/load and replay should preserve whatever occurrence
 identity/provenance the item's policy says matters while still supporting durable

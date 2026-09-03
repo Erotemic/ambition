@@ -361,24 +361,32 @@ impl RollbackRegistry {
         &mut self,
         descriptor: RollbackRegistrationDescriptor,
     ) -> Result<RollbackRegistrationOutcome, RollbackRegistrationError> {
-        if descriptor.name.trim().is_empty() {
-            return Err(RollbackRegistrationError::EmptyName);
+        // The protocol every canonical registry answers, read from
+        // `ambition_registry_core` (2026-09-03): blank identity refused by
+        // name, a second registration classified as idempotent or conflict,
+        // never silently replaced. The wire-identity collision below is this
+        // registry's own extra rule on top of it.
+        if let Err(empty) = ambition_registry_core::require_non_empty(&[
+            ("name", &descriptor.name),
+            ("owner", &descriptor.owner),
+        ]) {
+            return Err(match empty.field {
+                "name" => RollbackRegistrationError::EmptyName,
+                _ => RollbackRegistrationError::EmptyOwner,
+            });
         }
-        if descriptor.owner.trim().is_empty() {
-            return Err(RollbackRegistrationError::EmptyOwner);
-        }
-        match self.entries.get(&descriptor.name) {
-            Some(existing) if existing == &descriptor => {
+        match ambition_registry_core::classify(self.entries.get(&descriptor.name), &descriptor) {
+            ambition_registry_core::Classification::Idempotent => {
                 return Ok(RollbackRegistrationOutcome::Idempotent);
             }
-            Some(existing) => {
+            ambition_registry_core::Classification::Conflict { existing } => {
                 return Err(RollbackRegistrationError::Conflict {
                     name: descriptor.name.clone(),
                     existing: existing.clone(),
                     incoming: descriptor,
                 });
             }
-            None => {}
+            ambition_registry_core::Classification::New => {}
         }
         // What keeps v20's narrower identity sound. The fingerprint hashes
         // [`wire_type_identity`] so that relocating a type is not a wire-format
@@ -416,20 +424,23 @@ impl RollbackRegistry {
     /// Stable human-readable representation; byte-identical under equivalent
     /// plugin/registration insertion orders.
     pub fn deterministic_dump(&self) -> String {
-        let mut out = format!("ggrs-rollback-schema-v{}\n", GGRS_ROLLBACK_SCHEMA_VERSION);
-        for entry in self.entries.values() {
-            use std::fmt::Write as _;
-            let _ = writeln!(
-                out,
-                "{}\t{}\t{}\t{}\t{}",
-                entry.name,
-                entry.owner,
-                entry.kind.canonical_name(),
-                entry.type_name,
-                entry.detail
-            );
-        }
-        out
+        let rows: Vec<String> = self
+            .entries
+            .values()
+            .map(|entry| {
+                ambition_registry_core::canonical_row(&[
+                    &entry.name,
+                    &entry.owner,
+                    entry.kind.canonical_name(),
+                    &entry.type_name,
+                    &entry.detail,
+                ])
+            })
+            .collect();
+        ambition_registry_core::canonical_section(
+            Some(&format!("ggrs-rollback-schema-v{GGRS_ROLLBACK_SCHEMA_VERSION}")),
+            rows.iter().map(String::as_str),
+        )
     }
 
     /// What the schema actually IS, with every organisational label removed.
@@ -442,19 +453,22 @@ impl RollbackRegistry {
     /// the fingerprint hashed who registered a row. `owner` left in v5; [`wire_type_identity`]
     /// is the second half of that decision, in v20.
     pub fn schema_dump(&self) -> String {
-        let mut out = format!("ggrs-rollback-schema-v{GGRS_ROLLBACK_SCHEMA_VERSION}\n");
-        for entry in self.entries.values() {
-            use std::fmt::Write as _;
-            let _ = writeln!(
-                out,
-                "{}\t{}\t{}\t{}",
-                entry.name,
-                entry.kind.canonical_name(),
-                wire_type_identity(&entry.type_name),
-                entry.detail
-            );
-        }
-        out
+        let rows: Vec<String> = self
+            .entries
+            .values()
+            .map(|entry| {
+                ambition_registry_core::canonical_row(&[
+                    &entry.name,
+                    entry.kind.canonical_name(),
+                    &wire_type_identity(&entry.type_name),
+                    &entry.detail,
+                ])
+            })
+            .collect();
+        ambition_registry_core::canonical_section(
+            Some(&format!("ggrs-rollback-schema-v{GGRS_ROLLBACK_SCHEMA_VERSION}")),
+            rows.iter().map(String::as_str),
+        )
     }
 
     /// Which of these requirements is NOT installed.

@@ -8,8 +8,20 @@
 //! transactionally rather than overwriting, and storage is ordered so equivalent
 //! plugin insertion orders produce the same dump and the same fingerprint
 //! contribution.
+//!
+//! ⭐ Since 2026-09-03 that lifecycle is spelled by `ambition_registry_core`
+//! rather than restated here: the entry IS a [`RegistrationMeta`], a second
+//! registration is [`classify`]d, and the dump is [`canonical_row`]s. This
+//! registry was the one of thirty-one that answered all four protocol
+//! questions on purpose, so it is the first to read them from the shared
+//! vocabulary — the point being that the next registry cannot answer them
+//! differently by accident.
 
 use std::collections::BTreeMap;
+
+use ambition_registry_core::{
+    canonical_row, canonical_section, classify, Classification, RegistrationMeta,
+};
 
 use bevy::ecs::resource::Resource;
 use bevy::prelude::{Entity, World};
@@ -194,11 +206,9 @@ impl std::error::Error for ConstructionRegistrationError {}
 /// That stored the same variant-compatibility fact twice and then called the result proved, which
 /// it was not: the two could disagree, and an acceptance function that wrongly returned `true`
 /// still reached the constructor's `unreachable!` mid-commit.
-struct RecipeEntry {
-    owner: String,
-    source: String,
-    schema_id: String,
-}
+///
+/// A recipe entry is exactly a [`RegistrationMeta`]: owner, source, schema id.
+type RecipeEntry = RegistrationMeta;
 
 /// What a registered relation declares about itself.
 ///
@@ -207,11 +217,7 @@ struct RecipeEntry {
 /// is no table for an outside registration to win a race in. This entry does
 /// what a recipe entry does: stable ownership, idempotent re-registration,
 /// conflict rejection, and an ordered fingerprint contribution.
-struct RelationEntry {
-    owner: String,
-    source: String,
-    schema_id: String,
-}
+type RelationEntry = RegistrationMeta;
 
 /// App-installed registry of construction recipe identities and relation
 /// wirings.
@@ -242,12 +248,8 @@ impl<D: ConstructionDomain> Default for ConstructionRegistry<D> {
 }
 
 fn non_empty(fields: &[(&'static str, &str)]) -> Result<(), ConstructionRegistrationError> {
-    for (field, value) in fields {
-        if value.trim().is_empty() {
-            return Err(ConstructionRegistrationError::EmptyIdentity { field });
-        }
-    }
-    Ok(())
+    ambition_registry_core::require_non_empty(fields)
+        .map_err(|empty| ConstructionRegistrationError::EmptyIdentity { field: empty.field })
 }
 
 impl<D: ConstructionDomain> ConstructionRegistry<D> {
@@ -267,33 +269,29 @@ impl<D: ConstructionDomain> ConstructionRegistry<D> {
             ("source", source.as_str()),
             ("schema id", schema_id.as_str()),
         ])?;
-        if let Some(existing) = self.recipes.get(&recipe) {
-            let identical = existing.owner == owner
-                && existing.source == source
-                && existing.schema_id == schema_id;
-            return if identical {
-                Ok(())
-            } else {
+        let incoming = RecipeEntry {
+            owner,
+            source,
+            schema_id,
+        };
+        match classify(self.recipes.get(&recipe), &incoming) {
+            Classification::Idempotent => Ok(()),
+            Classification::Conflict { existing } => {
                 Err(ConstructionRegistrationError::ConflictingRecipe {
                     recipe,
                     existing_owner: existing.owner.clone(),
                     existing_source: existing.source.clone(),
                     existing_schema: existing.schema_id.clone(),
-                    candidate_owner: owner,
-                    candidate_source: source,
-                    candidate_schema: schema_id,
+                    candidate_owner: incoming.owner,
+                    candidate_source: incoming.source,
+                    candidate_schema: incoming.schema_id,
                 })
-            };
+            }
+            Classification::New => {
+                self.recipes.insert(recipe, incoming);
+                Ok(())
+            }
         }
-        self.recipes.insert(
-            recipe,
-            RecipeEntry {
-                owner,
-                source,
-                schema_id,
-            },
-        );
-        Ok(())
     }
 
     /// Register a relation kind's IDENTITY. Re-registering byte-identical
@@ -320,33 +318,29 @@ impl<D: ConstructionDomain> ConstructionRegistry<D> {
             ("source", source.as_str()),
             ("schema id", schema_id.as_str()),
         ])?;
-        if let Some(existing) = self.relations.get(&kind) {
-            let identical = existing.owner == owner
-                && existing.source == source
-                && existing.schema_id == schema_id;
-            return if identical {
-                Ok(())
-            } else {
+        let incoming = RelationEntry {
+            owner,
+            source,
+            schema_id,
+        };
+        match classify(self.relations.get(&kind), &incoming) {
+            Classification::Idempotent => Ok(()),
+            Classification::Conflict { existing } => {
                 Err(ConstructionRegistrationError::ConflictingRelation {
                     kind,
                     existing_owner: existing.owner.clone(),
                     existing_source: existing.source.clone(),
                     existing_schema: existing.schema_id.clone(),
-                    candidate_owner: owner,
-                    candidate_source: source,
-                    candidate_schema: schema_id,
+                    candidate_owner: incoming.owner,
+                    candidate_source: incoming.source,
+                    candidate_schema: incoming.schema_id,
                 })
-            };
+            }
+            Classification::New => {
+                self.relations.insert(kind, incoming);
+                Ok(())
+            }
         }
-        self.relations.insert(
-            kind,
-            RelationEntry {
-                owner,
-                source,
-                schema_id,
-            },
-        );
-        Ok(())
     }
 
     /// Whether this recipe identity is registered. Preparation refuses a row
@@ -379,20 +373,32 @@ impl<D: ConstructionDomain> ConstructionRegistry<D> {
             .collect()
     }
 
+    /// Recipes then relations, each ordered by key: the section grammar the
+    /// prepared-content fingerprint hashes, so the two row kinds' relative
+    /// order is part of it and is not sorted away.
     pub fn deterministic_dump(&self) -> String {
-        let mut out: String = self
-            .schema_descriptors()
-            .into_iter()
-            .map(|(recipe, owner, source, schema)| {
-                format!("recipe\t{recipe}\t{owner}\t{source}\t{schema}\n")
+        let rows: Vec<String> = self
+            .recipes
+            .iter()
+            .map(|(recipe, entry)| {
+                canonical_row(&[
+                    "recipe",
+                    recipe.as_str(),
+                    &entry.owner,
+                    &entry.source,
+                    &entry.schema_id,
+                ])
             })
+            .chain(self.relations.iter().map(|(kind, entry)| {
+                canonical_row(&[
+                    "relation",
+                    kind.as_str(),
+                    &entry.owner,
+                    &entry.source,
+                    &entry.schema_id,
+                ])
+            }))
             .collect();
-        for (kind, entry) in &self.relations {
-            out.push_str(&format!(
-                "relation\t{kind}\t{}\t{}\t{}\n",
-                entry.owner, entry.source, entry.schema_id
-            ));
-        }
-        out
+        canonical_section(None, rows.iter().map(String::as_str))
     }
 }

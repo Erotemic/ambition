@@ -31,6 +31,9 @@ bevy = { version = "0.19.1", default-features = false, features = [
 # The content-free pure-logic foundation (geometry / world / movement / the shared BodyKinematics
 # body component). Foundation-only — still NEVER ambition_platformer2d_actor_monolith.
 ambition_platformer2d_core = { path = "../ambition_platformer2d_core" }
+# The registration protocol the construction registry answers (identity meta,
+# new/idempotent/conflict, canonical rows). Dependency-free.
+ambition_registry_core = { path = "../ambition_registry_core" }
 
 # Logging facade (bevy logs through tracing). The binding report is the ONE sink
 # for "content named something that does not exist", so it emits here rather than

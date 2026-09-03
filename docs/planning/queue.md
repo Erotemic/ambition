@@ -1879,7 +1879,13 @@ The one unresolved developer-policy choice from the session-ownership work is in
   `default-features = false` mismatch and that the exported macro spells
   `::core::fmt`; run the wasm CHECK (a macro move is a cfg-drift shape). Design:
   `triage/stable-identifier-centralization.md`. Assigned to ambition-da.
-- ▢ **INVENTORY THE 31 REGISTRIES BEFORE DESIGNING `ambition_registry_core`.**
+- ▢ **`ambition_registry_core`: R2 + R3 LANDED 2026-09-03 (crate + two pilots:
+  construction, rollback; rollback baseline byte-identical); next is R4 — decide
+  which of `PlacementLoweringRegistry` / `RoomContentStagingRegistry` migrate
+  and which of the seven silent-overwrite registries must say "replace" in
+  place. Design and evaluation in `triage/ambition-registry-core.md`.** The
+  inventory row that preceded it, kept for the record:
+  **INVENTORY THE 31 REGISTRIES BEFORE DESIGNING `ambition_registry_core`.**
   (Scheduled 2026-09-02.) 27 became 31 in six weeks; the only registry-shaped
   trait is `RollbackRegistrar`, one domain's hook. The doc's argument is semantic
   drift, so the first deliverable is a table of how all 31 answer the four

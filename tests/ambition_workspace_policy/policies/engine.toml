@@ -1021,6 +1021,29 @@ severity = "error"
 members = ["ambition_time"]
 
 [[policy]]
+id = "engine.ambition_registry_core-member"
+scope = "engine"
+kind = "workspace-member"
+owners = ["ambition_registry_core"]
+watch_paths = ["Cargo.toml"]
+rationale = "ambition_registry_core is the registration protocol every canonical registry reads (identity meta, new/idempotent/conflict classification, canonical rows); it must stay a registered workspace member so the two pilot registries (construction, rollback) and every later adopter resolve it"
+source_doc = "docs/planning/triage/ambition-registry-core.md"
+severity = "error"
+members = ["ambition_registry_core"]
+
+[[policy]]
+id = "engine.ambition_registry_core-dependency-free"
+scope = "engine"
+kind = "file-omits"
+owners = ["ambition_registry_core"]
+watch_paths = ["crates/ambition_registry_core/Cargo.toml"]
+rationale = "ambition_registry_core sits below every registry and changes rarely; ANY dependency here is rebuild fanout for thirty crates, and a Bevy dependency is what the triage page forbids until a shared adapter proves worth it. The manifest names no ambition crate and no bevy crate — spelled as an omission because an allowlist that allows nothing reads as a blank"
+source_doc = "docs/planning/triage/ambition-registry-core.md"
+severity = "error"
+forbid = ["path = \"../ambition", "bevy ="]
+file = "crates/ambition_registry_core/Cargo.toml"
+
+[[policy]]
 id = "engine.ambition_time-extracted-paths"
 scope = "engine"
 kind = "required-path"
@@ -1725,6 +1748,9 @@ allow = ["ambition_platformer2d_actor_monolith", "ambition_projectiles", "ambiti
     "ambition_character_sprites",
     # Runtime composes the LDtk adapter and owns its rollback/session integration.
     "ambition_platformer2d_ldtk",
+    # The registration protocol the rollback registry answers (2026-09-03):
+    # dependency-free, below every registry.
+    "ambition_registry_core",
     # Conversation continuity is lower-tier domain state composed by the runtime.
     "ambition_conversation",
     # Boss-encounter state is lower-tier domain state composed by the runtime.

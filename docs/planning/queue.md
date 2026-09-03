@@ -1352,7 +1352,10 @@ OPTIONAL dep + feature, never used:
   `examples/capability_demo`).
   ⇒ **The five OPTIONAL ones are still open, and TRIAGED 2026-09-03 so the
   ruling is cheap.** All five are still unnamed in their crate's `.rs`
-  (re-derived, not carried forward). ⛔ **None is mechanical**, and the reason is
+  — ⭐ **re-derived again 2026-09-03 late, 0 source files each**, because a
+  triage table is exactly the artefact that goes stale while reading as settled.
+  ✔ **And the two rows that said "needs reading before touching" are now read**,
+  so every cell in the table is filled and the ruling needs no further digging. ⛔ **None is mechanical**, and the reason is
   not the compiler — it is INTENT. An optional dep is wired into a feature
   definition, so removing it edits a declared seam and every dependent that
   enables that feature:
@@ -1362,8 +1365,8 @@ OPTIONAL dep + feature, never used:
   | `ambition_characters` → `ambition_causal` | `causal = ["dep:ambition_causal"]` | the monolith's own `causal` | ⚠ a NO-OP feature: it pulls the dep and does nothing else, and its comment says *"Publish this capability's causal facts (brain decisions, for now)"* — a seam declared ahead of its use |
   | `game/ambition_app` → `ambition_causal` | `causal = ["ambition_platformer2d/causal", "dep:ambition_causal"]` | `ambition_app_tools` | ⭐ the feature does MORE than pull the dep, so dropping the `dep:` alone leaves it meaningful — the smallest safe edit of the five |
   | `ambition_sim_view` → `ambition_portal2d` | `portal = ["dep:ambition_portal2d", "…actor_monolith/portal"]` | nothing in a manifest; the gate's feature UNION does | same shape as above |
-  | `ambition_platformer2d` → `ambition_sfx_bank` | inside a feature array (`crates/ambition_platformer2d/Cargo.toml:79`) | — | needs reading before touching |
-  | `ambition_touch_input` → `ambition_cutscene` | inside a feature array (`crates/ambition_touch_input/Cargo.toml:30`) | — | needs reading before touching |
+  | `ambition_platformer2d` → `ambition_sfx_bank` | **`all_capabilities`** (`crates/ambition_platformer2d/Cargo.toml:79`), which is the crate's `default` | everything, via `default` | ⚠ a ROSTER entry, not a wiring: `all_capabilities` lists 20-odd crates the facade can offer and this is one line of it. Removing it narrows what `default` means, so it is the same class of intent decision as the no-op feature |
+  | `ambition_touch_input` → `ambition_cutscene` | **`mobile_touch`** (`crates/ambition_touch_input/Cargo.toml:30`) | `ambition_platformer2d/mobile_touch` (`:126`) | ⚠ sits among nine `dep:` lines that ARE used (`actor_monolith`, `sim_view`, `render`, `ui_nav`, `persistence`, `bevy`, `virtual_joystick`); only `ambition_cutscene` is unnamed in the source, so it reads as a wire that was planned and never run |
 
   ⇒ **A no-op feature that exists to declare a future seam is not debt, and
   removing it would delete the intent.** That is a maintainer's ruling, not a

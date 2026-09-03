@@ -57,11 +57,14 @@ When a command changes, update or delete the recipe in the same patch.
   it. ⛔ Most are an INSTRUMENT error, not a mistake about the code: a filter
   that could not match, a scan at the wrong granularity, a count that was a
   property of its own flags, two instruments using one word.
-- [`checks-that-did-not-run.md`](checks-that-did-not-run.md) — its dual: the four
-  questions that catch a check which is CORRECT and never executed. ⛔ nine
-  members found in one gate script, most of them by accident, and
-  two are structurally unfixable — plus the four ways a search that finds
-  nothing lies to you, and the positive control that catches all of them.
+- [`checks-that-did-not-run.md`](checks-that-did-not-run.md) — its dual: the
+  questions that catch a check which is CORRECT and never executed. ⛔ **fourteen**
+  members now, seven of them found in one gate script and most of the first ten
+  by accident; several are still structurally live. Also holds the SIBLING
+  family (a check that ran and could not have failed, 46 instances in
+  [`../../dev/journals/blind-checks-2026-09-03.md`](../../dev/journals/blind-checks-2026-09-03.md)),
+  the seven-pass audit for finding more, the four ways a search that finds
+  nothing lies to you, and ⭐ why a CORRECT fix can raise a failure count.
 - **Testing headlessly** lives in
   [`../planning/engine/headless-verification.md`](../planning/engine/headless-verification.md)
   — `Platformer2dSimHarness::step`, the headless binaries, and the doctrine about what to

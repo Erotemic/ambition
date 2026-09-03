@@ -88,6 +88,26 @@ def test_the_recipe_quotes_the_journals_real_total():
     )
 
 
+def test_the_recipes_index_states_the_pages_real_size():
+    """⛔ THE INDEX IS PROSE ABOUT A TABLE TOO. It said "nine members" when the
+    page held twelve, and "nine ... in one gate script" when seven were. An
+    index entry is the first thing a reader believes and the last thing anyone
+    updates."""
+    index = (REPO / "docs/recipes/index.md").read_text()
+    entry = re.search(
+        r"\[`checks-that-did-not-run\.md`\][^\n]*\n(?:  [^\n]*\n)*", index
+    )
+    assert entry, "the index no longer has an entry for that page"
+    stated = re.search(r"\*\*([a-z-]+)\*\* *\n? *members", entry.group(0)) or re.search(
+        r"([a-z-]+)\s+members", entry.group(0)
+    )
+    assert stated, f"the index entry no longer states a member count:\n{entry.group(0)}"
+    assert word_to_int(stated.group(1)) == len(numbers(RECIPE)), (
+        f"the index says {stated.group(1)}; the page's table has "
+        f"{len(numbers(RECIPE))} rows"
+    )
+
+
 def test_the_two_pages_still_point_at_each_other():
     """They count DIFFERENT families and say so; the link is what keeps a reader
     from adding the totals."""

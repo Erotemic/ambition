@@ -178,7 +178,17 @@ away from work that then succeeded, and each copy had to be found separately.
 ⇒ **A forecast belongs in ONE page — the one that owns the work — and other
 pages LINK to it.** A measurement can be quoted (it was true when taken, and the
 date says so); a prediction cannot, because when it fails the quotations do not
-fail with it. ⚠ If you find yourself restating someone else's forecast, that is
+fail with it.
+
+⚠ **BUT A MEASUREMENT ONLY TRAVELS SAFELY WITH ITS METHOD.** Sharpened
+2026-09-03 by watching my own figure spread: *"`possession` is named 87 times
+outside `abilities/` (`teleport` 61)"* is quoted in three code locations besides
+the plan that owns it, and none of the four stated the SCOPE — within the actor
+monolith. The obvious wider grep gives 256 and 603, so every copy reads as
+stale to anyone who checks, and I briefly believed my own numbers had rotted.
+⇒ When you quote a measurement, carry its method or point at the page that
+states it; a figure whose derivation is missing is unverifiable in every copy at
+once, even though the original was sound. ⚠ If you find yourself restating someone else's forecast, that is
 the moment to link instead.
 
 ⭐ And when one does fail, KEEP IT with its post-mortem rather than deleting it.

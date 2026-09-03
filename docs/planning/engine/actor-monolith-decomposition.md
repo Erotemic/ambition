@@ -857,6 +857,70 @@ Prepared character/content ownership should continue moving toward character
 and provider packages. The residual actor kernel consumes prepared body/action
 facts rather than becoming the content compiler/catalog.
 
+**Measured 2026-09-03, from the seam rather than the line count.** `character_runtime/`
+is 13,888 lines with tests (production: `mod.rs` 1,235, `prepared_match.rs` 1,611,
+`staging.rs` 833, `audit.rs` 618, `presentation.rs` 598, `live_match_clock.rs` 474,
+`physical_baseline.rs` 295, `hurtbox.rs` 277, `seating.rs` 267, `definition.rs` 82).
+Six of those files name NOTHING in the kernel (`definition`, `staging`, `seating`,
+`physical_baseline`, `hurtbox`, `audit`); they are carve-clean today. The kernel
+references that remain are in four files, and they are not one kind of thing:
+
+| File | Kernel names | What it is |
+|---|---|---|
+| `mod.rs` | `character_sprites::{SpriteMaterialization, character_sprite_tier, materialize_declared_character_sprite, demand_character_fx_sheets}`, `assets::platformer_assets` | the ASSET seam — load demand and materialization; leaves with the sprite domain, not with this frontier |
+| `prepared_match.rs` | `features::ecs::actor_clusters::ActorClusterSeed` (the `PreparedSeat.seed` field and `new_character_in`), `avatar::starting_character::InitialBodyPolicy` (×3), and in activation only: `enemy_component_snapshot`, `enemy_default_brain`, `FeatureBaseBundle`, `EnemyActorBundle`, `LocalPlayer`, `participant_seat::player_slot_of` | ONE prepared value holding a kernel type, one policy value, and construction |
+| `live_match_clock.rs` | `features::stocks_match::StocksMatchSettled` | a message read |
+| `presentation.rs` | `avatar::PersonaBaseline` | a component inserted at staging |
+
+⇒ **The seam is `PreparedSeat.seed`.** Preparation builds an `ActorClusterSeed` so
+that activation can spawn without a lookup (this module's own contract: *"activation
+performs no authority lookups"*). The seed is the kernel's construction value — and
+measured, it is not kernel-typed at all: every field of `ActorClusterSeed` is a
+`core`/`characters`/`combat`/`shared_tangle`/`vfx` type, its two constructors read
+only the catalog and the authored sheets, and the 1,000-line seed region of
+`actor_clusters.rs` (lines 54–1016) contains ZERO `crate::` references. What binds
+it to the kernel is where it is DEFINED, plus two methods that hand it to the
+simulation step (`as_actor_mut`, `update_for_test`) and `into_components`'s return
+type, whose members are all lower-crate components too.
+
+**Landed 2026-09-03 (`944e082c4`): the worn-kit compiler.** What a character id
+resolves to on a body — name, action set, moveset, identity baseline, durable
+`CombatKit`, how it fires — was compiled in the kernel's `avatar` module and is
+`ambition_combat::worn_kit::WornKit::resolve` now; the kernel's three roads (spawn
+bundle, runtime re-wear, `prepare_match`) consume the value. The authored-overlay
+rule had been written twice (preparation and the kernel); it is
+`ambition_characters::prepared::overlay_authored_moves`, once. Zero behaviour change
+by construction. The absence contract pinning `build_default_action_set` to one file
+now exempts the compiler's new home instead of `starting_character.rs`.
+
+**Next cut, in order:**
+
+1. **The body seed leaves the kernel** — `ActorClusterSeed`, `ActorMotionPath`,
+   `ActorBody`, both constructors, `into_components`, `sprite_render_size_for_name_in`
+   and the hurt-feedback tag rule, into a crate below the kernel that depends on
+   exactly what the file already depends on. The kernel keeps `ActorMut`,
+   `ActorClusterQueryData` and the two simulation-binding methods (as a kernel trait
+   over the foreign seed). After this, `prepare_match` names the kernel only through
+   `InitialBodyPolicy`, which is a value.
+2. **`InitialBodyPolicy`** is an avatar policy the match REFUSES by name; it moves to
+   shared vocabulary or the match takes a bool. Then `prepare_match` and the six
+   clean files are a preparation crate (`ambition_match` is the honest name: roster,
+   rules, seats, clock, receipt), and the kernel keeps `realize_seat` /
+   `activate_the_prepared_match` / `release_the_opening_hold` /
+   `declare_the_match_cast_as_the_view` — construction, by the same doctrine line the
+   encounter design reached independently the same night.
+3. `PersonaBaseline` and `StocksMatchSettled` are each one name; they follow their
+   owners when the preparation crate exists, not before.
+
+⚠ The one contradiction this measurement surfaced and did NOT change: a prepared
+`Authored` character with `ranged_execution: ChargedProjectile` (the V3 robot: both an
+action set with `ranged: Some(bolt)` and the charge execution) gets a preparation
+moveset that INCLUDES the ranged verb while the worn kit reports the charge path.
+The persona derivation drops the ranged verb for an `Unauthored` charged kit and the
+preparation derivation never does; whether the V3 press is owned once is a content
+question (`player_robot_moveset.rs` says the slot "says the robot throws something,
+the execution says the throw charges"). Recorded, not resolved.
+
 ### Central kernel split
 
 Do this last. Once outer domains are gone, the remaining dependency graph will

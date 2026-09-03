@@ -1033,7 +1033,7 @@ const RESOURCE_WAIVED: &[(&str, &str)] = &[
         "character art load bookkeeping; decoded-ness has no simulation consequence",
     ),
     (
-        "::character_runtime::CharacterLoadDemand",
+        "::load_demand::CharacterLoadDemand",
         "which sheets have been ASKED for; idempotent, and a decode has no simulation consequence",
     ),
     (

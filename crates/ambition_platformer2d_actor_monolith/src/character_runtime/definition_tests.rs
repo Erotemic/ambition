@@ -7,7 +7,7 @@
 //! no longer sit one crate above preparation.
 
 use super::*;
-use crate::character_runtime::CharacterLoadDemand;
+use ambition_characters::load_demand::CharacterLoadDemand;
 use ambition_characters::binding_namespaces::MoveId;
 use ambition_characters::binding_namespaces::PortraitTarget;
 use ambition_characters::binding_namespaces::SfxCueId;

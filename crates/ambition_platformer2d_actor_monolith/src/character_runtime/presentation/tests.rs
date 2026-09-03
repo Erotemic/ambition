@@ -65,7 +65,7 @@ fn is_authorized(app: &App, provider: &str) -> bool {
 /// fight and still needs its cues authorized.
 fn stage(app: &mut App, character_id: &str) {
     app.world_mut()
-        .resource_mut::<crate::character_runtime::CharacterLoadDemand>()
+        .resource_mut::<ambition_characters::load_demand::CharacterLoadDemand>()
         .request(character_id);
 }
 

@@ -207,7 +207,7 @@ fn reconcile_roster_with_frozen_topology(
     topology: Option<Res<ambition_platformer2d::input::LocalSeatTopology>>,
     roster: Option<ResMut<MatchParticipantRoster>>,
     active_match: Option<ResMut<ambition_platformer2d::actors::character_runtime::ActiveMatch>>,
-    mut demand: ResMut<ambition_platformer2d::actors::character_runtime::CharacterLoadDemand>,
+    mut demand: ResMut<ambition_platformer2d::characters::load_demand::CharacterLoadDemand>,
     // Bodies that are ALREADY seated, latch or no latch. This is the fact the
     // `ActiveMatch` check was standing in for, and the two are not the same fact.
     seated: Query<&ambition_platformer2d::actors::character_runtime::MatchSeat>,
@@ -452,7 +452,7 @@ fn track_versus_roster(
     // The seating a rollback session froze, when one is running.
     topology: Option<Res<ambition_platformer2d::input::LocalSeatTopology>>,
     roster: Option<Res<MatchParticipantRoster>>,
-    mut demand: ResMut<ambition_platformer2d::actors::character_runtime::CharacterLoadDemand>,
+    mut demand: ResMut<ambition_platformer2d::characters::load_demand::CharacterLoadDemand>,
 
     mut match_state: ResMut<super::versus_rules::VersusMatch>,
 ) {
@@ -875,8 +875,7 @@ mod stage_rule_tests {
         app.init_resource::<Platformer2dFeelTuningMonolith>();
         app.init_resource::<ambition_platformer2d::combat::targeting::FriendlyFire>();
         app.init_resource::<super::super::versus_rules::VersusMatch>();
-        app.init_resource::<ambition_platformer2d::actors::character_runtime::CharacterLoadDemand>(
-        );
+        app.init_resource::<ambition_platformer2d::characters::load_demand::CharacterLoadDemand>();
         app.init_resource::<ambition_platformer2d::input::LocalDeviceOrder>();
         app.insert_resource(ambition_platformer2d::game_shell::ShellRouter::default());
         // The projection normally runs in `Platformer2dSimulationPhaseMonolith::WorldPrep`; here it
@@ -1123,7 +1122,8 @@ mod stage_rule_tests {
 #[cfg(test)]
 mod roster_topology_tests {
     use super::*;
-    use ambition_platformer2d::actors::character_runtime::{ActiveMatch, CharacterLoadDemand};
+    use ambition_platformer2d::actors::character_runtime::ActiveMatch;
+    use ambition_platformer2d::characters::load_demand::CharacterLoadDemand;
     use ambition_platformer2d::input::{LocalDeviceOrder, LocalSeatTopology};
 
     fn topology_of(pads: usize) -> LocalSeatTopology {

@@ -21,7 +21,7 @@
 
 use bevy::prelude::Resource;
 
-use super::CharacterLoadDemand;
+use ambition_characters::load_demand::CharacterLoadDemand;
 
 /// Anything that knows which characters it needs art for.
 ///
@@ -624,7 +624,7 @@ impl StagesCharacters for DirectStartupSpec {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::character_runtime::CharacterLoadDemand;
+    use ambition_characters::load_demand::CharacterLoadDemand;
 
     /// §4.8's one shared projection. Two semantically different stagings that
     /// name the same cast must produce the same demand, or "the room worked and the

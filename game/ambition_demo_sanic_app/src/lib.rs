@@ -323,7 +323,7 @@ mod tests {
         {
             let mut demand =
                 app.world_mut()
-                    .resource_mut::<ambition_platformer2d::actors::character_runtime::CharacterLoadDemand>();
+                    .resource_mut::<ambition_platformer2d::characters::load_demand::CharacterLoadDemand>();
             for (character_id, _) in forms {
                 demand.request(character_id);
             }

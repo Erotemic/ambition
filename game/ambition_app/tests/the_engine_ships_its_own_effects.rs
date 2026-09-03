@@ -10,7 +10,7 @@
 //! inserted the sheets itself would prove nothing about what a player gets.
 
 use ambition_app::app::{build_visible_app, VisibleRenderMode};
-use ambition_platformer2d::actors::character_runtime::CharacterLoadDemand;
+use ambition_platformer2d::characters::load_demand::CharacterLoadDemand;
 use ambition_platformer2d::render::fx::resolve_drawable;
 use ambition_platformer2d::sprite_sheet::fx::{core_fx_targets, FX_SHEETS};
 use ambition_platformer2d::sprite_sheet::game_assets::GameAssets;

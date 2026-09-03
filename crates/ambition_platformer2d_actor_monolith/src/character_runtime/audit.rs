@@ -6,8 +6,9 @@
 
 use bevy::prelude::*;
 
-use super::{CharacterLoadDemand, CharacterLoadStates, CharacterMaterializationService};
+use super::{CharacterLoadStates, CharacterMaterializationService};
 use ambition_characters::actor::character_catalog::CharacterCatalog;
+use ambition_characters::load_demand::CharacterLoadDemand;
 
 /// A staged character that has not reached any terminal state.
 ///

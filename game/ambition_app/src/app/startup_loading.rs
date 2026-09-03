@@ -132,7 +132,7 @@ struct StartupAssetInputs<'w, 's> {
     character_load_states:
         ResMut<'w, ambition_platformer2d::actors::character_runtime::CharacterLoadStates>,
     character_load_demand:
-        ResMut<'w, ambition_platformer2d::actors::character_runtime::CharacterLoadDemand>,
+        ResMut<'w, ambition_platformer2d::characters::load_demand::CharacterLoadDemand>,
     /// Sheets this app's providers authored — the other real source
     /// of sheet metadata, and the only one a game outside this workspace can
     /// write to.
@@ -579,14 +579,13 @@ fn inspect_startup_manifest(
             manifest.realized_at_build = realized;
         }
     }
-    let mut room =
-        inspect_room_asset_manifest(
-            asset_server,
-            Some(images),
-            render_world,
-            prepared_here,
-            &manifest.room,
-        );
+    let mut room = inspect_room_asset_manifest(
+        asset_server,
+        Some(images),
+        render_world,
+        prepared_here,
+        &manifest.room,
+    );
     super::world_flow::inspect_demanded_characters(
         &manifest.demanded_characters,
         game_assets,

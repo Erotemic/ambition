@@ -133,7 +133,7 @@ fn an_unknown_demand_reaches_a_named_terminal_failure_not_silence() {
 
     // Drive only the unknown-token branch, which needs no asset pipeline at all —
     // that is exactly why an unknown id must be classified BEFORE any decode.
-    for token in std::mem::take(&mut demand.pending) {
+    for token in demand.take() {
         if matches!(sprites.sheet_state(&token), CharacterSheetState::Unknown) {
             states.record(
                 token.clone(),
@@ -1209,8 +1209,9 @@ mod live_quality_apply {
 /// dead code. The world here has no entities at all.
 #[test]
 fn a_roster_demands_its_cast_before_any_body_is_spawned() {
+    use super::demand_rostered_character_sheets;
     use super::staging::{MatchParticipant, MatchParticipantRoster};
-    use super::{demand_rostered_character_sheets, CharacterLoadDemand};
+    use ambition_characters::load_demand::CharacterLoadDemand;
 
     let mut app = App::new();
     app.init_resource::<CharacterLoadDemand>();
@@ -1251,7 +1252,8 @@ fn a_roster_demands_its_cast_before_any_body_is_spawned() {
 /// And the arm that makes the one above mean something: no roster, no demand.
 #[test]
 fn without_a_roster_nothing_is_demanded() {
-    use super::{demand_rostered_character_sheets, CharacterLoadDemand};
+    use super::demand_rostered_character_sheets;
+    use ambition_characters::load_demand::CharacterLoadDemand;
 
     let mut app = App::new();
     app.init_resource::<CharacterLoadDemand>();
@@ -1279,7 +1281,7 @@ fn without_a_roster_nothing_is_demanded() {
 /// remainder would also "fix" the hitch, by never loading the other fighter.
 #[test]
 fn bounding_the_take_defers_the_rest_instead_of_dropping_it() {
-    use super::CharacterLoadDemand;
+    use ambition_characters::load_demand::CharacterLoadDemand;
 
     let mut demand = CharacterLoadDemand::default();
     for token in ["author", "noether", "perfect_cellular_automaton"] {
@@ -1324,7 +1326,8 @@ fn bounding_the_take_defers_the_rest_instead_of_dropping_it() {
 /// cannot name a lower one (Jon, 2026-09-02).
 #[test]
 fn the_ration_spends_pixels_so_a_quarter_setting_starts_sixteen_a_frame() {
-    use super::{CharacterLoadDemand, MATERIALIZATION_UNITS_PER_FRAME};
+    use super::{materialization_units, MATERIALIZATION_UNITS_PER_FRAME};
+    use ambition_characters::load_demand::CharacterLoadDemand;
     use ambition_persistence::settings::TextureResolutionScale as Tier;
     assert_eq!(
         MATERIALIZATION_UNITS_PER_FRAME, 16,
@@ -1335,7 +1338,10 @@ fn the_ration_spends_pixels_so_a_quarter_setting_starts_sixteen_a_frame() {
     let mut demand = CharacterLoadDemand::default();
     demand.request_all((0..40).map(|i| format!("pedestal_{i:02}")));
     let frames: Vec<usize> = std::iter::from_fn(|| {
-        let taken = demand.take_within_budget(MATERIALIZATION_UNITS_PER_FRAME, Tier::Quarter);
+        let taken = demand.take_within_budget(
+            MATERIALIZATION_UNITS_PER_FRAME,
+            materialization_units(Tier::Quarter),
+        );
         (!taken.is_empty()).then_some(taken.len())
     })
     .collect();
@@ -1349,7 +1355,10 @@ fn the_ration_spends_pixels_so_a_quarter_setting_starts_sixteen_a_frame() {
     // At Full, one per frame.
     let mut demand = CharacterLoadDemand::default();
     demand.request_all(["author", "noether", "turing"]);
-    let first = demand.take_within_budget(MATERIALIZATION_UNITS_PER_FRAME, Tier::Full);
+    let first = demand.take_within_budget(
+        MATERIALIZATION_UNITS_PER_FRAME,
+        materialization_units(Tier::Full),
+    );
     assert_eq!(first.len(), 1, "a Full character is a whole frame's ration");
     assert_eq!(
         demand.pending().count(),
@@ -1361,9 +1370,15 @@ fn the_ration_spends_pixels_so_a_quarter_setting_starts_sixteen_a_frame() {
     // taken whatever it costs.
     let mut demand = CharacterLoadDemand::default();
     demand.request_all(["a", "b", "c", "d", "e"]);
-    let first = demand.take_within_budget(MATERIALIZATION_UNITS_PER_FRAME, Tier::Half);
+    let first = demand.take_within_budget(
+        MATERIALIZATION_UNITS_PER_FRAME,
+        materialization_units(Tier::Half),
+    );
     assert_eq!(first.len(), 4);
-    let second = demand.take_within_budget(MATERIALIZATION_UNITS_PER_FRAME, Tier::Half);
+    let second = demand.take_within_budget(
+        MATERIALIZATION_UNITS_PER_FRAME,
+        materialization_units(Tier::Half),
+    );
     assert_eq!(second, vec!["e".to_string()]);
 }
 
@@ -1371,7 +1386,7 @@ fn the_ration_spends_pixels_so_a_quarter_setting_starts_sixteen_a_frame() {
 /// bound can never strand a token.
 #[test]
 fn an_unbounded_or_undersized_take_drains_completely() {
-    use super::CharacterLoadDemand;
+    use ambition_characters::load_demand::CharacterLoadDemand;
 
     let mut demand = CharacterLoadDemand::default();
     demand.request("author");

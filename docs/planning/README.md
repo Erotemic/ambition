@@ -199,6 +199,33 @@ as regression.
 at all, which is the failure the header rule above is about. The rule is that the
 number must be reproducible BY THE READER, not that it must be absent.
 
+⭐ **AND NOT EVERY FIGURE IN A TABLE IS LOAD-BEARING — separate the VERDICT from
+the EVIDENCE.** `engine/relativity.md` proves the point: its table says
+`ambition_app` links relativity **0** times and `ambition_demo_twintrack_app`
+links it **2**, beside each app's total dependency-tree size. Re-derived after
+five carves, the linkage counts were unchanged and every tree size had moved
+(2,686 → 2,758; 1,849 → 1,917), because a carve splits one node into two.
+⇒ The linkage count is the CLAIM; the tree size is evidence that the check was
+done properly, and evidence does not have to stay current to have done its job.
+A table that does not distinguish them ages into one stale-looking block and
+gets distrusted wholesale — including the half that is still true.
+
+⛔ **THREE CLASSES, THREE DIFFERENT ACTIONS**, which is the part that is easy to
+get wrong:
+
+| the figure is… | do |
+|---|---|
+| wrong, and you can show it | fix it, and say what moved it |
+| unreproducible — the page never gave its method | ⛔ do NOT "correct" it. Say what IS derivable, name the command, and ask the owner for the method. A reader who reproduces a different number cannot tell drift from a method mismatch |
+| supporting evidence, not the claim | leave it, and mark it as context so the claim beside it stays trusted |
+
+The middle row is the one that produces confident wrong numbers: silently
+replacing a figure you cannot reproduce asserts a drift you have not
+demonstrated. `engine/engine-1.0-architecture-program.md`'s
+`reset_*`/`restore_*` count is the worked example — 12 on the page, 13 names
+from the obvious grep, 3 of them tests, and no way to tell which count the page
+meant.
+
 ### ⭐ Some findings only exist BETWEEN two plans
 
 Three times on 2026-09-02/03 the useful result came from reading two focused

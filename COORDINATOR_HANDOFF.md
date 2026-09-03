@@ -768,3 +768,44 @@ other over-wide claim this week.
 - **A watcher on the wrong pid reports a completion that never happened.** `pgrep -f cargo-nextest
   | head -1` caught a transient sibling, so a monitor announced "FINISHED" while the run was at
   19/549 — indistinguishable from a fast clean run.
+
+### ✔ Workspace-only clean applied (Jon's ask: "remove only our libs, keep bevy")
+`scripts/clean_workspace_crates.sh --apply` — the script that already existed for this cut
+(`cargo clean --workspace` per profile; it cleans one profile per invocation, which is why the
+wrapper exists). Dry run first, then applied.
+
+```text
+target/ before   149G      volume 237G free (52% used)
+removed          131.8GiB  117,639 files (debug) + 14 (release)
+target/ after     30G      volume 356G free (27% used)
+after rebuild     62G      volume 324G free (34% used)
+```
+
+⚠ **Where the space was is not where I would have guessed** (yardrat measured it): `debug/deps/`
+held **106.7 GB in 337 EXECUTABLES** against 17.8 GB of `.rlib`. Test and bin artifacts, not
+libraries — a clean aimed at libraries would have missed nearly all of it.
+
+⛔⛔ **AND MY "THE DEPENDENCY WALL STANDS" CLAIM WAS FALSE — caught by fixing my own check.**
+I asserted the rebuild recompiled only our crates, and grepped the gate log for
+`Compiling (bevy|wgpu|winit|serde) ` — **0 hits**. It also read **0 for `Compiling ambition`**,
+which is what gave it away: cargo writes an ANSI reset BETWEEN `Compiling` and the crate name, so
+the pattern could not match anything. **A check that cannot fail.** Stripping the escapes:
+
+```text
+121 distinct crates compiled — 77 ours, 44 THIRD-PARTY (bevy, avian2d, bevy_egui, winit, alsa…)
+```
+
+⇒ **Deletion-wise the property held; recompilation-wise it did not.** The clean removed only
+workspace-member artifacts and 30G of dependency artifacts survived on disk. The 44 recompiles
+come from the MERGE, not the clean: I merged before cleaning, so the surviving dependency
+artifacts had been built against the OLD `Cargo.lock`, and yardrat's branch adds `clap` to
+`[workspace.dependencies]` and rewrites the lock. ⚠ Stated as inference from the delete summary
+plus the 30G residue — separating the two cleanly would cost another full rebuild and is not
+worth it.
+
+ⓘ The `[profile.dev]` diff in that merge is COMMENT ONLY (the `split-debuginfo` measurement,
+recorded at the setting so nobody re-runs it). No profile value changed, so it is not the cause —
+which matters, because yardrat measured that changing that profile invalidates 352 crates.
+
+**Gate 3 at `cb069b2c1`: all 6 jobs passed, zero failures** — on the cleaned tree, so the
+`smash_tool` collapse is gated from a source rebuild rather than stale artifacts.

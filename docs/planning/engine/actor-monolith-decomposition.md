@@ -1042,8 +1042,31 @@ those mentions is a COMMENT, an `include_str!` path to a content asset
 (`encounter/systems.rs:119`). None is a crate dependency. ⚠ A `cargo tree`-shaped
 reading of the module would have reported three impossible edges.
 
-**What the move actually costs** — four production dependencies
-`ambition_encounter` does not yet have, none of which depends on it, so no cycle:
+⛔⛔ **CORRECTION, 2026-09-03 — THE DESTINATION IN THIS SPEC IS WRONG, and the
+policy suite said so within minutes of trying it.** The module cannot move INTO
+`ambition_encounter`: `engine.encounter-crate-manifest-purity` and
+`engine.encounter-crate-source-purity` deny `ambition_characters` and
+`ambition_platformer2d_ldtk`, and their rationale is exactly this question —
+*"`ambition_encounter` is reusable encounter state/vocabulary; the LDtk loader,
+ECS spawning, banners, and save/quest adapters STAY ABOVE IT."* The adapter IS
+the LDtk loader and the ECS spawning. I wrote this spec without reading the
+destination crate's own policy rows, which is the rule about looking for the
+reason something is a decision, missed on the page that records it.
+⇒ **The shape that satisfies both is a SIBLING crate above `ambition_encounter`**:
+the adapter gets its own home, the kernel loses ~2,000 lines, and the purity
+contract holds. That is a decision with a real cost (a new crate; the footprint
+ratchet counts crates) and is not taken here.
+
+⚠ **AND THE DEPENDENCY COUNT BELOW WAS WRONG TOO — five and two, not four and
+one.** `ambition_characters` (production, `systems.rs:177`) and
+`ambition_asset_manager` (tests) were missing, because the measurement piped the
+crate list through `head -14` and reported the truncated output as complete. The
+true list is 18 distinct tokens, of which `ambition_app` and
+`ambition_boss_encounter` are comments. Corrected in the table.
+
+**What the move actually costs** — five production dependencies
+`ambition_encounter` does not have (two of them denied by its own policy), none
+of which depends on it, so no cycle:
 
 | crate | references in the adapter |
 |---|---:|
@@ -1051,7 +1074,9 @@ reading of the module would have reported three impossible edges.
 | `ambition_platformer2d_world` | 8 |
 | `ambition_gameplay_trace` | 2 |
 | `ambition_time` | 1 |
-| `ambition_platformer2d_ldtk` | 3, **tests only** → a dev-dependency |
+| `ambition_characters` | 1 — ⛔ DENIED by the encounter crate's purity policy |
+| `ambition_platformer2d_ldtk` | 3, tests only → dev-dependency, ⛔ also DENIED |
+| `ambition_asset_manager` | 1, tests only → dev-dependency |
 
 **The one seam that must move the other way first.** `encounter/mod.rs` schedules
 `crate::features::serve_encounter_spawn_commands` — the KERNEL's spawn server.

@@ -346,6 +346,14 @@ instead. George is the same: `bivalence_weak`/`bivalence_strong`,
 `excluded_middle_windup/launch/ascent/gate/tail`, `modus_ponens_*`, `reductio_*`,
 beside moves called `bivalence`, `excluded_middle`, `commitment`.
 
+✔ **RE-MEASURED 2026-09-02 evening and the claim reproduces exactly**:
+`pirate_admiral_vfx` 14 rows / 0 named, `george_booul_vfx` 21 / 1 named — 34 of
+35, unchanged. ⓘ Wider context the row did not have: across all 13 fx sheets it
+is **196 rows, 120 named, 76 named by nothing**, and `pirate_admiral_vfx` is the
+only sheet with NO row named by anything. So the two named here are the extreme
+of a spread, not isolated cases — which strengthens "wire them" and weakens
+"they were superseded", because eleven other sheets are partly wired.
+
 ⇒ **Wire them, or were they superseded?** The row→move pairing is unambiguous
 from the names, but WHEN in a timeline each fires and at what scale is a feel
 ruling, which is why it is here rather than done. Residency's interest was the

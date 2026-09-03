@@ -1150,7 +1150,11 @@ OPTIONAL dep + feature, never used:
      map at 17 modules. Regenerated in the post-carve pass, which is what this
      item is for.)
   2. **`python scripts/check_planning_citations.py`** — a carve renames or moves
-     the very symbols the planning rows cite. ⭐ **AND THEN `--vanished <the
+     the very symbols the planning rows cite. ⭐ **AND IT COVERS THE DOCTRINE
+     PAGES NOW** — calculex widened the checker to scan `docs/concepts`,
+     `docs/systems`, `docs/architecture` and `docs/recipes` as well as
+     `docs/planning`, because every module that leaves a crate strands the pages
+     that cited its old home, and those are the pages a new agent reads first. ⭐ **AND THEN `--vanished <the
      carve's parent SHA>`**, which catches what the default run cannot see:
      `SYMBOL` needs a `::`, so a BARE backticked name — the commonest form in
      these docs — is never checked, and a carve's removals are usually spelled

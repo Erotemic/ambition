@@ -503,18 +503,24 @@ Ten updates — for a cast the engine can realize at **one character per frame**
 at Full. Then 129 placeholder warnings, all inside a single millisecond, once
 the 5-frame threshold passes.
 
-⇒ **`inspect_demanded_characters` asks whether the SHEET is settled, never
-whether a RENDER FAMILY has claimed the body**
-(`world_flow/room_transition_assets.rs:347`): a token counts as ready when
-`sheet_state` is `Ready`, or when it is `Declared` and
-`states.outcome(..).is_some()` — *any* terminal outcome. Claiming is a later,
-rationed step, and nothing in the barrier waits for it.
+⛔ **AND THE BARRIER IS NOT THE CULPRIT — I had that half wrong, and ambition-df
+read the code that settles it.** The cover lifts CORRECTLY: all 129 sheets are
+`Ready` when it does, and `inspect_demanded_characters`
+(`world_flow/room_transition_assets.rs:347`) waiting on `Declared` is sound.
 
-⭐ **THAT IS A THIRD CAUSE for the "not materialized" warning, and it is not one
-of the three the open row proposed** (prefetch scope, retired realizations,
-re-decode). It is a DEFINITION MISMATCH: the cover is released against
-sheet-settled and the picture is drawn against family-claimed, with a 16×
-tier-scaled ration between them.
+⇒ **`converge_character_residency_to_active_quality` is what un-claims them.**
+When the headless profile converges Potato→Ultra (t≈14.9 s in the log above) it
+calls `demote_stale_realizations`, which takes every IN-USE sheet from `Ready`
+back to `Declared` — dropping every body's render family — and re-demands them
+at one character per frame at Full. **129 frames of placeholder is exactly
+that.** ⚠ It is not headless-only: the same happens on a host for any frame
+where the resolved budget differs from the setting, because the adapter seed
+lands before settings apply.
+
+⭐ **SO IT IS A SECOND CAUSE FOR THE WARNING, AND IT IS "RETIRED REALIZATIONS"
+AFTER ALL** — one of the three the open row proposed, which I had ruled out from
+the outside because the retirement happens at CONVERGENCE rather than at reveal.
+The measurement was right and my reading of it was one layer off.
 
 ⚠ **WHAT IS NOT ESTABLISHED**, and it is the one thing a fix would need: that
 the 129 placeholder actors ARE the 129 demanded characters. The warnings name

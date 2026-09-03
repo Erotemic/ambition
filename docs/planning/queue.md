@@ -589,7 +589,13 @@ The one unresolved developer-policy choice from the session-ownership work is in
   With `canonical_assets.py` landed and this checkout detected as canonical
   (four sprite trees, 425 real PNGs, zero symlinks), the ten assertions that
   had never been evaluated by any lane ran here 2026-09-03 late: **23 passed,
-  1 failed.** The failure is `test_the_known_list_does_not_rot`:
+  1 failed.** ⭐ **AND THE LANE ARITHMETIC CLOSES EXACTLY**, which is what shows
+  the module did what it said rather than something adjacent: the full
+  `scripts/tests` run went **803 passed / 13 skipped → 819 passed / 3 skipped**.
+  +16 passed and −10 skipped, against ten assertions that stopped skipping and
+  sixteen that started executing — the difference being the six that were
+  skipping on the sprite-tree check underneath the marker, not on the marker
+  itself. No test appeared or vanished unaccounted for. The failure is `test_the_known_list_does_not_rot`:
   `carl_stargan`, `pointed_polygon`, `projectile_polygon` and
   `pugnacious_polygon` **no longer strand pages** and must leave the list, or a
   future regression on them passes silently.

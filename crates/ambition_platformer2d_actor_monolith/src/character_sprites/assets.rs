@@ -1135,4 +1135,3 @@ mod sprite_body_collision_tests {
         assert!(registry.manifest_for_target("nobody").is_none());
     }
 }
-

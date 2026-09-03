@@ -269,6 +269,30 @@ the hall's real Full-tier load is larger still and the gap widens.
 ⇒ **The reveal barrier is not a hall fix, it is a mechanism the first room does
 not yet use.** That is the same conclusion the headless work reached from the
 other end, now with host frames attached.
+  ⛔⛔ **AND THAT READING WAS WRONG — CORRECTED THE SAME NIGHT, by df's question
+  rather than by my measurement.** *"A frame spike under a cover is cover time,
+  not a hitch"* is this campaign's own rule, applied to the hall six paragraphs
+  up, and I did not apply it to my own finding. The run's route lines settle it:
+
+  ```text
+  [2.246s] [game-mode]  0.930s f    0  initial playing
+           spikes at wall 2.386 (125.3 ms) and 2.589 (203.3 ms)
+  [5.179s] [world-event] 3.863s f 1131  room-loaded central_hub_complex
+  ```
+
+  ⇒ **Both spikes land between `initial playing` and `room-loaded`** — during the
+  first room's load, which is exactly when the load screen with its "Load the
+  first room's art" row is up. ⚠ `[game-mode] initial playing` at FRAME 0 is not
+  "the player is in the world"; it is the same trap that made an offscreen
+  capture report eighteen pops earlier the same day.
+  ⇒ **So the honest statement is: three spikes, all before the first room
+  finished loading, and the bundle cannot say whether a curtain covered them.**
+  The claim that this is "the last user-visible hitch" is withdrawn — it needs
+  the route's presentation state at 2.4-2.6 s, which nobody has yet read.
+  ⭐ What survives untouched is the COMPARISON, because both halves are measured
+  the same way: the hall decodes more and spikes zero WITH a cover, and the
+  startup burst spikes twice at whatever cover it has. That still says the cover
+  mechanism works; it no longer says a player sees the startup one.
 
 ⛔⛔ **BUT ONE OF THE THREE IS CONFOUNDED AND MUST BE RE-TAKEN.** This is the run
 in which Jon saw blur — the ROOM TIER CAP was live and the hall drew from
@@ -1044,8 +1068,8 @@ not the FULL figure this limit needs. It is also a one-way walk: hub → hall, w
 no return leg. ⇒ The input is still owed, and whoever takes the capture should
 make it hub → hall → hub at Full with the cap gone.
 
-⚠ **Parallax is the one road that ACCUMULATES, and its ceiling is known
-(read from the code 2026-09-02, not yet measured on a walk).**
+⚠ **Parallax WAS the one road that ACCUMULATED — superseded the same evening
+by the retire below; kept as the sizing.** (Read from the code 2026-09-02.)
 `ensure_parallax_layers_for_room` lazy-loads a theme's four layers on first
 visit and nothing releases them: `ParallaxLayerSet` has `ensure_theme_loaded`
 and no retire. Nine themes × 4 layers = 37 files, **21.2 MP at Full** (every

@@ -20,4 +20,4 @@ AMBITION_PROFILE_CENSUS=1 AMBITION_HEADLESS_GAMEPLAY_ROOM="$ROOM" "$BIN" --headl
 echo "room=$ROOM ticks=$TICKS  ($log)"
 grep -E 'resident by road' "$log" | tail -1
 echo "fx-sheet demands, in order:"
-grep -E '^\[image\] .*via fx-sheet' "$log" | sed -E 's/^\[image\] +([0-9.]+)s +f *([0-9]+) .* (\S+_spritesheet\.png) .*/  f\2 (\1s) \3/' 
+grep -E '^\[image\] .*via fx-sheet' "$log" | sed -E 's/^\[image\] +([0-9.]+)s +f *([0-9]+) .* (\S+_spritesheet\.png) .*/  f\2 (\1s) \3/'

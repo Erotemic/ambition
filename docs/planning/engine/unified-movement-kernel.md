@@ -24,6 +24,22 @@
   `hall_of_characters`, `intro` and `sandbox`, none of which authors a chain in
   the same level.
 
+  ✔ **RE-MEASURED 2026-09-02 and the claim HOLDS, by entity INSTANCE rather than
+  by text.** `SurfaceChain` is *placed* in exactly two LEVELS — `sanic_sandbox`
+  and `sanic_speedway` — and neither places a crawler. Crawler placements are
+  `hall_of_characters` (6), `intro`'s three levels (12) and five levels of
+  `sandbox.ldtk` (17); none of them is `sanic_sandbox`.
+
+  ⚠ **AND A FILE-LEVEL GREP SAYS THE OPPOSITE, which is worth recording because
+  it is the obvious way to re-check this row.** `grep -c SurfaceChain` reports
+  hits in `intro`, `hall_of_characters`, `you_have_to_cut_the_rope` and `mary_o`
+  as well — those are entity DEFINITIONS in `defs`, not placements, and
+  `you_have_to_cut_the_rope`/`mary_o` define the entity and never place it. And
+  `sandbox.ldtk` is one FILE holding many LEVELS: its crawlers are in
+  `central_hub_basement`, `vertical_shaft`, `basement_enemies`, `gravity_lab`
+  and `proving_grounds`, while its chain is in `sanic_sandbox`. ⇒ Same file,
+  different levels — the row says "in the same level" and it means it.
+
   ⇒ leave it ▢ for the same reason as the portal/gravity-zone row below: it is
   waiting on a customer, not on effort. ⚠ **and do not build it speculatively** —
   a transfer rule nothing exercises is a rule nothing can falsify, and the

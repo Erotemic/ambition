@@ -405,6 +405,42 @@ The one unresolved developer-policy choice from the session-ownership work is in
 
 ## Current execution order
 
+- ▢ **THE FEATURE UNION IS RED: 48 failures against 6,968 passes, and 37 of
+  them are ONE system.** Measured 2026-09-03 at `dbfb1a2ca` by running the gate's
+  own union job standalone (`cargo test --workspace --no-fail-fast --features
+  <the 80-entry union>`, the exact command `run_tests.py --list` prints under
+  `--run-everything-you-probably-dont-need-this`). Four targets failed:
+  `ambition_demo_smash_app --test smash_it`, `ambition_demo_sanic_app --lib` and
+  `--test sanic_it`, `ambition_demo_mary_o_app --test mary_o_it`.
+  ⛔ **THE DOMINANT CAUSE IS A SINGLE PARAMETER.** 37 of the 48 are the same
+  panic: *"Encountered an error in system
+  `ambition_portal2d_presentation::view_cones::sync_portal_view_cones`:
+  Parameter `ConeRigAssets<'_>::meshes` failed validation: Resource does not
+  exist"*. `ConeRigAssets` takes `ResMut<Assets<Image>>`, `ResMut<Assets<Mesh>>`
+  and `ResMut<Assets<ColorMaterial>>`; the union puts `portal_render` into demo
+  compositions that never provision mesh assets, and Bevy 0.19 turns a missing
+  system parameter into a hard failure where 0.18 skipped. `view_cones.rs` was
+  last touched by the 0.19 port (`09bb065a9`), which is consistent with the port
+  having created this and nothing having run the combination since.
+  ⚠ **THE OTHER ~11 ARE A DIFFERENT CLASS AND MAY NOT BE DEFECTS AT ALL.** They
+  are mary_o assertions, and at least one fails BY CONSTRUCTION under an
+  all-features build: `the_presentation_plugin_adds_no_hud_and_no_menu` asserts
+  0 UI nodes and gets 40, which is what enabling every presentation feature at
+  once is *supposed* to do. Whether those tests should be feature-scoped, or the
+  union should exclude them, is a judgement for whoever owns the demos doctrine
+  — do not "fix" them by widening the assertion. The `painted_blocks` pair
+  (*"no block visual is drawing GeoId …"*) is a third thing again and unread.
+  ⇒ **The fix for the 37 is a design choice, which is why this is a row and not
+  a commit**: skip the system when its assets are absent (`If<…>`, or a
+  `resource_exists` run condition) versus provision the assets in every
+  composition that installs portal presentation. The first says a cone rig with
+  nowhere to draw should stand down; the second says the composition is
+  incomplete. Bevy's own message suggests the first.
+  ⛔ **AND THE REASON NOBODY SAW IT: the union job lives inside `if not only and
+  everything`**, so a default gate run never attempts it — the same blindness
+  the coverage footer now states as 783 tests across 29 crates (`65f4030b5`).
+  A per-crate green says nothing here, exactly as the jab-string row records.
+
 - ✔ **`hall_transition_cover` WAS RED IN PARALLEL, a SECOND-ORDER COST OF THE
   COMPOSITION FIX — CLOSED 2026-09-02 evening.** The fixture waits for FACTS now
   (`wait_for_a_session_room_set`, `settle_resident_pages` — every resident

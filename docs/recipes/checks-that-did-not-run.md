@@ -4,6 +4,11 @@ A test that fails is information. A test that never executed and reports green
 is worse than no test at all, because it also spends the attention that would
 have found the defect by hand.
 
+⭐ **AND IT HAS A SIBLING FAMILY, which #10 below already notices when it calls
+itself "a DIFFERENT SPECIES from 1-9"** — the check that ran perfectly and could
+not have failed. It has its own section below, and its instances live in a
+journal.
+
 This page is the dual of
 [`cheapest-sufficient-check.md`](cheapest-sufficient-check.md). That page asks
 *what is the least I can run to settle this change*. This one asks *did what I
@@ -144,6 +149,61 @@ the same evidence said 16 of 17 capabilities were dead. Read through the fixed
 row it says twelve do work, five are the wrong shape of thing to ask about, and
 nothing is unaccounted for. An instrument that narrows silently does not just
 lose precision — it manufactures the more interesting answer.
+
+## The sibling family: it RAN, and it could not have failed
+
+Everything above is a check that did not execute. The other half of the family
+executed perfectly and asked the wrong question, and it is the larger half:
+thirty-seven instances from the same two nights, each with the commit that
+fixed it, are tabulated in
+[`../../dev/journals/blind-checks-2026-09-03.md`](../../dev/journals/blind-checks-2026-09-03.md).
+⇒ **Do not add that count to the ten above** — different question, different
+population. #10 is the boundary case and belongs to both lists.
+
+⭐ **THE RECURRING SHAPE.** An emitter tells you what a line CONTAINS; it never
+tells you what to compare it against. A parser written from the emitter
+reproduces its vocabulary and inherits none of its ordering, thresholds or
+population bounds — so the parse succeeds, the number prints, and the number is
+about a different question. The green is real. The question is not the one you
+asked.
+
+Worked examples of each: a census ordered by game clock when the emitter added a
+frame column for exactly that reason; "images decoded at boot" counted from a
+line that prints only decodes ≥ 1.0 MP, so 7 lines stood for 252; a rollback
+guard reporting "4 systems, none unsafe" whose population was 1 canonical type
+of 113.
+
+### Running this audit yourself
+
+It found eight real defects in one evening, so it is worth repeating rather than
+rediscovering. Four passes, cheapest first:
+
+1. **Run every guard and read its REAL exit code.**
+   ```bash
+   for f in scripts/check_*.py; do
+     out=$(timeout 240 python3 "$f" 2>&1); code=$?     # NOT `| head`
+     printf '%-42s exit=%-3s %s\n' "$(basename "$f" .py)" "$code" "$(printf '%s' "$out" | head -1)"
+   done
+   ```
+   ⛔ The first pass piped into `head` and captured `tr`'s status, so every
+   check read `exit=0` — the bug being hunted, in the tool hunting it. Look for
+   a traceback, an EMPTY success, and any message saying it checked nothing.
+
+2. **Compare each guard's denominator against the repository's.** Ask what
+   SOURCE produced the population, not whether the check passed. A guard that
+   reads one file in a repo whose convention is one-file-per-crate is the shape
+   to expect.
+
+3. **Ask which guards assert against the LIVE tree**, not only on fixtures. Most
+   do; the exceptions are where the coverage gaps hide.
+
+4. **Poison it — and check the poison landed in the guard's POPULATION.** Two of
+   three poisons on the sheet-presence check hit files it deliberately ignores,
+   and each printed a green that could have been taken for proof.
+
+⚠ Two habits that make it cheaper: a tool one call away beats an hour of reading
+(`discover_all_targets()`, `grep -l <shared module>`), and when two of your own
+measurements disagree, the coherent one is not automatically the true one.
 
 ## The three remedies, and which one you are actually reaching for
 

@@ -877,11 +877,159 @@ The one unresolved developer-policy choice from the session-ownership work is in
   clean.** Do not re-run the generalised form and act on its raw numbers without
   the per-module re-export cross-check — it over-reports by design.
 
+- ▢ **SIX WORKSPACE DEPENDENCY DECLARATIONS ARE NEVER NAMED IN THEIR CRATE'S
+  SOURCE — graph honesty, NOT a footprint win.** (Measured 2026-09-02.) Every
+  crate's `src/**/*.rs` was searched for each `ambition_*` dependency its
+  `Cargo.toml` declares:
+
+```text
+PLAIN (unconditional) edge, never used:
+  ambition_platformer2d        -> ambition_interaction
+OPTIONAL dep + feature, never used:
+  ambition_characters          -> ambition_causal        (feature `causal`)
+  ambition_platformer2d        -> ambition_sfx_bank
+  ambition_sim_view            -> ambition_portal2d
+  ambition_touch_input         -> ambition_cutscene
+  game/ambition_app            -> ambition_causal
+```
+
+  ⛔ **SIZE IT HONESTLY: REMOVING THESE CUTS NOTHING FROM THE CLOSURE.**
+  `ambition_interaction` is declared by six crates including
+  `ambition_platformer2d_actor_monolith`, so the facade's edge is redundant, not
+  load-bearing — the same fact the capability row above already states about all
+  sixteen never-asked-for crates ("gating a facade edge cuts nothing"). The
+  value is that the graph stops claiming an edge nobody uses.
+
+  ⇒ **The PLAIN one is worth cutting first**: the facade is what every game
+  links, and a declared-unused edge there is what the next reader will justify
+  rather than question.
+
+  ⛔⛔ **DO NOT REMOVE BLIND — it needs the compiler on each crate's feature
+  combinations.** Dropping an optional dep changes feature RESOLUTION, not just
+  a line, and only a build says what that does. ⇒ Left for the abilities carve
+  to pick up rather than done here.
+
+  ⚠ **What the scan can and cannot see, because the obvious caveat is the wrong
+  one.** A `cfg(feature)`-gated `use` IS visible to a text scan — control:
+  `ambition_content_pack` is an optional dep of `ambition_audio`,
+  `ambition_boss_encounter`, `ambition_characters` and `ambition_combat`, all of
+  which have `cfg(feature)` blocks, and the scan correctly did not flag any of
+  them. What it would miss is a macro-generated path or a build script; checked,
+  and only `ambition_app` has a `build.rs`, which does not mention `causal`. No
+  crate here renames a dependency with `package = "…"`, so the Cargo name is the
+  code name. Five further candidates were excluded because they ARE used, from
+  `tests/` rather than `src/` (`ambition_platformer2d_host` ×2,
+  `examples/capability_demo`, `ambition_app` → `ambition_demo_pocket`,
+  `ambition_content` → `ambition_content_cli`) — those are dev-dependency
+  questions, not unused ones.
+
 - ▢ **D33 — continue actor-monolith decomposition by coherent ownership.** Pick a
   carve that removes a real authority/dependency edge from the residual actor
   kernel, moves registration/tests with the domain, and improves capability or
   compile/test isolation. Do not carve by LOC and do not promise frame-time
-  improvement without a measurement. ⛔⛔ RE-MEASURED 2026-08-31: the owner doc's
+  improvement without a measurement.
+
+  ⭐ **WHAT EVERY CARVE OWES AFTER IT LANDS (added 2026-09-02, from three rows
+  that were stale within a week of the merge that closed them).** None of this is
+  new work invented for carves — it is the paperwork a merge does not touch,
+  because the code lives in one file and the claim about it lives in another:
+
+  1. **`python scripts/modules_md.py`** — must print *"MODULES.md up to date"*.
+     A carve moves modules; the maps are generated and go stale silently.
+     (Clean for all 71 crates as of 2026-09-03 — it was 70 the day before;
+     three carves added `ambition_held_items`, `ambition_world_items` and
+     `ambition_registry_core`, and one dev crate landed.)
+  2. **`python scripts/check_planning_citations.py`** — a carve renames or moves
+     the very symbols the planning rows cite. ⭐ **AND THEN `--vanished <the
+     carve's parent SHA>`**, which catches what the default run cannot see:
+     `SYMBOL` needs a `::`, so a BARE backticked name — the commonest form in
+     these docs — is never checked, and a carve's removals are usually spelled
+     bare. It reports a bare name that WAS a definition at that SHA and is not
+     one now; the name's own history supplies the precision, so nothing has to
+     guess what is "code-shaped". This is the removed/renamed half of item 4,
+     without item 4's `head -1` or its `length >= 8` heuristic.
+     ⛔ IT COMPARES REF→**HEAD**, NOT REF→THE CARVE, so run it while HEAD *is*
+     the carve. Run a day later, `--vanished <that carve>^` sweeps up every
+     removal since and attributes none of them — the three carves of 2026-09-02
+     returned 10, 1 and 0 hits when run on 09-03, and the 10 were mostly the
+     tier-cap revert, nothing to do with the carve named.
+     ⚠ AND PREFER A FRESH WINDOW to a wide one. Measured
+     2026-09-03 over a week: 37 hits, and on inspection essentially all were
+     rows RECORDING a removal ("Deleted: `FpsOverlayState`", "the view is
+     DELETED") rather than rows made stale by one — docs/planning is clean on
+     this axis, and a wide window is archaeology. A fresh window is not, because
+     the rows have not been rewritten in past tense yet.
+  3. **`python scripts/check_doc_links.py`**.
+  4. **The ▢ rows that NAME A SYMBOL the carve touched.** Three were found stale
+     in one sweep on 2026-09-02 (`bounded-perception`'s routing row, `queue.md`'s
+     `string_id!` row, and the capability-footprint count) — from three different
+     authors, none careless: a merge lands code and the row lives in a file the
+     merge never touches. Run this over your own range:
+
+     ```bash
+     git diff -U0 <base>..<head> -- '*.rs' | grep -E '^[+-][^+-]' \
+       | grep -oE '\b(fn|struct|enum|trait) [A-Za-z_][A-Za-z0-9_]*' | awk '{print $NF}' \
+       | awk 'length($0) >= 8 || /_/' | sort -u \
+       | while read s; do
+           grep -rn "\`[^\`]*\b$s\b[^\`]*\`" docs/planning --include=*.md | head -1
+         done
+     ```
+
+     ⚠ The two filters are load-bearing. Without `length >= 8 || /_/` the symbol
+     list is `and`, `id`, `str` and the output is thousands of English words;
+     without the BACKTICK requirement it matches prose rather than citations.
+     ⛔ And it only finds rows that NAME something — a row describing the carve
+     without naming a symbol ("the encounter adapter's seams still cross") stays
+     invisible and still has to be read.
+  5. **The capability footprint, if the carve ADDS a crate.** `closure_size` and
+     `never_asked_for_count` move in `capability-footprint-baseline.json`, and the
+     row above that quotes them must move in the same commit. It lagged twice.
+  6. **⛔ The debt ledger is not laundered**: the destination joins in the SAME
+     commit. A carve that only re-exports has moved nothing, and the source
+     crate's line count falling is not evidence on its own.
+  7. **⛔⛔ IF AN ABSENCE CONTRACT GOES RED, MOVE ITS EXCLUSION — DO NOT WIDEN
+     IT.** **Eleven of the 25** contracts in `check_absence_contracts.py` pin
+     *"this belongs to ONE file"* by EXCLUDING that file by path. A carve that
+     moves the owner makes the contract flag the NEW location — it reads as "my
+     carve broke an architectural rule" when it only moved the rule's home.
+     ⇒ Point the exclusion at the new path IN THE SAME COMMIT; widening the
+     paths or deleting the contract launders the rule the carve was meant to
+     preserve, and looks like a clean carve in the diff. ⚠ Such a contract is
+     invisible when you grep for the file it protects — it names that file in a
+     `:!` path rather than in its rule, which is why this is a table:
+
+     | If your carve moves… | it trips |
+     |---|---|
+     | `character_runtime/prepared_match.rs` | `a-second-writer-of-a-match-global-must-answer-ownership` |
+     | `character_runtime/presentation.rs` | `the-provider-resolver-is-confined-to-one-file` |
+     | `character_runtime/definition.rs` | `registration-does-not-demand-art` |
+     | `ambition_combat/src/moveset/mod.rs` | `ending-a-move-goes-through-the-one-teardown-path` |
+     | `avatar/starting_character.rs` | `the-motion-model-…`, `the-movement-tuning-…`, `the-catalog-axis-tuning-…`, `the-catalog-default-action-set-…` |
+     | `avatar/mod.rs` | `the-movement-tuning-resolver-is-confined-to-one-file` |
+     | `characters/src/prepared.rs` | `the-catalog-axis-tuning-…`, `the-catalog-default-action-set-…`, `registration-does-not-demand-art` |
+     | `characters/src/actor/character_catalog/mod.rs` | `the-catalog-axis-tuning-…`, `the-catalog-default-action-set-…` |
+     | `characters/src/brain/{fighter,state_machine,snapshot_impls,mod}` | `the-generic-brain-does-not-grow-new-platform-fighter-edges` |
+     | `app/versus.rs`, `demo_smash/src/lib.rs` | `the-global-roster-is-retired-only-by-its-owner` |
+     | `schedule/input_systems.rs` | `the-seat-topology-has-one-engine-side-creator` |
+     | `ldtk_tools/ldtk/paths.py` | `the-worlds-path-is-confined-to-ldtk-paths` |
+
+     ⚠ And `the-character-domain-is-not-named-after-a-character` guards ALL of
+     `crates/ambition_characters/` by PATTERN rather than by exclusion, so it is
+     live for any carve landing code there whichever file moves.
+     ✔ Since 2026-09-02 a parametrized test asserts every path a contract names
+     still EXISTS, so the quiet half of this rots loudly now: an exclusion left
+     behind guards a ghost, and an include root that vanishes makes the contract
+     scan nothing and pass forever.
+  8. **⚠ IF THE CARVE MOVES A CRATE, re-read its `WAIVED` prefix in
+     `rollback_coverage.rs`.** Twenty-two of that file's 31 waivers are
+     NAMESPACE-WIDE (`ambition_render::`, `ambition_input::`, …), so a crate
+     that moves or splits can leave a prefix covering nothing — or, worse,
+     covering types its reason never described, which the file itself warns
+     about. ⛔ There is no assertion for this on purpose: the audit is
+     `list_what_every_waiver_actually_covers`, an `#[ignore]`d listing meant to
+     be READ against each waiver's rationale. Run it after a crate move.
+
+  ⛔⛔ RE-MEASURED 2026-08-31: the owner doc's
   "only four dependencies are single-path" list is STALE — `ambition_dev_tools`
   and `ambition_mount` have 6 dependents, `ambition_items` 5, `ambition_damage`
   3, and the FACADE every game depends on names all four directly. ✔ ALL FOUR
@@ -1914,10 +2062,17 @@ The one unresolved developer-policy choice from the session-ownership work is in
   migration over those 170 call sites; neither is mechanical. ⚠ A carve that
   adds a crate RAISES the count (`ambition_world_items`, 43 → 44: crates, not
   bytes) — the two lines of work must not be scored against each other, which
-  `engine/capability-and-runtime-composition.md` now says. Owed: the baseline's
-  `reachable_via_ambition_platformer2d_actor_monolith_alone` list is stale
-  (`ambition_damage`, `ambition_mount` entered 2026-08-26 after it was written);
-  ambition-da repairs it in one commit after the `items/` carve lands.
+  `engine/capability-and-runtime-composition.md` now says. ✔ The baseline's sub-lists are repaired
+  (2026-09-03). The owed item named only the ENTERING half (`ambition_damage`,
+  `ambition_mount`, done at `f1445c142`); measuring found the other direction
+  was worse — FIVE crates that had left the closure were still listed as
+  reachable, so `reachable_only_through_the_facade` fell from four to one and
+  the 170 call sites above are really 90, `ambition_render` alone. ⭐ The two
+  lists are now equal: all 19 arrive through the monolith alone, so no facade
+  cut removes any of them, which makes the honest acceptance above stronger
+  rather than weaker. Guarded by
+  `scripts/tests/test_capability_footprint_baseline_is_coherent.py` — the
+  ratchet only ever looked for crates ENTERING.
 - ✔ **`string_id!` was defined THREE times; it is written once now.** Fixed by
   `02a796d2c`, exactly as this row specified: `#[macro_export]` on
   `ambition_load`'s copy (`crates/ambition_load/src/id.rs:19`), the other two

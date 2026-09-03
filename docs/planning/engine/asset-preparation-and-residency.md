@@ -2057,15 +2057,19 @@ in `ambition_render/src/rendering/actors/mod.rs:721` reports only the first:
 *"nothing demanded it, so the engine never decoded its sheet"*. That is the
 warning the host run saw 111 times on the Hall reveal, so its diagnosis is
 evidence for a cause it never checked.
-The two are not distinguishable today: `demote_stale_realizations_outside`
-removes the token from `sheets` and deliberately leaves `declared` intact (the
-entry is the recipe for re-making it), so a retired realization and one that was
-never made are the SAME state, and nothing records that a retirement happened.
+The two are not distinguishable today: `demote_stale_realizations` removes the
+token from `sheets` and deliberately leaves `declared` intact (the entry is the
+recipe for re-making it), so a retired realization and one that was never made
+are the SAME state, and nothing records that a retirement happened. (It was
+`demote_stale_realizations_outside` when this row was written <!-- cite-ok -->:
+the `_outside` named the cap's `(floor, ceiling)` range, and `06a494f4e` took
+the range and the suffix away together.)
 ⇒ A retirement followed by a re-demand IS accidental re-preparation, which puts
 this squarely in this section rather than in observability.
 ✔ **FIXED THE SAME DAY.** `CharacterSpriteAssets` now keeps a `retired` trace
-(token → the tier whose pixels it actually held), written by
-`demote_stale_realizations_outside` and cleared by both publish paths the moment
+(token → the tier whose pixels it actually held), written by `retire_tokens`
+— the shared helper BOTH retirement roads go through, `demote_stale_realizations`
+and `retire_realizations_except` — and cleared by both publish paths the moment
 the token is resident again — so a character that comes back stops being
 described by a retirement it recovered from. `retired_tier(token)` exposes it and
 the warning now says either *"declared as 'X' and RETIRED from Full — it was

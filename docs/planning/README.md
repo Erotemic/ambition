@@ -198,7 +198,15 @@ want to point at — `central-rollback-does-not-enumerate-domains`,
 `the-seat-topology-has-one-engine-side-creator` — and others that are
 self-explanatory and need no plan at all.
 
-⛔ **Mapping the 29 to owners is NOT done and is not a mechanical job**: several
+✔ **RE-MEASURED 2026-09-02: it is 20 of 35, not 29 of 37** — nine contracts
+gained a pointer since `dae963206` and the family totals moved (25 absence, 6
+dependency, 4 module allowlists). ⭐ And the unnamed twenty are not a random
+tail: **six of them are the `*-is-confined-to-one-file` rules and
+`registration-does-not-demand-art`**, which is exactly the population the D33
+carves now in flight can move. They are pointed at from the D33 row's
+post-carve list rather than from a campaign of their own.
+
+⛔ **Mapping the rest to owners is NOT done and is not a mechanical job**: several
 belong to campaigns that have closed, and a contract whose rule is obvious from
 its name costs nothing by being unlinked. The number is recorded so the next
 session starts from 29 rather than from zero.

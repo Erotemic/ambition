@@ -11,6 +11,18 @@ resolution, `head -N` truncating the grep that had the answer) belongs here too
 and should be appended by whoever holds those commits — an unattributed line
 with no SHA is exactly the kind of claim this page exists to distrust.
 
+⭐ **THE DURABLE HALF OF THIS PAGE NOW LIVES IN A RECIPE, and that page is the
+one to read first:**
+[`docs/recipes/checks-that-did-not-run.md`](../../docs/recipes/checks-that-did-not-run.md)
+§ "The sibling family: it RAN, and it could not have failed". It holds the
+recurring shape and the four-pass audit; **this page is where they came from** —
+the instance table below, with a SHA per line, so a reader can verify rather
+than take it.
+
+⚠ That recipe's own numbered list is a DIFFERENT family: checks that never
+executed. **Do not add the two counts.** Ask "did it run?" there and "did it
+check what I think?" here.
+
 ## The recurring shape
 
 **An emitter tells you what a line CONTAINS; it never tells you what to compare
@@ -39,6 +51,8 @@ succeeds, the number prints, and the number is about a different question.
 | 15 | Grepping for a lesson's own heredoc delimiter inside that heredoc | Bash ended the script early and the trailing command ran on garbage | *(memory only, no commit)* |
 | 16 | Three theories of which targets fail to downscale, from configs and mtimes | The four share one imported module; `grep -l _authored_swing_fighter` answered it, and the shared file was visible in the first `ls` of that directory | `c77f66425` |
 | 25 | `check_rollback_mutators_run_in_sim` reporting "OK: 4 systems mutate rollback state, none in a non-rewinding schedule" | Its population was ONE type — `rollback_types()` read a single file holding 1 of the repo's 87 canonical registrations (113 types). A green that reads as a clean bill of health for rollback, over under 1% of it. Widened to 113 types / 318 systems / 6 waived | `7793c78df`, `04cbab8c5` |
+| 27 | A census of "families where some members author a height and some do not" returning ZERO | The grouping key took the first 2–3 underscore tokens, putting `npc_puppy_slug` and `npc_puppy_slug_variant2` in DIFFERENT groups — so it could not have found the case I already knew existed | `e3e5681da` |
+| 26 | Knockdown-row coverage measured at 4 sheets against a doc count of 10 | Sprite manifests have TWO shapes — `body_metrics` map keys vs `animation:` row fields — and the regex saw one, calling `officer` (which contains all four words) empty | `44e5e8804` |
 | 24 | `check_engine_systems_are_engine_installed` exiting 0 with NO OUTPUT AT ALL | Genuinely passing (0 unclaimed at budget 0) — but silence is what a check that never ran also prints, and every sibling `check_*.py` says `OK: …` | `335eb2d8a` |
 | 23 | `check_authored_levels_survive` reporting "found no .ldtk worlds at all" | `SKIP_PARTS` contains `.worktrees` and was matched against the ABSOLUTE path — an agent slot's own root is `<repo>/.worktrees/<slot>`, so every world was skipped. 12 on disk, 0 kept. Inoperative in exactly the trees the agents work in | `2edf629b0` |
 | 22 | Five suite failures dismissed as "cargo is not on this PATH" | `~/.cargo/bin/cargo` exists; four scripts resolved it and two call sites did not. Fixing that turned 4 into passes and left ONE REAL finding the crash had hidden — `examples/portal_tutorial/Cargo.lock` stale since `ambition_registry_core` landed | `3959d8b27` |
@@ -50,40 +64,31 @@ succeeds, the number prints, and the number is about a different question.
 
 ## How to run this audit again
 
-It found eight real defects in one evening, so it is worth repeating rather than
-rediscovering. Four passes, cheapest first:
-
-1. **Run every guard and read its REAL exit code.**
-   ```bash
-   for f in scripts/check_*.py; do
-     out=$(timeout 240 python3 "$f" 2>&1); code=$?     # NOT `| head`
-     printf '%-42s exit=%-3s %s\n' "$(basename "$f" .py)" "$code" "$(printf '%s' "$out" | head -1)"
-   done
-   ```
-   ⛔ My first pass piped into `head` and captured `tr`'s status, so every check
-   read `exit=0`. The bug I was hunting, in the tool I was hunting it with.
-   Look for: a traceback, an empty success, and any message that says the check
-   checked nothing.
-
-2. **Compare each guard's denominator against the repository's.** This is the
-   one that found item 25. "4 systems mutate rollback state" is implausibly
-   small for a game with rollback netcode; ask what SOURCE produced the
-   population, not whether the check passed. A guard that reads one file in a
-   repo whose convention is one-file-per-crate is the shape to expect.
-
-3. **Ask which guards assert against the LIVE tree**, not only on fixtures. Most
-   here do; the exceptions are where the coverage gaps hide.
-
-4. **Poison it — and check the poison landed in the guard's population.** Two of
-   my three poisons on the sheet-presence check hit files it deliberately
-   ignores, and each printed a green I could have taken for proof.
-
-⚠ Two habits that make the whole thing cheaper: a tool one call away beats an
-hour of reading (`discover_all_targets()`, `grep -l <shared module>`), and when
-two of your own measurements disagree, the coherent one is not automatically the
-true one.
+Moved, so there is one copy to keep current: the four passes are
+[`docs/recipes/checks-that-did-not-run.md`](../../docs/recipes/checks-that-did-not-run.md)
+§ "Running this audit yourself". It found eight real defects in one evening.
 
 ## ⭐ What the sweep did NOT find, recorded so nobody repeats it
+
+⭐ **THE PLANNING DOCS ARE CLEAN ON THE BARE-CITATION AXIS, and the negative is
+worth as much as a finding here.** `check_planning_citations.py --vanished`
+(added 2026-09-03) reports a BARE backticked name that was a definition at a
+baseline and is not one now — the form the default check cannot see, and the
+form a carve's removals are usually spelled in. Over a week-old baseline it
+returned 37 hits across 22 names, and every name checked was an item a NAMED
+COMMIT genuinely removed. **But essentially every ROW was already recording the
+removal** — "Deleted: `FpsOverlayState`", "the view is DELETED", "THAT PRELOAD
+ROAD IS GONE as of `301a07009`". Four authors' docs, none stale.
+
+⇒ Two things follow. The docs are better maintained on this axis than the sweep
+assumed, and the mode belongs at a CARVE'S PARENT rather than a wide baseline:
+a fresh window catches rows before anyone rewrites them in past tense, and a
+wide one is archaeology.
+
+⛔ TWO FALSE POSITIVES CAME OUT OF MY OWN TOOL FIRST, both LIVE crates
+(`ambition_demo_pocket`, then `ambition_platformer2d_actor_monolith`) — one via
+a field rule, one via a `mod` line. Fixed in `9137e4356`. I had committed the
+tool before triaging the half of its output that contained them.
 
 A crude scan flagged 13 test files that assert an absence against the live tree
 with no obvious population floor. **Spot-checking them found them healthy**, and
@@ -110,6 +115,20 @@ renderer), one is a short form of a real file, one contains a literal `…`, and
 the last is a HISTORICAL PROVENANCE note — *"relocated from
 `docs/vision/driving_decision_principles.md`"* — which is correct precisely
 because the file is gone.
+
+⚠ **AND A THIRD: COMMIT SHAs.** `docs/planning` cites **203 SHA-shaped tokens**
+(7–12 hex, backticked). 196 resolve to main-repo commits, **6 resolve in a
+SUBMODULE** (`tools/ambition_sprite2d_renderer`, `dev/ambition_dev_measurements`,
+`game/ambition_map_assets` — correct citations of commits this repo does not
+contain), and the last one is not a commit at all: `c0312413be50` is labelled
+*"(md5 `c0312413be50`)"*, a capture hash. **All 203 legitimate.**
+
+⇒ **Three proposed extensions, three all-false-positive populations.** Bare
+names (~408), bare paths (9 of 9), SHAs (7 of 7). That is not three near
+misses; it is the same fact three times — **prose cites more kinds of thing than
+a resolver can enumerate, and each kind has a legitimate reason to be
+unresolvable.** The checker's narrow scope is a decision, not an oversight, and
+this page is now the record so nobody spends a fourth evening on it.
 
 ⇒ A path in a doc resolves against THREE different bases and sometimes against
 none on purpose. That is the same reason the checker refuses to match
@@ -154,6 +173,12 @@ would make it zero.** Items 2, 3, 11 and 12 each print a confident number about
 a population the instrument cannot see; item 17 prints an honest number in the
 unit that does not answer the question being asked.
 
+⇒ **RUN A CENSUS AGAINST A CASE YOU ALREADY KNOW.** Items 26 and 27 were both
+invisible in their output and obvious the instant a known answer was checked
+against them — a count of 4 where the doc said 10, and a ZERO from a sweep for
+a thing I had found by hand ten minutes earlier. A census with no known positive
+reports its own blindness as good news.
+
 ⇒ The one worth generalising: **compare the guard's denominator against the
 repository's.** "4 systems mutate rollback state" is implausibly small for a
 game with rollback netcode, and that ratio — not the pass/fail — is what
@@ -169,13 +194,13 @@ when the tool was one call away.** `discover_all_targets()` and
 
 | # | The check | Why it could not fail | Fixed in |
 |---|---|---|---|
-| 19 | The default gate (`./run_tests.sh --rust`) run over a tree another agent was editing | A verdict about a tree that changed under it; two "green" gates were about no commit at all — announced windows and pathspec commits since | `2ea4ef21a` (the lesson), rule in `feedback` memory |
-| 20 | `cargo check -p <crate>` as a peer's evidence for a schedule-set membership guard | Bevy names a system `<Enable the debug feature to see the name>` unless `bevy_ecs/debug` is on; the monolith's name-lookup guard passed under `--workspace` and failed under `-p` — count by shape, not by name (yardrat, `dbec94824`) | `dbec94824` |
-| 21 | `cargo check --workspace --all-targets` as proof a merge was clean | An EXACT dependency allowlist (`engine.world-ir-dependency-allowlist`) is a policy test, not a compile; the merge of R4a added an edge the check could not see | `2b6e6561b` |
-| 22 | The gate's Python lane resolving the FIRST usable-looking interpreter | An in-repo `.venv` from July predated the per-machine store and had no numpy; two red jobs read as "tests failed" until `python_tools.sh` was run — the runner now refuses an interpreter that cannot host the lane (yardrat) | `bd18a028f` |
-| 23 | `\| tail -30` on a workspace lane | The exit status was `tail`'s; the lane was red on a missing bundled font and read `[exited with code 0]` (ambition-da) — `PIPESTATUS` or nothing | *(method; `grab_font_assets.py` is the fix)* |
-| 24 | Probing whether an asset reloads after its handle drops, with a path that did not exist | `Failed(NotFound)` twice, both arms "consistent" — a probe that cannot distinguish its own typo from the defect; the real path reloaded in 2 updates | *(probe deleted; the defect was the fixture, `0a112fcb5`)* |
-| 25 | A settle helper that ran ONE update and then read "pending is None" as "settled" | A launcher command becomes a route one update later than a `GoTo`; the fixture read the relaunch as done the frame before it started — masked for months while the relaunched room's cast was still resident | `0a112fcb5` |
-| 28 | A docstring that describes a test, taken as the test | Three guards green for reasons unrelated to what they guard: the citation checker's population (no `::` → never extracted), the sheet-presence check exiting 0 when it could not import, the absence contracts' "require a hit" half never written (ambition-e7, `d3c86dc79` / `f4693ac7b` / `e4e545d29`) | *(theirs; listed here because the shape is the integrator's to watch for)* |
-| 27 | A pathspec commit that names a file you edited | A `git reset` to origin by another agent in the shared tree reverted the file first; the commit landed without it and nothing complained — read the reflog before re-typing | `986f61d83` |
-| 26 | Bisecting a merge-heavy day by `rev-list` index | An index is not an ancestry chain; a GOOD on a side branch bounded nothing on the line that mattered (yardrat) — bisect the ancestry, not the list | *(method)* |
+| 28 | The default gate (`./run_tests.sh --rust`) run over a tree another agent was editing | A verdict about a tree that changed under it; two "green" gates were about no commit at all — announced windows and pathspec commits since | `2ea4ef21a` (the lesson), rule in `feedback` memory |
+| 29 | `cargo check -p <crate>` as a peer's evidence for a schedule-set membership guard | Bevy names a system `<Enable the debug feature to see the name>` unless `bevy_ecs/debug` is on; the monolith's name-lookup guard passed under `--workspace` and failed under `-p` — count by shape, not by name (yardrat, `dbec94824`) | `dbec94824` |
+| 30 | `cargo check --workspace --all-targets` as proof a merge was clean | An EXACT dependency allowlist (`engine.world-ir-dependency-allowlist`) is a policy test, not a compile; the merge of R4a added an edge the check could not see | `2b6e6561b` |
+| 31 | The gate's Python lane resolving the FIRST usable-looking interpreter | An in-repo `.venv` from July predated the per-machine store and had no numpy; two red jobs read as "tests failed" until `python_tools.sh` was run — the runner now refuses an interpreter that cannot host the lane (yardrat) | `bd18a028f` |
+| 32 | `\| tail -30` on a workspace lane | The exit status was `tail`'s; the lane was red on a missing bundled font and read `[exited with code 0]` (ambition-da) — `PIPESTATUS` or nothing | *(method; `grab_font_assets.py` is the fix)* |
+| 33 | Probing whether an asset reloads after its handle drops, with a path that did not exist | `Failed(NotFound)` twice, both arms "consistent" — a probe that cannot distinguish its own typo from the defect; the real path reloaded in 2 updates | *(probe deleted; the defect was the fixture, `0a112fcb5`)* |
+| 34 | A settle helper that ran ONE update and then read "pending is None" as "settled" | A launcher command becomes a route one update later than a `GoTo`; the fixture read the relaunch as done the frame before it started — masked for months while the relaunched room's cast was still resident | `0a112fcb5` |
+| 35 | A docstring that describes a test, taken as the test | Three guards green for reasons unrelated to what they guard: the citation checker's population (no `::` → never extracted), the sheet-presence check exiting 0 when it could not import, the absence contracts' "require a hit" half never written (ambition-e7, `d3c86dc79` / `f4693ac7b` / `e4e545d29`) | *(theirs; listed here because the shape is the integrator's to watch for)* |
+| 36 | A pathspec commit that names a file you edited | A `git reset` to origin by another agent in the shared tree reverted the file first; the commit landed without it and nothing complained — read the reflog before re-typing | `986f61d83` |
+| 37 | Bisecting a merge-heavy day by `rev-list` index | An index is not an ancestry chain; a GOOD on a side branch bounded nothing on the line that mattered (yardrat) — bisect the ancestry, not the list | *(method)* |

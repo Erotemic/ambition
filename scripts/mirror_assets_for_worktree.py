@@ -288,9 +288,20 @@ def main(argv: List[str] | None = None) -> int:
 
     print(f"mirroring generated assets\n  from {source}\n  into {dest}")
     total_linked = total_kept = total_replaced = total_pruned = 0
+    # ⛔ A NAME THAT COPIES NOTHING IS THE BUG THIS LIST HAS ALREADY HAD ONCE.
+    # The `vanity_card` entry above records it: a superseded tree stayed in the
+    # list, mirrored nothing, and the sheet the shipped manifest actually names
+    # was left behind — silently, because a missing source is just `continue`.
+    # Four entries are in that state today (`game/ambition_content/assets/`
+    # `backgrounds`, `concept_art`, `icons`, `manual-art`; absent in main too).
+    # They are harmless while nothing is there and become wrong the moment a
+    # tree is added under a DIFFERENT name, so the skip is reported rather than
+    # silent — and rather than deleting entries that may be forward-looking.
+    absent: list[str] = []
     for rel in MIRRORED_TREES:
         src_root = source / rel
         if not src_root.is_dir():
+            absent.append(rel)
             continue
         dst_root = dest / rel
         if args.prune:
@@ -301,6 +312,19 @@ def main(argv: List[str] | None = None) -> int:
         total_replaced += replaced
         if linked or kept or replaced:
             print(f"  {rel}: +{linked} linked, {kept} local kept, {replaced} replaced")
+
+    if absent:
+        print(
+            f"  ⚠ {len(absent)} mirrored-tree entr(y/ies) name a source that does "
+            "not exist and were skipped:"
+        )
+        for rel in absent:
+            print(f"      {rel}")
+        print(
+            "    Harmless while nothing is there. ⛔ If a tree WAS added under a "
+            "different name, this is the `vanity_card` bug again: the mirror "
+            "copies nothing and the art is missing only in worktrees."
+        )
 
     verb = "would link" if args.dry_run else "linked"
     print(

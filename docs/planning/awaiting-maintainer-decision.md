@@ -455,6 +455,41 @@ declaration was already showing.
 `game/ambition_map_assets` plus a pointer bump. ▢ And it is untested against the
 LDtk editor itself, which needs Jon opening a world.
 
+### How tall is a puppy slug? The base is unauthored, its variants are not (2026-09-02)
+
+⭐ Found while re-measuring the pirate-sizing report's *"zero rows author
+`standing_height`"* claim, which is now **23 of 149**
+(`scripts/measure_character_data_coverage.py`). Two of the twenty-three are
+puppy slugs, and the third member of the family is not:
+
+```text
+npc_puppy_slug            (falls to the 48.0 default — nobody chose it)
+npc_puppy_slug_variant2   41.7
+npc_puppy_slug_velvet     30.9
+```
+
+⛔ **So the BASE crawler stands taller than both of its own variants, at exactly
+the player robot's height** — which is the symptom Jon reported for the pirates
+(*"as tall as the player robot who is supposed to be chibi"*). `npc_puppy_slug`
+and `npc_puppy_slug_velvet` publish the SAME 128 px frame, and land at 48.0 and
+30.9: a 55% difference between two characters drawn at one size, where one side
+is a decision and the other is a default.
+
+⭐ **AND IT IS THE ONLY FAMILY IN THE CATALOG LIKE THIS.** Swept every
+base/variant pair (one row name a strict `_`-prefix of another) across all 149
+rows: `npc_puppy_slug` is the *sole* case where one side authors a height and
+the other does not. Every other family is all-authored or all-default. ⇒ That
+uniqueness is what makes it read as an omission rather than a convention — if
+leaving the base to `body_kind` were the house style, it would be visible
+somewhere else.
+
+⚠ **It is still not obviously a bug** — a base breed may be meant to be larger —
+which is why this is a question and not a fix. What is odd is the SHAPE: the two
+variants were deliberately sized and the thing they are variants OF was left to
+`body_kind`. ⇒ **What height should `npc_puppy_slug` be?** It is placed in
+`hall_of_characters`, `intro` and five levels of `sandbox`, so whatever it is
+now is visible in play.
+
 ### The shared sprite pack is 442.6 MB and one prop reads it (raised 2026-09-02)
 
 ⭐ **MEASURED** (`scripts/measure_pack_reachability.py`).

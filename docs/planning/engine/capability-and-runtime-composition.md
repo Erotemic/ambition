@@ -43,6 +43,31 @@ Its demonstrated value is:
 > so any transcribed copy of this pair starts aging the moment it is typed.
 > ⇒ Do not trust 49/22 either — `scripts/check_absence_contracts.py` prints the
 > current pair in under a minute, and that line is the authority.
+>
+> ⛔ **AND THE DIRECTION OF THAT DRIFT NEEDS SAYING OUT LOUD: 45→49 AND 18→22 IS
+> +4 AND +4, THE SAME FOUR.** Every crate that joined the closure since
+> `479f9d3e4` landed in `never_asked_for` — verified against the baseline JSON:
+> `ambition_held_items`, `ambition_body_seed`, `ambition_encounter_features`,
+> `ambition_match` and `ambition_registry_core` are all in that list. Each
+> arrived by a carve commit whose subject is some form of *"X leaves the actor
+> kernel"*.
+>
+> ⇒ **So the headline number gets WORSE as the decomposition succeeds, and that
+> is arithmetic rather than regression.** `closure_size` counts CRATES. Splitting
+> a monolith into a sibling the facade still pulls adds one; it does not add a
+> line of linked code, and it is the work this program asked for. ⚠ **The
+> consequence is that the pair cannot be read as a progress metric in the
+> direction everyone will read it.** A reviewer seeing 22 where the page said 18
+> will infer the footprint got worse, and what actually happened is that four
+> domains became separately nameable.
+>
+> ⭐ **The number that WOULD mean progress is a crate LEAVING the closure, and
+> that is a different act from carving.** It has happened and the log names it —
+> `ab99e70aa` *"Portals leave the movement-only closure too: 43 -> 42"* — and
+> `51600d168` records five leaving unnoticed because the ratchet *"only ever
+> watched crates ENTER"*. ⇒ A carve makes a domain nameable; only cutting the
+> facade's edge to it makes the footprint smaller. Both are needed and the
+> ratchet counts only the first.
 > ⛔ **DO NOT RETYPE IT — re-derive:**
 > `python3 scripts/check_absence_contracts.py | grep footprint`, which prints
 > the live pair from `scripts/baselines/capability-footprint-baseline.json`.

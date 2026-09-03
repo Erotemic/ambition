@@ -29,6 +29,29 @@ from check_absence_contracts import (  # noqa: E402
     violations,
 )
 
+# ⭐ THREE CONTRACT FAMILIES, GUARDED THREE DIFFERENT WAYS — AND THAT ASYMMETRY
+# IS PRINCIPLED, not an oversight anyone should tidy. Checked 2026-09-02:
+#
+#   ABSENCE_CONTRACTS (25)   each carries its OWN patterns, so each can be
+#                            individually wrong and each needs its own fixture.
+#                            That is why VIOLATING_LINE is parametrized over all
+#                            of them, in both directions.
+#   DEPENDENCY_CONTRACTS (6) share ONE mechanism (graph reachability) and differ
+#                            only in data. Proving the algorithm fires once
+#                            proves it for all six, so the fire tests are
+#                            synthetic graphs and the per-contract test is the
+#                            LIVE one — plus `a_contract_naming_a_crate_that_
+#                            does_not_exist_is_reported`, which is what stops a
+#                            renamed crate turning a contract into a silent pass.
+#   MODULE_ALLOWLISTS (4)    share a mechanism too, but permit-a-set-and-forbid-
+#                            the-rest can be EVADED by re-spelling an import, so
+#                            they get evasion tests AND a per-contract vacuity
+#                            control (`..._baseline_is_not_silently_empty`).
+#
+# ⇒ Do not "make them consistent". A per-contract fire test for the dependency
+# family would restate one algorithm six times; the absence family cannot borrow
+# that argument because there is no shared algorithm to prove.
+
 # One line that each contract must reject, written the way real code would.
 #
 # ⭐ THE EIGHT BELOW WERE ADDED 2026-09-02, closing the last of the skips. A

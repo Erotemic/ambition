@@ -102,9 +102,14 @@ WAIVERS: dict[str, str] = {
         "`TwinTrackExperiment` has no timeline to be inconsistent with."
     ),
     "materialize_projectiles_for_this_tick": (
-        "⛔ the FIGHTER HARNESS drives the sim itself from `Update` and installs "
-        "no rollback host, so `ProjectileSeqCounter` never rewinds under it. One "
-        "reason for all three harness systems; see the note below."
+        "⛔ the FIGHTER HARNESS builds its OWN app and cannot be composed into a "
+        "rollback host. Checked rather than inferred: `fighter_harness.rs` does "
+        "`App::new()` + `MinimalPlugins` and steps it with `self.app.update()`; "
+        "the file contains no GGRS/rollback reference of any kind; and "
+        "`FighterHarness` appears in exactly ONE file in the workspace — its own "
+        "— so no composition can hand it a session. `ProjectileSeqCounter` "
+        "therefore never rewinds under it. One reason for all three harness "
+        "systems."
     ),
     "spawn_projectiles_from_brain_actions": (
         "⛔ fighter harness — same composition as "

@@ -264,10 +264,15 @@ ambition_app --all-targets`, and a carve additionally compiles `--all-targets`
 on each crate it touched, because a carve moving a type is exactly the change
 that breaks a sibling crate's TEST build — the app gate sweeps production only."*
 
-⚠ **`cargo check --workspace` DOES NOT SATISFY THIS.** It builds libs, not test
-targets, so a carve that moves a type out from under a sibling's `#[cfg(test)]`
-import passes `--workspace` and fails the sibling's own `--all-targets`. That is
-the precise failure mode the ruling names, and it is invisible to the gate.
+⚠ **THE OPERATIVE FLAG IS `--all-targets`, NOT `--workspace` — corrected
+2026-09-03 after I got this backwards once.** A bare `cargo check --workspace`
+builds libs, not test targets, so a carve that moves a type out from under a
+sibling's `#[cfg(test)]` import passes it and fails that sibling's own
+`--all-targets`. But `cargo check --workspace --all-targets` DOES build them and
+would satisfy the ruling — Jon's choice was the per-crate sweep over widening
+the gate, for gate cost, not because `--workspace` is incapable. ⇒ Read the
+ruling as "every touched crate, `--all-targets`", and do not conclude from it
+that a workspace-wide check is useless.
 
 ⇒ Derive the list rather than recall it:
 

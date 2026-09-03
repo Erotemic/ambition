@@ -1289,15 +1289,6 @@ OPTIONAL dep + feature, never used:
      declared derived at `2eaa0f479`'s parent. ⚠ A carve is not the only thing
      that trips this: any commit that adds simulated state does.
 
-  11. **⛔⛔ THE COMPILE-COST RATCHET IS A PER-CARVE LEDGER AND IT IS RED.**
-     `python3 scripts/compile_ratchet.py` — 2 s, in the default gate, and it
-     fails the gate today. It is the ledger the D33 campaign is accumulating
-     debt in, and every one of its five messages is about a carve:
-     `REGRESSED` ×2, `PATH` (the serial chain got longer), `UNPRICED` (a new
-     crate has no measured cost), `CARVED` (a win whose baseline is now stale).
-     ⇒ A carve that adds a crate touches ALL of them at once, which is why it
-     belongs on this list rather than in a campaign doc.
-
   10. **⛔ IF THE CARVE'S DESTINATION HOLDS DOC COMMENTS, add it to
      `check_doc_link_ratchet.py`'s `CRATES` — IN THE CARVE'S OWN COMMIT.** That
      list carries the instruction already ("when architecture moves out of a
@@ -1310,6 +1301,15 @@ OPTIONAL dep + feature, never used:
      `bf4e6f353`; it is one line in the carve if you remember.
      ⚠ Reachable locally only since `3e85e4071` — it is a cold `cargo doc` over
      nine crates and lives in `./run_tests.sh --maintenance`, not the gate.
+
+  11. **⛔⛔ THE COMPILE-COST RATCHET IS A PER-CARVE LEDGER AND IT IS RED.**
+     `python3 scripts/compile_ratchet.py` — 2 s, in the default gate, and it
+     fails the gate today. It is the ledger the D33 campaign is accumulating
+     debt in, and every one of its five messages is about a carve:
+     `REGRESSED` ×2, `PATH` (the serial chain got longer), `UNPRICED` (a new
+     crate has no measured cost), `CARVED` (a win whose baseline is now stale).
+     ⇒ A carve that adds a crate touches ALL of them at once, which is why it
+     belongs on this list rather than in a campaign doc.
 
   ⛔⛔ RE-MEASURED 2026-08-31: the owner doc's
   "only four dependencies are single-path" list is STALE — `ambition_dev_tools`

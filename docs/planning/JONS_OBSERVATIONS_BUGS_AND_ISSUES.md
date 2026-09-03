@@ -1004,7 +1004,15 @@ still outstanding when it was written (two were local-only).
 
 ⭐ **`specials-are-real-moves` is a different case with the same answer.** Its
 bulk merged long ago; the two commits left are `c67d2ceb5` and `88000c757`, and
-they conflict with main as **add/add** on
+⛔ **THEY WERE ON NO REF AT ALL until 2026-09-03** — the branch that held them
+is gone, so *"salvage the behaviour, tests and measurements"* was an
+instruction nobody with a fresh clone could follow, and one `git gc` from
+being impossible for everyone. Pushed as
+`origin/rescue/specials-are-real-moves-tail` (the tip is `88000c757`; the other
+is its ancestor, so one ref holds both). 492 insertions across 9 files —
+submerged rendering, `pose_view`, and their tests.
+
+They conflict with main as **add/add** on
 `crates/ambition_render/src/rendering/submerged.rs` and
 `crates/ambition_platformer2d_core/src/movement/tests/submerged.rs`. An add/add
 means both sides created the same file independently — and main's versions came

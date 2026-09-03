@@ -249,6 +249,11 @@ def unresolved_commits(root: Path, docs: list[Path]) -> tuple[list, list[str]]:
         return [n for n, line in zip(names, result) if "missing" in line]
 
     outstanding = missing_in(root, list(seen))
+    # ⛔ ONLY THE SUPERPROJECT'S OWN COMMITS GET THE REACHABILITY TEST BELOW. A
+    # submodule commit is legitimately absent from every ref HERE, and asking
+    # `git branch --contains` about it in this repository reports every one of
+    # them as unreachable — which it did, on the first run of this check.
+    resolved_here = [n for n in seen if n not in set(outstanding)]
     all_subs = subprocess.run(
         ["git", "config", "--file", ".gitmodules", "--get-regexp", "path"],
         cwd=root, capture_output=True, text=True,
@@ -261,6 +266,37 @@ def unresolved_commits(root: Path, docs: list[Path]) -> tuple[list, list[str]]:
     findings = [
         (rel, lineno, f"`{name}`") for name in outstanding for rel, lineno in seen[name]
     ]
+
+    # ⛔⛔ EXISTING IS NOT THE SAME AS FINDABLE. A commit that was REBASED away
+    # still sits in the local object store, so `cat-file -e` says yes and nobody
+    # else can fetch it. That is not hypothetical: `a3924b2b2` was cited in
+    # queue.md as the fix for a union failure and is that commit's PRE-REBASE
+    # name — a reviewer read it as fabricated, which it was not. And two commits
+    # cited as "salvage the behaviour from these" were on NO REF AT ALL, one
+    # `git gc` from being unrecoverable for everyone.
+    #
+    # ⚠ A remote BRANCH is fine — citing unmerged work is legitimate. What is
+    # not fine is a sha reachable from nothing.
+    unreachable = []
+    for name in resolved_here:
+        if subprocess.run(
+            ["git", "merge-base", "--is-ancestor", name, "origin/main"],
+            cwd=root, capture_output=True,
+        ).returncode == 0:
+            continue
+        # not on main: accept any other ref, reject reachable-from-nothing
+        on_ref = subprocess.run(
+            ["git", "branch", "-a", "--contains", name],
+            cwd=root, capture_output=True, text=True,
+        ).stdout.strip()
+        if not on_ref:
+            unreachable.append(name)
+    findings.extend(
+        (rel, lineno, f"`{name}`  (exists locally, reachable from NO ref — "
+                      "rebased away or on a deleted branch; push it or cite the "
+                      "commit that landed)")
+        for name in unreachable for rel, lineno in seen[name]
+    )
     return findings, sorted(set(all_subs) - set(live))
 
 

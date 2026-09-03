@@ -140,6 +140,31 @@ part.
 design does not.** A `> **Verified against <sha> (<date>).**` header says both
 things correctly, which is why it is the form to use.
 
+### ⭐ STAMP THE HEADER WHEN YOU START, and it doubles as the held-file signal
+
+Several sessions work this directory at once, and the standing rule is: claim a
+slice, announce it, do not edit a file another session holds. The missing piece
+was a signal a session could SEE without asking — the announcements live in
+chat, and chat is not in the tree.
+
+⇒ **Write the `> **Verified against <sha> (<date>).**` header as the FIRST edit
+of a pass, not the last.** An uncommitted header at the top of a page says "a
+session has this open" to anyone who looks, and it survives the session that
+wrote it: once committed, it goes on saying the true thing it always said.
+
+⭐ **AND IT IS HONEST ONLY BECAUSE OF THE ORDER, which is the whole point.** The
+rule above is that the header is a correlate, not a cause — it is earned by
+re-reading the page against the code, and one added without that re-reading buys
+the next reader's trust without earning it. Stamping at the START is not a way
+around that: re-reading against HEAD is *what you start with*, so the stamp goes
+on the moment it has been earned and before a single claim is edited. A pass
+that cannot honestly write the header yet has not done the reading yet.
+
+⚠ Two things it does not do. It cannot reserve a file you have not opened, so it
+is a signal and not a lock. And a page under a header is still fair game for
+somebody fixing a fact they can prove — the header says who is working it, not
+who owns it.
+
 ### ⭐ Some findings only exist BETWEEN two plans
 
 Three times on 2026-09-02/03 the useful result came from reading two focused

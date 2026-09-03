@@ -556,9 +556,27 @@ falls. Guard: `a_worn_character_keeps_its_sheet_resident_through_the_transition`
 on frame 0), asserting at every frame of the transition that both stay `Ready`
 and neither is ever recorded retired; red on frame 0 with retire-first
 restored. ⚠ With one character the guard passes vacuously: retire and
-re-realize happen inside one update. What remains of the ramp is the ration
-itself (1/frame at Full), which is now invisible — the old tier draws until the
-new one lands.
+re-realize happen inside one update.
+
+⛔ **WHAT THIS FIX DOES NOT EXPLAIN, measured the same evening (e7,
+`scripts/measure_quality_ramp.sh`, three runs).** On the headless Ultra capture
+the convergence fires at t+0.37 s with ONE realization resident ("re-demanded 0
+in use, retired 1 unworn") and the 129-warning burst comes 900 ms later — so at
+Ultra the burst is NOT the demote (nothing worn was demoted), and the fix above
+is neither confirmed nor refuted by that capture. Two facts from the runs: (1)
+`AMBITION_QUALITY_PROFILE` forces the tier from frame one and is never written
+to `UserSettings`, while `seed_visual_quality_from_adapter` writes the adapter's
+tier INTO settings at `PostStartup` — so the env override can only produce an
+EARLY transition DOWN, never a late upgrade; the path the fix changes needs a
+settings change after the cast is resident, which is the unit guard or a host
+capture, not this tool. (2) The 129 warnings are ONE frame's report (all inside
+0.6 ms) from a per-actor 5-frame latch, not 129 frames: at that instant none of
+the 129 was claimed. ⇒ The Ultra burst is the areal ration's CLAIM LATENCY at
+Full (a body binds only once `texture_is_ready`), and whether it lands under
+the cover or after it is the next measurement: the reveal line and the burst
+carry timestamps in the same log. The fix above stands for the transition race
+it names (a settings Apply, or a host whose seeded tier differs from the
+setting for a frame); it is not the whole of the hall's Ultra story.
 
 #### ⚠ THE HEADLESS CAPTURE CANNOT CONFIRM THIS FIX, measured 2026-09-03
 

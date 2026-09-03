@@ -1,4 +1,4 @@
-# D-B's module-size gate (docs/planning/engine/decomposition.md).
+# D-B's module-size gate (doctrine: docs/architecture/package-and-capability-boundaries.md; the planning page that held it was retired 2026-09-03).
 #
 # The standard: a production module over 5k lines deserves deliberate review.
 # This is a generous architectural tripwire, not pressure to split coherent code
@@ -15,7 +15,7 @@ scope = "engine"
 # Cross-cutting: the gate scans every production module under crates/*/src +
 # game/*/src, so no single crate owns it — the `workspace` owner sentinel.
 owners = ["workspace"]
-source_doc = "docs/planning/engine/decomposition.md"
+source_doc = "docs/architecture/package-and-capability-boundaries.md"
 rationale = "Production modules over 5000 lines require deliberate review; split only when coherent boundaries exist."
 limit = 5000
 roots = ["crates", "game"]

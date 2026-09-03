@@ -268,48 +268,32 @@ def sheets_in(tier_dir: Path) -> list[dict]:
 
 
 def report_orphans(wanted: list[tuple[str, Path]]) -> None:
-    """Sheet PNGs that NO manifest names — the population occupancy cannot see.
+    """⛔ SUPERSEDED — this now DELEGATES to `measure_orphan_shipped_pages.py`.
 
-    ⛔⛔ IT IS BIGGER THAN THE ONE THE CENSUS COVERS. Occupancy asks how much of
-    a CLAIMED page is sampled and says nothing about pages nothing claims.
-    Measured 2026-09-02: unclaimed files are 48% of the Full tier's megapixels,
-    more than every censused page combined, so reporting occupancy alone
-    describes 44% of the tree as if it were the tree.
+    This function used to carry its own definition of "orphan": PNGs whose name
+    contains `_spritesheet` and that no manifest in the same tier names. That
+    definition disagreed with the fuller census in three ways — it ignored art
+    that is not sheet-named (the reduced-tier portraits, the single largest
+    class), it never checked whether a filename is declared in committed source,
+    and it reported one undifferentiated number where the confident and the
+    speculative populations deserve to be told apart.
 
-    ⚠ AND THESE ARE GITIGNORED, GENERATED FILES. Extra pages left by an earlier
-    render are the likely cause, which makes this PER-MACHINE until it is seen
-    on a tree generated separately — a symlinked worktree is not one. Nothing
-    loads them (no manifest names them), so the cost is package size rather than
-    decode or residency; `package_asset_guard.py` records "every regular file"
-    from the asset roots, so they do ship.
+    ⚠ TWO SCRIPTS WITH TWO DEFINITIONS EVENTUALLY PRINT TWO ANSWERS, and the
+    older docstring's "15 files per tier, 775 MP at Full" was already being read
+    beside the newer figures. One definition, in one place.
     """
-    print("\n=== sheet PNGs no manifest names ===")
-    for tier, tier_dir in wanted:
-        if not tier_dir.is_dir():
-            continue
-        claimed = set()
-        for manifest in baked_manifests(tier_dir):
-            text = manifest.read_text(errors="ignore")
-            for name in page_images(text):
-                claimed.add((manifest.parent / name).resolve())
-        rows = []
-        for png in sorted(tier_dir.rglob("*.png")):
-            if "_spritesheet" not in png.name or png.resolve() in claimed:
-                continue
-            size = png_size(png)
-            if size:
-                rows.append((size[0] * size[1] / 1e6, png.stat().st_size, png.name))
-        total_bytes = sum(p.stat().st_size for p in tier_dir.rglob("*.png"))
-        orphan_bytes = sum(b for _, b, _ in rows)
-        print(
-            f"  {tier:<16} {len(rows):>3} file(s)  {sum(m for m, _, _ in rows):8.1f} MP  "
-            f"{orphan_bytes / 1e6:7.1f} MB  "
-            f"({orphan_bytes / total_bytes:.0%} of the tier's PNG bytes)"
-            if total_bytes
-            else f"  {tier:<16} no PNGs"
-        )
-        for mp, _, name in sorted(rows, reverse=True)[:4]:
-            print(f"        {mp:8.2f} MP  {name}")
+    import importlib.util
+
+    script = REPO / "scripts/measure_orphan_shipped_pages.py"
+    if not script.exists():
+        print(f"\n⚠ {script} is absent; orphan reporting lives there now.")
+        return
+    spec = importlib.util.spec_from_file_location("orphan_shipped_pages", script)
+    module = importlib.util.module_from_spec(spec)
+    sys.modules[spec.name] = module
+    spec.loader.exec_module(module)
+    print("\n(orphans: delegating to scripts/measure_orphan_shipped_pages.py)")
+    module.main([])
 
 
 def report(rows: list[dict], label: str, top: int) -> None:

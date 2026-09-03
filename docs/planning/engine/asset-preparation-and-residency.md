@@ -612,7 +612,7 @@ rows, listed below, of which three were new. Corrected 2026-09-02; the tileset
 below is still the LARGEST of the nine and still the one that matters.
 
 `game://sprites/player_robot_v3_spritesheet.png`, found 2026-09-02, is
-`bevy_ecs_ldtk` loading the four worlds' editor-preview tileset (`relPath:
+`bevy_ecs_ldtk` loading the FIVE worlds' editor-preview tileset (`relPath:
 ../sprites/player_robot_v3_spritesheet.png`) through the `game` source — the
 same file the player's realization decodes again as `sprites/…` through the
 default source (host captures `015511Z`/`015909Z`: 7.6 MP at 0.8 s game time
@@ -1002,10 +1002,29 @@ counted neither way.
 `game://sprites/player_robot_v3_spritesheet.png` at frame 0 with no demand
 stamp, and `sprites/player_robot_v3_spritesheet.png` at frame 1129 via
 `character-sheet` — 3072×2468, 7.6 MP, both times. That one sheet is 15.2 MP of
-the 23.7 across the two roads, and the second decode is 69 ms. Whether the
-`game://` scheme and the plain path resolve to two `AssetId`s for the same
-bytes is the question worth asking before any cover is widened: a cover that
-waits for both still pays for both.
+the 23.7 across the two roads, and the second decode is 69 ms.
+
+**Traced 2026-09-02, and it is ONE file decoded twice, not two files.** Five
+LDtk worlds (`hall_of_characters`, `intro`, `sandbox`,
+`you_have_to_cut_the_rope`, and sanic's `sanic_speedway`) carry the tileset
+`relPath: "../sprites/player_robot_v3_spritesheet.png"`. Loaded as
+`game://worlds/<file>`, that resolves to `game://sprites/player_robot_v3_spritesheet.png`
+— and `game/ambition_content/assets/sprites` is a **committed symlink** at
+`crates/ambition_platformer2d_actor_monolith/assets/sprites`, so it is the same
+file the `character-sheet` road reaches as `sprites/…`. Two asset paths, one
+file, two `AssetId`s, two decodes. ⇒ The cost is 7.6 MP and 69 ms of redundant
+decode for the protagonist's sheet at every boot, and Jon's relPath retarget is
+the named fix.
+
+⛔ **AND IT COSTS NOTHING ON DISK OR IN THE PACKAGE — do not go looking for the
+megabytes.** I first read the identical sha256 in both roots as "the art ships
+twice"; it does not. The two roots hold one file, and
+`package_asset_guard.py::iter_regular_files` SKIPS symlinked directories when
+it walks (`if path.is_symlink(): continue`, the `dirnames` loop), so the sprite
+tree is enumerated exactly once, from the monolith root. The defect is purely a
+runtime double-decode. ⚠ `Path.rglob` does not descend a symlinked directory
+either, which is how a census over the two roots can report "0 files in common"
+about a tree where every sprite is shared.
 
 ⇒ The `prepare-first-room-art` cover already waits for the 38 assets the first
 room names. ⚠ 38 assets is not comparable to 7 images — a manifest asset may be
@@ -1238,13 +1257,26 @@ the resolved tier, 0.1 MP, and that is the copy the game actually draws. The
 7.6 MP one appears in `never drawn` for the rest of the run.
 
 ⛔ **AND THE LOADER IS NOT OURS — CORRECTED 2026-09-02 after this was first
-written up.** It is `bevy_ecs_ldtk` loading every project tileset: all four
+written up.** It is `bevy_ecs_ldtk` loading every project tileset: **FIVE**
 `.ldtk` worlds declare `sprite_player_robot_v3` with
 `relPath=../sprites/player_robot_v3_spritesheet.png` at 3072×2484, for EDITOR
-entity previews. Verified in all four world files. So `demand=unknown` is
-accurate and the road is genuinely absent — but the fix is retargeting four
-declarations at `../sprites_0_25x/…` in the map submodule, which is Jon's, and
-the row that owns it is in [`../queue.md`](../queue.md). ⚠ Do not go looking for
+entity previews. So `demand=unknown` is accurate and the road is genuinely
+absent — but the fix is retargeting five declarations at `../sprites_0_25x/…`
+in the map submodule, which is Jon's, and the row that owns it is in
+[`../queue.md`](../queue.md).
+
+⚠ **FIVE, NOT FOUR — recounted 2026-09-02 in the submodule itself.** The four
+`ambition_content` worlds (`hall_of_characters`, `intro`, `sandbox`,
+`you_have_to_cut_the_rope`) plus **`ambition_demo_sanic/worlds/sanic_speedway.ldtk`**,
+which the earlier "verified in all four world files" missed because it counted
+the worlds `ambition_content` exposes rather than the worlds that carry the
+declaration. All five still point at full resolution; none is retargeted.
+`ambition_demo_mary_o/worlds/mary_o.ldtk` does NOT reference the sheet.
+
+ⓘ And the count is the ONLY thing wrong here: the files under
+`game/ambition_content/assets/worlds/` are git symlinks (mode 120000) into
+`game/ambition_map_assets`, so `git ls-files` listing them is not evidence they
+are ours. They are Jon's submodule, exactly as this paragraph says. ⚠ Do not go looking for
 this in our character-sprite loader; an earlier version of this paragraph would
 have sent a reader there.
 
@@ -1441,15 +1473,34 @@ regression. Poison-verified in every direction, with a positive control
 asserting the tree really does contain correctly-scaled variants — otherwise
 two absence assertions would pass forever on an empty measurement.
 
-⭐⭐ **THE ART SHIPS TWICE, AND 15 SHEETS ARE IN ONLY ONE COPY — MEASURED
-2026-09-02.** The two shipped asset roots hold **1378.7 MB**, of which the
-per-target sheets are 649.6 MB across four tiers and `sprite_packs` (the
-"ultrapacks") a further **460.6 MB — the single largest category at 33%**. The
-ultrapack step *"pools every published per-target sheet"* into shared atlas
-pages per tier, and `extend_with_sprite_pack_entries` says the relationship
-plainly: a checkout with no packs *"falls back to its per-target sheet"*. So the
-pack is the preferred road and the per-target PNG is the fallback, and a package
-carries both.
+⭐⭐ **ONE PROP READS THE SHARED SPRITE PACK. 197 TARGETS ARE IN IT, AND 98.8%
+OF ITS BYTES ARE UNREACHABLE — MEASURED 2026-09-02**
+(`scripts/measure_pack_reachability.py`). `build_prop_sprite_asset_packed` is
+the pack's ONLY production consumer; it has ONE call site, the intro prop loop
+in `game/ambition_content/src/intro/plugin.rs`; and it runs only for
+`intro_prop_sprite_rows()` entries whose 4th tuple element is `Some(target)`.
+**Exactly one row is: `intro_cart`.** Characters have no pack road at all —
+`load_character_sprites_in` takes the per-target `*_spritesheet.ron` every time.
+On this machine that is **442.6 MB of pack pages of which 5.2 MB sits on a page
+any consumer can reach.**
+
+⛔ **THAT INVERTS WHAT THIS ROW USED TO SAY.** It read *"the pack is the
+preferred road and the per-target PNG is the fallback"*, inferred from
+`extend_with_sprite_pack_entries`' note that a checkout with no packs *"falls
+back to its per-target sheet"*. That comment is accurate about the ONE prop and
+says nothing about characters, and I read a design intent as a measurement of
+adoption. ⇒ Dropping the per-target PNGs would not save 197 sheets' worth of
+bytes; it would remove every character's only road to its art.
+
+⚠ **NOT A CLAIM THAT THE PACK IS WRONG.** Packing every target is what a packer
+should do. Adoption never followed. Narrowing the generator, adopting the pack
+for characters, or dropping the tiers nobody reads are DECISIONS, not
+measurements. ⭐ Reachability is a SOURCE fact and reads the same on any
+checkout; the megabytes are this machine's generated output.
+
+**SIZES, for context.** The two shipped asset roots hold **1378.7 MB**, of which
+the per-target sheets are 649.6 MB across four tiers and `sprite_packs` (the
+"ultrapacks") a further **460.6 MB — the single largest category at 33%**.
 
 ⛔ **THE PACK COVERS 197 OF 212 PUBLISHED SHEETS.** The 15 absent are
 systematically the BIG ones — median **7.54 MP against 0.97 MP** for packed
@@ -1471,24 +1522,11 @@ the tier defect.
 
 ⚠ **AND THE SAME PER-MACHINE CAVEAT APPLIES TO ALL OF IT**: packs and sheets
 alike are gitignored generated output, and the clean generation that would
-separate staleness from a pipeline defect has not run. ⛔⛔ **AND THE OPEN QUESTION I LEFT HERE — "does a shipped build need the
-per-target PNGs once packs cover a sheet?" — WAS BUILT ON A FALSE PREMISE, AND
-THE ANSWER IS THE OPPOSITE.** Packs do not cover characters at all. Read
-2026-09-02 (`scripts/measure_pack_reachability.py`):
-`build_prop_sprite_asset_packed` is the ONLY production consumer of the pack,
-it has ONE call site — the intro prop loop — and it runs only for rows whose
-4th tuple element is `Some(target)`. Exactly one row is: `intro_cart`.
-`load_character_sprites_in` takes the per-target `*_spritesheet.ron` every
-time. So omitting the per-target PNGs would not save 197 sheets' worth of
-bytes; it would remove every character's only road to its art.
+separate staleness from a pipeline defect has not run.
 
-⭐ **The reachability runs the other way: 442.6 MB of pack pages on this
-machine, 5.2 MB on a page any consumer can reach — 98.8% unreachable.** The
-reachability is a source fact and reads the same on any checkout; the megabytes
-are this machine's generated output. ⚠ This is NOT a claim the pack is wrong —
-packing every target is what a packer should do, and the finding is that
-adoption never followed. Narrowing the generator, adopting the pack for
-characters, or dropping the tiers nobody reads are decisions, not measurements.
+⛔ **THE OPEN QUESTION THIS ROW USED TO CARRY — "does a shipped build need the
+per-target PNGs once packs cover a sheet?" — IS ANSWERED ABOVE, AND THE ANSWER
+IS THE OPPOSITE OF WHAT THE QUESTION ASSUMED.**
 
 ⓘ It also explains a capture I had misread: `sprites_0_25x/noether_spritesheet.png`
 decoding for a character the pack fully covers is not a fallback and not a
@@ -1500,8 +1538,8 @@ run" was never something that capture could tell me.
 ⚠⚠ **AND THE OCCUPANCY CENSUS BELOW COVERS 44% OF THE TREE, NOT THE TREE.** It
 asks how much of a CLAIMED page is sampled, and says nothing about pages no
 manifest claims at all. `scripts/measure_orphan_shipped_pages.py` measures
-those across all four tiers, in **two buckets that do not deserve the same
-confidence**:
+those across all four tiers, in **four buckets that do not deserve the same
+confidence** — three that carry a reason and one that is an upper bound:
 
 * ⭐ **STRANDED PAGES — 44 files, 92.0 MB.** `<base>_spritesheet.<n>.png` beside
   a manifest that does not name it. A sheet's pages resolve ONLY through its
@@ -1512,11 +1550,43 @@ confidence**:
   described this as "a list that shrank", which the tree does not show; the
   siblings are left from a time the sheet was multi-page, which makes the
   reachability conclusion stronger, not weaker.
-* ⚠ **UNMENTIONED — 769 files, 26.7 MB, UPPER BOUND ONLY.** Named in no
-  manifest and in no committed `.rs`/`.ron`/`.ldtk`/`.toml`/`.json`/`.py`. A
-  path assembled at runtime (`format!("sprites/{name}.png")`) is named nowhere
-  either and would land here while being perfectly live — the `gnu_ton_boss`
-  sheets are the likely example. A research prompt, not a delete list.
+* ⭐ **SHEETS WITH NO MANIFEST — 16 files, 13.6 MB.** `<base>_spritesheet.png`
+  with no `<base>_spritesheet.ron` beside it.
+  `ambition_sprite_sheet/build.rs::collect_spritesheet_rons` bakes the spec
+  index by scanning these four tier dirs for `*_spritesheet.ron`, and every
+  loader goes through a spec (`try_load_spec_for_target(target)?`), so a sheet
+  with no manifest has no spec and no road. All 16 are four `gnu_ton_boss`
+  renders × four tiers: `gnu_ton_boss_full`, `gnu_ton_boss_body`,
+  `gnu_ton_boss_hands`, `giant_gnu_body` — `_full`/`_body`/`_hands` layer
+  outputs left beside the sheets the boss really uses. ⚠ **THE BOSS IS FINE:**
+  `gnu_ton_boss_spritesheet.ron` and `giant_gnu_spritesheet.ron` both exist and
+  are claimed. These are extra renders, not missing art — I checked, because
+  `attack_geometry/mod.rs` derives its metrics from
+  `gnu_ton_boss_spritesheet.ron` and a genuinely absent manifest there would
+  have been a content defect rather than waste.
+* ⭐ **REDUCED-TIER PORTRAITS — 487 files, 14.2 MB.**
+  `bake_portrait_manifests` collects portrait manifests from `assets/sprites`
+  ONLY; the reduced tier dirs are never scanned, and the function says why:
+  *"Portraits are presentation products and currently have no quality-tier
+  variants"*. The generator emits them at all four tiers anyway. Full res is
+  164 PNG / 164 RON; the reduced tiers are ~163 PNG against 9, 9 and 0 RON.
+  ⛔ **Counting only UNCLAIMED files understates this by 34.** A handful of
+  reduced tiers do carry a `_portraits.ron`, which marks the PNG claimed — but
+  that `.ron` is never baked either, so claimedness is simply the wrong question
+  here. ⇒ This is generator over-production against a stated engine intent, not
+  an engine gap.
+* ⚠ **UNMENTIONED — 300 files, 1.6 MB, UPPER BOUND ONLY.** Named in no manifest
+  and in no committed `.rs`/`.ron`/`.ldtk`/`.toml`/`.json`/`.py`. A path
+  assembled at runtime (`format!("sprites/{name}.png")`) is named nowhere either
+  and would land here while being perfectly live. A research prompt, not a
+  delete list — and now small enough that it is no longer where the megabytes
+  are.
+
+⇒ **119.8 MB across the three explained buckets, against 1.6 MB still
+speculative.** The first pass had 26.7 MB sitting in "named nowhere, but so is
+a constructed path"; asking how each KIND of art is actually reached — a sheet
+through its baked spec, a portrait through the full-resolution portrait index —
+moved 96% of that weight into buckets that carry a reason.
 
 Ratcheted by `scripts/tests/test_shipped_sheet_pages_are_claimed.py` on the
 four stranded sheets, so the count cannot grow; poisoned both directions (drop

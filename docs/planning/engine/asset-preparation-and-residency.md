@@ -1471,9 +1471,33 @@ predicate excludes the asset trees and the renderer, and it still MISSES
 ⇒ Short target names cannot be settled by grep; `actor` was found by asking the
 registry, not by searching.
 
-▢ **`author`, `medic` and `officer` remain unexplained** — `module`-kind, written
-minutes after their own full sheets, genuinely unshrunk. Their mechanism is
-still open.
+⭐⭐ **✔ MECHANISM FOUND 2026-09-02 — `author`, `medic` and `officer` SHARE A
+RENDERER FAMILY WHOSE SHEET PATH TAKES NO QUALITY SCALE.** All four of
+`performer`, `author`, `medic`, `officer` — and no other target — import
+`targets/characters/_authored_swing_fighter.py`. That module's two entry points
+do not agree:
+
+```python
+def render(self, out_dir, actor_metadata: dict):            # the SHEET — no scale
+def render_portraits(self, out_dir, *, clips=None, quality_scale=None):
+```
+
+and each target's `build_spritesheet` calls `_FIGHTER.render(out_dir, ACTOR_METADATA)`,
+dropping `opts` entirely — so the sheet renders at full resolution whatever tier
+was asked for, while the portrait path threads the scale through.
+
+⛔ **AND SOMEONE ALREADY FIXED THIS ONCE, FOR THE OTHER HALF.** `render_portraits`
+carries the comment *"⛔ A QUALITY TIER SCALES THE PORTRAIT TOO. Ignoring
+`quality_scale`…"* — the same defect was found and fixed for portraits, and the
+sheet path beside it was never given the same treatment. ⇒ The cluster that kept
+reappearing all day — four names sharing three symptoms — is **one shared module**,
+and `actor` is only in it because `actor` is `performer`'s old name.
+
+⇒ **The fix threads `quality_scale` through `AuthoredSwingFighter.render` the
+way `render_portraits` already does.** ⛔ It is in `tools/ambition_sprite2d_renderer`
+(a submodule) and cannot be validated without running a render, so it is
+recorded here rather than patched blind — unlike the portrait-tier change, whose
+producer is a main-repo script.
 
 ⇒ **WHAT IS AND IS NOT ESTABLISHED.** Established: on this machine's generated
 assets, four sheets' 0_5x/0_25x pages and manifests are full-size, and a room

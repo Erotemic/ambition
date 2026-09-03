@@ -616,6 +616,21 @@ The one unresolved developer-policy choice from the session-ownership work is in
   poison discipline (drop a name → new-orphan test red) means the change is
   self-checking. ⛔ Not done here: I did not regenerate them and cannot tell
   from the census alone whether all four were fixed deliberately.
+  ⛔⛔ **AND ON A DIFFERENT BOX THE SAME RATCHETS WENT RED FOR A REASON THAT IS
+  NOT CONTENT AT ALL.** Within the hour, another checkout reported
+  `..._that_is_not_smaller` naming actor/author/medic/officer and
+  `…without_a_reduced_variant` naming `performer` — and
+  `check_quality_variants_are_fresh.py` exits 1 there with **170+ stale files**,
+  `performer` among them. ⇒ **All five of those reds are regeneration
+  staleness.** A size assertion on a stale tier compares a fresh source page
+  against an old reduced one and reports a history finding dressed as a content
+  one. ✔ **FIXED IN THE DETECTOR, not in the assertions** (`7761e3646`):
+  `assets_are_canonical` now also requires the freshness check to be green, and
+  a stale box SKIPS with a reason naming the check and its output. ⭐ The
+  distinction this preserves is the whole point — THIS box is fresh, so its
+  four stale names are a real finding to act on; that box is stale, so its five
+  are not findings at all. Widening the assertions would have erased the
+  difference.
 
 - ▢ **`why_not()` IN THE NEW CANONICAL-ASSETS DETECTOR STATES A CAUSE IT NEVER
   CHECKED.** `scripts/lib/canonical_assets.py:92` returns, for ANY checkout

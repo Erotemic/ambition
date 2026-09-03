@@ -172,6 +172,34 @@ the next added dependency re-runs it.
   rendered the whole catalogue through General MIDI and reported success —
   indistinguishable downstream from the real cues. Now installed by default, and
   the renderer refuses rather than shipping stand-ins.
+
+  ⛔ **BUT THE REFUSAL WAS ALL-OR-NOTHING, AND THE LIKELIER FAILURE IS ONE
+  MISSING FAMILY.** Measured 2026-09-03. `_sampled_libraries_installed()` asks
+  whether the machine has ANY sampled libraries; a box that has most of them and
+  is missing one passes it, and only the cues naming that family come out in the
+  wrong instrument — the rest are correct, so the run looks healthy.
+  ⚠ **And the catalogue cannot defend itself: all 247 sfz instrument backends in
+  `scores/active` are `optional: True`** (231 explicitly, 16 by
+  `_is_optional_instrument_backend`'s default), and only 2 of 75 scores set
+  `render.strict_backends`. The renderer's own guard is
+  `(wants_sfizz and not optional) or strict_backends`, which is FALSE for every
+  instrument Ambition ships: each warns once to stderr, falls back, exit 0.
+
+  ⭐ **Closed by a preflight gate that ignores `optional:` deliberately**, since
+  honouring it would make the gate dead code on the whole catalogue. It costs a
+  healthy machine nothing, which is what makes a gate legitimate rather than
+  another warning: resolving all 247 references through the renderer's own
+  resolver on this box gave **247 resolved, 0 unresolved**, `salamander_grand`
+  among them. Memoised, because one reference costs 0.36–5.54 s of globbing and
+  the 247 backends name only 68 distinct references.
+
+  ⚠ Two things this does NOT establish. It runs on cues that will actually
+  render, so a fully-cached tree is not re-checked — correct for cost, but it
+  means a machine can lose a library after its last render and not hear about it
+  until something changes. And `audio_libraries.sh`'s header says the cues name
+  *"54 distinct library references"*; the count over `scores/active` is 68. The
+  two may be different scopes (shipped registry versus every active score), so
+  the script's number is left alone rather than corrected on a guess.
 - ▢ **The `.ipfs` sidecars still have no hydration command**, which is the
   remaining instance of exactly this class: six git-ignored payload directories
   whose only restore path is a manual `ipfs get`. ⛔ Do NOT fold this into

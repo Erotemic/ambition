@@ -236,6 +236,17 @@ If one should become product-visible, name a fighter/move. Otherwise leave the
 mechanism dormant until a character design asks for it. Do not invent a customer
 to make an adoption count nonzero.
 
+✔ **RE-MEASURED 2026-09-03 — still exactly true, and here is what is waiting.**
+The windbox vocabulary is real API across **16 files**: `WindboxVolume`
+(`ambition_entity_catalog/src/lib.rs:415`), `MoveSpec::windbox`
+(`ambition_combat/src/strike.rs:94`) and `is_windbox`
+(`platformer2d_core/src/hit_response.rs:112`). **Zero** authored movesets under
+`game/ambition_content/src/*moveset*.rs` name it. ⇒ So the question is unchanged
+and the answer costs one authored field on one move — not an implementation.
+⚠ Measured because "dormant" is the premise this decision rests on, and a
+premise that has quietly acquired a customer would make the question moot without
+anyone noticing.
+
 ### 40. Should a held gun-sword kick the player the way it kicks the pirate?
 
 The K2 fold puts the player's held gun-sword and fireball on the ONE projectile

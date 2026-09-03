@@ -123,7 +123,9 @@ pub use damage::apply_feature_hit_events;
 pub use damage_predicates::{
     ecs_hit_event_hits_actor, ecs_hit_event_hits_boss, ecs_hit_event_hits_breakable,
 };
-pub use encounter_rewards::{clear_encounter_reward_ecs, sync_encounter_reward_chests_ecs};
+pub use encounter_rewards::{
+    clear_encounter_reward_ecs, sync_encounter_reward_chests_ecs, EncounterRewardSyncPlugin,
+};
 pub use falling_chest::update_ecs_falling_chests;
 pub use hazards::{update_ecs_hazards, HazardTickSet};
 pub use held_items::HeldItem;

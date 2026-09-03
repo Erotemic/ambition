@@ -488,19 +488,17 @@ pub fn apply_wave_encounter_effects(
         Option<&ambition_encounter::EncounterCameraZoom>,
         Option<&ambition_encounter::EncounterTrack>,
     )>,
-    reward_chests: Query<
-        (
-            Entity,
-            &ambition_combat::components::EncounterRewardChest,
-            &ambition_combat::components::FeatureId,
-            Option<&ambition_combat::components::Opened>,
-        ),
-        With<ambition_combat::components::ChestFeature>,
-    >,
 ) {
-    let Some(session_scope) = commands.spawn_scope() else {
+    // ⭐ THIS ADAPTER NO LONGER SPAWNS ANYTHING. The reward-chest sync it used to
+    // call was its only spawner; reward chests are the feature layer's now, and
+    // the chest query left with them.
+    // ⛔ The GUARD stays. It gated this whole system on a live session, so
+    // dropping it would newly run the trace, quest, banner and music
+    // projections in a world that has no session — a behaviour change that
+    // belongs to whoever removes the last caller, not to this inversion.
+    if commands.spawn_scope().is_none() {
         return;
-    };
+    }
     // Trace sink first — every encounter event (generic reducer + wave
     // director) lands in the gameplay trace regardless of the player guard
     // below, in the same `encounter:<id>:<label>` format as before E8.
@@ -542,25 +540,12 @@ pub fn apply_wave_encounter_effects(
         );
     }
 
-    // Reward chest sync: gather the completed encounters' (id, spec) so the
-    // reward sync stays decoupled from the encounter state representation.
-    let cleared_specs: Vec<(String, ambition_encounter::EncounterSpec)> = encounters
-        .iter()
-        .filter(|(_, lifecycle, waves, _)| {
-            matches!(
-                lifecycle.phase,
-                ambition_encounter::EncounterPhase::Completed
-            ) && waves.is_some()
-        })
-        .filter_map(|(enc, _, waves, _)| waves.map(|w| (enc.id.clone(), w.spec.clone())))
-        .collect();
-    crate::features::sync_encounter_reward_chests_ecs(
-        &mut commands,
-        session_scope,
-        save.data(),
-        &cleared_specs,
-        &reward_chests,
-    );
+    // ⭐ REWARD CHESTS ARE NOT SYNCED FROM HERE ANY MORE. This adapter used to
+    // read `EncounterLifecycle::phase`, assemble the cleared `(id, spec)` pairs
+    // and push them into the feature layer. The encounter domain publishes
+    // `ambition_encounter::rewards::ClearedEncounters` now and the feature
+    // layer's own `EncounterRewardSyncPlugin` reads it, so the kernel no longer
+    // has to know how an encounter says "completed".
 
     // Music: pick the first encounter currently in flight with an authored
     // track and request it (the base-priority source of the shared

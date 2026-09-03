@@ -383,6 +383,10 @@ impl PluginGroup for PlatformerEnginePlugins {
             .add(ambition_platformer2d_actor_monolith::cutscene::CutsceneSchedulePlugin)
             // Gameplay effects + feature view-sync schedules.
             .add(ambition_platformer2d_actor_monolith::features::GameplayEffectsSchedulePlugin)
+            // Reward chests react to the encounter domain's published cleared
+            // list; composed beside its siblings so no registration for it
+            // lands back in the encounter adapter.
+            .add(ambition_platformer2d_actor_monolith::features::EncounterRewardSyncPlugin)
             // Runtime brain-switch authority (BrainCommand) + actor-directive routing.
             .add(ambition_platformer2d_actor_monolith::features::BrainCommandPlugin)
             .add(ambition_sim_view::FeatureViewSyncSchedulePlugin)

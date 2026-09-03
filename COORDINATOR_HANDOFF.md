@@ -659,3 +659,37 @@ the trap test fails; refuse always → the "still testable" test fails), each re
 byte-identical. ⚠ And the property that would have made it a bad trade was checked rather than
 assumed: **a real suite run still records**, because the parent `run_tests.py` process is not under
 pytest — only a test-spawned run refuses.
+
+### ⛔⛔ "All seven are superseded" was WRONG about one, and the right answer needed three instruments
+Jon asked for a sweep of everything outstanding. Re-reviewed each branch file by file, with
+yardrat cross-checking by `git cherry` (patch-id) from another box. **Six of seven were
+superseded. `web-gpu-wait` was not, and it is now merged at `6aa1f3d41`.**
+
+| ref | verdict | how it was actually settled |
+|---|---|---|
+| `web-gpu-wait` | ⛔ **NOT superseded — MERGED** | `report_gpu_prepared` + its two tests absent from main |
+| `rescue/specials-are-real-moves-tail` | superseded **by RENAME** | main has the same feature as `TrapdoorVisual`/`build_trapdoor_sprite`/`sync_trapdoor_visuals`, and folded the fact into `BodyPoseView.submerged` instead of a separate view; its movement tests are 284 lines to the branch's 130 |
+| `cube-churn-focus-rows` | superseded | main's `focus_for_action` already takes `rows: &[SystemRow]` — its stated purpose, tested directly |
+| `agent/runner-names-an-unusable-interpreter` | superseded | patch-equivalent by `git cherry`; the guard is at `run_tests.py:1359` |
+| `d129-population-instrument` | superseded | `retired_tier` + the two-branch diagnosis verbatim |
+| `asset-road-labels` | superseded | both files call `load_sheet_image`; ⚠ local-only, never on origin |
+| `capture-press-during` | superseded | every distinctive phrase in main's `queue.md`; ⚠ local-only, never on origin |
+
+⛔ **Why my first sweep got `web-gpu-wait` wrong: I grepped a symbol that was present and
+concluded about a symbol that was not.** `gpu_prepared` (the field) is on main in 31 places;
+`report_gpu_prepared` (the branch's actual subject) was absent. **A present symbol is not the
+same symbol** — a hazard the line-overlap probe had already burned me with, wearing a better
+disguise.
+
+⛔ **And the symbol check fails the OTHER way too, which is how `rescue/specials` nearly got
+merged back in.** All six of its `Submerged*` symbols are absent from main — and the feature is
+there under `Trapdoor*`. **An absent symbol does not mean an absent feature; it may mean a
+rename.** Merging it would have REGRESSED main: replaced `sync_trapdoor_visuals` and the newer
+`flyline` wiring with older code, and re-added a separate `SubmergedMarkersView` where main had
+folded the fact into `BodyPoseView`. The tell was not a grep — it was reading the conflict.
+
+⇒ **Three instruments, and only the third is decisive.** `git cherry` proves LANDED cheaply
+(patch-id match) but proves nothing on a miss, because reworked-then-landed work mismatches.
+Symbol presence is wrong in both directions. **Testing the branch's stated PURPOSE against main
+is what settled every case** — `focus_for_action`'s signature, the `Trapdoor*` rename, the
+absent `report_gpu_prepared`.

@@ -227,9 +227,18 @@ Entering the hall cost nine frames of 89-355 ms while 434 MP of Full-tier art
 arrived AFTER the cover lifted. Root cause found and fixed 2026-09-02: the
 reveal barrier never waited for the cast beyond the per-frame load ration
 (`2c8f27b32`). ⊙ **A SECOND CAUSE was measured 2026-09-03 and the barrier is
-NOT it**: `converge_character_residency_to_active_quality` demotes every IN-USE
-sheet Ready→Declared when the profile converges, un-claiming each body's render
-family and re-demanding at one character per frame at Full. Host-confirmed the same evening on the two supposedly tier-independent
+NOT it**: `converge_character_residency_to_active_quality` DID demote every
+IN-USE sheet Ready→Declared when the profile converged, un-claiming each body's
+render family and re-demanding at one character per frame at Full.
+✔ **FIXED 2026-09-03 (`6c9fb2b58`, ambition-df): a quality transition is a SWAP.**
+The worn set is re-demanded WITHOUT retiring its realizations, so the old tier
+keeps drawing until the new one lands; only the unworn set is retired.
+⚠ **The fix is landed and guarded but NOT confirmed on a live reveal, and the
+headless capture cannot supply that confirmation** — `AMBITION_QUALITY_PROFILE`
+is never written back to `UserSettings` while the adapter seeds it at
+`PostStartup`, so the override can only produce an EARLY transition DOWN to the
+seeded tier, 371 ms in, with nothing worn to protect. Measured three times,
+`scripts/measure_quality_ramp.sh`. The remaining confirmation is a host run. Host-confirmed the same evening on the two supposedly tier-independent
 tells (0 placeholders, 0 frames over 33 ms after the transition, Ultra, 3090,
 `desktop-timeline-run-20260902T215256Z`). ⛔ The room tier cap that shipped
 beside it (`dc3cd0d91`, gallery → Quarter) blurred the hall at Ultra and Jon

@@ -74,11 +74,22 @@ const MEMBERSHIP: [(&str, FeatureInteractionSet); 10] = [
     ),
 ];
 
-/// An `App` carrying exactly the composition under test: the real plugin, doing
-/// its real `build`.
+/// An `App` carrying exactly the composition under test: the real plugins, doing
+/// their real `build`.
+///
+/// ⭐ TWO PLUGINS, because the chain spans two crates. `SwitchIndex`'s member is
+/// `ambition_encounter_features`' since the encounter room-feature carve
+/// (2026-09-03) and registers itself from that crate's own plugin — the same
+/// arrangement the `conversation` members already had. `FeatureInteractionSet`
+/// is `shared_tangle` vocabulary precisely so an owning crate can claim its slot
+/// without the kernel naming it.
+/// ⚠ A guard that composed only the kernel's plugin would report the moved
+/// member as MISSING, which is how this test failed the moment the carve landed
+/// — correctly, and by pointing at the right line.
 fn composed_app() -> App {
     let mut app = App::new();
     app.add_plugins(super::FeatureInteractionSchedulePlugin);
+    app.add_plugins(ambition_encounter_features::EncounterSimulationSchedulePlugin);
     app
 }
 

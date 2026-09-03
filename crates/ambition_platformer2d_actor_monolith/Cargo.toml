@@ -486,6 +486,14 @@ serde_json = "1"
 # The binaries moved to the `ambition_app` crate (Stage 20 / A3).
 
 [dev-dependencies]
+# ⛔ TEST-ONLY, AND DELIBERATELY NOT A PRODUCTION EDGE. The encounter
+# room-feature carve (2026-09-03) moved this crate's `encounter/` module out;
+# the FeatureInteraction chain guard must still compose BOTH plugins to prove
+# the chain, because `SwitchIndex`'s member registers itself from over there
+# now. A dev-dependency lets the guard see it without this crate depending on
+# it — the carve removed that edge and `engine.ambition_encounter_features-
+# source-purity` keeps the reverse one out.
+ambition_encounter_features = { path = "../ambition_encounter_features" }
 # ⭐⭐ DEV-ONLY AS OF 2026-09-02 (D33): THE SIMULATION KERNEL NO LONGER DEPENDS ON
 # THE DEVELOPER CRATE. It was a production `[dependencies]` edge for as long as
 # this crate existed, and the last two production references were both

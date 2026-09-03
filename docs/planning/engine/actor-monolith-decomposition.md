@@ -1093,6 +1093,42 @@ changing crates while the linked code goes slightly DOWN still reads as growth.
 Declare it in the idiom the `mount`/`damage`/`world_items` rows use.
 ▢ Not started; the seam-reversal above is the first step and is small.
 
+#### `ambition_encounter_features` — the destination, specced 2026-09-03
+
+The adapter cannot live in `ambition_encounter` (its purity rows forbid exactly
+what the adapter is) and should not stay in the actor kernel (it names nothing
+there any more). ⇒ **A sibling crate ABOVE the domain**, which is this frontier's
+own sentence made literal: *"room, encounter, conversation and provider
+orchestration belongs to their owning runtime/domain packages."*
+
+**Name it for what it IS**, not for the seam it used to be: the ROOM-FEATURE side
+of encounters — LDtk loading, ECS spawning, banners, save/quest projection,
+switch indexing, lock-wall contribution. `ambition_encounter_features`, not
+`..._adapter`.
+
+**Layering.** `ambition_encounter` (state/vocabulary) → `ambition_encounter_features`
+(this) → runtime/kernel consumers. It may name `ambition_encounter` and the
+lower engine crates; it must NEVER name
+`ambition_platformer2d_actor_monolith` — that edge is the carve, and the purity
+row exists to say so.
+
+**Dependencies**, from the corrected measurement above: `ambition_encounter`,
+`ambition_platformer2d_shared_tangle`, `ambition_combat`, `ambition_persistence`,
+`ambition_platformer2d_world`, `ambition_platformer2d_core`,
+`ambition_characters`, `ambition_entity_catalog`, `ambition_interaction`,
+`ambition_gameplay_trace`, `ambition_time`; dev-only
+`ambition_platformer2d_ldtk` and `ambition_asset_manager`.
+
+**The tail, and none of it is optional**: `engine.<crate>-manifest-allow` and
+`engine.<crate>-source-purity` (the purity row forbidding the monolith,
+poison-verified with a REAL `use` line); the footprint baseline row in the shape
+of `body_seed_entered_the_closure_2026_09_03` — crates not bytes, and the
+monolith sheds ~2,000 lines; `python3 scripts/modules_md.py --write`;
+`cargo tree --offline` in `fixtures/minimal_game`, `examples/capability_demo`
+and `examples/portal_tutorial` for their lockfiles; the `app_it` rollback oracles
+if any `Resource` or message is new; and `./run_tests.sh --rust` before the tip,
+because the per-crate runs do not see `check_no_warnings`.
+
 **Guards that pin it**, same shape as `ambition_world_items`/`ambition_held_items`:
 three policy rows (`engine.<crate>-manifest-allow`,
 `engine.<crate>-source-purity`, `engine.runtime-manifest-allow`), both

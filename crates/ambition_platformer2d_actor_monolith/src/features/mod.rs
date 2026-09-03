@@ -134,7 +134,6 @@ pub use ecs::{
     rebuild_feature_ecs_world_overlay, refresh_body_damageable_volumes,
     refresh_boss_damageable_volumes, refresh_breakable_damageable_volumes,
     route_boss_strikes_to_limbs, select_actor_targets, serve_encounter_spawn_commands,
-    EncounterSpawnServicePlugin,
     snapshot_body_contact, spawn_encounter_mob,
     spawn_projectiles_from_brain_actions, spawn_room_feature_entities_from_plan,
     sync_actor_poses_from_feature_aabbs, sync_actor_read_model, sync_boss_actor_components,
@@ -1183,11 +1182,10 @@ impl bevy::prelude::Plugin for FeatureInteractionSchedulePlugin {
                 .chain()
                 .in_set(FeatureInteractionSet::WorldObjects),
         );
-        app.add_systems(
-            sim,
-            crate::encounter::rebuild_encounter_switch_index
-                .in_set(FeatureInteractionSet::SwitchIndex),
-        );
+        // ⭐ The encounter switch index registers itself from
+        // `ambition_encounter_features` now (2026-09-03). `FeatureInteractionSet`
+        // is `shared_tangle` vocabulary, so the owning crate can name its own
+        // slot without this crate naming the owning crate.
     }
 }
 

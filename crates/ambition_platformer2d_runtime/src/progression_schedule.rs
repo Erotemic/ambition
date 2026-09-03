@@ -179,7 +179,7 @@ impl Plugin for ProgressionSchedulePlugin {
             sim,
             (
                 ambition_boss_encounter::populate_boss_encounter_registry,
-                ambition_platformer2d_actor_monolith::encounter::populate_encounter_registry,
+                ambition_encounter_features::populate_encounter_registry,
             )
                 .in_set(Platformer2dSimulationPhaseMonolith::Progression),
         );

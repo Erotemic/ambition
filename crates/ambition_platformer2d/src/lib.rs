@@ -171,6 +171,10 @@ pub use ambition_dev_tools as dev_tools;
 pub use ambition_dialog as dialog;
 #[cfg(feature = "ambition_encounter")]
 pub use ambition_encounter as encounter;
+/// The room-feature side of encounters: LDtk loading, ECS spawning, banners,
+/// save/quest projection. Carved out of the actor kernel 2026-09-03; games
+/// reach it here rather than through `actors`, which IS the monolith.
+pub use ambition_encounter_features as encounter_features;
 pub use ambition_entity_catalog as entity_catalog;
 pub use ambition_game_shell as game_shell;
 pub use ambition_input as input;

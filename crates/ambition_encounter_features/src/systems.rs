@@ -28,7 +28,7 @@ use ambition_encounter::{
     EncounterView, EncounterWaves, WAVES_EXHAUSTED_SIGNAL,
 };
 
-use super::load_encounter_specs_from_rooms;
+use crate::load_encounter_specs_from_rooms;
 use ambition_encounter::switches::EncounterSwitchIndex;
 
 /// Bevy startup system: load encounter specs from the embedded LDtk

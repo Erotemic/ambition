@@ -743,7 +743,7 @@ fn install_misc_visual_sync_systems(app: &mut App) {
     .add_systems(
         Update,
         ambition_platformer2d::render::rendering::sync_lock_wall_visuals
-            .after(ambition_platformer2d::actors::encounter::WaveEncounterDriven)
+            .after(ambition_platformer2d::encounter_features::WaveEncounterDriven)
             .run_if(ambition_platformer2d::platformer::lifecycle::session_world_exists),
     )
     // Dev "hide sprites" / "placeholder sprites" overrides — must run

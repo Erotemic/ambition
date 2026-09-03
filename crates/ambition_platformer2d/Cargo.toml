@@ -171,6 +171,7 @@ ambition_cutscene = { path = "../ambition_cutscene", optional = true }
 ambition_dev_tools = { path = "../ambition_dev_tools" }
 ambition_dialog = { path = "../ambition_dialog", features = ["input"], optional = true }
 ambition_encounter = { path = "../ambition_encounter", optional = true }
+ambition_encounter_features = { path = "../ambition_encounter_features" }
 ambition_platformer2d_core = { path = "../ambition_platformer2d_core" }
 ambition_entity_catalog = { path = "../ambition_entity_catalog" }
 ambition_platformer2d_host = { path = "../ambition_platformer2d_host" }

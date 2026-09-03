@@ -310,6 +310,25 @@ dependencies = [
 ]
 
 [[package]]
+name = "ambition_encounter_features"
+version = "0.1.0"
+dependencies = [
+ "ambition_characters",
+ "ambition_combat",
+ "ambition_encounter",
+ "ambition_entity_catalog",
+ "ambition_gameplay_trace",
+ "ambition_interaction",
+ "ambition_persistence",
+ "ambition_platformer2d_core",
+ "ambition_platformer2d_shared_tangle",
+ "ambition_platformer2d_world",
+ "ambition_time",
+ "bevy",
+ "ron 0.11.0",
+]
+
+[[package]]
 name = "ambition_entity_catalog"
 version = "0.1.0"
 dependencies = [
@@ -473,6 +492,7 @@ dependencies = [
  "ambition_conversation",
  "ambition_damage",
  "ambition_dev_tools",
+ "ambition_encounter_features",
  "ambition_entity_catalog",
  "ambition_game_shell",
  "ambition_gameplay_trace",
@@ -626,6 +646,7 @@ dependencies = [
  "ambition_dev_tools",
  "ambition_dialog",
  "ambition_encounter",
+ "ambition_encounter_features",
  "ambition_gameplay_trace",
  "ambition_held_items",
  "ambition_input",

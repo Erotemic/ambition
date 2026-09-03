@@ -11,6 +11,7 @@
 | [`combat_schedule`](src/combat_schedule.rs) | Combat-phase schedule plugin. |
 | [`content_identity`](src/content_identity.rs) | Immutable prepared-content identity shared by preparation, activation, snapshots, and transactional hot reload. |
 | [`durable_save_horizon`](src/durable_save_horizon.rs) | Host installation of the durable save horizon. |
+| [`encounter_spawn_service`](src/encounter_spawn_service.rs) | The kernel's spawn server, registered where both sides are nameable. |
 | [`external_effects`](src/external_effects.rs) | Defers presentation-only simulation effects until their producing frame is confirmed. |
 | [`input_drive`](src/input_drive.rs) | Backend-neutral authored input delivery for simulation drivers. |
 | [`input_stream`](src/input_stream.rs) | Input-stream capture (netcode N0.2) — the one place a session's input is recorded. |
@@ -27,8 +28,9 @@
 | [`session_world`](src/session_world.rs) | Prepared platformer definitions and canonical live session components. |
 | [`sim_core_resources`](src/sim_core_resources.rs) | The engine-generic simulation messages + resource defaults (E5 step 6). |
 | [`sim_identity`](src/sim_identity.rs) | Backend-neutral stable simulation identity maintenance. |
+| [`world_gating`](src/world_gating.rs) | The two roads into `gate_solids`, registered in one place. |
 
-_21 crate-root modules. Regenerate: `python scripts/modules_md.py --write`._
+_23 crate-root modules. Regenerate: `python scripts/modules_md.py --write`._
 
 <!-- END generated module map -->
 

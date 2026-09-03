@@ -17,10 +17,10 @@
 
 use ambition_encounter::{Encounter, EncounterLifecycleSet};
 use ambition_platformer2d_shared_tangle::schedule::SimScheduleExt;
-mod loading;
-mod lock_walls;
-mod switch_index;
-mod systems;
+pub mod loading;
+pub mod lock_walls;
+pub mod switch_index;
+pub mod systems;
 
 pub use loading::load_encounter_specs_from_rooms;
 pub use lock_walls::contribute_encounter_lock_walls;
@@ -89,6 +89,15 @@ impl bevy::prelude::Plugin for EncounterSimulationSchedulePlugin {
         // generic reducer (`EncounterLifecycleSet`, whose Progression position
         // the runtime owns). Chained: effects still read the participant
         // relations cleanup is about to prune.
+        // The switch index this crate owns, in the shared_tangle slot the
+        // feature-interaction chain reserves for it. Registered HERE so the
+        // actor kernel does not name this crate.
+        app.add_systems(
+            sim,
+            rebuild_encounter_switch_index.in_set(
+                ambition_platformer2d_shared_tangle::schedule::FeatureInteractionSet::SwitchIndex,
+            ),
+        );
         app.add_systems(
             sim,
             (apply_wave_encounter_effects, apply_encounter_cleanup)
@@ -111,64 +120,3 @@ impl bevy::prelude::Plugin for EncounterSimulationSchedulePlugin {
 
 #[cfg(test)]
 mod tests;
-
-/// The request and its service must be the same tick.
-#[cfg(test)]
-mod spawn_request_service_order {
-    use bevy::ecs::schedule::{NodeId, Schedules, SystemSet as _};
-    use bevy::prelude::App;
-
-    use ambition_platformer2d_shared_tangle::schedule::SimScheduleExt as _;
-
-    /// ⛔ `serve_encounter_spawn_commands` must be ordered AFTER
-    /// [`super::WaveEncounterDriven`].
-    ///
-    /// The domain's wave director emits `EncounterEvent::SpawnCommand` onto the
-    /// bus; this kernel serves it. If the server were unordered relative to the
-    /// driver it would read the requests a tick late — a wave whose mobs arrive
-    /// one frame after the wave started — and on an executor that happened to
-    /// run it first, every existing test would still pass, because the tests in
-    /// this module assert the EVENT is emitted, not that a body was built.
-    ///
-    /// ⚠ That gap is why this guard is an ordering EDGE and not a smoke test:
-    /// nothing else pins the seam between the request and its service.
-    #[test]
-    fn the_spawn_server_runs_after_the_wave_driver() {
-        // ⭐ BOTH SIDES, because the invariant now spans them. The driver is
-        // scheduled by the encounter plugin and the server by the kernel's
-        // `EncounterSpawnServicePlugin`, which the runtime composes beside it.
-        // A guard that built only one would pass by not finding the other.
-        let mut app = App::new();
-        app.add_plugins(super::EncounterSimulationSchedulePlugin);
-        app.add_plugins(crate::features::EncounterSpawnServicePlugin);
-        let sim = app.sim_schedule();
-        let schedules = app.world().resource::<Schedules>();
-        let schedule = schedules.get(sim).expect("the plugin creates the sim schedule");
-        let graph = schedule.graph();
-
-        let driver_set = graph
-            .system_sets
-            .get_key(super::WaveEncounterDriven.intern())
-            .expect("WaveEncounterDriven must be a registered SystemSet");
-        let server = {
-            let mut found = None;
-            for (key, system, _) in graph.systems.iter() {
-                let name = format!("{}", system.name());
-                if name.rsplit("::").next() == Some("serve_encounter_spawn_commands") {
-                    found = Some(key);
-                }
-            }
-            found.expect("serve_encounter_spawn_commands must be scheduled")
-        };
-
-        assert!(
-            graph
-                .dependency()
-                .graph()
-                .contains_edge(NodeId::Set(driver_set), NodeId::System(server)),
-            "serve_encounter_spawn_commands must run AFTER WaveEncounterDriven — \
-             the wave director emits SpawnCommand and this kernel serves it, and \
-             an unordered server reads the requests a tick late"
-        );
-    }
-}

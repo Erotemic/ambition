@@ -9,6 +9,12 @@
 //! authored one *"arrived from `ambition_content`, where being invisible next to
 //! its sibling was part of how it went unnoticed that its data lived in Rust"*.
 //!
+//! ⛔ AND THE PAIR NOW SPANS TWO CRATES (2026-09-03): the encounter road left
+//! the actor kernel with `ambition_encounter_features`, while the authored one
+//! stayed. Only the RUNTIME can name both, so this plugin lives here — the same
+//! reason `ambition_world_items`' plugin is composed here rather than
+//! registered back inside the kernel.
+//!
 //! ⭐ SO THE ADJACENCY IS LOAD-BEARING AND THE HOST WAS NOT. Keeping it inside
 //! the encounter plugin meant that plugin scheduled a system belonging to
 //! neither encounters nor itself, and a carve that moved the encounter plugin
@@ -30,10 +36,10 @@ impl bevy::prelude::Plugin for WorldGatingSchedulePlugin {
             sim,
             (
                 // Encounter phase → seal walls.
-                crate::encounter::contribute_encounter_lock_walls,
+                ambition_encounter_features::contribute_encounter_lock_walls,
                 // Authored condition → the same overlay field. Registered beside
                 // its sibling ON PURPOSE; see the module doc.
-                crate::world::gated_lock_walls::sync_authored_gated_lock_walls,
+                ambition_platformer2d_actor_monolith::world::gated_lock_walls::sync_authored_gated_lock_walls,
             )
                 .after(ambition_platformer2d_shared_tangle::schedule::FeatureWorldOverlaySet)
                 .before(ambition_combat::hazards::update_ecs_hazards)

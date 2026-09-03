@@ -590,8 +590,15 @@ The one unresolved developer-policy choice from the session-ownership work is in
   is exactly
   `rebuild_dynamic_feature_views`, its filters are the five named above and no
   others, and a scan of the NPC spawn function's whole body finds **zero**
-  occurrences of any of the five. ⛔ Not checked: the runtime consequence — that
-  the stand-in is what actually draws — which needs a build.
+  occurrences of any of the five. ⭐ **AND THE THIRD LINK CHECKS TOO:**
+  `upgrade_actor_sprites` (`crates/ambition_render/src/rendering/actors/mod.rs:639`)
+  queries `(Entity, &FeatureVisual, Option<&BoundFeatureKind>,
+  Option<&BoundSpriteQuality>)` with **no `Without<>` filter of any kind**, so
+  nothing in its signature excludes a placeholder `FeatureVisual` — which is
+  precisely the step that lets the stand-in become the body. ⛔ Not checked: the
+  runtime consequence itself, that the stand-in is what actually draws, which
+  needs a build. ⇒ So every link a grep can reach holds, and what remains
+  unverified is the observation, not the mechanism.
   ⇒ **The fix is the marker, not the grace window.** Either the NPC bundle
   carries whatever `rebuild_dynamic_feature_views` selects on, or the actor
   family claims its view on spawn, so the stand-in never has to become the

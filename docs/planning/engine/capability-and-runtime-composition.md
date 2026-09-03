@@ -36,8 +36,13 @@ Its demonstrated value is:
 >
 > `scripts/check_absence_contracts.py` runs
 > **`capability-footprint-may-not-grow`**, which reports the program's headline
-> number every time the gate runs: **43 crates linked, 16 of them a
-> movement-only game never asked for.** It ratchets — a new crate entering the
+> number every time the gate runs: **44 crates linked, 17 of them a
+> movement-only game never asked for** (re-run 2026-09-03; the page had said
+> 43/16, and BOTH halves had moved — `scripts/baselines/capability-footprint-baseline.json`
+> carries the live pair and `ff1ce535b` was the last deliberate bump). ⚠ Quote
+> the line the gate PRINTS rather than a number typed here: this is the second
+> time it drifted, and a hand-copied ratchet value is a claim with nothing
+> holding it — which is the very failure §2e is about. It ratchets — a new crate entering the
 > minimal consumer's closure turns it RED, naming each one — and its failure
 > text is this page's §2e in one sentence: *"a perfectly semantic API can still
 > force a movement-only game to compile and link every unrelated gameplay

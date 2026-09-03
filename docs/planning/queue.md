@@ -1888,7 +1888,7 @@ The one unresolved developer-policy choice from the session-ownership work is in
   ⛔ AND THE CODE'S OWN DOC WAS WRONG TOO: the no-feature module claimed the take
   *"carries no `causal` array at all"*. It always carried `[]`.
 
-- ▢ **CAPABILITY FOOTPRINT: 45 crates linked, 18 a movement-only game never
+- ▢ **CAPABILITY FOOTPRINT: 46 crates linked, 19 a movement-only game never
   asked for — and the count CANNOT fall by a manifest edit.** (⚠ this number has drifted FOUR times; `python3 scripts/check_absence_contracts.py | grep footprint` prints the live pair. 45/18 as of `479f9d3e4`, when `ambition_registry_core`
   entered the closure.) (Scheduled
   2026-09-02 from ambition-da's docs pass; re-worded the same night after

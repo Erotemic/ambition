@@ -821,6 +821,43 @@ have to be checked on the `[census] visual_quality` row rather than assumed.
 ⇒ The decision this entry asks for is unchanged. What changed is the cost of the
 input: possibly a driver on any host rather than time on the one 3090.
 
+> **MEASURED 2026-09-03, and the two caveats above resolve in opposite
+> directions.**
+>
+> ✔ **The census is takeable here, and the number is real.** `capture_scene
+> hall_of_characters player … 640x360 --warmup 60` on lavapipe prints
+> `[image-census] total 235 images, 29.9MP, 119.4MB resident | gpu +235 | awaiting
+> gpu 0 | re-decodes 0`. So `resident_mb` after a room is loaded needs no GPU.
+>
+> ✔ **AND THE WALK DRIVER EXISTS — the first caveat was simply wrong.** I checked
+> `capture_scene` and `profile_desktop.sh` and concluded no driver could cross a
+> door here, without looking at the test suite.
+> `game/ambition_app/tests/hall_transition_cover.rs` builds
+> `build_visible_app(VisibleRenderMode::NoWindow, …)` and drives *"the REAL
+> transition, resolved through the room graph rather than synthesised: stand in
+> the Hall door and press interact"*. It is a module of `app_it`, so **that hub →
+> hall crossing already runs on this machine in every gate run**, and it reads the
+> ledger in process (`resident_character_pages`) rather than parsing a printed
+> line. Its own comment records `22 → 226 resident at the hall entry`.
+>
+> ⛔ **The second caveat is CONFIRMED, and by measurement rather than the reason I
+> gave.** Two runs, one with `AMBITION_QUALITY_PROFILE` unset-equivalent and one
+> with a VALID `ultra`, both log *"visual quality seeded to `potato` for a Cpu
+> adapter (llvmpipe)"* and produce a byte-identical census — same 235 images, same
+> 29.9 MP, same 119.4 MB. So the tier does not move through that lever in this
+> tool, and **a high-tier residency figure is not takeable this way**. ⇒ That is
+> the one thing still genuinely blocked, and it is a quality-selection question,
+> not an adapter one.
+>
+> ⚠ **My own error, recorded because it cost two runs:** the caveat above said
+> `AMBITION_QUALITY_PROFILE=Full`. There is no `Full`. The labels are
+> `potato|low|medium|high|ultra` (`settings/video/quality.rs`), and
+> `capture_scene`'s own help already says `AMBITION_QUALITY_PROFILE=ultra`.
+> `from_label` returns `None` on an unparseable value *"so a typo boots the user's
+> OWN setting instead of silently substituting a tier they did not choose"*, and
+> its contract adds *"callers are expected to say so out loud"* — `capture_scene`
+> does not, which is why a typo looked exactly like a run that worked.
+
 ### D-RASTER-3's remaining half
 
 Splitting the weak-GPU 2.54× between framebuffer scale and MSAA needs an

@@ -1443,3 +1443,45 @@ fn the_population_cap_is_spent_at_plan_time_and_each_plan_gets_its_own_quota() {
         "a SECOND plan of the same room under the same cap starts with a full quota"
     );
 }
+
+/// A spawn REQUEST from the encounter domain must produce a real body.
+///
+/// ⛔ THE GAP THIS CLOSES. Until 2026-09-03 the wave driver served its own
+/// `SpawnCommand`s inline, and the encounter tests assert only that the EVENT is
+/// emitted — so the whole request→body path had no test, and 1213 tests stayed
+/// green through a change that moved it. The ordering guard in
+/// `encounter::spawn_request_service_order` pins the WIRING (server after
+/// driver); this pins the BEHAVIOUR.
+#[test]
+fn a_spawn_request_on_the_bus_becomes_a_body() {
+    use ambition_characters::brain::Brain;
+    let mut app = App::new();
+    app.insert_resource(ambition_characters::actor::character_catalog::CharacterCatalog::empty());
+    app.init_resource::<ambition_sprite_sheet::character::sheets::AuthoredSheets>();
+    app.insert_resource(smash_fixture_cast());
+    app.add_message::<ambition_encounter::EncounterEventMsg>();
+    app.add_systems(Update, super::serve_encounter_spawn_commands);
+
+    app.world_mut()
+        .resource_mut::<bevy::prelude::Messages<ambition_encounter::EncounterEventMsg>>()
+        .write(ambition_encounter::EncounterEventMsg::new(
+            "test_encounter",
+            ambition_encounter::EncounterEvent::SpawnCommand {
+                id: "wave_mob_1".to_string(),
+                character: Some("fixture_striker".to_string()),
+                kind: "fixture_striker".to_string(),
+                pos: [100.0, 100.0],
+                size: [20.0, 30.0],
+            },
+        ));
+
+    app.update();
+
+    let mut q = app.world_mut().query::<&Brain>();
+    assert_eq!(
+        q.iter(app.world()).count(),
+        1,
+        "one SpawnCommand on the bus must build exactly one body — the encounter \
+         domain asks and this crate constructs"
+    );
+}

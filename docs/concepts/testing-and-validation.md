@@ -100,6 +100,21 @@ python scripts/generate_agent_index.py
 python -m ambition_ldtk_tools validate <world.ldtk>
 ```
 
+⚠ **That list is three of SIXTEEN `scripts/check_*.py`.** The ones a change is
+most likely to owe are not on it:
+
+| check | when you owe it |
+|---|---|
+| `check_absence_contracts.py` | any carve — 37 contracts, including the capability-footprint ratchet |
+| `check_planning_citations.py` | any commit that MOVES a file a planning doc cites |
+| `check_no_warnings.py` | before a tip: warnings are CI-red under `-D warnings` and the per-crate runs do not see them |
+| `feature_gated_tests.py` | to see what a green default run was silent about |
+| `check_disk_headroom.py` | already wired into the runner; see its own measured counter-example |
+
+⇒ Prefer `./run_tests.sh` over hand-picking from this list — the point of naming
+them here is that a reader who reaches for a focused check should know the list
+is longer than three, not that they should run them one at a time.
+
 Formatting is useful but not a correctness oracle. A patch should not be blocked
 solely because formatting tooling is unavailable when behavior/invariants are
 otherwise validated.

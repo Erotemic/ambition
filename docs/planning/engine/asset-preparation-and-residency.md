@@ -711,12 +711,50 @@ that point from `spawn_dynamic_feature_visuals`, a pure consumer of
 neither road has reached yet is warned about by the first model and spawned by
 neither.
 
-⭐⭐ **ANSWERED BY READING, SAME DAY: NEITHER ROAD OWNS THEM, AND THE
-PLACEHOLDER PATH IS THE ONLY ROAD A ROOM NPC HAS.** Traced from the two spawners
-to the NPC bundle:
+⛔⛔ **RETRACTED WITHIN THE HOUR — I READ HALF A FUNCTION AND STATED A PROPERTY
+OF THE WHOLE.** This section said *"neither road owns them, and the placeholder
+path is the only road a room NPC has"*. **That is wrong.** ambition-df caught it:
+`spawn_room_visuals` does NOT stop at geometry — `rendering/world.rs:221-232`
+iterates `spec.placements` and calls `spawn_authored_interactable` for every
+`PlacementSchema::Interactable`, which spawns a `FeatureVisual { id: record.id }`
+for exactly the `NpcSpawn-…` ids in the warnings (`:187` does enemies, `:200`
+bosses). **The ROOM spawner owns a room NPC's visual**, and the five markers are
+the right filter for dynamic bodies.
+
+⇒ **So the question is TIMING, not membership.** Why does `spawn_room_visuals`
+land its interactable visuals more than 5 frames after those bodies'
+`FeatureViewIndex` rows exist at Ultra, and within 5 at Potato? Two candidates
+(df): its session caller is gated on something tier-dependent (a `theme_loaded`
+gate was read and retracted for `painted_blocks` the same evening, and the
+parallax theme at Ultra is bigger and later), or `spawn_authored_interactable`
+itself returns without spawning — it has an early `return` at `:1018` for a kind
+that is neither Actor nor Switch, and a sprite it waits on may not be ready.
+⇒ Either way the fix is in the ROOM SPAWNER'S GATE or in the stand-in's grace
+being counted from the wrong clock — ⛔ **not a marker on the NPC bundle.**
+⇒ The measurement that names it: the frame `spawn_room_visuals` runs for the
+hall, against the frame each `NpcSpawn` row first appears in `FeatureViewIndex`.
+
+⚠ **WHAT SURVIVES THE RETRACTION**, because it was measured rather than read:
+the texture-readiness instrument printed nothing (so `!texture_is_ready` is not
+where they stop), `upgrade_actor_sprites` cannot create a visual, and the
+placeholder is not excluded from its query — so the stand-in *can* become the
+body. What does not survive is the claim that it is the ONLY road.
+⚠ And my probe's result — `DynamicFeatureViews` holds 0 facts for an
+NPC-shaped entity — is still TRUE and no longer EVIDENCE of anything: the
+dynamic road was never the owner, so its silence is correct behaviour.
+
+⭐ **THE LESSON, since it cost a routed conclusion:** I grepped the first ~30
+lines of `spawn_room_visuals`, saw blocks/water/climbable/loading-zones, and
+wrote "geometry, not actors". The placements loop is forty lines further down.
+⇒ A claim about what a function does NOT handle needs the whole function, and
+`grep -A 30` is not the whole function.
+
+Superseded reading, kept because the marker census in it is correct and is what
+made the timing question askable:
 
 - `spawn_room_visuals` iterates `world.blocks`, `water_regions`,
-  `climbable_regions` and `spec.loading_zones` — **geometry, not actors**.
+  `climbable_regions` and `spec.loading_zones` — geometry — **and then
+  `spec.placements`, which is the half I missed**.
 - `rebuild_dynamic_feature_views` (`ambition_sim_view/src/facts.rs:517`) selects
   by MARKER: `EncounterMob`, `RuntimeStagedActor`, `PostBossNpc`, the two reward
   chests, and `SpawnOrigin::Dynamic` loot.

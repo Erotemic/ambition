@@ -40,6 +40,7 @@ use ambition_portal2d::PortalGun;
 /// re-export would have cost them nothing to keep and would have left this
 /// module as the discovery path for a label it no longer owns.
 pub(crate) use ambition_platformer2d_shared_tangle::schedule::ItemPickupSet;
+use ambition_platformer2d_shared_tangle::schedule::HeldItemStep;
 
 /// Module-local plugin for held-item, pickup, thrown-item, and wielded-item
 /// simulation systems.
@@ -85,27 +86,40 @@ impl Plugin for ItemPickupSimulationPlugin {
         );
 
         app.init_resource::<crate::shrine::CheckpointResumeProgress>();
+        // ⭐ THE DOMAIN'S OWN STEPS, as a chain of SETS. `HeldItemStep` is
+        // shared_tangle vocabulary so a system that is not this domain's can
+        // say where it runs (below) without naming a leaf function, and so the
+        // carve that moves these systems out (pickup-carve-checklist.md) moves
+        // the chain with them intact. Each step is chained inside
+        // `CoreHeldItems`, which is configured `.in_set(PlayerSimulation)`
+        // above, so the parent placement is already implied.
+        app.configure_sets(
+            sim,
+            (
+                HeldItemStep::Release,
+                HeldItemStep::Pickup,
+                HeldItemStep::Use,
+                HeldItemStep::Throw,
+                HeldItemStep::Settle,
+                HeldItemStep::Physics,
+                HeldItemStep::Residency,
+            )
+                .chain()
+                .in_set(ItemPickupSet::CoreHeldItems),
+        );
         app.add_systems(
             sim,
             (
-                // Held-items, the portal gun, the heal/save shrine, and localized
-                // gravity zones are LDtk-authored room entities.
-                crate::shrine::heal_save_shrine_system
-                    .in_set(ambition_platformer2d_shared_tangle::schedule::GameplayGated),
-                // The other half of the shrine: resume at the checkpoint it
-                // recorded. Not gated on `gameplay_allowed` — it must land on the
-                // FIRST tick a constructed session has a body, and that tick can
-                // fall inside a room transition or a loading frame, which is
-                // exactly when gameplay is suspended.
-                crate::shrine::restore_checkpoint_on_session_start,
                 // BEFORE the pickup, and that placement is load-bearing —
                 // see [`return_released_items`]. It reads a hand that has already
                 // settled, so it can never mistake an item the pickup below took
                 // this very tick for one nobody is holding.
                 return_released_items
-                    .in_set(ambition_platformer2d_shared_tangle::schedule::GameplayGated),
+                    .in_set(ambition_platformer2d_shared_tangle::schedule::GameplayGated)
+                    .in_set(HeldItemStep::Release),
                 pickup_held_item_system
-                    .in_set(ambition_platformer2d_shared_tangle::schedule::GameplayGated),
+                    .in_set(ambition_platformer2d_shared_tangle::schedule::GameplayGated)
+                    .in_set(HeldItemStep::Pickup),
                 // ⭐ THE MOVING-PICKUP STEP AND THE TOUCH COLLECT LEFT THIS
                 // PLUGIN (D33, 2026-09-02). They are
                 // `ambition_world_items::WorldItemSimulationPlugin` now, which
@@ -121,58 +135,95 @@ impl Plugin for ItemPickupSimulationPlugin {
                 // absence is otherwise invisible: nothing here fails if that
                 // plugin is never added.
                 fire_held_ranged_system
-                    .in_set(ambition_platformer2d_shared_tangle::schedule::GameplayGated),
-                crate::abilities::thrown::puppy_slug_gun::fire_puppy_slug_gun_system
-                    .in_set(ambition_platformer2d_shared_tangle::schedule::GameplayGated),
+                    .in_set(ambition_platformer2d_shared_tangle::schedule::GameplayGated)
+                    .in_set(HeldItemStep::Use),
                 throw_held_item_system
-                    .in_set(ambition_platformer2d_shared_tangle::schedule::GameplayGated),
-                // WHAT THE MATCH DROPS, before the physics that settles it —
-                // so an item spawned this tick falls this tick rather than
-                // hanging at its point for one frame.
-                crate::items::match_spawn::spawn_match_items
-                    .in_set(ambition_platformer2d_shared_tangle::schedule::GameplayGated),
+                    .in_set(ambition_platformer2d_shared_tangle::schedule::GameplayGated)
+                    .in_set(HeldItemStep::Throw),
                 // ⭐ SUPPORT IS RE-VALIDATED BEFORE THE STEP, so an item whose
                 // platform left falls THIS tick rather than hanging for one —
-                // the same reason the spawn above runs before the physics — and
+                // the same reason the match spawn runs before the physics — and
                 // an item whose platform MOVED goes with it.
                 carry_or_wake_settled_items
-                    .in_set(ambition_platformer2d_shared_tangle::schedule::GameplayGated),
+                    .in_set(ambition_platformer2d_shared_tangle::schedule::GameplayGated)
+                    .in_set(HeldItemStep::Settle),
                 ground_item_physics
-                    .in_set(ambition_platformer2d_shared_tangle::schedule::GameplayGated),
+                    .in_set(ambition_platformer2d_shared_tangle::schedule::GameplayGated)
+                    .in_set(HeldItemStep::Physics),
                 // RESIDENCY FOLLOWS CUSTODY. Last in the chain, so it sees
                 // the custody this tick actually settled on — the release derive
                 // above ran first, the pickup and the throw wrote directly. And
                 // deliberately UNGATED: a room transition suspends gameplay
                 // between the crossing and the commit, which is precisely the
                 // window in which the room sweep reads residency.
-                project_custody_onto_residency,
-                // WHERE A CARRIED OCCURRENCE CAME TO REST. Strictly
-                // between residency and the custody projection below, and both
-                // edges are load-bearing — see this system's own doc. It turns
-                // the outgoing `InCustody` row of an object that was just put
-                // down into the `Placed` row that survives the room's unload;
-                // the custody projection below then finds nothing to retract.
-                record_placed_ground_items,
-                // AND WHAT THE WORLD REMEMBERS ABOUT IT. Immediately
-                // after residency, because it reads residency: an occurrence in
-                // somebody's custody is alive and is not the room's to rebuild,
-                // so the room that authored it must not mint a second one
-                // behind the same `SimId::placement(..)`.
                 //
-                // registered from here and written NOWHERE near here: the
-                // system is generic lifecycle vocabulary (it queries
-                // `InCustodyOf`, which knows nothing about items) and this is
-                // simply the chain whose last link produces its input. do not
-                // read that as "the ledger is about items" — the next thing to
-                // put a row in it will not be one.
-                ambition_platformer2d_shared_tangle::lifecycle::project_custody_onto_authored_occurrences,
+                // WHERE A CARRIED OCCURRENCE CAME TO REST, strictly between
+                // residency and the custody projection, and both edges are
+                // load-bearing — see `record_placed_ground_items`' own doc. It
+                // turns the outgoing `InCustody` row of an object that was just
+                // put down into the `Placed` row that survives the room's
+                // unload; the custody projection then finds nothing to retract.
+                //
+                // AND WHAT THE WORLD REMEMBERS ABOUT IT, immediately after
+                // residency because it reads residency: an occurrence in
+                // somebody's custody is alive and is not the room's to rebuild.
+                // Registered from here and written NOWHERE near here: the system
+                // is generic lifecycle vocabulary (it queries `InCustodyOf`,
+                // which knows nothing about items) and this is simply the chain
+                // whose last link produces its input.
+                (
+                    project_custody_onto_residency,
+                    record_placed_ground_items,
+                    ambition_platformer2d_shared_tangle::lifecycle::project_custody_onto_authored_occurrences,
+                )
+                    .chain()
+                    .in_set(HeldItemStep::Residency),
+            ),
+        );
+        // ⭐ THE KERNEL'S OWN SYSTEMS ATTACH TO A STEP, they are not links of the
+        // domain's chain. Each says where it runs in the domain's vocabulary,
+        // which is what lets the domain leave this crate without these edges
+        // leaving with it. The order they had in the old single chain is the
+        // order these edges reproduce, and the guard pins it by shape.
+        app.add_systems(
+            sim,
+            (
+                // Held-items, the portal gun, the heal/save shrine, and localized
+                // gravity zones are LDtk-authored room entities. The shrine runs
+                // before any hand changes this tick.
+                crate::shrine::heal_save_shrine_system
+                    .in_set(ambition_platformer2d_shared_tangle::schedule::GameplayGated),
+                // The other half of the shrine: resume at the checkpoint it
+                // recorded. Not gated on `gameplay_allowed` — it must land on the
+                // FIRST tick a constructed session has a body, and that tick can
+                // fall inside a room transition or a loading frame, which is
+                // exactly when gameplay is suspended.
+                crate::shrine::restore_checkpoint_on_session_start,
             )
                 .chain()
-                // `ItemPickupSet::CoreHeldItems` is configured
-                // `.in_set(PlayerSimulation)` above, so the parent placement is
-                // already implied — a direct `.in_set(PlayerSimulation)` here
-                // would be a redundant hierarchy edge.
-                .in_set(ItemPickupSet::CoreHeldItems),
+                .in_set(ItemPickupSet::CoreHeldItems)
+                .before(HeldItemStep::Release),
+        );
+        app.add_systems(
+            sim,
+            // A held gun fires between the generic use step and the throw, as
+            // it always did.
+            crate::abilities::thrown::puppy_slug_gun::fire_puppy_slug_gun_system
+                .in_set(ambition_platformer2d_shared_tangle::schedule::GameplayGated)
+                .in_set(ItemPickupSet::CoreHeldItems)
+                .after(HeldItemStep::Use)
+                .before(HeldItemStep::Throw),
+        );
+        app.add_systems(
+            sim,
+            // WHAT THE MATCH DROPS, before the physics that settles it —
+            // so an item spawned this tick falls this tick rather than
+            // hanging at its point for one frame.
+            crate::items::match_spawn::spawn_match_items
+                .in_set(ambition_platformer2d_shared_tangle::schedule::GameplayGated)
+                .in_set(ItemPickupSet::CoreHeldItems)
+                .after(HeldItemStep::Throw)
+                .before(HeldItemStep::Settle),
         );
 
         // Portal-gun ground pickups: arm the LDtk-authored pickup here; the

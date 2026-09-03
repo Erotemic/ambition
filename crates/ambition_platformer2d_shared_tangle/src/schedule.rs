@@ -456,6 +456,48 @@ pub enum WorldItemSet {
     Collect,
 }
 
+/// The ordered steps of one tick of the PRESSED held-item domain — what
+/// [`ItemPickupSet::CoreHeldItems`] is made of, so a system that is not the
+/// domain's can say WHERE in the chain it runs without naming a leaf function.
+///
+/// ⭐ WRITTEN DOWN AHEAD OF THE CARVE, not after it. The kernel's
+/// `ItemPickupSimulationPlugin` registered thirteen systems as ONE `.chain()`
+/// in which the domain's own steps were interleaved with a shrine, a gun and a
+/// match spawn from other modules, each in a load-bearing place ("BEFORE the
+/// pickup, and that placement is load-bearing"; "before the physics that
+/// settles it"). A carve that moved the domain's systems and left the others
+/// would have had to choose between dropping those edges and having the carved
+/// crate name the kernel — the exact fork `ambition_world_items` lost its phase
+/// to (D33 rule, `actor-monolith-decomposition.md`). These steps are the third
+/// answer: the domain's plugin chains its steps and owns the set; anything
+/// else attaches `.after`/`.before` a STEP. The guard
+/// (`held_item_steps_are_a_chain_and_the_attached_systems_sit_where_they_say`)
+/// asserts membership and order by shape, never by system name.
+///
+/// [`Release`](Self::Release) runs first because it reads a hand that has
+/// already settled and must never mistake an item the pickup takes THIS tick
+/// for one nobody is holding; [`Settle`](Self::Settle) precedes
+/// [`Physics`](Self::Physics) so an item whose support moved goes with it this
+/// tick; [`Residency`](Self::Residency) is last so it sees the custody the tick
+/// actually settled on.
+#[derive(SystemSet, Debug, Hash, PartialEq, Eq, Clone, Copy)]
+pub enum HeldItemStep {
+    /// A released/thrown item nobody holds returns to the world.
+    Release,
+    /// An empty hand takes an overlapping item.
+    Pickup,
+    /// The held item is USED (a ranged fire, a swing).
+    Use,
+    /// The held item leaves the hand.
+    Throw,
+    /// Loose items re-validate their support before they move.
+    Settle,
+    /// Loose items move.
+    Physics,
+    /// Residency and the whereabouts ledger follow the custody just settled.
+    Residency,
+}
+
 /// Ordered authority boundaries for one autonomous actor decision, inside
 /// [`Platformer2dSimulationPhaseMonolith::WorldPrep`].
 ///

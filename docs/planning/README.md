@@ -252,6 +252,18 @@ the sole referrer of `moveset-inspector.md` — which is OPEN, with M3
 outstanding. Deleting the receipt made an open plan unreachable by the route
 [`README.md`](README.md) describes.
 
+⛔ **AND THERE IS A THIRD REFERENCE CLASS THE PROSE SWEEP CANNOT SEE:
+`source_doc` FIELDS IN THE WORKSPACE-POLICY TOMLs.** Learned twice, the second
+time the hard way: `engine/architecture.md` earns its keep on 15 of them, and on
+2026-09-03 I deleted `engine/decomposition.md` — zero inbound prose links, its
+rule fully absorbed downstream, both usual halves passing — and **eight policy
+rows cited it**. `every_source_doc_names_a_real_file_and_heading` went red in the
+feature-union job within the hour. ⇒ Run this too:
+
+```sh
+grep -rn "<path>" tests/ambition_workspace_policy/policies/*.toml
+```
+
 ⇒ **Before deleting a page, grep its OUTBOUND links too**, and check each target
 is reachable another way:
 

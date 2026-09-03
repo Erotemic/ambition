@@ -240,3 +240,32 @@ row's old number (14), which is far too lucky for an independent measurement of
 a repository that had moved for a week. A suspiciously clean agreement is the
 same warning as a suspiciously clean absence.
 
+### ⚠ Two instruments can use one WORD for different things
+
+A near-miss on 2026-09-03, caught before it was written down. Two censuses both
+say "parallax" about the same room and appear to contradict each other:
+
+* `[census] draws` reports `area_parallax=21771264` in `hall_of_characters` —
+  21.7 megapixels of sprite area;
+* the image ledger from a `capture_scene` of the same room reports
+  `parallax 4×2.4MP` resident and **all four never drawn**.
+
+Resident-but-never-drawn backdrop art in a room that clearly renders is a
+finding shape — and the room authors no `parallax_theme` value at all, which
+looks like confirmation.
+
+⇒ **They are not measuring the same thing.** `area_parallax` sums sprites by
+RENDER LAYER (`PARALLAX_BACKGROUND_LAYER`,
+`crates/ambition_render/src/runtime_census.rs:575`); the ledger's `parallax`
+groups images by the DEMAND ROAD that loaded them. A sprite drawn on the
+parallax layer whose image arrived by another road counts in the first and not
+the second, and neither number is wrong.
+
+✔ **The check that dissolves it** is the same one that dissolves a suspicious
+count: find the instrument's own definition before reconciling two outputs. One
+`grep` for where the field is computed answered it, and answering it took less
+time than writing the finding would have.
+⚠ This is the failure the sibling page calls a conditionally-blind check, one
+level up: not an instrument that cannot see, but two instruments that see
+different things and report them in the same vocabulary.
+

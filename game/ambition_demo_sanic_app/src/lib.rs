@@ -317,9 +317,24 @@ mod tests {
             );
         }
 
-        // Demand them, run one Update, and the engine's materializer decodes
-        // them. That the PNG+RON are on disk and parse is what makes this pass;
-        // a declaration alone would pass with no art published at all.
+        // Demand them, PUMP UNTIL THEY SETTLE, and the engine's materializer
+        // decodes them. That the PNG+RON are on disk and parse is what makes
+        // this pass; a declaration alone would pass with no art published at
+        // all.
+        //
+        // ⛔⛔ ONE `update()` COULD NEVER MATERIALIZE BOTH.
+        // `MAX_CHARACTERS_MATERIALIZED_PER_FRAME` is 1 — the engine rations
+        // character decodes so a room reveal cannot spend the whole frame on
+        // pixels — and this demands TWO forms. The old single update therefore
+        // asserted `Ready` for `super_sanic` while the materializer had not
+        // reached it, and got `None`: not a FAILED load, no load attempted yet.
+        //
+        // ⚠ It was invisible because this target only builds under
+        // `--features capture,input,visible`, so the default plan never runs it
+        // and only the feature union does. It has been red there.
+        //
+        // The cap is generous and BOUNDED on purpose: a settle loop with no cap
+        // hangs instead of failing, and one that stops early re-creates the bug.
         {
             let mut demand =
                 app.world_mut()
@@ -328,7 +343,18 @@ mod tests {
                 demand.request(character_id);
             }
         }
-        app.update();
+        for _ in 0..64 {
+            app.update();
+            let states = app
+                .world()
+                .resource::<ambition_platformer2d::actors::character_runtime::CharacterLoadStates>(
+            );
+            if forms.iter().all(|(id, _)| {
+                states.outcome(id).is_some()
+            }) {
+                break;
+            }
+        }
 
         let states = app
             .world()

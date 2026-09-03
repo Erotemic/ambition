@@ -796,6 +796,28 @@ ceiling is a host number: `resident_mb` at Full on the 3090 after a
 hub→hall→hub walk. Everything else in that section is measured; this is the one
 input that cannot be taken on a software rasteriser.
 
+> ⭐ **THE NUMBER, MEASURED ON CALCULEX 2026-09-03 — no GPU, and it was already
+> being produced every gate run.** At the hall entry, through the real authored
+> door, at FULL texture resolution:
+>
+> | run | images | megapixels | **resident** |
+> |---|---|---|---|
+> | `hall_transition_cover` (control) | 224 | 363.1 | **1452.3 MB** |
+> | same, `AMBITION_QUALITY_PROFILE=ultra` | 225 | 363.9 | **1455.8 MB** |
+>
+> `gpu +0 … awaiting gpu 224` on both — nothing uploaded, which is the point:
+> `resident_mb` is decoded CPU-side bytes and needs no adapter. ⇒ **≈1.45 GB is
+> the hall's full-resolution residency**, and if that is the ceiling open work 4
+> wants, this entry can close without 3090 time.
+>
+> ⚠ **What this is NOT:** it is the hall ENTRY, not a hub→hall→hub round trip,
+> and the return leg is what the "keeps the last room's cast resident" policy
+> actually stresses. `leaving_the_gallery_keeps_the_shared_cast_and_retires_the_rest`
+> in the same file drives that leg and is where the return figure would come
+> from. ⚠ And read the detail below before quoting the pair: the two runs differ
+> by an env var that turns out to be INERT, so they are one configuration
+> measured twice, not a tier comparison.
+
 ⓘ **2026-09-03, calculex — the ADAPTER may not be what blocks this, which would
 make the ask smaller than 3090 time.** Two things were checked, and neither is a
 claim that the number has been taken:
@@ -890,14 +912,20 @@ input: possibly a driver on any host rather than time on the one 3090.
 > `sprites_0_5x`, or the unsuffixed base — so the tier decides which pixels
 > become resident, and `resident_mb` must move with it.
 >
-> ⇒ **So 119.4 MB is the POTATO figure**, and the number this entry wants is the
-> `Full` one. It is not takeable with this tool today, not because the adapter
-> cannot render it but because the tier override does not reach the composition.
-> ⇒ That is a much smaller thing to fix than a 3090, and it is now a named,
-> located defect rather than a caveat: make `AMBITION_QUALITY_PROFILE` take
-> effect in `capture_scene` — or read the ledger from
-> `hall_transition_cover.rs`, which already crosses the door in a composition
-> that boots the full app.
+> ⇒ **So `capture_scene`'s 119.4 MB is the POTATO figure** — it seeds from the
+> Cpu adapter and loads `sprites_potato`. The full-resolution figure in the table
+> at the top comes from `hall_transition_cover`, whose composition does NOT seed
+> from the adapter and loads the base tree: **363 MP against 29.9 MP, twelve
+> times the pixels, for the same room.**
+>
+> ⛔ **AND THE ENV VAR EXPLAINS NEITHER.** Running the test WITH and WITHOUT
+> `AMBITION_QUALITY_PROFILE=ultra` gives 1455.8 MB and 1452.3 MB — the same
+> configuration twice. The lever is inert in both tools; the twelve-fold gap is
+> which composition seeds quality from the adapter, not which tier was asked for.
+> ⇒ **Two tools on one machine disagree about residency by 12× for reasons that
+> have nothing to do with hardware**, which is worth more to open work 4's budget
+> policy than either number alone: a ceiling is meaningless until the composition
+> that produced it is named beside it.
 >
 > ⚠ **Recorded because I got this wrong once in the other direction too:** an
 > earlier version of this note said the asset set "does not move with the tier at

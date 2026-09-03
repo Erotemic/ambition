@@ -216,6 +216,16 @@ unactionable.
 > | `target/` | CHECKOUT | absent |
 > | `.agent/` navigation index | tracked | present |
 >
+> ⭐ **AND THIS REPO ALREADY SOLVED THAT COLLISION ONCE, in the other
+> per-checkout store.** `target_bindmount.sh`'s `store_for` keys its backing
+> directory on `<basename>-<sha1(abs path) | cut -c1-10>` — the readable half
+> "kept only so `du -sh` output is legible", the hash doing the actual work. Run
+> from the clone it correctly reports `state ABSENT (cargo has not built here
+> yet)` with its own backing dir, so two checkouts named the same cannot collide.
+> ⇒ The venv store's `basename`-only key is the same problem with the weaker
+> answer; adopting `store_for`'s scheme would close it, and the precedent is
+> twelve lines away in a sibling script.
+>
 > ⇒ So a clone on a used box is missing the CHECKOUT half and inherits the
 > MACHINE half — which is why `--verify` looks nearly green here and would fail
 > everything on a new laptop. ⛔ **Anyone testing the fresh-clone contract must

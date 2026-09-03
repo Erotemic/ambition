@@ -4,6 +4,17 @@ A test that fails is information. A test that never executed and reports green
 is worse than no test at all, because it also spends the attention that would
 have found the defect by hand.
 
+⭐ **AND IT HAS A SIBLING FAMILY, which #10 below already notices when it calls
+itself "a DIFFERENT SPECIES from 1-9".** This page is about a check that did not
+RUN. The other failure is a check that ran perfectly and answered the wrong
+question — a parser that could not match, a guard whose population was 1 type of
+113, a poison aimed outside the thing it was poisoning. Twenty-seven of those,
+each with the commit, are in
+[`../../dev/journals/blind-checks-2026-09-03.md`](../../dev/journals/blind-checks-2026-09-03.md).
+⇒ **The two counts are not rivals and must not be added**: ask "did it run?"
+here, and "did it check what I think?" there. #10 is the boundary case and is
+counted in both.
+
 This page is the dual of
 [`cheapest-sufficient-check.md`](cheapest-sufficient-check.md). That page asks
 *what is the least I can run to settle this change*. This one asks *did what I

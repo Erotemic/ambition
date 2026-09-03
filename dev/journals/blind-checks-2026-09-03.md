@@ -11,6 +11,15 @@ resolution, `head -N` truncating the grep that had the answer) belongs here too
 and should be appended by whoever holds those commits — an unattributed line
 with no SHA is exactly the kind of claim this page exists to distrust.
 
+⭐ **SIBLING PAGE, AND THE BOUNDARY BETWEEN THEM.**
+[`docs/recipes/checks-that-did-not-run.md`](../../docs/recipes/checks-that-did-not-run.md)
+collects the checks that did not RUN — a gate lane nobody invoked, a job in the
+exhaustive plan only, a feature-gated module whose tests never existed. This
+page collects the ones that ran and answered the WRONG QUESTION. ⇒ **Do not add
+the two counts.** Ask "did it run?" there and "did it check what I think?" here;
+that page's #10 (a census that was a silent top-20) is the boundary case and
+belongs to both.
+
 ## The recurring shape
 
 **An emitter tells you what a line CONTAINS; it never tells you what to compare

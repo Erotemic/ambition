@@ -584,6 +584,54 @@ The one unresolved developer-policy choice from the session-ownership work is in
   diagnosing it was an artifact of looking in the wrong directory rather than a
   fact about the machine.
 
+- ▢ **THE TEN RATCHETS RAN FOR THE FIRST TIME AND FOUND SOMETHING ON THE FIRST
+  TRY: FOUR NAMES IN `KNOWN_STRANDED_SHEETS` ARE STALE.**
+  With `canonical_assets.py` landed and this checkout detected as canonical
+  (four sprite trees, 425 real PNGs, zero symlinks), the ten assertions that
+  had never been evaluated by any lane ran here 2026-09-03 late: **23 passed,
+  1 failed.** ⭐ **AND THE LANE ARITHMETIC CLOSES EXACTLY**, which is what shows
+  the module did what it said rather than something adjacent: the full
+  `scripts/tests` run went **803 passed / 13 skipped → 819 passed / 3 skipped**.
+  +16 passed and −10 skipped, against ten assertions that stopped skipping and
+  sixteen that started executing — the difference being the six that were
+  skipping on the sprite-tree check underneath the marker, not on the marker
+  itself. No test appeared or vanished unaccounted for. The failure is `test_the_known_list_does_not_rot`:
+  `carl_stargan`, `pointed_polygon`, `projectile_polygon` and
+  `pugnacious_polygon` **no longer strand pages** and must leave the list, or a
+  future regression on them passes silently.
+  ⭐ **THIS IS THE RATCHET WORKING, NOT BREAKING.** The list is stale in the
+  GOOD direction — four sheets were fixed and nobody pruned their names,
+  because nothing was running the check that would have said so. A rot test
+  that only ever grows is not a ratchet, which is the reason that assertion
+  exists at all.
+  ⚠ **AND IT IS NOT THE FAILURE THE ORIGINAL GATE FEARED**, which is worth
+  separating carefully. The gate's stated worry was that on a box regenerating
+  cleanly the `KNOWN_` lists would "read as stale and the guards fail for the
+  WRONG reason". Here the box is genuinely canonical by the new detector's own
+  test, so the staleness is REAL and the remedy is to prune the four names —
+  not to re-gate, and not to widen the list.
+  ⇒ Owner: whoever regenerated those four sheets. The edit is four deletions
+  from `KNOWN_STRANDED_SHEETS` in
+  `scripts/tests/test_shipped_sheet_pages_are_claimed.py`, and the guard's own
+  poison discipline (drop a name → new-orphan test red) means the change is
+  self-checking. ⛔ Not done here: I did not regenerate them and cannot tell
+  from the census alone whether all four were fixed deliberately.
+  ⛔⛔ **AND ON A DIFFERENT BOX THE SAME RATCHETS WENT RED FOR A REASON THAT IS
+  NOT CONTENT AT ALL.** Within the hour, another checkout reported
+  `..._that_is_not_smaller` naming actor/author/medic/officer and
+  `…without_a_reduced_variant` naming `performer` — and
+  `check_quality_variants_are_fresh.py` exits 1 there with **170+ stale files**,
+  `performer` among them. ⇒ **All five of those reds are regeneration
+  staleness.** A size assertion on a stale tier compares a fresh source page
+  against an old reduced one and reports a history finding dressed as a content
+  one. ✔ **FIXED IN THE DETECTOR, not in the assertions** (`7761e3646`):
+  `assets_are_canonical` now also requires the freshness check to be green, and
+  a stale box SKIPS with a reason naming the check and its output. ⭐ The
+  distinction this preserves is the whole point — THIS box is fresh, so its
+  four stale names are a real finding to act on; that box is stale, so its five
+  are not findings at all. Widening the assertions would have erased the
+  difference.
+
 - ▢ **`why_not()` IN THE NEW CANONICAL-ASSETS DETECTOR STATES A CAUSE IT NEVER
   CHECKED.** `scripts/lib/canonical_assets.py:92` returns, for ANY checkout
   where at least one sprite tree exists, *"N sprite tree(s) present but holding

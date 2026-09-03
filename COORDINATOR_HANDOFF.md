@@ -48,6 +48,38 @@ is a FILE + a SHA, never a chat message. Main is at `2eb71a6e2`; the tree was cl
   tip.** Everything else is gated: `scripts/tests` 788/13 skipped,
   `./run_tests.sh --tool-tests` 2/2 end to end, citations 1202 resolved,
   doc-links 278 documents.
+
+  ⭐⭐ **CURRENT AS OF 2026-09-03 ~17:40Z — everything above this line is the
+  state at ~16:15Z and has been overtaken.** The branch has since been merged
+  with `origin/main` FOUR times (through `b9753a7fe`) and merged INTO main
+  twice by two different coordinators. ⇒ **Merge the branch TIP.**
+  * ⛔ **STILL OWED, and unchanged all night: `./run_tests.sh --rust` at the
+    tip, on a box with headroom.** This box is at ~12 GB free of 290 and the
+    runner's own 40 GB floor refuses to start the lane, so no Rust claim about
+    this branch comes from me. It also has **~47 GB unaccounted for** — walking
+    the volume gives ~231 GB against 278 used; deleted-but-open files hold
+    zero and the two `vda1[...]` binds are one store from two paths, so the
+    leading candidate is the shadowed-copy shape in AGENTS.md. NOT confirmed:
+    confirming needs an unmount, clearing it is `rm -rf` under a `target/`.
+    Filed in `queue.md`, reported and not acted on. **Jon's call.**
+  * ✔ Landed since: the disk guard keys on a new `Job.builds` flag rather than
+    on which lane asked (`--maintenance` runs `cargo doc`, so the exempt lane
+    was the one that could fill the volume), and an exempt lane now DROPS its
+    building jobs and runs the rest while still reporting `aborted`/exit 1.
+    `canonical_assets.py` gained a freshness precondition and a derived
+    `why_not()` — a stale box now skips loudly instead of producing a false
+    content finding.
+  * ⚠ **One red in `scripts/tests` (821 passed / 3 skipped / 1 failed) and it
+    is a real finding, not a regression:** `test_the_known_list_does_not_rot`
+    says `carl_stargan`, `pointed_polygon`, `projectile_polygon` and
+    `pugnacious_polygon` no longer strand pages and must leave
+    `KNOWN_STRANDED_SHEETS`. It fires on any FRESH canonical checkout now, so
+    it will appear in your gate too. Owner is whoever regenerated those sheets.
+  * ⓘ The lane-1 `FeatureVisual` item has a queue row with its whole chain
+    verified by reading, a retraction of the first (marker) diagnosis, the
+    parallax-gate mechanism that replaced it, and an
+    authored-vs-dynamic falsifier that the presentation lane adopted as an
+    acceptance criterion checked BEFORE the fix is written.
 - `CalculexAmbition` (no-GPU VM, lavapipe renders pictures, never timings; branch
   `calculex-no-gpu`) — assigned review item #5 (multi-switch semantics: arming says "any off",
   completion greens only the first; decide one policy, two-switch guard both ways). Not landed.

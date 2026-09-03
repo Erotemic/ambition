@@ -48,10 +48,43 @@ def _tree(root: Path, *, files: int, linked: bool) -> Path:
     return tree
 
 
+#: A fixture repo has no `scripts/` directory, so the real freshness probe would
+#: call it stale and these tests would be exercising the probe instead of the
+#: file-ownership rule they mean to. Injected, never defaulted.
+FRESH = lambda _repo: (True, "stubbed fresh")  # noqa: E731
+
+
 def test_a_tree_of_real_files_is_canonical(tmp_path):
     """The box that generated the assets is the box whose lists describe them."""
     _tree(tmp_path, files=3, linked=False)
-    assert ca.assets_are_canonical(tmp_path, env={}) is True
+    assert ca.assets_are_canonical(tmp_path, env={}, fresh=FRESH) is True
+
+
+def test_real_files_that_are_STALE_are_not_canonical(tmp_path):
+    """⛔⛔ OWNING THE FILES IS NOT THE SAME AS THEM BEING CURRENT.
+
+    On a box whose tier variants are stale build output, the size ratchet
+    compares a fresh source page against an old reduced one and reports a SIZE
+    finding that is really a REGENERATION-HISTORY finding. Observed
+    2026-09-03 the hour this module landed: one box named four sheets that way
+    with 82 stale files under it, while a freshly regenerated box reported
+    zero. ⇒ A stale box must skip, not produce a false content finding.
+    """
+    _tree(tmp_path, files=3, linked=False)
+    stale = lambda _repo: (False, "3 variant(s) older than their source.")  # noqa: E731
+    assert ca.assets_are_canonical(tmp_path, env={}, fresh=stale) is False
+
+
+def test_the_stale_skip_reason_names_the_freshness_check(tmp_path):
+    """⭐ A skip a reader cannot act on is how the ten sat unevaluated.
+
+    The reason must say WHICH check said stale, so the fix (regenerate) is one
+    command away rather than a hunt.
+    """
+    _tree(tmp_path, files=3, linked=False)
+    reason = ca.why_not(tmp_path)
+    assert "STALE" in reason or "stale" in reason, reason
+    assert "check_quality_variants_are_fresh" in reason, reason
 
 
 def test_a_mirrored_tree_of_symlinks_is_not(tmp_path):

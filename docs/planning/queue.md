@@ -1442,7 +1442,7 @@ OPTIONAL dep + feature, never used:
   naming it still RESOLVES — the symbol exists — while every sentence about it
   is false, which is precisely the blindness this row describes, in the one
   shape a checker can find. Its motivating case is on main: `6c9fb2b58`
-  rerouted onto `retire_realizations`, left `demote_stale_realizations` behind,
+  rerouted onto `retire_realizations`, left `demote_stale_realizations` behind, <!-- cite-ok: naming the retired function IS the example; it is what the reroute left behind -->
   and three planning sites went on calling the dead one live.
   ⛔ **IT DOES NOT REPLACE THE GREP.** It finds names that lost their callers;
   it cannot see a sentence that describes a location correctly-shaped and

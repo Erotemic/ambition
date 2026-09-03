@@ -150,6 +150,14 @@ exists to keep. ⭐ Two things this priced that the prediction did not: the toll
 falls on the page DESCRIBING the check as often as on any other, and the lane
 stays red until somebody marks it — nothing degrades gracefully, which is
 correct and is also why the marker has to be cheap to apply.
+⛔ **THREE TIMES IN ONE EVENING, AND ALL THREE WERE PROSE ABOUT THE CHECK
+ITSELF** (this line; the paragraph below arguing against widening the corpus,
+which is an inventory of vanished names and so is made of them; and a queue row
+citing `demote_stale_realizations` <!-- cite-ok: the reroute's own example, named here for the same reason --> as the motivating case for the orphan
+census). ⇒ **Writing about removals reddens this lane essentially every time**,
+so budget the marker into the edit rather than treating each one as a surprise.
+That is a stable, cheap toll and not an argument against the check — but it is
+the reason the marker must never become expensive to apply.
 ⇒ Note which half of the choice closed it: the rows were MARKED, not the baseline advanced. Marking says *this name is gone on purpose*; advancing the baseline would have said *stop looking before here*, and hidden anything else in the same range. ⭐ **AND THE SAME INSTRUMENT HAD A SECOND UNAIMED HALF:** it takes `paths` and its default is `docs/planning`, so the pages describing CURRENT behaviour had never been scanned. Aimed at `docs/{concepts,systems,architecture,recipes}` the same day it found `HitSource` documented with seven role-shaped variants that do not exist — on the page whose subject is the unification that replaced them — and a deleted message still listed among current ones in a sentence I had hand-corrected in that very file twice. ⇒ **A check can be aimed and still be aimed at only part of its subject**, and the tell is a default argument nobody has ever overridden. ⭐ The lesson worth keeping: a check nobody has aimed has never had its false-positive rate measured either, so the first real run prices BOTH — and its docstring's *"almost no false positives"* was a reasonable claim that one run turned into a number |
 
 Between #5 and #6 the web path had **zero behavioural coverage**: one job could

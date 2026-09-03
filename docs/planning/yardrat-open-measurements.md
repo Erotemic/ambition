@@ -83,6 +83,35 @@ written there. That limitation is now recorded next to the guard itself.
 
 ---
 
+## ⚠ A BARE FILENAME CITATION DECAYS WITHOUT ANYONE TOUCHING IT
+
+Found 2026-09-03, and the mechanism is new this week: **a carve can make an
+existing citation ambiguous by adding a file nobody edited.**
+`actor-monolith-decomposition.md:1105` cites `systems.rs:177` and now  <!-- cite-ok: this row's subject IS the ambiguous citation -->
+matches TEN tracked files, because calculex's `ambition_encounter_features`
+carve added one more `src/systems.rs`. The sentence was fine when written and is
+unreadable now.
+
+⇒ Measured across all of `docs/planning`: **17 distinct `file.rs:NN` citations,
+and only two filenames are non-unique** — `systems.rs` (10 matches) and
+`options.rs` (2). So the class is SMALL and the checker already reports it as
+AMBIGUOUS rather than resolving it wrongly, which is the right behaviour. No new
+tool is wanted.
+
+⛔ **But the population is growing on the wrong side.** Five crates were carved
+out of the actor monolith on 2026-09-03 alone, and generic module names
+(`systems.rs`, `mod.rs`, `options.rs`, `tests.rs`) are exactly what a new crate
+brings. ⇒ **In planning prose, cite a crate-qualified path** —
+`crates/<crate>/src/systems.rs:177`, which the checker resolves unambiguously —
+and treat a bare filename as a citation with a shelf life. That is a HABIT, not
+a check: the guard exists and is already doing its job.
+
+⚠ And the same finding names a defect I did not fix, because the file is held:
+line 1105's own subject is a corrected measurement (*"five and two, not four and
+one"*), and the crate it credits, `ambition_characters`, has **no `systems.rs`
+anywhere in its source**. The ambiguity report is what surfaced it. Passed to
+the session that owns the file.
+
 ## ⛔ AN IDENTIFIER THAT DOES NOT RESOLVE IS USUALLY HISTORY, NOT ROT
 
 Two sweeps, both of which looked like rich seams and both of which were almost

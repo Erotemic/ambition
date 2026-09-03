@@ -930,6 +930,13 @@ def telemetry_envelope() -> dict:
     }
 
 
+#: Escape hatch for a test that means to exercise the ledger writer itself.
+#: Deliberately NOT the ledger-path override: redirecting the path is what a
+#: test does to write somewhere safe, and that must not also re-enable writing
+#: from every other test that happens to set it.
+COST_LEDGER_TEST_WRITES_ENV = "RUN_TESTS_COST_LEDGER_ALLOW_TEST_WRITES"
+
+
 def append_cost_ledger(results: list[JobResult], exhaustive: bool,
                        filtered: bool, rust_only: bool = False,
                        tool_tests_only: bool = False,
@@ -953,6 +960,23 @@ def append_cost_ledger(results: list[JobResult], exhaustive: bool,
     if unavailable:
         print(f"  (cost NOT recorded: {unavailable}"
               f" — fix with `{measurement_paths.INIT_COMMAND}`)")
+        return None
+
+    # ⛔⛔ A TEST THAT CALLS `run()` IS A WRITER. Four fixture rows were found in
+    # the ledger on 2026-09-03 — 0 and 2 jobs at 0.1 s — and had to be pruned by
+    # hand before the real rows could be committed. A corpus that planning pages
+    # cite for suite cost is not a place to discover fabricated points.
+    #
+    # ⚠ The defence used to live in the three tests that remember
+    # `monkeypatch.setattr(run_tests, "append_cost_ledger", ...)`. That is a
+    # hand-kept list: a NEW test calling `run()` is silently a writer, and it
+    # writes into the developer's real submodule, where the row survives long
+    # enough to be committed by someone reading `git status` months later.
+    # Same rule as the two refusals around it — say why, never fail the suite.
+    under_pytest = os.environ.get("PYTEST_CURRENT_TEST")
+    if under_pytest and not os.environ.get(COST_LEDGER_TEST_WRITES_ENV):
+        print(f"  (cost NOT recorded: running under pytest — {under_pytest};"
+              f" set {COST_LEDGER_TEST_WRITES_ENV}=1 to record anyway)")
         return None
 
     row = {

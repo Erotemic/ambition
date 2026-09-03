@@ -21,6 +21,27 @@ silently re-points every page that cited the original.
 
 ## Open decisions
 
+### 47. TwinTrack's simultaneity limit: where does it live while the exhibit is parked? (re-filed 2026-09-03; was 28)
+
+Both TwinTrack panes render ONE instant of the simulation's coordinate time, so
+they can disagree about optics (light delay, aberration, Doppler) and NOT about
+simultaneity — which is what the twin paradox actually is. This was question 28
+here and the entry vanished — not answered and archived, just absent (yardrat,
+2026-09-03: no `### 28` in this file and no row in `maintainer-decisions.md` names
+it; the parked demo page `demos/twintrack.md` was the only record). Re-filed so
+it has a home again. **The question:** while TwinTrack is parked, does the limit
+belong in `engine/relativity.md` beside the spacetime-diagram design (which uses
+"simultaneity" in a different sense and otherwise reads as though the exhibit
+already shows it), or does the parked page stay the record? Default if nobody
+rules: a one-line "known limit" note in `engine/relativity.md` pointing at the
+demo page.
+
+⇒ **Convention from the same finding, applied from here on:** when a question
+leaves this file, its answer row in `maintainer-decisions.md` NAMES THE NUMBER
+it closes ("closes 47"). Only 2 of that file's 100 rows do today, which is why a
+dropped question and an answered one look the same; with the number on the
+answer, a dropped one is a set difference.
+
 ### 46. Does 1-1 want a fourth ?-block over floor, so the fire form's floor-refusal can be played?
 
 `refuse_a_weaker_form_pickup` is Mary-O's rule that a form on the FLOOR may not

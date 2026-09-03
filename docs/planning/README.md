@@ -291,6 +291,16 @@ as regression.
 at all, which is the failure the header rule above is about. The rule is that the
 number must be reproducible BY THE READER, not that it must be absent.
 
+⭐ **AND SOME FIGURES SHOULD BE APPROXIMATE ON PURPOSE.**
+`game/systemic-progression.md` (2026-08-13) says `ParticipantId` "has ~150
+references" beside three EXACT absence claims. Re-checked 2026-09-03, after
+three weeks and five carves: the absences still hold at zero, and the count is
+154 — so the `~` is still true and an exact `150` would read as drift. ⇒ Use an
+exact figure where exactness is the claim (a count of zero, a set of five named
+sites) and an approximate one where the magnitude is the claim. Precision you
+did not need is a maintenance liability, and this page shows the alternative
+ageing well.
+
 ⭐ **AND NOT EVERY FIGURE IN A TABLE IS LOAD-BEARING — separate the VERDICT from
 the EVIDENCE.** `engine/relativity.md` proves the point: its table says
 `ambition_app` links relativity **0** times and `ambition_demo_twintrack_app`

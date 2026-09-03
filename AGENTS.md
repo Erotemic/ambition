@@ -267,11 +267,20 @@ exit code, check whether enforcement requires `--check`.
 
 Known advisory-by-default scripts include:
 
-* `check_absence_contracts.py`
-* `check_roadmap_evidence.py`
-* `check_doc_link_ratchet.py`
+* `check_absence_contracts.py` — enforce with `--check`
+* `check_doc_link_ratchet.py` — enforce with `--check`
+* `check_planning_citations.py --vanished REF` — enforce with `--strict`.
+  ⛔ Without it this one PRINTS every finding and still exits **0**, which is how
+  it nearly shipped into `--maintenance` as a job that lists real problems and
+  reports success (measured 2026-09-03: 13 findings, exit 0 bare, exit 1 with
+  `--strict`).
 
 `compile_ratchet.py` is intentionally the counterexample and fails by default.
+
+⚠ `check_roadmap_evidence.py` was listed here until 2026-09-03 and **does not
+exist** — deleted 2026-08-13 in `5e382342d` with nothing replacing it. The
+enforcement flag is not the only thing to check before trusting a zero: so is
+the script.
 
 Do not duplicate a check in CI without first searching the workflow at the parent
 commit.

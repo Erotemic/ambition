@@ -116,6 +116,34 @@ lives; the prose links are not it.
 
 ---
 
+## Retiring `planning/engine/architecture.md` is a CONTENT job, not a path edit
+
+`docs/planning/engine/architecture.md` is a redirect receipt: the canonical
+architecture moved to `docs/architecture/engine-architecture.md`, and the
+receipt says it *"remains temporarily because policy metadata, code comments,
+ADRs, and historical documents still link here"*. Measured 2026-09-03 — it is
+earning its keep, and the retirement is bigger than it looks.
+
+**12 files reference it: 7 archived, 5 live.** The live ones are
+`dev/journals/code_smells.md` and the workspace-policy set —
+**15 `source_doc` citations** (10 in `engine.toml`, 2 in `game.toml`, 1 in
+`repository.toml`, 2 custom metas in `src/custom/session_world.rs`).
+
+⛔ **DO NOT BULK-REPOINT THEM, and the reason is a trap I nearly walked into.**
+The obvious move is `sed` the path to the durable doc; it would keep
+`every_source_doc_names_a_real_file_and_heading` GREEN and make the citations
+worse. The durable doc is 283 lines and does not mention `ambition_load`,
+`ambition_game_shell` or `ambition_load_presentation` **at all** — so the row
+naming those three would cite a page that RESOLVES and does not state its rule,
+which is strictly worse than citing a redirect that leads to the right place.
+
+⇒ The order is: the durable doc absorbs the rules these rows cite, THEN the
+paths move, THEN the receipt retires. ⚠ And the guard cannot help with step one
+— it verifies that a document exists at the other end, never that the rule is
+written there. That limitation is now recorded next to the guard itself.
+
+---
+
 ## ⛔ AN IDENTIFIER THAT DOES NOT RESOLVE IS USUALLY HISTORY, NOT ROT
 
 Two sweeps, both of which looked like rich seams and both of which were almost

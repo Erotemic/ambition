@@ -413,7 +413,29 @@ impl bevy::prelude::Plugin for PresentationVisualAnimationPlugin {
                 // character sprite (player + enemies + NPCs + bosses) once
                 // its texture / atlas is loaded. Sized as a sibling mesh
                 // synced in world space every frame.
-                hit_flash::attach_hit_flash_overlays,
+                // ⛔⛔ GUARDED: it takes `ResMut<Assets<Mesh>>`,
+                // `ResMut<Assets<HitFlashMaterial>>` and
+                // `Res<Assets<TextureAtlasLayout>>`, and Bevy 0.19 panics the
+                // schedule when a parameter is absent where 0.18 skipped. In a
+                // headless composition with no render stack that took the whole
+                // app down — 26 of the feature union's failures.
+                // ⭐ THE DOC PREDICTED THIS SYSTEM BY NAME.
+                // `engine/headless-verification.md` records three of these
+                // hiding in succession — "a missing `Assets<TextureAtlasLayout>`,
+                // then `GizmoConfigStore`, then `Assets<Mesh>`" — and this one
+                // takes all three. Guarding on all three rather than on the one
+                // that happened to fail first is the whole point of that
+                // sentence.
+                hit_flash::attach_hit_flash_overlays
+                    .run_if(bevy::ecs::schedule::common_conditions::resource_exists::<
+                        bevy::asset::Assets<bevy::mesh::Mesh>,
+                    >)
+                    .run_if(bevy::ecs::schedule::common_conditions::resource_exists::<
+                        bevy::asset::Assets<hit_flash::HitFlashMaterial>,
+                    >)
+                    .run_if(bevy::ecs::schedule::common_conditions::resource_exists::<
+                        bevy::asset::Assets<bevy::image::TextureAtlasLayout>,
+                    >),
                 actors::animate_player,
                 actors::animate_characters,
                 // Content-owned overlays (the `ActorOverlaySet` seam) run here:

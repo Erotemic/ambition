@@ -476,8 +476,14 @@ The one unresolved developer-policy choice from the session-ownership work is in
   is the subject. ⇒ First question for whoever picks it up: under the union, does
   some other presentation feature take ownership of block drawing, or does the
   room never reach the state that spawns them? Neither is answered here; both are
-  a build away, and the answer decides whether this joins the doctrine group above
-  or the `ConeRigAssets` group.
+  a build away. ⊙ **HALF-ANSWERED 2026-09-03: it is NOT the ConeRigAssets group.**
+  After the three guards there is no missing-parameter panic left anywhere in
+  the union, and these three still fail with the same message — so the blocks
+  are absent for a reason of their own, not because a system died before making
+  them. That leaves "another presentation feature owns block drawing under the
+  union" against "the room never reaches the state that spawns them", and only
+  the second is answerable without reading the union's feature set against
+  mary_o's composition.
   ✔ **THE 37 ARE FIXED (`8bac49a59`), and my "design choice" framing was wrong.**
   `engine/headless-verification.md` had already ruled on this exact class —
   *"the fix is usually NOT to register the resource. A gizmo or mesh system with
@@ -487,7 +493,39 @@ The one unresolved developer-policy choice from the session-ownership work is in
   on 2026-09-02. All three of `ConeRigAssets`' resources are guarded, not just
   the one that failed first, because that doc records those three surfacing one
   after another.
-  ⚠ **VERIFIED ON ONE TARGET, NOT COUNTED ACROSS THE UNION.** `cargo test -p
+  ⊙ **MEASURED ACROSS THE UNION, 2026-09-03, and it took THREE rounds because
+  each fix exposed the next system in the same chain — which is what
+  `headless-verification.md` says happens and what I did not believe until I ran
+  it:**
+
+  | round | passed | failed | the layer it exposed |
+  |---|---:|---:|---|
+  | before | 6,968 | 48 | `ConeRigAssets` (`Assets<Image>/<Mesh>/<ColorMaterial>`) |
+  | guard `sync_portal_view_cones` | 6,980 | **49** | `debug_portal_view_zones` on `Res<GizmoConfigStore>` |
+  | guard that too | 6,991 | 38 | `attach_hit_flash_overlays` on `ResMut<Assets<Mesh>>` |
+  | guard that too | **7,016** | **13** | no system-parameter panic remains |
+
+  ⛔ **NOTE ROUND ONE WENT UP, NOT DOWN.** 48 → 49. A fix that removes 37
+  failures and exposes 37 more reads as "no progress" on the count alone, and as
+  a regression to anyone watching only the number. The three systems are the
+  three that paragraph names — `Assets<TextureAtlasLayout>`, `GizmoConfigStore`,
+  `Assets<Mesh>` — in that order, a day later.
+  ⇒ **The 13 that remain are the classes below, none of them a missing
+  parameter**: 8 in `ov1_draws_the_world` (the doctrine group), 3 in
+  `painted_blocks`, and `published_local_sanic_forms_bind_through_game_assets`.
+  ✔ **THAT LAST ONE IS FIXED (`3f4dbbcd5`)** — it demanded TWO forms, ran ONE
+  `app.update()`, and asserted both `Ready`, while
+  `MAX_CHARACTERS_MATERIALIZED_PER_FRAME` is 1. The `None` rather than
+  `Some(Failed)` is the whole diagnosis: no load attempted yet, which is what a
+  ration looks like from the far side. Replaced with a bounded settle; the same
+  command that failed now reads 3 passed. ⚠ **Stated as an EXPECTATION, not a
+  count: the next union run should read 12.** I have not re-run it, and the last
+  time I turned a verified single-target fix into a union number I was wrong by
+  38.
+  The entire smash target — `the_stage_kills`, `the_screen_decides`,
+  `the_repertoire_gets_used`, 30-odd tests — is green.
+
+  ⚠ **AND THE INFERENCE THIS REPLACES WAS WRONG, kept because it is the lesson.** I first wrote: `cargo test -p
   ambition_demo_sanic_app --lib --features capture,input,visible` now shows ZERO
   `ConeRigAssets` panics where it failed on them before. The full union is a
   ~40-minute rebuild that took the shared volume to 100% last time, so "37" is

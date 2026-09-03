@@ -196,12 +196,14 @@ def test_the_maintenance_lane_holds_only_periodic_hygiene():
     jobs = run_tests.build_maintenance_jobs()
     assert jobs, "the lane must not be empty, or every assertion here is vacuous"
     for job in jobs:
-        # STRUCTURAL, not positional: "runs a repository script" means one of
-        # its arguments IS one, wherever the flags sit. `argv[-1]` reddened the
-        # moment a job put `--strict` after its script (2026-09-03) — the
-        # positional form stood in for the property, the schedule-guard trap
-        # one level up.
-        assert any(arg.startswith("scripts/") for arg in job.argv), (
+        # ⛔ ANYWHERE IN argv, not `argv[-1]`. This asserted the LAST element was
+        # a script path or the literal "--check" -- a list of the shapes that
+        # existed when it was written. It reddened the moment a job took an
+        # argument after its script (`check_planning_citations.py --vanished
+        # <sha> --strict`), which is a job this lane WANTS. Second time this
+        # test has pinned a shape instead of the property; the property is
+        # "it runs a repository script and does not build".
+        assert any(a.startswith("scripts/") for a in job.argv), (
             f"{job.name!r} does not run a repository script: {job.argv}"
         )
         assert "cargo" not in " ".join(job.argv).lower(), (

@@ -527,6 +527,42 @@ a twenty-minute build.
 being caught. A wrong finding sent to somebody acting on it costs more than the
 time to check it.
 
+⛔⛔ **A SIXTH, 2026-09-03, AND IT IS THE WORST SHAPE: A CONFIRMER WHOSE FAILURE
+READS AS A CLEARANCE.** The unused-dependency census uses a two-stage
+instrument — a default-features lint that over-reports, then an `--all-features`
+run to clear the deps that are only used behind a `cfg`. The confirmer was:
+
+```
+allf=$(timeout 900 cargo rustc -p "$crate" --lib --all-features -- -W unused_crate_dependencies 2>&1 | sed -n 's/…unused…/\1/p')
+if echo "$allf" | grep -qx "$dep"; then CONFIRMED; else FEATURE-ONLY; fi
+```
+
+⇒ It captures only the WARNING LINES, so **an empty result cannot be told apart
+from a clean build**. A crate that failed to compile, or hit the 900 s timeout,
+yields no warnings — and every one of its flagged deps is then silently written
+down as "used behind a feature, not removable". ⚠ The direction is what makes it
+bad: the failure mode CLEARS things, and a cleared row is one nobody
+re-examines. Had `ambition_dialog --all-features` timed out (it was 15 minutes
+into a cold `ui`-feature graph when I noticed), three deps would have been
+recorded as feature-conditional on the strength of a build that never finished.
+
+⇒ **The fix is to read the STATUS, not the output** — the same invariant as the
+exit-status rows above, arriving for a third time in a shape that again did not
+look like the first two:
+
+```
+timeout 900 cargo rustc … > "$log" 2>&1; rc=$?
+if [ $rc -ne 0 ]; then mark every dep UNKNOWN(rc); continue; fi
+```
+
+⭐ **What caught it was not a control.** No positive control would have fired —
+the confirmer works perfectly on every crate that compiles. It was noticing that
+the run had been going for fifteen minutes and asking *what does this script do
+if that timeout expires?* ⇒ **For any two-stage instrument, ask which stage's
+failure looks like a PASS.** A detector that dies is loud, because you get no
+findings at all; a confirmer that dies is silent, because "nothing to report"
+is also what success looks like.
+
 ## What this page cannot do
 
 It cannot make a gate honest. Every member above was found by a person asking

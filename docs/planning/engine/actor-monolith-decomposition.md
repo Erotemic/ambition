@@ -1669,6 +1669,20 @@ cheapest evidence of what its author thought it was:
 | dialogue/conversation | `cutscene.rs` | 208 | ⛔ has a written defence — see below |
 | host/platform composition | `host/` | 53 | a thin seam |
 
+⚠ **Two of the eight figures re-measured 2026-09-03 (later): `items/` is
+**2,104**, not 2,153, and `dev/` is **2,010** rather than 1,998** — the latter
+because `dev.rs` (12 lines) sits BESIDE `dev/`, and a `find dev/ -name '*.rs'`
+never sees it. Everything else in the table re-verifies exactly (`session/`
+3,446, `audio/` 1,308, `music/` 544, `cutscene.rs` 208, `host/` 53), and the
+**5,764** total below is right as computed.
+
+⚠ **`shrine.rs` at 466 is the production file and is correct as written, but the
+module is 1,084 lines**: `shrine/` beside it holds `tests.rs` at 618. A
+Rust module can be `x.rs` AND `x/`, so BOTH have to be counted or the number
+silently means one of them. That is the same scope error as everywhere else on
+this page, in its smallest form — I made it myself while checking this table and
+caught it only because `shrine/` contained nothing but tests.
+
 ⚠ **This is a candidate list, not a defect list, and the difference matters.**
 Three of these rows argue their own case in the source and the arguments are
 good:

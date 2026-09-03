@@ -14,6 +14,14 @@ be wrong about a measurement is to be wrong about the instrument.** Most of what
 follows is an instrument error — a filter that could not match, a scan at the
 wrong granularity, a signature read instead of a body, a count that was a
 property of its flags — and not a mistake about the code.
+⭐ **TWO SECTIONS ARE THE SPINE; the rest are instances.** If you read only
+enough to be careful today, read *"The error is not a bad tool, it is a claim
+wider than the tool's scope"* and *"A green tool is not a green claim"*. The
+first is four tools too narrow for one question; the second is three tools each
+green beside a false claim. Between them they cover most of what follows, and
+both end in the same one-line defence: **state in a clause what your instrument
+actually resolves, then check whether your sentence is bigger than that clause.**
+
 ⚠ **This page deliberately carries no total.** It had one, it went stale the same
 day it was written as rules were added, and *"a count is not a finding unless the
 instrument travels with it"* is one of the rules below. A page that numbers its
@@ -449,6 +457,85 @@ subject, would this control still pass?* Here it would, and did. What caught the
 error was not a control but a REVIEWER's methodological caveat — a peer saying
 "removals are compiler-verified, never grep-only" — which is a slower and less
 reliable net than getting the scope right the first time.
+
+⭐⭐ **THE UNIFYING FORM, after the same day produced FOUR of these on one
+question: THE ERROR IS NOT A BAD TOOL, IT IS A CLAIM WIDER THAN THE TOOL'S
+SCOPE.** Asking "which dependencies are never named in their crate's source":
+
+| the tool measured | I claimed |
+|---|---|
+| occurrences in `src/` | the whole crate — missed four uses in `tests/` |
+| occurrences of TEXT | usage — an intra-doc link counted as a use |
+| `ambition_*` names only | every dependency — missed `thiserror`, `ron` |
+| a build with DEFAULT features | the crate's dependencies — `ron` is real code behind `#[cfg(feature = "content_pack")]` |
+
+⇒ Every row is a tool that **succeeded**. None errored, none returned nothing,
+none looked broken; each answered its own narrower question correctly and I
+widened the answer on the way to the page. That is why this class survives
+controls, re-reading, and a green gate: **there is no failure to notice.**
+⇒ So the check is not "did it run?" but **"what exactly did it measure, and is
+my sentence larger than that?"** Write the scope into the claim — *"never named
+in `src/` on a default-feature build"* is a sentence you can defend and a
+reviewer can attack; *"never used"* is neither.
+
+⚠ The practical form for dependencies specifically: the default-feature lint is
+a DETECTOR that over-reports, and the confirmation is a second run with
+`--all-features`. **Only a dep unused under BOTH is unused.** Detector then
+confirmer costs two runs on the hits rather than two runs on all 77 crates.
+
+### ⛔ A GREEN TOOL IS NOT A GREEN CLAIM — three tools, three false claims
+
+The table above is four tools too narrow for ONE question. This is the other
+half, found the same day by the coordinator session and recorded here at their
+request: three DIFFERENT tools, each green, each beside a claim that was false.
+
+- **`check_planning_citations.py --strict` read 1,222 citations all-resolved
+  BEFORE AND AFTER five flatly false sentences were fixed.** It resolves cited
+  SYMBOLS; a claim about where code LIVES is prose. Six crates left the actor
+  monolith that day, every citation the tooling could see was updated, and every
+  sentence that merely *described* a location survived — *"…is
+  `actor_monolith::items::pickup`, which stayed in the kernel"* reads as settled
+  architecture rather than as a dated fact. ⇒ Sweep old paths after a carve and
+  sort the hits into HISTORY vs STALE, then **re-tense rather than delete**: of
+  eight hits on one path, five were correct history, so a purge would have
+  broken five true sentences to fix three false ones.
+- **A memorised rule applied to the wrong situation.** Five docs tell readers to
+  run `check_absence_contracts.py | grep footprint`, and the rule *"a pipe voids
+  the exit code"* nearly got all five "corrected". That checker prints `ok`/`FAIL`
+  **inside each line**, so the verdict survives the pipe and the rule did not
+  apply. ⇒ A remembered rule is a hypothesis ABOUT A SITUATION, not a fact about
+  a command: ask **where the tool puts its verdict** before correcting a pipe.
+  (The rule itself is real — see the exit-status rows in
+  [`checks-that-did-not-run.md`](checks-that-did-not-run.md) — which is exactly
+  what makes it dangerous to apply without looking.)
+- ⭐ **The sharpest one: a RETRACTION that was itself the mistake.** A
+  `theme_loaded` gate in `sync_session_room_visuals` returns before the block
+  loop; it was read, matched to that function's own comment about a room not
+  being *"held hostage to a backdrop that is never coming"*, and published as the
+  `painted_blocks` mechanism. `painted_blocks` then measured **4/4 green**, so
+  the claim was retracted. Hours later two other sessions traced the Ultra hall's
+  129-warning NPC placeholder burst to **that exact gate**. ⇒ **Right mechanism,
+  wrong claim attached to it; retracted for the wrong reason; and only a third
+  party's independent need revealed the reading had been correct all along.**
+
+⭐ **What saved the third one is the whole method of this page.** It had been
+written up as a SOURCE READING — what the gate does, quoted, with its file and
+its comment — rather than as a finding. So the retraction cost one paragraph and
+the rescue cost one paragraph, and the evidence was still sitting there to be
+rescued BY. Had it been published as a conclusion ("the burst is caused by
+X") the retraction would have deleted the observation along with the claim.
+
+⇒ **A retraction can also be a mistake.** The defence is the same one this page
+asks for everywhere else: **say what the evidence IS, not only what you
+concluded from it** — a wrong conclusion over a correct observation is one edit
+to fix, while a wrong conclusion that consumed its observation is a re-run.
+
+⚠ ⇒ **The combined rule, and it is the day's finding:** an instrument's green is
+a statement about the instrument's own question. **Before quoting a passing
+check as support, say in one clause what that check actually resolves** — symbols
+for the citation checker, default-feature compilation for the dependency lint,
+`src/` for a source sweep. If that clause is narrower than your sentence, the
+green is not evidence for your sentence.
 
 ⇒ The residue is worth keeping too: those four are not bugs in the code, they are
 deps used only by tests while declared in `[dependencies]` rather than

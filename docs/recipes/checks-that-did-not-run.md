@@ -110,6 +110,38 @@ somebody writes accurately about a removal, and the `cite-ok` marker is the toll
 ⇒ **If that cost ever outweighs the catch, narrow the CORPUS, not the baseline.**
 Advancing the baseline to quiet it would hide the real findings in the same
 range, which is the one thing the pinned ref exists to prevent.
+⭐⭐ **AND THE OBVIOUS NEXT MOVE — AIM IT AT THE REMAINING DOC TREES — IS THE
+WRONG ONE, MEASURED 2026-09-03 late.** The maintenance job scans five corpora;
+`docs/` has seventeen subdirectories. Aimed at the six substantive ones it does
+not cover (`adr`, `mechanics`, `sdk`, `tools`, `vision`, `learning`) it reports
+**12 bare citations**, and every one of them is a reason NOT to widen the job:
+
+* **7 are in `docs/adr/`** — `LegacyConstructionRoot`, `Unmigrated`, <!-- cite-ok: this paragraph is an INVENTORY of names that vanished; naming them is its content -->
+  `ProjectileOwnerId` (twice), `PendingLocalInput`, `RollbackSessionContract`, <!-- cite-ok: this paragraph is an INVENTORY of names that vanished; naming them is its content -->
+  `RoomReplayApplied`, `platformer_runtime`. All are true removals, and an <!-- cite-ok: this paragraph is an INVENTORY of names that vanished; naming them is its content -->
+  **architecture decision record describes the code as it stood on the day the
+  decision was made** — that is the genre's whole contract. Aiming a
+  currency check at a corpus that is deliberately historical would mean
+  `cite-ok` on essentially every finding forever, which is not triage, it is a
+  tax with no yield.
+* **2 are historical by the same logic in `docs/tools/`** — `BROKEN` is a <!-- cite-ok: this paragraph is an INVENTORY of names that vanished; naming them is its content -->
+  status string a tool now prints, and `run_checks` appears in a sentence <!-- cite-ok: this paragraph is an INVENTORY of names that vanished; naming them is its content -->
+  explaining what the goal guard *used to* do.
+* **3 are FALSE POSITIVES of the documented generic-name class** — `where` (a <!-- cite-ok: this paragraph is an INVENTORY of names that vanished; naming them is its content -->
+  Rust keyword, in a page teaching `where` clauses), `RenderApp` (a **Bevy** <!-- cite-ok: this paragraph is an INVENTORY of names that vanished; naming them is its content -->
+  type the page correctly says a headless app omits), and `BROKEN` again. Two <!-- cite-ok: this paragraph is an INVENTORY of names that vanished; naming them is its content -->
+  of the three are in `docs/learning/`, which teaches Rust and Bevy
+  vocabulary — a corpus where the check's premise (a backticked identifier
+  names something in THIS tree) is false by construction.
+
+⇒ **The five corpora it scans are the ones that describe CURRENT behaviour, and
+that is not an accident of what someone got round to — it is the check's actual
+domain.** The genre of a document predicts the verdict before the check runs:
+records of past decisions want `cite-ok` by default, teaching material about
+other people's APIs wants exclusion. ⛔ So the answer to "the check has never
+been aimed at eleven of seventeen doc trees" is that it should not be, and this
+paragraph exists so nobody spends an evening discovering that a fourth time.
+
 ✔ **AND THE TOLL WAS PAID, on this very line, 2026-09-03 late.** The
 `--maintenance` lane came back 4/5 with that one finding — the sentence above,
 reporting itself. It is marked rather than reworded: the row's subject IS the

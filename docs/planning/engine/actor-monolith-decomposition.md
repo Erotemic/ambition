@@ -460,6 +460,16 @@ rather than one thing.
 
 Several completed slices established rules that should guide future ones:
 
+- ⭐ **READ WHAT THE DOMAIN ALREADY EMITS BEFORE DESIGNING A REQUEST VOCABULARY
+  FOR IT** (2026-09-03, the encounter cut). The seam design for the encounter
+  mob spawn specified a new `ActorConstructionParams` variant. Cutting it found
+  the request already existed — `ambition_encounter` emits
+  `EncounterEvent::SpawnCommand` on the ordinary bus — and the kernel was not
+  missing a protocol, it had a SERVER buried inside the adapter, pulling its own
+  requests out of a local vector so the request never had to travel. The cut was
+  to SEPARATE driving from serving, not to build a channel. A carve that starts
+  by designing vocabulary will design vocabulary; start by reading what already
+  crosses the seam.
 - A forwarding/re-export edge can be worth deleting even when total closure does
   not move; it makes ownership honest and prevents future callers from learning
   the wrong path.
@@ -908,6 +918,14 @@ but the fact is not `Reset`:
 * and the trigger is a SWITCH, whose index and activation queue are kernel-side,
   so "switch off ⇒ retire this encounter's reward" may be encounter policy or may
   be room-feature policy. Nothing in the code settles which.
+
+▢ **A TEST TO WRITE, not a change to make** (the hypothesis this seam turns on):
+*an in-flight encounter can never hold a stale reward chest or a set
+`reward_dropped` flag.* If that is true the switch-off clear is redundant for
+in-flight encounters and any inversion is safe; if it is false, the clear is
+load-bearing exactly where it looks pointless. It is written here as an
+assertion to prove rather than an assumption to build on — the difference
+between the two is a save-flag defect.
 
 ⇒ **This one needs the owner's answer, not a refactor.** The question is: *does
 the encounter domain own "my reward is retired", or does the feature layer own

@@ -148,7 +148,7 @@ Remaining acceptance work
     `no_pit_drops_into_the_secret_vault` rather than trusted, since the bug is
     invisible until someone falls in.
 - ✅ **World 1-2, and the reason it could not exist before** (2026-07-25). The
-  demo's world was a single `RoomSpec` because `RoomTransitionRequested` had
+  demo's world was a single `RoomSpec` because `RoomTransitionRequested` had <!-- cite-ok: past tense — records the event type the demo used before the change -->
   exactly one consumer (`ambition_app`), which no demo depends on — in this
   binary the message went into a channel nothing drained, so a second room was
   UNREACHABLE, not merely unauthored. That is also why the secret vault had to

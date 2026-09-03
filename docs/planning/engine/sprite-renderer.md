@@ -160,7 +160,7 @@ what PLAYS and what a UI box draws -- and a consumer now names which one it is
 asking:
 
 - `PortraitSheetRegistry::resolve_still` returns exactly one frame;
-  `resolve_animated` returns a clip to play. `resolve_clip`, which returned a
+  `resolve_animated` returns a clip to play. `resolve_clip`, which returned a <!-- cite-ok: records a removed API by name -->
   record and let each caller improvise, is gone;
 - both degradations are stated by the API rather than left to the call site: a
   still of an animated clip is its first frame, and an animation of a one-frame

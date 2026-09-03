@@ -52,6 +52,9 @@ When a command changes, update or delete the recipe in the same patch.
 - [`cheapest-sufficient-check.md`](cheapest-sufficient-check.md) — the narrow
   command that settles a change, per row of what you touched, and what each row
   does NOT cover.
+- [`re-measuring-a-planning-claim.md`](re-measuring-a-planning-claim.md) — seven
+  ways a re-measurement lies, each learned by making the mistake and retracting
+  it. ⛔ Six of the seven are an INSTRUMENT error, not a mistake about the code.
 - [`checks-that-did-not-run.md`](checks-that-did-not-run.md) — its dual: the four
   questions that catch a check which is CORRECT and never executed. ⛔ nine
   members found in one gate script in one day, five of them by accident, and

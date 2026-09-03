@@ -544,6 +544,12 @@ that nothing configured will pass ordering assertions VACUOUSLY, which is why
 the owning plugin must configure them: the test builds the same plugin the game
 does, or it is testing a different schedule.
 
+⇒ **The pickup carve's step list is written out as an executable checklist** in
+[`pickup-carve-checklist.md`](pickup-carve-checklist.md), including the schedule-ownership
+answer this rule's "split by variant" leaves open: the three `ItemPickupSet`
+variants are `.chain()`ed to each other, and that inter-variant edge belongs to
+the kernel because it is the side that can name both.
+
 ## Slice selection
 
 Before starting a carve, answer:

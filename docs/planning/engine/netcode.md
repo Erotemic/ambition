@@ -58,6 +58,30 @@ diagnostic history is evidence only and cannot gate gameplay.
 - cross-game shell lifecycle acceptance proving one retired game's rollback
   health cannot block another game's room transition.
 
+> **Re-checked against `8b0731706` (2026-09-03): the three load-bearing claims above
+> are ACCURATE, and one is stronger than written.**
+>
+> - **"real `SyncTestSession` rewind/resimulation over the actual `GgrsSchedule`"**
+>   — `game/ambition_app/tests/desync_canary.rs` and
+>   `game/ambition_app/tests/gameplay_presentation_ggrs.rs:18` both drive one,
+>   the latter explicitly "on a live `SyncTestSession` that genuinely rewinds".
+> - **"cross-game shell lifecycle acceptance"** — TWO tests, not one:
+>   `a_smash_session_does_not_take_ambitions_doors_with_it`
+>   (`game/ambition_app/tests/shell_host_lifecycle.rs`) and
+>   `a_smash_session_does_not_take_ambitions_doors_even_when_retirement_is_misordered`.
+>   The second covers the ordering case the prose does not mention, and the file
+>   states the rule in place: "a value inherited from the retired Smash scope is
+>   not B's to read".
+> - **"GGRS backend extracted"** — `crates/ambition_platformer2d_rollback_ggrs`
+>   exists as its own crate.
+>
+> ⚠ **A note on how this was checked, because the first attempt failed.** A grep
+> for `SyncTestSession` filtered with `grep -v 'tests.rs'` returned nothing and
+> would have supported "this claim is stale" — the filter dropped exactly the
+> files a sync-test session lives in. The pattern was fine; the exclusion was
+> not. See
+> [`../../recipes/re-measuring-a-planning-claim.md`](../../recipes/re-measuring-a-planning-claim.md).
+
 ## Remaining netcode work
 
 ### N1 — finish deterministic/runtime-state correctness before transport

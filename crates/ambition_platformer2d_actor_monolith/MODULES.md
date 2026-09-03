@@ -40,7 +40,7 @@
 | [`world`](src/world/mod.rs) | World / level authoring runtime: room graph + spawning, the code-first room builder, the Avian2D physics adapter, and LDtk-authored moving platforms. |
 | [`world_facts`](src/world_facts.rs) | Authored-logic domain for durable world flags. |
 
-_34 crate-root modules. Regenerate: `python scripts/modules_md.py --write`._
+_33 crate-root modules. Regenerate: `python scripts/modules_md.py --write`._
 
 <!-- END generated module map -->
 

@@ -8,6 +8,13 @@ nothing looks wrong on screen, because the art is correct, merely larger than
 asked for. That is why it survived: the failure is invisible in the only place
 anyone looks.
 
+⭐ TWO INSTRUMENTS, TWO DIFFERENT FAILURES, AND NEITHER SEES THE OTHER'S.
+`check_quality_variants_are_fresh.py` asks whether a tier file is OLDER than the
+art it derives from — stale art at the right size. This one asks whether it is
+the same SIZE as the full sheet — current art at the wrong size. A megapixel
+census cannot tell those apart, and running only one leaves half the tree
+unchecked. Run both.
+
 ⛔⛔ THIS IS THE OPPOSITE OF A QUALITY REGRESSION. Jon's standing rule is that
 nothing may draw FEWER pixels than the setting asks for. These sheets draw MORE.
 Correcting them removes no pixels from any tier that requested them.

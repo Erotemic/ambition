@@ -69,10 +69,58 @@ fn ui_node_count(app: &mut App) -> usize {
 /// Now it can, by DECLARING one on its provider — so the guard has to name what it forbids
 /// (engine-owned UI) instead of forbidding all UI and thereby forbidding the demo's own feature.
 fn engine_owned_ui_node_count(app: &mut App) -> usize {
-    let mut query = app
+    // ⛔⛔ `Without<DeclaredHudRoot>` EXCLUDED THE ROOT AND COUNTED ITS CHILDREN.
+    // Measured 2026-09-03: this returned 40 against an expected 0, and all forty
+    // were the demo's OWN declared HUD — five readouts × (panel, portrait,
+    // stocks row, four stock pips, stock count). The root carries
+    // `DeclaredHudRoot`; the nodes under it carry `DeclaredHudPortrait`,
+    // `DeclaredHudStock`, `DeclaredHudStockCount` or nothing at all
+    // (`hud/declared.rs:240-300`), so a root-only filter reads a demo's
+    // permitted HUD as an engine violation.
+    //
+    // ⚠ The doctrine this guards EXPLICITLY ALLOWS what it was flagging: "A demo
+    // that wants a HUD declares one — that is what `owns` means in the demos
+    // doctrine." The engine was innocent and the filter was wrong.
+    //
+    // ⇒ Ownership is the SUBTREE, so ask by ancestry rather than by marker.
+    let declared_roots: std::collections::HashSet<bevy::prelude::Entity> = {
+        let mut roots = app
+            .world_mut()
+            .query_filtered::<bevy::prelude::Entity, bevy::prelude::With<
+                ambition_platformer2d::presentation::DeclaredHudRoot,
+            >>();
+        roots.iter(app.world()).collect()
+    };
+    let mut nodes = app
         .world_mut()
-        .query_filtered::<&bevy::ui::Node, bevy::prelude::Without<ambition_platformer2d::presentation::DeclaredHudRoot>>();
-    query.iter(app.world()).count()
+        .query_filtered::<bevy::prelude::Entity, bevy::prelude::With<bevy::ui::Node>>();
+    let candidates: Vec<bevy::prelude::Entity> = nodes.iter(app.world()).collect();
+    candidates
+        .into_iter()
+        .filter(|entity| !under_a_declared_hud(app, *entity, &declared_roots))
+        .count()
+}
+
+/// Is this node the declared HUD's, at any depth?
+///
+/// ⚠ Walks `ChildOf` to the top rather than checking the parent: the stock pips
+/// are grandchildren (root → panel → stocks row → pip), so one level of
+/// parent-checking would still have counted twenty of them.
+fn under_a_declared_hud(
+    app: &mut App,
+    entity: bevy::prelude::Entity,
+    roots: &std::collections::HashSet<bevy::prelude::Entity>,
+) -> bool {
+    let mut current = entity;
+    loop {
+        if roots.contains(&current) {
+            return true;
+        }
+        match app.world().get::<bevy::prelude::ChildOf>(current) {
+            Some(parent) => current = parent.parent(),
+            None => return false,
+        }
+    }
 }
 
 /// Nodes belonging to the HUD this demo declared.

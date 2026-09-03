@@ -228,8 +228,16 @@ deleted, and `extend_with_intro_sprite_entries` now adds intro PROPS only. ⛔ T
 ~26 MP is therefore a number for a road that no longer exists — it has NOT been
 re-measured, so treat it as "was", not as current waste, until a host boot says
 what the figure is now.
-The hall-entry fix itself (reveal barrier + gallery tier cap) still awaits its
-host confirmation; the tells are in `queue.md`.
+✔ **The reveal barrier is CONFIRMED on the host (2026-09-02 evening,
+`desktop-timeline-run-20260902T215256Z`)** — all three tells met: placeholder
+warnings 111 → **0**, `asset_wait_ms` 3 → **292** (the cover is up for the
+wait), and frames over 33.4 ms after the last transition 9 → **0**. Detail in
+`engine/asset-preparation-and-residency.md`.
+⛔ **And the "gallery tier cap" half of this sentence is spent**: Jon removed the
+room-level sprite tier cap on 2026-09-02 (*"I DO NOT WANT A LOWER QUALITY TIER
+FOR GALLERY PREVIEWS"*), so there is no tier-cap change left to confirm. The
+tier is the user's setting everywhere.
+⇒ What the same run says is still open is STARTUP, not the hall.
 
 Later the same day: sheet images load render-world-only by default
 (`68d38076e`; captures byte-identical, peak RSS −141 MB in the hall at

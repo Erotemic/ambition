@@ -48,7 +48,7 @@ fn quality(profile: VisualQualityProfile) -> ResolvedVisualQuality {
 /// landed — so a fixture that pre-populated the image would silently test only
 /// the same-frame case.
 fn a_pending_realization(app: &mut App, tier: TextureResolutionScale) -> CharacterSpriteAsset {
-    use ambition_sprite_sheet::character::sheets::{SheetTuning, try_load_spec_for_target};
+    use ambition_sprite_sheet::character::sheets::{try_load_spec_for_target, SheetTuning};
 
     let spec = try_load_spec_for_target("robot", &SheetTuning::new(1.0, 1))
         .expect("the baked `robot` sheet record is present");
@@ -593,7 +593,7 @@ fn a_retired_realization_is_told_apart_from_one_that_never_existed() {
     // realization is above the ceiling and goes.
     let retired = assets
         .characters
-        .demote_stale_realizations(TextureResolutionScale::Quarter);
+        .retire_realizations([ACTOR_ID.to_string()]);
     assert!(
         retired.contains(ACTOR_ID),
         "premise: the transition actually retired the fixture (retired {retired:?})"
@@ -646,7 +646,7 @@ fn a_re_realized_character_no_longer_reports_a_retirement() {
     assets.characters.publish(ACTOR_ID, full);
     assets
         .characters
-        .demote_stale_realizations(TextureResolutionScale::Quarter);
+        .retire_realizations([ACTOR_ID.to_string()]);
     assert_eq!(
         assets.characters.retired_tier(ACTOR_ID),
         Some(TextureResolutionScale::Full),

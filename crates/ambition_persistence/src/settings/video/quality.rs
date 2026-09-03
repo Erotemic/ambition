@@ -219,7 +219,7 @@ pub fn seed_profile_for_gpu(class: DetectedGpuClass) -> VisualQualityProfile {
 /// ⊙ **BOTH ARE GONE (2026-09-03), and not because anyone set out to restore
 /// this rule.** Jon's ruling that no room may lower the sprite tier (`06a494f4e`)
 /// removed the room cap outright, and the band it needed collapsed to a single
-/// tier with it: `has_stale_realizations(&self, active)` now asks
+/// tier with it: `stale_realizations(&self, active)` (was `has_stale_realizations`) now asks
 /// `requested_tier != active`, an EQUALITY. ⇒ The original warning is true
 /// again, restored by a product decision rather than by a cleanup — which is
 /// exactly why the two dead sites are named here instead of deleted. A reader
@@ -412,7 +412,10 @@ impl Default for RasterBudget {
     /// user never chose a raster budget, so they must not be given a cheaper one
     /// by surprise.
     fn default() -> Self {
-        Self { max_scale_factor: None, msaa_samples: 4 }
+        Self {
+            max_scale_factor: None,
+            msaa_samples: 4,
+        }
     }
 }
 

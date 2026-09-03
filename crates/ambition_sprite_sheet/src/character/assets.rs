@@ -16,11 +16,11 @@ use super::CharacterSpriteAsset;
 /// What the sheet table knows about one authored character token.
 ///
 /// `Declared` is the NONRESIDENT state, in both directions. It began life
-/// as a one-way "not decoded yet" and is now the state a realization returns to
-/// when the active quality tier moves — see
-/// [`CharacterSpriteAssets::demote_stale_realizations`]. That is why the
-/// declaration outlives the decode: a token whose declaration was consumed on
-/// publish had no way back.
+/// as a one-way "not decoded yet" and is also the state an UNWORN realization
+/// returns to when the active quality tier moves — see
+/// [`CharacterSpriteAssets::retire_realizations`] (a worn one is replaced in
+/// place instead, 2026-09-03). That is why the declaration outlives the decode:
+/// a token whose declaration was consumed on publish had no way back.
 #[derive(Clone, Copy)]
 pub enum CharacterSheetState<'a> {
     /// Decoded and ready to draw.
@@ -149,7 +149,7 @@ impl CharacterSpriteAssets {
     /// this does NOT create a declaration, and that is what keeps such a
     /// realization out of the quality transition: the engine has no recipe for
     /// art it did not build, so retiring it would delete a face with no way to
-    /// draw it again. See [`Self::demote_stale_realizations`].
+    /// draw it again. See [`Self::retire_realizations`].
     pub fn publish_under(&mut self, token: &str, asset: CharacterSpriteAsset) {
         self.retired.remove(token);
         self.sheets.insert(token.to_string(), asset);
@@ -196,27 +196,11 @@ impl CharacterSpriteAssets {
         self.declared.get(token).map(String::as_str)
     }
 
-    /// Is anything resident whose REQUEST is no longer the active one?
-    ///
-    /// `requested_tier`, deliberately — the question is "has the active
-    /// setting been answered for everybody", not "what is in memory". A sheet
-    /// with no baked variant answers `Half` with full-resolution pixels, and
-    /// asking [`CharacterSpriteAsset::resolved_tier`] here would call it stale
-    /// forever: the transition below would retire it, remake it identically, and
-    /// do that again next frame. See [`CharacterSpriteAsset::requested_tier`].
-    ///
-    /// Read-only on purpose: the transition below takes `&mut self`, and a
-    /// system that took the mutable borrow every frame would mark the whole
-    /// asset resource changed every frame.
-    pub fn has_stale_realizations(&self, active: TextureResolutionScale) -> bool {
-        self.sheets.iter().any(|(token, asset)| {
-            asset.requested_tier != active && self.declared.contains_key(token)
-        })
-    }
-
     /// The resident realizations whose REQUEST is not the active tier, as
     /// `(token, character id)` pairs -- the population a quality transition
-    /// acts on. Same staleness rule as [`Self::has_stale_realizations`].
+    /// acts on: `requested_tier != active`, deliberately -- a sheet with no baked
+    /// variant answers `Half` with full-resolution pixels, and comparing
+    /// [`CharacterSpriteAsset::resolved_tier`] would call it stale forever.
     pub fn stale_realizations(&self, active: TextureResolutionScale) -> Vec<(String, String)> {
         self.sheets
             .iter()
@@ -256,39 +240,12 @@ impl CharacterSpriteAssets {
     ///
     /// two tiers here is therefore NOT by itself a convergence failure: a
     /// fallback is a permanent, correct disagreement. Ask
-    /// [`Self::has_stale_realizations`] whether the transition has settled.
+    /// [`Self::stale_realizations`] whether the transition has settled.
     pub fn resident_tiers(&self) -> std::collections::BTreeSet<TextureResolutionScale> {
         self.sheets
             .values()
             .map(|asset| asset.resolved_tier)
             .collect()
-    }
-
-    /// Dropping the [`CharacterSpriteAsset`] drops its strong `Handle<Image>`;
-    /// Bevy frees the image once the last strong handle goes, which is every
-    /// clone here plus whatever a live presentation still holds until it
-    /// rebinds. there is no evictor and there must not be one — ownership
-    /// does the whole job.
-    ///
-    /// only DECLARED tokens are retired.
-    ///
-    /// staleness is [`CharacterSpriteAsset::requested_tier`] — same reason as
-    /// [`Self::has_stale_realizations`], and this is the half where getting it
-    /// wrong costs an `asset_server.load` every frame rather than a wrong
-    /// number.
-    pub fn demote_stale_realizations(
-        &mut self,
-        active: TextureResolutionScale,
-    ) -> std::collections::BTreeSet<String> {
-        let stale: Vec<String> = self
-            .sheets
-            .iter()
-            .filter(|(token, asset)| {
-                asset.requested_tier != active && self.declared.contains_key(*token)
-            })
-            .map(|(token, _)| token.clone())
-            .collect();
-        self.retire_tokens(stale)
     }
 
     /// Retire every DECLARED realization whose character id is not in `keep`,

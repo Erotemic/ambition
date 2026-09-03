@@ -876,7 +876,8 @@ fn report_schedule_owners_in(schedules: &Schedules, wanted: &str) {
             "[census] owners_in t=0.000 schedule={wanted} systems={total} crates={}",
             by_owner.len()
         );
-        for (name, count) in ranked.iter().take(20) {
+        // Every owner, same reason as `report_schedule_owners` below.
+        for (name, count) in ranked.iter() {
             row.push_str(&format!(" {name}={count}"));
         }
         eprintln!("{row}");
@@ -982,7 +983,14 @@ fn report_schedule_owners(schedules: &Schedules) {
         "[census] owners t=0.000 systems={total} crates={}",
         by_owner.len()
     );
-    for (name, count) in ranked.iter().take(20) {
+    // ⛔ EVERY OWNER, NOT A TOP-20, and the doc comment above is the reason.
+    // "Should a shipped title carry this at all" is an ABSENCE question: a
+    // reader greps this row for a crate and reads nothing as "registers no
+    // systems". While this printed the top twenty of `crates=82`, absence was
+    // uninformative for 62 crates and looked authoritative — one read of it
+    // nearly produced a finding that 16 of 17 facade capabilities were dead.
+    // Ranked, so the top of the line still reads as the old one did.
+    for (name, count) in ranked.iter() {
         row.push_str(&format!(" {name}={count}"));
     }
     eprintln!("{row}");

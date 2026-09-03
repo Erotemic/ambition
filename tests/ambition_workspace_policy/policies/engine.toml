@@ -2996,3 +2996,17 @@ forbid = [
   "bevy",
   "ambition_",
 ]
+
+# ── the relativity cost contract, guarded (2026-09-03) ────────────────────────
+
+[[policy]]
+id = "engine.facade-all-capabilities-omits-relativity"
+scope = "engine"
+kind = "file-omits"
+owners = ["ambition_platformer2d"]
+watch_paths = ["crates/ambition_platformer2d/Cargo.toml"]
+rationale = "docs/planning/engine/relativity.md states a cost contract -- games that do not enable the `relativity` feature do not link either relativity crate -- and that contract was FALSE for the three weeks after it was written. `relativity` sat inside the facade's `all_capabilities` aggregate until 2026-09-01, and `game/ambition_content` takes `all_capabilities`, so the shipped game linked `ambition_relativity` + `ambition_relativity2d` for weeks WITHOUT naming the feature. Verified fixed 2026-09-03: of the six shipped apps only `ambition_demo_twintrack_app` links them. A cost contract phrased as `games that do not opt in do not pay` is not enforced by the feature flag it names; it is enforced by every AGGREGATE feature that could contain it, and nothing asserted that until this row. The forbidden string is the quoted list-entry form and nothing else: the legitimate mentions in this manifest are a comment (backticked), the bare feature key `relativity = [..]`, and `dep:ambition_relativity` -- none of which contain a double-quoted `relativity`. So this trips if and only if the feature is added to some feature array, which is the regression. TwinTrack names the capability from ITS OWN manifest, which this row does not touch."
+source_doc = "docs/planning/engine/relativity.md"
+severity = "error"
+forbid = ["\"relativity\""]
+file = "crates/ambition_platformer2d/Cargo.toml"

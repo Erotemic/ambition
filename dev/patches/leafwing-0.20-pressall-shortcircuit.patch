@@ -15,7 +15,7 @@ keeps the strategy PressAll while no chord exists.
 
 --- a/src/clashing_inputs.rs
 +++ b/src/clashing_inputs.rs
-@@ -173,6 +173,11 @@ impl<A: Actionlike> InputMap<A> {
+@@ -173,8 +173,13 @@ impl<A: Actionlike> InputMap<A> {
      pub fn handle_clashes(
          &self,
          updated_actions: &mut UpdatedActions<A>,

@@ -78,6 +78,30 @@ multiplayer narrative framework up front.
 Prove two independent input participants/control assignments in ordinary
 Ambition gameplay with one shared camera and body-owned HUD state.
 
+> **Re-measured 2026-09-03 — the mechanism is covered; the audit surface is
+> `PrimaryPlayerOnly`.** Two independent participants with independent control
+> are not speculative: `multiplayer_smoke_tests.rs` holds **8** tests asserting
+> two player entities keep separate attacks, safety anchors, slot-owned input,
+> singleton queries and heal routing, joined by
+> `two_participants_of_one_character_do_not_share_a_stream`
+> (`crates/ambition_platformer2d_actor_monolith/src/features/ecs/brain_builders.rs:670`)
+> and `a_second_participant_does_not_silence_the_global_menu_frame`
+> (`crates/ambition_platformer2d_actor_monolith/src/schedule/input_systems.rs:1873`).
+>
+> ⚠ **What A1 still has to audit has a name and a count.**
+> `PrimaryPlayerOnly` — `(With<PlayerEntity>, With<PrimaryPlayer>)`,
+> `crates/ambition_platformer2d_shared_tangle/src/markers.rs:35` — appears in
+> **35 production files** (and 28 test files). Its largest production sites are
+> the sim harness, the headless and capture-scene tools and the single-player
+> demos, where scoping to one player is correct BY CONSTRUCTION and no audit is
+> owed. The sites that matter for A1 are in shipped simulation: `shrine.rs` (4),
+> `morph_ball.rs` (3), `unified_melee.rs`, `unified_body_movement.rs`,
+> `boss_contact_iframes.rs`.
+> ⇒ **This is not a defect list.** Each site is a question — *should this fact be
+> per-participant when two people share a camera?* — and for a checkpoint shrine
+> the answer may well stay "no". The value of the number is that A1's remaining
+> work is enumerable today rather than discovered during it.
+
 ### A2 — adaptive split in one room
 
 Separate the views when the two controlled subjects exceed framing policy and

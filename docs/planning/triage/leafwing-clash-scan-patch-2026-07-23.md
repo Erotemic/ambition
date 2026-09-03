@@ -63,9 +63,56 @@ still pays full price, and no strategy value can avoid it from outside.
   Two lines in `src/clashing_inputs.rs::handle_clashes`: return early when
   `clash_strategy == ClashStrategy::PressAll`.
 
+## Re-measured 2026-09-03 — the dependency moved, the defect did not, and the patch was corrupt
+
+The page's own last line says *"bumping to a newer leafwing (with a Bevy
+upgrade) may obsolete this — re-measure before carrying anything."* The bump
+happened. Re-measured:
+
+⚠ **leafwing is `0.21.0` at HEAD, not `0.20.0`.** Step 1 below ("fork at
+v0.20.0") is stale, and so is the patch's filename.
+
+⛔ **THE DEFECT SURVIVED THE BUMP — verified by reading 0.21's source, not its
+changelog.** `handle_clashes` still calls `get_clashes(..)` and only then hands
+each result to `resolve_clash(.., clash_strategy, ..)`, so the strategy is still
+consulted AFTER the scan; and `get_clashes` still loops over
+`self.possible_clashes()`, which still builds a fresh `Vec` of every
+action-pair on every call. The cost analysis above therefore still stands at
+0.21.
+
+⚠ **AND UPSTREAM NOW CLAIMS A CACHE IT DOES NOT HAVE.** 0.21's `get_clashes`
+carries the comment *"We can limit our search to the cached set of possibly
+clashing actions"*, and the function it calls allocates a new vector each time.
+A reader who trusted that comment would conclude this triage item was fixed
+upstream. It is not — reading the callee is what separates the two.
+
+⛔⛔ **THE STORED PATCH COULD NEVER HAVE BEEN APPLIED BY ANYONE.** Its hunk
+header read `@@ -173,6 +173,11 @@` while the hunk body carries 8 old and 13 new
+lines (7 context, 5 added, 1 trailing context). Both `git apply` ("corrupt patch
+at line 32") and `patch(1)` ("malformed patch") refuse it. It was written by
+hand, described here as *"the exact patch, with rationale and wiring
+instructions"*, and never test-applied — for six weeks it was a ready-to-use
+artifact that was not usable.
+
+✔ **FIXED AND VERIFIED, 2026-09-03.** The header is now `@@ -173,8 +173,13 @@`,
+and `git apply` applies it cleanly to leafwing `0.21.0`'s
+`src/clashing_inputs.rs`, producing exactly the intended early return. Verified
+by applying it to a pristine copy of the 0.21 source and reading the result, and
+by confirming `git apply` REJECTS the old counts — so this is a real check, not
+a lenient one.
+⚠ `patch -p1` still refuses the corrected file for a reason I did not run down;
+`git apply` is the verified path. Whoever picks this up should use it.
+
+⇒ **The item is still LIVE and still deferred** — the Ambition side
+(`tune_clash_strategy_to_bindings`,
+`crates/ambition_platformer2d_host/src/lib.rs:428`) is present and still inert
+by design. Nothing here argues for taking the fork; it argues that if it is ever
+taken, the artifact now works and targets the version actually in the lockfile.
+
 ## When picked up
 
-1. Fork `leafwing-input-manager` at v0.20.0, apply the patch.
+1. Fork `leafwing-input-manager` at **v0.21.0** (the version in the lockfile; the
+   patch is verified against it), apply the patch with `git apply`.
 2. Add a `[patch.crates-io]` entry in the workspace `Cargo.toml`, same shape
    and RETIRE discipline as the existing `bevy_ggrs` entry (git fork + rev,
    HACK-tagged comment).

@@ -3,7 +3,7 @@ id: test-placement
 aliases: []
 status: current
 authority: durable-concept
-last_verified: 2026-07-18
+last_verified: 2026-09-03
 related_docs:
   - docs/concepts/testing-and-validation.md
 ---
@@ -28,6 +28,35 @@ production API merely to move a test.
 
 `tests/ambition_workspace_policy` links no production crate. Keep workspace
 scanners there so architecture checks do not compile the full app graph.
+
+## ⛔ `ambition_app` is ONE test binary, and that changes what you may assert
+
+The table above sends cross-crate behaviour to the `ambition_app` integration
+surface *"filtered by test name"*. The filtering is not a convenience:
+`game/ambition_app/Cargo.toml` declares a SINGLE `[[test]]` target, `app_it`, so
+all **150** files under `game/ambition_app/tests/` are modules of one binary and
+libtest runs them as threads in ONE PROCESS.
+
+⇒ A test there may not assume it owns process-wide state. A sibling booting its
+own `App` populates `Assets<Image>`, resources and asset servers underneath your
+assertions, and the failure that produces is a GREEN one — your assertion was
+satisfied by somebody else's world.
+
+**If a test genuinely needs the process to itself**, say so at the test and give
+it a runner:
+
+* mark it `#[ignore]` with a reason naming the isolation requirement, not
+  "slow" — e.g. `parallax_theme_retires_on_walk`, `hall_redecode_census`;
+* drive it from a script with an exact filter (`scripts/measure_parallax_retire.sh`);
+* and know that `./run_tests.sh --heavy` re-enables ignored tests, which is why
+  that plan runs `--test-threads=1`.
+
+⚠ **`#[ignore]` carries three different meanings in this repo** — *slow*,
+*prints or panics instead of asserting*, and *invalid unless alone* — and no
+flag distinguishes them. Print-only and panicking tests are therefore named
+`probe_*` and skipped by the heavy plan; the naming is enforced by
+`scripts/tests/test_probe_tests_are_named_probe.py`. If you add an ignored test,
+decide which of the three it is before choosing its name.
 
 ## Rules against brittle tests
 

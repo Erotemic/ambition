@@ -32,7 +32,7 @@ Also landed:
   `game/ambition_demo_sanic/src/badnik.rs`).
 
 Remaining acceptance work is product/content work
-(**this list is the single source; status.md and tracks.md refer here**):
+(**this list is the single source; [`status.md`](../status.md) and [`tracks.md`](../tracks.md) refer here**):
 
 - ✅ **The scatter is a real scatter, and you can SEE it — 2026-07-25.** Three
   gaps closed: runtime-spawned rings had no presentation (`rebuild_dynamic_feature_views`

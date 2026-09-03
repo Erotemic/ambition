@@ -44,7 +44,7 @@ Landed:
   restart.
 
 Remaining acceptance work
-(**this list is the single source; status.md and tracks.md refer here**):
+(**this list is the single source; [`status.md`](../status.md) and [`tracks.md`](../tracks.md) refer here**):
 
 - ✅ **The secret pipe and underground room** (landed 2026-07-21). A warp pipe
   between pits A and B drops into a coin vault dug under the ground slab, in the

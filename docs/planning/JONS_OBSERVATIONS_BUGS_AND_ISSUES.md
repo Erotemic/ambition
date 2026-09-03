@@ -345,8 +345,19 @@ sprites_potato       1     0.53M     123    898   0.0046x area
   agrees. What is left needs a screen.
 
 * When I change the video quality in ambition, my sprite went from the robot v3 character to the robot v2 character. 
-  * ▢ **DOES NOT REPRODUCE HEADLESS, and the test now exercises YOUR case rather than a proxy.** `quality_change_keeps_each_character.rs` boots direct gameplay, finds the PrimaryPlayer's own worn character resident, changes the profile to Potato, and proves that sheet MOVES tier while its file root is unchanged — so resolution is not picking a different character. Ten causes eliminated in total. What is left is WHEN, which no file can answer: the falsifier is to change quality twice in a live session and say whether it swaps back. Owner doc: `sprite-residency-and-live-quality.md`.
-  * ⊙ Two things that would settle it: was your report BEFORE or AFTER 2026-08-08, and does it swap back if you change quality again?
+  * ▢ **DOES NOT REPRODUCE HEADLESS, and the test now exercises YOUR case rather than a proxy.** `quality_change_keeps_each_character.rs` boots direct gameplay, finds the PrimaryPlayer's own worn character resident, changes the profile to Potato, and proves that sheet MOVES tier while its file root is unchanged — so resolution is not picking a different character. Ten causes eliminated in total. What is left is WHEN, which no file can answer: the falsifier is to change quality twice in a live session and say whether it swaps back. Owner doc: [`engine/asset-preparation-and-residency.md`](engine/asset-preparation-and-residency.md).
+  * ⭐ **HALF THE FALSIFIER HAS SINCE BEEN RUN, HEADLESS, AND IT SWAPS BACK
+    CLEANLY.** `a_quality_round_trip_converges_back_with_every_page_loaded_and_nothing_orphaned`
+    (2026-09-02) sits in the same file as the test above: Full → Potato → Full in
+    the direct host, each leg judged only once the worn sheet's PAGES are loaded,
+    and **every token resolves to the sheet it started with** with no character
+    page left resident without a realization. ⇒ So *"what is left is WHEN, which
+    no file can answer"* is now too strong — a file answered the CPU half of it.
+  * ⚠ **AND JON'S QUESTION IS STILL OPEN, because his was about a LIVE session.**
+    What the round trip cannot see is the GPU half: the old tier's `GpuImage`
+    released and the new tier's prepared before the swap draws. That is the
+    remaining falsifier, and it needs a screen — not another headless arm.
+  * ⊙ Two things that would settle it: was your report BEFORE or AFTER 2026-08-08, and does it swap back if you change quality again ON A SCREEN?
   * ✖ **FOURTH CAUSE ELIMINATED 2026-08-21 — it is not tier REPACKING.** The Emmy finding two entries above gave an obvious candidate: four sheets saturate the 4096 texture cap, so their "reduced" tier is a differently-PACKED sheet rather than a scaled one, and different frame rects would read as a different character. Tested against the robots — all thirteen reduce cleanly:
 
 ```text
@@ -377,7 +388,10 @@ change rebuild on-screen bodies instead of only the next room). A body rebuilt
 while its new sheet handle is still loading, or rebuilt in an order that reads a
 half-swapped registry, produces a correct path resolving to the previous image.
 ⛔ that cannot be caught by reading files — it needs a live capture across an
-Apply, which is what `sprite-residency-and-live-quality.md` asks for.
+Apply, which is what
+[`engine/asset-preparation-and-residency.md`](engine/asset-preparation-and-residency.md)
+asks for — *"keep the reported live quality-switch issue attached until a
+RENDERED session shows the same"*.
 
   * ⊙ **the convergence read end-to-end, and one CLASS of body provably never
 converges.** `converge_character_residency_to_active_quality` →

@@ -804,19 +804,25 @@ input that cannot be taken on a software rasteriser.
 > |---|---|---|---|
 > | `hall_transition_cover` (control) | 224 | 363.1 | **1452.3 MB** |
 > | same, `AMBITION_QUALITY_PROFILE=ultra` | 225 | 363.9 | **1455.8 MB** |
+> | `leaving_the_gallery…` — the RETURN leg, hub→hall→hub, at 5.0s | 236 | 503.0 | **2012.0 MB** |
+> | same run at 10.0s, after the retire | 244 | 507.7 | **2030.9 MB** |
 >
-> `gpu +0 … awaiting gpu 224` on both — nothing uploaded, which is the point:
-> `resident_mb` is decoded CPU-side bytes and needs no adapter. ⇒ **≈1.45 GB is
-> the hall's full-resolution residency**, and if that is the ceiling open work 4
-> wants, this entry can close without 3090 time.
+> `gpu +0 … awaiting gpu N` on every one — nothing uploaded, which is the point:
+> `resident_mb` is decoded CPU-side bytes and needs no adapter.
 >
-> ⚠ **What this is NOT:** it is the hall ENTRY, not a hub→hall→hub round trip,
-> and the return leg is what the "keeps the last room's cast resident" policy
-> actually stresses. `leaving_the_gallery_keeps_the_shared_cast_and_retires_the_rest`
-> in the same file drives that leg and is where the return figure would come
-> from. ⚠ And read the detail below before quoting the pair: the two runs differ
-> by an env var that turns out to be INERT, so they are one configuration
-> measured twice, not a tier comparison.
+> ⭐ **SO THE ASK IS ANSWERED: ≈2.03 GB is `resident_mb` after a hub→hall→hub
+> walk at full texture resolution, and it needed no 3090.** The round trip peaks
+> ~580 MB above the hall entry alone, because it holds both rooms' casts before
+> the retire — which is precisely the pressure the "keeps the last room's cast
+> resident" policy has to budget for, and precisely why the entry asked for the
+> walk rather than the room.
+>
+> ⚠ **Read the detail below before quoting these.** The first two rows differ
+> only by an env var that turns out to be INERT — one configuration measured
+> twice, not a tier comparison — and `capture_scene` reports 119.4 MB for the
+> same room because ITS composition seeds quality from the Cpu adapter and loads
+> `sprites_potato`. The number is a property of the composition as much as the
+> room.
 
 ⓘ **2026-09-03, calculex — the ADAPTER may not be what blocks this, which would
 make the ask smaller than 3090 time.** Two things were checked, and neither is a

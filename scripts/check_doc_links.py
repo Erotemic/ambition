@@ -119,7 +119,14 @@ def collect_links(text: str):
         target = match.group(1)
         if target:
             yield match.start(1), target
-    for match in REF_RE.finditer(text):
+    # ⛔ `scannable`, NOT `text`. The rule above -- a fenced block of example
+    # markdown is documentation of a FORM, never navigation -- was applied to
+    # inline links only, so `[label]: nowhere.md` inside a ``` block was
+    # collected and reported broken while `[text](nowhere.md)` beside it was
+    # correctly ignored. Latent rather than live when found (2026-09-03): no doc
+    # in the tree demonstrated a reference definition. Blanking preserves
+    # offsets, so the reported line number is unaffected.
+    for match in REF_RE.finditer(scannable):
         yield match.start(1), match.group(1)
 
 

@@ -942,17 +942,23 @@ wiring.
 
 #### What is LEFT, measured after the cuts (2026-09-03)
 
-The adapter's kernel seams went **7 → 3**, and only ONE is a logic dependency:
+**The adapter's kernel seams went 7 → 1, and the one left is a REGISTRATION:**
 
 | seam | file | kind |
 |---|---|---|
-| `clear_encounter_reward_ecs` | `systems.rs` | ⛔ a real dependency, and a QUESTION — see below |
-| `serve_encounter_spawn_commands` | `mod.rs` | a registration, not a dependency; it leaves when the plugin does |
-| `sync_authored_gated_lock_walls` | `mod.rs` | seam (d): a deliberate co-location, never a dependency |
+| `serve_encounter_spawn_commands` | `mod.rs` | the spawn server's registration; it leaves when the plugin does |
 
-`loading.rs` (207 lines), `switch_index.rs` (36) and now `lock_walls.rs` name no
-kernel seam at all — `lock_walls.rs`'s last one was a DOC LINK to a kernel
-function, repointed at the published set.
+`systems.rs`, `loading.rs` (207 lines), `switch_index.rs` (36) and `lock_walls.rs`
+name **nothing** in the kernel.
+
+Retired since this table was first written: `EncounterMobSeed` and
+`spawn_encounter_mob` (seam a), `sync_encounter_reward_chests_ecs` (seam b),
+`FeatureWorldOverlaySet` (seam c), `sync_authored_gated_lock_walls` (seam d, a
+deliberate co-location that moved WITH its sibling rather than away from it),
+`rebuild_feature_ecs_world_overlay` (a doc link, repointed at the published
+set), and finally `clear_encounter_reward_ecs` — which was a real dependency and
+a genuine open question until the switch-loop split made its trigger
+observable.
 
 ⛔ **AND THE LAST REAL SEAM IS NOT A MECHANICAL INVERSION. It is a policy
 question, and it is being left open on purpose.** `clear_encounter_reward_ecs`

@@ -1208,6 +1208,30 @@ The one unresolved developer-policy choice from the session-ownership work is in
   checkpoint policy, not item policy — but it should be stated in its doc
   comment, or the next reader will "fix" it by dragging it after the domain.
 
+  ⛔⛔ **AND A SECOND THING THAT IS NOT MECHANICAL, FOUND BY STARTING THE CUT AND
+  STOPPING (2026-09-02).** The partition itself is clean — 511 lines stay, 1,347
+  move, and they reconstruct the file exactly — and the new crate compiles down
+  to four missing deps (`ambition_entity_catalog`, `ambition_input`,
+  `ambition_mount`, plus an optional `ambition_portal2d` behind a `portal`
+  feature). ⚠ **What is NOT decided is who owns the SCHEDULE, and it is a fork
+  with a wrong branch:**
+  * `pickup/tests.rs` (1,789 lines, moving) does `app.add_plugins(super::ItemPickupSimulationPlugin)`
+    — the plugin that STAYS. So the moved tests cannot build their App without
+    either the kernel or a plugin of their own;
+  * if the new crate publishes its own plugin that also `configure_sets`, the
+    set rules exist in two crates — and `ItemPickupSet::CoreHeldItems` being
+    `.in_set(PlayerSimulation)` and `.after(BodyCustodySettled)` is exactly the
+    kind of fact that goes missing when it is split;
+  * if the kernel keeps all `configure_sets` and merely adds the new crate's
+    systems plugin, the new crate's own unit tests register systems into sets
+    nothing configured, so their ordering assertions pass vacuously.
+  ⇒ **Decide schedule ownership BEFORE cutting, and write the answer here.** The
+  sibling carve shipped a live phase-membership defect by moving `add_systems`
+  and leaving `configure_sets`; this fork is the same hazard one level up, and it
+  is not a thing to settle at the end of a long session.
+  ⚠ The scaffold built while finding this was deleted rather than left
+  half-landed — it was untracked and nothing was committed.
+
   ⛔⛔ **AND THE "SIZED … BY REFERENCE" LINE ABOVE POINTS AT NOTHING, MEASURED
   2026-09-02 LATE.** Those counts (`ambition_encounter` 66, `ambition_mount` 57,
   `ambition_conversation` 45, `ambition_items` 34) invite a carve chosen by

@@ -556,7 +556,14 @@ The one unresolved developer-policy choice from the session-ownership work is in
   them are ONE system.** Measured 2026-09-03 at `dbfb1a2ca` by running the gate's
   own union job standalone (`cargo test --workspace --no-fail-fast --features
   <the 80-entry union>`, the exact command `run_tests.py --list` prints under
-  `--run-everything-you-probably-dont-need-this`). Four targets failed:
+  `--run-everything-you-probably-dont-need-this`). ⚠ **The union is 82 entries
+  as of 2026-09-03 late, not 80** — `ambition_abilities/test-support` and the
+  encounter-features entry joined with their carves, which is the union doing
+  exactly what it is for. ⇒ Do not retype it here: the command PRINTS the list,
+  and `--list` costs nothing because it plans without building. That is also the
+  cheapest way to re-check this row on a box that cannot run the job — the plan
+  is 52 jobs and the union's feature set is one `grep` away, while the failures
+  below need a build. Four targets failed:
   `ambition_demo_smash_app --test smash_it`, `ambition_demo_sanic_app --lib` and
   `--test sanic_it`, `ambition_demo_mary_o_app --test mary_o_it`.
   ⛔ **THE DOMINANT CAUSE IS A SINGLE PARAMETER.** 37 of the 48 are the same

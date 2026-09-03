@@ -4,7 +4,7 @@ version = "0.1.0"
 edition.workspace = true
 license.workspace = true
 authors.workspace = true
-description = "Reusable, content-free platformer runtime primitives (lifecycle vocabulary + schedule sets) extracted from ambition_platformer2d_actor_monolith. See docs/current/state.md and docs/systems/architecture.md."
+description = "Reusable, content-free platformer runtime primitives (lifecycle vocabulary + schedule sets) extracted from ambition_platformer2d_actor_monolith. See docs/planning/status.md and docs/architecture/architecture-boundaries.md."
 
 [lib]
 # rlib only: a library consumed by ambition_platformer2d_actor_monolith (and future runtime

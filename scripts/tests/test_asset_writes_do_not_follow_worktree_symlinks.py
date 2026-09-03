@@ -121,3 +121,90 @@ def test_every_write_site_in_the_generator_is_guarded():
             f"the write at `{write}` is not preceded by the symlink guard, so "
             "regenerating in a worktree writes through to the main checkout"
         )
+
+
+# ---------------------------------------------------------------------------
+# ⛔⛔ THE SFX BANK WAS THE UNGUARDED ROAD, AND THIS FILE DID NOT LOOK AT IT.
+#
+# Everything above tests `generate_visual_quality_variants.py`. Jon's 2026-09-03
+# review found the guard was one publisher wide: `scripts/regen/sfx.sh` aims
+# `tools/ambition_sfx_pack/pack.py` at
+# `crates/ambition_platformer2d_actor_monolith/assets/audio/sfx.bank`, which is
+# inside `mirror_assets_for_worktree.py`'s MIRRORED_TREES — and the packer wrote
+# it with a bare `out_path.open("wb")`, straight through the link.
+#
+# ⭐ The lesson worth more than the fix: this file's own docstring says the
+# hazard belongs to "a writer publishing into this tree", and then tested ONE
+# writer. A guard scoped to the road where the bug was found does not cover the
+# invariant it claims.
+#
+# ⚠ These are BEHAVIOURAL, not source-text scans — they build a real symlink,
+# run the real publisher, and read the target's bytes. AGENTS.md declines
+# source-text meta-test machinery, and a grep for a helper's NAME would pass on
+# a call site that passed the wrong path anyway.
+# ---------------------------------------------------------------------------
+
+PACK = REPO / "tools/ambition_sfx_pack/pack.py"
+
+
+def load_packer():
+    if not PACK.exists():
+        pytest.skip(f"{PACK} is absent")
+    spec = importlib.util.spec_from_file_location("sfx_pack", PACK)
+    module = importlib.util.module_from_spec(spec)
+    sys.modules["sfx_pack"] = module
+    spec.loader.exec_module(module)
+    return module
+
+
+def _mirrored(tmp_path: Path, name: str) -> tuple[Path, Path]:
+    """A worktree path symlinked at a main-checkout file, as the mirror makes it."""
+    main = tmp_path / "main"
+    work = tmp_path / "worktree"
+    main.mkdir(parents=True, exist_ok=True)
+    work.mkdir(parents=True, exist_ok=True)
+    target = main / name
+    target.write_bytes(b"MAIN CHECKOUT BYTES")
+    link = work / name
+    link.symlink_to(target)
+    return target, link
+
+
+def test_writing_the_bank_does_not_reach_through_the_mirror(tmp_path):
+    """The premise is asserted first: without the guard this WOULD have written
+    through. A test that only checks the fixed path passes on a system where
+    writes never follow links, which proves nothing."""
+    packer = load_packer()
+    target, link = _mirrored(tmp_path, "sfx.bank")
+
+    # PREMISE: an unguarded open-for-write follows the link.
+    probe_target, probe_link = _mirrored(tmp_path / "probe", "sfx.bank")
+    with probe_link.open("wb") as fh:
+        fh.write(b"THROUGH")
+    assert probe_target.read_bytes() == b"THROUGH", (
+        "an unguarded write did NOT follow the symlink on this filesystem, so "
+        "the test below would pass for the wrong reason"
+    )
+    assert probe_link.is_symlink()
+
+    packer.write_bank(link, [])
+
+    assert target.read_bytes() == b"MAIN CHECKOUT BYTES", (
+        "write_bank reached through the mirror and rewrote the MAIN checkout's "
+        "sfx.bank — the file every other session builds and gates from"
+    )
+    assert not link.is_symlink(), "the worktree must now own a real bank"
+    assert link.read_bytes()[:8] == b"AMBNDSFX"
+
+
+def test_writing_the_dump_does_not_reach_through_the_mirror(tmp_path):
+    """The dump is the second write site and shipped unguarded beside the bank —
+    two roads out of one function pair, which is how one gets fixed alone."""
+    packer = load_packer()
+    target, link = _mirrored(tmp_path, "sfx.bank.dump")
+
+    packer.write_dump(link, [], Path("sfx.bank"))
+
+    assert target.read_bytes() == b"MAIN CHECKOUT BYTES"
+    assert not link.is_symlink()
+    assert "dump" in link.read_text()

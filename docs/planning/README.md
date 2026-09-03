@@ -287,8 +287,19 @@ checker reads.
 exist** — nine in crate `Cargo.toml` `description` fields
 (`docs/current/state.md`, `docs/systems/architecture.md`, <!-- cite-ok: this paragraph records dead paths on purpose -->
 `docs/planning/engine/decomposition.md#E5`) and one in `scripts/regen/sprites.sh`.
-Some are years stale. Nothing checks them: `check_doc_links.py` walks `docs/`,
-`check_planning_citations.py` walks `docs/planning/`.
+Some are years stale.
+
+⚠ **CORRECTION, same day — "nothing checks them" was too broad.** The policy
+TOMLs' `source_doc` fields ARE guarded, by
+`every_source_doc_names_a_real_file_and_heading`
+(`tests/ambition_workspace_policy/tests/policy.rs:339`), which checks the path
+AND the `#anchor`; it caught the `engine/decomposition.md` retirement within the
+hour, in the feature-union job, and the page was restored with the warning at
+its head. ⇒ What is unguarded is every OTHER non-markdown citation — crate
+`Cargo.toml` `description` fields, shell comments, Python docstrings — and that
+is where all ten broken ones live. `check_doc_links.py` walks `docs/`,
+`check_planning_citations.py` walks `docs/planning/`, and the policy test covers
+one TOML field.
 
 ⇒ **So a retirement's reference sweep must state WHICH TREES it covered**, and
 cover at least these:

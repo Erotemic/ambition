@@ -1366,6 +1366,27 @@ kernel's dependency); its pure preparation half belongs in `ambition_match`.
 materialization — the asset seam), `definition.rs`, `audit.rs`, `hurtbox.rs`,
 `presentation.rs`, `live_match_clock.rs`, `match_activation.rs`, and the tests.
 
+⭐ **`presentation.rs` PRICED, 2026-09-03 — and "names nothing in the kernel" is
+one type away from exactly true.** 600 lines with **zero `crate::` references**
+(control: its sibling `mod.rs` has 8, so the zero is the file's and not the
+grep's). It names one kernel type and one only: `use super::CharacterLoadStates`
+at line 13. The other `super::` is a doc link to `StagedCast` in prose.
+
+| what it reaches for | count |
+|---|---|
+| `ambition_characters` | 19 |
+| `ambition_combat` | 12 |
+| `ambition_sfx` | 9 |
+| the `platformer2d` stack | 9 |
+| `ambition_sprite_sheet` / `ambition_audio` | 3 / 3 |
+| `ambition_projectiles` / `ambition_body_seed` | 1 / 1 |
+
+⇒ **So the extraction is one dependency question, not a survey**: where
+`CharacterLoadStates` goes. Everything else it needs is already in crates below
+it, which is what makes this a "character presentation" package rather than a
+kernel file — and why the list above says its HOME needs settling before it is
+cut, not that the cut is hard.
+
 **Next cut, in order:**
 
 1. ✔ **The body seed leaves the kernel** (`83460e3f3`, above).

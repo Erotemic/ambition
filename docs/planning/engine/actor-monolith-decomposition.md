@@ -761,12 +761,25 @@ reason `ambition_encounter` cannot emit one is that the TYPE lives in the kernel
 so no cycle.
 ⇒ **New form:** the seed moves down beside the construction vocabulary,
 `ambition_encounter` emits a request, and the kernel serves it through the
-`ActorConstruction` domain it already runs. ⛔ Decide ONE thing before cutting:
-whether the mob is a new `ActorConstructionParams` variant (kernel keeps the
-recipe) or `ambition_encounter` implements its own `ConstructionDomain` like
-`ambition_portal2d`. The first is smaller; the second is what "orchestration
-belongs to the owning package" argues for. **Do not cut until that is answered
-in writing** — it is the same fork the pickup carve stopped at.
+`ActorConstruction` domain it already runs.
+
+✔ **AND THE FORK IS ANSWERED, by reading the construct body rather than
+weighing the two options.** The choice looked open — a new
+`ActorConstructionParams` variant (kernel keeps the recipe) versus
+`ambition_encounter` implementing its own `ConstructionDomain` like
+`ambition_portal2d`. It is not: `spawn_encounter_mob` builds its body with
+`super::actor_clusters::ActorClusterSeed::new_character_in`
+(`features/ecs/spawn_actors.rs:2011`), and `ActorClusterSeed`
+(`features/ecs/actor_clusters.rs:285`) is the actor kernel's body builder. For
+`ambition_encounter` to own the construct fn it would have to depend on
+`ambition_platformer2d_actor_monolith` — **the exact edge this carve removes**,
+and the one the sibling crates' policy rows forbid regaining.
+⇒ **A new `ActorConstructionParams` variant; the recipe STAYS in the kernel.**
+The portal-gun precedent does not transfer because a portal-gun pickup is a
+simple authored entity while a mob IS an actor, and actor construction is
+definitionally the kernel's. That is the doctrine line exactly: *orchestration*
+(which mobs, when, in what wave) leaves with the domain; *construction* (how a
+body is assembled) stays with the kernel that owns bodies.
 
 **(b) Rewards invert: the encounter publishes facts, the feature layer reacts.**
 The adapter today computes `cleared_specs` by filtering encounters whose

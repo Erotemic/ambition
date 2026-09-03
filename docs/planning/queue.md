@@ -925,6 +925,18 @@ The one unresolved developer-policy choice from the session-ownership work is in
      ⚠ And `the-character-domain-is-not-named-after-a-character` guards ALL of
      `crates/ambition_characters/` by PATTERN rather than by exclusion, so it is
      live for any carve landing code there whichever file moves.
+     ✔ Since 2026-09-02 a parametrized test asserts every path a contract names
+     still EXISTS, so the quiet half of this rots loudly now: an exclusion left
+     behind guards a ghost, and an include root that vanishes makes the contract
+     scan nothing and pass forever.
+  8. **⚠ IF THE CARVE MOVES A CRATE, re-read its `WAIVED` prefix in
+     `rollback_coverage.rs`.** Twenty-two of that file's 31 waivers are
+     NAMESPACE-WIDE (`ambition_render::`, `ambition_input::`, …), so a crate
+     that moves or splits can leave a prefix covering nothing — or, worse,
+     covering types its reason never described, which the file itself warns
+     about. ⛔ There is no assertion for this on purpose: the audit is
+     `list_what_every_waiver_actually_covers`, an `#[ignore]`d listing meant to
+     be READ against each waiver's rationale. Run it after a crate move.
 
   ⛔⛔ RE-MEASURED 2026-08-31: the owner doc's
   "only four dependencies are single-path" list is STALE — `ambition_dev_tools`

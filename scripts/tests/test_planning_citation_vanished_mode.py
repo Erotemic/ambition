@@ -279,3 +279,44 @@ def test_a_doc_outside_the_repo_is_reported_by_absolute_path(tree):
 
 if __name__ == "__main__":
     raise SystemExit(pytest.main([__file__, "-q"]))
+
+
+def test_an_item_that_became_a_field_is_not_reported(tree):
+    """⛔ THE MIRROR OF `test_a_field_that_disappeared_is_not_reported`, and it
+    was live until 2026-09-03.
+
+    Excluding `FIELD` from the baseline index stops a field from INVENTING a
+    vanished name. Excluding it from HEAD's side too was the other half of that
+    change, and it created the opposite error: a name defined as an item at the
+    baseline and as a FIELD now is reported vanished, although the row citing it
+    resolves perfectly.
+
+    ⚠ Measured, not imagined: on a 2026-08-13 baseline, 4 of 45 findings were
+    this shape -- `attacks`, `grounded`, `conversation` and `combat`, all short
+    generic names that are fields at HEAD. `still_a_field` subtracts them.
+    Subtracting can only REMOVE findings, so the failure the sibling test pins
+    cannot come back through this door -- which is why the asymmetry is safe.
+    """
+    module, repo, base = tree
+    (repo / "lib.rs").write_text("fn kept() {}\nfn attacks() {}\n")
+    git(repo, "add", "lib.rs")
+    git(repo, "commit", "-qm", "attacks is a function")
+    item_base = git(repo, "rev-parse", "HEAD").strip()
+
+    # The function is gone; the NAME survives as a field on a struct.
+    (repo / "lib.rs").write_text(
+        "fn kept() {}\nstruct Profile {\n    attacks: u32,\n}\n"
+    )
+    git(repo, "add", "lib.rs")
+    git(repo, "commit", "-qm", "attacks is now a field")
+
+    assert "attacks" in module.item_names(
+        module.source_text_at(item_base)
+    ), "premise: it WAS an item at the baseline, so the differential can see it"
+    assert "attacks" not in module.item_names(
+        module.source_text()
+    ), "premise: it is no longer an item, which is what made this a finding"
+
+    doc = repo / "row.md"
+    doc.write_text("A row citing `attacks` on the profile.\n")
+    assert module.vanished_report([doc], item_base, set()) == 0

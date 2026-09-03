@@ -120,7 +120,7 @@ The host-level diagnostic UI must not disappear because no gameplay session curr
 
 # A1. Replace the custom FPS UI with Bevy's FPS overlay  ✔ DONE 2026-08-31
 
-Landed on `bevy::dev_tools::fps_overlay`. Deleted: `FpsOverlayState`, the spawn,
+Landed on `bevy::dev_tools::fps_overlay`. Deleted: `FpsOverlayState`, the spawn, <!-- cite-ok: the row records what the port DELETED -->
 the text formatter, the visibility system, and the hand-rolled min/mean/max
 window statistics. Kept the two things that are Ambition's rather than Bevy's —
 which setting decides it (`UserSettings::video.show_fps`, still the only
@@ -160,7 +160,7 @@ This currently:
 * installs `FrameTimeDiagnosticsPlugin`;
 * spawns and owns its own UI `Text`;
 * calculates its own recent min/mean/max;
-* owns `FpsOverlayState`;
+* owns `FpsOverlayState`; <!-- cite-ok: under '## Original plan' — describes the pre-port code -->
 * mirrors `UserSettings::video.show_fps` into that resource;
 * manually positions the UI;
 * manually controls visibility.
@@ -206,7 +206,7 @@ FpsOverlayConfig.enabled
 
 directly.
 
-Delete `FpsOverlayState` if it becomes only a mirror of that boolean.
+Delete `FpsOverlayState` if it becomes only a mirror of that boolean. <!-- cite-ok: the original plan's own proposal, kept as the record -->
 
 ## Visibility contract
 
@@ -589,7 +589,7 @@ No GPU timestamp support means "measurement unavailable", not zero GPU cost.
 
 `render_debug_overlay_labels` draws `Gizmos::text_2d` instead of despawning and
 respawning a `Text2d` entity per label per frame. Gone with the entities: the
-spawn churn, the despawn sweep, the `DebugOverlayLabel` marker, the lifetime
+spawn churn, the despawn sweep, the `DebugOverlayLabel` marker, the lifetime <!-- cite-ok: the row records what the port DELETED -->
 bookkeeping, and — the one that mattered — the dependency of F1 world labels on
 the PRODUCT font stack. A developer overlay should not be able to fail because a
 typeface has not finished loading. The one-frame `DebugOverlayLabels` scratch
@@ -651,7 +651,7 @@ This should remove:
 
 * per-frame debug-label entity spawning;
 * per-frame debug-label despawning;
-* `DebugOverlayLabel`;
+* `DebugOverlayLabel`; <!-- cite-ok: under 'This should remove:' — the plan's intent, not a live name -->
 * product font resolution from F1 world labels;
 * font atlas/glyph asset dependencies from these labels;
 * label lifetime bookkeeping.
@@ -701,14 +701,14 @@ Labels should remain associated with their boxes and remain readable.
 
 ---
 
-# C. Delete `MenuTextHeightFraction`  ✔ DONE 2026-08-31
+# C. Delete `MenuTextHeightFraction`  ✔ DONE 2026-08-31 <!-- cite-ok: the heading names the symbol this section deleted -->
 
 Landed. `MenuNode::Text`/`DynamicText`'s `size` is spawned as `FontSize::Vh`
 directly, and the unit is now documented on the FIELD — the place the original
 five-pixel bug came from having no documented unit at all. Deleted:
-`MenuTextHeightFraction`, `MENU_REFERENCE_VIEWPORT_HEIGHT`,
-`resolve_menu_text_size`, `install_bevy_ui_menu_text_scaling`, its
-`MenuTextScalingInstalled` marker, the `before(UiSystems::Content)` constraint
+`MenuTextHeightFraction`, `MENU_REFERENCE_VIEWPORT_HEIGHT`, <!-- cite-ok: the deletion inventory for this section -->
+`resolve_menu_text_size`, `install_bevy_ui_menu_text_scaling`, its <!-- cite-ok: the deletion inventory for this section -->
+`MenuTextScalingInstalled` marker, the `before(UiSystems::Content)` constraint <!-- cite-ok: the deletion inventory for this section -->
 that existed only for it, and the three unit tests of the conversion arithmetic.
 
 ⭐ THE ENGINE RESOLVES AGAINST THE UI RENDER TARGET, NOT THE PRIMARY WINDOW, and
@@ -757,7 +757,7 @@ Replace menu-authored viewport-height text sizes with `FontSize::Vh`.
 
 Delete:
 
-* `MenuTextHeightFraction`;
+* `MenuTextHeightFraction`; <!-- cite-ok: under 'Delete:' — the plan's intent, not a live name -->
 * the per-frame window-height conversion system;
 * scheduling required only for that conversion;
 * resize handling that exists only to recalculate font pixels;
@@ -1219,7 +1219,7 @@ Complete:
 
 Complete:
 
-* ✔ `MenuTextHeightFraction` → `FontSize::Vh` (2026-08-31);
+* ✔ `MenuTextHeightFraction` → `FontSize::Vh` (2026-08-31); <!-- cite-ok: a ✔ migration row: old name → new, the old one is meant to be gone -->
 * ✔ no-op screen-effects pass avoided (2026-08-31);
 * ✔ render recovery installed (2026-08-31).
 

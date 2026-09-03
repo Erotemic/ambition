@@ -99,6 +99,16 @@ Do not recreate the old boot-time validation proposal or duplicate these tests.
    to make impossible references unrepresentable. Do not open a standalone
    symbol-generation campaign merely to replace strings.
 
+> **RE-VERIFIED against `a83a40c1f` (2026-09-03) — nothing to change, and that
+> is the finding.** Both closed items name tests, and a ✔ is only worth its ink
+> if the test it points at still exists AND still runs. All three named artefacts
+> are present at HEAD — `game/ambition_app/tests/declared_art_resolves.rs`,
+> `every_catalog_character_names_a_spritesheet_that_exists` and
+> `every_catalog_character_names_a_manifest_that_exists` — and both tests carry a
+> bare `#[test]` with no `#[ignore]`, so they run in the default gate rather than
+> only under `--include-ignored`. ⇒ Items 1 and 2 stay ✔ on evidence, not on
+> memory. Item 3 is a standing principle with nothing to measure.
+
 ## Exit
 
 A newly declared asset/reference that is absent by mistake fails authoring or is

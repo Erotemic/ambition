@@ -49,11 +49,17 @@ already got it wrong.
   `suggested_barks` in the actor RON (`richard_duckling_actor.ron`,
   `paul_diracula_actor.ron`, …), and room-metadata bark pools keyed `Hall` /
   `Idle`. A break bark wants a pool of its own beside those.
-- **Station-keeping**: ⛔ **the gap.** `can_fly` exists only inside the SMASH
-  brain config (`ambition_characters/src/brain/smash.rs`) as a per-fighter
-  tuning field. There is no general actor capability answering *"can this body
-  hold its position without being carried away"*, and that is the one new
-  authority this design needs.
+- **Station-keeping**: ⛔ **was the gap — CLOSED, see the re-measure below.**
+  ⚠ **This bullet is kept as written and corrected here rather than edited,
+  because a reader arriving at the top of the page would otherwise meet a ⛔ that
+  the block below refutes.** What it said: `can_fly` exists only inside the SMASH
+  brain config (`ambition_characters/src/brain/smash.rs`) as a per-fighter tuning
+  field, there is no general actor capability answering *"can this body hold its
+  position without being carried away"*, and that is the one new authority this
+  design needs. ⇒ That authority now exists as
+  `can_hold_station(&AbilitySet, grounded: bool)`
+  (`ambition_platformer2d_core/src/abilities.rs:177`), general and body-facing
+  exactly as this bullet asked.
 
 ## The open sub-questions
 

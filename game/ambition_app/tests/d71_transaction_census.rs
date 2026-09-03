@@ -125,7 +125,7 @@ fn census(rollback: bool, frames: usize) -> Census {
 #[test]
 #[ignore = "PROBE, print-only: panics to report its census. Preserved mid-investigation \
            (D71) when the run was paused; run explicitly with --ignored."]
-fn d71_probe_shipped_app_host() {
+fn probe_d71_shipped_app_host() {
     use ambition_app::app::{build_visible_app, shell_host, VisibleRenderMode};
     use ambition_platformer2d::game_shell::ShellCommand;
 
@@ -163,7 +163,7 @@ fn d71_probe_shipped_app_host() {
 #[test]
 #[ignore = "PROBE, print-only: panics to report its census. Preserved mid-investigation \
            (D71) when the run was paused; run explicitly with --ignored."]
-fn d71_probe_counts_room_changes_against_transactions() {
+fn probe_d71_counts_room_changes_against_transactions() {
     let eager = census(false, 120);
     let roll = census(true, 360);
     panic!(

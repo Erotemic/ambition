@@ -202,7 +202,8 @@ the monolith: `MovingPlatformVisual` and its spawn/sync systems (they name Bevy
 sprite/lifecycle types).
 
 ⚠ the visual carve is blocked by a transaction, not a dependency:
-`sync_moving_platform`'s own doc records a prior bug where a hidden second
+`sync_moving_platform_visuals`'s own doc (renamed since this row was written;
+`ambition_render/src/rendering/moving_platforms.rs:46`) records a prior bug where a hidden second
 authority clobbered freshly restored platform state after a room-change reset,
 so making the spawn reactive naively would reintroduce it. The fix: platform
 rows are now PUBLISHED like every other room feature, so

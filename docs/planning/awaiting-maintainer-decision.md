@@ -665,6 +665,31 @@ ceiling is a host number: `resident_mb` at Full on the 3090 after a
 hub→hall→hub walk. Everything else in that section is measured; this is the one
 input that cannot be taken on a software rasteriser.
 
+ⓘ **2026-09-03, calculex — the ADAPTER may not be what blocks this, which would
+make the ask smaller than 3090 time.** Two things were checked, and neither is a
+claim that the number has been taken:
+
+* **`resident_mb` is adapter-independent by construction.** The census computes
+  it as `width * height * per_pixel`, where `per_pixel` comes from the image
+  FORMAT's `block_copy_size` (`crates/ambition_render/src/asset_census.rs:218`).
+  It is decoded-image arithmetic, not anything the GPU reports, so llvmpipe and a
+  3090 should agree for the same assets and the same walk.
+* **The census DOES emit on this host.** `capture_scene` renders offscreen
+  through lavapipe and prints the full `[image-census]` line including
+  `…MB resident`; the headless room harness does not, because it composes no
+  render app. So the missing piece is a WALK DRIVER, not an adapter:
+  `scripts/profile_desktop.sh` is the documented driver and its windowed path
+  refuses without a display *("a windowed run needs a display, and failing here
+  is the point")*.
+
+⚠ **Two caveats that keep this an ⓘ and not a ✔.** The walk has not been driven
+here — `capture_scene` takes `--press`/`--route` but room-to-room transitions
+through doors were not attempted. And quality seeds itself to `potato` on a Cpu
+adapter, so a Full measurement needs `AMBITION_QUALITY_PROFILE=Full` and would
+have to be checked on the `[census] visual_quality` row rather than assumed.
+⇒ The decision this entry asks for is unchanged. What changed is the cost of the
+input: possibly a driver on any host rather than time on the one 3090.
+
 ### D-RASTER-3's remaining half
 
 Splitting the weak-GPU 2.54× between framebuffer scale and MSAA needs an

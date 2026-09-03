@@ -1410,8 +1410,8 @@ fn which_population_does_the_rollback_divergence_need() {
     // read is a suite mode nobody reads.
     //
     // The panic was there to force output past libtest's capture. Its siblings
-    // (`list_what_every_waiver_actually_covers`, `probe_what_a_rollback_frame_costs`,
-    // `list_what_each_character_derives_for_its_body`) print and PASS, and are
+    // (`probe_what_every_waiver_actually_covers`, `probe_what_a_rollback_frame_costs`,
+    // `probe_what_each_character_derives_for_its_body`) print and PASS, and are
     // read with `--nocapture` — which is how you run a diagnostic on purpose
     // anyway. This one is now the same shape as the rest.
     println!(

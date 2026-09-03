@@ -54,7 +54,7 @@
   the row was parked because "current portal rooms do not nest gravity zones".
 
   ⇒ **`sandbox.ldtk:symmetry_room` now places FOUR `GravityZone` entities and a
-  `PortalGunSpawn`** (at `[448,880]`, `[32,448]`, `[448,32]`, `[880,448]`, and
+  `PortalGunSpawn`** (at `[448,880]`, `[32,448]`, `[448,32]`, `[880,448]`, and <!-- cite-ok: an LDtk entity identifier; the Rust type is PortalGunSpawnSpec -->
   the gun at `[648,1208]`). ⚠ Stated precisely, because the distinction decides
   what the exercise is: **no room authors a portal PAIR nested in a gravity
   zone.** What `symmetry_room` does is hand the player the portal gun in a room
@@ -83,7 +83,7 @@ committed pointer `71f17383`, clean) at LEVEL granularity — the granularity th
   `portal_lab` authors 14 `Portal`s and zero `GravityZone`s; `gravity_lab`,
   `symmetry_room`, `wall_run` and `ceiling_cross` author zones and no portal
   PAIRS. ⚠ Corrected the same day by the row above: `symmetry_room` places a
-  `PortalGunSpawn` beside its four zones, so the player can put a portal inside
+  `PortalGunSpawn` beside its four zones, so the player can put a portal inside <!-- cite-ok: an LDtk entity identifier; the Rust type is PortalGunSpawnSpec -->
   a zone in play — the customer is the gun, not an authored pair.
 
 ⇒ Both rows stay ▢ for the reason they already give: waiting on a customer, not

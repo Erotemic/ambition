@@ -144,7 +144,7 @@ decide which populations a lifecycle operation may retire or reconstruct.
 
 ## What the hand-kept ledger cost
 
-`reset_ecs_room_features` was a second, incomplete room constructor: sixteen
+`reset_ecs_room_features` was a second, incomplete room constructor: sixteen <!-- cite-ok: records the deleted second constructor by name -->
 queries at Bevy's parameter ceiling, mutating twelve families of surviving
 entity back toward a presumed spawn state. Every row was a fact somebody noticed
 was missing, so the list could only grow, and adding an authoritative family to
@@ -177,7 +177,7 @@ function happened to remember:
 
 ### C2 — make replay consume canonical constructors ✔
 
-Done. `reset_ecs_room_features` is deleted; `RoomTransitionSet::Reset` now runs
+Done. `reset_ecs_room_features` is deleted; `RoomTransitionSet::Reset` now runs <!-- cite-ok: the row states this symbol is deleted -->
 `reconstitute_the_active_room`, which records a lifecycle intent for the active
 room. The only thing that stayed behind is `SpawnedThisAttempt`, which is a
 lifetime declaration rather than a reset row.

@@ -1102,7 +1102,7 @@ contract holds. That is a decision with a real cost (a new crate; the footprint
 ratchet counts crates) and is not taken here.
 
 ⚠ **AND THE DEPENDENCY COUNT BELOW WAS WRONG TOO — five and two, not four and
-one.** `ambition_characters` (production, `ambition_encounter_features/src/systems.rs:177` <!-- cite-ok: measured pre-carve in encounter/systems.rs -->) and
+one.** `ambition_characters` (production, `crates/ambition_encounter_features/src/systems.rs:177`) and
 `ambition_asset_manager` (tests) were missing, because the measurement piped the
 crate list through `head -14` and reported the truncated output as complete. The
 true list is 18 distinct tokens, of which `ambition_app` and
@@ -1421,6 +1421,48 @@ are the ledger. ⇒ The candidate seam the doc predicted ("body state, movement,
 decision integration and construction") shows up as the `features`↔`construction`
 loop; whether it is one crate or two is decided by which direction the 30 and the 15
 run, which is the next measurement, not this one.
+
+## The doctrine's own "does not belong" list, measured against the kernel (2026-09-03)
+
+[`../../architecture/package-and-capability-boundaries.md`](../../architecture/package-and-capability-boundaries.md)
+names seven things that *"do not belong in the residual kernel merely because
+they were historically implemented there"*. That list has never been scored.
+Here it is against the crate, with each module's OWN first doc line — the
+cheapest evidence of what its author thought it was:
+
+| doctrine category | still in the kernel | lines | the module's own words |
+|---|---|---:|---|
+| persistence / session policy | `session/` | 3,446 | *"**Ambition-game** session lifecycle"* |
+| optional items | `items/` | 2,153 | *"Actor-sim item adapters"* |
+| developer tooling | `dev/` | 1,998 | *"Sim-side developer tooling that still samples actor-domain state"* |
+| UI/audio/presentation | `audio/` | 1,308 | *"Audio runtime for the **Ambition game**"* |
+| UI/audio/presentation | `music/` | 544 | *"**Ambition-game** music adapters"* |
+| persistence | `shrine.rs` | 466 | checkpoint save/restore |
+| dialogue/conversation | `cutscene.rs` | 208 | ⛔ has a written defence — see below |
+| host/platform composition | `host/` | 53 | a thin seam |
+
+⚠ **This is a candidate list, not a defect list, and the difference matters.**
+Three of these rows argue their own case in the source and the arguments are
+good:
+* `cutscene.rs` states it: *"these systems are gameplay-coupled (rooms, save,
+  schedule) so they live here rather than in `ambition_cutscene` — which sits
+  below this crate and must stay content- and gameplay-free."* Moving it needs a
+  THIRD crate above both.
+* `items/` and `quest/` describe themselves as ADAPTERS over lower runtimes,
+  which is the shape a residual kernel is allowed to keep — the pickup row above
+  measured exactly which part is not.
+* `dev/` is what remained after the `ambition_dev_tools` carve and is scoped to
+  sampling actor state.
+
+⭐ **What the scoring does show is where the WORDS disagree with the layer.**
+Four modules — `session/`, `audio/`, `music/`, and by extension `shrine.rs` —
+call themselves *Ambition-game* in their first line, inside a crate the doctrine
+defines as *"tightly coupled, reusable actor/body simulation"*. A reusable crate
+whose largest module opens with the name of one game is the smell this doctrine
+lists first, and it is 5,764 lines.
+⇒ Not proposed as the next carve — the frontier above has measured candidates
+and this does not. Recorded because the doctrine's list existed unscored, and an
+unscored list reads as satisfied.
 
 ## Explicit non-goals
 

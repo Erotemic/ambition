@@ -82,7 +82,7 @@ classes of defect come with it, and both were live here:
 ✔ **The fold landed 2026-09-02.** A press on a held gun-sword or fireball is
 an `ActionRequest::Ranged` (`fire_held_ranged_system`, `items/pickup/mod.rs`)
 consumed by the same spawner every brain's ranged action uses; the parallel
-`HeldProjectile` simulation — its own world collision, range gate, splash and
+`HeldProjectile` simulation — its own world collision, range gate, splash and <!-- cite-ok: records the deleted parallel simulation -->
 rollback row (`item.held_projectile`) — is deleted, and the fireball's burst is
 `splash_half_extent` on `ProjectileGameplay` (schema v150). The two facts the
 old path decided by code, not authoring — no recoil for the hand, the side

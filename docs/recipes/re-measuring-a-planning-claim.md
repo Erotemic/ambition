@@ -273,3 +273,38 @@ time than writing the finding would have.
 level up: not an instrument that cannot see, but two instruments that see
 different things and report them in the same vocabulary.
 
+
+## Sweeping every named test at once — and what the yield tells you
+
+A `✔` that names a test is only worth its ink if the test still exists. That is
+mechanically checkable across the whole plan set, so it is worth doing once
+rather than one page at a time:
+
+```bash
+# every sentence-shaped backticked identifier in docs/planning …
+grep -rhoE '`[a-z][a-z0-9_]{19,}`' docs/planning --include='*.md' | tr -d '`' | sort -u
+# … minus every function that exists anywhere in the tree
+grep -rhoE '\bfn [a-z0-9_]+' --include='*.rs' --exclude-dir=target . | sed 's/fn //' | sort -u
+```
+
+⛔ **Search `.py` and `.mjs` too, not just `.rs`.** Several plan pages cite
+`scripts/tests/*.py` and `check_*.mjs` tests by name; a Rust-only sweep reports
+them as missing and every one of those is a false positive.
+
+⭐ **THE YIELD IS THE POINT, AND IT WAS LOW — WHICH IS ITSELF THE RESULT.** Run
+2026-09-03 over 162 sentence-shaped candidates: **2** named a function that
+exists nowhere in the tree, and `git log -S` showed both were RENAMES rather
+than deletions —
+`an_intangible_body_publishes_no_hurtbox_and_names_the_reason` →
+`the_artifact_distinguishes_intangible_from_a_coarse_fallback`, and
+`a_subjectless_replay_is_admitted_without_recording_an_intent` →
+`a_subjectless_replay_records_a_reconstitution_and_owns_the_slot`. Neither test
+had been lost; both plan pages had simply kept the pre-rename name.
+
+⇒ **So do not build this into a gate.** A check that fires on ~1% of its
+candidates and whose every hit so far is a benign rename would spend more
+reviewer attention than it returns, and the false-positive rate before filtering
+(377 of 820 raw candidates) is what a naive version would actually report.
+⇒ And when a sweep like this DOES hit, `git log -S"<name>" --all -- '*.rs'`
+answers "renamed or deleted?" in one command — which is the difference between
+repointing a citation and reopening a closed row.

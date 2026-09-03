@@ -1245,10 +1245,19 @@ pub enum RangedCommitment {
 /// consume this list per actor per tick and translate each into a
 /// real hitbox / projectile / FX.
 ///
-/// In Chunk 2 this is the *shape* of the resolver output — actual
-/// resolver wiring (writing hitbox AABBs into a feature-output
-/// channel) lands in Chunk 3 when an actor first uses a brain. For
-/// now the helpers are testable in isolation.
+/// ⭐ THIS IS A LIVE SEAM, NOT A PROPOSED ONE — the comment here said
+/// otherwise until 2026-09-03, describing itself as "the *shape* of the
+/// resolver output" whose wiring "lands in Chunk 3 when an actor first
+/// uses a brain". That wiring landed. Carried by `ActorActionMessage`,
+/// this type is consumed in production by the traversal abilities
+/// (`abilities/traversal/{flyline,trapdoor,teleport}`), by
+/// `features/ecs/brain_effects` and by `ambition_held_items`.
+///
+/// ⛔ AND THE STALE VERSION COST SOMETHING REAL. A planning page listed
+/// "typed action vocabulary rather than free-form mutation" as an unmet
+/// requirement of a future agentic-character runtime, because the seam's
+/// own comment disclaimed it — a reader who trusts the type would have
+/// designed this twice.
 // Not `Copy`: the `Special` variant carries an owned `SpecialActionSpec`
 // (open `String` key). Cloned at the few emit sites; cheap (specials are rare).
 #[derive(Clone, Debug, PartialEq)]

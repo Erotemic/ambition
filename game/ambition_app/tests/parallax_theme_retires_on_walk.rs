@@ -72,6 +72,13 @@ fn layer_asset_ids(app: &App, themes: &[ParallaxTheme]) -> Vec<(ParallaxTheme, A
 }
 
 #[test]
+// ⛔ `--heavy` RE-ENABLES THIS AND SHOULD NOT. `./run_tests.sh --heavy` runs
+// `cargo test --workspace --include-ignored`, which cannot distinguish "ignored
+// because slow" from "ignored because invalid unless alone" — and this is the
+// second kind. Run under `--heavy` its assertions may be satisfied by a
+// sibling's `Assets<Image>`, so the dangerous outcome is a GREEN result that
+// measured nothing. Recorded as member #12 in
+// `docs/recipes/checks-that-did-not-run.md`.
 #[ignore = "boots a real app and reads Assets<Image>: valid only when run alone, via scripts/measure_parallax_retire.sh"]
 fn a_theme_the_player_walked_away_from_leaves_assets_image() {
     let mut app = build_visible_app(VisibleRenderMode::NoWindow, true);

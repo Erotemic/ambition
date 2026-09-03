@@ -46,6 +46,77 @@ Its demonstrated value is:
 > match, encounter_features, abilities: → 48/21 → 49/22 → 50/23), every one a
 > crate boundary drawn through code the sentinel already linked. A number that
 > moves faster than the paragraph quoting it is not a fact the paragraph can hold. A
+>
+> ⛔ **AND THE DIRECTION OF THAT DRIFT NEEDS SAYING OUT LOUD: 45→49 AND 18→22 IS
+> +4 AND +4, THE SAME FOUR.** Every crate that joined the closure since
+> `479f9d3e4` landed in `never_asked_for` — verified against the baseline JSON:
+> `ambition_held_items`, `ambition_body_seed`, `ambition_encounter_features`,
+> `ambition_match` and `ambition_registry_core` are all in that list. Each
+> arrived by a carve commit whose subject is some form of *"X leaves the actor
+> kernel"*.
+>
+> ⇒ **So the headline number gets WORSE as the decomposition succeeds, and that
+> is arithmetic rather than regression.** `closure_size` counts CRATES. Splitting
+> a monolith into a sibling the facade still pulls adds one; it does not add a
+> line of linked code, and it is the work this program asked for. ⚠ **The
+> consequence is that the pair cannot be read as a progress metric in the
+> direction everyone will read it.** A reviewer seeing 22 where the page said 18
+> will infer the footprint got worse, and what actually happened is that four
+> domains became separately nameable.
+>
+> ⭐ **The number that WOULD mean progress is a crate LEAVING the closure, and
+> that is a different act from carving.** It has happened and the log names it —
+> `ab99e70aa` *"Portals leave the movement-only closure too: 43 -> 42"* — and
+> `51600d168` records five leaving unnoticed because the ratchet *"only ever
+> watched crates ENTER"*. ⇒ A carve makes a domain nameable; only cutting the
+> facade's edge to it makes the footprint smaller. Both are needed and the
+> ratchet counts only the first.
+>
+> ⭐ **AND THE EDGE TO CUT IS WRITTEN DOWN IN ONE FILE.** Measured 2026-09-03:
+> **21 of the 22** `never_asked_for` crates are named DIRECTLY in
+> `crates/ambition_platformer2d/Cargo.toml`; only `ambition_registry_core`
+> arrives transitively. This is not a subtle transitive-closure problem — it is
+> the facade's own dependency list.
+>
+> ⛔ **AND THE MEASUREMENT IS ALREADY THE MINIMAL ONE, so the number cannot be
+> argued down.** The sentinel `fixtures/minimal_game` depends on the facade with
+> `default-features = false` and names only the features it uses, and the
+> contract asks cargo's resolver (`cargo tree --edges normal`) rather than
+> walking source. All 22 are linked by a game that asked for as little as the
+> facade permits.
+>
+> | in the facade | count | crates |
+> |---|---|---|
+> | `optional = true` already | 11 | cutscene, dialog, encounter, items, menu, persistence, projectiles, sfx, sfx_bank, ui_nav, vfx |
+> | **unconditional** | 10 | audio, body_seed, boss_encounter, conversation, damage, encounter_features, held_items, match, mount, world_items |
+>
+> ⛔ **BUT THE FACADE EDGE IS NOT THE LEVER FOR THOSE TEN, and the baseline
+> already says so** (`damage_and_mount_classified_2026_09_02`: *"cuttable at the
+> facade, worthless to cut, because the monolith brings them regardless"*). Every
+> one of the ten is an UNCONDITIONAL dependency of
+> `ambition_platformer2d_actor_monolith`, which the sentinel links through the
+> facade whatever the facade's own list says — the baseline's
+> `reachable_via_ambition_platformer2d_actor_monolith_alone` list is the proof,
+> and it is the same set. Making the facade's `ambition_match` edge optional would
+> print 49/22 again. ⇒ The step that moves the number is the one the mount and
+> damage rows name: *the closure should follow the plugin a game INSTALLS, not the
+> dependency its crate declares* — which means the KERNEL's use of each domain
+> becoming optional, and that is this program's stated non-goal ("scatter feature
+> gates through the kernel merely to move a `cargo tree` number") until the
+> domain's construction road has left the kernel as well. Carves land
+> unconditional, by design, until then. (Ruled 2026-09-03 when the facade
+> demonstration was offered.)
+>
+> ⇒ **This also explains the +4/+4 exactly.** `held_items`, `body_seed`, `match`,
+> `encounter_features` and `world_items` are all recent carve outputs, and every
+> one was added to the facade as an UNCONDITIONAL dependency. The carve creates
+> the crate; the facade then names it the only way that guarantees a minimal
+> game links it.
+> ⛔ **DO NOT RETYPE IT — re-derive:**
+> `python3 scripts/check_absence_contracts.py | grep footprint`, which prints
+> the live pair from `scripts/baselines/capability-footprint-baseline.json`.
+> ⚠ It has now drifted FOUR times — 43/16 → 44/16 → 44/17 → 45/18 — and the
+> fourth happened INSIDE the edit that corrected the third, hours apart. A
 > hand-copied ratchet value is a claim with nothing holding it, which is the very
 > failure §2e is about; the command is the only form of this fact that stays
 > true. It ratchets — a new crate entering the

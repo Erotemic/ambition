@@ -23,6 +23,16 @@ REPO = Path(__file__).resolve().parent.parent
 
 # A floor with a little room, not a precise budget — the point is to refuse BEFORE a job dies of
 # ENOSPC and reports it as a compile error.
+#
+# ⚠ MEASURED COUNTER-EXAMPLE, calculex VM, 2026-09-03: this floor PASSED at 42 GB free and
+# `./run_tests.sh --rust` still died of ENOSPC — after all 6957 tests had passed, while writing its
+# own status file, so the traceback pointed at `run_tests.py` rather than at the disk. The run
+# needed more than 42 GB on top of a `target/` that a day of multi-profile work had grown to 267 GB
+# (`target/debug/incremental` alone was 156 GB and is safe to delete).
+# ⇒ Two honest readings, and this comment does not pick between them: the floor is low for a full
+# nextest + doc-test pass, or a `target/` that large inflates what one costs. Whoever raises it
+# should measure a run on a pruned tree first, because the second reading would make a higher floor
+# treat a disposable cache as a requirement.
 MIN_FREE_GB = 40.0
 
 

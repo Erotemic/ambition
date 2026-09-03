@@ -25,6 +25,73 @@
 > inside unrelated identifiers is not evidence either way, which is why the
 > conclusion rests on the concept sweep and not on that one.
 
+> **RE-MEASURED AGAIN against `4149f26b6` (2026-09-03), one layer at a time
+> rather than one foundation at a time — and the diagram below is half built.**
+>
+> | layer in the diagram | state |
+> |---|---|
+> | authoritative world + actor facts | ✔ exists (`world_facts`, above) |
+> | observations / memory / goals | ◐ observations and memory exist (above); **goals do not** |
+> | planner or policy | ⛔ **exists but is CLOSED — see below** |
+> | typed engine action intent | ✔ **exists and is live** |
+> | ordinary actor/control/interact systems | ✔ consume it today |
+>
+> ⭐ **THE ACTION SEAM IS NOT ASPIRATIONAL.** `ActionRequest`
+> (`ambition_characters/src/brain/action_set/mod.rs:1255`), carried by
+> `ActorActionMessage`, is consumed in production by the traversal abilities
+> (`abilities/traversal/{flyline.rs:48,trapdoor.rs:62,teleport.rs:335}`), by
+> `features/ecs/brain_effects.rs` and by `ambition_held_items/src/lib.rs:1454`.
+> Its own doc comment still describes itself as "the *shape* of the resolver
+> output" pending later wiring; that wiring landed, and the comment is stale.
+> ⇒ **The requirement "typed action vocabulary rather than free-form mutation"
+> is already met**, which is worth knowing before anyone designs it again.
+>
+> ⛔ **BUT THE POLICY LAYER ABOVE IT IS A CLOSED ENUM, AND THAT IS A SECOND GATE
+> THIS PAGE DOES NOT NAME.** `CharacterBrainTemplate`
+> (`ambition_characters/src/brain/mod.rs:485`) has nine variants — `StandStill`,
+> `Wanderer`, `MeleeBrute`, `Skirmisher`, `Sniper`, `ChargeCrash`, `Smash`,
+> `Aerial`, `Fighter` — with **no trait object, no registry and no `Custom`
+> arm**. So a new policy provider is a new variant *inside*
+> `ambition_characters`.
+>
+> ⇒ That directly contradicts two of this page's own requirements. "LLM-backed
+> reasoning, scripted planners, utility AI and deterministic fallback brains
+> should be interchangeable policy providers above the same action seam" is not
+> satisfiable as the types stand, and "no dependency from low-level actor/world
+> crates on an LLM service" cannot be honoured by *any* separate adapter crate:
+> the adapter cannot supply a brain without editing the low-level crate that
+> owns the enum.
+>
+> ⇒ **So "wait for navigation" is not the whole wait.** Navigation is owned
+> ([`platformer-navigation-and-reachability.md`](platformer-navigation-and-reachability.md)).
+> The policy seam is not. ⓘ
+> [`control-authority-and-ai-policy.md`](control-authority-and-ai-policy.md)
+> knows this enum and tracks moving `Smash` and `Fighter` behaviour out of the
+> crate — but that is a placement question, and a carve that relocates two
+> variants leaves the enum exactly as closed as it is now. Opening the seam is
+> unowned work, and unlike navigation it is cheap to prototype: it changes a
+> type, not a subsystem.
+>
+> ⚠ **AND THERE IS A `Custom` ARM THAT LOOKS LIKE THE ESCAPE HATCH AND IS NOT.**
+> This was nearly recorded wrongly, so it is worth stating plainly: the workspace
+> has **two** brain vocabularies, and the exhaustive matches outside
+> `ambition_characters` are almost all on the other one.
+>
+> | type | shape | role |
+> |---|---|---|
+> | `entity_catalog::placements::CharacterBrain` | **open** — has `Custom(String)` | what a LEVEL authors on a spawn |
+> | `ambition_characters::brain::CharacterBrainTemplate` | **closed** — nine variants | what the runtime actually runs |
+>
+> The authored `Custom(String)` names a character archetype, not a behaviour —
+> e.g. `CharacterBrain::Custom("giant_gnu_hands")`
+> (`actor_monolith/src/construction/mod.rs:1846`) — and the archetype it names
+> carries a `BrainProfile` whose `template` field
+> (`ambition_characters/src/brain/profile.rs:111`) is one of the same nine.
+> ⇒ **So the string-keyed openness is an AUTHORING indirection that resolves back
+> into the closed set.** It lets content name a new creature; it does not let
+> anything supply a new policy. Anyone sizing this work by grepping for `Custom`
+> will conclude the seam is already open, and it is not.
+
 ## Goal
 
 Let persistent characters pursue goals, move through the world, choose engine

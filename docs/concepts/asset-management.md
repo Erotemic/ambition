@@ -3,7 +3,7 @@ id: asset-management
 aliases: []
 status: current
 authority: durable-concept
-last_verified: 2026-08-30
+last_verified: 2026-09-03
 implemented_by:
   - crates/ambition_asset_manager
   - crates/ambition_load
@@ -60,6 +60,26 @@ resident drawable/usable resource
 A handle being requested is not proof that the source is decoded. A decoded
 image is not proof that its render asset is prepared. Readiness evidence must say
 which boundary it actually proves.
+
+⭐ **THE INSTRUMENT THAT MEASURES THOSE BOUNDARIES HAS A NAME**, and a reader
+asking "which boundary does this prove" should be pointed at it rather than left
+to infer. The image stage ledger
+(`crates/ambition_asset_manager/src/image_stages.rs`, reported by
+`crates/ambition_render/src/asset_census.rs`) collapses the six conceptual
+stages above into the four it can actually observe:
+
+| ledger stage | conceptual stages above |
+|---|---|
+| demand | logical demand |
+| insert | source IO + decode/parse + insert prepared Bevy asset |
+| gpu | render extraction / device preparation |
+| first draw | resident drawable/usable resource |
+
+⚠ **And the last two are only observable where a render app exists.** A headless
+composition reports `cpu_spans=0 gpu_spans=0` and never advances an image past
+`insert` — so a green headless run is evidence about the first two boundaries and
+silent about the other two. An offscreen `capture_scene` run does reach them,
+including on a software rasterizer.
 
 This distinction is operationally important: recent rendered profiling found
 large frame hitches in image render extraction/device preparation even though

@@ -48,6 +48,41 @@ succeeds, the number prints, and the number is about a different question.
 | 18 | "The four unshrunk variants are `_authored_swing_fighter.render` dropping the scale" | A coherent mechanism, in the wrong road: that module is never called for tiers — the variant script resizes for every module-kind target. Two boxes disagreeing is what exposed it | `c77f66425` → reconciled |
 | 17 | "44% of the tree" as the occupancy denominator | Half the MEGAPIXELS are unclaimed but only a fifth of the BYTES — stranded pages are large and empty, so they compress to nearly nothing | `334086d9c` |
 
+## How to run this audit again
+
+It found eight real defects in one evening, so it is worth repeating rather than
+rediscovering. Four passes, cheapest first:
+
+1. **Run every guard and read its REAL exit code.**
+   ```bash
+   for f in scripts/check_*.py; do
+     out=$(timeout 240 python3 "$f" 2>&1); code=$?     # NOT `| head`
+     printf '%-42s exit=%-3s %s\n' "$(basename "$f" .py)" "$code" "$(printf '%s' "$out" | head -1)"
+   done
+   ```
+   ⛔ My first pass piped into `head` and captured `tr`'s status, so every check
+   read `exit=0`. The bug I was hunting, in the tool I was hunting it with.
+   Look for: a traceback, an empty success, and any message that says the check
+   checked nothing.
+
+2. **Compare each guard's denominator against the repository's.** This is the
+   one that found item 25. "4 systems mutate rollback state" is implausibly
+   small for a game with rollback netcode; ask what SOURCE produced the
+   population, not whether the check passed. A guard that reads one file in a
+   repo whose convention is one-file-per-crate is the shape to expect.
+
+3. **Ask which guards assert against the LIVE tree**, not only on fixtures. Most
+   here do; the exceptions are where the coverage gaps hide.
+
+4. **Poison it — and check the poison landed in the guard's population.** Two of
+   my three poisons on the sheet-presence check hit files it deliberately
+   ignores, and each printed a green I could have taken for proof.
+
+⚠ Two habits that make the whole thing cheaper: a tool one call away beats an
+hour of reading (`discover_all_targets()`, `grep -l <shared module>`), and when
+two of your own measurements disagree, the coherent one is not automatically the
+true one.
+
 ## ⭐ What the sweep did NOT find, recorded so nobody repeats it
 
 A crude scan flagged 13 test files that assert an absence against the live tree

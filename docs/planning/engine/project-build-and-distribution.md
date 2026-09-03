@@ -39,6 +39,36 @@ changed from about **5.12 ms to 2.96 ms** when those dependencies returned to
 That does not establish one universal profile for every crate. It does establish
 that large runtime/debug penalties need a measured rebuild payoff.
 
+### The wasm CHECK and LINK, both run 2026-09-03 — green, and the LINK now has a price
+
+`scripts/run_tests.py` plans the web build CHECK in the default plan but the
+release LINK only `if not only and everything`, with the comment that the
+CHECK's price is worth paying and *"the LINK's price (a release wasm artifact) is
+not"*. That judgement was made without the LINK's number. It has one now, from
+the calculex host (6 vCPU, no GPU, `target/` bind-mounted to local ext4):
+
+| job | result | cost |
+|---|---|---|
+| `cargo check … --target wasm32-unknown-unknown --features web_served_assets` | ✔ green | **42.6 s**, dependencies warm |
+| `cargo build --lib --release … --features web` | ✔ green | **18 m 01 s** cold, full wasm32 release graph |
+
+⭐ **Both are GREEN at HEAD**, which is the part nobody could previously assert:
+the LINK is exhaustive-plan-only, so on a normal run it does not execute
+anywhere.
+
+⚠ **The artifact is 238 MB and that is NOT a shipped size.** `ambition_app.wasm`
+straight out of `cargo build` is the PRE-`wasm-bindgen` intermediate;
+`scripts/setup/web_prereq.sh` exists precisely to install the matching
+`wasm-bindgen-cli` that runs next. Quoting 238 MB as "the web build" would be
+wrong in the direction that stops work, so it is recorded here with its stage
+named. What a bindgen'd, size-optimised artifact measures is unknown and is the
+obvious next measurement — this host can take it.
+
+⇒ For the plan-shape question this doc owns: 18 minutes is a real price and an
+honest argument for keeping the LINK out of the default plan. It is not an
+argument for it never running — it had not run, and 18 minutes on an idle
+no-GPU host is cheaper than discovering a broken build target by accident.
+
 ### Optimized incremental builds are not currently a default solution
 
 The repository has seen invalid/corrupt link behavior in the affected optimized

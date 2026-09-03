@@ -6,6 +6,20 @@ The sandbox routes cross-system gameplay side effects through typed Bevy message
 
 The old `FeatureEventBus`, `FeatureEvents`, and `FeatureEcsQueues` bridge layers have been removed. New producers should write typed messages directly instead of adding ad-hoc vectors or custom resource queues.
 
+> **RE-VERIFIED 2026-09-03, and this page had drifted twice.** Its **Review
+> date: 2026-06-02** is the date the `GameplayEffect` split happened, not a
+> currency stamp — and two of the commits that invalidated rows below it landed
+> after: `de22be956` (2026-06-22) merged `apply_npc_stimuli` away, and
+> `ea55d8023` (2026-08-30) deleted `ResetRoomFeaturesEvent`. Both are corrected
+> in place with their successors.
+>
+> ✔ What was checked: every CamelCase type and every `snake_case` name this page
+> cites, against all Rust and RON in the tree. **12 of 12 current-boundary types
+> now resolve** and 49 of 49 function names do. ⚠ What was NOT checked: whether
+> the boundary this page describes is the one the code actually enforces — that
+> the four typed messages are the ONLY route for their effects. Existence is a
+> cheaper question than exclusivity, and only the first was answered.
+
 ## Current boundary
 
 Use the focused progression/save/audio messages for effects that cross into save, quest, encounter, or standalone audio routing. Each has a single consumer system in `features::bus`:

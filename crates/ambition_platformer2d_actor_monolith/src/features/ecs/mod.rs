@@ -152,7 +152,8 @@ pub use save_sync::{
     sync_ecs_actors_with_save, sync_ecs_bosses_with_save, sync_ecs_switches_from_save,
 };
 pub use spawn::{
-    spawn_encounter_mob, spawn_room_feature_entities_from_plan, ActorConstructionContext,
+    serve_encounter_spawn_commands, spawn_encounter_mob, spawn_room_feature_entities_from_plan,
+    ActorConstructionContext,
     OccurrenceContinuity, RoomContentStagingError, RoomContentStagingRegistrationError,
     RoomContentStagingRegistry, RoomFeatureConstructionError, RoomFeatureConstructionPlan,
     RoomFeatureConstructionReceipt,

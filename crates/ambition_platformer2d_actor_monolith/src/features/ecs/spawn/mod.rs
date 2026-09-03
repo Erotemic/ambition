@@ -1047,3 +1047,58 @@ pub fn spawn_encounter_mob(
 
 #[cfg(test)]
 mod tests;
+
+/// Serve the encounter domain's spawn REQUESTS.
+///
+/// ⭐ THE REQUEST ALREADY EXISTED. `ambition_encounter`'s wave director emits
+/// [`ambition_encounter::EncounterEvent::SpawnCommand`] — id, character, kind,
+/// pos, size, all primitives — onto the ordinary event bus. What the actor
+/// kernel had was not a missing protocol but a SERVER living inside the
+/// encounter adapter: the wave driver collected its own `SpawnCommand`s out of a
+/// local vector and spawned them itself, so serving and driving were one system.
+///
+/// This is the server on its own, in the layer that owns body construction.
+/// The domain says WHAT it wants spawned; this crate decides HOW a body is
+/// assembled — the orchestration/construction line the decomposition doctrine
+/// draws.
+///
+/// ⚠ Ordered `.after(WaveEncounterDriven)`: the request and its service are the
+/// same tick, and a reader that ran first would serve last tick's requests.
+pub fn serve_encounter_spawn_commands(
+    mut commands: ambition_platformer2d_shared_tangle::lifecycle::SessionCommands<'_, '_>,
+    mut events: bevy::prelude::MessageReader<ambition_encounter::EncounterEventMsg>,
+    catalog: bevy::prelude::Res<ambition_characters::actor::character_catalog::CharacterCatalog>,
+    prepared: bevy::prelude::Res<ambition_characters::prepared::PreparedCharacterRegistry>,
+    authored_sheets: bevy::prelude::Res<ambition_sprite_sheet::character::sheets::AuthoredSheets>,
+) {
+    let Some(session_scope) = commands.spawn_scope() else {
+        return;
+    };
+    for msg in events.read() {
+        let ambition_encounter::EncounterEvent::SpawnCommand {
+            id,
+            character,
+            kind,
+            pos,
+            size,
+        } = &msg.event
+        else {
+            continue;
+        };
+        spawn_encounter_mob(
+            &mut commands,
+            &catalog,
+            &authored_sheets,
+            &prepared,
+            session_scope,
+            msg.encounter.clone(),
+            ambition_encounter::mob_seed::EncounterMobSeed {
+                id: id.clone(),
+                character: character.as_deref(),
+                brain: ambition_entity_catalog::placements::CharacterBrain::Custom(kind.clone()),
+                pos: ambition_platformer2d_core::Vec2::new(pos[0], pos[1]),
+                size: ambition_platformer2d_core::Vec2::new(size[0], size[1]),
+            },
+        );
+    }
+}

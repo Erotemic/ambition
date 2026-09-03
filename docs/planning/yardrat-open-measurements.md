@@ -81,6 +81,25 @@ paths move, THEN the receipt retires. ⚠ And the guard cannot help with step on
 — it verifies that a document exists at the other end, never that the rule is
 written there. That limitation is now recorded next to the guard itself.
 
+⛔ **AND STEP ONE MAY BE THE WRONG MOVE, which a measurement 2026-09-03 makes
+concrete.** All five durable docs together are **817 lines carrying 34 backticked
+tokens and TWO distinct `ambition_*` crate names** (`engine-architecture.md` and
+`package-and-capability-boundaries.md`, one each; the other three name none).
+That is not an oversight — it is the register those documents are written in.
+So "absorb the rules these rows cite" means teaching crate-level specifics to
+pages whose whole style is crate-free, and the result would read like planning
+status pasted into doctrine. ⇒ Before doing it, ask whether those 15 rows want a
+durable doc AT ALL: a rule about `ambition_load`'s dependency direction may
+belong in that crate's own `MODULES.md`, where it stays next to the code that
+can falsify it. The retirement is blocked on a DESTINATION question, not on
+writing effort.
+
+⭐ **Corollary, measured at the same time: do NOT extend
+`check_planning_citations.py` to `docs/architecture/`.** Ran it there — **5
+citations across 5 files, all resolved.** A doctrine page states principles, so
+there is almost nothing concrete for a citation checker to judge, and the guard
+would cost a permanent lane to watch five references.
+
 ---
 
 ## ⛔ AN IDENTIFIER THAT DOES NOT RESOLVE IS USUALLY HISTORY, NOT ROT

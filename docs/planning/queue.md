@@ -478,7 +478,7 @@ The one unresolved developer-policy choice from the session-ownership work is in
   room never reach the state that spawns them? Neither is answered here; both are
   a build away, and the answer decides whether this joins the doctrine group above
   or the `ConeRigAssets` group.
-  ✔ **THE 37 ARE FIXED (`a3924b2b2`), and my "design choice" framing was wrong.**
+  ✔ **THE 37 ARE FIXED (`8bac49a59`), and my "design choice" framing was wrong.**
   `engine/headless-verification.md` had already ruled on this exact class —
   *"the fix is usually NOT to register the resource. A gizmo or mesh system with
   no render stack should be `run_if(resource_exists::<..>)`-guarded so it

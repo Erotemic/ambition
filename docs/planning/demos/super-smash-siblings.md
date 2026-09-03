@@ -11,12 +11,21 @@ capabilities.
 
 ## Start here
 
-- **Implement the current push:**
-  [`campaigns/smash-fun-push-2026-08-22.md`](campaigns/smash-fun-push-2026-08-22.md).
-- **Choose or inspect a feature:**
+- **Choose or inspect a feature, and start here:**
   [`smash-parity-inventory.md`](smash-parity-inventory.md) is the canonical
   shipped/partial/absent inventory and records the implementation seam for each
   gap.
+- ⛔ **The "current push" was `campaigns/smash-fun-push-2026-08-22.md` and it is
+  CLOSED** — corrected 2026-09-03, when this was still the first thing a new
+  session was told to implement. That file's own header now reads *"execution
+  campaign closed; do not use this file as Smash feature status"* and
+  *"replaying that chronology is actively harmful because the parity inventory
+  has since been reconciled against HEAD"*. ⇒ Read it only for the standing
+  lessons it deliberately retains
+  ([`campaigns/smash-fun-push-2026-08-22.md`](campaigns/smash-fun-push-2026-08-22.md)),
+  never as a task list. ⚠ The campaign closed itself correctly and pointed here;
+  this page is what never learned, which is the direction that rot usually
+  travels — the closing document knows, the linking one does not.
 - **Change reusable combat semantics:**
   [`../engine/combat-model.md`](../engine/combat-model.md) owns the body-generic
   combat contract. The inventory owns feature priority and gap status.

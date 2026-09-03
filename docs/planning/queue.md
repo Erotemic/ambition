@@ -946,7 +946,12 @@ OPTIONAL dep + feature, never used:
      one now; the name's own history supplies the precision, so nothing has to
      guess what is "code-shaped". This is the removed/renamed half of item 4,
      without item 4's `head -1` or its `length >= 8` heuristic.
-     ⚠ RUN IT AT THE CARVE'S PARENT, not at a wide baseline. Measured
+     ⛔ IT COMPARES REF→**HEAD**, NOT REF→THE CARVE, so run it while HEAD *is*
+     the carve. Run a day later, `--vanished <that carve>^` sweeps up every
+     removal since and attributes none of them — the three carves of 2026-09-02
+     returned 10, 1 and 0 hits when run on 09-03, and the 10 were mostly the
+     tier-cap revert, nothing to do with the carve named.
+     ⚠ AND PREFER A FRESH WINDOW to a wide one. Measured
      2026-09-03 over a week: 37 hits, and on inspection essentially all were
      rows RECORDING a removal ("Deleted: `FpsOverlayState`", "the view is
      DELETED") rather than rows made stale by one — docs/planning is clean on

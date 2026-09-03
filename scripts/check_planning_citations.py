@@ -87,6 +87,9 @@ REPO = Path(
     ).stdout.strip()
 )
 
+#: Tracked paths that `git ls-files` lists and the worktree lacks -- reported, never read.
+MISSING_TRACKED: list[Path] = []
+
 # `path/file.rs:123` or `file.rs:123`
 FILE_LINE = re.compile(r"`([A-Za-z0-9_./-]+\.(?:rs|py|ron|toml|sh|md)):(\d+)`")
 # `module::thing` / `Type::method` -- at least one `::`, ordinary Rust idents.
@@ -406,10 +409,39 @@ def vanished_report(docs: list[Path], since: str, defined: set[str]) -> int:
 
 
 def repo_files() -> list[Path]:
+    """Tracked files that are ACTUALLY ON DISK.
+
+    ⛔ `git ls-files` LISTS A FILE THAT HAS BEEN DELETED IN THE WORKTREE and not
+    yet committed, and that broke this checker two ways at once. The loud one:
+    `--comments` reads every tracked `.rs` and died with `FileNotFoundError`
+    mid-sweep, so the run reported nothing at all. The quiet one is worse — the
+    deleted path stays in the name index, so a citation to a file someone just
+    removed still RESOLVES, and the checker's whole job is to catch that.
+
+    ⇒ Filter here rather than at the read sites: one gate keeps the index and
+    every reader honest, and a `try/except OSError` at a read would have fixed
+    only the crash while leaving the citation passing.
+
+    The skipped paths are counted and reported rather than dropped in silence —
+    a large count means a half-finished rename, not a clean tree.
+
+    ⛔ **THE PREDICATE IS `exists()`, AND `is_file()` IS WRONG HERE.** It called
+    seven healthy paths deleted on the first run: the five submodule gitlinks,
+    which `git ls-files` reports as entries and which are directories on disk,
+    plus `game/ambition_content/assets/sprites` and the Mary-O demo's twin —
+    tracked SYMLINKS into the monolith's sprite directory. All seven exist; none
+    is readable as a file; only `exists()` tells the three cases apart.
+    """
     out = subprocess.run(
         ["git", "ls-files"], cwd=REPO, capture_output=True, text=True, check=True
     ).stdout.split()
-    return [Path(p) for p in out]
+    kept = []
+    for rel in (Path(p) for p in out):
+        if (REPO / rel).exists():
+            kept.append(rel)
+        else:
+            MISSING_TRACKED.append(rel)
+    return kept
 
 
 def source_text(suffixes: tuple[str, ...] = (".rs", ".py")) -> str:
@@ -596,6 +628,14 @@ def main() -> int:
     rust_ours = set(QUALIFIER.findall(rust_text)) - deps
     print(f"indexed {len(defined)} defined name(s), {len(ours)} usable qualifier(s)",
           file=sys.stderr)
+    if MISSING_TRACKED:
+        # ⚠ Not a failure — an uncommitted deletion is a normal working state.
+        # But say it, because every citation to one of these paths is now
+        # correctly reported as dead, and that is surprising until you know why.
+        shown = ", ".join(sorted({str(p) for p in MISSING_TRACKED})[:3])
+        print(f"skipped {len(set(MISSING_TRACKED))} tracked file(s) missing from "
+              f"the worktree (deleted, not yet committed): {shown}"
+              f"{' ...' if len(set(MISSING_TRACKED)) > 3 else ''}", file=sys.stderr)
     tracked = {str(p) for p in repo_files()}
     by_suffix: dict[str, list[str]] = {}
     for p in tracked:

@@ -81,6 +81,25 @@ paths move, THEN the receipt retires. ⚠ And the guard cannot help with step on
 — it verifies that a document exists at the other end, never that the rule is
 written there. That limitation is now recorded next to the guard itself.
 
+⛔ **AND STEP ONE MAY BE THE WRONG MOVE, which a measurement 2026-09-03 makes
+concrete.** All five durable docs together are **817 lines carrying 34 backticked
+tokens and TWO distinct `ambition_*` crate names** (`engine-architecture.md` and
+`package-and-capability-boundaries.md`, one each; the other three name none).
+That is not an oversight — it is the register those documents are written in.
+So "absorb the rules these rows cite" means teaching crate-level specifics to
+pages whose whole style is crate-free, and the result would read like planning
+status pasted into doctrine. ⇒ Before doing it, ask whether those 15 rows want a
+durable doc AT ALL: a rule about `ambition_load`'s dependency direction may
+belong in that crate's own `MODULES.md`, where it stays next to the code that
+can falsify it. The retirement is blocked on a DESTINATION question, not on
+writing effort.
+
+⭐ **Corollary, measured at the same time: do NOT extend
+`check_planning_citations.py` to `docs/architecture/`.** Ran it there — **5
+citations across 5 files, all resolved.** A doctrine page states principles, so
+there is almost nothing concrete for a citation checker to judge, and the guard
+would cost a permanent lane to watch five references.
+
 ---
 
 ## ⛔ THIS BOX CAN NO LONGER RUN ITS OWN SUITE WITHOUT A CLEAN
@@ -176,6 +195,20 @@ falsifiable by a grep since `FxResidency` arrived; and two comment citations
 whose fix shipped in the same commit that found them. ⇒ Sweep this class after
 any week of landings, and grep the claim as written — half the value is finding
 sentences that are RIGHT and now read as wrong.
+
+⚠ **AND THE RE-SWEEP THE SAME NIGHT FOUND NOTHING, which sharpens the advice
+rather than repeating it.** The rule above says to sweep this class after any
+week of landings. 2026-09-03 was a night of landings — the pickup carve, the
+`string_id!` consolidation, S2, registry_core R2–R4 — so the class was re-swept
+across all of `docs/planning` a few hours later. **Zero new findings**, and
+every crate-existence claim still held on BOTH trees (`ambition_test_support`,
+`ambition_snapshot`, `ambition_platformer2d_input` absent locally and on
+`origin/main`; `ambition_registry_core` present). ⇒ The mechanism matters: a
+sentence goes stale when someone does the work and *nobody re-reads the page*,
+so the sweep pays across a gap in attention, not across a volume of commits. On
+a night when the sessions doing the landings were also working the pages, there
+is nothing for it to find. Sweep after an unattended week, not after a busy
+night.
 
 ⭐ **BOTH CLASSES ARE STABLE HISTORICAL IDENTIFIERS BY DESIGN.** `queue.md`
 names only 8 D-numbers because *"a closed row is a receipt, not a case file"* —

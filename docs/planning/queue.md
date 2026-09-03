@@ -570,6 +570,41 @@ The one unresolved developer-policy choice from the session-ownership work is in
   exist here at all, so even opting in tonight would have skipped on the
   directory check underneath.
 
+- ▢ **EVERY INTERACTABLE ROOM NPC IS DRAWN BY A PLACEHOLDER FOR ITS FIRST
+  FRAMES, BECAUSE ITS BUNDLE CARRIES NONE OF THE FIVE MARKERS THE VIEW
+  REBUILD SELECTS ON.** Traced by e7 2026-09-03, ruled a DEFECT and not a
+  design call. `rebuild_dynamic_feature_views`
+  (`crates/ambition_sim_view/src/facts.rs:517`) selects by MARKER —
+  `EncounterMob`, `RuntimeStagedActor`, `PostBossNpc`, the two reward chests
+  (`EncounterRewardChest`, `BossRewardChest`), and `SpawnOrigin::Dynamic` loot
+  by construction PROVENANCE. The peaceful-NPC bundle in
+  `crates/ambition_platformer2d_actor_monolith/src/features/ecs/spawn_actors.rs`
+  carries none of them. ⇒ The NPC lands in `FeatureViewIndex` and never in
+  `DynamicFeatureViews`, so its `FeatureVisual` is created by
+  `draw_unclaimed_feature_views` as the PLACEHOLDER — which
+  `upgrade_actor_sprites`' query does not exclude, so **the stand-in entity
+  becomes the body** and `UNCLAIMED_STAND_IN_GRACE_FRAMES` becomes a mandatory
+  5-frame placeholder on every interactable NPC in every room.
+  ✔ **THE SELECTOR AND THE BUNDLE WERE RE-CHECKED HERE 2026-09-03 late without
+  a build, and both premises hold**: `crates/ambition_sim_view/src/facts.rs:517`
+  is exactly
+  `rebuild_dynamic_feature_views`, its filters are the five named above and no
+  others, and a scan of the NPC spawn function's whole body finds **zero**
+  occurrences of any of the five. ⛔ Not checked: the runtime consequence — that
+  the stand-in is what actually draws — which needs a build.
+  ⇒ **The fix is the marker, not the grace window.** Either the NPC bundle
+  carries whatever `rebuild_dynamic_feature_views` selects on, or the actor
+  family claims its view on spawn, so the stand-in never has to become the
+  body. ⛔ **THE GUARD SHIPS AFTER THE FIX**, asserting the property the fix
+  establishes — an interactable NPC's view is claimed the frame its body
+  exists, never by the stand-in — and poisoned by dropping the marker. A guard
+  written first would pin TODAY'S behaviour, which is the bug. e7 has a
+  throwaway probe and is deliberately not shipping it; e7 writes the real guard
+  once the fix lands.
+  ⓘ Needs an owner who can BUILD. Declined here 2026-09-03: this box is at
+  11.8 GB free of 290, below the 40 GB floor, so the Rust lane refuses to start
+  and the fix could not be gated.
+
 - ▢ **THE FEATURE UNION IS RED: 48 failures against 6,968 passes, and 37 of
   them are ONE system.** Measured 2026-09-03 at `dbfb1a2ca` by running the gate's
   own union job standalone (`cargo test --workspace --no-fail-fast --features

@@ -161,6 +161,33 @@ planning breadth/depth and policy quality. It should not scale damage, read
 privileged future state, bypass normal actor control, or remove physical
 constraints merely to make a higher rung win.
 
+### Re-measured 2026-09-03 — the rule HOLDS, by construction rather than by test
+
+✔ **`apply_difficulty` cannot cheat, and you can see why in one function.**
+`crates/ambition_combat/src/brain/smash/difficulty.rs:24` does exactly two
+things: it DROPS an action when a roll exceeds `profile.commit_probability`
+(movement excepted, so the actor never visibly freezes mid-step), and it JITTERS
+aim direction by `profile.accuracy`. No damage term, no future state, no path
+around actor control. The rule above is satisfied by what the function is, not
+by vigilance.
+
+⚠ **But "remain covered" in exit criterion 3 is generous.** The two tests beside
+it — `movement_actions_skip_filter` and
+`hard_difficulty_commits_attacks_almost_always` — pin what difficulty DOES. None
+asserts what it must NOT do, so a future rung that reached for a damage
+multiplier would pass them all. The constraint is currently a property of the
+code's shape, which is a good place for it to be and a bad place to leave
+unstated.
+
+⛔ **AND "DIFFICULTY" NAMES TWO SYSTEMS HERE, one of which legitimately scales
+damage.** `ambition_persistence::settings::gameplay::Difficulty` — the player's
+Easy/Medium/Hard — has `damage_taken_multiplier()`, and a test asserting the
+three are distinct. That is the player-facing setting and scaling damage is its
+job. The rule on this page governs the BRAIN's authored profiles
+(`reaction_delay_s`, `commit_probability`, `accuracy`).
+⇒ An auditor checking this rule will find `damage_taken_multiplier` first and
+must not read it as a violation. Two systems, one word.
+
 ## Exit
 
 This plan can close when:

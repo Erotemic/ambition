@@ -190,3 +190,73 @@ def test_every_waiver_cites_the_code_that_makes_it_true():
         if "⛔" not in why or len(why) < 150
     ]
     assert not thin, f"these waivers assert rather than cite: {thin}"
+
+# ── the live tree ─────────────────────────────────────────────────────────
+#
+# ⛔⛔ EVERY TEST ABOVE RUNS ON A `tmp_path` FIXTURE. They pin the scanner's
+# behaviour — which schedules it recognises, which it forgives — and NONE of
+# them asks the question the check exists to answer: does THIS repository
+# register a rollback mutator into a schedule that does not rewind? Audited
+# 2026-09-02 across all 16 `check_*.py`: this was the one guard whose live-tree
+# answer nothing asserted, while `check_set_pins_have_engine_members` and
+# `check_capability_ships` both had one.
+#
+# ⚠ A desync from a mutator in a non-rewinding schedule is the failure class this
+# repo has paid for repeatedly, and it is silent — the run diverges, nothing
+# throws. A scanner that is provably correct on fixtures and never pointed at the
+# tree is not a guard against it.
+
+
+def test_the_real_tree_registers_no_rollback_mutator_outside_a_rewinding_schedule():
+    """⚠ Against the REAL crates, not a fixture — `collect()` defaults to REPO.
+
+    Measured when this was written: 4 systems mutate rollback state, all of them
+    through the sim schedule. If this ever goes red, the finding is a real
+    desync source and not a scanner bug — the fixtures above already say the
+    scanner reads schedules correctly.
+    """
+    offenders = guard.collect()
+    assert not offenders, (
+        "a system that mutates rollback state is registered into a schedule that "
+        "does not rewind, so its writes survive a rollback and desync the run: "
+        f"{[row[0] for row in offenders]}"
+    )
+
+
+def test_the_live_scan_reasoned_about_something_at_all():
+    """⭐ POSITIVE CONTROL. `collect()` returning nothing is the pass condition —
+    and it also returns nothing if the registry moved, the parse broke, or the
+    source glob went empty. Without this, a scanner reading zero files would
+    certify the tree forever.
+
+    ⛔⛔ AND THE NUMBER HERE IS THE POINT, measured 2026-09-02: the guard's
+    population is **ONE type**, `MovingPlatformSet`, because `rollback_types()`
+    reads a single file — `crates/ambition_platformer2d_runtime/src/rollback/mod.rs`.
+    The repository contains **87 `rollback_*_canonical::<…>` registrations across
+    10 files, naming 113 distinct types**. So the guard above certifies under 1%
+    of the canonical rollback surface, while its own docstring says it "reads the
+    CANONICAL rollback registrations as the source of truth for what is snapshot
+    state".
+
+    ⚠ Widening it is NOT a mechanical change and is deliberately not done here:
+    scanning all production sources takes it from 4 mutating systems to 318 and
+    surfaces 6 candidate offenders, several of which are plausibly legitimate
+    (a capture binary, a dev-menu gravity toggle, a save restore). Each needs the
+    engine judgement this file cannot supply. The row is in
+    `docs/planning/awaiting-maintainer-decision.md`.
+
+    This test therefore pins what the guard ACTUALLY reasons about, so the
+    population cannot shrink further unnoticed — it is not an endorsement of the
+    number.
+    """
+    types = guard.rollback_types()
+    assert types, (
+        "the canonical rollback registry named NO types at all; the file moved "
+        "or the parse broke, and the offender assertion above is certifying an "
+        "empty scan"
+    )
+    mutators = guard.mutating_systems()
+    assert mutators, (
+        "no system anywhere was seen mutating rollback state; the source scan is "
+        "empty and the guard above cannot fail"
+    )

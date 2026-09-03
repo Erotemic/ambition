@@ -2212,6 +2212,15 @@ OPTIONAL dep + feature, never used:
   ⇒ `SpawnActorRequest.name` is INERT for any request naming a character. Pinned
   by `a_staged_actor_naming_a_character_takes_the_characters_label_not_its_requests`,
   which is attributable because its catalog is EMPTY and could join nothing.
+  ✔ **PREMISES RE-CHECKED 2026-09-03 late without a build:** that test still
+  exists — `ambition_platformer2d_actor_monolith/src/construction/tests.rs` —
+  and `game/ambition_content/src/duel_arena.rs:67` still cites it by name — the
+  bare filename is AMBIGUOUS, two tracked files carry it — so the pin and its citation
+  have not drifted apart; `SMASH_FIGHTER_KIT` is still live at 12 references,
+  which is the row's point that it stayed an ability GRANT rather than being
+  retired; and the three ids the row names as authoring from their own demo
+  crates still have no `authored/<id>.rs` anywhere in the tree. ⛔ Not
+  re-checked: whether the tests still PASS, which needs a build.
   Seven comments cited two identifiers that do not exist (`smash_fighter_kit()`,
   `character_id_for_display_name`); all seven now name what is really there.
   ✔ RE-CENSUSED 2026-09-02 AND STILL NO CANDIDATE — the sweep is recorded in the owner doc rather than left as an instruction. Three populations searched (id-keyed branches; writes to `definition.vitals`/`.locomotion`/`.movement_tuning` outside `authored/`; demo writes to facts a demo does not own) and every hit is a character authoring its OWN facts. ⚠ ONE ASYMMETRY, explicitly NOT a slice: `CharacterDefinition` has 22 `with_*` builders and none for `vitals`, so every character assigns the public field — an ergonomic gap with no second road to delete, and the five-part test needs one. ⛔ NOT a residual: eleven grid fighters on the

@@ -165,6 +165,27 @@ is a signal and not a lock. And a page under a header is still fair game for
 somebody fixing a fact they can prove — the header says who is working it, not
 who owns it.
 
+### ⛔ THE TARGET STILL EXISTS, SO NOTHING REPORTS IT — one hazard, three shapes
+
+A citation rots in two ways. The loud way is that its target disappears, and
+every checker in the repo catches that. **The quiet way is that the target
+survives while the MEANING moves**, and no checker can catch it, because
+"resolves" is all a checker knows how to ask. Three sessions found this
+independently on 2026-09-03, in three different shapes:
+
+| shape | what survived | example |
+|---|---|---|
+| **section anchor** into a rewritten page | the page | `decision-principles.md` pointed at `vision.md` §8 "Principles digest"; that page was renumbered and the digest deleted — §8 is now "Execution" |
+| **file path** into a carve's residue | the directory | `demos/sanic.md` and decision 40 cited `items/pickup/mod.rs`; the domain left for `ambition_held_items` and the path survives as the kernel's schedule residue |
+| **line number** inside a growing file | the file | `check_planning_citations.py` verifies only that the file is LONG ENOUGH; a `:NN` pointing at the wrong line passes |
+
+⇒ **The one defence that works is to cite a NAME beside the location.** A path or
+a line number degrades silently; `fire_held_ranged_system` or
+`aabb_path_contacts` fails loudly the moment it moves, because the name is what
+the citation checker actually resolves. ⚠ **And a carve that leaves residue is
+MORE dangerous than one that deletes**, which is the opposite of the intuition:
+deletion is caught, residue is not.
+
 ### ⛔ A PREDICTION SPREADS BY QUOTATION, AND FIXING ONE COPY LEAVES THE OTHERS
 
 One wrong forecast reached three pages on 2026-09-03. `queue.md`'s D33 row said

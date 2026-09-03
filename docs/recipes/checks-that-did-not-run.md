@@ -283,6 +283,25 @@ they are not the same kind of fix.
 Members #2, #7 and #8 are not properties of the code alone — they fire or do not
 fire depending on what is installed where you are standing.
 
+⛔ **AND A STALE SUBMODULE CHECKOUT LOOKS EXACTLY LIKE REPOSITORY ROT.** Measured
+2026-09-03: `test_the_committed_report_matches_a_fresh_generation` failed here
+for a day — the committed runtime-frame-history reports **43** records and
+regenerating produced **41** — and its failure message says the committed file is
+stale and prints the command to regenerate it. ⇒ **Running that command would
+have deleted two Ultra host captures and gone green doing it.** The report was
+not stale; this checkout's `dev/ambition_dev_measurements` was, sitting at
+`8a35405` while the superproject recorded `0255e29` on both the branch and
+`main`. `git submodule update` fixed it and the Python lane went 1-failed →
+**780 passed, 0 failed**.
+
+⇒ **The tell is one character.** `git submodule status` prints `+` before the
+SHA when the checked-out commit differs from the one the superproject records —
+that `+` is the whole diagnosis, and it is easy to read past. ⚠ I reported this
+failure to a coordinator FOUR times as a pre-existing repository defect before
+looking at it. It was never in the repository; everyone else's gate was green.
+⇒ Before calling a generated-artifact mismatch repo rot, check whether the
+generator's INPUT is at the commit the repository asked for.
+
 On the calculex VM on 2026-09-02, `rustup target list --installed` returned
 exactly one target, `x86_64-unknown-linux-gnu`. No `wasm32-unknown-unknown`, no
 `aarch64-linux-android`, `ANDROID_NDK_HOME` unset. A full green gate on that box

@@ -356,3 +356,23 @@ repository**, and the fifth is only visible if someone re-runs the instrument.
 None of them is a broken link, a missing file, or a failing test. That is why
 re-measurement is a person's job here and why the yield stays high — a page can
 be green, well-written, internally cited, and two months wrong.
+
+## ⛔ The instrument error that reports ABSENCE, which is the dangerous direction
+
+A wrong count invites a second look because a number looks like a claim. A wrong
+ZERO looks like a finished check, and it ends the investigation.
+
+Two produced false absences on 2026-09-03, an hour apart:
+
+- **`grep -E "a\|b"`.** Under `-E`, alternation is `|`; `\|` is a LITERAL pipe.
+  The pattern silently searched for the string `a|b`, matched nothing, and the
+  three items it "proved missing" were all present. (`grep "a\|b"` — basic
+  regex — is the form where `\|` alternates. The two spellings are exact
+  opposites and both are silent.)
+- **Searching the wrong tree.** `grep -r gated_by assets/` returned 0 and the
+  authored levels live in `game/ambition_map_assets/`. The real answer was 2.
+
+⇒ **Before believing a zero, prove the instrument can see a POSITIVE.** Run it
+against something you already know is there. Both errors above survive any
+amount of re-reading and die instantly to one control search — and a zero is
+exactly the result nobody re-reads, because it agrees with having finished.

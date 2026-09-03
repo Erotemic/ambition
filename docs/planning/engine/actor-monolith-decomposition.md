@@ -943,7 +943,22 @@ the flag on death-resets too and enable repeat payouts. This is exactly what
 ▢ Still worth a TEST, now with a known expected answer: complete an encounter,
 take the death-reset road, and assert the chest and the flag both SURVIVE.
 
-⇒ **This one needs the owner's answer, not a refactor.** The question is: *does
+✔ **RULED 2026-09-03: the reward clear STAYS WHERE IT SITS, and the trigger must
+not be written twice.** The switch is the feature layer's input, the chest is its
+entity and `reward_looted` is its save fact, so *"a switch-off retires the
+reward"* is room-feature policy today and stays that way — no new published fact,
+no change to WHEN the flag clears.
+⛔ **And it cannot be moved by registration alone**, which is the part worth
+recording: the reward retire is attached to the adapter by POSITION inside a
+save-mutating drain — after a toggle, behind three early `continue`s — and FOUR
+unrelated policies (a quest flag, `FlipGravity`, the four `SetGravity` faces, the
+encounter reset) share that one queue. The clear is stuck to the adapter by that
+LOOP, not by encounter logic. Moving only the registration would mean
+re-implementing the filter beside the original.
+⇒ Its release is downstream of the switch-loop split, specced above as its own
+frontier item.
+
+⇒ **The remaining question was an owner's, and it is answered.** The question is: *does
 the encounter domain own "my reward is retired", or does the feature layer own
 "a chest whose encounter is no longer cleared goes away"?* The first is a new
 published fact; the second is a rule the feature layer can evaluate for itself

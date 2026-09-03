@@ -280,20 +280,24 @@ def unresolved_commits(root: Path, docs: list[Path]) -> tuple[list, list[str]]:
     #
     # ⚠ A remote BRANCH is fine — citing unmerged work is legitimate. What is
     # not fine is a sha reachable from nothing.
-    unreachable = []
-    for name in resolved_here:
-        if subprocess.run(
-            ["git", "merge-base", "--is-ancestor", name, "origin/main"],
-            cwd=root, capture_output=True,
-        ).returncode == 0:
-            continue
-        # not on main: accept any other ref, reject reachable-from-nothing
-        on_ref = subprocess.run(
-            ["git", "branch", "-a", "--contains", name],
-            cwd=root, capture_output=True, text=True,
-        ).stdout.strip()
-        if not on_ref:
-            unreachable.append(name)
+    # ⚠ TWO GIT CALLS, NOT ONE PER SHA. A `merge-base --is-ancestor` per citation
+    # is ~239 processes and was 10 s of the repo-tooling lane; the set of commits
+    # reachable from every ref is one walk, and membership is then free.
+    reachable = set(subprocess.run(
+        ["git", "rev-list", "--all"], cwd=root, capture_output=True, text=True,
+    ).stdout.split())
+    full = {}
+    if resolved_here:
+        query = "".join(f"{n}^{{commit}}\n" for n in resolved_here)
+        out = subprocess.run(
+            ["git", "cat-file", "--batch-check"], cwd=root,
+            input=query, capture_output=True, text=True,
+        ).stdout.splitlines()
+        for name, line in zip(resolved_here, out):
+            parts = line.split()
+            if len(parts) >= 2 and parts[1] == "commit":
+                full[name] = parts[0]
+    unreachable = [n for n, sha in full.items() if sha not in reachable]
     findings.extend(
         (rel, lineno, f"`{name}`  (exists locally, reachable from NO ref — "
                       "rebased away or on a deleted branch; push it or cite the "

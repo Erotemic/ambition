@@ -466,6 +466,62 @@ form:
 Keep this semantic ownership. Do not replace it with a disconnected global
 cache merely to centralize bookkeeping.
 
+## ⭐ MEASURED 2026-09-03: the unclaimed-body placeholders are a TIER-SCALED RAMP, not a bug in claiming
+
+Two headless `capture_scene hall_of_characters player 640x360 --warmup 400` runs
+at HEAD, differing only in `AMBITION_QUALITY_PROFILE`:
+
+```text
+profile=Potato    0 actors drew the unclaimed-body placeholder
+profile=Ultra   129 actors drew it ("no render family claimed `NpcSpawn-…`
+                    (Actor) for 5 consecutive frames")
+```
+
+⇒ **The mechanism is the materialization budget, and it is areal.**
+`MATERIALIZATION_UNITS_PER_FRAME` is `MAX_CHARACTERS_MATERIALIZED_PER_FRAME * units(Full)`
+= 16, and `materialization_units` charges **Full 16, Half 4, Quarter/Potato 1**.
+So the engine realizes **one** character per frame at Full and **sixteen** at
+Potato — a 16× ramp difference over the same cast. The placeholder warning trips
+after 5 CONSECUTIVE unclaimed frames, so a long ramp trips it for every actor it
+has not reached yet, and a short one trips it for none.
+
+⭐ **THIS IS THE SAME FAMILY AS THE "111 actors not materialized" WARNING** the
+host run saw on the Hall reveal — 129 here, 111 there — and it says the count is
+a function of the TIER and the cast size, not of a broken claim path. The
+warning's own wording (*"Some spawn path is missing its family marker"*) points
+at a spawn bug, and at least in this reproduction that is not what it is.
+
+⛔⛔ **AND THE COVER HAD ALREADY LIFTED. The barrier and the renderer do not mean
+the same thing by "ready".** The same Ultra log:
+
+```text
+[first-room-art] room 'hall_of_characters' ready after 10 UPDATES
+                 (1 of them waiting only on GPU uploads): 164 assets, 129 characters
+```
+
+Ten updates — for a cast the engine can realize at **one character per frame**
+at Full. Then 129 placeholder warnings, all inside a single millisecond, once
+the 5-frame threshold passes.
+
+⇒ **`inspect_demanded_characters` asks whether the SHEET is settled, never
+whether a RENDER FAMILY has claimed the body**
+(`world_flow/room_transition_assets.rs:347`): a token counts as ready when
+`sheet_state` is `Ready`, or when it is `Declared` and
+`states.outcome(..).is_some()` — *any* terminal outcome. Claiming is a later,
+rationed step, and nothing in the barrier waits for it.
+
+⭐ **THAT IS A THIRD CAUSE for the "not materialized" warning, and it is not one
+of the three the open row proposed** (prefetch scope, retired realizations,
+re-decode). It is a DEFINITION MISMATCH: the cover is released against
+sheet-settled and the picture is drawn against family-claimed, with a 16×
+tier-scaled ration between them.
+
+⚠ **WHAT IS NOT ESTABLISHED**, and it is the one thing a fix would need: that
+the 129 placeholder actors ARE the 129 demanded characters. The warnings name
+`NpcSpawn-…` entity ids and the barrier counts character TOKENS; the counts
+match exactly, which is suggestive and is not proof. ⇒ Cheapest next step is to
+log both sets once and intersect them, not to change the barrier.
+
 ## Open work
 
 ### 1. Stage-specific observability

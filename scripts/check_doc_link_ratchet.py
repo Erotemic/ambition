@@ -42,6 +42,13 @@ CRATES = [
     # D33 cut 2b (2026-09-03): the match preparation crate. Added in the carve's
     # own window this time, which is what the comment above asks for.
     "ambition_match",
+    # Added by the post-carve pass rather than by the carves themselves
+    # (2026-09-03): `ambition_abilities` carries 434 doc-comment lines and
+    # `ambition_encounter_features` 142, so the monolith's count falls as they
+    # take theirs and nothing counts the destination. That is the "reduced
+    # coverage reads as improvement" failure this list's own comment predicts.
+    "ambition_abilities",
+    "ambition_encounter_features",
 ]
 
 # rustdoc's two shapes for this class.

@@ -423,6 +423,22 @@ The one unresolved developer-policy choice from the session-ownership work is in
     estimate**: the tool states size predicts compile cost at only R²=0.12, so
     every SECONDS figure above is wrong for these four by an unknown factor.
     `python3 scripts/compile_collect.py` measures them.
+  ⊙ **RE-RUN 2026-09-03 after five more carves, and the campaign's two best
+  numbers are here rather than in any prose:**
+  * ⭐ **THE MONOLITH IS UNDER 100,000 LINES.** `largest_unit_lines`
+    108,364 → **98,808** (−9,556), which the ratchet flags as OUTSIDE its ±2,167
+    budget — in the good direction, and therefore as a baseline that is now
+    stale rather than as a failure.
+  * ⭐ **AND UNDER HALF THE WORKSPACE'S EDIT COST.** The monolith's
+    `edit_cost_lines` share 50.5% → **46.9%** (−3.6 pts). That is the number the
+    whole decomposition is for.
+  * ⚠ `critical_path_crates` 14 → **16** and `UNPRICED` 4 → **7**
+    (`ambition_abilities`, `ambition_body_seed`, `ambition_encounter_features`,
+    `ambition_held_items`, `ambition_match`, `ambition_registry_core`,
+    `ambition_world_items`) — every carve adds one of each, and the seconds
+    columns stay a placeholder until someone spends the release rebuild.
+  * the two REGRESSED lines moved a little further out (+32,394 and +31,915
+    against ~+10,800 budgets), unchanged in character.
   * ⭐ **CARVED — two real wins the baseline is not holding**:
     `worst_edit_cost_seconds` 1,702.5 → 1,648.9 (−53.6 s) and
     `edit_cost_seconds` (the monolith) 1,264.9 → 1,139.5 (−125.4 s). The
@@ -1127,7 +1143,8 @@ OPTIONAL dep + feature, never used:
 
   1. **`python scripts/modules_md.py`** — must print *"MODULES.md up to date"*.
      A carve moves modules; the maps are generated and go stale silently.
-     (73 crates as of 2026-09-03, after D33 cut 2b added `ambition_match`;
+     (75 crates as of 2026-09-03, after `ambition_abilities` and
+     `ambition_encounter_features` landed;
      70 the day before. ⛔ AND IT WAS STALE WHEN THAT CUT LANDED — not from the
      cut: `4ac56a996` added `ambition_encounter/src/mob_seed.rs` and left its
      map at 17 modules. Regenerated in the post-carve pass, which is what this
@@ -1272,15 +1289,6 @@ OPTIONAL dep + feature, never used:
      declared derived at `2eaa0f479`'s parent. ⚠ A carve is not the only thing
      that trips this: any commit that adds simulated state does.
 
-  11. **⛔⛔ THE COMPILE-COST RATCHET IS A PER-CARVE LEDGER AND IT IS RED.**
-     `python3 scripts/compile_ratchet.py` — 2 s, in the default gate, and it
-     fails the gate today. It is the ledger the D33 campaign is accumulating
-     debt in, and every one of its five messages is about a carve:
-     `REGRESSED` ×2, `PATH` (the serial chain got longer), `UNPRICED` (a new
-     crate has no measured cost), `CARVED` (a win whose baseline is now stale).
-     ⇒ A carve that adds a crate touches ALL of them at once, which is why it
-     belongs on this list rather than in a campaign doc.
-
   10. **⛔ IF THE CARVE'S DESTINATION HOLDS DOC COMMENTS, add it to
      `check_doc_link_ratchet.py`'s `CRATES` — IN THE CARVE'S OWN COMMIT.** That
      list carries the instruction already ("when architecture moves out of a
@@ -1293,6 +1301,15 @@ OPTIONAL dep + feature, never used:
      `bf4e6f353`; it is one line in the carve if you remember.
      ⚠ Reachable locally only since `3e85e4071` — it is a cold `cargo doc` over
      nine crates and lives in `./run_tests.sh --maintenance`, not the gate.
+
+  11. **⛔⛔ THE COMPILE-COST RATCHET IS A PER-CARVE LEDGER AND IT IS RED.**
+     `python3 scripts/compile_ratchet.py` — 2 s, in the default gate, and it
+     fails the gate today. It is the ledger the D33 campaign is accumulating
+     debt in, and every one of its five messages is about a carve:
+     `REGRESSED` ×2, `PATH` (the serial chain got longer), `UNPRICED` (a new
+     crate has no measured cost), `CARVED` (a win whose baseline is now stale).
+     ⇒ A carve that adds a crate touches ALL of them at once, which is why it
+     belongs on this list rather than in a campaign doc.
 
   ⛔⛔ RE-MEASURED 2026-08-31: the owner doc's
   "only four dependencies are single-path" list is STALE — `ambition_dev_tools`
@@ -2315,9 +2332,9 @@ OPTIONAL dep + feature, never used:
   ⛔ AND THE CODE'S OWN DOC WAS WRONG TOO: the no-feature module claimed the take
   *"carries no `causal` array at all"*. It always carried `[]`.
 
-- ▢ **CAPABILITY FOOTPRINT: 48 crates linked, 21 a movement-only game never
-  asked for — and the count CANNOT fall by a manifest edit.** (⚠ this number has drifted SIX times; `python3 scripts/check_absence_contracts.py | grep footprint` prints the live pair. 45/18 as of `479f9d3e4`, when `ambition_registry_core`
-  entered the closure; 46/19 as of `bbfa38a3d`, when `ambition_held_items` did; 47/20 as of `83460e3f3`, D33 cut 1, when `ambition_body_seed` did; 48/21 as of `7e625e5a5`, cut 2b, when `ambition_match` did. ⭐ EVERY ONE OF THOSE RISES IS A CARVE PAYING ITS DEBT — do not read the series as regression.) (Scheduled
+- ▢ **CAPABILITY FOOTPRINT: 50 crates linked, 23 a movement-only game never
+  asked for — and the count CANNOT fall by a manifest edit.** (⚠ FIVE pairs are recorded below and none of them is authoritative; `python3 scripts/check_absence_contracts.py | grep footprint` prints the live one. 45/18 as of `479f9d3e4`, when `ambition_registry_core`
+  entered the closure; 46/19 as of `bbfa38a3d`, when `ambition_held_items` did; 47/20 as of `83460e3f3`, D33 cut 1, when `ambition_body_seed` did; 48/21 as of `7e625e5a5`, cut 2b, when `ambition_match` did; 50/23 on 2026-09-03 when `ambition_abilities` and `ambition_encounter_features` did. ⭐ EVERY ONE OF THOSE RISES IS A CARVE PAYING ITS DEBT — do not read the series as regression.) (Scheduled
   2026-09-02 from ambition-da's docs pass; re-worded the same night after
   ambition-da re-derived it, `2068bcd31`.) The instrument is installed:
   `capability-footprint-may-not-grow` in `scripts/check_absence_contracts.py`

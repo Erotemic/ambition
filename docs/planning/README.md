@@ -257,6 +257,33 @@ done
 A target that reaches zero needs a row somewhere first. That is what
 `tracks.md`'s moveset-observatory row is for, and why it says so in the row.
 
+⛔⛔ **AND "ZERO INBOUND REFERENCES" IS ALMOST ALWAYS MEASURED OVER `docs/`
+ALONE.** On 2026-09-03 `engine/decomposition.md` was retired on exactly that
+finding, and nine rows in `tests/ambition_workspace_policy/policies/*.toml` were
+still citing it — TOML strings, which no `.md` sweep and no markdown-link
+checker reads.
+
+⇒ **Measured the same day, so the size of the gap is known**: 140 distinct
+`docs/**.md` paths are cited from NON-markdown files, and **ten of them do not
+exist** — nine in crate `Cargo.toml` `description` fields
+(`docs/current/state.md`, `docs/systems/architecture.md`,
+`docs/planning/engine/decomposition.md#E5`) and one in `scripts/regen/sprites.sh`.
+Some are years stale. Nothing checks them: `check_doc_links.py` walks `docs/`,
+`check_planning_citations.py` walks `docs/planning/`.
+
+⇒ **So a retirement's reference sweep must state WHICH TREES it covered**, and
+cover at least these:
+
+```sh
+git ls-files | grep -v '\.md$' | xargs grep -l "<the retired path>"
+```
+
+⚠ Two false-positive classes to expect, both legitimate and neither rot:
+`scripts/check_agent_kb.py`'s `FORBIDDEN_LIVE_PATHS` names retired pages ON
+PURPOSE (it asserts they do NOT exist), and `check_doc_links.py`'s
+`STALE_PATH_HINTS` does the same. A sweep that reports those as broken is
+reporting its own guards.
+
 ### ⛔ A NUMBER TYPED INTO PROSE IS A CLAIM WITH NOTHING HOLDING IT
 
 Five separate figures on these pages drifted in the SAME NIGHT (2026-09-03), and

@@ -472,6 +472,25 @@ The one unresolved developer-policy choice from the session-ownership work is in
     though they were measurements, which is the same class of error as the
     unreproducible figures `README.md` now warns about.
 
+- ▢ **A ROLLBACK TEST IN THE CAPABILITY DEMO DIES IN BEVY, AND IT IS NOT NAMED
+  ANYWHERE ELSE.** `examples/capability_demo`'s
+  `rollback_round_trip::the_cooldown_the_profile_and_the_velocity_survive_a_real_rewind`
+  panics with `called Result::unwrap() on an Err value:
+  ArchetypeExists(ComponentId(49))`, raised inside `bevy_ecs-0.19.1`'s
+  `world/mod.rs` — the shape of a component registered twice in the demo's
+  rollback setup.
+  ⭐ **Reproduced in BOTH exhaustive runs of 2026-09-03**, identically, including
+  the first on `7ca535427` — before `ambition_abilities` existed — so it is
+  pre-existing and not a carve regression. ⚠ I first hypothesised mid-suite disk
+  exhaustion for this job and that was WRONG: `external consumer: outlander`
+  failed for that reason and passes now, while this one fails the same way on a
+  tree with room to spare. A plausible cause is not a diagnosis; running it twice
+  is what separated them.
+  ⇒ Next step is the smallest reproduction: the demo declares four
+  implementation crates directly (`ambition_content_pack`, `ambition_causal`,
+  `ambition_input`, `ambition_platformer2d_core`), so a double registration
+  between one of those and the facade is the first place to look. Owner: whoever
+  holds the capability-demo/SDK surface.
 - ▢ **THE FEATURE UNION IS RED: 48 failures against 6,968 passes, and 37 of
   them are ONE system.** Measured 2026-09-03 at `dbfb1a2ca` by running the gate's
   own union job standalone (`cargo test --workspace --no-fail-fast --features
@@ -493,7 +512,11 @@ The one unresolved developer-policy choice from the session-ownership work is in
   are mary_o assertions, and at least one fails BY CONSTRUCTION under an
   all-features build: `the_presentation_plugin_adds_no_hud_and_no_menu` asserts
   0 UI nodes and gets 40, which is what enabling every presentation feature at
-  once is *supposed* to do. Whether those tests should be feature-scoped, or the
+  once is *supposed* to do. ⚠ **Re-measured 2026-09-03 late: it reports 16 now,
+  not 40 — the COMPOSITION changed under this row and the judgement did not.**
+  Five crates left the actor monolith that day, so the union resolves a
+  different presentation set; the ruling below (feature-scope these tests or
+  exclude them from the union, and do NOT widen the assertion) is unaffected. Whether those tests should be feature-scoped, or the
   union should exclude them, is a judgement for whoever owns the demos doctrine
   — do not "fix" them by widening the assertion.
   ⭐ **AND I CHECKED WHETHER THAT RULING ALREADY EXISTS, so nobody repeats the

@@ -22,7 +22,16 @@ Use domain-specific messages when the consumer is known and the payload is more 
 - `HitEvent` (carrying a `HitSource` + `HitTarget`) for **all** combat damage — player slash/projectile against feature targets, pogo-bounce orbs, and hazard/enemy/boss damage against the player. This replaces the old split damage-message family.
 - `ActorActionMessage` for resolved brain/action requests that spawn or start concrete effects.
 - `GameplayBannerRequested` for HUD banner text from systems whose parameter list is already large.
-- `ResetRoomFeaturesEvent` for same-room feature reset.
+- ⛔ **`ResetRoomFeaturesEvent` IS DELETED — this row named it as current until
+  2026-09-03.** Removed 2026-08-30 in `ea55d8023` (*"the replay reset the world,
+  then found out it was not allowed to happen"*), which is also why: the message
+  let a reset be seen while no body existed and re-read several frames later
+  against a different world. Same-room reset now goes through
+  `ambition_combat::events::RoomReplayAdmitted`, written by
+  `actor_monolith/src/shrine.rs` and **drained unconditionally** for exactly that
+  reason. ⇒ The successor is not a rename: it is a message with a different
+  lifetime rule, so a producer copying the old row would reintroduce the defect
+  the deletion fixed.
 
 Presentation facts that already have a concrete presentation type should use the existing presentation messages directly, for example `SfxMessage`, `VfxMessage`, and `DebrisBurstMessage`.
 

@@ -1028,6 +1028,44 @@ from `ClearedEncounters`, which already exists. The second is smaller and needs
 no new vocabulary — but it changes WHEN the save flag clears, which is player-
 visible.
 
+#### The adapter itself can now leave — measured 2026-09-03, SPEC, not started
+
+With the seams down to one registration, the remaining question is whether
+`crates/ambition_platformer2d_actor_monolith/src/encounter/` can simply move
+INTO `ambition_encounter`. Measured, it can, and the list is short.
+
+**The apparent cycles are not cycles.** The adapter's files mention
+`ambition_content`, `ambition_platformer2d` (the facade) and
+`ambition_platformer2d_host` — all three ABOVE the encounter domain. Every one of
+those mentions is a COMMENT, an `include_str!` path to a content asset
+(`encounter/loading.rs:23`), or a log TARGET string literal
+(`encounter/systems.rs:119`). None is a crate dependency. ⚠ A `cargo tree`-shaped
+reading of the module would have reported three impossible edges.
+
+**What the move actually costs** — four production dependencies
+`ambition_encounter` does not yet have, none of which depends on it, so no cycle:
+
+| crate | references in the adapter |
+|---|---:|
+| `ambition_combat` | 14 |
+| `ambition_platformer2d_world` | 8 |
+| `ambition_gameplay_trace` | 2 |
+| `ambition_time` | 1 |
+| `ambition_platformer2d_ldtk` | 3, **tests only** → a dev-dependency |
+
+**The one seam that must move the other way first.** `encounter/mod.rs` schedules
+`crate::features::serve_encounter_spawn_commands` — the KERNEL's spawn server.
+A plugin living in `ambition_encounter` cannot name it. ⇒ That registration moves
+to a feature-layer plugin composed by the runtime, exactly as
+`EncounterRewardSyncPlugin` took the reward systems. After that the encounter
+plugin names nothing in the kernel and the module is free.
+
+⚠ **Then check the footprint ratchet, and expect it to move for the usual wrong
+reason**: `capability-footprint-baseline.json` counts CRATES, so a module
+changing crates while the linked code goes slightly DOWN still reads as growth.
+Declare it in the idiom the `mount`/`damage`/`world_items` rows use.
+▢ Not started; the seam-reversal above is the first step and is small.
+
 **Guards that pin it**, same shape as `ambition_world_items`/`ambition_held_items`:
 three policy rows (`engine.<crate>-manifest-allow`,
 `engine.<crate>-source-purity`, `engine.runtime-manifest-allow`), both

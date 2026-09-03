@@ -109,8 +109,8 @@ items/pickup/mod.rs                          1,857 lines (HEAD, 2026-09-03)
   everything else                               MOVES   (names nothing outside itself)
 ```
 
-Also moving: `pickup/conditions.rs` (zero `crate::` references) and
-`pickup/tests.rs`. **`pickup/minted_horizon.rs` STAYS** — its one kernel
+Also moving: `pickup/conditions.rs` (zero `crate::` references) and <!-- cite-ok: the pre-cut path (moved to ambition_held_items 2026-09-03), kept as the record -->
+`pickup/tests.rs`. **`pickup/minted_horizon.rs` STAYS** — its one kernel <!-- cite-ok: the pre-cut path (moved to ambition_held_items 2026-09-03), kept as the record -->
 reference is `session::durable_horizon::SaveRestored`, whose own move is a
 different job.
 

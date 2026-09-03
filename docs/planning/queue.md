@@ -1187,7 +1187,7 @@ The one unresolved developer-policy choice from the session-ownership work is in
   reads authored records. Neither has to move for the domain to leave, and
   neither needs an inversion designed first — which is what "one construction
   seam to resolve" (written an hour earlier, on the coarser cut) got wrong.
-  ⚠ The tests are a separate 1,789 lines (`pickup/tests.rs`) and are NOT included
+  ⚠ The tests are a separate 1,789 lines (`pickup/tests.rs`) and are NOT included <!-- cite-ok: the pre-cut path (moved to ambition_held_items 2026-09-03), kept as the record -->
   in that count; they move with the code and are most of the remaining work.
   ⚠ And the consumer surface is real: games name `actors::items::pickup::` about
   twenty times across `ambition_app`'s tests and the smash demo, so the carve ends
@@ -1226,8 +1226,8 @@ The one unresolved developer-policy choice from the session-ownership work is in
   2. The new crate takes everything in `items/pickup/mod.rs` EXCEPT the plugin
      block and `restore_custody_to_checkpoint` — ⚠ bound them by NAME, not by
      the line numbers above, which have already moved once, plus
-     `pickup/conditions.rs` (80 lines, zero `crate::` references) and
-     `pickup/tests.rs`. ⚠ `pickup/minted_horizon.rs` STAYS for now: its single
+     `pickup/conditions.rs` (80 lines, zero `crate::` references) and <!-- cite-ok: the pre-cut path (moved to ambition_held_items 2026-09-03), kept as the record -->
+     `pickup/tests.rs`. ⚠ `pickup/minted_horizon.rs` STAYS for now: its single <!-- cite-ok: the pre-cut path (moved to ambition_held_items 2026-09-03), kept as the record -->
      kernel reference is `session::durable_horizon::SaveRestored`, a one-field
      bool with 40 references across 13 files, which is its own move and not this
      one's.

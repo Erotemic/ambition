@@ -657,7 +657,7 @@ deleted. Do not replace one central switch with another.
 it.** `src/items/` is 6580 lines against `ambition_items`' 1975, which reads like
 a domain sitting in the wrong crate. It is not:
 
-* 1864 of those lines are `pickup/tests.rs`, plus ~270 more in sibling test
+* 1864 of those lines are `pickup/tests.rs`, plus ~270 more in sibling test <!-- cite-ok: the pre-cut path (moved to ambition_held_items 2026-09-03), kept as the record -->
   modules — about **4.4k lines of production code**, not 6.6k;
 * `ambition_items` already owns what the doc asks a domain to own — the 24-slot
   catalog, owned-item state, the shop, and the `item_catalog` content schema;

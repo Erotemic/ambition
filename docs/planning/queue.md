@@ -972,9 +972,11 @@ OPTIONAL dep + feature, never used:
 
   1. **`python scripts/modules_md.py`** — must print *"MODULES.md up to date"*.
      A carve moves modules; the maps are generated and go stale silently.
-     (Clean for all 71 crates as of 2026-09-03 — it was 70 the day before;
-     three carves added `ambition_held_items`, `ambition_world_items` and
-     `ambition_registry_core`, and one dev crate landed.)
+     (72 crates as of 2026-09-03, after D33 cut 1 added `ambition_body_seed`;
+     70 the day before. ⛔ AND IT WAS STALE WHEN THAT CUT LANDED — not from the
+     cut: `4ac56a996` added `ambition_encounter/src/mob_seed.rs` and left its
+     map at 17 modules. Regenerated in the post-carve pass, which is what this
+     item is for.)
   2. **`python scripts/check_planning_citations.py`** — a carve renames or moves
      the very symbols the planning rows cite. ⭐ **AND THEN `--vanished <the
      carve's parent SHA>`**, which catches what the default run cannot see:
@@ -2086,9 +2088,9 @@ OPTIONAL dep + feature, never used:
   ⛔ AND THE CODE'S OWN DOC WAS WRONG TOO: the no-feature module claimed the take
   *"carries no `causal` array at all"*. It always carried `[]`.
 
-- ▢ **CAPABILITY FOOTPRINT: 46 crates linked, 19 a movement-only game never
-  asked for — and the count CANNOT fall by a manifest edit.** (⚠ this number has drifted FOUR times; `python3 scripts/check_absence_contracts.py | grep footprint` prints the live pair. 45/18 as of `479f9d3e4`, when `ambition_registry_core`
-  entered the closure; 46/19 as of `bbfa38a3d`, when `ambition_held_items` did.) (Scheduled
+- ▢ **CAPABILITY FOOTPRINT: 47 crates linked, 20 a movement-only game never
+  asked for — and the count CANNOT fall by a manifest edit.** (⚠ this number has drifted FIVE times; `python3 scripts/check_absence_contracts.py | grep footprint` prints the live pair. 45/18 as of `479f9d3e4`, when `ambition_registry_core`
+  entered the closure; 46/19 as of `bbfa38a3d`, when `ambition_held_items` did; 47/20 as of `83460e3f3`, D33 cut 1, when `ambition_body_seed` did. ⭐ EVERY ONE OF THOSE RISES IS A CARVE PAYING ITS DEBT — do not read the series as regression.) (Scheduled
   2026-09-02 from ambition-da's docs pass; re-worded the same night after
   ambition-da re-derived it, `2068bcd31`.) The instrument is installed:
   `capability-footprint-may-not-grow` in `scripts/check_absence_contracts.py`

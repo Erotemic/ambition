@@ -157,6 +157,7 @@ dependencies = [
  "ambition_binding",
  "ambition_platformer2d_core",
  "ambition_projectile_spec",
+ "ambition_registry_core",
  "bevy",
  "tracing",
 ]
@@ -198,6 +199,10 @@ version = "0.1.0"
 dependencies = [
  "bevy_math",
 ]
+
+[[package]]
+name = "ambition_registry_core"
+version = "0.1.0"
 
 [[package]]
 name = "android-activity"

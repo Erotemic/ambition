@@ -1482,9 +1482,90 @@ targets that re-render instead of downscaling" — the exact opposite:
 `module`. ⭐ I built all three by reading the generator and comparing configs;
 the answer came from RUNNING `discover_all_targets()` and asking it.
 
-▢ **`author`, `medic` and `officer` remain unexplained** — `module`-kind, written
-minutes after their own full sheets, genuinely unshrunk. Their mechanism is
-still open.
+ⓘ **A SWEEP FOR OTHER DEAD TARGETS FOUND ONE, AND THE SWEEP'S BOUNDS ARE THE
+INTERESTING PART.** Of 212 sheet targets, exactly one is BOTH absent from
+`discover_all_targets()` AND unnamed by engine or content: `pirate_heavy_v2`
+(10 files, 2.58 MB, unique bytes — not a duplicate of the four named
+`pirate_heavy_*` sheets). ⛔ **The other 27 targets nothing names ARE NOT A
+FINDING**: they are authored characters not yet wired, and content breadth is
+not gated here — a guard over them would pressure exactly the thing the project
+wants unpressured. No ratchet was written for this.
+
+⚠ **The sweep is bounded in both directions and neither bound is small.** A
+quoted-string grep over `.rs`/`.ron`/`.json` alone reports **106** of 212 dead,
+because the character catalogs are YAML and `git grep` does not enter
+submodules. A bare-name grep over every text type reports **ZERO**, because the
+renderer defines a module per target and `assets/sprites/<name>_spritesheet.yaml`
+names itself — a generated file naming itself is not a reference. The usable
+predicate excludes the asset trees and the renderer, and it still MISSES
+`actor`, whose bare name collides with `ACTOR_CONSTRUCTION_DOMAIN = "actor"`.
+⇒ Short target names cannot be settled by grep; `actor` was found by asking the
+registry, not by searching.
+
+⭐⭐ **✔ MECHANISM FOUND 2026-09-02 — `author`, `medic` and `officer` SHARE A
+RENDERER FAMILY WHOSE SHEET PATH TAKES NO QUALITY SCALE.** All four of
+`performer`, `author`, `medic`, `officer` — and no other target — import
+`targets/characters/_authored_swing_fighter.py`. That module's two entry points
+do not agree:
+
+```python
+def render(self, out_dir, actor_metadata: dict):            # the SHEET — no scale
+def render_portraits(self, out_dir, *, clips=None, quality_scale=None):
+```
+
+and each target's `build_spritesheet` calls `_FIGHTER.render(out_dir, ACTOR_METADATA)`,
+dropping `opts` entirely — so the sheet renders at full resolution whatever tier
+was asked for, while the portrait path threads the scale through.
+
+⛔ **AND SOMEONE ALREADY FIXED THIS ONCE, FOR THE OTHER HALF.** `render_portraits`
+carries the comment *"⛔ A QUALITY TIER SCALES THE PORTRAIT TOO. Ignoring
+`quality_scale`…"* — the same defect was found and fixed for portraits, and the
+sheet path beside it was never given the same treatment. ⇒ The cluster that kept
+reappearing all day — four names sharing three symptoms — is **one shared module**,
+and `actor` is only in it because `actor` is `performer`'s old name.
+
+⛔⛔ **AND THAT IS NOT THE ROAD THE TIER FILES COME FROM — CORRECTED THE SAME
+DAY, after yardrat's fresh-clone generation produced CORRECTLY SCALED variants
+for all four.** Two boxes disagreeing is what forced the reconciliation; the
+mechanism above is real and it is not what bit here.
+
+**WHICH ROAD PRODUCES A TIER FILE TODAY.**
+`generate_visual_quality_variants.py` chooses per sheet:
+`source_publishable_targets()` keeps only `kind == "config"` targets, and a unit
+gets `target` set only if it is in that dict AND its `.ron` sits directly in
+`assets/sprites`. Those go to `publish_source_quality_target` — a **re-render**
+at `quality_scale`. **Everything else, including every `module`-kind target,
+goes to `build_sheet_variant`, which RESIZES the full sheet's isolated frames.**
+`author`, `medic`, `officer` and `performer` are `module`-kind, so through this
+script they take the resize road and scale correctly.
+
+⇒ **That is why a fresh box is clean and this one is not.** A fresh clone's
+tiers are produced entirely by that script. This box's four files were written
+2026-08-27 09:46–09:53, minutes after their own full sheets, by a DIFFERENT
+invocation: the renderer's own `publish` CLI, which takes `--quality-scale` and
+`--dest-root`, calls `render_sheet(out_dir, **opts)` and installs straight into
+the tier directory. For a `module` target that lands in `medic.render`, whose
+body is:
+
+```python
+def render(out_dir: str | Path, **opts):
+    del opts                      # ⛔ quality_scale, explicitly discarded
+    return _FIGHTER.render(out_dir, ACTOR_METADATA)
+```
+
+⇒ **CAN THE RENDER DEFECT STILL BITE? Yes, but only one way in.** A direct
+renderer `publish`/`render` aimed at a tier `--dest-root` renders full size and
+installs it, silently, because `del opts` throws away the scale the caller
+passed. It cannot bite through `generate_visual_quality_variants.py` at all. ⇒
+So the tier files on any box that ran only the variant script are correct, and
+the ratchet must NOT encode this box's stale per-tier render as the expected
+state — `KNOWN_UNSCALED` is emptied, and a box with stale renders now fails,
+which is the truthful outcome because those files really are wrong there.
+
+⇒ **The renderer fix is still worth making** — `del opts` discards a scale a
+caller deliberately passed — and is drafted UNVALIDATED at
+`dev/patches/swing-fighter-render-honours-quality-scale-20260902.patch`. It is
+in a submodule and needs one render on a box that can run the renderer.
 
 ⇒ **WHAT IS AND IS NOT ESTABLISHED.** Established: on this machine's generated
 assets, four sheets' 0_5x/0_25x pages and manifests are full-size, and a room
@@ -1590,9 +1671,20 @@ a median of 0.26 MP, so NOT ONE clears `NOTABLE_MEGAPIXELS` (1.0): the `[image]`
 ledger can never show pack usage at that tier, and "both roads loaded in one
 run" was never something that capture could tell me.
 
-⚠⚠ **AND THE OCCUPANCY CENSUS BELOW COVERS 44% OF THE TREE, NOT THE TREE.** It
+⚠⚠ **AND THE OCCUPANCY CENSUS BELOW COVERS HALF THE TREE, NOT THE TREE.** It
 asks how much of a CLAIMED page is sampled, and says nothing about pages no
-manifest claims at all. `scripts/measure_orphan_shipped_pages.py` measures
+manifest claims at all. Re-measured 2026-09-02 across all four tiers: of 2172
+PNGs, **1043 are claimed — 49% by megapixels, but 81% by BYTES** (the "44%"
+this line used to carry predated the four-tier sweep).
+
+⛔ **THE TWO DENOMINATORS DISAGREE BY FOUR TIMES, AND THE BYTE ONE IS THE ONE
+THAT SHIPS.** The unclaimed population is 51% of the tree's megapixels and only
+**19% of its bytes** — 120 MB of 630 MB — because stranded pages are
+large-dimension and mostly empty, so they compress to almost nothing. A reader
+who takes "half the megapixels are unreachable" as "half the package is
+recoverable" will be wrong by a factor of four. Megapixels are the right unit
+for decode and residency; bytes are the right unit for install size, and this
+finding is an install-size finding. `scripts/measure_orphan_shipped_pages.py` measures
 those across all four tiers, in **four buckets that do not deserve the same
 confidence** — three that carry a reason and one that is an upper bound:
 

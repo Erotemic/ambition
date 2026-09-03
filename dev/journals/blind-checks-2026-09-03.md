@@ -37,6 +37,9 @@ succeeds, the number prints, and the number is about a different question.
 | 13 | Three hypotheses about which targets fail to downscale | All built by READING the generator and diffing configs; `discover_all_targets()` answered it in one call and inverted the third | `b88df4663` |
 | 14 | A clamp stopping an extent rounding to zero, applied to origins too | Turned every `"x": 0, "y": 0` into `"x": 1, "y": 1` across five world files; only the diff showed it | `4c4c59581` |
 | 15 | Grepping for a lesson's own heredoc delimiter inside that heredoc | Bash ended the script early and the trailing command ran on garbage | *(memory only, no commit)* |
+| 16 | Three theories of which targets fail to downscale, from configs and mtimes | The four share one imported module; `grep -l _authored_swing_fighter` answered it, and the shared file was visible in the first `ls` of that directory | `c77f66425` |
+| 18 | "The four unshrunk variants are `_authored_swing_fighter.render` dropping the scale" | A coherent mechanism, in the wrong road: that module is never called for tiers — the variant script resizes for every module-kind target. Two boxes disagreeing is what exposed it | `c77f66425` → reconciled |
+| 17 | "44% of the tree" as the occupancy denominator | Half the MEGAPIXELS are unclaimed but only a fifth of the BYTES — stranded pages are large and empty, so they compress to nearly nothing | `334086d9c` |
 
 ## What the fixes have in common
 
@@ -49,20 +52,25 @@ a poison that does not apply, a fixture whose conditions coincide, and an edit
 script whose failure does not stop the commit are all checks that cannot fail.
 
 ⇒ The one habit that would have caught the most of them: **before reporting a
-count, say out loud what population it is a count OF, and what would make it
-zero.** Items 2, 3, 11 and 12 each print a confident number about a population
-the instrument cannot see.
+count, say out loud what population it is a count OF, in what UNIT, and what
+would make it zero.** Items 2, 3, 11 and 12 each print a confident number about
+a population the instrument cannot see; item 17 prints an honest number in the
+unit that does not answer the question being asked.
+
+⇒ And the one that would have saved the most TIME: items 13 and 16 are the same
+mistake twice in one night — **reading code to infer what a tool would report,
+when the tool was one call away.** `discover_all_targets()` and
+`grep -l <shared module>` each ended a chain of failed hypotheses immediately.
 
 ## The second set (ambition-df, the integrator's half)
 
 | # | The check | Why it could not fail | Fixed in |
 |---|---|---|---|
-| 16 | The default gate (`./run_tests.sh --rust`) run over a tree another agent was editing | A verdict about a tree that changed under it; two "green" gates were about no commit at all — announced windows and pathspec commits since | `2ea4ef21a` (the lesson), rule in `feedback` memory |
-| 17 | `cargo check -p <crate>` as a peer's evidence for a schedule-set membership guard | Bevy names a system `<Enable the debug feature to see the name>` unless `bevy_ecs/debug` is on; the monolith's name-lookup guard passed under `--workspace` and failed under `-p` — count by shape, not by name (yardrat, `dbec94824`) | `dbec94824` |
-| 18 | `cargo check --workspace --all-targets` as proof a merge was clean | An EXACT dependency allowlist (`engine.world-ir-dependency-allowlist`) is a policy test, not a compile; the merge of R4a added an edge the check could not see | `2b6e6561b` |
-| 19 | The gate's Python lane resolving the FIRST usable-looking interpreter | An in-repo `.venv` from July predated the per-machine store and had no numpy; two red jobs read as "tests failed" until `python_tools.sh` was run — the runner now refuses an interpreter that cannot host the lane (yardrat) | `bd18a028f` |
-| 20 | `\| tail -30` on a workspace lane | The exit status was `tail`'s; the lane was red on a missing bundled font and read `[exited with code 0]` (ambition-da) — `PIPESTATUS` or nothing | *(method; `grab_font_assets.py` is the fix)* |
-| 21 | Probing whether an asset reloads after its handle drops, with a path that did not exist | `Failed(NotFound)` twice, both arms "consistent" — a probe that cannot distinguish its own typo from the defect; the real path reloaded in 2 updates | *(probe deleted; the defect was the fixture, `0a112fcb5`)* |
-| 22 | A settle helper that ran ONE update and then read "pending is None" as "settled" | A launcher command becomes a route one update later than a `GoTo`; the fixture read the relaunch as done the frame before it started — masked for months while the relaunched room's cast was still resident | `0a112fcb5` |
-| 23 | Bisecting a merge-heavy day by `rev-list` index | An index is not an ancestry chain; a GOOD on a side branch bounded nothing on the line that mattered (yardrat) — bisect the ancestry, not the list | *(method)* |
-| 24 | "Half the megapixels are unreachable" read as "half the package is recoverable" | Stranded atlas pages are large and empty and compress to nothing: 51% of MP is 19% of bytes; MP is the decode/residency unit, bytes the install unit (ambition-e7) | `334086d9c` |
+| 19 | The default gate (`./run_tests.sh --rust`) run over a tree another agent was editing | A verdict about a tree that changed under it; two "green" gates were about no commit at all — announced windows and pathspec commits since | `2ea4ef21a` (the lesson), rule in `feedback` memory |
+| 20 | `cargo check -p <crate>` as a peer's evidence for a schedule-set membership guard | Bevy names a system `<Enable the debug feature to see the name>` unless `bevy_ecs/debug` is on; the monolith's name-lookup guard passed under `--workspace` and failed under `-p` — count by shape, not by name (yardrat, `dbec94824`) | `dbec94824` |
+| 21 | `cargo check --workspace --all-targets` as proof a merge was clean | An EXACT dependency allowlist (`engine.world-ir-dependency-allowlist`) is a policy test, not a compile; the merge of R4a added an edge the check could not see | `2b6e6561b` |
+| 22 | The gate's Python lane resolving the FIRST usable-looking interpreter | An in-repo `.venv` from July predated the per-machine store and had no numpy; two red jobs read as "tests failed" until `python_tools.sh` was run — the runner now refuses an interpreter that cannot host the lane (yardrat) | `bd18a028f` |
+| 23 | `\| tail -30` on a workspace lane | The exit status was `tail`'s; the lane was red on a missing bundled font and read `[exited with code 0]` (ambition-da) — `PIPESTATUS` or nothing | *(method; `grab_font_assets.py` is the fix)* |
+| 24 | Probing whether an asset reloads after its handle drops, with a path that did not exist | `Failed(NotFound)` twice, both arms "consistent" — a probe that cannot distinguish its own typo from the defect; the real path reloaded in 2 updates | *(probe deleted; the defect was the fixture, `0a112fcb5`)* |
+| 25 | A settle helper that ran ONE update and then read "pending is None" as "settled" | A launcher command becomes a route one update later than a `GoTo`; the fixture read the relaunch as done the frame before it started — masked for months while the relaunched room's cast was still resident | `0a112fcb5` |
+| 26 | Bisecting a merge-heavy day by `rev-list` index | An index is not an ancestry chain; a GOOD on a side branch bounded nothing on the line that mattered (yardrat) — bisect the ancestry, not the list | *(method)* |

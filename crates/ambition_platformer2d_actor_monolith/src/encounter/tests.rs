@@ -887,3 +887,65 @@ mod cleanup {
         assert!(app.world().get_entity(adopted).is_ok());
     }
 }
+
+/// A death-reset must NOT retire the reward. Only a deliberate switch re-arm does.
+///
+/// ⛔ THE RULE THIS PINS, and it is a game rule rather than a plumbing one:
+/// *dying and re-running an encounter does not re-pay its reward; deliberately
+/// re-arming it does.* [`apply_encounter_cleanup`] reacts to
+/// `Completed | Failed | Reset` and releases or despawns the encounter's spawned
+/// PARTICIPANTS. It must never touch the reward chest, because the death road
+/// resets an encounter without any switch toggle — and the switch-off path is
+/// the only thing that clears the chest and the `reward_looted` flag.
+///
+/// ⚠ WRITTEN BECAUSE THE OBVIOUS REFACTOR IS WRONG. Retiring the reward looks
+/// like it belongs beside this cleanup: both react to the encounter ending, and
+/// moving it here would free the last kernel seam in the encounter adapter. It
+/// would also clear the flag on every death, so a player who dies after looting
+/// could re-clear the encounter and be paid again. This test fails the moment
+/// someone makes that move.
+#[test]
+fn a_reset_does_not_retire_the_reward_chest() {
+    use ambition_combat::components::{ChestFeature, EncounterRewardChest, FeatureId};
+    use bevy::prelude::*;
+
+    let mut app = App::new();
+    app.add_message::<ambition_encounter::EncounterEventMsg>();
+
+    app.world_mut().spawn((
+        Encounter {
+            id: "goblin_encounter".into(),
+        },
+        EncounterParticipants::default(),
+    ));
+    let chest = app
+        .world_mut()
+        .spawn((
+            ChestFeature::new(ambition_interaction::Chest::new(
+                "encounter_chest_goblin_encounter",
+                None,
+            )),
+            EncounterRewardChest {
+                encounter_id: "goblin_encounter".into(),
+            },
+            FeatureId("encounter_chest_goblin_encounter".into()),
+        ))
+        .id();
+
+    app.world_mut()
+        .resource_mut::<Messages<ambition_encounter::EncounterEventMsg>>()
+        .write(ambition_encounter::EncounterEventMsg::new(
+            "goblin_encounter",
+            EncounterEvent::Reset,
+        ));
+
+    app.add_systems(Update, super::apply_encounter_cleanup);
+    app.update();
+
+    assert!(
+        app.world().get_entity(chest).is_ok(),
+        "a Reset must leave the reward chest standing — the death road resets an \
+         encounter with no switch toggle, and only a deliberate re-arm retires \
+         the reward. Despawning it here would pay the encounter out twice."
+    );
+}

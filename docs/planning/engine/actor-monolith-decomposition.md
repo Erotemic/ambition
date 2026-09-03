@@ -940,8 +940,12 @@ deliberately re-arming it does.*
 taste.** A feature-layer system reacting to `EncounterEvent::Reset` would clear
 the flag on death-resets too and enable repeat payouts. This is exactly what
 "probably true" would have shipped.
-▢ Still worth a TEST, now with a known expected answer: complete an encounter,
-take the death-reset road, and assert the chest and the flag both SURVIVE.
+✔ **AND THAT TEST IS WRITTEN** (2026-09-03):
+`a_reset_does_not_retire_the_reward_chest` puts a reward chest in the world,
+sends a `Reset` event, runs `apply_encounter_cleanup`, and asserts the chest
+survives. Poison-verified by making cleanup retire chests on an end event —
+which is exactly the refactor that looks right, frees the encounter adapter's
+last kernel seam, and would pay a looted encounter out twice.
 
 ✔ **RULED 2026-09-03: the reward clear STAYS WHERE IT SITS, and the trigger must
 not be written twice.** The switch is the feature layer's input, the chest is its

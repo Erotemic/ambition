@@ -649,6 +649,81 @@ IMAGES ARE NOT IN THAT SET?** That is a set difference between what
 `inspect_demanded_characters` waits on and what the 129 warned actors need — not
 another capture.
 
+#### ⭐ MEASURED 2026-09-03: the burst is NOT a texture-readiness problem. The bodies have no VISUAL ENTITY at all.
+
+ambition-df named three ways the 129 can be unclaimed at the burst frame:
+(a) the sheet does not resolve, (b) the sheet resolves but its texture is not
+`is_loaded_with_dependencies`, (c) the visual entity is spawned by a later
+system with its own gate. Both of the first two are now dead:
+
+- **(a) is dead from the existing logs**: *"actor '…' resolved no sprite"*
+  appears **zero** times in either Ultra run, so the sheet resolves for all 129.
+- **(b) is dead by MEASUREMENT.** An instrument in `upgrade_actor_sprites`'
+  `!texture_is_ready → continue` arm (`1dc4eb922`, once per path, behind
+  `CENSUS_ENV`) printed **nothing** on a run that produced all 129 placeholder
+  warnings.
+
+⛔ **AND THE ZERO IS A REAL ZERO, checked three ways**, because a silent
+instrument and a clean result look identical: the run carries **884**
+`[census]` lines against 10 in an uninstrumented run (so the gate was on), the
+binary was rebuilt at the run's timestamp, and `strings` finds the marker in it.
+
+⇒ **The bodies never reach that arm, because `upgrade_actor_sprites` queries
+`&FeatureVisual` — it UPGRADES an existing visual entity and cannot create
+one.** The warning fires precisely when no `FeatureVisual` with that id exists.
+All 129 warnings are `kind=Actor`, ids `NpcSpawn-…`.
+
+⭐ **THE SHAPE IS TWO READ-MODELS, ONE OF THEM THE DETECTOR'S.**
+`draw_unclaimed_feature_views` complains from
+`ambition_sim_view::FeatureViewIndex` — every view in the sim — while the
+spawners split: static LDtk-derived features get their visual from
+`super::world::spawn_room_visuals` at ROOM LOAD, and everything introduced after
+that point from `spawn_dynamic_feature_visuals`, a pure consumer of
+`DynamicFeatureViews` (`rendering/features.rs:1-29`). A view in the index that
+neither road has reached yet is warned about by the first model and spawned by
+neither.
+
+⭐⭐ **ANSWERED BY READING, SAME DAY: NEITHER ROAD OWNS THEM, AND THE
+PLACEHOLDER PATH IS THE ONLY ROAD A ROOM NPC HAS.** Traced from the two spawners
+to the NPC bundle:
+
+- `spawn_room_visuals` iterates `world.blocks`, `water_regions`,
+  `climbable_regions` and `spec.loading_zones` — **geometry, not actors**.
+- `rebuild_dynamic_feature_views` (`ambition_sim_view/src/facts.rs:517`) selects
+  by MARKER: `EncounterMob`, `RuntimeStagedActor`, `PostBossNpc`, the two reward
+  chests, and `SpawnOrigin::Dynamic` loot.
+- The interactable-NPC bundle (`features/ecs/spawn_actors.rs:732`) carries
+  `EnemyActorBundle` + `FeatureBaseBundle` (so a `FeatureId`), cluster, brain,
+  action set, `ActorControl`, `ActorInteraction`, `WornCharacter` — **and none
+  of those five markers.**
+
+⇒ So a room NPC is in `FeatureViewIndex` (the detector complains) and in
+`DynamicFeatureViews` (the spawner) **never**. Its `FeatureVisual` is created by
+`draw_unclaimed_feature_views` itself, as the placeholder — which carries
+`FeatureVisual { id }` (`rendering/features.rs:283`) and is **not** excluded by
+`upgrade_actor_sprites`' query. **The stand-in is the entity that becomes the
+body.**
+
+⛔ **Which makes `UNCLAIMED_STAND_IN_GRACE_FRAMES` a MANDATORY 5-frame delay on
+every interactable NPC in every room**, not a diagnostic threshold — and the
+129-wide burst is simply the whole Hall cast crossing it in the same frame,
+~370 ms after the cover lifted.
+
+⚠ **AND IT VINDICATES THE WARNING'S OWN WORDING, which this page dismissed.**
+*"Some spawn path is missing its family marker"* is recorded above as pointing
+at a spawn bug that *"at least in this reproduction is not what it is"*. On this
+reading it is exactly what it is. ⇒ That earlier sentence was written when the
+count looked like a tier-scaled ramp, and it should not be read as a ruling.
+
+⚠ **Read, not executed** — this is a trace through the three call sites above,
+not an instrumented run, and the honest next step is one assertion (spawn a room
+NPC, step one frame, expect a `FeatureVisual` with its id) rather than another
+capture. If it holds, the fix is to give interactable NPCs a view the spawner
+already recognises, and the burst goes away for every room, not just the Hall. ⚠ Note this is the same seam the barrier sits on:
+the barrier asks `CharacterSheetState::Ready` (a REALIZATION fact) while the
+thing that actually draws needs a `FeatureVisual` ENTITY, and nothing makes the
+cover wait for the second.
+
 ⚠ What the run does establish, and it is worth having: at Full the cast loads
 `sprite_packs/full/ultrapack_*.png` and at Potato `sprites_potato/*` — so the
 override does reach the materializer's tier, and the 129/0 split is the areal

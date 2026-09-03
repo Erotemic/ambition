@@ -2131,7 +2131,10 @@ OPTIONAL dep + feature, never used:
   rule at the end of it. Then `ambition_body_seed` (`962dba34d`),
   `ambition_match` (`7e625e5a5`), `ambition_encounter_features` (`b67c1348f`)
   and `ambition_abilities` (`4c31111f9`). The kernel's own source fell
-  112,733 → 101,042 lines in that day.
+  112,733 → 101,042 lines in that day — a RAW `src/` line count, not the
+  compile ratchet's `largest_unit_lines`, which reports the same day as
+  108,364 → 98,808 in the compile-cost row above. Two instruments, both right;
+  the pair is only confusing when either is quoted bare.
   * ⇒ **The prediction failed because it looked for edges rather than for
     OWNERSHIP.** A module "named 79 times by the rest of the kernel" is not
     thereby internal; every one of those names is a candidate boundary, and four

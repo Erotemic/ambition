@@ -30,7 +30,9 @@
 >   2026-09-03 after five carves landed in one day (`ambition_held_items`,
 >   `ambition_body_seed`, `ambition_match`, `ambition_abilities`, and calculex's
 >   encounter split): **the table went 29 → 33 while the monolith's own source
->   went 112,733 → 101,042 lines, −11,691 in a day.**
+>   went 112,733 → 101,042 lines, −11,691 in a day.** (Raw `src/` line count.
+>   The compile ratchet's `largest_unit_lines` measures the same day as
+>   108,364 → 98,808; the two instruments differ and neither is wrong.)
 >
 >   ⇒ **A carve makes that number GO UP, by construction.** The kernel stops
 >   *containing* a domain and starts *depending* on it — it keeps the rollback

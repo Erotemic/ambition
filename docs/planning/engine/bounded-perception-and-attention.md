@@ -154,9 +154,28 @@
   reproduces the old pre-cap `kept` table exactly where the extents match —
   960x640 reads 56.1 against the 56.1 recorded further down this page.
 
-  ⇒ Re-run once the branch is reachable. ⚠ Until then do NOT read a `kept` above
-  16 on this sweep as a budget failure, which is what the script's own *"a row
-  where `kept` exceeds 16 is a bug"* invites.
+  ✔ **RE-RUN PAST THE CENSUS FIX (`697abd994`), same script, population,
+  brain — THE BUDGET WORKS, and the control holds twice over:**
+
+  ```text
+  extent        views   offered  visible    kept  kept_max     (before: kept / kept_max)
+  480x320       35862     130.0     14.4    12.8        16      14.4 / 21
+  960x640       25542     130.0     56.1    15.2        16      56.1 / 104
+  1440x960      22059     130.0     93.9    15.7        16      93.9 / 119
+  1920x1280     21414     130.0    113.2    16.0        16     113.2 / 124
+  2880x1920     19995     130.0    124.3    16.0        16     124.3 / 129
+  ```
+
+  `offered` is flat at 130.0 and `visible` reproduces the pre-fix run to the
+  decimal, so the only column that moved is the one the commit touched. Two
+  readings: `kept` (a MEAN over viewers) approaches 16 rather than snapping to
+  it — a viewer at the crowd's edge sees fewer even when the room mean is 56 —
+  while `kept_max` binds at 16 from the first arm. And at the SHIPPED viewport
+  the densest viewer saw 21 before the cap and 16 after: the budget binds for
+  the densest viewers even at 480x320 in this configuration (130 bodies
+  re-brained to `medium_striker`; the shipped cast is `stand_still` and builds
+  no view, which is what makes the real hall cheap and unmeasurable at once).
+  Timings not reported (doc edits ran alongside); counts are the verdict.
 
 ## The rule
 

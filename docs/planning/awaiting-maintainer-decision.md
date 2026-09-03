@@ -810,6 +810,18 @@ input that cannot be taken on a software rasteriser.
 > `gpu +0 … awaiting gpu N` on every one — nothing uploaded, which is the point:
 > `resident_mb` is decoded CPU-side bytes and needs no adapter.
 >
+> ⓘ **Why these are the FULL-tier figures, stated rather than assumed.** The test
+> composition does not seed from the adapter, so it takes
+> `default_visual_quality_profile()` = `High` on non-Android, and
+> `VisualQualityBudget::for_profile` maps `High` to
+> `TextureResolutionScale::Full` — the unsuffixed sprite tree. The hall obeys the
+> same tier by Jon's 2026-09-02 ruling, pinned in
+> `the_halls_cast_is_realized_at_the_users_tier_never_lower`: *"the hall draws at
+> the user's tier, never lower … not want a lower quality tier for gallery
+> previews."* ⚠ Open work 6 still describes this leg as *"the gallery (Quarter)
+> for the hub (Full)"*, which was the PRE-repair behaviour that same section
+> reports fixing.
+>
 > ⭐ **SO THE ASK IS ANSWERED: ≈2.03 GB is `resident_mb` after a hub→hall→hub
 > walk at full texture resolution, and it needed no 3090.** The round trip peaks
 > ~580 MB above the hall entry alone, because it holds both rooms' casts before

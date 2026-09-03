@@ -683,9 +683,43 @@ that point from `spawn_dynamic_feature_visuals`, a pure consumer of
 neither road has reached yet is warned about by the first model and spawned by
 neither.
 
-⇒ **The open question is now one layer up and does not need another capture:
-which of the two roads owns a room's `NpcSpawn-…` actors, and why has it not run
-by the time the cover lifts?** ⚠ Note this is the same seam the barrier sits on:
+⭐⭐ **ANSWERED BY READING, SAME DAY: NEITHER ROAD OWNS THEM, AND THE
+PLACEHOLDER PATH IS THE ONLY ROAD A ROOM NPC HAS.** Traced from the two spawners
+to the NPC bundle:
+
+- `spawn_room_visuals` iterates `world.blocks`, `water_regions`,
+  `climbable_regions` and `spec.loading_zones` — **geometry, not actors**.
+- `rebuild_dynamic_feature_views` (`ambition_sim_view/src/facts.rs:517`) selects
+  by MARKER: `EncounterMob`, `RuntimeStagedActor`, `PostBossNpc`, the two reward
+  chests, and `SpawnOrigin::Dynamic` loot.
+- The interactable-NPC bundle (`features/ecs/spawn_actors.rs:732`) carries
+  `EnemyActorBundle` + `FeatureBaseBundle` (so a `FeatureId`), cluster, brain,
+  action set, `ActorControl`, `ActorInteraction`, `WornCharacter` — **and none
+  of those five markers.**
+
+⇒ So a room NPC is in `FeatureViewIndex` (the detector complains) and in
+`DynamicFeatureViews` (the spawner) **never**. Its `FeatureVisual` is created by
+`draw_unclaimed_feature_views` itself, as the placeholder — which carries
+`FeatureVisual { id }` (`rendering/features.rs:283`) and is **not** excluded by
+`upgrade_actor_sprites`' query. **The stand-in is the entity that becomes the
+body.**
+
+⛔ **Which makes `UNCLAIMED_STAND_IN_GRACE_FRAMES` a MANDATORY 5-frame delay on
+every interactable NPC in every room**, not a diagnostic threshold — and the
+129-wide burst is simply the whole Hall cast crossing it in the same frame,
+~370 ms after the cover lifted.
+
+⚠ **AND IT VINDICATES THE WARNING'S OWN WORDING, which this page dismissed.**
+*"Some spawn path is missing its family marker"* is recorded above as pointing
+at a spawn bug that *"at least in this reproduction is not what it is"*. On this
+reading it is exactly what it is. ⇒ That earlier sentence was written when the
+count looked like a tier-scaled ramp, and it should not be read as a ruling.
+
+⚠ **Read, not executed** — this is a trace through the three call sites above,
+not an instrumented run, and the honest next step is one assertion (spawn a room
+NPC, step one frame, expect a `FeatureVisual` with its id) rather than another
+capture. If it holds, the fix is to give interactable NPCs a view the spawner
+already recognises, and the burst goes away for every room, not just the Hall. ⚠ Note this is the same seam the barrier sits on:
 the barrier asks `CharacterSheetState::Ready` (a REALIZATION fact) while the
 thing that actually draws needs a `FeatureVisual` ENTITY, and nothing makes the
 cover wait for the second.

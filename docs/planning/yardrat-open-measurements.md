@@ -31,7 +31,7 @@ triaged and fixed; the asset half needed no change.
   basename history; the comment names `tick_boss_brains_system`, which is in
   `ambition_boss_encounter/src/ecs/tick.rs`. Verify at the DEFINITION SITE.
 - ⚠ **Repointing moves any claim attached to the path with it.**
-  `dialog/yarn_bindings.rs`'s sentence asserted "both are `ui`-gated"; the new
+  `dialog/yarn_bindings.rs`'s sentence asserted "both are `ui`-gated"; the new  <!-- cite-ok: this row's subject IS the dead citation -->
   target had to be checked for that before the sentence could follow it.
 - ⇒ **If the comment lane is ever extended, skip by `git check-ignore`, not by a
   `target/` prefix.** Confirmed empirically: the sprite manifests it would

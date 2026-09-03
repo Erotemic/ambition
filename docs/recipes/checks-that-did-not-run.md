@@ -358,9 +358,19 @@ All four had the same shape and none of them looked alike at the time:
 | `check_planning_citations.py` poisoned with a bare `` `path.rs` `` | the checker only reads `` `path.rs:123` `` and `` `foo::bar` `` | "the checker ignores table cells" — it does not |
 | planning docs for `scripts/…` paths that exist | bare basenames (`tests.rs`, `fx.rs`) used as prose shorthand | "186 broken citations" — there were none |
 | `cargo check --workspace` output through `\| tail` | the exit status, which a pipeline takes from its LAST command | "the lane is green" — it was RED |
+| `(./run_tests.sh --rust > log 2>&1; echo "EXIT=$?" >> log)` **2026-09-03** | the LANE's status: a subshell exits with its LAST command, and that was the `echo`. The harness reported the wrapper's **0** while the log's own last line read `EXIT=1` | "the full Rust lane passed" — it was 5/6 jobs, and I had already told the coordinator it would be an exit code |
 | asset paths matched with `sprites_[a-z0-9_]+/` | `sprites/`, the Full path, which has no underscore | "`AMBITION_QUALITY_PROFILE` does not work" — it works |
 
-⭐ **Three of the four produced a FALSE NEGATIVE that read as a finding**, which
+⛔ **AND THE EXIT-STATUS ROW HAPPENED TWICE, A DAY APART, TO THE SAME PERSON WHO
+WROTE THIS PAGE** — first through `| tail`, then through a subshell ending in
+`echo`. ⇒ Knowing the trap did not prevent it, because the second shape did not
+look like the first: there was no pipeline. The invariant is not "beware pipes",
+it is **the status you read belongs to the last thing that ran, which is rarely
+the thing you care about**. Write the command's own status down before anything
+else runs — `s=$?` on the next line, or `${PIPESTATUS[0]}` — and never after a
+convenience `echo`.
+
+⭐ **Three of the first four produced a FALSE NEGATIVE that read as a finding**, which
 is the dangerous direction: a missing result feels like evidence of absence, and
 absence is what this whole page is about. The fourth produced a false positive
 and was caught in seconds.

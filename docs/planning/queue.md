@@ -2317,7 +2317,7 @@ OPTIONAL dep + feature, never used:
   *"carries no `causal` array at all"*. It always carried `[]`.
 
 - ▢ **CAPABILITY FOOTPRINT: 50 crates linked, 23 a movement-only game never
-  asked for — and the count CANNOT fall by a manifest edit.** (⚠ this number has drifted SIX times; `python3 scripts/check_absence_contracts.py | grep footprint` prints the live pair. 45/18 as of `479f9d3e4`, when `ambition_registry_core`
+  asked for — and the count CANNOT fall by a manifest edit.** (⚠ FIVE pairs are recorded below and none of them is authoritative; `python3 scripts/check_absence_contracts.py | grep footprint` prints the live one. 45/18 as of `479f9d3e4`, when `ambition_registry_core`
   entered the closure; 46/19 as of `bbfa38a3d`, when `ambition_held_items` did; 47/20 as of `83460e3f3`, D33 cut 1, when `ambition_body_seed` did; 48/21 as of `7e625e5a5`, cut 2b, when `ambition_match` did; 50/23 on 2026-09-03 when `ambition_abilities` and `ambition_encounter_features` did. ⭐ EVERY ONE OF THOSE RISES IS A CARVE PAYING ITS DEBT — do not read the series as regression.) (Scheduled
   2026-09-02 from ambition-da's docs pass; re-worded the same night after
   ambition-da re-derived it, `2068bcd31`.) The instrument is installed:

@@ -11,9 +11,12 @@
 >
 > ⇒ The tooling it describes is not lost — `scripts/render_take_diagnostic.py`
 > and two other scripts name the inspector in prose — but a person following the
-> planning docs never meets the plan, only the code. ⚠ The fix is a row in
-> `queue.md` or `tracks.md`, which belong to another agent's hot set; reported
-> there rather than taken here.
+> planning docs never meets the plan, only the code.
+> ✔ **PARTLY FIXED THE SAME DAY:** `docs/tools/index.md`'s "Combat inspection" row now links here beside the tool's
+> usage guide, so a reader arriving through the TOOLING route reaches the design and the open work. ⚠ The PLANNING route
+> is still blank — that wants a row in `queue.md` or `tracks.md`, which belong to another agent's hot set and were
+> reported rather than taken. They are different readers: one wants to know how to run the inspector, the other what
+> to build next.
 
 Status: **OPEN** — M1, M2, M4, M5, M6 and M7 closed. What remains is M3's
 art/geometry AGREEMENT measurements, which need the render to expose its camera

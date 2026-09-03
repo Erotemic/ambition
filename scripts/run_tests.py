@@ -1126,7 +1126,33 @@ def run(jobs: list[Job], list_only: bool, timings_json: str | None = None,
     # not proof of that: `--maintenance`'s intra-doc-link ratchet runs
     # `cargo doc` per crate. The lane still gets its exemption, but only while
     # nothing in its plan writes to the target directory.
-    exempt = (tool_tests_only or maintenance_only) and not any(j.builds for j in jobs)
+    lane_exempt = tool_tests_only or maintenance_only
+    dropped_for_disk: list[str] = []
+    if lane_exempt and free_gb < MIN_FREE_GB and any(j.builds for j in jobs):
+        # ⭐ DROP THE BUILDING JOBS, DO NOT REFUSE THE LANE.
+        #
+        # Refusing outright would deny a full-disk box the audits that are the
+        # only checks still POSSIBLE on it — the pure-Python half of this lane
+        # runs fine at 1 GB free and can find real things. Running the building
+        # job is not an option either. So: run what can run, and be loud.
+        #
+        # ⛔ The result is NOT `done`. That is the whole lesson of the abort
+        # reporting fixed the same day — a plan that did not fully run must not
+        # serialize as one that did — so this reuses the `aborted` contract
+        # rather than inventing a quieter one, and `last_test_run.py` refuses it.
+        dropped_for_disk = [j.name for j in jobs if j.builds]
+        jobs = [j for j in jobs if not j.builds]
+        print(
+            f"\033[31m  DROPPING {len(dropped_for_disk)} BUILDING job(s): "
+            f"{free_gb:.1f} GB free on {target_dir()}, floor is "
+            f"{MIN_FREE_GB:.0f}.\033[0m\n"
+            f"    {', '.join(dropped_for_disk)}\n"
+            f"  The read-only audits in this lane still run — they are the "
+            f"checks a full volume cannot take away. This run will NOT report "
+            f"as complete.",
+            file=sys.stderr,
+        )
+    exempt = lane_exempt and not any(j.builds for j in jobs)
     if not exempt and free_gb < MIN_FREE_GB:
         print(
             f"REFUSING: {free_gb:.1f} GB free on {target_dir()}, and a full suite "
@@ -1153,7 +1179,9 @@ def run(jobs: list[Job], list_only: bool, timings_json: str | None = None,
     # Not a happy-path write: a suite that dies mid-run (Ctrl-C, an unhandled
     # exception) must not leave `"running"` behind, or a future reader waits on
     # a run that no longer exists. SIGKILL still can, hence the `pid` above.
-    aborted_on_disk: str | None = None
+    # A job dropped before the loop is the same fact as a job the loop refused
+    # to start: the plan did not fully run. One vocabulary for both.
+    aborted_on_disk: str | None = dropped_for_disk[0] if dropped_for_disk else None
     try:
         for j in jobs:
             # ⛔⛔ CHECK THE DISK BETWEEN JOBS, NOT ONLY BEFORE THE FIRST.
@@ -1283,14 +1311,15 @@ def run(jobs: list[Job], list_only: bool, timings_json: str | None = None,
                           # to trust the run needs to know WHERE it stopped and
                           # how much of the plan never happened.
                           "aborted_on_disk": aborted_on_disk,
-                          "never_ran": len(jobs) - len(results),
+                          "never_ran": len(jobs) - len(results) + len(dropped_for_disk),
                           "free_gb_at_end": round(free_after, 1),
                           "disk_gb_spent": round(spent, 1),
                           "exit_code": exit_code})
     print(f"  status written to {status}")
     if incomplete:
-        print(f"\n\033[31m  INCOMPLETE: stopped before `{aborted_on_disk}` — "
-              f"{len(jobs) - len(results)} job(s) never ran.\033[0m")
+        missed = len(jobs) - len(results) + len(dropped_for_disk)
+        print(f"\n\033[31m  INCOMPLETE: `{aborted_on_disk}` did not run — "
+              f"{missed} job(s) of the plan never ran.\033[0m")
     return exit_code
 
 

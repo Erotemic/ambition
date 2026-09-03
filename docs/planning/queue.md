@@ -513,6 +513,15 @@ The one unresolved developer-policy choice from the session-ownership work is in
   ⇒ **The 13 that remain are the classes below, none of them a missing
   parameter**: 8 in `ov1_draws_the_world` (the doctrine group), 3 in
   `painted_blocks`, and `published_local_sanic_forms_bind_through_game_assets`.
+  ✔ **THAT LAST ONE IS FIXED (`3f4dbbcd5`)** — it demanded TWO forms, ran ONE
+  `app.update()`, and asserted both `Ready`, while
+  `MAX_CHARACTERS_MATERIALIZED_PER_FRAME` is 1. The `None` rather than
+  `Some(Failed)` is the whole diagnosis: no load attempted yet, which is what a
+  ration looks like from the far side. Replaced with a bounded settle; the same
+  command that failed now reads 3 passed. ⚠ **Stated as an EXPECTATION, not a
+  count: the next union run should read 12.** I have not re-run it, and the last
+  time I turned a verified single-target fix into a union number I was wrong by
+  38.
   The entire smash target — `the_stage_kills`, `the_screen_decides`,
   `the_repertoire_gets_used`, 30-odd tests — is green.
 

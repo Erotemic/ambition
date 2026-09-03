@@ -164,6 +164,29 @@ except the one that had run the command by hand.
   criterion is not read as met while it is outstanding. ⚠ The fonts sidecar that
   entry names (`.../assets/fonts/bundled.ipfs`) is itself absent now, so that
   payload has lost even its CID.
+  ⭐ **AND NOW THE CONSEQUENCE IS MEASURED, which the row was missing.** It is
+  not only that a payload cannot be restored: on a fresh clone
+  **`package_asset_guard.py compose` FAILS**, so no shippable asset tree can be
+  produced at all. Measured 2026-09-03, `--profile steamdeck --materialize link`:
+
+  ```text
+  asset contract failed:
+  runtime-declared assets are absent from the composed desktop source roots:
+    - vanity_card/frame_00.png … frame_08.png   (9 files)
+        declared by manifest:data/vanity_card.ron:11-22:path
+  ```
+
+  ⚠ **Exactly nine files, all one family, and nothing else is missing** — so
+  this is the whole gap between a fresh clone and a composable package, not a
+  sample of a larger one. The sidecar `assets/vanity_card.ipfs` declares that
+  family (`rel_path: vanity_card`, 51 items, 12.67 MiB) and nothing fetches it.
+  ⛔ Still backlog-only and still not to be folded into feature work; the number
+  is here so the size of the gap is known before Jon decides, rather than
+  discovered by whoever first tries to cut a build.
+  ⚠ Do not confuse this with the vanity card `scripts/regen/sprites.sh` DOES
+  build: that exporter writes `vanity_card_made_this_meme`, a different,
+  TRACKED manifest. The missing family is `data/vanity_card.ron`, and running
+  the regen does not produce it.
 
 ### B5 — platform prerequisites
 

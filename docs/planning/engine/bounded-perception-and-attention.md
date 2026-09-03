@@ -109,7 +109,14 @@
   `WorldMemory` VALUES differ from before only where the cap binds — no shipped
   room — and ADR 0034 covers that class. Measured next: the density sweep on an
   untenanted box (yardrat's queue) — the prediction is `visible` climbing with
-  extent and `kept` flat at 16.
+  extent and `kept` flat at 16. ⛔ **The first sweep (yardrat, 2026-09-03)
+  read `kept = visible` on every row (kept_max 129) and it was the CENSUS, not
+  the cap:** `TacticalWorld` also `needs_target_belief`, so the cheap road's
+  uncapped `visible_count` was recorded first and the view road's post-cut
+  count was unreachable for every brain that builds a view. The census now
+  reports from the view when one was built (`update.rs`); the re-run is the
+  acceptance, and `visible` at 960x640 reading 56.1 — the old table's `kept` —
+  is the control that the instrument still measures what it did.
 
 ## The rule
 

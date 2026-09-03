@@ -154,12 +154,15 @@ pages were individually accurate and the conclusion was in neither.
   `45 crates linked, 18 a movement-only game never asked for`, and the owning
   page said 43/16 while `queue.md` said 44/16. Three retyped copies, three
   different values, one printed source. ⇒ Quote the line the gate PRINTS.
-  ⛔ **AND THIS PARAGRAPH PROVED ITS OWN POINT ON 2026-09-03**: re-running
-  `scripts/check_absence_contracts.py` prints **`49 crates linked, 22 a
-  movement-only game never asked for`**. The passage warning against retyped
-  numbers had itself retyped one, and it went stale the ordinary way — crates
-  kept joining the closure. ⇒ Which is the argument for the rule, not against
-  it: do not copy 49 either. Run the contract.
+  ⛔ **AND THIS PARAGRAPH PROVED ITS OWN POINT TWICE IN ONE DAY, 2026-09-03.**
+  It had itself retyped `45/18`. Corrected that morning to the pair the contract
+  then printed — and by the same afternoon the contract printed a different one
+  again, because crates kept joining the closure while the correction was being
+  written. ⇒ **So this passage now carries NO pair at all**, which is the only
+  form of the rule that survives contact with it:
+  `python3 scripts/check_absence_contracts.py` prints the current numbers in
+  under a minute, and that line is the authority. Any figure typed here is
+  already aging.
   (Corrected 2026-09-03; the ratchet itself was healthy — the baseline JSON has
   carried 44/17 since `ff1ce535b`, a deliberate bump, so this was documentation
   drift and not a footprint regression that slipped a guard.)

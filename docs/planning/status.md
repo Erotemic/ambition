@@ -361,6 +361,32 @@ clean-checkout/generated-artifact guarantees, targeted touched-crate sweeps, and
 revisiting expensive dev-profile choices when the rebuild cost is small relative
 to runtime/debug value.
 
+⛔ **AND THE BINDING CONSTRAINT ON THIS BOX IS NOW DISK, measured 2026-09-03.**
+`target/debug/deps` alone is **141 GB**: every feature job builds its own variant
+of the graph, cargo never prunes the last one, and five crates were carved out of
+the actor monolith in a single day — each multiplying the variants a feature job
+resolves. The decomposition campaign pays for itself in disk.
+
+| what | cost |
+|---|---|
+| `check_disk_headroom.py` floor | **40 GB** (refused at 39.1) |
+| `./run_tests.sh --rust` (5 jobs) | ~5 GB, 42 → 37 GB |
+| one `cargo test --workspace` | **14 GB in under 3 minutes** |
+| the exhaustive plan (49 jobs) | **68 minutes**, and it exhausted a 290 GB volume mid-run |
+
+⚠ The headroom guard runs ONCE before the first job and once after the last,
+never between — so a long suite that starts above the floor can still die of
+ENOSPC halfway and report it as a link error. That is the shape of three of the
+exhaustive run's seven failures.
+
+⇒ Practical consequence for anyone orienting here: **prefer `cargo test -p` over
+a lane.** Tonight's abilities carve was verified crate by crate for exactly this
+reason, and it gave a sharper answer than the lane would have — the lane's one
+red belongs to somebody else's tests. Reclaim order, all regenerable:
+`target/debug/incremental`, `profiling`, `release`, `wasm32-unknown-unknown`,
+`outlander`. Past those the only lever is `cargo clean`, which costs every
+session's warm tree and is a coordination decision rather than a local one.
+
 ## Highest-value architecture fronts
 
 The current strategic order is:

@@ -163,6 +163,24 @@ under `scripts/` leaves three unresolved and NONE reachable from a test
 a `sys.path` insert). The sweep method is recorded beside the install list so
 the next added dependency re-runs it.
 
+⛔ **AND THE VERIFIER COULD NOT HAVE CAUGHT IT EITHER — found 2026-09-03 by
+asking what `--verify` actually checks.** `python_tools.sh --verify` walked the
+six per-tool authoring venvs, asking each for one import, and never touched the
+repo-root `scripts/` environment where the `pillow` failure lived. The
+seven-module import loop existed but ran only on the INSTALL path, so a machine
+whose scripts env had rotted answered *"existing tool environments are usable"*
+— true of six environments, and silent about the sick one. ⇒ Fixed: one list
+(`scripts_env_modules`), read by both the install loop and a new
+`verify_scripts_environment` on the `--verify` path. ⚠ Poisoned before being
+believed, because a green that would be green anyway is the same defect again.
+
+⭐ **The generalisation, which is the part worth keeping:** a per-component
+health check answers about the components it enumerates, and a fresh-clone
+failure lands wherever the enumeration does not reach. Both B4 violations found
+on 2026-09-03 have that shape — the suite acquired a dependency setup never
+learned about, and the verifier enumerated the wrong set — so when adding a
+check here, ask what it CANNOT see before trusting it.
+
 - ✔ **Bundled UI fonts.** `ambition_render`'s typography test `include_bytes!`s
   three faces from a git-ignored directory, so their absence is not a missing
   picture at runtime — `cargo check --all-targets` exits 101, and TWO gate jobs

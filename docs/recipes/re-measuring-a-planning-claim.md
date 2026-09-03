@@ -465,3 +465,37 @@ its own page says so. ⇒ The sweep tests "does this exist", which is only a
 question worth asking of a document that claims something DOES. A systems page
 describing a current boundary must resolve; a planning page naming what to build
 must not.
+
+### ⭐ Before building an instrument, check whether a test already drives it
+
+The most expensive re-measurement of 2026-09-03 was the one that needed no new
+tooling at all.
+
+A planning entry had stood for weeks saying a residency ceiling *"cannot be taken
+on a software rasteriser"* and needed time on a 3090. Two tools were checked —
+`capture_scene`, which cannot cross a door, and `profile_desktop.sh`, which
+refuses without a display — and the conclusion was "no walk driver exists here".
+
+⛔ **The walk driver was `game/ambition_app/tests/hall_transition_cover.rs`**,
+which boots the full app with `build_visible_app(NoWindow)` and drives *"the REAL
+transition, resolved through the room graph rather than synthesised: stand in the
+Hall door and press interact"*. It is a module of `app_it`, so it had been
+crossing that door **on every gate run**, printing the census with `eprintln!`,
+and having it swallowed by libtest's output capture. Getting the number took a
+test filter and `--nocapture`:
+
+```bash
+cargo test -p ambition_app --test app_it <module>::<test> -- --nocapture --test-threads=1
+```
+
+⇒ **The rule: when a claim says a measurement is impossible here, search the TEST
+SUITE before believing it.** Acceptance tests boot real compositions and drive
+real content; they are instruments that happen to assert. A test written to check
+one thing usually measures ten, and nine of them are discarded every run.
+
+⚠ **And the number is a property of the COMPOSITION, not just the subject.** The
+same room reported 119.4 MB through `capture_scene` and 1452 MB through the test —
+twelve times the pixels — because one composition seeds visual quality from the
+Cpu adapter and loads `sprites_potato` while the other loads the base tree.
+⇒ Neither is wrong. A residency figure without the composition named beside it is
+not a measurement, it is a number.

@@ -614,3 +614,33 @@ command each and gave a verdict the percentages could not.
 
 ⭐ Fourth instance today of a claim wider than its tool, and the third of them mine. The pattern
 across all four is the same and worth stating once: **the tool succeeded every time.**
+
+### ⛔⛔ A per-machine ledger inside a submodule looks like shared state — and a pointer bump arms its deletion
+Yardrat, after saying nothing was owed, went back and found 16 uncommitted rows in
+`dev/ambition_dev_measurements/run_tests_cost.jsonl` from their suite runs and committed 12 (they
+correctly dropped 4 fixture rows — `run()` called directly by a test, 0 and 2 jobs at 0.1 s, which
+would have put fabricated points into the corpus planning pages cite for suite cost).
+
+**Their box was clean when they said so. This box held a DIFFERENT eighteen rows**, uncommitted
+since 2026-09-02 19:21, none of them in that commit. Every `./run_tests.sh` appends LOCALLY, so
+each machine accumulates its own set and neither can see the other's.
+
+⚠ **The pointer bump arms the loss.** `git submodule update` is the routine next step after a
+bump and it discards uncommitted submodule content — so a correct, careful commit on one box sets
+up the silent deletion of another box's data. Nothing warns you; both sides look tidy.
+
+The eighteen were real: 17 six-job `--rust` lanes and one two-job `--tool-tests` run at 24.9 s,
+naming `1f0d6f5c1`, `c6b40e2c2` and `5cd132e82` (the 6/6 gate, 1639 s). They are the evidence
+behind this file's claim of fourteen-plus `--rust` runs on this box today. None had the fixture
+shape. Preserved at submodule `f0084d9`, parent `9c1bee6f2`.
+
+⇒ **The discipline that made it safe is yardrat's, established after their own first pruning pass
+silently deleted two older rows** (the diff read "2 deletions" where an append-only edit must show
+insertions only): verify the committed prefix is byte-identical before touching anything, require
+`--numstat` to show zero deletions, and commit on a branch rather than the detached HEAD a
+submodule sits at after a pointer move. Verified after the merge too — 134 rows, 0 unparseable,
+base prefix unchanged, both machines' rows present.
+
+ⓘ Still open and unfixed: `append_cost_ledger` has no defence against a test writing into it — the
+stub that prevents it lives in the test, not in the writer. Yardrat filed it and did not add a
+guard, and neither did I.

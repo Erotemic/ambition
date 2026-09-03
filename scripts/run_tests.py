@@ -691,6 +691,25 @@ def build_detached_tool_jobs(pytest_filter: str | None = None) -> list[Job]:
     ]
 
 
+#: The baseline `check_planning_citations.py --vanished` compares HEAD against.
+#:
+#: ⛔ FIXED ON PURPOSE, NEVER A ROLLING WINDOW. A rolling baseline makes the
+#: lane's meaning drift under it: a row that was a finding yesterday silently
+#: stops being one today because the window slid past the rename, and nobody
+#: decided that. A fixed ref means the question is always "what has gone stale
+#: since the last time a person triaged this corpus", and the ONLY way the
+#: answer changes is that someone triages and advances this line deliberately.
+#:
+#: ⇒ SO ADVANCING IT IS THE ACT OF ACCEPTING A TRIAGE, and it belongs in the
+#: same commit that fixes or marks the rows it stops reporting. Bumping it to
+#: silence a red lane is the one thing this constant exists to prevent.
+#:
+#: 2026-09-03: the 45 findings at this ref were triaged down to 13 — 25 rows
+#: recording a deleted name on purpose (now marked `cite-ok`), 2 real renames,
+#: 4 false positives fixed in the checker itself. The 13 that remain are real.
+PLANNING_VANISHED_BASELINE = "98b0bd8079fa5cc84112ea302e1d28826a54bbc3"
+
+
 def build_maintenance_jobs() -> list[Job]:
     """Plan periodic repository-hygiene audits, and nothing else.
 
@@ -719,6 +738,28 @@ def build_maintenance_jobs() -> list[Job]:
         Job(
             "zone names (ratchet)",
             [sys.executable, "scripts/check_zone_name_ratchet.py", "--check"],
+        ),
+        # ⛔ AND THIS ONE HAD NEVER BEEN AIMED AT ALL. `--vanished` reports
+        # planning rows citing a name that WAS a definition at the baseline and
+        # is not one now. Its unit tests exercised `vanished_report` six ways and
+        # passed; nothing pointed it at `docs/planning` with a real ref, so a
+        # green suite covered the FUNCTION and not the corpus. First real run
+        # (2026-09-03) returned 45 findings. Periodic by nature — it answers
+        # "what did the last three weeks of carving leave stale", not "is this
+        # edit ok" — which is why it belongs here and not in the default plan.
+        Job(
+            "planning rows citing a vanished name (periodic)",
+            [
+                sys.executable,
+                "scripts/check_planning_citations.py",
+                "--vanished",
+                PLANNING_VANISHED_BASELINE,
+                # ⛔ WITHOUT `--strict` THIS EXITS 0 WITH FINDINGS ON SCREEN, and
+                # a job that cannot fail is the very shape this lane was added to
+                # stop being. Verified 2026-09-03: 13 findings, exit 0 without
+                # it, exit 1 with it.
+                "--strict",
+            ],
         ),
     ]
 

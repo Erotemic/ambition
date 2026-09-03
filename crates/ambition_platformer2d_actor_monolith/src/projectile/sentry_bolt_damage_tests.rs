@@ -20,9 +20,9 @@
 //! decides. `apply_feature_hit_events` — which turns that into `BodyHealth` — is
 //! covered where it lives.
 
-use ambition_abilities::ranged::sentry::{update_sentries, SENTRY_BOLT_DAMAGE};
+use ambition_abilities::ranged::sentry::{deploy_sentry, update_sentries, SENTRY_BOLT_DAMAGE};
 use ambition_combat::components::ActorFaction;
-use ambition_combat::events::HitEvent;
+use ambition_combat::events::{HitEvent, HitSource};
 use ambition_platformer2d_core as ae;
 use ambition_projectiles::ProjectileSpawnRequest;
 use ambition_vfx::vfx::VfxMessage;

@@ -41,7 +41,10 @@ const SENTRY_FIRE_INTERVAL_S: f32 = 0.55;
 /// Targeting range (px) — enemies beyond this are ignored.
 const SENTRY_RANGE: f32 = 480.0;
 const SENTRY_BOLT_SPEED: f32 = 430.0;
-const SENTRY_BOLT_DAMAGE: i32 = 2;
+/// ⚠ `pub` for one reason: the bolt's end-to-end damage proof lives in the
+/// KERNEL (it chains two kernel projectile systems), and a test that cannot
+/// name the number it is asserting would be asserting a literal.
+pub const SENTRY_BOLT_DAMAGE: i32 = 2;
 const SENTRY_BOLT_LIFETIME: f32 = 1.4;
 const SENTRY_BOLT_HALF: ae::Vec2 = ae::Vec2::new(7.0, 7.0);
 
@@ -361,7 +364,7 @@ pub fn update_sentries(
 mod tests {
     use super::*;
     use crate::test_support::spawn_primary_player_holding;
-    use crate::enemy_projectile::test_support::live_projectile_bodies;
+    use crate::test_support::live_projectile_bodies;
     use ambition_projectiles::ProjectileSeqCounter;
 
     fn test_app() -> App {
@@ -587,19 +590,15 @@ mod tests {
 }
 
 #[cfg(test)]
+/// ⚠ NAMED `damage_tests` AND NO LONGER ABOUT DAMAGE. Its damage arm —
+/// `a_sentry_bolt_damages_the_enemy_it_was_fired_at` — moved to the kernel in
+/// the abilities carve, because it chains two KERNEL projectile systems and a
+/// test needing two crates belongs where both are visible. What is left is the
+/// ORDERING proof, which needs neither. Kept under the old name so the git
+/// history of the pair stays findable; see
+/// `ambition_platformer2d_actor_monolith::projectile::sentry_bolt_damage_tests`.
 mod damage_tests {
     use super::*;
-    use ambition_combat::events::{HitEvent, HitSource};
-    use ambition_vfx::vfx::VfxMessage;
-
-    #[derive(Resource, Default)]
-    struct CapturedHits(Vec<HitEvent>);
-
-    fn capture_hits(mut reader: MessageReader<HitEvent>, mut cap: ResMut<CapturedHits>) {
-        for e in reader.read() {
-            cap.0.push(e.clone());
-        }
-    }
 
     /// ⛔⛔ WHICH TURRET FIRES FIRST DECIDED WHICH BOLT GOT WHICH IDENTITY. Two
     /// turrets ready on the same tick each write a `ProjectileSpawnRequest`, and

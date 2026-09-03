@@ -104,18 +104,21 @@ fn the_chain_is_not_ours() {
     // crates. This plugin alone must therefore leave `CoreHeldItems` with no
     // members and no ordering to our two — a composition that installs only
     // this crate gets the wielded half correctly nested and nothing else.
+    // ⚠ THE ASSERTION IS ABSENCE, NOT EMPTINESS, and the first version of this
+    // test got that wrong: it looked `CoreHeldItems` up and panicked in the
+    // lookup, because a set no plugin has ever named is not IN the graph at all.
+    // That failure was the right answer arriving through the wrong door — the
+    // guard now states it directly.
     with_graph(|graph| {
-        assert_eq!(
-            direct_system_members(graph, ItemPickupSet::CoreHeldItems),
-            0,
-            "this crate registered a system into a set it does not own"
-        );
-        let thrown = set_key(graph, ItemPickupSet::ThrownItemEffects);
-        let core = set_key(graph, ItemPickupSet::CoreHeldItems);
         assert!(
-            !graph.dependency().graph().contains_edge(core, thrown),
-            "the three-variant chain was declared here; it belongs to the kernel, \
-             which is the only crate that can name all three owners"
+            graph
+                .system_sets
+                .get_key(ItemPickupSet::CoreHeldItems.intern())
+                .is_none(),
+            "this crate brought `CoreHeldItems` into the graph — it belongs to \
+             `ambition_held_items`, and naming it here is either a member this \
+             crate does not own or the kernel's three-variant chain, which \
+             orders sets owned by two OTHER crates and must stay in the kernel"
         );
     });
 }

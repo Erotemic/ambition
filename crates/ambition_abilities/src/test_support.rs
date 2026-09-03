@@ -13,7 +13,7 @@ use ambition_platformer2d_shared_tangle::markers::ControlledSubject;
 use ambition_platformer2d_shared_tangle::markers::{PlayerEntity, PrimaryPlayer};
 use bevy::prelude::*;
 
-pub(crate) fn spawn_primary_player_holding(app: &mut App, held_item_id: &str) -> Entity {
+pub fn spawn_primary_player_holding(app: &mut App, held_item_id: &str) -> Entity {
     let spec = held_item_by_id(held_item_id).unwrap();
     let entity = app
         .world_mut()
@@ -53,7 +53,7 @@ pub(crate) fn spawn_primary_player_holding(app: &mut App, held_item_id: &str) ->
 /// grapple / mark-recall) spawn. One definition so the body/`BodyBaseSize`
 /// bundle can't drift across those modules; each caller passes only the pos /
 /// facing it cares about.
-pub(crate) fn spawn_primary_player_holding_at(
+pub fn spawn_primary_player_holding_at(
     app: &mut App,
     held_item_id: &str,
     pos: ae::Vec2,
@@ -100,7 +100,7 @@ pub(crate) fn spawn_primary_player_holding_at(
 /// The caller inserts `ControlledSubject(None)` itself — leaving the resource out
 /// makes `DrivenBodies` panic, and an ability test that panics on a missing
 /// resource is not measuring the ability.
-pub(crate) fn spawn_seated_body_holding(
+pub fn spawn_seated_body_holding(
     app: &mut App,
     held_item_id: &str,
     slot: u8,
@@ -129,4 +129,56 @@ pub(crate) fn spawn_seated_body_holding(
             ),
         ))
         .id()
+}
+
+/// The in-flight projectile bodies, oldest spawn first — production's ordering.
+///
+/// ⭐⭐ A COPY, DELIBERATELY, AND THE ALTERNATIVE WAS WORSE. The original is
+/// `enemy_projectile::test_support::live_projectile_bodies` in the actor kernel,
+/// and three tests here used it across what is now a crate line. Reaching back
+/// would give this crate a dependency on the kernel — the exact edge the
+/// abilities carve (D33, 2026-09-03) removed, and one no test fixture is worth
+/// re-adding.
+///
+/// ⚠ IT COPIES CLEANLY BECAUSE IT NAMES NOTHING OF THE KERNEL'S: every type in
+/// it is from a crate below both — `ambition_projectiles::{InFlightProjectile,
+/// LiveProjectile, ProjectileBody, ProjectileSeq}`,
+/// `ambition_platformer2d_core::BodyKinematics` and shared_tangle's
+/// `ProjectileGameplay`. ⇒ If a third crate ever wants it, that is the signal to
+/// move it DOWN into `ambition_projectiles` rather than copy it again.
+///
+/// Recomposes an `InFlightProjectile` from the entity's split `BodyKinematics` +
+/// `ProjectileGameplay` so the historical collision assertions still read.
+pub fn live_projectile_bodies(
+    app: &mut bevy::app::App,
+) -> Vec<ambition_projectiles::InFlightProjectile> {
+    use ambition_platformer2d_shared_tangle::projectile::body::ProjectileGameplay;
+    use ambition_projectiles::ProjectileSeq;
+    use bevy::prelude::With;
+
+    let world = app.world_mut();
+    // `try_query_filtered` returns `Err` when the projectile component types
+    // were never registered in this World — exactly the "no projectile ever
+    // spawned" case some historical collision fixtures assert. Treat that as an
+    // empty set rather than panicking.
+    let Some(mut q) = world.try_query_filtered::<(
+        &ambition_platformer2d_core::BodyKinematics,
+        &ProjectileGameplay,
+        &ProjectileSeq,
+    ), With<ambition_projectiles::LiveProjectile>>() else {
+        return Vec::new();
+    };
+    let mut rows: Vec<(ProjectileSeq, ambition_projectiles::InFlightProjectile)> = q
+        .iter(world)
+        .map(|(kin, game, seq)| {
+            (
+                *seq,
+                ambition_projectiles::InFlightProjectile {
+                    body: ambition_projectiles::ProjectileBody::from_parts(*kin, *game),
+                },
+            )
+        })
+        .collect();
+    rows.sort_by_key(|(seq, _)| *seq);
+    rows.into_iter().map(|(_, body)| body).collect()
 }

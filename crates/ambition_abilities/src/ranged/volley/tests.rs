@@ -1,6 +1,6 @@
 use super::*;
 use crate::test_support::spawn_primary_player_holding;
-use crate::enemy_projectile::test_support::live_projectile_bodies;
+use crate::test_support::live_projectile_bodies;
 use ambition_projectiles::ProjectileSeqCounter;
 
 fn test_app() -> App {

@@ -257,6 +257,31 @@ not own. ⚠ Assert it as absence FROM THE GRAPH, not as an empty set — a set 
 plugin has named is not in the graph at all, so `get_key(...).is_none()` is the
 check and a member count panics in the lookup instead.
 
+### ⛔ `--all-targets` ON EVERY CRATE THE CARVE TOUCHED — Jon's ruling, not a preference
+
+`maintainer-decisions.md` (2026-08-22): *"the gate stays `cargo check -p
+ambition_app --all-targets`, and a carve additionally compiles `--all-targets`
+on each crate it touched, because a carve moving a type is exactly the change
+that breaks a sibling crate's TEST build — the app gate sweeps production only."*
+
+⚠ **`cargo check --workspace` DOES NOT SATISFY THIS.** It builds libs, not test
+targets, so a carve that moves a type out from under a sibling's `#[cfg(test)]`
+import passes `--workspace` and fails the sibling's own `--all-targets`. That is
+the precise failure mode the ruling names, and it is invisible to the gate.
+
+⇒ Derive the list rather than recall it:
+
+```sh
+git diff --name-only <base>..HEAD -- crates game | cut -d/ -f2 | sort -u
+```
+
+then `cargo check -p <crate> --all-targets` for each. The abilities carve
+touched six (`ambition_abilities`, `ambition_app`, `ambition_platformer2d`,
+`ambition_platformer2d_actor_monolith`, `ambition_platformer2d_runtime`,
+`ambition_sim_view`) plus `ambition_match` from the test move, and running them
+individually is also what let the carve be verified at all when the box could
+not fit `cargo test --workspace`.
+
 ### ⭐ Prune by mtime, not by profile — the carve campaign's disk bill
 
 A carve multiplies the feature-matrix variants a feature job resolves, and cargo

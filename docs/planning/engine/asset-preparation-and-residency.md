@@ -599,7 +599,7 @@ rows, listed below, of which three were new. Corrected 2026-09-02; the tileset
 below is still the LARGEST of the nine and still the one that matters.
 
 `game://sprites/player_robot_v3_spritesheet.png`, found 2026-09-02, is
-`bevy_ecs_ldtk` loading the four worlds' editor-preview tileset (`relPath:
+`bevy_ecs_ldtk` loading the FIVE worlds' editor-preview tileset (`relPath:
 ../sprites/player_robot_v3_spritesheet.png`) through the `game` source — the
 same file the player's realization decodes again as `sprites/…` through the
 default source (host captures `015511Z`/`015909Z`: 7.6 MP at 0.8 s game time
@@ -1226,13 +1226,26 @@ the resolved tier, 0.1 MP, and that is the copy the game actually draws. The
 7.6 MP one appears in `never drawn` for the rest of the run.
 
 ⛔ **AND THE LOADER IS NOT OURS — CORRECTED 2026-09-02 after this was first
-written up.** It is `bevy_ecs_ldtk` loading every project tileset: all four
+written up.** It is `bevy_ecs_ldtk` loading every project tileset: **FIVE**
 `.ldtk` worlds declare `sprite_player_robot_v3` with
 `relPath=../sprites/player_robot_v3_spritesheet.png` at 3072×2484, for EDITOR
-entity previews. Verified in all four world files. So `demand=unknown` is
-accurate and the road is genuinely absent — but the fix is retargeting four
-declarations at `../sprites_0_25x/…` in the map submodule, which is Jon's, and
-the row that owns it is in [`../queue.md`](../queue.md). ⚠ Do not go looking for
+entity previews. So `demand=unknown` is accurate and the road is genuinely
+absent — but the fix is retargeting five declarations at `../sprites_0_25x/…`
+in the map submodule, which is Jon's, and the row that owns it is in
+[`../queue.md`](../queue.md).
+
+⚠ **FIVE, NOT FOUR — recounted 2026-09-02 in the submodule itself.** The four
+`ambition_content` worlds (`hall_of_characters`, `intro`, `sandbox`,
+`you_have_to_cut_the_rope`) plus **`ambition_demo_sanic/worlds/sanic_speedway.ldtk`**,
+which the earlier "verified in all four world files" missed because it counted
+the worlds `ambition_content` exposes rather than the worlds that carry the
+declaration. All five still point at full resolution; none is retargeted.
+`ambition_demo_mary_o/worlds/mary_o.ldtk` does NOT reference the sheet.
+
+ⓘ And the count is the ONLY thing wrong here: the files under
+`game/ambition_content/assets/worlds/` are git symlinks (mode 120000) into
+`game/ambition_map_assets`, so `git ls-files` listing them is not evidence they
+are ours. They are Jon's submodule, exactly as this paragraph says. ⚠ Do not go looking for
 this in our character-sprite loader; an earlier version of this paragraph would
 have sent a reader there.
 

@@ -182,6 +182,65 @@ so *"a fingerprint sensitive to plugin insertion order would be unusable."*
 It is "generalise `ConstructionRegistry`'s, which is already written down, and
 decide what to do about 23 String keys and three conflict conventions."**
 
+## R4 evaluation — measured `65cd47e85` (2026-09-03)
+
+### Every pilot ADDED lines, and that confirms this page rather than refuting it
+
+| pilot | registry file | +/− | net |
+|---|---|---|---|
+| `ConstructionRegistry` (df) | `crates/ambition_platformer2d_shared_tangle/src/construction/registry.rs` | +74 / −68 | **+6** |
+| `RollbackRegistry` (df) | `crates/ambition_platformer2d_runtime/src/rollback/registry.rs` | +50 / −36 | **+14** |
+| `PlacementLoweringRegistry` | `crates/ambition_platformer2d_world/src/placements.rs` | +46 / −44 | **+2** |
+| `RoomContentStagingRegistry` | `crates/ambition_platformer2d_actor_monolith/src/features/ecs/spawn/content_staging.rs` | +40 / −21 | **+19** |
+
+⭐ **Four pilots, four net additions, zero lines saved.** That is exactly what
+this page predicted — *"The cost is not primarily literal duplicate lines. The
+larger cost is semantic drift"* — and it is worth stating as a measured result so
+nobody promotes this campaign on a line-count argument it will not deliver. What
+the pilots buy is that the protocol is written once and the DEVIATIONS become
+visible; the prose that makes each deviation legible is most of the added lines.
+
+### `classify` fits data, not behaviour
+
+⛔ `ambition_registry_core::classify` requires `E: PartialEq`, and two of the
+four pilots hold FUNCTIONS. They split:
+
+- `PlacementLoweringRegistry` stores `LoweringFn<C>`, a plain fn pointer, and can
+  compare it — its `PartialEq` is now hand-written so the address is visibly part
+  of identity;
+- `RoomContentStagingRegistry` stores `Arc<dyn Fn(..)>`, a closure, and **cannot**.
+  `Arc::ptr_eq` would call two identical registrations different; comparing only
+  the identity fields would call two different stagers the same. It has no
+  Idempotent case to have, which is why "a duplicate source is an error" is
+  correct rather than lazy.
+
+⇒ **So the core has a boundary the other registries will meet: it fits a registry
+whose value is DATA.** A registry whose value is behaviour can take
+`RegistrationMeta` and `require_non_empty` and must stop there.
+
+### The "7 silent overwrite" registries: at most 2 are accidents
+
+⛔ **This page's own inventory called these seven "silent overwrite", which reads
+as seven accidents. Reading every `register` fn, four state the replace and one
+is not a production road:**
+
+| registry | verdict |
+|---|---|
+| `ParamSchemaRegistry` (`crates/ambition_entity_catalog/src/lib.rs:142`) | ✔ **stated, with a reason** — "Last registration for a key wins (a re-register overrides — content install is the single caller)" |
+| `EncounterRegistry` (`crates/ambition_encounter/src/registry.rs:42`) | ✔ **stated** — "Record (or replace) the live entity for an encounter id". It is a live-entity lookup, not an identity registry; replacing is the point |
+| `MovePrefabRegistry` (`crates/ambition_combat/src/moveset/prefab_registry.rs:44`) | ✔ **stated** — "Register (or override) a prefab builder under `key`" |
+| `FrontendAudioRegistry` (`crates/ambition_audio/src/selection.rs:201`) | ✔ **stated** — "Later declarations of the same route replace earlier ones" |
+| `PreparedCharacterRegistry` (`crates/ambition_characters/src/prepared.rs:1427`) | ⚠ **not a production road** — `insert_prepared` is the test hatch its own comment discusses at length |
+| `CombatBanterRegistry` (`crates/ambition_conversation/src/banter.rs`) | ⛔ **no stated reason** — "Bulk-register a set of hit-bark lines for one enemy name", nothing about a second registration |
+| `GatePortalRegistry` (`crates/ambition_platformer2d_world/src/rooms/gate_portal.rs:82`) | ⛔ **no stated reason** — no doc comment at all; a bare `self.portals.insert(..)` |
+
+⇒ **So the drift is smaller and better documented than the count suggested, and
+the two candidates are candidates rather than defects.** Neither was changed:
+whether a second gate-portal config for one zone, or a second bark set for one
+enemy, should conflict is a question for whoever owns those domains. What the
+inventory can say is that they are the only two where nobody wrote down the
+answer.
+
 ## Problem
 
 Ambition has several independently useful registries whose implementations keep

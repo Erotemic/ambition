@@ -62,11 +62,49 @@ def test_an_impossible_floor_refuses():
     done = _run("--min-gb", "999999")
     assert done.returncode == 1
     assert "REFUSING" in done.stderr
-    assert "cargo clean" in done.stderr, (
+    assert "target_bindmount.sh --status" in done.stderr, (
         "the refusal must carry the remedy — this fires in the middle of "
         "someone else's work, and a bare 'not enough space' sends them looking "
-        "at the wrong thing"
+        "at the wrong thing. AGENTS.md's remedy is the BIND CHECK: an enormous "
+        "target/ is almost always an absent bind, and repairing it returns the "
+        "space without deleting anything"
     )
+
+
+def test_the_refusal_does_not_recommend_deleting_anything():
+    """⛔⛔⛔ THIS TEST USED TO REQUIRE THE OPPOSITE.
+
+    It asserted `"cargo clean" in done.stderr`, so the guard on this message was
+    PINNING advice AGENTS.md forbids in the strongest terms it uses: *"NEVER
+    `rm -rf` anything under a `target/`. NOT `incremental`, NOT `deps`, NOT AS A
+    FAVOUR WHEN THE DISK IS FULL … the reclaim is Jon's call, on Jon's machine,
+    and `cargo clean` is his to run."*
+
+    ⚠ It was not theoretical. An agent pruning `target/debug/{deps,examples,
+    incremental}` by mtime on 2026-09-03 was following exactly this chain of
+    advice, with the bind mount present. A refusal message is read at the moment
+    someone is under the most pressure to free space, which is why it is the
+    last place a contradiction can be left standing.
+
+    ⚠ AND IT FORBIDS RECOMMENDING, NOT MENTIONING -- the first version of this
+    test failed on the message's own prohibition ("do not run `cargo clean`"),
+    because a substring check cannot tell "do X" from "do not X". Naming the
+    forbidden thing in order to forbid it is exactly what this message SHOULD
+    do, so the rule is per line: any line naming one must also negate it.
+    """
+    done = _run("--min-gb", "999999")
+    negations = ("do not", "don't", "never", "forbid", "jon's", "is his")
+    for line in done.stderr.splitlines():
+        lowered = line.lower()
+        named = [f for f in ("cargo clean", "rm -rf") if f in lowered]
+        if not named:
+            continue
+        assert any(n in lowered for n in negations), (
+            f"this line RECOMMENDS {named!r}, which AGENTS.md forbids "
+            f"(\"the reclaim is Jon's call ... `cargo clean` is his to run\"); "
+            f"the remedy is the bind check, then reporting and stopping.\n"
+            f"  line: {line.strip()}"
+        )
 
 
 def test_a_floor_of_zero_passes():

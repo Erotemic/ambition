@@ -579,9 +579,42 @@ The one unresolved developer-policy choice from the session-ownership work is in
   `--features capture,input,visible` the room loads at **frame 1** and all four
   tests still fail with the same message. ⇒ Whatever it is, it is not the room
   being late and not a system dying before the blocks are made.
-  ⭐⭐ **READ TO A NAMED MECHANISM 2026-09-03, and it is a THIRD answer neither
-  of the row's two options anticipated: A PARALLAX-ART GATE WITHHOLDS THE WHOLE
-  ROOM.** Not "another feature owns block drawing" and not "the room never
+  ✔✔ **MEASURED 2026-09-03 AND THE `painted_blocks` GROUP IS GONE — 4/4 PASS.**
+  `cargo test -p ambition_demo_mary_o_app --features capture --test mary_o_it`
+  reads **57 passed / 3 failed / 3 ignored**, against the 5 passed / 6 FAILED
+  this row recorded at `f21153b7b`, and **not one of the three survivors is a
+  painted_blocks test**:
+
+  ```text
+  ov1_draws_the_world::a_vfx_message_this_demo_writes_is_drawn_by_this_demo
+  ov1_draws_the_world::the_presentation_plugin_adds_no_hud_and_no_menu
+  ov1_draws_the_world::visible_mary_o_presentation_retires_and_relaunches_with_the_session
+  ```
+
+  Also 4/4 at `--features visible` and at `--features capture,visible`. ⚠ 404
+  commits landed between that measurement and this one and I did not bisect
+  which fixed it — the finding is that the group no longer reproduces, not what
+  cured it.
+  ⛔⛔ **AND I RETRACT THE DIAGNOSIS I PUBLISHED AN HOUR EARLIER IN THIS ROW.** I
+  read `spawn_room_visuals`'s session caller, found a `theme_loaded` gate that
+  returns before the block loop, matched it to a comment warning that the room's
+  visuals must not be *"held hostage to a backdrop that is never coming"*, and
+  wrote it up as the mechanism. **It explains a failure that does not occur.**
+  The reading may still describe a real latent hazard — a theme whose art never
+  arrives is indistinguishable there from one still loading — but it is not the
+  cause of these tests, and I labelled it a source reading precisely because
+  this was possible. ⇒ **A coherent mechanism that matches a comment's own
+  warning is still a hypothesis; one test run outranks it.**
+  ⚠ **THE TWO SURVIVING CLASSES ARE ALREADY CHARACTERISED ABOVE** and neither is
+  a mary_o defect: the vfx one panics *"`fx::vfx_spawn_messages` is not scheduled
+  here, which is the whole of the coin-pop report and not a Mary-O bug"*, and
+  `the_presentation_plugin_adds_no_hud_and_no_menu` fails BY CONSTRUCTION under
+  an all-presentation build (0 expected, 40 actual). ▢ The genuinely new one is
+  `visible_mary_o_presentation_retires_and_relaunches_with_the_session`, which
+  this row has never named.
+
+  ⊙ **The superseded reading, kept because the retraction is the lesson:** a
+  parallax-art gate withholds the whole room. Not "another feature owns block drawing" and not "the room never
   reaches the state" — the blocks are built by a path that refuses to run.
 
   `spawn_room_visuals` (which loops `world.blocks` and is the ONLY caller of
@@ -644,7 +677,55 @@ The one unresolved developer-policy choice from the session-ownership work is in
   `default = []`, so a plain `cargo test -p ambition_demo_mary_o_app` compiles
   them to NOTHING and reports green. They are not union-specific failures; they
   are tests that only exist under `visible`, failing there, invisible everywhere
-  else. ⚠ Still to confirm with one run at `--features capture` alone. ⚠ I wrote the
+  else.
+  ✔ **CONFIRMED 2026-09-03 BY TWO RUNS, AND THE UNION IS NOT INVOLVED.** Same
+  crate, same target, no workspace union, `--test mary_o_it -- ov1_draws_the_world
+  painted_blocks`:
+
+```text
+--features capture                                          5 passed  6 FAILED
+--features capture,ui,bevy_ui_menu,kaleidoscope_menu,        5 passed  6 FAILED
+         mobile_touch,dev_tools
+```
+
+  **Identical down to the numbers** — `the_presentation_plugin_adds_no_hud_and_no_menu`
+  is `left: 40, right: 0` in both, and `painted_blocks` panics on the same
+  `GeoId … PlacementId("MaryOBlock-106927")` in both. ⇒ The five extra
+  presentation features contribute NOTHING, so "another presentation feature
+  owns block drawing under the union" is dead as a hypothesis, and so is the
+  union framing: **these six fail whenever they are BUILT.**
+  ⇒ **What is left is a plain six-test red in `mary_o_it`, unrelated to
+  features**, and it is invisible to `cargo test -p ambition_demo_mary_o_app`
+  because the crate's `default = []` compiles both files (`#![cfg(feature =
+  "visible")]`) to nothing. ⭐ `python3 scripts/feature_gated_tests.py` already
+  reports the population — *"ambition_demo_mary_o_app 48 of 63 run bare
+  (visible)"*, 784 tests across 29 crates — so the hiding was instrumented all
+  along; nobody had connected the survey to this row.
+  ⇒ Next: `40` UI nodes with no `DeclaredHudRoot`, in a demo, at the minimum
+  feature set. That is the whole remaining question —
+  `engine_owned_ui_node_count` filters `Without<DeclaredHudRoot>`, so what to
+  learn is which plugin spawns those forty.
+  ⊙ **TWO ELIMINATED BY READING, 2026-09-03** (no build; recorded so the next
+  person does not repeat them). `drawn_demo` is `build_windowed_demo_app`, which
+  adds exactly five things: `install_windowed_foundation` (Bevy's
+  `DefaultPlugins` + window), `PlatformerEnginePlugins::fixed_tick()`,
+  `PlatformerHostPlugins`, `PlatformerAssetsPlugin::for_experience`, and
+  `PlatformerPresentationPlugin`.
+  ⛔ **NOT `PlatformerPresentationPlugin`**, which was the obvious suspect and is
+  the one the test's message accuses: it installs `VisualQualityPlugin`,
+  `spawn_main_camera`, `spawn_initial_room_visuals`, `SessionRoomVisualsPlugin`
+  and the two animation plugins — no UI node anywhere
+  (`platformer_presentation.rs:88-104`).
+  ⛔ **NOT `PlatformerHostPlugins`**: developer hotkeys, `HostCameraPlugin`,
+  `HostProjectileVisualsPlugin`, `HostVfxPresentationPlugin`,
+  `HostInputBindingsPlugin` (`platformer2d_host/src/lib.rs:25-33`).
+  ⚠ **`ambition_render` DOES contain the node spawners** — `hud.rs`,
+  `gameplay_surround.rs`, `hud/declared.rs`, `rendering/health.rs`,
+  `dialog_ui.rs`, `cutscene/mod.rs` — so the engine crate holds exactly what the
+  doctrine says belongs app-side; the open question is which of the remaining
+  three installs them here. ⇒ The cheap next step is to print the forty nodes'
+  components from the failing assertion rather than to keep reading plugin
+  lists. ⚠ I wrote the
   settle fix, ran it, saw it change nothing, and reverted it rather than ship a
   loop whose comment claimed a cause it had not established.
   ⊙ **HALF-ANSWERED: it is NOT the ConeRigAssets group.**

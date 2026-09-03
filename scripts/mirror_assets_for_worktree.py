@@ -33,11 +33,27 @@ place — so regenerating assets in a worktree silently rewrote the checkout eve
 other session builds and gates from.
 
 ⇒ **The invariant is: a writer publishing into this tree must unlink a symlinked
-destination first.** Two roads were fixed once the hazard was measured — the
-variant generator (`generate_visual_quality_variants.py`, all three write sites)
-and the renderer's publish (`_copy_sheet_files`) — each with the premise itself
-under test, because a guard asserting "main was untouched" passes trivially on a
-system where writes never followed links.
+destination first.** The implementation is ONE helper,
+`scripts/lib/publish_safely.py` (`break_mirrored_destination`), and every
+publisher's guard is tested with the PREMISE ITSELF under test — a guard
+asserting "main was untouched" passes trivially on a system where writes never
+followed links.
+
+⛔⛔ **"TWO ROADS WERE FIXED" WAS THIS PARAGRAPH FOR A DAY, AND TWO ROADS IS NOT
+AN INVARIANT.** Jon's 2026-09-03 review found the guard was scoped to where the
+bug was first met. The full census of publishers into `MIRRORED_TREES`:
+
+| publisher | writes | state |
+|---|---|---|
+| `scripts/generate_visual_quality_variants.py` | `Image.save`, `write_text` (3 sites) | ✔ guarded, tested |
+| `tools/ambition_sfx_pack/pack.py` | `open("wb")` (bank), `write_text` (dump) | ✔ guarded 2026-09-03, tested — **was writing straight through** |
+| `tools/ambition_sprite2d_renderer` `_copy_sheet_files` | `shutil.copy2` | ✔ guarded (submodule, already correct) |
+| `tools/ambition_music_renderer` `cli.py:363, 370, 398` | `shutil.copy2` ×3 | ⚠ **OWED** — bare `copy2`, no unlink |
+
+⚠ The music renderer is a SUBMODULE: the helper lives here, the fix there is a
+pointer move, and it is listed rather than done. `scripts/regen/music.sh:95-106`
+aims it at `AMBITION_MUSIC_PUBLISH_ROOT`, so a music regen from an asset-mirrored
+worktree still rewrites the main checkout's audio today.
 
 ⚠ **A THIRD ROAD ADDED LATER WILL NOT BE PROTECTED BY THIS FILE.** Nothing here
 can enforce the rule on a writer it has never heard of; the enforcement lives in

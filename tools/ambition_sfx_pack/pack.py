@@ -50,6 +50,16 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Iterable
 
+# ⛔⛔ THE BANK IS PUBLISHED INTO A TREE THAT MAY BE SYMLINK-MIRRORED.
+# `scripts/regen/sfx.sh` aims this script at
+# `crates/ambition_platformer2d_actor_monolith/assets/audio/sfx.bank`, which is
+# inside `mirror_assets_for_worktree.py`'s MIRRORED_TREES. In a worktree that
+# path is a SYMLINK at the main checkout's copy, and `open(dst, "wb")` follows
+# it -- so a regen here rewrote the bank every other session builds and gates
+# from, leaving the link in place so nothing looked wrong.
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent.parent / "scripts" / "lib"))
+from publish_safely import break_mirrored_destination  # noqa: E402
+
 MAGIC = b"AMBNDSFX"
 VERSION = 1
 HEADER_SIZE = 40
@@ -259,6 +269,7 @@ def write_bank(out_path: Path, entries: list[Entry]) -> None:
         names_blob += encoded
 
     out_path.parent.mkdir(parents=True, exist_ok=True)
+    break_mirrored_destination(out_path)
     with out_path.open("wb") as fh:
         fh.write(header)
         fh.write(entry_records)
@@ -286,6 +297,7 @@ def write_dump(dump_path: Path, entries: list[Entry], bank_path: Path) -> None:
             f"{entry.peak_db:>7.2f} {entry.rms_db:>7.2f} "
             f"0x{entry.flags:04x}  {entry.id}"
         )
+    break_mirrored_destination(dump_path)
     dump_path.write_text("\n".join(lines) + "\n")
 
 

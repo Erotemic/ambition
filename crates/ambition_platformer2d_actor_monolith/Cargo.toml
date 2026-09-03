@@ -372,7 +372,7 @@ ambition_audio = { path = "../ambition_audio" }
 # schedule sets). First real crate extracted from the proto-runtime
 # (`crate::platformer_runtime` is now a facade over this crate plus the
 # not-yet-extracted local modules collision/orientation/transit). See
-# docs/current/state.md Stage 13 / Task K.
+# docs/planning/status.md Stage 13 / Task K.
 ambition_platformer2d_shared_tangle = { path = "../ambition_platformer2d_shared_tangle" }
 # The physical life of a touched collectible -- where it is, whether it is
 # moving, and that touching it collects it (D33, 2026-09-02). `items::pickup`
@@ -396,12 +396,12 @@ ambition_projectiles = { path = "../ambition_projectiles" }
 # `crate::time` module is a facade re-exporting these; the sandbox keeps the
 # game-specific time-control POLICY (Regime / requester table / feel-tuned
 # smoother), camera-ease, and feel modules on top. ADR 0010/0011. See
-# docs/current/state.md (T1b).
+# docs/planning/status.md (T1b).
 ambition_time = { path = "../ambition_time" }
 # ECS-native pure-logic core (geometry / movement / collision / player_state /
 # abilities / ledge_grab / world / player_clusters + the shared BodyKinematics
 # body component). The build-time foundation; re-exported as `crate::engine_core`
-# from lib.rs (ADR 0019). See docs/current/state.md.
+# from lib.rs (ADR 0019). See docs/planning/status.md.
 ambition_characters = { path = "../ambition_characters" }
 # Structured causal facts. Optional and default-off (§2e), and it brings only
 # `bevy_ecs` for the `Resource` impl -- no renderer, no other domain.
@@ -432,7 +432,7 @@ ambition_platformer2d_ldtk = { path = "../ambition_platformer2d_ldtk", default-f
 # `crate::persistence::settings` re-exports its `settings` module so existing
 # `crate::persistence::settings::ControlSettings` paths resolve unchanged. The
 # sandbox `input` feature forwards to this crate's `input` feature. See
-# docs/current/state.md.
+# docs/planning/status.md.
 ambition_input = { path = "../ambition_input" }
 ambition_platformer2d_world = { path = "../ambition_platformer2d_world" }
 ambition_persistence = { path = "../ambition_persistence" }

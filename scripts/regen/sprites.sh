@@ -1431,7 +1431,9 @@ run_renderer_python portrait-gallery -m ambition_sprite2d_renderer portrait-gall
 # the runtime asset roots into target/ambition_publish/diagnostics so the game
 # bundle ships runtime artifacts only. This is what keeps the Rust
 # `shipped_runtime_roots_have_no_leaked_diagnostics` test green after a regen.
-# See docs/planning/engine/data-driven-sprites-and-characters.md.
+# See docs/archive/reviews/sprite-pipeline-2026-07/data-driven-sprites-and-characters.md
+# (the page was ARCHIVED, not deleted -- this comment pointed at its live path
+# for months after the move, and nothing checks doc paths cited outside docs/).
 echo "==> Publish boundary: sweeping diagnostics out of runtime roots:"
 if command -v "$python_bin" >/dev/null 2>&1; then
     "$python_bin" "$repo_root/scripts/sweep_runtime_diagnostics.py" \

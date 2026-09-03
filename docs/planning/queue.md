@@ -543,7 +543,34 @@ The one unresolved developer-policy choice from the session-ownership work is in
   `default = []`, so a plain `cargo test -p ambition_demo_mary_o_app` compiles
   them to NOTHING and reports green. They are not union-specific failures; they
   are tests that only exist under `visible`, failing there, invisible everywhere
-  else. ⚠ Still to confirm with one run at `--features capture` alone. ⚠ I wrote the
+  else.
+  ✔ **CONFIRMED 2026-09-03 BY TWO RUNS, AND THE UNION IS NOT INVOLVED.** Same
+  crate, same target, no workspace union, `--test mary_o_it -- ov1_draws_the_world
+  painted_blocks`:
+
+```text
+--features capture                                          5 passed  6 FAILED
+--features capture,ui,bevy_ui_menu,kaleidoscope_menu,        5 passed  6 FAILED
+         mobile_touch,dev_tools
+```
+
+  **Identical down to the numbers** — `the_presentation_plugin_adds_no_hud_and_no_menu`
+  is `left: 40, right: 0` in both, and `painted_blocks` panics on the same
+  `GeoId … PlacementId("MaryOBlock-106927")` in both. ⇒ The five extra
+  presentation features contribute NOTHING, so "another presentation feature
+  owns block drawing under the union" is dead as a hypothesis, and so is the
+  union framing: **these six fail whenever they are BUILT.**
+  ⇒ **What is left is a plain six-test red in `mary_o_it`, unrelated to
+  features**, and it is invisible to `cargo test -p ambition_demo_mary_o_app`
+  because the crate's `default = []` compiles both files (`#![cfg(feature =
+  "visible")]`) to nothing. ⭐ `python3 scripts/feature_gated_tests.py` already
+  reports the population — *"ambition_demo_mary_o_app 48 of 63 run bare
+  (visible)"*, 784 tests across 29 crates — so the hiding was instrumented all
+  along; nobody had connected the survey to this row.
+  ⇒ Next: `40` UI nodes with no `DeclaredHudRoot`, in a demo, at the minimum
+  feature set. That is the whole remaining question and it needs no build to
+  start — `engine_owned_ui_node_count` filters `Without<DeclaredHudRoot>`, so
+  the first thing to learn is which plugin spawns those forty. ⚠ I wrote the
   settle fix, ran it, saw it change nothing, and reverted it rather than ship a
   loop whose comment claimed a cause it had not established.
   ⊙ **HALF-ANSWERED: it is NOT the ConeRigAssets group.**

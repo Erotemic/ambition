@@ -1451,6 +1451,26 @@ targets that re-render instead of downscaling" — the exact opposite:
 `module`. ⭐ I built all three by reading the generator and comparing configs;
 the answer came from RUNNING `discover_all_targets()` and asking it.
 
+ⓘ **A SWEEP FOR OTHER DEAD TARGETS FOUND ONE, AND THE SWEEP'S BOUNDS ARE THE
+INTERESTING PART.** Of 212 sheet targets, exactly one is BOTH absent from
+`discover_all_targets()` AND unnamed by engine or content: `pirate_heavy_v2`
+(10 files, 2.58 MB, unique bytes — not a duplicate of the four named
+`pirate_heavy_*` sheets). ⛔ **The other 27 targets nothing names ARE NOT A
+FINDING**: they are authored characters not yet wired, and content breadth is
+not gated here — a guard over them would pressure exactly the thing the project
+wants unpressured. No ratchet was written for this.
+
+⚠ **The sweep is bounded in both directions and neither bound is small.** A
+quoted-string grep over `.rs`/`.ron`/`.json` alone reports **106** of 212 dead,
+because the character catalogs are YAML and `git grep` does not enter
+submodules. A bare-name grep over every text type reports **ZERO**, because the
+renderer defines a module per target and `assets/sprites/<name>_spritesheet.yaml`
+names itself — a generated file naming itself is not a reference. The usable
+predicate excludes the asset trees and the renderer, and it still MISSES
+`actor`, whose bare name collides with `ACTOR_CONSTRUCTION_DOMAIN = "actor"`.
+⇒ Short target names cannot be settled by grep; `actor` was found by asking the
+registry, not by searching.
+
 ▢ **`author`, `medic` and `officer` remain unexplained** — `module`-kind, written
 minutes after their own full sheets, genuinely unshrunk. Their mechanism is
 still open.

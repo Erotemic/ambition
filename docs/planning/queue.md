@@ -423,6 +423,22 @@ The one unresolved developer-policy choice from the session-ownership work is in
     estimate**: the tool states size predicts compile cost at only R²=0.12, so
     every SECONDS figure above is wrong for these four by an unknown factor.
     `python3 scripts/compile_collect.py` measures them.
+  ⊙ **RE-RUN 2026-09-03 after five more carves, and the campaign's two best
+  numbers are here rather than in any prose:**
+  * ⭐ **THE MONOLITH IS UNDER 100,000 LINES.** `largest_unit_lines`
+    108,364 → **98,808** (−9,556), which the ratchet flags as OUTSIDE its ±2,167
+    budget — in the good direction, and therefore as a baseline that is now
+    stale rather than as a failure.
+  * ⭐ **AND UNDER HALF THE WORKSPACE'S EDIT COST.** The monolith's
+    `edit_cost_lines` share 50.5% → **46.9%** (−3.6 pts). That is the number the
+    whole decomposition is for.
+  * ⚠ `critical_path_crates` 14 → **16** and `UNPRICED` 4 → **7**
+    (`ambition_abilities`, `ambition_body_seed`, `ambition_encounter_features`,
+    `ambition_held_items`, `ambition_match`, `ambition_registry_core`,
+    `ambition_world_items`) — every carve adds one of each, and the seconds
+    columns stay a placeholder until someone spends the release rebuild.
+  * the two REGRESSED lines moved a little further out (+32,394 and +31,915
+    against ~+10,800 budgets), unchanged in character.
   * ⭐ **CARVED — two real wins the baseline is not holding**:
     `worst_edit_cost_seconds` 1,702.5 → 1,648.9 (−53.6 s) and
     `edit_cost_seconds` (the monolith) 1,264.9 → 1,139.5 (−125.4 s). The

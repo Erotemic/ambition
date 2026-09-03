@@ -831,7 +831,7 @@ input that cannot be taken on a software rasteriser.
 > | `hall_transition_cover` (control) | 224 | 363.1 | **1452.3 MB** |
 > | same, `AMBITION_QUALITY_PROFILE=ultra` | 225 | 363.9 | **1455.8 MB** |
 > | `leaving_the_gallery…` — the RETURN leg, hub→hall→hub, at 5.0s | 236 | 503.0 | **2012.0 MB** |
-> | same run at 10.0s, after the retire | 244 | 507.7 | **2030.9 MB** |
+> | same run at 10.0s | 244 | 507.7 | **2030.9 MB** |
 >
 > `gpu +0 … awaiting gpu N` on every one — nothing uploaded, which is the point:
 > `resident_mb` is decoded CPU-side bytes and needs no adapter.
@@ -848,6 +848,15 @@ input that cannot be taken on a software rasteriser.
 > for the hub (Full)"*, which was the PRE-repair behaviour that same section
 > reports fixing.
 >
+> ⚠ **The 10.0s row said "after the retire" until it was checked, and that was an
+> assumption, not an observation.** Residency GREW between the two samples — 236
+> images to 244, 2012.0 MB to 2030.9 — and a retire drops pages, so both readings
+> are almost certainly BEFORE the retire lands. ⇒ Which makes ≈2.03 GB a PEAK
+> while both rooms' casts are held, not a settled steady state, and the settled
+> figure is a third measurement nobody has taken. The peak is the right input for
+> a budget ceiling either way, which is why the correction does not change the
+> answer — only what the number is called.
+
 > ⭐ **SO THE ASK IS ANSWERED: ≈2.03 GB is `resident_mb` after a hub→hall→hub
 > walk at full texture resolution, and it needed no 3090.** The round trip peaks
 > ~580 MB above the hall entry alone, because it holds both rooms' casts before

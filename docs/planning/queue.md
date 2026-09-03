@@ -812,7 +812,7 @@ The one unresolved developer-policy choice from the session-ownership work is in
   compared, never tick-checked; a `set_changed()` on `UserSettings` every frame
   for thirty frames builds it once, `an_idle_system_face_builds_its_model_once`,
   red at 30 with the gate removed); `DevSnapshot` borrows its labels
-  (`c6c4a222e`); the focus sync reads `CachedSystemMenu.rows` through the one
+  (`0fb8c50e1`); the focus sync reads `CachedSystemMenu.rows` through the one
   `focus_for_action(action, page, rows)`.
   ✔ **AND THE BIGGER THING THAT SURVIVED IT IS CLOSED TOO, 2026-09-02.**
   `pointer.rs` rebuilt the WHOLE settings IR — a `String` per label, description

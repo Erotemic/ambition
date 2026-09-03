@@ -795,6 +795,22 @@ in the kernel — they are room-feature systems — and the adapter disappears
 because the call direction reverses. No new vocabulary is needed beyond making
 the fact readable.
 
+✔ **(b) IS CUT, 2026-09-03.** `ambition_encounter::rewards::ClearedEncounters` is
+published by the domain, chained after its lifecycle reducer and inside
+`EncounterLifecycleSet`; the kernel's `sync_encounter_reward_chests` reads it,
+composed by the RUNTIME as `EncounterRewardSyncPlugin` so no registration lands
+back in the adapter.
+⭐ **The adapter shrank in a way that proves the direction changed: it no longer
+spawns anything.** The chest query left with the sync, and the reward call was
+its only use of `commands`. Its session guard was KEPT — it gates the whole
+system on a live session, and dropping it would newly run the trace, quest,
+banner and music projections in a session-less world, which is a behaviour change
+for whoever removes the last caller.
+✔ Guarded and poison-verified on MEMBERSHIP: every system
+`EncounterRegistryPlugin` schedules must be inside `EncounterLifecycleSet`, or
+consumers ordering `.after()` it read last tick's list — a chest one tick late,
+or absent on the tick an encounter resets, with nothing red.
+
 **(c) `FeatureWorldOverlaySet` is `shared_tangle` vocabulary, and the evidence
 predates this carve.** It is defined at
 `crates/ambition_platformer2d_actor_monolith/src/world/overlay.rs:32` and used as

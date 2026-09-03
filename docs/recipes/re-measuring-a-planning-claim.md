@@ -10,8 +10,8 @@ how one ought to work. They are here because the same session made each mistake,
 published some of them to a coordinator, and had to retract.
 
 ⭐ **The shape they share: a re-measurement is a MEASUREMENT, and the usual way to
-be wrong about a measurement is to be wrong about the instrument.** Six of the
-seven below are an instrument error — a filter that could not match, a scan at the
+be wrong about a measurement is to be wrong about the instrument.** Seven of the
+eight below are an instrument error — a filter that could not match, a scan at the
 wrong granularity, a signature read instead of a body — and not a mistake about
 the code.
 
@@ -195,3 +195,48 @@ much more accurate claim.
 the sha, the date, and what you found, including "nothing had changed". A reader
 who cannot tell whether a claim was checked yesterday or six weeks ago has to
 re-derive it, which is the cost this whole directory exists to avoid.
+
+### ⛔ A COUNT is not a finding unless the instrument travels with it
+
+Three separate planning rows were re-measured on 2026-09-03 by counting
+something, and all three counts turned out to be properties of the measurer
+rather than of the repository.
+
+| the row | the count it carried | what a careful re-count gave |
+|---|---|---|
+| resolver population (`declared-id-resolution-checks.md`) | 14, then 42 | **12 / 14 / 29 / 34** depending only on the `grep -A` window |
+| knockdown art (`JONS_OBSERVATIONS…`) | 203 sheets, 10 complete | 182 sheets, 12 complete — on a tree where **`git ls-files` tracks zero of them** |
+| capability crates (`[census] owners`) | 20 named, `crates=82` | absence uninformative for 62 crates; the row was a silent top-20 |
+
+⇒ **Each one was about to become a finding.** "The resolver population collapsed
+from 42 to 14." "Two fighters gained knockdown art." "Sixteen of seventeen
+capabilities are dead." All three are false, and all three are what the numbers
+say if you compare them without asking how they were produced.
+
+⛔ **The two failure modes, and they are different.**
+* **A count taken with an ad-hoc grep** is a property of the flags. The resolver
+  number moved by a factor of nearly three across four reasonable ways of asking
+  the same question, and none of them is wrong — they are different questions.
+* **A count taken over generated or untracked files** is a property of the
+  machine. Every sprite manifest under
+  `crates/ambition_platformer2d_actor_monolith/assets/sprites` is gitignored, so
+  two agents on two hosts get two honest, different, incomparable answers, and
+  neither can reproduce the other's.
+
+✔ **What to do instead**, in order of preference:
+1. **Track the row by NAMED items, not by a total.** `declared-id-resolution-checks.md`
+   reached this independently — *"reopen only on a named site, never on the
+   count"* — and the knockdown row's nine named fighters re-measured cleanly on a
+   host whose totals could not be compared at all.
+2. If a number is genuinely the point, **record the instrument beside it**: the
+   exact command, and whether its inputs are tracked. A count with no instrument
+   cannot be re-run, only re-invented.
+3. Before reporting that a count MOVED, reproduce the OLD number with your new
+   instrument. If you cannot, you have measured two different things and the
+   trend is not evidence.
+
+⚠ The tell that saved all three: the first re-count returned **exactly** the
+row's old number (14), which is far too lucky for an independent measurement of
+a repository that had moved for a week. A suspiciously clean agreement is the
+same warning as a suspiciously clean absence.
+

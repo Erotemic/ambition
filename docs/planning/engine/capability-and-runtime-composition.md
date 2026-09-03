@@ -171,6 +171,61 @@ concrete gameplay declarations are federated by domain and the GGRS backend is
 separate from the generic runtime. Do not use that completed migration as the
 justification for another capability layer.
 
+### Measured 2026-09-03 — the closure bullet above, with its number and its paths
+
+`fixtures/external_consumer` ("outlander") is the honest test: its own
+`[workspace]`, its own lockfile, no workspace dependency table, and it asks the
+facade for exactly TWO capabilities with `default-features = false` —
+`ambition_render` and rollback. Its manifest even says so: *"What else still
+links is the carve's problem, not this manifest's."*
+
+It links **46 `ambition_*` crates**, including **10 of the 14** optional
+capability crates it never named:
+
+| inherited | not inherited |
+|---|---|
+| cutscene, dialog, encounter, items, menu, persistence, projectiles, sfx, ui_nav, vfx | inventory_ui, portal2d, settings_menu, touch_input |
+
+⭐ **And the split by CAUSE is the useful part, because the two halves need
+different fixes.**
+* **Six arrive through a capability it DID request.** `cutscene`, `persistence`,
+  `projectiles`, `sfx`, `ui_nav` and `vfx` are direct dependencies in
+  `crates/ambition_render/Cargo.toml`. Asking for rendering and receiving these
+  is a question about whether `ambition_render` is one capability or a bundle —
+  not about feature plumbing.
+* **Four arrive through the facade's NON-OPTIONAL core**, and no feature flag can
+  remove them. `cargo tree -i` in the fixture:
+  `ambition_items` ← `ambition_platformer2d_actor_monolith`;
+  `ambition_menu` ← `ambition_platformer2d_host` **and**
+  `ambition_platformer2d_runtime`. All three are unconditional dependencies of
+  `ambition_platformer2d`.
+
+⇒ **This is the decomposition campaign's customer-visible consequence, measured.**
+Making a domain optional cannot remove it while the monolith, host or runtime
+names it — so the pickup carve and its siblings are what move this number, and
+turning more capabilities into features is not. ⚠ It also means the number is a
+progress metric for that campaign: re-run the fixture's `cargo tree` after each
+carve.
+
+✔ One capability is now provably NOT inherited by this consumer:
+`ambition_relativity` appears zero times in outlander's tree, which is the
+external half of the cost contract guarded the same day
+(`engine.facade-all-capabilities-omits-relativity`).
+
+⭐⭐ **AND THE STRICTER SENTINEL GETS THE SAME TEN.** `fixtures/minimal_game`
+asks the facade for exactly ONE capability — `ambition_render`, nothing else —
+and links **45** `ambition_*` crates and the SAME ten capability crates as
+outlander, which asked for two. ⇒ **The closure is not a function of what a
+consumer requests.** Asking for less changes the count by one crate, because
+what arrives is decided by the facade's non-optional core, not by the feature
+list. That is the sharpest available statement of this pressure point, and it is
+why more feature flags cannot answer it.
+
+⚠ Fixture-quality note, not a finding: `minimal_game` has a committed
+`Cargo.lock` and resolves `--offline`; `external_consumer` has neither and needs
+`bevy_gltf`, which the main workspace never fetches, so it cannot be measured on
+a fresh host without network.
+
 ## Target shape
 
 ```text

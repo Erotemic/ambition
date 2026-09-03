@@ -251,6 +251,27 @@ not a law.
 | 45 | The carve checklist's own exclusion table | It filed `snapshot_impls` under `characters/src/brain/{…}`; the path is `characters/src/snapshot_impls.rs`, at the crate ROOT, and it trips TWO contracts. Four contract names were also elided to `the-motion-model-…`, which is not greppable — the one thing that table owes its reader | `eee69a969` |
 | 46 | Every lane, over a crate built under its OWN defaults | ⭐ A THIRD BLINDNESS AXIS, beside gated code and warm fingerprints. `ambition_input`'s default feature set is EMPTY, so built alone its only use of `WALK_AXIS_CAP` is not compiled and the const warns — while the workspace check unifies `input` ON and sees nothing. `cargo check -p X` and the workspace check are DIFFERENT PROGRAMS, which is the jab-string lesson in reverse (that test was green per-crate and red under the union; this is green under the union and red per-crate). ⇒ Measured the population: of 25 crates with an empty `default` AND cfg-gated source, FOUR warn when built alone, and all four report the SAME THREE warnings — one root cause in `ambition_dialog`, whose methods are called only inside `systems.rs`'s 17 `#[cfg(feature = "input")]` blocks and `ui`-gated `bridge.rs` | `b62aac79d` fixes the input one; the dialog one is RECORDED not fixed — six methods needing cfgs across two features in a crate I do not own is a change to make on purpose, not in passing |
 
+## ⚠ A TRANSIENT I OBSERVED THREE TIMES AND HAVE NOT EXPLAINED
+
+`check_planning_citations.py` reported `1 unresolved` and then, re-run seconds
+later with nothing changed, `all resolved`. Three times on 2026-09-03, each
+time immediately after a `git fetch`/`git rebase` in a tree three agents write
+to.
+
+⭐ **The plausible mechanism is that its file index is `git ls-files`**, so a
+concurrent git operation writing `.git/index` can hand it a momentarily
+incomplete list — and a citation whose target file is missing from that list
+reads as unresolved. ⛔ **I have NOT confirmed that**, and the honest reason is
+that reproducing it means racing another agent's git deliberately.
+
+⇒ Two things follow, and the first matters more:
+  * **Re-run before believing a SINGLE failure from a tree other agents are
+    writing to.** Every one of the three cleared on the next run. A finding you
+    cannot reproduce twice in a shared tree is not yet a finding.
+  * ⚠ And the converse is the dangerous half: if the index can be momentarily
+    short, a run can also PASS over files it did not see. A green from one run
+    is worth exactly as little as a red.
+
 ⛔⛔ **AND FOUR OF MY OWN MEASUREMENTS OVER-REPORTED BEFORE I CHECKED THEM**,
 which is the through-line of the whole night: `Path.resolve()` escaping the
 worktree; `[0-9a-f]{7,40}` calling twenty rollback CHECKSUMS unresolved commits;

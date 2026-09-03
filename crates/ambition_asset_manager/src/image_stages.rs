@@ -234,24 +234,66 @@ impl RenderWorldPresent {
 /// ⚠ The global ledger still MIRRORS these stamps, and must keep doing so: the
 /// `[image-gpu]` lines, the insert→gpu timings and the census all read it. What
 /// it may no longer do is DECIDE whether a cover lifts.
+#[derive(Default, Debug)]
+struct AppReadiness {
+    /// Images this App's main world has seen arrive and not yet seen prepared.
+    /// ⛔⛔ THE CANDIDATE SET MUST BE APP-LOCAL TOO. It used to be the process
+    /// ledger's `awaiting_gpu`, and moving only the ANSWER per-App left the
+    /// WORK QUEUE that produces the answer shared — two defects, one shape:
+    ///   * on wasm the census never recorded arrivals at all, so the global
+    ///     list stayed empty, nothing was ever stamped, and `is_awaiting_gpu`
+    ///     answered "owed" forever. The cover could not lift.
+    ///   * with two rendering Apps holding the same `UntypedAssetId`, whichever
+    ///     render world looked first CONSUMED the single global candidate, and
+    ///     the other App could never discover its own preparation.
+    awaiting: HashSet<UntypedAssetId>,
+    prepared: HashSet<UntypedAssetId>,
+}
+
+/// This App's GPU-readiness authority: the candidate set AND the answer, shared
+/// between its own main and render worlds by the `Arc`.
 #[derive(Resource, Clone, Default, Debug)]
-pub struct AppGpuPreparedImages(Arc<Mutex<HashSet<UntypedAssetId>>>);
+pub struct AppGpuPreparedImages(Arc<Mutex<AppReadiness>>);
 
 impl AppGpuPreparedImages {
+    /// This App's main world saw `id` arrive in `Assets<Image>`. Recorded on
+    /// EVERY target: this is the readiness fact's input, not telemetry.
+    pub fn mark_awaiting(&self, id: UntypedAssetId) {
+        if let Ok(mut state) = self.0.lock() {
+            if !state.prepared.contains(&id) {
+                state.awaiting.insert(id);
+            }
+        }
+    }
+
+    /// The candidates this App's render world should look for. A snapshot, so
+    /// the lock is not held across the GPU query.
+    pub fn awaiting_ids(&self) -> Vec<UntypedAssetId> {
+        self.0
+            .lock()
+            .map(|state| state.awaiting.iter().copied().collect())
+            .unwrap_or_default()
+    }
+
+    pub fn awaiting_count(&self) -> usize {
+        self.0.lock().map(|state| state.awaiting.len()).unwrap_or(0)
+    }
+
     /// Record that this App's render world has a GPU copy of `id`.
     pub fn mark_prepared(&self, id: UntypedAssetId) {
-        if let Ok(mut set) = self.0.lock() {
-            set.insert(id);
+        if let Ok(mut state) = self.0.lock() {
+            state.awaiting.remove(&id);
+            state.prepared.insert(id);
         }
     }
 
     /// Has THIS App prepared `id`?
     pub fn is_prepared(&self, id: UntypedAssetId) -> bool {
-        self.0.lock().is_ok_and(|set| set.contains(&id))
+        self.0.lock().is_ok_and(|state| state.prepared.contains(&id))
     }
 
     pub fn prepared_count(&self) -> usize {
-        self.0.lock().map(|set| set.len()).unwrap_or(0)
+        self.0.lock().map(|state| state.prepared.len()).unwrap_or(0)
     }
 
     /// The reveal-readiness term: this App draws, and has not yet prepared `id`.
@@ -1326,6 +1368,71 @@ mod app_local_gpu_readiness {
         );
         assert_eq!(a.prepared_count(), 1);
         assert_eq!(b.prepared_count(), 0);
+    }
+
+    /// ⛔⛔ PREPARING A MUST NOT CONSUME B'S OPPORTUNITY TO BECOME PREPARED.
+    ///
+    /// The test above proves A's stamp is not B's ANSWER. This one proves it is
+    /// not B's CANDIDATE either, which is the half that was still broken after
+    /// the answer moved per-App: the render world drew candidates from the
+    /// process ledger's single `awaiting_gpu` list, keyed by bare
+    /// `UntypedAssetId`, and `gpu_prepared()` REMOVES the entry it matches. So
+    /// with two rendering Apps holding the same id, whichever looked first took
+    /// the only candidate and the other's stamper never saw the id again —
+    /// permanently unprepared, permanently "owed", cover never lifts.
+    #[test]
+    fn preparing_one_app_leaves_the_other_app_its_own_candidate() {
+        let a = AppGpuPreparedImages::default();
+        let b = AppGpuPreparedImages::default();
+        let shared = id(7);
+
+        a.mark_awaiting(shared);
+        b.mark_awaiting(shared);
+        assert_eq!(a.awaiting_ids(), vec![shared]);
+        assert_eq!(b.awaiting_ids(), vec![shared]);
+
+        a.mark_prepared(shared);
+
+        assert!(a.awaiting_ids().is_empty(), "A prepared it, so A stops looking");
+        assert_eq!(
+            b.awaiting_ids(),
+            vec![shared],
+            "B must still have its own candidate: A's render world consuming a shared \
+             global entry is exactly the defect this set replaces",
+        );
+        assert!(!b.is_prepared(shared));
+    }
+
+    /// The candidate half of the readiness fact: an arrival makes an id something
+    /// this App's render world will look for, and preparing it stops the search.
+    #[test]
+    fn an_arrival_becomes_a_candidate_and_preparation_retires_it() {
+        let app = AppGpuPreparedImages::default();
+        assert_eq!(app.awaiting_count(), 0, "nothing is owed before anything arrives");
+
+        app.mark_awaiting(id(1));
+        app.mark_awaiting(id(2));
+        assert_eq!(app.awaiting_count(), 2);
+
+        app.mark_prepared(id(1));
+        assert_eq!(app.awaiting_ids(), vec![id(2)]);
+        assert_eq!(app.prepared_count(), 1);
+        assert!(app.is_prepared(id(1)));
+    }
+
+    /// ⚠ A late arrival message for an id already prepared must not re-open it.
+    /// Bevy can emit `Added` again for a reused id, and re-adding it to the
+    /// candidate set would make a settled reveal go back to waiting.
+    #[test]
+    fn an_arrival_for_an_already_prepared_id_does_not_re_open_it() {
+        let app = AppGpuPreparedImages::default();
+        app.mark_awaiting(id(3));
+        app.mark_prepared(id(3));
+
+        app.mark_awaiting(id(3));
+
+        assert!(app.awaiting_ids().is_empty(), "a prepared id must not return to the queue");
+        assert!(app.is_prepared(id(3)));
     }
 
     /// A headless App never prepares anything, so nothing may wait on it.

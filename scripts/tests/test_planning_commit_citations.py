@@ -119,6 +119,31 @@ def test_a_submodule_commit_resolves(module, doc):
     )
 
 
+def test_a_commit_reachable_from_no_ref_is_reported(module, doc):
+    """⛔⛔ EXISTING IS NOT FINDABLE. A REBASED commit stays in the local object
+    store, so `cat-file -e` says yes while nobody else can fetch it. That is not
+    hypothetical: `a3924b2b2` was cited in queue.md as the fix for a union
+    failure and is that commit's pre-rebase name; a reviewer read it as
+    fabricated.
+
+    ⚠ The dangling commit is BUILT here rather than borrowed from the reflog, so
+    the test does not depend on this checkout's history. `commit-tree` writes an
+    object with no ref pointing at it -- harmless, and collected by the next
+    `git gc`.
+    """
+    tree = subprocess.run(
+        ["git", "rev-parse", "HEAD^{tree}"], cwd=REPO,
+        capture_output=True, text=True, check=True,
+    ).stdout.strip()
+    dangling = subprocess.run(
+        ["git", "commit-tree", tree, "-m", "unreferenced probe"], cwd=REPO,
+        capture_output=True, text=True, check=True,
+    ).stdout.strip()
+    findings, _ = module.unresolved_commits(REPO, [doc(f"citing `{dangling[:9]}`\n")])
+    assert len(findings) == 1, f"a commit on no ref must be reported: {findings}"
+    assert "reachable from NO ref" in findings[0][2], findings[0][2]
+
+
 def test_the_live_planning_tree_has_no_fabricated_commit():
     """The population this guard was built on, asserted rather than remembered."""
     module = load()

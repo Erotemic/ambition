@@ -140,6 +140,158 @@ part.
 design does not.** A `> **Verified against <sha> (<date>).**` header says both
 things correctly, which is why it is the form to use.
 
+### ⭐ STAMP THE HEADER WHEN YOU START, and it doubles as the held-file signal
+
+Several sessions work this directory at once, and the standing rule is: claim a
+slice, announce it, do not edit a file another session holds. The missing piece
+was a signal a session could SEE without asking — the announcements live in
+chat, and chat is not in the tree.
+
+⇒ **Write the `> **Verified against <sha> (<date>).**` header as the FIRST edit
+of a pass, not the last.** An uncommitted header at the top of a page says "a
+session has this open" to anyone who looks, and it survives the session that
+wrote it: once committed, it goes on saying the true thing it always said.
+
+⭐ **AND IT IS HONEST ONLY BECAUSE OF THE ORDER, which is the whole point.** The
+rule above is that the header is a correlate, not a cause — it is earned by
+re-reading the page against the code, and one added without that re-reading buys
+the next reader's trust without earning it. Stamping at the START is not a way
+around that: re-reading against HEAD is *what you start with*, so the stamp goes
+on the moment it has been earned and before a single claim is edited. A pass
+that cannot honestly write the header yet has not done the reading yet.
+
+⚠ Two things it does not do. It cannot reserve a file you have not opened, so it
+is a signal and not a lock. And a page under a header is still fair game for
+somebody fixing a fact they can prove — the header says who is working it, not
+who owns it.
+
+### ⛔ A PREDICTION SPREADS BY QUOTATION, AND FIXING ONE COPY LEAVES THE OTHERS
+
+One wrong forecast reached three pages on 2026-09-03. `queue.md`'s D33 row said
+the remaining decomposition was INTERNAL, "with no manifest edge to delete at the
+end of it", and warned "whoever takes it should know that going in". `status.md`
+restated it. `engine/actor-monolith-decomposition.md` restated it again. Five
+crates left the kernel the next day, the first being the very module the forecast
+named as the edgeless remainder — so all three copies were discouraging a reader
+away from work that then succeeded, and each copy had to be found separately.
+
+⇒ **A forecast belongs in ONE page — the one that owns the work — and other
+pages LINK to it.** A measurement can be quoted (it was true when taken, and the
+date says so); a prediction cannot, because when it fails the quotations do not
+fail with it. ⚠ If you find yourself restating someone else's forecast, that is
+the moment to link instead.
+
+⭐ And when one does fail, KEEP IT with its post-mortem rather than deleting it.
+The D33 row now records why it was wrong — it looked for EDGES rather than
+OWNERSHIP, and the metric it watched (the kernel's dependency count) rises on
+every successful carve, so success read as regression. That is worth more to the
+next forecaster than a clean page.
+
+### ⛔ RETIRING A PAGE CAN ORPHAN WHAT IT LINKED TO
+
+The retirement test — zero inbound references AND full absorption of its content
+— is about the page being retired. ⚠ **It says nothing about the pages that page
+POINTED AT**, and on 2026-09-03 that cost an open plan its only way in:
+`overnight-goal-agent3.md` was a closed receipt, correctly retired, and it was
+the sole referrer of `moveset-inspector.md` — which is OPEN, with M3
+outstanding. Deleting the receipt made an open plan unreachable by the route
+[`README.md`](README.md) describes.
+
+⇒ **Before deleting a page, grep its OUTBOUND links too**, and check each target
+is reachable another way:
+
+```sh
+grep -oE '\]\(([^)]+\.md)' <page> | cut -d'(' -f2 | while read t; do
+  echo "$t -> $(grep -rl "$(basename "$t")" docs/planning --include=*.md | grep -vc "<page>")"
+done
+```
+
+A target that reaches zero needs a row somewhere first. That is what
+`tracks.md`'s moveset-observatory row is for, and why it says so in the row.
+
+### ⛔ A NUMBER TYPED INTO PROSE IS A CLAIM WITH NOTHING HOLDING IT
+
+Five separate figures on these pages drifted in the SAME NIGHT (2026-09-03), and
+one of them drifted inside ten minutes of being corrected. The pattern is strong
+enough to be a writing rule rather than five fixes.
+
+| figure | said | was | why it moved |
+|---|---|---|---|
+| capability footprint | 45 crates / 18 | 50 / 23 | four carves landed |
+| monolith `[dependencies]` | 28, "has not moved" | 33 | a carve ADDS deps |
+| rollback wire tally | 406 names / 11 crates | 409 / 12 | registered types followed their code |
+| exhaustive job count | 49 | 52 | one job per new crate |
+| durable-doc crate names | — | 2 in 817 lines | measured, not assumed |
+
+⇒ **When a page states a number a command can print, print the command.** Keep
+the figure beside it as a DATED OBSERVATION — "it was 49 on 2026-09-03" — never
+as a standing claim. `run_tests.py`'s exhaustive banner now reads `len(jobs)` and
+quotes its measured count only as the count the timing was taken AT; that is the
+form to copy.
+
+⭐ **AND THE DERIVATION USUALLY CARRIES INFORMATION THE NUMBER DOES NOT.** The
+wire-format tally is the clearest case: across five carves its TYPE count did not
+move at all (123) while its CRATE count went 11 → 12, because a carve relocates a
+registered type and must leave its owner string and short name alone. So the two
+halves are diagnostic — a moved crate count means a carve, a moved type count
+means a wire-format change — and collapsing them into one retyped figure throws
+that signal away. The monolith's dependency table is the same shape in reverse:
+it goes UP on every successful carve, so watching it for progress reports success
+as regression.
+
+⚠ This is not licence to omit numbers. A page with no figures cannot be checked
+at all, which is the failure the header rule above is about. The rule is that the
+number must be reproducible BY THE READER, not that it must be absent.
+
+⭐ **AND NOT EVERY FIGURE IN A TABLE IS LOAD-BEARING — separate the VERDICT from
+the EVIDENCE.** `engine/relativity.md` proves the point: its table says
+`ambition_app` links relativity **0** times and `ambition_demo_twintrack_app`
+links it **2**, beside each app's total dependency-tree size. Re-derived after
+five carves, the linkage counts were unchanged and every tree size had moved
+(2,686 → 2,758; 1,849 → 1,917), because a carve splits one node into two.
+⇒ The linkage count is the CLAIM; the tree size is evidence that the check was
+done properly, and evidence does not have to stay current to have done its job.
+A table that does not distinguish them ages into one stale-looking block and
+gets distrusted wholesale — including the half that is still true.
+
+⛔ **THREE CLASSES, THREE DIFFERENT ACTIONS**, which is the part that is easy to
+get wrong:
+
+| the figure is… | do |
+|---|---|
+| wrong, and you can show it | fix it, and say what moved it |
+| unreproducible — the page never gave its method | ⛔ do NOT "correct" it. Say what IS derivable, name the command, and ask the owner for the method. A reader who reproduces a different number cannot tell drift from a method mismatch |
+| supporting evidence, not the claim | leave it, and mark it as context so the claim beside it stays trusted |
+
+⭐ **AND NAMING THE EXEMPLARS MAKES THE METHOD RECOVERABLE — the cheapest thing
+a page can do for its future checker.** `engine/svg-component-character-migration.md`
+says *"2 of 138 character target files are SVG-sourced by name
+(`charley_beagle_svg.py`, `mary_o_v2_svg_poc.py`, plus the `_svg_poc` and
+`_svg_fighter_effects` helpers); 22 of the 138 mention `svg` at all."* Checked
+2026-09-03: **every figure reproduces exactly** — 138 `.py` files, 22 mentioning
+svg, 4 svg-named of which 2 are targets and 2 are underscore-prefixed helpers.
+⚠ My FIRST count said 146 and I nearly filed a drift, because I counted
+directory entries including `__pycache__` instead of `*.py`. The page's own named
+files are what let me find my error instead of reporting it as theirs. ⇒ Before
+reporting a mismatch, reconstruct the page's method from the exemplars it names;
+the mismatch is at least as likely to be yours.
+
+⛔ **THAT HAPPENED TWICE IN ONE SESSION, BOTH TIMES BECAUSE A GREP COUNTED THE
+WRONG THING.** The SVG page's 138 became 146 when `__pycache__` entries joined
+the count. `demos/sanic.md`'s *"35 authored `currency:1` rings"* became 72 under
+`grep -o "currency:1"` — because an LDtk file carries that string twice per
+entity, once in the definition and once in the instance. Parsing the world and
+counting `PickupSpawn` instances gives **exactly 35**. ⇒ **In a structured file,
+count ENTITIES, not occurrences of a value string**; a substring tally over JSON
+or LDtk is not a census, and the page that parsed it properly is usually right.
+
+The middle row is the one that produces confident wrong numbers: silently
+replacing a figure you cannot reproduce asserts a drift you have not
+demonstrated. `engine/engine-1.0-architecture-program.md`'s
+`reset_*`/`restore_*` count is the worked example — 12 on the page, 13 names
+from the obvious grep, 3 of them tests, and no way to tell which count the page
+meant.
+
 ### ⭐ Some findings only exist BETWEEN two plans
 
 Three times on 2026-09-02/03 the useful result came from reading two focused

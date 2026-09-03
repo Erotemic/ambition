@@ -182,6 +182,109 @@ unactionable.
 
 ### B4 — generated-content/bootstrap contract
 
+> ⛔ **A FRESH CLONE ON A USED MACHINE IS NOT A FRESH MACHINE — measured
+> 2026-09-03 by actually cloning this repo into a scratch directory.** The
+> difference is the per-machine venv store, and it is keyed inconsistently:
+> `ambition_tool_venv_dir` takes `basename` of what it is given
+> (`scripts/setup/python_tools.sh:78`), so
+>
+> - the six TOOL projects key on `ambition_music_renderer`,
+>   `ambition_ldtk_tools` … — the same key from any checkout, so a new clone
+>   **inherits them**;
+> - the `scripts/` environment keys on the REPO ROOT's basename, so a clone in
+>   `freshclone/` gets a different key and **has none**.
+>
+> ⇒ `python_tools.sh --verify` in the clone therefore reports exactly one
+> problem — *"no interpreter for the scripts/ environment"* — and passes the six
+> tool venvs it did not build. ⚠ **A genuinely new machine would fail all seven**,
+> so this check's output on a clone is a partial truth shaped by the host, not by
+> the clone. It is also two checkouts with the same directory name sharing one
+> `scripts/` venv, which is a surprise waiting for anyone who keeps
+> `ambition/` and `ambition-2/`.
+>
+> ⭐ **AND THE SAME SPLIT DECIDES WHAT A NEW MACHINE NEEDS VERSUS A NEW CLONE.**
+> Measured from the clone, on this host:
+>
+> | prerequisite | scope | a fresh clone here |
+> |---|---|---|
+> | six tool venvs | MACHINE (`~/.cache/ambition-tool-venvs/<basename>`) | inherited |
+> | sampled instrument libraries | MACHINE (`/data/audio-tools`) | inherited — `--status` reports 2,351 `.sfz` |
+> | `scripts/` venv | CHECKOUT (repo-root basename) | **absent** |
+> | submodule contents | CHECKOUT | **absent** (0 files in each) |
+> | bundled UI fonts | CHECKOUT, git-ignored | **absent** (0 files) |
+> | generated sprite sheets | CHECKOUT, git-ignored | **absent** (4 tracked entries only) |
+> | `target/` | CHECKOUT | absent |
+> | `.agent/` navigation index | tracked | present |
+>
+> ⭐ **AND THIS REPO ALREADY SOLVED THAT COLLISION ONCE, in the other
+> per-checkout store.** `target_bindmount.sh`'s `store_for` keys its backing
+> directory on `<basename>-<sha1(abs path) | cut -c1-10>` — the readable half
+> "kept only so `du -sh` output is legible", the hash doing the actual work. Run
+> from the clone it correctly reports `state ABSENT (cargo has not built here
+> yet)` with its own backing dir, so two checkouts named the same cannot collide.
+> ⇒ The venv store's `basename`-only key is the same problem with the weaker
+> answer; adopting `store_for`'s scheme would close it, and the precedent is
+> twelve lines away in a sibling script.
+>
+> ⇒ So a clone on a used box is missing the CHECKOUT half and inherits the
+> MACHINE half — which is why `--verify` looks nearly green here and would fail
+> everything on a new laptop. ⛔ **Anyone testing the fresh-clone contract must
+> say which of the two they are testing**, or a green run proves the wrong
+> thing. The rows above that record fonts and Pillow as fresh-clone failures are
+> the CHECKOUT half; the Android and audio rows are the MACHINE half.
+>
+> ⭐ Two facts worth having beside that: **a clone is 75 MB** (the bulk is
+> submodules and git-ignored generated content, which is why the bootstrap
+> contract matters at all), and all four entry points — `run_developer_setup.sh`,
+> `run_headless.sh`, `run_tests.sh`, `scripts/setup/audio_libraries.sh` — are
+> present and executable with the submodule directories still empty. The
+> orchestrator's `--help` works from a bare clone and names the three
+> status/verify commands, which is the right shape: a new machine can ASK what
+> it is missing before it installs anything.
+
+
+> ⭐ **THE ASK ITSELF, RUN END TO END 2026-09-03 AFTER FIVE CARVES:
+> `./run_headless.sh --ticks 600` → `headless run completed: 600 ticks`, exit 0.**
+> Jon's standing ask is that a fresh clone reaches a runnable game; this is the
+> nearest thing to it that a box with no display can execute, and it passes on a
+> tree where `ambition_held_items`, `ambition_body_seed`, `ambition_match`,
+> `ambition_encounter_features` and `ambition_abilities` all left the actor
+> kernel the same day. It validates the sandbox world first, then steps the sim
+> shell, and it builds in RELEASE (`target/release/headless`) — so this also
+> exercises the optimized profile that the dev-profile discussion below is
+> about.
+>
+> ⚠ **What it does NOT prove**, so nobody quotes it further than it goes: this
+> tree is not a fresh clone. It has generated content, fetched fonts and the
+> sampled instrument libraries already in place, which are exactly the
+> prerequisites the rows below record as the things a clone lacks. A real
+> fresh-clone proof needs a clone; this proves the SIMULATION composes and runs
+> after the carves, which is the half a carve campaign puts at risk.
+>
+> Incidentally measured from its own census line: **661 systems in `Update`**.
+
+> ⭐ **AND ASK #2 HAS THE MATCHING END-TO-END EVIDENCE, run against real shipped
+> cues rather than fixtures (2026-09-03).** The per-library preflight gate
+> (`ambition_music_renderer` `8b10c5a`, pointer bumped here the same day) was
+> exercised both ways:
+>
+> - **No false positives on a healthy box.** Three shipped cues from
+>   `scores/active` — `a_possible_morning`, `aether_severance`,
+>   `argand_overdrive` — all report `unresolvable=[]`. That is the arm that
+>   matters for adoption: a gate that cries wolf gets an env var set
+>   permanently, which is how the General-MIDI fallback becomes the default
+>   again by another road.
+> - **It names the missing family when there is one.** Rewriting one real cue's
+>   `library_ref` to `freepats.a_library_no_machine_has` in memory makes the gate
+>   return exactly that reference — not a generic "something is missing", which
+>   would send a reader back to a 38 GB install they mostly already have.
+>
+> ⇒ So both standing asks now have a run on this box rather than a unit test:
+> ask #1 through `./run_headless.sh --ticks 600`, ask #2 through the gate's two
+> arms. ⚠ Same caveat as above — this box HAS the libraries, so what is proven
+> is that the gate discriminates, not that a fresh machine acquires them.
+
+
 A clean checkout should have an explicit path to produce every required generated
 artifact or obtain it from the intended cache/submodule. Cache keys must include
 all source dependencies that affect output.
@@ -207,6 +310,24 @@ under `scripts/` leaves three unresolved and NONE reachable from a test
 a `sys.path` insert). The sweep method is recorded beside the install list so
 the next added dependency re-runs it.
 
+⛔ **AND THE VERIFIER COULD NOT HAVE CAUGHT IT EITHER — found 2026-09-03 by
+asking what `--verify` actually checks.** `python_tools.sh --verify` walked the
+six per-tool authoring venvs, asking each for one import, and never touched the
+repo-root `scripts/` environment where the `pillow` failure lived. The
+seven-module import loop existed but ran only on the INSTALL path, so a machine
+whose scripts env had rotted answered *"existing tool environments are usable"*
+— true of six environments, and silent about the sick one. ⇒ Fixed: one list
+(`scripts_env_modules`), read by both the install loop and a new
+`verify_scripts_environment` on the `--verify` path. ⚠ Poisoned before being
+believed, because a green that would be green anyway is the same defect again.
+
+⭐ **The generalisation, which is the part worth keeping:** a per-component
+health check answers about the components it enumerates, and a fresh-clone
+failure lands wherever the enumeration does not reach. Both B4 violations found
+on 2026-09-03 have that shape — the suite acquired a dependency setup never
+learned about, and the verifier enumerated the wrong set — so when adding a
+check here, ask what it CANNOT see before trusting it.
+
 - ✔ **Bundled UI fonts.** `ambition_render`'s typography test `include_bytes!`s
   three faces from a git-ignored directory, so their absence is not a missing
   picture at runtime — `cargo check --all-targets` exits 101, and TWO gate jobs
@@ -216,6 +337,34 @@ the next added dependency re-runs it.
   rendered the whole catalogue through General MIDI and reported success —
   indistinguishable downstream from the real cues. Now installed by default, and
   the renderer refuses rather than shipping stand-ins.
+
+  ⛔ **BUT THE REFUSAL WAS ALL-OR-NOTHING, AND THE LIKELIER FAILURE IS ONE
+  MISSING FAMILY.** Measured 2026-09-03. `_sampled_libraries_installed()` asks
+  whether the machine has ANY sampled libraries; a box that has most of them and
+  is missing one passes it, and only the cues naming that family come out in the
+  wrong instrument — the rest are correct, so the run looks healthy.
+  ⚠ **And the catalogue cannot defend itself: all 247 sfz instrument backends in
+  `scores/active` are `optional: True`** (231 explicitly, 16 by
+  `_is_optional_instrument_backend`'s default), and only 2 of 75 scores set
+  `render.strict_backends`. The renderer's own guard is
+  `(wants_sfizz and not optional) or strict_backends`, which is FALSE for every
+  instrument Ambition ships: each warns once to stderr, falls back, exit 0.
+
+  ⭐ **Closed by a preflight gate that ignores `optional:` deliberately**, since
+  honouring it would make the gate dead code on the whole catalogue. It costs a
+  healthy machine nothing, which is what makes a gate legitimate rather than
+  another warning: resolving all 247 references through the renderer's own
+  resolver on this box gave **247 resolved, 0 unresolved**, `salamander_grand`
+  among them. Memoised, because one reference costs 0.36–5.54 s of globbing and
+  the 247 backends name only 68 distinct references.
+
+  ⚠ Two things this does NOT establish. It runs on cues that will actually
+  render, so a fully-cached tree is not re-checked — correct for cost, but it
+  means a machine can lose a library after its last render and not hear about it
+  until something changes. And `audio_libraries.sh`'s header says the cues name
+  *"54 distinct library references"*; the count over `scores/active` is 68. The
+  two may be different scopes (shipped registry versus every active score), so
+  the script's number is left alone rather than corrected on a guess.
 - ▢ **The `.ipfs` sidecars still have no hydration command**, which is the
   remaining instance of exactly this class: six git-ignored payload directories
   whose only restore path is a manual `ipfs get`. ⛔ Do NOT fold this into
@@ -300,6 +449,57 @@ Do not report an absent NDK/GPU/display as proof that the target's code is broke
 > nobody has.** The remedy is the same one the web job already uses: fail with the
 > prerequisite named and the fetch command quoted, rather than with a read error
 > from whichever target happens to open the file first.
+
+> **⛔ A FOURTH ABSENCE, AND THE WORST-BEHAVED: DISK. Hit 2026-09-03 running the
+> exhaustive plan — `/` reached 100% (290G used, ~260K free) partway through.**
+>
+> It is B5's class exactly — a missing prerequisite, not a code failure — but it
+> is the one absence that cannot name itself, and the reason is mechanical: tool
+> output goes through `/tmp`, so once the volume is full commands fail with
+> ENOSPC and **lose their own output**. A `git commit` died with exit 128 and no
+> message at all. Nothing in the failure says "disk"; it just stops making sense.
+> ⇒ **When a lane starts failing incoherently, `df -h /` before believing the
+> failure.**
+>
+> ⚠ **AND `df` ON THE WORKING DIRECTORY WILL TELL YOU IT IS FINE.** `target/` is
+> 182G and bind-mounted from `~/.cache/ambition-targets`, which lives on `/`; the
+> repository is on a different volume with 220G free. The obvious check looks at
+> the wrong filesystem — `scripts/setup/target_bindmount.sh --status` names the
+> pair, and that is the thing to read.
+>
+> Where it sits, measured the same day: `target/debug` 137G (`incremental` 31G of
+> it), `target/profiling` 19G, `target/outlander` 18G, `target/release` 9.8G.
+> ⚠ **Attribution is NOT established** — the cache is shared across sessions and
+> there was no before-reading — so the honest claim is that the plan is the
+> largest disk consumer in the repo (49 jobs, many of them distinct feature
+> combinations that each get their own units, plus `fixtures/minimal_game/target/`
+> as a second target directory entirely), not that this run filled it.
+>
+> ⛔ **CORRECTION, SAME DAY: THE NUMBER EXISTS AND SO DOES A GUARD.** I wrote
+> that the plan's disk cost was "a NUMBER this page cannot yet state". The repo
+> states it: `scripts/check_disk_headroom.py` sets `MIN_FREE_GB = 40.0`, and its
+> comment names this exact failure — *"refuse BEFORE a job dies of ENOSPC and
+> reports it as a compile error."* `run_tests.py` calls it, and it refused a
+> 39.1 GB tree with the remedy quoted. I had described an unguarded class that
+> was already guarded, which is what looking for a gap instead of looking for
+> the guard gets you.
+>
+> ⇒ **The real gap is narrower and worse: the check runs TWICE — once before the
+> first job, once after the last — and never between.** A 68-minute suite that
+> starts above the floor can exhaust the disk halfway and die incoherently. That
+> is the shape of three of the exhaustive run's seven failures (`compile-cost
+> ratchet`, `outlander`, `capability demo`), one of them a bare
+> `error: linking with clang failed` whose reason line never reached the log.
+> The post-run half already prints `disk: N GB free (±M this run)` and warns
+> below the floor, so the machinery to check mid-run exists; only the call site
+> is missing.
+>
+> Measured 2026-09-03: `target/debug/deps` alone is **141 GB**; `--rust` spends
+> ~5 GB; one `cargo test --workspace` takes **14 GB in under three minutes**;
+> the 49-job plan runs **68 minutes** and exhausted a 290 GB volume mid-run.
+> Every feature job builds its own variant of the graph, cargo never prunes the
+> last one, and five crates were carved out of the actor monolith that day —
+> the decomposition campaign pays for itself in disk.
 
 ### B6 — packaging/distribution
 

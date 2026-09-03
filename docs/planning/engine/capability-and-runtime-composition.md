@@ -214,9 +214,12 @@ answer is that the cheap version of this work is already finished.
   looked the other way. Pruned against a live re-measurement (46, zero entered,
   zero left), and guarded by
   `scripts/tests/test_capability_footprint_baseline_is_coherent.py`.
-  ⇒ **All 19 that a movement-only game never asked for arrive through the
-  monolith alone** — the two lists are now literally equal — so no facade cut
-  removes a single one. `ambition_render` is the only crate reachable only
+  ⇒ **All 23 that a movement-only game never asked for arrive through the
+  monolith alone** — the two lists are literally equal — so no facade cut
+  removes a single one. (19 when this was written on 2026-09-03; re-derived the
+  same day at 23 after `ambition_abilities` and `ambition_encounter_features`
+  landed. ⚠ The NUMBER moves with every carve; the EQUALITY is the claim, and
+  `test_capability_footprint_baseline_is_coherent.py` is what keeps it honest.) `ambition_render` is the only crate reachable only
   through the facade, and it is asked for (90 in-repo call sites). Both of the
   2026-08-26 pair behave like `ambition_audio`: cuttable at the facade,
   worthless to cut.

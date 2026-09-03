@@ -257,6 +257,122 @@ not own. ⚠ Assert it as absence FROM THE GRAPH, not as an empty set — a set 
 plugin has named is not in the graph at all, so `get_key(...).is_none()` is the
 check and a member count panics in the lookup instead.
 
+### ⛔ `--all-targets` ON EVERY CRATE THE CARVE TOUCHED — Jon's ruling, not a preference
+
+`maintainer-decisions.md` (2026-08-22): *"the gate stays `cargo check -p
+ambition_app --all-targets`, and a carve additionally compiles `--all-targets`
+on each crate it touched, because a carve moving a type is exactly the change
+that breaks a sibling crate's TEST build — the app gate sweeps production only."*
+
+⚠ **THE OPERATIVE FLAG IS `--all-targets`, NOT `--workspace` — corrected
+2026-09-03 after I got this backwards once.** A bare `cargo check --workspace`
+builds libs, not test targets, so a carve that moves a type out from under a
+sibling's `#[cfg(test)]` import passes it and fails that sibling's own
+`--all-targets`. But `cargo check --workspace --all-targets` DOES build them and
+would satisfy the ruling — Jon's choice was the per-crate sweep over widening
+the gate, for gate cost, not because `--workspace` is incapable. ⇒ Read the
+ruling as "every touched crate, `--all-targets`", and do not conclude from it
+that a workspace-wide check is useless.
+
+⇒ Derive the list rather than recall it:
+
+```sh
+git diff --name-only <base>..HEAD -- crates game | cut -d/ -f2 | sort -u
+```
+
+then `cargo check -p <crate> --all-targets` for each. The abilities carve
+touched six (`ambition_abilities`, `ambition_app`, `ambition_platformer2d`,
+`ambition_platformer2d_actor_monolith`, `ambition_platformer2d_runtime`,
+`ambition_sim_view`) plus `ambition_match` from the test move, and running them
+individually is also what let the carve be verified at all when the box could
+not fit `cargo test --workspace`.
+
+### ⭐ Prune by mtime, not by profile — the carve campaign's disk bill
+
+A carve multiplies the feature-matrix variants a feature job resolves, and cargo
+never prunes the last one. Measured 2026-09-03 after five carves in a day:
+`target/debug/deps` alone reached **141 GB**, and the box could no longer run its
+own suite — the runner's own floor is 40 GB and one `cargo test --workspace`
+spends 14 GB in under three minutes.
+
+⛔ **Deleting whole profiles is the expensive way and I did it first.**
+`target/{profiling,release,wasm32-unknown-unknown,outlander}` plus incremental,
+four separate reclaims, bought ~26 GB and cost a rebuild of each.
+
+⇒ **The cheap lever keeps the warm base and drops only the variants:**
+
+```sh
+find target/debug/deps target/debug/examples -maxdepth 1 -type f -mmin +240 -delete
+find target/debug/incremental -mindepth 1 -maxdepth 1 -type d -exec rm -rf {} +
+```
+
+**That freed 104 GB in one pass — 26 GB → 130 GB.**
+
+⚠ **CORRECTION, MEASURED THE SAME HOUR: "no full rebuild" was wrong, and the
+window is the whole story.** The prune keeps what a build touched INSIDE the
+window and drops everything else, so its cost depends entirely on how recently
+you built. The next `./run_tests.sh --rust` after this one rebuilt `bevy_ecs`,
+`bevy_reflect`, `egui` and the rest from scratch — because the last full build
+was older than four hours, `-mmin +240` swept the base along with the variants.
+⇒ **Tune the window to your cadence, not to a number copied from here**: a tree
+built ten minutes ago keeps its base at `+240`; a tree built yesterday does not,
+and there the prune costs about what `cargo clean` costs while freeing less.
+Run it BETWEEN gates, never during one. `cargo clean` remains the last resort: it works,
+and its price is one full rebuild of everything, which on a shared box is
+everyone's price and not just yours.
+
+### ⚠ AUDITING A CARVE'S GUARDS: two shapes are legitimate, so grep by PATH
+
+Audited all eight crates carved or extracted out of the kernel (2026-09-03).
+**Every one is guarded** — but two use a different shape, and grepping for
+`id = "engine.<crate>-manifest-allow"` reports them as gaps:
+
+* `ambition_registry_core` has `engine.ambition_registry_core-dependency-free`,
+  which is stronger — its `[dependencies]` is empty and the row keeps it so.
+* `ambition_damage` has source-purity and NO allowlist **on purpose**, and its
+  rationale says why: *"its closure is eleven crates … pinning that list is a
+  real ownership decision rather than a copy of the `world_items` row — it
+  belongs to whoever finishes the damage carve."*
+
+⇒ **Audit by asking which policy names the crate's `Cargo.toml`, not by row id**:
+
+```sh
+grep -n "<crate>/Cargo.toml" tests/ambition_workspace_policy/policies/*.toml
+```
+
+⚠ I filed both as gaps before reading them. A deliberate absence with a stated
+reason is not a missing guard, and an id-shaped grep cannot tell the difference.
+
+### ⛔ RESIDUE IS MORE DANGEROUS TO CITATIONS THAN DELETION
+
+A carve rarely empties a directory. `items/pickup/` survived the pickup carve as
+the kernel's schedule residue — the three-variant chain plus a few attachments —
+and `abilities/` survived the abilities carve holding possession, teleport,
+trapdoor, flyline and the puppy-slug gun. ⇒ **Every planning citation to those
+paths still RESOLVES, while the code it meant has moved.** Deletion fails loudly
+and is caught; residue passes every checker silently.
+
+Two live examples found the day after (both now repointed):
+
+* `demos/sanic.md` cited the `aabb_path_contacts` swept-route callout as "called
+  out in `pickup/mod.rs`" — it is in `ambition_held_items/src/lib.rs`, and the
+  `collect_ecs_pickups` beside it is in `features/ecs/pickups.rs`, a third file.
+* `awaiting-maintainer-decision.md`'s decision 40 told Jon the zeroing is
+  `fire_held_ranged_system` in `items/pickup/mod.rs`; it is in
+  `ambition_held_items/src/lib.rs`. ⛔ **That one costs a RULING, not a read.**
+
+⇒ **After a carve, sweep planning for citations INTO the residue**, not only for
+citations to files you deleted:
+
+```sh
+grep -rnoE '`[^`]*(items/pickup|abilities/|character_runtime)[^`]*`' docs/planning --include=*.md
+```
+
+and for each hit ask where the NAME lives now, not whether the path exists. ⭐ A
+previous session did this correctly for `physical_baseline.rs` — it names the new
+`ambition_body_seed/` location and keeps the old path as `cite-ok` history with
+the commit that moved it. That is the shape to copy.
+
 ### The lockfiles are plural
 
 `fixtures/minimal_game/Cargo.lock` is the one the footprint ratchet reads, and

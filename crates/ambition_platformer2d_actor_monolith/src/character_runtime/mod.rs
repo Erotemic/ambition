@@ -8,7 +8,8 @@
 use ambition_characters::prepared::PreparedCharacterRegistry;
 pub mod audit;
 pub mod definition;
-pub mod hurtbox;
+#[cfg(test)]
+mod hurtbox_damage_tests;
 pub mod live_match_clock;
 pub mod match_activation;
 pub mod presentation;
@@ -28,10 +29,6 @@ pub use audit::{
 // every coupling census reads it that way — nine of them once accounted for ~250
 // call sites, 57 outside this crate. Callers name the crate that owns the thing.
 pub use definition::CharacterDefinitionAppExt;
-pub use hurtbox::{
-    resolve_hurtboxes, AuthoredHurtboxes, BodyPoseClock, HurtboxSelection, ResolvedHurtboxes,
-    POSE_AIRBORNE, POSE_HITSTUN, POSE_IDLE,
-};
 pub use match_activation::{
     activate_the_prepared_match, declare_the_match_cast_as_the_view, prepare_the_match,
     release_the_opening_hold,
@@ -942,12 +939,12 @@ impl Plugin for CharacterRuntimePlugin {
                     // pose elapsed to advance, and a system that quietly treats a
                     // missing clock as dt=0 would freeze every pose timeline
                     // without saying so.
-                    hurtbox::advance_body_pose_clocks.run_if(
+                    ambition_combat::hurtbox_resolution::advance_body_pose_clocks.run_if(
                         bevy::ecs::schedule::common_conditions::resource_exists::<
                             ambition_time::WorldTime,
                         >,
                     ),
-                    hurtbox::resolve_body_hurtboxes,
+                    ambition_combat::hurtbox_resolution::resolve_body_hurtboxes,
                 )
                     .chain()
                     // Pinned to one exact window inside `Combat`: AFTER the move

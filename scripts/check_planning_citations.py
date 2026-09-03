@@ -87,6 +87,9 @@ REPO = Path(
     ).stdout.strip()
 )
 
+#: Tracked paths that `git ls-files` lists and the worktree lacks -- reported, never read.
+MISSING_TRACKED: list[Path] = []
+
 # `path/file.rs:123` or `file.rs:123`
 FILE_LINE = re.compile(r"`([A-Za-z0-9_./-]+\.(?:rs|py|ron|toml|sh|md)):(\d+)`")
 # `module::thing` / `Type::method` -- at least one `::`, ordinary Rust idents.
@@ -277,20 +280,24 @@ def unresolved_commits(root: Path, docs: list[Path]) -> tuple[list, list[str]]:
     #
     # ⚠ A remote BRANCH is fine — citing unmerged work is legitimate. What is
     # not fine is a sha reachable from nothing.
-    unreachable = []
-    for name in resolved_here:
-        if subprocess.run(
-            ["git", "merge-base", "--is-ancestor", name, "origin/main"],
-            cwd=root, capture_output=True,
-        ).returncode == 0:
-            continue
-        # not on main: accept any other ref, reject reachable-from-nothing
-        on_ref = subprocess.run(
-            ["git", "branch", "-a", "--contains", name],
-            cwd=root, capture_output=True, text=True,
-        ).stdout.strip()
-        if not on_ref:
-            unreachable.append(name)
+    # ⚠ TWO GIT CALLS, NOT ONE PER SHA. A `merge-base --is-ancestor` per citation
+    # is ~239 processes and was 10 s of the repo-tooling lane; the set of commits
+    # reachable from every ref is one walk, and membership is then free.
+    reachable = set(subprocess.run(
+        ["git", "rev-list", "--all"], cwd=root, capture_output=True, text=True,
+    ).stdout.split())
+    full = {}
+    if resolved_here:
+        query = "".join(f"{n}^{{commit}}\n" for n in resolved_here)
+        out = subprocess.run(
+            ["git", "cat-file", "--batch-check"], cwd=root,
+            input=query, capture_output=True, text=True,
+        ).stdout.splitlines()
+        for name, line in zip(resolved_here, out):
+            parts = line.split()
+            if len(parts) >= 2 and parts[1] == "commit":
+                full[name] = parts[0]
+    unreachable = [n for n, sha in full.items() if sha not in reachable]
     findings.extend(
         (rel, lineno, f"`{name}`  (exists locally, reachable from NO ref — "
                       "rebased away or on a deleted branch; push it or cite the "
@@ -406,10 +413,39 @@ def vanished_report(docs: list[Path], since: str, defined: set[str]) -> int:
 
 
 def repo_files() -> list[Path]:
+    """Tracked files that are ACTUALLY ON DISK.
+
+    ⛔ `git ls-files` LISTS A FILE THAT HAS BEEN DELETED IN THE WORKTREE and not
+    yet committed, and that broke this checker two ways at once. The loud one:
+    `--comments` reads every tracked `.rs` and died with `FileNotFoundError`
+    mid-sweep, so the run reported nothing at all. The quiet one is worse — the
+    deleted path stays in the name index, so a citation to a file someone just
+    removed still RESOLVES, and the checker's whole job is to catch that.
+
+    ⇒ Filter here rather than at the read sites: one gate keeps the index and
+    every reader honest, and a `try/except OSError` at a read would have fixed
+    only the crash while leaving the citation passing.
+
+    The skipped paths are counted and reported rather than dropped in silence —
+    a large count means a half-finished rename, not a clean tree.
+
+    ⛔ **THE PREDICATE IS `exists()`, AND `is_file()` IS WRONG HERE.** It called
+    seven healthy paths deleted on the first run: the five submodule gitlinks,
+    which `git ls-files` reports as entries and which are directories on disk,
+    plus `game/ambition_content/assets/sprites` and the Mary-O demo's twin —
+    tracked SYMLINKS into the monolith's sprite directory. All seven exist; none
+    is readable as a file; only `exists()` tells the three cases apart.
+    """
     out = subprocess.run(
         ["git", "ls-files"], cwd=REPO, capture_output=True, text=True, check=True
     ).stdout.split()
-    return [Path(p) for p in out]
+    kept = []
+    for rel in (Path(p) for p in out):
+        if (REPO / rel).exists():
+            kept.append(rel)
+        else:
+            MISSING_TRACKED.append(rel)
+    return kept
 
 
 def source_text(suffixes: tuple[str, ...] = (".rs", ".py")) -> str:
@@ -596,6 +632,14 @@ def main() -> int:
     rust_ours = set(QUALIFIER.findall(rust_text)) - deps
     print(f"indexed {len(defined)} defined name(s), {len(ours)} usable qualifier(s)",
           file=sys.stderr)
+    if MISSING_TRACKED:
+        # ⚠ Not a failure — an uncommitted deletion is a normal working state.
+        # But say it, because every citation to one of these paths is now
+        # correctly reported as dead, and that is surprising until you know why.
+        shown = ", ".join(sorted({str(p) for p in MISSING_TRACKED})[:3])
+        print(f"skipped {len(set(MISSING_TRACKED))} tracked file(s) missing from "
+              f"the worktree (deleted, not yet committed): {shown}"
+              f"{' ...' if len(set(MISSING_TRACKED)) > 3 else ''}", file=sys.stderr)
     tracked = {str(p) for p in repo_files()}
     by_suffix: dict[str, list[str]] = {}
     for p in tracked:
@@ -673,6 +717,19 @@ def main() -> int:
                 # "all resolved" on alternate runs of the same tree, which sent
                 # me hunting a git race that did not exist. A checker whose
                 # answer is not a function of its input is worse than no checker.
+                # ⚠ THIS CATCHES AN OVERRUN AND NOTHING ELSE, which is worth
+                # knowing before trusting a green run on line citations: a
+                # `file.rs:NN` that points at the WRONG line inside a long
+                # enough file is invisible here. Spot-checked 2026-09-03 —
+                # `gameplay_presentation/tests.rs:915` is cited for
+                # `mod two_views_one_host`, which is at 914; the citation lands
+                # on the `use super::*;` beneath it and passes. That is a
+                # tolerable miss (a reader still arrives inside the right item)
+                # and it is NOT a defect this checker can find, because
+                # verifying it would mean knowing what the row meant to point
+                # at. ⇒ A line citation degrades silently as a file grows; a
+                # crate-qualified path plus a NAME degrades loudly, because the
+                # name is checked.
                 lengths = {
                     hit: len((REPO / hit).read_text(errors="replace").splitlines())
                     for hit in hits
@@ -728,7 +785,9 @@ def main() -> int:
     commit_findings, dark_submodules = unresolved_commits(REPO, docs)
     checked += len(commit_findings)
     findings.extend(
-        (rel, lineno, cite, "no commit with this name, here or in any submodule")
+        (rel, lineno, cite, "no commit with this name here or in any INITIALISED submodule — "
+         "⚠ a submodule's objects can simply be stale, so run "
+         "`git submodule foreach git fetch` before believing this one")
         for rel, lineno, cite in commit_findings
     )
     if dark_submodules:

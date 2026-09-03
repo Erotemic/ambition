@@ -145,6 +145,14 @@ tools/ambition_ldtk_tools ambition_ldtk_tools
 EOF
 }
 
+# ⭐ ONE LIST, TWO READERS. The install path and `--verify` used to disagree
+# about what this environment needs because only one of them had a list at all.
+# Every name here is a COLLECTION-TIME dependency of `scripts/tests`: absent, the
+# whole detached-tools job dies at import rather than skipping a test.
+scripts_env_modules() {
+    echo tree_sitter_rust pytest numpy soundfile rich yaml PIL
+}
+
 verify_tool_environments() {
     local relative_project import_name project python_bin
     while read -r relative_project import_name; do
@@ -239,9 +247,27 @@ install_scripts_env() {
     # dependencies stay its own to declare (today: pyyaml).
     uv pip install --python "$venv_python" -e tools/ambition_moveset_inspector
     local module
-    for module in tree_sitter_rust pytest numpy soundfile rich yaml PIL; do
+    for module in $(scripts_env_modules); do
         "$venv_python" -c "import $module" \
             || fatal "$venv_dir installed but '$module' is not importable — the repo's own Python suites cannot run"
+    done
+}
+
+# ⛔⛔ `--verify` COULD NOT SEE THE ENVIRONMENT THAT ACTUALLY BROKE.
+# `verify_tool_environments` walks the six per-tool venvs; the missing `pillow`
+# that took three repo-coupled tests red at COLLECTION lived in the repo-root
+# `scripts/` environment, which nothing verified. The import loop above ran only
+# on the install path, so a machine whose scripts env had rotted answered
+# "existing tool environments are usable" — the check reporting health about a
+# different environment than the one that was sick.
+verify_scripts_environment() {
+    local venv_python module
+    venv_python="$(ambition_tool_venv_dir "$repo_root")/bin/python"
+    ambition_python_exists "$venv_python" \
+        || fatal "no interpreter for the scripts/ environment; rerun without --skip-python"
+    for module in $(scripts_env_modules); do
+        "$venv_python" -c "import $module" >/dev/null 2>&1 \
+            || fatal "'$module' is not importable from $venv_python; the repo's own Python suites cannot run — rerun without --skip-python"
     done
 }
 
@@ -270,6 +296,7 @@ ensure_python_tools() {
 
 if [ "$verify_only" -eq 1 ]; then
     verify_tool_environments
+    verify_scripts_environment
     log "existing tool environments are usable"
 else
     ensure_python_tools

@@ -339,6 +339,52 @@ handed them member #7 in social form — a report that something was checked whe
 it was skipped. And when a target is cheap to install, installing it is a better
 answer than documenting the gap.
 
+## ⛔⛔ A CORRECT FIX CAN RAISE THE FAILURE COUNT — diff the CAUSES, not the total
+
+When a schedule dies on the first bad system it meets, every later bad system is
+INVISIBLE until you fix the first one. So failures are LAYERED, and the count is
+a bad instrument for progress.
+
+Measured on the feature union, 2026-09-03:
+
+```text
+before                            6,968 passed   48 failed
+guard sync_portal_view_cones      6,980 passed   49 failed   ← UP, and correct
+guard debug_portal_view_zones     6,991 passed   38 failed
+guard attach_hit_flash_overlays   7,016 passed   13 failed
+```
+
+⛔ **Round one removed 37 failures and exposed 37 more.** On the total that is
+"no progress"; to anyone watching only the number it is a REGRESSION, and the
+obvious response — revert the fix — is exactly wrong. The right reading was in
+the CAUSE MIX: `ConeRigAssets` had gone to zero and a new system had appeared.
+
+⇒ **After any fix to a suite that dies on first failure, diff the causes:**
+
+```bash
+grep -oE "in system \`[^\`]+\`" run.log | sort | uniq -c | sort -rn
+```
+
+One line, every round, and it is the only thing that distinguished progress from
+regression here.
+
+⭐ **AND THE LAYERS CAN BE WRITTEN DOWN IN ADVANCE.**
+[`../planning/engine/headless-verification.md`](../planning/engine/headless-verification.md)
+records three of these hiding in succession — *"a missing
+`Assets<TextureAtlasLayout>`, then `GizmoConfigStore`, then `Assets<Mesh>` …
+each looking identical to the last"*. Those are the three systems above, in that
+order. The agent who walked them had quoted that sentence in the commit that
+fixed the first one and still guarded a single system out of a four-system
+chain. ⇒ When a doc says failures come in succession, fix the whole CHAIN in one
+pass and check every member's parameters — not the member that happened to fail.
+
+⚠ **The corollary about deferred measurement.** "37 are fixed" was filed as an
+inference from the class, with its bound stated honestly (verified on one
+target; the union not re-run, because the run was expensive). The bound was
+honest and the inference was still wrong — 48 went to 49, not to 11. An
+expensive measurement deferred is not a measurement, and the case an inference
+cannot see is precisely the layered one.
+
 ## Before you believe an error list, diff it against a clean checkout
 
 `check_agent_kb.py` could not pass in an agent worktree. It used

@@ -290,6 +290,27 @@ customers.
 A capability is not proven reusable merely because Ambition can reach an
 internal crate that implements it.
 
+> ⚠ **CHECKED AGAINST THE WORKSPACE 2026-09-03: one customer on this list does
+> not exist, and one that exists is not on it.**
+>
+> - **Hollow Lite is UNBUILT.** There is no `hollow_lite` crate, app or authored
+>   world; [`../demos/hollow-lite.md`](../demos/hollow-lite.md) says so itself
+>   (*"STILL ENTIRELY UNBUILT"*, re-checked 2026-09-02). It is a planned
+>   customer, and listing it beside five that ship makes the pressure-testing
+>   claim read as broader than it is — **encounters, bosses and richer
+>   combat/presentation are currently pressure-tested by Ambition alone.**
+> - **`ambition_demo_pocket` is missing from the list**, and it is the one that
+>   most directly tests this section's own closing sentence: its manifest calls
+>   it a *"tiny fourth-provider acceptance fixture for Ambition's provider
+>   authoring surface"*. A fourth provider is exactly the evidence that a
+>   capability is reusable rather than reachable.
+>
+> ⇒ Neither is an error in the list's intent — it is an acceptance TARGET list.
+> But the difference between "six materially different customers pressure-test
+> this" and "five do, one is planned, and a sixth nobody listed does the
+> provider half" is the difference between a claim and a plan, and the section
+> is quoted elsewhere as if it were the former.
+
 ## Engine 1.0 competitive gates
 
 Architecture programs may close independently, but Engine 1.0 is not credible as
@@ -325,6 +346,30 @@ preserve gameplay readability.
 A clean external/minimal game can compose supported capabilities, diagnose
 configuration/content failures, run tests, and produce a release artifact
 without importing implementation crates.
+
+> ⭐ **MEASURED 2026-09-03 against the three out-of-workspace consumers, and the
+> "without importing implementation crates" clause splits them two to one.**
+>
+> | consumer | `[dependencies]` reach |
+> |---|---|
+> | `fixtures/minimal_game` | `ambition_platformer2d` only |
+> | `fixtures/external_consumer` (outlander) | `ambition_platformer2d` only |
+> | `examples/capability_demo` | **four implementation crates** — `ambition_content_pack`, `ambition_causal`, `ambition_input`, `ambition_platformer2d_core` |
+>
+> ⚠ **The third is not obviously a violation, which is why it is recorded rather
+> than filed as a gap.** The capability demo exists to prove that a capability
+> can register its own content schema without editing a central enum — its own
+> header says *"`ambition_content_pack` never heard of pulses; the schema is
+> registered by the capability that owns it"* — and that is a claim about
+> EXTENSION, which the facade does not currently surface. ⇒ So C5 has two
+> readings and the page should say which it means: if a game extending the
+> engine must also go through the facade, this demo is the gap; if extension is
+> allowed to name the crates it extends, C5 is about CONSUMPTION and the two
+> fixtures already satisfy it.
+>
+> Either way the fixtures are the evidence for C5 and the demo is not — and it
+> is the demo whose lockfile the abilities carve had to update, which is how the
+> distinction surfaced.
 
 ### Gate C6 — agent-first operability
 

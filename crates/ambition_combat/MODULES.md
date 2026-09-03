@@ -29,6 +29,7 @@
 | [`hit_camera_shake`](src/hit_camera_shake.rs) | Camera-shake intents derived from landed hits. |
 | [`hit_reaction`](src/hit_reaction.rs) | Body-generic hit reaction: knockback, directional influence, and reaction timers. |
 | [`hitbox`](src/hitbox/mod.rs) | Hitbox-entity lifecycle: spawn, resolve overlaps, then despawn. |
+| [`hurtbox_resolution`](src/hurtbox_resolution.rs) | Hurtboxes resolved from simulation state and clocks, independent of rendering. |
 | [`impact_hitstop`](src/impact_hitstop/mod.rs) | The match-level impact freeze: an absolute expiry tick, held in rollback state, that stops the sim clock for a connect nobody is playing. |
 | [`ledge_trump`](src/ledge_trump.rs) | Ledge trumping enforces one hanging body per edge. |
 | [`moveset`](src/moveset/mod.rs) | Data-driven move playback — the runtime half of the Smash model. |
@@ -46,7 +47,7 @@
 | [`vitality`](src/vitality.rs) | A move that pays or repays its own mover's health. |
 | [`worn_kit`](src/worn_kit.rs) | The kit a body wears: what a character id resolves to when a body puts it on. |
 
-_39 crate-root modules. Regenerate: `python scripts/modules_md.py --write`._
+_40 crate-root modules. Regenerate: `python scripts/modules_md.py --write`._
 
 <!-- END generated module map -->
 

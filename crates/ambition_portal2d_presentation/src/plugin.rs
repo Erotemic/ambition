@@ -152,7 +152,17 @@ impl Plugin for PortalPresentationPlugin {
                         .run_if(resource_exists::<Assets<Image>>)
                         .run_if(resource_exists::<Assets<Mesh>>)
                         .run_if(resource_exists::<Assets<ColorMaterial>>),
-                    view_cones::debug_portal_view_zones,
+                    // ⛔⛔ AND THE NEXT ONE IN THE CHAIN NEEDED IT TOO, which
+                    // is the thing headless-verification.md warns about in as
+                    // many words: three of these hid in succession, "each
+                    // looking identical to the last". Guarding
+                    // `sync_portal_view_cones` alone moved all 37 union
+                    // failures onto THIS system within one run.
+                    // `Gizmos` requires `GizmoConfigStore`, and this is
+                    // `avatar::trail.rs`'s pattern verbatim.
+                    view_cones::debug_portal_view_zones.run_if(
+                        resource_exists::<bevy::gizmos::config::GizmoConfigStore>,
+                    ),
                     view_cones::flush_portal_view_cone_debug_dump,
                 )
                     .chain()

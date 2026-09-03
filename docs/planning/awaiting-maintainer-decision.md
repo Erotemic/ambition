@@ -40,7 +40,7 @@ silently re-points every page that cited the original.
 
 ## Open decisions
 
-### 48. Is near-identical CPU play on a symmetric stage acceptable, or a defect?
+### 49. Is near-identical CPU play on a symmetric stage acceptable, or a defect?
 
 A test has been deferring this to you since before its queue row was pruned, and
 the deferral is the only record left of it.
@@ -70,7 +70,27 @@ out of the planning system and its only trace is an assertion message nobody
 reads unless the test fails. Filed here 2026-09-03 to put it back where a
 decision can be made.
 
-### 47. The boss-crate reassessment you asked for on 2026-07-16 is now due
+### 47. TwinTrack's simultaneity limit: where does it live while the exhibit is parked? (re-filed 2026-09-03; was 28)
+
+Both TwinTrack panes render ONE instant of the simulation's coordinate time, so
+they can disagree about optics (light delay, aberration, Doppler) and NOT about
+simultaneity — which is what the twin paradox actually is. This was question 28
+here and the entry vanished — not answered and archived, just absent (yardrat,
+2026-09-03: no `### 28` in this file and no row in `maintainer-decisions.md` names
+it; the parked demo page `demos/twintrack.md` was the only record). Re-filed so
+it has a home again. **The question:** while TwinTrack is parked, does the limit
+belong in `engine/relativity.md` beside the spacetime-diagram design (which uses
+"simultaneity" in a different sense and otherwise reads as though the exhibit
+already shows it), or does the parked page stay the record? Default if nobody
+rules: a one-line "known limit" note in `engine/relativity.md` pointing at the
+demo page.
+
+⇒ **Convention from the same finding, applied from here on:** when a question
+leaves this file, its answer row in `maintainer-decisions.md` NAMES THE NUMBER
+it closes ("closes 47"). Only 2 of that file's 100 rows do today, which is why a
+dropped question and an answered one look the same; with the number on the
+answer, a dropped one is a set difference.
+### 48. The boss-crate reassessment you asked for on 2026-07-16 is now due
 
 Your ruling that day (`maintainer-decisions.md`, 2026-07-16) was *"defer any boss
 crate carve until boss behavior converges onto the canonical moveset/action
@@ -336,7 +356,11 @@ Choose one:
 ⚠ This is a FEEL ruling on a shipped weapon, not an engineering question. The
 engineering is done either way; the fold currently encodes "no kick for the
 player" only because that is what the deleted path happened to do. The zeroing
-is `fire_held_ranged_system` in `items/pickup/mod.rs`; the guard is
+is `fire_held_ranged_system` in `crates/ambition_held_items/src/lib.rs` (it was
+`items/pickup/mod.rs` <!-- cite-ok: the pre-carve path, kept as the record -->
+until the pickup carve moved the domain on 2026-09-03 — the old path still
+EXISTS as the kernel's schedule residue, so that citation resolved while
+pointing at code that had left); the guard is
 `a_hand_fired_gun_sword_bolt_flies_the_one_projectile_road`
 (`game/ambition_app/tests/hand_fired_held_shot.rs`) — retarget it with the
 ruling.

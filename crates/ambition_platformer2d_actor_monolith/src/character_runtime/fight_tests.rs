@@ -25,6 +25,9 @@ use ambition_platformer2d_shared_tangle::app_finalization::{finalize, finalize_a
 
 use super::*;
 use ambition_characters::actor::definition::CharacterDefinition;
+use ambition_combat::hurtbox_resolution::{
+    resolve_hurtboxes, HurtboxSelection, POSE_HITSTUN, POSE_IDLE,
+};
 use ambition_entity_catalog::{
     ClipBinding, HitVolume, HurtboxDoc, HurtboxKeyframe, HurtboxTimeline, HurtboxVolume, MoveGates,
     MoveSpec, MoveWindow, MovesetContract, VolumeShape, WindowTag,
@@ -514,7 +517,7 @@ fn fight_app() -> App {
             // move fires a `MoveEventMessage` and nothing about what the audio
             // authority receives — which is where the attribution actually lands.
             ambition_combat::moveset::dispatch_move_events,
-            crate::character_runtime::hurtbox::resolve_body_hurtboxes,
+            ambition_combat::hurtbox_resolution::resolve_body_hurtboxes,
             crate::features::refresh_body_damageable_volumes,
             apply_hitbox_damage,
             record_trades,

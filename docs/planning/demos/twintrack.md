@@ -15,7 +15,9 @@
 > retain answered decision transcripts", so a PARKED question living there was
 > always one cleanup away from deletion. ⇒ The pointer is removed rather than
 > repaired, because there is nothing to point at; the limit survives only
-> because it was written out here too. (Checked 2026-09-03.)
+> because it was written out here too. (Checked 2026-09-03.) ⇒ Re-filed the same
+> day as question 47 in [`../awaiting-maintainer-decision.md`](../awaiting-maintainer-decision.md),
+> with the convention that an answer row names the number it closes.
 >
 > **Status (2026-08-20): TwinTrack is a TWO-PLAYER game with a real split
 > screen.** The laboratory twin is Emmy No-Ether, driven by seat one; the plaza

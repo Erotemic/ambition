@@ -423,6 +423,22 @@ The one unresolved developer-policy choice from the session-ownership work is in
     estimate**: the tool states size predicts compile cost at only R²=0.12, so
     every SECONDS figure above is wrong for these four by an unknown factor.
     `python3 scripts/compile_collect.py` measures them.
+  ⊙ **RE-RUN 2026-09-03 after five more carves, and the campaign's two best
+  numbers are here rather than in any prose:**
+  * ⭐ **THE MONOLITH IS UNDER 100,000 LINES.** `largest_unit_lines`
+    108,364 → **98,808** (−9,556), which the ratchet flags as OUTSIDE its ±2,167
+    budget — in the good direction, and therefore as a baseline that is now
+    stale rather than as a failure.
+  * ⭐ **AND UNDER HALF THE WORKSPACE'S EDIT COST.** The monolith's
+    `edit_cost_lines` share 50.5% → **46.9%** (−3.6 pts). That is the number the
+    whole decomposition is for.
+  * ⚠ `critical_path_crates` 14 → **16** and `UNPRICED` 4 → **7**
+    (`ambition_abilities`, `ambition_body_seed`, `ambition_encounter_features`,
+    `ambition_held_items`, `ambition_match`, `ambition_registry_core`,
+    `ambition_world_items`) — every carve adds one of each, and the seconds
+    columns stay a placeholder until someone spends the release rebuild.
+  * the two REGRESSED lines moved a little further out (+32,394 and +31,915
+    against ~+10,800 budgets), unchanged in character.
   * ⭐ **CARVED — two real wins the baseline is not holding**:
     `worst_edit_cost_seconds` 1,702.5 → 1,648.9 (−53.6 s) and
     `edit_cost_seconds` (the monolith) 1,264.9 → 1,139.5 (−125.4 s). The
@@ -435,6 +451,26 @@ The one unresolved developer-policy choice from the session-ownership work is in
   bank an improvement printed while the regressions stayed hidden. The
   regressions need a carve owner to say whether +31.8k lines is a deliberate
   landing; the four unpriced crates need a measurement, not a ruling.
+
+  ⇒ ⭐ **RULED 2026-09-03: THE RATCHET STAYS RED UNTIL THE CARVE CAMPAIGN ENDS,
+  THEN IS RE-FROZEN ONCE WITH EVERY DESTINATION PRICED.** Re-freezing per carve
+  is the tempting move and it is wrong for the reason this row already gives —
+  `--update` rewrites every number at once, so each carve would bank its own
+  regressions alongside its wins, and after five carves nobody could say which
+  of the accumulated numbers was ever examined. ⛔ A ratchet re-frozen at every
+  landing is not a ratchet; it is a record of the last landing.
+  * **So a red ratchet is the EXPECTED state during D33, not a defect to
+    triage.** Five crates left the actor monolith on 2026-09-03 alone. The
+    figure to watch meanwhile is `critical_path_crates` (14 → 15 at the last
+    reading): per-crate sizes fall as a carve splits them, but a longer SERIAL
+    chain cannot be compressed by parallelism, so that is the one that says
+    whether the campaign is buying compile time or spending it.
+  * **The re-freeze has a prerequisite, not just a date.** All four unpriced
+    destinations must carry a measured compile cost first
+    (`python3 scripts/compile_collect.py`) — freezing a baseline that contains
+    placeholders at the population median would bake R²=0.12 guesses in as
+    though they were measurements, which is the same class of error as the
+    unreproducible figures `README.md` now warns about.
 
 - ▢ **THE FEATURE UNION IS RED: 48 failures against 6,968 passes, and 37 of
   them are ONE system.** Measured 2026-09-03 at `dbfb1a2ca` by running the gate's
@@ -476,8 +512,14 @@ The one unresolved developer-policy choice from the session-ownership work is in
   is the subject. ⇒ First question for whoever picks it up: under the union, does
   some other presentation feature take ownership of block drawing, or does the
   room never reach the state that spawns them? Neither is answered here; both are
-  a build away, and the answer decides whether this joins the doctrine group above
-  or the `ConeRigAssets` group.
+  a build away. ⊙ **HALF-ANSWERED 2026-09-03: it is NOT the ConeRigAssets group.**
+  After the three guards there is no missing-parameter panic left anywhere in
+  the union, and these three still fail with the same message — so the blocks
+  are absent for a reason of their own, not because a system died before making
+  them. That leaves "another presentation feature owns block drawing under the
+  union" against "the room never reaches the state that spawns them", and only
+  the second is answerable without reading the union's feature set against
+  mary_o's composition.
   ✔ **THE 37 ARE FIXED (`8bac49a59`), and my "design choice" framing was wrong.**
   `engine/headless-verification.md` had already ruled on this exact class —
   *"the fix is usually NOT to register the resource. A gizmo or mesh system with
@@ -487,7 +529,39 @@ The one unresolved developer-policy choice from the session-ownership work is in
   on 2026-09-02. All three of `ConeRigAssets`' resources are guarded, not just
   the one that failed first, because that doc records those three surfacing one
   after another.
-  ⚠ **VERIFIED ON ONE TARGET, NOT COUNTED ACROSS THE UNION.** `cargo test -p
+  ⊙ **MEASURED ACROSS THE UNION, 2026-09-03, and it took THREE rounds because
+  each fix exposed the next system in the same chain — which is what
+  `headless-verification.md` says happens and what I did not believe until I ran
+  it:**
+
+  | round | passed | failed | the layer it exposed |
+  |---|---:|---:|---|
+  | before | 6,968 | 48 | `ConeRigAssets` (`Assets<Image>/<Mesh>/<ColorMaterial>`) |
+  | guard `sync_portal_view_cones` | 6,980 | **49** | `debug_portal_view_zones` on `Res<GizmoConfigStore>` |
+  | guard that too | 6,991 | 38 | `attach_hit_flash_overlays` on `ResMut<Assets<Mesh>>` |
+  | guard that too | **7,016** | **13** | no system-parameter panic remains |
+
+  ⛔ **NOTE ROUND ONE WENT UP, NOT DOWN.** 48 → 49. A fix that removes 37
+  failures and exposes 37 more reads as "no progress" on the count alone, and as
+  a regression to anyone watching only the number. The three systems are the
+  three that paragraph names — `Assets<TextureAtlasLayout>`, `GizmoConfigStore`,
+  `Assets<Mesh>` — in that order, a day later.
+  ⇒ **The 13 that remain are the classes below, none of them a missing
+  parameter**: 8 in `ov1_draws_the_world` (the doctrine group), 3 in
+  `painted_blocks`, and `published_local_sanic_forms_bind_through_game_assets`.
+  ✔ **THAT LAST ONE IS FIXED (`3f4dbbcd5`)** — it demanded TWO forms, ran ONE
+  `app.update()`, and asserted both `Ready`, while
+  `MAX_CHARACTERS_MATERIALIZED_PER_FRAME` is 1. The `None` rather than
+  `Some(Failed)` is the whole diagnosis: no load attempted yet, which is what a
+  ration looks like from the far side. Replaced with a bounded settle; the same
+  command that failed now reads 3 passed. ⚠ **Stated as an EXPECTATION, not a
+  count: the next union run should read 12.** I have not re-run it, and the last
+  time I turned a verified single-target fix into a union number I was wrong by
+  38.
+  The entire smash target — `the_stage_kills`, `the_screen_decides`,
+  `the_repertoire_gets_used`, 30-odd tests — is green.
+
+  ⚠ **AND THE INFERENCE THIS REPLACES WAS WRONG, kept because it is the lesson.** I first wrote: `cargo test -p
   ambition_demo_sanic_app --lib --features capture,input,visible` now shows ZERO
   `ConeRigAssets` panics where it failed on them before. The full union is a
   ~40-minute rebuild that took the shared volume to 100% last time, so "37" is
@@ -1069,13 +1143,18 @@ OPTIONAL dep + feature, never used:
 
   1. **`python scripts/modules_md.py`** — must print *"MODULES.md up to date"*.
      A carve moves modules; the maps are generated and go stale silently.
-     (73 crates as of 2026-09-03, after D33 cut 2b added `ambition_match`;
+     (75 crates as of 2026-09-03, after `ambition_abilities` and
+     `ambition_encounter_features` landed;
      70 the day before. ⛔ AND IT WAS STALE WHEN THAT CUT LANDED — not from the
      cut: `4ac56a996` added `ambition_encounter/src/mob_seed.rs` and left its
      map at 17 modules. Regenerated in the post-carve pass, which is what this
      item is for.)
   2. **`python scripts/check_planning_citations.py`** — a carve renames or moves
-     the very symbols the planning rows cite. ⭐ **AND THEN `--vanished <the
+     the very symbols the planning rows cite. ⭐ **AND IT COVERS THE DOCTRINE
+     PAGES NOW** — calculex widened the checker to scan `docs/concepts`,
+     `docs/systems`, `docs/architecture` and `docs/recipes` as well as
+     `docs/planning`, because every module that leaves a crate strands the pages
+     that cited its old home, and those are the pages a new agent reads first. ⭐ **AND THEN `--vanished <the
      carve's parent SHA>`**, which catches what the default run cannot see:
      `SYMBOL` needs a `::`, so a BARE backticked name — the commonest form in
      these docs — is never checked, and a carve's removals are usually spelled
@@ -1091,6 +1170,14 @@ OPTIONAL dep + feature, never used:
      revert, nothing to do with the carve named. Cut 1 ran as
      `c761a9d80..83460e3f3` and correctly returned 0 — its symbols MOVED rather
      than vanished, which is item 4's job, not this one's.
+     ⚠ **THIS IS NOT THE SAME USE AS THE PERIODIC LANE, and the two must not be
+     confused.** `./run_tests.sh --maintenance` runs `--vanished` against a
+     FIXED baseline ref, deliberately: it asks *"what has gone stale since the
+     last time a person triaged this corpus"*, and a rolling window would make a
+     row silently stop being a finding because the window slid past the rename.
+     The CARVE use is the opposite — a range, scoped to one landing, asking
+     *"what did THIS cut leave behind"*. Same flag, two questions; pass a range
+     here and leave the lane's fixed ref alone.
      ⚠ AND PREFER A FRESH WINDOW to a wide one. Measured
      2026-09-03 over a week: 37 hits, and on inspection essentially all were
      rows RECORDING a removal ("Deleted: `FpsOverlayState`", "the view is <!-- cite-ok: a row quoting a removal record -->
@@ -1206,15 +1293,6 @@ OPTIONAL dep + feature, never used:
      declared derived at `2eaa0f479`'s parent. ⚠ A carve is not the only thing
      that trips this: any commit that adds simulated state does.
 
-  11. **⛔⛔ THE COMPILE-COST RATCHET IS A PER-CARVE LEDGER AND IT IS RED.**
-     `python3 scripts/compile_ratchet.py` — 2 s, in the default gate, and it
-     fails the gate today. It is the ledger the D33 campaign is accumulating
-     debt in, and every one of its five messages is about a carve:
-     `REGRESSED` ×2, `PATH` (the serial chain got longer), `UNPRICED` (a new
-     crate has no measured cost), `CARVED` (a win whose baseline is now stale).
-     ⇒ A carve that adds a crate touches ALL of them at once, which is why it
-     belongs on this list rather than in a campaign doc.
-
   10. **⛔ IF THE CARVE'S DESTINATION HOLDS DOC COMMENTS, add it to
      `check_doc_link_ratchet.py`'s `CRATES` — IN THE CARVE'S OWN COMMIT.** That
      list carries the instruction already ("when architecture moves out of a
@@ -1227,6 +1305,15 @@ OPTIONAL dep + feature, never used:
      `bf4e6f353`; it is one line in the carve if you remember.
      ⚠ Reachable locally only since `3e85e4071` — it is a cold `cargo doc` over
      nine crates and lives in `./run_tests.sh --maintenance`, not the gate.
+
+  11. **⛔⛔ THE COMPILE-COST RATCHET IS A PER-CARVE LEDGER AND IT IS RED.**
+     `python3 scripts/compile_ratchet.py` — 2 s, in the default gate, and it
+     fails the gate today. It is the ledger the D33 campaign is accumulating
+     debt in, and every one of its five messages is about a carve:
+     `REGRESSED` ×2, `PATH` (the serial chain got longer), `UNPRICED` (a new
+     crate has no measured cost), `CARVED` (a win whose baseline is now stale).
+     ⇒ A carve that adds a crate touches ALL of them at once, which is why it
+     belongs on this list rather than in a campaign doc.
 
   ⛔⛔ RE-MEASURED 2026-08-31: the owner doc's
   "only four dependencies are single-path" list is STALE — `ambition_dev_tools`
@@ -1683,6 +1770,24 @@ OPTIONAL dep + feature, never used:
   the monolith's INSIDE, with no manifest edge to delete at the end of it and no
   compiler-held guard like the dev-tools one. ⚠ Whoever takes it should know that
   going in, because every previous slice ended with an edge to point at.
+
+  ⛔⛔ **THE PARAGRAPH ABOVE WAS FALSIFIED FIVE TIMES ON 2026-09-03 AND IS KEPT
+  ONLY AS THE RECORD OF A WRONG PREDICTION.** The `items/` module it names as the
+  edgeless remainder was the FIRST thing to leave, as `ambition_held_items`
+  (`bbfa38a3d`) — with a manifest edge, a policy allowlist and a source-purity
+  rule at the end of it. Then `ambition_body_seed` (`962dba34d`),
+  `ambition_match` (`7e625e5a5`), `ambition_encounter_features` (`b67c1348f`)
+  and `ambition_abilities` (`4c31111f9`). The kernel's own source fell
+  112,733 → 101,042 lines in that day.
+  * ⇒ **The prediction failed because it looked for edges rather than for
+    OWNERSHIP.** A module "named 79 times by the rest of the kernel" is not
+    thereby internal; every one of those names is a candidate boundary, and four
+    of the five carves cut exactly through such a module. Ask what a module
+    OWNS, not how often the kernel says its name.
+  * ⚠ **And the metric this row watched moves the WRONG WAY**, which is why the
+    room to cut looked absent: the monolith's `[dependencies]` table went
+    29 → 33 across those same carves, because a kernel that stops CONTAINING a
+    domain starts DEPENDING on it. Success reads as regression there.
 - ▢ **D166 — make the character-authoring boundary load-bearing where a real
   character still bypasses it.** Prepared character definitions are already
   immutable and the first Smash fighter facet exists. Re-measure the current
@@ -2249,9 +2354,9 @@ OPTIONAL dep + feature, never used:
   ⛔ AND THE CODE'S OWN DOC WAS WRONG TOO: the no-feature module claimed the take
   *"carries no `causal` array at all"*. It always carried `[]`.
 
-- ▢ **CAPABILITY FOOTPRINT: 48 crates linked, 21 a movement-only game never
-  asked for — and the count CANNOT fall by a manifest edit.** (⚠ this number has drifted SIX times; `python3 scripts/check_absence_contracts.py | grep footprint` prints the live pair. 45/18 as of `479f9d3e4`, when `ambition_registry_core`
-  entered the closure; 46/19 as of `bbfa38a3d`, when `ambition_held_items` did; 47/20 as of `83460e3f3`, D33 cut 1, when `ambition_body_seed` did; 48/21 as of `7e625e5a5`, cut 2b, when `ambition_match` did. ⭐ EVERY ONE OF THOSE RISES IS A CARVE PAYING ITS DEBT — do not read the series as regression.) (Scheduled
+- ▢ **CAPABILITY FOOTPRINT: 50 crates linked, 23 a movement-only game never
+  asked for — and the count CANNOT fall by a manifest edit.** (⚠ FIVE pairs are recorded below and none of them is authoritative; `python3 scripts/check_absence_contracts.py | grep footprint` prints the live one. 45/18 as of `479f9d3e4`, when `ambition_registry_core`
+  entered the closure; 46/19 as of `bbfa38a3d`, when `ambition_held_items` did; 47/20 as of `83460e3f3`, D33 cut 1, when `ambition_body_seed` did; 48/21 as of `7e625e5a5`, cut 2b, when `ambition_match` did; 50/23 on 2026-09-03 when `ambition_abilities` and `ambition_encounter_features` did. ⭐ EVERY ONE OF THOSE RISES IS A CARVE PAYING ITS DEBT — do not read the series as regression.) (Scheduled
   2026-09-02 from ambition-da's docs pass; re-worded the same night after
   ambition-da re-derived it, `2068bcd31`.) The instrument is installed:
   `capability-footprint-may-not-grow` in `scripts/check_absence_contracts.py`
@@ -2441,6 +2546,23 @@ product ruling.
   two fixes were tested together and only one of them survives. ⚠ Until that
   walk exists, the two COUNT tells (placeholders, cover held) are confirmed and
   tier-independent; the TIMING tell is not confirmed for the shipped program.
+  ⭐ **AND THE TIER TELL IS TESTABLE HEADLESS AFTER ALL — `AMBITION_QUALITY_PROFILE=ultra`.**
+  A headless box seeds `potato` from its adapter (*"visual quality seeded to
+  `potato` for a Cpu adapter (llvmpipe)"*), which is why this looked host-only;
+  the boot override wins over that and `capture_scene --help` says to pair them.
+  Measured 2026-09-03 at HEAD with the cap removed —
+  `AMBITION_QUALITY_PROFILE=ultra AMBITION_PROFILE_CENSUS=1 capture_scene
+  hall_of_characters player 640x360 --warmup 400` — census reports
+  `profile=Ultra … parallax_resolution=Full msaa_samples=4`, and **zero "nothing
+  demanded it" warnings**: the first tell, re-confirmed at the user's tier
+  rather than only at Quarter.
+  ⛔ **DO NOT READ THAT LOG'S `sprites_potato/` LINES AS A RULE VIOLATION.** 14
+  `[image-drawn]` lines name potato art at t≈3.5 s while the census does not
+  report `profile=Ultra` until t≈14.9 s — draws from BEFORE quality convergence,
+  and `player_robot_v3` appears once at potato and four times at `sprites/`
+  after it. A slow headless boot makes the convergence window wide enough to
+  photograph. ⇒ The TIMING tell still needs Jon (llvmpipe milliseconds are not
+  his machine's); the tier and count tells no longer do.
   Original tells, still the checklist: zero "nothing demanded it" warnings at
   the hall reveal, `asset_wait_ms` in the seconds (the cover visibly holding),
   no >33 ms frames after the cover lifts. In the same run: `image_arrivals`

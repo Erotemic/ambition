@@ -14,9 +14,24 @@ behavior across residency/restore.
 > pressed one alone. ⇒ Nothing on this page is about the touched collectible; if
 > the question is "what happens when a body walks over it", the answer is in
 > `crates/ambition_world_items/MODULES.md`, which carries the same orientation
-> from the other side. ⛔ The pressed carve is NOT done — it stopped at a
-> schedule-ownership fork now answered by D33; see
-> [`actor-monolith-decomposition.md`](actor-monolith-decomposition.md).
+> from the other side.
+>
+> ⭐ **UPDATED 2026-09-03: THE PRESSED CARVE IS DONE.** The paragraph above said
+> the pressed half "stayed in the kernel" and that its carve had stopped at a
+> schedule-ownership fork — true when written, and answered the next day.
+> `ambition_held_items` now owns `GroundItem`, `ItemCustody`, the held specs and
+> the pickup / use / throw / physics / residency chain, and its plugin configures
+> `ItemPickupSet::CoreHeldItems` end to end. What the kernel keeps at
+> `items/pickup/` is the RESIDUE: the three-variant `.chain()` — an edge that
+> orders sets owned by two other crates, so neither owner can name both sides —
+> plus `restore_custody_to_checkpoint`, `minted_horizon`, and the shrine /
+> puppy-slug-gun / match-spawn systems that attach to the domain's steps.
+>
+> ⚠ **So "custody" now spans a crate line, which is the thing to hold onto when
+> reading below.** The types are `ambition_held_items`'s; the CHECKPOINT POLICY
+> over them is the kernel's, deliberately — it is checkpoint policy, not item
+> policy, and the carve checklist says it must be stated wherever it appears or
+> the next reader "fixes" it by dragging the function after the domain.
 
 ## Goal
 

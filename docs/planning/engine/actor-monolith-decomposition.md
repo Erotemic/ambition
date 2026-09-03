@@ -1422,6 +1422,20 @@ decision integration and construction") shows up as the `features`↔`constructi
 loop; whether it is one crate or two is decided by which direction the 30 and the 15
 run, which is the next measurement, not this one.
 
+**The direction, measured the same day.** `construction` → `features` (15, production) is
+DISPATCH: `ActorConstruction`'s `ConstructionDomain` impl calls the kernel's spawn
+recipes (`spawn_enemy_with_faction_into`, `spawn_staged_actor_into`,
+`spawn_runtime_minion_into`, `spawn_room_feature_entities_from_plan`, the giant-hand
+plans, `apply_summon_effects`). `features` → `construction` (30) is CONSUMPTION of the
+protocol's types (`ActorConstructionRegistry`, `ActorConstructionServices`,
+`ActorConstructionPlan`, the request constructors). ⇒ The loop is not two peers: it
+is a protocol that names its recipes by hand. The seam, if the kernel is ever split
+here, is the inversion the encounter carve already performed once at smaller scale —
+the recipes REGISTER into the protocol and the protocol stops naming them — after
+which `construction` (2,019 lines) is a crate below the kernel and `features` is its
+customer, exactly as `ambition_body_seed` is now. Not cut: the doc says this last,
+and the outer domains (`abilities`, `encounter`) left only tonight.
+
 ## The doctrine's own "does not belong" list, measured against the kernel (2026-09-03)
 
 [`../../architecture/package-and-capability-boundaries.md`](../../architecture/package-and-capability-boundaries.md)

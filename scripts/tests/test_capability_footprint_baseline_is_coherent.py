@@ -25,6 +25,7 @@ These are pure-JSON invariants: no cargo, no tree walk, milliseconds.
 from __future__ import annotations
 
 import json
+import re
 import subprocess
 from pathlib import Path
 
@@ -83,6 +84,29 @@ def test_the_closure_names_real_crates(baseline):
                 break
     unknown = sorted(set(baseline["ambition_closure"]) - declared)
     assert not unknown, f"the baseline names crates the workspace does not: {unknown}"
+
+
+def test_the_composition_doc_quotes_the_baselines_real_count(baseline):
+    """⛔ A NUMBER IN PROSE GOES STALE WITH EVERY CARVE, and this one did twice
+    in a day: `engine/capability-and-runtime-composition.md` said "All 19 that a
+    movement-only game never asked for arrive through the monolith alone" while
+    the baseline read 21, then 23.
+
+    ⚠ This test WILL go red on the carve that moves the number, and that is the
+    point -- the same trade as the coverage footer's gated-test count. The
+    EQUALITY of the two lists is the doc's real claim and is guarded above; this
+    guards the figure a reader will quote.
+    """
+    doc = (REPO / "docs/planning/engine/capability-and-runtime-composition.md").read_text()
+    stated = re.search(
+        r"\*\*All (\d+) that a movement-only game never asked for", doc
+    )
+    assert stated, "the composition doc no longer states that count"
+    assert int(stated.group(1)) == len(baseline["never_asked_for"]), (
+        f"the doc says All {stated.group(1)}; the baseline's never_asked_for has "
+        f"{len(baseline['never_asked_for'])}. Re-quote the doc in the carve's "
+        "own commit."
+    )
 
 
 def test_the_two_reachability_lists_do_not_overlap(baseline):

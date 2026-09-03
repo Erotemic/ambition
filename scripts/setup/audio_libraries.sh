@@ -61,6 +61,14 @@ print(f'[audio-libraries] sfz files : {len(discover_sfz_files())}')
     else
         log "sfz files : (no music-renderer interpreter)"
     fi
+    # ⛔ A COUNT IS NOT COVERAGE, and saying so here is the point. A box can hold
+    # thousands of `.sfz` files and still be missing a family the cues NAME —
+    # and then only those cues render through General MIDI, while every other
+    # cue is correct, so the run looks healthy. The number above cannot see
+    # that; resolving the catalogue's references can, and the renderer's own
+    # bulk preflight does it before any cue is written.
+    log "note      : a file COUNT is not catalogue coverage — a render preflight"
+    log "            resolves every library the cues name and refuses on a miss"
 }
 
 if [ "$show_status" -eq 1 ]; then

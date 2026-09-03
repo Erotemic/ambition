@@ -6,13 +6,13 @@
 //! shared body/moves. [`Lineage::derived_from`] records provenance only and is
 //! never an authority for field resolution.
 
+use ambition_characters::actor::definition::CharacterDefinition;
+use ambition_characters::actor::definition::Lineage;
+use ambition_characters::prepared::CharacterBindings;
 use ambition_entity_catalog::{
     HurtboxDoc, HurtboxKeyframe, HurtboxTimeline, HurtboxVolume, VolumeShape,
 };
-use ambition_characters::prepared::CharacterBindings;
-use ambition_characters::actor::definition::CharacterDefinition;
-use ambition_characters::actor::definition::Lineage;
-use ambition_platformer2d_actor_monolith::character_runtime::{CharacterDefinitionAppExt};
+use ambition_platformer2d_actor_monolith::character_runtime::CharacterDefinitionAppExt;
 
 /// One incarnation of the player robot: everything about it that is not shared.
 ///
@@ -227,8 +227,7 @@ fn forgiving_hurtbox(body_world: ambition_platformer2d_core::Vec2) -> HurtboxDoc
     HurtboxDoc {
         default: Some(forgiving_timeline(body_world)),
         poses: std::iter::once((
-            ambition_platformer2d_actor_monolith::character_runtime::hurtbox::POSE_CROUCH
-                .to_string(),
+            ambition_combat::hurtbox_resolution::POSE_CROUCH.to_string(),
             // The same rule the stance applies to the collision box, applied to
             // the volume worn inside it — asked of `BodyMode::shape` rather than
             // restated, so the two cannot disagree about what crouching means.
@@ -374,8 +373,8 @@ mod tests {
     /// it is actually worn with, not which numbers went in.
     #[test]
     fn a_crouching_robots_hurtbox_stays_inside_a_crouching_robot() {
+        use ambition_combat::hurtbox_resolution::POSE_CROUCH;
         use ambition_entity_catalog::VolumeShape;
-        use ambition_platformer2d_actor_monolith::character_runtime::hurtbox::POSE_CROUCH;
 
         let catalog = crate::character_catalog::load_catalog();
         let definition = definition_from(&catalog, &V3);

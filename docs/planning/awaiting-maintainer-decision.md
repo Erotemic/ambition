@@ -645,7 +645,14 @@ has ONE call site, the intro prop loop; and it runs only for
 `intro_prop_sprite_rows()` entries whose 4th tuple element is `Some(target)`.
 **Exactly one row is: `intro_cart`.** Characters have no pack road at all —
 `load_character_sprites_in` takes the per-target `*_spritesheet.ron` every time.
-All four tiers pack the same 197 targets. On one machine: **442.6 MB of pack
+All four tiers pack the same 197 targets. ⚠ **Re-run on calculex 2026-09-03 the
+script reports 164 targets, and the pack directory measures 318 MB rather than
+442.6.** The load-bearing claim is unchanged and verified — *"1 target(s) opt
+into the pack — intro_cart"* — but BOTH size figures are generated-artifact
+numbers, and `measure_orphan_shipped_pages.py` says of its own kind: *"these are
+gitignored generated files, and this is ONE machine's tree."* ⇒ So treat 197/442.6
+and 164/318 as two machines' trees rather than a change over time; the argument
+this entry makes does not turn on which. On one machine: **442.6 MB of pack
 pages, 5.2 MB on a page any consumer can reach — 98.8% unreachable.**
 
 ⚠ **NOT A DEFECT REPORT.** Packing every target is what a packer should do; the

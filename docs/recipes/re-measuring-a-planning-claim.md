@@ -430,6 +430,8 @@ the next person pays for it a second time. All of these were run against
 | tools missing from `docs/tools/index.md` | 11 tool directories | 0 — the index groups by guide, and all are covered |
 | CamelCase types cited in `docs/concepts/` + `docs/architecture/` | 73 distinct | 0 real — every miss is an upstream type, an enum VARIANT, an LDtk entity id, or a name the page says must NOT exist |
 | CamelCase types cited in `docs/systems/` | 65 distinct | **1 real** — `ResetRoomFeaturesEvent`, listed under "Current boundary" and deleted four days earlier |
+| identifiers cited in `docs/tools/` + `docs/sdk/` | 165 distinct | 0 real — env vars, a user's own example type, a prototype's proposed names, and three functions named inside POSTMORTEM sections about their own removal |
+| `snake_case` cited in `docs/concepts/` + `docs/architecture/` + `docs/recipes/` | 189 distinct | **1 real** — `player_body_tick`, doctrine describing a system a live test forbids |
 
 ⚠ **Three of those seven produced a scary intermediate number that dissolved on
 inspection**, and each dissolved for a reason worth knowing: 45 "unresolved"

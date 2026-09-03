@@ -577,7 +577,7 @@ starting in the hall: re-decodes 0; **8 sheets, 25.6 MP decoded for nobody**
 (architect, bob, erdish, goblin, alice, oiler + two small), all
 `via character-sheet`, dropped at 1.2 s. ✔ CLASSIFIED the same hour, by
 reading the names: that is the INTRO CAST, and
-`load_intro_npc_sprites_system` (`game/ambition_content/src/intro/plugin.rs`)
+`load_intro_npc_sprites_system` (`game/ambition_content/src/intro/plugin.rs`) <!-- cite-ok: deleted 301a07009; this row records the deletion -->
 loads every intro NPC's sheet ONCE AT STARTUP, in whatever room the game
 boots into, at the SETTING tier, and publishes them under display names
 (`publish_under`) so an LDtk `NpcSpawn.name` can find them. Global eager

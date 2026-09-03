@@ -558,7 +558,7 @@ kernel, where a tick is a tick. ⇒ knockback was never needed to explain this.
 124px, about a quarter of the stage. If it still reads as too far when you play
 it, the knob is `DODGE_ROLL_SPEED` (530px/s over `DODGE_ROLL_TIME` 0.22s) — one
 value, and unchanged so far because that is a feel call rather than a defect.
-`cargo run -p ambition_demo_smash_app --bin roll_probe` prints the
+`cargo run -p ambition_demo_smash_app --bin smash_tool -- roll-probe` prints the
 frame-by-frame if you want to see a clean roll for comparison.
 
 ✔ **2026-08-25 — AND THERE WAS A SECOND, REAL BUG UNDERNEATH, which your later

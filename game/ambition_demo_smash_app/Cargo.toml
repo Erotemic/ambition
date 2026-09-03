@@ -7,12 +7,17 @@ authors.workspace = true
 description = "The smash demo's thin SHELL. The first place a stock is actually spent in a running session rather than in a unit test."
 autotests = false
 
-# The offscreen capture burst. `visible` because it needs the presentation it
-# photographs; without the feature the app has no renderer to capture from.
+# ⭐ ONE MODAL TOOL BINARY, replacing nine (2026-09-03). See
+# `src/tools/mod.rs` for the measurement that motivated it.
+#
+# ⛔ NO `required-features`. The capture burst needs `visible` + `capture`, but
+# declaring them here would make cargo skip the WHOLE tool binary in every other
+# cell — and `--features visible` is not a supported test cell for this crate
+# (see the `visible` comment below). The one subcommand that needs them is gated
+# at its own definition and says so when it is off.
 [[bin]]
-name = "match_shots"
-path = "src/bin/match_shots.rs"
-required-features = ["visible", "capture"]
+name = "smash_tool"
+path = "src/bin/smash_tool.rs"
 test = false
 bench = false
 
@@ -72,6 +77,8 @@ capture = ["ambition_platformer2d/capture"]
 ambition_platformer2d = { path = "../../crates/ambition_platformer2d", default-features = false, features = ["all_capabilities"] }
 ambition_demo_smash = { path = "../ambition_demo_smash" }
 bevy = { version = "0.19.1", default-features = false }
+# Argument parsing for `smash_tool`, the crate's single modal tool binary.
+clap = { workspace = true }
 
 # ONE aggregated integration-test binary instead of 2. See tests/smash_it.rs.
 [[test]]

@@ -101,6 +101,12 @@ resolver = "2"
 serde = { version = "1", features = ["derive"] }
 ron = "0.11"
 thiserror = "2"
+# ⭐ THE CLI ARGUMENT PARSER FOR MODAL TOOL BINARIES (Jon's ruling 2026-09-03).
+# Every new CLI uses this; the hand-rolled `std::env::args()` scanning it
+# replaces accepted a flag anywhere in the vector, documented nothing, and
+# produced no `--help`. `derive` because the argument surface belongs beside the
+# type it fills in, not in a builder chain three functions away.
+clap = { version = "4", features = ["derive"] }
 
 [workspace.package]
 edition = "2021"
@@ -198,6 +204,17 @@ opt-level = 1
 # Huge disk saver versus full DWARF debug info.
 # Keeps useful file/line backtraces.
 debug = "line-tables-only"
+
+# ⛔ `split-debuginfo` DELIBERATELY UNSET — measured 2026-09-03 and it does not
+# pay here. `unpacked` shrank `smash_tool` 510 MB -> 302 MB (41%) but wrote
+# 9,938 `.dwo` files totalling 532 MB, so the TOTAL on disk went UP by 324 MB
+# for a single binary. The `.dwo` set is shared, so it wins only when many
+# executables would each carry their own copy of the same DWARF — which is the
+# redundancy the modal-CLI collapse already removed, and removed harder
+# (4.79 GB -> 0.50 GB). ⚠ It also invalidates the profile for EVERY crate: the
+# experiment recompiled 352, of which 342 were third-party, 7m24s against 2m53s.
+# ⇒ Revisit only if a crate ever has many binaries again. See
+# `docs/planning/modal-cli-binary-collapse.md`.
 
 # Incremental can make target/debug enormous.
 # Leave true if you strongly value fast edit-compile cycles;

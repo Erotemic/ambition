@@ -7,8 +7,9 @@
 | Module | Its ONE concern (from the module's own `//!` header) |
 |---|---|
 | [`stage_diagram`](src/stage_diagram.rs) | Draw the stage, including the thing that kills you. |
+| [`tools`](src/tools/mod.rs) | The tools behind `smash_tool`, one module per subcommand. |
 
-_1 crate-root modules. Regenerate: `python scripts/modules_md.py --write`._
+_2 crate-root modules. Regenerate: `python scripts/modules_md.py --write`._
 
 <!-- END generated module map -->
 

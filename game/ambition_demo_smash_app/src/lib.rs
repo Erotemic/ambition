@@ -14,6 +14,10 @@ use bevy::prelude::*;
 /// `ambition_app`.
 pub mod stage_diagram;
 
+/// The `smash_tool` subcommands. One module each; see `tools/mod.rs` for why
+/// they are modules of the library rather than nine separate binaries.
+pub mod tools;
+
 pub fn build_demo_app() -> App {
     let mut app = App::new();
     ambition_platformer2d::engine::add_headless_foundation(&mut app);

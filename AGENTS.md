@@ -384,8 +384,10 @@ Add durable lessons to `dev/benchmark-candidates/`; never transient project stat
 Do not poll with `pgrep -f <script>`; the polling command can match itself.
 This includes waiting for ABSENCE (`until ! pgrep -f run_tests.py`), which reads
 as the opposite and strands the same way — the rule is that the pattern matches
-the waiter, not that the test points one way. Six shells stranded that way
-2026-09-03. Use `pgrep -f "[r]un_tests.py"` if you must, or read the status file.
+the waiter, not that the test points one way. ⛔ **FOURTEEN shells stranded that
+way, found 2026-09-03; the oldest had been waiting 27 HOURS** — across sessions,
+not one agent's slip. Every one was waiting on work that had finished long
+before. Use `pgrep -f "[r]un_tests.py"` if you must, or read the status file.
 
 ## Comments
 

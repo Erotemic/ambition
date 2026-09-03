@@ -5,7 +5,7 @@
 //! This is a diagnostic probe, not the multi-scenario ladder calibration rig; do not author
 //! difficulty rows from it.
 
-use ambition_demo_smash_app::build_demo_app;
+use crate::build_demo_app;
 use ambition_platformer2d::actor::{FighterStocks, MatchSeat};
 use ambition_platformer2d::characters::brain::{Brain, StateMachineCfg};
 use bevy::app::App;
@@ -14,7 +14,7 @@ const TICKS: usize = 3_600; // one minute at 60Hz
 
 /// How many execution-noise seeds each configuration is run under.
 ///
-/// Overridable: `cargo run --bin ladder_probe -- --seeds 7`.
+/// Overridable: `cargo run --bin smash_tool -- ladder-probe -- --seeds 7`.
 const DEFAULT_SEEDS: usize = 3;
 
 /// Say WHICH ladder these numbers describe, before printing any.
@@ -44,10 +44,17 @@ fn announce_which_ladder_is_under_test() {
     );
 }
 
-fn main() {
+#[derive(clap::Args, Debug)]
+pub struct LadderProbeArgs {
+    /// How many seeds to run.
+    #[arg(long, default_value_t = DEFAULT_SEEDS)]
+    pub seeds: usize,
+}
+
+pub fn run(args: LadderProbeArgs) {
     warn_if_seam_trace_is_unavailable();
     announce_which_ladder_is_under_test();
-    let seeds = seed_count();
+    let seeds = args.seeds;
     println!(
         "[ladder_probe] level  first_self_KO   survived   stocks_lost  peak%   \
          (median of {seeds} seeds; opponent cannot attack, so every loss is a self-KO)"
@@ -252,19 +259,6 @@ fn trace_enabled() -> bool {
         std::env::var("AMBITION_FIGHTER_TRACE").is_ok_and(|value| value != "0")
     });
     *ENABLED
-}
-
-/// `--seeds N`, else [`DEFAULT_SEEDS`].
-fn seed_count() -> usize {
-    let mut args = std::env::args().skip(1);
-    while let Some(arg) = args.next() {
-        if arg == "--seeds" {
-            if let Some(n) = args.next().and_then(|n| n.parse().ok()) {
-                return n;
-            }
-        }
-    }
-    DEFAULT_SEEDS
 }
 
 /// One configuration, run under `seeds` different execution-noise streams.

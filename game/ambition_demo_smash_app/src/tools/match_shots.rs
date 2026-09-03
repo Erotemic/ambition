@@ -1,7 +1,7 @@
 //! A BURST OF SCREENSHOTS from a CPU-versus-CPU match on the smash stage.
 //!
 //! ```text
-//! cargo run -p ambition_demo_smash_app --features visible --bin match_shots -- \
+//! cargo run -p ambition_demo_smash_app --features visible --bin smash_tool -- match-shots -- \
 //!     --out target/shots --frames 8 --every 12 --after 240
 //! ```
 //!
@@ -70,30 +70,68 @@ impl Default for Shots {
     }
 }
 
-fn parse_args() -> Shots {
-    let mut shots = Shots::default();
-    let mut args = std::env::args().skip(1);
-    while let Some(flag) = args.next() {
-        let mut value = || args.next().unwrap_or_default();
-        match flag.as_str() {
-            "--out" => shots.out = std::path::PathBuf::from(value()),
-            "--frames" => shots.frames = value().parse().unwrap_or(shots.frames),
-            "--every" => shots.every = value().parse().unwrap_or(shots.every).max(1),
-            "--after" => shots.after = value().parse().unwrap_or(shots.after),
-            "--character" => shots.character = value(),
-            "--on-ko" => shots.on_ko = true,
-            "--size" => {
-                let raw = value();
-                if let Some((w, h)) = raw.split_once('x') {
-                    if let (Ok(w), Ok(h)) = (w.parse(), h.parse()) {
-                        shots.size = UVec2::new(w, h);
-                    }
-                }
-            }
-            other => eprintln!("match_shots: ignoring unknown argument '{other}'"),
+#[derive(clap::Args, Debug)]
+pub struct MatchShotsArgs {
+    /// Directory to write the burst into.
+    #[arg(long, default_value = "target/shots")]
+    pub out: std::path::PathBuf,
+    /// How many frames to capture. Enough to catch a beat that lasts a few
+    /// frames somewhere in an exchange, few enough to look at all of them.
+    #[arg(long, default_value_t = 8)]
+    pub frames: u32,
+    /// Ticks between frames. A fifth of a second at 60 Hz.
+    #[arg(long, default_value_t = 12, value_parser = at_least_one)]
+    pub every: u32,
+    /// Tick to start on. Four seconds in: past the 3-2-1-GO countdown and into
+    /// a fight.
+    #[arg(long, default_value_t = 240)]
+    pub after: u32,
+    /// Frame size, as `WIDTHxHEIGHT`.
+    #[arg(long, default_value = "960x540", value_parser = parse_size)]
+    pub size: UVec2,
+    /// Which fighter to photograph.
+    #[arg(long, default_value_t = ambition_demo_smash::SMASH_GEORGE_BOOUL.to_string())]
+    pub character: String,
+    /// Start the burst on the tick a knockout is published rather than at
+    /// `--after`.
+    #[arg(long)]
+    pub on_ko: bool,
+}
+
+/// ⚠ The old hand parser did `.max(1)` on `--every`; a zero would have divided
+/// the burst by nothing. Preserved as a validator so it REFUSES rather than
+/// silently rounding up — the value the caller typed was never what ran.
+fn at_least_one(raw: &str) -> Result<u32, String> {
+    match raw.parse::<u32>() {
+        Ok(0) => Err("must be at least 1 tick between frames".to_string()),
+        Ok(n) => Ok(n),
+        Err(e) => Err(e.to_string()),
+    }
+}
+
+/// `WIDTHxHEIGHT`. ⚠ The old parser silently kept the default when this did not
+/// split or did not parse; clap reports it instead.
+fn parse_size(raw: &str) -> Result<UVec2, String> {
+    let (w, h) = raw
+        .split_once('x')
+        .ok_or_else(|| format!("expected WIDTHxHEIGHT, got '{raw}'"))?;
+    let w: u32 = w.parse().map_err(|_| format!("bad width in '{raw}'"))?;
+    let h: u32 = h.parse().map_err(|_| format!("bad height in '{raw}'"))?;
+    Ok(UVec2::new(w, h))
+}
+
+impl From<MatchShotsArgs> for Shots {
+    fn from(a: MatchShotsArgs) -> Self {
+        Self {
+            out: a.out,
+            frames: a.frames,
+            every: a.every,
+            after: a.after,
+            size: a.size,
+            character: a.character,
+            on_ko: a.on_ko,
         }
     }
-    shots
 }
 
 /// Set by the driver on the frame it wants a picture; cleared once asked.
@@ -123,8 +161,8 @@ fn shoot_when_asked(
     now.0 = false;
 }
 
-fn main() {
-    let shots = parse_args();
+pub fn run(args: MatchShotsArgs) {
+    let shots: Shots = args.into();
     if let Err(error) = std::fs::create_dir_all(&shots.out) {
         eprintln!(
             "match_shots: cannot create '{}': {error}",
@@ -133,7 +171,7 @@ fn main() {
         std::process::exit(2);
     }
 
-    let mut app = ambition_demo_smash_app::build_windowed_demo_app(
+    let mut app = crate::build_windowed_demo_app(
         ambition_platformer2d::app::Display::Offscreen,
     );
     app.insert_resource(CaptureSettings {

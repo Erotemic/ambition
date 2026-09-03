@@ -481,7 +481,12 @@ The one unresolved developer-policy choice from the session-ownership work is in
   rollback setup.
   ⭐ **Reproduced in BOTH exhaustive runs of 2026-09-03**, identically, including
   the first on `7ca535427` — before `ambition_abilities` existed — so it is
-  pre-existing and not a carve regression. ⚠ I first hypothesised mid-suite disk
+  pre-existing and not a carve regression.
+  ✔ **PREMISES RE-CHECKED 2026-09-03 late without a build:** `7ca535427` is
+  still an ancestor of HEAD; the test still exists, at
+  `examples/capability_demo/tests/rollback_round_trip.rs:115`; and `Cargo.lock`
+  still pins `bevy_ecs 0.19.1`, so the panic's frame is the same crate version
+  it was raised in. ⛔ The panic ITSELF needs a build and was not re-run. ⚠ I first hypothesised mid-suite disk
   exhaustion for this job and that was WRONG: `external consumer: outlander`
   failed for that reason and passes now, while this one fails the same way on a
   tree with room to spare. A plausible cause is not a diagnosis; running it twice

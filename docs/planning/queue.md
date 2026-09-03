@@ -487,7 +487,30 @@ The one unresolved developer-policy choice from the session-ownership work is in
   on 2026-09-02. All three of `ConeRigAssets`' resources are guarded, not just
   the one that failed first, because that doc records those three surfacing one
   after another.
-  ⚠ **VERIFIED ON ONE TARGET, NOT COUNTED ACROSS THE UNION.** `cargo test -p
+  ⊙ **MEASURED ACROSS THE UNION, 2026-09-03, and it took THREE rounds because
+  each fix exposed the next system in the same chain — which is what
+  `headless-verification.md` says happens and what I did not believe until I ran
+  it:**
+
+  | round | passed | failed | the layer it exposed |
+  |---|---:|---:|---|
+  | before | 6,968 | 48 | `ConeRigAssets` (`Assets<Image>/<Mesh>/<ColorMaterial>`) |
+  | guard `sync_portal_view_cones` | 6,980 | **49** | `debug_portal_view_zones` on `Res<GizmoConfigStore>` |
+  | guard that too | 6,991 | 38 | `attach_hit_flash_overlays` on `ResMut<Assets<Mesh>>` |
+  | guard that too | **7,016** | **13** | no system-parameter panic remains |
+
+  ⛔ **NOTE ROUND ONE WENT UP, NOT DOWN.** 48 → 49. A fix that removes 37
+  failures and exposes 37 more reads as "no progress" on the count alone, and as
+  a regression to anyone watching only the number. The three systems are the
+  three that paragraph names — `Assets<TextureAtlasLayout>`, `GizmoConfigStore`,
+  `Assets<Mesh>` — in that order, a day later.
+  ⇒ **The 13 that remain are the classes below, none of them a missing
+  parameter**: 8 in `ov1_draws_the_world` (the doctrine group), 3 in
+  `painted_blocks`, and `published_local_sanic_forms_bind_through_game_assets`.
+  The entire smash target — `the_stage_kills`, `the_screen_decides`,
+  `the_repertoire_gets_used`, 30-odd tests — is green.
+
+  ⚠ **AND THE INFERENCE THIS REPLACES WAS WRONG, kept because it is the lesson.** I first wrote: `cargo test -p
   ambition_demo_sanic_app --lib --features capture,input,visible` now shows ZERO
   `ConeRigAssets` panics where it failed on them before. The full union is a
   ~40-minute rebuild that took the shared volume to 100% last time, so "37" is

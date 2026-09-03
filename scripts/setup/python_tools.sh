@@ -212,6 +212,25 @@ install_scripts_env() {
     # file whose name is about symlinks. It is not an asset dependency here, it
     # is a TEST dependency, which is why it belongs in this environment and not
     # in a renderer's.
+    #
+    # ⭐ THE REST OF THE CLASS WAS SWEPT WHEN `pillow` WAS ADDED, so the next
+    # person does not have to guess whether more are hiding. Parse every `.py`
+    # under `scripts/` for MODULE-SCOPE imports, drop stdlib and sibling scripts
+    # (which resolve through the `sys.path` inserts those files make), and ask
+    # this venv for the remainder:
+    #
+    #     ast.parse(p).body -> Import / ImportFrom(level=0)
+    #     importlib.util.find_spec(name)
+    #
+    # Result 2026-09-03: THREE unresolved and NONE reachable from a test —
+    # `networkx` (`module_graph.py`), `scriptconfig` (`git_debloat.py`, cited by
+    # AGENTS.md only as an OUTPUT-FORMAT pattern, never as a command), and
+    # `ambition_sprite2d_renderer` (which `generate_visual_quality_variants.py`
+    # reaches by inserting the submodule root on `sys.path` first, so it is not
+    # a venv dependency at all). ⇒ The list below is complete for the suite. Add
+    # to it only when a NEW module-scope import appears, and re-run that sweep
+    # rather than trusting a green local run: a warm machine has packages a
+    # fresh clone does not.
     uv pip install --python "$venv_python" \
         pytest tree_sitter tree_sitter_rust numpy soundfile rich pillow
     # The moveset inspector is imported directly out of `tools/` by

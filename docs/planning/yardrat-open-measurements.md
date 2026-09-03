@@ -138,9 +138,21 @@ distinct SHA-shaped citations in `docs/planning`, 371 places. A
 SUBMODULES (`db7e72f` in the map assets, `5e1ee9b` in the sprite renderer) and
 are correct cross-repo citations; three resolve nowhere on this machine, which
 is NOT evidence they are wrong — an unpushed branch elsewhere resolves them.
-⇒ Only one is provably stale (`queue.md:1930`, `2d623308f`: resolves here,
-unreachable from HEAD). One real finding against thirty-two false ones is the
-"teaches its reader to skim" ratio, so this stays a habit rather than a check.
+⛔ **AND THE ONE I CALLED "PROVABLY STALE" WAS NOT — I made the same mistake the
+paragraph above warns about, one line later.** `queue.md:1930` cites
+`2d623308f`; it resolves here and is unreachable from HEAD, which is the exact
+signature of a rebase orphan. It is not one. The row says so in its own words:
+*"fix written, ON ITS OWN BRANCH `web-gpu-wait` (`2d623308f`), DELIBERATELY NOT
+MERGED."* An unmerged branch in the SAME repository resolves and is unreachable
+from `HEAD`, and that is correct.
+
+⇒ **So "resolves but unreachable from HEAD" is AMBIGUOUS**: it is a rebase
+orphan OR a deliberate unmerged-branch citation, and only the row's own prose
+distinguishes them. A checker cannot. That takes the class from "one real
+finding in thirty-three" to **zero**, and settles it — this is a habit, not a
+check, and the habit is: cite after the merge, or say in the row why the SHA is
+not on `HEAD` (which `queue.md:1930` does, and is why it reads correctly to a
+person and wrongly to a grep).
 
 ---
 

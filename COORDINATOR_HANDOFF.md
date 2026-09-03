@@ -16,10 +16,11 @@
 > | tonight's five carves, the Ultra hall, the GPT review | entry 1 and the goal report |
 > | the parallax gate — the one open engine defect | handoff #2 "Open, with owners", corrected in the last entry |
 >
-> **Gate at this tip:** `scripts/tests` 815 passed / 11 skipped / zero failures · doc links 279
-> documents, 970 local links · 1475 planning citations across 182 files, all resolved. **Zero
-> `.rs` files changed in the whole integrator window**, so no Rust claim is made here; the last
-> real Rust gate stands at `5cd132e82` (6/6 jobs, 1639 s, zero failures).
+> **Gate:** `./run_tests.sh --rust` at `5f18dbfa4` — **5 of 6 jobs green**; the one red is
+> `dive_drill_reachability`, established as a FLAKE and not a regression (18/18 in isolation; see
+> the gate section near the end). `scripts/tests` 815+ passed / zero failures · doc links 279
+> documents, 970 local links · 1475 planning citations across 182 files, all resolved · wasm
+> target clean. The previous all-green Rust gate was `5cd132e82` (6/6, 1639 s).
 >
 > **Three things open, none of them started:** the parallax gate (diagnosed, fix shape agreed, no
 > box here reproduces — run the two-room comparison on e7's); e7's review items #1 and #4, now
@@ -478,11 +479,28 @@ behind a non-default `#[cfg(feature)]` (`ron` in `ambition_encounter`, `content_
 real code). A delete list built from the detector alone would remove working code.
 
 ## The rule this window is worth remembering for
-**"I only merged" is editing.** A gate's tree must be frozen. Owner: the Smash session, who lost
-a 1639 s Rust run to it earlier today by merging `origin/main` to push a docs commit and pulling
-`actors/mod.rs` in under a running job — then killed the run rather than report a number it could
-not attribute. It asked for the attribution to be accurate rather than floating, and it is right
-that a rule with no owner is one nobody has to have learned.
+**"I only merged" is editing.** A gate's tree must be frozen. Owner: the Smash session, which
+ABANDONED a `--rust` run earlier today by merging `origin/main` to push a docs commit and pulling
+`actors/mod.rs` in under a running job — then killed it rather than report a number it could not
+attribute. It asked for the attribution to be accurate rather than floating, and it is right that
+a rule with no owner is one nobody has to have learned.
+
+⛔⛔ **CORRECTION, and the error was MINE: this paragraph said "lost a 1639 s Rust run". The
+abandoned run has NO recorded duration** — it was killed partway and never wrote a verdict, which
+is the entire point of the story. **1639 s is the CLEAN RERUN** at the settled tip (`5cd132e82`,
+6/6). A number attached to the wrong noun.
+
+⇒ And it was one step from becoming permanent. Yardrat read this line, believed it, and drafted it
+into `AGENTS.md` — where it would have been doctrine, cited by people with no path back to the
+source. What stopped it was their refusing to write a figure they could not attribute, and asking
+me to confirm it. **A laundered number does not announce itself: it gets more credible at every
+hop, because each reader sees it in a more authoritative document than the last.**
+
+⇒ Second, independent reason to freeze that this window found, and it is the stronger one: **the
+first reason — the jobs might read what you changed — EXPIRES as jobs complete.** A verdict must
+NAME A TREE. Merge mid-run and the result describes no commit that ever existed: not the tree it
+started on, not the one it ended on. Real and unattributable, which is the abandoned suite
+reporting `done` one level up. That leg holds from the first job to the last.
 
 ## ⚠ Raised by the Smash session and left for Jon, deliberately not acted on
 The goal is **SHARED**, so every session that finishes a turn in this repository auto-joins the
@@ -693,3 +711,53 @@ folded the fact into `BodyPoseView`. The tell was not a grep — it was reading 
 Symbol presence is wrong in both directions. **Testing the branch's stated PURPOSE against main
 is what settled every case** — `focus_for_action`'s signature, the `Trapdoor*` rename, the
 absent `report_gpu_prepared`.
+
+### The `--rust` gate at `5f18dbfa4`: 5/6 green, and the one red is a FLAKE, not a regression
+`workspace (default features)` FAILED on one test —
+`dive_drill_reachability::dive_drill_lunges_through_the_targets`, whose own diagnostic read
+`dive: x 951->951 (+0px), target HP [4] -> [4], resets=1`: the player never moved, dealt no
+damage, and died. Every other job green, including **`acceptance: the render composition draws a
+frame`** (201.2s) and **`web build check`** — the two that would break first if the web-GPU merge
+were wrong.
+
+⛔ **Everyone's first move, mine included, was to look for the commit that broke it. There isn't
+one.** Measured at that HEAD:
+
+| condition | result |
+|---|---|
+| alone, `-p ambition_app` | **10/10 pass** |
+| under 24 busy threads on 12 cores | **6/6 pass** |
+| under the full `--workspace` FEATURE UNION | **1/1 pass** |
+| whole `app_it` binary, 549 tests concurrent | **549/549 pass**, 0 failures |
+| the gate's full 6966-test suite | **FAIL** (as test 411) |
+
+⇒ **18/18 in isolation.** Not a regression; a rare flake that so far appears only under the full
+concurrent suite. It is NOT in the known-flake list with the smash jab-string test; it should be.
+
+**Two hypotheses died on the way, both with the falsifier written down first:**
+- *A commit in the window.* Only 7 `.rs` files changed since the last green gate. calculex cleared
+  their `167a33f86` BY MECHANISM rather than elimination: the changed line has one non-test caller,
+  runs only inside `for encounter_id in &completed_wave_ids`, and the dive-drill level contains
+  **zero** occurrences of `encounter`/`switch`/`wave` anywhere in its JSON — they checked the whole
+  level object as a string, not just `fieldInstances`. They also ruled out the class: no switch
+  consumer despawns geometry or can stop a player moving.
+- *Feature unification.* `ambition_dialog feature "ui"` IS enabled under `--workspace` and absent
+  under `-p` (calculex predicted this from their census's central caveat), and the failing run's
+  census carries 19 dialog/conversation systems. Tempting. **The union run passed in 1.338 s.**
+  ⭐ The prediction was recorded before the run, so there was no room to retrofit a story. A
+  coherent mechanism with a real, measured feature difference behind it was still the wrong one.
+
+⛔ **A correction of my own reasoning, because it was load-bearing:** I called the failing run
+"isolated" because nextest printed `571 filtered out`. That line comes from the libtest harness
+INSIDE one process and says nothing about the machine — the gate had many test processes running
+alongside. Reading a per-process line as a statement about the host is the same shape as every
+other over-wide claim this week.
+
+### ⓘ Two instrument failures while gating, both of which mimicked a benign result
+- **A killed background wrapper piped through `| tail` loses the ENTIRE log.** Two `--rust` runs
+  reported `killed` with **zero** output; neither was a test failure, and an early compile crash
+  would have looked identical. ⇒ Launch long gates with `setsid nohup … > logfile` so the record
+  survives the wrapper. Third time it happened, the work underneath was fine every time.
+- **A watcher on the wrong pid reports a completion that never happened.** `pgrep -f cargo-nextest
+  | head -1` caught a transient sibling, so a monitor announced "FINISHED" while the run was at
+  19/549 — indistinguishable from a fast clean run.

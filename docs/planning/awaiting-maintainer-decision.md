@@ -122,6 +122,21 @@ These are the remaining characters whose old size derivation cannot be replaced
 by preserving one existing placement size because their authored spawn boxes
 disagree substantially across rooms.
 
+✔ **PREMISE RE-MEASURED 2026-09-03 — still open, and here are the exact rows to
+fill.** None of them carries a `standing_height` in
+`game/ambition_content/assets/data/character_catalog.ron`:
+
+| your name for it | catalog id(s) |
+|---|---|
+| puppy slug | `npc_puppy_slug` |
+| stochastic parrot | `stochastic_parrot` |
+| burning flying shark | **two** — `npc_burning_flying_shark` and `hall_npc_burning_flying_shark` |
+
+⚠ The shark is the one to watch: it has a hall variant as a separate catalog
+entry, so a single number either goes in twice or the two are deliberately
+different sizes — which is itself part of the answer rather than a detail below
+it.
+
 Representative placement variation:
 
 ```text

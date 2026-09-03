@@ -615,3 +615,48 @@ fn list_what_each_character_derives_for_its_body() {
         }
     }
 }
+
+/// ⛔⛔ THE FX SET'S FOLDER IS THE TIER, and this pins the expression
+/// `load_fx_sheets` resolves it with.
+///
+/// Until 2026-09-02 that function built its set `with_sprite_folder("sprites")`
+/// unconditionally and every effect sheet decoded at authored resolution on
+/// every tier — measured in the hall as `fx-sheet` 7.7 MP at Potato, High and
+/// Ultra alike, about a third of the room's residency. The omission was
+/// inherited rather than chosen: `ensure_fx_sheet_loaded` passed `Full, Full` in
+/// the same shape as `load_prop_sheet_for_target`, whose `Full` is correct for a
+/// reason about one demo prop that does not transfer.
+///
+/// ⚠ A PURE TEST ON PURPOSE. The composed-host version of this assertion needs
+/// `AMBITION_QUALITY_PROFILE`, which is process-global, and `ambition_app` runs
+/// every file under `tests/` as a parallel thread of one binary — so it belongs
+/// with the `#[ignore]` + exact-filter fixtures, not here. What this guards is
+/// the thing that actually regressed: which folder the tier names.
+#[test]
+fn the_fx_sheet_folder_follows_the_quality_tier() {
+    // The crate's own public re-exports — the same line `assets.rs` uses. My
+    // first attempt reached through `settings::video::quality::…`, which is
+    // private, and the module next door already had the answer.
+    use ambition_persistence::settings::{
+        TextureResolutionScale, VisualQualityBudget, VisualQualityProfile,
+    };
+
+    let folder_for = |profile: VisualQualityProfile| {
+        let budget = VisualQualityBudget::for_profile(profile);
+        super::assets::character_sprite_tier(Some(&budget)).asset_subdir("sprites")
+    };
+
+    assert_eq!(folder_for(VisualQualityProfile::Potato), "sprites_potato");
+    assert_eq!(folder_for(VisualQualityProfile::Ultra), "sprites");
+
+    // No budget at all is `Full`, which is the authored PNG — the safe default
+    // for a composition that never resolved a tier.
+    assert_eq!(
+        super::assets::character_sprite_tier(None),
+        TextureResolutionScale::Full
+    );
+    assert_eq!(
+        super::assets::character_sprite_tier(None).asset_subdir("sprites"),
+        "sprites"
+    );
+}

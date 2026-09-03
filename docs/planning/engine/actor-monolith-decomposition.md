@@ -7,6 +7,17 @@ Durable decomposition doctrine:
 Capability closure:
 [`capability-and-runtime-composition.md`](capability-and-runtime-composition.md).
 
+> **Guard pointer, added ec6d5150b (2026-09-02).** This carve has an absence
+> contract naming it directly: `characters-do-not-depend-on-the-actor-integration-layer`
+> (`scripts/check_absence_contracts.py`) forbids `ambition_characters` from
+> depending on `ambition_platformer2d_actor_monolith`,
+> `ambition_platformer2d_runtime` or `ambition_platformer2d`. Its reason cites
+> THIS program: the reverse edge is "a cycle waiting to be discovered by the
+> compiler at the worst moment", and "if a coherent actor kernel exists at all,
+> `ambition_characters` is below it". So the direction of the carve is already
+> pinned by a check, not only by intent — green today, and it would go red the
+> moment a slice moved something the wrong way.
+
 ## Goal
 
 Reduce `ambition_platformer2d_actor_monolith` to an honest reusable actor/body

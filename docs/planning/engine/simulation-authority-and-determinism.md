@@ -23,6 +23,18 @@ composition, lifetime boundaries, and explicit phase ownership.
 > constraint. It compares engine set pins against engine-installed systems so
 > host/game-only extension sets are not mistaken for real ordering. Green at
 > `0ac499bb1`: **2 app-filled sets, all waived with a reason.**
+>
+> **And a THIRD, an absence contract rather than a script:**
+> `central-rollback-does-not-enumerate-domains` in `check_absence_contracts.py`
+> pins `platformer2d_runtime/src/rollback/mod.rs` — the host may compose a
+> domain's ONE public rollback offer (`register_rollback_state`) and may NOT
+> reach through that seam to name any concrete gameplay type from
+> `ambition_platformer2d_actor_monolith`, `ambition_boss_encounter` or
+> `ambition_characters`. That is this program's "central rollback does not own
+> domain censuses" rule, enforced by grep rather than by review, and green.
+> ⚠ `rollback-wire-format-changes-are-declared` is a fourth, in the same file:
+> 406 stable names across 123 encoded types in 11 crates, and a wire-format
+> change that does not declare itself fails it.
 
 ## Goal
 

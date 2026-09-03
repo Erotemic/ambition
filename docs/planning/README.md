@@ -98,6 +98,38 @@ true, and the header is just its receipt. A header added without the re-reading
 would be worse than none, because it would buy the next reader's trust without
 earning it.
 
+### ⚠ A guard sweep at SCRIPT granularity misses most of the guards
+
+Earlier on 2026-09-02 every `scripts/check_*.py` was checked against this
+directory and seven domain guards were given pointers in the programs they
+protect. That sweep was too coarse, and the way it was too coarse is worth
+keeping: **one referenced script can hide dozens of unreferenced rules.**
+
+`check_absence_contracts.py` is a single script — referenced, therefore "covered"
+by that sweep — and it runs **37 separate contracts**, each a standing
+architectural prohibition with its own name and its own owner. Re-checked at
+CONTRACT granularity at `dae963206`: **8 are named somewhere in `docs/planning`, 29
+are named nowhere.**
+
+The eight that are named cluster around two programs (public SDK, capability
+footprint). The twenty-nine that are not include rules a plan would obviously
+want to point at — `central-rollback-does-not-enumerate-domains`,
+`rollback-wire-format-changes-are-declared`,
+`engine-crates-do-not-consume-the-umbrella-facade`, `engine-core-is-the-floor`,
+`geometry-is-the-floor`, `platformer-primitives-stays-a-foundation`,
+`the-character-fold-is-not-a-public-capability`,
+`the-seat-topology-has-one-engine-side-creator` — and others that are
+self-explanatory and need no plan at all.
+
+⛔ **Mapping the 29 to owners is NOT done and is not a mechanical job**: several
+belong to campaigns that have closed, and a contract whose rule is obvious from
+its name costs nothing by being unlinked. The number is recorded so the next
+session starts from 29 rather than from zero.
+
+⇒ **The general form: when you sweep for instrumentation, sweep at the
+granularity a READER would look for.** Nobody greps for a filename; they grep for
+the rule they are about to break.
+
 ### ⛔ The hardest rot to catch: a premise that is still true and no longer the point
 
 Twice in one sweep, a planning doc's stated premise **verified clean by grep**
@@ -119,6 +151,42 @@ and check whether anything else now does that job.** The cheap version: grep for
 the concept, not only for the identifier — and read the tests, which state
 intent in a way a type signature cannot. Both of these were settled by a test
 name and its assertion message, not by the code they describe.
+
+### ⛔ Before calling something an omission, look for the reason it is a decision
+
+Three times on 2026-09-02 a re-measurement found code "missing" something, and
+twice the absence was deliberate and documented in place. The check costs a
+minute; publishing the wrong one costs somebody a fix aimed at correct code.
+
+| looked like | actually |
+|---|---|
+| `load_prop_sheet_for_target` never consults the quality budget | it hard-codes `Full` **and says why** — "nothing was asked for beyond `Full`" — on a road its docstring scopes to one demo prop |
+| `tests/typography.rs` `include_bytes!` a git-ignored font, breaking a fresh checkout | it mirrors `embed_core_assets!`, which embeds the same faces the same way; a runtime read would stop it testing the path the game uses |
+| a 7.6 MP sheet loaded outside the demand road, "our loader" | `bevy_ecs_ldtk` loading four `.ldtk` editor-preview tilesets — not our loader at all, and already a known queue row |
+
+⭐ **The tell is consistent: a deliberate absence usually SAYS SO in place, or
+mirrors something that does.** `ensure_fx_sheet_loaded` hard-codes `Full` exactly
+like the prop loader and gives no reason — which is what makes it a finding and
+the prop loader not one. The difference is not the behaviour; it is whether
+anybody wrote down that they chose it.
+
+⭐ **AND HERE IS HOW THE UNJUSTIFIED ONES GET WRITTEN, traced on 2026-09-02:
+copying a call shape copies its ARGUMENTS but not its JUSTIFICATION.**
+`ensure_fx_sheet_loaded` was added the same day, passing
+`TextureResolutionScale::Full, Full` in the identical shape as
+`load_prop_sheet_for_target`, which had held that pattern for six weeks. The
+prop loader's `Full` is correct BECAUSE of a scope note about one demo prop —
+and the scope note stayed behind when the pattern moved. Nobody decided FX art
+should ignore the tier; a signature was matched.
+
+⇒ **So a sibling that documents itself is weak evidence for the copy.** Ask
+whether the sibling's stated reason is about the road you are on, or about its
+own.
+
+⇒ **So the question to ask of every "X does not do Y" is: is there a comment, a
+sibling, or a scope note that makes Y wrong here?** If yes, the finding is that
+the reason is undiscoverable, not that the code is broken — a much smaller and
+much more accurate claim.
 
 ⇒ **So: when you re-measure a planning file against `HEAD`, leave the receipt** —
 the sha, the date, and what you found, including "nothing had changed". A reader

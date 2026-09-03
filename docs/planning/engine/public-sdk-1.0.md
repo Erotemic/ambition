@@ -2,6 +2,34 @@
 
 **State:** OPEN successor program.
 
+> **⭐ THIS PROGRAM IS RATCHETED, AND THE PAGE DID NOT SAY SO** (measured
+> `0a29e23fe`, 2026-09-02). `scripts/check_absence_contracts.py` runs FOUR
+> independent module-allowlist contracts, one per consumer, each measuring what
+> that consumer names through the `ambition_platformer2d` facade:
+>
+> | contract | consumer |
+> |---|---|
+> | `outlander-names-only-the-public-sdk` | `fixtures/external_consumer/` |
+> | `minimal-game-names-only-the-public-sdk` | `fixtures/minimal_game/` |
+> | `sim-harness-names-only-the-public-sdk` | `crates/ambition_sim_harness/` |
+> | `capability-demo-names-only-the-public-sdk` | `examples/capability_demo/tests/` |
+>
+> ⭐ **All four report `0 of 0 baseline modules still named`** — four independent
+> consumers, tests included, naming NOTHING outside the reviewed public surface.
+> The mechanism is a frozen baseline that may only shrink, and the script says
+> why in place: *"an allowlist entry is a compatibility commitment, not a ratchet
+> escape hatch"*, so *"an empty allowlist converges monotonically toward the
+> public SDK."*
+>
+> ⇒ **So this program's acceptance is already installed and already green, and a
+> reader of this page could not tell.** That changes what "OPEN" means here: the
+> question is no longer whether consumers can avoid internal crates — four
+> demonstrably do — but whether the surface they are held to is the RIGHT one.
+> ⛔ And the ratchet cannot answer that: it measures what is named, not whether
+> what is named is worth naming. `outlander-does-not-hand-order-its-own-composition`
+> is a fifth contract in the same file, and green, which is a different question
+> again.
+
 ## Goal
 
 Design the engine surface a game developer should actually want to use.

@@ -1230,7 +1230,7 @@ example.** Of the eleven `load_*`/`ensure_*` entry points in the asset path,
 
 | takes `quality` | does NOT |
 |---|---|
-| `load_character_sprites_in`, `load_entity_sprites`, `load_game_assets`, `ensure_boss_sheets_loaded`, `ensure_theme_loaded`, `load_parallax_layers_for_theme`, `ensure_parallax_layers_for_room` | ⛔ `load_fx_sheets`, ⛔ `ensure_fx_sheet_loaded`, ⛔ `load_prop_sheet_for_target` |
+| `load_character_sprites_in`, `load_entity_sprites`, `load_game_assets`, `ensure_boss_sheets_loaded`, `ensure_theme_loaded`, `load_parallax_layers_for_theme`, `ensure_parallax_layers_for_room` | ⛔ `load_fx_sheets`, ⛔ `ensure_fx_sheet_loaded`, ✔ `load_prop_sheet_for_target` (deliberate — see below) |
 
 `load_sheet_image` is the eleventh and is correctly absent from both columns: it
 is the primitive that takes an already-resolved path, so the caller owns the
@@ -1238,9 +1238,20 @@ choice.
 
 ⛔ **BOTH FX LOADERS MISS IT — the boot core AND the per-character owned road** —
 which is why all ten resident fx sheets are full-resolution rather than just the
-four core ones. `load_prop_sheet_for_target` is the third; the hall's `held-item`
-road is 0.1 MP so it does not show there, and a prop-heavy room is where it
-would.
+four core ones. ⚠ **`load_prop_sheet_for_target` IS NOT ONE OF THEM, corrected after checking
+rather than leaving it "unmeasured".** It hard-codes `TextureResolutionScale::Full`
+and states the reason in place — *"this path never consults a quality budget, so
+nothing was asked for beyond `Full` and nothing but the authored PNG was
+loaded"* — and its docstring scopes it to a demo registering one animated prop
+outside the asset catalog. Prop variants do exist (30 PNGs each in `sprites/`
+304 KB, `sprites_potato/` 120 KB, `sprites_0_25x/` 136 KB), so it COULD tier;
+it deliberately does not, on a narrow road, and says so.
+
+⛔ **So the gap is TWO loaders, not three.** `ensure_fx_sheet_loaded` also
+hard-codes `Full` — but unlike the prop loader it gives no reason, which is the
+difference between a decision and an omission. That distinction is the whole
+value of the audit: a count that lumps them together would have reported 50%
+more than exists and pointed a fix at code that is already correct.
 
 ⛔ Routing again, not pixels: the fix gives a Potato user the 68 KB sheets they
 asked for and changes nothing at Ultra.

@@ -47,7 +47,7 @@ pub fn load_game_assets(
     let entities = load_entity_sprites(catalog, asset_server, quality);
     // The engine's own effect art. Not a character, not an LDtk prop, and not
     // content's job to declare — see `ambition_sprite_sheet::fx`.
-    let fx = character_sprites::load_fx_sheets(asset_server, layouts, &config.sprite_folder);
+    let fx = character_sprites::load_fx_sheets(asset_server, layouts, &config.sprite_folder, quality);
     let fallback_sheet_key = boss_catalog.fallback_sheet_key();
     let boss = fallback_sheet_key.and_then(|key| {
         sprites::load_boss_sprite_in(

@@ -11,14 +11,17 @@ resolution, `head -N` truncating the grep that had the answer) belongs here too
 and should be appended by whoever holds those commits — an unattributed line
 with no SHA is exactly the kind of claim this page exists to distrust.
 
-⭐ **SIBLING PAGE, AND THE BOUNDARY BETWEEN THEM.**
+⭐ **THE DURABLE HALF OF THIS PAGE NOW LIVES IN A RECIPE, and that page is the
+one to read first:**
 [`docs/recipes/checks-that-did-not-run.md`](../../docs/recipes/checks-that-did-not-run.md)
-collects the checks that did not RUN — a gate lane nobody invoked, a job in the
-exhaustive plan only, a feature-gated module whose tests never existed. This
-page collects the ones that ran and answered the WRONG QUESTION. ⇒ **Do not add
-the two counts.** Ask "did it run?" there and "did it check what I think?" here;
-that page's #10 (a census that was a silent top-20) is the boundary case and
-belongs to both.
+§ "The sibling family: it RAN, and it could not have failed". It holds the
+recurring shape and the four-pass audit; **this page is where they came from** —
+the instance table below, with a SHA per line, so a reader can verify rather
+than take it.
+
+⚠ That recipe's own numbered list is a DIFFERENT family: checks that never
+executed. **Do not add the two counts.** Ask "did it run?" there and "did it
+check what I think?" here.
 
 ## The recurring shape
 
@@ -61,38 +64,9 @@ succeeds, the number prints, and the number is about a different question.
 
 ## How to run this audit again
 
-It found eight real defects in one evening, so it is worth repeating rather than
-rediscovering. Four passes, cheapest first:
-
-1. **Run every guard and read its REAL exit code.**
-   ```bash
-   for f in scripts/check_*.py; do
-     out=$(timeout 240 python3 "$f" 2>&1); code=$?     # NOT `| head`
-     printf '%-42s exit=%-3s %s\n' "$(basename "$f" .py)" "$code" "$(printf '%s' "$out" | head -1)"
-   done
-   ```
-   ⛔ My first pass piped into `head` and captured `tr`'s status, so every check
-   read `exit=0`. The bug I was hunting, in the tool I was hunting it with.
-   Look for: a traceback, an empty success, and any message that says the check
-   checked nothing.
-
-2. **Compare each guard's denominator against the repository's.** This is the
-   one that found item 25. "4 systems mutate rollback state" is implausibly
-   small for a game with rollback netcode; ask what SOURCE produced the
-   population, not whether the check passed. A guard that reads one file in a
-   repo whose convention is one-file-per-crate is the shape to expect.
-
-3. **Ask which guards assert against the LIVE tree**, not only on fixtures. Most
-   here do; the exceptions are where the coverage gaps hide.
-
-4. **Poison it — and check the poison landed in the guard's population.** Two of
-   my three poisons on the sheet-presence check hit files it deliberately
-   ignores, and each printed a green I could have taken for proof.
-
-⚠ Two habits that make the whole thing cheaper: a tool one call away beats an
-hour of reading (`discover_all_targets()`, `grep -l <shared module>`), and when
-two of your own measurements disagree, the coherent one is not automatically the
-true one.
+Moved, so there is one copy to keep current: the four passes are
+[`docs/recipes/checks-that-did-not-run.md`](../../docs/recipes/checks-that-did-not-run.md)
+§ "Running this audit yourself". It found eight real defects in one evening.
 
 ## ⭐ What the sweep did NOT find, recorded so nobody repeats it
 
@@ -200,13 +174,13 @@ when the tool was one call away.** `discover_all_targets()` and
 
 | # | The check | Why it could not fail | Fixed in |
 |---|---|---|---|
-| 19 | The default gate (`./run_tests.sh --rust`) run over a tree another agent was editing | A verdict about a tree that changed under it; two "green" gates were about no commit at all — announced windows and pathspec commits since | `2ea4ef21a` (the lesson), rule in `feedback` memory |
-| 20 | `cargo check -p <crate>` as a peer's evidence for a schedule-set membership guard | Bevy names a system `<Enable the debug feature to see the name>` unless `bevy_ecs/debug` is on; the monolith's name-lookup guard passed under `--workspace` and failed under `-p` — count by shape, not by name (yardrat, `dbec94824`) | `dbec94824` |
-| 21 | `cargo check --workspace --all-targets` as proof a merge was clean | An EXACT dependency allowlist (`engine.world-ir-dependency-allowlist`) is a policy test, not a compile; the merge of R4a added an edge the check could not see | `2b6e6561b` |
-| 22 | The gate's Python lane resolving the FIRST usable-looking interpreter | An in-repo `.venv` from July predated the per-machine store and had no numpy; two red jobs read as "tests failed" until `python_tools.sh` was run — the runner now refuses an interpreter that cannot host the lane (yardrat) | `bd18a028f` |
-| 23 | `\| tail -30` on a workspace lane | The exit status was `tail`'s; the lane was red on a missing bundled font and read `[exited with code 0]` (ambition-da) — `PIPESTATUS` or nothing | *(method; `grab_font_assets.py` is the fix)* |
-| 24 | Probing whether an asset reloads after its handle drops, with a path that did not exist | `Failed(NotFound)` twice, both arms "consistent" — a probe that cannot distinguish its own typo from the defect; the real path reloaded in 2 updates | *(probe deleted; the defect was the fixture, `0a112fcb5`)* |
-| 25 | A settle helper that ran ONE update and then read "pending is None" as "settled" | A launcher command becomes a route one update later than a `GoTo`; the fixture read the relaunch as done the frame before it started — masked for months while the relaunched room's cast was still resident | `0a112fcb5` |
-| 28 | A docstring that describes a test, taken as the test | Three guards green for reasons unrelated to what they guard: the citation checker's population (no `::` → never extracted), the sheet-presence check exiting 0 when it could not import, the absence contracts' "require a hit" half never written (ambition-e7, `d3c86dc79` / `f4693ac7b` / `e4e545d29`) | *(theirs; listed here because the shape is the integrator's to watch for)* |
-| 27 | A pathspec commit that names a file you edited | A `git reset` to origin by another agent in the shared tree reverted the file first; the commit landed without it and nothing complained — read the reflog before re-typing | `986f61d83` |
-| 26 | Bisecting a merge-heavy day by `rev-list` index | An index is not an ancestry chain; a GOOD on a side branch bounded nothing on the line that mattered (yardrat) — bisect the ancestry, not the list | *(method)* |
+| 28 | The default gate (`./run_tests.sh --rust`) run over a tree another agent was editing | A verdict about a tree that changed under it; two "green" gates were about no commit at all — announced windows and pathspec commits since | `2ea4ef21a` (the lesson), rule in `feedback` memory |
+| 29 | `cargo check -p <crate>` as a peer's evidence for a schedule-set membership guard | Bevy names a system `<Enable the debug feature to see the name>` unless `bevy_ecs/debug` is on; the monolith's name-lookup guard passed under `--workspace` and failed under `-p` — count by shape, not by name (yardrat, `dbec94824`) | `dbec94824` |
+| 30 | `cargo check --workspace --all-targets` as proof a merge was clean | An EXACT dependency allowlist (`engine.world-ir-dependency-allowlist`) is a policy test, not a compile; the merge of R4a added an edge the check could not see | `2b6e6561b` |
+| 31 | The gate's Python lane resolving the FIRST usable-looking interpreter | An in-repo `.venv` from July predated the per-machine store and had no numpy; two red jobs read as "tests failed" until `python_tools.sh` was run — the runner now refuses an interpreter that cannot host the lane (yardrat) | `bd18a028f` |
+| 32 | `\| tail -30` on a workspace lane | The exit status was `tail`'s; the lane was red on a missing bundled font and read `[exited with code 0]` (ambition-da) — `PIPESTATUS` or nothing | *(method; `grab_font_assets.py` is the fix)* |
+| 33 | Probing whether an asset reloads after its handle drops, with a path that did not exist | `Failed(NotFound)` twice, both arms "consistent" — a probe that cannot distinguish its own typo from the defect; the real path reloaded in 2 updates | *(probe deleted; the defect was the fixture, `0a112fcb5`)* |
+| 34 | A settle helper that ran ONE update and then read "pending is None" as "settled" | A launcher command becomes a route one update later than a `GoTo`; the fixture read the relaunch as done the frame before it started — masked for months while the relaunched room's cast was still resident | `0a112fcb5` |
+| 35 | A docstring that describes a test, taken as the test | Three guards green for reasons unrelated to what they guard: the citation checker's population (no `::` → never extracted), the sheet-presence check exiting 0 when it could not import, the absence contracts' "require a hit" half never written (ambition-e7, `d3c86dc79` / `f4693ac7b` / `e4e545d29`) | *(theirs; listed here because the shape is the integrator's to watch for)* |
+| 36 | A pathspec commit that names a file you edited | A `git reset` to origin by another agent in the shared tree reverted the file first; the commit landed without it and nothing complained — read the reflog before re-typing | `986f61d83` |
+| 37 | Bisecting a merge-heavy day by `rev-list` index | An index is not an ancestry chain; a GOOD on a side branch bounded nothing on the line that mattered (yardrat) — bisect the ancestry, not the list | *(method)* |

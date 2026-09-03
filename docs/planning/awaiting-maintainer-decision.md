@@ -431,9 +431,36 @@ either: `PortraitSheetRegistry` is built `from_baked_table(BAKED_PORTRAIT_RONS)`
 and `build.rs` bakes from `assets/sprites`. A deliberate selective publication
 produces files no build can load.
 
-⇒ **Stop generating them, start baking them, or leave them?** The comment says
-portraits have no tier variants *currently*, which reads as intent that may
-change — and that is the part an agent cannot know.
+⭐⭐ **AND THE MEASUREMENT NARROWS THE ANSWER — 2026-09-02,
+`scripts/measure_portrait_tier_headroom.py`.** Portrait draw size is chosen by
+VIEWPORT, never by quality tier: `DialogLayoutProfile::for_viewport` picks
+**56×62** (phone landscape), **82×94** (phone portrait / small tablet) or
+**104×120** (everything else), consulting no quality setting. So no quality tier
+can select a portrait resolution — the window size does. Against `alice`:
+
+```text
+tier              frame     @1x display          @2x display
+sprites          256x320    covers every box     covers every box
+sprites_0_5x     128x160    covers every box     smallest box only
+sprites_0_25x      64x80    smallest box only    UPSCALES ALWAYS
+sprites_potato     16x20    UPSCALES ALWAYS      UPSCALES ALWAYS
+```
+
+⇒ **Nothing wants a Potato portrait**: at 16×20 it is under even the 56×62 box
+at 1×. `sprites_0_25x` is defensible only on a phone-landscape viewport at 1×
+display scale — the least likely combination, since phones are high-DPI. Only
+`sprites_0_5x` has a real case, and only at 1×. ⚠ A tier under the box it is
+drawn into is not a cheaper portrait; it is a blurrier one, which is the
+failure Jon's standing rule forbids.
+
+ⓘ Residency is already bounded independently: `RetainedHudImages` holds one
+entry per portrait ACTUALLY SHOWN (~1.3–2.0 MP each), not the 163 baked
+manifests — so the tiers would save package size, not runtime memory.
+
+⇒ **Stop generating them, start baking them, or leave them?** The measurement
+says at most one tier (`0_5x`) could ever be wanted and two certainly cannot.
+The comment says portraits have no tier variants *currently*, which reads as
+intent that may change — and that is the part an agent cannot know.
 
 ### 44. Should `SmashChargeSpec` keep a game-mode name for a general mechanism?
 

@@ -66,10 +66,26 @@ a camera count would read 4 here.
 
 ⚠ **One row is worth a question, not a conclusion:** the scrim camera is
 `active=true` with `layers=none` — an active camera drawing no layers. Whether
-that still costs a render pass is **not measurable on this arm**: the headless
-host runs without the render app, and `[census] render_pass_summary` accordingly
-reports `cpu_spans=0 gpu_spans=0`. A GPU machine has to answer that one; it is
-recorded here so it is not mistaken for a settled cost.
+that still costs a render pass was recorded here as *"not measurable on this
+arm"*, because the headless host composes no render app and
+`[census] render_pass_summary` reports `cpu_spans=0 gpu_spans=0`.
+
+◐ **PARTLY ANSWERED 2026-09-03, and the confound matters more than the answer.**
+This arm CAN measure render passes after all — `capture_scene` renders offscreen
+through Mesa's lavapipe, and under `AMBITION_PROFILE_CENSUS=1` it reports real
+spans: `cpu_spans=2 gpu_spans=2 pipeline_stat_spans=4`, over exactly two paths,
+`render/main_transparent_pass_2d` and `render/upscaling`. With the layerless
+scrim camera `active=true` in that same frame, **no third pass appears**.
+
+⛔ **But that is NOT yet the answer to the question, because of a confound this
+composition introduces:** in `capture_scene` the scrim camera's `target=window`
+and there IS no window — every camera is retargeted to the offscreen image
+except the ones that are not, and this is one of them. So the run cannot separate
+*"`layers=none` costs no pass"* from *"a camera whose render target does not
+exist costs no pass"*. Two explanations, one observation.
+⇒ What is still needed is the WINDOWED composition, where the scrim camera has a
+real target. That is now a question about a window rather than about a GPU, which
+is a smaller thing to ask for.
 
 *Method note.* The first pass at this reported that no `views` census existed —
 a `grep` over the run's `*.stdout` came back empty. The census writes to

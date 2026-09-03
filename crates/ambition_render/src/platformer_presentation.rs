@@ -30,6 +30,12 @@ pub struct PlatformerPresentationSetupSet;
 #[derive(Resource, Default)]
 struct PresentedSessionScope(Option<SessionScopeId>);
 
+/// The parallax half of the presentation memo, separate because a backdrop can
+/// become possible LATER than the room it sits behind. See
+/// `sync_session_room_visuals`.
+#[derive(Resource, Default)]
+struct PresentedParallaxScope(Option<SessionScopeId>);
+
 /// The provider-agnostic per-session room presentation: whenever a fresh session scope goes
 /// live, spawn the active `RoomSet` room's parallax layers and static visuals exactly once,
 /// owned by that scope.
@@ -46,6 +52,7 @@ impl Plugin for SessionRoomVisualsPlugin {
         // Room/parallax passes consume the resolved quality budget; install its idempotent owner.
         app.add_plugins(crate::quality::VisualQualityPlugin);
         app.init_resource::<PresentedSessionScope>();
+        app.init_resource::<PresentedParallaxScope>();
         app.init_resource::<PhysicsSandboxSettings>();
         app.add_systems(
             Update,
@@ -199,6 +206,7 @@ fn sync_session_room_visuals(
     mut commands: Commands,
     active_session: Option<Res<ActiveSessionScope>>,
     mut presented: ResMut<PresentedSessionScope>,
+    mut parallax_presented: ResMut<PresentedParallaxScope>,
     room_set: Option<ambition_platformer2d_shared_tangle::lifecycle::SessionWorldRef<RoomSet>>,
     physics_settings: Res<PhysicsSandboxSettings>,
     assets: Option<Res<GameAssets>>,
@@ -210,9 +218,10 @@ fn sync_session_room_visuals(
     let current = active_session.current();
     let Some(scope) = current else {
         presented.0 = None;
+        parallax_presented.0 = None;
         return;
     };
-    if presented.0 == Some(scope) {
+    if presented.0 == Some(scope) && parallax_presented.0 == Some(scope) {
         return;
     }
     let Some(room_set) = room_set else {
@@ -222,25 +231,44 @@ fn sync_session_room_visuals(
     };
     let spec = room_set.active_spec();
 
-    // ⛔⛔ DO NOT MARK THIS SCOPE PRESENTED UNTIL ITS BACKDROP CAN ACTUALLY BE
-    // BUILT. `spawn_parallax_layers` early-returns when `GameAssets` has no
-    // layers for the room's theme, and `GameAssets` loads ONE theme at startup
-    // — every other theme lazy-loads via `ensure_active_room_parallax_theme`.
-    // Setting the memo first meant a session that activated on the frame BEFORE
-    // its theme arrived got no parallax and was never retried: one shot, and it
-    // missed.
+    // ⛔⛔ TWO MEMOS, BECAUSE THE ROOM AND ITS BACKDROP BECOME POSSIBLE AT
+    // DIFFERENT TIMES. `spawn_parallax_layers` early-returns when `GameAssets`
+    // has no layers for the room's theme, and `GameAssets` loads ONE theme at
+    // startup — every other theme lazy-loads via
+    // `ensure_active_room_parallax_theme`. A single memo forced a choice
+    // between two wrong answers: set it first and a session that activated the
+    // frame BEFORE its theme arrived got no parallax and was never retried
+    // (one shot, and it missed); defer it and the whole room waited on a
+    // backdrop.
     //
     // ⭐ THIS IS WHY AMBITION HAD A BACKDROP AND SMASH DID NOT, on the same
     // assets and the same theme (`Hub`). The sandbox draws through
     // `spawn_initial_room_visuals`, which has no memo and simply tries again
-    // next frame; the session path is memoized and does not. The bug was the
-    // asymmetry, not the art — which is why regenerating assets never touched
-    // it.
+    // next frame; the session path is memoized and did not.
     //
-    // ⚠ Deferral is conditional on the budget WANTING parallax. A tier that
-    // disables it (or a room whose theme legitimately has no art) must present
-    // normally, or the whole room's static visuals would be held hostage to a
-    // backdrop that is never coming.
+    // ⛔⛔ AND DEFERRING BOTH WAS THE WORSE HALF, which is what this split
+    // fixes: `!theme_loaded` used to `return` before `spawn_room_visuals`, so
+    // at a tier that wants parallax a late theme withheld EVERY static visual
+    // and every authored room entity — not merely the backdrop. Potato never
+    // showed it because `parallax.enabled` is false there, so the gate never
+    // engaged. ⇒ Room presentation may not depend on a backdrop becoming
+    // resident. Parallax waits alone.
+    let spawn_scope = SessionSpawnScope::scoped(scope);
+
+    if presented.0 != Some(scope) {
+        presented.0 = Some(scope);
+        spawn_room_visuals(
+            &mut commands,
+            spawn_scope,
+            spec,
+            *physics_settings,
+            assets.as_deref(),
+        );
+    }
+
+    if parallax_presented.0 == Some(scope) {
+        return;
+    }
     let wants_parallax = quality
         .as_deref()
         .map(|q| q.budget.parallax.enabled)
@@ -255,14 +283,15 @@ fn sync_session_room_visuals(
                 .any(|layer| a.parallax_layers.get(theme, *layer).is_some())
         });
         if !theme_loaded {
-            // Leave `presented` unset so the next frame retries, exactly as the
-            // unscoped path does.
+            // Leave the PARALLAX memo unset so the next frame retries — and only
+            // that one. The room is already on screen.
             return;
         }
     }
 
-    presented.0 = Some(scope);
-    let spawn_scope = SessionSpawnScope::scoped(scope);
+    // Settled either way: a tier that disables parallax, or a room whose theme
+    // legitimately has no art, is finished rather than retried every frame.
+    parallax_presented.0 = Some(scope);
     spawn_parallax_layers(
         &mut commands,
         spawn_scope,
@@ -271,11 +300,110 @@ fn sync_session_room_visuals(
         assets.as_deref(),
         quality.as_deref().map(|q| &q.budget.parallax),
     );
-    spawn_room_visuals(
-        &mut commands,
-        spawn_scope,
-        spec,
-        *physics_settings,
-        assets.as_deref(),
-    );
+}
+
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use ambition_platformer2d_shared_tangle::lifecycle::SessionRoot;
+
+    /// One room asking for a parallax theme that no `GameAssets` provides —
+    /// which is the state a session is in on the frame it activates, before
+    /// `ensure_active_room_parallax_theme` has loaded the theme.
+    fn room_set_wanting_a_theme() -> RoomSet {
+        let mut room = ambition_platformer2d_world::rooms::RoomSpec::new(
+            "late_theme_room",
+            ambition_platformer2d_core::World::new(
+                "late_theme_room",
+                ambition_platformer2d_core::Vec2::new(640.0, 480.0),
+                ambition_platformer2d_core::Vec2::new(16.0, 16.0),
+                Vec::new(),
+            ),
+        );
+        room.metadata.visual_profile.parallax_theme = Some("a_theme_nobody_loaded".to_string());
+        RoomSet::from_parts("late_theme_room", vec![room], Vec::new())
+    }
+
+    fn app_with_an_active_session() -> (App, SessionScopeId) {
+        let mut app = App::new();
+        app.add_plugins(MinimalPlugins);
+        app.init_resource::<PresentedSessionScope>();
+        app.init_resource::<PresentedParallaxScope>();
+        app.init_resource::<PhysicsSandboxSettings>();
+        app.add_systems(Update, sync_session_room_visuals);
+
+        let mut active = ActiveSessionScope::default();
+        let scope = active.begin();
+        app.insert_resource(active);
+        app.world_mut()
+            .spawn((SessionRoot(scope), room_set_wanting_a_theme()));
+        (app, scope)
+    }
+
+    /// ⛔⛔ A LATE BACKDROP MUST NOT WITHHOLD THE ROOM.
+    ///
+    /// `!theme_loaded` used to `return` before `spawn_room_visuals`, so at any
+    /// tier whose budget wants parallax — every tier above Potato — a room whose
+    /// theme had not arrived yet presented NOTHING: no static visuals, no
+    /// authored room entities, not merely no backdrop. Potato hid it because
+    /// `parallax.enabled` is false there, so the gate never engaged and the one
+    /// tier anybody measured headless looked correct.
+    ///
+    /// ⇒ Two memos. The room presents on the first frame it can; parallax keeps
+    /// the retry that it needed, alone.
+    #[test]
+    fn the_room_presents_even_though_its_parallax_theme_has_not_arrived() {
+        let (mut app, scope) = app_with_an_active_session();
+        // No `GameAssets` at all, so no theme can be loaded — the strongest form
+        // of the condition, and the one a fresh session actually starts in.
+        app.update();
+
+        assert_eq!(
+            app.world().resource::<PresentedSessionScope>().0,
+            Some(scope),
+            "the room must be presented on the frame it activates, whatever the backdrop is doing",
+        );
+        assert_eq!(
+            app.world().resource::<PresentedParallaxScope>().0,
+            None,
+            "and parallax must stay unsettled so a later theme is still retried",
+        );
+    }
+
+    /// The retry the original single memo existed to provide, kept: parallax is
+    /// unsettled while the theme is missing, on every frame, not just the first.
+    #[test]
+    fn parallax_keeps_retrying_while_the_theme_is_missing() {
+        let (mut app, scope) = app_with_an_active_session();
+        app.update();
+        app.update();
+        app.update();
+
+        assert_eq!(app.world().resource::<PresentedSessionScope>().0, Some(scope));
+        assert_eq!(
+            app.world().resource::<PresentedParallaxScope>().0,
+            None,
+            "a missing theme must never settle the parallax memo",
+        );
+    }
+
+    /// ⚠ NON-VACUITY, and the reason this test exists beside the two above: if
+    /// the room memo could never settle, the first test would pass for the wrong
+    /// reason. A tier that does not want parallax settles BOTH on frame one.
+    #[test]
+    fn a_tier_that_wants_no_parallax_settles_both_memos_at_once() {
+        let (mut app, scope) = app_with_an_active_session();
+        let mut quality = crate::quality::ResolvedVisualQuality::default();
+        quality.budget.parallax.enabled = false;
+        app.insert_resource(quality);
+        app.update();
+
+        assert_eq!(app.world().resource::<PresentedSessionScope>().0, Some(scope));
+        assert_eq!(
+            app.world().resource::<PresentedParallaxScope>().0,
+            Some(scope),
+            "nothing is coming, so parallax is finished rather than retried every frame",
+        );
+    }
 }

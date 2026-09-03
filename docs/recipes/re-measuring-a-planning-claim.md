@@ -417,6 +417,31 @@ error was not a control but a REVIEWER's methodological caveat — a peer saying
 "removals are compiler-verified, never grep-only" — which is a slower and less
 reliable net than getting the scope right the first time.
 
+⭐⭐ **THE UNIFYING FORM, after the same day produced FOUR of these on one
+question: THE ERROR IS NOT A BAD TOOL, IT IS A CLAIM WIDER THAN THE TOOL'S
+SCOPE.** Asking "which dependencies are never named in their crate's source":
+
+| the tool measured | I claimed |
+|---|---|
+| occurrences in `src/` | the whole crate — missed four uses in `tests/` |
+| occurrences of TEXT | usage — an intra-doc link counted as a use |
+| `ambition_*` names only | every dependency — missed `thiserror`, `ron` |
+| a build with DEFAULT features | the crate's dependencies — `ron` is real code behind `#[cfg(feature = "content_pack")]` |
+
+⇒ Every row is a tool that **succeeded**. None errored, none returned nothing,
+none looked broken; each answered its own narrower question correctly and I
+widened the answer on the way to the page. That is why this class survives
+controls, re-reading, and a green gate: **there is no failure to notice.**
+⇒ So the check is not "did it run?" but **"what exactly did it measure, and is
+my sentence larger than that?"** Write the scope into the claim — *"never named
+in `src/` on a default-feature build"* is a sentence you can defend and a
+reviewer can attack; *"never used"* is neither.
+
+⚠ The practical form for dependencies specifically: the default-feature lint is
+a DETECTOR that over-reports, and the confirmation is a second run with
+`--all-features`. **Only a dep unused under BOTH is unused.** Detector then
+confirmer costs two runs on the hits rather than two runs on all 77 crates.
+
 ⇒ The residue is worth keeping too: those four are not bugs in the code, they are
 deps used only by tests while declared in `[dependencies]` rather than
 `[dev-dependencies]`. The mis-scan found a real, smaller thing while claiming a

@@ -10,7 +10,7 @@ implemented_by:
   - dev/SEARCH.md
   - dev/journals/
   - dev/benchmark-candidates/
-last_verified: 2026-05-17
+last_verified: 2026-09-03
 ---
 
 # Engineering memory
@@ -25,7 +25,21 @@ Engineering memory is Ambition's long-running record of hard-won lessons. It liv
 - `dev/benchmark-candidates/` is for invariant traps and hard questions distilled from real mistakes.
 - Agents should search `dev/` before non-trivial code changes.
 - Durable rules discovered in `dev/` should be promoted into concept pages, recipes, or ADRs.
-- Do not duplicate canonical lessons between `dev/journals/lessons_learned.md` and `dev/journals/lessons_learned.md`.
+- ⛔ **THIS INVARIANT IS VACUOUS AS WRITTEN AND HAS BEEN SINCE IT WAS WRITTEN.**
+  It reads *"do not duplicate canonical lessons between
+  `dev/journals/lessons_learned.md` and `dev/journals/lessons_learned.md`"* — the
+  same path twice, so it forbids nothing. Present in `ecc107fb9`, the commit that
+  created this knowledge base, and unchanged since; there is exactly one
+  `lessons_learned.md` in the tree, so the second name was never a real file.
+  ⇒ **Flagged rather than rewritten, because guessing an invariant is worse than
+  an obviously broken one.** The reading the rest of this page supports is *"do
+  not duplicate between `dev/journals/lessons_learned.md` and
+  `dev/benchmark-candidates/`"* — the two collections defined above, one for
+  postmortems and one for distilled invariant traps, which are exactly the pair a
+  lesson could land in twice. ⚠ That is a RECONSTRUCTION from context, not the
+  original intent recovered; it wants a maintainer's yes before it becomes the
+  rule. Note it cannot mean "between `dev/` and concept pages": promoting durable
+  rules into concept pages is the invariant two lines down.
 
 ## Edit protocol
 

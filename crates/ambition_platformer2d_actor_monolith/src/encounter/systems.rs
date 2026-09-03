@@ -29,7 +29,7 @@ use ambition_encounter::{
 };
 
 use super::load_encounter_specs_from_rooms;
-use ambition_encounter::switches::{EncounterSwitchIndex, SwitchActivationQueue};
+use ambition_encounter::switches::EncounterSwitchIndex;
 
 /// Bevy startup system: load encounter specs from the embedded LDtk
 /// project, spawn one encounter entity per spec carrying the generic
@@ -148,7 +148,10 @@ pub fn drive_wave_encounters(
         &mut EncounterParticipants,
     )>,
     mut save: ResMut<ambition_persistence::save::AmbitionGameSave>,
-    mut switch_activations: ResMut<SwitchActivationQueue>,
+    // ⭐ THE QUEUE IS NOT DRAINED HERE ANY MORE. This reads what the switch
+    // domain published; the drain, the parse and the persisted toggle all
+    // belong to `ambition_encounter::switches::drain_switch_activations`.
+    resolved_switches: Res<ambition_encounter::switches::ResolvedSwitchActivations>,
     switch_index: Res<EncounterSwitchIndex>,
     player_body_q: Query<
         &ambition_platformer2d_core::BodyKinematics,
@@ -334,94 +337,79 @@ pub fn drive_wave_encounters(
     //    the server now: the domain says what it wants spawned, and the layer
     //    that owns body construction decides how.
 
-    // 5. Switch toggles. Just toggle the persisted switch state; the
-    //    trigger gate consults `switch.on` directly. When the player
-    //    re-arms (toggles to off), also drop any encounter-spawned
-    //    mobs from a prior attempt and Reset any stale terminal phase
-    //    so the next trigger fires cleanly.
-    let activations = std::mem::take(&mut switch_activations.0);
-    for activation in activations {
-        // Quest hook: every switch interaction sets a generic flag
-        // that quests can listen for. Specific switches will key on
-        // their own ids via `switch:<id>` flags.
+    // 5. Switch REACTIONS. The queue is drained ONCE, by
+    //    `ambition_encounter::switches::drain_switch_activations`, which parses
+    //    each action into a typed `SwitchAction` and owns the persisted switch
+    //    write. This reads the published result.
+    //
+    //    ⛔ WHY THE DRAIN LEFT: four unrelated policies used to share this loop
+    //    — a quest flag for every activation, FlipGravity, the four SetGravity
+    //    faces, and the encounter reset — and each was reachable only from
+    //    INSIDE it, after a save-mutating toggle and behind early `continue`s.
+    //    That is what pinned the reward retire to this adapter. Order is still
+    //    part of the value, so there is still exactly one drain; what changed is
+    //    that it is not this system.
+    for activation in &resolved_switches.0 {
+        // Quest hook: every switch interaction sets a generic flag that quests
+        // can listen for, whatever the action was.
         save.data_mut().set_flag("test_switch_toggled", true);
         save.data_mut()
             .set_flag(format!("switch_{}_used", activation.id), true);
         quests.push_event(ambition_persistence::quest::QuestAdvanceEvent::FlagSet(
             "test_switch_toggled".into(),
         ));
-        if activation.action.as_str() == "FlipGravity" {
-            commands.queue(|world: &mut bevy::prelude::World| {
-                let mut base = world
-                    .resource_mut::<ambition_platformer2d_shared_tangle::gravity::BaseGravity>();
-                base.dir = -base.dir;
-            });
-            let new_on = !save.data().switch(&activation.id);
-            save.data_mut().set_switch(&activation.id, new_on);
-            continue;
-        }
-        // Cardinal gravity switch (Noether Chamber kernel faces): a `Switch`
-        // whose `action` is "SetGravityDown|Up|Left|Right" sets the room's
-        // ambient gravity ([`ambition_platformer2d_shared_tangle::gravity::BaseGravity`]) to that direction so
-        // that side becomes the new "down". NOTE: the action must NOT contain a
-        // colon — `SwitchActivation::to_custom_payload`/`parse_custom` round-trip
-        // through a `:`-delimited string, so a colon in the action is silently
-        // truncated. Deferred world command (tuple limit). Persist the
-        // switch as on so its sprite reads engaged.
-        if let Some(dir_token) = activation.action.as_str().strip_prefix("SetGravity") {
-            let dir = match dir_token {
-                "Up" => bevy::prelude::Vec2::new(0.0, -1.0),
-                "Left" => bevy::prelude::Vec2::new(-1.0, 0.0),
-                "Right" => bevy::prelude::Vec2::new(1.0, 0.0),
-                _ => bevy::prelude::Vec2::new(0.0, 1.0), // "Down" / fallback
-            };
-            commands.queue(move |world: &mut bevy::prelude::World| {
-                world
-                    .resource_mut::<ambition_platformer2d_shared_tangle::gravity::BaseGravity>()
-                    .dir = dir;
-            });
-            save.data_mut().set_switch(&activation.id, true);
-            continue;
-        }
-        if !matches!(activation.action.as_str(), "ResetEncounter") {
-            continue;
-        }
-        let new_on = !save.data().switch(&activation.id);
-        save.data_mut().set_switch(&activation.id, new_on);
-        // ECS switch state is mirrored from the save and indexed for the next frame.
-
-        let target_id = if activation.target_encounter.is_empty() {
-            active_area.clone()
-        } else {
-            activation.target_encounter.clone()
-        };
-        if !new_on {
-            // Re-arming: Reset the encounter (the reducer refuses Start from a
-            // terminal phase, so a stale Completed/Failed must clear); the
-            // ownership-driven cleanup adapter (E10) drops carryover mobs off
-            // the Reset event.
-            if let Some((_, lifecycle, _, _)) =
-                encounters.iter().find(|(enc, _, _, _)| enc.id == target_id)
-            {
-                if !lifecycle.phase.in_flight() {
-                    lifecycle_commands.write(EncounterCommand::new(
-                        &target_id,
-                        EncounterCommandKind::Reset,
-                    ));
+        match &activation.action {
+            ambition_encounter::switches::SwitchAction::FlipGravity => {
+                commands.queue(|world: &mut bevy::prelude::World| {
+                    let mut base = world
+                        .resource_mut::<ambition_platformer2d_shared_tangle::gravity::BaseGravity>();
+                    base.dir = -base.dir;
+                });
+            }
+            // Cardinal gravity switch (Noether Chamber kernel faces): the face
+            // becomes the new "down". Deferred world command (tuple limit).
+            ambition_encounter::switches::SwitchAction::SetGravity(face) => {
+                let [x, y] = face.direction();
+                let dir = bevy::prelude::Vec2::new(x, y);
+                commands.queue(move |world: &mut bevy::prelude::World| {
+                    world
+                        .resource_mut::<ambition_platformer2d_shared_tangle::gravity::BaseGravity>()
+                        .dir = dir;
+                });
+            }
+            ambition_encounter::switches::SwitchAction::ResetEncounter => {
+                let target_id = if activation.target_encounter.is_empty() {
+                    active_area.clone()
+                } else {
+                    activation.target_encounter.clone()
+                };
+                if !activation.on {
+                    // Re-arming: Reset the encounter (the reducer refuses Start
+                    // from a terminal phase, so a stale Completed/Failed must
+                    // clear); the ownership-driven cleanup adapter (E10) drops
+                    // carryover mobs off the Reset event.
+                    if let Some((_, lifecycle, _, _)) =
+                        encounters.iter().find(|(enc, _, _, _)| enc.id == target_id)
+                    {
+                        if !lifecycle.phase.in_flight() {
+                            lifecycle_commands.write(EncounterCommand::new(
+                                &target_id,
+                                EncounterCommandKind::Reset,
+                            ));
+                        }
+                    }
+                    // ⭐ THE REWARD RETIRE LEFT (2026-09-03). It is
+                    // `features::retire_rewards_for_rearmed_encounters` now,
+                    // on the runtime-composed reward plugin, reacting to the
+                    // same published activation this arm reads. It could not be
+                    // a system until the drain split out: its trigger was a
+                    // POSITION in this loop, and nothing outside could observe
+                    // the edge.
                 }
             }
-            // Also drop any reward chest from a prior clear so the
-            // next clear pays out fresh, and clear the persisted
-            // "reward dropped" flag so re-clearing actually re-spawns
-            // the chest. The orphaned `FeatureVisual` entity is
-            // healed by `sync_visuals` on the next spawn (same id →
-            // same entity, sprite restored from `chest_state_sprite`).
-            crate::features::clear_encounter_reward_ecs(
-                &mut commands,
-                save.data_mut(),
-                &reward_chests,
-                &target_id,
-            );
+            // Authored but not a kind this engine acts on. The string road could
+            // not tell this apart from a handled action that did nothing.
+            ambition_encounter::switches::SwitchAction::Unhandled(_) => {}
         }
     }
 }

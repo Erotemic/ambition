@@ -942,17 +942,23 @@ wiring.
 
 #### What is LEFT, measured after the cuts (2026-09-03)
 
-The adapter's kernel seams went **7 → 3**, and only ONE is a logic dependency:
+**The adapter's kernel seams went 7 → 1, and the one left is a REGISTRATION:**
 
 | seam | file | kind |
 |---|---|---|
-| `clear_encounter_reward_ecs` | `systems.rs` | ⛔ a real dependency, and a QUESTION — see below |
-| `serve_encounter_spawn_commands` | `mod.rs` | a registration, not a dependency; it leaves when the plugin does |
-| `sync_authored_gated_lock_walls` | `mod.rs` | seam (d): a deliberate co-location, never a dependency |
+| `serve_encounter_spawn_commands` | `mod.rs` | the spawn server's registration; it leaves when the plugin does |
 
-`loading.rs` (207 lines), `switch_index.rs` (36) and now `lock_walls.rs` name no
-kernel seam at all — `lock_walls.rs`'s last one was a DOC LINK to a kernel
-function, repointed at the published set.
+`systems.rs`, `loading.rs` (207 lines), `switch_index.rs` (36) and `lock_walls.rs`
+name **nothing** in the kernel.
+
+Retired since this table was first written: `EncounterMobSeed` and
+`spawn_encounter_mob` (seam a), `sync_encounter_reward_chests_ecs` (seam b),
+`FeatureWorldOverlaySet` (seam c), `sync_authored_gated_lock_walls` (seam d, a
+deliberate co-location that moved WITH its sibling rather than away from it),
+`rebuild_feature_ecs_world_overlay` (a doc link, repointed at the published
+set), and finally `clear_encounter_reward_ecs` — which was a real dependency and
+a genuine open question until the switch-loop split made its trigger
+observable.
 
 ⛔ **AND THE LAST REAL SEAM IS NOT A MECHANICAL INVERSION. It is a policy
 question, and it is being left open on purpose.** `clear_encounter_reward_ecs`
@@ -1021,6 +1027,44 @@ published fact; the second is a rule the feature layer can evaluate for itself
 from `ClearedEncounters`, which already exists. The second is smaller and needs
 no new vocabulary — but it changes WHEN the save flag clears, which is player-
 visible.
+
+#### The adapter itself can now leave — measured 2026-09-03, SPEC, not started
+
+With the seams down to one registration, the remaining question is whether
+`crates/ambition_platformer2d_actor_monolith/src/encounter/` can simply move
+INTO `ambition_encounter`. Measured, it can, and the list is short.
+
+**The apparent cycles are not cycles.** The adapter's files mention
+`ambition_content`, `ambition_platformer2d` (the facade) and
+`ambition_platformer2d_host` — all three ABOVE the encounter domain. Every one of
+those mentions is a COMMENT, an `include_str!` path to a content asset
+(`encounter/loading.rs:23`), or a log TARGET string literal
+(`encounter/systems.rs:119`). None is a crate dependency. ⚠ A `cargo tree`-shaped
+reading of the module would have reported three impossible edges.
+
+**What the move actually costs** — four production dependencies
+`ambition_encounter` does not yet have, none of which depends on it, so no cycle:
+
+| crate | references in the adapter |
+|---|---:|
+| `ambition_combat` | 14 |
+| `ambition_platformer2d_world` | 8 |
+| `ambition_gameplay_trace` | 2 |
+| `ambition_time` | 1 |
+| `ambition_platformer2d_ldtk` | 3, **tests only** → a dev-dependency |
+
+**The one seam that must move the other way first.** `encounter/mod.rs` schedules
+`crate::features::serve_encounter_spawn_commands` — the KERNEL's spawn server.
+A plugin living in `ambition_encounter` cannot name it. ⇒ That registration moves
+to a feature-layer plugin composed by the runtime, exactly as
+`EncounterRewardSyncPlugin` took the reward systems. After that the encounter
+plugin names nothing in the kernel and the module is free.
+
+⚠ **Then check the footprint ratchet, and expect it to move for the usual wrong
+reason**: `capability-footprint-baseline.json` counts CRATES, so a module
+changing crates while the linked code goes slightly DOWN still reads as growth.
+Declare it in the idiom the `mount`/`damage`/`world_items` rows use.
+▢ Not started; the seam-reversal above is the first step and is small.
 
 **Guards that pin it**, same shape as `ambition_world_items`/`ambition_held_items`:
 three policy rows (`engine.<crate>-manifest-allow`,
@@ -1091,7 +1135,21 @@ the queue is rollback-registered because a rewind that re-pushes predicted
 activations double-applies an encounter reset. Any split must keep one ordered
 drain, not four readers racing the same queue.
 
-▢ Not started. The encounter carve's remaining seam is downstream of this one.
+✔ **CUT 2026-09-03.** `ambition_encounter::switches::drain_switch_activations`
+is the one ordered drain; it parses each action into a typed `SwitchAction`,
+performs the persisted write, and publishes `ResolvedSwitchActivations` carrying
+the POST-toggle value so no consumer re-derives it. The kernel's loop reacts to
+that. `SwitchAction::Unhandled(String)` carries what the string road dropped
+silently.
+✔ Both named hazards guarded and poison-verified: leaving the queue unconsumed
+(a second author for the toggle) goes red; publishing in reverse order goes red.
+✔ **And the reward retire released with it**, as predicted:
+`features::retire_rewards_for_rearmed_encounters` reacts to the same published
+activation, behaviour unchanged including WHEN the flag clears, guarded on the
+OFF edge and on the action kind.
+⇒ **The encounter adapter is down to ONE kernel reference and it is a
+registration** (`serve_encounter_spawn_commands`); `systems.rs`, `loading.rs`,
+`switch_index.rs` and `lock_walls.rs` name nothing in the kernel at all.
 
 ### Character preparation versus actor simulation
 

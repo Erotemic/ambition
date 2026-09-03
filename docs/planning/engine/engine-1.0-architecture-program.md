@@ -81,8 +81,29 @@ construction:
 | **transit** | relocating a body that already exists | `restore_checkpoint_on_session_start` moves through `ae::movement::transit_body`, *"the ONE transit authority (ADR 0024)"* — not a raw position write |
 | **resource hydration** | save → resources, no entity involved | `restore_inventory_from_save` writes `OwnedItems`, `BodyWallet` and the minted baselines |
 
-The kernel has **12** `reset_*`/`restore_*` entry points. They distribute across
-those three, plus in-place baseline restores that argue their own case:
+The kernel has **12** `reset_*`/`restore_*` entry points (as counted when this
+was written). They distribute across those three, plus in-place baseline restores
+that argue their own case:
+
+> ⚠ **THE NUMBER IS NOT REPRODUCIBLE FROM THE PAGE, and re-deriving it disagrees
+> — checked 2026-09-03.** The obvious derivation,
+> `grep -rhoE '\bfn (reset_|restore_)[a-z0-9_]*' crates/ambition_platformer2d_actor_monolith/src | sort -u`,
+> gives **13 names, of which 3 are tests** (`reset_emits_event_and_suppresses_teleport_event`,
+> `restore_default_rebuilds_a_fresh_default_brain`,
+> `restore_default_uses_the_authored_home_not_the_current_pose`) — so **10
+> production definitions**, not 12. ⛔ That is NOT a claim the page drifted by
+> two: it is a claim that two different counts are being compared, because the
+> page does not say whether it counted definitions, call sites, or entry points
+> reachable from a reset road, and five crates left this kernel on 2026-09-03
+> taking code with them.
+>
+> ⇒ Whoever owns this paragraph should state the derivation beside the figure,
+> the way `docs/planning/README.md` now asks — a number a reader cannot reproduce
+> cannot be checked, and a reader who reproduces a DIFFERENT one has no way to
+> tell drift from a method mismatch. The prose around it (which paths reach the
+> construction road, and why `EnemyState::reset_to_spawn` re-projects nothing) is
+> unaffected and still reads true.
+
 `EnemyState::reset_to_spawn` deliberately re-projects nothing, because
 *"`tuning`/`brain_profile` are projected once at spawn and never mutate at
 runtime … they already hold the baseline"*.

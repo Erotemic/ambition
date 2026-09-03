@@ -1024,6 +1024,43 @@ speaks, not that a manifest would resolve it.
 
 The tell after Jon's relPath retarget is the same two spikes gone or halved.
 
+### ✔ 2c. WHY THE 111 WERE ONLY *DECLARED* AT REVEAL — answered 2026-09-02 by reading
+
+The goal named three candidate causes — prefetch scope, retired realizations, or
+re-decode. **It is prefetch scope plus rationing, and the other two are ruled
+out at their source.**
+
+⛔ **NOT RETIRED REALIZATIONS.** `demote_stale_realizations(active)` retires a
+sheet only when `asset.requested_tier != active`, and its caller
+(`character_runtime/mod.rs:855-870`) computes `active` from the USER's budget
+alone — *"ONE tier, the user's, everywhere. The room a character stands in has no
+say (Jon, 2026-09-02: no lower tier for gallery previews)"* — then early-returns
+through `has_stale_realizations`. A hall entry changes no tier, so it demotes
+nothing. ⇒ This hypothesis was live only while a room-level cap existed; **Jon's
+ruling removing that cap (§3a) also removed this cause.**
+
+⛔ **NOT RE-DECODE.** The census reports `re-decodes N` directly and the hall
+runs measured 0.
+
+⭐ **IT IS THE PREFETCH SCOPE, AND THE RATION MAKES IT VISIBLE FOR SECONDS.**
+The cover waited on a manifest that held *"only the realized sheets' pages"*, so
+a character that content had DECLARED but nothing had materialized was never
+part of what the barrier waited for. Materialization is then rationed:
+`MAX_CHARACTERS_MATERIALIZED_PER_FRAME = 1`, and the budget is spent in areal
+units where **a Full-tier character costs 16 and a Quarter costs 1**
+(`materialization_units`). ⇒ At Full, one character per frame — 111 of them is
+~111 frames, which is the three seconds of art the capture recorded arriving in
+the open.
+
+⇒ **The reveal-barrier fix addresses exactly this**: the barrier now waits for
+every PLACED character rather than every realized one, so a `Declared` sheet
+with no terminal outcome holds the cover. ✔ Confirmed on the host — 111 → 0
+placeholder warnings, `asset_wait_ms` 3 → 292, nine frames >33.4 ms → zero.
+
+ⓘ The ration itself is untouched and should stay: it is what keeps the
+materialization from becoming one enormous frame. The fix moved the WAIT, not
+the pace.
+
 ### 3. Pace expensive completion, not declarations
 
 Staging/demand and expensive materialization are different operations. Declare

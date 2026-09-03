@@ -26,6 +26,20 @@ This file intentionally does not retain answered decision transcripts.
 > ⚠ Two entries gained a fact worth having before you answer: 36 needs FOUR rows
 > rather than three (the shark has a separate hall variant), and 39's answer costs
 > one authored field on one move rather than an implementation.
+>
+> ✔ **AND THE QUOTED NUMBERS WERE RE-RUN, not just the premises.** Several entries
+> name the script that produced their figure, which makes checking them one
+> command each:
+>
+> | instrument | entry's figure | re-run 2026-09-03 |
+> |---|---|---|
+> | `measure_character_data_coverage.py` | 23 of 149 | **23 of 149** ✔ |
+> | `measure_fx_row_reachability.py` | 34 of 35 rows unnamed | **34 of 35** ✔ (`george_booul_vfx` 20/21, `pirate_admiral_vfx` 14/14) |
+> | `measure_orphan_shipped_pages.py` | 487 files, 14.2 MB | **438 files, 13.4 MB** — drifted, corrected in place |
+>
+> ⇒ Two of three exact after a day, one drifted by 49 files. **The entries that
+> name their instrument are the ones that could be checked at all**, which is the
+> argument for naming it every time a number goes into this file.
 
 ⛔ **NUMBERING: TAKE ONE ABOVE THE HIGHEST NUMBER PRESENT, and check first.**
 The entries are NOT in numeric order — the top block runs newest-first and an
@@ -631,7 +645,14 @@ has ONE call site, the intro prop loop; and it runs only for
 `intro_prop_sprite_rows()` entries whose 4th tuple element is `Some(target)`.
 **Exactly one row is: `intro_cart`.** Characters have no pack road at all —
 `load_character_sprites_in` takes the per-target `*_spritesheet.ron` every time.
-All four tiers pack the same 197 targets. On one machine: **442.6 MB of pack
+All four tiers pack the same 197 targets. ⚠ **Re-run on calculex 2026-09-03 the
+script reports 164 targets, and the pack directory measures 318 MB rather than
+442.6.** The load-bearing claim is unchanged and verified — *"1 target(s) opt
+into the pack — intro_cart"* — but BOTH size figures are generated-artifact
+numbers, and `measure_orphan_shipped_pages.py` says of its own kind: *"these are
+gitignored generated files, and this is ONE machine's tree."* ⇒ So treat 197/442.6
+and 164/318 as two machines' trees rather than a change over time; the argument
+this entry makes does not turn on which. On one machine: **442.6 MB of pack
 pages, 5.2 MB on a page any consumer can reach — 98.8% unreachable.**
 
 ⚠ **NOT A DEFECT REPORT.** Packing every target is what a packer should do; the
@@ -651,8 +672,13 @@ they are every character's only road.
 `bake_portrait_manifests` collects portrait manifests from `assets/sprites` ONLY
 and says why: *"Portraits are presentation products and currently have no
 quality-tier variants"*. The generator emits the PNGs at all four tiers anyway —
-**487 files, 14.2 MB, with no road**
-(`scripts/measure_orphan_shipped_pages.py`).
+**438 files, 13.4 MB, with no road**
+(`scripts/measure_orphan_shipped_pages.py`, re-run 2026-09-03; its
+`REDUCED-TIER PORTRAITS` section). ⚠ This entry read **487 files, 14.2 MB** when
+raised on 2026-09-02 — the figure drifted by 49 files in a day, which is what a
+generated population does. ⇒ The decision is unaffected; the drift is only worth
+noting because the entry quotes a size to argue the cost is worth acting on, and
+that size is a moving number with a one-command instrument beside it.
 
 ⓘ The missing `.ron`s are POLICY, not a bug —
 `check_quality_variants_are_fresh.py` records that portraits are *"published
@@ -804,19 +830,37 @@ input that cannot be taken on a software rasteriser.
 > |---|---|---|---|
 > | `hall_transition_cover` (control) | 224 | 363.1 | **1452.3 MB** |
 > | same, `AMBITION_QUALITY_PROFILE=ultra` | 225 | 363.9 | **1455.8 MB** |
+> | `leaving_the_gallery…` — the RETURN leg, hub→hall→hub, at 5.0s | 236 | 503.0 | **2012.0 MB** |
+> | same run at 10.0s, after the retire | 244 | 507.7 | **2030.9 MB** |
 >
-> `gpu +0 … awaiting gpu 224` on both — nothing uploaded, which is the point:
-> `resident_mb` is decoded CPU-side bytes and needs no adapter. ⇒ **≈1.45 GB is
-> the hall's full-resolution residency**, and if that is the ceiling open work 4
-> wants, this entry can close without 3090 time.
+> `gpu +0 … awaiting gpu N` on every one — nothing uploaded, which is the point:
+> `resident_mb` is decoded CPU-side bytes and needs no adapter.
 >
-> ⚠ **What this is NOT:** it is the hall ENTRY, not a hub→hall→hub round trip,
-> and the return leg is what the "keeps the last room's cast resident" policy
-> actually stresses. `leaving_the_gallery_keeps_the_shared_cast_and_retires_the_rest`
-> in the same file drives that leg and is where the return figure would come
-> from. ⚠ And read the detail below before quoting the pair: the two runs differ
-> by an env var that turns out to be INERT, so they are one configuration
-> measured twice, not a tier comparison.
+> ⓘ **Why these are the FULL-tier figures, stated rather than assumed.** The test
+> composition does not seed from the adapter, so it takes
+> `default_visual_quality_profile()` = `High` on non-Android, and
+> `VisualQualityBudget::for_profile` maps `High` to
+> `TextureResolutionScale::Full` — the unsuffixed sprite tree. The hall obeys the
+> same tier by Jon's 2026-09-02 ruling, pinned in
+> `the_halls_cast_is_realized_at_the_users_tier_never_lower`: *"the hall draws at
+> the user's tier, never lower … not want a lower quality tier for gallery
+> previews."* ⚠ Open work 6 still describes this leg as *"the gallery (Quarter)
+> for the hub (Full)"*, which was the PRE-repair behaviour that same section
+> reports fixing.
+>
+> ⭐ **SO THE ASK IS ANSWERED: ≈2.03 GB is `resident_mb` after a hub→hall→hub
+> walk at full texture resolution, and it needed no 3090.** The round trip peaks
+> ~580 MB above the hall entry alone, because it holds both rooms' casts before
+> the retire — which is precisely the pressure the "keeps the last room's cast
+> resident" policy has to budget for, and precisely why the entry asked for the
+> walk rather than the room.
+>
+> ⚠ **Read the detail below before quoting these.** The first two rows differ
+> only by an env var that turns out to be INERT — one configuration measured
+> twice, not a tier comparison — and `capture_scene` reports 119.4 MB for the
+> same room because ITS composition seeds quality from the Cpu adapter and loads
+> `sprites_potato`. The number is a property of the composition as much as the
+> room.
 
 ⓘ **2026-09-03, calculex — the ADAPTER may not be what blocks this, which would
 make the ask smaller than 3090 time.** Two things were checked, and neither is a

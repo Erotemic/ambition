@@ -766,6 +766,76 @@ mod live_quality_apply {
         );
     }
 
+    /// ONE quality authority for every materialization road.
+    ///
+    /// The room-transition ration read `ResolvedVisualQuality` (the boot
+    /// override wins) while the global materializer and the convergence read
+    /// `UserSettings::resolved_budget()` directly, so a forced Potato over a
+    /// persisted High materialized a room's first ration at Potato and the rest
+    /// at High, and convergence then retired the Potato half (GPT review,
+    /// 2026-09-03, item 2). Now both kernel roads read the published resolution
+    /// -- here inserted as a forced Potato over settings that say High -- and
+    /// every character lands at the FORCED tier and stays there.
+    #[test]
+    fn a_forced_quality_over_a_different_persisted_setting_materializes_every_character_at_the_forced_tier(
+    ) {
+        use ambition_persistence::settings::{ResolvedVisualQuality, VisualQualityBudget};
+        let cast = characters_with_a_scaled_variant();
+        assert!(
+            cast.len() >= 2,
+            "the fixture needs two scaled characters, found {cast:?}"
+        );
+        // Persisted: High (Full sheets). Forced: Potato.
+        let mut app = quality_pipeline_app(VisualQualityProfile::High);
+        let forced = VisualQualityProfile::Potato;
+        app.insert_resource(ResolvedVisualQuality {
+            profile: forced,
+            budget: VisualQualityBudget::for_profile(forced),
+        });
+        let forced_tier = crate::character_sprites::character_sprite_tier(Some(
+            &VisualQualityBudget::for_profile(forced),
+        ));
+        let full_tier = crate::character_sprites::character_sprite_tier(Some(
+            &VisualQualityBudget::for_profile(VisualQualityProfile::High),
+        ));
+        assert_ne!(
+            forced_tier, full_tier,
+            "premise: the two profiles ask for different tiers"
+        );
+        for cid in cast.iter().take(2) {
+            app.world_mut()
+                .resource_mut::<CharacterLoadDemand>()
+                .request(cid.clone());
+            wear(&mut app, cid);
+        }
+        for frame in 0..4 {
+            finalize_and_update(&mut app);
+            for cid in cast.iter().take(2) {
+                let assets = app.world().resource::<GameAssets>();
+                let Some(sheet) = assets.characters.sheet(cid) else {
+                    continue; // not reached by the ration yet
+                };
+                assert_eq!(
+                    sheet.requested_tier, forced_tier,
+                    "frame {frame}: `{cid}` must be realized at the FORCED tier, not the \
+                     persisted setting's"
+                );
+            }
+        }
+        for cid in cast.iter().take(2) {
+            let assets = app.world().resource::<GameAssets>();
+            assert!(
+                assets.characters.sheet_state(cid).is_ready(),
+                "`{cid}` must be resident after four frames"
+            );
+            assert_eq!(
+                assets.characters.retired_tier(cid),
+                None,
+                "nothing was retired"
+            );
+        }
+    }
+
     /// A WORN character is never without a resident sheet across a transition.
     ///
     /// The transition used to retire every stale realization first and re-demand

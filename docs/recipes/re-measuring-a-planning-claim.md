@@ -465,3 +465,91 @@ its own page says so. ⇒ The sweep tests "does this exist", which is only a
 question worth asking of a document that claims something DOES. A systems page
 describing a current boundary must resolve; a planning page naming what to build
 must not.
+
+### ⭐ Before building an instrument, check whether a test already drives it
+
+The most expensive re-measurement of 2026-09-03 was the one that needed no new
+tooling at all.
+
+A planning entry had stood for weeks saying a residency ceiling *"cannot be taken
+on a software rasteriser"* and needed time on a 3090. Two tools were checked —
+`capture_scene`, which cannot cross a door, and `profile_desktop.sh`, which
+refuses without a display — and the conclusion was "no walk driver exists here".
+
+⛔ **The walk driver was `game/ambition_app/tests/hall_transition_cover.rs`**,
+which boots the full app with `build_visible_app(NoWindow)` and drives *"the REAL
+transition, resolved through the room graph rather than synthesised: stand in the
+Hall door and press interact"*. It is a module of `app_it`, so it had been
+crossing that door **on every gate run**, printing the census with `eprintln!`,
+and having it swallowed by libtest's output capture. Getting the number took a
+test filter and `--nocapture`:
+
+```bash
+cargo test -p ambition_app --test app_it <module>::<test> -- --nocapture --test-threads=1
+```
+
+⇒ **The rule: when a claim says a measurement is impossible here, search the TEST
+SUITE before believing it.** Acceptance tests boot real compositions and drive
+real content; they are instruments that happen to assert. A test written to check
+one thing usually measures ten, and nine of them are discarded every run.
+
+⚠ **And the number is a property of the COMPOSITION, not just the subject.** The
+same room reported 119.4 MB through `capture_scene` and 1452 MB through the test —
+twelve times the pixels — because one composition seeds visual quality from the
+Cpu adapter and loads `sprites_potato` while the other loads the base tree.
+⇒ Neither is wrong. A residency figure without the composition named beside it is
+not a measurement, it is a number.
+
+### ⚠ A disagreeing re-measurement is only DRIFT if both sides measured the same thing
+
+This page spends most of its length on numbers that went stale, so it needs the
+opposite rule beside them or it teaches over-correction.
+
+An entry raised 2026-09-02 says *"the shared sprite pack is 442.6 MB and one prop
+reads it"*, over *"197 targets"*. Re-run on another machine the next day, the same
+script reported **164 targets** and the directory measured **318 MB**. Two figures
+disagreeing by a quarter, one day later, with the instrument named — the shape
+this page has been correcting all day.
+
+⛔ **It is not drift.** Sprite packs are generated and gitignored, and the sibling
+script says so of its own subject: *"these are gitignored generated files, and
+this is ONE machine's tree."* Two machines with different regeneration histories
+produce different populations, and neither number is wrong or stale.
+
+⇒ **The load-bearing half verified exactly** — *"1 target(s) opt into the pack —
+`intro_cart`"* — which is what the entry actually argues from.
+
+⭐ **AND THAT IS THE CONSTRUCTIVE LESSON: write the claim so it survives.** Three
+measurements from `asset-preparation-and-residency.md` were re-run on a second
+machine a day later. Every absolute count moved — 197 targets → 164, 442.6 MB →
+318, 225 pages → 201, 662 MP → 580 — and **every conclusion held**: one prop
+reads the pack, occupancy is ~90% and "not a lead". ⇒ The conclusions survived
+because each argues from a RATIO or a SINGLE NAMED CONSUMER rather than a size.
+⇒ So when a finding needs a number, prefer the form that cannot rot: *"one target
+opts in"* outlives *"442.6 MB"*, and *"90% occupied"* outlives *"66.6 MP of
+waste"* — on any machine, in any regeneration state.
+
+✔ **AND THE RULE WAS CONFIRMED FROM BOTH SIDES, which is what makes it more than
+a hunch.** A recorded defect — *"four sheets' reduced tiers are not reduced"* —
+did not reproduce on the second machine: `measure_tier_variant_scaling.py`
+reported **0** violating sheets there and the files were genuinely smaller
+(`author_spritesheet.png` 4.3M full against 2.0M at `0_5x`). Rather than declare
+it fixed, the ambiguity was reported. The originating box then re-ran it and
+still saw **4** — its variants are stale, the second machine's are fresh.
+⇒ **Both measurements were correct and the disagreement was the regeneration
+history**, exactly as the rule predicts. ⇒ Note what would have happened
+otherwise: "fixed, does not reproduce" would have closed a live defect on the
+strength of a build directory.
+
+⭐ **AND THE DISAMBIGUATING INSTRUMENT ALREADY EXISTED — run it FIRST next time.**
+`scripts/check_quality_variants_are_fresh.py` answers "is this tree's generated
+output current?" in one command, and it answered differently on the two machines
+the same hour: *"quality tiers are current"*, exit 0, on the box that saw no
+defect; **82** stale variants on the box that saw four. ⇒ So the general move,
+whenever a re-measurement of generated content disagrees, is not to reason about
+regeneration histories — it is to ask each tree whether its build output is
+fresh, before comparing anything downstream of it. ⇒ **So before
+correcting a number, ask whether the thing it counts is repository content or
+build output.** Repository content that disagrees is drift. Build output that
+disagrees is two machines, and rewriting one machine's figure with another's
+manufactures a finding out of a build directory.

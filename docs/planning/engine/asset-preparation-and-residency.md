@@ -532,6 +532,25 @@ the 129 placeholder actors ARE the 129 demanded characters. The warnings name
 match exactly, which is suggestive and is not proof. ⇒ Cheapest next step is to
 log both sets once and intersect them, not to change the barrier.
 
+### ✔ FIXED 2026-09-03: one quality authority for every materialization road
+
+Jon's GPT review (item 2) found the split the transition bug was standing on:
+the room-transition ration read `ResolvedVisualQuality` (the boot override wins)
+while the global materializer and the convergence called
+`UserSettings::resolved_budget()` directly. A forced `AMBITION_QUALITY_PROFILE=potato`
+over a persisted High therefore materialized a room's first ration at Potato, the
+remainder at High, and convergence then treated High as active and retired the
+Potato half — and the FX-tier work inherited whichever road a character took. Now
+`ResolvedVisualQuality` lives in `ambition_persistence::settings` (below every
+consumer; render publishes it and re-exports the name), and both kernel roads
+read `ResolvedVisualQuality::current(published, settings)` — the resource when a
+publisher is installed, the SAME resolution derived from settings when not. Guard:
+`a_forced_quality_over_a_different_persisted_setting_materializes_every_character_at_the_forced_tier`
+(forced Potato resource over persisted High, two characters, every frame at the
+forced tier; red with the materializer reading settings again). ⚠ Any forced-tier
+residency measurement taken before this fix on a box whose persisted setting
+disagreed with the override measured a mixed cast.
+
 ### ✔ FIXED 2026-09-03: a quality transition is a SWAP, never a demote
 
 The ramp above had a cause one layer away from the reveal: the barrier is

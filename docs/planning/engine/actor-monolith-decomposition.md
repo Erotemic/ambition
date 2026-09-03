@@ -228,6 +228,19 @@ comparable to the 0.958 ms/tick hall figure above; what it certifies is that
 every mark fires and lands in its own bucket, which is the property the move put
 at risk.
 
+✔ **AND IT HELD — re-verified 2026-09-03 after a day of other agents' carves.**
+`cargo check -p ambition_platformer2d_actor_monolith --lib` (production only) is
+clean, so no production `ambition_dev_tools` reference has crept back through
+`ambition_body_seed`, `ambition_held_items`, `ambition_match`,
+`ambition_abilities`, `ambition_encounter_features` or `ambition_registry_core`.
+⚠ A naive grep says 15 references remain in `src/`; every one is inside a
+`#[cfg(test)]` block, which is what the dev-dependency permits. ⇒ **Ask the
+compiler, not the grep** — a `--lib` check is the only reading that distinguishes
+the two, and it is the reading the boundary is defined in terms of.
+⭐ Same for the re-export sweep: `crate::features::X` is **103 uses, 0
+RE-EXPORT (0%)** — the count fell from 119 as carves took code away, and the
+share stayed at zero.
+
 ⛔ **THE GUARD IS THE MANIFEST, not a test, so it cannot rot.** A production
 `use ambition_dev_tools::…` anywhere in the kernel's `src/` no longer compiles.
 Poison-verified by adding one: `error[E0433]: cannot find module or crate
@@ -294,7 +307,7 @@ collectible: where it is, whether it is moving, and that walking into it
 collects it. All 14 pass in the new crate and the monolith went 1221 → 1207,
 which is exactly them.
 
-- ⛔ **THE SPLIT IS BY COLLECT TRIGGER, NOT BY SIZE.** `items::pickup` keeps the
+- ⛔ **THE SPLIT IS BY COLLECT TRIGGER, NOT BY SIZE.** `items::pickup` kept the
   PRESSED pickup — a held weapon taken with `Attack` — and its reach into
   `abilities`, `ability_cooldown`, `construction` and `shrine`. That is the line
   the pickup module's own `AMBITION_REVIEW(discrete_ok)` note had already drawn,
@@ -1361,7 +1374,10 @@ kernel's dependency); its pure preparation half belongs in `ambition_match`.
 2026-09-03): `mod.rs` (demand materialization — the asset seam), `definition.rs`,
 `audit.rs`, `presentation.rs`, `live_match_clock.rs`, `match_activation.rs`, and
 the tests. ⚠ `hurtbox.rs` was on this list until the combat carve took it; it is
-`ambition_combat/src/hurtbox_resolution.rs` now.
+`ambition_combat/src/hurtbox_resolution.rs` now. `presentation.rs` names nothing in the kernel now
+either; its home would need audio + sfx + projectiles, which no crate below the
+kernel has — a "character presentation" package is the honest destination and it
+is not cut.
 
 **Next cut, in order:**
 

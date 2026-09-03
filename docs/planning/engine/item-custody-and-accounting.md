@@ -7,8 +7,12 @@ behavior across residency/restore.
 > ⭐ **THIS PAGE IS THE PRESSED HALF, and since 2026-09-02 that is a crate
 > boundary rather than a distinction in prose.** Items split by COLLECT TRIGGER:
 > a `GroundItem` taken with a deliberate `Attack` press — everything below — is
-> `actor_monolith::items::pickup`, which stayed in the kernel; a `WorldItem` you
-> merely walk into is `ambition_world_items`, carved out by `69641a83f`. ⚠ The
+> `ambition_held_items` — ⚠ this sentence said *"`actor_monolith::items::pickup`,
+> which stayed in the kernel"* until 2026-09-03, and the pickup carve made that
+> false the next day; a `WorldItem` you merely walk into is
+> `ambition_world_items`, carved out by `69641a83f`. ⛔ BOTH HALVES ARE CRATES
+> NOW, and what stayed in the kernel is only the plugin that composes them plus
+> `restore_custody_to_checkpoint`. ⚠ The
 > two are easy to conflate from either side and the vocabulary does not warn
 > you: both are "items", both are "pickups", and `ItemPickupSet` belongs to the
 > pressed one alone. ⇒ Nothing on this page is about the touched collectible; if
@@ -117,7 +121,7 @@ answering question 45 is what makes them precise.
 holds X", written by every equip road (`equip_held_spec`, the portal-gun twins,
 the checkpoint restore) and read by the menu — and four seats could not share
 it: seat two picking up a gun-sword marked it equipped in seat one's menu. Now
-the hand IS the record: `items::pickup::item_in_hand(held, portal_gun)`
+the hand IS the record: `ambition_held_items::item_in_hand(held, portal_gun)`
 projects a body's `HeldItem` / active `PortalGun` to the catalog `Item`, the
 menu reads the PRIMARY player's through `menu::effects::PrimaryHand`, and
 `ambition_items::Inventory { bag, in_hand }` is the one view that answers

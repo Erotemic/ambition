@@ -157,3 +157,68 @@ def test_a_run_with_no_transition_and_no_warnings_prints_nothing():
     assert summary.room_reveal_lines("[    1.000s] nothing to see\n") == [], (
         "a capture that never changed rooms must not grow an empty section"
     )
+
+
+# ── Robustness I asserted before I had checked it ─────────────────────────
+#
+# ⛔⛔ THIS PARSER WAS WRITTEN FROM THE EMITTER SOURCE AND VALIDATED ONLY ON
+# FIXTURES I AUTHORED FROM THE SAME SOURCE. That is exactly how
+# `measure_first_room_manifest.py`'s first parser came to read NOTHING from a
+# real capture: it required a column the capture predated and took the demand
+# road from the wrong position. Both parsers read the same game's stderr.
+#
+# These pin the two properties this one depends on and had never been tested:
+# a real run's lines come through `tracing`, which wraps its prefix in ANSI
+# escapes, and a raw `2>` capture carries no `[  N.NNNs]` stamp at all.
+
+TRACING_PREFIX = (
+    "\x1b[2m2026-09-02T18:40:23.341075Z\x1b[0m \x1b[32m INFO\x1b[0m "
+    "\x1b[2mambition_platformer2d::room_transition::performance\x1b[0m\x1b[2m:\x1b[0m "
+)
+REAL_TRANSITION = (
+    "room transition 1 hub -> hall_of_characters: construction_preflight_ms=Some(1.0) "
+    "asset_manifest_ms=Some(2.0) asset_wait_ms=Some(3.0) ready_ms=Some(9.0) "
+    "cover_present_ms=Some(4.0) commit_enqueue_ms=Some(1.0) "
+    "commit_to_first_frame_ms=Some(2.0) loading_visible_ms=0.000 covered=true "
+    "prefetch_hit=false loading_visible=false"
+)
+
+
+def test_ansi_coloured_tracing_output_still_parses():
+    """A real run's `info!`/`warn!` lines are coloured by the tracing
+    subscriber. The stamper strips ANSI; a raw capture does not."""
+    plain = summary.room_reveal_tells(REAL_TRANSITION + "\n")
+    coloured = summary.room_reveal_tells(TRACING_PREFIX + REAL_TRANSITION + "\n")
+    assert len(plain["transitions"]) == 1, "premise: the bare message parses"
+    assert len(coloured["transitions"]) == 1, (
+        "an ANSI-coloured line must parse too — the escapes wrap the prefix, "
+        "and the fields are searched rather than matched from line start"
+    )
+    assert coloured["transitions"][0]["asset_wait_ms"] == 3.0
+
+
+def test_an_ansi_coloured_warning_is_still_counted():
+    warn = (
+        "\x1b[33m WARN\x1b[0m ambition_platformer2d::sprites: actor 'npc_x' resolved "
+        "no sprite and is drawing the placeholder rectangle: declared as 'g' but "
+        "never materialized — no realization of it has ever been resident"
+    )
+    tells = summary.room_reveal_tells(warn + "\n")
+    assert tells["placeholders"]["never materialized"] == 1
+
+
+def test_an_unstamped_capture_refuses_to_place_spikes_rather_than_guessing():
+    """⛔ Without the `[  N.NNNs]` stamp there is no time on the transition
+    line, so 'after the reveal' is unanswerable. Counting every spike in the
+    run would blame the transition for the whole boot — the report says so and
+    omits the number instead."""
+    unstamped = (
+        "INFO room transition 1 hub -> hall: asset_wait_ms=Some(3.0) covered=true\n"
+        "[frame-spike]   11.000s   210.0ms\n"
+    )
+    text = "\n".join(summary.room_reveal_lines(unstamped))
+    assert "no `[  N.NNNs]` stamps" in text, text
+    assert "Frames over" not in text, (
+        "an unplaceable spike count must be omitted, not printed as if the "
+        "boundary were known"
+    )

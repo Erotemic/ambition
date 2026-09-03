@@ -175,8 +175,10 @@ why a reference count cannot find this.
 That row reads `108,364 → 98,808` because 108,364 is the compile ratchet's
 STORED BASELINE, not where the crate stood at the start of the day; 112,733 is.
 ⭐ Confirmed by running the ratchet 2026-09-03 late: it reports
-`largest_unit_lines … 108,364 -> 98,509`, and an independent `wc -l` over the
-crate's `src/` gives **98,509** exactly — so the two agree to the line once you
+`largest_unit_lines … 108,364 -> 98,509`; a `wc -l` over the crate's `src/`
+gives **98,509**; and a `git ls-files`-driven count, which sees only TRACKED
+files and so would differ if anything untracked were sitting in the tree, gives
+98,509 as well — three methods, no spread — so the two agree to the line once you
 stop comparing a day's delta with a ratchet's drift-from-baseline. (Both fell
 further after `hurtbox` followed its owner out.) ⚠ **I first wrote this note
 saying they were different INSTRUMENTS. They are not** — a wrong explanation of

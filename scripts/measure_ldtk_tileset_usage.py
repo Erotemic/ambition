@@ -53,6 +53,18 @@ ASSETS = REPO / "crates/ambition_platformer2d_actor_monolith/assets"
 TARGET_REL = "../sprites/player_robot_v3_spritesheet.png"
 
 
+def _shown(path: Path) -> str:
+    """Repo-relative when it can be, absolute otherwise.
+
+    ⛔ A bare `relative_to(REPO)` RAISES for anything outside the repo, and it
+    was used in the REFUSAL MESSAGE — so the one path that reports "there are no
+    worlds here" crashed with a ValueError instead of saying so, whenever the
+    root it was told to look at lived elsewhere. A refusal that cannot be
+    printed is not a refusal.
+    """
+    return str(path.relative_to(REPO) if path.is_relative_to(REPO) else path)
+
+
 def png_size(path: Path) -> tuple[int, int] | None:
     """IHDR only — never decode; these are the images the finding is about."""
     try:
@@ -127,7 +139,11 @@ def inspect(world: Path) -> dict | None:
             }
         )
     return {
-        "world": str(world.relative_to(REPO)),
+        # ⚠ BEST EFFORT, NOT `relative_to` OUTRIGHT. A bare `relative_to(REPO)`
+        # raises `ValueError` for any world outside the repo, which made this
+        # function impossible to exercise on a fixture — the test that would
+        # have proved the layer-use answer could not call it at all.
+        "world": _shown(world),
         "levels": len(levels),
         "levels_external": len(external),
         "tilesets": rows,
@@ -142,7 +158,7 @@ def main(argv: list[str]) -> int:
     found = worlds()
     if not found:
         print(
-            f"NO `.ldtk` WORLDS UNDER {MAP_ASSETS.relative_to(REPO)}.\n"
+            f"NO `.ldtk` WORLDS UNDER {_shown(MAP_ASSETS)}.\n"
             "⛔ That submodule may not be checked out — run\n"
             "   `git submodule update --init --recursive`. Absent is not zero."
         )
@@ -153,7 +169,7 @@ def main(argv: list[str]) -> int:
         print(json.dumps(reports, indent=2))
         return 0
 
-    print(f"{len(reports)} world(s) under {MAP_ASSETS.relative_to(REPO)}\n")
+    print(f"{len(reports)} world(s) under {_shown(MAP_ASSETS)}\n")
     naming = 0
     for report in reports:
         interesting = [t for t in report["tilesets"] if t["relPath"] == TARGET_REL]

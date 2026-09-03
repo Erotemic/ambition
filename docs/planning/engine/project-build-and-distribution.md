@@ -328,12 +328,31 @@ Do not report an absent NDK/GPU/display as proof that the target's code is broke
 > combinations that each get their own units, plus `fixtures/minimal_game/target/`
 > as a second target directory entirely), not that this run filled it.
 >
-> ⇒ **The residual is a NUMBER this page cannot yet state: the plan's peak disk
-> on a clean tree.** Until somebody measures it from a known-empty target, the
-> honest form is the one `--run-everything-you-probably-dont-need-this` already
-> uses for time — say what can be counted without running anything, and leave the
-> rest blank rather than guessed. A job count does not warn anyone that the plan
-> can fill a 290G volume.
+> ⛔ **CORRECTION, SAME DAY: THE NUMBER EXISTS AND SO DOES A GUARD.** I wrote
+> that the plan's disk cost was "a NUMBER this page cannot yet state". The repo
+> states it: `scripts/check_disk_headroom.py` sets `MIN_FREE_GB = 40.0`, and its
+> comment names this exact failure — *"refuse BEFORE a job dies of ENOSPC and
+> reports it as a compile error."* `run_tests.py` calls it, and it refused a
+> 39.1 GB tree with the remedy quoted. I had described an unguarded class that
+> was already guarded, which is what looking for a gap instead of looking for
+> the guard gets you.
+>
+> ⇒ **The real gap is narrower and worse: the check runs TWICE — once before the
+> first job, once after the last — and never between.** A 68-minute suite that
+> starts above the floor can exhaust the disk halfway and die incoherently. That
+> is the shape of three of the exhaustive run's seven failures (`compile-cost
+> ratchet`, `outlander`, `capability demo`), one of them a bare
+> `error: linking with clang failed` whose reason line never reached the log.
+> The post-run half already prints `disk: N GB free (±M this run)` and warns
+> below the floor, so the machinery to check mid-run exists; only the call site
+> is missing.
+>
+> Measured 2026-09-03: `target/debug/deps` alone is **141 GB**; `--rust` spends
+> ~5 GB; one `cargo test --workspace` takes **14 GB in under three minutes**;
+> the 49-job plan runs **68 minutes** and exhausted a 290 GB volume mid-run.
+> Every feature job builds its own variant of the graph, cargo never prunes the
+> last one, and five crates were carved out of the actor monolith that day —
+> the decomposition campaign pays for itself in disk.
 
 ### B6 — packaging/distribution
 

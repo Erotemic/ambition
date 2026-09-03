@@ -58,6 +58,36 @@ tail of an `ambition_`-prefixed crate directory).
   `tools/ambition_sprite2d_renderer/mockingbird_boss_sprite_generator.py`) are  <!-- cite-ok: this row's subject IS the dead citation -->
   NOT ignored and want ordinary MOVED triage.
 
+⭐ **AND THE MOVED HALF IS NOW TRIAGED, so that part is mechanical.** Every one
+has real history — `git log --all --diff-filter=AD` finds the commit that moved
+it, so none is FABRICATED — and each resolves to one current home:
+
+  features/ecs/bosses.rs          game/ambition_content/src/bosses/mod.rs
+                                  (64631503f, test-block split)
+  presentation/rendering.rs       crates/ambition_render/src/rendering/mod.rs
+                                  (09d945694, <mod>/mod.rs normalisation)
+  character_sprites/sheets.rs     crates/ambition_sprite_sheet/src/character/sheets/mod.rs
+                                  (aa7cb8f60)
+  brain/boss_pattern.rs           crates/ambition_characters/src/brain/boss_pattern/mod.rs
+                                  (4ff42f510)
+  rendering/foreground.rs         GONE, not moved — d09229ceb ("Two views draw two
+                                  pictures") ended it; the comment needs re-deriving,
+                                  not repointing
+  dialog/yarn_bindings.rs         GONE from that path — 73873491b moved this game's
+                                  Yarn verbs to the crate that owns the game; nearest
+                                  live file is
+                                  crates/ambition_conversation/src/dialog/yarn_harness.rs,
+                                  which is NOT the same thing and must be read before
+                                  citing
+  player/systems.rs               GONE — 5ba894709 ("player/ no longer exists — the
+                                  fold's conclusion"); re-derive
+
+⚠ Two of the seven are **not repointings**: `rendering/foreground.rs` and  <!-- cite-ok: this row's subject IS the dead citation -->
+`player/systems.rs` name things that were ENDED rather than relocated, so the  <!-- cite-ok: this row's subject IS the dead citation -->
+sentences around them are claims to re-check, not links to fix. That is the
+difference the checker's own triage insists on, and it is why this row says
+"triage first" rather than "sed".
+
 ⚠ **WHAT IS NOT DECIDED, and why this is a measurement rather than a task:**
 whether the comment lane should judge paths AT ALL. The script is explicitly a
 worklist and not a gate, but `--comments` already emits findings, and adding 21

@@ -1310,12 +1310,37 @@ Prepared character/content ownership should continue moving toward character
 and provider packages. The residual actor kernel consumes prepared body/action
 facts rather than becoming the content compiler/catalog.
 
-**Measured 2026-09-03, from the seam rather than the line count.** `character_runtime/`
-is 13,888 lines with tests (production: `mod.rs` 1,235, `prepared_match.rs` 1,611,
-`staging.rs` 833, `audit.rs` 618, `presentation.rs` 598, `live_match_clock.rs` 474,
-`physical_baseline.rs` 295, `hurtbox.rs` 277, `seating.rs` 267, `definition.rs` 82).
-Six of those files name NOTHING in the kernel (`definition`, `staging`, `seating`,
-`physical_baseline`, `hurtbox`, `audit`); they are carve-clean today. The kernel
+⛔ **RE-MEASURED 2026-09-03 (later the same day) AND THE BLOCK BELOW DESCRIBED A
+DIRECTORY THAT NO LONGER EXISTS — half its named files have left the crate.**
+`character_runtime/` is **10,881** lines with tests, not 13,888. **Five of the ten
+production files it named are GONE**, and the plan should take the credit rather
+than carry the stale list: four of them are the carve this page called for.
+
+| file | then | now |
+|---|---|---|
+| `prepared_match.rs` | 1,611 | ⛔ gone from the crate |
+| `staging.rs` | 833 | → `ambition_match/src/staging.rs` |
+| `physical_baseline.rs` | 295 | → `ambition_body_seed/src/physical_baseline.rs` |
+| `hurtbox.rs` | 277 | ⛔ gone — hurtbox resolution is `ambition_combat` (`c2f080270`) |
+| `seating.rs` | 267 | → `ambition_match/src/seating.rs` |
+| `mod.rs` | 1,235 | 1,132 |
+| `audit.rs` / `presentation.rs` / `live_match_clock.rs` / `definition.rs` | 618 / 598 / 474 / 82 | 619 / 600 / 474 / 82 |
+| `match_activation.rs` | — | **658**, and it was never in the list |
+
+⇒ **The old sentence "six of those files name NOTHING in the kernel
+(`definition`, `staging`, `seating`, `physical_baseline`, `hurtbox`, `audit`);
+they are carve-clean today" was a correct PREDICTION and is now a stale
+INVENTORY** — four of its six have since been carved out. What remains of it:
+`definition.rs`'s only reference to the kernel is a **doc link** in a `//!`
+comment (line 5, `[`super::CharacterLoadStates`]`), so it names nothing in code;
+`audit.rs` does import — `use super::{CharacterLoadStates,
+CharacterMaterializationService}` at line 9 — but from `character_runtime`'s own
+`mod.rs`, not from the wider kernel, so those two types travel with it.
+
+⚠ A doc link is the third thing today to make an unused reference look live
+(see [`../../recipes/re-measuring-a-planning-claim.md`](../../recipes/re-measuring-a-planning-claim.md));
+when scoring "names nothing", score CODE lines, because `grep -c 'super::'`
+counts prose. The kernel
 references that remain are in four files, and they are not one kind of thing:
 
 | File | Kernel names | What it is |

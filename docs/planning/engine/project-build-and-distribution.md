@@ -182,6 +182,36 @@ unactionable.
 
 ### B4 — generated-content/bootstrap contract
 
+> ⛔ **A FRESH CLONE ON A USED MACHINE IS NOT A FRESH MACHINE — measured
+> 2026-09-03 by actually cloning this repo into a scratch directory.** The
+> difference is the per-machine venv store, and it is keyed inconsistently:
+> `ambition_tool_venv_dir` takes `basename` of what it is given
+> (`scripts/setup/python_tools.sh:78`), so
+>
+> - the six TOOL projects key on `ambition_music_renderer`,
+>   `ambition_ldtk_tools` … — the same key from any checkout, so a new clone
+>   **inherits them**;
+> - the `scripts/` environment keys on the REPO ROOT's basename, so a clone in
+>   `freshclone/` gets a different key and **has none**.
+>
+> ⇒ `python_tools.sh --verify` in the clone therefore reports exactly one
+> problem — *"no interpreter for the scripts/ environment"* — and passes the six
+> tool venvs it did not build. ⚠ **A genuinely new machine would fail all seven**,
+> so this check's output on a clone is a partial truth shaped by the host, not by
+> the clone. It is also two checkouts with the same directory name sharing one
+> `scripts/` venv, which is a surprise waiting for anyone who keeps
+> `ambition/` and `ambition-2/`.
+>
+> ⭐ Two facts worth having beside that: **a clone is 75 MB** (the bulk is
+> submodules and git-ignored generated content, which is why the bootstrap
+> contract matters at all), and all four entry points — `run_developer_setup.sh`,
+> `run_headless.sh`, `run_tests.sh`, `scripts/setup/audio_libraries.sh` — are
+> present and executable with the submodule directories still empty. The
+> orchestrator's `--help` works from a bare clone and names the three
+> status/verify commands, which is the right shape: a new machine can ASK what
+> it is missing before it installs anything.
+
+
 > ⭐ **THE ASK ITSELF, RUN END TO END 2026-09-03 AFTER FIVE CARVES:
 > `./run_headless.sh --ticks 600` → `headless run completed: 600 ticks`, exit 0.**
 > Jon's standing ask is that a fresh clone reaches a runnable game; this is the

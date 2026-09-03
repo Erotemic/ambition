@@ -315,3 +315,15 @@ prints its verdict IN the line. And I read the `theme_loaded` gate, published it
 `painted_blocks` mechanism, measured `painted_blocks` **4/4 green** and retracted it — **and it is
 the correct mechanism for the Ultra hall burst.** Right mechanism, wrong claim attached.
 ⇒ **A green tool is not a green claim.**
+
+## Measurement 2026-09-03 ~17:45Z (Fable, this box): the falsifier cannot run here
+
+`capture_scene pirate_sky_lookout player 640x360 --warmup 400` (10 authored `EnemySpawn`, 0
+`NpcSpawn`) at Ultra AND at Potato: **0 unclaimed-body placeholder warnings at both tiers**
+(reveal after 9 / 3 updates, 41 assets, 5 characters). ⚠ This is NOT a falsification of the
+parallax-gate reading: this box also drew **0** for the hall at Ultra earlier today while e7's
+box drew 129 — the burst reproduces only where the parallax theme registers late enough to
+outlast the 5-frame grace (e7's worktree). No sandbox/intro room has both authored enemies and
+NPCs (measured over the LDtk files), so the authored-vs-dynamic discriminator is a two-room
+comparison on e7's box: `hall_of_characters` (129 NPCs) against `pirate_sky_lookout` (10
+enemies) at Ultra; the reading predicts both burst. Run there, not here.

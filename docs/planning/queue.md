@@ -1893,7 +1893,18 @@ The one unresolved developer-policy choice from the session-ownership work is in
   `reachable_via_ambition_platformer2d_actor_monolith_alone` list is stale
   (`ambition_damage`, `ambition_mount` entered 2026-08-26 after it was written);
   ambition-da repairs it in one commit after the `items/` carve lands.
-- ▢ **`string_id!` IS DEFINED THREE TIMES, byte-identical; the owner is decided
+- ✔ **`string_id!` IS WRITTEN ONCE — LANDED by ambition-da (`02a796d2c`,
+  "string_id! is written once now, and the dependency graph chose where");
+  verified 2026-09-02.** `macro_rules! string_id` now has exactly one definition
+  in the workspace, `crates/ambition_load/src/id.rs:19`, carrying
+  `#[macro_export]` exactly as prescribed — and the `::core::fmt` requirement the
+  row raised is a doc comment on it now: *"an exported macro expands at the CALL
+  SITE, where a `use std::fmt;` may not exist — relying on one is the difference
+  between a macro that moves and a macro that only appears to."* Consumers take
+  the exported macro (`ambition_game_shell/src/id.rs` declares five ids through
+  it). The original row, kept because its reasoning is the record of WHY the
+  owner is `ambition_load`:
+  **`string_id!` IS DEFINED THREE TIMES, byte-identical; the owner is decided
   by the dependency graph.** (Scheduled 2026-09-02.) `ambition_load` depends on
   `bevy` and nothing else in the workspace; `ambition_game_shell` already depends
   on it; `ambition_load_presentation` on both — so `#[macro_export]` on

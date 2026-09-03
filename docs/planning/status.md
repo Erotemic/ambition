@@ -7,7 +7,27 @@ asset and performance sections were re-verified at this baseline (Jon's
 ruling on the room tier cap, the reveal barrier's host confirmation, the
 attention budget); the rollback and item paragraphs at `881310ec7`
 (2026-09-02) plus the world-item phase repair (`d220accee`); other sections
-were last reviewed at `4e5f59cf` (2026-08-30).
+were last reviewed at `4e5f59cf` (2026-08-30). All five of those SHAs are
+ancestors of HEAD, re-checked 2026-09-03 with `git merge-base --is-ancestor`
+rather than `git cat-file` — an orphaned commit resolves under the second and
+not the first.
+
+⚠ **THE GATE LINE ABOVE IS NO LONGER REPRODUCIBLE, and the reason is not a
+regression in what it measured.** As of 2026-09-03 the workspace job is RED on
+two schedule tests added that morning
+(`world_gating::tests::both_gate_solids_writers_are_scheduled_after_the_overlay_rebuild`
+and `encounter_spawn_service::spawn_request_service_order::the_spawn_server_runs_after_the_wave_driver`,
+`b67c1348f`). ⛔ **The systems they name are scheduled correctly** —
+`WorldGatingSchedulePlugin` registers `contribute_encounter_lock_walls` — but the
+tests look systems up by `system.name()`, which Bevy 0.19 strips to a
+placeholder unless `bevy_ecs`'s `debug` feature is on, and it is enabled nowhere
+in this workspace. So "workspace N/N" is not a number this page can carry
+forward until those two are converted to the count-by-shape form the carve
+checklist documents.
+
+⭐ Re-verified at `6d2327903` (2026-09-03): the actor-monolith section below, the
+only part of this page this pass re-read against the code. Everything else keeps
+the baseline it was last reviewed at.
 
 This file is a current orientation page. It intentionally does not preserve the
 chronology of how the repository reached this state. Use git history, dated

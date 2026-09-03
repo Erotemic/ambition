@@ -576,6 +576,19 @@ The one unresolved developer-policy choice from the session-ownership work is in
   system parameter into a hard failure where 0.18 skipped. `view_cones.rs` was
   last touched by the 0.19 port (`09bb065a9`), which is consistent with the port
   having created this and nothing having run the combination since.
+  ✔ **EVERY PREMISE RE-CHECKED 2026-09-03 late WITHOUT A BUILD, and all hold:**
+  `dbfb1a2ca` is still an ancestor of HEAD; all four failing targets still exist
+  (`smash_it.rs`, `sanic_it`, `mary_o_it`, the sanic lib);
+  `crates/ambition_portal2d_presentation/src/view_cones.rs` is still there with
+  `ConeRigAssets` at line 745; and it is STILL last touched by `09bb065a9`
+  (2026-08-31), so nothing has gone near it since the port — which is the row's
+  actual argument, and it got stronger by staying true for another three days.
+  ⛔ **WHAT COULD NOT BE RE-CHECKED IS THE ONLY THING THAT NEEDS A BUILD: the
+  48/6,968 tally itself.** Two of the row's numbers moved (the union 80 → 82,
+  the UI-node assertion 40 → 16) and both are recorded above; a third — the
+  failure count — is unknown on the current tree and should be assumed stale
+  rather than quoted. ⇒ Re-run the union job on a box with headroom before
+  treating 48 or 37 as today's figures.
   ⚠ **THE OTHER ~11 ARE A DIFFERENT CLASS AND MAY NOT BE DEFECTS AT ALL.** They
   are mary_o assertions, and at least one fails BY CONSTRUCTION under an
   all-features build: `the_presentation_plugin_adds_no_hud_and_no_menu` asserts

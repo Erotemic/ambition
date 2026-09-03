@@ -217,8 +217,13 @@ for both.
   — reads as the opposite of polling for it, and strands identically and for the
   identical reason: the `until` shell's own command line contains the pattern,
   so the condition is never true and the wait outlives the thing it waited for.
-  **Six stranded that way on 2026-09-03**, by someone who had read this bullet
-  the same evening and had even quoted it in a commit message. The rule is about
+  ⛔ **FOURTEEN stranded that way, counted on 2026-09-03 — and the oldest had
+  been waiting 27 HOURS**, which predates the session that found them. Six were
+  mine, from an evening in which I had read this bullet and quoted this file in
+  a commit message; the rest came from earlier sessions. ⇒ It is a recurring
+  cross-session pattern, not one agent's lapse, and the cost is invisible: a
+  stranded waiter consumes nothing and reports nothing, so it is only ever found
+  by someone auditing process lists for another reason. The rule is about
   the PATTERN matching the WAITER, not about the direction of the test.
   ⇒ Match something that cannot contain the pattern — the status file's `state`
   field, `wait` on a known pid, or the runner's own exit — and if you must use

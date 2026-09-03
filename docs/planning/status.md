@@ -382,11 +382,30 @@ resolves. The decomposition campaign pays for itself in disk.
 | `./run_tests.sh --rust` (5 jobs) | ~5 GB, 42 → 37 GB |
 | one `cargo test --workspace` | **14 GB in under 3 minutes** |
 | the exhaustive plan (49 jobs) | **68 minutes**, and it exhausted a 290 GB volume mid-run |
+| the exhaustive plan (52 jobs, `c2b7f83c7`) | **84.9 minutes**, 48 passed — measured 2026-09-03 |
 
-⚠ The headroom guard runs ONCE before the first job and once after the last,
-never between — so a long suite that starts above the floor can still die of
-ENOSPC halfway and report it as a link error. That is the shape of three of the
-exhaustive run's seven failures.
+⭐ **THE GUARD NOW RE-CHECKS BETWEEN JOBS** (2026-09-03), against a hard 6 GB
+floor rather than the 40 GB one: a suite that has dipped below the full-suite
+floor is normal and finishing it is usually right, but below the hard floor the
+next job is about to fail for a reason nobody can read. It stops, NAMES the job
+it would not start, exits nonzero, and writes `state: "aborted"` with
+`never_ran` into the status file. ⚠ **Only `state: done` means the plan ran** —
+an aborted suite's `failed` list is EMPTY, because every job that started
+passed. `scripts/last_test_run.py` applies that rule and refuses rather than
+answering. (Both ends had to be fixed; the first version returned 1 to its shell
+and serialized `done`/`0`, so every reader but the shell saw a green run.)
+
+⚠ Before that, the guard ran once before the first job and once after the last
+and never between — which is the shape of three of the earlier exhaustive run's
+seven failures, the loudest a bare `error: linking with clang failed` under a
+job header belonging to something else.
+
+⛔ **AS OF 2026-09-03 LATE THIS VOLUME CANNOT RUN A RUST LANE AT ALL: 12 GB free
+of 290, with 135 GB in `debug/deps` alone.** The up-front 40 GB refusal fires,
+so `./run_tests.sh --rust` does not start; `--tool-tests` and `--maintenance`
+are exempt and still run. The volume is SHARED with other sessions' worktrees,
+so `du` your own target before reclaiming anything — deleting artifacts under
+somebody's active build is worse than an ungated lane.
 
 ⇒ Practical consequence for anyone orienting here: **prefer `cargo test -p` over
 a lane.** Tonight's abilities carve was verified crate by crate for exactly this

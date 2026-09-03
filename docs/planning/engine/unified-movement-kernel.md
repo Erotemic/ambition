@@ -46,7 +46,23 @@
   crawler is the subsystem this repository has already had to correct three times
   from play.
 
-- ▢ **Exercise portal transit inside authored gravity zones.** The code resolves
-  projectile gravity per body and portal transit itself is pure portal geometry,
-  but current portal rooms do not nest gravity zones. Add a behavioral exercise
-  if/when a room authors that combination; there is no known porting bug to fix.
+- ▢ **Exercise portal transit inside authored gravity zones — ⭐ THE CUSTOMER
+  THIS WAS WAITING FOR HAS ARRIVED (re-measured 2026-09-02).** The code resolves
+  projectile gravity per body and portal transit itself is pure portal geometry;
+  the row was parked because "current portal rooms do not nest gravity zones".
+
+  ⇒ **`sandbox.ldtk:symmetry_room` now places FOUR `GravityZone` entities and a
+  `PortalGunSpawn`** (at `[448,880]`, `[32,448]`, `[448,32]`, `[880,448]`, and
+  the gun at `[648,1208]`). ⚠ Stated precisely, because the distinction decides
+  what the exercise is: **no room authors a portal PAIR nested in a gravity
+  zone.** What `symmetry_room` does is hand the player the portal gun in a room
+  with four zones — so the player can put a portal inside one, which is a wider
+  exercise than an authored pair and is reachable in play today.
+
+  ⛔ Every other room is one or the other: `portal_lab` has 14 portal entities
+  and no zones; `gravity_lab`, `wall_run` and `ceiling_cross` have zones and no
+  portals. So `symmetry_room` is the only place the two can meet, and it meets
+  them through the gun rather than through authoring.
+
+  ⇒ The row is no longer customer-gated. There is still no known porting bug —
+  the exercise is to find out whether one exists.

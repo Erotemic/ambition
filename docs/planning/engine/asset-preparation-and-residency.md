@@ -287,6 +287,19 @@ other end, now with host frames attached.
   capture report eighteen pops earlier the same day.
   ⇒ **So the honest statement is: three spikes, all before the first room
   finished loading, and the bundle cannot say whether a curtain covered them.**
+  ✔ **AND THE ORDERING SURVIVES THE CLOCK TRAP, checked after `d1c63cd5a`
+  fixed one just like it.** That commit's lesson is that before/after
+  `room-loaded` is a FRAME comparison and its author had used the clock — the
+  census prints in `Last`, so a log line's wall stamp reads later than the
+  event it describes. ⇒ The comparison above is wall-time too, and it holds
+  anyway because the margin is not one frame: the spikes are at 2.386 and 2.589
+  against a `room-loaded` stamped 5.179, **2.6 seconds apart**. ⚠ A frame-stamp
+  comparison would be strictly better and the bundle carries the frames
+  (`f 1131`); anyone re-deriving this should use them.
+  ⚠ Independence, since the same merge touched this area: these figures come
+  from the bundle's own `## Room reveal` / `## Frame time` sections and from
+  `asset_activity.csv` read directly, not from
+  `scripts/measure_first_room_manifest.py`, which is what `d1c63cd5a` changed.
   The claim that this is "the last user-visible hitch" is withdrawn — it needs
   the route's presentation state at 2.4-2.6 s, which nobody has yet read.
   ⭐ What survives untouched is the COMPARISON, because both halves are measured

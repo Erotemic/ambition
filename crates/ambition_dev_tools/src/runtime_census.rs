@@ -732,10 +732,17 @@ pub fn report_sim_phase_census(
     // rather than the room's population: it grows superlinearly while the kept
     // set is still growing and flattens when the viewport saturates. Reported
     // beside the phase it explains.
-    if let Some((views, offered, kept, kept_max)) = ambition_characters::perception::census::drain()
-    {
+    // `visible` is the density term (peers inside the viewport); `kept` is what
+    // the attention budget let through and what the cost follows — equal
+    // until the budget binds (`TACTICAL_ATTENTION`).
+    if let Some(census) = ambition_characters::perception::census::drain() {
         row.push_str(&format!(
-            " views={views} offered={offered:.1} kept={kept:.1} kept_max={kept_max}"
+            " views={} offered={:.1} visible={:.1} kept={:.1} kept_max={}",
+            census.views,
+            census.offered_mean,
+            census.visible_mean,
+            census.kept_mean,
+            census.kept_max
         ));
     }
     row.push_str(" unmeasured=");
@@ -869,7 +876,8 @@ fn report_schedule_owners_in(schedules: &Schedules, wanted: &str) {
             "[census] owners_in t=0.000 schedule={wanted} systems={total} crates={}",
             by_owner.len()
         );
-        for (name, count) in ranked.iter().take(20) {
+        // Every owner, same reason as `report_schedule_owners` below.
+        for (name, count) in ranked.iter() {
             row.push_str(&format!(" {name}={count}"));
         }
         eprintln!("{row}");
@@ -975,7 +983,14 @@ fn report_schedule_owners(schedules: &Schedules) {
         "[census] owners t=0.000 systems={total} crates={}",
         by_owner.len()
     );
-    for (name, count) in ranked.iter().take(20) {
+    // ⛔ EVERY OWNER, NOT A TOP-20, and the doc comment above is the reason.
+    // "Should a shipped title carry this at all" is an ABSENCE question: a
+    // reader greps this row for a crate and reads nothing as "registers no
+    // systems". While this printed the top twenty of `crates=82`, absence was
+    // uninformative for 62 crates and looked authoritative — one read of it
+    // nearly produced a finding that 16 of 17 facade capabilities were dead.
+    // Ranked, so the top of the line still reads as the old one did.
+    for (name, count) in ranked.iter() {
         row.push_str(&format!(" {name}={count}"));
     }
     eprintln!("{row}");

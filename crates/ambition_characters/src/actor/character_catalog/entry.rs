@@ -621,7 +621,9 @@ pub struct CharacterCatalogEntry {
     pub attack_vfx: Option<String>,
     /// Gameplay sprite tuning (collision scale / sample inset / feet
     /// anchor override). `None` = defaults. Replaces the old
-    /// hardcoded `*_SHEET` statics in `character_sprites/sheets.rs`.
+    /// hardcoded `*_SHEET` statics in `character_sprites/sheets.rs` (that
+    /// path is GONE — the name is kept because the sentence is about what this
+    /// field replaced, not about where to look). <!-- cite-ok -->
     #[serde(default)]
     pub sprite_tuning: Option<SpriteTuningSpec>,
     /// Speech-bubble lines for this character, keyed by occasion. Defaults

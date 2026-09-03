@@ -135,6 +135,30 @@ Promote a rule representation only when a real authored feature needs both:
 The first implementation must state who owns per-occurrence runtime memory and
 how that memory participates in rollback/lifetime semantics.
 
+> **⚠ THE CANDIDATE LIST, measured `255e1ec0a` (2026-09-03) — a list, NOT a verdict.**
+> O3's gate turns on whether a real feature's current format handles triggers
+> POORLY, which is a judgement about authoring experience and not something a
+> grep can settle. What a grep can supply is who the candidates are, so whoever
+> makes that call starts from the actual consumers:
+>
+> - `authored_switch_commands` (`ambition_platformer2d_actor_monolith::world`) —
+>   4 references, and rollback-registered as `derived.authored_switch_commands`;
+> - `gated_lock_walls` — 4 references;
+> - the substrate itself,
+>   `crates/ambition_platformer2d_shared_tangle/src/authored_logic/prepared.rs:63`
+>   and `:80`.
+>
+> **Two consumers, both in the same crate, neither yet reported as struggling.**
+> ⛔ On this page's own rule that is NOT a promotion trigger — it is the evidence
+> that the trigger has not fired, recorded so the next reader does not have to
+> re-derive it before deciding to keep waiting.
+>
+> ⭐ Worth knowing from the other side: `extension-model.md`'s ladder measures
+> this rung as the ONLY one without a general representation, and calls it
+> partial rather than empty for exactly the substrate above. The two pages agree,
+> which is itself worth recording — most of the cross-plan joins checked this
+> week did not.
+
 ### O4 — keep discovery/inspection first-class
 
 Authoring and agent tooling should be able to enumerate:

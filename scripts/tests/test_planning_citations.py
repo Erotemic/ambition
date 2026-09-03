@@ -35,13 +35,32 @@ A deliberately quoted wrong name: `{FABRICATED}` <!-- cite-ok -->
 An upstream qualifier that must NOT report: `bevy_ggrs::RollbackId`.
 
 A real symbol that must NOT report: `PossessionState::hold_timer`.
+
+A bare path that names nothing: `{{dead_path}}`.
+
+An abbreviated crate path that must NOT report: `platformer2d_core/src/abilities.rs`.
+
+A deeper abbreviation that must NOT report: `actor_monolith/src/action_scheme.rs`.
+
+A build output that must NOT report: `target/run_tests_status.json`.
+
+An elided path that must NOT report: `tools/.../specs/some_area.ron`.
 """
+
+#: A path shaped exactly like the repository's own, naming a file that is not
+#: there. `features/ecs/footstool.rs` was the real one this class was written
+#: for -- `00030e603` moved it to `crates/ambition_combat/src/` -- and the
+#: fixture uses a name chosen to stay missing rather than a real one that might
+#: come back.
+DEAD_PATH = "features/ecs/this_file_was_never_there.rs"
 
 
 def run(tmp_path: Path) -> tuple[int, str]:
     doc = tmp_path / "fixture.md"
     # A file that certainly exists and certainly has fewer than 999999 lines.
-    doc.write_text(FIXTURE.format(moved_file="scripts/check_planning_citations.py"))
+    doc.write_text(FIXTURE.format(
+        moved_file="scripts/check_planning_citations.py", dead_path=DEAD_PATH,
+    ))
     proc = subprocess.run(
         [sys.executable, str(CHECKER), str(doc)],
         cwd=REPO, capture_output=True, text=True,
@@ -91,3 +110,47 @@ def test_it_reports_without_gating_unless_asked(tmp_path: Path) -> None:
     """Exit 0 with findings — it is wired into the test lane non-strict."""
     code, out = run(tmp_path)
     assert code == 0, out
+
+
+# ── the bare-path class ─────────────────────────────────────────────────────
+#
+# ⛔ THESE ARMS EXIST BECAUSE THE CLASS WAS INVISIBLE, not because it was wrong.
+# `FILE_LINE` only judges a path carrying `:123`, and planning prose almost
+# never writes one — so a sweep could report "all 353 citations resolve" with a
+# dead path in the file it had just read. The path check judges the other ~460.
+
+
+def test_a_bare_path_that_names_nothing_is_reported(tmp_path: Path) -> None:
+    _, out = run(tmp_path)
+    assert DEAD_PATH in out, out
+    assert "no file at this path" in out, out
+
+
+def test_the_repositorys_own_abbreviations_do_not_report(tmp_path: Path) -> None:
+    """Silence is the hard half, and it is what makes this check usable.
+
+    ⭐ Planning prose drops the vendor prefix and as much of the crate path as
+    still reads: `platformer2d_core/src/abilities.rs` IS
+    `crates/ambition_platformer2d_core/src/abilities.rs`, and
+    `actor_monolith/src/action_scheme.rs` IS a crate directory named
+    `ambition_platformer2d_actor_monolith`. Both are correct, both are common,
+    and a checker that flagged them would be the "teaches its reader to skim"
+    failure the checker's own docstring warns about — worse than no check.
+    """
+    _, out = run(tmp_path)
+    assert DEAD_PATH in out, "the checker did not run"
+    assert "abilities.rs" not in out, out
+    assert "action_scheme.rs" not in out, out
+
+
+def test_a_build_output_and_an_elided_path_do_not_report(tmp_path: Path) -> None:
+    """Neither names a file that a checkout is supposed to contain.
+
+    A row citing `target/run_tests_status.json` is naming a build output the
+    correct way; it is absent because nothing has been built, not because the
+    row is wrong. A path written with `...` names a SHAPE.
+    """
+    _, out = run(tmp_path)
+    assert DEAD_PATH in out, "the checker did not run"
+    assert "run_tests_status.json" not in out, out
+    assert "some_area.ron" not in out, out

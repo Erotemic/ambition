@@ -23,7 +23,7 @@ fn authored_item(sim: &mut Platformer2dSimHarness) -> (Entity, SimId) {
     let mut query = sim.world_mut().query::<(
         Entity,
         &SimId,
-        &ambition_platformer2d::actors::items::pickup::ItemCustody,
+        &ambition_platformer2d::held_items::ItemCustody,
     )>();
     let found: Vec<(Entity, SimId)> = query
         .iter(sim.world())
@@ -42,16 +42,16 @@ fn authored_item(sim: &mut Platformer2dSimHarness) -> (Entity, SimId) {
 fn custody(
     sim: &Platformer2dSimHarness,
     item: Entity,
-) -> Option<ambition_platformer2d::actors::items::pickup::ItemCustody> {
+) -> Option<ambition_platformer2d::held_items::ItemCustody> {
     sim.world()
-        .get::<ambition_platformer2d::actors::items::pickup::ItemCustody>(item)
+        .get::<ambition_platformer2d::held_items::ItemCustody>(item)
         .copied()
 }
 
 fn item_pos(sim: &Platformer2dSimHarness, item: Entity) -> (f32, f32) {
     let ground = sim
         .world()
-        .get::<ambition_platformer2d::actors::items::pickup::GroundItem>(item)
+        .get::<ambition_platformer2d::held_items::GroundItem>(item)
         .expect("the item is still a ground item");
     (ground.pos.x, ground.pos.y)
 }
@@ -179,7 +179,7 @@ fn pick_it_up(sim: &mut Platformer2dSimHarness, item: Entity) -> Entity {
     });
     sim.step(base());
     match custody(sim, item) {
-        Some(ambition_platformer2d::actors::items::pickup::ItemCustody::Held { holder }) => holder,
+        Some(ambition_platformer2d::held_items::ItemCustody::Held { holder }) => holder,
         other => panic!("the pressed pickup should have taken custody, got {other:?}"),
     }
 }
@@ -262,7 +262,7 @@ fn an_item_carried_through_a_door_survives_and_belongs_to_the_room_it_is_dropped
     });
     sim.step(base());
     let holder = match custody(&sim, item) {
-        Some(ambition_platformer2d::actors::items::pickup::ItemCustody::Held { holder }) => holder,
+        Some(ambition_platformer2d::held_items::ItemCustody::Held { holder }) => holder,
         other => panic!("the pressed pickup should have taken custody, got {other:?}"),
     };
 
@@ -288,7 +288,7 @@ fn an_item_carried_through_a_door_survives_and_belongs_to_the_room_it_is_dropped
     assert!(
         matches!(
             custody(&sim, item),
-            Some(ambition_platformer2d::actors::items::pickup::ItemCustody::Held { holder: h })
+            Some(ambition_platformer2d::held_items::ItemCustody::Held { holder: h })
                 if h == holder
         ),
         "still in the same hands on the far side of the door"
@@ -433,7 +433,7 @@ fn re_entering_a_room_does_not_re_author_a_placement_that_is_still_in_custody() 
     assert!(
         matches!(
             custody(&sim, item),
-            Some(ambition_platformer2d::actors::items::pickup::ItemCustody::Held { holder: h })
+            Some(ambition_platformer2d::held_items::ItemCustody::Held { holder: h })
                 if h == holder
         ),
         "and the one occurrence is the one still being carried"
@@ -853,7 +853,7 @@ fn place_body(sim: &mut Platformer2dSimHarness, body: Entity, at: (f32, f32)) {
 /// which is why both of those are asserted here as SETUP and the object's survival is the claim.
 #[test]
 fn an_item_carried_by_a_possessed_body_survives_the_door_too() {
-    use ambition_platformer2d::actors::items::pickup::ItemCustody;
+    use ambition_platformer2d::held_items::ItemCustody;
 
     let mut sim = fixed_60hz_room_sim(SOURCE_ROOM);
     for _ in 0..10 {

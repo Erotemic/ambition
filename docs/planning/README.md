@@ -67,7 +67,21 @@ Two other files contain work an agent must not silently resolve by inference:
 - Keep deep architectural reasoning in the focused plan when one exists. The
   queue should carry enough context to choose and resume the work reliably.
 
-### The dated verification header, and what it predicted
+### How to re-measure a row without getting it wrong
+
+⛔ **A row is a claim about a changing repository, so re-measure before acting —
+and the usual way to be wrong is to be wrong about the INSTRUMENT, not the code.**
+Seven rules, each learned by making the mistake here and retracting it, live in
+[`../recipes/re-measuring-a-planning-claim.md`](../recipes/re-measuring-a-planning-claim.md):
+leave a dated receipt including "nothing changed"; a search that finds nothing
+tells you about your pattern first; an inventory that reads types mis-reports
+behaviour; some findings exist only between two plans; sweep at the granularity a
+reader would look for; a premise can stay true while its conclusion dies; and
+before calling something an omission, look for the reason it is a decision.
+
+⚠ The observations below arrived the same night as that recipe and belong in it
+(ambition-da's row: method lives in the recipe, not the control plane); kept here
+until folded, because they carry the data points the recipe's rules rest on.
 
 ⭐ **OBSERVED 2026-09-02, over a sweep of eleven planning files: the ones
 carrying a dated `> **Verified against <sha> (<date>).**` header were accurate,
@@ -97,6 +111,69 @@ re-read against the code since writing it; that is the act that keeps a plan
 true, and the header is just its receipt. A header added without the re-reading
 would be worse than none, because it would buy the next reader's trust without
 earning it.
+
+⭐ **FOUR MORE DATA POINTS, 2026-09-03, and they SHARPEN the rule rather than
+confirm it.** The sample above pairs "carries a date" with "is accurate". Two of
+these four break that pairing, and the two ways they break it are the useful
+part.
+
+- `engine_rename_campaign.md` — header-bearing, and accurate on every claim.
+  Confirms the sample.
+- `game/bosses.md` — **no header, two months unread — the oldest page here — and
+  accurate.** ⇒ Because it is DESIGN LANGUAGE, not status. What rots is a
+  sentence about the current state of the code; a sentence about what a boss IS
+  can sit unread for a year. Do not read a missing header on a design page as a
+  reason to distrust it, and do not spend a re-verification pass on one.
+- `triage/leafwing-clash-scan-patch-2026-07-23.md` — **carries a date, and had
+  drifted materially**: its dependency moved 0.20 → 0.21, which is the exact
+  event its own last line names as the thing that might obsolete it. ⛔ **The
+  date it carries is `**State:** TRIAGE, 2026-07-23` — the day it was WRITTEN.**
+  That is not the same fact as a date it was CHECKED against, and this file is
+  what proves the two must not be conflated. ⇒ A receipt must date the CHECK.
+- `engine/relativity.md` — dated status line, accurate in substance, but half of
+  one clause was SPENT: "local Rust compile … remain" had been satisfied dozens
+  of times by the gate. ⇒ A dated line ages differently from the claims under
+  it; re-reading has to ask whether each clause is still OPEN, not only whether
+  it is still TRUE.
+
+⇒ **So the refined rule: date the CHECK, not the writing; and status rots while
+design does not.** A `> **Verified against <sha> (<date>).**` header says both
+things correctly, which is why it is the form to use.
+
+### ⭐ Some findings only exist BETWEEN two plans
+
+Three times on 2026-09-02/03 the useful result came from reading two focused
+plans against each other rather than either against the code. In each case both
+pages were individually accurate and the conclusion was in neither.
+
+- **`capability-and-runtime-composition.md` × `actor-monolith-decomposition.md`**
+  — the footprint's remaining **18** crates cannot be cut by any manifest change,
+  because every one arrives through the actor monolith. The footprint page knew
+  its number; the carve page knew its scope; neither said that one is the other's
+  only lever. ⚠ **16 here was already stale when written** — the contract prints
+  `45 crates linked, 18 a movement-only game never asked for`, and the owning
+  page said 43/16 while `queue.md` said 44/16. Three retyped copies, three
+  different values, one printed source. ⇒ Quote the line the gate PRINTS.
+  (Corrected 2026-09-03; the ratchet itself was healthy — the baseline JSON has
+  carried 44/17 since `ff1ce535b`, a deliberate bump, so this was documentation
+  drift and not a footprint regression that slipped a guard.)
+- **`room-transition-loading.md` T2 × `asset-preparation-and-residency.md`
+  open work 4** — T2's "resident memory without a budget" warning had its
+  eviction half answered in the asset page, on the same day, and its prefetch
+  half answered by a constant neither page named.
+- **`platformer-navigation-and-reachability.md` × `agentic-character-runtime.md`**
+  — the agentic page waits on three foundations, two of which now exist, so
+  navigation is its last gate. The navigation page looks like a deprioritised
+  capability until you know it is somebody else's blocker.
+
+⇒ **So when a plan says "waits for X", "owned by Y", or "the residual is Z", go
+READ X, Y and Z before believing the row.** A cross-plan dependency is invisible
+from both ends by construction: each page states its own half correctly, and the
+join is written down nowhere.
+
+⚠ This is also why `Owner:` lines and `See also` links are load-bearing rather
+than decorative — they are the only machine-followable record of a join that
+otherwise lives in one session's head.
 
 ### ⚠ A guard sweep at SCRIPT granularity misses most of the guards
 
@@ -137,6 +214,29 @@ session starts from 29 rather than from zero.
 ⇒ **The general form: when you sweep for instrumentation, sweep at the
 granularity a READER would look for.** Nobody greps for a filename; they grep for
 the rule they are about to break.
+
+⛔⛔ **AND THE 29 CANNOT BE RE-DERIVED BY THE OBVIOUS GREP ANY MORE — THIS
+PARAGRAPH BROKE ITS OWN MEASUREMENT.** Checked 2026-09-03: a search for "is
+contract X named anywhere in `docs/planning`" now HITS, for
+`engine-core-is-the-floor`, `geometry-is-the-floor`,
+`platformer-primitives-stays-a-foundation` and
+`the-seat-topology-has-one-engine-side-creator` — and the only file it hits is
+**this one**, the sentence above that lists them as examples of contracts named
+nowhere. Writing down which rules were unnamed is what made them findable.
+
+⚠ And the example list was already off by one when written:
+`central-rollback-does-not-enumerate-domains` is named in
+`engine/simulation-authority-and-determinism.md`, so it was not an instance of
+the class it was cited for.
+
+⇒ **So the number to carry forward is 29 AS RECORDED, not as re-measured.** A
+later grep will return a smaller figure and the difference will be this
+paragraph, not progress. ⚠ If someone does re-derive it, exclude this file from
+the search — and note that the count is method-sensitive in a second way: a
+regex over quoted kebab-case ids in `check_absence_contracts.py` finds 34
+candidates rather than 37, so the denominator moves with how a "contract" is
+recognised. Two numbers that disagree here are usually two methods, not two
+truths.
 
 ### ⛔ The hardest rot to catch: a premise that is still true and no longer the point
 

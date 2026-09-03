@@ -42,7 +42,7 @@ fn every_whereabouts_survives_the_write_and_the_read() {
     let holder = app.world_mut().spawn(SimId::player_slot(0)).id();
     app.world_mut().spawn((
         SimId::placement("carried"),
-        crate::items::pickup::ItemCustody::Held { holder },
+        ambition_held_items::ItemCustody::Held { holder },
     ));
     {
         let mut ledger = app.world_mut().resource_mut::<AuthoredOccurrences>();

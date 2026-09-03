@@ -82,7 +82,7 @@ pub fn fire_beam_system(
     // ⭐ EVERY DRIVEN BODY, not the one the primary seat happens to hold.
     // `ControlledSubject` is singular by construction, so a possessed body or a
     // second seat holding the same item simply never fired.
-    driven: crate::items::pickup::DrivenBodies,
+    driven: ambition_held_items::DrivenBodies,
     mut players: Query<(
         Entity,
         &ActorControl,
@@ -112,7 +112,7 @@ pub fn fire_beam_system(
         }
         // The body's per-tick resolved frame (ADR 0024 frame law).
         let frame = resolved_frame.basis();
-        let aim = crate::items::pickup::ability_aim_local(&c, kin.facing);
+        let aim = ambition_held_items::ability_aim_local(&c, kin.facing);
         let (offset_local, half_local) = beam_geometry(aim, kin.facing);
         let offset = frame.to_world(offset_local);
         let half_extent = frame.to_world_half(half_local);

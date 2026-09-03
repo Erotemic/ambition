@@ -30,9 +30,9 @@ use crate::common::{base, fixed_60hz_room_sim};
 /// authored object" an unambiguous phrase in this file.
 const ROOM: &str = "blink_run";
 
-type GroundItem = ambition_platformer2d::actors::items::pickup::GroundItem;
-type ItemCustody = ambition_platformer2d::actors::items::pickup::ItemCustody;
-type SettledItem = ambition_platformer2d::actors::items::pickup::SettledItem;
+type GroundItem = ambition_platformer2d::held_items::GroundItem;
+type ItemCustody = ambition_platformer2d::held_items::ItemCustody;
+type SettledItem = ambition_platformer2d::held_items::SettledItem;
 
 /// Every object lying in the world right now, with where it thinks it is.
 fn items_in_world(sim: &mut Platformer2dSimHarness) -> Vec<(Entity, (f32, f32))> {

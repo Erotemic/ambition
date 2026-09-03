@@ -121,6 +121,9 @@ allow = [
     "ambition_platformer2d_core",
     "ambition_entity_catalog",
     "ambition_platformer2d_shared_tangle",
+    # The registration protocol PlacementLoweringRegistry answers (2026-09-03,
+    # registry_core R4a): dependency-free, below every registry.
+    "ambition_registry_core",
 ]
 
 # ── architecture_boundaries.rs decomposition, batch 1 (Task 6) ─────────────────
@@ -1768,6 +1771,11 @@ allow = ["ambition_platformer2d_actor_monolith", "ambition_projectiles", "ambiti
     # lands back in the kernel. `WorldItemSimulationPlugin` sits beside
     # `ItemPickupSimulationPlugin`, its sibling across the touched/pressed split.
     "ambition_world_items",
+    # The PRESSED collectible (D33, 2026-09-03), the other half of that split:
+    # `HeldItemSimulationPlugin` owns `ItemPickupSet::CoreHeldItems` end to end
+    # and the runtime adds it beside the kernel's `ItemPickupSimulationPlugin`,
+    # which keeps the other two variants and the three-variant chain.
+    "ambition_held_items",
     # One diagnostic resource, `GameplayTraceBuffer` — the same shape as the
     # `ambition_causal` row above.
     "ambition_gameplay_trace"]
@@ -2886,3 +2894,148 @@ source_doc = "docs/architecture/architecture-boundaries.md"
 severity = "error"
 roots = ["crates/ambition_world_items/src"]
 forbid = ["ambition_platformer2d_actor_monolith", "ambition_render", "ambition_menu", "ambition_app", "ambition_content", "ambition_dev_tools"]
+
+[[policy]]
+id = "engine.ambition_held_items-manifest-allow"
+scope = "engine"
+kind = "dependency-allowlist"
+owners = ["ambition_held_items"]
+watch_paths = ["crates/ambition_held_items/Cargo.toml"]
+rationale = "ambition_held_items owns the PRESSED collectible -- a GroundItem in the world, the empty hand that takes it, the held spec it overlays on the action set, use, throw, ground physics and custody-driven residency (D33, 2026-09-03). The list is the carve, measured by compiling: bodies and geometry from platformer2d_core, the action set and held specs from ambition_characters, the HeldItem component from ambition_combat, the item vocabulary from ambition_items, the rider hand position from ambition_mount, lifecycle/schedule/custody vocabulary from shared_tangle, the room set the whereabouts ledger reads from platformer2d_world, the simulation clock from ambition_time, and the portal gun behind the `portal` feature. It must NEVER regain ambition_platformer2d_actor_monolith -- that edge is what the carve removed; the kernel depends on this crate for checkpoint policy over its components, never the reverse"
+source_doc = "docs/architecture/architecture-boundaries.md"
+severity = "error"
+allow = ["ambition_platformer2d_core", "ambition_characters", "ambition_combat", "ambition_items", "ambition_mount", "ambition_platformer2d_shared_tangle", "ambition_platformer2d_world", "ambition_time", "ambition_portal2d", "ambition_entity_catalog", "ambition_input", "ambition_sfx"]
+manifest = "crates/ambition_held_items/Cargo.toml"
+
+[[policy]]
+id = "engine.ambition_held_items-source-purity"
+scope = "engine"
+kind = "forbidden-source-reference"
+owners = ["ambition_held_items"]
+watch_paths = ["crates/ambition_held_items/src"]
+rationale = "A held item's PHYSICS and CUSTODY are this crate's; the checkpoint policy that restores custody, the shrine, the guns and the match spawn that attach to its steps are the kernel's, and its PICTURE is ambition_render's -- so naming any of them would be this crate reaching back up into its consumers. ambition_dev_tools is forbidden for the same reason it is forbidden of the kernel: a simulation crate must not read developer state"
+source_doc = "docs/architecture/architecture-boundaries.md"
+severity = "error"
+roots = ["crates/ambition_held_items/src"]
+forbid = ["ambition_platformer2d_actor_monolith", "ambition_render", "ambition_menu", "ambition_app", "ambition_content", "ambition_dev_tools"]
+
+# ── the 2026-08-31 carves get the guards the 2026-09-02 one already had ──
+#
+# ⚠ `ambition_world_items` was carved on 2026-09-02 with a manifest-allow AND a
+# source-purity row of its own. `ambition_mount` and `ambition_damage` were
+# carved two days EARLIER and got neither — they appear only in
+# `engine.runtime-manifest-allow`, which says the runtime may depend on them and
+# nothing about what they may depend on. A carve whose boundary is unguarded is
+# a carve that can silently grow back.
+#
+# Both pass these rules today: their only mentions of a forbidden crate are
+# provenance comments (`//! ⭐⭐ CARVED OUT OF ...`), which the scanner excludes.
+
+[[policy]]
+id = "engine.ambition_mount-manifest-allow"
+scope = "engine"
+kind = "dependency-allowlist"
+owners = ["ambition_mount"]
+watch_paths = ["crates/ambition_mount/Cargo.toml"]
+source_doc = "docs/architecture/architecture-boundaries.md"
+severity = "error"
+rationale = "The mount PAIR is two linked bodies and the control grant between them. Its closure is the same four as ambition_world_items: body/geometry vocabulary, actor components, the shared tangle, and time. Anything wider means the pair has started to know about the world it is mounted in."
+allow = [
+  "ambition_platformer2d_core",
+  "ambition_characters",
+  "ambition_platformer2d_shared_tangle",
+  "ambition_time",
+]
+manifest = "crates/ambition_mount/Cargo.toml"
+
+[[policy]]
+id = "engine.ambition_mount-source-purity"
+scope = "engine"
+kind = "forbidden-source-reference"
+owners = ["ambition_mount"]
+watch_paths = ["crates/ambition_mount/src"]
+source_doc = "docs/architecture/architecture-boundaries.md"
+severity = "error"
+rationale = "Mount source must not reach up into the monolith it was carved from, nor into presentation, app, content or developer tooling."
+roots = ["crates/ambition_mount/src"]
+forbid = [
+  "ambition_platformer2d_actor_monolith",
+  "ambition_render",
+  "ambition_menu",
+  "ambition_app",
+  "ambition_content",
+  "ambition_dev_tools",
+]
+
+[[policy]]
+id = "engine.ambition_damage-source-purity"
+scope = "engine"
+kind = "forbidden-source-reference"
+owners = ["ambition_damage"]
+watch_paths = ["crates/ambition_damage/src"]
+source_doc = "docs/architecture/architecture-boundaries.md"
+severity = "error"
+rationale = "Damage resolution is domain vocabulary that presentation consumes, never the reverse. ⚠ No manifest allowlist beside this one: its closure is eleven crates (combat, boss_encounter, projectiles, sfx, vfx, persistence and more), and pinning that list is a real ownership decision rather than a copy of the world_items row — it belongs to whoever finishes the damage carve."
+roots = ["crates/ambition_damage/src"]
+forbid = [
+  "ambition_platformer2d_actor_monolith",
+  "ambition_render",
+  "ambition_menu",
+  "ambition_app",
+  "ambition_content",
+  "ambition_dev_tools",
+]
+
+# ⛔⛔ THE PUREST CRATE IN THE WORKSPACE HAD NOTHING HOLDING IT THAT WAY.
+# `engine/relativity.md` states the boundary as ownership — *"`ambition_relativity`
+# owns dimension-independent Minkowski interval, proper-time, rapidity,
+# velocity-composition, event-boost, and photon-frequency mathematics. It has no
+# Bevy dependency."* — and that is the load-bearing half of the layering diagram
+# beneath it: the maths is dimension-independent BECAUSE it knows nothing about
+# an engine, which is what lets `ambition_relativity2d` be the only 2D-aware
+# layer and a later GR provider slot in beside it.
+#
+# ⚠ Measured 2026-09-03: the claim holds and NOTHING ENFORCED IT. The crate's
+# `Cargo.toml` has no `[dependencies]` section at all and its 722 lines carry a
+# single `use core::fmt`. That is purity by nobody having spent it yet, not
+# purity by a ratchet — the same shape as the two carves that shipped without
+# boundary rows earlier tonight.
+#
+# ⛔ AND A `dependency-allowlist` ROW WOULD NOT HAVE GUARDED THIS ONE, which is
+# why the rule kind here is the source scan. `ambition_deps` reads only
+# `ambition*` entries, so an allowlist says nothing about `bevy`; and an EMPTY
+# allow list is refused by the rule on purpose ("that forbids ALL ambition deps;
+# if that is intended, say so explicitly"). Forbidding the two tokens in SOURCE
+# says both halves at once and needs no ceiling to keep in step.
+#
+# Substring rather than `whole_ident` deliberately: `bevy` must also catch
+# `bevy_math`, `bevy_ecs` and friends, which a whole-identifier match would let
+# through.
+[[policy]]
+id = "engine.ambition_relativity-stays-engine-free"
+scope = "engine"
+kind = "forbidden-source-reference"
+owners = ["ambition_relativity"]
+watch_paths = ["crates/ambition_relativity/src"]
+source_doc = "docs/planning/engine/relativity.md"
+severity = "error"
+rationale = "The dimension-independent relativity maths is dimension-independent because it knows about no engine and no dimension. A `bevy` reference makes it a Bevy crate and collapses the provider seam; an `ambition_` reference makes it a consumer of the layer that is supposed to consume IT."
+roots = ["crates/ambition_relativity/src"]
+forbid = [
+  "bevy",
+  "ambition_",
+]
+
+# ── the relativity cost contract, guarded (2026-09-03) ────────────────────────
+
+[[policy]]
+id = "engine.facade-all-capabilities-omits-relativity"
+scope = "engine"
+kind = "file-omits"
+owners = ["ambition_platformer2d"]
+watch_paths = ["crates/ambition_platformer2d/Cargo.toml"]
+rationale = "docs/planning/engine/relativity.md states a cost contract -- games that do not enable the `relativity` feature do not link either relativity crate -- and that contract was FALSE for the three weeks after it was written. `relativity` sat inside the facade's `all_capabilities` aggregate until 2026-09-01, and `game/ambition_content` takes `all_capabilities`, so the shipped game linked `ambition_relativity` + `ambition_relativity2d` for weeks WITHOUT naming the feature. Verified fixed 2026-09-03: of the six shipped apps only `ambition_demo_twintrack_app` links them. A cost contract phrased as `games that do not opt in do not pay` is not enforced by the feature flag it names; it is enforced by every AGGREGATE feature that could contain it, and nothing asserted that until this row. The forbidden string is the quoted list-entry form and nothing else: the legitimate mentions in this manifest are a comment (backticked), the bare feature key `relativity = [..]`, and `dep:ambition_relativity` -- none of which contain a double-quoted `relativity`. So this trips if and only if the feature is added to some feature array, which is the regression. TwinTrack names the capability from ITS OWN manifest, which this row does not touch."
+source_doc = "docs/planning/engine/relativity.md"
+severity = "error"
+forbid = ["\"relativity\""]
+file = "crates/ambition_platformer2d/Cargo.toml"

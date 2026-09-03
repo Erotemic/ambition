@@ -287,6 +287,19 @@ other end, now with host frames attached.
   capture report eighteen pops earlier the same day.
   ⇒ **So the honest statement is: three spikes, all before the first room
   finished loading, and the bundle cannot say whether a curtain covered them.**
+  ✔ **AND THE ORDERING SURVIVES THE CLOCK TRAP, checked after `d1c63cd5a`
+  fixed one just like it.** That commit's lesson is that before/after
+  `room-loaded` is a FRAME comparison and its author had used the clock — the
+  census prints in `Last`, so a log line's wall stamp reads later than the
+  event it describes. ⇒ The comparison above is wall-time too, and it holds
+  anyway because the margin is not one frame: the spikes are at 2.386 and 2.589
+  against a `room-loaded` stamped 5.179, **2.6 seconds apart**. ⚠ A frame-stamp
+  comparison would be strictly better and the bundle carries the frames
+  (`f 1131`); anyone re-deriving this should use them.
+  ⚠ Independence, since the same merge touched this area: these figures come
+  from the bundle's own `## Room reveal` / `## Frame time` sections and from
+  `asset_activity.csv` read directly, not from
+  `scripts/measure_first_room_manifest.py`, which is what `d1c63cd5a` changed.
   The claim that this is "the last user-visible hitch" is withdrawn — it needs
   the route's presentation state at 2.4-2.6 s, which nobody has yet read.
   ⭐ What survives untouched is the COMPARISON, because both halves are measured
@@ -1114,6 +1127,31 @@ measured.
 
 Choose a budget from rendered measurements. "One character per frame" is a
 current useful bound, not a universal theorem.
+
+⭐ **THE HALL AT FULL, HEADLESS, WITH THE CAP GONE (2026-09-03, this VM, 12
+vCPU / 3 IO threads):** `hall_transition_cover::the_halls_transition_bills_its_whole_cast_and_covers_the_wait`
+— **barrier released after 135 frames with 129/129 realized.** That is the
+RATION floor (one Full sheet started per frame, 129 sheets) plus six frames;
+decode kept pace with it here. ⇒ On the host the floor is different: at 300
+fps 135 frames is 0.45 s, and Jon's Quarter run decoded 130 images / 36 MP
+inside `wait_ms 292` (~123 MP/s aggregate on the 3090's four IO threads), so
+**434 MP at Full predicts a cover hold of ~3.5 s, DECODE-bound, not
+ration-bound.** The two levers that move a decode-bound hold, neither of which
+touches pixels: Bevy's IO pool is capped at 4 threads by default
+(`bevy_app` `task_pool_plugin.rs`: 25%, max 4 — 16 cores get 4), so a
+`TaskPoolPlugin` setting on the host could double decode throughput during a
+covered load at the price of compute threads the cover does not need; and the
+PNG format itself (a QOI or zstd-raw sheet decodes several times faster — a
+pipeline change, Jon's). A bigger COVERED ration would not help the host (it is
+not ration-bound there) and would only shorten this VM's number. The host walk
+at Full measures which bound applies. The threads half is a knob now
+(`AMBITION_IO_THREADS=8`, desktop host only, `cli.rs`
+`ambition_task_pool_plugin`; unset = Bevy's default) so the walk can be an
+A/B in one sitting: same route twice, the cover's `wait_ms` and the
+`[image-census]` `insert→gpu` terms side by side. Headless on this VM the
+hold is the ration floor (135 frames) and the knob cannot move it — which is
+the prediction for a NON-decode-bound host too, and the reason the number
+has to come from the 3090.
 
 ### 3a. ⛔⛔ REMOVED 2026-09-02 BY JON'S RULING: there is NO room-level sprite tier cap
 

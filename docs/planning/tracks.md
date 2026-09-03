@@ -220,6 +220,35 @@ Ambition pain it would remove.
   bundled monospace face through `UiFonts`; gizmos would drop the asset dependency
   from paths that never ship. ⛔ Developer-only — never dialogue, nameplates or
   product UI.
+  - ⚠ **Re-measured 2026-09-03: two of the four named overlays, and the stated
+    benefit does not follow.** Only `fps_overlay` and `rollback_observatory` name
+    `UiFonts`; `gamepad_probe` spawns a bare `TextFont { font_size, ..default() }`
+    (the default face, not the bundled mono) and `debug_overlay` draws NO text at
+    all — it is already gizmos (`debug_overlay/gizmos.rs`, `prims.rs`). ⛔ And
+    converting both would NOT drop the asset dependency: `UiFontWeight::Monospace`
+    is requested twice more in `game/ambition_app/src/app/scene_setup.rs:328`
+    and `:351` — the debug HUD and the **quest panel**, and a quest log is
+    product UI.
+    ⭐ **There is a real COMPILE-time edge here, but it is narrower than I first
+    wrote.** `JetBrainsMono-Regular.ttf` is untracked and gitignored
+    (`.gitignore:156`, fetched by `scripts/grab_font_assets.py`) and it is
+    `include_bytes!`d by `embed_core_assets!` as `FONT_DEBUG_MONO_URL`
+    (`crates/ambition_asset_manager/src/platformer_assets/embedded.rs:64`) — so
+    on a fresh clone the file is absent and the embed cannot compile.
+    ⛔ **CORRECTION, same day:** I first wrote here that a tree missing the file
+    *"fails `cargo check --workspace` outright"*. **I could not reproduce that
+    mechanism and am retracting it.** The `include_bytes!` sits behind
+    `#[cfg(feature = "static_core_assets")]`, which only `visible_web` enables
+    (`ambition_platformer2d_actor_monolith/Cargo.toml:174`,
+    `game/ambition_app/Cargo.toml:93`); no member's default features enable it,
+    and under `resolver = "2"` a workspace-wide feature resolution does not turn
+    it on. ⇒ The compile-time dependency is real for a **`visible_web` build**
+    and not for a default workspace check. What actually failed on this host on
+    2026-09-02 I cannot now reconstruct, so it is recorded as unexplained rather
+    than attributed to this edge.
+    ⇒ If this item is ever taken, the thing worth removing is the COMPILE-time
+    embed on the web path, and that needs the quest panel answered first — not
+    the two overlays.
 - ▢ **`Rem` sizing for UI accessibility scaling.** `FontSize::Rem` plus the
   `RemSize` resource is a global UI text scale for free. Wants a concrete
   accessibility or Steam-Deck legibility requirement first; do not convert
@@ -265,7 +294,12 @@ Ambition pain it would remove.
   explicitly deprioritized it relative to the main games.
 - ▢ **Sanic / Super Mary-O / Hollow Lite.** Retain their focused acceptance lists
   as movement/collision/world-authoring/encounter customers; do not duplicate
-  those lists here.
+  those lists here — they are
+  [`demos/sanic.md`](demos/sanic.md), [`demos/super-mary-o.md`](demos/super-mary-o.md)
+  and [`demos/hollow-lite.md`](demos/hollow-lite.md). ⚠ The links are the point,
+  not decoration: `demos/sanic.md` states that *"this list is the single source;
+  status.md and tracks.md refer here"*, and until 2026-09-03 neither file named
+  it, so the deferral was true and unfollowable.
 - ▢ **Player-facing authored-art repairs.** Morph-ball presentation, shrine/glider
   presentation and similar content fixes remain product work unless a reproduced
   defect demonstrates a reusable renderer/authoring-system problem.

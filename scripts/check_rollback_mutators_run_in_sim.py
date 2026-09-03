@@ -123,15 +123,6 @@ WAIVERS: dict[str, str] = {
         "GGRS host, so `BodyMelee` is never restored and there is no history for "
         "the cooldown tick to be inconsistent with."
     ),
-    "cycle_dev_gravity": (
-        "⛔ WAIVED WITH A NAMED FIX, NOT BECAUSE IT IS SAFE. A dev-menu toggle "
-        "writing `BaseGravity` from `Update` IS a real desync source in a "
-        "rollback session — the peer never sees the toggle. It is waived because "
-        "it is dev-only UI and the fix has a precedent rather than needing a "
-        "design: publish a request the sim consumes (the `ClockScaleRequest` / "
-        "D33 shape). Engineering row: queue.md, 'dev gravity cycle publishes a "
-        "request, sim applies it'."
-    ),
     "restore_inventory_from_save": (
         "⚠ WAIVED FOR THE ACTIVATION CASE ONLY, AND THE OTHER CASE IS OPEN. "
         "It writes `BodyWallet` from `Update` while applying a save. At session "

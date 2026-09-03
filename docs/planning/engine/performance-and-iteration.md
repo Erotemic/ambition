@@ -1368,6 +1368,29 @@ percentage win.
 The funded architecture is explicit demand/preparation/device materialization and
 residency ownership. See the focused asset plan.
 
+⛔ **BEFORE ANYONE ADDS AN IO-POOL KNOB FOR THIS: the measured spike is not in
+the IO pool.** PNG decode runs on Bevy's IO task pool, and that pool is small by
+default — `bevy_app-0.19.1/src/task_pool_plugin.rs:73-127`, "25% of cores for
+IO, at least 1, no more than 4", where the count truncates and then rounds up at
+a fraction of 0.5 and clamps to `[1, 4]`:
+
+```text
+ 8-9   logical CPUs -> 2 IO threads
+10-13  logical CPUs -> 3 IO threads
+14+    logical CPUs -> 4 IO threads
+```
+
+⚠ **So two machines comparing the same scene can be comparing two pool sizes** —
+13 cores gets three threads and 14 gets four, which is a boundary neither box
+advertises. Record `nproc` beside any decode-sensitive capture.
+
+⭐ But the row above already says the spike is DOWNSTREAM of decode:
+`extract_render_asset<GpuImage>` is render-world extraction/upload, not the
+decode itself, and the 468/466/373 ms frames were pinned to one sheet's
+megapixels ARRIVING together. Widening the decode pool makes them arrive faster
+at the step that is already the bottleneck. Separate the extract cost from the
+decode cost in one capture before spending a knob on either.
+
 ### Startup: important, but the capability hypothesis did not survive
 
 Removing four experiences and roughly 61 `Update` systems from the tested

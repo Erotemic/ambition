@@ -39,6 +39,50 @@ changed from about **5.12 ms to 2.96 ms** when those dependencies returned to
 That does not establish one universal profile for every crate. It does establish
 that large runtime/debug penalties need a measured rebuild payoff.
 
+### The wasm CHECK and LINK, both run 2026-09-03 — green, and the LINK now has a price
+
+`scripts/run_tests.py` plans the web build CHECK in the default plan but the
+release LINK only `if not only and everything`, with the comment that the
+CHECK's price is worth paying and *"the LINK's price (a release wasm artifact) is
+not"*. That judgement was made without the LINK's number. It has one now, from
+the calculex host (6 vCPU, no GPU, `target/` bind-mounted to local ext4):
+
+| job | result | cost |
+|---|---|---|
+| `cargo check … --target wasm32-unknown-unknown --features web_served_assets` | ✔ green | **42.6 s**, dependencies warm |
+| `cargo build --lib --release … --features web` | ✔ green | **18 m 01 s** cold, full wasm32 release graph |
+
+⭐ **Both are GREEN at HEAD**, which is the part nobody could previously assert:
+the LINK is exhaustive-plan-only, so on a normal run it does not execute
+anywhere.
+
+⚠ **The artifact is 238 MB and that is NOT a shipped size.** `ambition_app.wasm`
+straight out of `cargo build` is the PRE-`wasm-bindgen` intermediate;
+`scripts/setup/web_prereq.sh` exists precisely to install the matching
+`wasm-bindgen-cli` that runs next. Quoting 238 MB as "the web build" would be
+wrong in the direction that stops work, so it is recorded here with its stage
+named. What a bindgen'd, size-optimised artifact measures is unknown and is the
+obvious next measurement — this host can take it.
+
+### The web persona boots on a machine with no GPU (2026-09-03)
+
+The third exhaustive-plan-only web job, `web persona BOOTS [visible_web_base,
+native]`, also runs here: **16 m 01 s** to build, and it **SURVIVES startup** —
+initial and active route `ambition_launcher`, 23 UI nodes, 10 UI texts, 0
+sprites, 2 cameras, simulation host `Rollback`.
+
+⭐ That is the answer to *"does the web composition come up on a host with no
+GPU"*, and it is yes. The calculex host has no `/dev/dri` and no display.
+⚠ **It does not prove the browser.** The job runs NATIVELY by design, so it
+compiles the `not(wasm32)` branch; the wasm-only path remains unexercised, which
+is the standing entry in
+[`../../recipes/checks-that-did-not-run.md`](../../recipes/checks-that-did-not-run.md).
+
+⇒ For the plan-shape question this doc owns: 18 minutes is a real price and an
+honest argument for keeping the LINK out of the default plan. It is not an
+argument for it never running — it had not run, and 18 minutes on an idle
+no-GPU host is cheaper than discovering a broken build target by accident.
+
 ### Optimized incremental builds are not currently a default solution
 
 The repository has seen invalid/corrupt link behavior in the affected optimized
@@ -141,6 +185,68 @@ unactionable.
 A clean checkout should have an explicit path to produce every required generated
 artifact or obtain it from the intended cache/submodule. Cache keys must include
 all source dependencies that affect output.
+
+⚠ **Measured on a genuinely fresh clone, 2026-09-02, and this row had three
+live violations — two now closed.** They shared one shape: the producing command
+EXISTED and nothing called it, so the artifact was missing on every machine
+except the one that had run the command by hand.
+
+⚠ **A FOURTH TURNED UP ON 2026-09-03 AND IT IS A DIFFERENT SHAPE**, so the
+enumeration above should not be read as closed. `Pillow` was missing from the
+repo venv: `scripts/tests/test_asset_writes_do_not_follow_worktree_symlinks.py`
+loads `scripts/generate_visual_quality_variants.py` to reach one guard function,
+that script's `from PIL import Image` is at MODULE scope, and three tests went
+red at collection with `ModuleNotFoundError: No module named 'PIL'` — from a
+file whose name is about symlinks. ⛔ Here no producing command was missing;
+the SUITE acquired a dependency and setup never learned about it, which is the
+same fresh-clone failure by a different road and would not be found by looking
+for uncalled commands. ⇒ Fixed in `scripts/setup/python_tools.sh`, and the rest
+of that class was swept rather than guessed: parsing every module-scope import
+under `scripts/` leaves three unresolved and NONE reachable from a test
+(`networkx`, `scriptconfig`, and `ambition_sprite2d_renderer`, which arrives via
+a `sys.path` insert). The sweep method is recorded beside the install list so
+the next added dependency re-runs it.
+
+- ✔ **Bundled UI fonts.** `ambition_render`'s typography test `include_bytes!`s
+  three faces from a git-ignored directory, so their absence is not a missing
+  picture at runtime — `cargo check --all-targets` exits 101, and TWO gate jobs
+  run exactly that command. `scripts/grab_font_assets.py` had been in the tree
+  the whole time; `scripts/setup/generated_content.sh` now runs it.
+- ✔ **Sampled instrument libraries.** Opt-in behind a flag, so a default clone
+  rendered the whole catalogue through General MIDI and reported success —
+  indistinguishable downstream from the real cues. Now installed by default, and
+  the renderer refuses rather than shipping stand-ins.
+- ▢ **The `.ipfs` sidecars still have no hydration command**, which is the
+  remaining instance of exactly this class: six git-ignored payload directories
+  whose only restore path is a manual `ipfs get`. ⛔ Do NOT fold this into
+  feature work — `dev/journals/code_smells.md` (2026-07-19) records it as
+  backlog-only because Jon owns asset distribution. Noted here so B4's exit
+  criterion is not read as met while it is outstanding. ⚠ The fonts sidecar that
+  entry names (`.../assets/fonts/bundled.ipfs`) is itself absent now, so that
+  payload has lost even its CID.
+  ⭐ **AND NOW THE CONSEQUENCE IS MEASURED, which the row was missing.** It is
+  not only that a payload cannot be restored: on a fresh clone
+  **`package_asset_guard.py compose` FAILS**, so no shippable asset tree can be
+  produced at all. Measured 2026-09-03, `--profile steamdeck --materialize link`:
+
+  ```text
+  asset contract failed:
+  runtime-declared assets are absent from the composed desktop source roots:
+    - vanity_card/frame_00.png … frame_08.png   (9 files)
+        declared by manifest:data/vanity_card.ron:11-22:path
+  ```
+
+  ⚠ **Exactly nine files, all one family, and nothing else is missing** — so
+  this is the whole gap between a fresh clone and a composable package, not a
+  sample of a larger one. The sidecar `assets/vanity_card.ipfs` declares that
+  family (`rel_path: vanity_card`, 51 items, 12.67 MiB) and nothing fetches it.
+  ⛔ Still backlog-only and still not to be folded into feature work; the number
+  is here so the size of the gap is known before Jon decides, rather than
+  discovered by whoever first tries to cut a build.
+  ⚠ Do not confuse this with the vanity card `scripts/regen/sprites.sh` DOES
+  build: that exporter writes `vanity_card_made_this_meme`, a different,
+  TRACKED manifest. The missing family is `data/vanity_card.ron`, and running
+  the regen does not produce it.
 
 ### B5 — platform prerequisites
 

@@ -624,15 +624,25 @@ pub fn tick_actor_brains(
                     // instrument that priced this change. The cheap road counts
                     // the same population (everything VISIBLE, allies included)
                     // on the pass that finds the target.
-                    if let Some(cheap) = cheap.as_ref() {
+                    // ⛔ THE VIEW ROAD FIRST. `TacticalWorld` needs a target
+                    // belief too, so `cheap` is `Some` for it as well — and the
+                    // cheap count is the UNCAPPED visible set. Testing `cheap`
+                    // first recorded `kept = visible` for every world-view brain
+                    // and the density sweep could not see the attention budget
+                    // at all (yardrat, 2026-09-03: `kept_max` 129 with the cap
+                    // at 16). A body that built a view reports what the view
+                    // carries; only a body that did not reports the cheap count.
+                    if perception_need.needs_world_view() {
+                        ambition_characters::perception::census::note_world_view(
+                            view_peers.len(),
+                            world_view.actors.len() + world_view.remainder.actors,
+                            world_view.actors.len(),
+                        );
+                    } else if let Some(cheap) = cheap.as_ref() {
                         ambition_characters::perception::census::note_world_view(
                             view_peers.len(),
                             cheap.visible_count,
-                        );
-                    } else if perception_need.needs_world_view() {
-                        ambition_characters::perception::census::note_world_view(
-                            view_peers.len(),
-                            world_view.actors.len(),
+                            cheap.visible_count,
                         );
                     }
                     // `None` means an EMPTY belief state, not a frozen one --

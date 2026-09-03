@@ -425,9 +425,50 @@ pub enum PerceptionRequirement {
     None,
     /// One target belief — enough to acquire, hold and lose a foe.
     TargetBelief,
-    /// Today's complete view. How THAT stays bounded is a separate question and
-    /// a separate campaign; see `bounded-perception-and-attention.md`.
+    /// The tactical view: the stage, terrain, projectiles, portals, and the
+    /// actors this body ATTENDS TO — at most [`TACTICAL_ATTENTION`] of them,
+    /// the rest folded into [`AttentionRemainder`]. See
+    /// `bounded-perception-and-attention.md`.
     TacticalWorld,
+}
+
+/// How many other actors a `TacticalWorld` view carries exactly; every
+/// visible actor beyond that is folded into [`AttentionRemainder`].
+///
+/// ⭐ 16, FROM THE MEASUREMENT AND NOT FROM TASTE. The MEAN `kept` per viewer
+/// saturates at ~14.4 in a 130-body hall at the shipped viewport (n = 65 and
+/// 130 alike) and is 5-12 at smaller casts, so the mean never reaches the cap
+/// there; the densest single viewer in that run saw 21 and is cut to 16
+/// (yardrat's sweep, 2026-09-03: `kept_max` 21 → 16 at 480x320, population
+/// 130 re-brained to `medium_striker` — NOT the shipped cast, which is
+/// authored `stand_still` and builds no view). It binds hard in the regime
+/// the budget is FOR — density, where `visible` climbed to 124 at 6x the
+/// viewport and `kept` reads 16.0 flat; before the cap `Decide` went 0.24 →
+/// 1.99 ms/tick there, linear in `kept` at ~23 µs per perceived peer. The
+/// budget caps that term; a fighter attending to sixteen costs what the hall
+/// costs today whatever the crowd around it.
+///
+/// ⛔ SELECTION IS DETERMINISTIC AND HOSTILES COME FIRST: a foe is never
+/// displaced from attention by a nearer friend, so `nearest_hostile()` on the
+/// capped view is the same foe the uncapped view would name (pinned by test).
+/// Ties break on distance, then on id, so two peers' input order never
+/// changes who is kept — `WorldMemory` is rollback state and reads this set.
+pub const TACTICAL_ATTENTION: usize = 16;
+
+/// The visible actors a `TacticalWorld` view did NOT carry exactly — the
+/// aggregate remainder the attention budget owes, so a brain can still tell
+/// "sixteen foes and nobody else" from "sixteen foes and forty more behind
+/// them". Counts and one distance; no ids, because the remainder is what
+/// attention is not spent on.
+#[derive(Clone, Copy, Debug, Default, PartialEq)]
+pub struct AttentionRemainder {
+    /// Visible actors beyond the cap, all factions.
+    pub actors: usize,
+    /// Of those, hostile to this body.
+    pub hostiles: usize,
+    /// Squared distance to the nearest hostile that did NOT make the cut, if
+    /// any — the pressure a crowd exerts even when nothing in it is attended.
+    pub nearest_unattended_hostile_dist_sq: Option<f32>,
 }
 
 impl PerceptionRequirement {
@@ -463,6 +504,10 @@ pub struct WorldView {
     pub portals: Vec<PerceivedPortal>,
     /// Sim time (scaled clock seconds) this view was taken.
     pub sim_time: f32,
+    /// What `actors` left out: visible actors beyond [`TACTICAL_ATTENTION`].
+    /// Zero everywhere while the cap does not bind, which is every shipped
+    /// room today.
+    pub remainder: AttentionRemainder,
 }
 
 impl WorldView {

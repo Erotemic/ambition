@@ -1,6 +1,6 @@
 # Relativity capability
 
-> **Status (2026-08-12): SR-8 keeps the default-on 3D 2+1D minimap and finishes the open-plaza camera contract: TwinTrack recenters its teaching exhibits around the laboratory, authors no perimeter collision, and uses an unclamped follow-camera zone plus a deep zero-gravity blast margin so leaving the authored rectangle does not pin or reset the controlled body. The change remains game-authored and adds no relativity runtime cost to other experiences. Local Rust compile and visible-feel validation remain.**
+> **Status (2026-08-12; ⚠ the "Local Rust compile … remain" clause below is spent — both crates are workspace members and the `--rust` gate has compiled and tested them many times since, `ambition_relativity` carrying 16 of its own `#[test]`s. What remains of that clause is the VISIBLE-FEEL half, which no headless gate can answer): SR-8 keeps the default-on 3D 2+1D minimap and finishes the open-plaza camera contract: TwinTrack recenters its teaching exhibits around the laboratory, authors no perimeter collision, and uses an unclamped follow-camera zone plus a deep zero-gravity blast margin so leaving the authored rectangle does not pin or reset the controlled body. The change remains game-authored and adds no relativity runtime cost to other experiences. Local Rust compile and visible-feel validation remain.**
 
 Ambition treats special relativity as the first exact spacetime model, not as a
 bag of visual effects. The reusable boundary is:
@@ -19,6 +19,16 @@ Minkowski now; analytic/sampled/evolved GR later
 - `ambition_relativity` owns dimension-independent Minkowski interval,
   proper-time, rapidity, velocity-composition, event-boost, and photon-frequency
   mathematics. It has no Bevy dependency.
+  ⭐ **AND THAT LAST SENTENCE IS NOW A RATCHET, not just a description**
+  (verified against `8bb0dd5a7`, 2026-09-03): `engine.ambition_relativity-stays-engine-free` forbids `bevy`
+  and `ambition_` in this crate's source. It is the load-bearing half of the
+  layering diagram below — the maths is dimension-independent BECAUSE it knows
+  no engine, which is what lets `ambition_relativity2d` be the only 2D-aware
+  layer and a later GR provider slot in beside it. ⚠ Measured when the row was
+  added: the crate's `Cargo.toml` has no `[dependencies]` section at all and its
+  722 lines carry a single `use core::fmt`, so this guards a property that held
+  by nobody having spent it yet. ⛔ A `dependency-allowlist` row would NOT have
+  worked — it reads only `ambition*` entries and so says nothing about `bevy`.
 - `ambition_relativity2d` reads canonical 2D body kinematics, samples a
   session-owned spacetime provider, writes the existing `ProperTimeScale`,
   accumulates f64 proper time, propagates analytic null signals, measures local
@@ -164,6 +174,58 @@ ordinary bodies. Proper-velocity flight runs only for a body whose normal
 movement tuning opts into an invariant speed. TwinTrack alone installs the
 relativity plugin, marks clocks/sources, and activates the full-screen optical
 presentation and synthetic star field.
+
+### Re-measured 2026-09-03 — the contract holds NOW, and did not when it was written
+
+The first sentence above ("games that do not enable the facade's `relativity`
+feature do not link either crate") is TRUE at HEAD, checked two-sided across
+every shipped app rather than only the one it is about — `cargo tree` per app,
+counting `ambition_relativity v`:
+
+| App | links relativity | tree |
+|---|---|---|
+| `ambition_app` | **0** | 2,686 |
+| `ambition_demo_mary_o_app` | 0 | 1,841 |
+| `ambition_demo_sanic_app` | 0 | 1,841 |
+| `ambition_demo_smash_app` | 0 | 1,854 |
+| `ambition_demo_pocket` | 0 | 1,838 |
+| `ambition_demo_twintrack_app` | **2** | 1,849 |
+
+Exactly one app links it and it is the one this doc names. The five zeros are
+meaningful because the sixth is not zero: a grep that finds nothing everywhere
+is indistinguishable from a broken grep.
+
+⛔ **AND IT WAS FALSE FOR THE FIRST THREE WEEKS THIS PAGE ASSERTED IT.** The
+status header above is dated 2026-08-12. `relativity` was listed in the facade's
+`all_capabilities` until **2026-09-01**, and `game/ambition_content` takes
+`all_capabilities` — so the shipped game linked both crates for weeks *without
+naming the feature*, which is precisely what the contract forbids. The facade's
+own comment now records the removal and the reason:
+
+> *"nothing in the shipped game asks for spacetime, and listing it here put
+> `ambition_relativity` + `ambition_relativity2d` into every build that took the
+> default features."*
+
+⇒ The lesson is about the shape of the claim, not the crates. **A cost contract
+phrased as "games that do not opt in do not pay" is not enforced by the feature
+flag it names** — it is enforced by every aggregate feature that might contain
+it, and `all_capabilities` is exactly such an aggregate. The contract became
+true when someone audited the aggregate, three weeks after the page promised it.
+✔ **GUARDED, 2026-09-03, and poison-verified.**
+`engine.facade-all-capabilities-omits-relativity` forbids the quoted list-entry
+form `"relativity"` in `crates/ambition_platformer2d/Cargo.toml`, which is
+precise: the manifest's three legitimate mentions are a backticked comment, the
+bare feature key `relativity = [..]`, and `dep:ambition_relativity` — none of
+them contains a double-quoted `relativity`, so the row trips if and only if the
+feature is added to a feature ARRAY. Verified by re-introducing the exact
+regression: the suite went 35-green → `engine_policies FAILED` naming the row,
+and green again on revert. TwinTrack is unaffected — it names the capability
+from its own manifest, which this row does not watch.
+
+*Method note.* Enumerating the apps with `ls game/ | grep -E '_app$'` returned
+NOTHING — `ls` is emitting colour escapes here, so the reset sequence sits after
+the final `p` and the anchor cannot match. An empty list would have read as "no
+demo apps to check". `find … -name Cargo.toml` is immune.
 
 ## GR growth path
 

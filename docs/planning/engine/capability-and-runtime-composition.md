@@ -36,8 +36,17 @@ Its demonstrated value is:
 >
 > `scripts/check_absence_contracts.py` runs
 > **`capability-footprint-may-not-grow`**, which reports the program's headline
-> number every time the gate runs: **43 crates linked, 16 of them a
-> movement-only game never asked for.** It ratchets — a new crate entering the
+> number every time the gate runs: **45 crates linked, 18 of them a
+> movement-only game never asked for** (`479f9d3e4`, when
+> `ambition_registry_core` entered the closure).
+> ⛔ **DO NOT RETYPE IT — re-derive:**
+> `python3 scripts/check_absence_contracts.py | grep footprint`, which prints
+> the live pair from `scripts/baselines/capability-footprint-baseline.json`.
+> ⚠ It has now drifted FOUR times — 43/16 → 44/16 → 44/17 → 45/18 — and the
+> fourth happened INSIDE the edit that corrected the third, hours apart. A
+> hand-copied ratchet value is a claim with nothing holding it, which is the very
+> failure §2e is about; the command is the only form of this fact that stays
+> true. It ratchets — a new crate entering the
 > minimal consumer's closure turns it RED, naming each one — and its failure
 > text is this page's §2e in one sentence: *"a perfectly semantic API can still
 > force a movement-only game to compile and link every unrelated gameplay
@@ -165,6 +174,71 @@ Rollback registration itself is no longer the earlier central-census problem:
 concrete gameplay declarations are federated by domain and the GGRS backend is
 separate from the generic runtime. Do not use that completed migration as the
 justification for another capability layer.
+
+### Measured 2026-09-03 — the closure bullet above, with its number and its paths
+
+`fixtures/external_consumer` ("outlander") is the honest test: its own
+`[workspace]`, its own lockfile, no workspace dependency table, and it asks the
+facade for exactly TWO capabilities with `default-features = false` —
+`ambition_render` and rollback. Its manifest even says so: *"What else still
+links is the carve's problem, not this manifest's."*
+
+It links **46 `ambition_*` crates**, including **10 of the 14** optional
+capability crates it never named:
+
+| inherited | not inherited |
+|---|---|
+| cutscene, dialog, encounter, items, menu, persistence, projectiles, sfx, ui_nav, vfx | inventory_ui, portal2d, settings_menu, touch_input |
+
+⛔ **CORRECTION, same day — my first causal split here was wrong, and the
+repository already had a better one.** I wrote that six of the ten "arrive
+through a capability it DID request", because `ambition_render`'s manifest names
+them. That is one path among several and it is not the binding one:
+`cargo tree -i ambition_cutscene` in the sentinel shows it arriving through
+`ambition_boss_encounter` → `ambition_damage` → the facade AND the monolith.
+Removing render's edge would not remove it.
+
+✔ **The authoritative instrument is `scripts/baselines/capability-footprint-baseline.json`,
+guarded by the `capability-footprint-may-not-grow` absence contract**, and its
+split is by REACHABILITY rather than by manifest:
+
+* **20 reachable via `ambition_platformer2d_actor_monolith` alone** — irreducible
+  without moving code;
+* **4 reachable only through the facade** (`ambition_inventory_ui`,
+  `ambition_portal2d_presentation`, `ambition_render`, `ambition_touch_input`) —
+  closable by making facade edges optional, a manifest change.
+
+Its own note states the conclusion I arrived at independently and less precisely:
+*"The second list can be closed by making facade edges optional — a manifest
+change. The first cannot: a game that needs actors needs
+`ambition_platformer2d_actor_monolith`, which brings them. That is what makes the
+footprint irreducible without moving code."*
+
+⇒ **So this pressure point is already measured, already guarded, and already
+kept current** — the baseline records `registry_core_entered_the_closure_2026_09_03`,
+the same day that edge landed. Anyone re-measuring should run
+`scripts/check_absence_contracts.py` rather than a fresh `cargo tree`.
+
+⭐ **What an independent measurement DID add**, having agreed with the baseline
+at `closure_size = 45`: the closure is insensitive to what a consumer asks for.
+`fixtures/external_consumer` requests TWO capabilities and
+`fixtures/minimal_game` requests ONE, and both inherit the SAME ten optional
+capability crates. The baseline uses only the one-capability sentinel, so this is
+the half it does not cover.
+
+⭐⭐ **AND THE STRICTER SENTINEL GETS THE SAME TEN.** `fixtures/minimal_game`
+asks the facade for exactly ONE capability — `ambition_render`, nothing else —
+and links **45** `ambition_*` crates and the SAME ten capability crates as
+outlander, which asked for two. ⇒ **The closure is not a function of what a
+consumer requests.** Asking for less changes the count by one crate, because
+what arrives is decided by the facade's non-optional core, not by the feature
+list. That is the sharpest available statement of this pressure point, and it is
+why more feature flags cannot answer it.
+
+⚠ Fixture-quality note, not a finding: `minimal_game` has a committed
+`Cargo.lock` and resolves `--offline`; `external_consumer` has neither and needs
+`bevy_gltf`, which the main workspace never fetches, so it cannot be measured on
+a fresh host without network.
 
 ## Target shape
 

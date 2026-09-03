@@ -719,7 +719,7 @@ fn a_replay_does_not_adopt_what_the_attempt_created() {
 #[test]
 fn an_object_in_your_hands_survives_a_replay_and_is_not_re_authored() {
     const CARRY_ROOM: &str = "blink_run";
-    use ambition_platformer2d::actors::items::pickup::ItemCustody;
+    use ambition_platformer2d::held_items::ItemCustody;
 
     let mut sim = fixed_60hz_room_sim(CARRY_ROOM);
     settle_after_construction(&mut sim, &BTreeSet::new());
@@ -1151,7 +1151,7 @@ fn another_room_with_an_object() -> (String, String) {
         }
         let mut q = sim.world_mut().query::<(
             &SimId,
-            &ambition_platformer2d::actors::items::pickup::ItemCustody,
+            &ambition_platformer2d::held_items::ItemCustody,
         )>();
         let world = sim.world();
         let mut ids: Vec<String> = q
@@ -1218,7 +1218,7 @@ fn relocatable_occurrence_in(
     let relocatable = {
         let mut q = played.world_mut().query::<(
             &SimId,
-            &ambition_platformer2d::actors::items::pickup::ItemCustody,
+            &ambition_platformer2d::held_items::ItemCustody,
         )>();
         let world = played.world();
         let mut ids: Vec<String> = q

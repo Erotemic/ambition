@@ -228,8 +228,8 @@ pub struct GroundItemFact {
 pub fn rebuild_ground_items_view(
     mut view: ResMut<GroundItemsView>,
     grounds: Query<(
-        &ambition_platformer2d_actor_monolith::items::pickup::GroundItem,
-        &ambition_platformer2d_actor_monolith::items::pickup::ItemCustody,
+        &ambition_held_items::GroundItem,
+        &ambition_held_items::ItemCustody,
     )>,
 ) {
     view.0.clear();

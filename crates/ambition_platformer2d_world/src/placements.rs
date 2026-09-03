@@ -201,10 +201,22 @@ pub struct PlacementLoweringRegistry<C: Send + Sync + 'static = ()> {
 
 #[derive(Clone)]
 struct PlacementLoweringEntry<C: Send + Sync + 'static> {
-    owner: String,
-    source: String,
-    schema_id: String,
+    meta: ambition_registry_core::RegistrationMeta,
     lower: LoweringFn<C>,
+}
+
+/// ⛔⛔ HAND-WRITTEN, AND THE FUNCTION ADDRESS IS PART OF IT. `derive(PartialEq)`
+/// would compare the fn pointer too — but writing it out is the point: this is
+/// the ONE registry in the workspace whose identity includes a function, and
+/// `ambition_registry_core::classify` decides New/Idempotent/Conflict from
+/// exactly this comparison. Re-registering one kind with the same
+/// owner/source/schema but a DIFFERENT lowering function is a CONFLICT, and it
+/// has to stay one: two interpreters under one `PlacementKind` is the ambiguity
+/// this registry exists to refuse.
+impl<C: Send + Sync + 'static> PartialEq for PlacementLoweringEntry<C> {
+    fn eq(&self, other: &Self) -> bool {
+        self.meta == other.meta && std::ptr::fn_addr_eq(self.lower, other.lower)
+    }
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -252,46 +264,31 @@ impl<C: Send + Sync + 'static> PlacementLoweringRegistry<C> {
         schema_id: impl Into<String>,
         f: LoweringFn<C>,
     ) -> Result<(), PlacementLoweringRegistrationError> {
-        let owner = owner.into();
-        let source = source.into();
-        let schema_id = schema_id.into();
-        for (field, value) in [
-            ("owner", owner.as_str()),
-            ("source", source.as_str()),
-            ("schema id", schema_id.as_str()),
-        ] {
-            if value.trim().is_empty() {
-                return Err(PlacementLoweringRegistrationError::EmptyIdentity { field });
+        // Identity validation is the core's: same three fields, same order, so
+        // the first blank field a content author hears about is unchanged.
+        let meta = ambition_registry_core::RegistrationMeta::new(owner, source, schema_id)
+            .map_err(|empty| PlacementLoweringRegistrationError::EmptyIdentity {
+                field: empty.field,
+            })?;
+        let incoming = PlacementLoweringEntry { meta, lower: f };
+        match ambition_registry_core::classify(self.interpreters.get(&kind), &incoming) {
+            ambition_registry_core::Classification::Idempotent => Ok(()),
+            ambition_registry_core::Classification::Conflict { existing } => {
+                Err(PlacementLoweringRegistrationError::Conflict {
+                    kind,
+                    existing_owner: existing.meta.owner.clone(),
+                    existing_source: existing.meta.source.clone(),
+                    existing_schema: existing.meta.schema_id.clone(),
+                    candidate_owner: incoming.meta.owner,
+                    candidate_source: incoming.meta.source,
+                    candidate_schema: incoming.meta.schema_id,
+                })
+            }
+            ambition_registry_core::Classification::New => {
+                self.interpreters.insert(kind, incoming);
+                Ok(())
             }
         }
-        if let Some(existing) = self.interpreters.get(&kind) {
-            if existing.owner == owner
-                && existing.source == source
-                && existing.schema_id == schema_id
-                && std::ptr::fn_addr_eq(existing.lower, f)
-            {
-                return Ok(());
-            }
-            return Err(PlacementLoweringRegistrationError::Conflict {
-                kind,
-                existing_owner: existing.owner.clone(),
-                existing_source: existing.source.clone(),
-                existing_schema: existing.schema_id.clone(),
-                candidate_owner: owner,
-                candidate_source: source,
-                candidate_schema: schema_id,
-            });
-        }
-        self.interpreters.insert(
-            kind,
-            PlacementLoweringEntry {
-                owner,
-                source,
-                schema_id,
-                lower: f,
-            },
-        );
-        Ok(())
     }
 
     pub fn registered_kinds(&self) -> Vec<PlacementKind> {
@@ -312,9 +309,9 @@ impl<C: Send + Sync + 'static> PlacementLoweringRegistry<C> {
             .map(|(kind, entry)| {
                 (
                     kind.stable_id().to_owned(),
-                    entry.owner.clone(),
-                    entry.source.clone(),
-                    entry.schema_id.clone(),
+                    entry.meta.owner.clone(),
+                    entry.meta.source.clone(),
+                    entry.meta.schema_id.clone(),
                 )
             })
             .collect::<Vec<_>>();
@@ -325,7 +322,12 @@ impl<C: Send + Sync + 'static> PlacementLoweringRegistry<C> {
     pub fn deterministic_dump(&self) -> String {
         self.schema_descriptors()
             .into_iter()
-            .map(|(kind, owner, source, schema)| format!("{kind}\t{owner}\t{source}\t{schema}\n"))
+            // Byte-identical to the `format!` this replaced — `canonical_row` is
+            // `join("\t")` plus a newline — and it adds the assertion that no
+            // field smuggles a tab or newline into the grammar.
+            .map(|(kind, owner, source, schema)| {
+                ambition_registry_core::canonical_row(&[&kind, &owner, &source, &schema])
+            })
             .collect()
     }
 

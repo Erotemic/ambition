@@ -17,10 +17,12 @@
   attachment-transfer rule is the fix, and it must not introduce a second crawler
   controller.
 
-  ⛔ **but NO AUTHORED LEVEL PUTS THE TWO TOGETHER. Measured 2026-08-20** across
-  every `.ldtk` in `game/ambition_map_assets`: `SurfaceChain` appears in exactly
-  two levels, `sanic_sandbox` and `sanic_speedway`, and neither places a crawler
-  — the three crawler characters (`npc_puppy_slug` and its two variants) live in
+  ⛔ **but NO AUTHORED LEVEL PUTS THE TWO TOGETHER. Measured 2026-08-20,
+  re-measured 2026-09-02 and unchanged** across every `.ldtk` in
+  `game/ambition_map_assets`, counting placed entity instances rather than the
+  definition each file carries: `SurfaceChain` appears in exactly two levels,
+  `sanic_sandbox` (2) and `sanic_speedway` (2), and neither places a crawler —
+  the three crawler characters (`npc_puppy_slug` and its two variants) live in
   `hall_of_characters`, `intro` and `sandbox`, none of which authors a chain in
   the same level.
 
@@ -66,3 +68,42 @@
 
   ⇒ The row is no longer customer-gated. There is still no known porting bug —
   the exercise is to find out whether one exists.
+
+## Re-measured 2026-09-03 — both gates still closed, and both counts reproduce
+
+Swept every `.ldtk` in the `game/ambition_map_assets` submodule (6 files, at the
+committed pointer `71f17383`, clean) at LEVEL granularity — the granularity the
+2026-08-20 row was careful to use.
+
+* **Chain ↔ crawl transfer: still no customer.** `SurfaceChain` is PLACED in
+  exactly two levels, `sanic_sandbox` and `sanic_speedway` — the same two the
+  row named a fortnight ago. Crawlers are placed in nine levels across
+  `hall_of_characters`, `intro` and `sandbox`. **Levels containing both: none.**
+* **Portal transit inside a gravity zone: no AUTHORED pair, but a customer.**
+  `portal_lab` authors 14 `Portal`s and zero `GravityZone`s; `gravity_lab`,
+  `symmetry_room`, `wall_run` and `ceiling_cross` author zones and no portal
+  PAIRS. ⚠ Corrected the same day by the row above: `symmetry_room` places a
+  `PortalGunSpawn` beside its four zones, so the player can put a portal inside
+  a zone in play — the customer is the gun, not an authored pair.
+
+⇒ Both rows stay ▢ for the reason they already give: waiting on a customer, not
+on effort. Nothing here argues for building either rule speculatively.
+
+⚠ **A file-level grep TODAY would say the first gate has OPENED, and it has
+not.** `grep -rl SurfaceChain` matches **6 of the 6** world files, including all
+three worlds where the crawlers live. Five of those matches are the entity
+DEFINITION carried in every world sharing the definition set, not a placement.
+Placement is a property of a LEVEL and the definition is a property of the FILE;
+only the finer instrument separates them.
+⚠ And the first level-granularity pass reported **zero crawlers anywhere**, which
+contradicted the row and was my instrument, not the data: it read entity
+`__identifier` only, while a crawler is placed through a generic spawn entity
+carrying `npc_puppy_slug` in a FIELD value.
+
+⭐ **Worth noting WHY these numbers reproduce when others measured the same day
+did not:** `.ldtk` worlds are tracked — in a submodule, so `git ls-files` from
+the parent shows none of them, but they are versioned and pinned. A count over
+tracked, pinned inputs is a repository fact another machine can check. See
+[`../../recipes/re-measuring-a-planning-claim.md`](../../recipes/re-measuring-a-planning-claim.md)
+for the counts that were not.
+

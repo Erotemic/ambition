@@ -47,8 +47,9 @@ pub mod pickup;
 // discovery path for something it no longer owns, and the point of the carve is
 // that a consumer names the crate that has the code.
 //
-// ⛔ THE SIBLING STAYED, and the split is along the collect TRIGGER rather than
-// by size: `pickup` owns the PRESSED pickup (a held weapon grabbed with
-// `Attack`), reaches `abilities`, `ability_cooldown`, `construction` and
-// `shrine`, and holds 27 of this module's 51 references into the rest of the
-// kernel. That is a much larger carve and is not this one.
+// ⭐ AND THE SIBLING FOLLOWED (D33, 2026-09-03): the PRESSED pickup is
+// `ambition_held_items` now. What `pickup` keeps is the KERNEL's — the plugin
+// that chains the three `ItemPickupSet` variants and attaches the shrine, the
+// gun and the match spawn to the domain's `HeldItemStep`s, the checkpoint
+// policy over the domain's components, and `minted_horizon`. Same rule: nothing
+// re-exported; games reach the domain through the facade's `held_items`.

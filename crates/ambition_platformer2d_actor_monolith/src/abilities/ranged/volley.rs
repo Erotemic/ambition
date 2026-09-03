@@ -58,7 +58,7 @@ pub fn fire_volley_system(
     // ⭐ EVERY DRIVEN BODY, not the one the primary seat happens to hold.
     // `ControlledSubject` is singular by construction, so a possessed body or a
     // second seat holding the same gauntlet simply never fired.
-    driven: crate::items::pickup::DrivenBodies,
+    driven: ambition_held_items::DrivenBodies,
     mut players: Query<(
         Entity,
         &ActorControl,
@@ -88,7 +88,7 @@ pub fn fire_volley_system(
         }
         // The body's per-tick resolved frame (ADR 0024 frame law).
         let frame = resolved_frame.basis();
-        let aim_local = crate::items::pickup::ability_aim_local(&c, kin.facing);
+        let aim_local = ambition_held_items::ability_aim_local(&c, kin.facing);
         let aim = frame.to_world(aim_local).normalize_or_zero();
         if aim == ae::Vec2::ZERO {
             continue;

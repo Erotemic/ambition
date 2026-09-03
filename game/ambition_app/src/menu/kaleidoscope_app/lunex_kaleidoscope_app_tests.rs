@@ -139,7 +139,7 @@ fn extra_dev_toggles_flip_their_non_developer_resources() {
                 portal_effect: None,
                 #[cfg(feature = "portal_render")]
                 portal_camera: None,
-                base_gravity: None,
+                gravity_requests: None,
             },
             id,
             0,
@@ -225,7 +225,7 @@ fn menu_backend_dev_row_cycles_inventory_backend() {
             portal_effect: None,
             #[cfg(feature = "portal_render")]
             portal_camera: None,
-            base_gravity: None,
+            gravity_requests: None,
         },
         DevToggleId::MenuBackend,
         0,
@@ -242,7 +242,7 @@ fn menu_backend_dev_row_cycles_inventory_backend() {
             portal_effect: None,
             #[cfg(feature = "portal_render")]
             portal_camera: None,
-            base_gravity: None,
+            gravity_requests: None,
         },
         DevToggleId::MenuBackend,
         0,
@@ -272,7 +272,7 @@ fn show_hitboxes_toggles_feature_and_player_fields_like_pause() {
             portal_effect: None,
             #[cfg(feature = "portal_render")]
             portal_camera: None,
-            base_gravity: None,
+            gravity_requests: None,
         },
         DevToggleId::ShowHitboxes,
         0,

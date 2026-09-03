@@ -10,8 +10,9 @@ This page is the dual of
 ran actually run* — and it exists because on 2026-09-02 a single day's work
 turned up SEVEN members of the same family in one gate script; an eighth was
 already sitting in the backlog unrecognised, and a ninth surfaced the same night.
+A tenth followed on 2026-09-03.
 
-⭐ **THE FINDING IS NOT THE COUNT. It is that six of the nine were found by
+⭐ **THE FINDING IS NOT THE COUNT. It is that seven of the ten were found by
 accident** — by running a suite for an unrelated reason, by an external reviewer
 reading source, by running `cargo check` by hand before the gate. Not one was
 found by the checking system noticing its own hole. A gate cannot audit its own
@@ -75,7 +76,7 @@ cited `run_tests.py:368`, `:588` and `:590`. One merge later they were `:375`,
 claims that quietly stop being true. Grep for the job's name string or its gate
 expression; those survive edits that line numbers do not.
 
-## The nine, and what each one teaches
+## The ten, and what each one teaches
 
 | # | the check | how it lied | status |
 |---|---|---|---|
@@ -84,9 +85,10 @@ expression; those survive edits that line numbers do not.
 | 3 | `check_no_warnings.py` | parses diagnostics instead of setting `-D warnings`, so it reuses the build fingerprint — and **cached crates do not re-emit warnings**. In a warm tree it reports clean while real warnings exist | fixed `234bcc686` — the gate job is now `check_no_warnings.py --fresh`, and the price of the cold re-fingerprint is stated at the job |
 | 4 | the repo-tooling lane | simply not invoked by the flag anybody was using | fixed `2945f3381` |
 | 5 | the wasm CHECK | is **TYPE-ONLY**. `cargo check` cannot see a `#[cfg]` that removes BEHAVIOUR rather than breaking a build | ⛔ **STRUCTURALLY LIVE** |
-| 6 | "web persona BOOTS" | runs the web composition **NATIVELY** (`--features visible_web_base`, native target), so it compiles the `not(wasm32)` branch — and its `if not only and everything:` gate puts it in the exhaustive plan only | ⛔ **STRUCTURALLY LIVE, TWICE** |
+| 6 | "web persona BOOTS" | runs the web composition **NATIVELY** (`--features visible_web_base`, native target), so it compiles the `not(wasm32)` branch — and its `if not only and everything:` gate puts it in the exhaustive plan only | ⛔ **STRUCTURALLY LIVE, TWICE.** ✔ **RUN 2026-09-03 on the calculex host (no GPU): it SURVIVES startup** — route `ambition_launcher`, 23 UI nodes, 10 UI texts, 0 sprites, 2 cameras, simulation host `Rollback`; 16 m 01 s to build. ⚠ That closes NEITHER half: the run is still native, so it still compiles the `not(wasm32)` branch, and the gate still plans it only in the exhaustive plan. What it does establish is that the job passes when someone runs it, which had not been checked |
 | 8 | the Bevy 0.19 **Android font path** | is TYPECHECKED, NEVER RUN. The port deleted the hand-rolled `seed_android_system_fonts` and turned on Bevy's `system_font_discovery` for `android_platform` instead. ⛔ Its whole job is to find fonts the HOST does not have, so a desktop green says nothing about it | ⛔ **STRUCTURALLY LIVE.** Recorded in `../planning/tracks.md`; closing it needs a device, not a build |
-| 9 | the **16 `image_stages` tests**, including the reveal-readiness guard | exist only under `--features bevy`. `ambition_asset_manager`'s DEFAULT features exclude `bevy`, so the module does not exist in `cargo test -p ambition_asset_manager`: **56 tests run, not 83**. The gate's feature-union job would cover them — but it is built inside `if everything:`, so it is EXHAUSTIVE-PLAN ONLY | ⛔ **STRUCTURALLY LIVE.** Found 2026-09-02 when a new test in that module printed `running 0 tests` and PASSED |
+| 9 | the **16 `image_stages` tests**, including the reveal-readiness guard | exist only under `--features bevy`. `ambition_asset_manager`'s DEFAULT features exclude `bevy`, so the module does not exist in `cargo test -p ambition_asset_manager`: **56 tests run, not 83**. The gate's feature-union job would cover them — but it is built inside `if everything:`, so it is EXHAUSTIVE-PLAN ONLY | ⛔ **STRUCTURALLY LIVE.** Found 2026-09-02 when a new test in that module printed `running 0 tests` and PASSED. ✔ **RUN 2026-09-03 on the calculex host, and every number reproduces: 83 with `--features bevy`, 56 without, 16 of the difference in `image_stages` — and all 83 PASS.** So the blindness is not currently hiding a failure, which is worth knowing and is NOT the same as it being fixed: the gate still does not run them, and the next break here is still invisible to it |
+| 10 | `[census] owners` (and its sibling `owners_in`) | is a **TOP-20**. The row prints `crates=82` and then names twenty, so a reader who greps it for a crate and finds nothing cannot tell *registers no systems* from *ranked 21st* — and the emitter's own doc comment says the row answers *"should a shipped title carry this at all"*, which is an ABSENCE question. Absence was uninformative for 62 of 82 crates while looking authoritative | fixed 2026-09-03 — both emitters now append `+N_more_not_shown`. ⚠ A DIFFERENT SPECIES from 1-9: not a gate that skipped, an instrument that answered a narrower question than it appeared to |
 | 7 | the coverage footer | said `- the wasm/web build LINK (the wasm CHECK ran)` **unconditionally**, while the job is appended only `if wasm_target_installed()`. No target → no web job, all green, exit 0, and a report that it was checked | fixed `159e76ba8` |
 
 Between #5 and #6 the web path had **zero behavioural coverage**: one job could
@@ -120,6 +122,28 @@ mattered. The other 30 are unmeasured.
 in the DEFAULT plan, or only in the one nobody runs?** A test that only the
 exhaustive plan executes is a test that runs when somebody already suspects a
 problem.
+
+### The negative result #10 was hiding, now that the instrument reports honestly
+
+Worth finishing, because the aborted version of this was going to be a dramatic
+finding. With every owner named, the shipped headless composition in
+`hall_of_characters` bills systems to **12 of the 17** capability crates in the
+facade's `all_capabilities`. The five that bill none are
+`ambition_cutscene`, `ambition_settings_menu`, `ambition_sfx`,
+`ambition_sfx_bank` and `ambition_ui_nav`.
+
+⇒ **And all five are correctly absent.** None of them defines a Bevy `Plugin`,
+and the only `add_systems` calls anywhere in the five are two inside
+`ambition_sfx`'s own unit tests (`World::new()`, `Schedule::default()`). They are
+data and vocabulary crates; a system census has nothing to say about them. Audio
+itself is composed here — `ambition_audio` bills 10 systems — so their silence is
+not a headless artifact either.
+
+⭐ **The finding is that there is no finding.** Read through the truncated row
+the same evidence said 16 of 17 capabilities were dead. Read through the fixed
+row it says twelve do work, five are the wrong shape of thing to ask about, and
+nothing is unaccounted for. An instrument that narrows silently does not just
+lose precision — it manufactures the more interesting answer.
 
 ## The three remedies, and which one you are actually reaching for
 

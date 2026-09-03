@@ -41,9 +41,53 @@ player chooses "Challenge it"* in dialogue — the same body, the same `Brain` +
   combat → win/loss. The dialogue→provoke bridge flips the brain + disposition and arms
   the hostile volumes. Placed in the Noether Chamber via LDtk as a peaceful archetype.
 
+> ⭐ **RE-VERIFIED against `8bb0dd5a7` (2026-09-03)** (this page had gone two months unread, the oldest
+> in `docs/planning/`, and every claim above holds). The kit is where it says:
+> `cellular_pulse` is named in five files including its own
+> `game/ambition_content/src/cellular_automaton_moveset.rs`, and the glider,
+> blink and dialogue→provoke bridge all resolve.
+>
+> ⚠ **ONE NAMING TRAP, which is the only thing a reader would trip on.** There
+> is no LDtk level called "Noether Chamber" — that is the DESIGN name, and it
+> survives in the tree only as a comment in `character_catalog.ron` ("Symmetry
+> tutorial (Noether Chamber)"). The authored level id is **`symmetry_room`** in
+> `sandbox.ldtk`. ⇒ Search for the design name and you conclude the placement
+> was never made. ⭐ And it is placed TWICE: `symmetry_room` and
+> `hall_of_characters`, the second of which this page does not mention.
+
 > Engine vs content split: generic machinery (Smash verbs, the glider primitive,
 > `CharacterAnim::Special`, the dialogue→provoke Yarn command) lives in the engine;
 > the PCA's stats / tuning / placement / dialogue live in `ambition_content`.
+
+### Re-measured 2026-09-03 — the kit is real, the PLACEMENT line is stale
+
+* ✔ **The kit claims hold where spot-checked.** The signature move is authored
+  content, not a plan: `cellular_pulse` appears in the content crate's
+  `cellular_automaton_moveset.rs`, `authored_movesets.rs` and
+  `authored/perfect_cellular_automaton.rs`, with coverage in
+  `game/ambition_content/tests/aerial_authoring.rs` and in
+  `crates/ambition_combat/src/brain/smash/action/tests.rs`.
+
+* ⛔ **"Placed in the Noether Chamber via LDtk" names a room that does not
+  exist.** There is no Noether Chamber in any world file. The PCA is authored
+  into `hall_of_characters.ldtk` (and `sandbox.ldtk`) as the entity
+  `hall_perfect_cellular_automaton`. The only "Noether" in the world data is a
+  *character*, `hall_npc_emmy_noether`.
+  ⚠ I checked the obvious rename before concluding this, because Noether's
+  theorem IS the symmetry/conservation law and `symmetry_chamber` exists — but
+  it is a synthetic combat-test `Stage` in
+  `crates/ambition_combat/src/brain/smash/arena.rs:89`, not a room. So the
+  chamber was not renamed; the placement line describes an arrangement the
+  content no longer has.
+
+* ⚠ **A sibling this page does not mention.** `imperfect_cellular_automaton` is
+  fully authored in `character_catalog.ron:850` — its own display name,
+  spritesheet, `tier: MainHall`, `body_kind: Floating` and a
+  `hall_dialogue_id` — and it is placed in the same world as the PCA. Whether an
+  *Imperfect* Cellular Automaton belongs in a page about failed objective
+  functions is a design call for this page's owner, not a gap I should close:
+  it may be a peaceful hall NPC by intent. Recorded so the roster is a decision
+  rather than an oversight.
 
 ## Roster (story bosses)
 

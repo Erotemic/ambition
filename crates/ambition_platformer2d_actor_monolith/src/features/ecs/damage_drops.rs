@@ -307,7 +307,7 @@ pub fn drop_held_weapon(
     commands.spawn_session_scoped(
         session_scope,
         (
-            crate::items::pickup::GroundItem {
+            ambition_held_items::GroundItem {
                 spec,
                 pos,
                 vel: ae::Vec2::ZERO,

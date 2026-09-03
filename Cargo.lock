@@ -325,6 +325,7 @@ dependencies = [
  "ambition_dialog",
  "ambition_encounter",
  "ambition_entity_catalog",
+ "ambition_held_items",
  "ambition_input",
  "ambition_interaction",
  "ambition_items",
@@ -588,6 +589,25 @@ dependencies = [
 ]
 
 [[package]]
+name = "ambition_held_items"
+version = "0.1.0"
+dependencies = [
+ "ambition_characters",
+ "ambition_combat",
+ "ambition_entity_catalog",
+ "ambition_input",
+ "ambition_items",
+ "ambition_mount",
+ "ambition_platformer2d_core",
+ "ambition_platformer2d_shared_tangle",
+ "ambition_platformer2d_world",
+ "ambition_portal2d",
+ "ambition_sfx",
+ "ambition_time",
+ "bevy",
+]
+
+[[package]]
 name = "ambition_input"
 version = "0.1.0"
 dependencies = [
@@ -719,6 +739,7 @@ dependencies = [
  "ambition_entity_catalog",
  "ambition_game_shell",
  "ambition_gameplay_trace",
+ "ambition_held_items",
  "ambition_input",
  "ambition_interaction",
  "ambition_inventory_ui",
@@ -774,6 +795,7 @@ dependencies = [
  "ambition_encounter",
  "ambition_entity_catalog",
  "ambition_gameplay_trace",
+ "ambition_held_items",
  "ambition_input",
  "ambition_interaction",
  "ambition_items",
@@ -785,6 +807,7 @@ dependencies = [
  "ambition_platformer2d_world",
  "ambition_portal2d",
  "ambition_projectiles",
+ "ambition_registry_core",
  "ambition_sfx",
  "ambition_sim_view",
  "ambition_sprite_sheet",
@@ -921,6 +944,7 @@ dependencies = [
  "ambition_dialog",
  "ambition_encounter",
  "ambition_gameplay_trace",
+ "ambition_held_items",
  "ambition_input",
  "ambition_items",
  "ambition_load",
@@ -966,6 +990,7 @@ dependencies = [
  "ambition_entity_catalog",
  "ambition_platformer2d_core",
  "ambition_platformer2d_shared_tangle",
+ "ambition_registry_core",
  "bevy_app",
  "bevy_ecs",
  "petgraph",
@@ -1110,6 +1135,7 @@ dependencies = [
  "ambition_dialog",
  "ambition_encounter",
  "ambition_entity_catalog",
+ "ambition_held_items",
  "ambition_input",
  "ambition_interaction",
  "ambition_mount",

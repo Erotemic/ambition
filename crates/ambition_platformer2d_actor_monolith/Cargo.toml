@@ -55,7 +55,7 @@ desktop_dev = ["visible", "desktop_platform", "dev_tools", "mobile_touch"]
 #                   When `portal_ldtk` is OFF, the LDtk converter fails loudly on
 #                   a `Portal` / `PortalGunSpawn` entity rather than silently
 #                   dropping it.
-portal = ["dep:ambition_portal2d", "ambition_projectiles/portal", "dep:ambition_platformer2d_ldtk", "ambition_platformer2d_ldtk/portal"]
+portal = ["dep:ambition_portal2d", "ambition_held_items/portal", "ambition_projectiles/portal", "dep:ambition_platformer2d_ldtk", "ambition_platformer2d_ldtk/portal"]
 # `portal_render` does NOT force `visible` on, so the web backbone
 # (`visible_web_base`, which mirrors `visible` rather than enabling it) can opt
 # into portal visuals without dragging in the desktop-only audio/ui/physics
@@ -341,6 +341,7 @@ frame_pacing = ["dep:bevy_framepace"]
 profile = ["bevy/trace", "bevy/trace_tracy"]
 
 [dependencies]
+ambition_registry_core = { path = "../ambition_registry_core" }
 bevy_ecs = { version = "0.19.1", default-features = false }
 bevy_math = { version = "0.19.1", features = ["serialize"] }
 parry2d = "0.26"
@@ -378,6 +379,10 @@ ambition_platformer2d_shared_tangle = { path = "../ambition_platformer2d_shared_
 # still owns the PRESSED pickup and the two are siblings, so this crate is named
 # from `rollback_registration` and from the pickup plugin's ordering comment.
 ambition_world_items = { path = "../ambition_world_items" }
+# The PRESSED collectible (D33, 2026-09-03): pickup / use / throw / physics /
+# residency and the schedule they own. The kernel keeps checkpoint policy over
+# its components and attaches its own systems to its steps.
+ambition_held_items = { path = "../ambition_held_items" }
 # ADR 0019; Stage 19.
 ambition_portal2d = { path = "../ambition_portal2d", optional = true }
 # The reusable projectile MODEL (E2): shot vocabulary + components + spawn pool +

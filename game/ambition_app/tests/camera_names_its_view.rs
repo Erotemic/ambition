@@ -54,7 +54,7 @@ fn the_shipped_hosts_main_camera_names_the_view_it_presents() {
 /// `eprintln`, and the debug overlay. With two views a global cannot answer *whose* framing it
 /// is, so all four would have drawn one view's framing over both. (A fifth,
 /// `rendering/foreground.rs`, was counted by the migration and turned out to be an orphaned
-/// file no `mod` declaration ever compiled.)
+/// file no `mod` declaration ever compiled.)  <!-- cite-ok: naming a path that never compiled IS the point -->
 ///
 /// the non-vacuity half is the point. Asserting the component EXISTS proves
 /// nothing on its own: it is spawned with the view, so it would be present even

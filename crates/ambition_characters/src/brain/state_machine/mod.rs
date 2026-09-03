@@ -51,9 +51,9 @@ pub enum StateMachineCfg {
         state: ChargeCrashState,
     },
     /// Scripted multi-phase boss policy. The cfg + state live in
-    /// `brain/boss_pattern.rs`; this variant carries them but the
+    /// `brain/boss_pattern/mod.rs`; this variant carries them but the
     /// real tick driver is `tick_boss_brains_system` in
-    /// `features/ecs/bosses.rs` (see the dispatch fn below).
+    /// `ambition_boss_encounter/src/ecs/tick.rs` (see the dispatch fn below).
     BossPattern {
         cfg: super::BossPatternCfg,
         state: super::BossPatternState,

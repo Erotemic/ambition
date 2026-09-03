@@ -2,6 +2,29 @@
 
 **State:** OPEN / LATER — architecture direction is useful now; implementation should wait for actor/navigation/world-fact foundations.
 
+> **RE-MEASURED against `3c3b0d695` (2026-09-03): TWO of the three stated
+> foundations now EXIST, and the wait is gated on exactly one.**
+>
+> | foundation | state |
+> |---|---|
+> | world facts | ✔ **exists** — `world_facts` module and `WorldFactConditionsPlugin` (`crates/ambition_platformer2d_actor_monolith/src/world_facts.rs:132`), installed by `ambition_platformer2d_runtime` |
+> | observations / memory | ✔ **exists** — `WorldMemory` (`crates/ambition_characters/src/perception.rs:740`), `PerceptionMemory` (`crates/ambition_platformer2d_actor_monolith/src/features/ecs/perception.rs:388`), plus `AgentObservation` / `CombatObservation` in the sim harness |
+> | navigation / reachability | ⛔ **absent** — no reachability type, no nav graph, no pathfinding of any kind |
+>
+> ⇒ **So "wait for the foundations" now means "wait for navigation".** The other
+> two arrived without this page noticing, and a reader deciding whether to start
+> would have been told to wait for three things when two are already here. Owner
+> of the remaining one:
+> [`platformer-navigation-and-reachability.md`](platformer-navigation-and-reachability.md).
+>
+> ⚠ **The absence was double-checked, because it is the load-bearing half.** A
+> broad `reachab` grep returns only incidental English (`unreachable!`, "not
+> reachable in today's content"), and a `pathfind|a_star|astar|navmesh` sweep
+> returned nothing but SUBSTRING noise — `a_star` matching
+> `the_visual_follows_a_stored_set` and `EXTRA_STARTUP`. A pattern that matches
+> inside unrelated identifiers is not evidence either way, which is why the
+> conclusion rests on the concept sweep and not on that one.
+
 ## Goal
 
 Let persistent characters pursue goals, move through the world, choose engine

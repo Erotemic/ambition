@@ -32,7 +32,7 @@ Also landed:
   `game/ambition_demo_sanic/src/badnik.rs`).
 
 Remaining acceptance work is product/content work
-(**this list is the single source; status.md and tracks.md refer here**):
+(**this list is the single source; [`status.md`](../status.md) and [`tracks.md`](../tracks.md) refer here**):
 
 - ✅ **The scatter is a real scatter, and you can SEE it — 2026-07-25.** Three
   gaps closed: runtime-spawned rings had no presentation (`rebuild_dynamic_feature_views`
@@ -142,6 +142,26 @@ faster through the rewarded high route.
 
 The demo app remains small and contains no app-local input system, direct sprite
 binding, or dependency on `ambition_app`.
+
+✔ **Re-measured 2026-09-03 — all three hold**, which is worth recording because a
+boundary nobody checks is the one everyone assumes has drifted:
+
+* **No `ambition_app` dependency.** `game/ambition_demo_sanic/Cargo.toml` never
+  names it; the only occurrence anywhere in the pair is a COMMENT in
+  `game/ambition_demo_sanic_app/Cargo.toml:34` stating the rule itself —
+  *"depends on `ambition_platformer2d`, never on `ambition_app`. That is the demo
+  gate."* The gate is written where a violation would have to be typed.
+* **No app-local input system.** Across 42 `add_systems` registrations in the
+  demo lib, none reads a device or writes a `ControlFrame`. The single `KeyCode`
+  reference (`game/ambition_demo_sanic/src/lib.rs:280`) is a HUD LABEL that asks
+  the engine's own bindings what key an action is bound to — presentation of the
+  input vocabulary, not a second input path.
+* **No direct sprite binding.** The one place the demo touches an atlas is
+  `register_sanic_ring_prop_sheet` (`game/ambition_demo_sanic/src/lib.rs:830`),
+  which registers demo-owned PROP art (the ring) through the engine's own
+  `load_prop_sheet_for_target` into `GameAssets::characters::props`. Demo art
+  entering by the engine's seam is the arrangement this clause asks for, not an
+  exception to it.
 
 ## Proposed — polish backlog (2026-07-16)
 

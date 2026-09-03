@@ -41,7 +41,12 @@ pub(crate) struct DevToggleWrite<'a> {
     #[cfg(feature = "portal_render")]
     pub(crate) portal_camera:
         Option<&'a mut ambition_platformer2d::portal_presentation::PortalCameraContinuitySelection>,
-    pub(crate) base_gravity: Option<&'a mut ambition_platformer2d::world::BaseGravity>,
+    // The Gravity row PUBLISHES a request; the sim applies it (`BaseGravity` is
+    // rollback state). `Messages` rather than a `MessageWriter` so a fixture
+    // without the gravity plugin renders the row as a no-op instead of
+    // failing the whole menu system's parameter validation.
+    pub(crate) gravity_requests:
+        Option<&'a mut bevy::prelude::Messages<ambition_platformer2d::world::AmbientGravityRequest>>,
 }
 
 /// Read every developer toggle/cycle into a [`DevSnapshot`] for the SYSTEM IR. The
@@ -222,14 +227,15 @@ pub(crate) fn apply_dev_toggle(ctx: DevToggleWrite<'_>, id: DevToggleId, dir: i3
             #[cfg(not(feature = "portal_render"))]
             let _ = dir;
         }
-        // Cycle ambient gravity (down → left → up → right) via the shared
-        // `BaseGravity::cycle` — the in-menu equivalent of the `\` hotkey, so
-        // sideways/inverted gravity is reachable on mobile. Direction is moot
-        // (always steps forward); absent under fixtures: no-op.
+        // Cycle ambient gravity (down → left → up → right) by REQUEST — the
+        // in-menu equivalent of the `\` hotkey, so sideways/inverted gravity is
+        // reachable on mobile; the sim's `apply_ambient_gravity_requests` does
+        // the step. Direction is moot (always steps forward); absent under
+        // fixtures: no-op.
         D::Gravity => {
             let _ = dir;
-            if let Some(base) = ctx.base_gravity {
-                base.cycle();
+            if let Some(requests) = ctx.gravity_requests {
+                requests.write(ambition_platformer2d::world::AmbientGravityRequest::Cycle);
             }
         }
     }

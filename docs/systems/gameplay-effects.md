@@ -15,7 +15,7 @@ Use the focused progression/save/audio messages for effects that cross into save
 - `SwitchActivated { activation, pos }` — switch activation → encounter queue + click SFX (`apply_switch_effects`).
 - `GameplaySfxRequested { id, pos }` — standalone audio-only effects (`apply_gameplay_sfx_effects`).
 
-(Boss damage is applied inline in the hit path; NPC strike/aggression flows through `ActorStimulus` → `apply_npc_stimuli` / `apply_actor_stimuli`.)
+(Boss damage is applied inline in the hit path; NPC strike/aggression flows through `ActorStimulus` → `apply_actor_stimuli` (`actor_monolith/src/features/ecs/aggression.rs:21`). ⚠ This named a PAIR — `apply_npc_stimuli` / `apply_actor_stimuli` — until 2026-09-03. `de22be956` (2026-06-22) merged them, and its subject says so: *"one actor cluster + in-place provoke"*. The doc kept both halves of a split the commit removed, which is the readable shape of this rot: a slash between two names where the point of the change was that there is now one.)
 
 Use domain-specific messages when the consumer is known and the payload is more specific:
 

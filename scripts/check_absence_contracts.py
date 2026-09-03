@@ -1096,6 +1096,28 @@ def capability_footprint_violations(root: Path) -> list[str]:
     return sorted(sentinel_linked_closure(root) - set(baseline["ambition_closure"]))
 
 
+def capability_footprint_departures(root: Path) -> list[str]:
+    """Crates the frozen closure still names that the sentinel no longer links.
+
+    ⛔ THE RATCHET WAS ONE-DIRECTIONAL FOR SIX WEEKS AND THAT IS HOW THE BASELINE
+    ROTTED. Growth is the violation, so growth is all it looked for -- and a
+    DEPARTURE left the closure and the counts pruned by whoever noticed, while
+    every sub-list that named the crate kept naming it. On 2026-09-03 five such
+    names were found across two lists, one of them twelve days old, and they were
+    not cosmetic: `reachable_only_through_the_facade` is the "closable by a
+    manifest edit?" list a carve decision is taken off, and three of its four
+    entries had already left.
+
+    ⭐ A DEPARTURE IS GOOD NEWS AND STILL FAILS, on purpose. The footprint
+    shrinking is the outcome the whole campaign wants; what must not happen is
+    the shrink landing while the record of it does not. Red here means "re-freeze
+    the baseline IN THIS COMMIT", which is the same discipline the checklist
+    already applies to a carve that adds a crate.
+    """
+    baseline = json.loads((root / CAPABILITY_FOOTPRINT_BASELINE).read_text())
+    return sorted(set(baseline["ambition_closure"]) - sentinel_linked_closure(root))
+
+
 ROLLBACK_SCHEMA_BASELINE = (
     "scripts/baselines/rollback-schema-baseline.json"
 )
@@ -1607,6 +1629,18 @@ def main() -> int:
             print(f"       still named — {summary}")
 
     grown = capability_footprint_violations(root)
+    left = capability_footprint_departures(root)
+    if left:
+        broken += 1
+        print("  RED  capability-footprint-baseline-is-stale")
+        print(
+            "       ⭐ THE FOOTPRINT SHRANK, which is the outcome the campaign "
+            "wants — but the baseline still names crates the sentinel no longer "
+            "links, and every sub-list that names them goes stale silently. "
+            "Re-freeze it in THIS commit."
+        )
+        for crate in left:
+            print(f"       LEFT   {crate} is no longer in the consumer's closure")
     if not grown:
         footprint = json.loads((root / CAPABILITY_FOOTPRINT_BASELINE).read_text())
         print(

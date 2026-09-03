@@ -1180,6 +1180,34 @@ OPTIONAL dep + feature, never used:
   `ambition_content` → `ambition_content_cli`) — those are dev-dependency
   questions, not unused ones.
 
+- ▢ **POST-CARVE: SWEEP THE DOCS FOR PROSE LOCATIONS, because the citation
+  checker is STRUCTURALLY BLIND TO THEM.** (Found 2026-09-03.)
+  `check_planning_citations.py --strict` read **1,222 citations, all resolved —
+  before and after five sentences were fixed that were flatly false.** It
+  resolves cited SYMBOLS; a sentence that merely says where code lives is prose:
+
+```text
+"…is `actor_monolith::items::pickup`, which stayed in the kernel"
+"`items::pickup` KEEPS the pressed pickup"
+"Guards: `items::pickup::tests` (the request)"
+```
+
+  ⇒ A carve updates every citation the tooling can see and leaves every
+  DESCRIPTION of a location — and *"which stayed in the kernel"* is exactly what
+  a reader trusts without grepping, because it reads as settled architecture
+  rather than a dated fact.
+  ▢ **The routine, after any carve:** grep the planning tree for each moved
+  module's OLD path, then sort the hits into HISTORY (past tense, a quoted
+  correction, a checklist's record — KEEP) and STALE (present tense about where
+  code is, or a guard cited at a module that no longer exists — FIX).
+  ⛔ **RE-TENSE, DO NOT DELETE**, and the ratio is why: of eight hits on
+  `items::pickup`, **five were correct history and three were stale**. A regex
+  that purged the string would have broken five true sentences to fix three
+  false ones. `keeps` → `kept` retires the location and preserves the argument,
+  which usually survives the move.
+  ⚠ The same blindness covers `//!` module headers in code — a doc comment
+  naming where a sibling lives is prose too.
+
 - ▢ **D33 — continue actor-monolith decomposition by coherent ownership.** Pick a
   carve that removes a real authority/dependency edge from the residual actor
   kernel, moves registration/tests with the domain, and improves capability or
@@ -1633,7 +1661,12 @@ OPTIONAL dep + feature, never used:
   ```
 
   ⇒ **THE ENTANGLEMENT IS 201 LINES OF SCHEDULING, NOT 1,659 LINES OF LOGIC.**
-  The plugin names `crate::abilities::{ranged ×10, traversal ×4, thrown ×3}`,
+  ⚠ MEASURED PRE-CARVE (2026-09-02) and kept as the reading that unblocked the
+  cut — two of the paths below are no longer kernel paths at all
+  (`abilities` and `ability_cooldown` are `ambition_abilities` since
+  2026-09-03), which does not weaken the measurement but does mean it is
+  history.
+  The plugin named `crate::abilities::{ranged ×10, traversal ×4, thrown ×3}`,
   `crate::shrine` ×3, `crate::construction` ×2 and `crate::ability_cooldown` —
   every one of them a SYSTEM NAME being placed in a schedule, not a call the
   pickup logic makes. The pickup domain itself reaches out exactly TWICE, both at

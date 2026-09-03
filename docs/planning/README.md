@@ -432,6 +432,26 @@ demonstrated. `engine/engine-1.0-architecture-program.md`'s
 from the obvious grep, 3 of them tests, and no way to tell which count the page
 meant.
 
+### ⛔ A BARE FILENAME IS NOT AN ADDRESS IN A 63-CRATE WORKSPACE
+
+`file.rs:123` reads like a citation and often is not one. Three separate rows <!-- cite-ok: these are QUOTED bad citations; the row's subject is that they do not resolve -->
+written on 2026-09-03 cited `duel_arena.rs:67` (2 tracked matches), <!-- cite-ok: these are QUOTED bad citations; the row's subject is that they do not resolve -->
+`facts.rs:517` (2) and `world.rs:187` (3) — all generic-sounding names, which <!-- cite-ok: these are QUOTED bad citations; the row's subject is that they do not resolve -->
+is exactly the population most likely to exist several times over. A reader
+following one lands in the wrong file, finds nothing resembling the claim, and
+concludes the ROW is wrong.
+
+⭐ `check_planning_citations.py` catches these and says `AMBIGUOUS: N tracked
+files match this suffix`, which is the cheap end of the fix. ⚠ It only helps if
+you READ the result: one of the three shipped for a commit because the tail of
+the output says `1 unresolved:` where a clean run says `all resolved.` — same
+shape, same place, and a glance cannot tell them apart. Grep for both words
+rather than eyeballing the tail.
+
+⇒ Write the workspace-relative path the first time. It costs nothing at the
+keyboard and there is no version of "the reader will figure out which one" that
+survives a carve moving one of the candidates.
+
 ### ⭐ A ROW'S PREMISES ARE SEPARABLE FROM ITS MEASUREMENT, and usually cheaper
 
 A finding whose measurement needs a full build is not therefore unmaintainable

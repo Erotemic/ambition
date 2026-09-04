@@ -90,6 +90,71 @@ pub use systems::{
     update_boss_encounters,
 };
 
+/// Installs the boss-encounter capability: its sim systems, its messages and its
+/// resources.
+///
+/// ⭐⭐ THE POINT IS THAT A CONSUMER CAN NOW OMIT IT. Before this, these eight
+/// systems were scheduled by `ambition_platformer2d_runtime`'s
+/// `progression_schedule`, its three messages were registered there, and two of
+/// its resources were initialised in `sim_core_resources` — so "generic
+/// encounters without boss encounters", one of the compositions named in
+/// `docs/planning/engine/decomposition.md`, could not be written at all: there
+/// was no seam to omit the capability through. It is a `.disable::<_>()` now.
+///
+/// ⭐ IT NAMES ONLY PUBLISHED SET VOCABULARY. `ProgressionSet::BossAdvance` and
+/// `BossHazards` live in `ambition_platformer2d_shared_tangle::schedule`, which
+/// this crate already depended on, so nothing had to move to make this possible
+/// and no ordering was renegotiated. That is what made it a plugin rather than a
+/// carve — and it is the check worth running before proposing the next one:
+/// a capability whose ordering edges name another capability's SYSTEMS cannot be
+/// installed this way, however coherent its authority is.
+///
+/// ⚠ THE HOST STILL OWNS THE SETS. This plugin does not `configure_sets`; the
+/// runtime anchors `ProgressionSet` into the engine chain, and this only says
+/// which systems belong in two of its slots. A capability that configured the
+/// ordering it runs in would be a second authority over the schedule.
+pub struct BossEncounterSimulationPlugin;
+
+impl bevy::prelude::Plugin for BossEncounterSimulationPlugin {
+    fn build(&self, app: &mut bevy::prelude::App) {
+        use ambition_platformer2d_shared_tangle::schedule::{ProgressionSet, SimScheduleExt};
+        use bevy::prelude::IntoScheduleConfigs;
+
+        let sim = app.sim_schedule();
+
+        app.init_resource::<BossCatalog>();
+        app.init_resource::<BossEncounterRegistry>();
+        app.add_message::<EncounterGate>();
+        app.add_message::<PayloadReleased>();
+        app.add_message::<BossPhaseChanged>();
+
+        app.add_systems(
+            sim,
+            (
+                // Mount-death → `mount_died` external phase trigger, ahead of
+                // the phase driver so the swap is same-frame (Q19).
+                notify_bosses_on_mount_death,
+                update_boss_encounters,
+                sync_boss_encounter_entities,
+                update_encounter_progress,
+            )
+                .chain()
+                .in_set(ProgressionSet::BossAdvance),
+        );
+        app.add_systems(
+            sim,
+            (
+                tick_falling_hazards,
+                tick_encounter_scripts,
+                release_payloads_on_death,
+                boss_phase_transition_feedback,
+            )
+                .chain()
+                .in_set(ProgressionSet::BossHazards),
+        );
+    }
+}
+
 // ── Progression-phase content slots (E-track de-weave) ──────────────────────
 //
 // The `Platformer2dSimulationPhaseMonolith::Progression` chain is ENGINE-generic (boss-encounter tick,

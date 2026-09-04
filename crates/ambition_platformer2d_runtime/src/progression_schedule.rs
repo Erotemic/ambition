@@ -23,8 +23,6 @@ impl Plugin for ProgressionSchedulePlugin {
         let sim = app.sim_schedule();
         // R5 encounter-script messages: the named gate (rope cut / hazard impact
         // / cues) + the on-death payload-release signal.
-        app.add_message::<ambition_boss_encounter::EncounterGate>();
-        app.add_message::<ambition_boss_encounter::PayloadReleased>();
         // ADR 0020 / Q19: mount dissolution. Written in the `Combat` set (earlier
         // this frame) by `enforce_mount_rider_link`; it now has TWO readers —
         // `rebuild_dismounted_rider_brains`, chained straight behind the writer,
@@ -44,7 +42,6 @@ impl Plugin for ProgressionSchedulePlugin {
         // `shared_tangle`. Never crossing a frame boundary is what makes them
         // in-tick channels; it is NOT a reason to leave them out of the sweep,
         // and the next message added here owes the same registration.
-        app.add_message::<ambition_boss_encounter::BossPhaseChanged>();
         app.configure_sets(
             sim,
             (
@@ -58,30 +55,13 @@ impl Plugin for ProgressionSchedulePlugin {
                 .chain()
                 .in_set(Platformer2dSimulationPhaseMonolith::Progression),
         );
-        app.add_systems(
-            sim,
-            (
-                // Mount-death → `mount_died` external phase trigger, ahead of the
-                // phase driver so the swap is same-frame (Q19).
-                ambition_boss_encounter::notify_bosses_on_mount_death,
-                ambition_boss_encounter::update_boss_encounters,
-                ambition_boss_encounter::sync_boss_encounter_entities,
-                ambition_boss_encounter::update_encounter_progress,
-            )
-                .chain()
-                .in_set(ProgressionSet::BossAdvance),
-        );
-        app.add_systems(
-            sim,
-            (
-                ambition_boss_encounter::tick_falling_hazards,
-                ambition_boss_encounter::tick_encounter_scripts,
-                ambition_boss_encounter::release_payloads_on_death,
-                ambition_boss_encounter::boss_phase_transition_feedback,
-            )
-                .chain()
-                .in_set(ProgressionSet::BossHazards),
-        );
+        // ⭐ THE EIGHT BOSS SYSTEMS THAT STOOD HERE NOW INSTALL THEMSELVES.
+        // `ambition_boss_encounter::BossEncounterSimulationPlugin` owns them,
+        // their three messages and their two resources, and names
+        // `ProgressionSet::BossAdvance` / `BossHazards` — the vocabulary this
+        // file still configures. The composition keeps the ORDERING; the
+        // capability keeps its systems. See
+        // `docs/planning/engine/decomposition.md`.
         app.add_systems(
             sim,
             (

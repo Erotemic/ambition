@@ -367,17 +367,23 @@ fn a_host_that_omits_portals_still_builds_and_steps() {
     the_engine_steps_with_and_without::<ambition_platformer2d::runtime::PortalSchedulePlugin>();
 }
 
-/// ⛔⛔ AND ONE NAMED COMPOSITION IS NOT EXPRESSIBLE AT ALL, which is worth a
-/// test's worth of prose even though there is no test.
+/// "Generic encounters without boss encounters" — the composition that had no
+/// seam to ask it through until the seam was built.
 ///
-/// "Generic encounters without boss encounters" is one of the doctrine's target
-/// compositions. It cannot be written as a `.disable::<P>()` because
-/// **`ambition_boss_encounter` contains no `impl Plugin`** — boss encounters
-/// ride the actor monolith's schedules rather than installing themselves. So the
-/// question "can a consumer omit boss encounters" has no seam to ask it through,
-/// which is a stronger statement than a failing probe would have made.
+/// ⛔ WHEN THIS PROBE WAS FIRST WRITTEN IT COULD NOT BE WRITTEN.
+/// `ambition_boss_encounter` contained no `impl Plugin`: the runtime scheduled
+/// its eight sim systems, registered its three messages and initialised two of
+/// its resources, so there was nothing to disable. Sizing that gap is what
+/// showed it was a plugin rather than a carve — the crate already owned the
+/// systems, and their ordering named only `ProgressionSet` vocabulary that
+/// `shared_tangle` already publishes.
 ///
-/// ⇒ Recorded here rather than in a `#[ignore]`d test, because an ignored test
-/// implies a mechanism that is merely switched off.
-#[allow(dead_code)]
-const BOSS_ENCOUNTERS_HAVE_NO_INSTALLATION_SEAM: () = ();
+/// ⇒ So this test is the acceptance for `BossEncounterSimulationPlugin`, and the
+/// only thing that would make it fail is a boss system that some other
+/// capability turns out to require.
+#[test]
+fn a_host_that_omits_boss_encounters_still_builds_and_steps() {
+    the_engine_steps_with_and_without::<
+        ambition_platformer2d::boss_encounter::BossEncounterSimulationPlugin,
+    >();
+}

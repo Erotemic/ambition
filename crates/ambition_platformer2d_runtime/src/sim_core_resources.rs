@@ -100,7 +100,6 @@ impl Plugin for SimCoreResourcesPlugin {
             .init_resource::<ambition_platformer2d_shared_tangle::construction::ConstructionSchemaCatalog>()
             // App-local boss authority. Boss-free providers keep the explicit
             // empty resource; content plugins assemble provider fragments.
-            .init_resource::<ambition_boss_encounter::BossCatalog>()
             .init_resource::<ambition_combat::GameplayBanner>()
             .init_resource::<ambition_platformer2d_shared_tangle::feature_overlay::FeatureEcsWorldOverlay>()
             // A struck block flinches. Registered beside the world overlay because
@@ -172,8 +171,7 @@ impl Plugin for SimCoreResourcesPlugin {
             // read by the encounter/progression chains; content POPULATES
             // them (never owns the init).
             .init_resource::<ambition_persistence::quest::QuestRegistry>()
-            .init_resource::<ambition_persistence::quest::LastQuestRoom>()
-            .init_resource::<ambition_boss_encounter::BossEncounterRegistry>();
+            .init_resource::<ambition_persistence::quest::LastQuestRoom>();
 
         // ── The world-state log ───────────────────────────────────────────
         //

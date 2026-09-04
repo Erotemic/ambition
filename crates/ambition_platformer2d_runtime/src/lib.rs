@@ -513,6 +513,10 @@ impl PluginGroup for PlatformerEnginePlugins {
             // quest pump, room metadata/music, portal phases) + its content
             // slots.
             .add(ProgressionSchedulePlugin)
+            // The boss-encounter capability installs its own systems, messages
+            // and resources into the progression sets the plugin above
+            // configures. Added after it so the sets exist to be named.
+            .add(ambition_boss_encounter::BossEncounterSimulationPlugin)
             // The demo-hosting seam (D-C): retire a departed game mode's
             // entities once the active room's mode changes. Reads the metadata
             // ProgressionSchedulePlugin just published, so it is added after it.

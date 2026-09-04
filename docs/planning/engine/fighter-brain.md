@@ -386,12 +386,29 @@ is reaction 300→260ms, APM 200→240, noise 0.20→0.16, read 0.2→0.3 — an
 those is obviously a way to get worse. That is the question the authored-weight
 re-run exists to answer.
 
-⚠ **A hypothesis I tested and had to drop**, recorded because it is the obvious
-one and the next reader will have it too: that the fixtures handicap the subject
-(7 of 9 place SELF offstage or in hitstun — *"Self is past a blastzone"*) and
-seat 0 is always the higher rung, so the skew is placement rather than skill. It
-is not: the self-handicapped fixtures favour LOWER at **68%** (n=28) and the two
-self-advantaged ones at **62%** (n=8). Same direction, same size.
+⚠ **A hypothesis I tested, dropped, and then found I had tested WRONG** —
+recorded at length because the error is a reasoning trap, not a wrong number, and
+it is the kind that survives review.
+
+The hypothesis: the fixtures handicap the subject (7 of 9 place SELF offstage or
+in hitstun — *"Self is past a blastzone"*) and seat 0 is always the higher rung,
+so the skew is placement rather than skill. I tested it by splitting the 36 cells
+into the fixtures that handicap SELF and the two that advantage it, and found
+**68%** favouring LOWER (n=28) against **62%** (n=8) — same direction, same size
+— and concluded placement was not the cause.
+
+⛔ **That comparison cannot detect the thing it was aimed at.** Both groups have
+seat 0 = the higher rung. A confound that is UNIFORM across the groups being
+compared is invisible to the comparison: if seat 0 is simply a worse seat — for
+any reason, including ones no fixture premise mentions — every group skews the
+same way and the split shows nothing. I compared whether the fixture's PREMISE
+mattered and reported the answer as though it were about the SEAT.
+
+⇒ The control that can see it is not a subgroup split but a swap: play the same
+seed with the rungs exchanged between seats, which is what `--paired` was built
+for. ⇒ **Before quoting the 24 : 12 split, check whether the paired run below
+reproduces its direction.** A subgroup comparison is not a control for a variable
+every subgroup holds constant.
 
 ### What all nine fixtures actually SAY at the rig's own seed count
 

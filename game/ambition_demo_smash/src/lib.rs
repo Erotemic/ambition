@@ -871,6 +871,7 @@ impl bevy::prelude::Plugin for SmashRulesPlugin {
             ambition_platformer2d::actor::tick_respawn_grace,
             a_swing_spends_the_respawn_protection,
             hold_the_respawn_platforms,
+            leaving_the_platform_spends_the_respawn_protection,
             announce_the_winner,
         )
             .chain()
@@ -1681,6 +1682,58 @@ fn a_swing_spends_the_respawn_protection(
         commands
             .entity(body)
             .remove::<ambition_platformer2d::actor::RespawnGrace>();
+    }
+}
+
+/// ⭐⭐ **LEAVING THE PLATFORM SPENDS THE PROTECTION TOO — Jon, 2026-09-03:
+/// *"in smash, if you move the platform disappears; right now the platform moves
+/// with you."***
+///
+/// ⚠ **The first half of that report was already fixed and is guarded**
+/// (`the_respawn_platform_stays_where_it_was_placed`): the block is placed once
+/// and does not track the body. What he was seeing is this half — a platform
+/// that outlives the moment you step off it stays in play for the whole grace
+/// window, which from the player's side is indistinguishable from one that
+/// follows.
+///
+/// ⛔ **AND THE CODE'S OWN RATIONALE FOR NOT DOING THIS WAS WRONG ABOUT THE
+/// GENRE.** `a_swing_spends_the_respawn_protection` says the trigger is
+/// "not a held button and not a movement axis", so a fighter can "fall in,
+/// drift, and choose a landing under protection". Smash releases you when you
+/// LEAVE, and Jon is the authority on what this demo should feel like.
+///
+/// ⇒ The rule is *leaving*, not *inputting*: a body still gets its whole fall
+/// and its landing, and loses the platform the moment it walks off the
+/// footprint it was given. That is also the file's own sentence one screen up —
+/// *"a respawn platform is somewhere you LEAVE"* — finally enforced rather than
+/// only asserted.
+fn leaving_the_platform_spends_the_respawn_protection(
+    mut commands: bevy::prelude::Commands,
+    platforms: bevy::prelude::Res<ambition_platformer2d::world::collision::MovingPlatformSet>,
+    standing: bevy::prelude::Query<
+        (
+            bevy::prelude::Entity,
+            &ambition_platformer2d::actor::MatchSeat,
+            &ambition_platformer2d::engine_core::BodyKinematics,
+        ),
+        bevy::prelude::With<ambition_platformer2d::actor::RespawnGrace>,
+    >,
+) {
+    for (body, seat, kin) in &standing {
+        let id = respawn_platform_id(seat.0);
+        let Some(platform) = platforms.0.iter().find(|platform| platform.id == id) else {
+            // No platform placed for this seat yet — this tick is the grant's
+            // first, and a body cannot have left something it was never given.
+            continue;
+        };
+        // Horizontal only. A fighter falling toward its platform is above it and
+        // has not left it; one that walks off the end has, whatever its height.
+        let half_width = platform.size.x * 0.5;
+        if (kin.pos.x - platform.pos.x).abs() > half_width {
+            commands
+                .entity(body)
+                .remove::<ambition_platformer2d::actor::RespawnGrace>();
+        }
     }
 }
 

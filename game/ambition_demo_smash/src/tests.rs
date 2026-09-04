@@ -997,6 +997,121 @@ fn every_ending_has_its_own_words() {
 /// the edge is a constant 48px however far the body walks. Measured: with the
 /// block made visible to perception, the fighter rollout judged every verb to
 /// walk off it and vetoed all of them on every tick, which is queue row
+/// ⭐⭐ **WALKING OFF THE PLATFORM ENDS THE PROTECTION — Jon's report, 2026-09-03:
+/// *"in smash, if you move the platform disappears."***
+///
+/// ⚠ The sibling below already pins that the block does not FOLLOW. This pins
+/// the half that was missing: one that outlives your step off it stays in play
+/// for the whole grace window, which from the player's side is the same
+/// complaint.
+#[test]
+fn walking_off_the_respawn_platform_ends_the_protection() {
+    use ambition_platformer2d::world::collision::MovingPlatformSet;
+
+    let mut app = bevy::prelude::App::new();
+    app.init_resource::<MovingPlatformSet>();
+    use bevy::prelude::IntoScheduleConfigs as _;
+    app.add_systems(
+        bevy::prelude::Update,
+        (
+            hold_the_respawn_platforms,
+            leaving_the_platform_spends_the_respawn_protection,
+        )
+            .chain(),
+    );
+    let fighter = app
+        .world_mut()
+        .spawn((
+            ambition_platformer2d::actor::MatchSeat(1),
+            ambition_platformer2d::engine_core::BodyKinematics {
+                pos: Vec2::new(120.0, 40.0),
+                ..Default::default()
+            },
+            ambition_platformer2d::actor::RespawnGrace {
+                remaining: RESPAWN_PROTECTION_SECONDS,
+            },
+        ))
+        .id();
+
+    app.update();
+    assert!(
+        app.world()
+            .entity(fighter)
+            .contains::<ambition_platformer2d::actor::RespawnGrace>(),
+        "precondition: standing on the platform keeps the grant",
+    );
+
+    // ⚠ A STEP, NOT A TELEPORT: just past the half-width, which is the boundary
+    // the rule is about. Moving 200px would pass even if the rule were "leave
+    // the stage".
+    app.world_mut()
+        .entity_mut(fighter)
+        .get_mut::<ambition_platformer2d::engine_core::BodyKinematics>()
+        .unwrap()
+        .pos = Vec2::new(120.0 + RESPAWN_PLATFORM_SIZE.x * 0.5 + 1.0, 40.0);
+    app.update();
+
+    assert!(
+        !app.world()
+            .entity(fighter)
+            .contains::<ambition_platformer2d::actor::RespawnGrace>(),
+        "a fighter that walked off its respawn platform keeps the protection, so \
+         the platform stays in play for the whole window — which is what 'the \
+         platform moves with you' looks like from the outside",
+    );
+}
+
+/// ⭐ THE CONTROL ARM: falling toward the platform is not leaving it.
+///
+/// The rule is horizontal on purpose. A body descending onto its platform is
+/// above it and has not left; a rule that read distance would take the grant
+/// away during the fall the window exists to protect.
+#[test]
+fn falling_toward_the_respawn_platform_keeps_the_protection() {
+    use ambition_platformer2d::world::collision::MovingPlatformSet;
+
+    let mut app = bevy::prelude::App::new();
+    app.init_resource::<MovingPlatformSet>();
+    use bevy::prelude::IntoScheduleConfigs as _;
+    app.add_systems(
+        bevy::prelude::Update,
+        (
+            hold_the_respawn_platforms,
+            leaving_the_platform_spends_the_respawn_protection,
+        )
+            .chain(),
+    );
+    let fighter = app
+        .world_mut()
+        .spawn((
+            ambition_platformer2d::actor::MatchSeat(1),
+            ambition_platformer2d::engine_core::BodyKinematics {
+                pos: Vec2::new(120.0, 40.0),
+                ..Default::default()
+            },
+            ambition_platformer2d::actor::RespawnGrace {
+                remaining: RESPAWN_PROTECTION_SECONDS,
+            },
+        ))
+        .id();
+    app.update();
+
+    // Straight down a long way, same column.
+    app.world_mut()
+        .entity_mut(fighter)
+        .get_mut::<ambition_platformer2d::engine_core::BodyKinematics>()
+        .unwrap()
+        .pos = Vec2::new(120.0, 400.0);
+    app.update();
+
+    assert!(
+        app.world()
+            .entity(fighter)
+            .contains::<ambition_platformer2d::actor::RespawnGrace>(),
+        "descending onto your own platform is not leaving it",
+    );
+}
+
 /// `D-BRAIN-PLATFORM-FLOOR`.
 ///
 /// ⭐ AND IT IS THE GENRE'S ANSWER TOO: a respawn platform is somewhere you

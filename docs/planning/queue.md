@@ -926,12 +926,23 @@ queue read as an execution authority for work already done.
   28 after, and the one added is the one it catches. So the guard was green
   because the defect sat outside its corpus, not because the invariant held —
   measured, no longer predicted.
-  ⚠ **The arm is NOT committed**, deliberately: landing it now leaves a red in a
-  lane two sessions are working in, and the fix (a `SimId::death_drop` constructor <!-- cite-ok: not landed yet; this names work in flight on another session -->) is already
-  in flight on ToothbrushAmbition's side. ⇒ It belongs in the same commit as the
-  fix, or immediately after it, so the census's population permanently includes
-  the drop road. The arm is written and type-checks
-  (`cargo check -p ambition_app --test app_it`, clean).
+  ✔ **CLOSED. `SimId::death_drop` landed (`4a283375b`,
+  `crates/ambition_platformer2d_shared_tangle/src/sim_id.rs:93`) and the census
+  population now walks the drop class permanently.** The committed arm spawns a
+  `GroundItem` carrying the identity the FIXED road mints —
+  `death_drop(&subject, "weapon")`, i.e. `{parent}/drop/weapon` — so the fixture
+  and the road agree on the shape rather than the fixture inventing one, and the
+  census PASSES.
+  ⭐ **The polarity flipped between the falsifier and the test, and that is the
+  point.** The red above was an anonymous `GroundItem`, proving the guard was
+  sensitive; a permanently-red arm is not coverage. What landed is the covered
+  case: the class is in the population, and it reddens again only if the mint
+  regresses. Poison-verified by removing the identity — 1 entity carries no
+  `SimId` and the census names it.
+  ⚠ The drop's parent is the SUBJECT, not another minted id. `death_drop`
+  derives from the dying body rather than taking a sequence number, so borrowing
+  one of the fixture's four pre-allocated ids both exhausted the supply (it did:
+  `four ids`) and modelled the road wrongly.
   ⓘ It does NOT call `drop_held_weapon` — `damage_drops` is a private module
   (`features/ecs/mod.rs:61`) and unreachable from an integration test. It
   reproduces the SHAPE the drop road produces, which is the right question for a

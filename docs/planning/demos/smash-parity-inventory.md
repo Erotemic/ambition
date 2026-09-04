@@ -112,10 +112,29 @@ with its launch aimed inward — no second mechanic).
 
 ⭐ **THE STALENESS IS NOT SPREAD EVENLY**, which is the useful half: it clusters
 where work has recently happened, because those rows were written before the work
-and never revisited. Spot-checked the same day and found ACCURATE: the whole
-ground-locomotion block (`Initial dash`, `Turnaround / pivot phase`, `Teeter` —
-none of these exist in any form). ⇒ trust the untouched regions; verify the ones
-next door to whatever last shipped.
+and never revisited. ⇒ trust the untouched regions; verify the ones next door to
+whatever last shipped.
+
+⛔⛔ **AND THE EXAMPLE THIS PARAGRAPH USED HAS SINCE EXPIRED — which is the
+sharpest possible case of its own rule.** It read: *"Spot-checked the same day
+and found ACCURATE: the whole ground-locomotion block (`Initial dash`,
+`Turnaround / pivot phase`, `Teeter` — none of these exist in any form)."*
+Re-checked 2026-09-03 and all three exist:
+
+* `LocomotionTuning` carries `initial_dash_time`, `turnaround_time` and
+  `teeter_margin` (`crates/ambition_platformer2d_core/src/abilities.rs:889-897`);
+* the movement authority runs the turnaround clock —
+  `state.turnaround_timer` against `tuning.locomotion.turnaround_time`
+  (`crates/ambition_platformer2d_core/src/movement/abilities.rs:265-300`);
+* and **this page's own row already said so**: *"Teeter at platform edge | ✔ |
+  … LANDED 2026-08-25. `LocomotionTuning::teeter_margin`"*.
+
+⇒ So the page contradicted itself, and the stale half was the one presented as a
+VERIFICATION RESULT. ⚠ **A dated spot-check is evidence with a shelf life, and
+this one was being read as a standing fact** — the paragraph's own advice
+("verify the ones next door to whatever last shipped") is exactly what would
+have caught it, applied to the paragraph itself. The rule survives; only its
+example was overtaken.
 
 Effort: `S` small slice · `M` medium slice · `C` multi-slice campaign
 
@@ -504,22 +523,56 @@ migration larger.
 When several feature rows are assigned in parallel, coordinate around these
 shared semantics. The ID is a planning reference, not a new runtime registry.
 
+⚠ **THIS TABLE UNDER-CLAIMED, AND ALL FOURTEEN ROWS ARE NOW MEASURED
+(2026-09-03).** It carried **two** ✔ marks out of fourteen. The finished count:
+
+| verdict | count | rows |
+|---|---:|---|
+| ✔ shipped | 10 | `P01` `P03` `P04` `P05` `P06` `P07` `P08` `P09` `P12` `P13` |
+| ◐ partial, with the split named | 3 | `P02` `P10` `P11` |
+| ⬚ absent | **0** | — |
+| ✔ shipped, one named fact short | 1 | `P14` |
+
+⛔ **THE ABSENT COLUMN EMPTIED ITSELF UNDER MEASUREMENT, and that is the
+finding.** Not one of the twelve unmarked rows turned out to be an unbuilt
+primitive. A reader treating blank as "not built" would have rebuilt foundations
+that already exist — which is the specific cost this table was carrying.
+
+⇒ **What is actually thin is the layer ABOVE the primitives.** The mechanisms
+shipped; the things that spend them mostly did not. `P01` has charge with **one**
+authored move using it. `P06` has the locomotion facts and **no** derived moves.
+`P10` has every tech surface and **no** published result. `P11` has the capture
+seam and **2 of 6** authored roads. ⇒ The next slice off this table is almost
+never "build a primitive" — it is "author a customer for one that already
+exists", which is cheaper than the row's Class suggests.
+
+⇒ **A row with no mark means NOBODY HAS CHECKED, not that it is absent** — kept
+here because it is the rule that made the count wrong, and the next table
+inherits it.
+
 | ID | Primitive | Class | Owner / purpose |
 |---|---|---:|---|
-| `P01` | True move charge state | E1 | `MoveSpec` charge policy + per-use `MovePlayback`; unlocks real held smashes and chargeable authored moves. |
-| `P02` | Hit reaction policy | E1 | `HitVolume` reaction mode for ordinary/fixed/autolink/flinchless reactions plus small modifiers; unlocks spin multihits, wind/vacuum, set knockback. |
-| `P03` | Same-move hitbox arbitration | E1 | Deterministic hitbox identity/priority for sweetspots/sourspots and later independent hitbox parts. |
-| `P04` | Move defense windows | E1 | Make existing `WindowTag::Invuln` / `Armor` affect hit eligibility/reaction instead of parsing as inert vocabulary. |
+| `P01` | True move charge state | E1 | ✔ **SHIPPED — re-measured 2026-09-03, this table was under-claiming.** `MoveSpec` carries `charge: Option<MoveCharge>` (`ambition_combat/src/moveset/mod.rs:369`), `MoveCharge` and `StoredMoveCharge` are real types (:386, :413), and playback consults `charge.charging()` (:602). ⚠ **AUTHORING IS THE THIN HALF, not the mechanism**: exactly ONE authored move uses it (`game/ambition_content/src/projectile_polygon_moveset.rs`), so 'unlocks real held smashes' is unlocked and unspent. |
+| `P02` | Hit reaction policy | E1 | ◐ **PARTIAL — re-measured 2026-09-03, and the split is worth knowing before anyone plans this.** `HitReaction` (`ambition_platformer2d_core/src/hit_response.rs:98`) has exactly TWO variants: `Strike` and `Windbox`. So **flinchless shipped** (the windbox row above records it) and `autolink` has a road (`ambition_combat/src/hit_reaction.rs:293`), while **fixed reactions and set knockback are absent from the vocabulary entirely** — they are not a modifier away, they need enum variants. ⇒ The unshipped part is smaller than the row and differently shaped. |
+| `P03` | Same-move hitbox arbitration | E1 | ✔ **SHIPPED — measured 2026-09-03, and it is the deterministic form the row wanted.** `StrikeRank` (`ambition_combat/src/moveset/mod.rs:963`) carries `window: u16` + `volume: u16` — *"which of these two did the author write first"* — and hit resolution reads the siblings through it: *"the whole of the sweetspot rule's input: which other volumes one move has live right now, and which of them the author wrote first"* (`hitbox/mod.rs:351`). Author order, not entity order, so it is rollback-stable. |
+| `P04` | Move defense windows | E1 | ✔ **SHIPPED — and this page already said so two screens up.** `project_move_defense_windows` (`ambition_combat/src/moveset/mod.rs:3536`) consumes both tags and is scheduled in `ambition_platformer2d_runtime/src/combat_schedule.rs:172`; the staleness paragraph above names it as consumed. The tags are no longer inert vocabulary. |
 | `P05` | On-block cancel fact | E1 | ✔ SHIPPED 2026-08-31 — the fact is `MoveContact`'s three outcomes, fed by `ResolvedBodyHit` and `BlockedBodyHit`, and `CancelCondition::OnBlock` consumes it. |
-| `P06` | Ground locomotion phase | E1 | Walk/run, initial dash, turnaround/pivot facts; foxtrot, dash-dance, pivot grab/smash derive from this rather than separate named states. |
-| `P07` | Combat action buffer | E1 | Activate existing rollback-registered `BodyActionBuffer` for semantic press edges and spend buffered actions only through normal action acceptance. |
+| `P06` | Ground locomotion phase | E1 | ✔ **SHIPPED — measured 2026-09-03.** `LocomotionTuning` carries `initial_dash_time`, `turnaround_time` and `teeter_margin` (`ambition_platformer2d_core/src/abilities.rs:889-897`), and the movement authority runs the clock: `state.turnaround_timer` against `tuning.locomotion.turnaround_time` (`movement/abilities.rs:265-300`). ⚠ The derived moves the row names — foxtrot, dash-dance, pivot grab/smash — are the part NOT built; the facts they would derive from are. |
+| `P07` | Combat action buffer | E1 | ✔ **SHIPPED, exactly as the row specified.** `BodyActionBuffer` is threaded through move acceptance (`ambition_combat/src/moveset/mod.rs:1936, 2261, 2573`) and spent only there: `ProposedVerb::spend` (:2027) is the single road, with a variant per verb — `Unbuffered` spends nothing, attack/grab/special each clear their own. That is the row's *"spend buffered actions only through normal action acceptance"*, met rather than approximated. |
 | `P08` | Attack-strength hint | E1 | ✔ SHIPPED 2026-08-31 — `AttackStrengthHint` at the seam; a right-stick mode no longer has to spoof stick history to throw a tilt. The device binding is the open half. |
-| `P09` | Shield/OOS arbitration | E1 | One owner for shield-drop commitment and legal out-of-shield actions. |
-| `P10` | Complete tech surface/result vocabulary | E1 | Floor/wall/ceiling tech plus wall-tech jump, with result facts usable by presentation and AI. |
-| `P11` | Capture acquisition policy | E1 | Standing/running/pivot, command, aerial, tether, and hit-grab all feed the same `CapturedBy` relationship. |
-| `P12` | Recovery-use budget | E1 | Optional body/fighter-authored 0/1/N per-airtime recovery budget, only if real play needs it. |
-| `P13` | Participant-generic item action path | E2 | Every eligible fighter reads its own `ActorControl` while `ItemCustody` remains the single object-ownership authority. |
-| `P14` | Resolved presentation facts/events | E1 | Publish only gameplay facts presentation cannot already read cleanly: charge, unhittable state, launch beat, shield-break phase, finish-zoom eligibility, etc. |
+| `P09` | Shield/OOS arbitration | E1 | ✔ **SHIPPED — one owner, which is what the row asked for.** `OutOfShield` (`ambition_platformer2d_core/src/movement/abilities.rs:142`) enumerates the legal actions — `Jump`, `Burst`, `Grab`, `UpAttack`, `UpSpecial` — and move acceptance takes it as `oos_policy` (`ambition_combat/src/moveset/mod.rs:2268`) beside `rises_out_of_shield` (:2111). The vocabulary and its single consumer both exist. |
+| `P10` | Complete tech surface/result vocabulary | E1 | ◐ **PARTIAL — the SURFACES shipped, the RESULT VOCABULARY did not.** All three surfaces plus the wall-tech jump have arms in `movement/tests/combat_actions.rs`: floor (`a_tech_on_the_landing_skips_the_knockdown_entirely`), wall (`a_tumbling_body_can_tech_off_a_wall`), ceiling (`a_tumbling_body_can_tech_off_a_ceiling`), the jump (`a_wall_tech_asked_to_jump_leaves_the_wall_higher_than_one_that_is_not`), plus lockout and untechable-threshold arms — eight in all, and the state lives in `movement/model.rs` (`tech_press_timer`, `tech_lockout_timer`, `tumble_untechable`). ⛔ **What is missing is the second half of the row's own title**: no `TechResult`-shaped fact exists for presentation or AI to read, so the surfaces are simulated and unpublished. |
+| `P11` | Capture acquisition policy | E2 | ◐ **PARTIAL, and the open half is now measured too (2026-09-03).** ✔ The arbitration shipped: `CapturedBy` (`capture/mod.rs:20`) is a real relationship with `MapEntities`, and `acquire_captures` (`capture/systems.rs:70`) is the single acquisition system. ⭐ **There is exactly ONE production writer of `CaptureAttemptRequested`** — `translate_smash_capture_effects` (`game/ambition_demo_smash/src/capture.rs:60`), which turns an authored `Special` carrying the `smash.capture_attempt` key into the typed request. So the row's *"six roads"* are not six code paths to audit; they are six AUTHORED MOVES that would all share the one key, and the audit is a count of what is authored. ⇒ **Authored today: 2 of 6.** `GRAB_VERB` (standing) and `GRAB_DASH_VERB` (running) — George carries both (`george_booul_moveset.rs:843`: `george_grab`, `george_grab_dash`), and the running form is DERIVED by `dash_stance_verb` rather than spelled twice, with a contract that authors no running grab left untouched. **Aerial is answered by fallback, not authoring** (*"an ungated grab must still answer an airborne press"*, `ambition_entity_catalog/src/tests.rs:462`). **Absent: pivot, command grab, tether, hit-grab.** ⇒ The seam is finished and cheap to extend — a new road is an authored move plus the existing key, not new plumbing. |
+| `P12` | Recovery-use budget | E1 | ✔ **SHIPPED — and the row's hedge (*"only if real play needs it"*) was already spent; play needed it.** `AxisLocomotion::recovery_charges: u8` (`ambition_platformer2d_core/src/body_clusters.rs:348`), spent at `moveset/mod.rs:2331` (`saturating_sub(1)`) and refreshed to `ae::DEFAULT_RECOVERY_CHARGES` on the landing road (`hit_reaction.rs:276`). ⭐ It is **an integer, not a flag** — the field's own comment: *"The genre's default is one, and a winged fighter authoring two is an ordinary tuning statement rather than a second mechanic"*, which is precisely the 0/1/N the row asked for. ⭐⭐ It also carries a derived-vs-stored ruling worth reading before touching it: **helplessness is a stored EPISODE, not `recovery_charges == 0` derived** — because a refresh is landing-shaped, and an accepted hit that hands the dodge back must not also end the helpless episode. |
+| `P13` | Participant-generic item action path | E2 | ✔ **SHIPPED — `DrivenBodies` is exactly this primitive.** (`ambition_held_items/src/lib.rs:988`, a `SystemParam` used by every wielded ability: `volley.rs:91`, `beam.rs:85`, `meteor.rs:88`.) Its own comment states the row's premise — *"EVERY DRIVEN BODY, not the one the primary seat happens to hold. `ControlledSubject` is singular by construction, so a possessed body or a second seat holding the same gauntlet simply never fired."* It answers from the seat half when no possession road is registered, so a composition without one is an ordinary answer rather than a panic. |
+| `P14` | Resolved presentation facts/events | E1 | ✔ **SHIPPED for four of its five named facts, plus a fifth it did not name — measured 2026-09-03 against `ambition_sim_view`, the read-model presentation actually consults, searching by CONCEPT rather than by the row's spelling.** **charge** → `smash_charge_fraction`, `charge_tier`; **unhittable** → `unhittable`; **launch beat** → `launch_beat_secs`, and `the_front_of_a_launch_is_published_apart_from_the_tumble` names the split as a test; **shield-break phase** → `rebuild_guard_breaks_view` (`pose_view.rs:588`) reading `BodyShieldState::break_phase`. Unnamed by the row but published anyway: the **knockout beat WITH ITS PLACE** (`pose_view.rs:609`). ⚠ The one genuine gap is **finish-zoom ELIGIBILITY**: `camera_snapshot.rs` has the zoom machinery (`zoom_multiplier`, `cinematic_lock`, `zoom_in_rate`/`zoom_out_rate`) but drives it from camera ZONES, and no fact anywhere says *this blow is the finishing one*. ⇒ The mechanism is there and the gameplay fact that would aim it is not. |
+
+> ⚠ **Instrument note for whoever extends this table — read this before trusting any ⬚ mark.** Two of the last three rows were first written WRONG, both in the same direction, both by grepping the row's own wording instead of the concept:
+>
+> - **P14** was first written *"shield-break and finish-zoom: absent, 0 files each"* from `shield_break` / `finish_zoom`. The code spells them `break_phase` and `zoom_multiplier` / `cinematic_lock`.
+> - **P12** was first written *"ABSENT, and correctly so — nothing has asked"* from `recovery_budget` / `recoveries_used` / `air_recover`. The code spells it **`recovery_charges`**, 39 occurrences, shipped for so long it has its own derived-vs-stored ruling attached.
+>
+> **A row's wording is the author's vocabulary, not the codebase's**, and these rows were written years before the code that answers them. The failure is one-directional and therefore invisible: a concept found under an unexpected name still reads as a clean ⬚. Search the concept (`git grep -o -E` for a family of stems, then look at what actually matched), and confirm the hit IS the concept before marking either way. This is the fourth and fifth time this exact error has been caught on this page's audit — and the only two caught before they were committed.
 
 None of these requires the actor-monolith carve, simulation-phase migration, or
 capability/runtime composition cleanup as a prerequisite. Keep each change in

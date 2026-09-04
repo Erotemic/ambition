@@ -260,6 +260,55 @@ no hitstun seconds, no hang, no shots means no writes. A coverage win that also
 moved the existing numbers would be a regression in a win's clothing, and a
 rising fixture count would never have shown it.
 
+### What all nine fixtures actually SAY at the rig's own seed count
+
+⭐ **MEASURED 2026-09-03, `smash_tool ladder-rig --scenarios` at the rig's
+`DEFAULT_SEEDS = 15`, 60s cap, 9 fixtures × 4 rungs (1v3, 3v5, 5v6, 6v9) = 36
+verdicts.** The rig now reaching 9 of 9 was worth having for this reason: with
+every fixture running, the matrix can be read as a whole for the first time.
+
+⛔ **IT DOES NOT DISCRIMINATE SKILL. 35 of the 36 verdicts are inside the seed
+spread — the rig's own `(within spread)` qualifier.** The full count:
+
+| verdict | count | reads as |
+|---|---:|---|
+| `both survive (within spread)` | 17 | 60s cap saturated; no information |
+| `LOWER lasts (within spread)` | 16 | inside noise |
+| `higher lasts (within spread)` | 1 | inside noise |
+| `both survive` | 1 | cap saturated |
+| **`LOWER lasts`** | **1** | **the only result outside spread** |
+
+The single outside-spread verdict is `ledge_trap 9 vs 6`, **13.2s : 17.7s — the
+LOWER-skill fighter outlasting the higher.**
+
+⚠ **THE HONEST NUMBER HERE IS 1, AND I FIRST WROTE 17.** Grepping the verdict
+words alone gives *"LOWER lasts at 17 of 18 discriminating rungs"*, which reads
+as a spectacular ladder inversion and is an artifact of dropping four characters:
+`(within spread)` is part of the verdict, not decoration on it. A count that
+discards a significance qualifier reports noise as a finding — the same instrument
+error as counting a substring and calling it a concept. **A verdict travels with
+its qualifier or it does not travel.**
+
+⇒ **What this means for the ladder, stated carefully.** This is NOT evidence the
+skill ladder is inverted; it is evidence the RIG cannot currently tell. Two
+distinct causes are visible in the same table and neither has been separated yet:
+
+1. **The low rungs saturate the cap.** All 9 fixtures at both 1v3 and 3v5 return
+   `both survive` — 60 seconds is not long enough for weak CPUs to resolve
+   anything, so half the matrix is structurally incapable of an answer.
+2. **The high rungs stop scoring.** At 5v6 and 6v9 the stocks-left columns are
+   `0 : 0` almost everywhere, while the low rungs show 1–2 stocks taken. Stronger
+   CPUs take FEWER stocks, not more. Survival-time-until-timeout is the metric,
+   and it rewards passivity: a fighter that never commits cannot be punished.
+
+⇒ **Next measurement, before any brain change is justified by this table:** the
+rig needs a scoreboard that is not survival-against-a-cap — damage dealt per
+engagement, or stocks taken per minute — and the cap needs to be long enough that
+the low rungs resolve. Until then, "the ladder is fine" and "the ladder is
+inverted" are BOTH unsupported by this run, and the table above is the reference
+point that says so.
+
+
 ## Relationship to navigation/recovery architecture
 
 The reusable recovery probe and `RecoveryLens` are legitimate body-capability

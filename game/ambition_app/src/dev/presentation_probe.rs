@@ -11,10 +11,10 @@
 //!    current local view had a resolved camera snapshot?
 //!
 //! Samples are taken in `Last`, after the ordinary main-world schedules have
-//! run and immediately before Bevy hands the world to rendering. A newly active
-//! session automatically arms a bounded startup trace. The F3 panel shows the
-//! recent frame sequence and the same sequence is emitted to stderr with the
-//! `[presentation-probe]` prefix for easy capture with `tee`.
+//! run and immediately before Bevy hands the world to rendering. The probe is
+//! opt-in from the F3 developer UI: when disabled it does no frame sampling or
+//! pre-roll collection. When enabled, a newly active session arms a bounded
+//! startup trace; stderr output is a separate opt-in switch.
 
 use std::collections::VecDeque;
 
@@ -328,8 +328,8 @@ pub(crate) struct PresentationProbeState {
 impl Default for PresentationProbeState {
     fn default() -> Self {
         Self {
-            enabled: true,
-            log_to_stderr: true,
+            enabled: false,
+            log_to_stderr: false,
             app_frame: 0,
             traced_scope: None,
             scope_started_at_app_frame: None,
@@ -553,11 +553,9 @@ fn diagnose(
     }
 
     if let Some(player) = fingerprint.players.first() {
-        if player.sprite.is_some() && player.pose.is_none() {
-            warnings.push(
-                "ACTOR: drawable primary sprite exists before BodyPoseView".to_owned(),
-            );
-        }
+        // A character presentation may be complete before BodyPoseView exists.
+        // The invalid state is a drawable trimmed frame whose animator has not
+        // initialized the render basis, checked below.
         if let (Some(worn), Some(bound)) = (&player.worn, &player.bound_character) {
             if worn != bound {
                 warnings.push(format!(
@@ -609,7 +607,8 @@ fn diagnose(
     }
 
     if let Some(camera) = fingerprint.cameras.first() {
-        if fingerprint
+        if fingerprint.active_scope.is_some()
+            && fingerprint
             .layout
             .as_ref()
             .is_some_and(GameplayLayoutProbe::has_reduced_gameplay_rect)
@@ -623,9 +622,9 @@ fn diagnose(
     }
 
     if let (Some(view), Some(camera)) = (fingerprint.views.first(), fingerprint.cameras.first()) {
-        if !view.resolved {
+        if fingerprint.active_scope.is_some() && !view.resolved {
             warnings.push(format!(
-                "CAMERA: LocalView has no ResolvedCameraSnapshot while main camera still has ortho {:?}",
+                "CAMERA: active gameplay LocalView has no ResolvedCameraSnapshot while main camera still has ortho {:?}",
                 camera.orthographic_scale
             ));
         }
@@ -665,6 +664,16 @@ fn diagnose(
 }
 
 fn collect_presentation_probe(world: &mut World) {
+    // Keep the permanent developer probe essentially free when it is not in
+    // use. In particular, do not build fingerprints or retain shell pre-roll
+    // on ordinary runs merely because the plugin is installed.
+    if !world
+        .get_resource::<PresentationProbeState>()
+        .is_some_and(|probe| probe.enabled)
+    {
+        return;
+    }
+
     let active_scope = world
         .get_resource::<ActiveSessionScope>()
         .and_then(ActiveSessionScope::current)
@@ -705,10 +714,6 @@ fn collect_presentation_probe(world: &mut World) {
 
     let mut probe = world.resource_mut::<PresentationProbeState>();
     probe.app_frame = probe.app_frame.saturating_add(1);
-
-    if !probe.enabled {
-        return;
-    }
 
     // Keep a short rolling shell/pre-session history. The camera flash reported
     // by the product can happen one render BEFORE ActiveSessionScope appears;
@@ -861,20 +866,28 @@ fn presentation_probe_ui(world: &mut World) {
         .resizable(true)
         .show(egui_context.get_mut(), |ui| {
             ui.horizontal(|ui| {
-                ui.checkbox(&mut enabled, "Trace active session");
-                ui.checkbox(&mut log_to_stderr, "Print to stderr");
+                ui.checkbox(&mut enabled, "Enable presentation probe");
+                ui.add_enabled_ui(enabled, |ui| {
+                    ui.checkbox(&mut log_to_stderr, "Print transitions to stderr");
+                });
             });
             ui.horizontal(|ui| {
-                if ui.button("Re-arm 180 frames").clicked() {
-                    rearm = true;
-                }
+                ui.add_enabled_ui(enabled, |ui| {
+                    if ui.button("Re-arm 180 frames").clicked() {
+                        rearm = true;
+                    }
+                });
                 if ui.button("Clear trace").clicked() {
                     clear = true;
                 }
-                ui.label(format!("{remaining} startup frames remaining"));
+                if enabled {
+                    ui.label(format!("{remaining} startup frames remaining"));
+                } else {
+                    ui.label("probe disabled");
+                }
             });
             ui.small(
-                "Sampled in Last: after simulation/presentation main-world systems, before render extraction. New gameplay sessions arm automatically.",
+                "Opt-in. When enabled, samples in Last after simulation/presentation main-world systems and before render extraction; new gameplay sessions arm automatically.",
             );
 
             ui.separator();
@@ -1001,8 +1014,10 @@ fn presentation_probe_ui(world: &mut World) {
                         ));
                     }
                 });
+            } else if enabled {
+                ui.label("No sample yet. Start Ambition through the title shell, or re-arm in gameplay.");
             } else {
-                ui.label("No active-session sample yet. Start Ambition through the title shell.");
+                ui.label("Enable the probe to collect presentation samples.");
             }
 
             ui.separator();
@@ -1027,8 +1042,29 @@ fn presentation_probe_ui(world: &mut World) {
         });
 
     if let Some(mut probe) = world.get_resource_mut::<PresentationProbeState>() {
+        let was_enabled = probe.enabled;
         probe.enabled = enabled;
-        probe.log_to_stderr = log_to_stderr;
+        probe.log_to_stderr = enabled && log_to_stderr;
+        if !enabled {
+            probe.pre_roll.clear();
+            probe.remaining = 0;
+            probe.traced_scope = None;
+            probe.scope_started_at_app_frame = None;
+            probe.last_sim_tick = None;
+            probe.last_rollback_frame = None;
+            probe.last_advance_runs = None;
+            probe.last_fingerprint = None;
+        } else if !was_enabled {
+            let app_frame = probe.app_frame;
+            probe.remaining = STARTUP_TRACE_FRAMES;
+            probe.scope_started_at_app_frame = probe.traced_scope.map(|_| app_frame);
+            probe.samples.clear();
+            probe.pre_roll.clear();
+            probe.last_sim_tick = None;
+            probe.last_rollback_frame = None;
+            probe.last_advance_runs = None;
+            probe.last_fingerprint = None;
+        }
         if clear {
             probe.samples.clear();
             probe.last_fingerprint = None;
@@ -1056,6 +1092,7 @@ mod tests {
             active_scope: Some(7),
             root_scopes: vec![7],
             feature_view_rows: 0,
+            layout: None,
             players: Vec::new(),
             views: Vec::new(),
             cameras: Vec::new(),
@@ -1063,9 +1100,14 @@ mod tests {
     }
 
     #[test]
-    fn drawable_primary_without_pose_is_called_out() {
-        let mut fingerprint = empty_fingerprint();
-        fingerprint.players.push(PlayerProbe {
+    fn probe_is_opt_in_by_default() {
+        let probe = PresentationProbeState::default();
+        assert!(!probe.enabled);
+        assert!(!probe.log_to_stderr);
+    }
+
+    fn complete_trimmed_player_without_pose() -> PlayerProbe {
+        PlayerProbe {
             entity: 1,
             has_player_entity: true,
             has_player_visual: true,
@@ -1077,21 +1119,71 @@ mod tests {
             pose: None,
             presented_delta: None,
             sprite: Some(SpriteProbe {
-                custom_size: Some([225.0, 225.0]),
+                custom_size: Some([37.4, 53.2]),
                 transform_scale: [1.0, 1.0, 1.0],
                 transform_translation: [0.0, 0.0, 0.0],
                 image: "image".to_owned(),
                 atlas: None,
                 anchor: None,
             }),
-            animator: None,
+            animator: Some(AnimatorProbe {
+                current: "Idle".to_owned(),
+                frame: 0,
+                trimmed: true,
+                render_basis: Some([135.0, 135.0]),
+                current_render: Some([37.4, 53.2]),
+            }),
             baseline: None,
+        }
+    }
+
+    #[test]
+    fn complete_trimmed_primary_before_pose_is_not_an_error() {
+        let mut fingerprint = empty_fingerprint();
+        fingerprint.players.push(complete_trimmed_player_without_pose());
+        let warnings = diagnose(&fingerprint, Some(1));
+        assert!(!warnings.iter().any(|warning| warning.contains("BodyPoseView")));
+        assert!(!warnings.iter().any(|warning| warning.contains("render basis")));
+    }
+
+    #[test]
+    fn trimmed_primary_without_render_basis_is_called_out() {
+        let mut fingerprint = empty_fingerprint();
+        let mut player = complete_trimmed_player_without_pose();
+        player.animator.as_mut().unwrap().render_basis = None;
+        player.animator.as_mut().unwrap().current_render = None;
+        fingerprint.players.push(player);
+        assert!(diagnose(&fingerprint, Some(1))
+            .iter()
+            .any(|warning| warning.contains("render basis")));
+    }
+
+    #[test]
+    fn shell_camera_without_resolved_snapshot_is_not_an_error() {
+        let mut fingerprint = empty_fingerprint();
+        fingerprint.active_scope = None;
+        fingerprint.root_scopes.clear();
+        fingerprint.views.push(ViewProbe {
+            entity: 10,
+            resolved: false,
+            resolved_ortho: None,
+            resolved_center: None,
+            resolved_target: None,
+            resolved_follow: None,
+            resolved_visible_view: None,
+            applied_view_ortho: Some(1.0),
+            applied_view_center: Some([0.0, 0.0]),
         });
-        assert!(
-            diagnose(&fingerprint, Some(1))
-                .iter()
-                .any(|warning| warning.contains("before BodyPoseView"))
-        );
+        fingerprint.cameras.push(MainCameraProbe {
+            entity: 11,
+            presents_view: Some(10),
+            orthographic_scale: Some(1.0),
+            translation: [0.0, 0.0, 0.0],
+            viewport: None,
+        });
+        assert!(!diagnose(&fingerprint, Some(0))
+            .iter()
+            .any(|warning| warning.contains("ResolvedCameraSnapshot")));
     }
 
     #[test]
@@ -1113,6 +1205,7 @@ mod tests {
             presents_view: Some(10),
             orthographic_scale: Some(1.0),
             translation: [0.0, 0.0, 0.0],
+            viewport: None,
         });
         let warnings = diagnose(&fingerprint, Some(1));
         assert!(warnings.iter().any(|warning| warning.contains("main camera projection")));

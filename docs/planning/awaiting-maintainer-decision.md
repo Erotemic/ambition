@@ -1094,6 +1094,29 @@ statement about the floor's reflex ladder (reaction, APM, noise, read weight) an
 not about the difficulty ladder you authored. Nobody should tune the brain
 against those numbers until this is answered.
 
+⭐⭐ **AND THERE IS NOW A REASON TO PREFER (a), found 2026-09-04 after this
+question was written.** The floor turns the L3 rollout ON at level 6
+(`for_level`: `rollout_depth: if level >= 6 { 12 }`); **your authored ladder turns
+it OFF on all nine rows**, with the comment *"Rollout fields remain zero until
+rollout fidelity is good enough to enable them without changing lower-level
+behavior."*
+
+⇒ So the demo app is not merely measuring a different WEIGHT set — it is running a
+search your ladder deliberately disables. Measured consequences, only under the
+floor: a rollout fighter selects `Dodge` and `Shield` **zero times in 662
+decisions**, and a `6 vs 5` match goes from unresolvable in 60 seconds to both
+fighters losing every stock.
+
+⇒ **Option (a) would fix that as a side effect** — composing `ambition_content`
+gives the demo the authored rows, which zero the rollout, which removes the defect
+from every future rig measurement without touching the brain. ⇒ That is a second
+argument for (a) beyond "the demo should match the game", and it is the reason the
+38-dependency cost may be worth paying.
+
+⭐ **Reassurance in the same finding:** because your ladder zeroes rollout
+everywhere, **no player has ever met this defect.** The precaution in that comment
+was right, and the measurement is the evidence for a call you made without it.
+
 ## Waiting on maintainer measurement, not a decision
 
 ### The residency limit open work 4 needs

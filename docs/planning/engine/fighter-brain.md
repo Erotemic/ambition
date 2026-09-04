@@ -565,6 +565,52 @@ Removing one fighter's rollout made the other one survive too. ⇒ A rollout-dri
 fighter appears to play in a way that gets BOTH bodies killed — reckless
 commitment, or dragging the fight somewhere lethal — rather than simply losing.
 
+### ⭐⭐ THE SHIPPED LADDER TURNS THE ROLLOUT OFF ON EVERY ROW — so none of this reaches a player
+
+**Checked 2026-09-04, and it reframes the whole investigation above.**
+`game/ambition_content/assets/data/fighter_brain_ladder.ron` carries
+`rollout_depth: 0` on **all nine rows**, and says why in its own header:
+
+> *"Rollout fields remain zero until rollout fidelity is good enough to enable
+> them without changing lower-level behavior."*
+
+⇒ **In the shipped game no fighter at any level runs the L3 rollout.** The real
+app composes `ambition_content`, gets the authored rows, and every rung has the
+search disabled. The rollout runs ONLY where the engine FLOOR supplies the profile
+— `for_level`'s `if level >= 6 { 12 }` — and the floor is what the DEMO app falls
+back to, because it does not depend on `ambition_content`.
+
+⇒ **So the defect chain resolves like this, and the order matters:**
+
+1. The dodge/shield suppression and the lethality inversion are real and measured.
+2. They occur only under the engine floor, i.e. **only in the rig's demo app**.
+3. **No player has ever met them**, because the authored ladder disables the
+   search everywhere.
+
+⭐ **AND THE AUTHORS WERE RIGHT, WITH EVIDENCE THEY DID NOT HAVE.** The ron's
+comment is a precaution — *"until rollout fidelity is good enough to enable them
+without changing lower-level behavior"* — and the measurements above are exactly
+the change in lower-level behaviour it was guarding against: a fighter that stops
+dodging and shielding entirely, and a match that goes from unresolvable in 60s to
+both fighters losing every stock. ⇒ **This page's finding is the justification for
+a decision already taken on instinct**, which is the most useful thing a
+measurement can be.
+
+⚠ **What it does NOT do is lower the priority to zero**, for two reasons:
+
+- **It corrupts the rig.** Every ladder measurement runs on the floor, so every
+  cell at rung 6 and above has been measured with a search the shipped game never
+  uses. That is the same class of error as the missing `AuthoredFighterLadder`,
+  and it is the same cause.
+- **It is the blocker on ever enabling rollout.** The ron will not move to a
+  non-zero depth until this is fixed, so `Dodge` in the shadow is the work that
+  unblocks a capability the ladder has been holding in reserve.
+
+⇒ **And it sharpens the ownership question already with Jon.** Option (a) — the
+demo composes `ambition_content` — would turn the rollout OFF in the rig as a side
+effect, because the authored rows zero it. That single change removes the defect
+from every future measurement without touching the brain at all.
+
 ### ⛔⛔ THE ROLLOUT EXPLAINS ABOUT TWO CELLS OF NINE — the full arms, 2026-09-04
 
 **Both 15-seed paired scenarios matrices finished, and they overturn the reading I

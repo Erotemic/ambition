@@ -188,7 +188,6 @@ pub fn sync_authored_gated_lock_walls(
         let cache = world.get_resource::<GatedLockWallCache>();
         cache.is_none_or(|cache| cache.room.as_deref() != Some(active_room_id.as_str()))
     };
-    let flag_set = ConditionId::new("world", "flag_set");
     if rooms_changed || stale || catalog_moved {
         let walls = {
             let Some(set) = rooms.iter(world).next() else {
@@ -200,7 +199,7 @@ pub fn sync_authored_gated_lock_walls(
         let prepared: Vec<CachedWall> = walls
             .into_iter()
             .map(|wall| CachedWall {
-                question: prepare_question(&active_room_id, &catalog, &flag_set, &wall),
+                question: prepare_question(&active_room_id, &catalog, &wall),
                 wall,
             })
             .collect();
@@ -304,19 +303,39 @@ pub fn sync_authored_gated_lock_walls(
 ///
 /// The wall still stands (an unanswerable gate must not open — see the caller),
 /// so this changes no behaviour. It changes whether anyone can find out.
+/// ⭐⭐ THE ONE DECISION ABOUT WHAT AN AUTHORED `gated_by` VALUE MEANS.
+///
+/// Public because a SECOND surface needs it and must not restate it: a content
+/// check that asks whether every authored gate in the shipped worlds can be
+/// prepared has to make exactly this choice, and a copy of five lines in a test
+/// would validate a rule the game had stopped applying. That is the defect
+/// `prepare_authored_arg` records one crate over — two authorities on what an
+/// authored value means, differing by a spelling accepted on one road and not
+/// the other.
+///
+/// The rule: a first token shaped like `domain.question` names a whole condition
+/// LINE and the rest are its arguments; anything else is a flag id for
+/// `world.flag_set`. See [`names_its_own_condition`] for why that test is
+/// syntactic and never repairs.
+pub fn prepare_authored_gate(
+    catalog: &ConditionCatalog,
+    authored: &str,
+) -> Result<PreparedCondition, ambition_platformer2d_shared_tangle::authored_logic::PreparationError>
+{
+    if names_its_own_condition(authored) {
+        catalog.prepare_line(authored)
+    } else {
+        catalog.prepare(ConditionId::new("world", "flag_set"), &[authored])
+    }
+}
+
 fn prepare_question(
     room: &str,
     catalog: &ConditionCatalog,
-    flag_set: &ConditionId,
     wall: &GatedLockWall,
 ) -> Option<PreparedCondition> {
     let authored = wall.gated_by.as_str();
-    let prepared = if names_its_own_condition(authored) {
-        catalog.prepare_line(authored)
-    } else {
-        catalog.prepare(flag_set.clone(), &[authored])
-    };
-    match prepared {
+    match prepare_authored_gate(catalog, authored) {
         Ok(prepared) => Some(prepared),
         Err(error) => {
             // Room, wall and authored text: the three facts an author needs to

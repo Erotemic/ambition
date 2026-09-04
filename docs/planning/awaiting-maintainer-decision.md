@@ -1371,10 +1371,35 @@ weights are named and the arms to validate a new progression already exist. If
 (a), the work is on the RIG: a stock-decided verdict, or a longer clock, or both,
 and every ladder conclusion in `fighter-brain.md` gets re-derived under it.
 
-⭐ **One thing worth knowing either way**: rung 3 vs rung 1 IS significant in the
-correct direction, on the same metric. So the metric is not blind — it detects a
-real difficulty gap when there is one. That is an argument for (b), though not a
-strong one, since rungs 1–3 differ in reflexes as well as weights.
+⭐⭐ **AND THE EVIDENCE MOVED TOWARD (b) WHILE THIS ENTRY WAS BEING WRITTEN.** I
+first wrote that `3 vs 1` being correctly ordered was a weak argument the metric
+is not blind, since those rungs differ in reflexes too. Three more arms make it
+much stronger:
+
+| comparison | result on the same metric |
+|---|---|
+| `9 vs 1` | ✔ higher outfights, **significant** |
+| `3 vs 1` | ✔ higher outfights, significant |
+| `5 vs 3` | ⛔ LOWER, significant |
+| `6 vs 5` | ⛔ LOWER, significant |
+| `9 vs 6` | ✔ higher outfights, significant |
+
+⇒ **The metric orders the ladder's ENDS correctly and reports a trough in its
+middle.** A metric that simply mistook patience for weakness would mis-order the
+top of the ladder too — rung 9 is the most patient rung of all
+(`frame_advantage: 0.60`+) and it beats both rung 1 and rung 6 decisively.
+
+⇒ So the honest headline is **the ladder SAGS at rungs 5–6**, not that it inverts,
+and reading (b) now has to explain only two rungs rather than a whole progression.
+⚠ It is still not proof: rung 9's reflexes are far ahead of rung 6's and may be
+carrying it past the weight penalty. But "the metric is blind to patience" no
+longer fits the data as comfortably as it did an hour ago.
+
+⭐ **And the fix, if (b), is now scoped to two knobs on two rungs**, with a
+measured prediction attached: stepping `frame_advantage` and `expected_payoff`
+back one rung at rung 6 already removes that cell's significance, and back two
+rungs at rung 5 flips it. Whatever the right progression is, those are the two
+dials and the middle is where they are wrong.
 
 ## Waiting on maintainer measurement, not a decision
 

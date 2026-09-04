@@ -260,6 +260,86 @@ no hitstun seconds, no hang, no shots means no writes. A coverage win that also
 moved the existing numbers would be a regression in a win's clothing, and a
 rising fixture count would never have shown it.
 
+### ⛔⛔ EVERY LADDER NUMBER ABOVE MEASURED A FLATTENED LADDER (found 2026-09-04)
+
+**`ladder_rig` overwrote the authored per-level utility weights on every fighter,
+on every run, and said it was doing nothing.**
+
+`weights_from_args()` returned `UtilityWeights::v1()` when no `--weight` was
+passed, and `force_utility_weights` assigned it to **every** live fighter brain.
+`v1()` is not a neutral default: it is *exactly the LEVEL 9 row* of
+`game/ambition_content/assets/data/fighter_brain_ladder.ron` — `frame_advantage`
+0.6, `kill_potential` 0.4, `stage_risk` -0.8, `expected_payoff` 0.5.
+
+⇒ **So a "6 versus 5" bout was two fighters with LEVEL 9 PRIORITIES wearing level
+6 and level 5 reflexes.** The authored utility ladder — the half that says how
+much a rung cares about a kill and how far it will chase one past the ledge — was
+erased before the first tick. What actually differed between rungs was only
+`reaction_ms`, `apm_cap`, `execution_noise` and `read_weight`; `rollout_depth`
+and `rollout_k` are 0 on every row, so they never differed either.
+
+⚠ **And the log line said `weights: v1 (profile default)`**, which is wrong twice.
+`v1` is not the profile's default — the profile authors weights PER LEVEL — and
+"default" reads as *nothing was changed* at the exact moment something was. The
+scenario table did not print even that: `--scenarios` returns before the ladder
+mode's announcement, so every scenario table ever quoted into this document
+travelled without the scoring configuration that produced it.
+
+⇒ **Fixed**: an override is now `Option`, applied only when `--weight` was
+actually passed, and both tables name what they ran under — either
+*"each rung's OWN authored row"* or the overridden values. `--weight` still
+forces on every fighter, which is the documented reason it exists.
+
+⇒ **What this costs.** Every ladder result recorded before 2026-09-04, including
+both matrices below, is a measurement of a ladder that differs in reflexes only.
+They are not wrong about what they measured; they are not measurements of the
+shipped ladder. The re-run under authored weights is the first one that is.
+
+### The scoreboard change, and what the matrix said under it
+
+⭐ **MEASURED 2026-09-04, same 15 seeds and 36 fixture×rung cells, with the
+verdict changed from survival-until-a-cap to OUTCOME (stocks taken, then
+cumulative damage dealt).** Still forced-v1 weights — this run predates the fix
+above.
+
+| | survival verdict (old) | outcome verdict (new) |
+|---|---|---|
+| `both survive` — no information | **18** | **0** |
+| favours LOWER | 17 | 24 |
+| favours higher | 1 | 12 |
+
+⇒ **The saturation is gone**: 18 cells that could not answer now answer. And the
+lopsidedness mostly is too — 1 higher-favouring cell became 12 — which is
+evidence the OLD metric was biased toward the passive fighter rather than
+reporting a real skill inversion.
+
+⛔ **But a residue survives, and it localises.** Every individual cell is still
+`(within spread)`, so no row can claim anything. Aggregating across fixtures —
+the correct blocked unit, since the four rungs of one fixture are not independent
+— **6 of the 6 decided fixtures favour the LOWER-skill fighter** (3 tie), a sign
+test at **p = 0.031**. Per rung it is sharper still:
+
+| rung | LOWER : higher |
+|---|---:|
+| 3 vs 1 | 3 : 6 — **the correct direction** |
+| 5 vs 3 | 7 : 2 |
+| **6 vs 5** | **9 : 0** |
+| 9 vs 6 | 5 : 4 |
+
+⇒ The ladder points the right way at the bottom and inverts hardest at the 5→6
+boundary, where the lower fighter outfought the higher one in **every one of the
+nine fixtures**. ⚠ Under forced level-9 weights, so what differs at that boundary
+is reaction 300→260ms, APM 200→240, noise 0.20→0.16, read 0.2→0.3 — and none of
+those is obviously a way to get worse. That is the question the authored-weight
+re-run exists to answer.
+
+⚠ **A hypothesis I tested and had to drop**, recorded because it is the obvious
+one and the next reader will have it too: that the fixtures handicap the subject
+(7 of 9 place SELF offstage or in hitstun — *"Self is past a blastzone"*) and
+seat 0 is always the higher rung, so the skew is placement rather than skill. It
+is not: the self-handicapped fixtures favour LOWER at **68%** (n=28) and the two
+self-advantaged ones at **62%** (n=8). Same direction, same size.
+
 ### What all nine fixtures actually SAY at the rig's own seed count
 
 ⭐ **MEASURED 2026-09-03, `smash_tool ladder-rig --scenarios` at the rig's

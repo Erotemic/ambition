@@ -143,11 +143,15 @@ pub fn run(cli: LadderRigArgs) {
     // SAY WHAT THIS RUN MEASURED UNDER. A rig that reports numbers without
     // naming the weights they were produced at is two runs nobody can compare,
     // and comparing two runs is the entire purpose of the override.
-    let weights = weights_from_args();
-    if weights != ambition_platformer2d::characters::brain::fighter::UtilityWeights::v1() {
-        println!("[ladder_rig] weights OVERRIDDEN: {weights:?}");
-    } else {
-        println!("[ladder_rig] weights: v1 (profile default)");
+    match weights_from_args() {
+        Some(weights) => println!(
+            "[ladder_rig] weights OVERRIDDEN on EVERY fighter: {weights:?} \
+             (the authored per-level weights are not in play)"
+        ),
+        None => println!(
+            "[ladder_rig] weights: each rung's OWN authored row from \
+             fighter_brain_ladder.ron"
+        ),
     }
     println!(
         // ⛔ "stocks" ALONE IS AMBIGUOUS AND WAS MISREAD. The column is stocks
@@ -287,7 +291,33 @@ fn force_apm_and_noise(app: &mut bevy::app::App, apm: Option<f32>, noise: Option
 ///
 /// Named rather than positional because six numbers in a row is a puzzle, and a
 /// rig whose invocation cannot be read is a rig whose results cannot be trusted.
-fn weights_from_args() -> ambition_platformer2d::characters::brain::fighter::UtilityWeights {
+/// The weight override, or `None` when the caller passed no `--weight`.
+///
+/// ⛔⛔ **THIS RETURNED `v1()` UNCONDITIONALLY AND EVERY RUN APPLIED IT TO EVERY
+/// FIGHTER, WHICH FLATTENED THE DIFFICULTY LADDER THE RIG EXISTS TO MEASURE.**
+/// `UtilityWeights::v1()` is not a neutral default — it is *exactly* the LEVEL 9
+/// row of `fighter_brain_ladder.ron` (frame_advantage 0.6, kill_potential 0.4,
+/// stage_risk -0.8, expected_payoff 0.5). So a "level 1 versus level 3" bout was
+/// two fighters with LEVEL 9 PRIORITIES wearing level 1 and level 3 reflexes,
+/// and the authored utility ladder — the half that says how much a rung cares
+/// about kills and how far it will chase one offstage — was overwritten before
+/// the first tick. Every ladder number this rig ever produced measured a ladder
+/// that differs only in `reaction_ms`, `apm_cap`, `execution_noise` and
+/// `read_weight`.
+///
+/// ⚠ The old log line called it *"weights: v1 (profile default)"*, which is
+/// wrong twice: `v1` is not the profile's default (the profile authors weights
+/// PER LEVEL), and "default" reads as "nothing was changed" at exactly the
+/// moment something was.
+///
+/// ⇒ `--weight` still forces, on every fighter, which is what makes the rig
+/// usable for a scoring change — the documented intent. Passing none now leaves
+/// each rung the weights its level authored.
+fn weights_from_args(
+) -> Option<ambition_platformer2d::characters::brain::fighter::UtilityWeights> {
+    if args().weights.is_empty() {
+        return None;
+    }
     let mut weights = ambition_platformer2d::characters::brain::fighter::UtilityWeights::v1();
     for pair in &args().weights {
         let Some((name, value)) = pair.split_once('=') else {
@@ -311,7 +341,7 @@ fn weights_from_args() -> ambition_platformer2d::characters::brain::fighter::Uti
             }
         }
     }
-    weights
+    Some(weights)
 }
 
 fn force_noise_seed(app: &mut bevy::app::App, seed: u64) -> bool {
@@ -347,6 +377,22 @@ fn run_scenarios(seeds: usize) {
                 })
         })
         .collect();
+    // ⛔ THE SCENARIO TABLE NEVER NAMED ITS WEIGHTS. This mode returns before
+    // the ladder mode's announcement, so every scenario table ever printed —
+    // including the ones quoted into `fighter-brain.md` — travelled without the
+    // scoring configuration that produced it. Same rule as the stage below: a
+    // number crossing a document boundary carries its method or it is not a
+    // measurement.
+    match weights_from_args() {
+        Some(weights) => println!(
+            "[ladder_rig] weights OVERRIDDEN on EVERY fighter: {weights:?} \
+             (the authored per-level weights are not in play)"
+        ),
+        None => println!(
+            "[ladder_rig] weights: each rung's OWN authored row from \
+             fighter_brain_ladder.ron"
+        ),
+    }
     println!(
         // ⛔ THE STAGE IS IN THE HEADER because it stopped being a constant.
         // Every number below depends on it, and a table that does not name the
@@ -900,7 +946,11 @@ fn run_bout_at(
         if !seeded {
             seeded = force_noise_seed(&mut app, seed);
             if seeded {
-                force_utility_weights(&mut app, weights);
+                // Only when the caller asked. Forcing unconditionally is what
+                // flattened the ladder; see `weights_from_args`.
+                if let Some(weights) = weights {
+                    force_utility_weights(&mut app, weights);
+                }
                 if args().no_rollout {
                     force_no_rollout(&mut app);
                 }

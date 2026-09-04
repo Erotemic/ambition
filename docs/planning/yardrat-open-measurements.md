@@ -622,8 +622,15 @@ none of which begin `#[` or `//`. ⇒ My prototype read this test as having **no
 attribute. ⚠ **The direction differs by checker**: a false positive here, but a
 false NEGATIVE for an attribute COUNT, because stopping early reports *fewer*
 attributes and a stolen one would count 1 instead of 2. Fix: collapse logical
-attributes (join from `#[` until the brackets balance) before walking. Reported to
-the guard's owner.
+attributes (join from `#[` until the brackets balance) before walking.
+
+⇒ **QUANTIFIED, so it is not left as a hypothetical: FIVE sites in the repository
+have a `#[test]` separated from its `fn` by a multi-line attribute** — two in
+`sprite_packs.rs`, one in `character/sheets/tests.rs`, and two in
+`d71_transaction_census.rs`. ⚠ None of them is currently a stolen attribute, so
+nothing is being missed today; what is real is the **blind spot** — a stolen
+attribute at any of those five would count 1 instead of 2 and pass. Reported to
+the guard's owner with a fixture.
 
 ---
 

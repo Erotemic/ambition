@@ -368,6 +368,38 @@ portal use, environmental resistance, tools, keys, powered machinery and other
 mechanical facts. Explicit narrative gates remain available when sequencing is
 actually the design.
 
+## ⭐ The authored-gate integrity story is now complete, and the last piece was
+## about the FACT rather than the condition (2026-09-04)
+
+Four guards stand between an author and a gate that can never open, and they
+fail at four different moments:
+
+| guard | catches | when |
+|---|---|---|
+| `every_authored_gate_condition_prepares_against_the_composed_catalog` | a `gated_by` naming a condition no domain publishes | build |
+| `every_condition_an_authored_yarn_file_asks_is_published_by_the_engine` | a `condition("…")` naming one, in dialogue | build |
+| `no_planning_doc_names_a_condition_the_engine_does_not_publish` | a fabricated id spreading through the planning prose | build |
+| `test_every_gated_flag_has_a_writer.py` | a flag NAME nothing can ever set | build |
+
+⛔ **The fourth was the hole, and it is invisible to the other three by
+construction.** `world.flag_set` takes an author-typed flag NAME, so a misspelt
+one parses, names a published condition, evaluates successfully — **and answers
+NO for the rest of the game**, because nothing will ever set a flag by that
+name. ⇒ A wall gated on it never opens and a dialogue branch behind it is
+unreachable, and both look like content nobody wrote rather than content that is
+broken. The first three guards are all about the CONDITION; only this one looks
+at the FACT.
+
+⭐ **Measured before the rule: four authored reads over three distinct flags,
+every one written** — `bob_field_survey_received` (yarn + `quest.rs`, and the
+one LDtk gate), `kernel_guide_demo_flag` (yarn, set and cleared),
+`p1_stabilizer_received` (`quest.rs`). It is a ratchet, not a repair.
+⚠ **"Writable" is deliberately loose** — the name appearing in any `.yarn`
+`set_flag` or as a string literal in any `.rs`. That does not prove anything
+sets it at runtime, and the looseness is in the safe direction: it under-reports
+rather than over-reports, and the failure it exists for is a TYPO, where the
+misspelling appears in exactly one place in the repository.
+
 ## Gate families
 
 - **body capability:** climb, fly, morph, blink, portal use, attack/tool ability;

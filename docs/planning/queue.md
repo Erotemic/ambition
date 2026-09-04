@@ -569,6 +569,37 @@ The one unresolved developer-policy choice from the session-ownership work is in
 
 ## Current execution order
 
+- ▢ **D-WALLET-PREDICATE — `can_afford(price)` is a second authority for a
+  boolean the catalog can answer, and it has more authored callers than any
+  published condition.** (Found 2026-09-04 by re-reading
+  [`engine/world-facts-observations-and-memory.md`](engine/world-facts-observations-and-memory.md),
+  which had ruled the mirror migration FINISHED.)
+  ⭐ **Measured, not assumed:** `can_afford` **10** authored calls (the whole
+  `kernel.yarn` shop menu), `visit_count` 5, `wallet_balance` **0**. The wallet
+  is a durable save field (`save_data.rs:331`) whose live authority is
+  `BodyWallet` on the `PrimaryPlayer`; `can_afford` answers from the mirror's
+  per-frame snapshot instead.
+  ⛔ **Why the existing ruling missed it:** it enumerated the mirror's STRUCT
+  FIELDS and asked which were expressible — `wallet_balance` is a NUMBER, so the
+  field was exempted. The fork lives in the FUNCTIONS bound over the field, and
+  one field carries both a value verb (exempt) and a predicate verb (not).
+  ⇒ **Enumerate the authored surface, not the storage.**
+  ▢ **Action:** publish `wallet.can_afford(amount)` beside `inventory.holds` in
+  `crates/ambition_platformer2d_actor_monolith/src/items/conditions.rs` —
+  the sibling question, already importing `authored_logic` and the item types,
+  and adding NO crate edge (`ambition_items` does not depend on `shared_tangle`,
+  so publishing from there would create one). Repoint `can_afford` at the
+  catalog as a registered system, as `boss_cleared` and `quest_active` now are.
+  ⚠ `ParamKind::Number` / `AuthoredArg::Number` already exist — `body.fits 32`
+  uses them — so no vocabulary is being invented.
+  ✔ **Acceptance:** the ten authored shop lines keep their spelling and branch
+  off the live wallet; a Yarn-interpreter acceptance in the shape of
+  `yarn_condition_aliases.rs`, poisoned by renaming the registration; the
+  mirror's `wallet_balance` field STAYS for the numeric verb.
+  ⛔ **Do NOT delete `wallet_balance()` for having zero callers** — a verb
+  nothing calls yet is content breadth, and its own comment names the intended
+  use. The zero is recorded so it is not rediscovered as a finding.
+
 - ▢ **THE COMPILE-COST RATCHET FAILS THE GATE, and its five messages are the
   D33 campaign's own accounting.** Measured 2026-09-03 by running `./run_tests.sh`
   to completion: **9/10 jobs passed in 2023 s**, the tenth being

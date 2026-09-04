@@ -1951,6 +1951,39 @@ attack's startup is 0.15s; the jab's is 0.05 and the tilts are 0.06–0.07.** It
 not the fastest thing George owns, so "the scorer prefers speed" does not explain
 it.
 
+⛔⛔⛔ **AND THE TRACE ANSWERS IT: THE BODY PERFORMS A MOVE THE BRAIN NEVER
+SELECTS.** `AMBITION_FIGHTER_TRACE=1` over the same probe, shipped ladder, 40s:
+
+| | brain CHOSE (trace `attack=`) | body PERFORMED (census) |
+|---|---:|---:|
+| `george_booul_dash_attack` | **0** | **43** |
+| `jab` | **40** | 1 |
+| `tilt_up` | 8 | 0 |
+| `modus_ponens` | 19 | 4 |
+| `bivalence` | 6 | 3 |
+| `tilt_down` | 1 | 0 |
+
+⇒ **The brain never once named the dash attack, and it is 43 of the 59 moves the
+bodies started.** ⭐ This is the failure `options.rs` records having made twice, in
+its own words — *"the brain named one maneuver, the model judged a second, the
+body performed a third"* — happening **in the shipped fighter on the shipped
+ladder**, and it explains the whole census: the smashes and tilts the brain picks
+never reach the body.
+
+⚠ **Two measurement caveats, both real and neither of which dissolves it.**
+(1) The trace covers **seat1 only** (516 lines, one seat) while the census counts
+**both** — so the two columns are not the same population. (2) A trace line is a
+per-tick DECISION and a census entry is a move START, so 40 `jab` decisions may be
+far fewer than 40 attempted jabs. ⇒ **Neither explains zero-chosen against
+43-performed.** Re-deciding cannot manufacture a move the brain never names, and a
+seat mismatch cannot turn 0 into 43.
+
+⇒ **The mechanism is almost certainly the one named below**: a running body's
+attack press resolves through `move_for_flat_verb(ATTACK, grounded, running)` to
+the dash attack, discarding whichever attack the brain scored. ⚠ Still labelled
+*almost certainly* — I have not traced a single press from decision to
+resolution, and that is the arm that would close it.
+
 ⇒ **Named next step rather than a guess.** `move_for_flat_verb(ATTACK, grounded,
 running)` resolves a plain attack press to the DASH attack when the body is
 running — so an 81% share may be a statement about how often the CPU is *running

@@ -152,6 +152,14 @@ have not been lost to a refactor.
 | `least_bad=Some(..)` | **280** — `Recover` 108, `Retreat` 86, `Approach` 86 | 4.4% |
 | `unmodelled=[..]` | **983** — `Dodge` 846, `Shield`+ 137 | 15.4% |
 
+⚠ **THIS CENSUS PREDATES THE SHIELD MODEL (2026-09-04) and cannot be re-derived
+from HEAD.** `Shield` was unmodelled when it was taken and is modelled now, so a
+fresh sweep would move those 137 out of the unmodelled column. The row is left as
+measured rather than silently adjusted — it is what the instrument said on the day
+— but do not read it as the current split. ⇒ The `Dodge` 846 is the part that
+still stands, and it is the part that matters: it is the remaining half of the
+repair.
+
 ⇒ Tier 2 fires 280 times and tier 3 fires 983 times in ONE seed. The page's
 lesson was that the instrument had been one field short; the measurement says
 the added fields are populated often enough that a reader who ignores them is

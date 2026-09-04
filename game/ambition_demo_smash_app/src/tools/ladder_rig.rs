@@ -148,11 +148,16 @@ pub fn run(cli: LadderRigArgs) {
             "[ladder_rig] weights OVERRIDDEN on EVERY fighter: {weights:?} \
              (the authored per-level weights are not in play)"
         ),
+        // ⚠ "not overridden", NOT "the authored rows". Those are different
+        // claims and the line below is the one that says which rows a rung
+        // actually got: this rig prints both, and an earlier wording had them
+        // contradicting each other on consecutive lines.
         None => println!(
-            "[ladder_rig] weights: each rung's OWN authored row from \
-             fighter_brain_ladder.ron"
+            "[ladder_rig] weights: not overridden — each rung keeps whatever its \
+             profile source gave it (see the ladder line below)"
         ),
     }
+    report_which_ladder_is_in_play();
     println!(
         // ⛔ "stocks" ALONE IS AMBIGUOUS AND WAS MISREAD. The column is stocks
         // REMAINING, so `0 : 0` means BOTH fighters were fully eliminated — the
@@ -313,6 +318,49 @@ fn force_apm_and_noise(app: &mut bevy::app::App, apm: Option<f32>, noise: Option
 /// ⇒ `--weight` still forces, on every fighter, which is what makes the rig
 /// usable for a scoring change — the documented intent. Passing none now leaves
 /// each rung the weights its level authored.
+/// SAY WHICH DIFFICULTY LADDER THIS RUN'S FIGHTERS ACTUALLY GOT.
+///
+/// ⛔⛔ **EVERY RUN THIS RIG HAS EVER PRODUCED WAS ON THE ENGINE FLOOR AND NO
+/// OUTPUT SAID SO.** A rung's profile comes from `profile_for_level`, which
+/// prefers `Res<AuthoredFighterLadder>` and falls back to
+/// `FighterBrainProfile::for_level` — and that floor sets
+/// `utility_weights: UtilityWeights::default()`, which IS `v1()`, for EVERY
+/// level. The authored rows are inserted by `ambition_content`, which neither
+/// `ambition_demo_smash` nor this crate depends on. So the floor's rungs differ
+/// in `reaction_ms`, `apm_cap`, `execution_noise` and `read_weight` and in
+/// nothing else, while the game the player runs (`ambition_app`, which DOES
+/// compose `ambition_content`) gives its fighters the authored ladder.
+///
+/// ⇒ **The rig has been measuring a different fighter from the shipped one**, and
+/// the only reason that was discoverable at all is that removing an unrelated
+/// override changed nothing. This line makes the condition part of the output
+/// instead of a property somebody has to go and derive.
+///
+/// ⚠ It REPORTS rather than repairs, deliberately. Fixing it means deciding who
+/// owns Smash's difficulty ladder — `super-smash-siblings.md` puts "CPU-fill/
+/// difficulty policy" in what Smash owns, and `for_level`'s own doc says a game
+/// that cares ships its own nine rows — but `ambition_content` already inserts
+/// one, so a second `insert_resource` would make the winner a plugin-order
+/// accident. That is a product decision, not a measurement fix.
+fn report_which_ladder_is_in_play() {
+    let mut app = build_demo_app();
+    app.update();
+    let authored = app
+        .world()
+        .get_resource::<ambition_platformer2d::characters::brain::fighter::AuthoredFighterLadder>()
+        .is_some();
+    if authored {
+        println!("[ladder_rig] ladder: the AUTHORED rows (AuthoredFighterLadder is installed)");
+    } else {
+        println!(
+            "[ladder_rig] ⛔ ladder: the ENGINE FLOOR — no AuthoredFighterLadder in this app, so \
+             every rung carries the floor's `UtilityWeights::default()` (== v1, the level-9 row) \
+             and differs only in reaction/APM/noise/read. This is NOT the ladder the shipped game \
+             gives its fighters."
+        );
+    }
+}
+
 fn weights_from_args(
 ) -> Option<ambition_platformer2d::characters::brain::fighter::UtilityWeights> {
     if args().weights.is_empty() {
@@ -377,6 +425,7 @@ fn run_scenarios(seeds: usize) {
                 })
         })
         .collect();
+    report_which_ladder_is_in_play();
     // ⛔ THE SCENARIO TABLE NEVER NAMED ITS WEIGHTS. This mode returns before
     // the ladder mode's announcement, so every scenario table ever printed —
     // including the ones quoted into `fighter-brain.md` — travelled without the
@@ -388,9 +437,13 @@ fn run_scenarios(seeds: usize) {
             "[ladder_rig] weights OVERRIDDEN on EVERY fighter: {weights:?} \
              (the authored per-level weights are not in play)"
         ),
+        // ⚠ "not overridden", NOT "the authored rows". Those are different
+        // claims and the line below is the one that says which rows a rung
+        // actually got: this rig prints both, and an earlier wording had them
+        // contradicting each other on consecutive lines.
         None => println!(
-            "[ladder_rig] weights: each rung's OWN authored row from \
-             fighter_brain_ladder.ron"
+            "[ladder_rig] weights: not overridden — each rung keeps whatever its \
+             profile source gave it (see the ladder line below)"
         ),
     }
     println!(

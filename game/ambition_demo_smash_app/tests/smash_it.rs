@@ -13,4 +13,5 @@ mod smash_it_sync;
 mod a_move_can_name_art_outside_the_old_five;
 mod the_repertoire_gets_used;
 mod the_screen_decides;
+mod the_ladder_the_demo_runs;
 mod the_stage_kills;

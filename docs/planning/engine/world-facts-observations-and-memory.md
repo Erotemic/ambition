@@ -38,7 +38,8 @@ conditions read four of them:
 | `occurrences` / `custody` | ✔ `custody.is_held` |
 | `encounters` | ✔ `encounter.cleared` (published 2026-09-04) |
 | `bosses` | ✔ `boss.cleared` (published 2026-09-04, retiring a mirror slice) |
-| `quests`, `dialog_visits`, `wallet`, `checkpoint`, `minted_items`, `inventory_saved` | ⛔ nothing publishes a condition |
+| `quests` | ✔ `quest.active` (published 2026-09-04, retiring a mirror slice — and the first condition published by the GAME) |
+| `dialog_visits`, `wallet`, `checkpoint`, `minted_items`, `inventory_saved` | ⛔ nothing publishes a condition |
 
 ⇒ **So the first slice of THIS program is not a representation decision, it is a
 publication gap**, and it is the same shape the capability-progression program
@@ -118,15 +119,24 @@ the catalog live rather than a closure over the mirror, and
 Authored `.yarn` content keeps its spelling and gains the live answer, so no
 content migration was needed. Three tests, poison-verified; the whole workspace
 checks clean and the four affected suites are green.
-⇒ **The publication table above should now read `bosses` → ✔ `boss.cleared`.**
+✔✔ **AND `quest.active` LANDED WITH IT (`03f31eee3`) — the sibling, and the
+FIRST CONDITION PUBLISHED BY THE GAME.** The engine has no quest domain: the
+roster is `ambition_content::quest::default_quest_specs` and the pump is
+registered by `AmbitionQuestContentPlugin`, both in `game/`. So *"a domain owns
+its own publication"* puts it there, and it shows the catalog is extensible by a
+GAME and not only by the engine — a composition without Ambition's quests never
+sees the question. `quests_active` and its refresh loop are deleted too: the
+mirror's THIRD slice to go, after `flag` and the boss slice.
+⇒ **The publication table above records both.**
 
-⇒ **Ordering for the rest:** `quest.active` next —
-they have callers and a one-for-one mirror slice to delete. `visit_count` and
-`wallet_balance` are weaker: the first is dialogue's own bookkeeping rather than a
-world fact, and the second is a NUMBER, which the catalog's boolean-outcome shape
-cannot express without inventing a comparison vocabulary. ⛔ Do not migrate those
-to make the mirror empty; an empty mirror is not the goal, one authority per
-question is.
+⛔ **AND THE MIRROR MIGRATION IS FINISHED — the remaining fields are
+deliberately staying, which is the ruling rather than an omission.**
+`visit_counts` is dialogue's own bookkeeping rather than a world fact, and
+`wallet_balance` is a NUMBER, which the catalog's boolean-outcome shape cannot
+express without inventing a comparison vocabulary. ⇒ **An empty mirror is not
+the goal; one authority per question is.** A future field here is a claim that
+the catalog CANNOT answer the question, and the burden is on the field — which
+`YarnStateMirrorData`'s own doc now says at the type.
 
 ⛔ **AND IT SAYS NOTHING ABOUT THE OTHER TWO LAYERS.** Observations and memory
 have no durable representation at all outside the tactical-belief slice below;

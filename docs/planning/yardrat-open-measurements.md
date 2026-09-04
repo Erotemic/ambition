@@ -406,3 +406,65 @@ candidate. Check with `git merge-base --is-ancestor A B` before treating a
 result as a bound. The verdict survived — `06a494f4e`, confirmed independently
 from the mechanism side — but it survived for a different reason than the index
 suggested.
+
+---
+
+## ⛔ OPEN — the composed app cannot be built on this VM, and `df` says otherwise
+
+**What is blocked:** every measurement that needs `ambition_app`. Concretely
+`report_the_smash_kit_every_selectable_fighter_has`
+(`game/ambition_app/tests/smash_roster_movesets.rs`), which hard-asserts that
+every composition-selectable fighter reaches the full 16-press genre kit and
+prints a per-fighter census as it goes. ⇒ That single command answers the open
+roster question in [`awaiting-maintainer-decision.md`](awaiting-maintainer-decision.md),
+so this is not a niche blocker.
+
+```
+cargo test -p ambition_app --test app_it report_the_smash_kit -- --nocapture
+```
+
+**The failure, and it lied twice before it told the truth:**
+
+| attempt | what it said | what it was |
+|---|---|---|
+| 1 (incremental) | ~40 × `mold: error: undefined symbol: anon.<hash>.llvm.<n>` | truncated rlibs — reads exactly like stale incremental codegen, and I diagnosed it as that. **Wrong.** |
+| 2 (`CARGO_INCREMENTAL=0`) | `No space left on device (os error 28)` | the real class, stated plainly for the first time |
+| 3 (sequential) | `mold: error: undefined symbol: <bevy_ggrs::…>::Rollback` | a *named* symbol — the rlib attempt 1 truncated was still cached, and cargo's fingerprint called it fresh |
+| 4 (after `touch`ing that crate's `lib.rs`) | `mold: failed to write to an output file. Disk full?` | the rlib rebuilt clean; the final `libambition_app.so` is what cannot be written |
+
+⭐ **`df` is not the instrument here.** It reports **188G free, inodes at 5%** —
+and those numbers are the HOST's, because the worktree is a **virtiofs**
+passthrough (`findmnt` → `aivm-persistent-root … virtiofs`). Measured against the
+filesystem instead of asked of it:
+
+- 50MB write: fine, 953 MB/s.
+- 300MB write: fine.
+- 1GB write: fails.
+- 2GB write: stops at **576MB**.
+- 800MB write: killed with no message at all.
+
+⇒ **The usable ceiling for a single file is somewhere near half a gigabyte**, and
+a debug `.so` for the composed app is far past it. ⚠ Nothing about the repository
+is wrong: `ambition_demo_smash` builds in seconds and its 154 tests pass, and
+attempt 4 proves the dependency graph links right up to the final artifact.
+
+⛔ **NOT ATTEMPTED, deliberately.** `rm -rf` under `target/` is a standing repo
+rule, and `cargo clean` is the same deletion with a friendlier name — `target/` is
+**187G** (debug 148G), so it is the obvious lever and it is not mine to pull.
+
+**Two things worth knowing before pulling it:**
+
+1. ⚠ **The corrupt-cache trap will outlive the disk problem.** Once a write is
+   truncated by ENOSPC, cargo keeps serving the broken rlib because its
+   fingerprint is still valid — so the build fails with *undefined symbols* long
+   after space is restored, and the error names a linker problem, not a disk one.
+   `touch`ing that crate's `lib.rs` fixes it without deleting anything, and that
+   is what moved attempt 3 to attempt 4.
+2. ⭐ **Cheapest non-destructive thing to try first is a smaller artifact**, not a
+   bigger disk: `CARGO_PROFILE_DEV_DEBUG=0` drops the debug info that makes the
+   `.so` enormous.
+
+ⓘ **Relevant to the standing "a fresh clone must reach a runnable game" ask** —
+but as a MACHINE finding, not a repo one. A fresh clone on a host with room is
+untouched by any of this. What it does mean is that a fresh clone *on this VM*
+would fail at the final link, and would report it as an undefined symbol.

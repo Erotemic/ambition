@@ -59,6 +59,54 @@ fact, and it publishes one named state rather than a
 key-value fact database this page refuses, arriving one enum at a time. A second
 state becomes a second named question when something wants it.
 
+⭐⭐ **AND THE PUBLICATION GAP IS NOT A GAP — IT IS A FORK WITH A PRECEDENT AND
+LIVE CUSTOMERS (measured 2026-09-04).** The remaining eight families are not
+merely unpublished; several are already ANSWERED, by a second mechanism, to
+authored content that ships.
+
+`ambition_dialog::YarnStateMirrorData` (`crates/ambition_dialog/src/bindings.rs:16`)
+carries `bosses_cleared`, `quests_active`, `visit_counts`, `wallet_balance` and
+`extras`, and `game/ambition_content/src/yarn_vocabulary.rs:408-443` binds
+`boss_cleared(id)`, `quest_active(id)`, `visit_count(id)`, `wallet_balance()` and
+`can_afford(price)` as bespoke Yarn functions over it. **Authored content calls
+them today** — `cove.yarn:3`, `cove.yarn:220`, `kernel.yarn:271`, `kernel.yarn:293`.
+
+⇒ **So this is the "second authority" shape, and BOTH modules already say so at
+the site.** `authored_conditions.rs`: *"facts already exposed through the
+authored-condition catalog must be queried there rather than duplicated here.
+The mirror remains only for facts the catalog cannot answer."*
+`yarn_vocabulary.rs:415`: *"Two mechanisms answering one question is exactly the
+second authority this project refuses elsewhere."*
+
+✔ **AND THE MIGRATION HAS ALREADY HAPPENED ONCE, which is what makes this a
+carve rather than a proposal.** The mirror's flag slice is GONE
+(`yarn_vocabulary.rs:107`): *"It existed so `flag(id)` could read a save flag
+synchronously; that question is the condition catalog's `world.flag_set`, asked
+live."* ⇒ Publishing a condition here **retires a mirror slice**; it does not add
+an unused verb.
+
+⛔⛔ **WHICH REVERSES THE OBVIOUS CAUTION, and the reversal is the point.**
+`capability-progression-and-world-gating.md` measures five of seven published
+conditions as authored NOWHERE, so "publish more conditions" reads as
+dormant-cluster growth. **It is the opposite here**: `boss.cleared` and
+`quest.active` have authored callers on day one — the callers exist, through the
+other door. The dormant-cluster risk applies to conditions with no customer, not
+to conditions whose customers are currently served by the fork.
+
+⚠ **AND `encounter.cleared` DOES NOT ALREADY COVER IT.** `encounters`
+(`PersistedEncounter`) and `bosses` (`PersistedBossDefeat`) are separate save
+fields (`save_data.rs:313`, `:317`), and the mirror reads `data.bosses`. Checked,
+because "the boss is an encounter" is the plausible assumption that would have
+made this look already-done.
+
+⇒ **Ordering, if this is taken up:** `boss.cleared` and `quest.active` first —
+they have callers and a one-for-one mirror slice to delete. `visit_count` and
+`wallet_balance` are weaker: the first is dialogue's own bookkeeping rather than a
+world fact, and the second is a NUMBER, which the catalog's boolean-outcome shape
+cannot express without inventing a comparison vocabulary. ⛔ Do not migrate those
+to make the mirror empty; an empty mirror is not the goal, one authority per
+question is.
+
 ⛔ **AND IT SAYS NOTHING ABOUT THE OTHER TWO LAYERS.** Observations and memory
 have no durable representation at all outside the tactical-belief slice below;
 the save is a snapshot of what is TRUE, with no record of what happened or who

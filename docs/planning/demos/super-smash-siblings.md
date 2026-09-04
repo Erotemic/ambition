@@ -236,8 +236,19 @@ tuning **present** through the rig and probe tools.
 the primitive table's ten shipped rows are what the brain can use, and its named
 partials (`P02` fixed reactions and set knockback, `P10`'s unpublished tech
 result, `P11`'s 2-of-6 capture roads) are exactly what it cannot answer yet. The
-ladder rig cannot currently rank skill either — 35 of 36 verdicts inside the seed
-spread — so "the brain can answer these mechanics" has no scoreboard behind it.
+ladder rig cannot currently rank skill either, and its reason changed twice on
+2026-09-04 — see [`engine/fighter-brain.md`](../engine/fighter-brain.md).
+
+⛔ **In short, so nobody quotes a superseded number from here:** the original
+*"35 of 36 verdicts inside the seed spread"* was measured with survival-until-a-cap
+as the verdict, which saturated at both ends and paid for passivity. Under an
+outcome verdict (stocks taken, then damage dealt) the 18 uninformative cells all
+resolve and the split is 24 : 12 toward the LOWER rung, every cell still inside
+its spread. ⛔⛔ **And all of it measured the ENGINE FLOOR, not the shipped
+ladder** — the demo app installs no `AuthoredFighterLadder`, so every rung carries
+`UtilityWeights::default()`, which *is* the level-9 row. ⇒ "the brain can answer
+these mechanics" still has no scoreboard behind it, and the scoreboard it does
+have has not yet been pointed at the fighter a player actually fights.
 
 
 1. **Core fight:** attacks, shield, grab, dodge, movement, launch, recovery,

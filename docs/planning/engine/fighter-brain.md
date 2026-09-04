@@ -292,8 +292,8 @@ forces on every fighter, which is the documented reason it exists.
 
 ⛔⛔ **AND THE FORCING WAS THE OUTER OF TWO LAYERS — the re-run PROVED IT by
 changing nothing.** I expected the authored-weights run to move the numbers. It
-did not: the first **10 of 10** fixture×rung cells came back byte-identical in
-every column. That is the evidence, not a disappointment — if the authored rungs
+did not: **all 36 of 36** fixture×rung cells came back byte-identical in every
+column — the complete matrix, not a sample. That is the evidence, not a disappointment — if the authored rungs
 had been reaching the fighters, removing an override that overwrote them would
 have had to change something.
 

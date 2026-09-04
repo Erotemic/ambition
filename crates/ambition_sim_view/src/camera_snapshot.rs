@@ -2959,3 +2959,66 @@ mod rolled_safe_area_tests {
         );
     }
 }
+
+#[cfg(test)]
+mod default_framing_calibration_tests {
+    /// ⭐ THE CROSS-DOMAIN CALIBRATION GUARD, IN THE ONE PLACE THAT CAN READ BOTH
+    /// AUTHORITIES.
+    ///
+    /// The default framing is derived, not chosen by eye: Jon asked for a more
+    /// zoomed-in default and named `pointed_polygon` as the reference. That
+    /// character is `body_kind: Standard`, so what a player sees is
+    /// `Standard::default_standing_height() / CameraZoomPreset::default().base_view().1`
+    /// and the target is Smash-like readability at roughly 14–16% of screen
+    /// height.
+    ///
+    /// ⛔⛔ IT LIVES HERE BECAUSE THE TEST THAT CLAIMED THIS LIVED SOMEWHERE THAT
+    /// CANNOT SEE IT. `ambition_persistence` does not depend on
+    /// `ambition_characters`, so its version wrote `const
+    /// STANDARD_STANDING_HEIGHT: f32 = 48.0` and asserted against its own copy —
+    /// while its doc said *"if `Standard`'s standing height changes, this test is
+    /// the thing that notices"*. Changing the real authority to 50.0 left it
+    /// green. A guard that duplicates the value it is guarding cannot fail for
+    /// the reason it exists.
+    ///
+    /// `ambition_sim_view` depends on both crates and already derives the
+    /// snapshot's default view from the preset, so both halves are real reads
+    /// here and either one moving reddens this.
+    #[test]
+    fn the_default_framing_puts_a_standard_humanoid_at_fifteen_percent_of_screen_height() {
+        let standing = ambition_characters::actor::character_catalog::CharacterBodyKind::Standard
+            .default_standing_height()
+            .expect("a Standard body authors a standing height");
+        let (_, view_h) =
+            ambition_persistence::settings::video::CameraZoomPreset::default().base_view();
+        let ratio = standing / view_h;
+
+        assert!(
+            (ratio - 0.15).abs() < 0.005,
+            "the default framing must put a standard humanoid at ~15% of screen \
+             height (Smash-like readability); got {:.1}% from a {standing}-unit \
+             body in a {view_h}-unit view",
+            ratio * 100.0,
+        );
+    }
+
+    /// NON-VACUITY: the arithmetic above discriminates. A wider preset that
+    /// happens to exist puts the same body materially below the target, so the
+    /// assertion is not satisfied by any pair of numbers the workspace contains.
+    #[test]
+    fn a_wider_preset_would_not_satisfy_the_readability_target() {
+        let standing = ambition_characters::actor::character_catalog::CharacterBodyKind::Standard
+            .default_standing_height()
+            .expect("a Standard body authors a standing height");
+        let (_, wide_h) =
+            ambition_persistence::settings::video::CameraZoomPreset::Combat.base_view();
+        let ratio = standing / wide_h;
+
+        assert!(
+            ratio < 0.145,
+            "the `Combat` preset must sit outside the target band, or the check \
+             above passes for any preset; got {:.1}%",
+            ratio * 100.0,
+        );
+    }
+}

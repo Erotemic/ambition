@@ -294,26 +294,26 @@ fn populate(sim: &mut Platformer2dSimHarness) {
 /// Such an entity DOES reach a boundary and DOES get saved. The reasoning was
 /// wrong in the direction that would have dismissed a real gap.
 ///
-/// ⛔⛔ **AND THE GAP IS REAL AND STILL OPEN — measured 2026-09-04, negative
-/// result recorded so nobody runs it a second time.** A portal shot travels
-/// ~31.7px per 60Hz step, so one fired within that of the fizzle line lives and
-/// dies inside a single `sim.step()`. I put exactly that shot into this fixture
-/// and counted the frames THIS SCAN saw it on, by its own `SimId`:
+/// ✔✔ **AND THE WITHIN-A-STEP CLASS IS WALKED — but only because the scan is
+/// ORDERED, which took three measurements to establish.** A portal shot travels
+/// ~31.7px per 60Hz step, so one fired closer than that to the line it fizzles
+/// past lives and dies inside a single `sim.step()`.
 ///
-/// * fired into open space (x=300): **371 scanned frames** — so the intent
-///   works, the id is carried, and the counter finds it;
-/// * fired ten pixels short of the fizzle line: **0 scanned frames.**
+/// | shot | scanned frames it was seen on |
+/// |---|---:|
+/// | fired into open space (x=300) | 371 |
+/// | fired at the fizzle line, scan UNORDERED | **0** |
+/// | fired at the fizzle line, scan `.after(portal_fire_system)` | **1** |
 ///
-/// ⇒ **So this scan does not walk the within-a-step class either**, and the
-/// close-wall shot was removed rather than left in as a decoration that proves
-/// nothing. ⚠ The scan is registered UNORDERED, so it is not established whether
-/// the entity is invisible to everything (Poison A's shape) or merely to a
-/// system that happens to run outside its window. **Ordering the scan explicitly
-/// between the fire and the step is the next experiment**, and it is the one
-/// that would settle it.
-/// ⚠ The counter also caught its own first error, worth keeping: it counted ANY
-/// `PortalShot` and reported 380 frames, because `populate` already fires a
-/// long-range one. An instrument answering a wider question than the one asked.
+/// ⇒ **Unordered, this census does not reach the class at all.** The first two
+/// rows looked like the class being unreachable; the third shows it was the
+/// SCAN's position, not the entity's lifetime. Bevy inserts a sync point when a
+/// `Commands` writer is ordered before a reader of what it wrote, so naming the
+/// edge is what makes the spawn observable.
+///
+/// ⛔ **The edge is therefore load-bearing and the fixture asserts it**: drop
+/// `.after(portal_fire_system)` and the one-step counter reads zero, which the
+/// assertion names rather than passing quietly.
 #[test]
 fn no_anchor_rewinds_anonymously_on_any_frame_it_exists() {
     use ambition_platformer2d::platformer::sim_id::SimId;
@@ -327,9 +327,11 @@ fn no_anchor_rewinds_anonymously_on_any_frame_it_exists() {
     let mut sim = rollback_sim();
     sim.app_mut().init_resource::<AnonymousAnchors>();
     let schedule = sim.app_mut().sim_schedule();
-    sim.app_mut().add_systems(
+    {
+        use bevy::prelude::IntoScheduleConfigs as _;
+        sim.app_mut().add_systems(
         schedule,
-        |anchors: bevy::prelude::Query<
+        (|anchors: bevy::prelude::Query<
             (Entity, Option<&bevy::prelude::Name>),
             (With<Rollback>, bevy::prelude::Without<SimId>),
         >,
@@ -342,18 +344,130 @@ fn no_anchor_rewinds_anonymously_on_any_frame_it_exists() {
                     found.0.push(label);
                 }
             }
-        },
-    );
+        })
+        // ⭐⭐ ORDERED AFTER THE SPAWNER, WHICH IS WHAT PUTS THE TRANSIENT CLASS
+        // IN REACH. Unordered, this scan never saw a portal shot that lives and
+        // dies inside one step — measured: 371 scanned frames for a shot fired
+        // into open space, ZERO for one fired ten pixels short of the fizzle
+        // line. Bevy inserts a sync point when a `Commands` writer is ordered
+        // before a reader of what it wrote, so naming the edge is what makes the
+        // spawn visible to the scan at all.
+        .after(ambition_platformer2d::portal::portal_fire_system),
+        );
+    }
+
+    /// The kind name the one-step shot's id carries, so the counter can tell it
+    /// from the long-range shot `populate` already fires.
+    ///
+    /// ⚠ ITS FIRST FORM COUNTED ANY `PortalShot` and reported 380 frames,
+    /// because `populate` fires one from x=224 that flies for most of the run.
+    /// An instrument answering a wider question than the one asked.
+    const ONE_STEP_SHOT: &str = "one_step_shot";
+
+    #[derive(bevy::prelude::Resource, Default)]
+    struct OneStepShotFrames(usize);
+    sim.app_mut().init_resource::<OneStepShotFrames>();
+    {
+        use bevy::prelude::IntoScheduleConfigs as _;
+        let schedule = sim.app_mut().sim_schedule();
+        sim.app_mut().add_systems(
+            schedule,
+            (|shots: bevy::prelude::Query<
+                &SimId,
+                With<ambition_platformer2d::portal::PortalShot>,
+            >,
+              mut seen: bevy::prelude::ResMut<OneStepShotFrames>| {
+                if shots.iter().any(|id| id.to_string().contains(ONE_STEP_SHOT)) {
+                    seen.0 += 1;
+                }
+            })
+            .after(ambition_platformer2d::portal::portal_fire_system),
+        );
+    }
 
     for _ in 0..8 {
         sim.step(AgentAction::default());
     }
     populate(&mut sim);
+
+    // ⛔⛔ THE WITHIN-A-STEP CLASS, PUT INTO THE POPULATION. A shot travels
+    // 1900 px/s — ~31.7px per 60Hz step — so one fired closer than that to the
+    // line it fizzles past SPAWNS AND DIES INSIDE ONE `sim.step()`. Neither
+    // between-steps census in this file can ever walk it.
+    //
+    // ⭐ NAMED BY THE PEER SESSION 2026-09-04, who measured that production's
+    // `.after(portal_fire_system)` still reaches a sync point (Bevy inserts one
+    // when a `Commands` writer is ordered before a reader) — so the shot really
+    // is saved, and an anonymous one really would rewind by index.
+    //
+    // ⚠ ORIGIN DERIVED FROM THE WORLD'S OWN EXTENT: a hardcoded coordinate would
+    // stop exercising the class the moment the sandbox room changed size, and
+    // would do so silently.
+    {
+        let fizzle_x = {
+            let world = sim.world_mut();
+            let mut roots = world.query_filtered::<
+                &ambition_platformer2d::engine_core::RoomGeometry,
+                bevy::prelude::With<ambition_platformer2d::platformer::lifecycle::SessionRoot>,
+            >();
+            roots
+                .iter(world)
+                .next()
+                .map(|geometry| geometry.0.size.x + 64.0)
+                .expect("the session world carries its geometry")
+        };
+        let spawner = {
+            let world = sim.world_mut();
+            let subject = world
+                .resource::<ambition_platformer2d::platformer::markers::ControlledSubject>()
+                .0
+                .expect("the sandbox session has a controlled subject");
+            world
+                .get::<SimId>(subject)
+                .cloned()
+                .expect("the controlled subject carries a SimId")
+        };
+        sim.world_mut()
+            .write_message(ambition_platformer2d::portal::PortalFireIntent {
+                origin: bevy::math::Vec2::new(fizzle_x - 10.0, 96.0),
+                dir: bevy::math::Vec2::new(1.0, 0.0),
+                channel: ambition_platformer2d::portal::PortalChannel::Gun(
+                    ambition_platformer2d::portal::PortalGunColor::BLUE,
+                ),
+                id: Some(SimId::death_drop(&spawner, ONE_STEP_SHOT)),
+            });
+    }
+
     for frame in 0..60 {
         sim.step(busy(frame));
         sim.rollback_health()
             .unwrap_or_else(|error| panic!("frame {frame}: {error}"));
     }
+
+    // ⛔⛔ AND THE WITHIN-A-STEP CLASS MUST HAVE BEEN WALKED — measured, both
+    // ways, because this is the assertion the whole test exists for.
+    //
+    // | scan | one-step shot seen on |
+    // |---|---:|
+    // | UNORDERED | **0 frames** |
+    // | ordered `.after(portal_fire_system)` | **1 frame** |
+    //
+    // ⇒ The ordering edge is not decoration: without it this census does not
+    // reach the class at all, and the test would pass while proving nothing
+    // about it. One frame is the whole life of the shot.
+    let one_step_frames = sim.world_mut().resource::<OneStepShotFrames>().0;
+    assert!(
+        one_step_frames > 0,
+        "the one-step shot was never seen, so the class this test exists for was \
+         not walked. If the scan lost its `.after(portal_fire_system)` edge it \
+         reads zero here — that edge is what makes the spawn visible."
+    );
+    assert!(
+        one_step_frames <= 2,
+        "the one-step shot survived {one_step_frames} scanned frames, so it is no \
+         longer the within-a-step case — the sandbox room's extent probably \
+         moved. Re-derive the origin rather than raising this bound."
+    );
 
     // ⛔ ANTI-VACUITY: the scan must have RUN, or an empty finding means nothing.
     // A system added to the wrong schedule label is silent, and silence is

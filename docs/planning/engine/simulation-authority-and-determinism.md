@@ -440,11 +440,29 @@ scan saw it on, by its own id:
 | fired into open space (x=300) | **371** |
 | fired ten pixels short of the fizzle line | **0** |
 
-⇒ **The in-schedule scan does not walk that class either**, so the close-wall
-shot was REMOVED rather than left in as a decoration. ⚠ The scan is registered
-UNORDERED, so it is not established whether the entity is invisible to everything
-or only to a system running outside its window. **Ordering the scan explicitly
-between the fire and the step is the next experiment** and would settle it.
+✔✔ **AND THE THIRD MEASUREMENT REVERSED THE FIRST TWO: the class IS walked, once
+the scan is ORDERED.**
+
+| shot | scanned frames it was seen on |
+|---|---:|
+| fired into open space (x=300) | 371 |
+| fired at the fizzle line, scan UNORDERED | **0** |
+| fired at the fizzle line, scan `.after(portal_fire_system)` | **1** |
+
+⇒ **What was unreachable was the SCAN's position, not the entity's lifetime.**
+One frame is the whole life of the shot. Bevy inserts a sync point when a
+`Commands` writer is ordered before a reader of what it wrote, so naming the edge
+is what makes the spawn observable at all.
+
+⭐ **THE LESSON IS ABOUT THE FIRST RESULT, and it is the reusable half: a
+NEGATIVE result is a claim about the instrument until you have varied the
+instrument.** "0 frames" read as *the class is beyond this census* and was
+written into this page as a standing open gap; it was really *the census was one
+ordering edge away from working.*
+
+⛔ **The edge is load-bearing and the fixture says so**: drop
+`.after(portal_fire_system)` and the one-step counter reads zero — poison-verified,
+and the failure names the edge rather than passing quietly.
 ⚠ The counter caught its own first error too: it counted ANY `PortalShot` and
 reported 380 frames, because `populate` already fires a long-range one — an
 instrument answering a wider question than the one asked.

@@ -106,6 +106,15 @@ pub struct LadderRigArgs {
     /// Fighter to test against.
     #[arg(long)]
     pub opponent: Option<String>,
+    /// Stage to fight on: `flat` (default) or `platforms`.
+    ///
+    /// ⭐ Every ladder number recorded before 2026-09-04 was measured on `flat`,
+    /// which was the only stage there was. That makes the stage a CONFOUNDER
+    /// sitting under the whole corpus — spacing, recovery and edgeguard results
+    /// were all taken on one layout — and this flag is what turns it into a
+    /// variable that can be compared instead of a constant nobody chose.
+    #[arg(long, default_value = "flat")]
+    pub stage: String,
 }
 
 /// ⛔ **PARSED ONCE, READ FROM DEPTH.** `flag_value` was called from inside
@@ -145,7 +154,7 @@ pub fn run(cli: LadderRigArgs) {
         // REMAINING, so `0 : 0` means BOTH fighters were fully eliminated — the
         // opposite of the "nobody lost a stock" it reads as at a glance. Say
         // LEFT in the header, where the reader is.
-        "[ladder_rig] higher vs lower   survived(hi:lo)   stocks LEFT(hi:lo)   peak%(hi:lo)   \
+        "[ladder_rig] higher vs lower   survived(hi:lo)   stocks LEFT(hi:lo)   dealt%(hi:lo)   peak%(hi:lo)   \
          verdict = who OUTFOUGHT: stocks taken, then damage dealt   \
          (median of {seeds} seeds, {}s each)",
         TICKS / 60
@@ -339,17 +348,23 @@ fn run_scenarios(seeds: usize) {
         })
         .collect();
     println!(
+        // ⛔ THE STAGE IS IN THE HEADER because it stopped being a constant.
+        // Every number below depends on it, and a table that does not name the
+        // layout it was measured on cannot be compared with another one — which
+        // is the entire reason `--stage` exists.
         "[ladder_rig] --scenarios: PLACEMENT ONLY — {} of {} fixture(s) are \
-         reproduced by placing two bodies (median of {seeds} seeds, {}s each)",
+         reproduced by placing two bodies (median of {seeds} seeds, {}s each, \
+         stage `{}`)",
         playable.len(),
         suite.len(),
-        TICKS / 60
+        TICKS / 60,
+        args().stage
     );
     // ⛔ THE SCENARIO TABLE PRINTED NO COLUMN HEADER AT ALL, so every reader had
     // to infer five columns from the numbers — and `stocks` was read as "stocks
     // lost" in a planning row, inverting what the rows meant.
     println!(
-        "[ladder_rig] fixture            rungs     survived(hi:lo)                stocks LEFT   peak%(hi:lo)     verdict = who OUTFOUGHT (stocks taken, then damage dealt)"
+        "[ladder_rig] fixture            rungs     survived(hi:lo)                stocks LEFT   dealt%(hi:lo)     peak%(hi:lo)     verdict = who OUTFOUGHT (stocks taken, then damage DEALT)"
     );
     for scenario in &suite {
         if scenario.starting_positions().is_none() {
@@ -420,7 +435,7 @@ fn run_sweep_below(seeds: usize) {
         TICKS / 60
     );
     println!(
-        "[ladder_rig] fixture            rungs     survived(hi:lo)                stocks LEFT   peak%(hi:lo)     verdict = who OUTFOUGHT (stocks taken, then damage dealt)"
+        "[ladder_rig] fixture            rungs     survived(hi:lo)                stocks LEFT   dealt%(hi:lo)     peak%(hi:lo)     verdict = who OUTFOUGHT (stocks taken, then damage DEALT)"
     );
     // ⛔ PUBLISHED LEVELS ONLY. `smash_roster_at_levels` builds a
     // `duelist_l{level}` policy key, and only 1/3/5/6/9 are published in
@@ -618,13 +633,21 @@ fn report_row(label: &str, bouts: &[Bout]) {
         verdict
     };
     println!(
-        "[ladder_rig]   {label:<26} {:>20} : {:<20} {hi_stocks:>3.0} : {lo_stocks:<3.0}          {:>6.1}% : {:<6.1}%  {verdict}",
+        "[ladder_rig]   {label:<26} {:>20} : {:<20} {hi_stocks:>3.0} : {lo_stocks:<3.0}   \
+         {:>6.0}% : {:<6.0}%   {:>6.1}% : {:<6.1}%  {verdict}",
         span(&hi_all),
         span(&lo_all),
         // ×100 HERE and nowhere else. The ratio is what every other reader
         // of `damage_percent` wants; a percentage is a display concern, and
         // baking it into the stored column is how the threshold above came to be
         // written in the wrong units.
+        // ⛔ THE DECIDING COLUMN. The verdict ranks stocks taken and then damage
+        // DEALT, and neither was visible: the peak column beside it answers a
+        // different question (the most a seat ever CARRIED), and a reader given
+        // a verdict whose evidence is not on the row can only take it on trust.
+        // Dealt by a seat is what the OTHER one absorbed, so the indices cross.
+        hi_dealt * 100.0,
+        lo_dealt * 100.0,
         hi_peak * 100.0,
         lo_peak * 100.0
     );
@@ -829,6 +852,19 @@ fn run_bout_at(
     start: Option<ambition_platformer2d::combat::brain::fighter::scenarios::Scenario>,
 ) -> Bout {
     let mut app = build_demo_app();
+    // ⛔ BEFORE the route below, because the route is what prepares the session:
+    // the preparation source reads this resource once, when the match is asked
+    // for. Setting it afterwards would change nothing and look like it worked.
+    app.world_mut()
+        .insert_resource(match args().stage.trim().to_ascii_lowercase().as_str() {
+            "platforms" => ambition_demo_smash::SmashStageChoice::Platforms,
+            "flat" | "" => ambition_demo_smash::SmashStageChoice::Flat,
+            other => panic!(
+                "unknown --stage {other:?}; the rig fights on `flat` or `platforms`. \
+                 Defaulting would silently measure a stage nobody asked for, and \
+                 the stage is exactly the variable this flag exists to control."
+            ),
+        });
     for _ in 0..30 {
         app.update();
     }

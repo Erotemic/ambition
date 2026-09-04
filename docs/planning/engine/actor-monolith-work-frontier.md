@@ -4,7 +4,12 @@
 > ⭐ **Receipt re-measured 2026-09-04 on the registration commit and the READY
 > packet is UNCHANGED:** `features -> construction : 30` / `construction ->
 > features : 15`, the same strongest mutual edge, and `grep -rn "crate::features"
-> construction/` still returns hits. The production line total has drifted upward
+> construction/` still returns hits.
+> ⭐ **Re-measured a second time 2026-09-04 evening at `b208d9e22`, and the
+> packet still stands:** the same `30` / `15` mutual edge, still the strongest
+> pair in the graph, with `rollback_registration -> features : 28` second and
+> carrying no edge back — a ledger naming many domains, which this page's own
+> rules say not to mistake for semantic coupling. The production line total has drifted upward
 > by a new leaf module (`body_conditions`, no out-edges), which does not touch
 > the 14-module cycle — a receipt, not a score.
 
@@ -153,7 +158,73 @@ The packet is complete only when all of these are true:
   construction receipts, and reconstitution behavior remain stable;
 - tests follow the new ownership instead of preserving the old reverse import;
 - no new upward dependency is introduced to hide the old one;
-- the module graph is re-measured after the change.
+- the module graph is re-measured after the change;
+- ⭐ **the packet states which of the TWO architectural goals it advanced and
+  what it left standing** — see the section directly below.
+
+### ⭐⭐ WHICH GOAL DOES THIS CARVE ADVANCE? A packet must answer, and F1's answer is "the first one only"
+
+**Added 2026-09-04, and it is the newest architectural direction in the
+repository rather than a restatement of an old one.** Doctrine now names TWO
+architectural success criteria and says the second does not follow from the
+first: **authority decomposition** (which crate owns the fact, what may mutate
+it, one lifecycle, dependency direction) and **capability composability** (can
+this capability be ABSENT, does the rest still form a coherent application,
+does it declare only its real prerequisites). The rule and its ordering live in
+[`decomposition.md`](decomposition.md) under "Decomposition has two dimensions",
+with the durable statement in
+[`../../architecture/package-and-capability-boundaries.md`](../../architecture/package-and-capability-boundaries.md).
+
+⛔⛔ **THE GAP THIS SECTION CLOSES IS NOT "NOBODY WROTE IT DOWN" — it is that the
+criterion sits in the program's EXIT and in no carve's ACCEPTANCE.**
+[`actor-monolith-decomposition.md`](actor-monolith-decomposition.md) already
+requires it, twice, in its own vocabulary: exit criterion **2**, *"optional
+domains install through semantic capability/plugin seams rather than
+actor-kernel imports"*, and exit criterion **4**, *"minimal consumers do not
+inherit unrelated domains through the residual kernel"*. ⭐ **Those two ARE
+capability composability** — the doctrine's words and the plan's words name one
+criterion, and reading them as two is how a reader concludes the plan does not
+cover it.
+
+⇒ **So the defect is a seam between two documents, not a missing idea.** The
+program is complete only when criteria 2 and 4 hold; no individual packet has
+ever been asked about them. A run of carves can therefore pass every acceptance
+it is given and arrive at the exit with criterion 2 unmet, because nothing along
+the way was scored against it. ⚠ That is precisely the outcome the doctrine
+commit named in advance — *"a carve could satisfy every ownership rule on the
+page and leave a capability nobody can install alone, with no document to
+notice."*
+
+ⓘ **Measured, not assumed, 2026-09-04:** the string `composab` appears zero times
+in this page (before this section), in
+[`actor-monolith-decomposition.md`](actor-monolith-decomposition.md), in
+`roadmap.md` and in `status.md`. ⛔ **And that count is why the finding above is
+worded the way it is.** The spelling search says "absent" on a page whose exit
+criteria state the concept in full; searching the CONCEPT — *optional*,
+*install*, *minimal consumer*, *inherit* — is what found criteria 2 and 4.
+`roadmap.md` is the one page where both searches agree on absence.
+
+**F1's answer, stated so it cannot be quietly upgraded:**
+
+| goal | what F1 does |
+|---|---|
+| authority decomposition | ⭐ **ADVANCES IT** — one reverse dependency removed, the `ActorConstruction` impl moved to the side that owns the recipes |
+| capability composability | ▢ **DOES NOT ADVANCE IT, AND IS NOT REQUIRED TO** — after F1, actor construction is still mandatory in every supported composition. What F1 buys is the precondition: the extraction into a lower crate becomes clean, and only then is "can a host install this capability alone" a question with a possible answer |
+
+⭐ **That is the doctrine's own ordering, not a weakening of it.** *"Sequencing
+is explicitly permitted: move authority into the right domain now, invert a
+remaining dependency later, make the capability independently installable after
+that. A carve need not deliver all three at once."* ⇒ The requirement this
+section adds is a **declaration**, not a second body of work: say which goal the
+carve advanced, so that a run of carves cannot add up to *"the engine is
+decomposed"* when every one of them moved only the first dimension.
+
+⚠ **And do not answer it by reaching for the wrong mechanism.** Doctrine
+prohibits a service locator, a type-erased registry, dynamic dependency
+injection, or global plugin discovery to make a crate look optional — which
+matters here specifically, because `ActorConstruction::dispatch` is a CLOSED
+match that this domain defends on purpose. Composability is bought with a static
+dependency graph and explicit plugin composition, or it is not bought.
 
 Moving the `construction` module into a dedicated lower crate is the expected
 consequence once the inversion makes that move clean. Do not invent a package
@@ -217,6 +288,11 @@ mistaking them for approved moves.
 - **If the code contradicts this page, the code wins.** Re-measure, update the
   receipt, then continue. Do not implement a stale packet because it is marked
   READY here.
+- ⭐ **A carve is scored on TWO dimensions and must say which one it moved.**
+  Satisfying every ownership and dependency rule above is necessary and is not
+  sufficient for *"decomposed"* in the sense the doctrine now uses. See "Which
+  goal does this carve advance?" above; the criterion itself lives in
+  [`decomposition.md`](decomposition.md) and is not restated here.
 
 ## Updating this frontier after a carve
 
@@ -228,6 +304,10 @@ Keep the update small:
    contracts require;
 4. promote exactly one next packet to **READY** only when its owner, dependency
    direction, production sites, and acceptance are measured;
+5. ⭐ **record which of the two architectural goals the landed carve advanced**,
+   in one line — authority decomposition, capability composability, or both.
+   A frontier that never records the second is how a repository arrives at
+   excellent internal boundaries and an externally indivisible engine;
 5. leave unresolved candidates blocked rather than filling in an architecture
    from intuition.
 

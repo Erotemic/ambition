@@ -1783,3 +1783,21 @@ This program is complete when:
    monolith name/topology;
 6. remaining dependencies are justified by genuine actor-kernel ownership, not
    migration residue.
+
+⭐⭐ **CRITERIA 2 AND 4 ARE "CAPABILITY COMPOSABILITY", AND THEY ARE THE HALF NO
+INDIVIDUAL CARVE HAS EVER BEEN ASKED ABOUT (noted 2026-09-04).** Doctrine names
+two architectural success criteria and says the second does not follow from the
+first — authority decomposition, then capability composability — in
+[`decomposition.md`](decomposition.md) under "Decomposition has two dimensions".
+⇒ **This list's 1, 3, 5 and 6 are the first dimension; 2 and 4 are the second**,
+written here in this page's own vocabulary rather than the doctrine's.
+
+⛔ **Naming them matters because the two vocabularies hid each other.** Searching
+this page for *composability* returns nothing, so a reader checking whether the
+program covers the second dimension concludes it does not — while criteria 2 and
+4 state it in full. ⚠ And the reverse gap is real: the criteria live at the
+program's EXIT and in no packet's ACCEPTANCE, so a run of carves can pass every
+check it is given and still arrive here with criterion 2 unmet. The executable
+side of that is fixed in
+[`actor-monolith-work-frontier.md`](actor-monolith-work-frontier.md), which now
+requires each packet to declare which of the two goals it advanced.

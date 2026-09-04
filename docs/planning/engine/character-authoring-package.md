@@ -93,6 +93,37 @@ Promote only a slice that can name:
 
 This is queue row D166.
 
+⭐⭐ **A FOURTH RESIDUAL, NAMED 2026-09-04, AND IT ANSWERS ALL FIVE PARTS:
+`fighter_moveset()` — the moveset both Smash stand-ins carry.**
+
+1. **Current source of truth** — a hand-written verb list in
+   `game/ambition_demo_smash/src/moveset.rs`, built by pushing `(verb, move_id)`
+   pairs and chaining them.
+2. **The duplicate road to delete** — that verb list. ⓘ Only the ATTACK half: the
+   same function already builds its capture half through
+   `SmashCaptureRepertoire`, so the boundary is half-crossed here already.
+3. **The target owner** — `SmashRepertoire` → `into_contract()`, which every other
+   smash-seatable moveset reaches (fourteen directly; medic, performer, author and
+   officer via `archetype_moveset::under_own_name` with one slot swapped).
+4. **The lowering path** — already exists and is in daily use; nothing new is
+   required. If the stand-ins should share a base rather than author their own,
+   `under_own_name` + `special_slots::replace_special` is the established derive.
+5. **The acceptance test proving the old authority is gone** — ⭐ **already written,
+   and it fails in the right direction today.**
+   `the_stand_in_is_george_s_genre_shape_with_the_special_button_removed`
+   (`game/ambition_demo_smash/src/moveset.rs`) asserts George's unanswered presses
+   are a strict SUBSET of the stand-ins' with a surplus of exactly **eight**, every
+   one a `special`. ⇒ **After a correct migration that surplus is ZERO**, because
+   `SmashRepertoire` has nineteen fields and no `Option`s — the struct will not
+   compile without every slot. The test reddening on the count IS the proof.
+
+⚠ **Why this one is not simply takeable**: unlike the three residuals above it, it
+is also a product question — how thin a stand-in should be — and a nineteen-slot
+type is a real tax on a placeholder. ⇒ Indexed as decision 2 in
+[`../awaiting-maintainer-decision.md`](../awaiting-maintainer-decision.md); the
+migration wants that answer first rather than architectural grounds alone.
+
+
 **Censused 2026-08-31, and one slice closed.** Ten sites were examined against
 the five-part test. Most are two *legitimate* authors — a demo mechanic keyed on
 identity, or a match rule composed through `MatchRules` — and are explicitly not

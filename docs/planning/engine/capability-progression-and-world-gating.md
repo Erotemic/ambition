@@ -220,6 +220,23 @@
 > should stop being story flags is a design call, not an engineering one**, and
 > the next slice of this track is a level, not a condition.
 >
+> ✔ **AND THE VOCABULARY IS SAFE TO AUTHOR AGAINST NOW, which is what that slice
+> needed from engineering (2026-09-04).**
+> `every_authored_gate_condition_prepares_against_the_composed_catalog`
+> (`game/ambition_app/tests/the_engine_can_be_asked_questions.rs`) walks every
+> `gated_by` in every shipped world and prepares it against the SAME catalog the
+> game composes, so a misspelt condition or a wrong argument count fails a build
+> instead of a playthrough. ⛔ That failure is the risk the condition-line
+> widening introduced: an unpreparable gate leaves the wall STANDING, which is
+> correct behaviour and indistinguishable in play from a gate that is simply not
+> satisfied yet.
+> ⭐ It calls `prepare_authored_gate` — the production function the wall system
+> calls — rather than restating its two-road rule, so it cannot drift into
+> validating a rule the game stopped applying.
+> ⚠ It asserts a FLOOR on its corpus (2 today) and caught its own vacuity on the
+> first run: it read `embedded_text`, which is `None` without `static_map`, so it
+> had validated nothing at all.
+>
 > ⛔⛔ **FIVE of the seven, and I first wrote "seven of the seven" — an
 > arithmetic error, caught the same day by counting the list against this page's
 > own `Gate families` section.** The sentence contradicted itself in its own next

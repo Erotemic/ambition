@@ -1338,6 +1338,22 @@ the QUALIFIERS changed, never the columns. The 12-seed matrix, sixteen cells:
 | 6 vs 5 | within spread | within spread | within spread | within spread |
 | 9 vs 6 | within spread | within spread | within spread | within spread |
 
+⛔⛔ **THESE FOUR BOLD CELLS ARE THE ONES MOST EXPOSED BY THE INSTRUMENT DEFECT
+BELOW, because their meaning is carried by an ABSENCE.** Every cell reading
+*"within spread"* states its qualifier out loud; the two bold ones mean what they
+mean **only because the qualifier is missing** — and the missing qualifier comes
+from a sign test that discards direction, while the words *higher* / *LOWER* come
+from a pooled median. ⇒ **A cell whose two authorities disagree prints exactly
+like a cell where they agree**, and there is no residue in the table to tell them
+apart.
+
+⚠ **Read the two bold cells as UNCONFIRMED until the rig is fixed and re-run**, not
+as withdrawn: the defect makes them unverified, not wrong, and the mechanism
+evidence for `5 vs 3` (stocks level at `2 : 2`, the lower rung dealing 215% against
+191%, and the byte-for-byte weight isolation) is independent of the qualifier and
+still stands. ⇒ It is the word *significant* that is on hold, not the inversion.
+
+
 ⇒ **Two significant cells, both on the shipped ladder, and they point opposite
 ways.** Rung 3 beats rung 1 — the ladder working. Rung 3 also beats **rung 5** —
 the ladder inverted.

@@ -54,7 +54,43 @@ silently re-points every page that cited the original.
 
 ## Open decisions
 
-### 50. May a fighter leave the frame by 16 units for one body-frame, or must the camera always contain the cast?
+### ~~50. May a fighter leave the frame, or must the camera always contain the cast?~~ (WITHDRAWN 2026-09-04 — no fighter was ever outside a frame)
+
+⛔⛔ **DO NOT ANSWER THIS. ITS PREMISE IS FALSE, and this file's own header names
+that as the failure worth avoiding: *"A decision resting on a premise the code
+has moved past costs you the answer AND the discovery that it was moot."***
+
+**The frame nobody framed was `ResolvedCameraSnapshot::default()`, verbatim.**
+`local_view_facts()` puts the default on every view at spawn so a reader never
+meets a view whose state is missing; the resolver honours *"callers must not
+invent a world-origin fallback"* by returning without writing when the cast is
+unresolvable; and `CameraSnapshot2d::default()` is a ZERO centre with
+`default_base_view()`, whose own comment records that the default moved to
+568x320 on 2026-09-03 — the exact dimensions every failure reported.
+
+⇒ **Two individually correct decisions composed into a snapshot that was
+syntactically present and semantically a lie. Nobody wrote the fallback.** So no
+fighter was ever outside a frame: the test was measuring a default as though it
+were a camera, on the one tick (`t3`) where bodies exist and the cast has not
+resolved.
+
+✔ **Fixed rather than ruled on** (`92f2f597b`): `ResolvedCameraSnapshot` is
+`Option<ResolvedCameraFrame>`, so an unframed view says so, the compiler asks
+every reader, and the frame checks skip that tick — which is what their
+`continue` always meant.
+
+⚠ **Neither original reading survives**, which is the point. A containment
+CONTRACT has nothing to contain; a tolerance MARGIN would have been chosen
+against a number that measures nothing, and would have hidden the defect
+permanently by making the test pass. ⛔ Both cheap fixes were wrong-shaped, and
+not for the reason the entry gave.
+
+ⓘ The investigation below is kept because the retractions in it are the useful
+part — a `follow_world` diagnostic, a probe that refuted the placement inference
+it seemed to support, and a doc comment that named the symptom exactly while
+describing a branch that never ran.
+
+### ⓘ 50 (superseded, for the record). May a fighter leave the frame by 16 units for one body-frame?
 
 `the_stage_kills::every_live_fighter_stays_inside_the_frame`
 (`game/ambition_demo_smash_app/tests/the_stage_kills.rs:1094`) is RED under the

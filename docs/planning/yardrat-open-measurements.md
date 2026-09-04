@@ -704,3 +704,45 @@ the setup ordering is a convenience.** A reordering of the setup phases would no
 silently produce General-MIDI cues — it would fail at the renderer. ⓘ Which also
 means the thing to protect in review is the REFUSAL's completeness, not the
 phase list.
+
+---
+
+## ⭐ CLOSED — the smash demo has NINE instruments and the planning surface knew three
+
+**Measured 2026-09-04, and it explains a pattern rather than just filling a gap.**
+Several times this session, measuring something looked harder than it was — and
+each time a tool for it already existed. So I counted: `smash_tool` carries **nine
+subcommands**, and a sweep of `docs/planning/` (excluding
+[`modal-cli-binary-collapse.md`](modal-cli-binary-collapse.md), which is about the
+binary merge rather than about using them) finds **three**.
+
+| subcommand | what it answers | in planning? |
+|---|---|---|
+| `capture-probe` | what two CPUs do to each other, including a **census of moves STARTED** | ✔ |
+| `ladder-rig` | does rung N beat rung M — the difficulty ladder's own question | ✔ |
+| `select-walkthrough` | what the select screen BELIEVES, driven through the real layout and the real text functions | ✔ (added today) |
+| `match-report` | counts what two CPUs actually do over a match | ✗ |
+| `ladder-probe` | a quick fighter-depth smoke probe | ✗ |
+| `roll-probe` | how far a shield roll actually travels | ✗ |
+| `match-diagram` | draws a RUNNING match | ✗ |
+| `stage-diagram` | draws the stage, including the blastzones | ✗ |
+| `match-shots` | a burst of screenshots from a CPU-versus-CPU match | ✗ |
+
+⇒ **Six instruments are unreachable from the pages where fighter work is planned.**
+⚠ Not a criticism of the tools — every one is documented at its own module head,
+often extremely well. The gap is that a planner reads `queue.md` and the demo
+pages, and nothing there says these exist.
+
+⭐ **The concrete cost, from today:** `match-report` *"counts what two CPUs
+actually DO to each other over a match"* — which is a second, independent census
+beside `capture-probe`'s. `D-BRAIN-MENU`'s whole argument is a census, and I built
+its acceptance test around one tool without knowing a sibling existed. ⇒ Two
+instruments answering one question is worth knowing BEFORE designing the
+measurement, not after; see the *two authors of one number* class recorded in
+`queue.md` for what happens when nobody notices.
+
+ⓘ Deliberately recorded here rather than in `docs/tools/index.md`: that index is
+scoped to *"author-time tools … provider/engine inputs"*, and these are
+measurement instruments for one demo. The fix that matches how they are reached is
+a line in the page that plans the work — which is what naming
+`select-walkthrough` in checkpoint 3 did.

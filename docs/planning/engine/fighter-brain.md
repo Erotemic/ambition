@@ -644,16 +644,23 @@ one cycle earlier, most likely — rather than a diffuse "plays worse". The
 constant's origin is NOT yet identified: it is not `RESPAWN_PROTECTION_SECONDS`
 (2.0) and not Mary-O's `DEATH_DWELL` (3.2, and another demo's besides.)
 
-⛔⛔ **AND THE VERDICT IS BLIND TO ALL OF IT.** Removing the rollout changes only
-**2 of 9 verdicts** at this rung while changing **9 of 9 survival gaps** from
-+4.5s to zero. The reason is structural: both fighters end at `0 : 0` stocks
-either way, so stocks tie and the verdict falls through to damage dealt, which
-does not track when a body died. ⇒ **The outcome scoreboard I introduced to
-replace survival-until-a-cap cannot see a consistent four-and-a-half-second
-difference in how long a fighter lives.** That is not an argument for going back —
-survival-until-a-cap saturated at both ends — but it is a named blind spot, and
-the next scoreboard question is whether stocks-then-damage should fall through to
-survival rather than stopping.
+⚠ **THE VERDICT AND THIS COLUMN ANSWER DIFFERENT QUESTIONS, and I first wrote
+that as "the verdict is blind to it", which is too strong.** Removing the rollout
+changes **2 of 9 verdicts** at this rung while changing **9 of 9 survival gaps**
+from +4.5s to zero. Both fighters end at `0 : 0` stocks either way, so stocks tie
+and the verdict is decided on damage dealt — and damage still favours the lower
+rung once the survival gap has gone to zero.
+
+⇒ So the verdict is not failing to see something it should: it reports a real
+damage difference that OUTLIVES the survival difference. Level 5 both deals more
+and lives longer, so the two columns agree here rather than conflicting.
+
+⇒ **What is true, and worth a reader's attention, is narrower:** the rollout's
+single most visible effect — four and a half seconds of life, in every fixture —
+moves the verdict in only two cells, because the verdict never reaches survival.
+⇒ **Read both columns.** A change can be large, consistent, and mechanically
+obvious in this table while the verdict beside it barely moves, and neither number
+is wrong.
 
 ⭐ **The dodge/shield suppression is untouched by this and remains true.** It was
 measured directly — zero selections in 662 decisions — not inferred from win

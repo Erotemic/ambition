@@ -102,44 +102,31 @@ would cost a permanent lane to watch five references.
 
 ---
 
-## ⛔ THIS BOX CAN NO LONGER RUN ITS OWN SUITE WITHOUT A CLEAN
+## ✔ CLOSED — "this box cannot run its own suite without a clean" (2026-09-03, re-measured 2026-09-04)
 
-Measured 2026-09-03, and it is a capacity fact rather than a bug.
-`target/debug/deps` alone is **141 GB**: cargo never prunes the feature-graph
-variant a job builds, and FIVE crates were carved out of the actor monolith in
-one day, each multiplying the variants a feature job resolves. The D33 campaign
-pays for itself in disk.
+⛔ **NOT REPRODUCIBLE, in both halves.** This file's rule is that a row which
+stops being reproducible goes, so it is collapsed to what survives — the same
+shape as the citation row above.
 
-The numbers, so the next person does not rediscover them one ENOSPC at a time:
+⇒ **The capacity fact is dead.** Re-measured 2026-09-04: `target/debug/deps` is
+**70 GB**, not the 141 GB recorded; the volume is **915 GB with 188 GB free**, not
+a 290 GB volume being exhausted mid-run. A `cargo check --workspace --all-targets`
+and several crate suites ran the same day without incident.
 
-| what | cost |
-|---|---|
-| `scripts/check_disk_headroom.py` floor | **40 GB**, refused at 39.1 |
-| `./run_tests.sh --rust` (5 jobs) | ~5 GB, 42 → 37 GB |
-| one `cargo test --workspace` | **14 GB in under 3 minutes**, did not finish in 41 |
-| the 49-job exhaustive plan | exhausted a 290 GB volume mid-run |
+⇒ **And the gap it named is FIXED.** The row's finding was that
+`check_disk_headroom.py` runs twice — before the first job and after the last —
+and never between, so a long suite could exhaust the disk halfway and die
+incoherently. `scripts/run_tests.py:1232` now calls `free_gb_on_target()` **before
+each job** against a hard `ABORT_FREE_GB` floor, and its comment names the exact
+failure this row described: *"`clang failed` whose reason line never reached the
+log, under a job header that belonged to something else entirely."*
 
-⭐ **THE GUARD EXISTS AND IS NOT THE PROBLEM.** `check_disk_headroom.py` refuses
-before a job dies of ENOSPC and reports it as a compile error — its comment says
-exactly that, and it is the reason a 39.1 GB tree got a clear refusal instead of
-a mystery. ⛔ **The gap is that it runs TWICE — once before the first job, once
-after the last — and never between.** A 68-minute suite that starts above the
-floor can exhaust the disk halfway and die incoherently, which is the shape of
-the exhaustive plan's three unattributed failures (`compile-cost ratchet`,
-`outlander`, `capability demo`, the last with a bare
-`error: linking with clang failed` whose reason line never reached the log).
-
-⇒ Reclaim order, measured, cheapest-first and all regenerable:
-`target/debug/incremental` (19–31 GB, cargo rebuilds it, NOT the bind-mount
-point), `target/profiling`, `target/release`, `target/wasm32-unknown-unknown`,
-`target/outlander`. Those five bought 41 GB — barely over the floor. Past that
-the only lever is `cargo clean`, which costs everyone's warm tree, so it is a
-call for whoever is coordinating, not for one session at 05:00.
-
-⚠ And a cost paid for the lesson: I deleted the exhaustive plan's log while
-freeing space during the first ENOSPC, so the runner's own
-`disk: N GB free (±M this run)` line — the measured spend for a full plan — is
-gone. **Free target/, never the evidence.**
+⭐ **THE ONE LESSON THAT SURVIVES BOTH, because it is not about disk:**
+**free `target/`, never the evidence.** Reclaiming space during the first ENOSPC
+deleted the exhaustive plan's log, and with it the runner's own
+`disk: N GB free (±M this run)` line — the measured spend for a full plan, which
+is the number the whole row existed to report. ⇒ A cleanup that removes the
+measurement is worse than the condition it was clearing.
 
 ## ⚠ A BARE FILENAME CITATION DECAYS WITHOUT ANYONE TOUCHING IT
 

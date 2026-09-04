@@ -177,6 +177,20 @@ with an ordering negotiation inside it, not a plugin: the two systems' relation
 would have to become a published set before either side could own its own
 installation. Do not promote mounts as "the next easy one".
 
+⚠ **HOW TO RUN THIS CHECK, because I ran it with half an instrument and said
+so.** I searched `combat_schedule.rs` for `.after(..)` / `.before(..)` naming a
+foreign path, found one edge, and reported combat clean — while the mount failure
+directly above is a **`.chain()`**, which my regex never looked at. ⇒ **An
+ordering edge is `.after`, `.before`, `.chain()`, AND set membership**, and a
+`.chain()` of two systems from different crates is the most system-to-system of
+all of them. Grep all four or the answer is optimistic by construction.
+
+⚠ And a nuance the mount case carries: that chain sits INSIDE
+`.in_set(ambition_mount::MountRiderLinkEnforced)`. The GROUP is published
+vocabulary; the order WITHIN the pair is not. A set wrapping two systems does not
+publish their relative order, so "it is in a set" is not by itself the property
+this check is looking for.
+
 ⭐ **AND THE CHECK RUN ON THE NEXT CANDIDATE COMES BACK CLEAN (yardrat,
 2026-09-04): `ambition_combat` PASSES.** Every `.after(..)` / `.before(..)` in
 `combat_schedule.rs` that names a foreign path resolves to one crate other than

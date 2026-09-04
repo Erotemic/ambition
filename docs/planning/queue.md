@@ -1783,7 +1783,30 @@ queue read as an execution authority for work already done.
   `MAX_CHARACTERS_MATERIALIZED_PER_FRAME` is 1. The `None` rather than
   `Some(Failed)` is the whole diagnosis: no load attempted yet, which is what a
   ration looks like from the far side. Replaced with a bounded settle; the same
-  command that failed now reads 3 passed. ⊙ **CONFIRMED 2026-09-03: the union reads 7,019 passed / 12 failed**, and no
+  command that failed now reads 3 passed.
+  ⛔⛔ **A LATER UNION RUN OF MINE IS VOID, AND THE REASON IS THE USEFUL PART
+  (2026-09-04, `0275cd1b9`).** It read **7,104 passed / 32 failed** and every one
+  of the 32 was my own contamination: recursive greps run beside it exhausted
+  file descriptors. ⇒ Do not quote that number; the clean re-run is the verdict.
+  ⭐ **What it found is worth more than what it measured.** Thirty of the 32 were
+  `ambition_workspace_policy`, and each failed naming a repository fact that is
+  FALSE — the loudest being *"no ancestor Cargo.toml declares [workspace]"* of a
+  workspace whose root manifest declares it on line one. **Nothing in the output
+  said "I could not read a file."** Every rule in that crate reports an ABSENCE,
+  so a scanner that treats *unreadable* as *empty* announces exactly its own
+  finding whenever the machine, not the code, is what failed. Worst site:
+  `migration_matrix.rs` returned an EMPTY set on a read error under the comment
+  *"a deleted legacy file has no pending functions"*, so an IO failure read as
+  *"the migration is complete"*. Fixed at `0b58767f2` across five sites, poison-
+  verified at two; `NotFound` alone is tolerated where deletion is a real answer.
+  ⚠ **A non-fatal checker wants the OTHER fix**, which the peer session landed
+  the same hour on `check_planning_citations.py` (three `except OSError:
+  continue`, 1,537 citations, ~15 runs): COUNT the dropped reads and print the
+  count BEFORE the verdict, because it qualifies the verdict. Fatal where the
+  path came from your own walk; qualified where tolerance is real.
+  ⇒ Recipe: `docs/recipes/checks-that-did-not-run.md`, *"And your OTHER WORK is
+  part of that environment"*.
+  ⊙ **CONFIRMED 2026-09-03: the union reads 7,019 passed / 12 failed**, and no
   system-parameter panic remains anywhere in it. The full progression is
   48 → 49 → 38 → 13 → **12**. ⚠ It was stated as an EXPECTATION until the run
   existed, because the previous time I turned a verified single-target fix into

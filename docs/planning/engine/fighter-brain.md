@@ -1978,11 +1978,41 @@ far fewer than 40 attempted jabs. ⇒ **Neither explains zero-chosen against
 43-performed.** Re-deciding cannot manufacture a move the brain never names, and a
 seat mismatch cannot turn 0 into 43.
 
-⇒ **The mechanism is almost certainly the one named below**: a running body's
-attack press resolves through `move_for_flat_verb(ATTACK, grounded, running)` to
-the dash attack, discarding whichever attack the brain scored. ⚠ Still labelled
-*almost certainly* — I have not traced a single press from decision to
-resolution, and that is the arm that would close it.
+⇒ ✔✔ **MECHANISM CLOSED — traced end to end, five links, each read rather than
+assumed:**
+
+1. **The kit is built for the STANDING stance.** `update.rs:1747`'s builder calls
+   `move_for_directional_verb(verb, direction, **grounded**)` — three arguments.
+   There is no `running` in it.
+2. ⇒ **So the brain scores `jab`, the tilts and the smashes** — the standing set —
+   and never sees `attack_dash` as a candidate at all. That is why the trace shows
+   **zero** dash-attack selections: it was never on the menu.
+3. **The brain then emits a BUTTON, not a move.** `PendingAttack` carries an
+   `AttackBinding { verb, .. }` — a press and a gesture. The move it scored is
+   advisory and does not travel.
+4. **The body re-resolves that press with `running` in play.**
+   `move_for_flat_verb(base, grounded, running)` tries `{base}_dash` **first**
+   whenever `grounded && running`.
+5. **George binds `attack_dash`.** ⇒ Every attack pressed while running becomes
+   `george_booul_dash_attack`, whatever the brain scored.
+
+⛔⛔ **So the brain evaluates a menu it cannot order from.** It is not choosing the
+dash attack over the tilts — it is scoring the tilts carefully and then pressing a
+button that means "dash attack" because of a stance the scorer never consulted.
+
+⭐⭐ **AND THE REPO HAS ALREADY SOLVED THIS EXACT PROBLEM ONE VERB OVER.** The
+burst press had the identical shape — dodge and dash are one input, resolved by
+body state — and the fix was to make perception carry the RESOLVED answer:
+`SelfView::burst` is a `BurstManeuver`, and its doc says *"`resolve_burst_maneuver`
+is the one rule, and this field is its answer. The brain is handed a fact."*
+⇒ **The attack press has no equivalent, and it is the same fix**: either build the
+kit with the stance the press will actually be resolved in, or hand the brain the
+resolved move as a fact.
+
+⚠ **What this does NOT say.** The body is not misbehaving — converting a running
+attack into a dash attack is what a dash attack IS. The defect is entirely on the
+scoring side: an option set assembled under an assumption the emission then
+violates.
 
 ⇒ **Named next step rather than a guess.** `move_for_flat_verb(ATTACK, grounded,
 running)` resolves a plain attack press to the DASH attack when the body is

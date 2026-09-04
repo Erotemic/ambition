@@ -2201,6 +2201,18 @@ queue read as an execution authority for work already done.
   pressed while running becomes the dash attack, whatever was scored.
   ⛔ **The body is not misbehaving** — that IS what a dash attack is. The defect is
   an option set assembled under an assumption the emission violates.
+  ⭐⭐ **AND THE BUILDER'S OWN COMMENT STATES THE INTENT IT DOES NOT DELIVER.** Its
+  `grounded: bool` parameter is annotated *"The body's REAL posture this tick. The
+  kit is what it can press NOW."* ⇒ That is exactly the right requirement and the
+  signature is one field short of meeting it: posture is grounded **and** running,
+  and only the first is passed. ⚠ So this is not a missing feature anyone declined
+  to build — it is a stated contract with a gap, which is why it reads as correct
+  to anyone checking the call site.
+  ⇒ **Concretely, the smallest fix**: `move_for_directional_verb` has no `running`
+  parameter at all, so the kit's `AttackDir::Neutral` candidate for the flat
+  `attack` verb should come from `move_for_flat_verb(base, grounded, running)` —
+  the same call the body makes. The directional variants (`attack_up` and friends)
+  do not dash-convert and are already correct.
   ⭐⭐ **AND THE SAME PROBLEM IS ALREADY SOLVED ONE VERB OVER.** The burst press
   (dodge/dash are one input, resolved by body state) was fixed by making
   perception carry the RESOLVED answer — `SelfView::burst`, documented as

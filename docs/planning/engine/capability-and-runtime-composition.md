@@ -46,6 +46,26 @@ where its SYSTEMS already live, not by how few resources it has.
 foundation (`ambition_time`, `ambition_platformer2d_core`) where central
 initialisation is appropriate. The number is the baseline, not the target.
 
+✔ **FIRST STEP TAKEN 2026-09-04 (`7f666117a`), chosen by the rule above rather
+than by size:** `ambition_sim_view`'s `FeatureViewIndex`, `ActorRenderIndex` and
+`BossRenderIndex` now initialise in `FeatureViewSyncSchedulePlugin`, which
+schedules their rebuilds and already stated the rule in its own doc — *"the
+plugin that rebuilds the index initializes it; consumers only read"* — while
+those three of its twenty siblings were initialised by the runtime.
+
+⭐ **AND ONE CRATE ALREADY SHIPS AN INSTALL PATH THE RUNTIME BYPASSES, which is a
+different shape worth recognising before someone "fixes" it.**
+`ambition_time::TimePlugin` initialises `ClockState` and `WorldTime` and
+schedules `refresh_world_time` — and **nothing in this repository installs it**;
+the runtime does both halves itself, scheduling that system in `player_schedule`
+with an explicit ordering. ⛔ Installing the plugin alongside the runtime would
+add a SECOND, UNORDERED copy of `refresh_world_time`. ⇒ It is not dead code and
+not a gap: its audience is an external frame-stepped host that is not using the
+Ambition runtime, which is exactly the kind of install path a foundation
+capability should offer. The hazard is now documented on the plugin itself.
+⚠ The lesson for this program: "the crate has no plugin" and "the crate has a
+plugin nobody installs" want different answers, and the second can be correct.
+
 A consumer building a small platformer should not inherit portal rendering, boss
 orchestration, networking integration, persistence, debug presentation or
 Ambition-only content merely because a broad historical crate sits in the middle

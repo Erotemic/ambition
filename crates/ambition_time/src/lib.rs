@@ -263,6 +263,21 @@ pub fn refresh_world_time(
 ///
 /// `init_resource` preserves a host-provided [`ClockState`] inserted
 /// before adding the plugin.
+///
+/// ⛔⛔ **AMBITION'S OWN RUNTIME DOES NOT INSTALL THIS, AND MUST NOT.** It does
+/// both halves itself: `init_resource` for the two resources in
+/// `ambition_platformer2d_runtime::sim_core_resources`, and
+/// [`refresh_world_time`] in its `player_schedule`, where the ordering comment
+/// explains why it must publish one coherent `scaled_dt` before the frame's
+/// readers. Adding this plugin to an app that already has the runtime would give
+/// that system a SECOND, UNORDERED copy — the ordering is the whole point of the
+/// runtime's placement, and a bare `Update` registration does not reproduce it.
+///
+/// ⇒ So the audience is an external frame-stepped host that is NOT using the
+/// Ambition runtime. That is a legitimate install path for a foundation
+/// capability to offer, and it is why this is not dead code — but nothing in
+/// this repository installs it, so treat its behaviour as covered by the unit
+/// test below rather than by any production road.
 #[derive(Default)]
 pub struct TimePlugin;
 

@@ -441,6 +441,7 @@ completed. This entry is CLOSED.**
 | 3 | **The four ladder cells came back UNCHANGED**: `3 vs 1` higher and `5 vs 3` LOWER both significant, `6 vs 5` / `9 vs 6` within spread. The `5 vs 3` inversion is CONFIRMED |
 | 4 | **The roster census PASSED**: 20 selectable fighters, every one `22/22 presses`, none "not its own" |
 | 5 | **George's control arm reproduced**: 14 of 28 moves start, `george_booul_dash_attack` 98, no tilt or smash |
+| 6 | ⭐ **(added later the same day) The CANDIDATE tuning ladder re-ran too — both arms, one binary.** The headline holds, but `5 vs 3` does NOT flip direction under the candidate; it stays LOWER and loses significance. And the monotonicity support is withdrawn: `85 → 98 → 114 → 113` reproduces from no shipped-ladder run. See [`awaiting-maintainer-decision.md`](awaiting-maintainer-decision.md) |
 
 ⇒ Disk went **279M → 80G** via `clean_workspace_crates.sh --incremental-only`,
 which rebuilt nothing. ⓘ The ordered list is kept below because it is the recipe,

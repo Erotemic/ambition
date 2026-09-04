@@ -826,3 +826,27 @@ NEW function; the displaced one becomes dead code wearing a test's name. Two of
 mine were dead for a day — one guarding the exact claim published above it — and
 the suite stayed green. ⇒ Walk back from every `fn` over docs and attributes and
 count the `#[test]`s; anything but exactly one is a bug.
+
+
+---
+
+## ⓘ MINOR — assertion messages print runs of blank space, repo-wide
+
+**Cosmetic, recorded rather than swept.** A long `assert!` message written as one
+source line with padding — or joined from a generator that keeps the continuation
+lines' indentation — prints its gaps verbatim:
+*"the press below is&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;about some other button"*.
+⇒ A guard's failure text is the whole reason to write a long one, so this is a poor
+advertisement for reading it.
+
+⚠ **Measured, with the denominator stated**: a naive scan for 3+ spaces inside a
+literal returns **93** lines across the files touched on 2026-09-04, and **almost
+all are deliberate column alignment** in report output (`"  damage      {}"`).
+Narrowing to a lowercase word, a gap, and another lowercase word — a mid-SENTENCE
+run — gives **61**, spread across both sessions' files and mostly pre-existing.
+
+⇒ **Four were mine, in guards I wrote today, and are fixed.** The rest are left
+alone deliberately: they are cosmetic, they span files this session does not own,
+and a mechanical sweep of 61 string literals on a box that cannot compile is a
+worse trade than the defect. ⓘ The check, for anyone who wants it:
+`[a-z,.]{2} {3,}[a-z]{2}` applied after the first quote on a line.

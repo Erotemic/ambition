@@ -949,3 +949,121 @@ fn a_reset_does_not_retire_the_reward_chest() {
          the reward. Despawning it here would pay the encounter out twice."
     );
 }
+
+/// ⛔⛔ THE PRODUCTION SEAM THE MULTI-SWITCH REPAIR WAS ABOUT, end to end.
+///
+/// The two halves of the switch gate disagreed: `encounter_armed` arms on ANY
+/// red link, while completion asked `switch_id_for_encounter` for the FIRST
+/// link only and greened that one. On a two-switch arena the encounter
+/// therefore completed, greened one switch, stayed armed on the other — and the
+/// driver re-started the fight the player had just finished, under them.
+///
+/// ⚠ The unit tests either side of this one establish the ARMING rule and the
+/// INDEX lookup separately, and both passed throughout the defect. What was
+/// missing is the sequence that actually failed: complete a real wave encounter
+/// through `apply_wave_encounter_effects`, persist, rebuild the index from the
+/// save, and ask whether it re-arms. A cross-system defect needs the
+/// cross-system test; two green halves are what let this ship.
+#[test]
+fn completing_a_two_switch_encounter_greens_both_and_leaves_it_disarmed() {
+    use bevy::prelude::*;
+
+    let mut app = App::new();
+    app.add_message::<ambition_encounter::EncounterEventMsg>();
+    app.add_message::<ambition_combat::events::GameplayBannerRequested>();
+    app.init_resource::<ambition_persistence::save::AmbitionGameSave>();
+    app.init_resource::<ambition_gameplay_trace::GameplayTraceBuffer>();
+    app.init_resource::<ambition_encounter::EncounterView>();
+    app.init_resource::<ambition_persistence::quest::QuestRegistry>();
+
+    // TWO links, both red: the shape the first-link-only completion mishandled.
+    app.insert_resource(switch_index(&[
+        ("arena_switch_north", "twin_switch_arena", false),
+        ("arena_switch_south", "twin_switch_arena", false),
+    ]));
+
+    // A live session, or the system's own guard returns before any effect.
+    let mut active =
+        ambition_platformer2d_shared_tangle::lifecycle::ActiveSessionScope::default();
+    let scope = active.begin();
+    app.insert_resource(active);
+    // ⛔⛔ THE SESSION ROOT MUST CARRY `EncounterMusicRequest`. The system takes
+    // it as `SessionWorldMut<EncounterMusicRequest>` — a `Single` — and Bevy
+    // SKIPS a system whose `Single` does not match exactly one entity. Silently:
+    // no panic, no warning, the system simply never runs. A harness that omits
+    // it gets a green "nothing happened" and would have made this acceptance
+    // test pass for the wrong reason if it asserted absence instead of presence.
+    app.world_mut().spawn((
+        ambition_platformer2d_shared_tangle::lifecycle::SessionRoot(scope),
+        ambition_encounter::EncounterMusicRequest::default(),
+    ));
+
+    // A wave encounter — completion effects apply only to encounters carrying
+    // the wave policy.
+    app.world_mut().spawn((
+        Encounter {
+            id: "twin_switch_arena".into(),
+        },
+        EncounterLifecycle::default(),
+        // A real wave policy: completion effects apply only to encounters
+        // that carry one, which is the branch this test must reach.
+        EncounterWaves::new(lab_spec()),
+        EncounterParticipants::default(),
+    ));
+
+    // A player body, or the system returns before the completion effects.
+    app.world_mut().spawn((
+        ambition_platformer2d_core::BodyKinematics::default(),
+        ambition_platformer2d_shared_tangle::markers::PlayerEntity,
+    ));
+
+    app.world_mut()
+        .resource_mut::<Messages<ambition_encounter::EncounterEventMsg>>()
+        .write(ambition_encounter::EncounterEventMsg::new(
+            "twin_switch_arena",
+            EncounterEvent::Completed,
+        ));
+
+    app.add_systems(Update, crate::apply_wave_encounter_effects);
+    // One frame to settle message buffers, then the completion event.
+    app.update();
+    app.world_mut()
+        .resource_mut::<Messages<ambition_encounter::EncounterEventMsg>>()
+        .write(ambition_encounter::EncounterEventMsg::new(
+            "twin_switch_arena",
+            EncounterEvent::Completed,
+        ));
+    app.update();
+
+    // 1. BOTH switches persisted green, not just the first.
+    let save = app
+        .world()
+        .resource::<ambition_persistence::save::AmbitionGameSave>();
+    for switch_id in ["arena_switch_north", "arena_switch_south"] {
+        assert!(
+            save.data().switch(switch_id),
+            "completion must green EVERY linked switch; `{switch_id}` is still red, \
+             which is what left the arena armed after the player cleared it"
+        );
+    }
+
+    // 2. Rebuild the index from what was persisted — the production road back
+    //    into the arming gate — and confirm the encounter does not re-arm.
+    let rebuilt = switch_index(&[
+        (
+            "arena_switch_north",
+            "twin_switch_arena",
+            save.data().switch("arena_switch_north"),
+        ),
+        (
+            "arena_switch_south",
+            "twin_switch_arena",
+            save.data().switch("arena_switch_south"),
+        ),
+    ]);
+    assert!(
+        !rebuilt.encounter_armed("twin_switch_arena"),
+        "a cleared arena must stay cleared: one red link re-arms it and the wave \
+         driver restarts the fight under the player"
+    );
+}

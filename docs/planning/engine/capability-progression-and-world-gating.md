@@ -267,9 +267,11 @@
 > framing — everything as a route question — is what made the first count look
 > complete. ⭐ *"You look like you could climb that"* in a `.yarn` line is a
 > `body.can` customer that costs no level geometry, and it is invisible from
-> here. **The dormant-cluster number that survives is five of seven published
-> conditions authored nowhere by either road**, which is now measured across both
-> consumers instead of one.
+> here. **The dormant-cluster number that survives is five of NINE published
+> conditions authored nowhere by either road** — `world.switch_on`,
+> `custody.is_held`, `body.can`, `body.fits`, `encounter.cleared` — measured
+> across both consumers and both spellings. ⚠ The denominator moved from seven
+> when `boss.cleared` and `quest.active` shipped; the numerator did not.
 >
 > ✔ **AND THE VOCABULARY IS SAFE TO AUTHOR AGAINST NOW, which is what that slice
 > needed from engineering (2026-09-04).**

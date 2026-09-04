@@ -89,7 +89,7 @@ an engine crate — the engine has no quest domain, so *"a domain owns its own
 publication"* puts it in `ambition_content::quests`. A composition without
 Ambition's quests never sees the question.
   ⛔ **This is NOT the dormant-cluster growth the gating row warns about, and the
-distinction is the reusable part.** Five of seven published conditions are
+distinction is the reusable part.** Five of nine published conditions are
 authored nowhere, so "publish more conditions" is normally wrong. These had
 authored callers on day one, **through the other door** — so the test is not
 *"is it used?"* but *"is its customer currently served by a fork?"*

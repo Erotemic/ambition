@@ -1280,9 +1280,15 @@ question was itself the narrow reading: *"you look like you could climb that"* i
 a `.yarn` line is a `body.can` customer that costs no level geometry at all, and
 nobody has considered it because the owner page is written around routes.
 
-⚠ **And the arithmetic that survives: five of seven published conditions are
-authored NOWHERE, by either road.** That is the dormant-cluster number, and it is
-now measured across both consumers rather than one.
+⚠ **And the arithmetic that survives: five of NINE published conditions are
+authored NOWHERE, by either road** — `world.switch_on`, `custody.is_held`,
+`body.can`, `body.fits`, `encounter.cleared`. That is the dormant-cluster number,
+measured across both consumers and both spellings.
+⚠ It read *"five of seven"* until 2026-09-04 late, when `boss.cleared` and
+`quest.active` were published and the census learned to derive its own vocabulary
+instead of keeping it by hand — which also corrected `held.is_held`, a spelling
+that names no published condition (`ambition_held_items` declares
+`DOMAIN = "custody"`).
 
 ⛔ **So "five families reachable and none reached" is NOT a migration backlog.**
 There is nothing to migrate. Converting both existing walls would empty the

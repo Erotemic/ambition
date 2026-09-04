@@ -27,8 +27,9 @@ database; prefer typed domain facts"*, and that is already what shipped: the sav
 holds **thirteen** typed fact families, not a string map. ⚠ `AmbitionGameSaveData`
 has FOURTEEN `pub` fields; `version` is schema metadata rather than a fact, which
 is the one exclusion — said here so a recount reads as agreement instead of a
-correction. Six published
-conditions read four of them:
+correction. **NINE published conditions read SIX of them** (⚠ six published
+reading four when this sentence was written; `boss.cleared` and `quest.active`
+landed 2026-09-04 late and are in the table below):
 
 | durable fact family | route-readable? |
 |---|---|
@@ -98,7 +99,7 @@ live."* ⇒ Publishing a condition here **retires a mirror slice**; it does not 
 an unused verb.
 
 ⛔⛔ **WHICH REVERSES THE OBVIOUS CAUTION, and the reversal is the point.**
-`capability-progression-and-world-gating.md` measures five of seven published
+`capability-progression-and-world-gating.md` measures five of nine published
 conditions as authored NOWHERE, so "publish more conditions" reads as
 dormant-cluster growth. **It is the opposite here**: `boss.cleared` and
 `quest.active` have authored callers on day one — the callers exist, through the

@@ -179,6 +179,7 @@ dependencies = [
  "ambition_platformer2d_core",
  "ambition_platformer2d_shared_tangle",
  "ambition_portal2d",
+ "ambition_sprite_fx",
  "bevy",
 ]
 
@@ -203,6 +204,13 @@ dependencies = [
 [[package]]
 name = "ambition_registry_core"
 version = "0.1.0"
+
+[[package]]
+name = "ambition_sprite_fx"
+version = "0.1.0"
+dependencies = [
+ "bevy",
+]
 
 [[package]]
 name = "android-activity"

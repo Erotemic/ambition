@@ -2053,6 +2053,24 @@ significance however unanimous (2 × 0.5⁴ = 0.125). ⓘ And `median([1,2,3,4])
 returns **3** where the median is **2.5**, as expected for `values[len / 2]`.
 
 ⚠ **This validates the ALGORITHM, not an implementation.** The Rust still has to be
+
+✔ **AND THE IMPLEMENTATION IS WRITTEN — on a BRANCH, unverified, deliberately not
+on `main`.** `agent/yardrat-rig-one-authority`, two commits kept separable:
+
+| commit | what | why separable |
+|---|---|---|
+| `22dfe0e86` | `paired_outcomes()` — one outcome per seed, stocks then damage; a paired run derives **both** the word and the sign test from it. Pooled verdict demoted to a descriptive column. Unpaired runs unchanged. | the fix proper |
+| `ce8c7a142` | `median()` — mean of the two middles for even N | changes **every** descriptive column, so it can be taken or left on its own |
+
+⛔ **It has never been compiled.** Not `cargo check`, not `--lib` — this box has
+~359M free (see [`../yardrat-open-measurements.md`](../yardrat-open-measurements.md)).
+Delimiters were balanced and the code re-read, which catches typos and not type
+errors. ⇒ **That is exactly why it is a branch**: if the Rust is wrong it costs
+nothing and `main` is untouched. Whoever merges it runs the five arms above first.
+
+ⓘ **One arm needed no code: mirror orientation.** `Bout::mirrored` already swaps
+every per-seat array, so index 0 is the higher rung in both halves of a pair —
+invariance holds by construction rather than by test.
 written and these arms still have to be run against it — a model agreeing with a
 design says nothing about whether the code matches the model.
 

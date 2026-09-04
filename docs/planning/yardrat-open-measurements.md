@@ -624,3 +624,33 @@ false NEGATIVE for an attribute COUNT, because stopping early reports *fewer*
 attributes and a stolen one would count 1 instead of 2. Fix: collapse logical
 attributes (join from `#[` until the brackets balance) before walking. Reported to
 the guard's owner.
+
+---
+
+## ✔ CLOSED — is the "no General-MIDI fallbacks on new machines" ask actually guarded?
+
+**Checked 2026-09-04 without a compiler, because the whole path is shell and
+Python.** The answer is yes, and it is worth writing down where the protection
+lives, because the obvious place is not it.
+
+- `run_developer_setup.sh` runs `audio_libraries.sh` **before**
+  `generated_content.sh`, with a comment explaining why: `scripts/regen/music.sh`
+  sources that phase's `env.sh` to find the instruments, so installing them
+  afterwards would already have rendered the fallback. ⚠ Correct — and **held by a
+  comment**, with no guard on the phase order.
+- ⛔ **`scripts/regen/music.sh` WARNS AND CONTINUES.** With no instruments it
+  prints a loud block and then calls the renderer anyway. ⇒ So the repo-level
+  script is *not* the protection; **it defers entirely to the renderer refusing**,
+  which its own comment says outright.
+- ✔ **And the renderer does refuse, at two levels**, both with tests in
+  `tools/ambition_music_renderer/tests/`: one for a machine with **no** sampled
+  library at all, and — added 2026-09-04 by the sibling session — one for a
+  machine missing a **single named** library. ⚠ That second one existed because
+  the refusal *"was all-or-nothing; one missing family still shipped wrong
+  music"*, which is precisely the gap a whole-or-nothing check cannot see.
+
+⇒ **The load-bearing fact for anyone touching this: the refusal is the guard, and
+the setup ordering is a convenience.** A reordering of the setup phases would not
+silently produce General-MIDI cues — it would fail at the renderer. ⓘ Which also
+means the thing to protect in review is the REFUSAL's completeness, not the
+phase list.

@@ -44,6 +44,24 @@ start it 43 of 59.** It selects `jab` 40 times; one jab starts. ⇒ Sixteen of
 George's twenty-eight authored moves never start once, including **all three
 smashes and all three tilts**.
 
+⚠⚠ **AND IT BEARS ON EVERY LADDER NUMBER ON THIS PAGE, so face it here rather
+than let a reader find it.** If a running fighter's attack press becomes the dash
+attack whatever the brain scored, do the utility weights — which I isolated as the
+`5 vs 3` inversion's cause — matter at all?
+
+⇒ **They demonstrably do, and the evidence is the isolation itself.** Changing
+`frame_advantage` + `expected_payoff` alone moved `5 vs 3` from significantly
+inverted to not, byte-for-byte against a control that changed nothing. ⭐ A knob
+that reached nothing could not have done that. And the weights drive the MOVEMENT
+options too, which are not press-converted at all.
+
+⚠ **What it does narrow is the CHANNEL.** The ladder's differences are reaching
+the fight through movement, through approach, and through whichever attacks
+survive the press conversion — **not through the full attack scoring the weights
+appear to control.** ⇒ So "the ladder sags at rung 5" stands as measured; "and it
+sags because higher rungs pick worse ATTACKS" would be more than the evidence
+supports, and I have not claimed it.
+
 ⇒ The chain is traced end to end below: the kit is built for the STANDING stance
 (`running` is never passed to the builder), the brain emits a BUTTON rather than a
 move, and the body re-resolves that press WITH `running` — preferring

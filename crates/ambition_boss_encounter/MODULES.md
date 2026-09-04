@@ -12,6 +12,7 @@
 | [`behavior`](src/behavior.rs) | Boss behavior-profile vocabulary (data-driven). |
 | [`catalog`](src/catalog.rs) | App-local composition of provider-authored boss data. |
 | [`clusters`](src/clusters.rs) | Authoritative boss ECS components and `BossMut` / `BossRef` views. |
+| [`conditions`](src/conditions.rs) | Authored BOSS conditions — "did the player beat this one?" |
 | [`ecs`](src/ecs/mod.rs) | Boss encounter-phase projection, brain tick, and body integration systems. |
 | [`encounter_entity`](src/encounter_entity.rs) | The ENCOUNTER as a first-class, OPTIONAL entity. |
 | [`encounter_script`](src/encounter_script.rs) | Encounter-script EXECUTION + its actor-specific mechanics. |
@@ -27,7 +28,7 @@
 | [`sprites`](src/sprites/mod.rs) | Compatibility facade for boss sprite-sheet types. |
 | [`systems`](src/systems.rs) | Boss-encounter Bevy systems — the per-frame driver. |
 
-_20 crate-root modules. Regenerate: `python scripts/modules_md.py --write`._
+_21 crate-root modules. Regenerate: `python scripts/modules_md.py --write`._
 
 <!-- END generated module map -->
 

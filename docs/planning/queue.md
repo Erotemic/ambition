@@ -1850,7 +1850,13 @@ queue read as an execution authority for work already done.
   path came from your own walk; qualified where tolerance is real.
   ⇒ Recipe: `docs/recipes/checks-that-did-not-run.md`, *"And your OTHER WORK is
   part of that environment"*.
-  ✔✔ **AND THE CLEAN RE-RUN LANDED: 7,137 PASSED, 0 FAILED, `cargo exit: 0`,
+  ✔✔ **RE-CONFIRMED AFTER THE S4 SLICE: 7,139 PASSED, 0 FAILED, `cargo exit: 0`,
+  179 test blocks, 42 ignored**, measured 2026-09-04 at `935491c76` — the same
+  command, nothing else on the machine, zero `Too many open files`. ⇒ The
+  anonymous-anchor fix, the portal `SimId`, the third census and the policy
+  scanner repair are all inside this number. Two green unions in a row, at two
+  different heads.
+  ✔✔ **AND THE FIRST CLEAN RE-RUN: 7,137 PASSED, 0 FAILED, `cargo exit: 0`,
   179 test blocks, 42 ignored.** Measured 2026-09-04 at `5c320ebb5` with the same
   82-entry union the `run_tests.py --list --run-everything-you-probably-dont-need-this`
   command prints, `--no-fail-fast`, nothing else running on the machine, zero

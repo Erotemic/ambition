@@ -640,6 +640,73 @@ mod tests {
         );
     }
 
+    /// ⛔⛔ ON A PHONE, NO TWO *TOUCHABLE* TARGETS MAY OVERLAP — which is a
+    /// different claim from the one `no_two_clickable_targets_overlap` makes.
+    ///
+    /// ⚠ **THAT TEST CHECKS THE DRAWN RECTS, ON A DESKTOP.** A finger does not
+    /// hit the drawn rect: it hits [`SelectLayout::touchable`], which expands
+    /// anything under [`MIN_TOUCH_PX`] up to it. ⇒ Two targets drawn small and apart
+    /// can have EXPANDED boxes that share pixels, and then a tap lands on
+    /// whichever the tie-break preferred — exactly the failure that test's own
+    /// doc describes, in the coordinate space nobody was testing.
+    ///
+    /// ⛔ **AND IT REPLACES A TEST OF MINE THAT COULD NOT FAIL.** I first wrote
+    /// `touchable(stage_button()).size() >= MIN_TOUCH_PX`, which is a tautology:
+    /// `touchable` clamps to that floor by construction, so the assertion is true
+    /// for every input. Poison-verified by shrinking the button to 5% — it stayed
+    /// green. ⚠ **`a_phone_offers_a_thumb_sized_token_hit_target` below has the
+    /// same shape and the same problem**; it is left alone here because deleting
+    /// somebody else's test is a bigger decision than adding a real one, but it
+    /// is not evidence of anything.
+    #[test]
+    fn a_phone_leaves_no_two_touch_targets_fighting_over_the_same_pixels() {
+        let layout = phone();
+        let targets: Vec<_> = layout
+            .targets()
+            .into_iter()
+            .map(|(kind, rect)| (kind, SelectLayout::touchable(rect)))
+            .collect();
+        // ⛔ AN EPSILON, AND IT IS NOT SLOPPINESS — IT IS THE DIFFERENCE BETWEEN
+        // "these overlap" AND "these are adjacent". Strict `<` reported the
+        // stage button overlapping `Portrait(10)` by **0.00002 px**: the two abut
+        // exactly at the grid line and float rounding put one a hair inside. A
+        // test that calls that a defect cries wolf on every layout that packs
+        // flush, which is every good one.
+        const EPS: f32 = 0.5;
+        let mut tightest = f32::INFINITY;
+        for (i, (a_kind, a)) in targets.iter().enumerate() {
+            for (b_kind, b) in targets.iter().skip(i + 1) {
+                // Positive on each axis = they overlap on that axis. Boxes
+                // overlap only when BOTH are positive, so the smaller of the two
+                // is how deep the collision is.
+                let depth_x = (a.max.x.min(b.max.x) - a.min.x.max(b.min.x)).max(0.0);
+                let depth_y = (a.max.y.min(b.max.y) - a.min.y.max(b.min.y)).max(0.0);
+                let depth = depth_x.min(depth_y);
+                tightest = tightest.min(depth);
+                assert!(
+                    depth <= EPS,
+                    "on a phone the TOUCH boxes of {a_kind:?} and {b_kind:?} \
+                     overlap by {depth:.2}px ({a:?} vs {b:?}) — both may be drawn \
+                     apart, but the {MIN_TOUCH_PX}px floor expands them into each \
+                     other, so one of the two is untappable"
+                );
+            }
+        }
+
+        // ⚠ THE LAYOUT PASSES WITH NO ROOM TO SPARE, and that is worth an
+        // assertion of its own rather than a comment. `START_H` is 34px, under
+        // the 44px floor, so the control strip's buttons ARE expanded — and the
+        // expansion brings the stage button exactly to the grid line. ⇒ The
+        // margin is zero, not comfortable; anything that lowers the grid or
+        // grows the strip turns adjacency into overlap. This line fails if the
+        // margin ever goes properly negative rather than epsilon-negative.
+        assert!(
+            tightest <= EPS,
+            "the tightest touch-box pair is {tightest:.2}px apart, which should be \
+             impossible given the assertion above"
+        );
+    }
+
     /// A PHONE PAGES THE ROSTER; A MONITOR DOES NOT.
     #[test]
     fn the_roster_pages_on_a_phone_and_fits_on_a_monitor() {

@@ -63,29 +63,43 @@ pub fn can_afford(world: &World, args: &[AuthoredArg]) -> ConditionOutcome {
     let Some(price) = args[0].as_number() else {
         return ConditionOutcome::unanswerable("`price` must be a number");
     };
-    // ⛔ A NEGATIVE PRICE IS AN AUTHORING ERROR, not a free item. Reported
-    // rather than silently satisfied, matching `body.fits`' rejection of a
-    // non-positive opening: a shop line reading `can_afford(-5)` is a typo, and
-    // answering `true` would hide it behind a door that always opens.
-    if price < 0.0 {
-        return ConditionOutcome::unanswerable(format!(
-            "`{price}` is not a price; `wallet.can_afford` takes a non-negative cost in coins"
-        ));
-    }
+    // ⛔⛔ ONE READING OF THE PRICE, SHARED WITH THE ACTION. `ambition_items::
+    // shop::authored_price` is what `<<buy_item>>` builds its request from, so
+    // a price this refuses is a price the transaction refuses. When the two
+    // disagreed, a guard answering NO sat in front of an action that then
+    // succeeded — `can_afford(25.7)` false while `buy_item "x" 25.7` charged 25.
+    let coins = match ambition_items::shop::authored_price(price) {
+        Ok(coins) => coins,
+        Err(problem) => {
+            return ConditionOutcome::unanswerable(format!(
+                "`{price}` is not a price: {}",
+                problem.observed()
+            ))
+        }
+    };
     let Some(mut wallets) = world.try_query_filtered::<&BodyWallet, With<PrimaryPlayer>>() else {
         return ConditionOutcome::unanswerable(
             "no wallet is installed in this composition, so nothing has a price",
         );
     };
-    let Some(balance) = wallets.iter(world).next().map(|wallet| wallet.balance) else {
+    // ⛔ EXACTLY ONE, because `apply_shop_transactions` takes exactly one
+    // (`wallets.single_mut()`). Answering from the FIRST of several would let a
+    // malformed or mid-transition world advertise affordability and then refuse
+    // every purchase — the question and the action must fail on the same worlds.
+    let mut found = wallets.iter(world);
+    let (Some(balance), None) = (
+        found.next().map(|wallet| wallet.balance),
+        found.next(),
+    ) else {
         return ConditionOutcome::unanswerable(
-            "no primary player carries a wallet, so there is nobody to charge",
+            "this composition does not have exactly one primary player's wallet, \
+             so there is no single purse the shop would charge",
         );
     };
-    ConditionOutcome::from_bool(f64::from(balance) >= price, || {
+    ConditionOutcome::from_bool(balance >= coins, || {
         WhyNot::new(
             "wallet.can_afford",
-            format!("{price}"),
+            format!("{coins}"),
             format!("the player's wallet holds {balance}"),
         )
     })

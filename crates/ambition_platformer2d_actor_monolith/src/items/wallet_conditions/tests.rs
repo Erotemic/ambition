@@ -109,3 +109,114 @@ fn a_price_that_is_not_a_number_is_unanswerable() {
         ConditionOutcome::Unanswerable(_)
     ));
 }
+
+/// ⛔⛔ THE GUARD AND THE ACTION MUST AGREE ON EVERY AUTHORED PRICE — the
+/// property a shared normalizer exists to make true, asserted by running BOTH.
+///
+/// For half a day they did not. `cmd_buy_item` built its request with
+/// `price.max(0.0) as i32` while this condition compared the balance against the
+/// raw `f64`, so a guard answering NO sat in front of an action that then
+/// succeeded. ⭐ THIS TEST RUNS THE REAL TRANSACTION, not a restatement of the
+/// rule: `ShopTransactionRequested::apply` is the code the simulation runs, and
+/// a test that only compared two normalizations would agree with itself.
+///
+/// ⛔⛔ AND HERE IS WHAT IT DOES *NOT* CATCH, established by poisoning it rather
+/// than by reasoning: re-introducing the exact original fork — this condition
+/// reading the raw `f64` while the action takes the normalized coins — leaves
+/// this test GREEN. Once `authored_price` REFUSES fractional and negative
+/// values, the only prices it accepts are integral, and for those the two
+/// readings are equal by arithmetic. ⇒ The fork can only show itself on prices
+/// the normalizer now rejects, and this arm skips those by construction.
+///
+/// ⭐ So the defect is prevented by the SHAPE — one normalizer, consulted by
+/// both roads — and what pins that shape is
+/// `a_fractional_price_is_not_quietly_rounded_into_an_affordable_one`, which
+/// asserts BOTH roads refuse `25.7` and `-5`. Clamping instead of refusing
+/// reddens that test and this one stays green, which is the correct division of
+/// labour and worth stating so neither is trusted past its reach.
+#[test]
+fn the_question_and_the_transaction_agree_on_every_authored_price() {
+    use ambition_items::shop::{authored_price, ShopSide, ShopTransactionRequested, ShopTx};
+    use ambition_items::{Item, OwnedItems};
+
+    // The two the fork produced, the boundary, free, and a price nobody can meet.
+    for price in [25.7_f64, -5.0, 25.0, 24.0, 26.0, 0.0, f64::NAN] {
+        let app = world_with(25);
+        let asked = ask(app.world(), price);
+
+        let Ok(coins) = authored_price(price) else {
+            assert!(
+                matches!(asked, ConditionOutcome::Unanswerable(_)),
+                "`{price}` is not a price, so the question cannot answer it — and the \
+                 transaction refuses it, so a `NotSatisfied` here would be a guard \
+                 disagreeing with an action that never runs"
+            );
+            continue;
+        };
+
+        let mut wallet = BodyWallet { balance: 25 };
+        let mut owned = OwnedItems::default();
+        let outcome = ShopTransactionRequested {
+            item: Item::HealthCell,
+            price: coins,
+            side: ShopSide::Buy,
+        }
+        .apply(&mut wallet, &mut owned);
+
+        let affordable = asked == ConditionOutcome::Satisfied;
+        let bought = outcome != ShopTx::CantAfford;
+        assert_eq!(
+            affordable, bought,
+            "`wallet.can_afford({price})` said {affordable} and the real transaction \
+             said {bought} ({outcome:?}). A guard that refuses what the action performs \
+             — or permits what it refuses — is worse than no guard, because it reads \
+             as protection."
+        );
+    }
+}
+
+/// ⛔ A FRACTIONAL PRICE IS REFUSED BY BOTH ROADS, not rounded by one of them.
+///
+/// `25.7` was the sharp end of the fork: the guard compared `25 >= 25.7` and
+/// said no, while `buy_item` truncated to a 25-coin charge the wallet could pay.
+/// ⇒ The player was told they could not afford it and then charged for it.
+#[test]
+fn a_fractional_price_is_not_quietly_rounded_into_an_affordable_one() {
+    use ambition_items::shop::{authored_price, AuthoredPriceProblem};
+
+    let app = world_with(25);
+    assert!(
+        matches!(ask(app.world(), 25.7), ConditionOutcome::Unanswerable(_)),
+        "coins are whole, so a fractional price is a question about nothing"
+    );
+    assert_eq!(
+        authored_price(25.7),
+        Err(AuthoredPriceProblem::Fractional),
+        "and the ACTION must refuse it too — truncating here is what let the \
+         charge happen after the refusal"
+    );
+    assert_eq!(
+        authored_price(-5.0),
+        Err(AuthoredPriceProblem::Negative),
+        "a negative price became a FREE purchase under `price.max(0.0)`"
+    );
+    assert_eq!(authored_price(45.0), Ok(45), "an ordinary authored price still reads");
+}
+
+/// ⛔⛔ TWO PRIMARY WALLETS CANNOT PRODUCE A CONFIDENT ANSWER, because
+/// `apply_shop_transactions` takes `wallets.single_mut()` and refuses that world.
+///
+/// Answering from the FIRST of several would let a malformed or mid-transition
+/// world advertise affordability and then refuse every purchase — the question
+/// and the action have to fail on the same worlds, not merely agree on good ones.
+#[test]
+fn a_world_with_two_primary_wallets_cannot_say_what_the_player_can_afford() {
+    let mut app = App::new();
+    app.world_mut().spawn((PrimaryPlayer, BodyWallet { balance: 9_000 }));
+    app.world_mut().spawn((PrimaryPlayer, BodyWallet { balance: 0 }));
+    assert!(
+        matches!(ask(app.world(), 10.0), ConditionOutcome::Unanswerable(_)),
+        "with two primary purses there is no single wallet the shop would charge, \
+         and the transaction system declines such a world outright"
+    );
+}

@@ -270,9 +270,24 @@ pub fn cmd_buy_item(
         warn!(target: "ambition_conversation::dialog::yarn", "buy_item: unknown item {id:?}");
         return;
     };
+    // ⛔ ONE READING OF THE PRICE, SHARED WITH `wallet.can_afford`. This was
+    // `price.max(0.0) as i32`, which turned an authored `-5` into a free
+    // purchase and `25.7` into a 25-coin charge the guard had just refused.
+    let coins = match ambition_items::shop::authored_price(f64::from(price)) {
+        Ok(coins) => coins,
+        Err(problem) => {
+            warn!(
+                target: "ambition_conversation::dialog::yarn",
+                "buy_item {id:?} {price}: {} — refusing the transaction rather than \
+                 rounding it into one the affordability check did not agree to",
+                problem.observed()
+            );
+            return;
+        }
+    };
     narrative.write(ambition_items::shop::ShopTransactionRequested {
         item,
-        price: price.max(0.0) as i32,
+        price: coins,
         side: ambition_items::shop::ShopSide::Buy,
     });
 }
@@ -287,9 +302,24 @@ pub fn cmd_sell_item(
         warn!(target: "ambition_conversation::dialog::yarn", "sell_item: unknown item {id:?}");
         return;
     };
+    // ⛔ ONE READING OF THE PRICE, SHARED WITH `wallet.can_afford`. This was
+    // `price.max(0.0) as i32`, which turned an authored `-5` into a free
+    // purchase and `25.7` into a 25-coin charge the guard had just refused.
+    let coins = match ambition_items::shop::authored_price(f64::from(price)) {
+        Ok(coins) => coins,
+        Err(problem) => {
+            warn!(
+                target: "ambition_conversation::dialog::yarn",
+                "sell_item {id:?} {price}: {} — refusing the transaction rather than \
+                 rounding it into one the affordability check did not agree to",
+                problem.observed()
+            );
+            return;
+        }
+    };
     narrative.write(ambition_items::shop::ShopTransactionRequested {
         item,
-        price: price.max(0.0) as i32,
+        price: coins,
         side: ambition_items::shop::ShopSide::Sell,
     });
 }

@@ -12,6 +12,68 @@ use crate::{Item, OwnedItems};
 use ambition_characters::actor::BodyWallet;
 use bevy::prelude::Message;
 
+/// Why an authored price is not a price.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum AuthoredPriceProblem {
+    /// `NaN` or an infinity — Yarn arithmetic can produce both.
+    NotFinite,
+    /// Coins do not go below zero.
+    Negative,
+    /// `25.7` is not a number of coins.
+    Fractional,
+    /// Beyond what a wallet can hold.
+    TooLarge,
+}
+
+impl AuthoredPriceProblem {
+    /// One clause, for a warning or a `WhyNot`.
+    pub fn observed(self) -> &'static str {
+        match self {
+            Self::NotFinite => "the authored price is not a finite number",
+            Self::Negative => "the authored price is negative, and coins do not go below zero",
+            Self::Fractional => "the authored price is fractional, and coins are whole",
+            Self::TooLarge => "the authored price is larger than a wallet can hold",
+        }
+    }
+}
+
+/// The ONE reading of an authored price, shared by the question and the action.
+///
+/// ⛔⛔ THESE WERE TWO READINGS FOR HALF A DAY AND THEY DISAGREED. `cmd_buy_item`
+/// built its request with `price.max(0.0) as i32`; when `wallet.can_afford` was
+/// published (D-WALLET-PREDICATE) it compared the balance against the raw `f64`
+/// instead. The migration removed one duplicated authority and created another,
+/// on the other side of the same contract:
+///
+/// ```text
+///   balance 25, authored 25.7   guard says NO,  buy_item charges 25 and SUCCEEDS
+///   authored -5                 guard says NO,  buy_item charges  0 and SUCCEEDS
+/// ```
+///
+/// ⇒ A guard that refuses what the action then performs is worse than no guard:
+/// it reads as protection. Both roads take their price from here now.
+///
+/// ⭐ STRICT, NOT CLAMPING, and the shipped content pays nothing for it: every
+/// authored `buy_item`/`sell_item`/`can_afford` price in the repository is a
+/// non-negative integer (measured 2026-09-04 — 0, 4, 6, 8, 12, 17, 25, 30, 35,
+/// 40, 45). ⇒ Clamping only ever silently rescued an authoring mistake, and
+/// `-5` becoming a free purchase is the shape of mistake it rescued.
+pub fn authored_price(price: f64) -> Result<i32, AuthoredPriceProblem> {
+    if !price.is_finite() {
+        return Err(AuthoredPriceProblem::NotFinite);
+    }
+    if price < 0.0 {
+        return Err(AuthoredPriceProblem::Negative);
+    }
+    if price.fract() != 0.0 {
+        return Err(AuthoredPriceProblem::Fractional);
+    }
+    if price > f64::from(i32::MAX) {
+        return Err(AuthoredPriceProblem::TooLarge);
+    }
+    Ok(price as i32)
+}
+
 /// Which way the goods move.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum ShopSide {

@@ -3283,10 +3283,19 @@ OPTIONAL dep + feature, never used:
 
   ⇒ **The question-half match is precise over PROSE and noise over CODE**, and
   the reason is not a tuning problem: planning documents discuss conditions, so
-  a backticked `a.b` there is usually one; code comments discuss FIELDS, and
-  `x.active` is a field access written in prose. The same rule, same corpus
-  shape, opposite signal-to-noise — **2 hits both real over 100 docs, 9 hits
-  none real over 1,776 files.**
+  a backticked `a.b` there is usually one; code comments discuss FIELDS, and a
+  field named `active` is written in prose exactly the way `quest.active` is.
+  The same rule, same corpus shape, opposite signal-to-noise — **2 hits both
+  real over 100 docs, 9 hits none real over 1,776 files.**
+  ⭐⭐ **AND THIS PARAGRAPH REDDENED THE GUARD IT DESCRIBES, which is the
+  cleanest demonstration of the rule anyone could ask for.** The first draft
+  wrote the collision as an inline backticked example, and
+  `no_planning_doc_names_a_condition_the_engine_does_not_publish` duly failed
+  the union at `queue.md:3287` — a doc discussing a fabricated id IS a doc
+  containing one. ⇒ The fix is the guard's own documented escape, and it made
+  the sentence better rather than worse: **name the correct id in the same
+  paragraph**, which here means saying that the collision is with
+  `quest.active` instead of gesturing at it.
   ⚠ Recorded as a closed question rather than a backlog item, so the next reader
   does not spend the measurement again. The Rust half of this class stays with
   the compiler and with review.

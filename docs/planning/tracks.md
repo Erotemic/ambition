@@ -83,8 +83,9 @@ actual product requirement.
   an authored `gated_by` is a condition LINE, so a route may ask any published
   condition (`inventory.holds axe`) instead of only `world.flag_set`, and
   `body.can(verb)` publishes the body-capability family against `AbilitySet`.
-  ⭐ **All seven families are route-reachable in their currently-expressible
-  forms as of the same day** — `body.fits(height)` (the crawlspace, reading the
+  ⭐ **FIVE of the seven families are route-reachable as of the same day**
+  (⚠ corrected from "all seven": soft systemic pressure and social/knowledge
+  have no fact to read) — `body.fits(height)` (the crawlspace, reading the
   CURRENT `BodyKinematics::size` so a crouch counts) and `world.switch_on(id)`
   (a mechanism's own latched state, whose producer was already flowing from wave
   encounters) closed body-property and world-mechanism, each walked end to end

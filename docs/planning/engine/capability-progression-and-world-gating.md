@@ -220,14 +220,23 @@
 > should stop being story flags is a design call, not an engineering one**, and
 > the next slice of this track is a level, not a condition.
 >
-> ⇒ **Seven of the seven gate families are reachable from a route now**, in
-> their currently-expressible forms: story gate (two writers), item/equipment
-> (`inventory.holds`, `held.is_held`), body capability (`body.can`), body
-> property (`body.fits`), world mechanism (`world.switch_on`). What remains
-> route-facing-empty is **soft systemic pressure** and **social/knowledge**, and
-> what remains genuinely UNEXPRESSIBLE is a mechanism in a state that is not a
-> bool — a valve at half, a lift at floor three. That is the seam, and it is one
-> family's residual rather than a whole family's absence.
+> ⛔⛔ **FIVE of the seven, and I first wrote "seven of the seven" — an
+> arithmetic error, caught the same day by counting the list against this page's
+> own `Gate families` section.** The sentence contradicted itself in its own next
+> clause: it named five families and then said two were empty.
+>
+> ⇒ **Reachable from a route now (5 of 7):** story gate (two writers),
+> item/equipment (`inventory.holds`, `held.is_held`), body capability
+> (`body.can`), body property (`body.fits`), world mechanism
+> (`world.switch_on`).
+> ⛔ **Route-facing-empty (2 of 7): soft systemic pressure and
+> social/knowledge.** Neither has a FACT to read, which makes them a different
+> kind of gap from the five and not a smaller version of one — a condition
+> written for either would have nothing to ask.
+> ⚠ And within the reachable five one residual is genuinely UNEXPRESSIBLE: a
+> mechanism in a state that is not a bool — a valve at half, a lift at floor
+> three. That is the seam, and it is one family's residual rather than a
+> family's absence.
 >
 > ⓘ **A body-capability predicate is already written, for actions rather than
 > routes.** `ActionSet::gated_by(AbilitySet)`

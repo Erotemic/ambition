@@ -66,8 +66,10 @@ deliberately parked.** Recorded here because the tier's own sentence ("build
 world residency, occurrence lifetime/provenance, item custody, body/item
 capability gating…") reads as five unbuilt things and three of them are done:
 
-- **Body/item capability gating: all SEVEN gate families are reachable from an
-  authored route**, in their currently-expressible forms. `gated_by` is a
+- **Body/item capability gating: FIVE of the seven gate families are reachable
+  from an authored route** (⚠ corrected from "all seven" the same day; the list
+  always named five, and soft systemic pressure and social/knowledge have no
+  fact to read). `gated_by` is a
   condition LINE, and `inventory.holds`, `held.is_held`, `body.can`,
   `body.fits`, `world.switch_on`, `encounter.cleared` and the two story-gate
   writers each have an end-to-end wall test. What is left is FACTS, not

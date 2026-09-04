@@ -590,7 +590,27 @@ seat artifact looks like. An effect that survives the control that destroyed its
 neighbour is a different kind of thing, and `6 vs 5` is exactly rollout-on
 against rollout-off.
 
-⇒ So the ladder is not inverted. **One rung is**, and the rung is the rollout.
+⇒ So the ladder is not inverted. **One rung is** — and the rollout is a large part
+of why, but ⚠ **not all of it**, which the 10-seed ladder arm alone would have
+told you wrongly.
+
+⛔ **The stronger arm disagrees with the headline the weaker one suggested.** The
+`--seeds 10` ladder run flipped `6 vs 5` outright when rollout was disabled, which
+reads as "rollout is the cause". The 15-seed PAIRED SCENARIOS run with
+`--no-rollout` — nine fixtures instead of one match, the same design as the
+matrix above — moves that cell from **9 : 0** toward the lower rung to roughly
+**5 : 2**. The uniformity breaks; the lean survives.
+
+⇒ **So: rollout accounts for a large share of the `6 vs 5` inversion and does not
+account for all of it.** Something else at that boundary is still favouring the
+lower rung, and the remaining candidates are the floor's linear terms — reaction
+300→260ms, APM 200→240, noise 0.20→0.16 — none of which is obviously a way to get
+worse, which is what makes the residue worth chasing rather than assuming.
+
+⚠ **Recorded this way deliberately.** I had the clean flip in hand from the
+cheaper arm and could have stopped there; the expensive arm is what says the story
+is partial. A measurement that confirms the hypothesis you already like deserves
+the same second arm as one that refutes it.
 
 ⭐⭐ **A MECHANISM, ASSEMBLED FROM NUMBERS THIS PAGE ALREADY CARRIES — and it
 says the 2026-08-31 fix may have traded one bug for its mirror image.**

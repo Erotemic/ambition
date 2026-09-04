@@ -560,6 +560,15 @@ pub(crate) fn install_session_bridge(app: &mut App) {
             // this system to do; adding the channel here would make this plugin a
             // second registrar of somebody else's vocabulary and give the message
             // two cleanup systems in a host that has both.
+            //
+            // ⚠ NOTHING IN THIS CRATE OBSERVES THIS REGISTRATION EITHER WAY, and
+            // that is worth knowing before trusting a green suite about it.
+            // `session_ownership_tests` schedules the system DIRECTLY, so it
+            // tests the function rather than this line; `host_invariant_tests`
+            // builds the plugin but only asserts schedule and resource facts. So
+            // a future edit that dropped this system entirely would keep every
+            // test in the crate green, and so would a `run_if` that never
+            // becomes true.
             .run_if(bevy::prelude::resource_exists::<
                 bevy::ecs::message::Messages<
                     ambition_platformer2d_shared_tangle::lifecycle::SessionScopeRetired,

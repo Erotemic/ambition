@@ -505,6 +505,56 @@ your flags, not just your machine. This cuts both ways — the
 extras may be phantom, and a clean checkout may also show you something your
 warm tree has been hiding since member #3.
 
+## ⛔⛔ And your OTHER WORK is part of that environment
+
+The section above says an error list is a property of your environment until you
+compare it with one you did not build. **Your own concurrent commands are in that
+environment**, and this is the form that produces the most confident wrong
+answer, because the failures name repository facts rather than machine ones.
+
+⭐ **MEASURED 2026-09-04.** A feature-union run reported **7,104 passed / 32
+failed**. Every one of the 32 was caused by recursive `grep`s run beside it,
+which exhausted file descriptors. Thirty of them came from
+`ambition_workspace_policy`, and the loudest read:
+
+```text
+could not find the workspace root above <repo>/tests/ambition_workspace_policy
+ — no ancestor Cargo.toml declares [workspace]
+```
+
+of a workspace whose root manifest declares it on line one. **Nothing in the
+output said "I could not read a file."**
+
+⇒ **The two lessons are separable and both are load-bearing.**
+
+1. **Do not read a long run you are sharing the machine with.** A union run is
+   thousands of processes and file handles; a recursive search over the same tree
+   is thousands more. "I was only reading" is not true of the operating system.
+2. ⛔⛔ **A GUARD THAT SWALLOWS A READ ERROR REPORTS ITS OWN FINDING.** Every rule
+   in a policy or census crate reports an ABSENCE — a missing owner, an unscanned
+   root, a legacy function that is gone. So `if let Ok(text) =
+   read_to_string(..)` makes the guard announce exactly what it exists to detect
+   whenever the MACHINE, not the code, is what failed. The worst instance
+   returned an EMPTY set on a read error with the comment *"a deleted legacy file
+   has no pending functions"* — an IO failure reading as **"the migration is
+   complete."** Fixed by `0b58767f2`: one reader owns the message, it names the
+   path and the OS error and says *"do not read any policy verdict from this
+   run"*, and only `ErrorKind::NotFound` is tolerated where deletion is a real
+   answer.
+
+⚠ **A "the scan reached no sources — vacuous" guard is the right instinct and is
+NOT enough**, which two of the five sites had: a run where SOME files are
+unreadable still contributes and silently under-scans. ⭐ The best-behaved of the
+three failure messages in that run was
+`the_reaction_timer_clock_forks_on_purpose`'s — *"the scan is broken, not the
+code"* — which is the sentence every source-scanning assertion should be able to
+print.
+
+ⓘ This is the third instance in one day of the instrument sitting inside the
+population it measures: a binary measured before it was rebuilt, a `pgrep -f`
+that matched the shell containing its own pattern, and this. The family is worth
+naming as one.
+
 ## ⛔ The filter you wrote yourself is the one you will not suspect
 
 The section above says your error list is a property of your environment. The

@@ -10,7 +10,25 @@ use ambition_platformer2d::actor::{FighterStocks, MatchSeat};
 use ambition_platformer2d::characters::brain::{Brain, StateMachineCfg};
 use bevy::app::App;
 
-const TICKS: usize = 3_600; // one minute at 60Hz
+/// One minute at 60Hz.
+///
+/// ⚠ **NO LONGER THE SAME BUDGET AS `ladder_rig`, and the two are no longer
+/// readable against each other.** That rig defaulted to sixty seconds too, and
+/// its comment said so; on 2026-09-04 it was changed to
+/// `ambition_demo_smash::SMASH_TIME_LIMIT_TICKS` — the **shipped eight-minute
+/// match** — because a bout that cannot end leaves stocks tied and sends every
+/// verdict to a damage tiebreak.
+///
+/// ⭐ **That reasoning does NOT transfer here, which is why this stays sixty.**
+/// This probe's opponent cannot attack: a bout has no winner to decide, so
+/// nothing depends on it finishing. Stock loss here counts SELF-KOs, and the
+/// clock is just the observation window. ⇒ Making it eight minutes would multiply
+/// the run time by eight and change nothing about what the number means.
+///
+/// ⛔ So do not compare a survival time from this probe against one from
+/// `ladder_rig`. They are windows onto different questions and, since 2026-09-04,
+/// different lengths.
+const TICKS: usize = 3_600;
 
 /// How many execution-noise seeds each configuration is run under.
 ///

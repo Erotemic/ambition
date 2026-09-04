@@ -1109,6 +1109,20 @@ queue read as an execution authority for work already done.
   `cargo test --workspace <union> --test app_it <that test>` → **1 passed**, and
   the whole `composes_through_the_sdk` module → **6 passed, three times running,
   while a second union was loading the machine.**
+  ⭐⭐ **NOTE WHAT THAT ARM RULES OUT, because it is the hypothesis the row would
+  otherwise reach for next: `--workspace` means feature unification applied, so
+  that run HAD the union feature set with only one binary executing. ⇒ The
+  feature set alone does not reproduce it.** What is left is "the rest of the
+  workspace present" — other binaries running — which is the load story the
+  paragraph below argues against. Both halves cannot be true, and neither has
+  been watched.
+  ⚠ `-p <crate> --all-features` is NOT this arm and never was: it is a different
+  feature resolution, which is the distinction the smash row below already
+  records.
+  ⚠ **And a run with `bevy_ecs/debug` cannot separate the two either** — it
+  changes the feature set as well. That run answers WHICH system, not why, and
+  quoting it as a mechanism would be the same error as quoting the elimination as
+  one.
   ⛔⛔ **AND IT WEAKENS THE "LOAD OR CONTENTION" READING RATHER THAN CONFIRMING
   IT.** That probe has no timing, no asset and no wall-clock dependency: it builds
   the engine group twice — once whole, once `.disable::<BossEncounterSimulationPlugin>()`

@@ -121,13 +121,35 @@ the union it prints **`following (0,0)`** on both failing body-frames. ⇒ The
 camera is not lost and is not inventing anything: it is faithfully framing a body
 that IS at the world origin, while the two fighters are at y≈204.
 
-⭐ **So the resolver is innocent of the charge I first filed against it.** Its
-unresolvable-cast arm already `return`s without publishing — the contract at
-`camera_snapshot.rs:908` is honoured. The origin centre comes from the arm ABOVE
-that one, which follows a real body (`PrimaryPlayerOnly`, else the
-`ControlledSubject`). ⇒ **The defect is upstream, in PLACEMENT: at `t3` that body
-exists and has not yet been moved to its spawn.** Both failing frames are `t3` of
-600+, so it is resolved by the next tick.
+⚠ **I then inferred a placement race from that, and a probe REFUTED it. Recorded
+because the wrong inference is instructive.** The reasoning was: the resolver's
+unresolvable-cast arm `return`s without publishing, so the origin must come from
+the arm ABOVE it, which follows a real body — therefore a body must be sitting at
+the origin, unplaced.
+
+⛔ **No body is ever at the origin.** `probe_where_bodies_are_before_the_match_settles`
+walks every entity with `BodyKinematics` for the first twelve ticks of a match:
+
+```
+[probe] t0  0 bodies:
+[probe] t1  0 bodies:
+[probe] t2  0 bodies:
+[probe] t3  2 bodies: seat0@(224,204)  seat1@(416,204)
+[probe] t4  2 bodies: seat0@(224,204)  seat1@(416,204)
+```
+
+⇒ Zero bodies for three ticks, then exactly two, **both already at their spawn
+points**. There is no third body, no unplaced body, and nothing at `(0,0)` for a
+camera to follow. ⚠ The probe runs at DEFAULT features, where the test is green —
+deliberately, because the union is what makes a snapshot exist at `t3`, not what
+puts something at the origin. A probe under the union features is running to close
+that gap.
+
+⇒ **So the question re-opens, and in a more interesting place**: `follow_world`
+reports `(0,0)` while nothing in the world is at `(0,0)`. That is not a camera
+following an unplaced body — it is a follow point that corresponds to nothing. ⛔
+Which brings `camera_snapshot.rs:908`'s contract back into scope after I had ruled
+it out.
 
 ⇒ **So the likely reading is a THIRD one neither option names: at `t3` the cast
 has not resolved yet, and a snapshot is published anyway describing a frame that
@@ -139,11 +161,14 @@ first resolve rather than easing from zero (`!state.target_initialized` →
 `presented_roll_radians` documents as *"a view must open already oriented, not
 spin up from zero."*
 
-⇒ **Which makes the question sharper and cheaper than it was.** Not *"may a
-fighter leave the frame by 16 units"*, and — after the `follow_world` measurement
-above — not *"may a snapshot be published for an unresolved cast"* either, since
-that path already refuses. The live question is: **may a match present a tick in
-which the followed body has not been placed yet?** ⭐ If no, this is an engine defect
+⇒ **Which makes the question sharper and cheaper than it was — but it is NOT yet
+the question I claimed.** I narrowed it twice and the second narrowing was wrong:
+*"may a match present a tick in which the followed body has not been placed?"*
+assumed an unplaced body that the probe shows does not exist. ⚠ What is
+established is only the first narrowing: it is not a tolerance question, because
+132 units on a 568-wide frame with BOTH fighters outside is not a camera lagging.
+⇒ The live question is still an engineering one and not yours until the union
+probe reports. ⭐ If no, this is an engine defect
 with a named contract already written down, the fix is upstream of the camera,
 and the test is correctly red. If yes, the test should skip unresolved frames —
 and that is a one-line change reading a fact that exists, not a tolerance pulled

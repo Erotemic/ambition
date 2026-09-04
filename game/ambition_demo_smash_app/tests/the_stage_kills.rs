@@ -1957,6 +1957,69 @@ fn the_stage_grants_body_contact_to_both_seated_fighters() {
     );
 }
 
+/// PROBE: WHERE is every body for the first ticks of a match? Print-only; run
+/// with `--ignored`.
+///
+/// ⭐⭐ THE QUESTION `every_live_fighter_stays_inside_the_frame` RAISED AND COULD
+/// NOT ANSWER. That test fails under the gate's feature union with the camera
+/// `following (0,0)` while both fighters are at y≈204 — the camera faithfully
+/// framing a body that is at the world ORIGIN. ⇒ The suspicion is a placement
+/// race: at `t3` a followed body exists and has not been moved to its spawn.
+///
+/// ⚠ **This probe deliberately runs at DEFAULT features, where that test is
+/// GREEN.** The union is what makes a snapshot exist at `t3` for the test to
+/// read; it is not what puts a body at the origin. So if the race is real it
+/// should be visible here too, with no union and no 2.5-minute rebuild — and if
+/// nothing sits at the origin here, the race is NOT the explanation and the
+/// union changes more than snapshot timing.
+///
+/// Prints one line per tick per body: seat (or `-` for an unseated body), and
+/// position. Read it for a body at `(0,0)` that later moves.
+#[test]
+#[ignore = "PROBE, print-only: where every body sits for the first ticks of a match"]
+fn probe_where_bodies_are_before_the_match_settles() {
+    use ambition_platformer2d::actor::{BodyKinematics, MatchSeat};
+
+    let mut app = build_demo_app();
+    for _ in 0..30 {
+        app.update();
+    }
+    app.world_mut()
+        .insert_resource(ambition_demo_smash::smash_roster_at_levels(
+            [
+                ambition_demo_smash::SMASH_CHARACTER_ID,
+                ambition_demo_smash::SMASH_OPPONENT_ID,
+            ],
+            &[5, 5],
+        ));
+    app.world_mut()
+        .write_message(ambition_platformer2d::game_shell::ShellCommand::GoTo(
+            ambition_platformer2d::game_shell::ShellRouteId::new(
+                ambition_demo_smash::SMASH_GAMEPLAY_ROUTE,
+            ),
+        ));
+
+    for tick in 0..12 {
+        app.update();
+        let world = app.world_mut();
+        let mut q = world.query::<(bevy::prelude::Entity, &BodyKinematics, Option<&MatchSeat>)>();
+        let mut rows: Vec<String> = q
+            .iter(world)
+            .map(|(e, kin, seat)| {
+                format!(
+                    "{}{:?}@({:.0},{:.0})",
+                    seat.map_or("-".to_string(), |s| format!("seat{}", s.0)),
+                    e,
+                    kin.pos.x,
+                    kin.pos.y
+                )
+            })
+            .collect();
+        rows.sort();
+        println!("[probe] t{tick:<2} {} bodies: {}", rows.len(), rows.join("  "));
+    }
+}
+
 /// PROBE: HOW SOON do two mirrored CPUs stop reflecting? Print-only; run with
 /// `--ignored`.
 ///

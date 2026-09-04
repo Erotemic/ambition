@@ -1135,8 +1135,33 @@ queue read as an execution authority for work already done.
   WATCHED ONE FAIL UNDER A CONTROLLED REPRODUCTION.** That is what the row said
   with two cases and it is still what it says with three; the third just removes
   "these are old flaky demo tests" as an explanation.
-  ⇒ ⭐ **THE NEXT ACTION IS NAMED AND CHEAP: run the union with `bevy_ecs/debug`
-  ON.** Every one of the three dies with `Parameter <Enable the debug feature to
+  ⛔⛔ **RUN WITH `bevy_ecs/debug` ON, AND THE ANSWER IS THAT THESE ARE NOT ONE
+  CLASS — I had been treating them as one and that was wrong.** 2026-09-04,
+  `--workspace --no-fail-fast <union>,bevy_ecs/debug`: **7,115 passed, 2 failed,
+  and ZERO "Encountered an error in system" anywhere in the log.** No
+  parameter-validation panic fired at all.
+  * `the_stage_kills::every_live_fighter_stays_inside_the_frame` reproduced —
+    **as a plain ASSERTION, not a panic**: *"a live fighter was drawn OUTSIDE the
+    frame on 2 body-frames, worst 132 units past the edge … t3 seat 1 at
+    (416,204) is 132 units outside a 568x320 frame centred (0,0)"*. ⇒ It never
+    was a missing-parameter failure, so `bevy_ecs/debug` had nothing to name for
+    it, and the lead this row already recorded is the whole lead: a snapshot
+    **centred at (0,0)** with live seats in the world means something resolved a
+    cast to nothing (`camera_snapshot.rs:908` — an unresolvable cast returns
+    `None` and *"callers must not invent a world-origin fallback"*). That is
+    chaseable without the union.
+  * The boss-omit probe did NOT reproduce.
+  * The second failure was a NEW test of mine failing its own anti-vacuity floor
+    — see the receipt below; not a member of anything.
+  ⇒ **So the "three tests that share a signature" reading is retracted.** One was
+  a parameter panic and is fixed (sprite_fx); one is a parameter panic that has
+  fired once in three runs (boss-omit); one is an assertion about a camera
+  centre and always was. Lumping them made each look like evidence for the
+  others, which is how a load story survived three investigations without a
+  mechanism.
+
+  ⓘ **The superseded next action, kept because the reasoning was sound and the
+  answer was still worth buying:** Every one of the three dies with `Parameter <Enable the debug feature to
   see the name>` — the failure names neither the system nor the parameter, which
   is why three separate investigations each ended in elimination. With the
   feature on, the next occurrence names itself, and

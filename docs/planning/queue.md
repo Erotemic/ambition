@@ -579,6 +579,10 @@ The one unresolved developer-policy choice from the session-ownership work is in
   backticked example of a fabricated id — **a doc discussing a fabricated id is
   a doc containing one.** Fixed by the guard's own documented escape (name the
   correct id in the same paragraph), which made the sentence better.
+  ⛔⛔ **AND `--rust` IS A LANE, NOT THE GATE.** It drops the slow Python
+  checkers, which includes the **compile-cost ratchet** — a job that reports six
+  findings at HEAD. ⇒ `49/49` is true of the lane that ran; it is not
+  *"everything passes"*, and the row below re-measures what this lane skipped.
   ⓘ The tree under test was `40d078509` plus the `status.md` reconciliation that
   became `be3546b88`; docs-only, and the docs guard reads `docs/planning` at test
   time, so that edit was covered rather than pending. ⚠ Two uncommitted dev-file
@@ -650,7 +654,40 @@ The one unresolved developer-policy choice from the session-ownership work is in
   own instrument in one day; the first was file-descriptor exhaustion from my
   own greps.
 
-- ▢ **THE COMPILE-COST RATCHET FAILS THE GATE, and its five messages are the
+- ▢ **RE-MEASURED 2026-09-04 EVENING at `ae6b6b4fd` — SIX findings now, and the
+  campaign's headline number has crossed back.**
+  ⛔⛔ **AND FIRST: THIS RATCHET IS NOT IN THE `--rust` LANE, so today's three
+  union runs say NOTHING about it.** It lives in `post_rust_repo_jobs`, gated on
+  `include_slow_python_checkers`, and `run_tests.py` says in place that *"`--rust`
+  keeps the first class and drops this one"*. ⇒ The `49/49 jobs passed` receipt
+  recorded above is a true statement about a lane that never ran this job, and
+  reading it as *"everything passes"* is the exact mistake this file keeps
+  recording: **a gate lane you did not run is a guard that does not exist.**
+  Run `./run_tests.sh` with no lane flag to include it.
+  ⚠ **`largest_unit_lines` is 100,157 — back ABOVE the 100,000 this row
+  celebrated crossing.** The win is still real against the frozen baseline
+  (108,364, so **−8,207**), and the round number is not: it read 98,808 when
+  that line was written and has since taken back 1,349. ⇒ A milestone stated as
+  a threshold goes stale in both directions; the DELTA is the honest figure.
+  ⚠ `edit_cost_lines (ambition_platformer2d_core)` 537,395 → **576,719**
+  (+39,324 against a +10,747 budget) — still growing, and further out than the
+  +31,329 this row last recorded.
+  ⚠ `UNPRICED` is **EIGHT** now, not seven: `ambition_sprite_fx` joined
+  `ambition_abilities`, `ambition_body_seed`, `ambition_encounter_features`,
+  `ambition_held_items`, `ambition_match`, `ambition_registry_core`,
+  `ambition_world_items`. ⭐ Which is this row's own prediction landing again:
+  *"every D33 carve creates an unpriced destination, so the placeholder's blast
+  radius grows with the campaign."* `ambition_sprite_fx` is not a carve, so the
+  set now grows by two mechanisms rather than one.
+  ⭐ `edit_cost_seconds` (monolith) 1,264.9 → **1,158.8** (−106.1 s) and
+  `critical_path_crates` 14 → **16**, both unchanged in character.
+  ⓘ Attribution, from `--diff` rather than guessed: the monolith is −8,207 and
+  the five NEW crates carry +5,235 / +3,475 / +2,310 / +2,249 / +1,759 lines
+  between them. The carves are paying their debt exactly as recorded; nothing
+  here is a new regression, and the ruling below (re-freeze ONCE at the end,
+  with all destinations priced together) is unchanged by this re-measurement.
+
+- ▢ **(the standing analysis) THE COMPILE-COST RATCHET FAILS THE GATE, and its five messages are the
   D33 campaign's own accounting.** Measured 2026-09-03 by running `./run_tests.sh`
   to completion: **9/10 jobs passed in 2023 s**, the tenth being
   `compile-cost ratchet`. Baseline frozen at `11ef33c5b5a5` (2026-08-27),

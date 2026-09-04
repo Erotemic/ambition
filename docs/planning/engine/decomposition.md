@@ -150,6 +150,22 @@ implementation detail and often the wrong one. The expectation is that an
 optional boundary is represented INTENTIONALLY rather than by assuming the full
 stack is always present.
 
+⛔⛔ **AND WHEN A CAPABILITY DEGRADES TO A DEFAULT ON ABSENCE, THE DEFAULT MUST
+NOT BE A VALID-LOOKING VALUE FROM THE SAME DOMAIN.** Measured 2026-09-04
+(yardrat): the fighter ladder's authored per-level rows arrive only with
+`AuthoredFighterLadder`, which `ambition_content` inserts and which neither smash
+crate depends on — so the engine floor's `UtilityWeights::default()` was used
+instead, and that default IS the ladder's level-9 row. Every rung therefore ran
+level-9 priorities, and no output could tell that from the authored ladder. ⇒ The
+absence was not merely unsupported; it was INVISIBLE, and every number the
+project had recorded from that rig described the fallback.
+⚠ The proof was a null result and could not have been anything else: removing a
+redundant override changed nothing in ten of ten cells, which is only possible if
+the authored rows were never arriving.
+⇒ So an optional capability owes its consumers a way to tell absent from
+defaulted. A default that is a plausible member of the value space it replaces
+turns a composition error into a silent measurement error.
+
 ### Intended layering
 
 Conceptual, and deliberately without crate names where the architecture has not

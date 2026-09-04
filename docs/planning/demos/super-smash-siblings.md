@@ -319,6 +319,29 @@ resolve.** Replicated at 12 and 28 seeds with every verdict identical:
 | 6 vs 5 | *(within spread)* |
 | 9 vs 6 | *(within spread)* |
 
+⛔⛔ **THE WORD *"established"* IS ON HOLD AS OF 2026-09-04.** A review found the
+rig's `report_row` carries **two authors of one row's meaning**: the printed
+direction comes from POOLED MEDIANS, while the `(within spread)` qualifier comes
+from a PAIRED, DAMAGE-ONLY sign test that **discards which direction won**
+(`k = positives.max(negatives)`). ⇒ A row can print `LOWER outfights` with the
+qualifier removed while its own test is significant for HIGHER, and it looks
+exactly like a row where the two agree.
+
+⚠ **And note what does NOT rescue it: replication.** *"12 and 28 seeds, every
+verdict identical"* is real and it is the wrong reassurance here — a defect in how
+a row is composed is **deterministic**, so it reproduces perfectly at every seed
+count. ⇒ Replication tests sampling noise; it cannot see a systematic fault, and
+citing it against one is the same mistake as trusting a null from an instrument
+that could not resolve its subject.
+
+⭐ **What survives untouched is the MECHANISM**, because it never routed through
+the qualifier: stocks level at `2 : 2`, the lower rung dealing more damage, and
+`frame_advantage` + `expected_payoff` isolated **byte-for-byte** as reproducing
+the whole effect. ⇒ Read `5 vs 3` as *"a defect with a named cause and an
+unconfirmed significance label"*, not as withdrawn — and re-take it first once the
+rig is fixed.
+
+
 ⇒ **`6 vs 5` is NOT the bad rung; `5 vs 3` is.** The rollout story does not apply
 to it either — the shipped ladder sets `rollout_depth: 0` on all nine rows, so no
 player has ever met the L3 search or the `Dodge`/`Shield` suppression. ⭐ The cause

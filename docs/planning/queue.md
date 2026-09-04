@@ -3923,8 +3923,16 @@ OPTIONAL dep + feature, never used:
   re-checked: whether the tests still PASS, which needs a build.
   Seven comments cited two identifiers that do not exist (`smash_fighter_kit()`,
   `character_id_for_display_name`); all seven now name what is really there.
-  ✔ RE-CENSUSED 2026-09-02 AND STILL NO CANDIDATE — the sweep is recorded in the owner doc rather than left as an instruction. Three populations searched (id-keyed branches; writes to `definition.vitals`/`.locomotion`/`.movement_tuning` outside `authored/`; demo writes to facts a demo does not own) and every hit is a character authoring its OWN facts. ⚠ ONE ASYMMETRY, explicitly NOT a slice: `CharacterDefinition` has 22 `with_*` builders and none for `vitals`, so every character assigns the public field — an ergonomic gap with no second road to delete, and the five-part test needs one. ⛔ NOT a residual: eleven grid fighters on the
-  actor baseline is a MISSING author, not a duplicate one.
+  ✔ RE-CENSUSED 2026-09-02 AND STILL NO CANDIDATE — the sweep is recorded in the owner doc rather than left as an instruction. Three populations searched (id-keyed branches; writes to `definition.vitals`/`.locomotion`/`.movement_tuning` outside `authored/`; demo writes to facts a demo does not own) and every hit is a character authoring its OWN facts. ⚠ ONE ASYMMETRY, explicitly NOT a slice: `CharacterDefinition` has 22 `with_*` builders and none for `vitals`, so every character assigns the public field — an ergonomic gap with no second road to delete, and the five-part test needs one. ⛔ NOT a residual: a grid fighter that authors no
+  fighter body of its own is a MISSING author, not a duplicate one. ⚠ **The old
+  wording — *"eleven grid fighters on the actor baseline"* — was corrected
+  2026-09-04**: they are not on the actor baseline. `apply_smash_match_rules` sets
+  `roster.rules.body = Some(SMASH_FIGHTER_BODY)`, so the ruleset hands every seat
+  a platform-fighter body and an unauthored fighter is LEFT on it rather than
+  dropped; the actor baseline is what a seat gets where no ruleset body is
+  declared. The count matched nothing current either (23 wish list, ≥8 composed,
+  3 standalone, and exactly ONE authored `smash_fighter` facet). See the owner
+  doc.
   Owner:
   [`engine/character-authoring-package.md`](engine/character-authoring-package.md).
 

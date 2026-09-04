@@ -2368,6 +2368,31 @@ queue read as an execution authority for work already done.
   and attack must be scorable as a joint choice (or "hold position" must be an
   option an attack can require). ⚠ That is materially larger than either fix this
   row opened with, and it is squarely a design decision.
+  ⭐⭐⭐ **AND THE DESIGN CALL NOW HAS ITS COST, TRACED FROM SOURCE 2026-09-04 —
+  it is smaller than "a scoring-shape change" sounds, and the reason is that the
+  vocabulary is missing one word.**
+  - **`MovementVerb` has no way to say "stand still."** Its variants are
+    `Approach`, `Retreat`, `Jump`, `Dash`, `Dodge`, `Shield`, `Blink`, `Recover`
+    — every one a motion. There is no `Hold`.
+  - **And `pick_movement` never declines.** It takes the first non-vetoed option
+    and returns `None` only when the list is EMPTY or everything is vetoed. ⇒
+    **Nothing ever compares moving against not moving**; holding position is not
+    an option that can win a scoring contest, it is only what happens when the
+    brain has run out of alternatives.
+  ⇒ **So even a perfect joint scorer would still emit a movement every tick**, and
+  the fighter would still be running when the press resolves. ⭐ That is a
+  deeper explanation of why fix (a) failed than "the gap is temporal": with
+  perfect information about the dash conversion, the brain **still had no way to
+  express the remedy**.
+  ⇒ **The smallest change that could work is therefore a VOCABULARY change, not a
+  re-architecture**: a `Hold` variant that `generate_options` scores like any
+  other, so that "stand and commit" competes with "approach" on the same axis.
+  ⚠ The alternative — a score floor under which `pick_movement` returns `None` —
+  gets the same behaviour by making the selector decline, and is worse for the
+  same reason the rig's two authorities were worse: it puts the decision
+  somewhere other than the scores.
+  ⓘ Unmeasured, and it must be — this is the shape of the fix, not a claim that it
+  works. The acceptance test above is what would say.
 
   ⭐⭐ **THE ACCEPTANCE TEST, DESIGNED 2026-09-04 SO THE DESIGN CALL ARRIVES WITH
   ITS MEASUREMENT ALREADY BUILT** — and it is shaped entirely by how fix (a)

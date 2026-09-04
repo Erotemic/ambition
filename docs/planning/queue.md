@@ -590,66 +590,48 @@ The one unresolved developer-policy choice from the session-ownership work is in
   it has an `--incremental-only` mode that deletes no artifact at all. The
   volume finished this run at 55%.
 
-- ▢ **THE VOLUME IS FULL AND THE RECLAIM IS JON'S CALL. The union run at
-  `e0f0f51b4` is VOID, and the reason is an instrument fault of mine rather
-  than a code defect or the disk.** (2026-09-04.)
-  ⛔⛔ **VOID, NOT RED AND NOT GREEN.** I invoked
-  `run_tests.py --rust --run-everything-you-probably-dont-need-this -- --no-fail-fast`.
-  The runner passes its trailing arguments to cargo AFTER the `--` separator,
-  so the job line was `cargo test --workspace -- --no-fail-fast` — and
-  `--no-fail-fast` is a CARGO flag, not a libtest one. **Every test binary
-  refused to start** with `error: Unrecognized option: 'no-fail-fast'`, which
-  then read downstream as *"179 targets failed"* and eleven
-  `doctest failed` lines. ⇒ **No test evidence was produced at all.** The
-  `40/44 jobs passed` line counts the compile- and check-only jobs.
-  ⚠ **So nothing here is a claim about HEAD.** The last real union acceptance
-  remains `24b55d3ac` (7,146 passed / 0 failed) and is now many commits stale.
-  ⛔ **AND IT IS THE SECOND RUN I HAVE VOIDED THROUGH MY OWN INSTRUMENT IN ONE
-  DAY** — the first was file-descriptor exhaustion from my own recursive greps.
-  Both cost ~an hour and produced a plausible-looking failure list that was
-  entirely about the harness. ⭐ **The tell both times was the SHAPE of the
-  failures: a uniform error across unrelated crates is a harness fault, not 179
-  defects.** Read one failure in full before believing a count.
-  ⇒ **The correct invocation puts it before the separator** (`cargo test
-  --no-fail-fast`), or omits it — the runner already continues across jobs.
-  ⛔⛔ **AND THE VOLUME IS NOW GENUINELY FULL: 484 GB, 3 MB free.** Measured
-  after the run; `scripts/setup/target_bindmount.sh --status` reports the bind
-  present and healthy, `target -> /home/agent/.cache/ambition-targets/ambition--144244d099`,
-  **383 GB**. The suite started with 64 GB and spent all of it across 44 jobs,
-  because every feature job builds its own variant of the graph and cargo never
-  prunes the previous one; the runner's between-jobs floor stopped it cleanly at
-  job 45 rather than letting it die of ENOSPC.
-  ⚠ **NOTHING HAS BEEN RECLAIMED, per AGENTS.md** — the runner's own message
-  says *"If it is bound and genuinely full: report it and STOP — the reclaim is
-  Jon's call."* ⓘ For that decision: the other agent worktrees' targets hold
-  **4 KB–168 MB**, so this 383 GB is this worktree's alone and no peer's active
-  build is inside it. `cargo clean` here would reclaim essentially all of it and
-  cost the next builder a cold rebuild.
-  ⛔ **Until it is resolved no Rust work can proceed on this box** — not
-  `cargo check`, not `-p <crate>`. Python guards still run and need no disk.
-
-- ✔ **D-WALLET-PREDICATE — CLOSED 2026-09-04 (`5713484d0`).** `can_afford(price)`
-  answered a boolean about a durable fact from `YarnStateMirrorData`'s per-frame
-  snapshot while the wallet's live authority was `BodyWallet` on the
-  `PrimaryPlayer` — two authorities for one question, with **ten** authored
-  callers in `kernel.yarn`'s shop menu, more than any published condition had.
-  `wallet.can_afford` is now published by the wallet domain
-  (`items/wallet_conditions.rs`) and the Yarn name is a registered system asking
-  the catalog live, as `boss_cleared` and `quest_active` already were. Fourth
-  slice to leave the mirror, after `flag`, `bosses_cleared`, `quests_active`.
-  ⛔ **THE STANDING PROHIBITION, because it is what let this hide for a day:**
-  the migration had been ruled FINISHED by enumerating the mirror's STRUCT
-  FIELDS — `wallet_balance` is a NUMBER the boolean catalog cannot return, which
-  is true. **The fork lives in the FUNCTIONS bound over a field, and one field
-  can carry both an exempt value verb and a non-exempt predicate verb.**
-  ⇒ Enumerate the authored surface, not the storage. The `wallet_balance` field
-  stays; an empty mirror is not the goal, one authority per question is.
-  ⚠ Two behaviours moved toward the simulation: a fractional price no longer
-  truncates (25g could buy a 25.7g item), and `can_afford(-5)` is unanswerable
-  rather than true. Guarded by six unit tests and two Yarn-interpreter
-  acceptances; poison-verified on the **boundary** (`>=` → `>`), which reddens
-  three arms including the interpreter one, because that off-by-one is visible
-  only to a player holding exactly the asking price.
+- ✔ **CLOSED 2026-09-04 — the volume was reclaimed on Jon's instruction and the
+  union is green at exact HEAD. Three disk facts survive as the receipt, because
+  each was rediscovered the hard way today.**
+  ⭐ **1. `clean_workspace_crates.sh` is the reclaim to reach for, not `cargo
+  clean`.** `--apply` removed **337.3 GiB across 323,782 files** — workspace-
+  member units ONLY, dependency wall left standing — taking 484 GB-full to
+  314 GB free and `target/` from 383 GB to 70 GB, still warm for bevy. It also
+  has `--incremental-only`, which its own header measures as *"the largest share
+  of the directory while deleting NO artifact at all… invalidates NO
+  fingerprint"*. ⛔ Neither session knew it existed; both proposed worse cuts
+  first, and one published two contradictory claims about incremental in a day.
+  **The script's header had the measurement the whole time.**
+  ⭐ **2. `df -h .` NAMES THE WRONG FILESYSTEM, and this is why "df lies" kept
+  being said.** `target/` is bind-mounted from `/dev/vda1` while the worktree is
+  virtiofs, so `df .` reports the host's figures for a volume the build never
+  writes to — 188 GB free on a tree where a 1 GB write fails. Neither number is
+  wrong; they are different filesystems. ⇒ `df -h target` resolves through the
+  bind. `check_disk_headroom.py` was already correct (it measures the target
+  directory), so this was only ever a documentation defect. ⚠ AGENTS.md says to
+  check BOTH, and taking that seriously found 33 GB of unbound NESTED targets on
+  the other box (`examples/capability_demo/target`, `fixtures/minimal_game/target`)
+  that `--status` cannot see, because it reports the main target only.
+  ⭐ **3. `~/.debug` is `perf`'s build-id cache and is outside EVERY sweeper the
+  repo has.** Measured here: **29 GB**, of which 19 GB is **twelve** cached
+  generations of `ambition_game_bin` at ~1.6 GB each, 46 build-id entries. Its
+  layout looks like a second target store and is not — `.build-id/<xx>/<hash>`
+  symlinks into a mirror of each binary's ORIGINAL absolute path is perf's own
+  convention. ⛔ But it keeps a full COPY of every profiled binary, never reaps,
+  lives on the volume that fills, and `clean_workspace_crates.sh`,
+  `sweep_target.py` and `sweep_cargo_target.sh` all operate on `target/` — so
+  none of them reach it. Cargo never reads it: `perf buildid-cache --purge-all`
+  costs only a re-copy on the next profiling run. ⓘ Found because Jon asked why
+  the directory existed, not by any accounting we ran.
+  ⛔⛔ **AND THE RUN THAT FILLED THE VOLUME WAS VOID FOR AN UNRELATED REASON OF
+  MINE.** `-- --no-fail-fast` put a CARGO flag after the `--` separator, where
+  it reaches libtest, which rejects it — every test binary refused to start and
+  it read downstream as *"179 targets failed"* plus eleven doctest failures. No
+  test evidence at all. ⭐ **The tell, and it is the transferable part: a uniform
+  error across unrelated crates is a harness fault, not N defects.** Check the
+  arity of a failure before reading its content. Second run I voided through my
+  own instrument in one day; the first was file-descriptor exhaustion from my
+  own greps.
 
 - ▢ **THE COMPILE-COST RATCHET FAILS THE GATE, and its five messages are the
   D33 campaign's own accounting.** Measured 2026-09-03 by running `./run_tests.sh`

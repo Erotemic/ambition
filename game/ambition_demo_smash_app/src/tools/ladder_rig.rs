@@ -43,8 +43,29 @@ use ambition_platformer2d::actor::{FighterStocks, MatchSeat};
 use ambition_platformer2d::engine_core as ae;
 
 /// One minute at 60Hz — the same budget `ladder_probe` uses, so the two are
-/// readable against each other.
-const TICKS: usize = 3_600;
+/// readable against each other. The DEFAULT; `--seconds` overrides it.
+const DEFAULT_TICKS: usize = 3_600;
+
+/// The match budget this run is using, in ticks.
+///
+/// ⭐⭐ **THE CLOCK IS A PARAMETER BECAUSE THE VERDICT DEPENDS ON IT, and that
+/// dependence is a live open question rather than a detail.** The verdict is
+/// *stocks taken, then damage dealt* — and on the shipped ladder every inverted
+/// cell has stocks TIED at `2 : 2`, so the verdict falls through to damage. ⇒
+/// Every "rung N is weaker" result is really "rung N deals less damage per
+/// minute", which is a different claim, because a fighter that refuses bad
+/// commitments deals less damage and may still be harder to beat.
+///
+/// ⇒ A longer clock is the one arm that can separate those: give a patient rung
+/// three minutes and either it converts patience into stocks (and the ladder is
+/// fine, the instrument was too short) or it does not (and the ladder really is
+/// inverted). See `awaiting-maintainer-decision.md`.
+///
+/// ⚠ A run at a non-default clock is NOT comparable to one at the default, and
+/// the header says which was used for that reason.
+fn ticks() -> usize {
+    args().seconds.map_or(DEFAULT_TICKS, |s| s.max(1) * 60)
+}
 
 /// The rungs the demo actually registers. See the sparseness warning above.
 const RUNGS: &[u8] = &[1, 3, 5, 6, 9];
@@ -90,7 +111,7 @@ const DEFAULT_SEEDS: usize = 15;
 /// seats lose all lives and cannot distinguish match quality.
 #[derive(Clone, Copy, Debug)]
 struct Bout {
-    /// Tick each seat was eliminated on, or `TICKS` for a seat that survived.
+    /// Tick each seat was eliminated on, or [`ticks()`] for a seat that survived.
     /// The LATER one won.
     eliminated: [usize; 2],
     /// Stocks remaining at the end — kept because a seat that survived with
@@ -199,6 +220,12 @@ pub struct LadderRigArgs {
     /// ⚠ Costs exactly double the bouts. That is the price of the control.
     #[arg(long)]
     pub paired: bool,
+    /// Match budget in SECONDS (default 60). See [`ticks()`] for why this is a
+    /// parameter: the verdict falls through to damage whenever stocks tie, so a
+    /// longer clock is the arm that separates "this rung is weaker" from "this
+    /// rung is patient and the clock was too short".
+    #[arg(long, value_name = "SECONDS")]
+    pub seconds: Option<usize>,
     /// Load an authored difficulty ladder from a `.ron` file and install it, so
     /// the rig measures THAT ladder instead of the engine floor.
     ///
@@ -289,7 +316,7 @@ pub fn run(cli: LadderRigArgs) {
         "[ladder_rig] higher vs lower   survived(hi:lo)   stocks LEFT(hi:lo)   dealt%(hi:lo)   peak%(hi:lo)   \
          verdict = who OUTFOUGHT: stocks taken, then damage dealt   \
          (median of {seeds} seeds, {}s each, {})",
-        TICKS / 60,
+        ticks() / 60,
         // The design belongs in EVERY table's header, not just the scenario
         // one. This mode had no such line while `--paired` silently did nothing
         // here, so a reader had two reasons to be misled and no way to see either.
@@ -700,7 +727,7 @@ fn run_scenarios(seeds: usize) {
          stage `{}`, {}, rungs {})",
         playable.len(),
         suite.len(),
-        TICKS / 60,
+        ticks() / 60,
         args().stage,
         // ⛔ THE DESIGN IS PART OF THE NUMBER. A paired table and an unpaired one
         // answer the same question with different controls, and two runs whose
@@ -791,7 +818,7 @@ fn run_sweep_below(seeds: usize) {
          median of {seeds} seeds, {}s each. Read `unfought n/{seeds}`: that is the \
          count of bouts where NEITHER seat landed a hit, which is what a failure to \
          recover looks like.",
-        TICKS / 60
+        ticks() / 60
     );
     println!(
         "[ladder_rig] fixture            rungs     survived(hi:lo)                stocks LEFT   dealt%(hi:lo)     peak%(hi:lo)     verdict = who OUTFOUGHT (stocks taken, then damage DEALT)"
@@ -853,11 +880,15 @@ fn median(mut values: Vec<f32>) -> f32 {
     values.get(values.len() / 2).copied().unwrap_or(0.0)
 }
 
-fn secs(ticks: f32) -> String {
-    if ticks >= TICKS as f32 {
-        format!(">{}s", TICKS / 60)
+fn secs(elapsed: f32) -> String {
+    // ⚠ The parameter was called `ticks`, which now collides with the run's
+    // clock function of that name. Renamed rather than shadowed: a `secs` that
+    // silently compared a bout's elapsed ticks against ITSELF would print every
+    // bout as ">Ns" and nothing would fail.
+    if elapsed >= ticks() as f32 {
+        format!(">{}s", ticks() / 60)
     } else {
-        format!("{:.1}s", ticks / 60.0)
+        format!("{:.1}s", elapsed / 60.0)
     }
 }
 
@@ -1422,7 +1453,7 @@ fn run_bout_at(
     // A seat that is ELIMINATED stops existing, so the last value seen is the
     // answer — reading only at the end would report zero for both.
     let mut stocks = [ambition_demo_smash::STARTING_STOCKS; 2];
-    let mut eliminated = [TICKS; 2];
+    let mut eliminated = [ticks(); 2];
     let mut peak_percent = [0.0f32; 2];
     let mut damage_taken = [0.0f32; 2];
     // Starts at infinity so the first tick with both bodies present sets it; a
@@ -1437,7 +1468,7 @@ fn run_bout_at(
     let mut seeded = false;
     let weights = weights_from_args();
     let mut placed = start.is_none();
-    for tick in 0..TICKS {
+    for tick in 0..ticks() {
         app.update();
         if !seeded {
             seeded = force_noise_seed(&mut app, seed);
@@ -1514,7 +1545,7 @@ fn run_bout_at(
         // and it is why the loop reads every tick instead of once at the end.
         for slot in 0..2 {
             appeared[slot] |= seen[slot];
-            if appeared[slot] && !seen[slot] && eliminated[slot] == TICKS {
+            if appeared[slot] && !seen[slot] && eliminated[slot] == ticks() {
                 eliminated[slot] = tick;
                 stocks[slot] = 0;
             }
@@ -1522,8 +1553,9 @@ fn run_bout_at(
     }
     assert!(
         placed,
-        "a scenario bout ran {TICKS} ticks and the fighters were never placed, so \
-         it measured the stage's default spawn while claiming a scenario"
+        "a scenario bout ran {} ticks and the fighters were never placed, so \
+         it measured the stage's default spawn while claiming a scenario",
+        ticks()
     );
     assert!(
         seeded,
@@ -1532,9 +1564,10 @@ fn run_bout_at(
     );
     assert!(
         appeared == [true, true],
-        "a ladder bout ran {TICKS} ticks and seat {:?} never appeared — the \
+        "a ladder bout ran {} ticks and seat {:?} never appeared — the \
          match never seated, and every column below would be measuring an empty \
          stage",
+        ticks(),
         appeared.iter().position(|seen| !seen)
     );
     Bout {

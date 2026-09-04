@@ -1208,6 +1208,30 @@ measurement.
 restore it). ⇒ The shipped game pays per-tick observation and per-snapshot
 bandwidth to maintain an opponent model that nothing ever reads.
 
+⭐⭐ **AND `read_weight` IS THE ONLY DEAD KNOB — I checked all nine, which is the
+reassuring half and it has to be said explicitly.** A finding like the one above
+invites the reading that the ladder is riddled with inert fields, and it is not.
+Every other knob's production consumers sit outside the rollout gate:
+
+| knob | reached by | live? |
+|---|---|---|
+| `reaction_ms` | `perception.rs` | ✔ |
+| `apm_cap` | `decision.rs`, `evaluation.rs` | ✔ |
+| `execution_noise` | `decision.rs` | ✔ |
+| `reach_fit`, `frame_advantage`, `expected_payoff`, `capture_value` | `options.rs` (the L2 scorer) | ✔ |
+| `kill_potential`, `stage_risk` | `options.rs` **and** `rollout.rs` | ✔ via L2 — but see below: reverting either changed NOTHING measurable at `5 vs 3`, so reachable in source is not the same as active in a matchup |
+| **`read_weight`** | `rollout.rs` only | ⛔ **dead** |
+
+⇒ `options.rs` is the L2 scorer and runs at every rung, so the utility weights are
+live — which the swap arm independently confirms, since changing them changed the
+output. ⚠ The two weights that ALSO appear in `rollout.rs` are not affected: they
+have a live L2 path as well, so losing the rollout costs them a refinement rather
+than their existence.
+
+⇒ **The distinguishing property is not "mentioned in `rollout.rs`" but "mentioned
+NOWHERE ELSE".** That is the check worth repeating whenever a gate is disabled:
+not which fields the gated code names, but which fields nothing outside it names.
+
 ⚠ **This also costs the `.ron`'s own precaution its justification.** Its comment
 says the rollout fields stay zero *"until rollout fidelity is good enough to
 enable them **without changing lower-level behavior**"* — but zeroing them already
@@ -1242,10 +1266,153 @@ rungs: `frame_advantage` 0.30 → 0.50, `kill_potential` 0.10 → 0.30, `stage_r
 ⚠ **Stated at the strength the evidence supports.** The weight arm lands *within
 spread*, so what is established is that the weights are **necessary** for the
 inversion — remove them and the significant inversion goes away — not that
-rung 3's weights are better. Separating the four is four more arms and nobody
-should guess which one; `stage_risk` −0.30 → −0.50 is the one I would run first,
-because it is the only one that makes the fighter avoid something rather than
-want something.
+rung 3's weights are better.
+
+### ⭐⭐ NO SINGLE WEIGHT CARRIES IT — four more arms, and all four failed to fix it
+
+I said separating the four weights was four more arms and that I would start with
+`stage_risk`. I ran all four instead, each reverting **one** weight of rung 5 to
+rung 3's value, 24 seeds, same control:
+
+| arm | rung 5's weight reverted | dealt (hi : lo) | verdict |
+|---|---|---|---|
+| control | *(none)* | 196% : 231% | ⛔ LOWER outfights |
+| `frame_advantage` | 0.50 → 0.30 | 196% : 222% | ⛔ LOWER outfights |
+| `expected_payoff` | 0.30 → 0.10 | 196% : 221% | ⛔ LOWER outfights |
+| `kill_potential` | 0.30 → 0.10 | 196% : 231% | ⛔ **byte-identical to control** |
+| `stage_risk` | −0.50 → −0.30 | 196% : 231% | ⛔ **byte-identical to control** |
+| **all four** | *(the earlier arm)* | 212% : 204% | ✔ higher outfights *(within spread)* |
+
+⇒ **Every single-knob revert leaves the inversion significant. Only all four
+together remove it.** ⭐ So it is not any one weight — which is the answer I would
+not have guessed, and it is why running all four beat running the one I fancied.
+
+⭐⭐ **AND THE DECOMPOSITION IS EXACT — it is a PAIR, and the pair is named.** Two
+more arms, both predictions stated before running:
+
+| arm | rung 5's weights reverted | dealt | verdict | vs |
+|---|---|---|---|---|
+| `frame_advantage` + `expected_payoff` | 2 of 4 | 212% : 204% | ✔ higher *(within spread)* | **byte-identical to the ALL-FOUR arm** |
+| `kill_potential` + `stage_risk` | the other 2 | 196% : 231% | ⛔ LOWER outfights | **byte-identical to the CONTROL** |
+
+⇒ **`frame_advantage` and `expected_payoff` carry the entire effect of swapping
+all four; `kill_potential` and `stage_risk` carry none of it.** Not "mostly" —
+byte-identical in both directions, over 48 bouts each. ⚠ And neither of the pair
+suffices alone: both single arms stayed significantly inverted. So the inversion
+needs *both* of those two, and is untouched by the other two.
+
+### ⭐⭐ IT GENERALISES — the same two weights carry BOTH inverted cells
+
+A decomposition on one cell is a coincidence until it predicts a second one. So:
+rung **6** given rung **5**'s `frame_advantage` + `expected_payoff` (0.60 → 0.50,
+0.40 → 0.30), 40 seeds, against a matched control.
+
+| arm | cell | dealt (hi : lo) | verdict |
+|---|---|---|---|
+| control (shipped) | `6 vs 5` | 197% : 214% | ⛔ **LOWER outfights** |
+| rung 6 given rung 5's two weights | `6 vs 5` | 204% : 211% | ✔ LOWER outfights **(within spread)** |
+
+⇒ **Stepping those two knobs back one rung removes the significance of the `6 vs 5`
+inversion**, exactly as stepping them back two rungs removed the `5 vs 3` one.
+
+⭐ **And the effect SCALES with the step, which is the prediction I would not have
+been able to fake.** At rung 5 the revert was a two-rung step and the verdict
+flipped direction outright; at rung 6 it was a one-rung step and the verdict only
+lost significance. ⇒ Same knobs, proportional response, at two different cells.
+
+### ⭐ THE LADDER'S ENDS ARE CORRECTLY ORDERED — only its middle sags
+
+`9 vs 1`, 40 seeds, shipped ladder: **`256% : 177%`, higher outfights, no
+qualifier.**
+
+⇒ Put together with the adjacent-pair matrix, the shipped ladder is:
+
+| comparison | result |
+|---|---|
+| `9 vs 1` | ✔ higher (significant) |
+| `3 vs 1` | ✔ higher (significant) |
+| `5 vs 3` | ⛔ **LOWER** (significant) |
+| `6 vs 5` | ⛔ **LOWER** (significant) |
+| `9 vs 6` | ✔ higher (significant) |
+
+⭐⭐ **So the ladder is not broken — it SAGS.** Its endpoints are ordered and
+distinguishable; rungs 5 and 6 are a trough between two strong rungs. ⇒ That is a
+much better diagnosis than "the ladder is inverted", and a much smaller fix: the
+progression is right at the ends and wrong in the middle, on two named knobs whose
+mechanism is understood.
+
+⚠ **Still bounded by the same confound** — all five rows are decided on damage,
+because stocks tie in every one. A sag in damage-per-minute is not yet a sag in
+difficulty. That is the open question in
+[`../awaiting-maintainer-decision.md`](../awaiting-maintainer-decision.md), and a
+180-second arm is running against it now.
+
+### ⭐⭐ AND THE MECHANISM IS IN THE SOURCE, arrived at independently of the measurement
+
+I found the pair by measurement and only then read what those two features are.
+They agree, which is the strongest evidence either could have.
+
+⛔ **`frame_advantage` is a SIGNED feature**, `-1..=1`:
+
+```rust
+pub fn frame_advantage(startup_s, their_commitment_s, slowest_startup_s) -> f32 {
+    ((their_commitment_s - startup_s) / slowest_startup_s.max(0.01)).clamp(-1.0, 1.0)
+}
+```
+
+⇒ **The slower a move is, the more NEGATIVE it scores** — and the kit's slowest
+moves are its hardest-hitting ones. So the weight on this feature is not "how
+well does this rung understand frame data"; it is **how heavily this rung
+PENALISES committing to a slow move**. Rung 6 at `0.60` prices a smash's frame
+risk twice as hard as rung 3 at `0.30`.
+
+⭐ **And `expected_payoff` does not compensate — it compounds.** Its own doc:
+*"the move's power … **gated by the positive part of `frame_advantage`** — payoff
+only counts when the move plausibly lands. Zero across the board in neutral."*
+⇒ So the reward for power applies **only to moves that already win the frame
+trade**, which are the fast weak ones. Raising `expected_payoff` therefore
+sharpens the same preference rather than offsetting it.
+
+⇒ **The two knobs the measurement isolated are exactly the two that make a
+fighter refuse to commit** — one penalising slow moves, the other withholding the
+power bonus from them. And the shipped ladder raises both monotonically:
+`0.30/0.10` at rung 3, `0.50/0.30` at rung 5, `0.60/0.40` at rung 6. ⇒ **Higher
+rungs jab more and smash less, and on a 60-second clock that is less damage.**
+
+⚠ **Where this stops being established.** The mechanism explains the DIRECTION and
+predicts the effect should grow with the weights, which matches `3 > 5 > 6`. It
+does not prove the causal path inside a match — nobody has traced a rung-6 fighter
+declining a smash it would have thrown at rung 3. `AMBITION_FIGHTER_TRACE=1` and a
+per-verb count would show that, and the standing rule below says to get it before
+tuning anything.
+
+⚠ **And note what the mechanism does NOT say: that the weights are wrong.** A
+fighter that refuses bad commitments is playing better in a real sense; it loses
+on *damage dealt in 60 seconds*, which is the rig's verdict metric and not
+obviously the same as being harder to beat. ⛔ That is a genuine confound in the
+measurement, it belongs to whoever rules on the ladder, and it is now recorded in
+`awaiting-maintainer-decision.md` rather than resolved here.
+
+⭐ **The second arm was a control on my own interpretation rather than a search
+for an effect**, and it is the one that makes the first arm mean something: had
+`kill_potential` + `stage_risk` moved the numbers at all, "the pair carries it"
+would have been a coincidence of magnitudes instead of a decomposition.
+
+⚠ **And two of the four contributed nothing measurable at this cell**:
+`kill_potential` and `stage_risk` reverts came back byte-identical. ⚠⚠ That does
+NOT make them dead knobs in the sense `read_weight` is — both are read by
+`options.rs`, outside any rollout gate. The honest statement is narrower: **in
+this matchup they never changed a decision.** A plausible reason is that their
+terms are conditional on situations these fighters do not reach — nobody is ever
+kill-confirmed here (matches end 2:2 at 60s) and the two may simply never
+threaten a ledge. ⛔ Untested, and it would be tested by a scenario fixture that
+forces those situations rather than by another rung arm.
+
+⇒ **Running now**: `frame_advantage` + `expected_payoff` reverted TOGETHER — the
+two that individually moved the numbers — against `kill_potential` + `stage_risk`
+together, which should reproduce the control byte for byte if the reading above
+is right. ⭐ That second arm is a control on my own interpretation, not a search
+for an effect, and it is worth the run precisely because it can embarrass it.
 
 ⇒ **What this means for the ladder as a design.** Every knob in the shipped rungs
 moves monotonically toward "stronger", and one whole group of them makes the
@@ -1271,6 +1438,56 @@ it, and until 2026-09-04 the Robots had no special button at all.
 the qualifier, and `6 vs 5` and `9 vs 6` are undetermined in every arm. ⇒ The top
 of the ladder is not measured — it is unmeasured. Nobody should read "the rungs
 above 5 are fine" out of this table.
+
+### ⛔⛔ AT 40 SEEDS EVERY CELL IS SIGNIFICANT, AND THE SHIPPED LADDER GOES BACKWARDS THROUGH ITS MIDDLE
+
+The shipped ladder, 40 seeds, paired, sign test — **no cell carries a qualifier**:
+
+| cell | dealt (hi : lo) | verdict |
+|---|---|---|
+| 3 vs 1 | 215% : 163% | ✔ **higher outfights** |
+| 5 vs 3 | 191% : 229% | ⛔ **LOWER outfights** |
+| 6 vs 5 | 197% : 214% | ⛔ **LOWER outfights** |
+| 9 vs 6 | 231% : 220% | ✔ **higher outfights** |
+
+⇒ **Read as an ordering: `1 < 3 > 5 > 6 < 9`.**
+
+⛔⛔ **BUT READ THE VERDICT'S OWN DEFINITION BEFORE READING THAT SENTENCE.** The
+verdict is *"who OUTFOUGHT: stocks taken, then damage dealt"* — and in **every
+inverted cell the stocks are tied at `2 : 2`**, so the verdict falls through to
+damage. ⇒ What is significant here is that the higher rung **deals less damage in
+60 seconds**, NOT that it loses more often. Nobody has shown the higher rungs lose
+matches.
+
+⚠ **That is a real confound and it is mine to flag, not to resolve.** A fighter
+that refuses bad commitments deals less damage per minute and may well be *harder
+to beat*; "damage dealt on a 60-second clock" is the rig's tiebreak, not a
+definition of difficulty. ⇒ The measurement is solid and its INTERPRETATION as
+"the ladder goes backwards" is one reading of it. The reading that would settle it
+is a longer clock or a stock-decided verdict, and it is queued below.
+
+⭐⭐ **Rung 3 is a local MAXIMUM and rung 6 is a local MINIMUM.** A player climbing
+the ladder gets a harder opponent from 1 to 3, then **two successive steps
+BACKWARDS** — 3 → 5 → 6 each make the CPU measurably weaker — and only recovers
+by 9. ⛔ That is the difficulty curve a player actually meets, and it has never
+been measured before today because the rig had never read the shipped rows.
+
+⚠ **The 6v5 cell only became significant with more seeds**, which is worth
+stating plainly: at 12 seeds it carried the qualifier and I wrote *"the top of the
+ladder is unmeasured, not fine."* That was the right thing to write and it was
+also too cautious — at 40 seeds it is measured, and it is not fine.
+
+⭐ **And this is the sign test's second self-validation.** Two significant cells at
+12 seeds became four at 40. ⇒ Power rising with evidence is the property the old
+range criterion had inverted, and it is now visible twice: once in a result it
+would have destroyed (`3 vs 1`) and once in results it would never have found at
+all (`6 vs 5`, `9 vs 6`).
+
+⚠ **What it does not establish.** These are the Robots, not George; rungs 2, 4, 7
+and 8 are unmeasured entirely; and the four cells are adjacent-pair comparisons,
+so `1 < 3 > 5 > 6 < 9` is a chain of local comparisons rather than a global
+ranking. A rung-1-vs-rung-9 arm would test whether the ladder's ENDS are ordered
+even though its middle is not.
 
 ⭐⭐ **AND THE INSTRUMENT FIX PAID FOR ITSELF IMMEDIATELY, which is the cleanest
 validation available.** The old range criterion called `3 vs 1` significant at 12

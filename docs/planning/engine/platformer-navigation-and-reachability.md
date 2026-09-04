@@ -58,6 +58,33 @@ decision policy is correct.
 > both exist now, so navigation is the only one of its three still missing. That
 > is worth knowing before this page is deprioritised again: it is not only its
 > own capability, it is somebody else's blocker.
+>
+> ⭐⭐ **CUSTOMER 4 IS HALF-BUILT AND THIS PAGE DID NOT KNOW (2026-09-04).** The
+> near-term customer *"authoring/inspection needs to explain why a route is
+> unreachable"* now has a shipped, production-consumed EXPLANATION VOCABULARY —
+> just not for a physical question. `GatedLockWallVerdicts` publishes a
+> `ConditionOutcome` per authored wall every frame, and a standing wall carries
+> `WhyNot { term, subject, observed }`
+> (`shared_tangle/src/authored_logic/mod.rs:214`): the condition that said no,
+> the object it named, and that object's state **in the domain's own words**.
+> `body.can` fills it with the verb and *"no body a participant is driving has
+> it"*; `body.fits` with the opening and the body's height.
+>
+> ⛔ **BE PRECISE ABOUT WHICH HALF, because the two are easy to conflate and the
+> difference is this page's whole subject.** That road explains why a POLICY GATE
+> is shut. It says nothing about whether a body could physically get there — a
+> wall with no gate, a ledge too high, a gap too wide are all invisible to it.
+> ⇒ So customer 4 is not satisfied; what is settled is the SHAPE a physical
+> answer should take, and that the shape survives production: structured rather
+> than a log line, headless, deterministic, per-frame, and already read by a
+> consumer.
+>
+> ⇒ **The practical consequence for whoever promotes a slice here: do not invent
+> an explanation type.** A reachability answer that says *"the body cannot make
+> this"* should join `WhyNot`'s vocabulary rather than grow a parallel one, or
+> the authoring tools that already read gate verdicts will need two readers for
+> one question. That is the cheapest thing this page can inherit from the gating
+> track, and it costs nothing to honour now and a migration to honour later.
 
 ## Important correction from fighter measurements
 

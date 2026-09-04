@@ -286,7 +286,7 @@ comparison a measurement of DECISIONS and not only of physics accidents.
 ⚠ It does not follow that the brain uses them WELL — that is what the comparison
 below is for — only that a difference, if one appears, has a road to travel down.
 
-### ⛔⛔ EVERY LADDER NUMBER ABOVE MEASURED A FLATTENED LADDER (found 2026-09-04)
+### ⛔⛔ EVERY LADDER NUMBER IN THIS DOCUMENT MEASURED A FLATTENED LADDER (found 2026-09-04)
 
 **`ladder_rig` overwrote the authored per-level utility weights on every fighter,
 on every run, and said it was doing nothing.**

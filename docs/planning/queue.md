@@ -2240,6 +2240,34 @@ queue read as an execution authority for work already done.
   brain is handed a fact."* The attack press has no equivalent. ⇒ **Two fixes, both
   engineering:** build the kit in the stance the press will be resolved in, or hand
   the brain the resolved move as a fact. The second matches the existing precedent.
+  ⛔⛔ **FIX (a) WAS MEASURED AND IT DOES NOT WORK — this is why the row said not to
+  land unmeasured, and the negative result is the most useful thing in it.**
+  Implemented locally (pass `running` to `attack_kit_of`; resolve the Basic /
+  Neutral candidate through `move_for_flat_verb` like the body does), built, run
+  on George at the shipped ladder, then reverted:
+
+  | | before | **with fix (a)** |
+  |---|---:|---:|
+  | dash attack, share of starts | 98 / 121 (81%) | **111 / 130 (85%)** |
+  | brain SELECTS the dash attack | 0 | 14 |
+  | brain still selects `jab` | 40 | **47** |
+  | tilts / smashes started | 0 / 0 | **0 / 0** |
+
+  ⇒ **The informational gap closes — the brain does now name the dash attack — and
+  behaviour does not change.** Variety does not improve; the tilts and smashes
+  still never start.
+  ⭐⭐ **BECAUSE THE GAP IS TEMPORAL, NOT INFORMATIONAL.** The kit is built for the
+  body's posture at DECISION time; the press is buffered (`PendingAttack`, with
+  `hold_ticks` maturation) and resolves at EMISSION time, by which point the body
+  may be running when it was not, or the reverse. ⇒ A correctly-built kit is still
+  a kit for a stance the body has since left. **No amount of passing `running`
+  into the builder fixes a delay.**
+  ⇒ **So the real question is not the menu but the CLOCK between choosing and
+  pressing** — and the second fix (hand the brain the resolved move as a fact,
+  the `SelfView::burst` precedent) has the same problem unless the fact is
+  re-read at emission rather than at decision. ⚠ That is the design work, and it
+  is now a different question from the one this row opened with.
+
   ⚠ **DO NOT LAND EITHER UNMEASURED.** Both change every fighter in every game that
   uses this brain, and while running the flat-verb menu may collapse to one option
   — whether the brain should then stop running to reach its other moves is

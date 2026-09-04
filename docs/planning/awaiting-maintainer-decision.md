@@ -1777,8 +1777,25 @@ measured, and still means a dead special button on the demo's catalog default. �
 It is **not** "two thirds of the roster", which is what the old heading implied and
 what would have made this a much bigger decision than it is.
 
-✔✔ **ANSWERED 2026-09-04 — and by the TYPE, not by a measurement, which is why it
-could be settled on a box that cannot build.**
+✔✔✔ **AND NOW MEASURED TOO — `report_the_smash_kit_every_selectable_fighter_has`
+RAN 2026-09-04 after the disk was reclaimed, and PASSED.** Twenty selectable
+fighters, every one `authored  22/22 presses`, and **not one** row reporting a
+press answered by a move an earlier press already claimed (`not its own: -`
+throughout). ⇒ The composed grid's kits are complete **in fact**, not only by
+construction — and the population is **20**, where this page had said *"≥8"*.
+
+| fighter | presses | distinct moves |
+|---|---|---|
+| `smash_george_booul` | 22/22 | 35 |
+| `player_robot_v3` | 22/22 | 34 |
+| `perfect_cellular_automaton` | 22/22 | 34 |
+| `npc_pirate_admiral`, `goblin`, `npc_emmy_noether`, `npc_carl_stargan`, `special_patent_clerk`, `pointed_polygon`, `pugnacious_polygon`, `author`, `performer`, `npc_ninja_shadow_oni_leader` | 22/22 | 33 |
+| `npc_oiler` | 22/22 | 32 |
+| `projectile_polygon` | 22/22 | 27 |
+| `mary_o_tall`, `sanic`, `npc_alice`, `npc_bob` | 22/22 | 26 |
+
+✔✔ **The TYPE argument that preceded it, which is why this was answerable before
+the build came back.**
 
 `SmashRepertoire` has **nineteen** fields and **zero** of them are `Option`: jab,
 three tilts, three smashes, five aerials, four specials, capture, taunt and dash

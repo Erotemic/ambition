@@ -2170,23 +2170,63 @@ is no axis.**
    `stage_risk` and every reflex knob left rising as authored), shipped clock, 12
    seeds:
 
+   ✔✔ **RE-TAKEN 2026-09-04 THROUGH THE REPAIRED RIG — BOTH ARMS, ONE BINARY
+   (`md5 04d1b886d94686e582dc3986428e2df4`), 12 seeds paired, shipped clock.**
+   This was the cheapest re-run to justify because it is the one that would
+   change what ships, and it has now run. The table below is post-repair; the
+   pre-repair labels it replaces are kept under it.
+
    | cell | shipped | pair held flat |
    |---|---|---|
-   | 3 vs 1 | ✔ higher | ✔ higher |
-   | 5 vs 3 | ⛔ **LOWER** | ✔ higher *(within spread)* |
-   | 6 vs 5 | LOWER *(within spread)* | LOWER *(within spread)* |
-   | 9 vs 6 | higher *(within spread)* | ✔ **higher** *(significant)* |
+   | 3 vs 1 | ✔ **higher**, significant · 297% : 205% | ✔ **higher**, significant · 297% : 205% |
+   | 5 vs 3 | ⛔ **LOWER**, significant · 298% : 349% | **LOWER** *(within spread)* · 326% : 305% |
+   | 6 vs 5 | LOWER *(within spread)* · 345% : 359% | LOWER *(within spread)* · 398% : 405% |
+   | 9 vs 6 | higher *(within spread)* · 398% : 386% | ✔ **higher**, significant · 446% : 375% |
 
-   ⇒ **No cell is significantly inverted, two cells improve, none regresses**, and
-   the survival medians rise monotonically (85 → 101 → 116 → 122s) where the
-   shipped ladder's top pair went backwards (85 → 98 → 114 → **113**).
+   ⇒ **The headline survives: no cell is significantly inverted under the
+   candidate, two cells improve, none regresses.** `5 vs 3` loses its
+   significance and `9 vs 6` gains it in the correct direction.
 
-   ⚠ **Every *(significant)* / *(within spread)* label in this arm is ON HOLD** —
-   same instrument, same repair (`36dd9a248`), not re-run, and `median()` was
-   corrected with it so the survival medians quoted here are pre-fix as well.
-   ⇒ **This candidate ladder therefore has no confirmed advantage over the shipped
-   one**, and re-taking BOTH arms is what would settle it. ⓘ It is the cheapest
-   re-run to justify, because it is the one that would change what ships.
+   ⛔⛔ **BUT THE CHARACTER OF THE `5 vs 3` IMPROVEMENT IS NOT WHAT THE PRE-REPAIR
+   ROW SAID, AND THIS IS THE PART THAT BEARS ON YOUR DECISION.** It read
+   *"✔ higher (within spread)"* — the direction FLIPPED. Post-repair the
+   direction does **not** flip: the cell still reads **LOWER**, and only stops
+   being significant. ⇒ **The candidate does not make rung 5 beat rung 3. It
+   makes the difference undetectable at 12 seeds.** That is a weaker thing to buy
+   than "the inversion is fixed", and it is the honest description of what is on
+   offer.
+
+   ⚠ **The descriptive damage column disagrees with that verdict, and the
+   disagreement is correct behaviour now.** Held flat, `5 vs 3` shows the higher
+   rung dealing MORE (326% : 305%) while the paired per-seed verdict says LOWER.
+   Pooled medians and the per-seed sign test are answering different questions;
+   since `36dd9a248` only the second one decides the word, and the first is
+   labelled descriptive. ⓘ A row that printed a direction from one and a
+   qualifier from the other is exactly the defect that put this arm on hold.
+
+   ⭐ **`3 vs 1` reproduced BYTE-FOR-BYTE between the two arms** — 83.4s : 80.4s,
+   297% : 205%, to the digit. The candidate changes only rows 4 and up, so that
+   cell MUST be identical, and it is. ⇒ That is the arms' own validity check, and
+   it passing is what makes the three cells that DID move readable as the
+   candidate rather than as noise.
+
+   ⛔ **One support for the candidate is WITHDRAWN: the survival sequence.** This
+   row said the shipped ladder's *"top pair went backwards (85 → 98 → 114 →
+   113)"*. That sequence does not reproduce. The shipped arm's survival medians
+   rise monotonically in BOTH generations — **83.4 → 97.1 → 102.8 → 111.4**
+   post-repair, and 85.1 → 97.3 → 103.6 → 112.0 in the pre-fix definitive run
+   recorded on [`engine/fighter-brain.md`](engine/fighter-brain.md). Neither has
+   a `114` at `6 vs 5` or a fall at the end; the candidate arm does have 114.2
+   there, which is where that digit appears to have come from. ⇒ **The
+   monotonicity argument was comparing the candidate against a sequence no
+   shipped-ladder run produced**, so it is struck. The candidate's case now rests
+   on the two verdict changes alone, and those stand.
+
+   ⓘ **The superseded pre-repair table**, for the comparison: `3 vs 1` ✔ higher /
+   ✔ higher; `5 vs 3` ⛔ **LOWER** / ✔ higher *(within spread)*; `6 vs 5` LOWER
+   *(within spread)* / LOWER *(within spread)*; `9 vs 6` higher *(within spread)*
+   / ✔ **higher** *(significant)*. Three of four cells carry the same reading;
+   the fourth is the direction flip described above.
 
    ⛔ **What this does NOT settle, and it is the part that is yours.** Holding
    those two flat means **higher rungs no longer weight frame safety or move

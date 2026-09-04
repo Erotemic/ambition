@@ -92,6 +92,7 @@ The re-run bought exactly one arm and it is worth being precise about which:
 | the **weight-isolation** arms (`frame_advantage` + `expected_payoff`) | ⛔ no — ⭐ but their finding never needed a label: it is a byte-for-byte output difference against a control |
 | the **scenario matrices** (nine fixtures, Shield model, flat-vs-platforms) | ⛔ no |
 | **George vs a stand-in** (`318% : 199%`) | ⛔ no |
+| the **candidate tuning ladder** (the pair held flat from level 4 up) vs the shipped one | ✔✔ **YES, 2026-09-04** — both arms, one binary; recorded in [`../awaiting-maintainer-decision.md`](../awaiting-maintainer-decision.md), and one of its supports did not survive |
 
 ⇒ **So "the hold is lifted" is true of the shipped ladder's four cells and of
 nothing else on this page.** ⛔ A reader who takes the lifted hold as page-wide

@@ -1,7 +1,5 @@
 //! Unit coverage for the session-teardown resource reset.
 
-use bevy::prelude::*;
-
 use ambition_platformer2d_shared_tangle::lifecycle::{
     SessionScopeActivated, SessionScopeId, SessionScopeRetired,
 };

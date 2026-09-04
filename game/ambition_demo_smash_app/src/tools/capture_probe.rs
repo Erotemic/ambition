@@ -483,12 +483,10 @@ pub fn run(args: CaptureProbeArgs) {
     );
     let mut started: Vec<(String, u32)> = moves_started.into_iter().collect();
     started.sort_by(|a, b| b.1.cmp(&a.1).then_with(|| a.0.cmp(&b.0)));
-    // ⛔⛔ THE COUNT GOES FIRST, AND THE TRUNCATION SAYS SO. This printed a bare
-    // `take(12)` with no total and no notice — and George uses EXACTLY 12 distinct
-    // moves, so the list was always full and a THIRTEENTH move starting would have
-    // been dropped in silence. ⇒ That is precisely the signal `D-BRAIN-MENU`'s
-    // acceptance test looks for ("did any tilt or smash start at all"), so the
-    // instrument would have hidden the fix working.
+    // ⛔ THE DISTINCT COUNT IS THE ANSWER; THE ROWS ARE AN ILLUSTRATION. A census
+    // is usually run to see whether something NEW started, and a bare `take(12)`
+    // cannot express that — the fighters here use around a dozen distinct moves,
+    // so the list runs full and a further move falls off the end unseen.
     println!(
         "[capture_probe]   moves started: {} distinct",
         started.len()

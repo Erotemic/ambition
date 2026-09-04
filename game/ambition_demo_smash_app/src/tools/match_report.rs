@@ -438,10 +438,8 @@ fn report_one(character: &str, seconds: usize, totals: &[Tally], carried: &[Stri
         let mut rows: Vec<_> = moves.into_iter().collect();
         rows.sort_by(|a, b| b.1.cmp(&a.1).then_with(|| a.0.cmp(b.0)));
         // ⛔ THE TOTAL FIRST, AND SAY WHEN ROWS ARE WITHHELD. A bare `take(12)`
-        // hides exactly the question a census is asked — "did anything NEW start"
-        // — because a thirteenth move is dropped in silence. The sibling census in
-        // `capture_probe` had the same defect and George's list is exactly 12 rows
-        // long, so it was always full.
+        // cannot express the question a census is usually asked — whether anything
+        // NEW started — because a further row is dropped in silence.
         println!("\nwhat the bodies actually threw: {} distinct", rows.len());
         for (id, count) in rows.iter().take(12) {
             println!("  {id:<28} {count:>5}");
@@ -765,15 +763,13 @@ fn report_spread(character: &str, seconds: usize, all: &[Vec<Tally>], carried: &
         all.len(),
         composition_scope(carried)
     );
-    // ⛔⛔ SAY WHICH LADDER THESE NUMBERS DESCRIBE, BEFORE PRINTING ANY. This tool
+    // ⛔ SAY WHICH LADDER THESE NUMBERS DESCRIBE, BEFORE PRINTING ANY. This tool
     // calls `build_demo_app()` and never inserts an `AuthoredFighterLadder`, so
-    // every fighter here carries the ENGINE FLOOR — whose `UtilityWeights::default()`
+    // every fighter carries the ENGINE FLOOR — whose `UtilityWeights::default()`
     // IS the level-9 row — while seated at level 5 for reaction, APM and noise.
-    // ⚠ No player meets that combination, and this line is the whole difference
-    // between a floor measurement and a misleading one: `ladder_probe` has no
-    // ladder either and is fine, because it says so. `capture-probe` and
-    // `ladder-rig` grew a `--ladder` flag; this has not, and until it does the
-    // honest thing is to name the configuration.
+    // ⚠ No player meets that combination. A tool that measures a non-default
+    // configuration and does not say so is indistinguishable, in its output, from
+    // one that measures the default.
     println!(
         "match_report: ⛔ ladder: the ENGINE FLOOR — this tool installs no \
          AuthoredFighterLadder and has no --ladder flag, so these fighters carry the \

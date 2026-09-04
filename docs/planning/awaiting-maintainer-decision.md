@@ -78,6 +78,66 @@ Two readings, and they lead to different work:
   body briefly, the assertion's tolerance is the thing that is wrong, and the
   test should carry a stated allowance instead of zero.
 
+⛔⛔ **RE-MEASURED 2026-09-04 AND THE NUMBERS ARE EIGHT TIMES WORSE — the two
+readings above may BOTH be wrong.** Reproduced with one command on an
+already-built tree, no full union run needed:
+
+```
+cargo test --workspace --features "$(the 82-entry union)" --test smash_it
+```
+
+> *"a live fighter was drawn OUTSIDE the frame on 2 body-frames, worst 132 units
+> past the edge …*
+> *t3 seat 0 at (224,204) is 44 units outside a 568x320 frame centred (0,0)*
+> *t3 seat 1 at (416,204) is 132 units outside a 568x320 frame centred (0,0)"*
+
+⇒ **Three things changed from the reading above, and each one moves the answer:**
+
+1. **16 units → 132.** On this frame that is **46% of the half-width**, not 4%.
+   A camera that lags a fast body by 4% is a tuning margin; one that misses it by
+   nearly half a screen is not.
+2. **One fighter → BOTH.** Neither seat is inside the frame. A follow camera
+   trailing a launched body leaves ONE fighter behind; it does not lose both.
+3. **The frame itself changed, 800x450 → 568x320.** Same test, same union
+   feature set. ⚠ So the viewport is not stable across runs either, and any
+   tolerance chosen against one of these numbers is chosen against noise.
+
+⭐⭐ **AND THE CENTRE IS THE TELL: `(0,0)`, with both fighters at y≈204.** The
+camera is not lagging — it is sitting on the WORLD ORIGIN while the match happens
+elsewhere. ⛔ `CastFraming`'s own doc forbids exactly this: *"Empty or
+unresolvable casts return `None`; **callers must not invent a world-origin
+fallback**."* And `desired_target_world` is `input.focus.stable_center()`, which
+reads `center_world` — origin when the focus has not resolved.
+
+⇒ **So the likely reading is a THIRD one neither option names: at `t3` the cast
+has not resolved yet, and a snapshot is published anyway describing a frame that
+contains nobody.** ⚠ Both failing frames are at `t3` out of 600+ observed, so
+whatever it is, it is a one-tick startup transient and the camera is correct for
+the rest of the match. The ease path is not the culprit — it already ADOPTS on
+first resolve rather than easing from zero (`!state.target_initialized` →
+`live_target_world = desired_target_world`), which is the same rule
+`presented_roll_radians` documents as *"a view must open already oriented, not
+spin up from zero."*
+
+⇒ **Which makes the question sharper and cheaper than it was.** Not *"may a
+fighter leave the frame by 16 units"* but: **may a camera snapshot be published
+for a tick where the cast has not resolved?** ⭐ If no, this is an engine defect
+with a named contract already written down, the fix is upstream of the camera,
+and the test is correctly red. If yes, the test should skip unresolved frames —
+and that is a one-line change reading a fact that exists, not a tolerance pulled
+out of the air.
+
+⚠ **What I have NOT established.** Why the union feature set makes this appear at
+all: under default features the whole target is green (42 passed, verified), and
+the test's `let Some(view) else { continue }` means the snapshot simply is not
+there at `t3` by default. Something in the 82 features publishes it a tick
+earlier. ⛔ I did not bisect the features to find which — that is real work and it
+is only worth doing if the answer to the question above is *"no"*.
+
+⭐ **One thing this DOES settle, and it was a live disagreement:** the failure is
+not a load or contention artifact. This arm ran ONE test binary with nothing else
+building, and it reproduced. The cause is the feature set.
+
 ⚠ **Why it is yours rather than mine**: which one is right depends on how a
 knockout should READ, and the test's own text says the stake — *"the knockout
 that decides the match happens off-screen"*. That is a feel judgement about the

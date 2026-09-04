@@ -2163,6 +2163,18 @@ George, 120 seconds, run twice: once on the engine floor and once with
 | `george_booul_dash_attack` starts | 132 / ~158 (**84%**) | 98 / ~121 (**81%**) |
 | distinct moves used | 12 of 28 authored | 12 of 28 |
 
+ⓘ **The `~` on those denominators is doing real work and the percentages should be
+read as UPPER BOUNDS.** `capture-probe` computes no shares at all — it prints move
+start COUNTS, and the 84% / 81% are hand arithmetic over them (132/158 = 0.835,
+98/121 = 0.810; both check). ⇒ The denominator is a sum of the starts that were
+listed, so any start not in the listing makes the true denominator LARGER and the
+share SMALLER. **An under-counted denominator inflates a percentage**, so these
+cannot be too low and can be too high. ⚠ Nothing in the argument turns on the
+second digit — *"the dash attack is most of what this fighter throws"* survives any
+plausible correction — but a two-figure share sitting on a `~` reads more precise
+than it is, and that is the same overstatement in miniature that the significance
+labels above are on hold for.
+
 ⛔ **Sixteen of George's twenty-eight authored moves never started once**, and the
 list is not a tail of oddities: **all three smash attacks** (`smash_forward`,
 `smash_up`, `smash_down`), **all three tilts** (`tilt_forward`, `tilt_up`,

@@ -675,7 +675,6 @@ pub fn project_custody_onto_residency(
     }
 }
 
-
 /// WHERE A CARRIED OCCURRENCE CAME TO REST — the second producer of the
 /// whereabouts ledger, and the first one that outlives the thing it describes.
 ///
@@ -738,6 +737,13 @@ pub fn record_placed_ground_items(
         // should not be holding, and believing it would be the ledger taking dictation from the
         // very duplication it exists to prevent.
         //
+        // ⚠ THIS IS THE HALF THE LEDGER CANNOT DECIDE, and the only half left here.
+        // `republish_placements` now refuses `None` and `Consumed` itself — an occurrence
+        // enters the ledger through custody and nowhere else, and that is the ledger's rule to
+        // keep. Whether a `Placed` row naming ANOTHER room is a legitimate relocation or a
+        // stale duplicate needs the custody history the ledger does not see from a single
+        // call, so it stays with this producer.
+        //
         // it refuses rather than repairs, deliberately.
         let comes_to_rest_here = match occurrences.whereabouts(sim_id) {
             Some(
@@ -749,9 +755,6 @@ pub fn record_placed_ground_items(
                     ..
                 },
             ) => recorded_room == room,
-            // No row: not something anybody carried, so not this producer's
-            // population at all. Terminal: an ended occurrence does not come back
-            // by being observed lying somewhere.
             None
             | Some(
                 ambition_platformer2d_shared_tangle::lifecycle::OccurrenceWhereabouts::Consumed,
@@ -777,7 +780,16 @@ pub fn record_placed_ground_items(
     if unchanged {
         return;
     }
-    occurrences.republish_placements(room, placed);
+    // Empty by construction: the filter above already dropped every id the
+    // ledger would refuse. It is checked rather than discarded so that the day
+    // a second producer appears — or this filter drifts — the loss is loud
+    // instead of being an object that quietly stops existing when its room
+    // unloads.
+    let refused = occurrences.republish_placements(room, placed);
+    debug_assert!(
+        refused.is_empty(),
+        "the ledger refused placements this producer should never have offered: {refused:?}"
+    );
 }
 
 /// The player's pre-pickup `ActionSet`, restored when the held item is thrown.

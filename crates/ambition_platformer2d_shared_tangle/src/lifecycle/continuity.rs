@@ -277,7 +277,8 @@ impl AuthoredOccurrences {
         }
     }
 
-    /// State where the occurrences of one room are lying right now.
+    /// State where the occurrences of one room are lying right now, and
+    /// REFUSE any id this ledger does not already hold as a live occurrence.
     ///
     /// only ids the caller names are touched, and there is no retraction
     /// arm. A `Placed` row describes a room that may not be loaded, so
@@ -285,8 +286,44 @@ impl AuthoredOccurrences {
     /// not built. What ends a `Placed` row is the occurrence being picked up
     /// again (custody overwrites it), a reset ([`Self::forget_everything`]), or
     /// the [`OccurrenceWhereabouts::Consumed`] producer that does not exist yet.
-    pub fn republish_placements(&mut self, room: &str, placements: BTreeMap<SimId, Vec2>) {
+    ///
+    /// ⛔ **AN OCCURRENCE ENTERS THIS LEDGER THROUGH CUSTODY AND NOWHERE
+    /// ELSE, and that rule is enforced HERE because it is the ledger's rule.**
+    /// A placement may be written only for an id whose current row is
+    /// `InCustody` (it was in a hand and is being put down) or `Placed` (it is
+    /// being republished where it already lies). `None` is refused because an
+    /// object nobody ever carried has no relocation to remember — the record
+    /// that authored it, or the fact that nothing authored it, is the whole
+    /// story. `Consumed` is refused because it is terminal: an ended occurrence
+    /// does not come back by being observed lying somewhere.
+    ///
+    /// this was stated as a comment in the one producer
+    /// (`ambition_held_items`, *"that is an invariant, not a filter"*) and
+    /// enforced by that producer's own `match`. A rule a caller keeps is a rule
+    /// the SECOND caller breaks, and the ledger is the authority on what may be
+    /// in it. The producer keeps only the half this cannot decide: whether a
+    /// `Placed` row in ANOTHER room is a legitimate relocation or a stale
+    /// duplicate, which needs the custody history this method does not see.
+    ///
+    /// The refusals are returned rather than skipped. A silent veto here
+    /// would delete an occurrence from the durable world and look like nothing
+    /// happening, so the caller is made to say what it means by them.
+    #[must_use = "a refused id is an occurrence the durable world will not remember;                   a caller that drops the refusals has lost it silently"]
+    pub fn republish_placements(
+        &mut self,
+        room: &str,
+        placements: BTreeMap<SimId, Vec2>,
+    ) -> BTreeSet<SimId> {
+        let mut refused = BTreeSet::new();
         for (sim_id, at) in placements {
+            let is_live = matches!(
+                self.rows.get(&sim_id),
+                Some(OccurrenceWhereabouts::InCustody | OccurrenceWhereabouts::Placed { .. })
+            );
+            if !is_live {
+                refused.insert(sim_id);
+                continue;
+            }
             self.rows.insert(
                 sim_id,
                 OccurrenceWhereabouts::Placed {
@@ -295,6 +332,7 @@ impl AuthoredOccurrences {
                 },
             );
         }
+        refused
     }
 
     /// Clear occurrence whereabouts for a full session reset. The rebuilt start
@@ -523,10 +561,15 @@ mod tests {
     fn a_placed_row_reinstates_where_it_lies_and_suppresses_where_it_was_authored() {
         let axe = SimId::placement("blink_run_pickup");
         let mut ledger = AuthoredOccurrences::default();
-        ledger.republish_placements(
-            "portal_bridge",
-            [(axe.clone(), Vec2::new(48.0, 96.0))].into_iter().collect(),
-        );
+        // Carried out of the authoring room first: a placement is only ever
+        // reachable through custody, and the ledger enforces it.
+        ledger.republish_custody([axe.clone()].into_iter().collect());
+        assert!(ledger
+            .republish_placements(
+                "portal_bridge",
+                [(axe.clone(), Vec2::new(48.0, 96.0))].into_iter().collect(),
+            )
+            .is_empty());
 
         let lying_in = ledger.outlook_for("portal_bridge");
         assert_eq!(
@@ -578,6 +621,103 @@ mod tests {
                 .outlook_for("blink_run")
                 .disposition(&SimId::placement("blink_run_pickup")),
             OccurrenceDisposition::Authored,
+        );
+    }
+
+    /// ⛔ THE LEDGER REFUSES AN ID IT NEVER HELD, and says which.
+    ///
+    /// An occurrence enters through custody and nowhere else. Something that
+    /// entered the world already lying on the ground — a death drop, a spawned
+    /// reward — has no relocation to remember, and writing a `Placed` row for
+    /// it would give the durable world an object no record authored and no hand
+    /// ever carried.
+    ///
+    /// ⚠ THE REFUSAL IS RETURNED, not skipped. A silent veto here deletes an
+    /// occurrence from the durable world and looks like nothing happening, so
+    /// the caller is made to see it — which is why this asserts the id comes
+    /// back and not merely that no row appeared.
+    #[test]
+    fn a_placement_is_refused_for_an_occurrence_that_was_never_in_custody() {
+        let never_carried = SimId::death_drop(&SimId::placement("trex_boss"), "weapon");
+        let mut ledger = AuthoredOccurrences::default();
+
+        let refused = ledger.republish_placements(
+            "blink_run",
+            [(never_carried.clone(), Vec2::new(320.0, 96.0))]
+                .into_iter()
+                .collect(),
+        );
+
+        assert_eq!(
+            refused,
+            [never_carried.clone()].into_iter().collect::<BTreeSet<_>>(),
+            "the refusal names the occurrence the durable world will not remember"
+        );
+        assert_eq!(
+            ledger.whereabouts(&never_carried),
+            None,
+            "and it wrote no row: a refusal is not a half-write"
+        );
+    }
+
+    /// A `Consumed` row is TERMINAL, and being seen lying somewhere does not
+    /// reopen it.
+    ///
+    /// this is the arm a `remembers()`-style check would get wrong: the
+    /// ledger holds a row for this id, so "do I know about it" answers yes, and
+    /// the right question is "is it a LIVE occurrence".
+    #[test]
+    fn a_consumed_occurrence_is_not_resurrected_by_a_placement() {
+        let key = SimId::placement("vault_key");
+        let mut ledger = AuthoredOccurrences::default();
+        ledger.adopt_rows(
+            [(key.clone(), OccurrenceWhereabouts::Consumed)]
+                .into_iter()
+                .collect(),
+        );
+
+        let refused = ledger.republish_placements(
+            "blink_run",
+            [(key.clone(), Vec2::ZERO)].into_iter().collect(),
+        );
+
+        assert!(refused.contains(&key), "an ended occurrence stays ended");
+        assert_eq!(
+            ledger.whereabouts(&key),
+            Some(&OccurrenceWhereabouts::Consumed),
+            "and the terminal row is untouched"
+        );
+    }
+
+    /// The two roads a placement IS allowed to take, so the guard above cannot
+    /// pass by refusing everything.
+    #[test]
+    fn a_carried_occurrence_may_be_put_down_and_republished_where_it_lies() {
+        let axe = SimId::placement("blink_run_pickup");
+        let mut ledger = AuthoredOccurrences::default();
+        ledger.republish_custody([axe.clone()].into_iter().collect());
+
+        let put_down = ledger.republish_placements(
+            "portal_bridge",
+            [(axe.clone(), Vec2::new(48.0, 96.0))].into_iter().collect(),
+        );
+        assert!(put_down.is_empty(), "out of a hand and onto the floor");
+
+        // And again the next tick, from the `Placed` row it now holds.
+        let still_there = ledger.republish_placements(
+            "portal_bridge",
+            [(axe.clone(), Vec2::new(50.0, 96.0))].into_iter().collect(),
+        );
+        assert!(
+            still_there.is_empty(),
+            "a republish of something already lying there is the common case"
+        );
+        assert_eq!(
+            ledger.whereabouts(&axe),
+            Some(&OccurrenceWhereabouts::Placed {
+                room: "portal_bridge".to_string(),
+                at: Vec2::new(50.0, 96.0),
+            }),
         );
     }
 }

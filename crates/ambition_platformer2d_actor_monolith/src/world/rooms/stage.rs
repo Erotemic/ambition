@@ -1031,9 +1031,19 @@ mod tests {
         // ── IT WAS CARRIED NEXT DOOR AND PUT DOWN ───────────────────────────
         let mut remembered =
             ambition_platformer2d_shared_tangle::lifecycle::AuthoredOccurrences::default();
-        remembered.republish_placements(
-            "portal_bridge",
-            [(axe.clone(), left_at)].into_iter().collect(),
+        // ⚠ CARRIED, then put down — in that order, because that is the road.
+        // The ledger refuses a placement for an id it does not already hold as
+        // a live occurrence, so a fixture that jumps straight to `Placed` is
+        // modelling a relocation that cannot happen.
+        remembered.republish_custody([axe.clone()].into_iter().collect());
+        assert!(
+            remembered
+                .republish_placements(
+                    "portal_bridge",
+                    [(axe.clone(), left_at)].into_iter().collect(),
+                )
+                .is_empty(),
+            "an occurrence that passed through custody may be put down"
         );
 
         // HALF ONE: the room it is lying in builds it, at the position it was

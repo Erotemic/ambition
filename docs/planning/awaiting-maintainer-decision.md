@@ -896,7 +896,7 @@ than by having been measured individually. The drawn sprite including its margin
 (~89 units, the 118px body in a 218px frame), so "character size" means the BODY here, not
 the art. If the intent was the art, every figure above shifts and the tier wants resizing.
 
-### 46. Does a boss's reward survive a death that un-fights the boss? (2026-09-04)
+### 51. Does a boss's reward survive a death that un-fights the boss? (2026-09-04)
 
 A defeated boss drops its signature gauntlet. Since 2026-09-04 that object has a
 durable identity (`SimId::death_drop`), so a checkpoint taken while the player
@@ -929,8 +929,28 @@ reward. ⚠ Do not answer it by widening `capture_minted_item_baseline` to
 in-world occurrences: that changes what a checkpoint means for every dynamic
 object in a loaded room, which is a larger decision wearing this one's clothes.
 
+⭐ **NARROWED 2026-09-04 by measuring the durable mechanism, which turns out to
+exist and to have exactly one door.** `AuthoredOccurrences` already reconstitutes
+an item put down in a room that is not loaded — `Placed { room, at }` freezes at
+the room boundary, `outlook_for` reinstates it where it lies and suppresses it
+where it was authored, and `durable_horizon.rs` saves it. But an occurrence gets
+its FIRST row only from custody (`project_custody_onto_authored_occurrences`,
+reading `InCustodyOf`), so anything that enters the world already on the ground
+and is never picked up cannot be remembered by construction either. That rule is
+now enforced by the ledger rather than by a producer's comment, and it refuses
+by name (`republish_placements` returns its refusals `#[must_use]`).
+
+⇒ **So a "yes" here is not a new mechanism, it is a second entry road, and it
+must be stated as deliberately as the first.** The gauntlet would need to enter
+the ledger on the drop rather than on the pickup — and it would then also need
+to stop carrying `SpawnedThisAttempt`, because an object the attempt reclaims
+and an object the durable world remembers are contradictory answers about the
+same thing. That contradiction is the real content of the question.
+
 Related: 45 (entitlement versus occurrence) is the same family of question one
 level up — that one asks what an item IS, this one asks what a checkpoint owes.
+⚠ Renumbered from 46 to 51 on 2026-09-04: it was filed as 46 while 46 already
+existed further up the file, so two different questions answered to one number.
 
 ## A top platform and the respawn point want the same 60 pixels
 

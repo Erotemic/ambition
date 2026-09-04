@@ -297,6 +297,48 @@ location/disposition that construction can reconstitute. This is jointly owned
 with [`open-world-runtime-and-residency.md`](open-world-runtime-and-residency.md)
 and [`construction-and-reconstitution.md`](construction-and-reconstitution.md).
 
+⭐⭐ **MEASURED 2026-09-04, and the mechanism already exists — what was missing
+is the rule about who may ENTER it.** `AuthoredOccurrences` is the durable
+disposition I4 asks for: `OccurrenceWhereabouts::Placed { room, at }` is frozen
+at the value it last held when the room unloads, `outlook_for` turns one row
+into the two answers construction needs (the room it lies in reinstates, every
+other room suppresses), and `durable_horizon.rs` serializes it. So a carried
+item put down in a nonresident room IS reconstituted.
+
+⛔ **THE POPULATION THAT IS NOT, and it is a class rather than a bug:** the
+ledger has exactly ONE entry road — custody. An occurrence gets its first row
+from `project_custody_onto_authored_occurrences`, reading `InCustodyOf`. So
+anything that enters the world **already lying on the ground and is never picked
+up** can never be remembered, no matter what identity it carries. The clearest
+member is the death drop: `drop_held_weapon` spawns a fresh `GroundItem` with a
+fresh `SimId::death_drop` and `RoomScopedEntity`, nobody has held it, the ledger
+has no row, and leaving the room destroys it.
+
+✔ **AND THAT IS CORRECT FOR THAT DROP, checked rather than assumed** — it also
+carries `SpawnedThisAttempt`, so the attempt reset takes it back. An object the
+attempt reclaims must not be durable, and the two answers agree. The defect was
+that nothing SAID so, and nothing stopped a second producer from writing a
+`Placed` row for something no hand ever carried.
+
+✔ **LANDED: the entry rule moved from a producer's comment into the ledger.**
+`republish_placements` now refuses any id whose current row is not `InCustody`
+or `Placed` and RETURNS the refusals `#[must_use]`, so a caller cannot lose an
+occurrence silently; `ambition_held_items` keeps only the half the ledger cannot
+decide — whether a `Placed` row naming another room is a relocation or a stale
+duplicate, which needs custody history a single call does not see. Guarded in
+`lifecycle/continuity.rs` by three tests (a never-carried id is refused BY NAME,
+a `Consumed` row is not resurrected, and both legal roads still pass so the
+guard cannot pass by refusing everything); poison-verified by forcing the
+predicate true — the two refusal tests fail, the three positive ones do not.
+
+⇒ **WHAT REMAINS OF I4 is now one question, not a mechanism:** should a
+runtime-spawned ground item ever be durable, and if so it needs a road into
+custody or a second entry point stated as deliberately as this one — and an
+object that gains one must stop carrying `SpawnedThisAttempt`, since "the
+attempt reclaims it" and "the durable world remembers it" are contradictory
+answers about the same object. Recorded as question 51 in
+[`../awaiting-maintainer-decision.md`](../awaiting-maintainer-decision.md).
+
 ## Relationship to session and possession
 
 Possession/control does not itself make a physical item participant-owned. If a

@@ -115,6 +115,20 @@ unresolvable casts return `None`; **callers must not invent a world-origin
 fallback**."* And `desired_target_world` is `input.focus.stable_center()`, which
 reads `center_world` — origin when the focus has not resolved.
 
+⛔⛔ **MEASURED, NOT INFERRED — and it clears the camera.** The test now reports
+what the camera was FOLLOWING (`ResolvedCameraSnapshot::follow_world`), and under
+the union it prints **`following (0,0)`** on both failing body-frames. ⇒ The
+camera is not lost and is not inventing anything: it is faithfully framing a body
+that IS at the world origin, while the two fighters are at y≈204.
+
+⭐ **So the resolver is innocent of the charge I first filed against it.** Its
+unresolvable-cast arm already `return`s without publishing — the contract at
+`camera_snapshot.rs:908` is honoured. The origin centre comes from the arm ABOVE
+that one, which follows a real body (`PrimaryPlayerOnly`, else the
+`ControlledSubject`). ⇒ **The defect is upstream, in PLACEMENT: at `t3` that body
+exists and has not yet been moved to its spawn.** Both failing frames are `t3` of
+600+, so it is resolved by the next tick.
+
 ⇒ **So the likely reading is a THIRD one neither option names: at `t3` the cast
 has not resolved yet, and a snapshot is published anyway describing a frame that
 contains nobody.** ⚠ Both failing frames are at `t3` out of 600+ observed, so
@@ -126,8 +140,10 @@ first resolve rather than easing from zero (`!state.target_initialized` →
 spin up from zero."*
 
 ⇒ **Which makes the question sharper and cheaper than it was.** Not *"may a
-fighter leave the frame by 16 units"* but: **may a camera snapshot be published
-for a tick where the cast has not resolved?** ⭐ If no, this is an engine defect
+fighter leave the frame by 16 units"*, and — after the `follow_world` measurement
+above — not *"may a snapshot be published for an unresolved cast"* either, since
+that path already refuses. The live question is: **may a match present a tick in
+which the followed body has not been placed yet?** ⭐ If no, this is an engine defect
 with a named contract already written down, the fix is upstream of the camera,
 and the test is correctly red. If yes, the test should skip unresolved frames —
 and that is a one-line change reading a fact that exists, not a tolerance pulled

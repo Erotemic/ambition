@@ -708,9 +708,28 @@ queue read as an execution authority for work already done.
   the setting in `Cargo.toml` so nobody re-runs it.
 
 
-- ▢ **EVERY INTERACTABLE ROOM NPC IS DRAWN BY A PLACEHOLDER FOR ITS FIRST
-  FRAMES, BECAUSE ITS BUNDLE CARRIES NONE OF THE FIVE MARKERS THE VIEW
-  REBUILD SELECTS ON.** Traced by e7 2026-09-03, ruled a DEFECT and not a
+- ▢ **THE DIAGNOSED GATE IS FIXED; WHETHER THE PLACEHOLDER IS GONE HAS NOT BEEN
+  OBSERVED.** ⭐ **Re-measured 2026-09-04: this row's own named fix candidate —
+  *"scope the early return to the parallax spawn alone rather than to the whole
+  function"* — LANDED at `9ac1111af`** (an ancestor of HEAD, re-checked), and
+  `2026-09-04` extended the same seam so a theme the loader resolved to nothing
+  settles instead of retrying. `sync_session_room_visuals` now calls
+  `spawn_room_visuals` BEFORE it consults the parallax memo
+  (`crates/ambition_render/src/platformer_presentation.rs:265`), guarded by
+  `the_room_presents_even_though_its_parallax_theme_has_not_arrived`, which
+  counts actual session-scoped `RoomVisual` entities rather than a memo.
+  ⇒ **SO THE NEXT ACTION IS AN OBSERVATION, NOT A FIX.** Run the room at Ultra
+  and see whether an interactable NPC still shows the placeholder. If it does not,
+  close this row against `9ac1111af`. If it does, the authored-vs-dynamic
+  discriminator below is still the acceptance criterion and something else is in
+  play — do not re-derive the parallax gate, it is no longer there.
+  ⛔ Everything below is the DIAGNOSIS that produced that fix, kept because the
+  discriminator is still the right test and the retraction is only legible beside
+  what it retracts. It is not a description of HEAD.
+
+  ⛔ **HISTORICAL DIAGNOSIS — EVERY INTERACTABLE ROOM NPC IS DRAWN BY A
+  PLACEHOLDER FOR ITS FIRST FRAMES, BECAUSE ITS BUNDLE CARRIES NONE OF THE FIVE
+  MARKERS THE VIEW REBUILD SELECTS ON.** Traced by e7 2026-09-03, ruled a DEFECT and not a
   design call. `rebuild_dynamic_feature_views`
   (`crates/ambition_sim_view/src/facts.rs:517`) selects by MARKER —
   `EncounterMob`, `RuntimeStagedActor`, `PostBossNpc`, the two reward chests

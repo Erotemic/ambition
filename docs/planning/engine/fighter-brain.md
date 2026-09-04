@@ -732,7 +732,20 @@ edgeguarded or self-destructed instead lands and plays.
 
 ⇒ So the honest claim is **"this layout halves the lethality"**, not "platforms
 do". Fixing the respawn overlap and re-running is the next measurement, and the
-geometry and the number have to move together.
+geometry and the number have to move together — the respawn/tier collision is with
+Jon in [`../awaiting-maintainer-decision.md`](../awaiting-maintainer-decision.md)
+because all three ways out are his.
+
+⚠ **A diagnostic exists for the unfought bouts and its first run was abandoned
+on purpose.** `Bout::closest_approach` now records how near the two seats ever
+came, and an unfought row prints the median of it — *"neither landed a hit"* has
+two causes fixed in different places: they never reached each other (navigation)
+or they reached each other and declined (scoring). A one-seed probe on this layout
+read `unfought 1/1, closest 130px` — approached to about three body widths and
+never into range. ⛔ The full platforms re-run was started and then STOPPED,
+because it had begun after the rollout shield model landed and would therefore
+have compared its unfought count against the 41 above across a behaviour change.
+A number is worth less than the confidence that it is comparable.
 
 ## Relationship to navigation/recovery architecture
 

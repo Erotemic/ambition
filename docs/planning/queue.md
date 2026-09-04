@@ -22,6 +22,50 @@ reproducible.
 
 ## Recent structural receipts
 
+✔ **D-DROP-IDENTITY — the same gauntlet was an occurrence or not, depending on
+how you got it.** `drop_held_weapon` spawned a `GroundItem` with provenance and
+no `SimId`, and the three durable roads that could give a carried object back —
+`capture_minted_item_baseline`, `capture_custody_baseline`,
+`TransactionBaseline::capture` — are all keyed by one. So a checkpoint taken
+while the player held a boss's signature gauntlet had no description of it and
+the death sweep destroyed it, while the identical gauntlet authored as a room
+placement carried an identity all along. Fixed by `4a283375b`:
+`SimId::death_drop(parent, kind)`, derived from `(parent, kind)` exactly as the
+drop's provenance is. Guarded by
+`only_the_death_drop_that_becomes_an_object_carries_an_identity`, which pins
+both halves — the three drops that grant a QUANTITY stay anonymous, because
+`OwnedItems` is their durable record. ⛔ The S4 identity census was green because
+its `populate()` spawns no `GroundItem` at all, not because the invariant held:
+a census with no waiver list is only as strong as the population it walks.
+
+✔ **D-ROUTE-CONDITION — a route could not ask a question the engine had already
+published.** `prepare_question` hardcoded the condition id to `world.flag_set`
+and passed the authored `gated_by` as its ARGUMENT, so `inventory.holds` and
+`held.is_held` were published and unreachable from a route. Fixed by
+`2054291e4`: `gated_by` is an authored condition LINE, parsed by the
+`prepare_line` the catalog already had — a bare value still means
+`world.flag_set`, so the two shipped rows needed no migration. `body.can(verb)`
+lands with it, reading the EFFECTIVE `BodyAbilities` rather than the authored
+base. ⛔ The discriminator is SYNTACTIC and must stay so: a misspelt condition
+gets the catalog's diagnostic and a standing wall, never a silent demotion to a
+flag lookup that would also never be satisfied.
+
+✔ **D-REVIEW-0904 — four review findings, and each guard now fails for the
+reason it exists.** (1) The music gitlink pointed at a `cli.py` that did not
+parse while its four publisher tests passed, because they import the helper and
+never start the program — `fe1b0105c` guards the ENTRY POINT. (2) GPU readiness
+recorded "ever prepared" and ignored `Modified`, so a reveal could lift over a
+replaced GPU copy — `d462520a0` makes the proof mean the CURRENT contents.
+(3) The parallax regression asserted a memo rather than the room, and the no-art
+branch its own comment described was unreachable — `a80ba6e31` counts real
+`RoomVisual`s and publishes the loader's outcome. (4) The camera calibration
+test owned a copy of the height it claimed to guard — `cc8ee48f2` moves the
+cross-domain guard to a crate that can read both authorities. ⛔⛔ Verifying (2)
+found the wider trap: `cargo test -p ambition_asset_manager --lib` runs NONE of
+`image_stages`' tests, because the module is behind the crate's `bevy` feature
+that no default build enables. The poison run reported 56 green and proved
+nothing; `--features bevy` is required.
+
 ✔ **D-RECONSTITUTION — the same-room replay was a second room constructor.**
 `reset_ecs_room_features` mutated twelve families of surviving entity back <!-- cite-ok: deleted; the row records the removal -->
 toward a presumed spawn state through a hand-kept list. Measured divergence: a
@@ -1864,6 +1908,12 @@ OPTIONAL dep + feature, never used:
   kernel, moves registration/tests with the domain, and improves capability or
   compile/test isolation. Do not carve by LOC and do not promise frame-time
   improvement without a measurement.
+  ⇒ **THE EXECUTABLE HANDOFF IS
+  [`engine/actor-monolith-work-frontier.md`](engine/actor-monolith-work-frontier.md).**
+  When D33 is selected, re-measure HEAD with
+  `python3 scripts/measure_kernel_module_graph.py --edges 20` and take the READY
+  packet from that page. The deeper evidence and design stay in
+  [`engine/actor-monolith-decomposition.md`](engine/actor-monolith-decomposition.md).
 
   ⭐ **WHAT EVERY CARVE OWES AFTER IT LANDS (added 2026-09-02, from three rows
   that were stale within a week of the merge that closed them).** None of this is

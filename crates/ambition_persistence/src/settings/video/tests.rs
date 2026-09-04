@@ -512,14 +512,21 @@ fn the_hardware_seed_fires_once_and_respects_a_chosen_tier() {
 /// reads at roughly 14–16% of screen height. `Duel` puts a standard humanoid at
 /// exactly 15.0%.
 ///
-/// ⚠ IF `Standard`'s standing height CHANGES, THIS TEST IS THE THING THAT
-/// NOTICES. The framing was derived from it; a body-kind edit silently
-/// re-tunes every camera in the game otherwise.
+/// ⛔⛔ THIS TEST DOES NOT NOTICE A CHANGE TO `Standard`'s STANDING HEIGHT, and
+/// it used to claim it did. This crate cannot see `ambition_characters`, so the
+/// 48.0 below is a COPY — measured 2026-09-04 by moving the real authority to
+/// 50.0: this file stayed green (120 passed) while the cross-domain guard went
+/// red. A guard that duplicates the value it guards cannot fail for the reason
+/// it exists.
+/// ⇒ What this test checks is the ARITHMETIC of the preset, against a stated
+/// reference height. The cross-domain calibration is
+/// `ambition_sim_view::camera_snapshot::default_framing_calibration_tests`,
+/// which depends on both crates and reads both authorities for real.
 #[test]
 fn the_default_framing_puts_a_standard_humanoid_at_fifteen_percent_of_screen_height() {
-    /// `BodyKind::Standard::default_standing_height()`. Duplicated as a literal
-    /// on purpose: this crate does not depend on the characters crate, and the
-    /// doc comment above names where the authority lives.
+    /// A COPY of `BodyKind::Standard::default_standing_height()`, and the
+    /// reason this test cannot be the calibration guard: this crate does not
+    /// depend on the characters crate, so nothing here can read the real one.
     const STANDARD_STANDING_HEIGHT: f32 = 48.0;
 
     let (_, view_h) = CameraZoomPreset::default().base_view();

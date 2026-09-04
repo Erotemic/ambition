@@ -250,6 +250,43 @@ pub fn refresh_parallax_layers_on_quality_change(
 /// Loading mutates [`GameAssets`], which causes skipped layers to be rebuilt by
 /// [`refresh_parallax_layers_on_quality_change`]. `attempted` prevents missing
 /// themes from being retried every frame and repeatedly invalidating layers.
+/// What this session's theme loads have already been tried, and which of them
+/// produced NO ART AT ALL.
+///
+/// ⛔⛔ IT IS A RESOURCE BECAUSE PRESENTATION HAS TO READ IT. This was a
+/// `Local<Vec<ParallaxTheme>>` inside the loader, so "the loader has stopped
+/// trying" was a fact only the loader could see. `sync_session_room_visuals`
+/// therefore had no way to tell "the theme has not arrived YET" from "the theme
+/// resolved to nothing and never will", and its no-art branch — which its own
+/// comment describes as settled — was unreachable, so it re-asked a dead
+/// question every frame for the life of the session.
+///
+/// ⚠ REACHABLE IN SHIPPED PROFILES, not hypothetical. `WebStatic` /
+/// `BundledStatic` attempt an optional image only when it has an authored
+/// embedded candidate, and the generated parallax manifest authors logical
+/// entries without one — so on those profiles the load yields zero handles and
+/// there is nothing more to wait for.
+#[derive(bevy::prelude::Resource, Default, Debug)]
+pub struct ParallaxThemeAttempts {
+    // ⚠ `pub(crate)` for the CONSUMER'S TESTS, not for its systems.
+    // `platformer_presentation` has to be able to stage "the loader tried and
+    // found nothing" without standing up an asset server and a catalog to
+    // produce it for real. Reading stays behind `attempted_without_art`.
+    pub(crate) attempted: Vec<ParallaxTheme>,
+    /// Attempted, and the asset profile produced no layer at all.
+    pub(crate) without_art: Vec<ParallaxTheme>,
+}
+
+impl ParallaxThemeAttempts {
+    /// Has this theme been tried and come back with nothing?
+    ///
+    /// ⚠ NOT "is it missing". A theme nobody has attempted yet is also missing,
+    /// and that one is worth waiting for.
+    pub fn attempted_without_art(&self, theme: ParallaxTheme) -> bool {
+        self.without_art.contains(&theme)
+    }
+}
+
 pub fn ensure_active_room_parallax_theme(
     assets: Option<ResMut<GameAssets>>,
     catalog: Option<Res<ambition_asset_manager::platformer_assets::Platformer2dAssetCatalog>>,
@@ -260,10 +297,10 @@ pub fn ensure_active_room_parallax_theme(
             ambition_platformer2d_world::rooms::RoomSet,
         >,
     >,
-    mut attempted: Local<Vec<ParallaxTheme>>,
+    attempts: Option<ResMut<ParallaxThemeAttempts>>,
 ) {
-    let (Some(mut assets), Some(catalog), Some(asset_server), Some(room_set)) =
-        (assets, catalog, asset_server, room_set)
+    let (Some(mut assets), Some(catalog), Some(asset_server), Some(room_set), Some(mut attempts)) =
+        (assets, catalog, asset_server, room_set, attempts)
     else {
         return;
     };
@@ -271,14 +308,15 @@ pub fn ensure_active_room_parallax_theme(
     // memo has to start again with it — otherwise a theme this system already
     // "attempted" would never be loaded into the new set.
     if assets.is_added() {
-        attempted.clear();
+        attempts.attempted.clear();
+        attempts.without_art.clear();
     }
     let metadata = room_set.active_spec().metadata.clone();
     let theme = ParallaxTheme::from_room_metadata(&metadata);
-    if attempted.contains(&theme) {
+    if attempts.attempted.contains(&theme) {
         return;
     }
-    attempted.push(theme);
+    attempts.attempted.push(theme);
     // Already present — the startup bind loads the first room's theme, and the
     // Ambition host's own transition path may have loaded others. Returning
     // without touching `GameAssets` matters: a mutable deref alone marks it
@@ -297,6 +335,17 @@ pub fn ensure_active_room_parallax_theme(
         &metadata,
         quality.as_deref().map(|q| &q.budget),
     );
+    // ⭐ THE OUTCOME, NOT THE ATTEMPT. Asked AFTER the load, because "we tried"
+    // and "nothing came" are different facts and only the second one lets
+    // presentation stop waiting. A profile that refuses every candidate leaves
+    // zero handles here, and no later frame will add one — the memo above has
+    // already closed this theme.
+    if !ParallaxLayerAsset::ALL
+        .iter()
+        .any(|layer| assets.parallax_layers.get(theme, *layer).is_some())
+    {
+        attempts.without_art.push(theme);
+    }
 }
 
 /// Maintain one parallax panel set per live local view.

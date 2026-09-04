@@ -135,38 +135,72 @@ schema bump: the clone snapshot lost a field the session checksum never saw.
 
 ### I2 — held weapon/ability occurrence continuity
 
-⭐ **THE NINE ARE NAMED NOW (2026-09-02), and they are nine PAYLOADS ON ONE
-ROAD rather than nine roads — which is the part that decides how big this is.**
-`Item::held_item_id()` returns `Some` for exactly nine rows:
+> **Verified against `06b25ee87` (2026-09-04).**
+
+⭐ **RE-MEASURED 2026-09-04, and both of this row's own numbers were wrong — in
+opposite directions.**
+
+⛔ **THE POPULATION IS 21, NOT NINE.** `Item::held_item_id()` answers `Some` for
+nine rows, but that is the ITEM CATALOG's view and the road's resolver is
+`held_spec_by_id`, which consults the catalog AND
+`ambition_characters::brain::held_item_by_id`. Its own doc comment says why:
+*"both registries, in that order, because there are two … Consulting one alone
+silently loses half the items."* `HELD_ITEMS` holds 19 specs; `axe` and
+`javelin` are built in `held_spec_for_item`. This row consulted one registry —
+the exact failure that comment warns about.
+
+⛔ **AND THE FOUR GAUNTLET ABILITIES ARE NOT A SEPARATE CLASS.** The row's
+hypothesis was that an ability may have no world form. It does:
+`sandbox.ldtk` authors `GroundItem` placements whose `held_item` is `blink`,
+`grapple`, `mark_recall` and `bomb`, and two shipped fixtures already use
+`ground_grapple` as their subject. A census of authored `GroundItem` entities
+across `game/ambition_map_assets/ambition_content/worlds/` gives **14 distinct
+`held_item` values**, including all seven boss signature gauntlets (`volley`,
+`meteor`, `beam`, `shockwave`, `vortex`, `sentry`, `dive`). ⚠ `axe`, `javelin`
+and `fireball` are authored nowhere, so those three reach a hand only through
+the menu/grant road.
+
+⛔ **"WHETHER THE ROAD PRESERVES IDENTITY ACROSS THE FIVE OPERATIONS IS
+UNMEASURED" WAS WRONG. Every operation has a live arm:**
 
 ```text
-axe   javelin   gun_sword   puppy_slug_gun   bomb        <- carried objects
-fireball   blink   grapple   mark_recall                 <- gauntlet abilities
+pickup            a_thrown_item_is_the_same_object_that_was_picked_up
+room transition   carried_item_crosses_rooms.rs (7 arms, incl. possession + re-entry)
+drop              a_grab_press_while_holding_drops_the_item_where_the_body_stands
+save / load       a_weapon_in_your_hands_is_still_in_your_hands_after_a_load
+replay            canonical_reconstitution.rs:716
 ```
 
-All nine reach the body the same way — `held_spec_for_item` → a `HeldItemSpec`
-→ `equip_held_spec` → a `HeldItem` component — and `Item::PortalGun` is
-deliberately NOT among them (`held_item_id` is `None`; it equips its own
-component, which is what I3 is about). ⇒ **I2 is a question about ONE road's
-behaviour under five operations, not about reconciling nine.** The row's
-phrasing invites the second reading and it costs a lot more.
+⇒ **What is unmeasured is the POPULATION those arms run on** — the authored
+axe / gun-sword / grapple and the menu-minted javelin — and that is the residual
+work here. Do not re-derive the operations; widen the subjects.
 
-⚠ **WHAT IS STILL UNMEASURED, stated so nobody mistakes the above for the
-answer:** whether that one road preserves identity across pickup, room
-transition, drop, save/load and replay. Naming the population and finding it
-shares a road is where this analysis stopped; the five operations were not
-tested. ⛔ The split in the list above is also a HYPOTHESIS worth checking
-first — five look like carried objects and four like granted abilities, and if
-an ability has no world form then "occurrence identity" cannot mean the same
-thing for it, exactly as it does not for the portal gun.
+✔ **AND RE-MEASURING FOUND ONE REAL DEFECT, FIXED 2026-09-04: a death drop had
+no identity, so the same object was an occurrence or not depending on how it was
+acquired.** `drop_held_weapon` spawned a `GroundItem` with provenance and no
+`SimId`, and every durable road that could give the object back is keyed by one
+— `capture_minted_item_baseline`, `capture_custody_baseline`,
+`TransactionBaseline::capture`. So a checkpoint taken while the player held a
+boss's signature gauntlet had no description of it, and the `SpawnedThisAttempt`
+sweep a death runs destroyed it with nothing able to rebuild it — while the
+identical gauntlet authored as a room placement carried an identity all along.
+Fixed by minting `SimId::death_drop(parent, "weapon")`, derived from
+`(parent, kind)` exactly as the drop's provenance is. Guarded by
+`only_the_death_drop_that_becomes_an_object_carries_an_identity`, which also
+pins the other half of the rule: the three drops that grant a QUANTITY stay
+anonymous, because `OwnedItems` is their durable record and an identity there
+would be a second authority over it.
+⛔ The gauntlet drop road has NO end-to-end coverage and the reason is worth
+keeping: every boss drop is spawned inside `apply_boss_hit`'s `killed` branch,
+which is reached from one call site (`damage/mod.rs:819`), so
+`boss_lifecycle`'s `force_kill_boss` — writing HP to zero — produces no drops
+at all. Filed on the fighter side.
 
-The nine held weapon/ability cases are the real customer. A pickup, room
+The 21 held weapon/ability specs are the real customer. A pickup, room
 transition, drop, save/load and replay should preserve whatever occurrence
 identity/provenance the item's policy says matters while still supporting durable
-quantity/entitlement accounting.
-
-Use canonical reconstitution rather than a transition-specific rematerialization
-hack.
+quantity/entitlement accounting. Use canonical reconstitution rather than a
+transition-specific rematerialization hack.
 
 ### I3 — portal-gun/special pickup convergence
 

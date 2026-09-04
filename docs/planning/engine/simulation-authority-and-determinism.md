@@ -295,6 +295,22 @@ production spawner. Poison: drop the portal's id and the census names it.
 The semantic half — a resimulation re-mints the SAME ids — is proven by the
 S1 timeline (see S1: a process-global mint counter desyncs it at frame 2).
 
+⛔ **"NO WAIVER LIST" IS TRUE OF THE ASSERTION AND NOT OF THE POPULATION, and
+the difference cost a real defect (2026-09-04, yardrat).** The census's
+`populate()` spawns five things — a sentry, a vortex well, a temporary gravity
+well, a falling hazard and a portal shot — and **no `GroundItem` at all**. A
+`GroundItem` *is* a rollback anchor (`ambition_held_items/src/lib.rs:1162`, and
+`crates/ambition_platformer2d_actor_monolith/src/rollback_registration.rs:304`
+says so again), and
+`drop_held_weapon` was spawning one with provenance and no `SimId` on every
+death of a body holding a weapon — every boss's signature gauntlet included. The
+census was green because that class was outside what it populates, not because
+the invariant held. Fixed at the drop site; see I2 in
+[`item-custody-and-accounting.md`](item-custody-and-accounting.md).
+⭐ **The general rule this row now owes its reader: a census with no waiver list
+is only as strong as the population it walks, so widening `populate()` is the
+way to strengthen it — not sharpening the assertion.**
+
 ### S5 — phase and ownership decomposition
 
 Continue breaking high-authority systems where a split produces a real semantic

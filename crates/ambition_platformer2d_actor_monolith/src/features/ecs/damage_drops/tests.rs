@@ -6,7 +6,7 @@
 //! coverage alone does not validate the spawned state.
 
 use super::*;
-use bevy::prelude::{App, Commands, Entity, Name, Or, Update, With};
+use bevy::prelude::{App, Commands, Entity, Name, Or, Update, With, Without};
 
 /// Every collectible-spawning function covered by the death-drop invariant.
 const DEATH_DROPS_UNDER_GUARD: &[&str] = &[
@@ -21,7 +21,10 @@ const DEATH_DROPS_UNDER_GUARD: &[&str] = &[
 const DAMAGE_PATH_SRC: &[(&str, &str)] = &[
     ("damage_drops.rs", include_str!("../damage_drops.rs")),
     ("damage/mod.rs", include_str!("../damage/mod.rs")),
-    ("damage/actor_hit.rs", include_str!("../damage/actor_hit.rs")),
+    (
+        "damage/actor_hit.rs",
+        include_str!("../damage/actor_hit.rs"),
+    ),
     ("damage/boss_hit.rs", include_str!("../damage/boss_hit.rs")),
 ];
 
@@ -119,7 +122,8 @@ fn every_death_drop_is_room_scoped_and_states_its_parent() {
     // `RoomResident` is the production type the transition's own query is built
     // from. Naming the marker here would have been a second spelling of the rule
     // that stops agreeing with the first the day the roster gains a term.
-    let mut residents = world.query_filtered::<Entity, ambition_platformer2d_shared_tangle::lifecycle::RoomResident>();
+    let mut residents = world
+        .query_filtered::<Entity, ambition_platformer2d_shared_tangle::lifecycle::RoomResident>();
     let resident: std::collections::HashSet<Entity> = residents.iter(world).collect();
     let escapes_the_room: Vec<&str> = dropped
         .iter()
@@ -227,4 +231,68 @@ fn collectible_drop_fns(src: &str) -> Vec<String> {
     }
     close(&mut current, &mut body_drops_a_collectible, &mut found);
     found
+}
+
+/// A DEATH DROP THAT BECOMES A CARRIABLE OBJECT NEEDS AN IDENTITY; ONE THAT
+/// GRANTS A QUANTITY DOES NOT.
+///
+/// The three `PickupFeature` drops — coin, heart, ability — hand the player a
+/// COUNT and vanish. `OwnedItems` is their durable record and a checkpoint
+/// restores it wholesale (`OwnedItemsBaseline`), so an identity would be a
+/// second authority over a fact the bag already settles.
+///
+/// The weapon is the one drop that becomes an object the player carries, and
+/// every durable road that could give it back is keyed by `SimId`:
+///
+/// ```text
+/// capture_minted_item_baseline   (&SimId, &SpawnOrigin, &GroundItem, &ItemCustody)
+/// capture_custody_baseline       (&SimId, &InCustodyOf)
+/// TransactionBaseline::capture   (Entity, &SimId, Option<&SpawnOrigin>)
+/// ```
+///
+/// ⛔ So an anonymous weapon drop is invisible to all three: a checkpoint taken
+/// while the player holds it has no description of it, and the death that
+/// retires `SpawnedThisAttempt` destroys it with nothing able to rebuild it.
+/// Every boss's signature gauntlet reaches the world down this road.
+#[test]
+fn only_the_death_drop_that_becomes_an_object_carries_an_identity() {
+    let mut app = App::new();
+    app.add_systems(Update, spawn_every_death_drop);
+    app.update();
+
+    let world = app.world_mut();
+    let mut carried =
+        world.query_filtered::<Option<&SimId>, With<ambition_held_items::GroundItem>>();
+    let objects: Vec<Option<SimId>> = carried.iter(world).map(|id| id.cloned()).collect();
+    assert_eq!(
+        objects.len(),
+        1,
+        "one death drop becomes a carriable object; without it this measures nothing"
+    );
+    assert_eq!(
+        objects[0].as_ref(),
+        Some(&SimId::death_drop(
+            &SimId::placement("guard_body"),
+            "weapon"
+        )),
+        "the weapon a defeated body drops must carry the identity every durable \
+         road that can give it back is keyed by — derived from the body it fell \
+         out of, so a rewind of the death re-mints the same one"
+    );
+
+    let mut granted = world.query_filtered::<Option<&SimId>, (
+        With<PickupFeature>,
+        Without<ambition_held_items::GroundItem>,
+    )>();
+    let quantities: Vec<Option<SimId>> = granted.iter(world).map(|id| id.cloned()).collect();
+    assert_eq!(
+        quantities.len(),
+        3,
+        "coin, heart and ability grant quantities"
+    );
+    assert!(
+        quantities.iter().all(Option::is_none),
+        "a drop that grants a QUANTITY must stay anonymous: `OwnedItems` is its \
+         durable record and an identity here would be a second authority over it"
+    );
 }

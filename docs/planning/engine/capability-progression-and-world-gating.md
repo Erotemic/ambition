@@ -90,6 +90,29 @@
 > fallback, and either is small. ⚠ I did not check what the LDtk *editor* needs
 > to define a second field, which is the remaining unknown.
 >
+> ✔ **THE FIRST SLICE IS LANDED (2026-09-04). `gated_by` IS AN AUTHORED
+> CONDITION LINE.** A wall may now write `"inventory.holds axe"`; a bare value
+> still means `world.flag_set <value>`, which is what both shipped rows say, so
+> the two-row migration was not needed at all and the LDtk editor question never
+> arose. ⭐ **AND THE MECHANISM WAS ALREADY BUILT** — `ConditionCatalog::prepare_line`
+> parses exactly this form, and `CommandCatalog::prepare_line`'s own doc had
+> already declared it *"the form an authored FIELD carries, because a level
+> author writes one string and the number of arguments is the verb's business
+> rather than the field's."* The slice was one call site choosing between two
+> existing entry points, not a data-format design. ⇒ **The item/equipment family
+> is reachable from a route now** (`inventory.holds`, `held.is_held`), guarded by
+> `a_wall_may_be_gated_on_an_item_the_player_carries` — empty bag, wall up; grant
+> the axe, wall opens — poison-verified against a discriminator stuck at `false`,
+> which reddens that arm alone and leaves the flag arm green.
+> ⛔ **The discriminator is SYNTACTIC and must stay so:** a first token shaped
+> like `domain.question` names a condition, so a MISSPELT condition reaches the
+> catalog's diagnostic and leaves the wall standing rather than being demoted to
+> a flag lookup that would never be satisfied either. A flag id containing a `.`
+> is not addressable in the bare form and must be written out in full.
+> ⇒ **What is still missing is the BODY-CAPABILITY condition itself.** Nothing
+> publishes one that reads `AbilitySet`; the field can now name it, so that is a
+> condition to write rather than a seam to negotiate.
+>
 > ⓘ **A body-capability predicate is already written, for actions rather than
 > routes.** `ActionSet::gated_by(AbilitySet)`
 > (`ambition_characters/src/brain/action_set/mod.rs:115`) narrows a brain's

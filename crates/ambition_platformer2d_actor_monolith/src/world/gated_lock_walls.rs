@@ -1,9 +1,27 @@
-//! Authored flag-gated lock walls.
+//! Authored condition-gated lock walls.
 //!
-//! Each `LockWall` may author `gated_by`; this system evaluates
-//! `world.flag_set(<gated_by>)` through the shared [`ConditionCatalog`] rather than
-//! reading save data directly. The current authored field intentionally names only
-//! a flag even though the condition mechanism is extensible. Evaluation is exclusive
+//! Each `LockWall` may author `gated_by`; this system evaluates it through the
+//! shared [`ConditionCatalog`] rather than reading save data directly.
+//!
+//! ⭐ THE FIELD NAMES ITS OWN CONDITION. `gated_by` is an authored condition
+//! LINE — `"inventory.holds axe"` — in exactly the form
+//! [`CommandCatalog::prepare_line`](ambition_platformer2d_shared_tangle::authored_logic::CommandCatalog::prepare_line)
+//! already documents for an authored field: *"a level author writes one string
+//! and the number of arguments is the verb's business rather than the field's."*
+//! ⛔ IT USED TO BE HARDCODED to `world.flag_set` with the field as its only
+//! ARGUMENT, so the item/equipment gate family was published (`inventory.holds`,
+//! `held.is_held`) and unreachable from a route: a wall could not ask it however
+//! well the condition was written. Widening the field, not adding a condition,
+//! is what made the other families reachable.
+//!
+//! ⚠ A BARE VALUE IS STILL A FLAG — `"bob_field_survey_received"` means
+//! `world.flag_set bob_field_survey_received`, which is what both authored rows
+//! in the shipped worlds say. The discriminator is SYNTACTIC and never repairs:
+//! a first token that parses as a `domain.question` id names a condition, and
+//! anything else is a flag name. ⇒ A flag id containing a `.` is therefore not
+//! addressable in the bare form and must be written out in full.
+//!
+//! Evaluation is exclusive
 //! because condition callbacks receive `&World`; if this grows to many independent
 //! rules, evaluate conditions once and publish outcomes for parallel readers.
 
@@ -58,10 +76,10 @@ pub fn authored_gated_lock_walls(
 /// One cached wall and the question it asks.
 ///
 /// ⭐⭐ THE QUESTION IS PREPARED ONCE, WITH THE WALL. `PreparedCondition` has no
-/// public constructor, so holding one is a structural claim that
-/// `world.flag_set` exists and takes exactly this argument — made when the room
-/// is cached rather than re-spelled and re-minted on every frame this wall is
-/// on screen.
+/// public constructor, so holding one is a structural claim that the condition
+/// the author named exists and takes exactly these arguments — made when the
+/// room is cached rather than re-spelled and re-minted on every frame this wall
+/// is on screen.
 ///
 /// ⛔ `None` MEANS THE QUESTION COULD NOT BE PREPARED, and it is retried. A
 /// provider can register after the first room is cached, so a permanent `None`
@@ -267,8 +285,8 @@ pub fn sync_authored_gated_lock_walls(
     }
 }
 
-/// Prepare one wall's `world.flag_set(<gated_by>)`, or `None` when the catalog
-/// cannot yet answer for it.
+/// Prepare one wall's authored question, or `None` when the catalog cannot yet
+/// answer for it.
 ///
 /// ⚠ SILENT ON FAILURE, because the caller's answer to `None` is already the safe
 /// one and a per-frame retry would make a warning here a per-frame warning. The
@@ -292,7 +310,13 @@ fn prepare_question(
     flag_set: &ConditionId,
     wall: &GatedLockWall,
 ) -> Option<PreparedCondition> {
-    match catalog.prepare(flag_set.clone(), &[wall.gated_by.as_str()]) {
+    let authored = wall.gated_by.as_str();
+    let prepared = if names_its_own_condition(authored) {
+        catalog.prepare_line(authored)
+    } else {
+        catalog.prepare(flag_set.clone(), &[authored])
+    };
+    match prepared {
         Ok(prepared) => Some(prepared),
         Err(error) => {
             // Room, wall and authored text: the three facts an author needs to
@@ -303,7 +327,9 @@ fn prepare_question(
                 target: "ambition_platformer2d::gated_lock_walls",
                 "room `{room}` wall `{}` is gated by `{}`, which cannot be prepared: {} \
                  (authored source `{}`). The wall STANDS until this is fixed — a gate \
-                 whose question cannot be asked must not open.",
+                 whose question cannot be asked must not open. A `gated_by` whose first \
+                 token is a `domain.question` id is read as a whole condition line; \
+                 anything else is a flag name for `world.flag_set`.",
                 wall.id,
                 wall.gated_by,
                 error.reason(),
@@ -312,6 +338,23 @@ fn prepare_question(
             None
         }
     }
+}
+
+/// Does this authored value NAME its condition, or is it a bare flag?
+///
+/// ⛔ SYNTACTIC, AND IT NEVER REPAIRS — the same rule
+/// [`ConditionId::parse`] holds itself to. A first token shaped like
+/// `domain.question` names a condition and the rest of the line is its
+/// arguments; anything else is a flag name. Deliberately NOT "is a condition
+/// with this id published": an author who names a condition that does not exist
+/// must get the catalog's diagnostic and a wall that stands, not a silent
+/// demotion to a flag lookup that will never be satisfied either.
+fn names_its_own_condition(authored: &str) -> bool {
+    authored
+        .split_whitespace()
+        .next()
+        .and_then(ConditionId::parse)
+        .is_some()
 }
 
 #[cfg(test)]

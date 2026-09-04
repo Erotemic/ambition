@@ -640,6 +640,15 @@ where the same caveat now sits beside the number.
 
 ## Current frontier
 
+⇒ **THIS PAGE IS THE EVIDENCE AND TECHNICAL-DESIGN AUTHORITY. The bounded task
+packet an agent should execute is
+[`actor-monolith-work-frontier.md`](actor-monolith-work-frontier.md).** That page
+carries only the current graph receipt, the one READY carve, and which
+candidates are still blocked and why — so a less context-rich agent can choose
+one safe task without reconstructing the history below. Neither page duplicates
+the other: measurements, reasoning and carve history stay here, and a packet
+that lands is retired there rather than growing an execution diary.
+
 Prefer outside-in ownership work before splitting the central actor kernel.
 Useful frontiers are:
 

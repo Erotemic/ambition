@@ -1074,8 +1074,47 @@ positions are *literally the same coordinates*, because
 | cells containing an unfought bout | 1 / 36 | **11 / 36** |
 | unfought bouts (of 540) | 3 | **41** |
 
-⛔⛔ **AND THE CLOCK MAKES THIS TABLE SUSPECT IN A SPECIFIC, NAMED WAY — it is
-being re-run.** Every number above was taken at **60 seconds**, and the shipped
+⛔⛔ **RE-RUN AT THE SHIPPED CLOCK, AND THE HEADLINE BELOW IS WRONG. THE TIERS DO
+NOT CHANGE THE LETHALITY AT ALL — THEY ROUGHLY DOUBLE THE TIME.**
+
+The prediction was stated before the run (below) and the run confirmed it. Nine
+fixtures, `5 vs 3`, shipped ladder, **480-second clock**, 6 seeds paired, the two
+stages differing only in the three tiers:
+
+| | flat | platforms |
+|---|---:|---:|
+| mean survival | **91.5s** | **167.7s** |
+| mean stocks LEFT | **0.00** | **0.00** |
+| fixtures where every bout resolved | **9 / 9** | **9 / 9** |
+| mean damage dealt | 280.8% | 242.5% |
+
+⇒ **Stocks left is `0.00` on BOTH stages** — every bout on every fixture ends in
+mutual elimination. ⭐ The `1.64` vs `3.78` gap in the 60-second table below is
+**entirely** an artifact of the buzzer: platforms were not preventing kills, they
+were postponing them past the cut-off.
+
+⇒ **What the tiers actually do is take 1.83× as long to reach the same end**
+(91.5s → 167.7s). ⚠ Which is a real and interesting effect — it is most of a
+minute of extra fight — but it is a statement about PACE, not about lethality,
+and the two want different design responses.
+
+⛔ **And "unfought bouts" goes with it.** A bout counted as unfought at 60 seconds
+was, on this evidence, a bout that had not started yet. The 41-of-540 figure below
+measures approach time, not refusal to engage.
+
+⭐ **The method note is the transferable part.** Both metrics in the original table
+— *stocks LEFT* and *unfought bouts* — are "how much has happened by the buzzer"
+quantities. ⇒ **A cut-off metric cannot distinguish "less happens" from "the same
+happens later", and every such metric will read a slowdown as a reduction.** The
+fix is not a better statistic; it is a clock long enough for the thing being
+counted to finish.
+
+⇒ Everything below this line is the superseded 60-second measurement, kept because
+the contrast is the evidence.
+
+⛔⛔ **THE PREDICTION AS IT WAS WRITTEN BEFORE THE RE-RUN — it is preserved
+unedited because a prediction is only worth something if it cannot be adjusted
+afterwards.** Every number above was taken at **60 seconds**, and the shipped
 match is **480**. ⚠ The two headline metrics are exactly the ones a short clock
 distorts: *stocks LEFT* and *unfought bouts* both measure **how much has happened
 by the buzzer**, not what the stage does to a fight.

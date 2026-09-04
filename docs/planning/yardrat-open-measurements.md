@@ -468,9 +468,29 @@ cargo test -p ambition_app --test app_it report_the_smash_kit -- --nocapture
 | 3 (sequential) | `mold: error: undefined symbol: <bevy_ggrs::…>::Rollback` | a *named* symbol — the rlib attempt 1 truncated was still cached, and cargo's fingerprint called it fresh |
 | 4 (after `touch`ing that crate's `lib.rs`) | `mold: failed to write to an output file. Disk full?` | the rlib rebuilt clean; the final `libambition_app.so` is what cannot be written |
 
-⭐ **`df` is not the instrument here.** It reports **188G free, inodes at 5%** —
-and those numbers are the HOST's, because the worktree is a **virtiofs**
-passthrough (`findmnt` → `aivm-persistent-root … virtiofs`). Measured against the
+⭐⭐ **THE MECHANISM, PINNED 2026-09-04 LATE — and it is sharper than "the disk is
+full".** `target/` is **BIND-MOUNTED FROM A DIFFERENT FILESYSTEM than the repo it
+sits in**:
+
+```
+findmnt --target target  →  /dev/vda1[/home/agent/.cache/ambition-targets/ambition--a3386a669b]  ext4
+findmnt --target .       →  aivm-persistent-root[/hostcode-ambition-a3386a66]                    virtiofs
+```
+
+⇒ Same `device:inode` as that cache directory (`64769:5056595`), so it is one
+store under two paths. **The repo's build output physically lives on the ROOT
+filesystem**, and `/home/agent/.cache/ambition-targets` is **187G of a 290G root**.
+
+⇒ **That explains every symptom at once**: `df .` answers for virtiofs and says
+188G because those are the HOST's numbers; `df target` answers for `/dev/vda1` and
+says the truth. A write into `target/` lands on the full disk while the number a
+reader checks describes the other one. ⭐ **And it means the sanctioned reclaim
+under `target/` frees ROOT space directly** — the ~116G is not merely tidying a
+worktree, it is the fix for this volume.
+
+ⓘ The original wording is kept because the reasoning is still right as far as it
+went: `df` on the worktree reports **188G free, inodes at 5%**, and those numbers
+are the HOST's, because the worktree is a **virtiofs** passthrough. Measured against the
 filesystem instead of asked of it:
 
 - 50MB write: fine, 953 MB/s.

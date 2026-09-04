@@ -1976,17 +1976,29 @@ fn the_stage_grants_body_contact_to_both_seated_fighters() {
 /// with `--ignored`.
 ///
 /// ⭐⭐ THE QUESTION `every_live_fighter_stays_inside_the_frame` RAISED AND COULD
-/// NOT ANSWER. That test fails under the gate's feature union with the camera
-/// `following (0,0)` while both fighters are at y≈204 — the camera faithfully
-/// framing a body that is at the world ORIGIN. ⇒ The suspicion is a placement
-/// race: at `t3` a followed body exists and has not been moved to its spawn.
+/// NOT ANSWER — **and this probe is what ANSWERED it, by refuting the answer
+/// everyone including me preferred.** That test failed under the gate's feature
+/// union with the camera `following (0,0)` while both fighters were at y≈204.
+/// The natural reading was a placement race: a followed body existing at `t3` and
+/// not yet moved to its spawn.
 ///
-/// ⚠ **This probe deliberately runs at DEFAULT features, where that test is
-/// GREEN.** The union is what makes a snapshot exist at `t3` for the test to
-/// read; it is not what puts a body at the origin. So if the race is real it
-/// should be visible here too, with no union and no 2.5-minute rebuild — and if
-/// nothing sits at the origin here, the race is NOT the explanation and the
-/// union changes more than snapshot timing.
+/// ⛔ **There is no body at the origin — not at default features and not under
+/// the union.** Zero bodies for three ticks, then exactly two, both already at
+/// their spawns. ⇒ Which meant `follow_world` pointed at nothing, which meant the
+/// frame was not a camera's answer at all: it was
+/// `ResolvedCameraSnapshot::default()`, whose `visible_view` carries a comment
+/// recording that the default *"moved to `Duel` (568x320) on 2026-09-03"* —
+/// exactly the frame the failure reported. ⇒ `ResolvedCameraSnapshot` is an
+/// `Option` as of 2026-09-04 so an unframed view says so.
+///
+/// ⚠ **A union run has NOT yet confirmed the fix.** The mechanism is strong and
+/// the mechanism is not a measurement — which is the day's other lesson.
+///
+/// ⭐ **Kept, because the refutation is the value.** Three deductions from a
+/// branch I had read led to a world state I had not measured; this probe costs
+/// four minutes and settles it. It runs at DEFAULT features on purpose: the union
+/// changes whether a snapshot EXISTS, not where bodies are, and that prediction
+/// held when the union probe printed identical output.
 ///
 /// Prints one line per tick per body: seat (or `-` for an unseated body), and
 /// position. Read it for a body at `(0,0)` that later moves.

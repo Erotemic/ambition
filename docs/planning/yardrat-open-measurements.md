@@ -269,6 +269,20 @@ census walking the world BETWEEN steps never can.
 not hypothetical: it needs only a player firing within ~32px of a wall, and that
 entity carries a minted `SimId` precisely so that it rewinds correctly.
 
+✔ **CONFIRMED FROM THE OTHER SIDE, and it bounds the claim.** A census ordered
+`.after(portal_fire_system)` INSIDE the simulated frame sees that shot on
+**exactly 1 frame**; the same census left unordered sees it on **0**; an
+open-space shot is seen on **371**. ⇒ So the entity is *not* invisible in
+principle — it is visible for one frame to an instrument standing on the right
+edge, and invisible to every instrument that walks the world between steps.
+
+⛔ **I had told the S4 author the stronger version** — that the shot is invisible
+to a between-steps census *and therefore* a case no census can witness. The first
+half is right and the second does not follow. ⚠ And the correction came from
+varying the INSTRUMENT (the scan's ordering), not the subject: **a negative result
+is a claim about the instrument until you have varied the instrument**, which is
+the clamp rule pointed the other way.
+
 ⭐ **Method note.** I wrote "two possibilities and I have not separated them" and
 was about to leave it there. Separating them cost one edit and one test run, and
 the result reversed my expectation on the second half. ⇒ The reproduction I

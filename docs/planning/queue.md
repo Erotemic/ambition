@@ -2688,8 +2688,21 @@ queue read as an execution authority for work already done.
   throws through the same four verbs. Guard poison-verified five ways. ⚠ **And
   the first attempt at one poison silently matched nothing** — a regex that
   edited no bytes and printed no output, which reads exactly like a passing arm.
-  Hence five arms and not three. ⇒ Still open here: `P06`'s **foxtrot /
-  dash-dance** (dash-stance moves `move_for_flat_verb` already selects).
+  Hence five arms and not three.
+  ⛔⛔ **AND THE ONE THIS ROW LISTED AS STILL OPEN — `P06`'s foxtrot /
+  dash-dance — IS SHIPPED, corrected 2026-09-04.** The parity inventory marks it
+  *"already shipped 2026-08-25, no authoring, no code"*, re-verified there today,
+  and the guard it names exists:
+  `the_foxtrot_and_the_dash_dance_fall_out_of_the_same_edge`
+  (`crates/ambition_platformer2d_core/src/movement/tests/ability_gates.rs`). Its
+  sibling `P06` row is the same story —
+  `a_smash_thrown_out_of_a_turnaround_points_the_new_way` is in
+  `crates/ambition_combat/src/moveset/tests.rs`.
+  ⇒ **So this row's *authoring alone* list is now EMPTY**: the command grab was
+  taken today and the foxtrot was already done. ⭐ Found by two documents
+  disagreeing — this row said open, the inventory said shipped — which is worth
+  more than either page's own review, and is why the counts get read across pages
+  rather than down one.
   ⭐⭐ **AND THE SLICE FOUND SOMETHING BIGGER THAN ITSELF: two of the demo's three
   characters had no special button at all.** Counted off the contracts —
   `fighter_moveset()`, which both Robots carry, bound **18 verbs to George's 26**.

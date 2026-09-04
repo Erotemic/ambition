@@ -1720,7 +1720,12 @@ fn run_bout_at(
         // `eliminated` is a tick already stamped, `stocks` are already zero,
         // `damage_taken` cannot grow for a body that is gone, and
         // `closest_approach` has no pair to measure. ⚠ Verified by running a cell
-        // before and after and diffing: **byte-identical**, `3 vs 1` at 12 seeds.
+        // before and after and diffing: **byte-identical in BOTH modes** — the
+        // ladder's `3 vs 1` at 12 seeds paired, and the scenario matrix's
+        // `5 vs 3` across four fixtures. ⚠ The second run was the point: the
+        // change lives in `run_bout_at`, which every mode shares, and verifying
+        // only the mode I was looking at would have been a claim about one
+        // caller offered as a property of the function.
         //
         // ⚠⚠ AND THE SPEEDUP IS 1.75x, NOT THE ~5x THE ARITHMETIC PREDICTS —
         // 126s → 72s on that cell. A bout resolving at 85s of a 480s budget
@@ -1729,6 +1734,16 @@ fn run_bout_at(
         // the app, the warm-up updates, the route) rather than simulated ticks.
         // ⇒ Worth knowing before anyone optimises this loop further — the next
         // win is in the setup, not here.
+        //
+        // ⭐ SOLVED FOR, from the same two timings rather than a new run. With
+        // 24 bouts, a 480s budget and an ~85s resolve: 126s → 72s gives
+        //     sim ≈ 5.7 ms per simulated second (~176x realtime)
+        //     fixed setup ≈ 2.5 s per bout
+        // ⇒ So an 85-second bout costs **0.5s of simulation and 2.5s of setup —
+        // 84% fixed**. Building the app, its warm-up updates and the route
+        // dominate, and no tick-loop work can reach them. ⚠ The lever is reusing
+        // one app across bouts, which is a determinism question (each bout wants
+        // a clean world) and therefore not a free win.
         if appeared == [true, true] && eliminated.iter().all(|&t| t != ticks()) {
             break;
         }

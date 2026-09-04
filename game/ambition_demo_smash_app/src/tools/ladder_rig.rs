@@ -1173,3 +1173,72 @@ fn run_bout_at(
         damage_taken,
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn bout() -> Bout {
+        Bout {
+            eliminated: [100, 200],
+            stocks: [1, 2],
+            peak_percent: [0.5, 1.5],
+            damage_taken: [10.0, 30.0],
+        }
+    }
+
+    /// ⛔ THE MIRROR MUST PUT THE SEATS BACK, AND ITS FAILURE LOOKS LIKE SUCCESS.
+    ///
+    /// `--paired` runs the second half of each seed as `run_bout_at(lower,
+    /// higher, ..)`, which seats the LOWER rung where the fixture puts SELF. If
+    /// that result were reported unmirrored, every pair would average each rung
+    /// with the other one and the table would fill with balanced-looking rows
+    /// and near-zero differences — a *more* convincing table than the truth, and
+    /// wrong. Every per-seat array has to swap, so a field added later without
+    /// being swapped is caught here rather than by somebody wondering why
+    /// pairing made the effect vanish.
+    #[test]
+    fn mirroring_a_bout_swaps_every_per_seat_reading() {
+        let m = bout().mirrored();
+        assert_eq!(m.eliminated, [200, 100]);
+        assert_eq!(m.stocks, [2, 1]);
+        assert_eq!(m.peak_percent, [1.5, 0.5]);
+        assert_eq!(m.damage_taken, [30.0, 10.0]);
+    }
+
+    /// Mirroring twice is the identity — the property that says the swap is a
+    /// permutation and not a rewrite.
+    #[test]
+    fn mirroring_twice_is_the_original_bout() {
+        let once = bout().mirrored();
+        let twice = once.mirrored();
+        let orig = bout();
+        assert_eq!(twice.eliminated, orig.eliminated);
+        assert_eq!(twice.stocks, orig.stocks);
+        assert_eq!(twice.peak_percent, orig.peak_percent);
+        assert_eq!(twice.damage_taken, orig.damage_taken);
+    }
+
+    /// A PAIR OF MIRRORED BOUTS CARRIES NO SEAT ADVANTAGE.
+    ///
+    /// The property `--paired` is bought for: if a seat is worth something on its
+    /// own — and 7 of the 9 fixtures place seat 0 offstage — a straight bout and
+    /// its mirror give that advantage to each rung exactly once, so the pair's
+    /// mean is free of it. Stated as arithmetic on a bout whose whole difference
+    /// IS the seat.
+    #[test]
+    fn a_mirrored_pair_cancels_a_pure_seat_effect() {
+        // A bout decided entirely by which seat you are in: seat 0 always deals
+        // 10, seat 1 always deals 30, whoever is sitting there.
+        let straight = bout();
+        let mirrored = bout().mirrored();
+        let dealt = |b: &Bout, seat: usize| b.damage_taken[1 - seat];
+        let hi = (dealt(&straight, 0) + dealt(&mirrored, 0)) / 2.0;
+        let lo = (dealt(&straight, 1) + dealt(&mirrored, 1)) / 2.0;
+        assert_eq!(
+            hi, lo,
+            "a pure seat effect survived the pairing, so `--paired` is not \
+             cancelling the thing it exists to cancel"
+        );
+    }
+}

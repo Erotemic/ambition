@@ -160,6 +160,52 @@ fn populate(sim: &mut Platformer2dSimHarness) {
         );
         world.flush();
     }
+    // ⛔⛔ THE DEATH-DROP CLASS, WHICH THIS POPULATION DID NOT WALK.
+    //
+    // `features/ecs/damage_drops.rs::drop_held_weapon` — the boss signature
+    // gauntlet (`damage/boss_hit.rs`) and ordinary actor deaths
+    // (`actor_hit.rs`) — spawns a `GroundItem`, which
+    // `rollback_registration.rs` declares with `require_rollback::<GroundItem>`.
+    // So a dropped weapon IS a rollback anchor and the census below has an
+    // opinion about it.
+    //
+    // ⚠ Before this, `populate` spawned a sentry, a vortex well, a temporary
+    // gravity well, a falling hazard and a portal shot — five things, and not
+    // one ground item. The census asserted "every rollback-anchored entity has a
+    // unique `SimId`" over a population that excluded the only road then known
+    // to break it, and passed. ⭐ MEASURED 2026-09-03: adding an anonymous one
+    // took the census from 27 entities to 28 and it FAILED, naming it — so the
+    // assertion was always sensitive and the corpus was blind. The road was
+    // fixed the same day (`SimId::death_drop`), and this keeps the class in the
+    // population so a regression in the mint reddens here rather than nowhere.
+    //
+    // ⇒ Spawned with the identity the FIXED road mints, `{parent}/drop/weapon`,
+    // so the fixture and the road agree on the shape rather than the fixture
+    // inventing one.
+    {
+        let spec = ambition_platformer2d::characters::brain::held_item_by_id("shockwave")
+            .expect("`shockwave` is an authored held item: trex_boss's signature gauntlet");
+        // ⚠ THE SUBJECT ITSELF IS THE PARENT, not another `mint()`. A death
+        // drop's parent is the body that died, and `death_drop` derives from it
+        // rather than taking a sequence number — so borrowing one of the four
+        // pre-allocated ids would both exhaust the supply (it did, "four ids")
+        // and model the road wrongly.
+        let dropped = ambition_platformer2d::platformer::sim_id::SimId::death_drop(
+            &spawner, "weapon",
+        );
+        let world = sim.world_mut();
+        world.spawn((
+            ambition_platformer2d::held_items::GroundItem {
+                spec,
+                pos: bevy::math::Vec2::new(320.0, 96.0),
+                vel: bevy::math::Vec2::ZERO,
+                half_extent: bevy::math::Vec2::splat(18.0),
+            },
+            dropped,
+            bevy::prelude::Name::new("death-drop gauntlet"),
+        ));
+        world.flush();
+    }
     sim.world_mut().write_message(PortalFireIntent {
         origin: bevy::math::Vec2::new(224.0, 96.0),
         dir: bevy::math::Vec2::new(1.0, 0.0),

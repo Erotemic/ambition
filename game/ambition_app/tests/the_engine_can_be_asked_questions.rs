@@ -255,3 +255,104 @@ fn the_inventory_domain_answers_about_the_live_bag() {
         "got {outcome:?}"
     );
 }
+
+/// ⭐⭐ EVERY AUTHORED `gated_by` IN EVERY SHIPPED WORLD PREPARES AGAINST THE
+/// COMPOSED CATALOG — the guard that makes the authoring vocabulary safe to use.
+///
+/// Since `gated_by` became a condition LINE, a level author may write
+/// `body.fits 32` or `encounter.cleared goblin_encounter` instead of a bare flag
+/// name. ⛔ The failure mode that buys is silent and expensive: a misspelt
+/// condition, a wrong argument count or a verb the catalog does not publish
+/// leaves the wall STANDING, which is correct behaviour and indistinguishable in
+/// play from a gate whose condition is simply not satisfied yet. The engine logs
+/// it once at `error!` and the route is shut for the rest of the session.
+///
+/// ⇒ This asks the same question at test time, against the SAME catalog the game
+/// composes, so an unpreparable line fails a build rather than a playthrough.
+///
+/// ⛔ THE POPULATION IS SMALL AND THAT IS THE POINT OF THE FIRST ASSERTION.
+/// Exactly two entity instances in the shipped worlds carry a `gated_by` value
+/// today (both `intro.ldtk`, both the flag `bob_field_survey_received`), so a
+/// version of this test that merely iterated would pass on an empty list — and
+/// would keep passing if the field were renamed, the parser stopped emitting it,
+/// or the worlds stopped loading. The count is asserted so the corpus cannot
+/// quietly become empty; ⚠ it is a FLOOR, not an inventory, because authoring a
+/// new gated wall must not fail this test.
+#[test]
+fn every_authored_gate_condition_prepares_against_the_composed_catalog() {
+    use ambition_platformer2d::actors::world::gated_lock_walls::prepare_authored_gate;
+
+    let mut sim = fixed_60hz_room_sim(ROOM);
+    sim.step_n(base(), 4);
+    let catalog = catalog(&sim);
+
+    let mut seen: Vec<(String, String)> = Vec::new();
+    let mut unpreparable: Vec<String> = Vec::new();
+
+    for source in ambition_content::worlds::world_manifest().worlds {
+        // ⛔⛔ `embedded_text` IS `None` HERE, AND READING ONLY IT MADE THIS TEST
+        // VACUOUS ON ITS FIRST RUN. `static_world_text!` compiles to `None`
+        // without the `static_map` feature, which this target does not enable —
+        // so every world was skipped and the loop found nothing. The floor
+        // assertion below is what said so ("Found []") instead of a green tick.
+        // ⇒ The loose path is the desktop road and the one this test must read;
+        // the embedded text is the web/Android road and is kept as the fallback
+        // for a profile that bakes it and ships no files.
+        let text = match source.loose_path.as_deref().map(std::fs::read_to_string) {
+            Some(Ok(text)) => text,
+            _ => match source.embedded_text {
+                Some(text) => text.to_string(),
+                None => continue,
+            },
+        };
+        let Ok(project) =
+            serde_json::from_str::<ambition_platformer2d::ldtk_map::LdtkProject>(&text)
+        else {
+            continue;
+        };
+        for level in &project.levels {
+            for layer in &level.layer_instances {
+                for entity in &layer.entity_instances {
+                    for field in &entity.field_instances {
+                        if field.identifier != "gated_by" {
+                            continue;
+                        }
+                        let Some(authored) = field.value.as_str() else {
+                            continue;
+                        };
+                        if authored.is_empty() {
+                            continue;
+                        }
+                        seen.push((source.id.as_str().to_string(), authored.to_string()));
+                        // ⛔ THE PRODUCTION FUNCTION, not a copy of its rule.
+                        // `prepare_authored_gate` is the one decision about what
+                        // an authored gate value means, and the wall system calls
+                        // the same one — so this cannot drift into validating a
+                        // rule the game stopped applying.
+                        if let Err(error) = prepare_authored_gate(&catalog, authored) {
+                            unpreparable.push(format!(
+                                "world `{}` wall gated by `{authored}`: {}",
+                                source.id.as_str(),
+                                error.reason()
+                            ));
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    assert!(
+        seen.len() >= 2,
+        "the corpus went empty — `gated_by` was set on 2 entity instances when \
+         this was written, so finding fewer means the field was renamed, the \
+         parser stopped emitting it, or the worlds stopped loading, and this \
+         test would then pass against anything. Found {seen:?}"
+    );
+    assert!(
+        unpreparable.is_empty(),
+        "an authored gate names a question this engine cannot prepare, so its \
+         wall stands forever and the route behind it is unreachable in play:\n  {}",
+        unpreparable.join("\n  ")
+    );
+}

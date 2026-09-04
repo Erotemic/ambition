@@ -793,8 +793,18 @@ queue read as an execution authority for work already done.
   1. **A boss death drop mints no identity.**
      `features/ecs/damage_drops.rs::drop_held_weapon` spawns `GroundItem`,
      `Name`, `RoomScopedEntity`, a `dynamic_drop_origin` and `SpawnedThisAttempt`
-     — and **no `SimId` and no `ItemCustody`**. Its `parent: &SimId` argument is
-     consumed for provenance only, which its own doc comment states as deliberate.
+     — and **no `SimId`**. Its `parent: &SimId` argument is consumed for
+     provenance only, which its own doc comment states as deliberate.
+     ⚠ **CORRECTED WITHIN THE HOUR: I first wrote "no `SimId` and no
+     `ItemCustody`", and the `ItemCustody` half is WRONG.** `GroundItem` carries
+     `#[require(ItemCustody)]` (`ambition_held_items/src/lib.rs:269`), so Bevy
+     0.19 inserts it automatically on every one. Checking the spawn call alone
+     shows what the caller lists, not what the entity ends up with — a required
+     component is invisible at the call site. ⇒ Of the four components
+     `capture_minted_item_baseline` queries, the drop has `GroundItem`,
+     `ItemCustody` (required) and `SpawnOrigin` (from `dynamic_drop_origin`, which
+     returns `SpawnOrigin::Dynamic`). **Exactly ONE is missing, and it is
+     `SimId`.** The finding is unchanged and its cause is narrower than I said.
   2. **A `GroundItem` IS a rollback anchor**, said twice in the tree's own words:
      `ambition_held_items/src/lib.rs:1162` (*"it lives on a `GroundItem`, which is
      a rollback anchor"*) and `crates/ambition_platformer2d_actor_monolith/src/rollback_registration.rs:304` (*"which is already

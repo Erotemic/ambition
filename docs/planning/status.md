@@ -18,7 +18,8 @@ run, not carried forward:
 
 | what | figure | how |
 |---|---|---|
-| `ambition_app` integration suite | **556 passed / 0 failed / 23 ignored** | `cargo test -p ambition_app --test app_it`, twice — before and after a new runtime plugin |
+| `ambition_app` integration suite | **557 passed / 0 failed / 23 ignored** | `cargo test -p ambition_app --test app_it`, three times across the day; 556 before two tests were added |
+| `examples/capability_demo` | **21 passed / 0 failed** | its rollback round trip had been dying in Bevy on frame one; `GgrsBackendPlugin` (`fa8656028`) closed six faults at once |
 | actor monolith lib | **1067 passed** | `cargo test -p ambition_platformer2d_actor_monolith --lib` |
 | `ambition_platformer2d_shared_tangle` lib | **251 passed** | same shape |
 | absence + dependency contracts | **38 of 38 hold** | `scripts/check_absence_contracts.py` |

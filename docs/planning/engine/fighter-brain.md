@@ -55,6 +55,14 @@ inverted to not, byte-for-byte against a control that changed nothing. ⭐ A kno
 that reached nothing could not have done that. And the weights drive the MOVEMENT
 options too, which are not press-converted at all.
 
+⚠ **The word *significantly* in that sentence is ON HOLD (2026-09-04) and the
+ARGUMENT does not need it.** The rig took its direction from pooled medians and
+its `(within spread)` qualifier from a sign test that discarded direction; that is
+fixed (`36dd9a248`) and **the cells have not been re-run**. ⇒ What the isolation
+established is a **byte-for-byte difference between two arms against a control
+that changed nothing** — a comparison of outputs, not a significance label. That
+survives the instrument repair; only the word does not.
+
 ⚠ **What it does narrow is the CHANNEL.** The ladder's differences are reaching
 the fight through movement, through approach, and through whichever attacks
 survive the press conversion — **not through the full attack scoring the weights
@@ -1532,6 +1540,15 @@ all four; `kill_potential` and `stage_risk` carry none of it.** Not "mostly" —
 byte-identical in both directions, over 48 bouts each. ⚠ And neither of the pair
 suffices alone: both single arms stayed significantly inverted. So the inversion
 needs *both* of those two, and is untouched by the other two.
+
+⚠ **Every *significant* / *not-significant* verdict in this isolation is ON HOLD**
+for the reason recorded above — the rig's direction and its qualifier came from
+different computations until `36dd9a248`, and these cells have not been re-run.
+⇒ **What the isolation itself establishes is unaffected**: these arms were
+compared BYTE-FOR-BYTE against a control, so *"this pair reproduces the whole
+effect and the other pair reproduces the control"* is a statement about identical
+output, which no significance test is involved in. ⭐ Re-taking the cells would
+restore the labels; it cannot overturn the byte comparison.
 
 ### ⭐⭐ IT GENERALISES — the same two weights carry BOTH inverted cells
 

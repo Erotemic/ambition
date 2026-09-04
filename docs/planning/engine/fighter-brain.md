@@ -1301,6 +1301,52 @@ byte-identical in both directions, over 48 bouts each. ⚠ And neither of the pa
 suffices alone: both single arms stayed significantly inverted. So the inversion
 needs *both* of those two, and is untouched by the other two.
 
+### ⭐⭐ IT GENERALISES — the same two weights carry BOTH inverted cells
+
+A decomposition on one cell is a coincidence until it predicts a second one. So:
+rung **6** given rung **5**'s `frame_advantage` + `expected_payoff` (0.60 → 0.50,
+0.40 → 0.30), 40 seeds, against a matched control.
+
+| arm | cell | dealt (hi : lo) | verdict |
+|---|---|---|---|
+| control (shipped) | `6 vs 5` | 197% : 214% | ⛔ **LOWER outfights** |
+| rung 6 given rung 5's two weights | `6 vs 5` | 204% : 211% | ✔ LOWER outfights **(within spread)** |
+
+⇒ **Stepping those two knobs back one rung removes the significance of the `6 vs 5`
+inversion**, exactly as stepping them back two rungs removed the `5 vs 3` one.
+
+⭐ **And the effect SCALES with the step, which is the prediction I would not have
+been able to fake.** At rung 5 the revert was a two-rung step and the verdict
+flipped direction outright; at rung 6 it was a one-rung step and the verdict only
+lost significance. ⇒ Same knobs, proportional response, at two different cells.
+
+### ⭐ THE LADDER'S ENDS ARE CORRECTLY ORDERED — only its middle sags
+
+`9 vs 1`, 40 seeds, shipped ladder: **`256% : 177%`, higher outfights, no
+qualifier.**
+
+⇒ Put together with the adjacent-pair matrix, the shipped ladder is:
+
+| comparison | result |
+|---|---|
+| `9 vs 1` | ✔ higher (significant) |
+| `3 vs 1` | ✔ higher (significant) |
+| `5 vs 3` | ⛔ **LOWER** (significant) |
+| `6 vs 5` | ⛔ **LOWER** (significant) |
+| `9 vs 6` | ✔ higher (significant) |
+
+⭐⭐ **So the ladder is not broken — it SAGS.** Its endpoints are ordered and
+distinguishable; rungs 5 and 6 are a trough between two strong rungs. ⇒ That is a
+much better diagnosis than "the ladder is inverted", and a much smaller fix: the
+progression is right at the ends and wrong in the middle, on two named knobs whose
+mechanism is understood.
+
+⚠ **Still bounded by the same confound** — all five rows are decided on damage,
+because stocks tie in every one. A sag in damage-per-minute is not yet a sag in
+difficulty. That is the open question in
+[`../awaiting-maintainer-decision.md`](../awaiting-maintainer-decision.md), and a
+180-second arm is running against it now.
+
 ### ⭐⭐ AND THE MECHANISM IS IN THE SOURCE, arrived at independently of the measurement
 
 I found the pair by measurement and only then read what those two features are.

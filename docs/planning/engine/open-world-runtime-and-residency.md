@@ -53,9 +53,9 @@ scheduler before adding another room/customer.
 - resource budgets for resident rooms, views, assets and background work;
 - headless queries that can explain which regions are resident and why.
 
-### ⭐ Where three of these stand, measured `baebe16f3` (2026-09-02)
+### ⭐ Where FOUR of these stand — three measured `baebe16f3` (2026-09-02), the fourth `ba111c995` (2026-09-04)
 
-⛔ **Three only. The other capabilities above were NOT measured** and nothing
+⛔ **Four only. The other capabilities above were NOT measured** and nothing
 here should be read as a verdict on them — an unmeasured row and a row measured
 as absent look identical once a summary is written, which is the mistake this
 note is trying not to make.
@@ -95,7 +95,41 @@ note is trying not to make.
   bullet: with one active room the question has a trivial answer and the query
   has never been needed.
 
-⇒ **The three compose into one observation.** Residency is currently a property
+- ✔ **"room unload that does not silently erase persistent instances or world
+  facts" is SATISFIED, and the mechanism is a three-way classification plus one
+  ledger** — a positive verdict, which is worth writing down because an
+  unmeasured row and a satisfied row also look identical in a summary. The room
+  transition sweeps `RoomResident`
+  (`crates/ambition_platformer2d_shared_tangle/src/lifecycle/markers.rs:23`,
+  `With<RoomScopedEntity>, Without<InCustodyOf>`), and every occurrence it
+  destroys is covered by exactly one of three answers:
+  - **carried** — `InCustodyOf` exempts it from the sweep outright, and it rides
+    across with whoever holds it;
+  - **remembered** — an `AuthoredOccurrences` row survives the unload
+    (`Placed { room, at }` freezes at the boundary) and `outlook_for` rebuilds it
+    where it lies while every other room suppresses it;
+  - **as authored** — no row *means* "as authored", so the room's own spec
+    re-authors it. Verified by the first arm of
+    `a_room_reinstates_an_occurrence_whose_record_lives_next_door`
+    (`world/rooms/stage.rs`): an untouched record is built at its own
+    coordinates.
+
+  ⭐ **And the class that IS destroyed is `SpawnOrigin::Dynamic`, which is not a
+  persistent instance by definition** — the enum's own words, *"the running
+  simulation minted this: a projectile, a summoned minion, a dropped item"*
+  (`crates/ambition_platformer2d_shared_tangle/src/construction/mod.rs:76`). Nothing authored it and no hand carried it, so
+  there is no durable record to erase. The three-way `SpawnOrigin`
+  classification and the ledger's entry rule are the same distinction seen from
+  two sides, which is why this comes out clean rather than lucky.
+  ⚠ **The erasure is no longer SILENT as of `ba111c995`**, and that is the word
+  the capability turns on: `republish_placements` refuses an id it never held
+  and returns the refusal `#[must_use]`, so a future producer that tries to make
+  a dynamic drop durable is told rather than ignored. Whether one ever should is
+  question 51, not a defect here.
+  ⚠ Reasoned from the sweep filter and the enum rather than run for the dynamic
+  arm specifically; the carried and as-authored arms have tests named above.
+
+⇒ **The four compose into one observation.** Residency is currently a property
 of ASSETS, not of ROOMS — the engine can already say what art is resident and
 why, and has begun bounding it, while room residency remains a single index
 because nothing has yet required two. This program's granularity question is

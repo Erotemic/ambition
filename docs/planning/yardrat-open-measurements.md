@@ -622,7 +622,35 @@ decides what to delete.** `/dev/vda1` is 290G; the ambition target bind mount is
 | `~/.cache/mathlib` | **1.3G** | 2026-08-20 |
 
 ⇒ **~30G reclaimable without touching a single ambition build artifact**, none of
-it modified in five weeks. ⛔ Not deleted, and not this session's to delete — it is
+it modified in five weeks.
+
+⛔⛔ **AND THE SANCTIONED REMEDY IS DEADLOCKED, which is why an ordered path
+matters.** `scripts/sweep_cargo_target.sh` is the repo's tool for this — dry-run by
+default, keeps incremental state, preserves the graphs `run_game.sh` and
+`run_tests.sh` use, and targets the real consumer the 2026-08-07 journal
+identified: **duplicate fingerprint variants**, where every distinct
+feature/profile combination leaves a complete artifact set that cargo never
+collects (`app_it` alone had four variants at 3.1G). ⇒ But it requires
+`cargo-mark-sweep`, which is **NOT INSTALLED** here — the same gap that journal
+recorded a month ago, *"the tool you reach for when the disk fills was itself
+unavailable, which is part of why it kept filling"* — and `cargo mark-sweep`
+determines reachability by RUNNING BUILDS. **A full disk cannot build, so the
+remedy for a full disk cannot run.**
+
+⭐ **The ordered way out, each step making the next possible:**
+1. **Free the ~30G of unrelated stale caches above.** Touches no ambition
+   artifact, needs no build, and is the only step available at 280M.
+2. **`cargo install cargo-mark-sweep`** — now possible.
+3. **`scripts/sweep_cargo_target.sh`** (dry-run first, then `--apply`). ⭐ This is
+   strictly better than the manual reclaim order because it removes UNREACHABLE
+   variants rather than whole directories, and its safe default **keeps
+   incremental** — which `.cargo/config.toml` enables deliberately, worth
+   **104.9s → 21.3s** on the agent loop per the same journal.
+
+⚠ **So "delete `target/debug/incremental` first, it is 77G" — which this entry
+said earlier and `status.md` implies — is the WRONG first move**: it is the single
+most load-bearing directory for iteration speed, and the sweeper exists to avoid
+touching it. ⛔ Not deleted, and not this session's to delete — it is
 the maintainer's environment and the Lean toolchain may belong to other work. ⓘ
 Recorded only because the ambition reclaim and this one are independent: either
 alone would restore a workable volume, and one of them costs no warm build tree at

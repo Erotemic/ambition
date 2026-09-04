@@ -749,16 +749,25 @@ Having listed them, I checked which install an `AuthoredFighterLadder`:
 | `capture-probe` | `--ladder`, and prints which is in play | ✔ |
 | `ladder-rig` | `--ladder`, and prints which is in play | ✔ |
 | `ladder-probe` | none — **and its own module doc says so**, and names the ladder before printing any number (*"a calibration table that does not name its ladder is worse than no ladder"*) | ✔ honest |
-| `match-report` | **none, and it says nothing** | ⛔ |
+| `match-report` | none — **said nothing until `104782a83`; now declares the floor before printing** | ✔ fixed |
 | `roll-probe` | none — measures how far a shield roll travels, which is body physics and ladder-independent | ✔ n/a |
 | `stage-diagram` | builds no app at all | ✔ n/a |
 
-⇒ **`match-report` is the only one that measures the floor without declaring it**,
-and it is the instrument [`demos/smash-parity-inventory.md`](demos/smash-parity-inventory.md)
-tells a reader to run before marking a row shipped. ⭐ The fix already exists as a
+⇒ **`match-report` was the only one measuring the floor without declaring it**, and
+it is the instrument [`demos/smash-parity-inventory.md`](demos/smash-parity-inventory.md)
+tells a reader to run before marking a row shipped. ⭐ The fix already existed as a
 pattern one file over: `ladder-probe` has no ladder either and is fine, **because
 it says so in its output**. Declaring the configuration is what separates the two,
-not having the flag.
+not having the flag — so `match-report` now declares it.
+
+✔ **INVARIANT NOW HOLDS ACROSS THE FOUR BRAIN INSTRUMENTS**: `capture-probe`,
+`ladder-rig`, `ladder-probe` and `match-report` each name which ladder is in play
+before printing a number. ⇒ **A reader can no longer take a floor number for a
+shipped one without the tool having told them**, which is the failure that
+produced five superseded tables on
+[`engine/fighter-brain.md`](engine/fighter-brain.md). ⚠ `match-report` still lacks
+a `--ladder` FLAG — it can say what it measured, not measure something else. That
+is the remaining repair and it is real code.
 
 ⓘ Deliberately recorded here rather than in `docs/tools/index.md`: that index is
 scoped to *"author-time tools … provider/engine inputs"*, and these are

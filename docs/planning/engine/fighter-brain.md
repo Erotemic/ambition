@@ -214,10 +214,24 @@ timer cannot fake, so a startup/active fixture is still reported unreproduced
 rather than staged as something the fixture did not describe. The rig's skip
 filter asks the accessor rather than string-matching the phase name.
 
-⇒ **Remaining: 2 of 9.** `projectile_camper` (projectiles) and
-`edgeguard_ledge_hang` (a ledge hang — *"a hang is not a position"*, and catching
-the edge is a maneuver with its own window). Both need the rig to run something,
-not to write a value, which is a larger step than either of these two.
+✔ **AND THE LEDGE HANG: 7 of 9 → 8 of 9.** `edgeguard_ledge_hang` runs. It is
+the fixture the premise calls *"the most punishable state in the genre"*, and the
+ladder now has a verdict for it at every rung.
+
+⛔ **The rule "a hang is not a position" survives — it is why this took real
+geometry rather than a coordinate.** The anchor comes from the actual platform,
+`smash_stage().world.blocks[0]`, and the ledge is its top corner on the side the
+fixture put the body; `wall_normal_x` is `-1` at the left edge because the wall
+is then on the player's RIGHT. Guessing any of that would stage a body hanging in
+mid-air — a fixture staging something its premise did not describe, which is the
+failure the skip existed to prevent.
+⚠ **Order matters and the authority says why:** `transit_body` CLEARS
+`ledge_grab` (*"the ledge anchor was a fact of the departure point"*), so the
+hang is declared after the transit, never before.
+
+⇒ **Remaining: 1 of 9.** `projectile_camper` needs live projectiles — the rig
+would have to RUN something rather than write a value, which is a genuinely
+different step from the three above.
 
 ## Relationship to navigation/recovery architecture
 

@@ -319,7 +319,9 @@ fn run_scenarios(seeds: usize) {
         .filter(|s| {
             s.starting_positions().is_some()
                 && s.unreproduced_by_placement().iter().all(|what| {
-                    *what == "velocity" || (*what == "body phase" && s.starting_hitstun().is_some())
+                    *what == "velocity"
+                        || *what == "ledge hang"
+                        || (*what == "body phase" && s.starting_hitstun().is_some())
                 })
         })
         .collect();
@@ -355,6 +357,7 @@ fn run_scenarios(seeds: usize) {
             .into_iter()
             .filter(|what| *what != "velocity")
             .filter(|what| !(*what == "body phase" && phase_is_hitstun_only))
+            .filter(|what| *what != "ledge hang")
             .collect();
         if !missing.is_empty() {
             println!(
@@ -594,6 +597,7 @@ fn place_at(
     foe: ae::Vec2,
     velocities: Option<(ae::Vec2, ae::Vec2)>,
     hitstun: Option<(f32, f32)>,
+    ledge_hangs: Option<(bool, bool)>,
 ) -> bool {
     use ambition_platformer2d::actor::{transit_body, BodyClusterQueryData, TransitVelocity};
     let world = app.world_mut();
@@ -646,6 +650,55 @@ fn place_at(
     //
     // ⚠ Separate pass because it is a different component: `transit_body` owns
     // pose and velocity, and nothing about hitstun is a transit.
+    // ⭐ A HANG IS NOT A POSITION, so it is arranged AFTER `transit_body` —
+    // which clears `ledge_grab` on purpose (`reconcile_transit`: "the ledge
+    // anchor was a fact of the departure point"). Setting it before the transit
+    // would be undone by the transit.
+    //
+    // The anchor comes from the REAL platform, not from the fixture's stage:
+    // `smash_stage().world.blocks[0]` is the one thing you can stand on, and the
+    // ledge is its top corner on the side the fixture put the body. Guessing the
+    // geometry would stage a body hanging in mid-air, which is a fixture staging
+    // something its premise did not describe.
+    if let Some((me_hangs, foe_hangs)) = ledge_hangs {
+        use ambition_platformer2d::engine_core::ledge_grab::{LedgeContact, LedgeGrabState};
+        use ambition_platformer2d::engine_core::AabbExt as _;
+        let platform = ambition_demo_smash::smash_stage().world.blocks[0].aabb;
+        let centre = platform.center();
+        let world = app.world_mut();
+        let mut q = world.query::<(
+            &MatchSeat,
+            BodyClusterQueryData,
+            &mut ambition_platformer2d::actor::MotionModel,
+        )>();
+        for (seat, mut cluster_item, mut model) in q.iter_mut(world) {
+            let hangs = if seat.0 == 0 { me_hangs } else { foe_hangs };
+            if !hangs {
+                continue;
+            }
+            let mut clusters = cluster_item.as_clusters_mut();
+            // Which ledge: the side the fixture placed the body on.
+            let on_left = clusters.kinematics.pos.x < centre.x;
+            let edge_x = if on_left { platform.left() } else { platform.right() };
+            let contact = LedgeContact {
+                // +1 = wall on the player's LEFT. Hanging off the platform's
+                // left edge puts the wall on the player's RIGHT, hence -1.
+                wall_normal_x: if on_left { -1.0 } else { 1.0 },
+                anchor: ae::Vec2::new(edge_x, platform.top()),
+                climb_target: ae::Vec2::new(edge_x, platform.top()),
+            };
+            // Snap to the anchor through the authority, then declare the hang.
+            transit_body(
+                &mut model,
+                &mut clusters,
+                contact.anchor,
+                TransitVelocity::Zero,
+            );
+            if let ambition_platformer2d::actor::MotionModel::AxisSwept(axis) = &mut *model {
+                axis.state.ledge_grab = Some(LedgeGrabState::hanging(contact));
+            }
+        }
+    }
     if let Some((me_stun, foe_stun)) = hitstun {
         let world = app.world_mut();
         let mut q = world
@@ -729,10 +782,11 @@ fn run_bout_at(
                 // columns, which is how it was found.
                 let velocities = scenario.starting_velocities();
                 let hitstun = scenario.starting_hitstun();
+                let ledge_hangs = scenario.starting_ledge_hangs();
                 placed = stage_bounds(&mut app)
                     .and_then(|bounds| scenario.starting_positions_on(bounds))
                     .is_some_and(|(me, foe)| {
-                        place_at(&mut app, me, foe, velocities, hitstun)
+                        place_at(&mut app, me, foe, velocities, hitstun, ledge_hangs)
                     });
             }
         }

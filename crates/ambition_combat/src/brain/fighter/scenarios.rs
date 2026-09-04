@@ -120,6 +120,23 @@ impl Scenario {
         ))
     }
 
+    /// Which bodies the fixture starts HANGING ON A LEDGE, as `(me, foe)`.
+    ///
+    /// ⛔ A hang is not a position — dropping a body at the ledge coordinates
+    /// leaves it falling past them. A harness reproduces one by writing the
+    /// ledge-grab state AND snapping the body to the contact's anchor, which is
+    /// why this is separate from [`starting_positions`](Self::starting_positions):
+    /// the anchor comes from the real platform, not from the fixture's stage.
+    pub fn starting_ledge_hangs(&self) -> Option<(bool, bool)> {
+        let foe = self.view.actors.first()?;
+        // ⚠ `SelfView` carries no `ledge_hanging` field at all: the fixture
+        // describes the OPPONENT hanging, and a brain's own hang reaches it
+        // through its motion state rather than through perceiving itself. So
+        // this reports the foe, and `false` for self is a fact about the type
+        // rather than a claim about the fixture.
+        Some((false, foe.ledge_hanging))
+    }
+
     /// Scenario state that a position-only harness cannot reproduce.
     ///
     /// Derived from the fixture itself. Grounded state is excluded because normal

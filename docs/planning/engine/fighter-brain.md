@@ -37,6 +37,20 @@ SCENARIO matrices** (the nine fixtures, the Shield-model comparison, flat-vs-
 platforms), which have NOT been re-run at the shipped clock and carry the same
 caveat.
 
+⛔⛔⛔ **AND THE BIGGEST FINDING ON THIS PAGE IS NOT ABOUT THE LADDER AT ALL —
+`D-BRAIN-MENU`.** Measured 2026-09-04 on the shipped fighter and the shipped
+ladder: **the brain selects `george_booul_dash_attack` ZERO times and the bodies
+start it 43 of 59.** It selects `jab` 40 times; one jab starts. ⇒ Sixteen of
+George's twenty-eight authored moves never start once, including **all three
+smashes and all three tilts**.
+
+⇒ The chain is traced end to end below: the kit is built for the STANDING stance
+(`running` is never passed to the builder), the brain emits a BUTTON rather than a
+move, and the body re-resolves that press WITH `running` — preferring
+`{base}_dash`. ⭐ **So the brain is not preferring the dash attack; it is scoring a
+menu it cannot order from.** Filed as a defect in `queue.md` with two named fixes
+and an explicit *do not land unmeasured*.
+
 ⭐ **The definitive ladder table — shipped rows, shipped clock, bouts that
 resolve — is the one headed "THE DEFINITIVE RUN".** Prefer it over anything
 above it. ⛔ The rest are kept because the contrast between them is the evidence

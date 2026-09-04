@@ -33,6 +33,10 @@ pub struct PortalGunConstructionParams {
     pub name: String,
     pub pos: Vec2,
     pub half_extent: Vec2,
+    /// Which portal pair the gun this pickup yields will own. `0` is the
+    /// classic blue/orange gun; a level that wants a second, independently
+    /// coloured gun places another pickup on a different pair.
+    pub pair: u8,
 }
 
 /// Portal-gun pickup construction has no inter-root relation vocabulary.
@@ -120,6 +124,7 @@ fn construct_portal_gun_pickup(
                 // the host inventory adapter's runtime-dynamic object and keeps
                 // its short anti-regrab arm delay there.
                 arm_timer: 0.0,
+                pair: parameters.pair,
             },
         ),
     );
@@ -157,6 +162,7 @@ mod tests {
                 name: "Aperture Device".to_string(),
                 pos: Vec2::new(10.0, 20.0),
                 half_extent: Vec2::new(8.0, 6.0),
+                pair: 0,
             },
             relations: Vec::new(),
         };

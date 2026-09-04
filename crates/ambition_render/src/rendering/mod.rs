@@ -269,6 +269,13 @@ impl bevy::prelude::Plugin for PlayerVisualSchedulePlugin {
                     .run_if(session_presentation_is_ready),
             );
 
+        // ⭐ The sprite-effect capability, installed UNCONDITIONALLY and outside
+        // the portal cfg below: `SpriteEffect` is an engine concept any sprite
+        // may carry, and gating it on the portal mechanic would make a general
+        // facility silently absent in a build that simply has no portals.
+        // The plugin installs its own state and systems, so this is one line.
+        app.add_plugins(ambition_sprite_fx::SpriteFxPlugin);
+
         // Portal-gun visuals (placed-portal quads, partial-transit pieces, the
         // disorientation / mode indicators) now live in the reusable
         // `ambition_portal2d_presentation` crate; the sandbox adds its plugin,

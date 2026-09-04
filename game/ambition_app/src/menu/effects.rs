@@ -84,6 +84,26 @@ pub fn status_for(action: MenuAction) -> String {
 /// The player query shape every menu-effect dispatch shares (grid + cube). The
 /// lifetimes stay free so callers (systems with their own `'w`/`'s`) can pass
 /// `&mut their_query` without the borrow escaping to `'static`.
+/// ⚠ Spelled twice under `cfg` rather than once with a `cfg`'d tuple element:
+/// an attribute cannot be applied to a type inside a tuple, and the extra
+/// member only exists when the portal mechanic is compiled in.
+#[cfg(feature = "portal")]
+pub(crate) type MenuEffectPlayers<'w, 's> = Query<
+    'w,
+    's,
+    (
+        Entity,
+        &'static mut ActionSet,
+        Option<&'static StashedActionSet>,
+        // Which portal pair this body owns, if it owns a gun at all. Read so a
+        // menu re-equip hands back the gun the player actually has rather than
+        // a fresh default one.
+        Option<&'static ambition_platformer2d::portal::OwnedPortalGunPair>,
+    ),
+    (With<PlayerEntity>, With<PrimaryPlayer>),
+>;
+
+#[cfg(not(feature = "portal"))]
 pub(crate) type MenuEffectPlayers<'w, 's> = Query<
     'w,
     's,
@@ -197,7 +217,11 @@ pub(crate) fn apply_menu_action(
             if !is_portal_gun && held_spec.is_none() {
                 return;
             }
-            if let Ok((player, mut action_set, stashed)) = players.single_mut() {
+            if let Ok(parts) = players.single_mut() {
+                #[cfg(feature = "portal")]
+                let (player, mut action_set, stashed, owned_pair) = parts;
+                #[cfg(not(feature = "portal"))]
+                let (player, mut action_set, stashed) = parts;
                 // Clear whatever weapon is currently held (a held item OR the
                 // portal gun) so we re-stash the true base, then equip the new one.
                 // The hand is the only record of what is equipped (I1): there is
@@ -215,6 +239,8 @@ pub(crate) fn apply_menu_action(
                         commands,
                         player,
                         &mut action_set,
+                        // The pair this body owns; 0 only if it never held one.
+                        owned_pair.map_or(0, |owned| owned.0),
                     );
                 } else if let Some(spec) = held_spec {
                     equip_held_spec(commands, player, &mut action_set, spec);
@@ -226,7 +252,11 @@ pub(crate) fn apply_menu_action(
             }
         }
         MenuAction::Unequip(_item) => {
-            if let Ok((player, mut action_set, stashed)) = players.single_mut() {
+            if let Ok(parts) = players.single_mut() {
+                #[cfg(feature = "portal")]
+                let (player, mut action_set, stashed, _owned_pair) = parts;
+                #[cfg(not(feature = "portal"))]
+                let (player, mut action_set, stashed) = parts;
                 // Detach both possible weapon front-ends (held item + portal gun).
                 unequip_held(commands, player, &mut action_set, stashed);
                 #[cfg(feature = "portal")]

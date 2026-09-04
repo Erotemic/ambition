@@ -1,6 +1,6 @@
 use super::*;
 use ambition_platformer2d_shared_tangle::markers::{PlayerEntity, PrimaryPlayer};
-use ambition_portal2d::arm_portal_pickups;
+use ambition_portal2d::{arm_portal_pickups, PortalGunColor};
 
 fn spawn_player(app: &mut App, pos: Vec2, facing: f32) -> Entity {
     app.world_mut()
@@ -54,6 +54,7 @@ fn picking_up_the_portal_gun_activates_it() {
         pos: Vec2::new(50.0, 50.0),
         half_extent: Vec2::splat(20.0),
         arm_timer: 0.0,
+        pair: 0,
     });
     assert!(app.world().get::<PortalGun>(player).is_none());
 
@@ -121,6 +122,7 @@ fn dropping_the_gun_clears_the_catalog_slot_that_picking_it_up_set() {
         pos: Vec2::new(50.0, 50.0),
         half_extent: Vec2::splat(20.0),
         arm_timer: 0.0,
+        pair: 0,
     });
 
     // TAKE custody.
@@ -229,6 +231,78 @@ fn dropped_portal_gun_arms_before_it_can_be_regrabbed() {
     );
 }
 
+/// A GUN'S PAIR SURVIVES THE FLOOR.
+///
+/// ⛔ The pair is what makes one gun orange/blue and another red/yellow, and a
+/// gun spends part of its life as a world pickup. If the pickup did not carry
+/// the pair, every drop would quietly reset a non-default gun to the classic
+/// one — the colours would look right until the first time the player fumbled
+/// it, which is the worst possible moment to find out.
+#[test]
+fn a_dropped_gun_keeps_its_own_pair_when_picked_back_up() {
+    const PAIR: u8 = 5;
+    let mut app = App::new();
+    app.add_message::<ambition_sfx::OwnedSfxMessage>();
+    app.add_message::<DropPortalGun>();
+    app.add_message::<PickUpPortalGun>();
+    app.add_message::<PortalGunEquipped>();
+    app.insert_resource(ambition_platformer2d_shared_tangle::time::SimDt { dt: 1.0 / 60.0 });
+    app.add_systems(
+        Update,
+        (
+            drop_portal_gun_system,
+            arm_portal_pickups,
+            pickup_portal_gun_system,
+        )
+            .chain(),
+    );
+    let player = spawn_player(&mut app, Vec2::new(100.0, 100.0), 1.0);
+    // Not the default gun: this body holds pair 5.
+    app.world_mut()
+        .entity_mut(player)
+        .insert(PortalGun::for_pair(PAIR));
+    // Toggle it to the B end first, so the test also pins that the pickup
+    // carries the PAIR rather than the exact end the holder happened to be on.
+    app.world_mut().get_mut::<PortalGun>(player).unwrap().next_color =
+        PortalGunColor::for_pair(PAIR).other();
+
+    app.world_mut()
+        .write_message(DropPortalGun { body: player });
+    app.update();
+
+    let dropped = {
+        let mut q = app.world_mut().query::<&PortalGunPickup>();
+        *q.iter(app.world()).next().expect("a pickup was dropped")
+    };
+    assert_eq!(
+        dropped.pair, PAIR,
+        "the dropped pickup forgot which gun it was"
+    );
+
+    app.world_mut()
+        .get_mut::<BodyKinematics>(player)
+        .unwrap()
+        .pos = dropped.pos;
+    for _ in 0..30 {
+        app.update();
+    }
+    app.world_mut()
+        .write_message(PickUpPortalGun { body: player });
+    app.update();
+
+    let regrabbed = app
+        .world()
+        .get::<PortalGun>(player)
+        .expect("the gun came back");
+    assert_eq!(
+        regrabbed.pair(),
+        PAIR,
+        "picking the gun back up handed over a different gun"
+    );
+    // And it is still a two-colour gun, on ITS pair.
+    assert_eq!(regrabbed.next_color.other().pair(), PAIR);
+}
+
 /// TWO SEATS ACT ON ONE TICK, and both are answered.
 ///
 /// ⛔⛔ `read().next()` SERVED ONE INTENT AND LEFT THE REST. The intents already
@@ -301,6 +375,7 @@ fn two_seats_grabbing_one_gun_produce_exactly_one_gun() {
         pos: Vec2::new(50.0, 50.0),
         half_extent: Vec2::splat(20.0),
         arm_timer: 0.0,
+        pair: 0,
     });
 
     app.world_mut().write_message(PickUpPortalGun { body: one });

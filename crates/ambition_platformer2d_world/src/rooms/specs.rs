@@ -115,6 +115,15 @@ pub struct PortalGunSpawnSpec {
     pub pos: ae::Vec2,
     /// Pickup half-extent, taken from the LDtk entity's box size.
     pub half_extent: ae::Vec2,
+    /// Which portal pair the gun from this pickup owns. `0` — the default, and
+    /// what every room authored before this field existed gets — is the classic
+    /// blue/orange gun. A room places a SECOND, independently coloured gun by
+    /// giving it a different pair.
+    ///
+    /// ⚠ `serde(default)`: a room file written before this field must still
+    /// load. Without it every existing room JSON becomes a parse error.
+    #[serde(default)]
+    pub pair: u8,
 }
 
 /// Portal channel color, re-exported here to keep the room-spec API stable.

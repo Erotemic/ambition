@@ -1099,6 +1099,7 @@ dependencies = [
  "ambition_platformer2d_core",
  "ambition_platformer2d_shared_tangle",
  "ambition_portal2d",
+ "ambition_sprite_fx",
  "bevy",
  "naga",
 ]
@@ -1164,6 +1165,7 @@ dependencies = [
  "ambition_projectiles",
  "ambition_sfx",
  "ambition_sim_view",
+ "ambition_sprite_fx",
  "ambition_sprite_sheet",
  "ambition_time",
  "ambition_ui_nav",
@@ -1237,6 +1239,13 @@ dependencies = [
  "bevy",
  "bevy_math",
  "leafwing-input-manager",
+]
+
+[[package]]
+name = "ambition_sprite_fx"
+version = "0.1.0"
+dependencies = [
+ "bevy",
 ]
 
 [[package]]

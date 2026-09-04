@@ -14,6 +14,16 @@ use bevy::prelude::*;
 pub struct PortalGunPickup {
     pub pos: Vec2,
     pub half_extent: Vec2,
+    /// Which portal pair the gun in this pickup owns — see [`PortalGun`].
+    ///
+    /// ⭐ **THE PAIR IS A PROPERTY OF THE GUN, SO IT HAS TO SURVIVE THE FLOOR.**
+    /// A gun is a world pickup between being dropped and being picked up again;
+    /// if the pickup did not carry the pair, every drop would silently reset a
+    /// red/yellow gun to the default blue/orange, and the pair a level author
+    /// placed would last exactly until the player fumbled it.
+    ///
+    /// [`PortalGun`]: crate::PortalGun
+    pub pair: u8,
     /// A *just-dropped* gun arms after a short delay so the same `Attack` press that dropped it
     /// (and the next overlapping frame) can't immediately re-grab it. World-placed pickups
     /// spawn already armed (`0.0`).

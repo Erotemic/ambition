@@ -48,7 +48,7 @@ pub use ambition_platformer2d_shared_tangle::transit::rotate_velocity_between_no
 
 pub use color::{PortalChannel, PortalChannelColor, PortalGunColor};
 pub use eviction::{evict_straddlers_on_portal_change, PortalFrameHistory};
-pub use gun::{portal_toggle_system, PortalGun};
+pub use gun::{portal_toggle_system, OwnedPortalGunPair, PortalGun};
 pub use gun_construction::{
     install_portal_gun_construction_recipes, portal_gun_construction_registry,
     recipe_authored_portal_gun, PortalGunConstruction, PortalGunConstructionParams,

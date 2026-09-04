@@ -1,0 +1,26 @@
+[package]
+name = "ambition_sprite_fx"
+version = "0.1.0"
+edition.workspace = true
+license.workspace = true
+authors.workspace = true
+description = "Simple per-sprite visual manipulations (tint, hue shift, saturation, silhouette) as one engine concept."
+
+[lib]
+crate-type = ["rlib"]
+
+[dependencies]
+# The RENDER FLOOR of this workspace: the lowest crate that may name a material.
+#
+# ⛔ It exists as its own crate rather than living in
+# `ambition_platformer2d_shared_tangle` because that crate refuses render
+# features on purpose ("No render, audio, or asset features — this crate stays
+# reusable and headless"), and a `Material2d` cannot be declared without them.
+# It is not in `ambition_portal2d_presentation` either: `ambition_render`
+# depends on THAT crate, so anything a general facility lives in has to sit at
+# or below it, and a sprite effect is not a portal concept.
+bevy = { version = "0.19.1", default-features = false, features = [
+    "2d_bevy_render",
+    "bevy_asset",
+    "bevy_image",
+] }

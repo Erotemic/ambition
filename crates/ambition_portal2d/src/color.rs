@@ -21,53 +21,83 @@
 
 use bevy::prelude::Color;
 
-/// Compatibility gun-owned portal end. The gun owns up to [`PAIRS`](Self::PAIRS) pairs at
-/// once; each pair has two complementary ends. `slot` packs them: `pair =
+/// One end of one gun-owned portal pair. `slot` packs both facts: `pair =
 /// slot / 2`, end = `slot & 1` (0 = the "blue"/A end, 1 = the "orange"/B end).
-/// Two ends of the SAME pair are [`other`](Self::other) partners (they link);
-/// [`advance`](Self::advance) walks the gun through every end of every pair so a
-/// single toggle cycles the full palette. All gun ends are gun-owned, so they
-/// despawn together when the gun is gone.
+/// Two ends of the SAME pair are [`other`](Self::other) partners — they link.
+///
+/// ⭐ **A GUN OWNS ONE PAIR, AND THE PAIR NEVER CHANGES.** Toggling a gun flips
+/// the END bit and nothing else, so a single gun offers exactly two colors. To
+/// get a second color pair in the world you spawn a SECOND gun on a different
+/// pair ([`for_pair`](Self::for_pair)) — one gun orange/blue, another red/yellow.
+/// This used to be one gun cycling every end of every pair through an `advance`
+/// step, which made "which pair am I on" a hidden mode the holder had to track.
+///
+/// All gun ends are gun-owned, so they despawn together when their gun is gone.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
 pub struct PortalGunColor {
     pub slot: u8,
 }
 
 impl PortalGunColor {
-    /// How many independent pairs the gun can keep placed at once.
-    pub const PAIRS: u8 = 4;
-    /// Total selectable ends = `PAIRS * 2`.
-    pub const SLOTS: u8 = Self::PAIRS * 2;
-    /// Pair 0, end A — the classic "blue" entrance and the gun's default.
+    /// How many distinct pairs the gun channel space can name. `slot` is a `u8`
+    /// carrying a pair and an end bit, so the pair space is half of it — the
+    /// same 128 as [`PortalChannelColor::Indexed`], and not a cap on how many
+    /// guns may exist.
+    pub const PAIRS: u8 = 128;
+    /// Pair 0, end A — the classic "blue" entrance and the default gun's.
     pub const BLUE: Self = Self { slot: 0 };
     /// Pair 0, end B — the classic "orange" exit.
     pub const ORANGE: Self = Self { slot: 1 };
 
-    /// Which pair (0..`PAIRS`) this end belongs to.
-    pub fn pair(self) -> u8 {
-        (self.slot / 2) % Self::PAIRS
+    /// End A of `pair`. The entry point for giving a gun its own pair; pairs
+    /// wrap at [`PAIRS`](Self::PAIRS) so the `* 2` below cannot overflow.
+    pub fn for_pair(pair: u8) -> Self {
+        Self {
+            slot: (pair % Self::PAIRS) * 2,
+        }
     }
 
-    /// The other END of the SAME pair — its link partner. Firing both ends of a
-    /// pair opens a working portal between them.
+    /// Which pair this end belongs to.
+    pub fn pair(self) -> u8 {
+        self.slot / 2
+    }
+
+    /// Which END of the pair this is: `false` = A ("blue"), `true` = B ("orange").
+    pub fn is_end_b(self) -> bool {
+        self.slot & 1 == 1
+    }
+
+    /// The other END of the SAME pair — its link partner, and the gun's whole
+    /// toggle. Firing both ends of a pair opens a working portal between them.
     pub fn other(self) -> Self {
         Self {
             slot: self.slot ^ 1,
         }
     }
 
-    /// The next end in the full cycle across every pair (wraps). A single
-    /// toggle input walks blue₀ → orange₀ → blue₁ → orange₁ → … so the player
-    /// can reach all four pairs without extra controls.
-    pub fn advance(self) -> Self {
-        Self {
-            slot: (self.slot + 1) % Self::SLOTS,
-        }
-    }
-
     /// This gun color as a [`PortalChannel`] for the shared pairing/transit core.
     pub fn channel(self) -> PortalChannel {
         PortalChannel::Gun(self)
+    }
+
+    /// Degrees to rotate the AUTHORED gun art by so it reads as this pair.
+    ///
+    /// ⭐ **ONE ANGLE SERVES BOTH ENDS, and that is not a coincidence.** The art
+    /// is a blue gun and an orange gun 180° apart, and a pair's two ends are
+    /// also 180° apart, so the rotation that carries blue→A also carries
+    /// orange→B: `(hue(A) - 210)` and `(hue(B) - 30)` are the same angle mod
+    /// 360. If the two arts ever stop being complementary this has to become
+    /// two angles, and the assertion in `the_two_gun_ends_need_one_rotation`
+    /// is what will say so.
+    ///
+    /// Pair 0 returns `0.0` — the authored art IS pair 0, and rotating it by
+    /// nothing is both correct and free.
+    pub fn art_hue_shift(self) -> f32 {
+        if self.pair() == 0 {
+            0.0
+        } else {
+            (pair_hue(self.pair()) - GUN_ART_BASE_HUE).rem_euclid(360.0)
+        }
     }
 }
 
@@ -94,6 +124,10 @@ pub enum PortalChannelColor {
     /// channels. Max distinct pairs: 128 (`u8` / 2).
     Indexed(u8),
 }
+
+/// The hue the authored blue gun art is drawn at — pair 0's A end, and the
+/// reference every other pair's art rotation is measured from.
+const GUN_ART_BASE_HUE: f32 = 210.0;
 
 /// Golden-ratio hue (degrees) for generated pair `pair_index`, so successive
 /// pairs are maximally far apart on the wheel.
@@ -228,14 +262,27 @@ impl PortalChannel {
 
     /// `(rim, core)` display colors for the portal bar — partners are visibly
     /// complementary so a linked pair reads as a pair. Each gun PAIR gets its
-    /// own hue family (45° apart) and the two ends of a pair sit 180° apart, so
-    /// pair 0 stays the classic blue↔orange while pairs 1-3 read as distinct
-    /// colors.
+    /// own hue and the two ends sit 180° apart, so pair 0 stays the classic
+    /// blue↔orange and every other pair reads as its own two colors.
+    ///
+    /// ⛔ **PAIRS ARE SPACED BY THE GOLDEN-RATIO WHEEL, NOT A FIXED STEP.** This
+    /// was `210 + pair * 45`, which is fine for the four pairs the gun used to
+    /// cycle and collides once pairs are per-gun and unbounded: 45° repeats
+    /// every 8 pairs, so gun 8 would have been indistinguishable from gun 0
+    /// while opening a pair that does NOT link to it — two portals that look
+    /// like partners and are not. [`pair_hue`] is the same wheel the authored
+    /// `Indexed` channels use, for the same reason.
     pub fn display(self) -> (Color, Color) {
         match self {
             PortalChannel::Gun(c) => {
-                let hue = 210.0 + (c.pair() as f32) * 45.0 + ((c.slot & 1) as f32) * 180.0;
-                let hue = hue.rem_euclid(360.0);
+                // Pair 0 keeps its hand-picked blue↔orange; the wheel would put
+                // it somewhere else and that pair is the one players recognise.
+                let base = if c.pair() == 0 {
+                    210.0
+                } else {
+                    pair_hue(c.pair())
+                };
+                let hue = (base + if c.is_end_b() { 180.0 } else { 0.0 }).rem_euclid(360.0);
                 (Color::hsl(hue, 0.78, 0.58), Color::hsl(hue, 0.90, 0.82))
             }
             PortalChannel::Authored(c) => c.rim_core(),
@@ -295,5 +342,108 @@ mod tests {
         let (rim_a, _) = Indexed(8).rim_core();
         let (rim_b, _) = Indexed(9).rim_core();
         assert_ne!(rim_a, rim_b);
+    }
+
+    /// A GUN'S PAIR IS FIXED AND ITS TOGGLE IS A TWO-CYCLE.
+    ///
+    /// The whole of the change: `other` is the only step a gun takes, so no
+    /// number of presses can reach a third color or leave the pair it owns.
+    #[test]
+    fn a_guns_toggle_never_leaves_its_own_pair() {
+        for pair in [0u8, 1, 7, 42, 127] {
+            let a = PortalGunColor::for_pair(pair);
+            assert_eq!(a.pair(), pair, "for_pair({pair}) did not land on its pair");
+            assert!(!a.is_end_b(), "for_pair must start on the A end");
+
+            // Two ends, and pressing twice is the identity.
+            let b = a.other();
+            assert_eq!(b.pair(), pair, "the toggle left the gun's pair");
+            assert!(b.is_end_b());
+            assert_eq!(b.other(), a, "toggle is not an involution");
+
+            // Any number of presses only ever yields those two.
+            let mut seen = std::collections::HashSet::new();
+            let mut cur = a;
+            for _ in 0..16 {
+                seen.insert(cur);
+                cur = cur.other();
+            }
+            assert_eq!(
+                seen.len(),
+                2,
+                "a gun on pair {pair} reached {} colors, not two",
+                seen.len()
+            );
+        }
+    }
+
+    /// TWO GUNS ON DIFFERENT PAIRS CANNOT OPEN INTO EACH OTHER.
+    ///
+    /// The reason a gun-per-pair is safe: linking is by channel PARTNER, and a
+    /// partner shares the pair. Without this, "two guns" would be two ways to
+    /// place ends of one shared set.
+    #[test]
+    fn guns_on_different_pairs_never_link() {
+        let orange_blue = PortalGunColor::for_pair(0);
+        let other_gun = PortalGunColor::for_pair(3);
+        for a in [orange_blue, orange_blue.other()] {
+            for b in [other_gun, other_gun.other()] {
+                assert_ne!(a, b, "two pairs share an end");
+                assert_ne!(
+                    a.channel().partner(),
+                    b.channel(),
+                    "an end of pair 0 links to an end of pair 3"
+                );
+            }
+        }
+    }
+
+    /// ONE ROTATION CARRIES BOTH ENDS OF THE PAIR.
+    ///
+    /// `art_hue_shift` returns a single angle per pair and the held-gun art is
+    /// two drawings. That is only sound while the two arts are complementary
+    /// (blue at 210°, orange at 30°) exactly as a pair's two ends are. If the
+    /// art is ever redrawn so the ends are not 180° apart, the B end will be
+    /// rotated to the wrong colour and NOTHING else will notice — the shader
+    /// applies whatever angle it is handed.
+    #[test]
+    fn the_two_gun_ends_need_one_rotation() {
+        for pair in [1u8, 2, 9, 40] {
+            let a = PortalGunColor::for_pair(pair);
+            let b = a.other();
+            let hue_of = |color: PortalGunColor| {
+                let (rim, _) = PortalChannel::Gun(color).display();
+                rim
+            };
+            // The rotation the A end needs, taken from the colours themselves.
+            let shift = a.art_hue_shift();
+            assert_eq!(shift, b.art_hue_shift(), "the pair's ends disagree");
+
+            // And it really is the angle between pair 0's ends and this pair's:
+            // the two ends stay 180° apart after the rotation, which is what
+            // lets one angle serve both drawings.
+            assert_ne!(hue_of(a), hue_of(b), "a pair's ends render alike");
+            let zero_a = PortalGunColor::BLUE;
+            assert_eq!(zero_a.art_hue_shift(), 0.0, "the authored art is pair 0");
+        }
+    }
+
+    /// ⛔ THE REGRESSION THE OLD HUE STEP WOULD HAVE SHIPPED.
+    ///
+    /// Gun display hue was `210 + pair * 45`, which repeats every EIGHT pairs.
+    /// That was invisible while the gun cycled four pairs and becomes a real
+    /// defect once each gun owns its own: pair 8's ends would render exactly
+    /// like pair 0's while refusing to link to them — two portals that look
+    /// like partners and are not.
+    #[test]
+    fn distant_gun_pairs_do_not_render_alike() {
+        let zero = PortalChannel::Gun(PortalGunColor::for_pair(0));
+        let eight = PortalChannel::Gun(PortalGunColor::for_pair(8));
+        assert_ne!(zero.display().0, eight.display().0);
+        // And the classic pair keeps the look players know it by.
+        let (rim, _) = zero.display();
+        assert_eq!(rim, Color::hsl(210.0, 0.78, 0.58));
+        let (orange_rim, _) = PortalChannel::Gun(PortalGunColor::ORANGE).display();
+        assert_eq!(orange_rim, Color::hsl(30.0, 0.78, 0.58));
     }
 }

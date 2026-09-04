@@ -21,7 +21,6 @@
 //! sprite's current frame" as a mesh.
 
 use bevy::asset::embedded_asset;
-use bevy::image::TextureAtlasLayout;
 use bevy::prelude::*;
 use bevy::reflect::TypePath;
 use bevy::render::render_resource::AsBindGroup;
@@ -101,53 +100,12 @@ pub fn clip_plane_render(frame: &PortalWorldFrame, point: Vec2, normal: Vec2) ->
     Vec4::new(p.x, p.y, normal.x, -normal.y)
 }
 
-/// The render basis of a sprite's CURRENT frame: the normalized UV rect of the
-/// frame on its texture, and the world-space quad size the sprite draws at.
-/// `None` while the texture / atlas layout hasn't loaded — callers fall back
-/// to the unclipped sprite-copy path for that frame.
-#[derive(Clone, Copy, Debug, PartialEq)]
-pub struct SpriteFrameBasis {
-    /// `(min.x, min.y, max.x, max.y)` normalized on the sprite's texture.
-    pub uv_rect: Vec4,
-    /// Drawn quad size: `custom_size` when set (trimmed sheets update it per
-    /// frame), else the frame's native pixel size.
-    pub size: Vec2,
-}
-
-/// Resolve the [`SpriteFrameBasis`] for `sprite` (atlas frame or whole image).
-/// Mirrors the hit-flash overlay's UV resolution so the mesh piece samples
-/// exactly the pixels the sprite renderer would.
-pub fn sprite_frame_basis(
-    sprite: &Sprite,
-    layouts: &Assets<TextureAtlasLayout>,
-    images: &Assets<Image>,
-) -> Option<SpriteFrameBasis> {
-    // Atlased sprites derive dimensions from the atlas layout so they do not
-    // require main-world image access. Whole-image sprites still need the image.
-    let (uv_rect, frame_px) = if let Some(atlas) = sprite.texture_atlas.as_ref() {
-        let layout = layouts.get(&atlas.layout)?;
-        let rect = layout.textures.get(atlas.index)?;
-        let tex = Vec2::new(layout.size.x.max(1) as f32, layout.size.y.max(1) as f32);
-        let min = Vec2::new(rect.min.x as f32, rect.min.y as f32);
-        let max = Vec2::new(rect.max.x as f32, rect.max.y as f32);
-        (
-            Vec4::new(min.x / tex.x, min.y / tex.y, max.x / tex.x, max.y / tex.y),
-            max - min,
-        )
-    } else {
-        let image = images.get(&sprite.image)?;
-        let texture_size = image.texture_descriptor.size;
-        let tex = Vec2::new(
-            texture_size.width.max(1) as f32,
-            texture_size.height.max(1) as f32,
-        );
-        (Vec4::new(0.0, 0.0, 1.0, 1.0), tex)
-    };
-    Some(SpriteFrameBasis {
-        uv_rect,
-        size: sprite.custom_size.unwrap_or(frame_px),
-    })
-}
+// ⭐ `SpriteFrameBasis` / `sprite_frame_basis` MOVED DOWN to `ambition_sprite_fx`
+// and are re-exported here so this crate's callers are unchanged. They were
+// never portal concepts: "which pixels would the sprite renderer draw right
+// now" is what every mesh-drawn sprite manipulation needs, and it had already
+// been written twice — here, and in the hit-flash overlay.
+pub use ambition_sprite_fx::{sprite_frame_basis, SpriteFrameBasis};
 
 /// Pose a piece quad so it draws exactly where the source sprite would: the
 /// unit rect is scaled to the drawn size, and the sprite's anchor becomes a

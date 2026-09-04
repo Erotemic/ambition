@@ -73,10 +73,12 @@ pub fn sync_portal_mode_indicator(
     let Some(art) = art else {
         return;
     };
-    // The gun cycles through several pairs; we only have two held-gun arts, so
-    // the B end of every pair shows the "orange" art and the A end the "blue"
-    // art. The placed portals carry the per-pair display colour themselves.
-    let image = if gun.next_color.slot & 1 == 1 {
+    // A gun owns one pair and toggles between its two ends, and we have exactly
+    // two held-gun arts — so the art tracks the END: B shows "orange", A shows
+    // "blue". A gun on another pair reuses the same two arts; the placed portals
+    // carry the per-pair display colour themselves, which is where the pair is
+    // actually legible.
+    let image = if gun.next_color.is_end_b() {
         art.orange.clone()
     } else {
         art.blue.clone()
@@ -182,6 +184,14 @@ pub fn sync_portal_mode_indicator(
                                         0.0,
                                         0.0,
                                     ),
+                                    // ⚠ UNTINTED, and a non-default gun is
+                                    // its authored colour for these frames.
+                                    // This material MULTIPLIES, and a hue
+                                    // rotation is not a multiply — writing the
+                                    // pair colour here would darken the gun
+                                    // rather than recolour it. Mid-transit is a
+                                    // few frames; a wrong colour would be worse
+                                    // than the authored one.
                                     tint: Vec4::ONE,
                                     clip0,
                                     clip1,
@@ -200,7 +210,8 @@ pub fn sync_portal_mode_indicator(
     }
 
     let angle = (-aim.y).atan2(aim.x);
-    commands.spawn((
+    let held = commands
+        .spawn((
         PortalModeIndicator,
         Sprite {
             image,
@@ -211,7 +222,23 @@ pub fn sync_portal_mode_indicator(
         Transform::from_translation(frame.to_render(pos, 12.0))
             .with_rotation(Quat::from_rotation_z(angle)),
         Name::new("Held portal gun"),
-    ));
+        ))
+        .id();
+    // ⭐ THE GUN IN THE HAND SHOWS WHICH GUN IT IS. Two authored arts, any
+    // number of pairs — so a gun on a non-default pair is the SAME drawing
+    // rotated onto its own colour, keeping shading, highlights and antialiased
+    // edges that a multiply would have flattened.
+    //
+    // ⛔ ONLY WHEN THERE IS A ROTATION. A `HueShift` of 0.0 is not free: every
+    // shader effect draws through a material, so attaching one unconditionally
+    // would move the DEFAULT blue/orange gun — the one almost every session
+    // holds — off the batched sprite path to compute a rotation by nothing.
+    let shift = gun.next_color.art_hue_shift();
+    if shift != 0.0 {
+        commands
+            .entity(held)
+            .insert(ambition_sprite_fx::SpriteEffect::HueShift { degrees: shift });
+    }
 }
 
 /// Draw in-flight portal-gun shots. Sequestered from portal aperture visuals so
@@ -255,12 +282,24 @@ pub(crate) fn spawn_portal_gun_pickup_visuals(
             },
             None => Sprite::from_color(Color::srgb(0.66, 0.36, 0.92), pickup.half_extent * 2.0),
         };
-        commands.spawn((
-            PortalVisual,
-            sprite,
-            Transform::from_translation(translation),
-            Name::new("Portal gun pickup visual"),
-        ));
+        let dropped = commands
+            .spawn((
+                PortalVisual,
+                sprite,
+                Transform::from_translation(translation),
+                Name::new("Portal gun pickup visual"),
+            ))
+            .id();
+        // A gun on the floor is the gun you will be holding, so it wears its
+        // pair's colour too — otherwise every pickup looks like the default one
+        // and the player only learns which gun it was after taking it.
+        // Rotating by nothing costs a material, so pair 0 stays a plain sprite.
+        let shift = ambition_portal2d::PortalGunColor::for_pair(pickup.pair).art_hue_shift();
+        if shift != 0.0 {
+            commands
+                .entity(dropped)
+                .insert(ambition_sprite_fx::SpriteEffect::HueShift { degrees: shift });
+        }
     }
 }
 

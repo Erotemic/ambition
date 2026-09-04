@@ -143,6 +143,54 @@ presentation choice rather than an engine-wide single-camera rule.
 
 ## Product checkpoints
 
+⚠ **MEASURED 2026-09-04 against the workspace. These six were the charter's
+falsifiable core and NONE of them carried a status**, so the same rule the
+parity inventory's primitive table now carries applies here: an unmarked
+checkpoint meant nobody had checked, not that it was open. Method for each is
+named inline; a number here travels with the search that produced it.
+
+| # | checkpoint | verdict |
+|---|---|---|
+| 1 | Core fight | ✔ **met** — the mechanics it lists are the parity inventory's P01–P14, now 14 of 14 measured: ten shipped, three partial, **zero absent** |
+| 2 | Roster depth | ✔ **met, and it is the strongest of the six** — **21** authored movesets (19 in `ambition_content`, 2 smash-local) and **zero** character-ID gameplay branches in any engine crate |
+| 3 | Local play | ✔ **met** — driven end-to-end through the real screen, not the model |
+| 4 | Stage breadth | ⬚ **NOT met, and it is the single largest gap** — there is exactly **ONE** stage |
+| 5 | Match completeness | ◐ **partial, 2 of 4** |
+| 6 | CPU adoption | ◐ **partial, and now measurable for the first time** |
+
+⭐ **Checkpoint 2 is worth reading before anyone plans roster work.** The charter's
+hard architectural claim — *"distinct reusable move semantics without character-ID
+engine branches"* — HOLDS under measurement. Searching engine crates for a
+gameplay branch on a character id (`== "george"`, `character_id ==`, a `matches!`
+on a fighter name) returns **nothing**; the single hit anywhere near it is
+`character_catalog/registry.rs:212`, which dedupes catalog registration and is not
+a gameplay branch. Twenty-one movesets and no engine knows any of their names.
+
+⛔ **Checkpoint 4 is the gap, and it is bigger than "some stages are missing".**
+`SMASH_STAGE_ROOM_ID` is one constant, `smash_stage()` is one function, and there
+is no stage-select concept in the demo at all — the select screen's cursor targets
+are exactly `Portrait`, `RoleButton`, `Start`, `PagePrev`, `PageNext`, `Back`
+(`select_screen/layout.rs:359`). So the checkpoint's *"several authored stages
+change spacing/recovery decisions"* has no customer to change: **every measurement
+this project has ever taken of spacing, recovery and edgeguarding — the whole
+ladder rig included — was taken on one stage layout.** That is a confounder in
+existing results, not only a missing feature.
+
+⇒ **Checkpoint 5, itemised**, since "partial" hides which half: stage select
+**absent** (no target, no room but one); rule selection **absent as UX** though
+`MatchRules` exists as data (`ambition_match/src/prepared.rs:193` — stocks,
+abilities, body) so the seam is there and nothing drives it; results/rematch
+**present** (`coming_back_to_the_select_screen_offers_a_fresh_match`); training/
+tuning **present** through the rig and probe tools.
+
+⇒ **Checkpoint 6** now points at a finished measurement rather than a feeling:
+the primitive table's ten shipped rows are what the brain can use, and its named
+partials (`P02` fixed reactions and set knockback, `P10`'s unpublished tech
+result, `P11`'s 2-of-6 capture roads) are exactly what it cannot answer yet. The
+ladder rig cannot currently rank skill either — 35 of 36 verdicts inside the seed
+spread — so "the brain can answer these mechanics" has no scoreboard behind it.
+
+
 1. **Core fight:** attacks, shield, grab, dodge, movement, launch, recovery,
    ledges, tech, stocks, respawn, and readable feedback support a fun short
    match.

@@ -638,11 +638,32 @@ nine.** A row of nine zeroes is as clean a control as this rig has produced, and
 it appears nowhere else in the matrix: `3 vs 1` and `5 vs 3` sit at the 60s cap,
 and `9 vs 6` (where BOTH fighters search) shows no constant at all.
 
+⭐ **AND IT IS NOT AN ARTIFACT OF THE PAIRING — the UNPAIRED matrix shows the
+same constant**: +4.5s in **8 of 9** fixtures, median +4.5, identical to the
+paired median. ⇒ The three arms line up as cleanly as this rig has ever managed:
+
+| arm | 6 vs 5 survival gap |
+|---|---:|
+| unpaired, rollout ON | median **+4.5s** (8 of 9) |
+| paired, rollout ON | median **+4.5s** (7 of 9) |
+| paired, rollout OFF | **+0.0s in all 9** |
+
 ⚠ **Exactly 4.5s in seven of nine is not behaviour.** Behaviour varies with the
 scenario; a constant does not. ⇒ The shape says one discrete event — a stock lost
 one cycle earlier, most likely — rather than a diffuse "plays worse". The
 constant's origin is NOT yet identified: it is not `RESPAWN_PROTECTION_SECONDS`
-(2.0) and not Mary-O's `DEATH_DWELL` (3.2, and another demo's besides.)
+(2.0), not `RESPAWN_INTERVAL_SECONDS` (1.0), not their sum (3.0), and not
+Mary-O's `DEATH_DWELL` (3.2, and another demo's besides).
+
+⚠ **And "+0.0 in all nine" deserves its own suspicion rather than celebration.**
+Two fighters eliminated on exactly the same tick in nine different scenarios is
+not what independent deaths look like either. The likeliest reading is that with
+the rollout off neither is eliminated before the match resolves, so both readings
+land on the same terminal tick — which would make the ON arm's 4.5s "the rollout
+fighter dies 4.5s BEFORE the match would otherwise end" rather than "4.5s before
+its opponent". ⇒ **Settling that needs per-bout data the summary rows do not
+carry**, and it is the next thing to instrument here; the three-arm table above is
+solid regardless of which reading wins.
 
 ⚠ **THE VERDICT AND THIS COLUMN ANSWER DIFFERENT QUESTIONS, and I first wrote
 that as "the verdict is blind to it", which is too strong.** Removing the rollout

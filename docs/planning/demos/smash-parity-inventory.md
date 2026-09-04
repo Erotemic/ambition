@@ -551,7 +551,7 @@ the seven named-missing customers, exactly **two** are authoring alone:
 
 | customer | cost |
 |---|---|
-| `P11` command grab | ✔ **DONE 2026-09-04** — authored, no engine change, guard poison-verified five ways, **and MEASURED IN PLAY: `capture-probe` records `lunge_grab` started 3 times in 90 seconds**, beside `grab_dash` 5 and `pummel` 5. ⭐ Not a dead move — see below for why that needed checking. |
+| `P11` command grab | ✔ **DONE 2026-09-04** — authored, no engine change, guard poison-verified five ways, ⚠ **and its in-play verification is WEAKER than I first wrote it.** `capture-probe` recorded 3 `lunge_grab` starts in 90s — **on the ENGINE FLOOR**, because I ran it before the probe learned `--ladder`. On the SHIPPED rows it started **zero times in 120s**. ⇒ So "measured in play" was measured on a configuration no player meets, which is the exact error this page documents five times over, committed by me while verifying my own move. ⇒ **The longer sample landed and adds nothing, for an instructive reason**: a 300-second probe returns a census IDENTICAL to the 120-second one, because a stand-in match on the shipped ladder RESOLVES at about 134s and the probe then idles. ⚠ **So `capture-probe` has a ceiling nobody had noticed — past the match length it measures empty stage.** ⇒ Which makes the zero stronger than it looked: it is zero across a COMPLETE match, not a truncated window. ⛔ Still one match: **status is *reachable on the floor (3 in 90s), zero in one complete shipped-ladder match*** — enough to withdraw "measured in play", not enough to call it dead. |
 | `P06` foxtrot / dash-dance | ⛔ **THIS ROW WAS WRONG — already shipped 2026-08-25**, no authoring, no code. Re-verified 2026-09-04: `the_foxtrot_and_the_dash_dance_fall_out_of_the_same_edge` passes. See the primitive rows above, which said so all along. |
 | `P06` pivot grab/smash | ⛔ **THIS ROW WAS WRONG — already shipped.** `a_smash_thrown_out_of_a_turnaround_points_the_new_way` passes. |
 | `P11` pivot grab | ⛔ **THIS ROW WAS WRONG — LANDED 2026-08-25**, and the primitive row says *"it needed NO move of its own"*. Two turnaround guards pass. |
@@ -632,7 +632,7 @@ inherits it.
 
 | ID | Primitive | Class | Owner / purpose |
 |---|---|---:|---|
-| `P01` | True move charge state | E1 | ✔ **SHIPPED, AND SPENT — this row was corrected twice in one day; see the second correction, it matters.** `MoveSpec` carries `charge: Option<MoveCharge>` (`ambition_combat/src/moveset/mod.rs:369`), `MoveCharge` and `StoredMoveCharge` are real types (:386, :413), and playback consults `charge.charging()` (:602). ⛔ **I first wrote here that exactly ONE authored move uses it and the primitive was "unlocked and unspent". That was wrong, and it was wrong because I counted the wrong field.** The runtime `charge` is ROLLBACK STATE, not authoring; the authoring gate is `MoveSpec::charge_gesture`, whose `Smash` variant is *"Every smash attack, and the default when a move says nothing"* (`ambition_entity_catalog/src/lib.rs:1355`). ⇒ **Held smashes are authored on EVERY fighter by default**, and the CPU pays for them in real matches — `the_cpu_charges_a_smash_and_techs_a_landing_in_some_match` measures a best charge fraction of **0.99** within a 5400-tick window, and its own failure text reads *"the charge multiplier is authored on every fighter and nobody paid for any of it"*. ⚠ **What IS authored once is a different and rarer feature**: the STORED charge, `smash_charge: Some(SmashChargeSpec)` with `stores: true`, on the projectile polygon's neutral-B (`game/ambition_content/src/projectile_polygon_moveset.rs:174`) — Jon's samus/mewtwo parity ask. Charging a smash and BANKING a special are two mechanics, and conflating them is what produced the wrong row. |
+| `P01` | True move charge state | E1 | ✔ **SHIPPED, AND SPENT — this row was corrected twice in one day; see the second correction, it matters.** `MoveSpec` carries `charge: Option<MoveCharge>` (`ambition_combat/src/moveset/mod.rs:369`), `MoveCharge` and `StoredMoveCharge` are real types (:386, :413), and playback consults `charge.charging()` (:602). ⛔ **I first wrote here that exactly ONE authored move uses it and the primitive was "unlocked and unspent". That was wrong, and it was wrong because I counted the wrong field.** The runtime `charge` is ROLLBACK STATE, not authoring; the authoring gate is `MoveSpec::charge_gesture`, whose `Smash` variant is *"Every smash attack, and the default when a move says nothing"* (`ambition_entity_catalog/src/lib.rs:1355`). ⇒ **Held smashes are authored on EVERY fighter by default**, and the CPU pays for them in real matches — `the_cpu_charges_a_smash_and_techs_a_landing_in_some_match` measures a best charge fraction of **0.99** within a 5400-tick window, and its own failure text reads *"the charge multiplier is authored on every fighter and nobody paid for any of it"*. ⚠ **What IS authored once is a different and rarer feature**: the STORED charge, `smash_charge: Some(SmashChargeSpec)` with `stores: true`, on the projectile polygon's neutral-B (`game/ambition_content/src/projectile_polygon_moveset.rs:174`) — Jon's samus/mewtwo parity ask. Charging a smash and BANKING a special are two mechanics, and conflating them is what produced the wrong row. | ⛔⛔ **AND MEASURED 2026-09-04: NO CPU EVER CHARGES ONE, BECAUSE NO CPU EVER THROWS A SMASH.** A 120-second census of the shipped fighter on the shipped ladder records **zero** `smash_forward`, `smash_up` or `smash_down` starts — and the stand-ins manage 6 between them. ⇒ The charge machinery is shipped and correct; its only authored customers are smash attacks, and the fighter brain scores movement and attack independently, so it approaches-and-attacks on the same tick and every neutral press converts to a dash attack. See `D-BRAIN-MENU` in `queue.md`. ⚠ **So a primitive can be SHIPPED, CORRECT, AUTHORED, and still have no live customer** — which is a fourth state this table's ✔/◐/▢ vocabulary cannot express, and the reason it matters here is that `P01` reads as finished.
 | `P02` | Hit reaction policy | E1 | ◐ **PARTIAL — re-measured 2026-09-03, and the split is worth knowing before anyone plans this.** `HitReaction` (`ambition_platformer2d_core/src/hit_response.rs:98`) has exactly TWO variants: `Strike` and `Windbox`. So **flinchless shipped** (the windbox row above records it) and `autolink` has a road (`ambition_combat/src/hit_reaction.rs:293`), while **fixed reactions and set knockback are absent from the vocabulary entirely** — they are not a modifier away, they need enum variants. ⇒ The unshipped part is smaller than the row and differently shaped. |
 | `P03` | Same-move hitbox arbitration | E1 | ✔ **SHIPPED — measured 2026-09-03, and it is the deterministic form the row wanted.** `StrikeRank` (`ambition_combat/src/moveset/mod.rs:963`) carries `window: u16` + `volume: u16` — *"which of these two did the author write first"* — and hit resolution reads the siblings through it: *"the whole of the sweetspot rule's input: which other volumes one move has live right now, and which of them the author wrote first"* (`hitbox/mod.rs:351`). Author order, not entity order, so it is rollback-stable. |
 | `P04` | Move defense windows | E1 | ✔ **SHIPPED — and this page already said so two screens up.** `project_move_defense_windows` (`ambition_combat/src/moveset/mod.rs:3536`) consumes both tags and is scheduled in `ambition_platformer2d_runtime/src/combat_schedule.rs:172`; the staleness paragraph above names it as consumed. The tags are no longer inert vocabulary. |
@@ -727,6 +727,64 @@ finish one category before touching another.
    ceiling tech, wall-tech jump.
 5. **Stage and match completeness:** respawn platform, stage select, multiple
    stage layouts, rules UI, sudden death/rematch/results.
+### ⭐⭐ THIS TABLE CANNOT SAY "SHIPPED BUT UNREACHED", AND THAT STATE IS REAL
+
+⛔ The ✔ / ◐ / ▢ vocabulary answers one question: **does the engine have it?** A
+row earns ✔ when the primitive exists, is correct and has an authored customer.
+⇒ It has no way to say **"and nothing reaches it in play"** — which is a fourth
+state, and at least one row is in it.
+
+⭐ **`P01` (move charge) is the worked example.** Shipped, correct, authored on
+every smash attack by default — and a 120-second census of the shipped fighter on
+the shipped ladder records **zero smash starts of any direction**. The charge
+machinery has no live customer, and the row reads as finished.
+
+⇒ **The instrument now exists to ask this of any row**: `smash_tool capture-probe
+--character <id> --ladder <ron>` prints a move census, and comparing it against a
+fighter's authored move ids answers *"which of these ever runs?"* in one diff.
+⚠ It is a floor on variety, not a ceiling — one sample cannot prove a move is
+unreachable, only that it did not appear.
+
+⭐⭐ **AND IT COMPLETES A FOUR-WAY CLASSIFICATION**, built jointly with the
+sibling session across a day of finding things that look unused and are not the
+same problem. The evidence that separates them is **where the authored effort
+went**:
+
+| evidence | class | response |
+|---|---|---|
+| no authored effort anywhere | **restraint** | write down why, and leave it |
+| effort on the thing itself, nothing reads it | **dead** | wire it up or delete it |
+| effort on the QUESTION, through another mechanism | **fork** | migrate, delete the loser |
+| effort on the thing, correctly wired, **unreached** | **stranded** | find what three systems away is blocking it |
+
+⭐⭐ **AND THE CLASS SPLITS ONCE MORE, USEFULLY: STRANDED-AND-DECLARED vs
+STRANDED-AND-SILENT.** Both fighters author all four throws; a CPU reaches only
+`capture_throw_forward`, and the census shows exactly that (11 `throw_forward`,
+zero back/up/down). ⇒ But this one is **declared at the site**:
+`capture_context_frame` implements *"Pummel once, then throw"* with a hardcoded
+forward axis and says so — *"deliberately the simplest policy that proves the
+road: opponent percent, stage edge, kill potential and escape risk are all real
+inputs it does not read."*
+
+⇒ **So three of four throws are stranded for a CPU, on purpose, with the gap
+named.** ⭐ That is a queued task. `P01` is the same state with **no declaration
+anywhere**, which makes it a discovery. ⚠ **The state is identical and the
+response is not**: a declared placeholder needs finishing; a silent one needs
+finding first, and nothing on this page would have surfaced it.
+
+⇒ Worked examples from one day: `read_weight` is **dead** (nine authored values,
+0.0→0.9, read only through a rollout the shipped rows disable). A resource with
+one producer and no reader is **restraint**. `profile_for_level` is a **fork**
+(floor and `.ron` both answer "what does rung N mean"). ⭐ And `P01` is
+**stranded** — and it is the hardest of the four to see, because *it looks the
+most finished*. Inspecting it finds nothing; only a census of what actually ran
+does.
+
+⚠ **NOT proposing a fourth tick mark.** A column that must be re-measured to stay
+true is a column that will silently go stale, which is this page's own recurring
+failure. ⇒ The honest form is what `P01` now carries: the census result written
+into the row that claims completeness, dated, with the command that produced it.
+
 ### ⭐⭐ THE ROSTER IS ONE AUTHORED FIGHTER AND A SKELETON (measured 2026-09-04)
 
 Counted off the contracts themselves, not read off a table: `fighter_moveset()`

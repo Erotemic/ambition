@@ -2303,11 +2303,38 @@ queue read as an execution authority for work already done.
   may be running when it was not, or the reverse. ⇒ A correctly-built kit is still
   a kit for a stance the body has since left. **No amount of passing `running`
   into the builder fixes a delay.**
-  ⇒ **So the real question is not the menu but the CLOCK between choosing and
-  pressing** — and the second fix (hand the brain the resolved move as a fact,
-  the `SelfView::burst` precedent) has the same problem unless the fact is
-  re-read at emission rather than at decision. ⚠ That is the design work, and it
-  is now a different question from the one this row opened with.
+  ⭐⭐⭐ **AND THE ROOT CAUSE IS NEITHER THE MENU NOR THE CLOCK — IT IS THAT
+  MOVEMENT AND ATTACK ARE SCORED INDEPENDENTLY.** Measured from the same trace:
+
+  | movement verb chosen | ticks with NO attack | ticks WITH an attack |
+  |---|---:|---:|
+  | `Approach` | 364 | **73** |
+  | `Dodge` | 26 | 7 |
+  | `Retreat` | 6 | 1 |
+
+  ⇒ **90% of attack decisions (73 of 81) are made on a tick where the brain also
+  chose `Approach`.** `OptionSet` exposes `best_movement()` and `best_attack()`
+  separately and both are emitted together, so the fighter **approaches and
+  attacks simultaneously, always**. Approaching drives the body into a run; a
+  neutral press while running is a dash attack.
+  ⛔ **So the tilts and smashes are unreachable IN PRINCIPLE, not by accident.**
+  Reaching them requires *stop moving, then commit* — a behaviour the brain has no
+  way to express, because nothing scores the PAIR. ⭐ It also explains why fix (a)
+  failed: telling the brain that a running neutral press is a dash attack gives it
+  no reason to stop running.
+  ⇒ **The fix is therefore a scoring-shape change, not a plumbing one**: movement
+  and attack must be scorable as a joint choice (or "hold position" must be an
+  option an attack can require). ⚠ That is materially larger than either fix this
+  row opened with, and it is squarely a design decision.
+
+  ⇒ **So the question this row opened with — the menu — is closed and was a
+  SYMPTOM**, and so was the clock hypothesis that replaced it. ⚠ Fix (b) — hand
+  the brain the resolved move as a fact, the `SelfView::burst` precedent — does
+  not survive either: re-reading the fact at emission would tell the brain it is
+  about to throw a dash attack, and it would still have chosen `Approach`, so it
+  would still throw one. ⇒ **Three framings, each replaced by the next as evidence
+  arrived**: the menu is wrong → no; the clock is wrong → no; **the two choices
+  are scored independently and nothing can express "stop, then commit".**
 
   ⚠ **DO NOT LAND EITHER UNMEASURED.** Both change every fighter in every game that
   uses this brain, and while running the flat-verb menu may collapse to one option

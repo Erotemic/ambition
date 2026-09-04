@@ -80,6 +80,20 @@ correctly-built kit is still a kit for a stance the body has since left.**
 evidence you diagnosed the cause.* It compiled, it was principled, it closed a
 real mismatch, and it would have passed review.
 
+⭐⭐⭐ **AND THE ROOT CAUSE, FOUND ON THE THIRD FRAMING: MOVEMENT AND ATTACK ARE
+SCORED INDEPENDENTLY.** `OptionSet` exposes `best_movement()` and `best_attack()`
+separately and both are emitted together — and **73 of 81 attack decisions (90%)
+are made on a tick where the brain also chose `Approach`.** ⇒ The fighter
+approaches and attacks *simultaneously, always*; approaching drives a run; a
+neutral press while running is a dash attack.
+
+⛔ **So the tilts and smashes are unreachable IN PRINCIPLE.** Reaching them needs
+*stop moving, then commit* — which the brain cannot express, because nothing
+scores the PAIR. ⚠ Both earlier fixes die on this: knowing the press will convert
+gives the brain no reason to stop running. ⇒ The remedy is a scoring-shape change
+(score movement and attack jointly, or let an attack require "hold position"), and
+it is a design decision rather than a repair.
+
 ⭐ **The definitive ladder table — shipped rows, shipped clock, bouts that
 resolve — is the one headed "THE DEFINITIVE RUN".** Prefer it over anything
 above it. ⛔ The rest are kept because the contrast between them is the evidence

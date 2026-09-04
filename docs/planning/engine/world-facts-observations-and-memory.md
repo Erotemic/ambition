@@ -37,7 +37,8 @@ conditions read four of them:
 | `items` | ✔ `inventory.holds` |
 | `occurrences` / `custody` | ✔ `custody.is_held` |
 | `encounters` | ✔ `encounter.cleared` (published 2026-09-04) |
-| `bosses`, `quests`, `dialog_visits`, `wallet`, `checkpoint`, `minted_items`, `inventory_saved` | ⛔ nothing publishes a condition |
+| `bosses` | ✔ `boss.cleared` (published 2026-09-04, retiring a mirror slice) |
+| `quests`, `dialog_visits`, `wallet`, `checkpoint`, `minted_items`, `inventory_saved` | ⛔ nothing publishes a condition |
 
 ⇒ **So the first slice of THIS program is not a representation decision, it is a
 publication gap**, and it is the same shape the capability-progression program
@@ -99,7 +100,17 @@ fields (`save_data.rs:313`, `:317`), and the mirror reads `data.bosses`. Checked
 because "the boss is an encounter" is the plausible assumption that would have
 made this look already-done.
 
-⇒ **Ordering, if this is taken up:** `boss.cleared` and `quest.active` first —
+✔✔ **AND `boss.cleared` IS LANDED (`39a48d4fa`), which makes the argument above
+a receipt rather than a proposal.** `ambition_boss_encounter` publishes it — the
+SIXTH condition provider — `boss_cleared(id)` is now a registered system asking
+the catalog live rather than a closure over the mirror, and
+`YarnStateMirrorData::bosses_cleared` **and its refresh loop are deleted.**
+Authored `.yarn` content keeps its spelling and gains the live answer, so no
+content migration was needed. Three tests, poison-verified; the whole workspace
+checks clean and the four affected suites are green.
+⇒ **The publication table above should now read `bosses` → ✔ `boss.cleared`.**
+
+⇒ **Ordering for the rest:** `quest.active` next —
 they have callers and a one-for-one mirror slice to delete. `visit_count` and
 `wallet_balance` are weaker: the first is dialogue's own bookkeeping rather than a
 world fact, and the second is a NUMBER, which the catalog's boolean-outcome shape

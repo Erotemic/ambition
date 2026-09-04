@@ -532,6 +532,7 @@ shared semantics. The ID is a planning reference, not a new runtime registry.
 | ◐ partial, with the split named | 3 | `P02` `P10` `P11` |
 | ⬚ absent | **0** | — |
 | ✔ shipped, one named fact short | 1 | `P14` |
+| **total** | **14** | ⚠ counting ✔ MARKS in the rows gives 11, not 10 — `P14` carries a ✔ and is split out on its own line here because "shipped" would hide the gap it still has |
 
 ⛔ **THE ABSENT COLUMN EMPTIED ITSELF UNDER MEASUREMENT, and that is the
 finding.** Not one of the twelve unmarked rows turned out to be an unbuilt

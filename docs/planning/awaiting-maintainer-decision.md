@@ -1780,7 +1780,17 @@ everywhere.
 
 ⇒ **So no fighter has ever used it.** Confirmed three ways: the source chain, the
 absent caller, and a rig arm with rung 5's `read_weight` zeroed that came back
-**byte-identical** to its control. See
+**byte-identical** to its control.
+
+⚠ **And the corpus is named, because "nothing reads it" is the strongest negative
+claim on this page.** The caller search is `git grep`, which walks the COMMITTED
+tree — so an untracked file's calls would be invisible to it. ⇒ Checked:
+`git status --untracked-files=all` reports **zero** untracked files in this
+worktree, so the derivation saw everything. ⭐ A sibling session hit the other side
+of this the same day (a census that could not see an untracked provider), and the
+lesson is the same: **a derivation is only as wide as the corpus its command
+walks, and git's default excludes exactly the files somebody is mid-way through
+writing.** See
 [`engine/fighter-brain.md`](engine/fighter-brain.md).
 
 ⚠ **It is not free — but I said that more forcefully than the number deserves, so

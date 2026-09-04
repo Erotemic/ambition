@@ -571,6 +571,32 @@ mirrored to `Back`, no `special_back` verb existed, and the chain fell back to
 something. The Robots bind **only `special_forward`** — there is nothing to fall
 back to.
 
+⭐⭐ **AND THAT FALLBACK IS NOT HISTORY — I MADE IT HAPPEN AGAIN ON PURPOSE
+2026-09-04, which is the difference between a bug report and a live mechanism.**
+Replacing George's `neutral_special` with `FromBodyKit` in a throwaway build
+silenced **four** presses, not the one I removed: `special_neutral` *and*
+`special_back`, in both stances. ⇒ **Nobody has ever authored a back special on
+George.** The back press is answered because the directional chain walks past the
+missing `special_back` to the base `special` — the exact path that made the side
+special *"perform zero times"*, still load-bearing, now on the correct side of
+the ledger.
+
+⇒ **So "George binds four specials" and "George answers ten special presses" are
+both true**, and the planning surface has to say which one it means every time.
+Counting bindings answers *what did an author write*; enumerating presses answers
+*what happens when the player pushes this*. The two guards that pin this — one
+per fighter — are `the_presses_george_leaves_unanswered_are_the_ones_the_genre_lacks`
+and `the_only_presses_this_fighter_cannot_answer_are_specials`.
+
+ⓘ **A structural note that came out of the same run, and it is a schema fact, not
+a fighter fact.** George's seven unanswered presses are *all* `smash`: no neutral
+smash, no back smash, no aerial smashes. That set cannot change while
+`SmashRepertoire` keeps its field list — it has `forward_smash` / `up_smash` /
+`down_smash` and **no slot to author the other two**, and aerials live in the
+`*_air` fields that answer `attack` presses. ⇒ The stand-ins' eight silences are a
+HOLE in a family the genre has; George's seven are the genre's own shape, enforced
+by a type. Do not read the two counts as comparable.
+
 ✔ **Measured rather than assumed:** `smash_tool capture-probe -- 90` on the
 default (stand-in) roster records **3 `lunge_grab` starts**, against `grab_dash`
 5, `pummel` 5, `throw_forward` 5. ⇒ The move is reached, at a frequency

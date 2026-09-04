@@ -887,10 +887,20 @@ queue read as an execution authority for work already done.
   boss test in the repo goes through `spawn_boss_at`. ⇒ A guarded data table
   plus a spawn road that never reads it: the same shape as the census above,
   where the assertion is right and the population never includes the case.
-  ⓘ **Open and not chased:** a phase-scripted boss SURVIVED a single broadcast
-  `HitEvent` of 9,999 damage, advancing Intro → Phase1 instead of dying
-  (measured 2026-09-03). Iframes, per-hit clamping or phase gating — unresolved,
-  and it matters to the fighter more than to exploration.
+  ✔ **CLOSED, and it is policy rather than a defect.** A phase-scripted boss
+  survived a single broadcast `HitEvent` of 9,999 damage (measured 2026-09-03,
+  ToothbrushAmbition) — because it was in **Intro**, and
+  `BossEncounterPhase::boss_invulnerable()`
+  (`crates/ambition_characters/src/brain/boss_pattern/mod.rs:1206`) is true for
+  `Dormant | Intro | Transition | Death`. `boss_hit.rs:39` returns early on
+  `invulnerable || amount <= 0`, and the file's own header says so at :24:
+  *"Boss phase policy rejects hits while invulnerable."* A second gate,
+  `transition_lock > 0.0`, sits beside it
+  (`crates/ambition_characters/src/boss_encounter.rs:254`).
+  ⇒ **A boss is killable only in `Phase1`, `Phase2`, `Enrage` or `Stagger`.** Any
+  test that wants the real kill road must STEP until the phase is attacking
+  before it hits — hitting on frame 1 hits an invulnerable boss and reads as
+  "9,999 damage did nothing".
 
   ⭐ **AND IT IS THE FIGHTER'S BEST REWARD.** `damage/boss_hit.rs:305` drops the
   boss's signature gauntlet through this exact function — the comment above it

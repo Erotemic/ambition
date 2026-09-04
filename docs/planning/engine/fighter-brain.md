@@ -8,12 +8,36 @@ The defensive vocabulary switches off at the rung the difficulty ladder calls
 better, and that single rung is the whole of the ladder's apparent inversion.
 Half repaired (`Shield` is modelled); `Dodge` needs real motion in the shadow.
 
-⛔⛔ **AND NOTHING HERE HAS MEASURED THE LADDER AMBITION SHIPS.** The demo app the
-rig runs installs no `AuthoredFighterLadder`, so every rung carries the engine
-floor's `UtilityWeights::default()` — which *is* the level-9 row. Every number on
-this page describes the floor's reflex-only ladder. The ownership question is with
-Jon in [`../awaiting-maintainer-decision.md`](../awaiting-maintainer-decision.md);
-**do not tune the brain against these numbers until it is answered.**
+⛔⛔ **READ THIS BEFORE ANY TABLE BELOW: MOST OF THEM MEASURED THE WRONG THING, IN
+FIVE SEPARATE WAYS, AND ALL FIVE ARE NOW FIXED.** Every one was the same class —
+the rig's configuration differed from the shipped game's, and only the rig was
+ever read. In the order they were found on 2026-09-04:
+
+| # | the rig used | the game uses | fixed by |
+|---|---|---|---|
+| 1 | one weight set on every rung | nine authored rows | dropping the `--weight` override |
+| 2 | `FighterBrainProfile::for_level` | `fighter_brain_ladder.ron` | **`--ladder PATH`** |
+| 3 | the L3 rollout ON at rung 6+ | rollout disabled on all nine rows | (follows from #2) |
+| 4 | two STAND-IN fighters | George is the authored one | `--character`, now printed |
+| 5 | a **60-second** bout | a **480-second** match | reading `SMASH_TIME_LIMIT_TICKS` |
+
+⇒ **#5 is the one that touches everything.** On a 60-second clock no bout could
+end, so stocks tied in every cell and **every verdict fell through to the damage
+tiebreak** — so any table dated before it says *"dealt more damage in the first
+eighth of a match"* wherever it appears to say *"won"*. ⚠ **That includes the
+SCENARIO matrices** (the nine fixtures, the Shield-model comparison, flat-vs-
+platforms), which have NOT been re-run at the shipped clock and carry the same
+caveat.
+
+⭐ **The definitive ladder table — shipped rows, shipped clock, bouts that
+resolve — is the one headed "THE DEFINITIVE RUN".** Prefer it over anything
+above it. ⛔ The rest are kept because the contrast between them is the evidence
+for the class, not because their numbers stand.
+
+⚠ The ownership question is still with Jon in
+[`../awaiting-maintainer-decision.md`](../awaiting-maintainer-decision.md), and
+**tuning still waits on it** — but the reason has changed from "we cannot see"
+to "we can see one bad rung and its cause".
 
 ⇒ Current work is evaluation, the open level-6 rollout defect above, and the
 separate level-1 case.

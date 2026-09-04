@@ -727,6 +727,29 @@ finish one category before touching another.
    ceiling tech, wall-tech jump.
 5. **Stage and match completeness:** respawn platform, stage select, multiple
    stage layouts, rules UI, sudden death/rematch/results.
+### ⭐⭐ THIS TABLE CANNOT SAY "SHIPPED BUT UNREACHED", AND THAT STATE IS REAL
+
+⛔ The ✔ / ◐ / ▢ vocabulary answers one question: **does the engine have it?** A
+row earns ✔ when the primitive exists, is correct and has an authored customer.
+⇒ It has no way to say **"and nothing reaches it in play"** — which is a fourth
+state, and at least one row is in it.
+
+⭐ **`P01` (move charge) is the worked example.** Shipped, correct, authored on
+every smash attack by default — and a 120-second census of the shipped fighter on
+the shipped ladder records **zero smash starts of any direction**. The charge
+machinery has no live customer, and the row reads as finished.
+
+⇒ **The instrument now exists to ask this of any row**: `smash_tool capture-probe
+--character <id> --ladder <ron>` prints a move census, and comparing it against a
+fighter's authored move ids answers *"which of these ever runs?"* in one diff.
+⚠ It is a floor on variety, not a ceiling — one sample cannot prove a move is
+unreachable, only that it did not appear.
+
+⚠ **NOT proposing a fourth tick mark.** A column that must be re-measured to stay
+true is a column that will silently go stale, which is this page's own recurring
+failure. ⇒ The honest form is what `P01` now carries: the census result written
+into the row that claims completeness, dated, with the command that produced it.
+
 ### ⭐⭐ THE ROSTER IS ONE AUTHORED FIGHTER AND A SKELETON (measured 2026-09-04)
 
 Counted off the contracts themselves, not read off a table: `fighter_moveset()`

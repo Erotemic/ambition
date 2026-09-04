@@ -522,6 +522,44 @@ Removing one fighter's rollout made the other one survive too. ⇒ A rollout-dri
 fighter appears to play in a way that gets BOTH bodies killed — reckless
 commitment, or dragging the fight somewhere lethal — rather than simply losing.
 
+⭐⭐ **A MECHANISM, ASSEMBLED FROM NUMBERS THIS PAGE ALREADY CARRIES — and it
+says the 2026-08-31 fix may have traded one bug for its mirror image.**
+
+The regression fixed on 2026-08-31 was that the rollout **PROMOTED** what it
+could not simulate: an unjudged verb never appears in `suicidal_movement`, so a
+`find` over "not vetoed" ranked it above everything the rollout actually judged.
+The fix demoted the unjudged to a third tier, below judged-and-unvetoed and below
+`least_bad`.
+
+⇒ Now read that against this page's own trace census, one seed, 6,388 decisions:
+
+| field | count | share |
+|---|---:|---:|
+| `unmodelled=[..]` | **983** | 15.4% |
+| — of which `Dodge` | **846** | 86% of the unmodelled |
+
+⇒ **`Dodge` is the verb the rollout cannot simulate, and it is nearly all of the
+unmodelled traffic.** So a fighter WITH rollout has dodge relegated to a tier
+reached only when nothing judged survives, while a fighter WITHOUT rollout (every
+rung below 6) runs the untouched path where dodge competes on equal terms.
+
+⇒ **The hypothesis, stated so it can be killed:** the rollout does not make level
+6 choose badly among the options it judges — it makes level 6 **stop dodging**,
+and a platform fighter that will not dodge takes more damage and dies more. That
+predicts exactly the shape measured above: rollout-on fighters fully eliminated
+(0 stocks each) where rollout-off fighters survive with 2.
+
+⚠ **Untested, and the test is cheap and specific**: trace a `6 vs 5` bout and
+compare the rate at which each seat actually *selects* `Dodge`. If level 6
+dodges materially less than level 5, the demotion is the cause and the fix is to
+make the shadow able to simulate a dodge rather than to reorder tiers again. If
+the dodge rates match, this is wrong and the cause is inside the judged set.
+
+⛔ **Do not "fix" this by re-promoting unmodelled verbs.** That is precisely the
+2026-08-31 bug, and this page records what it cost. A verb the rollout cannot
+model is a hole in the model; ranking it is choosing which direction to be wrong
+in, and both directions are wrong.
+
 ⚠ **Held at hypothesis-with-strong-evidence, not proof.** Both `6 vs 5` cells are
 `(within spread)` at 10 seeds in the ladder mode; what carries the weight is the
 DIRECTION flip against a byte-identical control, plus the scenarios matrix where

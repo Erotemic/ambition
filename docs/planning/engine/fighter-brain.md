@@ -406,9 +406,11 @@ mattered and reported the answer as though it were about the SEAT.
 
 ⇒ The control that can see it is not a subgroup split but a swap: play the same
 seed with the rungs exchanged between seats, which is what `--paired` was built
-for. ⇒ **Before quoting the 24 : 12 split, check whether the paired run below
-reproduces its direction.** A subgroup comparison is not a control for a variable
-every subgroup holds constant.
+for. ⭐ **AND IT DID NOT REPRODUCE: the paired matrix below reads 16 : 19, and 14
+of the 36 cells change verdict.** The 24 : 12 skew was the seat, the hypothesis I
+"refuted" was right, and my refutation was a comparison that could not see its own
+subject. ⇒ **A subgroup comparison is not a control for a variable every subgroup
+holds constant** — and the null it produces is indistinguishable from a real one.
 
 ### What all nine fixtures actually SAY at the rig's own seed count
 

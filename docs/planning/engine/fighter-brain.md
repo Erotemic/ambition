@@ -614,6 +614,47 @@ qualifier exists to prevent and which this page had already caught me making onc
    fixtures place SELF (always the higher rung) in a bad spot in seven of nine,
    which pairing cancels only if the handicap does not INTERACT with skill.
 
+### ⭐⭐ AND THE ROLLOUT'S COST IS VISIBLE, CONSTANT, AND THE VERDICT CANNOT SEE IT
+
+Reading the `6 vs 5` cells by COLUMN rather than by verdict turns the picture
+sharp. Survival gap = seat 1 (level 5) minus seat 0 (level 6), paired, 15 seeds:
+
+| fixture | rollout ON | rollout OFF |
+|---|---:|---:|
+| ledge_trap | **+4.5s** | **+0.0s** |
+| juggle_escape | +3.4s | +0.0s |
+| projectile_camper | **+4.5s** | **+0.0s** |
+| edgeguard_window | **+4.5s** | **+0.0s** |
+| edgeguard_ledge_hang | **+4.5s** | **+0.0s** |
+| recovery_left | **+4.5s** | **+0.0s** |
+| recovery_right | **+4.5s** | **+0.0s** |
+| recovery_below | **+4.5s** | **+0.0s** |
+| recovery_above | +1.7s | **+0.0s** |
+| **median** | **+4.5s** | **+0.0s** |
+
+⇒ **The fighter with the rollout dies about four and a half seconds sooner, in
+every fixture — and with the rollout off the two die on the SAME TICK in all
+nine.** A row of nine zeroes is as clean a control as this rig has produced, and
+it appears nowhere else in the matrix: `3 vs 1` and `5 vs 3` sit at the 60s cap,
+and `9 vs 6` (where BOTH fighters search) shows no constant at all.
+
+⚠ **Exactly 4.5s in seven of nine is not behaviour.** Behaviour varies with the
+scenario; a constant does not. ⇒ The shape says one discrete event — a stock lost
+one cycle earlier, most likely — rather than a diffuse "plays worse". The
+constant's origin is NOT yet identified: it is not `RESPAWN_PROTECTION_SECONDS`
+(2.0) and not Mary-O's `DEATH_DWELL` (3.2, and another demo's besides.)
+
+⛔⛔ **AND THE VERDICT IS BLIND TO ALL OF IT.** Removing the rollout changes only
+**2 of 9 verdicts** at this rung while changing **9 of 9 survival gaps** from
++4.5s to zero. The reason is structural: both fighters end at `0 : 0` stocks
+either way, so stocks tie and the verdict falls through to damage dealt, which
+does not track when a body died. ⇒ **The outcome scoreboard I introduced to
+replace survival-until-a-cap cannot see a consistent four-and-a-half-second
+difference in how long a fighter lives.** That is not an argument for going back —
+survival-until-a-cap saturated at both ends — but it is a named blind spot, and
+the next scoreboard question is whether stocks-then-damage should fall through to
+survival rather than stopping.
+
 ⭐ **The dodge/shield suppression is untouched by this and remains true.** It was
 measured directly — zero selections in 662 decisions — not inferred from win
 rates. What changes is its consequence: it is a real hole in the shadow's

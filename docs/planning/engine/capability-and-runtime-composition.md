@@ -177,6 +177,25 @@ with an ordering negotiation inside it, not a plugin: the two systems' relation
 would have to become a published set before either side could own its own
 installation. Do not promote mounts as "the next easy one".
 
+⭐ **AND THE CHECK RUN ON THE NEXT CANDIDATE COMES BACK CLEAN (yardrat,
+2026-09-04): `ambition_combat` PASSES.** Every `.after(..)` / `.before(..)` in
+`combat_schedule.rs` that names a foreign path resolves to one crate other than
+combat itself — `ambition_mount` — and to a `SystemSet` rather than a system:
+`MountRiderLinkEnforced`, whose own doc says it exists because *"the consumer is
+itself in `Settle`, so pinning the parent would be a cycle — this is the shape
+only a nested set can express."* Published vocabulary in exactly the sense
+`ProgressionSet` is.
+⚠ **That is one check passing, not a sizing.** `combat_schedule.rs` is ~500 lines
+and installs a great deal; the count of what would move is not the count of what
+is entangled, and combat's share of the 40 `init_resource` calls has not been
+measured. ⇒ Worth knowing that combat is not the hard one; not yet a packet.
+⚠ **The mount edge that FAILS is a different edge from the one that passes**, and
+conflating them would lose both findings: combat's `.after` names a SET, while
+the runtime separately CHAINS `ambition_mount::enforce_mount_rider_link` with the
+monolith's `rebuild_dismounted_rider_brains` inside one `add_systems`. The first
+is installable vocabulary; the second is two capabilities' systems ordered by a
+third party.
+
 ⇒ **So the runtime's remaining knowledge of capabilities is now resources and
 plugin lists, not scheduling.** 36 `init_resource` calls and ~53 `.add(...)`
 lines. The next reduction comes from resources whose consumer is already a

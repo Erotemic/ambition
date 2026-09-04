@@ -1456,6 +1456,35 @@ it, which is what makes this a "character presentation" package rather than a
 kernel file — and why the list above says its HOME needs settling before it is
 cut, not that the cut is hard.
 
+⭐⭐ **AND THAT ONE DEPENDENCY QUESTION IS ANSWERED, 2026-09-03: the type does
+not have to move at all.** Measured rather than assumed — `CharacterLoadStates`
+appears in `presentation.rs` three times and only ONE is a use:
+
+* `:13` the import,
+* `:34` a doc link,
+* `:55` the system parameter `states: Option<Res<CharacterLoadStates>>`,
+
+and the parameter is consumed at **exactly one call site**, `:72`
+`for character_id in states.cast().ids()`. **Two methods, one line.**
+
+⇒ **The seam is the STAGED ID SET, not the resource.** A carved
+`ambition_character_presentation` needs "which characters did this session
+stage", which is an iterator of ids — not `CharacterLoadStates`, not
+`StagedCast`, and not the `by_token` map of `CharacterLoadOutcome` that makes up
+the rest of the type. ⛔ So the reading that this file *drags*
+`StagedCast`/`CharacterLoadStates` with it is wrong in the other direction from
+"names nothing in the kernel": it names one type, uses one projection of it, and
+that projection is a value the kernel can hand over.
+⚠ The reverse direction still has to be paid and is NOT part of this
+measurement: `character_runtime/mod.rs` re-exports six of the file's items and
+schedules five of its systems, so the kernel keeps naming the package after the
+cut. That is ordinary for a carved domain — every D33 destination so far is
+named by the monolith — but it means the closure grows by one crate and the
+capability-footprint row gains an entry, exactly as `ambition_abilities` did.
+✔ Its seven `ambition_*` dependencies are **already direct dependencies of the
+monolith** (checked against its `Cargo.toml`), so the carve adds no NEW edge to
+the graph; it moves an existing subtree sideways.
+
 **Next cut, in order:**
 
 1. ✔ **The body seed leaves the kernel** (`83460e3f3`, above).

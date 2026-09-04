@@ -1333,6 +1333,22 @@ problem and nobody should present it as one. The case for wiring it up or
 deleting it is that a five-knob ladder with one silent knob cannot be reasoned
 about, and every rung was tuned by someone who believed all five worked.
 
+⭐⭐ **AND THE TEST THAT SEPARATES A DEAD KNOB FROM A RESTRAINED ONE IS WHETHER
+ANYONE AUTHORED VALUES FOR IT.** Both look identical to a grep — *published,
+nothing reads it* — and they want opposite responses:
+
+| | dead | restrained |
+|---|---|---|
+| example | `read_weight` | a resource with one producer and no reader, by design |
+| the tell | **nine authored values, 0.0 rising to 0.9** | nobody has spent effort on it |
+| what it means | somebody tuned a knob believing it worked | the seam exists ahead of its customer |
+| what to do | wire it up or delete it | write down WHY and leave it |
+
+⇒ **Effort spent on a thing is the evidence that somebody believed it worked.** A
+`.ron` with nine hand-picked values is a claim about behaviour; an unread resource
+with one producer is a claim about nothing. ⚠ Which is why "unused" is not by
+itself a defect report — and why this one is.
+
 ⭐⭐ **AND `read_weight` IS THE ONLY DEAD KNOB — I checked all nine, which is the
 reassuring half and it has to be said explicitly.** A finding like the one above
 invites the reading that the ladder is riddled with inert fields, and it is not.

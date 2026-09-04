@@ -556,12 +556,33 @@ The one unresolved developer-policy choice from the session-ownership work is in
   archetype hits Bevy 0.19's `ArchetypeExists` — `bevy_ecs-0.19.1`'s `world/mod.rs` line 407
   is `try_register_required_components(..).unwrap()`. Spawning after the plugins
   removes it, measured: the panic changes rather than persisting.
-  ⛔ **AND THE PANIC IT REVEALS IS A SECOND, SEPARATE FAULT:** *"Parameter
-  `…::messages` failed validation: Message not initialized"* — a `MessageReader`
-  for a channel this composition never registers, which is the same class as the
-  union's `ConeRigAssets` hard failure. ⚠ Naming the system needs
-  `bevy_ecs/debug`, and the attempt to build with it FILLED THE SHARED VOLUME
-  (see the disk row below), so the system is still unnamed. ⇒ Next step is that
+  ✔ **THE SECOND FAULT IS NAMED AND FIXED (2026-09-04), and it was found by
+  READING rather than by naming the system.** *"Parameter `…::messages` failed
+  validation: Message not initialized"* is
+  `ambition_platformer2d_rollback_ggrs::session::retire_rollback_authority_with_its_scope`,
+  which takes `MessageReader<SessionScopeRetired>`. That crate registers NO
+  messages at all (`git grep 'add_message::<'` in it returns nothing);
+  `SessionScopeRetired` is registered by the shared tangle's session-lifecycle
+  plugin, which this composition does not add. ⇒ **The same class as
+  `sync_portal_view_cones` and `ambition_sprite_fx`, a third time, and this time
+  the prerequisite is a MESSAGE rather than a resource.**
+  ⭐ Guarded with `run_if(resource_exists::<Messages<SessionScopeRetired>>)`
+  rather than by registering the channel: a host with no session-scope lifecycle
+  retires no scopes, so there is nothing for the system to do, and registering
+  here would make the rollback backend a second registrar of somebody else's
+  vocabulary — two cleanup systems in a host that has both.
+  ⭐⭐ **AND THE FIX IS VERIFIED BY THE PANIC MOVING, not by the test passing:**
+  it is now *"Parameter `…` failed validation: Resource does not exist"*. That is
+  the succession the portal comment warned about — *"three hid in succession,
+  each looking identical to the last"* — so the demo has at least one more, and
+  the count is not known.
+  ⚠ **How to find them without guessing:** `bevy_ecs` is not a direct dependency
+  of `capability_demo`, so `--features bevy_ecs/debug` is rejected; adding it as
+  a dev-dependency for one run is what names them. And the build must be
+  redirected — `CARGO_TARGET_DIR=$PWD/target/capability_demo` — because a nested
+  workspace's `target/` is on the SHARED volume, which is what filled it the
+  first time.
+  ⇒ The superseded next step, kept for its reasoning: that
   name, on a box with headroom.
   ⚠ **The demo builds into `examples/capability_demo/target`, which is NOT the
   bind-mounted `target/`** — it is on the shared virtiofs volume, and one

@@ -539,9 +539,32 @@ pub(crate) fn install_session_bridge(app: &mut App) {
     // entities it was governing.
     app.add_systems(
         Update,
-        retire_rollback_authority_with_its_scope.in_set(
-            ambition_platformer2d_shared_tangle::lifecycle::SessionScopeSet::RetireAuthority,
-        ),
+        retire_rollback_authority_with_its_scope
+            .in_set(
+                ambition_platformer2d_shared_tangle::lifecycle::SessionScopeSet::RetireAuthority,
+            )
+            // ⛔⛔ THE MESSAGE IS A PREREQUISITE THIS PLUGIN DOES NOT SUPPLY, and
+            // in Bevy 0.19 a `MessageReader` for an unregistered channel is a HARD
+            // FAILURE that takes the whole `App` down — not a system that skips.
+            // `SessionScopeRetired` is registered by the shared tangle's
+            // session-lifecycle plugin
+            // (`lifecycle/session.rs`), and a host may install the rollback
+            // backend without it: `examples/capability_demo`'s
+            // `rollback_round_trip` does exactly that, and died on frame one with
+            // *"Parameter `…::messages` failed validation: Message not
+            // initialized"* — a message that names neither the system nor the
+            // channel.
+            //
+            // ⭐ DECLINING IS THE RIGHT ANSWER, NOT REGISTERING. A host with no
+            // session-scope lifecycle retires no scopes, so there is nothing for
+            // this system to do; adding the channel here would make this plugin a
+            // second registrar of somebody else's vocabulary and give the message
+            // two cleanup systems in a host that has both.
+            .run_if(bevy::prelude::resource_exists::<
+                bevy::ecs::message::Messages<
+                    ambition_platformer2d_shared_tangle::lifecycle::SessionScopeRetired,
+                >,
+            >),
     );
 
     app.add_systems(Update, report_input_written_to_the_wrong_seam);

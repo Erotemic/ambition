@@ -486,11 +486,25 @@ entirely about George's movesets and does not mention a submodule. The bump is
 - It **is** pushed: `git branch -r --contains` finds it on
   `origin/agent/sfizz-source-fallback-and-cue-fanout`. ⇒ A fresh clone can fetch
   it, so the standing no-fallbacks ask is not broken by the pointer itself.
-- ⛔ **The pointer it REPLACED does not exist in this clone.**
-  `git cat-file -t 4e5695c38` → *"could not get object info"*. ⇒ Reverting would
-  aim the superproject back at an object nothing here resolves, which is worse
-  than what it replaced. **An accidental change is not automatically the wrong
-  state**, and undoing it reflexively would have been the actual damage.
+- ⚠ **The pointer it REPLACED did not exist in this clone** —
+  `git cat-file -t 4e5695c38` → *"could not get object info"* — so I argued that
+  reverting would aim the superproject at an unresolvable object, and left it.
+
+⛔⛔ **AND THAT ARGUMENT WAS WRONG, resolved within the hour and worth keeping as
+the correction it is.** The sibling session reverted the pointer to `4e5695c38`
+(*"Aim the music-renderer pointer at a branch that will still exist"*), and it
+resolves fine: `git branch -r --contains` puts it on the submodule's **`origin/main`**.
+⇒ **The object was not missing from the repository; it was missing from my object
+store, because that submodule had not been fetched.** A `git fetch` was the whole
+difference.
+
+⭐ **So the transferable error is not the `add -A`, it is the sentence after it.**
+*"`cat-file` cannot find it"* is a fact about one local checkout; I stated it as a
+property of the repository and built a decision on it. ⇒ Same shape as the corpus
+lesson recorded above — `git`'s answer is scoped to what this machine has fetched,
+and a claim of ABSENCE has to say which store it looked in. **The correct instinct
+here was the ordinary one — restore the superproject to the submodule's `main` —
+and I talked myself out of it with a local artifact.**
 
 **What is still open, and it is not mine to close:** the new pointer names a
 commit on an **agent feature branch**, not the submodule's `main` (which is at

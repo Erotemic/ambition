@@ -2174,12 +2174,22 @@ the reordering IS the finding.
 4. **The `t3` placement race** (question 50). Narrowed to *"may a match present a
    tick in which the followed body has not been placed?"* — now a correctness
    question rather than a feel judgement, with a one-line reproduction.
-5. ⬇ **`Dodge` shadow model — DEMOTED from #2, and the reason is measured.** It
-   only matters under the rollout, the shipped ladder disables the rollout on all
-   nine rows, and the `Shield` model that was supposed to prove the approach
-   landed entirely within spread. ⇒ Do it because `None` is the wrong score for a
-   verb a fighter can pick, not because a matrix will move. It reaches no player
-   either way.
+5. ⬇ **`Dodge` shadow model — DEMOTED, and its blocker is now NAMED rather than
+   vague.** It only matters under the rollout, which the shipped ladder disables
+   on all nine rows, so it reaches no player either way.
+   ⭐⭐ **And the blocker is STATE, not geometry** — traced 2026-09-04 through
+   `available_dodge`. `MovementVerb::Dodge` does not name one maneuver across a
+   rollout: grounded with cooldown clear it is a **roll**; airborne with budget it
+   is an **air dodge**; airborne with the budget **spent it falls through to a
+   DASH**. ⇒ `ShadowFighter` carries `on_ground` but not `dodge_cooldown` or
+   `air_dodge_spent`, so from step 2 onward the shadow cannot tell which. At step
+   1 it need not — `options.rs` reads the body's already-resolved `BurstManeuver`
+   — but a rollout is precisely the thing that asks about later steps.
+   ⛔ **Modelling it as any one of the three would repeat an error that module
+   records making TWICE**: *"the brain named one maneuver, the model judged a
+   second, the body performed a third."* ⇒ **The work is two fields on
+   `ShadowFighter` and their stepping**, after which the verb is decidable
+   everywhere. Until then `None` is the honest answer and its cost is recorded.
 6. ✔ **DONE — flat-vs-platforms re-run at the shipped clock**, and its headline
    reversed: the tiers do not halve the lethality (stocks left is `0.00` on BOTH
    stages), they take **1.83× as long** to reach the same end. Pace, not

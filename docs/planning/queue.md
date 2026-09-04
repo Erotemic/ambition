@@ -2800,6 +2800,21 @@ OPTIONAL dep + feature, never used:
   which usually survives the move.
   ⚠ The same blindness covers `//!` module headers in code — a doc comment
   naming where a sibling lives is prose too.
+  ✔ **RUN AGAIN 2026-09-04 ON THE `boss.cleared` / `quest.active` MIRROR CARVES,
+  and it found one — written by the carver, in the carver's own file, the same
+  day.** Four hits on `bosses_cleared` / `quests_active`: two in this file were
+  already past tense (HISTORY, kept), one sat inside a pre-migration paragraph
+  and was re-tensed, and one said the mirror *"carries `bosses_cleared`,
+  `quests_active`, …"* — **present tense about two fields deleted hours
+  earlier.**
+  ⭐ **Which sharpens the row's own point: a present-tense location claim goes
+  stale at the speed of the work, and its AUTHOR is the least likely person to
+  re-read it.** The sweep is not only for other people's prose after somebody
+  else's carve; run it on your own, at the end of your own carve.
+  ⭐ And *"re-tense, do not delete"* paid again: the stale paragraph is the thing
+  that makes the migration legible, so purging the names would have cost the
+  argument to fix the tense. It now says which slices went, which remain, which
+  functions ask the catalog and which still read the mirror.
 
   ⭐ **AND ONE HALF OF THIS IS NOW MECHANISABLE**, added to
   [`engine/pickup-carve-checklist.md`](engine/pickup-carve-checklist.md)

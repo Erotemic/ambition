@@ -1105,12 +1105,19 @@ every bout was fought. ⛔ **It does not hold.** This demo's own header says
 knockout signal"* — so a fighter can lose all three stocks by self-destructing,
 with nobody landing a hit. A resolved bout is not necessarily a fought one.
 
-⇒ What IS measured is the aggregate: mean damage dealt is **242.5%** on platforms
-and **280.8%** on flat, so contact is heavy on both. ⚠ But an average cannot rule
-out a handful of unfought bouts hiding under it, and the scenario mode does not
-print the per-bout `unfought` column that the sweep mode does. ⇒ The 41-of-540
-figure below is *most likely* approach time rather than refusal to engage, and
-`--per-bout` on the platform stage is the one-command arm that would settle it.
+✔✔ **SETTLED BY MEASUREMENT — `--per-bout` on the platform stage at the shipped
+clock: 109 bouts, and in ZERO of them did neither seat deal damage.** (One bout
+was one-sided.) ⇒ So the 41-of-540 "unfought" figure below IS approach time, not
+refusal to engage — every platform bout, given a real match length, becomes a
+fight.
+
+⭐ **Worth keeping is that the deduction I nearly published was invalid and the
+measurement was one command.** "Every bout resolved, so every bout was fought"
+fails on this demo's own rule — combat damage does not kill a stocks fighter,
+leaving the stage does, so all three stocks can be lost to self-destructs with
+nobody landing a hit. ⇒ The aggregate (242.5% mean damage dealt) made the
+conclusion likely and could never make it certain, because **an average cannot
+rule out a handful of members hiding under it.**
 
 ⭐ **The method note is the transferable part.** Both metrics in the original table
 — *stocks LEFT* and *unfought bouts* — are "how much has happened by the buzzer"

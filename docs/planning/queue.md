@@ -41,7 +41,7 @@ a census with no waiver list is only as strong as the population it walks.
 ✔ **D-ROUTE-CONDITION — a route could not ask a question the engine had already
 published.** `prepare_question` hardcoded the condition id to `world.flag_set`
 and passed the authored `gated_by` as its ARGUMENT, so `inventory.holds` and
-`held.is_held` were published and unreachable from a route. Fixed by
+`custody.is_held` were published and unreachable from a route. Fixed by
 `2054291e4`: `gated_by` is an authored condition LINE, parsed by the
 `prepare_line` the catalog already had — a bare value still means
 `world.flag_set`, so the two shipped rows needed no migration. `body.can(verb)`

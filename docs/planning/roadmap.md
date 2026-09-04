@@ -70,7 +70,7 @@ capability gating…") reads as five unbuilt things and three of them are done:
   from an authored route** (⚠ corrected from "all seven" the same day; the list
   always named five, and soft systemic pressure and social/knowledge have no
   fact to read). `gated_by` is a
-  condition LINE, and `inventory.holds`, `held.is_held`, `body.can`,
+  condition LINE, and `inventory.holds`, `custody.is_held`, `body.can`,
   `body.fits`, `world.switch_on`, `encounter.cleared` and the two story-gate
   writers each have an end-to-end wall test. What is left is FACTS, not
   predicates: soft systemic pressure and social/knowledge have nothing

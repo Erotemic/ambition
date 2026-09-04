@@ -101,7 +101,7 @@
 > author writes one string and the number of arguments is the verb's business
 > rather than the field's."* The slice was one call site choosing between two
 > existing entry points, not a data-format design. ⇒ **The item/equipment family
-> is reachable from a route now** (`inventory.holds`, `held.is_held`), guarded by
+> is reachable from a route now** (`inventory.holds`, `custody.is_held`), guarded by
 > `a_wall_may_be_gated_on_an_item_the_player_carries` — empty bag, wall up; grant
 > the axe, wall opens — poison-verified against a discriminator stuck at `false`,
 > which reddens that arm alone and leaves the flag arm green.
@@ -207,7 +207,7 @@
 > be named rather than left for a reader to notice. Two of the five had the need
 > written down before the work (`body.can` is what this page said was missing;
 > `body.fits` is the Goal's own first example, "gate routes through body size").
-> The other three — `held.is_held`, `world.switch_on`, `encounter.cleared` — were
+> The other three — `custody.is_held`, `world.switch_on`, `encounter.cleared` — were
 > published because the FACT already existed and had a producer, which is a
 > weaker justification than a level that wants them.
 >
@@ -296,7 +296,7 @@
 > clause: it named five families and then said two were empty.
 >
 > ⇒ **Reachable from a route now (5 of 7):** story gate (two writers),
-> item/equipment (`inventory.holds`, `held.is_held`), body capability
+> item/equipment (`inventory.holds`, `custody.is_held`), body capability
 > (`body.can`), body property (`body.fits`), world mechanism
 > (`world.switch_on`).
 > ⛔ **Route-facing-empty (2 of 7): soft systemic pressure and

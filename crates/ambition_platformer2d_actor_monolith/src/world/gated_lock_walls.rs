@@ -10,7 +10,7 @@
 //! and the number of arguments is the verb's business rather than the field's."*
 //! ⛔ IT USED TO BE HARDCODED to `world.flag_set` with the field as its only
 //! ARGUMENT, so the item/equipment gate family was published (`inventory.holds`,
-//! `held.is_held`) and unreachable from a route: a wall could not ask it however
+//! `custody.is_held`) and unreachable from a route: a wall could not ask it however
 //! well the condition was written. Widening the field, not adding a condition,
 //! is what made the other families reachable.
 //!

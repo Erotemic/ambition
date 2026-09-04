@@ -1222,7 +1222,7 @@ it is filed against the population rather than against a condition.
 
 `capability-progression-and-world-gating.md` records that five of seven gate
 families became reachable from an authored route on 2026-09-04 —
-`world.flag_set`, `inventory.holds`, `held.is_held`, `body.can`, `body.fits`,
+`world.flag_set`, `inventory.holds`, `custody.is_held`, `body.can`, `body.fits`,
 `world.switch_on` — each with an end-to-end wall test walking the authored road.
 It also records, honestly, that **no shipped level authors any of the new ones**,
 and names the risk: the dormant-cluster shape, a vocabulary correct in every test
@@ -1256,7 +1256,7 @@ condition uses: 18   7 inventory.holds  5 boss.cleared  3 quest.active  3 world.
 
 TOTAL authored uses: 20  (2 route gates + 18 dialogue lines)
 published but authored NOWHERE (5 of 9):
-  world.switch_on  held.is_held  body.can  body.fits  encounter.cleared
+  world.switch_on  custody.is_held  body.can  body.fits  encounter.cleared
 ```
 
 ⛔⛔ **CORRECTED AGAIN 2026-09-04 LATE, and the instrument was mine both times.**

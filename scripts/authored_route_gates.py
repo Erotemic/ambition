@@ -3,7 +3,7 @@
 
 ⛔⛔ THE POINT IS THE DENOMINATOR. `capability-progression-and-world-gating.md`
 records that five of seven gate families are now reachable from a route
-(`world.flag_set`, `inventory.holds`, `held.is_held`, `body.can`, `body.fits`,
+(`world.flag_set`, `inventory.holds`, `custody.is_held`, `body.can`, `body.fits`,
 `world.switch_on`), and that no shipped level authors any of the new ones. That
 is easy to read as "a migration is owed". It is not: the corpus of authored
 route gates is TINY, and until you have counted it you cannot tell a vocabulary

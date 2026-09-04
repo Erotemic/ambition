@@ -478,7 +478,15 @@ findmnt --target .       →  aivm-persistent-root[/hostcode-ambition-a3386a66] 
 ```
 
 ⇒ Same `device:inode` as that cache directory (`64769:5056595`), so it is one
-store under two paths. **The repo's build output physically lives on the ROOT
+store under two paths.
+
+✔ **AND THIS IS DELIBERATE, not an accident to be undone** — `scripts/setup/target_bindmount.sh`
+exists to do it, and its reasoning is good: *"the repo may live on a shared
+filesystem, but Cargo still sees its ordinary per-worktree target directory, so no
+`CARGO_TARGET_DIR` coordination is required and parallel worktrees do not share
+locks or artifacts."* ⇒ **What is new here is not the mount, it is the
+CONSEQUENCE**: the volume a build writes to is not the one `df .` describes, and
+that one fact accounts for every confusing measurement in this entry. **The repo's build output physically lives on the ROOT
 filesystem**, and `/home/agent/.cache/ambition-targets` is **187G of a 290G root**.
 
 ⇒ **That explains every symptom at once**: `df .` answers for virtiofs and says

@@ -785,6 +785,43 @@ queue read as an execution authority for work already done.
   11.8 GB free of 290, below the 40 GB floor, so the Rust lane refuses to start
   and the fix could not be gated.
 
+- ▢ **THE S4 `SimId` CENSUS PASSES BECAUSE ITS POPULATION EXCLUDES THE ONE ROAD
+  THAT WOULD FAIL IT.** Found 2026-09-03 with ToothbrushAmbition — they found the
+  road, I checked the census against it, and both halves are independently
+  derived.
+
+  1. **A boss death drop mints no identity.**
+     `features/ecs/damage_drops.rs::drop_held_weapon` spawns `GroundItem`,
+     `Name`, `RoomScopedEntity`, a `dynamic_drop_origin` and `SpawnedThisAttempt`
+     — and **no `SimId` and no `ItemCustody`**. Its `parent: &SimId` argument is
+     consumed for provenance only, which its own doc comment states as deliberate.
+  2. **A `GroundItem` IS a rollback anchor**, said twice in the tree's own words:
+     `ambition_held_items/src/lib.rs:1162` (*"it lives on a `GroundItem`, which is
+     a rollback anchor"*) and `crates/ambition_platformer2d_actor_monolith/src/rollback_registration.rs:304` (*"which is already
+     an anchor"*).
+  3. **The census asserts every rollback-anchored entity has a unique `SimId`**
+     (`game/ambition_app/tests/rollback_populated_timeline.rs:322`,
+     `every_rollback_anchored_entity_has_a_unique_sim_id_on_the_populated_timeline`),
+     and [`engine/simulation-authority-and-determinism.md`](engine/simulation-authority-and-determinism.md)
+     records it as holding *with no waiver list*.
+  4. ⛔ **Its `populate()` spawns five things and none of them is a ground item:**
+     a sentry, a vortex well, a temporary gravity well, a falling hazard and a
+     portal shot. Zero `GroundItem`, zero `drop_held_weapon`.
+
+  ⇒ **So the census is green because the defect is outside its population, not
+  because the invariant holds.** Add one death drop to `populate()` and the
+  assertion should fail — that is the cheap falsifier and it is the next step,
+  NOT a fix.
+  ⚠ **Not yet run.** Steps 1-4 are each verified by reading the code; the
+  consequence in the arrow is predicted. Say so until a run says otherwise.
+  ⭐ **AND IT IS THE FIGHTER'S BEST REWARD.** `damage/boss_hit.rs:305` drops the
+  boss's signature gauntlet through this exact function — the comment above it
+  says *"the player literally wields the boss's move"* — and
+  `damage/actor_hit.rs:661` is a second caller, so ordinary actor deaths use the
+  same identity-less road. ⇒ Every gauntlet ALSO exists as an authored ground
+  item in the sandbox world, which does carry an identity, so the same object is
+  acquirable two ways with and without a `SimId`.
+
 - ▢ **THE FEATURE UNION IS RED: 48 failures against 6,968 passes, and 37 of
   them are ONE system.** Measured 2026-09-03 at `dbfb1a2ca` by running the gate's
   own union job standalone (`cargo test --workspace --no-fail-fast --features

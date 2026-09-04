@@ -76,6 +76,7 @@ Use this index when debugging a symptom. Search `dev/journals/` when in doubt; t
 |---|---|
 | A poison passed — you removed the fix and the test stayed green; a test that "proves" a change but was really about the layer underneath it; a fixture whose two bodies were never both reachable; an arm that declares a DEFAULT value and so cannot straddle a rule about that value | [`poisons-that-passed-2026-08-28.md`](poisons-that-passed-2026-08-28.md) |
 | A green result that is green for an UNRELATED reason — no damage source in the harness, a hitbox anchored to a remembered point, a test writing a derived fact the sim recomputes, a strike owned by its own victim | [`poisons-that-passed-2026-08-28.md`](poisons-that-passed-2026-08-28.md) (its D249 preamble) |
+| A guard that was never deleted and never ran — an inserted test took its `#[test]`, leaving dead code wearing a test's name | [`../benchmark-candidates/inserting-a-test-can-steal-its-neighbours-attribute-2026-09-04.md`](../benchmark-candidates/inserting-a-test-can-steal-its-neighbours-attribute-2026-09-04.md) |
 
 ## Standing logs
 

@@ -1304,7 +1304,7 @@ mod tests {
             silent.iter().filter(|p| !p.starts_with("smash_")).collect();
         assert!(
             non_smash.is_empty(),
-            "George stopped answering a non-`smash` press: {non_smash:?}. The              roster question in `awaiting-maintainer-decision.md` rests on              George answering all ten specials while the stand-ins answer two."
+            "George stopped answering a non-`smash` press: {non_smash:?}. The roster question in `awaiting-maintainer-decision.md` rests on George answering all ten specials while the stand-ins answer two."
         );
 
         // ⭐ And the seven are exactly the genre's missing presses — asserted as
@@ -1325,7 +1325,7 @@ mod tests {
         assert_eq!(
             got,
             want,
-            "George's silent presses moved. Gaining one is likely good news              (an authored move) and losing one is a regression; either way the              claim in `smash-parity-inventory.md` wants re-deriving, not              editing to match."
+            "George's silent presses moved. Gaining one is likely good news (an authored move) and losing one is a regression; either way the claim in `smash-parity-inventory.md` wants re-deriving, not editing to match."
         );
     }
 

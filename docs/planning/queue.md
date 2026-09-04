@@ -1881,9 +1881,25 @@ queue read as an execution authority for work already done.
   ⇒ **Remaining customers, COSTED PER ITEM 2026-09-04 — and only two of seven are
   authoring.** ⛔ This row said "the seam is finished, no plumbing" of `P11`'s four
   capture roads; that is true of ONE of them.
-  ✔ **Authoring alone:** `P11`'s **command grab** (an authored `Special` carrying
-  the existing `smash.capture_attempt` key), and `P06`'s **foxtrot / dash-dance**
-  (dash-stance moves `move_for_flat_verb` already selects).
+  ✔ **Authoring alone:** ~~`P11`'s **command grab**~~ — ✔ **SLICE TAKEN
+  2026-09-04**, and it needed no engine work exactly as this row predicted:
+  `lunge_grab` is a `special_forward` whose `Active` window sustains
+  `smash.capture_attempt`. `author_standing_grab` never asks which verb it is
+  attaching to and the captor branch keys off capture STATE, so it pummels and
+  throws through the same four verbs. Guard poison-verified five ways. ⚠ **And
+  the first attempt at one poison silently matched nothing** — a regex that
+  edited no bytes and printed no output, which reads exactly like a passing arm.
+  Hence five arms and not three. ⇒ Still open here: `P06`'s **foxtrot /
+  dash-dance** (dash-stance moves `move_for_flat_verb` already selects).
+  ⭐⭐ **AND THE SLICE FOUND SOMETHING BIGGER THAN ITSELF: two of the demo's three
+  characters had no special button at all.** Counted off the contracts —
+  `fighter_moveset()`, which both Robots carry, bound **18 verbs to George's 26**.
+  Missing: `special`, `special_forward`, `special_up`, `special_down`,
+  `special_air_down`, `attack_forward`, `attack_dash`, `taunt`. A press resolved
+  to no move, and the catalog DEFAULT is one of the two. The command grab closes
+  one of the eight; ⛔ the other seven are DESIGN and are now a question with Jon
+  in `awaiting-maintainer-decision.md` (thin stand-ins / finished characters /
+  one shared simpler kit) — **do not author them off this row.**
   ⛔ **Needs a seam first:** the **pivot** moves in both rows — `move_for_flat_verb`
   hardcodes one derived stance (`{base}_dash`) and cannot express a pivot;
   `P11`'s **tether** — a grapple mechanic exists and nothing joins it to capture;
@@ -1892,8 +1908,18 @@ queue read as an execution authority for work already done.
   deliberately absent under the no-cheat rule and publishing it would be a cheat;
   and `P14`'s **finish-zoom eligibility** — the camera has the machinery and drives
   it from zones, and no fact says *this blow is the finishing one*.
-  ⛔ **DO NOT tune the fighter brain against ladder-rig numbers yet.** The rig has
-  never measured the ladder Ambition ships — see
+  ⛔ **DO NOT tune the fighter brain against ladder-rig numbers yet — and the
+  reason has been REPLACED, 2026-09-04.** The rig can now measure the shipped
+  ladder (`--ladder PATH`) and has: four matched arms, `--paired --seeds 12`,
+  one binary. ⇒ The new reason to hold off is stronger and simpler: **15 of the 16
+  verdicts are `within spread`**, and the only distinguishable cell in the whole
+  matrix is `3 vs 1` on the shipped ladder. Rungs 3/5/6/9 are not separable from
+  each other at 12 seeds in ANY configuration. ⚠ That is *undetected*, not
+  *absent* — but it means no tuning decision may rest on a cell of that matrix.
+  ⭐ Two results worth carrying: the L3 rollout is a **lethality** switch and not a
+  strength one (the two floor arms are byte-identical below rung 6, where it is
+  not armed, and `0:0` against `2:2` above it), and **George is a substantially
+  harder fighter than the Robots the rig had always measured**. See
   [`engine/fighter-brain.md`](engine/fighter-brain.md) and the ownership question
   in [`awaiting-maintainer-decision.md`](awaiting-maintainer-decision.md). ⛔ DO NOT PICK: D203's hitbox premise (measured and REFUTED by
   `fda65a386`), D204/D205 (shipped), or anything in

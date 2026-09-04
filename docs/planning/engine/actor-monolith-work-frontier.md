@@ -219,6 +219,72 @@ section adds is a **declaration**, not a second body of work: say which goal the
 carve advanced, so that a run of carves cannot add up to *"the engine is
 decomposed"* when every one of them moved only the first dimension.
 
+### ⛔⛔ THE COST THIS PROGRAM PAYS, MEASURED — every carve lengthens the compile critical path
+
+**Measured 2026-09-04 and not previously written down anywhere.** The D33 carves
+are working on the metric they were aimed at, and they are paying in a currency
+nothing on this page priced. Both halves, from `scripts/compile_ratchet.py`
+against the baseline frozen at `11ef33c5b5a5` (2026-08-27):
+
+| what the carves BOUGHT | what they COST |
+|---|---|
+| `largest_unit_lines` 108,364 → **100,153** (−8,211) | `critical_path_crates` 14 → **16** — LONGER |
+| the monolith's `edit_cost_lines` share 50.5% → **47.1%** (−3.4 pts) | `worst_edit_cost_lines` +41,400 and `edit_cost_lines` +40,921 |
+| `edit_cost_seconds` 1,264.9s → **1,163.8s** (−101.1s) | |
+
+⭐ **The two crates that lengthened the chain are named, by deriving it rather
+than guessing:** `ambition_abilities` and `ambition_held_items`, both D33 carve
+outputs, now sit at positions 9 and 10 of the longest first-party chain:
+
+```text
+ambition_app → content → platformer2d → platformer2d_host → platformer2d_runtime
+  → sim_view → platformer2d_actor_monolith → abilities → held_items → items
+  → combat → sprite_sheet → interaction → characters → platformer2d_core → geometry
+```
+
+ⓘ **That chain was derived independently from `cargo metadata` — normal and build
+deps only, since dev-dependencies may form cycles — and it reproduces the
+ratchet's `16` exactly** once restricted to the same population the ratchet
+declares (`consumer = ambition_app`). ⚠ The crate COUNT does not reconcile as
+cleanly: 68 by that walk against the ratchet's 66, a difference of two I have not
+chased. The chain length is the load-bearing figure here and it agrees to the
+digit.
+
+⚠ **And the two `REGRESSED` line metrics are NOT a structural regression in
+`geometry` or `platformer2d_core`.** The workspace gained **4 first-party crates
+and 44,056 lines** since the baseline; +41,400 and +40,921 are that growth
+passing *through* those crates' blast radius, not those crates changing.
+⇒ Triaged rather than re-frozen blind, which is what the ratchet's own message
+asks for.
+
+⭐⭐ **WHY THIS BELONGS ON THIS PAGE AND NOT ONLY IN THE QUEUE: it prices the
+second dimension.** Capability composability is bought by making capabilities
+independently installable, and on this dependency graph that means **more
+crates**. Every crate added to the serial chain lengthens a wall clock that
+**parallelism cannot compress** — the ratchet says so in those words. The
+capability-footprint row already records the sibling tension for the crate COUNT
+(*"a carve that adds a crate RAISES the count — the two lines of work must not be
+scored against each other"*); nobody had said it about the critical PATH, which
+is the worse of the two because it is serial.
+
+⇒ **So the declaration this page now requires has a third line available to it
+when it is honest:** what the carve bought, what goal it advanced, and **what it
+cost the compile graph**. ⛔ This is not an argument against carving. It is an
+argument against reporting a carve as free, and against discovering the price
+only when someone re-runs a gate that `--rust` does not include.
+
+⚠ **The seconds columns for eight crates are a PLACEHOLDER and stay one.**
+`ambition_abilities`, `ambition_body_seed`, `ambition_encounter_features`,
+`ambition_held_items`, `ambition_match`, `ambition_registry_core`,
+`ambition_sprite_fx` and `ambition_world_items` are priced at the population
+median 2.9059 ms/line, and the ratchet says size predicts compile cost with
+**R² = 0.12** — so those seconds are wrong by an unknown factor. ⓘ Measuring them
+needs `compile_collect.py --config release`, which builds into a SEPARATE target
+root; this volume had **61.3 GB free against a 40 GB floor** when that was
+considered, and a cold release tree plausibly exceeds the 21 GB of headroom. Not
+run. ⇒ It would move no verdict either way — every metric currently failing is a
+LINES metric or the path length, none of which read the weights.
+
 ⚠ **And do not answer it by reaching for the wrong mechanism.** Doctrine
 prohibits a service locator, a type-erased registry, dynamic dependency
 injection, or global plugin discovery to make a crate look optional — which

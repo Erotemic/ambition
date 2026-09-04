@@ -492,3 +492,74 @@ fn a_tint_replaced_by_a_shader_effect_is_not_baked_into_the_stored_original() {
         "and so the entity came back wearing a tint nothing asked for"
     );
 }
+
+/// ⭐⭐ THE OTHER CROSSING — shader → tint — which is the one where the sprite the
+/// tint path needs has already been taken away.
+///
+/// ⛔ The tint path queries `&mut Sprite`. The mesh path REMOVES `Sprite` while it
+/// owns the entity. ⇒ So on the frame a `HueShift` becomes a `Tint`, the free path
+/// cannot see the entity at all, and the only thing that can give the sprite back
+/// is `draw_sprite_effects`' own changed-effect arm — the same arm that would be
+/// skipped if somebody made the mesh path ignore effects it does not draw.
+///
+/// ⚠ `restore_sprites_without_effects` CANNOT save this case: it requires
+/// `Without<SpriteEffect>`, and here the component is present, just a different
+/// variant. A sprite stranded this way is invisible with no system that will ever
+/// look at it again.
+///
+/// ⭐ Written because the crate's round-trip tests all covered
+/// effect → *removed* and tint → shader, and this is the crossing none of them
+/// exercised. The apply paths were guarded; one un-apply path was not.
+#[test]
+fn a_shader_effect_replaced_by_a_tint_gives_the_sprite_back() {
+    let mut app = fx_app();
+    let mut sprite = a_32x16_sprite(&mut app);
+    sprite.color = Color::srgb(0.2, 0.4, 0.6);
+    let entity = app
+        .world_mut()
+        .spawn((
+            SpriteEffect::HueShift { degrees: 90.0 },
+            sprite,
+            Transform::from_scale(Vec3::splat(2.0)),
+        ))
+        .id();
+    app.update();
+    assert!(
+        app.world().get::<Sprite>(entity).is_none(),
+        "the mesh path should have taken the Sprite over, or this test is not \
+         exercising the crossing it claims to"
+    );
+
+    app.world_mut()
+        .entity_mut(entity)
+        .insert(SpriteEffect::Tint(Color::srgb(1.0, 0.0, 0.0)));
+    // Two updates: one for the mesh path to hand the sprite back, one for the
+    // free path to see it. ⚠ The one-frame gap is a real property of this
+    // crossing and is asserted rather than papered over — a caller flickering
+    // between the two paths draws one untinted frame.
+    app.update();
+    let handed_back = app.world().get::<Sprite>(entity).is_some();
+    app.update();
+
+    assert!(
+        handed_back,
+        "the mesh path did not give the Sprite back when the effect changed to a \
+         free one, so the entity is stranded: invisible, still carrying a mesh, \
+         and never matched by `restore_sprites_without_effects` because it still \
+         has a `SpriteEffect`"
+    );
+    assert!(
+        app.world().get::<SpriteFxDrawn>(entity).is_none(),
+        "the mesh path's bookkeeping outlived the effect that created it"
+    );
+    assert_eq!(
+        app.world().get::<Transform>(entity).unwrap().scale,
+        Vec3::splat(2.0),
+        "the entity's own scale did not come back across the crossing"
+    );
+    assert_eq!(
+        app.world().get::<Sprite>(entity).unwrap().color,
+        Color::srgb(1.0, 0.0, 0.0),
+        "the tint never landed after the crossing"
+    );
+}

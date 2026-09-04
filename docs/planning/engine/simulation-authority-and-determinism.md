@@ -416,11 +416,38 @@ and poison A is what caught it. ⭐ A guard's stated REACH is a claim like any
 other and wants a poison of its own; the failing poison was worth more than the
 passing one.
 
-⚠ **AND THAT BOUND MAY MAKE THE REST VACUOUS, stated as reasoning rather than
-measurement:** rollback save/load are themselves schedule work, so an entity that
-never reaches a sync point is never saved either — it cannot rewind by identity
-because it cannot rewind at all. NOT verified. Recorded so the next reader tests
-that rather than re-deriving the worry.
+⛔ **A "the rest may be vacuous" note stood here and is WITHDRAWN.** It reasoned
+that save/load are themselves schedule work, so an entity that never reaches a
+sync point is never saved and cannot rewind at all. The peer session measured the
+premise: production orders the portal step `.after(portal_fire_system)` rather
+than `.chain()`, and switching the test to `.after()` still passes, **because
+Bevy inserts a sync point automatically when a `Commands` writer is ordered
+before a reader.** ⇒ Such an entity DOES reach a boundary and DOES get saved. My
+reasoning was wrong in the direction that dismisses a real gap — the second time
+today a note of mine labelled as reasoning turned out false while everything
+labelled as measured held.
+
+⛔⛔ **AND THE WITHIN-A-STEP GAP IS REAL AND STILL OPEN. Negative result recorded
+so nobody runs it twice.** A portal shot travels ~31.7px per 60Hz step, so one
+fired within that of the fizzle line lives and dies inside a single `sim.step()`
+— the sharpest known instance, and not hypothetical: it needs a player firing
+about 32px from a wall, and the shot carries a minted `SimId` precisely so it
+rewinds. I put that shot into the fixture and counted the frames the in-schedule
+scan saw it on, by its own id:
+
+| shot | scanned frames seen |
+|---|---:|
+| fired into open space (x=300) | **371** |
+| fired ten pixels short of the fizzle line | **0** |
+
+⇒ **The in-schedule scan does not walk that class either**, so the close-wall
+shot was REMOVED rather than left in as a decoration. ⚠ The scan is registered
+UNORDERED, so it is not established whether the entity is invisible to everything
+or only to a system running outside its window. **Ordering the scan explicitly
+between the fire and the step is the next experiment** and would settle it.
+⚠ The counter caught its own first error too: it counted ANY `PortalShot` and
+reported 380 frames, because `populate` already fires a long-range one — an
+instrument answering a wider question than the one asked.
 
 
 

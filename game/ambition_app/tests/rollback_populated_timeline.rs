@@ -284,12 +284,36 @@ fn populate(sim: &mut Platformer2dSimHarness) {
 /// too.** The earlier wording — "anything shorter-lived than a step" —
 /// over-claimed, and poison A is what caught it.
 ///
-/// ⭐ AND THAT BOUND LOOKS LIKE IT MAKES THE REMAINING GAP VACUOUS, stated as
-/// reasoning rather than measurement: rollback save/load are themselves
-/// schedule work, so an entity that never reaches a sync point is never saved
-/// either — it cannot rewind by identity because it cannot rewind at all. ⚠ Not
-/// verified; recorded so the next reader tests THAT rather than re-deriving the
-/// worry.
+/// ⛔ **A "the remaining gap is vacuous" note stood here and is WITHDRAWN.** It
+/// reasoned that rollback save/load are themselves schedule work, so an entity
+/// that never reaches a sync point is never saved and cannot rewind at all. The
+/// peer session measured the premise instead of accepting it: production orders
+/// the portal step `.after(portal_fire_system)` rather than `.chain()`, and the
+/// test still passes when switched to `.after()`, **because Bevy inserts a sync
+/// point automatically when a `Commands` writer is ordered before a reader.** ⇒
+/// Such an entity DOES reach a boundary and DOES get saved. The reasoning was
+/// wrong in the direction that would have dismissed a real gap.
+///
+/// ⛔⛔ **AND THE GAP IS REAL AND STILL OPEN — measured 2026-09-04, negative
+/// result recorded so nobody runs it a second time.** A portal shot travels
+/// ~31.7px per 60Hz step, so one fired within that of the fizzle line lives and
+/// dies inside a single `sim.step()`. I put exactly that shot into this fixture
+/// and counted the frames THIS SCAN saw it on, by its own `SimId`:
+///
+/// * fired into open space (x=300): **371 scanned frames** — so the intent
+///   works, the id is carried, and the counter finds it;
+/// * fired ten pixels short of the fizzle line: **0 scanned frames.**
+///
+/// ⇒ **So this scan does not walk the within-a-step class either**, and the
+/// close-wall shot was removed rather than left in as a decoration that proves
+/// nothing. ⚠ The scan is registered UNORDERED, so it is not established whether
+/// the entity is invisible to everything (Poison A's shape) or merely to a
+/// system that happens to run outside its window. **Ordering the scan explicitly
+/// between the fire and the step is the next experiment**, and it is the one
+/// that would settle it.
+/// ⚠ The counter also caught its own first error, worth keeping: it counted ANY
+/// `PortalShot` and reported 380 frames, because `populate` already fires a
+/// long-range one. An instrument answering a wider question than the one asked.
 #[test]
 fn no_anchor_rewinds_anonymously_on_any_frame_it_exists() {
     use ambition_platformer2d::platformer::sim_id::SimId;

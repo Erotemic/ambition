@@ -23,7 +23,7 @@ reproducible.
 ## Recent structural receipts
 
 ✔ **A GATE LANE'S OWN "HERE IS WHAT I SKIPPED" FOOTER WAS ITSELF SHORT ONE JOB
-— 2026-09-04 (`8f2812cef`).** `--rust` drops four slow Python checkers; the
+— 2026-09-04 (`9378c5f5c`).** `--rust` drops four slow Python checkers; the
 footer named three. The missing one was the **compile-cost ratchet**, the job
 sitting on six findings at HEAD while three union runs from that lane were being
 recorded as `49/49` and read as *"everything passes"*. ⇒ **The safeguard against
@@ -43,7 +43,7 @@ out would be a fifth writer of the same fact. Poison-verified: truncating the
 list to three turns it red naming the ratchet exactly.
 
 ✔ **CI WAS RED ON FOUR UNUSED IMPORTS AND NO LANE ANYONE RAN SAID SO — fixed
-2026-09-04 (`9ab418322`).** `check_no_warnings.py` exits 1 at HEAD; its own
+2026-09-04 (`a3083febc`).** `check_no_warnings.py` exits 1 at HEAD; its own
 message says `RUSTFLAGS: -D warnings` makes that a red build in CI. All four are
 D33 carve residue in `ambition_platformer2d_actor_monolith` — the
 `ambition_match` and `ambition_body_seed` carves moved enough out of two
@@ -3487,7 +3487,7 @@ OPTIONAL dep + feature, never used:
   did what it says**.
   ⛔ **So the mechanical fix is the wrong one.** Gating those methods on
   `#[cfg(feature = "input")]` would silence it and break the crate's own tests,
-  which call `reveal_full_line` (`tests.rs:106`, `:119`, `:144`) and compile
+  which call `reveal_full_line` (`crates/ambition_dialog/src/tests.rs:106`, `:119`, `:144`) and compile
   against the lib's default features. ⇒ The open question is whether a crate
   whose default build has no caller for a slice of its view model wants those
   methods gated, its tests gated with them, or the warning accepted as the

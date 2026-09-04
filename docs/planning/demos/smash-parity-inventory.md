@@ -910,6 +910,14 @@ which is exactly how it can be short eight special presses while nineteen other
 fighters *cannot be*. ⭐ The stand-ins are not behind on authoring; they are
 outside the type that would have made the authoring mandatory.
 
+ⓘ **And it bypasses ONE of the two types, not both — a precision that matters
+because it shows the pattern working.** `fighter_moveset()` builds its capture half
+through `SmashCaptureRepertoire` (grab, pummel and forward throw mandatory there
+too) and hand-writes only the ATTACK verbs, then chains the two together. ⇒ **The
+half it took from a type is complete; the half it hand-wrote is the half with the
+hole.** That is the argument above, demonstrated inside a single fighter rather
+than across the roster.
+
 ⚠ **What the type does not give you**, so this is not read as more than it is: it
 guarantees each slot is FILLED, not that the slots hold DISTINCT moves. One
 `MoveSpec` bound into several slots satisfies the compiler and fails a player —

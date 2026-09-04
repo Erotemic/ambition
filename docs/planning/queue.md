@@ -824,16 +824,28 @@ queue read as an execution authority for work already done.
   NOT a fix.
   ⚠ **Not yet run.** Steps 1-4 are each verified by reading the code; the
   consequence in the arrow is predicted. Say so until a run says otherwise.
-  ⛔⛔ **AND THE BOSS ROAD HAS NO COVERAGE, WHICH IS WHY NOTHING CAUGHT IT.**
-  Traced 2026-09-03 after ToothbrushAmbition's fixture reached `Death` and NO
-  gauntlet dropped at all. `BossConfig.behavior` is filled only by
-  `BossBehaviorProfile::for_authored_boss(catalog, canonical_id)`
-  (`crates/ambition_boss_encounter/src/clusters.rs:280`), and `canonical_id`
-  comes from the brain or the name (`behavior.rs:174`). Their fixture's boss is
-  `gauntlet_boss`, which **appears zero times in
-  `game/ambition_content/assets/data/boss_profiles.ron`** — so it resolves to no
-  authored profile, `signature_gauntlet` is `None`, and `boss_hit.rs:301`'s
-  `if let (Some(gauntlet_id), Some(parent))` never fires. No drop, no warning.
+  ⛔⛔ **RETRACTED — "a harness-staged boss gets a profile-less config" is NOT
+  established and was my error.** I traced `BossConfig.behavior` correctly to
+  `for_authored_boss(catalog, canonical_id)`
+  (`crates/ambition_boss_encounter/src/clusters.rs:280`) and `canonical_id` to
+  `canonical_boss_id_from(&name, &brain)` (`behavior.rs:174`) — then applied it
+  to the wrong string. `gauntlet_boss` is the fixture's RUNTIME entity id, which
+  that function never reads; it resolves `PhaseScript { script_id }` to the
+  script id, and the fixture passes `mockingbird`, which IS an authored profile.
+  ⇒ The profile resolved. ToothbrushAmbition's log proves it independently: the
+  boss ran the mockingbird phase script (`None -> Intro`, `Some(Intro) ->
+  Phase1`), which a profile-less config could not do. ⚠ **Reading a step right
+  and feeding it the wrong input is not caught by re-reading the step.**
+
+  ⛔ **THE REAL COVERAGE FINDING, from their run:** every boss drop is spawned
+  inside `apply_boss_hit`'s `killed` branch, and `apply_boss_hit` has exactly one
+  call site — `apply_feature_hit_events`
+  (`crates/ambition_platformer2d_actor_monolith/src/features/ecs/damage/mod.rs:819`).
+  Writing HP to zero and calling `phase.kill()` never enters it. ⇒
+  **`force_kill_boss` cannot produce a single boss drop**, and its reward-chest
+  assertion passes because the chest arrives by a different road. Any
+  fighter-side test that reasons about boss rewards through `force_kill_boss` is
+  measuring a road that does not run.
   ⭐ **The mapping IS guarded and the ROAD is not.**
   `boss_signature_gauntlets_map_to_real_wielded_held_items`
   (`crates/ambition_platformer2d_actor_monolith/src/features/ecs/damage/tests.rs:989`)
@@ -842,10 +854,10 @@ queue read as an execution authority for work already done.
   boss test in the repo goes through `spawn_boss_at`. ⇒ A guarded data table
   plus a spawn road that never reads it: the same shape as the census above,
   where the assertion is right and the population never includes the case.
-  ⇒ Fixture fix is one word — name the boss `trex_boss` (`shockwave`),
-  `mockingbird` (`volley`), `smirking_behemoth_boss` (`beam`) or
-  `mode_collapse_boss` (`vortex`), all of which declare a gauntlet.
-  ⚠ Source reads, not a run.
+  ⓘ **Open and not chased:** a phase-scripted boss SURVIVED a single broadcast
+  `HitEvent` of 9,999 damage, advancing Intro → Phase1 instead of dying
+  (measured 2026-09-03). Iframes, per-hit clamping or phase gating — unresolved,
+  and it matters to the fighter more than to exploration.
 
   ⭐ **AND IT IS THE FIGHTER'S BEST REWARD.** `damage/boss_hit.rs:305` drops the
   boss's signature gauntlet through this exact function — the comment above it

@@ -1434,9 +1434,9 @@ geometry, and moving the tier by guesswork would leave a recorded number
 describing a stage that no longer exists while not actually resolving the
 collision. Answer this and the geometry and the re-run move together.
 
-## ⭐ THE SMASH FIGHTER: FOUR DECISIONS, ALL MEASURED (index, 2026-09-04)
+## ⭐ THE SMASH FIGHTER: FIVE DECISIONS, ALL MEASURED (index, 2026-09-04)
 
-Four fighter questions below, each carrying numbers and options rather than a
+Five fighter questions below, each carrying numbers and options rather than a
 shrug. ⇒ **They are independent — answering any one is useful — but two of them
 interact and it is worth knowing which:**
 

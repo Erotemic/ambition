@@ -1437,8 +1437,10 @@ collision. Answer this and the geometry and the re-run move together.
 ## ⭐ THE SMASH FIGHTER: FIVE DECISIONS, ALL MEASURED (index, 2026-09-04)
 
 Five fighter questions below, each carrying numbers and options rather than a
-shrug. ⇒ **They are independent — answering any one is useful — but two of them
-interact and it is worth knowing which:**
+shrug. ⇒ **Mostly independent — answering any one is useful — with ONE ORDERING that
+matters: 3 should be answered after 1**, because whether deleting `read_weight` is
+free or a behaviour change depends on which ladder authority survives. See the
+note under the table.
 
 | # | question | the measurement behind it | where |
 |---|---|---|---|

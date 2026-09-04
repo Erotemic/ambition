@@ -101,9 +101,7 @@ fn sim_sources(ws: &Workspace, cfg: &Config, scope: Scope) -> Vec<(String, Strin
             if cfg.non_sim_subpaths.iter().any(|skip| rel.contains(skip)) {
                 continue;
             }
-            let Ok(text) = std::fs::read_to_string(&path) else {
-                continue;
-            };
+            let text = crate::workspace::read_selected_source(&path);
             out.push((format!("{}/src/{rel}", root.path), text));
             contributed += 1;
         }

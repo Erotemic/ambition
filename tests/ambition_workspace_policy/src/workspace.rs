@@ -22,18 +22,46 @@ impl Workspace {
     /// root discovery so nothing reconstructs paths by prepending `crates/`.
     pub fn discover() -> Self {
         let start = Path::new(env!("CARGO_MANIFEST_DIR"));
+        // ⛔⛔ A MANIFEST WE COULD NOT READ IS NOT A MANIFEST WITHOUT
+        // `[workspace]`, and swallowing the difference makes this panic tell the
+        // reader something false about their repository.
+        //
+        // Measured 2026-09-04: under file-descriptor pressure every read here
+        // returned `Err(os error 24)`, the walk ran past the real root, and
+        // THIRTY policy tests failed claiming *"no ancestor Cargo.toml declares
+        // [workspace]"* — of a workspace whose root manifest declares it on line
+        // one. The reader's next move is to go looking for a manifest problem
+        // that does not exist.
+        //
+        // ⭐ THE RULE, and it is the reason this is worth ten lines: a scanner
+        // that treats "unreadable" as "absent" reports the ABSENCE OF WHAT IT
+        // WAS LOOKING FOR whenever the machine, not the code, is what went
+        // wrong — and absence is exactly the finding it exists to report. So
+        // every read failure here is surfaced with its own cause.
+        let mut unreadable: Vec<String> = Vec::new();
         for dir in start.ancestors() {
             let manifest = dir.join("Cargo.toml");
-            if manifest.is_file() {
-                if let Ok(text) = std::fs::read_to_string(&manifest) {
-                    if text.contains("[workspace]") {
-                        return Workspace {
-                            root: dir.to_path_buf(),
-                        };
-                    }
+            if !manifest.is_file() {
+                continue;
+            }
+            match std::fs::read_to_string(&manifest) {
+                Ok(text) if text.contains("[workspace]") => {
+                    return Workspace {
+                        root: dir.to_path_buf(),
+                    };
                 }
+                Ok(_) => {}
+                Err(error) => unreadable.push(format!("{}: {error}", manifest.display())),
             }
         }
+        assert!(
+            unreadable.is_empty(),
+            "could not READ {} manifest(s) while looking for the workspace root above {}, \
+             so this says nothing about whether one declares [workspace]: {}",
+            unreadable.len(),
+            start.display(),
+            unreadable.join("; "),
+        );
         panic!(
             "could not find the workspace root above {} — no ancestor Cargo.toml declares [workspace]",
             start.display()
@@ -62,10 +90,11 @@ impl Workspace {
         let mut names = BTreeSet::new();
         for dir in self.member_dirs() {
             let manifest = self.abs(&dir).join("Cargo.toml");
-            if let Ok(text) = std::fs::read_to_string(&manifest) {
-                if let Some(name) = package_name(&text) {
-                    names.insert(name);
-                }
+            // ⛔ NOT a tolerant read: this set is the AUTHORITY an owner name is
+            // checked against, so a manifest silently dropped here makes a real
+            // crate report as "not a workspace package".
+            if let Some(name) = package_name(&read_selected_source(&manifest)) {
+                names.insert(name);
             }
         }
         names
@@ -171,6 +200,36 @@ fn ambition_deps_of(manifest: &str) -> BTreeSet<String> {
 }
 
 /// Recursively collect `.rs` files under `dir`, skipping any `target` dir.
+/// Read a file this crate's own walk selected, refusing to confuse "unreadable"
+/// with "absent".
+///
+/// ⛔⛔ EVERY RULE IN THIS CRATE REPORTS AN ABSENCE — a missing owner, an
+/// unscanned root, a legacy function that is gone. So a scanner that treats a
+/// read error as an empty file reports exactly its own finding whenever the
+/// MACHINE went wrong instead of the code, and the message it prints is a
+/// confident statement about the repository that is not true.
+///
+/// Measured 2026-09-04 under file-descriptor pressure: thirty policy tests
+/// failed at once, each naming a repository fact that was false. Nothing in the
+/// output said "I could not read a file".
+///
+/// ⭐ There is no legitimate tolerant case here: the path came from this
+/// crate's own directory walk or from a policy that names it, so it exists and
+/// we are entitled to read it. A `deleted` file is `Err(NotFound)` and callers
+/// that genuinely allow deletion check for that themselves rather than dropping
+/// every error.
+pub fn read_selected_source(path: &Path) -> String {
+    match std::fs::read_to_string(path) {
+        Ok(text) => text,
+        Err(error) => panic!(
+            "could not read {} while scanning: {error}. This is an IO failure, \
+             NOT a finding about the repository — do not read any policy verdict \
+             from this run.",
+            path.display(),
+        ),
+    }
+}
+
 pub fn rust_sources_under(dir: &Path) -> Vec<PathBuf> {
     let mut files: Vec<PathBuf> = WalkDir::new(dir)
         .into_iter()

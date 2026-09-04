@@ -46,8 +46,20 @@ fn frozen_names(ws: &Workspace) -> BTreeSet<String> {
 
 fn legacy_fn_names(ws: &Workspace) -> BTreeSet<String> {
     let path = ws.abs(LEGACY_FILE);
-    let Ok(text) = std::fs::read_to_string(&path) else {
-        return BTreeSet::new(); // A deleted legacy file has no pending functions.
+    // ⭐ DELETION IS ALLOWED AND EVERY OTHER ERROR IS NOT. A deleted legacy
+    // file genuinely has no pending functions, which is the whole point of this
+    // matrix reaching zero — but an unreadable one would report the SAME empty
+    // set, so a permission or descriptor failure would read as "the migration is
+    // complete". Only `NotFound` is the finding.
+    let text = match std::fs::read_to_string(&path) {
+        Ok(text) => text,
+        Err(error) if error.kind() == std::io::ErrorKind::NotFound => return BTreeSet::new(),
+        Err(error) => panic!(
+            "could not read the legacy file {}: {error}. An unreadable file is not \
+             a deleted one, and this matrix would otherwise report the migration \
+             complete.",
+            path.display(),
+        ),
     };
     let mut out = BTreeSet::new();
     for line in text.lines() {

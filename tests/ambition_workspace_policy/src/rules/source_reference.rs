@@ -44,7 +44,7 @@ pub fn check(ws: &Workspace, policy: &Policy, report: &mut Report) {
             if policy.skip_tests && workspace::is_test_path(&rel) {
                 continue;
             }
-            let text = std::fs::read_to_string(&file).expect("read rust source");
+            let text = workspace::read_selected_source(&file);
             let scan: &str = if policy.production_only {
                 workspace::production_slice(&text)
             } else {

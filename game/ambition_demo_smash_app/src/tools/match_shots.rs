@@ -409,11 +409,14 @@ fn frame_note(app: &mut App) -> String {
         .world()
         .entity(observer)
         .get::<ambition_platformer2d::sim_view::camera_snapshot::ResolvedCameraSnapshot>()
-        .map(|resolved| {
-            (
-                resolved.snapshot.center_world,
-                resolved.snapshot.visible_view,
-            )
+        // ⛔ `and_then`, not `map`: a view that has not been FRAMED yet reports
+        // no frame at all now, rather than a `Default` one centred on the world
+        // origin. That default is what made a tick-3 check say both fighters
+        // were outside a 568x320 window when nothing was there to frame.
+        .and_then(|resolved| {
+            resolved
+                .frame()
+                .map(|frame| (frame.snapshot.center_world, frame.snapshot.visible_view))
         });
     let Some((centre, visible)) = camera else {
         return format!("t{tick} no camera");

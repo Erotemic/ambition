@@ -581,7 +581,10 @@ fn the_camera_closes_no_faster_than_it_opened() {
             world
                 .entity(observer)
                 .get::<ambition_platformer2d::sim_view::camera_snapshot::ResolvedCameraSnapshot>()
-                .map(|resolved| resolved.snapshot.visible_view)
+                // ⛔ `and_then`: an UNFRAMED view reports no frame at all now
+                // (`ResolvedCameraSnapshot` is an `Option` as of 2026-09-04), so
+                // the loop skips it instead of measuring a `Default` window.
+                .and_then(|resolved| resolved.frame().map(|f| f.snapshot.visible_view))
         };
         let Some(view) = view else { continue };
         if let Some(previous) = previous {
@@ -1041,7 +1044,17 @@ fn every_live_fighter_stays_inside_the_frame() {
             world
                 .entity(observer)
                 .get::<ambition_platformer2d::sim_view::camera_snapshot::ResolvedCameraSnapshot>()
-                .map(|resolved| {
+                // ⛔⛔ `and_then`, AND THIS IS THE FIX FOR THIS TEST'S OWN
+                // FAILURE. `ResolvedCameraSnapshot` is an `Option` as of
+                // 2026-09-04: a view nothing has framed reports NO frame rather
+                // than `Default`'s 568x320 window on the world origin. The tick-3
+                // failure this test kept producing — both fighters "outside a
+                // 568x320 frame centred (0,0)" while a probe found nothing at
+                // the origin — was that default being measured as if it were a
+                // real frame. An unframed tick is now skipped, which is what the
+                // `continue` below always meant to express.
+                .and_then(|resolved| {
+                    resolved.frame().map(|resolved| {
                     (
                         resolved.snapshot.center_world,
                         resolved.snapshot.visible_view,
@@ -1056,6 +1069,7 @@ fn every_live_fighter_stays_inside_the_frame() {
                         // rather than in the camera.
                         resolved.follow_world,
                     )
+                    })
                 })
         };
         let Some((center, visible, follow)) = view else {
@@ -1170,7 +1184,8 @@ fn the_framing_centre_absorbs_an_elimination_instead_of_cutting() {
             world
                 .entity(observer)
                 .get::<ambition_platformer2d::sim_view::camera_snapshot::ResolvedCameraSnapshot>()
-                .map(|resolved| resolved.snapshot.center_world)
+                // `and_then`: an unframed view has no centre — see above.
+                .and_then(|resolved| resolved.frame().map(|f| f.snapshot.center_world))
         };
         let Some(camera) = camera else { continue };
         // The cast's TRUE centre and population — the input the framing absorbs.

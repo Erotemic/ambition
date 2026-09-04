@@ -886,16 +886,47 @@ pub struct CameraPresentationInputs {
     pub chart_transit: Option<CameraChartTransit>,
 }
 
-/// Follow-camera observation resolved once per rendered frame.
+/// Follow-camera observation resolved once per rendered frame, **or `None` on a
+/// frame the cast could not be framed**.
 ///
 /// Presentation transforms copies of this state; simulation does not consume it.
+///
+/// ⛔⛔ THE `Option` IS THE POINT, AND IT REPLACES A DEFAULT THAT WAS A LIE.
+/// This component is inserted at view spawn so a reader never sees a view whose
+/// state is missing — and its `Default` used to be a full, plausible frame:
+/// `center_world: ZERO` with `default_base_view()`'s real dimensions. Meanwhile
+/// the resolver honours its own contract by RETURNING rather than inventing an
+/// origin when the cast is unresolvable.
+///
+/// ⇒ Two individually correct decisions composed into the behaviour the contract
+/// forbids: a reader got a snapshot that was syntactically present and
+/// semantically a world-origin fallback nobody wrote. Measured 2026-09-04 —
+/// a smash frame check reported both fighters "132 units outside a 568x320 frame
+/// centred (0,0)" on tick 3, and a probe found NOTHING in the world at the
+/// origin on any tick. The frame was `Default`, verbatim, dimensions and all.
+///
+/// ⭐ So absence is representable now and the compiler asks every reader about
+/// it. `decomposition.md`'s rule in one line: **a default that is a plausible
+/// member of the value space it replaces turns a composition error into a silent
+/// measurement error.**
 #[derive(bevy::prelude::Component, Clone, Debug, Default)]
-pub struct ResolvedCameraSnapshot {
+pub struct ResolvedCameraSnapshot(pub Option<ResolvedCameraFrame>);
+
+/// The frame itself — only ever constructed by the resolver.
+#[derive(Clone, Debug)]
+pub struct ResolvedCameraFrame {
     pub snapshot: CameraSnapshot2d,
     /// World-frame position of the followed body (the controlled subject)
     /// this tick — the un-eased follow point presentation adapters (portal
     /// continuity) key their offsets from.
     pub follow_world: ae::Vec2,
+}
+
+impl ResolvedCameraSnapshot {
+    /// The frame, if this view has been framed at all.
+    pub fn frame(&self) -> Option<&ResolvedCameraFrame> {
+        self.0.as_ref()
+    }
 }
 
 /// Resolve the follow camera for this frame; this is the sole writer of [`CameraEaseState`].
@@ -1564,10 +1595,10 @@ pub fn resolve_camera_observation(
             },
             Some(&mut *camera_state),
         );
-        *resolved = ResolvedCameraSnapshot {
+        *resolved = ResolvedCameraSnapshot(Some(ResolvedCameraFrame {
             snapshot,
             follow_world,
-        };
+        }));
     }
 }
 

@@ -87,7 +87,12 @@ pub fn publish_portal_camera_clamp(
                 // Already crossing: keep the roll adopted when it began.
                 Some(active) => active.observer_roll_at_entry,
                 // Rising edge: THIS view's last resolved roll is its base roll.
-                None => resolved.snapshot.rotation_radians,
+                // ⚠ An UNFRAMED view has no roll to adopt — zero is the honest
+                // answer for a view nothing has framed yet, and it is stated
+                // rather than reached through a `Default` frame.
+                None => resolved
+                    .frame()
+                    .map_or(0.0, |frame| frame.snapshot.rotation_radians),
             },
         });
     }
@@ -154,12 +159,18 @@ pub fn camera_follow(
             );
             continue;
         };
+        // ⛔ A VIEW THAT HAS NOT BEEN FRAMED IS NOT PRESENTED. Before the
+        // `Option` (2026-09-04) this read a `Default` frame — a real-looking
+        // 568x320 window on the world origin — and moved the camera there.
+        let Some(frame) = resolved.frame() else {
+            continue;
+        };
         // Presentation deltas apply to a COPY — the sim's resolved snapshot is
         // read-only here.
         #[cfg_attr(not(feature = "portal_render"), allow(unused_mut))]
-        let mut snapshot = resolved.snapshot.clone();
+        let mut snapshot = frame.snapshot.clone();
         #[cfg(feature = "portal_render")]
-        let follow_world = resolved.follow_world;
+        let follow_world = frame.follow_world;
 
         #[cfg(not(feature = "portal_render"))]
         {
@@ -267,15 +278,17 @@ mod two_views_one_simulation_tests {
             .spawn((
                 LocalView,
                 LocalViewId(id),
-                ResolvedCameraSnapshot {
-                    snapshot: CameraSnapshot2d {
-                        center_world: center,
-                        unpadded_center_world: center,
-                        orthographic_scale: ortho,
-                        ..Default::default()
+                ResolvedCameraSnapshot(Some(
+                    ambition_sim_view::camera_snapshot::ResolvedCameraFrame {
+                        snapshot: CameraSnapshot2d {
+                            center_world: center,
+                            unpadded_center_world: center,
+                            orthographic_scale: ortho,
+                            ..Default::default()
+                        },
+                        follow_world: center,
                     },
-                    follow_world: center,
-                },
+                )),
                 CameraPresentationInputs::default(),
                 CameraViewState::default(),
             ))

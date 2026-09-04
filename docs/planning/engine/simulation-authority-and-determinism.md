@@ -300,7 +300,8 @@ the difference cost a real defect (2026-09-04, yardrat).** The census's
 `populate()` spawns five things — a sentry, a vortex well, a temporary gravity
 well, a falling hazard and a portal shot — and **no `GroundItem` at all**. A
 `GroundItem` *is* a rollback anchor (`ambition_held_items/src/lib.rs:1162`, and
-the monolith's `rollback_registration.rs:304` says so again), and
+`crates/ambition_platformer2d_actor_monolith/src/rollback_registration.rs:304`
+says so again), and
 `drop_held_weapon` was spawning one with provenance and no `SimId` on every
 death of a body holding a weapon — every boss's signature gauntlet included. The
 census was green because that class was outside what it populates, not because

@@ -65,7 +65,12 @@ actual product requirement.
   [`engine/item-custody-and-accounting.md`](engine/item-custody-and-accounting.md).
 - ▢ **Capability progression/world gating.** Physical verbs remain body-owned;
   knowledge/keys/theorems remain participant-owned. Grow the authoring vocabulary
-  only from concrete progression needs. Owner:
+  only from concrete progression needs. ⭐ **The first slice landed 2026-09-04:**
+  an authored `gated_by` is a condition LINE, so a route may ask any published
+  condition (`inventory.holds axe`) instead of only `world.flag_set`, and
+  `body.can(verb)` publishes the body-capability family against `AbilitySet`.
+  ⇒ The next concrete gap is a body-PROPERTY condition (mass, standing height);
+  the field can already name it. Owner:
   [`engine/capability-progression-and-world-gating.md`](engine/capability-progression-and-world-gating.md).
 - ▢ **Platformer navigation/reachability.** Keep the broad navigation program;
   do not reinterpret the confirmed fighter L6 rollout regression as proof that

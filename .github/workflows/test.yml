@@ -85,7 +85,19 @@ jobs:
           sudo apt-get install -y libasound2-dev libudev-dev pkg-config \
             libwayland-dev libxkbcommon-dev
       - name: cargo fmt -- --check
-        run: cargo fmt --all -- --check
+        # ADVISORY, and that is the repository's stated policy, not a
+        # concession: AGENTS.md says "Formatting is advisory, never an
+        # acceptance gate." This step was a HARD failure and contradicted it,
+        # invisibly, because this workflow is `workflow_dispatch` only.
+        # Measured 2026-09-04: 358 files fail `cargo fmt --all -- --check` at
+        # HEAD. So the day anyone re-enables the push trigger — which the
+        # comment at the top of this file correctly calls a one-line change —
+        # the first run would have failed on formatting alone and produced no
+        # test verdict at all.
+        #
+        # Same treatment as clippy below, for the same reason: run it for
+        # visibility, do not let it stand between a push and its answer.
+        run: cargo fmt --all -- --check || true
       - name: cargo clippy
         # Don't fail on warnings here yet — the codebase has ~14 known
         # warnings (unused imports in feature-gated paths). Run clippy

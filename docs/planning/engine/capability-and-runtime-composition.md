@@ -15,6 +15,37 @@ the capability can be INSTALLED alone.
 
 Make engine composition reflect what a game actually chooses to use.
 
+## The first measured baseline for this goal (2026-09-04)
+
+⭐ **ONE RUNTIME FILE INITIALISES 40 RESOURCES BELONGING TO 14 OTHER CRATES.**
+`crates/ambition_platformer2d_runtime/src/sim_core_resources.rs` calls
+`init_resource` forty times, and `lib.rs` adds fifty-two plugins. That is the
+runtime acting as the semantic owner of every capability's state — the failure
+mode [`decomposition.md`](decomposition.md) names — rather than as the provider
+of schedules and lifecycle seams.
+
+⛔ **AND TEN OF THE FOURTEEN OWNING CRATES CONTAIN NO `impl Plugin` AT ALL:**
+`ambition_boss_encounter`, `ambition_combat`, `ambition_encounter`,
+`ambition_gameplay_trace`, `ambition_input`, `ambition_items`,
+`ambition_persistence`, `ambition_platformer2d_core`,
+`ambition_platformer2d_world`, `ambition_projectiles`. They have no way to
+install themselves, so the runtime has to. ⇒ *"Capabilities register themselves
+against stable seams"* is not one edit away from any of them; it is this
+program's work, and this is its size.
+
+⚠ **AND AUTHORITY STILL COMES FIRST, demonstrated by the cheapest-looking
+candidate.** Projectiles read like a clean first move — one resource
+(`ProjectileSeqCounter`), a named reusable capability. But
+`runtime/src/projectile_schedule.rs` is seventeen lines of RE-EXPORTS whose
+steppers live in `actor_monolith::projectile`, because they still touch
+un-carved actor/player/boss/world state. A projectile plugin today would own a
+counter and none of its systems. ⇒ Pick the first capability to self-install by
+where its SYSTEMS already live, not by how few resources it has.
+
+⚠ Not a crate classification and not a carve list: some of the fourteen are
+foundation (`ambition_time`, `ambition_platformer2d_core`) where central
+initialisation is appropriate. The number is the baseline, not the target.
+
 A consumer building a small platformer should not inherit portal rendering, boss
 orchestration, networking integration, persistence, debug presentation or
 Ambition-only content merely because a broad historical crate sits in the middle

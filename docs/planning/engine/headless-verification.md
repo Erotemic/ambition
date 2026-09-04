@@ -210,6 +210,28 @@ skips — `avatar::trail.rs` is the pattern — because registering render asset
 one at a time into a headless app is fitting the app to the test. See B3 in
 [`project-build-and-distribution.md`](project-build-and-distribution.md).
 
+⛔⛔ **AND IT RECURRED IN A CRATE THAT DID NOT EXIST WHEN THIS WAS WRITTEN —
+2026-09-04, `ambition_sprite_fx::draw_sprite_effects`, which was every one of the
+workspace feature union's 40 failures against 7,072 passes.** So this is a class
+that arrives with each new render-adjacent crate rather than a bug that was
+fixed. Fixed at `52666d1c7` with the same per-resource guards.
+
+⭐ **The new half, and it is what made this one survive review of its own
+plugin:** the plugin ALREADY had a guard, and the guard read like the right one.
+`SpriteFxPlugin` returns early when there is no `EmbeddedAssetRegistry` — which
+answers *"is there an `AssetPlugin`"*, and a headless demo HAS one. What it lacks
+is a render stack. ⇒ **A prerequisite check must name the RESOURCE the system
+demands, never a proxy for the subsystem it belongs to**, because the proxy is
+true in exactly the composition that fails.
+
+⚠ The complete-set question is worth asking once per system rather than fixing
+one guard at a time: read the signature and count the parameters that can fail
+validation. `draw_sprite_effects` takes four `Assets<..>` and nothing else that
+can — three guarded, the fourth initialised by `Material2dPlugin` in the same
+`build`, which is why guarding it would be a condition the plugin makes true
+itself. That settles it; the 2026-09-02 case above could not be settled that way
+because its three hid across different systems.
+
 ## Pointers
 
 - **`crates/ambition_sim_harness/`** owns the reusable headless surface:

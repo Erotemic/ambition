@@ -722,6 +722,19 @@ to `george_booul_moveset()`'s **26**.
 resolved to no move, which is not a weak special, it is silence. Same for the
 forward tilt and the dash attack.
 
+⭐⭐ **AND HERE IS WHY NOBODY CAUGHT IT: the guards that exist ask whether a
+fighter can HIT, not whether it has a KIT.** `every_fighter_on_the_smash_grid_can_throw_a_punch`
+and `the_match_gives_every_seat_a_kit_that_can_hit` (`game/ambition_app/tests/smash_roster_movesets.rs`)
+are both satisfied by a contract binding 18 verbs — a jab alone passes them. ⇒
+They are good guards for the question they ask; **the roster gap lived in the
+space between "can act" and "has the vocabulary the genre expects", and nothing
+asked the second question.**
+
+⚠ That is not an argument for a "every fighter binds all 26 verbs" assertion,
+which would be wrong: a roster of deliberately simple characters is a legitimate
+design. ⇒ It is an argument that **the count belongs somewhere a reader meets it**
+— which is why it is in this table now rather than in a test.
+
 ⚠ **And the dash attack shows why a capability table can be true and still
 mislead.** The engine row above says *"Directional attacks, smashes, and dash
 attack selection"* against `trigger_moveset_moves` — accurate about the ENGINE,

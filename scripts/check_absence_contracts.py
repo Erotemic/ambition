@@ -38,7 +38,7 @@ from pathlib import Path
 ABSENCE_CONTRACTS: list[dict] = [
     {
         "id": "a-production-condition-states-why-it-said-no",
-        "paths": ["crates/*/src", "game/*/src", "examples/*/src"],
+        "paths": ["crates/", "game/", "examples/"],
         "patterns": [
             {
                 "grep": r"from_bool_unexplained",

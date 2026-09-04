@@ -370,6 +370,21 @@ Do not promote these until the trigger exists:
 - Dormant `GravityFlipSwitch` cluster — delete the unused actor/render/rollback
   path unless a real authored overlap-plate customer appears; keep the live LDtk
   switch/action path as the gravity-switch authority.
+- Dormant `GatePortalRegistry` cluster — **the same shape, measured 2026-09-04**:
+  ~710 lines across `platformer2d_world/src/rooms/gate_portal.rs` and
+  `ambition_render/src/rendering/gate_portal_visuals.rs`, plus a rollback name
+  (`resource.gate_portal_phases`), three reader systems and an `init_resource`
+  — and **no production producer on any road**. The only `register` call is a
+  render test (`rendering/deferred_write_safety.rs:179`); nothing constructs a
+  `GatePortalConfig` in production; zero `GatePortal` entities in all four
+  authored worlds. ⚠ The authoring VOCABULARY exists and the runtime READER
+  exists; the road between them does not — a different situation from
+  `GravityFlipSwitch`'s unused path, and why this is a trigger row rather than a
+  deletion. ⛔ Do not delete on this evidence alone: it carries a rollback
+  schema name, so removing it moves the wire format, and the reason nothing
+  authors one may be that the story content it was built for has not shipped.
+  Reopen when a real authored gate-portal customer appears, or when Jon rules the
+  feature dead.
 - Provider-owned persistence/item identities — extract Ambition-specific save or
   item vocabulary only when a second real provider needs to own that domain.
 - Test execution parallelism — re-measure only if execution, rather than

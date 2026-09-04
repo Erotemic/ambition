@@ -3347,9 +3347,30 @@ OPTIONAL dep + feature, never used:
   `require_non_empty` and **deliberately does not take `classify`**, saying why
   in place — *"NO `PartialEq`, AND THEREFORE NO `ambition_registry_core::classify`"*
   — which is exactly the opt-out the crate's own docs prescribe for a registry
-  whose policy differs. ⇒ Four consumers now, not two. ⚠ The SECOND half of R4 is
-  untouched: the seven silent-overwrite registries still have to say "replace" in
-  place, and that is what remains of this row. The
+  whose policy differs. ⇒ Four consumers now, not two.
+  ✔ **AND R4's SECOND HALF IS ANSWERED TOO — by this row's own design doc, which
+  had already ruled on all seven (`triage/ambition-registry-core.md`, "The '7
+  silent overwrite' registries: at most 2 are accidents").** Four state the
+  replace in place (`ParamSchemaRegistry`, `EncounterRegistry`,
+  `MovePrefabRegistry`, `FrontendAudioRegistry`), one is a test hatch
+  (`PreparedCharacterRegistry::insert_prepared`). So the row was asking for work
+  that had already been done and written down.
+  ⭐ **Of the two the doc left open, ONE IS MOOT: `GatePortalRegistry` HAS NO
+  PRODUCTION PRODUCER AT ALL.** Measured 2026-09-04 across every road: the only
+  call to `register` is in a render test
+  (`rendering/deferred_write_safety.rs:179`); nothing constructs a
+  `GatePortalConfig` in production; no LDtk world contains a `GatePortal` entity
+  (0 in all four `ambition_content` worlds); no lowering names one. The two
+  non-code hits are a PROP's art kind in an authoring spec
+  (`tools/ambition_ldtk_tools/specs/gate_stack_lower_area.ron:208`, `type:
+  "Prop"`) and a sprite-name list in a doc comment — neither reaches the
+  registry. A registry nothing registers into cannot overwrite anything.
+  ⇒ **`CombatBanterRegistry` is the only live question**, and it does have a
+  production producer (`game/ambition_content/src/dialogue/mod.rs:44`): should a
+  second bark set for one enemy replace the first or conflict? That is one
+  sentence for whoever owns conversation content, not a migration.
+  ⚠ The dormant gate-portal cluster the measurement turned up is its own item —
+  see `tracks.md`. The
   inventory row that preceded it, kept for the record:
   **INVENTORY THE 31 REGISTRIES BEFORE DESIGNING `ambition_registry_core`.**
   (Scheduled 2026-09-02.) 27 became 31 in six weeks; the only registry-shaped

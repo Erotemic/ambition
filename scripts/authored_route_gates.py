@@ -33,6 +33,52 @@ import sys
 from collections import Counter
 
 
+def published_conditions() -> list[str]:
+    """Every `domain.question` a crate publishes, DERIVED from the source.
+
+    ⛔⛔ THIS WAS A HAND-KEPT LIST AND IT WAS WRONG TWICE WITHIN ONE DAY. It held
+    seven ids when written on 2026-09-04 and was stale by that evening
+    (`boss.cleared`, `quest.active` shipped hours later); and it listed
+    `held.is_held`, **which does not exist** — `ambition_held_items` declares
+    `DOMAIN = "custody"`, so the id is `custody.is_held`. ⇒ A census whose own
+    vocabulary is wrong reports a condition nobody published as unauthored and
+    misses the ones that are.
+
+    Derived from the two lines every provider carries in one file:
+    `pub const DOMAIN: &str = "<domain>";` and `ConditionId::new(DOMAIN, "<q>")`.
+
+    ⚠ A provider spelling its id another way is invisible to this, so an empty
+    result is REFUSED rather than reported — zero would be a finding the script
+    invented about the repository.
+    """
+    ids: list[str] = []
+    found = subprocess.run(
+        # ⚠ `--untracked`, MEASURED: a provider added but not yet `git add`ed is
+        # invisible to a bare `git grep`, so this silently under-reported a new
+        # condition during the very session that added two. Poison-verified by
+        # writing an untracked probe provider and watching the derived list NOT
+        # grow.
+        ["git", "grep", "-l", "--untracked", "ConditionId::new(DOMAIN,", "--", "crates", "game"],
+        capture_output=True,
+        text=True,
+        check=False,
+    ).stdout.split()
+    for path in found:
+        text = open(path, encoding="utf-8", errors="replace").read()
+        domain = re.search(r'pub const DOMAIN: &str = "([^"]+)"', text)
+        if not domain:
+            continue
+        for question in re.findall(r'ConditionId::new\(DOMAIN, "([^"]+)"\)', text):
+            ids.append(f"{domain.group(1)}.{question}")
+    if not ids:
+        raise SystemExit(
+            "no published conditions found: the `pub const DOMAIN` / "
+            "`ConditionId::new(DOMAIN, ..)` shape this derivation reads has "
+            "changed. Reporting zero here would be a finding the script invented."
+        )
+    return sorted(set(ids))
+
+
 #: Yarn functions bound to a published condition under a different name.
 #: Authored content reaches the same condition through these, so a census that
 #: counts only `condition(id, arg)` under-reports the vocabulary's real use.
@@ -129,22 +175,7 @@ def main() -> int:
         f"\nTOTAL authored uses of the condition vocabulary: {len(gated) + len(calls)}"
         f"  ({len(gated)} route gates + {len(calls)} dialogue lines)"
     )
-    # ⚠ HAND-KEPT, AND IT WENT STALE THE SAME DAY IT WAS WRITTEN. Seven when this
-    # script landed on 2026-09-04; `boss.cleared` and `quest.active` were
-    # published hours later and the list under-reported until someone noticed.
-    # ⇒ Re-derive it rather than trusting this:
-    #     git grep -rn 'publish_condition' -- crates game | grep -v tests
-    published = [
-        "world.flag_set",
-        "world.switch_on",
-        "inventory.holds",
-        "held.is_held",
-        "body.can",
-        "body.fits",
-        "encounter.cleared",
-        "boss.cleared",
-        "quest.active",
-    ]
+    published = published_conditions()
     used = set(conditions) | set(by_id)
     unused = [c for c in published if c not in used]
     if unused:

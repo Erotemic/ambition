@@ -252,6 +252,11 @@
 > published but authored NOWHERE: 5 of 9
 > ```
 >
+> ⚠ **AND THE FIFTH IS `custody.is_held`, NOT `held.is_held`** — the id this
+> page and its siblings spelled by hand for a day. `ambition_held_items` declares
+> `DOMAIN = "custody"`, so the hand-written spelling names a condition nobody
+> published. Found by deriving the list from the source instead of keeping it.
+>
 > ⛔ **THOSE FIGURES WERE 12 / 5-of-7 UNTIL THE SCRIPT LEARNED THE SECOND
 > SPELLING.** A condition is reachable from `.yarn` two ways — the generic
 > `condition(id, arg)` verb and a NAMED function bound to it (`boss_cleared`,

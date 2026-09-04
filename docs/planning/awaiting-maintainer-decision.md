@@ -1286,6 +1286,49 @@ does mean the pacing complaints and the roster question may be one question.
 to the two Robots, so every number in `fighter-brain.md` describes the thin
 fighters and not the authored one.
 
+## `read_weight` is authored on all nine rungs and does nothing — wire it up, or delete it?
+
+⭐ **The measurement, and it is not a judgement call.** `read_weight` rises 0.0 →
+0.9 across the shipped `fighter_brain_ladder.ron` and reads like one of the
+ladder's five difficulty axes. It has two consumers:
+`HabitModel::read_bonus`, which has **no production callers at all**, and
+`habits.read(situation)` inside `refine_by_rollout` — which returns immediately
+unless `rollout_depth > 0 && rollout_k > 0`, and the shipped rows set both to zero
+everywhere.
+
+⇒ **So no fighter has ever used it.** Confirmed three ways: the source chain, the
+absent caller, and a rig arm with rung 5's `read_weight` zeroed that came back
+**byte-identical** to its control. See
+[`engine/fighter-brain.md`](engine/fighter-brain.md).
+
+⛔ **It is not inert-and-free.** `habits.observe` runs on every decision and the
+habit model is written into **every rollback snapshot**. The game pays to
+maintain an opponent model that nothing reads.
+
+⇒ **Two fixes, and which one is right is yours because it is a question about what
+the ladder is FOR:**
+
+- **(a) Wire it into L2.** `read_bonus` already exists and does the obvious thing
+  — shade a choice's score by `read_weight × (frequency − uniform)`. Calling it
+  from the L2 scorer would make opponent-modelling a real difficulty axis at
+  every rung, independent of the rollout. ⚠ This CHANGES how every CPU above
+  level 3 plays, and it is the largest behavioural change anyone has proposed to
+  the fighter.
+- **(b) Delete it.** Drop the field, the nine authored values, the `observe` call
+  and the snapshot rows. The ladder keeps four honest knobs instead of five, and
+  the rollback snapshot gets smaller. ⚠ This gives up an axis the ladder was
+  clearly designed around — the rows were tuned as though it worked.
+
+⚠ **What I am NOT asking**: how strong the reads should be. If (a), I can wire it
+and measure the ladder before and after; the rig can now do that properly.
+
+⭐ **One thing that should inform it.** The `.ron`'s comment keeps the rollout
+fields zero *"until rollout fidelity is good enough to enable them without
+changing lower-level behavior."* ⇒ Zeroing them already changed lower-level
+behaviour — it switched off the entire read system — so the precaution caused
+what it was guarding against. Option (a) is also the one that makes that comment
+true again, because it moves reads out from behind the rollout.
+
 ## Waiting on maintainer measurement, not a decision
 
 ### The residency limit open work 4 needs

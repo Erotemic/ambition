@@ -234,9 +234,16 @@ mod tests {
     /// ⭐⭐ A RESIMULATED TICK RE-MINTS THE SAME ID — the half of that claim that
     /// can be proved without a rollback session, proved.
     ///
-    /// ✔✔ **AND LEG (b) IS NOW MEASURED TOO, by somebody else's poison** — a
-    /// process-global drift term added to `next()` reds the populated timeline
-    /// with `GGRS sync-test checksum mismatch at frames [2..7]`. ⇒ So `SimId` is
+    /// ✔✔ **AND LEG (b) WAS ALREADY MEASURED — see
+    /// `docs/planning/engine/simulation-authority-and-determinism.md:189`**,
+    /// which recorded on 2026-09-02 that minting from a process-global counter
+    /// instead of the spawner's `SimIdCounter` desyncs the session at frame 2.
+    /// ⚠ **Cite that, not the re-derivation.** A second poison on 2026-09-04 — at
+    /// a different site, `next()` itself rather than the mint call — reached the
+    /// same verdict at frame 9, which makes them two independent instruments
+    /// rather than one result quoted twice. But it cost a near-total rebuild to
+    /// learn something the owner doc already held, and **re-reading an open row
+    /// beats building.** ⇒ So `SimId` is
     /// genuinely IN the session checksum and an unstable mint is genuinely SEEN,
     /// which `rollback_component_canonical` alone could not have established —
     /// this repo already records that **REGISTERED ≠ CHECKSUMMED**, and that a

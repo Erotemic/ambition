@@ -483,7 +483,20 @@ filesystem**, and `/home/agent/.cache/ambition-targets` is **187G of a 290G root
 
 ⇒ **That explains every symptom at once**: `df .` answers for virtiofs and says
 188G because those are the HOST's numbers; `df target` answers for `/dev/vda1` and
-says the truth. A write into `target/` lands on the full disk while the number a
+says the truth.
+
+⭐ **SO THE ONE-LINE DIAGNOSTIC IS `df -h target`, NOT `df -h .`** — it resolves
+through the bind mount to the volume a build actually writes to, and needs no
+reasoning about which filesystem carries `/tmp`. ⓘ [`status.md`](status.md)
+already carries the mechanism and warns that `df` lies on the worktree, and its
+own advice is *"run `scripts/setup/target_bindmount.sh --status` and `df -h .`"* —
+the first is right and the second is the misleading half. ⚠ Reported rather than
+edited: that page is the other session's.
+
+✔ **And the repo's own guard was already correct** — `check_disk_headroom.py`
+measures `free_gb_on_target()`, i.e. the TARGET directory, not the cwd. ⇒ The
+ENOSPC in this session came from invoking `cargo` directly rather than through the
+lane that consults it, which is a fact about how I ran it, not about the guard. A write into `target/` lands on the full disk while the number a
 reader checks describes the other one. ⭐ **And it means the sanctioned reclaim
 under `target/` frees ROOT space directly** — the ~116G is not merely tidying a
 worktree, it is the fix for this volume.

@@ -1276,3 +1276,89 @@ fn the_shadow_models_exactly_these_movement_verbs() {
          the body does — `Hold` for an air dodge would be a lie in one direction."
     );
 }
+
+/// ⛔⛔ `read_weight` CANNOT REACH A FIGHTER THE SHIPPED LADDER CONFIGURES —
+/// the defect, pinned where an engineer meets it instead of only in a doc.
+///
+/// `read_weight` is authored on all nine rungs of
+/// `game/ambition_content/assets/data/fighter_brain_ladder.ron`, rising 0.0 →
+/// 0.9, and it reads like one of the ladder's main difficulty axes. It has two
+/// consumers: `HabitModel::read_bonus`, which nothing in production calls, and
+/// `habits.read(situation)` inside this function — **behind
+/// `uses_rollouts()`**. Those same nine rows set `rollout_depth: 0` and
+/// `rollout_k: 0`. ⇒ So no shipped fighter has ever been affected by it.
+///
+/// ⚠ **THIS TEST IS NOT A REQUEST TO KEEP IT THAT WAY.** It is a characterisation:
+/// it records what is true today so the situation cannot change silently. Wiring
+/// `read_bonus` into the L2 scorer is one of the two options in
+/// `docs/planning/awaiting-maintainer-decision.md`, and doing so SHOULD redden
+/// this — at which point delete it and update that entry, because the fact it
+/// records will no longer be a fact.
+///
+/// ⭐ Found by a rig arm that came back BYTE-IDENTICAL to its control after
+/// zeroing rung 5's `read_weight`. A change that produces an identical file is
+/// not a null result, it is a wiring result — and it is only visible if you diff
+/// the whole output instead of reading the verdict line.
+#[test]
+fn read_weight_changes_nothing_while_the_shipped_rows_disable_the_rollout() {
+    let view = view_with(300.0, 380.0); // gap 80, the same fixture the marquee rollout test uses
+    let options = OptionSet {
+        movement: Vec::new(),
+        attacks: vec![attack("jab", frames(0.08, 40.0, 4, 0.0))],
+    };
+
+    // The shipped rows, on every rung: both rollout fields zero.
+    let shipped = |read_weight: f32| profile(0, 0, read_weight);
+
+    // ⛔ The habit model is POPULATED, so this is not passing because there is
+    // nothing to read. Production populates it the same way, every decision.
+    let mut habits = HabitModel::new(0.9);
+    for _ in 0..8 {
+        habits.observe(Situation::Neutral, Choice::Attack);
+    }
+    assert!(
+        !habits.is_empty(),
+        "the fixture must have habits to read, or this test proves nothing"
+    );
+
+    for read_weight in [0.0, 0.2, 0.5, 0.9] {
+        let refined = refine_by_rollout(
+            Perceived::cheating(&view),
+            Situation::Neutral,
+            &options,
+            &habits,
+            &shipped(read_weight),
+            &ShadowTuning::default(),
+            60.0,
+            6,
+            None,
+        );
+        assert!(
+            refined.is_none(),
+            "with the shipped rollout settings, read_weight = {read_weight} \
+             produced a refinement — the knob has become live, which is a GOOD \
+             change and makes this characterisation test wrong. Delete it and \
+             update awaiting-maintainer-decision.md."
+        );
+    }
+
+    // ⭐ And the same fixture WITH rollouts on does refine, so the `None`s above
+    // are the gate and not a broken fixture. Without this line the test would
+    // pass just as well against a `refine_by_rollout` that never returns `Some`.
+    let live = refine_by_rollout(
+        Perceived::cheating(&view),
+        Situation::Neutral,
+        &options,
+        &habits,
+        &profile(4, 12, 0.9),
+        &ShadowTuning::default(),
+        60.0,
+        6,
+        None,
+    );
+    assert!(
+        live.is_some(),
+        "the fixture cannot refine even with rollouts ON, so the assertions \
+         above were measuring a broken fixture rather than the gate"
+    );
+}

@@ -900,9 +900,16 @@ IS ANSWERED BY THE TYPE, 2026-09-04.** `SmashRepertoire` has **nineteen** fields
 and **zero** are `Option`: jab, three tilts, three smashes, five aerials, four
 specials, capture, taunt, dash attack. ⇒ **A fighter built through
 `into_contract()` cannot have a partial kit — the struct literal will not compile
-without every slot.** And every authored moveset reaches that constructor:
-fourteen call it directly; medic, performer, author and officer are
-`under_own_name(<a repertoire-built moveset>, ..)` with one slot swapped.
+without every slot.** And every moveset of a **smash-seatable** fighter reaches
+that constructor: fourteen files call it directly; medic, performer, author and
+officer are `under_own_name(<a repertoire-built moveset>, ..)` with one slot
+swapped.
+
+⛔ **That scope word is load-bearing.** `theorem_chain_moveset` binds **one verb**
+and no repertoire — it is Robot **v2's**, for the duel arena, and
+`player_robot_v2` is not in `SMASH_ROSTER`. ⇒ The guarantee is a property of this
+grid's roster, not of the codebase: a one-verb contract is legitimate for a
+character in another mode.
 
 ⛔ **So the gap is one contract, not a roster.** `fighter_moveset()` is the only
 moveset in this demo that bypasses the repertoire and hand-builds a verb list —

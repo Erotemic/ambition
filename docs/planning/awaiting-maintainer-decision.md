@@ -1686,12 +1686,26 @@ three tilts, three smashes, five aerials, four specials, capture, taunt and dash
 attack. ⇒ **A fighter built through `SmashRepertoire::into_contract()` cannot have
 a partial kit — the struct literal will not compile without every slot.**
 
-⭐ **And every authored moveset reaches that constructor.** All nineteen in
-`ambition_content` either call `into_contract()` directly (fourteen) or are
-`archetype_moveset::under_own_name(<a repertoire-built moveset>, ..)` with one
-slot swapped by `special_slots::replace_special` (medic, performer, author and
-officer, from the pugnacious/pointed polygon bases). ⇒ **So the composed grid's
-fighters have full kits by construction.**
+⭐ **And every moveset of a SMASH-SEATABLE fighter reaches that constructor.**
+Fourteen files call `into_contract()` directly, and medic, performer, author and
+officer are `archetype_moveset::under_own_name(<a repertoire-built moveset>, ..)`
+with one slot swapped by `special_slots::replace_special`. ⇒ **So the composed
+grid's fighters have full kits by construction.**
+
+⛔ **THE SCOPE WORD IS LOAD-BEARING AND I HAD IT WRONG FIRST.** An earlier draft
+said *every authored moveset in `ambition_content`*, and that is false:
+`theorem_chain_moveset` binds **one verb** (`special` → `theorem_chain`) with no
+repertoire at all. ⇒ It is **Robot v2's**, for the duel arena — *"the duel arena
+fields Robot v2 against the PCA, and v3 carries the platform-fighter table
+instead"* — and `player_robot_v2` is **not in `SMASH_ROSTER`**, so it is not
+seatable here. ⚠ Found by my own arithmetic not adding up (14 + 4 = 18, not 19)
+and chased to a file holding **two** moveset functions, which is why a per-FILE
+count read as a per-FUNCTION one.
+
+⇒ **What that exception actually teaches: the repertoire is a SMASH convention,
+not a universal one.** A one-verb contract is perfectly legitimate for a character
+in another mode, so the guarantee above is a property of *this grid's* roster and
+not of the codebase.
 
 ⛔ **Which relocates the gap precisely: `fighter_moveset()` — the stand-in table —
 is the ONLY moveset in the demo that does not go through the repertoire.** It

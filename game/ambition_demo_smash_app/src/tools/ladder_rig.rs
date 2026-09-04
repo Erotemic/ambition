@@ -301,6 +301,21 @@ fn args() -> &'static LadderRigArgs {
 pub fn run(cli: LadderRigArgs) {
     let _ = ARGS.set(cli);
     let seeds = seed_count();
+
+    // ⭐⭐ THE HEADER IS PRINTED ONCE, HERE, BEFORE THE MODE IS CHOSEN — and that
+    // placement is the point rather than a tidy-up.
+    //
+    // ⛔ It used to be called by each mode, and `--sweep-below` never called it:
+    // that mode returns before either of the other two call sites, so it printed
+    // its numbers with no ladder line, no fighters line and no clock line at all.
+    // ⚠ Found while checking whether the CLOCK fix had reached every mode, which
+    // is the same shape as the five configuration defects this rig has already
+    // produced — each fix reached the callers somebody remembered.
+    //
+    // ⇒ Above the branch, a fourth mode cannot be added without a header. That is
+    // a structural guarantee where three call sites were a habit.
+    report_which_ladder_is_in_play();
+
     if args().sweep_below {
         return run_sweep_below(seeds);
     }
@@ -324,7 +339,6 @@ pub fn run(cli: LadderRigArgs) {
              profile source gave it (see the ladder line below)"
         ),
     }
-    report_which_ladder_is_in_play();
     println!(
         // ⛔ "stocks" ALONE IS AMBIGUOUS AND WAS MISREAD. The column is stocks
         // REMAINING, so `0 : 0` means BOTH fighters were fully eliminated — the
@@ -739,7 +753,6 @@ fn run_scenarios(seeds: usize) {
                 })
         })
         .collect();
-    report_which_ladder_is_in_play();
     // ⛔ THE SCENARIO TABLE NEVER NAMED ITS WEIGHTS. This mode returns before
     // the ladder mode's announcement, so every scenario table ever printed —
     // including the ones quoted into `fighter-brain.md` — travelled without the
@@ -851,6 +864,13 @@ fn run_scenarios(seeds: usize) {
 /// The partner is pinned at level 5 so the only thing changing between rows is
 /// the profile of the body that has to recover.
 fn run_sweep_below(seeds: usize) {
+    // ⛔ THIS MODE PRINTED NO HEADER AT ALL, which is the same defect the other
+    // two modes were fixed for on 2026-09-04 — a run that does not name its
+    // ladder, its fighters or its clock is a number nobody can compare with
+    // another number. ⚠ It was missed because the fix was applied to
+    // `report_which_ladder_is_in_play`'s CALLERS and this mode returns before
+    // reaching either of them. ⇒ Third mode, same rule: say what was resolved,
+    // including what nobody passed.
     const PARTNER: u8 = 5;
     let scenario = ambition_platformer2d::combat::brain::fighter::scenarios::suite()
         .into_iter()

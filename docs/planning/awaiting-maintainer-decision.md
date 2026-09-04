@@ -1479,8 +1479,36 @@ is no axis.**
    nothing, so **`6 vs 5` is noise and the shipped ladder has exactly ONE bad
    rung.** ⚠ `5 vs 3` is now significant at 12, 24 and 40 seeds on the short clock
    and at 12 and 28 on the shipped one — it is not a sampling artifact.
-2. **The fix is still a design call.** The cause is `frame_advantage` +
-   `expected_payoff` jointly (isolated byte-for-byte). `frame_advantage` is SIGNED,
+2. **The fix is still a design call — but it now comes WITH candidates measured
+   at the shipped clock**, so you are choosing between numbers rather than
+   guessing. Three rung-5 settings for the pair, 16 seeds each, everything else
+   untouched:
+
+   | rung 5's `frame_advantage` / `expected_payoff` | dealt (5 : 3) | verdict at `5 vs 3` |
+   |---|---|---|
+   | **0.50 / 0.30** *(shipped)* | 306% : 360% | ⛔ **LOWER outfights** |
+   | 0.40 / 0.20 *(halve the rise)* | 300% : 362% | ⛔ **LOWER outfights** |
+   | **0.30 / 0.10** *(hold flat at rung 3's)* | **336% : 313%** | ✔ **higher outfights** *(within spread)* |
+
+   ⇒ **Halving the rise does not help at all** — it is as inverted as the shipped
+   value. Only removing the rise flips the verdict, and when it does, rung 5 wins
+   on damage instead of losing.
+
+   ⚠ **And rung 5 does NOT collapse into rung 3 if you take that.** The two still
+   differ on reaction (300ms vs 400), APM cap (200 vs 120), execution noise (0.20
+   vs 0.30), `kill_potential` and `stage_risk`. ⇒ What the flat setting removes is
+   only the pair that was making rung 5 refuse to commit — the reflex advantage
+   then asserts itself, which is what the third row shows.
+
+   ⛔ **What this does NOT settle.** The winning row is *within spread*, so it
+   establishes "the inversion is gone", not "rung 5 is now correctly stronger".
+   And it says nothing about rungs 6–9, which carry the same rise (0.60/0.40 and
+   up) and were never individually tested. ⇒ Whether the ladder should raise these
+   two weights AT ALL, at any rung, is the question the numbers cannot answer,
+   because it is a question about what a harder CPU is supposed to be.
+
+   The cause is `frame_advantage` + `expected_payoff` jointly (isolated
+   byte-for-byte). `frame_advantage` is SIGNED,
    so raising it makes a rung penalise its own slow, hard-hitting moves; raising
    `expected_payoff` withholds the power bonus from exactly those. ⇒ Whether higher
    rungs SHOULD weight frame safety more is a question about what your ladder

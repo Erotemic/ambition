@@ -146,7 +146,28 @@ tool is wanted.
 ⛔ **But the population is growing on the wrong side.** Five crates were carved
 out of the actor monolith on 2026-09-03 alone, and generic module names
 (`systems.rs`, `mod.rs`, `options.rs`, `tests.rs`) are exactly what a new crate
-brings. ⇒ **In planning prose, cite a crate-qualified path** —
+brings.
+
+⚠⚠ **RE-MEASURED 2026-09-04, ONE DAY LATER, AND IT ROUGHLY DOUBLED.** Same method
+— every `` `file.rs:NN` `` in `docs/planning`, matched against `git ls-files
+'*.rs'` basenames:
+
+| | 2026-09-03 | 2026-09-04 |
+|---|---:|---:|
+| distinct bare `file.rs:NN` citations | 17 | **35** |
+| of those, non-unique filenames | 2 | **5** |
+
+⇒ The five are now `systems.rs` (10 tracked files), `world.rs` (3),
+`duel_arena.rs` (2), `facts.rs` (2), `options.rs` (2). ⭐ **So the prediction in
+this row was right and the doubling took a single day**, which is a stronger
+argument for the habit than the original measurement was.
+
+⭐ **And I supplied one of the instances myself, which is the useful part.** A
+citation I wrote on 2026-09-04 — `snapshot_impls.rs:451` — was flagged AMBIGUOUS
+by the checker against **twelve** tracked files with that name, and I only learned
+because the checker said so. ⇒ The guard is doing its job and the habit is what is
+missing: I knew this row existed, had written it, and still typed a bare filename
+the next day. Repointed to the crate-qualified path. ⇒ **In planning prose, cite a crate-qualified path** —
 `crates/<crate>/src/systems.rs:177`, which the checker resolves unambiguously —
 and treat a bare filename as a citation with a shelf life. That is a HABIT, not
 a check: the guard exists and is already doing its job.

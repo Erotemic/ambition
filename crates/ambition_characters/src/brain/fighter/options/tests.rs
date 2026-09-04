@@ -1332,3 +1332,84 @@ fn a_body_with_no_foe_is_offered_no_foe_relative_verb() {
         "a body WITH a foe must still be offered Approach: {with_foe:?}"
     );
 }
+
+/// ⭐⭐ EVERY WEIGHT MUST BE ABLE TO CHANGE A SCORE — the guard against a knob
+/// that is authored, tuned, and silently ignored.
+///
+/// ⛔ **THIS EXISTS BECAUSE ONE ALREADY WAS.** `read_weight` is authored on all
+/// nine rungs of the shipped ladder, rising 0.0 → 0.9, and reaches the fighter
+/// only through a rollout the shipped rows disable — so it has never changed a
+/// decision in the shipped game. Nothing failed, because nothing compares an
+/// authored knob against its own effect. See `docs/planning/engine/fighter-brain.md`.
+///
+/// ⇒ The failure mode this catches is the cheap and likely one: a field added to
+/// [`UtilityWeights`] and forgotten in [`Features::dot`]. That field would
+/// deserialize from the `.ron`, appear in every profile, be tuned by whoever
+/// authored the rungs, and do nothing at all.
+///
+/// ⚠ It asserts REACHABILITY, not usefulness. A weight can pass this and still
+/// never matter in a real matchup, because its feature is zero in the situations
+/// fighters actually reach — `kill_potential` and `stage_risk` are exactly that
+/// today, and the difference is recorded rather than conflated.
+#[test]
+fn every_utility_weight_can_change_a_score() {
+    // Every feature non-zero, so no weight is excused by a zero multiplicand.
+    // ⛔ Deliberately NOT `Features::default()`: a default of all zeroes would
+    // make the dot product zero for every weight and the test would pass by
+    // measuring nothing.
+    let features = Features {
+        reach_fit: 0.7,
+        frame_advantage: 0.5,
+        kill_potential: 0.3,
+        stage_risk: 0.9,
+        expected_payoff: 0.4,
+        capture_value: 0.6,
+    };
+    let base = UtilityWeights::v1();
+    let baseline = features.dot(&base);
+
+    // Each entry perturbs ONE field. Adding a field to `UtilityWeights` without
+    // adding it here leaves this list short, which the count assertion below
+    // turns into a failure rather than a silent gap.
+    let perturbations: Vec<(&str, UtilityWeights)> = vec![
+        ("reach_fit", UtilityWeights { reach_fit: base.reach_fit + 1.0, ..base }),
+        ("frame_advantage", UtilityWeights { frame_advantage: base.frame_advantage + 1.0, ..base }),
+        ("kill_potential", UtilityWeights { kill_potential: base.kill_potential + 1.0, ..base }),
+        ("stage_risk", UtilityWeights { stage_risk: base.stage_risk + 1.0, ..base }),
+        ("expected_payoff", UtilityWeights { expected_payoff: base.expected_payoff + 1.0, ..base }),
+        ("capture_value", UtilityWeights { capture_value: base.capture_value + 1.0, ..base }),
+    ];
+
+    for (name, weights) in &perturbations {
+        let moved = features.dot(weights);
+        assert_ne!(
+            moved, baseline,
+            "changing `{name}` did not change the score, so it is a knob that can \
+             be authored and tuned and will never affect a decision — the defect \
+             `read_weight` already has. Add it to `Features::dot`."
+        );
+    }
+
+    // ⛔ THE HALF THAT CATCHES THE NEXT ONE. The loop above only checks fields
+    // somebody remembered to list; a NEW field is caught by this count, which
+    // fails the moment the struct grows and the list does not.
+    let field_count = {
+        // One entry per field of `UtilityWeights`, destructured so the compiler
+        // enforces it: adding a field makes this line stop compiling, which is a
+        // louder failure than a stale number.
+        let UtilityWeights {
+            reach_fit: _,
+            frame_advantage: _,
+            kill_potential: _,
+            stage_risk: _,
+            expected_payoff: _,
+            capture_value: _,
+        } = base;
+        6
+    };
+    assert_eq!(
+        perturbations.len(),
+        field_count,
+        "the perturbation list has drifted from the struct's fields"
+    );
+}

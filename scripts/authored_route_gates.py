@@ -1,13 +1,22 @@
 #!/usr/bin/env python3
 """Every authored use of the condition catalog: route gates AND dialogue lines.
 
-⛔⛔ THE POINT IS THE DENOMINATOR. `capability-progression-and-world-gating.md`
-records that five of seven gate families are now reachable from a route
-(`world.flag_set`, `inventory.holds`, `custody.is_held`, `body.can`, `body.fits`,
-`world.switch_on`), and that no shipped level authors any of the new ones. That
-is easy to read as "a migration is owed". It is not: the corpus of authored
-route gates is TINY, and until you have counted it you cannot tell a vocabulary
-that is unused from a vocabulary that has nothing to be used on.
+⛔⛔ THE POINT IS THE DENOMINATOR, so THIS HEADER STATES NO COUNTS. The reading
+this script exists to refuse is: "the engine publishes gate families that no
+shipped level authors, therefore a migration is owed". It is not owed — the
+corpus of authored route gates is TINY, and until you have counted it you cannot
+tell a vocabulary that is unused from a vocabulary that has nothing to be used
+on. ⇒ RUN IT; the numbers live in the output, which derives them.
+
+⛔⛔ AND THE ABSENCE OF NUMBERS HERE IS THE FIX, NOT AN OMISSION. This docstring
+used to open with "five of seven gate families" and name them by hand. Both
+halves rotted within a day: two more conditions were published (making the
+denominator nine), and one of the hand-written ids -- `held.is_held` -- named
+no published condition at all. A tool whose whole purpose is to stop a stale
+denominator claim had one in its own operational header, and a reader who
+stopped at the docstring got the wrong figure from the instrument that exists
+to correct it. A description that can go stale independently of the code is
+a second authority; delete it rather than synchronise it.
 
 ⭐ A `LockWall` with no `gated_by` is not a defect — it belongs to the encounter
 lock, which is a different writer (`contribute_encounter_lock_walls`). Both

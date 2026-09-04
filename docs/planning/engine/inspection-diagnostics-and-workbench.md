@@ -104,7 +104,7 @@ tool discovery alike.
   and it is a product requirement, not polish. ✔ THE VOCABULARY LANDED
   2026-09-02: `ConditionOutcome::NotSatisfied(WhyNot { term, subject, observed })`
   — every production evaluator states one (`world.flag_set`, `inventory.holds`,
-  `item.is_held`), `from_bool_unexplained` is the grep-able fixture arm, a
+  `custody.is_held`), `from_bool_unexplained` is the grep-able fixture arm, a
   standing lock wall publishes its verdict on `GatedLockWallVerdicts` (derived,
   keyed by wall id; `why_standing(wall)`), and the dialogue verb logs the
   structure at debug. Still open: a queryable surface beyond the walls (a

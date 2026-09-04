@@ -22,6 +22,7 @@ use ambition_platformer2d::platformer::authored_logic::{
     AuthoredArg, ConditionCatalog, ConditionId, ConditionOutcome,
 };
 use ambition_platformer2d::platformer::sim_id::SimId;
+use std::path::Path;
 
 use crate::common::{base, fixed_60hz_room_sim};
 
@@ -459,4 +460,170 @@ fn every_condition_an_authored_yarn_file_asks_is_published_by_the_engine() {
          so those branches never open in play:\\n  unpublished: {unpublished:#?}\\n  \\
          wrong arity: {wrong_arity:#?}",
     );
+}
+
+/// ⭐⭐ NO PLANNING DOC NAMES A CONDITION ID THE ENGINE DOES NOT PUBLISH — the
+/// third road, and the one with no compiler behind it at all.
+///
+/// The two guards above cover authored CONTENT, where a wrong id silently closes
+/// a branch. This one covers authored PROSE, where a wrong id costs something
+/// different and slower: the next reader believes it. A condition id in a
+/// planning doc is a citation, and a fabricated one is invisible to every check
+/// this repository has — it compiles, because no code names it; it passes,
+/// because no test names it; and it reads as authoritative, because it is a
+/// plausible domain for the crate around it.
+///
+/// ⛔ THIS IS NOT HYPOTHETICAL AND IT IS NOT ONE MISTAKE. `held.is_held` was
+/// written by hand across the planning set for a day — the id is
+/// `custody.is_held`, because `ambition_held_items` declares `DOMAIN =
+/// "custody"`. It was corrected on 2026-09-04 in four files; a second sweep the
+/// same day found NINE more sites in six files, including the roadmap, a queue
+/// receipt, and the module doc of the gate code itself. ⚠ And a third spelling,
+/// `item.is_held`, sat in `inspection-diagnostics-and-workbench.md` listing the
+/// production evaluators — found by this rule, after two prose sweeps missed it.
+/// ⇒ Nine of eleven wrong is what a prose sweep scores against a mechanical one.
+///
+/// ⭐ THE RULE IS THE QUESTION-HALF MATCH, and that is what keeps it quiet. Docs
+/// are full of backticked `a.b` tokens (`mod.rs`, `Vec2.x`); flagging every one
+/// would be unusable. A token is only suspicious when its QUESTION half is a
+/// question the engine really publishes but the whole id is not — `held.is_held`
+/// against `custody.is_held`. That is precisely the near-miss shape, and
+/// measured over 100 planning docs it fires on the real defects and nothing else.
+///
+/// ⚠ A DOC MAY NAME A WRONG ID DELIBERATELY — several must, because the
+/// correction is their subject, and a guard that forbade it would delete the
+/// record of the bug it exists to prevent. The escape is a rule worth having on
+/// its own: **name the correct id in the same paragraph.** A wrong spelling
+/// alone is a defect; a wrong spelling next to its correction is documentation.
+#[test]
+fn no_planning_doc_names_a_condition_the_engine_does_not_publish() {
+    let mut sim = fixed_60hz_room_sim(ROOM);
+    sim.step_n(base(), 4);
+    let catalog = catalog(&sim);
+
+    // ⭐ THE COMPOSED CATALOG IS THE AUTHORITY, not a text scan for
+    // `ConditionId::new`. A doc is checked against what the engine actually
+    // answers, so publishing a condition cannot leave this guard behind.
+    let published: Vec<String> = catalog.describe_all().map(|d| d.id.to_string()).collect();
+    assert!(
+        published.len() >= 5,
+        "the composed catalog published {} condition(s); with a near-empty \
+         catalog this test cannot recognise a near-miss and passes vacuously",
+        published.len(),
+    );
+
+    let docs = Path::new(env!("CARGO_MANIFEST_DIR")).join("../../docs/planning");
+    let mut suspicious: Vec<String> = Vec::new();
+    let mut correct_citations = 0usize;
+    let mut scanned = 0usize;
+
+    for path in markdown_under(&docs) {
+        let text = std::fs::read_to_string(&path)
+            .unwrap_or_else(|e| panic!("cannot read {}: {e}\nThis is an IO failure, NOT a finding about the repository — do not read any verdict from this run.", path.display()));
+        scanned += 1;
+        let rel = path.strip_prefix(&docs).unwrap_or(&path).display().to_string();
+        let lines: Vec<&str> = text.split('\n').collect();
+
+        // paragraph = a run of non-blank lines; the escape is scoped to it
+        let mut para_of: Vec<Option<usize>> = Vec::with_capacity(lines.len());
+        let mut para = 0usize;
+        for line in &lines {
+            if line.trim().is_empty() {
+                para += 1;
+                para_of.push(None);
+            } else {
+                para_of.push(Some(para));
+            }
+        }
+
+        for (n, line) in lines.iter().enumerate() {
+            for token in backticked_dotted_words(line) {
+                if published.iter().any(|p| p == &token) {
+                    correct_citations += 1;
+                    continue;
+                }
+                let Some((_, question)) = token.split_once('.') else {
+                    continue;
+                };
+                // Only a token whose QUESTION half is really published is a
+                // near-miss; everything else is ordinary dotted prose.
+                let intended: Vec<&String> = published
+                    .iter()
+                    .filter(|p| p.split_once('.').map(|(_, q)| q) == Some(question))
+                    .collect();
+                if intended.is_empty() {
+                    continue;
+                }
+                let paragraph: String = lines
+                    .iter()
+                    .enumerate()
+                    .filter(|(i, _)| para_of[*i].is_some() && para_of[*i] == para_of[n])
+                    .map(|(_, l)| *l)
+                    .collect::<Vec<_>>()
+                    .join("\n");
+                if intended.iter().any(|c| paragraph.contains(c.as_str())) {
+                    continue; // names its own correction alongside it
+                }
+                suspicious.push(format!(
+                    "{rel}:{}: `{token}` names no published condition; the engine publishes {intended:?}",
+                    n + 1
+                ));
+            }
+        }
+    }
+
+    assert!(
+        scanned >= 50 && correct_citations >= 10,
+        "scanned {scanned} planning doc(s) holding {correct_citations} correct condition \
+         citation(s) — the corpus this test walks has moved or gone empty, and an empty \
+         walk passes the assertion below"
+    );
+    assert!(
+        suspicious.is_empty(),
+        "planning docs cite condition ids the composed engine does not publish. A \
+         fabricated id compiles, passes, and reads as authoritative, so the next reader \
+         inherits it. Fix the spelling, or name the correct id in the same paragraph if \
+         the wrong one is the subject:\n  {}",
+        suspicious.join("\n  ")
+    );
+}
+
+/// Every `.md` beneath `dir`, recursively.
+fn markdown_under(dir: &Path) -> Vec<std::path::PathBuf> {
+    let mut out = Vec::new();
+    let mut stack = vec![dir.to_path_buf()];
+    while let Some(d) = stack.pop() {
+        let entries = std::fs::read_dir(&d)
+            .unwrap_or_else(|e| panic!("cannot list {}: {e}\nThis is an IO failure, NOT a finding about the repository.", d.display()));
+        for entry in entries {
+            let path = entry.expect("directory entry").path();
+            if path.is_dir() {
+                stack.push(path);
+            } else if path.extension().is_some_and(|e| e == "md") {
+                out.push(path);
+            }
+        }
+    }
+    out
+}
+
+/// Backtick-delimited `lower_snake.lower_snake` tokens in one line.
+fn backticked_dotted_words(line: &str) -> Vec<String> {
+    let mut out = Vec::new();
+    for (i, chunk) in line.split('`').enumerate() {
+        if i % 2 == 0 {
+            continue; // outside the backticks
+        }
+        let ok = |c: char| c.is_ascii_lowercase() || c == '_';
+        if let Some((domain, question)) = chunk.split_once('.') {
+            if !domain.is_empty()
+                && !question.is_empty()
+                && domain.chars().all(ok)
+                && question.chars().all(ok)
+            {
+                out.push(chunk.to_string());
+            }
+        }
+    }
+    out
 }

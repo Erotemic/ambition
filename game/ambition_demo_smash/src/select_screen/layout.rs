@@ -836,6 +836,56 @@ mod tests {
 
     /// Every fighter has a cell, and nobody past the end has one.
     #[test]
+    /// ⭐⭐ THE LAST CELL IS THE RANDOM CELL, AND UNTIL 2026-09-04 NOTHING
+    /// TOUCHED IT.
+    ///
+    /// ⛔ Every test in this module built its grid from `SMASH_ROSTER.len()`
+    /// while production passes `cell_count()` — *"one per fighter, plus random"*
+    /// — so the grid under test was one cell short and **the random cell was
+    /// covered by nothing**. ⚠ It is the LAST cell, which is the one most likely
+    /// to be pushed into the control strip or off a page boundary, so "covered by
+    /// nothing" was not harmless.
+    ///
+    /// ⇒ This pins the two halves that make it a real cell: the layout draws it,
+    /// and the roster answers it with [`SlotPick::Random`] rather than a fighter.
+    #[test]
+    fn the_last_grid_cell_is_random_and_is_drawn() {
+        let layout = wide();
+        let last = layout.characters - 1;
+
+        // ⛔ It is DRAWN. A grid that sizes itself for the cell without laying it
+        // out would pass every count assertion in this module.
+        assert!(
+            layout.portrait(last).is_some(),
+            "the last cell has no portrait rect, so the random square is sized \
+             for and never placed"
+        );
+        assert!(
+            layout.portrait(layout.characters).is_none(),
+            "the grid laid out a cell past its own count"
+        );
+
+        // ⛔ And it is RANDOM, not a fighter. `SmashRoster::cell` answers
+        // `Random` at exactly `len()`, which is the last index of a
+        // `cell_count()`-sized grid.
+        let roster = SmashRoster::default();
+        assert_eq!(
+            roster.cell(roster.len()),
+            Some(crate::select::SlotPick::Random),
+            "the cell past the last fighter is not the random cell"
+        );
+        assert!(
+            matches!(roster.cell(roster.len() - 1), Some(crate::select::SlotPick::Fighter(_))),
+            "the cell before it is not a fighter, so the boundary is off by one"
+        );
+        assert_eq!(
+            roster.cell(roster.cell_count()),
+            None,
+            "a cell past the grid answered something"
+        );
+    }
+
+    #[test]
     fn the_grid_holds_the_roster_plus_the_random_cell() {
         let layout = wide();
         // ⛔⛔ THIS ASSERTED `SmashRoster::default().len()` AND THAT IS A THIRD

@@ -600,10 +600,27 @@ ZERO times in 662 decisions.** At `6 vs 5` only the higher fighter has it, and t
 rung's rate falls to roughly the mix of one fighter dodging normally and one not
 dodging at all. The verbs are not demoted; they are **unreachable**.
 
-⇒ **Why unreachable and not merely rarer.** Tier 3 is entered only when nothing in
-tier 1 or 2 survives — but the rollout always judges `Approach`, `Retreat`,
-`Jump`, so something judged is essentially always available, and the third tier is
-never reached. The 2026-08-31 fix stopped the rollout PROMOTING what it cannot
+⇒ **Why unreachable and not merely rarer — and the gate is one `.or` earlier than
+"nothing judged survives" suggests** (sharpened by toothbrush, re-derived here).
+`pick_movement` (`ambition_combat/src/brain/fighter/decision.rs:680`) is:
+
+```rust
+find(|o| !vetoed(o) && !unmodelled(o))   // tier 1 — EXCLUDES the unmodelled
+    .or(least_bad)                        // tier 2
+    .or_else(|| find(|o| !vetoed(o)))     // tier 3 — the ONLY path an unmodelled verb has
+```
+
+⇒ Tier 3 runs only when tier 1 finds nothing **and `least_bad` is `None`**. It is
+not the veto set that closes it; it is `.or(least_bad)` catching the fall. So the
+zero-in-662 follows from `least_bad` being `Some(..)` whenever tier 1 fails, and
+tier 1 fails rarely because the rollout always judges `Approach`, `Retreat` and
+`Jump`.
+
+⭐ **And the same function's doc comment explains why a NO-rollout fighter dodges
+normally**: *"TIER 3 IS ALSO THE NO-ROLLOUT PATH. With rollouts off nothing is
+judged and nothing is vetoed, so L2's order comes straight through tier 3
+unchanged."* ⇒ The asymmetry is exact — running the rollout is what POPULATES
+`unmodelled`, and populating it is what removes those verbs from tier 1. The 2026-08-31 fix stopped the rollout PROMOTING what it cannot
 simulate; the same ordering now DELETES it. Both unmodelled verbs from this page's
 census — `Dodge` (846 of 983) and `Shield` (137) — are exactly the two that vanish.
 

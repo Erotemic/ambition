@@ -738,6 +738,45 @@ The one unresolved developer-policy choice from the session-ownership work is in
 
 - ▢ **RE-MEASURED 2026-09-04 EVENING at `ae6b6b4fd` — SIX findings now, and the
   campaign's headline number has crossed back.**
+  ⛔⛔ **AND A LATER SESSION RE-FROZE THE BASELINE AGAINST THIS ROW'S STANDING
+  RULING AND THEN REVERTED IT — 2026-09-04, recorded because the mistake is
+  built into the tool's output.** `compile_ratchet.py` prints *"re-freeze it in
+  this commit (`--update`)"* on EVERY run where a win is unbanked, and it is
+  right about the local hazard: the guard is holding 8,211 lines and 101.1 s of
+  slack. ⇒ **But the ruling below had already weighed exactly that and decided
+  against**, on two grounds the tool cannot see — `--update` banks the
+  regressions with the wins, and the re-freeze is meant to happen ONCE at the
+  end **with all destinations priced together**. ⛔ Eight destinations are still
+  on the placeholder, so that condition was plainly unmet, and re-freezing there
+  bought 8,211 lines of ratchet precision at the cost of blessing +41,400 of
+  blast radius nobody had asked a carve owner about.
+  ⭐ **The transferable part: a tool that recommends an action on every run is
+  not evidence that the action is due.** The queue had ruled; the run did not
+  know that, and the row was one screen further down the page than the finding
+  that prompted the run. ⇒ Read the ROW before acting on the TOOL, and treat a
+  standing `⇒ NOT DONE HERE, deliberately` as binding until its own stated
+  condition is met.
+  ⭐⭐ **What the episode DID produce, and it stands on its own: the two crates
+  that lengthened the critical path are now named rather than inferred.**
+  `critical_path_crates` 14 → 16 is **`ambition_abilities` and
+  `ambition_held_items`**, at positions 9 and 10 of the longest first-party
+  chain — derived from `cargo metadata` (normal and build deps only, since
+  dev-dependencies may form cycles), and the walk reproduces the ratchet's `16`
+  exactly once restricted to the population it declares (`consumer =
+  ambition_app`). ⚠ The crate COUNT does not reconcile as cleanly — 68 by that
+  walk against the ratchet's 66 — a gap of two not chased.
+  ⭐ **And the two REGRESSED line metrics are NOT `geometry` or `core` changing
+  shape**: the workspace gained **4 first-party crates and 44,056 lines** since
+  the baseline, against +41,400 and +40,921 of blast radius. That is the growth
+  passing THROUGH them. ⇒ This is the carve-owner statement the ruling asks for,
+  offered as evidence rather than as a re-freeze, and the full argument with the
+  chain is on
+  [`engine/actor-monolith-work-frontier.md`](engine/actor-monolith-work-frontier.md),
+  which is where it prices the composability dimension.
+  ⓘ A graph snapshot row for `29a43cb62cc5` is in
+  `dev/ambition_dev_measurements/compile_graph.jsonl` (`de4d81b`) and stands —
+  that ledger is append-only telemetry, not the baseline, and a measurement of
+  the tree at a commit is true regardless of what the baseline holds.
   ⛔⛔ **AND FIRST: THIS RATCHET IS NOT IN THE `--rust` LANE, so today's three
   union runs say NOTHING about it.** It lives in `post_rust_repo_jobs`, gated on
   `include_slow_python_checkers`, and `run_tests.py` says in place that *"`--rust`

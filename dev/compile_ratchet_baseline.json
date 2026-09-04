@@ -1,40 +1,22 @@
 {
-  "commit": "29a43cb62cc5",
+  "commit": "11ef33c5b5a5",
   "consumer": "ambition_app",
   "crates": {
-    "ambition_abilities": {
-      "depth": 8,
-      "direct_dependents": [
-        "ambition_platformer2d",
-        "ambition_platformer2d_actor_monolith",
-        "ambition_platformer2d_runtime",
-        "ambition_sim_view"
-      ],
-      "edit_cost_crates": 16,
-      "edit_cost_lines": 292250,
-      "edit_cost_seconds": 1178.978,
-      "files": 28,
-      "lines": 5235,
-      "ms_per_line": 2.9059,
-      "seconds": 15.212,
-      "seconds_source": "estimated",
-      "test_file_lines": 1816
-    },
     "ambition_app": {
       "depth": 1,
       "direct_dependents": [],
       "edit_cost_crates": 1,
-      "edit_cost_lines": 32039,
-      "edit_cost_seconds": 105.546,
-      "files": 67,
-      "lines": 32039,
+      "edit_cost_lines": 26833,
+      "edit_cost_seconds": 88.396,
+      "files": 58,
+      "lines": 26833,
       "ms_per_line": 3.2943,
-      "seconds": 105.546,
+      "seconds": 88.396,
       "seconds_source": "measured",
-      "test_file_lines": 2496
+      "test_file_lines": 2357
     },
     "ambition_asset_manager": {
-      "depth": 14,
+      "depth": 12,
       "direct_dependents": [
         "ambition_content",
         "ambition_platformer2d",
@@ -44,13 +26,13 @@
         "ambition_render",
         "ambition_sprite_sheet"
       ],
-      "edit_cost_crates": 35,
-      "edit_cost_lines": 426474,
-      "edit_cost_seconds": 1475.083,
-      "files": 27,
-      "lines": 5977,
+      "edit_cost_crates": 30,
+      "edit_cost_lines": 350468,
+      "edit_cost_seconds": 1439.669,
+      "files": 26,
+      "lines": 4375,
       "ms_per_line": 1.6158,
-      "seconds": 9.658,
+      "seconds": 7.069,
       "seconds_source": "measured",
       "test_file_lines": 385
     },
@@ -63,9 +45,9 @@
         "ambition_platformer2d_actor_monolith",
         "ambition_platformer2d_provider"
       ],
-      "edit_cost_crates": 18,
-      "edit_cost_lines": 304035,
-      "edit_cost_seconds": 1211.324,
+      "edit_cost_crates": 21,
+      "edit_cost_lines": 302237,
+      "edit_cost_seconds": 1312.509,
       "files": 23,
       "lines": 7068,
       "ms_per_line": 3.4591,
@@ -74,14 +56,14 @@
       "test_file_lines": 263
     },
     "ambition_binding": {
-      "depth": 15,
+      "depth": 13,
       "direct_dependents": [
         "ambition_characters",
         "ambition_platformer2d_shared_tangle"
       ],
-      "edit_cost_crates": 44,
-      "edit_cost_lines": 504656,
-      "edit_cost_seconds": 1616.296,
+      "edit_cost_crates": 41,
+      "edit_cost_lines": 469374,
+      "edit_cost_seconds": 1622.347,
       "files": 1,
       "lines": 821,
       "ms_per_line": 2.9059,
@@ -89,28 +71,9 @@
       "seconds_source": "estimated",
       "test_file_lines": 0
     },
-    "ambition_body_seed": {
-      "depth": 9,
-      "direct_dependents": [
-        "ambition_content",
-        "ambition_match",
-        "ambition_platformer2d",
-        "ambition_platformer2d_actor_monolith"
-      ],
-      "edit_cost_crates": 17,
-      "edit_cost_lines": 291023,
-      "edit_cost_seconds": 1175.413,
-      "files": 4,
-      "lines": 1759,
-      "ms_per_line": 2.9059,
-      "seconds": 5.111,
-      "seconds_source": "estimated",
-      "test_file_lines": 0
-    },
     "ambition_boss_encounter": {
       "depth": 9,
       "direct_dependents": [
-        "ambition_abilities",
         "ambition_content",
         "ambition_damage",
         "ambition_platformer2d",
@@ -119,15 +82,15 @@
         "ambition_platformer2d_runtime",
         "ambition_sim_view"
       ],
-      "edit_cost_crates": 18,
-      "edit_cost_lines": 310831,
-      "edit_cost_seconds": 1232.973,
-      "files": 49,
-      "lines": 14869,
+      "edit_cost_crates": 20,
+      "edit_cost_lines": 301777,
+      "edit_cost_seconds": 1312.995,
+      "files": 39,
+      "lines": 12913,
       "ms_per_line": 2.9059,
-      "seconds": 43.208,
+      "seconds": 37.524,
       "seconds_source": "estimated",
-      "test_file_lines": 4140
+      "test_file_lines": 3790
     },
     "ambition_character_sprites": {
       "depth": 7,
@@ -136,21 +99,19 @@
         "ambition_platformer2d_runtime",
         "ambition_sim_view"
       ],
-      "edit_cost_crates": 15,
-      "edit_cost_lines": 190086,
-      "edit_cost_seconds": 1105.813,
+      "edit_cost_crates": 18,
+      "edit_cost_lines": 180044,
+      "edit_cost_seconds": 1201.521,
       "files": 7,
-      "lines": 3224,
+      "lines": 3195,
       "ms_per_line": 2.17,
-      "seconds": 6.996,
+      "seconds": 6.933,
       "seconds_source": "measured",
       "test_file_lines": 1559
     },
     "ambition_characters": {
-      "depth": 14,
+      "depth": 12,
       "direct_dependents": [
-        "ambition_abilities",
-        "ambition_body_seed",
         "ambition_boss_encounter",
         "ambition_character_sprites",
         "ambition_combat",
@@ -158,11 +119,8 @@
         "ambition_conversation",
         "ambition_damage",
         "ambition_dev_tools",
-        "ambition_encounter_features",
-        "ambition_held_items",
         "ambition_interaction",
         "ambition_items",
-        "ambition_match",
         "ambition_mount",
         "ambition_platformer2d",
         "ambition_platformer2d_actor_monolith",
@@ -171,47 +129,41 @@
         "ambition_platformer2d_runtime",
         "ambition_render",
         "ambition_sim_view",
-        "ambition_sprite_sheet",
-        "ambition_world_items"
+        "ambition_sprite_sheet"
       ],
-      "edit_cost_crates": 33,
-      "edit_cost_lines": 438023,
-      "edit_cost_seconds": 1466.572,
-      "files": 78,
-      "lines": 36973,
+      "edit_cost_crates": 30,
+      "edit_cost_lines": 406056,
+      "edit_cost_seconds": 1478.679,
+      "files": 72,
+      "lines": 34658,
       "ms_per_line": 0.924,
-      "seconds": 34.163,
+      "seconds": 32.024,
       "seconds_source": "measured",
-      "test_file_lines": 6888
+      "test_file_lines": 6243
     },
     "ambition_combat": {
-      "depth": 11,
+      "depth": 10,
       "direct_dependents": [
-        "ambition_abilities",
-        "ambition_body_seed",
         "ambition_boss_encounter",
         "ambition_character_sprites",
         "ambition_content",
         "ambition_conversation",
         "ambition_damage",
-        "ambition_encounter_features",
-        "ambition_held_items",
         "ambition_items",
-        "ambition_match",
         "ambition_platformer2d",
         "ambition_platformer2d_actor_monolith",
         "ambition_platformer2d_runtime",
         "ambition_sim_view"
       ],
-      "edit_cost_crates": 26,
-      "edit_cost_lines": 378046,
-      "edit_cost_seconds": 1349.439,
-      "files": 86,
-      "lines": 48794,
+      "edit_cost_crates": 24,
+      "edit_cost_lines": 354174,
+      "edit_cost_seconds": 1393.793,
+      "files": 78,
+      "lines": 43986,
       "ms_per_line": 1.405,
-      "seconds": 68.556,
+      "seconds": 61.8,
       "seconds_source": "measured",
-      "test_file_lines": 19570
+      "test_file_lines": 17655
     },
     "ambition_content": {
       "depth": 2,
@@ -219,17 +171,17 @@
         "ambition_app"
       ],
       "edit_cost_crates": 2,
-      "edit_cost_lines": 70728,
-      "edit_cost_seconds": 341.046,
-      "files": 138,
-      "lines": 38689,
+      "edit_cost_lines": 62817,
+      "edit_cost_seconds": 307.431,
+      "files": 137,
+      "lines": 35984,
       "ms_per_line": 6.087,
-      "seconds": 235.5,
+      "seconds": 219.035,
       "seconds_source": "measured",
-      "test_file_lines": 3755
+      "test_file_lines": 3338
     },
     "ambition_content_pack": {
-      "depth": 15,
+      "depth": 13,
       "direct_dependents": [
         "ambition_audio",
         "ambition_boss_encounter",
@@ -240,9 +192,9 @@
         "ambition_items",
         "ambition_platformer2d"
       ],
-      "edit_cost_crates": 37,
-      "edit_cost_lines": 458230,
-      "edit_cost_seconds": 1520.905,
+      "edit_cost_crates": 34,
+      "edit_cost_lines": 426267,
+      "edit_cost_seconds": 1533.101,
       "files": 8,
       "lines": 3187,
       "ms_per_line": 2.1258,
@@ -258,13 +210,13 @@
         "ambition_platformer2d_actor_monolith",
         "ambition_platformer2d_runtime"
       ],
-      "edit_cost_crates": 16,
-      "edit_cost_lines": 290346,
-      "edit_cost_seconds": 1173.445,
-      "files": 19,
-      "lines": 3331,
+      "edit_cost_crates": 19,
+      "edit_cost_lines": 288454,
+      "edit_cost_seconds": 1274.28,
+      "files": 18,
+      "lines": 3241,
       "ms_per_line": 2.9059,
-      "seconds": 9.68,
+      "seconds": 9.418,
       "seconds_source": "estimated",
       "test_file_lines": 1197
     },
@@ -279,9 +231,9 @@
         "ambition_render",
         "ambition_touch_input"
       ],
-      "edit_cost_crates": 19,
-      "edit_cost_lines": 311737,
-      "edit_cost_seconds": 1233.713,
+      "edit_cost_crates": 21,
+      "edit_cost_lines": 302683,
+      "edit_cost_seconds": 1313.735,
       "files": 2,
       "lines": 906,
       "ms_per_line": 0.8165,
@@ -296,13 +248,13 @@
         "ambition_platformer2d_actor_monolith",
         "ambition_platformer2d_runtime"
       ],
-      "edit_cost_crates": 16,
-      "edit_cost_lines": 290727,
-      "edit_cost_seconds": 1174.553,
+      "edit_cost_crates": 19,
+      "edit_cost_lines": 288864,
+      "edit_cost_seconds": 1275.471,
       "files": 2,
-      "lines": 3712,
+      "lines": 3651,
       "ms_per_line": 2.9059,
-      "seconds": 10.787,
+      "seconds": 10.609,
       "seconds_source": "estimated",
       "test_file_lines": 2239
     },
@@ -312,14 +264,29 @@
         "ambition_app"
       ],
       "edit_cost_crates": 2,
-      "edit_cost_lines": 47782,
-      "edit_cost_seconds": 213.36,
+      "edit_cost_lines": 42343,
+      "edit_cost_seconds": 194.615,
       "files": 27,
-      "lines": 15743,
+      "lines": 15510,
       "ms_per_line": 6.8484,
-      "seconds": 107.814,
+      "seconds": 106.219,
       "seconds_source": "measured",
       "test_file_lines": 1635
+    },
+    "ambition_demo_pocket": {
+      "depth": 2,
+      "direct_dependents": [
+        "ambition_app"
+      ],
+      "edit_cost_crates": 2,
+      "edit_cost_lines": 27094,
+      "edit_cost_seconds": 95.169,
+      "files": 1,
+      "lines": 261,
+      "ms_per_line": 25.9486,
+      "seconds": 6.773,
+      "seconds_source": "measured",
+      "test_file_lines": 0
     },
     "ambition_demo_sanic": {
       "depth": 2,
@@ -327,14 +294,14 @@
         "ambition_app"
       ],
       "edit_cost_crates": 2,
-      "edit_cost_lines": 40179,
-      "edit_cost_seconds": 167.143,
+      "edit_cost_lines": 34973,
+      "edit_cost_seconds": 149.993,
       "files": 9,
       "lines": 8140,
       "ms_per_line": 7.5672,
       "seconds": 61.597,
       "seconds_source": "measured",
-      "test_file_lines": 3895
+      "test_file_lines": 3893
     },
     "ambition_demo_smash": {
       "depth": 2,
@@ -342,31 +309,47 @@
         "ambition_app"
       ],
       "edit_cost_crates": 2,
-      "edit_cost_lines": 47910,
-      "edit_cost_seconds": 240.299,
-      "files": 15,
-      "lines": 15871,
+      "edit_cost_lines": 40287,
+      "edit_cost_seconds": 202.627,
+      "files": 13,
+      "lines": 13454,
       "ms_per_line": 8.4905,
-      "seconds": 134.753,
+      "seconds": 114.231,
       "seconds_source": "measured",
-      "test_file_lines": 2179
+      "test_file_lines": 770
+    },
+    "ambition_demo_twintrack": {
+      "depth": 2,
+      "direct_dependents": [
+        "ambition_app"
+      ],
+      "edit_cost_crates": 2,
+      "edit_cost_lines": 34256,
+      "edit_cost_seconds": 212.195,
+      "files": 8,
+      "lines": 7423,
+      "ms_per_line": 16.6778,
+      "seconds": 123.799,
+      "seconds_source": "measured",
+      "test_file_lines": 0
     },
     "ambition_dev_tools": {
-      "depth": 7,
+      "depth": 8,
       "direct_dependents": [
         "ambition_platformer2d",
+        "ambition_platformer2d_actor_monolith",
         "ambition_platformer2d_provider",
         "ambition_platformer2d_runtime",
         "ambition_render",
         "ambition_sim_view"
       ],
-      "edit_cost_crates": 15,
-      "edit_cost_lines": 192343,
-      "edit_cost_seconds": 1138.971,
-      "files": 14,
-      "lines": 5481,
+      "edit_cost_crates": 19,
+      "edit_cost_lines": 287492,
+      "edit_cost_seconds": 1281.558,
+      "files": 10,
+      "lines": 2279,
       "ms_per_line": 7.326,
-      "seconds": 40.154,
+      "seconds": 16.696,
       "seconds_source": "measured",
       "test_file_lines": 109
     },
@@ -376,16 +359,17 @@
         "ambition_content",
         "ambition_conversation",
         "ambition_platformer2d",
+        "ambition_platformer2d_actor_monolith",
         "ambition_platformer2d_runtime",
         "ambition_sim_view"
       ],
-      "edit_cost_crates": 17,
-      "edit_cost_lines": 293185,
-      "edit_cost_seconds": 1182.647,
+      "edit_cost_crates": 20,
+      "edit_cost_lines": 291279,
+      "edit_cost_seconds": 1283.436,
       "files": 10,
-      "lines": 2839,
+      "lines": 2825,
       "ms_per_line": 3.241,
-      "seconds": 9.201,
+      "seconds": 9.156,
       "seconds_source": "measured",
       "test_file_lines": 216
     },
@@ -394,52 +378,30 @@
       "direct_dependents": [
         "ambition_boss_encounter",
         "ambition_content",
-        "ambition_encounter_features",
         "ambition_platformer2d",
         "ambition_platformer2d_actor_monolith",
         "ambition_platformer2d_runtime",
         "ambition_sim_view"
       ],
-      "edit_cost_crates": 20,
-      "edit_cost_lines": 317195,
-      "edit_cost_seconds": 1247.368,
-      "files": 21,
-      "lines": 4054,
+      "edit_cost_crates": 21,
+      "edit_cost_lines": 305219,
+      "edit_cost_seconds": 1319.518,
+      "files": 20,
+      "lines": 3442,
       "ms_per_line": 1.8951,
-      "seconds": 7.683,
+      "seconds": 6.523,
       "seconds_source": "measured",
       "test_file_lines": 402
     },
-    "ambition_encounter_features": {
-      "depth": 6,
-      "direct_dependents": [
-        "ambition_content",
-        "ambition_platformer2d",
-        "ambition_platformer2d_runtime"
-      ],
-      "edit_cost_crates": 12,
-      "edit_cost_lines": 143438,
-      "edit_cost_seconds": 958.209,
-      "files": 8,
-      "lines": 2310,
-      "ms_per_line": 2.9059,
-      "seconds": 6.713,
-      "seconds_source": "estimated",
-      "test_file_lines": 1069
-    },
     "ambition_entity_catalog": {
-      "depth": 15,
+      "depth": 13,
       "direct_dependents": [
-        "ambition_body_seed",
         "ambition_boss_encounter",
         "ambition_characters",
         "ambition_combat",
         "ambition_content",
-        "ambition_encounter",
-        "ambition_encounter_features",
         "ambition_input",
         "ambition_interaction",
-        "ambition_match",
         "ambition_platformer2d",
         "ambition_platformer2d_actor_monolith",
         "ambition_platformer2d_ldtk",
@@ -448,15 +410,15 @@
         "ambition_sim_view",
         "ambition_sprite_sheet"
       ],
-      "edit_cost_crates": 48,
-      "edit_cost_lines": 501091,
-      "edit_cost_seconds": 1640.721,
+      "edit_cost_crates": 45,
+      "edit_cost_lines": 465061,
+      "edit_cost_seconds": 1641.312,
       "files": 5,
-      "lines": 5814,
+      "lines": 5363,
       "ms_per_line": 3.3708,
-      "seconds": 19.598,
+      "seconds": 18.078,
       "seconds_source": "measured",
-      "test_file_lines": 1807
+      "test_file_lines": 1686
     },
     "ambition_game_shell": {
       "depth": 6,
@@ -465,75 +427,53 @@
         "ambition_platformer2d",
         "ambition_platformer2d_provider"
       ],
-      "edit_cost_crates": 10,
-      "edit_cost_lines": 131293,
-      "edit_cost_seconds": 736.571,
+      "edit_cost_crates": 12,
+      "edit_cost_lines": 125951,
+      "edit_cost_seconds": 801.163,
       "files": 19,
-      "lines": 8081,
+      "lines": 8051,
       "ms_per_line": 1.8703,
-      "seconds": 15.114,
+      "seconds": 15.058,
       "seconds_source": "measured",
       "test_file_lines": 1455
     },
     "ambition_gameplay_trace": {
       "depth": 10,
       "direct_dependents": [
-        "ambition_abilities",
-        "ambition_encounter_features",
         "ambition_platformer2d",
         "ambition_platformer2d_actor_monolith",
         "ambition_platformer2d_runtime",
         "ambition_projectiles"
       ],
-      "edit_cost_crates": 20,
-      "edit_cost_lines": 302701,
-      "edit_cost_seconds": 1204.847,
+      "edit_cost_crates": 21,
+      "edit_cost_lines": 293219,
+      "edit_cost_seconds": 1283.706,
       "files": 6,
-      "lines": 1896,
+      "lines": 1882,
       "ms_per_line": 2.0468,
-      "seconds": 3.881,
+      "seconds": 3.852,
       "seconds_source": "measured",
       "test_file_lines": 0
     },
     "ambition_geometry": {
-      "depth": 16,
+      "depth": 14,
       "direct_dependents": [
         "ambition_platformer2d_core",
         "ambition_touch_input",
         "ambition_vfx"
       ],
-      "edit_cost_crates": 55,
-      "edit_cost_lines": 581627,
-      "edit_cost_seconds": 1706.198,
+      "edit_cost_crates": 52,
+      "edit_cost_lines": 540227,
+      "edit_cost_seconds": 1702.49,
       "files": 7,
-      "lines": 3311,
+      "lines": 2832,
       "ms_per_line": 0.8967,
-      "seconds": 2.969,
+      "seconds": 2.539,
       "seconds_source": "measured",
       "test_file_lines": 468
     },
-    "ambition_held_items": {
-      "depth": 9,
-      "direct_dependents": [
-        "ambition_abilities",
-        "ambition_content",
-        "ambition_platformer2d",
-        "ambition_platformer2d_actor_monolith",
-        "ambition_platformer2d_runtime",
-        "ambition_sim_view"
-      ],
-      "edit_cost_crates": 17,
-      "edit_cost_lines": 295725,
-      "edit_cost_seconds": 1189.076,
-      "files": 4,
-      "lines": 3475,
-      "ms_per_line": 2.9059,
-      "seconds": 10.098,
-      "seconds_source": "estimated",
-      "test_file_lines": 1755
-    },
     "ambition_input": {
-      "depth": 14,
+      "depth": 12,
       "direct_dependents": [
         "ambition_content",
         "ambition_conversation",
@@ -542,7 +482,6 @@
         "ambition_gameplay_trace",
         "ambition_inventory_ui",
         "ambition_load_presentation",
-        "ambition_match",
         "ambition_menu",
         "ambition_persistence",
         "ambition_platformer2d",
@@ -556,33 +495,32 @@
         "ambition_touch_input",
         "ambition_ui_nav"
       ],
-      "edit_cost_crates": 41,
-      "edit_cost_lines": 442555,
-      "edit_cost_seconds": 1533.531,
+      "edit_cost_crates": 38,
+      "edit_cost_lines": 366676,
+      "edit_cost_seconds": 1479.991,
       "files": 21,
-      "lines": 9841,
+      "lines": 8751,
       "ms_per_line": 2.7837,
-      "seconds": 27.394,
+      "seconds": 24.36,
       "seconds_source": "measured",
-      "test_file_lines": 553
+      "test_file_lines": 273
     },
     "ambition_interaction": {
-      "depth": 13,
+      "depth": 11,
       "direct_dependents": [
-        "ambition_body_seed",
         "ambition_boss_encounter",
         "ambition_combat",
         "ambition_content",
         "ambition_conversation",
         "ambition_encounter",
-        "ambition_encounter_features",
+        "ambition_platformer2d",
         "ambition_platformer2d_actor_monolith",
         "ambition_sim_view",
         "ambition_sprite_sheet"
       ],
-      "edit_cost_crates": 29,
-      "edit_cost_lines": 392685,
-      "edit_cost_seconds": 1383.875,
+      "edit_cost_crates": 27,
+      "edit_cost_lines": 367573,
+      "edit_cost_seconds": 1425.466,
       "files": 1,
       "lines": 303,
       "ms_per_line": 1.7049,
@@ -595,9 +533,9 @@
       "direct_dependents": [
         "ambition_platformer2d"
       ],
-      "edit_cost_crates": 8,
-      "edit_cost_lines": 118617,
-      "edit_cost_seconds": 691.211,
+      "edit_cost_crates": 10,
+      "edit_cost_lines": 113346,
+      "edit_cost_seconds": 756.333,
       "files": 3,
       "lines": 257,
       "ms_per_line": 9.2535,
@@ -606,24 +544,22 @@
       "test_file_lines": 0
     },
     "ambition_items": {
-      "depth": 10,
+      "depth": 8,
       "direct_dependents": [
-        "ambition_abilities",
         "ambition_content",
-        "ambition_held_items",
         "ambition_platformer2d",
         "ambition_platformer2d_actor_monolith",
         "ambition_platformer2d_runtime"
       ],
-      "edit_cost_crates": 18,
-      "edit_cost_lines": 297798,
-      "edit_cost_seconds": 1191.854,
+      "edit_cost_crates": 19,
+      "edit_cost_lines": 287188,
+      "edit_cost_seconds": 1267.508,
       "files": 8,
-      "lines": 2073,
+      "lines": 1975,
       "ms_per_line": 1.3398,
-      "seconds": 2.777,
+      "seconds": 2.646,
       "seconds_source": "measured",
-      "test_file_lines": 816
+      "test_file_lines": 803
     },
     "ambition_load": {
       "depth": 7,
@@ -635,13 +571,13 @@
         "ambition_platformer2d_rollback_ggrs",
         "ambition_platformer2d_runtime"
       ],
-      "edit_cost_crates": 14,
-      "edit_cost_lines": 152388,
-      "edit_cost_seconds": 981.52,
+      "edit_cost_crates": 17,
+      "edit_cost_lines": 148126,
+      "edit_cost_seconds": 1094.265,
       "files": 6,
-      "lines": 1308,
+      "lines": 1267,
       "ms_per_line": 5.2867,
-      "seconds": 6.915,
+      "seconds": 6.698,
       "seconds_source": "measured",
       "test_file_lines": 241
     },
@@ -651,31 +587,15 @@
         "ambition_platformer2d",
         "ambition_platformer2d_provider"
       ],
-      "edit_cost_crates": 9,
-      "edit_cost_lines": 123212,
-      "edit_cost_seconds": 721.457,
+      "edit_cost_crates": 11,
+      "edit_cost_lines": 117900,
+      "edit_cost_seconds": 786.105,
       "files": 7,
-      "lines": 1871,
+      "lines": 1905,
       "ms_per_line": 4.273,
-      "seconds": 7.995,
+      "seconds": 8.14,
       "seconds_source": "measured",
       "test_file_lines": 529
-    },
-    "ambition_match": {
-      "depth": 8,
-      "direct_dependents": [
-        "ambition_platformer2d",
-        "ambition_platformer2d_actor_monolith"
-      ],
-      "edit_cost_crates": 16,
-      "edit_cost_lines": 289264,
-      "edit_cost_seconds": 1170.301,
-      "files": 6,
-      "lines": 2249,
-      "ms_per_line": 2.9059,
-      "seconds": 6.535,
-      "seconds_source": "estimated",
-      "test_file_lines": 0
     },
     "ambition_menu": {
       "depth": 7,
@@ -686,15 +606,15 @@
         "ambition_platformer2d_host",
         "ambition_platformer2d_runtime"
       ],
-      "edit_cost_crates": 15,
-      "edit_cost_lines": 158202,
-      "edit_cost_seconds": 992.226,
+      "edit_cost_crates": 18,
+      "edit_cost_lines": 153368,
+      "edit_cost_seconds": 1103.614,
       "files": 12,
-      "lines": 4203,
+      "lines": 3961,
       "ms_per_line": 2.2778,
-      "seconds": 9.574,
+      "seconds": 9.022,
       "seconds_source": "measured",
-      "test_file_lines": 964
+      "test_file_lines": 720
     },
     "ambition_menu_kaleidoscope": {
       "depth": 2,
@@ -702,38 +622,37 @@
         "ambition_app"
       ],
       "edit_cost_crates": 2,
-      "edit_cost_lines": 34958,
-      "edit_cost_seconds": 113.594,
-      "files": 9,
-      "lines": 2919,
+      "edit_cost_lines": 29381,
+      "edit_cost_seconds": 95.421,
+      "files": 8,
+      "lines": 2548,
       "ms_per_line": 2.757,
-      "seconds": 8.048,
+      "seconds": 7.025,
       "seconds_source": "measured",
       "test_file_lines": 0
     },
     "ambition_mount": {
-      "depth": 10,
+      "depth": 8,
       "direct_dependents": [
         "ambition_content",
-        "ambition_held_items",
         "ambition_platformer2d",
         "ambition_platformer2d_actor_monolith",
         "ambition_platformer2d_rollback_ggrs",
         "ambition_platformer2d_runtime",
         "ambition_sim_view"
       ],
-      "edit_cost_crates": 18,
-      "edit_cost_lines": 297281,
-      "edit_cost_seconds": 1193.598,
+      "edit_cost_crates": 19,
+      "edit_cost_lines": 286759,
+      "edit_cost_seconds": 1269.354,
       "files": 1,
-      "lines": 1556,
+      "lines": 1546,
       "ms_per_line": 2.9059,
-      "seconds": 4.522,
+      "seconds": 4.493,
       "seconds_source": "estimated",
       "test_file_lines": 0
     },
     "ambition_persistence": {
-      "depth": 13,
+      "depth": 11,
       "direct_dependents": [
         "ambition_boss_encounter",
         "ambition_content",
@@ -741,7 +660,6 @@
         "ambition_dev_tools",
         "ambition_dialog",
         "ambition_encounter",
-        "ambition_encounter_features",
         "ambition_game_shell",
         "ambition_items",
         "ambition_menu",
@@ -754,15 +672,15 @@
         "ambition_sprite_sheet",
         "ambition_touch_input"
       ],
-      "edit_cost_crates": 36,
-      "edit_cost_lines": 427096,
-      "edit_cost_seconds": 1495.047,
-      "files": 18,
-      "lines": 6913,
+      "edit_cost_crates": 33,
+      "edit_cost_lines": 352381,
+      "edit_cost_seconds": 1444.676,
+      "files": 17,
+      "lines": 5162,
       "ms_per_line": 2.9427,
-      "seconds": 20.343,
+      "seconds": 15.19,
       "seconds_source": "measured",
-      "test_file_lines": 927
+      "test_file_lines": 456
     },
     "ambition_platformer2d": {
       "depth": 3,
@@ -770,17 +688,19 @@
         "ambition_app",
         "ambition_content",
         "ambition_demo_mary_o",
+        "ambition_demo_pocket",
         "ambition_demo_sanic",
         "ambition_demo_smash",
+        "ambition_demo_twintrack",
         "ambition_sim_harness"
       ],
-      "edit_cost_crates": 7,
-      "edit_cost_lines": 118360,
-      "edit_cost_seconds": 688.833,
+      "edit_cost_crates": 9,
+      "edit_cost_lines": 113089,
+      "edit_cost_seconds": 753.955,
       "files": 8,
-      "lines": 3995,
+      "lines": 3695,
       "ms_per_line": 7.4457,
-      "seconds": 29.746,
+      "seconds": 27.512,
       "seconds_source": "measured",
       "test_file_lines": 0
     },
@@ -795,21 +715,19 @@
         "ambition_sim_view",
         "ambition_touch_input"
       ],
-      "edit_cost_crates": 15,
-      "edit_cost_lines": 287015,
-      "edit_cost_seconds": 1163.766,
-      "files": 235,
-      "lines": 100153,
+      "edit_cost_crates": 18,
+      "edit_cost_lines": 285213,
+      "edit_cost_seconds": 1264.862,
+      "files": 283,
+      "lines": 108364,
       "ms_per_line": 0.6485,
-      "seconds": 64.949,
+      "seconds": 70.274,
       "seconds_source": "measured",
-      "test_file_lines": 36631
+      "test_file_lines": 36402
     },
     "ambition_platformer2d_core": {
-      "depth": 15,
+      "depth": 13,
       "direct_dependents": [
-        "ambition_abilities",
-        "ambition_body_seed",
         "ambition_boss_encounter",
         "ambition_character_sprites",
         "ambition_characters",
@@ -820,12 +738,9 @@
         "ambition_damage",
         "ambition_dev_tools",
         "ambition_encounter",
-        "ambition_encounter_features",
         "ambition_gameplay_trace",
-        "ambition_held_items",
         "ambition_input",
         "ambition_items",
-        "ambition_match",
         "ambition_mount",
         "ambition_persistence",
         "ambition_platformer2d",
@@ -840,37 +755,37 @@
         "ambition_portal2d",
         "ambition_portal2d_presentation",
         "ambition_projectiles",
+        "ambition_relativity2d",
         "ambition_render",
         "ambition_sim_view",
         "ambition_sprite_sheet",
         "ambition_time",
-        "ambition_vfx",
-        "ambition_world_items"
+        "ambition_vfx"
       ],
-      "edit_cost_crates": 54,
-      "edit_cost_lines": 578316,
-      "edit_cost_seconds": 1703.229,
-      "files": 76,
-      "lines": 46720,
+      "edit_cost_crates": 51,
+      "edit_cost_lines": 537395,
+      "edit_cost_seconds": 1699.951,
+      "files": 72,
+      "lines": 44006,
       "ms_per_line": 0.3624,
-      "seconds": 16.931,
+      "seconds": 15.948,
       "seconds_source": "measured",
-      "test_file_lines": 18817
+      "test_file_lines": 17622
     },
     "ambition_platformer2d_host": {
       "depth": 4,
       "direct_dependents": [
         "ambition_platformer2d"
       ],
-      "edit_cost_crates": 8,
-      "edit_cost_lines": 121617,
-      "edit_cost_seconds": 747.022,
+      "edit_cost_crates": 10,
+      "edit_cost_lines": 116247,
+      "edit_cost_seconds": 810.375,
       "files": 4,
-      "lines": 3257,
+      "lines": 3158,
       "ms_per_line": 17.8658,
-      "seconds": 58.189,
+      "seconds": 56.42,
       "seconds_source": "measured",
-      "test_file_lines": 1093
+      "test_file_lines": 1085
     },
     "ambition_platformer2d_ldtk": {
       "depth": 8,
@@ -881,13 +796,13 @@
         "ambition_platformer2d_actor_monolith",
         "ambition_platformer2d_runtime"
       ],
-      "edit_cost_crates": 20,
-      "edit_cost_lines": 311160,
-      "edit_cost_seconds": 1226.741,
+      "edit_cost_crates": 23,
+      "edit_cost_lines": 308735,
+      "edit_cost_seconds": 1326.307,
       "files": 20,
-      "lines": 7071,
+      "lines": 7057,
       "ms_per_line": 3.1459,
-      "seconds": 22.245,
+      "seconds": 22.201,
       "seconds_source": "measured",
       "test_file_lines": 267
     },
@@ -896,13 +811,13 @@
       "direct_dependents": [
         "ambition_platformer2d"
       ],
-      "edit_cost_crates": 8,
-      "edit_cost_lines": 121341,
-      "edit_cost_seconds": 713.462,
+      "edit_cost_crates": 10,
+      "edit_cost_lines": 115995,
+      "edit_cost_seconds": 777.965,
       "files": 4,
-      "lines": 2981,
+      "lines": 2906,
       "ms_per_line": 8.2622,
-      "seconds": 24.63,
+      "seconds": 24.01,
       "seconds_source": "measured",
       "test_file_lines": 0
     },
@@ -911,13 +826,13 @@
       "direct_dependents": [
         "ambition_platformer2d"
       ],
-      "edit_cost_crates": 8,
-      "edit_cost_lines": 124827,
-      "edit_cost_seconds": 707.625,
-      "files": 12,
-      "lines": 6467,
+      "edit_cost_crates": 10,
+      "edit_cost_lines": 118792,
+      "edit_cost_seconds": 770.527,
+      "files": 11,
+      "lines": 5703,
       "ms_per_line": 2.9059,
-      "seconds": 18.792,
+      "seconds": 16.572,
       "seconds_source": "estimated",
       "test_file_lines": 0
     },
@@ -928,23 +843,22 @@
         "ambition_platformer2d",
         "ambition_platformer2d_host",
         "ambition_platformer2d_provider",
-        "ambition_platformer2d_rollback_ggrs"
+        "ambition_platformer2d_rollback_ggrs",
+        "ambition_relativity2d"
       ],
-      "edit_cost_crates": 11,
-      "edit_cost_lines": 141128,
-      "edit_cost_seconds": 951.496,
-      "files": 33,
-      "lines": 10063,
+      "edit_cost_crates": 14,
+      "edit_cost_lines": 136903,
+      "edit_cost_seconds": 1064.369,
+      "files": 30,
+      "lines": 8505,
       "ms_per_line": 16.0044,
-      "seconds": 161.052,
+      "seconds": 136.117,
       "seconds_source": "measured",
       "test_file_lines": 484
     },
     "ambition_platformer2d_shared_tangle": {
-      "depth": 14,
+      "depth": 12,
       "direct_dependents": [
-        "ambition_abilities",
-        "ambition_body_seed",
         "ambition_boss_encounter",
         "ambition_character_sprites",
         "ambition_combat",
@@ -953,11 +867,8 @@
         "ambition_damage",
         "ambition_dev_tools",
         "ambition_encounter",
-        "ambition_encounter_features",
         "ambition_game_shell",
-        "ambition_held_items",
         "ambition_load_presentation",
-        "ambition_match",
         "ambition_menu",
         "ambition_mount",
         "ambition_platformer2d",
@@ -971,32 +882,27 @@
         "ambition_portal2d",
         "ambition_portal2d_presentation",
         "ambition_projectiles",
+        "ambition_relativity2d",
         "ambition_render",
         "ambition_sim_view",
         "ambition_sprite_sheet",
-        "ambition_touch_input",
-        "ambition_world_items"
+        "ambition_touch_input"
       ],
-      "edit_cost_crates": 41,
-      "edit_cost_lines": 466559,
-      "edit_cost_seconds": 1579.231,
-      "files": 65,
-      "lines": 20629,
+      "edit_cost_crates": 38,
+      "edit_cost_lines": 433592,
+      "edit_cost_seconds": 1587.42,
+      "files": 64,
+      "lines": 19053,
       "ms_per_line": 0.8174,
-      "seconds": 16.862,
+      "seconds": 15.574,
       "seconds_source": "measured",
-      "test_file_lines": 5143
+      "test_file_lines": 5134
     },
     "ambition_platformer2d_world": {
-      "depth": 13,
+      "depth": 11,
       "direct_dependents": [
-        "ambition_abilities",
-        "ambition_boss_encounter",
-        "ambition_combat",
         "ambition_content",
         "ambition_damage",
-        "ambition_encounter_features",
-        "ambition_held_items",
         "ambition_menu",
         "ambition_platformer2d",
         "ambition_platformer2d_actor_monolith",
@@ -1009,13 +915,13 @@
         "ambition_sim_view",
         "ambition_sprite_sheet"
       ],
-      "edit_cost_crates": 34,
-      "edit_cost_lines": 420497,
-      "edit_cost_seconds": 1465.426,
+      "edit_cost_crates": 29,
+      "edit_cost_lines": 346093,
+      "edit_cost_seconds": 1432.6,
       "files": 19,
-      "lines": 5491,
+      "lines": 5472,
       "ms_per_line": 4.0588,
-      "seconds": 22.287,
+      "seconds": 22.21,
       "seconds_source": "measured",
       "test_file_lines": 639
     },
@@ -1023,7 +929,6 @@
       "depth": 10,
       "direct_dependents": [
         "ambition_content",
-        "ambition_held_items",
         "ambition_platformer2d",
         "ambition_platformer2d_actor_monolith",
         "ambition_platformer2d_host",
@@ -1031,15 +936,15 @@
         "ambition_portal2d_presentation",
         "ambition_projectiles"
       ],
-      "edit_cost_crates": 21,
-      "edit_cost_lines": 314984,
-      "edit_cost_seconds": 1245.078,
+      "edit_cost_crates": 22,
+      "edit_cost_lines": 303314,
+      "edit_cost_seconds": 1317.524,
       "files": 25,
-      "lines": 6273,
+      "lines": 5537,
       "ms_per_line": 2.7133,
-      "seconds": 17.021,
+      "seconds": 15.024,
       "seconds_source": "measured",
-      "test_file_lines": 1737
+      "test_file_lines": 1566
     },
     "ambition_portal2d_presentation": {
       "depth": 6,
@@ -1049,36 +954,35 @@
         "ambition_platformer2d_host",
         "ambition_render"
       ],
-      "edit_cost_crates": 11,
-      "edit_cost_lines": 162426,
-      "edit_cost_seconds": 876.083,
+      "edit_cost_crates": 13,
+      "edit_cost_lines": 152230,
+      "edit_cost_seconds": 925.819,
       "files": 15,
-      "lines": 6741,
+      "lines": 6440,
       "ms_per_line": 3.5166,
-      "seconds": 23.705,
+      "seconds": 22.647,
       "seconds_source": "measured",
-      "test_file_lines": 1709
+      "test_file_lines": 1586
     },
     "ambition_projectile_spec": {
-      "depth": 15,
+      "depth": 13,
       "direct_dependents": [
         "ambition_platformer2d_shared_tangle",
         "ambition_projectiles"
       ],
-      "edit_cost_crates": 42,
-      "edit_cost_lines": 466609,
-      "edit_cost_seconds": 1579.322,
+      "edit_cost_crates": 39,
+      "edit_cost_lines": 433638,
+      "edit_cost_seconds": 1587.505,
       "files": 1,
-      "lines": 50,
+      "lines": 46,
       "ms_per_line": 1.8293,
-      "seconds": 0.091,
+      "seconds": 0.084,
       "seconds_source": "measured",
       "test_file_lines": 0
     },
     "ambition_projectiles": {
       "depth": 9,
       "direct_dependents": [
-        "ambition_abilities",
         "ambition_content",
         "ambition_damage",
         "ambition_platformer2d",
@@ -1087,32 +991,45 @@
         "ambition_render",
         "ambition_sim_view"
       ],
-      "edit_cost_crates": 18,
-      "edit_cost_lines": 298495,
-      "edit_cost_seconds": 1194.254,
+      "edit_cost_crates": 20,
+      "edit_cost_lines": 291337,
+      "edit_cost_seconds": 1279.854,
       "files": 14,
-      "lines": 2533,
+      "lines": 2473,
       "ms_per_line": 1.7721,
-      "seconds": 4.489,
+      "seconds": 4.382,
       "seconds_source": "measured",
       "test_file_lines": 0
     },
-    "ambition_registry_core": {
-      "depth": 15,
+    "ambition_relativity": {
+      "depth": 5,
       "direct_dependents": [
-        "ambition_platformer2d_actor_monolith",
-        "ambition_platformer2d_runtime",
-        "ambition_platformer2d_shared_tangle",
-        "ambition_platformer2d_world"
+        "ambition_platformer2d",
+        "ambition_relativity2d"
       ],
-      "edit_cost_crates": 42,
-      "edit_cost_lines": 466794,
-      "edit_cost_seconds": 1579.914,
+      "edit_cost_crates": 11,
+      "edit_cost_lines": 117353,
+      "edit_cost_seconds": 831.64,
       "files": 1,
-      "lines": 235,
-      "ms_per_line": 2.9059,
-      "seconds": 0.683,
-      "seconds_source": "estimated",
+      "lines": 722,
+      "ms_per_line": 0.5418,
+      "seconds": 0.391,
+      "seconds_source": "measured",
+      "test_file_lines": 0
+    },
+    "ambition_relativity2d": {
+      "depth": 4,
+      "direct_dependents": [
+        "ambition_platformer2d"
+      ],
+      "edit_cost_crates": 10,
+      "edit_cost_lines": 116631,
+      "edit_cost_seconds": 831.249,
+      "files": 5,
+      "lines": 3542,
+      "ms_per_line": 21.8222,
+      "seconds": 77.294,
+      "seconds_source": "measured",
       "test_file_lines": 0
     },
     "ambition_render": {
@@ -1123,35 +1040,34 @@
         "ambition_platformer2d_host",
         "ambition_touch_input"
       ],
-      "edit_cost_crates": 10,
-      "edit_cost_lines": 155685,
-      "edit_cost_seconds": 852.377,
-      "files": 56,
-      "lines": 29485,
+      "edit_cost_crates": 12,
+      "edit_cost_lines": 145790,
+      "edit_cost_seconds": 903.172,
+      "files": 51,
+      "lines": 25010,
       "ms_per_line": 2.747,
-      "seconds": 80.995,
+      "seconds": 68.702,
       "seconds_source": "measured",
-      "test_file_lines": 567
+      "test_file_lines": 126
     },
     "ambition_settings_menu": {
       "depth": 4,
       "direct_dependents": [
         "ambition_platformer2d"
       ],
-      "edit_cost_crates": 8,
-      "edit_cost_lines": 120767,
-      "edit_cost_seconds": 690.094,
+      "edit_cost_crates": 10,
+      "edit_cost_lines": 115455,
+      "edit_cost_seconds": 755.194,
       "files": 7,
-      "lines": 2407,
+      "lines": 2366,
       "ms_per_line": 0.5239,
-      "seconds": 1.261,
+      "seconds": 1.24,
       "seconds_source": "measured",
-      "test_file_lines": 438
+      "test_file_lines": 437
     },
     "ambition_sfx": {
-      "depth": 13,
+      "depth": 12,
       "direct_dependents": [
-        "ambition_abilities",
         "ambition_audio",
         "ambition_boss_encounter",
         "ambition_combat",
@@ -1166,9 +1082,9 @@
         "ambition_render",
         "ambition_vfx"
       ],
-      "edit_cost_crates": 33,
-      "edit_cost_lines": 402343,
-      "edit_cost_seconds": 1416.555,
+      "edit_cost_crates": 31,
+      "edit_cost_lines": 378401,
+      "edit_cost_seconds": 1460.846,
       "files": 3,
       "lines": 1147,
       "ms_per_line": 2.869,
@@ -1177,14 +1093,14 @@
       "test_file_lines": 0
     },
     "ambition_sfx_bank": {
-      "depth": 14,
+      "depth": 13,
       "direct_dependents": [
         "ambition_platformer2d",
         "ambition_sfx"
       ],
-      "edit_cost_crates": 34,
-      "edit_cost_lines": 402882,
-      "edit_cost_seconds": 1417.485,
+      "edit_cost_crates": 32,
+      "edit_cost_lines": 378940,
+      "edit_cost_seconds": 1461.776,
       "files": 1,
       "lines": 539,
       "ms_per_line": 1.7254,
@@ -1198,12 +1114,12 @@
         "ambition_app"
       ],
       "edit_cost_crates": 2,
-      "edit_cost_lines": 35922,
-      "edit_cost_seconds": 119.423,
-      "files": 12,
-      "lines": 3883,
+      "edit_cost_lines": 28622,
+      "edit_cost_seconds": 94.789,
+      "files": 9,
+      "lines": 1789,
       "ms_per_line": 3.5738,
-      "seconds": 13.877,
+      "seconds": 6.394,
       "seconds_source": "measured",
       "test_file_lines": 123
     },
@@ -1218,41 +1134,22 @@
         "ambition_render",
         "ambition_touch_input"
       ],
-      "edit_cost_crates": 14,
-      "edit_cost_lines": 186862,
-      "edit_cost_seconds": 1098.817,
+      "edit_cost_crates": 17,
+      "edit_cost_lines": 176849,
+      "edit_cost_seconds": 1194.588,
       "files": 17,
-      "lines": 11666,
+      "lines": 10403,
       "ms_per_line": 3.5972,
-      "seconds": 41.965,
+      "seconds": 37.422,
       "seconds_source": "measured",
       "test_file_lines": 0
     },
-    "ambition_sprite_fx": {
-      "depth": 7,
-      "direct_dependents": [
-        "ambition_portal2d_presentation",
-        "ambition_render"
-      ],
-      "edit_cost_crates": 12,
-      "edit_cost_lines": 163471,
-      "edit_cost_seconds": 879.12,
-      "files": 2,
-      "lines": 1045,
-      "ms_per_line": 2.9059,
-      "seconds": 3.037,
-      "seconds_source": "estimated",
-      "test_file_lines": 565
-    },
     "ambition_sprite_sheet": {
-      "depth": 12,
+      "depth": 10,
       "direct_dependents": [
-        "ambition_body_seed",
         "ambition_boss_encounter",
         "ambition_character_sprites",
-        "ambition_combat",
         "ambition_content",
-        "ambition_match",
         "ambition_platformer2d",
         "ambition_platformer2d_actor_monolith",
         "ambition_platformer2d_host",
@@ -1261,43 +1158,39 @@
         "ambition_render",
         "ambition_sim_view"
       ],
-      "edit_cost_crates": 27,
-      "edit_cost_lines": 388328,
-      "edit_cost_seconds": 1375.676,
-      "files": 29,
-      "lines": 10282,
+      "edit_cost_crates": 22,
+      "edit_cost_lines": 314626,
+      "edit_cost_seconds": 1344.562,
+      "files": 28,
+      "lines": 9654,
       "ms_per_line": 2.5517,
-      "seconds": 26.237,
+      "seconds": 24.634,
       "seconds_source": "measured",
       "test_file_lines": 1675
     },
     "ambition_time": {
-      "depth": 12,
+      "depth": 11,
       "direct_dependents": [
-        "ambition_abilities",
         "ambition_boss_encounter",
         "ambition_combat",
         "ambition_content",
         "ambition_conversation",
         "ambition_damage",
-        "ambition_dev_tools",
-        "ambition_encounter_features",
-        "ambition_held_items",
         "ambition_mount",
         "ambition_platformer2d",
         "ambition_platformer2d_actor_monolith",
         "ambition_platformer2d_runtime",
+        "ambition_relativity2d",
         "ambition_render",
-        "ambition_sim_view",
-        "ambition_world_items"
+        "ambition_sim_view"
       ],
-      "edit_cost_crates": 30,
-      "edit_cost_lines": 387423,
-      "edit_cost_seconds": 1402.243,
+      "edit_cost_crates": 26,
+      "edit_cost_lines": 356717,
+      "edit_cost_seconds": 1402.491,
       "files": 5,
-      "lines": 1012,
+      "lines": 997,
       "ms_per_line": 4.2188,
-      "seconds": 4.269,
+      "seconds": 4.206,
       "seconds_source": "measured",
       "test_file_lines": 219
     },
@@ -1306,13 +1199,13 @@
       "direct_dependents": [
         "ambition_platformer2d"
       ],
-      "edit_cost_crates": 8,
-      "edit_cost_lines": 122943,
-      "edit_cost_seconds": 713.193,
+      "edit_cost_crates": 10,
+      "edit_cost_lines": 117622,
+      "edit_cost_seconds": 778.049,
       "files": 8,
-      "lines": 4583,
+      "lines": 4533,
       "ms_per_line": 5.3154,
-      "seconds": 24.36,
+      "seconds": 24.095,
       "seconds_source": "measured",
       "test_file_lines": 456
     },
@@ -1328,9 +1221,9 @@
         "ambition_render",
         "ambition_touch_input"
       ],
-      "edit_cost_crates": 23,
-      "edit_cost_lines": 311448,
-      "edit_cost_seconds": 1226.097,
+      "edit_cost_crates": 26,
+      "edit_cost_lines": 308933,
+      "edit_cost_seconds": 1325.401,
       "files": 4,
       "lines": 932,
       "ms_per_line": 0.3669,
@@ -1339,10 +1232,8 @@
       "test_file_lines": 0
     },
     "ambition_vfx": {
-      "depth": 12,
+      "depth": 11,
       "direct_dependents": [
-        "ambition_abilities",
-        "ambition_body_seed",
         "ambition_boss_encounter",
         "ambition_combat",
         "ambition_content",
@@ -1353,54 +1244,36 @@
         "ambition_projectiles",
         "ambition_render"
       ],
-      "edit_cost_crates": 28,
-      "edit_cost_lines": 381337,
-      "edit_cost_seconds": 1356.506,
+      "edit_cost_crates": 26,
+      "edit_cost_lines": 357405,
+      "edit_cost_seconds": 1400.753,
       "files": 4,
       "lines": 758,
       "ms_per_line": 3.401,
       "seconds": 2.578,
       "seconds_source": "measured",
       "test_file_lines": 0
-    },
-    "ambition_world_items": {
-      "depth": 8,
-      "direct_dependents": [
-        "ambition_platformer2d",
-        "ambition_platformer2d_actor_monolith",
-        "ambition_platformer2d_runtime",
-        "ambition_sim_view"
-      ],
-      "edit_cost_crates": 16,
-      "edit_cost_lines": 288343,
-      "edit_cost_seconds": 1167.625,
-      "files": 4,
-      "lines": 1328,
-      "ms_per_line": 2.9059,
-      "seconds": 3.859,
-      "seconds_source": "estimated",
-      "test_file_lines": 143
     }
   },
-  "critical_path_crates": 16,
+  "critical_path_crates": 14,
   "dirty": true,
-  "first_party_crates": 66,
-  "first_party_lines": 608818,
-  "first_party_seconds": 1784.013,
+  "first_party_crates": 62,
+  "first_party_lines": 564762,
+  "first_party_seconds": 1772.642,
   "headroom_fraction": 0.02,
   "kind": "graph",
   "label": "",
   "largest_unit": {
     "crate": "ambition_platformer2d_actor_monolith",
-    "lines": 100153
+    "lines": 108364
   },
   "largest_unit_seconds": {
     "crate": "ambition_content",
-    "seconds": 235.5
+    "seconds": 219.035
   },
   "line_unit": "physical lines of <crate>/src/**/*.rs, inline #[cfg(test)] included",
-  "recorded_at": "2026-09-04T19:52:07-0400",
-  "run_id": "dd73ed24617b",
+  "recorded_at": "2026-08-27T16:59:46-0400",
+  "run_id": "279fc606403d",
   "schema": 1,
   "unit_weights": {
     "builds": [
@@ -1492,41 +1365,33 @@
     "weight_unit": "milliseconds of rustc wall time per physical line of src/**/*.rs"
   },
   "unpriced_crates": [
-    "ambition_abilities",
     "ambition_binding",
-    "ambition_body_seed",
     "ambition_boss_encounter",
     "ambition_conversation",
     "ambition_damage",
-    "ambition_encounter_features",
-    "ambition_held_items",
-    "ambition_match",
     "ambition_mount",
-    "ambition_platformer2d_rollback_ggrs",
-    "ambition_registry_core",
-    "ambition_sprite_fx",
-    "ambition_world_items"
+    "ambition_platformer2d_rollback_ggrs"
   ],
   "watched_edit_cost": {
     "ambition_platformer2d_actor_monolith": {
-      "crates": 15,
-      "lines": 287015,
-      "seconds": 1163.766
+      "crates": 18,
+      "lines": 285213,
+      "seconds": 1264.862
     },
     "ambition_platformer2d_core": {
-      "crates": 54,
-      "lines": 578316,
-      "seconds": 1703.229
+      "crates": 51,
+      "lines": 537395,
+      "seconds": 1699.951
     }
   },
   "worst_edit_cost": {
     "crate": "ambition_geometry",
-    "crates": 55,
-    "lines": 581627
+    "crates": 52,
+    "lines": 540227
   },
   "worst_edit_cost_seconds": {
     "crate": "ambition_geometry",
-    "crates": 55,
-    "seconds": 1706.198
+    "crates": 52,
+    "seconds": 1702.49
   }
 }

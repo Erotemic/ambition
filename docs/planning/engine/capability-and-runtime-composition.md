@@ -559,6 +559,32 @@ are domain-owned — that half landed. What did not is the CALL SITE: it lives i
 the backend's plugin and names all twenty unconditionally, so composing the
 backend composes their expectations.
 
+⭐⭐ **AND THE POPULATION IS SIX, not "however many" — measured 2026-09-04 by
+`scripts/rollback_checksum_prerequisites.py`, which is committed.** Only two
+declaration forms route through `checksum_resource` and therefore through the
+unwrapped `Res<R>`: `rollback_resource_canonical` and
+`rollback_resource_clone_checksum`. (`rollback_resource_optional_canonical`
+exists precisely to tolerate absence, and the plain `_clone` forms use
+`ResourceSnapshotPlugin`, which maps `(Some, None)` to `remove_resource`.)
+
+| resource | declared in | inserted by |
+|---|---|---|
+| `MovingPlatformSet` | `platformer2d_runtime/src/rollback/mod.rs` | `sim_core_resources.rs`, `actor_monolith/session/setup.rs` |
+| `GatePortalPhases` | `platformer2d_world/src/rooms/gate_portal.rs` | `sim_core_resources.rs` |
+| `MintedItemBaseline` | `actor_monolith/src/items/pickup/minted_horizon.rs` | the same module |
+| `OwnedItemsBaseline` | `actor_monolith/src/items/pickup/minted_horizon.rs` | the same module |
+| `CustodyBaseline` | `shared_tangle/src/lifecycle/horizon.rs` | `lifecycle/custody_horizon.rs` |
+| `OccurrenceBaseline` | `shared_tangle/src/lifecycle/horizon.rs` | the same module |
+
+⇒ **Four of the six are inserted only by plugins a two-plugin host does not
+add** (`sim_core_resources`, the actor monolith), which is why the capability
+demo has more frame-one panics ahead of it and why they are one seam rather than
+four bugs.
+⭐ Six game-side declarations exist too (`VersusMatch`, `SpentMonitors`,
+`BrokenBricks`, …) and are NOT part of this problem: a game declares its own
+state in its own composition, which is exactly the shape the engine side should
+have.
+
 ⇒ **The seam: a domain declares its own rollback state when that domain is
 composed**, through whichever registrar the host installed. That is the same
 move `BossEncounterSimulationPlugin` made for systems and messages, one contract

@@ -601,8 +601,18 @@ The one unresolved developer-policy choice from the session-ownership work is in
   domain is composed. Recorded as a design item in
   [`engine/capability-and-runtime-composition.md`](engine/capability-and-runtime-composition.md).
   ⇒ **So the demo's remaining faults are not a list to grind down — they are one
-  seam**, and the count is however many canonical resources the twenty declare
-  that a two-plugin host never inserts.
+  seam, and the count is SIX** (measured by
+  `scripts/rollback_checksum_prerequisites.py`, committed): `MovingPlatformSet`,
+  `GatePortalPhases`, `MintedItemBaseline`, `OwnedItemsBaseline`,
+  `CustodyBaseline`, `OccurrenceBaseline`. **Four of the six are inserted only by
+  `sim_core_resources` or the actor monolith**, neither of which this demo adds,
+  so those four are guaranteed frame-one panics waiting in order.
+  ⚠ Only two declaration forms reach the unwrapped `Res<R>` —
+  `rollback_resource_canonical` and `rollback_resource_clone_checksum`. The
+  `_optional_canonical` form exists to tolerate absence and the plain `_clone`
+  forms use `ResourceSnapshotPlugin`, which maps `(Some, None)` to
+  `remove_resource`. That is why the population is six and not the whole
+  declaration set.
   ✔ **The guard's own crate is green: `ambition_platformer2d_rollback_ggrs` 54
   passed / 0 failed** (the commit that landed it said the suite was still queued
   behind a saturated machine; it has reported since). ⚠ And that green means less

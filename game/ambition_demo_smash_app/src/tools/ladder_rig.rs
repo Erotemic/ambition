@@ -1075,8 +1075,6 @@ fn row_verdict(bouts: &[Bout], properly_paired: bool) -> (&'static str, bool) {
     } else {
         "even"
     };
-    let hi_dealt_all: Vec<f32> = bouts.iter().map(|b| b.damage_taken[1]).collect();
-    let lo_dealt_all: Vec<f32> = bouts.iter().map(|b| b.damage_taken[0]).collect();
     if properly_paired {
         // ⛔⛔ THIS WAS `mid.abs() < 0.5 * (hi - lo)` AND THAT TEST RAN BACKWARDS.
         //
@@ -1101,14 +1099,28 @@ fn row_verdict(bouts: &[Bout], properly_paired: bool) -> (&'static str, bool) {
         // matters here because bout damage is bounded, skewed and bimodal.
         paired_verdict(&paired_outcomes(bouts))
     } else {
-        (pooled_verdict, (hi_dealt - lo_dealt).abs()
-            < 0.5
-                * ((hi_dealt_all.iter().copied().fold(f32::NEG_INFINITY, f32::max)
-                    - hi_dealt_all.iter().copied().fold(f32::INFINITY, f32::min))
-                .max(
-                    lo_dealt_all.iter().copied().fold(f32::NEG_INFINITY, f32::max)
-                        - lo_dealt_all.iter().copied().fold(f32::INFINITY, f32::min),
-                )))
+        // ⛔⛔ AN UNPAIRED ROW MAKES NO INFERENCE AT ALL, and printing one was the
+        // paired road's defect surviving on the road that is the DEFAULT.
+        //
+        // The qualifier here was a range test over DAMAGE, computed whatever
+        // decided the word — so a unanimous STOCK outcome was discounted by
+        // variance in a quantity that had not authored it. The reviewer's
+        // fixture: higher takes 2 stocks in every bout and lower takes 0, while
+        // damage runs `[0, 100, 0, 100]` against `[45, 55, 45, 55]`. Median
+        // stocks 2 : 0 say `higher outfights`; damage medians are 50 : 50 with a
+        // wide higher range, so the row printed `(within spread)` over a sweep.
+        //
+        // ⭐ AND THE FIX IS NOT A BETTER THRESHOLD OVER STOCKS. An unpaired run
+        // does not cancel the seat — this tool's own header says *"unpaired —
+        // seat 0 is always the higher rung"*, and 7 of the 9 fixtures place seat
+        // 0 offstage. A significance statement over seat-confounded samples is a
+        // confident answer to a question the DESIGN cannot answer, however it is
+        // computed. `--paired` exists precisely to buy the inference.
+        //
+        // ⇒ The word stays — pooled medians are the best DESCRIPTION available —
+        // and the inferential qualifier is replaced at the print site by the
+        // design fact, which is true and is what a reader should discount by.
+        (pooled_verdict, false)
     }
 }
 
@@ -1321,7 +1333,12 @@ fn report_row(label: &str, bouts: &[Bout]) {
     // dealt, so the spread that matters is damage's. Leaving it on the old
     // column would have marked a decisive damage gap "within spread" whenever
     // the two seats happened to die at similar times.
-    // ⭐ PAIRED RUNS ARE TESTED ON THE DIFFERENCES, NOT ON TWO POOLED MEDIANS.
+    // ⭐ PAIRED RUNS ARE TESTED ON PER-SEED OUTCOMES, NOT ON TWO POOLED MEDIANS.
+    // ⚠ This said "on the DIFFERENCES" and described the pre-`36dd9a248` road:
+    // paired inference consumed per-pair DAMAGE differences then. It consumes
+    // categorical stocks-first `PairedOutcome`s now, and the sentence outlived
+    // the mechanism it described — the same way the "DECIDING quantity" comment
+    // did, two lines from the code that contradicted it.
     // `--paired` emits consecutive (straight, mirrored) bouts of ONE seed, so the
     // within-seed difference in damage dealt is available and it is the whole
     // reason to pay double: seed-to-seed variance appears in both halves of a
@@ -1349,8 +1366,13 @@ fn report_row(label: &str, bouts: &[Bout]) {
     let (verdict, overlaps) = row_verdict(bouts, properly_paired);
     let verdict = if overlaps {
         format!("{verdict} (within spread)")
-    } else {
+    } else if properly_paired {
         verdict.to_string()
+    } else {
+        // ⚠ NOT a significance claim, and deliberately not shaped like one: it
+        // names the DESIGN that produced the row, so a reader discounts it for
+        // the right reason instead of reading an unqualified word as resolved.
+        format!("{verdict} (unpaired — seat not cancelled)")
     };
     if args().per_bout {
         // ⚠ RAW, and in the order the bouts were run — a paired run emits each
@@ -2294,6 +2316,54 @@ mod tests {
         assert_eq!(median(vec![0.0, 0.0, 1.0, 1.0]), 0.5);
         assert_eq!(median(vec![1.0, 2.0, 3.0]), 2.0);
         assert_eq!(median(vec![4.0, 1.0]), 2.5, "and it sorts first");
+    }
+
+    /// ⛔⛔ AN UNPAIRED ROW'S QUALIFIER MAY NOT BE AUTHORED BY A QUANTITY THAT
+    /// DID NOT AUTHOR ITS DIRECTION — the paired road's defect, which survived
+    /// on the road that is the DEFAULT.
+    ///
+    /// The reviewer's fixture, kept exactly: the higher rung takes two stocks in
+    /// every bout and the lower takes none, while damage runs `[0, 100, 0, 100]`
+    /// against `[45, 55, 45, 55]`. Median stocks 2 : 0 decide the word; damage
+    /// medians are 50 : 50 with a wide higher range, and the old range test read
+    /// that variance as "within spread" — **discounting a clean sweep on the
+    /// strength of a quantity that had not decided anything.**
+    ///
+    /// ⭐ THE ASSERTION IS THAT NO INFERENCE IS MADE AT ALL, not that a better
+    /// one is. An unpaired run does not cancel the seat, and 7 of the 9 fixtures
+    /// place seat 0 offstage, so a significance statement over these samples is
+    /// a confident answer to a question the design cannot answer however it is
+    /// computed. `--paired` is what buys the inference.
+    #[test]
+    fn an_unpaired_rows_qualifier_is_never_authored_by_the_losing_quantity() {
+        let mut bouts = Vec::new();
+        for damage in [0.0_f32, 100.0, 0.0, 100.0].into_iter().zip([45.0_f32, 55.0, 45.0, 55.0]) {
+            let (hi, lo) = damage;
+            // Two stocks taken off the lower rung every bout; none taken back.
+            bouts.push(scored(hi, lo, 2, 0));
+        }
+
+        // The fixture must really disagree, or it witnesses nothing.
+        let hi_dealt = median(bouts.iter().map(|b| b.damage_taken[1]).collect());
+        let lo_dealt = median(bouts.iter().map(|b| b.damage_taken[0]).collect());
+        assert_eq!(
+            (hi_dealt, lo_dealt),
+            (50.0, 50.0),
+            "damage must be a TIE with a wide higher range, so only stocks can \
+             decide the word and only damage could have produced the old qualifier"
+        );
+
+        let (word, overlaps) = row_verdict(&bouts, false);
+        assert_eq!(
+            word, "higher outfights",
+            "a rung that takes every stock in every bout wins the row"
+        );
+        assert!(
+            !overlaps,
+            "the row printed `(within spread)` over a unanimous stock sweep, on \
+             the strength of variance in damage — a quantity that did not author \
+             the direction. An unpaired row makes NO significance claim."
+        );
     }
 
     /// A PAIR OF MIRRORED BOUTS CARRIES NO SEAT ADVANTAGE.

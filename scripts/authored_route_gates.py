@@ -208,7 +208,7 @@ def main() -> int:
             unreadable.append(f"{path}: {error}")
             continue
         for match in re.finditer(r'condition\(\s*"([^"]+)"', text):
-            calls.append((path, match.group(1)))
+            calls.append((path, match.group(1), "generic"))
         # ⛔⛔ THE SECOND SPELLING, AND LEAVING IT OUT INVERTS THE ANSWER.
         # A condition can be reached from authored `.yarn` two ways: the generic
         # `condition(id, arg)` verb, and a NAMED function bound to the same
@@ -222,12 +222,24 @@ def main() -> int:
         #   `named_aliases`, and the three staleness dates in its docstring.
         for verb, condition_id in aliases.items():
             for _ in re.finditer(rf"\b{verb}\(", text):
-                calls.append((path, condition_id))
+                calls.append((path, condition_id, "alias"))
 
-    print(f"\ndialogue files: {len(yarn)}  (using condition(): "
-          f"{len({p for p, _ in calls})})")
-    print(f"condition() calls: {len(calls)}")
-    by_id = Counter(cid for _, cid in calls)
+    # ⛔ NAME THE TWO ROADS SEPARATELY. This printed `condition() calls: N` over
+    # the COMBINED population, which was the right denominator under a label that
+    # was false for two thirds of it — 10 generic calls and 18 alias calls read
+    # as 28 `condition(...)` calls, in the one tool whose whole purpose is to
+    # stop a denominator being quoted wrong. The combined figure is what the
+    # published/unused census needs; the label just has to say so.
+    generic = [c for c in calls if c[2] == "generic"]
+    alias = [c for c in calls if c[2] == "alias"]
+    print(f"\ndialogue files: {len(yarn)}  (using condition vocabulary: "
+          f"{len({p for p, _, _ in calls})})")
+    print(f"dialogue condition uses: {len(calls)}")
+    print(f"  generic condition(): {len(generic):>3}"
+          f"   in {len({p for p, _, _ in generic})} file(s)")
+    print(f"  named aliases:       {len(alias):>3}"
+          f"   in {len({p for p, _, _ in alias})} file(s)")
+    by_id = Counter(cid for _, cid, _ in calls)
     for name, count in sorted(by_id.items()):
         print(f"  {count:>3}  {name}")
 

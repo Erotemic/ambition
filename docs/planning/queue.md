@@ -2757,11 +2757,18 @@ queue read as an execution authority for work already done.
   ⭐⭐ **STATE AS OF 2026-09-04, because this row is now ~175 lines and the history
   below is not what a reader needs first.** Three things, and only one of them is
   a slice anybody can take today:
-  - ⛔ **BLOCKED ON A MACHINE, not on a decision**: re-running the four ladder
-    cells. The rig was repaired today (`36dd9a248`) and **nothing has been
-    re-measured through it** — `3 vs 1` and `5 vs 3` are UNCONFIRMED, and every
-    descriptive column is pre-`median()`-fix. One command, recorded verbatim in
-    [`engine/fighter-brain.md`](engine/fighter-brain.md). Needs disk.
+  - ✔✔ **CLOSED 2026-09-04 — the four ladder cells RE-RAN through the repaired
+    rig and came back unchanged** (`fdbc77b1c`; the disk that blocked it was
+    reclaimed the same day). `3 vs 1` higher and `5 vs 3` LOWER are both
+    significant, `6 vs 5` and `9 vs 6` within spread — the same two cells in the
+    same two directions, through a rig printing `ladder: the AUTHORED rows`.
+    ⇒ **`5 vs 3` is CONFIRMED, not unconfirmed.** ⭐ And the post-`median()`-fix
+    columns are now WRITTEN DOWN rather than described as *"moved slightly"*:
+    survival `83.4 : 80.4 / 97.1 : 98.6 / 102.8 : 102.7 / 111.4 : 115.9`, damage
+    `297:205 / 298:349 / 345:359 / 398:386`, stocks `0 : 0` in all four. The
+    largest single move against the pre-fix generation is `5 vs 3`'s lower-rung
+    damage, **360% → 349%**. ⇒ A mandatory correctness fix that changed no
+    conclusion — which was not knowable before it ran, and is why it ran.
   - ⏳ **WAITING ON JON**, both with measurements attached and neither needing
     more of them: the ladder-authority fork, and the stand-in's four specials.
     See [`awaiting-maintainer-decision.md`](awaiting-maintainer-decision.md).
@@ -2922,7 +2929,9 @@ queue read as an execution authority for work already done.
   removed while its own sign test is significant for HIGHER**, and it looks
   identical to a row where the two agree. ⚠ Also: when STOCKS decide, the paired
   test still tests DAMAGE.
-  ⇒ **Treat `3 vs 1` and `5 vs 3` as UNCONFIRMED, not withdrawn.** The mechanism
+  ⇒ **(SUPERSEDED by the re-run recorded four lines below — kept because the
+  reasoning for holding was right at the time.) Treat `3 vs 1` and `5 vs 3` as
+  UNCONFIRMED, not withdrawn.** The mechanism
   evidence for the inversion — level stocks, the lower rung dealing 215% : 191%,
   and the byte-for-byte weight isolation — does not route through the qualifier
   and still stands; it is the word *significant* that is on hold. ⛔ The fix is
@@ -2936,6 +2945,14 @@ queue read as an execution authority for work already done.
   re-taken** — the instrument is trustworthy now and nothing has been re-measured
   through it, which needs a machine with disk. ⇒ `3 vs 1` and `5 vs 3` stay
   UNCONFIRMED until then.
+  ⭐⭐ **AND THE POST-FIX COLUMNS ARE NOW RECORDED, which the first pass did not
+  do.** *"The survival and damage columns moved slightly"* is a number that lost
+  its value on the way into the document. They are in
+  [`engine/fighter-brain.md`](engine/fighter-brain.md) under THE DEFINITIVE RUN,
+  beside the pre-fix generation, and the comparison is the measurement of what the
+  `median()` defect was worth on these data: **every verdict identical, every
+  column moved, largest move 360% → 349%**. ⇒ The right way to retire a hold is to
+  publish the two generations side by side, not to overwrite one with the other.
   ⚠ **And the hold covers the DESCRIPTIVE columns too**: `median()` was corrected in
   the same pass — it returned the upper-middle order statistic, and every `--paired`
   run has an even sample by construction, so every number this row quotes is

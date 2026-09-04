@@ -80,6 +80,25 @@ rollout-arm comparisons — because identical output is not a statistical claim.
 ⚠ And the mechanisms survive: level stocks, a lower rung dealing more damage, a
 knob with no reader. It is the LABELS that are on hold, not the findings.
 
+⭐⭐ **WHAT THE HOLD STILL COVERS — THIS PARAGRAPH IS THE ONE AUTHORITY FOR THAT,
+and every other "on hold" on this page and in the sibling documents defers to it.**
+The re-run bought exactly one arm and it is worth being precise about which:
+
+| arm | re-taken through the repaired rig? |
+|---|---|
+| **the four shipped-ladder cells at the shipped 480 s clock** (`3 vs 1`, `5 vs 3`, `6 vs 5`, `9 vs 6`) | ✔✔ **YES, 2026-09-04** — verdicts unchanged, columns recorded under THE DEFINITIVE RUN |
+| the same four cells' **60-second** columns (the four-arm matrix) | ⛔ no |
+| arms **B / C / D** — engine floor ± rollout, and George | ⛔ no |
+| the **weight-isolation** arms (`frame_advantage` + `expected_payoff`) | ⛔ no — ⭐ but their finding never needed a label: it is a byte-for-byte output difference against a control |
+| the **scenario matrices** (nine fixtures, Shield model, flat-vs-platforms) | ⛔ no |
+| **George vs a stand-in** (`318% : 199%`) | ⛔ no |
+
+⇒ **So "the hold is lifted" is true of the shipped ladder's four cells and of
+nothing else on this page.** ⛔ A reader who takes the lifted hold as page-wide
+would promote roughly a dozen labels that no instrument has re-printed. That is
+the same error in the other direction as the one the hold was placed to prevent,
+and it is cheaper to make.
+
 
 ⇒ **#5 is the one that touches everything.** On a 60-second clock no bout could
 end, so stocks tied in every cell and **every verdict fell through to the damage
@@ -110,7 +129,9 @@ options too, which are not press-converted at all.
 ⚠ **The word *significantly* in that sentence is ON HOLD (2026-09-04) and the
 ARGUMENT does not need it.** The rig took its direction from pooled medians and
 its `(within spread)` qualifier from a sign test that discarded direction; that is
-fixed (`36dd9a248`) and **the cells have not been re-run**. ⇒ What the isolation
+fixed (`36dd9a248`) and **the ISOLATION arms have not been re-run** — the four
+shipped-ladder cells were, and came back unchanged, but that is a different arm;
+see the hold-scope table above. ⇒ What the isolation
 established is a **byte-for-byte difference between two arms against a control
 that changed nothing** — a comparison of outputs, not a significance label. That
 survives the instrument repair; only the word does not.
@@ -1407,11 +1428,24 @@ from a pooled median. ⇒ **A cell whose two authorities disagree prints exactly
 like a cell where they agree**, and there is no residue in the table to tell them
 apart.
 
-⚠ **Read the two bold cells as UNCONFIRMED until the cells are RE-RUN (the rig itself was fixed 2026-09-04, `36dd9a248`; nothing has been re-measured through it)**, not
-as withdrawn: the defect makes them unverified, not wrong, and the mechanism
-evidence for `5 vs 3` (stocks level at `2 : 2`, the lower rung dealing 215% against
-191%, and the byte-for-byte weight isolation) is independent of the qualifier and
-still stands. ⇒ It is the word *significant* that is on hold, not the inversion.
+✔✔ **THE HOLD ON THESE TWO CELLS IS LIFTED — re-run 2026-09-04 through the
+repaired rig (`36dd9a248`), same two verdicts, same two directions.** ⚠ **Read
+what that re-run WAS, because it is not literally this table's arm:** it was the
+shipped ladder at the **shipped 480s clock**, while these columns were taken at
+**60 seconds**. So `3 vs 1 higher` and `5 vs 3 LOWER` are confirmed as verdicts of
+the shipped ladder; what has NOT been re-taken through the repaired rig is this
+table's own 60-second columns, or arms B, C and D at all.
+⭐ **And the agreement across the two clocks is itself a result.** The same four
+cells give the same four verdicts at 60 s (12 seeds, post-sign-test-fix) and at
+480 s (12 seeds, post-repair) — an **eight-fold** change in match length that
+moves nothing. ⇒ That is the arm where the clock did NOT manufacture the answer,
+which is worth stating on a page whose largest instrument lesson is a 60-second
+table that did.
+ⓘ The mechanism evidence for `5 vs 3` never routed through the qualifier and
+still stands independently: at 60 s the stocks are level at `2 : 2` with the lower
+rung dealing **215% against 191%**; at the shipped clock both fighters die (`0 : 0`)
+and the lower rung deals **349% against 298%**. Two clocks, two stock outcomes,
+the same direction — plus the byte-for-byte weight isolation.
 
 
 ⇒ **Two significant cells, both on the shipped ladder, and they point opposite
@@ -1419,10 +1453,15 @@ ways.** Rung 3 beats rung 1 — the ladder working. Rung 3 also beats **rung 5**
 the ladder inverted.
 
 ⭐ **The inversion is not a near miss and it is not a stocks artifact.** Stocks are
-level at `2 : 2`; the verdict falls to damage dealt, and the LOWER rung deals
-more: **215% against 191%**. Ten or more of the twelve seed-pairs have to agree
-for a cell to clear p < 0.05 at this n, so this is a consistent direction across
-pairs, not one lopsided bout.
+level at `2 : 2` **at this table's 60-second clock**; the verdict falls to damage
+dealt, and the LOWER rung deals more: **215% against 191%**. Ten or more of the
+twelve seed-pairs have to agree for a cell to clear p < 0.05 at this n, so this is
+a consistent direction across pairs, not one lopsided bout.
+⚠ **The stock tie is a fact about the CLOCK, not about the cell.** At the shipped
+480 s clock the same cell ends `0 : 0` — both fighters eliminated — and the
+verdict *still* falls through to damage, because a tie is a tie at either end.
+⇒ Quote `2 : 2` only with "at 60 s" attached; the shipped-clock reading is in
+THE DEFINITIVE RUN below.
 
 ⚠ **And rung 5 is strictly "better" on every authored axis**, which is what makes
 it a defect rather than a tuning preference. From the shipped `.ron`: reaction
@@ -1809,12 +1848,37 @@ same sign test, 12 seeds paired — but the clock is now
 `ambition_demo_smash::SMASH_TIME_LIMIT_TICKS`, the **shipped eight minutes**, so
 every bout runs to a conclusion instead of being cut off at 12.5%.
 
+⭐⭐ **RE-TAKEN 2026-09-04 THROUGH THE REPAIRED RIG, and these are the numbers to
+quote.** The columns below are POST-`median()`-fix and post-`report_row`-fix; the
+pre-fix generation is kept underneath because the difference between the two is
+the whole measurement of what those defects were worth.
+
+| cell | survived (hi : lo) | stocks LEFT | dealt (hi : lo) | verdict |
+|---|---|---|---|---|
+| 3 vs 1 | 83.4s : 80.4s | 0 : 0 | 297% : 205% | ✔ **higher outfights** |
+| 5 vs 3 | 97.1s : 98.6s | 0 : 0 | 298% : 349% | ⛔ **LOWER outfights** |
+| 6 vs 5 | 102.8s : 102.7s | 0 : 0 | 345% : 359% | LOWER *(within spread)* |
+| 9 vs 6 | 111.4s : 115.9s | 0 : 0 | 398% : 386% | higher *(within spread)* |
+
+ⓘ **The superseded pre-fix columns, for the comparison only** — same arm, same
+clock, same 12 seeds, an instrument with two authors for one verdict and a
+`median()` that returned the upper-middle order statistic:
+
 | cell | survived (hi : lo) | stocks LEFT | dealt (hi : lo) | verdict |
 |---|---|---|---|---|
 | 3 vs 1 | 85.1s : 80.6s | 0 : 0 | 299% : 208% | ✔ **higher outfights** |
 | 5 vs 3 | 97.3s : 98.7s | 0 : 0 | 300% : 360% | ⛔ **LOWER outfights** |
 | 6 vs 5 | 103.6s : 104.7s | 0 : 0 | 346% : 361% | LOWER *(within spread)* |
 | 9 vs 6 | 112.0s : 116.5s | 0 : 0 | 407% : 390% | higher *(within spread)* |
+
+⇒ **Every verdict identical; every column moved, and none by much** — the largest
+single move is `5 vs 3`'s lower-rung damage, 360% → 349%, and survival times shift
+by under a second and a half. ⭐ **That is what an even-sample median error is
+worth on THESE data, and it is worth saying out loud because it was not knowable
+in advance**: the fix was mandatory on correctness grounds and it changed no
+conclusion on this page. ⚠ It does not follow that the other tables are safe —
+the stocks columns are small integers, where the same defect reported `1` for a
+seat whose median is `0.5`, and that is the column it can move furthest.
 
 ⇒ **Every bout now RESOLVES** — `0 : 0` stocks throughout, both fighters fully
 eliminated, at medians rising cleanly from 85s to 112s as the rungs climb. ⭐ That
@@ -1828,10 +1892,12 @@ the instrument.**
 
 ⭐⭐ **The patience defence is dead, and survival time is what kills it.** The
 worry was that a damage-rate verdict cannot see a fighter who wins by refusing bad
-commitments. But on a clock long enough to resolve, **rung 5 survives 97.3s
-against rung 3's 98.7s** — it does not live longer, and it deals 300% against
-360%. ⇒ Two independent signals, both against rung 5. A patient-but-stronger rung
+commitments. But on a clock long enough to resolve, **rung 5 survives 97.1s
+against rung 3's 98.6s** — it does not live longer, and it deals 298% against
+349%. ⇒ Two independent signals, both against rung 5. A patient-but-stronger rung
 5 would have to beat rung 3 on at least one of them and it beats it on neither.
+ⓘ Post-repair figures; the pre-fix generation read 97.3s : 98.7s and 300% : 360%,
+which is the same sentence with different digits.
 
 ### ✔ RE-RUN AT THE SHIPPED CLOCK — the full scenario matrix, and it confirms
 

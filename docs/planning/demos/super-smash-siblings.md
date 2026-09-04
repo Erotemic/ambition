@@ -344,13 +344,18 @@ that could not resolve its subject.
 the qualifier: stocks level at `2 : 2`, the lower rung dealing more damage, and
 `frame_advantage` + `expected_payoff` isolated **byte-for-byte** as reproducing
 the whole effect. ⇒ Read `5 vs 3` as *"a defect with a named cause and an
-unconfirmed significance label"*, not as withdrawn — and re-take it first. ✔ The rig
-itself was fixed 2026-09-04 (`36dd9a248`); what is still outstanding is a machine
-with the disk to re-run the cells through it.
+unconfirmed significance label"*, not as withdrawn — and re-take it first.
+✔✔ **RE-TAKEN 2026-09-04 AND THE HOLD IS LIFTED** (`36dd9a248` fixed the rig,
+`fdbc77b1c` records the re-run): the four cells came back with the same verdicts
+in the same directions, so `5 vs 3` carries its significance label again.
 
-⚠ **The hold covers the descriptive columns as well.** `median()` was corrected in
-the same pass — it returned the upper-middle order statistic and every `--paired`
-run is even-sized, so the stocks and damage figures quoted above are pre-fix too.
+⚠ **The descriptive columns were re-taken with them, and the post-fix numbers are
+in [`../engine/fighter-brain.md`](../engine/fighter-brain.md) under THE DEFINITIVE
+RUN.** `median()` had returned the upper-middle order statistic on an even sample;
+corrected, every column on that table moves and none by much — largest move
+**360% → 349%**, survival by under a second and a half, verdicts unchanged.
+⇒ Any stocks or damage figure quoted ON THIS PAGE is still the pre-fix generation
+unless it says otherwise; prefer the fighter-brain table when the digits matter.
 
 
 ⇒ **`6 vs 5` is NOT the bad rung; `5 vs 3` is.** The rollout story does not apply

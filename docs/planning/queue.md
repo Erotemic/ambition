@@ -569,6 +569,44 @@ The one unresolved developer-policy choice from the session-ownership work is in
 
 ## Current execution order
 
+- ▢ **THE VOLUME IS FULL AND THE RECLAIM IS JON'S CALL. The union run at
+  `e0f0f51b4` is VOID, and the reason is an instrument fault of mine rather
+  than a code defect or the disk.** (2026-09-04.)
+  ⛔⛔ **VOID, NOT RED AND NOT GREEN.** I invoked
+  `run_tests.py --rust --run-everything-you-probably-dont-need-this -- --no-fail-fast`.
+  The runner passes its trailing arguments to cargo AFTER the `--` separator,
+  so the job line was `cargo test --workspace -- --no-fail-fast` — and
+  `--no-fail-fast` is a CARGO flag, not a libtest one. **Every test binary
+  refused to start** with `error: Unrecognized option: 'no-fail-fast'`, which
+  then read downstream as *"179 targets failed"* and eleven
+  `doctest failed` lines. ⇒ **No test evidence was produced at all.** The
+  `40/44 jobs passed` line counts the compile- and check-only jobs.
+  ⚠ **So nothing here is a claim about HEAD.** The last real union acceptance
+  remains `24b55d3ac` (7,146 passed / 0 failed) and is now many commits stale.
+  ⛔ **AND IT IS THE SECOND RUN I HAVE VOIDED THROUGH MY OWN INSTRUMENT IN ONE
+  DAY** — the first was file-descriptor exhaustion from my own recursive greps.
+  Both cost ~an hour and produced a plausible-looking failure list that was
+  entirely about the harness. ⭐ **The tell both times was the SHAPE of the
+  failures: a uniform error across unrelated crates is a harness fault, not 179
+  defects.** Read one failure in full before believing a count.
+  ⇒ **The correct invocation puts it before the separator** (`cargo test
+  --no-fail-fast`), or omits it — the runner already continues across jobs.
+  ⛔⛔ **AND THE VOLUME IS NOW GENUINELY FULL: 484 GB, 3 MB free.** Measured
+  after the run; `scripts/setup/target_bindmount.sh --status` reports the bind
+  present and healthy, `target -> /home/agent/.cache/ambition-targets/ambition--144244d099`,
+  **383 GB**. The suite started with 64 GB and spent all of it across 44 jobs,
+  because every feature job builds its own variant of the graph and cargo never
+  prunes the previous one; the runner's between-jobs floor stopped it cleanly at
+  job 45 rather than letting it die of ENOSPC.
+  ⚠ **NOTHING HAS BEEN RECLAIMED, per AGENTS.md** — the runner's own message
+  says *"If it is bound and genuinely full: report it and STOP — the reclaim is
+  Jon's call."* ⓘ For that decision: the other agent worktrees' targets hold
+  **4 KB–168 MB**, so this 383 GB is this worktree's alone and no peer's active
+  build is inside it. `cargo clean` here would reclaim essentially all of it and
+  cost the next builder a cold rebuild.
+  ⛔ **Until it is resolved no Rust work can proceed on this box** — not
+  `cargo check`, not `-p <crate>`. Python guards still run and need no disk.
+
 - ▢ **D-WALLET-PREDICATE — `can_afford(price)` is a second authority for a
   boolean the catalog can answer, and it has more authored callers than any
   published condition.** (Found 2026-09-04 by re-reading

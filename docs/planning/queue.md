@@ -2451,6 +2451,31 @@ queue read as an execution authority for work already done.
   ⚠ The alternative — a score floor under which `pick_movement` returns `None` —
   gets the same behaviour by making the selector decline, and is worse for the
   same reason the rig's two authorities were worse: it puts the decision
+
+  ⭐⭐⭐ **AND THIS CLASS ALREADY HAS A MAINTAINER RULING — found in `dev/journals`
+  2026-09-04, which `AGENTS.md` says to search before a non-trivial patch.**
+  `cpu-grabs-never-happened-in-a-match-2026-08-18.md` documents the identical
+  shape one verb over: the grab *"reaches 42px"*, the fighters spend **35% of the
+  match inside 42px**, *"so the range was there and the grab was never thrown in
+  it"*. ⇒ Its resolution was not a mechanical fix but a missing SCORER TERM —
+  *"the generic option scorer has NO term for the only thing a capture buys, that
+  the opponent is HELD"*.
+
+  ⇒ **So `D-BRAIN-MENU` is the same class as the grab problem**: not a broken
+  mechanism, an option scorer that cannot express the value of something. Grabs
+  had no term for *held*; this has no way to score *stand still*.
+
+  ⭐ **And Jon ruled on that class on 2026-08-19** (`maintainer-decisions.md`):
+  *"D166's CPU-GRAB WORK IS THE POLICY HALF FIRST: the FIGHTER CAPABILITY owns
+  what a HOLD is WORTH. The mechanical fixes (a start-gate on the option list,
+  tighter grab spacing) wait behind it."* ⚠ He also named the class before the
+  evidence reached him — *"sounds like an AI problem, not a grab problem"*.
+
+  ⇒ **Applied here that is a strong prior, not a guess**: decide **what standing
+  still is WORTH** first, own it at the fighter capability rather than in the
+  scorer every actor in every game shares, and let the mechanical half (a `Hold`
+  variant, a decline path) follow. ⓘ That third sub-question was already on this
+  row's list; the precedent says it is the one to answer FIRST.
   somewhere other than the scores.
   ⓘ Unmeasured, and it must be — this is the shape of the fix, not a claim that it
   works. The acceptance test above is what would say.

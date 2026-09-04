@@ -338,6 +338,54 @@ a rebuild commits partway through one, so two identically-constructed population
 get different fractions of a frame of motion. The defect this suite was written
 against measured 34.6px plus a flipped facing.
 
+## ⛔⛔ THE ACCEPTANCE COVERS ONE OF TWO AUTHORITIES (found 2026-09-04)
+
+The census above is keyed by `SimId` over `RoomScopedEntity` and compares
+position, facing, health, disposition, breakable state, collected/opened
+markers and switch position. **Every one of those is ECS state.** The durable
+save appears in that file only as a FIXTURE — `boot_with_save` writes one in,
+and two tests clone one out to build the next arm — and **no case asserts that
+a lifecycle path leaves the durable facts a fresh entry leaves.**
+
+⭐ **That gap was cheap yesterday and is load-bearing today, which is why it is
+written here rather than in a backlog.** As of 2026-09-04 the engine publishes
+NINE authored conditions and eight of them read the save or the live state it
+mirrors — `world.flag_set`, `world.switch_on`, `inventory.holds`,
+`custody.is_held`, `encounter.cleared`, `boss.cleared`, `quest.active`,
+`wallet.can_afford`. ⇒ A replay that leaves a stale durable fact produces a room
+whose ECS population is **identical by construction** and whose DOORS and
+DIALOGUE differ: a `gated_by` opens that should be shut, an `<<if>>` branch
+takes the other leg. The population census cannot see it, and the 2px tolerance
+and exact-match rules say nothing about it.
+
+⛔ **AND THE FIX IS NOT "COMPARE THE WHOLE SAVE", which is the obvious test and
+the wrong one.** A replay must NOT restore the wallet, the quest ledger or the
+dialogue visit counts — those are session progress, not attempt state, and
+asserting the two saves equal would pin a policy nobody has decided and would
+red the moment a replay correctly kept something. ⇒ The decidable claim is
+narrower: **an attempt-scoped fact recorded DURING the attempt must not survive
+the replay.**
+
+⚠ **There is already one hand-kept list doing exactly this, and it is the shape
+this page's own history warns about.** `reset_cut_rope_attempt_on_replay`
+(`game/ambition_content/src/bosses/cut_rope/mod.rs`) clears three facts by hand
+on `RoomReplayAdmitted` — the persisted cleared record for every cut-rope
+placement in the room, the `smirking_behemoth_victory_npc_seen` flag, and the
+intro music claim. It is well-placed (the content half of the replay, in the
+engine's `ContentRoomReplayResetSet` slot, so the host consumer never names
+cut-rope) and it is still a list that grows only when somebody notices — the
+same property that made `reset_ecs_room_features` a second constructor.
+⇒ **The difference is scale, not kind:** that ledger had sixteen queries and
+twelve families; this has three facts. Which is an argument for a guard now,
+while it is three.
+
+▢ **NEXT: a durable-fact arm of the acceptance.** Record an attempt-scoped fact
+during the attempt, replay, and assert it is gone — with the session-scoped
+facts asserted UNCHANGED in the same test, so the arm pins the boundary rather
+than "the save was touched". ⚠ Measure first which facts actually differ across
+a replay today; the list above is derived from one content reset and one census
+reading, not from a run.
+
 ## Open design questions — deliberately unresolved
 
 - Which persistent occurrence states are terminal, resettable, or recoverable?

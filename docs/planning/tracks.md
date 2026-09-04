@@ -75,7 +75,7 @@ actual product requirement.
   the variant declaration, a reader match arm, the codec (`put_u8(.., 2)`), a
   doc comment, or the word "Consumed" in ordinary English (`ldtk/surfaces.rs:7`).
   ⛔ **Two of them LOOKED like producers and are tests** —
-  `continuity.rs:674` (`a_consumed_occurrence_is_not_resurrected_by_a_placement`)
+  `lifecycle/continuity.rs:674` (`a_consumed_occurrence_is_not_resurrected_by_a_placement`)
   and `save_data.rs:758`
   (`every_whereabouts_variant_round_trips_including_the_terminal_one`) both
   CONSTRUCT the variant. ⇒ Both sit inside a `#[cfg(test)] mod tests` **in an

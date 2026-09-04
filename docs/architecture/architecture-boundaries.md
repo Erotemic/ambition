@@ -141,11 +141,29 @@ in a host, a window, or any Ambition domain. Refusing the edge would have meant
 keeping a private copy of a floor concept in the portal crate, which is the
 defect the extraction removed.
 
-⇒ **The habit this asks for: when a crate is extracted beneath existing ones,
-re-run the policy suite, because nothing about extracting one prompts you to
-look at an allowlist that names its NEW consumers.** The same trigger has a
-sibling one file over — a new crate also stales `fixtures/minimal_game/Cargo.lock`
-and makes `check_absence_contracts.py` CRASH rather than fail.
+⇒ **THE HABIT IS BROADER THAN "CHECK THE ALLOWLIST", and YardratAmbition's
+framing is the one to keep: ADDING A CRATE TOUCHES FILES THAT NAME CRATES.**
+Three of them broke from one action that day — this allowlist, the sentinel's
+`fixtures/minimal_game/Cargo.lock`, and (through that lockfile)
+`check_absence_contracts.py`. None of the three is reachable from the change that
+broke them, and a memory of which files matter goes stale faster than the files
+do. ⭐ The list is DISCOVERABLE, so discover it instead of remembering it:
+
+```bash
+git grep -l <an existing sibling crate name> -- '*.toml' '*.lock' '*.py'
+```
+
+⇒ And run both gates after adding or removing a workspace crate:
+
+```bash
+cargo test -p ambition_workspace_policy --test policy   # read the per-policy lines
+python3 scripts/check_absence_contracts.py | tail -5    # confirm a verdict PER CONTRACT
+```
+
+✔ The lockfile half is no longer silent: since 2026-09-04 a stale sentinel
+lockfile is reported as `capability-footprint-sentinel-lockfile-is-stale`, one
+RED among the others, instead of raising out of `check=True` and killing the
+script before most contracts ran.
 
 ## Changing a boundary
 

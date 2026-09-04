@@ -11,16 +11,23 @@ pages, 92.0 MB**, from four sheets whose manifests are single-page (`image:
 time the sheet was multi-page. A sheet's pages resolve ONLY through its
 manifest, so these are unreachable by construction.
 
-⛔⛔ AND NOTHING IN THE REPOSITORY SETS `AMBITION_ASSETS_ARE_CANONICAL` — checked
-2026-09-02: not `run_tests.py`, not `.github/workflows/`, not `scripts/regen/`.
-So every test below the opt-in is **run by hand or not at all**. That is the
-right call for assertions about one machine's gitignored generated tree, and it
-means these are INSTRUMENTS YOU RUN, not guards that watch. The tests that
-actually watch are the unconditional fixture ones at the bottom of this file;
-they are what keeps this from being a check that cannot fail.
+⛔⛔ THESE USED TO BE RUN BY HAND OR NOT AT ALL, and the sentence that said so
+outlived the fix. `AMBITION_ASSETS_ARE_CANONICAL` was the ONLY road in and
+nothing in the repository set it — checked 2026-09-02 — so no lane had ever
+evaluated the assertions below while two planning paragraphs called them
+ratchets.
 
-⇒ Run the opt-in half deliberately, on a box whose assets you believe:
-`AMBITION_ASSETS_ARE_CANONICAL=1 python3 -m pytest <this file>`.
+⇒ THE GATE ANSWERS ITSELF NOW. `canonical_assets.assets_are_canonical(repo)`
+decides, and `why_not(repo)` supplies the skip reason: real files, no symlinks
+borrowed from another checkout, and tier variants that are FRESH rather than
+stale build output. The environment variable survives as a manual override for a
+box you believe and the detector does not — it is no longer the road.
+⚠ The first run of the ten was 2026-09-03, and it found something on the first
+try, which is what the detector bought.
+
+The tests that watch unconditionally are the fixture ones at the bottom of this
+file; they are what keeps this from being a check that cannot fail on a box
+whose assets are borrowed.
 
 ⭐ A RATCHET, NOT A WALL. The four are named with the date they were measured;
 the test fails on a FIFTH. Whether the existing four are stale outputs or a

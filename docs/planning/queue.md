@@ -589,8 +589,23 @@ The one unresolved developer-policy choice from the session-ownership work is in
   own to ratchet; an absent tree has nothing to check. ⇒ The gate stays, which
   the row insisted on, and stops depending on anyone exporting a variable.
   Original row kept below for its reasoning.
-- ▢ **TEN ASSET RATCHETS ARE GATED BEHIND AN ENVIRONMENT VARIABLE NOTHING SETS,
-  AND TWO PLANNING PARAGRAPHS CALL THEM RATCHETS ANYWAY.**
+- ✔ **TEN ASSET RATCHETS WERE GATED BEHIND AN ENVIRONMENT VARIABLE NOTHING SET.**
+  Closed 2026-09-04, re-measured rather than taken on report: both files now read
+  `ASSETS_ARE_CANONICAL = assets_are_canonical(_REPO)` with
+  `NOT_CANONICAL_REASON = why_not(_REPO)`, so the gate answers itself — real
+  files, no borrowed symlinks, and tier variants that are FRESH — and
+  `AMBITION_ASSETS_ARE_CANONICAL` survives only as a manual override. The first
+  evaluation of the ten was 2026-09-03 and it found something on the first try;
+  see the row below. ⛔ **Both files' docstrings still told the reader the old
+  story** — *"nothing in the repository sets it … run by hand or not at all"* —
+  and were repaired in the same commit: a gate that moves leaves its own
+  instructions behind, and those instructions are what the next reader acts on.
+  The reasoning below is kept because it is the argument for why the gate exists
+  at all, which the auto-detector implements rather than replaces.
+
+  ⛔ **HISTORICAL — the state the row was opened on: TEN ASSET RATCHETS ARE
+  GATED BEHIND AN ENVIRONMENT VARIABLE NOTHING SETS, AND TWO PLANNING
+  PARAGRAPHS CALL THEM RATCHETS ANYWAY.**
   `scripts/tests/test_shipped_sheet_pages_are_claimed.py` (5 assertions) and
   `scripts/tests/test_tier_variants_are_actually_smaller.py` (5) are marked
   `@pytest.mark.skipif(not os.environ.get("AMBITION_ASSETS_ARE_CANONICAL"))`.
@@ -664,6 +679,20 @@ The one unresolved developer-policy choice from the session-ownership work is in
   `git ls-files`, 471 on disk — so "does this sheet strand pages" is entirely a
   property of one machine's regenerated tree, exactly the class the
   re-measuring recipe warns about.
+  ⛔⛔ **AND AS OF 2026-09-04 THE TEN DO NOT RUN HERE AT ALL, so the "23 passed,
+  1 failed" reading above is not reproducible on this box today.** The detector
+  is explicit about why: *"sprite trees are this checkout's OWN (all 2172 png(s)
+  real, no symlinks) but the quality tiers are STALE"* — 5 source manifests have
+  NO variant at a tier the game ships (`performer` has no 0.5x, 0.25x or potato;
+  `actor_spritesheet` and `medic` have no potato) and 190 published tier files
+  are up to 9.8 days behind their sources. ⭐ **That is a KNOWN consequence, not a
+  new defect:** `engine/performer-up-b-the-wire.md` records that the
+  `actor_* -> performer_*` rename travelled in the catalog and the regen scripts
+  but not on disk, and `sprites_potato/` here still holds the pre-rename
+  `robot_medic_*`. ⇒ The unblock is `./scripts/regen/quality_variants.sh`
+  (incremental), after which the ten evaluate again and the four names can be
+  attributed or not on evidence. Until then, do not treat the red as attributable
+  and do not treat a SKIP as a pass.
   ⚠ **AND ON THIS BOX THE FOUR ARE CLEAN FOR THE WRONG REASON.** Each has four
   manifests (one per tier) and **ZERO numbered pages**: they do not strand
   pages because they never spilled past a single page here, not because a

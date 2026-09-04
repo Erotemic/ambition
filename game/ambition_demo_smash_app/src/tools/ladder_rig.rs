@@ -669,7 +669,12 @@ fn report_which_fighters_are_in_play() {
             // to know whether the number answers their question.
             format!(
                 ". ⛔ Neither is `{george}`, the demo's one fully authored fighter — \
-                 these carry `fighter_moveset()`, so this measures the STAND-INS"
+                 these carry `fighter_moveset()`, so this measures the STAND-INS. \
+                 Concretely: their unanswered presses are George's plus EIGHT MORE, \
+                 every one a `special` (only `special_forward` answers), because \
+                 `fighter_moveset()` is the one contract that does not go through \
+                 `SmashRepertoire`. They also bind no `attack_dash`, which is why \
+                 they keep tilts George never throws"
             )
         } else {
             String::new()
@@ -747,7 +752,10 @@ fn report_which_ladder_is_in_play() {
         println!(
             "[ladder_rig] ⛔ ladder: the ENGINE FLOOR — no AuthoredFighterLadder in this app, so \
              every rung carries the floor's `UtilityWeights::default()` (== v1, the level-9 row) \
-             and differs only in reaction/APM/noise/read. This is NOT the ladder the shipped game \
+             and differs in reaction/APM/noise/read. ⛔⛔ AND THE FLOOR SWITCHES THE L3 ROLLOUT ON \
+             AT RUNGS 6-9 (`rollout_depth: 12`), WHICH THE SHIPPED LADDER SETS TO 0 ON ALL NINE — \
+             so the top rungs here run a search no player ever meets, and `read_weight` and the \
+             Dodge/Shield suppression become live with it. This is NOT the ladder the shipped game \
              gives its fighters."
         );
     }

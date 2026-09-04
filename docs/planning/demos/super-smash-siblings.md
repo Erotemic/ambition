@@ -156,7 +156,7 @@ named inline; a number here travels with the search that produced it.
 | 3 | Local play | ✔ **met** — driven end-to-end through the real screen, not the model |
 | 4 | Stage breadth | ◐ **was NOT met; worked 2026-09-04 and now reachable in play** — `smash_platform_stage()` adds the genre's drop-through tiers, `SmashStageChoice` selects it, and a stage button on the select screen cycles it. Two stages is not yet *"several"* |
 | 5 | Match completeness | ◐ **partial, 3 of 4** — stage select landed 2026-09-04; rule selection is still absent as UX |
-| 6 | CPU adoption | ◐ **partial, and now measurable for the first time** |
+| 6 | CPU adoption | ◐ **partial, and the USE half is now measured — it is the weaker half.** The charter asks that the brain *"can use and answer"* the roster's mechanics. ⛔ **It does not use them**: a 120s census of George on the shipped ladder records **16 of his 28 authored moves never starting once** — all three smashes, all three tilts, three of five aerials — with the dash attack at **81%** of starts. ⭐ Root cause traced to source and it is not a Smash-only AI problem, which is the charter's actual concern: movement and attack are scored INDEPENDENTLY and **neither axis declines on score**, so the fighter moves whenever it can and attacks whenever it can, and 73 of 81 attack decisions land on a tick it also chose `Approach` — which drives a run, where a neutral press converts to the dash attack. ⇒ Indexed as decision 5 in [`../awaiting-maintainer-decision.md`](../awaiting-maintainer-decision.md). ⓘ The *answer* half is unmeasured. |
 
 ⭐ **Checkpoint 2 is worth reading before anyone plans roster work.** The charter's
 hard architectural claim — *"distinct reusable move semantics without character-ID
@@ -285,8 +285,13 @@ the primitive table's ten shipped rows are what the brain can use, and its named
 partials (`P02` fixed reactions and set knockback, `P10`'s unpublished tech
 result, `P11`'s 2-of-6 capture roads) are exactly what it cannot answer yet. ⚠ The claim that *"the
 ladder rig cannot currently rank skill either"* was true when written and is no
-longer: at the shipped clock and the shipped rows it ranks `3 vs 1` and `5 vs 3`
-significantly. See [`engine/fighter-brain.md`](../engine/fighter-brain.md) and
+longer: at the shipped clock and the shipped rows it separates `3 vs 1` and
+`5 vs 3` from the rest. ⛔ **The word *significantly* stood here and is ON HOLD** —
+the rig printed its direction from pooled medians and its qualifier from a sign
+test that discarded direction, so a cell could read decisive in the direction its
+own evidence did not support. ✔ Fixed 2026-09-04 (`36dd9a248`); **the cells have
+not been re-run**, and `median()` was corrected in the same pass, so the columns
+are pre-fix too.
 the supersession note below.
 
 ⛔ **In short, so nobody quotes a superseded number from here — this one moved
@@ -338,8 +343,13 @@ that could not resolve its subject.
 the qualifier: stocks level at `2 : 2`, the lower rung dealing more damage, and
 `frame_advantage` + `expected_payoff` isolated **byte-for-byte** as reproducing
 the whole effect. ⇒ Read `5 vs 3` as *"a defect with a named cause and an
-unconfirmed significance label"*, not as withdrawn — and re-take it first once the
-rig is fixed.
+unconfirmed significance label"*, not as withdrawn — and re-take it first. ✔ The rig
+itself was fixed 2026-09-04 (`36dd9a248`); what is still outstanding is a machine
+with the disk to re-run the cells through it.
+
+⚠ **The hold covers the descriptive columns as well.** `median()` was corrected in
+the same pass — it returned the upper-middle order statistic and every `--paired`
+run is even-sized, so the stocks and damage figures quoted above are pre-fix too.
 
 
 ⇒ **`6 vs 5` is NOT the bad rung; `5 vs 3` is.** The rollout story does not apply

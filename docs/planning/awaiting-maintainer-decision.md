@@ -1434,25 +1434,29 @@ geometry, and moving the tier by guesswork would leave a recorded number
 describing a stage that no longer exists while not actually resolving the
 collision. Answer this and the geometry and the re-run move together.
 
-## ⭐ THE SMASH FIGHTER: FOUR DECISIONS, ALL MEASURED (index, 2026-09-04)
+## ⭐ THE SMASH FIGHTER: FIVE DECISIONS, ALL MEASURED (index, 2026-09-04)
 
-Four fighter questions below, each carrying numbers and options rather than a
-shrug. ⇒ **They are independent — answering any one is useful — but two of them
-interact and it is worth knowing which:**
+Five fighter questions below, each carrying numbers and options rather than a
+shrug. ⇒ **Mostly independent — answering any one is useful — with ONE ORDERING that
+matters: 3 should be answered after 1**, because whether deleting `read_weight` is
+free or a behaviour change depends on which ladder authority survives. See the
+note under the table.
 
 | # | question | the measurement behind it | where |
 |---|---|---|---|
-| 1 | **Which of two ladder authorities should exist?** | `profile_for_level` forks between the shipped `.ron` and an engine floor; **four separate defects were symptoms of that one fork**. Removing the loser rewrites **no authored content** and there is exactly **one** production installer. | below |
-| 2 | **Do the two Robots get kits?** | At the same rung, on the shipped ladder and clock, **George significantly outfights a stand-in (318% : 199%)** with a correctly-null control. ⚠ Scope corrected: **two specific fighters**, not "two of three" — the composed grid assembles ≥8. | ↓ |
+| 1 | **Which of two ladder authorities should exist?** | `profile_for_level` forks between the shipped `.ron` and an engine floor; **four separate defects were symptoms of that one fork**. Removing the loser rewrites **no authored content** and there is exactly **one** production installer. ⚠ **A grep finds FOUR sites and only one is that installer**, so the breakdown is worth carrying: `ambition_content/src/plugin.rs:61` installs it in the game; `brain/fighter/profile.rs:106` is the struct DEFINITION; `ladder_rig.rs` and `capture_probe.rs` are the two tools' `--ladder` flags; and three more in `brain_builders.rs` sit under `#[cfg(test)]`. ⭐ **And it is not only about difficulty numbers: the floor switches the L3 rollout ON at rungs 6–9 (`rollout_depth: 12`) while the shipped `.ron` sets `0` on all nine — so an entire search subsystem, plus `read_weight` and the Dodge/Shield suppression, is reachable only through the authority that loses.** | below |
+| 2 | **What are the two Robots' four specials?** | ⭐ **Source measurement, no bouts and no statistics**: enumerating every `(base, direction, stance)` press shows George's unanswered set is a strict **SUBSET** of the stand-ins', with a surplus of **exactly eight, every one a `special`** — so the stand-ins are George's genre shape with the special button removed, and the four slots are named by the type. ⚠ The older ladder line (*George significantly outfights a stand-in, 318% : 199%*) is corroboration whose **`significantly` is on hold** until the cells are re-run; the decision does not rest on it. ⇒ The structural form of the question — should `fighter_moveset()` go through `SmashRepertoire` at all? — is below. | ↓ |
 | 3 | **`read_weight`: wire it up or delete it?** | Authored **0.0 → 1.0** on all nine rungs (`0.0 0.0 0.0 0.1 0.2 0.3 0.5 0.7 1.0`) and **read by nothing** — its only live consumer sits behind a rollout those rows disable. ≤184 bytes/fighter/snapshot, so the cost argument is weak; the legibility one is not. | ↓ |
-| 4 | ✔ **mostly answered** — does "harder" mean deals more damage, or is harder to beat? | Settled by fixing the clock: at the shipped 480s limit bouts RESOLVE, and rung 5 neither out-damages nor outlives rung 3. | ↓ |
+| 4 | ✔ **mostly answered** — does "harder" mean deals more damage, or is harder to beat? | Settled by fixing the clock: at the shipped 480s limit bouts RESOLVE, and rung 5 neither out-damages nor outlives rung 3. ⚠ **That rests on the rig's MEDIAN columns, and `median()` was itself corrected 2026-09-04** — it returned the upper-middle order statistic, and every `--paired` run has an even sample, so the recorded columns are all pre-fix. The conclusion is unlikely to move (it is a both-directions null, not a margin) but it is unverified against the corrected instrument. | ↓ |
+| 5 | **Should the fighter brain be able to say "stand still"?** | ⛔ **`D-BRAIN-MENU`: 16 of George's 28 authored moves never start** — all three smashes, all three tilts, three of five aerials — and the dash attack is **81%** of his starts. Root cause traced to source: movement and attack are scored INDEPENDENTLY, **90% of attack decisions (73 of 81) land on a tick that also chose `Approach`**, and approaching drives a run, where a neutral press converts to the dash attack. ⭐ **The cost is a vocabulary change, not a re-architecture, and it is ONE property rather than two bugs**: `MovementVerb` has no `Hold` variant, and NEITHER selector declines on SCORE — `pick_movement` and `options.attacks.first()` both take the top AVAILABLE option. ⇒ The fighter has no way to express *"nothing is worth doing this tick"*: it moves whenever it can and attacks whenever it can, so even a perfect joint scorer would emit a movement every tick. ⚠ Whether the ATTACK axis also needs a decline (waiting for a punish window) belongs to this same call. ⚠ An earlier fix was implemented, measured and REVERTED (it moved SELECTIONS and not behaviour), so the acceptance test counts moves STARTED, with a floor on total activity so the metric cannot be satisfied by attacking less. Both are written out in `queue.md`. | `queue.md` |
 
 ⚠⚠ **ROW 2's WORD *"significantly"* IS ON HOLD (2026-09-04), AND ROW 2 DOES NOT
 DEPEND ON IT.** The ladder rig's `report_row` was found to carry two authors of
 one row's meaning — the printed direction from pooled medians, the
 `(within spread)` qualifier from a paired damage-only sign test that discards
-direction — so any *"significantly"* taken from that tool is unverified until it
-is fixed and re-run (recorded in `queue.md`'s **D72** row and in
+direction. ✔ **Fixed 2026-09-04 (`36dd9a248`)** — but any *"significantly"* taken
+from that tool before then is unverified until the cells are **re-run**, which has
+not happened (recorded in `queue.md`'s **D72** row and in
 [`engine/fighter-brain.md`](engine/fighter-brain.md)).
 
 ⭐ **But row 2 now rests on something the rig never touched.** Enumerating every
@@ -1473,6 +1477,21 @@ the rollout, so an answer to 1 that made the demo compose `ambition_content`
 changes nothing for 3 — but an answer that removed the floor would make every
 composition's ladder explicit, which is the context 3 is decided in.
 
+⛔ **AND THEY INTERACT HARDER THAN THAT, in a direction that changes what
+"delete it" means — traced 2026-09-04.** The nine AUTHORED values are unreachable
+*in principle*: the same `.ron` rows that supply them set `rollout_depth: 0`, so a
+ladder that authors `read_weight` disables its only reader in the same breath.
+⚠ **But the FIELD is not dead.** The engine floor sets `read_weight: t * 0.6` and
+switches the rollout ON at rungs 6–9, so under the floor it is read and has
+effect.
+
+⇒ **So option (b), "delete the field", is only free if the SHIPPED LADDER wins
+decision 1.** If the floor survives instead, deleting the field is a behaviour
+change at the top four rungs, not a cleanup. ⭐ Which means **3 should be answered
+after 1, not beside it** — and the ordering is not obvious from either question on
+its own.
+
+
 ⛔ **NOT on this list, because it is a defect rather than a decision:**
 `D-BRAIN-MENU` in [`queue.md`](queue.md) — the brain scores movement and attack
 independently, so it approaches-and-attacks on the same tick, every neutral press
@@ -1481,6 +1500,31 @@ time and never a smash or a tilt**. ⚠ Its remedy is a scoring-shape change and
 *will* need a design call, but the defect is established and does not need one.
 
 ---
+
+
+⭐⭐ **BEFORE THE ARGUMENT BELOW: THIS IS NOT A ONE-OFF, AND THAT CHANGES WHAT YOU
+ARE DECIDING.** Three instances of the same shape — **two authors of one answer** —
+were found in this one area on 2026-09-04, each separately, none suggesting the
+others:
+
+| where | the two authorities | what it cost |
+|---|---|---|
+| `profile_for_level` | authored `.ron` vs engine floor | **four** defects, all symptoms |
+| `ladder_rig::report_row` | pooled-median direction vs a sign test that discards direction | every `(within spread)` label put on hold |
+| the fighter brain's tick | movement and attack selected **independently** | `D-BRAIN-MENU`: 16 of 28 authored moves never start |
+
+⚠ **The tell is identical in all three: the two authorities usually AGREE**, so the
+fault appears only on the minority of inputs where they diverge, and the output
+carries **no residue** distinguishing *"they agreed"* from *"they disagreed and one
+won"*. ⇒ Which is exactly why each survived review — every example anyone examined
+was one where it did not matter.
+
+⇒ **So the question below is a specific case of a general one you may want to rule
+on once**: *when one answer is assembled from more than one computation, which is
+authoritative, and what happens when they disagree?* ⛔ And in all three the remedy
+was the same and it is **removal of the second authority, never a referee** — a
+check that the two agree keeps both and adds a third thing to maintain. The repo's
+own principle elsewhere already says it: **one authority per question.**
 
 ## Who owns Smash's CPU difficulty ladder — and the demo has been fighting the floor
 
@@ -1652,17 +1696,75 @@ measured, and still means a dead special button on the demo's catalog default. �
 It is **not** "two thirds of the roster", which is what the old heading implied and
 what would have made this a much bigger decision than it is.
 
-⚠ **And what I do NOT know**: whether the other composed-grid fighters have full
-kits. ⭐ **But the instrument exists and I had missed it**:
-`report_the_smash_kit_every_selectable_fighter_has`
-(`game/ambition_app/tests/smash_roster_movesets.rs`) walks a 16-entry genre press
-list plus the capture half and HARD-ASSERTS every selectable fighter reaches all
-of it, printing a per-fighter census as it goes. ⛔ I could not run it: the
-composed app does not link on this machine — `mold: failed to write to an output
-file. Disk full?` on a **virtiofs** tree whose `df` reads 188G free. ⇒ So this
-question needs **no new test and no maintainer decision** — it needs one command
-on a machine that can link:
-`cargo test -p ambition_app --test app_it report_the_smash_kit -- --nocapture`. I measured George and the two Robots. The ≥8 others are unexamined, and the
+✔✔ **ANSWERED 2026-09-04 — and by the TYPE, not by a measurement, which is why it
+could be settled on a box that cannot build.**
+
+`SmashRepertoire` has **nineteen** fields and **zero** of them are `Option`: jab,
+three tilts, three smashes, five aerials, four specials, capture, taunt and dash
+attack. ⇒ **A fighter built through `SmashRepertoire::into_contract()` cannot have
+a partial kit — the struct literal will not compile without every slot.**
+
+⭐ **And every moveset of a SMASH-SEATABLE fighter reaches that constructor.**
+Fourteen files call `into_contract()` directly, and medic, performer, author and
+officer are `archetype_moveset::under_own_name(<a repertoire-built moveset>, ..)`
+with one slot swapped by `special_slots::replace_special`. ⇒ **So the composed
+grid's fighters have full kits by construction.**
+
+⛔ **THE SCOPE WORD IS LOAD-BEARING AND I HAD IT WRONG FIRST.** An earlier draft
+said *every authored moveset in `ambition_content`*, and that is false:
+`theorem_chain_moveset` binds **one verb** (`special` → `theorem_chain`) with no
+repertoire at all. ⇒ It is **Robot v2's**, for the duel arena — *"the duel arena
+fields Robot v2 against the PCA, and v3 carries the platform-fighter table
+instead"* — and `player_robot_v2` is **not in `SMASH_ROSTER`**, so it is not
+seatable here. ⚠ Found by my own arithmetic not adding up (14 + 4 = 18, not 19)
+and chased to a file holding **two** moveset functions, which is why a per-FILE
+count read as a per-FUNCTION one.
+
+⇒ **What that exception actually teaches: the repertoire is a SMASH convention,
+not a universal one.** A one-verb contract is perfectly legitimate for a character
+in another mode, so the guarantee above is a property of *this grid's* roster and
+not of the codebase.
+
+⛔ **Which relocates the gap precisely: `fighter_moveset()` — the stand-in table —
+is the ONLY moveset in the demo that does not go through the repertoire.** It
+hand-builds a verb list, which is exactly how it can be missing eight special
+presses while nineteen other fighters cannot be. ⇒ The stand-ins' hole is not a
+roster-wide authoring debt; it is the one contract that bypasses the type that
+would have prevented it.
+
+⚠ **Two things this does NOT establish, stated so the next reader does not
+over-claim it.** (1) It guarantees each slot is FILLED, not that the slots are
+filled with DISTINCT moves — a repertoire could bind one `MoveSpec` into several
+slots, which is precisely the `its_own` rule that
+`report_the_smash_kit_every_selectable_fighter_has` applies and this argument
+cannot. (2) It covers fighters authored in `ambition_content`; a composition
+seating a fighter from anywhere else is outside it. ⇒ So that test still has a
+job, and running it is still worth doing —
+`cargo test -p ambition_app --test app_it report_the_smash_kit -- --nocapture` —
+but **the decision below no longer waits on it.**
+
+⭐⭐ **AND IT CHANGES THE SHAPE OF THE DECISION, which is the useful part.** The
+question reads as *"what four specials should the Robots have?"* — a design
+question with no wrong answer and therefore no way to finish. ⇒ The structural
+form is smaller and it terminates: **should `fighter_moveset()` be built through
+`SmashRepertoire` like every other fighter?**
+
+| | today | through the repertoire |
+|---|---|---|
+| how the contract is built | a hand-written verb list | the same constructor as 19 others |
+| the four specials | absent, and nothing says so | **cannot compile without them** |
+| the gap recurring | a future hand-built table repeats it | the type forbids it |
+
+⇒ **Answering the structural question forces the design question to be answered
+once, and then makes it unaskable again.** The cost is the same either way — four
+special slots authored, which is the eight presses measured above — but only one
+of the two spends it on something that cannot regress.
+
+⚠ **Not proposing it as the answer.** There is a real case for the other side: a
+stand-in is *meant* to be thin, and a type that demands nineteen slots is a tax on
+placeholders — which is presumably why the hand-built table exists at all. ⇒ That
+is the trade to rule on, and it is a smaller and more durable question than
+choosing four moves.
 census that would answer it is one command each
 (`capture-probe --character <id> --ladder <ron>`).
 
@@ -1776,6 +1878,14 @@ be fightable at all.
 ⭐⭐⭐ **NOW MEASURED PROPERLY, AND IT IS NOT CLOSE: at the SAME rung, on the
 shipped ladder and the shipped clock, George significantly outfights a stand-in.**
 
+⚠ **ON HOLD, and this row does not rest on it (2026-09-04).** *"Significantly"*
+here came from the rig, whose direction and qualifier were computed separately
+until `36dd9a248`; the cells have not been re-run and `median()` moved in the same
+pass, so the columns below are pre-fix too. ⇒ **The decision is carried by a source
+measurement instead** — George's unanswered presses are a strict SUBSET of the
+stand-ins', surplus exactly eight `special`s — which involves no bouts, no seeds
+and no statistics. Treat the table below as corroboration.
+
 | arm (rung 5 vs rung 5, paired, 12 seeds) | dealt | survival | verdict |
 |---|---|---|---|
 | **George vs Robot** | **318% : 199%** | 62.7s : 58.2s | ⭐ **higher outfights — SIGNIFICANT** |
@@ -1800,7 +1910,7 @@ The question could be asked and could not be answered.
 ⇒ **What it means for the three options above.** It does not choose one — that is
 still a design call — but it removes "the Robots are fine as they are" as a
 *measured* position. Anyone picking **(a) keep them thin** is now choosing a
-roster where the default character is significantly weaker than the alternative at
+roster where the default character is **measurably thinner** than the alternative at
 the same difficulty setting, which may be exactly right for sparring partners, but
 should be chosen rather than inherited.
 
@@ -1962,6 +2072,13 @@ is no axis.**
    the survival medians rise monotonically (85 → 101 → 116 → 122s) where the
    shipped ladder's top pair went backwards (85 → 98 → 114 → **113**).
 
+   ⚠ **Every *(significant)* / *(within spread)* label in this arm is ON HOLD** —
+   same instrument, same repair (`36dd9a248`), not re-run, and `median()` was
+   corrected with it so the survival medians quoted here are pre-fix as well.
+   ⇒ **This candidate ladder therefore has no confirmed advantage over the shipped
+   one**, and re-taking BOTH arms is what would settle it. ⓘ It is the cheapest
+   re-run to justify, because it is the one that would change what ships.
+
    ⛔ **What this does NOT settle, and it is the part that is yours.** Holding
    those two flat means **higher rungs no longer weight frame safety or move
    power more heavily than rung 3 does** — that is a statement about what a harder
@@ -2081,7 +2198,7 @@ it — a constant does not expire and no test can know when a playtest convenien
 has outlived its playtest.
 
 ⇒ **Two answers and both are one token.** Keep it while the fighter is still being
-tuned (which it is — four open questions above), or set it to `1` now that the
+tuned (which it is — five open questions above), or set it to `1` now that the
 tuning is measurement-driven rather than watch-driven. ⚠ Worth knowing for the
 second: **every test that waits out the countdown reads the roster's value rather
 than a literal**, so reverting changes no test.

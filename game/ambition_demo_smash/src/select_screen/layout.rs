@@ -879,8 +879,6 @@ mod tests {
         }
     }
 
-    /// Every fighter has a cell, and nobody past the end has one.
-    #[test]
     /// ⭐⭐ THE LAST CELL IS THE RANDOM CELL, AND UNTIL 2026-09-04 NOTHING
     /// TOUCHED IT.
     ///
@@ -930,6 +928,7 @@ mod tests {
         );
     }
 
+    /// Every fighter has a cell, and nobody past the end has one.
     #[test]
     fn the_grid_holds_the_roster_plus_the_random_cell() {
         let layout = wide();

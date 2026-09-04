@@ -2399,6 +2399,81 @@ queue read as an execution authority for work already done.
   and attack must be scorable as a joint choice (or "hold position" must be an
   option an attack can require). ⚠ That is materially larger than either fix this
   row opened with, and it is squarely a design decision.
+  ⭐⭐⭐ **AND THE DESIGN CALL NOW HAS ITS COST, TRACED FROM SOURCE 2026-09-04 —
+  it is smaller than "a scoring-shape change" sounds, and the reason is that the
+  vocabulary is missing one word.**
+  - **`MovementVerb` has no way to say "stand still."** Its variants are
+    `Approach`, `Retreat`, `Jump`, `Dash`, `Dodge`, `Shield`, `Blink`, `Recover`
+    — every one a motion. There is no `Hold`.
+  - **And `pick_movement` never declines.** It takes the first non-vetoed option
+    and returns `None` only when the list is EMPTY or everything is vetoed. ⇒
+    **Nothing ever compares moving against not moving**; holding position is not
+    an option that can win a scoring contest, it is only what happens when the
+    brain has run out of alternatives.
+  ⇒ **So even a perfect joint scorer would still emit a movement every tick**, and
+  the fighter would still be running when the press resolves. ⭐ That is a
+  deeper explanation of why fix (a) failed than "the gap is temporal": with
+  perfect information about the dash conversion, the brain **still had no way to
+  express the remedy**.
+  ⇒ **The smallest change that could work is therefore a VOCABULARY change, not a
+  re-architecture**: a `Hold` variant that `generate_options` scores like any
+  other, so that "stand and commit" competes with "approach" on the same axis.
+  ⚠ The alternative — a score floor under which `pick_movement` returns `None` —
+  gets the same behaviour by making the selector decline, and is worse for the
+  same reason the rig's two authorities were worse: it puts the decision
+  somewhere other than the scores.
+  ⓘ Unmeasured, and it must be — this is the shape of the fix, not a claim that it
+  works. The acceptance test above is what would say.
+  ⭐⭐ **AND THE SAME IS TRUE ON THE ATTACK SIDE, which makes this one property
+  rather than two bugs.** The attack is `options.attacks.first()` — so an attack is
+  chosen whenever the list is non-empty. ⇒ **Neither selector declines on SCORE.**
+  Both take the top available option and decline only on AVAILABILITY (an empty
+  list) or SITUATION (the recovery branch). ⚠ In the shipped game the rollout is
+  off on all nine rungs, so the veto path that could decline is never even
+  consulted — see the fork note in `engine/fighter-brain.md`.
+  ⇒ **So the fighter has no way to express "nothing is worth doing this tick."**
+  It moves whenever it can move and attacks whenever it can attack, and the census
+  above is what that looks like from outside: 90% of its attacks land on a tick it
+  was also closing distance, because both answers were simply the best available
+  rather than a choice between acting and waiting. ⭐ That reframes the remedy once
+  more — a `Hold` verb gives the MOVEMENT axis a decline; whether the ATTACK axis
+  needs one too (waiting for a punish window is a real fighting-game behaviour) is
+  part of the same design call and should be answered with it, not after it.
+
+  ⭐⭐ **THE ACCEPTANCE TEST, DESIGNED 2026-09-04 SO THE DESIGN CALL ARRIVES WITH
+  ITS MEASUREMENT ALREADY BUILT** — and it is shaped entirely by how fix (a)
+  failed. ⛔ **Fix (a) moved SELECTIONS and not BEHAVIOUR**: the brain went from
+  naming the dash attack 0 times to naming it 14, and tilts/smashes started
+  **0 / 0** either way. ⇒ **So the criterion must be a count of moves STARTED, never
+  of moves chosen.** A candidate scoring shape that improves the trace's selection
+  lines and leaves the start census flat has reproduced fix (a) exactly.
+
+  | arm | command | what it answers |
+  |---|---|---|
+  | **control** | `capture-probe --character smash_george_booul --ladder <shipped ron>` | the 16-of-28 baseline this row opened with |
+  | **candidate** | same, with the scoring change | did BEHAVIOUR move |
+
+  ⇒ **Three numbers decide it, and the third is the one that can be gamed:**
+  1. **tilts + smashes started > 0.** Currently `0 / 0` on George. This is the
+     whole point and it is binary.
+  2. **the dash attack's share falls from 81%.** Necessary, not sufficient.
+  3. ⚠ **total attack starts must NOT fall materially.** A fighter that simply
+     attacks less also drops the dash share and raises variety, and would pass
+     (1) and (2) while being strictly worse. **Without this term the acceptance
+     test rewards passivity**, which is the same failure the ladder rig's
+     survival-based verdict had.
+
+  ⭐ **And the mechanism check, which is what says the fix worked for the right
+  reason**: re-take the contingency table above (`AMBITION_FIGHTER_TRACE=1`). It
+  currently reads **73 of 81** attack decisions on a tick that also chose
+  `Approach` — 90%. ⇒ A joint-scoring change must move THAT ratio; if tilts start
+  while the ratio holds at 90%, something else changed and the explanation in this
+  row is still wrong.
+
+  ⚠ **Cost, so nobody starts it blind**: each arm is a full release build of the
+  composed demo plus a 120s probe. The census is per-fighter, so George alone
+  answers it — the stand-ins bind no `attack_dash` and cannot show the effect
+  either way, which is what made them the natural experiment in the first place.
 
   ⇒ **So the question this row opened with — the menu — is closed and was a
   SYMPTOM**, and so was the clock hypothesis that replaced it. ⚠ Fix (b) — hand
@@ -2418,6 +2493,25 @@ queue read as an execution authority for work already done.
 
 - ▢ **D72 — continue Super Smash Siblings as a product/engine customer from the
   current parity inventory.** Do not resurrect the historical fun-push campaign.
+  ⭐⭐ **STATE AS OF 2026-09-04, because this row is now ~175 lines and the history
+  below is not what a reader needs first.** Three things, and only one of them is
+  a slice anybody can take today:
+  - ⛔ **BLOCKED ON A MACHINE, not on a decision**: re-running the four ladder
+    cells. The rig was repaired today (`36dd9a248`) and **nothing has been
+    re-measured through it** — `3 vs 1` and `5 vs 3` are UNCONFIRMED, and every
+    descriptive column is pre-`median()`-fix. One command, recorded verbatim in
+    [`engine/fighter-brain.md`](engine/fighter-brain.md). Needs disk.
+  - ⏳ **WAITING ON JON**, both with measurements attached and neither needing
+    more of them: the ladder-authority fork, and the stand-in's four specials.
+    See [`awaiting-maintainer-decision.md`](awaiting-maintainer-decision.md).
+    ⚠ `D-BRAIN-MENU`'s remedy is a scoring-shape change and is also a design call;
+    its acceptance test is designed and written down, so it does not need
+    re-deriving when the call comes.
+  - ✔ **TAKEABLE NOW**: authoring a customer for a shipped primitive. The
+    inventory's primitive table is 14 of 14 measured with an EMPTY absent column,
+    so the next slice off this page is almost never *"build a primitive"* — it is
+    *"author a customer for one that already exists"*. The costed list of
+    remaining customers is below.
   Re-read [`demos/smash-parity-inventory.md`](demos/smash-parity-inventory.md)
   and [`JONS_OBSERVATIONS_BUGS_AND_ISSUES.md`](JONS_OBSERVATIONS_BUGS_AND_ISSUES.md)
   before choosing the next slice. Prefer mechanics/readability/control defects
@@ -2543,9 +2637,21 @@ queue read as an execution authority for work already done.
   and still stands; it is the word *significant* that is on hold. ⛔ The fix is
   NOT a referee between the two authorities but their removal (one paired outcome
   per seed; derive both the direction and the test from it; pooled medians demoted
-  to descriptive columns) — designed and recorded in `engine/fighter-brain.md`,
-  **not landed**, because this box cannot build and its poison arms are exactly
-  what would have to be run.
+  to descriptive columns). ✔ **LANDED 2026-09-04 (`36dd9a248`), compiled and
+  poison-verified by the sibling session.** ⛔ **The verdicts above are still NOT
+  re-taken** — the instrument is trustworthy now and nothing has been re-measured
+  through it, which needs a machine with disk. ⇒ `3 vs 1` and `5 vs 3` stay
+  UNCONFIRMED until then.
+  ⚠ **And the hold covers the DESCRIPTIVE columns too**: `median()` was corrected in
+  the same pass — it returned the upper-middle order statistic, and every `--paired`
+  run has an even sample by construction, so every number this row quotes is
+  pre-fix. Largest effect on the stock columns, which are small integers.
+  ⚠ Landing it surfaced a second lesson worth more than the fix: with the paired
+  helpers written and every one of their arms green, re-wiring the row back to the
+  broken shape left **all tests passing** — each called the helper directly, and
+  the helper was never the broken part. ⭐ **A test that constructs its subject
+  cannot witness that subject being bypassed**, so the row's own decision had to
+  be extracted and asserted on.
   spread.** ⚠ So it is **one bad rung, not a broken progression** — the 40-second
   table's "every cell is significant" was an artifact of the short clock and is
   marked superseded in `fighter-brain.md`.

@@ -658,7 +658,7 @@ inherits it.
 
 | ID | Primitive | Class | Owner / purpose |
 |---|---|---:|---|
-| `P01` | True move charge state | E1 | ✔ **SHIPPED, AND SPENT — this row was corrected twice in one day; see the second correction, it matters.** `MoveSpec` carries `charge: Option<MoveCharge>` (`ambition_combat/src/moveset/mod.rs:369`), `MoveCharge` and `StoredMoveCharge` are real types (:386, :413), and playback consults `charge.charging()` (:602). ⛔ **I first wrote here that exactly ONE authored move uses it and the primitive was "unlocked and unspent". That was wrong, and it was wrong because I counted the wrong field.** The runtime `charge` is ROLLBACK STATE, not authoring; the authoring gate is `MoveSpec::charge_gesture`, whose `Smash` variant is *"Every smash attack, and the default when a move says nothing"* (`ambition_entity_catalog/src/lib.rs:1355`). ⇒ **Held smashes are authored on EVERY fighter by default**, and the CPU pays for them in real matches — `the_cpu_charges_a_smash_and_techs_a_landing_in_some_match` measures a best charge fraction of **0.99** within a 5400-tick window, and its own failure text reads *"the charge multiplier is authored on every fighter and nobody paid for any of it"*. ⚠ **What IS authored once is a different and rarer feature**: the STORED charge, `smash_charge: Some(SmashChargeSpec)` with `stores: true`, on the projectile polygon's neutral-B (`game/ambition_content/src/projectile_polygon_moveset.rs:174`) — Jon's samus/mewtwo parity ask. Charging a smash and BANKING a special are two mechanics, and conflating them is what produced the wrong row. | ⛔⛔ **AND MEASURED 2026-09-04: NO CPU EVER CHARGES ONE, BECAUSE NO CPU EVER THROWS A SMASH.** A 120-second census of the shipped fighter on the shipped ladder records **zero** `smash_forward`, `smash_up` or `smash_down` starts — and the stand-ins manage 6 between them. ⇒ The charge machinery is shipped and correct; its only authored customers are smash attacks, and the fighter brain scores movement and attack independently, so it approaches-and-attacks on the same tick and every neutral press converts to a dash attack. See `D-BRAIN-MENU` in `queue.md`. ⚠ **So a primitive can be SHIPPED, CORRECT, AUTHORED, and still have no live customer** — which is a fourth state this table's ✔/◐/▢ vocabulary cannot express, and the reason it matters here is that `P01` reads as finished.
+| `P01` | True move charge state | E1 | ✔ **SHIPPED, AND SPENT — this row was corrected twice in one day; see the second correction, it matters.** `MoveSpec` carries `charge: Option<MoveCharge>` (`ambition_combat/src/moveset/mod.rs:369`), `MoveCharge` and `StoredMoveCharge` are real types (:386, :413), and playback consults `charge.charging()` (:602). ⛔ **I first wrote here that exactly ONE authored move uses it and the primitive was "unlocked and unspent". That was wrong, and it was wrong because I counted the wrong field.** The runtime `charge` is ROLLBACK STATE, not authoring; the authoring gate is `MoveSpec::charge_gesture`, whose `Smash` variant is *"Every smash attack, and the default when a move says nothing"* (`ambition_entity_catalog/src/lib.rs:1355`). ⇒ **Held smashes are authored on EVERY fighter by default**, and the CPU pays for them in real matches — `the_cpu_charges_a_smash_and_techs_a_landing_in_some_match` measures a best charge fraction of **0.99** within a 5400-tick window, and its own failure text reads *"the charge multiplier is authored on every fighter and nobody paid for any of it"*. ⚠ **What IS authored once is a different and rarer feature**: the STORED charge, `smash_charge: Some(SmashChargeSpec)` with `stores: true`, on the projectile polygon's neutral-B (`game/ambition_content/src/projectile_polygon_moveset.rs:174`) — Jon's samus/mewtwo parity ask. Charging a smash and BANKING a special are two mechanics, and conflating them is what produced the wrong row. ⛔⛔ **AND MEASURED 2026-09-04: NO CPU EVER CHARGES ONE, BECAUSE NO CPU EVER THROWS A SMASH.** A 120-second census of the shipped fighter on the shipped ladder records **zero** `smash_forward`, `smash_up` or `smash_down` starts — and the stand-ins manage 6 between them. ⇒ The charge machinery is shipped and correct; its only authored customers are smash attacks, and the fighter brain scores movement and attack independently, so it approaches-and-attacks on the same tick and every neutral press converts to a dash attack. See `D-BRAIN-MENU` in `queue.md`. ⚠ **So a primitive can be SHIPPED, CORRECT, AUTHORED, and still have no live customer** — which is a fourth state this table's ✔/◐/▢ vocabulary cannot express, and the reason it matters here is that `P01` reads as finished. |
 | `P02` | Hit reaction policy | E1 | ◐ **PARTIAL — re-measured 2026-09-03, and the split is worth knowing before anyone plans this.** `HitReaction` (`ambition_platformer2d_core/src/hit_response.rs:98`) has exactly TWO variants: `Strike` and `Windbox`. So **flinchless shipped** (the windbox row above records it) and `autolink` has a road (`ambition_combat/src/hit_reaction.rs:293`), while **fixed reactions and set knockback are absent from the vocabulary entirely** — they are not a modifier away, they need enum variants. ⇒ The unshipped part is smaller than the row and differently shaped. |
 | `P03` | Same-move hitbox arbitration | E1 | ✔ **SHIPPED — measured 2026-09-03, and it is the deterministic form the row wanted.** `StrikeRank` (`ambition_combat/src/moveset/mod.rs:963`) carries `window: u16` + `volume: u16` — *"which of these two did the author write first"* — and hit resolution reads the siblings through it: *"the whole of the sweetspot rule's input: which other volumes one move has live right now, and which of them the author wrote first"* (`hitbox/mod.rs:351`). Author order, not entity order, so it is rollback-stable. |
 | `P04` | Move defense windows | E1 | ✔ **SHIPPED — and this page already said so two screens up.** `project_move_defense_windows` (`ambition_combat/src/moveset/mod.rs:3536`) consumes both tags and is scheduled in `ambition_platformer2d_runtime/src/combat_schedule.rs:172`; the staleness paragraph above names it as consumed. The tags are no longer inert vocabulary. |
@@ -793,6 +793,23 @@ road: opponent percent, stage edge, kill potential and escape risk are all real
 inputs it does not read."*
 
 ⇒ **So three of four throws are stranded for a CPU, on purpose, with the gap
+
+✔ **CONFIRMED FROM THE AUTHORING SIDE 2026-09-04, which is the half this row could
+not see.** *"Stranded"* claims the moves EXIST and go unused; a reader could
+reasonably suspect they were simply never authored. ⇒ Counted: **17 of 17**
+movesets author `back_throw`, `up_throw` and `down_throw`, and **none** decline
+them — the only `None` in the repository is inside `smash_capture.rs`'s own test
+module. **So the throws are authored on every fighter and the CPU still does not
+throw them**, which is exactly what *stranded* asserts and is now measured from
+both ends.
+
+⭐ **And there is a structural curiosity worth one line.** These three are the
+**only** `Option` slots in the entire kit — `SmashRepertoire`'s nineteen fields
+carry none, and `SmashCaptureRepertoire` makes `grab`, `pummel` and
+`forward_throw` mandatory too. ⇒ The type forbids a partial kit everywhere except
+here, and **the one exception it grants has never been taken**. Whether that
+affordance should survive is a small design call with clean evidence behind it
+(17 authored, 0 declined); it is not a defect either way.
 named.** ⭐ That is a queued task. `P01` is the same state with **no declaration
 anywhere**, which makes it a discovery. ⚠ **The state is identical and the
 response is not**: a declared placeholder needs finishing; a silent one needs
@@ -877,6 +894,43 @@ and `the_match_gives_every_seat_a_kit_that_can_hit` (`game/ambition_app/tests/sm
 are both satisfied by a contract binding 18 verbs — a jab alone passes them. ⇒
 They are good guards for the question they ask; **the roster gap lived in the
 space between "can act" and "has the vocabulary the genre expects".**
+
+✔✔ **AND THE THIRD QUESTION — *"does the rest of the roster have this problem?"* —
+IS ANSWERED BY THE TYPE, 2026-09-04.** `SmashRepertoire` has **nineteen** fields
+and **zero** are `Option`: jab, three tilts, three smashes, five aerials, four
+specials, capture, taunt, dash attack. ⇒ **A fighter built through
+`into_contract()` cannot have a partial kit — the struct literal will not compile
+without every slot.** And every moveset of a **smash-seatable** fighter reaches
+that constructor: fourteen files call it directly; medic, performer, author and
+officer are `under_own_name(<a repertoire-built moveset>, ..)` with one slot
+swapped.
+
+⛔ **That scope word is load-bearing.** `theorem_chain_moveset` binds **one verb**
+and no repertoire — it is Robot **v2's**, for the duel arena, and
+`player_robot_v2` is not in `SMASH_ROSTER`. ⇒ The guarantee is a property of this
+grid's roster, not of the codebase: a one-verb contract is legitimate for a
+character in another mode.
+
+⛔ **So the gap is one contract, not a roster.** `fighter_moveset()` is the only
+moveset in this demo that bypasses the repertoire and hand-builds a verb list —
+which is exactly how it can be short eight special presses while nineteen other
+fighters *cannot be*. ⭐ The stand-ins are not behind on authoring; they are
+outside the type that would have made the authoring mandatory.
+
+ⓘ **And it bypasses ONE of the two types, not both — a precision that matters
+because it shows the pattern working.** `fighter_moveset()` builds its capture half
+through `SmashCaptureRepertoire` (grab, pummel and forward throw mandatory there
+too) and hand-writes only the ATTACK verbs, then chains the two together. ⇒ **The
+half it took from a type is complete; the half it hand-wrote is the half with the
+hole.** That is the argument above, demonstrated inside a single fighter rather
+than across the roster.
+
+⚠ **What the type does not give you**, so this is not read as more than it is: it
+guarantees each slot is FILLED, not that the slots hold DISTINCT moves. One
+`MoveSpec` bound into several slots satisfies the compiler and fails a player —
+which is the `its_own` rule the app-level census applies, and which no type can
+express.
+
 
 ⛔⛔ **AND THE SENTENCE THAT STOOD HERE — *"nothing asked the second question"* —
 WAS WRONG, falsified by the very file it cited.** Three tests down from the two

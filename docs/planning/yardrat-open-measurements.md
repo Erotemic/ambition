@@ -575,3 +575,89 @@ pointer moves, and they are invisible in a diff that scrolls — one line, no
 content. A commit can silently change which version of another repository the
 build uses. ⇒ Stage paths, and read `git status --porcelain` for ` M <submodule>`
 lines before committing.
+
+---
+
+## ✔ CLOSED — a checker for "the deleted `#[test]`", tried and NOT built
+
+**The gap was real and the tool was not worth it**, which is the useful half of
+this row: a `#[test]` that is simply deleted leaves one attribute short and one
+dead function that **looks exactly like an ordinary helper**. The sibling
+session's guard — a pytest check, in the guard set that runs in every lane, that
+no function carries two test attributes — catches the
+*stolen* attribute — two attributes on one function — and named this as the shape
+it cannot see.
+
+⇒ **Prototyped, measured, discarded.** Scoping to `#[cfg(test)]` modules and using
+*"the name never appears again in this file"* as the caller proxy produced **2,425**
+candidates once cross-file callers were admitted. And the residue at the strict
+end was almost entirely a legitimate pattern: `#[allow(dead_code)]` exhaustive
+destructuring — `every_field_declares_whether_reset_clears_it` and four siblings —
+which exist to be **type-checked, never called**, and whose attribute is the author
+saying so.
+
+⛔ **The load-bearing reason not to build it: `rustc` already reports this.** The
+failure was never detection; it was ATTENTION. `function ... is never used` sat in
+the crate's warning stream for a day while the claim that function guarded was
+being published. ⇒ **A second tool restating a warning nobody read does not fix
+the not-reading.** Treat `never used` and `duplicated attribute` on a test module
+as **guard outages** rather than lint noise — that is a habit, and a checker with a
+2,425-line false-positive tail would have taught the opposite one.
+
+⭐ **One transferable defect DID come out of the prototype, and it applies to the
+guard that was kept.** A backward walk from a `fn` over "doc or attribute" lines
+**stops early at a multi-line attribute**: in
+
+```rust
+    #[test]
+    #[cfg_attr(
+        not(has_baked_packs),
+        ignore = "..."
+    )]
+    fn intro_cart_pack_spec_resolves_at_two_tiers() {   // sprite_packs.rs:174
+```
+
+the lines above the `fn` are `)]`, a bare string, and `not(has_baked_packs),` —
+none of which begin `#[` or `//`. ⇒ My prototype read this test as having **no**
+attribute. ⚠ **The direction differs by checker**: a false positive here, but a
+false NEGATIVE for an attribute COUNT, because stopping early reports *fewer*
+attributes and a stolen one would count 1 instead of 2. Fix: collapse logical
+attributes (join from `#[` until the brackets balance) before walking.
+
+⇒ **QUANTIFIED, so it is not left as a hypothetical: FIVE sites in the repository
+have a `#[test]` separated from its `fn` by a multi-line attribute** — two in
+`sprite_packs.rs`, one in `character/sheets/tests.rs`, and two in
+`d71_transaction_census.rs`. ⚠ None of them is currently a stolen attribute, so
+nothing is being missed today; what is real is the **blind spot** — a stolen
+attribute at any of those five would count 1 instead of 2 and pass. Reported to
+the guard's owner with a fixture.
+
+---
+
+## ✔ CLOSED — is the "no General-MIDI fallbacks on new machines" ask actually guarded?
+
+**Checked 2026-09-04 without a compiler, because the whole path is shell and
+Python.** The answer is yes, and it is worth writing down where the protection
+lives, because the obvious place is not it.
+
+- `run_developer_setup.sh` runs `audio_libraries.sh` **before**
+  `generated_content.sh`, with a comment explaining why: `scripts/regen/music.sh`
+  sources that phase's `env.sh` to find the instruments, so installing them
+  afterwards would already have rendered the fallback. ⚠ Correct — and **held by a
+  comment**, with no guard on the phase order.
+- ⛔ **`scripts/regen/music.sh` WARNS AND CONTINUES.** With no instruments it
+  prints a loud block and then calls the renderer anyway. ⇒ So the repo-level
+  script is *not* the protection; **it defers entirely to the renderer refusing**,
+  which its own comment says outright.
+- ✔ **And the renderer does refuse, at two levels**, both with tests in
+  `tools/ambition_music_renderer/tests/`: one for a machine with **no** sampled
+  library at all, and — added 2026-09-04 by the sibling session — one for a
+  machine missing a **single named** library. ⚠ That second one existed because
+  the refusal *"was all-or-nothing; one missing family still shipped wrong
+  music"*, which is precisely the gap a whole-or-nothing check cannot see.
+
+⇒ **The load-bearing fact for anyone touching this: the refusal is the guard, and
+the setup ordering is a convenience.** A reordering of the setup phases would not
+silently produce General-MIDI cues — it would fail at the renderer. ⓘ Which also
+means the thing to protect in review is the REFUSAL's completeness, not the
+phase list.

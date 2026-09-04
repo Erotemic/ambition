@@ -55,6 +55,14 @@ inverted to not, byte-for-byte against a control that changed nothing. ⭐ A kno
 that reached nothing could not have done that. And the weights drive the MOVEMENT
 options too, which are not press-converted at all.
 
+⚠ **The word *significantly* in that sentence is ON HOLD (2026-09-04) and the
+ARGUMENT does not need it.** The rig took its direction from pooled medians and
+its `(within spread)` qualifier from a sign test that discarded direction; that is
+fixed (`36dd9a248`) and **the cells have not been re-run**. ⇒ What the isolation
+established is a **byte-for-byte difference between two arms against a control
+that changed nothing** — a comparison of outputs, not a significance label. That
+survives the instrument repair; only the word does not.
+
 ⚠ **What it does narrow is the CHANNEL.** The ladder's differences are reaching
 the fight through movement, through approach, and through whichever attacks
 survive the press conversion — **not through the full attack scoring the weights
@@ -1347,7 +1355,7 @@ from a pooled median. ⇒ **A cell whose two authorities disagree prints exactly
 like a cell where they agree**, and there is no residue in the table to tell them
 apart.
 
-⚠ **Read the two bold cells as UNCONFIRMED until the rig is fixed and re-run**, not
+⚠ **Read the two bold cells as UNCONFIRMED until the cells are RE-RUN (the rig itself was fixed 2026-09-04, `36dd9a248`; nothing has been re-measured through it)**, not
 as withdrawn: the defect makes them unverified, not wrong, and the mechanism
 evidence for `5 vs 3` (stocks level at `2 : 2`, the lower rung dealing 215% against
 191%, and the byte-for-byte weight isolation) is independent of the qualifier and
@@ -1383,7 +1391,7 @@ the knob never reached the fighter.
 ⭐⭐ **IT NEVER REACHES ANY FIGHTER. `read_weight` IS INERT IN THE SHIPPED GAME.**
 The chain, each link checked:
 
-1. `read_weight` is authored on all nine shipped rungs, **0.0 rising to 0.9** — it
+1. `read_weight` is authored on all nine shipped rungs, **0.0 rising to 1.0** (`0.0 0.0 0.0 0.1 0.2 0.3 0.5 0.7 1.0`) — it
    reads like one of the ladder's main difficulty axes.
 2. It has exactly two consumers. `HabitModel::read_bonus` has **no production
    callers at all** — `git grep read_bonus` finds its definition and four lines in
@@ -1532,6 +1540,15 @@ all four; `kill_potential` and `stage_risk` carry none of it.** Not "mostly" —
 byte-identical in both directions, over 48 bouts each. ⚠ And neither of the pair
 suffices alone: both single arms stayed significantly inverted. So the inversion
 needs *both* of those two, and is untouched by the other two.
+
+⚠ **Every *significant* / *not-significant* verdict in this isolation is ON HOLD**
+for the reason recorded above — the rig's direction and its qualifier came from
+different computations until `36dd9a248`, and these cells have not been re-run.
+⇒ **What the isolation itself establishes is unaffected**: these arms were
+compared BYTE-FOR-BYTE against a control, so *"this pair reproduces the whole
+effect and the other pair reproduces the control"* is a statement about identical
+output, which no significance test is involved in. ⭐ Re-taking the cells would
+restore the labels; it cannot overturn the byte comparison.
 
 ### ⭐⭐ IT GENERALISES — the same two weights carry BOTH inverted cells
 
@@ -1984,21 +2001,55 @@ quantity"* is false exactly when `hi_took != lo_took`. ⓘ And `median()` is
 
 ⚠⚠ **WHAT THIS DOES AND DOES NOT INVALIDATE.** The defect can only mislead where
 the pooled direction and the paired direction DISAGREE; where they agree the label
-is what it claims. ⇒ Which cells those are is **unknown until the rig is fixed and
+is what it claims. ⇒ Which cells those are is **unknown until the cells are
 re-run** — so until then, treat every verdict on this page as carrying an
 unstated *"direction not cross-checked"*, and lean on the cells' mechanisms rather
 than their labels. ⛔ **The `5 vs 3` inversion is the one to re-take first**, since
+
+⛔⛔ **AND THE HOLD IS WIDER THAN THE SIGNIFICANCE LABELS, which I under-stated at
+first.** `median()` was corrected in the same pass: it returned
+`values[len / 2]`, the **upper-middle** order statistic, and **every `--paired` run
+has an even sample by construction** — so it was wrong precisely where this page
+takes its numbers. ⇒ **Every DESCRIPTIVE column on this page is pre-fix too**, not
+just the verdicts. ⚠ The effect is largest on the stock columns, which are small
+integers: a 20-bout sample splitting 10 zeroes / 10 ones reported **1** for both
+seats where the median is **0.5** — the more flattering half, for everybody.
+
 it is the finding this document is built around.
+
+⭐ **THE RE-RUN, WRITTEN OUT so it is a paste rather than a reconstruction.** Arm A
+is the shipped ladder against the two stand-ins, which is the arm both contested
+cells came from:
+
+```text
+cargo run --release -p ambition_demo_smash_app --bin smash_tool -- ladder-rig \
+  --ladder game/ambition_content/assets/data/fighter_brain_ladder.ron \
+  --paired --seeds 12
+```
+
+⚠ **Take `--seeds 12` first and compare it against the table above before spending
+more**, because the twelve-seed row is what the disputed cells were measured at —
+a re-run at a different n answers a different question and cannot confirm or
+refute them. ⇒ Then `--seeds 28` and `--seeds 40`, which are the replications
+already on record.
+
+ⓘ Three things the rig now prints that the original run did not, and each is worth
+reading before the table: `report_which_clock_is_in_play`,
+`report_which_fighters_are_in_play` and `report_which_ladder_is_in_play`. ⛔ **If
+the clock line does not say the shipped eight minutes, stop** — every verdict this
+tool printed before 2026-09-04 fell through a damage tiebreak for exactly that
+reason.
+
+⚠ **And this costs a full release build of the composed demo app.** On a box with
+disk it is minutes; on this one it is the reason the row is still open.
 
 ⓘ The fix is not *"check the sign against the median"* — that keeps both
 authorities and adds a referee. It is to compute **one paired outcome per seed**
 (reorient straight and mirrored into logical higher/lower, aggregate, stocks
 first, damage only on a stock tie → Higher/Even/Lower) and derive **both** the
 displayed direction and the sign test from those same outcomes, leaving pooled
-medians as descriptive columns only. ⚠ Not landed here: this box cannot build (see
-[`../yardrat-open-measurements.md`](../yardrat-open-measurements.md)), and an
-unverified edit to the instrument every number on this page came from is worse
-than a documented defect.
+medians as descriptive columns only. ✔ **Landed 2026-09-04 (`36dd9a248`)** by the
+sibling session, on a box that could compile and poison-verify it.
 
 ⭐ **THE POISON ARMS, WRITTEN DOWN SO THEY DO NOT HAVE TO BE RE-DERIVED.** A fix
 to this function is only worth landing if every one of these reddens the CURRENT
@@ -2054,26 +2105,68 @@ returns **3** where the median is **2.5**, as expected for `values[len / 2]`.
 
 ⚠ **This validates the ALGORITHM, not an implementation.** The Rust still has to be
 
-✔ **AND THE IMPLEMENTATION IS WRITTEN — on a BRANCH, unverified, deliberately not
-on `main`.** `agent/yardrat-rig-one-authority`, two commits kept separable:
+✔✔ **LANDED 2026-09-04 — `36dd9a248`, by the sibling session, compiled and
+poison-verified on a box that builds.** My branch was written in parallel and is
+deleted; the two derivations were independent and **agree on every ordering
+decision** (means where they sum, `i32` signs where they name a `PairedOutcome`
+enum — the same reduction), which is worth more than either alone.
 
-| commit | what | why separable |
-|---|---|---|
-| `22dfe0e86` | `paired_outcomes()` — one outcome per seed, stocks then damage; a paired run derives **both** the word and the sign test from it. Pooled verdict demoted to a descriptive column. Unpaired runs unchanged. | the fix proper |
-| `ce8c7a142` | `median()` — mean of the two middles for even N | changes **every** descriptive column, so it can be taken or left on its own |
+⛔⛔ **AND RUNNING IT FOUND WHAT NEITHER DESIGN CAUGHT: FIVE GREEN TESTS COULD NOT
+SEE THE DEFECT.** With the paired functions written and all their arms passing,
+re-wiring `report_row` back to the broken shape — word from the pool, qualifier
+from the pairs — left **every test still passing**. ⇒ Each one called the paired
+function *directly*, and that function was never the broken part: **the bug lived
+in which authority the row consulted.** ⭐ **A test that constructs its subject
+cannot witness that subject being bypassed.** The fix was to extract the row's own
+decision (`row_verdict(bouts, properly_paired)`) and assert on it with the 20-pair
+fixture — precisely because that is where the two authorities disagree — after
+which the same poison reddens one test with the defect's signature:
+`left: ("LOWER outfights", false)` against `right: ("higher outfights", false)`.
 
-⛔ **It has never been compiled.** Not `cargo check`, not `--lib` — this box has
-~359M free (see [`../yardrat-open-measurements.md`](../yardrat-open-measurements.md)).
-Delimiters were balanced and the code re-read, which catches typos and not type
-errors. ⇒ **That is exactly why it is a branch**: if the Rust is wrong it costs
-nothing and `main` is untouched. Whoever merges it runs the five arms above first.
+⛔ **AND MY "POISON ASK 3 HOLDS BY CONSTRUCTION" WAS WRONG — the guard had never
+run.** `mirroring_a_bout_swaps_every_per_seat_reading` carried its doc comment and
+`#[test]`, then a *second* doc comment and `#[test]` immediately after; both bound
+to the following function, and the mirror check became a private `fn` nothing
+called. ⇒ That is the guard proving index 0 means the higher rung in **both**
+halves of a pair — the assumption `paired_outcomes` rests on entirely. **It held by
+luck, not by construction**, and I told the sibling session otherwise. Restored and
+passing.
 
-ⓘ **One arm needed no code: mirror orientation.** `Bout::mirrored` already swaps
-every per-seat array, so index 0 is the higher rung in both halves of a pair —
-invariance holds by construction rather than by test.
+⚠ **The same shape was in two of my own files and is now fixed** (`7bb880ff3`):
+inserting a test between an existing test's docs and its body steals the old
+`#[test]`, leaving dead code wearing a test's name. `the_side_special_is_a_command_grab_and_not_the_standing_grab_renamed`
+had been dead for a day — the guard for the exact `lunge_grab` claim published
+above it.
 
-✔✔ **THE SIX ARMS ARE NOW TESTS ON THAT BRANCH (`a21f062d2`), AND THEIR EXPECTED
-VALUES WERE CHECKED NUMERICALLY RATHER THAN REASONED.** Every fixture was run
+ⓘ Also landed with it: `median()`, and `sign_test_says_within_spread` moved to
+`#[cfg(test)]` because production no longer converts differences to signs at all.
+⇒ **Re-running the ladder cells is still outstanding** and still needs a disk; the
+instrument is trustworthy now, and none of the numbers on this page have been
+
+✔ **REVIEWED BY RE-DERIVATION 2026-09-04, not by reading the diff through**, since
+this is the instrument every number on this page came from:
+
+- `paired_outcomes` reduces each pair **stocks first, damage only on a stock
+  tie** — the ordering the verdict uses. It SUMS the pair where my parallel
+  version took the mean; for a comparison those are the same reduction.
+- `paired_verdict` takes the direction from `higher.cmp(&lower)` and the
+  qualifier from the **same** split. ⇒ One authority, and the two literally
+  cannot disagree because there is nothing left to disagree with.
+- ⭐ **`k = positives.max(negatives)` is still there and is now CORRECT.** That
+  `max` was only ever the bug because a *second* authority supplied the
+  direction; with the split feeding both, discarding sign inside the tail
+  calculation is exactly right — a two-sided test does not care which way.
+- Edge case checked by hand: all-ties gives `n = 0`, `k = 0`, tail `1.0`,
+  `p = 1.0` ⇒ `even (within spread)`. Correct — no evidence either way.
+
+ⓘ Two cosmetic notes, neither a defect: `hi_dealt_all` / `lo_dealt_all` are built
+unconditionally though only the unpaired branch reads them, and a corrected
+`median` now makes `stocks_taken` fractional on even runs — which is fine, since
+those medians are descriptive on a paired row and no longer author anything.
+re-taken.
+
+✔✔ **THE ARMS' EXPECTED VALUES WERE CHECKED NUMERICALLY RATHER THAN REASONED**,
+before either implementation existed. Every fixture was run
 through the Python model of the same arithmetic and reproduces exactly what the
 Rust asserts: arm 1 signs **16/4** → `higher outfights`, unqualified; arm 2 all
 `+1` from stocks; arm 3 all `−1` from damage on a stock tie; arm 4 six tied pairs
@@ -2428,6 +2521,35 @@ question with a single production installer, which is why the remedy is small an
 why the four symptoms below all trace to one condition rather than to nine.
 ⚠ The out-of-range case (`profile_for_level(200, Some(&ladder))` → floor) is
 deliberate and pinned by `a_shipped_ladder_beats_the_engine_floor`.
+
+⭐⭐⭐ **AND THE FORK'S COST IS LARGER THAN FOUR DEFECTS: AN ENTIRE SUBSYSTEM IS
+REACHABLE ONLY THROUGH THE AUTHORITY THAT LOSES.** Traced 2026-09-04, from the two
+sources:
+
+| | `rollout_depth` |
+|---|---|
+| the engine floor (`FighterBrainProfile::for_level`) | `if level >= 6 { 12 } else { 0 }` — **ON at rungs 6–9** |
+| the shipped `fighter_brain_ladder.ron` | `0` on **all nine** rungs |
+
+⇒ `refine_by_rollout` returns immediately on `!profile.uses_rollouts()`
+(`rollout_depth > 0 && rollout_k > 0`), so **for every fighter a player has ever
+met, the L3 search never runs.** And behind that one gate sit:
+
+- the **shadow integrator** and its `TODO(compat-remove)` — a note proposing to
+  replace it with the real movement kernel *"once its decision cost is budgeted"*.
+  ⚠ Its cost is currently **zero on the shipped ladder**, because it never
+  executes; the budget question is about a path no shipped fighter takes.
+- **`read_weight`**, authored `0.0 → 1.0` across nine hand-tuned rungs and read
+  only through this gate — the *dead* worked example elsewhere on this page.
+- the **`Dodge` / `Shield` suppression**, for the same reason.
+
+⭐ **So "which of the two authorities should exist" is not only about difficulty
+numbers.** One of them switches an entire search subsystem on; the other switches
+it off everywhere, and the one that ships is the one that switches it off. ⇒ Any
+effort budgeted against the rollout — including that TODO — is effort spent on the
+floor's behaviour, and the floor is the authority nobody plays against. ⚠ Worth
+knowing before it is prioritised, not after.
+
 
 ⇒ **Divergences 1 through 4 below are not four accidents; they are four symptoms
 of that fork.** Flattened weights, floor-not-ron, rollout-on-at-6, and the

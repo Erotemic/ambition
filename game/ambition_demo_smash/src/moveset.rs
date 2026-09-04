@@ -789,17 +789,6 @@ mod tests {
     use super::*;
     use ambition_platformer2d::entity_catalog::AttackDir;
 
-    /// Every verb resolves to a move that exists. A verb pointing at a
-    /// missing id is a press that silently does nothing.
-    /// THE SIDE-SPECIAL IS A REAL CAPTURE, not a strike wearing the name.
-    ///
-    /// ⭐ The inverted half is the one that matters. Asserting "`special_forward`
-    /// resolves" would pass if somebody rebound it to the jab, and asserting
-    /// "some move carries a capture attempt" would pass on the standing grab
-    /// alone. This asserts the SPECIAL's own move captures, and that it is a
-    /// different move from the standing grab — the two claims that together mean
-    /// the button does the new thing rather than an old one.
-    #[test]
     /// ⭐⭐ WHAT A PRESS ANSWERS, not what a verb list binds — the two are
     /// different and the difference is eight presses.
     ///
@@ -941,6 +930,22 @@ mod tests {
         );
     }
 
+    /// THE SIDE-SPECIAL IS A REAL CAPTURE, not a strike wearing the name.
+    ///
+    /// ⭐ The inverted half is the one that matters. Asserting "`special_forward`
+    /// resolves" would pass if somebody rebound it to the jab, and asserting
+    /// "some move carries a capture attempt" would pass on the standing grab
+    /// alone. This asserts the SPECIAL's own move captures, and that it is a
+    /// different move from the standing grab — the two claims that together mean
+    /// the button does the new thing rather than an old one.
+    ///
+    /// ⚠ **THIS GUARD WAS DEAD FROM `45e0ceada` TO `7bb880ff3` and its `#[test]`
+    /// was restored without being run** — the box that restored it could not
+    /// build. ⇒ If it is RED the first time it executes, that is not necessarily
+    /// a regression introduced by whoever ran it: check the two commits that
+    /// touched this file while it was dead (both add tests only and neither
+    /// touches `lunge_grab`, so green is expected) before hunting a live cause.
+    #[test]
     fn the_side_special_is_a_command_grab_and_not_the_standing_grab_renamed() {
         use ambition_platformer2d::entity_catalog::WindowTag;
         let set = fighter_moveset();
@@ -1021,6 +1026,8 @@ mod tests {
         );
     }
 
+    /// Every verb resolves to a move that exists. A verb pointing at a
+    /// missing id is a press that silently does nothing.
     #[test]
     fn every_authored_verb_resolves() {
         let set = fighter_moveset();

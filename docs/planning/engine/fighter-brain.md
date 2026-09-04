@@ -2054,26 +2054,47 @@ returns **3** where the median is **2.5**, as expected for `values[len / 2]`.
 
 ⚠ **This validates the ALGORITHM, not an implementation.** The Rust still has to be
 
-✔ **AND THE IMPLEMENTATION IS WRITTEN — on a BRANCH, unverified, deliberately not
-on `main`.** `agent/yardrat-rig-one-authority`, two commits kept separable:
+✔✔ **LANDED 2026-09-04 — `36dd9a248`, by the sibling session, compiled and
+poison-verified on a box that builds.** My branch was written in parallel and is
+deleted; the two derivations were independent and **agree on every ordering
+decision** (means where they sum, `i32` signs where they name a `PairedOutcome`
+enum — the same reduction), which is worth more than either alone.
 
-| commit | what | why separable |
-|---|---|---|
-| `22dfe0e86` | `paired_outcomes()` — one outcome per seed, stocks then damage; a paired run derives **both** the word and the sign test from it. Pooled verdict demoted to a descriptive column. Unpaired runs unchanged. | the fix proper |
-| `ce8c7a142` | `median()` — mean of the two middles for even N | changes **every** descriptive column, so it can be taken or left on its own |
+⛔⛔ **AND RUNNING IT FOUND WHAT NEITHER DESIGN CAUGHT: FIVE GREEN TESTS COULD NOT
+SEE THE DEFECT.** With the paired functions written and all their arms passing,
+re-wiring `report_row` back to the broken shape — word from the pool, qualifier
+from the pairs — left **every test still passing**. ⇒ Each one called the paired
+function *directly*, and that function was never the broken part: **the bug lived
+in which authority the row consulted.** ⭐ **A test that constructs its subject
+cannot witness that subject being bypassed.** The fix was to extract the row's own
+decision (`row_verdict(bouts, properly_paired)`) and assert on it with the 20-pair
+fixture — precisely because that is where the two authorities disagree — after
+which the same poison reddens one test with the defect's signature:
+`left: ("LOWER outfights", false)` against `right: ("higher outfights", false)`.
 
-⛔ **It has never been compiled.** Not `cargo check`, not `--lib` — this box has
-~359M free (see [`../yardrat-open-measurements.md`](../yardrat-open-measurements.md)).
-Delimiters were balanced and the code re-read, which catches typos and not type
-errors. ⇒ **That is exactly why it is a branch**: if the Rust is wrong it costs
-nothing and `main` is untouched. Whoever merges it runs the five arms above first.
+⛔ **AND MY "POISON ASK 3 HOLDS BY CONSTRUCTION" WAS WRONG — the guard had never
+run.** `mirroring_a_bout_swaps_every_per_seat_reading` carried its doc comment and
+`#[test]`, then a *second* doc comment and `#[test]` immediately after; both bound
+to the following function, and the mirror check became a private `fn` nothing
+called. ⇒ That is the guard proving index 0 means the higher rung in **both**
+halves of a pair — the assumption `paired_outcomes` rests on entirely. **It held by
+luck, not by construction**, and I told the sibling session otherwise. Restored and
+passing.
 
-ⓘ **One arm needed no code: mirror orientation.** `Bout::mirrored` already swaps
-every per-seat array, so index 0 is the higher rung in both halves of a pair —
-invariance holds by construction rather than by test.
+⚠ **The same shape was in two of my own files and is now fixed** (`7bb880ff3`):
+inserting a test between an existing test's docs and its body steals the old
+`#[test]`, leaving dead code wearing a test's name. `the_side_special_is_a_command_grab_and_not_the_standing_grab_renamed`
+had been dead for a day — the guard for the exact `lunge_grab` claim published
+above it.
 
-✔✔ **THE SIX ARMS ARE NOW TESTS ON THAT BRANCH (`a21f062d2`), AND THEIR EXPECTED
-VALUES WERE CHECKED NUMERICALLY RATHER THAN REASONED.** Every fixture was run
+ⓘ Also landed with it: `median()`, and `sign_test_says_within_spread` moved to
+`#[cfg(test)]` because production no longer converts differences to signs at all.
+⇒ **Re-running the ladder cells is still outstanding** and still needs a disk; the
+instrument is trustworthy now, and none of the numbers on this page have been
+re-taken.
+
+✔✔ **THE ARMS' EXPECTED VALUES WERE CHECKED NUMERICALLY RATHER THAN REASONED**,
+before either implementation existed. Every fixture was run
 through the Python model of the same arithmetic and reproduces exactly what the
 Rust asserts: arm 1 signs **16/4** → `higher outfights`, unqualified; arm 2 all
 `+1` from stocks; arm 3 all `−1` from damage on a stock tie; arm 4 six tied pairs

@@ -66,8 +66,19 @@ supports, and I have not claimed it.
 (`running` is never passed to the builder), the brain emits a BUTTON rather than a
 move, and the body re-resolves that press WITH `running` — preferring
 `{base}_dash`. ⭐ **So the brain is not preferring the dash attack; it is scoring a
-menu it cannot order from.** Filed as a defect in `queue.md` with two named fixes
-and an explicit *do not land unmeasured*.
+menu it cannot order from.** Filed as a defect in `queue.md`.
+
+⛔⛔ **AND THE OBVIOUS FIX WAS MEASURED AND DOES NOT WORK.** Building the kit with
+`running` (so the brain sees what the press will actually produce) closes the
+informational gap — the brain does then name the dash attack — and **changes no
+behaviour**: 81% → 85% dash attack, still zero tilts, still zero smashes. ⇒ Because
+the gap is **temporal**: the kit is built at DECISION time and the press is
+buffered and resolves at EMISSION time, by which point the stance may differ. **A
+correctly-built kit is still a kit for a stance the body has since left.**
+
+⭐ **The rule that earns:** *a fix that closes the mechanism you diagnosed is not
+evidence you diagnosed the cause.* It compiled, it was principled, it closed a
+real mismatch, and it would have passed review.
 
 ⭐ **The definitive ladder table — shipped rows, shipped clock, bouts that
 resolve — is the one headed "THE DEFINITIVE RUN".** Prefer it over anything

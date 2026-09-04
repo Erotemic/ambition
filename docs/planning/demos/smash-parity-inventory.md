@@ -112,10 +112,29 @@ with its launch aimed inward — no second mechanic).
 
 ⭐ **THE STALENESS IS NOT SPREAD EVENLY**, which is the useful half: it clusters
 where work has recently happened, because those rows were written before the work
-and never revisited. Spot-checked the same day and found ACCURATE: the whole
-ground-locomotion block (`Initial dash`, `Turnaround / pivot phase`, `Teeter` —
-none of these exist in any form). ⇒ trust the untouched regions; verify the ones
-next door to whatever last shipped.
+and never revisited. ⇒ trust the untouched regions; verify the ones next door to
+whatever last shipped.
+
+⛔⛔ **AND THE EXAMPLE THIS PARAGRAPH USED HAS SINCE EXPIRED — which is the
+sharpest possible case of its own rule.** It read: *"Spot-checked the same day
+and found ACCURATE: the whole ground-locomotion block (`Initial dash`,
+`Turnaround / pivot phase`, `Teeter` — none of these exist in any form)."*
+Re-checked 2026-09-03 and all three exist:
+
+* `LocomotionTuning` carries `initial_dash_time`, `turnaround_time` and
+  `teeter_margin` (`crates/ambition_platformer2d_core/src/abilities.rs:889-897`);
+* the movement authority runs the turnaround clock —
+  `state.turnaround_timer` against `tuning.locomotion.turnaround_time`
+  (`crates/ambition_platformer2d_core/src/movement/abilities.rs:265-300`);
+* and **this page's own row already said so**: *"Teeter at platform edge | ✔ |
+  … LANDED 2026-08-25. `LocomotionTuning::teeter_margin`"*.
+
+⇒ So the page contradicted itself, and the stale half was the one presented as a
+VERIFICATION RESULT. ⚠ **A dated spot-check is evidence with a shelf life, and
+this one was being read as a standing fact** — the paragraph's own advice
+("verify the ones next door to whatever last shipped") is exactly what would
+have caught it, applied to the paragraph itself. The rule survives; only its
+example was overtaken.
 
 Effort: `S` small slice · `M` medium slice · `C` multi-slice campaign
 

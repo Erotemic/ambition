@@ -1,8 +1,17 @@
 # Item custody and accounting
 
-**State:** OPEN / NARROW — physical custody is established; remaining work is the
-instance/count boundary for held weapons/abilities and persistent occurrence
-behavior across residency/restore.
+**State:** OPEN / NARROW — and as of 2026-09-04 the exploration side of every
+migration row is CLOSED. I1 (2026-09-02) and I4 are done; I2's exploration half
+is done and its one residual (`match_spawn.rs:113`) belongs to the fighter lane;
+I3 is a maintainer DECISION rather than an implementation (question 45). What is
+left on this page is that decision, that one fighter call site, and the
+gauntlet-drop road's missing end-to-end arm, which is blocked on
+`force_kill_boss` producing no drops — also fighter side.
+
+⛔ **So a reader should not take "OPEN" as "unbuilt".** Physical custody, the
+instance/count boundary and persistent occurrence behaviour across
+residency/restore all exist and are guarded; the openness is two decisions and a
+test-reachability problem, and each is named in its own row below.
 
 > ⭐ **THIS PAGE IS THE PRESSED HALF, and since 2026-09-02 that is a crate
 > boundary rather than a distinction in prose.** Items split by COLLECT TRIGGER:

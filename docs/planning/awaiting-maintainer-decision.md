@@ -1444,7 +1444,7 @@ interact and it is worth knowing which:**
 |---|---|---|---|
 | 1 | **Which of two ladder authorities should exist?** | `profile_for_level` forks between the shipped `.ron` and an engine floor; **four separate defects were symptoms of that one fork**. Removing the loser rewrites **no authored content** and there is exactly **one** production installer. | below |
 | 2 | **Do the two Robots get kits?** | At the same rung, on the shipped ladder and clock, **George significantly outfights a stand-in (318% : 199%)** with a correctly-null control. ⚠ Scope corrected: **two specific fighters**, not "two of three" — the composed grid assembles ≥8. | ↓ |
-| 3 | **`read_weight`: wire it up or delete it?** | Authored 0.0→0.9 on all nine rungs and **read by nothing** — its only live consumer sits behind a rollout those rows disable. ≤184 bytes/fighter/snapshot, so the cost argument is weak; the legibility one is not. | ↓ |
+| 3 | **`read_weight`: wire it up or delete it?** | Authored **0.0 → 1.0** on all nine rungs (`0.0 0.0 0.0 0.1 0.2 0.3 0.5 0.7 1.0`) and **read by nothing** — its only live consumer sits behind a rollout those rows disable. ≤184 bytes/fighter/snapshot, so the cost argument is weak; the legibility one is not. | ↓ |
 | 4 | ✔ **mostly answered** — does "harder" mean deals more damage, or is harder to beat? | Settled by fixing the clock: at the shipped 480s limit bouts RESOLVE, and rung 5 neither out-damages nor outlives rung 3. | ↓ |
 
 ⇒ **1 and 3 interact**: `read_weight` is inert *because* the shipped rows disable

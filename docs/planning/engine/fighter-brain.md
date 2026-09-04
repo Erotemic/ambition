@@ -1404,7 +1404,18 @@ nothing reads it* — and they want opposite responses:
 | | dead | restrained |
 |---|---|---|
 | example | `read_weight` | a resource with one producer and no reader, by design |
-| the tell | **nine authored values, 0.0 rising to 0.9** | nobody has spent effort on it |
+| the tell | **nine authored values, 0.0 rising to 1.0** | nobody has spent effort on it |
+
+⚠ **That top value was recorded as 0.9 until 2026-09-04 and it is 1.0** — a small
+error, kept visible because of HOW it survived. The row was written from the
+shape of the ramp rather than from the file, and re-checking it turned up a
+second thing: `grep -c read_weight` on the shipped ladder returns **10** against
+**nine** rungs. ⇒ The tenth is a COMMENT — line 42, *"Its skill is the read
+(`read_weight: 1.0`), not the reflex"* — which is a prose sentence that names the
+value it describes, so a count of the field silently includes a mention of it.
+⭐ The authored nine, read off the file: `0.0 0.0 0.0 0.1 0.2 0.3 0.5 0.7 1.0`,
+with `rollout_depth: 0` and `rollout_k: 0` on **every** rung, which is the half
+this argument actually rests on and which is confirmed.
 | what it means | somebody tuned a knob believing it worked | the seam exists ahead of its customer |
 | what to do | wire it up or delete it | write down WHY and leave it |
 

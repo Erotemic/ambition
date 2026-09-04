@@ -3848,6 +3848,27 @@ OPTIONAL dep + feature, never used:
     good or bad without asking which happened.
 - ▢ **D166 — make the character-authoring boundary load-bearing where a real
   character still bypasses it.** Prepared character definitions are already
+  ⭐⭐ **A THIRD SLICE CANDIDATE, MEASURED 2026-09-04 AND ALREADY EVIDENCED
+  ELSEWHERE: `fighter_moveset()` is a real character bypassing this exact
+  boundary.** `SmashRepertoire` has **nineteen** fields and **zero** `Option`s —
+  jab, three tilts, three smashes, five aerials, four specials, capture, taunt,
+  dash attack — so a moveset built through `into_contract()` **cannot** have a
+  partial kit; the struct literal will not compile without every slot. Every
+  smash-seatable moveset reaches that constructor (fourteen directly; medic,
+  performer, author and officer by `under_own_name` with one slot swapped).
+  ⇒ **`fighter_moveset()` is the ONE that hand-writes a verb list instead** — and
+  that is exactly why the two stand-ins answer **eight fewer `special` presses**
+  than George while nineteen other fighters *cannot* be short one.
+  ⭐ **So this is the boundary being load-bearing, demonstrated by its absence**:
+  the fighters that went through the type are complete by construction, and the
+  one that went around it is the one with the hole. ⚠ It is ALSO a maintainer
+  question about how thin a stand-in should be — indexed as decision 2 in
+  [`awaiting-maintainer-decision.md`](awaiting-maintainer-decision.md) — so this
+  slice wants that answer first, not a migration on architectural grounds alone.
+  ⓘ Note the boundary is not all-or-nothing even here: the same file builds its
+  capture half THROUGH `SmashCaptureRepertoire` and hand-writes only the attack
+  verbs. The half it took from a type is complete; the half it wrote is the half
+  with the hole.
   immutable and the first Smash fighter facet exists. Re-measure the current
   residuals before migrating another field. The startup-reach proxy is a
   maintainer decision (§35), not an excuse to widen generic character data.

@@ -161,6 +161,32 @@ Promote focused work from one of these:
 3. portal/gravity/moving-platform traversal exposes duplicated reachability
    logic;
 4. authoring/inspection needs to explain why a route is unreachable;
+   ⭐⭐ **THIS CUSTOMER ACQUIRED ITS EVIDENCE 2026-09-04, and the interesting
+   part is that the ANSWER exists while the QUESTION has no asker.** A route can
+   now be closed by a body capability — `body.can(verb)` and `body.fits(height)`
+   are published conditions and `gated_by` is an authored condition line — and
+   when a wall stands, the domain that refused it states why:
+   `GatedLockWallVerdicts::why_standing(wall)` returns the structured
+   `WhyNot { term, subject, observed }`, derived and keyed by wall id.
+   ⛔ **And nothing in production reads it.** Measured the same day: that
+   resource has no production reader, and `AgentObservation`
+   (`ambition_sim_harness/src/observation.rs`) carries body state only —
+   position, velocity, ability charges, health — with no world-gate field at
+   all. ⇒ An agent driving the harness cannot learn that a wall is standing, let
+   alone why, which is exactly the product criterion
+   [`../game/open-world-roadmap.md`](../game/open-world-roadmap.md) still marks
+   `▢`: *"navigate enough of the world that AI and agent tooling can reason
+   about routes."*
+   ⇒ **So the navigation slice this page is waiting for is smaller than a
+   planner:** the reachability facts a tool needs are already computed and
+   already structured; what is missing is a surface. ⚠ **NOT built here, and
+   deliberately** — which surface is an open design question on
+   [`inspection-diagnostics-and-workbench.md`](inspection-diagnostics-and-workbench.md)
+   (*"In-process query API versus trace/report artifacts?"*), and adding a field
+   to `AgentObservation` with no consumer would be the dormant-cluster growth
+   this project refuses. What is recorded is that the customer is now REAL and
+   the input already exists, so whoever answers that design question can cut
+   this without re-deriving any of it.
 5. a second game needs the same capability-aware query.
 
 Do not build a universal navmesh/path planner merely because these customers may

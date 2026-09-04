@@ -61,6 +61,17 @@ struct Bout {
     /// a duel from two solo walks off the edge. A pair whose peaks stay near
     /// zero was never a fight, whatever its verdict column says.
     peak_percent: [f32; 2],
+    /// TOTAL damage each seat absorbed across the whole match, summed from
+    /// per-tick increases, as a ratio like [`Self::peak_percent`].
+    ///
+    /// ⛔ **PEAK IS NOT DAMAGE DEALT, which is what it was briefly used as.**
+    /// Percent RESETS on death, so a seat killed three times at 100% shows a
+    /// peak of 100 and a seat pressured to 250% and never killed shows 250 —
+    /// the peak of the fighter who died more is LOWER. Worse as a tiebreak: a
+    /// high peak before a kill means the killer needed more damage to close,
+    /// which is the opposite of skill. Summing the increases counts every point
+    /// landed and is blind to how they were grouped.
+    damage_taken: [f32; 2],
 }
 
 #[derive(clap::Args, Debug, Clone, Default)]
@@ -134,7 +145,8 @@ pub fn run(cli: LadderRigArgs) {
         // REMAINING, so `0 : 0` means BOTH fighters were fully eliminated — the
         // opposite of the "nobody lost a stock" it reads as at a glance. Say
         // LEFT in the header, where the reader is.
-        "[ladder_rig] higher vs lower   eliminated(hi:lo)   stocks LEFT(hi:lo)   peak%(hi:lo)   verdict   \
+        "[ladder_rig] higher vs lower   survived(hi:lo)   stocks LEFT(hi:lo)   peak%(hi:lo)   \
+         verdict = who OUTFOUGHT: stocks taken, then damage dealt   \
          (median of {seeds} seeds, {}s each)",
         TICKS / 60
     );
@@ -337,8 +349,7 @@ fn run_scenarios(seeds: usize) {
     // to infer five columns from the numbers — and `stocks` was read as "stocks
     // lost" in a planning row, inverting what the rows meant.
     println!(
-        "[ladder_rig] fixture            rungs     eliminated(hi:lo)              stocks LEFT   \
-         peak%(hi:lo)     verdict"
+        "[ladder_rig] fixture            rungs     survived(hi:lo)                stocks LEFT   peak%(hi:lo)     verdict = who OUTFOUGHT (stocks taken, then damage dealt)"
     );
     for scenario in &suite {
         if scenario.starting_positions().is_none() {
@@ -409,8 +420,7 @@ fn run_sweep_below(seeds: usize) {
         TICKS / 60
     );
     println!(
-        "[ladder_rig] fixture            rungs     eliminated(hi:lo)              stocks LEFT   \
-         peak%(hi:lo)     verdict"
+        "[ladder_rig] fixture            rungs     survived(hi:lo)                stocks LEFT   peak%(hi:lo)     verdict = who OUTFOUGHT (stocks taken, then damage dealt)"
     );
     // ⛔ PUBLISHED LEVELS ONLY. `smash_roster_at_levels` builds a
     // `duelist_l{level}` policy key, and only 1/3/5/6/9 are published in
@@ -501,30 +511,80 @@ fn report(higher: u8, lower: u8, bouts: &[Bout]) {
 fn report_row(label: &str, bouts: &[Bout]) {
     let hi_all: Vec<f32> = bouts.iter().map(|b| b.eliminated[0] as f32).collect();
     let lo_all: Vec<f32> = bouts.iter().map(|b| b.eliminated[1] as f32).collect();
-    let hi_out = median(hi_all.clone());
-    let lo_out = median(lo_all.clone());
+    // The survival medians are no longer computed here: `span` derives its own
+    // for the column it prints, and nothing else wants them now that the verdict
+    // is the outcome rather than the clock. Keeping them would be two authors of
+    // the same number.
     let hi_stocks = median(bouts.iter().map(|b| b.stocks[0] as f32).collect());
     let lo_stocks = median(bouts.iter().map(|b| b.stocks[1] as f32).collect());
-    // The seat that lasted LONGER won.
-    let verdict = if hi_out > lo_out {
-        "higher lasts"
-    } else if lo_out > hi_out {
-        "LOWER lasts"
-    } else if hi_out >= TICKS as f32 {
-        "both survive"
+    // ⛔⛔ **THE VERDICT IS WHAT A SEAT DID TO THE OTHER ONE, NOT HOW LONG IT
+    // AVOIDED BEING HIT.** This read "the seat that lasted LONGER won", and the
+    // 15-seed matrix (2026-09-03, `fighter-brain.md`) showed that scoreboard
+    // cannot rank skill at all: **35 of 36 verdicts landed inside the seed
+    // spread**, and the two reasons were both visible in these very columns.
+    //
+    // Survival-until-a-cap SATURATES AT BOTH ENDS and pays for passivity in the
+    // middle. At the low rungs every fixture returned "both survive" — 60s is
+    // not long enough for weak CPUs to resolve anything, so half the matrix was
+    // structurally unable to answer. At the high rungs the stocks columns were
+    // `0 : 0` almost everywhere: stronger CPUs took FEWER stocks, because a
+    // fighter that never commits cannot be punished and therefore outlasts one
+    // that fights.
+    //
+    // ⇒ Score the OUTCOME instead, lexicographically: stocks taken off the
+    // opponent first, damage dealt to it as the tiebreak. Both are already
+    // collected. Stocks are the thing the game is played for; damage is
+    // continuous and never saturates, which is what lets a row discriminate when
+    // neither seat closed a stock. Survival keeps its column — it is still the
+    // honest answer to "how long did this last" — it just stops being the
+    // verdict.
+    //
+    // ⚠ The damage term is `damage_taken`, SUMMED FROM PER-TICK RISES, and not
+    // `peak_percent`. Peak is the most a seat ever carried at once; percent
+    // resets on death, so peak systematically under-reads the fighter who died
+    // more and, as a tiebreak, rewards needing MORE damage to close a stock.
+    let dealt = |seat: usize| median(bouts.iter().map(|b| b.damage_taken[1 - seat]).collect());
+    let stocks_taken = |seat: usize| {
+        median(
+            bouts
+                .iter()
+                .map(|b| (ambition_demo_smash::STARTING_STOCKS - b.stocks[1 - seat]) as f32)
+                .collect(),
+        )
+    };
+    let (hi_took, lo_took) = (stocks_taken(0), stocks_taken(1));
+    let (hi_dealt, lo_dealt) = (dealt(0), dealt(1));
+    let verdict = if hi_took != lo_took {
+        if hi_took > lo_took {
+            "higher outfights"
+        } else {
+            "LOWER outfights"
+        }
+    } else if hi_dealt > lo_dealt {
+        "higher outfights"
+    } else if lo_dealt > hi_dealt {
+        "LOWER outfights"
     } else {
-        "both die together"
+        "even"
     };
     // a verdict inside the seeds' own spread is not a verdict. Reported
     // rather than suppressed: the reader should see the overlap and discount the
     // word, not be handed a cleaner-looking table.
-    let overlaps = (hi_out - lo_out).abs()
+    //
+    // ⚠ Measured on the DECIDING quantity. It used to test the survival times
+    // while the word above described survival; now the word describes damage
+    // dealt, so the spread that matters is damage's. Leaving it on the old
+    // column would have marked a decisive damage gap "within spread" whenever
+    // the two seats happened to die at similar times.
+    let hi_dealt_all: Vec<f32> = bouts.iter().map(|b| b.damage_taken[1]).collect();
+    let lo_dealt_all: Vec<f32> = bouts.iter().map(|b| b.damage_taken[0]).collect();
+    let overlaps = (hi_dealt - lo_dealt).abs()
         < 0.5
-            * ((hi_all.iter().copied().fold(f32::NEG_INFINITY, f32::max)
-                - hi_all.iter().copied().fold(f32::INFINITY, f32::min))
+            * ((hi_dealt_all.iter().copied().fold(f32::NEG_INFINITY, f32::max)
+                - hi_dealt_all.iter().copied().fold(f32::INFINITY, f32::min))
             .max(
-                lo_all.iter().copied().fold(f32::NEG_INFINITY, f32::max)
-                    - lo_all.iter().copied().fold(f32::INFINITY, f32::min),
+                lo_dealt_all.iter().copied().fold(f32::NEG_INFINITY, f32::max)
+                    - lo_dealt_all.iter().copied().fold(f32::INFINITY, f32::min),
             ));
     let verdict = if overlaps {
         format!("{verdict} (within spread)")
@@ -789,6 +849,8 @@ fn run_bout_at(
     let mut stocks = [ambition_demo_smash::STARTING_STOCKS; 2];
     let mut eliminated = [TICKS; 2];
     let mut peak_percent = [0.0f32; 2];
+    let mut damage_taken = [0.0f32; 2];
+    let mut last_percent = [0.0f32; 2];
     // A seat is not eliminated until seating has completed; bodies may be absent
     // during the seating transaction.
     let mut appeared = [false; 2];
@@ -846,7 +908,14 @@ fn run_bout_at(
             if seat.0 < 2 {
                 seen[seat.0] = true;
                 stocks[seat.0] = remaining.remaining;
-                peak_percent[seat.0] = peak_percent[seat.0].max(health.damage_percent());
+                let now = health.damage_percent();
+                peak_percent[seat.0] = peak_percent[seat.0].max(now);
+                // Only the RISES. A death resets the percent, so the step is
+                // negative there and contributes nothing — which is what makes
+                // this a total across stocks rather than a reading of the last
+                // one.
+                damage_taken[seat.0] += (now - last_percent[seat.0]).max(0.0);
+                last_percent[seat.0] = now;
             }
         }
         // An ELIMINATED seat stops existing — that disappearance is the event,
@@ -880,5 +949,6 @@ fn run_bout_at(
         eliminated,
         stocks,
         peak_percent,
+        damage_taken,
     }
 }

@@ -234,6 +234,20 @@ mod tests {
     /// ⭐⭐ A RESIMULATED TICK RE-MINTS THE SAME ID — the half of that claim that
     /// can be proved without a rollback session, proved.
     ///
+    /// ✔✔ **AND LEG (b) IS NOW MEASURED TOO, by somebody else's poison** — a
+    /// process-global drift term added to `next()` reds the populated timeline
+    /// with `GGRS sync-test checksum mismatch at frames [2..7]`. ⇒ So `SimId` is
+    /// genuinely IN the session checksum and an unstable mint is genuinely SEEN,
+    /// which `rollback_component_canonical` alone could not have established —
+    /// this repo already records that **REGISTERED ≠ CHECKSUMMED**, and that a
+    /// real desync once read clean.
+    ///
+    /// ⭐ Worth knowing about that poison: it works only because the fixture's
+    /// subject fires bolts every ninth frame INSIDE the rolled-back window. The
+    /// five ids minted before the frames are never re-run, so without those bolts
+    /// it would have proved nothing about resimulation while appearing to.
+    /// **A poison at the wrong layer passes for the right one.**
+    ///
     /// ⛔ **THE CLAIM HAS TWO LEGS AND THIS TEST IS ONE OF THEM.** When
     /// `PortalFireIntent` gained a minted `SimId` (2026-09-04) the argument was:
     /// the counter lives on the firer and is rollback state, so a rewind restores
@@ -247,7 +261,12 @@ mod tests {
     /// ⚠ Written because the author of that change flagged the whole claim as
     /// ARGUED and not measured, and half of it is measurable in four lines. The
     /// remaining half is now a named registration rather than a piece of
-    /// reasoning, which is a better place for it to sit.
+    /// reasoning. ⇒ And the two legs want DIFFERENT INSTRUMENTS, which is why
+    /// neither substitutes for the other: purity is a unit test, *is it in the
+    /// checksum* is a poisoned session, and the registration line is neither.
+    /// ⭐ Two independent instruments reached the same verdict here, and this
+    /// test would have caught that poison on its own — a global drift makes two
+    /// mints from `SimIdCounter(7)` differ, which is exactly what it asserts.
     #[test]
     fn a_resimulated_tick_re_mints_the_same_id() {
         let firer = SimId::player_slot(0);

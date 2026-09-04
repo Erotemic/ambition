@@ -2009,6 +2009,17 @@ OPTIONAL dep + feature, never used:
 
 - ▢ **POST-CARVE: SWEEP THE DOCS FOR PROSE LOCATIONS, because the citation
   checker is STRUCTURALLY BLIND TO THEM.** (Found 2026-09-03.)
+  ✔ **SWEPT FOR THE `ambition_abilities` CARVE, 2026-09-04, AND NOTHING WAS
+  STALE — recorded because "nothing changed" is a result the next sweeper should
+  not have to re-derive.** The four planning citations that name a traversal
+  ability (`abilities/traversal/{flyline,trapdoor,teleport}` in
+  `agentic-character-runtime.md:42`, `performer-up-b-the-wire.md:113`, and
+  `possession.rs` in `simulation-authority-and-determinism.md:251`) all name
+  Family B, which STAYED in the kernel. ⭐ And the two directories are DISJOINT —
+  `ambition_abilities/src/traversal/` holds blink, dive, grapple, mark_recall;
+  the kernel's holds flyline, possession, teleport, trapdoor — so none of those
+  paths is even ambiguous, which is the failure mode that bit three citations
+  elsewhere in this file today.
   `check_planning_citations.py --strict` read **1,222 citations, all resolved —
   before and after five sentences were fixed that were flatly false.** It
   resolves cited SYMBOLS; a sentence that merely says where code lives is prose:

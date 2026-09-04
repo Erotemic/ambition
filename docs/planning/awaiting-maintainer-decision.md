@@ -1452,7 +1452,7 @@ DEPEND ON IT.** The ladder rig's `report_row` was found to carry two authors of
 one row's meaning — the printed direction from pooled medians, the
 `(within spread)` qualifier from a paired damage-only sign test that discards
 direction — so any *"significantly"* taken from that tool is unverified until it
-is fixed and re-run (see `queue.md`'s D-BRAIN-MENU neighbourhood and
+is fixed and re-run (recorded in `queue.md`'s **D72** row and in
 [`engine/fighter-brain.md`](engine/fighter-brain.md)).
 
 ⭐ **But row 2 now rests on something the rig never touched.** Enumerating every

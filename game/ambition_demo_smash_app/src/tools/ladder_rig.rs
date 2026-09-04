@@ -199,6 +199,26 @@ pub struct LadderRigArgs {
     /// ⚠ Costs exactly double the bouts. That is the price of the control.
     #[arg(long)]
     pub paired: bool,
+    /// Load an authored difficulty ladder from a `.ron` file and install it, so
+    /// the rig measures THAT ladder instead of the engine floor.
+    ///
+    /// ⭐⭐ **THIS IS THE FLAG THAT LETS THE RIG MEASURE THE SHIPPED FIGHTER.**
+    /// Every number this tool has ever produced was taken on the engine floor:
+    /// the demo app installs no `AuthoredFighterLadder`, so `profile_for_level`
+    /// falls back to `FighterBrainProfile::for_level`. That floor differs from
+    /// the shipped ladder in two ways that matter — it gives every rung the
+    /// level-9 utility weights (`UtilityWeights::default()` IS `v1()`), and it
+    /// switches the L3 rollout ON at level 6, which the authored ladder
+    /// deliberately disables on all nine rows.
+    ///
+    /// ⇒ Point it at `game/ambition_content/assets/data/fighter_brain_ladder.ron`
+    /// to measure what a player fights. ⚠ Reading a file is a MEASUREMENT-tool
+    /// choice and deliberately not a composition change: whether the demo app
+    /// itself should compose `ambition_content` is a product decision that
+    /// belongs to Jon (`awaiting-maintainer-decision.md`), and this flag settles
+    /// the measurement question without pre-empting it.
+    #[arg(long, value_name = "PATH")]
+    pub ladder: Option<String>,
     /// Print one line per BOUT beneath each row, not just the medians.
     ///
     /// ⭐ Added 2026-09-04 because a summary row could not settle a question its
@@ -453,8 +473,33 @@ fn force_apm_and_noise(app: &mut bevy::app::App, apm: Option<f32>, noise: Option
 /// that cares ships its own nine rows — but `ambition_content` already inserts
 /// one, so a second `insert_resource` would make the winner a plugin-order
 /// accident. That is a product decision, not a measurement fix.
+/// The `--ladder` file, parsed and wrapped, or `None` when the flag is absent.
+///
+/// ⛔ A parse failure EXITS rather than falling back to the floor. Falling back
+/// would produce a run whose header says one thing and whose fighters carry
+/// another, which is the failure this file has spent a day removing.
+fn authored_ladder(
+) -> Option<ambition_platformer2d::characters::brain::fighter::AuthoredFighterLadder> {
+    use ambition_platformer2d::characters::brain::fighter::{
+        AuthoredFighterLadder, FighterBrainLadder,
+    };
+    let path = args().ladder.as_deref()?;
+    let text = std::fs::read_to_string(path).unwrap_or_else(|err| {
+        eprintln!("[ladder_rig] --ladder {path}: {err}");
+        std::process::exit(2);
+    });
+    let ladder = FighterBrainLadder::from_ron(&text).unwrap_or_else(|err| {
+        eprintln!("[ladder_rig] --ladder {path} did not parse: {err}");
+        std::process::exit(2);
+    });
+    Some(AuthoredFighterLadder(ladder))
+}
+
 fn report_which_ladder_is_in_play() {
     let mut app = build_demo_app();
+    if let Some(ladder) = authored_ladder() {
+        app.world_mut().insert_resource(ladder);
+    }
     app.update();
     let authored = app
         .world()
@@ -1233,6 +1278,13 @@ fn run_bout_at(
     start: Option<ambition_platformer2d::combat::brain::fighter::scenarios::Scenario>,
 ) -> Bout {
     let mut app = build_demo_app();
+    // ⛔ BEFORE the warm-up updates, because `project_authored_fighter_ladder`
+    // applies the rows to brains with `Added<Brain>` — a ladder installed after
+    // the fighters exist would never reach them, and the run would silently
+    // measure the floor while its header claimed the authored rows.
+    if let Some(ladder) = authored_ladder() {
+        app.world_mut().insert_resource(ladder);
+    }
     // ⛔ BEFORE the route below, because the route is what prepares the session:
     // the preparation source reads this resource once, when the match is asked
     // for. Setting it afterwards would change nothing and look like it worked.

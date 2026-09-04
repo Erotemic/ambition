@@ -1020,21 +1020,37 @@ queue read as an execution authority for work already done.
   so 4 is the honest figure and the fifth is named rather than quietly dropped.
   The 37-failure class is GONE — not one `ConeRigAssets` panic in the log.
   The four, with what each says:
-  * `ambition_demo_sanic_app` `ov1_draws_the_world::the_presentation_plugin_adds_no_hud_and_no_menu`
-    — 16 UI nodes against 0. ⇒ **This is the "fails BY CONSTRUCTION under
-    all-features" case this row predicted**: the union turns on every
-    presentation feature, and the assertion is about what a demo composition
-    declares. The judgement to make is whether the assertion should be
-    feature-scoped, not whether the composition is wrong.
-  * `ambition_demo_sanic_app` `ov1_draws_the_world::visible_sanic_presentation_retires_and_relaunches_with_the_session`
-    — the same 16, so almost certainly the same cause.
+  * ✔ **BOTH `ambition_demo_sanic_app` `ov1_draws_the_world` failures — FIXED
+    `26ec20772`, and it was neither of the two things this row guessed.** Not
+    "fails by construction under all-features" and not a composition fault: the
+    16 nodes were all named `Declared HUD ...` and belonged to `sanic_rings` and
+    `sanic_results` — the demo's OWN declaration, which the doctrine the test
+    quotes explicitly permits. The filter asked `Without<DeclaredHudRoot>` while
+    the marker sits on the panel and the portrait/stock-row/pips/count are its
+    CHILDREN, so ownership is the SUBTREE. ⭐ Mary-O's copy of the same test had
+    been corrected with this exact reasoning on 2026-09-03 and the sanic copy was
+    never touched: two copies of a guard drift, and the one that drifts is the
+    one nobody ran. ⚠ Naming the nodes in the failure message is what settled it
+    in one run; a bare count cannot tell a HUD from a pause menu.
   * `ambition_demo_mary_o_app` `ov1_draws_the_world::a_vfx_message_this_demo_writes_is_drawn_by_this_demo`
     — no assertion text in the log; needs a targeted re-run.
   * `ambition_demo_smash_app` `the_stage_kills::every_live_fighter_stays_inside_the_frame`
-    — *"t3 seat 0 at (224,204) is 44 units outside a 568x320 frame"*.
-    ⛔⛔ **568x320 IS THE NEW `Duel` DEFAULT** (`dc7d5c953`, Jon's zoom-in). This
-    is a consequence of the camera change, not a union artifact — the frame got
-    smaller and the stage's fighters now leave it. Fighter side; not this row's.
+    — *"t3 seat 0 at (224,204) is 44 units outside a 568x320 frame centred
+    (0,0)"*. ⛔ **I FIRST WROTE THAT THIS WOULD FAIL IN AN ORDINARY SMASH RUN AT
+    THE DEFAULT PRESET. RETRACTED — yardrat ran it three ways and it is green
+    every time:** default features alone (3.7s), `--all-features` alone (22.2s),
+    and the whole `smash_it` binary under `--all-features` (40 passed, 139.3s,
+    which also rules out test interaction). I had the arithmetic — 568x320 IS the
+    new `Duel` default (`dc7d5c953`) and the spawns ARE at those coordinates —
+    and inferred the consequence instead of running it.
+    ⇒ **What survives is narrower: the failure needs the WORKSPACE-WIDE union**,
+    which is not `-p <crate> --all-features`; unifying across the workspace turns
+    on features in this crate's dependency graph that the crate never enables.
+    ⭐ **And the lead is the reported CENTRE, not the frame size.**
+    `camera_snapshot.rs:908` says an empty or unresolvable cast returns `None` and
+    *"callers must not invent a world-origin fallback"* — so a snapshot centred at
+    (0,0) with live seats in the world means something resolved a cast to nothing.
+    Fighter side.
   ⛔ **`| tail` VOIDED THE FIRST RUN'S VERDICT.** The first attempt piped an
   hour-long job through `tail -120`, which threw away every per-crate result and
   made the pipeline's exit code 0 while cargo's was 101. Redirect to a file.

@@ -66,15 +66,25 @@ deliberately parked.** Recorded here because the tier's own sentence ("build
 world residency, occurrence lifetime/provenance, item custody, body/item
 capability gating…") reads as five unbuilt things and three of them are done:
 
-- **Body/item capability gating: FIVE of the seven gate families are reachable
-  from an authored route** (⚠ corrected from "all seven" the same day; the list
-  always named five, and soft systemic pressure and social/knowledge have no
-  fact to read). `gated_by` is a
-  condition LINE, and `inventory.holds`, `custody.is_held`, `body.can`,
-  `body.fits`, `world.switch_on`, `encounter.cleared` and the two story-gate
-  writers each have an end-to-end wall test. What is left is FACTS, not
-  predicates: soft systemic pressure and social/knowledge have nothing
-  route-facing to read.
+- **Body/item capability gating: the ENGINE publishes TEN conditions and every
+  one is reachable from an authored route** — `gated_by` is a condition LINE, so
+  a wall reads any of them. Re-derived 2026-09-04 evening by
+  `scripts/authored_route_gates.py`, which reads the ids out of the source
+  rather than keeping a list: `body.can`, `body.fits`, `boss.cleared`,
+  `custody.is_held`, `encounter.cleared`, `inventory.holds`, `quest.active`,
+  `wallet.can_afford`, `world.flag_set`, `world.switch_on`. ⚠ **RUN IT rather
+  than quoting this** — the figure moved 6 → 9 → 10 in a single day, and the
+  phrasing this replaced ("five of the seven gate families", itself corrected
+  from "all seven") had already been wrong twice.
+  ⛔ **What is left is FACTS, not predicates**, and that is unchanged: soft
+  systemic pressure and social/knowledge have nothing route-facing to read,
+  because no durable fact records them —
+  [`engine/world-facts-observations-and-memory.md`](engine/world-facts-observations-and-memory.md)
+  measures the save's fourteen families and neither is among them.
+  ⚠ **And the world does not USE the vocabulary**: the whole authored corpus of
+  route gates is THREE walls, two gated, both on the same story flag, and five
+  of the ten conditions are authored nowhere at all. Whether that is a content
+  gap worth closing is question 55, not an engine deficit.
 - **Item custody: every migration row's exploration half is closed.** The
   remainder is two maintainer decisions and one fighter-side call site.
 - **Occurrence lifetime: an occurrence enters the whereabouts ledger through

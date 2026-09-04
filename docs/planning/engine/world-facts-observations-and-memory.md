@@ -130,14 +130,62 @@ sees the question. `quests_active` and its refresh loop are deleted too: the
 mirror's THIRD slice to go, after `flag` and the boss slice.
 ⇒ **The publication table above records both.**
 
-⛔ **AND THE MIRROR MIGRATION IS FINISHED — the remaining fields are
-deliberately staying, which is the ruling rather than an omission.**
-`visit_counts` is dialogue's own bookkeeping rather than a world fact, and
-`wallet_balance` is a NUMBER, which the catalog's boolean-outcome shape cannot
-express without inventing a comparison vocabulary. ⇒ **An empty mirror is not
-the goal; one authority per question is.** A future field here is a claim that
-the catalog CANNOT answer the question, and the burden is on the field — which
-`YarnStateMirrorData`'s own doc now says at the type.
+⛔ **THE MIRROR MIGRATION IS NOT FINISHED, AND THIS PARAGRAPH SAID IT WAS.**
+It read: *"the remaining fields are deliberately staying … `visit_counts` is
+dialogue's own bookkeeping rather than a world fact, and `wallet_balance` is a
+NUMBER, which the catalog's boolean-outcome shape cannot express."* Both halves
+of that are true and the conclusion does not follow, because the ruling
+enumerated the mirror's FIELDS and the fork is in its FUNCTIONS.
+
+⭐⭐ **MEASURED 2026-09-04. `can_afford(price)` IS A BOOLEAN OVER A DURABLE
+FACT, AND IT HAS MORE AUTHORED CALLERS THAN ANY PUBLISHED CONDITION.**
+
+```text
+can_afford(price)   10 authored calls   kernel.yarn (the whole shop menu)
+visit_count(id)      5 authored calls
+wallet_balance()     0 authored calls
+```
+
+- `wallet` is a durable save field (`save_data.rs:331`) whose live authority is
+  `BodyWallet` on the `PrimaryPlayer`;
+- `can_afford` is registered as a closure over the mirror's per-frame snapshot,
+  so the boolean question *"can the player pay 25g"* has TWO authorities — the
+  snapshot and the component — which is the exact shape both call sites already
+  refuse in writing;
+- ⚠ and the catalog CAN express it: `ParamKind::Number` / `AuthoredArg::Number`
+  exist and `body.fits 32` already uses them. The "it is a number" exemption is
+  a claim about `wallet_balance()`, the value, and it does not reach
+  `can_afford(price)`, the predicate.
+
+⇒ **So the exemption stands for `wallet_balance` and `visit_count` and falls for
+`can_afford`.** Those two really are values the boolean catalog cannot return;
+this one is a question it answers natively. ⛔ **The lesson is the shape of the
+error, not the missing condition:** the ruling was written by listing the
+mirror's struct fields and asking which were expressible. The forks live in the
+FUNCTIONS bound over those fields, and one field can carry both a value verb and
+a predicate verb — `wallet_balance` is exempt while `can_afford`, reading the
+same `i32`, is not. **Enumerate the authored surface, not the storage.**
+
+▢ **NEXT SLICE, and it is the same carve executed twice already:** publish
+`wallet.can_afford(amount)` beside `inventory.holds` (`items/conditions.rs` in
+the actor kernel — the sibling question, already importing both
+`authored_logic` and the item types, and adding no crate edge; `ambition_items`
+does NOT depend on `shared_tangle`, so publishing from there would create one).
+Repoint `can_afford` at the catalog as a registered system, the way
+`boss_cleared` and `quest_active` now are. ⭐ The mirror's `wallet_balance`
+field STAYS, because the numeric verb still needs it — an empty mirror is not
+the goal, one authority per question is.
+
+⚠ **`wallet_balance()` has zero authored callers and is NOT being deleted here.**
+A verb nothing calls yet is content breadth, not dead code, and its own comment
+names the use (*"a merchant node can show it"*). Recorded so the zero is not
+rediscovered as a finding.
+
+⇒ **An empty mirror is not the goal; one authority per question is.** A future
+field here is a claim that the catalog CANNOT answer the question, and the
+burden is on the field — which `YarnStateMirrorData`'s own doc now says at the
+type. ⚠ Read that burden as covering every VERB bound over the field, which is
+what this correction cost.
 
 ⛔ **AND IT SAYS NOTHING ABOUT THE OTHER TWO LAYERS.** Observations and memory
 have no durable representation at all outside the tactical-belief slice below;

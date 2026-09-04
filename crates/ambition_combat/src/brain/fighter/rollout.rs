@@ -1248,7 +1248,29 @@ fn movement_intent(
                 - start.me.pos.dot(frame.side))
             .signum(),
         },
-        MovementVerb::Shield | MovementVerb::Blink | MovementVerb::Dodge => return None,
+        // ⭐⭐ SHIELD IS MODELLED, AND IT IS A MODEL RATHER THAN A GUESS. A body
+        // that raises its guard SETTLES: the real sim brakes it, and its own
+        // comment says *"planting yourself is what makes a raised guard a
+        // decision rather than a free slide"*. `Hold` coasts to a stop at
+        // `ground_coast_decel`, which is that. So the shadow can answer "does
+        // guarding here kill me" honestly instead of declining to answer.
+        //
+        // ⛔ WHY THIS MATTERS MORE THAN ONE VERB. Measured 2026-09-04: with
+        // rollout on, `Shield` was selected **0 times in 662 decisions** at the
+        // rung where both fighters search, against 13.9% with rollout off.
+        // `pick_movement`'s third tier — the unjudged — is entered only when
+        // nothing judged survives, and the rollout always judges Approach,
+        // Retreat and Jump, so an unmodelled verb is not demoted, it is
+        // UNREACHABLE. Declining to model a verb deletes it.
+        MovementVerb::Shield => ShadowIntent::Hold,
+        // ⚠ DODGE AND BLINK STAY UNMODELLED, deliberately, and `Hold` would be
+        // the wrong answer for both: an air dodge SETS a velocity and a blink
+        // teleports, so coasting to a stop is not what either does. Modelling
+        // them as stationary would be the "lying in one direction" this
+        // function's own header refuses. ⇒ Dodge needs real motion in the
+        // shadow — it is 846 of the 983 unmodelled decisions and the larger
+        // half of this repair.
+        MovementVerb::Blink | MovementVerb::Dodge => return None,
     })
 }
 

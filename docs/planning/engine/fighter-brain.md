@@ -522,6 +522,33 @@ Removing one fighter's rollout made the other one survive too. ⇒ A rollout-dri
 fighter appears to play in a way that gets BOTH bodies killed — reckless
 commitment, or dragging the fight somewhere lethal — rather than simply losing.
 
+### The paired matrix, all 36 cells: one rung is broken and the rest are fine
+
+⭐⭐ **MEASURED 2026-09-04. Controlling the seat repairs every rung except the one
+where rollout switches on.** Same 9 fixtures × 4 rungs × 15 seeds, unpaired
+against `--paired` (each seed run twice with the rungs swapped between seats):
+
+| rung | unpaired LOWER : higher | paired LOWER : higher |
+|---|---:|---:|
+| 3 vs 1 | 3 : 6 | 2 : 6 |
+| 5 vs 3 | **7 : 2** | **2 : 7** ← flipped outright |
+| **6 vs 5** | **9 : 0** | **9 : 0** ← did not move |
+| 9 vs 6 | 5 : 4 | 3 : 6 |
+| **all** | **24 : 12** (p = 0.065) | **16 : 19** (p = 0.74) |
+
+⇒ **14 of 36 cells changed verdict when the seat was controlled.** The overall
+skew toward the lower rung — the thing I nearly published as "the ladder is
+inverted" — evaporates: 24:12 becomes 16:19, and the sign test goes from
+suggestive to nothing.
+
+⇒ **And what is left is one rung, unmoved: `6 vs 5`, nine fixtures out of nine,
+in BOTH designs.** Its neighbour `5 vs 3` flipped completely, which is what a
+seat artifact looks like. An effect that survives the control that destroyed its
+neighbour is a different kind of thing, and `6 vs 5` is exactly rollout-on
+against rollout-off.
+
+⇒ So the ladder is not inverted. **One rung is**, and the rung is the rollout.
+
 ⭐⭐ **A MECHANISM, ASSEMBLED FROM NUMBERS THIS PAGE ALREADY CARRIES — and it
 says the 2026-08-31 fix may have traded one bug for its mirror image.**
 
@@ -585,6 +612,53 @@ and never shields trades damage until both bodies die.
 
 ⇒ **The repair is to make the shadow able to simulate a dodge, not to reorder the
 tiers a second time.** Reordering is what produced each of these two bugs in turn.
+
+#### Half the repair landed: `Shield` is modelled now (2026-09-04)
+
+`movement_intent` maps `MovementVerb::Shield => ShadowIntent::Hold`. That is a
+MODEL, not a guess: a body raising its guard SETTLES — the movement code brakes
+it, and its own comment says *"planting yourself is what makes a raised guard a
+decision rather than a free slide"* — and `Hold` coasts to a stop at
+`ground_coast_decel`. So the shadow can now answer *"does guarding here kill me"*
+instead of declining to answer.
+
+⛔ **`Dodge` and `Blink` stay unmodelled deliberately, and `Hold` would be the
+wrong answer for both**: an air dodge SETS a velocity and a blink teleports.
+Modelling them as stationary is exactly the *"lying in one direction"* the
+function's own header refuses. Dodge is 846 of the 983 unmodelled decisions and
+is the larger half of this repair; it needs real motion in the shadow.
+
+⭐ **The suppression is measurably fixed for `Shield`** (same instrument, same
+seed, controls unchanged to the decimal):
+
+| rung | Shield% before | Shield% after | Dodge% before | Dodge% after |
+|---|---:|---:|---:|---:|
+| 3 vs 1 | 11.2% | 11.2% | 19.8% | 19.8% |
+| 5 vs 3 | 10.5% | 10.5% | 18.3% | 18.3% |
+| 6 vs 5 | 4.6% | **12.1%** | 5.0% | 2.5% |
+| 9 vs 6 | **0.0%** | **5.7%** | **0.0%** | **1.3%** |
+
+⇒ Dodge reappears at all (0.0% → 1.3%) because a Shield that is now JUDGED can be
+VETOED, and a vetoed tier-1 option is what finally lets tier 3 be reached.
+
+⚠⚠ **THE LADDER EFFECT IS NOT SETTLED, AND IT IS NOT ALL GOOD.** Paired ladder,
+10 seeds, before → after:
+
+| rung | before | after |
+|---|---|---|
+| **6 vs 5** | LOWER outfights | **higher outfights** ✔ |
+| **9 vs 6** | higher outfights | **LOWER outfights** ✘ |
+
+⇒ The rung the whole investigation was about flips the right way; the rung above
+it flips the wrong way. Both cells are `(within spread)` at 10 seeds, so neither
+is individually significant, and at `9 vs 6` BOTH fighters gained the shield
+model where at `6 vs 5` only one did.
+
+⇒ **Kept on correctness grounds, not on outcome.** A verb the brain offers and can
+NEVER select is a defect whatever it does to win rates, and the model is honest.
+But the ordering effect is unresolved: a 15-seed paired scenarios comparison
+(pre-fix already recorded, post-fix running) is the verdict, and if it shows a net
+regression this is one commit to revert.
 
 ⛔ **Do not "fix" this by re-promoting unmodelled verbs.** That is precisely the
 2026-08-31 bug, and this page records what it cost. A verb the rollout cannot

@@ -2258,6 +2258,24 @@ queue read as an execution authority for work already done.
   cannot reach them. ⭐ Which means **authoring a dash attack costs a fighter its
   tilts and smashes**, and George — the demo's only fully authored fighter, with
   26 verbs to their 18 — gets *less* of his kit into play than they get of theirs.
+  ⚠ **THE TWO ARMS DIFFER IN TWO AUTHORED WAYS, NOT ONE — named 2026-09-04 so the
+  natural experiment's strength is stated rather than assumed.** George binds
+  `attack_dash` and the stand-ins do not; George also has a **special button** and
+  the stand-ins do not (their whole surplus silence over him is eight `special`
+  presses, and nothing else —
+  `the_stand_in_is_george_s_genre_shape_with_the_special_button_removed`). ⇒ A
+  reader is entitled to ask whether the second difference, not the first, is what
+  frees the stand-ins' tilts.
+  ⭐ **It is not, and the reason is mechanical rather than statistical.** The
+  named chain explains the collapse exactly: every attack pressed while running
+  re-resolves to `{base}_dash`, so a fighter that binds one cannot start a tilt
+  from a run at all — which is why George's tilts are **0** and not merely
+  depressed. Absent specials would change *how often* other moves are chosen; it
+  cannot drive a category to zero, because nothing about lacking a special
+  intercepts an `attack` press. ⇒ **The confound is real, is named, and does not
+  reach this conclusion** — but the honest form is to say so, since a confound
+  held constant across the arms you compare is invisible to the comparison that
+  uses them.
   ⚠ Corroboration, not proof: the two fighters differ in more than the dash
   binding. But it is exactly what the mechanism predicts, in the direction it
   predicts, from a contrast nobody set up.

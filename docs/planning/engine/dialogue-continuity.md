@@ -7,9 +7,15 @@
 > `ambition_platformer2d_core/src/abilities.rs:177`; the break predicate still
 > reads `strict_intersects` on the two bodies' own AABBs (`crates/ambition_conversation/src/rules.rs:52`); and
 > `ConversationCutBark { speaker: *b }` still names the second participant
-> (`crates/ambition_conversation/src/rules.rs:67`). ⚠ The planning README's drift list still names this file, from
-> a sweep taken BEFORE its 2026-09-02 repair — the file is current; that entry is
-> not.
+> (`crates/ambition_conversation/src/rules.rs:67`). ⛔ **AND A COMPLAINT THIS HEADER USED TO MAKE IS WITHDRAWN
+> (2026-09-04): it said "the planning README's drift list still names this file …
+> that entry is not current". THE README ENTRY IS CORRECT.** It sits under
+> *"OBSERVED 2026-09-02, over a sweep of eleven planning files"* and its list is
+> introduced as *"Drifted, none of them header-bearing **at the time**"* — a
+> dated observation with its own tense, not a live status list. ⇒ This page was
+> reading dated EVIDENCE as if it were a stale CLAIM, which is the inverse of the
+> error the recipe warns about, and it told a reader to distrust an accurate
+> entry. Nothing in the README needs changing; this sentence did.
 
 **Jon, 2026-08-06, verbatim:**
 

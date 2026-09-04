@@ -1150,7 +1150,25 @@ queue read as an execution authority for work already done.
     cast to nothing (`camera_snapshot.rs:908` — an unresolvable cast returns
     `None` and *"callers must not invent a world-origin fallback"*). That is
     chaseable without the union.
-  * The boss-omit probe did NOT reproduce.
+  * The boss-omit probe did NOT reproduce — it has now fired once in three union
+    runs.
+    ⛔⛔ **AND COMPARING METHODS WITH YARDRAT EXPOSED A GAP IN MY OWN
+    ELIMINATION.** They isolated theirs by running the WHOLE TEST BINARY under
+    the union feature set (`cargo test --workspace <union> --test smash_it`) and
+    it REPRODUCED — so for the framing test the feature set alone is sufficient
+    and no load is needed. ⇒ **That is the arm I never ran for mine.** What I
+    ran was the single test under union features (passed), the
+    `composes_through_the_sdk` MODULE under union features (passed, three
+    times), and the whole `app_it` binary at DEFAULT features (passed, twice,
+    556 green). **The whole `app_it` binary under UNION features is missing**,
+    and it is the level that decided theirs.
+    ⇒ So the two are not the same shape after all, and mine is not yet
+    isolated: it is "not the single test, not the module, not the binary at
+    default features", with the one arm between those and a full workspace run
+    still unrun. ⚠ It costs a full rebuild (the union's feature resolution
+    differs from default), against a failure that has fired once in three — so
+    it is named here rather than run, and whoever has a union build warm should
+    take it.
   * The second failure was a NEW test of mine failing its own anti-vacuity floor
     — see the receipt below; not a member of anything.
   ⇒ **So the "three tests that share a signature" reading is retracted.** One was

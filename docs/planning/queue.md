@@ -569,6 +569,27 @@ The one unresolved developer-policy choice from the session-ownership work is in
 
 ## Current execution order
 
+- ✔ **THE FEATURE UNION IS GREEN AT EXACT HEAD `068823a43` (2026-09-04):
+  48/49 jobs, 7,236 tests passed, ZERO test failures, 4,157 s.** The union job
+  itself — `workspace [every headless-safe feature] — one graph, every gated
+  test` — is `ok` in 834 s. This is the exact-HEAD acceptance the 2026-09-04
+  review asked for; the previously recorded 7,146 at `24b55d3ac` is superseded.
+  ⓘ The one failing job was `repo tooling`, and it was the gate's own stated
+  feature-gated count (798 → **800**) moved by the two `ui`-gated shop
+  acceptances landed the same day. Updated; the whole guard set is 828 passed.
+  ⚠ **That count is not bookkeeping and it said something worth hearing:** a
+  `#[cfg(feature = "ui")]` test does NOT run in the default gate plan, only
+  under the exhaustive union — so the Yarn-interpreter acceptances for
+  `boss_cleared`, `quest_active` and `can_afford` are guarded only here. That is
+  the right home (`bevy_yarnspinner` exists only under `ui`), and it means a
+  regression in those aliases passes the ordinary gate.
+  ⭐ **Ran after `clean_workspace_crates.sh --apply` reclaimed 337.3 GiB** (Jon's
+  call, 2026-09-04): workspace-member units only, dependency wall left standing,
+  484 GB full → 314 GB free, `target/` 383 GB → 70 GB. ⇒ That is the reclaim to
+  reach for before `cargo clean` — the "recompile ambition, not bevy" cut — and
+  it has an `--incremental-only` mode that deletes no artifact at all. The
+  volume finished this run at 55%.
+
 - ▢ **THE VOLUME IS FULL AND THE RECLAIM IS JON'S CALL. The union run at
   `e0f0f51b4` is VOID, and the reason is an instrument fault of mine rather
   than a code defect or the disk.** (2026-09-04.)

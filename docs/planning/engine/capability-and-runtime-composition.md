@@ -93,8 +93,29 @@ are simply not what `MinimalPlugins` gives you. A probe that hand-rolls the host
 measures the host.
 ⚠ What it does NOT prove, stated on the test: that a cutscene-free composition is
 USEFUL, or that content triggering a cutscene degrades gracefully, or that any
-other capability can be omitted. Each is its own probe, and the doctrine names
-four more worth writing.
+other capability can be omitted. Each is its own probe.
+
+⭐ **THREE OF THE DOCTRINE'S NAMED COMPOSITIONS, PROBED — and the two that could
+not be probed are the more useful half.**
+
+```text
+without cutscenes   ✔ builds and steps, against a whole-group control arm
+without portals     ✔ the same
+without dialogue    ⚠ NOT PROBED — the plugin cannot be NAMED from this test
+                       target: the facade re-exports `ambition_dialog` only
+                       behind a feature this target does not enable, and
+                       `ambition_app` has no direct dependency on it. A
+                       `#[cfg]`-guarded test would have compiled to nothing and
+                       reported success.
+encounters without  ⛔ NOT EXPRESSIBLE — `ambition_boss_encounter` contains no
+boss encounters        `impl Plugin` at all, so there is no seam to omit it
+                       through. A stronger statement than a failing probe.
+```
+
+⇒ Two capabilities can be omitted today and it takes one line each to say so.
+The third needs the probe to live where the plugin is nameable rather than a
+feature flag added to make it nameable. The fourth needs an installation seam
+that does not exist, which is this program's work rather than a test's.
 
 A consumer building a small platformer should not inherit portal rendering, boss
 orchestration, networking integration, persistence, debug presentation or

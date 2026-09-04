@@ -323,3 +323,61 @@ fn a_host_that_omits_cutscenes_still_builds_and_steps() {
     host(false);
     host(true);
 }
+
+/// The same probe for two more of the doctrine's named target compositions.
+///
+/// ⚠ ONE HELPER, because the interesting part is never the plugin — it is that
+/// the CONTROL arm and the disabled arm are built the same way. Each call
+/// installs the engine group whole, steps it, then installs it minus one plugin
+/// and steps that.
+fn the_engine_steps_with_and_without<P: bevy::app::Plugin>() {
+    use bevy::app::PluginGroup;
+    for disable in [false, true] {
+        let mut app = bevy::prelude::App::new();
+        ambition_platformer2d::engine::add_headless_foundation(&mut app);
+        let group = ambition_platformer2d::engine::PlatformerEnginePlugins::fixed_tick().build();
+        if disable {
+            app.add_plugins(group.disable::<P>());
+        } else {
+            app.add_plugins(group);
+        }
+        for _ in 0..8 {
+            app.update();
+        }
+    }
+}
+
+// ⚠ "A PLATFORMER WITHOUT DIALOGUE" IS NAMED BY THE DOCTRINE AND IS NOT PROBED
+// HERE, deliberately. `DialogSimStatePlugin` is installed by the engine group
+// unconditionally, but the facade re-exports `ambition_dialog` only behind
+// `#[cfg(feature = "ambition_dialog")]`, which this test target does not enable
+// — and `ambition_app` does not depend on that crate directly. So the type
+// cannot be NAMED here to disable it.
+//
+// ⛔ A `#[cfg]`-guarded test would have compiled to nothing and reported
+// success, which is the trap this repository already records twice
+// (`docs/recipes/checks-that-did-not-run.md`). ⇒ The absence is the note.
+// Probing this composition needs the probe to live where the plugin is
+// nameable, not a feature flag added to make it nameable here.
+
+/// "A platformer without portals" — likewise.
+#[cfg(feature = "portal")]
+#[test]
+fn a_host_that_omits_portals_still_builds_and_steps() {
+    the_engine_steps_with_and_without::<ambition_platformer2d::runtime::PortalSchedulePlugin>();
+}
+
+/// ⛔⛔ AND ONE NAMED COMPOSITION IS NOT EXPRESSIBLE AT ALL, which is worth a
+/// test's worth of prose even though there is no test.
+///
+/// "Generic encounters without boss encounters" is one of the doctrine's target
+/// compositions. It cannot be written as a `.disable::<P>()` because
+/// **`ambition_boss_encounter` contains no `impl Plugin`** — boss encounters
+/// ride the actor monolith's schedules rather than installing themselves. So the
+/// question "can a consumer omit boss encounters" has no seam to ask it through,
+/// which is a stronger statement than a failing probe would have made.
+///
+/// ⇒ Recorded here rather than in a `#[ignore]`d test, because an ignored test
+/// implies a mechanism that is merely switched off.
+#[allow(dead_code)]
+const BOSS_ENCOUNTERS_HAVE_NO_INSTALLATION_SEAM: () = ();

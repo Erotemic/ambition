@@ -101,6 +101,129 @@ fn force_kill_boss(sim: &mut Platformer2dSimHarness, runtime_id: &str) {
     panic!("boss {runtime_id} not found");
 }
 
+/// Kill a boss the way the GAME does: a real `HitEvent` delivered while the
+/// boss is in a vulnerable phase.
+///
+/// ⭐ **THE PRECONDITION IS THE WHOLE TRICK.**
+/// `BossEncounterPhase::boss_invulnerable()` is true for
+/// `Dormant | Intro | Transition | Death`, and `apply_boss_hit` returns early on
+/// it — so a hit delivered before the boss reaches `Phase1` is discarded however
+/// large it is. Measured 2026-09-03: 9,999 damage during `Intro` did nothing,
+/// which reads exactly like a broken damage path.
+///
+/// ⇒ Steps until the phase is attacking, then hits. Returns the frame the hit
+/// landed on so a caller can say how long it waited.
+fn kill_boss_with_a_real_hit(
+    sim: &mut Platformer2dSimHarness,
+    placement_id: &str,
+    max_frames: usize,
+) -> usize {
+    use ambition_platformer2d::combat::events::{HitEvent, HitMode, HitSource, HitTarget};
+
+    for frame in 0..max_frames {
+        if boss_phase(sim.world_mut(), placement_id)
+            .is_some_and(|phase| !phase.boss_invulnerable())
+        {
+            let at = boss_pos(sim.world_mut(), placement_id)
+                .unwrap_or_else(|| panic!("boss {placement_id} has no body to aim at"));
+            // A volume around the boss rather than a point: the hit is resolved
+            // against the victim's own collision box, and a zero-area box at the
+            // centre is a different question from "something struck it".
+            sim.world_mut().write_message(HitEvent {
+                volume: ambition_platformer2d::engine_core::Aabb::new(
+                    ambition_platformer2d::engine_core::Vec2::new(at.x, at.y),
+                    ambition_platformer2d::engine_core::Vec2::splat(64.0),
+                )
+                .into(),
+                damage: 9_999,
+                source: HitSource::Melee,
+                attacker: None,
+                target: HitTarget::UnresolvedFeatures,
+                mode: HitMode::Knockback,
+                knockback: None,
+                ignored_targets: Vec::new(),
+                strike_sfx: None,
+            });
+            sim.step(AgentAction::default());
+            return frame;
+        }
+        sim.step(AgentAction::default());
+    }
+    panic!(
+        "boss {placement_id} never left an invulnerable phase in {max_frames} frames \
+         (phase was {:?})",
+        boss_phase(sim.world_mut(), placement_id),
+    );
+}
+
+/// ⭐⭐ **THE BOSS'S SIGNATURE GAUNTLET REACHES THE FLOOR — on the road the game
+/// actually uses.**
+///
+/// ⛔ Every boss drop is spawned inside `apply_boss_hit`'s `killed` branch, and
+/// `apply_boss_hit` has exactly ONE call site: `apply_feature_hit_events`
+/// (`features/ecs/damage/mod.rs:819`). `force_kill_boss` writes HP to zero and
+/// never enters it, so before this test NOTHING exercised the drop road —
+/// `defeated_boss_is_recorded_cleared_drops_reward_and_clears_music` sees its
+/// chest through the SAVE (`sync_boss_reward_chests_ecs` is *"idempotently
+/// ensure cleared boss encounters have ECS reward chests"*), which is a
+/// different road that a real kill is not needed for.
+///
+/// ⇒ This one delivers a real `HitEvent` in a vulnerable phase and asserts the
+/// gauntlet exists as a pick-up-able `GroundItem`. `mockingbird`'s profile
+/// declares `signature_gauntlet: Some("volley")`
+/// (`game/ambition_content/assets/data/boss_profiles.ron`), and
+/// `boss_signature_gauntlets_map_to_real_wielded_held_items` pins that id
+/// against the ability const — so this closes the loop between the guarded DATA
+/// and the road that reads it.
+#[test]
+fn a_defeated_boss_drops_its_signature_gauntlet_on_the_real_kill_road() {
+    let mut sim = Platformer2dSimHarness::new_with_timestep(TimestepMode::fixed_60hz())
+        .expect("sandbox sim builds");
+    spawn_mockingbird(&mut sim, "gauntlet_dropper");
+
+    // ⛔ NOT "no ground items before": the sandbox AUTHORS them. Measured
+    // 2026-09-03 when this assertion was `is_empty()` and failed on frame 0 —
+    // `sandbox.ldtk` places `GroundItem`s for `blink`, `grapple`, `mark_recall`,
+    // `bomb` and the gauntlets themselves, so every signature gauntlet already
+    // exists somewhere in the world as an AUTHORED object.
+    //
+    // ⇒ Which is why this counts a DELTA. "A volley exists" would pass without
+    // the boss dying at all; only "one more volley than before" is a statement
+    // about the drop.
+    let volleys_before = ground_item_specs(sim.world_mut())
+        .iter()
+        .filter(|id| *id == "volley")
+        .count();
+
+    kill_boss_with_a_real_hit(&mut sim, "gauntlet_dropper", 600);
+    for _ in 0..120 {
+        sim.step(AgentAction::default());
+    }
+
+    assert_eq!(
+        boss_alive(sim.world_mut(), "gauntlet_dropper"),
+        Some(false),
+        "precondition: the real hit killed it (if this fails the DROP assertion \
+         below is meaningless, not passing)",
+    );
+
+    let specs = ground_item_specs(sim.world_mut());
+    let volleys_after = specs.iter().filter(|id| *id == "volley").count();
+    assert!(
+        volleys_after > volleys_before,
+        "mockingbird declares `signature_gauntlet: Some(\"volley\")`, so a boss \
+         killed on the real road must leave one MORE pick-up-able `volley` than \
+         the world already authored. before={volleys_before} after={volleys_after}; \
+         ground items present: {specs:?}",
+    );
+}
+
+/// Every `GroundItem` in the world, by its held-item id.
+fn ground_item_specs(world: &mut World) -> Vec<String> {
+    let mut q = world.query::<&ambition_platformer2d::held_items::GroundItem>();
+    q.iter(world).map(|item| item.spec.id.to_string()).collect()
+}
+
 fn music_track(sim: &Platformer2dSimHarness) -> Option<String> {
     ambition_platformer2d::platformer::lifecycle::session_world_component::<EncounterMusicRequest>(
         sim.world(),

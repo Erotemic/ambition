@@ -86,14 +86,20 @@ DISCHARGED: `✔ Fixed` may be read as measured. ⛔ It was a mechanism argument
 about a day, and the paragraph that said so is kept below rather than deleted,
 because the reason it was written is the reusable part.
 
-⚠ **The WITHDRAWAL is confirmed; the FIX is not yet, and they are separable.**
-The premise is false whatever happens next — no fighter was ever outside a real
-frame — so there is nothing here to rule on either way. But the failing run was a
-UNION-features run, and no union run has yet been taken on the fixed tree; the
-default-features suite passed both before and after, for different reasons, so it
-is not evidence. ⇒ Do not read `✔ Fixed` as measured. It is a mechanism argument,
-and this same page records two occasions today where a mechanism argument turned
-out not to be a measurement.
+✔✔ **AND THE FIX IS NOW MEASURED, not argued** (was flagged as unproven for
+several hours, deliberately). The failing arm was always a UNION-features run, and
+the default-features suite passed both before and after for different reasons, so
+it was never evidence. ⇒ Re-run on the fixed tree:
+`cargo test --workspace --features "<the 82-entry union>" --test smash_it` →
+**43 passed, 0 failed**, where the identical command previously gave 42 passed and
+`every_live_fighter_stays_inside_the_frame` FAILED. ⭐ Independently, the gate's
+full union at `5c320ebb5` is **7,137 passed / 0 failed** — the first fully green
+union in that row's history.
+
+⚠ Kept as a note rather than deleted, because the gap between *mechanism* and
+*measurement* is what this page recorded twice today in the other direction: a doc
+comment that named the symptom while describing a branch that never ran, and my
+own placement-race inference that a four-minute probe refuted.
 
 ⚠ **Neither original reading survives**, which is the point. A containment
 CONTRACT has nothing to contain; a tolerance MARGIN would have been chosen

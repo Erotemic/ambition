@@ -526,7 +526,13 @@ inverted" are BOTH unsupported by this run, and the table above is the reference
 point that says so.
 
 
-### ⭐⭐ THE 5→6 BOUNDARY IS ROLLOUT-ON vs ROLLOUT-OFF (found 2026-09-04)
+### ⛔ SUPERSEDED — "the 5→6 boundary is rollout-on vs rollout-off"
+
+⚠ **True of the ENGINE FLOOR and of no shipped fighter.** The floor arms the L3
+rollout at level 6; the shipped ladder sets `rollout_depth: 0` on all nine rows,
+so no player has ever crossed this boundary. ⇒ The finding below is real about the
+instrument and is not a fact about the game. Kept because the arms in it are what
+established the rollout's behaviour.
 
 The matrix kept saying the same thing about one rung and I kept treating it as
 part of a general skew. It is not general: it is a **step function**, and the
@@ -831,7 +837,14 @@ the unpaired corpus — every number this rig produced before
 `--paired` carries a seat term of roughly this size, in the direction that made
 the ladder look inverted.
 
-### The paired matrix, all 36 cells: one rung is broken and the rest are fine
+### ⛔ SUPERSEDED — the paired 36-cell matrix ("one rung is broken and the rest are fine")
+
+⚠ **Its conclusion named the WRONG rung.** This matrix was taken on the engine
+floor at a 60-second clock, and under both the shipped rows and a real match
+length the broken rung is `5 vs 3`, not the `6 vs 5` this section identifies. See
+**THE DEFINITIVE RUN** below. ⇒ Kept for its method — the pairing, the seat-bias
+control and the per-bout work in it are all sound and are what made the later runs
+readable.
 
 ⭐⭐ **MEASURED 2026-09-04. Controlling the seat repairs every rung except the one
 where rollout switches on.** Same 9 fixtures × 4 rungs × 15 seeds, unpaired
@@ -1105,12 +1118,19 @@ every bout was fought. ⛔ **It does not hold.** This demo's own header says
 knockout signal"* — so a fighter can lose all three stocks by self-destructing,
 with nobody landing a hit. A resolved bout is not necessarily a fought one.
 
-⇒ What IS measured is the aggregate: mean damage dealt is **242.5%** on platforms
-and **280.8%** on flat, so contact is heavy on both. ⚠ But an average cannot rule
-out a handful of unfought bouts hiding under it, and the scenario mode does not
-print the per-bout `unfought` column that the sweep mode does. ⇒ The 41-of-540
-figure below is *most likely* approach time rather than refusal to engage, and
-`--per-bout` on the platform stage is the one-command arm that would settle it.
+✔✔ **SETTLED BY MEASUREMENT — `--per-bout` on the platform stage at the shipped
+clock: 109 bouts, and in ZERO of them did neither seat deal damage.** (One bout
+was one-sided.) ⇒ So the 41-of-540 "unfought" figure below IS approach time, not
+refusal to engage — every platform bout, given a real match length, becomes a
+fight.
+
+⭐ **Worth keeping is that the deduction I nearly published was invalid and the
+measurement was one command.** "Every bout resolved, so every bout was fought"
+fails on this demo's own rule — combat damage does not kill a stocks fighter,
+leaving the stage does, so all three stocks can be lost to self-destructs with
+nobody landing a hit. ⇒ The aggregate (242.5% mean damage dealt) made the
+conclusion likely and could never make it certain, because **an average cannot
+rule out a handful of members hiding under it.**
 
 ⭐ **The method note is the transferable part.** Both metrics in the original table
 — *stocks LEFT* and *unfought bouts* — are "how much has happened by the buzzer"
@@ -1818,7 +1838,7 @@ above shows the shipped ladder disables the rollout on all nine rows. The Shield
 model changes nothing a player meets. That is an argument for keeping it (it
 cannot regress the game) and against prioritising `Dodge`.
 
-### ⭐⭐ THE CLASS BEHIND THREE SEPARATE FINDINGS: the rig reads its config from anywhere but the shipped file
+### ⭐⭐ THE CLASS BEHIND FIVE SEPARATE FINDINGS: the rig reads its config from anywhere but the shipped file
 
 Five findings in this document have the same shape, and it is worth naming
 because a sixth is otherwise inevitable. ⚠ The fourth arrived while this section

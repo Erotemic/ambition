@@ -2224,7 +2224,25 @@ queue read as an execution authority for work already done.
   `3 vs 1` higher ✔, `5 vs 3` **LOWER** ⛔, and `6 vs 5` / `9 vs 6` are within
   spread.** ⚠ So it is **one bad rung, not a broken progression** — the 40-second
   table's "every cell is significant" was an artifact of the short clock and is
-  marked superseded in `fighter-brain.md`. ⚠ So the reason not to tune is no longer "the instrument
+  marked superseded in `fighter-brain.md`.
+  ✔✔ **AND THE ONE BAD RUNG IS NOW DIAGNOSED AND ITS FIX MEASURED**, so this row
+  no longer blocks on a mystery. The cause is `frame_advantage` +
+  `expected_payoff` **jointly** — isolated byte-for-byte (those two reproduce the
+  whole effect of swapping all four weights; the other two reproduce the control;
+  neither of the pair suffices alone), replicated at 28 seeds, and consistent in
+  direction across **all nine** scenario fixtures. ⭐ The mechanism agrees and was
+  read afterwards: `frame_advantage` is SIGNED, so raising its weight penalises a
+  rung's own slow hard-hitting moves, and `expected_payoff` is gated by the
+  positive part of it, so it withholds the power bonus from exactly those. Higher
+  rungs jab more and smash less.
+  ⭐ **Candidates measured at the shipped clock**: halving the rise does *nothing*
+  (300% : 362% against the shipped 306% : 360%), and holding the pair flat from
+  level 4 up removes every significant inversion, makes `9 vs 6` significant in
+  the CORRECT direction, and rises the survival medians monotonically
+  (85 → 101 → 116 → 122s) where the shipped ladder's top pair went backwards.
+  ⛔ **DO NOT LAND THAT** — it is with Jon in `awaiting-maintainer-decision.md` as
+  one option, because holding those two flat is a statement about what a harder
+  CPU IS, not a bug fix. ⚠ So the reason not to tune is no longer "the instrument
   cannot see"; it is that the ladder has a known, reproduced, player-facing
   inversion whose cause is a weight VECTOR (no single weight reverts it — all four
   arms failed, only the full swap works) that nobody has ruled on yet.

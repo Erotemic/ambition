@@ -326,7 +326,7 @@ below from it.
 |---|---:|---:|---:|---|
 | Distinct grab-release beat/pose | ▢ | S/M | E1 | Capture lifecycle already has release. Publish a short released/escaped fact if presentation needs to distinguish it. |
 | Pivot grab | ✔ | S | — | LANDED 2026-08-25 and it needed NO move of its own, exactly as the row said capture would not. A move thrown while `BodyMotionFacts::turning_around` resolves its aim against the FLIPPED facing, so the existing forward grab points the other way — that is the pivot. ⭐ THE SAME RULE THE REVERSE AERIAL RUSH USES: a turnaround is finished by whatever you commit to out of it; jumping resolves it in the kernel, acting resolves its DIRECTION in `resolve_attack_gestures`. ⛔⛔ AND THE FIRST IMPLEMENTATION WAS IN THE WRONG PLACE AND READ PERFECTLY: putting the flip at the move SELECTOR compiled and changed nothing, because the direction is already decided by then. Only a WIRING test caught it — the pure `attack_dir_from_axis` passes either way. |
-| Grounded command grab | ▢ | S/M | E1 | A special requests generic capture acquisition/effect instead of normal knockback. |
+| Grounded command grab | ✔ | S/M | E1 | ✔ **AUTHORED 2026-09-04 and it cost no engine work**, which is the row's own prediction confirmed. `lunge_grab` in `game/ambition_demo_smash/src/moveset.rs` is a `special_forward` whose `Active` window sustains `smash.capture_attempt`. `author_standing_grab` never asks which verb it is attaching to, and the captor branch keys off capture STATE, so it pummels and throws through the same four verbs. ⚠ On the STAND-IN fighter, not George — his four specials are settled design. |
 | Aerial command grab | ▢ | M | E1 | Generalize capture eligibility/posture policy; do not duplicate `CapturedBy`. |
 | Hit-grab | ▢ | M | E1 | A normal blockable hitbox whose successful victim hit transitions into generic capture. Shield interaction remains hitbox semantics. |
 | Tether grab | ▢ | M | E1 | Spatial tether feeds the same capture request/eligibility path. |
@@ -551,7 +551,7 @@ the seven named-missing customers, exactly **two** are authoring alone:
 
 | customer | cost |
 |---|---|
-| `P11` command grab | ✔ authoring — an authored `Special` with the existing key |
+| `P11` command grab | ✔ **DONE 2026-09-04** — authored, no engine change, guard poison-verified five ways |
 | `P06` foxtrot / dash-dance | ✔ authoring — dash-stance moves the selector already picks |
 | `P06` pivot grab/smash | ⛔ plumbing — `move_for_flat_verb` cannot express a pivot stance |
 | `P11` pivot grab | ⛔ plumbing — same selector |
@@ -676,6 +676,46 @@ finish one category before touching another.
    ceiling tech, wall-tech jump.
 5. **Stage and match completeness:** respawn platform, stage select, multiple
    stage layouts, rules UI, sudden death/rematch/results.
+### ⭐⭐ THE ROSTER IS ONE AUTHORED FIGHTER AND A SKELETON (measured 2026-09-04)
+
+Counted off the contracts themselves, not read off a table: `fighter_moveset()`
+— the moveset EVERY fighter in this demo gets except George — binds **18 verbs**
+to `george_booul_moveset()`'s **26**.
+
+⇒ The eight the stand-in did not have: `special`, `special_forward`,
+`special_up`, `special_down`, `attack_forward`, `attack_dash`, `taunt`, and
+`special_air_down`.
+
+⛔ **So the special button did nothing at all for anybody but George** — the press
+resolved to no move, which is not a weak special, it is silence. Same for the
+forward tilt and the dash attack.
+
+⚠ **And the dash attack shows why a capability table can be true and still
+mislead.** The engine row above says *"Directional attacks, smashes, and dash
+attack selection"* against `trigger_moveset_moves` — accurate about the ENGINE,
+which resolves `attack_dash` and always has, and accurate about George, who binds
+it. It is silent on the fighter every other seat is actually holding, which binds
+nothing there. ⇒ A row that names the seam is not a claim that anybody uses it,
+and this page's own instrument note already records that confusion in another
+form (a citation proves a line exists, not that it says what the prose claims).
+
+✔ **One of the eight is now closed** (`special_forward`, the command grab above).
+Seven remain, and they are named here rather than left to be rediscovered:
+`special`, `special_up`, `special_down`, `special_air_down`, `attack_forward`,
+`attack_dash`, `taunt`.
+
+⭐ **Why this belongs in the inventory and not in a bug list.** Every one of the
+seven is authoring against a seam the engine already resolves — George proves it,
+because his table binds all eight and needed no engine work to do it. ⇒ That
+makes them the cheapest remaining parity items on this page by a distance, and it
+is the same lesson the primitive table taught: the next slice is almost never
+"build a primitive", it is "author a customer for one that exists".
+
+⚠ **What it does NOT say.** It does not say the stand-in should get George's kit,
+or four specials, or any particular move. What each stand-in special should BE is
+a design question nobody has answered, and the command grab was picked because
+`P11` had already named it, not because side-B was the obvious slot.
+
 6. **Character primitives:** counter, reflector, command grab, wind/vacuum,
    stored charge/resource mechanics as real fighters request them.
 7. **Items:** participant-generic item interaction, match spawner/rules, then a

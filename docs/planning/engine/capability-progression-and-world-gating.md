@@ -182,6 +182,29 @@
 > `flag_set` makes — a latched switch nothing has flipped IS off, so `false` is
 > the true answer rather than the tolerable one.
 >
+> ⛔⛔ **AND THE HONEST SENTENCE AFTER ALL OF THIS: NO SHIPPED LEVEL AUTHORS ANY
+> OF THE FIVE NEW CONDITIONS.** `gated_by` is set exactly twice across the five
+> authored worlds, both in `intro.ldtk`, both to `bob_field_survey_received` — a
+> story flag. So five families are reachable and none is *reached*.
+>
+> ⚠ **That is a real tension with this track's own rule** — `tracks.md`: *"Grow
+> the authoring vocabulary only from concrete progression needs"* — and it should
+> be named rather than left for a reader to notice. Two of the five had the need
+> written down before the work (`body.can` is what this page said was missing;
+> `body.fits` is the Goal's own first example, "gate routes through body size").
+> The other three — `held.is_held`, `world.switch_on`, `encounter.cleared` — were
+> published because the FACT already existed and had a producer, which is a
+> weaker justification than a level that wants them.
+>
+> ⇒ **The risk is the dormant-cluster shape this repository has hit before**: a
+> registry with no production producer, correct in every test, reached by
+> nothing. What protects against it here is that each condition has an end-to-end
+> wall test walking the authored road, so the vocabulary is proven usable rather
+> than merely present. What does NOT protect against it is anything in the
+> engine: only a level author choosing one of these does that. ⇒ **Which routes
+> should stop being story flags is a design call, not an engineering one**, and
+> the next slice of this track is a level, not a condition.
+>
 > ⇒ **Seven of the seven gate families are reachable from a route now**, in
 > their currently-expressible forms: story gate (two writers), item/equipment
 > (`inventory.holds`, `held.is_held`), body capability (`body.can`), body

@@ -3358,6 +3358,32 @@ OPTIONAL dep + feature, never used:
   ⓘ Measured across the abilities carve for calibration: delta of ONE, a
   `test_support.rs` helper, benign. A carve whose delta is several DOMAIN
   functions has left its callers somewhere, and the names say where.
+  ⛔⛔ **AND `check_no_warnings.py` IS A WORKSPACE-UNIFIED CLAIM, NOT A PER-CRATE
+  ONE — measured 2026-09-04, and it is the MIRROR of the caveat that script
+  already prints.** Its own note warns that code behind a non-default
+  `#[cfg(feature)]` is not compiled by its run. The other half is that a crate
+  built ALONE is not compiled by it either:
+
+```text
+  scripts/check_no_warnings.py --fresh                      OK, no warnings
+  cargo check -p ambition_dialog --all-targets              4 warnings
+  cargo check -p ambition_dialog --features ui --all-targets 3 warnings
+```
+
+  Three dead-code warnings in `crates/ambition_dialog/src/runtime.rs`
+  (`reveal_full_line`, `reveal_full_options`, `select_delta`,
+  `select_delta_clamped`, `confirm_or_advance`, `reveal_full`) are live under
+  workspace feature unification and dead when the crate is built by itself.
+  ⇒ **That is what a downstream consumer sees, and what `cargo test -p <crate>`
+  sees** — the command this project reaches for constantly, and the one the
+  disk-pressure guidance recommends over a lane.
+  ⚠ **NOT fixed here, deliberately.** Deleting methods that the unified build
+  uses would break the workspace, and "dead in one build, live in another" is a
+  visibility/feature question rather than dead code. ⓘ Handed over by
+  `YardratAmbition`, who found it from the `causal` side and left it because it
+  sits next to the dialogue lane; the finding turned out not to be
+  `causal`-specific at all.
+
   ⓘ **THE SAME BLIND SPOT WAS SWEPT FOR ACROSS THE OTHER SCANNERS, and the
   impact is nil — recorded so nobody spends the sweep again (2026-09-04).**
   Five scripts filter test files by PATH with no `cfg(test)` awareness, and

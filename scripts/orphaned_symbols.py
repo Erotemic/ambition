@@ -71,6 +71,25 @@ def is_test_path(path: str) -> bool:
 
 
 def census(root: pathlib.Path) -> tuple[dict[str, str], collections.Counter, collections.Counter]:
+    # ⛔⛔ TRACKED FILES ONLY, AND THE RISK LANDS ON THIS SCRIPT'S INTENDED USE.
+    # `git ls-files` does not list untracked files, so a `.rs` written but not
+    # yet `git add`ed is invisible to BOTH halves of this census — its own `pub
+    # fn`s go uncounted, and, worse, the CALLS it makes are unseen, so an
+    # existing function it calls is reported as having no production caller.
+    #
+    # ⚠ That is a FALSE ORPHAN, and it appears exactly when this script is most
+    # useful: the docstring says to read the DELTA across a carve, and mid-carve
+    # is precisely when new files are still untracked.
+    #
+    # ⭐ Not a new discovery — `check_retired_crate_names.py` records the same
+    # trap from the other side: *"the live-tree ratchet passed while its own
+    # counter-example was untracked, which is the 'green at minute zero' trap one
+    # level in."* Confirmed again 2026-09-04 by poisoning a different census with
+    # an untracked provider and watching its derived list fail to grow.
+    #
+    # ⇒ Left as `ls-files` deliberately: adding `--others --exclude-standard`
+    # would widen the corpus to generated and scratch `.rs` files and change what
+    # every recorded number here means. **Commit before you read the delta.**
     listing = subprocess.run(
         ["git", "ls-files"], cwd=root, capture_output=True, text=True, check=True
     ).stdout.split()

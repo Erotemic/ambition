@@ -1720,7 +1720,12 @@ fn run_bout_at(
         // `eliminated` is a tick already stamped, `stocks` are already zero,
         // `damage_taken` cannot grow for a body that is gone, and
         // `closest_approach` has no pair to measure. ⚠ Verified by running a cell
-        // before and after and diffing: **byte-identical**, `3 vs 1` at 12 seeds.
+        // before and after and diffing: **byte-identical in BOTH modes** — the
+        // ladder's `3 vs 1` at 12 seeds paired, and the scenario matrix's
+        // `5 vs 3` across four fixtures. ⚠ The second run was the point: the
+        // change lives in `run_bout_at`, which every mode shares, and verifying
+        // only the mode I was looking at would have been a claim about one
+        // caller offered as a property of the function.
         //
         // ⚠⚠ AND THE SPEEDUP IS 1.75x, NOT THE ~5x THE ARITHMETIC PREDICTS —
         // 126s → 72s on that cell. A bout resolving at 85s of a 480s budget

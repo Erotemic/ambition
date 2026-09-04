@@ -52,7 +52,18 @@ fn compose(
     // rollback-marked entity spawned panics inside bevy_ggrs on a resource
     // nobody added — which is a composition error wearing an engine's error
     // message.
-    app.add_plugins(ambition_platformer2d_rollback_ggrs::AmbitionRollbackPlugin);
+    // ⭐⭐ THE BACKEND, NOT THE ENGINE'S DECLARATIONS. `AmbitionRollbackPlugin` is
+    // `GgrsBackendPlugin` plus `register_engine_rollback_state`, which declares
+    // twenty domains' rollback state unconditionally — and six of those
+    // declarations are CHECKSUMMED, so `bevy_ggrs`'s `ResourceChecksumPlugin`
+    // takes `Res<R>` on each and a host that never inserted one dies on frame
+    // one. Four of the six are inserted only by `sim_core_resources` or the
+    // actor monolith, and this composition adds neither.
+    //
+    // ⇒ A capability host composes the BACKEND and declares its OWN types, which
+    // is the two lines below. See
+    // `docs/planning/engine/capability-and-runtime-composition.md`.
+    app.add_plugins(ambition_platformer2d_rollback_ggrs::GgrsBackendPlugin);
     // The rollback backend owns every resource its host-side systems require;
     // a consumer does not initialize presentation internals to make GGRS tick.
     app.add_plugins(PulsePlugin::default());

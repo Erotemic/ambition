@@ -65,9 +65,44 @@ fn sample_ggrs_accumulator_phase(
 /// Install only the concrete GGRS backend into an App whose semantic simulation
 /// host has already been selected as rollback. This plugin owns selection of the
 /// concrete `GgrsSchedule`.
+///
+/// ⭐⭐ IT DOES TWO JOBS, AND SINCE 2026-09-04 THEY ARE SEPARABLE. Installing the
+/// GGRS backend and declaring the ENGINE'S rollback state are not the same job,
+/// and fusing them made the backend uncomposable without twenty domains: a host
+/// that adds only this plugin inherits every checksummed resource those domains
+/// declare, and `bevy_ggrs`'s `ResourceChecksumPlugin` takes `Res<R>` — so an
+/// absent one is a frame-one panic rather than a skipped system.
+/// ⇒ [`GgrsBackendPlugin`] is the backend alone. This plugin is that plus the
+/// engine's declarations, which is what every engine composition wants and is
+/// why its name and behaviour are unchanged.
 pub struct AmbitionRollbackPlugin;
 
 impl Plugin for AmbitionRollbackPlugin {
+    fn build(&self, app: &mut App) {
+        app.add_plugins(GgrsBackendPlugin);
+        // Install the exact same domain/runtime declaration set whose metadata is
+        // fingerprinted by the generic runtime.
+        let mut registrar = GgrsRollbackRegistrar::new(app);
+        ambition_platformer2d_runtime::rollback::register_engine_rollback_state(&mut registrar);
+    }
+}
+
+/// The GGRS backend, and NOTHING about which domains exist.
+///
+/// ⭐ THE MINIMUM-HOST HALF of [`AmbitionRollbackPlugin`]. It selects the
+/// concrete `GgrsSchedule`, installs `GgrsPlugin`, the session bridge and the
+/// driver census — everything the backend itself owns — and declares no
+/// gameplay state at all. A capability that wants rollback for ITS OWN types
+/// composes this and then declares those types through the registrar, which is
+/// what `examples/capability_demo` does.
+///
+/// ⛔ IT IS NOT A REDUCED ENGINE. A host that composes engine domains and this
+/// plugin instead of [`AmbitionRollbackPlugin`] gets those domains WITHOUT their
+/// rollback state, which is a desync, not a smaller game. The pairing is the
+/// contract: engine domains go with the engine's declarations.
+pub struct GgrsBackendPlugin;
+
+impl Plugin for GgrsBackendPlugin {
     fn build(&self, app: &mut App) {
         let host = app
             .world()
@@ -121,11 +156,6 @@ impl Plugin for AmbitionRollbackPlugin {
             LoadWorld,
             probes::compare_restored_census.after(AmbitionLoadWorldSet::Reconcile),
         );
-
-        // Install the exact same domain/runtime declaration set whose metadata is fingerprinted
-        // by the generic runtime.
-        let mut registrar = GgrsRollbackRegistrar::new(app);
-        ambition_platformer2d_runtime::rollback::register_engine_rollback_state(&mut registrar);
 
         session::install_session_bridge(app);
     }

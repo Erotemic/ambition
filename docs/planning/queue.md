@@ -529,8 +529,8 @@ The one unresolved developer-policy choice from the session-ownership work is in
     though they were measurements, which is the same class of error as the
     unreproducible figures `README.md` now warns about.
 
-- ▢ **A ROLLBACK TEST IN THE CAPABILITY DEMO DIES IN BEVY, AND IT IS NOT NAMED
-  ANYWHERE ELSE.** `examples/capability_demo`'s
+- ✔ **A ROLLBACK TEST IN THE CAPABILITY DEMO DIED IN BEVY BECAUSE THE BACKEND
+  DECLARED TWENTY DOMAINS' STATE. IT PASSES.** `examples/capability_demo`'s
   `rollback_round_trip::the_cooldown_the_profile_and_the_velocity_survive_a_real_rewind`
   panics with `called Result::unwrap() on an Err value:
   ArchetypeExists(ComponentId(49))`, raised inside `bevy_ecs-0.19.1`'s
@@ -607,6 +607,25 @@ The one unresolved developer-policy choice from the session-ownership work is in
   `CustodyBaseline`, `OccurrenceBaseline`. **Four of the six are inserted only by
   `sim_core_resources` or the actor monolith**, neither of which this demo adds,
   so those four are guaranteed frame-one panics waiting in order.
+  ✔✔ **CLOSED 2026-09-04, AND THE SEAM IS THE PROOF: `GgrsBackendPlugin` SPLIT
+  OUT OF `AmbitionRollbackPlugin`, AND ALL SIX FAULTS WENT AT ONCE.** The demo's
+  rollback round trip passes, and its whole suite is **21 passed / 0 failed**.
+  Installing the GGRS backend and declaring the ENGINE'S rollback state were two
+  jobs fused into one plugin; `AmbitionRollbackPlugin` is now `GgrsBackendPlugin`
+  plus `register_engine_rollback_state`, so every existing engine composition is
+  unchanged and a capability host composes the backend and declares its OWN
+  types.
+  ⭐ **That one change removing all remaining faults is what makes "one seam, not
+  a list" a measurement rather than a claim** — a list would have needed six
+  fixes.
+  ⛔ **AND THE PAIRING IS THE CONTRACT, stated on the new plugin:** a host that
+  composes engine domains and `GgrsBackendPlugin` instead gets those domains
+  WITHOUT their rollback state, which is a desync rather than a smaller game.
+  This is not a reduced engine.
+  ⚠ The twenty-domain call site still names all twenty unconditionally — the
+  design item in
+  [`engine/capability-and-runtime-composition.md`](engine/capability-and-runtime-composition.md)
+  stands. What changed is that a minimum host no longer has to care.
   ⚠ Only two declaration forms reach the unwrapped `Res<R>` —
   `rollback_resource_canonical` and `rollback_resource_clone_checksum`. The
   `_optional_canonical` form exists to tolerate absence and the plain `_clone`
@@ -1212,8 +1231,32 @@ queue read as an execution authority for work already done.
     (416,204) is 132 units outside a 568x320 frame centred (0,0)"*. ⇒ It never
     was a missing-parameter failure, so `bevy_ecs/debug` had nothing to name for
     it.
-    ⛔⛔ **AND THE LEAD THIS ROW CARRIED WAS A RED HERRING — chased by yardrat
-    the same day, and the contract turns out to be HONOURED.**
+    ⚠⚠ **THE "RED HERRING" VERDICT BELOW IS ITSELF RETRACTED — 2026-09-04, by a
+    probe rather than by more reading, and the lead is back in scope.**
+    `probe_where_bodies_are_before_the_match_settles` walks every
+    `BodyKinematics` for the first twelve ticks: **zero bodies for three ticks,
+    then exactly TWO, both already at their spawns — nothing at `(0,0)` at any
+    tick.** ⇒ So `follow_world` reports `(0,0)` while nothing in the world is
+    there. That is not a camera faithfully framing an unplaced body; it is a
+    follow point corresponding to nothing, which puts *"callers must not invent a
+    world-origin fallback"* back on the table.
+    ⭐ **The lesson is the one this row keeps teaching from both directions:
+    reasoning from a branch you have READ to a world state you have not MEASURED
+    is a deduction chain with an unchecked premise at the end.** "The
+    early-return arm cannot be the source, therefore the other arm, therefore a
+    body must be there" — three deductions, one unchecked. The probe cost four
+    minutes and was available throughout.
+    ⚠ The probe ran at DEFAULT features, where the test is green; only a
+    union-features probe can rule out a body the union itself adds. That run is
+    in flight.
+    ⚠ And the narrowed question given to Jon ("may a match present a tick in
+    which the followed body has not been placed?") is withdrawn with it — it
+    assumed a body that does not exist. What survives is that this is not a
+    TOLERANCE question: 132 units with BOTH fighters outside is not a camera
+    lagging a launch.
+
+    ⓘ **The superseded reading, kept because the retraction is only legible
+    beside it:** the contract was thought to be honoured, thus —
     `camera_snapshot.rs` says *"Empty or unresolvable casts return `None`;
     callers must not invent a world-origin fallback"*, which matched the symptom
     exactly, in the right file, three lines away. It was not the branch that ran:

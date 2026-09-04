@@ -124,6 +124,133 @@ mod tests {
         }
     }
 
+    /// The three numbers one shop line writes, and where each was found.
+    struct ShopLine {
+        file: String,
+        line: usize,
+        label: u32,
+        guard: u32,
+        item: String,
+        charged: u32,
+    }
+
+    /// Pull `-> Buy Axe — 25g <<if can_afford(25)>>` and the `<<buy_item "axe" 25>>`
+    /// that follows it.
+    ///
+    /// ⚠ The `buy_item` is looked for on the NEXT FEW lines rather than the same
+    /// one, because Yarn puts an option's body under it, indented.
+    fn shop_lines(file: &str, text: &str) -> Vec<ShopLine> {
+        let lines: Vec<&str> = text.split('\n').collect();
+        let mut out = Vec::new();
+        for (index, raw) in lines.iter().enumerate() {
+            let Some(after) = raw.split_once("can_afford(") else {
+                continue;
+            };
+            let Some(guard) = after.1.split(')').next().and_then(|n| n.trim().parse().ok()) else {
+                continue;
+            };
+            // The price the PLAYER reads, written as `25g` in the option text.
+            let Some(label) = after
+                .0
+                .split_whitespace()
+                .filter_map(|word| word.trim_end_matches('g').parse::<u32>().ok())
+                .next_back()
+            else {
+                continue;
+            };
+            for follow in lines.iter().take(index + 4).skip(index + 1) {
+                let Some(rest) = follow.split_once("<<buy_item ") else {
+                    continue;
+                };
+                let mut args = rest.1.trim_end_matches(">>").trim().splitn(2, '"').nth(1);
+                let Some(tail) = args.take() else { continue };
+                let Some((item, price)) = tail.split_once('"') else {
+                    continue;
+                };
+                let Some(charged) = price.trim().trim_end_matches(">>").trim().parse().ok() else {
+                    continue;
+                };
+                out.push(ShopLine {
+                    file: file.to_string(),
+                    line: index + 1,
+                    label,
+                    guard,
+                    item: item.to_string(),
+                    charged,
+                });
+                break;
+            }
+        }
+        out
+    }
+
+    /// ⛔⛔ A SHOP LINE STATES ITS PRICE THREE TIMES AND NOTHING CHECKED THAT THEY
+    /// AGREE.
+    ///
+    /// `-> Buy Axe — 25g <<if can_afford(25)>>` / `<<buy_item "axe" 25>>` writes
+    /// one fact in three places: the number the PLAYER READS, the number the
+    /// menu GREYS OUT ON, and the number the wallet is CHARGED. An author
+    /// changing a price edits one line and the other two go quietly wrong, each
+    /// in a different way:
+    ///
+    /// - label ≠ charged — the player is told one price and billed another;
+    /// - guard > charged — an affordable item looks unaffordable and cannot be
+    ///   bought at all;
+    /// - guard < charged — the option is offered, the player picks it, and
+    ///   `shop::buy` refuses for lack of funds. **The menu entry does nothing
+    ///   and says nothing**, which is the worst of the three because it reads
+    ///   as a broken game rather than a wrong number.
+    ///
+    /// ⭐ THIS IS THE CODE-SIDE DEFECT ONE LAYER OUT. `wallet.can_afford` and
+    /// `cmd_buy_item` read the authored price two different ways until
+    /// 2026-09-04, when `ambition_items::shop::authored_price` became the single
+    /// reading. That fixed the two CONSUMERS; this checks the three
+    /// STATEMENTS. One fact, three writers, is the same shape wherever it sits.
+    ///
+    /// ⚠ NOT a style rule. It asserts nothing about how a shop line is phrased —
+    /// only that the numbers a line already wrote say the same thing.
+    #[test]
+    fn a_shop_lines_three_prices_agree() {
+        let mut files = Vec::new();
+        yarn_files(&dialogue_root(), &mut files);
+        let mut found = Vec::new();
+        for path in &files {
+            let text = std::fs::read_to_string(path).expect("authored dialogue is readable");
+            let name = path
+                .file_name()
+                .and_then(|n| n.to_str())
+                .unwrap_or("<unnamed>");
+            found.extend(shop_lines(name, &text));
+        }
+
+        // ⛔ A FLOOR, because this walks a directory and parses by shape: if the
+        // menu is rewritten or the option grammar changes, an empty walk would
+        // pass every assertion below it.
+        assert!(
+            found.len() >= 10,
+            "only {} shop line(s) parsed across {} authored .yarn file(s) — the \
+             option grammar this reads has changed, and an empty walk cannot fail",
+            found.len(),
+            files.len()
+        );
+
+        let disagreeing: Vec<String> = found
+            .iter()
+            .filter(|line| !(line.label == line.guard && line.guard == line.charged))
+            .map(|line| {
+                format!(
+                    "{}:{} `{}` — the player reads {}g, the menu gates on {}, the wallet is charged {}",
+                    line.file, line.line, line.item, line.label, line.guard, line.charged
+                )
+            })
+            .collect();
+        assert!(
+            disagreeing.is_empty(),
+            "a shop line's three statements of one price disagree:\n  {}",
+            disagreeing.join("\n  ")
+        );
+    }
+
     #[test]
     fn count_args_is_quote_aware() {
         assert_eq!(count_args(""), 0);

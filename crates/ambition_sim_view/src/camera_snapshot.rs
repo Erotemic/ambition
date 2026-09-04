@@ -1301,6 +1301,29 @@ pub fn resolve_camera_observation(
                         *live_members = None;
                         cast_last_seen.clear();
                         *settling = 0.0;
+                        // ⛔⛔ AND SAY SO ON EVERY VIEW, or the `Option` keeps its
+                        // promise only until the first successful resolve.
+                        //
+                        // Returning here without touching the views leaves each
+                        // one holding `Some(the frame from the tick before the
+                        // cast went away)`, and a reader cannot tell that from a
+                        // frame resolved this tick — which is the exact lifetime
+                        // defect the `Option` was added to remove, moved from
+                        // before initialisation to after it. `camera_follow`
+                        // sees `Some` and presents the stale frame; local views
+                        // outlive sessions, so it can bridge a lifecycle gap.
+                        //
+                        // ⭐ THE EASE IS RESET WITH IT, deliberately. A view that
+                        // has published no frame has nothing to interpolate FROM,
+                        // so the next valid cast must be ADOPTED as a first frame
+                        // rather than eased from a target that predates the gap —
+                        // the same rule `live_observer_roll`'s `None` already
+                        // states for roll, applied to the target it eases toward.
+                        for (.., mut ease, mut resolved) in &mut views {
+                            *resolved = ResolvedCameraSnapshot(None);
+                            ease.target_initialized = false;
+                            ease.live_observer_roll = None;
+                        }
                         return;
                     };
                     // A FLOOR, so authored zoom still wins when wider.
@@ -3050,6 +3073,160 @@ mod default_framing_calibration_tests {
             "the `Combat` preset must sit outside the target band, or the check \
              above passes for any preset; got {:.1}%",
             ratio * 100.0,
+        );
+    }
+}
+
+/// ⛔⛔ THE `Option` MUST HOLD ACROSS THE VIEW'S WHOLE LIFETIME, not only until
+/// the first successful resolve.
+///
+/// `ResolvedCameraSnapshot` was widened to `Option` so a reader can tell "no
+/// frame has been resolved" from "a frame was resolved at the world origin".
+/// That promise is kept at spawn by `Default`, and it was broken the moment the
+/// resolve ran once: the arm that gives up (no home avatar, no controlled
+/// subject, an unframeable cast) returned WITHOUT touching the views, so each
+/// one kept the frame from the tick before the subject went away. A reader
+/// cannot tell that from a frame resolved this tick, so the defect the `Option`
+/// removed from before initialisation reappeared after it — and local views
+/// outlive sessions, so the stale frame can bridge a whole lifecycle gap.
+///
+/// The sequence: cast A → `Some`, cast gone → `None`, a new subject →
+/// `Some(B)` ADOPTED rather than eased from A.
+#[cfg(test)]
+mod resolved_snapshot_lifetime_tests {
+    use super::*;
+    use bevy::prelude::*;
+
+    fn app_with_a_framed_cast() -> App {
+        let mut app = App::new();
+        app.add_plugins(bevy::time::TimePlugin);
+        app.init_resource::<ambition_dev_tools::dev_tools::DeveloperTools>();
+        app.init_resource::<ambition_encounter::EncounterView>();
+        app.init_resource::<ambition_persistence::settings::UserSettings>();
+        app.init_resource::<ambition_platformer2d_shared_tangle::camera_ease::CameraEaseTuning>();
+        app.init_resource::<ambition_platformer2d_shared_tangle::markers::ControlledSubject>();
+        app.init_resource::<ambition_platformer2d_shared_tangle::markers::FramedCast>();
+        app.add_plugins(CameraObservationPlugin);
+
+        let world = ae::World::new(
+            "lifetime",
+            ae::Vec2::new(4_000.0, 4_000.0),
+            ae::Vec2::ZERO,
+            Vec::new(),
+        );
+        ambition_platformer2d_shared_tangle::lifecycle::insert_session_world_component(
+            app.world_mut(),
+            ae::RoomGeometry(world.clone()),
+        );
+        ambition_platformer2d_shared_tangle::lifecycle::insert_session_world_component(
+            app.world_mut(),
+            ambition_platformer2d_world::rooms::RoomSet::from_parts(
+                "lifetime",
+                vec![ambition_platformer2d_world::rooms::RoomSpec::new(
+                    "lifetime",
+                    world,
+                )],
+                Vec::new(),
+            ),
+        );
+        app
+    }
+
+    /// A body the cast can frame, at `at`.
+    fn cast_member(app: &mut App, at: ae::Vec2) -> Entity {
+        let mut kin = ambition_platformer2d_shared_tangle::body::BodyKinematics::default();
+        kin.pos = at;
+        kin.size = ae::Vec2::new(24.0, 40.0);
+        app.world_mut().spawn(kin).id()
+    }
+
+    fn frame_of(app: &App) -> Option<ResolvedCameraFrame> {
+        let mut views = app
+            .world()
+            .iter_entities()
+            .filter_map(|entity| entity.get::<ResolvedCameraSnapshot>());
+        let view = views.next().expect("the plugin spawns one view");
+        assert!(views.next().is_none(), "one view in this fixture");
+        view.frame().cloned()
+    }
+
+    #[test]
+    fn a_view_says_none_again_when_its_cast_goes_away_and_adopts_the_next_subject() {
+        let mut app = app_with_a_framed_cast();
+        assert!(
+            frame_of(&app).is_none(),
+            "premise: a view that has resolved nothing publishes no frame"
+        );
+
+        // ── cast A, far to the left ──────────────────────────────────────────
+        let a = cast_member(&mut app, ae::Vec2::new(-900.0, 0.0));
+        app.world_mut()
+            .resource_mut::<ambition_platformer2d_shared_tangle::markers::FramedCast>()
+            .0 = vec![a];
+        app.update();
+        let framed_a = frame_of(&app).expect("a framed cast resolves a frame");
+        assert!(
+            framed_a.follow_world.x < -400.0,
+            "premise: the view followed cast A to {}",
+            framed_a.follow_world
+        );
+
+        // ── the cast goes away ───────────────────────────────────────────────
+        app.world_mut()
+            .resource_mut::<ambition_platformer2d_shared_tangle::markers::FramedCast>()
+            .0
+            .clear();
+        app.world_mut().entity_mut(a).despawn();
+        app.update();
+        assert!(
+            frame_of(&app).is_none(),
+            "nothing is being framed, and a view that publishes `Some` here is \
+             telling every reader that the frame from the tick before the cast \
+             went away was resolved this tick"
+        );
+
+        // ── a home avatar appears, far to the right ──────────────────────────
+        //
+        // ⭐ A HOME AVATAR RATHER THAN A SECOND CAST, and that is what makes the
+        // ease reset observable. The cast arm carries `must_frame_world` — the
+        // declared box the view MUST cover — so a cast is adopted by the clamp
+        // whatever the ease state says. The single-subject follow has no such
+        // constraint: its centre is purely the eased target, so a view still
+        // holding `target_initialized` from before the gap opens on the cast's
+        // last position and creeps toward the avatar. Which is the whole reason
+        // the ease is reset with the snapshot: a view that has published no
+        // frame has nothing to interpolate FROM.
+        let home = {
+            let mut kin = ambition_platformer2d_shared_tangle::body::BodyKinematics::default();
+            kin.pos = ae::Vec2::new(900.0, 0.0);
+            kin.size = ae::Vec2::new(24.0, 40.0);
+            app.world_mut()
+                .spawn((
+                    kin,
+                    ae::BodyBaseSize { base_size: kin.size },
+                    ambition_platformer2d_shared_tangle::camera_ease::PlayerBlinkCameraState::default(),
+                    ambition_platformer2d_shared_tangle::markers::PlayerEntity,
+                    ambition_platformer2d_shared_tangle::markers::PrimaryPlayer,
+                ))
+                .id()
+        };
+        let _ = home;
+        app.update();
+        let framed_b = frame_of(&app).expect("the home avatar resolves a frame");
+        assert!(
+            framed_b.follow_world.x > 400.0,
+            "the avatar sits at +900 and the view is following {}",
+            framed_b.follow_world
+        );
+        assert!(
+            framed_b.snapshot.center_world.x > 400.0,
+            "the first frame after the gap is ADOPTED, not interpolated from a \
+             target that predates it: the camera centre resolved to {}. Nothing \
+             else snaps here — the room did not change, there is no blink, and a \
+             DIFFERENT subject is explicitly not a teleport — so the only thing \
+             that can open the view on the avatar is the ease reset that went \
+             with the `None`.",
+            framed_b.snapshot.center_world
         );
     }
 }

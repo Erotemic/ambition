@@ -1444,8 +1444,29 @@ interact and it is worth knowing which:**
 |---|---|---|---|
 | 1 | **Which of two ladder authorities should exist?** | `profile_for_level` forks between the shipped `.ron` and an engine floor; **four separate defects were symptoms of that one fork**. Removing the loser rewrites **no authored content** and there is exactly **one** production installer. | below |
 | 2 | **Do the two Robots get kits?** | At the same rung, on the shipped ladder and clock, **George significantly outfights a stand-in (318% : 199%)** with a correctly-null control. ⚠ Scope corrected: **two specific fighters**, not "two of three" — the composed grid assembles ≥8. | ↓ |
-| 3 | **`read_weight`: wire it up or delete it?** | Authored 0.0→0.9 on all nine rungs and **read by nothing** — its only live consumer sits behind a rollout those rows disable. ≤184 bytes/fighter/snapshot, so the cost argument is weak; the legibility one is not. | ↓ |
+| 3 | **`read_weight`: wire it up or delete it?** | Authored **0.0 → 1.0** on all nine rungs (`0.0 0.0 0.0 0.1 0.2 0.3 0.5 0.7 1.0`) and **read by nothing** — its only live consumer sits behind a rollout those rows disable. ≤184 bytes/fighter/snapshot, so the cost argument is weak; the legibility one is not. | ↓ |
 | 4 | ✔ **mostly answered** — does "harder" mean deals more damage, or is harder to beat? | Settled by fixing the clock: at the shipped 480s limit bouts RESOLVE, and rung 5 neither out-damages nor outlives rung 3. | ↓ |
+
+⚠⚠ **ROW 2's WORD *"significantly"* IS ON HOLD (2026-09-04), AND ROW 2 DOES NOT
+DEPEND ON IT.** The ladder rig's `report_row` was found to carry two authors of
+one row's meaning — the printed direction from pooled medians, the
+`(within spread)` qualifier from a paired damage-only sign test that discards
+direction — so any *"significantly"* taken from that tool is unverified until it
+is fixed and re-run (recorded in `queue.md`'s **D72** row and in
+[`engine/fighter-brain.md`](engine/fighter-brain.md)).
+
+⭐ **But row 2 now rests on something the rig never touched.** Enumerating every
+`(base, direction, stance)` press against both contracts is a pure source
+measurement with no bouts, no seeds and no statistics in it: George's unanswered
+presses are a strict **subset** of the stand-ins', and the surplus is **exactly
+eight, every one a `special`**
+(`the_stand_in_is_george_s_genre_shape_with_the_special_button_removed`). ⇒ **The
+stand-ins are George's genre shape with the special button removed** — which is
+the whole of what row 2 asks about, established without the instrument under
+question. ⇒ **This decision is answerable now**; the 318% : 199% line is
+corroboration, not the load-bearing evidence, and it can be re-taken later
+without changing the question.
+
 
 ⇒ **1 and 3 interact**: `read_weight` is inert *because* the shipped rows disable
 the rollout, so an answer to 1 that made the demo compose `ambition_content`

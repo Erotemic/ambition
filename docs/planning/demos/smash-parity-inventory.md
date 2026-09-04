@@ -799,7 +799,7 @@ response is not**: a declared placeholder needs finishing; a silent one needs
 finding first, and nothing on this page would have surfaced it.
 
 ⇒ Worked examples from one day: `read_weight` is **dead** (nine authored values,
-0.0→0.9, read only through a rollout the shipped rows disable). A resource with
+**0.0 → 1.0**, read only through a rollout the shipped rows disable). A resource with
 one producer and no reader is **restraint**. `profile_for_level` is a **fork**
 (floor and `.ron` both answer "what does rung N mean"). ⭐ And `P01` is
 **stranded** — and it is the hardest of the four to see, because *it looks the

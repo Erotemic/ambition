@@ -1338,6 +1338,22 @@ the QUALIFIERS changed, never the columns. The 12-seed matrix, sixteen cells:
 | 6 vs 5 | within spread | within spread | within spread | within spread |
 | 9 vs 6 | within spread | within spread | within spread | within spread |
 
+⛔⛔ **THESE FOUR BOLD CELLS ARE THE ONES MOST EXPOSED BY THE INSTRUMENT DEFECT
+BELOW, because their meaning is carried by an ABSENCE.** Every cell reading
+*"within spread"* states its qualifier out loud; the two bold ones mean what they
+mean **only because the qualifier is missing** — and the missing qualifier comes
+from a sign test that discards direction, while the words *higher* / *LOWER* come
+from a pooled median. ⇒ **A cell whose two authorities disagree prints exactly
+like a cell where they agree**, and there is no residue in the table to tell them
+apart.
+
+⚠ **Read the two bold cells as UNCONFIRMED until the rig is fixed and re-run**, not
+as withdrawn: the defect makes them unverified, not wrong, and the mechanism
+evidence for `5 vs 3` (stocks level at `2 : 2`, the lower rung dealing 215% against
+191%, and the byte-for-byte weight isolation) is independent of the qualifier and
+still stands. ⇒ It is the word *significant* that is on hold, not the inversion.
+
+
 ⇒ **Two significant cells, both on the shipped ladder, and they point opposite
 ways.** Rung 3 beats rung 1 — the ladder working. Rung 3 also beats **rung 5** —
 the ladder inverted.
@@ -1404,7 +1420,18 @@ nothing reads it* — and they want opposite responses:
 | | dead | restrained |
 |---|---|---|
 | example | `read_weight` | a resource with one producer and no reader, by design |
-| the tell | **nine authored values, 0.0 rising to 0.9** | nobody has spent effort on it |
+| the tell | **nine authored values, 0.0 rising to 1.0** | nobody has spent effort on it |
+
+⚠ **That top value was recorded as 0.9 until 2026-09-04 and it is 1.0** — a small
+error, kept visible because of HOW it survived. The row was written from the
+shape of the ramp rather than from the file, and re-checking it turned up a
+second thing: `grep -c read_weight` on the shipped ladder returns **10** against
+**nine** rungs. ⇒ The tenth is a COMMENT — line 42, *"Its skill is the read
+(`read_weight: 1.0`), not the reflex"* — which is a prose sentence that names the
+value it describes, so a count of the field silently includes a mention of it.
+⭐ The authored nine, read off the file: `0.0 0.0 0.0 0.1 0.2 0.3 0.5 0.7 1.0`,
+with `rollout_depth: 0` and `rollout_k: 0` on **every** rung, which is the half
+this argument actually rests on and which is confirmed.
 | what it means | somebody tuned a knob believing it worked | the seam exists ahead of its customer |
 | what to do | wire it up or delete it | write down WHY and leave it |
 
@@ -1924,11 +1951,149 @@ result that survives a 3.3× increase in evidence is what significance is suppos
 to mean, and the old test had it exactly backwards. The fix did not manufacture
 the finding; it stopped the instrument from destroying it.
 
-⚠ **One reading artifact, so the next reader does not file it as a bug.** A's
-`9 vs 6` shows stocks `2 : 3` under a verdict of *higher outfights*. Each column
-is an independent median over the bouts, and the verdict is computed per bout —
-so a median stock column and a verdict can disagree without either being wrong.
-Read the columns as summaries, never as a single representative match.
+⛔⛔ **THIS PARAGRAPH EXPLAINED A DISCREPANCY WITH A FACT THAT IS NOT TRUE, and
+the correction is bigger than the paragraph — read it before you use any
+`(within spread)` label on this page.**
+
+It said A's `9 vs 6` stocks `2 : 3` under *higher outfights* was fine because
+*"the verdict is computed per bout"*. ⛔ **It is not.** `report_row` computes the
+verdict from **pooled medians** — a median of stocks taken, then a median of
+damage dealt as the tiebreak. Nothing in it is per bout. So the reassurance was
+invented to dissolve a discrepancy rather than derived, which is the worst way for
+a wrong sentence to enter a document: it makes a reader stop looking.
+
+⛔ **AND LOOKING FINDS A REAL DEFECT IN THE INSTRUMENT — one row, two authors.**
+Raised by a review through the sibling session 2026-09-04 and re-derived here from
+source:
+
+- the **displayed verdict** comes from pooled medians, stocks first, damage on a
+  tie (`ladder_rig.rs`, `report_row`);
+- the **`(within spread)` qualifier** comes from a *paired, damage-only* exact
+  sign test, and `sign_test_says_within_spread` returns `p >= 0.05` — **`k =
+  positives.max(negatives)` discards WHICH direction won.**
+
+⇒ **So a row can print `LOWER outfights` with no qualifier while its own sign test
+is significant for HIGHER.** The reviewer's fixture is legal and reproduces it: 16
+pairs favouring higher by +100 and 4 favouring lower by −1000 give pooled medians
+that say LOWER, and signs 16/4 (two-sided p ≈ 0.0118) that remove the qualifier.
+The row then contradicts itself in the direction that reads as most confident.
+⚠ **Second mismatch:** when STOCKS decide the verdict, the paired test still tests
+DAMAGE — so the comment claiming the spread is measured on the *"DECIDING
+quantity"* is false exactly when `hi_took != lo_took`. ⓘ And `median()` is
+`values[len / 2]`, the upper-middle order statistic, not a median for even N.
+
+⚠⚠ **WHAT THIS DOES AND DOES NOT INVALIDATE.** The defect can only mislead where
+the pooled direction and the paired direction DISAGREE; where they agree the label
+is what it claims. ⇒ Which cells those are is **unknown until the rig is fixed and
+re-run** — so until then, treat every verdict on this page as carrying an
+unstated *"direction not cross-checked"*, and lean on the cells' mechanisms rather
+than their labels. ⛔ **The `5 vs 3` inversion is the one to re-take first**, since
+it is the finding this document is built around.
+
+ⓘ The fix is not *"check the sign against the median"* — that keeps both
+authorities and adds a referee. It is to compute **one paired outcome per seed**
+(reorient straight and mirrored into logical higher/lower, aggregate, stocks
+first, damage only on a stock tie → Higher/Even/Lower) and derive **both** the
+displayed direction and the sign test from those same outcomes, leaving pooled
+medians as descriptive columns only. ⚠ Not landed here: this box cannot build (see
+[`../yardrat-open-measurements.md`](../yardrat-open-measurements.md)), and an
+unverified edit to the instrument every number on this page came from is worse
+than a documented defect.
+
+⭐ **THE POISON ARMS, WRITTEN DOWN SO THEY DO NOT HAVE TO BE RE-DERIVED.** A fix
+to this function is only worth landing if every one of these reddens the CURRENT
+code and passes the new one:
+
+1. **The reviewer's 20-pair fixture must not print a significant `LOWER`.** 16
+   pairs where higher scores `[1000, 0]` against lower `[400, 400]` (a +100
+   difference) and 4 where higher scores `[0, 0]` against lower `[1000, 1000]`
+   (−1000). ⇒ Pooled medians give higher 0, lower 400 → verdict `LOWER`; paired
+   signs are 16/4, two-sided p ≈ 0.0118 → qualifier removed. **The row contradicts
+   itself, and this is the arm that proves the defect rather than describes it.**
+2. **A row where stocks and damage disagree must follow STOCKS** — currently the
+   qualifier tests damage regardless, so the test and the word describe different
+   quantities whenever `hi_took != lo_took`.
+3. **Mirror orientation invariance**: reorienting straight and mirrored bouts into
+   logical higher/lower must not change the verdict. A rig that answers differently
+   depending on which seat the fixture put SELF in is measuring the placement.
+4. **Ties still dropped**, as the sign test already requires — padding a run with
+   tied pairs must not move `p`.
+5. ⛔ **MORE EVIDENCE ONE WAY MUST NOT REVERSE SUPPORT.** This is the general form
+   of the bug that already shipped here once: the old `|mid| < 0.5 * (hi - lo)`
+   criterion got *harder* to pass as seeds were added, because a range only grows.
+   ⇒ Any replacement must be checked for the same property deliberately, since
+   that one survived review by looking reasonable.
+
+⚠ **And `median()` wants fixing in the same pass** — `values[len / 2]` is the
+upper-middle order statistic, so for even N it is not a median and it is biased
+upward. Every column on this page is computed with it.
+
+✔✔ **AND THE PROPOSED DESIGN WAS VALIDATED NUMERICALLY BEFORE ANY RUST WAS
+WRITTEN — 2026-09-04, because this box cannot compile and a design can still be
+wrong on paper.** Both forms of `report_row` were modelled in Python (the current
+two-author form and the proposed single-author one) and the arms above were run
+through both. ⇒ The point of the exercise is that **the current code FAILS two of
+them**, which turns the review's report from a reading into a reproduction:
+
+| arm | current | proposed |
+|---|---|---|
+| **1** reviewer's 20-pair fixture | prints **`LOWER`, unqualified** | `higher`, signs **16/4** |
+| **2** stocks favour higher, damage favours lower | prints **`higher`, unqualified — while its own damage sign test is 0/10 for `LOWER` at p = 0.00195** | `higher`, signs 10/0, from stocks |
+| **4** ties padded onto a run | — | verdict and qualifier unchanged ✔ |
+| **5** 4 → 20 unanimous pairs | — | `within spread` at 4, significant from 6 up, **never reverses** ✔ |
+
+⭐ **Arm 2 is the sharper of the two failures and it was not obvious from reading.**
+The row does not merely test the wrong quantity — it prints an **unqualified**
+`higher` whose only statistical support ran, significantly, the other way. A reader
+sees the most confident thing this tool can print.
+
+ⓘ Arm 5 also confirms the replacement has the property the old range criterion
+inverted: support strengthens with evidence, and four pairs correctly cannot reach
+significance however unanimous (2 × 0.5⁴ = 0.125). ⓘ And `median([1,2,3,4])`
+returns **3** where the median is **2.5**, as expected for `values[len / 2]`.
+
+⚠ **This validates the ALGORITHM, not an implementation.** The Rust still has to be
+
+✔ **AND THE IMPLEMENTATION IS WRITTEN — on a BRANCH, unverified, deliberately not
+on `main`.** `agent/yardrat-rig-one-authority`, two commits kept separable:
+
+| commit | what | why separable |
+|---|---|---|
+| `22dfe0e86` | `paired_outcomes()` — one outcome per seed, stocks then damage; a paired run derives **both** the word and the sign test from it. Pooled verdict demoted to a descriptive column. Unpaired runs unchanged. | the fix proper |
+| `ce8c7a142` | `median()` — mean of the two middles for even N | changes **every** descriptive column, so it can be taken or left on its own |
+
+⛔ **It has never been compiled.** Not `cargo check`, not `--lib` — this box has
+~359M free (see [`../yardrat-open-measurements.md`](../yardrat-open-measurements.md)).
+Delimiters were balanced and the code re-read, which catches typos and not type
+errors. ⇒ **That is exactly why it is a branch**: if the Rust is wrong it costs
+nothing and `main` is untouched. Whoever merges it runs the five arms above first.
+
+ⓘ **One arm needed no code: mirror orientation.** `Bout::mirrored` already swaps
+every per-seat array, so index 0 is the higher rung in both halves of a pair —
+invariance holds by construction rather than by test.
+
+✔✔ **THE SIX ARMS ARE NOW TESTS ON THAT BRANCH (`a21f062d2`), AND THEIR EXPECTED
+VALUES WERE CHECKED NUMERICALLY RATHER THAN REASONED.** Every fixture was run
+through the Python model of the same arithmetic and reproduces exactly what the
+Rust asserts: arm 1 signs **16/4** → `higher outfights`, unqualified; arm 2 all
+`+1` from stocks; arm 3 all `−1` from damage on a stock tie; arm 4 six tied pairs
+changing nothing; arm 5 clearing the qualifier at **exactly 6** unanimous pairs
+(five are 2 × 0.5⁵ = 0.0625 and must not clear 0.05) and never reversing to 20;
+arm 6 invariant under exchanging a pair's halves.
+
+⭐ **Which makes the remaining risk NAMEABLE, and that is the point of saying it.**
+The logic and the expected values are verified; what is unverified is whether the
+Rust compiles and typechecks. ⇒ **If an arm fails on a machine that can build it,
+the fixture is not the suspect** — read it as a type or syntax problem, or as the
+implementation diverging from the model, not as the arm being wrong.
+
+ⓘ `report_row`'s derivation was extracted into `paired_direction_and_spread` to
+make any of this reachable. ⚠ **That the defect required printed output to observe
+is not incidental — it is why it survived**: a row's two halves had no seam a test
+could get between.
+written and these arms still have to be run against it — a model agreeing with a
+design says nothing about whether the code matches the model.
+
 
 ### ⛔⛔ WITHDRAWN — the Shield comparison's null is not a result, and re-taking it is not worth doing
 
@@ -1997,6 +2162,18 @@ George, 120 seconds, run twice: once on the engine floor and once with
 |---|---:|---:|
 | `george_booul_dash_attack` starts | 132 / ~158 (**84%**) | 98 / ~121 (**81%**) |
 | distinct moves used | 12 of 28 authored | 12 of 28 |
+
+ⓘ **The `~` on those denominators is doing real work and the percentages should be
+read as UPPER BOUNDS.** `capture-probe` computes no shares at all — it prints move
+start COUNTS, and the 84% / 81% are hand arithmetic over them (132/158 = 0.835,
+98/121 = 0.810; both check). ⇒ The denominator is a sum of the starts that were
+listed, so any start not in the listing makes the true denominator LARGER and the
+share SMALLER. **An under-counted denominator inflates a percentage**, so these
+cannot be too low and can be too high. ⚠ Nothing in the argument turns on the
+second digit — *"the dash attack is most of what this fighter throws"* survives any
+plausible correction — but a two-figure share sitting on a `~` reads more precise
+than it is, and that is the same overstatement in miniature that the significance
+labels above are on hold for.
 
 ⛔ **Sixteen of George's twenty-eight authored moves never started once**, and the
 list is not a tail of oddities: **all three smash attacks** (`smash_forward`,

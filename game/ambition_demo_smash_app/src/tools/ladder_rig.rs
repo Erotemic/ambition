@@ -237,7 +237,12 @@ pub struct LadderRigArgs {
     /// ⚠ Costs exactly double the bouts. That is the price of the control.
     #[arg(long)]
     pub paired: bool,
-    /// Match budget in SECONDS (default 60). See [`ticks()`] for why this is a
+    /// Match budget in SECONDS. ⛔ **This said "default 60" and that was the very
+    /// number the clock finding removed** — `seconds` is an `Option`, and absence
+    /// means the demo's own `SMASH_TIME_LIMIT_TICKS` (eight minutes), not sixty
+    /// seconds. The help text outlived the default it described, which is exactly
+    /// how the 60-second clock survived unnoticed in the first place.
+    /// See [`ticks()`] for why this is a
     /// parameter: the verdict falls through to damage whenever stocks tie, so a
     /// longer clock is the arm that separates "this rung is weaker" from "this
     /// rung is patient and the clock was too short".

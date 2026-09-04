@@ -448,9 +448,48 @@ a debug `.so` for the composed app is far past it. ⚠ Nothing about the reposit
 is wrong: `ambition_demo_smash` builds in seconds and its 154 tests pass, and
 attempt 4 proves the dependency graph links right up to the final artifact.
 
-⛔ **NOT ATTEMPTED, deliberately.** `rm -rf` under `target/` is a standing repo
-rule, and `cargo clean` is the same deletion with a friendlier name — `target/` is
-**187G** (debug 148G), so it is the obvious lever and it is not mine to pull.
+⛔⛔ **AND THIS IS A RE-DISCOVERY, which I should have checked before writing it
+up as a finding.** [`status.md`](status.md) recorded the same constraint a day
+earlier — *"THE BINDING CONSTRAINT ON THIS BOX IS NOW DISK, measured 2026-09-03"*
+and *"AS OF 2026-09-03 LATE THIS VOLUME CANNOT RUN A RUST LANE AT ALL: 12 GB free
+of 290"*. ⇒ **What is genuinely new here is only the virtiofs half**: that `df` on
+the worktree answers with the HOST's figures, that the single-file write ceiling
+sits near half a gigabyte, and the ENOSPC → truncated-rlib → *undefined symbol*
+chain. The headline was already written by someone who got there first.
+
+⚠ **AND THE ORIENTATION FIGURE HAS MOVED SINCE, BY A LOT.** [`status.md`](status.md)
+reads *"12 GB free of 290"* (2026-09-03 late); measured 2026-09-04 it is **~359M**
+— roughly **34× worse**, on the page a newcomer orients from. ⇒ Not corrected
+there by me: that file is another session's hot set and the standing split says
+not to edit it. Reported to its owner instead, and recorded here so the two pages
+disagree visibly rather than silently.
+
+⛔ **NOT ATTEMPTED, deliberately — and the repo reaches the same conclusion from
+the other side.** `rm -rf` under `target/` is a standing rule for this session,
+and `cargo clean` is the same deletion wearing a nicer name. ⭐
+`scripts/check_disk_headroom.py` says it in its own output: *"THE VOLUME IS SHARED
+with the main checkout and every other agent worktree… That is a reason to report
+rather than reclaim — the biggest directory is usually someone else's live
+build."*
+
+⇒ **So: reporting.** `status.md` publishes a reclaim order, *"all regenerable"*,
+and past it *"the only lever is `cargo clean`, which costs every session's warm
+tree and is a coordination decision rather than a local one."* Measured on this
+tree 2026-09-04:
+
+| directory, in the sanctioned order | size |
+|---|---:|
+| `target/debug/incremental` | **77G** |
+| `target/profiling` | absent |
+| `target/release` | **17G** |
+| `target/wasm32-unknown-unknown` | **2.4G** |
+| `target/outlander` | **20G** |
+| **total, without `cargo clean`** | **≈116G** |
+
+⚠ `target/debug/incremental` alone is **77G** — nearly half of `target/debug`'s
+148G, pure incremental cache, and first in that order. ⇒ **~116G is reclaimable
+without touching one artifact another session links against**, by someone holding
+the coordination context this session does not.
 
 **Two things worth knowing before pulling it:**
 
@@ -486,11 +525,43 @@ entirely about George's movesets and does not mention a submodule. The bump is
 - It **is** pushed: `git branch -r --contains` finds it on
   `origin/agent/sfizz-source-fallback-and-cue-fanout`. ⇒ A fresh clone can fetch
   it, so the standing no-fallbacks ask is not broken by the pointer itself.
-- ⛔ **The pointer it REPLACED does not exist in this clone.**
-  `git cat-file -t 4e5695c38` → *"could not get object info"*. ⇒ Reverting would
-  aim the superproject back at an object nothing here resolves, which is worse
-  than what it replaced. **An accidental change is not automatically the wrong
-  state**, and undoing it reflexively would have been the actual damage.
+- ⚠ **The pointer it REPLACED did not exist in this clone** —
+  `git cat-file -t 4e5695c38` → *"could not get object info"* — so I argued that
+  reverting would aim the superproject at an unresolvable object, and left it.
+
+⛔⛔ **AND MY CORRECTION TO THAT WAS ALSO WRONG — twice around, so both attempts
+are kept, because the shape of the error is the same each time and the truth was
+neither of my guesses.**
+
+- **First I said:** leave it, because `4e5695c38` cannot be resolved here.
+- **Then I said:** that was a local artifact and the object was simply unfetched.
+- ⭐ **Measured by the sibling session, and it is neither:** `4e5695c38` was on
+  **no remote branch at all**. The submodule's local `main` was **two commits
+  ahead of its own `origin/main` and had never been pushed**. ⇒ There was nothing
+  to fetch. **The pointer the superproject recorded was already dangling for every
+  clone except this one**, and my `add -A` accident made it resolvable for the
+  first time.
+
+⇒ **So the fix was a PUSH, not a revert** — `26b87bf..4e5695c` to the submodule's
+`origin/main`, after which the superproject was re-pointed at `4e5695c`
+(`469184d84`), since it now sits on that submodule's `main` while `8b10c5a` lives
+only on a deletable agent branch.
+
+⚠⚠ **AND THE THING THAT MATTERED MOST WAS COUNTED BY NEITHER OF US: that
+submodule's working tree holds ~30 dirty entries belonging to a third party's work
+in progress.** While the recorded pointer disagreed with the checkout, any routine
+`git submodule update` would have moved that checkout and taken the uncommitted
+rows with it. ⇒ The pointer now matches the checkout, so that command is a no-op.
+
+⭐ **The transferable lesson survives all three versions and is not about
+submodules.** I twice produced a confident causal story — *"the object does not
+exist"*, then *"it exists and I just had not fetched it"* — from a `git` command
+whose answer is scoped to one machine's object store, and each story was good
+enough to act on. ⇒ **Two different wrong explanations of one observation should
+have been the signal to go and measure the remote**, which is a single
+`git branch -r --contains` and which neither of my explanations required. When the
+second story arrives to rescue the first, stop explaining and start measuring.
+and I talked myself out of it with a local artifact.**
 
 **What is still open, and it is not mine to close:** the new pointer names a
 commit on an **agent feature branch**, not the submodule's `main` (which is at

@@ -5,7 +5,12 @@ use bevy::prelude::*;
 fn body_with(app: &mut App, abilities: AbilitySet) {
     app.world_mut().spawn((
         BodyAbilities::new(abilities),
-        ambition_platformer2d_shared_tangle::markers::PlayerEntity,
+        // ⚠ DRIVING, not `PlayerEntity`. Possession moves `DrivingParticipant`
+        // off the home avatar and onto the vessel, so the driven marker is what
+        // these conditions ask — see `driven_bodies`.
+        ambition_characters::control::DrivingParticipant(
+            ambition_characters::control::PlayerSlot::PRIMARY,
+        ),
     ));
 }
 
@@ -103,7 +108,9 @@ fn body_of_height(app: &mut App, height: f32) {
     kinematics.size.y = height;
     app.world_mut().spawn((
         kinematics,
-        ambition_platformer2d_shared_tangle::markers::PlayerEntity,
+        ambition_characters::control::DrivingParticipant(
+            ambition_characters::control::PlayerSlot::PRIMARY,
+        ),
     ));
 }
 
@@ -199,7 +206,9 @@ fn the_opening_is_measured_against_the_bodys_own_height_not_its_world_footprint(
     kinematics.size = bevy::math::Vec2::new(64.0, 30.0);
     app.world_mut().spawn((
         kinematics,
-        ambition_platformer2d_shared_tangle::markers::PlayerEntity,
+        ambition_characters::control::DrivingParticipant(
+            ambition_characters::control::PlayerSlot::PRIMARY,
+        ),
     ));
 
     assert_eq!(
@@ -211,4 +220,83 @@ fn the_opening_is_measured_against_the_bodys_own_height_not_its_world_footprint(
         matches!(fits_in(app.world(), 20.0), ConditionOutcome::NotSatisfied(_)),
         "and it is still a comparison, not a constant yes"
     );
+}
+
+// ── POSSESSION: the resting home avatar must not answer for the vessel ───────
+//
+// ⛔⛔ `control/authority.rs:39` REMOVES `DrivingParticipant` from the home
+// avatar and inserts it on the possessed target — and the home avatar keeps
+// `PlayerEntity` the whole time. A predicate that accepted either marker
+// therefore answered from the body the participant is NOT driving, which is why
+// every test below spawns two bodies that DISAGREE. A fixture where both agree
+// cannot tell the two populations apart.
+
+/// The world during possession: a home avatar that is `PlayerEntity` and no
+/// longer driving, and a vessel that is driving and is not `PlayerEntity`.
+fn possession(app: &mut App, home: impl bevy::prelude::Bundle, vessel: impl bevy::prelude::Bundle) {
+    app.world_mut()
+        .spawn((home, ambition_platformer2d_shared_tangle::markers::PlayerEntity));
+    let driven = app
+        .world_mut()
+        .spawn((
+            vessel,
+            ambition_characters::control::DrivingParticipant(
+                ambition_characters::control::PlayerSlot::PRIMARY,
+            ),
+        ))
+        .id();
+    app.insert_resource(
+        ambition_platformer2d_shared_tangle::markers::ControlledSubject(Some(driven)),
+    );
+}
+
+fn abilities_with(wall_climb: bool) -> BodyAbilities {
+    let mut set = AbilitySet::default();
+    set.wall_climb = wall_climb;
+    BodyAbilities::new(set)
+}
+
+fn kinematics_of_height(height: f32) -> BodyKinematics {
+    let mut kinematics = BodyKinematics::default();
+    kinematics.size.y = height;
+    kinematics
+}
+
+/// ⛔ THE HOME AVATAR'S CLIMBING DOES NOT OPEN A ROUTE FOR A VESSEL THAT CANNOT.
+#[test]
+fn a_resting_home_avatar_does_not_answer_body_can_for_the_possessed_vessel() {
+    let mut app = App::new();
+    possession(&mut app, abilities_with(true), abilities_with(false));
+    assert!(
+        matches!(ask(app.world(), "wall_climb"), ConditionOutcome::NotSatisfied(_)),
+        "the participant is driving a vessel that cannot climb; the body it left \
+         behind is not the one meeting the route"
+    );
+}
+
+/// And the other direction, so the guard cannot pass by refusing everything.
+#[test]
+fn a_possessed_vessel_answers_body_can_even_when_the_home_avatar_cannot() {
+    let mut app = App::new();
+    possession(&mut app, abilities_with(false), abilities_with(true));
+    assert_eq!(ask(app.world(), "wall_climb"), ConditionOutcome::Satisfied);
+}
+
+/// ⛔ THE SAME FOR SIZE: a 30-unit home must not open a crawlspace for an
+/// 80-unit vessel.
+#[test]
+fn a_resting_home_avatar_does_not_answer_body_fits_for_the_possessed_vessel() {
+    let mut app = App::new();
+    possession(&mut app, kinematics_of_height(30.0), kinematics_of_height(80.0));
+    assert!(
+        matches!(fits_in(app.world(), 40.0), ConditionOutcome::NotSatisfied(_)),
+        "the vessel is 80 units tall and the opening is 40"
+    );
+}
+
+#[test]
+fn a_possessed_vessel_answers_body_fits_even_when_the_home_avatar_does_not() {
+    let mut app = App::new();
+    possession(&mut app, kinematics_of_height(80.0), kinematics_of_height(30.0));
+    assert_eq!(fits_in(app.world(), 40.0), ConditionOutcome::Satisfied);
 }

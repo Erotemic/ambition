@@ -68,20 +68,54 @@ pub fn can(world: &World, args: &[AuthoredArg]) -> ConditionOutcome {
         ));
     }
     let enabled = |set: &BodyAbilities| ability_named(&set.abilities, verb) == Some(true);
-    let player_can = world
-        .try_query_filtered::<&BodyAbilities, bevy::prelude::With<
-            ambition_platformer2d_shared_tangle::markers::PlayerEntity,
-        >>()
-        .is_some_and(|mut bodies| bodies.iter(world).any(enabled));
-    let driven_can = world
-        .try_query_filtered::<&BodyAbilities, bevy::prelude::With<
-            ambition_characters::control::DrivingParticipant,
-        >>()
-        .is_some_and(|mut bodies| bodies.iter(world).any(enabled));
-    ConditionOutcome::from_bool(player_can || driven_can, || {
-        WhyNot::new("body.can", verb, "no player or driven body has it")
+    ConditionOutcome::from_bool(driven_bodies(world, enabled), || {
+        WhyNot::new("body.can", verb, "no body a participant is driving has it")
     })
 }
+
+/// EVERY BODY A PARTICIPANT IS ACTUALLY DRIVING — the population both conditions
+/// in this file ask, and the one thing they must not get wrong.
+///
+/// ⛔⛔ IT IS NOT `PlayerEntity`. Possession MOVES control:
+/// `control/authority.rs:39` removes `DrivingParticipant` from the home avatar
+/// and inserts it on the possessed target, and the home avatar KEEPS
+/// `PlayerEntity` throughout. So a predicate that accepted either marker
+/// answered from the resting body — a home avatar that can wall-climb would
+/// open a climbing route for a vessel that cannot, and a 30-unit home would open
+/// a crawlspace for an 80-unit vessel. Measured against the possession authority
+/// rather than assumed.
+///
+/// ⭐ These are `ambition_held_items::DrivenBodies`' semantics — the controlled
+/// subject plus real seat holders — reached without that `SystemParam`, because
+/// an authored condition is a plain `fn(&World, &[AuthoredArg])` and cannot take
+/// one. The AUTHORITY is shared even though the access is not; if that struct's
+/// definition of driven changes, this must follow it.
+///
+/// ⚠ IT IS STILL EXISTENTIAL, and that is a deliberate non-decision. With one
+/// participant the population is one body. What "any driven body qualifies"
+/// should mean when several participants drive different bodies is the co-op
+/// gate question `capability-progression-and-world-gating.md` leaves open, and
+/// answering it here by accident would settle it in the wrong place.
+fn driven_bodies<'w, T: bevy::prelude::Component>(
+    world: &'w World,
+    mut predicate: impl FnMut(&T) -> bool,
+) -> bool {
+    let controlled = world
+        .get_resource::<ambition_platformer2d_shared_tangle::markers::ControlledSubject>()
+        .and_then(|subject| subject.0)
+        .and_then(|entity| world.get_entity(entity).ok())
+        .and_then(|entity| entity.get::<T>())
+        .is_some_and(&mut predicate);
+    if controlled {
+        return true;
+    }
+    world
+        .try_query_filtered::<&T, bevy::prelude::With<
+            ambition_characters::control::DrivingParticipant,
+        >>()
+        .is_some_and(|mut bodies| bodies.iter(world).any(predicate))
+}
+
 
 /// One `AbilitySet` field, by its authored name — `None` for a name the set has
 /// no field for.
@@ -222,21 +256,14 @@ pub fn fits(world: &World, args: &[AuthoredArg]) -> ConditionOutcome {
     }
     let opening = opening as f32;
     let short_enough = |body: &BodyKinematics| body.size.y <= opening;
-    let player_fits = world
-        .try_query_filtered::<&BodyKinematics, bevy::prelude::With<
-            ambition_platformer2d_shared_tangle::markers::PlayerEntity,
-        >>()
-        .is_some_and(|mut bodies| bodies.iter(world).any(short_enough));
-    let driven_fits = world
-        .try_query_filtered::<&BodyKinematics, bevy::prelude::With<
-            ambition_characters::control::DrivingParticipant,
-        >>()
-        .is_some_and(|mut bodies| bodies.iter(world).any(short_enough));
-    ConditionOutcome::from_bool(player_fits || driven_fits, || {
+    // The DRIVEN population, for the reason [`driven_bodies`] states: a
+    // possessed vessel's height is the one that has to fit, not the resting
+    // home avatar's.
+    ConditionOutcome::from_bool(driven_bodies(world, short_enough), || {
         WhyNot::new(
             "body.fits",
             format!("{opening}"),
-            "no player or driven body is short enough",
+            "no body a participant is driving is short enough",
         )
     })
 }

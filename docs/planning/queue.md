@@ -689,10 +689,26 @@ The one unresolved developer-policy choice from the session-ownership work is in
   new defect:** `engine/performer-up-b-the-wire.md` records that the
   `actor_* -> performer_*` rename travelled in the catalog and the regen scripts
   but not on disk, and `sprites_potato/` here still holds the pre-rename
-  `robot_medic_*`. ⇒ The unblock is `./scripts/regen/quality_variants.sh`
-  (incremental), after which the ten evaluate again and the four names can be
-  attributed or not on evidence. Until then, do not treat the red as attributable
-  and do not treat a SKIP as a pass.
+  `robot_medic_*`. ⇒ The unblock is `./scripts/regen/quality_variants.sh` (incremental).
+  ⭐ **RUN 2026-09-04: 184.5s, 213 sheets x 3 tiers + 36 parallax x 3, 8 orphans
+  pruned per tier. The 5 MISSING variants went to ZERO and the 190 stale went to
+  FOUR.** `performer`, `actor_spritesheet` and `medic` now have every tier the
+  game ships, so the pre-rename gap is closed on this box.
+  ⛔⛔ **AND THE LAST FOUR CANNOT BE REGENERATED, WHICH IS A PIPELINE BUG RATHER
+  THAN A STALE BOX.** They are `officer_actor.ron` and `officer_portraits.ron` in
+  `sprites_0_5x` and `sprites_0_25x`, dated 2026-08-27 against a source from the
+  same day ten hours later. A targeted re-run (`--sprites-only --target
+  'officer*'`) builds NOTHING in 1.0s, while the full pass that refreshed
+  `boss_actor.ron` to today leaves these two alone. The tier trees carry **47
+  `_actor.ron` sidecars against 192 in `sprites/`**, so the pass emits a SUBSET —
+  and these two are sidecars it no longer produces and the orphan prune does not
+  take.
+  ⇒ **So `assets_are_canonical` stays false here permanently, and the ten
+  ratchets can never evaluate anywhere until this is settled** — a bigger
+  consequence than two files. They are either orphans the prune should remove or
+  a target the pass stopped covering; the answer belongs to whoever owns the
+  sprite renderer's tier pass. Until then, do not treat the known-list red as
+  attributable and do not treat a SKIP as a pass.
   ⚠ **AND ON THIS BOX THE FOUR ARE CLEAN FOR THE WRONG REASON.** Each has four
   manifests (one per tier) and **ZERO numbered pages**: they do not strand
   pages because they never spilled past a single page here, not because a

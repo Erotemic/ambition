@@ -79,6 +79,13 @@ resolved.
 every reader, and the frame checks skip that tick — which is what their
 `continue` always meant.
 
+✔✔ **THE FIX IS MEASURED NOW (2026-09-04). The union at `5c320ebb5` reads
+**7,137 passed / 0 failed**, `cargo exit: 0` — the first fully green union this
+repository has recorded, and the framing test is in it. So the caveat below is
+DISCHARGED: `✔ Fixed` may be read as measured. ⛔ It was a mechanism argument for
+about a day, and the paragraph that said so is kept below rather than deleted,
+because the reason it was written is the reusable part.
+
 ⚠ **The WITHDRAWAL is confirmed; the FIX is not yet, and they are separable.**
 The premise is false whatever happens next — no fighter was ever outside a real
 frame — so there is nothing here to rule on either way. But the failing run was a

@@ -1806,6 +1806,19 @@ queue read as an execution authority for work already done.
   path came from your own walk; qualified where tolerance is real.
   ⇒ Recipe: `docs/recipes/checks-that-did-not-run.md`, *"And your OTHER WORK is
   part of that environment"*.
+  ✔✔ **AND THE CLEAN RE-RUN LANDED: 7,137 PASSED, 0 FAILED, `cargo exit: 0`,
+  179 test blocks, 42 ignored.** Measured 2026-09-04 at `5c320ebb5` with the same
+  82-entry union the `run_tests.py --list --run-everything-you-probably-dont-need-this`
+  command prints, `--no-fail-fast`, nothing else running on the machine, zero
+  `Too many open files` in the log. ⭐ **THE FIRST FULLY GREEN UNION THIS ROW HAS
+  EVER RECORDED.** The progression is 48 → 49 → 38 → 13 → 12 → 4 → **0**.
+  ⇒ It also settles what `awaiting-maintainer-decision.md` #50 could not: that
+  entry's `✔ Fixed rather than ruled on` was a MECHANISM ARGUMENT, flagged in
+  place as *"do not read `✔ Fixed` as measured"* because the failing run had been
+  a union-features run and no union had been taken on the fixed tree. One has
+  now, and the framing test is in it. ⛔ The WITHDRAWAL was always independent of
+  this — no fighter was ever outside a real frame — so this confirms the fix, not
+  the premise.
   ⊙ **CONFIRMED 2026-09-03: the union reads 7,019 passed / 12 failed**, and no
   system-parameter panic remains anywhere in it. The full progression is
   48 → 49 → 38 → 13 → **12**. ⚠ It was stated as an EXPECTATION until the run

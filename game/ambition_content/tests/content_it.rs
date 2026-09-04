@@ -31,3 +31,4 @@ mod intro_sprite_catalog;
 mod puppy_slug_forced_seat;
 mod summoned_minions_resolve;
 mod yarn_compile;
+mod yarn_condition_aliases;

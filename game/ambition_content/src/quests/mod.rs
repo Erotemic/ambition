@@ -16,14 +16,13 @@ pub struct AmbitionQuestContentPlugin;
 
 impl Plugin for AmbitionQuestContentPlugin {
     fn build(&self, app: &mut App) {
-        use ambition_platformer2d_shared_tangle::authored_logic::PublishCondition;
         let sim = app.sim_schedule();
         app.insert_resource(crate::quest::QuestRegistry::default());
         // ⭐ THE QUEST DOMAIN PUBLISHES ITS OWN QUESTION, from the plugin that
         // owns the roster and the pump. First condition published by the GAME
         // rather than an engine crate — the engine has no quest crate, and a
         // composition without Ambition's quests never sees the question.
-        app.publish_condition(conditions::active_descriptor(), conditions::active);
+        app.add_plugins(conditions::QuestConditionsPlugin);
 
         // Content quest progression, de-woven from the app's Progression chain
         // onto engine slots (E-track): the completion-reward grant hangs on the

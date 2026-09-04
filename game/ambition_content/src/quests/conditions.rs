@@ -79,6 +79,29 @@ pub fn active(world: &World, args: &[AuthoredArg]) -> ConditionOutcome {
     })
 }
 
+/// Publishes the quest domain's questions, and nothing else.
+///
+/// ⭐ SEPARATED FROM THE PUMP, mirroring `BossConditionsPlugin`. The publication
+/// is one line and the roster/progression systems are many, but they are
+/// different capabilities: a composition may want to ASK whether a quest is
+/// active without running the content quest pump — a dialogue test is exactly
+/// that composition, and so is any host that carries the save but not the
+/// progression schedule.
+///
+/// ⚠ THE REASON IS A SECOND-AUTHORITY ONE, not tidiness. While the publication
+/// lived inline in `AmbitionQuestContentPlugin::build`, anything that needed
+/// only the question had to re-derive it by calling `publish_condition` with
+/// `active_descriptor()` itself — a second place that decides what the quest
+/// domain publishes, which drifts the moment a second question is added.
+pub struct QuestConditionsPlugin;
+
+impl bevy::prelude::Plugin for QuestConditionsPlugin {
+    fn build(&self, app: &mut bevy::prelude::App) {
+        use ambition_platformer2d_shared_tangle::authored_logic::PublishCondition;
+        app.publish_condition(active_descriptor(), active);
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

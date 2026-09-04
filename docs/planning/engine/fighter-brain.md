@@ -1172,13 +1172,57 @@ it a defect rather than a tuning preference. From the shipped `.ron`: reaction
 0.0 → 0.2, frame advantage 0.30 → 0.50, kill potential 0.10 → 0.30. ⇒ Every knob
 moves toward "stronger", and the fighter deals *less* damage.
 
-⭐ **A hypothesis the numbers support but do not establish**, recorded so the next
-measurement has a target: rung 5 is the first rung with a non-zero `read_weight`
-and materially higher `frame_advantage`/`kill_potential` weights. All three reward
-WAITING — for a read, for a better frame situation, for a kill confirm. ⇒ A
-fighter that waits deals less damage per minute, and on a 60-second clock that
-reads as weakness. ⚠ Untested. The arm that would settle it is a rung-5 profile
-with `read_weight` alone reverted to 0.0.
+⛔⛔ **THE READ-WEIGHT HYPOTHESIS IS REFUTED, AND THE REFUTATION IS BIGGER THAN THE
+HYPOTHESIS.** I guessed rung 5's non-zero `read_weight` was making it patient and
+so weaker on a 60-second clock, and ran the arm: rung 5 with `read_weight` alone
+reverted to `0.0`, 24 seeds, against a matched control.
+
+⇒ **The two runs are BYTE-IDENTICAL.** `196% : 231%` dealt, identical survival
+strings, identical verdict. ⚠ Not "the change did not help" — the change did not
+*land*. That is the same signature as the flattened-ladder finding, and it means
+the knob never reached the fighter.
+
+⭐⭐ **IT NEVER REACHES ANY FIGHTER. `read_weight` IS INERT IN THE SHIPPED GAME.**
+The chain, each link checked:
+
+1. `read_weight` is authored on all nine shipped rungs, **0.0 rising to 0.9** — it
+   reads like one of the ladder's main difficulty axes.
+2. It has exactly two consumers. `HabitModel::read_bonus` has **no production
+   callers at all** — `git grep read_bonus` finds its definition and four lines in
+   its own test file. The other is `habits.read(situation)` at
+   `rollout.rs:802`, behind `if read_weight > 0.0`.
+3. That call is inside `refine_by_rollout`, which begins
+   `if !profile.uses_rollouts() { return None }` (`rollout.rs:995`).
+4. `uses_rollouts()` is `rollout_depth > 0 && rollout_k > 0`.
+5. The shipped ladder sets `rollout_depth: 0, rollout_k: 0` on **all nine rows**.
+
+⇒ So `read_weight` is read only through the rollout, and the shipped ladder
+disables the rollout everywhere. **Nine authored values, one of the ladder's five
+knobs, with no effect on the game.** ⭐ Proven three independent ways: the source
+chain above, the absence of any production caller, and a byte-identical
+measurement.
+
+⛔ **AND IT IS NOT FREE.** `state.habits.observe(...)` runs on every decision
+(`decision.rs:250`), and the model is serialized into **every rollback snapshot**
+(`snapshot_impls.rs:451`, with its own comment explaining why a rewind must
+restore it). ⇒ The shipped game pays per-tick observation and per-snapshot
+bandwidth to maintain an opponent model that nothing ever reads.
+
+⚠ **This also costs the `.ron`'s own precaution its justification.** Its comment
+says the rollout fields stay zero *"until rollout fidelity is good enough to
+enable them **without changing lower-level behavior**"* — but zeroing them already
+changed lower-level behaviour, by silently switching off the entire read/habit
+system. The comment was guarding against exactly the thing it caused, and nobody
+could see it because the knob it disabled is still authored, still populated, and
+still saved.
+
+⇒ **So the 5v3 inversion is still unexplained**, and its remaining candidates are
+the reflex knobs (reaction 400→300ms, APM 120→200, noise 0.30→0.20) and the
+utility weights (`frame_advantage` 0.30→0.50, `kill_potential` 0.10→0.30,
+`stage_risk` −0.30→−0.50, `expected_payoff` 0.10→0.30). ⭐ Those two groups are
+being split now by two arms that swap one group at a time onto rung 5 — the same
+design as the arm above, which is worth keeping precisely because it produced a
+byte-identical result and that result was the finding.
 
 ⭐ **The interaction with the roster finding is the interesting part.** D (George)
 shows the SAME direction at 5v3 — *LOWER outfights* — but within spread. ⇒ The

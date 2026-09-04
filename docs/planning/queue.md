@@ -2739,9 +2739,13 @@ queue read as an execution authority for work already done.
   `crates/ambition_combat/src/moveset/tests.rs`). ⇒ The `move_for_flat_verb`
   reasoning quoted here — *"hardcodes one derived stance and cannot express a
   pivot"* — described a seam the shipped implementation did not need.
-  ⭐ **So the costed list is 3 of 7 DONE, not 2 of 7 authoring**: the command grab
-  (taken today), the foxtrot / dash-dance and the pivots (both already shipped).
-  ⇒ The four that remain all genuinely need a seam:
+  ⭐ **So THREE ITEMS come off this row's list** — the command grab (taken today),
+  the foxtrot / dash-dance, and the pivots — leaving **nothing** under *authoring
+  alone*. ⚠ **Deliberately not restating this as "N of 7"**: this row and the
+  inventory's customer table enumerate differently (that table splits the pivot
+  into its `P06` and `P11` rows and does not carry `P14`'s finish-zoom), so a
+  single fraction spanning both is a number without a population. ⇒ What remains
+  HERE, and all of it genuinely needs a seam:
   `P11`'s **tether** — a grapple mechanic exists and nothing joins it to capture;
   `P11`'s **hit-grab** — nothing raises `CaptureAttemptRequested` from a landed
   hit; `P10`'s **tech result** — presentation only, because the AI half is

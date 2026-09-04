@@ -436,6 +436,7 @@ prepared while blocked, so none of it needs re-deriving:
 
 | # | command | what it settles | why this order |
 |---|---|---|---|
+| **0** | `scripts/setup/target_bindmount.sh --status` | ⭐ **whether a build can happen at all** — prints the repo's filesystem, whether `target/` is BOUND and to what, and its size, in six lines | `AGENTS.md` says to run it before the first build of every session. I did not, and re-derived its entire output by hand with `findmnt`, `stat`, `du` and `dd`. |
 | 1 | `cargo test -p ambition_demo_smash` | the three guards touched 2026-09-04, one of which (`the_side_special_...`) was restored WITHOUT ever being run | cheapest, and a red here invalidates reasoning below it |
 | 2 | `cargo test -p ambition_demo_smash_app` | the rig's own poison arms, including the row-level one | the instrument must be trusted before its output is |
 | 3 | `cargo run --release -p ambition_demo_smash_app --bin smash_tool -- ladder-rig --ladder game/ambition_content/assets/data/fighter_brain_ladder.ron --paired --seeds 12` | **the four held ladder cells** — `3 vs 1` and `5 vs 3` are UNCONFIRMED | the single biggest open question on the fighter surface |

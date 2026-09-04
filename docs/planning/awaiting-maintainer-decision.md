@@ -1878,6 +1878,14 @@ be fightable at all.
 ⭐⭐⭐ **NOW MEASURED PROPERLY, AND IT IS NOT CLOSE: at the SAME rung, on the
 shipped ladder and the shipped clock, George significantly outfights a stand-in.**
 
+⚠ **ON HOLD, and this row does not rest on it (2026-09-04).** *"Significantly"*
+here came from the rig, whose direction and qualifier were computed separately
+until `36dd9a248`; the cells have not been re-run and `median()` moved in the same
+pass, so the columns below are pre-fix too. ⇒ **The decision is carried by a source
+measurement instead** — George's unanswered presses are a strict SUBSET of the
+stand-ins', surplus exactly eight `special`s — which involves no bouts, no seeds
+and no statistics. Treat the table below as corroboration.
+
 | arm (rung 5 vs rung 5, paired, 12 seeds) | dealt | survival | verdict |
 |---|---|---|---|
 | **George vs Robot** | **318% : 199%** | 62.7s : 58.2s | ⭐ **higher outfights — SIGNIFICANT** |
@@ -1902,7 +1910,7 @@ The question could be asked and could not be answered.
 ⇒ **What it means for the three options above.** It does not choose one — that is
 still a design call — but it removes "the Robots are fine as they are" as a
 *measured* position. Anyone picking **(a) keep them thin** is now choosing a
-roster where the default character is significantly weaker than the alternative at
+roster where the default character is **measurably thinner** than the alternative at
 the same difficulty setting, which may be exactly right for sparring partners, but
 should be chosen rather than inherited.
 
@@ -2063,6 +2071,13 @@ is no axis.**
    ⇒ **No cell is significantly inverted, two cells improve, none regresses**, and
    the survival medians rise monotonically (85 → 101 → 116 → 122s) where the
    shipped ladder's top pair went backwards (85 → 98 → 114 → **113**).
+
+   ⚠ **Every *(significant)* / *(within spread)* label in this arm is ON HOLD** —
+   same instrument, same repair (`36dd9a248`), not re-run, and `median()` was
+   corrected with it so the survival medians quoted here are pre-fix as well.
+   ⇒ **This candidate ladder therefore has no confirmed advantage over the shipped
+   one**, and re-taking BOTH arms is what would settle it. ⓘ It is the cheapest
+   re-run to justify, because it is the one that would change what ships.
 
    ⛔ **What this does NOT settle, and it is the part that is yours.** Holding
    those two flat means **higher rungs no longer weight frame safety or move

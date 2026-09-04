@@ -1097,6 +1097,71 @@ because it had begun after the rollout shield model landed and would therefore
 have compared its unfought count against the 41 above across a behaviour change.
 A number is worth less than the confidence that it is comparable.
 
+### The Shield shadow model earns its place mechanically, not statistically (2026-09-04)
+
+`MovementVerb::Shield => ShadowIntent::Hold` in `rollout.rs` was added so the
+rollout stops returning `None` for a verb the fighter can actually pick. The
+question was whether it changes outcomes, and the answer is **no, not measurably.**
+
+⇒ Method: the paired scenario matrix before and after, compared cell by cell on
+the **14 cells present in both runs** — the post-fix run covers 14 of the 36, so
+this is a comparison on the intersection and not on the full matrix. One verdict
+moved (`projectile_camper 6 vs 5`, LOWER → HIGHER). ⚠ **And every one of the 14
+cells is `within spread` in both runs, including that one.** A single flip among
+14 within-spread cells is what noise looks like; it is not evidence the model
+helped, and it is equally not evidence it hurt.
+
+⇒ So the model stays, on the mechanical argument rather than this one: the
+alternative is a search that scores Shield as literally nothing, which is a
+*wrong* number rather than a missing one. ⭐ But note what the measurement costs
+it — the earlier plan to model `Dodge` next was resting on the Shield model
+proving its worth first, and it has not. Model `Dodge` because `None` is wrong
+for it too, or leave both; do not model it expecting a matrix to move.
+
+⚠ **And this whole comparison is floor-only**, like everything else at rung 6+ in
+this document: the rollout is the only consumer of `ShadowIntent`, and the section
+above shows the shipped ladder disables the rollout on all nine rows. The Shield
+model changes nothing a player meets. That is an argument for keeping it (it
+cannot regress the game) and against prioritising `Dodge`.
+
+### ⭐⭐ THE CLASS BEHIND THREE SEPARATE FINDINGS: the rig reads its config from anywhere but the shipped file
+
+Three findings in this document have the same shape, and it is worth naming
+because a fourth is otherwise inevitable.
+
+1. **The flattened ladder** — the rig overrode every rung with one weight set, so
+   36 cells were byte-identical and the "ladder" it measured had one rung.
+2. **The floor's reflex ladder** — with the override gone, the rig still read
+   `FighterBrainProfile::for_level`, not the authored rows, because the demo app
+   does not depend on `ambition_content`.
+3. **The rollout** — that same floor switches the L3 search ON at level 6, and the
+   shipped ladder switches it OFF on all nine rows.
+
+⇒ **The class: the instrument took its configuration from a DIFFERENT SOURCE than
+the shipped game, and only the instrument was ever read.** Every one of the three
+was invisible from inside the rig's own output, because the rig faithfully
+reported the thing it was actually running. Nothing was broken; the wrong subject
+was measured, confidently, for as long as anyone looked.
+
+⚠ **Why it kept recurring is the interesting part.** Each fix looked like it
+closed the question. Removing the override was supposed to make the rig measure
+the ladder — and it made the rig measure a *different* ladder. Every layer
+underneath the one just fixed still defaults, and a default is exactly what does
+not announce itself.
+
+⭐ **The general rule this earns:** *a measurement is not of the shipped system
+until it names the shipped file it read.* Not "we removed the override", not "the
+demo uses the same code" — the actual path, printed in the run's own header, so
+the claim and the evidence travel together.
+
+⇒ Which is what `--ladder PATH` now does. `report_which_ladder_is_in_play` prints
+whether `AuthoredFighterLadder` is installed, and a parse failure exits rather
+than falling back to the floor, so a run whose header says "the AUTHORED rows"
+cannot be a run that measured something else. ⚠ **That closes the reporting hole,
+not the class.** The rig still reads the stage, the fixture roster and the seat
+assignment from its own code; any of those can diverge from the shipped game the
+same way, and none of them prints a source path yet.
+
 ## Relationship to navigation/recovery architecture
 
 The reusable recovery probe and `RecoveryLens` are legitimate body-capability

@@ -65,12 +65,22 @@ LIVE CUSTOMERS (measured 2026-09-04).** The remaining eight families are not
 merely unpublished; several are already ANSWERED, by a second mechanism, to
 authored content that ships.
 
+⚠ **RE-TENSED 2026-09-04 LATE, by this file's own carve.** As written this
+paragraph said the mirror *carries* the boss and quest slices; the two migrations
+below deleted both, so the present tense went stale within hours of the sentence
+being true. Kept as history rather than removed — the argument is what makes the
+migrations legible, and *"re-tense, do not delete"* is the queue's own routine
+for exactly this.
+
 `ambition_dialog::YarnStateMirrorData` (`crates/ambition_dialog/src/bindings.rs:16`)
-carries `bosses_cleared`, `quests_active`, `visit_counts`, `wallet_balance` and
-`extras`, and `game/ambition_content/src/yarn_vocabulary.rs:408-443` binds
-`boss_cleared(id)`, `quest_active(id)`, `visit_count(id)`, `wallet_balance()` and
-`can_afford(price)` as bespoke Yarn functions over it. **Authored content calls
-them today** — `cove.yarn:3`, `cove.yarn:220`, `kernel.yarn:271`, `kernel.yarn:293`.
+**carried** `bosses_cleared` and `quests_active` — both now gone — alongside
+`visit_counts`, `wallet_balance` and `extras`, which remain. And
+`game/ambition_content/src/yarn_vocabulary.rs` **bound** `boss_cleared(id)`,
+`quest_active(id)`, `visit_count(id)`, `wallet_balance()` and `can_afford(price)`
+as bespoke Yarn functions over it; the first two are registered systems asking
+the catalog now, the last three still read the mirror. **Authored content called
+them then and calls them still, unchanged** — `cove.yarn:3`, `cove.yarn:220`,
+`kernel.yarn:271`, `kernel.yarn:293`.
 
 ⇒ **So this is the "second authority" shape, and BOTH modules already say so at
 the site.** `authored_conditions.rs`: *"facts already exposed through the

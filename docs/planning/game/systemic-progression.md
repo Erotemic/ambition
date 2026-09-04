@@ -65,14 +65,54 @@ may be body-owned.
 The ambiguity is part of the game design and should be represented explicitly,
 not hidden behind `PrimaryPlayer` flags.
 
+### ⭐ AND THE ENGINE RULED ON BODY-OWNERSHIP IN CODE, 2026-09-04
+
+The gap above is no longer only "unrepresented" — the route road now actively
+answers it in the body's favour, and a reader of this page should know that a
+decision has been taken on one axis while the vocabulary is still missing on the
+other.
+
+`body.can(verb)` and `body.fits(height)` asked *"any body holding `PlayerEntity`
+OR `DrivingParticipant`"* until 2026-09-04. Possession moves the seat OFF the
+home avatar and onto the target (`control/authority.rs:39-45`) while the home
+KEEPS `PlayerEntity` — so a wall gated on climbing opened on the strength of the
+body the player had left behind, and refused a possessed vessel that could climb.
+Both directions are fixed and pinned, and the production-path test drives the
+disagreement through an authored `GatedLockWall`.
+
+⇒ **The ruling, in this page's own vocabulary: NOTHING TRANSFERS. A route asks
+the body a participant is DRIVING.** That answers *"what survives leaving a
+possessed body"* **for routes** — nothing, because the route never asked about
+the participant. ⚠ It does NOT answer it for progression: whether a participant
+carries anything across bodies is the other side of the gap above, and is still
+unrepresentable.
+
+⛔⛔ **AND THE CO-OP QUESTION BELOW IS NOW LIVE RATHER THAN HYPOTHETICAL —
+filed as `awaiting-maintainer-decision.md` #54.** The predicate falls back to an
+existential over every `DrivingParticipant` holder, so with two seats **a wall
+gated on `body.can wall_climb` opens when EITHER driver can climb**, and the seat
+that cannot walks through a wall its own body never satisfied. The code answers
+"the party", by default, today.
+⚠ The per-BODY answer is not a predicate change: `gate_solids` is one
+`Vec<Block>` on one overlay read by body collision, projectiles and rendering
+alike, so a wall that stands for one player and not another is a mechanism
+change. ⇒ Which makes this page's *"do not flatten all progression into the
+participant permanently owns ability X"* pressure concrete: the flattening
+already happened for co-op, in the direction of the PARTY, and it happened
+because nobody chose.
+
 ## Open design questions — deliberately unresolved
 
 - Which flagship theorem abilities are participant knowledge versus body
   capability?
-- What survives leaving/dying/abandoning a possessed body?
+- ◐ What survives leaving/dying/abandoning a possessed body? **Answered for
+  ROUTES 2026-09-04 — nothing does; a route asks the driven body.** Open for
+  progression.
+- ⛔ How should co-op handle asymmetric capabilities and temporary separation?
+  **LIVE, not hypothetical — filed as awaiting-maintainer-decision #54.** The
+  code answers "the party" today, by an existential nobody chose.
 - Can a physical item be required for traversal even after its underlying
   entitlement was discovered?
-- How should co-op handle asymmetric capabilities and temporary separation?
 - How much sequence breaking is desirable?
 - Which social/knowledge gates should AI/navigation treat as potentially
   resolvable versus hard blockers?

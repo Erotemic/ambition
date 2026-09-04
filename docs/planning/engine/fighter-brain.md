@@ -1074,6 +1074,23 @@ positions are *literally the same coordinates*, because
 | cells containing an unfought bout | 1 / 36 | **11 / 36** |
 | unfought bouts (of 540) | 3 | **41** |
 
+⛔⛔ **AND THE CLOCK MAKES THIS TABLE SUSPECT IN A SPECIFIC, NAMED WAY — it is
+being re-run.** Every number above was taken at **60 seconds**, and the shipped
+match is **480**. ⚠ The two headline metrics are exactly the ones a short clock
+distorts: *stocks LEFT* and *unfought bouts* both measure **how much has happened
+by the buzzer**, not what the stage does to a fight.
+
+⇒ **The alternative reading the current data cannot exclude: the tiers do not
+halve the lethality, they SLOW THE APPROACH.** If platforms make fighters take
+longer to close, then at 60 seconds they will show more stocks left and more
+unfought bouts *even if a full match ends identically*. ⭐ Those two hypotheses
+predict the same 60-second table and different 480-second ones, which is what the
+re-run tests.
+
+⇒ Both stages are running again at the shipped clock. Until then, read the table
+below as **"what the tiers do to the first eighth of a match"**, which is a real
+thing to know and is not what its heading claims.
+
 ⇒ **The tiers roughly halve the lethality.** Fighters end with more than twice
 the stocks and carry a quarter less damage, and the rate at which a 60-second
 bout ends with NEITHER fighter landing a hit goes from 3 in 540 to 41.

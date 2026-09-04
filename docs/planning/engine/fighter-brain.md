@@ -1378,6 +1378,33 @@ difficulty. That is the open question in
 [`../awaiting-maintainer-decision.md`](../awaiting-maintainer-decision.md), and a
 180-second arm is running against it now.
 
+### ⭐⭐ CANDIDATE FIXES, MEASURED — and halving the rise does nothing at all
+
+Three settings for rung 5's `frame_advantage` / `expected_payoff` at the shipped
+clock, 16 seeds paired, everything else untouched:
+
+| rung 5's pair | dealt (5 : 3) | verdict |
+|---|---|---|
+| **0.50 / 0.30** *(shipped)* | 306% : 360% | ⛔ **LOWER outfights** |
+| 0.40 / 0.20 *(halve the rise)* | 300% : 362% | ⛔ **LOWER outfights** |
+| **0.30 / 0.10** *(rung 3's values)* | **336% : 313%** | ✔ **higher outfights** *(within spread)* |
+
+⇒ **The middle row is the informative one.** Halving the increase leaves the cell
+as inverted as the shipped value — `300% : 362%` against `306% : 360%`, which is
+no movement at all. ⭐ So this is not a magnitude the ladder overshot and could
+dial back; **any** rise in the pair between rungs 3 and 5 appears to cost more
+than the reflex improvement buys.
+
+⚠ **Which does not mean "set them flat".** The winning row lands *within spread*,
+so it says the inversion is gone, not that rung 5 is now correctly stronger. And
+nothing here tests rungs 6–9, which carry the same rise and further.
+
+⭐ **What it does establish is that rung 5 is not flattened by the fix.** With the
+pair held at rung 3's values, rung 5 still differs on reaction (300ms vs 400), APM
+cap (200 vs 120), execution noise (0.20 vs 0.30), `kill_potential` and
+`stage_risk` — and it wins. ⇒ The reflex ladder works; it was being cancelled by
+the weight ladder.
+
 ### ⭐⭐ AND THE MECHANISM IS IN THE SOURCE, arrived at independently of the measurement
 
 I found the pair by measurement and only then read what those two features are.

@@ -154,7 +154,21 @@ use crate::content_identity::SnapshotSchemaFingerprint;
 /// formerly a `HeldProjectile` flag) — one more f32 in every encoded
 /// projectile. Layout AND value change: a peer on v149 has an entry this one
 /// lacks and decodes a projectile four bytes short.
-pub const GGRS_ROLLBACK_SCHEMA_VERSION: u32 = 150;
+/// ⛔ v151: `portal.owned_gun_pair` JOINS THE SNAPSHOT LAYOUT. `OwnedPortalGunPair`
+/// became rollback-registered at `cf3ee3953`, so the layout gained an entry: a
+/// peer without it saves and restores a world one component short, and a load
+/// puts the two hosts in different states even though every checksum they
+/// compare still agrees.
+/// ⚠ NOT a checksum change, and the distinction matters — `rollback_component_clone_probed`
+/// records `RollbackEntryKind::ComponentClone`, the same kind as a bare clone,
+/// and its own note says *"value-probed for localization, not in the session
+/// checksum"*. The probe is a DESYNC-LOCALIZATION aid; what obliges this bump is
+/// the entry, not the projection.
+/// ⚠ The entry landed at `bf8cbadb4` with the txt baseline updated and this
+/// constant left at 150, and the guard that says so —
+/// `rollback-wire-format-changes-are-declared` — could not run at all, because a
+/// stale sentinel `Cargo.lock` was crashing the checker before it reported.
+pub const GGRS_ROLLBACK_SCHEMA_VERSION: u32 = 151;
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq, Ord, PartialOrd, Hash)]
 pub enum RollbackEntryKind {

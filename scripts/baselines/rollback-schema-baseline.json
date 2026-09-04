@@ -346,6 +346,7 @@
     "portal.emission",
     "portal.gun",
     "portal.gun_pickup",
+    "portal.owned_gun_pair",
     "portal.placed",
     "portal.policy",
     "portal.shot",

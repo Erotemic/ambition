@@ -37,6 +37,35 @@ from pathlib import Path
 # assertion INSIDE the allowed file rather than renaming it back.
 ABSENCE_CONTRACTS: list[dict] = [
     {
+        "id": "a-production-condition-states-why-it-said-no",
+        "paths": ["crates/*/src", "game/*/src", "examples/*/src"],
+        "patterns": [
+            {
+                "grep": r"from_bool_unexplained",
+                # The definition site declares it; every other mention CALLS it.
+                "match": r"(?<!fn )from_bool_unexplained",
+            }
+        ],
+        "reason": (
+            "A CONDITION THAT ANSWERS 'NO' MUST SAY WHY, and that is a product "
+            "requirement rather than polish -- M5 of "
+            "`engine/authored-gameplay-logic-and-orchestration.md`, restated in "
+            "`engine/inspection-diagnostics-and-workbench.md` as structured "
+            "'why not' explanation. `ConditionOutcome::NotSatisfied(WhyNot { term, "
+            "subject, observed })` is the vocabulary; `from_bool_unexplained` is "
+            "the fixture arm, and its own doc says so: 'FIXTURES ONLY: a "
+            "production evaluator that reaches for this has a why-not it is not "
+            "stating, and the grep for this name is the list of them.' "
+            "That sentence described a grep somebody had to remember to run. It "
+            "is a contract now. "
+            "The failure it prevents is the hardest thing in a level to diagnose "
+            "from outside: a gated wall that will not open, with nothing said "
+            "about which term blocked it or what the domain saw. Seven published "
+            "conditions across four domains state one today; the eighth is where "
+            "a convention kept by hand stops being kept."
+        ),
+    },
+    {
         "id": "the-two-move-drivers-do-not-author-their-own-presses",
         "paths": [
             "game/ambition_app_tools/src/bin/moveset_takes.rs",

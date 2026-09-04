@@ -185,10 +185,23 @@ combat itself — `ambition_mount` — and to a `SystemSet` rather than a system
 itself in `Settle`, so pinning the parent would be a cycle — this is the shape
 only a nested set can express."* Published vocabulary in exactly the sense
 `ProgressionSet` is.
-⚠ **That is one check passing, not a sizing.** `combat_schedule.rs` is ~500 lines
-and installs a great deal; the count of what would move is not the count of what
-is entangled, and combat's share of the 40 `init_resource` calls has not been
-measured. ⇒ Worth knowing that combat is not the hard one; not yet a packet.
+⚠ **That is one check passing, and the sizing it needed says NOT YET.** Measured
+2026-09-04: `combat_schedule.rs` names `ambition_combat::` 36 times — and also
+`ambition_mount::` 12 times, `ambition_sprite_sheet::` 4, `ambition_projectiles::`
+2, `ambition_damage::` 2 and `ambition_vfx::` 1, plus one `configure_sets` that
+must stay with the host. Three of the 36 `init_resource` calls are combat's.
+
+⇒ **It is not combat's schedule; it is a schedule six capabilities share.** So
+"install combat" is not "move 36 lines into a plugin" — it is deciding what the
+other 26 belong to, and the largest of those is the mount block that FAILS the
+ordering check. Boss encounters were 14 references in one contiguous block with
+one owner, which is why that one was a two-hour packet and this is not.
+
+⭐ **SO THE SIZING RULE HAS A SECOND QUESTION, and combat is what taught it:**
+after "do this capability's ordering edges name only published sets", ask **"is
+the schedule file this capability's, or does it install several?"** The first can
+pass while the second fails, and a candidate that clears only the first looks
+ready and is not.
 ⚠ **The mount edge that FAILS is a different edge from the one that passes**, and
 conflating them would lose both findings: combat's `.after` names a SET, while
 the runtime separately CHAINS `ambition_mount::enforce_mount_rider_link` with the

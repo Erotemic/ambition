@@ -774,3 +774,55 @@ scoped to *"author-time tools … provider/engine inputs"*, and these are
 measurement instruments for one demo. The fix that matches how they are reached is
 a line in the page that plans the work — which is what naming
 `select-walkthrough` in checkpoint 3 did.
+
+---
+
+## ⭐⭐ WHAT 2026-09-04 TAUGHT ABOUT MEASURING THIS FIGHTER — six findings, one shape
+
+Recorded together because they are not six coincidences. **Every one is an
+instrument answering a different question than the one asked, and none was
+visible in its output.**
+
+| # | the instrument | the question it actually answered |
+|---|---|---|
+| 1 | `ladder_rig::report_row` | direction from POOLED medians, significance from a PAIRED sign test — a row could print `LOWER` unqualified while its own evidence favoured `HIGHER` |
+| 2 | `median()` | the upper-middle order statistic, on runs that are even-sized by construction |
+| 3 | `capture-probe`'s census | the top 12 moves, on a fighter that uses exactly 12 — a thirteenth was dropped silently |
+| 4 | `match-report`'s census | the same truncation, in a sibling tool |
+| 5 | `match-report`'s configuration | the ENGINE FLOOR — no ladder, level 5/5 — while the page that recommends it asks about the shipped game |
+| 6 | the rig's column header | a decision rule that had been replaced |
+
+⇒ **The general guard, and it is cheap: an instrument prints its own configuration
+before its first number.** The repo already argued for it, in a tool that has no
+ladder and is fine *because it says so*: *"a calibration table that does not name
+its ladder is worse than no ladder."* ⭐ Declaring the configuration is what
+separates an honest floor measurement from a misleading one — **not having the
+flag.**
+
+**Four habits that found these, in the order they paid:**
+
+1. ⭐ **Check the instrument before trusting its answer, and BEFORE designing a
+   test around it.** Finding (3) came from verifying the census behind an
+   acceptance criterion I had just written — the tool would have hidden the fix
+   working, and the arm would have read as a negative result.
+2. ⭐ **Make a partition sum to its whole.** *"19 movesets — 14 directly, the rest
+   derived"* and the rest was 4. 14 + 4 = 18. The missing one was a real exception
+   to a claim I had already published; `grep -rl` counts FILES, and one file held
+   two functions.
+3. ⭐ **Two contradicting sources are evidence about neither.** A source comment
+   said a CPU could not pick up an item; a planning row said the carve shipped.
+   ⇒ Neither smelled wrong — the SIGNATURE settled it in one grep, and it was the
+   comment that had rotted. ⚠ Staleness runs both ways; assuming the doc lags the
+   code is a habit, not a rule.
+4. ⭐ **A question parked behind a build may be decidable from the TYPE.** *"Do the
+   composed fighters have full kits"* sat open behind a test needing a running
+   registry. `SmashRepertoire` has nineteen fields and no `Option`s — the struct
+   will not compile without every slot. **Measuring instances of a property a type
+   enforces is measuring the compiler.**
+
+⚠ **And the one that cost the most: a stolen `#[test]`.** Inserting a test between
+an existing test's doc block and its function body leaves the old attribute on the
+NEW function; the displaced one becomes dead code wearing a test's name. Two of
+mine were dead for a day — one guarding the exact claim published above it — and
+the suite stayed green. ⇒ Walk back from every `fn` over docs and attributes and
+count the `#[test]`s; anything but exactly one is a bug.

@@ -1045,10 +1045,20 @@ fn every_live_fighter_stays_inside_the_frame() {
                     (
                         resolved.snapshot.center_world,
                         resolved.snapshot.visible_view,
+                        // ⭐ WHAT THE CAMERA IS ACTUALLY FOLLOWING, because
+                        // "the frame is in the wrong place" and "the frame is
+                        // correctly around the wrong body" are different bugs
+                        // and the centre alone cannot tell them apart. This
+                        // failure reports a centre of (0,0) with both fighters
+                        // at y≈204; if `follow_world` is also the origin then
+                        // the camera is faithfully framing a body that is AT
+                        // the origin, and the defect is upstream in placement
+                        // rather than in the camera.
+                        resolved.follow_world,
                     )
                 })
         };
-        let Some((center, visible)) = view else {
+        let Some((center, visible, follow)) = view else {
             continue;
         };
         let world = app.world_mut();
@@ -1073,8 +1083,8 @@ fn every_live_fighter_stays_inside_the_frame() {
                 if escaped.len() < 8 {
                     escaped.push(format!(
                         "  t{tick} seat {seat} at ({:.0},{:.0}) is {over:.0} units outside a \
-                         {:.0}x{:.0} frame centred ({:.0},{:.0})",
-                        pos.x, pos.y, visible.x, visible.y, center.x, center.y
+                         {:.0}x{:.0} frame centred ({:.0},{:.0}), following ({:.0},{:.0})",
+                        pos.x, pos.y, visible.x, visible.y, center.x, center.y, follow.x, follow.y
                     ));
                 }
             }

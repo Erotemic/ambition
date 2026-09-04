@@ -184,13 +184,21 @@ pub fn run(cli: LadderRigArgs) {
         // LEFT in the header, where the reader is.
         "[ladder_rig] higher vs lower   survived(hi:lo)   stocks LEFT(hi:lo)   dealt%(hi:lo)   peak%(hi:lo)   \
          verdict = who OUTFOUGHT: stocks taken, then damage dealt   \
-         (median of {seeds} seeds, {}s each)",
-        TICKS / 60
+         (median of {seeds} seeds, {}s each, {})",
+        TICKS / 60,
+        // The design belongs in EVERY table's header, not just the scenario
+        // one. This mode had no such line while `--paired` silently did nothing
+        // here, so a reader had two reasons to be misled and no way to see either.
+        if args().paired {
+            "PAIRED — each seed run twice with the rungs swapped between seats"
+        } else {
+            "unpaired"
+        }
     );
     for pair in RUNGS.windows(2) {
         let (lower, higher) = (pair[0], pair[1]);
         let bouts: Vec<Bout> = (0..seeds)
-            .map(|seed| run_bout(higher, lower, seed as u64))
+            .flat_map(|seed| bouts_for_seed(higher, lower, seed as u64, None))
             .collect();
         report(higher, lower, &bouts);
     }
@@ -527,22 +535,7 @@ fn run_scenarios(seeds: usize) {
         for pair in RUNGS.windows(2) {
             let (lower, higher) = (pair[0], pair[1]);
             let bouts: Vec<Bout> = (0..seeds)
-                .flat_map(|seed| {
-                    let straight = run_bout_at(higher, lower, seed as u64, Some(scenario.clone()));
-                    if !args().paired {
-                        return vec![straight];
-                    }
-                    // ⛔ THE SAME SEED, THE ROLES SWAPPED, AND THE RESULT PUT
-                    // BACK THE RIGHT WAY ROUND. `run_bout_at(lower, higher, ..)`
-                    // seats the LOWER rung where the fixture puts SELF, so its
-                    // seat-0 reading is the lower rung's — `mirrored` swaps the
-                    // pair back so every `[0]` in this vector still means "the
-                    // higher rung". Reporting the raw mirror would silently
-                    // average each rung with the other one.
-                    let swapped =
-                        run_bout_at(lower, higher, seed as u64, Some(scenario.clone()));
-                    vec![straight, swapped.mirrored()]
-                })
+                .flat_map(|seed| bouts_for_seed(higher, lower, seed as u64, Some(scenario)))
                 .collect();
             report_row(
                 &format!("{:<18} {higher:>2} vs {lower:<2}", scenario.name),
@@ -587,7 +580,7 @@ fn run_sweep_below(seeds: usize) {
     // nine rows of a fixture that never applied.
     for below in RUNGS.iter().copied() {
         let bouts: Vec<Bout> = (0..seeds)
-            .map(|seed| run_bout_at(below, PARTNER, seed as u64, Some(scenario.clone())))
+            .flat_map(|seed| bouts_for_seed(below, PARTNER, seed as u64, Some(&scenario)))
             .collect();
         report_row(
             &format!("{:<18} {below:>2} vs {PARTNER:<2}", "recovery_below"),
@@ -742,7 +735,25 @@ fn report_row(label: &str, bouts: &[Bout]) {
     // pair and cancels in the difference, while a pooled median still carries it.
     // Testing pooled medians on paired data would spend the extra bouts and keep
     // the variance that made every cell `(within spread)`.
-    let overlaps = if args().paired {
+    // ⛔⛔ AND IT REFUSES DATA THAT IS NOT ACTUALLY PAIRED. When `--paired` was a
+    // no-op in the ladder mode, this branch still ran: `chunks_exact(2)` over an
+    // ODD, unpaired vector formed one chunk (or none), the "range" of a single
+    // difference is zero, and `|mid| < 0.5 * 0` is false for every row — so every
+    // verdict printed WITHOUT its `(within spread)` qualifier and the table
+    // looked decisive everywhere. A significance test that reports significance
+    // when its input is malformed is worse than no test, so the shape is checked
+    // rather than assumed.
+    let properly_paired = args().paired && bouts.len() >= 4 && bouts.len() % 2 == 0;
+    if args().paired && !properly_paired {
+        println!(
+            "[ladder_rig] ⛔ {label}: --paired asked for, but this row has {} bout(s) \
+             — not an even number of at least two pairs. Falling back to the \
+             unpaired spread test rather than testing a difference that does not \
+             exist.",
+            bouts.len()
+        );
+    }
+    let overlaps = if properly_paired {
         let diffs: Vec<f32> = bouts
             .chunks_exact(2)
             .map(|pair| {
@@ -815,6 +826,34 @@ fn report_row(label: &str, bouts: &[Bout]) {
         hi_peak * 100.0,
         lo_peak * 100.0
     );
+}
+
+/// Every bout one seed contributes, honouring `--paired`.
+///
+/// ⛔⛔ **THIS EXISTS BECAUSE `--paired` WAS WIRED INTO ONE OF THE THREE MODES AND
+/// SILENTLY DID NOTHING IN THE OTHERS.** The scenarios loop paired; the ladder
+/// and below-sweep loops kept calling `run_bout` once per seed. A `--paired`
+/// ladder run therefore produced numbers IDENTICAL to an unpaired one — which is
+/// how it was caught, by running both and diffing — while the header claimed a
+/// design it had not used. One function now owns "a seed becomes these bouts",
+/// so a mode added later cannot forget.
+fn bouts_for_seed(
+    higher: u8,
+    lower: u8,
+    seed: u64,
+    start: Option<&ambition_platformer2d::combat::brain::fighter::scenarios::Scenario>,
+) -> Vec<Bout> {
+    let straight = run_bout_at(higher, lower, seed, start.cloned());
+    if !args().paired {
+        return vec![straight];
+    }
+    // ⛔ THE SAME SEED, THE ROLES SWAPPED, AND THE RESULT PUT BACK THE RIGHT WAY
+    // ROUND. `run_bout_at(lower, higher, ..)` seats the LOWER rung where the
+    // fixture puts SELF, so `mirrored` swaps the pair back and every `[0]` below
+    // still means "the higher rung". Reporting the raw mirror would average each
+    // rung with the other one.
+    let swapped = run_bout_at(lower, higher, seed, start.cloned());
+    vec![straight, swapped.mirrored()]
 }
 
 impl Bout {

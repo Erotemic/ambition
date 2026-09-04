@@ -2000,6 +2000,40 @@ evidence that naming the class was worth doing.
    fighters. ⭐ Fixed by reading the demo's own constant instead of choosing a
    number, which is the whole rule in one line.
 
+⭐⭐⭐ **AND THE FIVE ARE ONE ROOT CAUSE, NAMED LATE: `profile_for_level` IS A
+FORK — two authorities answering "what does rung N mean", both shipping.**
+
+```rust
+pub fn profile_for_level(level: u8, ladder: Option<&FighterBrainLadder>) -> FighterBrainProfile {
+    ladder.and_then(|l| l.level(level)).cloned()
+        .unwrap_or_else(|| FighterBrainProfile::for_level(level))
+}
+```
+
+⇒ The authored `.ron` answers it when a composition installs one; the engine floor
+answers it when none does. **Both answers ship, and nothing at the call site says
+which one you got.** ⭐ Its own doc even records the shape — *"a rule about which
+of two sources wins cannot be enforced by the source that loses"* — which is a
+statement that this IS the arbitration, not that there is only one authority.
+
+⇒ **Divergences 1 through 4 below are not four accidents; they are four symptoms
+of that fork.** Flattened weights, floor-not-ron, rollout-on-at-6, and the
+`UtilityWeights::default()` that IS the level-9 row — every one is *the losing
+authority answered and looked plausible*. ⚠ Only #5, the clock, is independent.
+
+⭐ **Which reframes the ownership question already with Jon** (`awaiting-maintainer-decision.md`):
+it is not really *"who owns the difficulty ladder"* but **"which of these two
+authorities should exist"** — and the repo's own principle elsewhere is *one
+authority per question*. ⇒ A fallback that silently substitutes a different
+answer is the thing that made five findings possible; a composition that must
+supply a ladder, or a floor that refuses rather than substitutes, would have made
+all four impossible rather than findable.
+
+⚠ **Not proposing the removal here.** The floor exists so a demo with no authored
+content still runs, which is a real requirement — the point is that the cost of
+that convenience is now measured, and it is four defects that each took a day's
+instrument work to see.
+
 ⇒ **The class: the instrument took its configuration from a DIFFERENT SOURCE than
 the shipped game, and only the instrument was ever read.** Every one of the five
 was invisible from inside the rig's own output, because the rig faithfully

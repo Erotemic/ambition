@@ -172,3 +172,61 @@ fn a_shipped_ladder_beats_the_engine_floor() {
         "an unauthored level falls back to the floor"
     );
 }
+
+/// ⭐⭐ THE FORK, PINNED: the two authorities disagree, and nothing at the call
+/// site says which one answered.
+///
+/// ⛔ `profile_for_level` is `ladder.level(n)` else `FighterBrainProfile::for_level(n)`
+/// — **two answers to "what does rung N mean", both shipping.** A composition that
+/// installs an `AuthoredFighterLadder` gets the game's rows; one that does not
+/// gets the floor, silently, with a profile that looks exactly as authoritative.
+///
+/// ⇒ **Four separate defects on 2026-09-04 were symptoms of this one fork**
+/// (`docs/planning/engine/fighter-brain.md`): a rig measured the floor's weights
+/// while its header claimed the authored ladder; `UtilityWeights::default()` turned
+/// out to BE the level-9 row so every rung scored identically; the floor arms the
+/// L3 rollout at level 6 while the shipped rows disable it everywhere; and the
+/// rollout's `Dodge`/`Shield` suppression was characterised at length before
+/// anyone noticed no player could reach it.
+///
+/// ⚠ **This test does not argue the floor should go.** It exists so the DISAGREEMENT
+/// is a fact in the test suite rather than a discovery each time: the floor is a
+/// real requirement (a demo with no authored content still runs), and its cost is
+/// that a caller cannot tell which authority answered.
+#[test]
+fn the_floor_and_an_authored_ladder_disagree_and_the_caller_cannot_tell() {
+    // ⭐ The module's own fixture ladder, which mirrors the shipped one on the
+    // field that caused the most trouble: `rollout_depth: 0` on every rung.
+    // Using it rather than a hand-built row keeps this test honest if the
+    // fixture is ever retuned.
+    let ladder = ladder();
+    let floor = profile_for_level(6, None);
+    let shipped = profile_for_level(6, Some(&ladder));
+
+    // ⛔ The floor arms the L3 rollout at level 6. The authored row does not.
+    assert!(
+        floor.uses_rollouts(),
+        "the floor stopped arming the rollout at level 6 — if that is deliberate, \
+         this test and the four findings it records need re-deriving, because \
+         they all turn on the floor and the shipped rows disagreeing HERE"
+    );
+    assert!(
+        !shipped.uses_rollouts(),
+        "the authored row's zeroed rollout fields did not survive the lookup"
+    );
+    assert_ne!(
+        floor, shipped,
+        "the two authorities agreed, which would make this fork harmless — and \
+         if they now agree by construction, the four findings this test records \
+         are no longer reachable and it should be deleted rather than kept"
+    );
+
+    // ⭐ THE POINT: both are `FighterBrainProfile` and carry no provenance. A
+    // caller holding one cannot ask which authority produced it, which is why
+    // every one of those four findings needed an instrument change to see.
+    assert_eq!(
+        floor.level, shipped.level,
+        "both answers claim the same rung — that is the whole hazard, and if the \
+         level ever disagreed a caller would at least have a signal"
+    );
+}

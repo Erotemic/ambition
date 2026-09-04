@@ -163,11 +163,20 @@ this row was right and the doubling took a single day**, which is a stronger
 argument for the habit than the original measurement was.
 
 ⭐ **And I supplied one of the instances myself, which is the useful part.** A
-citation I wrote on 2026-09-04 — `snapshot_impls.rs:451` — was flagged AMBIGUOUS
+citation I wrote on 2026-09-04 — `snapshot_impls.rs:451` <!-- cite-ok: this row's
+subject IS the ambiguous citation --> — was flagged AMBIGUOUS
 by the checker against **twelve** tracked files with that name, and I only learned
 because the checker said so. ⇒ The guard is doing its job and the habit is what is
 missing: I knew this row existed, had written it, and still typed a bare filename
-the next day. Repointed to the crate-qualified path. ⇒ **In planning prose, cite a crate-qualified path** —
+the next day. Repointed to the crate-qualified path.
+
+⭐⭐ **AND IT HAPPENED A THIRD TIME, INSIDE THIS PARAGRAPH.** Quoting the bad
+citation above created a fresh ambiguous citation, which the checker flagged on
+the very next run — so the row about decaying filenames decayed the moment it
+described itself. ⇒ Marked `cite-ok`, which is exactly what that marker is for
+(*"a row quoting a mistake it is recording"*), and left visible because **three
+instances in two days by the person who wrote the warning** is the strongest
+evidence available that this is a habit problem and not a knowledge one. ⇒ **In planning prose, cite a crate-qualified path** —
 `crates/<crate>/src/systems.rs:177`, which the checker resolves unambiguously —
 and treat a bare filename as a citation with a shelf life. That is a HABIT, not
 a check: the guard exists and is already doing its job.

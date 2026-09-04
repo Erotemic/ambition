@@ -1,5 +1,16 @@
 # Dialogue continuity — a conversation is sustained, not modal
 
+> **Verified against `ef2c4bd50` (2026-09-04).** Four claims re-derived from the
+> code, not re-read from this page: `crates/ambition_conversation/src/rules.rs:32` is still the `let [a, b] =
+> participants.as_slice()` let-else that guards multi-participant;
+> `can_hold_station(&AbilitySet, grounded: bool)` is still at
+> `ambition_platformer2d_core/src/abilities.rs:177`; the break predicate still
+> reads `strict_intersects` on the two bodies' own AABBs (`crates/ambition_conversation/src/rules.rs:52`); and
+> `ConversationCutBark { speaker: *b }` still names the second participant
+> (`crates/ambition_conversation/src/rules.rs:67`). ⚠ The planning README's drift list still names this file, from
+> a sweep taken BEFORE its 2026-09-02 repair — the file is current; that entry is
+> not.
+
 **Jon, 2026-08-06, verbatim:**
 
 > "I think I do want time to not stop when you are in dialog. So if you get hit

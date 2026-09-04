@@ -1,8 +1,23 @@
 # Construction and reconstitution
 
-**State:** OPEN — the four rebuild paths agree on the population they produce;
-durable restore reaches that agreement by building and then correcting, which is
-a shape worth removing rather than a defect.
+**State:** OPEN — the four rebuild paths agree on the population they produce,
+and durable restore reaches that agreement by CONSTRUCTION rather than
+correction. C1–C4 are closed; C5 waits on a real transport customer.
+
+> **Verified against `ef2c4bd50` (2026-09-04), and this header was WRONG.** It
+> still said durable restore "reaches that agreement by building and then
+> correcting, which is a shape worth removing" — the state C3 closed on
+> 2026-08-31 and recorded in this file on 2026-09-02. A reader arriving at the
+> top learned the opposite of what the file's own closed row says, and the
+> roadmap's P1 section had already moved. Re-derived rather than re-read:
+> `adopt_the_occurrence_ledger_at_activation` is at
+> `crates/ambition_platformer2d_actor_monolith/src/session/durable_horizon.rs:85`,
+> and its every-frame guard
+> `a_load_never_authors_the_occurrence_it_is_about_to_suppress` is at
+> `game/ambition_app/tests/canonical_reconstitution.rs:959`.
+> ⭐ **The lesson is the one this file's own C3 row already contains: closing a
+> row is not finishing it.** A `State:` line is a claim like any other, and a
+> receipt written into the body leaves the summary above it stale.
 
 ## Goal
 

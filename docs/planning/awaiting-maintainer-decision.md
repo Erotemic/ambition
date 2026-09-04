@@ -145,11 +145,48 @@ deliberately, because the union is what makes a snapshot exist at `t3`, not what
 puts something at the origin. A probe under the union features is running to close
 that gap.
 
-⇒ **So the question re-opens, and in a more interesting place**: `follow_world`
-reports `(0,0)` while nothing in the world is at `(0,0)`. That is not a camera
-following an unplaced body — it is a follow point that corresponds to nothing. ⛔
-Which brings `camera_snapshot.rs:908`'s contract back into scope after I had ruled
-it out.
+⇒ **And that reopened it in the right place.** `follow_world` reports `(0,0)`
+while nothing in the world is at `(0,0)` — not a camera following an unplaced
+body, but a follow point corresponding to nothing.
+
+⭐⭐⭐ **SOLVED — the failing frame is the component's `Default`, verbatim.** Four
+checked facts, and the last one is the proof:
+
+1. `local_view_facts()` (production, `camera_snapshot.rs:1712`) puts
+   `ResolvedCameraSnapshot::default()` on every view at spawn. Its comment: *"a
+   reader must never see a frame where the view exists and its state does not."*
+2. `CameraSnapshot2d::default()` is `center_world: Vec2::ZERO` with
+   `visible_view: default_base_view()`.
+3. The resolver at `camera_snapshot.rs:1567` is the **only** production writer,
+   and it `return`s without writing when the cast is unresolvable — honouring
+   *"callers must not invent a world-origin fallback"* by staying silent.
+4. ⭐ **`default_base_view()` carries a comment reading *"the default moved to
+   `Duel` (568x320) on 2026-09-03"*.** ⇒ The failure reports a **568x320 frame
+   centred (0,0)** — that is not a camera that resolved badly, it is the Default
+   with its own dimensions, and the 800x450 in the original report is simply the
+   PREVIOUS default. ⚠ That also explains the frame-size change I first mistook
+   for instability: the default changed, not the camera.
+
+⛔⛔ **So two individually correct decisions compose into the behaviour the
+contract forbids.** The resolver refuses to invent an origin — correctly. The
+bundle guarantees a snapshot always exists — also reasonable. Between them, a
+reader gets a snapshot that is syntactically present and semantically a lie: a
+real-looking frame, at the world origin, containing nobody. ⇒ Nobody wrote the
+fallback; it fell out of `Default`.
+
+⚠ **Why `t3` and only `t3`**: bodies first exist at `t3` (the probe shows zero for
+`t0`–`t2`), the cast is not framable yet on that tick, so the resolver returns and
+the Default stands. By `t4` it resolves. Under default features the test skips
+those frames for an unrelated reason, which is why this only reddens under the
+union.
+
+⇒ **THE QUESTION IS NOW SMALL AND IT IS ENGINEERING, NOT FEEL.** Should
+`ResolvedCameraSnapshot` be able to say *"not resolved yet"*? ⭐ A flag or an
+`Option` lets a reader distinguish "the view has not been framed" from "the view
+is framed on the origin", which is the distinction that does not currently exist.
+⚠ It touches `ambition_render`, `local_view` and two tools, so it is a small
+cross-crate change rather than a local one — which is why it is here rather than
+already done.
 
 ⇒ **So the likely reading is a THIRD one neither option names: at `t3` the cast
 has not resolved yet, and a snapshot is published anyway describing a frame that

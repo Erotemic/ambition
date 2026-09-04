@@ -69,8 +69,18 @@ actual product requirement.
   an authored `gated_by` is a condition LINE, so a route may ask any published
   condition (`inventory.holds axe`) instead of only `world.flag_set`, and
   `body.can(verb)` publishes the body-capability family against `AbilitySet`.
-  ⇒ The next concrete gap is a body-PROPERTY condition (mass, standing height);
-  the field can already name it. Owner:
+  ⭐ **All seven families are route-reachable in their currently-expressible
+  forms as of the same day** — `body.fits(height)` (the crawlspace, reading the
+  CURRENT `BodyKinematics::size` so a crouch counts) and `world.switch_on(id)`
+  (a mechanism's own latched state, whose producer was already flowing from wave
+  encounters) closed body-property and world-mechanism, each walked end to end
+  from an authored `gated_by` rather than unit-tested in isolation.
+  ⇒ **The next gaps are FACTS, not conditions:** soft systemic pressure and
+  social/knowledge have nothing route-facing to read, and a mechanism in a
+  non-boolean state (a valve at half, a lift at floor three) is unexpressible.
+  The first two belong to
+  [`engine/world-facts-observations-and-memory.md`](engine/world-facts-observations-and-memory.md).
+  Owner:
   [`engine/capability-progression-and-world-gating.md`](engine/capability-progression-and-world-gating.md).
 - ▢ **Platformer navigation/reachability.** Keep the broad navigation program;
   do not reinterpret the confirmed fighter L6 rollout regression as proof that

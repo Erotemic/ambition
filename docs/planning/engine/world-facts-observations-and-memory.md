@@ -20,6 +20,38 @@ The governing rule is:
 Examples: door open, machine powered, item custody, actor alive/location,
 encounter outcome, persistent world mutation.
 
+⭐⭐ **MEASURED 2026-09-04: THIS LAYER IS NOT MISSING — IT IS `AmbitionGameSaveData`,
+and the open question is which of its rows a rule can READ.** The page's
+"Candidate crate" section says *"do not begin with a universal key-value fact
+database; prefer typed domain facts"*, and that is already what shipped: the save
+holds **thirteen** typed fact families, not a string map. Six published
+conditions read four of them:
+
+| durable fact family | route-readable? |
+|---|---|
+| `flags` | ✔ `world.flag_set` |
+| `switches` | ✔ `world.switch_on` |
+| `items` | ✔ `inventory.holds` |
+| `occurrences` / `custody` | ✔ `custody.is_held` |
+| `encounters`, `bosses`, `quests`, `dialog_visits`, `wallet`, `checkpoint`, `minted_items`, `inventory_saved` | ⛔ nothing publishes a condition |
+
+⇒ **So the first slice of THIS program is not a representation decision, it is a
+publication gap**, and it is the same shape the capability-progression program
+turned out to have: the fact exists, the reader does not. ⚠ That does NOT mean
+publishing all eight — `inventory_saved` and `minted_items` are restore
+mechanics no rule should ask about, and a condition per field would be the
+key-value database this page refuses, wearing typed clothes. The ones with an
+obvious authored customer are `encounters` (*"has this arena been cleared"* —
+distinct from its switch, which is the mechanism's state rather than the
+outcome), `bosses` and `quests`.
+
+⛔ **AND IT SAYS NOTHING ABOUT THE OTHER TWO LAYERS.** Observations and memory
+have no durable representation at all outside the tactical-belief slice below;
+the save is a snapshot of what is TRUE, with no record of what happened or who
+could have seen it. A reader should not take the table above as progress on
+those — it is progress on exactly one of three layers, which is the confusion
+this page's own three-layer split exists to prevent.
+
 ### Observations/events
 
 Structured facts that a character or system could have perceived: saw body X,

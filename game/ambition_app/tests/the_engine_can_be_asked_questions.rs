@@ -64,6 +64,17 @@ fn the_composed_engine_publishes_questions_from_more_than_one_domain() {
     );
     assert!(domains.contains(&"custody"), "{domains:?}");
     assert!(domains.contains(&"world"), "{domains:?}");
+    // ⭐ AND THE BODY DOMAIN, WHICH IS THE INSTALLABILITY HALF. `body.can` and
+    // `body.fits` are published by `BodyCapabilityConditionsPlugin` and unit-
+    // tested against hand-built worlds; neither fact says the plugin is
+    // COMPOSED. A domain that is written, tested and never added is exactly the
+    // shape a route author would find by writing a `gated_by` that never opens,
+    // and the composed engine is the only place that can witness it.
+    assert!(
+        domains.contains(&"body"),
+        "`BodyCapabilityConditionsPlugin` is not in the composed engine, so no \
+         authored route can gate on what a body can do: {domains:?}"
+    );
 }
 
 /// EVERY PUBLISHED QUESTION DESCRIBES ITSELF WELL ENOUGH TO BE USED.

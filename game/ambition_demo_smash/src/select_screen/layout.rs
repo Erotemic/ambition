@@ -412,7 +412,7 @@ mod tests {
     use crate::select::SmashRoster;
 
     fn wide() -> SelectLayout {
-        SelectLayout::new(Vec2::new(1280.0, 720.0), SmashRoster::default().len())
+        SelectLayout::new(Vec2::new(1280.0, 720.0), roster())
     }
 
     /// EVERY PORTRAIT IS REACHABLE FROM EVERY OTHER BY THE D-PAD ALONE.
@@ -601,8 +601,24 @@ mod tests {
         SelectLayout::new(PHONE_LANDSCAPE, roster())
     }
 
+    /// The cell count the GAME builds its grid from.
+    ///
+    /// ⛔⛔ **THIS WAS `SMASH_ROSTER.len()` AND PRODUCTION USES `len() + 1`.**
+    /// `current_layout` passes `fighters.cell_count()`, and `cell_count` is
+    /// *"one per fighter, plus random"* — the extra cell is
+    /// [`crate::select::SlotPick::Random`], which `SmashRoster::cell` answers at
+    /// `index == len()`. ⇒ So every layout test in this module was measuring a
+    /// grid **one cell smaller than the one drawn**, and the RANDOM cell — the
+    /// last one, the one most likely to collide with the control strip — was
+    /// covered by nothing.
+    ///
+    /// ⚠ And the module disagreed with ITSELF: `wide()` built from
+    /// `SmashRoster::default().len()` while `phone()` and four other tests built
+    /// from this helper. Two counts, neither the game's. Both now come from here.
     fn roster() -> usize {
-        crate::select::SMASH_ROSTER.len()
+        // Mirrors `SmashRoster::cell_count()`; `SMASH_ROSTER` is a `&[&str]` and
+        // has no such method, so the `+ 1` is spelled out and named.
+        crate::select::SMASH_ROSTER.len() + 1
     }
 
     const PHONE_LANDSCAPE: Vec2 = Vec2::new(844.0, 390.0);
@@ -820,9 +836,25 @@ mod tests {
 
     /// Every fighter has a cell, and nobody past the end has one.
     #[test]
-    fn the_grid_holds_exactly_the_roster() {
+    fn the_grid_holds_the_roster_plus_the_random_cell() {
         let layout = wide();
-        assert_eq!(layout.characters, SmashRoster::default().len());
+        // ⛔⛔ THIS ASSERTED `SmashRoster::default().len()` AND THAT IS A THIRD
+        // ROSTER AGAIN. `SmashRoster::default()` is `OWN_FIGHTERS` — the two
+        // stand-ins, 2 entries. `SMASH_ROSTER` is the grid's WISH LIST, 23. And
+        // what a player sees is `assemble`d from the wish list against the
+        // composition's registry: 3 in the standalone demo, **≥8 in the composed
+        // app**. ⇒ Three different numbers, and the old assertion picked the one
+        // the grid is never built from.
+        //
+        // ⇒ Compare against the same source the fixture used, which is the only
+        // thing this test can honestly claim: the layout holds the cells it was
+        // asked for, one per entry plus random.
+        assert_eq!(layout.characters, roster());
+        assert_eq!(
+            roster(),
+            crate::select::SMASH_ROSTER.len() + 1,
+            "the fixture's cell count drifted from the wish list plus random"
+        );
         assert!(layout.portrait(layout.characters).is_none());
         assert!(
             layout.columns * layout.rows >= layout.characters,

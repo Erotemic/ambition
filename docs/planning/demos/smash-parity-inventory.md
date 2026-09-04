@@ -785,7 +785,15 @@ true is a column that will silently go stale, which is this page's own recurring
 failure. ⇒ The honest form is what `P01` now carries: the census result written
 into the row that claims completeness, dated, with the command that produced it.
 
-### ⭐⭐ THE ROSTER IS ONE AUTHORED FIGHTER AND A SKELETON (measured 2026-09-04)
+### ⭐⭐ TWO STAND-IN FIGHTERS ARE A SKELETON (measured 2026-09-04, scope corrected same day)
+
+⛔⛔ **THIS SECTION SAID "THE ROSTER" AND MEANT TWO FIGHTERS.** Three rosters exist
+here and the first version quoted the smallest: `SmashRoster::default()` is the two
+stand-ins (**2**); `SMASH_ROSTER` is the grid's wish list (**23**); and what a player
+can pick is `assemble`d against the composition's registry — **3 in the standalone
+demo, ≥8 in the composed app** (`smash_roster_movesets.rs` asserts that floor).
+⇒ The verb counts below are unchanged and correct; the FRACTION was wrong, and it
+made a two-fighter gap read as a roster-wide one.
 
 Counted off the contracts themselves, not read off a table: `fighter_moveset()`
 — the moveset EVERY fighter in this demo gets except George — binds **18 verbs**

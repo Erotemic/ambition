@@ -1424,7 +1424,7 @@ interact and it is worth knowing which:**
 | # | question | the measurement behind it | where |
 |---|---|---|---|
 | 1 | **Which of two ladder authorities should exist?** | `profile_for_level` forks between the shipped `.ron` and an engine floor; **four separate defects were symptoms of that one fork**. Removing the loser rewrites **no authored content** and there is exactly **one** production installer. | below |
-| 2 | **Do the two Robots get kits?** | At the same rung, on the shipped ladder and clock, **George significantly outfights a stand-in (318% : 199%)** with a correctly-null control. Two of three roster characters had no special button. | ↓ |
+| 2 | **Do the two Robots get kits?** | At the same rung, on the shipped ladder and clock, **George significantly outfights a stand-in (318% : 199%)** with a correctly-null control. ⚠ Scope corrected: **two specific fighters**, not "two of three" — the composed grid assembles ≥8. | ↓ |
 | 3 | **`read_weight`: wire it up or delete it?** | Authored 0.0→0.9 on all nine rungs and **read by nothing** — its only live consumer sits behind a rollout those rows disable. ≤184 bytes/fighter/snapshot, so the cost argument is weak; the legibility one is not. | ↓ |
 | 4 | ✔ **mostly answered** — does "harder" mean deals more damage, or is harder to beat? | Settled by fixing the clock: at the shipped 480s limit bouts RESOLVE, and rung 5 neither out-damages nor outlives rung 3. | ↓ |
 
@@ -1564,7 +1564,35 @@ argument for (a) beyond "the demo should match the game", and it is the reason t
 everywhere, **no player has ever met this defect.** The precaution in that comment
 was right, and the measurement is the evidence for a call you made without it.
 
-## Two of the three Smash characters have no special button — what should they have?
+## The two Robot stand-ins have no special button — what should they have?
+
+⛔⛔ **THIS HEADING SAID "TWO OF THE THREE SMASH CHARACTERS" AND THAT WAS A
+DENOMINATOR ERROR — corrected 2026-09-04 the same day, by pulling a thread in the
+select screen.** There are **three** distinct rosters in this code and I quoted
+the smallest:
+
+| | what it is | size |
+|---|---|---|
+| `SmashRoster::default()` (`OWN_FIGHTERS`) | the two stand-ins the demo opens with | **2** |
+| `SMASH_ROSTER` | the grid's WISH LIST | **23** |
+| `SmashRoster::assemble(registry)` | **what a player can actually pick** | **3 standalone, ≥8 composed** |
+
+⇒ The three I counted are *"every id this demo can SEAT"* in the **standalone demo
+app**. In the composed game the grid assembles ≥8 fighters (`smash_roster_movesets.rs`
+asserts that floor), because `ambition_content` registers the pirate admiral,
+Emmy Noether, the goblin and others that `assemble` then admits.
+
+⭐ **So the finding is unchanged in substance and much smaller in scope.** Two
+specific fighters — `smash_duelist_a` and `smash_duelist_b`, both carrying
+`fighter_moveset()` — bind 18 verbs against George's 26. That is still true, still
+measured, and still means a dead special button on the demo's catalog default. ⛔
+It is **not** "two thirds of the roster", which is what the old heading implied and
+what would have made this a much bigger decision than it is.
+
+⚠ **And what I do NOT know**: whether the other composed-grid fighters have full
+kits. I measured George and the two Robots. The ≥8 others are unexamined, and the
+census that would answer it is one command each
+(`capture-probe --character <id> --ladder <ron>`).
 
 ⭐ **The measurement, first, because it is not what anybody assumed.** The demo's
 select roster is three characters: *Robot v3* (`smash_duelist_a`), *Robot v2*

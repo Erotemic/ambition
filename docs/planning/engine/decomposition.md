@@ -166,6 +166,26 @@ the authored rows were never arriving.
 defaulted. A default that is a plausible member of the value space it replaces
 turns a composition error into a silent measurement error.
 
+⛔⛔ **AND THE OTHER FAILURE MODE IS THE OPPOSITE ONE: A CAPABILITY THAT CANNOT
+DECLINE AT ALL.** In Bevy 0.19 a missing system parameter is a HARD FAILURE that
+takes the whole `App` down, so a plugin whose systems demand resources a minimum
+host lacks is not degraded — it is a capability that cannot be composed. Measured
+twice, five days apart: `sync_portal_view_cones` was 37 of the feature union's
+original 48 failures, and `ambition_sprite_fx::draw_sprite_effects` was **every
+one of 40** against 7,072 passes on 2026-09-04.
+
+⭐ **Both times the plugin ALREADY had a guard that read like the right one**, and
+that is the part worth carrying: `SpriteFxPlugin` returned early when there was no
+`EmbeddedAssetRegistry` — which answers *"is there an `AssetPlugin`"*, and a
+headless demo HAS one. What it lacks is a render stack. ⇒ **A prerequisite check
+must name the RESOURCE the system demands, never a proxy for the subsystem it
+belongs to**, because the proxy is true in exactly the composition that fails.
+
+⇒ The mechanics, the test shape and the complete-set question are in
+[`capability-and-runtime-composition.md`](capability-and-runtime-composition.md)
+under Principles, so they live with the program that measures them rather than
+being restated here.
+
 ### Intended layering
 
 Conceptual, and deliberately without crate names where the architecture has not

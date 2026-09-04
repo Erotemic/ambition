@@ -187,7 +187,13 @@ one"*), and the crate it credits, `ambition_characters`, has **no `systems.rs`
 anywhere in its source**. The ambiguity report is what surfaced it. Passed to
 the session that owns the file.
 
-## ⚠ THREE MUSIC-RENDERER TESTS NEED AN UNDECLARED DEPENDENCY (measured 2026-09-04)
+## ⚠ OPEN — three music-renderer tests need an undeclared dependency
+
+ⓘ **Re-verified 2026-09-04 late: still open.** `matplotlib` is absent from
+`tools/ambition_music_renderer/pyproject.toml`. ⚠ Not taken here: that submodule
+belongs to the other session's slice, editing it means a commit inside the
+submodule plus a superproject pointer bump — the exact move that went wrong
+earlier today — and this box cannot run the suite to confirm a fix.
 
 ⭐ **Jon's standing ask is that a fresh clone reaches a runnable game.** Checking
 the other standing ask — no General-MIDI stand-ins — turned this up beside it.

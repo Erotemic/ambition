@@ -1501,6 +1501,30 @@ against rung 3's 98.7s** — it does not live longer, and it deals 300% against
 360%. ⇒ Two independent signals, both against rung 5. A patient-but-stronger rung
 5 would have to beat rung 3 on at least one of them and it beats it on neither.
 
+### ⭐⭐ REPLICATED AT 28 SEEDS — more than double the evidence, identical picture
+
+The same four cells, same shipped clock, **28 seeds** instead of 12:
+
+| cell | survived (hi : lo) | dealt (hi : lo) | verdict at 28 | verdict at 12 |
+|---|---|---|---|---|
+| 3 vs 1 | 88.4s : 85.3s | 304% : 218% | ✔ higher | ✔ higher |
+| 5 vs 3 | 98.4s : 98.7s | 306% : 360% | ⛔ **LOWER** | ⛔ **LOWER** |
+| 6 vs 5 | 114.2s : 114.3s | 373% : 382% | *(within spread)* | *(within spread)* |
+| 9 vs 6 | 112.9s : 116.5s | 392% : 382% | *(within spread)* | *(within spread)* |
+
+⇒ **Nothing moved.** Every verdict and every qualifier is the same. ⭐ That is what
+a replication is for, and it is worth more than the extra precision: the two
+significant cells are significant at both sample sizes, and the two undetermined
+ones stay undetermined when the evidence more than doubles.
+
+⭐ **So `6 vs 5` is not a second inversion — it is noise, and now with the power to
+say so.** At 60 seconds it looked significant; at the shipped clock it does not,
+at 12 seeds or at 28. ⇒ **The shipped ladder has exactly ONE bad rung.**
+
+⚠ **The `5 vs 3` inversion is now the most heavily replicated result on this page**
+— significant at 12, 24 and 40 seeds on the short clock and at 12 and 28 on the
+shipped one, with survival time agreeing at both clocks. It is not going away.
+
 ⚠ **What the full clock TOOK AWAY, and it must be said as loudly.** `6 vs 5` and
 `9 vs 6` are now **within spread** at 12 seeds — the 40-second-clock claim that
 "every cell is significant" does NOT survive. ⇒ So the honest final statement is

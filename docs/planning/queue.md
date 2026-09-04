@@ -3358,6 +3358,31 @@ OPTIONAL dep + feature, never used:
   ⓘ Measured across the abilities carve for calibration: delta of ONE, a
   `test_support.rs` helper, benign. A carve whose delta is several DOMAIN
   functions has left its callers somewhere, and the names say where.
+  ⓘ **THE SAME BLIND SPOT WAS SWEPT FOR ACROSS THE OTHER SCANNERS, and the
+  impact is nil — recorded so nobody spends the sweep again (2026-09-04).**
+  Five scripts filter test files by PATH with no `cfg(test)` awareness, and
+  `check_engine_systems_are_engine_installed.py` is the one that gates hardest:
+  its own comment says *"Test files register systems to exercise them, which
+  says nothing about what a composition installs"*, and its filter is
+  `"/tests/" in relative or relative.endswith("tests.rs")`. ⇒ **266
+  `add_systems()` calls across 109 files sit inside in-file test modules and are
+  read as composition installs.** For that guard the failure direction is a
+  FALSE PASS — a system only a test installs reads as installed.
+  ⭐ **And the concrete consequence is ZERO, measured rather than assumed.**
+  Comparing production installs against test-module installs yields 628 vs 7,
+  and five of the seven are type names the qualified-path regex catches
+  (`Query`, `Res`, `MessageReader`, `SimId`, `RoomLoaded`). Of the two real
+  names, `touch_screen_input_system` is Bevy's own and a demo genuinely only
+  needs it under test, and `resolve_portal_fire_intent` **is** production-
+  installed — at `game/ambition_content/src/portal/plugin.rs:168`, under a bare
+  imported name that the check's `_QUALIFIED_PATH` regex does not match.
+  ⛔ **THE SECOND CANDIDATE DISSOLVED BECAUSE OF A DIFFERENT LIMITATION OF THE
+  SAME TOOL, and that is the transferable part.** A scan built on another
+  checker's extractor inherits its blind spots as well as its reach: I would
+  have filed a test-filter finding that was really a qualified-path finding.
+  ⇒ When a sweep produces few candidates, check each against the SOURCE rather
+  than against the tool that proposed it.
+
   ⛔⛔ **THAT CALIBRATION WAS TAKEN UNDER A DIFFERENT RULE — do not compare a new
   delta against it.** The census counted in-file test callers as production
   until `be17315cc`; every number recorded before that (157, 156, and the

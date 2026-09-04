@@ -2393,6 +2393,21 @@ queue read as an execution authority for work already done.
   somewhere other than the scores.
   ⓘ Unmeasured, and it must be — this is the shape of the fix, not a claim that it
   works. The acceptance test above is what would say.
+  ⭐⭐ **AND THE SAME IS TRUE ON THE ATTACK SIDE, which makes this one property
+  rather than two bugs.** The attack is `options.attacks.first()` — so an attack is
+  chosen whenever the list is non-empty. ⇒ **Neither selector declines on SCORE.**
+  Both take the top available option and decline only on AVAILABILITY (an empty
+  list) or SITUATION (the recovery branch). ⚠ In the shipped game the rollout is
+  off on all nine rungs, so the veto path that could decline is never even
+  consulted — see the fork note in `engine/fighter-brain.md`.
+  ⇒ **So the fighter has no way to express "nothing is worth doing this tick."**
+  It moves whenever it can move and attacks whenever it can attack, and the census
+  above is what that looks like from outside: 90% of its attacks land on a tick it
+  was also closing distance, because both answers were simply the best available
+  rather than a choice between acting and waiting. ⭐ That reframes the remedy once
+  more — a `Hold` verb gives the MOVEMENT axis a decline; whether the ATTACK axis
+  needs one too (waiting for a punish window is a real fighting-game behaviour) is
+  part of the same design call and should be answered with it, not after it.
 
   ⭐⭐ **THE ACCEPTANCE TEST, DESIGNED 2026-09-04 SO THE DESIGN CALL ARRIVES WITH
   ITS MEASUREMENT ALREADY BUILT** — and it is shaped entirely by how fix (a)

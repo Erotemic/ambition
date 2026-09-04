@@ -3358,6 +3358,16 @@ OPTIONAL dep + feature, never used:
   ⓘ Measured across the abilities carve for calibration: delta of ONE, a
   `test_support.rs` helper, benign. A carve whose delta is several DOMAIN
   functions has left its callers somewhere, and the names say where.
+  ⛔⛔ **THAT CALIBRATION WAS TAKEN UNDER A DIFFERENT RULE — do not compare a new
+  delta against it.** The census counted in-file test callers as production
+  until `be17315cc`; every number recorded before that (157, 156, and the
+  abilities delta of one) came from the old rule, and the level moved 156 → 278
+  when it was fixed. ⇒ **A delta is only valid between two runs that share the
+  rule.** The old deltas are still true of the runs that produced them and are
+  NOT comparable to anything measured after that commit. Re-take a baseline
+  before reading the next carve's delta.
+  ⚠ Recorded because a rule change is invisible in a number: `157 → 158` and
+  `278 → 279` look like the same finding and only one of them is.
   ⭐ **Run again 2026-09-04 evening after a day of additions: 157/5276 →
   **156/5318**.** The denominator grew by 42 as the day's public surface landed
   (`authored_price`, `AuthoredPriceProblem::observed`, `can_afford_descriptor`,

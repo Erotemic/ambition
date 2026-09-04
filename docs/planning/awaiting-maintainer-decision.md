@@ -1500,10 +1500,28 @@ is no axis.**
    only the pair that was making rung 5 refuse to commit — the reflex advantage
    then asserts itself, which is what the third row shows.
 
-   ⛔ **What this does NOT settle.** The winning row is *within spread*, so it
-   establishes "the inversion is gone", not "rung 5 is now correctly stronger".
-   And it says nothing about rungs 6–9, which carry the same rise (0.60/0.40 and
-   up) and were never individually tested. ⇒ Whether the ladder should raise these
+   ⭐⭐ **AND THE WHOLE-LADDER VERSION IS NOW MEASURED TOO.** Holding the pair at
+   `0.30 / 0.10` on **every row from level 4 up** (six rows; `kill_potential`,
+   `stage_risk` and every reflex knob left rising as authored), shipped clock, 12
+   seeds:
+
+   | cell | shipped | pair held flat |
+   |---|---|---|
+   | 3 vs 1 | ✔ higher | ✔ higher |
+   | 5 vs 3 | ⛔ **LOWER** | ✔ higher *(within spread)* |
+   | 6 vs 5 | LOWER *(within spread)* | LOWER *(within spread)* |
+   | 9 vs 6 | higher *(within spread)* | ✔ **higher** *(significant)* |
+
+   ⇒ **No cell is significantly inverted, two cells improve, none regresses**, and
+   the survival medians rise monotonically (85 → 101 → 116 → 122s) where the
+   shipped ladder's top pair went backwards (85 → 98 → 114 → **113**).
+
+   ⛔ **What this does NOT settle, and it is the part that is yours.** Holding
+   those two flat means **higher rungs no longer weight frame safety or move
+   power more heavily than rung 3 does** — that is a statement about what a harder
+   CPU IS, not a bug fix. ⚠ The winning cells are partly *within spread*, it is 12
+   seeds, `6 vs 5` stays undetermined and still leans LOWER, and this tests ONE
+   alternative rather than the space. ⇒ Whether the ladder should raise these
    two weights AT ALL, at any rung, is the question the numbers cannot answer,
    because it is a question about what a harder CPU is supposed to be.
 

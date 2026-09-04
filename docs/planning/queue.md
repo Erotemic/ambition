@@ -22,6 +22,41 @@ reproducible.
 
 ## Recent structural receipts
 
+✔ **A GATE LANE'S OWN "HERE IS WHAT I SKIPPED" FOOTER WAS ITSELF SHORT ONE JOB
+— 2026-09-04 (`8f2812cef`).** `--rust` drops four slow Python checkers; the
+footer named three. The missing one was the **compile-cost ratchet**, the job
+sitting on six findings at HEAD while three union runs from that lane were being
+recorded as `49/49` and read as *"everything passes"*. ⇒ **The safeguard against
+that exact misreading under-named its own list**, so a reader who took the
+footer at its word still did not learn the red job existed — one session said in
+so many words that it read the line and read past it, and the line did not
+contain the thing. ⛔ **The cause is the SHAPE, not the wording:**
+`post_rust_repo_jobs` is one list and `coverage_notice` restated it by hand —
+the same one-fact-several-writers defect closed elsewhere on this page the same
+day. ⭐ And the file already knew the remedy: `coverage_notice`'s own docstring
+explains that `web_check_planned` is *derived from the plan, not assumed*, for a
+bug of identical shape in its wasm branch. Both readers now call
+`slow_python_checker_jobs()`. Guarded by
+`test_the_rust_notice_names_every_checker_that_lane_drops`, which asserts the
+RELATION between plan and prose rather than four names — a test spelling them
+out would be a fifth writer of the same fact. Poison-verified: truncating the
+list to three turns it red naming the ratchet exactly.
+
+✔ **CI WAS RED ON FOUR UNUSED IMPORTS AND NO LANE ANYONE RAN SAID SO — fixed
+2026-09-04 (`9ab418322`).** `check_no_warnings.py` exits 1 at HEAD; its own
+message says `RUSTFLAGS: -D warnings` makes that a red build in CI. All four are
+D33 carve residue in `ambition_platformer2d_actor_monolith` — the
+`ambition_match` and `ambition_body_seed` carves moved enough out of two
+`use super::super::*` globs that nothing resolved through them. ⇒ **This is the
+row above, met from the other side:** that checker is in the class `--rust`
+drops, so the green receipts were silent about it. ⚠ **And its OK has a second
+boundary worth knowing:** the gate says in place that code behind a non-default
+`#[cfg(feature)]` is not compiled by its run and is not covered — `update.rs`
+has six `causal`-gated sites, so that feature was checked separately (clean).
+ⓘ Doing so surfaced two dead-code warnings in `ambition_dialog` that exist ONLY
+under that feature combination, which neither the default gate nor `--rust` can
+see.
+
 ✔ **D-DROP-IDENTITY — the same gauntlet was an occurrence or not, depending on
 how you got it.** `drop_held_weapon` spawned a `GroundItem` with provenance and
 no `SimId`, and the three durable roads that could give a carried object back —

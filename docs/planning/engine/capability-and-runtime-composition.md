@@ -115,7 +115,31 @@ boss encounters        `impl Plugin` at all, so there is no seam to omit it
 ⇒ Two capabilities can be omitted today and it takes one line each to say so.
 The third needs the probe to live where the plugin is nameable rather than a
 feature flag added to make it nameable. The fourth needs an installation seam
-that does not exist, which is this program's work rather than a test's.
+that does not exist — and that seam is now SIZED rather than merely missing.
+
+### The boss-encounter installation seam, sized 2026-09-04
+
+⭐ **`ambition_boss_encounter` owns its systems already; what it does not own is
+their INSTALLATION.** The driver is `update_boss_encounters` in that crate, and
+the runtime's `progression_schedule.rs` schedules it alongside seven siblings
+(`notify_bosses_on_mount_death`, `sync_boss_encounter_entities`,
+`update_encounter_progress`, `tick_falling_hazards`, `tick_encounter_scripts`,
+`release_payloads_on_death`, `boss_phase_transition_feedback`) and registers
+three of its messages (`EncounterGate`, `PayloadReleased`, `BossPhaseChanged`).
+Fourteen references in that one file, six more elsewhere in the runtime, plus two
+resources the runtime initialises (`BossCatalog`, `BossEncounterRegistry`).
+
+⇒ **So a `BossEncounterPlugin` would not be a wrapper.** It would own real
+systems, their messages and their resources — the thing this program is for —
+and the doctrine's *"generic encounters without boss encounters"* becomes
+expressible as a `.disable::<_>()` the moment it exists.
+⚠ **What must be measured before cutting, not assumed:** whether those eight
+systems' ordering edges name only sets the runtime already publishes, or reach
+into other capabilities' systems by name. The first is a plugin; the second is a
+carve with an ordering negotiation in it, and the difference decides the size.
+⛔ And 87 files outside the crate reference `ambition_boss_encounter`, so the
+question this packet answers is INSTALLATION, not dependency reduction. Do not
+size it by that number.
 
 A consumer building a small platformer should not inherit portal rendering, boss
 orchestration, networking integration, persistence, debug presentation or

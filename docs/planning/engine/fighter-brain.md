@@ -639,6 +639,13 @@ zero-in-662 follows from `least_bad` being `Some(..)` whenever tier 1 fails, and
 tier 1 fails rarely because the rollout always judges `Approach`, `Retreat` and
 `Jump`.
 
+⚠ **The ATTACK side does not have this defect, checked so nobody assumes
+symmetry.** `refine_by_rollout` does `options.attacks.iter().take(rollout_k)` and
+picks the best of those — a bounded RE-RANK of L2's top few, which is the
+documented cost control, not an exclusion. An attack beyond `k` keeps L2's
+ordering; a movement verb in `unmodelled` loses tier 1 entirely. The asymmetry is
+that one path narrows a ranking and the other removes candidates from it.
+
 ⭐ **And the same function's doc comment explains why a NO-rollout fighter dodges
 normally**: *"TIER 3 IS ALSO THE NO-ROLLOUT PATH. With rollouts off nothing is
 judged and nothing is vetoed, so L2's order comes straight through tier 3

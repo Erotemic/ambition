@@ -24,6 +24,9 @@ const CONTROL_STRIP_H: f32 = 44.0;
 const CARD_GAP: f32 = 8.0;
 const ROLE_BUTTON_H: f32 = 30.0;
 const START_W: f32 = 150.0;
+/// The stage cycle's width. Narrower than START because it is a setting rather
+/// than the commit, and still well over [`MIN_TOUCH_PX`].
+const STAGE_W: f32 = 132.0;
 const START_H: f32 = 34.0;
 /// Back control width, paired with the start control.
 const BACK_W: f32 = 150.0;
@@ -291,6 +294,23 @@ impl SelectLayout {
         )
     }
 
+    /// The stage cycle, immediately left of START in the same strip.
+    ///
+    /// ⚠ Beside START rather than in the grid: choosing a stage is a MATCH
+    /// decision like pressing start, not a per-seat one like picking a fighter,
+    /// and putting it among the portraits would put it inside the region a
+    /// cursor sweeps while choosing a character.
+    pub fn stage_button(&self) -> HitRect {
+        let strip = self.control_strip();
+        HitRect::from_center_size(
+            Vec2::new(
+                strip.max.x - START_W - GAP - STAGE_W * 0.5,
+                strip.center().y,
+            ),
+            Vec2::new(STAGE_W, START_H),
+        )
+    }
+
     pub fn start_button(&self) -> HitRect {
         let strip = self.control_strip();
         HitRect::from_center_size(
@@ -378,6 +398,10 @@ impl SelectLayout {
         // anywhere but the end would silently re-point every walkthrough,
         // capture and test that reaches a cell by number.
         targets.push((SelectTarget::Back, self.back_button()));
+        // ⚠ AFTER `Back`, for the same reason `Back` is last: this arrived after
+        // every existing index was already spoken for. The order is the
+        // contract, and "append" is the only edit to it that costs nothing.
+        targets.push((SelectTarget::Stage, self.stage_button()));
         targets
     }
 }

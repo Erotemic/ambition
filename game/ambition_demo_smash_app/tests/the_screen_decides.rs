@@ -493,6 +493,63 @@ fn a_participating_slot_puts_a_visible_token_on_the_grid() {
     );
 }
 
+/// THE STAGE BUTTON IS REACHABLE AND IT CHANGES THE MATCH.
+///
+/// ⛔ Two halves, and the second is the one that would rot silently. A button
+/// that cycles a resource nothing reads looks completely correct on screen —
+/// the label even changes — while every match still loads the same stage. So
+/// this presses the real button through the real screen AND then asserts the
+/// prepared world followed.
+#[test]
+fn the_stage_button_cycles_the_stage_the_match_will_prepare() {
+    use ambition_demo_smash::SmashStageChoice;
+
+    let mut app = build_demo_app();
+    install_press_port(&mut app);
+    plug_in(&mut app, 0);
+    app.update();
+    let layout = layout(&app);
+
+    assert_eq!(
+        *app.world().resource::<SmashStageChoice>(),
+        SmashStageChoice::Flat,
+        "the default is the stage every recorded measurement was taken on"
+    );
+
+    click(&mut app, 0, layout.stage_button());
+    assert_eq!(
+        *app.world().resource::<SmashStageChoice>(),
+        SmashStageChoice::Platforms,
+        "pressing the stage button did not change the stage"
+    );
+
+    // The label the player reads followed the value.
+    assert!(
+        stage_label_text(&mut app).contains("Platforms"),
+        "the button still reads {:?} after the stage changed — a control that \
+         lies about what it sets",
+        stage_label_text(&mut app)
+    );
+
+    // And it cycles rather than latching.
+    click(&mut app, 0, layout.stage_button());
+    assert_eq!(
+        *app.world().resource::<SmashStageChoice>(),
+        SmashStageChoice::Flat
+    );
+}
+
+/// What the stage button is currently showing.
+fn stage_label_text(app: &mut App) -> String {
+    use ambition_demo_smash::select_screen::StageButtonLabel;
+    app.world_mut()
+        .query_filtered::<&Text, With<StageButtonLabel>>()
+        .iter(app.world())
+        .next()
+        .map(|text| text.0.clone())
+        .unwrap_or_default()
+}
+
 /// One person, one keyboard, a fight.
 ///
 /// The screen offered one seat per PAD with a floor of one, every decided seat

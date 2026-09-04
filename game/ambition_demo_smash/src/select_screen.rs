@@ -38,6 +38,8 @@ pub enum SelectTarget {
     Portrait(usize),
     /// The button that cycles one card between controller / CPU / absent.
     RoleButton(usize),
+    /// The stage cycle beside START — a match decision, not a per-seat one.
+    Stage,
     /// Begin the match.
     Start,
     /// Leave the lobby — see [`LeaveRequested`].
@@ -60,6 +62,8 @@ pub enum Anchored {
     Portrait(usize),
     Card(usize),
     RoleButton(usize),
+    /// The stage cycle beside START — a match decision, not a per-seat one.
+    Stage,
     CardPortrait(usize),
     Start,
     Back,
@@ -85,6 +89,17 @@ pub struct SlotCardFrame(pub usize);
 /// The text inside a card's role button.
 #[derive(Component, Clone, Copy)]
 pub struct RoleButtonLabel(pub usize);
+
+/// The stage button's text, so a sync system can find it.
+#[derive(Component)]
+pub struct StageButtonLabel;
+
+/// What the stage button reads. The word is the STAGE, prefixed so the button
+/// says what it changes rather than only what it is currently set to — "Flat"
+/// alone reads as a state, not a control.
+pub fn stage_button_text(choice: crate::SmashStageChoice) -> String {
+    format!("Stage: {}", choice.label())
+}
 
 /// The chosen fighter's portrait on a card.
 #[derive(Component, Clone, Copy)]
@@ -679,6 +694,29 @@ pub fn spawn_select_screen(
                 node.spawn((Text::new("START"), text_font(17.0), TextColor(INK)));
             });
 
+            let mut stage = anchored(Anchored::Stage);
+            stage.1.justify_content = JustifyContent::Center;
+            stage.1.align_items = AlignItems::Center;
+            stage.1.border = UiRect::all(Val::Px(2.0));
+            stage.1.border_radius = BorderRadius::all(Val::Px(6.0));
+            root.spawn((
+                stage,
+                BackgroundColor(Color::srgb(0.11, 0.12, 0.18)),
+                BorderColor::all(PANEL_EDGE),
+                GlobalZIndex(610),
+                Name::new("stage button"),
+            ))
+            .with_children(|node| {
+                node.spawn((
+                    StageButtonLabel,
+                    // Seeded with the default so the button never renders blank
+                    // for the frame before its sync system first runs.
+                    Text::new(stage_button_text(crate::SmashStageChoice::default())),
+                    text_font(14.0),
+                    TextColor(INK),
+                ));
+            });
+
             for slot in 0..MAX_SMASH_SEATS {
                 let mut card = anchored(Anchored::Card(slot));
                 card.1.flex_direction = FlexDirection::Column;
@@ -855,6 +893,9 @@ pub(crate) fn drive_the_cursor(
     mut leave: ResMut<LeaveRequested>,
     fighters: Res<SmashRoster>,
     mut page: ResMut<SelectPage>,
+    // The stage the START below will play on. Lives outside `SmashSelect` for
+    // the same reason the cursor does: it is not part of what a SEAT decided.
+    mut stage: ResMut<crate::SmashStageChoice>,
     policy: Res<SelectInteractionPolicy>,
     inputs: SelectScreenInputs,
     mut local: Local<SelectDriverLocal>,
@@ -1355,6 +1396,14 @@ pub(crate) fn drive_the_cursor(
                 (None, None, Some(SelectTarget::RoleButton(slot))) => {
                     select.cycle_role(slot, seat, &connected_sources);
                 }
+                // ⭐ ANY SEAT may cycle the stage, exactly as any seat may cycle
+                // a role. The alternative — only the seat that owns card zero —
+                // is the player-one-centric shape Jon rejected for nameplates:
+                // *"This is player 1 centric behavior, and we should have none
+                // of it."*
+                (None, None, Some(SelectTarget::Stage)) => {
+                    *stage = stage.next();
+                }
                 (None, None, Some(SelectTarget::Start)) => {
                     if select.ready() {
                         start.0 = true;
@@ -1434,6 +1483,7 @@ pub fn place_the_screen(
             Anchored::Portrait(index) => layout.portrait(index),
             Anchored::Card(slot) => Some(layout.card(slot)),
             Anchored::RoleButton(slot) => Some(layout.role_button(slot)),
+            Anchored::Stage => Some(layout.stage_button()),
             Anchored::CardPortrait(slot) => Some(layout.card_portrait(slot)),
             Anchored::Start => Some(layout.start_button()),
             Anchored::Back => Some(layout.back_button()),
@@ -1495,6 +1545,15 @@ pub fn sync_select_cards(
     mut cards: Query<(&SlotCardFrame, &mut BorderColor)>,
     mut role_labels: Query<(&RoleButtonLabel, &mut Text), Without<CardName>>,
     mut card_names: Query<(&CardName, &mut Text, &mut TextColor), Without<RoleButtonLabel>>,
+    stage: Res<crate::SmashStageChoice>,
+    mut stage_label: Query<
+        &mut Text,
+        (
+            With<StageButtonLabel>,
+            Without<RoleButtonLabel>,
+            Without<CardName>,
+        ),
+    >,
     mut card_portraits: Query<(&CardPortrait, &mut ImageNode, &mut Visibility)>,
 ) {
     let catalog = Some(&*art.catalog);
@@ -1521,6 +1580,16 @@ pub fn sync_select_cards(
 
     for (label, mut text) in &mut role_labels {
         let next = role_button_text(select.slot(label.0).occupant, naming);
+        if text.0 != next {
+            text.0 = next;
+        }
+    }
+
+    // ⛔ Without this the button reads "Stage: Flat" forever while the match
+    // prepares the other one — a control that lies about the thing it sets,
+    // which is worse than having no control.
+    for mut text in &mut stage_label {
+        let next = stage_button_text(*stage);
         if text.0 != next {
             text.0 = next;
         }
@@ -1726,6 +1795,11 @@ mod touch_tests {
         app.init_resource::<LeaveRequested>();
         app.init_resource::<SelectPage>();
         app.init_resource::<SelectInteractionPolicy>();
+        // The stage the START press will play on. The screen's driver writes it,
+        // so a fixture without it fails the whole system's parameter set — every
+        // touch test in this module went red at once when it was missing, which
+        // is the right failure and a loud one.
+        app.init_resource::<crate::SmashStageChoice>();
         // See the note in `lib.rs`'s fixture: the cursor integrates a clock.
         app.init_resource::<Time>();
         app.init_resource::<Touches>();

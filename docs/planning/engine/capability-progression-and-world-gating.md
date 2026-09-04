@@ -255,6 +255,46 @@
 > three. That is the seam, and it is one family's residual rather than a
 > family's absence.
 >
+> ✔ **AND POSSESSION IS RULED ON FOR ROUTES (2026-09-04), which answers one of
+> this page's own open questions in the direction the world already believed.**
+> `body.can` and `body.fits` asked *"any body holding `PlayerEntity` OR
+> `DrivingParticipant`"*, and possession moves the seat OFF the home avatar and
+> onto the target (`control/authority.rs:39-45`) while the home KEEPS
+> `PlayerEntity`. ⛔ So while the player drove a vessel that cannot climb, a wall
+> gated on climbing opened on the strength of the body they had left behind — and
+> the reverse refused a possessed vessel that could climb because the resting
+> avatar could not. Both directions are now pinned, and the production-path half
+> drives the disagreement through an authored `GatedLockWall` rather than through
+> the condition function.
+>
+> ⇒ **The ruling, stated so a later condition inherits it rather than re-deciding
+> it: a route asks the body a participant is DRIVING.** Nothing "transfers" on
+> possession — which is why this answers *"when possession changes bodies, which
+> theorem abilities transfer and which do not"* for routes without answering it
+> for progression: the route never asked about the participant in the first
+> place, it asked about a body, and possession changes which body that is.
+> ⚠ It does NOT settle *"can an item temporarily satisfy a capability
+> requirement"*: an item that grants a verb does so by writing the driven body's
+> effective `AbilitySet`, which the condition already reads, so that question is
+> about who may write the set rather than about who is asked.
+>
+> ⛔⛔ **AND THE CO-OP QUESTION ON THIS PAGE IS NO LONGER HYPOTHETICAL** — the
+> fallback is an existential over every `DrivingParticipant` holder, so with two
+> seats a wall opens when EITHER driver qualifies. Named at the call site and
+> filed as **awaiting-maintainer-decision #54**, deliberately not settled here:
+> `gate_solids` is ONE `Vec<Block>` on one overlay read by body collision,
+> projectiles and rendering, so a wall that stands for one player and not another
+> is a mechanism change rather than a stricter predicate.
+> ⚠ The same OR existed under the `PlayerEntity` predicate and was equally a
+> ruling. Widening the population made a latent decision live; it did not create
+> one.
+>
+> ⚠ **REPAIRING IT REDDENED TWO PRE-EXISTING ROUTE TESTS**, which is composition
+> repair rather than regression: both fixtures held `PlayerEntity` alone, and
+> `actor_monolith/src/features/ecs/dormancy.rs:96` already records the identical
+> trap one domain over — *"a fixture that spawned `PlayerEntity` alone would find
+> NO OBSERVERS AT ALL"*. Both grew a seat.
+>
 > ⓘ **A body-capability predicate is already written, for actions rather than
 > routes.** `ActionSet::gated_by(AbilitySet)`
 > (`ambition_characters/src/brain/action_set/mod.rs:115`) narrows a brain's
@@ -307,14 +347,19 @@ language.
 
 - Which capabilities belong intrinsically to a body versus participant-level
   permanent progression?
-- When possession changes bodies, which theorem abilities transfer and which do
-  not?
+- ✔ ANSWERED FOR ROUTES (2026-09-04): when possession changes bodies, which
+  theorem abilities transfer and which do not? **None transfer, because a route
+  asks the body a participant is DRIVING** — see the possession ruling above.
+  ⚠ Still open for PROGRESSION: whether a participant carries anything across
+  bodies at all is a different question and this does not touch it.
 - Can an item temporarily satisfy a capability requirement without becoming a
   body capability?
 - How expressive should compound requirements be before they become an
   accidental scripting language?
 - Should "knowledge" ever be an engine fact, or remain Ambition/social AI data?
-- How should co-op gates behave when one participant can traverse and another
-  cannot?
+- ⛔ LIVE, NOT HYPOTHETICAL, and filed as **awaiting-maintainer-decision #54**
+  (2026-09-04): how should co-op gates behave when one participant can traverse
+  and another cannot? The code answers "the party" today, by an existential
+  nobody chose.
 - What constitutes a soft gate that AI/navigation should still consider
   reachable?

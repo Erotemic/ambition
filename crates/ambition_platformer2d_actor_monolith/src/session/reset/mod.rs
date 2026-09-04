@@ -496,6 +496,11 @@ pub struct NewGameResetPlugin;
 impl Plugin for NewGameResetPlugin {
     fn build(&self, app: &mut App) {
         let sim = app.sim_schedule();
+        // The request this plugin's processor is the sole consumer of. It was
+        // initialised by the runtime's `sim_core_resources` while the system that
+        // reads it was scheduled here, which made the composition layer the
+        // owner of a fact only this plugin uses.
+        app.init_resource::<NewGameResetRequested>();
         app.add_message::<ambition_platformer2d_world::rooms::RespawnRoomVisualsRequested>();
         app.add_message::<RoomReplayRequested>();
         app.add_message::<NewGameResetCommitted>();

@@ -153,7 +153,6 @@ impl Plugin for SimCoreResourcesPlugin {
             .init_resource::<ambition_platformer2d_shared_tangle::camera_ease::CameraEaseTuning>()
             .init_resource::<ambition_platformer2d_shared_tangle::camera_ease::CameraShakeTuning>()
             .init_resource::<ambition_platformer2d_shared_tangle::camera_ease::CameraShakeState>()
-            .init_resource::<ambition_platformer2d_actor_monolith::session::reset::NewGameResetRequested>()
             // Track B: the rollback-registered slot a lifecycle op records into
             // under a rollback host, committed on a confirmed frame.
             .init_resource::<ambition_platformer2d_actor_monolith::session::lifecycle_commit::PendingLifecycleCommit>()

@@ -46,12 +46,22 @@ where its SYSTEMS already live, not by how few resources it has.
 foundation (`ambition_time`, `ambition_platformer2d_core`) where central
 initialisation is appropriate. The number is the baseline, not the target.
 
-✔ **FIRST STEP TAKEN 2026-09-04 (`7f666117a`), chosen by the rule above rather
-than by size:** `ambition_sim_view`'s `FeatureViewIndex`, `ActorRenderIndex` and
+✔ **FIRST STEPS TAKEN 2026-09-04, chosen by the rule above rather than by size,
+and the count is 40 → 36.**
+`7f666117a`: `ambition_sim_view`'s `FeatureViewIndex`, `ActorRenderIndex` and
 `BossRenderIndex` now initialise in `FeatureViewSyncSchedulePlugin`, which
 schedules their rebuilds and already stated the rule in its own doc — *"the
 plugin that rebuilds the index initializes it; consumers only read"* — while
 those three of its twenty siblings were initialised by the runtime.
+Then `NewGameResetRequested` moved into `NewGameResetPlugin`, whose
+`process_new_game_reset_request` is its sole consumer.
+⚠ **Both were the same shape and it is the only cheap one: a resource whose
+CONSUMER is already a plugin.** `PendingLifecycleCommit` is the counter-example
+and was left alone — `shrine.rs` and `world/rooms/systems.rs` both write it, so
+there is no single plugin to move it to, and inventing one would be
+composability reasoning driving an authority decision. Each step here is
+verified by `app_it` (551 passed / 0 failed), because a resource that stops being
+initialised is a whole app failing, not a unit test.
 
 ⭐ **AND ONE CRATE ALREADY SHIPS AN INSTALL PATH THE RUNTIME BYPASSES, which is a
 different shape worth recognising before someone "fixes" it.**

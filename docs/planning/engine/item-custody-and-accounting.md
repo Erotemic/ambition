@@ -194,9 +194,26 @@ description in the save file, and a fresh harness boots with that file and finds
 it in the hand. Poison-verified on the claim the test names — delete
 `held_spec_by_id`'s `.or_else(held_item_by_id)` arm and the hand comes back empty
 (`got []`), which is the only failure it can produce.
-⇒ **The residual is the OTHER THREE operations on a catalog-unknown spec** —
-pickup identity, room transition, drop. Widen by REGISTRY, not by count: a sixth
-catalog item adds nothing the first five did not already say.
+⛔ **AND THE RESIDUAL IS NOT "THE OTHER THREE OPERATIONS" — I had that wrong the
+same day I wrote it.** The registry only matters where a spec is REBUILT FROM AN
+ID, and pickup, room transition and drop never do that: the pickup reads the
+`GroundItem`'s own `spec`, a carried object crosses a door as an ENTITY, and a
+drop re-derives custody from the hand. Widening those three by registry would be
+test theatre.
+⇒ **`held_spec_by_id` has three production callers, and that is the real
+population:**
+
+```text
+items/pickup/mod.rs:309         restore_custody_to_checkpoint's minted arm  ✔ covered
+                                (by BOTH the death restore and the save load)
+features/ecs/spawn/mod.rs:594   a room BUILD reinstating a minted occurrence  ▢
+items/match_spawn.rs:113        a match's authored spawn table                ▢ fighter side
+```
+
+⇒ The one exploration-side gap is the room build: take a gauntlet, put it down in
+a room, leave, come back, and the rebuild must reinstate an occurrence whose spec
+the item catalog cannot resolve. That is one test, and it is the last road on
+this axis that Ambition exploration owns.
 
 ✔ **AND RE-MEASURING FOUND ONE REAL DEFECT, FIXED 2026-09-04: a death drop had
 no identity, so the same object was an occurrence or not depending on how it was

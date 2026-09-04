@@ -2422,6 +2422,25 @@ queue read as an execution authority for work already done.
 
 - ▢ **D72 — continue Super Smash Siblings as a product/engine customer from the
   current parity inventory.** Do not resurrect the historical fun-push campaign.
+  ⭐⭐ **STATE AS OF 2026-09-04, because this row is now ~175 lines and the history
+  below is not what a reader needs first.** Three things, and only one of them is
+  a slice anybody can take today:
+  - ⛔ **BLOCKED ON A MACHINE, not on a decision**: re-running the four ladder
+    cells. The rig was repaired today (`36dd9a248`) and **nothing has been
+    re-measured through it** — `3 vs 1` and `5 vs 3` are UNCONFIRMED, and every
+    descriptive column is pre-`median()`-fix. One command, recorded verbatim in
+    [`engine/fighter-brain.md`](engine/fighter-brain.md). Needs disk.
+  - ⏳ **WAITING ON JON**, both with measurements attached and neither needing
+    more of them: the ladder-authority fork, and the stand-in's four specials.
+    See [`awaiting-maintainer-decision.md`](awaiting-maintainer-decision.md).
+    ⚠ `D-BRAIN-MENU`'s remedy is a scoring-shape change and is also a design call;
+    its acceptance test is designed and written down, so it does not need
+    re-deriving when the call comes.
+  - ✔ **TAKEABLE NOW**: authoring a customer for a shipped primitive. The
+    inventory's primitive table is 14 of 14 measured with an EMPTY absent column,
+    so the next slice off this page is almost never *"build a primitive"* — it is
+    *"author a customer for one that already exists"*. The costed list of
+    remaining customers is below.
   Re-read [`demos/smash-parity-inventory.md`](demos/smash-parity-inventory.md)
   and [`JONS_OBSERVATIONS_BUGS_AND_ISSUES.md`](JONS_OBSERVATIONS_BUGS_AND_ISSUES.md)
   before choosing the next slice. Prefer mechanics/readability/control defects

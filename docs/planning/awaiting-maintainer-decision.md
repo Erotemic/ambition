@@ -1444,7 +1444,31 @@ one, and it is this repo's own: _one authority per question_.**
 
 ⇒ **And the price of the current answer is now measured.** A composition that must
 supply a ladder, or a floor that REFUSES rather than substitutes, would have made
-those four defects **impossible instead of findable**. ⚠ Against that: the floor
+those four defects **impossible instead of findable**.
+
+⭐⭐ **THE COST OF REMOVING THE LOSER IS ENUMERATED, not estimated.** Two questions
+decide how expensive a fork removal is, and both have answers here:
+
+1. **Does it rewrite authored content?** ⇒ **No.** The nine rungs in
+   `fighter_brain_ladder.ron` stay exactly as written — the floor is a *fallback*,
+   not a spelling, so removing it changes which compositions must supply a ladder
+   and touches no authored row. ⚠ A sibling fork closed the same day
+   (`boss.cleared` retiring a mirror slice) had the same property, and it is what
+   made that one an afternoon's work.
+2. **How many compositions rely on the fallback?** ⇒ **There is exactly ONE
+   production installer of `AuthoredFighterLadder`** — `game/ambition_content/src/plugin.rs:61`.
+   Every `AuthoredFighterLadder` insertion in
+   `crates/ambition_platformer2d_actor_monolith/src/features/ecs/brain_builders.rs`
+   is inside `#[cfg(test)]`. ⇒ **So every composition that does not include
+   `ambition_content` fights the floor**, and that set is exactly the standalone
+   demo apps — including the smash demo, which is the one that has been measuring
+   wrong all along.
+
+⇒ **Which makes the decision concrete.** Removing the floor means the smash demo
+app must supply a ladder: either compose `ambition_content` (the 38-dependency
+option already costed above) or ship its own nine rows. ⭐ **The second is a small
+file and no dependency**, and it would also let the demo diverge deliberately from
+the game's ladder instead of accidentally. ⚠ Against that: the floor
 exists so a demo with no authored content still runs, which is a real requirement
 and not one I am proposing to drop. ⇒ The trade is *convenience for one class of
 composition* against *four defects that each took a day of instrument work to

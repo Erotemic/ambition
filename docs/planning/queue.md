@@ -954,8 +954,26 @@ queue read as an execution authority for work already done.
   item in the sandbox world, which does carry an identity, so the same object is
   acquirable two ways with and without a `SimId`.
 
-- ▢ **THE FEATURE UNION IS RED: 48 failures against 6,968 passes, and 37 of
-  them are ONE system.** Measured 2026-09-03 at `dbfb1a2ca` by running the gate's
+- ▢ **THE FEATURE UNION: ITS DOMINANT CAUSE IS FIXED, AND ITS NUMBER IS
+  UNKNOWN.** ⭐ **Re-measured 2026-09-04: the 37-failure cause below is GUARDED
+  at `8bac49a59`** — `sync_portal_view_cones` carries
+  `.run_if(resource_exists::<Assets<Image>>)`, `<Assets<Mesh>>` and
+  `<Assets<ColorMaterial>>`, and `debug_portal_view_zones` carries the
+  `GizmoConfigStore` guard that the same landing found hiding behind it
+  (`crates/ambition_portal2d_presentation/src/plugin.rs:151-165`). So the row's
+  headline number describes a tree that no longer exists, and quoting 48 or 37
+  today would be quoting the diagnosis rather than the state.
+  ⇒ **A union run is in flight to replace it.** Until it reports, this row's only
+  true claim is that the dominant cause is fixed and the remainder — the ~11
+  mary_o assertions, at least one of which fails BY CONSTRUCTION under
+  all-features — has never been triaged on a tree where the portal failures were
+  absent. Do not re-derive the cause; measure what is left.
+  The diagnosis below is kept because it is what a reader needs to recognise the
+  same shape again — a Bevy 0.19 missing system parameter is a hard failure where
+  0.18 skipped — and NOT as a description of HEAD.
+
+  ⛔ **HISTORICAL — the state at `dbfb1a2ca`, 2026-09-03: 48 failures against
+  6,968 passes, and 37 of them were ONE system.** Measured 2026-09-03 at `dbfb1a2ca` by running the gate's
   own union job standalone (`cargo test --workspace --no-fail-fast --features
   <the 80-entry union>`, the exact command `run_tests.py --list` prints under
   `--run-everything-you-probably-dont-need-this`). ⚠ **The union is 82 entries

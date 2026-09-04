@@ -871,12 +871,29 @@ question and asks it more carefully than my enumeration did:
   is precisely the `special_back`-answered-by-the-neutral-special effect measured
   above — already encoded, before I re-found it.
 
-⇒ **So why is it green while the stand-ins are a skeleton? Because it and I are
-counting different fighters.** It reads `assemble`d, composition-selectable
-fighters — **≥8**, and the stand-ins are not among them, since `STAND_INS` steps
-them aside once the real lineage is present. The skeleton is real in the
-**standalone demo**, where the stand-ins *are* seatable, and absent from the
-population that test guards. ⚠ Both are true and neither is the other's
+⇒ **So it and the skeleton finding count different fighters, and both can hold.**
+It reads `assemble`d, composition-selectable fighters — **≥8**, and the stand-ins
+are not among them, since `STAND_INS` steps them aside once the real lineage is
+present. The skeleton is real in the **standalone demo**, where the stand-ins
+*are* seatable, and lies outside the population that test guards.
+
+⛔ **AND I DID NOT RUN IT, so nothing here says it passes.** An earlier draft of
+this paragraph asked *"why is it green"* — I had read the assertion, not a
+verdict, and the question smuggled in a result I never saw. Everything above is
+read off the SOURCE: the press list, the `its_own` rule, the hard assertion. Its
+current status is unmeasured, by me, today.
+
+⚠ **Why it is unmeasured is worth recording, because it is not about this test.**
+`cargo test -p ambition_app` cannot LINK on this machine: `mold: failed to write
+to an output file. Disk full?`, and `clang` dies with a bus error. ⇒ Not a source
+defect — `df` reports 188G free and inodes at 5%, but the working tree is a
+**virtiofs** mount, so those figures are the host's and a 1GB `dd` into `target/`
+dies partway. ⇒ The composed app is the only thing on this page that needs that
+link; `ambition_demo_smash` builds and its 153 tests pass. ⭐ **What would settle
+it is one command on a machine that can link** —
+`cargo test -p ambition_app --test app_it report_the_smash_kit -- --nocapture` —
+and it prints a per-fighter census, so it answers the open question below in the
+same run. ⚠ Both are true and neither is the other's
 counter-example — which is the denominator lesson this page has now paid for
 four separate times.
 

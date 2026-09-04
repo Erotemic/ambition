@@ -1632,7 +1632,16 @@ It is **not** "two thirds of the roster", which is what the old heading implied 
 what would have made this a much bigger decision than it is.
 
 ⚠ **And what I do NOT know**: whether the other composed-grid fighters have full
-kits. I measured George and the two Robots. The ≥8 others are unexamined, and the
+kits. ⭐ **But the instrument exists and I had missed it**:
+`report_the_smash_kit_every_selectable_fighter_has`
+(`game/ambition_app/tests/smash_roster_movesets.rs`) walks a 16-entry genre press
+list plus the capture half and HARD-ASSERTS every selectable fighter reaches all
+of it, printing a per-fighter census as it goes. ⛔ I could not run it: the
+composed app does not link on this machine — `mold: failed to write to an output
+file. Disk full?` on a **virtiofs** tree whose `df` reads 188G free. ⇒ So this
+question needs **no new test and no maintainer decision** — it needs one command
+on a machine that can link:
+`cargo test -p ambition_app --test app_it report_the_smash_kit -- --nocapture`. I measured George and the two Robots. The ≥8 others are unexamined, and the
 census that would answer it is one command each
 (`capture-probe --character <id> --ladder <ron>`).
 

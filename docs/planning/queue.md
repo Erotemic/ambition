@@ -66,6 +66,47 @@ found the wider trap: `cargo test -p ambition_asset_manager --lib` runs NONE of
 that no default build enables. The poison run reported 56 green and proved
 nothing; `--features bevy` is required.
 
+✔ **D-REVIEW-0904B — four AUTHORITY-AND-LIFETIME findings, all four the same
+class: a value that outlived the thing it described.** Landed 2026-09-04,
+`3b0d5697c` / `d4cb7e0db` / `86ede5f38` / `0d5152f3e`, each poison-verified.
+(1) `ResolvedCameraSnapshot`'s `Option` kept its promise only until the first
+successful resolve: the give-up arm returned WITHOUT touching the views, so each
+kept the frame from the tick before the subject went away, and local views
+outlive sessions. (2) `ambition_sprite_fx` was one-way in both halves — the mesh
+path wrote `frame_size * scale` into `Transform` and never put it back
+(COMPOUNDING 32 → 1024 → 32768 across add/remove cycles), and `Tint` wrote
+`Sprite.color` with no record, so a tint was permanent and Tint→HueShift baked it
+into the stored original forever. (3) `body.can`/`body.fits` asked the resting
+HOME avatar, which possession has explicitly stopped driving. (4)
+`GatedLockWallVerdicts` published after a fast return, so a walled room followed
+by a wall-less room left the first room's verdicts standing.
+  ⭐⭐ **THE MEASUREMENT THAT CHANGED A FIX, and it generalises past the camera:
+`must_frame_world` HIDES AN EASE DEFECT.** The obvious regression for (1) —
+cast A, gap, cast B — passes with the ease reset deleted, because the cast arm
+carries the declared box the view must cover and the clamp adopts B whatever the
+ease state says. The reset is observable only on the SINGLE-SUBJECT follow, whose
+centre is purely the eased target: poisoned there, the centre resolves to **+284
+instead of +900**. ⇒ A guard written against cast framing cannot witness an ease
+defect. The test's third phase is a home avatar for exactly that reason.
+  ⭐⭐ **AND THAT IS THE GENERAL RULE, not a camera detail: A CLAMP DOWNSTREAM OF
+WHAT YOU ARE ASSERTING MAKES THE ASSERTION UNFALSIFIABLE.** Named jointly with
+the peer session on 2026-09-04, which hit the same shape the same day in an
+unrelated crate — `touchable()` clamping to `MIN_TOUCH_PX` turned a select-screen
+size assertion into a tautology. Two crates, two domains, one mechanism: the
+clamp supplies the value the test demands whatever the code under test did. ⇒
+Before believing a passing guard, ask what sits between the thing you changed and
+the thing you read — and poison the change to find out, because a clamp is
+invisible in the assertion's own line.
+  ⛔ **REPAIRING (3) REDDENED TWO PRE-EXISTING ROUTE TESTS**, which is the
+composition-repair shape rather than a regression: both held `PlayerEntity`
+alone, and `features/ecs/dormancy.rs:96` already records the same fixture trap
+one domain over — *"a fixture that spawned `PlayerEntity` alone would find NO
+OBSERVERS AT ALL"*. Both grew a seat.
+  ⛔ **AND (4)'s PUBLISH SITE ALREADY CLAIMED THE BEHAVIOUR IT DID NOT HAVE** —
+*"a room with no walls publishes an empty map rather than last room's"* sat three
+lines below the fast return that made it false. A comment stating a rule is a
+specification to check, not a fact to trust.
+
 ✔ **D-RECONSTITUTION — the same-room replay was a second room constructor.**
 `reset_ecs_room_features` mutated twelve families of surviving entity back <!-- cite-ok: deleted; the row records the removal -->
 toward a presumed spawn state through a hand-kept list. Measured divergence: a

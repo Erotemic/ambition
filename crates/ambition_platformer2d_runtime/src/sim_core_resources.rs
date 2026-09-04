@@ -109,9 +109,6 @@ impl Plugin for SimCoreResourcesPlugin {
             // game emits it and the renderer consumes it, so a composition with
             // only one of them must still boot.
             .add_message::<ambition_platformer2d_shared_tangle::block_nudge::BlockStruck>()
-            .init_resource::<ambition_sim_view::FeatureViewIndex>()
-            .init_resource::<ambition_sim_view::ActorRenderIndex>()
-            .init_resource::<ambition_sim_view::BossRenderIndex>()
             // Session data-spec RON loader (the engine's own asset format).
             .add_plugins(bevy_common_assets::ron::RonAssetPlugin::<
                 data::Platformer2dGameplayDefaults,

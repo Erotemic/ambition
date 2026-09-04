@@ -77,6 +77,18 @@ impl bevy::prelude::Plugin for FeatureViewSyncSchedulePlugin {
         use bevy::prelude::IntoScheduleConfigs;
         // Owned here (anti-god rule 5): the plugin that rebuilds the index
         // initializes it; consumers only read.
+        //
+        // ⛔ THESE THREE USED TO BE INITIALISED BY THE RUNTIME while their nine
+        // siblings below were initialised here, and the rule above was stated in
+        // this file the whole time. `rebuild_feature_view_index`,
+        // `rebuild_actor_render_index` and `rebuild_boss_render_index` are
+        // scheduled a few lines down, so this plugin is where the rule says they
+        // belong. A capability that cannot initialise its own state is one the
+        // composition layer has to know about — see
+        // `docs/planning/engine/decomposition.md`.
+        app.init_resource::<view_index::FeatureViewIndex>();
+        app.init_resource::<view_index::ActorRenderIndex>();
+        app.init_resource::<view_index::BossRenderIndex>();
         app.init_resource::<ActorAnimIndex>();
         app.init_resource::<ShieldRingsView>();
         app.init_resource::<LaunchedBodiesView>();

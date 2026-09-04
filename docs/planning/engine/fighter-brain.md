@@ -1204,7 +1204,7 @@ measurement.
 
 ⛔ **AND IT IS NOT FREE.** `state.habits.observe(...)` runs on every decision
 (`decision.rs:250`), and the model is serialized into **every rollback snapshot**
-(`snapshot_impls.rs:451`, with its own comment explaining why a rewind must
+(`crates/ambition_characters/src/snapshot_impls.rs:451`, with its own comment explaining why a rewind must
 restore it). ⇒ The shipped game pays per-tick observation and per-snapshot
 bandwidth to maintain an opponent model that nothing ever reads.
 

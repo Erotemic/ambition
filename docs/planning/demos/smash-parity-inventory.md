@@ -803,9 +803,26 @@ to `george_booul_moveset()`'s **26**.
 `special_up`, `special_down`, `attack_forward`, `attack_dash`, `taunt`, and
 `special_air_down`.
 
-⛔ **So the special button did nothing at all for anybody but George** — the press
-resolved to no move, which is not a weak special, it is silence. Same for the
-forward tilt and the dash attack.
+⛔⛔ **CORRECTED 2026-09-04, SAME DAY: a fighter ANSWERS presses it never BINDS,
+so the verb count overstated the gap.** `directional_verb_chain` falls back to the
+base verb, so a missing `attack_forward` is not silence — the press answers with
+the `jab`. ⇒ Enumerated every `(base, direction, stance)` press against both
+contracts instead of counting bindings:
+
+| | presses answering with NOTHING |
+|---|---:|
+| the stand-ins | **15** |
+| George | **7** |
+| **genuine difference** | **8 — every one a SPECIAL** |
+
+⇒ The eight: `special` neutral / up / down / back, grounded and aerial. ⭐ The seven
+George also refuses are **shared** — `smash` neutral, `smash` back, and the three
+aerial smashes — a genre convention rather than a gap.
+
+⛔ **So "same for the forward tilt and the dash attack" is WITHDRAWN.** Both fall
+back to the jab. The finding is entirely about the special family. ⚠ And the verb
+list above stays as written because it is a true statement about BINDINGS — it is
+the inference from it to *silence* that was wrong.
 
 ⭐⭐ **AND HERE IS WHY NOBODY CAUGHT IT: the guards that exist ask whether a
 fighter can HIT, not whether it has a KIT.** `every_fighter_on_the_smash_grid_can_throw_a_punch`

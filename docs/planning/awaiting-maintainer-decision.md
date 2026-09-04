@@ -1651,6 +1651,32 @@ off the contracts themselves, that stand-in table binds **18 verbs to George's
 ⇒ The eight the Robots did not have: `special`, `special_forward`, `special_up`,
 `special_down`, `special_air_down`, `attack_forward`, `attack_dash`, `taunt`.
 
+⛔⛔ **AND THE VERB COUNT OVERSTATED IT, because a fighter ANSWERS presses it
+never BINDS.** `directional_verb_chain` always falls back to the base verb, so a
+missing `attack_forward` is not silence — the press answers with the `jab`.
+⇒ Enumerated instead of inferred: every `(base, direction, stance)` press against
+both contracts.
+
+| | presses that answer with NOTHING |
+|---|---:|
+| the stand-ins | **15** |
+| George | **7** |
+| **the genuine difference** | **8, every one of them a SPECIAL** |
+
+⇒ The 8: `special` neutral / up / down / back, each on the ground and in the air.
+⭐ **And the 7 George also refuses are shared** — `smash` neutral, `smash` back,
+and the three aerial smashes — which is a genre convention, not a defect, and
+counting them as a gap would have been wrong in the other direction.
+
+⛔ **So "same for the forward tilt and the dash attack" was WRONG and is
+withdrawn.** Both fall back to the jab. The dead-button finding is entirely about
+the special family, and it is 8 presses rather than "8 verbs" — a distinction that
+matters because `attack_forward` was in my verb list and is not a gap at all.
+
+⚠ Found by a sibling session's third question — *"is this every way the thing
+appears?"* — after I had already checked the count and the population. **A verb
+count is a count of BINDINGS; what a player presses is answered by a CHAIN.**
+
 ⛔ **So the special button did nothing at all for the two stand-ins** —
 not a weak special, a press that resolved to no move. Same for the forward tilt
 and the dash attack. ⚠ And the catalog default is one of the two, so it is the

@@ -84,7 +84,13 @@ actual product requirement.
   [`engine/capability-progression-and-world-gating.md`](engine/capability-progression-and-world-gating.md).
 - ▢ **Platformer navigation/reachability.** Keep the broad navigation program;
   do not reinterpret the confirmed fighter L6 rollout regression as proof that
-  the navigation architecture is wrong. Owner:
+  the navigation architecture is wrong. ⚠ **There are TWO of those now** — the
+  2026-08-31 one is closed, and a SECOND was measured 2026-09-04: a rollout
+  fighter selects `Dodge` and `Shield` zero times, because an unmodelled verb
+  loses `pick_movement`'s first tier. ⇒ The warning stands unchanged and applies
+  to both: neither is evidence about navigation. The second is a hole in the
+  SHADOW's vocabulary, which is a different thing from a route being unreachable.
+  See [`engine/fighter-brain.md`](engine/fighter-brain.md). Owner:
   [`engine/platformer-navigation-and-reachability.md`](engine/platformer-navigation-and-reachability.md).
 
 ### Capability, package and SDK boundaries

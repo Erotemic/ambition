@@ -565,6 +565,61 @@ Removing one fighter's rollout made the other one survive too. ⇒ A rollout-dri
 fighter appears to play in a way that gets BOTH bodies killed — reckless
 commitment, or dragging the fight somewhere lethal — rather than simply losing.
 
+### ⛔⛔ THE ROLLOUT EXPLAINS ABOUT TWO CELLS OF NINE — the full arms, 2026-09-04
+
+**Both 15-seed paired scenarios matrices finished, and they overturn the reading I
+took from a 10-seed ladder arm.**
+
+| rung | rollout ON | rollout OFF |
+|---|---:|---:|
+| 3 vs 1 | 2 : 6 higher | 2 : 6 higher |
+| 5 vs 3 | 2 : 7 higher | 2 : 7 higher |
+| **6 vs 5** | **9 : 0 LOWER** | **7 : 2 LOWER** |
+| 9 vs 6 | 3 : 6 higher | 3 : 6 higher |
+| all | 16 : 19 | 14 : 21 |
+
+⇒ **Only `6 vs 5` moves, and it moves by two cells.** Seven of nine fixtures still
+favour the lower rung with the rollout switched off entirely. So the rollout is a
+CONTRIBUTOR to that cell and nowhere near the whole of it.
+
+⛔ **AND THE PLAIN-MATCH LADDER SAYS LEVEL 6 IS FINE.** Away from the fixtures,
+running the rung both ways round at 12 seeds (`--rungs 5,6` and `--rungs 6,5`,
+which swaps which level sits in which seat):
+
+| ordering | level 6's seat | dealt (level 6 : level 5) | who won |
+|---|---|---:|---|
+| `5,6` | seat 0 | **142% : 133%** | level 6 |
+| `6,5` | seat 1 | **207% : 150%** | level 6 |
+| paired | both | **161% : 133%** | level 6 |
+
+⇒ **Level 6 beats level 5 in every ordering once you follow the LEVEL rather than
+the column heading.** The ladder is not broken at this rung in an ordinary match.
+
+⚠⚠ **So I built a narrative on an underpowered arm and should say so plainly.**
+The `--seeds 10` paired ladder run read `6 vs 5` as favouring the lower rung, and
+`--no-rollout` flipped it — which I recorded as *"turning level 6's rollout off
+flips the rung the right way up"*. At 12 seeds the BASELINE already favours level
+6, so what flipped was noise, not the rung. Both cells were `(within spread)` and
+I read a direction out of them anyway, which is the exact error the spread
+qualifier exists to prevent and which this page had already caught me making once.
+
+⇒ **The resolved picture, and it is narrower and stranger than the one I had:**
+
+1. **The ladder is fine in plain matches at `6 vs 5`.**
+2. **The FIXTURE scenarios invert it — 7 of 9 even with rollout disabled.** That is
+   a property of the fixtures, not of the difficulty ladder.
+3. **Rollout accounts for about 2 of those 9 cells.**
+4. ⇒ The remaining question is not *"why is level 6 worse"* but **"why do these
+   nine fixtures reverse a rung that a plain match gets right"** — and the
+   fixtures place SELF (always the higher rung) in a bad spot in seven of nine,
+   which pairing cancels only if the handicap does not INTERACT with skill.
+
+⭐ **The dodge/shield suppression is untouched by this and remains true.** It was
+measured directly — zero selections in 662 decisions — not inferred from win
+rates. What changes is its consequence: it is a real hole in the shadow's
+vocabulary that costs about two fixture cells, not the explanation for a broken
+ladder rung.
+
 ### ⭐⭐ THE NULL CONTROL: a rung against itself, and the seat bias measured directly
 
 **The prior question this rig had never been able to ask.** Every verdict it has

@@ -1329,6 +1329,53 @@ behaviour — it switched off the entire read system — so the precaution cause
 what it was guarding against. Option (a) is also the one that makes that comment
 true again, because it moves reads out from behind the rollout.
 
+## Does "harder" mean *deals more damage*, or *is harder to beat*? — the ladder verdict rests on it
+
+⛔ **This is the confound under every ladder number I have produced today, and it
+cannot be measured away — it is a definition.**
+
+⭐ The rig's verdict is *"who OUTFOUGHT: stocks taken, then damage dealt."* In
+every cell where the shipped ladder measures as INVERTED, the stocks are **tied at
+`2 : 2`**, so the verdict falls through to damage. ⇒ The significant result is that
+**the higher rung deals less damage in 60 seconds.** It is *not* that the higher
+rung loses.
+
+⚠ **And the mechanism makes that ambiguity worse rather than better.** The
+inversion is carried by exactly two weights (`frame_advantage` and
+`expected_payoff`, isolated byte-for-byte — see
+[`engine/fighter-brain.md`](engine/fighter-brain.md)). `frame_advantage` is a
+SIGNED feature: slower moves score more negative, so raising its weight makes a
+rung penalise committing to its hardest-hitting moves. `expected_payoff` is gated
+by the positive part of it, so it withholds the power bonus from exactly those
+moves. ⇒ **Higher rungs jab more and smash less.**
+
+⭐⭐ **Which is either a defect or the intended design, and the same numbers
+support both readings:**
+
+- **(a) A fighter that refuses bad commitments is PLAYING BETTER.** The ladder is
+  doing what it was authored to do; a patient rung-6 is harder for a human to
+  open up, and it only looks weak because two CPUs poking at each other for a
+  minute produce less damage. ⇒ Then nothing is wrong, and the rig's tiebreak is
+  the thing to change.
+- **(b) A CPU that will not commit is EASIER, not harder.** A human punishes
+  passivity; a rung that never throws its kill move cannot close a stock. ⇒ Then
+  the weight progression is backwards above rung 3 and the ladder needs retuning.
+
+⚠ **I cannot settle this by measuring more.** Both readings predict the same
+damage numbers. What separates them is what a human experiences, and the honest
+statement is that CPU-vs-CPU damage over 60 seconds may simply be the wrong
+instrument for "difficulty".
+
+⇒ **What I can do once you answer.** If (b), the fix is scoped and small — the two
+weights are named and the arms to validate a new progression already exist. If
+(a), the work is on the RIG: a stock-decided verdict, or a longer clock, or both,
+and every ladder conclusion in `fighter-brain.md` gets re-derived under it.
+
+⭐ **One thing worth knowing either way**: rung 3 vs rung 1 IS significant in the
+correct direction, on the same metric. So the metric is not blind — it detects a
+real difficulty gap when there is one. That is an argument for (b), though not a
+strong one, since rungs 1–3 differ in reflexes as well as weights.
+
 ## Waiting on maintainer measurement, not a decision
 
 ### The residency limit open work 4 needs

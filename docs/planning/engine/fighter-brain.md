@@ -1301,6 +1301,52 @@ byte-identical in both directions, over 48 bouts each. ⚠ And neither of the pa
 suffices alone: both single arms stayed significantly inverted. So the inversion
 needs *both* of those two, and is untouched by the other two.
 
+### ⭐⭐ AND THE MECHANISM IS IN THE SOURCE, arrived at independently of the measurement
+
+I found the pair by measurement and only then read what those two features are.
+They agree, which is the strongest evidence either could have.
+
+⛔ **`frame_advantage` is a SIGNED feature**, `-1..=1`:
+
+```rust
+pub fn frame_advantage(startup_s, their_commitment_s, slowest_startup_s) -> f32 {
+    ((their_commitment_s - startup_s) / slowest_startup_s.max(0.01)).clamp(-1.0, 1.0)
+}
+```
+
+⇒ **The slower a move is, the more NEGATIVE it scores** — and the kit's slowest
+moves are its hardest-hitting ones. So the weight on this feature is not "how
+well does this rung understand frame data"; it is **how heavily this rung
+PENALISES committing to a slow move**. Rung 6 at `0.60` prices a smash's frame
+risk twice as hard as rung 3 at `0.30`.
+
+⭐ **And `expected_payoff` does not compensate — it compounds.** Its own doc:
+*"the move's power … **gated by the positive part of `frame_advantage`** — payoff
+only counts when the move plausibly lands. Zero across the board in neutral."*
+⇒ So the reward for power applies **only to moves that already win the frame
+trade**, which are the fast weak ones. Raising `expected_payoff` therefore
+sharpens the same preference rather than offsetting it.
+
+⇒ **The two knobs the measurement isolated are exactly the two that make a
+fighter refuse to commit** — one penalising slow moves, the other withholding the
+power bonus from them. And the shipped ladder raises both monotonically:
+`0.30/0.10` at rung 3, `0.50/0.30` at rung 5, `0.60/0.40` at rung 6. ⇒ **Higher
+rungs jab more and smash less, and on a 60-second clock that is less damage.**
+
+⚠ **Where this stops being established.** The mechanism explains the DIRECTION and
+predicts the effect should grow with the weights, which matches `3 > 5 > 6`. It
+does not prove the causal path inside a match — nobody has traced a rung-6 fighter
+declining a smash it would have thrown at rung 3. `AMBITION_FIGHTER_TRACE=1` and a
+per-verb count would show that, and the standing rule below says to get it before
+tuning anything.
+
+⚠ **And note what the mechanism does NOT say: that the weights are wrong.** A
+fighter that refuses bad commitments is playing better in a real sense; it loses
+on *damage dealt in 60 seconds*, which is the rig's verdict metric and not
+obviously the same as being harder to beat. ⛔ That is a genuine confound in the
+measurement, it belongs to whoever rules on the ladder, and it is now recorded in
+`awaiting-maintainer-decision.md` rather than resolved here.
+
 ⭐ **The second arm was a control on my own interpretation rather than a search
 for an effect**, and it is the one that makes the first arm mean something: had
 `kill_potential` + `stage_risk` moved the numbers at all, "the pair carries it"
@@ -1359,6 +1405,20 @@ The shipped ladder, 40 seeds, paired, sign test — **no cell carries a qualifie
 | 9 vs 6 | 231% : 220% | ✔ **higher outfights** |
 
 ⇒ **Read as an ordering: `1 < 3 > 5 > 6 < 9`.**
+
+⛔⛔ **BUT READ THE VERDICT'S OWN DEFINITION BEFORE READING THAT SENTENCE.** The
+verdict is *"who OUTFOUGHT: stocks taken, then damage dealt"* — and in **every
+inverted cell the stocks are tied at `2 : 2`**, so the verdict falls through to
+damage. ⇒ What is significant here is that the higher rung **deals less damage in
+60 seconds**, NOT that it loses more often. Nobody has shown the higher rungs lose
+matches.
+
+⚠ **That is a real confound and it is mine to flag, not to resolve.** A fighter
+that refuses bad commitments deals less damage per minute and may well be *harder
+to beat*; "damage dealt on a 60-second clock" is the rig's tiebreak, not a
+definition of difficulty. ⇒ The measurement is solid and its INTERPRETATION as
+"the ladder goes backwards" is one reading of it. The reading that would settle it
+is a longer clock or a stock-decided verdict, and it is queued below.
 
 ⭐⭐ **Rung 3 is a local MAXIMUM and rung 6 is a local MINIMUM.** A player climbing
 the ladder gets a harder opponent from 1 to 3, then **two successive steps

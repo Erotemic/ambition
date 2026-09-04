@@ -127,7 +127,7 @@ migration wants that answer first rather than architectural grounds alone.
 **Censused 2026-08-31, and one slice closed.** Ten sites were examined against
 the five-part test. Most are two *legitimate* authors — a demo mechanic keyed on
 identity, or a match rule composed through `MatchRules` — and are explicitly not
-targets. Three residuals name all five parts:
+targets. Four residuals name all five parts — three from the 2026-08-31 census, and `fighter_moveset()` added 2026-09-04 (above):
 
 - ✔ **Knockback weight — CLOSED 2026-08-31.** `smash_reading_of_character` in
   `ambition_demo_smash` was a `match definition.id` writing `Vitals::knockback_
@@ -159,10 +159,32 @@ targets. Three residuals name all five parts:
   — registry first, then catalog. Nothing has quietly closed this; the deferral
   is still the right call, and now a reader can see when that was last true.
 
-⛔ **NOT a residual, and worth stating so it is not re-filed**: eleven of the
-fourteen grid fighters play on the actor baseline because they author no fighter
-body. That is a *missing author*, not a duplicate authority, and it is a product
-call.
+⛔ **NOT a residual, and worth stating so it is not re-filed**: most grid fighters
+author no fighter body of their own. That is a *missing author*, not a duplicate
+authority, and it is a product call.
+
+⛔⛔ **THE PREMISE UNDER THAT SENTENCE WAS WRONG AND IS CORRECTED 2026-09-04 — it
+read *"eleven of the fourteen grid fighters play on the ACTOR BASELINE"*, and they
+do not.** Traced in the demo:
+
+- `apply_smash_match_rules` sets **`roster.rules.body = Some(SMASH_FIGHTER_BODY)`**,
+  so the ruleset hands every seat a PLATFORM-FIGHTER body.
+- Per participant, `fighter_body(character)` returns `Some` only where a
+  `smash_fighter` facet states one; the arm is
+  `Some(body) => participant.with_body(body), None => participant` — an
+  unauthored fighter is left on the ruleset's body, **not dropped to the
+  baseline**.
+- The actor baseline (`BodyMovementTuning::BASELINE`, an eighth of the player's
+  ground acceleration) is what a seat gets when **no ruleset body is declared** —
+  which is the case in other games, and is exactly why the smash roster declares
+  one.
+
+⚠ **And the count does not match any current roster figure either**: the wish list
+is **23**, the composed grid assembles **≥8**, the standalone demo seats **3**, and
+exactly **one** character authors a `smash_fighter` facet at all (George). Fourteen
+is none of those. ⇒ **The conclusion survives — an unauthored body is a missing
+author and a product call — but the reason given for it was the wrong mechanism**,
+and read literally it says most of the roster moves like a wandering enemy.
 
 ### Re-censused 2026-09-02 — NO NEW CANDIDATE, and here is what was searched
 

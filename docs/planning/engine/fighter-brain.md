@@ -1988,6 +1988,16 @@ is what it claims. ⇒ Which cells those are is **unknown until the cells are
 re-run** — so until then, treat every verdict on this page as carrying an
 unstated *"direction not cross-checked"*, and lean on the cells' mechanisms rather
 than their labels. ⛔ **The `5 vs 3` inversion is the one to re-take first**, since
+
+⛔⛔ **AND THE HOLD IS WIDER THAN THE SIGNIFICANCE LABELS, which I under-stated at
+first.** `median()` was corrected in the same pass: it returned
+`values[len / 2]`, the **upper-middle** order statistic, and **every `--paired` run
+has an even sample by construction** — so it was wrong precisely where this page
+takes its numbers. ⇒ **Every DESCRIPTIVE column on this page is pre-fix too**, not
+just the verdicts. ⚠ The effect is largest on the stock columns, which are small
+integers: a 20-bout sample splitting 10 zeroes / 10 ones reported **1** for both
+seats where the median is **0.5** — the more flattering half, for everybody.
+
 it is the finding this document is built around.
 
 ⭐ **THE RE-RUN, WRITTEN OUT so it is a paste rather than a reconstruction.** Arm A

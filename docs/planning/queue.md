@@ -3350,6 +3350,37 @@ OPTIONAL dep + feature, never used:
   is the property this census exists to measure and is worth stating because
   "I added public surface" is exactly when dormant additions appear. The delta
   is the signal; the level is still noise.
+  ⛔⛔ **AND THE CENSUS ITSELF UNDER-REPORTS, measured 2026-09-04 evening — so
+  the 156 above is a FLOOR, not a count.** `is_test_path()` keys on the PATH
+  (`tests.rs`, `_tests.rs`, `/tests/`) and does not exclude an in-file
+  `#[cfg(test)] mod tests`. ⇒ **A `pub fn` whose only caller lives in an in-file
+  test module is counted as having a PRODUCTION caller**, and the exposure is
+  not marginal:
+
+```text
+  source files the census treats as production        1,240
+    ...carrying an in-file #[cfg(test)] mod tests       584   (47%)
+  files excluded by path                                513
+```
+
+  ⚠ **The obvious fix is wrong.** Truncating each file at its test module works
+  for 535 of the 584 and would DELETE REAL PRODUCTION CODE in the other 49
+  (`ambition_input/src/lib.rs`, `platformer2d_host/src/portal.rs`,
+  `ambition_input/src/local_seats.rs`, …), turning live functions into FALSE
+  ORPHANS — the loud direction, where somebody deletes something that is used.
+  ⇒ A correct fix brace-matches the module and skips it; recorded rather than
+  rushed, because a scanner that over-reports orphans is more dangerous than one
+  that under-reports them.
+  ⓘ **The same blind spot appears on the `Consumed` card in `tracks.md`**, found
+  an hour earlier from the other end: two mentions that CONSTRUCT the variant
+  sit in in-file test modules and read as producers to a path-based filter.
+  ⭐ **What survives of the delta claim above:** the six `pub fn`s added today
+  were checked BY HAND against their call sites — `authored_price` and
+  `AuthoredPriceProblem::observed` (both called from `wallet_conditions.rs` and
+  `yarn_vocabulary.rs`), `can_afford`/`can_afford_descriptor`
+  (`WalletConditionsPlugin`), and the two plugins (the runtime's plugin list and
+  `quests/mod.rs`). None is test-only. The census number is a floor; that
+  sentence is not.
   ⓘ `check_planning_citations.py --strict` at the same commit: 1,634 citations
   across 100 planning files, all resolved. ⚠ That is a claim about NAMES, not
   about prose — this row's whole point is that a sentence describing where code

@@ -60,6 +60,21 @@ def repo_root() -> pathlib.Path:
     return pathlib.Path(out.stdout.strip())
 
 
+# ⛔⛔ THIS CENSUS UNDER-REPORTS, MEASURED 2026-09-04, AND THE NUMBER IT PRINTS
+# IS A FLOOR RATHER THAN A COUNT. `is_test_path` keys on the PATH and does not
+# exclude an in-file `#[cfg(test)] mod tests`, so a `pub fn` whose only caller
+# lives in one is counted as having a PRODUCTION caller. The exposure is not
+# marginal: of the 1,240 source files this treats as production, **584 (47%)**
+# carry such a module.
+#
+# ⚠ THE OBVIOUS FIX IS WRONG. Truncating each file at its test module is right
+# for 535 of the 584 and DELETES REAL PRODUCTION CODE in the other 49
+# (`ambition_input/src/lib.rs`, `platformer2d_host/src/portal.rs`,
+# `ambition_input/src/local_seats.rs`, …), which turns live functions into FALSE
+# ORPHANS. ⇒ That is the loud direction — somebody deletes something that is
+# used — so a correct fix brace-matches the module and skips it, and this is
+# recorded rather than rushed. A scanner that over-reports orphans is more
+# dangerous than one that under-reports them.
 def is_test_path(path: str) -> bool:
     name = pathlib.Path(path).name
     return (

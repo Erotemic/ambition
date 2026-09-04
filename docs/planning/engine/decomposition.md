@@ -166,6 +166,29 @@ the authored rows were never arriving.
 defaulted. A default that is a plausible member of the value space it replaces
 turns a composition error into a silent measurement error.
 
+⭐⭐ **SECOND INSTANCE THE SAME DAY, IN A DIFFERENT SUBSYSTEM — which is what
+turns that sentence from an anecdote into a rule.** `ResolvedCameraSnapshot`'s
+`Default` was a complete, plausible camera frame: `center_world: ZERO` with
+`default_base_view()`'s real 568x320 dimensions. A smash frame check reported
+both fighters *"132 units outside a 568x320 frame centred (0,0)"* on tick 3, and
+a probe found NOTHING in the world at the origin on any tick. The failing frame
+WAS the default, dimensions and all.
+
+⛔ **AND NOBODY WROTE THE FALLBACK — it composed out of two correct decisions.**
+The resolver honours *"callers must not invent a world-origin fallback"* by
+returning without writing when the cast is unresolvable. The view bundle
+guarantees the component exists at spawn so *"a reader must never see a frame
+where the view exists and its state does not"*. Both rules are right; between
+them a reader gets a snapshot that is syntactically present and semantically a
+lie.
+
+⇒ **So the rule has a sharper form: when one authority guarantees PRESENCE and
+another declines to WRITE, the type must be able to say "present and not yet
+determined".** `ResolvedCameraSnapshot` is an `Option` now, so the compiler asks
+every reader. ⚠ Note what a flag would not have bought: an ignorable `bool`
+leaves the silent read available, and the two readers that mattered here were
+both ones nobody thought to check.
+
 ⛔⛔ **AND THE OTHER FAILURE MODE IS THE OPPOSITE ONE: A CAPABILITY THAT CANNOT
 DECLINE AT ALL.** In Bevy 0.19 a missing system parameter is a HARD FAILURE that
 takes the whole `App` down, so a plugin whose systems demand resources a minimum

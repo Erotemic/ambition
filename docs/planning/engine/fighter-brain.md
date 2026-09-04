@@ -670,6 +670,29 @@ Modelling them as stationary is exactly the *"lying in one direction"* the
 function's own header refuses. Dodge is 846 of the 983 unmodelled decisions and
 is the larger half of this repair; it needs real motion in the shadow.
 
+⭐ **AND THAT MOTION IS DERIVABLE — the reason Dodge is unmodelled is that nobody
+wrote the model, not that the shadow cannot know where a dodge goes.** Checked
+2026-09-04, both ends:
+
+- **What a dodge does.** `ambition_platformer2d_core/src/movement/abilities.rs:580` sets
+  `vel = (side·aim.x + down·aim.y) * air_dodge_speed`, held for `air_dodge_time` —
+  a 2D aimed burst. `ShadowIntent::Dash` is the right SHAPE (velocity set along a
+  direction for a duration) and the wrong dimensionality: it is lateral-only.
+- **Where it aims.** ⭐ The brain already decides. `decision.rs:1112` says *"all
+  this verb decides is the DIRECTION"* and computes it from a `threatened` read —
+  away from a swing, toward everything else — over the SAME `view` the rollout
+  holds. So a shadow model would recompute a direction, not invent one.
+
+⇒ **The repair is a `ShadowIntent::Evade { dir: Vec2 }`** that sets velocity to
+`dir * air_dodge_speed` for `air_dodge_time` and then resumes, with `dir` taken
+from the same `threatened` predicate the emitter uses. The shadow already knows
+`on_ground`, which is what separates the grounded roll from the air dodge.
+
+⚠ **Invulnerability does NOT need modelling for this.** The rollout's question is
+"does this verb kill me", which is a question about where the body ENDS UP; the
+i-frames change what happens to it on the way and not where it lands. A motion
+model is sufficient for the veto, which is what keeps this repair small.
+
 ⭐ **The suppression is measurably fixed for `Shield`** (same instrument, same
 seed, controls unchanged to the decimal):
 

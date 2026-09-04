@@ -2532,6 +2532,16 @@ queue read as an execution authority for work already done.
   while the ratio holds at 90%, something else changed and the explanation in this
   row is still wrong.
 
+  ⛔⛔ **AND THE INSTRUMENT WOULD HAVE HIDDEN THE FIX WORKING — found 2026-09-04 by
+  checking it instead of assuming it.** `capture-probe`'s census printed a bare
+  `.take(12)` with no total and no truncation notice, and **George's census is
+  exactly 12 distinct moves**. ⇒ The list was always full, so a THIRTEENTH move
+  starting — a first tilt, which is criterion (1) — would have been dropped in
+  silence and the arm would have read as a negative result. ✔ Fixed
+  (`249d82b66`): the distinct count prints first and the tool says how many rows
+  it withheld. ⚠ **Re-read that count, not the visible rows**, when checking
+  criterion (1).
+
   ⚠ **Cost, so nobody starts it blind**: each arm is a full release build of the
   composed demo plus a 120s probe. The census is per-fighter, so George alone
   answers it — the stand-ins bind no `attack_dash` and cannot show the effect

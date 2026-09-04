@@ -361,6 +361,21 @@ independent writing work in a worktree while `main` verifies.
 bind-mount their own, so builds in different slots are fine — see
 `docs/tools/agent-worktrees.md`. Pace your `-j` to your slot.
 
+⛔⛔ **AND THE EXPENSIVE FORM IS CONCURRENT BUILDS WITH DIFFERENT FEATURE SETS,
+which does not merely thrash — it can leave artifacts that will not LINK.**
+Measured 2026-09-04: a `--workspace <82-entry union>,bevy_ecs/debug` run
+overlapping a plain `-p ambition_app` build ended in
+`mold: error: undefined symbol: ...OccurrenceWhereabouts...` out of a stale
+`libambition_platformer2d_actor_monolith-*.rlib` — a link failure with no source
+defect behind it. The recovery is `cargo clean -p <crate>`, and here that
+**removed 25,329 files / 43.4 GiB** and cost a full rebuild of both crates and
+everything above them.
+
+⇒ If a long union or feature-flavoured run is in flight, do DOCUMENTATION work,
+not another cargo invocation. ⚠ Cargo does not serialise different feature
+resolutions for you; it rebuilds shared units back and forth, and the two runs
+each take longer than either would alone.
+
 The exhaustive plan `--run-everything-you-probably-dont-need-this` is intentionally
 exceptional. Use it only when the verification recipe names your change.
 

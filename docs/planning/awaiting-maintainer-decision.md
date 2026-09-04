@@ -1117,6 +1117,78 @@ argument for (a) beyond "the demo should match the game", and it is the reason t
 everywhere, **no player has ever met this defect.** The precaution in that comment
 was right, and the measurement is the evidence for a call you made without it.
 
+## Two of the three Smash characters have no special button — what should they have?
+
+⭐ **The measurement, first, because it is not what anybody assumed.** The demo's
+select roster is three characters: *Robot v3* (`smash_duelist_a`), *Robot v2*
+(`smash_duelist_b`), and *George Booul*. `register_character` gives George's
+authored table to George and `fighter_moveset()` to the other two — and counted
+off the contracts themselves, that stand-in table binds **18 verbs to George's
+26**.
+
+⇒ The eight the Robots did not have: `special`, `special_forward`, `special_up`,
+`special_down`, `special_air_down`, `attack_forward`, `attack_dash`, `taunt`.
+
+⛔ **So the special button did nothing at all for two of the three characters** —
+not a weak special, a press that resolved to no move. Same for the forward tilt
+and the dash attack. ⚠ And the catalog default is one of the two, so it is the
+fighter a player gets without choosing.
+
+✔ **One of the eight is closed and it did not need you.** `P11`'s command grab
+was already named in the parity inventory as authoring-with-no-engine-work, so
+`special_forward` is now `lunge_grab` on both Robots — a slower, longer-reaching,
+lunging cousin of the standing grab that pummels and throws through the same four
+verbs. That was a queue item, not a design call.
+
+⛔ **THE SEVEN THAT ARE LEFT ARE DESIGN AND THEY ARE YOURS.** Every one is
+authoring against a seam the engine already resolves — George is the proof, since
+his table binds all eight and needed no engine work to do it. What is missing is
+not capability, it is a decision about what these characters ARE.
+
+⇒ **The question is which of these you want**, and they are genuinely different
+games:
+
+- **(a) The Robots are stand-ins and should stay thin.** They exist so a match
+  has bodies in it; George is the fighter. Then seven dead buttons are correct
+  and the command grab was arguably one too many. ⚠ If this is the answer, say so
+  and I will revert `lunge_grab` — it is one commit.
+- **(b) The Robots are characters and should be finished.** Two robots that
+  differ from each other and from George. This is the most work and the most
+  game: it is three fighters instead of one.
+- **(c) The Robots share one kit that is not George's.** Cheapest of the three
+  real answers — one special table, both Robots, deliberately simpler than George
+  so the roster reads as "the fighter and the sparring partners".
+
+⚠ **What I am NOT asking.** Not which moves. If you pick (b) or (c) I can author
+plausible ones and bring them back for a look — the same way the command grab
+went in. The decision I cannot make is whether these characters are supposed to
+be fightable at all.
+
+⭐ **One measurement that should inform this, because it surprised me — and it is
+PARTIAL, stated as such.** Two arms of the same run, both on the shipped ladder,
+paired, 12 seeds, differing only in who is fighting. Two of the four rung cells
+have reported so far:
+
+| rung cell | Robot vs Robot (stocks left) | George vs George |
+|---|---|---|
+| 3 vs 1 | 2 : 1 | **0 : 0** — both eliminated, ~57s |
+| 5 vs 3 | 2 : 2 | **1 : 1** |
+
+⇒ George is markedly more lethal in both cells, in the same direction. Robot
+matches do not resolve: each fighter loses one stock of three in sixty seconds
+and the match continues. ⚠ **Two cells is not four**, the remaining two are still
+running, and I have not run the swap that would rule out this being about
+George's damage numbers rather than his kit.
+
+⇒ What it suggests, at the strength two cells support: **a large part of "the CPU
+ladder produces sluggish matches" may be that every measurement of it was taken
+between two fighters with no specials.** Not proof the Robots need kits — but it
+does mean the pacing complaints and the roster question may be one question.
+
+⇒ **This also touches the ladder-ownership question above.** `ladder_rig` defaults
+to the two Robots, so every number in `fighter-brain.md` describes the thin
+fighters and not the authored one.
+
 ## Waiting on maintainer measurement, not a decision
 
 ### The residency limit open work 4 needs

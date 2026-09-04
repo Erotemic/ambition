@@ -1750,9 +1750,34 @@ queue read as an execution authority for work already done.
   is a parse error, and `load_settings` answers that by discarding the ENTIRE
   settings file. Now guarded by
   `a_settings_file_predating_a_knob_still_loads_everything_else`, which is red
-  without the attribute. ⛔ NEXT CANDIDATES: pick from the inventory again — most
-  remaining `▢` rows are deliberately-deferred FEATURES ("add when a move needs
-  it"), and §9's own row says a capability wants a CUSTOMER before it is built. ⛔ DO NOT PICK: D203's hitbox premise (measured and REFUTED by
+  without the attribute. ⛔ NEXT CANDIDATES — REWRITTEN 2026-09-04, because
+  "pick from the inventory again" now has a measured answer instead of a shrug.
+  ⭐ **The inventory's primitive table is 14 of 14 measured and the ABSENT column
+  is EMPTY**: ten shipped, three partial with the split named, one shipped a
+  named fact short. Not one of the twelve previously-unmarked rows turned out to
+  be an unbuilt primitive. ⇒ **The next slice off this page is almost never
+  "build a primitive" — it is "author a customer for one that already exists"**,
+  which is cheaper than the Class column implies and a different kind of work
+  than the row's wording invites.
+  ✔ **SLICE TAKEN 2026-09-04 on exactly that rule: the drop-through platform.**
+  The engine shipped `BlockKind::OneWay`, `resolve_one_way_hit`, a
+  `drop_through_timer` and BOTH gestures (down+jump, and the platform fighter's
+  own guard+down whose doc reads *"on a surface that can be left downward"*), and
+  the smash demo used **zero** of it — a platform fighter with no platforms.
+  `smash_platform_stage()` is the customer, `SmashStageChoice` and a select-screen
+  stage button make it reachable, and the tier heights are recomputed from the
+  engine's own jump arc because the first ones I chose by eye were **scenery**
+  (250px against a 148.3px ceiling).
+  ⇒ **Remaining customers, in the order their rows make them cheapest:** `P11`'s
+  four unauthored capture roads (the seam is finished — an authored move plus the
+  existing `smash.capture_attempt` key, no plumbing), `P06`'s three named derived
+  moves, `P10`'s unpublished tech RESULT, and `P14`'s finish-zoom eligibility (the
+  camera has the machinery and drives it from zones; no fact says *this blow is
+  the finishing one*).
+  ⛔ **DO NOT tune the fighter brain against ladder-rig numbers yet.** The rig has
+  never measured the ladder Ambition ships — see
+  [`engine/fighter-brain.md`](engine/fighter-brain.md) and the ownership question
+  in [`awaiting-maintainer-decision.md`](awaiting-maintainer-decision.md). ⛔ DO NOT PICK: D203's hitbox premise (measured and REFUTED by
   `fda65a386`), D204/D205 (shipped), or anything in
   `awaiting-maintainer-decision.md`.
 

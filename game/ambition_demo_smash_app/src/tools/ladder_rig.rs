@@ -106,6 +106,25 @@ pub struct LadderRigArgs {
     /// Fighter to test against.
     #[arg(long)]
     pub opponent: Option<String>,
+    /// Run each seed TWICE with the rungs swapped between seats, and report the
+    /// within-seed difference.
+    ///
+    /// ⭐ **WHY: every cell of the 15-seed matrix came back `(within spread)`,**
+    /// which is the rig saying the seed-to-seed variance is larger than the
+    /// effect. Pairing removes that variance instead of trying to out-sample it:
+    /// the same seed plays both role assignments, so the comparison is a
+    /// DIFFERENCE within one seed rather than a difference of two medians drawn
+    /// from a wide distribution.
+    ///
+    /// ⭐⭐ It also cancels the confound I could not otherwise rule out. The
+    /// fixtures place SELF — always seat 0, always the higher rung — and 7 of the
+    /// 9 place it badly (*"Self is past a blastzone"*). Under `--paired` each
+    /// rung stands in that spot equally often, so a residue cannot be the
+    /// placement.
+    ///
+    /// ⚠ Costs exactly double the bouts. That is the price of the control.
+    #[arg(long)]
+    pub paired: bool,
     /// Stage to fight on: `flat` (default) or `platforms`.
     ///
     /// ⭐ Every ladder number recorded before 2026-09-04 was measured on `flat`,
@@ -165,13 +184,21 @@ pub fn run(cli: LadderRigArgs) {
         // LEFT in the header, where the reader is.
         "[ladder_rig] higher vs lower   survived(hi:lo)   stocks LEFT(hi:lo)   dealt%(hi:lo)   peak%(hi:lo)   \
          verdict = who OUTFOUGHT: stocks taken, then damage dealt   \
-         (median of {seeds} seeds, {}s each)",
-        TICKS / 60
+         (median of {seeds} seeds, {}s each, {})",
+        TICKS / 60,
+        // The design belongs in EVERY table's header, not just the scenario
+        // one. This mode had no such line while `--paired` silently did nothing
+        // here, so a reader had two reasons to be misled and no way to see either.
+        if args().paired {
+            "PAIRED — each seed run twice with the rungs swapped between seats"
+        } else {
+            "unpaired"
+        }
     );
     for pair in RUNGS.windows(2) {
         let (lower, higher) = (pair[0], pair[1]);
         let bouts: Vec<Bout> = (0..seeds)
-            .map(|seed| run_bout(higher, lower, seed as u64))
+            .flat_map(|seed| bouts_for_seed(higher, lower, seed as u64, None))
             .collect();
         report(higher, lower, &bouts);
     }
@@ -453,11 +480,20 @@ fn run_scenarios(seeds: usize) {
         // is the entire reason `--stage` exists.
         "[ladder_rig] --scenarios: PLACEMENT ONLY — {} of {} fixture(s) are \
          reproduced by placing two bodies (median of {seeds} seeds, {}s each, \
-         stage `{}`)",
+         stage `{}`, {})",
         playable.len(),
         suite.len(),
         TICKS / 60,
-        args().stage
+        args().stage,
+        // ⛔ THE DESIGN IS PART OF THE NUMBER. A paired table and an unpaired one
+        // answer the same question with different controls, and two runs whose
+        // headers do not say which cannot be compared.
+        if args().paired {
+            "PAIRED — each seed run twice with the rungs swapped between seats, \
+             tested on within-seed differences"
+        } else {
+            "unpaired — seat 0 is always the higher rung"
+        }
     );
     // ⛔ THE SCENARIO TABLE PRINTED NO COLUMN HEADER AT ALL, so every reader had
     // to infer five columns from the numbers — and `stocks` was read as "stocks
@@ -499,7 +535,7 @@ fn run_scenarios(seeds: usize) {
         for pair in RUNGS.windows(2) {
             let (lower, higher) = (pair[0], pair[1]);
             let bouts: Vec<Bout> = (0..seeds)
-                .map(|seed| run_bout_at(higher, lower, seed as u64, Some(scenario.clone())))
+                .flat_map(|seed| bouts_for_seed(higher, lower, seed as u64, Some(scenario)))
                 .collect();
             report_row(
                 &format!("{:<18} {higher:>2} vs {lower:<2}", scenario.name),
@@ -544,7 +580,7 @@ fn run_sweep_below(seeds: usize) {
     // nine rows of a fixture that never applied.
     for below in RUNGS.iter().copied() {
         let bouts: Vec<Bout> = (0..seeds)
-            .map(|seed| run_bout_at(below, PARTNER, seed as u64, Some(scenario.clone())))
+            .flat_map(|seed| bouts_for_seed(below, PARTNER, seed as u64, Some(&scenario)))
             .collect();
         report_row(
             &format!("{:<18} {below:>2} vs {PARTNER:<2}", "recovery_below"),
@@ -692,14 +728,54 @@ fn report_row(label: &str, bouts: &[Bout]) {
     // the two seats happened to die at similar times.
     let hi_dealt_all: Vec<f32> = bouts.iter().map(|b| b.damage_taken[1]).collect();
     let lo_dealt_all: Vec<f32> = bouts.iter().map(|b| b.damage_taken[0]).collect();
-    let overlaps = (hi_dealt - lo_dealt).abs()
-        < 0.5
-            * ((hi_dealt_all.iter().copied().fold(f32::NEG_INFINITY, f32::max)
-                - hi_dealt_all.iter().copied().fold(f32::INFINITY, f32::min))
-            .max(
-                lo_dealt_all.iter().copied().fold(f32::NEG_INFINITY, f32::max)
-                    - lo_dealt_all.iter().copied().fold(f32::INFINITY, f32::min),
-            ));
+    // ⭐ PAIRED RUNS ARE TESTED ON THE DIFFERENCES, NOT ON TWO POOLED MEDIANS.
+    // `--paired` emits consecutive (straight, mirrored) bouts of ONE seed, so the
+    // within-seed difference in damage dealt is available and it is the whole
+    // reason to pay double: seed-to-seed variance appears in both halves of a
+    // pair and cancels in the difference, while a pooled median still carries it.
+    // Testing pooled medians on paired data would spend the extra bouts and keep
+    // the variance that made every cell `(within spread)`.
+    // ⛔⛔ AND IT REFUSES DATA THAT IS NOT ACTUALLY PAIRED. When `--paired` was a
+    // no-op in the ladder mode, this branch still ran: `chunks_exact(2)` over an
+    // ODD, unpaired vector formed one chunk (or none), the "range" of a single
+    // difference is zero, and `|mid| < 0.5 * 0` is false for every row — so every
+    // verdict printed WITHOUT its `(within spread)` qualifier and the table
+    // looked decisive everywhere. A significance test that reports significance
+    // when its input is malformed is worse than no test, so the shape is checked
+    // rather than assumed.
+    let properly_paired = args().paired && bouts.len() >= 4 && bouts.len() % 2 == 0;
+    if args().paired && !properly_paired {
+        println!(
+            "[ladder_rig] ⛔ {label}: --paired asked for, but this row has {} bout(s) \
+             — not an even number of at least two pairs. Falling back to the \
+             unpaired spread test rather than testing a difference that does not \
+             exist.",
+            bouts.len()
+        );
+    }
+    let overlaps = if properly_paired {
+        let diffs: Vec<f32> = bouts
+            .chunks_exact(2)
+            .map(|pair| {
+                let dealt = |b: &Bout, seat: usize| b.damage_taken[1 - seat];
+                (dealt(&pair[0], 0) + dealt(&pair[1], 0)) / 2.0
+                    - (dealt(&pair[0], 1) + dealt(&pair[1], 1)) / 2.0
+            })
+            .collect();
+        let mid = median(diffs.clone());
+        let lo = diffs.iter().copied().fold(f32::INFINITY, f32::min);
+        let hi = diffs.iter().copied().fold(f32::NEG_INFINITY, f32::max);
+        mid.abs() < 0.5 * (hi - lo)
+    } else {
+        (hi_dealt - lo_dealt).abs()
+            < 0.5
+                * ((hi_dealt_all.iter().copied().fold(f32::NEG_INFINITY, f32::max)
+                    - hi_dealt_all.iter().copied().fold(f32::INFINITY, f32::min))
+                .max(
+                    lo_dealt_all.iter().copied().fold(f32::NEG_INFINITY, f32::max)
+                        - lo_dealt_all.iter().copied().fold(f32::INFINITY, f32::min),
+                ))
+    };
     let verdict = if overlaps {
         format!("{verdict} (within spread)")
     } else {
@@ -750,6 +826,51 @@ fn report_row(label: &str, bouts: &[Bout]) {
         hi_peak * 100.0,
         lo_peak * 100.0
     );
+}
+
+/// Every bout one seed contributes, honouring `--paired`.
+///
+/// ⛔⛔ **THIS EXISTS BECAUSE `--paired` WAS WIRED INTO ONE OF THE THREE MODES AND
+/// SILENTLY DID NOTHING IN THE OTHERS.** The scenarios loop paired; the ladder
+/// and below-sweep loops kept calling `run_bout` once per seed. A `--paired`
+/// ladder run therefore produced numbers IDENTICAL to an unpaired one — which is
+/// how it was caught, by running both and diffing — while the header claimed a
+/// design it had not used. One function now owns "a seed becomes these bouts",
+/// so a mode added later cannot forget.
+fn bouts_for_seed(
+    higher: u8,
+    lower: u8,
+    seed: u64,
+    start: Option<&ambition_platformer2d::combat::brain::fighter::scenarios::Scenario>,
+) -> Vec<Bout> {
+    let straight = run_bout_at(higher, lower, seed, start.cloned());
+    if !args().paired {
+        return vec![straight];
+    }
+    // ⛔ THE SAME SEED, THE ROLES SWAPPED, AND THE RESULT PUT BACK THE RIGHT WAY
+    // ROUND. `run_bout_at(lower, higher, ..)` seats the LOWER rung where the
+    // fixture puts SELF, so `mirrored` swaps the pair back and every `[0]` below
+    // still means "the higher rung". Reporting the raw mirror would average each
+    // rung with the other one.
+    let swapped = run_bout_at(lower, higher, seed, start.cloned());
+    vec![straight, swapped.mirrored()]
+}
+
+impl Bout {
+    /// The same bout read from the OTHER seat's side.
+    ///
+    /// Used by `--paired`, where the second run of a seed puts the lower rung in
+    /// seat 0. Every per-seat array is swapped so index 0 keeps meaning "the
+    /// higher rung" for the caller, which is the only way a paired vector can be
+    /// summarised by the same reporter as an unpaired one.
+    fn mirrored(self) -> Self {
+        Self {
+            eliminated: [self.eliminated[1], self.eliminated[0]],
+            stocks: [self.stocks[1], self.stocks[0]],
+            peak_percent: [self.peak_percent[1], self.peak_percent[0]],
+            damage_taken: [self.damage_taken[1], self.damage_taken[0]],
+        }
+    }
 }
 
 /// Seat the two rungs and run a full match.
@@ -1089,5 +1210,74 @@ fn run_bout_at(
         stocks,
         peak_percent,
         damage_taken,
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn bout() -> Bout {
+        Bout {
+            eliminated: [100, 200],
+            stocks: [1, 2],
+            peak_percent: [0.5, 1.5],
+            damage_taken: [10.0, 30.0],
+        }
+    }
+
+    /// ⛔ THE MIRROR MUST PUT THE SEATS BACK, AND ITS FAILURE LOOKS LIKE SUCCESS.
+    ///
+    /// `--paired` runs the second half of each seed as `run_bout_at(lower,
+    /// higher, ..)`, which seats the LOWER rung where the fixture puts SELF. If
+    /// that result were reported unmirrored, every pair would average each rung
+    /// with the other one and the table would fill with balanced-looking rows
+    /// and near-zero differences — a *more* convincing table than the truth, and
+    /// wrong. Every per-seat array has to swap, so a field added later without
+    /// being swapped is caught here rather than by somebody wondering why
+    /// pairing made the effect vanish.
+    #[test]
+    fn mirroring_a_bout_swaps_every_per_seat_reading() {
+        let m = bout().mirrored();
+        assert_eq!(m.eliminated, [200, 100]);
+        assert_eq!(m.stocks, [2, 1]);
+        assert_eq!(m.peak_percent, [1.5, 0.5]);
+        assert_eq!(m.damage_taken, [30.0, 10.0]);
+    }
+
+    /// Mirroring twice is the identity — the property that says the swap is a
+    /// permutation and not a rewrite.
+    #[test]
+    fn mirroring_twice_is_the_original_bout() {
+        let once = bout().mirrored();
+        let twice = once.mirrored();
+        let orig = bout();
+        assert_eq!(twice.eliminated, orig.eliminated);
+        assert_eq!(twice.stocks, orig.stocks);
+        assert_eq!(twice.peak_percent, orig.peak_percent);
+        assert_eq!(twice.damage_taken, orig.damage_taken);
+    }
+
+    /// A PAIR OF MIRRORED BOUTS CARRIES NO SEAT ADVANTAGE.
+    ///
+    /// The property `--paired` is bought for: if a seat is worth something on its
+    /// own — and 7 of the 9 fixtures place seat 0 offstage — a straight bout and
+    /// its mirror give that advantage to each rung exactly once, so the pair's
+    /// mean is free of it. Stated as arithmetic on a bout whose whole difference
+    /// IS the seat.
+    #[test]
+    fn a_mirrored_pair_cancels_a_pure_seat_effect() {
+        // A bout decided entirely by which seat you are in: seat 0 always deals
+        // 10, seat 1 always deals 30, whoever is sitting there.
+        let straight = bout();
+        let mirrored = bout().mirrored();
+        let dealt = |b: &Bout, seat: usize| b.damage_taken[1 - seat];
+        let hi = (dealt(&straight, 0) + dealt(&mirrored, 0)) / 2.0;
+        let lo = (dealt(&straight, 1) + dealt(&mirrored, 1)) / 2.0;
+        assert_eq!(
+            hi, lo,
+            "a pure seat effect survived the pairing, so `--paired` is not \
+             cancelling the thing it exists to cancel"
+        );
     }
 }

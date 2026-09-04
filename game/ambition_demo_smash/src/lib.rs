@@ -664,9 +664,23 @@ const SOFT_PLATFORM_SPREAD: f32 = 148.0;
 /// ground would invalidate that corpus instead of giving it something to be
 /// compared against.
 ///
-/// ⇒ It is not reachable from the select screen yet, because there is no stage
-/// select to reach it from (`super-smash-siblings.md` checkpoint 4). The stage
-/// and the mechanic are real and tested; the way in is the open half.
+/// ⇒ Reachable in play through [`SmashStageChoice`] and the select screen's
+/// stage button.
+///
+/// ⚠ **THE TOP TIER SITS 10px UNDER THE RESPAWN PLATFORMS, and that was not
+/// designed — it was arithmetic nobody did.** `respawn_placement` puts a
+/// returning body at `stage_centre.y - RESPAWN_HEIGHT_PX` = y 140, its platform
+/// 30px below at y ≈ 170, spanning x 240–336 and 304–400 for the first two
+/// seats. This stage's top tier occupies y 180–196 across x 236–404. So a
+/// fighter whose respawn platform expires falls **ten pixels** onto the tier
+/// instead of returning to the stage.
+///
+/// ⇒ A platform under the respawn point is genre-normal (Battlefield has one),
+/// but ten pixels is not a gap, and any measurement taken on this layout is
+/// partly measuring that. ⛔ Deliberately NOT adjusted yet: the flat-versus-
+/// platforms comparison in `fighter-brain.md` was run on THIS geometry, and
+/// moving a tier now would leave a recorded number describing a stage that no
+/// longer exists. Change the geometry and the measurement together, or neither.
 pub fn smash_platform_stage() -> RoomSpec {
     let centre_x = STAGE_SIZE.x / 2.0;
     let main = ae::Block::solid(

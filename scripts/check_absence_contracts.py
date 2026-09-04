@@ -18,6 +18,14 @@ import sys
 from bisect import bisect_right
 from pathlib import Path
 
+class SentinelLockfileStale(RuntimeError):
+    """The capability-footprint sentinel's own `Cargo.lock` no longer resolves.
+
+    Its own failure, reported as one contract's RED, rather than a traceback that
+    silences every contract after it.
+    """
+
+
 # Every entry is one architectural absence. `paths` are git pathspecs limited to
 # production source; `patterns` are Python regexes matched against comment-
 # stripped lines. Keep patterns narrow — see the module docstring.
@@ -1098,8 +1106,20 @@ def sentinel_linked_closure(root: Path) -> set[str]:
     `--locked` on purpose: a dependency change that alters the sentinel's
     lockfile must arrive WITH that lockfile, or this check fails loudly instead
     of silently rewriting it.
+
+    ⛔⛔ AND "FAILS LOUDLY" USED TO MEAN "CRASHES THE WHOLE CHECKER", which is a
+    different thing and a much worse one. `check=True` raised
+    `CalledProcessError` on the stale-lockfile exit, so the script died on a
+    traceback BEFORE most contracts ran and every one of them produced no verdict
+    at all. Measured 2026-09-04: a new workspace crate staled
+    `fixtures/minimal_game/Cargo.lock`, and two REDs sat behind that traceback for
+    a day — one of them an undeclared rollback wire-format entry. A guard whose
+    measurement crashes looks nothing like a guard that fails.
+
+    ⇒ The stale lockfile is now a SentinelLockfileStale, raised here and turned
+    into one contract's failure by the caller, so the other 37 still report.
     """
-    raw = subprocess.run(
+    result = subprocess.run(
         [
             cargo_binary(),
             "tree",
@@ -1112,8 +1132,20 @@ def sentinel_linked_closure(root: Path) -> set[str]:
         cwd=root / CAPABILITY_FOOTPRINT_SENTINEL,
         capture_output=True,
         text=True,
-        check=True,
-    ).stdout
+        check=False,
+    )
+    if result.returncode != 0:
+        raise SentinelLockfileStale(
+            f"`cargo tree --locked` in {CAPABILITY_FOOTPRINT_SENTINEL} exited "
+            f"{result.returncode}. The sentinel keeps its OWN lockfile and a "
+            "workspace build never touches it, so adding or removing a crate "
+            "stales it silently. Regenerate it and commit it with the dependency "
+            "change:\n"
+            f"    (cd {CAPABILITY_FOOTPRINT_SENTINEL} && cargo tree --offline "
+            ">/dev/null)\n"
+            f"cargo said:\n{result.stderr.strip()[:800]}"
+        )
+    raw = result.stdout
     return {
         line.split(" ", 1)[0]
         for line in raw.splitlines()
@@ -1659,8 +1691,18 @@ def main() -> int:
             summary = "  ".join(f"{module}:{count}" for count, module in ranked)
             print(f"       still named — {summary}")
 
-    grown = capability_footprint_violations(root)
-    left = capability_footprint_departures(root)
+    # ⛔ The sentinel's own lockfile is a PREREQUISITE of these two contracts and
+    # of nothing else, so its staleness is reported as one RED and the remaining
+    # 37 contracts still get verdicts. See `SentinelLockfileStale`.
+    try:
+        grown = capability_footprint_violations(root)
+        left = capability_footprint_departures(root)
+    except SentinelLockfileStale as stale_lock:
+        broken += 1
+        print("  RED  capability-footprint-sentinel-lockfile-is-stale")
+        for line in str(stale_lock).splitlines():
+            print(f"       {line}")
+        grown, left = [], []
     if left:
         broken += 1
         print("  RED  capability-footprint-baseline-is-stale")

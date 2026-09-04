@@ -1417,6 +1417,43 @@ collision. Answer this and the geometry and the re-run move together.
 
 ## Who owns Smash's CPU difficulty ladder — and the demo has been fighting the floor
 
+⭐⭐⭐ **THE QUESTION HAS A BETTER FORM, FOUND 2026-09-04 AFTER FOUR SEPARATE
+DEFECTS TURNED OUT TO BE ONE MECHANISM.** `profile_for_level` is:
+
+```rust
+ladder.and_then(|l| l.level(level)).cloned()
+    .unwrap_or_else(|| FighterBrainProfile::for_level(level))
+```
+
+⇒ **Two authorities answer "what does rung N mean", and both ship.** The authored
+`.ron` wins where a composition installs one; the engine floor wins where none
+does — and **nothing at the call site says which you got.** ⚠ The function's own
+doc names the shape: *"a rule about which of two sources wins cannot be enforced
+by the source that loses."* It knows it is arbitrating.
+
+⇒ **Four defects I reported separately are four exits from that one fork**, each
+"the losing authority answered and looked plausible": a rig measuring the floor's
+weights under a header claiming the authored rows; `UtilityWeights::default()`
+turning out to BE the level-9 row, so every rung scored identically; the floor
+arming the L3 rollout at level 6 where the shipped rows disable it everywhere; and
+a long characterisation of rollout behaviour no player could ever reach.
+
+⭐ **So the question to answer is not "who owns the ladder" — which has no
+principled answer — but "WHICH OF THESE TWO AUTHORITIES SHOULD EXIST", which has
+one, and it is this repo's own: _one authority per question_.**
+
+⇒ **And the price of the current answer is now measured.** A composition that must
+supply a ladder, or a floor that REFUSES rather than substitutes, would have made
+those four defects **impossible instead of findable**. ⚠ Against that: the floor
+exists so a demo with no authored content still runs, which is a real requirement
+and not one I am proposing to drop. ⇒ The trade is *convenience for one class of
+composition* against *four defects that each took a day of instrument work to
+see*, and that is a trade you can now make with numbers on both sides.
+
+⚠ Pinned by `the_floor_and_an_authored_ladder_disagree_and_the_caller_cannot_tell`,
+which fails loudly if the two ever agree — with a message saying to re-derive the
+findings rather than adjust the test.
+
 ⛔ **The fact first, because it is worse than the question.** The standalone smash
 demo app gives **every CPU rung the same utility weights**. `profile_for_level`
 prefers `Res<AuthoredFighterLadder>` and falls back to

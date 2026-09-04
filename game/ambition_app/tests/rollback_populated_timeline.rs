@@ -109,6 +109,18 @@ fn populate(sim: &mut Platformer2dSimHarness) {
         (spawner, seq.into_iter())
     };
     let mut mint = || SimId::spawned(&spawner, seq.next().expect("five ids"));
+    // ⭐ AND THE MINT'S RESIM STABILITY IS MEASURED, NOT ASSUMED (2026-09-04).
+    // `SimId` is registered `rollback_component_canonical`, but this repository
+    // has already recorded that REGISTERED ≠ CHECKSUMMED — a real desync once
+    // read clean — so registration is not the proof.
+    //
+    // Poisoned `SimIdCounter::next()` with a process-global `AtomicU64` drift
+    // term, so a resimulated tick mints a DIFFERENT id from identical rollback
+    // state. The timeline below reds at **frame 9**, naming *"GGRS sync-test
+    // checksum mismatch at frames [2, 3, 4, 5, 6, 7]"*. ⇒ The id IS in the
+    // session checksum and this timeline sees an unstable one. The subject
+    // fires a bolt every 9 frames (`busy`), so a MID-WINDOW mint is what is
+    // being exercised, not just the fixture's own five.
     {
         let world = sim.world_mut();
         world

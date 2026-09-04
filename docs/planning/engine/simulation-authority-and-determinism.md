@@ -348,9 +348,25 @@ so a resimulated tick re-mints the same id and two seats firing on one tick
 cannot collide. ⚠ It costs the message its `Copy` (the id's payload is a
 `String`).
 
+✔ **AND THE MINT'S RESIM STABILITY IS MEASURED (2026-09-04), which the fix's
+own argument had only asserted.** "A resimulated tick re-mints the same id"
+follows from the counter being rollback state — but this program's own S1 row
+records that REGISTERED ≠ CHECKSUMMED and that a real desync once read clean, so
+the registration is not the proof. Poisoned `SimIdCounter::next()` with a
+process-global `AtomicU64` drift term: the populated timeline reds at **frame
+9**, naming *"GGRS sync-test checksum mismatch at frames [2, 3, 4, 5, 6, 7]"*.
+⇒ The id is in the session checksum and this timeline sees an unstable one.
+⭐ It is a MID-WINDOW mint that is exercised, not just the fixture's own five:
+`busy` presses attack every ninth frame, so the subject spawns bolts from its
+counter throughout the rolled-back window.
+
 ⚠ **A THIRD AXIS IS UNTESTED and is named here so it is not mistaken for
 covered: WHICH SCHEDULE the census runs in.** Nothing yet asks whether an anchor
-created inside a rollback resimulation is identified the same way.
+created inside a rollback resimulation is identified the same way. ⭐ The
+mechanism, named with the peer session: a world walked in `Update` and a world
+walked in `FixedUpdate` are different populations on the same frame, so every
+anchor a fixed-step system spawns is invisible to a census that walks the first
+— which in this engine is most of the simulation.
 
 
 

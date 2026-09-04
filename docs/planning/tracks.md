@@ -56,12 +56,26 @@ actual product requirement.
 - ▢ **Persistent occurrence/reconstitution semantics.** Terminal versus
   resettable occurrences, foreign-room relocation, unloaded-room items and
   durable relationships should consume the canonical construction/reconstitution
-  model rather than bespoke reset code. Owner:
+  model rather than bespoke reset code.
+  ⭐ **Foreign-room relocation and unloaded-room items are DONE (2026-09-04),
+  and the rule about who may enter the ledger is enforced by the ledger.** An
+  occurrence enters `AuthoredOccurrences` through custody and nowhere else;
+  `republish_placements` refuses any other id and returns the refusals
+  `#[must_use]`, so a second producer cannot silently lose an object when its
+  room unloads. ⛔ Still open on this row: `OccurrenceWhereabouts::Consumed` has
+  NO producer, which is load-bearing for `rewind_argument` — the day it gains
+  one the ledger owes a real rollback registration with a VALUE projection.
+  Owner:
   [`engine/construction-and-reconstitution.md`](engine/construction-and-reconstitution.md).
 - ▢ **Item custody/accounting residual.** Complete body-owned instance/count
   semantics for held weapons/abilities and unloaded-room occurrence behavior.
   I1 (the process-global equipped mirror) closed 2026-09-02 — the hand is the
-  record; I2–I4 remain. Owner:
+  record. ⭐ **I2's exploration half and I4 closed 2026-09-04, so what remains is
+  two DECISIONS and one fighter-side call site, not migration work:** I3 is
+  question 45 (is a unique capability item an entitlement or an occurrence),
+  I2's residual is `match_spawn.rs:113`, and the gauntlet drop road has no
+  end-to-end arm because `force_kill_boss` writes HP to zero and produces no
+  drops. Owner:
   [`engine/item-custody-and-accounting.md`](engine/item-custody-and-accounting.md).
 - ▢ **Capability progression/world gating.** Physical verbs remain body-owned;
   knowledge/keys/theorems remain participant-owned. Grow the authoring vocabulary
@@ -124,7 +138,15 @@ actual product requirement.
 ### World facts, orchestration and agentic characters
 
 - ▢ **Deterministic world facts + observations/memory.** Simulation truth should
-  be explicit and separate from what a character has observed/believes. Owner:
+  be explicit and separate from what a character has observed/believes.
+  ⭐ **Measured 2026-09-04: layer ONE of the three is not missing — it is
+  `AmbitionGameSaveData`**, thirteen TYPED fact families rather than the
+  key-value database this page refuses. Five of them are route-readable now
+  (`flags`, `switches`, `items`, `occurrences`/`custody`, `encounters`); the
+  first slice is therefore a PUBLICATION gap, not a representation decision.
+  ⛔ Layers two and three — observations and memory — have no durable
+  representation outside the tactical-belief slice, and the table above is
+  progress on one layer of three. Owner:
   [`engine/world-facts-observations-and-memory.md`](engine/world-facts-observations-and-memory.md).
 - ▢ **Agentic character runtime.** Typed actions/dialogue consume world truth;
   model-backed realtime characters should eventually enter through participant

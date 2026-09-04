@@ -214,6 +214,53 @@ mod production_passes {
         >(&mut app, Update, sync_portal_sprite_visibility);
     }
 
+    /// The parallax root is a room presentation entity. LDtk hot reload and
+    /// ordinary room replacement may retire it in the same Update in which the
+    /// per-view mirror pass decides it needs a `PresentedForView` key. The
+    /// deferred write must tolerate that lifecycle race; a surviving root in the
+    /// same fixture proves the mirror actually reached the write path.
+    #[test]
+    fn parallax_view_claim_survives_room_root_retirement() {
+        use crate::rendering::parallax::{
+            mirror_parallax_layers_per_view, ParallaxLayerVisual,
+        };
+        use ambition_sim_view::{LocalView, LocalViewId, PresentedForView};
+
+        let mut app = App::new();
+        let view = app.world_mut().spawn((LocalView, LocalViewId(0))).id();
+
+        let layer = ParallaxLayerVisual {
+            factor: Vec2::ONE,
+            z: -18.0,
+            panel_scale: 1.0,
+            travel: Vec2::ZERO,
+            world_size: Vec2::new(2000.0, 480.0),
+        };
+        app.world_mut().spawn((Sprite::default(), layer, Doomed));
+        app.world_mut().spawn((Sprite::default(), layer, Witness));
+
+        run_frame_despawning_targets_with_witness::<
+            Doomed,
+            Witness,
+            PresentedForView,
+            _,
+            _,
+        >(&mut app, Update, mirror_parallax_layers_per_view);
+
+        let claimed = {
+            let world = app.world_mut();
+            let mut keyed = world.query_filtered::<&PresentedForView, With<Witness>>();
+            keyed
+                .single(world)
+                .expect("the surviving root was claimed")
+                .0
+        };
+        assert_eq!(
+            claimed, view,
+            "the witness proves the mirror reached the deferred ownership write"
+        );
+    }
+
     #[test]
     fn the_placeholder_sprite_override_survives_its_targets_being_retired() {
         let mut app = App::new();

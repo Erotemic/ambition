@@ -122,10 +122,10 @@ pub(crate) fn apply_character_frame(
     );
     sprite.flip_x = flip;
     sprite.color = color;
-    // Self-capture the trim basis from the spawn-built sprite the first time we
-    // see this animator: its `custom_size` + feet anchor ARE the full-logical
-    // render basis, so no spawn site has to thread it in (a forgotten call would
-    // silently misalign a trimmed sheet). No-op once set / when untrimmed.
+    // Compatibility fallback for specialized/legacy sprite construction. Normal
+    // character construction seeds this basis BEFORE the sprite becomes drawable,
+    // which is what prevents frame zero of a packed sheet from flashing at the
+    // full logical size. `ensure_render_basis` is a no-op once initialized.
     if let (Some(size), Some(a)) = (sprite.custom_size, anchor.as_deref()) {
         animator.ensure_render_basis(size, a.0);
     }

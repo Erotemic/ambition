@@ -84,14 +84,20 @@ pub fn spawn_dynamic_feature_visuals(
         };
         match animated {
             Some(asset) => {
+                let (sprite, anchor, animator) =
+                    ambition_sprite_sheet::character::build_character_presentation(
+                        asset,
+                        render,
+                        bevy::sprite::Anchor::CENTER,
+                    );
                 commands.spawn_session_scoped(
                     session_scope,
                     (
-                        ambition_sprite_sheet::character::build_character_sprite(asset, render),
+                        sprite,
                         // A collectible floats: centre-anchored, like the
                         // authored animated pickup.
-                        bevy::sprite::Anchor::CENTER,
-                        ambition_sprite_sheet::character::CharacterAnimator::new(asset),
+                        anchor,
+                        animator,
                         transform,
                         name,
                         visual,

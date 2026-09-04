@@ -22,7 +22,7 @@ use ambition_platformer2d_shared_tangle::lifecycle::{
 };
 use ambition_platformer2d_world::rooms::{LoadingZone, LoadingZoneActivation, PropDraw, PropSpec};
 use ambition_sprite_sheet::character::{
-    build_character_sprite, build_character_sprite_with_render_size, feet_anchor_for,
+    build_character_presentation, build_character_presentation_with_render_size, feet_anchor_for,
     CharacterAnimator,
 };
 use ambition_sprite_sheet::game_assets::{self, entity_sprite, entity_sprite_or_color, GameAssets};
@@ -294,10 +294,11 @@ pub(crate) fn prop_sprite_bundle(
     collision: BVec2,
 ) -> (Sprite, Anchor, CharacterAnimator) {
     let (render_size, anchor) = prop_sprite_geometry(draw, &asset.spec, collision);
-    let mut sprite = build_character_sprite_with_render_size(asset, render_size);
+    let (mut sprite, anchor, animator) =
+        build_character_presentation_with_render_size(asset, render_size, anchor);
     // Which way the prop POINTS is authored data, not a second sheet.
     sprite.flip_y = flip_y;
-    (sprite, anchor, CharacterAnimator::new(asset))
+    (sprite, anchor, animator)
 }
 
 pub fn spawn_room_prop(
@@ -922,12 +923,14 @@ fn spawn_animated_pickup(
 ) {
     let size = aabb.half_size() * 2.0;
     let collision = BVec2::new(size.x, size.y);
+    let (sprite, anchor, animator) =
+        build_character_presentation(asset, collision, Anchor::CENTER);
     commands.spawn_session_scoped(
         session_scope,
         (
-            build_character_sprite(asset, collision),
-            Anchor::CENTER,
-            CharacterAnimator::new(asset),
+            sprite,
+            anchor,
+            animator,
             Transform::from_translation(world_to_bevy(
                 world,
                 aabb.center(),

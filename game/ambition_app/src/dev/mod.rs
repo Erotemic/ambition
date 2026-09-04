@@ -6,6 +6,10 @@
 pub mod debug_overlay;
 pub mod diagnostics_panel;
 pub mod fps_overlay;
+#[cfg(feature = "dev_tools")]
+pub mod frame_step;
+#[cfg(feature = "dev_tools")]
+pub mod presentation_probe;
 pub mod gamepad_probe;
 pub mod portal_inspector;
 #[cfg(feature = "dev_tools")]
@@ -118,12 +122,64 @@ fn install_egui_inspectors(app: &mut App) {
     // full egui pass to draw nothing.
     {
         use bevy_inspector_egui::bevy_egui::{EguiPostUpdateSet, EguiPreUpdateSet};
-        let wanted = |tools: Option<Res<DeveloperTools>>| {
-            tools.is_some_and(|tools| tools.inspector_visible || tools.world_inspector_visible)
-        };
+
+        // ⛔ APPLY F3/F4 BEFORE BEGINPASS, THEN LATCH THE ANSWER ONCE. The old
+        // path toggled `DeveloperTools` in `Update`, between BeginPass and
+        // EndPass, so an F3 close could begin a pass and skip its end while an
+        // F3 open could end a pass that never began. The developer UI now owns
+        // those two actions in PreUpdate after semantic hotkey emission, and
+        // this latch makes BeginPass/EndPass/ProcessOutput share one decision.
+        #[derive(Resource, Default)]
+        struct DeveloperEguiPassLatch(bool);
+
+        fn apply_developer_egui_hotkeys(
+            mut actions: MessageReader<
+                ambition_platformer2d::platformer::developer_hotkeys::DeveloperAction,
+            >,
+            mut tools: ResMut<DeveloperTools>,
+        ) {
+            use ambition_platformer2d::platformer::developer_hotkeys::DeveloperAction;
+            for action in actions.read() {
+                match action {
+                    DeveloperAction::ToggleInspector => {
+                        tools.inspector_visible = !tools.inspector_visible;
+                    }
+                    DeveloperAction::ToggleWorldInspector => {
+                        tools.world_inspector_visible = !tools.world_inspector_visible;
+                    }
+                    _ => {}
+                }
+            }
+        }
+
+        fn latch_developer_egui_pass(
+            mut latch: ResMut<DeveloperEguiPassLatch>,
+            tools: Option<Res<DeveloperTools>>,
+        ) {
+            latch.0 = tools.is_some_and(|tools| {
+                tools.inspector_visible || tools.world_inspector_visible
+            });
+        }
+
+        fn developer_egui_pass_wanted(
+            latch: Option<Res<DeveloperEguiPassLatch>>,
+        ) -> bool {
+            latch.is_some_and(|latch| latch.0)
+        }
+
+        app.init_resource::<DeveloperEguiPassLatch>()
+            .add_systems(
+                bevy::app::PreUpdate,
+                (apply_developer_egui_hotkeys, latch_developer_egui_pass)
+                    .chain()
+                    .after(
+                        ambition_platformer2d::platformer::developer_hotkeys::DeveloperHotkeyEmitSet,
+                    )
+                    .before(EguiPreUpdateSet::BeginPass),
+            );
         app.configure_sets(
             bevy::app::PreUpdate,
-            EguiPreUpdateSet::BeginPass.run_if(wanted),
+            EguiPreUpdateSet::BeginPass.run_if(developer_egui_pass_wanted),
         );
         // ⛔⛔ THREE SETS, NOT TWO — AND THE THIRD COST 28,353 ERRORS A RUN.
         // The first version of this gated `BeginPass` and `EndPass` only, having
@@ -141,7 +197,7 @@ fn install_egui_inspectors(app: &mut App) {
                 EguiPostUpdateSet::ProcessOutput,
                 EguiPostUpdateSet::PostProcessOutput,
             )
-                .run_if(wanted),
+                .run_if(developer_egui_pass_wanted),
         );
     }
 
@@ -160,7 +216,9 @@ fn install_egui_inspectors(app: &mut App) {
             ResourceInspectorPlugin::<Platformer2dFeelTuningMonolith>::default()
                 .run_if(inspector_visible),
         )
-        .add_plugins(portal_inspector::PortalInspectorPlugin);
+        .add_plugins(portal_inspector::PortalInspectorPlugin)
+        .add_plugins(frame_step::FrameStepPanelPlugin)
+        .add_plugins(presentation_probe::PresentationProbePlugin);
 
     app.add_plugins(WorldInspectorPlugin::new().run_if(world_inspector_visible));
 }

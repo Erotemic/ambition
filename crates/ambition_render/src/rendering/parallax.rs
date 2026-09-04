@@ -408,7 +408,12 @@ pub fn mirror_parallax_layers_per_view(
         // become the root's own view, so the root already draws it and the copy
         // is a duplicate.
         if root_is_gone || !live.contains(&key.0) || key.0 == root_view {
-            commands.entity(entity).despawn();
+            // A room/content teardown can retire this presentation copy in the
+            // same frame after this query observed it. Retraction is already
+            // the desired outcome, so a vanished target is success rather than
+            // an error worth escalating through Bevy's deferred-command
+            // handler.
+            commands.entity(entity).try_despawn();
             continue;
         }
         mirrored.insert((copy.root, key.0));
@@ -416,9 +421,15 @@ pub fn mirror_parallax_layers_per_view(
 
     for (root, sprite, layer, bound, key) in &roots {
         if key.map(|key| key.0) != Some(root_view) {
+            // Room replacement (including the developer LDtk hot-reload
+            // transaction) can queue destruction of this root after the query
+            // has yielded it but before Commands flush. This tag is pure
+            // presentation ownership: if the root no longer exists there is
+            // nothing left to present, so decline the stale write instead of
+            // panicking the host.
             commands
                 .entity(root)
-                .insert(ambition_sim_view::PresentedForView(root_view));
+                .try_insert(ambition_sim_view::PresentedForView(root_view));
         }
         for (_, view) in ordered.iter().skip(1) {
             if mirrored.contains(&(root, *view)) {

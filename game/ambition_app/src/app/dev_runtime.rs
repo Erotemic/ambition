@@ -27,12 +27,11 @@ pub(super) fn handle_debug_hotkeys(
         match action {
             DeveloperAction::ToggleDebugOverlay => dev_state.debug = !dev_state.debug,
             DeveloperAction::ToggleSlowMotion => dev_state.slowmo = !dev_state.slowmo,
-            DeveloperAction::ToggleInspector => {
-                tools.inspector_visible = !tools.inspector_visible;
-            }
-            DeveloperAction::ToggleWorldInspector => {
-                tools.world_inspector_visible = !tools.world_inspector_visible;
-            }
+            // F3/F4 are owned by the pre-Egui developer surface in `dev/mod.rs`.
+            // Handling them here as well toggles the same boolean twice in one frame,
+            // making the hotkey appear to do nothing and reintroducing the
+            // BeginPass/EndPass lifecycle race that the pre-Egui owner exists to avoid.
+            DeveloperAction::ToggleInspector | DeveloperAction::ToggleWorldInspector => {},
             DeveloperAction::ToggleOverviewCamera => {
                 tools.overview_camera = !tools.overview_camera;
             }

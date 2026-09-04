@@ -195,6 +195,13 @@ impl DeveloperHotkeyBindings {
     }
 }
 
+/// Ordering seam for consumers that must react before another PreUpdate phase.
+///
+/// Developer UI uses this to apply F3/F4 before Egui begins its pass, while
+/// every other consumer can continue reading the semantic messages later.
+#[derive(SystemSet, Clone, Copy, Debug, Eq, Hash, PartialEq)]
+pub struct DeveloperHotkeyEmitSet;
+
 /// Installs the single physical-key reader. Consumers add no keyboard systems;
 /// they listen for [`DeveloperAction`] messages instead.
 pub struct DeveloperHotkeyPlugin;
@@ -205,8 +212,20 @@ impl Plugin for DeveloperHotkeyPlugin {
         app.world()
             .resource::<DeveloperHotkeyBindings>()
             .assert_valid();
-        app.add_message::<DeveloperAction>()
-            .add_systems(PreUpdate, emit_developer_actions);
+        app.add_message::<DeveloperAction>().add_systems(
+            PreUpdate,
+            emit_developer_actions
+                .in_set(DeveloperHotkeyEmitSet)
+                // `ButtonInput<KeyCode>` is populated by Bevy's input pass in
+                // this same schedule. Reading `just_pressed` without an edge
+                // against that writer makes the developer deck depend on the
+                // executor's otherwise-unconstrained system order: a physical
+                // F-key can become visible only after this reader has already
+                // sampled the frame. The semantic deck owns physical-key
+                // translation, so it also owns the requirement that the key
+                // state it translates is the current frame's state.
+                .after(bevy::input::InputSystems),
+        );
     }
 }
 
@@ -247,6 +266,15 @@ mod tests {
         keys.press(KeyCode::ShiftLeft);
         assert!(!plain.matches(&keys));
         assert!(shifted.matches(&keys));
+    }
+
+    #[test]
+    fn f3_opens_the_shared_developer_tools_surface() {
+        let bindings = DeveloperHotkeyBindings::default();
+        assert_eq!(
+            bindings.chord_for(DeveloperAction::ToggleInspector),
+            Some(DeveloperKeyChord::key(KeyCode::F3))
+        );
     }
 
     #[test]

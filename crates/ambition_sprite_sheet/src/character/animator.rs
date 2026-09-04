@@ -63,17 +63,14 @@ impl CharacterAnimator {
         }
     }
 
-    /// Initialize the trim basis from the spawn-built sprite's size + anchor the
-    /// first time the renderer applies a frame — and only then (no-op once set).
+    /// Initialize the full-logical trim basis once.
     ///
-    /// The basis a trimmed sheet needs to recompute per-frame size/anchor IS the
-    /// sprite's own full-logical `custom_size` + feet anchor; every spawn site
-    /// built it that way (the actor path even reconstructed this arg from
-    /// `sprite.custom_size`). So instead of threading it through every
-    /// `CharacterAnimator::new` call site — where a forgotten call silently
-    /// misaligns a trimmed sheet — the single `apply_character_frame` chokepoint
-    /// captures it from the sprite. A sprite + anchor + animator is now
-    /// sufficient; no spawn site can desync the basis because none provides it.
+    /// Ordinary character construction seeds this before the sprite becomes
+    /// drawable so frame zero already has correct packed/trimmed geometry. The
+    /// animation chokepoint keeps a compatibility fallback that can self-capture
+    /// the basis for specialized/legacy construction paths. Once initialized the
+    /// basis is immutable: later trimmed frames are all projections of this same
+    /// logical size + anchor.
     pub fn ensure_render_basis(&mut self, render_size: Vec2, feet_anchor: Vec2) {
         if self.render_basis.is_none() {
             self.render_basis = Some(RenderBasis {

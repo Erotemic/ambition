@@ -263,3 +263,66 @@ fn the_sprite_baseline_records_the_bodys_own_standing_size() {
         "and one that states no size falls back to the engine default"
     );
 }
+
+/// A trimmed character must never be drawable at its full logical-frame size.
+///
+/// Regression for the title-shell launch pop: the binder used to insert frame
+/// zero's packed atlas rect with the FULL logical `custom_size`, and only the
+/// first animation pass applied its trim. That exposed one giant robot frame
+/// before `BodyPoseView` existed. Construction now composes the sprite and
+/// animator geometry before either becomes drawable.
+#[test]
+fn a_trimmed_character_is_geometry_complete_on_its_first_drawable_frame() {
+    let mut app = App::new();
+    app.add_plugins(MinimalPlugins);
+
+    let asset = fixture("player_robot_v3");
+    assert!(
+        asset.spec.is_trimmed(),
+        "the regression fixture must exercise a packed/trimmed sheet"
+    );
+    let mut assets = GameAssets::default();
+    assets.characters.publish("player_robot_v3", asset);
+    app.insert_resource(assets);
+    app.add_systems(Update, bind_worn_character_presentation);
+
+    // Deliberately NO BodyPoseView: this is the exact zero-sim-tick state the
+    // title shell exposed in the failing launch frame.
+    let player = spawn_worn(&mut app, "player_robot_v3");
+    app.update();
+
+    let animator = app
+        .world()
+        .get::<CharacterAnimator>(player)
+        .expect("the real sheet installs an animator on the first bind");
+    let sprite = app
+        .world()
+        .get::<Sprite>(player)
+        .expect("the first bound frame is drawable");
+    let anchor = app
+        .world()
+        .get::<bevy::sprite::Anchor>(player)
+        .expect("the trimmed frame carries its adjusted anchor");
+    let baseline = app
+        .world()
+        .get::<super::PlayerSpriteBaseline>(player)
+        .expect("the logical render basis is retained separately");
+
+    let (expected_size, expected_anchor) = animator
+        .current_render()
+        .expect("a trimmed animator with a seeded basis has current geometry");
+    let actual_size = sprite.custom_size.expect("character sprites have an explicit size");
+
+    assert!(
+        actual_size.distance(expected_size) < 1.0e-4,
+        "the first drawable sprite must already use frame-zero trim: actual={actual_size:?} expected={expected_size:?}"
+    );
+    assert!(
+        anchor.0.distance(expected_anchor) < 1.0e-4,
+        "the first drawable sprite must already use frame-zero's trim-adjusted anchor"
+    );
+    assert!(
+        actual_size.distance(baseline.standing_render) > 1.0,
+        "this fixture must prove the packed frame is not drawn at the full logical render size"
+    );
+}

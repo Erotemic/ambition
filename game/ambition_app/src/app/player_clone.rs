@@ -24,8 +24,7 @@ use ambition_platformer2d::engine_core as ae;
 use ambition_platformer2d::engine_core::RoomGeometry;
 use ambition_platformer2d::render::rendering::{PlayerSpriteBaseline, PlayerVisual};
 use ambition_platformer2d::sprite_sheet::character::{
-    build_character_sprite_with_render_size, feet_anchor_for_render_size, sprite_render_size,
-    CharacterAnimator,
+    build_character_presentation_with_render_size, feet_anchor_for_render_size, sprite_render_size,
 };
 use ambition_platformer2d::sprite_sheet::game_assets::GameAssets;
 
@@ -165,10 +164,12 @@ pub fn spawn_requested_player_clone(
     if let Some(asset) = asset {
         let render = sprite_render_size(&asset.spec, collision);
         let clone_anchor = feet_anchor_for_render_size(&asset.spec, collision, render);
+        let (sprite, clone_anchor, animator) =
+            build_character_presentation_with_render_size(asset, render, clone_anchor);
         clone.insert((
-            build_character_sprite_with_render_size(asset, render),
+            sprite,
             clone_anchor,
-            CharacterAnimator::new(asset),
+            animator,
             PlayerSpriteBaseline {
                 standing_render: render,
                 standing_collision: collision,

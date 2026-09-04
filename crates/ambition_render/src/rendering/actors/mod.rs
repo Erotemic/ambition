@@ -15,8 +15,8 @@ use ambition_platformer2d_shared_tangle::feature_kind::{BoundFeatureKind, Featur
 use ambition_platformer2d_shared_tangle::markers::{PlayerEntity, PrimaryPlayer};
 use ambition_sim_view::FeatureViewIndex;
 use ambition_sprite_sheet::character::{
-    CharacterAnimator, build_character_sprite, build_character_sprite_with_render_size,
-    feet_anchor_for, feet_anchor_for_render_size, sprite_render_size,
+    CharacterAnimator, build_character_presentation_with_render_size,
+    feet_anchor_for_render_size, sprite_render_size,
 };
 use ambition_sprite_sheet::game_assets::{self, EntitySprite, GameAssets};
 
@@ -147,8 +147,9 @@ pub fn bind_worn_character_presentation(
         }
         if let Some(asset) = asset {
             let player_render = sprite_render_size(&asset.spec, player_collision);
-            let sprite = build_character_sprite_with_render_size(asset, player_render);
             let anchor = feet_anchor_for_render_size(&asset.spec, player_collision, player_render);
+            let (sprite, anchor, animator) =
+                build_character_presentation_with_render_size(asset, player_render, anchor);
             // A visible sprite RESIZE mid-launch has no other trace: nothing
             // else records that the quad changed size, or which of the two
             // bind sites seeded it. Both seed `standing_collision` differently
@@ -179,7 +180,7 @@ pub fn bind_worn_character_presentation(
             commands.entity(entity).try_insert((
                 sprite,
                 anchor,
-                CharacterAnimator::new(asset),
+                animator,
                 PlayerSpriteBaseline {
                     standing_render: player_render,
                     standing_collision: player_collision,
@@ -838,7 +839,7 @@ pub fn upgrade_actor_sprites(
         // body-metrics NPC): render at the stored quad, NOT collision*scale,
         // so the sprite doesn't balloon once collision already equals the body.
         let render_size = actor.render_size.map(|r| BVec2::new(r.x, r.y));
-        let (sprite, anchor) = match render_size {
+        let (render_size, anchor) = match render_size {
             // This body publishes where its quad goes, per pose (the sheet's
             // per-animation body rectangle). That placement already puts the
             // art's feet on the box's gravity face for the pose being shown, so
@@ -846,26 +847,31 @@ pub fn upgrade_actor_sprites(
             // the sheet's one static feet anchor on top would double-count it —
             // and that anchor is derived from the idle frame, which is precisely
             // the wrong answer for a body that changes silhouette.
-            Some(render_size) if view.sprite_offset.is_some() => (
-                build_character_sprite_with_render_size(character_asset, render_size),
-                Anchor::CENTER,
-            ),
+            Some(render_size) if view.sprite_offset.is_some() => (render_size, Anchor::CENTER),
             Some(render_size) => (
-                build_character_sprite_with_render_size(character_asset, render_size),
+                render_size,
                 feet_anchor_for_render_size(&character_asset.spec, collision, render_size),
             ),
-            None => (
-                build_character_sprite(character_asset, collision),
-                feet_anchor_for(&character_asset.spec, collision),
-            ),
+            None => {
+                let render_size = sprite_render_size(&character_asset.spec, collision);
+                (
+                    render_size,
+                    feet_anchor_for_render_size(&character_asset.spec, collision, render_size),
+                )
+            }
         };
+        let (sprite, anchor, animator) = build_character_presentation_with_render_size(
+            character_asset,
+            render_size,
+            anchor,
+        );
         // The feet anchor plants the sprite's authored feet (`feet_anchor_y` from
         // sprite metadata) on the gravity-side edge of the collision box. It is a
         // 1-D anchor that rotates WITH the sprite, so for a surface-walker clung to
         // a wall it correctly plants the contact edge once the collision box itself
         // is oriented (see `update_enemy_actors`). No per-family special-casing.
-        // The trimmed-sheet render basis is the sprite's own size + anchor, so
-        // the renderer self-captures it — nothing to thread in here.
+        // The constructor seeds the full logical render basis and applies frame-zero
+        // trim before this entity becomes drawable; later animation ticks reuse it.
         // `try_insert`: REPRODUCED, and the same shape as the boss
         // twin — these are `FeatureVisual` entities, which
         // `despawn_dead_dynamic_feature_visuals` retires the moment a feature's
@@ -874,7 +880,7 @@ pub fn upgrade_actor_sprites(
         commands.entity(entity).try_insert((
             sprite,
             anchor,
-            CharacterAnimator::new(character_asset),
+            animator,
             BoundFeatureKind::new(view.kind, collision),
             BoundSpriteQuality {
                 scale: character_asset.resolved_tier,
@@ -948,10 +954,13 @@ pub fn refresh_player_sprites_for_resident_quality(
         // confirmed quality-profile switch rebuilds `GameAssets`, and a provider
         // switch in the same frame despawns the session scope this visual
         // belongs to.
+        let anchor = feet_anchor_for_render_size(&asset.spec, collision, render);
+        let (sprite, anchor, animator) =
+            build_character_presentation_with_render_size(asset, render, anchor);
         commands.entity(entity).try_insert((
-            build_character_sprite_with_render_size(asset, render),
-            feet_anchor_for_render_size(&asset.spec, collision, render),
-            CharacterAnimator::new(asset),
+            sprite,
+            anchor,
+            animator,
             PlayerSpriteBaseline {
                 standing_render: render,
                 standing_collision: collision,

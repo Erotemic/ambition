@@ -647,10 +647,35 @@ remedy for a full disk cannot run.**
    incremental** — which `.cargo/config.toml` enables deliberately, worth
    **104.9s → 21.3s** on the agent loop per the same journal.
 
-⚠ **So "delete `target/debug/incremental` first, it is 77G" — which this entry
-said earlier and `status.md` implies — is the WRONG first move**: it is the single
-most load-bearing directory for iteration speed, and the sweeper exists to avoid
-touching it. ⛔ Not deleted, and not this session's to delete — it is
+⛔⛔ **AND THE ABOVE IS SUPERSEDED — `scripts/clean_workspace_crates.sh` is the
+right tool and needs none of it.** Its contract: *"Drop OUR crates' build
+artifacts from `target/`, keeping every dependency … the 'recompile ambition, not
+bevy' cut."* It wraps `cargo clean --workspace`, needs no `cargo-mark-sweep`, and
+therefore **needs no build** — which breaks the deadlock above entirely.
+
+⛔ **AND IT CORRECTS ME TWICE ON INCREMENTAL, so read the script's own measurement
+rather than either of my claims.** Verbatim: *"INCREMENTAL IS MOST OF THE BLOAT AND
+COSTS ALMOST NOTHING TO DROP. Measured 2026-08-30: 70G of a 112G target was
+`target/*/incremental`, 915 dirs for ~70 crates — roughly thirteen stale
+generations each, because a new hash is minted per feature/flag shape and the old
+one is never reaped. **Deleting it invalidates NO fingerprint**: a fresh crate
+stays fresh and is skipped on the next build. The only cost is that the next EDIT
+to a given crate recompiles it whole instead of incrementally."*
+
+⇒ **So both of my positions were wrong.** *"Delete incremental first, it is 77G"*
+was right for the wrong reason; *"that is the wrong first move because incremental
+is worth 104.9s → 21.3s"* confused **having incremental ENABLED** (which is worth
+that, and is a `.cargo/config.toml` setting nothing here changes) with **retaining
+thirteen stale generations of it** (which is worth almost nothing). ⭐ The script
+even has `--incremental-only`, *"which reclaims the largest share of the directory
+while deleting no artifact at all."*
+
+⇒ **The actual path, one command and no build**:
+`scripts/clean_workspace_crates.sh --incremental-only` first, then a full
+`--apply` if more is wanted. ⚠ **Not run here — deletion under `target/` is a
+standing rule for this session, and a sibling session being directed to run it is
+not authorisation for this one.** On that session's box the full form freed
+**337.3 GiB** across 323,782 files with the dependency wall left standing. ⛔ Not deleted, and not this session's to delete — it is
 the maintainer's environment and the Lean toolchain may belong to other work. ⓘ
 Recorded only because the ambition reclaim and this one are independent: either
 alone would restore a workable volume, and one of them costs no warm build tree at

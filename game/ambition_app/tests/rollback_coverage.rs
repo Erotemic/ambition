@@ -1458,6 +1458,19 @@ const RESOURCE_WAIVED: &[(&str, &str)] = &[
         "whether the transition's presentation half is installed in THIS          composition — a fact about the build, not about the run",
     ),
     (
+        "ambition_demo_smash::SmashStageChoice",
+        "WHICH STAGE the next match is played on. A pre-match decision, not \
+         simulation state: the select screen writes it before a match exists, \
+         `smash_prepared_session_world` reads it ONCE when preparation is \
+         requested, and nothing inside a live match reads or writes it. GGRS \
+         rewinds ticks WITHIN a match, and the stage cannot differ across that \
+         window — restoring it would restore a value that never changed. \
+         ⛔ Not `derived`: it is authored by a player pressing a button, not \
+         computed from anything. If a rule ever lets a match change stage \
+         mid-session, this waiver is wrong and the resource becomes real \
+         rollback state.",
+    ),
+    (
         "ambition_demo_smash::select::SmashSelect",
         "the character-select screen's per-seat choices. All three readers are the          screen itself — present it, drive it, and hand off — and what the MATCH          reads is the `MatchParticipantRoster` it publishes, which is a different          resource with its own owner. Frontend state, decided before a session          exists. ⚠ read to its readers rather than waived by category: this repo          has been bitten repeatedly around rosters and seats, so \"it is only the          menu\" is a claim that has to be checked",
     ),

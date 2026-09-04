@@ -932,6 +932,44 @@ object in a loaded room, which is a larger decision wearing this one's clothes.
 Related: 45 (entitlement versus occurrence) is the same family of question one
 level up — that one asks what an item IS, this one asks what a checkpoint owes.
 
+## Who owns Smash's CPU difficulty ladder — and the demo has been fighting the floor
+
+⛔ **The fact first, because it is worse than the question.** The standalone smash
+demo app gives **every CPU rung the same utility weights**. `profile_for_level`
+prefers `Res<AuthoredFighterLadder>` and falls back to
+`FighterBrainProfile::for_level`, whose `utility_weights` is
+`UtilityWeights::default()` — which *is* `v1()`, i.e. **the level-9 row** — for
+every level. The authored rows are inserted by `ambition_content`, and neither
+`ambition_demo_smash` nor `ambition_demo_smash_app` depends on it.
+
+⇒ In the shipped game (`ambition_app` composes `ambition_content`) your CPUs get
+the authored ladder. In the demo app — **and therefore in every ladder-rig
+measurement this project has ever recorded** — they do not. The rig prints the
+condition now and two tests pin it (`the_ladder_the_demo_runs`), but neither
+repairs it, because the repair is your call:
+
+- **(a) The demo composes `ambition_content`.** The demo then matches the shipped
+  game exactly, which is what a measurement rig should do. ⚠ Costs the demo a
+  38-dependency crate it currently does without, which cuts against the
+  capability-composability doctrine landed the same day.
+- **(b) Smash ships its own nine rows.** `for_level`'s own doc invites this —
+  *"a game that cares ships its own nine rows"* — and
+  [`demos/super-smash-siblings.md`](demos/super-smash-siblings.md) already puts
+  *"CPU-fill/difficulty policy"* in what Smash owns. ⛔ But `ambition_content`
+  also inserts one, so with both present the winner is a plugin-order accident
+  unless the rule is made explicit. It also makes Smash's ladder a second thing
+  to tune.
+- **(c) Leave it, knowingly.** The demo is a fighting sandbox, not the product,
+  and the floor's reflex-only ladder is a legitimate thing to iterate against.
+  ⇒ Then the rig's numbers must never be quoted as being about the shipped
+  fighter, which is exactly the mistake this page exists to prevent.
+
+⚠ **What the answer changes.** Every recorded ladder result — including
+`fighter-brain.md`'s finding that the ladder inverts at the 5→6 boundary — is a
+statement about the floor's reflex ladder (reaction, APM, noise, read weight) and
+not about the difficulty ladder you authored. Nobody should tune the brain
+against those numbers until this is answered.
+
 ## Waiting on maintainer measurement, not a decision
 
 ### The residency limit open work 4 needs

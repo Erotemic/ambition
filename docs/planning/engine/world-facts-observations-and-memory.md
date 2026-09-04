@@ -33,7 +33,8 @@ conditions read four of them:
 | `switches` | ✔ `world.switch_on` |
 | `items` | ✔ `inventory.holds` |
 | `occurrences` / `custody` | ✔ `custody.is_held` |
-| `encounters`, `bosses`, `quests`, `dialog_visits`, `wallet`, `checkpoint`, `minted_items`, `inventory_saved` | ⛔ nothing publishes a condition |
+| `encounters` | ✔ `encounter.cleared` (published 2026-09-04) |
+| `bosses`, `quests`, `dialog_visits`, `wallet`, `checkpoint`, `minted_items`, `inventory_saved` | ⛔ nothing publishes a condition |
 
 ⇒ **So the first slice of THIS program is not a representation decision, it is a
 publication gap**, and it is the same shape the capability-progression program
@@ -44,6 +45,16 @@ key-value database this page refuses, wearing typed clothes. The ones with an
 obvious authored customer are `encounters` (*"has this arena been cleared"* —
 distinct from its switch, which is the mechanism's state rather than the
 outcome), `bosses` and `quests`.
+
+✔ **`encounter.cleared` is the first of those, and it ships from
+`ambition_encounter_features` rather than the actor monolith** — the fifth
+condition provider and the first to live beside the systems that WRITE the fact,
+which is what "a domain owns its own publication" has to mean once the domains
+stop sharing a crate. It is also the first condition over a NON-BOOLEAN durable
+fact, and it publishes one named state rather than a
+`state_is(encounter, state)` accessor: a generic reader would be exactly the
+key-value fact database this page refuses, arriving one enum at a time. A second
+state becomes a second named question when something wants it.
 
 ⛔ **AND IT SAYS NOTHING ABOUT THE OTHER TWO LAYERS.** Observations and memory
 have no durable representation at all outside the tactical-belief slice below;

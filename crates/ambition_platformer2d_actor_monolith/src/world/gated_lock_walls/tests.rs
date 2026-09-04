@@ -556,6 +556,52 @@ fn a_wall_may_be_gated_on_a_world_mechanism_being_latched_on() {
     );
 }
 
+/// A ROUTE GATED ON AN ENCOUNTER OUTCOME — and the arm that separates it from
+/// the switch.
+///
+/// A wave encounter's completion latches every switch linked to it, so
+/// `world.switch_on` and `encounter.cleared` usually agree. ⛔ THEY MUST NOT BE
+/// THE SAME QUESTION: the switch is the mechanism, resettable by a reset switch
+/// the player can walk up to; this is the outcome the save recorded. A door
+/// gated on having cleared the arena must not reopen because somebody reset the
+/// lights, so the middle assertion here sets the SWITCH and requires the wall to
+/// stay standing.
+#[test]
+fn a_wall_gated_on_an_encounter_outcome_does_not_answer_to_its_switch() {
+    use ambition_platformer2d_shared_tangle::authored_logic::PublishCondition;
+
+    let mut app = world_with_one_wall_gated_by("encounter.cleared goblin_encounter");
+    app.publish_condition(
+        ambition_encounter_features::conditions::cleared_descriptor(),
+        ambition_encounter_features::conditions::cleared,
+    );
+
+    app.update();
+    assert_eq!(standing(&app), 1, "nothing has been fought yet");
+
+    app.world_mut()
+        .resource_mut::<ambition_persistence::save::AmbitionGameSave>()
+        .data_mut()
+        .set_switch("goblin_encounter_reset_switch", true);
+    app.update();
+    assert_eq!(
+        standing(&app),
+        1,
+        "the mechanism's lights are green and the encounter is still unfinished; \
+         these are two facts and this wall asked for the second"
+    );
+
+    app.world_mut()
+        .resource_mut::<ambition_persistence::save::AmbitionGameSave>()
+        .data_mut()
+        .set_encounter(
+            "goblin_encounter",
+            ambition_persistence::save_data::PersistedEncounterState::Cleared,
+        );
+    app.update();
+    assert_eq!(standing(&app), 0, "cleared; the route past it opens");
+}
+
 /// AN AUTHORED CONDITION THAT DOES NOT EXIST LEAVES THE WALL STANDING.
 ///
 /// ⛔ AND IT IS NOT DEMOTED TO A FLAG LOOKUP. `names_its_own_condition` is

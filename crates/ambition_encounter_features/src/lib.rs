@@ -17,6 +17,7 @@
 
 use ambition_encounter::{Encounter, EncounterLifecycleSet};
 use ambition_platformer2d_shared_tangle::schedule::SimScheduleExt;
+pub mod conditions;
 pub mod loading;
 pub mod lock_walls;
 pub mod switch_index;

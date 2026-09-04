@@ -509,6 +509,12 @@ impl PluginGroup for PlatformerEnginePlugins {
             // useful because `gated_by` became a condition line: a route may
             // now ask what the body it is stopping can actually do.
             .add(ambition_platformer2d_actor_monolith::body_conditions::BodyCapabilityConditionsPlugin)
+            // The encounter capability's own provider — `encounter.cleared(id)`.
+            // FIFTH provider, and the first one that does not live in the actor
+            // monolith: it ships from `ambition_encounter_features` beside the
+            // systems that write the fact, which is what "a domain owns its own
+            // publication" has to mean once the domains stop sharing a crate.
+            .add(ambition_encounter_features::conditions::EncounterConditionsPlugin)
             // The engine progression chain (boss encounters, save mirrors,
             // quest pump, room metadata/music, portal phases) + its content
             // slots.

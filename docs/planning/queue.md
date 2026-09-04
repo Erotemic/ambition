@@ -2676,7 +2676,10 @@ queue read as an execution authority for work already done.
   (250px against a 148.3px ceiling).
   ⇒ **Remaining customers, COSTED PER ITEM 2026-09-04 — and only two of seven are
   authoring.** ⛔ This row said "the seam is finished, no plumbing" of `P11`'s four
-  capture roads; that is true of ONE of them.
+  capture roads; that is true of ONE of them. ⓘ **Those four are the UNAUTHORED
+  remainder of six** — the parity inventory's *"`P11` has the capture seam and
+  **2 of 6** authored roads"* is the same fact counted from the other end, and the
+  two figures partition rather than disagree.
   ✔ **Authoring alone:** ~~`P11`'s **command grab**~~ — ✔ **SLICE TAKEN
   2026-09-04**, and it needed no engine work exactly as this row predicted:
   `lunge_grab` is a `special_forward` whose `Active` window sustains

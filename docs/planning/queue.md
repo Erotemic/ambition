@@ -66,6 +66,41 @@ found the wider trap: `cargo test -p ambition_asset_manager --lib` runs NONE of
 that no default build enables. The poison run reported 56 green and proved
 nothing; `--features bevy` is required.
 
+✔ **D-MIRROR-FORK — two facts were answered by TWO mechanisms, and both losers
+are deleted.** Landed 2026-09-04, `39a48d4fa` (`boss.cleared`) and `03f31eee3`
+(`quest.active`). `YarnStateMirrorData` held per-frame projections of
+`bosses_cleared` and `quests_active` so bespoke Yarn functions could answer them
+synchronously — the second-authority shape **both modules already named at the
+site**: *"the mirror remains only for facts the catalog cannot answer"*
+(`authored_conditions.rs`) and *"Two mechanisms answering one question is exactly
+the second authority this project refuses elsewhere"* (`yarn_vocabulary.rs`,
+which was describing the function directly below it).
+  ⇒ Both Yarn functions are now REGISTERED SYSTEMS asking the catalog live, and
+both mirror slices and their refresh loops are gone — the second and third to
+leave, after `flag` went when `world.flag_set` landed. That precedent, in the
+same function, is what made this a carve rather than a proposal.
+  ⭐⭐ **AND NOT ONE WORD OF AUTHORED CONTENT CHANGED.** `cove.yarn` and
+`kernel.yarn` keep `boss_cleared("mockingbird")` and gain the live answer,
+because the fork was about AUTHORITY, not spelling. ⇒ **That is the question to
+ask first of any fork: can the loser be removed without rewriting what authors
+wrote?** Three for three today across both sessions when asked.
+  ⭐ `quest.active` is **the first condition published by the GAME** rather than
+an engine crate — the engine has no quest domain, so *"a domain owns its own
+publication"* puts it in `ambition_content::quests`. A composition without
+Ambition's quests never sees the question.
+  ⛔ **This is NOT the dormant-cluster growth the gating row warns about, and the
+distinction is the reusable part.** Five of seven published conditions are
+authored nowhere, so "publish more conditions" is normally wrong. These had
+authored callers on day one, **through the other door** — so the test is not
+*"is it used?"* but *"is its customer currently served by a fork?"*
+  ⚠ Checked rather than assumed: `encounter.cleared` does not already answer
+either. `encounters`, `bosses` and `quests` are three separate save fields with
+three accessors.
+  ⚠ **AND THE ONES NOT TO MIGRATE ARE NAMED**: `visit_count` is dialogue's own
+bookkeeping rather than a world fact, and `wallet_balance` is a NUMBER the
+catalog's boolean-outcome shape cannot express without inventing a comparison
+vocabulary. **An empty mirror is not the goal; one authority per question is.**
+
 ✔ **S4-WHEN — a rollback anchor was ANONYMOUS and no fixture width could have
 found it.** Landed 2026-09-04, `974e8e97e` / `f715aa544`. S4's rule was *"a
 census with no waiver list is only as strong as the population it walks, so
@@ -1850,7 +1885,13 @@ queue read as an execution authority for work already done.
   path came from your own walk; qualified where tolerance is real.
   ⇒ Recipe: `docs/recipes/checks-that-did-not-run.md`, *"And your OTHER WORK is
   part of that environment"*.
-  ✔✔ **RE-CONFIRMED AFTER THE S4 SLICE: 7,139 PASSED, 0 FAILED, `cargo exit: 0`,
+  ✔✔ **RE-CONFIRMED AFTER THE TWO MIRROR CARVES: 7,146 PASSED, 0 FAILED,
+  `cargo exit: 0`, 179 blocks, 42 ignored**, at `24b55d3ac` — `boss.cleared`,
+  `quest.active` and both deleted `YarnStateMirror` slices are inside this
+  number. ⭐ **THREE GREEN UNIONS AT THREE HEADS** (`5c320ebb5` → `935491c76` →
+  `24b55d3ac`), which is what makes green a property of the tree rather than of a
+  commit.
+  ✔✔ **AND AFTER THE S4 SLICE: 7,139 PASSED, 0 FAILED, `cargo exit: 0`,
   179 test blocks, 42 ignored**, measured 2026-09-04 at `935491c76` — the same
   command, nothing else on the machine, zero `Too many open files`. ⇒ The
   anonymous-anchor fix, the portal `SimId`, the third census and the policy

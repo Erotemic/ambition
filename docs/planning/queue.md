@@ -2329,6 +2329,23 @@ queue read as an execution authority for work already done.
   Found 2026-09-04 by putting two existing instruments side by side; there was no
   guard for it because nothing compares what the brain SELECTED against what the
   body PERFORMED.
+  ✔✔ **RE-MEASURED 2026-09-04 after the disk was reclaimed, and the shape holds.**
+  `capture-probe --character smash_george_booul --opponent smash_george_booul
+  --ladder <shipped ron> 120`, with the tool printing its own configuration
+  (`fighters: smash_george_booul`, `ladder: the AUTHORED rows`):
+
+  | | this run | as recorded below |
+  |---|---:|---:|
+  | distinct moves started | **14** of 28 authored | 12 |
+  | never started | **14** | 16 |
+  | `george_booul_dash_attack` starts | **98** | 98 |
+  | tilts / smashes in the top 12 | **none** | none |
+
+  ⇒ **The dash attack is still ~81% of starts and no tilt or smash appears.** The
+  distinct count moved by two, which is seed-level variation rather than a change
+  of shape; the finding this row rests on — the fighter throws one move — is
+  reproduced against a self-labelling instrument.
+
   ⭐ **The measurement** (`smash_tool capture-probe --character smash_george_booul
   --ladder <shipped ron>`, 40s, `AMBITION_FIGHTER_TRACE=1`): the brain chose
   `george_booul_dash_attack` **0 times**; the bodies started it **43 of 59**. It

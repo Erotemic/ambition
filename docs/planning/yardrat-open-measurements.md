@@ -431,6 +431,22 @@ suggested.
 
 ## ⛔ OPEN — the composed app cannot be built on this VM, and `df` says otherwise
 
+⭐⭐ **WHEN A MACHINE CAN BUILD, RUN THESE IN THIS ORDER.** Everything below was
+prepared while blocked, so none of it needs re-deriving:
+
+| # | command | what it settles | why this order |
+|---|---|---|---|
+| 1 | `cargo test -p ambition_demo_smash` | the three guards touched 2026-09-04, one of which (`the_side_special_...`) was restored WITHOUT ever being run | cheapest, and a red here invalidates reasoning below it |
+| 2 | `cargo test -p ambition_demo_smash_app` | the rig's own poison arms, including the row-level one | the instrument must be trusted before its output is |
+| 3 | `cargo run --release -p ambition_demo_smash_app --bin smash_tool -- ladder-rig --ladder game/ambition_content/assets/data/fighter_brain_ladder.ron --paired --seeds 12` | **the four held ladder cells** — `3 vs 1` and `5 vs 3` are UNCONFIRMED | the single biggest open question on the fighter surface |
+| 4 | `cargo test -p ambition_app --test app_it report_the_smash_kit -- --nocapture` | the composed roster's kit census | now corroboration, not load-bearing — the type argument answered it |
+| 5 | `cargo run --release -p ambition_demo_smash_app --bin smash_tool -- capture-probe --character smash_george_booul --ladder <same ron>` | `D-BRAIN-MENU`'s control arm | only needed if somebody takes decision 5 |
+
+⛔ **Read the header line of (3) before its table.** If the clock does not say the
+shipped eight minutes, or the ladder line does not say AUTHORED, stop — those two
+misconfigurations produced every superseded number on
+[`engine/fighter-brain.md`](engine/fighter-brain.md).
+
 **What is blocked:** every measurement that needs `ambition_app`. Concretely
 `report_the_smash_kit_every_selectable_fighter_has`
 (`game/ambition_app/tests/smash_roster_movesets.rs`), which hard-asserts that

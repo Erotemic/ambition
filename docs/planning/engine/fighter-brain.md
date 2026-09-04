@@ -1501,6 +1501,38 @@ against rung 3's 98.7s** — it does not live longer, and it deals 300% against
 360%. ⇒ Two independent signals, both against rung 5. A patient-but-stronger rung
 5 would have to beat rung 3 on at least one of them and it beats it on neither.
 
+### ⭐⭐ AND IT IS NOT SITUATIONAL: nine of nine scenario fixtures agree
+
+The nine scenario fixtures, `5 vs 3`, at the shipped clock, 8 seeds paired:
+
+| fixture | verdict |
+|---|---|
+| `ledge_trap` | ⛔ **LOWER outfights** (significant) |
+| `juggle_escape` | LOWER *(within spread)* |
+| `projectile_camper` | LOWER *(within spread)* |
+| `edgeguard_window` | LOWER *(within spread)* |
+| `edgeguard_ledge_hang` | LOWER *(within spread)* |
+| `recovery_left` / `right` / `below` / `above` | LOWER *(within spread)* ×4 |
+
+⇒ **Nine of nine point the same way.** One is individually significant; the other
+eight are underpowered at 8 seeds, which is expected — a cell needs near-unanimous
+pairs to clear p < 0.05 at that n.
+
+⭐ **The direction is the result, not the individual verdicts.** The rung-5 sag
+shows up in a ledge trap, a juggle escape, a projectile camper, two edgeguard
+setups and all four recovery angles. ⇒ It is **not** an artifact of one fixture's
+geometry, and that matches the mechanism exactly: a fighter that weights frame
+safety more heavily is reluctant to commit *everywhere*, not in one situation.
+
+⚠⚠ **DO NOT READ 9-OF-9 AS p = 0.004.** The naive sign test across fixtures gives
+`2 × 0.5^9`, and it does not apply: the nine share the same two fighters, the same
+ladder rows and the same weight vector, so they are nine views of one system
+rather than nine independent trials. ⇒ The defensible claim is
+**consistency of direction across structurally different situations**, which is an
+argument that the cause is general. It is not a ninefold multiplication of
+confidence, and treating it as one would be the same error as the subgroup split
+recorded in the instrument note.
+
 ### ⭐⭐ REPLICATED AT 28 SEEDS — more than double the evidence, identical picture
 
 The same four cells, same shipped clock, **28 seeds** instead of 12:

@@ -178,3 +178,37 @@ fn an_opening_that_is_not_positive_is_unanswerable() {
         ConditionOutcome::Unanswerable(_)
     ));
 }
+
+/// ⛔ THE ANSWER DOES NOT MOVE WHEN GRAVITY DOES.
+///
+/// `BodyKinematics::size` is the body's own-frame size, and
+/// `aabb_oriented(gravity_dir)` — what the collision doctrine sweeps — swaps
+/// width and height under sideways gravity. `body.fits` reads the own-frame
+/// height on purpose: a world-space reading would make one authored wall open
+/// and close as gravity flipped, so an author could not say what their own
+/// crawlspace means without knowing which way gravity pointed when the player
+/// arrived.
+///
+/// This pins the rule by giving the body a footprint whose two axes DISAGREE —
+/// 30 tall, 64 wide — so a reading that used the other axis answers differently
+/// and is caught, rather than a square body under which both readings agree.
+#[test]
+fn the_opening_is_measured_against_the_bodys_own_height_not_its_world_footprint() {
+    let mut app = App::new();
+    let mut kinematics = BodyKinematics::default();
+    kinematics.size = bevy::math::Vec2::new(64.0, 30.0);
+    app.world_mut().spawn((
+        kinematics,
+        ambition_platformer2d_shared_tangle::markers::PlayerEntity,
+    ));
+
+    assert_eq!(
+        fits_in(app.world(), 32.0),
+        ConditionOutcome::Satisfied,
+        "30 tall fits a 32 opening; reading the 64-wide axis would refuse it"
+    );
+    assert!(
+        matches!(fits_in(app.world(), 20.0), ConditionOutcome::NotSatisfied(_)),
+        "and it is still a comparison, not a constant yes"
+    );
+}

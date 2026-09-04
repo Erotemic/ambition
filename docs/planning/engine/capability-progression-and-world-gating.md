@@ -141,11 +141,26 @@
 >
 > ⭐ **It reads `BodyKinematics::size`, the CURRENT size, not `BodyBaseSize`** —
 > the same choice `body.can` makes for the same reason. The kinematic size is
-> what the collision doctrine sweeps; the base size is the authored standing
-> baseline stances derive FROM. A gate that asked the baseline would refuse a
-> body that physically fits, which is the world disagreeing with itself about a
-> hole in it. So crouching and morphing count, and that is a consequence of the
-> existing effective-versus-authored rule rather than a new ruling.
+> what the stances write; the base size is the authored standing baseline they
+> derive FROM. A gate that asked the baseline would refuse a body that physically
+> fits, which is the world disagreeing with itself about a hole in it. So
+> crouching and morphing count, and that is a consequence of the existing
+> effective-versus-authored rule rather than a new ruling.
+> ⚠ **CORRECTED the same day: I first wrote that the kinematic size is "what the
+> collision doctrine sweeps", and it is not.** The doctrine sweeps
+> `aabb_oriented(gravity_dir)`, which SWAPS width and height under sideways
+> gravity because the body lies along the wall; `BodyKinematics::size` is the
+> body's OWN-frame size. So under flipped gravity `body.fits` reads a different
+> number than the collision footprint does.
+> ⭐ **And gravity-independent is the right rule for a route, which is why the
+> code says so now instead of implying the other thing.** A world-space reading
+> would make one authored wall open and close as gravity flipped, so an author
+> could not say what their own crawlspace means without knowing which way gravity
+> pointed when the player arrived. The body and the passage rotate together; "how
+> tall is this creature" does not. Pinned by
+> `the_opening_is_measured_against_the_bodys_own_height_not_its_world_footprint`,
+> whose body is 30 tall and 64 wide so the two readings disagree — a square
+> fixture would have passed either way.
 > ⛔ ONE parameter, deliberately: a width question is a different condition, not
 > a second argument. In a side-on platformer you traverse an opening
 > horizontally, so "am I short enough" is the physical question and "am I narrow

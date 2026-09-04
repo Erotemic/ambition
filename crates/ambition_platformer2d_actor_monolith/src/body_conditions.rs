@@ -182,11 +182,24 @@ pub fn fits_descriptor() -> ConditionDescriptor {
 ///
 /// ⭐ IT READS THE BODY'S CURRENT SIZE, NOT ITS STANDING BASELINE, and that is
 /// the same choice [`can`] makes for the same reason. `BodyKinematics::size` is
-/// what the collision doctrine sweeps; `BodyBaseSize` is the authored standing
-/// baseline the stances derive FROM. A gate that asked the baseline would
-/// refuse a body that physically fits — the world disagreeing with itself about
-/// a hole in it — so crouching, morphing and any future stance count, because
-/// the wall is a gap and the body either passes through it or does not.
+/// what the stances write; `BodyBaseSize` is the authored standing baseline they
+/// derive FROM. A gate that asked the baseline would refuse a body that
+/// physically fits — the world disagreeing with itself about a hole in it — so
+/// crouching, morphing and any future stance count.
+///
+/// ⛔ AND IT IS THE BODY'S OWN-FRAME HEIGHT, WHICH IS NOT THE SAME AS ITS
+/// WORLD-SPACE ONE. `BodyKinematics::size` is in the body's frame;
+/// `aabb_oriented(gravity_dir)` — what the collision doctrine actually sweeps —
+/// SWAPS width and height under sideways gravity, because the body lies along
+/// the wall. So under flipped or sideways gravity this reads a different number
+/// than the collision footprint does, deliberately.
+///
+/// ⭐ Gravity-independent is the right rule for a ROUTE, and the alternative is
+/// worse than it sounds: a world-space reading would make one authored wall open
+/// and close as gravity flipped, so a level author could not say what their own
+/// crawlspace means without knowing which way gravity was pointing when the
+/// player arrived. The body and the passage rotate together; "how tall is this
+/// creature" does not.
 ///
 /// ⛔ ONE PARAMETER, DELIBERATELY. A width question is a different condition,
 /// not a second argument: in a side-on platformer you traverse an opening

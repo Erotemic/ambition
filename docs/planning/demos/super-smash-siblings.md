@@ -285,8 +285,13 @@ the primitive table's ten shipped rows are what the brain can use, and its named
 partials (`P02` fixed reactions and set knockback, `P10`'s unpublished tech
 result, `P11`'s 2-of-6 capture roads) are exactly what it cannot answer yet. ⚠ The claim that *"the
 ladder rig cannot currently rank skill either"* was true when written and is no
-longer: at the shipped clock and the shipped rows it ranks `3 vs 1` and `5 vs 3`
-significantly. See [`engine/fighter-brain.md`](../engine/fighter-brain.md) and
+longer: at the shipped clock and the shipped rows it separates `3 vs 1` and
+`5 vs 3` from the rest. ⛔ **The word *significantly* stood here and is ON HOLD** —
+the rig printed its direction from pooled medians and its qualifier from a sign
+test that discarded direction, so a cell could read decisive in the direction its
+own evidence did not support. ✔ Fixed 2026-09-04 (`36dd9a248`); **the cells have
+not been re-run**, and `median()` was corrected in the same pass, so the columns
+are pre-fix too.
 the supersession note below.
 
 ⛔ **In short, so nobody quotes a superseded number from here — this one moved

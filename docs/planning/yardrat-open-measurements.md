@@ -225,7 +225,21 @@ edit.
 on a path three tests assert) or the three tests learn to skip without it. The
 second is cheaper; the first is honest if those plots are part of the artefact.
 
-## ⚠ A PORTAL TEST HARNESS `.chain()`s WHERE PRODUCTION ONLY `.after()`s (2026-09-04)
+## ⚠ NEEDS RE-VERIFICATION — a portal test harness `.chain()`d where production `.after()`d
+
+⛔ **THE SYMBOLS THIS ENTRY NAMES HAVE MOVED, re-checked 2026-09-04 late.**
+`portal_projectile_step` now survives only inside a doc comment; the production
+plugin has `step_portal_shot` / `PortalShotStep`, and its one `.chain()` is in
+`PortalSet::Transit` — a different set from the `PortalSet::WeaponAndProjectiles`
+this entry is about. ⇒ **So this is neither confirmed nor closed**: the area was
+refactored under it, and saying "still true" or "fixed" would both be guesses.
+⚠ Outside this session's slice, so it is flagged rather than chased.
+
+⭐ **And it is an instance of the trap two entries above** — *"a bare filename
+citation decays without anyone touching it"*. This one decayed by SYMBOL rather
+than by path, which no link checker looks at, and it decayed in under a day.
+
+⇒ The original finding, kept verbatim below for whoever re-derives it:
 
 ⭐ **Verified, and it is a difference in FLUSH SEMANTICS rather than in order.**
 

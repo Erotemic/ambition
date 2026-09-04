@@ -745,6 +745,26 @@ fighter's authored move ids answers *"which of these ever runs?"* in one diff.
 ⚠ It is a floor on variety, not a ceiling — one sample cannot prove a move is
 unreachable, only that it did not appear.
 
+⭐⭐ **AND IT COMPLETES A FOUR-WAY CLASSIFICATION**, built jointly with the
+sibling session across a day of finding things that look unused and are not the
+same problem. The evidence that separates them is **where the authored effort
+went**:
+
+| evidence | class | response |
+|---|---|---|
+| no authored effort anywhere | **restraint** | write down why, and leave it |
+| effort on the thing itself, nothing reads it | **dead** | wire it up or delete it |
+| effort on the QUESTION, through another mechanism | **fork** | migrate, delete the loser |
+| effort on the thing, correctly wired, **unreached** | **stranded** | find what three systems away is blocking it |
+
+⇒ Worked examples from one day: `read_weight` is **dead** (nine authored values,
+0.0→0.9, read only through a rollout the shipped rows disable). A resource with
+one producer and no reader is **restraint**. `profile_for_level` is a **fork**
+(floor and `.ron` both answer "what does rung N mean"). ⭐ And `P01` is
+**stranded** — and it is the hardest of the four to see, because *it looks the
+most finished*. Inspecting it finds nothing; only a census of what actually ran
+does.
+
 ⚠ **NOT proposing a fourth tick mark.** A column that must be re-measured to stay
 true is a column that will silently go stale, which is this page's own recurring
 failure. ⇒ The honest form is what `P01` now carries: the census result written

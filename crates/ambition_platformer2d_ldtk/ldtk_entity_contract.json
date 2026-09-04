@@ -466,7 +466,19 @@
         16
       ],
       "feature": "portal_ldtk",
-      "fields": []
+      "fields": [
+        {
+          "name": "pair",
+          "presence": "optional",
+          "on_invalid": "silent_default",
+          "default": "0, the classic blue/orange gun",
+          "sample": "1",
+          "note": "which portal pair THIS gun owns. A gun toggles between the two ends of its own pair and never leaves it, so two pickups on different pairs are two independently coloured guns (one blue/orange, one whatever pair 1 renders as). A value outside the range WRAPS rather than refusing the room \u2014 a mistyped number should hand the author a differently coloured gun to notice, not a level that fails to load \u2014 and a value that is not a number at all falls back to the default pair 0.",
+          "patterns": [
+            "^-?[0-9]{1,3}$"
+          ]
+        }
+      ]
     },
     {
       "identifier": "Portal",

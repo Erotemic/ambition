@@ -50,6 +50,7 @@ pub(super) fn authored_requests(
                     name: gun.name.clone(),
                     pos: gun.pos,
                     half_extent: gun.half_extent,
+                    pair: gun.pair,
                 },
                 relations: Vec::new(),
             })

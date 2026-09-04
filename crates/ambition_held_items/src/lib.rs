@@ -41,7 +41,7 @@ use ambition_platformer2d_core::{self as ae, AabbExt};
 use ambition_platformer2d_shared_tangle::prelude::SpawnScopedExt;
 use ambition_platformer2d_shared_tangle::schedule::{HeldItemStep, ItemPickupSet, SimScheduleExt};
 #[cfg(feature = "portal")]
-use ambition_portal2d::PortalGun;
+use ambition_portal2d::{OwnedPortalGunPair, PortalGun};
 
 /// The pressed-collectible domain's plugin: the schedule it owns and the
 /// systems that fill it. See the module doc for what the kernel keeps.
@@ -935,14 +935,23 @@ pub fn unequip_held(
 /// is why it needs a twin at all; [`item_in_hand`] reads the active gun as
 /// `Item::PortalGun`, which deliberately carries no `held_item_id`.
 #[cfg(feature = "portal")]
-pub fn equip_portal_gun(commands: &mut Commands, player: Entity, action_set: &mut ActionSet) {
+/// `pair` is the portal pair the equipped gun will own for as long as it is
+/// held — see [`PortalGun`]. It comes from the pickup the player took, so which
+/// two colors the gun offers is a property of THAT gun rather than a global.
+pub fn equip_portal_gun(
+    commands: &mut Commands,
+    player: Entity,
+    action_set: &mut ActionSet,
+    pair: u8,
+) {
     commands
         .entity(player)
         .insert(StashedActionSet(action_set.clone()));
-    commands.entity(player).insert(PortalGun {
-        active: true,
-        ..PortalGun::default()
-    });
+    // Both facts, because they outlive each other differently: the gun in the
+    // hand, and the pair this body owns even after the hand is emptied.
+    commands
+        .entity(player)
+        .insert((PortalGun::for_pair(pair), OwnedPortalGunPair(pair)));
     action_set.melee = None;
 }
 

@@ -335,6 +335,53 @@ concrete gameplay declarations are federated by domain and the GGRS backend is
 separate from the generic runtime. Do not use that completed migration as the
 justification for another capability layer.
 
+### Carve recorded 2026-09-04 — `ambition_sprite_fx`, capability independence: **IMPROVED**
+
+A new render-floor crate, made while giving the portal gun per-gun colours, and
+recorded here because the doctrine asks every carve to say which way it moved
+capability independence rather than only authority.
+
+⭐ **What it is.** `SpriteEffect` — one component naming "this sprite, with one
+simple visual manipulation": `Tint` (multiply), `HueShift`, `Saturate`,
+`Silhouette`. The engine had **four** unrelated implementations of that idea and
+no name for it: `Sprite.color`, the projectile catalog's `EnergyTinted` art
+source, the hit-flash silhouette overlay, and `PortalClipMaterial`'s `tint`
+uniform. A fifth caller had to pick one and copy it.
+
+⇒ **IMPROVED, on each of the doctrine's four questions:**
+
+- **Can it be absent?** Yes. Nothing depends on the effect existing; a caller
+  that never adds `SpriteEffect` never pays for it, and a build without
+  `SpriteFxPlugin` still compiles and draws every sprite.
+- **Does the rest cohere without it?** Yes — it is additive. It was carved with
+  a `pub use` where its one moved item used to live (`sprite_frame_basis` /
+  `SpriteFrameBasis`, which the portal crate wrote and never owned), so no
+  existing caller changed.
+- **Does it declare only real prerequisites?** ⭐ **It declares NO `ambition_*`
+  dependency at all** — bevy's 2D render, asset and image features and nothing
+  else. It is the first crate in this workspace that a foreign game could take
+  on its own.
+- **Is the composition a convenience?** Yes. `SpriteFxPlugin` installs its own
+  systems and its own material; `ambition_render` adds it in one line and
+  initialises nothing on its behalf — the shape
+  `capability-and-runtime-composition.md` asks for and the opposite of the 40
+  `init_resource` calls the runtime makes for other crates.
+
+⚠ **Where it sits, and why it is not somewhere cheaper.** Not in
+`ambition_platformer2d_shared_tangle`: that crate refuses render features on
+purpose (*"No render, audio, or asset features — this crate stays reusable and
+headless"*) and a `Material2d` cannot be declared without them. Not in
+`ambition_portal2d_presentation`: `ambition_render` depends on THAT crate, so a
+general facility has to sit at or below it, and a sprite effect is not a portal
+concept. ⇒ The render floor was genuinely empty and the crate is what fills it.
+
+⚠ **What it did NOT do.** It did not migrate the four existing tint
+implementations onto itself. Each is load-bearing and differently shaped — the
+hit-flash overlay is a sibling mesh with its own pulse schedule, `EnergyTinted`
+is an art-source variant resolved at spawn — and converting them is a separate
+carve with its own before/after. The duplication is named here so the next
+person does not have to rediscover that it is four things.
+
 ### Measured 2026-09-03 — the closure bullet above, with its number and its paths
 
 `fixtures/external_consumer` ("outlander") is the honest test: its own

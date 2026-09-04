@@ -489,18 +489,31 @@ pub(super) fn convert_ground_item(ctx: &LdtkEntityCtx<'_>) -> Result<RoomEmissio
 #[cfg(feature = "portal_ldtk")]
 pub(super) fn convert_portal_gun_spawn(ctx: &LdtkEntityCtx<'_>) -> Result<RoomEmission, String> {
     let (entity, name, min, size) = ctx.parts();
-    // Field-less marker (id/name optional): the box gives the pickup's center +
-    // half-extent. Spawns an already-armed `PortalGunPickup` at room load.
+    // The box gives the pickup's center + half-extent; `id`/`name`/`pair` are
+    // all optional. Spawns an already-armed `PortalGunPickup` at room load.
     let id = field_string(entity, "id")
         .map(|value| value.trim().to_string())
         .filter(|value| !value.is_empty())
         .unwrap_or_else(|| entity.iid.clone());
+    // WHICH PORTAL PAIR THIS GUN OWNS. Absent means 0, the classic
+    // blue/orange gun, so every room authored before this field keeps its
+    // behaviour. A room wanting a second, differently-coloured gun places
+    // another `PortalGunSpawn` with a different `pair`.
+    //
+    // A negative or out-of-range authored value WRAPS rather than being
+    // refused: a mistyped number should hand the level author a gun of some
+    // other colour to notice, not a room that fails to load. Only the `u8` fit
+    // is done here — the pair space itself wraps inside `PortalGunColor`, and
+    // this layer deliberately does not depend on the portal crate to learn its
+    // width (see the portal-api FIXME about baking the gun palette outward).
+    let pair = field_i32(entity, "pair").unwrap_or(0).rem_euclid(256) as u8;
     Ok(RoomEmission::portal_gun_spawn(
         ambition_platformer2d_world::rooms::PortalGunSpawnSpec {
             id,
             name,
             pos: min + size * 0.5,
             half_extent: size * 0.5,
+            pair,
         },
     ))
 }

@@ -55,6 +55,7 @@ pub fn drop_portal_gun_system(
             &mut ActionSet,
             Option<&StashedActionSet>,
             &mut ambition_characters::control::ActorControl,
+            &PortalGun,
         ),
         (With<PortalGun>, Without<HeldItem>),
     >,
@@ -85,12 +86,13 @@ fn drop_one_portal_gun(
             &mut ActionSet,
             Option<&StashedActionSet>,
             &mut ambition_characters::control::ActorControl,
+            &PortalGun,
         ),
         (With<PortalGun>, Without<HeldItem>),
     >,
     sfx: &mut ambition_sfx::SfxWriter,
 ) {
-    let Ok((kin, mut action_set, stashed, mut actor_control)) = holders.get_mut(player) else {
+    let Ok((kin, mut action_set, stashed, mut actor_control, gun)) = holders.get_mut(player) else {
         return;
     };
     // Committed: this body IS dropping its gun, so the press is answered.
@@ -104,6 +106,8 @@ fn drop_one_portal_gun(
             pos: kin.pos + Vec2::new(facing * 44.0, 0.0),
             half_extent: Vec2::splat(20.0),
             arm_timer: 0.35,
+            // The gun that was just in this hand, not a fresh default one.
+            pair: gun.pair(),
         },
         Name::new("Portal gun pickup"),
     ));
@@ -207,7 +211,9 @@ fn pick_up_one_portal_gun(
                 owned.grant(Item::PortalGun, 1);
             }
             // CUSTODY: the ONE take-custody operation, shared with the inventory menu.
-            equip_portal_gun(commands, player, &mut action_set);
+            // The pickup's pair travels with it: the gun you now hold is
+            // whichever pair was on the floor, not whichever pair is default.
+            equip_portal_gun(commands, player, &mut action_set, pickup.pair);
             claimed.insert(entity);
             commands.entity(entity).despawn();
             equipped.write(PortalGunEquipped { player });

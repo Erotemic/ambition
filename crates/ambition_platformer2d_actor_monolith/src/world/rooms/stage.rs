@@ -467,6 +467,7 @@ mod tests {
                 name: "Aperture Device".to_string(),
                 pos: ae::Vec2::new(120.0, 80.0),
                 half_extent: ae::Vec2::new(8.0, 6.0),
+                pair: 0,
             });
         let plan = prepare(spec).expect("portal-gun room plan");
         let gun = ambition_platformer2d_shared_tangle::sim_id::SimId::placement("gun");

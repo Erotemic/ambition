@@ -47,6 +47,9 @@ ambition_platformer2d_shared_tangle = { path = "../ambition_platformer2d_shared_
 # visual derives from). Presentation sits directly above the mechanic; never a
 # host crate (ambition_platformer2d_actor_monolith / ambition_content).
 ambition_portal2d = { path = "../ambition_portal2d" }
+# The sprite-effect concept (hue shift for a gun on a non-default pair) and
+# `sprite_frame_basis`, which this crate wrote first and no longer owns.
+ambition_sprite_fx = { path = "../ambition_sprite_fx" }
 
 [dev-dependencies]
 # Parse + validate the embedded WGSL in `cargo test` (same naga wgpu uses at

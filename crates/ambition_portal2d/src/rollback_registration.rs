@@ -91,6 +91,11 @@ where
     registrar.require_rollback::<crate::PortalGunPickup>(OWNER, "entity:portal_gun_pickup");
     registrar.rollback_component_clone::<crate::PortalGunPickup>(OWNER, "portal.gun_pickup");
     registrar.rollback_component_clone::<crate::PortalGun>(OWNER, "portal.gun");
+    // The pair a body owns outlives the gun in its hand, so it is state the
+    // same way the gun is: a rollback that restored the hand but not the
+    // ownership would re-equip the wrong gun after the resimulation.
+    registrar
+        .rollback_component_clone::<crate::OwnedPortalGunPair>(OWNER, "portal.owned_gun_pair");
     registrar.clear_message_on_rollback::<crate::DropPortalGun>(OWNER, "message.drop_portal_gun");
     registrar.clear_message_on_rollback::<crate::DropPortalGun>(OWNER, "message.portal_gun_drop");
     registrar.clear_message_on_rollback::<crate::FirePortalGun>(OWNER, "message.fire_portal_gun");

@@ -1,7 +1,6 @@
 //! The per-frame actor tick: syncing poses from feature AABBs, driving the
 //! enemy + NPC updates, neighbor/crowding queries, and brain snapshots.
 
-use super::super::*;
 use super::*;
 use ambition_combat::components::{
     ActorDisposition, ActorIdentity, ActorInteraction, CenteredAabb,

@@ -7,7 +7,6 @@
 //! `Brain`/`ActionSet`, and flips `ActorDisposition` (the single source of
 //! truth for hostility — "enemy" is a state, not a class).
 
-use super::super::*;
 use super::*;
 use ambition_combat::components::{ActorDisposition, ActorIdentity, CombatKit};
 

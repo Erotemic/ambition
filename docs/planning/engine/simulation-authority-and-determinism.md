@@ -360,13 +360,26 @@ process-global `AtomicU64` drift term: the populated timeline reds at **frame
 `busy` presses attack every ninth frame, so the subject spawns bolts from its
 counter throughout the rolled-back window.
 
-⚠ **A THIRD AXIS IS UNTESTED and is named here so it is not mistaken for
-covered: WHICH SCHEDULE the census runs in.** Nothing yet asks whether an anchor
-created inside a rollback resimulation is identified the same way. ⭐ The
-mechanism, named with the peer session: a world walked in `Update` and a world
-walked in `FixedUpdate` are different populations on the same frame, so every
-anchor a fixed-step system spawns is invisible to a census that walks the first
-— which in this engine is most of the simulation.
+⛔ **A THIRD AXIS WAS PROPOSED AND DOES NOT SURVIVE CHECKING, and the retraction
+is worth more than the caveat was.** The proposal (mine, adopting the peer
+session's mechanism) was *"which SCHEDULE the census runs in — a world walked in
+`Update` and a world walked in `FixedUpdate` are different populations on the
+same frame"*. That is true of a census implemented as a SYSTEM. **This one is
+not.** It is a direct world walk —
+`world.query_filtered::<(Entity, Option<&SimId>, Option<&Name>), With<Rollback>>()`
+on `sim.world_mut()` between steps — and a world walk sees every entity present
+at that instant whatever schedule created it. Schedule membership cannot
+partition it.
+⚠ **I wrote the caveat into this page before checking it against the census's own
+implementation**, which is the trap this program's own recipe names: a coherent
+mechanism from a credible source is not a measurement, and a plausible caveat
+sends the next reader somewhere there is nothing to find.
+
+⚠ **THE REAL RESIDUAL IS THE SAME `WHEN` PROBLEM AT FINER GRAIN: an anchor
+spawned AND despawned inside a single `sim.step()` is invisible to any
+between-steps census.** Sixty frames hid the portal shot; one frame would hide
+anything shorter-lived than a step. That is untested, and unlike the schedule
+story it is a real gap in what this census can certify.
 
 
 

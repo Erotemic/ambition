@@ -1267,9 +1267,58 @@ fn movement_intent(
         // the wrong answer for both: an air dodge SETS a velocity and a blink
         // teleports, so coasting to a stop is not what either does. Modelling
         // them as stationary would be the "lying in one direction" this
-        // function's own header refuses. ⇒ Dodge needs real motion in the
-        // shadow — it is 846 of the 983 unmodelled decisions and the larger
-        // half of this repair.
+        // function's own header refuses. ⇒ Dodge is 846 of the 983 unmodelled
+        // decisions and the larger half of this repair.
+        //
+        // ⛔⛔ AND THE BLOCKER IS NOT "MOTION IS HARD TO MODEL" — it is that the
+        // verb does not name one maneuver for the whole rollout. Traced
+        // 2026-09-04 through `movement/abilities.rs:available_dodge`:
+        //
+        //   * grounded, cooldown clear        → `GroundDodge` (a ROLL — its own
+        //                                       speed, commitment and cooldown)
+        //   * airborne, air dodge unspent     → `AirDodge` (velocity SET)
+        //   * airborne, air dodge SPENT       → **falls through to a DASH**
+        //
+        // ⇒ `ShadowFighter` carries `on_ground` but NOT the dodge cooldown or
+        // the air-dodge budget, so from step 2 of a rollout onward the shadow
+        // cannot tell which of those three a `Dodge` would become. At step 1 it
+        // does not need to — `options.rs` reads the body's already-RESOLVED
+        // `BurstManeuver` — but a rollout is exactly the thing that asks about
+        // later steps.
+        //
+        // ⛔ Modelling it as any one of the three would repeat the error that
+        // module records having made TWICE: *"the brain named one maneuver, the
+        // model judged a second, the body performed a third."* Duplicating the
+        // movement kernel's precedence from the outside is named there as the
+        // thing that keeps going wrong.
+        //
+        // ⇒ SO THE WORK IS STATE, NOT GEOMETRY — but it is NOT simply two fields
+        // on `ShadowFighter`, and the reason is a real design tension rather than
+        // an oversight.
+        //
+        // ⛔ `SelfView` deliberately carries `burst: BurstManeuver` — the RESOLVED
+        // answer for this tick — and NOT the cooldown, air-dodge budget, endlag
+        // or dash charges that produce it. Its own doc says why:
+        // `resolve_burst_maneuver` is *"the one rule, and this field is its
+        // answer. The brain is handed a fact."* ⇒ Perception hides the inputs
+        // precisely so a brain cannot re-derive the rule — which is the failure
+        // this module already made twice.
+        //
+        // ⚠ A rollout, though, needs that fact at FUTURE steps, and only the
+        // inputs can produce it there. ⇒ The three ways out, and only one keeps
+        // the single authority:
+        //   (a) expose the inputs to perception — invites the re-derivation the
+        //       design exists to prevent, and weakens the no-cheat surface;
+        //   (b) let the shadow CALL `resolve_burst_maneuver` on shadow-stepped
+        //       state — the rule stays the one rule, and the shadow carries only
+        //       what that rule reads;
+        //   (c) leave it unmodelled, which is today.
+        // ⭐ (b) is the principled one and is the same shape as every other
+        // "one authority per question" call in this repo.
+        //
+        // ⚠ Until then `None` is the honest answer, and its cost is known and
+        // recorded — an unmodelled verb is unreachable rather than merely
+        // unjudged.
         MovementVerb::Blink | MovementVerb::Dodge => return None,
     })
 }

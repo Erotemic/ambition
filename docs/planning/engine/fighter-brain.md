@@ -37,6 +37,49 @@ SCENARIO matrices** (the nine fixtures, the Shield-model comparison, flat-vs-
 platforms), which have NOT been re-run at the shipped clock and carry the same
 caveat.
 
+⛔⛔⛔ **AND THE BIGGEST FINDING ON THIS PAGE IS NOT ABOUT THE LADDER AT ALL —
+`D-BRAIN-MENU`.** Measured 2026-09-04 on the shipped fighter and the shipped
+ladder: **the brain selects `george_booul_dash_attack` ZERO times and the bodies
+start it 43 of 59.** It selects `jab` 40 times; one jab starts. ⇒ Sixteen of
+George's twenty-eight authored moves never start once, including **all three
+smashes and all three tilts**.
+
+⚠⚠ **AND IT BEARS ON EVERY LADDER NUMBER ON THIS PAGE, so face it here rather
+than let a reader find it.** If a running fighter's attack press becomes the dash
+attack whatever the brain scored, do the utility weights — which I isolated as the
+`5 vs 3` inversion's cause — matter at all?
+
+⇒ **They demonstrably do, and the evidence is the isolation itself.** Changing
+`frame_advantage` + `expected_payoff` alone moved `5 vs 3` from significantly
+inverted to not, byte-for-byte against a control that changed nothing. ⭐ A knob
+that reached nothing could not have done that. And the weights drive the MOVEMENT
+options too, which are not press-converted at all.
+
+⚠ **What it does narrow is the CHANNEL.** The ladder's differences are reaching
+the fight through movement, through approach, and through whichever attacks
+survive the press conversion — **not through the full attack scoring the weights
+appear to control.** ⇒ So "the ladder sags at rung 5" stands as measured; "and it
+sags because higher rungs pick worse ATTACKS" would be more than the evidence
+supports, and I have not claimed it.
+
+⇒ The chain is traced end to end below: the kit is built for the STANDING stance
+(`running` is never passed to the builder), the brain emits a BUTTON rather than a
+move, and the body re-resolves that press WITH `running` — preferring
+`{base}_dash`. ⭐ **So the brain is not preferring the dash attack; it is scoring a
+menu it cannot order from.** Filed as a defect in `queue.md`.
+
+⛔⛔ **AND THE OBVIOUS FIX WAS MEASURED AND DOES NOT WORK.** Building the kit with
+`running` (so the brain sees what the press will actually produce) closes the
+informational gap — the brain does then name the dash attack — and **changes no
+behaviour**: 81% → 85% dash attack, still zero tilts, still zero smashes. ⇒ Because
+the gap is **temporal**: the kit is built at DECISION time and the press is
+buffered and resolves at EMISSION time, by which point the stance may differ. **A
+correctly-built kit is still a kit for a stance the body has since left.**
+
+⭐ **The rule that earns:** *a fix that closes the mechanism you diagnosed is not
+evidence you diagnosed the cause.* It compiled, it was principled, it closed a
+real mismatch, and it would have passed review.
+
 ⭐ **The definitive ladder table — shipped rows, shipped clock, bouts that
 resolve — is the one headed "THE DEFINITIVE RUN".** Prefer it over anything
 above it. ⛔ The rest are kept because the contrast between them is the evidence
@@ -1673,6 +1716,37 @@ against rung 3's 98.7s** — it does not live longer, and it deals 300% against
 360%. ⇒ Two independent signals, both against rung 5. A patient-but-stronger rung
 5 would have to beat rung 3 on at least one of them and it beats it on neither.
 
+### ✔ RE-RUN AT THE SHIPPED CLOCK — the full scenario matrix, and it confirms
+
+The nine fixtures × four rung cells, **shipped ladder, shipped 480s clock**,
+paired, 8 seeds. This replaces the 60-second scenario runs everywhere on this page:
+
+| cell | fixtures favouring the LOWER rung | individually significant |
+|---|---|---|
+| `3 vs 1` | **1 / 9** | 1 (`juggle_escape`, *higher*) |
+| `5 vs 3` | ⛔ **9 / 9** | 1 (`ledge_trap`, *LOWER*) |
+| `6 vs 5` | 6 / 9 | 0 |
+| `9 vs 6` | 4 / 9 | 0 |
+
+⇒ **Every rung-matrix conclusion survives the clock fix, across every situation:**
+`3 vs 1` orders correctly in 8 of 9 fixtures, `5 vs 3` is **unanimously inverted**,
+and `6 vs 5` and `9 vs 6` are unresolved — 6/9 and 4/9 is what no signal looks
+like. ⭐ `9 vs 6` splitting almost exactly in half is the cleanest statement of
+"undetermined" this page has.
+
+⚠ **This is a confirmatory result and it was predicted before the run.** I said so
+in advance and am reporting it at the same volume I would have reported a
+reversal, because a result you have pre-committed to reporting cannot be quietly
+dropped for being boring. ⇒ What it buys is not novelty: the 60-second scenario
+tables are no longer the only evidence for the page's central finding, and the one
+worry that mattered — *a null taken through an instrument that could not resolve
+its bouts* — no longer applies to any of these cells.
+
+⚠ **What it does NOT rescue is the Shield comparison**, which is a different arm
+and is withdrawn above for a reason a longer clock cannot fix: the shipped ladder
+disables the rollout the Shield model serves, so there is nothing to measure on
+any clock.
+
 ### ⭐⭐ AND IT IS NOT SITUATIONAL: nine of nine scenario fixtures agree
 
 The nine scenario fixtures, `5 vs 3`, at the shipped clock, 8 seeds paired:
@@ -1891,6 +1965,109 @@ this document: the rollout is the only consumer of `ShadowIntent`, and the secti
 above shows the shipped ladder disables the rollout on all nine rows. The Shield
 model changes nothing a player meets. That is an argument for keeping it (it
 cannot regress the game) and against prioritising `Dodge`.
+
+### ⛔⛔ THE SHIPPED FIGHTER THROWS ONE MOVE 81% OF THE TIME, AND NEVER A SMASH OR A TILT
+
+A move census, not a damage number — `smash_tool capture-probe`, George vs
+George, 120 seconds, run twice: once on the engine floor and once with
+`--ladder` pointing at the shipped rows.
+
+| | floor | **shipped ladder** |
+|---|---:|---:|
+| `george_booul_dash_attack` starts | 132 / ~158 (**84%**) | 98 / ~121 (**81%**) |
+| distinct moves used | 12 of 28 authored | 12 of 28 |
+
+⛔ **Sixteen of George's twenty-eight authored moves never started once**, and the
+list is not a tail of oddities: **all three smash attacks** (`smash_forward`,
+`smash_up`, `smash_down`), **all three tilts** (`tilt_forward`, `tilt_up`,
+`tilt_down`), three of five aerials, three of four throws, the standing grab and
+the taunt.
+
+⇒ **And it is NOT a floor artifact.** The shipped ladder gives the same picture —
+81% against 84% — so this is the fighter a player meets, not an instrument
+configuration. ⭐ That is the first finding on this page that survives the
+floor/shipped distinction without needing it.
+
+⚠ **THE OBVIOUS CAUSE IS REFUTED.** My first hypothesis was the `frame_advantage`
+mechanism: high weight on a signed feature → prefer the fastest move. **The dash
+attack's startup is 0.15s; the jab's is 0.05 and the tilts are 0.06–0.07.** It is
+not the fastest thing George owns, so "the scorer prefers speed" does not explain
+it.
+
+⛔⛔⛔ **AND THE TRACE ANSWERS IT: THE BODY PERFORMS A MOVE THE BRAIN NEVER
+SELECTS.** `AMBITION_FIGHTER_TRACE=1` over the same probe, shipped ladder, 40s:
+
+| | brain CHOSE (trace `attack=`) | body PERFORMED (census) |
+|---|---:|---:|
+| `george_booul_dash_attack` | **0** | **43** |
+| `jab` | **40** | 1 |
+| `tilt_up` | 8 | 0 |
+| `modus_ponens` | 19 | 4 |
+| `bivalence` | 6 | 3 |
+| `tilt_down` | 1 | 0 |
+
+⇒ **The brain never once named the dash attack, and it is 43 of the 59 moves the
+bodies started.** ⭐ This is the failure `options.rs` records having made twice, in
+its own words — *"the brain named one maneuver, the model judged a second, the
+body performed a third"* — happening **in the shipped fighter on the shipped
+ladder**, and it explains the whole census: the smashes and tilts the brain picks
+never reach the body.
+
+⚠ **Two measurement caveats, both real and neither of which dissolves it.**
+(1) The trace covers **seat1 only** (516 lines, one seat) while the census counts
+**both** — so the two columns are not the same population. (2) A trace line is a
+per-tick DECISION and a census entry is a move START, so 40 `jab` decisions may be
+far fewer than 40 attempted jabs. ⇒ **Neither explains zero-chosen against
+43-performed.** Re-deciding cannot manufacture a move the brain never names, and a
+seat mismatch cannot turn 0 into 43.
+
+⇒ ✔✔ **MECHANISM CLOSED — traced end to end, five links, each read rather than
+assumed:**
+
+1. **The kit is built for the STANDING stance.** `update.rs:1747`'s builder calls
+   `move_for_directional_verb(verb, direction, **grounded**)` — three arguments.
+   There is no `running` in it.
+2. ⇒ **So the brain scores `jab`, the tilts and the smashes** — the standing set —
+   and never sees `attack_dash` as a candidate at all. That is why the trace shows
+   **zero** dash-attack selections: it was never on the menu.
+3. **The brain then emits a BUTTON, not a move.** `PendingAttack` carries an
+   `AttackBinding { verb, .. }` — a press and a gesture. The move it scored is
+   advisory and does not travel.
+4. **The body re-resolves that press with `running` in play.**
+   `move_for_flat_verb(base, grounded, running)` tries `{base}_dash` **first**
+   whenever `grounded && running`.
+5. **George binds `attack_dash`.** ⇒ Every attack pressed while running becomes
+   `george_booul_dash_attack`, whatever the brain scored.
+
+⛔⛔ **So the brain evaluates a menu it cannot order from.** It is not choosing the
+dash attack over the tilts — it is scoring the tilts carefully and then pressing a
+button that means "dash attack" because of a stance the scorer never consulted.
+
+⭐⭐ **AND THE REPO HAS ALREADY SOLVED THIS EXACT PROBLEM ONE VERB OVER.** The
+burst press had the identical shape — dodge and dash are one input, resolved by
+body state — and the fix was to make perception carry the RESOLVED answer:
+`SelfView::burst` is a `BurstManeuver`, and its doc says *"`resolve_burst_maneuver`
+is the one rule, and this field is its answer. The brain is handed a fact."*
+⇒ **The attack press has no equivalent, and it is the same fix**: either build the
+kit with the stance the press will actually be resolved in, or hand the brain the
+resolved move as a fact.
+
+⚠ **What this does NOT say.** The body is not misbehaving — converting a running
+attack into a dash attack is what a dash attack IS. The defect is entirely on the
+scoring side: an option set assembled under an assumption the emission then
+violates.
+
+⇒ **Named next step rather than a guess.** `move_for_flat_verb(ATTACK, grounded,
+running)` resolves a plain attack press to the DASH attack when the body is
+running — so an 81% share may be a statement about how often the CPU is *running
+when it attacks*, which is an approach-behaviour question and not a scoring one.
+⚠ Untested. The arm that separates them is a per-decision trace of the movement
+verb chosen immediately before each attack, which `AMBITION_FIGHTER_TRACE=1`
+already emits.
+
+⚠ **Bounded**: CPU-vs-CPU, default stage, the roster's default rungs, one 120s
+sample per arm. ⇒ The 81/84% split is stable across two configurations, but a
+distinct-move count from one sample is a floor on variety, not a ceiling.
 
 ### ⭐⭐⭐ GEORGE SIGNIFICANTLY OUTFIGHTS A STAND-IN AT THE SAME RUNG
 
@@ -2143,12 +2320,30 @@ the reordering IS the finding.
 4. **The `t3` placement race** (question 50). Narrowed to *"may a match present a
    tick in which the followed body has not been placed?"* — now a correctness
    question rather than a feel judgement, with a one-line reproduction.
-5. ⬇ **`Dodge` shadow model — DEMOTED from #2, and the reason is measured.** It
-   only matters under the rollout, the shipped ladder disables the rollout on all
-   nine rows, and the `Shield` model that was supposed to prove the approach
-   landed entirely within spread. ⇒ Do it because `None` is the wrong score for a
-   verb a fighter can pick, not because a matrix will move. It reaches no player
-   either way.
+5. ⬇ **`Dodge` shadow model — DEMOTED, and its blocker is now NAMED rather than
+   vague.** It only matters under the rollout, which the shipped ladder disables
+   on all nine rows, so it reaches no player either way.
+   ⭐⭐ **And the blocker is STATE, not geometry** — traced 2026-09-04 through
+   `available_dodge`. `MovementVerb::Dodge` does not name one maneuver across a
+   rollout: grounded with cooldown clear it is a **roll**; airborne with budget it
+   is an **air dodge**; airborne with the budget **spent it falls through to a
+   DASH**. ⇒ `ShadowFighter` carries `on_ground` but not `dodge_cooldown` or
+   `air_dodge_spent`, so from step 2 onward the shadow cannot tell which. At step
+   1 it need not — `options.rs` reads the body's already-resolved `BurstManeuver`
+   — but a rollout is precisely the thing that asks about later steps.
+   ⛔ **Modelling it as any one of the three would repeat an error that module
+   records making TWICE**: *"the brain named one maneuver, the model judged a
+   second, the body performed a third."* ⚠ **AND IT IS NOT SIMPLY TWO FIELDS ON
+   `ShadowFighter`** — I wrote that first and checked it an hour later.
+   `SelfView` carries `burst` (the RESOLVED answer for this tick) and
+   deliberately NOT the cooldown, air-dodge budget, endlag or dash charges that
+   produce it, because `resolve_burst_maneuver` is *"the one rule, and this field
+   is its answer. The brain is handed a fact."* ⇒ Perception hides the inputs
+   precisely so a brain cannot re-derive the rule — the failure this module made
+   twice. ⭐ **So the principled fix is to let the shadow CALL that resolver on
+   shadow-stepped state**, keeping one authority, rather than exposing the inputs
+   (which invites the re-derivation) or guessing. Until then `None` is the honest
+   answer and its cost is recorded.
 6. ✔ **DONE — flat-vs-platforms re-run at the shipped clock**, and its headline
    reversed: the tiers do not halve the lethality (stocks left is `0.00` on BOTH
    stages), they take **1.83× as long** to reach the same end. Pace, not

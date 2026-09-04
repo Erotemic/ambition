@@ -551,13 +551,32 @@ the seven named-missing customers, exactly **two** are authoring alone:
 
 | customer | cost |
 |---|---|
-| `P11` command grab | ✔ **DONE 2026-09-04** — authored, no engine change, guard poison-verified five ways |
+| `P11` command grab | ✔ **DONE 2026-09-04** — authored, no engine change, guard poison-verified five ways, **and MEASURED IN PLAY: `capture-probe` records `lunge_grab` started 3 times in 90 seconds**, beside `grab_dash` 5 and `pummel` 5. ⭐ Not a dead move — see below for why that needed checking. |
 | `P06` foxtrot / dash-dance | ⛔ **THIS ROW WAS WRONG — already shipped 2026-08-25**, no authoring, no code. Re-verified 2026-09-04: `the_foxtrot_and_the_dash_dance_fall_out_of_the_same_edge` passes. See the primitive rows above, which said so all along. |
 | `P06` pivot grab/smash | ⛔ **THIS ROW WAS WRONG — already shipped.** `a_smash_thrown_out_of_a_turnaround_points_the_new_way` passes. |
 | `P11` pivot grab | ⛔ **THIS ROW WAS WRONG — LANDED 2026-08-25**, and the primitive row says *"it needed NO move of its own"*. Two turnaround guards pass. |
 | `P11` tether | ⛔ plumbing — a grapple exists (`grapple_system`, a traversal ability that pulls toward a solid) and nothing joins it to capture. **Re-verified 2026-09-04.** |
 | `P11` hit-grab | ⛔ plumbing — **re-verified 2026-09-04 by finding every writer**: `translate_smash_capture_effects` is the ONLY thing that raises `CaptureAttemptRequested`, and it fires from an authored effect key. A landed hit cannot reach it. |
 | `P10` tech result | ⛔ plumbing (presentation only — the AI half must stay absent) |
+
+⭐⭐ **AND THE COMMAND GRAB WAS CHECKED FOR THE FAILURE THIS PAGE KEEPS FINDING —
+an authored thing nothing reaches.** The risk was specific, not generic:
+`aim_the_stick`'s own doc records that George's side special was once *"selected
+19–24 times per match and performed zero times"* because `special_forward`
+mirrored to `Back`, no `special_back` verb existed, and the chain fell back to
+`special`.
+
+⛔ **The stand-ins are MORE exposed to that than George was**: he binds `special`,
+`special_forward`, `special_up` and `special_down`, so a fallback finds
+something. The Robots bind **only `special_forward`** — there is nothing to fall
+back to.
+
+✔ **Measured rather than assumed:** `smash_tool capture-probe -- 90` on the
+default (stand-in) roster records **3 `lunge_grab` starts**, against `grab_dash`
+5, `pummel` 5, `throw_forward` 5. ⇒ The move is reached, at a frequency
+consistent with the other committed capture moves. ⭐ And because `lunge_grab`
+exists only on `fighter_moveset()`, its appearance is itself proof that a STAND-IN
+selected and performed it.
 
 ⛔⛔ **THREE OF THESE SEVEN ROWS WERE WRONG WHEN WRITTEN (2026-09-04), AND THIS
 DOCUMENT CONTAINED THE REFUTATION ON ITS OWN PAGE.** The primitive table above

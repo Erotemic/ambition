@@ -2179,6 +2179,102 @@ queue read as an execution authority for work already done.
   never applied it. Someone who knows whether a mid-session load can happen
   inside a live GGRS session should answer it; until then the waiver says so.
 
+- ⛔ **D-BRAIN-MENU — THE FIGHTER BRAIN SCORES A MENU IT CANNOT ORDER FROM.**
+  Found 2026-09-04 by putting two existing instruments side by side; there was no
+  guard for it because nothing compares what the brain SELECTED against what the
+  body PERFORMED.
+  ⭐ **The measurement** (`smash_tool capture-probe --character smash_george_booul
+  --ladder <shipped ron>`, 40s, `AMBITION_FIGHTER_TRACE=1`): the brain chose
+  `george_booul_dash_attack` **0 times**; the bodies started it **43 of 59**. It
+  chose `jab` **40 times**; one jab started. It chose `tilt_up` 8 times; none
+  started. ⇒ Over 120s, **16 of George's 28 authored moves never start once** —
+  all three smashes, all three tilts, three of five aerials — and the dash attack
+  is **81%** of starts on the shipped ladder (84% on the floor, so this is NOT a
+  floor artifact).
+  ⇒ **THE CHAIN, read rather than assumed:** the kit builder
+  (`crates/ambition_platformer2d_actor_monolith/src/features/ecs/actors/update.rs:1747`)
+  calls `move_for_directional_verb(verb, direction, grounded)` — **no `running`**
+  — so the brain scores the STANDING set and never sees `attack_dash` as a
+  candidate. It then emits a BUTTON (`AttackBinding`), not a move. The body
+  re-resolves with `move_for_flat_verb(base, grounded, running)`, which tries
+  `{base}_dash` FIRST when running. George binds `attack_dash`. ⇒ Every attack
+  pressed while running becomes the dash attack, whatever was scored.
+  ⛔ **The body is not misbehaving** — that IS what a dash attack is. The defect is
+  an option set assembled under an assumption the emission violates.
+  ⭐⭐⭐ **CORROBORATED BY A NATURAL EXPERIMENT ALREADY IN THE ROSTER: the fighter
+  that binds `attack_dash` loses its tilts and smashes; the one that does not,
+  keeps them.** Same probe, same 120s, same shipped ladder:
+
+  | | George *(binds `attack_dash`)* | the stand-ins *(bind none)* |
+  |---|---:|---:|
+  | dash attack | **98 (81%)** | — (no such move) |
+  | tilts | **0** | **115** (`tilt_up` 85, `tilt_down` 30) |
+  | smashes | **0** | 6 |
+  | jab chain | 1 / 1 / 1 | 13 / 13 / 13 |
+
+  ⇒ **The stand-ins' attack presses fall through to their standing moves precisely
+  because `move_for_flat_verb` finds no `{base}_dash` to prefer** — so the bug
+  cannot reach them. ⭐ Which means **authoring a dash attack costs a fighter its
+  tilts and smashes**, and George — the demo's only fully authored fighter, with
+  26 verbs to their 18 — gets *less* of his kit into play than they get of theirs.
+  ⚠ Corroboration, not proof: the two fighters differ in more than the dash
+  binding. But it is exactly what the mechanism predicts, in the direction it
+  predicts, from a contrast nobody set up.
+
+  ⭐⭐ **AND THE BUILDER'S OWN COMMENT STATES THE INTENT IT DOES NOT DELIVER.** Its
+  `grounded: bool` parameter is annotated *"The body's REAL posture this tick. The
+  kit is what it can press NOW."* ⇒ That is exactly the right requirement and the
+  signature is one field short of meeting it: posture is grounded **and** running,
+  and only the first is passed. ⚠ So this is not a missing feature anyone declined
+  to build — it is a stated contract with a gap, which is why it reads as correct
+  to anyone checking the call site.
+  ⇒ **Concretely, the smallest fix**: `move_for_directional_verb` has no `running`
+  parameter at all, so the kit's `AttackDir::Neutral` candidate for the flat
+  `attack` verb should come from `move_for_flat_verb(base, grounded, running)` —
+  the same call the body makes. The directional variants (`attack_up` and friends)
+  do not dash-convert and are already correct.
+  ⭐⭐ **AND THE SAME PROBLEM IS ALREADY SOLVED ONE VERB OVER.** The burst press
+  (dodge/dash are one input, resolved by body state) was fixed by making
+  perception carry the RESOLVED answer — `SelfView::burst`, documented as
+  *"`resolve_burst_maneuver` is the one rule, and this field is its answer. The
+  brain is handed a fact."* The attack press has no equivalent. ⇒ **Two fixes, both
+  engineering:** build the kit in the stance the press will be resolved in, or hand
+  the brain the resolved move as a fact. The second matches the existing precedent.
+  ⛔⛔ **FIX (a) WAS MEASURED AND IT DOES NOT WORK — this is why the row said not to
+  land unmeasured, and the negative result is the most useful thing in it.**
+  Implemented locally (pass `running` to `attack_kit_of`; resolve the Basic /
+  Neutral candidate through `move_for_flat_verb` like the body does), built, run
+  on George at the shipped ladder, then reverted:
+
+  | | before | **with fix (a)** |
+  |---|---:|---:|
+  | dash attack, share of starts | 98 / 121 (81%) | **111 / 130 (85%)** |
+  | brain SELECTS the dash attack | 0 | 14 |
+  | brain still selects `jab` | 40 | **47** |
+  | tilts / smashes started | 0 / 0 | **0 / 0** |
+
+  ⇒ **The informational gap closes — the brain does now name the dash attack — and
+  behaviour does not change.** Variety does not improve; the tilts and smashes
+  still never start.
+  ⭐⭐ **BECAUSE THE GAP IS TEMPORAL, NOT INFORMATIONAL.** The kit is built for the
+  body's posture at DECISION time; the press is buffered (`PendingAttack`, with
+  `hold_ticks` maturation) and resolves at EMISSION time, by which point the body
+  may be running when it was not, or the reverse. ⇒ A correctly-built kit is still
+  a kit for a stance the body has since left. **No amount of passing `running`
+  into the builder fixes a delay.**
+  ⇒ **So the real question is not the menu but the CLOCK between choosing and
+  pressing** — and the second fix (hand the brain the resolved move as a fact,
+  the `SelfView::burst` precedent) has the same problem unless the fact is
+  re-read at emission rather than at decision. ⚠ That is the design work, and it
+  is now a different question from the one this row opened with.
+
+  ⚠ **DO NOT LAND EITHER UNMEASURED.** Both change every fighter in every game that
+  uses this brain, and while running the flat-verb menu may collapse to one option
+  — whether the brain should then stop running to reach its other moves is
+  emergent behaviour nobody has measured. ⇒ The rig can measure it:
+  `capture-probe` gives the move census and `ladder-rig --paired` gives the
+  outcome, both now taking `--ladder` and `--character`.
+
 - ▢ **D72 — continue Super Smash Siblings as a product/engine customer from the
   current parity inventory.** Do not resurrect the historical fun-push campaign.
   Re-read [`demos/smash-parity-inventory.md`](demos/smash-parity-inventory.md)

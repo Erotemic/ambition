@@ -959,7 +959,27 @@ watch_paths = ["crates/ambition_portal2d_presentation/Cargo.toml"]
 rationale = "ambition_portal2d_presentation must stay host-free"
 source_doc = "docs/architecture/architecture-boundaries.md"
 severity = "error"
-allow = ["ambition_platformer2d_core", "ambition_platformer2d_shared_tangle", "ambition_portal2d"]
+# ⭐ `ambition_sprite_fx` added 2026-09-04, and it SATISFIES this policy's stated
+# rationale rather than being excused from it: that crate depends on `bevy` and
+# NOTHING ELSE — no `ambition_*` edge at all — so it cannot pull in a host, a
+# window, or any Ambition domain. It is the most host-free thing this allowlist
+# names.
+#
+# ⛔ The edge is real and it is the consolidation that crate exists for:
+# `clip_material.rs` re-exports `SpriteFrameBasis`/`sprite_frame_basis`, which
+# MOVED DOWN out of this crate into `ambition_sprite_fx`, and `gun_visuals.rs`
+# inserts `SpriteEffect::HueShift`. Refusing the edge would mean keeping a
+# private copy of a floor concept, which is the defect the extraction removed.
+#
+# ⚠ This gate was RED ON MAIN AT DEFAULT FEATURES from `cf3ee3953` until this
+# line — an allowlist goes stale the moment a shared floor crate is extracted
+# beneath it, and nothing about extracting one prompts you to look here.
+allow = [
+    "ambition_platformer2d_core",
+    "ambition_platformer2d_shared_tangle",
+    "ambition_portal2d",
+    "ambition_sprite_fx",
+]
 manifest = "crates/ambition_portal2d_presentation/Cargo.toml"
 
 [[policy]]

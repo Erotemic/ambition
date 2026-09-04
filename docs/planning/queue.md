@@ -1080,8 +1080,59 @@ queue read as an execution authority for work already done.
   "passes at every isolation level short of full parallelism" reading is
   unconfirmed on this run rather than contradicted: 40 of 40 had one cause, and a
   binary that aborts on frame one never reaches a contention-sensitive test.
-  ⇒ **The number to beat next run is 40 → 0, and the next run should be after
-  `52666d1c7`.** ⚠ Three files in two other crates were edited while this run's
+  ⭐⭐ **THE CONFIRMING RUN IS 7,112 PASSED / 3 FAILED — 40 → 3, and ZERO
+  `draw_sprite_effects` panics.** Re-run after `52666d1c7` with the same command.
+  The three are three DIFFERENT things, which is the point of quoting them
+  separately:
+  1. ⛔ **`engine_policies` — a REAL, DETERMINISTIC failure that is not
+     union-specific at all.** `ambition_portal2d_presentation/Cargo.toml`
+     depends on `ambition_sprite_fx`, which was not in that crate's
+     `dependency-allowlist`
+     (`tests/ambition_workspace_policy/policies/engine.toml`). ⚠ **It fails at
+     DEFAULT features too — the workspace-policy gate had been red on main since
+     `cf3ee3953`**, and the union is simply where somebody finally read the
+     output. Fixed by adding the crate to the allowlist: `ambition_sprite_fx`
+     depends on `bevy` and nothing else — no `ambition_*` edge at all — so it
+     SATISFIES the policy's stated rationale ("must stay host-free") rather than
+     being excused from it, and the edge is the consolidation that crate exists
+     for (`clip_material.rs` re-exports `SpriteFrameBasis`, which moved down out
+     of the portal crate). Poison-verified by removing the line.
+     ⇒ **An allowlist goes stale the moment a shared floor crate is extracted
+     beneath it, and nothing about extracting one prompts you to look there.**
+  2. `the_stage_kills::every_live_fighter_stays_inside_the_frame` — the known
+     smash framing residual, reproduced. Fighter side.
+  3. `composes_through_the_sdk::a_host_that_omits_boss_encounters_still_builds_and_steps`
+     — **a THIRD member of the residual class, and a test written the same day,
+     which changes what the class can be blamed on.** It **PASSED in the run two
+     hours earlier** on the same command.
+  ⇒ Eliminated the same way as the other two: with the exact union feature set,
+  `cargo test --workspace <union> --test app_it <that test>` → **1 passed**, and
+  the whole `composes_through_the_sdk` module → **6 passed, three times running,
+  while a second union was loading the machine.**
+  ⛔⛔ **AND IT WEAKENS THE "LOAD OR CONTENTION" READING RATHER THAN CONFIRMING
+  IT.** That probe has no timing, no asset and no wall-clock dependency: it builds
+  the engine group twice — once whole, once `.disable::<BossEncounterSimulationPlugin>()`
+  — and steps 8 frames. There is nothing in it for CPU pressure to perturb. And
+  the failure is a PANIC INSIDE A SYSTEM (`run_fixed_main` → `run_main`), which
+  contention does not produce; contention makes an assertion late, not a
+  parameter absent.
+  ⇒ **So the honest status is three tests that fail only in a full workspace run,
+  pass at every isolation level, and share no subject matter — and NOBODY HAS YET
+  WATCHED ONE FAIL UNDER A CONTROLLED REPRODUCTION.** That is what the row said
+  with two cases and it is still what it says with three; the third just removes
+  "these are old flaky demo tests" as an explanation.
+  ⇒ ⭐ **THE NEXT ACTION IS NAMED AND CHEAP: run the union with `bevy_ecs/debug`
+  ON.** Every one of the three dies with `Parameter <Enable the debug feature to
+  see the name>` — the failure names neither the system nor the parameter, which
+  is why three separate investigations each ended in elimination. With the
+  feature on, the next occurrence names itself, and
+  [`engine/headless-verification.md`](engine/headless-verification.md) already
+  prescribes exactly this. ⚠ It is one feature added to an hour-long run, not an
+  investigation.
+
+  ⇒ **The number to beat next run is 3 → 1**: the policy failure is fixed and
+  the boss-omit probe is unexplained, so a clean run leaves only the smash
+  framing residual. ⚠ Three files in two other crates were edited while this run's
   TESTS were executing (after its compile phase); cargo does not rebuild mid-run
   and none of those edits adds a system, but the honest status of this figure is
   corroborated-not-isolated, and the unit test is what actually proves the

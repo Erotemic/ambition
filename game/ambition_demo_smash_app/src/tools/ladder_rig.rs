@@ -1734,6 +1734,16 @@ fn run_bout_at(
         // the app, the warm-up updates, the route) rather than simulated ticks.
         // ⇒ Worth knowing before anyone optimises this loop further — the next
         // win is in the setup, not here.
+        //
+        // ⭐ SOLVED FOR, from the same two timings rather than a new run. With
+        // 24 bouts, a 480s budget and an ~85s resolve: 126s → 72s gives
+        //     sim ≈ 5.7 ms per simulated second (~176x realtime)
+        //     fixed setup ≈ 2.5 s per bout
+        // ⇒ So an 85-second bout costs **0.5s of simulation and 2.5s of setup —
+        // 84% fixed**. Building the app, its warm-up updates and the route
+        // dominate, and no tick-loop work can reach them. ⚠ The lever is reusing
+        // one app across bouts, which is a determinism question (each bout wants
+        // a clean world) and therefore not a free win.
         if appeared == [true, true] && eliminated.iter().all(|&t| t != ticks()) {
             break;
         }

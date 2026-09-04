@@ -487,6 +487,41 @@ consumer call sites. Both are real; neither is mechanical.
 - domain-owned rollback/content declarations compose through backend-neutral
   registrars/catalogs; the generic runtime does not own concrete domain-type
   censuses.
+- ⛔⛔ **a capability DECLINES when its prerequisites are absent; it does not
+  crash.** In Bevy 0.19 a missing system parameter is a hard failure that takes
+  the whole `App` down, so a plugin whose systems demand resources a minimum host
+  does not have is not "degraded" — it is a capability that cannot be composed at
+  all. `run_if(resource_exists::<..>)` per demanded resource is how a capability
+  says *"not in this host"* in the only vocabulary the scheduler has.
+
+⭐ **THAT PRINCIPLE HAS COST TWICE AND THE SECOND TIME WAS 40 OF 40 FAILURES**, so
+it carries a test shape rather than only a rule:
+
+- `sync_portal_view_cones` — 37 of the union's original 48.
+- `ambition_sprite_fx::draw_sprite_effects` — 2026-09-04, **every one of 40
+  failures against 7,072 passes**, fixed at `52666d1c7`.
+
+⛔ **The trap both times was a guard that reads like the right one.**
+`SpriteFxPlugin` already returned early when there was no
+`EmbeddedAssetRegistry` — which answers *"is there an `AssetPlugin`"*, and the
+demo hosts HAVE one. What they lack is a render stack, and that is a different
+question wearing the same clothes.
+⇒ **A prerequisite guard must name the RESOURCE the system demands**, not a
+proxy for the subsystem it belongs to. And guard them all at once: the portal
+comment records three hiding in succession, "each looking identical to the last",
+so fixing one only moves the failure onto the next.
+
+⭐ **The test that catches this builds the PLUGIN, never the systems.** Every
+existing `ambition_sprite_fx` test called `add_systems(draw_sprite_effects)`
+directly, so not one of them could witness a plugin-level wiring defect. And it
+must assert the UNGUARDED half still runs — disabling the whole plugin also stops
+the panic and silently deletes the free path, so a bare "does not panic"
+assertion accepts the wrong fix.
+
+⚠ **Only the feature UNION sees this class.** A default build composes the render
+stack, so every local check is green while the demo hosts are the ones that
+break. That is the same reason the union is the sizing instrument for this
+program and not an optional extra.
 
 ## Current pressure points
 

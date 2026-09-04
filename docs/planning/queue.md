@@ -1980,11 +1980,18 @@ queue read as an execution authority for work already done.
   ⛔ **DO NOT tune the fighter brain against ladder-rig numbers yet — and the
   reason has been REPLACED, 2026-09-04.** The rig can now measure the shipped
   ladder (`--ladder PATH`) and has: four matched arms, `--paired --seeds 12`,
-  one binary. ⇒ The new reason to hold off is stronger and simpler: **15 of the 16
-  verdicts are `within spread`**, and the only distinguishable cell in the whole
-  matrix is `3 vs 1` on the shipped ladder. Rungs 3/5/6/9 are not separable from
-  each other at 12 seeds in ANY configuration. ⚠ That is *undetected*, not
-  *absent* — but it means no tuning decision may rest on a cell of that matrix.
+  one binary. ⛔⛔ **AND THE HOLD-OFF IS NOW THE OPPOSITE OF "WE CANNOT
+  TELL" — REWRITTEN AGAIN, LATE 2026-09-04.** The rig's own significance test was
+  found to run BACKWARDS (`|median| < 0.5 * (max - min)`; a range only grows with
+  n, so more seeds made results LESS significant) and is now an exact sign test.
+  Re-measured at 40 seeds, **every cell of the shipped ladder is significant with
+  no qualifier**: `3 vs 1` higher, `5 vs 3` **LOWER**, `6 vs 5` **LOWER**, `9 vs 6`
+  higher. ⇒ **`1 < 3 > 5 > 6 < 9`** — rung 3 is a local maximum, rung 6 a local
+  minimum, and a player climbing from 3 to 6 meets two successive steps of a
+  measurably WEAKER CPU. ⚠ So the reason not to tune is no longer "the instrument
+  cannot see"; it is that the ladder has a known, reproduced, player-facing
+  inversion whose cause is a weight VECTOR (no single weight reverts it — all four
+  arms failed, only the full swap works) that nobody has ruled on yet.
   ⭐ Two results worth carrying: the L3 rollout is a **lethality** switch and not a
   strength one (the two floor arms are byte-identical below rung 6, where it is
   not armed, and `0:0` against `2:2` above it), and **George is a substantially

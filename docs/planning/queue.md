@@ -66,6 +66,50 @@ found the wider trap: `cargo test -p ambition_asset_manager --lib` runs NONE of
 that no default build enables. The poison run reported 56 green and proved
 nothing; `--features bevy` is required.
 
+✔ **S4-WHEN — a rollback anchor was ANONYMOUS and no fixture width could have
+found it.** Landed 2026-09-04, `974e8e97e` / `f715aa544`. S4's rule was *"a
+census with no waiver list is only as strong as the population it walks, so
+widening `populate()` is the way to strengthen it"*. ⛔ That rule has a second
+axis it did not name — **WHEN the census looks** — and the identity census walked
+the world only after sixty frames of play, so its real population was *"whatever
+survives sixty frames"*. A `PortalShot` is a rollback anchor
+(`require_rollback::<PortalShot>`) that carried no `SimId`: it rewound by entity
+index while being the entity that decides where a portal opens, and every shot
+has fizzled or placed long before frame 60.
+  ⭐⭐ **THE PROOF IS A POISON THAT PASSES.** With the shot anonymous AND the
+census restored to looking only at the end — the code exactly as it shipped that
+morning — the run is **2 passed, 0 failed, GREEN**. A live defect sailing through
+an assertion with no waiver list. ⇒ **An anti-vacuity floor is only as honest as
+the moment it is asked at**, and incapability is a stronger claim than
+insufficiency: "widen it more" has no answer to "no width would have helped".
+  ⇒ Fixed on the road the repo already had — `PortalFireIntent` carries the
+shot's `SimId`, minted by the FIRER from its own `SimIdCounter`, the same
+`Some(mint())` shape `deploy_sentry` / `open_vortex_well` / `drop_hazard` take.
+It costs the message its `Copy`.
+  ⭐ **AND A THIRD CENSUS, INSIDE THE SIMULATED FRAME**, because both existing
+ones walk the world BETWEEN steps and cannot see an anchor that never reaches a
+step boundary. ⛔ Its reach is measured rather than claimed, and the FIRST POISON
+FAILED, which is the finding: an entity spawned and despawned through `Commands`
+with no `ApplyDeferred` is seen by NOTHING, so the honest scope is *"every anchor
+that exists at a system boundary inside a step"*. The wording it first shipped
+with over-claimed. ⇒ **A guard's stated REACH is a claim like any other and wants
+a poison of its own.**
+  ⭐⭐ **AND THE SHARPEST RESULT IS A NEGATIVE THAT REVERSED.** A portal shot
+fired within one step's travel (~31.7px) of the fizzle line lives and dies inside
+one `sim.step()` — the peer session named it by measuring that production's
+`.after()` ordering still reaches a sync point. Counted by its own id: **371**
+scanned frames in open space, **0** at the fizzle line with the scan unordered,
+**1** with the scan `.after(portal_fire_system)`. ⇒ What was unreachable was the
+SCAN's position, not the entity's lifetime. **A negative result is a claim about
+the instrument until you have varied the instrument** — I had already written the
+0 into the owner doc as a standing open gap. The edge is now load-bearing and
+poison-verified: drop it and the counter reads zero, naming the edge.
+  ⚠ **AND THE MINT-STABILITY MEASUREMENT WAS A RE-DERIVATION**: S1 on the same
+page has recorded since 2026-09-02 that a process-global mint desyncs at frame 2.
+I poisoned `SimIdCounter::next()` to learn it again, at the cost of a near-total
+rebuild and a live poison in a shared tree. **Re-reading an open row beats
+building.**
+
 ✔ **D-REVIEW-0904B — four AUTHORITY-AND-LIFETIME findings, all four the same
 class: a value that outlived the thing it described.** Landed 2026-09-04,
 `3b0d5697c` / `d4cb7e0db` / `86ede5f38` / `0d5152f3e`, each poison-verified.

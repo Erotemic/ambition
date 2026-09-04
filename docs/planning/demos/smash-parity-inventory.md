@@ -37,9 +37,24 @@ never raises a guard"* a floor artifact. ⇒ It is not: this report runs at **le
 5**, below the rollout threshold, so the rollout was never active in it. The
 shielding observation stands.
 
-⇒ **The cheap repair is the one `capture-probe` already had**: give `match-report`
-a `--ladder` flag and a line saying which ladder is in play. Until then, read its
-output as *"what a floor-weighted fighter does"*.
+✔ **Half-repaired the same day (`104782a83`): `match-report` now NAMES the floor
+before printing**, which is the difference between a floor measurement and a
+misleading one — `ladder-probe` has no ladder either and is fine for exactly that
+reason. ⚠ It still has no `--ladder` FLAG, so it can say what it measured, not
+measure something else.
+
+⭐ **WHICH INSTRUMENT FOR WHICH QUESTION — the instruction at the top of this page
+needs both:**
+
+| the question | the tool |
+|---|---|
+| *"is this mechanism wired enough to appear at all?"* — this page's `✔` | `match-report 30 --runs 5`. The floor is a fair test for it, and `--runs` averages, which one probe does not. |
+| *"does a PLAYER meet it?"* | `capture-probe --character <id> --ladder game/ambition_content/assets/data/fighter_brain_ladder.ron`. The only census that can seat the shipped rows. |
+
+⇒ **A row marked `✔` on the strength of the first has NOT been shown to the
+second**, and this page's own warning — *a `✔` means the mechanism is wired, not
+that anybody has seen it* — is exactly that gap, now with the tool that closes it
+named.
 
 
 ⛔⛔ **RE-RUN 2026-08-26 (`30 --runs 3`, George vs George on the demo shell) AND

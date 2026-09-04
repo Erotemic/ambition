@@ -37,11 +37,12 @@ never raises a guard"* a floor artifact. ⇒ It is not: this report runs at **le
 5**, below the rollout threshold, so the rollout was never active in it. The
 shielding observation stands.
 
-✔ **Half-repaired the same day (`104782a83`): `match-report` now NAMES the floor
-before printing**, which is the difference between a floor measurement and a
-misleading one — `ladder-probe` has no ladder either and is fine for exactly that
-reason. ⚠ It still has no `--ladder` FLAG, so it can say what it measured, not
-measure something else.
+✔ **REPAIRED THE SAME DAY: `match-report` now takes `--ladder` and declares which
+ladder is in play before its first number.** Verified by running it both ways —
+without the flag it prints *"⛔ the ENGINE FLOOR"*, with it *"the AUTHORED rows"*.
+⇒ **So this page's instruction below can now be answered by either tool**, and the
+choice is about which question you are asking rather than which tool can reach the
+shipped rows.
 
 ⭐ **WHICH INSTRUMENT FOR WHICH QUESTION — the instruction at the top of this page
 needs both:**

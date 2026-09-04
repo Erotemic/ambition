@@ -934,7 +934,7 @@ Having listed them, I checked which install an `AuthoredFighterLadder`:
 | `capture-probe` | `--ladder`, and prints which is in play | ✔ |
 | `ladder-rig` | `--ladder`, and prints which is in play | ✔ |
 | `ladder-probe` | none — **and its own module doc says so**, and names the ladder before printing any number (*"a calibration table that does not name its ladder is worse than no ladder"*) | ✔ honest |
-| `match-report` | none — **said nothing until `104782a83`; now declares the floor before printing** | ✔ fixed |
+| `match-report` | ✔ **`--ladder`, and declares which is in play** (added and verified end-to-end 2026-09-04) | ✔ |
 | `roll-probe` | none — measures how far a shield roll travels, which is body physics and ladder-independent | ✔ n/a |
 | `stage-diagram` | builds no app at all | ✔ n/a |
 
@@ -950,9 +950,9 @@ not having the flag — so `match-report` now declares it.
 before printing a number. ⇒ **A reader can no longer take a floor number for a
 shipped one without the tool having told them**, which is the failure that
 produced five superseded tables on
-[`engine/fighter-brain.md`](engine/fighter-brain.md). ⚠ `match-report` still lacks
-a `--ladder` FLAG — it can say what it measured, not measure something else. That
-is the remaining repair and it is real code.
+[`engine/fighter-brain.md`](engine/fighter-brain.md). ✔ **And `match-report` gained the flag itself**, so it can now
+measure the shipped rows rather than only naming the floor — verified by running
+it both ways.
 
 ⓘ Deliberately recorded here rather than in `docs/tools/index.md`: that index is
 scoped to *"author-time tools … provider/engine inputs"*, and these are

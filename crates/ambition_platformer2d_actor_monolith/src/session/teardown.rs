@@ -145,28 +145,55 @@ pub fn reset_session_scoped_resources_on_retire(
     reset(resources);
 }
 
-fn reset(mut resources: SessionScopedResources) {
-    *resources.moving_platforms = MovingPlatformSet::default();
-    *resources.possession = PossessionState::default();
-    *resources.controlled_subject = ControlledSubject::default();
-    *resources.encounter_registry = EncounterRegistry::default();
-    *resources.encounter_view = EncounterView::default();
-    *resources.boss_registry = BossEncounterRegistry::default();
-    *resources.quest_registry = QuestRegistry::default();
-    *resources.sim_state = RoomTransitionCooldown::default();
-    *resources.slot_interactions = SlotInteractionState::default();
-    *resources.switch_activations = SwitchActivationQueue::default();
-    *resources.save_restored = crate::session::durable_horizon::SaveRestored::default();
-    *resources.occurrences =
-        ambition_platformer2d_shared_tangle::lifecycle::AuthoredOccurrences::default();
-    *resources.occurrence_baseline =
+fn reset(resources: SessionScopedResources) {
+    // ⛔⛔ AN EXHAUSTIVE DESTRUCTURE, AND DELIBERATELY NO `..`. This was
+    // seventeen `*resources.field = Default::default()` lines, which is a
+    // hand-kept list wearing the shape of code: adding a resource to the
+    // `SystemParam` above and forgetting it here COMPILED, and the omission was
+    // silent in exactly the way this whole set exists to prevent — session B
+    // inheriting session A's state. Binding every field by name makes the next
+    // addition a compile error at the only moment its author is still looking.
+    //
+    // ⚠ It is also what makes `retirement_clears_every_session_scoped_mirror`'s
+    // name true. That test asserts a SUBSET by hand; "every" is guaranteed here,
+    // by the compiler, and not there.
+    let SessionScopedResources {
+        mut moving_platforms,
+        mut possession,
+        mut controlled_subject,
+        mut encounter_registry,
+        mut encounter_view,
+        mut boss_registry,
+        mut quest_registry,
+        mut sim_state,
+        mut slot_interactions,
+        mut switch_activations,
+        mut save_restored,
+        mut occurrences,
+        mut occurrence_baseline,
+        mut custody_baseline,
+        mut minted_baseline,
+        mut quest_last_room,
+        mut cutscene_last_room,
+    } = resources;
+    *moving_platforms = MovingPlatformSet::default();
+    *possession = PossessionState::default();
+    *controlled_subject = ControlledSubject::default();
+    *encounter_registry = EncounterRegistry::default();
+    *encounter_view = EncounterView::default();
+    *boss_registry = BossEncounterRegistry::default();
+    *quest_registry = QuestRegistry::default();
+    *sim_state = RoomTransitionCooldown::default();
+    *slot_interactions = SlotInteractionState::default();
+    *switch_activations = SwitchActivationQueue::default();
+    *save_restored = crate::session::durable_horizon::SaveRestored::default();
+    *occurrences = ambition_platformer2d_shared_tangle::lifecycle::AuthoredOccurrences::default();
+    *occurrence_baseline =
         ambition_platformer2d_shared_tangle::lifecycle::OccurrenceBaseline::default();
-    *resources.custody_baseline =
-        ambition_platformer2d_shared_tangle::lifecycle::CustodyBaseline::default();
-    *resources.minted_baseline =
-        crate::items::pickup::minted_horizon::MintedItemBaseline::default();
-    *resources.quest_last_room = ambition_persistence::quest::LastQuestRoom::default();
-    *resources.cutscene_last_room = ambition_cutscene::LastCutsceneRoom::default();
+    *custody_baseline = ambition_platformer2d_shared_tangle::lifecycle::CustodyBaseline::default();
+    *minted_baseline = crate::items::pickup::minted_horizon::MintedItemBaseline::default();
+    *quest_last_room = ambition_persistence::quest::LastQuestRoom::default();
+    *cutscene_last_room = ambition_cutscene::LastCutsceneRoom::default();
 }
 
 /// Installs session-resource re-establishment at both edges of a session.

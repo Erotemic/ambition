@@ -201,6 +201,14 @@ fn retirement_clears_the_save_applied_latch() {
     );
 }
 
+/// ⚠ "EVERY" IS THE COMPILER'S CLAIM, NOT THIS TEST'S. The assertions below are
+/// a hand-picked SUBSET — the mirrors whose contents are easy to seed and read.
+/// What makes the name true is `reset`'s exhaustive destructure of
+/// `SessionScopedResources`: adding a resource to that `SystemParam` without
+/// resetting it is `error[E0027]: pattern does not mention field`, verified by
+/// adding one. ⇒ Do not grow this list to chase completeness; it would still be
+/// a hand-kept list, and the structural guard already covers what it was
+/// reaching for. Seed a mirror here when its VALUE is the interesting part.
 #[test]
 fn retirement_clears_every_session_scoped_mirror() {
     let mut app = app_with_populated_mirrors();

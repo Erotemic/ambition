@@ -343,6 +343,17 @@ The remaining `LocalSessionPolicy::check_distance` F9-proof-pulse question is a
 maintainer/productivity decision, not evidence that all such resources need an
 entity-based rewrite.
 
+✔ **THE SET'S RESET IS STRUCTURALLY GUARDED SINCE 2026-09-04.** `reset` was
+seventeen `*resources.field = Default::default()` lines — a hand-kept list in the
+shape of code, where adding a resource to `SessionScopedResources` and forgetting
+it here COMPILED and leaked that resource into the next session silently, which
+is the one failure this whole set exists to prevent. It destructures the
+`SystemParam` exhaustively now, so the omission is `error[E0027]: pattern does
+not mention field`, verified by adding one. ⚠ And
+`retirement_clears_every_session_scoped_mirror` asserts a SUBSET by hand: "every"
+is the compiler's claim, not that test's, and its doc now says so rather than
+inviting the list to grow.
+
 Addition 2026-09-02: the two room-entry edge memories S2 moved out of `Local`s
 (`LastQuestRoom`, `LastCutsceneRoom`) are in the set now. Each remembers "the
 room I last announced" and fires only on a change, so inherited across sessions

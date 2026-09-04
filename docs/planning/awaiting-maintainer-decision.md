@@ -98,9 +98,15 @@ cargo test --workspace --features "$(the 82-entry union)" --test smash_it
    nearly half a screen is not.
 2. **One fighter → BOTH.** Neither seat is inside the frame. A follow camera
    trailing a launched body leaves ONE fighter behind; it does not lose both.
-3. **The frame itself changed, 800x450 → 568x320.** Same test, same union
-   feature set. ⚠ So the viewport is not stable across runs either, and any
-   tolerance chosen against one of these numbers is chosen against noise.
+3. **The frame itself changed, 800x450 → 568x320.** ⚠ **CORRECTED same day** — I
+   first wrote that the viewport is "not stable across runs" and used it to argue
+   any tolerance would be chosen against noise. That was wrong and it overstated.
+   THREE runs since (mine, and two of the peer session's, one of them under
+   `bevy_ecs/debug`) all report `568x320` and the **identical** seat coordinates
+   `(224,204)` and `(416,204)`. ⇒ The frame changed ONCE, between the original
+   800x450 measurement and now, and has been stable at the new value since. A
+   tolerance would be chosen against a reproducible number — the objection to
+   choosing one is the paragraph below, not this.
 
 ⭐⭐ **AND THE CENTRE IS THE TELL: `(0,0)`, with both fighters at y≈204.** The
 camera is not lagging — it is sitting on the WORLD ORIGIN while the match happens
@@ -137,6 +143,21 @@ is only worth doing if the answer to the question above is *"no"*.
 ⭐ **One thing this DOES settle, and it was a live disagreement:** the failure is
 not a load or contention artifact. This arm ran ONE test binary with nothing else
 building, and it reproduced. The cause is the feature set.
+
+⭐⭐ **And the values are reproducible even though the occurrence is not.** Three
+separate runs — this one, and two from the peer session including one under
+`bevy_ecs/debug` — produce the SAME two seats at the SAME coordinates in the SAME
+frame. ⛔ A load-sensitive failure does not land on identical coordinates three
+times. ⇒ Whatever this is, it is deterministic given the feature set, which means
+it can be chased directly rather than sampled.
+
+⚠ **A related reading has been retracted at the source.** This test was filed for
+a while alongside two others as "three tests sharing a load signature". The peer
+session withdrew that grouping (`dbf07bd6f`): one was a parameter panic and is
+fixed, one is a parameter panic that has fired once in three runs, and this one
+is an assertion about a camera centre. ⇒ They share no mechanism, and grouping
+them let each stand as evidence for the others — which is how a load story
+survived three investigations without ever producing one.
 
 ⚠ **Why it is yours rather than mine**: which one is right depends on how a
 knockout should READ, and the test's own text says the stake — *"the knockout

@@ -1452,6 +1452,33 @@ The shipped ladder, 40 seeds, paired, sign test — **no cell carries a qualifie
 
 ⇒ **Read as an ordering: `1 < 3 > 5 > 6 < 9`.**
 
+⛔⛔⛔ **AND THE WHOLE TABLE ABOVE MEASURED THE FIRST 12.5% OF A MATCH.** Found
+after it was written, by asking what the shipped match clock is:
+`apply_smash_match_rules` sets `time_limit_ticks = 8 * 60 * 60` — **eight
+minutes**. `ladder_rig`'s clock was **sixty seconds**.
+
+⇒ **That is why every cell has tied stocks.** A 60-second bout cannot end, so the
+verdict — *stocks taken, then damage dealt* — falls through to damage in every row
+of every ladder table this tool has ever produced. ⚠ Every "rung N is weaker"
+result on this page means *"deals less damage in the opening eighth of a match"*.
+
+⭐ **Measured, not inferred:** at 180 seconds the same `5 vs 3` cell RESOLVES —
+both fighters eliminated at a median of **~98s**, `0 : 0` stocks, 300% : 360%
+damage. So a match takes about 98 seconds and the instrument was stopping it at
+60. ⇒ The rig's default now reads `ambition_demo_smash::SMASH_TIME_LIMIT_TICKS`,
+and a shortened run prints what fraction of a match it covers.
+
+⭐⭐ **BUT THE INVERSION SURVIVES THE LONGER CLOCK.** At 180s, with matches
+actually resolving, `5 vs 3` is **still LOWER outfights and still significant**.
+⇒ And the patience reading predicted rung 5 would at least survive longer; it does
+not — eliminated at 97.3s against rung 3's 98.6s. **On a clock long enough to
+finish, rung 5 neither deals more damage nor lives longer than rung 3.** ⚠ `6 vs 5`
+at 180s falls within spread, so only one of the two sagging cells survives.
+
+⇒ **This is the fifth instance today of the class named below**, and the largest:
+weights, ladder source, rollout, fighters, and now the clock. Arms at the full
+shipped 480s clock are running.
+
 ⛔⛔ **BUT READ THE VERDICT'S OWN DEFINITION BEFORE READING THAT SENTENCE.** The
 verdict is *"who OUTFOUGHT: stocks taken, then damage dealt"* — and in **every
 inverted cell the stocks are tied at `2 : 2`**, so the verdict falls through to
@@ -1532,10 +1559,10 @@ cannot regress the game) and against prioritising `Dodge`.
 
 ### ⭐⭐ THE CLASS BEHIND THREE SEPARATE FINDINGS: the rig reads its config from anywhere but the shipped file
 
-Four findings in this document have the same shape, and it is worth naming
-because a fifth is otherwise inevitable. ⚠ The fourth arrived while this section
-was being written, which is the strongest evidence that naming the class was
-worth doing.
+Five findings in this document have the same shape, and it is worth naming
+because a sixth is otherwise inevitable. ⚠ The fourth arrived while this section
+was being written and the fifth arrived a few hours later, which is the strongest
+evidence that naming the class was worth doing.
 
 1. **The flattened ladder** — the rig overrode every rung with one weight set, so
    36 cells were byte-identical and the "ladder" it measured had one rung.
@@ -1545,8 +1572,8 @@ worth doing.
 3. **The rollout** — that same floor switches the L3 search ON at level 6, and the
    shipped ladder switches it OFF on all nine rows.
 
-4. **The fighters themselves** — found the same day, and it is the widest of the
-   four. `ladder_rig`'s `fighters()` defaults to `smash_duelist_a` vs
+4. **The fighters themselves** — found the same day, and until the clock turned up
+   it was the widest of them. `ladder_rig`'s `fighters()` defaults to `smash_duelist_a` vs
    `smash_duelist_b`. ⛔ **Neither is George.** `register_character` hands George's
    authored table to `smash_george_booul` and `fighter_moveset()` to everybody
    else, and that stand-in contract bound **18 verbs to George's 26** — no
@@ -1557,8 +1584,16 @@ worth doing.
    roster is three characters, **two of them stand-ins**, and the catalog default
    is one of the two — so the dead button was a player's as well as the rig's.
 
+5. **The match clock, and it is the biggest.** The shipped match is **eight
+   minutes** (`time_limit_ticks = 8 * 60 * 60`); the rig ran **sixty seconds**.
+   ⇒ Every bout was cut off before it could end, so stocks tied in every cell, so
+   **every verdict this tool has ever printed fell through to the damage
+   tiebreak** — a fact about the instrument that read as a fact about the
+   fighters. ⭐ Fixed by reading the demo's own constant instead of choosing a
+   number, which is the whole rule in one line.
+
 ⇒ **The class: the instrument took its configuration from a DIFFERENT SOURCE than
-the shipped game, and only the instrument was ever read.** Every one of the four
+the shipped game, and only the instrument was ever read.** Every one of the five
 was invisible from inside the rig's own output, because the rig faithfully
 reported the thing it was actually running. Nothing was broken; the wrong subject
 was measured, confidently, for as long as anyone looked.

@@ -1915,8 +1915,24 @@ queue read as an execution authority for work already done.
   clean.** Do not re-run the generalised form and act on its raw numbers without
   the per-module re-export cross-check — it over-reports by design.
 
-- ▢ **SIX WORKSPACE DEPENDENCY DECLARATIONS ARE NEVER NAMED IN THEIR CRATE'S
-  SOURCE — graph honesty, NOT a footprint win.** (Measured 2026-09-02.) Every
+- ▢ **FIVE WORKSPACE DEPENDENCY DECLARATIONS ARE NEVER NAMED IN THEIR CRATE'S
+  SOURCE — graph honesty, NOT a footprint win.** (Measured 2026-09-02;
+  re-measured 2026-09-04.) ⭐ **Six became five: the PLAIN edge is already gone.**
+  `ambition_platformer2d -> ambition_interaction` appears neither in that crate's
+  `Cargo.toml` nor anywhere under its `src/`, so the one unconditional edge — the
+  only one this row could describe as a plain redundancy — has been removed since
+  the row was written. The five optional ones are all still declared and still
+  unnamed in `src/`.
+  ⚠ **AND THE REMAINING FIVE NEED A CHECK THIS ROW DOES NOT SPECIFY, because
+  "unused in `src/`" is not the same claim for an optional dep.** Each is
+  activated by a feature — `ambition_characters`' `causal = ["dep:ambition_causal"]`,
+  `game/ambition_app`'s `causal = ["ambition_platformer2d/causal",
+  "dep:ambition_causal"]` — so removing the `dep:` entry changes what that
+  feature turns on, and a feature that becomes empty may still be a marker
+  something above forwards. ⇒ Before deleting any of the five, establish that no
+  dependent forwards the feature expecting the crate to be linked; the
+  feature-union build is where that would surface, and it is an hour to find out
+  the expensive way. Every
   crate's `src/**/*.rs` was searched for each `ambition_*` dependency its
   `Cargo.toml` declares:
 

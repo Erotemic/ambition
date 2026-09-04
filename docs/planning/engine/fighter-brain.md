@@ -1990,6 +1990,32 @@ unstated *"direction not cross-checked"*, and lean on the cells' mechanisms rath
 than their labels. ⛔ **The `5 vs 3` inversion is the one to re-take first**, since
 it is the finding this document is built around.
 
+⭐ **THE RE-RUN, WRITTEN OUT so it is a paste rather than a reconstruction.** Arm A
+is the shipped ladder against the two stand-ins, which is the arm both contested
+cells came from:
+
+```text
+cargo run --release -p ambition_demo_smash_app --bin smash_tool -- ladder-rig \
+  --ladder game/ambition_content/assets/data/fighter_brain_ladder.ron \
+  --paired --seeds 12
+```
+
+⚠ **Take `--seeds 12` first and compare it against the table above before spending
+more**, because the twelve-seed row is what the disputed cells were measured at —
+a re-run at a different n answers a different question and cannot confirm or
+refute them. ⇒ Then `--seeds 28` and `--seeds 40`, which are the replications
+already on record.
+
+ⓘ Three things the rig now prints that the original run did not, and each is worth
+reading before the table: `report_which_clock_is_in_play`,
+`report_which_fighters_are_in_play` and `report_which_ladder_is_in_play`. ⛔ **If
+the clock line does not say the shipped eight minutes, stop** — every verdict this
+tool printed before 2026-09-04 fell through a damage tiebreak for exactly that
+reason.
+
+⚠ **And this costs a full release build of the composed demo app.** On a box with
+disk it is minutes; on this one it is the reason the row is still open.
+
 ⓘ The fix is not *"check the sign against the median"* — that keeps both
 authorities and adds a referee. It is to compute **one paired outcome per seed**
 (reorient straight and mirrored into logical higher/lower, aggregate, stocks

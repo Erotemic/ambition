@@ -1386,6 +1386,10 @@ const RESOURCE_WAIVED: &[(&str, &str)] = &[
         "composition marker installed once by the selected rollback backend before the simulation runs. It says which host machinery this App was assembled with; no simulation tick can change that fact",
     ),
     (
+        "ambition_platformer2d_runtime::EngineRollbackStateDeclared",
+        "the SECOND composition marker, and the reason it is a second one is the whole point: `RollbackHostReady` says a backend is installed, this says that backend declared the ENGINE'S rollback state. `GgrsBackendPlugin` publishes the first and not the second, which is correct for a capability host that composes no engine domains and a silent desync for one that composes the engine group -- so the engine foundation asserts on this rather than on readiness. Composition state like its neighbour: written once at build, and no simulation tick can change which plugins this App was assembled from",
+    ),
+    (
         "ambition_platformer2d_runtime::rollback::authority::ActiveRollbackAuthority",
         "the live rollback timeline's contract, generation, health, and the SessionScopeId that owns it. Host authority ABOUT whether speculative work may be promoted, written by session lifecycle and mismatch handling outside the rewound world; rewinding the authority doing the rewind would be backwards. It replaced a bare RollbackConfirmationState resource whose ownerless health leaked from one gameplay session into the next",
     ),

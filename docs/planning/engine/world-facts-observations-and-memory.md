@@ -24,7 +24,10 @@ encounter outcome, persistent world mutation.
 and the open question is which of its rows a rule can READ.** The page's
 "Candidate crate" section says *"do not begin with a universal key-value fact
 database; prefer typed domain facts"*, and that is already what shipped: the save
-holds **thirteen** typed fact families, not a string map. Six published
+holds **thirteen** typed fact families, not a string map. ⚠ `AmbitionGameSaveData`
+has FOURTEEN `pub` fields; `version` is schema metadata rather than a fact, which
+is the one exclusion — said here so a recount reads as agreement instead of a
+correction. Six published
 conditions read four of them:
 
 | durable fact family | route-readable? |

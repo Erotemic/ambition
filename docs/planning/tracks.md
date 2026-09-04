@@ -65,6 +65,11 @@ actual product requirement.
   room unloads. ⛔ Still open on this row: `OccurrenceWhereabouts::Consumed` has
   NO producer, which is load-bearing for `rewind_argument` — the day it gains
   one the ledger owes a real rollback registration with a VALUE projection.
+  ⚠ Verified by grep 2026-09-04 rather than taken from the enum's own comment:
+  every non-test mention is the save ROUND-TRIP (`durable_horizon.rs` maps the
+  variant both ways), the ledger's own `outlook_for`/codec arms, or the producer
+  filter that refuses it. A round-trip that can carry a value nothing writes is
+  not a producer.
   Owner:
   [`engine/construction-and-reconstitution.md`](engine/construction-and-reconstitution.md).
 - ▢ **Item custody/accounting residual.** Complete body-owned instance/count

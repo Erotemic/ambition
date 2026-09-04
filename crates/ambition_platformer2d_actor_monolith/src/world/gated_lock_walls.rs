@@ -142,6 +142,26 @@ type RoomSetQuery = bevy::ecs::query::QueryState<
     bevy::prelude::With<ambition_platformer2d_shared_tangle::lifecycle::SessionRoot>,
 >;
 
+/// Retract the published verdicts rather than leaving the previous room's.
+///
+/// ⛔ `GatedLockWallVerdicts` IS A STATEMENT ABOUT THE ACTIVE ROOM, so every
+/// road out of the sync owes it an answer. A room with no gated walls, a world
+/// with no session root, a world with no catalog — each of those is "nothing
+/// stands here", and each used to leave the last room's map published, which
+/// reads to every consumer as walls that are still standing in a room that has
+/// none. Retract by RESETTING, never by removing: a consumer that reads the
+/// resource must keep reading it.
+fn retract_gated_lock_wall_verdicts(world: &mut World) {
+    let Some(mut published) = world.get_resource_mut::<GatedLockWallVerdicts>() else {
+        // Never published in this world; absence and empty say the same thing,
+        // and inserting one here would only make a resource nobody asked for.
+        return;
+    };
+    if !published.by_wall.is_empty() {
+        published.by_wall.clear();
+    }
+}
+
 pub fn sync_authored_gated_lock_walls(
     world: &mut World,
     mut rooms: bevy::prelude::Local<Option<RoomSetQuery>>,
@@ -159,11 +179,13 @@ pub fn sync_authored_gated_lock_walls(
     // first and pay for the walls second.
     let (active_room_id, rooms_changed) = {
         let Some(set) = rooms.iter(world).next() else {
+            retract_gated_lock_wall_verdicts(world);
             return;
         };
         (set.active_spec().id.clone(), set.is_changed())
     };
     if world.get_resource::<ConditionCatalog>().is_none() {
+        retract_gated_lock_wall_verdicts(world);
         return;
     }
 
@@ -191,6 +213,7 @@ pub fn sync_authored_gated_lock_walls(
     if rooms_changed || stale || catalog_moved {
         let walls = {
             let Some(set) = rooms.iter(world).next() else {
+                retract_gated_lock_wall_verdicts(world);
                 return;
             };
             authored_gated_lock_walls(set.active_spec())
@@ -210,11 +233,15 @@ pub fn sync_authored_gated_lock_walls(
 
     // ⛔ A ROOM WITH NO GATED WALLS IS THE COMMON CASE, and everything below it
     // — two catalog clones, a cache clone, an overlay lookup — is work whose
-    // only possible result is an empty `standing`. Leave before paying for it.
+    // only possible result is an empty `standing`. Leave before paying for it,
+    // but RETRACT FIRST: skipping the publication below is not the same as
+    // publishing nothing, and the difference is the previous room's verdicts
+    // outliving the room they describe.
     if world
         .get_resource::<GatedLockWallCache>()
         .is_none_or(|cache| cache.walls.is_empty())
     {
+        retract_gated_lock_wall_verdicts(world);
         return;
     }
 
@@ -257,8 +284,8 @@ pub fn sync_authored_gated_lock_walls(
         .map(|cached| &cached.wall)
         .collect();
     // Published whether or not anything stands: an open wall's verdict is the
-    // answer to "why is it open", and a room with no walls publishes an empty
-    // map rather than last room's.
+    // answer to "why is it open". A room with no walls never reaches here — it
+    // publishes the same empty map through `retract_gated_lock_wall_verdicts`.
     {
         let mut published = world.get_resource_or_insert_with(GatedLockWallVerdicts::default);
         if published.by_wall != verdicts {

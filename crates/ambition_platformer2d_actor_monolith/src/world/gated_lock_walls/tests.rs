@@ -441,7 +441,14 @@ fn a_wall_may_be_gated_on_what_the_body_can_do() {
             ambition_platformer2d_core::body_clusters::BodyAbilities::new(
                 ambition_platformer2d_core::abilities::AbilitySet::default(),
             ),
-            ambition_platformer2d_shared_tangle::markers::PlayerEntity,
+            // ⚠ A SEAT, NOT JUST A MARKER. `body.can` asks the body the
+            // participant is DRIVING, because possession moves the seat off the
+            // home avatar; a fixture holding `PlayerEntity` alone describes a
+            // body nobody is driving and the wall would correctly refuse to ask
+            // it. Same reason the dormancy fixtures spawn a seat.
+            ambition_characters::control::DrivingParticipant(
+                ambition_characters::control::PlayerSlot::PRIMARY,
+            ),
         ))
         .id();
 
@@ -490,7 +497,14 @@ fn a_wall_may_be_gated_on_the_body_being_small_enough_to_pass() {
         .world_mut()
         .spawn((
             standing_body,
-            ambition_platformer2d_shared_tangle::markers::PlayerEntity,
+            // ⚠ A SEAT, NOT JUST A MARKER. `body.fits` asks the body the
+            // participant is DRIVING, because possession moves the seat off the
+            // home avatar; a fixture holding `PlayerEntity` alone describes a
+            // body nobody is driving and the wall would correctly refuse to ask
+            // it. Same reason the dormancy fixtures spawn a seat.
+            ambition_characters::control::DrivingParticipant(
+                ambition_characters::control::PlayerSlot::PRIMARY,
+            ),
         ))
         .id();
 
@@ -618,5 +632,116 @@ fn a_condition_the_catalog_does_not_publish_leaves_the_wall_up() {
         1,
         "the condition does not exist, so the question cannot be prepared and \
          the wall must not open"
+    );
+}
+
+/// ⛔ THE VERDICTS DESCRIBE THE ACTIVE ROOM, SO A ROOM WITH NO WALLS RETRACTS
+/// THEM.
+///
+/// The publication sits after a fast return taken whenever the wall cache is
+/// empty — the common case — so a room with gated walls followed by a room with
+/// none left the first room's map standing. Every consumer of
+/// `GatedLockWallVerdicts` reads it as "why is the route in front of you
+/// blocked", and in the second room the honest answer is "nothing is". A
+/// consumer that showed the previous room's reason would be naming a flag the
+/// player cannot act on in a room where no wall waits on it.
+///
+/// ⭐ THIS IS THE SIBLING OF `swapping_the_room_set_alone_invalidates_the_cached_walls`,
+/// which pins the OVERLAY half of the same edge. Both halves are needed: the
+/// wall came down there while its verdict stayed up.
+#[test]
+fn a_room_with_no_gated_walls_retracts_the_previous_rooms_verdicts() {
+    let mut app = world_with_one_gated_wall();
+    app.update();
+    assert_eq!(standing(&app), 1, "premise: the wall is up");
+    assert!(
+        !app.world().resource::<GatedLockWallVerdicts>().by_wall.is_empty(),
+        "premise: a standing wall published its reason"
+    );
+
+    // The same swap the cache-invalidation test makes: same room id, same save,
+    // authored content with no walls left in it.
+    {
+        let mut rooms = app.world_mut().query_filtered::<
+            &mut ambition_platformer2d_world::rooms::RoomSet,
+            bevy::prelude::With<ambition_platformer2d_shared_tangle::lifecycle::SessionRoot>,
+        >();
+        let mut set = rooms
+            .iter_mut(app.world_mut())
+            .next()
+            .expect("the fixture installs a room set");
+        for room in &mut set.rooms {
+            room.lock_walls.clear();
+        }
+    }
+    app.update();
+
+    assert_eq!(standing(&app), 0, "premise: no wall stands here");
+    assert!(
+        app.world().resource::<GatedLockWallVerdicts>().by_wall.is_empty(),
+        "a room with no gated walls says so: {:?}",
+        app.world().resource::<GatedLockWallVerdicts>().by_wall
+    );
+}
+
+/// ⛔ A ROUTE GATED ON THE BODY ASKS THE BODY THE PARTICIPANT IS DRIVING.
+///
+/// `body.can` is a published condition an author may write into `gated_by`, so
+/// possession is a PRODUCTION property of the route, not a unit-test property of
+/// the reader: while the participant drives a vessel that cannot climb, a wall
+/// gated on climbing must stand even though the home avatar left behind can.
+/// The condition's own tests pin the answer; this pins that the WALL follows it.
+///
+/// ⭐ BOTH DIRECTIONS in one fixture pair, because a reader that answered
+/// `NotSatisfied` unconditionally would pass the first half alone.
+#[test]
+fn a_wall_gated_on_the_body_follows_the_vessel_the_participant_drives() {
+    fn app_with_possession(home_climbs: bool, vessel_climbs: bool) -> App {
+        let mut app = world_with_one_wall_gated_by("body.can wall_climb");
+        app.publish_condition(
+            crate::body_conditions::can_descriptor(),
+            crate::body_conditions::can,
+        );
+        let abilities = |climbs: bool| {
+            let mut set = ambition_platformer2d_core::abilities::AbilitySet::default();
+            set.wall_climb = climbs;
+            ambition_platformer2d_core::body_clusters::BodyAbilities::new(set)
+        };
+        // The home avatar keeps `PlayerEntity`; possession moved
+        // `DrivingParticipant` onto the vessel. See `control::authority`.
+        app.world_mut().spawn((
+            abilities(home_climbs),
+            ambition_platformer2d_shared_tangle::markers::PlayerEntity,
+        ));
+        let driven = app
+            .world_mut()
+            .spawn((
+                abilities(vessel_climbs),
+                ambition_characters::control::DrivingParticipant(
+                    ambition_characters::control::PlayerSlot::PRIMARY,
+                ),
+            ))
+            .id();
+        app.insert_resource(
+            ambition_platformer2d_shared_tangle::markers::ControlledSubject(Some(driven)),
+        );
+        app
+    }
+
+    let mut climbing_home = app_with_possession(true, false);
+    climbing_home.update();
+    assert_eq!(
+        standing(&climbing_home),
+        1,
+        "the participant is driving a vessel that cannot climb, so the climbing \
+         body it left behind must not open this route"
+    );
+
+    let mut climbing_vessel = app_with_possession(false, true);
+    climbing_vessel.update();
+    assert_eq!(
+        standing(&climbing_vessel),
+        0,
+        "the driven vessel climbs, so the wall opens for it"
     );
 }

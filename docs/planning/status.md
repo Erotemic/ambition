@@ -12,6 +12,29 @@ ancestors of HEAD, re-checked 2026-09-03 with `git merge-base --is-ancestor`
 rather than `git cat-file` — an orphaned commit resolves under the second and
 not the first.
 
+⭐⭐ **NUMBERS MEASURED 2026-09-04 ON THIS BRANCH, so a reader orienting today
+has something current to stand on rather than only the caveats below.** Each was
+run, not carried forward:
+
+| what | figure | how |
+|---|---|---|
+| `ambition_app` integration suite | **556 passed / 0 failed / 23 ignored** | `cargo test -p ambition_app --test app_it`, twice — before and after a new runtime plugin |
+| actor monolith lib | **1067 passed** | `cargo test -p ambition_platformer2d_actor_monolith --lib` |
+| `ambition_platformer2d_shared_tangle` lib | **251 passed** | same shape |
+| absence + dependency contracts | **38 of 38 hold** | `scripts/check_absence_contracts.py` |
+| capability footprint | **51 crates linked, 23 a movement-only game never asked for** | the ratchet's own line |
+| rollback wire format | **v151**, 410 stable names, 123 encoded types across 12 crates | the same checker |
+| feature-gated tests | **794 hidden behind features across 29 crates** | `scripts/feature_gated_tests.py` |
+| `cargo fmt --all -- --check` | **358 files / 710 hunks fail** | and that is POLICY, not drift — AGENTS.md: *"Formatting is advisory, never an acceptance gate."* |
+
+⛔ **AND ONE THING THAT WAS NOT A NUMBER AT ALL:** `check_absence_contracts.py`
+had been CRASHING rather than failing — a stale `fixtures/minimal_game/Cargo.lock`
+made `cargo tree --locked` exit 101, and the script died on a traceback before
+most contracts ran. Two REDs were behind it (an undeclared rollback wire-format
+entry and an undeclared footprint rise), both now declared. ⇒ When a checker is
+the gate, confirm it printed a VERDICT LINE PER CONTRACT, not merely that it
+exited: a guard whose measurement crashes looks nothing like one that fails.
+
 ⚠ **AND THE DISTANCE FROM THAT BASELINE IS NOW THE THING TO KNOW.** All five
 SHAs are still ancestors (re-checked 2026-09-03 late, after this branch merged
 `origin/main` at `867567a79`), which is the weakest of the guarantees this

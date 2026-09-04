@@ -2179,6 +2179,42 @@ queue read as an execution authority for work already done.
   never applied it. Someone who knows whether a mid-session load can happen
   inside a live GGRS session should answer it; until then the waiver says so.
 
+- ⛔ **D-BRAIN-MENU — THE FIGHTER BRAIN SCORES A MENU IT CANNOT ORDER FROM.**
+  Found 2026-09-04 by putting two existing instruments side by side; there was no
+  guard for it because nothing compares what the brain SELECTED against what the
+  body PERFORMED.
+  ⭐ **The measurement** (`smash_tool capture-probe --character smash_george_booul
+  --ladder <shipped ron>`, 40s, `AMBITION_FIGHTER_TRACE=1`): the brain chose
+  `george_booul_dash_attack` **0 times**; the bodies started it **43 of 59**. It
+  chose `jab` **40 times**; one jab started. It chose `tilt_up` 8 times; none
+  started. ⇒ Over 120s, **16 of George's 28 authored moves never start once** —
+  all three smashes, all three tilts, three of five aerials — and the dash attack
+  is **81%** of starts on the shipped ladder (84% on the floor, so this is NOT a
+  floor artifact).
+  ⇒ **THE CHAIN, read rather than assumed:** the kit builder
+  (`crates/ambition_platformer2d_actor_monolith/src/features/ecs/actors/update.rs:1747`)
+  calls `move_for_directional_verb(verb, direction, grounded)` — **no `running`**
+  — so the brain scores the STANDING set and never sees `attack_dash` as a
+  candidate. It then emits a BUTTON (`AttackBinding`), not a move. The body
+  re-resolves with `move_for_flat_verb(base, grounded, running)`, which tries
+  `{base}_dash` FIRST when running. George binds `attack_dash`. ⇒ Every attack
+  pressed while running becomes the dash attack, whatever was scored.
+  ⛔ **The body is not misbehaving** — that IS what a dash attack is. The defect is
+  an option set assembled under an assumption the emission violates.
+  ⭐⭐ **AND THE SAME PROBLEM IS ALREADY SOLVED ONE VERB OVER.** The burst press
+  (dodge/dash are one input, resolved by body state) was fixed by making
+  perception carry the RESOLVED answer — `SelfView::burst`, documented as
+  *"`resolve_burst_maneuver` is the one rule, and this field is its answer. The
+  brain is handed a fact."* The attack press has no equivalent. ⇒ **Two fixes, both
+  engineering:** build the kit in the stance the press will be resolved in, or hand
+  the brain the resolved move as a fact. The second matches the existing precedent.
+  ⚠ **DO NOT LAND EITHER UNMEASURED.** Both change every fighter in every game that
+  uses this brain, and while running the flat-verb menu may collapse to one option
+  — whether the brain should then stop running to reach its other moves is
+  emergent behaviour nobody has measured. ⇒ The rig can measure it:
+  `capture-probe` gives the move census and `ladder-rig --paired` gives the
+  outcome, both now taking `--ladder` and `--character`.
+
 - ▢ **D72 — continue Super Smash Siblings as a product/engine customer from the
   current parity inventory.** Do not resurrect the historical fun-push campaign.
   Re-read [`demos/smash-parity-inventory.md`](demos/smash-parity-inventory.md)

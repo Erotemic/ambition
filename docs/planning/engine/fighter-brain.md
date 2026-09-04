@@ -565,6 +565,35 @@ Removing one fighter's rollout made the other one survive too. ⇒ A rollout-dri
 fighter appears to play in a way that gets BOTH bodies killed — reckless
 commitment, or dragging the fight somewhere lethal — rather than simply losing.
 
+### ⭐⭐ THE NULL CONTROL: a rung against itself, and the seat bias measured directly
+
+**The prior question this rig had never been able to ask.** Every verdict it has
+printed compares two DIFFERENT levels, so nothing answered *"do two IDENTICAL
+fighters split evenly?"* — and a tool that cannot measure zero cannot be trusted
+about small numbers. `--rungs 6,6` (added 2026-09-04) asks it.
+
+| design | `6 vs 6` — the same level against itself |
+|---|---|
+| **paired** | `48.2s : 48.2s` · `0 : 0` · dealt **144% : 144%** · peak `95% : 95%` · **even** |
+| **unpaired** | `52.4s : 48.2s` · `0 : 0` · dealt **144% : 154%** · peak `90% : 100%` · **LOWER outfights** |
+
+⇒ **Under `--paired` the columns are byte-identical and the verdict is `even`.**
+The instrument has no residual bias once the seat is controlled, so every
+difference it reports between real rungs is attributable to the rungs. That is
+also an end-to-end confirmation of `Bout::mirrored`, which unit tests had only
+checked in isolation.
+
+⛔⛔ **Unpaired, two fighters with NO difference between them produce
+`LOWER outfights`** — seat 1 deals 154% against seat 0's 144%, a ~7% edge from
+the seat alone. ⇒ **That is the 24 : 12 skew, in one row, with the skill removed.**
+Every unpaired verdict whose margin is inside that band was reporting the seat.
+
+⇒ **What it licenses, and what it does not.** It licenses the paired matrix: the
+16 : 19 split and the surviving `6 vs 5` cell are not instrument artifacts. It
+does NOT license the unpaired corpus — every number this rig produced before
+`--paired` carries a seat term of roughly this size, in the direction that made
+the ladder look inverted.
+
 ### The paired matrix, all 36 cells: one rung is broken and the rest are fine
 
 ⭐⭐ **MEASURED 2026-09-04. Controlling the seat repairs every rung except the one

@@ -49,6 +49,33 @@ const TICKS: usize = 3_600;
 /// The rungs the demo actually registers. See the sparseness warning above.
 const RUNGS: &[u8] = &[1, 3, 5, 6, 9];
 
+/// The rungs this run walks — `--rungs` when given, the registered ladder
+/// otherwise. Pairs are consecutive, so `6,6` is one bout of a rung against
+/// itself and `1,3,5,6,9` is the four the ladder has always compared.
+fn rungs() -> Vec<u8> {
+    let Some(spec) = args().rungs.as_deref() else {
+        return RUNGS.to_vec();
+    };
+    let parsed: Vec<u8> = spec
+        .split(',')
+        .map(|part| {
+            part.trim().parse::<u8>().unwrap_or_else(|_| {
+                // ⛔ A rung list that does not parse must not fall back to the
+                // default: the run would silently measure the ladder while its
+                // header claimed otherwise, which is the exact class of failure
+                // this file spent a day removing.
+                eprintln!("[ladder_rig] --rungs wants comma-separated levels, got '{spec}'");
+                std::process::exit(2);
+            })
+        })
+        .collect();
+    if parsed.len() < 2 {
+        eprintln!("[ladder_rig] --rungs needs at least two levels to make a pair");
+        std::process::exit(2);
+    }
+    parsed
+}
+
 /// Nothing changed but the sample count, so every verdict in between was noise wearing a direction
 /// — the exact failure this file's own header warns about one paragraph up, reached by its own
 /// default.
@@ -140,6 +167,19 @@ pub struct LadderRigArgs {
     /// Fighter to test against.
     #[arg(long)]
     pub opponent: Option<String>,
+    /// Rungs to walk, comma-separated, consecutive pairs compared. Defaults to
+    /// the registered ladder `1,3,5,6,9`.
+    ///
+    /// ⭐⭐ **THE NULL CONTROL THIS RIG COULD NOT RUN.** Every verdict it has ever
+    /// printed compares two DIFFERENT levels, so nothing has ever answered the
+    /// prior question: **do two IDENTICAL fighters split evenly?** `--rungs 6,6`
+    /// asks exactly that. If a rung against itself does not come out near even
+    /// under `--paired`, the bias is in the instrument — seats, fixtures, or the
+    /// verdict — and every difference this rig has attributed to skill is
+    /// suspect by that amount. A measurement tool that cannot measure zero
+    /// cannot be trusted about small numbers.
+    #[arg(long)]
+    pub rungs: Option<String>,
     /// Run each seed TWICE with the rungs swapped between seats, and report the
     /// within-seed difference.
     ///
@@ -229,7 +269,7 @@ pub fn run(cli: LadderRigArgs) {
             "unpaired"
         }
     );
-    for pair in RUNGS.windows(2) {
+    for pair in rungs().windows(2) {
         let (lower, higher) = (pair[0], pair[1]);
         let bouts: Vec<Bout> = (0..seeds)
             .flat_map(|seed| bouts_for_seed(higher, lower, seed as u64, None))
@@ -514,7 +554,7 @@ fn run_scenarios(seeds: usize) {
         // is the entire reason `--stage` exists.
         "[ladder_rig] --scenarios: PLACEMENT ONLY — {} of {} fixture(s) are \
          reproduced by placing two bodies (median of {seeds} seeds, {}s each, \
-         stage `{}`, {})",
+         stage `{}`, {}, rungs {})",
         playable.len(),
         suite.len(),
         TICKS / 60,
@@ -527,7 +567,14 @@ fn run_scenarios(seeds: usize) {
              tested on within-seed differences"
         } else {
             "unpaired — seat 0 is always the higher rung"
-        }
+        },
+        // The rungs too, now that they are a flag: a null-control run (`6,6`)
+        // and a ladder run otherwise print identical columns.
+        rungs()
+            .iter()
+            .map(|r| r.to_string())
+            .collect::<Vec<_>>()
+            .join(",")
     );
     // ⛔ THE SCENARIO TABLE PRINTED NO COLUMN HEADER AT ALL, so every reader had
     // to infer five columns from the numbers — and `stocks` was read as "stocks
@@ -566,7 +613,7 @@ fn run_scenarios(seeds: usize) {
             );
             continue;
         }
-        for pair in RUNGS.windows(2) {
+        for pair in rungs().windows(2) {
             let (lower, higher) = (pair[0], pair[1]);
             let bouts: Vec<Bout> = (0..seeds)
                 .flat_map(|seed| bouts_for_seed(higher, lower, seed as u64, Some(scenario)))

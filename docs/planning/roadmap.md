@@ -61,6 +61,32 @@ Owners:
 - [`engine/capability-progression-and-world-gating.md`](engine/capability-progression-and-world-gating.md)
 - [`engine/platformer-navigation-and-reachability.md`](engine/platformer-navigation-and-reachability.md)
 
+⭐ **WHERE P2 STANDS, 2026-09-04 — three of these four moved and the fourth is
+deliberately parked.** Recorded here because the tier's own sentence ("build
+world residency, occurrence lifetime/provenance, item custody, body/item
+capability gating…") reads as five unbuilt things and three of them are done:
+
+- **Body/item capability gating: all SEVEN gate families are reachable from an
+  authored route**, in their currently-expressible forms. `gated_by` is a
+  condition LINE, and `inventory.holds`, `held.is_held`, `body.can`,
+  `body.fits`, `world.switch_on`, `encounter.cleared` and the two story-gate
+  writers each have an end-to-end wall test. What is left is FACTS, not
+  predicates: soft systemic pressure and social/knowledge have nothing
+  route-facing to read.
+- **Item custody: every migration row's exploration half is closed.** The
+  remainder is two maintainer decisions and one fighter-side call site.
+- **Occurrence lifetime: an occurrence enters the whereabouts ledger through
+  custody and the ledger enforces it**, so a room unload cannot silently erase a
+  persistent instance — the three classes it can destroy are carried, remembered
+  or as-authored, and the fourth (`SpawnOrigin::Dynamic`) is not a persistent
+  instance by definition.
+- ⛔ **World residency is UNBUILT and should stay so until a customer needs two
+  resident rooms.** `RoomSet.active` is a `usize`, singular by type. Its own
+  page says this is a sequencing dependency and not a licence to build a
+  universal world scheduler, and with one resident room every residency query
+  has a trivial answer. Building the vocabulary before the customer would be the
+  speculative work three of these four pages each forbid in their own words.
+
 ### P3 — measured runtime quality and developer iteration
 
 Treat performance as several measured problems rather than one generic ECS

@@ -2950,7 +2950,13 @@ fn two_cpus_can_fight_each_other() {
                 "no camera snapshot was ever resolved in a live match, so this \
                  composition cannot say what a CPU-versus-CPU match looks like",
             );
-        let follow = resolved.follow_world;
+        // ⚠ AND THE COMPONENT EXISTING IS NOT THE FRAME EXISTING, which is
+        // exactly the distinction the `expect` above reads as if it had made.
+        // `ResolvedCameraSnapshot` is an `Option` as of 2026-09-04.
+        let follow = resolved
+            .frame()
+            .expect("a live match has framed its view")
+            .follow_world;
         let mut q = world.query::<(
             &ambition_platformer2d::versus_match::MatchSeat,
             &ambition_platformer2d::engine_core::BodyKinematics,

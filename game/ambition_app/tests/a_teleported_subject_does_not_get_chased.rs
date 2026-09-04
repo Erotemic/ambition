@@ -25,6 +25,11 @@ fn camera_center(sim: &mut Platformer2dSimHarness) -> ae::Vec2 {
         .entity(view)
         .get::<ResolvedCameraSnapshot>()
         .expect("the view carries its resolved snapshot")
+        // ⚠ The component existing is not the FRAME existing —
+        // `ResolvedCameraSnapshot` is an `Option` as of 2026-09-04, and this
+        // assertion is about where a resolved camera IS.
+        .frame()
+        .expect("the view has been framed")
         .snapshot
         .center_world
 }

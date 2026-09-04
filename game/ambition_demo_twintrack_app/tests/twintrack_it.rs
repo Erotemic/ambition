@@ -136,7 +136,10 @@ fn follow_points(app: &mut App) -> Vec<Vec2> {
         .query_filtered::<(&LocalViewId, &ResolvedCameraSnapshot), With<LocalView>>();
     let mut rows: Vec<(LocalViewId, Vec2)> = query
         .iter(app.world())
-        .map(|(id, resolved)| (*id, resolved.follow_world))
+        // `filter_map`: a view nothing has framed contributes no follow point,
+        // rather than the world origin. `ResolvedCameraSnapshot` is an `Option`
+        // as of 2026-09-04.
+        .filter_map(|(id, resolved)| resolved.frame().map(|f| (*id, f.follow_world)))
         .collect();
     rows.sort_by_key(|(id, _)| *id);
     rows.into_iter().map(|(_, point)| point).collect()
@@ -171,7 +174,9 @@ fn pane_follow_point(app: &mut App, id: LocalViewId) -> Option<Vec2> {
     query
         .iter(app.world())
         .find(|(view, _)| **view == id)
-        .map(|(_, resolved)| resolved.follow_world)
+        // `and_then`: this is a single `Option`, not an iterator — a view
+        // nothing has framed yields no follow point.
+        .and_then(|(_, resolved)| resolved.frame().map(|f| f.follow_world))
 }
 
 fn traveler_body(app: &mut App) -> BodyKinematics {

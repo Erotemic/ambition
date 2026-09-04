@@ -370,7 +370,13 @@ fn print_snapshot(app: &mut App, label: &str) {
             .entity(local_view)
             .get::<ambition_platformer2d::sim_view::camera_snapshot::ResolvedCameraSnapshot>()
     {
-        let snapshot = &camera.snapshot;
+        // A print-only probe: an unframed view has nothing to print, and
+        // saying so beats printing a default that reads like a real camera.
+        let Some(frame) = camera.frame() else {
+            println!("camera snapshot: the view has not been framed yet");
+            return;
+        };
+        let snapshot = &frame.snapshot;
         let scale = snapshot.orthographic_scale;
         println!(
             "camera snapshot: orthographic_scale={scale:.4} visible_view=({:.1}, {:.1}) \
@@ -380,8 +386,8 @@ fn print_snapshot(app: &mut App, label: &str) {
             snapshot.zoom_multiplier,
             snapshot.center_world.x,
             snapshot.center_world.y,
-            camera.follow_world.x,
-            camera.follow_world.y,
+            frame.follow_world.x,
+            frame.follow_world.y,
         );
         if scale.abs() > f32::EPSILON {
             for (i, ring) in rings.iter().enumerate() {

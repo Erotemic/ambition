@@ -170,6 +170,8 @@ impl HeadlessCameraHarness {
             .entity(local_view)
             .get::<ambition_platformer2d::sim_view::camera_snapshot::ResolvedCameraSnapshot>()
             .expect("the local view's resolved snapshot")
+            .frame()
+            .expect("the local view has been framed")
             .snapshot
             .rotation_radians;
         CameraSample {

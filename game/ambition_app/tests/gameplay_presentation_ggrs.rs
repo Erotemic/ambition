@@ -97,6 +97,10 @@ fn assert_one_coherent_layout(sim: &mut Platformer2dSimHarness, display: ae::Vec
     let snapshot = view
         .get::<ResolvedCameraSnapshot>()
         .expect("the view's resolved snapshot")
+        .frame()
+        // See the sanic/mary-o handoff tests: an unframed view is a broken
+        // fixture here, not a tolerated case.
+        .expect("the view has been framed by the time presentation hands off")
         .snapshot
         .clone();
 

@@ -88,6 +88,11 @@ fn assert_one_coherent_layout(app: &mut App, display: ae::Vec2, label: &str) {
         .entity(view)
         .get::<ResolvedCameraSnapshot>()
         .unwrap()
+        .frame()
+        // `expect`, not a default: this assertion is ABOUT the resolved frame,
+        // so a view nothing framed is a broken fixture rather than a case to
+        // tolerate. `ResolvedCameraSnapshot` is an `Option` as of 2026-09-04.
+        .expect("the view has been framed by the time presentation hands off")
         .snapshot
         .clone();
 

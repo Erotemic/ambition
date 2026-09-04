@@ -1144,36 +1144,61 @@ number in this document is substantially a fact about the STAND-INS**, who until
 entirely: George's own 5v3, 6v5 and 9v6 still end `1 : 1` rather than resolving.
 He is faster, not fast enough.
 
-⛔⛔ **EVERY `(within spread)` QUALIFIER RECORDED IN THIS DOCUMENT BEFORE
-`bdd4af264` WAS COMPUTED BY A TEST THAT RAN BACKWARDS.** The paired criterion was
-`|median| < 0.5 * (max - min)` over the paired differences — and a range only
-GROWS as seeds are added, while the median converges. ⇒ So the old test became
-strictly harder to pass the more evidence it was given, and a single outlier pair
-set its threshold outright.
+**4. ⛔ THE SHIPPED LADDER INVERTS AT 5 vs 3, AND THAT IS SIGNIFICANT.**
+Re-measured 2026-09-04 under the exact sign test (`bdd4af264`) after the previous
+criterion was found to run backwards — see the section below, and note that only
+the QUALIFIERS changed, never the columns. The 12-seed matrix, sixteen cells:
 
-⚠ **It was caught by it happening, not by reading the code.** Point 4 below says
-one cell in sixteen was distinguishable. Re-running that identical arm at 40
-seeds turned that cell INTO `(within spread)` — more power, less significance —
-which is not a thing a working test does.
+| cell | A shipped (Robots) | B floor+rollout | C floor−rollout | D George |
+|---|---|---|---|---|
+| 3 vs 1 | ⭐ **higher outfights** | within spread | within spread | within spread |
+| 5 vs 3 | ⛔ **LOWER outfights** | within spread | within spread | within spread |
+| 6 vs 5 | within spread | within spread | within spread | within spread |
+| 9 vs 6 | within spread | within spread | within spread | within spread |
 
-⇒ Replaced by a two-sided exact **sign test** on the paired differences. All
-verdicts below are being re-measured under it; until this banner is removed, read
-every qualifier on this page as *"the old criterion said so"* and nothing more.
-⭐ The structural columns — stocks left, damage dealt, survival — are UNAFFECTED,
-because the defect was only ever in the qualifier. Points 1, 2 and 3 stand.
+⇒ **Two significant cells, both on the shipped ladder, and they point opposite
+ways.** Rung 3 beats rung 1 — the ladder working. Rung 3 also beats **rung 5** —
+the ladder inverted.
 
-**4. ⛔ AND THE SOBERING ONE: fifteen of the sixteen verdicts are `within
-spread`.** Across all four arms, exactly one cell is statistically
-distinguishable — **A's `3 vs 1`, "higher outfights", no qualifier.** ⇒ Rungs 3,
-5, 6 and 9 are not separable from each other at 12 seeds in ANY configuration,
-including the shipped one with the shipped fighter. The single real result is the
-bottom of the ladder, which is where a ladder is easiest to tell apart.
+⭐ **The inversion is not a near miss and it is not a stocks artifact.** Stocks are
+level at `2 : 2`; the verdict falls to damage dealt, and the LOWER rung deals
+more: **215% against 191%**. Ten or more of the twelve seed-pairs have to agree
+for a cell to clear p < 0.05 at this n, so this is a consistent direction across
+pairs, not one lopsided bout.
 
-⚠ **What that does NOT license.** It is not "the ladder does not work" — 12 seeds
-is a small instrument and *within spread* means undetected, not absent. It IS
-enough to say that **no tuning decision should be made off a single cell of this
-matrix**, and that anyone claiming a rung ordering needs more seeds than this run
-had.
+⚠ **And rung 5 is strictly "better" on every authored axis**, which is what makes
+it a defect rather than a tuning preference. From the shipped `.ron`: reaction
+400ms → 300ms, APM cap 120 → 200, execution noise 0.30 → 0.20, read weight
+0.0 → 0.2, frame advantage 0.30 → 0.50, kill potential 0.10 → 0.30. ⇒ Every knob
+moves toward "stronger", and the fighter deals *less* damage.
+
+⭐ **A hypothesis the numbers support but do not establish**, recorded so the next
+measurement has a target: rung 5 is the first rung with a non-zero `read_weight`
+and materially higher `frame_advantage`/`kill_potential` weights. All three reward
+WAITING — for a read, for a better frame situation, for a kill confirm. ⇒ A
+fighter that waits deals less damage per minute, and on a 60-second clock that
+reads as weakness. ⚠ Untested. The arm that would settle it is a rung-5 profile
+with `read_weight` alone reverted to 0.0.
+
+⭐ **The interaction with the roster finding is the interesting part.** D (George)
+shows the SAME direction at 5v3 — *LOWER outfights* — but within spread. ⇒ The
+inversion is not an artifact of the stand-ins; it shows up in the authored fighter
+too, just not distinguishably at 12 seeds. But it is *worse* for the Robots, which
+fits the hypothesis: patience costs most when you have the fewest ways to convert
+it, and until 2026-09-04 the Robots had no special button at all.
+
+⚠ **What is NOT significant is as important.** Twelve of the sixteen cells carry
+the qualifier, and `6 vs 5` and `9 vs 6` are undetermined in every arm. ⇒ The top
+of the ladder is not measured — it is unmeasured. Nobody should read "the rungs
+above 5 are fine" out of this table.
+
+⭐⭐ **AND THE INSTRUMENT FIX PAID FOR ITSELF IMMEDIATELY, which is the cleanest
+validation available.** The old range criterion called `3 vs 1` significant at 12
+seeds and *lost* it at 40. The sign test calls it significant at **both** 12 and
+40 seeds — the 40-seed arm reports `higher outfights` with no qualifier. ⇒ A
+result that survives a 3.3× increase in evidence is what significance is supposed
+to mean, and the old test had it exactly backwards. The fix did not manufacture
+the finding; it stopped the instrument from destroying it.
 
 ⚠ **One reading artifact, so the next reader does not file it as a bug.** A's
 `9 vs 6` shows stocks `2 : 3` under a verdict of *higher outfights*. Each column

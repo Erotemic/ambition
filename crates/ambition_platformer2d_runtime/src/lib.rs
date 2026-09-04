@@ -545,6 +545,14 @@ impl PluginGroup for PlatformerEnginePlugins {
             // systems that write the fact, which is what "a domain owns its own
             // publication" has to mean once the domains stop sharing a crate.
             .add(ambition_encounter_features::conditions::EncounterConditionsPlugin)
+            // The boss capability's own provider — `boss.cleared(id)`. SIXTH
+            // provider, and the first published to RETIRE a second authority
+            // rather than to fill a gap: `YarnStateMirrorData::bosses_cleared`
+            // held a per-frame projection of this exact fact so a bespoke Yarn
+            // function could answer it synchronously, which both modules already
+            // named as the thing this project refuses. Same move the mirror's
+            // FLAG slice already made when `world.flag_set` landed.
+            .add(ambition_boss_encounter::conditions::BossConditionsPlugin)
             // The engine progression chain (boss encounters, save mirrors,
             // quest pump, room metadata/music, portal phases) + its content
             // slots.

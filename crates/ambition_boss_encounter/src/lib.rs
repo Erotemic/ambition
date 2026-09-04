@@ -25,6 +25,7 @@ pub mod anim;
 pub mod attack_geometry;
 pub mod attack_moveset;
 pub mod behavior;
+pub mod conditions;
 mod catalog;
 mod clusters;
 pub mod ecs;

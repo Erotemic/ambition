@@ -47,7 +47,7 @@ pub fn install_game_bindings(
     mirror: &YarnStateMirror,
 ) {
     register_commands(commands, runner);
-    register_functions(runner, mirror);
+    register_functions(commands, runner, mirror);
 }
 
 /// Run condition: a conversation is live, so the Yarn mirror has a reader.
@@ -110,15 +110,9 @@ pub fn refresh_yarn_state_mirror(
     // `world.flag_set`, asked live.  what is left in this function is the
     // remainder the catalog cannot answer yet — see this module's header on why
     // the mirror is now a projection rather than a peer.
-    snap.bosses_cleared.clear();
-    for boss in &data.bosses {
-        if matches!(
-            boss.state,
-            ambition_persistence::save_data::PersistedEncounterState::Cleared
-        ) {
-            snap.bosses_cleared.insert(boss.id.clone());
-        }
-    }
+    // ⭐ THE BOSS SLICE IS GONE TOO, for the same reason the flag slice above
+    // it went: `boss.cleared` answers it live from the catalog, so a projection
+    // here would be a second authority with a one-frame lag.
     snap.quests_active.clear();
     for quest in &data.quests {
         if matches!(
@@ -396,22 +390,63 @@ pub fn cmd_camera_zoom(In(factor): In<f32>) {
 // read save state on every `<<if>>` evaluation without touching
 // Bevy resources.
 
-/// Build closures around the shared mirror and register all five
-/// custom functions on the runner's library. Called from
+/// `boss_cleared(id)` — ask the boss domain's published condition.
+///
+/// ⛔ THE THIRD ANSWER COLLAPSES THE WAY THE CATALOG SPECIFIES. Yarn's `<<if>>`
+/// needs a bool, and `unanswerable is not satisfied` leaves a branch CLOSED —
+/// the other direction would open a door in exactly the world where the
+/// question is least understood. Same rule as `condition(id, arg)`.
+fn ask_boss_cleared(In(id): In<String>, world: &mut World) -> bool {
+    use ambition_platformer2d_shared_tangle::authored_logic::{
+        AuthoredArg, ConditionCatalog, ConditionId,
+    };
+    let Some(condition) = ConditionId::parse("boss.cleared") else {
+        return false;
+    };
+    if !world.contains_resource::<ConditionCatalog>() {
+        bevy::log::warn!(
+            target: "ambition_content::yarn_vocabulary",
+            "boss_cleared({id:?}): no condition catalog in this composition",
+        );
+        return false;
+    }
+    let outcome = world.resource_scope::<ConditionCatalog, _>(|world, catalog| {
+        catalog.evaluate(world, &condition, &[AuthoredArg::Name(id.clone())])
+    });
+    outcome.is_satisfied()
+}
+
+/// Build closures around the shared mirror and register the remaining
+/// mirror-backed functions on the runner's library. Called from
 /// `spawn_dialogue_runner` after the runner is built but before it
 /// is spawned, so the functions are baked in.
-pub fn register_functions(runner: &mut DialogueRunner, mirror: &YarnStateMirror) {
+pub fn register_functions(
+    commands: &mut Commands,
+    runner: &mut DialogueRunner,
+    mirror: &YarnStateMirror,
+) {
+    // ⭐⭐ `boss_cleared` NO LONGER READS THE MIRROR — it asks the condition
+    // catalog, live, and the mirror's `bosses_cleared` slice is GONE.
+    //
+    // The comment that used to sit here said *"Two mechanisms answering one
+    // question is exactly the second authority this project refuses
+    // elsewhere"*, and it was describing this function. It is now one authority
+    // with two spellings: `boss.cleared` in the catalog, reachable from an
+    // authored `gated_by` line and from `condition("boss.cleared", id)`, and
+    // this name kept so existing `.yarn` content is not rewritten.
+    //
+    // ⭐ SAME MOVE THE FLAG SLICE ALREADY MADE. `flag(id)` went when
+    // `world.flag_set` landed; this is the next fact, and the precedent is
+    // three lines up in `refresh_yarn_state_mirror`.
+    //
+    // ⚠ A REGISTERED SYSTEM, not a closure, because the catalog needs `&World`
+    // — the same reason `install_condition_binding` registers one. It runs
+    // inside `continue_runtime`, already exclusive, so no sync point is added.
+    let boss_cleared = commands.register_system(ask_boss_cleared);
+    runner.library_mut().add_function("boss_cleared", boss_cleared);
+
     let lib = runner.library_mut();
-    // boss_cleared(id) -> bool: is the named boss encounter in
-    // Cleared state?
-    let m = Arc::clone(&mirror.0);
-    lib.add_function("boss_cleared", move |id: String| -> bool {
-        m.read()
-            .map(|snap| snap.bosses_cleared.contains(&id))
-            .unwrap_or(false)
-    });
-    // Two mechanisms answering one question is exactly the second authority this project refuses
-    // elsewhere. See `ambition_conversation::dialog::authored_conditions`. visit_count(id) -> f32:
+    // visit_count(id) -> f32:
     // how many times the named dialogue node has been entered. Returns f32 because Yarn arithmetic
     // is f32-typed (`<<if visit_count("oiler") == 1>>` etc.).
     let m = Arc::clone(&mirror.0);

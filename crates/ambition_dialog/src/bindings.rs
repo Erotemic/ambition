@@ -14,8 +14,6 @@ use bevy_yarnspinner::prelude::DialogueRunner;
 /// lets runner-library closures read the projection without borrowing a Bevy resource.
 #[derive(Default, Clone, Debug)]
 pub struct YarnStateMirrorData {
-    /// canonical boss encounter ids in `Cleared` state.
-    pub bosses_cleared: std::collections::HashSet<String>,
     /// canonical quest ids whose state is `InProgress`.
     pub quests_active: std::collections::HashSet<String>,
     /// dialogue id → visit count.

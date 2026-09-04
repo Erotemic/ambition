@@ -1710,6 +1710,29 @@ seating a fighter from anywhere else is outside it. ⇒ So that test still has a
 job, and running it is still worth doing —
 `cargo test -p ambition_app --test app_it report_the_smash_kit -- --nocapture` —
 but **the decision below no longer waits on it.**
+
+⭐⭐ **AND IT CHANGES THE SHAPE OF THE DECISION, which is the useful part.** The
+question reads as *"what four specials should the Robots have?"* — a design
+question with no wrong answer and therefore no way to finish. ⇒ The structural
+form is smaller and it terminates: **should `fighter_moveset()` be built through
+`SmashRepertoire` like every other fighter?**
+
+| | today | through the repertoire |
+|---|---|---|
+| how the contract is built | a hand-written verb list | the same constructor as 19 others |
+| the four specials | absent, and nothing says so | **cannot compile without them** |
+| the gap recurring | a future hand-built table repeats it | the type forbids it |
+
+⇒ **Answering the structural question forces the design question to be answered
+once, and then makes it unaskable again.** The cost is the same either way — four
+special slots authored, which is the eight presses measured above — but only one
+of the two spends it on something that cannot regress.
+
+⚠ **Not proposing it as the answer.** There is a real case for the other side: a
+stand-in is *meant* to be thin, and a type that demands nineteen slots is a tax on
+placeholders — which is presumably why the hand-built table exists at all. ⇒ That
+is the trade to rule on, and it is a smaller and more durable question than
+choosing four moves.
 census that would answer it is one command each
 (`capture-probe --character <id> --ladder <ron>`).
 

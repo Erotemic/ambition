@@ -526,7 +526,13 @@ inverted" are BOTH unsupported by this run, and the table above is the reference
 point that says so.
 
 
-### ⭐⭐ THE 5→6 BOUNDARY IS ROLLOUT-ON vs ROLLOUT-OFF (found 2026-09-04)
+### ⛔ SUPERSEDED — "the 5→6 boundary is rollout-on vs rollout-off"
+
+⚠ **True of the ENGINE FLOOR and of no shipped fighter.** The floor arms the L3
+rollout at level 6; the shipped ladder sets `rollout_depth: 0` on all nine rows,
+so no player has ever crossed this boundary. ⇒ The finding below is real about the
+instrument and is not a fact about the game. Kept because the arms in it are what
+established the rollout's behaviour.
 
 The matrix kept saying the same thing about one rung and I kept treating it as
 part of a general skew. It is not general: it is a **step function**, and the
@@ -831,7 +837,14 @@ the unpaired corpus — every number this rig produced before
 `--paired` carries a seat term of roughly this size, in the direction that made
 the ladder look inverted.
 
-### The paired matrix, all 36 cells: one rung is broken and the rest are fine
+### ⛔ SUPERSEDED — the paired 36-cell matrix ("one rung is broken and the rest are fine")
+
+⚠ **Its conclusion named the WRONG rung.** This matrix was taken on the engine
+floor at a 60-second clock, and under both the shipped rows and a real match
+length the broken rung is `5 vs 3`, not the `6 vs 5` this section identifies. See
+**THE DEFINITIVE RUN** below. ⇒ Kept for its method — the pairing, the seat-bias
+control and the per-bout work in it are all sound and are what made the later runs
+readable.
 
 ⭐⭐ **MEASURED 2026-09-04. Controlling the seat repairs every rung except the one
 where rollout switches on.** Same 9 fixtures × 4 rungs × 15 seeds, unpaired
@@ -1825,7 +1838,7 @@ above shows the shipped ladder disables the rollout on all nine rows. The Shield
 model changes nothing a player meets. That is an argument for keeping it (it
 cannot regress the game) and against prioritising `Dodge`.
 
-### ⭐⭐ THE CLASS BEHIND THREE SEPARATE FINDINGS: the rig reads its config from anywhere but the shipped file
+### ⭐⭐ THE CLASS BEHIND FIVE SEPARATE FINDINGS: the rig reads its config from anywhere but the shipped file
 
 Five findings in this document have the same shape, and it is worth naming
 because a sixth is otherwise inevitable. ⚠ The fourth arrived while this section

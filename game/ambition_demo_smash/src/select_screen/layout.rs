@@ -504,6 +504,92 @@ mod tests {
         );
     }
 
+    /// HOW MANY PRESSES IT TAKES TO CROSS THE GRID — the other half of "hard to
+    /// use with a gamepad", since reachable is not the same as reasonable.
+    ///
+    /// ⭐ **MEASURED 2026-09-04: the diameter is 8** on the shipped 23-cell
+    /// desktop grid — found by tightening this bound until it failed (≤6 fails,
+    /// ≤8 passes). That is reasonable for a grid this shape, so the answer to
+    /// the gamepad complaint is NOT "the grid is a crawl".
+    ///
+    /// ⚠ The bound is 12, deliberately loose. A bound sitting one press above
+    /// the measured value reddens on any ordinary layout tweak and teaches the
+    /// next person to raise it; this one only fires on a real regression — the
+    /// kind where a two-press hop becomes a crawl — which no per-hop test can
+    /// see. The measurement, not the bound, is the number worth quoting.
+    #[test]
+    fn crossing_the_grid_stays_within_a_handful_of_presses() {
+        use crate::select_screen::cursor::{snap, CursorTarget};
+        use bevy::prelude::Entity;
+        use std::collections::{HashMap, VecDeque};
+
+        let layout = SelectLayout::new(Vec2::new(1280.0, 720.0), roster());
+        let targets = layout.targets();
+        let rects: Vec<CursorTarget> = targets
+            .iter()
+            .enumerate()
+            .filter_map(|(index, (_, rect))| {
+                Some(CursorTarget {
+                    entity: Entity::from_raw_u32(index as u32)?,
+                    rect: *rect,
+                })
+            })
+            .collect();
+        let portraits: Vec<usize> = targets
+            .iter()
+            .enumerate()
+            .filter(|(_, (kind, _))| matches!(kind, SelectTarget::Portrait(_)))
+            .map(|(index, _)| index)
+            .collect();
+
+        let dirs = [
+            Vec2::new(1.0, 0.0),
+            Vec2::new(-1.0, 0.0),
+            Vec2::new(0.0, 1.0),
+            Vec2::new(0.0, -1.0),
+        ];
+        let mut worst = 0usize;
+        for &start in &portraits {
+            let mut dist: HashMap<usize, usize> = HashMap::from([(start, 0)]);
+            let mut queue = VecDeque::from([start]);
+            while let Some(at) = queue.pop_front() {
+                let d = dist[&at];
+                let from = rects[at].rect.center();
+                for dir in dirs {
+                    let Some(next) = snap(from, dir, &rects) else {
+                        continue;
+                    };
+                    let index = rects
+                        .iter()
+                        .position(|t| t.entity == next)
+                        .expect("snap returns one of the targets it was given");
+                    dist.entry(index).or_insert_with(|| {
+                        queue.push_back(index);
+                        d + 1
+                    });
+                }
+            }
+            for &p in &portraits {
+                worst = worst.max(dist.get(&p).copied().unwrap_or(usize::MAX));
+            }
+        }
+
+        assert!(
+            worst <= 12,
+            "the farthest two portraits are {worst} d-pad presses apart on a \
+             {}-cell grid. Reachable is not the same as reasonable, and a player \
+             holding a pad feels the difference before they can name it.",
+            portraits.len()
+        );
+        // ⚠ ANTI-VACUITY: a bound nothing can approach is not a bound. The grid
+        // must actually take several presses to cross, or this asserts nothing.
+        assert!(
+            worst >= 3,
+            "the whole grid is {worst} presses across, so the bound above cannot \
+             fail for any layout and is not measuring anything"
+        );
+    }
+
     /// A phone held sideways — the viewport this screen was unusable at.
     ///
     /// the FULL roster, not `SmashRoster::default()`. The default is this

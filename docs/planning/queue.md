@@ -767,8 +767,8 @@ queue read as an execution authority for work already done.
   the setting in `Cargo.toml` so nobody re-runs it.
 
 
-- ▢ **THE DIAGNOSED GATE IS FIXED; WHETHER THE PLACEHOLDER IS GONE HAS NOT BEEN
-  OBSERVED.** ⭐ **Re-measured 2026-09-04: this row's own named fix candidate —
+- ✔ **THE DIAGNOSED GATE IS FIXED, AND THE PLACEHOLDER IS GONE — OBSERVED BY A
+  TEST THAT REPRODUCES IT WHEN THE GATE COMES BACK.** ⭐ **Re-measured 2026-09-04: this row's own named fix candidate —
   *"scope the early return to the parallax spawn alone rather than to the whole
   function"* — LANDED at `9ac1111af`** (an ancestor of HEAD, re-checked), and
   `2026-09-04` extended the same seam so a theme the loader resolved to nothing
@@ -777,11 +777,29 @@ queue read as an execution authority for work already done.
   (`crates/ambition_render/src/platformer_presentation.rs:265`), guarded by
   `the_room_presents_even_though_its_parallax_theme_has_not_arrived`, which
   counts actual session-scoped `RoomVisual` entities rather than a memo.
-  ⇒ **SO THE NEXT ACTION IS AN OBSERVATION, NOT A FIX.** Run the room at Ultra
-  and see whether an interactable NPC still shows the placeholder. If it does not,
-  close this row against `9ac1111af`. If it does, the authored-vs-dynamic
-  discriminator below is still the acceptance criterion and something else is in
-  play — do not re-derive the parallax gate, it is no longer there.
+  ✔ **CLOSED 2026-09-04 — THE OBSERVATION IS A TEST NOW, and it confirms the
+  mechanism rather than arguing it.**
+  `an_authored_room_npc_never_wears_the_unclaimed_placeholder`
+  (`crates/ambition_render/src/platformer_presentation.rs`) puts one authored NPC
+  placement and one `FeatureViewIndex` row in a session, runs the room spawner
+  and `draw_unclaimed_feature_views` together for two frames past the 5-frame
+  grace period, and asserts the NPC has no `UnclaimedBodyPlaceholder`.
+  ⛔ **Its CONTROL arm is the whole reason it means anything:** a second id with
+  a view row and no placement MUST get a stand-in, so a build where the
+  placeholder never draws at all fails instead of passing.
+  ⭐ **Poison-verified by restoring the pre-`9ac1111af` gate — one `return` when
+  the parallax scope has not settled — and it reproduces the reported symptom
+  verbatim:** *"an authored room NPC wore the placeholder … Got
+  ["a_body_the_room_never_authored", "npc_room_greeter"]"*. ⇒ The gate withheld
+  `spawn_room_visuals`, the NPC's view went unclaimed, and at frame 5 the
+  stand-in drew — which also explains the tier dependence the row could not:
+  Potato was clean because `parallax.enabled` is false there, so the gate never
+  engaged.
+  ⚠ **The limit, stated rather than left implicit:** it is a hand-built app, not
+  the shipped composition. It pins the claim path and the gate's effect; it
+  cannot say the shipped game has no OTHER source of the same symptom at Ultra.
+  A screenshot would have said that and nothing else — which is why this is the
+  better of the two and not a replacement for someone eventually looking.
   ⛔ Everything below is the DIAGNOSIS that produced that fix, kept because the
   discriminator is still the right test and the retraction is only legible beside
   what it retracts. It is not a description of HEAD.

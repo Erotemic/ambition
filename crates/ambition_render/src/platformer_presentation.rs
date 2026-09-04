@@ -409,6 +409,155 @@ mod tests {
         );
     }
 
+    /// A room whose only content is one authored NPC, plus the geometry the
+    /// stand-in needs to place a rectangle in.
+    fn room_set_with_one_npc(npc_id: &str) -> RoomSet {
+        use ambition_entity_catalog::placements::{
+            InteractableSpec, InteractionKindSpec, PlacementSchema,
+        };
+        let mut room = ambition_platformer2d_world::rooms::RoomSpec::new(
+            "npc_room",
+            ambition_platformer2d_core::World::new(
+                "npc_room",
+                ambition_platformer2d_core::Vec2::new(640.0, 480.0),
+                ambition_platformer2d_core::Vec2::new(16.0, 16.0),
+                Vec::new(),
+            ),
+        );
+        // The parallax theme is still missing, because that is the state the
+        // regression lived in: a room that presents only after a backdrop.
+        room.metadata.visual_profile.parallax_theme = Some("a_theme_nobody_loaded".to_string());
+        room.placements
+            .push(ambition_platformer2d_world::placements::PlacementRecord::new(
+                npc_id,
+                PlacementSchema::Interactable(InteractableSpec::new(
+                    "Talk",
+                    InteractionKindSpec::Npc {
+                        character_id: None,
+                        dialogue_id: None,
+                        patrol_radius: 0.0,
+                        patrol_path_id: None,
+                        brain_override: None,
+                    },
+                )),
+                ambition_platformer2d_core::Aabb::new(
+                    ambition_platformer2d_core::Vec2::new(64.0, 64.0),
+                    ambition_platformer2d_core::Vec2::new(8.0, 16.0),
+                ),
+            ));
+        RoomSet::from_parts("npc_room", vec![room], Vec::new())
+    }
+
+    fn a_view() -> ambition_sim_view::FeatureView {
+        ambition_sim_view::FeatureView {
+            pos: ambition_platformer2d_core::Vec2::new(64.0, 64.0),
+            size: ambition_platformer2d_core::Vec2::new(16.0, 32.0),
+            kind: ambition_platformer2d_shared_tangle::feature_kind::FeatureVisualKind::Actor,
+            visible: true,
+            submerged: false,
+            wire_anchor: None,
+            flash: false,
+            breakable_state: None,
+            chest_opened: false,
+            fighting: false,
+            switch_on: false,
+            rotation_rad: 0.0,
+            alive: true,
+            hit_flash_secs: 0.0,
+            parry_flash_secs: 0.0,
+            hp_current: 10,
+            hp_max: 10,
+            training_dummy: false,
+            hit_strength: 0.0,
+            unhittable: false,
+            defense_cues: ambition_sim_view::DefenseCueCauses::NONE,
+            sprite_offset: None,
+        }
+    }
+
+    fn placeholders(app: &mut App) -> Vec<String> {
+        let mut query = app
+            .world_mut()
+            .query_filtered::<&crate::rendering::FeatureVisual, With<
+                crate::rendering::UnclaimedBodyPlaceholder,
+            >>();
+        query
+            .iter(app.world())
+            .map(|visual| visual.id.clone())
+            .collect()
+    }
+
+    /// ⭐⭐ THE PLAYER-VISIBLE SYMPTOM, PINNED: AN AUTHORED ROOM NPC MUST NEVER
+    /// WEAR THE UNCLAIMED-BODY PLACEHOLDER.
+    ///
+    /// This is the defect the parallax gate produced, stated as what a player
+    /// saw rather than as which system returned early. `draw_unclaimed_feature_views`
+    /// draws a magenta stand-in for any `FeatureViewIndex` row nothing claimed,
+    /// after `UNCLAIMED_STAND_IN_GRACE_FRAMES` (5) consecutive frames — and while
+    /// `sync_session_room_visuals` withheld `spawn_room_visuals` behind a theme
+    /// that had not loaded, every interactable NPC in every room above Potato was
+    /// unclaimed for exactly that long. Potato hid it because parallax is
+    /// disabled there, so the gate never engaged.
+    ///
+    /// ⛔ THE CONTROL ARM IS NOT OPTIONAL, and it is the second id. A test that
+    /// only asserts "no placeholder" passes just as well against a build where
+    /// the stand-in never draws at all — which is most of the ways this could be
+    /// wrong. `a_body_the_room_never_authored` has a view row and NO placement,
+    /// so it MUST get one, and its appearance is what proves the grace clock ran
+    /// and the drawing path was live for the NPC too.
+    #[test]
+    fn an_authored_room_npc_never_wears_the_unclaimed_placeholder() {
+        const NPC: &str = "npc_room_greeter";
+        const NOBODYS: &str = "a_body_the_room_never_authored";
+
+        let mut app = App::new();
+        app.add_plugins(MinimalPlugins);
+        app.init_resource::<PresentedSessionScope>();
+        app.init_resource::<PresentedParallaxScope>();
+        app.init_resource::<PhysicsSandboxSettings>();
+        app.init_resource::<crate::rendering::UnclaimedFeatureViews>();
+        app.insert_resource(ambition_sim_view::FeatureViewIndex::from_rows([
+            (NPC.to_string(), a_view()),
+            (NOBODYS.to_string(), a_view()),
+        ]));
+        app.add_systems(
+            Update,
+            (
+                sync_session_room_visuals,
+                crate::rendering::draw_unclaimed_feature_views,
+            )
+                .chain(),
+        );
+
+        let mut active = ActiveSessionScope::default();
+        let scope = active.begin();
+        app.insert_resource(active);
+        let room_set = room_set_with_one_npc(NPC);
+        let geometry =
+            ambition_platformer2d_core::RoomGeometry(room_set.active_spec().world.clone());
+        app.world_mut()
+            .spawn((SessionRoot(scope), room_set, geometry));
+
+        // Two frames past the grace period, so a placeholder that is merely LATE
+        // still has time to appear and be caught.
+        for _ in 0..(5 + 2) {
+            app.update();
+        }
+
+        let standing = placeholders(&mut app);
+        assert!(
+            standing.contains(&NOBODYS.to_string()),
+            "the CONTROL failed: a view row nothing draws must get a stand-in, or \
+             this test proves nothing about the NPC. Got {standing:?}"
+        );
+        assert!(
+            !standing.contains(&NPC.to_string()),
+            "an authored room NPC wore the placeholder — the room spawner did not \
+             claim it within {} frames. Got {standing:?}",
+            5
+        );
+    }
+
     /// The retry the original single memo existed to provide, kept: parallax is
     /// unsettled while the theme is missing, on every frame, not just the first.
     #[test]

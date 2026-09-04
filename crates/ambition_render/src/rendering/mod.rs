@@ -68,6 +68,13 @@ pub use camera::{camera_follow, CameraViewState};
 ///  it is a DIAGNOSTIC only. "Is this room presentable yet" is
 /// [`UnclaimedFeatureViews`], which answers immediately where this one answers
 /// late — see that type for why one entity could not do both.
+// ⚠ TEST-ONLY, and narrow on purpose. The stand-in's marker and its resource
+// are already re-exported below; the SYSTEM that produces them was reachable
+// only from inside this module, so a regression test that wants to observe the
+// placeholder appearing had no way to run the pass that draws it. `#[cfg(test)]`
+// keeps the shipped surface exactly as it was.
+#[cfg(test)]
+pub(crate) use features::draw_unclaimed_feature_views;
 pub use features::UnclaimedBodyPlaceholder;
 pub use features::UnclaimedFeatureViews;
 pub use health::{sync_boss_health_bar_overlay, sync_health_overlays};

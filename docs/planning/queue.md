@@ -2477,6 +2477,23 @@ queue read as an execution authority for work already done.
   more — a `Hold` verb gives the MOVEMENT axis a decline; whether the ATTACK axis
   needs one too (waiting for a punish window is a real fighting-game behaviour) is
   part of the same design call and should be answered with it, not after it.
+  ⛔⛔ **AND THE OBVIOUS FIX HAS A PREDICTED FAILURE MODE, WITH PRECEDENT IN THE
+  SAME FILE — so the design call should meet it rather than discover it.** Adding a
+  `Hold` verb means offering an option whose outcome is *nothing happens*, and
+  `options.rs` already records what that did once before: `Jump` was offered
+  unconditionally until a body with an empty jump budget was *"handed an option
+  pressing does nothing for"*, and the note explains why that is worse than a
+  wasted press — **L3 rolls the verb, the line goes nowhere, and *nowhere scores as
+  safe*.** ⚠ A `Hold` is the purest form of that: nothing is attempted, so nothing
+  can go wrong in a rollout, so it can dominate.
+  ⇒ **Which predicts the exact way a naive fix would pass its own test**: a fighter
+  that mostly stands still throws fewer dash attacks, so the dash share falls and
+  variety rises. ⭐ That is why the acceptance test's THIRD term — a floor on TOTAL
+  attack starts — is load-bearing rather than cautious, and it is now a named
+  mechanism rather than a worry. ⓘ Two sibling verbs in the same function already
+  carry guards of this shape (`Jump` against an empty budget; the foe-relative
+  verbs against there being no foe), so the precedent for gating `Hold` is
+  established where it would be added.
 
   ⭐⭐ **THE ACCEPTANCE TEST, DESIGNED 2026-09-04 SO THE DESIGN CALL ARRIVES WITH
   ITS MEASUREMENT ALREADY BUILT** — and it is shaped entirely by how fix (a)

@@ -549,11 +549,42 @@ and a platform fighter that will not dodge takes more damage and dies more. That
 predicts exactly the shape measured above: rollout-on fighters fully eliminated
 (0 stocks each) where rollout-off fighters survive with 2.
 
-⚠ **Untested, and the test is cheap and specific**: trace a `6 vs 5` bout and
-compare the rate at which each seat actually *selects* `Dodge`. If level 6
-dodges materially less than level 5, the demotion is the cause and the fix is to
-make the shadow able to simulate a dodge rather than to reorder tiers again. If
-the dodge rates match, this is wrong and the cause is inside the judged set.
+⭐⭐ **TESTED, AND IT IS WORSE THAN THE HYPOTHESIS. A ROLLOUT FIGHTER NEVER
+DODGES AND NEVER SHIELDS.** `AMBITION_FIGHTER_TRACE=1`, `ladder-rig --seeds 1`,
+run twice with and without `--no-rollout`, counting `chose=Some(..)` per rung —
+the rig prints its summary row after each rung, so the trace lines between two
+rows belong to the rung named by the later one:
+
+| rung | decisions on / off | Dodge% on | Dodge% off | Shield% on | Shield% off |
+|---|---|---:|---:|---:|---:|
+| 3 vs 1 | 1344 / 1344 | 19.8% | 19.8% | 11.2% | 11.2% |
+| 5 vs 3 | 1324 / 1324 | 18.3% | 18.3% | 10.5% | 10.5% |
+| **6 vs 5** | 798 / 1300 | **5.0%** | 12.1% | **4.6%** | 10.3% |
+| **9 vs 6** | 662 / 1384 | **0.0%** | 14.9% | **0.0%** | 13.9% |
+
+⭐ **The control is exact and free**: rollout is already off below level 6, so the
+two bottom rungs must be unchanged — and they are identical to the decision, the
+verb and the tenth of a percent. Everything that moved is the rollout.
+
+⇒ **At `9 vs 6`, where BOTH fighters have rollout, dodge and shield are selected
+ZERO times in 662 decisions.** At `6 vs 5` only the higher fighter has it, and the
+rung's rate falls to roughly the mix of one fighter dodging normally and one not
+dodging at all. The verbs are not demoted; they are **unreachable**.
+
+⇒ **Why unreachable and not merely rarer.** Tier 3 is entered only when nothing in
+tier 1 or 2 survives — but the rollout always judges `Approach`, `Retreat`,
+`Jump`, so something judged is essentially always available, and the third tier is
+never reached. The 2026-08-31 fix stopped the rollout PROMOTING what it cannot
+simulate; the same ordering now DELETES it. Both unmodelled verbs from this page's
+census — `Dodge` (846 of 983) and `Shield` (137) — are exactly the two that vanish.
+
+⇒ **So a platform fighter's entire defensive vocabulary switches off at level 6**,
+which is the rung the difficulty ladder calls better. That is the whole 5→6
+inversion, and it explains the character change too: a fighter that never dodges
+and never shields trades damage until both bodies die.
+
+⇒ **The repair is to make the shadow able to simulate a dodge, not to reorder the
+tiers a second time.** Reordering is what produced each of these two bugs in turn.
 
 ⛔ **Do not "fix" this by re-promoting unmodelled verbs.** That is precisely the
 2026-08-31 bug, and this page records what it cost. A verb the rollout cannot

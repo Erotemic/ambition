@@ -2177,9 +2177,22 @@ evidence that naming the class was worth doing.
    authored table to `smash_george_booul` and `fighter_moveset()` to everybody
    else, and that stand-in contract bound **18 verbs to George's 26** — no
    `special`, no `special_forward`/`_up`/`_down`, no `attack_forward`, no
-   `attack_dash`, no `taunt`. ⇒ **Every ladder number in this document was taken
-   between two fighters with a dead special button, no forward tilt and no dash
-   attack.** ⚠ And this one is not only an instrument defect: the demo's select
+   `attack_dash`, no `taunt`.
+   ⛔ **THE SENTENCE THAT FOLLOWED THAT LIST IS WITHDRAWN (2026-09-04).** It read
+   *"two fighters with a dead special button, no forward tilt and no dash
+   attack"* — and two thirds of that is an inference from BINDINGS that the
+   engine does not honour. `directional_verb_chain` falls back to the base verb,
+   so an unbound `attack_forward` is answered by the `jab`; the fighters had a
+   forward tilt and a dash attack the whole time, swinging the jab's timeline.
+   ⇒ **What survives is the special button, and it survives exactly.** Enumerating
+   every `(base, direction, stance)` press instead of counting keys: the stand-ins
+   answer nothing on **15**, George on **7**, George's set is a strict SUBSET of
+   theirs, and the surplus is **eight — every one a `special`**. ⭐ So the true
+   statement is: **every ladder number in this document was taken between two
+   fighters that were George's genre shape with the special button removed.** That
+   is still an instrument defect worth the entry, and it is a narrower one than
+   the withdrawn sentence claimed. Guarded now in `game/ambition_demo_smash/` by
+   `the_stand_in_is_george_s_genre_shape_with_the_special_button_removed`. ⚠ And this one is not only an instrument defect: the demo's select
    roster is three characters, **two of them stand-ins**, and the catalog default
    is one of the two — so the dead button was a player's as well as the rig's.
 

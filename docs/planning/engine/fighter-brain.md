@@ -1284,9 +1284,27 @@ rung 3's value, 24 seeds, same control:
 | **all four** | *(the earlier arm)* | 212% : 204% | ✔ higher outfights *(within spread)* |
 
 ⇒ **Every single-knob revert leaves the inversion significant. Only all four
-together remove it.** ⭐ So the inversion is a property of the weight VECTOR, not
-of any one weight — which is the answer I would not have guessed, and it is why
-running all four beat running the one I fancied.
+together remove it.** ⭐ So it is not any one weight — which is the answer I would
+not have guessed, and it is why running all four beat running the one I fancied.
+
+⭐⭐ **AND THE DECOMPOSITION IS EXACT — it is a PAIR, and the pair is named.** Two
+more arms, both predictions stated before running:
+
+| arm | rung 5's weights reverted | dealt | verdict | vs |
+|---|---|---|---|---|
+| `frame_advantage` + `expected_payoff` | 2 of 4 | 212% : 204% | ✔ higher *(within spread)* | **byte-identical to the ALL-FOUR arm** |
+| `kill_potential` + `stage_risk` | the other 2 | 196% : 231% | ⛔ LOWER outfights | **byte-identical to the CONTROL** |
+
+⇒ **`frame_advantage` and `expected_payoff` carry the entire effect of swapping
+all four; `kill_potential` and `stage_risk` carry none of it.** Not "mostly" —
+byte-identical in both directions, over 48 bouts each. ⚠ And neither of the pair
+suffices alone: both single arms stayed significantly inverted. So the inversion
+needs *both* of those two, and is untouched by the other two.
+
+⭐ **The second arm was a control on my own interpretation rather than a search
+for an effect**, and it is the one that makes the first arm mean something: had
+`kill_potential` + `stage_risk` moved the numbers at all, "the pair carries it"
+would have been a coincidence of magnitudes instead of a decomposition.
 
 ⚠ **And two of the four contributed nothing measurable at this cell**:
 `kill_potential` and `stage_risk` reverts came back byte-identical. ⚠⚠ That does

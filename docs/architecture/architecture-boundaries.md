@@ -122,6 +122,31 @@ or excess allowance is a failure. Reduce counts by moving creation through the
 canonical scoped construction seam. Increase a count only when a raw spawn is
 intentional, cannot use that seam, and the same patch explains why.
 
+### ⛔⛔ A DEPENDENCY ALLOWLIST GOES STALE THE MOMENT A SHARED FLOOR CRATE IS EXTRACTED BENEATH IT
+
+2026-09-04. `ambition_sprite_fx` was extracted as a render-floor crate and
+`ambition_portal2d_presentation` adopted it — `clip_material.rs` re-exports
+`SpriteFrameBasis`/`sprite_frame_basis`, which MOVED DOWN out of the portal
+crate, and `gun_visuals.rs` inserts `SpriteEffect::HueShift`. That crate's
+`dependency-allowlist` policy (`engine.ambition_portal2d_presentation-manifest-allow`,
+rationale *"must stay host-free"*) did not name it, so
+`cargo test -p ambition_workspace_policy --test policy` went RED — at DEFAULT
+features, in 4.6 seconds, on a clean checkout — and stayed that way for a day
+because nobody ran it.
+
+⭐ **The resolution was to WIDEN, and the argument is that the new crate
+satisfies the rationale rather than needing an exemption:** `ambition_sprite_fx`
+depends on `bevy` and nothing else — zero `ambition_*` edges — so it cannot pull
+in a host, a window, or any Ambition domain. Refusing the edge would have meant
+keeping a private copy of a floor concept in the portal crate, which is the
+defect the extraction removed.
+
+⇒ **The habit this asks for: when a crate is extracted beneath existing ones,
+re-run the policy suite, because nothing about extracting one prompts you to
+look at an allowlist that names its NEW consumers.** The same trigger has a
+sibling one file over — a new crate also stales `fixtures/minimal_game/Cargo.lock`
+and makes `check_absence_contracts.py` CRASH rather than fail.
+
 ## Changing a boundary
 
 1. Identify the durable ownership rule, not just the current cycle.

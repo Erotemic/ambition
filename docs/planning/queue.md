@@ -2472,6 +2472,25 @@ queue read as an execution authority for work already done.
   the demo's own constant. ⇒ **Re-measured at the shipped clock, where every bout
   RESOLVES (`0 : 0` stocks, medians rising 85s → 97s → 104s → 112s up the rungs):
   `3 vs 1` higher ✔, `5 vs 3` **LOWER** ⛔, and `6 vs 5` / `9 vs 6` are within
+  ⛔⛔ **AND THE SIGNIFICANCE HALF OF THOSE FOUR VERDICTS IS ON HOLD AS OF
+  2026-09-04 — a review found `report_row` has TWO AUTHORS of one row's meaning,
+  re-derived from source here.** The printed direction (*higher* / *LOWER*) comes
+  from POOLED MEDIANS — stocks taken, damage on a tie — while the
+  `(within spread)` qualifier comes from a PAIRED, DAMAGE-ONLY exact sign test
+  whose helper returns `p >= 0.05` with `k = positives.max(negatives)`, discarding
+  which direction won. ⇒ **A row can print `LOWER outfights` with the qualifier
+  removed while its own sign test is significant for HIGHER**, and it looks
+  identical to a row where the two agree. ⚠ Also: when STOCKS decide, the paired
+  test still tests DAMAGE.
+  ⇒ **Treat `3 vs 1` and `5 vs 3` as UNCONFIRMED, not withdrawn.** The mechanism
+  evidence for the inversion — level stocks, the lower rung dealing 215% : 191%,
+  and the byte-for-byte weight isolation — does not route through the qualifier
+  and still stands; it is the word *significant* that is on hold. ⛔ The fix is
+  NOT a referee between the two authorities but their removal (one paired outcome
+  per seed; derive both the direction and the test from it; pooled medians demoted
+  to descriptive columns) — designed and recorded in `engine/fighter-brain.md`,
+  **not landed**, because this box cannot build and its poison arms are exactly
+  what would have to be run.
   spread.** ⚠ So it is **one bad rung, not a broken progression** — the 40-second
   table's "every cell is significant" was an artifact of the short clock and is
   marked superseded in `fighter-brain.md`.

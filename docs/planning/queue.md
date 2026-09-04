@@ -1981,7 +1981,7 @@ queue read as an execution authority for work already done.
   clean.** Do not re-run the generalised form and act on its raw numbers without
   the per-module re-export cross-check — it over-reports by design.
 
-- ▢ **FIVE WORKSPACE DEPENDENCY DECLARATIONS ARE NEVER NAMED IN THEIR CRATE'S
+- ✔ **FIVE WORKSPACE DEPENDENCY DECLARATIONS ARE NEVER NAMED IN THEIR CRATE'S
   SOURCE — graph honesty, NOT a footprint win.** (Measured 2026-09-02;
   re-measured 2026-09-04.) ⭐ **Six became five: the PLAIN edge is already gone.**
   `ambition_platformer2d -> ambition_interaction` appears neither in that crate's
@@ -2072,8 +2072,15 @@ OPTIONAL dep + feature, never used:
 
   ⛔⛔ **DO NOT REMOVE BLIND — it needs the compiler on each crate's feature
   combinations.** Dropping an optional dep changes feature RESOLUTION, not just
-  a line, and only a build says what that does. ⇒ Left for the abilities carve
-  to pick up rather than done here.
+  a line, and only a build says what that does.
+  ✔ **CLOSED AS A ROW 2026-09-04 AND FILED AS QUESTION 53.** Everything an
+  engineer can decide is decided above: the measurement is re-derived three
+  times, the scan's limits are checked, the size is known to be zero, and the
+  plain sixth edge is already cut. What is left is one sentence of intent — is a
+  declared-ahead-of-use seam something this project keeps, or deletes until the
+  day it is wired? — and all five follow from it in either direction. ⛔ A row
+  that cannot move without a ruling should not hold an execution slot; it should
+  be the ruling's own row, which it now is.
 
   ⚠ **What the scan can and cannot see, because the obvious caveat is the wrong
   one.** A `cfg(feature)`-gated `use` IS visible to a text scan — control:

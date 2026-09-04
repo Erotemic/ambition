@@ -952,6 +952,48 @@ level up — that one asks what an item IS, this one asks what a checkpoint owes
 ⚠ Renumbered from 46 to 51 on 2026-09-04: it was filed as 46 while 46 already
 existed further up the file, so two different questions answered to one number.
 
+### 53. Are the five declared-but-unnamed optional dependencies SEAMS or DEBT? (2026-09-04)
+
+Five crates declare an optional `ambition_*` dependency that no file in their
+crate directory names — re-derived three times across ~90 commits and five
+carves, most recently 2026-09-03, zero source files each. The scan's limits are
+known and checked: a `cfg(feature)`-gated `use` IS visible to it (control:
+`ambition_content_pack` is optional in four crates with `cfg` blocks and was
+correctly not flagged), only `ambition_app` has a `build.rs` and it does not
+mention `causal`, and no crate renames a dependency with `package = "…"`.
+
+⛔ **The engineering half is finished and it does not decide anything.** Removing
+these cuts NOTHING from the capability footprint — the plain sixth edge was cut
+2026-09-03 and the closure was unchanged at 47/20. The value is only that the
+graph stops claiming edges nobody uses.
+
+⇒ **What is left is intent, which is why it is here.** An optional dep is wired
+into a feature definition, so removing one edits a declared seam:
+
+- `ambition_characters` → `ambition_causal` is a NO-OP feature — it pulls the dep
+  and does nothing else, and its comment says *"Publish this capability's causal
+  facts (brain decisions, for now)"*. **A seam declared ahead of its use is not
+  debt, and deleting it deletes the intent.**
+- `ambition_platformer2d` → `ambition_sfx_bank` is one line of
+  `all_capabilities`, a ROSTER of ~20 crates the facade can offer, and it is the
+  crate's `default`. Removing it narrows what `default` MEANS.
+- `ambition_touch_input` → `ambition_cutscene` sits among nine `dep:` lines that
+  are all used; only this one is unnamed, so it reads as a wire planned and never
+  run.
+- `ambition_sim_view` → `ambition_portal2d` and `game/ambition_app` →
+  `ambition_causal` are the two where the feature does more than pull the dep, so
+  dropping the `dep:` alone leaves the feature meaningful — the smallest safe
+  edits of the five.
+
+⚠ **Whichever way this goes, do not remove blind.** Dropping an optional dep
+changes feature RESOLUTION, not just a line, and only a build says what that
+does; a feature that becomes empty may still be a marker something above
+forwards. The feature-union build is where that surfaces.
+
+⇒ One sentence settles it: **is a declared-ahead-of-use seam something this
+project keeps, or something it deletes until the day it is wired?** Answer that
+and all five follow, in either direction.
+
 ### 52. Does a second bark set for one enemy REPLACE the first, or conflict? (2026-09-04)
 
 `CombatBanterRegistry` is the last of the seven "silent overwrite" registries

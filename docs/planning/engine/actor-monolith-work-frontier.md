@@ -120,6 +120,28 @@ Use the existing construction-domain/registry patterns and the already-landed
 capability construction examples as precedent. Do not replace the dependency
 with string dispatch, `Any`, a service locator, or another central switch.
 
+⚠ **READ THIS BEFORE PLANNING THE CUT — measured 2026-09-04, and it narrows what
+"registration" can mean here.** `ActorConstruction::dispatch` is a CLOSED match
+on the parameter enum (`construction/mod.rs:238-277`), and the file defends that
+deliberately: its sibling `dispatch_relation` says the ops come from there
+*"rather than from a registry lookup, so nothing outside this crate can supply,
+replace, or race to install actor relation wiring."* So a registry that
+`features` installs into would spend a property this domain chose on purpose,
+and the prohibition above already rules out the usual ways of faking one.
+⇒ **The direction that does not fight the existing design is to move the DOMAIN
+IMPL to the side that owns the recipes, not to make the protocol call upward.**
+`construction/` then keeps the protocol — plan, roster, receipt, transaction —
+and the `ActorConstruction` implementation with its nine `construct_*` bodies
+goes where the actor recipes live. That is also what makes the sentence below
+about a dedicated lower crate follow rather than be hoped for.
+⚠ The 15 references split three ways, which is worth knowing before sizing:
+two are TYPE imports (`SpawnActorKind`, `SpawnActorRequest`, used by the params
+enum and `canonical_summary`), six are the recipe constructors the row names, and
+three are the limbed-host/giant-hand shape helpers (`is_limbed_host`,
+`giant_hand_plans`, `GiantHandPlan`). The type half may move on its own and is
+the cheapest first cut; the helper half is a shape query that may belong to
+neither side as it stands.
+
 ### Required result
 
 The packet is complete only when all of these are true:

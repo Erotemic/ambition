@@ -800,6 +800,71 @@ mod tests {
     /// different move from the standing grab — the two claims that together mean
     /// the button does the new thing rather than an old one.
     #[test]
+    /// ⭐⭐ WHAT A PRESS ANSWERS, not what a verb list binds — the two are
+    /// different and the difference is eight presses.
+    ///
+    /// ⛔ **A VERB COUNT IS A COUNT OF BINDINGS. A PLAYER PRESSES A CHAIN.**
+    /// `directional_verb_chain` always falls back to the base verb, so this
+    /// contract's missing `attack_forward` is NOT silence — a forward tilt
+    /// answers with the `jab`. ⇒ A planning claim that this fighter had "no
+    /// forward tilt and no dash attack" was drawn from the binding list and was
+    /// wrong; it is withdrawn in `smash-parity-inventory.md`.
+    ///
+    /// ⭐ What IS true is narrower and entirely about the special family. This
+    /// pins it by enumerating every press rather than by inspecting keys, so the
+    /// claim and the guard are the same act.
+    #[test]
+    fn the_only_presses_this_fighter_cannot_answer_are_specials() {
+        use ambition_platformer2d::entity_catalog::AttackDir;
+        let set = fighter_moveset();
+        let dirs = [
+            ("neutral", AttackDir::Neutral),
+            ("forward", AttackDir::Forward),
+            ("up", AttackDir::Up),
+            ("down", AttackDir::Down),
+            ("back", AttackDir::Back),
+        ];
+
+        let mut silent: Vec<String> = Vec::new();
+        for base in ["attack", "smash", "special"] {
+            for (dir_name, dir) in dirs {
+                for (stance, grounded) in [("ground", true), ("air", false)] {
+                    if set.move_for_directional_verb(base, dir, grounded).is_none() {
+                        silent.push(format!("{base}_{dir_name}_{stance}"));
+                    }
+                }
+            }
+        }
+
+        // ⛔ EVERY silent press is a `smash` or a `special`, and the `attack`
+        // family answers ALL TEN — which is the assertion the withdrawn claim
+        // would have failed.
+        assert!(
+            silent.iter().all(|p| !p.starts_with("attack_")),
+            "an `attack` press went unanswered: {silent:?} — the base-verb \
+             fallback is what makes a jab answer a forward tilt, and if it has \
+             stopped, every planning claim about this fighter's reach is stale"
+        );
+
+        // ⭐ The special family is the gap, and it is EIGHT of the ten special
+        // presses — only `special_forward` answers, grounded and aerial, and it
+        // does so because of `lunge_grab`. (Five directions x two stances = ten;
+        // the comment said seven before I counted them.)
+        let specials: Vec<&String> = silent.iter().filter(|p| p.starts_with("special_")).collect();
+        assert_eq!(
+            specials.len(),
+            8,
+            "the special gap changed size: {specials:?}. If a special was \
+             AUTHORED this is good news and the number wants updating here and \
+             in `awaiting-maintainer-decision.md`; if one was LOST, that is a \
+             regression the roster question was about."
+        );
+        assert!(
+            !silent.iter().any(|p| p.starts_with("special_forward")),
+            "the command grab stopped answering a forward special: {silent:?}"
+        );
+    }
+
     fn the_side_special_is_a_command_grab_and_not_the_standing_grab_renamed() {
         use ambition_platformer2d::entity_catalog::WindowTag;
         let set = fighter_moveset();

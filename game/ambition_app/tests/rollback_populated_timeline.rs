@@ -109,7 +109,11 @@ fn populate(sim: &mut Platformer2dSimHarness) {
         (spawner, seq.into_iter())
     };
     let mut mint = || SimId::spawned(&spawner, seq.next().expect("five ids"));
-    // ⭐ AND THE MINT'S RESIM STABILITY IS MEASURED, NOT ASSUMED (2026-09-04).
+    // ⭐ THE MINT'S RESIM STABILITY IS MEASURED — and S1 in
+    // `simulation-authority-and-determinism.md` had already measured it on
+    // 2026-09-02 with a poison in `sim_identity.rs`, which I did not read before
+    // re-deriving it here at the cost of a near-total rebuild. Two independent
+    // poison sites, same verdict; read the owner doc before poisoning anything.
     // `SimId` is registered `rollback_component_canonical`, but this repository
     // has already recorded that REGISTERED ≠ CHECKSUMMED — a real desync once
     // read clean — so registration is not the proof.

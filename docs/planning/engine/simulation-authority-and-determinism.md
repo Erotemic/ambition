@@ -348,8 +348,24 @@ so a resimulated tick re-mints the same id and two seats firing on one tick
 cannot collide. ⚠ It costs the message its `Copy` (the id's payload is a
 `String`).
 
-✔ **AND THE MINT'S RESIM STABILITY IS MEASURED (2026-09-04), which the fix's
-own argument had only asserted.** "A resimulated tick re-mints the same id"
+✔ **AND THE MINT'S RESIM STABILITY IS MEASURED (2026-09-04) — but read S1 first,
+because IT ALREADY SAID SO and I did not look.**
+⛔ **This page's own S1 row has recorded since 2026-09-02:** *"semantic identity
+across a rewind ... measured rather than inferred: `SimId` is canonical AND
+checksummed ... minting from a process-global counter instead of the spawner's
+`SimIdCounter` (poison in `sim_identity.rs`) desyncs the session at frame 2."*
+⇒ **My run below is a RE-DERIVATION, not a new fact, and it cost a near-total
+rebuild** — `shared_tangle` sits near the root of the graph — plus a live poison
+in a tree shared with a peer. The recipe's rule fired and I missed it:
+**re-reading an open row beats building.** Before poisoning anything, read the
+owner doc's other rows for the same claim.
+⚠ **What the second run does add is small and worth exactly its size:** a
+DIFFERENT poison site (the counter's `next()` rather than the mint call) reaching
+the same verdict, which makes the two independent rather than one result quoted
+twice. Frame 9 here against S1's frame 2, because the poison is further from the
+first mint.
+
+⇒ The re-derivation itself, for the record: "A resimulated tick re-mints the same id"
 follows from the counter being rollback state — but this program's own S1 row
 records that REGISTERED ≠ CHECKSUMMED and that a real desync once read clean, so
 the registration is not the proof. Poisoned `SimIdCounter::next()` with a

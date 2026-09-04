@@ -75,7 +75,7 @@ would actually be the first to exercise.
 | acceptance criterion | engine acceptance at HEAD |
 |---|---|
 | explore multiple interconnected regions | ✔ `leaving_a_room_and_returning_rebuilds_what_entering_it_built` |
-| acquire materially different traversal capabilities | ⛔ **none found** — see below |
+| acquire materially different traversal capabilities | ◐ **the ENGINE pins it since 2026-09-04; no shipped level authors it** — `a_wall_may_be_gated_on_what_the_body_can_do` and `a_wall_may_be_gated_on_the_body_being_small_enough_to_pass` (`gated_lock_walls/tests.rs`), see below |
 | move/hold/equip/drop persistent objects | ✔ `an_object_in_your_hands_survives_a_replay_and_is_not_re_authored` (both retention legs) |
 | alter world mechanisms, return to the changed state | ✔ `switches_restore_their_on_state_from_the_save`, and the reconstitution census compares switch position across every lifecycle path |
 | encounter persistent and spawned actors | ✔ the encounter suite, plus `a_spawn_request_on_the_bus_becomes_a_body` |
@@ -83,18 +83,35 @@ would actually be the first to exercise.
 | navigate enough that tooling can reason about routes | ▢ open — the navigation frontier |
 | separate from another participant into another room | ▢ gated — A3 in [`multiplayer.md`](multiplayer.md), needs several resident rooms |
 
-⛔ **THE SECOND ROW IS THE INTERESTING ONE, and it agrees with a finding made
-independently on another page.** No acceptance was found for *acquiring* a
-capability and thereby reaching somewhere new — and
-[`../engine/capability-progression-and-world-gating.md`](../engine/capability-progression-and-world-gating.md)
-measured why: **nothing gates a route on a body capability.** `AbilitySet` exists
-with fourteen fields; the types named `*Gate` are action, encounter and
-out-of-shield sequencing. A capability changes what a body CAN DO and never what
-the world will LET IT PAST.
-⇒ So *"why can I go there now?"* — this page's North Star question — has no
-mechanism behind it yet, and that is one gap rather than two: the missing
-acceptance and the missing gate are the same hole seen from the product side and
-the engine side.
+⭐⭐ **THE SECOND ROW MOVED THE DAY AFTER THIS TABLE WAS MEASURED, and it
+moved for the engine only — which is the distinction the row now carries.**
+
+✔ **THE MECHANISM EXISTS.** `body.can(verb)` and `body.fits(height)` are
+published conditions as of 2026-09-04, and a `gated_by` is an authored condition
+LINE, so a wall may read `body.can wall_climb` or `body.fits 32` directly.
+Verified 2026-09-04 by running them, not by reading: the four
+`a_wall_may_be_gated_on_*` arms pass, including the capability and body-size
+ones. ⇒ *"Why can I go there now?"* — this page's North Star question — **has a
+mechanism behind it.**
+
+⛔ **AND NO SHIPPED LEVEL USES IT**, which is why this row is `◐` and not `✔`.
+`scripts/authored_route_gates.py` measures the whole authored corpus of route
+gates at **three walls**, two of them gated, both on the same story flag; and
+five of ten published conditions — `body.can`, `body.fits`, `custody.is_held`,
+`encounter.cleared`, `world.switch_on` — are authored nowhere at all. ⇒ The
+product criterion is judged by PLAYING, and a player cannot yet meet a door that
+opens because they learned to climb.
+⚠ **That is a content question with a filed answer pending** (question 55), and
+this page should not pre-empt it: the honest reading is *"the vocabulary is not
+unused because authors chose flags, it is unused because the world has almost no
+gates at all"*.
+
+⚠ **What this page said before, kept because the correction is only legible
+beside it:** *"nothing gates a route on a body capability … a capability changes
+what a body CAN DO and never what the world will LET IT PAST."* True when
+measured on 2026-09-03 and false one day later. ⇒ A dated engine-acceptance
+table goes stale at the speed of the engine, and this row was the fastest-moving
+one on the page.
 
 ## Open design questions — deliberately unresolved
 

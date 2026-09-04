@@ -39,7 +39,29 @@ than as two more rows.**
 | 8 | **`median()` returned `values[len / 2]`**, the upper-middle order statistic, and every `--paired` run has an even sample | **every descriptive column** — stocks worst, since a 10/10 split reported `1` for both seats where the median is `0.5` |
 
 ✔ **Both fixed together (`36dd9a248`), compiled and poison-verified by a sibling
-session.** ⛔ **NOTHING BELOW HAS BEEN RE-RUN THROUGH THE REPAIRED RIG.**
+session.**
+
+✔✔✔ **AND RE-RUN 2026-09-04 THROUGH THE REPAIRED RIG — THE HOLD IS LIFTED AND EVERY
+VERDICT IS UNCHANGED.** Arm A, shipped ladder, paired, 12 seeds, the rig printing
+its own configuration (`ladder: the AUTHORED rows`):
+
+| cell | verdict, repaired rig | was |
+|---|---|---|
+| `3 vs 1` | ⭐ **higher outfights** | higher outfights |
+| `5 vs 3` | ⛔ **LOWER outfights** | LOWER outfights |
+| `6 vs 5` | LOWER outfights *(within spread)* | within spread |
+| `9 vs 6` | higher outfights *(within spread)* | within spread |
+
+⇒ **The two significant cells are the same two, in the same directions.** The
+`5 vs 3` inversion is CONFIRMED against an instrument whose word and whose
+qualifier now come from one authority, and whose `median()` is a median. ⚠ The
+survival and damage columns moved slightly, as `median()`'s correction predicts;
+the verdicts did not.
+
+ⓘ **What the hold bought, since it cost a page of caveats:** it was right to
+withhold the label — a row could have printed a direction its own evidence
+contradicted — and the re-run is what converts *unconfirmed* into *confirmed*
+rather than assuming either.
 
 ⚠ **AND A LIMITATION OF THE REPAIRED TOOL, WORTH KNOWING BEFORE THE RE-RUN: a
 paired verdict cannot be re-derived from the printed output.** The direction and

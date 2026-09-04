@@ -2827,7 +2827,10 @@ queue read as an execution authority for work already done.
   NOT a referee between the two authorities but their removal (one paired outcome
   per seed; derive both the direction and the test from it; pooled medians demoted
   to descriptive columns). ✔ **LANDED 2026-09-04 (`36dd9a248`), compiled and
-  poison-verified by the sibling session.** ⛔ **The verdicts above are still NOT
+  poison-verified by the sibling session.** ✔✔ **RE-TAKEN 2026-09-04 AND UNCHANGED**: `3 vs 1` higher and `5 vs 3` LOWER both
+  significant, `6 vs 5` and `9 vs 6` within spread — the same two cells in the same
+  directions, through a rig printing `ladder: the AUTHORED rows`. ⇒ `5 vs 3` is
+  CONFIRMED, not unconfirmed. ⓘ The superseded note read: **the verdicts are not
   re-taken** — the instrument is trustworthy now and nothing has been re-measured
   through it, which needs a machine with disk. ⇒ `3 vs 1` and `5 vs 3` stay
   UNCONFIRMED until then.

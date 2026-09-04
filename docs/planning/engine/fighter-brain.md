@@ -2028,6 +2028,34 @@ code and passes the new one:
 upper-middle order statistic, so for even N it is not a median and it is biased
 upward. Every column on this page is computed with it.
 
+✔✔ **AND THE PROPOSED DESIGN WAS VALIDATED NUMERICALLY BEFORE ANY RUST WAS
+WRITTEN — 2026-09-04, because this box cannot compile and a design can still be
+wrong on paper.** Both forms of `report_row` were modelled in Python (the current
+two-author form and the proposed single-author one) and the arms above were run
+through both. ⇒ The point of the exercise is that **the current code FAILS two of
+them**, which turns the review's report from a reading into a reproduction:
+
+| arm | current | proposed |
+|---|---|---|
+| **1** reviewer's 20-pair fixture | prints **`LOWER`, unqualified** | `higher`, signs **16/4** |
+| **2** stocks favour higher, damage favours lower | prints **`higher`, unqualified — while its own damage sign test is 0/10 for `LOWER` at p = 0.00195** | `higher`, signs 10/0, from stocks |
+| **4** ties padded onto a run | — | verdict and qualifier unchanged ✔ |
+| **5** 4 → 20 unanimous pairs | — | `within spread` at 4, significant from 6 up, **never reverses** ✔ |
+
+⭐ **Arm 2 is the sharper of the two failures and it was not obvious from reading.**
+The row does not merely test the wrong quantity — it prints an **unqualified**
+`higher` whose only statistical support ran, significantly, the other way. A reader
+sees the most confident thing this tool can print.
+
+ⓘ Arm 5 also confirms the replacement has the property the old range criterion
+inverted: support strengthens with evidence, and four pairs correctly cannot reach
+significance however unanimous (2 × 0.5⁴ = 0.125). ⓘ And `median([1,2,3,4])`
+returns **3** where the median is **2.5**, as expected for `values[len / 2]`.
+
+⚠ **This validates the ALGORITHM, not an implementation.** The Rust still has to be
+written and these arms still have to be run against it — a model agreeing with a
+design says nothing about whether the code matches the model.
+
 
 ### ⛔⛔ WITHDRAWN — the Shield comparison's null is not a result, and re-taking it is not worth doing
 

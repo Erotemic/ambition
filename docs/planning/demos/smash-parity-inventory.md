@@ -878,6 +878,28 @@ are both satisfied by a contract binding 18 verbs — a jab alone passes them. �
 They are good guards for the question they ask; **the roster gap lived in the
 space between "can act" and "has the vocabulary the genre expects".**
 
+✔✔ **AND THE THIRD QUESTION — *"does the rest of the roster have this problem?"* —
+IS ANSWERED BY THE TYPE, 2026-09-04.** `SmashRepertoire` has **nineteen** fields
+and **zero** are `Option`: jab, three tilts, three smashes, five aerials, four
+specials, capture, taunt, dash attack. ⇒ **A fighter built through
+`into_contract()` cannot have a partial kit — the struct literal will not compile
+without every slot.** And every authored moveset reaches that constructor:
+fourteen call it directly; medic, performer, author and officer are
+`under_own_name(<a repertoire-built moveset>, ..)` with one slot swapped.
+
+⛔ **So the gap is one contract, not a roster.** `fighter_moveset()` is the only
+moveset in this demo that bypasses the repertoire and hand-builds a verb list —
+which is exactly how it can be short eight special presses while nineteen other
+fighters *cannot be*. ⭐ The stand-ins are not behind on authoring; they are
+outside the type that would have made the authoring mandatory.
+
+⚠ **What the type does not give you**, so this is not read as more than it is: it
+guarantees each slot is FILLED, not that the slots hold DISTINCT moves. One
+`MoveSpec` bound into several slots satisfies the compiler and fails a player —
+which is the `its_own` rule the app-level census applies, and which no type can
+express.
+
+
 ⛔⛔ **AND THE SENTENCE THAT STOOD HERE — *"nothing asked the second question"* —
 WAS WRONG, falsified by the very file it cited.** Three tests down from the two
 named above,

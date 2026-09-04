@@ -765,6 +765,21 @@ fn report_spread(character: &str, seconds: usize, all: &[Vec<Tally>], carried: &
         all.len(),
         composition_scope(carried)
     );
+    // ⛔⛔ SAY WHICH LADDER THESE NUMBERS DESCRIBE, BEFORE PRINTING ANY. This tool
+    // calls `build_demo_app()` and never inserts an `AuthoredFighterLadder`, so
+    // every fighter here carries the ENGINE FLOOR — whose `UtilityWeights::default()`
+    // IS the level-9 row — while seated at level 5 for reaction, APM and noise.
+    // ⚠ No player meets that combination, and this line is the whole difference
+    // between a floor measurement and a misleading one: `ladder_probe` has no
+    // ladder either and is fine, because it says so. `capture-probe` and
+    // `ladder-rig` grew a `--ladder` flag; this has not, and until it does the
+    // honest thing is to name the configuration.
+    println!(
+        "match_report: ⛔ ladder: the ENGINE FLOOR — this tool installs no \
+         AuthoredFighterLadder and has no --ladder flag, so these fighters carry the \
+         floor's default weights (== the level-9 row) at level-5 reaction/APM. Read \
+         the rows as \"what a floor-weighted fighter does\", not as what a player meets.\n"
+    );
     let spread = |pick: fn(&Tally) -> f32| -> String {
         let mut values: Vec<f32> = all
             .iter()

@@ -1861,6 +1861,14 @@ on a real effect and manufactured none on a null — which is the validation the
 change needed, and had that control gone significant the "repair" would have been
 a new bias instead.
 
+⛔ **AND THAT RUN IS THE ONE EASIEST TO TALK YOURSELF OUT OF, which is why it is
+named here.** A passing null feels like a wasted run: you already believe it, it
+costs the same as a real arm, and it produces no headline. ⇒ But *power on the
+real effect and none on the null* is the ONLY thing separating a repaired control
+from a new bias — without it, "I fixed the control" is a claim about intent.
+⭐ **A control that only ever runs against effects you expect cannot tell you it
+has started manufacturing them.**
+
 ⚠ **Why nobody had this number**: the unpaired form of the same comparison gives a
 `329% : 225%` gap and still reports `(within spread)`, because unpaired seed
 variance is precisely what pairing removes. ⇒ **The question could be asked and

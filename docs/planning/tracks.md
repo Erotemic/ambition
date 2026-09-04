@@ -73,7 +73,7 @@ actual product requirement.
   ✔ **RE-DERIVED 2026-09-04 evening and the claim HOLDS — with a correction to
   the method, not the answer.** Fourteen non-test-path mentions; every one is
   the variant declaration, a reader match arm, the codec (`put_u8(.., 2)`), a
-  doc comment, or the word "Consumed" in ordinary English (`ldtk/surfaces.rs:7`).
+  doc comment, or the word "Consumed" in ordinary English (`platformer2d_ldtk/src/surfaces.rs:7`).
   ⛔ **Two of them LOOKED like producers and are tests** —
   `lifecycle/continuity.rs:674` (`a_consumed_occurrence_is_not_resurrected_by_a_placement`)
   and `save_data.rs:758`

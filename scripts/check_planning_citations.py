@@ -325,7 +325,8 @@ def crate_names() -> set[str]:
             continue
         try:
             names.update(CRATE_NAME.findall((REPO / rel).read_text(errors="replace")))
-        except OSError:
+        except OSError as err:
+            _note_unreadable(rel, err)
             continue
     return names
 
@@ -468,7 +469,8 @@ def source_text(suffixes: tuple[str, ...] = (".rs", ".py")) -> str:
             continue
         try:
             chunks.append((REPO / rel).read_text(errors="replace"))
-        except OSError:
+        except OSError as err:
+            _note_unreadable(rel, err)
             continue
     return "\n".join(chunks)
 
@@ -524,7 +526,8 @@ def dependency_crates() -> set[str]:
             continue
         try:
             body = (REPO / rel).read_text(errors="replace")
-        except OSError:
+        except OSError as err:
+            _note_unreadable(rel, err)
             continue
         names.update(re.findall(r"^\s*([a-z][a-z0-9_-]*)\s*=", body, re.M))
     return {n.replace("-", "_") for n in names}
@@ -594,6 +597,32 @@ def path_resolves(cite: str, by_name: dict[str, list[str]]) -> bool:
         else:
             return True
     return False
+
+
+# ⛔⛔ READS THAT FAILED, COUNTED — because this checker's whole output is an
+# ABSENCE ("this citation resolves to nothing"), and a scanner whose rules report
+# absences reports its own finding whenever the MACHINE goes wrong instead of the
+# code.
+#
+# ⚠ The three `except OSError: continue` sites below each shrink the corpus this
+# checker searches. One dropped read is a crate name not learned or a Cargo.toml
+# not indexed; a THOUSAND dropped reads — file-descriptor exhaustion from a
+# parallel job, a permissions change, a half-mounted volume — is a checker that
+# searches almost nothing and prints "all resolved."
+#
+# ⇒ Found 2026-09-04 by the sibling case: a workspace-policy run beside a
+# descriptor-hungry grep failed thirty ways, each naming a repository fact that
+# was false, and NOTHING in the output said "I could not read a file."
+#
+# ⭐ The fix is not to make reads fatal — a genuinely unreadable stray file should
+# not stop a planning-doc check. It is to make the count VISIBLE, so a clean run
+# cannot hide a broken scan.
+_UNREADABLE: list[str] = []
+
+
+def _note_unreadable(rel: object, err: OSError) -> None:
+    """Record a read this scan could not make. See `_UNREADABLE`."""
+    _UNREADABLE.append(f"{rel}: {type(err).__name__}: {err}")
 
 
 def main() -> int:
@@ -799,6 +828,21 @@ def main() -> int:
         )
 
     print(f"\nchecked {checked} citation(s) across {len(docs)} planning file(s)")
+
+    # ⛔ BEFORE the verdict, because it qualifies the verdict. A citation resolves
+    # against an index built from files this run could read; reads it could not
+    # make are citations it could not have caught.
+    if _UNREADABLE:
+        print(
+            f"\n⛔ {len(_UNREADABLE)} file(s) could not be READ, so the index this "
+            "check searched is incomplete and a clean result below is clean only "
+            "for what answered:"
+        )
+        for line in _UNREADABLE[:10]:
+            print(f"  {line}")
+        if len(_UNREADABLE) > 10:
+            print(f"  ... and {len(_UNREADABLE) - 10} more")
+
     if not findings:
         print("all resolved.")
         return 0

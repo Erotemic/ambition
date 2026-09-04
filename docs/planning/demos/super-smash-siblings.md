@@ -215,14 +215,31 @@ were waiting on is built, tested and poison-verified, and the next stage costs a
 `RoomSpec` and one enum variant.
 
 ⛔ **The confounder this was found through, which stands regardless.**
-`SMASH_STAGE_ROOM_ID` is one constant, `smash_stage()` is one function, and there
-is no stage-select concept in the demo at all — the select screen's cursor targets
-are exactly `Portrait`, `RoleButton`, `Start`, `PagePrev`, `PageNext`, `Back`
-(`select_screen/layout.rs:359`). So the checkpoint's *"several authored stages
-change spacing/recovery decisions"* has no customer to change: **every measurement
-this project has ever taken of spacing, recovery and edgeguarding — the whole
-ladder rig included — was taken on one stage layout.** That is a confounder in
-existing results, not only a missing feature.
+⛔ **AS WRITTEN, AND BOTH HALVES ARE NOW FALSE — kept because the checkpoint below
+records when each stopped being true.** *"`SMASH_STAGE_ROOM_ID` is one constant,
+`smash_stage()` is one function, and there is no stage-select concept in the demo
+at all — the select screen's cursor targets are exactly `Portrait`, `RoleButton`,
+`Start`, `PagePrev`, `PageNext`, `Back`. So the checkpoint's "several authored
+stages change spacing/recovery decisions" has no customer to change: every
+measurement this project has ever taken of spacing, recovery and edgeguarding —
+the whole ladder rig included — was taken on one stage layout."*
+
+✔ **The target list gained `SelectTarget::Stage` on 2026-09-04**
+(`game/ambition_demo_smash/src/select_screen/layout.rs:379`, `targets()`), with a
+second room to choose — which the Checkpoint 5 bullet below already says, two
+paragraphs from a sentence claiming there is no stage-select concept at all.
+
+✔ **And "one stage layout" stopped being true the same day.** Both stages have now
+been measured against each other twice: once at 60 seconds and once at the shipped
+480-second clock. ⚠ **The two runs disagree, and the long one wins** — the short
+one said the tiers *"roughly halve the lethality"*, and at a clock long enough for
+bouts to finish, stocks-left is `0.00` on BOTH stages and the tiers instead take
+**1.83× as long** to reach the same end. See
+[`../engine/fighter-brain.md`](../engine/fighter-brain.md).
+
+⇒ **So the confounder this paragraph named is real and is now partly measured**,
+which is a better position than either the original claim or a silent deletion of
+it.
 
 ⇒ **Checkpoint 5, itemised**, since "partial" hides which half: stage select
 **landed 2026-09-04** (`SelectTarget::Stage`, and a second room to choose);

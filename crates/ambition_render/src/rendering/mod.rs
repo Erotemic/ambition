@@ -94,6 +94,9 @@ pub use nameplates::{
 pub use parallax::sync_portal_capture_parallax_layers;
 pub use parallax::{
     ensure_active_room_parallax_theme,
+    // The loader's OUTCOME, which presentation reads to tell "not yet" from
+    // "never". See `ParallaxThemeAttempts`.
+    ParallaxThemeAttempts,
     mirror_parallax_layers_per_view,
     refresh_parallax_layers_on_quality_change,
     spawn_parallax_layers,

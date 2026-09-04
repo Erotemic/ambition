@@ -54,6 +54,8 @@ impl Plugin for SessionRoomVisualsPlugin {
         app.init_resource::<PresentedSessionScope>();
         app.init_resource::<PresentedParallaxScope>();
         app.init_resource::<PhysicsSandboxSettings>();
+        // The loader's OUTCOME, read by presentation: see `ParallaxThemeAttempts`.
+        app.init_resource::<crate::rendering::ParallaxThemeAttempts>();
         app.add_systems(
             Update,
             sync_session_room_visuals.in_set(SessionScopeSet::Presentation),
@@ -211,6 +213,9 @@ fn sync_session_room_visuals(
     physics_settings: Res<PhysicsSandboxSettings>,
     assets: Option<Res<GameAssets>>,
     quality: Option<Res<crate::quality::ResolvedVisualQuality>>,
+    // What the theme loader has already tried and found empty — the difference
+    // between "not yet" and "never", which this system cannot derive alone.
+    attempts: Option<Res<crate::rendering::ParallaxThemeAttempts>>,
 ) {
     let Some(active_session) = active_session else {
         return;
@@ -274,17 +279,30 @@ fn sync_session_room_visuals(
         .map(|q| q.budget.parallax.enabled)
         .unwrap_or(true);
     if wants_parallax {
-        let theme = ambition_sprite_sheet::game_assets::ParallaxTheme::from_room_metadata(
-            &spec.metadata,
-        );
+        let theme =
+            ambition_sprite_sheet::game_assets::ParallaxTheme::from_room_metadata(&spec.metadata);
         let theme_loaded = assets.as_deref().is_some_and(|a| {
             ambition_sprite_sheet::game_assets::ParallaxLayerAsset::ALL
                 .iter()
                 .any(|layer| a.parallax_layers.get(theme, *layer).is_some())
         });
         if !theme_loaded {
-            // Leave the PARALLAX memo unset so the next frame retries — and only
-            // that one. The room is already on screen.
+            // ⭐ ASK WHETHER ANYTHING IS STILL COMING. The loader closes a theme
+            // once it has tried it, so "not loaded" splits in two: not YET, which
+            // is worth another frame, and resolved-to-nothing, which is not.
+            // Retrying the second one is a question re-asked every frame for the
+            // life of the session against a loader that has stopped answering.
+            let nothing_is_coming = attempts
+                .as_deref()
+                .is_some_and(|attempts| attempts.attempted_without_art(theme));
+            if !nothing_is_coming {
+                // Leave the PARALLAX memo unset so the next frame retries — and
+                // only that one. The room is already on screen.
+                return;
+            }
+            // Settled with no layers to spawn: this room's theme legitimately has
+            // no art on this asset profile.
+            parallax_presented.0 = Some(scope);
             return;
         }
     }
@@ -301,7 +319,6 @@ fn sync_session_room_visuals(
         quality.as_deref().map(|q| &q.budget.parallax),
     );
 }
-
 
 #[cfg(test)]
 mod tests {
@@ -323,6 +340,21 @@ mod tests {
         );
         room.metadata.visual_profile.parallax_theme = Some("a_theme_nobody_loaded".to_string());
         RoomSet::from_parts("late_theme_room", vec![room], Vec::new())
+    }
+
+    /// How many actual room visuals this session has on screen.
+    ///
+    /// ⛔⛔ THE MEMO IS NOT THE PROPERTY. `PresentedSessionScope` is a note the
+    /// system leaves for itself; the defect was that the ROOM DID NOT DRAW.
+    /// Deleting the `spawn_room_visuals` call while leaving `presented.0 =
+    /// Some(scope)` in place would satisfy every memo assertion in this file, so
+    /// the regression below counts entities instead.
+    fn room_visuals(app: &mut App) -> usize {
+        let mut query = app.world_mut().query_filtered::<(), (
+            With<ambition_platformer2d_shared_tangle::lifecycle::RoomVisual>,
+            With<ambition_platformer2d_shared_tangle::lifecycle::SessionScopedEntity>,
+        )>();
+        query.iter(app.world()).count()
     }
 
     fn app_with_an_active_session() -> (App, SessionScopeId) {
@@ -369,6 +401,12 @@ mod tests {
             None,
             "and parallax must stay unsettled so a later theme is still retried",
         );
+        assert!(
+            room_visuals(&mut app) > 0,
+            "the room must have actually DRAWN — the memo above is the system's \
+             note to itself, and asserting only the memo would pass against a \
+             build with the `spawn_room_visuals` call deleted",
+        );
     }
 
     /// The retry the original single memo existed to provide, kept: parallax is
@@ -380,11 +418,57 @@ mod tests {
         app.update();
         app.update();
 
-        assert_eq!(app.world().resource::<PresentedSessionScope>().0, Some(scope));
+        assert_eq!(
+            app.world().resource::<PresentedSessionScope>().0,
+            Some(scope)
+        );
         assert_eq!(
             app.world().resource::<PresentedParallaxScope>().0,
             None,
             "a missing theme must never settle the parallax memo",
+        );
+    }
+
+    /// ⭐ A THEME THE LOADER TRIED AND FOUND EMPTY IS FINISHED, NOT RETRIED.
+    ///
+    /// ⛔ THE BRANCH THIS COVERS WAS UNREACHABLE. The code below the gate says a
+    /// room whose theme legitimately has no art "is finished rather than retried
+    /// every frame" — and `!theme_loaded` returned before it could ever run, so
+    /// the sentence described nothing. It is reachable in shipped profiles:
+    /// `WebStatic` / `BundledStatic` attempt an optional image only when it has
+    /// an authored embedded candidate, and the generated parallax manifest
+    /// authors entries without one, so the load yields zero handles and the
+    /// loader closes the theme.
+    ///
+    /// The difference between this and
+    /// `parallax_keeps_retrying_while_the_theme_is_missing` is the whole point:
+    /// same missing theme, opposite answer, decided by whether anything is still
+    /// coming. Both are asserted, because a system that settled unconditionally
+    /// would pass one of them and lose every late backdrop in the game.
+    #[test]
+    fn a_theme_the_loader_resolved_to_nothing_settles_instead_of_retrying() {
+        let (mut app, scope) = app_with_an_active_session();
+        let theme = ambition_sprite_sheet::game_assets::ParallaxTheme::from_room_metadata(
+            &room_set_wanting_a_theme().active_spec().metadata,
+        );
+        let mut attempts = crate::rendering::ParallaxThemeAttempts::default();
+        attempts.attempted.push(theme);
+        attempts.without_art.push(theme);
+        app.insert_resource(attempts);
+
+        app.update();
+        app.update();
+
+        assert_eq!(
+            app.world().resource::<PresentedSessionScope>().0,
+            Some(scope),
+            "the room still presents",
+        );
+        assert_eq!(
+            app.world().resource::<PresentedParallaxScope>().0,
+            Some(scope),
+            "nothing is coming, so parallax is settled rather than re-asked every \
+             frame for the life of the session",
         );
     }
 
@@ -399,7 +483,10 @@ mod tests {
         app.insert_resource(quality);
         app.update();
 
-        assert_eq!(app.world().resource::<PresentedSessionScope>().0, Some(scope));
+        assert_eq!(
+            app.world().resource::<PresentedSessionScope>().0,
+            Some(scope)
+        );
         assert_eq!(
             app.world().resource::<PresentedParallaxScope>().0,
             Some(scope),

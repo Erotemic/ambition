@@ -3405,10 +3405,25 @@ OPTIONAL dep + feature, never used:
   cargo check -p ambition_dialog --features ui --all-targets 3 warnings
 ```
 
-  Three dead-code warnings in `crates/ambition_dialog/src/runtime.rs`
+  Four dead-code warnings in `crates/ambition_dialog/src/runtime.rs`
   (`reveal_full_line`, `reveal_full_options`, `select_delta`,
   `select_delta_clamped`, `confirm_or_advance`, `reveal_full`) are live under
   workspace feature unification and dead when the crate is built by itself.
+  ⭐ **AND THE FEATURE IS `input`, MEASURED — `cargo check -p ambition_dialog
+  --features input --all-targets` is CLEAN (so is `ui,input`), while `ui` alone
+  removes only one of the four.** ⇒ Which makes these **correct rather than
+  rotten**: the crate's own manifest says of `input`, *"Without it the input
+  systems compile as no-op stubs"*, and a no-op stub does not call
+  `reveal_full_line`. The methods are dead in that build **because the feature
+  did what it says**.
+  ⛔ **So the mechanical fix is the wrong one.** Gating those methods on
+  `#[cfg(feature = "input")]` would silence it and break the crate's own tests,
+  which call `reveal_full_line` (`tests.rs:106`, `:119`, `:144`) and compile
+  against the lib's default features. ⇒ The open question is whether a crate
+  whose default build has no caller for a slice of its view model wants those
+  methods gated, its tests gated with them, or the warning accepted as the
+  honest report of a stub. **A decision, not a deletion** — and worth one only
+  if somebody consumes `ambition_dialog` without `input`.
   ⇒ **That is what a downstream consumer sees, and what `cargo test -p <crate>`
   sees** — the command this project reaches for constantly, and the one the
   disk-pressure guidance recommends over a lane.

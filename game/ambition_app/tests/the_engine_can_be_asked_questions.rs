@@ -356,3 +356,107 @@ fn every_authored_gate_condition_prepares_against_the_composed_catalog() {
         unpreparable.join("\n  ")
     );
 }
+
+/// ⭐⭐ EVERY `condition(...)` AN AUTHORED `.yarn` FILE ASKS IS ONE THE COMPOSED
+/// ENGINE PUBLISHES — the DIALOGUE half of the guard above, and it was missing.
+///
+/// `gated_by` got a build-time check when it became a condition line. The other
+/// authored road never did: `ambition_conversation`'s Yarn verb
+/// `condition(id, arg)` takes the id as a STRING an author types, and there are
+/// ten times more of those in shipped `.yarn` than there are gated walls in
+/// shipped worlds.
+///
+/// ⛔ THE FAILURE IS THE SAME SHAPE AND WORSE PLACED. `ask_condition` refuses an
+/// unparseable or unpublished id with a `warn!` and returns `false`, so a
+/// misspelt `condition("body.cann", …)` does not error — **the branch simply
+/// never opens**, for the rest of the game, indistinguishable in play from a
+/// condition that is honestly not satisfied. That is a playthrough-time failure
+/// this test converts into a build-time one.
+///
+/// ⭐ ONLY THE GENERIC SPELLING IS GUARDED, and that is deliberate rather than
+/// partial. The NAMED functions bound to a condition (`boss_cleared(id)`,
+/// `quest_active(id)`) cannot carry a misspelt condition id — the id lives in
+/// Rust, not in the `.yarn` — and misspelling the FUNCTION is already a Yarn
+/// load error. ⇒ **The guard covers exactly the spelling an author can get wrong
+/// silently.**
+///
+/// ⚠ ARITY IS CHECKED TOO. Yarn's verb passes exactly one argument, so a
+/// condition the catalog declares with zero or two parameters is mis-called by
+/// construction — a different mistake from a misspelt id and equally silent.
+///
+/// ⛔ AND THE FLOOR IS THE FIRST ASSERTION, for the reason the wall guard
+/// learned by being vacuous on its first run: a version of this that merely
+/// iterated would pass on an empty list, and would keep passing if `YARN_SOURCES`
+/// stopped being the manifest or the call spelling changed. ⚠ A FLOOR, not an
+/// inventory — authoring a new `condition(...)` line must not fail this test.
+#[test]
+fn every_condition_an_authored_yarn_file_asks_is_published_by_the_engine() {
+    let mut sim = fixed_60hz_room_sim(ROOM);
+    sim.step_n(base(), 4);
+    let catalog = catalog(&sim);
+
+    let mut asked: Vec<(String, String)> = Vec::new();
+    let mut unpublished: Vec<String> = Vec::new();
+    let mut wrong_arity: Vec<String> = Vec::new();
+
+    // ⭐ THE SHIPPED MANIFEST, not a directory walk: `YARN_SOURCES` is what
+    // `yarn_spinner_plugin` registers and what the compile test compiles, so a
+    // file this test reads is a file the game loads. A `.yarn` on disk that is
+    // not in the manifest is not content, and should not fail a content guard.
+    for (name, text) in ambition_content::dialogue::yarn::YARN_SOURCES {
+        for rest in text.split("condition(").skip(1) {
+            // ⛔⛔ THE QUOTE MUST BE THE VERY NEXT NON-SPACE CHARACTER, and a
+            // looser rule made this test's FIRST RUN report a defect that was
+            // not there. `kernel.yarn` says, in PROSE, *"condition() reads the
+            // world-fact domain directly"* — and a scanner that took the next
+            // quoted token after `condition(` walked past the empty parens, past
+            // a sentence and a menu option, and grabbed the id out of
+            // `<<command "world.set_flag" …>>` two lines later. It then reported
+            // a COMMAND id as an unpublished CONDITION.
+            //
+            // ⇒ An instrument answering a wider question than the one asked: a
+            // `condition(` in prose is not a call, and a quoted string much
+            // further down the file is not its argument.
+            let after = rest.trim_start();
+            if !after.starts_with('"') {
+                continue;
+            }
+            let open = rest.len() - after.len();
+            let Some(close) = rest[open + 1..].find('"') else {
+                continue;
+            };
+            let raw = &rest[open + 1..open + 1 + close];
+            asked.push(((*name).to_string(), raw.to_string()));
+
+            let Some(id) = ConditionId::parse(raw) else {
+                unpublished.push(format!("{name}: {raw:?} is not a `domain.question` id"));
+                continue;
+            };
+            match catalog.describe(&id) {
+                None => unpublished.push(format!(
+                    "{name}: {raw:?} — no domain in the composed engine publishes it"
+                )),
+                Some(descriptor) if descriptor.params.len() != 1 => wrong_arity.push(format!(
+                    "{name}: {raw:?} declares {} parameter(s), but the Yarn verb passes exactly 1",
+                    descriptor.params.len()
+                )),
+                Some(_) => {}
+            }
+        }
+    }
+
+    assert!(
+        asked.len() >= 10,
+        "only {} authored `condition(...)` call(s) found across {} shipped .yarn \\
+         file(s) — the corpus this test walks has gone empty or the call spelling \\
+         changed, and an empty walk passes every assertion below. Found: {asked:#?}",
+        asked.len(),
+        ambition_content::dialogue::yarn::YARN_SOURCES.len(),
+    );
+    assert!(
+        unpublished.is_empty() && wrong_arity.is_empty(),
+        "authored dialogue asks for conditions the composed engine cannot answer, \\
+         so those branches never open in play:\\n  unpublished: {unpublished:#?}\\n  \\
+         wrong arity: {wrong_arity:#?}",
+    );
+}

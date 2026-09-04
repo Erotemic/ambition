@@ -1451,3 +1451,166 @@ fn running_one_lifecycle_path_then_another_lands_in_the_same_room() {
     assert_same_population("a first replay", &fresh, &replayed_once);
     assert_same_population("a second replay", &fresh, &replayed_twice);
 }
+
+/// ⛔⛔ THE SECOND AUTHORITY THE POPULATION CENSUS CANNOT SEE.
+///
+/// Every case above is keyed by `SimId` over `RoomScopedEntity` and compares
+/// ECS state. The durable save appears in this file only as a FIXTURE. ⇒ A
+/// lifecycle path that leaves a stale durable fact produces a room whose
+/// population is **identical by construction** and whose DOORS and DIALOGUE
+/// differ, because eight of the engine's nine published conditions read the
+/// save or the live state mirroring it — `world.flag_set`, `world.switch_on`,
+/// `inventory.holds`, `custody.is_held`, `encounter.cleared`, `boss.cleared`,
+/// `quest.active`, `wallet.can_afford`.
+///
+/// ⭐ DESTRUCTURED, NOT FIELD-LISTED, and that is the whole point of doing it
+/// here. `reset_cut_rope_attempt_on_replay` clears three durable facts by hand,
+/// and a hand-kept list grows only when somebody notices — the property that
+/// made `reset_ecs_room_features` a second constructor with sixteen queries.
+/// This comparison cannot fall behind: adding a field to
+/// `AmbitionGameSaveData` fails to compile until it is classified.
+fn durable_families_that_differ(
+    before: &ambition_platformer2d::persistence::save_data::AmbitionGameSaveData,
+    after: &ambition_platformer2d::persistence::save_data::AmbitionGameSaveData,
+) -> Vec<&'static str> {
+    use ambition_platformer2d::persistence::save_data::AmbitionGameSaveData as D;
+    // ⛔ THE DESTRUCTURE IS THE GUARD. Do not replace it with `before.field`
+    // accesses: the compiler is what stops a fourteenth family from being added
+    // without a decision about whether a replay may keep it.
+    let D {
+        version: _,
+        encounters,
+        switches,
+        bosses,
+        quests,
+        flags,
+        dialog_visits,
+        items,
+        wallet,
+        inventory_saved,
+        checkpoint,
+        occurrences,
+        custody,
+        minted_items,
+    } = before;
+    let mut differ = Vec::new();
+    let mut check = |name: &'static str, same: bool| {
+        if !same {
+            differ.push(name);
+        }
+    };
+    check("encounters", *encounters == after.encounters);
+    check("switches", *switches == after.switches);
+    check("bosses", *bosses == after.bosses);
+    check("quests", *quests == after.quests);
+    check("flags", *flags == after.flags);
+    check("dialog_visits", *dialog_visits == after.dialog_visits);
+    check("items", *items == after.items);
+    check("wallet", *wallet == after.wallet);
+    check("inventory_saved", *inventory_saved == after.inventory_saved);
+    check("checkpoint", *checkpoint == after.checkpoint);
+    check("occurrences", *occurrences == after.occurrences);
+    check("custody", *custody == after.custody);
+    check("minted_items", *minted_items == after.minted_items);
+    differ
+}
+
+fn durable_facts(
+    sim: &Platformer2dSimHarness,
+) -> ambition_platformer2d::persistence::save_data::AmbitionGameSaveData {
+    use ambition_platformer2d::persistence::save::AmbitionGameSave;
+    sim.world().resource::<AmbitionGameSave>().data().clone()
+}
+
+/// ⭐⭐ A REPLAY KEEPS SESSION PROGRESS — the durable half of "a replay
+/// rebuilds rather than repairs", asserted on the side that is decidable today.
+///
+/// ⛔ COMPARING THE WHOLE SAVE WOULD BE THE WRONG TEST, and writing it that way
+/// first is how this arm nearly went in backwards. A replay must NOT restore the
+/// wallet, the quest ledger or the dialogue visit counts: those are session
+/// progress, not attempt state, and asserting the two saves equal would pin a
+/// policy nobody has decided and would red the moment a replay correctly KEPT
+/// something.
+///
+/// ⚠ THE ATTEMPT SIDE IS DELIBERATELY NOT ASSERTED HERE, and the reason is a
+/// scoping fact rather than caution. The one production consumer that clears
+/// attempt state on replay — `reset_cut_rope_attempt_on_replay` — clears the
+/// persisted record only for cut-rope placements PRESENT IN THE ROOM. So a test
+/// that recorded a synthetic boss id and demanded a replay clear it would fail
+/// against correct code, and would be pinning a policy nobody has written:
+/// *which* attempt-scoped facts a replay owns is an open question, not a bug.
+/// ⇒ What this arm does instead is REPORT the families a replay touches, so the
+/// policy can be written from evidence. The report is an assertion-free
+/// `eprintln!` on purpose: a number nobody has ruled on must not become a
+/// ratchet by accident.
+#[test]
+fn a_replay_keeps_session_progress_and_reports_what_it_touches() {
+    use ambition_platformer2d::persistence::save::AmbitionGameSave;
+
+    let (mut sim, live) = enter_the_room();
+    let fresh = durable_facts(&sim);
+
+    // Session progress, earned during the attempt. A replay that refunded or
+    // confiscated this would be a defect in the other direction.
+    //
+    // ⛔⛔ THE LIVE COMPONENT, NOT THE SAVE FIELD, and this arm's FIRST RUN
+    // failed because it wrote the save. `AmbitionGameSaveData::wallet` is a
+    // PROJECTION: `items::persist` mirrors `data.wallet = wallet.balance`
+    // every frame the two differ, so a write to the save is overwritten from
+    // the live `BodyWallet` on the next step — the test reported `0 vs 137`
+    // and looked exactly like a replay confiscating the player's coins.
+    // ⇒ Disturbing a projection and reading the result as a fact about the
+    // subject is the failure this whole file exists to catch, and the
+    // instrument committed it first.
+    {
+        let mut q = sim
+            .world_mut()
+            .query_filtered::<&mut ambition_platformer2d::characters::actor::BodyWallet, With<
+                ambition_platformer2d::platformer::markers::PrimaryPlayer,
+            >>();
+        let world = sim.world_mut();
+        let mut found = 0;
+        for mut wallet in q.iter_mut(world) {
+            wallet.balance += 137;
+            found += 1;
+        }
+        assert_eq!(
+            found, 1,
+            "exactly one primary player carries the wallet this arm disturbs"
+        );
+    }
+    // Let the mirror carry the live balance into the save before comparing.
+    sim.step(base());
+    // ⭐ A SECOND FAMILY, WITH THE OPPOSITE PLUMBING, so `[]` below is a claim
+    // about the replay rather than about one field's mirror. `flags` has NO
+    // live component behind it — `set_flag` writes the save and the save IS the
+    // authority — so a direct write sticks where the wallet write did not.
+    // ⇒ Two families reached by two different roads; a replay that quietly
+    // rebuilt the whole save would show up in this one even if the mirror
+    // happened to restore the other.
+    {
+        let mut save = sim.world_mut().resource_mut::<AmbitionGameSave>();
+        save.data_mut()
+            .set_flag("a_flag_set_during_this_attempt", true);
+    }
+    let disturbed = durable_facts(&sim);
+    let landed = durable_families_that_differ(&fresh, &disturbed);
+    assert!(
+        landed.contains(&"wallet") && landed.contains(&"flags"),
+        "the disturbance must land in BOTH families or this arm cannot fail \
+         honestly; it landed in {landed:?}"
+    );
+
+    replay_the_room(&mut sim, &live);
+    let after = durable_facts(&sim);
+
+    assert_eq!(
+        after.wallet, disturbed.wallet,
+        "a replay is not a refund: coins held during the attempt are session \
+         progress and must survive it"
+    );
+    eprintln!(
+        "[durable-census] a replay of `{ROOM}` changed these durable families: {:?}",
+        durable_families_that_differ(&disturbed, &after)
+    );
+}

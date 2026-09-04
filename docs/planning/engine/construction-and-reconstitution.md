@@ -324,6 +324,7 @@ lifecycle paths against a fresh entry:
 | `loading_a_save_builds_the_room_a_re_entry_builds` | the durable road produces the population the in-session roads produce |
 | `a_relocated_occurrence_is_suppressed_by_a_load_and_by_a_re_entry_alike` | a durable fact construction must ACT on reaches both roads alike |
 | `running_one_lifecycle_path_then_another_lands_in_the_same_room` | repeated rebuilds do not drift |
+| `a_replay_keeps_session_progress_and_reports_what_it_touches` | ⛔ the DURABLE half — coins held during an attempt survive it, and which save families a replay touches is reported rather than ratcheted |
 
 The rollback host is covered by `rollback_lifecycle_reset.rs`, which drives the
 same reset under a forced sync-test session and requires the timeline to stay
@@ -379,12 +380,49 @@ same property that made `reset_ecs_room_features` a second constructor.
 twelve families; this has three facts. Which is an argument for a guard now,
 while it is three.
 
-▢ **NEXT: a durable-fact arm of the acceptance.** Record an attempt-scoped fact
-during the attempt, replay, and assert it is gone — with the session-scoped
-facts asserted UNCHANGED in the same test, so the arm pins the boundary rather
-than "the save was touched". ⚠ Measure first which facts actually differ across
-a replay today; the list above is derived from one content reset and one census
-reading, not from a run.
+✔ **THE DURABLE ARM IS LANDED, AND THE MEASUREMENT CHANGED WHAT IT COULD
+CLAIM.** `a_replay_keeps_session_progress_and_reports_what_it_touches`
+(`canonical_reconstitution.rs`).
+
+⭐ **MEASURED 2026-09-04: a room replay of `combat_calibration_lab` changes
+ZERO durable families.** Two families were disturbed by two DIFFERENT roads
+before the replay, so an empty result is a claim about the replay rather than
+about one field's plumbing:
+- `wallet` — a live `BodyWallet` component that `items::persist` mirrors INTO
+  the save (`data.wallet = wallet.balance`);
+- `flags` — no live component at all; `set_flag` writes the save, and the save
+  IS the authority.
+
+⇒ **So the replay path has NO durable-fact policy of its own.** Every
+attempt-scoped fact that must be retracted is retracted by a CONTENT system
+that names it — today, exactly one: `reset_cut_rope_attempt_on_replay`. That
+sharpens the risk above rather than relieving it: the hand-kept list is not one
+consumer's shortcut, it is the only mechanism there is.
+
+⛔ **THE ATTEMPT SIDE IS DELIBERATELY NOT ASSERTED, and the reason is scoping
+rather than caution.** The one production consumer clears the persisted record
+only for cut-rope placements PRESENT IN THE ROOM, so a test that recorded a
+synthetic boss id and demanded the replay clear it would fail against correct
+code and would pin a policy nobody has written. ⇒ The arm asserts the SESSION
+side (coins held during an attempt survive it) and REPORTS the families a
+replay touches, as an assertion-free line: a number nobody has ruled on must
+not become a ratchet by accident.
+
+⭐⭐ **The hand-kept-list problem is solved for the COMPARISON, by the
+compiler.** `durable_families_that_differ` DESTRUCTURES `AmbitionGameSaveData`
+rather than reading fields, so adding a fifteenth durable family fails to
+compile until somebody classifies it. Poison-verified: removing one binding
+gives `E0027: pattern does not mention field 'minted_items'`. ⚠ That fixes the
+comparison, not the RESET — `reset_cut_rope_attempt_on_replay` still grows only
+when somebody notices.
+
+⚠ **AND THE ARM'S FIRST RUN REPORTED A DEFECT THAT WAS NOT THERE**, which is
+worth keeping because this file exists to catch exactly it. The disturbance
+originally wrote `save.data_mut().wallet += 137` — a PROJECTION — which the
+mirror overwrote from the live component on the next step. The test printed
+`0 vs 137` and read precisely like a replay confiscating the player's coins.
+⇒ Disturb the authority, not the projection; the instrument committed the
+error the suite is written against.
 
 ## Open design questions — deliberately unresolved
 

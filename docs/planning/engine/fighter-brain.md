@@ -1383,7 +1383,7 @@ the knob never reached the fighter.
 ⭐⭐ **IT NEVER REACHES ANY FIGHTER. `read_weight` IS INERT IN THE SHIPPED GAME.**
 The chain, each link checked:
 
-1. `read_weight` is authored on all nine shipped rungs, **0.0 rising to 0.9** — it
+1. `read_weight` is authored on all nine shipped rungs, **0.0 rising to 1.0** (`0.0 0.0 0.0 0.1 0.2 0.3 0.5 0.7 1.0`) — it
    reads like one of the ladder's main difficulty axes.
 2. It has exactly two consumers. `HabitModel::read_bonus` has **no production
    callers at all** — `git grep read_bonus` finds its definition and four lines in

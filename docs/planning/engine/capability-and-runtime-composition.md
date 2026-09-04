@@ -614,7 +614,37 @@ guard placed there would be dead in every headless test.
 
 ⇒ **What is still open is the twenty-domain call site**: a domain declares its
 own rollback state when that domain is composed, through whichever registrar the
-host installed. That is the same
+host installed.
+
+⛔⛔ **AND THE OBVIOUS FIX IS IMPOSSIBLE, WHICH IS WHY THE CALLS ARE ALL IN ONE
+FUNCTION — measured 2026-09-04 so the next reader does not spend the afternoon
+finding out.** "Let each domain's plugin call its own `register_rollback_state`"
+fails on a hard constraint: **`RollbackRegistrar` is NOT object-safe.** Its
+methods are generic over `T` (`rollback_resource_canonical<T>`, and twenty more)
+and return `&mut Self`, so `&mut dyn RollbackRegistrar` does not exist and a
+domain's declaration cannot be stored as a boxed closure for the backend to drain
+later. ⇒ Every call must be made with the CONCRETE registrar type at a site that
+knows both it and the domain — which is exactly one site.
+⚠ Note what this does NOT block: a domain already declares against a
+backend-neutral trait that lives in the FLOOR
+(`ambition_platformer2d_core/src/snapshot.rs:338`), not against GGRS. The
+domain-owned half of the doctrine landed; only the invocation is centralised.
+
+⭐ **SO THE TRACTABLE SHAPE IS "CONDITIONAL", NOT "DISTRIBUTED":** keep the one
+call list — it cannot move — and gate each line on whether that domain was
+actually composed. That needs two things and neither is a service locator:
+1. each domain's plugin inserting a plain marker when it builds, the way
+   `AmbitionRollbackPlugin` now inserts `EngineRollbackStateDeclared`;
+2. `register_engine_rollback_state` taking the composed-domain set alongside the
+   registrar, since today it takes only `&mut impl RollbackRegistrar` and can
+   read no resources.
+
+⚠ **And it inherits an ordering requirement the current design does not have:**
+every domain plugin must build BEFORE the backend, or its marker is not there to
+be read. The engine foundation already asserts backend-before-group in the other
+direction (`RollbackHostReady`), so the two constraints have to be reconciled
+rather than assumed compatible. ⛔ That reconciliation is the actual work, and it
+is why this is still a design item and not a patch. That is the same
 move `BossEncounterSimulationPlugin` made for systems and messages, one contract
 over.
 ⚠ **Sizing is not done and this is not a licence to start.** Twenty call sites

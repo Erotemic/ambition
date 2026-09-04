@@ -741,6 +741,25 @@ instruments answering one question is worth knowing BEFORE designing the
 measurement, not after; see the *two authors of one number* class recorded in
 `queue.md` for what happens when nobody notices.
 
+⛔⛔ **AND AUDITING THEM FOUND ONE THAT MEASURES THE WRONG CONFIGURATION SILENTLY.**
+Having listed them, I checked which install an `AuthoredFighterLadder`:
+
+| instrument | ladder | verdict |
+|---|---|---|
+| `capture-probe` | `--ladder`, and prints which is in play | ✔ |
+| `ladder-rig` | `--ladder`, and prints which is in play | ✔ |
+| `ladder-probe` | none — **and its own module doc says so**, and names the ladder before printing any number (*"a calibration table that does not name its ladder is worse than no ladder"*) | ✔ honest |
+| `match-report` | **none, and it says nothing** | ⛔ |
+| `roll-probe` | none — measures how far a shield roll travels, which is body physics and ladder-independent | ✔ n/a |
+| `stage-diagram` | builds no app at all | ✔ n/a |
+
+⇒ **`match-report` is the only one that measures the floor without declaring it**,
+and it is the instrument [`demos/smash-parity-inventory.md`](demos/smash-parity-inventory.md)
+tells a reader to run before marking a row shipped. ⭐ The fix already exists as a
+pattern one file over: `ladder-probe` has no ladder either and is fine, **because
+it says so in its output**. Declaring the configuration is what separates the two,
+not having the flag.
+
 ⓘ Deliberately recorded here rather than in `docs/tools/index.md`: that index is
 scoped to *"author-time tools … provider/engine inputs"*, and these are
 measurement instruments for one demo. The fix that matches how they are reached is

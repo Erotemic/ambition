@@ -952,6 +952,31 @@ level up — that one asks what an item IS, this one asks what a checkpoint owes
 ⚠ Renumbered from 46 to 51 on 2026-09-04: it was filed as 46 while 46 already
 existed further up the file, so two different questions answered to one number.
 
+### 52. Does a second bark set for one enemy REPLACE the first, or conflict? (2026-09-04)
+
+`CombatBanterRegistry` is the last of the seven "silent overwrite" registries
+whose policy nobody has stated. Four of the seven state the replace in place, one
+is a test hatch, and `GatePortalRegistry` is moot — it has no production producer
+at all (measured 2026-09-04: the only `register` call is in a render test, no
+LDtk world contains a `GatePortal`, no lowering names one).
+
+This one is live: `game/ambition_content/src/dialogue/mod.rs:44` registers bark
+sets in production. So the question is real and it is one sentence.
+
+⇒ It is a CONTENT question, not an engineering one, which is why it is here
+rather than in the queue. **Replace** means the later registration wins and an
+author can override a shipped enemy's barks from their own content pack;
+**conflict** means two packs that both speak for one enemy is an error somebody
+must resolve rather than a silent last-writer-wins. The engine can express
+either — `ambition_registry_core::classify` exists precisely to make the choice
+explicit — so nothing is blocked on it. What is blocked is calling the registry
+migrated, because a registry whose conflict policy is unstated is the drift the
+crate was built to stop.
+
+⚠ Whoever answers should note that this is the same shape as the four already
+settled, and those four all chose replace-and-say-so. A different answer here
+needs a reason specific to barks.
+
 ## A top platform and the respawn point want the same 60 pixels
 
 ⛔ **Not a tuning mistake — a structural collision, and all three ways out are

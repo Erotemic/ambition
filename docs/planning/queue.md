@@ -907,7 +907,7 @@ queue read as an execution authority for work already done.
   11.8 GB free of 290, below the 40 GB floor, so the Rust lane refuses to start
   and the fix could not be gated.
 
-- ▢ **THE S4 `SimId` CENSUS PASSES BECAUSE ITS POPULATION EXCLUDES THE ONE ROAD
+- ✔ **THE S4 `SimId` CENSUS PASSES BECAUSE ITS POPULATION EXCLUDES THE ONE ROAD
   THAT WOULD FAIL IT.** Found 2026-09-03 with ToothbrushAmbition — they found the
   road, I checked the census against it, and both halves are independently
   derived.
@@ -3403,9 +3403,9 @@ OPTIONAL dep + feature, never used:
   ⛔ AND THE CODE'S OWN DOC WAS WRONG TOO: the no-feature module claimed the take
   *"carries no `causal` array at all"*. It always carried `[]`.
 
-- ▢ **CAPABILITY FOOTPRINT: 50 crates linked, 23 a movement-only game never
+- ▢ **CAPABILITY FOOTPRINT: 51 crates linked, 23 a movement-only game never
   asked for — and the count CANNOT fall by a manifest edit.** (⚠ FIVE pairs are recorded below and none of them is authoritative; `python3 scripts/check_absence_contracts.py | grep footprint` prints the live one. 45/18 as of `479f9d3e4`, when `ambition_registry_core`
-  entered the closure; 46/19 as of `bbfa38a3d`, when `ambition_held_items` did; 47/20 as of `83460e3f3`, D33 cut 1, when `ambition_body_seed` did; 48/21 as of `7e625e5a5`, cut 2b, when `ambition_match` did; 50/23 on 2026-09-03 when `ambition_abilities` and `ambition_encounter_features` did. ⭐ EVERY ONE OF THOSE RISES IS A CARVE PAYING ITS DEBT — do not read the series as regression.) (Scheduled
+  entered the closure; 46/19 as of `bbfa38a3d`, when `ambition_held_items` did; 47/20 as of `83460e3f3`, D33 cut 1, when `ambition_body_seed` did; 48/21 as of `7e625e5a5`, cut 2b, when `ambition_match` did; 50/23 on 2026-09-03 when `ambition_abilities` and `ambition_encounter_features` did; **51/23 on 2026-09-04 when `ambition_sprite_fx` did — the first rise that is NOT a carve, and the first declared entry deliberately kept OUT of `never_asked_for`: a movement-only game draws sprites, so altering a sprite's pixels is rendering rather than a gameplay domain. ⭐ The closure moved and the count did not, and the two numbers separating is the point. ⛔ It was also the crate whose new `fixtures/minimal_game/Cargo.lock` entry made `cargo tree --locked` exit 101 and CRASH the whole checker, so this ratchet — and every contract after it — reported nothing at all until `a6989d76b`.** ⭐ EVERY RISE BEFORE `ambition_sprite_fx` IS A CARVE PAYING ITS DEBT — do not read the series as regression, and do not read it as uniform either: five of the six are a domain LEAVING the monolith, and the sixth is a new capability the renderer composes.) (Scheduled
   2026-09-02 from ambition-da's docs pass; re-worded the same night after
   ambition-da re-derived it, `2068bcd31`.) The instrument is installed:
   `capability-footprint-may-not-grow` in `scripts/check_absence_contracts.py`
@@ -3444,7 +3444,7 @@ OPTIONAL dep + feature, never used:
   on one is the difference between a macro that moves and a macro that only
   appears to"*, which is the one sentence a future edit would otherwise
   rediscover. Design record: `triage/stable-identifier-centralization.md`.
-- ▢ **`ambition_registry_core`: R2 + R3 LANDED 2026-09-03 (crate + two pilots:
+- ✔ **`ambition_registry_core`: R2 + R3 LANDED 2026-09-03 (crate + two pilots:
   construction, rollback; rollback baseline byte-identical); next is R4 — decide
   which of `PlacementLoweringRegistry` / `RoomContentStagingRegistry` migrate
   and which of the seven silent-overwrite registries must say "replace" in
@@ -3478,6 +3478,14 @@ OPTIONAL dep + feature, never used:
   production producer (`game/ambition_content/src/dialogue/mod.rs:44`): should a
   second bark set for one enemy replace the first or conflict? That is one
   sentence for whoever owns conversation content, not a migration.
+  ✔ **CLOSED 2026-09-04 as a ROW: R4 asked for work that was already done and
+  written down, and the residual is a content sentence rather than engineering.**
+  Both halves are answered above from the code and from the row's own design
+  doc; the one open question is filed in `awaiting-maintainer-decision.md` so it
+  stops occupying an execution slot. ⛔ Nothing here is deferred — there is no
+  migration owed and no abstraction waiting on a ruling. R5+ starts from
+  `triage/ambition-registry-core.md` when a fifth consumer wants the protocol,
+  not from this row.
   ⚠ The dormant gate-portal cluster the measurement turned up is its own item —
   see `tracks.md`. The
   inventory row that preceded it, kept for the record:

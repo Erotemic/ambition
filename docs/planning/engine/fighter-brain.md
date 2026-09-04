@@ -2239,7 +2239,8 @@ all of which do:
 - `FighterBrainLadder::problems()` requires **exactly nine rungs** and that rung
   `i` is **labelled level `i+1`**, so a validated ladder covers 1..=9 with no
   holes.
-- ⭐ **It is CALLED on the production load path** — `content_schema.rs:73`, not
+- ⭐ **It is CALLED on the production load path** —
+  `crates/ambition_combat/src/brain/fighter/content_schema.rs:73`, not
   under `#[cfg(test)]` — and reports every fault at load as a diagnostic.
 - The shipped ladder is asserted clean by
   `game/ambition_content/tests/fighter_brain_ladder.rs`.

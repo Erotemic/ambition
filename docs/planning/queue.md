@@ -2540,6 +2540,12 @@ queue read as an execution authority for work already done.
   silence and the arm would have read as a negative result. ✔ Fixed
   (`249d82b66`): the distinct count prints first and the tool says how many rows
   it withheld. ⚠ **Re-read that count, not the visible rows**, when checking
+  ✔ **BOTH INSTRUMENTS BEHIND THIS TEST HAVE NOW BEEN CHECKED, not assumed.** The
+  census truncated and is fixed; the contingency table's source
+  (`AMBITION_FIGHTER_TRACE=1`) prints the FULL offered/vetoed/chosen lists per
+  decision with no cap, so the 73-of-81 ratio can be re-derived exactly. ⇒ An arm
+  that comes back flat now means the fighter did not change, rather than that the
+  tooling could not say.
   criterion (1).
 
   ⚠ **Cost, so nobody starts it blind**: each arm is a full release build of the

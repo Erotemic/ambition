@@ -1046,6 +1046,20 @@ queue read as an execution authority for work already done.
   (`crates/ambition_render/src/platformer_presentation.rs:265`), guarded by
   `the_room_presents_even_though_its_parallax_theme_has_not_arrived`, which
   counts actual session-scoped `RoomVisual` entities rather than a memo.
+  ⭐⭐ **RE-DERIVED BY POISON 2026-09-04 by a second session, which is the
+  strongest form the confirmation can take and was not on the record.**
+  Reconstructing the pre-fix shape in place — one memo, the whole room behind
+  `wants_parallax && !theme_loaded` — reproduces the reported symptom EXACTLY:
+  `an authored room NPC wore the placeholder … Got ["a_body_the_room_never_authored",
+  "npc_room_greeter"]`. ⇒ Both ids appear, so the same run also demonstrates the
+  control arm doing its job: the never-authored body still gets its placeholder,
+  which is what proves the grace clock ran and the drawing path was live rather
+  than the stand-in having quietly stopped drawing at all. Restored: 4 passed.
+  ⚠ **And a note for the next reader of this row rather than for its author:**
+  the superseded reasoning kept below is long enough that entering the row
+  partway reads as OPEN work — I read the retracted marker diagnosis and its
+  *"still needs a build to CONFIRM"* as the current state and went to build it.
+  The receipt is at the TOP; everything under the retraction line is history.
   ✔ **CLOSED 2026-09-04 — THE OBSERVATION IS A TEST NOW, and it confirms the
   mechanism rather than arguing it.**
   `an_authored_room_npc_never_wears_the_unclaimed_placeholder`

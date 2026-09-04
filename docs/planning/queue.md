@@ -576,6 +576,14 @@ The one unresolved developer-policy choice from the session-ownership work is in
   the succession the portal comment warned about — *"three hid in succession,
   each looking identical to the last"* — so the demo has at least one more, and
   the count is not known.
+  ✔ **The guard's own crate is green: `ambition_platformer2d_rollback_ggrs` 54
+  passed / 0 failed** (the commit that landed it said the suite was still queued
+  behind a saturated machine; it has reported since). ⚠ And that green means less
+  than it looks: nothing in that crate observes the registration either way —
+  `session_ownership_tests` schedules the system DIRECTLY and
+  `host_invariant_tests` asserts only schedule and resource facts — so dropping
+  the system entirely would also be green. The reading is the verification; the
+  suite only rules out collateral damage.
   ⚠ **How to find them without guessing:** `bevy_ecs` is not a direct dependency
   of `capability_demo`, so `--features bevy_ecs/debug` is rejected; adding it as
   a dev-dependency for one run is what names them. And the build must be

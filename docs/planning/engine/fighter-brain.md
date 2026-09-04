@@ -1347,7 +1347,7 @@ from a pooled median. ⇒ **A cell whose two authorities disagree prints exactly
 like a cell where they agree**, and there is no residue in the table to tell them
 apart.
 
-⚠ **Read the two bold cells as UNCONFIRMED until the rig is fixed and re-run**, not
+⚠ **Read the two bold cells as UNCONFIRMED until the cells are RE-RUN (the rig itself was fixed 2026-09-04, `36dd9a248`; nothing has been re-measured through it)**, not
 as withdrawn: the defect makes them unverified, not wrong, and the mechanism
 evidence for `5 vs 3` (stocks level at `2 : 2`, the lower rung dealing 215% against
 191%, and the byte-for-byte weight isolation) is independent of the qualifier and
@@ -1984,7 +1984,7 @@ quantity"* is false exactly when `hi_took != lo_took`. ⓘ And `median()` is
 
 ⚠⚠ **WHAT THIS DOES AND DOES NOT INVALIDATE.** The defect can only mislead where
 the pooled direction and the paired direction DISAGREE; where they agree the label
-is what it claims. ⇒ Which cells those are is **unknown until the rig is fixed and
+is what it claims. ⇒ Which cells those are is **unknown until the cells are
 re-run** — so until then, treat every verdict on this page as carrying an
 unstated *"direction not cross-checked"*, and lean on the cells' mechanisms rather
 than their labels. ⛔ **The `5 vs 3` inversion is the one to re-take first**, since
@@ -1995,10 +1995,8 @@ authorities and adds a referee. It is to compute **one paired outcome per seed**
 (reorient straight and mirrored into logical higher/lower, aggregate, stocks
 first, damage only on a stock tie → Higher/Even/Lower) and derive **both** the
 displayed direction and the sign test from those same outcomes, leaving pooled
-medians as descriptive columns only. ⚠ Not landed here: this box cannot build (see
-[`../yardrat-open-measurements.md`](../yardrat-open-measurements.md)), and an
-unverified edit to the instrument every number on this page came from is worse
-than a documented defect.
+medians as descriptive columns only. ✔ **Landed 2026-09-04 (`36dd9a248`)** by the
+sibling session, on a box that could compile and poison-verify it.
 
 ⭐ **THE POISON ARMS, WRITTEN DOWN SO THEY DO NOT HAVE TO BE RE-DERIVED.** A fix
 to this function is only worth landing if every one of these reddens the CURRENT

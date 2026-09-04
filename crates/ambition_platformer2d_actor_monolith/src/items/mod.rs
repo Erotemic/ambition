@@ -43,6 +43,8 @@ pub mod match_spawn;
 pub mod narrative;
 pub mod persist;
 pub mod pickup;
+/// `wallet.can_afford` — the purse's own published question.
+pub mod wallet_conditions;
 
 // ⭐ `world_item` AND `item_motion` LEFT THIS CRATE (D33, 2026-09-02) and are
 // `ambition_world_items` now — the physical life of a touched collectible: where

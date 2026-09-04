@@ -36,6 +36,8 @@
 #![cfg(feature = "ui")]
 
 use ambition_boss_encounter::conditions::BossConditionsPlugin;
+use ambition_platformer2d_actor_monolith::items::wallet_conditions::WalletConditionsPlugin;
+use ambition_characters::actor::BodyWallet;
 use ambition_content::quests::conditions::QuestConditionsPlugin;
 use ambition_persistence::save::AmbitionGameSave;
 use ambition_persistence::save_data::{PersistedEncounterState, PersistedQuestState};
@@ -148,6 +150,14 @@ const BOSS_SOURCE: &str = "title: boss_gate\n---\n\
     <<endif>>\n\
     ===\n";
 
+const SHOP_SOURCE: &str = "title: shop_gate\n---\n\
+    <<if can_afford(25)>>\n\
+    AFFORDABLE\n\
+    <<else>>\n\
+    TOO DEAR\n\
+    <<endif>>\n\
+    ===\n";
+
 const QUEST_SOURCE: &str = "title: quest_gate\n---\n\
     <<if quest_active(\"pirate_treasure\")>>\n\
     UNDERWAY\n\
@@ -234,5 +244,56 @@ fn an_alias_whose_domain_is_absent_leaves_the_authored_branch_shut() {
         vec!["STANDING".to_string()],
         "with no boss domain composed nothing can answer, and a question nobody \
          can answer must not open a door"
+    );
+}
+
+/// ⭐⭐ THE SHOP MENU'S TEN `can_afford` LINES BRANCH OFF THE LIVE WALLET.
+///
+/// This alias had the most authored callers of any fact question in the game
+/// and no interpreter-level test at all, because the mirror migration was ruled
+/// finished by enumerating the mirror's struct FIELDS — `wallet_balance` is a
+/// number, so the field was exempt — while the fork lived in the FUNCTIONS
+/// bound over that field.
+///
+/// ⛔ THE BOUNDARY IS ASSERTED, not just rich-and-poor. A player holding
+/// exactly the asking price must be able to buy: the shop's own `buy` spends
+/// `balance -= price` and refuses only when short, so `>` here would grey out a
+/// line the purchase itself would allow — visible only to a player holding
+/// exactly 25g, which is nobody's test playthrough.
+#[test]
+fn an_authored_can_afford_line_branches_on_the_live_wallet() {
+    for (balance, expected) in [(24, "TOO DEAR"), (25, "AFFORDABLE"), (99, "AFFORDABLE")] {
+        let mut app = app_running(SHOP_SOURCE, move |app| {
+            app.add_plugins(WalletConditionsPlugin);
+            app.world_mut().spawn((
+                ambition_platformer2d_shared_tangle::markers::PrimaryPlayer,
+                BodyWallet { balance },
+            ));
+        });
+        assert_eq!(
+            play(&mut app, "shop_gate"),
+            vec![expected.to_string()],
+            "an authored `can_afford(25)` line with {balance}g in the purse"
+        );
+    }
+}
+
+/// ⛔ AND THE WALLET DOMAIN OBEYS THE SAME COLLAPSE RULE AS THE OTHER TWO: a
+/// composition that never published the question leaves the purchase shut, even
+/// with a full purse. Without this arm a `can_afford` wired to nothing would
+/// satisfy the `TOO DEAR` assertion above.
+#[test]
+fn a_shop_line_is_shut_when_no_wallet_domain_is_composed() {
+    let mut app = app_running(SHOP_SOURCE, |app| {
+        app.world_mut().spawn((
+            ambition_platformer2d_shared_tangle::markers::PrimaryPlayer,
+            BodyWallet { balance: 9_000 },
+        ));
+    });
+    assert_eq!(
+        play(&mut app, "shop_gate"),
+        vec!["TOO DEAR".to_string()],
+        "with no wallet domain composed nothing can answer, and an unanswerable \
+         question must not open a purchase"
     );
 }

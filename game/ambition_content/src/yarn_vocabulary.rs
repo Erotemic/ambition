@@ -434,6 +434,45 @@ fn ask_quest_active(In(id): In<String>, world: &mut World) -> bool {
     outcome.is_satisfied()
 }
 
+/// `can_afford(price)` — ask the wallet domain's published condition.
+///
+/// ⛔⛔ THIS WAS THE MIRROR'S LARGEST CUSTOMER AND THE RULING MISSED IT.
+/// `world-facts-observations-and-memory.md` declared the mirror migration
+/// finished by enumerating its STRUCT FIELDS: `wallet_balance` is a NUMBER the
+/// boolean catalog cannot return, so the field was exempted. But one field
+/// carries two verbs of different shapes — `wallet_balance()` returns the value
+/// and is genuinely exempt; this one returns a BOOLEAN over the same `i32` and
+/// is not. ⇒ `kernel.yarn`'s shop menu calls it TEN times, more than any
+/// published condition had.
+///
+/// ⚠ TWO BEHAVIOURS CHANGE, both toward the simulation, and neither is
+/// incidental:
+/// - the closure did `balance >= price.max(0.0) as i32`, so a FRACTIONAL price
+///   truncated — a player holding 25 could buy a 25.7 item. `wallet.can_afford`
+///   compares in `f64` and refuses;
+/// - `price.max(0.0)` also made `can_afford(-5)` answer TRUE. A negative price
+///   is an authoring slip, and the condition reports it as unanswerable rather
+///   than opening a door that always opens.
+fn ask_can_afford(In(price): In<f32>, world: &mut World) -> bool {
+    use ambition_platformer2d_shared_tangle::authored_logic::{
+        AuthoredArg, ConditionCatalog, ConditionId,
+    };
+    let Some(condition) = ConditionId::parse("wallet.can_afford") else {
+        return false;
+    };
+    if !world.contains_resource::<ConditionCatalog>() {
+        bevy::log::warn!(
+            target: "ambition_content::yarn_vocabulary",
+            "can_afford({price}): no condition catalog in this composition",
+        );
+        return false;
+    }
+    let outcome = world.resource_scope::<ConditionCatalog, _>(|world, catalog| {
+        catalog.evaluate(world, &condition, &[AuthoredArg::Number(f64::from(price))])
+    });
+    outcome.is_satisfied()
+}
+
 /// Build closures around the shared mirror and register the remaining
 /// mirror-backed functions on the runner's library. Called from
 /// `spawn_dialogue_runner` after the runner is built but before it
@@ -468,6 +507,12 @@ pub fn register_functions(
     // leave the mirror, after `flag` and `bosses_cleared`.
     let quest_active = commands.register_system(ask_quest_active);
     runner.library_mut().add_function("quest_active", quest_active);
+    // ⭐ THE FOURTH SLICE, and the biggest by authored demand: `can_afford`
+    // asked a per-frame snapshot of a fact the wallet domain now publishes.
+    // The mirror's `wallet_balance` FIELD stays — `wallet_balance()` still
+    // needs it, and that verb really is a value the catalog cannot return.
+    let can_afford = commands.register_system(ask_can_afford);
+    runner.library_mut().add_function("can_afford", can_afford);
 
     let lib = runner.library_mut();
     // visit_count(id) -> f32:
@@ -490,13 +535,6 @@ pub fn register_functions(
         m.read()
             .map(|snap| snap.wallet_balance as f32)
             .unwrap_or(0.0)
-    });
-    // can_afford(price) -> bool: gate a purchase choice on affordability.
-    let m = Arc::clone(&mirror.0);
-    lib.add_function("can_afford", move |price: f32| -> bool {
-        m.read()
-            .map(|snap| snap.wallet_balance >= price.max(0.0) as i32)
-            .unwrap_or(false)
     });
 }
 

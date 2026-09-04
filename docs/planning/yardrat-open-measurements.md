@@ -510,7 +510,14 @@ would fail at the final link, and would report it as an undefined symbol.
 
 ---
 
-## ⚠ OPEN — a submodule pointer rode into an unrelated commit of mine
+## ✔ CLOSED — a submodule pointer rode into an unrelated commit of mine
+
+✔ **RESOLVED the same day by the session that owns that submodule**: the two
+unpushed commits were pushed to its `origin/main` and the superproject re-pointed
+at `4e5695c` (`469184d84`), which is on that submodule's `main` rather than a
+deletable agent branch. ⇒ Kept here for the reasoning, not the incident — the
+part worth reading is the two wrong explanations below, and the ~30 dirty entries
+neither of us had counted.
 
 **Mine to own.** I staged with `git add -A`, and it swept
 `tools/ambition_music_renderer` into `e2fe33e2e` — a commit whose message is

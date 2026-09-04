@@ -2911,6 +2911,42 @@ OPTIONAL dep + feature, never used:
   `test_support.rs` helper, benign. A carve whose delta is several DOMAIN
   functions has left its callers somewhere, and the names say where.
 
+  ⭐⭐ **A SECOND HALF IS NOW MECHANISED TOO, and it is a different blindness
+  from either of the above (2026-09-04, `4c6281af7`).** `orphaned_symbols.py`
+  finds a name whose CALLERS left. The citation checker finds a name that does
+  not RESOLVE. Neither can see a name that never existed: a fabricated
+  identifier resolves to nothing, so the checker skips it, and it has no
+  callers to lose. ⇒ `held.is_held` was written by hand across the planning set
+  for a day — the published id is `custody.is_held`, because
+  `ambition_held_items` declares `DOMAIN = "custody"` — and it survived
+  **1,222 green citations**, a full `--strict` run, and two prose sweeps.
+  ⛔ **The two sweeps are the number that matters: the first fixed four files
+  and was believed complete; the second found NINE more sites in six, including
+  the roadmap, a receipt in this file, the owner page three times, and the
+  module doc of the gate code itself. A third spelling, `item.is_held`, was
+  found by neither and sat in `inspection-diagnostics-and-workbench.md` listing
+  the production evaluators.** Nine of eleven wrong is what a prose sweep scores
+  against a mechanical one, and the mechanical one found the twelfth.
+  ⇒ `no_planning_doc_names_a_condition_the_engine_does_not_publish`
+  (`game/ambition_app/tests/the_engine_can_be_asked_questions.rs`) checks every
+  backticked `domain.question` in `docs/planning/**` against the COMPOSED
+  catalog, so publishing a condition cannot leave the guard behind.
+  ⭐ **The rule that makes it usable is the QUESTION-HALF MATCH.** Docs are full
+  of backticked `a.b` tokens (`mod.rs`, `Vec2.x`); a token is suspicious only
+  when its question half is a question the engine really publishes while the
+  whole id is not. Measured over 100 planning docs BEFORE the rule was written:
+  it fires on the real defects and on nothing else.
+  ⚠ **A doc may name a wrong id deliberately — several must, because the
+  correction is their subject — so the escape is a rule worth having anyway:
+  name the correct id in the same paragraph.** A wrong spelling alone is a
+  defect; a wrong spelling beside its correction is documentation. Two live
+  sites depend on this and stay green.
+  ⓘ **This generalises past conditions and is NOT generalised yet, deliberately.**
+  Any authored vocabulary whose ids are strings — condition ids, flag names,
+  quest ids — has the same hole. Conditions got the guard because they had the
+  measured defect; the next family should get one when it earns it the same way,
+  not on the strength of this paragraph.
+
 - ▢ **D33 — continue actor-monolith decomposition by coherent ownership.** Pick a
   carve that removes a real authority/dependency edge from the residual actor
   kernel, moves registration/tests with the domain, and improves capability or

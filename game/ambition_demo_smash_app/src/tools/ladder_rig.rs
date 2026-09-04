@@ -669,7 +669,12 @@ fn report_which_fighters_are_in_play() {
             // to know whether the number answers their question.
             format!(
                 ". ⛔ Neither is `{george}`, the demo's one fully authored fighter — \
-                 these carry `fighter_moveset()`, so this measures the STAND-INS"
+                 these carry `fighter_moveset()`, so this measures the STAND-INS. \
+                 Concretely: their unanswered presses are George's plus EIGHT MORE, \
+                 every one a `special` (only `special_forward` answers), because \
+                 `fighter_moveset()` is the one contract that does not go through \
+                 `SmashRepertoire`. They also bind no `attack_dash`, which is why \
+                 they keep tilts George never throws"
             )
         } else {
             String::new()

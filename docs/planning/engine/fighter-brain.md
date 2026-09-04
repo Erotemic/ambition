@@ -863,6 +863,30 @@ job. The rule on this page governs the BRAIN's authored profiles
 ⇒ An auditor checking this rule will find `damage_taken_multiplier` first and
 must not read it as a violation. Two systems, one word.
 
+## What to do next, in order (2026-09-04)
+
+1. ⛔ **Answer the ladder-ownership question** in
+   [`../awaiting-maintainer-decision.md`](../awaiting-maintainer-decision.md).
+   Everything below is measured on the engine floor until it is answered, and
+   Exit criterion 2 — *"repeatable calibration signals across the AUTHORED
+   ladder"* — has never once been tested, which nobody knew.
+2. **Finish the rollout repair: model `Dodge`.** The design is above
+   (`ShadowIntent::Evade { dir }`, direction from the emitter's own `threatened`
+   read, no invulnerability modelling needed). It is 846 of the 983 unmodelled
+   decisions. ⛔ Do not re-order the tiers instead; that produced both bugs.
+3. **Settle whether the `Shield` model earns its place.** It fixes a real
+   suppression and its ladder effect is unresolved — `6 vs 5` improved, `9 vs 6`
+   worsened, both within spread. A 15-seed paired comparison decides it.
+4. **Re-run the flat-vs-platforms comparison** once the respawn/tier collision is
+   ruled on, and use `closest_approach` on the unfought rows to say whether the
+   fighters fail to navigate or decline to commit.
+
+⚠ **And the standing rule, now with a worked example behind it:** do not tune
+rollout depth, heuristics, APM, reaction or weights without a trace naming the
+responsible decision. The dodge finding came from `AMBITION_FIGHTER_TRACE=1` and
+a per-rung count; every reading of it before that trace — including two of mine —
+was wrong about the cause.
+
 ## Exit
 
 This plan can close when:

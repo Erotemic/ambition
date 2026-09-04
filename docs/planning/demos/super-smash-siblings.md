@@ -338,8 +338,9 @@ that could not resolve its subject.
 the qualifier: stocks level at `2 : 2`, the lower rung dealing more damage, and
 `frame_advantage` + `expected_payoff` isolated **byte-for-byte** as reproducing
 the whole effect. ⇒ Read `5 vs 3` as *"a defect with a named cause and an
-unconfirmed significance label"*, not as withdrawn — and re-take it first once the
-rig is fixed.
+unconfirmed significance label"*, not as withdrawn — and re-take it first. ✔ The rig
+itself was fixed 2026-09-04 (`36dd9a248`); what is still outstanding is a machine
+with the disk to re-run the cells through it.
 
 ⚠ **The hold covers the descriptive columns as well.** `median()` was corrected in
 the same pass — it returned the upper-middle order statistic and every `--paired`

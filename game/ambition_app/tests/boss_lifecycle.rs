@@ -61,6 +61,27 @@ fn spawn_mockingbird(sim: &mut Platformer2dSimHarness, runtime_id: &str) {
 /// Drive the boss to death by mutating its ENTITY-LOCAL state (R3: the entity is
 /// the source of truth). `update_boss_encounters` then runs the death outro +
 /// records the consequences the tests assert.
+///
+/// ⛔⛔ **IT DROPS NOTHING, AND THE REWARD ASSERTION BELOW PASSES ANYWAY.**
+/// Every boss drop — the signature gauntlet, the ability pickup, the dropped
+/// weapon, the coin bag — is spawned inside `apply_boss_hit`'s `killed` branch,
+/// and `apply_boss_hit` has exactly ONE call site: `apply_feature_hit_events`
+/// (`features/ecs/damage/mod.rs:819`). Writing HP to zero and calling
+/// `phase.kill()` never enters it.
+///
+/// ⚠ `defeated_boss_is_recorded_cleared_drops_reward_and_clears_music` still
+/// sees its chest because `sync_boss_reward_chests_ecs`
+/// (`ambition_boss_encounter/src/rewards.rs:24`) is driven by the SAVE's cleared
+/// record, not by the kill — *"idempotently ensure cleared boss encounters have
+/// ECS reward chests"*. So the chest half is real and the kill-road half is
+/// untested, and the test's name does not distinguish them.
+///
+/// ⇒ **Do not reason about boss drops through this helper.** A test that wants
+/// the real road must deliver a `HitEvent` — and must STEP until the phase is
+/// attacking first: `BossEncounterPhase::boss_invulnerable()` is true for
+/// `Dormant | Intro | Transition | Death`, so a hit on frame 1 is rejected
+/// however large it is (measured 2026-09-03: 9,999 damage during Intro did
+/// nothing). Killable phases are `Phase1`, `Phase2`, `Enrage`, `Stagger`.
 fn force_kill_boss(sim: &mut Platformer2dSimHarness, runtime_id: &str) {
     let world = sim.world_mut();
     let mut q = world.query::<(

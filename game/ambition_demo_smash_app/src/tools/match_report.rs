@@ -437,9 +437,17 @@ fn report_one(character: &str, seconds: usize, totals: &[Tally], carried: &[Stri
     if !moves.is_empty() {
         let mut rows: Vec<_> = moves.into_iter().collect();
         rows.sort_by(|a, b| b.1.cmp(&a.1).then_with(|| a.0.cmp(b.0)));
-        println!("\nwhat the bodies actually threw:");
+        // ⛔ THE TOTAL FIRST, AND SAY WHEN ROWS ARE WITHHELD. A bare `take(12)`
+        // hides exactly the question a census is asked — "did anything NEW start"
+        // — because a thirteenth move is dropped in silence. The sibling census in
+        // `capture_probe` had the same defect and George's list is exactly 12 rows
+        // long, so it was always full.
+        println!("\nwhat the bodies actually threw: {} distinct", rows.len());
         for (id, count) in rows.iter().take(12) {
             println!("  {id:<28} {count:>5}");
+        }
+        if rows.len() > 12 {
+            println!("  … and {} more not shown", rows.len() - 12);
         }
     }
     // ⭐ HOW OFTEN A FIGHTER CHANGES ITS MIND about which way to walk. The

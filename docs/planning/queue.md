@@ -824,6 +824,29 @@ queue read as an execution authority for work already done.
   NOT a fix.
   ⚠ **Not yet run.** Steps 1-4 are each verified by reading the code; the
   consequence in the arrow is predicted. Say so until a run says otherwise.
+  ⛔⛔ **AND THE BOSS ROAD HAS NO COVERAGE, WHICH IS WHY NOTHING CAUGHT IT.**
+  Traced 2026-09-03 after ToothbrushAmbition's fixture reached `Death` and NO
+  gauntlet dropped at all. `BossConfig.behavior` is filled only by
+  `BossBehaviorProfile::for_authored_boss(catalog, canonical_id)`
+  (`crates/ambition_boss_encounter/src/clusters.rs:280`), and `canonical_id`
+  comes from the brain or the name (`behavior.rs:174`). Their fixture's boss is
+  `gauntlet_boss`, which **appears zero times in
+  `game/ambition_content/assets/data/boss_profiles.ron`** — so it resolves to no
+  authored profile, `signature_gauntlet` is `None`, and `boss_hit.rs:301`'s
+  `if let (Some(gauntlet_id), Some(parent))` never fires. No drop, no warning.
+  ⭐ **The mapping IS guarded and the ROAD is not.**
+  `boss_signature_gauntlets_map_to_real_wielded_held_items`
+  (`crates/ambition_platformer2d_actor_monolith/src/features/ecs/damage/tests.rs:989`)
+  pins every RON gauntlet id against its ability const. What nothing guards is
+  that a HARNESS-STAGED boss gets a profile-less config silently — and every
+  boss test in the repo goes through `spawn_boss_at`. ⇒ A guarded data table
+  plus a spawn road that never reads it: the same shape as the census above,
+  where the assertion is right and the population never includes the case.
+  ⇒ Fixture fix is one word — name the boss `trex_boss` (`shockwave`),
+  `mockingbird` (`volley`), `smirking_behemoth_boss` (`beam`) or
+  `mode_collapse_boss` (`vortex`), all of which declare a gauntlet.
+  ⚠ Source reads, not a run.
+
   ⭐ **AND IT IS THE FIGHTER'S BEST REWARD.** `damage/boss_hit.rs:305` drops the
   boss's signature gauntlet through this exact function — the comment above it
   says *"the player literally wields the boss's move"* — and

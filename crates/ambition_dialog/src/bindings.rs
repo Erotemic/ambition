@@ -12,6 +12,24 @@ use bevy_yarnspinner::prelude::DialogueRunner;
 /// This is not an authority: facts already exposed through the authored-condition
 /// catalog must be queried there rather than duplicated here. The `Arc<RwLock<_>>`
 /// lets runner-library closures read the projection without borrowing a Bevy resource.
+///
+/// ⭐⭐ **AND THE "QUERIED THERE" RULE HAS TEETH NOW — THIS TYPE HAS SHRUNK
+/// THREE TIMES BY IT.** `flag` left when `world.flag_set` was published;
+/// `bosses_cleared` and `quests_active` left on 2026-09-04 when `boss.cleared`
+/// and `quest.active` were. Each time the Yarn function stayed, its NAME stayed,
+/// and authored `.yarn` content was untouched — the function became a registered
+/// system asking the catalog live instead of a closure over a field here.
+///
+/// ⇒ **So a new field is a claim that the catalog cannot answer the question**,
+/// and the burden is on the field. What is left is deliberately not migrating:
+/// `visit_counts` is dialogue's own bookkeeping rather than a world fact, and
+/// `wallet_balance` is a NUMBER the catalog's boolean-outcome shape cannot
+/// express without inventing a comparison vocabulary. ⛔ An empty mirror is not
+/// the goal; one authority per question is.
+///
+/// ⚠ NOT EVERY READER IS A CLOSURE ANY MORE. The functions that migrated take
+/// `&mut World`, because a catalog evaluator does; the ones still here are
+/// closures over the `Arc`, which is what the sentence above describes.
 #[derive(Default, Clone, Debug)]
 pub struct YarnStateMirrorData {
     /// dialogue id → visit count.

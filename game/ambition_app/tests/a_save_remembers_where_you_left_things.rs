@@ -528,3 +528,97 @@ fn a_consumed_occurrence_is_not_resurrected_by_a_load_and_an_untouched_one_is_un
          restored row put it. Found at {where_it_is:?}"
     );
 }
+
+/// The boss whose profile authors a `signature_gauntlet`, and the id that
+/// gauntlet reaches the world under. ⛔ `volley` has NO `Item` row: it resolves
+/// only through `ambition_characters`' `HELD_ITEMS`, which is the point.
+const GAUNTLET_BOSS: &str = "saved_gauntlet_boss";
+const GAUNTLET: &str = "volley";
+
+/// The identity of the gauntlet the BOSS dropped, told apart from the one the
+/// world authors by its provenance.
+fn dropped_gauntlet(sim: &mut Platformer2dSimHarness) -> Vec<SimId> {
+    let mut query = sim.world_mut().query::<(
+        &ambition_platformer2d::held_items::GroundItem,
+        &SimId,
+        &ambition_platformer2d::platformer::construction::SpawnOrigin,
+    )>();
+    query
+        .iter(sim.world())
+        .filter(|(ground, _, origin)| {
+            ground.spec.id == GAUNTLET
+                && matches!(
+                    origin,
+                    ambition_platformer2d::platformer::construction::SpawnOrigin::Dynamic { .. }
+                )
+        })
+        .map(|(_, sim_id, _)| sim_id.clone())
+        .collect()
+}
+
+/// A RUNTIME MINT THE ITEM CATALOG HAS NEVER HEARD OF SURVIVES A FRESH PROCESS.
+///
+/// ⛔⛔ THE POINT IS THE REGISTRY, NOT THE ITEM. `held_spec_by_id` consults the
+/// item catalog AND `ambition_characters`' `HELD_ITEMS`, and its own comment
+/// says consulting one alone "silently loses half the items". Every other arm in
+/// this file and its siblings carries a spec the CATALOG knows — the axe, the
+/// gun-sword, the grapple, the menu-minted javelin. `volley` has no `Item` row
+/// at all, so `Item::from_held_item_id` answers `None` and only the second
+/// registry can rebuild it.
+///
+/// The durable road this proves, end to end and across a process boundary:
+///
+/// ```text
+/// mint     a real boss kill leaves the gauntlet on the floor with an identity
+/// hand     the ordinary pressed pickup
+/// bank     a shrine rest, so the MINTED description reaches the save file
+/// load     a fresh harness, the file, and the production restore latch
+/// ```
+///
+/// ⇒ If the brain-registry arm of `held_spec_by_id` were ever dropped, the load
+/// would warn "no item spec answers to that id" and the hand would come back
+/// empty — which is the only failure this test can produce and the reason it is
+/// worth a boss kill.
+#[test]
+fn a_gauntlet_the_item_catalog_never_heard_of_is_still_in_your_hands_after_a_load() {
+    let mut sim = fixed_60hz_room_sim(TWO_ITEM_ROOM);
+    sim.step_n(base(), 30);
+    assert!(
+        dropped_gauntlet(&mut sim).is_empty(),
+        "precondition: the authored `{GAUNTLET}` on the hub's shelf is a \
+         different road and must not be counted as the drop"
+    );
+
+    crate::boss_lifecycle::spawn_mockingbird(&mut sim, GAUNTLET_BOSS);
+    crate::boss_lifecycle::kill_boss_with_a_real_hit(&mut sim, GAUNTLET_BOSS, 600);
+    sim.step_n(base(), 120);
+
+    let dropped = dropped_gauntlet(&mut sim);
+    assert_eq!(
+        dropped.len(),
+        1,
+        "the kill must leave exactly one dropped gauntlet, or the load below \
+         proves nothing"
+    );
+    let occurrence = dropped.into_iter().next().expect("one drop");
+
+    pick_up(&mut sim, &occurrence);
+    crate::death_restores_the_checkpoint::commit_a_checkpoint(&mut sim);
+    let file = the_file(&sim);
+
+    let mut fresh = boot_with(TWO_ITEM_ROOM, &file);
+
+    let after = occurrences(&mut fresh, &occurrence);
+    assert_eq!(
+        after.len(),
+        1,
+        "exactly one live occurrence of `{}` after the load: zero means the \
+         durable road could not rebuild a spec the item catalog does not know, \
+         two means it built one beside the one it restored. got {after:?}",
+        occurrence.as_str()
+    );
+    assert!(
+        !after[0].1.in_world(),
+        "and it is in the HAND the save recorded, not lying on the floor"
+    );
+}

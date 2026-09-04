@@ -186,9 +186,17 @@ spec only the SECOND one knows** — the boss gauntlets (`volley`, `meteor`,
 `a_boss_gauntlet_banked_at_a_checkpoint_returns_to_the_hand_that_banked_it`
 restores a `volley` through `held_spec_by_id`, so a regression that dropped the
 brain-registry arm would redden it.
-⇒ **The residual is the OTHER FOUR operations on a catalog-unknown spec** —
-pickup identity, room transition, drop, save/load. Widen by REGISTRY, not by
-count: a sixth catalog item adds nothing the first five did not already say.
+✔ **SAVE/LOAD CLOSED 2026-09-04 for a catalog-unknown spec.**
+`a_gauntlet_the_item_catalog_never_heard_of_is_still_in_your_hands_after_a_load`
+drives the whole durable road across a process boundary: a real boss kill mints
+the gauntlet, the pressed pickup takes it, a shrine rest puts the MINTED
+description in the save file, and a fresh harness boots with that file and finds
+it in the hand. Poison-verified on the claim the test names — delete
+`held_spec_by_id`'s `.or_else(held_item_by_id)` arm and the hand comes back empty
+(`got []`), which is the only failure it can produce.
+⇒ **The residual is the OTHER THREE operations on a catalog-unknown spec** —
+pickup identity, room transition, drop. Widen by REGISTRY, not by count: a sixth
+catalog item adds nothing the first five did not already say.
 
 ✔ **AND RE-MEASURING FOUND ONE REAL DEFECT, FIXED 2026-09-04: a death drop had
 no identity, so the same object was an occurrence or not depending on how it was

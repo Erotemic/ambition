@@ -152,7 +152,7 @@ fn pick_up(sim: &mut Platformer2dSimHarness, at: (f32, f32), authored: &SimId) {
 /// the shrine is despawned again afterwards. It is a fixture prop, and one
 /// left standing would re-commit a checkpoint every time a later beat presses
 /// Interact for some other reason.
-fn commit_a_checkpoint(sim: &mut Platformer2dSimHarness) {
+pub(crate) fn commit_a_checkpoint(sim: &mut Platformer2dSimHarness) {
     let (x, y) = body_pos(sim);
     let shrine = sim
         .world_mut()

@@ -523,14 +523,32 @@ migration larger.
 When several feature rows are assigned in parallel, coordinate around these
 shared semantics. The ID is a planning reference, not a new runtime registry.
 
-⚠ **THIS TABLE UNDER-CLAIMS, measured 2026-09-03.** It carried two ✔ marks out
-of fourteen; `P01` and `P04` had both shipped and neither row knew — `P04`'s
-system is named as consumed in this page's own staleness paragraph. ⇒ **A row
-with no mark means NOBODY HAS CHECKED, not that it is absent.** The remaining
-ten are unverified in that sense and each needs reading before it is quoted as a
-gap: `P06`'s facts are demonstrably live (`initial_dash_time`,
-`turnaround_time`, `teeter_margin` in `LocomotionTuning`) even though its row is
-still unmarked here.
+⚠ **THIS TABLE UNDER-CLAIMED, AND ALL FOURTEEN ROWS ARE NOW MEASURED
+(2026-09-03).** It carried **two** ✔ marks out of fourteen. The finished count:
+
+| verdict | count | rows |
+|---|---:|---|
+| ✔ shipped | 10 | `P01` `P03` `P04` `P05` `P06` `P07` `P08` `P09` `P12` `P13` |
+| ◐ partial, with the split named | 3 | `P02` `P10` `P11` |
+| ⬚ absent | **0** | — |
+| ✔ shipped, one named fact short | 1 | `P14` |
+
+⛔ **THE ABSENT COLUMN EMPTIED ITSELF UNDER MEASUREMENT, and that is the
+finding.** Not one of the twelve unmarked rows turned out to be an unbuilt
+primitive. A reader treating blank as "not built" would have rebuilt foundations
+that already exist — which is the specific cost this table was carrying.
+
+⇒ **What is actually thin is the layer ABOVE the primitives.** The mechanisms
+shipped; the things that spend them mostly did not. `P01` has charge with **one**
+authored move using it. `P06` has the locomotion facts and **no** derived moves.
+`P10` has every tech surface and **no** published result. `P11` has the capture
+seam and **2 of 6** authored roads. ⇒ The next slice off this table is almost
+never "build a primitive" — it is "author a customer for one that already
+exists", which is cheaper than the row's Class suggests.
+
+⇒ **A row with no mark means NOBODY HAS CHECKED, not that it is absent** — kept
+here because it is the rule that made the count wrong, and the next table
+inherits it.
 
 | ID | Primitive | Class | Owner / purpose |
 |---|---|---:|---|

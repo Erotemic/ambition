@@ -483,9 +483,22 @@ pub fn run(args: CaptureProbeArgs) {
     );
     let mut started: Vec<(String, u32)> = moves_started.into_iter().collect();
     started.sort_by(|a, b| b.1.cmp(&a.1).then_with(|| a.0.cmp(&b.0)));
-    println!("[capture_probe]   moves started:");
+    // ⛔ THE DISTINCT COUNT IS THE ANSWER; THE ROWS ARE AN ILLUSTRATION. A census
+    // is usually run to see whether something NEW started, and a bare `take(12)`
+    // cannot express that — the fighters here use around a dozen distinct moves,
+    // so the list runs full and a further move falls off the end unseen.
+    println!(
+        "[capture_probe]   moves started: {} distinct",
+        started.len()
+    );
     for (id, count) in started.iter().take(12) {
         println!("[capture_probe]     {count:>4}  {id}");
+    }
+    if started.len() > 12 {
+        println!(
+            "[capture_probe]     … and {} more not shown — re-read the distinct count above",
+            started.len() - 12
+        );
     }
     if started.is_empty() {
         println!("[capture_probe]     (none — nobody swung at all, so this match was not a fight)");

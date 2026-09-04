@@ -41,6 +41,16 @@ than as two more rows.**
 ✔ **Both fixed together (`36dd9a248`), compiled and poison-verified by a sibling
 session.** ⛔ **NOTHING BELOW HAS BEEN RE-RUN THROUGH THE REPAIRED RIG.**
 
+⚠ **AND A LIMITATION OF THE REPAIRED TOOL, WORTH KNOWING BEFORE THE RE-RUN: a
+paired verdict cannot be re-derived from the printed output.** The direction and
+the qualifier now both come from the per-seed split, but **the split itself is not
+printed** — `row_verdict` returns only `(word, within_spread)`. ⇒ A reader sees
+`higher outfights` beside pooled median columns that no longer decide anything,
+with no way to check the 16-versus-4 that produced it. ⓘ Not changed here:
+printing it means widening a return type, which is real code, and this box cannot
+compile. ⭐ Cheap for whoever can — it is the difference between a verdict you can
+audit and one you must trust.
+
 ⇒ **So: treat every *significant* / *(within spread)* label and every median column
 below as PRE-FIX.** ⭐ What survives untouched is anything established by
 **comparing two arms byte-for-byte against a control** — the weight isolation, the

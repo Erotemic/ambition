@@ -2477,6 +2477,30 @@ queue read as an execution authority for work already done.
   more — a `Hold` verb gives the MOVEMENT axis a decline; whether the ATTACK axis
   needs one too (waiting for a punish window is a real fighting-game behaviour) is
   part of the same design call and should be answered with it, not after it.
+  ⛔⛔ **AND THE OBVIOUS FIX HAS A PREDICTED FAILURE MODE, WITH PRECEDENT IN THE
+  SAME FILE — so the design call should meet it rather than discover it.** Adding a
+  `Hold` verb means offering an option whose outcome is *nothing happens*, and
+  `options.rs` already records what that did once before: `Jump` was offered
+  unconditionally until a body with an empty jump budget was *"handed an option
+  pressing does nothing for"*, and the note explains why that is worse than a
+  wasted press — **L3 rolls the verb, the line goes nowhere, and *nowhere scores as
+  safe*.** ⚠ A `Hold` is the purest form of that: nothing is attempted, so nothing
+  can go wrong in a rollout, so it can dominate.
+  ⇒ **Which predicts the exact way a naive fix would pass its own test**: a fighter
+  that mostly stands still throws fewer dash attacks, so the dash share falls and
+  variety rises. ⭐ That is why the acceptance test's THIRD term — a floor on TOTAL
+  attack starts — is load-bearing rather than cautious, and it is now a named
+  mechanism rather than a worry. ⓘ Two sibling verbs in the same function already
+  carry guards of this shape (`Jump` against an empty budget; the foe-relative
+  verbs against there being no foe), so the precedent for gating `Hold` is
+  established where it would be added.
+  ⓘ **And the scores it would compete against are small AUTHORED constants**, not
+  derived quantities — `Blink` 0.9, `Jump` 0.5 / 0.4 / 0.3 depending on situation,
+  with a ledge penalty of −1.0 applied at the single scoring site. ⇒ **So a
+  `Hold` would need a hand-picked number too, and "nothing happens" has no
+  principled default** — which makes *what should standing still be worth* a
+  third part of the same decision, alongside whether the verb exists and whether
+  the attack axis gets a decline of its own.
 
   ⭐⭐ **THE ACCEPTANCE TEST, DESIGNED 2026-09-04 SO THE DESIGN CALL ARRIVES WITH
   ITS MEASUREMENT ALREADY BUILT** — and it is shaped entirely by how fix (a)
@@ -2507,6 +2531,22 @@ queue read as an execution authority for work already done.
   `Approach` — 90%. ⇒ A joint-scoring change must move THAT ratio; if tilts start
   while the ratio holds at 90%, something else changed and the explanation in this
   row is still wrong.
+
+  ⛔⛔ **AND THE INSTRUMENT WOULD HAVE HIDDEN THE FIX WORKING — found 2026-09-04 by
+  checking it instead of assuming it.** `capture-probe`'s census printed a bare
+  `.take(12)` with no total and no truncation notice, and **George's census is
+  exactly 12 distinct moves**. ⇒ The list was always full, so a THIRTEENTH move
+  starting — a first tilt, which is criterion (1) — would have been dropped in
+  silence and the arm would have read as a negative result. ✔ Fixed
+  (`249d82b66`): the distinct count prints first and the tool says how many rows
+  it withheld. ⚠ **Re-read that count, not the visible rows**, when checking
+  ✔ **BOTH INSTRUMENTS BEHIND THIS TEST HAVE NOW BEEN CHECKED, not assumed.** The
+  census truncated and is fixed; the contingency table's source
+  (`AMBITION_FIGHTER_TRACE=1`) prints the FULL offered/vetoed/chosen lists per
+  decision with no cap, so the 73-of-81 ratio can be re-derived exactly. ⇒ An arm
+  that comes back flat now means the fighter did not change, rather than that the
+  tooling could not say.
+  criterion (1).
 
   ⚠ **Cost, so nobody starts it blind**: each arm is a full release build of the
   composed demo plus a 120s probe. The census is per-fighter, so George alone
@@ -3808,6 +3848,27 @@ OPTIONAL dep + feature, never used:
     good or bad without asking which happened.
 - ▢ **D166 — make the character-authoring boundary load-bearing where a real
   character still bypasses it.** Prepared character definitions are already
+  ⭐⭐ **A THIRD SLICE CANDIDATE, MEASURED 2026-09-04 AND ALREADY EVIDENCED
+  ELSEWHERE: `fighter_moveset()` is a real character bypassing this exact
+  boundary.** `SmashRepertoire` has **nineteen** fields and **zero** `Option`s —
+  jab, three tilts, three smashes, five aerials, four specials, capture, taunt,
+  dash attack — so a moveset built through `into_contract()` **cannot** have a
+  partial kit; the struct literal will not compile without every slot. Every
+  smash-seatable moveset reaches that constructor (fourteen directly; medic,
+  performer, author and officer by `under_own_name` with one slot swapped).
+  ⇒ **`fighter_moveset()` is the ONE that hand-writes a verb list instead** — and
+  that is exactly why the two stand-ins answer **eight fewer `special` presses**
+  than George while nineteen other fighters *cannot* be short one.
+  ⭐ **So this is the boundary being load-bearing, demonstrated by its absence**:
+  the fighters that went through the type are complete by construction, and the
+  one that went around it is the one with the hole. ⚠ It is ALSO a maintainer
+  question about how thin a stand-in should be — indexed as decision 2 in
+  [`awaiting-maintainer-decision.md`](awaiting-maintainer-decision.md) — so this
+  slice wants that answer first, not a migration on architectural grounds alone.
+  ⓘ Note the boundary is not all-or-nothing even here: the same file builds its
+  capture half THROUGH `SmashCaptureRepertoire` and hand-writes only the attack
+  verbs. The half it took from a type is complete; the half it wrote is the half
+  with the hole.
   immutable and the first Smash fighter facet exists. Re-measure the current
   residuals before migrating another field. The startup-reach proxy is a
   maintainer decision (§35), not an excuse to widen generic character data.
@@ -3862,8 +3923,16 @@ OPTIONAL dep + feature, never used:
   re-checked: whether the tests still PASS, which needs a build.
   Seven comments cited two identifiers that do not exist (`smash_fighter_kit()`,
   `character_id_for_display_name`); all seven now name what is really there.
-  ✔ RE-CENSUSED 2026-09-02 AND STILL NO CANDIDATE — the sweep is recorded in the owner doc rather than left as an instruction. Three populations searched (id-keyed branches; writes to `definition.vitals`/`.locomotion`/`.movement_tuning` outside `authored/`; demo writes to facts a demo does not own) and every hit is a character authoring its OWN facts. ⚠ ONE ASYMMETRY, explicitly NOT a slice: `CharacterDefinition` has 22 `with_*` builders and none for `vitals`, so every character assigns the public field — an ergonomic gap with no second road to delete, and the five-part test needs one. ⛔ NOT a residual: eleven grid fighters on the
-  actor baseline is a MISSING author, not a duplicate one.
+  ✔ RE-CENSUSED 2026-09-02 AND STILL NO CANDIDATE — the sweep is recorded in the owner doc rather than left as an instruction. Three populations searched (id-keyed branches; writes to `definition.vitals`/`.locomotion`/`.movement_tuning` outside `authored/`; demo writes to facts a demo does not own) and every hit is a character authoring its OWN facts. ⚠ ONE ASYMMETRY, explicitly NOT a slice: `CharacterDefinition` has 22 `with_*` builders and none for `vitals`, so every character assigns the public field — an ergonomic gap with no second road to delete, and the five-part test needs one. ⛔ NOT a residual: a grid fighter that authors no
+  fighter body of its own is a MISSING author, not a duplicate one. ⚠ **The old
+  wording — *"eleven grid fighters on the actor baseline"* — was corrected
+  2026-09-04**: they are not on the actor baseline. `apply_smash_match_rules` sets
+  `roster.rules.body = Some(SMASH_FIGHTER_BODY)`, so the ruleset hands every seat
+  a platform-fighter body and an unauthored fighter is LEFT on it rather than
+  dropped; the actor baseline is what a seat gets where no ruleset body is
+  declared. The count matched nothing current either (23 wish list, ≥8 composed,
+  3 standalone, and exactly ONE authored `smash_fighter` facet). See the owner
+  doc.
   Owner:
   [`engine/character-authoring-package.md`](engine/character-authoring-package.md).
 

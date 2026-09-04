@@ -187,7 +187,13 @@ one"*), and the crate it credits, `ambition_characters`, has **no `systems.rs`
 anywhere in its source**. The ambiguity report is what surfaced it. Passed to
 the session that owns the file.
 
-## ⚠ THREE MUSIC-RENDERER TESTS NEED AN UNDECLARED DEPENDENCY (measured 2026-09-04)
+## ⚠ OPEN — three music-renderer tests need an undeclared dependency
+
+ⓘ **Re-verified 2026-09-04 late: still open.** `matplotlib` is absent from
+`tools/ambition_music_renderer/pyproject.toml`. ⚠ Not taken here: that submodule
+belongs to the other session's slice, editing it means a commit inside the
+submodule plus a superproject pointer bump — the exact move that went wrong
+earlier today — and this box cannot run the suite to confirm a fix.
 
 ⭐ **Jon's standing ask is that a fresh clone reaches a runnable game.** Checking
 the other standing ask — no General-MIDI stand-ins — turned this up beside it.
@@ -225,7 +231,21 @@ edit.
 on a path three tests assert) or the three tests learn to skip without it. The
 second is cheaper; the first is honest if those plots are part of the artefact.
 
-## ⚠ A PORTAL TEST HARNESS `.chain()`s WHERE PRODUCTION ONLY `.after()`s (2026-09-04)
+## ⚠ NEEDS RE-VERIFICATION — a portal test harness `.chain()`d where production `.after()`d
+
+⛔ **THE SYMBOLS THIS ENTRY NAMES HAVE MOVED, re-checked 2026-09-04 late.**
+`portal_projectile_step` now survives only inside a doc comment; the production
+plugin has `step_portal_shot` / `PortalShotStep`, and its one `.chain()` is in
+`PortalSet::Transit` — a different set from the `PortalSet::WeaponAndProjectiles`
+this entry is about. ⇒ **So this is neither confirmed nor closed**: the area was
+refactored under it, and saying "still true" or "fixed" would both be guesses.
+⚠ Outside this session's slice, so it is flagged rather than chased.
+
+⭐ **And it is an instance of the trap two entries above** — *"a bare filename
+citation decays without anyone touching it"*. This one decayed by SYMBOL rather
+than by path, which no link checker looks at, and it decayed in under a day.
+
+⇒ The original finding, kept verbatim below for whoever re-derives it:
 
 ⭐ **Verified, and it is a difference in FLUSH SEMANTICS rather than in order.**
 
@@ -411,6 +431,23 @@ suggested.
 
 ## ⛔ OPEN — the composed app cannot be built on this VM, and `df` says otherwise
 
+⭐⭐ **WHEN A MACHINE CAN BUILD, RUN THESE IN THIS ORDER.** Everything below was
+prepared while blocked, so none of it needs re-deriving:
+
+| # | command | what it settles | why this order |
+|---|---|---|---|
+| **0** | `scripts/setup/target_bindmount.sh --status` | ⭐ **whether a build can happen at all** — prints the repo's filesystem, whether `target/` is BOUND and to what, and its size, in six lines | `AGENTS.md` says to run it before the first build of every session. I did not, and re-derived its entire output by hand with `findmnt`, `stat`, `du` and `dd`. |
+| 1 | `cargo test -p ambition_demo_smash` | the three guards touched 2026-09-04, one of which (`the_side_special_...`) was restored WITHOUT ever being run | cheapest, and a red here invalidates reasoning below it |
+| 2 | `cargo test -p ambition_demo_smash_app` | the rig's own poison arms, including the row-level one | the instrument must be trusted before its output is |
+| 3 | `cargo run --release -p ambition_demo_smash_app --bin smash_tool -- ladder-rig --ladder game/ambition_content/assets/data/fighter_brain_ladder.ron --paired --seeds 12` | **the four held ladder cells** — `3 vs 1` and `5 vs 3` are UNCONFIRMED | the single biggest open question on the fighter surface |
+| 4 | `cargo test -p ambition_app --test app_it report_the_smash_kit -- --nocapture` | the composed roster's kit census | now corroboration, not load-bearing — the type argument answered it |
+| 5 | `cargo run --release -p ambition_demo_smash_app --bin smash_tool -- capture-probe --character smash_george_booul --ladder <same ron>` | `D-BRAIN-MENU`'s control arm | only needed if somebody takes decision 5 |
+
+⛔ **Read the header line of (3) before its table.** If the clock does not say the
+shipped eight minutes, or the ladder line does not say AUTHORED, stop — those two
+misconfigurations produced every superseded number on
+[`engine/fighter-brain.md`](engine/fighter-brain.md).
+
 **What is blocked:** every measurement that needs `ambition_app`. Concretely
 `report_the_smash_kit_every_selectable_fighter_has`
 (`game/ambition_app/tests/smash_roster_movesets.rs`), which hard-asserts that
@@ -432,9 +469,93 @@ cargo test -p ambition_app --test app_it report_the_smash_kit -- --nocapture
 | 3 (sequential) | `mold: error: undefined symbol: <bevy_ggrs::…>::Rollback` | a *named* symbol — the rlib attempt 1 truncated was still cached, and cargo's fingerprint called it fresh |
 | 4 (after `touch`ing that crate's `lib.rs`) | `mold: failed to write to an output file. Disk full?` | the rlib rebuilt clean; the final `libambition_app.so` is what cannot be written |
 
-⭐ **`df` is not the instrument here.** It reports **188G free, inodes at 5%** —
-and those numbers are the HOST's, because the worktree is a **virtiofs**
-passthrough (`findmnt` → `aivm-persistent-root … virtiofs`). Measured against the
+⛔⛔⛔ **BEFORE ANY OF THIS: `AGENTS.md` ALREADY DOCUMENTED IT, AND I DID NOT READ
+IT.** Its instruction is unambiguous — *"RUN `scripts/setup/target_bindmount.sh
+--status` BEFORE YOUR FIRST BUILD, EVERY SESSION, AND ACT ON WHAT IT SAYS"* — and
+the paragraph under it states, for **this VM by name**: *"on a VM where the bind
+target lives on the same device as `/` (the calculex VM: `/dev/vda1`), a full
+`target/` is a full ROOT. The symptom is not a cargo error: the harness's own task
+files start failing with `ENOSPC` and command output is lost mid-session, which
+looks like tooling breakage."* It even names the biggest consumer
+(`target/debug/incremental`, 156G in a previous instance) and says to run
+`df -h /tmp` before starting a second profile.
+
+⇒ **So the hours spent diagnosing this were spent re-deriving the project's own
+instructions.** ⚠ The lesson is not "read the docs" in the abstract: it is that a
+session's FIRST build is the moment the instruction exists for, and I invoked
+`cargo` directly before ever consulting the file that `CLAUDE.md` says to treat as
+`CLAUDE.md`. ⭐ `run_tests.sh` already calls `target_bindmount.sh --check`, so the
+lane I did not use would have refused and told me why.
+
+ⓘ **What is genuinely additive below**, and the reason this entry survives rather
+than being deleted: the bind is PRESENT here (`findmnt` confirms it), so this is
+NOT the absent-bind case `AGENTS.md` describes — the space is really in use — and
+the `df .` versus `df target` distinction is stated here in a form the instruction
+does not give.
+
+⭐⭐ **THE MECHANISM, PINNED 2026-09-04 LATE — and it is sharper than "the disk is
+full".** `target/` is **BIND-MOUNTED FROM A DIFFERENT FILESYSTEM than the repo it
+sits in**:
+
+```
+findmnt --target target  →  /dev/vda1[/home/agent/.cache/ambition-targets/ambition--a3386a669b]  ext4
+findmnt --target .       →  aivm-persistent-root[/hostcode-ambition-a3386a66]                    virtiofs
+```
+
+⇒ Same `device:inode` as that cache directory (`64769:5056595`), so it is one
+store under two paths.
+
+✔ **AND THIS IS DELIBERATE, not an accident to be undone** — `scripts/setup/target_bindmount.sh`
+exists to do it, and its reasoning is good: *"the repo may live on a shared
+filesystem, but Cargo still sees its ordinary per-worktree target directory, so no
+`CARGO_TARGET_DIR` coordination is required and parallel worktrees do not share
+locks or artifacts."* ⇒ **What is new here is not the mount, it is the
+CONSEQUENCE**: the volume a build writes to is not the one `df .` describes, and
+that one fact accounts for every confusing measurement in this entry. **The repo's build output physically lives on the ROOT
+filesystem**, and `/home/agent/.cache/ambition-targets` is **187G of a 290G root**.
+
+⇒ **That explains every symptom at once**: `df .` answers for virtiofs and says
+188G because those are the HOST's numbers; `df target` answers for `/dev/vda1` and
+says the truth.
+
+⛔ **AND "JUST USE `df -h target`" IS ITSELF AN OVER-CORRECTION — `AGENTS.md` says
+CHECK BOTH, and it is right.** Its words: *"`--status` reports the MAIN target
+only, so it says BOUND while a nested workspace fills the shared disk. Check
+`df -h .` as well as `df -h target`."* ⇒ The two answer different questions and
+**both are load-bearing**:
+
+| command | the volume | what fills it |
+|---|---|---|
+| `df -h target` | `/dev/vda1`, via the bind | the main workspace's build output — **187G** here, and the reason builds fail |
+| `df -h .` | the shared virtiofs worktree | **nested workspace targets, which are NOT bound** |
+
+✔ **And the nested case is live here, 33G of it**, found by taking that sentence
+seriously: `examples/capability_demo/target` is **21G** and
+`fixtures/minimal_game/target` is **12G**, both on the shared virtiofs mount
+(`findmnt` confirms), neither bound. ⇒ `--status` says `BOUND` and is telling the
+truth about the main target while 33G sits outside its view — exactly the shape the
+instruction warns about.
+
+ⓘ So total build artifacts are **~220G**, not the 187G quoted below: 187G on root
+plus 33G on the shared tree. The 187G is what blocks a build; the 33G is not, which
+is why one number was enough to explain the symptom and is not enough to describe
+the tree. ⓘ [`status.md`](status.md)
+already carries the mechanism and warns that `df` lies on the worktree, and its
+own advice is *"run `scripts/setup/target_bindmount.sh --status` and `df -h .`"* —
+the first is right and the second is the misleading half. ⚠ Reported rather than
+edited: that page is the other session's.
+
+✔ **And the repo's own guard was already correct** — `check_disk_headroom.py`
+measures `free_gb_on_target()`, i.e. the TARGET directory, not the cwd. ⇒ The
+ENOSPC in this session came from invoking `cargo` directly rather than through the
+lane that consults it, which is a fact about how I ran it, not about the guard. A write into `target/` lands on the full disk while the number a
+reader checks describes the other one. ⭐ **And it means the sanctioned reclaim
+under `target/` frees ROOT space directly** — the ~116G is not merely tidying a
+worktree, it is the fix for this volume.
+
+ⓘ The original wording is kept because the reasoning is still right as far as it
+went: `df` on the worktree reports **188G free, inodes at 5%**, and those numbers
+are the HOST's, because the worktree is a **virtiofs** passthrough. Measured against the
 filesystem instead of asked of it:
 
 - 50MB write: fine, 953 MB/s.
@@ -487,7 +608,25 @@ tree 2026-09-04:
 | **total, without `cargo clean`** | **≈116G** |
 
 ⚠ `target/debug/incremental` alone is **77G** — nearly half of `target/debug`'s
-148G, pure incremental cache, and first in that order. ⇒ **~116G is reclaimable
+148G, pure incremental cache, and first in that order.
+
+⭐ **AND THE VOLUME HAS A SECOND, UNRELATED TENANT worth knowing before anyone
+decides what to delete.** `/dev/vda1` is 290G; the ambition target bind mount is
+**187G** of it, and roughly **30G more is stale cache belonging to other work**:
+
+| path | size | last modified |
+|---|---:|---|
+| `~/.elan` (Lean toolchain) | **12G** | 2026-07-29 |
+| `~/lake-cache` (Lean builds) | **12G** | 2026-07-29 |
+| `~/.cache/huggingface` | **4.2G** | 2026-07-31 |
+| `~/.cache/mathlib` | **1.3G** | 2026-08-20 |
+
+⇒ **~30G reclaimable without touching a single ambition build artifact**, none of
+it modified in five weeks. ⛔ Not deleted, and not this session's to delete — it is
+the maintainer's environment and the Lean toolchain may belong to other work. ⓘ
+Recorded only because the ambition reclaim and this one are independent: either
+alone would restore a workable volume, and one of them costs no warm build tree at
+all. ⇒ **~116G is reclaimable
 without touching one artifact another session links against**, by someone holding
 the coordination context this session does not.
 
@@ -668,3 +807,149 @@ the setup ordering is a convenience.** A reordering of the setup phases would no
 silently produce General-MIDI cues — it would fail at the renderer. ⓘ Which also
 means the thing to protect in review is the REFUSAL's completeness, not the
 phase list.
+
+---
+
+## ⭐ CLOSED — the smash demo has NINE instruments and the planning surface knew three
+
+**Measured 2026-09-04, and it explains a pattern rather than just filling a gap.**
+Several times this session, measuring something looked harder than it was — and
+each time a tool for it already existed. So I counted: `smash_tool` carries **nine
+subcommands**, and a sweep of `docs/planning/` (excluding
+[`modal-cli-binary-collapse.md`](modal-cli-binary-collapse.md), which is about the
+binary merge rather than about using them) finds **three**.
+
+| subcommand | what it answers | in planning? |
+|---|---|---|
+| `capture-probe` | what two CPUs do to each other, including a **census of moves STARTED** | ✔ |
+| `ladder-rig` | does rung N beat rung M — the difficulty ladder's own question | ✔ |
+| `select-walkthrough` | what the select screen BELIEVES, driven through the real layout and the real text functions | ✔ (added today) |
+| `match-report` | counts what two CPUs actually do over a match | ✗ |
+| `ladder-probe` | a quick fighter-depth smoke probe | ✗ |
+| `roll-probe` | how far a shield roll actually travels | ✗ |
+| `match-diagram` | draws a RUNNING match | ✗ |
+| `stage-diagram` | draws the stage, including the blastzones | ✗ |
+| `match-shots` | a burst of screenshots from a CPU-versus-CPU match | ✗ |
+
+⇒ **Six instruments are unreachable from the pages where fighter work is planned.**
+⚠ Not a criticism of the tools — every one is documented at its own module head,
+often extremely well. The gap is that a planner reads `queue.md` and the demo
+pages, and nothing there says these exist.
+
+⭐ **The concrete cost, from today:** `match-report` *"counts what two CPUs
+actually DO to each other over a match"* — which is a second, independent census
+beside `capture-probe`'s. `D-BRAIN-MENU`'s whole argument is a census, and I built
+its acceptance test around one tool without knowing a sibling existed. ⇒ Two
+instruments answering one question is worth knowing BEFORE designing the
+measurement, not after; see the *two authors of one number* class recorded in
+`queue.md` for what happens when nobody notices.
+
+⛔⛔ **AND AUDITING THEM FOUND ONE THAT MEASURES THE WRONG CONFIGURATION SILENTLY.**
+Having listed them, I checked which install an `AuthoredFighterLadder`:
+
+| instrument | ladder | verdict |
+|---|---|---|
+| `capture-probe` | `--ladder`, and prints which is in play | ✔ |
+| `ladder-rig` | `--ladder`, and prints which is in play | ✔ |
+| `ladder-probe` | none — **and its own module doc says so**, and names the ladder before printing any number (*"a calibration table that does not name its ladder is worse than no ladder"*) | ✔ honest |
+| `match-report` | none — **said nothing until `104782a83`; now declares the floor before printing** | ✔ fixed |
+| `roll-probe` | none — measures how far a shield roll travels, which is body physics and ladder-independent | ✔ n/a |
+| `stage-diagram` | builds no app at all | ✔ n/a |
+
+⇒ **`match-report` was the only one measuring the floor without declaring it**, and
+it is the instrument [`demos/smash-parity-inventory.md`](demos/smash-parity-inventory.md)
+tells a reader to run before marking a row shipped. ⭐ The fix already existed as a
+pattern one file over: `ladder-probe` has no ladder either and is fine, **because
+it says so in its output**. Declaring the configuration is what separates the two,
+not having the flag — so `match-report` now declares it.
+
+✔ **INVARIANT NOW HOLDS ACROSS THE FOUR BRAIN INSTRUMENTS**: `capture-probe`,
+`ladder-rig`, `ladder-probe` and `match-report` each name which ladder is in play
+before printing a number. ⇒ **A reader can no longer take a floor number for a
+shipped one without the tool having told them**, which is the failure that
+produced five superseded tables on
+[`engine/fighter-brain.md`](engine/fighter-brain.md). ⚠ `match-report` still lacks
+a `--ladder` FLAG — it can say what it measured, not measure something else. That
+is the remaining repair and it is real code.
+
+ⓘ Deliberately recorded here rather than in `docs/tools/index.md`: that index is
+scoped to *"author-time tools … provider/engine inputs"*, and these are
+measurement instruments for one demo. The fix that matches how they are reached is
+a line in the page that plans the work — which is what naming
+`select-walkthrough` in checkpoint 3 did.
+
+---
+
+## ⭐⭐ WHAT 2026-09-04 TAUGHT ABOUT MEASURING THIS FIGHTER — six findings, one shape
+
+Recorded together because they are not six coincidences. **Every one is an
+instrument answering a different question than the one asked, and none was
+visible in its output.**
+
+| # | the instrument | the question it actually answered |
+|---|---|---|
+| 1 | `ladder_rig::report_row` | direction from POOLED medians, significance from a PAIRED sign test — a row could print `LOWER` unqualified while its own evidence favoured `HIGHER` |
+| 2 | `median()` | the upper-middle order statistic, on runs that are even-sized by construction |
+| 3 | `capture-probe`'s census | the top 12 moves, on a fighter that uses exactly 12 — a thirteenth was dropped silently |
+| 4 | `match-report`'s census | the same truncation, in a sibling tool |
+| 5 | `match-report`'s configuration | the ENGINE FLOOR — no ladder, level 5/5 — while the page that recommends it asks about the shipped game |
+| 6 | the rig's column header | a decision rule that had been replaced |
+
+⇒ **The general guard, and it is cheap: an instrument prints its own configuration
+before its first number.** The repo already argued for it, in a tool that has no
+ladder and is fine *because it says so*: *"a calibration table that does not name
+its ladder is worse than no ladder."* ⭐ Declaring the configuration is what
+separates an honest floor measurement from a misleading one — **not having the
+flag.**
+
+**Four habits that found these, in the order they paid:**
+
+1. ⭐ **Check the instrument before trusting its answer, and BEFORE designing a
+   test around it.** Finding (3) came from verifying the census behind an
+   acceptance criterion I had just written — the tool would have hidden the fix
+   working, and the arm would have read as a negative result.
+2. ⭐ **Make a partition sum to its whole.** *"19 movesets — 14 directly, the rest
+   derived"* and the rest was 4. 14 + 4 = 18. The missing one was a real exception
+   to a claim I had already published; `grep -rl` counts FILES, and one file held
+   two functions.
+3. ⭐ **Two contradicting sources are evidence about neither.** A source comment
+   said a CPU could not pick up an item; a planning row said the carve shipped.
+   ⇒ Neither smelled wrong — the SIGNATURE settled it in one grep, and it was the
+   comment that had rotted. ⚠ Staleness runs both ways; assuming the doc lags the
+   code is a habit, not a rule.
+4. ⭐ **A question parked behind a build may be decidable from the TYPE.** *"Do the
+   composed fighters have full kits"* sat open behind a test needing a running
+   registry. `SmashRepertoire` has nineteen fields and no `Option`s — the struct
+   will not compile without every slot. **Measuring instances of a property a type
+   enforces is measuring the compiler.**
+
+⚠ **And the one that cost the most: a stolen `#[test]`.** Inserting a test between
+an existing test's doc block and its function body leaves the old attribute on the
+NEW function; the displaced one becomes dead code wearing a test's name. Two of
+mine were dead for a day — one guarding the exact claim published above it — and
+the suite stayed green. ⇒ Walk back from every `fn` over docs and attributes and
+count the `#[test]`s; anything but exactly one is a bug.
+
+
+---
+
+## ⓘ MINOR — assertion messages print runs of blank space, repo-wide
+
+**Cosmetic, recorded rather than swept.** A long `assert!` message written as one
+source line with padding — or joined from a generator that keeps the continuation
+lines' indentation — prints its gaps verbatim:
+*"the press below is&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;about some other button"*.
+⇒ A guard's failure text is the whole reason to write a long one, so this is a poor
+advertisement for reading it.
+
+⚠ **Measured, with the denominator stated**: a naive scan for 3+ spaces inside a
+literal returns **93** lines across the files touched on 2026-09-04, and **almost
+all are deliberate column alignment** in report output (`"  damage      {}"`).
+Narrowing to a lowercase word, a gap, and another lowercase word — a mid-SENTENCE
+run — gives **61**, spread across both sessions' files and mostly pre-existing.
+
+⇒ **Four were mine, in guards I wrote today, and are fixed.** The rest are left
+alone deliberately: they are cosmetic, they span files this session does not own,
+and a mechanical sweep of 61 string literals on a box that cannot compile is a
+worse trade than the defect. ⓘ The check, for anyone who wants it:
+`[a-z,.]{2} {3,}[a-z]{2}` applied after the first quote on a line.

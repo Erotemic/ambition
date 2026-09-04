@@ -15,6 +15,48 @@ that caught each of them was
 test. ⇒ before marking a row shipped, make it appear in that report or say in the
 row why it cannot.
 
+⛔⛔ **AND THAT INSTRUMENT MEASURES THE ENGINE FLOOR, NOT THE SHIPPED LADDER —
+audited 2026-09-04, and it had never been checked because nobody knew to.**
+`match_report::run_one` calls `build_demo_app()` and **never inserts an
+`AuthoredFighterLadder`**; it has no `--ladder` flag at all, where its sibling
+`capture-probe` gained one for exactly this reason. It seats
+`smash_roster_at_levels(characters, &[5, 5])`. ⇒ **So every number this page took
+from that report describes a fighter carrying the floor's
+`UtilityWeights::default()` — which IS the level-9 row — with level-5 reaction and
+APM.** No player meets that combination.
+
+⚠ **What it does and does not invalidate.** For *"is this mechanism wired enough to
+appear at all"* — this page's actual question — the floor is a fair test, and a
+mechanism that shows up there is wired. ⛔ For *"does a player see it"* it is the
+wrong configuration, and that is precisely the reading the rows below invite.
+
+ⓘ **One hypothesis raised and REFUTED here rather than published**: the floor
+switches the L3 rollout on at rung 6+, and a documented defect suppresses `Dodge`
+and `Shield` inside that rollout — which would have made *"the CPU essentially
+never raises a guard"* a floor artifact. ⇒ It is not: this report runs at **level
+5**, below the rollout threshold, so the rollout was never active in it. The
+shielding observation stands.
+
+✔ **Half-repaired the same day (`104782a83`): `match-report` now NAMES the floor
+before printing**, which is the difference between a floor measurement and a
+misleading one — `ladder-probe` has no ladder either and is fine for exactly that
+reason. ⚠ It still has no `--ladder` FLAG, so it can say what it measured, not
+measure something else.
+
+⭐ **WHICH INSTRUMENT FOR WHICH QUESTION — the instruction at the top of this page
+needs both:**
+
+| the question | the tool |
+|---|---|
+| *"is this mechanism wired enough to appear at all?"* — this page's `✔` | `match-report 30 --runs 5`. The floor is a fair test for it, and `--runs` averages, which one probe does not. |
+| *"does a PLAYER meet it?"* | `capture-probe --character <id> --ladder game/ambition_content/assets/data/fighter_brain_ladder.ron`. The only census that can seat the shipped rows. |
+
+⇒ **A row marked `✔` on the strength of the first has NOT been shown to the
+second**, and this page's own warning — *a `✔` means the mechanism is wired, not
+that anybody has seen it* — is exactly that gap, now with the tool that closes it
+named.
+
+
 ⛔⛔ **RE-RUN 2026-08-26 (`30 --runs 3`, George vs George on the demo shell) AND
 FOUR MORE SHIPPED MECHANICS ARE INVISIBLE IN A MATCH:**
 

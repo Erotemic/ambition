@@ -437,9 +437,15 @@ fn report_one(character: &str, seconds: usize, totals: &[Tally], carried: &[Stri
     if !moves.is_empty() {
         let mut rows: Vec<_> = moves.into_iter().collect();
         rows.sort_by(|a, b| b.1.cmp(&a.1).then_with(|| a.0.cmp(b.0)));
-        println!("\nwhat the bodies actually threw:");
+        // ⛔ THE TOTAL FIRST, AND SAY WHEN ROWS ARE WITHHELD. A bare `take(12)`
+        // cannot express the question a census is usually asked — whether anything
+        // NEW started — because a further row is dropped in silence.
+        println!("\nwhat the bodies actually threw: {} distinct", rows.len());
         for (id, count) in rows.iter().take(12) {
             println!("  {id:<28} {count:>5}");
+        }
+        if rows.len() > 12 {
+            println!("  … and {} more not shown", rows.len() - 12);
         }
     }
     // ⭐ HOW OFTEN A FIGHTER CHANGES ITS MIND about which way to walk. The
@@ -756,6 +762,19 @@ fn report_spread(character: &str, seconds: usize, all: &[Vec<Tally>], carried: &
         "match_report: {character} vs {character}, {seconds}s × {} runs, per-run TOTALS across both seats\n{}\n",
         all.len(),
         composition_scope(carried)
+    );
+    // ⛔ SAY WHICH LADDER THESE NUMBERS DESCRIBE, BEFORE PRINTING ANY. This tool
+    // calls `build_demo_app()` and never inserts an `AuthoredFighterLadder`, so
+    // every fighter carries the ENGINE FLOOR — whose `UtilityWeights::default()`
+    // IS the level-9 row — while seated at level 5 for reaction, APM and noise.
+    // ⚠ No player meets that combination. A tool that measures a non-default
+    // configuration and does not say so is indistinguishable, in its output, from
+    // one that measures the default.
+    println!(
+        "match_report: ⛔ ladder: the ENGINE FLOOR — this tool installs no \
+         AuthoredFighterLadder and has no --ladder flag, so these fighters carry the \
+         floor's default weights (== the level-9 row) at level-5 reaction/APM. Read \
+         the rows as \"what a floor-weighted fighter does\", not as what a player meets.\n"
     );
     let spread = |pick: fn(&Tally) -> f32| -> String {
         let mut values: Vec<f32> = all

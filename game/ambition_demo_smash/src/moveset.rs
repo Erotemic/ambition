@@ -913,7 +913,7 @@ mod tests {
         let escaped: Vec<&String> = george.iter().filter(|p| !stand_in.contains(p)).collect();
         assert!(
             escaped.is_empty(),
-            "a press George cannot answer is one the STAND-IN can: {escaped:?}.              That breaks the subset, so the stand-in is no longer George minus              the specials and the roster question needs re-deriving rather than              re-counting."
+            "a press George cannot answer is one the STAND-IN can: {escaped:?}. That breaks the subset, so the stand-in is no longer George minus the specials and the roster question needs re-deriving rather than re-counting."
         );
 
         let mut extra: Vec<&String> = stand_in.iter().filter(|p| !george.contains(p)).collect();
@@ -925,7 +925,7 @@ mod tests {
         assert_eq!(
             extra.len(),
             8,
-            "the stand-in/George special gap moved to {}: {extra:?}. If a              special was AUTHORED on the stand-in this is the good failure —              lower the number here in the same commit. If George LOST one, the              subset assertion above would have fired first.",
+            "the stand-in/George special gap moved to {}: {extra:?}. If a special was AUTHORED on the stand-in this is the good failure — lower the number here in the same commit. If George LOST one, the subset assertion above would have fired first.",
             extra.len()
         );
     }

@@ -640,6 +640,18 @@ where the same caveat now sits beside the number.
 
 ## Current frontier
 
+⛔⛔ **AND REACHING THE SMALL RESIDUAL KERNEL IS NOT THE FINISH LINE.** Every
+carve on this page advances INTERNAL modularity — one authority per fact,
+dependencies pointing the right way. That is necessary groundwork for a second,
+separate criterion it does not achieve on its own: whether a major capability is
+INDEPENDENTLY INSTALLABLE, with explicit lower-level dependencies and without
+unrelated siblings. A domain whose authority has moved into its own crate is not
+finished if nothing can install it alone. Defined in
+[`../../architecture/package-and-capability-boundaries.md`](../../architecture/package-and-capability-boundaries.md)
+("Two goals, and the second is not implied by the first"); its planning owner is
+[`capability-and-runtime-composition.md`](capability-and-runtime-composition.md).
+⇒ Judge a proposed carve against both.
+
 ⇒ **THIS PAGE IS THE EVIDENCE AND TECHNICAL-DESIGN AUTHORITY. The bounded task
 packet an agent should execute is
 [`actor-monolith-work-frontier.md`](actor-monolith-work-frontier.md).** That page

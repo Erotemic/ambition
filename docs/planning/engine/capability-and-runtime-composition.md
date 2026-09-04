@@ -4,6 +4,16 @@
 
 ## Goal
 
+⭐ **THIS PROGRAM OWNS THE SECOND OF THE TWO ARCHITECTURAL GOALS.** Authority
+decomposition — one authority per fact, dependencies pointing the right way — is
+the actor-monolith program's. Independently installable capability composition,
+the Bevy-like property, is this one's, and the durable statement of the criterion
+with its user-facing examples and its named risks is
+[`../../architecture/package-and-capability-boundaries.md`](../../architecture/package-and-capability-boundaries.md)
+("Two goals, and the second is not implied by the first"). ⇒ A carve that lands
+elsewhere does not close a row here; the question this program asks is whether
+the capability can be INSTALLED alone.
+
 Make engine composition reflect what a game actually chooses to use.
 
 A consumer building a small platformer should not inherit portal rendering, boss

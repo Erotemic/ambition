@@ -31,6 +31,14 @@ Use the focused plans for current work:
   — product/capability dependency closure;
 - [`public-sdk-1.0.md`](public-sdk-1.0.md) — consumer-facing semantic API pressure.
 
+⭐ **AND OWNERSHIP IS ONLY THE FIRST OF TWO GOALS.** A domain with one authority
+and clean dependency direction may still be impossible to install without four
+unrelated siblings. The second criterion — *independently installable capability
+composition*, the Bevy-like property — is defined in
+[`../../architecture/package-and-capability-boundaries.md`](../../architecture/package-and-capability-boundaries.md)
+("Two goals, and the second is not implied by the first") and must be applied to
+every proposed carve of a major reusable capability.
+
 Standing rule: **decompose by ownership and dependency value, not by line count.**
 A carve should move one coherent authority with its registration and remove a
 real dependency/change-fanout path, or provide another concrete isolation/SDK

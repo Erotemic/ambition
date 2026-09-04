@@ -5,6 +5,14 @@ This is no longer the Engine 1.0 P0 gate.
 
 ## Goal
 
+⚠ **This page defines what the residual kernel CONTAINS. It does not define when
+the engine is modular.** Arriving at the small kernel described here satisfies
+internal modularity and leaves the second criterion open: whether a major
+capability is independently installable with explicit lower-level dependencies
+and no unrelated siblings. See
+[`../../architecture/package-and-capability-boundaries.md`](../../architecture/package-and-capability-boundaries.md),
+"Two goals, and the second is not implied by the first".
+
 A human-controlled body, AI-controlled body, possessed body and future remote
 participant should use the same actor-local simulation path. Distinctions such
 as home avatar, driving participant, input seat, camera/view subject and

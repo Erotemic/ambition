@@ -129,17 +129,31 @@ three of its messages (`EncounterGate`, `PayloadReleased`, `BossPhaseChanged`).
 Fourteen references in that one file, six more elsewhere in the runtime, plus two
 resources the runtime initialises (`BossCatalog`, `BossEncounterRegistry`).
 
-⇒ **So a `BossEncounterPlugin` would not be a wrapper.** It would own real
-systems, their messages and their resources — the thing this program is for —
-and the doctrine's *"generic encounters without boss encounters"* becomes
-expressible as a `.disable::<_>()` the moment it exists.
-⚠ **What must be measured before cutting, not assumed:** whether those eight
-systems' ordering edges name only sets the runtime already publishes, or reach
-into other capabilities' systems by name. The first is a plugin; the second is a
-carve with an ordering negotiation in it, and the difference decides the size.
-⛔ And 87 files outside the crate reference `ambition_boss_encounter`, so the
-question this packet answers is INSTALLATION, not dependency reduction. Do not
-size it by that number.
+✔ **BUILT 2026-09-04 (`bd93f978f`), and it was a plugin.**
+`BossEncounterSimulationPlugin` owns the eight systems, the three messages and
+the two resources; `a_host_that_omits_boss_encounters_still_builds_and_steps` is
+its acceptance, and the doctrine's *"generic encounters without boss
+encounters"* is a `.disable::<_>()` today.
+
+⭐ **THE MEASUREMENT THAT DECIDED THE SIZE IS THE REUSABLE PART, and it is the
+check to run before proposing the next capability:** those eight systems' ordering
+edges name only `ProgressionSet::BossAdvance` / `BossHazards`, which
+`shared_tangle::schedule` already publishes and the crate already depended on. So
+nothing moved and no ordering was renegotiated. ⛔ **A capability whose ordering
+edges name another capability's SYSTEMS cannot be installed this way, however
+coherent its authority is** — that is a carve with a negotiation inside it, and
+the difference is knowable in one read.
+
+⚠ **THE HOST STILL OWNS THE SETS.** The plugin does not `configure_sets`; the
+runtime anchors `ProgressionSet` into the engine chain and the capability only
+says which systems belong in two of its slots. A capability that configured the
+ordering it runs in would be a second authority over the schedule — the failure
+this page names for runtime and for shared scheduling alike.
+
+⛔ And 87 files outside the crate still reference `ambition_boss_encounter`. That
+number did not move and was never the point: this packet answered INSTALLATION,
+not dependency reduction, and sizing it by that count would have asked the wrong
+question.
 
 A consumer building a small platformer should not inherit portal rendering, boss
 orchestration, networking integration, persistence, debug presentation or

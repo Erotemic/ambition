@@ -845,6 +845,27 @@ contracts instead of counting bindings:
 George also refuses are **shared** — `smash` neutral, `smash` back, and the three
 aerial smashes — a genre convention rather than a gap.
 
+⛔ **AND THAT TABLE'S THIRD ROW WAS A SUBTRACTION THE FIRST TWO DID NOT LICENSE.**
+15 and 7 give a difference of 8 only if the smaller set sits INSIDE the larger
+one — two sets of those sizes can overlap by any amount, and the arithmetic
+returns 8 for every one of them. The word *"genuine"* was doing work the numbers
+had not done.
+
+✔ **Now derived rather than subtracted** (2026-09-04,
+`the_stand_in_is_george_s_genre_shape_with_the_special_button_removed` in
+`game/ambition_demo_smash/src/moveset.rs`): George's silent set is a strict
+**subset** of the stand-in's, and the surplus is exactly eight `special` presses.
+⇒ **The stand-in is George's genre shape with the special button removed** — not a
+different fighter missing different things. That is what makes *"give the Robots a
+special"* a bounded question rather than an open authoring job.
+
+⚠ Both arms poison-verified, and they fail in opposite directions on purpose:
+reversing the two contracts breaks the SUBSET (listing the eight), and dropping
+`lunge_grab`'s binding moves the DIFFERENCE to ten. ⇒ Authoring a special reddens
+the count — the good failure, fixed by lowering the number in the same commit;
+losing one of George's breaks the subset first. Which assertion fires says which
+happened.
+
 ⛔ **So "same for the forward tilt and the dash attack" is WITHDRAWN.** Both fall
 back to the jab. The finding is entirely about the special family. ⚠ And the verb
 list above stays as written because it is a true statement about BINDINGS — it is

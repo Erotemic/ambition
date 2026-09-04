@@ -1098,9 +1098,19 @@ were postponing them past the cut-off.
 minute of extra fight — but it is a statement about PACE, not about lethality,
 and the two want different design responses.
 
-⛔ **And "unfought bouts" goes with it.** A bout counted as unfought at 60 seconds
-was, on this evidence, a bout that had not started yet. The 41-of-540 figure below
-measures approach time, not refusal to engage.
+⚠ **"Unfought bouts" PROBABLY goes with it, and I am marking that as unproven
+rather than asserting it.** The tempting deduction is: every bout resolved, so
+every bout was fought. ⛔ **It does not hold.** This demo's own header says
+*"combat damage does not kill a stocks fighter; leaving the stage emits the
+knockout signal"* — so a fighter can lose all three stocks by self-destructing,
+with nobody landing a hit. A resolved bout is not necessarily a fought one.
+
+⇒ What IS measured is the aggregate: mean damage dealt is **242.5%** on platforms
+and **280.8%** on flat, so contact is heavy on both. ⚠ But an average cannot rule
+out a handful of unfought bouts hiding under it, and the scenario mode does not
+print the per-bout `unfought` column that the sweep mode does. ⇒ The 41-of-540
+figure below is *most likely* approach time rather than refusal to engage, and
+`--per-bout` on the platform stage is the one-command arm that would settle it.
 
 ⭐ **The method note is the transferable part.** Both metrics in the original table
 — *stocks LEFT* and *unfought bouts* — are "how much has happened by the buzzer"

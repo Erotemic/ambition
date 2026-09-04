@@ -610,6 +610,113 @@ pub fn smash_stage() -> RoomSpec {
     room
 }
 
+/// The room id of the platformed stage — see [`smash_platform_stage`].
+pub const SMASH_PLATFORM_STAGE_ROOM_ID: &str = "smash_platform_stage";
+
+/// Height of each soft platform above the main stage surface, in world pixels.
+///
+/// ⭐ **SIZED FROM THE FIGHTER'S MEASURED JUMP ARC, and the first numbers I
+/// wrote were scenery.** Apex is `v²/(2·gravity)` — the engine's own formula,
+/// stated on `FighterBodyAuthoring::jump_speed`. With the shipped defaults
+/// (`GRAVITY` 2250, `JUMP_SPEED` 630, `DOUBLE_JUMP_SPEED` 520):
+///
+/// | arc | rise |
+/// |---|---:|
+/// | single jump | **88.2px** |
+/// | + air jump taken AT the apex (the best case) | **148.3px** |
+///
+/// ⛔ I first chose 132 and 250 by eye. **250 is unreachable** — above the
+/// 148.3px ceiling, so the top tier would have been decoration a fighter could
+/// never stand on — and 132 was inside the double-jump arc by 16px, i.e. only
+/// on a frame-perfect air jump. Neither would have failed anything: the stage
+/// would simply have had a platform nobody could use.
+///
+/// ⇒ So: the low tier is a comfortable SINGLE jump (24px of headroom), and the
+/// top tier needs the air jump and still leaves 28px. `the_tiers_sit_inside_the
+/// _fighters_measured_jump_arc` recomputes both from the engine constants, so
+/// retuning gravity or jump speed reddens this rather than silently stranding a
+/// platform.
+const SOFT_PLATFORM_LOW_RISE: f32 = 64.0;
+const SOFT_PLATFORM_HIGH_RISE: f32 = 120.0;
+/// Width and thickness of a soft platform.
+const SOFT_PLATFORM_SIZE: Vec2 = Vec2::new(168.0, 16.0);
+/// How far the two low platforms sit either side of centre.
+const SOFT_PLATFORM_SPREAD: f32 = 148.0;
+
+/// A platform-fighter stage WITH PLATFORMS: the main surface plus three
+/// drop-through tiers.
+///
+/// ⛔ **THE GENRE'S DEFINING STAGE FEATURE HAD NO CUSTOMER HERE.** The engine
+/// ships one-way platforms in full — `BlockKind::OneWay`, `resolve_one_way_hit`,
+/// a `drop_through_timer`, and BOTH authored gestures: down+jump
+/// (`wants_drop_through`) and the platform-fighter's own guard+down
+/// (`wants_platform_drop`, whose doc says *"on a surface that can be left
+/// downward"*). Measured 2026-09-04, the smash demo used **none of it**: zero
+/// occurrences of `one_way` or `drop_through` in the whole crate, and
+/// [`smash_stage`] is a single solid block. A platform fighter with no
+/// platforms.
+///
+/// ⚠ **THIS IS A SECOND STAGE, NOT AN EDIT TO THE FIRST, and that is deliberate
+/// twice over.** Changing the stage everyone plays is a game-design decision
+/// that belongs to Jon rather than to a measurement pass; and every spacing,
+/// recovery and edgeguard number this project has recorded — the whole ladder
+/// rig — was taken on [`smash_stage`]'s flat block, so silently moving the
+/// ground would invalidate that corpus instead of giving it something to be
+/// compared against.
+///
+/// ⇒ It is not reachable from the select screen yet, because there is no stage
+/// select to reach it from (`super-smash-siblings.md` checkpoint 4). The stage
+/// and the mechanic are real and tested; the way in is the open half.
+pub fn smash_platform_stage() -> RoomSpec {
+    let centre_x = STAGE_SIZE.x / 2.0;
+    let main = ae::Block::solid(
+        "smash_platform",
+        Vec2::new((STAGE_SIZE.x - PLATFORM_WIDTH) / 2.0, PLATFORM_TOP),
+        Vec2::new(PLATFORM_WIDTH, 32.0),
+    );
+    // y grows DOWNWARD, so a platform ABOVE the stage is at a SMALLER y. Getting
+    // this backwards buries the tiers inside the stage, where they are invisible
+    // and still solid to a body walking over them.
+    let soft = |name: &str, x: f32, rise: f32| {
+        ae::Block::one_way(
+            name.to_string(),
+            Vec2::new(x - SOFT_PLATFORM_SIZE.x / 2.0, PLATFORM_TOP - rise),
+            SOFT_PLATFORM_SIZE,
+        )
+    };
+    let mut world = ae::World::new(
+        "Smash Stage (platforms)",
+        STAGE_SIZE,
+        Vec2::new(centre_x, PLATFORM_TOP - 96.0),
+        vec![
+            main,
+            soft(
+                "smash_soft_left",
+                centre_x - SOFT_PLATFORM_SPREAD,
+                SOFT_PLATFORM_LOW_RISE,
+            ),
+            soft(
+                "smash_soft_right",
+                centre_x + SOFT_PLATFORM_SPREAD,
+                SOFT_PLATFORM_LOW_RISE,
+            ),
+            soft("smash_soft_top", centre_x, SOFT_PLATFORM_HIGH_RISE),
+        ],
+    );
+    // The blast geometry is the stage's identity as much as its blocks are, and
+    // a second stage that quietly used the engine defaults would differ from the
+    // first in ways nobody chose. Same margins, so a comparison between the two
+    // stages is a comparison of their GEOMETRY.
+    world.edges.fall = FALL_BLAST_MARGIN_PX;
+    world.edges.side = Some(SIDE_BLAST_MARGIN_PX);
+    world.edges.rise = Some(CEILING_BLAST_MARGIN_PX);
+
+    let mut room = RoomSpec::new(SMASH_PLATFORM_STAGE_ROOM_ID, world);
+    room.metadata.mode = Some(SMASH_MODE.to_string());
+    room.metadata.nameplate_policy.label_driven_bodies = Some(true);
+    room
+}
+
 pub fn stage_centre() -> Vec2 {
     Vec2::new(STAGE_SIZE.x / 2.0, PLATFORM_TOP)
 }

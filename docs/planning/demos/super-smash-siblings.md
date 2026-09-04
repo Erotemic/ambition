@@ -154,7 +154,7 @@ named inline; a number here travels with the search that produced it.
 | 1 | Core fight | ✔ **met** — the mechanics it lists are the parity inventory's P01–P14, now 14 of 14 measured: ten shipped, three partial, **zero absent** |
 | 2 | Roster depth | ✔ **met, and it is the strongest of the six** — **21** authored movesets (19 in `ambition_content`, 2 smash-local) and **zero** character-ID gameplay branches in any engine crate |
 | 3 | Local play | ✔ **met** — driven end-to-end through the real screen, not the model |
-| 4 | Stage breadth | ⬚ **NOT met, and it is the single largest gap** — there is exactly **ONE** stage |
+| 4 | Stage breadth | ◐ **was NOT met; a second stage landed 2026-09-04** — `smash_platform_stage()` adds the genre's drop-through tiers. Still no stage SELECT, so it is not reachable in play |
 | 5 | Match completeness | ◐ **partial, 2 of 4** |
 | 6 | CPU adoption | ◐ **partial, and now measurable for the first time** |
 
@@ -166,7 +166,43 @@ on a fighter name) returns **nothing**; the single hit anywhere near it is
 `character_catalog/registry.rs:212`, which dedupes catalog registration and is not
 a gameplay branch. Twenty-one movesets and no engine knows any of their names.
 
-⛔ **Checkpoint 4 is the gap, and it is bigger than "some stages are missing".**
+### Checkpoint 4, worked 2026-09-04 — the platforms a platform fighter had none of
+
+⭐ **The engine ships one-way platforms in full and the demo used NONE of them.**
+`BlockKind::OneWay`, `Block::one_way`, `resolve_one_way_hit`, a
+`drop_through_timer`, and BOTH authored gestures — down+jump
+(`wants_drop_through`) and the platform-fighter's own guard+down
+(`wants_platform_drop`, whose doc reads *"on a surface that can be left
+downward"*, i.e. it was written for this). Measured: **zero** occurrences of
+`one_way` or `drop_through` anywhere in `ambition_demo_smash`. The same
+shipped-primitive-with-no-customer shape the parity table found, on the feature
+the genre is named after.
+
+⇒ `smash_platform_stage()` is that customer: the solid floor plus three
+drop-through tiers. Authored as a SECOND stage rather than an edit to
+`smash_stage()`, because changing the stage everyone plays is Jon's design call,
+and because every spacing/recovery/edgeguard number recorded so far was taken on
+the flat block — a second layout gives that corpus something to be compared
+against instead of invalidating it.
+
+⛔ **THE TIER HEIGHTS I FIRST CHOSE WERE SCENERY, and this is the reusable
+lesson.** Picked by eye: 132px and 250px. The engine states the arc on
+`FighterBodyAuthoring::jump_speed` — apex is `v²/(2·gravity)` — and with the
+shipped defaults (`GRAVITY` 2250, `JUMP_SPEED` 630, `DOUBLE_JUMP_SPEED` 520) a
+single jump rises **88.2px** and an air jump taken exactly at the apex reaches
+**148.3px**. So 250 was 100px above anything the roster can reach, and 132 was
+inside the ceiling by 16px — a frame-perfect input. **Neither would have failed
+anything**: the stage renders perfectly and the platform is simply unusable.
+Shipped heights are 64px (a comfortable single jump) and 120px (needs the air
+jump, 28px of margin), and the guard recomputes both from the engine constants so
+retuning gravity reddens it rather than stranding a tier.
+
+⇒ **What remains on this checkpoint:** the stage is not reachable in play, because
+there is no stage select to reach it from — which is checkpoint 5's absent half,
+not a second stage problem. Until then the layout is exercised by tests and
+available to the rig.
+
+⛔ **The confounder this was found through, which stands regardless.**
 `SMASH_STAGE_ROOM_ID` is one constant, `smash_stage()` is one function, and there
 is no stage-select concept in the demo at all — the select screen's cursor targets
 are exactly `Portrait`, `RoleButton`, `Start`, `PagePrev`, `PageNext`, `Back`

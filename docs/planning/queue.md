@@ -53,9 +53,25 @@ drops, so the green receipts were silent about it. ⚠ **And its OK has a second
 boundary worth knowing:** the gate says in place that code behind a non-default
 `#[cfg(feature)]` is not compiled by its run and is not covered — `update.rs`
 has six `causal`-gated sites, so that feature was checked separately (clean).
-ⓘ Doing so surfaced two dead-code warnings in `ambition_dialog` that exist ONLY
-under that feature combination, which neither the default gate nor `--rust` can
-see.
+⭐⭐ **AND CHASING A WARNING I MISATTRIBUTED FOUND THE GATE'S OTHER BLIND HALF.**
+I reported dead-code warnings in `ambition_dialog` as existing *"only under the
+`causal` feature combination"*. Wrong, and re-derived here rather than taken on
+report: **`ambition_dialog` has no `causal` feature at all** — its `[features]`
+are `default`, `ui`, `input` — and `cargo check -p ambition_dialog --all-targets`
+on plain defaults prints them. ⇒ The real cause is **workspace feature
+unification**: `reveal_full_line`, `reveal_full_options`, `select_delta`,
+`select_delta_clamped`, `confirm_or_advance` and `reveal_full` are live when the
+crate is built as part of the workspace graph and dead when it is built ALONE.
+⛔ **So `check_no_warnings.py` makes a WORKSPACE-UNIFIED claim, and that is the
+exact mirror of the caveat it already prints.** It warns that code behind a
+non-default `#[cfg(feature)]` is not compiled by its run; the unsaid other half
+is that **a crate built by itself is not compiled by it either** — which is what
+a downstream consumer sees, and what `cargo test -p <crate>` sees, the command
+this project reaches for constantly and the one the disk guidance prefers over a
+full lane. ⇒ Not fixed, deliberately: deleting methods the unified build uses
+breaks the workspace, so *"dead alone, live unified"* is a visibility/feature
+decision rather than dead code. ⓘ Found across two sessions — one reported the
+warning with the wrong cause, the other refused to delete and located it.
 
 ✔ **D-DROP-IDENTITY — the same gauntlet was an occurrence or not, depending on
 how you got it.** `drop_held_weapon` spawned a `GroundItem` with provenance and
@@ -2632,6 +2648,7 @@ queue read as an execution authority for work already done.
   ⚠ The alternative — a score floor under which `pick_movement` returns `None` —
   gets the same behaviour by making the selector decline, and is worse for the
   same reason the rig's two authorities were worse: it puts the decision
+  somewhere other than the scores.
 
   ⭐⭐⭐ **AND THIS CLASS ALREADY HAS A MAINTAINER RULING — found in `dev/journals`
   2026-09-04, which `AGENTS.md` says to search before a non-trivial patch.**
@@ -2677,7 +2694,6 @@ queue read as an execution authority for work already done.
   brain has already used once, successfully, on a maintainer's ruling.** A
   `hold_value` gated on facts (no foe in range, a committed opponent to punish, an
   unsafe approach) with explicit zeros where standing still is merely passive.
-  somewhere other than the scores.
   ⓘ Unmeasured, and it must be — this is the shape of the fix, not a claim that it
   works. The acceptance test above is what would say.
   ⭐⭐ **AND THE SAME IS TRUE ON THE ATTACK SIDE, which makes this one property
@@ -2758,13 +2774,13 @@ queue read as an execution authority for work already done.
   silence and the arm would have read as a negative result. ✔ Fixed
   (`249d82b66`): the distinct count prints first and the tool says how many rows
   it withheld. ⚠ **Re-read that count, not the visible rows**, when checking
+  criterion (1).
   ✔ **BOTH INSTRUMENTS BEHIND THIS TEST HAVE NOW BEEN CHECKED, not assumed.** The
   census truncated and is fixed; the contingency table's source
   (`AMBITION_FIGHTER_TRACE=1`) prints the FULL offered/vetoed/chosen lists per
   decision with no cap, so the 73-of-81 ratio can be re-derived exactly. ⇒ An arm
   that comes back flat now means the fighter did not change, rather than that the
   tooling could not say.
-  criterion (1).
 
   ⚠ **Cost, so nobody starts it blind**: each arm is a full release build of the
   composed demo plus a 120s probe. The census is per-fighter, so George alone
@@ -2954,6 +2970,23 @@ queue read as an execution authority for work already done.
   the demo's own constant. ⇒ **Re-measured at the shipped clock, where every bout
   RESOLVES (`0 : 0` stocks, medians rising 85s → 97s → 104s → 112s up the rungs):
   `3 vs 1` higher ✔, `5 vs 3` **LOWER** ⛔, and `6 vs 5` / `9 vs 6` are within
+  spread.** ⚠ So it is **one bad rung, not a broken progression** — the 40-second
+  table's "every cell is significant" was an artifact of the short clock and is
+  marked superseded in `fighter-brain.md`.
+  ⓘ **Those four medians are the PRE-`median()`-FIX generation.** Re-taken through
+  the repaired rig 2026-09-04 they read **83.4 → 97.1 → 102.8 → 111.4**, still
+  rising, same four verdicts. ⇒ Quote whichever you like; quote it with which
+  instrument produced it.
+  ⛔ **AND THIS SENTENCE WAS BROKEN IN HALF FOR A DAY, which is worth one line
+  because it is a repeatable way to damage a document.** A later edit inserted the
+  `report_row` block *between* `are within` and `spread.`, leaving a clause with
+  no ending in the reader's path and its continuation stranded 45 lines below,
+  after unrelated text. Nothing detects it: both fragments are valid Markdown, the
+  link and citation gates pass, and the orphan reads as a new paragraph. ⇒ Same
+  shape as the stolen `#[test]` recorded in `dev/benchmark-candidates/` — **an
+  insertion between an opening and its continuation captures the space between
+  them** — and the same defence applies: anchor an insertion on a whole paragraph,
+  never on a line that ends mid-clause.
   ⛔⛔ **AND THE SIGNIFICANCE HALF OF THOSE FOUR VERDICTS IS ON HOLD AS OF
   2026-09-04 — a review found `report_row` has TWO AUTHORS of one row's meaning,
   re-derived from source here.** The printed direction (*higher* / *LOWER*) comes
@@ -2998,9 +3031,6 @@ queue read as an execution authority for work already done.
   the helper was never the broken part. ⭐ **A test that constructs its subject
   cannot witness that subject being bypassed**, so the row's own decision had to
   be extracted and asserted on.
-  spread.** ⚠ So it is **one bad rung, not a broken progression** — the 40-second
-  table's "every cell is significant" was an artifact of the short clock and is
-  marked superseded in `fighter-brain.md`.
   ✔✔ **AND THE ONE BAD RUNG IS NOW DIAGNOSED AND ITS FIX MEASURED**, so this row
   no longer blocks on a mystery. The cause is `frame_advantage` +
   `expected_payoff` **jointly** — isolated byte-for-byte (those two reproduce the
@@ -4280,6 +4310,9 @@ OPTIONAL dep + feature, never used:
     good or bad without asking which happened.
 - ▢ **D166 — make the character-authoring boundary load-bearing where a real
   character still bypasses it.** Prepared character definitions are already
+  immutable and the first Smash fighter facet exists. Re-measure the current
+  residuals before migrating another field. The startup-reach proxy is a
+  maintainer decision (§35), not an excuse to widen generic character data.
   ⭐⭐ **A THIRD SLICE CANDIDATE, MEASURED 2026-09-04 AND ALREADY EVIDENCED
   ELSEWHERE: `fighter_moveset()` is a real character bypassing this exact
   boundary.** `SmashRepertoire` has **nineteen** fields and **zero** `Option`s —
@@ -4301,9 +4334,6 @@ OPTIONAL dep + feature, never used:
   capture half THROUGH `SmashCaptureRepertoire` and hand-writes only the attack
   verbs. The half it took from a type is complete; the half it wrote is the half
   with the hole.
-  immutable and the first Smash fighter facet exists. Re-measure the current
-  residuals before migrating another field. The startup-reach proxy is a
-  maintainer decision (§35), not an excuse to widen generic character data.
   ⭐ CENSUSED 2026-08-31 against the owner doc's five-part test, ten sites; most
   are two LEGITIMATE authors (a demo mechanic keyed on identity, a match rule
   composed through `MatchRules`) and are not targets. ✔ FIRST SLICE CLOSED: the

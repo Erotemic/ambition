@@ -548,11 +548,25 @@ The one unresolved developer-policy choice from the session-ownership work is in
   failed for that reason and passes now, while this one fails the same way on a
   tree with room to spare. A plausible cause is not a diagnosis; running it twice
   is what separated them.
-  ⇒ Next step is the smallest reproduction: the demo declares four
-  implementation crates directly (`ambition_content_pack`, `ambition_causal`,
-  `ambition_input`, `ambition_platformer2d_core`), so a double registration
-  between one of those and the facade is the first place to look. Owner: whoever
-  holds the capability-demo/SDK surface.
+  ✔ **REPRODUCED AND THE FIRST CAUSE IS FIXED (2026-09-04). It was not a double
+  registration between crates — it was ORDER inside the demo's own `compose`.**
+  `insert_session_world_component` SPAWNS, which creates an archetype, and it ran
+  BEFORE `AmbitionRollbackPlugin` and `PulsePlugin` were added; a plugin that
+  then calls `register_required_components` for a component already in that
+  archetype hits Bevy 0.19's `ArchetypeExists` — `bevy_ecs-0.19.1`'s `world/mod.rs` line 407
+  is `try_register_required_components(..).unwrap()`. Spawning after the plugins
+  removes it, measured: the panic changes rather than persisting.
+  ⛔ **AND THE PANIC IT REVEALS IS A SECOND, SEPARATE FAULT:** *"Parameter
+  `…::messages` failed validation: Message not initialized"* — a `MessageReader`
+  for a channel this composition never registers, which is the same class as the
+  union's `ConeRigAssets` hard failure. ⚠ Naming the system needs
+  `bevy_ecs/debug`, and the attempt to build with it FILLED THE SHARED VOLUME
+  (see the disk row below), so the system is still unnamed. ⇒ Next step is that
+  name, on a box with headroom.
+  ⚠ **The demo builds into `examples/capability_demo/target`, which is NOT the
+  bind-mounted `target/`** — it is on the shared virtiofs volume, and one
+  feature-flag change cost 14 GB of it. Whoever picks this up should expect a
+  second full engine build per feature combination.
 - ▢ **~47 GB ON THE SHARED VOLUME IS UNACCOUNTED FOR, AND THE NEW BINDMOUNT
   RULE DESCRIBES EXACTLY THIS SHAPE. REPORTED, NOT ACTED ON.**
   Measured 2026-09-03 late on the calculex box, where `/dev/vda1` reads **278 GB

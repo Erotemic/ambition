@@ -43,7 +43,6 @@ fn compose(
         vec![RoomSpec::new("pulse_room", world)],
         Vec::new(),
     );
-    insert_session_world_component(app.world_mut(), set);
     app.insert_resource(ControlFrame::default());
 
     // the HOST half, which the harness does not supply. Choosing the GGRS
@@ -57,6 +56,14 @@ fn compose(
     // The rollback backend owns every resource its host-side systems require;
     // a consumer does not initialize presentation internals to make GGRS tick.
     app.add_plugins(PulsePlugin::default());
+    // ⛔⛔ THE SESSION WORLD IS SPAWNED AFTER THE PLUGINS, and the order is not
+    // cosmetic. `insert_session_world_component` SPAWNS, which creates an
+    // archetype; a plugin added afterwards that calls
+    // `register_required_components` for a component already in that archetype
+    // hits Bevy 0.19's `ArchetypeExists` panic
+    // (`bevy_ecs/src/world/mod.rs:407`, `.unwrap()` on
+    // `try_register_required_components`).
+    insert_session_world_component(app.world_mut(), set);
     // The PROFILE under test, authored rather than defaulted — so "the profile
     // survived" means something a default could not have provided.
     app.insert_resource(PulseProfiles::from_prepared(vec![PulseProfile {

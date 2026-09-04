@@ -3496,6 +3496,23 @@ OPTIONAL dep + feature, never used:
   ⇒ **That is what a downstream consumer sees, and what `cargo test -p <crate>`
   sees** — the command this project reaches for constantly, and the one the
   disk-pressure guidance recommends over a lane.
+  ⭐⭐ **AND IT IS NOT ONE CRATE. Measured across the whole workspace
+  2026-09-04 by `scripts/measure_per_crate_warnings.py` (committed): 17 warnings
+  across 7 of 43 crates that declare a non-default feature, every one invisible
+  to a gate that reports the workspace clean.**
+
+```text
+    4  ambition_dialog          2  ambition_platformer2d_actor_monolith
+    3  ambition_sim_view        1  ambition_game_shell
+    3  ambition_render          1  ambition_content
+    3  ambition_conversation
+```
+
+  ⚠ **A CENSUS, NOT A DEFECT LIST** — `ambition_dialog`'s four are the worked
+  example of a feature doing what it says, and some of the other thirteen will
+  be too. The number to watch is the DELTA: a crate that starts warning alone
+  has usually had a caller move behind a feature, and that is worth knowing
+  before a consumer finds it.
   ⚠ **NOT fixed here, deliberately.** Deleting methods that the unified build
   uses would break the workspace, and "dead in one build, live in another" is a
   visibility/feature question rather than dead code. ⓘ Handed over by

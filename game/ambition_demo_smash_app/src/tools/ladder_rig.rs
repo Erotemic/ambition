@@ -1740,10 +1740,6 @@ fn place_at(
     true
 }
 
-fn run_bout(higher: u8, lower: u8, seed: u64) -> Bout {
-    run_bout_at(higher, lower, seed, None, false)
-}
-
 /// One bout, optionally started from a scenario's positions.
 fn run_bout_at(
     higher: u8,

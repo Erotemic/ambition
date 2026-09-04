@@ -572,10 +572,37 @@ The one unresolved developer-policy choice from the session-ownership work is in
   here would make the rollback backend a second registrar of somebody else's
   vocabulary — two cleanup systems in a host that has both.
   ⭐⭐ **AND THE FIX IS VERIFIED BY THE PANIC MOVING, not by the test passing:**
-  it is now *"Parameter `…` failed validation: Resource does not exist"*. That is
-  the succession the portal comment warned about — *"three hid in succession,
-  each looking identical to the last"* — so the demo has at least one more, and
-  the count is not known.
+  it is now *"Parameter `…` failed validation: Resource does not exist"*.
+  ⭐⭐⭐ **THE THIRD ONE IS NAMED WITHOUT ANOTHER BUILD, AND IT IS NOT A THIRD
+  BUG — IT IS THE ROOT ALL THREE COME FROM.** `AmbitionRollbackPlugin` calls
+  `register_engine_rollback_state`
+  (`platformer2d_runtime/src/rollback/mod.rs:40`), which declares **twenty
+  domains'** rollback state — encounter, combat, the actor monolith, mount,
+  characters, the floor, time, boss encounter, conversation, sprite sheet, the
+  shared tangle, vfx, items, cutscene, persistence, projectiles, sim_view, world
+  rooms and gate portals — with exactly ONE of the twenty behind a `#[cfg]`
+  (`ambition_portal2d`, `feature = "portal"`).
+  ⇒ **So installing the rollback BACKEND installs save/restore/checksum systems
+  for every engine domain, composed or not.** The concrete next panic:
+  `rollback_resource_canonical::<MovingPlatformSet>`
+  (`rollback/mod.rs:101`) installs `bevy_ggrs`'s `ResourceChecksumPlugin`, whose
+  system takes `Res<T>` — and `MovingPlatformSet` is initialised by
+  `platformer2d_runtime/src/sim_core_resources.rs:85`, a plugin this demo does
+  not add. ⚠ The registrar's OWN doc comment already records this exact failure
+  for a different type: *"panics on any frame the resource is absent — `Parameter
+  `Res<'_, ActiveMatch>` failed validation: Resource does not exist`"*.
+  ⛔⛔ **AND THIS IS A DIRECT VIOLATION OF THE COMPOSABILITY DOCTRINE'S OWN
+  PRINCIPLE**, which reads *"domain-owned rollback/content declarations compose
+  through backend-neutral registrars"*. The REGISTRAR is backend-neutral; the
+  CALL SITE is not domain-conditional — it lives in the backend's plugin and
+  names all twenty. ⇒ Fixing the Nth resource with
+  `rollback_resource_optional_canonical` (as `ActiveMatch` was) treats a symptom;
+  the seam is that a domain should declare its own rollback state when that
+  domain is composed. Recorded as a design item in
+  [`engine/capability-and-runtime-composition.md`](engine/capability-and-runtime-composition.md).
+  ⇒ **So the demo's remaining faults are not a list to grind down — they are one
+  seam**, and the count is however many canonical resources the twenty declare
+  that a two-plugin host never inserts.
   ✔ **The guard's own crate is green: `ambition_platformer2d_rollback_ggrs` 54
   passed / 0 failed** (the commit that landed it said the suite was still queued
   behind a saturated machine; it has reported since). ⚠ And that green means less

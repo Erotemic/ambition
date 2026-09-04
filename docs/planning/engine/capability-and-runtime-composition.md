@@ -523,6 +523,54 @@ stack, so every local check is green while the demo hosts are the ones that
 break. That is the same reason the union is the sizing instrument for this
 program and not an optional extra.
 
+### ⛔⛔ THE ROLLBACK BACKEND DECLARES TWENTY DOMAINS' STATE, AND THAT BREAKS THIS PAGE'S OWN PRINCIPLE
+
+Measured 2026-09-04. `AmbitionRollbackPlugin::build` calls
+`register_engine_rollback_state`
+(`crates/ambition_platformer2d_runtime/src/rollback/mod.rs:40`), which declares
+the rollback state of **twenty domains** — encounter, combat, the actor
+monolith, mount, characters, `platformer2d_core`, time, boss encounter,
+conversation, sprite sheet, the shared tangle, vfx, items, cutscene,
+persistence, projectiles, sim_view, world rooms and gate portals. **One of the
+twenty is conditional** (`ambition_portal2d`, behind `feature = "portal"`).
+
+⇒ **Installing the BACKEND therefore installs save/restore/checksum systems for
+capabilities the host never composed.** The failure is not theoretical: a
+`rollback_resource_canonical::<T>` installs `bevy_ggrs`'s
+`ResourceChecksumPlugin`, whose system takes `Res<T>` and — per the registrar's
+own doc comment — *"panics on any frame the resource is absent"*, quoting the
+message it already cost somebody: *"Parameter `Res<'_, ActiveMatch>` failed
+validation: Resource does not exist"*.
+
+⭐ **`examples/capability_demo` is the proof, and it is this repository's own
+minimum-host fixture.** Its rollback round trip composes exactly two plugins —
+`AmbitionRollbackPlugin` and `PulsePlugin` — and dies on frame one. Three
+distinct faults have been fixed or named in it, and the third
+(`rollback_resource_canonical::<MovingPlatformSet>`, whose resource
+`platformer2d_runtime/src/sim_core_resources.rs:85` inserts) makes the shape
+plain: they are not three bugs, they are one seam producing a fault per
+canonical resource the twenty declare that a two-plugin host never inserts.
+
+⛔ **The principle this page already states is the answer, applied one level
+further out:** *"domain-owned rollback/content declarations compose through
+backend-neutral registrars; the generic runtime does not own concrete
+domain-type censuses."* The REGISTRAR is backend-neutral and the declarations
+are domain-owned — that half landed. What did not is the CALL SITE: it lives in
+the backend's plugin and names all twenty unconditionally, so composing the
+backend composes their expectations.
+
+⇒ **The seam: a domain declares its own rollback state when that domain is
+composed**, through whichever registrar the host installed. That is the same
+move `BossEncounterSimulationPlugin` made for systems and messages, one contract
+over.
+⚠ **Sizing is not done and this is not a licence to start.** Twenty call sites
+is the count of domains, not of work: each needs a place to declare from (most
+already have a plugin), and the ORDER matters because `bevy_ggrs` wants its
+registrations before the session exists. ⛔ And the tempting cheap fix —
+converting each failing resource to `rollback_resource_optional_canonical`, as
+`ActiveMatch` was — treats the symptom: it makes absence representable for one
+type without making the domain optional.
+
 ## Current pressure points
 
 - `ambition_platformer2d_actor_monolith` still owns several unrelated domains

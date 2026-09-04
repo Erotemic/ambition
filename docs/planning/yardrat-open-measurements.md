@@ -429,9 +429,24 @@ suggested.
 
 ---
 
-## ⛔ OPEN — the composed app cannot be built on this VM, and `df` says otherwise
+## ✔ CLOSED — the composed app could not be built on this VM, and `df` said otherwise
 
-⭐⭐ **WHEN A MACHINE CAN BUILD, RUN THESE IN THIS ORDER.** Everything below was
+✔✔✔ **ALL RUN 2026-09-04 — Jon cleared the disk work and every queued measurement
+completed. This entry is CLOSED.**
+
+| # | result |
+|---|---|
+| 1 | `ambition_demo_smash` **153 passed**, including the guard restored blind (`the_side_special_...`) — green, as predicted |
+| 2 | `ambition_demo_smash_app --lib` **11 passed**, including the rig's row-level guard |
+| 3 | **The four ladder cells came back UNCHANGED**: `3 vs 1` higher and `5 vs 3` LOWER both significant, `6 vs 5` / `9 vs 6` within spread. The `5 vs 3` inversion is CONFIRMED |
+| 4 | **The roster census PASSED**: 20 selectable fighters, every one `22/22 presses`, none "not its own" |
+| 5 | **George's control arm reproduced**: 14 of 28 moves start, `george_booul_dash_attack` 98, no tilt or smash |
+
+⇒ Disk went **279M → 80G** via `clean_workspace_crates.sh --incremental-only`,
+which rebuilt nothing. ⓘ The ordered list is kept below because it is the recipe,
+and the stop condition in it is still the one that matters.
+
+⭐⭐ **THE ORDER TO RUN THEM IN.** Everything below was
 prepared while blocked, so none of it needs re-deriving:
 
 | # | command | what it settles | why this order |

@@ -289,9 +289,10 @@ longer: at the shipped clock and the shipped rows it separates `3 vs 1` and
 `5 vs 3` from the rest. ⛔ **The word *significantly* stood here and is ON HOLD** —
 the rig printed its direction from pooled medians and its qualifier from a sign
 test that discarded direction, so a cell could read decisive in the direction its
-own evidence did not support. ✔ Fixed 2026-09-04 (`36dd9a248`); **the cells have
-not been re-run**, and `median()` was corrected in the same pass, so the columns
-are pre-fix too.
+own evidence did not support. ✔✔ Fixed 2026-09-04 (`36dd9a248`) **and re-run the same day: the four cells came
+back UNCHANGED**, so `5 vs 3` is confirmed rather than merely restated. `median()`
+was corrected in the same pass and the survival/damage columns moved slightly; the
+verdicts did not.
 the supersession note below.
 
 ⛔ **In short, so nobody quotes a superseded number from here — this one moved

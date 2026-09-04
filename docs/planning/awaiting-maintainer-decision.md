@@ -1535,9 +1535,10 @@ note under the table.
 DEPEND ON IT.** The ladder rig's `report_row` was found to carry two authors of
 one row's meaning — the printed direction from pooled medians, the
 `(within spread)` qualifier from a paired damage-only sign test that discards
-direction. ✔ **Fixed 2026-09-04 (`36dd9a248`)** — but any *"significantly"* taken
-from that tool before then is unverified until the cells are **re-run**, which has
-not happened (recorded in `queue.md`'s **D72** row and in
+direction. ✔ **Fixed 2026-09-04 (`36dd9a248`) AND RE-RUN THE SAME DAY — the hold
+is lifted.** The four cells came back unchanged through the repaired rig (`3 vs 1`
+higher and `5 vs 3` LOWER, both significant), so verdicts taken from that tool are
+confirmed rather than merely re-stated (recorded in `queue.md`'s **D72** row and in
 [`engine/fighter-brain.md`](engine/fighter-brain.md)).
 
 ⭐ **But row 2 now rests on something the rig never touched.** Enumerating every
@@ -1777,8 +1778,25 @@ measured, and still means a dead special button on the demo's catalog default. �
 It is **not** "two thirds of the roster", which is what the old heading implied and
 what would have made this a much bigger decision than it is.
 
-✔✔ **ANSWERED 2026-09-04 — and by the TYPE, not by a measurement, which is why it
-could be settled on a box that cannot build.**
+✔✔✔ **AND NOW MEASURED TOO — `report_the_smash_kit_every_selectable_fighter_has`
+RAN 2026-09-04 after the disk was reclaimed, and PASSED.** Twenty selectable
+fighters, every one `authored  22/22 presses`, and **not one** row reporting a
+press answered by a move an earlier press already claimed (`not its own: -`
+throughout). ⇒ The composed grid's kits are complete **in fact**, not only by
+construction — and the population is **20**, where this page had said *"≥8"*.
+
+| fighter | presses | distinct moves |
+|---|---|---|
+| `smash_george_booul` | 22/22 | 35 |
+| `player_robot_v3` | 22/22 | 34 |
+| `perfect_cellular_automaton` | 22/22 | 34 |
+| `npc_pirate_admiral`, `goblin`, `npc_emmy_noether`, `npc_carl_stargan`, `special_patent_clerk`, `pointed_polygon`, `pugnacious_polygon`, `author`, `performer`, `npc_ninja_shadow_oni_leader` | 22/22 | 33 |
+| `npc_oiler` | 22/22 | 32 |
+| `projectile_polygon` | 22/22 | 27 |
+| `mary_o_tall`, `sanic`, `npc_alice`, `npc_bob` | 22/22 | 26 |
+
+✔✔ **The TYPE argument that preceded it, which is why this was answerable before
+the build came back.**
 
 `SmashRepertoire` has **nineteen** fields and **zero** of them are `Option`: jab,
 three tilts, three smashes, five aerials, four specials, capture, taunt and dash

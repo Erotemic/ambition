@@ -995,7 +995,14 @@ are not among them, since `STAND_INS` steps them aside once the real lineage is
 present. The skeleton is real in the **standalone demo**, where the stand-ins
 *are* seatable, and lies outside the population that test guards.
 
-⛔ **AND I DID NOT RUN IT, so nothing here says it passes.** An earlier draft of
+✔✔ **RUN 2026-09-04 AFTER THE DISK WAS RECLAIMED, AND IT PASSES.** Twenty
+selectable fighters, every one `authored  22/22 presses`, none reporting a press
+answered by another press's move. ⇒ The composed grid's kits are complete in fact.
+ⓘ The paragraph below was written while it was unrun and is kept, because the
+distinction it draws — reading an assertion is not seeing a verdict — is the
+reason the run was worth making.
+
+⛔ **AT THE TIME OF WRITING I HAD NOT RUN IT, so nothing below said it passes.** An earlier draft of
 this paragraph asked *"why is it green"* — I had read the assertion, not a
 verdict, and the question smuggled in a result I never saw. Everything above is
 read off the SOURCE: the press list, the `its_own` rule, the hard assertion. Its

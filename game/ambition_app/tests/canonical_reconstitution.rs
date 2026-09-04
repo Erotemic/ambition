@@ -1614,3 +1614,91 @@ fn a_replay_keeps_session_progress_and_reports_what_it_touches() {
         durable_families_that_differ(&disturbed, &after)
     );
 }
+
+/// ⭐⭐ THE ONE MECHANISM THAT RETRACTS ATTEMPT STATE, ASKED THROUGH THE ROAD A
+/// GATE READS — the arm the durable census above says is missing.
+///
+/// The measurement above found that a replay changes ZERO durable families of
+/// its own accord, so every attempt-scoped fact that must be retracted is
+/// retracted by a CONTENT system that names it. Today there is exactly one:
+/// `reset_cut_rope_attempt_on_replay`, which clears the persisted record for
+/// cut-rope placements PRESENT IN THE ROOM on `RoomReplayAdmitted`.
+///
+/// ⛔ IT HAD NO END-TO-END ARM, and it is the only thing standing between a
+/// retried fight and a permanently-open door. `boss.cleared` became a published
+/// condition on 2026-09-04, so this record is now read by every `gated_by` and
+/// every `<<if boss_cleared(...)>>`: a replay that left it set would rebuild the
+/// boss — the population census would agree perfectly — while the world went on
+/// believing the fight was won.
+///
+/// ⭐ ASKED THROUGH THE CATALOG, NOT THE SAVE FIELD, deliberately. Reading
+/// `data.bosses` would prove the row changed; asking `boss.cleared` proves the
+/// QUESTION a door asks changes with it, which is the property that matters and
+/// the one a future refactor of the save shape could silently break.
+#[test]
+fn a_replay_retracts_the_boss_defeat_a_gate_would_have_read() {
+    use ambition_platformer2d::boss_encounter::BossConfig;
+    use ambition_platformer2d::persistence::save::AmbitionGameSave;
+    use ambition_platformer2d::platformer::authored_logic::{
+        AuthoredArg, ConditionCatalog, ConditionId, ConditionOutcome,
+    };
+
+    const BOSS_ROOM: &str = "you_have_to_cut_the_rope";
+    let mut sim = fixed_60hz_room_sim(BOSS_ROOM);
+    let live = settle_after_construction(&mut sim, &BTreeSet::new());
+
+    // The placement id the room actually authored — not a synthetic one. The
+    // production reset is scoped to placements present in the room, so a made-up
+    // id would test nothing and would fail against correct code.
+    let placement: String = {
+        let mut q = sim.world_mut().query::<&BossConfig>();
+        let world = sim.world();
+        let ids: Vec<String> = q.iter(world).map(|config| config.id.clone()).collect();
+        assert_eq!(
+            ids.len(),
+            1,
+            "`{BOSS_ROOM}` is chosen because it authors exactly one boss; it \
+             authored {ids:?}, so this arm no longer knows what it is asking about"
+        );
+        ids.into_iter().next().expect("one boss")
+    };
+
+    let ask = |sim: &mut Platformer2dSimHarness, placement: &str| -> ConditionOutcome {
+        let id = ConditionId::parse("boss.cleared").expect("`boss.cleared` is a well-formed id");
+        let world = sim.world_mut();
+        world.resource_scope::<ConditionCatalog, _>(|world, catalog| {
+            catalog.evaluate(world, &id, &[AuthoredArg::Name(placement.to_string())])
+        })
+    };
+
+    assert!(
+        matches!(ask(&mut sim, &placement), ConditionOutcome::NotSatisfied(_)),
+        "a boss nobody has fought is not cleared; without this the arm below \
+         cannot tell a retraction from a question that was never true"
+    );
+
+    // Record the defeat the victory beat records.
+    {
+        let mut save = sim.world_mut().resource_mut::<AmbitionGameSave>();
+        save.data_mut().set_boss(
+            placement.clone(),
+            ambition_platformer2d::persistence::save_data::PersistedEncounterState::Cleared,
+        );
+    }
+    assert_eq!(
+        ask(&mut sim, &placement),
+        ConditionOutcome::Satisfied,
+        "the disturbance must actually make the gate's question answer YES, or \
+         the replay below has nothing to retract"
+    );
+
+    replay_the_room(&mut sim, &live);
+
+    assert!(
+        matches!(ask(&mut sim, &placement), ConditionOutcome::NotSatisfied(_)),
+        "the replay rebuilt the boss but left `boss.cleared` answering YES for \
+         `{placement}`. The population census cannot see this — every entity \
+         matches — while every door and dialogue branch gated on that boss stays \
+         open for a fight that was undone."
+    );
+}

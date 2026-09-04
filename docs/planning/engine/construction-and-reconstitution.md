@@ -325,6 +325,7 @@ lifecycle paths against a fresh entry:
 | `a_relocated_occurrence_is_suppressed_by_a_load_and_by_a_re_entry_alike` | a durable fact construction must ACT on reaches both roads alike |
 | `running_one_lifecycle_path_then_another_lands_in_the_same_room` | repeated rebuilds do not drift |
 | `a_replay_keeps_session_progress_and_reports_what_it_touches` | ⛔ the DURABLE half — coins held during an attempt survive it, and which save families a replay touches is reported rather than ratcheted |
+| `a_replay_retracts_the_boss_defeat_a_gate_would_have_read` | ✔ the ONE attempt-retraction mechanism, asked through `boss.cleared` rather than the save row |
 
 The rollback host is covered by `rollback_lifecycle_reset.rs`, which drives the
 same reset under a forced sync-test session and requires the timeline to stay
@@ -416,7 +417,25 @@ gives `E0027: pattern does not mention field 'minted_items'`. ⚠ That fixes the
 comparison, not the RESET — `reset_cut_rope_attempt_on_replay` still grows only
 when somebody notices.
 
-⚠ **AND THE ARM'S FIRST RUN REPORTED A DEFECT THAT WAS NOT THERE**, which is
+✔ **AND THE ONE RETRACTION MECHANISM WORKS END TO END — verified, not
+assumed.** `a_replay_retracts_the_boss_defeat_a_gate_would_have_read` enters
+`you_have_to_cut_the_rope`, reads the placement id the room actually authored
+(`BossSpawn-105805`, LDtk-generated — a synthetic id would test nothing,
+because the production reset is scoped to placements PRESENT in the room),
+records the defeat the victory beat records, replays, and finds the gate's
+question answering NO again.
+⭐ **Asked through `boss.cleared` in the catalog, not through `data.bosses`.**
+Reading the save row proves the row changed; asking the condition proves the
+question A DOOR ASKS changes with it — the property that matters, and the one a
+future refactor of the save shape could silently break. Poison-verified: making
+`reset_cut_rope_attempt_on_replay` never run reddens it with
+*"the replay rebuilt the boss but left `boss.cleared` answering YES"*.
+⇒ **So the mechanism is sound and the RISK is its reach, not its correctness.**
+It works for the one content domain that wrote it; nothing generic retracts
+anything, and a second boss family that forgets to write its own reset gets no
+warning from anywhere.
+
+⚠ **AND THE DURABLE ARM'S FIRST RUN REPORTED A DEFECT THAT WAS NOT THERE**, which is
 worth keeping because this file exists to catch exactly it. The disturbance
 originally wrote `save.data_mut().wallet += 137` — a PROJECTION — which the
 mirror overwrote from the live component on the next step. The test printed

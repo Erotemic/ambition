@@ -316,7 +316,15 @@ fn run_scenarios(seeds: usize) {
     let suite = ambition_platformer2d::combat::brain::fighter::scenarios::suite();
     let playable: Vec<_> = suite
         .iter()
-        .filter(|s| s.starting_positions().is_some() && s.is_reproduced_by_placement())
+        .filter(|s| {
+            s.starting_positions().is_some()
+                && s.unreproduced_by_placement().iter().all(|what| {
+                    *what == "velocity"
+                        || *what == "ledge hang"
+                        || *what == "projectiles"
+                        || (*what == "body phase" && s.starting_hitstun().is_some())
+                })
+        })
         .collect();
     println!(
         "[ladder_rig] --scenarios: PLACEMENT ONLY — {} of {} fixture(s) are \
@@ -340,7 +348,19 @@ fn run_scenarios(seeds: usize) {
             );
             continue;
         }
-        let missing = scenario.unreproduced_by_placement();
+        // ⭐ `velocity` no longer disqualifies a fixture: `place_at` sets it
+        // through `TransitVelocity::Set`. Everything else this rig still cannot
+        // arrange — body phase, projectiles, a ledge hang — remains a skip, and
+        // the message still names exactly what is missing.
+        let phase_is_hitstun_only = scenario.starting_hitstun().is_some();
+        let missing: Vec<&'static str> = scenario
+            .unreproduced_by_placement()
+            .into_iter()
+            .filter(|what| *what != "velocity")
+            .filter(|what| !(*what == "body phase" && phase_is_hitstun_only))
+            .filter(|what| *what != "ledge hang")
+            .filter(|what| *what != "projectiles")
+            .collect();
         if !missing.is_empty() {
             println!(
                 "[ladder_rig]   {:<22} SKIPPED (this rig cannot set up: {}) — its \
@@ -573,7 +593,15 @@ fn stage_bounds(app: &mut bevy::app::App) -> Option<ae::Aabb> {
 ///
 /// Returns `false` until both seats are present, so the caller keeps trying
 /// rather than placing one body and calling it a scenario.
-fn place_at(app: &mut bevy::app::App, me: ae::Vec2, foe: ae::Vec2) -> bool {
+fn place_at(
+    app: &mut bevy::app::App,
+    me: ae::Vec2,
+    foe: ae::Vec2,
+    velocities: Option<(ae::Vec2, ae::Vec2)>,
+    hitstun: Option<(f32, f32)>,
+    ledge_hangs: Option<(bool, bool)>,
+    shots: &[(ae::Vec2, ae::Vec2)],
+) -> bool {
     use ambition_platformer2d::actor::{transit_body, BodyClusterQueryData, TransitVelocity};
     let world = app.world_mut();
     let mut q = world.query::<(
@@ -600,9 +628,131 @@ fn place_at(app: &mut bevy::app::App, me: ae::Vec2, foe: ae::Vec2) -> bool {
         // scenario measured a fighter standing in a premise its motion model did
         // not agree with.
         //
-        // `Zero`, because a body carrying the spawn's fall speed into a
-        // "standing at the ledge" premise is not in that premise.
-        transit_body(&mut model, &mut clusters, target, TransitVelocity::Zero);
+        // `Zero` by default, because a body carrying the spawn's fall speed
+        // into a "standing at the ledge" premise is not in that premise.
+        //
+        // ⭐ BUT A SCENARIO MAY ASK FOR A VELOCITY, and `TransitVelocity::Set`
+        // is how the authority accepts one — the same road, not a field write.
+        // Before this the rig could only place, so every fixture whose premise
+        // included motion was skipped as "cannot set up: velocity". Measured
+        // 2026-09-03: that was 3 of the 4 skips, and `edgeguard_window` needed
+        // nothing else.
+        let velocity = match velocities {
+            Some((me_vel, foe_vel)) => {
+                TransitVelocity::Set(if seat.0 == 0 { me_vel } else { foe_vel })
+            }
+            None => TransitVelocity::Zero,
+        };
+        transit_body(&mut model, &mut clusters, target, velocity);
+    }
+    // ⭐ HITSTUN IS A TIMER, NOT AN ENUM. `BodyPhase` is derived — the runtime's
+    // `body_phase()` reads it from `BodyCombat.hitstun_timer` — so a fixture
+    // that starts a body "in hitstun" is reproduced by writing the timer the
+    // phase is computed FROM. Writing a phase field would be writing the
+    // thermometer.
+    //
+    // ⚠ Separate pass because it is a different component: `transit_body` owns
+    // pose and velocity, and nothing about hitstun is a transit.
+    // ⭐ A REAL BOLT, NOT A FABRICATED ONE. The fixture's premise is "an
+    // opponent at range with a shot in the air"; its `damage: 3` describes its
+    // own 800x600 stage the way its coordinates do. So the rig fires the volley
+    // ability's OWN authored spec (`abilities::ranged::volley::authored_bolt`)
+    // from the foe toward the subject, and maps the fixture's offset the same
+    // way `starting_positions_on` maps its positions. Building a
+    // `ProjectileSpawn` out of the fixture's numbers would stage a projectile no
+    // ability authors.
+    if !shots.is_empty() {
+        use ambition_platformer2d::projectiles::spawn_request::{
+            ProjectileSpawnRequest, ProjectileStart,
+        };
+        let world = app.world_mut();
+        let mut seats = world.query::<(&MatchSeat, BodyClusterQueryData)>();
+        let mut subject = None;
+        let mut shooter = None;
+        for (seat, cluster) in seats.iter(world) {
+            if seat.0 == 0 {
+                subject = Some(cluster.kinematics.pos);
+            } else {
+                shooter = Some(cluster.kinematics.pos);
+            }
+        }
+        if let (Some(subject_pos), Some(_)) = (subject, shooter) {
+            let mut foes =
+                world.query_filtered::<bevy::prelude::Entity, bevy::prelude::With<MatchSeat>>();
+            let owner = foes.iter(world).last();
+            if let Some(owner) = owner {
+                for (offset, dir) in shots {
+                    let origin = subject_pos + *offset;
+                    world.write_message(ProjectileSpawnRequest::open(
+                        owner,
+                        ambition_platformer2d::abilities::ranged::volley::authored_bolt(
+                            origin, *dir,
+                        ),
+                        ProjectileStart::StepThisTick,
+                    ));
+                }
+            }
+        }
+    }
+    // ⭐ A HANG IS NOT A POSITION, so it is arranged AFTER `transit_body` —
+    // which clears `ledge_grab` on purpose (`reconcile_transit`: "the ledge
+    // anchor was a fact of the departure point"). Setting it before the transit
+    // would be undone by the transit.
+    //
+    // The anchor comes from the REAL platform, not from the fixture's stage:
+    // `smash_stage().world.blocks[0]` is the one thing you can stand on, and the
+    // ledge is its top corner on the side the fixture put the body. Guessing the
+    // geometry would stage a body hanging in mid-air, which is a fixture staging
+    // something its premise did not describe.
+    if let Some((me_hangs, foe_hangs)) = ledge_hangs {
+        use ambition_platformer2d::engine_core::ledge_grab::{LedgeContact, LedgeGrabState};
+        use ambition_platformer2d::engine_core::AabbExt as _;
+        let platform = ambition_demo_smash::smash_stage().world.blocks[0].aabb;
+        let centre = platform.center();
+        let world = app.world_mut();
+        let mut q = world.query::<(
+            &MatchSeat,
+            BodyClusterQueryData,
+            &mut ambition_platformer2d::actor::MotionModel,
+        )>();
+        for (seat, mut cluster_item, mut model) in q.iter_mut(world) {
+            let hangs = if seat.0 == 0 { me_hangs } else { foe_hangs };
+            if !hangs {
+                continue;
+            }
+            let mut clusters = cluster_item.as_clusters_mut();
+            // Which ledge: the side the fixture placed the body on.
+            let on_left = clusters.kinematics.pos.x < centre.x;
+            let edge_x = if on_left { platform.left() } else { platform.right() };
+            let contact = LedgeContact {
+                // +1 = wall on the player's LEFT. Hanging off the platform's
+                // left edge puts the wall on the player's RIGHT, hence -1.
+                wall_normal_x: if on_left { -1.0 } else { 1.0 },
+                anchor: ae::Vec2::new(edge_x, platform.top()),
+                climb_target: ae::Vec2::new(edge_x, platform.top()),
+            };
+            // Snap to the anchor through the authority, then declare the hang.
+            transit_body(
+                &mut model,
+                &mut clusters,
+                contact.anchor,
+                TransitVelocity::Zero,
+            );
+            if let ambition_platformer2d::actor::MotionModel::AxisSwept(axis) = &mut *model {
+                axis.state.ledge_grab = Some(LedgeGrabState::hanging(contact));
+            }
+        }
+    }
+    if let Some((me_stun, foe_stun)) = hitstun {
+        let world = app.world_mut();
+        let mut q = world
+            .query::<(&MatchSeat, &mut ambition_platformer2d::characters::actor::BodyCombat)>();
+        for (seat, mut combat) in q.iter_mut(world) {
+            let seconds = if seat.0 == 0 { me_stun } else { foe_stun };
+            if seconds > 0.0 {
+                combat.hitstun_timer = seconds;
+            }
+        }
     }
     true
 }
@@ -674,9 +824,15 @@ fn run_bout_at(
                 // every recovery quadrant far outside any platform, where the
                 // blastzone took it instantly — two of them printed identical
                 // columns, which is how it was found.
+                let velocities = scenario.starting_velocities();
+                let hitstun = scenario.starting_hitstun();
+                let ledge_hangs = scenario.starting_ledge_hangs();
+                let shots = scenario.starting_shots();
                 placed = stage_bounds(&mut app)
                     .and_then(|bounds| scenario.starting_positions_on(bounds))
-                    .is_some_and(|(me, foe)| place_at(&mut app, me, foe));
+                    .is_some_and(|(me, foe)| {
+                        place_at(&mut app, me, foe, velocities, hitstun, ledge_hangs, &shots)
+                    });
             }
         }
         let world = app.world_mut();

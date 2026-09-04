@@ -785,6 +785,131 @@ queue read as an execution authority for work already done.
   11.8 GB free of 290, below the 40 GB floor, so the Rust lane refuses to start
   and the fix could not be gated.
 
+- ▢ **THE S4 `SimId` CENSUS PASSES BECAUSE ITS POPULATION EXCLUDES THE ONE ROAD
+  THAT WOULD FAIL IT.** Found 2026-09-03 with ToothbrushAmbition — they found the
+  road, I checked the census against it, and both halves are independently
+  derived.
+
+  1. **A boss death drop mints no identity.**
+     `features/ecs/damage_drops.rs::drop_held_weapon` spawns `GroundItem`,
+     `Name`, `RoomScopedEntity`, a `dynamic_drop_origin` and `SpawnedThisAttempt`
+     — and **no `SimId`**. Its `parent: &SimId` argument is consumed for
+     provenance only, which its own doc comment states as deliberate.
+     ⚠ **CORRECTED WITHIN THE HOUR: I first wrote "no `SimId` and no
+     `ItemCustody`", and the `ItemCustody` half is WRONG.** `GroundItem` carries
+     `#[require(ItemCustody)]` (`ambition_held_items/src/lib.rs:269`), so Bevy
+     0.19 inserts it automatically on every one. Checking the spawn call alone
+     shows what the caller lists, not what the entity ends up with — a required
+     component is invisible at the call site. ⇒ Of the four components
+     `capture_minted_item_baseline` queries, the drop has `GroundItem`,
+     `ItemCustody` (required) and `SpawnOrigin` (from `dynamic_drop_origin`, which
+     returns `SpawnOrigin::Dynamic`). **Exactly ONE is missing, and it is
+     `SimId`.** The finding is unchanged and its cause is narrower than I said.
+  2. **A `GroundItem` IS a rollback anchor**, said twice in the tree's own words:
+     `ambition_held_items/src/lib.rs:1162` (*"it lives on a `GroundItem`, which is
+     a rollback anchor"*) and `crates/ambition_platformer2d_actor_monolith/src/rollback_registration.rs:304` (*"which is already
+     an anchor"*).
+  3. **The census asserts every rollback-anchored entity has a unique `SimId`**
+     (`game/ambition_app/tests/rollback_populated_timeline.rs:322`,
+     `every_rollback_anchored_entity_has_a_unique_sim_id_on_the_populated_timeline`),
+     and [`engine/simulation-authority-and-determinism.md`](engine/simulation-authority-and-determinism.md)
+     records it as holding *with no waiver list*.
+  4. ⛔ **Its `populate()` spawns five things and none of them is a ground item:**
+     a sentry, a vortex well, a temporary gravity well, a falling hazard and a
+     portal shot. Zero `GroundItem`, zero `drop_held_weapon`.
+
+  ✔ **RUN 2026-09-03, AND IT FIRES.** I added the drop road's SHAPE to
+  `populate()` — a `GroundItem` through the facade, `ItemCustody` arriving via
+  `#[require]`, no `SimId` — and the census failed:
+
+```text
+  of 28 rollback-anchored entities:
+    1 carry NO SimId (rewind anonymously): [
+      "death-drop gauntlet (no SimId, as the drop road spawns it)",
+  ]
+    0 SimIds are carried by more than one entity: []
+```
+
+  ⇒ **The assertion is sensitive; the population was blind.** 27 entities before,
+  28 after, and the one added is the one it catches. So the guard was green
+  because the defect sat outside its corpus, not because the invariant held —
+  measured, no longer predicted.
+  ⚠ **The arm is NOT committed**, deliberately: landing it now leaves a red in a
+  lane two sessions are working in, and the fix (a `SimId::death_drop` constructor <!-- cite-ok: not landed yet; this names work in flight on another session -->) is already
+  in flight on ToothbrushAmbition's side. ⇒ It belongs in the same commit as the
+  fix, or immediately after it, so the census's population permanently includes
+  the drop road. The arm is written and type-checks
+  (`cargo check -p ambition_app --test app_it`, clean).
+  ⓘ It does NOT call `drop_held_weapon` — `damage_drops` is a private module
+  (`features/ecs/mod.rs:61`) and unreachable from an integration test. It
+  reproduces the SHAPE the drop road produces, which is the right question for a
+  census: does the guard notice the class, not does one caller emit it.
+  ⛔⛔ **RETRACTED — "a harness-staged boss gets a profile-less config" is NOT
+  established and was my error.** I traced `BossConfig.behavior` correctly to
+  `for_authored_boss(catalog, canonical_id)`
+  (`crates/ambition_boss_encounter/src/clusters.rs:280`) and `canonical_id` to
+  `canonical_boss_id_from(&name, &brain)` (`behavior.rs:174`) — then applied it
+  to the wrong string. `gauntlet_boss` is the fixture's RUNTIME entity id, which
+  that function never reads; it resolves `PhaseScript { script_id }` to the
+  script id, and the fixture passes `mockingbird`, which IS an authored profile.
+  ⇒ The profile resolved. ToothbrushAmbition's log proves it independently: the
+  boss ran the mockingbird phase script (`None -> Intro`, `Some(Intro) ->
+  Phase1`), which a profile-less config could not do. ⚠ **Reading a step right
+  and feeding it the wrong input is not caught by re-reading the step.**
+
+  ⛔ **THE REAL COVERAGE FINDING, from their run:** every boss drop is spawned
+  inside `apply_boss_hit`'s `killed` branch, and `apply_boss_hit` has exactly one
+  call site — `apply_feature_hit_events`
+  (`crates/ambition_platformer2d_actor_monolith/src/features/ecs/damage/mod.rs:819`).
+  Writing HP to zero and calling `phase.kill()` never enters it. ⇒
+  **`force_kill_boss` cannot produce a single boss drop**, and its reward-chest
+  assertion passes because the chest arrives by a different road.
+  ✔ **I confirmed the other road independently:** `sync_boss_reward_chests_ecs`
+  (`crates/ambition_boss_encounter/src/rewards.rs:24`) is *"idempotently ensure
+  cleared boss encounters have ECS reward chests"* — it is driven by the SAVE's
+  cleared record and the encounter registry, not by the kill. So the chest
+  appears for a boss killed any way at all, including one whose HP was written
+  to zero.
+  ⛔ **Which means `defeated_boss_is_recorded_cleared_drops_reward_and_clears_music`
+  (`game/ambition_app/tests/boss_lifecycle.rs:177`) covers half of what its name
+  says.** *"A defeated boss with a DropChest reward must drop exactly one chest"*
+  is true and passes — through the save road. The rewards that need the actual
+  kill road (the signature gauntlet, the ability pickup, the dropped weapon, the
+  coin bag) are spawned in `apply_boss_hit`'s `killed` branch, which
+  `force_kill_boss` never enters. ⇒ **The fighter's boss rewards have no test
+  that exercises the road they are spawned on**, and the file that looks like it
+  does is measuring the save instead.
+  ⭐ **The mapping IS guarded and the ROAD is not.**
+  `boss_signature_gauntlets_map_to_real_wielded_held_items`
+  (`crates/ambition_platformer2d_actor_monolith/src/features/ecs/damage/tests.rs:989`)
+  pins every RON gauntlet id against its ability const. What nothing guards is
+  that a HARNESS-STAGED boss gets a profile-less config silently — and every
+  boss test in the repo goes through `spawn_boss_at`. ⇒ A guarded data table
+  plus a spawn road that never reads it: the same shape as the census above,
+  where the assertion is right and the population never includes the case.
+  ✔ **CLOSED, and it is policy rather than a defect.** A phase-scripted boss
+  survived a single broadcast `HitEvent` of 9,999 damage (measured 2026-09-03,
+  ToothbrushAmbition) — because it was in **Intro**, and
+  `BossEncounterPhase::boss_invulnerable()`
+  (`crates/ambition_characters/src/brain/boss_pattern/mod.rs:1206`) is true for
+  `Dormant | Intro | Transition | Death`. `boss_hit.rs:39` returns early on
+  `invulnerable || amount <= 0`, and the file's own header says so at :24:
+  *"Boss phase policy rejects hits while invulnerable."* A second gate,
+  `transition_lock > 0.0`, sits beside it
+  (`crates/ambition_characters/src/boss_encounter.rs:254`).
+  ⇒ **A boss is killable only in `Phase1`, `Phase2`, `Enrage` or `Stagger`.** Any
+  test that wants the real kill road must STEP until the phase is attacking
+  before it hits — hitting on frame 1 hits an invulnerable boss and reads as
+  "9,999 damage did nothing".
+
+  ⭐ **AND IT IS THE FIGHTER'S BEST REWARD.** `damage/boss_hit.rs:305` drops the
+  boss's signature gauntlet through this exact function — the comment above it
+  says *"the player literally wields the boss's move"* — and
+  `damage/actor_hit.rs:661` is a second caller, so ordinary actor deaths use the
+  same identity-less road. ⇒ Every gauntlet ALSO exists as an authored ground
+  item in the sandbox world, which does carry an identity, so the same object is
+  acquirable two ways with and without a `SimId`.
+
 - ▢ **THE FEATURE UNION IS RED: 48 failures against 6,968 passes, and 37 of
   them are ONE system.** Measured 2026-09-03 at `dbfb1a2ca` by running the gate's
   own union job standalone (`cargo test --workspace --no-fail-fast --features

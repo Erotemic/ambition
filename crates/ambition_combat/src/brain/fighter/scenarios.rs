@@ -67,6 +67,102 @@ impl Scenario {
         Some((self.view.self_view.pos, foe.pos))
     }
 
+    /// Stage VELOCITIES for scenarios that include an opponent, alongside
+    /// [`starting_positions`](Self::starting_positions).
+    ///
+    /// ⭐ A harness that can set these reclaims every fixture whose only
+    /// unreproduced state is `velocity` — measured 2026-09-03, that is
+    /// `edgeguard_window`, one of the four the ladder rig was skipping. The
+    /// transit authority already accepts one (`TransitVelocity::Set`), so the
+    /// gap was an accessor, not a capability.
+    ///
+    /// ⚠ Positions and velocities are returned separately ON PURPOSE. A caller
+    /// that can place but not push is still correct to use
+    /// `starting_positions` alone and report the fixture as unreproduced;
+    /// bundling them would let it silently drop the half it cannot apply.
+    pub fn starting_velocities(&self) -> Option<(ae::Vec2, ae::Vec2)> {
+        let foe = self.view.actors.first()?;
+        Some((self.view.self_view.vel, foe.vel))
+    }
+
+    /// Seconds of HITSTUN each body starts in, when that is the whole of its
+    /// phase premise.
+    ///
+    /// ⭐ `BodyPhase` is DERIVED, not stored: the runtime's `body_phase()` reads
+    /// it from `BodyCombat.hitstun_timer` / `recoil_lock_timer`, `BodyMelee`'s
+    /// attack phase, and the shield. So a harness reproduces `Hitstun` by
+    /// writing the TIMER — the source of truth — and never by assigning the
+    /// derived enum.
+    ///
+    /// ⛔ `None` unless every non-`Neutral` phase in the fixture is `Hitstun`.
+    /// The attack phases need a `BodyMelee` mid-swing, which a timer cannot
+    /// fake, and a harness that got `Some` for those would stage a body the
+    /// fixture did not describe. `juggle_escape` is the case this serves; a
+    /// startup/active fixture must still be reported unreproduced.
+    pub fn starting_hitstun(&self) -> Option<(f32, f32)> {
+        let foe = self.view.actors.first()?;
+        let expressible = |phase: BodyPhase| {
+            matches!(phase, BodyPhase::Neutral | BodyPhase::Hitstun)
+        };
+        if !expressible(self.view.self_view.phase) || !expressible(foe.phase) {
+            return None;
+        }
+        let seconds = |phase: BodyPhase, remaining: f32| {
+            if phase == BodyPhase::Hitstun {
+                remaining.max(f32::EPSILON)
+            } else {
+                0.0
+            }
+        };
+        Some((
+            seconds(self.view.self_view.phase, self.view.self_view.phase_remaining),
+            seconds(foe.phase, foe.phase_remaining),
+        ))
+    }
+
+    /// Which bodies the fixture starts HANGING ON A LEDGE, as `(me, foe)`.
+    ///
+    /// ⛔ A hang is not a position — dropping a body at the ledge coordinates
+    /// leaves it falling past them. A harness reproduces one by writing the
+    /// ledge-grab state AND snapping the body to the contact's anchor, which is
+    /// why this is separate from [`starting_positions`](Self::starting_positions):
+    /// the anchor comes from the real platform, not from the fixture's stage.
+    pub fn starting_ledge_hangs(&self) -> Option<(bool, bool)> {
+        let foe = self.view.actors.first()?;
+        // ⚠ `SelfView` carries no `ledge_hanging` field at all: the fixture
+        // describes the OPPONENT hanging, and a brain's own hang reaches it
+        // through its motion state rather than through perceiving itself. So
+        // this reports the foe, and `false` for self is a fact about the type
+        // rather than a claim about the fixture.
+        Some((false, foe.ledge_hanging))
+    }
+
+    /// Hostile shots the fixture starts with in the air, as
+    /// `(offset_from_self, direction)` per projectile.
+    ///
+    /// ⛔ **Direction and OFFSET, not position and velocity.** The fixture's
+    /// coordinates describe its own 800x600 stage, and pasting them onto the
+    /// running stage is the mistake `starting_positions_on` exists to avoid. A
+    /// harness maps the offset the same way it maps positions, and fires a REAL
+    /// authored bolt rather than a spec built from these numbers — the fixture's
+    /// premise is *"a shot in the air"*, not a particular damage value.
+    pub fn starting_shots(&self) -> Vec<(ae::Vec2, ae::Vec2)> {
+        self.view
+            .projectiles
+            .iter()
+            .filter(|shot| shot.hostile_to_self)
+            .map(|shot| {
+                let offset = shot.pos - self.view.self_view.pos;
+                let dir = if shot.vel == ae::Vec2::ZERO {
+                    ae::Vec2::new(-1.0, 0.0)
+                } else {
+                    shot.vel.normalize()
+                };
+                (offset, dir)
+            })
+            .collect()
+    }
+
     /// Scenario state that a position-only harness cannot reproduce.
     ///
     /// Derived from the fixture itself. Grounded state is excluded because normal

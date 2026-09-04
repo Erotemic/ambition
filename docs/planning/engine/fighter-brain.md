@@ -65,7 +65,10 @@ fact. F1 asked for a decision trace rather than another sweep; the trace was one
 field short of being able to answer, and that is worth remembering the next time
 an instrument reports a decision without its reason.
 
-Run: `ladder_rig --sweep-below [--no-rollout] --seeds 45`.
+Run: `smash_tool ladder-rig --sweep-below [--no-rollout] --seeds 45`.
+⚠ Note the seed count: this is the arm the 45-seed claim above was measured
+on. The `Reproduce with` block further down runs **1** seed, which shows the
+trace format but does NOT reproduce the 45-seed result it sits under.
 
 `RecoveryLens` did **not** change which bouts are fought, and the traced Recovery
 decisions were byte-identical between the two arms for their first 22 ticks — the
@@ -121,6 +124,24 @@ AMBITION_FIGHTER_TRACE=1 cargo run --release -p ambition_demo_smash_app \
   --bin smash_tool -- ladder-rig --sweep-below --seeds 1 2>&1 | grep '^\[fighter '
 ```
 
+✔ **RE-RUN 2026-09-03 AND IT STILL REPRODUCES — release build, 1 seed, 6,388
+`[fighter …]` lines.** The instrument is intact: `least_bad`, `unmodelled` and
+`floor_edge` are present on **every one** of those lines, so the fields F1 added
+have not been lost to a refactor.
+
+⭐ **AND THEY ARE LOAD-BEARING, not decoration.** The three tiers of
+`pick_movement` are all exercised in a single one-seed sweep:
+
+| field | non-default | of 6,388 |
+|---|---|---|
+| `least_bad=Some(..)` | **280** — `Recover` 108, `Retreat` 86, `Approach` 86 | 4.4% |
+| `unmodelled=[..]` | **983** — `Dodge` 846, `Shield`+ 137 | 15.4% |
+
+⇒ Tier 2 fires 280 times and tier 3 fires 983 times in ONE seed. The page's
+lesson was that the instrument had been one field short; the measurement says
+the added fields are populated often enough that a reader who ignores them is
+ignoring a sixth of the decisions.
+
 Do **not** tune rollout depth, RecoveryLens heuristics, APM, reaction time, or
 movement weights without a trace that identifies the responsible decision first.
 
@@ -141,6 +162,103 @@ Keep deterministic fixed-seed reports and enough instrumentation to show that:
 - CPU cost remains within the intended budget.
 
 Do not build a second permanent telemetry stack around the fighter brain.
+
+⭐ **MEASURED 2026-09-03: the rig reproduced FIVE of its NINE named scenarios
+when this section was written, and it says so itself. It is NINE of nine now —
+the four reclaims are recorded below, in the order they landed.** `smash_tool ladder-rig --scenarios --seeds 1` opens with
+*"PLACEMENT ONLY — 5 of 9 fixture(s) are reproduced by placing two bodies"* and
+then skips four by name, each with the setup it cannot perform:
+
+| skipped fixture | what the rig cannot set up |
+|---|---|
+| `juggle_escape` | velocity, body phase |
+| `projectile_camper` | projectiles |
+| `edgeguard_window` | velocity |
+| `edgeguard_ledge_hang` | ledge hang |
+
+⭐ **THE RIG IS HONEST AND THAT IS THE POINT** — it refuses rather than placing
+two bodies and calling the result a juggle. This is F2's own rule enforced by
+the instrument: *"a scenario must instantiate the premise it claims to
+measure."* ⚠ But the consequence belongs on this page in a number: **the four it
+cannot reach are the ones a platform fighter is judged on** — edgeguarding
+(twice), juggling, and projectile camping. Reading a green ladder as "the brain
+is evaluated" over-reads it by four ninths.
+
+⇒ **The gap is a SETUP capability, not more seeds.** Every skip names velocity,
+body phase, projectiles or a ledge hang — states a placement cannot express.
+
+✔ **FIXED THE VELOCITY HALF THE SAME DAY: 5 of 9 → 6 of 9.** `edgeguard_window`
+now runs and produces four real rungs, and the higher-skill fighter wins the top
+two — which is the verdict an edgeguard fixture exists to produce. The change is
+small because the authority already accepted it: `transit_body` takes a
+`TransitVelocity`, and the rig was passing `Zero` unconditionally. `Scenario`
+gained `starting_velocities()` beside `starting_positions()`, and `place_at`
+passes `Set(..)` when a scenario asks for motion. ⛔ Still the transit authority,
+not a field write — ADR 0024, and `engine.pose-writes-are-authority-only`
+already caught the bare version of that once.
+
+⚠ **The instrument stayed honest and that is the check that it worked:**
+`juggle_escape`'s skip line narrowed from *"cannot set up: velocity, body
+phase"* to *"cannot set up: body phase"*. It did not start passing because the
+rig stopped asking; it names the one thing that is still missing.
+
+✔ **AND THE BODY-PHASE HALF, THE SAME DAY: 6 of 9 → 7 of 9.** `juggle_escape`
+now runs. ⭐ **`BodyPhase` is DERIVED, not stored** — the runtime's `body_phase()`
+(`features/ecs/perception.rs:250`) computes it from `BodyCombat.hitstun_timer` /
+`recoil_lock_timer`, `BodyMelee`'s attack phase and the shield. So a fixture that
+starts a body *"in hitstun"* is reproduced by writing the TIMER the phase is
+computed from. Assigning the enum would be writing the thermometer.
+
+⛔ **`starting_hitstun()` returns `None` unless every non-`Neutral` phase in the
+fixture is `Hitstun`.** The attack phases need a `BodyMelee` mid-swing, which a
+timer cannot fake, so a startup/active fixture is still reported unreproduced
+rather than staged as something the fixture did not describe. The rig's skip
+filter asks the accessor rather than string-matching the phase name.
+
+✔ **AND THE LEDGE HANG: 7 of 9 → 8 of 9.** `edgeguard_ledge_hang` runs. It is
+the fixture the premise calls *"the most punishable state in the genre"*, and the
+ladder now has a verdict for it at every rung.
+
+⛔ **The rule "a hang is not a position" survives — it is why this took real
+geometry rather than a coordinate.** The anchor comes from the actual platform,
+`smash_stage().world.blocks[0]`, and the ledge is its top corner on the side the
+fixture put the body; `wall_normal_x` is `-1` at the left edge because the wall
+is then on the player's RIGHT. Guessing any of that would stage a body hanging in
+mid-air — a fixture staging something its premise did not describe, which is the
+failure the skip existed to prevent.
+⚠ **Order matters and the authority says why:** `transit_body` CLEARS
+`ledge_grab` (*"the ledge anchor was a fact of the departure point"*), so the
+hang is declared after the transit, never before.
+
+✔ **AND THE THREE RECLAIMS PERTURBED NOTHING ELSE — checked rather than
+assumed.** The four fixtures that already ran (`ledge_trap`, `recovery_left`,
+`recovery_right`, `recovery_below`) produce **byte-identical rows** before and
+after all three changes, compared by hashing their lines from the 5-of-9 run
+against the 8-of-9 one. ⇒ The new setup only fires where a fixture asks for it:
+`starting_velocities` returns `None` for a still fixture, `starting_hitstun`
+`Some((0.0, 0.0))` writes nothing, and `starting_ledge_hangs` skips a body that
+does not hang. A reclaim that also moved the existing numbers would have been a
+regression wearing a coverage win's clothes.
+
+✔ **AND THE LAST ONE: 8 of 9 → 9 of 9.** `projectile_camper` runs. The rig fires
+the volley ability's OWN authored bolt — `abilities::ranged::volley::authored_bolt`,
+exported for exactly this — from the foe toward the subject, mapping the
+fixture's projectile OFFSET the way `starting_positions_on` maps its positions.
+
+⛔ **The fixture's `damage: 3` is not reproduced, deliberately, and that is the
+point.** Its premise is *"an opponent at range with a shot in the air"*; the
+damage value describes its own 800x600 stage the way its coordinates do.
+Building a `ProjectileSpawn` out of the fixture's numbers would stage a
+projectile **no ability authors** — a shot that exists nowhere in the game. The
+rig fires a real one instead, on the real spawn road
+(`ProjectileSpawnRequest::open` → `ProjectileStart::StepThisTick`).
+
+⭐ **ALL NINE, AND THE OTHER EIGHT DID NOT MOVE.** Every fixture that ran before
+each change produces byte-identical rows after it — checked at 5→8 and again at
+8→9, by hashing their lines. Setup fires only where a fixture asks: no velocity,
+no hitstun seconds, no hang, no shots means no writes. A coverage win that also
+moved the existing numbers would be a regression in a win's clothing, and a
+rising fixture count would never have shown it.
 
 ## Relationship to navigation/recovery architecture
 

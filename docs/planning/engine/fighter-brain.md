@@ -290,10 +290,37 @@ actually passed, and both tables name what they ran under — either
 *"each rung's OWN authored row"* or the overridden values. `--weight` still
 forces on every fighter, which is the documented reason it exists.
 
-⇒ **What this costs.** Every ladder result recorded before 2026-09-04, including
-both matrices below, is a measurement of a ladder that differs in reflexes only.
-They are not wrong about what they measured; they are not measurements of the
-shipped ladder. The re-run under authored weights is the first one that is.
+⛔⛔ **AND THE FORCING WAS THE OUTER OF TWO LAYERS — the re-run PROVED IT by
+changing nothing.** I expected the authored-weights run to move the numbers. It
+did not: the first **10 of 10** fixture×rung cells came back byte-identical in
+every column. That is the evidence, not a disappointment — if the authored rungs
+had been reaching the fighters, removing an override that overwrote them would
+have had to change something.
+
+⇒ **The real mechanism, confirmed twice.** `FighterBrainProfile::for_level` — the
+engine FLOOR — sets `utility_weights: UtilityWeights::default()`, and `default()`
+*is* `v1()`. So the floor already gives **every** rung level-9 weights. The
+authored per-level rows reach a fighter only through
+`project_authored_fighter_ladder`, which needs `Res<AuthoredFighterLadder>`, and
+that resource is inserted by **`ambition_content`** — which neither
+`ambition_demo_smash` nor `ambition_demo_smash_app` depends on (`grep ambition_content
+game/ambition_demo_smash*/Cargo.toml` → 0).
+
+⇒ **So the rig has never once had the authored ladder.** Its rungs differ in
+`reaction_ms`, `apm_cap`, `execution_noise` and `read_weight` — the floor's own
+per-level values — and in nothing else. The rig's forcing was a redundant second
+flattening on top of a floor that had already flattened it.
+
+⚠ **The fix is therefore NOT the one I made.** Making the override optional is
+correct and stays, but it is not sufficient and on its own it is inert. The rig's
+app has to install the authored ladder before any run can measure it, and until
+it does, *"the ladder inverts at 5→6"* is a statement about the FLOOR's reflex
+ladder and not about the difficulty ladder Ambition ships.
+
+⇒ **What this costs.** Every ladder result this project has recorded measures the
+engine floor's reflex-only ladder. They are not wrong about what they measured;
+none of them is a measurement of the shipped ladder, and no brain change should
+be justified by them until the rig loads it.
 
 ### The scoreboard change, and what the matrix said under it
 

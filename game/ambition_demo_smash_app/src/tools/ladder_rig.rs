@@ -280,7 +280,16 @@ pub struct LadderRigArgs {
     /// sitting under the whole corpus — spacing, recovery and edgeguard results
     /// were all taken on one layout — and this flag is what turns it into a
     /// variable that can be compared instead of a constant nobody chose.
-    #[arg(long, default_value = "flat")]
+    ///
+    /// ⛔ **THE DEFAULT IS EMPTY, NOT `"flat"`, AND THAT IS DELIBERATE.** It used
+    /// to be the literal `"flat"`, which happened to match
+    /// `SmashStageChoice::default()` — and a default that is right by coincidence
+    /// is the shape that produced five separate wrong-configuration measurements
+    /// in this rig on 2026-09-04 (weights, ladder source, rollout, fighters,
+    /// clock). ⇒ Empty resolves to the demo's OWN default at the point of use, so
+    /// changing `SmashStageChoice::default()` moves the rig with it instead of
+    /// silently leaving it behind.
+    #[arg(long, default_value = "")]
     pub stage: String,
 }
 
@@ -640,6 +649,33 @@ fn report_which_fighters_are_in_play() {
     );
 }
 
+/// The stage this run fights on, resolved once.
+///
+/// ⛔ **ONE OWNER, BECAUSE THE PARSE AND THE HEADER USED TO BE TWO.** The header
+/// printed `args().stage` — the RAW flag — while the world was built from a
+/// separate `match` over the same string. They agreed only because both spelled
+/// `"flat"`. ⇒ Making the flag's default empty (so it can defer to
+/// `SmashStageChoice::default()`) would have made the header print an empty
+/// stage name while the run measured the real one: a header and a run
+/// disagreeing, which is the exact failure this file has spent a day removing.
+///
+/// ⭐ So both go through here, and the header prints `label()` — the same string
+/// the game's own stage button shows.
+fn resolved_stage() -> ambition_demo_smash::SmashStageChoice {
+    match args().stage.trim().to_ascii_lowercase().as_str() {
+        "platforms" => ambition_demo_smash::SmashStageChoice::Platforms,
+        "flat" => ambition_demo_smash::SmashStageChoice::Flat,
+        // ⭐ Nobody passed `--stage`: take the demo's OWN default rather than
+        // naming one here, so changing it moves the rig with it.
+        "" => ambition_demo_smash::SmashStageChoice::default(),
+        other => panic!(
+            "unknown --stage {other:?}; the rig fights on `flat` or `platforms`. \
+             Defaulting would silently measure a stage nobody asked for, and the \
+             stage is exactly the variable this flag exists to control."
+        ),
+    }
+}
+
 /// Say how long a bout ran, and say loudly when that is not a real match.
 fn report_which_clock_is_in_play() {
     let shipped = ambition_demo_smash::SMASH_TIME_LIMIT_TICKS as usize;
@@ -784,7 +820,7 @@ fn run_scenarios(seeds: usize) {
         playable.len(),
         suite.len(),
         ticks() / 60,
-        args().stage,
+        resolved_stage().label(),
         // ⛔ THE DESIGN IS PART OF THE NUMBER. A paired table and an unpaired one
         // answer the same question with different controls, and two runs whose
         // headers do not say which cannot be compared.
@@ -1489,15 +1525,7 @@ fn run_bout_at(
     // the preparation source reads this resource once, when the match is asked
     // for. Setting it afterwards would change nothing and look like it worked.
     app.world_mut()
-        .insert_resource(match args().stage.trim().to_ascii_lowercase().as_str() {
-            "platforms" => ambition_demo_smash::SmashStageChoice::Platforms,
-            "flat" | "" => ambition_demo_smash::SmashStageChoice::Flat,
-            other => panic!(
-                "unknown --stage {other:?}; the rig fights on `flat` or `platforms`. \
-                 Defaulting would silently measure a stage nobody asked for, and \
-                 the stage is exactly the variable this flag exists to control."
-            ),
-        });
+        .insert_resource(resolved_stage());
     for _ in 0..30 {
         app.update();
     }

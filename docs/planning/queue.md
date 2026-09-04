@@ -2240,6 +2240,30 @@ queue read as an execution authority for work already done.
   re-resolves with `move_for_flat_verb(base, grounded, running)`, which tries
   `{base}_dash` FIRST when running. George binds `attack_dash`. ⇒ Every attack
   pressed while running becomes the dash attack, whatever was scored.
+  ⭐⭐ **AND THIS IS THE THIRD INSTANCE OF ONE CLASS IN THIS AREA, named 2026-09-04:
+  TWO AUTHORS OF ONE ANSWER.** The three are the same defect wearing different
+  clothes, which is why each was found separately and none suggested the others:
+  - `profile_for_level` — an authored `.ron` and an engine floor both answer *"what
+    does rung N mean"*. **Four** defects were symptoms of it.
+  - `ladder_rig::report_row` — the printed direction from pooled medians, the
+    `(within spread)` qualifier from a paired sign test that discards direction.
+  - **this row** — movement and attack are selected INDEPENDENTLY. Verified at
+    source: `decision.rs:397` calls `pick_movement(&options.movement, ..)` and the
+    attack is ranked separately, so nothing arbitrates *"what does this fighter do
+    this tick"*. ⇒ Approach and attack resolve on the same tick, the body is
+    running, and `move_for_flat_verb` prefers `{base}_dash`.
+  ⚠ **The tell in all three is that the two authorities usually AGREE**, so the
+  defect only shows on the minority of inputs where they diverge — and the output
+  carries no residue distinguishing *"they agreed"* from *"they disagreed and one
+  won"*. ⇒ Which is why every example anyone had looked at was one where it did not
+  matter. ⛔ And in all three the remedy is **removing the second authority, not
+  refereeing between them**: a check that they agree keeps both and adds a third
+  thing to maintain.
+  ⓘ **Precision point for anyone reading the code**: `OptionSet::best_movement()`
+  and `best_attack()` are **test-only helpers** — a `git grep` finds no production
+  caller of either. The production path is `pick_movement` plus the attack ranking,
+  so do not diagnose this row by reading those two functions.
+
   ⛔ **The body is not misbehaving** — that IS what a dash attack is. The defect is
   an option set assembled under an assumption the emission violates.
   ⭐⭐⭐ **CORROBORATED BY A NATURAL EXPERIMENT ALREADY IN THE ROSTER: the fighter

@@ -36,6 +36,19 @@ pub fn resolve_portal_fire_intent(
         &BodyKinematics,
         &PortalGun,
         &mut ambition_characters::control::ActorControl,
+        // ⛔⛔ THE SHOT'S IDENTITY IS MINTED HERE, because this is the only place
+        // that knows WHO fired. A portal shot is a rollback anchor
+        // (`require_rollback::<PortalShot>`) and shipped anonymous: it rewound
+        // by entity index while deciding where a portal opens. Every other
+        // mid-match spawner already mints from its spawner's own counter, and
+        // this is that road for the gun.
+        //
+        // ⚠ `Option`, so a body with no identity still fires. A gun in a hand
+        // that has no `SimId` is a fixture, not a session — and the populated
+        // timeline's identity census is what refuses the anonymous shot rather
+        // than this query silently dropping the press.
+        Option<&ambition_platformer2d_shared_tangle::sim_id::SimId>,
+        Option<&mut ambition_platformer2d_shared_tangle::sim_id::SimIdCounter>,
     )>,
     mut intents: MessageWriter<PortalFireIntent>,
 ) {
@@ -44,16 +57,26 @@ pub fn resolve_portal_fire_intent(
     // Two seats each holding a gun made two presses and one shot came out, from
     // whichever body the singular resolver happened to name.
     for fire in fires.read() {
-        let Ok((kin, gun, mut actor_control)) = holders.get_mut(fire.body) else {
+        let Ok((kin, gun, mut actor_control, firer, counter)) = holders.get_mut(fire.body) else {
             continue;
         };
         if !gun.active {
             continue;
         }
+        // Minted from the FIRER's own counter, the way every production spawner
+        // mints — so a resimulated tick re-mints the same id from the same
+        // inputs, and two seats firing on one tick cannot collide.
+        let id = match (firer, counter) {
+            (Some(firer), Some(mut counter)) => Some(
+                ambition_platformer2d_shared_tangle::sim_id::SimId::spawned(firer, counter.next()),
+            ),
+            _ => None,
+        };
         intents.write(PortalFireIntent {
             origin: kin.pos,
             dir: fire.aim,
             channel: gun.next_color.channel(),
+            id,
         });
         // The gun answered the press, so the wearer's jab must not answer it too.
         actor_control.0.melee_pressed = false;

@@ -1207,6 +1207,9 @@ fn two_same_channel_shots_landing_on_one_tick_leave_exactly_one_portal() {
                 origin: Vec2::new(45.0, y),
                 dir: Vec2::new(-1.0, 0.0),
                 channel: BLUE,
+                // A direct intent with no firing body has no identity to derive
+                // from; this test is about where the portal lands.
+                id: None,
             });
     }
 

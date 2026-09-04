@@ -2361,6 +2361,10 @@ fn every_event_created_entity_is_registered_derived_or_waived_and_anchored() {
         origin: bevy::math::Vec2::new(224.0, 96.0),
         dir: bevy::math::Vec2::new(1.0, 0.0),
         channel: ambition_platformer2d::portal::PortalChannel::Gun(PortalGunColor::BLUE),
+        // This file asks whether the shot is COVERED by rollback, not whether it
+        // is identified; the identity census in `rollback_populated_timeline`
+        // owns that and mints there.
+        id: None,
     });
     sim.step(AgentAction::default());
 

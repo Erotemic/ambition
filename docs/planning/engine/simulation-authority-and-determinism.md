@@ -311,6 +311,49 @@ the invariant held. Fixed at the drop site; see I2 in
 is only as strong as the population it walks, so widening `populate()` is the
 way to strengthen it — not sharpening the assertion.**
 
+⛔⛔ **AND THERE IS A SECOND AXIS THE RULE ABOVE DOES NOT NAME: *WHEN* THE CENSUS
+LOOKS. Widening `populate()` could never have found what this one hid**
+(2026-09-04). `every_rollback_anchored_entity_has_a_unique_sim_id_on_the_populated_timeline`
+walked the world **only after sixty frames of play**, so its real population was
+*"whatever survives sixty frames"* — and a transient anchor is outside it BY
+CONSTRUCTION, at any fixture width.
+
+⇒ **What was hiding there: a `PortalShot` is an anonymous rollback anchor.**
+`require_rollback::<PortalShot>` puts it in the envelope
+(`ambition_portal2d/src/rollback_registration.rs:48`) and it carried no `SimId`,
+so it rewound by entity index while being the entity that decides *where a
+portal opens*. Every shot has fizzled or placed long before frame 60.
+
+⭐ **THE PROOF IS THE SECOND POISON, and it is worth more than the fix.** With
+the shot anonymous AND the census restored to looking only at the end — the code
+exactly as it shipped that morning — the run is **2 passed, 0 failed, GREEN**.
+A real defect, present in the world, sailing through an assertion that has no
+waiver list. ⇒ **An anti-vacuity floor is only as honest as the moment it is
+asked at.** (Named jointly with the peer session, whose `GroundItem` find is the
+same class on the WHAT axis: they widened what the fixture creates, this widens
+when the census looks, and neither widening implies the other.)
+
+⇒ The census now runs at the populated BASELINE and again after play. The class
+floor is required at the baseline, where all six classes exist, and only for the
+DURABLE classes at frame 60 — requiring a vortex well there would be asserting
+that it never expires. ⚠ Its first failure said exactly that
+(`["vortex well", "portal shot"]` missing at 60) and was the instrument
+reporting a badly-timed question, not a defect; reading it as a defect would have
+produced a guard pinning the wrong thing.
+
+⇒ Fixed on the road the repo already had: `PortalFireIntent` carries the shot's
+`SimId`, minted by the FIRER from its own `SimIdCounter` — the same
+`Some(mint())` shape `deploy_sentry`, `open_vortex_well` and `drop_hazard` take,
+so a resimulated tick re-mints the same id and two seats firing on one tick
+cannot collide. ⚠ It costs the message its `Copy` (the id's payload is a
+`String`).
+
+⚠ **A THIRD AXIS IS UNTESTED and is named here so it is not mistaken for
+covered: WHICH SCHEDULE the census runs in.** Nothing yet asks whether an anchor
+created inside a rollback resimulation is identified the same way.
+
+
+
 ### S5 — phase and ownership decomposition
 
 Continue breaking high-authority systems where a split produces a real semantic

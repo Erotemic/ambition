@@ -30,7 +30,10 @@ pub struct FirePortalGun {
 }
 
 /// Host-neutral request to fire a portal shot from `origin` along `dir` for `channel`.
-#[derive(Message, Clone, Copy, Debug)]
+///
+/// ⚠ NOT `Copy` since 2026-09-04: it carries the shot's `SimId`, whose payload
+/// is a `String`. Readers clone it.
+#[derive(Message, Clone, Debug)]
 pub struct PortalFireIntent {
     /// World-space spawn point of the shot.
     pub origin: Vec2,
@@ -39,6 +42,26 @@ pub struct PortalFireIntent {
     pub dir: Vec2,
     /// Which portal channel the shot opens on contact.
     pub channel: PortalChannel,
+    /// The shot's simulation identity, minted by whoever fired it.
+    ///
+    /// ⛔⛔ A PORTAL SHOT IS A ROLLBACK ANCHOR (`require_rollback::<PortalShot>`)
+    /// and shipped ANONYMOUS: it rewound by entity index rather than by
+    /// identity, and it is the entity that decides where a portal opens. The
+    /// emitter mints it because the emitter is the only party that HAS an
+    /// identity to derive from — the same shape `deploy_sentry`,
+    /// `open_vortex_well` and `drop_hazard` already take (`Some(mint())` as
+    /// their last argument), and for the same reason.
+    ///
+    /// ⚠ `None` is a shot with no identity, which is what a script or a fixture
+    /// firing without a body produces. It is not a silent default: the populated
+    /// timeline's identity census names every anonymous anchor, so a `None` that
+    /// reaches production reddens there.
+    ///
+    /// ⭐ MEASURED 2026-09-04, and the reason it went unseen for so long is
+    /// worth carrying: the census walked the world only at frame 60, by which
+    /// time every shot has fizzled or placed. Widening WHEN it looks — not what
+    /// `populate` creates — is what found this.
+    pub id: Option<ambition_platformer2d_shared_tangle::sim_id::SimId>,
 }
 
 /// Compatibility intent: toggle which color the held portal gun will place

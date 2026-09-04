@@ -95,7 +95,12 @@ fn populate(sim: &mut Platformer2dSimHarness) {
         let mut counter = world
             .get_mut::<ambition_platformer2d::platformer::sim_id::SimIdCounter>(subject)
             .expect("an identified entity carries a counter");
+        // ⚠ FIVE, not four: the portal shot at the bottom mints one too, since
+        // 2026-09-04. This array is the supply and the `expect` below is what
+        // says so out loud — a spawn added without extending it panics here
+        // rather than silently reusing an id.
         let seq = [
+            counter.next(),
             counter.next(),
             counter.next(),
             counter.next(),
@@ -103,7 +108,7 @@ fn populate(sim: &mut Platformer2dSimHarness) {
         ];
         (spawner, seq.into_iter())
     };
-    let mut mint = || SimId::spawned(&spawner, seq.next().expect("four ids"));
+    let mut mint = || SimId::spawned(&spawner, seq.next().expect("five ids"));
     {
         let world = sim.world_mut();
         world
@@ -210,6 +215,11 @@ fn populate(sim: &mut Platformer2dSimHarness) {
         origin: bevy::math::Vec2::new(224.0, 96.0),
         dir: bevy::math::Vec2::new(1.0, 0.0),
         channel: ambition_platformer2d::portal::PortalChannel::Gun(PortalGunColor::BLUE),
+        // ⛔ MINTED, like every other spawn in this fixture. A shot is a
+        // rollback anchor, and this fixture exists to prove anchors carry
+        // identity — firing anonymously here would make the census assert
+        // against a population the fixture itself broke.
+        id: Some(mint()),
     });
     // The intent is consumed by the sim on a SETUP frame the timeline does not
     // keep, and the populated world becomes the new baseline. ⛔ Not a plain
@@ -228,6 +238,7 @@ fn the_event_created_families_are_rewind_stable_while_they_step() {
     use ambition_platformer2d::abilities::ranged::sentry::Sentry;
     use ambition_platformer2d::abilities::ranged::vortex::VortexWell;
     use ambition_platformer2d::boss_encounter::FallingHazard;
+    use ambition_platformer2d::held_items::GroundItem;
     use ambition_platformer2d::platformer::gravity::TemporaryZone;
     use ambition_platformer2d::platformer::projectile::ProjectileGameplay;
     use ambition_platformer2d::portal::PortalShot;
@@ -265,6 +276,12 @@ fn the_event_created_families_are_rewind_stable_while_they_step() {
         ("temporary gravity zone", count::<TemporaryZone>(&mut sim)),
         ("falling hazard", count::<FallingHazard>(&mut sim)),
         ("portal shot", count::<PortalShot>(&mut sim)),
+        // ⛔ THE CLASS THAT ALREADY COST A DEFECT. `populate` has spawned a
+        // death-dropped weapon since 2026-09-03, and this list did not name it —
+        // so the family that broke the identity census was in the world and
+        // outside every anti-vacuity check that guards this timeline. A corpus
+        // is only widened once someone asserts the widening.
+        ("death-dropped ground item", count::<GroundItem>(&mut sim)),
     ];
     for (what, n) in baseline {
         assert!(
@@ -366,83 +383,178 @@ fn the_event_created_families_are_rewind_stable_while_they_step() {
 /// (bolts, sentry shots), not on the empty boot room.
 #[test]
 fn every_rollback_anchored_entity_has_a_unique_sim_id_on_the_populated_timeline() {
+    use ambition_platformer2d::abilities::ranged::sentry::Sentry;
+    use ambition_platformer2d::abilities::ranged::vortex::VortexWell;
+    use ambition_platformer2d::boss_encounter::FallingHazard;
+    use ambition_platformer2d::held_items::GroundItem;
+    use ambition_platformer2d::platformer::gravity::TemporaryZone;
     use ambition_platformer2d::platformer::sim_id::SimId;
+    use ambition_platformer2d::portal::PortalShot;
     use ambition_platformer2d::rollback::Rollback;
     use std::collections::BTreeMap;
+
+    /// Walk every rollback anchor in `world` and fail on an anonymous one or a
+    /// shared id. `when` says which moment produced the finding.
+    fn census(world: &mut bevy::prelude::World, when: &str) -> usize {
+        let mut anchored = world.query_filtered::<(
+            Entity,
+            Option<&SimId>,
+            Option<&bevy::prelude::Name>,
+        ), With<Rollback>>();
+        let rows: Vec<(Entity, Option<String>, String)> = anchored
+            .iter(world)
+            .map(|(entity, id, name)| {
+                (
+                    entity,
+                    id.map(|id| id.to_string()),
+                    name.map(|n| n.as_str().to_string())
+                        .unwrap_or_else(|| format!("<unnamed {entity}>")),
+                )
+            })
+            .collect();
+        let total = rows.len();
+        let mut anonymous: Vec<String> = Vec::new();
+        let mut by_id: BTreeMap<String, Vec<String>> = BTreeMap::new();
+        for (entity, id, label) in rows {
+            match id {
+                Some(id) => by_id.entry(id).or_default().push(label),
+                None => {
+                    // An unnamed anonymous entity is unfindable; list what it is
+                    // made of so the failure names the archetype.
+                    let label = if label.starts_with("<unnamed") {
+                        let parts: Vec<String> = world
+                            .inspect_entity(entity)
+                            .map(|components| {
+                                components
+                                    .map(|info| {
+                                        info.name()
+                                            .to_string()
+                                            .rsplit("::")
+                                            .next()
+                                            .unwrap_or("")
+                                            .to_string()
+                                    })
+                                    .collect()
+                            })
+                            .unwrap_or_default();
+                        format!("{label} [{}]", parts.join(", "))
+                    } else {
+                        label
+                    };
+                    anonymous.push(label)
+                }
+            }
+        }
+        anonymous.sort();
+        anonymous.dedup();
+        let shared: Vec<(&String, &Vec<String>)> = by_id
+            .iter()
+            .filter(|(_, carriers)| carriers.len() > 1)
+            .collect();
+        assert!(
+            anonymous.is_empty() && shared.is_empty(),
+            "{when}: of {total} rollback-anchored entities:\n  {} carry NO SimId (rewind anonymously): {anonymous:#?}\n  \
+             {} SimIds are carried by more than one entity: {shared:#?}",
+            anonymous.len(),
+            shared.len()
+        );
+        total
+    }
+
+    /// Which anchor classes are actually in the world, so a zero is a finding
+    /// rather than a silently narrower corpus.
+    fn walked(world: &mut bevy::prelude::World) -> Vec<(&'static str, usize)> {
+        vec![
+            ("sentry", world.query::<&Sentry>().iter(world).count()),
+            ("vortex well", world.query::<&VortexWell>().iter(world).count()),
+            (
+                "temporary gravity zone",
+                world.query::<&TemporaryZone>().iter(world).count(),
+            ),
+            (
+                "falling hazard",
+                world.query::<&FallingHazard>().iter(world).count(),
+            ),
+            ("portal shot", world.query::<&PortalShot>().iter(world).count()),
+            (
+                "death-dropped ground item",
+                world.query::<&GroundItem>().iter(world).count(),
+            ),
+        ]
+    }
+
+    fn require_all(world: &mut bevy::prelude::World, when: &str) {
+        let missing: Vec<&str> = walked(world)
+            .into_iter()
+            .filter(|(_, n)| *n == 0)
+            .map(|(what, _)| what)
+            .collect();
+        assert!(
+            missing.is_empty(),
+            "{when}: no {missing:?} in the world, so this census proves nothing \
+             about that class. Either `populate` stopped creating it or a seam \
+             stopped spawning it — and both narrow what is walked without making \
+             any assertion fail."
+        );
+    }
 
     let mut sim = rollback_sim();
     for _ in 0..8 {
         sim.step(AgentAction::default());
     }
     populate(&mut sim);
+
+    // ⛔⛔ THE CENSUS RUNS TWICE, AND THE FIRST RUN IS THE ONE THIS TEST DID NOT
+    // HAVE.
+    //
+    // ⭐ MEASURED 2026-09-04, by asserting the class floor for the first time:
+    // at frame 60 the world holds **28 anchors and NEITHER a vortex well NOR a
+    // portal shot** — both are transient, and both had legitimately ended their
+    // lives. So a census taken only at the end walks the population *"whatever
+    // survives sixty frames"*, and an anonymous `VortexWell` — exactly the
+    // defect this test exists to catch — would have rewound anonymously and
+    // passed, because by the time anyone looked it was gone.
+    //
+    // ⇒ This is S4's own rule in a second costume: *"a census with no waiver
+    // list is only as strong as the population it walks."* Widening `populate`
+    // put the class in the world; only widening WHEN we look puts it in the
+    // census.
+    //
+    // ⚠ The baseline moment is where every class is required, because that is
+    // the moment they all exist. At frame 60 the durable ones are required and
+    // the transient ones are not — asserting them there would be asserting that
+    // a vortex well never expires.
+    require_all(sim.world_mut(), "the populated baseline");
+    let at_baseline = census(sim.world_mut(), "the populated baseline");
+    assert!(
+        at_baseline > 20,
+        "premise: a populated baseline anchors more than {at_baseline} entities"
+    );
+
     for frame in 0..60 {
         sim.step(busy(frame));
         sim.rollback_health()
             .unwrap_or_else(|error| panic!("frame {frame}: {error}"));
     }
 
-    let world = sim.world_mut();
-    let mut anchored = world
-        .query_filtered::<(Entity, Option<&SimId>, Option<&bevy::prelude::Name>), With<Rollback>>();
-    let rows: Vec<(Entity, Option<String>, String)> = anchored
-        .iter(world)
-        .map(|(entity, id, name)| {
-            (
-                entity,
-                id.map(|id| id.to_string()),
-                name.map(|n| n.as_str().to_string())
-                    .unwrap_or_else(|| format!("<unnamed {entity}>")),
-            )
-        })
-        .collect();
-    let total = rows.len();
-    let mut anonymous: Vec<String> = Vec::new();
-    let mut by_id: BTreeMap<String, Vec<String>> = BTreeMap::new();
-    for (entity, id, label) in rows {
-        match id {
-            Some(id) => by_id.entry(id).or_default().push(label),
-            None => {
-                // An unnamed anonymous entity is unfindable; list what it is
-                // made of so the failure names the archetype.
-                let label = if label.starts_with("<unnamed") {
-                    let parts: Vec<String> = world
-                        .inspect_entity(entity)
-                        .map(|components| {
-                            components
-                                .map(|info| {
-                                    info.name()
-                                        .to_string()
-                                        .rsplit("::")
-                                        .next()
-                                        .unwrap_or("")
-                                        .to_string()
-                                })
-                                .collect()
-                        })
-                        .unwrap_or_default();
-                    format!("{label} [{}]", parts.join(", "))
-                } else {
-                    label
-                };
-                anonymous.push(label)
-            }
-        }
+    // The durable half, after sixty frames of play — the classes that are still
+    // meant to be here, plus every anchor play itself created.
+    for what in ["sentry", "temporary gravity zone", "death-dropped ground item"] {
+        let n = walked(sim.world_mut())
+            .into_iter()
+            .find(|(name, _)| *name == what)
+            .map(|(_, n)| n)
+            .unwrap_or(0);
+        assert!(
+            n > 0,
+            "{what} did not survive sixty frames, so the second census below \
+             says nothing about it — if that is now correct behaviour, move it \
+             to the transient list rather than deleting the check"
+        );
     }
+    let after_play = census(sim.world_mut(), "after sixty frames of play");
     assert!(
-        total > 20,
-        "premise: a populated timeline anchors more than {total} entities"
-    );
-    anonymous.sort();
-    anonymous.dedup();
-    let shared: Vec<(&String, &Vec<String>)> = by_id
-        .iter()
-        .filter(|(_, carriers)| carriers.len() > 1)
-        .collect();
-    assert!(
-        anonymous.is_empty() && shared.is_empty(),
-        "of {total} rollback-anchored entities:\n  {} carry NO SimId (rewind anonymously): {anonymous:#?}\n  \
-         {} SimIds are carried by more than one entity: {shared:#?}",
-        anonymous.len(),
-        shared.len()
+        after_play > 20,
+        "premise: a played timeline anchors more than {after_play} entities"
     );
 }

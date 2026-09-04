@@ -56,7 +56,7 @@ pub fn portal_fire_system(
     mut commands: Commands,
     mut fired: MessageWriter<PortalShotFired>,
 ) {
-    for fire in fires.read().copied() {
+    for fire in fires.read().cloned() {
         let dir = fire.dir.normalize_or_zero();
         if dir == Vec2::ZERO {
             continue;
@@ -66,7 +66,7 @@ pub fn portal_fire_system(
         fired.write(PortalShotFired {
             origin: fire.origin,
         });
-        commands.spawn_room_scoped((
+        let mut shot = commands.spawn_room_scoped((
             PortalShot {
                 channel: fire.channel,
                 pos: fire.origin,
@@ -75,6 +75,11 @@ pub fn portal_fire_system(
             },
             Name::new("Portal shot"),
         ));
+        // The identity travels with the intent because only the emitter has one
+        // to derive from — see `PortalFireIntent::id`.
+        if let Some(id) = fire.id.clone() {
+            shot.insert(id);
+        }
     }
 }
 
@@ -187,6 +192,9 @@ mod fire_intent_tests {
             origin: Vec2::new(origin_x, 0.0),
             dir: Vec2::new(1.0, 0.0),
             channel,
+            // These fixtures test the SHOT's motion, not its identity; the
+            // identity census in `rollback_populated_timeline` owns that.
+            id: None,
         }
     }
 
@@ -262,6 +270,7 @@ mod fire_intent_tests {
             origin: Vec2::new(10.0, 0.0),
             dir: Vec2::ZERO,
             channel: PortalChannel::Gun(PortalGunColor::BLUE),
+            id: None,
         });
         app.update();
 

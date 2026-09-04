@@ -468,3 +468,39 @@ rule, and `cargo clean` is the same deletion with a friendlier name — `target/
 but as a MACHINE finding, not a repo one. A fresh clone on a host with room is
 untouched by any of this. What it does mean is that a fresh clone *on this VM*
 would fail at the final link, and would report it as an undefined symbol.
+
+---
+
+## ⚠ OPEN — a submodule pointer rode into an unrelated commit of mine
+
+**Mine to own.** I staged with `git add -A`, and it swept
+`tools/ambition_music_renderer` into `e2fe33e2e` — a commit whose message is
+entirely about George's movesets and does not mention a submodule. The bump is
+`4e5695c38 → 8b10c5a0d`. ⇒ I have stopped using `-A` and stage explicit paths.
+
+⭐ **I did not revert it, and the checks are why.** In order:
+
+- `8b10c5a` is the sibling session's music work — *"The refusal was
+  all-or-nothing; one missing family still shipped wrong music"*, sitting on
+  *"The refusal that protects Jon's no-GM-fallbacks ask had no test"*.
+- It **is** pushed: `git branch -r --contains` finds it on
+  `origin/agent/sfizz-source-fallback-and-cue-fanout`. ⇒ A fresh clone can fetch
+  it, so the standing no-fallbacks ask is not broken by the pointer itself.
+- ⛔ **The pointer it REPLACED does not exist in this clone.**
+  `git cat-file -t 4e5695c38` → *"could not get object info"*. ⇒ Reverting would
+  aim the superproject back at an object nothing here resolves, which is worse
+  than what it replaced. **An accidental change is not automatically the wrong
+  state**, and undoing it reflexively would have been the actual damage.
+
+**What is still open, and it is not mine to close:** the new pointer names a
+commit on an **agent feature branch**, not the submodule's `main` (which is at
+`26b87bf`). A superproject pointing into a branch that may later be deleted is a
+dangling pointer waiting to happen. ⇒ Landing that work on the submodule's `main`
+and re-pointing is the durable form; if it is not meant to land yet, the
+superproject should not point at it at all. Raised with the session that owns it.
+
+ⓘ **The transferable bit:** `git add -A` in a superproject stages submodule
+pointer moves, and they are invisible in a diff that scrolls — one line, no
+content. A commit can silently change which version of another repository the
+build uses. ⇒ Stage paths, and read `git status --porcelain` for ` M <submodule>`
+lines before committing.

@@ -243,6 +243,116 @@ fn populate(sim: &mut Platformer2dSimHarness) {
         .expect("the populated world becomes the SyncTest baseline");
 }
 
+/// ⛔⛔ AN ANCHOR THAT LIVES AND DIES INSIDE ONE STEP IS INVISIBLE TO A CENSUS
+/// TAKEN BETWEEN STEPS — so this one runs INSIDE the simulated frame.
+///
+/// The sibling census above walks the world with `world.query_filtered` between
+/// `sim.step()` calls. That is the right shape for anything that persists, and
+/// it is blind by construction to anything that does not survive to a step
+/// boundary: the portal shot was hidden for sixty frames and only came out when
+/// the walk moved earlier.
+///
+/// ⭐ THIS IS THE SAME `WHEN` AXIS AT FINER GRAIN, and it is the one a world walk
+/// cannot reach at all. The scan is a SYSTEM in the sim schedule, so it observes
+/// the population every simulated frame — including the frames a rewind
+/// resimulates — and accumulates what it finds. A hitbox that exists for the
+/// active frames of one attack and no longer is in that population; it is in no
+/// between-steps census anywhere.
+///
+/// ⚠ IT ACCUMULATES RATHER THAN ASSERTING IN PLACE. A panic inside a GGRS
+/// schedule reports as a desync or takes the App down without naming the row, so
+/// the finding is collected into a resource and asserted here, where the failure
+/// can say which archetype and on which frame.
+///
+/// ⛔⛔ **ITS EXACT REACH IS MEASURED, AND THE FIRST POISON FAILED — which is the
+/// finding, not a setback.**
+///
+/// * Poison A: spawn an anonymous anchor and despawn it in the next chained
+///   system, both through `Commands`. **The scan does NOT see it, and neither
+///   does anything else** — both commands apply at the SAME sync point, so the
+///   entity never exists at a system boundary at all.
+/// * Poison B: the same, with an `ApplyDeferred` between the spawn and the scan
+///   so the entity provably exists at a boundary. **RED, naming
+///   `"poison transient anchor"`.**
+///
+/// ⇒ **So the honest scope is: this scan sees every anchor that exists at a
+/// system boundary inside a step, which is every anchor any OTHER system can see
+/// too.** The earlier wording — "anything shorter-lived than a step" —
+/// over-claimed, and poison A is what caught it.
+///
+/// ⭐ AND THAT BOUND LOOKS LIKE IT MAKES THE REMAINING GAP VACUOUS, stated as
+/// reasoning rather than measurement: rollback save/load are themselves
+/// schedule work, so an entity that never reaches a sync point is never saved
+/// either — it cannot rewind by identity because it cannot rewind at all. ⚠ Not
+/// verified; recorded so the next reader tests THAT rather than re-deriving the
+/// worry.
+#[test]
+fn no_anchor_rewinds_anonymously_on_any_frame_it_exists() {
+    use ambition_platformer2d::platformer::sim_id::SimId;
+    use ambition_platformer2d::rollback::Rollback;
+    use ambition_platformer2d::sim::SimScheduleExt as _;
+
+    /// Every anonymous anchor this run has ever seen, with the frame it was on.
+    #[derive(bevy::prelude::Resource, Default)]
+    struct AnonymousAnchors(Vec<String>);
+
+    let mut sim = rollback_sim();
+    sim.app_mut().init_resource::<AnonymousAnchors>();
+    let schedule = sim.app_mut().sim_schedule();
+    sim.app_mut().add_systems(
+        schedule,
+        |anchors: bevy::prelude::Query<
+            (Entity, Option<&bevy::prelude::Name>),
+            (With<Rollback>, bevy::prelude::Without<SimId>),
+        >,
+         mut found: bevy::prelude::ResMut<AnonymousAnchors>| {
+            for (entity, name) in &anchors {
+                let label = name
+                    .map(|n| n.as_str().to_string())
+                    .unwrap_or_else(|| format!("<unnamed {entity}>"));
+                if !found.0.contains(&label) {
+                    found.0.push(label);
+                }
+            }
+        },
+    );
+
+    for _ in 0..8 {
+        sim.step(AgentAction::default());
+    }
+    populate(&mut sim);
+    for frame in 0..60 {
+        sim.step(busy(frame));
+        sim.rollback_health()
+            .unwrap_or_else(|error| panic!("frame {frame}: {error}"));
+    }
+
+    // ⛔ ANTI-VACUITY: the scan must have RUN, or an empty finding means nothing.
+    // A system added to the wrong schedule label is silent, and silence is
+    // indistinguishable from success here — the exact shape this file exists to
+    // refuse.
+    let seen = sim
+        .world_mut()
+        .query_filtered::<Entity, With<Rollback>>()
+        .iter(sim.world_mut())
+        .count();
+    assert!(
+        seen > 20,
+        "premise: the world still holds anchors ({seen}); if this is zero the \
+         scan above may never have run at all"
+    );
+
+    let anonymous = &sim.world_mut().resource::<AnonymousAnchors>().0;
+    assert!(
+        anonymous.is_empty(),
+        "{} anchor(s) were rollback-anchored and carried NO SimId on some frame \
+         they existed, so they rewind by entity index rather than by identity: \
+         {anonymous:#?}. A between-steps census cannot see these — that is why \
+         this one runs inside the frame.",
+        anonymous.len(),
+    );
+}
+
 /// A populated timeline rewinds and resimulates to the same checksums, frame
 /// after frame, while every event-created family is live and stepping.
 #[test]

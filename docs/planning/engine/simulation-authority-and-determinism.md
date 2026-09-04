@@ -375,11 +375,36 @@ implementation**, which is the trap this program's own recipe names: a coherent
 mechanism from a credible source is not a measurement, and a plausible caveat
 sends the next reader somewhere there is nothing to find.
 
-⚠ **THE REAL RESIDUAL IS THE SAME `WHEN` PROBLEM AT FINER GRAIN: an anchor
-spawned AND despawned inside a single `sim.step()` is invisible to any
-between-steps census.** Sixty frames hid the portal shot; one frame would hide
-anything shorter-lived than a step. That is untested, and unlike the schedule
-story it is a real gap in what this census can certify.
+✔ **THE REAL RESIDUAL — the same `WHEN` problem at finer grain — IS CLOSED, and
+closing it needed a THIRD census.** An anchor that never survives to a step
+boundary is invisible to any between-steps walk. So
+`no_anchor_rewinds_anonymously_on_any_frame_it_exists` runs the scan as a SYSTEM
+in the sim schedule, observing the population every simulated frame (including
+the frames a rewind resimulates) and accumulating what it finds — a panic inside
+a GGRS schedule reports as a desync without naming the row, so the finding is
+collected and asserted outside.
+
+⛔⛔ **ITS REACH IS MEASURED, AND THE FIRST POISON FAILED — which is the finding.**
+* **Poison A**: spawn an anonymous anchor and despawn it in the next chained
+  system, both through `Commands`. **The scan does NOT see it** — and neither
+  does anything else, because both commands apply at the SAME sync point and the
+  entity never exists at a system boundary at all.
+* **Poison B**: the same with an `ApplyDeferred` between the spawn and the scan,
+  so the entity provably exists at a boundary. **RED**, naming
+  `"poison transient anchor"`.
+
+⇒ **The honest scope: this scan sees every anchor that exists at a system
+boundary inside a step — which is every anchor any OTHER system can see.** The
+wording it shipped with first ("anything shorter-lived than a step") over-claimed
+and poison A is what caught it. ⭐ A guard's stated REACH is a claim like any
+other and wants a poison of its own; the failing poison was worth more than the
+passing one.
+
+⚠ **AND THAT BOUND MAY MAKE THE REST VACUOUS, stated as reasoning rather than
+measurement:** rollback save/load are themselves schedule work, so an entity that
+never reaches a sync point is never saved either — it cannot rewind by identity
+because it cannot rewind at all. NOT verified. Recorded so the next reader tests
+that rather than re-deriving the worry.
 
 
 

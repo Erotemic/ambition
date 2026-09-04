@@ -552,12 +552,44 @@ the seven named-missing customers, exactly **two** are authoring alone:
 | customer | cost |
 |---|---|
 | `P11` command grab | ✔ **DONE 2026-09-04** — authored, no engine change, guard poison-verified five ways |
-| `P06` foxtrot / dash-dance | ✔ authoring — dash-stance moves the selector already picks |
-| `P06` pivot grab/smash | ⛔ plumbing — `move_for_flat_verb` cannot express a pivot stance |
-| `P11` pivot grab | ⛔ plumbing — same selector |
-| `P11` tether | ⛔ plumbing — a grapple exists and nothing joins it to capture |
-| `P11` hit-grab | ⛔ plumbing — nothing raises a capture from a landed hit |
+| `P06` foxtrot / dash-dance | ⛔ **THIS ROW WAS WRONG — already shipped 2026-08-25**, no authoring, no code. Re-verified 2026-09-04: `the_foxtrot_and_the_dash_dance_fall_out_of_the_same_edge` passes. See the primitive rows above, which said so all along. |
+| `P06` pivot grab/smash | ⛔ **THIS ROW WAS WRONG — already shipped.** `a_smash_thrown_out_of_a_turnaround_points_the_new_way` passes. |
+| `P11` pivot grab | ⛔ **THIS ROW WAS WRONG — LANDED 2026-08-25**, and the primitive row says *"it needed NO move of its own"*. Two turnaround guards pass. |
+| `P11` tether | ⛔ plumbing — a grapple exists (`grapple_system`, a traversal ability that pulls toward a solid) and nothing joins it to capture. **Re-verified 2026-09-04.** |
+| `P11` hit-grab | ⛔ plumbing — **re-verified 2026-09-04 by finding every writer**: `translate_smash_capture_effects` is the ONLY thing that raises `CaptureAttemptRequested`, and it fires from an authored effect key. A landed hit cannot reach it. |
 | `P10` tech result | ⛔ plumbing (presentation only — the AI half must stay absent) |
+
+⛔⛔ **THREE OF THESE SEVEN ROWS WERE WRONG WHEN WRITTEN (2026-09-04), AND THIS
+DOCUMENT CONTAINED THE REFUTATION ON ITS OWN PAGE.** The primitive table above
+marks Foxtrot ✔, Dash dance ✔ and Pivot grab ✔ — the last with *"LANDED
+2026-08-25 and it needed NO move of its own, exactly as the row said capture
+would not."* ⇒ The corrected reading:
+
+| | count |
+|---|---|
+| done today | 1 (command grab) |
+| already shipped before this table was written | 3 |
+| genuinely open, all needing a seam | 3 (tether, hit-grab, tech result) |
+| **authoring-only work remaining** | **0** |
+
+⚠ **So the table's own headline — "only two of seven are authoring" — was wrong in
+both directions.** One of the two was the command grab, and the other was already
+done. There is no authoring-only customer left on this page.
+
+⭐ **HOW THE PIVOT ROWS WENT WRONG, because it is the exact failure this page's
+instrument note already describes.** I checked whether `move_for_flat_verb` could
+express a pivot STANCE, found it could not, and wrote "plumbing". But the pivot
+does not ship as a stance at all: a move thrown while `BodyMotionFacts::turning_around`
+resolves its aim against the **flipped facing**, so the ordinary forward grab
+points the other way — *"the same rule the reverse aerial rush uses"*, in the
+primitive row's own words. ⇒ I searched for one MECHANISM, found it absent, and
+reported the CONCEPT absent. Fifth instance of that habit, and the first where
+the correct answer was three rows higher in the file I was editing.
+
+⇒ **The cheap check that would have caught all three: before writing a cost into a
+summary table, grep this document for the row's own subject.** A summary that
+disagrees with its own detail rows is not a judgement call, it is an error, and it
+is findable without touching the code.
 
 ⇒ **So "author a customer" is the right instinct and the wrong estimate for five
 of the seven.** The shape of the finding survives — foundations exist, the layer

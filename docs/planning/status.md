@@ -506,10 +506,32 @@ and never between — which is the shape of three of the earlier exhaustive run'
 seven failures, the loudest a bare `error: linking with clang failed` under a
 job header belonging to something else.
 
-⛔ **AS OF 2026-09-03 LATE THIS VOLUME CANNOT RUN A RUST LANE AT ALL: 12 GB free
-of 290, with 135 GB in `debug/deps` alone.** The up-front 40 GB refusal fires,
-so `./run_tests.sh --rust` does not start; `--tool-tests` and `--maintenance`
-are exempt and still run. ⚠ **But the exemption is now conditional, because one
+⛔⛔ **DISK IS PER-MACHINE STATE AND THIS PAGE USED TO ASSERT IT AS A FACT.**
+It read *"AS OF 2026-09-03 LATE THIS VOLUME CANNOT RUN A RUST LANE AT ALL: 12
+GB free of 290"* — one number, no machine named, in the file a newcomer
+orients from. ⇒ Measured 2026-09-04, the same sentence was wrong in **both**
+directions at once: the peer session's box was at **359 MB** free of 290 GB
+(nothing compiles, 34× worse than the page said), while this box was at **65
+GB free of 484** and ran the full feature union. A reader on either machine
+who trusted the page would have been misdirected — one into thinking it was
+merely tight, the other into not trying at all.
+
+⭐ **So the durable content here is the MECHANISM, and the number is yours to
+take.** `df` free space, `du -sh target`, and which volume `/tmp` is on differ
+per box and per hour; nothing in the repository can know them. Run
+`scripts/setup/target_bindmount.sh --status` and `df -h .` before the
+session's first build, and believe those over this paragraph.
+
+⚠ **AND `df` ITSELF LIES ON ONE OF THE TWO FILESYSTEMS THIS REPO SPANS.** The
+worktree is a **virtiofs** passthrough, so `df` there answers with the HOST's
+figures — the peer measured 188 GB free with inodes at 5% on a tree where a
+1 GB write failed. The volume that tells the truth is the one carrying `/tmp`
+and the build outputs. A headroom check keyed on `df` alone will wave through
+a job that cannot possibly link, on exactly the box where it matters.
+
+When a volume IS full: the up-front 40 GB refusal fires, so `./run_tests.sh
+--rust` does not start; `--tool-tests` and `--maintenance` are exempt and
+still run. ⚠ **But the exemption is now conditional, because one
 "pure Python" lane was not.** `--maintenance`'s intra-doc-link ratchet shells
 out to `cargo doc -p <crate> --no-deps` for every crate, three frames below an
 argv that reads `python3 scripts/check_doc_link_ratchet.py`. Jobs carry a

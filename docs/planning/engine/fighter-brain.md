@@ -1838,6 +1838,39 @@ above shows the shipped ladder disables the rollout on all nine rows. The Shield
 model changes nothing a player meets. That is an argument for keeping it (it
 cannot regress the game) and against prioritising `Dodge`.
 
+### ⭐⭐⭐ GEORGE SIGNIFICANTLY OUTFIGHTS A STAND-IN AT THE SAME RUNG
+
+The measurement the rig could not take until `--paired` learned to swap fighters.
+Rung 5 against rung 5, shipped ladder, shipped clock, paired, 12 seeds — the only
+thing that differs is the kit:
+
+| arm | dealt | survival | verdict |
+|---|---|---|---|
+| **George vs Robot** | **318% : 199%** | 62.7s : 58.2s | ⭐ **higher outfights — SIGNIFICANT** |
+| Robot vs Robot *(null control)* | 369% : 389% | 134.3s : 131.5s | *(within spread)* — correctly null |
+
+⇒ **The stand-ins are measurably weaker, not merely plainer.** Difficulty rung,
+ladder rows, clock, stage and seed set are all held equal. ⭐ And a George match
+RESOLVES in ~63 seconds where two Robots take ~134 — **twice as fast to a
+conclusion.**
+
+⭐⭐ **The null control is the load-bearing half.** Two mechanically identical
+fighters (both Robots receive `fighter_moveset()`) swapped between seats come back
+*within spread*, exactly as a null should. ⇒ So the repaired pairing gained power
+on a real effect and manufactured none on a null — which is the validation the
+change needed, and had that control gone significant the "repair" would have been
+a new bias instead.
+
+⚠ **Why nobody had this number**: the unpaired form of the same comparison gives a
+`329% : 225%` gap and still reports `(within spread)`, because unpaired seed
+variance is precisely what pairing removes. ⇒ **The question could be asked and
+could not be answered**, which is the defect recorded immediately below.
+
+⇒ It is the strongest input available to the roster question in
+[`../awaiting-maintainer-decision.md`](../awaiting-maintainer-decision.md). ⚠ It
+does not decide it: sparring partners being weaker may be exactly right. It
+removes "the Robots are fine as they are" from the set of *measured* positions.
+
 ### ⛔⛔ A SIXTH, AND IT IS A DIFFERENT SHAPE: a control that cancelled the wrong term
 
 The five below are all *the rig read the wrong configuration*. This one is worse

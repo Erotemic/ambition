@@ -71,6 +71,29 @@ impl SimId {
         Self(format!("{}/{sequence}", spawner.0))
     }
 
+    /// A DEATH DROP: the object a defeated body left behind, by which drop it is.
+    ///
+    /// ⭐ DERIVED, not sequenced, and the drop road's own provenance already
+    /// argues why: a body dies once and leaves at most one drop of each kind, so
+    /// `(parent, kind)` determines it completely and a counter would number a
+    /// thing that cannot repeat. A counter is rollback state and a derivation is
+    /// not, so this stays stable across a rewind for free — which matters here
+    /// more than for [`Self::strike_volume`], because the drop falls out of a
+    /// death the rollback host may re-simulate.
+    ///
+    /// ⛔ ITS OWN `drop` SEGMENT, and that is a collision and not a preference:
+    /// a body mints its projectiles and summons through [`Self::spawned`] as
+    /// `{parent}/{n}` from its own [`SimIdCounter`], so a bare sequence here
+    /// would eventually spell the same string as one of them.
+    ///
+    /// ⚠ ONLY A DROP THAT BECOMES A CARRIABLE OBJECT TAKES ONE. A drop that
+    /// grants a quantity — a coin, a heart, an ability pickup — is recorded by
+    /// `OwnedItems` and restored wholesale from it, so an identity there would be
+    /// a second authority over a fact the bag already settles.
+    pub fn death_drop(parent: &SimId, kind: &str) -> Self {
+        Self(format!("{}/drop/{}", parent.0, escape_segment(kind)))
+    }
+
     /// A strike volume: the transient hitbox a move's active window opens.
     ///
     /// DERIVED, not sequenced — which is why it is not [`Self::spawned`]. A
@@ -276,6 +299,13 @@ mod tests {
                 minted.push((
                     format!("strike_volume(placement({other:?}), {segment:?}, 0, 0)"),
                     SimId::strike_volume(&owner, segment, 0, 0).0,
+                ));
+            }
+            for other in segments {
+                let parent = SimId::placement(other);
+                minted.push((
+                    format!("death_drop(placement({other:?}), {segment:?})"),
+                    SimId::death_drop(&parent, segment).0,
                 ));
             }
         }

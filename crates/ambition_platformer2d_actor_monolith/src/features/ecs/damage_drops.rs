@@ -37,6 +37,11 @@ const DROP_SEQUENCE_ABILITY: u64 = 2;
 /// stays a derivation like its siblings above.
 const DROP_SEQUENCE_WEAPON: u64 = 3;
 
+/// The weapon drop's identity segment — see [`SimId::death_drop`]. Derived from
+/// the same `(parent, kind)` its provenance is, so the two can never disagree
+/// about which drop this is.
+const DROP_KIND_WEAPON: &str = "weapon";
+
 /// A drop states the body it fell out of.
 ///
 /// without this a drop is never DRAWN. `rebuild_dynamic_feature_views` discovers loot the
@@ -46,10 +51,16 @@ const DROP_SEQUENCE_WEAPON: u64 = 3;
 /// at all, so the query skipped them, no render family ever claimed them, and
 /// `draw_unclaimed_feature_views` gave each one a magenta diagnostic stand-in.
 ///
-/// this is provenance, NOT identity: no `SimId` is minted here. A `SimId`
-/// would enrol the coin in `TransactionBaseline::capture`, whose roster a
-/// room-scoped entity leaves mid-transition; giving drops durable identity is a
-/// step of the reconstruction migration, and drawing them does not wait on it.
+/// this is provenance, NOT identity, for the three drops that grant a
+/// QUANTITY. A `SimId` would enrol the coin in `TransactionBaseline::capture`,
+/// whose roster a room-scoped entity leaves mid-transition — and it would be a
+/// second authority over a fact `OwnedItems` already settles, since a checkpoint
+/// restores the bag wholesale (`OwnedItemsBaseline`).
+///
+/// ⭐ [`drop_held_weapon`] IS THE EXCEPTION, and the line is what a drop
+/// BECOMES rather than which function spawned it: a weapon becomes an object the
+/// player CARRIES, and every durable road that could give it back is keyed by
+/// `SimId`. It mints [`SimId::death_drop`]; the other three still mint nothing.
 fn dynamic_drop_origin(parent: &SimId, sequence: u64) -> SpawnOrigin {
     SpawnOrigin::Dynamic {
         parent: parent.clone(),
@@ -292,9 +303,20 @@ pub fn drop_ability_pickup(
 ///                    parent is a drop nothing can say where it came from
 /// ```
 ///
-/// provenance, NOT identity — deliberately, and for the same reason the
-/// coin gives: no `SimId` is minted here. Giving death drops durable identity
-/// is a step of the reconstruction migration and this is not it.
+/// ⭐ AND IT MINTS AN IDENTITY, alone among the four drops. Measured
+/// 2026-09-04: without one this object is invisible to
+/// `capture_minted_item_baseline` (`(&SimId, &SpawnOrigin, &GroundItem,
+/// &ItemCustody)`), to `capture_custody_baseline` (`(&SimId, &InCustodyOf)`)
+/// and to `TransactionBaseline::capture` — so a checkpoint taken while the
+/// player holds it has no description of it, and the `SpawnedThisAttempt`
+/// sweep a death runs destroys it with nothing able to rebuild it. Every
+/// boss's signature gauntlet arrives this way, and the IDENTICAL gauntlet
+/// authored as a room placement does carry an identity: the same object was an
+/// occurrence or not depending on how it was acquired.
+///
+/// The id is DERIVED from `(parent, kind)`, exactly as the provenance beside it
+/// is — [`SimId::death_drop`] holds why a counter would be wrong here and why
+/// the `drop` segment is not decoration.
 pub fn drop_held_weapon(
     commands: &mut Commands,
     session_scope: SessionSpawnScope,
@@ -313,6 +335,7 @@ pub fn drop_held_weapon(
                 vel: ae::Vec2::ZERO,
                 half_extent,
             },
+            SimId::death_drop(parent, DROP_KIND_WEAPON),
             bevy::prelude::Name::new(name.to_string()),
             // Room-scoped for the same reason as the coin above — and here the
             // symptom is the object itself rather than its picture.

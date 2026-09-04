@@ -2000,6 +2000,35 @@ medians as descriptive columns only. ⚠ Not landed here: this box cannot build 
 unverified edit to the instrument every number on this page came from is worse
 than a documented defect.
 
+⭐ **THE POISON ARMS, WRITTEN DOWN SO THEY DO NOT HAVE TO BE RE-DERIVED.** A fix
+to this function is only worth landing if every one of these reddens the CURRENT
+code and passes the new one:
+
+1. **The reviewer's 20-pair fixture must not print a significant `LOWER`.** 16
+   pairs where higher scores `[1000, 0]` against lower `[400, 400]` (a +100
+   difference) and 4 where higher scores `[0, 0]` against lower `[1000, 1000]`
+   (−1000). ⇒ Pooled medians give higher 0, lower 400 → verdict `LOWER`; paired
+   signs are 16/4, two-sided p ≈ 0.0118 → qualifier removed. **The row contradicts
+   itself, and this is the arm that proves the defect rather than describes it.**
+2. **A row where stocks and damage disagree must follow STOCKS** — currently the
+   qualifier tests damage regardless, so the test and the word describe different
+   quantities whenever `hi_took != lo_took`.
+3. **Mirror orientation invariance**: reorienting straight and mirrored bouts into
+   logical higher/lower must not change the verdict. A rig that answers differently
+   depending on which seat the fixture put SELF in is measuring the placement.
+4. **Ties still dropped**, as the sign test already requires — padding a run with
+   tied pairs must not move `p`.
+5. ⛔ **MORE EVIDENCE ONE WAY MUST NOT REVERSE SUPPORT.** This is the general form
+   of the bug that already shipped here once: the old `|mid| < 0.5 * (hi - lo)`
+   criterion got *harder* to pass as seeds were added, because a range only grows.
+   ⇒ Any replacement must be checked for the same property deliberately, since
+   that one survived review by looking reasonable.
+
+⚠ **And `median()` wants fixing in the same pass** — `values[len / 2]` is the
+upper-middle order statistic, so for even N it is not a median and it is biased
+upward. Every column on this page is computed with it.
+
+
 ### ⛔⛔ WITHDRAWN — the Shield comparison's null is not a result, and re-taking it is not worth doing
 
 **Read this before the section below.** That comparison concluded *"no measurable

@@ -556,7 +556,25 @@ tree 2026-09-04:
 | **total, without `cargo clean`** | **≈116G** |
 
 ⚠ `target/debug/incremental` alone is **77G** — nearly half of `target/debug`'s
-148G, pure incremental cache, and first in that order. ⇒ **~116G is reclaimable
+148G, pure incremental cache, and first in that order.
+
+⭐ **AND THE VOLUME HAS A SECOND, UNRELATED TENANT worth knowing before anyone
+decides what to delete.** `/dev/vda1` is 290G; the ambition target bind mount is
+**187G** of it, and roughly **30G more is stale cache belonging to other work**:
+
+| path | size | last modified |
+|---|---:|---|
+| `~/.elan` (Lean toolchain) | **12G** | 2026-07-29 |
+| `~/lake-cache` (Lean builds) | **12G** | 2026-07-29 |
+| `~/.cache/huggingface` | **4.2G** | 2026-07-31 |
+| `~/.cache/mathlib` | **1.3G** | 2026-08-20 |
+
+⇒ **~30G reclaimable without touching a single ambition build artifact**, none of
+it modified in five weeks. ⛔ Not deleted, and not this session's to delete — it is
+the maintainer's environment and the Lean toolchain may belong to other work. ⓘ
+Recorded only because the ambition reclaim and this one are independent: either
+alone would restore a workable volume, and one of them costs no warm build tree at
+all. ⇒ **~116G is reclaimable
 without touching one artifact another session links against**, by someone holding
 the coordination context this session does not.
 

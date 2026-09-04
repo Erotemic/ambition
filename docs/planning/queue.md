@@ -654,6 +654,37 @@ The one unresolved developer-policy choice from the session-ownership work is in
   own instrument in one day; the first was file-descriptor exhaustion from my
   own greps.
 
+- ✔ **ONE FACT WITH SEVERAL WRITERS, FOUND THREE TIMES IN ONE DAY IN THREE
+  DIFFERENT LAYERS — closed 2026-09-04 (`7e13868d7`, `8118d86c9`, `378578dab`).**
+  The instances are unrelated in mechanism and identical in shape, which is why
+  they are one receipt:
+  * **CODE.** `wallet.can_afford` read the raw authored `f64` while
+    `cmd_buy_item` did `price.max(0.0) as i32`. A guard answering NO in front of
+    an action that then succeeded: `can_afford(25.7)` false while `buy_item` charged
+    25, and `can_afford(-5)` false while `buy_item` gave it away. Fixed by
+    `ambition_items::shop::authored_price`, the one reading both roads take.
+  * **CONTENT, buy.** A buy line writes its price THREE times — the number the
+    player reads, the number the menu greys out on, the number the wallet is
+    charged. Ten lines, thirty numbers, nothing relating them.
+    `a_shop_lines_three_prices_agree`.
+  * **CONTENT, sell.** A sell line names its ITEM twice — once in the
+    `inventory.holds` guard, once in the sale. Disagreement offers an option that
+    sells something else, or offers one that silently does nothing.
+    `a_sell_lines_guard_and_its_sale_name_the_same_item`.
+  ⛔ **THE STANDING PROHIBITION: when a fact is written more than once, the
+  agreement is the thing to guard, and it does not matter which layer the copies
+  sit in.** Fixing the two CONSUMERS of the price (the code fork) left the three
+  STATEMENTS of it unguarded one layer out; only looking at the authored line
+  found that.
+  ⚠ **And measure the population before writing the rule.** The sell check is
+  conditional on the price and unconditional on the item, because `intro.yarn`'s
+  `<<sell_item "sealednote" 0>>` is a hand-over beat with no price in its label —
+  a rule requiring one everywhere would have failed correct content. That
+  exception was found by counting first, not by a red.
+  ⭐ **An anti-vacuity floor must clear the corpus's LARGEST SINGLE FILE, not
+  zero.** Poisoning the sell grammar out of `kernel.yarn` still left ONE line
+  parsing from `intro.yarn`; a floor of `>= 1` would have passed.
+
 - ▢ **RE-MEASURED 2026-09-04 EVENING at `ae6b6b4fd` — SIX findings now, and the
   campaign's headline number has crossed back.**
   ⛔⛔ **AND FIRST: THIS RATCHET IS NOT IN THE `--rust` LANE, so today's three

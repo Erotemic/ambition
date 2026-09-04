@@ -84,6 +84,10 @@ impl Plugin for AmbitionRollbackPlugin {
         // fingerprinted by the generic runtime.
         let mut registrar = GgrsRollbackRegistrar::new(app);
         ambition_platformer2d_runtime::rollback::register_engine_rollback_state(&mut registrar);
+        // The engine foundation asserts on this: composing engine domains with a
+        // backend that declared nothing is a desync, and every plugin involved
+        // builds successfully, so nothing else would say so.
+        app.insert_resource(ambition_platformer2d_runtime::EngineRollbackStateDeclared);
     }
 }
 

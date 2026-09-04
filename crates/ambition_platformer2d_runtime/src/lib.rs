@@ -164,6 +164,23 @@ impl SimulationHost {
 #[derive(Resource, Clone, Copy, Debug, Default, Eq, PartialEq)]
 pub struct RollbackHostReady;
 
+/// Marker installed once a backend has DECLARED THE ENGINE'S ROLLBACK STATE —
+/// which is a different fact from having installed the backend.
+///
+/// ⛔⛔ THE PAIRING THIS EXISTS TO ENFORCE: engine domains and the engine's
+/// rollback declarations go together. A host that composes the engine group with
+/// a backend that declared nothing gets those domains WITHOUT their save/restore
+/// and checksum state — **a desync, not a smaller game** — and it does so
+/// silently, because every plugin involved installed successfully.
+///
+/// ⭐ It is separate from [`RollbackHostReady`] because splitting the backend
+/// from its declarations is what made a minimum host composable at all
+/// (`GgrsBackendPlugin` versus `AmbitionRollbackPlugin`, 2026-09-04). The split
+/// is the feature; this marker is the guard that keeps its cost inside the
+/// composition that asked for it.
+#[derive(Resource, Clone, Copy, Debug, Default, Eq, PartialEq)]
+pub struct EngineRollbackStateDeclared;
+
 /// The rollback authority and its lifetime model. See
 /// [`rollback::authority`] for why confirmation health is owned by a
 /// [`SessionScopeId`](ambition_platformer2d_shared_tangle::lifecycle::SessionScopeId)
@@ -238,6 +255,19 @@ impl Plugin for Platformer2dSimulationFoundationPlugin {
             assert!(
                 app.world().contains_resource::<RollbackHostReady>(),
                 "SimulationHost::Rollback requires a concrete rollback backend before the engine foundation builds"
+            );
+            // ⛔⛔ AND THE BACKEND MUST HAVE DECLARED THE ENGINE'S STATE, which is
+            // a SECOND fact. Since the backend split (2026-09-04) a host can
+            // install `GgrsBackendPlugin` alone — correct for a capability host
+            // that composes no engine domains, and a silent desync for one that
+            // composes this group, because every plugin still builds.
+            assert!(
+                app.world().contains_resource::<EngineRollbackStateDeclared>(),
+                "the engine group is composing with a rollback backend that declared no engine \
+                 rollback state. Use `AmbitionRollbackPlugin` (backend + engine declarations); \
+                 `GgrsBackendPlugin` is the backend ALONE and is for a host that composes no \
+                 engine domains. Composing engine domains without their save/restore state is a \
+                 desync, not a smaller game."
             );
         }
         if self.host == SimulationHost::Fixed60Hz {

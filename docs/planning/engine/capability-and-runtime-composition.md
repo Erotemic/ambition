@@ -576,17 +576,45 @@ exists precisely to tolerate absence, and the plain `_clone` forms use
 | `CustodyBaseline` | `shared_tangle/src/lifecycle/horizon.rs` | `lifecycle/custody_horizon.rs` |
 | `OccurrenceBaseline` | `shared_tangle/src/lifecycle/horizon.rs` | the same module |
 
-⇒ **Four of the six are inserted only by plugins a two-plugin host does not
-add** (`sim_core_resources`, the actor monolith), which is why the capability
-demo has more frame-one panics ahead of it and why they are one seam rather than
-four bugs.
+⇒ **FOUR of the six are inserted only by plugins a two-plugin host does not add**
+(`sim_core_resources`, the actor monolith). ⚠ The other TWO —`CustodyBaseline`
+and `OccurrenceBaseline` — are inserted by the same crate that declares them, so
+they would never have faulted; re-derived by yardrat from the script rather than
+from this page. That four/two split matters: the two self-inserting ones are
+evidence for nothing, and the four are what make this one seam rather than four
+bugs.
+
+⚠ **AND THE SEAM HAS A SIBLING THE SPLIT DOES NOT ADDRESS.** The same script
+lists **six GAME-side** checksummed declarations (`VersusMatch`,
+`SpentMonitors`, `SpentPowerBlocks`, `BrokenBricks`, and two boss ones), each
+made by a game's own composition. That is the right shape — a game declaring its
+own state — but a host composing a GAME rather than the engine hits the
+structurally identical trap, and `GgrsBackendPlugin` is no help there because the
+declarations are not the backend's to withhold.
 ⭐ Six game-side declarations exist too (`VersusMatch`, `SpentMonitors`,
 `BrokenBricks`, …) and are NOT part of this problem: a game declares its own
 state in its own composition, which is exactly the shape the engine side should
 have.
 
-⇒ **The seam: a domain declares its own rollback state when that domain is
-composed**, through whichever registrar the host installed. That is the same
+✔ **LANDED 2026-09-04: `GgrsBackendPlugin` is the backend alone, and
+`AmbitionRollbackPlugin` is that plus the engine's declarations.** No call site
+moved, every engine composition is unchanged, and
+`examples/capability_demo`'s rollback round trip went from frame-one death to
+green — its whole suite 21 passed / 0 failed. ⭐ ONE change removing ALL SIX
+faults is what makes "one seam, not a list" a measurement rather than a claim.
+
+✔ **AND THE PAIRING IS A GUARD, NOT A DOC LINE (yardrat asked for this, and it
+is the repository's habit).** `EngineRollbackStateDeclared` is inserted only by
+`AmbitionRollbackPlugin`, and `Platformer2dSimulationFoundationPlugin` asserts
+it beside the existing `RollbackHostReady` check — so composing the engine group
+with a backend that declared nothing PANICS AT BUILD TIME naming both plugins,
+instead of running as a silent desync. ⛔ It is a build-time assert deliberately
+and not a `finish` hook: `Plugin::finish` never runs under `App::update()`, so a
+guard placed there would be dead in every headless test.
+
+⇒ **What is still open is the twenty-domain call site**: a domain declares its
+own rollback state when that domain is composed, through whichever registrar the
+host installed. That is the same
 move `BossEncounterSimulationPlugin` made for systems and messages, one contract
 over.
 ⚠ **Sizing is not done and this is not a licence to start.** Twenty call sites

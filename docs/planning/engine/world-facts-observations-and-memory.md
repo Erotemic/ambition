@@ -104,7 +104,7 @@ made this look already-done.
 a receipt rather than a proposal.** `ambition_boss_encounter` publishes it — the
 SIXTH condition provider — `boss_cleared(id)` is now a registered system asking
 the catalog live rather than a closure over the mirror, and
-`YarnStateMirrorData::bosses_cleared` **and its refresh loop are deleted.**
+`YarnStateMirrorData`'s boss slice **and its refresh loop are deleted** <!-- cite-ok: the field this row records RETIRING; naming a deleted symbol is the receipt -->.
 Authored `.yarn` content keeps its spelling and gains the live answer, so no
 content migration was needed. Three tests, poison-verified; the whole workspace
 checks clean and the four affected suites are green.

@@ -113,15 +113,9 @@ pub fn refresh_yarn_state_mirror(
     // ⭐ THE BOSS SLICE IS GONE TOO, for the same reason the flag slice above
     // it went: `boss.cleared` answers it live from the catalog, so a projection
     // here would be a second authority with a one-frame lag.
-    snap.quests_active.clear();
-    for quest in &data.quests {
-        if matches!(
-            quest.state,
-            ambition_persistence::save_data::PersistedQuestState::InProgress
-        ) {
-            snap.quests_active.insert(quest.id.clone());
-        }
-    }
+    // ⭐ AND THE QUEST SLICE IS GONE, third after the flag and boss slices:
+    // `quest.active` answers it live, so a projection here would be a second
+    // authority with a one-frame lag.
     snap.visit_counts.clear();
     for visit in &data.dialog_visits {
         snap.visit_counts.insert(visit.id.clone(), visit.count);
@@ -416,6 +410,30 @@ fn ask_boss_cleared(In(id): In<String>, world: &mut World) -> bool {
     outcome.is_satisfied()
 }
 
+/// `quest_active(id)` — ask the quest domain's published condition.
+///
+/// Same collapse rule as [`ask_boss_cleared`]: Yarn's `<<if>>` needs a bool and
+/// *unanswerable is not satisfied*, so a branch nobody can answer stays closed.
+fn ask_quest_active(In(id): In<String>, world: &mut World) -> bool {
+    use ambition_platformer2d_shared_tangle::authored_logic::{
+        AuthoredArg, ConditionCatalog, ConditionId,
+    };
+    let Some(condition) = ConditionId::parse("quest.active") else {
+        return false;
+    };
+    if !world.contains_resource::<ConditionCatalog>() {
+        bevy::log::warn!(
+            target: "ambition_content::yarn_vocabulary",
+            "quest_active({id:?}): no condition catalog in this composition",
+        );
+        return false;
+    }
+    let outcome = world.resource_scope::<ConditionCatalog, _>(|world, catalog| {
+        catalog.evaluate(world, &condition, &[AuthoredArg::Name(id.clone())])
+    });
+    outcome.is_satisfied()
+}
+
 /// Build closures around the shared mirror and register the remaining
 /// mirror-backed functions on the runner's library. Called from
 /// `spawn_dialogue_runner` after the runner is built but before it
@@ -444,6 +462,12 @@ pub fn register_functions(
     // inside `continue_runtime`, already exclusive, so no sync point is added.
     let boss_cleared = commands.register_system(ask_boss_cleared);
     runner.library_mut().add_function("boss_cleared", boss_cleared);
+    // ⭐ AND `quest_active` THE SAME WAY, over `quest.active` — published by the
+    // GAME's own quest plugin (`crate::quests::conditions`) rather than by an
+    // engine crate, because the engine has no quest domain. Third slice to
+    // leave the mirror, after `flag` and `bosses_cleared`.
+    let quest_active = commands.register_system(ask_quest_active);
+    runner.library_mut().add_function("quest_active", quest_active);
 
     let lib = runner.library_mut();
     // visit_count(id) -> f32:
@@ -455,13 +479,7 @@ pub fn register_functions(
             .map(|snap| snap.visit_counts.get(&id).copied().unwrap_or(0) as f32)
             .unwrap_or(0.0)
     });
-    // quest_active(id) -> bool: is the named quest InProgress?
-    let m = Arc::clone(&mirror.0);
-    lib.add_function("quest_active", move |id: String| -> bool {
-        m.read()
-            .map(|snap| snap.quests_active.contains(&id))
-            .unwrap_or(false)
-    });
+
     // The inventory domain publishes `inventory.holds` into the condition catalog, so authored
     // dialogue asks `condition("inventory.holds", "<item>")` and reads the live `OwnedItems` — with
     // `Item::from_dialog_id` as the single owner of loose spelling. See

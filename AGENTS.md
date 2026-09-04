@@ -325,6 +325,33 @@ the script.
 Do not duplicate a check in CI without first searching the workflow at the parent
 commit.
 
+⛔⛔ **A CHECKER THAT CRASHES IS NOT A CHECKER THAT FAILS, AND THE TWO ARE
+INDISTINGUISHABLE FROM AN EXIT CODE.** Measured 2026-09-04:
+`check_absence_contracts.py` shells out to `cargo tree --locked` in
+`fixtures/minimal_game`; a new workspace crate staled that fixture's own lockfile,
+cargo exited 101, and the script died on a `CalledProcessError` traceback BEFORE
+most contracts ran. Two REDs sat behind it for a day. ⇒ **Confirm the script
+printed a VERDICT LINE PER CONTRACT** — the trailing `N of N absence contracts
+hold` is that proof — not merely that it exited. (That particular case now
+reports as `capability-footprint-sentinel-lockfile-is-stale`, one RED among the
+others; the habit generalises to every checker that shells out.)
+
+⛔⛔ **ADDING OR REMOVING A WORKSPACE CRATE BREAKS FILES THAT NAME CRATES, and
+none of them is reachable from the change.** The same 2026-09-04 landing broke
+three: a `dependency-allowlist` in
+`tests/ambition_workspace_policy/policies/engine.toml` (**red at DEFAULT
+features**, 4.6 s to reproduce), `fixtures/minimal_game/Cargo.lock`, and through
+that lockfile the absence checker above. `cargo check --workspace --all-targets`
+was clean throughout. ⇒ After adding or removing a crate, run both:
+
+```bash
+cargo test -p ambition_workspace_policy --test policy   # read the per-policy lines
+python3 scripts/check_absence_contracts.py | tail -5    # confirm a verdict PER contract
+```
+
+⭐ And the list of affected files is DISCOVERABLE rather than memorable:
+`git grep -l <an existing sibling crate name> -- '*.toml' '*.lock' '*.py'`.
+
 ### Long-running builds
 
 ⛔ **NEVER SIT AND WATCH A BUILD DURING COORDINATED WORK.** Give a worker

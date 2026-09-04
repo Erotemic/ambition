@@ -1247,7 +1247,28 @@ queue read as an execution authority for work already done.
     body must be there" — three deductions, one unchecked. The probe cost four
     minutes and was available throughout.
     ⚠ The probe ran at DEFAULT features, where the test is green; only a
-    union-features probe can rule out a body the union itself adds. That run is
+    union-features probe can rule out a body the union itself adds.
+    ✔✔ **SOLVED 2026-09-04, and the answer was a number neither of us looked at:
+    THE FAILING FRAME IS `ResolvedCameraSnapshot::default()`, VERBATIM.**
+    `local_view_facts()` puts the default on every view at spawn so *"a reader
+    must never see a frame where the view exists and its state does not"*; the
+    resolver honours *"callers must not invent a world-origin fallback"* by
+    returning without writing when the cast is unresolvable; and
+    `CameraSnapshot2d::default()` is `center_world: ZERO` with
+    `default_base_view()`, whose own comment says *"the default moved to `Duel`
+    (568x320) on 2026-09-03"* — the exact dimensions the failure reports.
+    ⛔⛔ **So two individually CORRECT decisions composed into the behaviour the
+    contract forbids. Nobody wrote the fallback; it fell out of `Default`.** And
+    it retro-explains the 800x450 → 568x320 shift both of us had been reading as
+    instability: that was the DEFAULT changing.
+    ✔ **Fixed at `92f2f597b`: `ResolvedCameraSnapshot` is
+    `Option<ResolvedCameraFrame>`**, so an unframed view says so and the compiler
+    asks every reader. The two frame checks use `and_then` and SKIP an unframed
+    tick, which is what their `continue` always meant.
+    ⚠ **NOT yet confirmed against the union**, and the distinction is the one
+    this row keeps having to make: at default features the test already passed
+    (it skipped `t3` because no snapshot existed) and it passes now for a
+    DIFFERENT reason, so that run proves nothing about the union. A union run is
     in flight.
     ⚠ And the narrowed question given to Jon ("may a match present a tick in
     which the followed body has not been placed?") is withdrawn with it — it

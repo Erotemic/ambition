@@ -3385,12 +3385,23 @@ OPTIONAL dep + feature, never used:
   (`ambition_input/src/lib.rs`, `platformer2d_host/src/portal.rs`,
   `ambition_input/src/local_seats.rs`, …), turning live functions into FALSE
   ORPHANS — the loud direction, where somebody deletes something that is used.
-  ⇒ A correct fix brace-matches the module and skips it; recorded rather than
-  rushed, because a scanner that over-reports orphans is more dangerous than one
-  that under-reports them.
+  ✔ **FIXED the same evening by brace-matching the module rather than truncating
+  at it, and the correction is large: 156 → 278 orphans of 5,318.** The census
+  was under-reporting by 122, roughly 80%.
+  ⭐ **Validated in both directions before it was believed.** Three
+  newly-reported names were spot-checked by hand and all three are genuinely
+  test-only — `new_peaceful_npc` looked like a false positive (a caller at
+  `features/npcs.rs:770`, not a test path) until the file showed `#[cfg(test)]`
+  at :666, so the caller is inside the module. The dangerous direction is pinned
+  by `test_the_orphan_census_reads_inline_test_modules.py`, whose
+  `test_code_after_the_test_module_is_still_production` reddens under exactly
+  the naive truncation above — poison-verified by making that change and
+  watching that one arm fail while the other three passed.
   ⓘ **The same blind spot appears on the `Consumed` card in `tracks.md`**, found
   an hour earlier from the other end: two mentions that CONSTRUCT the variant
   sit in in-file test modules and read as producers to a path-based filter.
+  ⚠ **AND THE `156` QUOTED ABOVE IS SUPERSEDED BY `278`** — the delta claim it
+  supported still holds, but for a different reason than "the count went down".
   ⭐ **What survives of the delta claim above:** the six `pub fn`s added today
   were checked BY HAND against their call sites — `authored_price` and
   `AuthoredPriceProblem::observed` (both called from `wallet_conditions.rs` and

@@ -60,21 +60,58 @@ def repo_root() -> pathlib.Path:
     return pathlib.Path(out.stdout.strip())
 
 
-# ⛔⛔ THIS CENSUS UNDER-REPORTS, MEASURED 2026-09-04, AND THE NUMBER IT PRINTS
-# IS A FLOOR RATHER THAN A COUNT. `is_test_path` keys on the PATH and does not
-# exclude an in-file `#[cfg(test)] mod tests`, so a `pub fn` whose only caller
-# lives in one is counted as having a PRODUCTION caller. The exposure is not
-# marginal: of the 1,240 source files this treats as production, **584 (47%)**
-# carry such a module.
-#
-# ⚠ THE OBVIOUS FIX IS WRONG. Truncating each file at its test module is right
-# for 535 of the 584 and DELETES REAL PRODUCTION CODE in the other 49
-# (`ambition_input/src/lib.rs`, `platformer2d_host/src/portal.rs`,
-# `ambition_input/src/local_seats.rs`, …), which turns live functions into FALSE
-# ORPHANS. ⇒ That is the loud direction — somebody deletes something that is
-# used — so a correct fix brace-matches the module and skips it, and this is
-# recorded rather than rushed. A scanner that over-reports orphans is more
-# dangerous than one that under-reports them.
+#: `#[cfg(test)] mod tests {` — the in-file test module this census must not
+#: read as production.
+INLINE_TEST_MODULE = re.compile(r"#\[\s*cfg\s*\(\s*test\s*\)\s*\]\s*mod\s+\w+\s*\{")
+
+
+def split_inline_test_module(text: str) -> tuple[str, str]:
+    """Split a source file into (production, in-file test modules).
+
+    ⛔⛔ WITHOUT THIS THE CENSUS UNDER-REPORTED, and the number it printed was a
+    floor rather than a count. `is_test_path` keys on the PATH, so a `pub fn`
+    whose only caller lived in an in-file `#[cfg(test)] mod tests` counted as
+    having a PRODUCTION caller. Measured 2026-09-04: of the 1,240 source files
+    this treats as production, **584 (47%)** carry such a module.
+
+    ⚠ THE OBVIOUS FIX IS WRONG, and measuring is what said so. Truncating each
+    file at its test module is right for 535 of the 584 and DELETES REAL
+    PRODUCTION CODE in the other 49 — `ambition_input/src/lib.rs`,
+    `platformer2d_host/src/portal.rs`, `ambition_input/src/local_seats.rs` and
+    more put items AFTER the module. ⇒ That direction turns live functions into
+    FALSE ORPHANS, which is the loud failure: somebody deletes something that is
+    used. So the module is brace-matched and skipped, and whatever follows it
+    stays production.
+
+    ⚠ The brace walk is deliberately naive about braces inside string literals
+    and comments. Doc comments are already stripped by the caller, and a `{` in
+    a string is rare in Rust test code; the consequence of a mis-scope is a
+    slightly wrong split rather than a wrong VERDICT, because the verdict is a
+    delta across a carve and both runs share the same rule.
+    """
+    production: list[str] = []
+    inline: list[str] = []
+    cursor = 0
+    while True:
+        found = INLINE_TEST_MODULE.search(text, cursor)
+        if not found:
+            production.append(text[cursor:])
+            return "".join(production), "".join(inline)
+        production.append(text[cursor : found.start()])
+        depth = 0
+        index = found.end() - 1  # the module's opening brace
+        while index < len(text):
+            if text[index] == "{":
+                depth += 1
+            elif text[index] == "}":
+                depth -= 1
+                if depth == 0:
+                    break
+            index += 1
+        inline.append(text[found.start() : index + 1])
+        cursor = index + 1
+
+
 def is_test_path(path: str) -> bool:
     name = pathlib.Path(path).name
     return (
@@ -122,10 +159,21 @@ def census(root: pathlib.Path) -> tuple[dict[str, str], collections.Counter, col
     tests: collections.Counter = collections.Counter()
     for path in files:
         text = DOC_RE.sub("", (root / path).read_text(errors="replace"))
-        counts = collections.Counter(w for w in WORD_RE.findall(text) if w in names)
-        target = tests if is_test_path(path) else production
-        for name, n in counts.items():
-            target[name] += n
+        if is_test_path(path):
+            for name, n in collections.Counter(
+                w for w in WORD_RE.findall(text) if w in names
+            ).items():
+                tests[name] += n
+            continue
+        body, inline = split_inline_test_module(text)
+        for name, n in collections.Counter(
+            w for w in WORD_RE.findall(body) if w in names
+        ).items():
+            production[name] += n
+        for name, n in collections.Counter(
+            w for w in WORD_RE.findall(inline) if w in names
+        ).items():
+            tests[name] += n
     return definitions, production, tests
 
 

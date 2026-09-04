@@ -2187,9 +2187,17 @@ the reordering IS the finding.
    — but a rollout is precisely the thing that asks about later steps.
    ⛔ **Modelling it as any one of the three would repeat an error that module
    records making TWICE**: *"the brain named one maneuver, the model judged a
-   second, the body performed a third."* ⇒ **The work is two fields on
-   `ShadowFighter` and their stepping**, after which the verb is decidable
-   everywhere. Until then `None` is the honest answer and its cost is recorded.
+   second, the body performed a third."* ⚠ **AND IT IS NOT SIMPLY TWO FIELDS ON
+   `ShadowFighter`** — I wrote that first and checked it an hour later.
+   `SelfView` carries `burst` (the RESOLVED answer for this tick) and
+   deliberately NOT the cooldown, air-dodge budget, endlag or dash charges that
+   produce it, because `resolve_burst_maneuver` is *"the one rule, and this field
+   is its answer. The brain is handed a fact."* ⇒ Perception hides the inputs
+   precisely so a brain cannot re-derive the rule — the failure this module made
+   twice. ⭐ **So the principled fix is to let the shadow CALL that resolver on
+   shadow-stepped state**, keeping one authority, rather than exposing the inputs
+   (which invites the re-derivation) or guessing. Until then `None` is the honest
+   answer and its cost is recorded.
 6. ✔ **DONE — flat-vs-platforms re-run at the shipped clock**, and its headline
    reversed: the tiers do not halve the lethality (stocks left is `0.00` on BOTH
    stages), they take **1.83× as long** to reach the same end. Pace, not

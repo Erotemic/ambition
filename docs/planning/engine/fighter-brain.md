@@ -2053,9 +2053,24 @@ the reordering IS the finding.
    landed entirely within spread. ⇒ Do it because `None` is the wrong score for a
    verb a fighter can pick, not because a matrix will move. It reaches no player
    either way.
-6. **Re-run flat-vs-platforms** once the respawn/tier collision is ruled on, using
-   `closest_approach` on the unfought rows to separate "cannot navigate" from
-   "declines to commit".
+6. ✔ **DONE — flat-vs-platforms re-run at the shipped clock**, and its headline
+   reversed: the tiers do not halve the lethality (stocks left is `0.00` on BOTH
+   stages), they take **1.83× as long** to reach the same end. Pace, not
+   lethality. ⚠ The `closest_approach` half is moot — there are no unfought rows
+   at the shipped clock (109 bouts, zero where neither seat dealt damage).
+
+⇒ **WHAT IS ACTUALLY LEFT, and it is short.** Items 1, 3 and 4 are with Jon.
+Item 2 and 6 are done. Item 5 (`Dodge`) is real but reaches no player. ⇒ So the
+next MEASUREMENT worth taking is none of these — it is the one the roster answer
+unblocks, and until that answer arrives the honest state of this page is *the
+fighter is measured and the open questions are design*.
+
+⚠ **One engineering item nobody has claimed**, recorded so it is not lost: the
+scenario matrices on this page were taken at the 60-second clock and only the
+`5 vs 3` slice has been re-run at the shipped one. The Shield-model comparison in
+particular still rests on short-clock numbers. ⇒ It changes no conclusion I have
+drawn (that comparison found *no effect*, and a longer clock cannot turn no effect
+into evidence for keeping it), but a reader quoting those tables should know.
 
 ⚠ **And the standing rule, now with a worked example behind it:** do not tune
 rollout depth, heuristics, APM, reaction or weights without a trace naming the

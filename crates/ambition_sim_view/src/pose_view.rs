@@ -606,17 +606,6 @@ pub fn rebuild_guard_breaks_view(
         }));
 }
 
-/// One knockout, resolved sim-side, WITH THE PLACE IT HAPPENED.
-///
-/// ⭐ THE POSITION IS THE WHOLE REASON THIS VIEW EXISTS.
-/// `FighterStockSpent` carries an `Entity`, and by the time any consumer can
-/// look that entity is somewhere else or gone: `place_respawning_fighters`
-/// reads the same message inside `CombatSet::Settle` and teleports the body
-/// onto the respawn platform on the same tick, and an eliminated body is
-/// despawned outright. A consumer that resolved the entity itself would draw
-/// the knockout over the respawn platform — an effect that fires, looks
-/// deliberate, and marks the wrong spot.
-///
 /// One body in INVOLUNTARY flight, resolved sim-side.
 ///
 /// A row exists only while the body is launched — tumbling from a hit, or

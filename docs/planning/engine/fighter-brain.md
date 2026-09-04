@@ -1314,8 +1314,15 @@ identical to C — the authored rows differ in utility weights too — but the
 Nobody had ever pointed the rig at him. D's stocks-left are lower than A's in
 **every** cell, and his damage dealt runs 297%/331% at the top cells against the
 Robots' ~200%. ⇒ **So the "matches never resolve" character of every ladder
-number in this document is substantially a fact about the STAND-INS**, who until
-2026-09-04 had no special button, no forward tilt and no dash attack. ⚠ Not
+number in this document is substantially a fact about the STAND-INS**, who have
+no special button. ⚠ **This sentence also said *"no forward tilt and no dash
+attack"* and that is WITHDRAWN** — those were read off unbound verbs, and the
+directional chain answers an unbound `attack_forward` with the `jab`. Enumerated
+by press rather than by binding, the stand-ins' whole surplus over George is
+**eight `special` presses and nothing else**; see item 4 of the instrument list
+below. ⇒ The point of this paragraph is unchanged and slightly sharpened: the
+stand-ins are George's genre shape **with one button removed**, which is enough
+to explain a slower fighter without inventing two more missing moves. ⚠ Not
 entirely: George's own 5v3, 6v5 and 9v6 still end `1 : 1` rather than resolving.
 He is faster, not fast enough.
 
@@ -2177,9 +2184,22 @@ evidence that naming the class was worth doing.
    authored table to `smash_george_booul` and `fighter_moveset()` to everybody
    else, and that stand-in contract bound **18 verbs to George's 26** — no
    `special`, no `special_forward`/`_up`/`_down`, no `attack_forward`, no
-   `attack_dash`, no `taunt`. ⇒ **Every ladder number in this document was taken
-   between two fighters with a dead special button, no forward tilt and no dash
-   attack.** ⚠ And this one is not only an instrument defect: the demo's select
+   `attack_dash`, no `taunt`.
+   ⛔ **THE SENTENCE THAT FOLLOWED THAT LIST IS WITHDRAWN (2026-09-04).** It read
+   *"two fighters with a dead special button, no forward tilt and no dash
+   attack"* — and two thirds of that is an inference from BINDINGS that the
+   engine does not honour. `directional_verb_chain` falls back to the base verb,
+   so an unbound `attack_forward` is answered by the `jab`; the fighters had a
+   forward tilt and a dash attack the whole time, swinging the jab's timeline.
+   ⇒ **What survives is the special button, and it survives exactly.** Enumerating
+   every `(base, direction, stance)` press instead of counting keys: the stand-ins
+   answer nothing on **15**, George on **7**, George's set is a strict SUBSET of
+   theirs, and the surplus is **eight — every one a `special`**. ⭐ So the true
+   statement is: **every ladder number in this document was taken between two
+   fighters that were George's genre shape with the special button removed.** That
+   is still an instrument defect worth the entry, and it is a narrower one than
+   the withdrawn sentence claimed. Guarded now in `game/ambition_demo_smash/` by
+   `the_stand_in_is_george_s_genre_shape_with_the_special_button_removed`. ⚠ And this one is not only an instrument defect: the demo's select
    roster is three characters, **two of them stand-ins**, and the catalog default
    is one of the two — so the dead button was a player's as well as the rig's.
 

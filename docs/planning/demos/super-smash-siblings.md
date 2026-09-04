@@ -166,6 +166,37 @@ on a fighter name) returns **nothing**; the single hit anywhere near it is
 `character_catalog/registry.rs:212`, which dedupes catalog registration and is not
 a gameplay branch. Twenty-one movesets and no engine knows any of their names.
 
+⛔ **AND CHECKPOINT 2 IS THE ONE MOST LIKELY TO BE MISREAD, so its reference point
+belongs next to its number.** *"21"* counts **authored movesets**. It does not
+count what a player is offered, and the two are far apart:
+
+| what is counted | number |
+|---|---:|
+| authored movesets (checkpoint 2's subject) | **21** |
+| seats in the **standalone** demo | **3** |
+| seats in the **composed** app | **≥8** |
+| *distinct contracts behind the standalone 3* | **2** |
+
+⇒ The standalone demo's three seats are George plus **two stand-ins that share one
+contract** — `fighter_moveset()` — and that contract has **no special button**.
+Measured by press rather than by binding (2026-09-04): the stand-ins answer
+nothing on **15** `(base, direction, stance)` presses against George's **7**,
+George's set is a strict **subset** of theirs, and the surplus is **eight, every
+one a `special`**. ⭐ **So the stand-in is George's genre shape with the special
+button removed** — guarded by
+`the_stand_in_is_george_s_genre_shape_with_the_special_button_removed` in
+`game/ambition_demo_smash/src/moveset.rs`.
+
+⚠ **Both statements are true and neither weakens the other.** The architectural
+claim this checkpoint actually tests — *distinct move semantics with no
+character-ID engine branches* — holds exactly as measured, and 21 authored
+movesets is the right evidence for it. ⇒ What the number does **not** license is
+the reading *"the roster is in good shape"*, because roster DEPTH and roster
+REACH are different quantities and this checkpoint only ever measured the first.
+The reach question is open with Jon in
+[`../awaiting-maintainer-decision.md`](../awaiting-maintainer-decision.md), and it
+is a small question: four named special slots on one shared contract.
+
 ### Checkpoint 4, worked 2026-09-04 — the platforms a platform fighter had none of
 
 ⭐ **The engine ships one-way platforms in full and the demo used NONE of them.**

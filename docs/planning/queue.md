@@ -2258,6 +2258,24 @@ queue read as an execution authority for work already done.
   cannot reach them. ⭐ Which means **authoring a dash attack costs a fighter its
   tilts and smashes**, and George — the demo's only fully authored fighter, with
   26 verbs to their 18 — gets *less* of his kit into play than they get of theirs.
+  ⚠ **THE TWO ARMS DIFFER IN TWO AUTHORED WAYS, NOT ONE — named 2026-09-04 so the
+  natural experiment's strength is stated rather than assumed.** George binds
+  `attack_dash` and the stand-ins do not; George also has a **special button** and
+  the stand-ins do not (their whole surplus silence over him is eight `special`
+  presses, and nothing else —
+  `the_stand_in_is_george_s_genre_shape_with_the_special_button_removed`). ⇒ A
+  reader is entitled to ask whether the second difference, not the first, is what
+  frees the stand-ins' tilts.
+  ⭐ **It is not, and the reason is mechanical rather than statistical.** The
+  named chain explains the collapse exactly: every attack pressed while running
+  re-resolves to `{base}_dash`, so a fighter that binds one cannot start a tilt
+  from a run at all — which is why George's tilts are **0** and not merely
+  depressed. Absent specials would change *how often* other moves are chosen; it
+  cannot drive a category to zero, because nothing about lacking a special
+  intercepts an `attack` press. ⇒ **The confound is real, is named, and does not
+  reach this conclusion** — but the honest form is to say so, since a confound
+  held constant across the arms you compare is invisible to the comparison that
+  uses them.
   ⚠ Corroboration, not proof: the two fighters differ in more than the dash
   binding. But it is exactly what the mechanism predicts, in the direction it
   predicts, from a contrast nobody set up.
@@ -2410,10 +2428,28 @@ queue read as an execution authority for work already done.
   `fighter_moveset()`, which both Robots carry, bound **18 verbs to George's 26**.
   Missing: `special`, `special_forward`, `special_up`, `special_down`,
   `special_air_down`, `attack_forward`, `attack_dash`, `taunt`. A press resolved
-  to no move, and the catalog DEFAULT is one of the two. The command grab closes
-  one of the eight; ⛔ the other seven are DESIGN and are now a question with Jon
-  in `awaiting-maintainer-decision.md` (thin stand-ins / finished characters /
-  one shared simpler kit) — **do not author them off this row.**
+  to no move, and the catalog DEFAULT is one of the two.
+  ⛔⛔ **THAT LIST IS BINDINGS, AND THE "SEVEN REMAINING" DERIVED FROM IT WAS
+  WRONG — corrected 2026-09-04, after the number had already crossed into this
+  file without its method.** `directional_verb_chain` falls back to the base verb,
+  so a missing `attack_forward` is **not** silence: the press answers with the
+  `jab`. ⇒ Re-derived by enumerating every `(base, direction, stance)` PRESS
+  against both contracts rather than counting keys, and the shape is different
+  from what the binding list implies:
+  the stand-ins answer nothing on **15** presses, George on **7**, and George's
+  set is a strict **subset** of theirs — the surplus is **exactly eight, every one
+  a `special`**. `attack_forward`, `attack_dash` and `taunt` are not in it.
+  ⇒ **So the stand-in is George's genre shape with the special button removed**,
+  and the open design question is *"what are their four specials"* — four named
+  slots on the type, not seven scattered verbs. ⚠ The command grab closes
+  `special_forward`, which is why the gap is eight and not ten.
+  ⭐ All three claims are now guards rather than prose, in
+  `game/ambition_demo_smash/`: `the_only_presses_this_fighter_cannot_answer_are_specials`,
+  `the_presses_george_leaves_unanswered_are_the_ones_the_genre_lacks`, and
+  `the_stand_in_is_george_s_genre_shape_with_the_special_button_removed`.
+  ⛔ Still a question with Jon in `awaiting-maintainer-decision.md` (thin
+  stand-ins / finished characters / one shared simpler kit) — **do not author them
+  off this row.**
   ⛔ **Needs a seam first:** the **pivot** moves in both rows — `move_for_flat_verb`
   hardcodes one derived stance (`{base}_dash`) and cannot express a pivot;
   `P11`'s **tether** — a grapple mechanic exists and nothing joins it to capture;

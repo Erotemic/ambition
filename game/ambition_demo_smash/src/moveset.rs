@@ -865,6 +865,82 @@ mod tests {
         );
     }
 
+    /// Every `(base, direction, stance)` press, and which of them a contract
+    /// answers with nothing. Shared by the relation test below so the two
+    /// fighters are measured by one instrument rather than two copies of one.
+    fn silent_presses(
+        set: &ambition_platformer2d::entity_catalog::MovesetContract,
+    ) -> Vec<String> {
+        let dirs = [
+            ("neutral", AttackDir::Neutral),
+            ("forward", AttackDir::Forward),
+            ("up", AttackDir::Up),
+            ("down", AttackDir::Down),
+            ("back", AttackDir::Back),
+        ];
+        let mut silent = Vec::new();
+        for base in ["attack", "smash", "special"] {
+            for (dir_name, dir) in dirs {
+                for (stance, grounded) in [("ground", true), ("air", false)] {
+                    if set.move_for_directional_verb(base, dir, grounded).is_none() {
+                        silent.push(format!("{base}_{dir_name}_{stance}"));
+                    }
+                }
+            }
+        }
+        silent
+    }
+
+    /// ⭐⭐ **THE TWO FIGHTERS' SILENCES ARE NOT TWO NUMBERS, THEY ARE A SUBSET
+    /// AND A DIFFERENCE — which is the skeleton finding in one assertion.**
+    ///
+    /// Its siblings each pin one fighter against the press space: the test above
+    /// for the stand-in (**15** silent), and
+    /// `the_presses_george_leaves_unanswered_are_the_ones_the_genre_lacks` for
+    /// George (**7**). ⛔ **Held apart, those two numbers invite a subtraction
+    /// they do not license.** 15 and 7 yield "a gap of 8" only if the smaller set
+    /// sits inside the larger one, and nothing in either test says it does — two
+    /// sets of those sizes can overlap by any amount, and the difference would
+    /// still be reported as 8 in every case.
+    ///
+    /// ⇒ So assert the RELATION. George's silent set is a strict SUBSET of the
+    /// stand-in's, and what is left over is exactly eight `special` presses. ⭐
+    /// The stand-in is therefore not a different fighter missing different
+    /// things — **it is George's genre shape with the special button removed**,
+    /// which is what makes *"give the Robots a special"* a well-posed question
+    /// with a bounded answer instead of an open authoring job.
+    ///
+    /// ⚠ **A ratchet, and the two ways it can redden mean opposite things.**
+    /// Authoring a special on the stand-in shrinks the difference and fails the
+    /// second assertion — the good failure, fixed by lowering the number here in
+    /// the same commit. Losing one of George's specials breaks the SUBSET
+    /// instead, and that is a regression. Which assertion fires tells you which
+    /// happened, so the failure text does not have to guess.
+    #[test]
+    fn the_stand_in_is_george_s_genre_shape_with_the_special_button_removed() {
+        let stand_in = silent_presses(&fighter_moveset());
+        let george = silent_presses(&crate::george_booul_moveset::george_booul_moveset());
+
+        let escaped: Vec<&String> = george.iter().filter(|p| !stand_in.contains(p)).collect();
+        assert!(
+            escaped.is_empty(),
+            "a press George cannot answer is one the STAND-IN can: {escaped:?}.              That breaks the subset, so the stand-in is no longer George minus              the specials and the roster question needs re-deriving rather than              re-counting."
+        );
+
+        let mut extra: Vec<&String> = stand_in.iter().filter(|p| !george.contains(p)).collect();
+        extra.sort();
+        assert!(
+            extra.iter().all(|p| p.starts_with("special_")),
+            "the stand-in's surplus silence is no longer all specials: {extra:?}"
+        );
+        assert_eq!(
+            extra.len(),
+            8,
+            "the stand-in/George special gap moved to {}: {extra:?}. If a              special was AUTHORED on the stand-in this is the good failure —              lower the number here in the same commit. If George LOST one, the              subset assertion above would have fired first.",
+            extra.len()
+        );
+    }
+
     fn the_side_special_is_a_command_grab_and_not_the_standing_grab_renamed() {
         use ambition_platformer2d::entity_catalog::WindowTag;
         let set = fighter_moveset();

@@ -571,6 +571,32 @@ mirrored to `Back`, no `special_back` verb existed, and the chain fell back to
 something. The Robots bind **only `special_forward`** — there is nothing to fall
 back to.
 
+⭐⭐ **AND THAT FALLBACK IS NOT HISTORY — I MADE IT HAPPEN AGAIN ON PURPOSE
+2026-09-04, which is the difference between a bug report and a live mechanism.**
+Replacing George's `neutral_special` with `FromBodyKit` in a throwaway build
+silenced **four** presses, not the one I removed: `special_neutral` *and*
+`special_back`, in both stances. ⇒ **Nobody has ever authored a back special on
+George.** The back press is answered because the directional chain walks past the
+missing `special_back` to the base `special` — the exact path that made the side
+special *"perform zero times"*, still load-bearing, now on the correct side of
+the ledger.
+
+⇒ **So "George binds four specials" and "George answers ten special presses" are
+both true**, and the planning surface has to say which one it means every time.
+Counting bindings answers *what did an author write*; enumerating presses answers
+*what happens when the player pushes this*. The two guards that pin this — one
+per fighter — are `the_presses_george_leaves_unanswered_are_the_ones_the_genre_lacks`
+and `the_only_presses_this_fighter_cannot_answer_are_specials`.
+
+ⓘ **A structural note that came out of the same run, and it is a schema fact, not
+a fighter fact.** George's seven unanswered presses are *all* `smash`: no neutral
+smash, no back smash, no aerial smashes. That set cannot change while
+`SmashRepertoire` keeps its field list — it has `forward_smash` / `up_smash` /
+`down_smash` and **no slot to author the other two**, and aerials live in the
+`*_air` fields that answer `attack` presses. ⇒ The stand-ins' eight silences are a
+HOLE in a family the genre has; George's seven are the genre's own shape, enforced
+by a type. Do not read the two counts as comparable.
+
 ✔ **Measured rather than assumed:** `smash_tool capture-probe -- 90` on the
 default (stand-in) roster records **3 `lunge_grab` starts**, against `grab_dash`
 5, `pummel` 5, `throw_forward` 5. ⇒ The move is reached, at a frequency
@@ -819,6 +845,27 @@ contracts instead of counting bindings:
 George also refuses are **shared** — `smash` neutral, `smash` back, and the three
 aerial smashes — a genre convention rather than a gap.
 
+⛔ **AND THAT TABLE'S THIRD ROW WAS A SUBTRACTION THE FIRST TWO DID NOT LICENSE.**
+15 and 7 give a difference of 8 only if the smaller set sits INSIDE the larger
+one — two sets of those sizes can overlap by any amount, and the arithmetic
+returns 8 for every one of them. The word *"genuine"* was doing work the numbers
+had not done.
+
+✔ **Now derived rather than subtracted** (2026-09-04,
+`the_stand_in_is_george_s_genre_shape_with_the_special_button_removed` in
+`game/ambition_demo_smash/src/moveset.rs`): George's silent set is a strict
+**subset** of the stand-in's, and the surplus is exactly eight `special` presses.
+⇒ **The stand-in is George's genre shape with the special button removed** — not a
+different fighter missing different things. That is what makes *"give the Robots a
+special"* a bounded question rather than an open authoring job.
+
+⚠ Both arms poison-verified, and they fail in opposite directions on purpose:
+reversing the two contracts breaks the SUBSET (listing the eight), and dropping
+`lunge_grab`'s binding moves the DIFFERENCE to ten. ⇒ Authoring a special reddens
+the count — the good failure, fixed by lowering the number in the same commit;
+losing one of George's breaks the subset first. Which assertion fires says which
+happened.
+
 ⛔ **So "same for the forward tilt and the dash attack" is WITHDRAWN.** Both fall
 back to the jab. The finding is entirely about the special family. ⚠ And the verb
 list above stays as written because it is a true statement about BINDINGS — it is
@@ -829,8 +876,53 @@ fighter can HIT, not whether it has a KIT.** `every_fighter_on_the_smash_grid_ca
 and `the_match_gives_every_seat_a_kit_that_can_hit` (`game/ambition_app/tests/smash_roster_movesets.rs`)
 are both satisfied by a contract binding 18 verbs — a jab alone passes them. ⇒
 They are good guards for the question they ask; **the roster gap lived in the
-space between "can act" and "has the vocabulary the genre expects", and nothing
-asked the second question.**
+space between "can act" and "has the vocabulary the genre expects".**
+
+⛔⛔ **AND THE SENTENCE THAT STOOD HERE — *"nothing asked the second question"* —
+WAS WRONG, falsified by the very file it cited.** Three tests down from the two
+named above,
+`report_the_smash_kit_every_selectable_fighter_has` asks exactly the second
+question and asks it more carefully than my enumeration did:
+
+- It walks a **16-entry `SMASH_KIT`** — the genre's press list — plus a capture
+  half resolved by verb, and asserts **every selectable fighter reaches all of
+  it**. Not a report despite the name: `short.is_empty()` is a hard assertion.
+- ⭐ It has a rule my guards do not: **`its_own`**. A press that resolves to a move
+  an EARLIER press already claimed is scored as a fallback, not as a move. That
+  is precisely the `special_back`-answered-by-the-neutral-special effect measured
+  above — already encoded, before I re-found it.
+
+⇒ **So it and the skeleton finding count different fighters, and both can hold.**
+It reads `assemble`d, composition-selectable fighters — **≥8**, and the stand-ins
+are not among them, since `STAND_INS` steps them aside once the real lineage is
+present. The skeleton is real in the **standalone demo**, where the stand-ins
+*are* seatable, and lies outside the population that test guards.
+
+⛔ **AND I DID NOT RUN IT, so nothing here says it passes.** An earlier draft of
+this paragraph asked *"why is it green"* — I had read the assertion, not a
+verdict, and the question smuggled in a result I never saw. Everything above is
+read off the SOURCE: the press list, the `its_own` rule, the hard assertion. Its
+current status is unmeasured, by me, today.
+
+⚠ **Why it is unmeasured is worth recording, because it is not about this test.**
+`cargo test -p ambition_app` cannot LINK on this machine: `mold: failed to write
+to an output file. Disk full?`, and `clang` dies with a bus error. ⇒ Not a source
+defect — `df` reports 188G free and inodes at 5%, but the working tree is a
+**virtiofs** mount, so those figures are the host's and a 1GB `dd` into `target/`
+dies partway. ⇒ The composed app is the only thing on this page that needs that
+link; `ambition_demo_smash` builds and its 153 tests pass. ⭐ **What would settle
+it is one command on a machine that can link** —
+`cargo test -p ambition_app --test app_it report_the_smash_kit -- --nocapture` —
+and it prints a per-fighter census, so it answers the open question below in the
+same run. ⚠ Both are true and neither is the other's
+counter-example — which is the denominator lesson this page has now paid for
+four separate times.
+
+ⓘ **The two press lists agree, independently.** `SMASH_KIT`'s smash entries are
+`fsmash` / `usmash` / `dsmash` and nothing else; the smash press space is ten
+(five directions x two stances); the complement is **seven** — exactly the seven
+George was measured to leave unanswered. Two lists written at different times by
+different hands, describing the same genre shape, matching to the press.
 
 ⚠ That is not an argument for a "every fighter binds all 26 verbs" assertion,
 which would be wrong: a roster of deliberately simple characters is a legitimate

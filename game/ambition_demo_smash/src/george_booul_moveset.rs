@@ -1232,6 +1232,103 @@ mod tests {
     /// asserts the string is still `Always` and the route is still `OnHit`
     /// beside it — three conditions on one move, which is the whole point of
     /// `MoveContact` carrying three facts instead of one bool.
+    /// ⭐ **WHAT GEORGE LEAVES UNANSWERED IS THE GENRE'S OWN SHAPE, NOT A GAP.**
+    ///
+    /// The sibling guard in `moveset.rs` pins the stand-in fighter's silences;
+    /// this one pins George's, and the two only mean something side by side.
+    /// Both enumerate every `(base, direction, stance)` PRESS rather than
+    /// inspecting the contract's keys, because `move_for_directional_verb`
+    /// falls back to the base verb — so a fighter with no `attack_forward`
+    /// binding still answers a forward tilt, with the jab. Counting bindings
+    /// answers "what did an author write"; only the press enumeration answers
+    /// "what happens when the player pushes this".
+    ///
+    /// ⇒ George is silent on **seven** presses and **every one is a `smash`**:
+    /// no neutral smash, no back smash, and no aerial smashes at all. That is
+    /// the genre convention this demo is chasing — the fighting games this is
+    /// modelled on have forward/up/down smashes on the ground and use the
+    /// `attack` family in the air. ⭐ **So George's silences are DESIGN and the
+    /// stand-in's eight are a HOLE**: the stand-in's are specials, which the
+    /// genre very much does have, and which George answers in all ten
+    /// directions and stances. That asymmetry is the whole content of the
+    /// roster question in `awaiting-maintainer-decision.md`, and before this
+    /// pair of tests it lived only in prose.
+    ///
+    /// ⛔ **AND THE TWO HALVES OF THIS TEST ARE NOT THE SAME KIND OF CLAIM**, a
+    /// distinction the poison runs made and prose would have hidden:
+    ///
+    /// - The `smash` set is **structural**. `SmashRepertoire` has
+    ///   `forward_smash` / `up_smash` / `down_smash` and no neutral or back slot
+    ///   to author, and aerials live in the `*_air` slots that answer `attack`
+    ///   presses. ⇒ These seven cannot change while that struct's field list
+    ///   holds, which makes this arm a **schema guard**: it reddens when the
+    ///   repertoire's shape changes, which is a change nobody makes by accident
+    ///   but everybody makes silently.
+    /// - The special arm is **authored**, and it reddens. Replacing the neutral
+    ///   special with `FromBodyKit` silenced **four** presses, not two:
+    ///   `special_neutral` *and* `special_back`, in both stances. ⇒ George
+    ///   authors four specials — neutral, side, up, down — and the BACK press is
+    ///   answered by the neutral one falling down the chain. ⭐ That is the
+    ///   binding-versus-press distinction happening in front of you: no author
+    ///   ever wrote a back special, and the player who presses one is answered
+    ///   anyway.
+
+    #[test]
+    fn the_presses_george_leaves_unanswered_are_the_ones_the_genre_lacks() {
+        use ambition_platformer2d::entity_catalog::AttackDir;
+        let set = george_booul_moveset();
+        let dirs = [
+            ("neutral", AttackDir::Neutral),
+            ("forward", AttackDir::Forward),
+            ("up", AttackDir::Up),
+            ("down", AttackDir::Down),
+            ("back", AttackDir::Back),
+        ];
+
+        let mut silent: Vec<String> = Vec::new();
+        for base in ["attack", "smash", "special"] {
+            for (dir_name, dir) in dirs {
+                for (stance, grounded) in [("ground", true), ("air", false)] {
+                    if set.move_for_directional_verb(base, dir, grounded).is_none() {
+                        silent.push(format!("{base}_{dir_name}_{stance}"));
+                    }
+                }
+            }
+        }
+
+        // ⛔ The load-bearing half: George answers every ATTACK and every
+        // SPECIAL press, ten of each. If a special ever falls silent here, the
+        // sentence "the special gap is the stand-ins', not the roster's" has
+        // stopped being true and the maintainer decision changes shape.
+        let non_smash: Vec<&String> =
+            silent.iter().filter(|p| !p.starts_with("smash_")).collect();
+        assert!(
+            non_smash.is_empty(),
+            "George stopped answering a non-`smash` press: {non_smash:?}. The              roster question in `awaiting-maintainer-decision.md` rests on              George answering all ten specials while the stand-ins answer two."
+        );
+
+        // ⭐ And the seven are exactly the genre's missing presses — asserted as
+        // a SET, so a swap (gaining a back smash while losing an up smash)
+        // cannot pass by keeping the count.
+        let mut got = silent.clone();
+        got.sort();
+        let mut want = vec![
+            "smash_neutral_ground",
+            "smash_neutral_air",
+            "smash_back_ground",
+            "smash_back_air",
+            "smash_forward_air",
+            "smash_up_air",
+            "smash_down_air",
+        ];
+        want.sort();
+        assert_eq!(
+            got,
+            want,
+            "George's silent presses moved. Gaining one is likely good news              (an authored move) and losing one is a regression; either way the              claim in `smash-parity-inventory.md` wants re-deriving, not              editing to match."
+        );
+    }
+
     #[test]
     fn a_shielded_jab_buys_george_a_grab() {
         use ambition_platformer2d::entity_catalog::{CancelCondition, WindowTag};

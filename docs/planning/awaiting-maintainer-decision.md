@@ -1632,7 +1632,16 @@ It is **not** "two thirds of the roster", which is what the old heading implied 
 what would have made this a much bigger decision than it is.
 
 ⚠ **And what I do NOT know**: whether the other composed-grid fighters have full
-kits. I measured George and the two Robots. The ≥8 others are unexamined, and the
+kits. ⭐ **But the instrument exists and I had missed it**:
+`report_the_smash_kit_every_selectable_fighter_has`
+(`game/ambition_app/tests/smash_roster_movesets.rs`) walks a 16-entry genre press
+list plus the capture half and HARD-ASSERTS every selectable fighter reaches all
+of it, printing a per-fighter census as it goes. ⛔ I could not run it: the
+composed app does not link on this machine — `mold: failed to write to an output
+file. Disk full?` on a **virtiofs** tree whose `df` reads 188G free. ⇒ So this
+question needs **no new test and no maintainer decision** — it needs one command
+on a machine that can link:
+`cargo test -p ambition_app --test app_it report_the_smash_kit -- --nocapture`. I measured George and the two Robots. The ≥8 others are unexamined, and the
 census that would answer it is one command each
 (`capture-probe --character <id> --ladder <ron>`).
 
@@ -1668,6 +1677,31 @@ both contracts.
 | the stand-ins | **15** |
 | George | **7** |
 | **the genuine difference** | **8, every one of them a SPECIAL** |
+
+⛔ **AND EVEN THAT TABLE'S LAST ROW WAS A SUBTRACTION, not a measurement** — the
+third correction on this one question. 15 and 7 differ by 8 whatever the two sets
+share; the word *"genuine"* asserted an overlap nobody had checked.
+
+✔ **Checked 2026-09-04, and it holds in the strongest form available**
+(`the_stand_in_is_george_s_genre_shape_with_the_special_button_removed`,
+`game/ambition_demo_smash/src/moveset.rs`): George's silent presses are a strict
+**subset** of the stand-ins', and the surplus is exactly the eight specials.
+
+⭐⭐ **WHICH MAKES YOUR DECISION SMALLER THAN THE HEADING SUGGESTS, and this is
+the part worth reading.** The stand-ins are not *"a fighter missing an unknown
+amount of stuff"* — they are **George's genre shape with the special button
+removed**. Every tilt, every smash, every aerial, the grab and all four throws
+already answer. ⇒ So the question is not *"do they get kits"*; it is **"what are
+their four specials"**, and the four slots are named by the type:
+`NeutralSpecial`, `side_special`, `UpSpecial`, `DownSpecial`. Four answers, one
+fighter, and the engine work is zero — `lunge_grab` already proved a special can
+be authored on this table without touching the engine.
+
+ⓘ **Or one answer, if you want the cheapest thing that closes it.** A stand-in
+with a neutral special alone would answer four of the eight presses, because the
+back press falls down the chain to the neutral one — measured on George, where
+removing his neutral special silenced `special_neutral` *and* `special_back` in
+both stances.
 
 ⇒ The 8: `special` neutral / up / down / back, each on the ground and in the air.
 ⭐ **And the 7 George also refuses are shared** — `smash` neutral, `smash` back,

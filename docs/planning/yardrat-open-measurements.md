@@ -225,6 +225,51 @@ edit.
 on a path three tests assert) or the three tests learn to skip without it. The
 second is cheaper; the first is honest if those plots are part of the artefact.
 
+## ⚠ A PORTAL TEST HARNESS `.chain()`s WHERE PRODUCTION ONLY `.after()`s (2026-09-04)
+
+⭐ **Verified, and it is a difference in FLUSH SEMANTICS rather than in order.**
+
+| | how the two systems are wired |
+|---|---|
+| test (`portal/tests.rs`, `app_with_the_shot_adapter`) | `(portal_fire_system, portal_projectile_step).chain()` |
+| production (`portal/plugin.rs:136`) | `portal_projectile_step.after(portal_fire_system)` |
+
+⇒ `.chain()` inserts an `ApplyDeferred` between them; `.after()` does not, and the
+sets involved (`PortalSet::WeaponAndProjectiles`,
+`Platformer2dSimulationPhaseMonolith::PlayerSimulation`) are configured with
+ordering relations only — **no `.chain()` on the sets** in
+`portal_schedule.rs:49`. ⚠ `portal_fire_system` spawns the shot through
+`Commands`, so the entity does not exist until a flush.
+
+⛔ **THE QUESTION, and it is worth an answer because a guard rests on it.**
+`two_same_channel_shots_landing_on_one_tick_leave_exactly_one_portal` documents a
+real defect — two same-channel shots resolving in one tick each despawned the old
+portal and spawned a new one, leaving two — and its own comment says *"both
+origins are 25px from the left wall, inside one 31.7px step, so both resolve on
+the same tick."* ⇒ That requires the shot entity to be VISIBLE to
+`portal_projectile_step` on the tick it was fired, which the test's `.chain()`
+guarantees and production's `.after()` may not.
+
+⇒ **Two possibilities and I have not separated them:**
+1. Something else in the sim schedule flushes between those systems, production
+   behaves like the test, and the guard defends a reachable state.
+2. It does not, a shot is always stepped on the tick AFTER it is fired, and the
+   guard defends a state the shipped scheduling cannot produce — harmless, but a
+   test whose scenario the game cannot reach.
+
+⭐ **Either answer is useful.** (1) closes it. (2) means the harness is stricter
+than production, which is this repo's config-divergence class in test-harness
+form — and it would also mean a portal shot always survives to a step boundary,
+which bears directly on S4's *"an anchor spawned AND despawned inside one
+`sim.step()` is invisible to a between-steps census"* residual: portal shots would
+NOT be an instance of it.
+
+⇒ **Reproduce:** print the `PortalShot` entity count from a system ordered after
+`portal_projectile_step` in the real plugin, firing 25px from a wall. ⚠ Do NOT
+answer it by reading the schedule — I got as far as "no `.chain()` on the sets"
+and that is not the same as "no sync point", which is exactly the reasoning that
+has been wrong three times on this page today.
+
 ## ⛔ AN IDENTIFIER THAT DOES NOT RESOLVE IS USUALLY HISTORY, NOT ROT
 
 Two sweeps, both of which looked like rich seams and both of which were almost

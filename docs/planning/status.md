@@ -519,8 +519,42 @@ merely tight, the other into not trying at all.
 ⭐ **So the durable content here is the MECHANISM, and the number is yours to
 take.** `df` free space, `du -sh target`, and which volume `/tmp` is on differ
 per box and per hour; nothing in the repository can know them. Run
-`scripts/setup/target_bindmount.sh --status` and `df -h .` before the
+`scripts/setup/target_bindmount.sh --status` and **`df -h target`** before the
 session's first build, and believe those over this paragraph.
+
+⛔⛔ **`df -h .` IS THE MISLEADING HALF AND THIS PAGE USED TO RECOMMEND IT.**
+`target/` is BIND-MOUNTED from a different filesystem than the worktree it sits
+in — measured 2026-09-04 with `findmnt`:
+
+```text
+findmnt --target target  ->  /dev/vda1[/home/agent/.cache/ambition-targets/...]  ext4
+findmnt --target .       ->  aivm-persistent-root[/hostcode-ambition-...]        virtiofs
+```
+
+⇒ **Neither `df` answer is wrong; they are about different filesystems.** A
+build writes into `target/`, which lands on `/dev/vda1`, while the number a
+reader naturally checks describes the virtiofs mount. That is why a 600 MB
+write can truncate while `df .` cheerfully reports 188 GB free. `df -h target`
+resolves through the bind and names the volume the build actually writes to,
+with no reasoning about which mount carries what. (Found by `YardratAmbition`,
+who traced it while their box was wedged.)
+⭐ **`check_disk_headroom.py` was already right** — it measures the TARGET
+directory, not the cwd — so this is a documentation fix, not a guard fix.
+
+⚠ **AND ~29 GB OF PROFILER CACHE IS OUTSIDE EVERY CLEANUP SCRIPT THE REPO
+HAS.** `~/.debug` is `perf`'s build-id cache, written by `perf record` in
+`scripts/profile_desktop.sh`. Its shape looks alarming and is not: `.build-id/`
+holds symlinks keyed by build id, pointing into a mirror of each binary's
+ORIGINAL absolute path (`~/.debug/home/joncrall/code/ambition/target/...`),
+which is perf's own convention rather than a script writing targets to a second
+place. ⛔ **What IS a real problem: it keeps one full COPY of every profiled
+binary and never reaps.** Measured 2026-09-04: **twelve** generations of
+`ambition_game_bin` at ~1.6 GB each = 19 GB, 29 GB total, 46 build-id entries.
+⇒ It lives on `/dev/vda1` — the volume that fills — and `clean_workspace_crates.sh`,
+`sweep_target.py` and `sweep_cargo_target.sh` all operate on `target/`, so
+**none of them can see it**. Cargo never reads it, so dropping it costs only a
+re-copy on the next profiling run: `perf buildid-cache --purge-all`, or
+`rm -rf ~/.debug`.
 
 ⚠ **AND `df` ITSELF LIES ON ONE OF THE TWO FILESYSTEMS THIS REPO SPANS.** The
 worktree is a **virtiofs** passthrough, so `df` there answers with the HOST's

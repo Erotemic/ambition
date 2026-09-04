@@ -96,7 +96,15 @@ pub fn refresh_yarn_state_mirror(
     mirror: Res<YarnStateMirror>,
 ) {
     let mut snap = mirror.0.write().expect("YarnStateMirror poisoned");
-    snap.wallet_balance = wallet.iter().next().map(|w| w.balance).unwrap_or(0);
+    // ⛔ EXACTLY ONE, matching `apply_shop_transactions` (`wallets.single_mut()`)
+    // and `wallet.can_afford`. This read the FIRST of several, so a world with
+    // two primaries would have shown a balance from one purse while the
+    // condition declined to answer and the transaction system refused to run —
+    // three readers of one fact disagreeing about which body owns it.
+    // ⚠ Found by checking my own change rather than by a report: the
+    // single-wallet policy landed on the condition and the action in the same
+    // commit and left this third reader on the old rule.
+    snap.wallet_balance = wallet.single().map(|w| w.balance).unwrap_or(0);
     //  the inventory slice is GONE — a whole second copy of `OwnedItems`,
     // rebuilt every frame under both a catalog id and a legacy alias, so that a
     // synchronous `<<if>>` could read it. `inventory.holds` is published, so the

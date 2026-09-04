@@ -681,8 +681,23 @@ release: would remove workspace-member artifacts (dependencies kept)
 ```
 
 ⇒ **131.3 GiB reclaimable with the dependency wall left standing**, on a volume
-with **279M free**. ⭐ That is the whole blocker, quantified, by a command that
-takes no risk to run — `./scripts/clean_workspace_crates.sh` with no flags.
+with **279M free**.
+
+⭐ **And the cheaper variant measured too** (`--incremental-only`, same dry run):
+
+```text
+debug/incremental:   would remove 77G across 1186 crate sessions
+release/incremental: would remove 11G across  137 crate sessions
+```
+
+| option | frees | what it costs |
+|---|---:|---|
+| `--incremental-only` | **88G** | ⭐ **nothing rebuilds** — per the script, deleting incremental *"invalidates NO fingerprint: a fresh crate stays fresh and is skipped on the next build"*; only the next EDIT to a crate recompiles it whole |
+| full run | **131.3 GiB** | every workspace crate rebuilds from source; the dependency wall (bevy et al.) stays warm |
+
+⇒ **88G is enough to unblock every measurement queued here, and it is the option
+with no rebuild cost.** ⭐ Both numbers came from a command that takes no risk to
+run — `./scripts/clean_workspace_crates.sh` with no flags is a dry run.
 
 ⇒ **The actual path, one command and no build**:
 `scripts/clean_workspace_crates.sh --incremental-only` first, then a full

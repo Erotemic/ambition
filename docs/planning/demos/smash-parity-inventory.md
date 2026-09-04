@@ -545,6 +545,25 @@ surface and **no** published result. `P11` has the capture seam and **2 of 6**
 authored roads. `P06` has the locomotion facts and **one** derived move (the
 running grab) where the row names three more.
 
+⛔ **BUT "THE CUSTOMERS ARE CHEAP" IS NOT WHAT THAT MEANS, and each row was
+measured per-item on 2026-09-04 because the summary read as though it were.** Of
+the seven named-missing customers, exactly **two** are authoring alone:
+
+| customer | cost |
+|---|---|
+| `P11` command grab | ✔ authoring — an authored `Special` with the existing key |
+| `P06` foxtrot / dash-dance | ✔ authoring — dash-stance moves the selector already picks |
+| `P06` pivot grab/smash | ⛔ plumbing — `move_for_flat_verb` cannot express a pivot stance |
+| `P11` pivot grab | ⛔ plumbing — same selector |
+| `P11` tether | ⛔ plumbing — a grapple exists and nothing joins it to capture |
+| `P11` hit-grab | ⛔ plumbing — nothing raises a capture from a landed hit |
+| `P10` tech result | ⛔ plumbing (presentation only — the AI half must stay absent) |
+
+⇒ **So "author a customer" is the right instinct and the wrong estimate for five
+of the seven.** The shape of the finding survives — foundations exist, the layer
+above is thin — but a reader planning from the summary alone would have costed a
+week of authoring and hit a seam on the second item.
+
 ⛔ **BUT THIS PARAGRAPH ALSO OVERSTATED THE CASE, AND THE CORRECTION IS THE
 LESSON.** It used to lead with *"`P01` has charge with one authored move using
 it"*. That was wrong: I had counted the STORED-charge spec (authored once) and

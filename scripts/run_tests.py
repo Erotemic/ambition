@@ -379,6 +379,74 @@ def wasm_target_installed() -> bool:
     return result.returncode == 0 and "wasm32-unknown-unknown" in result.stdout
 
 
+def slow_python_checker_jobs() -> list[Job]:
+    """The second class of repo-coupled job: slower, and dropped by `--rust`.
+
+    ⛔⛔ THIS IS A FUNCTION SO THAT THE PLAN AND THE FOOTER CANNOT DISAGREE, and
+    they already had. `coverage_notice` restated this list by hand as
+    *"no-warnings, doc links, planning citations"* — three of the FOUR — and the
+    one it left out was the compile-cost ratchet, which reported six findings at
+    HEAD while three union runs were being read as "everything passes". The
+    notice exists precisely to prevent that reading, and it under-named its own
+    list, so a reader who took it at its word still missed the job that was red.
+
+    ⇒ Same rule as `web_check_planned` in `coverage_notice`, which carries its
+    own version of this comment: DERIVE IT FROM THE PLAN. One list, two readers.
+    """
+    return [
+        # ⭐ `--fresh` SINCE 2026-09-02: without it the job reads only the
+        # diagnostics of crates that happened to recompile, so in a warm tree
+        # it passed while real warnings existed (three unused imports and two
+        # dead helpers were found the same day by a cold `cargo check`). The
+        # flag touches every workspace crate root, so OUR crates re-check
+        # (minutes) and the next test build re-fingerprints them — the price
+        # of "no warnings" meaning the whole tree rather than the last diff.
+        Job(
+            "no warnings (cargo check --all-targets, fresh)",
+            [sys.executable, "scripts/check_no_warnings.py", "--fresh"],
+        ),
+        Job(
+            "doc links (active KB)",
+            [sys.executable, "scripts/check_doc_links.py"],
+        ),
+        Job(
+            # ⚠ NON-STRICT ON PURPOSE: it reports, it does not fail. This is
+            # a linter for PROSE, so a false positive is a matter of a name
+            # it cannot know about (a macro-declared const, an upstream type)
+            # rather than a defect. Failing the lane on one would train
+            # everybody to pass --no-verify. `--strict` exists for a
+            # deliberate sweep.
+            "planning + doctrine citations (reports, does not gate)",
+            [
+                sys.executable,
+                "scripts/check_planning_citations.py",
+                # ⭐ THE DEFAULT IS `docs/planning` ALONE, and the pages that
+                # describe CURRENT behaviour were never scanned. Aimed here
+                # 2026-09-03 it found three live-doc citations pointing at
+                # code that had moved crates — `settings::apply_display_mode`
+                # (left the monolith in `355874fe1`), `audio/runtime.rs` and
+                # `src/vanity_card.rs`. A doctrine page whose address is
+                # wrong is worse than a stale plan: it is read as current.
+                # ⭐ AND IT COSTS ONE SECOND. Measured 2026-09-03: 15s for
+                # `docs/planning` alone, 16s for all five. The expensive part
+                # is indexing the source tree — 24,767 defined names — not
+                # reading documents, so four more corpora are free. Do not
+                # narrow this back for speed; the price was never in the
+                # scanning.
+                "docs/planning",
+                "docs/concepts",
+                "docs/systems",
+                "docs/architecture",
+                "docs/recipes",
+            ],
+        ),
+        Job(
+            "compile-cost ratchet (frozen weights, not a stopwatch)",
+            [sys.executable, "scripts/compile_ratchet.py"],
+        ),
+    ]
+
+
 def build_jobs(only: list[str], heavy: bool, libtest_args: list[str],
                everything: bool = False,
                include_python_tooling: bool = True,
@@ -409,58 +477,7 @@ def build_jobs(only: list[str], heavy: bool, libtest_args: list[str],
     # `cargo check --all-targets`) or documentation-shaped. `--rust` keeps the
     # first class and drops this one; `--rust-alone` drops both.
     if not only and include_slow_python_checkers:
-        post_rust_repo_jobs.extend([
-            # ⭐ `--fresh` SINCE 2026-09-02: without it the job reads only the
-            # diagnostics of crates that happened to recompile, so in a warm tree
-            # it passed while real warnings existed (three unused imports and two
-            # dead helpers were found the same day by a cold `cargo check`). The
-            # flag touches every workspace crate root, so OUR crates re-check
-            # (minutes) and the next test build re-fingerprints them — the price
-            # of "no warnings" meaning the whole tree rather than the last diff.
-            Job(
-                "no warnings (cargo check --all-targets, fresh)",
-                [sys.executable, "scripts/check_no_warnings.py", "--fresh"],
-            ),
-            Job(
-                "doc links (active KB)",
-                [sys.executable, "scripts/check_doc_links.py"],
-            ),
-            Job(
-                # ⚠ NON-STRICT ON PURPOSE: it reports, it does not fail. This is
-                # a linter for PROSE, so a false positive is a matter of a name
-                # it cannot know about (a macro-declared const, an upstream type)
-                # rather than a defect. Failing the lane on one would train
-                # everybody to pass --no-verify. `--strict` exists for a
-                # deliberate sweep.
-                "planning + doctrine citations (reports, does not gate)",
-                [
-                    sys.executable,
-                    "scripts/check_planning_citations.py",
-                    # ⭐ THE DEFAULT IS `docs/planning` ALONE, and the pages that
-                    # describe CURRENT behaviour were never scanned. Aimed here
-                    # 2026-09-03 it found three live-doc citations pointing at
-                    # code that had moved crates — `settings::apply_display_mode`
-                    # (left the monolith in `355874fe1`), `audio/runtime.rs` and
-                    # `src/vanity_card.rs`. A doctrine page whose address is
-                    # wrong is worse than a stale plan: it is read as current.
-                    # ⭐ AND IT COSTS ONE SECOND. Measured 2026-09-03: 15s for
-                    # `docs/planning` alone, 16s for all five. The expensive part
-                    # is indexing the source tree — 24,767 defined names — not
-                    # reading documents, so four more corpora are free. Do not
-                    # narrow this back for speed; the price was never in the
-                    # scanning.
-                    "docs/planning",
-                    "docs/concepts",
-                    "docs/systems",
-                    "docs/architecture",
-                    "docs/recipes",
-                ],
-            ),
-            Job(
-                "compile-cost ratchet (frozen weights, not a stopwatch)",
-                [sys.executable, "scripts/compile_ratchet.py"],
-            ),
-        ])
+        post_rust_repo_jobs.extend(slow_python_checker_jobs())
 
     def libtest(extra: list[str] = ()) -> list[str]:
         tail = list(libtest_args) + list(extra)
@@ -1062,10 +1079,18 @@ def coverage_notice(
         "or knowledge-base structure.",
     ]
     if rust_only:
+        # ⛔ NAMED FROM THE PLAN, NOT FROM MEMORY. This restated the list by hand
+        # and named three of four; the omitted one was the compile-cost ratchet,
+        # sitting on six findings while the receipts said 49/49. See
+        # `slow_python_checker_jobs`.
+        dropped = "".join(
+            f"\n      · {job.name}" for job in slow_python_checker_jobs()
+        )
         notices.append(
             "\n  ⚠ --rust: the repo-coupled pytest guard set RAN, but the slower "
-            "Python checkers did not — no-warnings, doc links, planning "
-            "citations.\n      Get them with:  ./run_tests.sh"
+            f"Python checkers did NOT. Unchecked this run:{dropped}"
+            "\n      ⇒ `49/49 jobs passed` from this lane is true of the lane that "
+            "ran, not of the repository.\n      Get them with:  ./run_tests.sh"
         )
     if rust_alone:
         # ⛔ NAME WHAT IS UNGUARDED, NOT JUST WHAT WAS SKIPPED. The old notice

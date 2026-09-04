@@ -337,3 +337,37 @@ def test_the_report_calls_unclassified_time_neither_build_nor_run():
     assert totals.unclassified_seconds == 100.0
     # The share is against what the report can account for, not the wall clock.
     assert abs(totals.build_share - 0.25) < 1e-9
+
+
+def test_the_rust_notice_names_every_checker_that_lane_drops():
+    """⛔⛔ THE FOOTER MUST NAME ALL FOUR, and it named three.
+
+    The `--rust` notice restated the dropped list by hand — *"no-warnings, doc
+    links, planning citations"* — while `post_rust_repo_jobs` had FOUR entries.
+    The one it left out was the compile-cost ratchet, which was sitting on six
+    findings while `49/49 jobs passed` receipts from this lane were being read
+    as "everything passes". A notice written to prevent exactly that reading
+    under-named its own list, so believing it still missed the red job.
+
+    ⭐ This asserts the RELATION between the plan and the prose, not a list of
+    four names. A test that spelled the names out would be a fifth writer of the
+    same fact and would go stale the same way.
+    """
+    notice = run_tests.coverage_notice(
+        exhaustive=False, filtered=False, rust_only=True
+    )
+    dropped = run_tests.slow_python_checker_jobs()
+    assert dropped, "the lane must drop something, or this test witnesses nothing"
+
+    missing = [job.name for job in dropped if job.name not in notice]
+    assert not missing, (
+        f"--rust drops {len(dropped)} checkers and its notice does not name: {missing}"
+    )
+
+    # And the jobs it names must be the ones the PLAN actually drops: the rust
+    # lane's plan must contain none of them, or the notice is naming phantoms.
+    rust_job_names = {job.name for job in _rust_jobs()}
+    still_planned = [job.name for job in dropped if job.name in rust_job_names]
+    assert not still_planned, (
+        f"named as dropped but still in the --rust plan: {still_planned}"
+    )

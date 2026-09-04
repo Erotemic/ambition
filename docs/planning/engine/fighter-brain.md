@@ -1811,6 +1811,36 @@ is an independent median over the bouts, and the verdict is computed per bout �
 so a median stock column and a verdict can disagree without either being wrong.
 Read the columns as summaries, never as a single representative match.
 
+### ⛔⛔ WITHDRAWN — the Shield comparison's null is not a result, and re-taking it is not worth doing
+
+**Read this before the section below.** That comparison concluded *"no measurable
+effect"* from 14 cells that were all `within spread`. Two later findings dissolve
+it:
+
+1. **The instrument could not resolve its bouts.** Every cell was taken at the
+   60-second clock against a shipped match of 480, so no bout ended, stocks tied
+   everywhere, and every verdict fell through to the damage tiebreak. ⇒ **A null
+   from an instrument that cannot resolve its subject is not a weak result — it is
+   not a result.** "Confirmation" and "this could never have shown otherwise" are
+   indistinguishable in that data.
+2. **And re-taking it on the shipped configuration would measure nothing at all.**
+   The Shield model exists to give `refine_by_rollout` a score for a verb; the
+   shipped ladder sets `rollout_depth: 0` on all nine rows, so the rollout never
+   runs. ⇒ Same chain that makes `read_weight` inert makes this model inert.
+
+⇒ **So the honest position is: the effect is UNMEASURED, and measuring it requires
+the engine FLOOR (rollout on) at the shipped clock — an arm about a configuration
+no player meets.** ⚠ That is why I am not running it. Not "we checked and it is
+fine": *we cannot check on anything that ships, and the check that is possible is
+about the rig.*
+
+⭐ **The mechanical argument is untouched and is the whole justification now.**
+`MovementVerb::Shield => ShadowIntent::Hold` replaces a `None` — a verb the
+fighter can actually pick, scored as literally nothing. That is a wrong number
+rather than a missing one, and it needs no matrix. ⇒ Keep it for that reason and
+for no other; the section below should be read as *what the old instrument said*,
+not as evidence.
+
 ### The Shield shadow model earns its place mechanically, not statistically (2026-09-04)
 
 `MovementVerb::Shield => ShadowIntent::Hold` in `rollout.rs` was added so the

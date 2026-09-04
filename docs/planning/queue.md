@@ -2494,6 +2494,13 @@ queue read as an execution authority for work already done.
   carry guards of this shape (`Jump` against an empty budget; the foe-relative
   verbs against there being no foe), so the precedent for gating `Hold` is
   established where it would be added.
+  ⓘ **And the scores it would compete against are small AUTHORED constants**, not
+  derived quantities — `Blink` 0.9, `Jump` 0.5 / 0.4 / 0.3 depending on situation,
+  with a ledge penalty of −1.0 applied at the single scoring site. ⇒ **So a
+  `Hold` would need a hand-picked number too, and "nothing happens" has no
+  principled default** — which makes *what should standing still be worth* a
+  third part of the same decision, alongside whether the verb exists and whether
+  the attack axis gets a decline of its own.
 
   ⭐⭐ **THE ACCEPTANCE TEST, DESIGNED 2026-09-04 SO THE DESIGN CALL ARRIVES WITH
   ITS MEASUREMENT ALREADY BUILT** — and it is shaped entirely by how fix (a)

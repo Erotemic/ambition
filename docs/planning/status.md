@@ -26,6 +26,12 @@ run, not carried forward:
 | rollback wire format | **v151**, 410 stable names, 123 encoded types across 12 crates | the same checker |
 | feature-gated tests | **794 hidden behind features across 29 crates** | `scripts/feature_gated_tests.py` |
 | `cargo fmt --all -- --check` | **358 files / 710 hunks fail** | and that is POLICY, not drift — AGENTS.md: *"Formatting is advisory, never an acceptance gate."* |
+| the workspace FEATURE UNION | **7,115 passed / 2 failed** | three runs the same day: 7,072/40 → 7,112/3 → 7,115/2. The 40 were one system (`ambition_sprite_fx::draw_sprite_effects`, fixed `52666d1c7`); of the last two, one is a smash camera-framing assertion and one was a new test of mine failing its own anti-vacuity floor |
+
+⚠ **The union figure is the one to re-run rather than quote.** It moved by 38 in
+a day because a single unguarded system was taking whole demo binaries down on
+frame one, and a number that can move that far on one commit describes a tree,
+not a trend.
 
 ⛔⛔ **AND THE DEFAULT GATE WAS NOT GREEN WHILE ALL OF THAT WAS MEASURED.**
 `cargo test -p ambition_workspace_policy --test policy` fails at default features

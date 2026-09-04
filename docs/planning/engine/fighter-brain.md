@@ -1097,6 +1097,72 @@ because it had begun after the rollout shield model landed and would therefore
 have compared its unfought count against the 41 above across a behaviour change.
 A number is worth less than the confidence that it is comparable.
 
+### ⭐⭐ FOUR MATCHED ARMS: the shipped ladder measured at last, and George measured for the first time
+
+**Method, because every number below depends on it.** One binary
+(`target/release/smash_tool`, built from `365be9a53`), four arms launched from it
+within seconds of each other, `--paired --seeds 12`, default stage, medians over
+the 12 seeds × 2 seat orders. The arms differ in exactly one input each:
+
+| arm | ladder | rollout | fighters |
+|---|---|---|---|
+| **A** | `--ladder game/ambition_content/assets/data/fighter_brain_ladder.ron` | off (the rows zero it) | the Robots |
+| **B** | engine floor | ON at rung ≥6 | the Robots |
+| **C** | engine floor | forced off (`--no-rollout`) | the Robots |
+| **D** | the shipped `.ron` | off | **George vs George** |
+
+⭐ **Stocks LEFT of three, at 60 seconds:**
+
+| cell | A shipped | B floor+rollout | C floor−rollout | D **George** |
+|---|---|---|---|---|
+| 3 vs 1 | 2 : 1 | 2 : 2 | 2 : 2 | **0 : 0** |
+| 5 vs 3 | 2 : 2 | 2 : 2 | 2 : 2 | **1 : 1** |
+| 6 vs 5 | 2 : 2 | **0 : 0** | 2 : 2 | **1 : 1** |
+| 9 vs 6 | 2 : 3 | **0 : 0** | 2 : 2 | **1 : 1** |
+
+⇒ **Four things fall out, in descending order of how sure I am.**
+
+**1. The rollout is the lethality switch, and this is the clean control.** B and C
+differ in nothing but `--no-rollout`. Below rung 6 they are **byte-identical**
+(3v1 and 5v3 agree to the digit), which is exactly right — the floor only arms the
+rollout at level 6 — and that agreement is the arms' own validity check. At 6v5
+and 9v6 they diverge completely: `0 : 0` against `2 : 2`. ⭐ **The rollout does
+not make a fighter win. It makes both fighters die.**
+
+**2. The shipped ladder behaves like the floor with the rollout off.** A tracks C
+in structure (`2 : 2` throughout) rather than B. ⇒ Which is what the authored
+`rollout_depth: 0` predicts, now confirmed from the other direction. A is not
+identical to C — the authored rows differ in utility weights too — but the
+*lethality* is governed by the rollout field alone.
+
+**3. George is a substantially harder fighter than the Robots, and this is new.**
+Nobody had ever pointed the rig at him. D's stocks-left are lower than A's in
+**every** cell, and his damage dealt runs 297%/331% at the top cells against the
+Robots' ~200%. ⇒ **So the "matches never resolve" character of every ladder
+number in this document is substantially a fact about the STAND-INS**, who until
+2026-09-04 had no special button, no forward tilt and no dash attack. ⚠ Not
+entirely: George's own 5v3, 6v5 and 9v6 still end `1 : 1` rather than resolving.
+He is faster, not fast enough.
+
+**4. ⛔ AND THE SOBERING ONE: fifteen of the sixteen verdicts are `within
+spread`.** Across all four arms, exactly one cell is statistically
+distinguishable — **A's `3 vs 1`, "higher outfights", no qualifier.** ⇒ Rungs 3,
+5, 6 and 9 are not separable from each other at 12 seeds in ANY configuration,
+including the shipped one with the shipped fighter. The single real result is the
+bottom of the ladder, which is where a ladder is easiest to tell apart.
+
+⚠ **What that does NOT license.** It is not "the ladder does not work" — 12 seeds
+is a small instrument and *within spread* means undetected, not absent. It IS
+enough to say that **no tuning decision should be made off a single cell of this
+matrix**, and that anyone claiming a rung ordering needs more seeds than this run
+had.
+
+⚠ **One reading artifact, so the next reader does not file it as a bug.** A's
+`9 vs 6` shows stocks `2 : 3` under a verdict of *higher outfights*. Each column
+is an independent median over the bouts, and the verdict is computed per bout —
+so a median stock column and a verdict can disagree without either being wrong.
+Read the columns as summaries, never as a single representative match.
+
 ### The Shield shadow model earns its place mechanically, not statistically (2026-09-04)
 
 `MovementVerb::Shield => ShadowIntent::Hold` in `rollout.rs` was added so the

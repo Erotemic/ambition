@@ -45,7 +45,7 @@ fn player_pos(world: &mut World) -> (f32, f32) {
     (kin.pos.x, kin.pos.y)
 }
 
-fn spawn_mockingbird(sim: &mut Platformer2dSimHarness, runtime_id: &str) {
+pub(crate) fn spawn_mockingbird(sim: &mut Platformer2dSimHarness, runtime_id: &str) {
     let (px, py) = player_pos(sim.world_mut());
     sim.spawn_boss_at(
         runtime_id,
@@ -113,7 +113,7 @@ fn force_kill_boss(sim: &mut Platformer2dSimHarness, runtime_id: &str) {
 ///
 /// ⇒ Steps until the phase is attacking, then hits. Returns the frame the hit
 /// landed on so a caller can say how long it waited.
-fn kill_boss_with_a_real_hit(
+pub(crate) fn kill_boss_with_a_real_hit(
     sim: &mut Platformer2dSimHarness,
     placement_id: &str,
     max_frames: usize,
@@ -121,8 +121,7 @@ fn kill_boss_with_a_real_hit(
     use ambition_platformer2d::combat::events::{HitEvent, HitMode, HitSource, HitTarget};
 
     for frame in 0..max_frames {
-        if boss_phase(sim.world_mut(), placement_id)
-            .is_some_and(|phase| !phase.boss_invulnerable())
+        if boss_phase(sim.world_mut(), placement_id).is_some_and(|phase| !phase.boss_invulnerable())
         {
             let at = boss_pos(sim.world_mut(), placement_id)
                 .unwrap_or_else(|| panic!("boss {placement_id} has no body to aim at"));
@@ -155,6 +154,11 @@ fn kill_boss_with_a_real_hit(
         boss_phase(sim.world_mut(), placement_id),
     );
 }
+
+// ⚠ `pub(crate)` on the three helpers above: `death_restores_the_checkpoint`
+// drives the same real kill road to bank a dropped gauntlet at a checkpoint.
+// Sharing the fixture rather than copying it is deliberate — two fixtures for
+// one road drift, and the one that drifts is the one nobody is looking at.
 
 /// ⭐⭐ **THE BOSS'S SIGNATURE GAUNTLET REACHES THE FLOOR — on the road the game
 /// actually uses.**
@@ -245,7 +249,7 @@ fn boss_cleared(sim: &Platformer2dSimHarness, placement_id: &str) -> bool {
     )
 }
 
-fn boss_alive(world: &mut World, placement_id: &str) -> Option<bool> {
+pub(crate) fn boss_alive(world: &mut World, placement_id: &str) -> Option<bool> {
     let mut q = world.query::<(
         &BossConfig,
         &ambition_platformer2d::characters::actor::BodyHealth,
@@ -706,8 +710,9 @@ fn a_replayed_boss_behaves_like_a_freshly_constructed_one() {
     // The replay exactly as content asks for it: ONE generic message. The
     // content half (clearing the persisted attempt record) and the host half
     // (resetting the player + the room's features) both hang off it.
-    sim.world_mut()
-        .write_message(ambition_platformer2d::actors::session::reset::RoomReplayRequested::manual());
+    sim.world_mut().write_message(
+        ambition_platformer2d::actors::session::reset::RoomReplayRequested::manual(),
+    );
 
     let replayed = observe_boss(&mut sim, "behemoth");
     assert_eq!(

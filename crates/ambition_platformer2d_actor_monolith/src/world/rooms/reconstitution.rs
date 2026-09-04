@@ -62,11 +62,19 @@ use ambition_combat::events::{RoomReplayAdmitted, RoomResetReason};
 ///   about to be alive again.
 /// - `LiveProjectile` — every shot belongs to the combat timeline being reset,
 ///   whoever fired it.
-type AttemptResidue = Or<(
-    With<crate::features::ecs::SpawnedThisAttempt>,
-    With<ambition_combat::components::PostBossNpc>,
-    With<ambition_projectiles::LiveProjectile>,
-)>;
+type AttemptResidue = (
+    Or<(
+        With<crate::features::ecs::SpawnedThisAttempt>,
+        With<ambition_combat::components::PostBossNpc>,
+        With<ambition_projectiles::LiveProjectile>,
+    )>,
+    // ⛔⛔ NOT WHAT A BODY IS CARRYING, and the room sweep already says so:
+    // its roster is `(With<RoomScopedEntity>, Without<InCustodyOf>)`. The same
+    // rule, for the same reason — an object in a hand is not the room's to
+    // retire and is not the attempt's either, because the CHECKPOINT has a
+    // claim on it that outranks the attempt being un-fought.
+    Without<ambition_platformer2d_shared_tangle::lifecycle::InCustodyOf>,
+);
 
 /// Retire what the PREVIOUS ATTEMPT left behind, once the replay is admitted.
 ///

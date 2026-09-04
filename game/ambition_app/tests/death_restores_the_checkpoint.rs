@@ -1022,3 +1022,128 @@ fn a_death_puts_back_the_entitlement_its_mint_spent() {
          annihilation the checkpoint baseline exists to prevent"
     );
 }
+
+/// The boss whose profile authors a `signature_gauntlet`, and the id that
+/// gauntlet reaches the world under.
+const GAUNTLET_BOSS: &str = "banked_gauntlet_boss";
+const GAUNTLET: &str = "volley";
+
+/// The gauntlet the BOSS dropped, told apart from the ones the world authors by
+/// its provenance — and carrying whatever identity it has.
+///
+/// ⛔ `SpawnOrigin::Dynamic` IS THE DISCRIMINATOR, not the spec id. `sandbox.ldtk`
+/// authors a `volley` ground item of its own, so "a volley exists" is true before
+/// the boss dies.
+fn dropped_gauntlet(sim: &mut Platformer2dSimHarness) -> Vec<Option<SimId>> {
+    let mut query = sim
+        .world_mut()
+        .query::<(&Ground, Option<&SimId>, Option<&SpawnOrigin>)>();
+    query
+        .iter(sim.world())
+        .filter(|(ground, _, origin)| {
+            ground.spec.id == GAUNTLET && matches!(origin, Some(SpawnOrigin::Dynamic { .. }))
+        })
+        .map(|(_, sim_id, _)| sim_id.cloned())
+        .collect()
+}
+
+/// E: A BOSS'S SIGNATURE GAUNTLET, BANKED AT A CHECKPOINT, COMES BACK TO THE
+/// HAND THAT BANKED IT.
+///
+/// ⛔⛔ THIS IS THE ACCEPTANCE FOR AN IDENTITY, AND IT WAS UNREACHABLE UNTIL THE
+/// KILL ROAD HAD A FIXTURE. Every boss drop is spawned inside `apply_boss_hit`'s
+/// `killed` branch, so a force-kill produces none; `kill_boss_with_a_real_hit`
+/// waits for a vulnerable phase and delivers a real `HitEvent`.
+///
+/// The beats, and what each one would have failed at before `SimId::death_drop`:
+///
+/// ```text
+/// drop      a real kill leaves the gauntlet on the floor — with an identity,
+///           where it used to carry provenance and none
+/// acquire   the ordinary pressed pickup
+/// bank      a real shrine rest, with it in hand: the CAPTURE that could not
+///           see it, because both baselines query `&SimId`
+/// die       the attempt sweep destroys it (`SpawnedThisAttempt`), and the
+///           checkpoint's description puts it back — the half that had no
+///           recipe to work from
+/// ```
+///
+/// ⇒ So this is not a second test of the mint. It is the only test of what the
+/// mint was FOR: the reward for beating a boss surviving a death that the
+/// checkpoint says happened after you earned it.
+#[test]
+fn a_boss_gauntlet_banked_at_a_checkpoint_returns_to_the_hand_that_banked_it() {
+    let mut sim = fixed_60hz_room_sim(ROOM);
+    sim.step_n(base(), 30);
+
+    assert!(
+        dropped_gauntlet(&mut sim).is_empty(),
+        "precondition: no DROPPED gauntlet yet — the authored ones are a \
+         different road and are excluded by provenance"
+    );
+
+    crate::boss_lifecycle::spawn_mockingbird(&mut sim, GAUNTLET_BOSS);
+    crate::boss_lifecycle::kill_boss_with_a_real_hit(&mut sim, GAUNTLET_BOSS, 600);
+    sim.step_n(base(), 120);
+
+    let dropped = dropped_gauntlet(&mut sim);
+    assert_eq!(
+        dropped.len(),
+        1,
+        "a defeated boss with an authored `signature_gauntlet` drops exactly one"
+    );
+    let occurrence = dropped[0]
+        .clone()
+        .expect("the drop carries the identity every durable road is keyed by");
+
+    let resting = resting_place(&mut sim, &occurrence);
+    pick_up(&mut sim, resting, &occurrence);
+    commit_a_checkpoint(&mut sim);
+    assert_still_held(&mut sim, &occurrence, "banked with it in hand");
+
+    // ⭐ THE TWO BASELINES, ASSERTED BEFORE THE DEATH. Without these, "the
+    // gauntlet did not come back" cannot tell a capture that never saw it from a
+    // restore that could not rebuild it — and they want different fixes.
+    let custody_rows: Vec<String> = sim
+        .world()
+        .resource::<ambition_platformer2d::platformer::lifecycle::CustodyBaseline>()
+        .rows()
+        .map(|(held, by)| format!("{} <- {}", held.as_str(), by.as_str()))
+        .collect();
+    assert!(
+        custody_rows
+            .iter()
+            .any(|row| row.starts_with(occurrence.as_str())),
+        "the checkpoint's custody baseline has no row for the gauntlet, so          nothing will ask for it back; rows were {custody_rows:?}"
+    );
+
+    let minted: Vec<String> = sim
+        .world()
+        .resource::<ambition_platformer2d::actors::items::pickup::minted_horizon::MintedItemBaseline>()
+        .rows()
+        .map(|(id, description)| format!("{} = {}", id.as_str(), description.held_item))
+        .collect();
+    assert!(
+        minted
+            .iter()
+            .any(|row| row.starts_with(occurrence.as_str())),
+        "the checkpoint's MINTED baseline has no recipe for the gauntlet, so the \
+         restore has a custody row it cannot act on; rows were {minted:?}"
+    );
+
+    die(&mut sim);
+
+    let after = occurrences(&mut sim, &occurrence);
+    assert_eq!(
+        after.len(),
+        1,
+        "exactly one live occurrence: zero means the reward was destroyed with \
+         the attempt and nothing could rebuild it; two means the restore \
+         duplicated it. got {after:?}"
+    );
+    assert!(
+        !after[0].1.in_world(),
+        "and it is back in the HAND that banked it, not lying where it fell — \
+         the checkpoint recorded custody, so custody is what is restored"
+    );
+}

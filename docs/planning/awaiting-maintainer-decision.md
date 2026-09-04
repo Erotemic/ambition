@@ -1426,9 +1426,14 @@ is no axis.**
 
 ⚠ **What is left for you is smaller and it is real.** Two things:
 
-1. **Only `5 vs 3` is established.** At the shipped clock and 12 seeds, `6 vs 5`
-   and `9 vs 6` are within spread. So this is **one** bad rung, not a broken
-   progression. ⇒ Worth more seeds before anyone retunes a curve.
+1. **Only `5 vs 3` is established, and that is now REPLICATED rather than
+   provisional.** ⭐ I said this needed more seeds before anyone retuned a curve,
+   so I ran it: **28 seeds at the shipped clock returns an identical picture** —
+   `3 vs 1` significant, `5 vs 3` significant, `6 vs 5` and `9 vs 6` within
+   spread, every qualifier unchanged. ⇒ More than doubling the evidence moved
+   nothing, so **`6 vs 5` is noise and the shipped ladder has exactly ONE bad
+   rung.** ⚠ `5 vs 3` is now significant at 12, 24 and 40 seeds on the short clock
+   and at 12 and 28 on the shipped one — it is not a sampling artifact.
 2. **The fix is still a design call.** The cause is `frame_advantage` +
    `expected_payoff` jointly (isolated byte-for-byte). `frame_advantage` is SIGNED,
    so raising it makes a rung penalise its own slow, hard-hitting moves; raising

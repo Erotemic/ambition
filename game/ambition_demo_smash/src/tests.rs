@@ -1157,3 +1157,90 @@ fn the_respawn_platform_stays_where_it_was_placed() {
          it answers the same thing forever"
     );
 }
+
+/// THE PLATFORMED STAGE IS A PLATFORM FIGHTER'S STAGE, structurally.
+///
+/// ⛔ The sign is the whole test. `y` grows DOWNWARD, so a tier ABOVE the stage
+/// is at a SMALLER `y`; getting it backwards buries all three inside the main
+/// block, where they are invisible, still solid to anything walking over them,
+/// and break nothing that would say so.
+#[test]
+fn the_platform_stage_puts_three_one_way_tiers_above_its_solid_floor() {
+    use ambition_platformer2d::engine_core::BlockKind;
+
+    let stage = crate::smash_platform_stage();
+    let blocks = &stage.world.blocks;
+
+    let solid: Vec<_> = blocks
+        .iter()
+        .filter(|b| matches!(b.kind, BlockKind::Solid { .. }))
+        .collect();
+    let one_way: Vec<_> = blocks
+        .iter()
+        .filter(|b| matches!(b.kind, BlockKind::OneWay))
+        .collect();
+    assert_eq!(solid.len(), 1, "the main stage surface is one solid block");
+    assert_eq!(one_way.len(), 3, "three drop-through tiers");
+
+    let floor_top = solid[0].aabb.min.y;
+    for tier in &one_way {
+        assert!(
+            tier.aabb.max.y < floor_top,
+            "tier `{}` is at y {}..{}, not ABOVE the floor at {floor_top} — y \
+             grows downward, so a platform above the stage has the SMALLER y",
+            tier.name,
+            tier.aabb.min.y,
+            tier.aabb.max.y
+        );
+    }
+
+    // And the original stage is untouched: one solid block, no tiers. Every
+    // spacing/recovery number this project recorded was taken there.
+    let flat = crate::smash_stage();
+    assert_eq!(flat.world.blocks.len(), 1);
+    assert!(!flat
+        .world
+        .blocks
+        .iter()
+        .any(|b| matches!(b.kind, BlockKind::OneWay)));
+}
+
+/// EVERY TIER IS SOMEWHERE A FIGHTER CAN ACTUALLY GET TO.
+///
+/// ⛔⛔ THIS TEST EXISTS BECAUSE THE FIRST HEIGHTS I CHOSE WERE WRONG. Picked by
+/// eye they were 132 and 250; the single-jump apex is 88.2px and the absolute
+/// ceiling — an air jump taken exactly at the apex — is 148.3px, so the top tier
+/// was 100px above anything the roster can reach. A platform nobody can stand on
+/// fails no assertion and renders perfectly.
+///
+/// Recomputed from the ENGINE's constants rather than restating the numbers
+/// above, so retuning gravity or either jump speed reddens this instead of
+/// quietly stranding a tier.
+#[test]
+fn the_tiers_sit_inside_the_fighters_measured_jump_arc() {
+    use ambition_platformer2d::engine_core::{DOUBLE_JUMP_SPEED, GRAVITY, JUMP_SPEED};
+
+    // The engine's own formula, from `FighterBodyAuthoring::jump_speed`.
+    let apex = |v: f32| v * v / (2.0 * GRAVITY);
+    let single = apex(JUMP_SPEED);
+    let with_air_jump = single + apex(DOUBLE_JUMP_SPEED);
+
+    assert!(
+        crate::SOFT_PLATFORM_LOW_RISE < single,
+        "the low tier at {}px is above the {single:.1}px single-jump apex, so \
+         reaching it needs an air jump — that is the TOP tier's job",
+        crate::SOFT_PLATFORM_LOW_RISE
+    );
+    assert!(
+        crate::SOFT_PLATFORM_HIGH_RISE > single,
+        "the top tier at {}px is inside a single jump, so the two tiers ask the \
+         same question of the player",
+        crate::SOFT_PLATFORM_HIGH_RISE
+    );
+    assert!(
+        crate::SOFT_PLATFORM_HIGH_RISE < with_air_jump,
+        "the top tier at {}px is above the {with_air_jump:.1}px ceiling — it is \
+         scenery, not a platform",
+        crate::SOFT_PLATFORM_HIGH_RISE
+    );
+}

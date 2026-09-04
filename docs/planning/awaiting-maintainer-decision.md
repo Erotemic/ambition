@@ -1482,6 +1482,31 @@ time and never a smash or a tilt**. ⚠ Its remedy is a scoring-shape change and
 
 ---
 
+
+⭐⭐ **BEFORE THE ARGUMENT BELOW: THIS IS NOT A ONE-OFF, AND THAT CHANGES WHAT YOU
+ARE DECIDING.** Three instances of the same shape — **two authors of one answer** —
+were found in this one area on 2026-09-04, each separately, none suggesting the
+others:
+
+| where | the two authorities | what it cost |
+|---|---|---|
+| `profile_for_level` | authored `.ron` vs engine floor | **four** defects, all symptoms |
+| `ladder_rig::report_row` | pooled-median direction vs a sign test that discards direction | every `(within spread)` label put on hold |
+| the fighter brain's tick | movement and attack selected **independently** | `D-BRAIN-MENU`: 16 of 28 authored moves never start |
+
+⚠ **The tell is identical in all three: the two authorities usually AGREE**, so the
+fault appears only on the minority of inputs where they diverge, and the output
+carries **no residue** distinguishing *"they agreed"* from *"they disagreed and one
+won"*. ⇒ Which is exactly why each survived review — every example anyone examined
+was one where it did not matter.
+
+⇒ **So the question below is a specific case of a general one you may want to rule
+on once**: *when one answer is assembled from more than one computation, which is
+authoritative, and what happens when they disagree?* ⛔ And in all three the remedy
+was the same and it is **removal of the second authority, never a referee** — a
+check that the two agree keeps both and adds a third thing to maintain. The repo's
+own principle elsewhere already says it: **one authority per question.**
+
 ## Who owns Smash's CPU difficulty ladder — and the demo has been fighting the floor
 
 ⭐⭐⭐ **THE QUESTION HAS A BETTER FORM, FOUND 2026-09-04 AFTER FOUR SEPARATE

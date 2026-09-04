@@ -156,7 +156,7 @@ named inline; a number here travels with the search that produced it.
 | 3 | Local play | ✔ **met** — driven end-to-end through the real screen, not the model |
 | 4 | Stage breadth | ◐ **was NOT met; worked 2026-09-04 and now reachable in play** — `smash_platform_stage()` adds the genre's drop-through tiers, `SmashStageChoice` selects it, and a stage button on the select screen cycles it. Two stages is not yet *"several"* |
 | 5 | Match completeness | ◐ **partial, 3 of 4** — stage select landed 2026-09-04; rule selection is still absent as UX |
-| 6 | CPU adoption | ◐ **partial, and now measurable for the first time** |
+| 6 | CPU adoption | ◐ **partial, and the USE half is now measured — it is the weaker half.** The charter asks that the brain *"can use and answer"* the roster's mechanics. ⛔ **It does not use them**: a 120s census of George on the shipped ladder records **16 of his 28 authored moves never starting once** — all three smashes, all three tilts, three of five aerials — with the dash attack at **81%** of starts. ⭐ Root cause traced to source and it is not a Smash-only AI problem, which is the charter's actual concern: movement and attack are scored INDEPENDENTLY and **neither axis declines on score**, so the fighter moves whenever it can and attacks whenever it can, and 73 of 81 attack decisions land on a tick it also chose `Approach` — which drives a run, where a neutral press converts to the dash attack. ⇒ Indexed as decision 5 in [`../awaiting-maintainer-decision.md`](../awaiting-maintainer-decision.md). ⓘ The *answer* half is unmeasured. |
 
 ⭐ **Checkpoint 2 is worth reading before anyone plans roster work.** The charter's
 hard architectural claim — *"distinct reusable move semantics without character-ID

@@ -2227,6 +2227,30 @@ which one you got.** ⭐ Its own doc even records the shape — *"a rule about w
 of two sources wins cannot be enforced by the source that loses"* — which is a
 statement that this IS the arbitration, not that there is only one authority.
 
+✔ **AND THE FORK'S BLAST RADIUS IS BOUNDED — re-derived from source 2026-09-04,
+because *"two authorities"* reads as more dangerous than it is and an
+overstated defect is as unfixable as a hidden one.** The worry the shape invites
+is **mixing**: `unwrap_or_else` fires per CALL, so a composition that installs an
+authored ladder could still be handed floor rows for whichever rungs that ladder
+happens not to author — two authorities inside a single match, silently. ⇒ **That
+cannot happen for levels 1–9**, and three things have to hold for it not to,
+all of which do:
+
+- `FighterBrainLadder::problems()` requires **exactly nine rungs** and that rung
+  `i` is **labelled level `i+1`**, so a validated ladder covers 1..=9 with no
+  holes.
+- ⭐ **It is CALLED on the production load path** — `content_schema.rs:73`, not
+  under `#[cfg(test)]` — and reports every fault at load as a diagnostic.
+- The shipped ladder is asserted clean by
+  `game/ambition_content/tests/fighter_brain_ladder.rs`.
+
+⇒ **So the fork bites in exactly one place: whether a ladder is installed at
+all.** Not which rung, not partway through a match. That is a *composition*
+question with a single production installer, which is why the remedy is small and
+why the four symptoms below all trace to one condition rather than to nine.
+⚠ The out-of-range case (`profile_for_level(200, Some(&ladder))` → floor) is
+deliberate and pinned by `a_shipped_ladder_beats_the_engine_floor`.
+
 ⇒ **Divergences 1 through 4 below are not four accidents; they are four symptoms
 of that fork.** Flattened weights, floor-not-ron, rollout-on-at-6, and the
 `UtilityWeights::default()` that IS the level-9 row — every one is *the losing

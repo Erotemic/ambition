@@ -359,7 +359,9 @@ pub fn run(cli: LadderRigArgs) {
         // opposite of the "nobody lost a stock" it reads as at a glance. Say
         // LEFT in the header, where the reader is.
         "[ladder_rig] higher vs lower   survived(hi:lo)   stocks LEFT(hi:lo)   dealt%(hi:lo)   peak%(hi:lo)   \
-         verdict = who OUTFOUGHT: stocks taken, then damage dealt   \
+         verdict = who OUTFOUGHT. ⚠ PAIRED rows decide it per SEED (stocks, then \
+         damage on a stock tie) and the columns beside it are pooled medians, \
+         DESCRIPTIVE ONLY; UNPAIRED rows decide it from those medians   \
          (median of {seeds} seeds, {}s each, {})",
         ticks() / 60,
         // The design belongs in EVERY table's header, not just the scenario

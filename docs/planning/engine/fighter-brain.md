@@ -2071,6 +2071,26 @@ nothing and `main` is untouched. Whoever merges it runs the five arms above firs
 ⓘ **One arm needed no code: mirror orientation.** `Bout::mirrored` already swaps
 every per-seat array, so index 0 is the higher rung in both halves of a pair —
 invariance holds by construction rather than by test.
+
+✔✔ **THE SIX ARMS ARE NOW TESTS ON THAT BRANCH (`a21f062d2`), AND THEIR EXPECTED
+VALUES WERE CHECKED NUMERICALLY RATHER THAN REASONED.** Every fixture was run
+through the Python model of the same arithmetic and reproduces exactly what the
+Rust asserts: arm 1 signs **16/4** → `higher outfights`, unqualified; arm 2 all
+`+1` from stocks; arm 3 all `−1` from damage on a stock tie; arm 4 six tied pairs
+changing nothing; arm 5 clearing the qualifier at **exactly 6** unanimous pairs
+(five are 2 × 0.5⁵ = 0.0625 and must not clear 0.05) and never reversing to 20;
+arm 6 invariant under exchanging a pair's halves.
+
+⭐ **Which makes the remaining risk NAMEABLE, and that is the point of saying it.**
+The logic and the expected values are verified; what is unverified is whether the
+Rust compiles and typechecks. ⇒ **If an arm fails on a machine that can build it,
+the fixture is not the suspect** — read it as a type or syntax problem, or as the
+implementation diverging from the model, not as the arm being wrong.
+
+ⓘ `report_row`'s derivation was extracted into `paired_direction_and_spread` to
+make any of this reachable. ⚠ **That the defect required printed output to observe
+is not incidental — it is why it survived**: a row's two halves had no seam a test
+could get between.
 written and these arms still have to be run against it — a model agreeing with a
 design says nothing about whether the code matches the model.
 

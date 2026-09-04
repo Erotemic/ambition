@@ -56,6 +56,12 @@ def page_names(manifest: Path) -> set[str]:
     return set(re.findall(r'[\w.\-]+\.png', text))
 
 
+# The only per-tier manifest the runtime loads: `build.rs` bakes one sheet
+# record per tier from it. `_actor.ron` and `_portraits.ron` also appear in a
+# tier directory and are read by nothing — see `stale_pairs` for the evidence.
+LOADED_TIER_MANIFEST_SUFFIX = "_spritesheet.ron"
+
+
 def newest_input(source_dir: Path, manifest: Path) -> float:
     """Newest mtime among a source sheet's manifest and the pages it names."""
     stamps = [manifest.stat().st_mtime]
@@ -81,14 +87,45 @@ def stale_pairs(source_dir: Path, tier_dir: Path) -> list[tuple[Path, float]]:
     this check's business — the runtime falls back to full resolution, which is
     correct art at the wrong cost, and the generator's coverage decides which
     sheets are worth downscaling. What this check owns is the narrower and much
-    worse case: a tier file that EXISTS, is therefore loaded, and is not the art
-    it claims to be.
+    worse case: a tier file that EXISTS, IS LOADED, and is not the art it claims
+    to be.
+
+    ⛔⛔ "EXISTS, IS THEREFORE LOADED" WAS THIS FUNCTION'S PREMISE AND IT IS
+    FALSE — corrected 2026-09-04, and the cost of the error was ten OTHER
+    guards. Only `*_spritesheet.ron` is baked per tier. The two other `.ron`
+    families that appear in a tier directory are installed and read by nothing:
+
+      * `*_actor.ron` — `ArtifactClass::ActorSidecar` in
+        `asset_publish/classify.rs`, in its own words *"Transitional
+        actor-contract sidecar. Installed today, NOT YET CONSUMED by the
+        sandbox."*
+      * `*_portraits.ron` — `ambition_sprite_sheet/build.rs` collects portrait
+        manifests from `assets/sprites` and never from a reduced tier dir. That
+        is not an inference: `test_build_rs_still_bakes_portrait_manifests_from_
+        full_resolution_only` exists to pin it, and the repo already carries a
+        `reduced_tier_portraits` bucket of 487 files unreachable for exactly
+        this reason.
+
+    ⇒ Flagging them claimed the game *"is drawing OLD art at Low/Medium/Potato"*
+    about files it cannot load, and prescribed `quality_variants.sh` — which
+    does not produce them, and reports *"already current"* even under `--force`.
+    **A failure whose prescribed fix cannot clear it, gating every guard behind
+    the same canonical-assets marker: ten asset ratchets that had never been
+    evaluated by any lane stayed skipped on four false positives.**
+
+    ⭐ THE POPULATION SAYS IT TOO. Measured 2026-09-04 across the three tiers:
+    206 `_spritesheet.ron` in each, plus 47 `_actor.ron` and 9 `_portraits.ron`
+    in the two older ones and NONE of either in `sprites_potato`. A family the
+    generator still produced would not be absent from the tier it rebuilt last.
     """
     if not tier_dir.is_dir():
         return []
     stale: list[tuple[Path, float]] = []
     claimed: set[Path] = set()
     for manifest in sorted(tier_dir.rglob("*.ron")):
+        if not manifest.name.endswith(LOADED_TIER_MANIFEST_SUFFIX):
+            # Installed, unread, and not the generator's to refresh. See above.
+            continue
         source = source_dir / manifest.relative_to(tier_dir)
         claimed.add(manifest)
         for name in page_names(manifest):

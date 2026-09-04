@@ -818,12 +818,32 @@ queue read as an execution authority for work already done.
      a sentry, a vortex well, a temporary gravity well, a falling hazard and a
      portal shot. Zero `GroundItem`, zero `drop_held_weapon`.
 
-  ⇒ **So the census is green because the defect is outside its population, not
-  because the invariant holds.** Add one death drop to `populate()` and the
-  assertion should fail — that is the cheap falsifier and it is the next step,
-  NOT a fix.
-  ⚠ **Not yet run.** Steps 1-4 are each verified by reading the code; the
-  consequence in the arrow is predicted. Say so until a run says otherwise.
+  ✔ **RUN 2026-09-03, AND IT FIRES.** I added the drop road's SHAPE to
+  `populate()` — a `GroundItem` through the facade, `ItemCustody` arriving via
+  `#[require]`, no `SimId` — and the census failed:
+
+```text
+  of 28 rollback-anchored entities:
+    1 carry NO SimId (rewind anonymously): [
+      "death-drop gauntlet (no SimId, as the drop road spawns it)",
+  ]
+    0 SimIds are carried by more than one entity: []
+```
+
+  ⇒ **The assertion is sensitive; the population was blind.** 27 entities before,
+  28 after, and the one added is the one it catches. So the guard was green
+  because the defect sat outside its corpus, not because the invariant held —
+  measured, no longer predicted.
+  ⚠ **The arm is NOT committed**, deliberately: landing it now leaves a red in a
+  lane two sessions are working in, and the fix (a `SimId::death_drop` constructor <!-- cite-ok: not landed yet; this names work in flight on another session -->) is already
+  in flight on ToothbrushAmbition's side. ⇒ It belongs in the same commit as the
+  fix, or immediately after it, so the census's population permanently includes
+  the drop road. The arm is written and type-checks
+  (`cargo check -p ambition_app --test app_it`, clean).
+  ⓘ It does NOT call `drop_held_weapon` — `damage_drops` is a private module
+  (`features/ecs/mod.rs:61`) and unreachable from an integration test. It
+  reproduces the SHAPE the drop road produces, which is the right question for a
+  census: does the guard notice the class, not does one caller emit it.
   ⛔⛔ **RETRACTED — "a harness-staged boss gets a profile-less config" is NOT
   established and was my error.** I traced `BossConfig.behavior` correctly to
   `for_authored_boss(catalog, canonical_id)`
@@ -843,9 +863,22 @@ queue read as an execution authority for work already done.
   (`crates/ambition_platformer2d_actor_monolith/src/features/ecs/damage/mod.rs:819`).
   Writing HP to zero and calling `phase.kill()` never enters it. ⇒
   **`force_kill_boss` cannot produce a single boss drop**, and its reward-chest
-  assertion passes because the chest arrives by a different road. Any
-  fighter-side test that reasons about boss rewards through `force_kill_boss` is
-  measuring a road that does not run.
+  assertion passes because the chest arrives by a different road.
+  ✔ **I confirmed the other road independently:** `sync_boss_reward_chests_ecs`
+  (`crates/ambition_boss_encounter/src/rewards.rs:24`) is *"idempotently ensure
+  cleared boss encounters have ECS reward chests"* — it is driven by the SAVE's
+  cleared record and the encounter registry, not by the kill. So the chest
+  appears for a boss killed any way at all, including one whose HP was written
+  to zero.
+  ⛔ **Which means `defeated_boss_is_recorded_cleared_drops_reward_and_clears_music`
+  (`game/ambition_app/tests/boss_lifecycle.rs:177`) covers half of what its name
+  says.** *"A defeated boss with a DropChest reward must drop exactly one chest"*
+  is true and passes — through the save road. The rewards that need the actual
+  kill road (the signature gauntlet, the ability pickup, the dropped weapon, the
+  coin bag) are spawned in `apply_boss_hit`'s `killed` branch, which
+  `force_kill_boss` never enters. ⇒ **The fighter's boss rewards have no test
+  that exercises the road they are spawned on**, and the file that looks like it
+  does is measuring the save instead.
   ⭐ **The mapping IS guarded and the ROAD is not.**
   `boss_signature_gauntlets_map_to_real_wielded_held_items`
   (`crates/ambition_platformer2d_actor_monolith/src/features/ecs/damage/tests.rs:989`)

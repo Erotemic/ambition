@@ -27,6 +27,17 @@ run, not carried forward:
 | feature-gated tests | **794 hidden behind features across 29 crates** | `scripts/feature_gated_tests.py` |
 | `cargo fmt --all -- --check` | **358 files / 710 hunks fail** | and that is POLICY, not drift — AGENTS.md: *"Formatting is advisory, never an acceptance gate."* |
 
+⛔⛔ **AND THE DEFAULT GATE WAS NOT GREEN WHILE ALL OF THAT WAS MEASURED.**
+`cargo test -p ambition_workspace_policy --test policy` fails at default features
+in 4.6 s on a clean checkout — `ambition_portal2d_presentation` gained a
+dependency its allowlist did not name — and `tests/ambition_workspace_policy` IS
+a workspace member (`Cargo.toml:80`), so the plan's own
+`workspace (default features)` job (`cargo nextest run --workspace`) covers it.
+⇒ **Either the default gate has not been run to completion since `cf3ee3953`, or
+its failure was not acted on.** Fixed 2026-09-04 (`f0e30289f`), and recorded here
+because a red default gate is the one condition under which every other number on
+this page means less than it appears to.
+
 ⛔ **AND ONE THING THAT WAS NOT A NUMBER AT ALL:** `check_absence_contracts.py`
 had been CRASHING rather than failing — a stale `fixtures/minimal_game/Cargo.lock`
 made `cargo tree --locked` exit 101, and the script died on a traceback before

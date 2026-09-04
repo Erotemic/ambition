@@ -251,6 +251,101 @@ mod tests {
         );
     }
 
+    /// ⛔⛔ A SELL LINE'S GUARD AND ITS SALE MUST NAME THE SAME ITEM.
+    ///
+    /// `-> Sell Axe — 12g <<if condition("inventory.holds", "axe")>>` /
+    /// `<<sell_item "axe" 12>>` states the ITEM twice and the PRICE twice. The
+    /// item pair is the sharper of the two: if the guard and the sale disagree,
+    /// the option appears when the player holds one thing and sells another —
+    /// or appears and does nothing, because `shop::sell` refuses an item that is
+    /// not owned. Neither failure says anything to the player.
+    ///
+    /// ⚠ THE PRICE CHECK IS CONDITIONAL AND THE ITEM CHECK IS NOT, which is a
+    /// fact about the content rather than caution. `intro.yarn`'s
+    /// `<<sell_item "sealednote" 0>>` is a hand-over beat, not a sale: it has no
+    /// price in its label because there is no price. ⇒ Requiring a label price
+    /// everywhere would fail a line that is correct, so the price pair is
+    /// checked only where the author wrote one.
+    ///
+    /// ⭐ Measured before the rule was written: four guarded sell lines, all
+    /// four agreeing on the item, and three of them stating a price that
+    /// matches. It lands green as a ratchet rather than a repair.
+    #[test]
+    fn a_sell_lines_guard_and_its_sale_name_the_same_item() {
+        let mut files = Vec::new();
+        yarn_files(&dialogue_root(), &mut files);
+
+        let mut checked = 0usize;
+        let mut wrong: Vec<String> = Vec::new();
+        for path in &files {
+            let text = std::fs::read_to_string(path).expect("authored dialogue is readable");
+            let name = path
+                .file_name()
+                .and_then(|n| n.to_str())
+                .unwrap_or("<unnamed>")
+                .to_string();
+            let lines: Vec<&str> = text.split('\n').collect();
+            for (index, raw) in lines.iter().enumerate() {
+                let Some(after) = raw.split_once("inventory.holds\"") else {
+                    continue;
+                };
+                let Some(guarded) = after.1.split('"').nth(1) else {
+                    continue;
+                };
+                let label = after
+                    .0
+                    .split_whitespace()
+                    .filter_map(|word| word.trim_end_matches('g').parse::<u32>().ok())
+                    .next_back();
+                for follow in lines.iter().take(index + 4).skip(index + 1) {
+                    let Some(rest) = follow.split_once("<<sell_item ") else {
+                        continue;
+                    };
+                    let Some(tail) = rest.1.splitn(2, '"').nth(1) else {
+                        continue;
+                    };
+                    let Some((sold, price)) = tail.split_once('"') else {
+                        continue;
+                    };
+                    checked += 1;
+                    if sold != guarded {
+                        wrong.push(format!(
+                            "{name}:{}: the option appears when the player holds `{guarded}` \
+                             and then sells `{sold}`",
+                            index + 1
+                        ));
+                    }
+                    if let (Some(shown), Ok(paid)) = (
+                        label,
+                        price.trim().trim_end_matches(">>").trim().parse::<u32>(),
+                    ) {
+                        if shown != paid {
+                            wrong.push(format!(
+                                "{name}:{}: the option offers {shown}g for `{sold}` and pays {paid}",
+                                index + 1
+                            ));
+                        }
+                    }
+                    break;
+                }
+            }
+        }
+
+        // ⛔ A FLOOR: this parses by shape, so a rewritten option grammar would
+        // leave it walking nothing and passing.
+        assert!(
+            checked >= 3,
+            "only {checked} guarded sell line(s) parsed across {} authored .yarn \
+             file(s) — the option grammar this reads has changed",
+            files.len()
+        );
+        assert!(
+            wrong.is_empty(),
+            "a sell line's guard and its sale disagree:\n  {}",
+            wrong.join("\n  ")
+        );
+    }
+
     #[test]
     fn count_args_is_quote_aware() {
         assert_eq!(count_args(""), 0);

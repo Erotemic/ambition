@@ -1,7 +1,22 @@
 # Advanced fighter brain — current evaluation and regression work
 
-**State:** implementation exists; the confirmed level-6 rollout regression is
-CLOSED (see below). Current work is evaluation and the separate level-1 case.
+**State:** implementation exists. The 2026-08-31 level-6 rollout regression is
+CLOSED — and ⛔ **a SECOND, distinct level-6 rollout defect is OPEN, measured
+2026-09-04**: a fighter running the rollout selects `Dodge` and `Shield` **zero
+times in 662 decisions**, because `pick_movement`'s unjudged tier is unreachable.
+The defensive vocabulary switches off at the rung the difficulty ladder calls
+better, and that single rung is the whole of the ladder's apparent inversion.
+Half repaired (`Shield` is modelled); `Dodge` needs real motion in the shadow.
+
+⛔⛔ **AND NOTHING HERE HAS MEASURED THE LADDER AMBITION SHIPS.** The demo app the
+rig runs installs no `AuthoredFighterLadder`, so every rung carries the engine
+floor's `UtilityWeights::default()` — which *is* the level-9 row. Every number on
+this page describes the floor's reflex-only ladder. The ownership question is with
+Jon in [`../awaiting-maintainer-decision.md`](../awaiting-maintainer-decision.md);
+**do not tune the brain against these numbers until it is answered.**
+
+⇒ Current work is evaluation, the open level-6 rollout defect above, and the
+separate level-1 case.
 
 The historical construction campaign is not active planning. The production
 fighter brain already has situation classification, option scoring, delayed

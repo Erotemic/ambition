@@ -348,7 +348,8 @@ pub fn run(cli: LadderRigArgs) {
         // contradicting each other on consecutive lines.
         None => println!(
             "[ladder_rig] weights: not overridden — each rung keeps whatever its \
-             profile source gave it (see the ladder line below)"
+             profile source gave it (the `ladder:` line ABOVE names the file it \
+             read and prints every rung)"
         ),
     }
     println!(
@@ -567,6 +568,63 @@ fn authored_ladder(
     Some(AuthoredFighterLadder(ladder))
 }
 
+/// A short, stable digest of the ladder FILE's bytes, so two runs can be shown
+/// to have read the same rows rather than the same path.
+///
+/// ⚠ Deliberately not a cryptographic hash and deliberately not `Hash` on the
+/// parsed rows: the parsed form drops comments and formatting, so two files that
+/// differ visibly could digest alike, and the reader comparing two logs is
+/// asking about the INPUT they were handed, not about a canonical form of it.
+fn ladder_digest() -> Option<String> {
+    let path = args().ladder.as_deref()?;
+    let text = std::fs::read_to_string(path).ok()?;
+    // FNV-1a, 64-bit. Small, dependency-free, and enough to separate two
+    // hand-edited difficulty tables.
+    let mut hash: u64 = 0xcbf2_9ce4_8422_2325;
+    for byte in text.as_bytes() {
+        hash ^= *byte as u64;
+        hash = hash.wrapping_mul(0x0000_0100_0000_01b3);
+    }
+    Some(format!("{hash:016x}"))
+}
+
+/// One line per rung, carrying every authored field a cell's outcome can depend
+/// on — so the arm is readable from its own log without opening the `.ron`.
+///
+/// ⭐ Prints ALL of them rather than the pair currently under investigation.
+/// A summary narrowed to today's question is a summary that silently agrees
+/// with tomorrow's different arm.
+fn ladder_rungs_summary() -> Vec<String> {
+    let Some(ladder) = authored_ladder() else {
+        return Vec::new();
+    };
+    ladder
+        .0
+        .rungs()
+        .iter()
+        .map(|rung| {
+            let w = &rung.utility_weights;
+            format!(
+                "rung {:>1}  reaction {:>5.0}ms  apm {:>5.0}  noise {:.2}  read {:.2}  \
+                 rollout {}/{}  weights reach {:.2} fadv {:.2} kill {:.2} risk {:.2} payoff {:.2} capture {:.2}",
+                rung.level,
+                rung.reaction_ms,
+                rung.apm_cap,
+                rung.execution_noise,
+                rung.read_weight,
+                rung.rollout_depth,
+                rung.rollout_k,
+                w.reach_fit,
+                w.frame_advantage,
+                w.kill_potential,
+                w.stage_risk,
+                w.expected_payoff,
+                w.capture_value,
+            )
+        })
+        .collect()
+}
+
 /// Two-sided SIGN TEST on paired differences: is this split surprising for a
 /// fair coin?
 ///
@@ -747,7 +805,28 @@ fn report_which_ladder_is_in_play() {
         .get_resource::<ambition_platformer2d::characters::brain::fighter::AuthoredFighterLadder>()
         .is_some();
     if authored {
-        println!("[ladder_rig] ladder: the AUTHORED rows (AuthoredFighterLadder is installed)");
+        // ⛔⛔ THIS LINE SAID ONLY "the AUTHORED rows" AND THAT MADE TWO ARMS
+        // INDISTINGUISHABLE IN THEIR OWN OUTPUT. Every `--ladder <path>` run
+        // printed the identical header, so a shipped-ladder arm and a candidate
+        // -tuning arm — whose ONLY difference is the file — produced logs a
+        // reader cannot tell apart. The neighbouring `weights:` line even says
+        // "see the ladder line below", pointing at a line that did not carry the
+        // rows. ⇒ A header that cannot name the configuration it measured is the
+        // defect this tool's own documentation keeps recording, one level up.
+        //
+        // ⭐ The path alone is not enough: paths get reused and edited in place.
+        // The digest is over the file TEXT actually parsed, so two runs agree if
+        // and only if they read the same bytes.
+        let rungs = ladder_rungs_summary();
+        println!(
+            "[ladder_rig] ladder: the AUTHORED rows from `{}` (digest {}) — \
+             AuthoredFighterLadder is installed",
+            args().ladder.as_deref().unwrap_or("<none>"),
+            ladder_digest().unwrap_or_else(|| "n/a".to_string()),
+        );
+        for line in rungs {
+            println!("[ladder_rig]   {line}");
+        }
     } else {
         println!(
             "[ladder_rig] ⛔ ladder: the ENGINE FLOOR — no AuthoredFighterLadder in this app, so \
@@ -842,7 +921,8 @@ fn run_scenarios(seeds: usize) {
         // contradicting each other on consecutive lines.
         None => println!(
             "[ladder_rig] weights: not overridden — each rung keeps whatever its \
-             profile source gave it (see the ladder line below)"
+             profile source gave it (the `ladder:` line ABOVE names the file it \
+             read and prints every rung)"
         ),
     }
     println!(

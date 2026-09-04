@@ -495,6 +495,60 @@ fn authored_ladder(
     Some(AuthoredFighterLadder(ladder))
 }
 
+/// Two-sided SIGN TEST on paired differences: is this split surprising for a
+/// fair coin?
+///
+/// Returns `true` for "within spread" — i.e. NOT significant at p < 0.05, so the
+/// verdict should be read with its qualifier and discounted.
+///
+/// ⭐ The sign test is the right instrument for this data specifically because it
+/// throws information away. Each pair contributes only WHICH rung dealt more
+/// damage, never by how much, so a single lopsided bout cannot carry a cell —
+/// and bout damage here is bounded, skewed and bimodal, which is exactly where
+/// tests that trust magnitudes go wrong.
+///
+/// ⛔ TIES ARE DROPPED, not counted for either side. A pair whose two halves deal
+/// identical damage is evidence about neither rung, and folding it in as half a
+/// success would manufacture confidence out of a non-result.
+fn sign_test_says_within_spread(diffs: &[f32]) -> bool {
+    let positives = diffs.iter().filter(|d| **d > 0.0).count();
+    let negatives = diffs.iter().filter(|d| **d < 0.0).count();
+    let n = positives + negatives;
+    // ⛔ THERE WAS AN EXPLICIT `if n < 6 { return true }` HERE AND IT WAS DEAD
+    // CODE. Removing it changed no test, which is how it was found: the poison
+    // arm that deleted it stayed GREEN while the other two reddened.
+    //
+    // ⇒ The exact tail already covers it. Five unanimous pairs are
+    // 2 * 0.5^5 = 0.0625, which is not below 0.05, so an underpowered run
+    // reports `(within spread)` by the arithmetic rather than by a special case.
+    // ⭐ Keeping the branch would have meant a line no test could distinguish
+    // from its absence, guarding a case the formula already handles — so the
+    // FACT it documented is worth keeping and the code was not.
+    //
+    // ⚠ That fact, for the reader of a small run: fewer than six usable pairs
+    // cannot reach significance no matter how unanimous they are. Such a cell is
+    // `(within spread)` because the run is too short, not because the rungs are
+    // alike, and those are different statements about the fighters.
+    let k = positives.max(negatives);
+    // Two-sided exact binomial tail: 2 * P(X >= k) for X ~ Binomial(n, 0.5).
+    // Computed by summing terms rather than via a normal approximation, because
+    // n is small enough that the approximation is the sloppier of the two and
+    // the sum is a dozen multiplications.
+    let mut tail = 0.0f64;
+    let mut term = 0.5f64.powi(n as i32); // C(n,0) * 0.5^n
+    for i in 0..=n {
+        if i >= k {
+            tail += term;
+        }
+        // C(n, i+1) = C(n, i) * (n - i) / (i + 1)
+        if i < n {
+            term = term * (n - i) as f64 / (i + 1) as f64;
+        }
+    }
+    let p = (2.0 * tail).min(1.0);
+    p >= 0.05
+}
+
 /// Say WHICH TWO FIGHTERS the run is about, including when nobody chose them.
 ///
 /// ⭐⭐ **A DEFAULT THAT APPEARS ONLY IN THE SOURCE IS THE ONE THAT SURVIVES FOUR
@@ -957,10 +1011,28 @@ fn report_row(label: &str, bouts: &[Bout]) {
                     - (dealt(&pair[0], 1) + dealt(&pair[1], 1)) / 2.0
             })
             .collect();
-        let mid = median(diffs.clone());
-        let lo = diffs.iter().copied().fold(f32::INFINITY, f32::min);
-        let hi = diffs.iter().copied().fold(f32::NEG_INFINITY, f32::max);
-        mid.abs() < 0.5 * (hi - lo)
+        // ⛔⛔ THIS WAS `mid.abs() < 0.5 * (hi - lo)` AND THAT TEST RAN BACKWARDS.
+        //
+        // `hi - lo` is the RANGE of the paired differences, and a range only
+        // GROWS as you add seeds — every new pair can widen it and none can
+        // narrow it. Meanwhile the median converges. ⇒ So the old criterion got
+        // strictly HARDER to pass the more evidence you collected, which is the
+        // exact opposite of what a significance test does.
+        //
+        // ⚠ CAUGHT BY IT ACTUALLY HAPPENING, 2026-09-04, not by reading: the
+        // `3 vs 1` cell of the shipped-ladder arm was the ONE cell in sixteen
+        // that printed without `(within spread)` at 12 seeds, and re-running the
+        // identical arm at 40 seeds made it `(within spread)`. More power, less
+        // significance. A single outlier pair also sets the range outright,
+        // making it the least robust statistic available for the job.
+        //
+        // ⇒ REPLACED BY A SIGN TEST, which is the standard non-parametric test
+        // for paired data and has none of those properties: count how many pairs
+        // favour the higher rung, and ask how surprising that split is under a
+        // fair coin. It gains power with seeds, ignores the magnitude of
+        // outliers entirely, and assumes nothing about the distribution — which
+        // matters here because bout damage is bounded, skewed and bimodal.
+        sign_test_says_within_spread(&diffs)
     } else {
         (hi_dealt - lo_dealt).abs()
             < 0.5
@@ -1499,6 +1571,126 @@ mod tests {
     /// being swapped is caught here rather than by somebody wondering why
     /// pairing made the effect vanish.
     #[test]
+    /// ⭐⭐ THE PROPERTY THE OLD TEST VIOLATED: more evidence must not make a
+    /// result LESS significant.
+    ///
+    /// The replaced criterion was `|median| < 0.5 * (max - min)` over the paired
+    /// differences. A range only grows with n, so lengthening a run of unanimous
+    /// pairs could flip a cell from significant to `(within spread)` — which is
+    /// what happened to the `3 vs 1` cell between 12 and 40 seeds and is what
+    /// sent me looking. This pins the direction rather than any single verdict.
+    #[test]
+    fn adding_agreeing_evidence_never_makes_a_result_less_significant() {
+        // Unanimous pairs, with one deliberately huge outlier so a
+        // magnitude-sensitive test would be dragged around by it.
+        let mut diffs = vec![1.0f32, 2.0, 1.5, 0.5, 3.0, 1.0, 900.0];
+        assert!(
+            !sign_test_says_within_spread(&diffs),
+            "seven unanimous pairs should be significant (p = 2 * 0.5^7 = 0.016)"
+        );
+        // Every further pair AGREES. Significance must not evaporate.
+        for extra in [1.0f32, 2.0, 0.25, 5.0, 0.75, 1200.0, 0.1] {
+            diffs.push(extra);
+            assert!(
+                !sign_test_says_within_spread(&diffs),
+                "adding an AGREEING pair made the result stop being significant \
+                 at n = {} — the test is running backwards, which is exactly the \
+                 defect the range criterion had",
+                diffs.len()
+            );
+        }
+    }
+
+    /// ⛔ AND IT MUST STILL SAY "within spread" WHEN IT SHOULD.
+    ///
+    /// A test that never withholds its qualifier is not a test. Three cases the
+    /// sign test has to get right, and the third is the one a magnitude test
+    /// fails: one colossal difference against a majority of small opposing ones
+    /// is NOT evidence, and the sign test refuses it by construction.
+    #[test]
+    fn the_sign_test_still_withholds_significance_where_it_must() {
+        // A near-even split, plenty of pairs.
+        let even: Vec<f32> = (0..20)
+            .map(|i| if i % 2 == 0 { 1.0 } else { -1.0 })
+            .collect();
+        assert!(
+            sign_test_says_within_spread(&even),
+            "ten against ten is a fair coin and must carry the qualifier"
+        );
+
+        // ⛔ Underpowered: five unanimous pairs cannot reach p < 0.05 (2 * 0.5^5
+        // = 0.0625), and the run should say so rather than claim an effect.
+        assert!(
+            sign_test_says_within_spread(&[1.0, 1.0, 1.0, 1.0, 1.0]),
+            "five pairs cannot be significant at any effect size, so a five-pair \
+             run must report within spread — underpowered, not null"
+        );
+
+        // ⭐ The magnitude trap. One pair favours the higher rung by 5000; eight
+        // favour the lower by a little. A mean or a range-scaled median would be
+        // dominated by the outlier; the sign test sees 1 against 8.
+        //
+        // ⚠ THE 8 IS NOT ARBITRARY AND I GOT IT WRONG FIRST. I wrote this with
+        // seven opposing pairs, expecting significance; the exact test refused,
+        // and it was right — 7 of 8 is p = 2 * (8 + 1) / 256 = 0.070, which is
+        // not below 0.05. 8 of 9 is 2 * (9 + 1) / 512 = 0.039, which is. ⇒ Worth
+        // recording because it is the whole argument for computing the exact
+        // tail instead of eyeballing "nearly unanimous": my intuition was off by
+        // one pair, in the direction of claiming an effect.
+        let outlier = vec![5000.0f32, -1.0, -1.0, -1.0, -1.0, -1.0, -1.0, -1.0, -1.0];
+        assert!(
+            !sign_test_says_within_spread(&outlier),
+            "eight of nine pairs agreeing IS significant (p = 0.039), and it must \
+             point at the EIGHT rather than at the one big number"
+        );
+        assert_eq!(
+            outlier.iter().filter(|d| **d < 0.0).count(),
+            8,
+            "the fixture above must actually be 8-against-1 for that to mean \
+             what it says"
+        );
+        // ⛔ And one pair fewer is NOT significant, which is the line that makes
+        // the assertion above a claim about the threshold rather than about
+        // "lots of pairs agreeing".
+        assert!(
+            sign_test_says_within_spread(&outlier[..8]),
+            "7 of 8 is p = 0.070 and must carry the qualifier — if this passes \
+             without the qualifier the threshold has drifted"
+        );
+
+        // ⛔ TIES ARE DROPPED, and the property that states is INVARIANCE: ties
+        // must not change the answer in either direction.
+        //
+        // ⚠ I first wrote this as "six unanimous pairs plus twenty ties must be
+        // within spread" and it was wrong for the same reason as the fixture
+        // above — I was reasoning about the padding instead of computing. Ties
+        // are discarded, so six unanimous pairs are six unanimous pairs
+        // (p = 0.031) whether or not twenty ties sit beside them. ⇒ The real
+        // claim is that the twenty make NO difference, which is both stronger
+        // and the thing that would actually break if ties were folded in as half
+        // a success each.
+        for real in [
+            vec![1.0f32; 6],                  // significant on its own
+            vec![1.0f32; 5],                  // underpowered on its own
+            vec![1.0f32, -1.0, 1.0, -1.0, 1.0, -1.0, 1.0, -1.0], // a fair coin
+        ] {
+            let mut padded = real.clone();
+            padded.extend(std::iter::repeat(0.0).take(20));
+            assert_eq!(
+                sign_test_says_within_spread(&padded),
+                sign_test_says_within_spread(&real),
+                "twenty ties changed the verdict for {real:?} — ties are \
+                 evidence about neither rung and must be discarded, not counted"
+            );
+        }
+        assert!(
+            !sign_test_says_within_spread(&[1.0, 1.0, 1.0, 1.0, 1.0, 1.0]),
+            "six unanimous pairs are p = 0.031 and must be significant — without \
+             this line the invariance check above would pass on a test that \
+             always says the same thing"
+        );
+    }
+
     fn mirroring_a_bout_swaps_every_per_seat_reading() {
         let m = bout().mirrored();
         assert_eq!(m.eliminated, [200, 100]);

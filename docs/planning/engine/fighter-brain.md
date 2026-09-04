@@ -184,6 +184,24 @@ Keep deterministic fixed-seed reports and enough instrumentation to show that:
 - profile APM/reaction/noise limits are actually enforced;
 - CPU cost remains within the intended budget.
 
+⛔ **AND FOUR PROVENANCE FACTS THIS LIST WAS MISSING, added 2026-09-04 after every
+one of them turned out to be invisible in a shipped report.** A table that does
+not carry these is not comparable with another table, which is the only thing a
+rig is for:
+
+- **which LADDER the fighters got** — the rig ran its whole life on the engine
+  floor and no output said so;
+- **which STAGE** — the layout was a constant nobody had chosen, and it turns out
+  to halve the lethality;
+- **which DESIGN** — paired or unpaired changes 14 of 36 verdicts, and two runs
+  that do not say which cannot be compared;
+- **which WEIGHTS** — the scenario table printed none at all, and the ladder
+  table's line said *"v1 (profile default)"* while v1 was overriding the profile.
+
+⇒ **The rule under all four: a number leaves this rig with its method or it is
+not a measurement.** Each was found the same way — by trying to compare two runs
+and discovering they had answered different questions.
+
 Do not build a second permanent telemetry stack around the fighter brain.
 
 ⭐ **MEASURED 2026-09-03: the rig reproduced FIVE of its NINE named scenarios

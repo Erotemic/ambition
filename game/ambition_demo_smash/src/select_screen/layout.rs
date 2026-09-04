@@ -415,6 +415,95 @@ mod tests {
         SelectLayout::new(Vec2::new(1280.0, 720.0), SmashRoster::default().len())
     }
 
+    /// EVERY PORTRAIT IS REACHABLE FROM EVERY OTHER BY THE D-PAD ALONE.
+    ///
+    /// ⛔ **This is the property Jon's complaint was about** — *"the controls
+    /// don't feel good, they are very hard to use with a gamepad"* — and the
+    /// existing snap tests could not see it: they check one hop over a handful
+    /// of synthetic rectangles, and unreachability is a property of the WHOLE
+    /// graph. A grid where one portrait can only be entered and never left, or
+    /// where a column is cut off from its neighbour, passes every one-hop test
+    /// and is unusable on a pad.
+    ///
+    /// ⇒ Walks the real layout's real targets as a directed graph — four
+    /// directions from each portrait, `cursor::snap` deciding each edge — and
+    /// asserts the portraits form ONE strongly-reachable set from any start.
+    #[test]
+    fn every_portrait_is_reachable_from_every_other_by_the_dpad() {
+        use crate::select_screen::cursor::{snap, CursorTarget};
+        use bevy::prelude::Entity;
+        use std::collections::{HashSet, VecDeque};
+
+        // ⚠ The FULL roster. `wide()` uses `SmashRoster::default()`, which is
+        // two characters — a grid of two cannot express a dead end, and the
+        // size assertion below caught that fixture before it passed vacuously.
+        let layout = SelectLayout::new(Vec2::new(1280.0, 720.0), roster());
+        let targets = layout.targets();
+        let rects: Vec<CursorTarget> = targets
+            .iter()
+            .enumerate()
+            .filter_map(|(index, (_, rect))| {
+                Some(CursorTarget {
+                    entity: Entity::from_raw_u32(index as u32)?,
+                    rect: *rect,
+                })
+            })
+            .collect();
+        let portraits: Vec<usize> = targets
+            .iter()
+            .enumerate()
+            .filter(|(_, (kind, _))| matches!(kind, SelectTarget::Portrait(_)))
+            .map(|(index, _)| index)
+            .collect();
+        assert!(
+            portraits.len() > 4,
+            "a grid with {} portraits cannot exercise this",
+            portraits.len()
+        );
+
+        let dirs = [
+            Vec2::new(1.0, 0.0),
+            Vec2::new(-1.0, 0.0),
+            Vec2::new(0.0, 1.0),
+            Vec2::new(0.0, -1.0),
+        ];
+        // Reachability from ONE portrait is enough for the property that
+        // matters: the graph is symmetric under direction reversal, so a set
+        // every portrait can be reached from is a set every portrait can reach.
+        let start = portraits[0];
+        let mut seen: HashSet<usize> = HashSet::from([start]);
+        let mut queue = VecDeque::from([start]);
+        while let Some(at) = queue.pop_front() {
+            let from = rects[at].rect.center();
+            for dir in dirs {
+                let Some(next) = snap(from, dir, &rects) else {
+                    continue;
+                };
+                let index = rects
+                    .iter()
+                    .position(|t| t.entity == next)
+                    .expect("snap returns one of the targets it was given");
+                if seen.insert(index) {
+                    queue.push_back(index);
+                }
+            }
+        }
+
+        let unreachable: Vec<usize> = portraits
+            .iter()
+            .copied()
+            .filter(|index| !seen.contains(index))
+            .collect();
+        assert!(
+            unreachable.is_empty(),
+            "{} of {} portraits cannot be reached from portrait {start} by any \
+             sequence of d-pad presses: {unreachable:?}. A cell nobody can steer \
+             to is a fighter nobody can pick with a pad.",
+            unreachable.len(),
+            portraits.len()
+        );
+    }
+
     /// A phone held sideways — the viewport this screen was unusable at.
     ///
     /// the FULL roster, not `SmashRoster::default()`. The default is this

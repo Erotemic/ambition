@@ -72,6 +72,16 @@ struct Bout {
     /// which is the opposite of skill. Summing the increases counts every point
     /// landed and is blind to how they were grouped.
     damage_taken: [f32; 2],
+    /// The CLOSEST the two seats ever came, in world px.
+    ///
+    /// ⛔ **Added to tell "they never met" from "they met and whiffed".** The
+    /// platformed stage produced 41 unfought bouts of 540 against the flat
+    /// stage's 3, and `unfought` alone cannot say whether the fighters failed to
+    /// NAVIGATE to each other or reached each other and declined to commit —
+    /// which are a pathing problem and a scoring problem, fixed in different
+    /// places. A bout whose closest approach is a body-width apart met; one that
+    /// stayed hundreds of pixels apart did not.
+    closest_approach: f32,
 }
 
 #[derive(clap::Args, Debug, Clone, Default)]
@@ -653,6 +663,31 @@ fn span(values: &[f32]) -> String {
     }
 }
 
+/// How close the fighters got, across the bouts of this row that ended untouched.
+///
+/// ⭐ **THE DIAGNOSIS THE `unfought` COUNT COULD NOT GIVE.** "Neither landed a
+/// hit" has two causes that are fixed in different places: they never reached
+/// each other (navigation), or they reached each other and declined to commit
+/// (scoring). A median closest approach around a body width says the second; one
+/// in the hundreds of px says the first. The platformed stage's 41 unfought
+/// bouts against the flat stage's 3 is the measurement that wanted this.
+fn approach_of_the_unfought(bouts: &[Bout]) -> String {
+    const FOUGHT_AT_ALL: f32 = 0.01;
+    let mut d: Vec<f32> = bouts
+        .iter()
+        .filter(|b| b.peak_percent[0] < FOUGHT_AT_ALL && b.peak_percent[1] < FOUGHT_AT_ALL)
+        .map(|b| b.closest_approach)
+        .filter(|d| d.is_finite())
+        .collect();
+    if d.is_empty() {
+        // Either no unfought bout, or none where both bodies ever coexisted.
+        // Both are honestly "no distance to report" rather than zero.
+        return "—".to_string();
+    }
+    d.sort_by(f32::total_cmp);
+    format!("{:.0}px", median(d))
+}
+
 fn report(higher: u8, lower: u8, bouts: &[Bout]) {
     report_row(&format!("{higher:>2} vs {lower:<2}"), bouts);
 }
@@ -797,13 +832,19 @@ fn report_row(label: &str, bouts: &[Bout]) {
         .count();
     let verdict = if hi_peak < FOUGHT_AT_ALL && lo_peak < FOUGHT_AT_ALL {
         format!(
-            "{verdict} — BUT NEITHER LANDED A HIT (unfought {unfought}/{})",
-            bouts.len()
+            "{verdict} — BUT NEITHER LANDED A HIT (unfought {unfought}/{}, closest {})",
+            bouts.len(),
+            approach_of_the_unfought(bouts)
         )
     } else if unfought > 0 {
         // The other half of the same point: a row that reads as a normal fight can
-        // still be hiding bouts that ended untouched.
-        format!("{verdict} [unfought {unfought}/{}]", bouts.len())
+        // still be hiding bouts that ended untouched — now with the reason
+        // attached, because "nobody hit anybody" has two very different causes.
+        format!(
+            "{verdict} [unfought {unfought}/{}, closest {}]",
+            bouts.len(),
+            approach_of_the_unfought(bouts)
+        )
     } else {
         verdict
     };
@@ -869,6 +910,8 @@ impl Bout {
             stocks: [self.stocks[1], self.stocks[0]],
             peak_percent: [self.peak_percent[1], self.peak_percent[0]],
             damage_taken: [self.damage_taken[1], self.damage_taken[0]],
+            // Symmetric between the seats, so the mirror leaves it alone.
+            closest_approach: self.closest_approach,
         }
     }
 }
@@ -1106,6 +1149,9 @@ fn run_bout_at(
     let mut eliminated = [TICKS; 2];
     let mut peak_percent = [0.0f32; 2];
     let mut damage_taken = [0.0f32; 2];
+    // Starts at infinity so the first tick with both bodies present sets it; a
+    // bout where they never coexist keeps it, and `report_row` prints it as `—`.
+    let mut closest_approach = f32::INFINITY;
     let mut last_percent = [0.0f32; 2];
     // A seat is not eliminated until seating has completed; bodies may be absent
     // during the seating transaction.
@@ -1162,11 +1208,14 @@ fn run_bout_at(
             &MatchSeat,
             &FighterStocks,
             &ambition_platformer2d::characters::actor::BodyHealth,
+            &ambition_platformer2d::engine_core::BodyKinematics,
         )>();
         let mut seen = [false; 2];
-        for (seat, remaining, health) in q.iter(world) {
+        let mut at: [Option<ae::Vec2>; 2] = [None, None];
+        for (seat, remaining, health, kin) in q.iter(world) {
             if seat.0 < 2 {
                 seen[seat.0] = true;
+                at[seat.0] = Some(kin.pos);
                 stocks[seat.0] = remaining.remaining;
                 let now = health.damage_percent();
                 peak_percent[seat.0] = peak_percent[seat.0].max(now);
@@ -1177,6 +1226,13 @@ fn run_bout_at(
                 damage_taken[seat.0] += (now - last_percent[seat.0]).max(0.0);
                 last_percent[seat.0] = now;
             }
+        }
+        // ⛔ BOTH SEATS OR NOTHING. A tick where one body is absent — mid-seating,
+        // or eliminated — has no separation to speak of, and folding a distance
+        // to a missing body in would make "they never met" unmeasurable exactly
+        // when a fighter is dead.
+        if let (Some(a), Some(b)) = (at[0], at[1]) {
+            closest_approach = closest_approach.min(a.distance(b));
         }
         // An ELIMINATED seat stops existing — that disappearance is the event,
         // and it is why the loop reads every tick instead of once at the end.
@@ -1210,6 +1266,7 @@ fn run_bout_at(
         stocks,
         peak_percent,
         damage_taken,
+        closest_approach,
     }
 }
 
@@ -1223,6 +1280,7 @@ mod tests {
             stocks: [1, 2],
             peak_percent: [0.5, 1.5],
             damage_taken: [10.0, 30.0],
+            closest_approach: 48.0,
         }
     }
 
@@ -1243,6 +1301,11 @@ mod tests {
         assert_eq!(m.stocks, [2, 1]);
         assert_eq!(m.peak_percent, [1.5, 0.5]);
         assert_eq!(m.damage_taken, [30.0, 10.0]);
+        // ⚠ NOT swapped, and deliberately asserted: the separation between two
+        // bodies is symmetric, so mirroring must leave it alone. A "swap every
+        // field" reflex would corrupt nothing visible here and quietly make the
+        // value meaningless the day it becomes per-seat.
+        assert_eq!(m.closest_approach, 48.0);
     }
 
     /// Mirroring twice is the identity — the property that says the swap is a

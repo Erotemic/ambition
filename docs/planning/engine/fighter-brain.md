@@ -386,12 +386,29 @@ is reaction 300→260ms, APM 200→240, noise 0.20→0.16, read 0.2→0.3 — an
 those is obviously a way to get worse. That is the question the authored-weight
 re-run exists to answer.
 
-⚠ **A hypothesis I tested and had to drop**, recorded because it is the obvious
-one and the next reader will have it too: that the fixtures handicap the subject
-(7 of 9 place SELF offstage or in hitstun — *"Self is past a blastzone"*) and
-seat 0 is always the higher rung, so the skew is placement rather than skill. It
-is not: the self-handicapped fixtures favour LOWER at **68%** (n=28) and the two
-self-advantaged ones at **62%** (n=8). Same direction, same size.
+⚠ **A hypothesis I tested, dropped, and then found I had tested WRONG** —
+recorded at length because the error is a reasoning trap, not a wrong number, and
+it is the kind that survives review.
+
+The hypothesis: the fixtures handicap the subject (7 of 9 place SELF offstage or
+in hitstun — *"Self is past a blastzone"*) and seat 0 is always the higher rung,
+so the skew is placement rather than skill. I tested it by splitting the 36 cells
+into the fixtures that handicap SELF and the two that advantage it, and found
+**68%** favouring LOWER (n=28) against **62%** (n=8) — same direction, same size
+— and concluded placement was not the cause.
+
+⛔ **That comparison cannot detect the thing it was aimed at.** Both groups have
+seat 0 = the higher rung. A confound that is UNIFORM across the groups being
+compared is invisible to the comparison: if seat 0 is simply a worse seat — for
+any reason, including ones no fixture premise mentions — every group skews the
+same way and the split shows nothing. I compared whether the fixture's PREMISE
+mattered and reported the answer as though it were about the SEAT.
+
+⇒ The control that can see it is not a subgroup split but a swap: play the same
+seed with the rungs exchanged between seats, which is what `--paired` was built
+for. ⇒ **Before quoting the 24 : 12 split, check whether the paired run below
+reproduces its direction.** A subgroup comparison is not a control for a variable
+every subgroup holds constant.
 
 ### What all nine fixtures actually SAY at the rig's own seed count
 
@@ -441,6 +458,60 @@ the low rungs resolve. Until then, "the ladder is fine" and "the ladder is
 inverted" are BOTH unsupported by this run, and the table above is the reference
 point that says so.
 
+
+### What the tiers did to the fight — flat vs platforms, measured 2026-09-04
+
+⭐ **The first measurement this project has of a stage CHANGING the fight**, and
+the reason `super-smash-siblings.md`'s checkpoint 4 asked for more than one
+layout. Same 9 fixtures × 4 rungs × 15 seeds × 60s, same outcome verdict, same
+engine-floor ladder, unpaired, `--stage flat` against `--stage platforms`.
+
+⚠ **The two stages are identical except for the three tiers.** Same
+`STAGE_SIZE`, same blast margins, same solid floor — and the fixtures' starting
+positions are *literally the same coordinates*, because
+`starting_positions_on` maps proportionally onto the room's AABB and
+`stage_bounds` derives that from `world.size`, which both stages share.
+
+| | flat | platforms |
+|---|---:|---:|
+| mean peak% carried, per fighter | **107.7** | **81.5** |
+| mean stocks LEFT (both seats) | **1.64** | **3.78** |
+| cells containing an unfought bout | 1 / 36 | **11 / 36** |
+| unfought bouts (of 540) | 3 | **41** |
+
+⇒ **The tiers roughly halve the lethality.** Fighters end with more than twice
+the stocks and carry a quarter less damage, and the rate at which a 60-second
+bout ends with NEITHER fighter landing a hit goes from 3 in 540 to 41.
+
+⇒ The verdict split barely moves (flat 24:12 toward LOWER, platforms 20:14, every
+cell still `(within spread)`), so the stage changes HOW MUCH happens far more
+than it changes WHO wins.
+
+⭐ **A mechanism, traced in code rather than inferred from the numbers.**
+`WorldView::is_standable` counts `SolidKind::OneWay`, so `ground_below()` finds a
+tier; and `situation.rs:85` classifies `Recovery` from
+`!terrain.is_empty() && !on_ground && ground_below().is_none()`. ⇒ On the
+platformed stage a fighter above a tier **has ground below and is therefore not
+Recovering** — correct behaviour, and a large one: situations that were recovery
+scrambles on the flat stage are neutral here, and a fighter that would have been
+edgeguarded or self-destructed instead lands and plays.
+
+⛔ **Two caveats a reader needs before generalising this to "platforms".**
+
+1. **A fixture is a pair of coordinates, not a situation.** `recovery_above`
+   drops SELF at (320, −32); this layout's top tier occupies y 180–196 across
+   x 236–404, so the fall is INTERCEPTED. The fixture's premise — *"Self is past
+   a blastzone"* — is simply less true here, and four of the nine fixtures are
+   recovery fixtures.
+2. **This layout's top tier sits ten pixels under the respawn platforms**
+   (`smash_platform_stage`'s doc has the arithmetic). A fighter whose respawn
+   grace expires drops onto the tier rather than returning to the stage, so part
+   of the measured gentleness is that specific geometry rather than tiers in
+   general.
+
+⇒ So the honest claim is **"this layout halves the lethality"**, not "platforms
+do". Fixing the respawn overlap and re-running is the next measurement, and the
+geometry and the number have to move together.
 
 ## Relationship to navigation/recovery architecture
 

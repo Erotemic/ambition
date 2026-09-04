@@ -1818,11 +1818,15 @@ the reordering IS the finding.
    space. ⇒ It leads because both answers are cheap and everything about "how
    hard is rung N" is measured against a ladder that currently has four working
    knobs, not five.
-2. ⭐ **Finish isolating the `5 vs 3` inversion.** The utility weights are
-   established as necessary; four single-knob arms separate which of
-   `frame_advantage`, `kill_potential`, `stage_risk`, `expected_payoff` carries
-   it. ⇒ This is the only *significant* defect measured in the shipped ladder, so
-   it outranks everything speculative.
+2. ✔ **DONE — the `5 vs 3` inversion is isolated to `frame_advantage` +
+   `expected_payoff`, jointly.** Byte-for-byte: those two reproduce the whole
+   effect of swapping all four weights, and the other two reproduce the control.
+   Neither of the pair suffices alone. Replicated at 28 seeds on the shipped
+   clock and consistent in direction across all nine scenario fixtures. ⇒ **What
+   replaces it: measure candidate PROGRESSIONS**, so the answer to "what should
+   rung 5 be" arrives with evidence instead of as a shrug. Two are running (a
+   gentler rise, and holding the pair flat); the arm that matters is whichever
+   removes the inversion *without* flattening rung 5 into rung 3.
 3. **Answer the roster question** — do the two Robots get kits? Every ladder
    number ever taken was measured between two fighters that had no special
    button, and George resolves matches they cannot. ⇒ Until this is answered the

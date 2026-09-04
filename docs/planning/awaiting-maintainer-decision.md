@@ -896,6 +896,42 @@ than by having been measured individually. The drawn sprite including its margin
 (~89 units, the 118px body in a 218px frame), so "character size" means the BODY here, not
 the art. If the intent was the art, every figure above shifts and the tier wants resizing.
 
+### 46. Does a boss's reward survive a death that un-fights the boss? (2026-09-04)
+
+A defeated boss drops its signature gauntlet. Since 2026-09-04 that object has a
+durable identity (`SimId::death_drop`), so a checkpoint taken while the player
+HOLDS it now describes it and a death gives it back — measured end to end by
+`a_boss_gauntlet_banked_at_a_checkpoint_returns_to_the_hand_that_banked_it`.
+
+⛔ **The question is the object LYING ON THE FLOOR, and the engine currently
+answers it by omission rather than by decision.** `capture_minted_item_baseline`
+records only occurrences IN CUSTODY, and says why: *"a minted object lying in a
+loaded room is answered by the object itself."* But a death is a room replay,
+and `retire_the_previous_attempt` despawns everything the attempt spawned. So a
+gauntlet the player took and then put down before resting is destroyed by the
+replay with no description anywhere that could rebuild it.
+
+⚠ **Whether that is a loss depends on a fact this file cannot decide:** if the
+death restores the boss to un-fought, the player simply kills it again and gets
+another gauntlet, and destroying the old one is CORRECT — two would be a
+duplication. If the checkpoint recorded the boss as Cleared, the boss does not
+come back, and the reward is gone permanently with no way to earn it again.
+
+The two readings differ observably in exactly one place, which is what makes
+this a decision rather than a bug report: **beat a boss, pick up its gauntlet,
+put it down, rest at a shrine, die.** Under one reading you find it where you
+left it; under the other it is gone forever.
+
+⇒ Jon's call. It is a rule about what a checkpoint PROMISES — "the world as it
+was when you rested" versus "your body as it was when you rested" — and the same
+answer settles the dropped coin, the dropped heart and any future attempt-scoped
+reward. ⚠ Do not answer it by widening `capture_minted_item_baseline` to
+in-world occurrences: that changes what a checkpoint means for every dynamic
+object in a loaded room, which is a larger decision wearing this one's clothes.
+
+Related: 45 (entitlement versus occurrence) is the same family of question one
+level up — that one asks what an item IS, this one asks what a checkpoint owes.
+
 ## Waiting on maintainer measurement, not a decision
 
 ### The residency limit open work 4 needs

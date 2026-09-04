@@ -409,6 +409,64 @@ fn a_wall_may_be_gated_on_an_item_the_player_carries() {
     );
 }
 
+/// ⭐ A ROUTE GATED ON WHAT THE BODY CAN DO — the fifth gate family, walked end
+/// to end for the first time.
+///
+/// `body.can` was published and unit-tested against a hand-built world, and
+/// `gated_by` was widened to name a condition. Neither fact says the ROAD
+/// works: a condition nothing authored can reach is a condition that lands
+/// dead, and a unit test that calls `can()` directly cannot witness the wall
+/// never asking. This walks the whole chain — an authored `gated_by` line, the
+/// syntactic discriminator, `ConditionCatalog::prepare_line`, the descriptor's
+/// `Name` parameter, `AbilitySet` — and the only thing it changes between the
+/// two assertions is a bool on the body.
+///
+/// ⛔ THE BODY ARRIVES WITHOUT THE VERB, which is the half that can fail
+/// silently. A wall that was never up cannot be observed opening, so the closed
+/// arm is asserted first and from a body that EXISTS: "nobody to ask" and "the
+/// body cannot do it" are different answers and only the second one is this
+/// test's subject.
+#[test]
+fn a_wall_may_be_gated_on_what_the_body_can_do() {
+    use ambition_platformer2d_shared_tangle::authored_logic::PublishCondition;
+
+    let mut app = world_with_one_wall_gated_by("body.can wall_climb");
+    app.publish_condition(
+        crate::body_conditions::can_descriptor(),
+        crate::body_conditions::can,
+    );
+    let body = app
+        .world_mut()
+        .spawn((
+            ambition_platformer2d_core::body_clusters::BodyAbilities::new(
+                ambition_platformer2d_core::abilities::AbilitySet::default(),
+            ),
+            ambition_platformer2d_shared_tangle::markers::PlayerEntity,
+        ))
+        .id();
+
+    app.update();
+    assert_eq!(
+        standing(&app),
+        1,
+        "the body is here and cannot climb, so the wall the author gated on \
+         climbing stands"
+    );
+
+    app.world_mut()
+        .entity_mut(body)
+        .get_mut::<ambition_platformer2d_core::body_clusters::BodyAbilities>()
+        .expect("the body was just spawned with one")
+        .abilities
+        .wall_climb = true;
+    app.update();
+    assert_eq!(
+        standing(&app),
+        0,
+        "the same body can climb now; the route it asked for opens"
+    );
+}
+
 /// AN AUTHORED CONDITION THAT DOES NOT EXIST LEAVES THE WALL STANDING.
 ///
 /// ⛔ AND IT IS NOT DEMOTED TO A FLAG LOOKUP. `names_its_own_condition` is

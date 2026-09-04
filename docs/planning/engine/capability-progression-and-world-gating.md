@@ -109,9 +109,34 @@
 > catalog's diagnostic and leaves the wall standing rather than being demoted to
 > a flag lookup that would never be satisfied either. A flag id containing a `.`
 > is not addressable in the bare form and must be written out in full.
-> ⇒ **What is still missing is the BODY-CAPABILITY condition itself.** Nothing
-> publishes one that reads `AbilitySet`; the field can now name it, so that is a
-> condition to write rather than a seam to negotiate.
+> ✔ **THE BODY-CAPABILITY CONDITION IS PUBLISHED AND THE ROAD IS WALKED
+> (2026-09-04).** `body.can(verb)` reads the EFFECTIVE `BodyAbilities`, not
+> `AbilityBase` — a session mask or a story lockout that turns a verb off must
+> close the route it opens, or the wall and the world disagree about what the
+> player can do. Its `verb` lookup is an exhaustive destructure of `AbilitySet`
+> under `deny(unused_variables)`, so adding a capability is a compile error at
+> the one moment its author is still looking, rather than a verb that is silently
+> unaskable.
+>
+> ⭐ **And the ROAD is what was actually missing, not the condition.** It was
+> published, registered by `BodyCapabilityConditionsPlugin`, and unit-tested
+> against a hand-built world — none of which says an authored wall can reach it.
+> `a_wall_may_be_gated_on_what_the_body_can_do`
+> (`world/gated_lock_walls/tests.rs`) walks the whole chain from an authored
+> `gated_by = "body.can wall_climb"` through the syntactic discriminator,
+> `prepare_line`, the `Name` parameter and `AbilitySet`, and changes exactly one
+> bool on the body between its two assertions. ⛔ The body arrives WITHOUT the
+> verb and the closed arm is asserted first: a wall that was never up cannot be
+> observed opening, and "nobody to ask" is a different answer from "the body
+> cannot do it". Poison-verified by making every body satisfy every verb — that
+> arm reddens alone.
+>
+> ⇒ **Five of the seven gate families are now reachable from a route**: story
+> gate (two writers), item/equipment (`inventory.holds`, `held.is_held`) and
+> body capability (`body.can`). What remains route-facing-empty is soft systemic
+> pressure and social/knowledge, and body PROPERTY — `mass`, `standing_height`,
+> `Locomotion` — which is a second condition of the same shape rather than a new
+> seam.
 >
 > ⓘ **A body-capability predicate is already written, for actions rather than
 > routes.** `ActionSet::gated_by(AbilitySet)`

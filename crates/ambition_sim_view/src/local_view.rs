@@ -518,6 +518,13 @@ mod tests {
             "no reference-frame policy — the view could not be told how to present"
         );
         assert!(view.contains::<CameraEaseState>(), "no ease state");
+        // ⚠ PRESENCE, and only presence — which is the right assertion and is
+        // now visibly narrower than it used to read. Since 2026-09-04 the
+        // component carries `Option<ResolvedCameraFrame>`: it exists from spawn
+        // so a reader never meets a view whose state is missing, and it says
+        // `None` until the resolver frames it. "The place to publish exists" and
+        // "a frame has been published" are different facts and this checks the
+        // first.
         assert!(
             view.contains::<ResolvedCameraSnapshot>(),
             "nowhere to publish the resolved snapshot"

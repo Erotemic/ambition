@@ -1405,6 +1405,41 @@ cap (200 vs 120), execution noise (0.20 vs 0.30), `kill_potential` and
 `stage_risk` — and it wins. ⇒ The reflex ladder works; it was being cancelled by
 the weight ladder.
 
+### ⭐⭐⭐ AND FLATTENING THE PAIR ACROSS THE WHOLE LADDER FIXES ITS ORDERING
+
+The obvious completion of the rung-5 arm: hold `frame_advantage` at `0.30` and
+`expected_payoff` at `0.10` on **every row from level 4 up** — six rows — and
+leave everything else alone (`kill_potential` and `stage_risk` still rise, and so
+do all the reflex knobs). Shipped clock, 12 seeds paired:
+
+| cell | SHIPPED | PAIR HELD FLAT |
+|---|---|---|
+| 3 vs 1 | ✔ higher | ✔ higher *(299% : 208%)* |
+| 5 vs 3 | ⛔ **LOWER outfights** | ✔ higher *(329% : 313%, within spread)* |
+| 6 vs 5 | LOWER *(within spread)* | LOWER *(within spread)* |
+| 9 vs 6 | higher *(within spread)* | ✔ **higher outfights** *(448% : 379%)* |
+
+⇒ **No cell is significantly inverted any more.** The one established defect is
+gone, and `9 vs 6` — undetermined on the shipped rows — becomes significant in the
+CORRECT direction. ⭐ Two cells improve and none regresses.
+
+⭐ **And the survival medians rise further and more cleanly**: 85s → 101s → 116s →
+122s, against the shipped ladder's 85s → 98s → 114s → 113s, where the top pair
+went backwards. Higher rungs take longer to kill each other, monotonically.
+
+⚠ **This is a MEASUREMENT, not a recommendation I am authorised to make.** It says
+what the ladder does under one alternative; it does not say the alternative is
+the right design. ⛔ Holding those two flat means higher rungs no longer weight
+frame safety or move power more heavily than rung 3 does — that is a statement
+about what a harder CPU IS, and it belongs to whoever owns the ladder. The entry
+in [`../awaiting-maintainer-decision.md`](../awaiting-maintainer-decision.md)
+carries it as one option among several, with this table attached.
+
+⚠ **Bounded, too**: 12 seeds; `6 vs 5` stays undetermined and still leans LOWER;
+and this tests one alternative, not the space. A gentler-but-nonzero rise was
+also measured at rung 5 and did nothing — see the candidate table above — so
+"less rise" is not a third option that was skipped.
+
 ### ⭐⭐ AND THE MECHANISM IS IN THE SOURCE, arrived at independently of the measurement
 
 I found the pair by measurement and only then read what those two features are.

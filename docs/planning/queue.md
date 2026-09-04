@@ -1146,8 +1146,32 @@ queue read as an execution authority for work already done.
   item in the sandbox world, which does carry an identity, so the same object is
   acquirable two ways with and without a `SimId`.
 
-- ▢ **THE FEATURE UNION: 7,072 PASSED / 40 FAILED, AND 40 OF 40 ARE ONE NEW
-  CAUSE.** ⭐⭐ **RE-RUN 2026-09-04 late on `06c7ae470` with the exact command
+- ✔ **THE FEATURE UNION IS CLEAN: 7,123 PASSED, 0 REAL FAILURES.** ⭐⭐ Measured
+  2026-09-04 on `a41f3d920`'s parent — the run reported ONE failure and it was
+  `rollback_coverage::every_mutable_ambition_resource_in_the_shipped_composition_is_accounted`,
+  which the run predates the fix for: `EngineRollbackStateDeclared` entered the
+  shipped composition and had to be accounted, which is that guard working
+  exactly as designed. Re-run alone after the waiver landed: **18 passed / 0
+  failed.**
+  ⭐ **Both residuals this row chased all day PASSED**, and each by a fix, not by
+  luck:
+  * `the_stage_kills::every_live_fighter_stays_inside_the_frame ... ok` — the
+    camera `Option` (`92f2f597b`). The mechanism argument held: under the union a
+    snapshot existed at `t3` and was `Default`; it now reports unframed and the
+    check skips the tick.
+  * `composes_through_the_sdk::a_host_that_omits_boss_encounters_still_builds_and_steps ... ok`
+    — no fix of its own; it has now fired once in five union runs and is the one
+    thing here still unexplained.
+  ⇒ **The day's series: 7,072/40 → 7,112/3 → 7,115/2 → 7,123/1(0 real).** Every
+  drop is a named cause, not a re-run: `draw_sprite_effects` (40), the
+  workspace-policy allowlist, the camera default, and a composition marker that
+  owed an entry.
+  ⚠ **The boss-omit probe stays open and the arm to run is still named**: the
+  whole `app_it` binary under union features, which is the level that decided the
+  framing one. It has never reproduced below a full workspace run.
+
+  ⛔ **HISTORICAL — the reading this row carried while the 40 were live:**
+  *THE FEATURE UNION: 7,072 PASSED / 40 FAILED, AND 40 OF 40 ARE ONE NEW CAUSE.* ⭐⭐ **RE-RUN 2026-09-04 late on `06c7ae470` with the exact command
   `run_tests.py --list --run-everything-you-probably-dont-need-this` prints
   (82-entry union, `--no-fail-fast`, `cargo exit: 101`). Every one of the 40
   failing blocks names `ambition_sprite_fx::draw_sprite_effects`** —

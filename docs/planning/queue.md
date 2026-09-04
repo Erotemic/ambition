@@ -1782,12 +1782,20 @@ queue read as an execution authority for work already done.
   stage button make it reachable, and the tier heights are recomputed from the
   engine's own jump arc because the first ones I chose by eye were **scenery**
   (250px against a 148.3px ceiling).
-  ⇒ **Remaining customers, in the order their rows make them cheapest:** `P11`'s
-  four unauthored capture roads (the seam is finished — an authored move plus the
-  existing `smash.capture_attempt` key, no plumbing), `P06`'s three named derived
-  moves, `P10`'s unpublished tech RESULT, and `P14`'s finish-zoom eligibility (the
-  camera has the machinery and drives it from zones; no fact says *this blow is
-  the finishing one*).
+  ⇒ **Remaining customers, COSTED PER ITEM 2026-09-04 — and only two of seven are
+  authoring.** ⛔ This row said "the seam is finished, no plumbing" of `P11`'s four
+  capture roads; that is true of ONE of them.
+  ✔ **Authoring alone:** `P11`'s **command grab** (an authored `Special` carrying
+  the existing `smash.capture_attempt` key), and `P06`'s **foxtrot / dash-dance**
+  (dash-stance moves `move_for_flat_verb` already selects).
+  ⛔ **Needs a seam first:** the **pivot** moves in both rows — `move_for_flat_verb`
+  hardcodes one derived stance (`{base}_dash`) and cannot express a pivot;
+  `P11`'s **tether** — a grapple mechanic exists and nothing joins it to capture;
+  `P11`'s **hit-grab** — nothing raises `CaptureAttemptRequested` from a landed
+  hit; `P10`'s **tech result** — presentation only, because the AI half is
+  deliberately absent under the no-cheat rule and publishing it would be a cheat;
+  and `P14`'s **finish-zoom eligibility** — the camera has the machinery and drives
+  it from zones, and no fact says *this blow is the finishing one*.
   ⛔ **DO NOT tune the fighter brain against ladder-rig numbers yet.** The rig has
   never measured the ladder Ambition ships — see
   [`engine/fighter-brain.md`](engine/fighter-brain.md) and the ownership question

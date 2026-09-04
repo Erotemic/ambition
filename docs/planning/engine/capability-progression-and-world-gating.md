@@ -220,6 +220,24 @@
 > should stop being story flags is a design call, not an engineering one**, and
 > the next slice of this track is a level, not a condition.
 >
+> ⭐⭐ **AND THE DENOMINATOR, MEASURED 2026-09-04, CHANGES WHAT THAT CALL IS.**
+> `scripts/authored_route_gates.py` (committed) walks every `.ldtk` in the repo:
+> **six worlds, THREE `LockWall` instances — two gated, one encounter lock.**
+> Both gated walls are in `intro.ldtk` and both name
+> `bob_field_survey_received`.
+> ⇒ **So "five families reachable and none reached" is not a migration backlog;
+> there is nothing to migrate.** Converting both existing walls would empty the
+> story-gate family — the one this page says should stay available *"when
+> sequencing is actually the design"* — and still leave four families unused.
+> **The vocabulary is not unused because authors chose flags. It is unused
+> because the world has almost no gates at all.**
+> ⇒ Filed as **awaiting-maintainer-decision #55**: grow the world, leave it and
+> accept the dormant-cluster risk explicitly, or convert the two (not
+> recommended, and recorded so it is not tried).
+> ⚠ **Do not answer it by adding walls to a demo world to make the count go up**
+> — a gate authored to exercise the vocabulary is the dormant cluster wearing a
+> level's clothes.
+>
 > ✔ **AND THE VOCABULARY IS SAFE TO AUTHOR AGAINST NOW, which is what that slice
 > needed from engineering (2026-09-04).**
 > `every_authored_gate_condition_prepares_against_the_composed_catalog`

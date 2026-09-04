@@ -1218,6 +1218,63 @@ mechanism would produce a gate that refuses everyone.
 `body.fits`, and anything later that reads the driven population), which is why
 it is filed against the population rather than against a condition.
 
+### 55. The route-gate vocabulary went 1 family to 5. Should the WORLD grow to use it? (2026-09-04)
+
+`capability-progression-and-world-gating.md` records that five of seven gate
+families became reachable from an authored route on 2026-09-04 —
+`world.flag_set`, `inventory.holds`, `held.is_held`, `body.can`, `body.fits`,
+`world.switch_on` — each with an end-to-end wall test walking the authored road.
+It also records, honestly, that **no shipped level authors any of the new ones**,
+and names the risk: the dormant-cluster shape, a vocabulary correct in every test
+and reached by nothing.
+
+⭐⭐ **THE DENOMINATOR IS THE THING NOBODY HAD COUNTED, and it changes the
+question.** Measured 2026-09-04 by `scripts/authored_route_gates.py` (committed;
+re-run it rather than trusting this):
+
+```text
+worlds scanned: 6
+LockWall instances: 3  (2 gated, 1 encounter)
+conditions actually authored:  2  world.flag_set
+```
+
+⇒ **The whole authored corpus of route gates is THREE WALLS.** Two carry a
+`gated_by`, both in `intro.ldtk`, both naming the same story flag
+(`bob_field_survey_received`); the third is the goblin encounter lock, which
+belongs to a different writer and correctly has no `gated_by`.
+
+⛔ **So "five families reachable and none reached" is NOT a migration backlog.**
+There is nothing to migrate. Converting both existing walls would empty the
+story-gate family — which is the one family the page says should stay available
+*"when sequencing is actually the design"* — and would still leave four families
+unused. **The vocabulary is not unused because authors chose flags; it is unused
+because the world has almost no gates at all.**
+
+⇒ **Jon's call, and it is a WORLD question rather than an engine one:**
+
+1. **Grow the world.** New rooms author routes gated on body size, a carried
+   tool, a cleared arena. The engine is ready and each family has a working
+   example test to copy. ⇒ This is the answer the Goal implies (*"exploration
+   emerges from what the body can do"*) and it costs level design, not code.
+2. **Leave it.** Two story-flag walls is what the current game needs; the
+   vocabulary waits for the rooms that want it. ⚠ Then the dormant-cluster risk
+   is real and should be accepted explicitly rather than by default — this
+   repository has retired clusters for less (`GatePortalRegistry`,
+   `GravityFlipSwitch`).
+3. **Convert the two.** ⛔ Not recommended and recorded so it is not tried: both
+   name a story flag because the sequencing IS the design there, so converting
+   them would be authoring a worse gate to exercise a better mechanism.
+
+⚠ **Do not answer this by adding walls to a demo world to make the count go up.**
+A gate authored to exercise the vocabulary is the dormant cluster wearing a
+level's clothes — the count would rise and nothing about the game would.
+
+ⓘ The engine side needs nothing either way: the vocabulary is guarded by
+`every_authored_gate_condition_prepares_against_the_composed_catalog`, which
+walks every `gated_by` in every shipped world against the catalog the game
+composes, so a misspelt condition fails a build rather than a playthrough. That
+guard gets stronger automatically as the corpus grows.
+
 ### 53. Are the five declared-but-unnamed optional dependencies SEAMS or DEBT? (2026-09-04)
 
 Five crates declare an optional `ambition_*` dependency that no file in their

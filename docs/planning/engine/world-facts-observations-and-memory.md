@@ -27,9 +27,11 @@ database; prefer typed domain facts"*, and that is already what shipped: the sav
 holds **thirteen** typed fact families, not a string map. ⚠ `AmbitionGameSaveData`
 has FOURTEEN `pub` fields; `version` is schema metadata rather than a fact, which
 is the one exclusion — said here so a recount reads as agreement instead of a
-correction. **NINE published conditions read SIX of them** (⚠ six published
-reading four when this sentence was written; `boss.cleared` and `quest.active`
-landed 2026-09-04 late and are in the table below):
+correction. **TEN published conditions read SEVEN of them** (⚠ this sentence has been
+re-measured three times in one day — six reading four, then nine reading six,
+now ten reading seven as `wallet.can_afford` landed. ⇒ Re-run
+`scripts/authored_route_gates.py` rather than quoting it; the counts here are
+dated, not live):
 
 | durable fact family | route-readable? |
 |---|---|
@@ -40,7 +42,8 @@ landed 2026-09-04 late and are in the table below):
 | `encounters` | ✔ `encounter.cleared` (published 2026-09-04) |
 | `bosses` | ✔ `boss.cleared` (published 2026-09-04, retiring a mirror slice) |
 | `quests` | ✔ `quest.active` (published 2026-09-04, retiring a mirror slice — and the first condition published by the GAME) |
-| `dialog_visits`, `wallet`, `checkpoint`, `minted_items`, `inventory_saved` | ⛔ nothing publishes a condition |
+| `wallet` | ✔ `wallet.can_afford` (published 2026-09-04, retiring the mirror's LARGEST customer — ten authored shop lines) |
+| `dialog_visits`, `checkpoint`, `minted_items`, `inventory_saved` | ⛔ nothing publishes a condition |
 
 ⇒ **So the first slice of THIS program is not a representation decision, it is a
 publication gap**, and it is the same shape the capability-progression program

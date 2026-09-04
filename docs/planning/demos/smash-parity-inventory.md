@@ -793,6 +793,23 @@ road: opponent percent, stage edge, kill potential and escape risk are all real
 inputs it does not read."*
 
 ⇒ **So three of four throws are stranded for a CPU, on purpose, with the gap
+
+✔ **CONFIRMED FROM THE AUTHORING SIDE 2026-09-04, which is the half this row could
+not see.** *"Stranded"* claims the moves EXIST and go unused; a reader could
+reasonably suspect they were simply never authored. ⇒ Counted: **17 of 17**
+movesets author `back_throw`, `up_throw` and `down_throw`, and **none** decline
+them — the only `None` in the repository is inside `smash_capture.rs`'s own test
+module. **So the throws are authored on every fighter and the CPU still does not
+throw them**, which is exactly what *stranded* asserts and is now measured from
+both ends.
+
+⭐ **And there is a structural curiosity worth one line.** These three are the
+**only** `Option` slots in the entire kit — `SmashRepertoire`'s nineteen fields
+carry none, and `SmashCaptureRepertoire` makes `grab`, `pummel` and
+`forward_throw` mandatory too. ⇒ The type forbids a partial kit everywhere except
+here, and **the one exception it grants has never been taken**. Whether that
+affordance should survive is a small design call with clean evidence behind it
+(17 authored, 0 declined); it is not a defect either way.
 named.** ⭐ That is a queued task. `P01` is the same state with **no declaration
 anywhere**, which makes it a discovery. ⚠ **The state is identical and the
 response is not**: a declared placeholder needs finishing; a silent one needs

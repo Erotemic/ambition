@@ -655,15 +655,46 @@ constant's origin is NOT yet identified: it is not `RESPAWN_PROTECTION_SECONDS`
 (2.0), not `RESPAWN_INTERVAL_SECONDS` (1.0), not their sum (3.0), and not
 Mary-O's `DEATH_DWELL` (3.2, and another demo's besides).
 
-⚠ **And "+0.0 in all nine" deserves its own suspicion rather than celebration.**
-Two fighters eliminated on exactly the same tick in nine different scenarios is
-not what independent deaths look like either. The likeliest reading is that with
-the rollout off neither is eliminated before the match resolves, so both readings
-land on the same terminal tick — which would make the ON arm's 4.5s "the rollout
-fighter dies 4.5s BEFORE the match would otherwise end" rather than "4.5s before
-its opponent". ⇒ **Settling that needs per-bout data the summary rows do not
-carry**, and it is the next thing to instrument here; the three-arm table above is
-solid regardless of which reading wins.
+### ⭐⭐ SETTLED BY PER-BOUT DATA — and the zero meant the opposite of "they died together"
+
+I flagged "+0.0 in all nine" as deserving suspicion rather than celebration, and
+it did. `--per-bout` (added for this) prints every bout instead of the median, and
+the answer is unambiguous.
+
+**Rollout ON**, `6 vs 5`, five seeds — eliminated ticks, seat 0 : seat 1:
+
+```
+1273 : 1543     3132 : 3402     1874 : 2144     2248 : 2518     3600 : 3600
+```
+
+⇒ **Exactly 270 ticks apart in every resolved bout** — 4.5s at 60Hz, to the tick,
+across damage totals from 23% to 206%. Not a median artifact and not behaviour:
+270 is a CONSTANT. ⇒ It is the teardown beat between the loser's elimination and
+the winner's body being removed, so the winner's `eliminated` value is **not a
+death** — it is the match ending. ⚠ **The rig's survival column conflates "died"
+with "the match finished and your body was cleaned up"**, which is worth knowing
+before anyone quotes a survival time again.
+
+**Rollout OFF**, same seeds:
+
+```
+3600 : 3600     3600 : 3600     3600 : 3600     3600 : 3600     3600 : 3600
+```
+
+⇒ **Every bout hits the 60s cap with both fighters alive** (stocks 2:2, 2:1, 1:3,
+3:2, 3:2). The "+0.0 gap" was never two deaths on one tick — **it was no deaths at
+all.**
+
+⇒ **So the finding inverts into something much bigger than a rung.** With one
+fighter running the rollout, a `6 vs 5` match RESOLVES inside 60 seconds and both
+fighters lose every stock. With neither running it, the same two fighters cannot
+finish each other in 60 seconds and end with stocks in hand.
+
+⇒ **The rollout does not make its holder slightly worse. It makes the fight
+lethal — for both — and its holder dies first.** That is consistent with the
+dodge/shield suppression measured above: a fighter that cannot dodge and cannot
+shield trades hits until somebody runs out, and the one that cannot defend runs
+out first.
 
 ⚠ **THE VERDICT AND THIS COLUMN ANSWER DIFFERENT QUESTIONS, and I first wrote
 that as "the verdict is blind to it", which is too strong.** Removing the rollout

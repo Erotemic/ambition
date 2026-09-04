@@ -199,6 +199,16 @@ pub struct LadderRigArgs {
     /// ⚠ Costs exactly double the bouts. That is the price of the control.
     #[arg(long)]
     pub paired: bool,
+    /// Print one line per BOUT beneath each row, not just the medians.
+    ///
+    /// ⭐ Added 2026-09-04 because a summary row could not settle a question its
+    /// own numbers raised: the `6 vs 5` survival gap is a constant +4.5s with the
+    /// rollout on and exactly +0.0 in all nine fixtures with it off, and a median
+    /// cannot say whether "+0.0" means the two bodies died together or neither
+    /// died before the match resolved. Those are different claims about the
+    /// engine and the table cannot separate them.
+    #[arg(long)]
+    pub per_bout: bool,
     /// Stage to fight on: `flat` (default) or `platforms`.
     ///
     /// ⭐ Every ladder number recorded before 2026-09-04 was measured on `flat`,
@@ -887,6 +897,28 @@ fn report_row(label: &str, bouts: &[Bout]) {
     } else {
         verdict.to_string()
     };
+    if args().per_bout {
+        // ⚠ RAW, and in the order the bouts were run — a paired run emits each
+        // seed's straight bout and then its mirror, so the pairs are adjacent
+        // and a reader can see the swap rather than trust it.
+        for (index, b) in bouts.iter().enumerate() {
+            println!(
+                "[ladder_rig]     bout {index:>3} {label}  eliminated {:>5} : {:<5} \
+                 stocks {} : {}  dealt {:>6.1}% : {:<6.1}%  closest {:.0}px",
+                b.eliminated[0],
+                b.eliminated[1],
+                b.stocks[0],
+                b.stocks[1],
+                b.damage_taken[1] * 100.0,
+                b.damage_taken[0] * 100.0,
+                if b.closest_approach.is_finite() {
+                    b.closest_approach
+                } else {
+                    -1.0
+                }
+            );
+        }
+    }
     let hi_peak = median(bouts.iter().map(|b| b.peak_percent[0]).collect());
     let lo_peak = median(bouts.iter().map(|b| b.peak_percent[1]).collect());
     // Damage percent is represented as a ratio, so 0.01 means one percent.

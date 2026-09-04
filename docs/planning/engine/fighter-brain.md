@@ -1144,6 +1144,24 @@ number in this document is substantially a fact about the STAND-INS**, who until
 entirely: George's own 5v3, 6v5 and 9v6 still end `1 : 1` rather than resolving.
 He is faster, not fast enough.
 
+⛔⛔ **EVERY `(within spread)` QUALIFIER RECORDED IN THIS DOCUMENT BEFORE
+`bdd4af264` WAS COMPUTED BY A TEST THAT RAN BACKWARDS.** The paired criterion was
+`|median| < 0.5 * (max - min)` over the paired differences — and a range only
+GROWS as seeds are added, while the median converges. ⇒ So the old test became
+strictly harder to pass the more evidence it was given, and a single outlier pair
+set its threshold outright.
+
+⚠ **It was caught by it happening, not by reading the code.** Point 4 below says
+one cell in sixteen was distinguishable. Re-running that identical arm at 40
+seeds turned that cell INTO `(within spread)` — more power, less significance —
+which is not a thing a working test does.
+
+⇒ Replaced by a two-sided exact **sign test** on the paired differences. All
+verdicts below are being re-measured under it; until this banner is removed, read
+every qualifier on this page as *"the old criterion said so"* and nothing more.
+⭐ The structural columns — stocks left, damage dealt, survival — are UNAFFECTED,
+because the defect was only ever in the qualifier. Points 1, 2 and 3 stand.
+
 **4. ⛔ AND THE SOBERING ONE: fifteen of the sixteen verdicts are `within
 spread`.** Across all four arms, exactly one cell is statistically
 distinguishable — **A's `3 vs 1`, "higher outfights", no qualifier.** ⇒ Rungs 3,

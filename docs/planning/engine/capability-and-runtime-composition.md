@@ -76,6 +76,26 @@ capability should offer. The hazard is now documented on the plugin itself.
 ⚠ The lesson for this program: "the crate has no plugin" and "the crate has a
 plugin nobody installs" want different answers, and the second can be correct.
 
+✔ **THE FIRST MINIMUM-HOST PROBE EXISTS AND IT PASSES (2026-09-04).**
+`a_host_that_omits_cutscenes_still_builds_and_steps` builds the engine group with
+`.disable::<CutsceneSchedulePlugin>()` and steps eight frames, against a CONTROL
+arm that installs the same group whole. *"A platformer without cutscenes"* is one
+of [`decomposition.md`](decomposition.md)'s named target compositions, and it is
+reachable today.
+⭐ **AND THE PROBE'S TWO FAILED ATTEMPTS ARE THE MORE USEFUL RESULT.** Both
+failed in the CONTROL: first inside `bevy_asset`, then in
+`finalize_unpresented_room_transition_failure_system` for want of
+`NextState<GameMode>`. Neither says anything about cutscenes. ⇒ **The engine's
+prerequisites are DECLARED — `add_headless_foundation` is exactly this set
+(MinimalPlugins, asset, image, transform, states, `init_engine_states`) and its
+doc calls itself "the minimal Bevy foundation for a HEADLESS engine app"** — they
+are simply not what `MinimalPlugins` gives you. A probe that hand-rolls the host
+measures the host.
+⚠ What it does NOT prove, stated on the test: that a cutscene-free composition is
+USEFUL, or that content triggering a cutscene degrades gracefully, or that any
+other capability can be omitted. Each is its own probe, and the doctrine names
+four more worth writing.
+
 A consumer building a small platformer should not inherit portal rendering, boss
 orchestration, networking integration, persistence, debug presentation or
 Ambition-only content merely because a broad historical crate sits in the middle

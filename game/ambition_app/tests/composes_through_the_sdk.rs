@@ -265,3 +265,61 @@ fn a_two_demo_host_publishes_exactly_the_cast_its_demos_register() {
          not scoped to what a composition MOUNTS: {ids:?}"
     );
 }
+
+/// ⭐⭐ THE FIRST MINIMUM-HOST PROBE, and it answers with evidence a question
+/// the composability doctrine could otherwise only argue about: can a consumer
+/// OMIT a named optional capability and still have an engine that runs?
+///
+/// `docs/planning/engine/decomposition.md` names "a platformer without
+/// cutscenes" as one of the target compositions. Bevy's `PluginGroup` already
+/// supplies the mechanism — `.disable::<P>()` — so the interesting part was
+/// never whether a consumer CAN omit a plugin; it is whether the rest of the
+/// engine still forms a coherent system when they do.
+///
+/// ⚠ WHAT THIS DOES AND DOES NOT PROVE. It proves the app builds its schedules
+/// and steps eight frames with `CutsceneSchedulePlugin` absent — no panic from a
+/// missing resource, no system parameter that fails validation. It does NOT
+/// prove that a cutscene-free composition is USEFUL, that content which triggers
+/// a cutscene degrades gracefully, or that any other capability can be omitted.
+/// Each of those is its own probe.
+///
+/// ⇒ Kept deliberately small, because the value is the SHAPE: this is what a
+/// capability-level minimum-host test looks like, and the doctrine names four
+/// more worth writing (a minimal foundation, combat added alone, encounters
+/// without boss encounters, simulation without the renderer).
+#[test]
+fn a_host_that_omits_cutscenes_still_builds_and_steps() {
+    use bevy::app::PluginGroup;
+
+    // ⚠ THE CONTROL ARM IS NOT OPTIONAL HERE, and it earned its place twice: the
+    // first two runs of this probe failed in the CONTROL, for reasons that had
+    // nothing to do with cutscenes. A probe that cannot tell "the capability was
+    // needed" from "my host was wrong" measures the second and reports the
+    // first.
+    let host = |disable_cutscenes: bool| {
+        let mut app = bevy::prelude::App::new();
+        // ⭐ THE MINIMUM HOST IS ALREADY NAMED, and my first two attempts at this
+        // probe reinvented it badly. `add_headless_foundation` is the engine's
+        // own declared prerequisite set — MinimalPlugins, asset, image,
+        // transform, states, and `init_engine_states` — and hand-rolling a
+        // subset of it panicked in `bevy_asset`, then in
+        // `finalize_unpresented_room_transition_failure_system` for want of
+        // `NextState<GameMode>`. ⇒ The engine's prerequisites are DECLARED; they
+        // just are not what `MinimalPlugins` gives you.
+        ambition_platformer2d::engine::add_headless_foundation(&mut app);
+        let group = ambition_platformer2d::engine::PlatformerEnginePlugins::fixed_tick().build();
+        if disable_cutscenes {
+            app.add_plugins(
+                group.disable::<ambition_platformer2d::actors::cutscene::CutsceneSchedulePlugin>(),
+            );
+        } else {
+            app.add_plugins(group);
+        }
+        for _ in 0..8 {
+            app.update();
+        }
+    };
+
+    host(false);
+    host(true);
+}

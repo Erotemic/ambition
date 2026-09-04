@@ -1314,8 +1314,15 @@ identical to C — the authored rows differ in utility weights too — but the
 Nobody had ever pointed the rig at him. D's stocks-left are lower than A's in
 **every** cell, and his damage dealt runs 297%/331% at the top cells against the
 Robots' ~200%. ⇒ **So the "matches never resolve" character of every ladder
-number in this document is substantially a fact about the STAND-INS**, who until
-2026-09-04 had no special button, no forward tilt and no dash attack. ⚠ Not
+number in this document is substantially a fact about the STAND-INS**, who have
+no special button. ⚠ **This sentence also said *"no forward tilt and no dash
+attack"* and that is WITHDRAWN** — those were read off unbound verbs, and the
+directional chain answers an unbound `attack_forward` with the `jab`. Enumerated
+by press rather than by binding, the stand-ins' whole surplus over George is
+**eight `special` presses and nothing else**; see item 4 of the instrument list
+below. ⇒ The point of this paragraph is unchanged and slightly sharpened: the
+stand-ins are George's genre shape **with one button removed**, which is enough
+to explain a slower fighter without inventing two more missing moves. ⚠ Not
 entirely: George's own 5v3, 6v5 and 9v6 still end `1 : 1` rather than resolving.
 He is faster, not fast enough.
 

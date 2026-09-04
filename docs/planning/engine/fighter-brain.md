@@ -442,6 +442,60 @@ inverted" are BOTH unsupported by this run, and the table above is the reference
 point that says so.
 
 
+### What the tiers did to the fight — flat vs platforms, measured 2026-09-04
+
+⭐ **The first measurement this project has of a stage CHANGING the fight**, and
+the reason `super-smash-siblings.md`'s checkpoint 4 asked for more than one
+layout. Same 9 fixtures × 4 rungs × 15 seeds × 60s, same outcome verdict, same
+engine-floor ladder, unpaired, `--stage flat` against `--stage platforms`.
+
+⚠ **The two stages are identical except for the three tiers.** Same
+`STAGE_SIZE`, same blast margins, same solid floor — and the fixtures' starting
+positions are *literally the same coordinates*, because
+`starting_positions_on` maps proportionally onto the room's AABB and
+`stage_bounds` derives that from `world.size`, which both stages share.
+
+| | flat | platforms |
+|---|---:|---:|
+| mean peak% carried, per fighter | **107.7** | **81.5** |
+| mean stocks LEFT (both seats) | **1.64** | **3.78** |
+| cells containing an unfought bout | 1 / 36 | **11 / 36** |
+| unfought bouts (of 540) | 3 | **41** |
+
+⇒ **The tiers roughly halve the lethality.** Fighters end with more than twice
+the stocks and carry a quarter less damage, and the rate at which a 60-second
+bout ends with NEITHER fighter landing a hit goes from 3 in 540 to 41.
+
+⇒ The verdict split barely moves (flat 24:12 toward LOWER, platforms 20:14, every
+cell still `(within spread)`), so the stage changes HOW MUCH happens far more
+than it changes WHO wins.
+
+⭐ **A mechanism, traced in code rather than inferred from the numbers.**
+`WorldView::is_standable` counts `SolidKind::OneWay`, so `ground_below()` finds a
+tier; and `situation.rs:85` classifies `Recovery` from
+`!terrain.is_empty() && !on_ground && ground_below().is_none()`. ⇒ On the
+platformed stage a fighter above a tier **has ground below and is therefore not
+Recovering** — correct behaviour, and a large one: situations that were recovery
+scrambles on the flat stage are neutral here, and a fighter that would have been
+edgeguarded or self-destructed instead lands and plays.
+
+⛔ **Two caveats a reader needs before generalising this to "platforms".**
+
+1. **A fixture is a pair of coordinates, not a situation.** `recovery_above`
+   drops SELF at (320, −32); this layout's top tier occupies y 180–196 across
+   x 236–404, so the fall is INTERCEPTED. The fixture's premise — *"Self is past
+   a blastzone"* — is simply less true here, and four of the nine fixtures are
+   recovery fixtures.
+2. **This layout's top tier sits ten pixels under the respawn platforms**
+   (`smash_platform_stage`'s doc has the arithmetic). A fighter whose respawn
+   grace expires drops onto the tier rather than returning to the stage, so part
+   of the measured gentleness is that specific geometry rather than tiers in
+   general.
+
+⇒ So the honest claim is **"this layout halves the lethality"**, not "platforms
+do". Fixing the respawn overlap and re-running is the next measurement, and the
+geometry and the number have to move together.
+
 ## Relationship to navigation/recovery architecture
 
 The reusable recovery probe and `RecoveryLens` are legitimate body-capability

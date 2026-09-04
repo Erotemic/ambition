@@ -1094,6 +1094,25 @@ queue read as an execution authority for work already done.
     *"callers must not invent a world-origin fallback"* — so a snapshot centred at
     (0,0) with live seats in the world means something resolved a cast to nothing.
     Fighter side.
+    ⛔⛔ **AND THE FOURTH ARM — the real workspace union — CANNOT RUN THIS TEST ON
+    THIS MACHINE AT ALL, which is why the elimination above stops where it does.**
+    `cargo test --workspace --all-features --test smash_it` builds and then dies
+    before a single test: *"Tracy Profiler initialization failure: CPU doesn't
+    support invariant TSC."* The union turns Tracy on, Tracy aborts the binary at
+    startup, and the run reports `error: test failed` with **no test line and no
+    `test result` line anywhere in the log**. ⇒ So the smash framing failure was
+    observed on a machine whose CPU has invariant TSC and cannot currently be
+    observed on one that does not; `TRACY_NO_INVARIANT_CHECK=1` is the documented
+    bypass and has not yet been used here.
+    ⚠ **Worth more than this row: a feature-union run is not portable.** Jon's
+    standing ask is that a fresh clone reach a runnable game, and on this class of
+    CPU the union suite cannot execute its binaries at all — the failure is a
+    profiler precondition, not a test, and it presents as an opaque
+    `test failed` with an empty result set.
+    ⚠ I also lost the message once by filtering my own background run through
+    `grep -E "^test |test result|..."`: the Tracy line matched none of those
+    patterns, so the log looked empty and the exit code was the pipeline's. Same
+    shape as the `| tail` trap this row already records, one level down.
   ⛔ **`| tail` VOIDED THE FIRST RUN'S VERDICT.** The first attempt piped an
   hour-long job through `tail -120`, which threw away every per-crate result and
   made the pipeline's exit code 0 while cargo's was 101. Redirect to a file.

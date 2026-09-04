@@ -265,3 +265,230 @@ fn the_plugin_steps_in_a_composition_with_no_render_stack_and_still_tints() {
          delete every tint in the demo",
     );
 }
+
+/// A world with the effect systems and the assets they need, without a render
+/// stack — the shape every test below wants.
+fn fx_app() -> App {
+    let mut app = App::new();
+    app.init_resource::<Assets<SpriteFxMaterial>>()
+        .init_resource::<Assets<Mesh>>()
+        .init_resource::<Assets<TextureAtlasLayout>>()
+        .init_resource::<Assets<Image>>();
+    // The plugin's own ordering, spelled out: free path first (so a tint is off
+    // the sprite before the mesh path clones it), then the two restores, then
+    // the draw.
+    app.add_systems(
+        Update,
+        (
+            apply_free_sprite_effects,
+            restore_tinted_sprites_without_effects,
+            restore_sprites_without_effects,
+            draw_sprite_effects,
+        )
+            .chain(),
+    );
+    app
+}
+
+fn a_32x16_sprite(app: &mut App) -> Sprite {
+    let image = app
+        .world_mut()
+        .resource_mut::<Assets<Image>>()
+        .add(Image::default());
+    Sprite {
+        image,
+        custom_size: Some(Vec2::new(32.0, 16.0)),
+        ..default()
+    }
+}
+
+/// ⛔⛔ THE ENTITY'S OWN SCALE SURVIVES THE EFFECT.
+///
+/// The mesh is a unit quad, so drawing at the sprite's pixel size means writing
+/// `frame_size * scale` into `Transform`. Restoring only the `Sprite` hands the
+/// entity back MAGNIFIED by its own frame size — a 32x16 sprite at scale 1
+/// returns at scale 32x16 — and every consumer of that transform (parenting,
+/// physics debug draw, anything reading world size) is then wrong about a sprite
+/// that looks right only because nothing re-derived its size.
+///
+/// ⚠ A NON-UNIT INITIAL SCALE is what makes this a test rather than a tautology:
+/// with `Transform::default()` the "restore" and "leave it alone" readings agree.
+#[test]
+fn cancelling_a_shader_effect_gives_back_the_entitys_own_scale() {
+    let mut app = fx_app();
+    let sprite = a_32x16_sprite(&mut app);
+    let entity = app
+        .world_mut()
+        .spawn((
+            SpriteEffect::HueShift { degrees: 137.5 },
+            sprite,
+            Transform::from_scale(Vec3::new(2.0, 3.0, 1.0)),
+        ))
+        .id();
+
+    app.update();
+    assert_eq!(
+        app.world().get::<Transform>(entity).unwrap().scale.truncate(),
+        Vec2::new(64.0, 48.0),
+        "premise: the quad draws at frame size times the entity's own scale"
+    );
+
+    app.world_mut().entity_mut(entity).remove::<SpriteEffect>();
+    app.update();
+    assert_eq!(
+        app.world().get::<Transform>(entity).unwrap().scale,
+        Vec3::new(2.0, 3.0, 1.0),
+        "the effect was removed; the entity keeps the scale it arrived with"
+    );
+}
+
+/// ⛔⛔ AND IT DOES NOT COMPOUND.
+///
+/// The failure the test above describes is bad once and catastrophic on a cycle:
+/// an effect that goes on, comes off and goes on again multiplies the frame size
+/// in every round — 32 -> 1024 -> 32768 — so a sprite that flickers an effect
+/// (a hit flash, a portal gun charge) walks off the screen in a second.
+#[test]
+fn re_applying_a_shader_effect_does_not_compound_the_scale() {
+    let mut app = fx_app();
+    let sprite = a_32x16_sprite(&mut app);
+    let entity = app
+        .world_mut()
+        .spawn((SpriteEffect::HueShift { degrees: 90.0 }, sprite, Transform::default()))
+        .id();
+
+    for _ in 0..3 {
+        app.update();
+        app.world_mut().entity_mut(entity).remove::<SpriteEffect>();
+        app.update();
+        app.world_mut()
+            .entity_mut(entity)
+            .insert(SpriteEffect::HueShift { degrees: 90.0 });
+    }
+    app.update();
+
+    assert_eq!(
+        app.world().get::<Transform>(entity).unwrap().scale.truncate(),
+        Vec2::new(32.0, 16.0),
+        "three add/remove cycles must leave the quad at ONE frame size, not at \
+         32^4 of it"
+    );
+}
+
+/// A CHANGED SHADER EFFECT REBUILDS FROM THE ORIGINAL, NOT FROM THE LAST DRAW.
+///
+/// The restore-then-redraw path inside `draw_sprite_effects` is the one that
+/// runs while the entity keeps its effect, so it is the compounding case that
+/// never passes through `restore_sprites_without_effects` at all.
+#[test]
+fn changing_one_shader_effect_for_another_does_not_compound_the_scale() {
+    let mut app = fx_app();
+    let sprite = a_32x16_sprite(&mut app);
+    let entity = app
+        .world_mut()
+        .spawn((SpriteEffect::HueShift { degrees: 10.0 }, sprite, Transform::default()))
+        .id();
+    app.update();
+
+    app.world_mut()
+        .entity_mut(entity)
+        .insert(SpriteEffect::HueShift { degrees: 200.0 });
+    // One frame to restore, one for the pass above to redraw.
+    app.update();
+    app.update();
+
+    assert_eq!(
+        app.world().get::<Transform>(entity).unwrap().scale.truncate(),
+        Vec2::new(32.0, 16.0),
+        "swapping effect A for effect B redrew from a transform effect A had \
+         already written"
+    );
+}
+
+/// ⛔ A TINT COMES BACK OFF.
+///
+/// The free path writes `Sprite.color` in place, which is a MUTATION of the
+/// caller's data and not a draw this crate owns — so without a record of the
+/// previous colour, removing the effect leaves the sprite whatever colour the
+/// effect chose. That is the same un-cancellable-effect failure the mesh path
+/// has a restore system for, in the half that has no marker component to notice.
+#[test]
+fn cancelling_a_tint_gives_back_the_sprites_own_colour() {
+    let mut app = fx_app();
+    let mut sprite = a_32x16_sprite(&mut app);
+    sprite.color = Color::srgb(0.2, 0.4, 0.6);
+    let entity = app
+        .world_mut()
+        .spawn((
+            SpriteEffect::Tint(Color::srgb(1.0, 0.0, 0.0)),
+            sprite,
+            Transform::default(),
+        ))
+        .id();
+
+    app.update();
+    assert_eq!(
+        app.world().get::<Sprite>(entity).unwrap().color,
+        Color::srgb(1.0, 0.0, 0.0),
+        "premise: the tint applied"
+    );
+
+    app.world_mut().entity_mut(entity).remove::<SpriteEffect>();
+    app.update();
+    assert_eq!(
+        app.world().get::<Sprite>(entity).unwrap().color,
+        Color::srgb(0.2, 0.4, 0.6),
+        "the sprite's authored colour, not the tint's"
+    );
+    assert!(
+        app.world().get::<SpriteFxTinted>(entity).is_none(),
+        "and the record goes with it, or the NEXT tint records this one as the \
+         original"
+    );
+}
+
+/// ⛔⛔ CROSSING FROM THE FREE PATH TO THE MESH PATH MUST NOT BAKE THE TINT IN.
+///
+/// `draw_sprite_effects` stores `original: sprite.clone()` — and if the tint is
+/// still written into that sprite when it is cloned, the tint becomes the
+/// entity's permanent colour: every later restore, including removing the effect
+/// entirely, gives back the tinted sprite. That is why the free path takes its
+/// colour back on the same frame the effect stops being a tint, BEFORE the mesh
+/// path runs.
+#[test]
+fn a_tint_replaced_by_a_shader_effect_is_not_baked_into_the_stored_original() {
+    let mut app = fx_app();
+    let mut sprite = a_32x16_sprite(&mut app);
+    sprite.color = Color::srgb(0.2, 0.4, 0.6);
+    let entity = app
+        .world_mut()
+        .spawn((
+            SpriteEffect::Tint(Color::srgb(1.0, 0.0, 0.0)),
+            sprite,
+            Transform::default(),
+        ))
+        .id();
+    app.update();
+
+    app.world_mut()
+        .entity_mut(entity)
+        .insert(SpriteEffect::HueShift { degrees: 90.0 });
+    app.update();
+    assert_eq!(
+        app.world()
+            .get::<SpriteFxDrawn>(entity)
+            .expect("the hue shift took the sprite over")
+            .original
+            .color,
+        Color::srgb(0.2, 0.4, 0.6),
+        "the mesh path stored the TINTED sprite as the original"
+    );
+
+    app.world_mut().entity_mut(entity).remove::<SpriteEffect>();
+    app.update();
+    assert_eq!(
+        app.world().get::<Sprite>(entity).unwrap().color,
+        Color::srgb(0.2, 0.4, 0.6),
+        "and so the entity came back wearing a tint nothing asked for"
+    );
+}

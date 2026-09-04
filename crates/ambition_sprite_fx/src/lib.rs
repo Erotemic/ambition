@@ -85,18 +85,67 @@ impl SpriteEffect {
     }
 }
 
+/// The sprite colour a [`SpriteEffect::Tint`] overwrote, so the tint can be
+/// taken back off.
+///
+/// ⛔ THE FREE PATH IS A MUTATION, NOT A DRAW, so it owes the same reversibility
+/// the mesh path's [`SpriteFxDrawn`] provides. Writing `Sprite.color` with no
+/// record of the previous value makes a tint PERMANENT: removing the effect
+/// leaves the sprite the colour the effect chose, and a second tint on top of
+/// the first would record that as the original. This is the free path's half of
+/// "an effect is a component you add and remove", and without it half the
+/// crate's contract only holds one way.
+#[derive(Component, Clone, Copy, Debug)]
+pub struct SpriteFxTinted {
+    /// `Sprite.color` as it was before the tint.
+    pub original_color: Color,
+}
+
 /// Apply the effects the built-in sprite pipeline can express, in place.
 ///
 /// Only [`SpriteEffect::Tint`] qualifies; the others need a material and are
 /// left to the caller that draws the quad, so this system never silently
 /// half-applies a hue shift by writing its (white) colour argument.
-pub fn apply_free_sprite_effects(mut sprites: Query<(&SpriteEffect, &mut Sprite)>) {
-    for (effect, mut sprite) in &mut sprites {
+///
+/// ⭐ IT ALSO TAKES THE TINT BACK OFF when the effect stops being a tint —
+/// including when it becomes a hue shift, which must reach [`draw_sprite_effects`]
+/// with the UNTINTED sprite or the tint is baked into the stored original and
+/// survives every later restore. That is why this runs first in `PostUpdate`.
+pub fn apply_free_sprite_effects(
+    mut commands: Commands,
+    mut sprites: Query<(Entity, &SpriteEffect, &mut Sprite, Option<&SpriteFxTinted>)>,
+) {
+    for (entity, effect, mut sprite, tinted) in &mut sprites {
         if let SpriteEffect::Tint(color) = *effect {
+            if tinted.is_none() {
+                commands.entity(entity).insert(SpriteFxTinted {
+                    original_color: sprite.color,
+                });
+            }
             if sprite.color != color {
                 sprite.color = color;
             }
+        } else if let Some(tinted) = tinted {
+            // The effect changed out of `Tint`; give the colour back before the
+            // mesh path clones this sprite as its original.
+            sprite.color = tinted.original_color;
+            commands.entity(entity).remove::<SpriteFxTinted>();
         }
+    }
+}
+
+/// Give back the colour a [`SpriteEffect::Tint`] took, once the effect is gone.
+///
+/// The sibling of [`restore_sprites_without_effects`] for the free path. It runs
+/// unconditionally — the free path has no render-stack prerequisites — so a
+/// headless host cancels a tint exactly as a rendering one does.
+pub fn restore_tinted_sprites_without_effects(
+    mut commands: Commands,
+    mut orphaned: Query<(Entity, &mut Sprite, &SpriteFxTinted), Without<SpriteEffect>>,
+) {
+    for (entity, mut sprite, tinted) in &mut orphaned {
+        sprite.color = tinted.original_color;
+        commands.entity(entity).remove::<SpriteFxTinted>();
     }
 }
 
@@ -140,6 +189,16 @@ impl MaterialKey {
 pub struct SpriteFxDrawn {
     /// The sprite as it was before this crate replaced its draw.
     pub original: Sprite,
+    /// `Transform.scale` as it was before the quad's size was written into it.
+    ///
+    /// ⛔⛔ THE QUAD'S SCALE IS NOT THE ENTITY'S SCALE. The mesh is a unit
+    /// `Rectangle`, so drawing at the sprite's pixel size means writing
+    /// `basis.size * scale` into the transform — and if that is not taken back,
+    /// the entity is handed back MAGNIFIED by its own frame size. Worse, it
+    /// COMPOUNDS: a 32×16 frame restored at scale 32 and re-drawn scales to
+    /// 1024×256, and again on the next cycle. An effect that can be added and
+    /// removed must leave nothing behind.
+    pub original_scale: Vec3,
     /// The effect the current mesh draw was built for, so a CHANGED effect
     /// rebuilds and an unchanged one costs nothing.
     pub drawn_for: SpriteEffect,
@@ -169,7 +228,7 @@ pub fn draw_sprite_effects(
     mut quad: Local<Option<Handle<Mesh>>>,
     mut cache: Local<HashMap<MaterialKey, Handle<SpriteFxMaterial>>>,
     fresh: Query<(Entity, &SpriteEffect, &Sprite, &Transform), Without<SpriteFxDrawn>>,
-    mut drawn: Query<(Entity, &SpriteEffect, &mut SpriteFxDrawn)>,
+    mut drawn: Query<(Entity, &SpriteEffect, &mut SpriteFxDrawn, &mut Transform)>,
 ) {
     for (entity, effect, sprite, transform) in &fresh {
         if !effect.needs_material() {
@@ -203,6 +262,7 @@ pub fn draw_sprite_effects(
         entity_commands.insert((
             SpriteFxDrawn {
                 original: sprite.clone(),
+                original_scale: transform.scale,
                 drawn_for: *effect,
             },
             Mesh2d(mesh),
@@ -218,11 +278,12 @@ pub fn draw_sprite_effects(
     // An effect CHANGED on an entity already drawn as a mesh: put the sprite
     // back and let the pass above rebuild it. Restoring first is what keeps the
     // stored original authoritative rather than accumulating edits.
-    for (entity, effect, mut state) in &mut drawn {
+    for (entity, effect, mut state, mut transform) in &mut drawn {
         if state.drawn_for == *effect {
             continue;
         }
         state.drawn_for = *effect;
+        transform.scale = state.original_scale;
         let mut entity_commands = commands.entity(entity);
         entity_commands.insert(state.original.clone());
         entity_commands
@@ -237,9 +298,10 @@ pub fn draw_sprite_effects(
 /// never having applied.
 pub fn restore_sprites_without_effects(
     mut commands: Commands,
-    orphaned: Query<(Entity, &SpriteFxDrawn), Without<SpriteEffect>>,
+    mut orphaned: Query<(Entity, &SpriteFxDrawn, &mut Transform), Without<SpriteEffect>>,
 ) {
-    for (entity, state) in &orphaned {
+    for (entity, state, mut transform) in &mut orphaned {
+        transform.scale = state.original_scale;
         let mut entity_commands = commands.entity(entity);
         entity_commands.insert(state.original.clone());
         entity_commands
@@ -312,7 +374,10 @@ impl Plugin for SpriteFxPlugin {
     fn build(&self, app: &mut App) {
         // The free path always runs; the mesh path needs the render stack and
         // is added below with the material it draws through.
-        app.add_systems(PostUpdate, apply_free_sprite_effects);
+        app.add_systems(
+            PostUpdate,
+            (apply_free_sprite_effects, restore_tinted_sprites_without_effects).chain(),
+        );
         // `embedded_asset!` needs the AssetPlugin's registry.
         if app
             .world()

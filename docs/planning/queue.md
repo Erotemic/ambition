@@ -2552,6 +2552,10 @@ queue read as an execution authority for work already done.
   re-taken** — the instrument is trustworthy now and nothing has been re-measured
   through it, which needs a machine with disk. ⇒ `3 vs 1` and `5 vs 3` stay
   UNCONFIRMED until then.
+  ⚠ **And the hold covers the DESCRIPTIVE columns too**: `median()` was corrected in
+  the same pass — it returned the upper-middle order statistic, and every `--paired`
+  run has an even sample by construction, so every number this row quotes is
+  pre-fix. Largest effect on the stock columns, which are small integers.
   ⚠ Landing it surfaced a second lesson worth more than the fix: with the paired
   helpers written and every one of their arms green, re-wiring the row back to the
   broken shape left **all tests passing** — each called the helper directly, and

@@ -341,6 +341,10 @@ the whole effect. ⇒ Read `5 vs 3` as *"a defect with a named cause and an
 unconfirmed significance label"*, not as withdrawn — and re-take it first once the
 rig is fixed.
 
+⚠ **The hold covers the descriptive columns as well.** `median()` was corrected in
+the same pass — it returned the upper-middle order statistic and every `--paired`
+run is even-sized, so the stocks and damage figures quoted above are pre-fix too.
+
 
 ⇒ **`6 vs 5` is NOT the bad rung; `5 vs 3` is.** The rollout story does not apply
 to it either — the shipped ladder sets `rollout_depth: 0` on all nine rows, so no

@@ -19,29 +19,15 @@
 //! remember is HOW FAST it was going one tick before, because the same function
 //! zeroes the velocity as it settles.
 //!
-//! ⛔⛔ **THIS CARRIED A TODO SAYING ONLY THE CONTROLLED SUBJECT CAN PICK ONE UP,
-//! AND THAT WAS STALE IN BOTH HALVES — corrected 2026-09-04.** It read: *"both
-//! `ControlledSubject`-scoped by construction … so a CPU cannot take a bomb off
-//! the floor and throw it back at you. That is a real gap and it is an ENGINE
-//! project (item custody per fighter, not per session)."*
+//! ⭐ **ANY DRIVEN BODY CAN TAKE AND THROW ONE, NOT ONLY THE CONTROLLED SUBJECT.**
+//! `pickup_held_item_system` and `throw_held_item_system` both take
+//! `driven: DrivenBodies` — the union of `ControlledSubject` and every
+//! `DrivingParticipant` — and `ItemCustody::Held { holder: Entity }` is keyed by
+//! the holding body. ⇒ A CPU seat is eligible on both roads.
 //!
-//! ⇒ Checked at the source rather than believed:
-//!   * `pickup_held_item_system` and `throw_held_item_system` both take
-//!     `driven: DrivenBodies` — a `SystemParam` yielding the UNION of
-//!     `ControlledSubject` and every `DrivingParticipant`. Not one subject.
-//!   * `ItemCustody::Held { holder: Entity }` is already keyed by the holding
-//!     BODY. Custody was never per session.
-//!
-//! ⭐ **So the engine project this note asked for had already shipped** (the
-//! all-participant pickup/use/throw carve, 2026-08-27), and the note went on
-//! describing the gap it closed. ⚠ **That is the danger of a TODO that explains
-//! itself well**: it reads as a considered finding, so the next person defers to
-//! it instead of opening the two files it names.
-//!
-//! ⓘ **What is genuinely NOT established here**: the systems PERMIT a CPU to take
-//! and throw a bomb; whether the fighter brain ever asks to is a separate
-//! question and is unmeasured. Permission is not behaviour — the same distinction
-//! that made 16 of George's 28 authored moves never start.
+//! ⚠ **Eligible is not the same as observed.** Whether the fighter brain ever
+//! REQUESTS a pickup is a separate question and is unmeasured; the systems permit
+//! it, which is all this states.
 
 use bevy::prelude::*;
 

@@ -137,6 +137,32 @@ impl Scenario {
         Some((false, foe.ledge_hanging))
     }
 
+    /// Hostile shots the fixture starts with in the air, as
+    /// `(offset_from_self, direction)` per projectile.
+    ///
+    /// ⛔ **Direction and OFFSET, not position and velocity.** The fixture's
+    /// coordinates describe its own 800x600 stage, and pasting them onto the
+    /// running stage is the mistake `starting_positions_on` exists to avoid. A
+    /// harness maps the offset the same way it maps positions, and fires a REAL
+    /// authored bolt rather than a spec built from these numbers — the fixture's
+    /// premise is *"a shot in the air"*, not a particular damage value.
+    pub fn starting_shots(&self) -> Vec<(ae::Vec2, ae::Vec2)> {
+        self.view
+            .projectiles
+            .iter()
+            .filter(|shot| shot.hostile_to_self)
+            .map(|shot| {
+                let offset = shot.pos - self.view.self_view.pos;
+                let dir = if shot.vel == ae::Vec2::ZERO {
+                    ae::Vec2::new(-1.0, 0.0)
+                } else {
+                    shot.vel.normalize()
+                };
+                (offset, dir)
+            })
+            .collect()
+    }
+
     /// Scenario state that a position-only harness cannot reproduce.
     ///
     /// Derived from the fixture itself. Grounded state is excluded because normal

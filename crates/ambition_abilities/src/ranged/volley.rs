@@ -54,6 +54,36 @@ fn volley_origin_world(
 /// bolts along the body-semantic aim direction (`ActorControl` aim / locomotion /
 /// facing). Plain Attack only — `Shield + Attack` drops the item
 /// (the id is excluded from throw-on-plain-Attack in `throw_held_item_system`).
+/// The volley's own authored bolt, for a harness that needs a REAL shot in the
+/// air rather than a fabricated one.
+///
+/// ⭐ Exported because the alternative is worse. A fixture that wants "an
+/// opponent at range with a shot in the air" can either fire this — the spec the
+/// game actually fires, damage and speed and lifetime included — or invent a
+/// `ProjectileSpawn` with numbers copied out of the fixture, which stages a
+/// projectile no ability authors. The rig maps fixture POSITIONS onto the real
+/// stage for the same reason (`starting_positions_on`: pasting the fixture's own
+/// numbers put every recovery quadrant outside any platform).
+///
+/// ⚠ It is one bolt, not the spread: `fire_volley_system` emits several across
+/// `VOLLEY_SPREAD` and a harness wanting the fan should call this per angle.
+pub fn authored_bolt(origin: ae::Vec2, dir: ae::Vec2) -> ProjectileSpawn {
+    ProjectileSpawn {
+        origin,
+        dir,
+        speed: VOLLEY_SPEED,
+        damage: VOLLEY_DAMAGE,
+        max_lifetime: VOLLEY_LIFETIME,
+        half_extent: VOLLEY_HALF,
+        gravity: 0.0,
+        visual_id: String::new(),
+        bounces: 0,
+        bounce_on_world_contact: false,
+        splash_half_extent: 0.0,
+        boomerang_return_s: None,
+    }
+}
+
 pub fn fire_volley_system(
     // ⭐ EVERY DRIVEN BODY, not the one the primary seat happens to hold.
     // `ControlledSubject` is singular by construction, so a possessed body or a

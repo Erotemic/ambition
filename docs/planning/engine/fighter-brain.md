@@ -163,8 +163,9 @@ Keep deterministic fixed-seed reports and enough instrumentation to show that:
 
 Do not build a second permanent telemetry stack around the fighter brain.
 
-⭐ **MEASURED 2026-09-03: the rig reproduces FIVE of its NINE named scenarios,
-and it says so itself.** `smash_tool ladder-rig --scenarios --seeds 1` opens with
+⭐ **MEASURED 2026-09-03: the rig reproduced FIVE of its NINE named scenarios
+when this section was written, and it says so itself. It is NINE of nine now —
+the four reclaims are recorded below, in the order they landed.** `smash_tool ladder-rig --scenarios --seeds 1` opens with
 *"PLACEMENT ONLY — 5 of 9 fixture(s) are reproduced by placing two bodies"* and
 then skips four by name, each with the setup it cannot perform:
 
@@ -239,14 +240,25 @@ against the 8-of-9 one. ⇒ The new setup only fires where a fixture asks for it
 does not hang. A reclaim that also moved the existing numbers would have been a
 regression wearing a coverage win's clothes.
 
-⇒ **Remaining: 1 of 9.** `projectile_camper` needs a shot in the air.
-`ProjectileSpawnRequest::open(owner, spawn, start)` is public and the rig could
-write one — but it takes an authored `ProjectileSpawn`, and inventing one to
-match the fixture's *"damage 3, velocity (-400, 0)"* would stage a projectile the
-premise did not describe. ⛔ That is the same line the other three respected:
-reproduce the fixture's state from the real thing, or report it unreproduced.
-The honest next step is to fire an AUTHORED projectile whose spec already matches,
-not to fabricate a spec.
+✔ **AND THE LAST ONE: 8 of 9 → 9 of 9.** `projectile_camper` runs. The rig fires
+the volley ability's OWN authored bolt — `abilities::ranged::volley::authored_bolt`,
+exported for exactly this — from the foe toward the subject, mapping the
+fixture's projectile OFFSET the way `starting_positions_on` maps its positions.
+
+⛔ **The fixture's `damage: 3` is not reproduced, deliberately, and that is the
+point.** Its premise is *"an opponent at range with a shot in the air"*; the
+damage value describes its own 800x600 stage the way its coordinates do.
+Building a `ProjectileSpawn` out of the fixture's numbers would stage a
+projectile **no ability authors** — a shot that exists nowhere in the game. The
+rig fires a real one instead, on the real spawn road
+(`ProjectileSpawnRequest::open` → `ProjectileStart::StepThisTick`).
+
+⭐ **ALL NINE, AND THE OTHER EIGHT DID NOT MOVE.** Every fixture that ran before
+each change produces byte-identical rows after it — checked at 5→8 and again at
+8→9, by hashing their lines. Setup fires only where a fixture asks: no velocity,
+no hitstun seconds, no hang, no shots means no writes. A coverage win that also
+moved the existing numbers would be a regression in a win's clothing, and a
+rising fixture count would never have shown it.
 
 ## Relationship to navigation/recovery architecture
 

@@ -321,6 +321,7 @@ fn run_scenarios(seeds: usize) {
                 && s.unreproduced_by_placement().iter().all(|what| {
                     *what == "velocity"
                         || *what == "ledge hang"
+                        || *what == "projectiles"
                         || (*what == "body phase" && s.starting_hitstun().is_some())
                 })
         })
@@ -358,6 +359,7 @@ fn run_scenarios(seeds: usize) {
             .filter(|what| *what != "velocity")
             .filter(|what| !(*what == "body phase" && phase_is_hitstun_only))
             .filter(|what| *what != "ledge hang")
+            .filter(|what| *what != "projectiles")
             .collect();
         if !missing.is_empty() {
             println!(
@@ -598,6 +600,7 @@ fn place_at(
     velocities: Option<(ae::Vec2, ae::Vec2)>,
     hitstun: Option<(f32, f32)>,
     ledge_hangs: Option<(bool, bool)>,
+    shots: &[(ae::Vec2, ae::Vec2)],
 ) -> bool {
     use ambition_platformer2d::actor::{transit_body, BodyClusterQueryData, TransitVelocity};
     let world = app.world_mut();
@@ -650,6 +653,47 @@ fn place_at(
     //
     // ⚠ Separate pass because it is a different component: `transit_body` owns
     // pose and velocity, and nothing about hitstun is a transit.
+    // ⭐ A REAL BOLT, NOT A FABRICATED ONE. The fixture's premise is "an
+    // opponent at range with a shot in the air"; its `damage: 3` describes its
+    // own 800x600 stage the way its coordinates do. So the rig fires the volley
+    // ability's OWN authored spec (`abilities::ranged::volley::authored_bolt`)
+    // from the foe toward the subject, and maps the fixture's offset the same
+    // way `starting_positions_on` maps its positions. Building a
+    // `ProjectileSpawn` out of the fixture's numbers would stage a projectile no
+    // ability authors.
+    if !shots.is_empty() {
+        use ambition_platformer2d::projectiles::spawn_request::{
+            ProjectileSpawnRequest, ProjectileStart,
+        };
+        let world = app.world_mut();
+        let mut seats = world.query::<(&MatchSeat, BodyClusterQueryData)>();
+        let mut subject = None;
+        let mut shooter = None;
+        for (seat, cluster) in seats.iter(world) {
+            if seat.0 == 0 {
+                subject = Some(cluster.kinematics.pos);
+            } else {
+                shooter = Some(cluster.kinematics.pos);
+            }
+        }
+        if let (Some(subject_pos), Some(_)) = (subject, shooter) {
+            let mut foes =
+                world.query_filtered::<bevy::prelude::Entity, bevy::prelude::With<MatchSeat>>();
+            let owner = foes.iter(world).last();
+            if let Some(owner) = owner {
+                for (offset, dir) in shots {
+                    let origin = subject_pos + *offset;
+                    world.write_message(ProjectileSpawnRequest::open(
+                        owner,
+                        ambition_platformer2d::abilities::ranged::volley::authored_bolt(
+                            origin, *dir,
+                        ),
+                        ProjectileStart::StepThisTick,
+                    ));
+                }
+            }
+        }
+    }
     // ⭐ A HANG IS NOT A POSITION, so it is arranged AFTER `transit_body` —
     // which clears `ledge_grab` on purpose (`reconcile_transit`: "the ledge
     // anchor was a fact of the departure point"). Setting it before the transit
@@ -783,10 +827,11 @@ fn run_bout_at(
                 let velocities = scenario.starting_velocities();
                 let hitstun = scenario.starting_hitstun();
                 let ledge_hangs = scenario.starting_ledge_hangs();
+                let shots = scenario.starting_shots();
                 placed = stage_bounds(&mut app)
                     .and_then(|bounds| scenario.starting_positions_on(bounds))
                     .is_some_and(|(me, foe)| {
-                        place_at(&mut app, me, foe, velocities, hitstun, ledge_hangs)
+                        place_at(&mut app, me, foe, velocities, hitstun, ledge_hangs, &shots)
                     });
             }
         }

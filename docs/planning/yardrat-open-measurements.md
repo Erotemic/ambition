@@ -518,9 +518,28 @@ filesystem**, and `/home/agent/.cache/ambition-targets` is **187G of a 290G root
 188G because those are the HOST's numbers; `df target` answers for `/dev/vda1` and
 says the truth.
 
-⭐ **SO THE ONE-LINE DIAGNOSTIC IS `df -h target`, NOT `df -h .`** — it resolves
-through the bind mount to the volume a build actually writes to, and needs no
-reasoning about which filesystem carries `/tmp`. ⓘ [`status.md`](status.md)
+⛔ **AND "JUST USE `df -h target`" IS ITSELF AN OVER-CORRECTION — `AGENTS.md` says
+CHECK BOTH, and it is right.** Its words: *"`--status` reports the MAIN target
+only, so it says BOUND while a nested workspace fills the shared disk. Check
+`df -h .` as well as `df -h target`."* ⇒ The two answer different questions and
+**both are load-bearing**:
+
+| command | the volume | what fills it |
+|---|---|---|
+| `df -h target` | `/dev/vda1`, via the bind | the main workspace's build output — **187G** here, and the reason builds fail |
+| `df -h .` | the shared virtiofs worktree | **nested workspace targets, which are NOT bound** |
+
+✔ **And the nested case is live here, 33G of it**, found by taking that sentence
+seriously: `examples/capability_demo/target` is **21G** and
+`fixtures/minimal_game/target` is **12G**, both on the shared virtiofs mount
+(`findmnt` confirms), neither bound. ⇒ `--status` says `BOUND` and is telling the
+truth about the main target while 33G sits outside its view — exactly the shape the
+instruction warns about.
+
+ⓘ So total build artifacts are **~220G**, not the 187G quoted below: 187G on root
+plus 33G on the shared tree. The 187G is what blocks a build; the 33G is not, which
+is why one number was enough to explain the symptom and is not enough to describe
+the tree. ⓘ [`status.md`](status.md)
 already carries the mechanism and warns that `df` lies on the worktree, and its
 own advice is *"run `scripts/setup/target_bindmount.sh --status` and `df -h .`"* —
 the first is right and the second is the misleading half. ⚠ Reported rather than

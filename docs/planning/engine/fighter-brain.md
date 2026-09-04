@@ -29,6 +29,26 @@ that reads as rigour.** ⇒ Not a wrong configuration; a correct instrument poin
 at the wrong variable. Repaired by swapping the fighters when the rungs are equal,
 which immediately produced the George-vs-stand-in result below.
 
+⛔⛔ **AND A SEVENTH AND EIGHTH, LATE ON 2026-09-04 — AND THESE TWO PUT EVERY
+NUMBER ON THIS PAGE BACK IN DOUBT, so read them as a banner over all of it rather
+than as two more rows.**
+
+| # | the defect | what it touches |
+|---|---|---|
+| 7 | **one row, two authors**: the printed direction came from POOLED MEDIANS, the `(within spread)` qualifier from a PAIRED sign test that discarded direction (`k = positives.max(negatives)`) | **every verdict and every significance label** — a row could print `LOWER outfights` unqualified while its own test favoured HIGHER |
+| 8 | **`median()` returned `values[len / 2]`**, the upper-middle order statistic, and every `--paired` run has an even sample | **every descriptive column** — stocks worst, since a 10/10 split reported `1` for both seats where the median is `0.5` |
+
+✔ **Both fixed together (`36dd9a248`), compiled and poison-verified by a sibling
+session.** ⛔ **NOTHING BELOW HAS BEEN RE-RUN THROUGH THE REPAIRED RIG.**
+
+⇒ **So: treat every *significant* / *(within spread)* label and every median column
+below as PRE-FIX.** ⭐ What survives untouched is anything established by
+**comparing two arms byte-for-byte against a control** — the weight isolation, the
+rollout-arm comparisons — because identical output is not a statistical claim.
+⚠ And the mechanisms survive: level stocks, a lower rung dealing more damage, a
+knob with no reader. It is the LABELS that are on hold, not the findings.
+
+
 ⇒ **#5 is the one that touches everything.** On a 60-second clock no bout could
 end, so stocks tied in every cell and **every verdict fell through to the damage
 tiebreak** — so any table dated before it says *"dealt more damage in the first

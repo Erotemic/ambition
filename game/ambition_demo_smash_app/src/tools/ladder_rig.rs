@@ -959,6 +959,21 @@ fn bouts_for_seed(
     if !args().paired {
         return vec![straight];
     }
+    // ⛔⛔ PAIRING A RUNG WITH ITSELF IS A TAUTOLOGY, and it looks like a clean
+    // null control, which is how it fooled its own author. With `higher ==
+    // lower` the swapped call below is the SAME call, so the pair is `[B,
+    // B.mirrored()]` — a bout averaged with its own transpose. The columns come
+    // out equal by construction, for any bout, on a biased instrument as
+    // readily as an unbiased one. ⇒ Run `--rungs X,X` WITHOUT `--paired` to
+    // measure the seat term; the paired form measures nothing.
+    if higher == lower {
+        eprintln!(
+            "[ladder_rig] ⛔ --paired with a rung against itself ({higher} vs {lower}) is \
+             degenerate: the mirrored bout is the SAME bout, so equal columns are \
+             guaranteed and prove nothing about bias. Drop --paired to measure the \
+             seat term."
+        );
+    }
     // ⛔ THE SAME SEED, THE ROLES SWAPPED, AND THE RESULT PUT BACK THE RIGHT WAY
     // ROUND. `run_bout_at(lower, higher, ..)` seats the LOWER rung where the
     // fixture puts SELF, so `mirrored` swaps the pair back and every `[0]` below

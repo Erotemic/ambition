@@ -577,20 +577,32 @@ about small numbers. `--rungs 6,6` (added 2026-09-04) asks it.
 | **paired** | `48.2s : 48.2s` · `0 : 0` · dealt **144% : 144%** · peak `95% : 95%` · **even** |
 | **unpaired** | `52.4s : 48.2s` · `0 : 0` · dealt **144% : 154%** · peak `90% : 100%` · **LOWER outfights** |
 
-⇒ **Under `--paired` the columns are byte-identical and the verdict is `even`.**
-The instrument has no residual bias once the seat is controlled, so every
-difference it reports between real rungs is attributable to the rungs. That is
-also an end-to-end confirmation of `Bout::mirrored`, which unit tests had only
-checked in isolation.
+⛔⛔ **THE PAIRED ROW IS AN ALGEBRAIC IDENTITY AND I FIRST RECORDED IT AS
+EVIDENCE.** With equal rungs, `bouts_for_seed(6, 6, seed)` calls
+`run_bout_at(6, 6, seed)` **twice with identical arguments**, so the pair is
+`[B, B.mirrored()]` — a bout averaged with its own transpose. Equal columns are
+guaranteed by construction, for any bout, on any instrument, biased or not. ⇒ It
+confirms `Bout::mirrored` is symmetric end-to-end, which is a real if small check,
+and it says **nothing whatever** about whether pairing removes bias for UNEQUAL
+rungs. I wrote *"the instrument has no residual bias once the seat is
+controlled"*; that sentence was unsupported by the row under it.
+
+⇒ **The unpaired row is the one that measures something**, and it is the finding.
 
 ⛔⛔ **Unpaired, two fighters with NO difference between them produce
 `LOWER outfights`** — seat 1 deals 154% against seat 0's 144%, a ~7% edge from
 the seat alone. ⇒ **That is the 24 : 12 skew, in one row, with the skill removed.**
 Every unpaired verdict whose margin is inside that band was reporting the seat.
 
-⇒ **What it licenses, and what it does not.** It licenses the paired matrix: the
-16 : 19 split and the surviving `6 vs 5` cell are not instrument artifacts. It
-does NOT license the unpaired corpus — every number this rig produced before
+⇒ **What it licenses, and what it does not.** It measures the seat term directly
+and puts a size on it. ⚠ It does NOT independently verify that `--paired` removes
+that term — the degenerate row above cannot, and no equal-rung run can, because
+pairing equal rungs is a tautology. What supports the paired matrix is the
+argument rather than this control: each rung stands in each seat equally often, so
+a uniform seat term cancels in the mean. ⇒ A real check would need a
+DELIBERATELY seat-biased fixture and a demonstration that pairing flattens it;
+that experiment does not exist yet and should not be assumed. It does NOT license
+the unpaired corpus — every number this rig produced before
 `--paired` carries a seat term of roughly this size, in the direction that made
 the ladder look inverted.
 

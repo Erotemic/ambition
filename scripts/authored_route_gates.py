@@ -40,6 +40,9 @@ import re
 import subprocess
 import sys
 from collections import Counter
+from pathlib import Path
+
+REPO = Path(__file__).resolve().parent.parent
 
 
 def published_conditions() -> list[str]:
@@ -88,13 +91,59 @@ def published_conditions() -> list[str]:
     return sorted(set(ids))
 
 
-#: Yarn functions bound to a published condition under a different name.
-#: Authored content reaches the same condition through these, so a census that
-#: counts only `condition(id, arg)` under-reports the vocabulary's real use.
-NAMED_ALIASES = {
-    "boss_cleared": "boss.cleared",
-    "quest_active": "quest.active",
-}
+VOCABULARY = "game/ambition_content/src/yarn_vocabulary.rs"
+
+
+def named_aliases() -> dict[str, str]:
+    """Yarn functions bound to a published condition under a different name.
+
+    Authored content reaches the same condition through these, so a census that
+    counts only `condition(id, arg)` under-reports the vocabulary's real use.
+
+    ⛔⛔ THIS WAS A HAND-KEPT MAP AND IT WENT STALE THREE TIMES IN ONE DAY, the
+    third time within hours of the second correction being written. Each time
+    the failure was the same and pointed the same way: a condition with authored
+    callers was reported as *"authored NOWHERE"* on the day it was published,
+    **precisely because those callers existed under the alias.**
+
+      2026-09-04 morning   `boss_cleared`, `quest_active` bound; map listed neither
+      2026-09-04 midday    map corrected by hand; `can_afford` bound hours later
+      2026-09-04 evening   `wallet.can_afford` reported unauthored with TEN callers,
+                           more than any published condition had
+
+    ⇒ Derived from the source instead. The binding is a three-line shape in
+    `yarn_vocabulary.rs` — `register_system(ask_x)`, `add_function("name", var)`,
+    and a `ConditionId::parse("domain.question")` inside `ask_x` — so the map is
+    read off the code that creates it and cannot lag the code by construction.
+    ⚠ A map this census keeps by hand is the same defect as the vocabulary it
+    was already deriving; see `published_conditions`.
+    """
+    text = (REPO / VOCABULARY).read_text(encoding="utf-8")
+    # `let <var> = commands.register_system(<fn>);`
+    systems = dict(
+        re.findall(r"let\s+(\w+)\s*=\s*commands\.register_system\((\w+)\)", text)
+    )
+    # `.add_function("<yarn name>", <var>)`
+    bound = dict(re.findall(r'add_function\(\s*"(\w+)"\s*,\s*(\w+)\)', text))
+    aliases: dict[str, str] = {}
+    for yarn_name, var in bound.items():
+        fn = systems.get(var)
+        if not fn:
+            continue  # a closure over the mirror, not a catalog question
+        body = text.split(f"fn {fn}(", 1)
+        if len(body) < 2:
+            continue
+        asked = re.search(r'ConditionId::parse\(\s*"([a-z_]+\.[a-z_]+)"', body[1])
+        if asked:
+            aliases[yarn_name] = asked.group(1)
+    if not aliases:
+        raise SystemExit(
+            f"derived NO named aliases from {VOCABULARY}. Either the binding shape "
+            "changed or the file moved — and an empty map silently under-reports "
+            "every aliased condition as unauthored, which is the defect this "
+            "derivation exists to stop."
+        )
+    return aliases
 
 
 def worlds() -> list[str]:
@@ -105,6 +154,7 @@ def worlds() -> list[str]:
 
 
 def main() -> int:
+    aliases = named_aliases()
     rows: list[tuple[str, str, str | None, str | None]] = []
     unreadable: list[str] = []
     for path in worlds():
@@ -168,8 +218,9 @@ def main() -> int:
         # `quest.active` as "authored NOWHERE" on the very day they were
         # published *because* their authored callers existed — the exact
         # opposite of the truth, from an instrument that counted one spelling.
-        # ⇒ A new alias belongs here the moment it is bound.
-        for verb, condition_id in NAMED_ALIASES.items():
+        # ⇒ Derived from `yarn_vocabulary.rs` rather than kept here; see
+        #   `named_aliases`, and the three staleness dates in its docstring.
+        for verb, condition_id in aliases.items():
             for _ in re.finditer(rf"\b{verb}\(", text):
                 calls.append((path, condition_id))
 

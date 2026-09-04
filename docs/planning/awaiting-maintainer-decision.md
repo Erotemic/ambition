@@ -1331,6 +1331,36 @@ question was itself the narrow reading: *"you look like you could climb that"* i
 a `.yarn` line is a `body.can` customer that costs no level geometry at all, and
 nobody has considered it because the owner page is written around routes.
 
+⭐⭐ **CURRENT FIGURES, 2026-09-04 evening — re-derived, and the corpus is
+HALF AGAIN AS BIG as this row's corrections had it:**
+
+```text
+TOTAL authored uses: 30  (2 route gates + 28 dialogue lines)
+   10  wallet.can_afford      <- more than any other, and it was invisible
+    7  inventory.holds
+    5  boss.cleared
+    3  quest.active
+    3  world.flag_set
+published but authored NOWHERE (5 of 10):
+  body.can  body.fits  custody.is_held  encounter.cleared  world.switch_on
+```
+
+⛔⛔ **THE ALIAS MAP WENT STALE A THIRD TIME, WITHIN HOURS OF THE SECOND
+CORRECTION BEING WRITTEN — and the third time it hid the LARGEST customer.**
+`can_afford(price)` was repointed at the catalog that afternoon, and the census
+promptly reported `wallet.can_afford` as *"authored NOWHERE"* while ten shop
+lines called it. Same failure as `boss.cleared` and `quest.active`: a condition
+reported unauthored on the day it was published, **precisely because its
+authored callers existed under an alias.** ⇒ The map is now DERIVED from
+`yarn_vocabulary.rs`'s own binding shape rather than kept by hand, so it cannot
+lag the code; poison-verified by rebinding the id in Rust and watching all ten
+calls follow. ⭐ Three identical staleness events in one day is what moved this
+from "remember to update it" to "the instrument reads the source" — the same
+move `published_conditions` had already made for the vocabulary itself.
+
+⚠ **The paragraph below is kept as the history that argued for it.** Its
+figures (20 uses, 5 of 9) are superseded by the block above.
+
 ⚠ **And the arithmetic that survives: five of NINE published conditions are
 authored NOWHERE, by either road** — `world.switch_on`, `custody.is_held`,
 `body.can`, `body.fits`, `encounter.cleared`. That is the dormant-cluster number,

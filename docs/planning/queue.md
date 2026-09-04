@@ -1011,11 +1011,34 @@ queue read as an execution authority for work already done.
   (`crates/ambition_portal2d_presentation/src/plugin.rs:151-165`). So the row's
   headline number describes a tree that no longer exists, and quoting 48 or 37
   today would be quoting the diagnosis rather than the state.
-  ⇒ **A union run is in flight to replace it.** Until it reports, this row's only
-  true claim is that the dominant cause is fixed and the remainder — the ~11
-  mary_o assertions, at least one of which fails BY CONSTRUCTION under
-  all-features — has never been triaged on a tree where the portal failures were
-  absent. Do not re-derive the cause; measure what is left.
+  ⭐⭐ **AND THE RUN LANDED: 7,060 PASSED, 4 FAILED — not 48.** Measured
+  2026-09-04 on `518e7cd33` with the exact command `run_tests.py --list
+  --run-everything-you-probably-dont-need-this` prints (82-entry feature union,
+  `--no-fail-fast`, `cargo exit: 101`). ⚠ The raw run reported FIVE; the fifth
+  was a test of mine that was red in the tree at the time and is green now
+  (`a_boss_gauntlet_banked_at_a_checkpoint_returns_to_the_hand_that_banked_it`),
+  so 4 is the honest figure and the fifth is named rather than quietly dropped.
+  The 37-failure class is GONE — not one `ConeRigAssets` panic in the log.
+  The four, with what each says:
+  * `ambition_demo_sanic_app` `ov1_draws_the_world::the_presentation_plugin_adds_no_hud_and_no_menu`
+    — 16 UI nodes against 0. ⇒ **This is the "fails BY CONSTRUCTION under
+    all-features" case this row predicted**: the union turns on every
+    presentation feature, and the assertion is about what a demo composition
+    declares. The judgement to make is whether the assertion should be
+    feature-scoped, not whether the composition is wrong.
+  * `ambition_demo_sanic_app` `ov1_draws_the_world::visible_sanic_presentation_retires_and_relaunches_with_the_session`
+    — the same 16, so almost certainly the same cause.
+  * `ambition_demo_mary_o_app` `ov1_draws_the_world::a_vfx_message_this_demo_writes_is_drawn_by_this_demo`
+    — no assertion text in the log; needs a targeted re-run.
+  * `ambition_demo_smash_app` `the_stage_kills::every_live_fighter_stays_inside_the_frame`
+    — *"t3 seat 0 at (224,204) is 44 units outside a 568x320 frame"*.
+    ⛔⛔ **568x320 IS THE NEW `Duel` DEFAULT** (`dc7d5c953`, Jon's zoom-in). This
+    is a consequence of the camera change, not a union artifact — the frame got
+    smaller and the stage's fighters now leave it. Fighter side; not this row's.
+  ⛔ **`| tail` VOIDED THE FIRST RUN'S VERDICT.** The first attempt piped an
+  hour-long job through `tail -120`, which threw away every per-crate result and
+  made the pipeline's exit code 0 while cargo's was 101. Redirect to a file.
+  ⇒ Do not re-derive the portal cause; the remainder above is the work.
   The diagnosis below is kept because it is what a reader needs to recognise the
   same shape again — a Bevy 0.19 missing system parameter is a hard failure where
   0.18 skipped — and NOT as a description of HEAD.

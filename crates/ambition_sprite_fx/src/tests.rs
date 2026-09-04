@@ -211,3 +211,57 @@ fn a_tint_never_becomes_a_mesh() {
         Color::srgb(1.0, 0.0, 0.0)
     );
 }
+
+/// ⛔⛔ THE PLUGIN MUST SURVIVE A COMPOSITION THAT HAS AN ASSET PLUGIN AND NO
+/// RENDER STACK, because that is what every demo test binary is.
+///
+/// The plugin already skips its mesh path when there is no
+/// `EmbeddedAssetRegistry`. That check answers *"is there an AssetPlugin"*, and
+/// the demos HAVE one — what they do not have is `Assets<Mesh>`. In Bevy 0.19 a
+/// missing system parameter is a HARD FAILURE that takes the whole `App` down,
+/// so `draw_sprite_effects` did not skip: it panicked, and with it every test in
+/// the binary.
+///
+/// ⭐ Measured on the workspace feature union 2026-09-04, before the guard:
+/// **7,072 passed, 40 failed, and 39 of the 40 were this one system**, every one
+/// reading *"Parameter `ResMut<Assets<Mesh>>` failed validation: Resource does
+/// not exist"*. The 40th named it too.
+///
+/// ⚠ THE OTHER TWO SYSTEMS MUST STILL RUN, which is the half a bare "does not
+/// panic" test would miss. Guarding by disabling the whole plugin would also
+/// pass, and would delete the free tint path from every demo — so this asserts
+/// the tint was applied on the same frame the mesh path stood down.
+#[test]
+fn the_plugin_steps_in_a_composition_with_no_render_stack_and_still_tints() {
+    let mut app = App::new();
+    app.add_plugins(bevy::asset::AssetPlugin::default());
+    // No `Assets<Mesh>`, no `Assets<TextureAtlasLayout>`, no `Assets<Image>`:
+    // the state a headless demo App is actually in.
+    app.add_plugins(SpriteFxPlugin);
+
+    let entity = app
+        .world_mut()
+        .spawn((
+            SpriteEffect::Tint(Color::srgb(0.25, 0.5, 0.75)),
+            Sprite::default(),
+            Transform::default(),
+        ))
+        .id();
+    // A second entity asking for the MESH path, so the guarded system has work
+    // waiting for it and a missing guard cannot be hidden by an empty query.
+    app.world_mut().spawn((
+        SpriteEffect::HueShift { degrees: 90.0 },
+        Sprite::default(),
+        Transform::default(),
+    ));
+
+    app.update();
+
+    assert_eq!(
+        app.world().entity(entity).get::<Sprite>().expect("sprite").color,
+        Color::srgb(0.25, 0.5, 0.75),
+        "the FREE path must keep running when the mesh path stands down — a guard \
+         that disabled the whole plugin would pass a bare no-panic assertion and \
+         delete every tint in the demo",
+    );
+}

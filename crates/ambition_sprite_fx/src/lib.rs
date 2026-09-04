@@ -325,7 +325,35 @@ impl Plugin for SpriteFxPlugin {
         app.add_plugins(Material2dPlugin::<SpriteFxMaterial>::default());
         app.add_systems(
             PostUpdate,
-            (restore_sprites_without_effects, draw_sprite_effects)
+            (
+                restore_sprites_without_effects,
+                // ⛔⛔ THE MESH PATH IS GUARDED PER RESOURCE, and the
+                // `EmbeddedAssetRegistry` check above is NOT a substitute for it.
+                // That check answers "is there an AssetPlugin"; these answer "is
+                // there a render stack". A demo composition has the first and not
+                // the second, and in Bevy 0.19 a missing system parameter is a
+                // HARD FAILURE that takes the whole App down — measured on the
+                // workspace feature union 2026-09-04: 40 failures across four
+                // demo binaries, 39 of them this system, every one reading
+                // *"Parameter `ResMut<Assets<Mesh>>` failed validation: Resource
+                // does not exist"*.
+                //
+                // ⭐ `Assets<SpriteFxMaterial>` is deliberately NOT in this list:
+                // `Material2dPlugin` above initialises it, so guarding on it would
+                // be a condition this plugin makes true itself. The three below
+                // come from the render stack and nothing here provides them.
+                //
+                // This is `sync_portal_view_cones`' pattern verbatim
+                // (`ambition_portal2d_presentation/src/plugin.rs:151`), which is
+                // the same defect one crate over — and the comment there records
+                // the trap: three missing resources hid in succession, "each
+                // looking identical to the last", so guarding one at a time just
+                // moves the failure. Chained `run_if`s are ANDed.
+                draw_sprite_effects
+                    .run_if(resource_exists::<Assets<Mesh>>)
+                    .run_if(resource_exists::<Assets<TextureAtlasLayout>>)
+                    .run_if(resource_exists::<Assets<Image>>),
+            )
                 .chain()
                 .after(apply_free_sprite_effects),
         );

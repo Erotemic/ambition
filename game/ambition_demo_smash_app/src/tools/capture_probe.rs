@@ -483,9 +483,24 @@ pub fn run(args: CaptureProbeArgs) {
     );
     let mut started: Vec<(String, u32)> = moves_started.into_iter().collect();
     started.sort_by(|a, b| b.1.cmp(&a.1).then_with(|| a.0.cmp(&b.0)));
-    println!("[capture_probe]   moves started:");
+    // ⛔⛔ THE COUNT GOES FIRST, AND THE TRUNCATION SAYS SO. This printed a bare
+    // `take(12)` with no total and no notice — and George uses EXACTLY 12 distinct
+    // moves, so the list was always full and a THIRTEENTH move starting would have
+    // been dropped in silence. ⇒ That is precisely the signal `D-BRAIN-MENU`'s
+    // acceptance test looks for ("did any tilt or smash start at all"), so the
+    // instrument would have hidden the fix working.
+    println!(
+        "[capture_probe]   moves started: {} distinct",
+        started.len()
+    );
     for (id, count) in started.iter().take(12) {
         println!("[capture_probe]     {count:>4}  {id}");
+    }
+    if started.len() > 12 {
+        println!(
+            "[capture_probe]     … and {} more not shown — re-read the distinct count above",
+            started.len() - 12
+        );
     }
     if started.is_empty() {
         println!("[capture_probe]     (none — nobody swung at all, so this match was not a fight)");

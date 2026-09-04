@@ -223,8 +223,21 @@ impl ColorblindMode {
 /// override.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
 pub enum CameraZoomPreset {
-    Tight,
+    /// ⭐ THE FIGHTING-GAME FRAMING, and the default since 2026-09-03.
+    ///
+    /// Sized from a MEASURED reference rather than taste: `pointed_polygon`
+    /// (Jon's choice) is `body_kind: Standard`, which authors a standing height
+    /// of **48.0 world units**, so a 320-unit view puts a standard humanoid at
+    /// **15.0%** of screen height. That is the target for Smash-like
+    /// readability — a medium fighter in a neutral 1v1 reads at roughly 14–16%
+    /// of screen height, ~1:6.5.
+    ///
+    /// ⚠ Every `Standard` character is 48 units, so tuning to `pointed_polygon`
+    /// tunes the whole humanoid class; it is representative by construction
+    /// rather than by being measured individually.
     #[default]
+    Duel,
+    Tight,
     Combat,
     Arena,
     Cinematic,
@@ -232,7 +245,8 @@ pub enum CameraZoomPreset {
 }
 
 impl CameraZoomPreset {
-    pub const ALL: [Self; 5] = [
+    pub const ALL: [Self; 6] = [
+        Self::Duel,
         Self::Tight,
         Self::Combat,
         Self::Arena,
@@ -242,6 +256,7 @@ impl CameraZoomPreset {
 
     pub fn label(self) -> &'static str {
         match self {
+            Self::Duel => "duel 568x320",
             Self::Tight => "tight 640x360",
             Self::Combat => "combat 800x450",
             Self::Arena => "arena 960x540",
@@ -253,6 +268,7 @@ impl CameraZoomPreset {
     /// Base gameplay viewport in world units before encounter/debug multipliers.
     pub fn base_view(self) -> (f32, f32) {
         match self {
+            Self::Duel => (568.0, 320.0),
             Self::Tight => (640.0, 360.0),
             Self::Combat => (800.0, 450.0),
             Self::Arena => (960.0, 540.0),

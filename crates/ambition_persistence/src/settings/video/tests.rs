@@ -498,3 +498,55 @@ fn the_hardware_seed_fires_once_and_respects_a_chosen_tier() {
     assert_eq!(chosen.profile, VisualQualityProfile::Potato);
     assert!(chosen.hardware_seeded, "the attempt is recorded so it is not retried each boot");
 }
+
+/// ⭐ THE DEFAULT FRAMING IS CALIBRATED, NOT CHOSEN BY EYE — so it gets a test
+/// that states the arithmetic, because the number is meaningless without it.
+///
+/// Jon asked for a more zoomed-in default "for smash too" and named
+/// `pointed_polygon` as the reference. That character is `body_kind: Standard`,
+/// which authors a standing height of **48.0 world units**
+/// (`ambition_characters::actor::character_catalog::entry`), so the ratio a
+/// player actually sees is `48 / base_view.y`.
+///
+/// The target is Smash-like readability: a medium fighter in a neutral 1v1
+/// reads at roughly 14–16% of screen height. `Duel` puts a standard humanoid at
+/// exactly 15.0%.
+///
+/// ⚠ IF `Standard`'s standing height CHANGES, THIS TEST IS THE THING THAT
+/// NOTICES. The framing was derived from it; a body-kind edit silently
+/// re-tunes every camera in the game otherwise.
+#[test]
+fn the_default_framing_puts_a_standard_humanoid_at_fifteen_percent_of_screen_height() {
+    /// `BodyKind::Standard::default_standing_height()`. Duplicated as a literal
+    /// on purpose: this crate does not depend on the characters crate, and the
+    /// doc comment above names where the authority lives.
+    const STANDARD_STANDING_HEIGHT: f32 = 48.0;
+
+    let (_, view_h) = CameraZoomPreset::default().base_view();
+    let ratio = STANDARD_STANDING_HEIGHT / view_h;
+
+    assert!(
+        (ratio - 0.15).abs() < 0.005,
+        "the default framing must put a standard humanoid at ~15% of screen height \
+         (Smash-like readability); got {:.1}% at a {view_h}-unit view",
+        ratio * 100.0,
+    );
+}
+
+/// Non-vacuity for the test above, and a record of what the change actually did:
+/// the previous default was materially wider than the target.
+#[test]
+fn the_previous_default_was_wider_than_the_readability_target() {
+    const STANDARD_STANDING_HEIGHT: f32 = 48.0;
+
+    let (_, combat_h) = CameraZoomPreset::Combat.base_view();
+    let combat_ratio = STANDARD_STANDING_HEIGHT / combat_h;
+
+    assert!(
+        combat_ratio < 0.11,
+        "the `Combat` framing this replaced sat at {:.1}%, below even the \
+         most zoomed-OUT end of Smash's normal dynamic range (~11%) — which is \
+         why the game read as further away than a fighting game should",
+        combat_ratio * 100.0,
+    );
+}

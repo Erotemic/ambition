@@ -69,10 +69,69 @@ fn ui_node_count(app: &mut App) -> usize {
 /// Now it can, by DECLARING one on its provider — so the guard has to name what it forbids
 /// (engine-owned UI) instead of forbidding all UI and thereby forbidding the demo's own feature.
 fn engine_owned_ui_node_count(app: &mut App) -> usize {
-    let mut query = app
+    engine_owned_ui_nodes(app).len()
+}
+
+/// Is this node the declared HUD's, at any depth?
+///
+/// ⚠ SAME FIX AS MARY-O'S, and that it had to be made twice is the finding:
+/// `ov1_draws_the_world` exists once per demo, mary_o's copy was corrected on
+/// 2026-09-03 with this exact reasoning (40 nodes, all its own HUD) and this
+/// copy was left reading the old way until the feature union reported 16 here.
+/// Two copies of a guard drift, and the one that drifts is the one nobody ran.
+///
+/// ⛔⛔ `Without<DeclaredHudRoot>` WAS THE FILTER AND IT COUNTED THE DEMO'S OWN
+/// HUD. The marker is on the panel and the slot; the portrait, the stock row,
+/// the five stock icons and the stock count are that panel's CHILDREN and carry
+/// nothing. Measured 2026-09-04 under the feature union: all sixteen "engine
+/// owned" nodes were named `Declared HUD ...` and belonged to `sanic_rings` and
+/// `sanic_results` — this demo's own declaration, reported as Ambition's HUD.
+/// ⇒ Ownership is the HIERARCHY, not one marker on one node.
+fn under_a_declared_hud(
+    world: &bevy::prelude::World,
+    entity: bevy::prelude::Entity,
+    roots: &std::collections::HashSet<bevy::prelude::Entity>,
+) -> bool {
+    let mut cursor = entity;
+    loop {
+        if roots.contains(&cursor) {
+            return true;
+        }
+        match world.get::<bevy::prelude::ChildOf>(cursor) {
+            Some(parent) => cursor = parent.0,
+            None => return false,
+        }
+    }
+}
+
+/// The same population, NAMED — because "16" does not say whose they are.
+///
+/// ⛔ Added 2026-09-04 after the feature union reported 16 here with no way to
+/// tell a HUD from a pause menu from a dev overlay. A count is a finding you
+/// cannot act on; the names say which composition dragged them in.
+fn engine_owned_ui_nodes(app: &mut App) -> Vec<String> {
+    let mut root_query = app
         .world_mut()
-        .query_filtered::<&bevy::ui::Node, bevy::prelude::Without<ambition_platformer2d::presentation::DeclaredHudRoot>>();
-    query.iter(app.world()).count()
+        .query_filtered::<bevy::prelude::Entity, bevy::prelude::With<ambition_platformer2d::presentation::DeclaredHudRoot>>();
+    let roots: std::collections::HashSet<bevy::prelude::Entity> =
+        root_query.iter(app.world()).collect();
+    let mut node_query = app
+        .world_mut()
+        .query_filtered::<(bevy::prelude::Entity, Option<&bevy::prelude::Name>), bevy::prelude::With<bevy::ui::Node>>();
+    let all: Vec<(bevy::prelude::Entity, String)> = node_query
+        .iter(app.world())
+        .map(|(entity, name)| {
+            (
+                entity,
+                name.map(|name| name.to_string())
+                    .unwrap_or_else(|| format!("<unnamed {entity}>")),
+            )
+        })
+        .collect();
+    all.into_iter()
+        .filter(|(entity, _)| !under_a_declared_hud(app.world(), *entity, &roots))
+        .map(|(_, name)| name)
+        .collect()
 }
 
 /// Nodes belonging to the HUD this demo declared.
@@ -273,13 +332,14 @@ fn the_presentation_plugin_adds_no_hud_and_no_menu() {
     let mut app = drawn_demo();
     settle(&mut app);
 
+    let engine_owned = engine_owned_ui_nodes(&mut app);
     assert_eq!(
-        engine_owned_ui_node_count(&mut app),
+        engine_owned.len(),
         0,
         "the engine's presentation face draws the WORLD. Ambition's HUD, its \
          pause menu, and its dev overlays are the game's, assembled app-side. A \
          demo that wants a HUD declares one — that is what `owns` means in the \
-         demos doctrine."
+         demos doctrine. Present: {engine_owned:?}"
     );
 
     // The other direction, and it is not optional: filtering the count above by

@@ -145,12 +145,26 @@ impl SceneCaptureRequest {
     }
 }
 
+/// The framing a snapshot carries before anything has resolved one, taken from
+/// the shipped default preset so there is exactly one place that decides it.
+fn default_base_view() -> ae::Vec2 {
+    let (w, h) = ambition_persistence::settings::video::CameraZoomPreset::default().base_view();
+    ae::Vec2::new(w, h)
+}
+
 impl Default for CameraSnapshot2d {
     fn default() -> Self {
         Self {
-            base_view: ae::Vec2::new(800.0, 450.0),
-            requested_view: ae::Vec2::new(800.0, 450.0),
-            visible_view: ae::Vec2::new(800.0, 450.0),
+            // ⛔ DERIVED, NOT RESTATED. This used to hardcode 800x450 — the
+            // `Combat` preset's view, and the default framing at the time. When
+            // the default moved to `Duel` (568x320) on 2026-09-03 this became a
+            // SECOND, disagreeing statement of "the default framing", which is
+            // the one-authority failure in miniature: nothing reads a default
+            // snapshot in production today, so the disagreement would have sat
+            // here silently until something did.
+            base_view: default_base_view(),
+            requested_view: default_base_view(),
+            visible_view: default_base_view(),
             zoom_multiplier: 1.0,
             orthographic_scale: 1.0,
             target_world: ae::Vec2::ZERO,
@@ -2085,6 +2099,26 @@ mod cast_framing_tests {
 mod soft_framing_tests {
     use super::*;
     use ambition_platformer2d_shared_tangle::camera_ease::CameraEaseState;
+
+    /// ⛔⛔ ONE PLACE DECIDES THE DEFAULT FRAMING.
+    ///
+    /// `CameraSnapshot2d::default()` used to hardcode `800x450` — correct while
+    /// `Combat` was the shipped default, and silently wrong the moment the
+    /// default moved to `Duel` (568x320) for Smash-like readability. Nothing
+    /// reads a default snapshot in production today, so the disagreement would
+    /// have waited here until something did.
+    ///
+    /// ⇒ This test fails if the two ever diverge again, which is the only thing
+    /// that makes "derived" true rather than merely currently-equal.
+    #[test]
+    fn the_default_snapshot_frames_itself_from_the_shipped_preset() {
+        let (w, h) = ambition_persistence::settings::video::CameraZoomPreset::default().base_view();
+        let snapshot = CameraSnapshot2d::default();
+
+        assert_eq!(snapshot.base_view, ae::Vec2::new(w, h));
+        assert_eq!(snapshot.requested_view, ae::Vec2::new(w, h));
+        assert_eq!(snapshot.visible_view, ae::Vec2::new(w, h));
+    }
 
     const VIEW: ae::Vec2 = ae::Vec2::new(800.0, 450.0);
     const BODY: ae::Vec2 = ae::Vec2::new(24.0, 40.0);

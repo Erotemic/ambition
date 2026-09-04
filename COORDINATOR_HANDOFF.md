@@ -809,3 +809,97 @@ which matters, because yardrat measured that changing that profile invalidates 3
 
 **Gate 3 at `cb069b2c1`: all 6 jobs passed, zero failures** — on the cleaned tree, so the
 `smash_tool` collapse is gated from a source rebuild rather than stale artifacts.
+
+## Review response — all six items, 2026-09-03
+An external review of the 12-hour window declined to sign off, on one Critical and five lesser
+findings. All six are addressed. **The Critical one was real and it was mine.**
+
+### 1. ⛔ Critical — the web reveal could wait FOREVER (fixed)
+`AppGpuPreparedImages` moved the readiness ANSWER per-App, correctly. The WORK QUEUE feeding it
+stayed process-global, and the only production `ledger().inserted()` call is native-only
+(`asset_census.rs:230`) — the wasm census body was `events.clear()` and nothing else.
+
+⇒ On the web: image Added → discarded → global `awaiting_gpu` empty → the stamper returns at its
+first line → `AppGpuPreparedImages` never written → `is_awaiting_gpu` = `render_world.is_present()
+&& !is_prepared(id)` = TRUE for every image, forever.
+
+⛔ **It is the exact mirror of the bug that merge fixed**, and it arrived by fixing it: before,
+wasm never inserted `RenderWorldPresent`, so the cover lifted BEFORE the GPU had the pixels. I
+ungated the readiness half without ungating the half that feeds it and traded "lifts too early"
+for "never lifts". A `--target wasm32` check sees neither: every branch type-checks.
+
+⚠ Same root, natively: the global list is keyed by bare `UntypedAssetId` and `gpu_prepared()`
+CONSUMES the entry. Two rendering Apps sharing an id → the first render world to look took the
+only candidate and the other could never discover its own preparation. The comments said the
+ledger must not DECIDE; it still decided which App-local facts were allowed to be written.
+
+Fixed: `AppReadiness { awaiting, prepared }` behind the Arc the two worlds already shared, and
+ONE `note_image_arrival` called by both census bodies — the cfg divergence is gone rather than
+patched. Poison-verified three ways.
+
+### 2. High — the parallax gate withheld the whole room (fixed)
+`!theme_loaded` returned before `spawn_room_visuals`, so at any tier wanting parallax a late
+theme withheld every static visual and authored entity. Two memos now: the room presents
+unconditionally, parallax keeps the retry alone. Three tests, poison-verified against the exact
+pre-fix return. ⚠ Structure only — the visual symptom still needs the reproducing box.
+
+### 3. High — music publisher wrote through mirror symlinks (fixed, gitlink NOT moved)
+Three bare `shutil.copy2` in the submodule's `cli.py` followed mirrored symlinks into the main
+checkout. All three go through a submodule-local `publish_safely.publish_copy` now, with
+behavioural tests using real symlinks and protected target bytes. ⛔ **The parent gitlink is
+deliberately NOT moved:** that submodule holds 30 files of Jon's uncommitted stem-lab work and its
+checkout is already one commit ahead (`26b87bf music: accept aether severance V5`). Bumping it
+would publish his content decision for him.
+
+### 4. Medium — a regenerated PREFIX made a borrowing tree canonical (fixed)
+Reproduced before fixing: 25 real PNGs sorting first + one later symlink → `canonical=True`.
+`SAMPLE = 25` argued against itself, claiming the answer was uniform while conceding the mirror
+exists to permit mixed trees. Exhaustive now — measured at 2,172 PNGs / 0.06 s, so sampling was
+never justified by cost. ⭐ Found while fixing it: the predicate kept an INLINED COPY of the scan
+despite the comment claiming it was shared with `why_not` — the third time in that file a stated
+sharing invariant was only half true.
+
+### 5. Medium — multi-switch acceptance (added; implementation untouched)
+The implementation is correct. The missing piece was the sequence that failed: complete a real
+two-switch wave encounter through `apply_wave_encounter_effects`, persist, rebuild the index, and
+prove it does not re-arm. Poison with the pre-fix first-link-only behaviour fails ONLY the new
+test while the other 37 pass — which measures the gap rather than asserting it.
+
+⛔⛔ **AND THE HARNESS FOUND A TRAP WORTH MORE THAN THE TEST.** The system takes
+`SessionWorldMut<EncounterMusicRequest>` — a `Single` — and **Bevy SKIPS a system whose `Single`
+does not match exactly one entity, silently: no panic, no warning, no log.** Every guard I could
+see was satisfied and the system still never ran; a canary beside it ran twice; only instrumenting
+its first line proved it was never entered. ⇒ A system with a `Single` param is INVISIBLY
+CONDITIONAL on that entity existing, and an acceptance test asserting an ABSENCE would pass for
+entirely the wrong reason.
+
+### 6. Low — stale queue rows (retired)
+`why_not()` and the nine-binaries row both carried `▢` while their work had landed, against the
+file's own contract. Retired, keeping the part a reader would otherwise re-derive: the
+`split-debuginfo` lever was tried and REJECTED on measurement (+324 MB total).
+
+### ✔ Camera default zoomed in, calibrated rather than chosen (Jon, 2026-09-03)
+Jon: *"the default camera zoomed in a bit more, for smash too"*, reference character
+`pointed_polygon`. It authors no explicit body, so it takes `body_kind: Standard`'s
+`default_standing_height()` — **48.0 world units**.
+
+```text
+Combat  800x450  (old default)   48/450 = 10.7%
+Duel    568x320  (new default)   48/320 = 15.0%   <- Smash-like neutral-1v1 readability
+Tight   640x360                  48/360 = 13.3%   <- the conservative fallback, one line away
+```
+
+⭐ The old default was not merely a bit wide: at 10.7% it sat BELOW the most zoomed-OUT end of
+Ultimate's normal dynamic range (~11%), so the game framed a fight wider than that game ever
+does. Two tests pin it, the second so the first cannot pass vacuously — and the first is also
+the tripwire if `Standard`'s standing height ever changes, since the framing is DERIVED from it.
+
+⛔ **Filed, not decided** (`awaiting-maintainer-decision.md`): making cast framing
+BIDIRECTIONAL. `camera_scale` is clamped `.max(1.0)`, cast framing is documented as a FLOOR, and
+encounter zoom is a zoom-OUT multiplier ⇒ `base_view` is the most zoomed-in the camera ever
+gets, while Ultimate's 15% is the MIDDLE of ~11–19%. We are now tighter than it when fighters
+separate and never as tight when they meet. A feel ruling with an architectural cost.
+
+ⓘ A default change leaves copies: `CameraSnapshot2d::default()` hardcoded `800x450` — correct
+under `Combat`, silently wrong under `Duel`, and read by nothing in production so it would have
+waited. Now derived from the preset, with a test that fails if the two diverge again.

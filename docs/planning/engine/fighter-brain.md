@@ -201,10 +201,23 @@ already caught the bare version of that once.
 phase"* to *"cannot set up: body phase"*. It did not start passing because the
 rig stopped asking; it names the one thing that is still missing.
 
-⇒ **Remaining: 3 of 9.** `juggle_escape` (body phase), `projectile_camper`
-(projectiles), `edgeguard_ledge_hang` (a ledge hang — *"a hang is not a
-position"*, and catching the edge is a maneuver with its own window). Body phase
-is the next cheapest and would take it to 7.
+✔ **AND THE BODY-PHASE HALF, THE SAME DAY: 6 of 9 → 7 of 9.** `juggle_escape`
+now runs. ⭐ **`BodyPhase` is DERIVED, not stored** — the runtime's `body_phase()`
+(`features/ecs/perception.rs:250`) computes it from `BodyCombat.hitstun_timer` /
+`recoil_lock_timer`, `BodyMelee`'s attack phase and the shield. So a fixture that
+starts a body *"in hitstun"* is reproduced by writing the TIMER the phase is
+computed from. Assigning the enum would be writing the thermometer.
+
+⛔ **`starting_hitstun()` returns `None` unless every non-`Neutral` phase in the
+fixture is `Hitstun`.** The attack phases need a `BodyMelee` mid-swing, which a
+timer cannot fake, so a startup/active fixture is still reported unreproduced
+rather than staged as something the fixture did not describe. The rig's skip
+filter asks the accessor rather than string-matching the phase name.
+
+⇒ **Remaining: 2 of 9.** `projectile_camper` (projectiles) and
+`edgeguard_ledge_hang` (a ledge hang — *"a hang is not a position"*, and catching
+the edge is a maneuver with its own window). Both need the rig to run something,
+not to write a value, which is a larger step than either of these two.
 
 ## Relationship to navigation/recovery architecture
 

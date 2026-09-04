@@ -85,6 +85,41 @@ impl Scenario {
         Some((self.view.self_view.vel, foe.vel))
     }
 
+    /// Seconds of HITSTUN each body starts in, when that is the whole of its
+    /// phase premise.
+    ///
+    /// ⭐ `BodyPhase` is DERIVED, not stored: the runtime's `body_phase()` reads
+    /// it from `BodyCombat.hitstun_timer` / `recoil_lock_timer`, `BodyMelee`'s
+    /// attack phase, and the shield. So a harness reproduces `Hitstun` by
+    /// writing the TIMER — the source of truth — and never by assigning the
+    /// derived enum.
+    ///
+    /// ⛔ `None` unless every non-`Neutral` phase in the fixture is `Hitstun`.
+    /// The attack phases need a `BodyMelee` mid-swing, which a timer cannot
+    /// fake, and a harness that got `Some` for those would stage a body the
+    /// fixture did not describe. `juggle_escape` is the case this serves; a
+    /// startup/active fixture must still be reported unreproduced.
+    pub fn starting_hitstun(&self) -> Option<(f32, f32)> {
+        let foe = self.view.actors.first()?;
+        let expressible = |phase: BodyPhase| {
+            matches!(phase, BodyPhase::Neutral | BodyPhase::Hitstun)
+        };
+        if !expressible(self.view.self_view.phase) || !expressible(foe.phase) {
+            return None;
+        }
+        let seconds = |phase: BodyPhase, remaining: f32| {
+            if phase == BodyPhase::Hitstun {
+                remaining.max(f32::EPSILON)
+            } else {
+                0.0
+            }
+        };
+        Some((
+            seconds(self.view.self_view.phase, self.view.self_view.phase_remaining),
+            seconds(foe.phase, foe.phase_remaining),
+        ))
+    }
+
     /// Scenario state that a position-only harness cannot reproduce.
     ///
     /// Derived from the fixture itself. Grounded state is excluded because normal

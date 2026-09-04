@@ -318,9 +318,9 @@ fn run_scenarios(seeds: usize) {
         .iter()
         .filter(|s| {
             s.starting_positions().is_some()
-                && s.unreproduced_by_placement()
-                    .iter()
-                    .all(|what| *what == "velocity")
+                && s.unreproduced_by_placement().iter().all(|what| {
+                    *what == "velocity" || (*what == "body phase" && s.starting_hitstun().is_some())
+                })
         })
         .collect();
     println!(
@@ -349,10 +349,12 @@ fn run_scenarios(seeds: usize) {
         // through `TransitVelocity::Set`. Everything else this rig still cannot
         // arrange — body phase, projectiles, a ledge hang — remains a skip, and
         // the message still names exactly what is missing.
+        let phase_is_hitstun_only = scenario.starting_hitstun().is_some();
         let missing: Vec<&'static str> = scenario
             .unreproduced_by_placement()
             .into_iter()
             .filter(|what| *what != "velocity")
+            .filter(|what| !(*what == "body phase" && phase_is_hitstun_only))
             .collect();
         if !missing.is_empty() {
             println!(
@@ -591,6 +593,7 @@ fn place_at(
     me: ae::Vec2,
     foe: ae::Vec2,
     velocities: Option<(ae::Vec2, ae::Vec2)>,
+    hitstun: Option<(f32, f32)>,
 ) -> bool {
     use ambition_platformer2d::actor::{transit_body, BodyClusterQueryData, TransitVelocity};
     let world = app.world_mut();
@@ -634,6 +637,25 @@ fn place_at(
             None => TransitVelocity::Zero,
         };
         transit_body(&mut model, &mut clusters, target, velocity);
+    }
+    // ⭐ HITSTUN IS A TIMER, NOT AN ENUM. `BodyPhase` is derived — the runtime's
+    // `body_phase()` reads it from `BodyCombat.hitstun_timer` — so a fixture
+    // that starts a body "in hitstun" is reproduced by writing the timer the
+    // phase is computed FROM. Writing a phase field would be writing the
+    // thermometer.
+    //
+    // ⚠ Separate pass because it is a different component: `transit_body` owns
+    // pose and velocity, and nothing about hitstun is a transit.
+    if let Some((me_stun, foe_stun)) = hitstun {
+        let world = app.world_mut();
+        let mut q = world
+            .query::<(&MatchSeat, &mut ambition_platformer2d::characters::actor::BodyCombat)>();
+        for (seat, mut combat) in q.iter_mut(world) {
+            let seconds = if seat.0 == 0 { me_stun } else { foe_stun };
+            if seconds > 0.0 {
+                combat.hitstun_timer = seconds;
+            }
+        }
     }
     true
 }
@@ -706,9 +728,12 @@ fn run_bout_at(
                 // blastzone took it instantly — two of them printed identical
                 // columns, which is how it was found.
                 let velocities = scenario.starting_velocities();
+                let hitstun = scenario.starting_hitstun();
                 placed = stage_bounds(&mut app)
                     .and_then(|bounds| scenario.starting_positions_on(bounds))
-                    .is_some_and(|(me, foe)| place_at(&mut app, me, foe, velocities));
+                    .is_some_and(|(me, foe)| {
+                        place_at(&mut app, me, foe, velocities, hitstun)
+                    });
             }
         }
         let world = app.world_mut();

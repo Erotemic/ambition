@@ -1061,8 +1061,35 @@ queue read as an execution authority for work already done.
   item in the sandbox world, which does carry an identity, so the same object is
   acquirable two ways with and without a `SimId`.
 
-- ▢ **THE FEATURE UNION: ITS DOMINANT CAUSE IS FIXED, AND ITS NUMBER IS
-  UNKNOWN.** ⭐ **Re-measured 2026-09-04: the 37-failure cause below is GUARDED
+- ▢ **THE FEATURE UNION: 7,072 PASSED / 40 FAILED, AND 40 OF 40 ARE ONE NEW
+  CAUSE.** ⭐⭐ **RE-RUN 2026-09-04 late on `06c7ae470` with the exact command
+  `run_tests.py --list --run-everything-you-probably-dont-need-this` prints
+  (82-entry union, `--no-fail-fast`, `cargo exit: 101`). Every one of the 40
+  failing blocks names `ambition_sprite_fx::draw_sprite_effects`** —
+  *"Parameter `ResMut<Assets<Mesh>>` failed validation: Resource does not
+  exist"*. ⛔ It is the SAME DEFECT as the 37-failure `sync_portal_view_cones`
+  class, in a crate that entered the workspace five days later, and it was fixed
+  the same way (`52666d1c7`): per-resource `run_if(resource_exists::<..>)` on
+  `Assets<Mesh>`, `Assets<TextureAtlasLayout>` and `Assets<Image>`, guarded by
+  `the_plugin_steps_in_a_composition_with_no_render_stack_and_still_tints` and
+  poison-verified against the production text.
+  ⭐ **The plugin's existing `EmbeddedAssetRegistry` check was not a substitute,
+  and that is the lesson worth keeping:** it answers *"is there an AssetPlugin"*
+  and the demos HAVE one — what they lack is a render stack.
+  ⚠ **The two load-signature residuals below did NOT reproduce**, so the row's
+  "passes at every isolation level short of full parallelism" reading is
+  unconfirmed on this run rather than contradicted: 40 of 40 had one cause, and a
+  binary that aborts on frame one never reaches a contention-sensitive test.
+  ⇒ **The number to beat next run is 40 → 0, and the next run should be after
+  `52666d1c7`.** ⚠ Three files in two other crates were edited while this run's
+  TESTS were executing (after its compile phase); cargo does not rebuild mid-run
+  and none of those edits adds a system, but the honest status of this figure is
+  corroborated-not-isolated, and the unit test is what actually proves the
+  defect.
+
+  ⛔ **HISTORICAL — the previous reading, kept because its diagnosis is what
+  named the class the new failure belongs to.** *ITS DOMINANT CAUSE IS FIXED, AND
+  ITS NUMBER IS UNKNOWN.* ⭐ **Re-measured 2026-09-04: the 37-failure cause below is GUARDED
   at `8bac49a59`** — `sync_portal_view_cones` carries
   `.run_if(resource_exists::<Assets<Image>>)`, `<Assets<Mesh>>` and
   `<Assets<ColorMaterial>>`, and `debug_portal_view_zones` carries the

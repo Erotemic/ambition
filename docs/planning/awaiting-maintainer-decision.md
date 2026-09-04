@@ -1391,7 +1391,55 @@ behaviour — it switched off the entire read system — so the precaution cause
 what it was guarding against. Option (a) is also the one that makes that comment
 true again, because it moves reads out from behind the rollout.
 
-## Does "harder" mean *deals more damage*, or *is harder to beat*? — the ladder verdict rests on it
+## ✔ MOSTLY ANSWERED BY MEASUREMENT — was: does "harder" mean *deals more damage* or *is harder to beat*?
+
+⭐⭐ **I raised this as a definition question I could not settle by measuring. I was
+wrong about that, and the thing that settled it was fixing the clock.**
+
+The rig ran 60-second bouts; the shipped match is **eight minutes**. On the short
+clock no bout could end, so stocks tied everywhere and every verdict fell through
+to the damage tiebreak — which is exactly what made the question unanswerable. At
+the shipped clock every bout **resolves** (`0 : 0` stocks, both fighters
+eliminated), and **survival time becomes a real second signal**:
+
+| cell | survived (hi : lo) | dealt (hi : lo) | verdict |
+|---|---|---|---|
+| 3 vs 1 | 85.1s : 80.6s | 299% : 208% | ✔ higher outfights |
+| 5 vs 3 | **97.3s : 98.7s** | **300% : 360%** | ⛔ **LOWER outfights** |
+| 6 vs 5 | 103.6s : 104.7s | 346% : 361% | LOWER *(within spread)* |
+| 9 vs 6 | 112.0s : 116.5s | 407% : 390% | higher *(within spread)* |
+
+⇒ **Rung 5 does not survive longer than rung 3 either** — 97.3s against 98.7s.
+⭐ That is what answers it: a patient-but-stronger rung 5 would have to beat rung 3
+on damage or on survival, and it beats it on neither. **The "patience is invisible
+to a damage metric" defence required rung 5 to be winning on some axis, and there
+is no axis.**
+
+⚠ **What is left for you is smaller and it is real.** Two things:
+
+1. **Only `5 vs 3` is established.** At the shipped clock and 12 seeds, `6 vs 5`
+   and `9 vs 6` are within spread. So this is **one** bad rung, not a broken
+   progression. ⇒ Worth more seeds before anyone retunes a curve.
+2. **The fix is still a design call.** The cause is `frame_advantage` +
+   `expected_payoff` jointly (isolated byte-for-byte). `frame_advantage` is SIGNED,
+   so raising it makes a rung penalise its own slow, hard-hitting moves; raising
+   `expected_payoff` withholds the power bonus from exactly those. ⇒ Whether higher
+   rungs SHOULD weight frame safety more is a question about what your ladder
+   means. The measurement says the current progression makes rung 5 worse; it does
+   not say what the right progression is.
+
+⭐ **And the rise in survival medians across the ladder — 85s, 97s, 104s, 112s — is
+a quiet vote of confidence.** Higher rungs take measurably longer to kill each
+other, which is what a working ladder should do, and it holds across every cell
+including the inverted one.
+
+⛔ **What I had written here before, and why it is wrong:** that both readings
+predict the same numbers and more measuring could not separate them. They do not
+— they differ on survival time, which the 60-second clock could not show because
+nobody ever died. ⇒ The lesson is the day's lesson again: the question looked like
+a definition problem and was an instrument problem.
+
+## The original framing, kept because the reasoning is still the reasoning
 
 ⛔ **This is the confound under every ladder number I have produced today, and it
 cannot be measured away — it is a definition.**

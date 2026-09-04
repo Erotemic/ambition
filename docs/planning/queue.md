@@ -569,7 +569,24 @@ The one unresolved developer-policy choice from the session-ownership work is in
 
 ## Current execution order
 
-- ✔ **THE FEATURE UNION IS GREEN AT EXACT HEAD `068823a43` (2026-09-04):
+- ✔✔ **THE FEATURE UNION IS PERFECT AT `40d078509` (2026-09-04, after the
+  GPT-review repairs): 49/49 JOBS, 7,243 tests passed, ZERO failures, 3,273 s.**
+  The union job itself — one graph, every gated test — green in 993.8 s.
+  ⭐ This is the first 49/49 of the day; the run before it was 47/49, and both
+  failing jobs were **one test**: `no_planning_doc_names_a_condition_the_engine_
+  does_not_publish` catching *my own commit an hour earlier*. The note explaining
+  why that guard must not be extended to Rust comments contained an inline
+  backticked example of a fabricated id — **a doc discussing a fabricated id is
+  a doc containing one.** Fixed by the guard's own documented escape (name the
+  correct id in the same paragraph), which made the sentence better.
+  ⓘ The tree under test was `40d078509` plus the `status.md` reconciliation that
+  became `be3546b88`; docs-only, and the docs guard reads `docs/planning` at test
+  time, so that edit was covered rather than pending. ⚠ Two uncommitted dev-file
+  edits belonging to another session appeared at 16:34, AFTER the run finished —
+  checked by mtime rather than assumed, because a tree that changed under a
+  suite would make the whole result a claim about nothing.
+
+- ✔ **(superseded) THE FEATURE UNION WAS GREEN AT `068823a43` (2026-09-04):
   48/49 jobs, 7,236 tests passed, ZERO test failures, 4,157 s.** The union job
   itself — `workspace [every headless-safe feature] — one graph, every gated
   test` — is `ok` in 834 s. This is the exact-HEAD acceptance the 2026-09-04

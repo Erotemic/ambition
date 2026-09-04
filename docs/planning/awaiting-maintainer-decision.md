@@ -1363,9 +1363,18 @@ absent caller, and a rig arm with rung 5's `read_weight` zeroed that came back
 **byte-identical** to its control. See
 [`engine/fighter-brain.md`](engine/fighter-brain.md).
 
-⛔ **It is not inert-and-free.** `habits.observe` runs on every decision and the
-habit model is written into **every rollback snapshot**. The game pays to
-maintain an opponent model that nothing reads.
+⚠ **It is not free — but I said that more forcefully than the number deserves, so
+here is the number.** `habits.observe` runs on every decision and the model is
+written into every rollback snapshot. The state is a `BTreeMap` over
+(situation × choice) = **5 × 6 = 30 rows maximum**, each serialized as
+`u8 + u8 + f32` = 6 bytes, plus a `u32` count. ⇒ **At most 184 bytes per fighter
+per snapshot**, and fewer in practice since only observed pairs exist.
+
+⇒ **So the cost argument is weak and should not drive the answer.** 184 bytes is
+not a reason to delete anything. ⭐ The real argument is correctness and
+legibility: a ladder with five knobs of which one silently does nothing is a
+ladder nobody can reason about, and every rung was tuned by someone who believed
+all five worked.
 
 ⇒ **Two fixes, and which one is right is yours because it is a question about what
 the ladder is FOR:**

@@ -1208,6 +1208,13 @@ measurement.
 restore it). ⇒ The shipped game pays per-tick observation and per-snapshot
 bandwidth to maintain an opponent model that nothing ever reads.
 
+⚠ **Sized, because "not free" invites an exaggeration.** The state is a `BTreeMap`
+over 5 situations × 6 choices = **30 rows at most**, at `u8 + u8 + f32` each plus
+a count — **≤184 bytes per fighter per snapshot**. ⇒ That is not a performance
+problem and nobody should present it as one. The case for wiring it up or
+deleting it is that a five-knob ladder with one silent knob cannot be reasoned
+about, and every rung was tuned by someone who believed all five worked.
+
 ⭐⭐ **AND `read_weight` IS THE ONLY DEAD KNOB — I checked all nine, which is the
 reassuring half and it has to be said explicitly.** A finding like the one above
 invites the reading that the ladder is riddled with inert fields, and it is not.

@@ -9,6 +9,30 @@
 //! with one number moved. Run it twice and compare; the header names the weights
 //! each run used.
 //!
+//! ⭐ **THE OTHER THREE FLAGS, AND WHAT EACH ONE CONTROLS FOR** (all added
+//! 2026-09-04, each because a measurement had been quietly answering a different
+//! question than the one asked):
+//!
+//! - `--paired` — run each seed TWICE with the rungs swapped between seats and
+//!   test the WITHIN-SEED difference. Every cell of the 15-seed matrix came back
+//!   `(within spread)` because seed variance exceeded the effect; pairing removes
+//!   that variance rather than out-sampling it, and cancels the seat/placement
+//!   confound (7 of the 9 fixtures put SELF, always the higher rung, offstage).
+//!   ⇒ It changed 14 of 36 verdicts: a 24:12 skew toward the lower rung became
+//!   16:19. The unpaired reading was measuring the seat.
+//! - `--stage flat|platforms` — which layout to fight on. Every number recorded
+//!   before this flag was taken on `flat`, because it was the only stage; that
+//!   made the layout a confounder rather than a choice. The tiers roughly halve
+//!   the lethality, so the flag is not cosmetic.
+//! - `--no-rollout` — zero `rollout_depth`/`rollout_k` on every fighter. ⭐ Its
+//!   control is FREE and exact: rollout is already off below level 6, so the
+//!   bottom rungs must be identical between arms, and they are — to the decimal.
+//!   Anything that moves at `6 vs 5` or `9 vs 6` is the rollout and nothing else.
+//!
+//! ⛔ Every table names its stage, its weights, its design and which ladder the
+//! fighters actually got, because this rig spent its whole life reporting numbers
+//! measured on the ENGINE FLOOR without saying so.
+//!
 //! The registered ladder is sparse: levels 1, 3, 5, 6, and 9. The rig reports
 //! time to elimination, stocks remaining, and engagement evidence for each pair,
 //! using medians across deterministic seeds. Unregistered levels are invalid for

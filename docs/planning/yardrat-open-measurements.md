@@ -457,6 +457,13 @@ the worktree answers with the HOST's figures, that the single-file write ceiling
 sits near half a gigabyte, and the ENOSPC → truncated-rlib → *undefined symbol*
 chain. The headline was already written by someone who got there first.
 
+⚠ **AND THE ORIENTATION FIGURE HAS MOVED SINCE, BY A LOT.** [`status.md`](status.md)
+reads *"12 GB free of 290"* (2026-09-03 late); measured 2026-09-04 it is **~359M**
+— roughly **34× worse**, on the page a newcomer orients from. ⇒ Not corrected
+there by me: that file is another session's hot set and the standing split says
+not to edit it. Reported to its owner instead, and recorded here so the two pages
+disagree visibly rather than silently.
+
 ⛔ **NOT ATTEMPTED, deliberately — and the repo reaches the same conclusion from
 the other side.** `rm -rf` under `target/` is a standing rule for this session,
 and `cargo clean` is the same deletion wearing a nicer name. ⭐

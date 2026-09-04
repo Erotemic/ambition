@@ -75,12 +75,29 @@ decision policy is correct.
 > is shut. It says nothing about whether a body could physically get there — a
 > wall with no gate, a ledge too high, a gap too wide are all invisible to it.
 > ⇒ So customer 4 is not satisfied; what is settled is the SHAPE a physical
-> answer should take, and that the shape survives production: structured rather
-> than a log line, headless, deterministic, per-frame, and already read by a
-> consumer.
+> answer should take: structured rather than a log line, headless, deterministic,
+> per-frame.
+>
+> ⛔⛔ **AND A CLAIM I PUT HERE HOURS EARLIER WAS FALSE, corrected the same day:
+> I wrote that the shape is "already read by a consumer". IT IS NOT.**
+> `git grep -l GatedLockWallVerdicts` returns four files — the module that writes
+> it, its own tests, the rollback registration that declares it derived, and the
+> schema baseline. **There is no production reader.** The resource is written
+> every frame, rollback-declared, and consumed by nothing but its tests.
+> ⇒ **So the explanation road is a PROVEN SHAPE, not a proven consumer**, and the
+> difference is exactly what this page cares about. It also means the road is
+> itself in the dormant-cluster shape this repository has retired things for, and
+> ⛔ **a second PRODUCER should not be added to it** — the encounter lock-wall
+> writer (`ambition_encounter_features/src/lock_walls.rs`) contributes to the same
+> `gate_solids` and publishes no verdict, which looks like a gap and is really the
+> correct restraint until something reads the first one.
+> ⚠ The right first move for customer 4 is therefore a READER, not more
+> producers: something that answers *"why is the route in front of me shut"* out
+> loud. Until one exists, adding explanations is writing into a resource nobody
+> opens.
 >
 > ⇒ **The practical consequence for whoever promotes a slice here: do not invent
-> an explanation type.** A reachability answer that says *"the body cannot make
+> an explanation type, and bring a reader with you.** A reachability answer that says *"the body cannot make
 > this"* should join `WhyNot`'s vocabulary rather than grow a parallel one, or
 > the authoring tools that already read gate verdicts will need two readers for
 > one question. That is the cheapest thing this page can inherit from the gating

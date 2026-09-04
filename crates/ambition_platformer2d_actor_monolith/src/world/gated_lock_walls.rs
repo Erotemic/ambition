@@ -107,6 +107,14 @@ pub struct GatedLockWallCache {
 /// read model, never an authority: nothing decides a wall from it, and a rewind
 /// that does not restore it costs one tick of stale explanation.
 #[derive(Resource, Default, Debug)]
+/// ⚠ NO PRODUCTION READER YET (measured 2026-09-04): `git grep -l` finds this
+/// module, its tests, the rollback declaration and the schema baseline — nothing
+/// that shows a player or a tool why a wall is shut. The publication is kept
+/// because the answer is worthless if it is only computed when someone asks, and
+/// because the contract is cheap; but ⛔ **do not add a second PRODUCER to it**
+/// (the encounter lock-wall writer contributes to the same `gate_solids` and
+/// deliberately publishes nothing) until a reader exists. Writing more
+/// explanations into a resource nobody opens is how a dormant cluster grows.
 pub struct GatedLockWallVerdicts {
     pub by_wall: std::collections::BTreeMap<String, ConditionOutcome>,
 }

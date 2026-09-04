@@ -1760,6 +1760,14 @@ once, and then makes it unaskable again.** The cost is the same either way — f
 special slots authored, which is the eight presses measured above — but only one
 of the two spends it on something that cannot regress.
 
+ⓘ **AND IT IS NOT A ONE-OFF — it is an instance of a tracked campaign.** `D166`
+in [`queue.md`](queue.md) is *"make the character-authoring boundary load-bearing
+where a real character still bypasses it"*, and its two closed slices were both
+Smash demo work. ⇒ `fighter_moveset()` is a third instance, recorded there with
+this evidence. ⭐ **That reframes the trade honestly**: the architectural direction
+already has a queue row and a precedent, so the question here is not *"should the
+boundary hold"* but *"is a placeholder the right exception to it"*.
+
 ⚠ **Not proposing it as the answer.** There is a real case for the other side: a
 stand-in is *meant* to be thin, and a type that demands nineteen slots is a tax on
 placeholders — which is presumably why the hand-built table exists at all. ⇒ That

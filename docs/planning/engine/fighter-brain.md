@@ -1329,6 +1329,42 @@ the qualifier, and `6 vs 5` and `9 vs 6` are undetermined in every arm. ⇒ The 
 of the ladder is not measured — it is unmeasured. Nobody should read "the rungs
 above 5 are fine" out of this table.
 
+### ⛔⛔ AT 40 SEEDS EVERY CELL IS SIGNIFICANT, AND THE SHIPPED LADDER GOES BACKWARDS THROUGH ITS MIDDLE
+
+The shipped ladder, 40 seeds, paired, sign test — **no cell carries a qualifier**:
+
+| cell | dealt (hi : lo) | verdict |
+|---|---|---|
+| 3 vs 1 | 215% : 163% | ✔ **higher outfights** |
+| 5 vs 3 | 191% : 229% | ⛔ **LOWER outfights** |
+| 6 vs 5 | 197% : 214% | ⛔ **LOWER outfights** |
+| 9 vs 6 | 231% : 220% | ✔ **higher outfights** |
+
+⇒ **Read as an ordering: `1 < 3 > 5 > 6 < 9`.**
+
+⭐⭐ **Rung 3 is a local MAXIMUM and rung 6 is a local MINIMUM.** A player climbing
+the ladder gets a harder opponent from 1 to 3, then **two successive steps
+BACKWARDS** — 3 → 5 → 6 each make the CPU measurably weaker — and only recovers
+by 9. ⛔ That is the difficulty curve a player actually meets, and it has never
+been measured before today because the rig had never read the shipped rows.
+
+⚠ **The 6v5 cell only became significant with more seeds**, which is worth
+stating plainly: at 12 seeds it carried the qualifier and I wrote *"the top of the
+ladder is unmeasured, not fine."* That was the right thing to write and it was
+also too cautious — at 40 seeds it is measured, and it is not fine.
+
+⭐ **And this is the sign test's second self-validation.** Two significant cells at
+12 seeds became four at 40. ⇒ Power rising with evidence is the property the old
+range criterion had inverted, and it is now visible twice: once in a result it
+would have destroyed (`3 vs 1`) and once in results it would never have found at
+all (`6 vs 5`, `9 vs 6`).
+
+⚠ **What it does not establish.** These are the Robots, not George; rungs 2, 4, 7
+and 8 are unmeasured entirely; and the four cells are adjacent-pair comparisons,
+so `1 < 3 > 5 > 6 < 9` is a chain of local comparisons rather than a global
+ranking. A rung-1-vs-rung-9 arm would test whether the ladder's ENDS are ordered
+even though its middle is not.
+
 ⭐⭐ **AND THE INSTRUMENT FIX PAID FOR ITSELF IMMEDIATELY, which is the cleanest
 validation available.** The old range criterion called `3 vs 1` significant at 12
 seeds and *lost* it at 40. The sign test calls it significant at **both** 12 and

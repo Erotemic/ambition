@@ -858,6 +858,44 @@ gun and walking away ever lose it?**
 ⛔ Not an agent's call — it decides whether a whole category of future item is
 losable. Recorded rather than implemented; I3 stays open behind it.
 
+### ▢ Should cast framing become BIDIRECTIONAL — a target rather than a floor?
+
+⭐ Split out of the 2026-09-03 camera-zoom change, which landed the part that was
+measurable and left this part alone because it is a FEEL ruling.
+
+**What landed:** `CameraZoomPreset::Duel` (568x320) is the new default, sized from a
+measured reference — `pointed_polygon` is `body_kind: Standard`, standing height 48.0
+world units, so 48/320 = **15.0%** of screen height. The previous `Combat` default
+(800x450) gave **10.7%**.
+
+**What is open, and it is the half that would actually read as Smash-like.** Our camera
+can only ever widen from the base:
+* `camera_scale` is clamped `.max(1.0)` (`camera_snapshot.rs:320-350`);
+* cast framing is documented as *"the view is a FLOOR, so authored zoom still wins
+  whenever it is already wider"* (`CAST_FRAMING_MARGIN`);
+* encounter `camera_zoom` is a zoom-OUT multiplier.
+
+⇒ `base_view` is **the most zoomed-in the camera ever gets.** Ultimate's ~15% is the
+MIDDLE of a dynamic range — roughly 19% when fighters close, 11% when they separate. Ours
+is now tighter than Ultimate when fighters are apart, and never as tight when they meet.
+
+**The decision:** leave framing floor-only and accept a fixed 15%, or make cast framing a
+target that tightens toward ~19% and relaxes toward ~11%?
+
+⛔ Not taken unilaterally because the floor-only property is load-bearing: authored zoom
+winning whenever it is already wider is what lets a room or an encounter guarantee a
+minimum view, and a bidirectional camera can override that guarantee. It is a genre/feel
+ruling with an architectural cost, not a tuning knob.
+
+ⓘ Cheaper alternative if the answer is "not now": `Tight` (640x360, **13.3%**) is one line
+away and is the conservative version of the same change.
+
+⚠ One measurement caveat on the 15%: 48.0 is the `Standard` body-kind DEFAULT, so every
+standard humanoid is 48 units — `pointed_polygon` is representative by construction rather
+than by having been measured individually. The drawn sprite including its margin is taller
+(~89 units, the 118px body in a 218px frame), so "character size" means the BODY here, not
+the art. If the intent was the art, every figure above shifts and the tier wants resizing.
+
 ## Waiting on maintainer measurement, not a decision
 
 ### The residency limit open work 4 needs

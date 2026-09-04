@@ -162,6 +162,11 @@ pub fn report_image_census(
     // `live=1 — DECODED DURING GAMEPLAY, so it cost a frame`, which read as a
     // gameplay hitch for art the launcher loads under its own cover.
     sessions: Query<(), With<ambition_platformer2d_shared_tangle::lifecycle::SessionRoot>>,
+    // ⭐ THIS APP'S READINESS AUTHORITY. The arrival recorded below is the
+    // CANDIDATE half of it; the render world supplies the prepared half. Both
+    // must be App-local, or an id shared with a sibling App is decided by
+    // whichever world looks first — see `AppReadiness`.
+    prepared_here: Option<Res<image_stages::AppGpuPreparedImages>>,
 ) {
     let live_known = mode
         .as_ref()
@@ -172,7 +177,13 @@ pub fn report_image_census(
     image_stages::ledger().set_gameplay_live(live_known);
     for event in events.read() {
         let id = match event {
-            AssetEvent::Added { id } => *id,
+            AssetEvent::Added { id } => {
+                // The readiness candidate, through the SAME definition the web
+                // path uses. Recorded before any notability filter: the reveal
+                // owes every image it waits on, not only the big ones.
+                note_image_arrival(prepared_here.as_deref(), *id);
+                *id
+            }
             AssetEvent::Removed { id } | AssetEvent::Unused { id } => {
                 // Decoded and dropped before any GPU saw it: the wasted half
                 // of the decode budget, named per file when it is big.
@@ -465,15 +476,64 @@ pub fn report_image_census(
     census.window_started_at = now;
 }
 
-/// Wasm has no `Instant`; the census stays a no-op there (use browser devtools).
+/// Wasm has no `Instant`, so the REPORT is a no-op there (use browser devtools)
+/// — but the ARRIVAL RECORD is not, and that distinction is the whole bug this
+/// signature once carried.
+///
+/// ⛔⛔ THIS FUNCTION USED TO BE `events.clear()` AND NOTHING ELSE. That threw
+/// away the only signal that tells the render world which images to look for,
+/// so on the web nothing was ever a candidate, nothing was ever stamped
+/// prepared, and `is_awaiting_gpu` answered "still owed" for every image
+/// forever: the room cover could not lift. It is the mirror of the older bug
+/// where the cover lifted too early, and it arrived by fixing that one — the
+/// readiness ANSWER was moved per-App while the WORK QUEUE feeding it stayed
+/// native-only.
+///
+/// ⇒ Both targets now call the same [`note_image_arrivals`]. The census
+/// arithmetic needs a clock and stays native; recording an arrival does not.
 #[cfg(target_arch = "wasm32")]
 pub fn report_image_census(
     mut events: MessageReader<AssetEvent<Image>>,
     _images: Res<Assets<Image>>,
     _asset_server: Res<AssetServer>,
     _census: ResMut<ImageCensus>,
+    prepared_here: Option<Res<image_stages::AppGpuPreparedImages>>,
 ) {
-    events.clear();
+    note_image_arrivals(&mut events, prepared_here.as_deref());
+}
+
+/// Record every arriving image as a GPU-readiness CANDIDATE for this App.
+///
+/// ⭐ Shared by both targets on purpose. The defect this replaces existed
+/// because the two `report_image_census` bodies diverged and only one of them
+/// fed the readiness pipeline; a reader comparing them saw two plausible
+/// functions. One helper means the web path cannot silently do less than the
+/// native one, and it is directly testable without a render world.
+pub fn note_image_arrivals(
+    events: &mut MessageReader<AssetEvent<Image>>,
+    prepared_here: Option<&image_stages::AppGpuPreparedImages>,
+) {
+    for event in events.read() {
+        if let AssetEvent::Added { id } = event {
+            note_image_arrival(prepared_here, *id);
+        }
+    }
+}
+
+/// What "an image arrived" MEANS for readiness, defined exactly once.
+///
+/// ⛔ Both `report_image_census` bodies call this. The native one cannot call
+/// [`note_image_arrivals`] instead, because it must also see `Removed`/`Unused`
+/// in the same drain and a `MessageReader` yields each event once — so the
+/// shared thing is the RECORD, not the loop. Two loops are unavoidable; two
+/// definitions of the record are what produced the never-lifting cover.
+pub fn note_image_arrival(
+    prepared_here: Option<&image_stages::AppGpuPreparedImages>,
+    id: AssetId<Image>,
+) {
+    if let Some(prepared_here) = prepared_here {
+        prepared_here.mark_awaiting(id.untyped());
+    }
 }
 
 #[cfg(test)]
@@ -495,6 +555,86 @@ mod tests {
         let census = ImageCensus::default();
         assert_eq!(census.total_images(), 0);
         assert_eq!(census.total_megapixels(), 0.0);
+    }
+
+    /// ⛔⛔ THE PLUGIN MUST INSTALL THE PER-APP SET, and until this test existed
+    /// nothing said so. `AppGpuPreparedImages` had three good tests and all of
+    /// them built it with `::default()` — so all three passed with
+    /// `app.insert_resource(prepared_here)` deleted, while
+    /// `stamp_gpu_prepared_images`, which takes it as `Option<Res<_>>`, compiled
+    /// and ran and silently skipped the authoritative write. Neither a compile
+    /// error nor a behavioural failure.
+    ///
+    /// ⇒ A test that CONSTRUCTS its subject cannot witness the subject's
+    /// absence. This one goes through the composition instead, which is the
+    /// claim that was unguarded.
+    ///
+    /// ⚠ WHAT THIS DOES NOT COVER, stated so nobody reads it as more: that the
+    /// render sub-app got THIS set rather than a fresh one. That needs a sub-app
+    /// and there is none headless — the very early return the insert was hoisted
+    /// above. `a_clone_is_the_same_set_because_one_app_shares_it_across_worlds`
+    /// pins the `Arc` semantics at type level; what stays uncovered is only the
+    /// hand-off itself.
+    #[test]
+    fn the_plugin_installs_the_per_app_prepared_set_even_without_a_render_world() {
+        let mut app = App::new();
+        app.add_plugins(ImageStagePlugin);
+        assert!(
+            app.world()
+                .get_resource::<image_stages::AppGpuPreparedImages>()
+                .is_some(),
+            "ImageStagePlugin must install AppGpuPreparedImages on the App's main world; \
+             without it `stamp_gpu_prepared_images` sees `None` and silently skips the \
+             authoritative write, falling back to the process-global answer",
+        );
+    }
+
+    /// ⛔⛔ THE ARRIVAL RECORD IS THE READINESS PIPELINE'S INPUT, AND THE WEB
+    /// PATH USED TO DISCARD IT.
+    ///
+    /// `report_image_census` on wasm was `events.clear()` and nothing else, so
+    /// no image ever became a candidate, the render stamper's queue was always
+    /// empty, `AppGpuPreparedImages` was never written, and
+    /// `is_awaiting_gpu` answered "still owed" for every image forever — the
+    /// cover could not lift. A `--target wasm32` CHECK cannot see it: every
+    /// branch type-checks. This pins the behaviour instead.
+    ///
+    /// ⚠ It tests `note_image_arrival`, which is the whole content of the wasm
+    /// body and the record the native body makes too — one definition, so the
+    /// two roads cannot silently disagree again. What it does NOT prove is that
+    /// each `report_image_census` still calls it; that is a one-line claim a
+    /// reader can check, and the reason the definition was collapsed to one.
+    #[test]
+    fn an_arriving_image_becomes_a_candidate_for_this_app() {
+        let prepared_here = image_stages::AppGpuPreparedImages::default();
+        let arrived = AssetId::<Image>::invalid();
+
+        assert_eq!(
+            prepared_here.awaiting_count(),
+            0,
+            "non-vacuity: nothing is owed before the arrival",
+        );
+
+        note_image_arrival(Some(&prepared_here), arrived);
+
+        assert_eq!(
+            prepared_here.awaiting_ids(),
+            vec![arrived.untyped()],
+            "an arrived image must be a candidate this App's render world looks for; \
+             discarding the event is what left the web cover up forever",
+        );
+        assert!(
+            prepared_here.is_awaiting_gpu(arrived.untyped(), image_stages::RenderWorldPresent(true)),
+            "and it is still OWED until the render world stamps it",
+        );
+    }
+
+    /// An App with no readiness authority must not panic — a headless probe
+    /// installs no render world and gets no resource. Absent means "nothing
+    /// waits on me", not "record nowhere and pretend".
+    #[test]
+    fn an_arrival_without_an_authority_is_a_no_op_rather_than_a_panic() {
+        note_image_arrival(None, AssetId::<Image>::invalid());
     }
 }
 
@@ -524,14 +664,22 @@ pub fn stamp_gpu_prepared_images(
     // prepared, hence nothing awaited, hence a cover that lifted early.
     #[cfg(not(target_arch = "wasm32"))] started_at: Res<ImageStageClock>,
 ) {
-    let mut ledger = image_stages::ledger();
-    if ledger.awaiting_gpu().is_empty() {
+    // ⛔⛔ CANDIDATES COME FROM THIS APP, NOT THE PROCESS LEDGER. The ledger's
+    // `awaiting_gpu` is one list keyed by bare `UntypedAssetId` for the whole
+    // process, and `gpu_prepared()` CONSUMES the entry — so with two rendering
+    // Apps sharing an id, whichever looked first took the candidate and the
+    // other could never discover its own preparation. On wasm the list was
+    // never populated at all. Both are the same error: the readiness ANSWER was
+    // made App-local while the WORK QUEUE that establishes it stayed global.
+    let Some(prepared_here) = prepared_here.as_deref() else {
+        return;
+    };
+    let awaiting = prepared_here.awaiting_ids();
+    if awaiting.is_empty() {
         return;
     }
-    let prepared: Vec<_> = ledger
-        .awaiting_gpu()
-        .iter()
-        .copied()
+    let prepared: Vec<_> = awaiting
+        .into_iter()
         .filter(|id| {
             id.try_typed::<Image>()
                 .is_ok_and(|id| gpu_images.get(id).is_some())
@@ -540,6 +688,7 @@ pub fn stamp_gpu_prepared_images(
     if prepared.is_empty() {
         return;
     }
+    let mut ledger = image_stages::ledger();
     // ⭐ THE AUTHORITATIVE WRITE, and it happens BEFORE the ledger mirror below
     // and independently of it. The ledger's `gpu_prepared` consumes a row and
     // returns `None` when there is nothing to report — a census concern. Reveal
@@ -548,10 +697,8 @@ pub fn stamp_gpu_prepared_images(
     //
     // ⛔ UNCONDITIONAL ON PURPOSE. This is the readiness FACT the web reveal
     // barrier reads; the clock below is the only native-only part.
-    if let Some(prepared_here) = prepared_here.as_deref() {
-        for id in &prepared {
-            prepared_here.mark_prepared(*id);
-        }
+    for id in &prepared {
+        prepared_here.mark_prepared(*id);
     }
 
     // ⛔ ONE `#[cfg]` BOUNDARY, NOT EIGHT. An earlier draft gated eight separate
@@ -717,6 +864,22 @@ impl Plugin for ImageStagePlugin {
         // skipping exactly the GPU upload the barrier exists to move under the
         // cover. Every branch type-checks, so the wasm CHECK could not see it.
         // The clock stays native; the stamp does not.
+
+        // ⭐ ABOVE THE EARLY RETURN ON PURPOSE, and the reason is testability
+        // rather than behaviour. `stamp_gpu_prepared_images` takes this as an
+        // `Option<Res<_>>`, so an App that never got it COMPILES, RUNS, and
+        // silently skips the authoritative write — falling back to the
+        // process-global answer this type exists to replace. Below the return,
+        // a headless App has no such resource, so nothing could assert the
+        // plugin installs it and the line was unguardable by construction.
+        //
+        // ⚠ Inert on an App with no render world: the set is empty and
+        // `is_awaiting_gpu(id, RenderWorldPresent(false))` is false regardless
+        // of its contents — pinned by `a_headless_app_is_never_awaiting`. So
+        // nothing starts awaiting that was not awaiting before.
+        let prepared_here = image_stages::AppGpuPreparedImages::default();
+        app.insert_resource(prepared_here.clone());
+
         if app.get_sub_app(RenderApp).is_none() {
             return;
         }
@@ -725,19 +888,6 @@ impl Plugin for ImageStagePlugin {
         // on the process ledger: a sibling App in the same process has its own
         // answer. Inserted BEFORE the sub-app is borrowed.
         app.insert_resource(image_stages::RenderWorldPresent(true));
-
-        // ⭐ ONE SET, BOTH WORLDS, THIS App. The main world reads it as the
-        // reveal-readiness term and the render sub-app writes it; they share the
-        // `Arc` because they are the same App. A second rendering App builds its
-        // own, so preparation in one cannot settle the other even when their
-        // local asset ids collide.
-        //
-        // ⛔ ON EVERY TARGET, like the stamp that writes it. `stamp_gpu_prepared_images`
-        // takes this as an `Option<Res<_>>`, so leaving it uninserted on the web
-        // would compile, run, and silently skip the authoritative write — the
-        // reveal would be back to reading a process-global answer.
-        let prepared_here = image_stages::AppGpuPreparedImages::default();
-        app.insert_resource(prepared_here.clone());
 
         // One clock for both halves: whichever side initialises the census
         // first fixes the zero, and the other reads it.

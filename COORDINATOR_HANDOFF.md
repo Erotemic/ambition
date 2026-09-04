@@ -16,10 +16,11 @@
 > | tonight's five carves, the Ultra hall, the GPT review | entry 1 and the goal report |
 > | the parallax gate — the one open engine defect | handoff #2 "Open, with owners", corrected in the last entry |
 >
-> **Gate at this tip:** `scripts/tests` 815 passed / 11 skipped / zero failures · doc links 279
-> documents, 970 local links · 1475 planning citations across 182 files, all resolved. **Zero
-> `.rs` files changed in the whole integrator window**, so no Rust claim is made here; the last
-> real Rust gate stands at `5cd132e82` (6/6 jobs, 1639 s, zero failures).
+> **Gate:** `./run_tests.sh --rust` at `5f18dbfa4` — **5 of 6 jobs green**; the one red is
+> `dive_drill_reachability`, established as a FLAKE and not a regression (18/18 in isolation; see
+> the gate section near the end). `scripts/tests` 815+ passed / zero failures · doc links 279
+> documents, 970 local links · 1475 planning citations across 182 files, all resolved · wasm
+> target clean. The previous all-green Rust gate was `5cd132e82` (6/6, 1639 s).
 >
 > **Three things open, none of them started:** the parallax gate (diagnosed, fix shape agreed, no
 > box here reproduces — run the two-room comparison on e7's); e7's review items #1 and #4, now
@@ -478,11 +479,28 @@ behind a non-default `#[cfg(feature)]` (`ron` in `ambition_encounter`, `content_
 real code). A delete list built from the detector alone would remove working code.
 
 ## The rule this window is worth remembering for
-**"I only merged" is editing.** A gate's tree must be frozen. Owner: the Smash session, who lost
-a 1639 s Rust run to it earlier today by merging `origin/main` to push a docs commit and pulling
-`actors/mod.rs` in under a running job — then killed the run rather than report a number it could
-not attribute. It asked for the attribution to be accurate rather than floating, and it is right
-that a rule with no owner is one nobody has to have learned.
+**"I only merged" is editing.** A gate's tree must be frozen. Owner: the Smash session, which
+ABANDONED a `--rust` run earlier today by merging `origin/main` to push a docs commit and pulling
+`actors/mod.rs` in under a running job — then killed it rather than report a number it could not
+attribute. It asked for the attribution to be accurate rather than floating, and it is right that
+a rule with no owner is one nobody has to have learned.
+
+⛔⛔ **CORRECTION, and the error was MINE: this paragraph said "lost a 1639 s Rust run". The
+abandoned run has NO recorded duration** — it was killed partway and never wrote a verdict, which
+is the entire point of the story. **1639 s is the CLEAN RERUN** at the settled tip (`5cd132e82`,
+6/6). A number attached to the wrong noun.
+
+⇒ And it was one step from becoming permanent. Yardrat read this line, believed it, and drafted it
+into `AGENTS.md` — where it would have been doctrine, cited by people with no path back to the
+source. What stopped it was their refusing to write a figure they could not attribute, and asking
+me to confirm it. **A laundered number does not announce itself: it gets more credible at every
+hop, because each reader sees it in a more authoritative document than the last.**
+
+⇒ Second, independent reason to freeze that this window found, and it is the stronger one: **the
+first reason — the jobs might read what you changed — EXPIRES as jobs complete.** A verdict must
+NAME A TREE. Merge mid-run and the result describes no commit that ever existed: not the tree it
+started on, not the one it ended on. Real and unattributable, which is the abandoned suite
+reporting `done` one level up. That leg holds from the first job to the last.
 
 ## ⚠ Raised by the Smash session and left for Jon, deliberately not acted on
 The goal is **SHARED**, so every session that finishes a turn in this repository auto-joins the
@@ -693,3 +711,195 @@ folded the fact into `BodyPoseView`. The tell was not a grep — it was reading 
 Symbol presence is wrong in both directions. **Testing the branch's stated PURPOSE against main
 is what settled every case** — `focus_for_action`'s signature, the `Trapdoor*` rename, the
 absent `report_gpu_prepared`.
+
+### The `--rust` gate at `5f18dbfa4`: 5/6 green, and the one red is a FLAKE, not a regression
+`workspace (default features)` FAILED on one test —
+`dive_drill_reachability::dive_drill_lunges_through_the_targets`, whose own diagnostic read
+`dive: x 951->951 (+0px), target HP [4] -> [4], resets=1`: the player never moved, dealt no
+damage, and died. Every other job green, including **`acceptance: the render composition draws a
+frame`** (201.2s) and **`web build check`** — the two that would break first if the web-GPU merge
+were wrong.
+
+⛔ **Everyone's first move, mine included, was to look for the commit that broke it. There isn't
+one.** Measured at that HEAD:
+
+| condition | result |
+|---|---|
+| alone, `-p ambition_app` | **10/10 pass** |
+| under 24 busy threads on 12 cores | **6/6 pass** |
+| under the full `--workspace` FEATURE UNION | **1/1 pass** |
+| whole `app_it` binary, 549 tests concurrent | **549/549 pass**, 0 failures |
+| the gate's full 6966-test suite | **1 FAIL** (as test 411), then **PASS** on re-run (415/6967, 2.78 s) |
+
+✔ **Re-gated at `8a8b7363d`: all 6 jobs passed, zero failures** — including the workspace job
+that carried the red, so the flake is now confirmed in the arm that produced it rather than
+inferred from four arms that never did. Filed as a known flake in
+`engine/performance-and-iteration.md`, beside the jab-string row that warns against exactly the
+inference I was one run away from making. ⓘ The failing workspace job took **988.3 s**, the
+passing one **606.2 s**: load-sensitive, not code.
+
+⇒ **18/18 in isolation.** Not a regression; a rare flake that so far appears only under the full
+concurrent suite. It is NOT in the known-flake list with the smash jab-string test; it should be.
+
+**Two hypotheses died on the way, both with the falsifier written down first:**
+- *A commit in the window.* Only 7 `.rs` files changed since the last green gate. calculex cleared
+  their `167a33f86` BY MECHANISM rather than elimination: the changed line has one non-test caller,
+  runs only inside `for encounter_id in &completed_wave_ids`, and the dive-drill level contains
+  **zero** occurrences of `encounter`/`switch`/`wave` anywhere in its JSON — they checked the whole
+  level object as a string, not just `fieldInstances`. They also ruled out the class: no switch
+  consumer despawns geometry or can stop a player moving.
+- *Feature unification.* `ambition_dialog feature "ui"` IS enabled under `--workspace` and absent
+  under `-p` (calculex predicted this from their census's central caveat), and the failing run's
+  census carries 19 dialog/conversation systems. Tempting. **The union run passed in 1.338 s.**
+  ⭐ The prediction was recorded before the run, so there was no room to retrofit a story. A
+  coherent mechanism with a real, measured feature difference behind it was still the wrong one.
+
+⛔ **A correction of my own reasoning, because it was load-bearing:** I called the failing run
+"isolated" because nextest printed `571 filtered out`. That line comes from the libtest harness
+INSIDE one process and says nothing about the machine — the gate had many test processes running
+alongside. Reading a per-process line as a statement about the host is the same shape as every
+other over-wide claim this week.
+
+### ⓘ Two instrument failures while gating, both of which mimicked a benign result
+- **A killed background wrapper piped through `| tail` loses the ENTIRE log.** Two `--rust` runs
+  reported `killed` with **zero** output; neither was a test failure, and an early compile crash
+  would have looked identical. ⇒ Launch long gates with `setsid nohup … > logfile` so the record
+  survives the wrapper. Third time it happened, the work underneath was fine every time.
+- **A watcher on the wrong pid reports a completion that never happened.** `pgrep -f cargo-nextest
+  | head -1` caught a transient sibling, so a monitor announced "FINISHED" while the run was at
+  19/549 — indistinguishable from a fast clean run.
+
+### ✔ Workspace-only clean applied (Jon's ask: "remove only our libs, keep bevy")
+`scripts/clean_workspace_crates.sh --apply` — the script that already existed for this cut
+(`cargo clean --workspace` per profile; it cleans one profile per invocation, which is why the
+wrapper exists). Dry run first, then applied.
+
+```text
+target/ before   149G      volume 237G free (52% used)
+removed          131.8GiB  117,639 files (debug) + 14 (release)
+target/ after     30G      volume 356G free (27% used)
+after rebuild     62G      volume 324G free (34% used)
+```
+
+⚠ **Where the space was is not where I would have guessed** (yardrat measured it): `debug/deps/`
+held **106.7 GB in 337 EXECUTABLES** against 17.8 GB of `.rlib`. Test and bin artifacts, not
+libraries — a clean aimed at libraries would have missed nearly all of it.
+
+⛔⛔ **AND MY "THE DEPENDENCY WALL STANDS" CLAIM WAS FALSE — caught by fixing my own check.**
+I asserted the rebuild recompiled only our crates, and grepped the gate log for
+`Compiling (bevy|wgpu|winit|serde) ` — **0 hits**. It also read **0 for `Compiling ambition`**,
+which is what gave it away: cargo writes an ANSI reset BETWEEN `Compiling` and the crate name, so
+the pattern could not match anything. **A check that cannot fail.** Stripping the escapes:
+
+```text
+121 distinct crates compiled — 77 ours, 44 THIRD-PARTY (bevy, avian2d, bevy_egui, winit, alsa…)
+```
+
+⇒ **Deletion-wise the property held; recompilation-wise it did not.** The clean removed only
+workspace-member artifacts and 30G of dependency artifacts survived on disk. The 44 recompiles
+come from the MERGE, not the clean: I merged before cleaning, so the surviving dependency
+artifacts had been built against the OLD `Cargo.lock`, and yardrat's branch adds `clap` to
+`[workspace.dependencies]` and rewrites the lock. ⚠ Stated as inference from the delete summary
+plus the 30G residue — separating the two cleanly would cost another full rebuild and is not
+worth it.
+
+ⓘ The `[profile.dev]` diff in that merge is COMMENT ONLY (the `split-debuginfo` measurement,
+recorded at the setting so nobody re-runs it). No profile value changed, so it is not the cause —
+which matters, because yardrat measured that changing that profile invalidates 352 crates.
+
+**Gate 3 at `cb069b2c1`: all 6 jobs passed, zero failures** — on the cleaned tree, so the
+`smash_tool` collapse is gated from a source rebuild rather than stale artifacts.
+
+## Review response — all six items, 2026-09-03
+An external review of the 12-hour window declined to sign off, on one Critical and five lesser
+findings. All six are addressed. **The Critical one was real and it was mine.**
+
+### 1. ⛔ Critical — the web reveal could wait FOREVER (fixed)
+`AppGpuPreparedImages` moved the readiness ANSWER per-App, correctly. The WORK QUEUE feeding it
+stayed process-global, and the only production `ledger().inserted()` call is native-only
+(`asset_census.rs:230`) — the wasm census body was `events.clear()` and nothing else.
+
+⇒ On the web: image Added → discarded → global `awaiting_gpu` empty → the stamper returns at its
+first line → `AppGpuPreparedImages` never written → `is_awaiting_gpu` = `render_world.is_present()
+&& !is_prepared(id)` = TRUE for every image, forever.
+
+⛔ **It is the exact mirror of the bug that merge fixed**, and it arrived by fixing it: before,
+wasm never inserted `RenderWorldPresent`, so the cover lifted BEFORE the GPU had the pixels. I
+ungated the readiness half without ungating the half that feeds it and traded "lifts too early"
+for "never lifts". A `--target wasm32` check sees neither: every branch type-checks.
+
+⚠ Same root, natively: the global list is keyed by bare `UntypedAssetId` and `gpu_prepared()`
+CONSUMES the entry. Two rendering Apps sharing an id → the first render world to look took the
+only candidate and the other could never discover its own preparation. The comments said the
+ledger must not DECIDE; it still decided which App-local facts were allowed to be written.
+
+Fixed: `AppReadiness { awaiting, prepared }` behind the Arc the two worlds already shared, and
+ONE `note_image_arrival` called by both census bodies — the cfg divergence is gone rather than
+patched. Poison-verified three ways.
+
+### 2. High — the parallax gate withheld the whole room (fixed)
+`!theme_loaded` returned before `spawn_room_visuals`, so at any tier wanting parallax a late
+theme withheld every static visual and authored entity. Two memos now: the room presents
+unconditionally, parallax keeps the retry alone. Three tests, poison-verified against the exact
+pre-fix return. ⚠ Structure only — the visual symptom still needs the reproducing box.
+
+### 3. High — music publisher wrote through mirror symlinks (fixed, gitlink NOT moved)
+Three bare `shutil.copy2` in the submodule's `cli.py` followed mirrored symlinks into the main
+checkout. All three go through a submodule-local `publish_safely.publish_copy` now, with
+behavioural tests using real symlinks and protected target bytes. ⛔ **The parent gitlink is
+deliberately NOT moved:** that submodule holds 30 files of Jon's uncommitted stem-lab work and its
+checkout is already one commit ahead (`26b87bf music: accept aether severance V5`). Bumping it
+would publish his content decision for him.
+
+### 4. Medium — a regenerated PREFIX made a borrowing tree canonical (fixed)
+Reproduced before fixing: 25 real PNGs sorting first + one later symlink → `canonical=True`.
+`SAMPLE = 25` argued against itself, claiming the answer was uniform while conceding the mirror
+exists to permit mixed trees. Exhaustive now — measured at 2,172 PNGs / 0.06 s, so sampling was
+never justified by cost. ⭐ Found while fixing it: the predicate kept an INLINED COPY of the scan
+despite the comment claiming it was shared with `why_not` — the third time in that file a stated
+sharing invariant was only half true.
+
+### 5. Medium — multi-switch acceptance (added; implementation untouched)
+The implementation is correct. The missing piece was the sequence that failed: complete a real
+two-switch wave encounter through `apply_wave_encounter_effects`, persist, rebuild the index, and
+prove it does not re-arm. Poison with the pre-fix first-link-only behaviour fails ONLY the new
+test while the other 37 pass — which measures the gap rather than asserting it.
+
+⛔⛔ **AND THE HARNESS FOUND A TRAP WORTH MORE THAN THE TEST.** The system takes
+`SessionWorldMut<EncounterMusicRequest>` — a `Single` — and **Bevy SKIPS a system whose `Single`
+does not match exactly one entity, silently: no panic, no warning, no log.** Every guard I could
+see was satisfied and the system still never ran; a canary beside it ran twice; only instrumenting
+its first line proved it was never entered. ⇒ A system with a `Single` param is INVISIBLY
+CONDITIONAL on that entity existing, and an acceptance test asserting an ABSENCE would pass for
+entirely the wrong reason.
+
+### 6. Low — stale queue rows (retired)
+`why_not()` and the nine-binaries row both carried `▢` while their work had landed, against the
+file's own contract. Retired, keeping the part a reader would otherwise re-derive: the
+`split-debuginfo` lever was tried and REJECTED on measurement (+324 MB total).
+
+### ✔ Camera default zoomed in, calibrated rather than chosen (Jon, 2026-09-03)
+Jon: *"the default camera zoomed in a bit more, for smash too"*, reference character
+`pointed_polygon`. It authors no explicit body, so it takes `body_kind: Standard`'s
+`default_standing_height()` — **48.0 world units**.
+
+```text
+Combat  800x450  (old default)   48/450 = 10.7%
+Duel    568x320  (new default)   48/320 = 15.0%   <- Smash-like neutral-1v1 readability
+Tight   640x360                  48/360 = 13.3%   <- the conservative fallback, one line away
+```
+
+⭐ The old default was not merely a bit wide: at 10.7% it sat BELOW the most zoomed-OUT end of
+Ultimate's normal dynamic range (~11%), so the game framed a fight wider than that game ever
+does. Two tests pin it, the second so the first cannot pass vacuously — and the first is also
+the tripwire if `Standard`'s standing height ever changes, since the framing is DERIVED from it.
+
+⛔ **Filed, not decided** (`awaiting-maintainer-decision.md`): making cast framing
+BIDIRECTIONAL. `camera_scale` is clamped `.max(1.0)`, cast framing is documented as a FLOOR, and
+encounter zoom is a zoom-OUT multiplier ⇒ `base_view` is the most zoomed-in the camera ever
+gets, while Ultimate's 15% is the MIDDLE of ~11–19%. We are now tighter than it when fighters
+separate and never as tight when they meet. A feel ruling with an architectural cost.
+
+ⓘ A default change leaves copies: `CameraSnapshot2d::default()` hardcoded `800x450` — correct
+under `Combat`, silently wrong under `Duel`, and read by nothing in production so it would have
+waited. Now derived from the preset, with a test that fails if the two diverge again.

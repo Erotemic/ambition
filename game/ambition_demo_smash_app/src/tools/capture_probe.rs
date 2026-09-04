@@ -65,6 +65,18 @@ fn count_attempts(
 #[derive(clap::Args, Debug)]
 pub struct CaptureProbeArgs {
     /// How many seconds of match to simulate (60 ticks each).
+    ///
+    /// ⛔ **THERE IS A CEILING AND IT IS THE MATCH, NOT THIS NUMBER.** Once both
+    /// fighters are eliminated the stage is empty and every further tick
+    /// contributes nothing — so asking for more seconds than a match lasts buys
+    /// no data. ⚠ Measured 2026-09-04: a stand-in match on the shipped ladder
+    /// resolves at about **134s**, and a 300-second probe returns a census
+    /// byte-identical to a 120-second one.
+    ///
+    /// ⇒ Which cuts both ways, and the useful half is easy to miss: a census
+    /// taken over a full match is a statement about a WHOLE match, not a
+    /// truncated window — so a move absent from it is absent from the entire
+    /// fight rather than from an arbitrary slice.
     #[arg(default_value_t = 60.0)]
     pub seconds: f32,
     /// Press Grab FOR them, when a person would. The CPU's own timing is a

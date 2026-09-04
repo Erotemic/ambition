@@ -211,6 +211,23 @@ other 26 belong to, and the largest of those is the mount block that FAILS the
 ordering check. Boss encounters were 14 references in one contiguous block with
 one owner, which is why that one was a two-hour packet and this is not.
 
+⛔ **AND THE CHECK ITSELF WAS RUN WITH HALF AN INSTRUMENT — twice worth
+recording, because both halves were wrong in the same optimistic direction.**
+An ordering edge is `.after`, `.before`, **`.chain()`** AND set membership. The
+first pass grepped only `.after`/`.before`, found one foreign edge, and called
+combat clean; the mount failure is a `.chain()`
+(`combat_schedule.rs:379-380`, `ambition_mount::enforce_mount_rider_link`
+chained with `actor_monolith::features::rebuild_dismounted_rider_brains`) — the
+most system-to-system ordering of the four, and invisible to that regex. Fixed
+in the check at `9eb50b6bc`.
+
+⚠ **And "it is inside a published set" is NOT the property to look for.** That
+chain sits within `.in_set(ambition_mount::MountRiderLinkEnforced)`. The GROUP
+is published vocabulary; the order of the two systems *within* it is not — a set
+wrapping two systems says nothing about their relative order, so a member pair
+can still be privately ordered against a foreign path. ⇒ Set membership counts
+as an ordering edge to be examined, never as evidence the edge is public.
+
 ⭐ **SO THE SIZING RULE HAS A SECOND QUESTION, and combat is what taught it:**
 after "do this capability's ordering edges name only published sets", ask **"is
 the schedule file this capability's, or does it install several?"** The first can

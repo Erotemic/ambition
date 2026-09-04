@@ -246,10 +246,17 @@
 >
 > ```text
 > LockWall instances: 3  (2 gated, 1 encounter)
-> condition() calls in .yarn: 10   (7 inventory.holds, 3 world.flag_set)
-> TOTAL authored uses: 12  (2 route gates + 10 dialogue lines)
-> published but authored NOWHERE: 5 of 7
+> condition uses in .yarn: 18  (7 inventory.holds, 5 boss.cleared,
+>                               3 quest.active, 3 world.flag_set)
+> TOTAL authored uses: 20  (2 route gates + 18 dialogue lines)
+> published but authored NOWHERE: 5 of 9
 > ```
+>
+> ⛔ **THOSE FIGURES WERE 12 / 5-of-7 UNTIL THE SCRIPT LEARNED THE SECOND
+> SPELLING.** A condition is reachable from `.yarn` two ways — the generic
+> `condition(id, arg)` verb and a NAMED function bound to it (`boss_cleared`,
+> `quest_active`) — and counting one reported the two newest conditions as
+> unauthored on the day they shipped *because* they had authored callers.
 >
 > ⇒ **Five times more authored uses are DIALOGUE than routes.** So this page's
 > framing — everything as a route question — is what made the first count look

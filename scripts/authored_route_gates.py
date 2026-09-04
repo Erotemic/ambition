@@ -33,6 +33,15 @@ import sys
 from collections import Counter
 
 
+#: Yarn functions bound to a published condition under a different name.
+#: Authored content reaches the same condition through these, so a census that
+#: counts only `condition(id, arg)` under-reports the vocabulary's real use.
+NAMED_ALIASES = {
+    "boss_cleared": "boss.cleared",
+    "quest_active": "quest.active",
+}
+
+
 def worlds() -> list[str]:
     out = subprocess.run(
         ["git", "ls-files", "*.ldtk"], capture_output=True, text=True, check=True
@@ -95,6 +104,19 @@ def main() -> int:
             continue
         for match in re.finditer(r'condition\(\s*"([^"]+)"', text):
             calls.append((path, match.group(1)))
+        # ⛔⛔ THE SECOND SPELLING, AND LEAVING IT OUT INVERTS THE ANSWER.
+        # A condition can be reached from authored `.yarn` two ways: the generic
+        # `condition(id, arg)` verb, and a NAMED function bound to the same
+        # condition for content that predates it (`boss_cleared(id)`,
+        # `quest_active(id)` — see `ambition_content/src/yarn_vocabulary.rs`).
+        # Counting only the generic form reported `boss.cleared` and
+        # `quest.active` as "authored NOWHERE" on the very day they were
+        # published *because* their authored callers existed — the exact
+        # opposite of the truth, from an instrument that counted one spelling.
+        # ⇒ A new alias belongs here the moment it is bound.
+        for verb, condition_id in NAMED_ALIASES.items():
+            for _ in re.finditer(rf"\b{verb}\(", text):
+                calls.append((path, condition_id))
 
     print(f"\ndialogue files: {len(yarn)}  (using condition(): "
           f"{len({p for p, _ in calls})})")
@@ -107,6 +129,11 @@ def main() -> int:
         f"\nTOTAL authored uses of the condition vocabulary: {len(gated) + len(calls)}"
         f"  ({len(gated)} route gates + {len(calls)} dialogue lines)"
     )
+    # ⚠ HAND-KEPT, AND IT WENT STALE THE SAME DAY IT WAS WRITTEN. Seven when this
+    # script landed on 2026-09-04; `boss.cleared` and `quest.active` were
+    # published hours later and the list under-reported until someone noticed.
+    # ⇒ Re-derive it rather than trusting this:
+    #     git grep -rn 'publish_condition' -- crates game | grep -v tests
     published = [
         "world.flag_set",
         "world.switch_on",
@@ -115,6 +142,8 @@ def main() -> int:
         "body.can",
         "body.fits",
         "encounter.cleared",
+        "boss.cleared",
+        "quest.active",
     ]
     used = set(conditions) | set(by_id)
     unused = [c for c in published if c not in used]

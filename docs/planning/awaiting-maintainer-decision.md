@@ -1251,13 +1251,26 @@ the same vocabulary. Re-measured with the instrument extended to both roads:
 
 ```text
 LockWall instances: 3  (2 gated, 1 encounter)
-dialogue files: 7  (using condition(): 2)
-condition() calls: 10     7 inventory.holds     3 world.flag_set
+dialogue files: 7  (using a condition: 3)
+condition uses: 18   7 inventory.holds  5 boss.cleared  3 quest.active  3 world.flag_set
 
-TOTAL authored uses: 12  (2 route gates + 10 dialogue lines)
-published but authored NOWHERE (5 of 7):
+TOTAL authored uses: 20  (2 route gates + 18 dialogue lines)
+published but authored NOWHERE (5 of 9):
   world.switch_on  held.is_held  body.can  body.fits  encounter.cleared
 ```
+
+⛔⛔ **CORRECTED AGAIN 2026-09-04 LATE, and the instrument was mine both times.**
+The figures first read *12 uses, 5 of 7 unauthored* because the script counted
+only the generic `condition(id, arg)` spelling. A condition can also be reached
+through a NAMED Yarn function bound to it — `boss_cleared(id)`, `quest_active(id)`
+— and counting one spelling reported `boss.cleared` and `quest.active` as
+*"authored NOWHERE"* **on the day they were published precisely because their
+authored callers existed.** ⇒ The script now counts both and carries the alias
+map; a new alias belongs there the moment it is bound.
+⭐ **And the corrected numbers vindicate the migration rather than softening it:
+`boss.cleared` has the second-most authored demand of any published condition**
+(5 uses, behind `inventory.holds`' 7), which is why retiring its mirror slice was
+a carve rather than dormant-cluster growth.
 
 ⇒ **The correction makes the question SHARPER, not weaker, and moves where the
 answer probably lives.** Twelve authored uses rather than two — still small — but

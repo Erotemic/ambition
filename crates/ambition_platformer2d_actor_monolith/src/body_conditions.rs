@@ -109,6 +109,23 @@ fn driven_bodies<'w, T: bevy::prelude::Component>(
     if controlled {
         return true;
     }
+    // ⛔⛔ THE FALLBACK IS AN EXISTENTIAL, AND IN CO-OP THAT IS A RULING NOBODY
+    // TOOK. With one participant it names the one driven body and there is
+    // nothing to decide. With two seats it answers YES when EITHER driver's body
+    // satisfies the condition — so a wall gated on climbing opens for the seat
+    // that cannot climb, because the other one can.
+    //
+    // ⭐ THAT IS EXACTLY THE OPEN DESIGN QUESTION this page's owner plan lists
+    // ("how should co-op gates behave when one participant can traverse and
+    // another cannot") — see awaiting-maintainer-decision.md #54. It is named
+    // here rather than settled here, because a gate solid is a property of the
+    // WORLD and a per-participant answer would need the wall to stop being one:
+    // that is a mechanism change, not a predicate change.
+    //
+    // ⚠ Widening the population is what made this live: while the predicate read
+    // `PlayerEntity`, the same OR was there and was equally a ruling. The bug it
+    // hid was worse, so this is not a regression — it is a latent decision that
+    // moving to the driven population made visible.
     world
         .try_query_filtered::<&T, bevy::prelude::With<
             ambition_characters::control::DrivingParticipant,

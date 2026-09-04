@@ -1156,6 +1156,55 @@ level up — that one asks what an item IS, this one asks what a checkpoint owes
 ⚠ Renumbered from 46 to 51 on 2026-09-04: it was filed as 46 while 46 already
 existed further up the file, so two different questions answered to one number.
 
+### 54. In co-op, does a body gate open for the party or for the body? (2026-09-04)
+
+`capability-progression-and-world-gating.md` has carried *"how should co-op gates
+behave when one participant can traverse and another cannot"* as an open design
+question since the page was written. ⭐ **It stopped being hypothetical on
+2026-09-04: the code now answers it, by default, in one direction.**
+
+`driven_bodies` (`actor_monolith/src/body_conditions.rs`) asks
+`ControlledSubject` first and then falls back to ANY holder of
+`DrivingParticipant`. With one participant that names the one driven body and
+there is nothing to decide. **With two seats it is an existential: a wall gated
+on `body.can wall_climb` opens when EITHER driver can climb, and the seat that
+cannot then walks through a wall its own body never satisfied.**
+
+⚠ **This is not new and it is not a regression.** The same OR was there while the
+predicate read `PlayerEntity`, and the defect it hid was worse — the wall asked
+the RESTING home avatar, which possession has explicitly stopped driving. Moving
+to the driven population fixed that and made this visible; it did not create it.
+⇒ Which is the shape worth naming: **widening a population makes a latent ruling
+live.**
+
+**The three answers, and what each costs:**
+
+1. **PARTY (today's behaviour).** One body qualifies, the wall is down for
+   everyone. Cheap, and it is what a shared-screen co-op usually wants — nobody
+   is stranded behind a wall their partner walked through. ⛔ But it makes
+   `body.can` mean "somebody here can", so a route designed around a capability
+   is satisfied by a party that contains one of anything.
+2. **BODY.** The wall stands for the seat that cannot. ⛔ **This one is not a
+   predicate change.** A gate solid is contributed to
+   `FeatureEcsWorldOverlay::gate_solids`, which is ONE collision world read by
+   body collision, projectiles and rendering alike. A per-participant answer
+   needs the wall to stop being a property of the world — per-seat overlays, or
+   a solid that filters by who is touching it. That is a mechanism change with a
+   rendering question attached (does the wall LOOK present to one player and not
+   the other?).
+3. **PRIMARY ONLY.** Ask `ControlledSubject` and stop. Sharpest to state, and it
+   silently makes seat 1 a passenger in a world gated on seat 0's body.
+
+⇒ Jon's call, and it is a design ruling rather than an engineering one: it says
+what a capability route MEANS when there is more than one body. ⚠ Do not answer
+it by making `driven_bodies` stricter on its own — a wall that stands for one
+player and not another is not expressible today, so answer 2 without the
+mechanism would produce a gate that refuses everyone.
+
+ⓘ The same question reaches every body condition at once (`body.can`,
+`body.fits`, and anything later that reads the driven population), which is why
+it is filed against the population rather than against a condition.
+
 ### 53. Are the five declared-but-unnamed optional dependencies SEAMS or DEBT? (2026-09-04)
 
 Five crates declare an optional `ambition_*` dependency that no file in their

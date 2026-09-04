@@ -575,3 +575,52 @@ pointer moves, and they are invisible in a diff that scrolls — one line, no
 content. A commit can silently change which version of another repository the
 build uses. ⇒ Stage paths, and read `git status --porcelain` for ` M <submodule>`
 lines before committing.
+
+---
+
+## ✔ CLOSED — a checker for "the deleted `#[test]`", tried and NOT built
+
+**The gap was real and the tool was not worth it**, which is the useful half of
+this row: a `#[test]` that is simply deleted leaves one attribute short and one
+dead function that **looks exactly like an ordinary helper**. The sibling
+session's guard
+(`scripts/tests/test_no_function_carries_two_test_attributes.py`) catches the
+*stolen* attribute — two attributes on one function — and named this as the shape
+it cannot see.
+
+⇒ **Prototyped, measured, discarded.** Scoping to `#[cfg(test)]` modules and using
+*"the name never appears again in this file"* as the caller proxy produced **2,425**
+candidates once cross-file callers were admitted. And the residue at the strict
+end was almost entirely a legitimate pattern: `#[allow(dead_code)]` exhaustive
+destructuring — `every_field_declares_whether_reset_clears_it` and four siblings —
+which exist to be **type-checked, never called**, and whose attribute is the author
+saying so.
+
+⛔ **The load-bearing reason not to build it: `rustc` already reports this.** The
+failure was never detection; it was ATTENTION. `function ... is never used` sat in
+the crate's warning stream for a day while the claim that function guarded was
+being published. ⇒ **A second tool restating a warning nobody read does not fix
+the not-reading.** Treat `never used` and `duplicated attribute` on a test module
+as **guard outages** rather than lint noise — that is a habit, and a checker with a
+2,425-line false-positive tail would have taught the opposite one.
+
+⭐ **One transferable defect DID come out of the prototype, and it applies to the
+guard that was kept.** A backward walk from a `fn` over "doc or attribute" lines
+**stops early at a multi-line attribute**: in
+
+```rust
+    #[test]
+    #[cfg_attr(
+        not(has_baked_packs),
+        ignore = "..."
+    )]
+    fn intro_cart_pack_spec_resolves_at_two_tiers() {   // sprite_packs.rs:174
+```
+
+the lines above the `fn` are `)]`, a bare string, and `not(has_baked_packs),` —
+none of which begin `#[` or `//`. ⇒ My prototype read this test as having **no**
+attribute. ⚠ **The direction differs by checker**: a false positive here, but a
+false NEGATIVE for an attribute COUNT, because stopping early reports *fewer*
+attributes and a stolen one would count 1 instead of 2. Fix: collapse logical
+attributes (join from `#[` until the brackets balance) before walking. Reported to
+the guard's owner.

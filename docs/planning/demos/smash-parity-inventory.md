@@ -757,6 +757,21 @@ went**:
 | effort on the QUESTION, through another mechanism | **fork** | migrate, delete the loser |
 | effort on the thing, correctly wired, **unreached** | **stranded** | find what three systems away is blocking it |
 
+⭐⭐ **AND THE CLASS SPLITS ONCE MORE, USEFULLY: STRANDED-AND-DECLARED vs
+STRANDED-AND-SILENT.** Both fighters author all four throws; a CPU reaches only
+`capture_throw_forward`, and the census shows exactly that (11 `throw_forward`,
+zero back/up/down). ⇒ But this one is **declared at the site**:
+`capture_context_frame` implements *"Pummel once, then throw"* with a hardcoded
+forward axis and says so — *"deliberately the simplest policy that proves the
+road: opponent percent, stage edge, kill potential and escape risk are all real
+inputs it does not read."*
+
+⇒ **So three of four throws are stranded for a CPU, on purpose, with the gap
+named.** ⭐ That is a queued task. `P01` is the same state with **no declaration
+anywhere**, which makes it a discovery. ⚠ **The state is identical and the
+response is not**: a declared placeholder needs finishing; a silent one needs
+finding first, and nothing on this page would have surfaced it.
+
 ⇒ Worked examples from one day: `read_weight` is **dead** (nine authored values,
 0.0→0.9, read only through a rollout the shipped rows disable). A resource with
 one producer and no reader is **restraint**. `profile_for_level` is a **fork**

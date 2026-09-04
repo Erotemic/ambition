@@ -928,6 +928,33 @@ The one unresolved developer-policy choice from the session-ownership work is in
 
 - ▢ **THE TEN RATCHETS RAN FOR THE FIRST TIME AND FOUND SOMETHING ON THE FIRST
   TRY: FOUR NAMES IN `KNOWN_STRANDED_SHEETS` ARE STALE.**
+  ⭐⭐ **2026-09-04, FROM A SECOND BOX: THEY DID NOT RUN HERE AT ALL, AND THE
+  REASON WAS A FALSE POSITIVE IN THE MARKER THEY HANG ON. Fixed (`187b8dd8d`):
+  `scripts/tests` went 828 passed / 13 skipped → 840 / 3.**
+  `assets_are_canonical()` consults `check_quality_variants_are_fresh.py`, which
+  iterated every `*.ron` under a tier directory on the premise that *"a tier file
+  that EXISTS is therefore loaded"*. Two families there are installed and read by
+  nothing — `*_actor.ron` (`ArtifactClass::ActorSidecar`, *"Installed today, NOT
+  YET CONSUMED by the sandbox"*) and `*_portraits.ron` (`build.rs` bakes portraits
+  from `assets/sprites` only, which an existing test pins and a 487-file
+  `reduced_tier_portraits` bucket already records). ⇒ Four of them being behind
+  their source failed the check with *"the game is drawing OLD art at
+  Low/Medium/Potato"* about art the game cannot load, and prescribed
+  `quality_variants.sh`, **which does not produce those files and reports
+  "already current" even under `--force`** — a failure whose prescribed fix
+  cannot clear it, taking ten unrelated ratchets down with it.
+  ⭐ The population settled it: 206 `_spritesheet.ron` per tier, plus 47
+  `_actor.ron` and 9 `_portraits.ron` in the two older tiers and NONE of either
+  in `sprites_potato` — a family the generator still produced would not be
+  missing from the tier it rebuilt last. Poison-verified both ways and pinned by
+  `test_the_freshness_check_only_watches_loaded_art.py`.
+  ⛔⛔ **AND THE ROW'S OWN FINDING DID NOT REPRODUCE, WHICH CONFIRMS ITS
+  CONCLUSION RATHER THAN CONTRADICTING IT.** With the ten now running here,
+  `test_the_known_list_does_not_rot` **PASSES** with all four names still listed
+  — so on this checkout those sheets DO still strand pages. Same test, two boxes,
+  opposite verdicts, because the input is gitignored generated art. ⇒ That is
+  exactly this row's stated reason for not pruning, arrived at from the other
+  direction: **do not delete the four names on one box's evidence.**
   With `canonical_assets.py` landed and this checkout detected as canonical
   (four sprite trees, 425 real PNGs, zero symlinks), the ten assertions that
   had never been evaluated by any lane ran here 2026-09-03 late: **23 passed,

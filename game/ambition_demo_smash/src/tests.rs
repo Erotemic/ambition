@@ -817,6 +817,58 @@ fn the_stage_declares_its_di_budget_and_releases_it() {
     );
 }
 
+/// Run the preparation source as the SYSTEM it is, with one stage choice.
+///
+/// It grew a `Res` parameter when stage choice landed; the seam always took a
+/// system (`install<S: IntoSystem<(), PreparedPlatformerSource, _>>`, whose doc
+/// says the source *"may read the provider's own resources"*), so this is the
+/// honest way to call it rather than a signature to work around.
+fn prepared_world_for(
+    choice: crate::SmashStageChoice,
+) -> ambition_platformer2d::runtime::PreparedPlatformerSource {
+    use bevy::ecs::system::RunSystemOnce as _;
+    let mut world = bevy::prelude::World::new();
+    world.insert_resource(choice);
+    world
+        .run_system_once(crate::smash_prepared_session_world)
+        .expect("the preparation source runs as a system")
+}
+
+/// THE CHOICE PICKS THE STAGE, AND BOTH STAGES STAY REACHABLE.
+///
+/// ⛔ A source that returned only the chosen room would look identical here on
+/// the geometry assertion and quietly make the other stage unreachable to
+/// anything that later wants to move between them — which is why the set is
+/// asserted as well as the start.
+#[test]
+fn the_stage_choice_decides_which_stage_the_match_prepares() {
+    let flat = prepared_world_for(crate::SmashStageChoice::Flat);
+    let platforms = prepared_world_for(crate::SmashStageChoice::Platforms);
+
+    assert_eq!(
+        flat.geometry().0.blocks.len(),
+        1,
+        "the flat choice did not prepare the single-surface stage"
+    );
+    assert_eq!(
+        platforms.geometry().0.blocks.len(),
+        4,
+        "the platforms choice prepared a stage without its three tiers"
+    );
+    // Same blast geometry, so a comparison between the two stages is a
+    // comparison of their geometry and not of their kill boundaries.
+    assert_eq!(flat.geometry().0.edges.side, platforms.geometry().0.edges.side);
+    assert_eq!(flat.geometry().0.edges.fall, platforms.geometry().0.edges.fall);
+
+    // The default is still the stage every recorded measurement was taken on.
+    assert_eq!(crate::SmashStageChoice::default(), crate::SmashStageChoice::Flat);
+    // And the cycle a stage button would walk returns to where it started.
+    assert_eq!(
+        crate::SmashStageChoice::Flat.next().next(),
+        crate::SmashStageChoice::Flat
+    );
+}
+
 /// The prepared source carries the stage, not a default room.
 ///
 /// The preparation seam takes a closure, and a closure that returns the
@@ -824,7 +876,7 @@ fn the_stage_declares_its_di_budget_and_releases_it() {
 /// player lands in somebody else's level.
 #[test]
 fn the_prepared_session_is_the_smash_stage() {
-    let prepared = smash_prepared_session_world();
+    let prepared = prepared_world_for(crate::SmashStageChoice::default());
     assert_eq!(
         prepared.starting_character().character_id.as_str(),
         SMASH_CHARACTER_ID

@@ -1292,11 +1292,33 @@ fn movement_intent(
         // movement kernel's precedence from the outside is named there as the
         // thing that keeps going wrong.
         //
-        // ⇒ SO THE WORK THIS NEEDS IS STATE, NOT GEOMETRY: carry
-        // `dodge_cooldown` and `air_dodge_spent` into `ShadowFighter` and step
-        // them, and the verb becomes decidable at every step. ⚠ Until then
-        // `None` is the honest answer, and its cost is known and recorded — an
-        // unmodelled verb is unreachable rather than merely unjudged.
+        // ⇒ SO THE WORK IS STATE, NOT GEOMETRY — but it is NOT simply two fields
+        // on `ShadowFighter`, and the reason is a real design tension rather than
+        // an oversight.
+        //
+        // ⛔ `SelfView` deliberately carries `burst: BurstManeuver` — the RESOLVED
+        // answer for this tick — and NOT the cooldown, air-dodge budget, endlag
+        // or dash charges that produce it. Its own doc says why:
+        // `resolve_burst_maneuver` is *"the one rule, and this field is its
+        // answer. The brain is handed a fact."* ⇒ Perception hides the inputs
+        // precisely so a brain cannot re-derive the rule — which is the failure
+        // this module already made twice.
+        //
+        // ⚠ A rollout, though, needs that fact at FUTURE steps, and only the
+        // inputs can produce it there. ⇒ The three ways out, and only one keeps
+        // the single authority:
+        //   (a) expose the inputs to perception — invites the re-derivation the
+        //       design exists to prevent, and weakens the no-cheat surface;
+        //   (b) let the shadow CALL `resolve_burst_maneuver` on shadow-stepped
+        //       state — the rule stays the one rule, and the shadow carries only
+        //       what that rule reads;
+        //   (c) leave it unmodelled, which is today.
+        // ⭐ (b) is the principled one and is the same shape as every other
+        // "one authority per question" call in this repo.
+        //
+        // ⚠ Until then `None` is the honest answer, and its cost is known and
+        // recorded — an unmodelled verb is unreachable rather than merely
+        // unjudged.
         MovementVerb::Blink | MovementVerb::Dodge => return None,
     })
 }

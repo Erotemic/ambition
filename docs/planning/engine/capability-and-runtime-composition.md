@@ -155,6 +155,34 @@ number did not move and was never the point: this packet answered INSTALLATION,
 not dependency reduction, and sizing it by that count would have asked the wrong
 question.
 
+### The sweep that rule enables, run 2026-09-04
+
+⭐ **The runtime schedules systems from exactly FOUR crates**, and applying the
+check above resolves every one of them without a further carve being proposed:
+
+| crate | verdict |
+|---|---|
+| `ambition_boss_encounter` | ✔ installs itself since `bd93f978f` |
+| `ambition_encounter_features` | ✔ already had `EncounterSimulationSchedulePlugin` |
+| `ambition_time` | ✔ has `TimePlugin` for an external host; the runtime deliberately does not install it (see above) |
+| `ambition_mount` | ⛔ **FAILS THE CHECK, and it is the worked example** |
+
+⛔ **Mounts cannot be installed this way today.** `combat_schedule.rs` chains
+`ambition_mount::enforce_mount_rider_link` with
+`ambition_platformer2d_actor_monolith::features::rebuild_dismounted_rider_brains`
+— one capability's system named directly in another's ordering, with a comment
+explaining why the order is load-bearing ("a dismount request landing first would
+remove the link it is relying on… the other order is silent"). ⇒ That is a CARVE
+with an ordering negotiation inside it, not a plugin: the two systems' relation
+would have to become a published set before either side could own its own
+installation. Do not promote mounts as "the next easy one".
+
+⇒ **So the runtime's remaining knowledge of capabilities is now resources and
+plugin lists, not scheduling.** 36 `init_resource` calls and ~53 `.add(...)`
+lines. The next reduction comes from resources whose consumer is already a
+plugin (three taken, see above) or from a capability gaining one — not from more
+schedule moves, because there are none left to make.
+
 A consumer building a small platformer should not inherit portal rendering, boss
 orchestration, networking integration, persistence, debug presentation or
 Ambition-only content merely because a broad historical crate sits in the middle

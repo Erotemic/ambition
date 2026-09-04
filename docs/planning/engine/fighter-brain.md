@@ -124,6 +124,24 @@ AMBITION_FIGHTER_TRACE=1 cargo run --release -p ambition_demo_smash_app \
   --bin smash_tool -- ladder-rig --sweep-below --seeds 1 2>&1 | grep '^\[fighter '
 ```
 
+✔ **RE-RUN 2026-09-03 AND IT STILL REPRODUCES — release build, 1 seed, 6,388
+`[fighter …]` lines.** The instrument is intact: `least_bad`, `unmodelled` and
+`floor_edge` are present on **every one** of those lines, so the fields F1 added
+have not been lost to a refactor.
+
+⭐ **AND THEY ARE LOAD-BEARING, not decoration.** The three tiers of
+`pick_movement` are all exercised in a single one-seed sweep:
+
+| field | non-default | of 6,388 |
+|---|---|---|
+| `least_bad=Some(..)` | **280** — `Recover` 108, `Retreat` 86, `Approach` 86 | 4.4% |
+| `unmodelled=[..]` | **983** — `Dodge` 846, `Shield`+ 137 | 15.4% |
+
+⇒ Tier 2 fires 280 times and tier 3 fires 983 times in ONE seed. The page's
+lesson was that the instrument had been one field short; the measurement says
+the added fields are populated often enough that a reader who ignores them is
+ignoring a sixth of the decisions.
+
 Do **not** tune rollout depth, RecoveryLens heuristics, APM, reaction time, or
 movement weights without a trace that identifies the responsible decision first.
 

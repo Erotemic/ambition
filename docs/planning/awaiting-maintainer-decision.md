@@ -1415,6 +1415,33 @@ geometry, and moving the tier by guesswork would leave a recorded number
 describing a stage that no longer exists while not actually resolving the
 collision. Answer this and the geometry and the re-run move together.
 
+## ⭐ THE SMASH FIGHTER: FOUR DECISIONS, ALL MEASURED (index, 2026-09-04)
+
+Four fighter questions below, each carrying numbers and options rather than a
+shrug. ⇒ **They are independent — answering any one is useful — but two of them
+interact and it is worth knowing which:**
+
+| # | question | the measurement behind it | where |
+|---|---|---|---|
+| 1 | **Which of two ladder authorities should exist?** | `profile_for_level` forks between the shipped `.ron` and an engine floor; **four separate defects were symptoms of that one fork**. Removing the loser rewrites **no authored content** and there is exactly **one** production installer. | below |
+| 2 | **Do the two Robots get kits?** | At the same rung, on the shipped ladder and clock, **George significantly outfights a stand-in (318% : 199%)** with a correctly-null control. Two of three roster characters had no special button. | ↓ |
+| 3 | **`read_weight`: wire it up or delete it?** | Authored 0.0→0.9 on all nine rungs and **read by nothing** — its only live consumer sits behind a rollout those rows disable. ≤184 bytes/fighter/snapshot, so the cost argument is weak; the legibility one is not. | ↓ |
+| 4 | ✔ **mostly answered** — does "harder" mean deals more damage, or is harder to beat? | Settled by fixing the clock: at the shipped 480s limit bouts RESOLVE, and rung 5 neither out-damages nor outlives rung 3. | ↓ |
+
+⇒ **1 and 3 interact**: `read_weight` is inert *because* the shipped rows disable
+the rollout, so an answer to 1 that made the demo compose `ambition_content`
+changes nothing for 3 — but an answer that removed the floor would make every
+composition's ladder explicit, which is the context 3 is decided in.
+
+⛔ **NOT on this list, because it is a defect rather than a decision:**
+`D-BRAIN-MENU` in [`queue.md`](queue.md) — the brain scores movement and attack
+independently, so it approaches-and-attacks on the same tick, every neutral press
+converts to a dash attack, and **the shipped fighter throws one move 81% of the
+time and never a smash or a tilt**. ⚠ Its remedy is a scoring-shape change and
+*will* need a design call, but the defect is established and does not need one.
+
+---
+
 ## Who owns Smash's CPU difficulty ladder — and the demo has been fighting the floor
 
 ⭐⭐⭐ **THE QUESTION HAS A BETTER FORM, FOUND 2026-09-04 AFTER FOUR SEPARATE

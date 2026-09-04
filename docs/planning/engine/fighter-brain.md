@@ -1439,6 +1439,52 @@ the qualifier, and `6 vs 5` and `9 vs 6` are undetermined in every arm. ⇒ The 
 of the ladder is not measured — it is unmeasured. Nobody should read "the rungs
 above 5 are fine" out of this table.
 
+### ⭐⭐⭐ THE DEFINITIVE RUN: the shipped ladder, at the shipped clock, with matches that finish
+
+**Everything below this line supersedes the 60-second tables above.** Same rig,
+same sign test, 12 seeds paired — but the clock is now
+`ambition_demo_smash::SMASH_TIME_LIMIT_TICKS`, the **shipped eight minutes**, so
+every bout runs to a conclusion instead of being cut off at 12.5%.
+
+| cell | survived (hi : lo) | stocks LEFT | dealt (hi : lo) | verdict |
+|---|---|---|---|---|
+| 3 vs 1 | 85.1s : 80.6s | 0 : 0 | 299% : 208% | ✔ **higher outfights** |
+| 5 vs 3 | 97.3s : 98.7s | 0 : 0 | 300% : 360% | ⛔ **LOWER outfights** |
+| 6 vs 5 | 103.6s : 104.7s | 0 : 0 | 346% : 361% | LOWER *(within spread)* |
+| 9 vs 6 | 112.0s : 116.5s | 0 : 0 | 407% : 390% | higher *(within spread)* |
+
+⇒ **Every bout now RESOLVES** — `0 : 0` stocks throughout, both fighters fully
+eliminated, at medians rising cleanly from 85s to 112s as the rungs climb. ⭐ That
+rise is itself a sanity check on the ladder: higher rungs take longer to kill each
+other, which is what stronger fighters should do.
+
+⭐⭐ **AND THE `5 vs 3` INVERSION SURVIVES THE SHIPPED CLOCK.** Still *LOWER
+outfights*, still significant, with matches finishing. ⇒ **This is the result the
+whole day was trying to reach, and it is the one that cannot be explained away by
+the instrument.**
+
+⭐⭐ **The patience defence is dead, and survival time is what kills it.** The
+worry was that a damage-rate verdict cannot see a fighter who wins by refusing bad
+commitments. But on a clock long enough to resolve, **rung 5 survives 97.3s
+against rung 3's 98.7s** — it does not live longer, and it deals 300% against
+360%. ⇒ Two independent signals, both against rung 5. A patient-but-stronger rung
+5 would have to beat rung 3 on at least one of them and it beats it on neither.
+
+⚠ **What the full clock TOOK AWAY, and it must be said as loudly.** `6 vs 5` and
+`9 vs 6` are now **within spread** at 12 seeds — the 40-second-clock claim that
+"every cell is significant" does NOT survive. ⇒ So the honest final statement is
+narrower than the one I wrote three hours earlier: **one inversion is established
+(`5 vs 3`), the `6 vs 5` sag is suggested but unproven, and the ladder's ends are
+ordered.** ⛔ Anyone quoting "the ladder goes backwards through its middle" is
+quoting a 60-second table that this one replaces.
+
+### ⛔ SUPERSEDED — the 40-seed 60-second table (kept for the instrument lesson)
+
+⚠ **Read the section above instead.** This table is retained because the
+comparison between it and the definitive run is the clearest possible statement of
+what a wrong clock does: it manufactured two significant results that a real match
+length does not support.
+
 ### ⛔⛔ AT 40 SEEDS EVERY CELL IS SIGNIFICANT, AND THE SHIPPED LADDER GOES BACKWARDS THROUGH ITS MIDDLE
 
 The shipped ladder, 40 seeds, paired, sign test — **no cell carries a qualifier**:

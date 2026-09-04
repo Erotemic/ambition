@@ -3341,6 +3341,19 @@ OPTIONAL dep + feature, never used:
   ⓘ Measured across the abilities carve for calibration: delta of ONE, a
   `test_support.rs` helper, benign. A carve whose delta is several DOMAIN
   functions has left its callers somewhere, and the names say where.
+  ⭐ **Run again 2026-09-04 evening after a day of additions: 157/5276 →
+  **156/5318**.** The denominator grew by 42 as the day's public surface landed
+  (`authored_price`, `AuthoredPriceProblem::observed`, `can_afford_descriptor`,
+  `can_afford`, `WalletConditionsPlugin`, `QuestConditionsPlugin`, …) and the
+  orphan count went DOWN by one — the stranded `run_bout` wrapper deleted in
+  `2e77f9f7a`. ⇒ **Every `pub fn` added today has a production caller**, which
+  is the property this census exists to measure and is worth stating because
+  "I added public surface" is exactly when dormant additions appear. The delta
+  is the signal; the level is still noise.
+  ⓘ `check_planning_citations.py --strict` at the same commit: 1,634 citations
+  across 100 planning files, all resolved. ⚠ That is a claim about NAMES, not
+  about prose — this row's whole point is that a sentence describing where code
+  lives resolves nothing and can still be false.
 
   ⭐⭐ **A SECOND HALF IS NOW MECHANISED TOO, and it is a different blindness
   from either of the above (2026-09-04, `4c6281af7`).** `orphaned_symbols.py`

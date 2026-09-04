@@ -601,7 +601,7 @@ mod tests {
         SelectLayout::new(PHONE_LANDSCAPE, roster())
     }
 
-    /// The cell count the GAME builds its grid from.
+    /// The WIDEST grid any composition can build — the wish list plus random.
     ///
     /// ⛔⛔ **THIS WAS `SMASH_ROSTER.len()` AND PRODUCTION USES `len() + 1`.**
     /// `current_layout` passes `fighters.cell_count()`, and `cell_count` is
@@ -615,6 +615,17 @@ mod tests {
     /// ⚠ And the module disagreed with ITSELF: `wide()` built from
     /// `SmashRoster::default().len()` while `phone()` and four other tests built
     /// from this helper. Two counts, neither the game's. Both now come from here.
+    ///
+    /// ⛔⛔ **AND THIS IS AN UPPER BOUND, NOT "THE PRODUCTION COUNT" — I called it
+    /// that in one commit and it is a third wrong number.** `current_layout`
+    /// passes the ASSEMBLED roster's `cell_count()`, and `assemble` filters the
+    /// wish list by what the composition registers: **4 cells in the standalone
+    /// demo (3 fighters + random), ≥9 in the composed app, 24 only if every id
+    /// were available.** ⇒ Testing the widest grid is the right default — it is
+    /// the most pages, the tightest packing and the worst case for the control
+    /// strip — but it is a STRESS case, and a layout that passes here has not
+    /// been shown correct at 4. [`the_demo_sized_grid_also_packs_without_overlap`]
+    /// covers that end.
     fn roster() -> usize {
         // Mirrors `SmashRoster::cell_count()`; `SMASH_ROSTER` is a `&[&str]` and
         // has no such method, so the `+ 1` is spelled out and named.
@@ -674,6 +685,40 @@ mod tests {
     /// same shape and the same problem**; it is left alone here because deleting
     /// somebody else's test is a bigger decision than adding a real one, but it
     /// is not evidence of anything.
+    /// ⭐ THE OTHER END OF THE RANGE: the grid the STANDALONE DEMO actually
+    /// builds, which is four cells rather than twenty-four.
+    ///
+    /// ⛔ The widest grid is a stress case and the smallest is a different one: a
+    /// four-cell grid packs into far larger portraits, and a portrait that grows
+    /// can collide with the control strip from the other direction. ⚠ Neither end
+    /// implies the other, and the module only ever tested one.
+    #[test]
+    fn the_demo_sized_grid_also_packs_without_overlap() {
+        // 3 seatable fighters + random — `SmashRoster::assemble` in the
+        // standalone composition, per "every id this demo can SEAT" in `lib.rs`.
+        let layout = SelectLayout::new(PHONE_LANDSCAPE, 4);
+        let targets: Vec<_> = layout
+            .targets()
+            .into_iter()
+            .map(|(kind, rect)| (kind, SelectLayout::touchable(rect)))
+            .collect();
+        const EPS: f32 = 0.5;
+        for (i, (a_kind, a)) in targets.iter().enumerate() {
+            for (b_kind, b) in targets.iter().skip(i + 1) {
+                let dx = (a.max.x.min(b.max.x) - a.min.x.max(b.min.x)).max(0.0);
+                let dy = (a.max.y.min(b.max.y) - a.min.y.max(b.min.y)).max(0.0);
+                assert!(
+                    dx.min(dy) <= EPS,
+                    "on the DEMO-sized grid the touch boxes of {a_kind:?} and \
+                     {b_kind:?} overlap by {:.2}px — the wide-grid test cannot \
+                     see this, because four big portraits collide differently \
+                     from twenty-four small ones",
+                    dx.min(dy)
+                );
+            }
+        }
+    }
+
     #[test]
     fn a_phone_leaves_no_two_touch_targets_fighting_over_the_same_pixels() {
         let layout = phone();

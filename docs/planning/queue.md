@@ -1145,11 +1145,23 @@ queue read as an execution authority for work already done.
     frame on 2 body-frames, worst 132 units past the edge … t3 seat 1 at
     (416,204) is 132 units outside a 568x320 frame centred (0,0)"*. ⇒ It never
     was a missing-parameter failure, so `bevy_ecs/debug` had nothing to name for
-    it, and the lead this row already recorded is the whole lead: a snapshot
-    **centred at (0,0)** with live seats in the world means something resolved a
-    cast to nothing (`camera_snapshot.rs:908` — an unresolvable cast returns
-    `None` and *"callers must not invent a world-origin fallback"*). That is
-    chaseable without the union.
+    it.
+    ⛔⛔ **AND THE LEAD THIS ROW CARRIED WAS A RED HERRING — chased by yardrat
+    the same day, and the contract turns out to be HONOURED.**
+    `camera_snapshot.rs` says *"Empty or unresolvable casts return `None`;
+    callers must not invent a world-origin fallback"*, which matched the symptom
+    exactly, in the right file, three lines away. It was not the branch that ran:
+    the unresolvable-cast arm `return`s without publishing, and the origin centre
+    came from the arm ABOVE it, which follows a real body. ⇒ **The camera was
+    faithfully framing a body that WAS at the origin**, and the defect is
+    upstream in PLACEMENT — at `t3` the followed body exists and has not been
+    moved to its spawn, which the next tick fixes.
+    ⭐ **What settled it in one run was making the test print
+    `ResolvedCameraSnapshot::follow_world`, a field that already existed:
+    *"following (0,0)"*.** ⇒ Reading a contract and reading the branch that
+    actually ran are different acts, and a comment naming your symptom is a
+    hypothesis whose being in the right file makes it more tempting rather than
+    more likely.
   * The boss-omit probe did NOT reproduce — it has now fired once in three union
     runs.
     ⛔⛔ **AND COMPARING METHODS WITH YARDRAT EXPOSED A GAP IN MY OWN

@@ -1208,6 +1208,30 @@ measurement.
 restore it). ⇒ The shipped game pays per-tick observation and per-snapshot
 bandwidth to maintain an opponent model that nothing ever reads.
 
+⭐⭐ **AND `read_weight` IS THE ONLY DEAD KNOB — I checked all nine, which is the
+reassuring half and it has to be said explicitly.** A finding like the one above
+invites the reading that the ladder is riddled with inert fields, and it is not.
+Every other knob's production consumers sit outside the rollout gate:
+
+| knob | reached by | live? |
+|---|---|---|
+| `reaction_ms` | `perception.rs` | ✔ |
+| `apm_cap` | `decision.rs`, `evaluation.rs` | ✔ |
+| `execution_noise` | `decision.rs` | ✔ |
+| `reach_fit`, `frame_advantage`, `expected_payoff`, `capture_value` | `options.rs` (the L2 scorer) | ✔ |
+| `kill_potential`, `stage_risk` | `options.rs` **and** `rollout.rs` | ✔ via L2 |
+| **`read_weight`** | `rollout.rs` only | ⛔ **dead** |
+
+⇒ `options.rs` is the L2 scorer and runs at every rung, so the utility weights are
+live — which the swap arm independently confirms, since changing them changed the
+output. ⚠ The two weights that ALSO appear in `rollout.rs` are not affected: they
+have a live L2 path as well, so losing the rollout costs them a refinement rather
+than their existence.
+
+⇒ **The distinguishing property is not "mentioned in `rollout.rs`" but "mentioned
+NOWHERE ELSE".** That is the check worth repeating whenever a gate is disabled:
+not which fields the gated code names, but which fields nothing outside it names.
+
 ⚠ **This also costs the `.ron`'s own precaution its justification.** Its comment
 says the rollout fields stay zero *"until rollout fidelity is good enough to
 enable them **without changing lower-level behavior**"* — but zeroing them already

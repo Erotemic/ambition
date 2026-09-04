@@ -1935,11 +1935,54 @@ result that survives a 3.3× increase in evidence is what significance is suppos
 to mean, and the old test had it exactly backwards. The fix did not manufacture
 the finding; it stopped the instrument from destroying it.
 
-⚠ **One reading artifact, so the next reader does not file it as a bug.** A's
-`9 vs 6` shows stocks `2 : 3` under a verdict of *higher outfights*. Each column
-is an independent median over the bouts, and the verdict is computed per bout —
-so a median stock column and a verdict can disagree without either being wrong.
-Read the columns as summaries, never as a single representative match.
+⛔⛔ **THIS PARAGRAPH EXPLAINED A DISCREPANCY WITH A FACT THAT IS NOT TRUE, and
+the correction is bigger than the paragraph — read it before you use any
+`(within spread)` label on this page.**
+
+It said A's `9 vs 6` stocks `2 : 3` under *higher outfights* was fine because
+*"the verdict is computed per bout"*. ⛔ **It is not.** `report_row` computes the
+verdict from **pooled medians** — a median of stocks taken, then a median of
+damage dealt as the tiebreak. Nothing in it is per bout. So the reassurance was
+invented to dissolve a discrepancy rather than derived, which is the worst way for
+a wrong sentence to enter a document: it makes a reader stop looking.
+
+⛔ **AND LOOKING FINDS A REAL DEFECT IN THE INSTRUMENT — one row, two authors.**
+Raised by a review through the sibling session 2026-09-04 and re-derived here from
+source:
+
+- the **displayed verdict** comes from pooled medians, stocks first, damage on a
+  tie (`ladder_rig.rs`, `report_row`);
+- the **`(within spread)` qualifier** comes from a *paired, damage-only* exact
+  sign test, and `sign_test_says_within_spread` returns `p >= 0.05` — **`k =
+  positives.max(negatives)` discards WHICH direction won.**
+
+⇒ **So a row can print `LOWER outfights` with no qualifier while its own sign test
+is significant for HIGHER.** The reviewer's fixture is legal and reproduces it: 16
+pairs favouring higher by +100 and 4 favouring lower by −1000 give pooled medians
+that say LOWER, and signs 16/4 (two-sided p ≈ 0.0118) that remove the qualifier.
+The row then contradicts itself in the direction that reads as most confident.
+⚠ **Second mismatch:** when STOCKS decide the verdict, the paired test still tests
+DAMAGE — so the comment claiming the spread is measured on the *"DECIDING
+quantity"* is false exactly when `hi_took != lo_took`. ⓘ And `median()` is
+`values[len / 2]`, the upper-middle order statistic, not a median for even N.
+
+⚠⚠ **WHAT THIS DOES AND DOES NOT INVALIDATE.** The defect can only mislead where
+the pooled direction and the paired direction DISAGREE; where they agree the label
+is what it claims. ⇒ Which cells those are is **unknown until the rig is fixed and
+re-run** — so until then, treat every verdict on this page as carrying an
+unstated *"direction not cross-checked"*, and lean on the cells' mechanisms rather
+than their labels. ⛔ **The `5 vs 3` inversion is the one to re-take first**, since
+it is the finding this document is built around.
+
+ⓘ The fix is not *"check the sign against the median"* — that keeps both
+authorities and adds a referee. It is to compute **one paired outcome per seed**
+(reorient straight and mirrored into logical higher/lower, aggregate, stocks
+first, damage only on a stock tie → Higher/Even/Lower) and derive **both** the
+displayed direction and the sign test from those same outcomes, leaving pooled
+medians as descriptive columns only. ⚠ Not landed here: this box cannot build (see
+[`../yardrat-open-measurements.md`](../yardrat-open-measurements.md)), and an
+unverified edit to the instrument every number on this page came from is worse
+than a documented defect.
 
 ### ⛔⛔ WITHDRAWN — the Shield comparison's null is not a result, and re-taking it is not worth doing
 

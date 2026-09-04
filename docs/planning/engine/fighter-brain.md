@@ -2115,6 +2115,27 @@ above it.
 `#[cfg(test)]` because production no longer converts differences to signs at all.
 ⇒ **Re-running the ladder cells is still outstanding** and still needs a disk; the
 instrument is trustworthy now, and none of the numbers on this page have been
+
+✔ **REVIEWED BY RE-DERIVATION 2026-09-04, not by reading the diff through**, since
+this is the instrument every number on this page came from:
+
+- `paired_outcomes` reduces each pair **stocks first, damage only on a stock
+  tie** — the ordering the verdict uses. It SUMS the pair where my parallel
+  version took the mean; for a comparison those are the same reduction.
+- `paired_verdict` takes the direction from `higher.cmp(&lower)` and the
+  qualifier from the **same** split. ⇒ One authority, and the two literally
+  cannot disagree because there is nothing left to disagree with.
+- ⭐ **`k = positives.max(negatives)` is still there and is now CORRECT.** That
+  `max` was only ever the bug because a *second* authority supplied the
+  direction; with the split feeding both, discarding sign inside the tail
+  calculation is exactly right — a two-sided test does not care which way.
+- Edge case checked by hand: all-ties gives `n = 0`, `k = 0`, tail `1.0`,
+  `p = 1.0` ⇒ `even (within spread)`. Correct — no evidence either way.
+
+ⓘ Two cosmetic notes, neither a defect: `hi_dealt_all` / `lo_dealt_all` are built
+unconditionally though only the unpaired branch reads them, and a corrected
+`median` now makes `stocks_taken` fractional on even runs — which is fine, since
+those medians are descriptive on a paired row and no longer author anything.
 re-taken.
 
 ✔✔ **THE ARMS' EXPECTED VALUES WERE CHECKED NUMERICALLY RATHER THAN REASONED**,

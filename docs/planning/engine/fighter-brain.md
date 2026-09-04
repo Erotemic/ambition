@@ -184,9 +184,27 @@ cannot reach are the ones a platform fighter is judged on** — edgeguarding
 is evaluated" over-reads it by four ninths.
 
 ⇒ **The gap is a SETUP capability, not more seeds.** Every skip names velocity,
-body phase, projectiles or a ledge hang — states a placement cannot express. A
-rig that could hand a body a velocity and a phase would reclaim three of the
-four at once.
+body phase, projectiles or a ledge hang — states a placement cannot express.
+
+✔ **FIXED THE VELOCITY HALF THE SAME DAY: 5 of 9 → 6 of 9.** `edgeguard_window`
+now runs and produces four real rungs, and the higher-skill fighter wins the top
+two — which is the verdict an edgeguard fixture exists to produce. The change is
+small because the authority already accepted it: `transit_body` takes a
+`TransitVelocity`, and the rig was passing `Zero` unconditionally. `Scenario`
+gained `starting_velocities()` beside `starting_positions()`, and `place_at`
+passes `Set(..)` when a scenario asks for motion. ⛔ Still the transit authority,
+not a field write — ADR 0024, and `engine.pose-writes-are-authority-only`
+already caught the bare version of that once.
+
+⚠ **The instrument stayed honest and that is the check that it worked:**
+`juggle_escape`'s skip line narrowed from *"cannot set up: velocity, body
+phase"* to *"cannot set up: body phase"*. It did not start passing because the
+rig stopped asking; it names the one thing that is still missing.
+
+⇒ **Remaining: 3 of 9.** `juggle_escape` (body phase), `projectile_camper`
+(projectiles), `edgeguard_ledge_hang` (a ledge hang — *"a hang is not a
+position"*, and catching the edge is a maneuver with its own window). Body phase
+is the next cheapest and would take it to 7.
 
 ## Relationship to navigation/recovery architecture
 

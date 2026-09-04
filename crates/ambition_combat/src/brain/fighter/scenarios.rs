@@ -67,6 +67,24 @@ impl Scenario {
         Some((self.view.self_view.pos, foe.pos))
     }
 
+    /// Stage VELOCITIES for scenarios that include an opponent, alongside
+    /// [`starting_positions`](Self::starting_positions).
+    ///
+    /// ⭐ A harness that can set these reclaims every fixture whose only
+    /// unreproduced state is `velocity` — measured 2026-09-03, that is
+    /// `edgeguard_window`, one of the four the ladder rig was skipping. The
+    /// transit authority already accepts one (`TransitVelocity::Set`), so the
+    /// gap was an accessor, not a capability.
+    ///
+    /// ⚠ Positions and velocities are returned separately ON PURPOSE. A caller
+    /// that can place but not push is still correct to use
+    /// `starting_positions` alone and report the fixture as unreproduced;
+    /// bundling them would let it silently drop the half it cannot apply.
+    pub fn starting_velocities(&self) -> Option<(ae::Vec2, ae::Vec2)> {
+        let foe = self.view.actors.first()?;
+        Some((self.view.self_view.vel, foe.vel))
+    }
+
     /// Scenario state that a position-only harness cannot reproduce.
     ///
     /// Derived from the fixture itself. Grounded state is excluded because normal

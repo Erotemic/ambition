@@ -2369,6 +2369,41 @@ queue read as an execution authority for work already done.
   option an attack can require). ⚠ That is materially larger than either fix this
   row opened with, and it is squarely a design decision.
 
+  ⭐⭐ **THE ACCEPTANCE TEST, DESIGNED 2026-09-04 SO THE DESIGN CALL ARRIVES WITH
+  ITS MEASUREMENT ALREADY BUILT** — and it is shaped entirely by how fix (a)
+  failed. ⛔ **Fix (a) moved SELECTIONS and not BEHAVIOUR**: the brain went from
+  naming the dash attack 0 times to naming it 14, and tilts/smashes started
+  **0 / 0** either way. ⇒ **So the criterion must be a count of moves STARTED, never
+  of moves chosen.** A candidate scoring shape that improves the trace's selection
+  lines and leaves the start census flat has reproduced fix (a) exactly.
+
+  | arm | command | what it answers |
+  |---|---|---|
+  | **control** | `capture-probe --character smash_george_booul --ladder <shipped ron>` | the 16-of-28 baseline this row opened with |
+  | **candidate** | same, with the scoring change | did BEHAVIOUR move |
+
+  ⇒ **Three numbers decide it, and the third is the one that can be gamed:**
+  1. **tilts + smashes started > 0.** Currently `0 / 0` on George. This is the
+     whole point and it is binary.
+  2. **the dash attack's share falls from 81%.** Necessary, not sufficient.
+  3. ⚠ **total attack starts must NOT fall materially.** A fighter that simply
+     attacks less also drops the dash share and raises variety, and would pass
+     (1) and (2) while being strictly worse. **Without this term the acceptance
+     test rewards passivity**, which is the same failure the ladder rig's
+     survival-based verdict had.
+
+  ⭐ **And the mechanism check, which is what says the fix worked for the right
+  reason**: re-take the contingency table above (`AMBITION_FIGHTER_TRACE=1`). It
+  currently reads **73 of 81** attack decisions on a tick that also chose
+  `Approach` — 90%. ⇒ A joint-scoring change must move THAT ratio; if tilts start
+  while the ratio holds at 90%, something else changed and the explanation in this
+  row is still wrong.
+
+  ⚠ **Cost, so nobody starts it blind**: each arm is a full release build of the
+  composed demo plus a 120s probe. The census is per-fighter, so George alone
+  answers it — the stand-ins bind no `attack_dash` and cannot show the effect
+  either way, which is what made them the natural experiment in the first place.
+
   ⇒ **So the question this row opened with — the menu — is closed and was a
   SYMPTOM**, and so was the clock hypothesis that replaced it. ⚠ Fix (b) — hand
   the brain the resolved move as a fact, the `SelfView::burst` precedent — does

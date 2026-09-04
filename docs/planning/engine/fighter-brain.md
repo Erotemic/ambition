@@ -1838,6 +1838,79 @@ above shows the shipped ladder disables the rollout on all nine rows. The Shield
 model changes nothing a player meets. That is an argument for keeping it (it
 cannot regress the game) and against prioritising `Dodge`.
 
+### ⭐⭐⭐ GEORGE SIGNIFICANTLY OUTFIGHTS A STAND-IN AT THE SAME RUNG
+
+The measurement the rig could not take until `--paired` learned to swap fighters.
+Rung 5 against rung 5, shipped ladder, shipped clock, paired, 12 seeds — the only
+thing that differs is the kit:
+
+| arm | dealt | survival | verdict |
+|---|---|---|---|
+| **George vs Robot** | **318% : 199%** | 62.7s : 58.2s | ⭐ **higher outfights — SIGNIFICANT** |
+| Robot vs Robot *(null control)* | 369% : 389% | 134.3s : 131.5s | *(within spread)* — correctly null |
+
+⇒ **The stand-ins are measurably weaker, not merely plainer.** Difficulty rung,
+ladder rows, clock, stage and seed set are all held equal. ⭐ And a George match
+RESOLVES in ~63 seconds where two Robots take ~134 — **twice as fast to a
+conclusion.**
+
+⭐⭐ **The null control is the load-bearing half.** Two mechanically identical
+fighters (both Robots receive `fighter_moveset()`) swapped between seats come back
+*within spread*, exactly as a null should. ⇒ So the repaired pairing gained power
+on a real effect and manufactured none on a null — which is the validation the
+change needed, and had that control gone significant the "repair" would have been
+a new bias instead.
+
+⛔ **AND THAT RUN IS THE ONE EASIEST TO TALK YOURSELF OUT OF, which is why it is
+named here.** A passing null feels like a wasted run: you already believe it, it
+costs the same as a real arm, and it produces no headline. ⇒ But *power on the
+real effect and none on the null* is the ONLY thing separating a repaired control
+from a new bias — without it, "I fixed the control" is a claim about intent.
+⭐ **A control that only ever runs against effects you expect cannot tell you it
+has started manufacturing them.**
+
+⚠ **Why nobody had this number**: the unpaired form of the same comparison gives a
+`329% : 225%` gap and still reports `(within spread)`, because unpaired seed
+variance is precisely what pairing removes. ⇒ **The question could be asked and
+could not be answered**, which is the defect recorded immediately below.
+
+⇒ It is the strongest input available to the roster question in
+[`../awaiting-maintainer-decision.md`](../awaiting-maintainer-decision.md). ⚠ It
+does not decide it: sparring partners being weaker may be exactly right. It
+removes "the Robots are fine as they are" from the set of *measured* positions.
+
+### ⛔⛔ A SIXTH, AND IT IS A DIFFERENT SHAPE: a control that cancelled the wrong term
+
+The five below are all *the rig read the wrong configuration*. This one is worse
+in kind, because the instrument was working exactly as designed.
+
+⇒ **`--paired` swaps the RUNGS between seats.** That is the correct control when
+the rungs are what differ. But `--rungs 5,5 --character George --opponent Robot`
+is a real question — *is this fighter stronger than that one at one rung* — whose
+variable is the **fighter**, and the pairing was swapping something else entirely.
+
+⭐⭐ **A control that cancels the wrong term is worse than no control, because it
+produces symmetric-looking output that reads as rigour.** The degenerate arm
+returned perfectly equal columns (`304% : 304%`, `142% : 142%`) and a verdict of
+`even` — which is precisely what a careful null control is supposed to look like.
+
+⚠ **And the cost is measured.** Run unpaired instead, and the same comparison
+gives a **329% : 225%** damage gap that still reports `(within spread)`, because
+unpaired seed variance is exactly what pairing exists to remove. ⇒ **The question
+could be asked and could not be answered, and nothing in the output said so.**
+
+⭐ Repaired by pairing on the FIGHTER when the rungs are equal and the characters
+differ — the same control applied to the actual variable — with the degenerate
+warning narrowed to the genuinely variable-free case (same rung *and* same
+fighter), where it still fires.
+
+⇒ **The rule it earns is about guards rather than configs:** *a guard's stated
+reach is a claim that wants its own poison.* `--paired`'s doc said it "cancels the
+seat/placement term", and the widest thing that sentence claims is **any**
+comparison. It had only ever been poisoned for the rung case. ⚠ I found this by
+tripping it, not by testing it — and the guard that caught me fired twelve times
+into an output I was filtering with a `grep -v` that happened to match its text.
+
 ### ⭐⭐ THE CLASS BEHIND FIVE SEPARATE FINDINGS: the rig reads its config from anywhere but the shipped file
 
 Five findings in this document have the same shape, and it is worth naming
@@ -1988,9 +2061,24 @@ the reordering IS the finding.
    landed entirely within spread. ⇒ Do it because `None` is the wrong score for a
    verb a fighter can pick, not because a matrix will move. It reaches no player
    either way.
-6. **Re-run flat-vs-platforms** once the respawn/tier collision is ruled on, using
-   `closest_approach` on the unfought rows to separate "cannot navigate" from
-   "declines to commit".
+6. ✔ **DONE — flat-vs-platforms re-run at the shipped clock**, and its headline
+   reversed: the tiers do not halve the lethality (stocks left is `0.00` on BOTH
+   stages), they take **1.83× as long** to reach the same end. Pace, not
+   lethality. ⚠ The `closest_approach` half is moot — there are no unfought rows
+   at the shipped clock (109 bouts, zero where neither seat dealt damage).
+
+⇒ **WHAT IS ACTUALLY LEFT, and it is short.** Items 1, 3 and 4 are with Jon.
+Item 2 and 6 are done. Item 5 (`Dodge`) is real but reaches no player. ⇒ So the
+next MEASUREMENT worth taking is none of these — it is the one the roster answer
+unblocks, and until that answer arrives the honest state of this page is *the
+fighter is measured and the open questions are design*.
+
+⚠ **One engineering item nobody has claimed**, recorded so it is not lost: the
+scenario matrices on this page were taken at the 60-second clock and only the
+`5 vs 3` slice has been re-run at the shipped one. The Shield-model comparison in
+particular still rests on short-clock numbers. ⇒ It changes no conclusion I have
+drawn (that comparison found *no effect*, and a longer clock cannot turn no effect
+into evidence for keeping it), but a reader quoting those tables should know.
 
 ⚠ **And the standing rule, now with a worked example behind it:** do not tune
 rollout depth, heuristics, APM, reaction or weights without a trace naming the

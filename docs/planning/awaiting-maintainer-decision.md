@@ -1430,6 +1430,37 @@ plausible ones and bring them back for a look — the same way the command grab
 went in. The decision I cannot make is whether these characters are supposed to
 be fightable at all.
 
+⭐⭐⭐ **NOW MEASURED PROPERLY, AND IT IS NOT CLOSE: at the SAME rung, on the
+shipped ladder and the shipped clock, George significantly outfights a stand-in.**
+
+| arm (rung 5 vs rung 5, paired, 12 seeds) | dealt | survival | verdict |
+|---|---|---|---|
+| **George vs Robot** | **318% : 199%** | 62.7s : 58.2s | ⭐ **higher outfights — SIGNIFICANT** |
+| Robot vs Robot *(null control)* | 369% : 389% | 134.3s : 131.5s | *(within spread)* — correctly null |
+
+⇒ **The stand-ins are not merely plainer, they are measurably weaker at identical
+difficulty settings.** Difficulty rung, ladder, clock, stage and seed set are all
+held equal; the only thing that differs is the kit. ⭐ And a George match RESOLVES
+in about 63 seconds where two Robots take 134 — **George kills twice as fast.**
+
+⭐ **The null control is what makes that a measurement rather than a label.** Two
+mechanically identical fighters (both Robots receive `fighter_moveset()`) swapped
+between seats come back *within spread*, exactly as a null should. So the
+instrument is not simply declaring whichever seat it prefers.
+
+⚠ **This measurement did not exist until the rig was repaired to take it**, which
+is worth one line because it explains why nobody had it: `--paired` swapped the
+RUNGS, so a *fighter* comparison got a control that cancelled the wrong term. The
+unpaired attempt gave a 329% : 225% gap and still reported `(within spread)`. ⇒
+The question could be asked and could not be answered.
+
+⇒ **What it means for the three options above.** It does not choose one — that is
+still a design call — but it removes "the Robots are fine as they are" as a
+*measured* position. Anyone picking **(a) keep them thin** is now choosing a
+roster where the default character is significantly weaker than the alternative at
+the same difficulty setting, which may be exactly right for sparring partners, but
+should be chosen rather than inherited.
+
 ⭐ **One measurement that should inform this, because it surprised me — and it is
 PARTIAL, stated as such.** Two arms of the same run, both on the shipped ladder,
 paired, 12 seeds, differing only in who is fighting. Two of the four rung cells

@@ -965,6 +965,31 @@ fn flag_value(name: &str) -> Option<String> {
 ///
 /// Two instruments, one nominal subject, two orders of magnitude. A rig that cannot change who is
 /// fighting cannot tell you which of those is about the AI.
+/// The two fighters with the seats EXCHANGED — the fighter-comparison twin of
+/// swapping the rungs.
+///
+/// ⭐⭐ **WHY THIS EXISTS.** `--paired` cancels the seat term by running each seed
+/// twice with the RUNGS swapped. That is the right control when the rungs are
+/// what differ — and it is a tautology when they are the same, which the guard in
+/// `bouts_for_seed` says out loud. ⇒ But `--rungs 5,5 --character A --opponent B`
+/// is a perfectly good question ("is fighter A stronger than B at one rung?") with
+/// a real variable in it; the variable is simply the FIGHTER, not the rung. So the
+/// pairing swaps that instead, and the seat term cancels exactly as it does for a
+/// rung comparison.
+///
+/// ⚠ Measured need, not a generalisation: an unpaired `5 vs 5` George-against-a-
+/// stand-in run produced a 329% : 225% damage gap and still came back `(within
+/// spread)`, because unpaired seed variance is what `--paired` exists to remove.
+/// The question could be ASKED and could not be ANSWERED.
+fn fighters_seated(swapped: bool) -> [String; 2] {
+    let [a, b] = fighters();
+    if swapped {
+        [b, a]
+    } else {
+        [a, b]
+    }
+}
+
 fn fighters() -> [String; 2] {
     [
         flag_value("--character")
@@ -1268,9 +1293,47 @@ fn bouts_for_seed(
     seed: u64,
     start: Option<&ambition_platformer2d::combat::brain::fighter::scenarios::Scenario>,
 ) -> Vec<Bout> {
-    let straight = run_bout_at(higher, lower, seed, start.cloned());
+    let straight = run_bout_at(higher, lower, seed, start.cloned(), false);
     if !args().paired {
         return vec![straight];
+    }
+
+    // ⭐⭐ EQUAL RUNGS, DIFFERENT FIGHTERS: pair on the FIGHTER instead.
+    //
+    // `--rungs 5,5 --character A --opponent B` asks a real question — is A
+    // stronger than B at one rung — and its variable is the fighter, not the
+    // rung. ⇒ Swapping the rungs there is the tautology the guard below names,
+    // but swapping the SEATS the two fighters occupy is the same control applied
+    // to the actual variable, and it cancels the seat term exactly as the rung
+    // form does.
+    //
+    // ⛔⛔ AND THE ABSENCE OF THIS WAS A DEFECT, NOT A MISSING FEATURE. `--paired`
+    // swapped the RUNGS, so a fighter comparison got a control that cancelled the
+    // wrong term — and **a control that cancels the wrong term is worse than no
+    // control, because it produces symmetric-looking output that reads as
+    // rigour.** The degenerate arm below printed perfectly equal columns and an
+    // `even` verdict, which is what a careful null control looks like.
+    //
+    // ⚠ Measured cost, not a hypothetical: an UNPAIRED `5 vs 5` run of George
+    // against a stand-in gave a **329% : 225%** damage gap and still reported
+    // `(within spread)`, because unpaired seed variance is exactly what `--paired`
+    // removes. ⇒ The question could be ASKED and could not be ANSWERED, and
+    // nothing in the output said so.
+    // ⚠ THE TEST IS ON THE IDS, AND TWO IDS CAN NAME THE SAME FIGHTER. The demo's
+    // default pair — `smash_duelist_a` and `smash_duelist_b` — both receive
+    // `fighter_moveset()`, so swapping them exchanges the SEATS and nothing else.
+    // ⇒ That is not degenerate; it is the seat-bias null control, and a useful
+    // one. But it means this arm measures *whatever differs between the two ids*,
+    // which for the Robots is placement and for George-against-a-Robot is the
+    // whole kit. **Read the arm by what the ids resolve to, not by the fact that
+    // they differ.**
+    let [a, b] = fighters();
+    if higher == lower && a != b {
+        // ⛔ `mirrored()` puts the columns back the right way round, exactly as
+        // the rung form does: the swapped bout seats fighter B where the fixture
+        // puts SELF, so every `[0]` below still means "the `--character` fighter".
+        let swapped = run_bout_at(higher, lower, seed, start.cloned(), true);
+        return vec![straight, swapped.mirrored()];
     }
     // ⛔⛔ PAIRING A RUNG WITH ITSELF IS A TAUTOLOGY, and it looks like a clean
     // null control, which is how it fooled its own author. With `higher ==
@@ -1279,12 +1342,16 @@ fn bouts_for_seed(
     // out equal by construction, for any bout, on a biased instrument as
     // readily as an unbiased one. ⇒ Run `--rungs X,X` WITHOUT `--paired` to
     // measure the seat term; the paired form measures nothing.
+    // ⚠ Reached only when the fighters are the SAME too — the arm above handles
+    // equal rungs with different fighters, which is a real comparison. With both
+    // equal there is genuinely no variable and the mirrored bout is the same bout.
     if higher == lower {
         eprintln!(
-            "[ladder_rig] ⛔ --paired with a rung against itself ({higher} vs {lower}) is \
-             degenerate: the mirrored bout is the SAME bout, so equal columns are \
-             guaranteed and prove nothing about bias. Drop --paired to measure the \
-             seat term."
+            "[ladder_rig] ⛔ --paired with a rung against itself ({higher} vs {lower}) AND \
+             one fighter against itself is degenerate: the mirrored bout is the SAME \
+             bout, so equal columns are guaranteed and prove nothing about bias. Drop \
+             --paired to measure the seat term, or pass different \
+             --character/--opponent to compare FIGHTERS at one rung."
         );
     }
     // ⛔ THE SAME SEED, THE ROLES SWAPPED, AND THE RESULT PUT BACK THE RIGHT WAY
@@ -1292,7 +1359,7 @@ fn bouts_for_seed(
     // fixture puts SELF, so `mirrored` swaps the pair back and every `[0]` below
     // still means "the higher rung". Reporting the raw mirror would average each
     // rung with the other one.
-    let swapped = run_bout_at(lower, higher, seed, start.cloned());
+    let swapped = run_bout_at(lower, higher, seed, start.cloned(), false);
     vec![straight, swapped.mirrored()]
 }
 
@@ -1503,7 +1570,7 @@ fn place_at(
 }
 
 fn run_bout(higher: u8, lower: u8, seed: u64) -> Bout {
-    run_bout_at(higher, lower, seed, None)
+    run_bout_at(higher, lower, seed, None, false)
 }
 
 /// One bout, optionally started from a scenario's positions.
@@ -1512,6 +1579,7 @@ fn run_bout_at(
     lower: u8,
     seed: u64,
     start: Option<ambition_platformer2d::combat::brain::fighter::scenarios::Scenario>,
+    swap_fighters: bool,
 ) -> Bout {
     let mut app = build_demo_app();
     // ⛔ BEFORE the warm-up updates, because `project_authored_fighter_ladder`
@@ -1531,7 +1599,7 @@ fn run_bout_at(
     }
     app.world_mut()
         .insert_resource(ambition_demo_smash::smash_roster_at_levels(
-            fighters(),
+            fighters_seated(swap_fighters),
             &[higher, lower],
         ));
     app.world_mut()

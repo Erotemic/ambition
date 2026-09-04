@@ -670,6 +670,20 @@ thirteen stale generations of it** (which is worth almost nothing). ⭐ The scri
 even has `--incremental-only`, *"which reclaims the largest share of the directory
 while deleting no artifact at all."*
 
+✔✔ **MEASURED ON THIS BOX 2026-09-04 — the script's DRY RUN is the default, needs
+no build, and deletes nothing:**
+
+```text
+debug:   would remove workspace-member artifacts (dependencies kept)
+         Summary 180503 files, 116.7GiB total
+release: would remove workspace-member artifacts (dependencies kept)
+         Summary  47465 files,  14.6GiB total
+```
+
+⇒ **131.3 GiB reclaimable with the dependency wall left standing**, on a volume
+with **279M free**. ⭐ That is the whole blocker, quantified, by a command that
+takes no risk to run — `./scripts/clean_workspace_crates.sh` with no flags.
+
 ⇒ **The actual path, one command and no build**:
 `scripts/clean_workspace_crates.sh --incremental-only` first, then a full
 `--apply` if more is wanted. ⚠ **Not run here — deletion under `target/` is a

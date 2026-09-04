@@ -2201,6 +2201,26 @@ queue read as an execution authority for work already done.
   pressed while running becomes the dash attack, whatever was scored.
   ⛔ **The body is not misbehaving** — that IS what a dash attack is. The defect is
   an option set assembled under an assumption the emission violates.
+  ⭐⭐⭐ **CORROBORATED BY A NATURAL EXPERIMENT ALREADY IN THE ROSTER: the fighter
+  that binds `attack_dash` loses its tilts and smashes; the one that does not,
+  keeps them.** Same probe, same 120s, same shipped ladder:
+
+  | | George *(binds `attack_dash`)* | the stand-ins *(bind none)* |
+  |---|---:|---:|
+  | dash attack | **98 (81%)** | — (no such move) |
+  | tilts | **0** | **115** (`tilt_up` 85, `tilt_down` 30) |
+  | smashes | **0** | 6 |
+  | jab chain | 1 / 1 / 1 | 13 / 13 / 13 |
+
+  ⇒ **The stand-ins' attack presses fall through to their standing moves precisely
+  because `move_for_flat_verb` finds no `{base}_dash` to prefer** — so the bug
+  cannot reach them. ⭐ Which means **authoring a dash attack costs a fighter its
+  tilts and smashes**, and George — the demo's only fully authored fighter, with
+  26 verbs to their 18 — gets *less* of his kit into play than they get of theirs.
+  ⚠ Corroboration, not proof: the two fighters differ in more than the dash
+  binding. But it is exactly what the mechanism predicts, in the direction it
+  predicts, from a contrast nobody set up.
+
   ⭐⭐ **AND THE BUILDER'S OWN COMMENT STATES THE INTENT IT DOES NOT DELIVER.** Its
   `grounded: bool` parameter is annotated *"The body's REAL posture this tick. The
   kit is what it can press NOW."* ⇒ That is exactly the right requirement and the

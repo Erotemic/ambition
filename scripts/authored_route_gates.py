@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Every authored route gate in every shipped world, and the condition it asks.
+"""Every authored use of the condition catalog: route gates AND dialogue lines.
 
 ⛔⛔ THE POINT IS THE DENOMINATOR. `capability-progression-and-world-gating.md`
 records that five of seven gate families are now reachable from a route
@@ -13,12 +13,21 @@ that is unused from a vocabulary that has nothing to be used on.
 lock, which is a different writer (`contribute_encounter_lock_walls`). Both
 classes are printed so the split is visible rather than assumed.
 
+⛔⛔ TWO CONSUMERS, NOT ONE, AND THE SECOND IS THE BUSIER. This script counted
+only walls on 2026-09-04 and reported a corpus of three. `ConditionCatalog` has a
+second authored road: `ambition_conversation/src/dialog/authored_conditions.rs`
+installs a Yarn verb `condition(id, arg)`, so every `.yarn` line calling it is
+an authored use of the same vocabulary. Counting one consumer and calling the
+result "the authored corpus" is the denominator error this script exists to
+prevent, committed inside the instrument itself.
+
 Usage:  python3 scripts/authored_route_gates.py
 """
 
 from __future__ import annotations
 
 import json
+import re
 import subprocess
 import sys
 from collections import Counter
@@ -72,6 +81,47 @@ def main() -> int:
     print("\nconditions actually authored:")
     for name, count in sorted(conditions.items()):
         print(f"  {count:>3}  {name}")
+
+    # ── the second road: authored dialogue ──────────────────────────────────
+    yarn = subprocess.run(
+        ["git", "ls-files", "*.yarn"], capture_output=True, text=True, check=True
+    ).stdout.split()
+    calls: list[tuple[str, str]] = []
+    for path in sorted(yarn):
+        try:
+            text = open(path, encoding="utf-8").read()
+        except OSError as error:
+            unreadable.append(f"{path}: {error}")
+            continue
+        for match in re.finditer(r'condition\(\s*"([^"]+)"', text):
+            calls.append((path, match.group(1)))
+
+    print(f"\ndialogue files: {len(yarn)}  (using condition(): "
+          f"{len({p for p, _ in calls})})")
+    print(f"condition() calls: {len(calls)}")
+    by_id = Counter(cid for _, cid in calls)
+    for name, count in sorted(by_id.items()):
+        print(f"  {count:>3}  {name}")
+
+    print(
+        f"\nTOTAL authored uses of the condition vocabulary: {len(gated) + len(calls)}"
+        f"  ({len(gated)} route gates + {len(calls)} dialogue lines)"
+    )
+    published = [
+        "world.flag_set",
+        "world.switch_on",
+        "inventory.holds",
+        "held.is_held",
+        "body.can",
+        "body.fits",
+        "encounter.cleared",
+    ]
+    used = set(conditions) | set(by_id)
+    unused = [c for c in published if c not in used]
+    if unused:
+        print(f"published but authored NOWHERE ({len(unused)} of {len(published)}):")
+        for name in unused:
+            print(f"       {name}")
 
     if unreadable:
         print(

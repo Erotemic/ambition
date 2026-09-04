@@ -1243,6 +1243,34 @@ conditions actually authored:  2  world.flag_set
 (`bob_field_survey_received`); the third is the goblin encounter lock, which
 belongs to a different writer and correctly has no `gated_by`.
 
+⛔⛔ **CORRECTED WITHIN THE HOUR, BY THIS QUESTION'S OWN RULE: I COUNTED ONE
+CONSUMER.** `ConditionCatalog` has a SECOND authored road, and it is the busier
+one — `ambition_conversation/src/dialog/authored_conditions.rs` installs a Yarn
+verb `condition(id, arg)`, so every `.yarn` line calling it is an authored use of
+the same vocabulary. Re-measured with the instrument extended to both roads:
+
+```text
+LockWall instances: 3  (2 gated, 1 encounter)
+dialogue files: 7  (using condition(): 2)
+condition() calls: 10     7 inventory.holds     3 world.flag_set
+
+TOTAL authored uses: 12  (2 route gates + 10 dialogue lines)
+published but authored NOWHERE (5 of 7):
+  world.switch_on  held.is_held  body.can  body.fits  encounter.cleared
+```
+
+⇒ **The correction makes the question SHARPER, not weaker, and moves where the
+answer probably lives.** Twelve authored uses rather than two — still small — but
+**five times more of them are DIALOGUE than routes**, and dialogue already uses
+the vocabulary actively while routes barely do. ⭐ So framing this as a level-design
+question was itself the narrow reading: *"you look like you could climb that"* in
+a `.yarn` line is a `body.can` customer that costs no level geometry at all, and
+nobody has considered it because the owner page is written around routes.
+
+⚠ **And the arithmetic that survives: five of seven published conditions are
+authored NOWHERE, by either road.** That is the dormant-cluster number, and it is
+now measured across both consumers rather than one.
+
 ⛔ **So "five families reachable and none reached" is NOT a migration backlog.**
 There is nothing to migrate. Converting both existing walls would empty the
 story-gate family — which is the one family the page says should stay available
@@ -1250,20 +1278,28 @@ story-gate family — which is the one family the page says should stay availabl
 unused. **The vocabulary is not unused because authors chose flags; it is unused
 because the world has almost no gates at all.**
 
-⇒ **Jon's call, and it is a WORLD question rather than an engine one:**
+⇒ **Jon's call, and it is a CONTENT question rather than an engine one:**
 
-1. **Grow the world.** New rooms author routes gated on body size, a carried
+1. **Author them in DIALOGUE first.** The cheapest road by a wide margin: ten of
+   the twelve existing uses are already `.yarn` lines, the verb is installed, and
+   a line conditioned on `body.can` or `inventory.holds` costs no level geometry.
+   ⇒ Promoted to first because the corrected measurement says this is where the
+   vocabulary actually lives.
+2. **Grow the world.** New rooms author routes gated on body size, a carried
    tool, a cleared arena. The engine is ready and each family has a working
    example test to copy. ⇒ This is the answer the Goal implies (*"exploration
-   emerges from what the body can do"*) and it costs level design, not code.
-2. **Leave it.** Two story-flag walls is what the current game needs; the
-   vocabulary waits for the rooms that want it. ⚠ Then the dormant-cluster risk
-   is real and should be accepted explicitly rather than by default — this
+   emerges from what the body can do"*) — it costs level design, and it is the
+   only one that makes the EXPLORATION claim true rather than the vocabulary
+   used.
+3. **Leave it.** Twelve authored uses is what the current game needs; the
+   vocabulary waits for the content that wants it. ⚠ Then the dormant-cluster
+   risk is real and should be accepted explicitly rather than by default — this
    repository has retired clusters for less (`GatePortalRegistry`,
    `GravityFlipSwitch`).
-3. **Convert the two.** ⛔ Not recommended and recorded so it is not tried: both
-   name a story flag because the sequencing IS the design there, so converting
-   them would be authoring a worse gate to exercise a better mechanism.
+4. **Convert the two walls.** ⛔ Not recommended and recorded so it is not tried:
+   both name a story flag because the sequencing IS the design there, so
+   converting them would be authoring a worse gate to exercise a better
+   mechanism.
 
 ⚠ **Do not answer this by adding walls to a demo world to make the count go up.**
 A gate authored to exercise the vocabulary is the dormant cluster wearing a

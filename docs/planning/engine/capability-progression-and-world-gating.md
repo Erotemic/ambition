@@ -238,6 +238,27 @@
 > — a gate authored to exercise the vocabulary is the dormant cluster wearing a
 > level's clothes.
 >
+> ⛔⛔ **AND THE COUNT ABOVE WAS ITSELF ONE CONSUMER SHORT — corrected the same
+> hour, by the rule it had just established.** `ConditionCatalog` has a SECOND
+> authored road and it is the busier one:
+> `ambition_conversation/src/dialog/authored_conditions.rs` installs a Yarn verb
+> `condition(id, arg)`. Both roads, measured:
+>
+> ```text
+> LockWall instances: 3  (2 gated, 1 encounter)
+> condition() calls in .yarn: 10   (7 inventory.holds, 3 world.flag_set)
+> TOTAL authored uses: 12  (2 route gates + 10 dialogue lines)
+> published but authored NOWHERE: 5 of 7
+> ```
+>
+> ⇒ **Five times more authored uses are DIALOGUE than routes.** So this page's
+> framing — everything as a route question — is what made the first count look
+> complete. ⭐ *"You look like you could climb that"* in a `.yarn` line is a
+> `body.can` customer that costs no level geometry, and it is invisible from
+> here. **The dormant-cluster number that survives is five of seven published
+> conditions authored nowhere by either road**, which is now measured across both
+> consumers instead of one.
+>
 > ✔ **AND THE VOCABULARY IS SAFE TO AUTHOR AGAINST NOW, which is what that slice
 > needed from engineering (2026-09-04).**
 > `every_authored_gate_condition_prepares_against_the_composed_catalog`

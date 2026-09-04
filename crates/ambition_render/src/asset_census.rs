@@ -184,7 +184,25 @@ pub fn report_image_census(
                 note_image_arrival(prepared_here.as_deref(), *id);
                 *id
             }
+            AssetEvent::Modified { id } => {
+                // ⛔ READINESS ONLY, NOT A CENSUS ROW. The bytes changed in
+                // place, so the GPU copy must be re-proven — but this is not a
+                // new decode and counting it as one would corrupt the
+                // re-decode census, whose whole job is to attribute repeated
+                // DECODES of a path.
+                note_image_arrival(prepared_here.as_deref(), *id);
+                continue;
+            }
             AssetEvent::Removed { id } | AssetEvent::Unused { id } => {
+                // ⚠ READINESS RETIRES ON `Unused` ALONE. In Bevy's render-asset
+                // pipeline `Unused` is what removes the render representation;
+                // a plain `Removed` is the main-world handle going away and
+                // deliberately does not mean the same thing. The telemetry row
+                // below is dropped for both, because both end this id's life in
+                // `Assets<Image>`.
+                if matches!(event, AssetEvent::Unused { .. }) {
+                    note_image_retired(prepared_here.as_deref(), *id);
+                }
                 // Decoded and dropped before any GPU saw it: the wasted half
                 // of the decode budget, named per file when it is big.
                 let dropped = image_stages::ledger().removed(id.untyped());
@@ -388,8 +406,9 @@ pub fn report_image_census(
         let never_drawn: Option<(usize, f64, Vec<String>)> =
             render_world_present.is_present().then(|| {
                 let by_road = ledger.never_drawn_by_road();
-                let (count, megapixels) =
-                    by_road.values().fold((0usize, 0f64), |(n, mp), (c, road_mp)| {
+                let (count, megapixels) = by_road
+                    .values()
+                    .fold((0usize, 0f64), |(n, mp), (c, road_mp)| {
                         (n + c, mp + road_mp)
                     });
                 // ⭐ BY OWNER, because "23.2 MP was never drawn" invites `whose?`
@@ -514,8 +533,14 @@ pub fn note_image_arrivals(
     prepared_here: Option<&image_stages::AppGpuPreparedImages>,
 ) {
     for event in events.read() {
-        if let AssetEvent::Added { id } = event {
-            note_image_arrival(prepared_here, *id);
+        match event {
+            // Both, and for one reason: each names the CURRENT contents of that
+            // id needing to reach the GPU. See `mark_awaiting`.
+            AssetEvent::Added { id } | AssetEvent::Modified { id } => {
+                note_image_arrival(prepared_here, *id);
+            }
+            AssetEvent::Unused { id } => note_image_retired(prepared_here, *id),
+            _ => {}
         }
     }
 }
@@ -533,6 +558,17 @@ pub fn note_image_arrival(
 ) {
     if let Some(prepared_here) = prepared_here {
         prepared_here.mark_awaiting(id.untyped());
+    }
+}
+
+/// What "an image is gone" MEANS for readiness, defined exactly once beside
+/// [`note_image_arrival`] and for the same reason.
+pub fn note_image_retired(
+    prepared_here: Option<&image_stages::AppGpuPreparedImages>,
+    id: AssetId<Image>,
+) {
+    if let Some(prepared_here) = prepared_here {
+        prepared_here.mark_retired(id.untyped());
     }
 }
 
@@ -624,7 +660,8 @@ mod tests {
              discarding the event is what left the web cover up forever",
         );
         assert!(
-            prepared_here.is_awaiting_gpu(arrived.untyped(), image_stages::RenderWorldPresent(true)),
+            prepared_here
+                .is_awaiting_gpu(arrived.untyped(), image_stages::RenderWorldPresent(true)),
             "and it is still OWED until the render world stamps it",
         );
     }

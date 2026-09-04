@@ -247,6 +247,16 @@ struct AppReadiness {
     ///     render world looked first CONSUMED the single global candidate, and
     ///     the other App could never discover its own preparation.
     awaiting: HashSet<UntypedAssetId>,
+    /// Images whose CURRENT contents this App's render world has prepared.
+    ///
+    /// ⛔⛔ "CURRENT", NOT "EVER". This set used to mean *"this id reached the
+    /// GPU at least once"*: `mark_awaiting` refused to re-open anything already
+    /// in it, and a test pinned that refusal. But Bevy re-extracts and re-prepares
+    /// an asset that was MODIFIED in place, and the reveal barrier consumes this
+    /// as positive proof — so an image prepared, then modified, then asked about
+    /// before its new contents reached the GPU answered "ready" about a copy that
+    /// no longer existed. The lifetime of the proof has to be the lifetime of the
+    /// contents it is proof of.
     prepared: HashSet<UntypedAssetId>,
 }
 
@@ -256,13 +266,39 @@ struct AppReadiness {
 pub struct AppGpuPreparedImages(Arc<Mutex<AppReadiness>>);
 
 impl AppGpuPreparedImages {
-    /// This App's main world saw `id` arrive in `Assets<Image>`. Recorded on
-    /// EVERY target: this is the readiness fact's input, not telemetry.
+    /// This App's main world saw `id`'s CURRENT contents arrive in
+    /// `Assets<Image>` — an `Added` or a `Modified`. Recorded on EVERY target:
+    /// this is the readiness fact's input, not telemetry.
+    ///
+    /// ⛔⛔ IT RETIRES ANY EARLIER PROOF, and that reversal is the fix. This used
+    /// to REFUSE to re-open an id already in `prepared`, on the reasoning that a
+    /// late duplicate `Added` would send a settled reveal back to waiting. The
+    /// reasoning was right about the symptom and wrong about the rule: a
+    /// `Modified` means the bytes changed and Bevy will prepare them again, and
+    /// an `Added` for a recycled id names different contents entirely. In both
+    /// cases the old stamp is proof about something that is gone. A barrier that
+    /// consumed it would lift over an image the GPU does not have.
     pub fn mark_awaiting(&self, id: UntypedAssetId) {
         if let Ok(mut state) = self.0.lock() {
-            if !state.prepared.contains(&id) {
-                state.awaiting.insert(id);
-            }
+            state.prepared.remove(&id);
+            state.awaiting.insert(id);
+        }
+    }
+
+    /// `id` has no GPU representation and no claim to one — Bevy's `Unused`,
+    /// which is what removes it from `RenderAssets`.
+    ///
+    /// ⚠ `Unused` ONLY, deliberately. A plain `Removed` is the main-world handle
+    /// going away and does NOT carry the same meaning in Bevy's render-asset
+    /// pipeline; treating the two alike would be this file guessing at a
+    /// distinction the engine draws on purpose.
+    ///
+    /// Both sets, because an id can be retired from either state: pending when it
+    /// was dropped before the GPU saw it, prepared when it was dropped after.
+    pub fn mark_retired(&self, id: UntypedAssetId) {
+        if let Ok(mut state) = self.0.lock() {
+            state.awaiting.remove(&id);
+            state.prepared.remove(&id);
         }
     }
 
@@ -279,7 +315,8 @@ impl AppGpuPreparedImages {
         self.0.lock().map(|state| state.awaiting.len()).unwrap_or(0)
     }
 
-    /// Record that this App's render world has a GPU copy of `id`.
+    /// Record that this App's render world has a GPU copy of `id`'s current
+    /// contents — the pending generation is now proven.
     pub fn mark_prepared(&self, id: UntypedAssetId) {
         if let Ok(mut state) = self.0.lock() {
             state.awaiting.remove(&id);
@@ -289,7 +326,9 @@ impl AppGpuPreparedImages {
 
     /// Has THIS App prepared `id`?
     pub fn is_prepared(&self, id: UntypedAssetId) -> bool {
-        self.0.lock().is_ok_and(|state| state.prepared.contains(&id))
+        self.0
+            .lock()
+            .is_ok_and(|state| state.prepared.contains(&id))
     }
 
     pub fn prepared_count(&self) -> usize {
@@ -1359,7 +1398,10 @@ mod app_local_gpu_readiness {
 
         a.mark_prepared(shared);
 
-        assert!(!a.is_awaiting_gpu(shared, rendering), "A prepared it, so A is settled");
+        assert!(
+            !a.is_awaiting_gpu(shared, rendering),
+            "A prepared it, so A is settled"
+        );
         assert!(
             b.is_awaiting_gpu(shared, rendering),
             "B must STILL be waiting: A's render world uploaded A's image, and the \
@@ -1393,7 +1435,10 @@ mod app_local_gpu_readiness {
 
         a.mark_prepared(shared);
 
-        assert!(a.awaiting_ids().is_empty(), "A prepared it, so A stops looking");
+        assert!(
+            a.awaiting_ids().is_empty(),
+            "A prepared it, so A stops looking"
+        );
         assert_eq!(
             b.awaiting_ids(),
             vec![shared],
@@ -1408,7 +1453,11 @@ mod app_local_gpu_readiness {
     #[test]
     fn an_arrival_becomes_a_candidate_and_preparation_retires_it() {
         let app = AppGpuPreparedImages::default();
-        assert_eq!(app.awaiting_count(), 0, "nothing is owed before anything arrives");
+        assert_eq!(
+            app.awaiting_count(),
+            0,
+            "nothing is owed before anything arrives"
+        );
 
         app.mark_awaiting(id(1));
         app.mark_awaiting(id(2));
@@ -1420,19 +1469,93 @@ mod app_local_gpu_readiness {
         assert!(app.is_prepared(id(1)));
     }
 
-    /// ⚠ A late arrival message for an id already prepared must not re-open it.
-    /// Bevy can emit `Added` again for a reused id, and re-adding it to the
-    /// candidate set would make a settled reveal go back to waiting.
+    /// ⛔⛔ AN ARRIVAL FOR AN ALREADY-PREPARED ID *DOES* RE-OPEN IT, and the
+    /// test that used to pin the opposite pinned the defect.
+    ///
+    /// The old rule was "a late duplicate `Added` must not send a settled reveal
+    /// back to waiting". It protected the symptom and lost the property: the
+    /// stamp means *these contents are on the GPU*, so anything that replaces the
+    /// contents must retire it. An `Added` for a recycled id names a different
+    /// image; a `Modified` names different bytes for the same one. Keeping the
+    /// old stamp lets a barrier lift over a GPU copy that no longer exists.
     #[test]
-    fn an_arrival_for_an_already_prepared_id_does_not_re_open_it() {
+    fn arriving_again_retires_the_proof_and_makes_the_id_pending() {
         let app = AppGpuPreparedImages::default();
         app.mark_awaiting(id(3));
         app.mark_prepared(id(3));
+        assert!(app.is_prepared(id(3)));
 
         app.mark_awaiting(id(3));
 
-        assert!(app.awaiting_ids().is_empty(), "a prepared id must not return to the queue");
-        assert!(app.is_prepared(id(3)));
+        assert!(
+            !app.is_prepared(id(3)),
+            "the proof was about contents that have just been replaced"
+        );
+        assert_eq!(
+            app.awaiting_ids(),
+            vec![id(3)],
+            "and the current contents are pending, so the render world looks again"
+        );
+    }
+
+    /// THE WHOLE GENERATION CYCLE, IN THE ORDER A MODIFIED IMAGE ACTUALLY LIVES
+    /// IT: arrive, prepare, settle; modify, go pending, prepare again, settle
+    /// again.
+    ///
+    /// ⛔ THE MIDDLE ASSERTION IS THE ONE THAT WAS FAILING IN PRODUCTION. Every
+    /// other step passed before this fix; the reveal barrier's question
+    /// (`is_awaiting_gpu`) answered "settled" the instant after the modify,
+    /// about a GPU copy Bevy was still preparing.
+    #[test]
+    fn a_modified_image_is_pending_again_until_the_gpu_has_the_new_contents() {
+        let app = AppGpuPreparedImages::default();
+        let drawing = RenderWorldPresent(true);
+
+        app.mark_awaiting(id(5));
+        assert!(
+            app.is_awaiting_gpu(id(5), drawing),
+            "arrived, not yet uploaded"
+        );
+        app.mark_prepared(id(5));
+        assert!(!app.is_awaiting_gpu(id(5), drawing), "settled");
+
+        // The bytes change in place. Bevy re-extracts and re-prepares.
+        app.mark_awaiting(id(5));
+        assert!(
+            app.is_awaiting_gpu(id(5), drawing),
+            "the modified contents have NOT reached the GPU; a barrier must wait"
+        );
+
+        app.mark_prepared(id(5));
+        assert!(!app.is_awaiting_gpu(id(5), drawing), "settled again");
+    }
+
+    /// `Unused` RETIRES THE ID FROM BOTH SETS, from either state.
+    ///
+    /// An image dropped before the GPU saw it must leave the candidate queue, or
+    /// the render world polls forever for something that will never arrive. One
+    /// dropped after must lose its proof, because `Unused` is what removes the
+    /// render representation.
+    #[test]
+    fn an_unused_image_leaves_both_the_queue_and_the_proof() {
+        let app = AppGpuPreparedImages::default();
+
+        app.mark_awaiting(id(8));
+        app.mark_retired(id(8));
+        assert!(
+            app.awaiting_ids().is_empty(),
+            "a dropped candidate stops being polled"
+        );
+        assert!(!app.is_prepared(id(8)));
+
+        app.mark_awaiting(id(9));
+        app.mark_prepared(id(9));
+        app.mark_retired(id(9));
+        assert!(
+            !app.is_prepared(id(9)),
+            "`Unused` removes the render representation, so the proof goes with it"
+        );
+        assert!(app.awaiting_ids().is_empty());
     }
 
     /// A headless App never prepares anything, so nothing may wait on it.

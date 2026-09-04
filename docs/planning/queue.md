@@ -1044,7 +1044,23 @@ queue read as an execution authority for work already done.
     one nobody ran. ⚠ Naming the nodes in the failure message is what settled it
     in one run; a bare count cannot tell a HUD from a pause menu.
   * `ambition_demo_mary_o_app` `ov1_draws_the_world::a_vfx_message_this_demo_writes_is_drawn_by_this_demo`
-    — no assertion text in the log; needs a targeted re-run.
+    — ⭐ **DOES NOT REPRODUCE OUTSIDE A FULLY PARALLEL WORKSPACE RUN.** Measured
+    2026-09-04, three arms, each redirected to a file: this crate's own feature
+    set, test alone → **1 passed**; the workspace union, same test alone → **1
+    passed**; the workspace union, the whole `mary_o_it` binary → **60 passed, 0
+    failed, 18.4s**. The only remaining difference from the run that failed it is
+    that `cargo test --workspace` runs test BINARIES concurrently.
+    ⇒ **So the union's residue is two failures that pass at every feature set and
+    every isolation level short of full parallelism** — this one and the smash
+    framing one, which yardrat eliminated the same way. That is a load or
+    contention signature, not a composition defect, and it should be chased as
+    one: shared filesystem/asset state, adapter contention, or a settle loop that
+    is frame-counted under CPU pressure.
+    ⚠ Stated as measured-by-elimination, not as a proven mechanism. Nobody has
+    yet watched either test fail under a controlled reproduction.
+    The assertion now reports whether `HostVfxPresentationPlugin`'s
+    `session_world_exists` gate had a session at all, so the next failure says
+    whether the subscriber was absent or installed-and-skipped.
   * `ambition_demo_smash_app` `the_stage_kills::every_live_fighter_stays_inside_the_frame`
     — *"t3 seat 0 at (224,204) is 44 units outside a 568x320 frame centred
     (0,0)"*. ⛔ **I FIRST WROTE THAT THIS WOULD FAIL IN AN ORDINARY SMASH RUN AT

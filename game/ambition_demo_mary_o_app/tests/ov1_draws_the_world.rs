@@ -407,10 +407,29 @@ fn a_vfx_message_this_demo_writes_is_drawn_by_this_demo() {
     });
     settle(&mut app);
 
+    // ⚠ THE DIAGNOSTIC IS PART OF THE ASSERTION, added 2026-09-04 after this
+    // failed under the workspace feature union and passed at this crate's own
+    // feature set — so "it drew nothing" had to say whether the SUBSCRIBER is
+    // absent or present-and-silent. Those want opposite fixes.
+    // `HostVfxPresentationPlugin` gates its whole chain on `session_world_exists`,
+    // so the first thing to know is whether this composition HAS one.
+    let session_roots = {
+        let mut q = app
+            .world_mut()
+            .query_filtered::<bevy::prelude::Entity, bevy::prelude::With<
+                ambition_platformer2d::platformer::lifecycle::SessionRoot,
+            >>();
+        q.iter(app.world()).count()
+    };
+    let after = particle_count(&mut app);
     assert!(
-        particle_count(&mut app) > before,
-        "this composition wrote a `VfxMessage::CoinPop` and drew nothing: \
-         `fx::vfx_spawn_messages` is not scheduled here, which is the whole of \
-         the coin-pop report and not a Mary-O bug"
+        after > before,
+        "this composition wrote a `VfxMessage::CoinPop` and drew nothing \
+         (particles {before} -> {after}); \
+         session roots present: {session_roots}. \
+         `HostVfxPresentationPlugin` gates its whole chain on \
+         `session_world_exists`, so ZERO roots means the subscriber is \
+         installed and skipped rather than absent — a different defect from \
+         the original coin-pop report."
     );
 }

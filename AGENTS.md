@@ -376,6 +376,24 @@ not another cargo invocation. ⚠ Cargo does not serialise different feature
 resolutions for you; it rebuilds shared units back and forth, and the two runs
 each take longer than either would alone.
 
+⛔⛔ **AND A NESTED WORKSPACE'S `target/` IS NOT THE BIND-MOUNTED ONE.**
+`examples/capability_demo`, `fixtures/minimal_game` and
+`fixtures/external_consumer` each carry their own `Cargo.toml` + `Cargo.lock`, so
+`cargo … --manifest-path examples/capability_demo/Cargo.toml` writes to
+`examples/capability_demo/target/` — on the SHARED volume, not the ext4 bind
+mount. One such build put ~14 GB there while the main `target/` had 137 GB free.
+✔ One variable fixes it, verified through a full bevy rebuild with the shared
+volume flat:
+
+```bash
+CARGO_TARGET_DIR=$PWD/target/capability_demo \
+  cargo test --manifest-path examples/capability_demo/Cargo.toml ...
+```
+
+⚠ `scripts/setup/target_bindmount.sh --status` reports the MAIN target only, so
+it says BOUND while a nested workspace fills the shared disk. Check `df -h .` as
+well as `df -h target`.
+
 The exhaustive plan `--run-everything-you-probably-dont-need-this` is intentionally
 exceptional. Use it only when the verification recipe names your change.
 

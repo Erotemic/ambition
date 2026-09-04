@@ -583,8 +583,8 @@ lines before committing.
 **The gap was real and the tool was not worth it**, which is the useful half of
 this row: a `#[test]` that is simply deleted leaves one attribute short and one
 dead function that **looks exactly like an ordinary helper**. The sibling
-session's guard
-(`scripts/tests/test_no_function_carries_two_test_attributes.py`) catches the
+session's guard — a pytest check, in the guard set that runs in every lane, that
+no function carries two test attributes — catches the
 *stolen* attribute — two attributes on one function — and named this as the shape
 it cannot see.
 

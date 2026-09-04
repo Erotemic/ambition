@@ -595,4 +595,50 @@ mod tests {
             assert!(s.premise.len() > 60, "`{}` has no premise", s.name);
         }
     }
+
+    /// ⛔⛔ **EVERY UNREPRODUCED STATE HAS AN ACCESSOR THAT ANSWERS IT.**
+    ///
+    /// The ladder rig went from staging 5 of these 9 fixtures to all 9 on
+    /// 2026-09-03, by reading `starting_velocities`, `starting_hitstun`,
+    /// `starting_ledge_hangs` and `starting_shots` instead of skipping. ⚠ But
+    /// nothing asserted the pairing: `unreproduced_by_placement` names a state
+    /// as a STRING, and a harness matches on that string. Add a fixture whose
+    /// premise needs something new — or rename a state — and every harness
+    /// silently goes back to skipping it, honestly reporting a smaller number
+    /// that nobody is watching.
+    ///
+    /// ⇒ So this pins the pairing itself, not the count. A new unreproduced
+    /// state must arrive with the accessor that answers it, in the same commit.
+    #[test]
+    fn every_unreproduced_state_has_an_accessor_that_answers_it() {
+        for s in suite() {
+            for state in s.unreproduced_by_placement() {
+                let answered = match state {
+                    "velocity" => s.starting_velocities().is_some(),
+                    // ⓘ Attack phases are legitimately unanswerable — they need
+                    // a `BodyMelee` mid-swing, which no accessor can fake — so
+                    // `None` here is a correct answer, not a missing one. No
+                    // fixture in the suite asks for one today; when one does,
+                    // this arm is where the decision gets made rather than
+                    // discovered.
+                    "body phase" => s.starting_hitstun().is_some(),
+                    "ledge hang" => s.starting_ledge_hangs().is_some(),
+                    "projectiles" => !s.starting_shots().is_empty(),
+                    other => panic!(
+                        "`{}` reports unreproduced state `{other}`, which no accessor \
+                         answers. A harness matching on this string will skip the \
+                         fixture and report a smaller count without failing. Add the \
+                         accessor in the commit that adds the state.",
+                        s.name
+                    ),
+                };
+                assert!(
+                    answered,
+                    "`{}` reports unreproduced state `{state}` and its accessor \
+                     declines to answer, so every harness must skip it",
+                    s.name
+                );
+            }
+        }
+    }
 }

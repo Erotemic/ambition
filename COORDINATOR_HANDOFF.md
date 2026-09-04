@@ -843,13 +843,18 @@ theme withheld every static visual and authored entity. Two memos now: the room 
 unconditionally, parallax keeps the retry alone. Three tests, poison-verified against the exact
 pre-fix return. ⚠ Structure only — the visual symptom still needs the reproducing box.
 
-### 3. High — music publisher wrote through mirror symlinks (fixed, gitlink NOT moved)
+### 3. High — music publisher wrote through mirror symlinks (fixed; gitlink MOVED 2026-09-04)
 Three bare `shutil.copy2` in the submodule's `cli.py` followed mirrored symlinks into the main
 checkout. All three go through a submodule-local `publish_safely.publish_copy` now, with
-behavioural tests using real symlinks and protected target bytes. ⛔ **The parent gitlink is
-deliberately NOT moved:** that submodule holds 30 files of Jon's uncommitted stem-lab work and its
-checkout is already one commit ahead (`26b87bf music: accept aether severance V5`). Bumping it
-would publish his content decision for him.
+behavioural tests using real symlinks and protected target bytes.
+⛔ **SUPERSEDED 2026-09-04: the gitlink IS moved, and the version this row declined to move was
+BROKEN.** `06b25ee87` bumped it to `35a46a8c`, whose `cli.py` did not parse — the publisher import
+sat above `from __future__ import annotations` — so `python -m ambition_music_renderer` was dead at
+the pointer agents receive, while the four publisher tests passed the whole time because they
+import the helper directly. Found by GPT review. Fixed and guarded at the entry point in the
+submodule (`4e5695c`), and the pointer now names that. ⚠ Jon's ~30 uncommitted stem-lab files in
+that submodule are untouched by the bump; a pointer move publishes no uncommitted work. What it
+does do is arm `git submodule update` on ANOTHER machine to discard uncommitted rows there.
 
 ### 4. Medium — a regenerated PREFIX made a borrowing tree canonical (fixed)
 Reproduced before fixing: 25 real PNGs sorting first + one later symlink → `canonical=True`.

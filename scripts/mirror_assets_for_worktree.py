@@ -48,12 +48,20 @@ bug was first met. The full census of publishers into `MIRRORED_TREES`:
 | `scripts/generate_visual_quality_variants.py` | `Image.save`, `write_text` (3 sites) | ✔ guarded, tested |
 | `tools/ambition_sfx_pack/pack.py` | `open("wb")` (bank), `write_text` (dump) | ✔ guarded 2026-09-03, tested — **was writing straight through** |
 | `tools/ambition_sprite2d_renderer` `_copy_sheet_files` | `shutil.copy2` | ✔ guarded (submodule, already correct) |
-| `tools/ambition_music_renderer` `cli.py:363, 370, 398` | `shutil.copy2` ×3 | ⚠ **OWED** — bare `copy2`, no unlink |
+| `tools/ambition_music_renderer` `cli.py:364, 371, 399` | `publish_safely.publish_copy` ×3 | ✔ guarded 2026-09-04 (submodule, gitlink at `4e5695c`) |
 
-⚠ The music renderer is a SUBMODULE: the helper lives here, the fix there is a
-pointer move, and it is listed rather than done. `scripts/regen/music.sh:95-106`
-aims it at `AMBITION_MUSIC_PUBLISH_ROOT`, so a music regen from an asset-mirrored
-worktree still rewrites the main checkout's audio today.
+⚠ The music renderer is a SUBMODULE, so its fix is a pointer move and this row
+describes the pointer, not this repository. `scripts/regen/music.sh:95-106` aims
+it at `AMBITION_MUSIC_PUBLISH_ROOT`; a music regen from an asset-mirrored
+worktree now unlinks before writing instead of following the mirror symlink into
+the main checkout.
+⛔ **AND THE FIRST POINTER MOVE SHIPPED A BROKEN PROGRAM.** `35a46a8c` carried
+the publisher fix and an import above `from __future__ import annotations`, so
+`cli.py` did not parse — while the four publisher tests passed throughout,
+because they import the helper directly and never start the program. The
+submodule guards its own entry point now (`tests/test_cli_entry_point.py`).
+⇒ A submodule's tests passing is not evidence that the pointer you are about to
+move is runnable.
 
 ⚠ **A THIRD ROAD ADDED LATER WILL NOT BE PROTECTED BY THIS FILE.** Nothing here
 can enforce the rule on a writer it has never heard of; the enforcement lives in

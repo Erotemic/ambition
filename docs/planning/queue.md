@@ -2093,11 +2093,16 @@ queue read as an execution authority for work already done.
   TELL" — REWRITTEN AGAIN, LATE 2026-09-04.** The rig's own significance test was
   found to run BACKWARDS (`|median| < 0.5 * (max - min)`; a range only grows with
   n, so more seeds made results LESS significant) and is now an exact sign test.
-  Re-measured at 40 seeds, **every cell of the shipped ladder is significant with
-  no qualifier**: `3 vs 1` higher, `5 vs 3` **LOWER**, `6 vs 5` **LOWER**, `9 vs 6`
-  higher. ⇒ **`1 < 3 > 5 > 6 < 9`** — rung 3 is a local maximum, rung 6 a local
-  minimum, and a player climbing from 3 to 6 meets two successive steps of a
-  measurably WEAKER CPU. ⚠ So the reason not to tune is no longer "the instrument
+  ⛔⛔ **AND THE CLOCK WAS WRONG TOO — the biggest of the five.** The shipped match
+  is **eight minutes** (`SMASH_TIME_LIMIT_TICKS`); the rig ran **sixty seconds**, so
+  no bout could end, stocks tied in every cell, and every verdict this tool has
+  ever printed fell through to its damage tiebreak. Fixed: the default now reads
+  the demo's own constant. ⇒ **Re-measured at the shipped clock, where every bout
+  RESOLVES (`0 : 0` stocks, medians rising 85s → 97s → 104s → 112s up the rungs):
+  `3 vs 1` higher ✔, `5 vs 3` **LOWER** ⛔, and `6 vs 5` / `9 vs 6` are within
+  spread.** ⚠ So it is **one bad rung, not a broken progression** — the 40-second
+  table's "every cell is significant" was an artifact of the short clock and is
+  marked superseded in `fighter-brain.md`. ⚠ So the reason not to tune is no longer "the instrument
   cannot see"; it is that the ladder has a known, reproduced, player-facing
   inversion whose cause is a weight VECTOR (no single weight reverts it — all four
   arms failed, only the full swap works) that nobody has ruled on yet.

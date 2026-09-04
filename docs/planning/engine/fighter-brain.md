@@ -163,6 +163,31 @@ Keep deterministic fixed-seed reports and enough instrumentation to show that:
 
 Do not build a second permanent telemetry stack around the fighter brain.
 
+⭐ **MEASURED 2026-09-03: the rig reproduces FIVE of its NINE named scenarios,
+and it says so itself.** `smash_tool ladder-rig --scenarios --seeds 1` opens with
+*"PLACEMENT ONLY — 5 of 9 fixture(s) are reproduced by placing two bodies"* and
+then skips four by name, each with the setup it cannot perform:
+
+| skipped fixture | what the rig cannot set up |
+|---|---|
+| `juggle_escape` | velocity, body phase |
+| `projectile_camper` | projectiles |
+| `edgeguard_window` | velocity |
+| `edgeguard_ledge_hang` | ledge hang |
+
+⭐ **THE RIG IS HONEST AND THAT IS THE POINT** — it refuses rather than placing
+two bodies and calling the result a juggle. This is F2's own rule enforced by
+the instrument: *"a scenario must instantiate the premise it claims to
+measure."* ⚠ But the consequence belongs on this page in a number: **the four it
+cannot reach are the ones a platform fighter is judged on** — edgeguarding
+(twice), juggling, and projectile camping. Reading a green ladder as "the brain
+is evaluated" over-reads it by four ninths.
+
+⇒ **The gap is a SETUP capability, not more seeds.** Every skip names velocity,
+body phase, projectiles or a ledge hang — states a placement cannot express. A
+rig that could hand a body a velocity and a phase would reclaim three of the
+four at once.
+
 ## Relationship to navigation/recovery architecture
 
 The reusable recovery probe and `RecoveryLens` are legitimate body-capability

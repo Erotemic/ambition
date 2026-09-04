@@ -496,6 +496,39 @@ switch off for every fighter, so the arms are:
 | `--paired` | `6 vs 5` favours LOWER (the standing result) |
 | `--paired --no-rollout` | `6 vs 5` stops favouring LOWER |
 
+⭐⭐ **BOTH ARMS RAN, AND THE SWITCH FLIPS THE VERDICT.** `ladder-rig --seeds 10
+--paired`, engine floor, flat stage, with and without `--no-rollout`:
+
+| rung | rollout ON (default) | rollout OFF |
+|---|---|---|
+| 3 vs 1 | higher outfights | higher outfights — **byte-identical row** |
+| 5 vs 3 | LOWER outfights | LOWER outfights — **byte-identical row** |
+| **6 vs 5** | **LOWER outfights** · 51.8s : 56.3s · stocks **0 : 0** · dealt 147% : 149% | **higher outfights** · >60s : >60s · stocks **2 : 2** · dealt 227% : 222% |
+| 9 vs 6 | higher outfights | higher outfights |
+
+⭐ **The control is built into the design and I did not have to arrange it.**
+Rollout is already off below level 6, so `--no-rollout` cannot change the two
+bottom rungs — and it does not: those rows are identical to the digit between the
+arms. Anything that moved at `6 vs 5` is the rollout and nothing else.
+
+⇒ **Turning level 6's rollout off flips the rung the right way up.** At `6 vs 5`
+only the HIGHER fighter has rollout by default, so this arm removes exactly one
+fighter's search — and the verdict inverts.
+
+⚠ **And the whole match changes character, which is the part I did not predict.**
+With level 6's search on, *both* fighters end **fully eliminated** (0 stocks each)
+having dealt ~148%. With it off, *both* survive with **2 stocks** and deal ~225%.
+Removing one fighter's rollout made the other one survive too. ⇒ A rollout-driven
+fighter appears to play in a way that gets BOTH bodies killed — reckless
+commitment, or dragging the fight somewhere lethal — rather than simply losing.
+
+⚠ **Held at hypothesis-with-strong-evidence, not proof.** Both `6 vs 5` cells are
+`(within spread)` at 10 seeds in the ladder mode; what carries the weight is the
+DIRECTION flip against a byte-identical control, plus the scenarios matrix where
+`6 vs 5` was **9 of 9** fixtures unpaired and **5 of 5** paired toward LOWER while
+its neighbour flipped. A 15-seed paired scenarios run with `--no-rollout` is the
+confirmation and is queued.
+
 ⚠ **Prior art, and it is why this needs to be measured rather than announced:**
 this document already records a *"Level-6 rollout regression — DIAGNOSED AND
 FIXED 2026-08-31"*, and `tracks.md` warns against reinterpreting that regression

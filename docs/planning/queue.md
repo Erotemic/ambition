@@ -2472,6 +2472,51 @@ queue read as an execution authority for work already done.
   ⚠ The alternative — a score floor under which `pick_movement` returns `None` —
   gets the same behaviour by making the selector decline, and is worse for the
   same reason the rig's two authorities were worse: it puts the decision
+
+  ⭐⭐⭐ **AND THIS CLASS ALREADY HAS A MAINTAINER RULING — found in `dev/journals`
+  2026-09-04, which `AGENTS.md` says to search before a non-trivial patch.**
+  `cpu-grabs-never-happened-in-a-match-2026-08-18.md` documents the identical
+  shape one verb over: the grab *"reaches 42px"*, the fighters spend **35% of the
+  match inside 42px**, *"so the range was there and the grab was never thrown in
+  it"*. ⇒ Its resolution was not a mechanical fix but a missing SCORER TERM —
+  *"the generic option scorer has NO term for the only thing a capture buys, that
+  the opponent is HELD"*.
+
+  ⇒ **So `D-BRAIN-MENU` is the same class as the grab problem**: not a broken
+  mechanism, an option scorer that cannot express the value of something. Grabs
+  had no term for *held*; this has no way to score *stand still*.
+
+  ⭐ **And Jon ruled on that class on 2026-08-19** (`maintainer-decisions.md`):
+  *"D166's CPU-GRAB WORK IS THE POLICY HALF FIRST: the FIGHTER CAPABILITY owns
+  what a HOLD is WORTH. The mechanical fixes (a start-gate on the option list,
+  tighter grab spacing) wait behind it."* ⚠ He also named the class before the
+  evidence reached him — *"sounds like an AI problem, not a grab problem"*.
+
+  ⇒ **Applied here that is a strong prior, not a guess**: decide **what standing
+  still is WORTH** first, own it at the fighter capability rather than in the
+  scorer every actor in every game shares, and let the mechanical half (a `Hold`
+  variant, a decline path) follow. ⓘ That third sub-question was already on this
+  row's list; the precedent says it is the one to answer FIRST.
+
+  ⭐⭐⭐ **AND THE POLICY HALF LEFT A COMPLETE TEMPLATE, which answers the failure
+  mode this row predicted.** `dev/journals/what-a-hold-is-worth-2026-08-19.md`
+  records what landed: **`capture_value(foe)`, a feature of its OWN in the fighter
+  brain's own option scorer** — *"not in the shared frame data, so no carve was
+  needed"* — rather than a value routed through `expected_payoff`. Its shape:
+
+  - **every term is zero or small unless a specific fact is true RIGHT NOW**
+    (a raised guard, the percent a throw converts against);
+  - ⭐ **explicit ZEROS for the cases a naive rule would score highest** — hitstun
+    (*"where spending the grab's startup trades a live combo for a hold"*) and an
+    airborne victim (*"that grab can never catch anybody"*).
+
+  ⇒ **That last bullet is exactly the `Hold` hazard named above.** *Nowhere scores
+  as safe* is the naive rule; `capture_value` answers the same danger with explicit
+  zeros for the situations where the naive score is highest and the real value is
+  nil. ⇒ **So the remedy here is not an open design problem — it is a pattern this
+  brain has already used once, successfully, on a maintainer's ruling.** A
+  `hold_value` gated on facts (no foe in range, a committed opponent to punish, an
+  unsafe approach) with explicit zeros where standing still is merely passive.
   somewhere other than the scores.
   ⓘ Unmeasured, and it must be — this is the shape of the fix, not a claim that it
   works. The acceptance test above is what would say.
@@ -2652,7 +2697,10 @@ queue read as an execution authority for work already done.
   (250px against a 148.3px ceiling).
   ⇒ **Remaining customers, COSTED PER ITEM 2026-09-04 — and only two of seven are
   authoring.** ⛔ This row said "the seam is finished, no plumbing" of `P11`'s four
-  capture roads; that is true of ONE of them.
+  capture roads; that is true of ONE of them. ⓘ **Those four are the UNAUTHORED
+  remainder of six** — the parity inventory's *"`P11` has the capture seam and
+  **2 of 6** authored roads"* is the same fact counted from the other end, and the
+  two figures partition rather than disagree.
   ✔ **Authoring alone:** ~~`P11`'s **command grab**~~ — ✔ **SLICE TAKEN
   2026-09-04**, and it needed no engine work exactly as this row predicted:
   `lunge_grab` is a `special_forward` whose `Active` window sustains
@@ -2661,8 +2709,21 @@ queue read as an execution authority for work already done.
   throws through the same four verbs. Guard poison-verified five ways. ⚠ **And
   the first attempt at one poison silently matched nothing** — a regex that
   edited no bytes and printed no output, which reads exactly like a passing arm.
-  Hence five arms and not three. ⇒ Still open here: `P06`'s **foxtrot /
-  dash-dance** (dash-stance moves `move_for_flat_verb` already selects).
+  Hence five arms and not three.
+  ⛔⛔ **AND THE ONE THIS ROW LISTED AS STILL OPEN — `P06`'s foxtrot /
+  dash-dance — IS SHIPPED, corrected 2026-09-04.** The parity inventory marks it
+  *"already shipped 2026-08-25, no authoring, no code"*, re-verified there today,
+  and the guard it names exists:
+  `the_foxtrot_and_the_dash_dance_fall_out_of_the_same_edge`
+  (`crates/ambition_platformer2d_core/src/movement/tests/ability_gates.rs`). Its
+  sibling `P06` row is the same story —
+  `a_smash_thrown_out_of_a_turnaround_points_the_new_way` is in
+  `crates/ambition_combat/src/moveset/tests.rs`.
+  ⇒ **So this row's *authoring alone* list is now EMPTY**: the command grab was
+  taken today and the foxtrot was already done. ⭐ Found by two documents
+  disagreeing — this row said open, the inventory said shipped — which is worth
+  more than either page's own review, and is why the counts get read across pages
+  rather than down one.
   ⭐⭐ **AND THE SLICE FOUND SOMETHING BIGGER THAN ITSELF: two of the demo's three
   characters had no special button at all.** Counted off the contracts —
   `fighter_moveset()`, which both Robots carry, bound **18 verbs to George's 26**.
@@ -2690,8 +2751,22 @@ queue read as an execution authority for work already done.
   ⛔ Still a question with Jon in `awaiting-maintainer-decision.md` (thin
   stand-ins / finished characters / one shared simpler kit) — **do not author them
   off this row.**
-  ⛔ **Needs a seam first:** the **pivot** moves in both rows — `move_for_flat_verb`
-  hardcodes one derived stance (`{base}_dash`) and cannot express a pivot;
+  ⛔ **Needs a seam first:**
+  ⛔⛔ **THE PIVOT MOVES CAME OFF THIS LIST 2026-09-04 — both rows SHIPPED.** The
+  inventory marks `P11` pivot grab *"LANDED 2026-08-25… Two turnaround guards
+  pass"*, with the primitive row saying *"it needed NO move of its own"*, and
+  `P06` pivot grab/smash likewise, guarded by
+  `a_smash_thrown_out_of_a_turnaround_points_the_new_way` (which exists, in
+  `crates/ambition_combat/src/moveset/tests.rs`). ⇒ The `move_for_flat_verb`
+  reasoning quoted here — *"hardcodes one derived stance and cannot express a
+  pivot"* — described a seam the shipped implementation did not need.
+  ⭐ **So THREE ITEMS come off this row's list** — the command grab (taken today),
+  the foxtrot / dash-dance, and the pivots — leaving **nothing** under *authoring
+  alone*. ⚠ **Deliberately not restating this as "N of 7"**: this row and the
+  inventory's customer table enumerate differently (that table splits the pivot
+  into its `P06` and `P11` rows and does not carry `P14`'s finish-zoom), so a
+  single fraction spanning both is a number without a population. ⇒ What remains
+  HERE, and all of it genuinely needs a seam:
   `P11`'s **tether** — a grapple mechanic exists and nothing joins it to capture;
   `P11`'s **hit-grab** — nothing raises `CaptureAttemptRequested` from a landed
   hit; `P10`'s **tech result** — presentation only, because the AI half is

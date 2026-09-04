@@ -795,9 +795,9 @@ mod tests {
     /// ⛔ **A VERB COUNT IS A COUNT OF BINDINGS. A PLAYER PRESSES A CHAIN.**
     /// `directional_verb_chain` always falls back to the base verb, so this
     /// contract's missing `attack_forward` is NOT silence — a forward tilt
-    /// answers with the `jab`. ⇒ A planning claim that this fighter had "no
-    /// forward tilt and no dash attack" was drawn from the binding list and was
-    /// wrong; it is withdrawn in `smash-parity-inventory.md`.
+    /// answers with the `jab`. ⇒ Counting bindings therefore understates what
+    /// this fighter answers, and only the press enumeration below is safe to
+    /// draw a claim from.
     ///
     /// ⭐ What IS true is narrower and entirely about the special family. This
     /// pins it by enumerating every press rather than by inspecting keys, so the

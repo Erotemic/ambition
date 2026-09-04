@@ -153,6 +153,14 @@ pub struct MatchReportArgs {
     /// How many runs to average over. Zero is treated as one, as it always was.
     #[arg(long, default_value_t = 1)]
     pub runs: usize,
+    /// Load an authored difficulty ladder from a `.ron` and install it.
+    ///
+    /// ⛔ **WITHOUT THIS THIS REPORT MEASURES THE ENGINE FLOOR**, not the shipped
+    /// game: `build_demo_app` installs no `AuthoredFighterLadder`, so every seat
+    /// carries `UtilityWeights::default()` — which IS the level-9 row — while
+    /// seated at level 5 for reaction, APM and noise. No player meets that.
+    #[arg(long, value_name = "PATH")]
+    pub ladder: Option<String>,
 }
 
 pub fn run(args: MatchReportArgs) {
@@ -163,6 +171,36 @@ pub fn run(args: MatchReportArgs) {
     #[cfg(feature = "causal")]
     let mut decisions = DecisionTally::new();
     let mut carried: Vec<String> = Vec::new();
+    // Parsed ONCE and cloned per run: a parse failure is a caller error and must
+    // stop before any match is simulated, not `runs` times in the middle of one.
+    let authored_ladder = args.ladder.as_deref().map(|path| {
+        let text = std::fs::read_to_string(path).unwrap_or_else(|err| {
+            eprintln!("[match_report] --ladder {path}: {err}");
+            std::process::exit(2);
+        });
+        let ladder =
+            ambition_platformer2d::characters::brain::fighter::FighterBrainLadder::from_ron(&text)
+                .unwrap_or_else(|err| {
+                    eprintln!("[match_report] --ladder {path} did not parse: {err}");
+                    std::process::exit(2);
+                });
+        ambition_platformer2d::characters::brain::fighter::AuthoredFighterLadder(ladder)
+    });
+    // ⛔ WHICH LADDER, BEFORE THE FIRST NUMBER — and in `run` rather than in a
+    // report, because `runs == 1` and `runs > 1` take different report roads and a
+    // declaration in one of them is absent exactly half the time. A tool that
+    // measures a non-default configuration and does not say so is
+    // indistinguishable, in its output, from one that measures the default.
+    println!(
+        "match_report: ladder: {}",
+        if authored_ladder.is_some() {
+            "the AUTHORED rows"
+        } else {
+            "⛔ the ENGINE FLOOR — no --ladder given, so every seat carries \
+             UtilityWeights::default() (== the level-9 row) at level-5 reaction/APM. \
+             NOT the shipped fighter."
+        }
+    );
     let all: Vec<Vec<Tally>> = (0..runs)
         .map(|i| {
             run_one(
@@ -172,6 +210,7 @@ pub fn run(args: MatchReportArgs) {
                 #[cfg(feature = "causal")]
                 &mut decisions,
                 &mut carried,
+                authored_ladder.as_ref(),
             )
         })
         .collect();
@@ -303,8 +342,12 @@ fn run_one(
     // assert it, and this is the only place a built app is in hand. Filled on
     // every run; they agree, and reading it here costs nothing.
     carried: &mut Vec<String>,
+    authored_ladder: Option<&ambition_platformer2d::characters::brain::fighter::AuthoredFighterLadder>,
 ) -> Vec<Tally> {
     let mut app = build_demo_app();
+    if let Some(ladder) = authored_ladder {
+        app.world_mut().insert_resource(ladder.clone());
+    }
     #[cfg(feature = "causal")]
     {
         app.add_plugins(ambition_platformer2d::causal::CausalPlugin);
@@ -762,19 +805,6 @@ fn report_spread(character: &str, seconds: usize, all: &[Vec<Tally>], carried: &
         "match_report: {character} vs {character}, {seconds}s × {} runs, per-run TOTALS across both seats\n{}\n",
         all.len(),
         composition_scope(carried)
-    );
-    // ⛔ SAY WHICH LADDER THESE NUMBERS DESCRIBE, BEFORE PRINTING ANY. This tool
-    // calls `build_demo_app()` and never inserts an `AuthoredFighterLadder`, so
-    // every fighter carries the ENGINE FLOOR — whose `UtilityWeights::default()`
-    // IS the level-9 row — while seated at level 5 for reaction, APM and noise.
-    // ⚠ No player meets that combination. A tool that measures a non-default
-    // configuration and does not say so is indistinguishable, in its output, from
-    // one that measures the default.
-    println!(
-        "match_report: ⛔ ladder: the ENGINE FLOOR — this tool installs no \
-         AuthoredFighterLadder and has no --ladder flag, so these fighters carry the \
-         floor's default weights (== the level-9 row) at level-5 reaction/APM. Read \
-         the rows as \"what a floor-weighted fighter does\", not as what a player meets.\n"
     );
     let spread = |pick: fn(&Tally) -> f32| -> String {
         let mut values: Vec<f32> = all

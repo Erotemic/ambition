@@ -622,7 +622,89 @@ decides what to delete.** `/dev/vda1` is 290G; the ambition target bind mount is
 | `~/.cache/mathlib` | **1.3G** | 2026-08-20 |
 
 ⇒ **~30G reclaimable without touching a single ambition build artifact**, none of
-it modified in five weeks. ⛔ Not deleted, and not this session's to delete — it is
+it modified in five weeks.
+
+⛔⛔ **AND THE SANCTIONED REMEDY IS DEADLOCKED, which is why an ordered path
+matters.** `scripts/sweep_cargo_target.sh` is the repo's tool for this — dry-run by
+default, keeps incremental state, preserves the graphs `run_game.sh` and
+`run_tests.sh` use, and targets the real consumer the 2026-08-07 journal
+identified: **duplicate fingerprint variants**, where every distinct
+feature/profile combination leaves a complete artifact set that cargo never
+collects (`app_it` alone had four variants at 3.1G). ⇒ But it requires
+`cargo-mark-sweep`, which is **NOT INSTALLED** here — the same gap that journal
+recorded a month ago, *"the tool you reach for when the disk fills was itself
+unavailable, which is part of why it kept filling"* — and `cargo mark-sweep`
+determines reachability by RUNNING BUILDS. **A full disk cannot build, so the
+remedy for a full disk cannot run.**
+
+⭐ **The ordered way out, each step making the next possible:**
+1. **Free the ~30G of unrelated stale caches above.** Touches no ambition
+   artifact, needs no build, and is the only step available at 280M.
+2. **`cargo install cargo-mark-sweep`** — now possible.
+3. **`scripts/sweep_cargo_target.sh`** (dry-run first, then `--apply`). ⭐ This is
+   strictly better than the manual reclaim order because it removes UNREACHABLE
+   variants rather than whole directories, and its safe default **keeps
+   incremental** — which `.cargo/config.toml` enables deliberately, worth
+   **104.9s → 21.3s** on the agent loop per the same journal.
+
+⛔⛔ **AND THE ABOVE IS SUPERSEDED — `scripts/clean_workspace_crates.sh` is the
+right tool and needs none of it.** Its contract: *"Drop OUR crates' build
+artifacts from `target/`, keeping every dependency … the 'recompile ambition, not
+bevy' cut."* It wraps `cargo clean --workspace`, needs no `cargo-mark-sweep`, and
+therefore **needs no build** — which breaks the deadlock above entirely.
+
+⛔ **AND IT CORRECTS ME TWICE ON INCREMENTAL, so read the script's own measurement
+rather than either of my claims.** Verbatim: *"INCREMENTAL IS MOST OF THE BLOAT AND
+COSTS ALMOST NOTHING TO DROP. Measured 2026-08-30: 70G of a 112G target was
+`target/*/incremental`, 915 dirs for ~70 crates — roughly thirteen stale
+generations each, because a new hash is minted per feature/flag shape and the old
+one is never reaped. **Deleting it invalidates NO fingerprint**: a fresh crate
+stays fresh and is skipped on the next build. The only cost is that the next EDIT
+to a given crate recompiles it whole instead of incrementally."*
+
+⇒ **So both of my positions were wrong.** *"Delete incremental first, it is 77G"*
+was right for the wrong reason; *"that is the wrong first move because incremental
+is worth 104.9s → 21.3s"* confused **having incremental ENABLED** (which is worth
+that, and is a `.cargo/config.toml` setting nothing here changes) with **retaining
+thirteen stale generations of it** (which is worth almost nothing). ⭐ The script
+even has `--incremental-only`, *"which reclaims the largest share of the directory
+while deleting no artifact at all."*
+
+✔✔ **MEASURED ON THIS BOX 2026-09-04 — the script's DRY RUN is the default, needs
+no build, and deletes nothing:**
+
+```text
+debug:   would remove workspace-member artifacts (dependencies kept)
+         Summary 180503 files, 116.7GiB total
+release: would remove workspace-member artifacts (dependencies kept)
+         Summary  47465 files,  14.6GiB total
+```
+
+⇒ **131.3 GiB reclaimable with the dependency wall left standing**, on a volume
+with **279M free**.
+
+⭐ **And the cheaper variant measured too** (`--incremental-only`, same dry run):
+
+```text
+debug/incremental:   would remove 77G across 1186 crate sessions
+release/incremental: would remove 11G across  137 crate sessions
+```
+
+| option | frees | what it costs |
+|---|---:|---|
+| `--incremental-only` | **88G** | ⭐ **nothing rebuilds** — per the script, deleting incremental *"invalidates NO fingerprint: a fresh crate stays fresh and is skipped on the next build"*; only the next EDIT to a crate recompiles it whole |
+| full run | **131.3 GiB** | every workspace crate rebuilds from source; the dependency wall (bevy et al.) stays warm |
+
+⇒ **88G is enough to unblock every measurement queued here, and it is the option
+with no rebuild cost.** ⭐ Both numbers came from a command that takes no risk to
+run — `./scripts/clean_workspace_crates.sh` with no flags is a dry run.
+
+⇒ **The actual path, one command and no build**:
+`scripts/clean_workspace_crates.sh --incremental-only` first, then a full
+`--apply` if more is wanted. ⚠ **Not run here — deletion under `target/` is a
+standing rule for this session, and a sibling session being directed to run it is
+not authorisation for this one.** On that session's box the full form freed
+**337.3 GiB** across 323,782 files with the dependency wall left standing. ⛔ Not deleted, and not this session's to delete — it is
 the maintainer's environment and the Lean toolchain may belong to other work. ⓘ
 Recorded only because the ambition reclaim and this one are independent: either
 alone would restore a workable volume, and one of them costs no warm build tree at
@@ -852,7 +934,7 @@ Having listed them, I checked which install an `AuthoredFighterLadder`:
 | `capture-probe` | `--ladder`, and prints which is in play | ✔ |
 | `ladder-rig` | `--ladder`, and prints which is in play | ✔ |
 | `ladder-probe` | none — **and its own module doc says so**, and names the ladder before printing any number (*"a calibration table that does not name its ladder is worse than no ladder"*) | ✔ honest |
-| `match-report` | none — **said nothing until `104782a83`; now declares the floor before printing** | ✔ fixed |
+| `match-report` | ✔ **`--ladder`, and declares which is in play** (added and verified end-to-end 2026-09-04) | ✔ |
 | `roll-probe` | none — measures how far a shield roll travels, which is body physics and ladder-independent | ✔ n/a |
 | `stage-diagram` | builds no app at all | ✔ n/a |
 
@@ -868,9 +950,9 @@ not having the flag — so `match-report` now declares it.
 before printing a number. ⇒ **A reader can no longer take a floor number for a
 shipped one without the tool having told them**, which is the failure that
 produced five superseded tables on
-[`engine/fighter-brain.md`](engine/fighter-brain.md). ⚠ `match-report` still lacks
-a `--ladder` FLAG — it can say what it measured, not measure something else. That
-is the remaining repair and it is real code.
+[`engine/fighter-brain.md`](engine/fighter-brain.md). ✔ **And `match-report` gained the flag itself**, so it can now
+measure the shipped rows rather than only naming the floor — verified by running
+it both ways.
 
 ⓘ Deliberately recorded here rather than in `docs/tools/index.md`: that index is
 scoped to *"author-time tools … provider/engine inputs"*, and these are

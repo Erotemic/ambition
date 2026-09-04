@@ -459,6 +459,49 @@ inverted" are BOTH unsupported by this run, and the table above is the reference
 point that says so.
 
 
+### ⭐⭐ THE 5→6 BOUNDARY IS ROLLOUT-ON vs ROLLOUT-OFF (found 2026-09-04)
+
+The matrix kept saying the same thing about one rung and I kept treating it as
+part of a general skew. It is not general: it is a **step function**, and the
+step is in the engine floor.
+
+`FighterBrainProfile::for_level` interpolates every parameter linearly in
+`t = (level - 1) / 8` — reaction, APM, execution noise, read weight — **except
+two**:
+
+```rust
+rollout_depth: if level >= 6 { 12 } else { 0 },
+rollout_k:     if level >= 6 { 4 }  else { 0 },
+```
+
+⇒ **Level 6 is the first rung that runs the L3 rollout search at all.** So the
+`6 vs 5` cell is not "a slightly better fighter against a slightly worse one" — it
+is *rollout on against rollout off*, and every other rung pair compares two
+fighters that both search or both do not.
+
+⇒ **And `6 vs 5` is the cell that will not go away.** Unpaired it was **9 of 9**
+fixtures favouring the LOWER rung. Under `--paired`, which cancels the seat and
+the placement, `5 vs 3` FLIPPED outright (4:1 toward LOWER became 1:4 toward
+higher — it was a seat artifact) while **`6 vs 5` did not move**. An effect that
+survives the control that killed its neighbour is not the same kind of thing as
+its neighbour.
+
+⚠ **This is a hypothesis with a mechanism, not a conclusion.** It says the rung
+where rollout switches on is the rung that under-performs; it does not yet say
+the rollout causes it. The rig has `--no-rollout`, which turns exactly that
+switch off for every fighter, so the arms are:
+
+| arm | expectation if rollout is the cause |
+|---|---|
+| `--paired` | `6 vs 5` favours LOWER (the standing result) |
+| `--paired --no-rollout` | `6 vs 5` stops favouring LOWER |
+
+⚠ **Prior art, and it is why this needs to be measured rather than announced:**
+this document already records a *"Level-6 rollout regression — DIAGNOSED AND
+FIXED 2026-08-31"*, and `tracks.md` warns against reinterpreting that regression
+as proof the navigation architecture is wrong. ⇒ Either the fix did not fully
+land, or this is a second effect at the same boundary. Both arms are running.
+
 ### What the tiers did to the fight — flat vs platforms, measured 2026-09-04
 
 ⭐ **The first measurement this project has of a stage CHANGING the fight**, and

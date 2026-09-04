@@ -1216,13 +1216,49 @@ system. The comment was guarding against exactly the thing it caused, and nobody
 could see it because the knob it disabled is still authored, still populated, and
 still saved.
 
-⇒ **So the 5v3 inversion is still unexplained**, and its remaining candidates are
-the reflex knobs (reaction 400→300ms, APM 120→200, noise 0.30→0.20) and the
-utility weights (`frame_advantage` 0.30→0.50, `kill_potential` 0.10→0.30,
-`stage_risk` −0.30→−0.50, `expected_payoff` 0.10→0.30). ⭐ Those two groups are
-being split now by two arms that swap one group at a time onto rung 5 — the same
-design as the arm above, which is worth keeping precisely because it produced a
-byte-identical result and that result was the finding.
+### ⭐⭐ AND THE INVERSION IS THE UTILITY WEIGHTS, NOT THE REFLEXES (measured 2026-09-04)
+
+Two arms, 24 seeds each, paired, against a matched control at the same seed
+count. Each swaps **one group** of rung 5's profile for rung 3's and changes
+nothing else:
+
+| arm | rung 5 is given | dealt (hi : lo) | verdict at `5 vs 3` |
+|---|---|---|---|
+| control | *(shipped, unmodified)* | 196% : 231% | ⛔ **LOWER outfights** |
+| **weights** | rung 3's `utility_weights` | 212% : 204% | ✔ **higher outfights** *(within spread)* |
+| **reflexes** | rung 3's reaction / APM / noise | 192% : 222% | ⛔ **LOWER outfights** |
+| *(read_weight)* | `read_weight: 0.0` | 196% : 231% | ⛔ byte-identical to control |
+
+⇒ **Giving rung 5 the WEIGHTS of rung 3 removes the inversion.** The cell goes
+from significantly inverted to not-significant and the direction flips to the
+correct one. ⇒ **Giving it the REFLEXES changes nothing** — still significantly
+inverted, with the damage gap essentially intact.
+
+⭐ **So the ladder's reflex progression is fine and its VALUE progression is
+what makes rung 5 worse than rung 3.** The four weights that move between those
+rungs: `frame_advantage` 0.30 → 0.50, `kill_potential` 0.10 → 0.30, `stage_risk`
+−0.30 → −0.50, `expected_payoff` 0.10 → 0.30.
+
+⚠ **Stated at the strength the evidence supports.** The weight arm lands *within
+spread*, so what is established is that the weights are **necessary** for the
+inversion — remove them and the significant inversion goes away — not that
+rung 3's weights are better. Separating the four is four more arms and nobody
+should guess which one; `stage_risk` −0.30 → −0.50 is the one I would run first,
+because it is the only one that makes the fighter avoid something rather than
+want something.
+
+⇒ **What this means for the ladder as a design.** Every knob in the shipped rungs
+moves monotonically toward "stronger", and one whole group of them makes the
+fighter measurably weaker on a 60-second clock. ⛔ That is not a tuning nit: it
+means the ladder's authors had no way to tell, because the rig had never measured
+the shipped rows and one of the five knobs does nothing at all.
+
+⭐ **Method note worth more than the result.** Three of the four arms above were
+run to *falsify* a hypothesis of mine, and all three did. The `read_weight` arm
+returned a byte-identical file — and that non-result was the largest finding of
+the day. ⇒ An arm that changes nothing is data about the wiring, not a wasted
+run, and it is only legible if you diff the whole output rather than reading the
+verdict.
 
 ⭐ **The interaction with the roster finding is the interesting part.** D (George)
 shows the SAME direction at 5v3 — *LOWER outfights* — but within spread. ⇒ The

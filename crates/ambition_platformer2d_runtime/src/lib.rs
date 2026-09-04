@@ -504,6 +504,11 @@ impl PluginGroup for PlatformerEnginePlugins {
             // the same way. it is the THIRD provider and it cost one line of
             // composition — which is the acceptance clause, restated as code.
             .add(ambition_platformer2d_actor_monolith::items::conditions::InventoryConditionsPlugin)
+            // The body domain's provider — `body.can(verb)`, the route-facing
+            // reader of `AbilitySet`. FOURTH provider, one line, and it is only
+            // useful because `gated_by` became a condition line: a route may
+            // now ask what the body it is stopping can actually do.
+            .add(ambition_platformer2d_actor_monolith::body_conditions::BodyCapabilityConditionsPlugin)
             // The engine progression chain (boss encounters, save mirrors,
             // quest pump, room metadata/music, portal phases) + its content
             // slots.

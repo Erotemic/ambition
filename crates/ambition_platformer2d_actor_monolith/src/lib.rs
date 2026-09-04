@@ -62,6 +62,7 @@ pub mod cutscene;
 pub mod dev;
 #[cfg(test)]
 pub mod enemy_projectile;
+pub mod body_conditions;
 pub mod items;
 // Stable facade for dialogue shop bindings.
 pub mod gravity;

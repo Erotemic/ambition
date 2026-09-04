@@ -495,7 +495,41 @@ fn authored_ladder(
     Some(AuthoredFighterLadder(ladder))
 }
 
+/// Say WHICH TWO FIGHTERS the run is about, including when nobody chose them.
+///
+/// ⭐⭐ **A DEFAULT THAT APPEARS ONLY IN THE SOURCE IS THE ONE THAT SURVIVES FOUR
+/// INVESTIGATIONS.** `--character` and `--opponent` have always existed, so the
+/// fighters were nameable the whole time — the runs simply defaulted, and the
+/// header never said to what. It took four separate findings before anyone
+/// checked, and the answer was that every ladder number ever taken measured two
+/// STAND-INS: `smash_duelist_a` and `smash_duelist_b` get `fighter_moveset()`,
+/// which bound 18 verbs to George's 26 and had no special button at all until
+/// 2026-09-04. ⇒ Printing a default costs one line and is the only thing that
+/// lets a reader notice it is wrong.
+fn report_which_fighters_are_in_play() {
+    let [higher, lower] = fighters();
+    let chosen = flag_value("--character").is_some() || flag_value("--opponent").is_some();
+    let george = ambition_demo_smash::SMASH_GEORGE_BOOUL;
+    let stand_ins = higher != george && lower != george;
+    println!(
+        "[ladder_rig] fighters: `{higher}` (higher rung) vs `{lower}` (lower rung){}{}",
+        if chosen { "" } else { " — DEFAULTED, nobody passed --character/--opponent" },
+        if stand_ins {
+            // ⚠ Not phrased as a defect in the fighters. It is a statement about
+            // what the run is ABOUT, which is the thing a reader needs in order
+            // to know whether the number answers their question.
+            format!(
+                ". ⛔ Neither is `{george}`, the demo's one fully authored fighter — \
+                 these carry `fighter_moveset()`, so this measures the STAND-INS"
+            )
+        } else {
+            String::new()
+        }
+    );
+}
+
 fn report_which_ladder_is_in_play() {
+    report_which_fighters_are_in_play();
     let mut app = build_demo_app();
     if let Some(ladder) = authored_ladder() {
         app.world_mut().insert_resource(ladder);

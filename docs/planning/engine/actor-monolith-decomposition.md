@@ -640,17 +640,17 @@ where the same caveat now sits beside the number.
 
 ## Current frontier
 
-⛔⛔ **AND REACHING THE SMALL RESIDUAL KERNEL IS NOT THE FINISH LINE.** Every
-carve on this page advances INTERNAL modularity — one authority per fact,
-dependencies pointing the right way. That is necessary groundwork for a second,
-separate criterion it does not achieve on its own: whether a major capability is
-INDEPENDENTLY INSTALLABLE, with explicit lower-level dependencies and without
-unrelated siblings. A domain whose authority has moved into its own crate is not
-finished if nothing can install it alone. Defined in
-[`../../architecture/package-and-capability-boundaries.md`](../../architecture/package-and-capability-boundaries.md)
-("Two goals, and the second is not implied by the first"); its planning owner is
-[`capability-and-runtime-composition.md`](capability-and-runtime-composition.md).
-⇒ Judge a proposed carve against both.
+⛔⛔ **SHRINKING THIS MONOLITH DOES NOT PROVE THE ENGINE IS EXTERNALLY MODULAR.**
+Every carve here advances AUTHORITY decomposition, which is prerequisite work and
+should continue exactly as planned. It does not by itself establish that a
+capability can be installed or omitted with only its declared prerequisites —
+that is the second criterion, and it lives in
+[`decomposition.md`](decomposition.md) ("Decomposition has two dimensions").
+⇒ **Each carve should RECORD which it did: improved, preserved, or deferred
+capability independence.** Deferring is legitimate and often correct sequencing;
+leaving it unsaid is what lets a falling line count read as architectural
+victory. ⛔ Do not convert this program into a plugin-system redesign to satisfy
+the second criterion.
 
 ⇒ **THIS PAGE IS THE EVIDENCE AND TECHNICAL-DESIGN AUTHORITY. The bounded task
 packet an agent should execute is

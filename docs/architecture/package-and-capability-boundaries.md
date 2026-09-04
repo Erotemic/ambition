@@ -82,92 +82,21 @@ context. Do not externalize a crate merely because its name sounds generic.
 ## Two goals, and the second is not implied by the first
 
 ⭐⭐ **AUTHORITY DECOMPOSITION IS NECESSARY. INDEPENDENTLY INSTALLABLE CAPABILITY
-COMPOSITION IS A SEPARATE SUCCESS CRITERION.** A domain can satisfy every rule
-on this page about ownership and dependency direction and still not be a
-capability anyone can install on its own. Both are required; neither substitutes
-for the other.
+COMPOSITION IS A SEPARATE SUCCESS CRITERION.** A domain can satisfy every rule on
+this page about ownership and dependency direction and still be mandatory in
+every supported composition. Both are required; neither substitutes for the
+other, and authority decomposition comes first.
 
-**1. Internal modularity** — what the current decomposition work is achieving:
+⇒ **The doctrine — the two dimensions, the ordering, the absence criterion, the
+intended layering, the runtime and shared-schedule risks, the stronger meaning of
+"decomposed", and the minimum-host tests that would prove it — lives in
+[`../planning/engine/decomposition.md`](../planning/engine/decomposition.md).**
+It is not restated here, so that there is one home for it.
 
-- each mutable fact has one authority;
-- dependencies point in the intended direction;
-- presentation is downstream of simulation;
-- adapters do not become models;
-- domain crates own their own state and lifecycle.
-
-**2. External composability** — the Bevy-like property, and the one still open:
-
-- a user can omit a major capability entirely and the remaining engine still
-  forms a coherent system;
-- major sibling capabilities do not assume one another merely because the full
-  Ambition game installs both;
-- the runtime provides scheduling and lifecycle infrastructure, and does not
-  become a central hard-coded list of every engine capability;
-- a capability registers ITSELF against stable lower-level seams;
-- a batteries-included default composition still exists for ordinary users.
-
-The user-facing property, in concrete terms. Each of these should be a coherent
-engine, not a broken one:
-
-- movement and world simulation without combat;
-- combat without items;
-- characters without encounters;
-- encounters without boss encounters;
-- world items without held items;
-- headless simulation without presentation;
-- custom presentation without the default renderer;
-- portals, dialogue, cutscenes, mounts, projectiles, persistence or relativity
-  only when explicitly installed.
-
-⛔ **THE CONSEQUENCE FOR DECOMPOSITION WORK: a domain is not fully decomposed
-because its authority moved into its own crate.** For a major reusable
-capability the next question is whether it is INDEPENDENTLY INSTALLABLE — with
-explicit lower-level dependencies and without requiring unrelated sibling
-capabilities. A crate that has clean ownership and can only be installed
-alongside four unrelated domains has completed goal 1 and not begun goal 2.
-
-⇒ The actor-monolith decomposition advances goal 1 and is necessary groundwork
-for goal 2. **Reaching the intended small residual actor kernel does not by
-itself achieve Bevy-like modularity**, and the plans that own that work say so:
-[`../planning/engine/actor-monolith-decomposition.md`](../planning/engine/actor-monolith-decomposition.md),
-[`../planning/engine/controlled-character-actor-kernel.md`](../planning/engine/controlled-character-actor-kernel.md).
-Goal 2's planning owner is
-[`../planning/engine/capability-and-runtime-composition.md`](../planning/engine/capability-and-runtime-composition.md).
-
-### The intended layering, conceptually
-
-```text
-foundation / runtime seams
-        ↓
-independently installable reusable platformer capabilities
-        ↓
-Ambition-specific game and product modules
-        ↓
-the Ambition composition, which installs what the game actually uses
-```
-
-⚠ **Not every current crate belongs in the reusable engine, and this page does
-not claim otherwise.** Some are correctly product-specific. The requirement is
-one-directional: a reusable lower layer must not depend on a product-specific
-module.
-
-### Runtime and shared scheduling are the named risks
-
-- runtime may own schedule/lifecycle infrastructure and ordering contracts;
-- runtime must not become the semantic owner of every optional capability;
-- shared schedule vocabulary should expose stable EXTENSION POINTS rather than
-  encode pairwise knowledge of each optional subsystem;
-- an optional crate must not require unrelated resources or systems merely
-  because the full Ambition application always installs them together.
-
-### Future validation: capability-level minimum-host tests
-
-Not yet built, and named here so the criterion is testable rather than
-aspirational. A minimum-host test installs one capability plus only its declared
-prerequisites and proves the result runs. Candidates: a minimal world/body
-simulation; combat added on top of that and nothing else; projectiles without
-unrelated item systems; encounters without boss encounters; headless operation
-with no rendering.
+⚠ Read it beside the rest of this page rather than instead of it: this page's
+"what earns a package" list is the threshold for CREATING a boundary; capability
+composability is the further question asked of a major reusable capability once
+it has one.
 
 ## Capability composition
 

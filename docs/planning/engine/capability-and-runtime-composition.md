@@ -9,8 +9,7 @@ decomposition — one authority per fact, dependencies pointing the right way �
 the actor-monolith program's. Independently installable capability composition,
 the Bevy-like property, is this one's, and the durable statement of the criterion
 with its user-facing examples and its named risks is
-[`../../architecture/package-and-capability-boundaries.md`](../../architecture/package-and-capability-boundaries.md)
-("Two goals, and the second is not implied by the first"). ⇒ A carve that lands
+[`decomposition.md`](decomposition.md) ("Decomposition has two dimensions"). ⇒ A carve that lands
 elsewhere does not close a row here; the question this program asks is whether
 the capability can be INSTALLED alone.
 

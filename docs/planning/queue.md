@@ -2730,8 +2730,18 @@ queue read as an execution authority for work already done.
   ⛔ Still a question with Jon in `awaiting-maintainer-decision.md` (thin
   stand-ins / finished characters / one shared simpler kit) — **do not author them
   off this row.**
-  ⛔ **Needs a seam first:** the **pivot** moves in both rows — `move_for_flat_verb`
-  hardcodes one derived stance (`{base}_dash`) and cannot express a pivot;
+  ⛔ **Needs a seam first:**
+  ⛔⛔ **THE PIVOT MOVES CAME OFF THIS LIST 2026-09-04 — both rows SHIPPED.** The
+  inventory marks `P11` pivot grab *"LANDED 2026-08-25… Two turnaround guards
+  pass"*, with the primitive row saying *"it needed NO move of its own"*, and
+  `P06` pivot grab/smash likewise, guarded by
+  `a_smash_thrown_out_of_a_turnaround_points_the_new_way` (which exists, in
+  `crates/ambition_combat/src/moveset/tests.rs`). ⇒ The `move_for_flat_verb`
+  reasoning quoted here — *"hardcodes one derived stance and cannot express a
+  pivot"* — described a seam the shipped implementation did not need.
+  ⭐ **So the costed list is 3 of 7 DONE, not 2 of 7 authoring**: the command grab
+  (taken today), the foxtrot / dash-dance and the pivots (both already shipped).
+  ⇒ The four that remain all genuinely need a seam:
   `P11`'s **tether** — a grapple mechanic exists and nothing joins it to capture;
   `P11`'s **hit-grab** — nothing raises `CaptureAttemptRequested` from a landed
   hit; `P10`'s **tech result** — presentation only, because the AI half is

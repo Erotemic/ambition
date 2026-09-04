@@ -855,8 +855,36 @@ fighter can HIT, not whether it has a KIT.** `every_fighter_on_the_smash_grid_ca
 and `the_match_gives_every_seat_a_kit_that_can_hit` (`game/ambition_app/tests/smash_roster_movesets.rs`)
 are both satisfied by a contract binding 18 verbs — a jab alone passes them. ⇒
 They are good guards for the question they ask; **the roster gap lived in the
-space between "can act" and "has the vocabulary the genre expects", and nothing
-asked the second question.**
+space between "can act" and "has the vocabulary the genre expects".**
+
+⛔⛔ **AND THE SENTENCE THAT STOOD HERE — *"nothing asked the second question"* —
+WAS WRONG, falsified by the very file it cited.** Three tests down from the two
+named above,
+`report_the_smash_kit_every_selectable_fighter_has` asks exactly the second
+question and asks it more carefully than my enumeration did:
+
+- It walks a **16-entry `SMASH_KIT`** — the genre's press list — plus a capture
+  half resolved by verb, and asserts **every selectable fighter reaches all of
+  it**. Not a report despite the name: `short.is_empty()` is a hard assertion.
+- ⭐ It has a rule my guards do not: **`its_own`**. A press that resolves to a move
+  an EARLIER press already claimed is scored as a fallback, not as a move. That
+  is precisely the `special_back`-answered-by-the-neutral-special effect measured
+  above — already encoded, before I re-found it.
+
+⇒ **So why is it green while the stand-ins are a skeleton? Because it and I are
+counting different fighters.** It reads `assemble`d, composition-selectable
+fighters — **≥8**, and the stand-ins are not among them, since `STAND_INS` steps
+them aside once the real lineage is present. The skeleton is real in the
+**standalone demo**, where the stand-ins *are* seatable, and absent from the
+population that test guards. ⚠ Both are true and neither is the other's
+counter-example — which is the denominator lesson this page has now paid for
+four separate times.
+
+ⓘ **The two press lists agree, independently.** `SMASH_KIT`'s smash entries are
+`fsmash` / `usmash` / `dsmash` and nothing else; the smash press space is ten
+(five directions x two stances); the complement is **seven** — exactly the seven
+George was measured to leave unanswered. Two lists written at different times by
+different hands, describing the same genre shape, matching to the press.
 
 ⚠ That is not an argument for a "every fighter binds all 26 verbs" assertion,
 which would be wrong: a roster of deliberately simple characters is a legitimate

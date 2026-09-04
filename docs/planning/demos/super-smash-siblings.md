@@ -154,8 +154,8 @@ named inline; a number here travels with the search that produced it.
 | 1 | Core fight | ✔ **met** — the mechanics it lists are the parity inventory's P01–P14, now 14 of 14 measured: ten shipped, three partial, **zero absent** |
 | 2 | Roster depth | ✔ **met, and it is the strongest of the six** — **21** authored movesets (19 in `ambition_content`, 2 smash-local) and **zero** character-ID gameplay branches in any engine crate |
 | 3 | Local play | ✔ **met** — driven end-to-end through the real screen, not the model |
-| 4 | Stage breadth | ◐ **was NOT met; a second stage landed 2026-09-04** — `smash_platform_stage()` adds the genre's drop-through tiers. Still no stage SELECT, so it is not reachable in play |
-| 5 | Match completeness | ◐ **partial, 2 of 4** |
+| 4 | Stage breadth | ◐ **was NOT met; worked 2026-09-04 and now reachable in play** — `smash_platform_stage()` adds the genre's drop-through tiers, `SmashStageChoice` selects it, and a stage button on the select screen cycles it. Two stages is not yet *"several"* |
+| 5 | Match completeness | ◐ **partial, 3 of 4** — stage select landed 2026-09-04; rule selection is still absent as UX |
 | 6 | CPU adoption | ◐ **partial, and now measurable for the first time** |
 
 ⭐ **Checkpoint 2 is worth reading before anyone plans roster work.** The charter's
@@ -197,10 +197,22 @@ Shipped heights are 64px (a comfortable single jump) and 120px (needs the air
 jump, 28px of margin), and the guard recomputes both from the engine constants so
 retuning gravity reddens it rather than stranding a tier.
 
-⇒ **What remains on this checkpoint:** the stage is not reachable in play, because
-there is no stage select to reach it from — which is checkpoint 5's absent half,
-not a second stage problem. Until then the layout is exercised by tests and
-available to the rig.
+⇒ **And it IS reachable in play, same day.** I recorded that it was not, on the
+grounds that `smash_prepared_session_world` is a plain `fn` with no world access.
+That was wrong about the seam: `PlatformerExperienceAuthoring::install` takes
+`S: IntoSystem<(), PreparedPlatformerSource, _>` and its own doc says the source
+*"may read the provider's own resources"* — built for exactly this. So the choice
+is an ordinary resource (`SmashStageChoice`, defaulting to `Flat`), the source
+system reads it, and **both** stages go into the `RoomSet` with the choice
+picking the starting one — returning only the chosen room would look identical on
+any geometry assertion while making the other unreachable to anything that later
+moves between them.
+
+⇒ The player-facing half is `SelectTarget::Stage`, a cycle button beside START,
+pressable by any seat. ⚠ **Two stages is not "several"**, and rule selection is
+still absent, so neither checkpoint is closed — but the mechanism both of them
+were waiting on is built, tested and poison-verified, and the next stage costs a
+`RoomSpec` and one enum variant.
 
 ⛔ **The confounder this was found through, which stands regardless.**
 `SMASH_STAGE_ROOM_ID` is one constant, `smash_stage()` is one function, and there
@@ -213,7 +225,8 @@ ladder rig included — was taken on one stage layout.** That is a confounder in
 existing results, not only a missing feature.
 
 ⇒ **Checkpoint 5, itemised**, since "partial" hides which half: stage select
-**absent** (no target, no room but one); rule selection **absent as UX** though
+**landed 2026-09-04** (`SelectTarget::Stage`, and a second room to choose);
+rule selection **absent as UX** though
 `MatchRules` exists as data (`ambition_match/src/prepared.rs:193` — stocks,
 abilities, body) so the seam is there and nothing drives it; results/rematch
 **present** (`coming_back_to_the_select_screen_offers_a_fresh_match`); training/

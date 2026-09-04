@@ -25,6 +25,8 @@ fn app_with(pause_open: bool) -> App {
     app.init_resource::<select_screen::cursor::SelectCursors>();
     app.init_resource::<select_screen::SelectPage>();
     app.init_resource::<select_screen::SelectInteractionPolicy>();
+    // The screen's driver writes the stage the START press will use.
+    app.init_resource::<crate::SmashStageChoice>();
     // the CLOCK, because the cursor roams now. `drive_the_cursor`
     // integrates a held stick against `Time`, so a hand-built app without
     // one fails validation on a resource rather than on anything this test

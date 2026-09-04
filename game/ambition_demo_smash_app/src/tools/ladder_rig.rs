@@ -61,6 +61,17 @@ struct Bout {
     /// a duel from two solo walks off the edge. A pair whose peaks stay near
     /// zero was never a fight, whatever its verdict column says.
     peak_percent: [f32; 2],
+    /// TOTAL damage each seat absorbed across the whole match, summed from
+    /// per-tick increases, as a ratio like [`Self::peak_percent`].
+    ///
+    /// ⛔ **PEAK IS NOT DAMAGE DEALT, which is what it was briefly used as.**
+    /// Percent RESETS on death, so a seat killed three times at 100% shows a
+    /// peak of 100 and a seat pressured to 250% and never killed shows 250 —
+    /// the peak of the fighter who died more is LOWER. Worse as a tiebreak: a
+    /// high peak before a kill means the killer needed more damage to close,
+    /// which is the opposite of skill. Summing the increases counts every point
+    /// landed and is blind to how they were grouped.
+    damage_taken: [f32; 2],
 }
 
 #[derive(clap::Args, Debug, Clone, Default)]
@@ -95,6 +106,15 @@ pub struct LadderRigArgs {
     /// Fighter to test against.
     #[arg(long)]
     pub opponent: Option<String>,
+    /// Stage to fight on: `flat` (default) or `platforms`.
+    ///
+    /// ⭐ Every ladder number recorded before 2026-09-04 was measured on `flat`,
+    /// which was the only stage there was. That makes the stage a CONFOUNDER
+    /// sitting under the whole corpus — spacing, recovery and edgeguard results
+    /// were all taken on one layout — and this flag is what turns it into a
+    /// variable that can be compared instead of a constant nobody chose.
+    #[arg(long, default_value = "flat")]
+    pub stage: String,
 }
 
 /// ⛔ **PARSED ONCE, READ FROM DEPTH.** `flag_value` was called from inside
@@ -123,18 +143,23 @@ pub fn run(cli: LadderRigArgs) {
     // SAY WHAT THIS RUN MEASURED UNDER. A rig that reports numbers without
     // naming the weights they were produced at is two runs nobody can compare,
     // and comparing two runs is the entire purpose of the override.
-    let weights = weights_from_args();
-    if weights != ambition_platformer2d::characters::brain::fighter::UtilityWeights::v1() {
-        println!("[ladder_rig] weights OVERRIDDEN: {weights:?}");
-    } else {
-        println!("[ladder_rig] weights: v1 (profile default)");
+    match weights_from_args() {
+        Some(weights) => println!(
+            "[ladder_rig] weights OVERRIDDEN on EVERY fighter: {weights:?} \
+             (the authored per-level weights are not in play)"
+        ),
+        None => println!(
+            "[ladder_rig] weights: each rung's OWN authored row from \
+             fighter_brain_ladder.ron"
+        ),
     }
     println!(
         // ⛔ "stocks" ALONE IS AMBIGUOUS AND WAS MISREAD. The column is stocks
         // REMAINING, so `0 : 0` means BOTH fighters were fully eliminated — the
         // opposite of the "nobody lost a stock" it reads as at a glance. Say
         // LEFT in the header, where the reader is.
-        "[ladder_rig] higher vs lower   eliminated(hi:lo)   stocks LEFT(hi:lo)   peak%(hi:lo)   verdict   \
+        "[ladder_rig] higher vs lower   survived(hi:lo)   stocks LEFT(hi:lo)   dealt%(hi:lo)   peak%(hi:lo)   \
+         verdict = who OUTFOUGHT: stocks taken, then damage dealt   \
          (median of {seeds} seeds, {}s each)",
         TICKS / 60
     );
@@ -266,7 +291,33 @@ fn force_apm_and_noise(app: &mut bevy::app::App, apm: Option<f32>, noise: Option
 ///
 /// Named rather than positional because six numbers in a row is a puzzle, and a
 /// rig whose invocation cannot be read is a rig whose results cannot be trusted.
-fn weights_from_args() -> ambition_platformer2d::characters::brain::fighter::UtilityWeights {
+/// The weight override, or `None` when the caller passed no `--weight`.
+///
+/// ⛔⛔ **THIS RETURNED `v1()` UNCONDITIONALLY AND EVERY RUN APPLIED IT TO EVERY
+/// FIGHTER, WHICH FLATTENED THE DIFFICULTY LADDER THE RIG EXISTS TO MEASURE.**
+/// `UtilityWeights::v1()` is not a neutral default — it is *exactly* the LEVEL 9
+/// row of `fighter_brain_ladder.ron` (frame_advantage 0.6, kill_potential 0.4,
+/// stage_risk -0.8, expected_payoff 0.5). So a "level 1 versus level 3" bout was
+/// two fighters with LEVEL 9 PRIORITIES wearing level 1 and level 3 reflexes,
+/// and the authored utility ladder — the half that says how much a rung cares
+/// about kills and how far it will chase one offstage — was overwritten before
+/// the first tick. Every ladder number this rig ever produced measured a ladder
+/// that differs only in `reaction_ms`, `apm_cap`, `execution_noise` and
+/// `read_weight`.
+///
+/// ⚠ The old log line called it *"weights: v1 (profile default)"*, which is
+/// wrong twice: `v1` is not the profile's default (the profile authors weights
+/// PER LEVEL), and "default" reads as "nothing was changed" at exactly the
+/// moment something was.
+///
+/// ⇒ `--weight` still forces, on every fighter, which is what makes the rig
+/// usable for a scoring change — the documented intent. Passing none now leaves
+/// each rung the weights its level authored.
+fn weights_from_args(
+) -> Option<ambition_platformer2d::characters::brain::fighter::UtilityWeights> {
+    if args().weights.is_empty() {
+        return None;
+    }
     let mut weights = ambition_platformer2d::characters::brain::fighter::UtilityWeights::v1();
     for pair in &args().weights {
         let Some((name, value)) = pair.split_once('=') else {
@@ -290,7 +341,7 @@ fn weights_from_args() -> ambition_platformer2d::characters::brain::fighter::Uti
             }
         }
     }
-    weights
+    Some(weights)
 }
 
 fn force_noise_seed(app: &mut bevy::app::App, seed: u64) -> bool {
@@ -326,19 +377,40 @@ fn run_scenarios(seeds: usize) {
                 })
         })
         .collect();
+    // ⛔ THE SCENARIO TABLE NEVER NAMED ITS WEIGHTS. This mode returns before
+    // the ladder mode's announcement, so every scenario table ever printed —
+    // including the ones quoted into `fighter-brain.md` — travelled without the
+    // scoring configuration that produced it. Same rule as the stage below: a
+    // number crossing a document boundary carries its method or it is not a
+    // measurement.
+    match weights_from_args() {
+        Some(weights) => println!(
+            "[ladder_rig] weights OVERRIDDEN on EVERY fighter: {weights:?} \
+             (the authored per-level weights are not in play)"
+        ),
+        None => println!(
+            "[ladder_rig] weights: each rung's OWN authored row from \
+             fighter_brain_ladder.ron"
+        ),
+    }
     println!(
+        // ⛔ THE STAGE IS IN THE HEADER because it stopped being a constant.
+        // Every number below depends on it, and a table that does not name the
+        // layout it was measured on cannot be compared with another one — which
+        // is the entire reason `--stage` exists.
         "[ladder_rig] --scenarios: PLACEMENT ONLY — {} of {} fixture(s) are \
-         reproduced by placing two bodies (median of {seeds} seeds, {}s each)",
+         reproduced by placing two bodies (median of {seeds} seeds, {}s each, \
+         stage `{}`)",
         playable.len(),
         suite.len(),
-        TICKS / 60
+        TICKS / 60,
+        args().stage
     );
     // ⛔ THE SCENARIO TABLE PRINTED NO COLUMN HEADER AT ALL, so every reader had
     // to infer five columns from the numbers — and `stocks` was read as "stocks
     // lost" in a planning row, inverting what the rows meant.
     println!(
-        "[ladder_rig] fixture            rungs     eliminated(hi:lo)              stocks LEFT   \
-         peak%(hi:lo)     verdict"
+        "[ladder_rig] fixture            rungs     survived(hi:lo)                stocks LEFT   dealt%(hi:lo)     peak%(hi:lo)     verdict = who OUTFOUGHT (stocks taken, then damage DEALT)"
     );
     for scenario in &suite {
         if scenario.starting_positions().is_none() {
@@ -409,8 +481,7 @@ fn run_sweep_below(seeds: usize) {
         TICKS / 60
     );
     println!(
-        "[ladder_rig] fixture            rungs     eliminated(hi:lo)              stocks LEFT   \
-         peak%(hi:lo)     verdict"
+        "[ladder_rig] fixture            rungs     survived(hi:lo)                stocks LEFT   dealt%(hi:lo)     peak%(hi:lo)     verdict = who OUTFOUGHT (stocks taken, then damage DEALT)"
     );
     // ⛔ PUBLISHED LEVELS ONLY. `smash_roster_at_levels` builds a
     // `duelist_l{level}` policy key, and only 1/3/5/6/9 are published in
@@ -501,30 +572,80 @@ fn report(higher: u8, lower: u8, bouts: &[Bout]) {
 fn report_row(label: &str, bouts: &[Bout]) {
     let hi_all: Vec<f32> = bouts.iter().map(|b| b.eliminated[0] as f32).collect();
     let lo_all: Vec<f32> = bouts.iter().map(|b| b.eliminated[1] as f32).collect();
-    let hi_out = median(hi_all.clone());
-    let lo_out = median(lo_all.clone());
+    // The survival medians are no longer computed here: `span` derives its own
+    // for the column it prints, and nothing else wants them now that the verdict
+    // is the outcome rather than the clock. Keeping them would be two authors of
+    // the same number.
     let hi_stocks = median(bouts.iter().map(|b| b.stocks[0] as f32).collect());
     let lo_stocks = median(bouts.iter().map(|b| b.stocks[1] as f32).collect());
-    // The seat that lasted LONGER won.
-    let verdict = if hi_out > lo_out {
-        "higher lasts"
-    } else if lo_out > hi_out {
-        "LOWER lasts"
-    } else if hi_out >= TICKS as f32 {
-        "both survive"
+    // ⛔⛔ **THE VERDICT IS WHAT A SEAT DID TO THE OTHER ONE, NOT HOW LONG IT
+    // AVOIDED BEING HIT.** This read "the seat that lasted LONGER won", and the
+    // 15-seed matrix (2026-09-03, `fighter-brain.md`) showed that scoreboard
+    // cannot rank skill at all: **35 of 36 verdicts landed inside the seed
+    // spread**, and the two reasons were both visible in these very columns.
+    //
+    // Survival-until-a-cap SATURATES AT BOTH ENDS and pays for passivity in the
+    // middle. At the low rungs every fixture returned "both survive" — 60s is
+    // not long enough for weak CPUs to resolve anything, so half the matrix was
+    // structurally unable to answer. At the high rungs the stocks columns were
+    // `0 : 0` almost everywhere: stronger CPUs took FEWER stocks, because a
+    // fighter that never commits cannot be punished and therefore outlasts one
+    // that fights.
+    //
+    // ⇒ Score the OUTCOME instead, lexicographically: stocks taken off the
+    // opponent first, damage dealt to it as the tiebreak. Both are already
+    // collected. Stocks are the thing the game is played for; damage is
+    // continuous and never saturates, which is what lets a row discriminate when
+    // neither seat closed a stock. Survival keeps its column — it is still the
+    // honest answer to "how long did this last" — it just stops being the
+    // verdict.
+    //
+    // ⚠ The damage term is `damage_taken`, SUMMED FROM PER-TICK RISES, and not
+    // `peak_percent`. Peak is the most a seat ever carried at once; percent
+    // resets on death, so peak systematically under-reads the fighter who died
+    // more and, as a tiebreak, rewards needing MORE damage to close a stock.
+    let dealt = |seat: usize| median(bouts.iter().map(|b| b.damage_taken[1 - seat]).collect());
+    let stocks_taken = |seat: usize| {
+        median(
+            bouts
+                .iter()
+                .map(|b| (ambition_demo_smash::STARTING_STOCKS - b.stocks[1 - seat]) as f32)
+                .collect(),
+        )
+    };
+    let (hi_took, lo_took) = (stocks_taken(0), stocks_taken(1));
+    let (hi_dealt, lo_dealt) = (dealt(0), dealt(1));
+    let verdict = if hi_took != lo_took {
+        if hi_took > lo_took {
+            "higher outfights"
+        } else {
+            "LOWER outfights"
+        }
+    } else if hi_dealt > lo_dealt {
+        "higher outfights"
+    } else if lo_dealt > hi_dealt {
+        "LOWER outfights"
     } else {
-        "both die together"
+        "even"
     };
     // a verdict inside the seeds' own spread is not a verdict. Reported
     // rather than suppressed: the reader should see the overlap and discount the
     // word, not be handed a cleaner-looking table.
-    let overlaps = (hi_out - lo_out).abs()
+    //
+    // ⚠ Measured on the DECIDING quantity. It used to test the survival times
+    // while the word above described survival; now the word describes damage
+    // dealt, so the spread that matters is damage's. Leaving it on the old
+    // column would have marked a decisive damage gap "within spread" whenever
+    // the two seats happened to die at similar times.
+    let hi_dealt_all: Vec<f32> = bouts.iter().map(|b| b.damage_taken[1]).collect();
+    let lo_dealt_all: Vec<f32> = bouts.iter().map(|b| b.damage_taken[0]).collect();
+    let overlaps = (hi_dealt - lo_dealt).abs()
         < 0.5
-            * ((hi_all.iter().copied().fold(f32::NEG_INFINITY, f32::max)
-                - hi_all.iter().copied().fold(f32::INFINITY, f32::min))
+            * ((hi_dealt_all.iter().copied().fold(f32::NEG_INFINITY, f32::max)
+                - hi_dealt_all.iter().copied().fold(f32::INFINITY, f32::min))
             .max(
-                lo_all.iter().copied().fold(f32::NEG_INFINITY, f32::max)
-                    - lo_all.iter().copied().fold(f32::INFINITY, f32::min),
+                lo_dealt_all.iter().copied().fold(f32::NEG_INFINITY, f32::max)
+                    - lo_dealt_all.iter().copied().fold(f32::INFINITY, f32::min),
             ));
     let verdict = if overlaps {
         format!("{verdict} (within spread)")
@@ -558,13 +679,21 @@ fn report_row(label: &str, bouts: &[Bout]) {
         verdict
     };
     println!(
-        "[ladder_rig]   {label:<26} {:>20} : {:<20} {hi_stocks:>3.0} : {lo_stocks:<3.0}          {:>6.1}% : {:<6.1}%  {verdict}",
+        "[ladder_rig]   {label:<26} {:>20} : {:<20} {hi_stocks:>3.0} : {lo_stocks:<3.0}   \
+         {:>6.0}% : {:<6.0}%   {:>6.1}% : {:<6.1}%  {verdict}",
         span(&hi_all),
         span(&lo_all),
         // ×100 HERE and nowhere else. The ratio is what every other reader
         // of `damage_percent` wants; a percentage is a display concern, and
         // baking it into the stored column is how the threshold above came to be
         // written in the wrong units.
+        // ⛔ THE DECIDING COLUMN. The verdict ranks stocks taken and then damage
+        // DEALT, and neither was visible: the peak column beside it answers a
+        // different question (the most a seat ever CARRIED), and a reader given
+        // a verdict whose evidence is not on the row can only take it on trust.
+        // Dealt by a seat is what the OTHER one absorbed, so the indices cross.
+        hi_dealt * 100.0,
+        lo_dealt * 100.0,
         hi_peak * 100.0,
         lo_peak * 100.0
     );
@@ -769,6 +898,19 @@ fn run_bout_at(
     start: Option<ambition_platformer2d::combat::brain::fighter::scenarios::Scenario>,
 ) -> Bout {
     let mut app = build_demo_app();
+    // ⛔ BEFORE the route below, because the route is what prepares the session:
+    // the preparation source reads this resource once, when the match is asked
+    // for. Setting it afterwards would change nothing and look like it worked.
+    app.world_mut()
+        .insert_resource(match args().stage.trim().to_ascii_lowercase().as_str() {
+            "platforms" => ambition_demo_smash::SmashStageChoice::Platforms,
+            "flat" | "" => ambition_demo_smash::SmashStageChoice::Flat,
+            other => panic!(
+                "unknown --stage {other:?}; the rig fights on `flat` or `platforms`. \
+                 Defaulting would silently measure a stage nobody asked for, and \
+                 the stage is exactly the variable this flag exists to control."
+            ),
+        });
     for _ in 0..30 {
         app.update();
     }
@@ -789,6 +931,8 @@ fn run_bout_at(
     let mut stocks = [ambition_demo_smash::STARTING_STOCKS; 2];
     let mut eliminated = [TICKS; 2];
     let mut peak_percent = [0.0f32; 2];
+    let mut damage_taken = [0.0f32; 2];
+    let mut last_percent = [0.0f32; 2];
     // A seat is not eliminated until seating has completed; bodies may be absent
     // during the seating transaction.
     let mut appeared = [false; 2];
@@ -802,7 +946,11 @@ fn run_bout_at(
         if !seeded {
             seeded = force_noise_seed(&mut app, seed);
             if seeded {
-                force_utility_weights(&mut app, weights);
+                // Only when the caller asked. Forcing unconditionally is what
+                // flattened the ladder; see `weights_from_args`.
+                if let Some(weights) = weights {
+                    force_utility_weights(&mut app, weights);
+                }
                 if args().no_rollout {
                     force_no_rollout(&mut app);
                 }
@@ -846,7 +994,14 @@ fn run_bout_at(
             if seat.0 < 2 {
                 seen[seat.0] = true;
                 stocks[seat.0] = remaining.remaining;
-                peak_percent[seat.0] = peak_percent[seat.0].max(health.damage_percent());
+                let now = health.damage_percent();
+                peak_percent[seat.0] = peak_percent[seat.0].max(now);
+                // Only the RISES. A death resets the percent, so the step is
+                // negative there and contributes nothing — which is what makes
+                // this a total across stocks rather than a reading of the last
+                // one.
+                damage_taken[seat.0] += (now - last_percent[seat.0]).max(0.0);
+                last_percent[seat.0] = now;
             }
         }
         // An ELIMINATED seat stops existing — that disappearance is the event,
@@ -880,5 +1035,6 @@ fn run_bout_at(
         eliminated,
         stocks,
         peak_percent,
+        damage_taken,
     }
 }

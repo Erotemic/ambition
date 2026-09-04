@@ -2319,6 +2319,12 @@ impl bevy::prelude::Plugin for SmashSelectPlugin {
                 crate::bomb::live_bomb_probe,
             );
         }
+        // ⛔ BEFORE the preparation source can ask for it. `Res<SmashStageChoice>`
+        // in a system that is not given the resource is a runtime panic at the
+        // moment a match prepares — the least testable place for one — and the
+        // default is the stage every recorded measurement was taken on, so a
+        // host that never touches it plays exactly what it played before.
+        app.init_resource::<SmashStageChoice>();
         app.init_resource::<select::SmashSelect>();
         // The pointer, and the one thing it can ask for that the value does not
         // hold. Both live outside `SmashSelect` on purpose: where a cursor is
@@ -3588,20 +3594,80 @@ fn install_smash_content(app: &mut bevy::prelude::App) {
     );
 }
 
+/// Which stage the next match is played on.
+///
+/// ⭐ **A RESOURCE BECAUSE THE PREPARATION SEAM ASKS FOR ONE.**
+/// `PlatformerExperienceAuthoring::install` takes `S: IntoSystem<(),
+/// PreparedPlatformerSource, _>` and its doc says the source *"may read the
+/// provider's own resources"* — so choosing a stage needs no engine change and
+/// no second install path, only a `Res` parameter on the system below.
+///
+/// Defaults to the flat [`smash_stage`], so a host that never touches it plays
+/// exactly the match it played before this existed.
+#[derive(bevy::prelude::Resource, Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub enum SmashStageChoice {
+    /// The original single-surface stage. Every spacing, recovery and edgeguard
+    /// number recorded before 2026-09-04 was measured here.
+    #[default]
+    Flat,
+    /// [`smash_platform_stage`] — the same floor with three drop-through tiers.
+    Platforms,
+}
+
+impl SmashStageChoice {
+    /// The room this choice starts in.
+    pub fn room_id(self) -> &'static str {
+        match self {
+            SmashStageChoice::Flat => SMASH_STAGE_ROOM_ID,
+            SmashStageChoice::Platforms => SMASH_PLATFORM_STAGE_ROOM_ID,
+        }
+    }
+
+    /// What a stage button would show.
+    pub fn label(self) -> &'static str {
+        match self {
+            SmashStageChoice::Flat => "Flat",
+            SmashStageChoice::Platforms => "Platforms",
+        }
+    }
+
+    /// The next stage in the cycle, for a single button that walks them.
+    pub fn next(self) -> Self {
+        match self {
+            SmashStageChoice::Flat => SmashStageChoice::Platforms,
+            SmashStageChoice::Platforms => SmashStageChoice::Flat,
+        }
+    }
+}
+
 /// The stage, as the shared preparation lifecycle wants it.
-fn smash_prepared_session_world() -> ambition_platformer2d::runtime::PreparedPlatformerSource {
+///
+/// ⚠ **BOTH STAGES ARE IN THE SET; the choice picks the STARTING one.** Building
+/// only the chosen room would make the other unreachable to anything that later
+/// wants to move between them, and `RoomSet::from_parts` takes a `Vec<RoomSpec>`
+/// precisely so a set can hold rooms it does not start in. The geometry and
+/// metadata handed alongside are the STARTING room's, which is what the
+/// lifecycle activates.
+fn smash_prepared_session_world(
+    choice: bevy::prelude::Res<SmashStageChoice>,
+) -> ambition_platformer2d::runtime::PreparedPlatformerSource {
     use ambition_platformer2d::runtime::demo_fixture::{
         ActiveRoomMetadata, RoomSet, StartingCharacter,
     };
 
-    let room = smash_stage();
-    let geometry = ae::RoomGeometry(room.world.clone());
-    let metadata = ActiveRoomMetadata(room.metadata.clone());
+    let choice = *choice;
+    let rooms = vec![smash_stage(), smash_platform_stage()];
+    let started = rooms
+        .iter()
+        .find(|room| room.id == choice.room_id())
+        .expect("both stage rooms are in the set the line above built");
+    let geometry = ae::RoomGeometry(started.world.clone());
+    let metadata = ActiveRoomMetadata(started.metadata.clone());
     // The match realizes its own cast; the id below is only this experience's catalog DEFAULT,
     // which its worn fighters still fall back to.
     ambition_platformer2d::runtime::PreparedPlatformerSource::for_match(
         SMASH_EXPERIENCE,
-        RoomSet::from_parts(SMASH_STAGE_ROOM_ID, vec![room], Vec::new()),
+        RoomSet::from_parts(choice.room_id(), rooms.clone(), Vec::new()),
         geometry,
         metadata,
         StartingCharacter::new(SMASH_CHARACTER_ID),

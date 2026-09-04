@@ -42,9 +42,26 @@ use crate::build_demo_app;
 use ambition_platformer2d::actor::{FighterStocks, MatchSeat};
 use ambition_platformer2d::engine_core as ae;
 
-/// One minute at 60Hz — the same budget `ladder_probe` uses, so the two are
-/// readable against each other. The DEFAULT; `--seconds` overrides it.
-const DEFAULT_TICKS: usize = 3_600;
+/// ⛔⛔ **THIS WAS 3_600 — SIXTY SECONDS — AND THE SHIPPED MATCH IS EIGHT
+/// MINUTES.** The rig measured the first **12.5%** of a match and called the
+/// result a ladder.
+///
+/// ⇒ The consequence was not subtle and it was invisible: the verdict is *stocks
+/// taken, then damage dealt*, and on a clock that short **no bout ever reached a
+/// conclusion** — every cell came back with stocks tied, so every verdict in
+/// every ladder table ever produced fell through to the damage tiebreak. "Rung 5
+/// is weaker than rung 3" silently meant "deals less damage in the first eighth
+/// of a match".
+///
+/// ⚠ Measured, not assumed: at 180 seconds the same `5 vs 3` cell resolves — both
+/// fighters eliminated at a median of ~98s. So a match takes about 98 seconds to
+/// finish and the instrument was stopping it at 60.
+///
+/// ⭐ It now reads the demo's own constant rather than choosing a number, which is
+/// the whole lesson of the day: a measurement is not of the shipped system until
+/// it takes the shipped system's own values. `--seconds` still shortens it for
+/// quick iteration, and the header says which clock ran.
+const DEFAULT_TICKS: usize = ambition_demo_smash::SMASH_TIME_LIMIT_TICKS as usize;
 
 /// The match budget this run is using, in ticks.
 ///
@@ -609,7 +626,33 @@ fn report_which_fighters_are_in_play() {
     );
 }
 
+/// Say how long a bout ran, and say loudly when that is not a real match.
+fn report_which_clock_is_in_play() {
+    let shipped = ambition_demo_smash::SMASH_TIME_LIMIT_TICKS as usize;
+    let used = ticks();
+    if used == shipped {
+        println!(
+            "[ladder_rig] clock: {}s per bout — the SHIPPED match limit \
+             (ambition_demo_smash::SMASH_TIME_LIMIT_TICKS)",
+            used / 60
+        );
+    } else {
+        println!(
+            "[ladder_rig] ⛔ clock: {}s per bout, but the SHIPPED match limit is \
+             {}s. This run measures the first {:.0}% of a match. A bout that \
+             cannot end leaves stocks TIED, and a tied stock count sends every \
+             verdict to the damage tiebreak — so read every row below as \
+             \"dealt more damage in {}s\", never as \"won\".",
+            used / 60,
+            shipped / 60,
+            100.0 * used as f32 / shipped as f32,
+            used / 60
+        );
+    }
+}
+
 fn report_which_ladder_is_in_play() {
+    report_which_clock_is_in_play();
     report_which_fighters_are_in_play();
     let mut app = build_demo_app();
     if let Some(ladder) = authored_ladder() {

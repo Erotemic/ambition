@@ -31,6 +31,17 @@ pub const SMASH_MODE: &str = "smash";
 /// Three, because it is the smallest number that makes the middle of a match
 /// feel different from its start and its end: at three you can lose one and
 /// still be playing the same match, which is the thing rounds cannot express.
+/// The match clock, in ticks — eight minutes at 60Hz.
+///
+/// ⭐ **PUBLIC because a measurement tool that invents its own match length is
+/// measuring a different game.** `ladder_rig` defaulted to sixty seconds for
+/// months, which is **12.5% of a match**: no bout ever reached a conclusion, so
+/// every ladder verdict fell through to the damage tiebreak and every "rung N is
+/// weaker" result silently meant "deals less damage in the first eighth of a
+/// match". ⇒ Exporting the number is what lets the rig read it instead of
+/// choosing one.
+pub const SMASH_TIME_LIMIT_TICKS: u32 = 8 * 60 * 60;
+
 pub const STARTING_STOCKS: u32 = 3;
 
 /// What 100% means.
@@ -168,7 +179,7 @@ pub fn apply_smash_match_rules(roster: &mut MatchParticipantRoster) {
     // each other still ends — the stock economy alone has no answer to that.
     // derived from `ActiveMatch::activated_on`, so it costs no rollback state;
     // see `MatchRules::time_remaining`.
-    roster.rules.time_limit_ticks = 8 * 60 * 60;
+    roster.rules.time_limit_ticks = SMASH_TIME_LIMIT_TICKS;
     roster.rules.stocks = Some(STARTING_STOCKS);
     // The match supplies one health pool for percent calculation so crossover
     // characters are measured against this ruleset rather than their home games.

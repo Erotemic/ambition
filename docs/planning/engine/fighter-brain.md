@@ -2495,6 +2495,35 @@ why the four symptoms below all trace to one condition rather than to nine.
 ⚠ The out-of-range case (`profile_for_level(200, Some(&ladder))` → floor) is
 deliberate and pinned by `a_shipped_ladder_beats_the_engine_floor`.
 
+⭐⭐⭐ **AND THE FORK'S COST IS LARGER THAN FOUR DEFECTS: AN ENTIRE SUBSYSTEM IS
+REACHABLE ONLY THROUGH THE AUTHORITY THAT LOSES.** Traced 2026-09-04, from the two
+sources:
+
+| | `rollout_depth` |
+|---|---|
+| the engine floor (`FighterBrainProfile::for_level`) | `if level >= 6 { 12 } else { 0 }` — **ON at rungs 6–9** |
+| the shipped `fighter_brain_ladder.ron` | `0` on **all nine** rungs |
+
+⇒ `refine_by_rollout` returns immediately on `!profile.uses_rollouts()`
+(`rollout_depth > 0 && rollout_k > 0`), so **for every fighter a player has ever
+met, the L3 search never runs.** And behind that one gate sit:
+
+- the **shadow integrator** and its `TODO(compat-remove)` — a note proposing to
+  replace it with the real movement kernel *"once its decision cost is budgeted"*.
+  ⚠ Its cost is currently **zero on the shipped ladder**, because it never
+  executes; the budget question is about a path no shipped fighter takes.
+- **`read_weight`**, authored `0.0 → 1.0` across nine hand-tuned rungs and read
+  only through this gate — the *dead* worked example elsewhere on this page.
+- the **`Dodge` / `Shield` suppression**, for the same reason.
+
+⭐ **So "which of the two authorities should exist" is not only about difficulty
+numbers.** One of them switches an entire search subsystem on; the other switches
+it off everywhere, and the one that ships is the one that switches it off. ⇒ Any
+effort budgeted against the rollout — including that TODO — is effort spent on the
+floor's behaviour, and the floor is the authority nobody plays against. ⚠ Worth
+knowing before it is prioritised, not after.
+
+
 ⇒ **Divergences 1 through 4 below are not four accidents; they are four symptoms
 of that fork.** Flattened weights, floor-not-ron, rollout-on-at-6, and the
 `UtilityWeights::default()` that IS the level-9 row — every one is *the losing

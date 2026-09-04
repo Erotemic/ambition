@@ -157,14 +157,39 @@
 > Poison-verified twice: `<=` weakened to `<` reddens the equal-height arm
 > alone, and a predicate that fits everything reddens the wall arm alone.
 >
-> ⇒ **Six of the seven gate families are reachable from a route now**: story
-> gate (two writers), item/equipment (`inventory.holds`, `held.is_held`), body
-> capability (`body.can`) and body property (`body.fits`). What remains
-> route-facing-empty is **soft systemic pressure**, **social/knowledge**, and the
-> world-mechanism family's general *"mechanism is in state X"* fact — the last of
-> which is a missing FACT rather than a missing condition, and is therefore the
-> only one of the three that is a seam to negotiate rather than a predicate to
-> write.
+> ⚠ **AND THE WORLD-MECHANISM ROW WAS WRONG WHEN I WROTE IT AN HOUR EARLIER —
+> `world.switch_on` landed the same day.** I recorded that family as "a missing
+> FACT rather than a missing condition… a seam to negotiate", which was a
+> consequence inferred from this page's own older *"no general 'mechanism is in
+> state X' fact"* rather than a reading of the save layer. Reading it:
+> `AmbitionGameSaveData::switch(id) -> bool` and `set_switch(id, on)` have been
+> there all along, durable and by id, and **the input is already flowing** —
+> completing a wave encounter latches every switch linked to it
+> (`crates/ambition_encounter_features/src/systems.rs:496`, all of them and not
+> the first, with authored ids beside the encounter). So the boolean half was a
+> predicate to write, and it is written.
+>
+> ⭐ **It is not `flag_set` with a different name, and the distinction is what
+> the family IS rather than where the bit lives.** A flag is a story fact
+> something recorded about the player; a switch is a mechanism's own state,
+> flipped by the world doing what the world does. They share the save because
+> both are durable, and they are two questions because "the arena has been
+> cleared" and "you have been told about the survey" are different design.
+> Poison-verified by pointing `switch_on` at the FLAG namespace: the wall test
+> reddens alone, which is the proof the two namespaces are separate and this
+> condition reads the right one.
+> ⚠ An unrecorded switch is `NotSatisfied`, and that is not the concession
+> `flag_set` makes — a latched switch nothing has flipped IS off, so `false` is
+> the true answer rather than the tolerable one.
+>
+> ⇒ **Seven of the seven gate families are reachable from a route now**, in
+> their currently-expressible forms: story gate (two writers), item/equipment
+> (`inventory.holds`, `held.is_held`), body capability (`body.can`), body
+> property (`body.fits`), world mechanism (`world.switch_on`). What remains
+> route-facing-empty is **soft systemic pressure** and **social/knowledge**, and
+> what remains genuinely UNEXPRESSIBLE is a mechanism in a state that is not a
+> bool — a valve at half, a lift at floor three. That is the seam, and it is one
+> family's residual rather than a whole family's absence.
 >
 > ⓘ **A body-capability predicate is already written, for actions rather than
 > routes.** `ActionSet::gated_by(AbilitySet)`

@@ -515,6 +515,47 @@ fn a_wall_may_be_gated_on_the_body_being_small_enough_to_pass() {
     );
 }
 
+/// ⭐ A ROUTE GATED ON A WORLD MECHANISM — the seventh gate family, in its
+/// boolean form.
+///
+/// The door past the arena. `world.switch_on` is not `world.flag_set` with a
+/// different name: a flag is a story fact something recorded about the player, a
+/// switch is a mechanism's own state, and the input here is already flowing —
+/// clearing a wave encounter latches every switch linked to it.
+///
+/// ⛔ THE WALL MUST BE UP FIRST, from a save that EXISTS. An empty save and no
+/// save at all are different answers (`NotSatisfied` versus `Unanswerable`) and
+/// only the first is this test's subject; the fixture installs a default save,
+/// so the closed arm means "the mechanism is off" and not "nobody could answer".
+#[test]
+fn a_wall_may_be_gated_on_a_world_mechanism_being_latched_on() {
+    use ambition_platformer2d_shared_tangle::authored_logic::PublishCondition;
+
+    let mut app = world_with_one_wall_gated_by("world.switch_on arena_switch_north");
+    app.publish_condition(
+        crate::world_facts::switch_on_descriptor(),
+        crate::world_facts::switch_on,
+    );
+
+    app.update();
+    assert_eq!(
+        standing(&app),
+        1,
+        "the arena switch has never been latched, so the door past it stands"
+    );
+
+    app.world_mut()
+        .resource_mut::<ambition_persistence::save::AmbitionGameSave>()
+        .data_mut()
+        .set_switch("arena_switch_north", true);
+    app.update();
+    assert_eq!(
+        standing(&app),
+        0,
+        "the mechanism is on now; the route it holds shut opens"
+    );
+}
+
 /// AN AUTHORED CONDITION THAT DOES NOT EXIST LEAVES THE WALL STANDING.
 ///
 /// ⛔ AND IT IS NOT DEMOTED TO A FLAG LOOKUP. `names_its_own_condition` is

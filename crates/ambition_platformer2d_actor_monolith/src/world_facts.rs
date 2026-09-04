@@ -56,6 +56,61 @@ pub fn flag_set(world: &World, args: &[AuthoredArg]) -> ConditionOutcome {
     })
 }
 
+const SWITCH: ParamSpec = ParamSpec {
+    name: "switch",
+    kind: ParamKind::Name,
+    summary: "the latched switch id, as the save layer and the authored level spell it",
+};
+
+/// `world.switch_on(switch)` — is this world MECHANISM latched on?
+///
+/// The world-mechanism gate family, and the distinction from `flag_set` is what
+/// the family IS rather than where the bit lives. A flag is a story fact
+/// something recorded about the player; a switch is a mechanism's own state,
+/// flipped by the world doing what the world does. They share
+/// `AmbitionGameSaveData` because both are durable, and they are two questions
+/// because a route gated on "the arena has been cleared" and a route gated on
+/// "you have been told about the survey" are different design.
+///
+/// ⭐ THE INPUT IS ALREADY FLOWING, which is why this is publishable rather than
+/// dormant: completing a wave encounter latches every switch linked to it
+/// (`ambition_encounter_features/src/systems.rs:496`, all of them and not the
+/// first), and the ids are authored alongside the encounter.
+pub fn switch_on_descriptor() -> ConditionDescriptor {
+    ConditionDescriptor {
+        id: ConditionId::new(DOMAIN, "switch_on"),
+        summary: "true while the named world mechanism is latched on in the save",
+        params: &[SWITCH],
+    }
+}
+
+/// `world.switch_on` — see [`switch_on_descriptor`].
+///
+/// ⚠ AN UNRECORDED SWITCH IS `NotSatisfied`, and here that is not the same
+/// concession `flag_set` makes. A latched switch that nothing has flipped IS
+/// off — `set_switch(id, false)` and "no row" describe the same mechanism state,
+/// so `false` is the true answer rather than the tolerable one. What both share
+/// is that a MISSPELT id is indistinguishable from an unflipped one; that is a
+/// content-validation question about authored ids, not a runtime one, and it is
+/// answered the same way for both.
+pub fn switch_on(world: &World, args: &[AuthoredArg]) -> ConditionOutcome {
+    let Some(switch) = args[0].as_name() else {
+        return ConditionOutcome::unanswerable("`switch` must be a name");
+    };
+    let Some(save) = world.get_resource::<ambition_persistence::save::AmbitionGameSave>() else {
+        return ConditionOutcome::unanswerable(
+            "no save layer is installed in this composition, so no mechanism state exists",
+        );
+    };
+    ConditionOutcome::from_bool(save.data().switch(switch), || {
+        ambition_platformer2d_shared_tangle::authored_logic::WhyNot::new(
+            "world.switch_on",
+            switch,
+            "the mechanism is not latched on",
+        )
+    })
+}
+
 const ON: ParamSpec = ParamSpec {
     name: "on",
     kind: ParamKind::Truth,
@@ -137,6 +192,7 @@ impl bevy::prelude::Plugin for WorldFactConditionsPlugin {
             PublishCommand, PublishCondition,
         };
         app.publish_condition(flag_set_descriptor(), flag_set);
+        app.publish_condition(switch_on_descriptor(), switch_on);
         app.publish_command(set_flag_descriptor(), set_flag);
     }
 }

@@ -826,6 +826,10 @@ def main() -> int:
             "  `git submodule update --init` to close the gap. Until then a clean "
             "run is clean ONLY for the repositories that answered."
         )
+        # ⭐ SAME PROPERTY, AND IT PREDATES THE UNREAD-FILE ONE: this text has
+        # always said a clean run is clean only for what answered, and the exit
+        # code has always said it was clean full stop. Folded into the same gate.
+        _UNREADABLE.extend(f"submodule {name}: not initialised" for name in sorted(dark_submodules))
 
     print(f"\nchecked {checked} citation(s) across {len(docs)} planning file(s)")
 
@@ -844,6 +848,25 @@ def main() -> int:
             print(f"  ... and {len(_UNREADABLE) - 10} more")
 
     if not findings:
+        # ⛔⛔ THE EXIT CODE IS WHAT A GATE READS, AND THE FIRST VERSION OF THIS
+        # QUALIFIER DID NOT REACH IT. The unread-file count printed above the
+        # verdict, which fixed it for a HUMAN and left the CI lane seeing a clean
+        # zero — the qualifier visible where somebody looks and invisible where
+        # the decision is made, which is the same defect one level up.
+        #
+        # ⚠ NOT fatal in the bare lane, deliberately: this is a worklist, and one
+        # stray unreadable file should not stop a planning-doc check. `--strict`
+        # is the gate lane, and there an incomplete scan is not a pass.
+        #
+        # ⭐ And the STRING changes too, because "all resolved." printed above a
+        # warning is the sentence that gets quoted into a planning doc — which is
+        # exactly how a false clean bill travels.
+        if _UNREADABLE:
+            print(
+                f"all resolved, but {len(_UNREADABLE)} file(s) went UNREAD — "
+                "clean only for what answered."
+            )
+            return 1 if args.strict else 0
         print("all resolved.")
         return 0
     print(f"{len(findings)} unresolved:\n")

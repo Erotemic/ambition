@@ -18,16 +18,16 @@ run, not carried forward:
 
 | what | figure | how |
 |---|---|---|
-| `ambition_app` integration suite | **557 passed / 0 failed / 23 ignored** | `cargo test -p ambition_app --test app_it`, three times across the day; 556 before two tests were added |
+| `ambition_app` integration suite | **558 passed / 0 failed / 23 ignored** (re-measured 2026-09-04 late) | `cargo test -p ambition_app --test app_it`, three times across the day; 556 before two tests were added |
 | `examples/capability_demo` | **21 passed / 0 failed** | its rollback round trip had been dying in Bevy on frame one; `GgrsBackendPlugin` (`fa8656028`) closed six faults at once |
-| actor monolith lib | **1067 passed** | `cargo test -p ambition_platformer2d_actor_monolith --lib` |
-| `ambition_platformer2d_shared_tangle` lib | **251 passed** | same shape |
+| actor monolith lib | **1075 passed / 1 ignored** (re-measured 2026-09-04 late) | `cargo test -p ambition_platformer2d_actor_monolith --lib` |
+| `ambition_platformer2d_shared_tangle` lib | **252 passed** (re-measured 2026-09-04 late) | same shape |
 | absence + dependency contracts | **38 of 38 hold** | `scripts/check_absence_contracts.py` |
 | capability footprint | **51 crates linked, 23 a movement-only game never asked for** | the ratchet's own line |
 | rollback wire format | **v151**, 410 stable names, 123 encoded types across 12 crates | the same checker |
 | feature-gated tests | **794 hidden behind features across 29 crates** | `scripts/feature_gated_tests.py` |
 | `cargo fmt --all -- --check` | **358 files / 710 hunks fail** | and that is POLICY, not drift — AGENTS.md: *"Formatting is advisory, never an acceptance gate."* |
-| the workspace FEATURE UNION | **7,115 passed / 2 failed** | three runs the same day: 7,072/40 → 7,112/3 → 7,115/2. The 40 were one system (`ambition_sprite_fx::draw_sprite_effects`, fixed `52666d1c7`); of the last two, one is a smash camera-framing assertion and one was a new test of mine failing its own anti-vacuity floor |
+| the workspace FEATURE UNION | ✔✔ **7,146 passed / 0 FAILED**, `cargo exit: 0` | ⭐ **THREE GREEN UNIONS AT THREE HEADS 2026-09-04 late** — `5c320ebb5` (7,137/0), `935491c76` (7,139/0), `24b55d3ac` (7,146/0), which is what makes green a property of the tree rather than of one commit. The day's progression was 7,072/40 → 7,112/3 → 7,115/2 → **0**. ⛔ One run in between read 7,104/**32** and is VOID: recursive greps run beside it exhausted file descriptors, and thirty of the 32 were the workspace-policy crate announcing repository facts that were false — see `queue.md`'s D-REVIEW-0904B and the scanner repair at `0b58767f2` |
 
 ⚠ **The union figure is the one to re-run rather than quote.** It moved by 38 in
 a day because a single unguarded system was taking whole demo binaries down on

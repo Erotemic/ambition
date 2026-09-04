@@ -938,6 +938,13 @@ mod tests {
     /// alone. This asserts the SPECIAL's own move captures, and that it is a
     /// different move from the standing grab — the two claims that together mean
     /// the button does the new thing rather than an old one.
+    ///
+    /// ⚠ **THIS GUARD WAS DEAD FROM `45e0ceada` TO `7bb880ff3` and its `#[test]`
+    /// was restored without being run** — the box that restored it could not
+    /// build. ⇒ If it is RED the first time it executes, that is not necessarily
+    /// a regression introduced by whoever ran it: check the two commits that
+    /// touched this file while it was dead (both add tests only and neither
+    /// touches `lunge_grab`, so green is expected) before hunting a live cause.
     #[test]
     fn the_side_special_is_a_command_grab_and_not_the_standing_grab_renamed() {
         use ambition_platformer2d::entity_catalog::WindowTag;

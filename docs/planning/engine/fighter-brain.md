@@ -1838,6 +1838,38 @@ above shows the shipped ladder disables the rollout on all nine rows. The Shield
 model changes nothing a player meets. That is an argument for keeping it (it
 cannot regress the game) and against prioritising `Dodge`.
 
+### ⛔⛔ A SIXTH, AND IT IS A DIFFERENT SHAPE: a control that cancelled the wrong term
+
+The five below are all *the rig read the wrong configuration*. This one is worse
+in kind, because the instrument was working exactly as designed.
+
+⇒ **`--paired` swaps the RUNGS between seats.** That is the correct control when
+the rungs are what differ. But `--rungs 5,5 --character George --opponent Robot`
+is a real question — *is this fighter stronger than that one at one rung* — whose
+variable is the **fighter**, and the pairing was swapping something else entirely.
+
+⭐⭐ **A control that cancels the wrong term is worse than no control, because it
+produces symmetric-looking output that reads as rigour.** The degenerate arm
+returned perfectly equal columns (`304% : 304%`, `142% : 142%`) and a verdict of
+`even` — which is precisely what a careful null control is supposed to look like.
+
+⚠ **And the cost is measured.** Run unpaired instead, and the same comparison
+gives a **329% : 225%** damage gap that still reports `(within spread)`, because
+unpaired seed variance is exactly what pairing exists to remove. ⇒ **The question
+could be asked and could not be answered, and nothing in the output said so.**
+
+⭐ Repaired by pairing on the FIGHTER when the rungs are equal and the characters
+differ — the same control applied to the actual variable — with the degenerate
+warning narrowed to the genuinely variable-free case (same rung *and* same
+fighter), where it still fires.
+
+⇒ **The rule it earns is about guards rather than configs:** *a guard's stated
+reach is a claim that wants its own poison.* `--paired`'s doc said it "cancels the
+seat/placement term", and the widest thing that sentence claims is **any**
+comparison. It had only ever been poisoned for the rung case. ⚠ I found this by
+tripping it, not by testing it — and the guard that caught me fired twelve times
+into an output I was filtering with a `grep -v` that happened to match its text.
+
 ### ⭐⭐ THE CLASS BEHIND FIVE SEPARATE FINDINGS: the rig reads its config from anywhere but the shipped file
 
 Five findings in this document have the same shape, and it is worth naming

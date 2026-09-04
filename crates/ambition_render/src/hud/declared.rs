@@ -36,6 +36,37 @@ use super::{HUD_MARGIN, OVERLAY_ANCHOR};
 #[derive(Component)]
 pub struct DeclaredHudRoot;
 
+/// Does the declared HUD own this node — as its root, or at any depth beneath?
+///
+/// ⛔⛔ OWNERSHIP IS THE SUBTREE, AND THAT IS A FACT ABOUT THIS MARKER, so it
+/// lives beside it. `DeclaredHudRoot` sits on the panel and on the slot; the
+/// portrait, the stock row, the five pips and the count are that panel's
+/// CHILDREN and carry nothing. A guard that asks `Without<DeclaredHudRoot>`
+/// therefore reads a demo's permitted HUD as an engine violation — measured on
+/// mary_o (40 nodes) and again on sanic (16), a day apart.
+///
+/// ⚠ IT LIVES HERE BECAUSE THE FIX TRAVELLED BY TRANSCRIPTION AND DRIFTED.
+/// `ov1_draws_the_world` exists once per demo; mary_o's copy was corrected first,
+/// sanic's was not, and the repair that made them agree wrote a THIRD copy whose
+/// signature and parent-accessor already differed from the second. A predicate
+/// about a marker's semantics belongs with the marker, so a third demo gets it
+/// right by construction.
+///
+/// ⚠ Walks to the top rather than checking one level: the stock pips are
+/// grandchildren (root → panel → stock row → pip).
+pub fn declared_hud_owns(world: &World, entity: Entity) -> bool {
+    let mut cursor = entity;
+    loop {
+        if world.get::<DeclaredHudRoot>(cursor).is_some() {
+            return true;
+        }
+        match world.get::<bevy::prelude::ChildOf>(cursor) {
+            Some(parent) => cursor = parent.0,
+            None => return false,
+        }
+    }
+}
+
 /// One declared readout's text node, tagged with the slot it mirrors and the
 /// font size it was DECLARED at.
 ///

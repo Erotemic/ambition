@@ -69,58 +69,29 @@ fn ui_node_count(app: &mut App) -> usize {
 /// Now it can, by DECLARING one on its provider — so the guard has to name what it forbids
 /// (engine-owned UI) instead of forbidding all UI and thereby forbidding the demo's own feature.
 fn engine_owned_ui_node_count(app: &mut App) -> usize {
-    // ⛔⛔ `Without<DeclaredHudRoot>` EXCLUDED THE ROOT AND COUNTED ITS CHILDREN.
-    // Measured 2026-09-03: this returned 40 against an expected 0, and all forty
-    // were the demo's OWN declared HUD — five readouts × (panel, portrait,
-    // stocks row, four stock pips, stock count). The root carries
-    // `DeclaredHudRoot`; the nodes under it carry `DeclaredHudPortrait`,
-    // `DeclaredHudStock`, `DeclaredHudStockCount` or nothing at all
-    // (`hud/declared.rs:240-300`), so a root-only filter reads a demo's
-    // permitted HUD as an engine violation.
+    // ⛔⛔ THE PREDICATE MOVED TO THE MARKER (2026-09-04). It used to live here,
+    // and the sanic copy of this same test carried a second one that had already
+    // begun to diverge — different signature, different parent accessor — in the
+    // commit that was meant to make them agree. Ownership-is-the-subtree is a
+    // fact about `DeclaredHudRoot`, so `declared_hud_owns` lives beside it and a
+    // third demo gets it right by construction.
     //
-    // ⚠ The doctrine this guards EXPLICITLY ALLOWS what it was flagging: "A demo
-    // that wants a HUD declares one — that is what `owns` means in the demos
-    // doctrine." The engine was innocent and the filter was wrong.
-    //
-    // ⇒ Ownership is the SUBTREE, so ask by ancestry rather than by marker.
-    let declared_roots: std::collections::HashSet<bevy::prelude::Entity> = {
-        let mut roots = app
-            .world_mut()
-            .query_filtered::<bevy::prelude::Entity, bevy::prelude::With<
-                ambition_platformer2d::presentation::DeclaredHudRoot,
-            >>();
-        roots.iter(app.world()).collect()
-    };
+    // What it fixed, kept because the number is the argument: this returned 40
+    // against an expected 0 on 2026-09-03, and all forty were the demo's OWN
+    // declared HUD — five readouts x (panel, portrait, stocks row, four pips,
+    // count). The doctrine this guards explicitly ALLOWS that: "A demo that
+    // wants a HUD declares one." The engine was innocent and the filter was
+    // wrong.
     let mut nodes = app
         .world_mut()
         .query_filtered::<bevy::prelude::Entity, bevy::prelude::With<bevy::ui::Node>>();
     let candidates: Vec<bevy::prelude::Entity> = nodes.iter(app.world()).collect();
     candidates
         .into_iter()
-        .filter(|entity| !under_a_declared_hud(app, *entity, &declared_roots))
+        .filter(|entity| {
+            !ambition_platformer2d::presentation::declared_hud_owns(app.world(), *entity)
+        })
         .count()
-}
-
-/// Is this node the declared HUD's, at any depth?
-///
-/// ⚠ Walks `ChildOf` to the top rather than checking the parent: the stock pips
-/// are grandchildren (root → panel → stocks row → pip), so one level of
-/// parent-checking would still have counted twenty of them.
-fn under_a_declared_hud(
-    app: &mut App,
-    entity: bevy::prelude::Entity,
-    roots: &std::collections::HashSet<bevy::prelude::Entity>,
-) -> bool {
-    let mut current = entity;
-    loop {
-        if roots.contains(&current) {
-            return true;
-        }
-        match app.world().get::<bevy::prelude::ChildOf>(current) {
-            Some(parent) => current = parent.parent(),
-            None => return false,
-        }
-    }
 }
 
 /// Nodes belonging to the HUD this demo declared.

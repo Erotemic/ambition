@@ -812,7 +812,9 @@ pub mod presentation {
         DefensePresentationCues, DefensePresentationPolicy, HudDeclaration, HudFigure, HudReadout,
         HudReadouts, HudSlotId, HudSlotSpec, HudStanding, SurroundRegion,
     };
-    pub use ambition_render::hud::declared::{DeclaredHudPlugin, DeclaredHudRoot, DeclaredHudSlot};
+    pub use ambition_render::hud::declared::{
+        declared_hud_owns, DeclaredHudPlugin, DeclaredHudRoot, DeclaredHudSlot,
+    };
 }
 
 /// The SDK claim about the inspector, tested.

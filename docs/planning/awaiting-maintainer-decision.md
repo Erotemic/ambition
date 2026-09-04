@@ -1678,17 +1678,38 @@ measured, and still means a dead special button on the demo's catalog default. �
 It is **not** "two thirds of the roster", which is what the old heading implied and
 what would have made this a much bigger decision than it is.
 
-⚠ **And what I do NOT know**: whether the other composed-grid fighters have full
-kits. ⭐ **But the instrument exists and I had missed it**:
-`report_the_smash_kit_every_selectable_fighter_has`
-(`game/ambition_app/tests/smash_roster_movesets.rs`) walks a 16-entry genre press
-list plus the capture half and HARD-ASSERTS every selectable fighter reaches all
-of it, printing a per-fighter census as it goes. ⛔ I could not run it: the
-composed app does not link on this machine — `mold: failed to write to an output
-file. Disk full?` on a **virtiofs** tree whose `df` reads 188G free. ⇒ So this
-question needs **no new test and no maintainer decision** — it needs one command
-on a machine that can link:
-`cargo test -p ambition_app --test app_it report_the_smash_kit -- --nocapture`. I measured George and the two Robots. The ≥8 others are unexamined, and the
+✔✔ **ANSWERED 2026-09-04 — and by the TYPE, not by a measurement, which is why it
+could be settled on a box that cannot build.**
+
+`SmashRepertoire` has **nineteen** fields and **zero** of them are `Option`: jab,
+three tilts, three smashes, five aerials, four specials, capture, taunt and dash
+attack. ⇒ **A fighter built through `SmashRepertoire::into_contract()` cannot have
+a partial kit — the struct literal will not compile without every slot.**
+
+⭐ **And every authored moveset reaches that constructor.** All nineteen in
+`ambition_content` either call `into_contract()` directly (fourteen) or are
+`archetype_moveset::under_own_name(<a repertoire-built moveset>, ..)` with one
+slot swapped by `special_slots::replace_special` (medic, performer, author and
+officer, from the pugnacious/pointed polygon bases). ⇒ **So the composed grid's
+fighters have full kits by construction.**
+
+⛔ **Which relocates the gap precisely: `fighter_moveset()` — the stand-in table —
+is the ONLY moveset in the demo that does not go through the repertoire.** It
+hand-builds a verb list, which is exactly how it can be missing eight special
+presses while nineteen other fighters cannot be. ⇒ The stand-ins' hole is not a
+roster-wide authoring debt; it is the one contract that bypasses the type that
+would have prevented it.
+
+⚠ **Two things this does NOT establish, stated so the next reader does not
+over-claim it.** (1) It guarantees each slot is FILLED, not that the slots are
+filled with DISTINCT moves — a repertoire could bind one `MoveSpec` into several
+slots, which is precisely the `its_own` rule that
+`report_the_smash_kit_every_selectable_fighter_has` applies and this argument
+cannot. (2) It covers fighters authored in `ambition_content`; a composition
+seating a fighter from anywhere else is outside it. ⇒ So that test still has a
+job, and running it is still worth doing —
+`cargo test -p ambition_app --test app_it report_the_smash_kit -- --nocapture` —
+but **the decision below no longer waits on it.**
 census that would answer it is one command each
 (`capture-probe --character <id> --ladder <ron>`).
 

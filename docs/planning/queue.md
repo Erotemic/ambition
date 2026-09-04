@@ -2476,6 +2476,26 @@ queue read as an execution authority for work already done.
   scorer every actor in every game shares, and let the mechanical half (a `Hold`
   variant, a decline path) follow. ⓘ That third sub-question was already on this
   row's list; the precedent says it is the one to answer FIRST.
+
+  ⭐⭐⭐ **AND THE POLICY HALF LEFT A COMPLETE TEMPLATE, which answers the failure
+  mode this row predicted.** `dev/journals/what-a-hold-is-worth-2026-08-19.md`
+  records what landed: **`capture_value(foe)`, a feature of its OWN in the fighter
+  brain's own option scorer** — *"not in the shared frame data, so no carve was
+  needed"* — rather than a value routed through `expected_payoff`. Its shape:
+
+  - **every term is zero or small unless a specific fact is true RIGHT NOW**
+    (a raised guard, the percent a throw converts against);
+  - ⭐ **explicit ZEROS for the cases a naive rule would score highest** — hitstun
+    (*"where spending the grab's startup trades a live combo for a hold"*) and an
+    airborne victim (*"that grab can never catch anybody"*).
+
+  ⇒ **That last bullet is exactly the `Hold` hazard named above.** *Nowhere scores
+  as safe* is the naive rule; `capture_value` answers the same danger with explicit
+  zeros for the situations where the naive score is highest and the real value is
+  nil. ⇒ **So the remedy here is not an open design problem — it is a pattern this
+  brain has already used once, successfully, on a maintainer's ruling.** A
+  `hold_value` gated on facts (no foe in range, a committed opponent to punish, an
+  unsafe approach) with explicit zeros where standing still is merely passive.
   somewhere other than the scores.
   ⓘ Unmeasured, and it must be — this is the shape of the fix, not a claim that it
   works. The acceptance test above is what would say.

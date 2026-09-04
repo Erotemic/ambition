@@ -694,6 +694,62 @@ pub fn fighter_moveset() -> MovesetContract {
             ),
         ),
     };
+    // A COMMAND GRAB ON SIDE-SPECIAL — the parity inventory's P11 road that
+    // needed authoring and nothing else.
+    //
+    // ⭐ **THE WHOLE POINT IS THAT NO ENGINE WORK WAS REQUIRED.** A capture is a
+    // move whose `Active` window sustains `smash.capture_attempt`;
+    // `author_standing_grab` attaches that to any `MoveSpec` and never asks
+    // which verb the move is bound to, and the captor branch of
+    // `resolve_combat_action` keys off the capture STATE — "am I holding
+    // somebody" — not off the move that caught them. ⇒ So a grab reached by the
+    // special button pummels and throws through exactly the same four verbs the
+    // standing grab does, with no new road, no new key and no schema change.
+    //
+    // ⚠ **AND IT CLOSES A DEAD BUTTON, measured rather than assumed.** This
+    // contract bound 18 verbs to George's 26: no `special`, no `special_forward`,
+    // `special_up` or `special_down`, no `attack_forward`, no `attack_dash`, no
+    // `taunt`. George is the one authored fighter and the stand-ins had NOTHING
+    // on the special button — a press that resolved to no move at all. ⛔ This
+    // fixes ONE of those eight. The other seven are still dead and that is not
+    // this move's job to hide.
+    //
+    // The design follows the same middleweight logic as the grab above: it is
+    // the standing grab's slower, longer-reaching, COMMITTED cousin. Startup
+    // 0.26 against the standing grab's 0.12 — you cannot mash it as a panic
+    // option — a reach that extends well past the standing grab's `20.0`, and a
+    // recovery long enough that a whiff is punished. It travels, because a
+    // command grab that closes no distance is a worse standing grab.
+    let mut command_grab =
+        ambition_platformer2d::characters::smash_capture::author_standing_grab(
+            ambition_platformer2d::characters::smash_capture::grab_shell(
+                "lunge_grab",
+                "special",
+                0.26,
+                0.06,
+                0.38,
+            ),
+            ambition_platformer2d::characters::smash_capture::CaptureAttemptParams {
+                // Reaches forward from a lunging body, so the box sits further
+                // out and is a little taller than the standing grab's — it has
+                // to catch somebody the lunge is arriving at.
+                offset: (34.0, 0.0),
+                half_extents: (28.0, 18.0),
+                // The SAME hold as the standing grab, deliberately. A captive
+                // held somewhere else would make the follow-up throws read
+                // differently depending on which grab caught them, and the
+                // throws are shared.
+                hold_offset: (18.0, -2.0),
+            },
+        );
+    // ⛔ ADDITIVE, not `Set`. George's side-B erases the momentum behind it
+    // because being unsteerable is that move's whole identity; this one is a
+    // grab, and a grab that deleted your run would make dashing into it worse
+    // than walking. A dash-cancelled command grab covering more ground is the
+    // correct behaviour and it is what `start_impulse` already means.
+    command_grab.start_impulse = Some((330.0, 0.0));
+    moves.push(command_grab);
+
     let capture_verbs: Vec<(String, String)> = capture
         .bound()
         .into_iter()
@@ -716,6 +772,9 @@ pub fn fighter_moveset() -> MovesetContract {
         ("attack_air_back", "air_back"),
         ("attack_air_up", "air_up"),
         ("attack_air_down", "air_down"),
+        // ⭐ The only special this contract binds. See `lunge_grab` above for
+        // why it is a grab and why the other seven of George's verbs stay dead.
+        ("special_forward", "lunge_grab"),
     ]
     .into_iter()
     .map(|(verb, id)| (verb.to_string(), id.to_string()))
@@ -732,6 +791,95 @@ mod tests {
 
     /// Every verb resolves to a move that exists. A verb pointing at a
     /// missing id is a press that silently does nothing.
+    /// THE SIDE-SPECIAL IS A REAL CAPTURE, not a strike wearing the name.
+    ///
+    /// ⭐ The inverted half is the one that matters. Asserting "`special_forward`
+    /// resolves" would pass if somebody rebound it to the jab, and asserting
+    /// "some move carries a capture attempt" would pass on the standing grab
+    /// alone. This asserts the SPECIAL's own move captures, and that it is a
+    /// different move from the standing grab — the two claims that together mean
+    /// the button does the new thing rather than an old one.
+    #[test]
+    fn the_side_special_is_a_command_grab_and_not_the_standing_grab_renamed() {
+        use ambition_platformer2d::entity_catalog::WindowTag;
+        let set = fighter_moveset();
+
+        let special = set
+            .move_for_verb("special_forward")
+            .expect("the stand-in fighter binds a side special");
+        let standing = set
+            .move_for_verb("grab")
+            .expect("the stand-in fighter binds a standing grab");
+        assert_ne!(
+            special.id, standing.id,
+            "the side special resolves to the STANDING grab, so the special \
+             button is an alias and the command grab does not exist"
+        );
+
+        // ⛔ Live during `Active` and nowhere else. A capture attempt sustained
+        // through startup would catch bodies before the lunge commits, which is
+        // the difference between a command grab and an aura.
+        let live: Vec<&WindowTag> = special
+            .windows
+            .iter()
+            .filter(|w| w.sustain_effect.is_some())
+            .map(|w| &w.tag)
+            .collect();
+        assert_eq!(
+            live,
+            vec![&WindowTag::Active],
+            "the command grab's capture attempt is live on {live:?} — it must be \
+             live on exactly the Active window, or it is either a move that \
+             cannot catch anybody or one that catches during its own startup"
+        );
+        assert_eq!(
+            special
+                .windows
+                .iter()
+                .find(|w| w.tag == WindowTag::Active)
+                .and_then(|w| w.sustain_effect.as_ref())
+                .map(|e| e.key.as_str()),
+            Some(ambition_platformer2d::characters::smash_capture::CAPTURE_ATTEMPT),
+            "the special's live window sustains some OTHER effect, so it is not \
+             a capture at all"
+        );
+
+        // ⭐ It travels. A command grab that closes no distance is strictly
+        // worse than the standing grab it costs more to throw.
+        let (dx, _) = special
+            .start_impulse
+            .expect("a command grab that does not lunge is a slower standing grab");
+        assert!(
+            dx > 0.0,
+            "the command grab's impulse is {dx}, so it lunges backwards or \
+             stands still"
+        );
+
+        // ⚠ The design claim in one assertion: this is the COMMITTED grab.
+        // Equal startup would make it a strictly better standing grab with a
+        // longer reach, and nothing would ever press the other one.
+        assert!(
+            special.windows.iter().any(|w| w.tag == WindowTag::Active)
+                && standing.windows.iter().any(|w| w.tag == WindowTag::Active),
+            "one of the two grabs has no active window"
+        );
+        let first_active = |m: &ambition_platformer2d::entity_catalog::MoveSpec| {
+            m.windows
+                .iter()
+                .find(|w| w.tag == WindowTag::Active)
+                .map(|w| w.start_s)
+                .expect("checked above")
+        };
+        assert!(
+            first_active(special) > first_active(standing),
+            "the command grab goes live at {}s and the standing grab at {}s — \
+             a command grab that is not slower is a free upgrade and retires \
+             the button it is supposed to complement",
+            first_active(special),
+            first_active(standing)
+        );
+    }
+
     #[test]
     fn every_authored_verb_resolves() {
         let set = fighter_moveset();

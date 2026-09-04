@@ -53,7 +53,8 @@
 > ⛔ **AND THE INPUT IS BLOCKED BY ONE HARDCODED ARGUMENT, WHICH IS THE REAL
 > FIRST SLICE.** The authored road resolves its question through the shared
 > `ConditionCatalog`, which is extensible and already carries three published
-> production conditions:
+> production conditions (⚠ three when this was written; **five** at
+> `4b8ef1b04` — `body.can` and `body.fits` joined below):
 >
 > | published condition | publisher | family |
 > |---|---|---|
@@ -131,12 +132,39 @@
 > cannot do it". Poison-verified by making every body satisfy every verb — that
 > arm reddens alone.
 >
-> ⇒ **Five of the seven gate families are now reachable from a route**: story
-> gate (two writers), item/equipment (`inventory.holds`, `held.is_held`) and
-> body capability (`body.can`). What remains route-facing-empty is soft systemic
-> pressure and social/knowledge, and body PROPERTY — `mass`, `standing_height`,
-> `Locomotion` — which is a second condition of the same shape rather than a new
-> seam.
+> ✔ **AND BODY PROPERTY LANDED THE SAME DAY — `body.fits(height)`, the sixth
+> family.** It is the gate this page's Goal names first (*"gate routes through
+> body size"*), and the crawlspace is the shape:
+> `a_wall_may_be_gated_on_the_body_being_small_enough_to_pass` changes nothing
+> between its two assertions but the body's height, and the route changes with
+> it.
+>
+> ⭐ **It reads `BodyKinematics::size`, the CURRENT size, not `BodyBaseSize`** —
+> the same choice `body.can` makes for the same reason. The kinematic size is
+> what the collision doctrine sweeps; the base size is the authored standing
+> baseline stances derive FROM. A gate that asked the baseline would refuse a
+> body that physically fits, which is the world disagreeing with itself about a
+> hole in it. So crouching and morphing count, and that is a consequence of the
+> existing effective-versus-authored rule rather than a new ruling.
+> ⛔ ONE parameter, deliberately: a width question is a different condition, not
+> a second argument. In a side-on platformer you traverse an opening
+> horizontally, so "am I short enough" is the physical question and "am I narrow
+> enough" is a different route shape that should be published and named before
+> it can be authored.
+> ⚠ A non-positive opening is `Unanswerable`, not false — no body has a
+> non-positive height, so `false` would be right for the wrong reason and would
+> hide an authoring mistake behind a wall that correctly never opens.
+> Poison-verified twice: `<=` weakened to `<` reddens the equal-height arm
+> alone, and a predicate that fits everything reddens the wall arm alone.
+>
+> ⇒ **Six of the seven gate families are reachable from a route now**: story
+> gate (two writers), item/equipment (`inventory.holds`, `held.is_held`), body
+> capability (`body.can`) and body property (`body.fits`). What remains
+> route-facing-empty is **soft systemic pressure**, **social/knowledge**, and the
+> world-mechanism family's general *"mechanism is in state X"* fact — the last of
+> which is a missing FACT rather than a missing condition, and is therefore the
+> only one of the three that is a seam to negotiate rather than a predicate to
+> write.
 >
 > ⓘ **A body-capability predicate is already written, for actions rather than
 > routes.** `ActionSet::gated_by(AbilitySet)`

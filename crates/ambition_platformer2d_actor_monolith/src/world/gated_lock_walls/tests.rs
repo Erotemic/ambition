@@ -467,6 +467,54 @@ fn a_wall_may_be_gated_on_what_the_body_can_do() {
     );
 }
 
+/// ⭐ A ROUTE GATED ON BODY SIZE — the sixth gate family, and the one the plan's
+/// goal names first: *"gate routes through body size."*
+///
+/// The crawlspace. Nothing changes between the two assertions but the body's
+/// height, and the route it may take changes with it — which is the whole claim
+/// of the capability-progression program in one test: exploration follows from
+/// what the body physically IS, not from a story flag someone remembered to set.
+#[test]
+fn a_wall_may_be_gated_on_the_body_being_small_enough_to_pass() {
+    use ambition_platformer2d_shared_tangle::authored_logic::PublishCondition;
+    use ambition_platformer2d_core::body_clusters::BodyKinematics;
+
+    let mut app = world_with_one_wall_gated_by("body.fits 32");
+    app.publish_condition(
+        crate::body_conditions::fits_descriptor(),
+        crate::body_conditions::fits,
+    );
+    let mut standing_body = BodyKinematics::default();
+    standing_body.size.y = 64.0;
+    let body = app
+        .world_mut()
+        .spawn((
+            standing_body,
+            ambition_platformer2d_shared_tangle::markers::PlayerEntity,
+        ))
+        .id();
+
+    app.update();
+    assert_eq!(
+        standing(&app),
+        1,
+        "a body twice the opening's height does not get through it"
+    );
+
+    app.world_mut()
+        .entity_mut(body)
+        .get_mut::<BodyKinematics>()
+        .expect("the body was just spawned with one")
+        .size
+        .y = 30.0;
+    app.update();
+    assert_eq!(
+        standing(&app),
+        0,
+        "the same body, low enough now, and the crawlspace is open"
+    );
+}
+
 /// AN AUTHORED CONDITION THAT DOES NOT EXIST LEAVES THE WALL STANDING.
 ///
 /// ⛔ AND IT IS NOT DEMOTED TO A FLAG LOOKUP. `names_its_own_condition` is

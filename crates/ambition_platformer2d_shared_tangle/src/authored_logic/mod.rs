@@ -169,6 +169,13 @@ impl AuthoredArg {
             _ => None,
         }
     }
+
+    pub fn as_number(&self) -> Option<f64> {
+        match self {
+            Self::Number(value) => Some(*value),
+            _ => None,
+        }
+    }
 }
 
 /// What a domain publishes about one question it can answer.

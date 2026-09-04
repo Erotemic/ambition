@@ -96,3 +96,85 @@ fn every_ability_answers_to_its_own_field_name_and_value() {
         }
     }
 }
+
+/// A body of a given height, driven by the player.
+fn body_of_height(app: &mut App, height: f32) {
+    let mut kinematics = BodyKinematics::default();
+    kinematics.size.y = height;
+    app.world_mut().spawn((
+        kinematics,
+        ambition_platformer2d_shared_tangle::markers::PlayerEntity,
+    ));
+}
+
+fn fits_in(world: &World, opening: f64) -> ConditionOutcome {
+    fits(world, &[AuthoredArg::Number(opening)])
+}
+
+/// THE BODY IS MEASURED, AND BOTH SIDES OF THE COMPARISON ARE ASSERTED.
+///
+/// The equal case is the one worth pinning: an opening exactly the body's
+/// height is a gap the body passes through, so `fits` is `<=` and a future
+/// change to `<` would silently close every route authored at the body's own
+/// size — the most likely number for an author to write.
+#[test]
+fn a_body_fits_an_opening_no_shorter_than_it_is() {
+    let mut app = App::new();
+    body_of_height(&mut app, 32.0);
+    let world = app.world();
+
+    assert_eq!(fits_in(world, 48.0), ConditionOutcome::Satisfied);
+    assert_eq!(fits_in(world, 32.0), ConditionOutcome::Satisfied);
+    assert!(matches!(
+        fits_in(world, 24.0),
+        ConditionOutcome::NotSatisfied(_)
+    ));
+}
+
+/// ⭐ THE CURRENT SIZE, NOT THE STANDING BASELINE — the whole reason this reads
+/// `BodyKinematics`.
+///
+/// A body that crouches into an opening it could not stand up in must open the
+/// route, or the wall and the collision doctrine disagree about the same hole.
+#[test]
+fn a_body_that_crouches_into_the_opening_fits_it() {
+    let mut app = App::new();
+    body_of_height(&mut app, 64.0);
+    assert!(matches!(
+        fits_in(app.world(), 32.0),
+        ConditionOutcome::NotSatisfied(_)
+    ));
+
+    let body = app
+        .world_mut()
+        .query_filtered::<bevy::prelude::Entity, bevy::prelude::With<BodyKinematics>>()
+        .single(app.world())
+        .expect("one body");
+    app.world_mut()
+        .entity_mut(body)
+        .get_mut::<BodyKinematics>()
+        .expect("it was spawned with one")
+        .size
+        .y = 30.0;
+
+    assert_eq!(fits_in(app.world(), 32.0), ConditionOutcome::Satisfied);
+}
+
+/// A NON-POSITIVE OPENING IS A CONTENT FAULT, not a wall that never opens.
+///
+/// No body has a height of zero, so `false` would be the right answer for the
+/// wrong reason and would hide the authoring mistake behind a route that
+/// correctly never opens — which is the failure this whole three-outcome enum
+/// exists to prevent.
+#[test]
+fn an_opening_that_is_not_positive_is_unanswerable() {
+    let mut app = App::new();
+    body_of_height(&mut app, 32.0);
+    let world = app.world();
+
+    assert!(matches!(fits_in(world, 0.0), ConditionOutcome::Unanswerable(_)));
+    assert!(matches!(
+        fits_in(world, -16.0),
+        ConditionOutcome::Unanswerable(_)
+    ));
+}

@@ -22,7 +22,7 @@
 //! predicate because they are not asking the same question.
 
 use ambition_platformer2d_core::abilities::AbilitySet;
-use ambition_platformer2d_core::body_clusters::BodyAbilities;
+use ambition_platformer2d_core::body_clusters::{BodyAbilities, BodyKinematics};
 use ambition_platformer2d_shared_tangle::authored_logic::{
     AuthoredArg, ConditionDescriptor, ConditionId, ConditionOutcome, ParamKind, ParamSpec, WhyNot,
 };
@@ -160,6 +160,74 @@ fn ability_named(set: &AbilitySet, verb: &str) -> Option<bool> {
     })
 }
 
+const OPENING: ParamSpec = ParamSpec {
+    name: "height",
+    kind: ParamKind::Number,
+    summary: "the vertical opening in world units; the body fits when it is no taller",
+};
+
+/// `body.fits(height)` — is the body short enough to pass through this opening?
+///
+/// The second body-property gate family, and the one Ambition's goal names
+/// first: *"gate routes through body size."*
+pub fn fits_descriptor() -> ConditionDescriptor {
+    ConditionDescriptor {
+        id: ConditionId::new(DOMAIN, "fits"),
+        summary: "true while the body the player is driving is no taller than this opening",
+        params: &[OPENING],
+    }
+}
+
+/// `body.fits` — see [`fits_descriptor`].
+///
+/// ⭐ IT READS THE BODY'S CURRENT SIZE, NOT ITS STANDING BASELINE, and that is
+/// the same choice [`can`] makes for the same reason. `BodyKinematics::size` is
+/// what the collision doctrine sweeps; `BodyBaseSize` is the authored standing
+/// baseline the stances derive FROM. A gate that asked the baseline would
+/// refuse a body that physically fits — the world disagreeing with itself about
+/// a hole in it — so crouching, morphing and any future stance count, because
+/// the wall is a gap and the body either passes through it or does not.
+///
+/// ⛔ ONE PARAMETER, DELIBERATELY. A width question is a different condition,
+/// not a second argument: in a side-on platformer you traverse an opening
+/// horizontally, so "am I short enough" is the physical question and "am I
+/// narrow enough" is a different route shape that should have to be published
+/// and named before it can be authored.
+///
+/// ⚠ A NEGATIVE OR ZERO OPENING IS UNANSWERABLE rather than false. No body has
+/// a non-positive height, so `false` would be the right answer for the wrong
+/// reason and would hide an authoring mistake behind a wall that correctly
+/// never opens.
+pub fn fits(world: &World, args: &[AuthoredArg]) -> ConditionOutcome {
+    let Some(opening) = args[0].as_number() else {
+        return ConditionOutcome::unanswerable("`height` must be a number");
+    };
+    if !(opening > 0.0) {
+        return ConditionOutcome::unanswerable(format!(
+            "`{opening}` is not an opening; `body.fits` takes a positive height in world units"
+        ));
+    }
+    let opening = opening as f32;
+    let short_enough = |body: &BodyKinematics| body.size.y <= opening;
+    let player_fits = world
+        .try_query_filtered::<&BodyKinematics, bevy::prelude::With<
+            ambition_platformer2d_shared_tangle::markers::PlayerEntity,
+        >>()
+        .is_some_and(|mut bodies| bodies.iter(world).any(short_enough));
+    let driven_fits = world
+        .try_query_filtered::<&BodyKinematics, bevy::prelude::With<
+            ambition_characters::control::DrivingParticipant,
+        >>()
+        .is_some_and(|mut bodies| bodies.iter(world).any(short_enough));
+    ConditionOutcome::from_bool(player_fits || driven_fits, || {
+        WhyNot::new(
+            "body.fits",
+            format!("{opening}"),
+            "no player or driven body is short enough",
+        )
+    })
+}
+
 /// Publishes the body domain's conditions.
 ///
 /// One plugin for one registration line, matching
@@ -172,6 +240,7 @@ impl bevy::prelude::Plugin for BodyCapabilityConditionsPlugin {
     fn build(&self, app: &mut bevy::prelude::App) {
         use ambition_platformer2d_shared_tangle::authored_logic::PublishCondition;
         app.publish_condition(can_descriptor(), can);
+        app.publish_condition(fits_descriptor(), fits);
     }
 }
 

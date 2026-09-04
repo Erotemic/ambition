@@ -2512,9 +2512,17 @@ queue read as an execution authority for work already done.
   and still stands; it is the word *significant* that is on hold. ⛔ The fix is
   NOT a referee between the two authorities but their removal (one paired outcome
   per seed; derive both the direction and the test from it; pooled medians demoted
-  to descriptive columns) — designed and recorded in `engine/fighter-brain.md`,
-  **not landed**, because this box cannot build and its poison arms are exactly
-  what would have to be run.
+  to descriptive columns). ✔ **LANDED 2026-09-04 (`36dd9a248`), compiled and
+  poison-verified by the sibling session.** ⛔ **The verdicts above are still NOT
+  re-taken** — the instrument is trustworthy now and nothing has been re-measured
+  through it, which needs a machine with disk. ⇒ `3 vs 1` and `5 vs 3` stay
+  UNCONFIRMED until then.
+  ⚠ Landing it surfaced a second lesson worth more than the fix: with the paired
+  helpers written and every one of their arms green, re-wiring the row back to the
+  broken shape left **all tests passing** — each called the helper directly, and
+  the helper was never the broken part. ⭐ **A test that constructs its subject
+  cannot witness that subject being bypassed**, so the row's own decision had to
+  be extracted and asserted on.
   spread.** ⚠ So it is **one bad rung, not a broken progression** — the 40-second
   table's "every cell is significant" was an artifact of the short clock and is
   marked superseded in `fighter-brain.md`.

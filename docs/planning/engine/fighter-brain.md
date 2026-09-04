@@ -21,6 +21,14 @@ ever read. In the order they were found on 2026-09-04:
 | 4 | two STAND-IN fighters | George is the authored one | `--character`, now printed |
 | 5 | a **60-second** bout | a **480-second** match | reading `SMASH_TIME_LIMIT_TICKS` |
 
+⛔ **AND A SIXTH OF A DIFFERENT KIND, found later the same day: `--paired`
+cancelled the WRONG TERM.** It swaps the rungs, so a *fighter* comparison at one
+rung got a control aimed at something else — and **a control that cancels the
+wrong term is worse than no control, because it produces symmetric-looking output
+that reads as rigour.** ⇒ Not a wrong configuration; a correct instrument pointed
+at the wrong variable. Repaired by swapping the fighters when the rungs are equal,
+which immediately produced the George-vs-stand-in result below.
+
 ⇒ **#5 is the one that touches everything.** On a 60-second clock no bout could
 end, so stocks tied in every cell and **every verdict fell through to the damage
 tiebreak** — so any table dated before it says *"dealt more damage in the first

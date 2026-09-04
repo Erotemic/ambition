@@ -1444,7 +1444,15 @@ was right, and the measurement is the evidence for a call you made without it.
 
 ⭐ **The measurement, first, because it is not what anybody assumed.** The demo's
 select roster is three characters: *Robot v3* (`smash_duelist_a`), *Robot v2*
-(`smash_duelist_b`), and *George Booul*. `register_character` gives George's
+(`smash_duelist_b`), and *George Booul*.
+
+⭐ **The DENOMINATOR is checked, not assumed** — "two of three" is only alarming if
+three is the whole roster. `SMASH_CATALOG_RON` contains exactly those three
+character ids; the `duelist_l1` / `l3` / `l5` / `l6` / `l9` entries beside them are
+difficulty POLICY keys, not characters, and counting them would have inflated the
+roster to eight. ⇒ Checked because a sibling finding the same day turned on the
+opposite error: a *"five gate families unused"* row that nobody had counted the
+denominator for, where the world turned out to contain three gates in total. `register_character` gives George's
 authored table to George and `fighter_moveset()` to the other two — and counted
 off the contracts themselves, that stand-in table binds **18 verbs to George's
 26**.

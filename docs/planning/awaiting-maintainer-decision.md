@@ -932,6 +932,43 @@ object in a loaded room, which is a larger decision wearing this one's clothes.
 Related: 45 (entitlement versus occurrence) is the same family of question one
 level up — that one asks what an item IS, this one asks what a checkpoint owes.
 
+## A top platform and the respawn point want the same 60 pixels
+
+⛔ **Not a tuning mistake — a structural collision, and all three ways out are
+yours.** The fighter's reachable band and the respawn height overlap:
+
+| | rise above the stage |
+|---|---:|
+| single jump apex | **88.2px** |
+| air jump taken at the apex (the ceiling) | **148.3px** |
+| ⇒ a top platform must sit between them | 88.2 – 148.3 |
+| the respawn PLATFORM sits at | **130px** |
+
+`RESPAWN_HEIGHT_PX` is 160 and the platform hangs 30px under the returning body,
+so it lands at rise 130 — **inside the only band a reachable top platform can
+occupy.** `smash_platform_stage`'s top tier is at rise 120, which is why it ends
+up ten pixels under the respawn platforms; moving it anywhere else in the band
+buys at most ~35px of clearance, and a fighter is ~40px tall.
+
+⇒ **The three exits, none of which I should pick for you:**
+
+- **(a) Accept a tight stage.** Put the tier at rise ~95 for ~35px of clearance
+  and let a respawning fighter drop onto it. Genre-normal in spirit — Battlefield
+  has a platform under the respawn point — but tighter than Battlefield's.
+- **(b) Raise the respawn point.** `RESPAWN_HEIGHT_PX` 160 → ~220 opens the band.
+  ⚠ It is a SHARED constant: this changes how returning to the flat stage feels,
+  which is the stage every recorded measurement was taken on and the one you have
+  been playing.
+- **(c) Change the jump arc.** A higher `JUMP_SPEED` or lower `GRAVITY` widens the
+  band. ⛔ That is the fighter's feel, and it moves every spacing, recovery and
+  edgeguard result at once.
+
+⚠ **Why it is being asked rather than fixed:** the flat-vs-platforms measurement
+in [`engine/fighter-brain.md`](engine/fighter-brain.md) was taken on the rise-120
+geometry, and moving the tier by guesswork would leave a recorded number
+describing a stage that no longer exists while not actually resolving the
+collision. Answer this and the geometry and the re-run move together.
+
 ## Who owns Smash's CPU difficulty ladder — and the demo has been fighting the floor
 
 ⛔ **The fact first, because it is worse than the question.** The standalone smash

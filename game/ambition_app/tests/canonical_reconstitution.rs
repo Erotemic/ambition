@@ -1702,3 +1702,85 @@ fn a_replay_retracts_the_boss_defeat_a_gate_would_have_read() {
          open for a fight that was undone."
     );
 }
+
+/// ⛔⛔ ONE BOSS FAMILY OF ELEVEN RETRACTS ITS DEFEAT ON A REPLAY. This arm
+/// MEASURES the other ten rather than asserting a policy about them.
+///
+/// The shipped worlds author **eleven** `BossSpawn` placements — one in
+/// `intro`, nine in `sandbox`, one in `you_have_to_cut_the_rope`. Exactly one
+/// content system retracts a recorded defeat on `RoomReplayAdmitted`, and it is
+/// scoped by name to cut-rope placements. ⇒ For the other ten, a defeat
+/// recorded during an attempt survives the replay that undoes the attempt, and
+/// `boss.cleared` — published 2026-09-04 — goes on answering YES to every
+/// `gated_by` and `<<if boss_cleared(...)>>` for a fight the player is being
+/// asked to fight again.
+///
+/// ⚠ WHETHER THAT IS A DEFECT IS A RULING, NOT A TEST, which is why this
+/// reports instead of failing. A one-time story boss whose defeat SHOULD persist
+/// across a room retry is a legitimate design; so is the opposite. Filed as a
+/// maintainer decision. ⭐ What is NOT a matter of taste is that the two
+/// behaviours are currently decided by which content author happened to write a
+/// reset system, with nothing recording the choice — so this arm exists to make
+/// the split visible and dated rather than to force it.
+#[test]
+fn how_many_boss_families_retract_their_defeat_on_a_replay() {
+    use ambition_platformer2d::boss_encounter::BossConfig;
+    use ambition_platformer2d::persistence::save::AmbitionGameSave;
+    use ambition_platformer2d::platformer::authored_logic::{
+        AuthoredArg, ConditionCatalog, ConditionId, ConditionOutcome,
+    };
+
+    // One room per behaviour: the family that retracts, and a family that has no
+    // reset system of its own. Two points, not eleven, because each costs a room
+    // boot and the question here is whether the SPLIT is real.
+    const ROOMS: [&str; 2] = ["you_have_to_cut_the_rope", "mockingbird_arena"];
+
+    let mut report: Vec<String> = Vec::new();
+    for room in ROOMS {
+        let mut sim = fixed_60hz_room_sim(room);
+        let live = settle_after_construction(&mut sim, &BTreeSet::new());
+
+        let placements: Vec<String> = {
+            let mut q = sim.world_mut().query::<&BossConfig>();
+            let world = sim.world();
+            q.iter(world).map(|config| config.id.clone()).collect()
+        };
+        assert!(
+            !placements.is_empty(),
+            "`{room}` is in this list because it authors a boss; it authored none, \
+             so this arm is measuring nothing"
+        );
+
+        let id = ConditionId::parse("boss.cleared").expect("well-formed id");
+        for placement in placements {
+            {
+                let mut save = sim.world_mut().resource_mut::<AmbitionGameSave>();
+                save.data_mut().set_boss(
+                    placement.clone(),
+                    ambition_platformer2d::persistence::save_data::PersistedEncounterState::Cleared,
+                );
+            }
+            replay_the_room(&mut sim, &live);
+            let after = {
+                let world = sim.world_mut();
+                world.resource_scope::<ConditionCatalog, _>(|world, catalog| {
+                    catalog.evaluate(world, &id, &[AuthoredArg::Name(placement.clone())])
+                })
+            };
+            report.push(format!(
+                "{room}/{placement}: after a replay `boss.cleared` = {}",
+                match after {
+                    ConditionOutcome::Satisfied => "STILL CLEARED",
+                    ConditionOutcome::NotSatisfied(_) => "retracted",
+                    ConditionOutcome::Unanswerable(_) => "unanswerable",
+                }
+            ));
+        }
+    }
+    eprintln!("[boss-retraction-census]\n  {}", report.join("\n  "));
+    assert_eq!(
+        report.len(),
+        2,
+        "one line per authored boss placement across the two rooms: {report:#?}"
+    );
+}

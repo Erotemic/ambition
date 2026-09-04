@@ -1218,6 +1218,57 @@ mechanism would produce a gate that refuses everyone.
 `body.fits`, and anything later that reads the driven population), which is why
 it is filed against the population rather than against a condition.
 
+### 56. A replay retracts ONE boss family's defeat of eleven. Which is right? (2026-09-04)
+
+⭐⭐ **MEASURED, both directions, through the road a door reads**
+(`how_many_boss_families_retract_their_defeat_on_a_replay`,
+`canonical_reconstitution.rs`):
+
+```text
+you_have_to_cut_the_rope/BossSpawn-105805   after a replay  boss.cleared = retracted
+mockingbird_arena/BossSpawn-4308            after a replay  boss.cleared = STILL CLEARED
+```
+
+The shipped worlds author **eleven** `BossSpawn` placements — one in `intro`,
+nine in `sandbox`, one in `you_have_to_cut_the_rope`. **Exactly one content
+system retracts a recorded defeat on `RoomReplayAdmitted`**
+(`reset_cut_rope_attempt_on_replay`), and it is scoped by name to cut-rope
+placements. A room replay itself changes **zero** durable families — measured
+the same day — so nothing generic retracts anything.
+
+⇒ **For ten of eleven bosses, a defeat recorded during an attempt survives the
+replay that undoes the attempt.** The boss is rebuilt and refightable, the
+population census agrees perfectly, and `boss.cleared` — published 2026-09-04 —
+goes on answering YES to every `gated_by` and every `<<if boss_cleared(...)>>`.
+
+⛔ **THIS IS A RULING AND NOT A BUG REPORT, which is why the test reports rather
+than fails.** Both behaviours are defensible:
+- *retract* — the replay undoes the attempt, so a door opened by that fight
+  should shut again and the fight should count only once it is won for real;
+- *keep* — a one-time story boss whose defeat is world progress rather than
+  attempt state; retracting it would re-close a door the player earned, and a
+  replay is a retry of the ROOM, not a rollback of the world.
+
+⚠ **What is NOT a matter of taste: which behaviour a boss gets is currently
+decided by whether its content author happened to write a reset system, and
+nothing records the choice.** The ten are not a considered "keep"; they are an
+absence. ⇒ Whichever way this goes, the answer wants to be *expressible* — a
+boss says which it is — rather than implied by the presence of a system.
+
+⭐ **Cheapest shape if the answer is "retract by default":** the retraction is
+generic (the placement id and the persisted row are both generic); only the
+cut-rope system's NAME-SCOPING is specific. A default retraction plus an opt-out
+for story bosses inverts the current default without a registry.
+⚠ **Cost if the answer is "keep by default":** nothing changes in code, and the
+cut-rope system becomes the opt-in — but the ten silent keeps should still be
+made explicit, or the next boss inherits an unstated rule.
+
+ⓘ Related: this page's #45 (portal-gun entitlement) and
+[`construction-and-reconstitution.md`](engine/construction-and-reconstitution.md)'s
+open question *"which persistent occurrence states are terminal, resettable, or
+recoverable?"* — this is that question, arrived at from the boss end with a
+measurement attached.
+
 ### 55. The route-gate vocabulary went 1 family to 5. Should the WORLD grow to use it? (2026-09-04)
 
 `capability-progression-and-world-gating.md` records that five of seven gate

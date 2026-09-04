@@ -260,6 +260,32 @@ no hitstun seconds, no hang, no shots means no writes. A coverage win that also
 moved the existing numbers would be a regression in a win's clothing, and a
 rising fixture count would never have shown it.
 
+### The brain CAN see a drop-through platform, end to end (checked 2026-09-04)
+
+⚠ **Recorded because the opposite is the obvious guess and I made it twice
+before checking.** When the platformed stage landed, my first assumption was that
+the CPU could not perceive the tiers, on the grounds that `StageView` carries a
+single field — `bounds`, the room's AABB — and the smash brain's
+`TerrainAwareness` carries only `off_stage` and `nearest_ledge_distance`. Both
+true, and both irrelevant: the FIGHTER brain reads `WorldView`, which has
+`terrain: Vec<PerceivedSolid>`.
+
+The chain resolves, every hop:
+
+| hop | where |
+|---|---|
+| authored `BlockKind::OneWay` | `smash_platform_stage()` |
+| survives perception's filter | `perceived_solid_kind` maps `OneWay` → `SolidKind::OneWay` |
+| reaches the view | `WorldView.terrain`, filtered to the viewport |
+| is lowered back into a simulable block | `ambition_combat/src/brain/fighter/recovery.rs:130` — `SolidKind::OneWay => ae::Block::one_way("perceived", …)` |
+
+⇒ So a recovery rollout can plan *through* a drop-through tier rather than
+treating it as absent or as a wall. That is what makes a flat-versus-platforms
+comparison a measurement of DECISIONS and not only of physics accidents.
+
+⚠ It does not follow that the brain uses them WELL — that is what the comparison
+below is for — only that a difference, if one appears, has a road to travel down.
+
 ### ⛔⛔ EVERY LADDER NUMBER ABOVE MEASURED A FLATTENED LADDER (found 2026-09-04)
 
 **`ladder_rig` overwrote the authored per-level utility weights on every fighter,

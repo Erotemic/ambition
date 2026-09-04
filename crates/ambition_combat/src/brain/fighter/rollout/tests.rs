@@ -954,7 +954,14 @@ fn an_unmodelled_verb_is_still_unjudged_with_a_lens_attached() {
     let options = ambition_characters::brain::fighter::options::OptionSet {
         attacks: Vec::new(),
         movement: vec![ambition_characters::brain::fighter::options::MoveOption {
-            verb: ambition_characters::brain::fighter::options::MovementVerb::Shield,
+            // ⛔ `Dodge`, NOT `Shield`. This test named Shield when Shield was
+            // unmodelled; `movement_intent` models it now
+            // (`ShadowIntent::Hold`, 2026-09-04) and the assertions below kept
+            // passing for an unrelated reason — holding still on a platform is
+            // not suicidal — while their stated premise had become false. A
+            // guard whose premise is gone still goes green, which is why the
+            // verb has to be one the shadow genuinely refuses.
+            verb: ambition_characters::brain::fighter::options::MovementVerb::Dodge,
             score: 1.0,
         }],
     };
@@ -973,7 +980,7 @@ fn an_unmodelled_verb_is_still_unjudged_with_a_lens_attached() {
     .expect("rollouts are on and a hostile is in view");
     assert!(
         refined.suicidal_movement.is_empty(),
-        "`Shield` is unmodelled, so it is unjudged — a lens must not turn an \
+        "`Dodge` is unmodelled, so it is unjudged — a lens must not turn an \
          unjudged verb into a condemned one"
     );
     assert!(

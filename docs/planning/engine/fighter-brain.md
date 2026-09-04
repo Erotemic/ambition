@@ -1219,7 +1219,7 @@ Every other knob's production consumers sit outside the rollout gate:
 | `apm_cap` | `decision.rs`, `evaluation.rs` | ✔ |
 | `execution_noise` | `decision.rs` | ✔ |
 | `reach_fit`, `frame_advantage`, `expected_payoff`, `capture_value` | `options.rs` (the L2 scorer) | ✔ |
-| `kill_potential`, `stage_risk` | `options.rs` **and** `rollout.rs` | ✔ via L2 |
+| `kill_potential`, `stage_risk` | `options.rs` **and** `rollout.rs` | ✔ via L2 — but see below: reverting either changed NOTHING measurable at `5 vs 3`, so reachable in source is not the same as active in a matchup |
 | **`read_weight`** | `rollout.rs` only | ⛔ **dead** |
 
 ⇒ `options.rs` is the L2 scorer and runs at every rung, so the utility weights are
@@ -1266,10 +1266,43 @@ rungs: `frame_advantage` 0.30 → 0.50, `kill_potential` 0.10 → 0.30, `stage_r
 ⚠ **Stated at the strength the evidence supports.** The weight arm lands *within
 spread*, so what is established is that the weights are **necessary** for the
 inversion — remove them and the significant inversion goes away — not that
-rung 3's weights are better. Separating the four is four more arms and nobody
-should guess which one; `stage_risk` −0.30 → −0.50 is the one I would run first,
-because it is the only one that makes the fighter avoid something rather than
-want something.
+rung 3's weights are better.
+
+### ⭐⭐ NO SINGLE WEIGHT CARRIES IT — four more arms, and all four failed to fix it
+
+I said separating the four weights was four more arms and that I would start with
+`stage_risk`. I ran all four instead, each reverting **one** weight of rung 5 to
+rung 3's value, 24 seeds, same control:
+
+| arm | rung 5's weight reverted | dealt (hi : lo) | verdict |
+|---|---|---|---|
+| control | *(none)* | 196% : 231% | ⛔ LOWER outfights |
+| `frame_advantage` | 0.50 → 0.30 | 196% : 222% | ⛔ LOWER outfights |
+| `expected_payoff` | 0.30 → 0.10 | 196% : 221% | ⛔ LOWER outfights |
+| `kill_potential` | 0.30 → 0.10 | 196% : 231% | ⛔ **byte-identical to control** |
+| `stage_risk` | −0.50 → −0.30 | 196% : 231% | ⛔ **byte-identical to control** |
+| **all four** | *(the earlier arm)* | 212% : 204% | ✔ higher outfights *(within spread)* |
+
+⇒ **Every single-knob revert leaves the inversion significant. Only all four
+together remove it.** ⭐ So the inversion is a property of the weight VECTOR, not
+of any one weight — which is the answer I would not have guessed, and it is why
+running all four beat running the one I fancied.
+
+⚠ **And two of the four contributed nothing measurable at this cell**:
+`kill_potential` and `stage_risk` reverts came back byte-identical. ⚠⚠ That does
+NOT make them dead knobs in the sense `read_weight` is — both are read by
+`options.rs`, outside any rollout gate. The honest statement is narrower: **in
+this matchup they never changed a decision.** A plausible reason is that their
+terms are conditional on situations these fighters do not reach — nobody is ever
+kill-confirmed here (matches end 2:2 at 60s) and the two may simply never
+threaten a ledge. ⛔ Untested, and it would be tested by a scenario fixture that
+forces those situations rather than by another rung arm.
+
+⇒ **Running now**: `frame_advantage` + `expected_payoff` reverted TOGETHER — the
+two that individually moved the numbers — against `kill_potential` + `stage_risk`
+together, which should reproduce the control byte for byte if the reading above
+is right. ⭐ That second arm is a control on my own interpretation, not a search
+for an effect, and it is worth the run precisely because it can embarrass it.
 
 ⇒ **What this means for the ladder as a design.** Every knob in the shipped rungs
 moves monotonically toward "stronger", and one whole group of them makes the

@@ -24,7 +24,9 @@ in
 Use the focused plans for current work:
 
 - [`actor-monolith-decomposition.md`](actor-monolith-decomposition.md) — the
-  measured residual actor-kernel frontier;
+  measured residual actor-kernel frontier, with
+  [`actor-monolith-work-frontier.md`](actor-monolith-work-frontier.md) as its
+  bounded executable packet for the carve that is READY now;
 - [`capability-and-runtime-composition.md`](capability-and-runtime-composition.md)
   — product/capability dependency closure;
 - [`public-sdk-1.0.md`](public-sdk-1.0.md) — consumer-facing semantic API pressure.

@@ -1908,6 +1908,12 @@ OPTIONAL dep + feature, never used:
   kernel, moves registration/tests with the domain, and improves capability or
   compile/test isolation. Do not carve by LOC and do not promise frame-time
   improvement without a measurement.
+  ⇒ **THE EXECUTABLE HANDOFF IS
+  [`engine/actor-monolith-work-frontier.md`](engine/actor-monolith-work-frontier.md).**
+  When D33 is selected, re-measure HEAD with
+  `python3 scripts/measure_kernel_module_graph.py --edges 20` and take the READY
+  packet from that page. The deeper evidence and design stay in
+  [`engine/actor-monolith-decomposition.md`](engine/actor-monolith-decomposition.md).
 
   ⭐ **WHAT EVERY CARVE OWES AFTER IT LANDS (added 2026-09-02, from three rows
   that were stale within a week of the merge that closed them).** None of this is

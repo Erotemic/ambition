@@ -1,6 +1,12 @@
 # Actor-monolith decomposition - executable work frontier
 
 > **Verified against `06b25ee8772a7c5bdf934dce5d49a692ebc2f37b` (2026-09-03).**
+> ⭐ **Receipt re-measured 2026-09-04 on the registration commit and the READY
+> packet is UNCHANGED:** `features -> construction : 30` / `construction ->
+> features : 15`, the same strongest mutual edge, and `grep -rn "crate::features"
+> construction/` still returns hits. The production line total has drifted upward
+> by a new leaf module (`body_conditions`, no out-edges), which does not touch
+> the 14-module cycle — a receipt, not a score.
 
 **State:** ACTIVE TASK BRIDGE. This page exists to make D33 resumable by an
 agent that should not have to reconstruct the whole decomposition history before

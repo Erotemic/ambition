@@ -1923,6 +1923,46 @@ above shows the shipped ladder disables the rollout on all nine rows. The Shield
 model changes nothing a player meets. That is an argument for keeping it (it
 cannot regress the game) and against prioritising `Dodge`.
 
+### ⛔⛔ THE SHIPPED FIGHTER THROWS ONE MOVE 81% OF THE TIME, AND NEVER A SMASH OR A TILT
+
+A move census, not a damage number — `smash_tool capture-probe`, George vs
+George, 120 seconds, run twice: once on the engine floor and once with
+`--ladder` pointing at the shipped rows.
+
+| | floor | **shipped ladder** |
+|---|---:|---:|
+| `george_booul_dash_attack` starts | 132 / ~158 (**84%**) | 98 / ~121 (**81%**) |
+| distinct moves used | 12 of 28 authored | 12 of 28 |
+
+⛔ **Sixteen of George's twenty-eight authored moves never started once**, and the
+list is not a tail of oddities: **all three smash attacks** (`smash_forward`,
+`smash_up`, `smash_down`), **all three tilts** (`tilt_forward`, `tilt_up`,
+`tilt_down`), three of five aerials, three of four throws, the standing grab and
+the taunt.
+
+⇒ **And it is NOT a floor artifact.** The shipped ladder gives the same picture —
+81% against 84% — so this is the fighter a player meets, not an instrument
+configuration. ⭐ That is the first finding on this page that survives the
+floor/shipped distinction without needing it.
+
+⚠ **THE OBVIOUS CAUSE IS REFUTED.** My first hypothesis was the `frame_advantage`
+mechanism: high weight on a signed feature → prefer the fastest move. **The dash
+attack's startup is 0.15s; the jab's is 0.05 and the tilts are 0.06–0.07.** It is
+not the fastest thing George owns, so "the scorer prefers speed" does not explain
+it.
+
+⇒ **Named next step rather than a guess.** `move_for_flat_verb(ATTACK, grounded,
+running)` resolves a plain attack press to the DASH attack when the body is
+running — so an 81% share may be a statement about how often the CPU is *running
+when it attacks*, which is an approach-behaviour question and not a scoring one.
+⚠ Untested. The arm that separates them is a per-decision trace of the movement
+verb chosen immediately before each attack, which `AMBITION_FIGHTER_TRACE=1`
+already emits.
+
+⚠ **Bounded**: CPU-vs-CPU, default stage, the roster's default rungs, one 120s
+sample per arm. ⇒ The 81/84% split is stable across two configurations, but a
+distinct-move count from one sample is a floor on variety, not a ceiling.
+
 ### ⭐⭐⭐ GEORGE SIGNIFICANTLY OUTFIGHTS A STAND-IN AT THE SAME RUNG
 
 The measurement the rig could not take until `--paired` learned to swap fighters.

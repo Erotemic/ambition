@@ -8,6 +8,8 @@
 use std::collections::HashMap;
 
 use ambition_platformer2d::characters::smash_capture::SmashHoldState;
+
+
 use ambition_platformer2d::combat::capture::{CaptureAttemptRequested, CapturedBy};
 
 /// Capture attempts requested by the adapter, distinguished from accepted holds.
@@ -71,11 +73,68 @@ pub struct CaptureProbeArgs {
     /// hands.
     #[arg(long)]
     pub force: bool,
+    /// Which fighter takes the first seat (default: the demo's stand-in).
+    ///
+    /// ⛔ **A MOVE CENSUS IS ONLY ABOUT THE FIGHTERS IT RAN.** The defaults are
+    /// the two STAND-INS — both carry `fighter_moveset()`, 18 verbs against
+    /// George's 26 — so probing them and concluding anything about the demo's
+    /// authored fighter repeats the error `ladder_rig` made five separate ways
+    /// on 2026-09-04: the instrument's subject differed from the shipped game's,
+    /// and only the instrument was ever read.
+    #[arg(long, value_name = "ID")]
+    pub character: Option<String>,
+    /// Which fighter takes the second seat (default: the demo's other stand-in).
+    #[arg(long, value_name = "ID")]
+    pub opponent: Option<String>,
+    /// Load an authored difficulty ladder from a `.ron` and install it.
+    ///
+    /// ⛔ **WITHOUT THIS THE PROBE MEASURES THE ENGINE FLOOR**, not the shipped
+    /// game: `build_demo_app` installs no `AuthoredFighterLadder`, so every rung
+    /// carries `UtilityWeights::default()` — which IS the level-9 row. ⇒ A move
+    /// census taken there describes a fighter no player meets, which is the
+    /// error `ladder_rig` made five separate ways on 2026-09-04.
+    #[arg(long, value_name = "PATH")]
+    pub ladder: Option<String>,
 }
 
 pub fn run(args: CaptureProbeArgs) {
     use bevy::prelude::IntoScheduleConfigs as _;
     let seconds: f32 = args.seconds;
+    // ⭐ Resolved once and REPORTED below, so a census names its own subject.
+    let character = args
+        .character
+        .clone()
+        .unwrap_or_else(|| ambition_demo_smash::SMASH_CHARACTER_ID.to_string());
+    let opponent = args
+        .opponent
+        .clone()
+        .unwrap_or_else(|| ambition_demo_smash::SMASH_OPPONENT_ID.to_string());
+    println!("[capture_probe] fighters: `{character}` vs `{opponent}`");
+    // ⛔ A parse failure EXITS rather than falling back to the floor: a run whose
+    // header claims the authored rows while its fighters carry the floor's is the
+    // exact failure this flag exists to remove.
+    let authored_ladder = args.ladder.as_deref().map(|path| {
+        let text = std::fs::read_to_string(path).unwrap_or_else(|err| {
+            eprintln!("[capture_probe] --ladder {path}: {err}");
+            std::process::exit(2);
+        });
+        let ladder =
+            ambition_platformer2d::characters::brain::fighter::FighterBrainLadder::from_ron(&text)
+                .unwrap_or_else(|err| {
+                    eprintln!("[capture_probe] --ladder {path} did not parse: {err}");
+                    std::process::exit(2);
+                });
+        ambition_platformer2d::characters::brain::fighter::AuthoredFighterLadder(ladder)
+    });
+    println!(
+        "[capture_probe] ladder: {}",
+        if authored_ladder.is_some() {
+            "the AUTHORED rows"
+        } else {
+            "⛔ the ENGINE FLOOR — every rung carries UtilityWeights::default(), \
+             which IS the level-9 row. NOT the shipped fighter."
+        }
+    );
     let ticks = (seconds * 60.0) as u32;
     // `--force`: press Grab FOR them, when a person would. The CPU's own
     // timing is a policy question; whether the live game can produce a hold at
@@ -86,6 +145,13 @@ pub fn run(args: CaptureProbeArgs) {
     let force = args.force;
 
     let mut app = crate::build_demo_app();
+    // ⛔ BEFORE the warm-up, because `project_authored_fighter_ladder` applies the
+    // rows on `Added<Brain>`: installed after the fighters exist it reaches
+    // nobody, and the run would measure the floor under a header claiming the
+    // authored rows.
+    if let Some(ladder) = authored_ladder {
+        app.world_mut().insert_resource(ladder);
+    }
     app.init_resource::<AttemptsSeen>();
     app.add_systems(bevy::prelude::Update, count_attempts);
     app.init_resource::<Forced>();
@@ -112,9 +178,14 @@ pub fn run(args: CaptureProbeArgs) {
     // every locked seat a HUMAN, and two humans with no controllers stand still
     // forever. The same note `match_diagram` carries, for the same reason.
     app.world_mut()
+        // ⭐ WHICH FIGHTERS, because a move census is only about the fighters it
+        // ran. The default pair are the STAND-INS — both carry
+        // `fighter_moveset()` — so a probe of them says nothing about George's
+        // 26 authored verbs. ⇒ `--character` / `--opponent` name them, the same
+        // flags `ladder_rig` takes, and the header below says which ran.
         .insert_resource(ambition_demo_smash::smash_roster([
-            ambition_demo_smash::SMASH_CHARACTER_ID,
-            ambition_demo_smash::SMASH_OPPONENT_ID,
+            character.clone(),
+            opponent.clone(),
         ]));
     app.world_mut()
         .write_message(ambition_platformer2d::game_shell::ShellCommand::GoTo(

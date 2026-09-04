@@ -231,6 +231,63 @@ impl SimIdCounter {
 mod tests {
     use super::*;
 
+    /// ⭐⭐ A RESIMULATED TICK RE-MINTS THE SAME ID — the half of that claim that
+    /// can be proved without a rollback session, proved.
+    ///
+    /// ⛔ **THE CLAIM HAS TWO LEGS AND THIS TEST IS ONE OF THEM.** When
+    /// `PortalFireIntent` gained a minted `SimId` (2026-09-04) the argument was:
+    /// the counter lives on the firer and is rollback state, so a rewind restores
+    /// it, so the re-simulation mints the same number. ⇒ Leg (a) is *minting is a
+    /// pure function of the counter's value* — that is this test. Leg (b) is *the
+    /// rewind actually restores the counter* — that is
+    /// `rollback_component_canonical::<SimIdCounter>("body.sim_id_counter")` in
+    /// `rollback_registration.rs`, and it is asserted by the schema baseline
+    /// rather than here.
+    ///
+    /// ⚠ Written because the author of that change flagged the whole claim as
+    /// ARGUED and not measured, and half of it is measurable in four lines. The
+    /// remaining half is now a named registration rather than a piece of
+    /// reasoning, which is a better place for it to sit.
+    #[test]
+    fn a_resimulated_tick_re_mints_the_same_id() {
+        let firer = SimId::player_slot(0);
+
+        // The tick as it first ran.
+        let mut counter = SimIdCounter(7);
+        let first = SimId::spawned(&firer, counter.next());
+
+        // The rewind: the snapshot held the counter's value from BEFORE the
+        // tick, which is exactly what makes a re-simulation a re-simulation.
+        let mut restored = SimIdCounter(7);
+        let again = SimId::spawned(&firer, restored.next());
+        assert_eq!(
+            first, again,
+            "a re-simulated tick minted a DIFFERENT id from the same counter \
+             value — the shot would rewind into a different identity and the \
+             rollback would diverge"
+        );
+
+        // ⛔ ANTI-VACUITY. Without the restore the id must differ, or the
+        // assertion above is satisfied by `spawned` ignoring the sequence and
+        // would pass for a function that returns a constant.
+        let not_restored = SimId::spawned(&firer, counter.next());
+        assert_ne!(
+            first, not_restored,
+            "two mints from an ADVANCING counter produced the same id, so the \
+             sequence number is not reaching the id at all"
+        );
+
+        // ⭐ And the spawner is part of it: two bodies at the same sequence must
+        // not collide, which is the reason the counter is per-firer rather than
+        // global.
+        let other = SimId::player_slot(1);
+        assert_ne!(
+            first,
+            SimId::spawned(&other, SimIdCounter(7).next()),
+            "two different firers at the same sequence minted one id"
+        );
+    }
+
     #[test]
     fn the_constructors_never_collide() {
         assert_ne!(SimId::placement("0"), SimId::player_slot(0));

@@ -187,6 +187,44 @@ one"*), and the crate it credits, `ambition_characters`, has **no `systems.rs`
 anywhere in its source**. The ambiguity report is what surfaced it. Passed to
 the session that owns the file.
 
+## ⚠ THREE MUSIC-RENDERER TESTS NEED AN UNDECLARED DEPENDENCY (measured 2026-09-04)
+
+⭐ **Jon's standing ask is that a fresh clone reaches a runnable game.** Checking
+the other standing ask — no General-MIDI stand-ins — turned this up beside it.
+
+⇒ **`tools/ambition_music_renderer` suite: 252 passed, 1 skipped, 3 FAILED.** All
+three fail the same way: an assertion that a plot file exists
+(`plots/stem_loudness_timeline.jpg`, and the spectrogram equivalent).
+
+⛔ **The cause is `matplotlib`, which the package does not declare.**
+`tools/ambition_music_renderer/pyproject.toml` lists twelve dependencies and two
+`optional-dependencies` (`pedalboard`, `dawdreamer`) — **`matplotlib` is in
+neither**. `import matplotlib` in that venv is `ModuleNotFoundError`. ⇒ So a
+machine set up exactly as `python_tools.sh` intends gets a renderer whose own
+suite is three red, and the three name a missing FILE rather than a missing
+module, which is why nobody has traced it to a dependency.
+
+✔ **What is NOT affected, checked separately because it is the ask that matters:**
+the General-MIDI guard family is fully green — **38 passed, 1 skipped** across
+`test_refuses_the_general_midi_fallback.py`,
+`test_preflight_refuses_a_missing_named_library.py`, `test_bulk_render_preflight.py`
+and the MIDI marker tests. And this machine's instrument environment is present
+(2,351 sfz files, `sfizz_render` installed). ⇒ The fallback ask is guarded and
+holding.
+
+⛔ **NOT FIXED HERE, deliberately: `ambition_music_renderer` is a SUBMODULE**, so
+declaring the dependency is a commit in another repository, and the parent's
+recorded commit already differs from that submodule's HEAD. ⚠ The submodule's own
+working tree is clean, so this is a committed state and not somebody's scratch
+edit.
+
+⇒ **Reproduce:**
+`tools/ambition_music_renderer/.venv/bin/python -m pytest tools/ambition_music_renderer/tests/ -q`
+
+⇒ **Not decided:** whether `matplotlib` becomes a real dependency (it is imported
+on a path three tests assert) or the three tests learn to skip without it. The
+second is cheaper; the first is honest if those plots are part of the artefact.
+
 ## ⛔ AN IDENTIFIER THAT DOES NOT RESOLVE IS USUALLY HISTORY, NOT ROT
 
 Two sweeps, both of which looked like rich seams and both of which were almost

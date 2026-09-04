@@ -171,9 +171,24 @@ save / load       a_weapon_in_your_hands_is_still_in_your_hands_after_a_load
 replay            canonical_reconstitution.rs:716
 ```
 
-⇒ **What is unmeasured is the POPULATION those arms run on** — the authored
-axe / gun-sword / grapple and the menu-minted javelin — and that is the residual
-work here. Do not re-derive the operations; widen the subjects.
+⇒ **What is unmeasured is the POPULATION those arms run on**, and re-measuring
+2026-09-04 says exactly which axis matters. It is not "more items". Every one of
+the five arms runs on a spec the ITEM CATALOG knows: the authored axe and
+gun-sword, the menu-minted javelin, and — checked, because it looked like the
+exception — the room-transition arm's subject, which is `blink_run_pickup ->
+blink`, a row in BOTH registries and therefore dual-resolvable.
+⛔ **`held_spec_by_id` consults two registries and its own comment says
+"consulting one alone silently loses half the items". No arm had ever run on a
+spec only the SECOND one knows** — the boss gauntlets (`volley`, `meteor`,
+`beam`, `shockwave`, `vortex`, `sentry`, `dive`) are `HELD_ITEMS` rows with no
+`Item` row at all, so `Item::from_held_item_id` answers `None` for every one.
+✔ One operation covers that path now:
+`a_boss_gauntlet_banked_at_a_checkpoint_returns_to_the_hand_that_banked_it`
+restores a `volley` through `held_spec_by_id`, so a regression that dropped the
+brain-registry arm would redden it.
+⇒ **The residual is the OTHER FOUR operations on a catalog-unknown spec** —
+pickup identity, room transition, drop, save/load. Widen by REGISTRY, not by
+count: a sixth catalog item adds nothing the first five did not already say.
 
 ✔ **AND RE-MEASURING FOUND ONE REAL DEFECT, FIXED 2026-09-04: a death drop had
 no identity, so the same object was an occurrence or not depending on how it was

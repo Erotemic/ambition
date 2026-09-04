@@ -1673,6 +1673,37 @@ against rung 3's 98.7s** — it does not live longer, and it deals 300% against
 360%. ⇒ Two independent signals, both against rung 5. A patient-but-stronger rung
 5 would have to beat rung 3 on at least one of them and it beats it on neither.
 
+### ✔ RE-RUN AT THE SHIPPED CLOCK — the full scenario matrix, and it confirms
+
+The nine fixtures × four rung cells, **shipped ladder, shipped 480s clock**,
+paired, 8 seeds. This replaces the 60-second scenario runs everywhere on this page:
+
+| cell | fixtures favouring the LOWER rung | individually significant |
+|---|---|---|
+| `3 vs 1` | **1 / 9** | 1 (`juggle_escape`, *higher*) |
+| `5 vs 3` | ⛔ **9 / 9** | 1 (`ledge_trap`, *LOWER*) |
+| `6 vs 5` | 6 / 9 | 0 |
+| `9 vs 6` | 4 / 9 | 0 |
+
+⇒ **Every rung-matrix conclusion survives the clock fix, across every situation:**
+`3 vs 1` orders correctly in 8 of 9 fixtures, `5 vs 3` is **unanimously inverted**,
+and `6 vs 5` and `9 vs 6` are unresolved — 6/9 and 4/9 is what no signal looks
+like. ⭐ `9 vs 6` splitting almost exactly in half is the cleanest statement of
+"undetermined" this page has.
+
+⚠ **This is a confirmatory result and it was predicted before the run.** I said so
+in advance and am reporting it at the same volume I would have reported a
+reversal, because a result you have pre-committed to reporting cannot be quietly
+dropped for being boring. ⇒ What it buys is not novelty: the 60-second scenario
+tables are no longer the only evidence for the page's central finding, and the one
+worry that mattered — *a null taken through an instrument that could not resolve
+its bouts* — no longer applies to any of these cells.
+
+⚠ **What it does NOT rescue is the Shield comparison**, which is a different arm
+and is withdrawn above for a reason a longer clock cannot fix: the shipped ladder
+disables the rollout the Shield model serves, so there is nothing to measure on
+any clock.
+
 ### ⭐⭐ AND IT IS NOT SITUATIONAL: nine of nine scenario fixtures agree
 
 The nine scenario fixtures, `5 vs 3`, at the shipped clock, 8 seeds paired:

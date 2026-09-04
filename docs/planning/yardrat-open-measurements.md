@@ -250,25 +250,30 @@ the same tick."* ⇒ That requires the shot entity to be VISIBLE to
 `portal_projectile_step` on the tick it was fired, which the test's `.chain()`
 guarantees and production's `.after()` may not.
 
-⇒ **Two possibilities and I have not separated them:**
-1. Something else in the sim schedule flushes between those systems, production
-   behaves like the test, and the guard defends a reachable state.
-2. It does not, a shot is always stepped on the tick AFTER it is fired, and the
-   guard defends a state the shipped scheduling cannot produce — harmless, but a
-   test whose scenario the game cannot reach.
+✔✔ **ANSWERED BY EXPERIMENT, and the answer is (1).** I switched the harness from
+`.chain()` to production's exact `.after(portal_fire_system)` and re-ran: **the
+test still passes.** ⇒ The two shots still resolve on the tick they are fired, so
+a sync point IS reached between the two systems — Bevy inserts one automatically
+when a `Commands` writer is ordered before a reader of the affected data. ⭐ The
+guard defends a reachable state and the harness is NOT stricter than production.
 
-⭐ **Either answer is useful.** (1) closes it. (2) means the harness is stricter
-than production, which is this repo's config-divergence class in test-harness
-form — and it would also mean a portal shot always survives to a step boundary,
-which bears directly on S4's *"an anchor spawned AND despawned inside one
-`sim.step()` is invisible to a between-steps census"* residual: portal shots would
-NOT be an instance of it.
+⛔⛔ **AND IT INVERTS WHAT I EXPECTED ON THE OTHER SIDE, which is why it was worth
+running.** Because a shot fired within one step's travel of a wall spawns AND
+despawns inside a single `sim.step()`, **portal shots ARE an instance of S4's
+residual** (*"an anchor spawned and despawned inside one step is invisible to a
+between-steps census"*), not an exception to it. ⇒ Such a shot genuinely exists at
+an internal system boundary — so save/load inside that step can see it — while a
+census walking the world BETWEEN steps never can.
 
-⇒ **Reproduce:** print the `PortalShot` entity count from a system ordered after
-`portal_projectile_step` in the real plugin, firing 25px from a wall. ⚠ Do NOT
-answer it by reading the schedule — I got as far as "no `.chain()` on the sets"
-and that is not the same as "no sync point", which is exactly the reasoning that
-has been wrong three times on this page today.
+⚠ **Which makes it the sharpest known example of that residual**, because it is
+not hypothetical: it needs only a player firing within ~32px of a wall, and that
+entity carries a minted `SimId` precisely so that it rewinds correctly.
+
+⭐ **Method note.** I wrote "two possibilities and I have not separated them" and
+was about to leave it there. Separating them cost one edit and one test run, and
+the result reversed my expectation on the second half. ⇒ The reproduction I
+recorded — *do not answer this by reading the schedule* — was right, and I nearly
+took my own bad advice by filing the question instead of answering it.
 
 ## ⛔ AN IDENTIFIER THAT DOES NOT RESOLVE IS USUALLY HISTORY, NOT ROT
 

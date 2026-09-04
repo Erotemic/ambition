@@ -468,6 +468,30 @@ cargo test -p ambition_app --test app_it report_the_smash_kit -- --nocapture
 | 3 (sequential) | `mold: error: undefined symbol: <bevy_ggrs::…>::Rollback` | a *named* symbol — the rlib attempt 1 truncated was still cached, and cargo's fingerprint called it fresh |
 | 4 (after `touch`ing that crate's `lib.rs`) | `mold: failed to write to an output file. Disk full?` | the rlib rebuilt clean; the final `libambition_app.so` is what cannot be written |
 
+⛔⛔⛔ **BEFORE ANY OF THIS: `AGENTS.md` ALREADY DOCUMENTED IT, AND I DID NOT READ
+IT.** Its instruction is unambiguous — *"RUN `scripts/setup/target_bindmount.sh
+--status` BEFORE YOUR FIRST BUILD, EVERY SESSION, AND ACT ON WHAT IT SAYS"* — and
+the paragraph under it states, for **this VM by name**: *"on a VM where the bind
+target lives on the same device as `/` (the calculex VM: `/dev/vda1`), a full
+`target/` is a full ROOT. The symptom is not a cargo error: the harness's own task
+files start failing with `ENOSPC` and command output is lost mid-session, which
+looks like tooling breakage."* It even names the biggest consumer
+(`target/debug/incremental`, 156G in a previous instance) and says to run
+`df -h /tmp` before starting a second profile.
+
+⇒ **So the hours spent diagnosing this were spent re-deriving the project's own
+instructions.** ⚠ The lesson is not "read the docs" in the abstract: it is that a
+session's FIRST build is the moment the instruction exists for, and I invoked
+`cargo` directly before ever consulting the file that `CLAUDE.md` says to treat as
+`CLAUDE.md`. ⭐ `run_tests.sh` already calls `target_bindmount.sh --check`, so the
+lane I did not use would have refused and told me why.
+
+ⓘ **What is genuinely additive below**, and the reason this entry survives rather
+than being deleted: the bind is PRESENT here (`findmnt` confirms it), so this is
+NOT the absent-bind case `AGENTS.md` describes — the space is really in use — and
+the `df .` versus `df target` distinction is stated here in a form the instruction
+does not give.
+
 ⭐⭐ **THE MECHANISM, PINNED 2026-09-04 LATE — and it is sharper than "the disk is
 full".** `target/` is **BIND-MOUNTED FROM A DIFFERENT FILESYSTEM than the repo it
 sits in**:

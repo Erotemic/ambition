@@ -1126,8 +1126,10 @@ cannot regress the game) and against prioritising `Dodge`.
 
 ### ⭐⭐ THE CLASS BEHIND THREE SEPARATE FINDINGS: the rig reads its config from anywhere but the shipped file
 
-Three findings in this document have the same shape, and it is worth naming
-because a fourth is otherwise inevitable.
+Four findings in this document have the same shape, and it is worth naming
+because a fifth is otherwise inevitable. ⚠ The fourth arrived while this section
+was being written, which is the strongest evidence that naming the class was
+worth doing.
 
 1. **The flattened ladder** — the rig overrode every rung with one weight set, so
    36 cells were byte-identical and the "ladder" it measured had one rung.
@@ -1137,8 +1139,20 @@ because a fourth is otherwise inevitable.
 3. **The rollout** — that same floor switches the L3 search ON at level 6, and the
    shipped ladder switches it OFF on all nine rows.
 
+4. **The fighters themselves** — found the same day, and it is the widest of the
+   four. `ladder_rig`'s `fighters()` defaults to `smash_duelist_a` vs
+   `smash_duelist_b`. ⛔ **Neither is George.** `register_character` hands George's
+   authored table to `smash_george_booul` and `fighter_moveset()` to everybody
+   else, and that stand-in contract bound **18 verbs to George's 26** — no
+   `special`, no `special_forward`/`_up`/`_down`, no `attack_forward`, no
+   `attack_dash`, no `taunt`. ⇒ **Every ladder number in this document was taken
+   between two fighters with a dead special button, no forward tilt and no dash
+   attack.** ⚠ And this one is not only an instrument defect: the demo's select
+   roster is three characters, **two of them stand-ins**, and the catalog default
+   is one of the two — so the dead button was a player's as well as the rig's.
+
 ⇒ **The class: the instrument took its configuration from a DIFFERENT SOURCE than
-the shipped game, and only the instrument was ever read.** Every one of the three
+the shipped game, and only the instrument was ever read.** Every one of the four
 was invisible from inside the rig's own output, because the rig faithfully
 reported the thing it was actually running. Nothing was broken; the wrong subject
 was measured, confidently, for as long as anyone looked.
@@ -1161,6 +1175,13 @@ cannot be a run that measured something else. ⚠ **That closes the reporting ho
 not the class.** The rig still reads the stage, the fixture roster and the seat
 assignment from its own code; any of those can diverge from the shipped game the
 same way, and none of them prints a source path yet.
+
+⇒ **And the fourth instance shows the rule needs a second half.** `--character`
+and `--opponent` already existed, so the fighter WAS nameable — the run just
+defaulted, and the header never said to what. ⭐ So: *print every input the run
+resolved, including the ones nobody passed.* A default that appears in the output
+is a default somebody can notice is wrong; a default that appears only in the
+source is the one that survives four investigations.
 
 ## Relationship to navigation/recovery architecture
 

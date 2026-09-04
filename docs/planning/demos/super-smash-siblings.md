@@ -235,9 +235,11 @@ tuning **present** through the rig and probe tools.
 ⇒ **Checkpoint 6** now points at a finished measurement rather than a feeling:
 the primitive table's ten shipped rows are what the brain can use, and its named
 partials (`P02` fixed reactions and set knockback, `P10`'s unpublished tech
-result, `P11`'s 2-of-6 capture roads) are exactly what it cannot answer yet. The
-ladder rig cannot currently rank skill either, and its reason changed twice on
-2026-09-04 — see [`engine/fighter-brain.md`](../engine/fighter-brain.md).
+result, `P11`'s 2-of-6 capture roads) are exactly what it cannot answer yet. ⚠ The claim that *"the
+ladder rig cannot currently rank skill either"* was true when written and is no
+longer: at the shipped clock and the shipped rows it ranks `3 vs 1` and `5 vs 3`
+significantly. See [`engine/fighter-brain.md`](../engine/fighter-brain.md) and
+the supersession note below.
 
 ⛔ **In short, so nobody quotes a superseded number from here — this one moved
 three times in a day.** The original *"35 of 36 verdicts inside the seed spread"*
@@ -248,20 +250,44 @@ the SEAT.** Under `--paired` — each seed run twice with the rungs swapped betw
 seats — it becomes **16 : 19**, 14 of 36 cells change verdict, and the sign test
 goes from suggestive to nothing.
 
-⭐ **What survives is one rung, and it is a real defect.** `6 vs 5` is **9 of 9**
-fixtures toward the lower fighter in BOTH designs, while its neighbour `5 vs 3`
-flipped outright. `6 vs 5` is exactly rollout-on against rollout-off — the engine
-floor switches the L3 search on at level 6 — and a rollout fighter was measured
-selecting `Dodge` and `Shield` **zero times in 662 decisions**, because
-`pick_movement`'s unjudged tier is never reached. ⇒ The fighter's defensive
-vocabulary switches off at the rung the ladder calls better. Half fixed
-(`Shield` is modelled now); `Dodge` needs real motion in the shadow.
+⛔⛔ **AND IT MOVED A FOURTH AND FIFTH TIME LATER THE SAME DAY. EVERYTHING ABOVE
+THIS LINE IS SUPERSEDED — the paragraph that follows is the current reading.**
 
-⛔⛔ **And all of it measured the ENGINE FLOOR, not the shipped ladder** — the demo
-app installs no `AuthoredFighterLadder`, so every rung carries
-`UtilityWeights::default()`, which *is* the level-9 row. ⇒ "the brain can answer
-these mechanics" now has a scoreboard and one named defect, but the scoreboard
-still has not been pointed at the fighter a player actually fights.
+⚠ The `6 vs 5` finding above was real about the ENGINE FLOOR and is **not** the
+defect. Two things were wrong with the instrument underneath it: the rig read
+`FighterBrainProfile::for_level` instead of the shipped
+`fighter_brain_ladder.ron`, and its bouts ran **60 seconds against a shipped match
+of 480**. ⇒ On a clock that short no bout can END, so stocks tie in every cell and
+every verdict falls through to the damage tiebreak. Both are fixed (`--ladder
+PATH`, and the clock now reads `SMASH_TIME_LIMIT_TICKS`).
+
+⭐⭐ **THE CURRENT PICTURE — the shipped rows, the shipped clock, bouts that
+resolve.** Replicated at 12 and 28 seeds with every verdict identical:
+
+| cell | verdict |
+|---|---|
+| 3 vs 1 | ✔ higher outfights |
+| **5 vs 3** | ⛔ **LOWER outfights — the one established defect** |
+| 6 vs 5 | *(within spread)* |
+| 9 vs 6 | *(within spread)* |
+
+⇒ **`6 vs 5` is NOT the bad rung; `5 vs 3` is.** The rollout story does not apply
+to it either — the shipped ladder sets `rollout_depth: 0` on all nine rows, so no
+player has ever met the L3 search or the `Dodge`/`Shield` suppression. ⭐ The cause
+is `frame_advantage` + `expected_payoff` jointly, isolated byte-for-byte, and
+holding that pair flat above rung 3 removes the inversion without flattening the
+rung.
+
+⭐ **So the scoreboard HAS now been pointed at the fighter a player fights**, which
+is what the sentence here used to say it had not. See
+[`engine/fighter-brain.md`](../engine/fighter-brain.md) for the tables and
+[`../awaiting-maintainer-decision.md`](../awaiting-maintainer-decision.md) for
+the design question the measurement cannot answer.
+
+⚠ **Five supersessions in one day is the story worth keeping**, and it is why the
+superseded text stays above rather than being deleted: every one was the same
+class — the instrument's configuration differed from the shipped game's, and only
+the instrument was ever read.
 
 
 1. **Core fight:** attacks, shield, grab, dodge, movement, launch, recovery,

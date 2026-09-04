@@ -128,7 +128,7 @@ worth the number, and the default-cell result already answers the question.
 ✔ **BEHAVIOUR IS UNCHANGED, verified rather than assumed.** The old
 `ladder_rig` binary was still on disk, so both were run with the same flags:
 `smash_tool ladder-rig --sweep-below --seeds 1` and
-`ladder_rig --sweep-below --seeds 1` produce **byte-identical** reports, all
+the retired binary run with the same flags produce **byte-identical** reports, all
 seven `[ladder_rig]` lines. Exit codes checked without a pipe in the way
 (`$?` after `head` is head's): `--help` 0, unknown subcommand 2, and
 `match-shots` without its features 2 with the rebuild line.
@@ -281,7 +281,7 @@ separate times.** `ladder_rig` alone calls `std::env::args()` in eight places �
 ## Acceptance
 
 * `smash_tool <sub>` reproduces each old binary's output byte-for-byte on the
-  documented invocations — check `ladder_rig --sweep-below --seeds 1` against
+  documented invocations — check the sweep-below arm at one seed against
   its recorded output in
   [`engine/fighter-brain.md`](engine/fighter-brain.md) first, since that one is
   quoted in prose and therefore checkable.

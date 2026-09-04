@@ -65,7 +65,10 @@ fact. F1 asked for a decision trace rather than another sweep; the trace was one
 field short of being able to answer, and that is worth remembering the next time
 an instrument reports a decision without its reason.
 
-Run: `ladder_rig --sweep-below [--no-rollout] --seeds 45`.
+Run: `smash_tool ladder-rig --sweep-below [--no-rollout] --seeds 45`.
+⚠ Note the seed count: this is the arm the 45-seed claim above was measured
+on. The `Reproduce with` block further down runs **1** seed, which shows the
+trace format but does NOT reproduce the 45-seed result it sits under.
 
 `RecoveryLens` did **not** change which bouts are fought, and the traced Recovery
 decisions were byte-identical between the two arms for their first 22 ticks — the

@@ -79,6 +79,15 @@ resolved.
 every reader, and the frame checks skip that tick — which is what their
 `continue` always meant.
 
+⚠ **The WITHDRAWAL is confirmed; the FIX is not yet, and they are separable.**
+The premise is false whatever happens next — no fighter was ever outside a real
+frame — so there is nothing here to rule on either way. But the failing run was a
+UNION-features run, and no union run has yet been taken on the fixed tree; the
+default-features suite passed both before and after, for different reasons, so it
+is not evidence. ⇒ Do not read `✔ Fixed` as measured. It is a mechanism argument,
+and this same page records two occasions today where a mechanism argument turned
+out not to be a measurement.
+
 ⚠ **Neither original reading survives**, which is the point. A containment
 CONTRACT has nothing to contain; a tolerance MARGIN would have been chosen
 against a number that measures nothing, and would have hidden the defect

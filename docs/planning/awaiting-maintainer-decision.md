@@ -2166,7 +2166,7 @@ it — a constant does not expire and no test can know when a playtest convenien
 has outlived its playtest.
 
 ⇒ **Two answers and both are one token.** Keep it while the fighter is still being
-tuned (which it is — four open questions above), or set it to `1` now that the
+tuned (which it is — five open questions above), or set it to `1` now that the
 tuning is measurement-driven rather than watch-driven. ⚠ Worth knowing for the
 second: **every test that waits out the countdown reads the roster's value rather
 than a literal**, so reverting changes no test.

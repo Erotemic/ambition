@@ -1418,23 +1418,42 @@ job. The rule on this page governs the BRAIN's authored profiles
 ⇒ An auditor checking this rule will find `damage_taken_multiplier` first and
 must not read it as a violation. Two systems, one word.
 
-## What to do next, in order (2026-09-04)
+## What to do next, in order (rewritten 2026-09-04, late)
 
-1. ⛔ **Answer the ladder-ownership question** in
-   [`../awaiting-maintainer-decision.md`](../awaiting-maintainer-decision.md).
-   Everything below is measured on the engine floor until it is answered, and
-   Exit criterion 2 — *"repeatable calibration signals across the AUTHORED
-   ladder"* — has never once been tested, which nobody knew.
-2. **Finish the rollout repair: model `Dodge`.** The design is above
-   (`ShadowIntent::Evade { dir }`, direction from the emitter's own `threatened`
-   read, no invulnerability modelling needed). It is 846 of the 983 unmodelled
-   decisions. ⛔ Do not re-order the tiers instead; that produced both bugs.
-3. **Settle whether the `Shield` model earns its place.** It fixes a real
-   suppression and its ladder effect is unresolved — `6 vs 5` improved, `9 vs 6`
-   worsened, both within spread. A 15-seed paired comparison decides it.
-4. **Re-run the flat-vs-platforms comparison** once the respawn/tier collision is
-   ruled on, and use `closest_approach` on the unfought rows to say whether the
-   fighters fail to navigate or decline to commit.
+⚠ **This list was rewritten because the day answered two of its four items and
+demoted a third.** The previous ordering led with the ladder-ownership question
+and put `Dodge` second; ownership is now partly settled by `--ladder` and `Dodge`
+has lost its justification. Kept visible rather than silently replaced, because
+the reordering IS the finding.
+
+1. ⛔ **Answer `read_weight`: wire it into L2, or delete it?**
+   ([`../awaiting-maintainer-decision.md`](../awaiting-maintainer-decision.md).)
+   One of the ladder's five knobs is authored on all nine rungs and read by
+   nothing, while still costing per-decision observation and rollback snapshot
+   space. ⇒ It leads because both answers are cheap and everything about "how
+   hard is rung N" is measured against a ladder that currently has four working
+   knobs, not five.
+2. ⭐ **Finish isolating the `5 vs 3` inversion.** The utility weights are
+   established as necessary; four single-knob arms separate which of
+   `frame_advantage`, `kill_potential`, `stage_risk`, `expected_payoff` carries
+   it. ⇒ This is the only *significant* defect measured in the shipped ladder, so
+   it outranks everything speculative.
+3. **Answer the roster question** — do the two Robots get kits? Every ladder
+   number ever taken was measured between two fighters that had no special
+   button, and George resolves matches they cannot. ⇒ Until this is answered the
+   rig is measuring fighters nobody intends to ship as final.
+4. **The `t3` placement race** (question 50). Narrowed to *"may a match present a
+   tick in which the followed body has not been placed?"* — now a correctness
+   question rather than a feel judgement, with a one-line reproduction.
+5. ⬇ **`Dodge` shadow model — DEMOTED from #2, and the reason is measured.** It
+   only matters under the rollout, the shipped ladder disables the rollout on all
+   nine rows, and the `Shield` model that was supposed to prove the approach
+   landed entirely within spread. ⇒ Do it because `None` is the wrong score for a
+   verb a fighter can pick, not because a matrix will move. It reaches no player
+   either way.
+6. **Re-run flat-vs-platforms** once the respawn/tier collision is ruled on, using
+   `closest_approach` on the unfought rows to separate "cannot navigate" from
+   "declines to commit".
 
 ⚠ **And the standing rule, now with a worked example behind it:** do not tune
 rollout depth, heuristics, APM, reaction or weights without a trace naming the

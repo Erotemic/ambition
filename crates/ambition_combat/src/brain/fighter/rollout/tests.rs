@@ -1226,3 +1226,53 @@ fn a_verb_the_shadow_cannot_model_is_reported_as_unjudged() {
         "an unmodelled verb must not be reported as suicidal — it was not judged"
     );
 }
+
+/// WHICH VERBS THE SHADOW MODELS, PINNED AS A CENSUS.
+///
+/// ⛔⛔ **THIS IS THE GUARD THE 2026-09-04 DEFECT SLIPPED PAST, and the reason it
+/// is a census rather than a spot check.** `movement_intent` returning `None`
+/// does not merely make a verb unjudged — it removes it from `pick_movement`'s
+/// FIRST tier, and the second tier (`least_bad`) catches the fall, so the third
+/// tier where unmodelled verbs live is almost never reached. Measured: a rollout
+/// fighter selected `Dodge` and `Shield` **zero times in 662 decisions**.
+/// Declining to model a verb deletes it.
+///
+/// ⇒ So the modelled/unmodelled split is a BEHAVIOURAL decision, not an
+/// implementation detail, and it must not drift silently in either direction:
+/// dropping a model deletes a verb, and adding a dishonest one (an air dodge as
+/// `Hold`) is the "lying in one direction" this module's own header refuses.
+/// Adding a `MovementVerb` without deciding which side it falls on reddens here.
+#[test]
+fn the_shadow_models_exactly_these_movement_verbs() {
+    use ambition_characters::brain::fighter::options::MovementVerb as V;
+
+    // Every variant, listed so a new one is a compile-or-test decision rather
+    // than a silent default into "unmodelled".
+    let every = [
+        V::Approach,
+        V::Retreat,
+        V::Jump,
+        V::Dash,
+        V::Dodge,
+        V::Shield,
+        V::Blink,
+        V::Recover,
+    ];
+    let start = state(100.0, 300.0);
+
+    let modelled: Vec<V> = every
+        .into_iter()
+        .filter(|verb| super::movement_intent(*verb, &start).is_some())
+        .collect();
+
+    assert_eq!(
+        modelled,
+        vec![V::Approach, V::Retreat, V::Jump, V::Dash, V::Shield, V::Recover],
+        "the set of verbs the shadow can simulate changed. That is a behavioural \
+         change, not a refactor: an unmodelled verb loses `pick_movement`'s first \
+         tier and is reached only through a third tier that `least_bad` almost \
+         always pre-empts, so REMOVING a model deletes a verb from the fighter's \
+         repertoire. Adding one is only safe if the shadow really simulates what \
+         the body does — `Hold` for an air dodge would be a lie in one direction."
+    );
+}

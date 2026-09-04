@@ -1475,6 +1475,21 @@ the rollout, so an answer to 1 that made the demo compose `ambition_content`
 changes nothing for 3 — but an answer that removed the floor would make every
 composition's ladder explicit, which is the context 3 is decided in.
 
+⛔ **AND THEY INTERACT HARDER THAN THAT, in a direction that changes what
+"delete it" means — traced 2026-09-04.** The nine AUTHORED values are unreachable
+*in principle*: the same `.ron` rows that supply them set `rollout_depth: 0`, so a
+ladder that authors `read_weight` disables its only reader in the same breath.
+⚠ **But the FIELD is not dead.** The engine floor sets `read_weight: t * 0.6` and
+switches the rollout ON at rungs 6–9, so under the floor it is read and has
+effect.
+
+⇒ **So option (b), "delete the field", is only free if the SHIPPED LADDER wins
+decision 1.** If the floor survives instead, deleting the field is a behaviour
+change at the top four rungs, not a cleanup. ⭐ Which means **3 should be answered
+after 1, not beside it** — and the ordering is not obvious from either question on
+its own.
+
+
 ⛔ **NOT on this list, because it is a defect rather than a decision:**
 `D-BRAIN-MENU` in [`queue.md`](queue.md) — the brain scores movement and attack
 independently, so it approaches-and-attacks on the same tick, every neutral press

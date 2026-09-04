@@ -201,7 +201,7 @@ existing seams.
 | Respawn | Per-seat placement, velocity reset, timed untouchable grant | Smash respawn placement/empowerment systems |
 | Items | World item identity/custody, pickup, held-item use, throw, item physics | `items/pickup`, `GroundItem`, `ItemCustody`, `HeldItem` |
 | Presentation | Character pose routing, shield ring, hit sparks, KO burst, hit-strength camera shake, shield-break burst | render/VFX/movement FX |
-| Match ceremony | 3–2–1–GO and basic winner presentation | Smash demo match presentation |
+| Match ceremony | 3–2–1–GO and basic winner presentation. ⚠ **The ceremony currently runs at 10x** — `COUNTDOWN_SPEEDUP = 10`, a dated TEMPORARY dev mode from Jon's 2026-08-26 request, so a player sees **0.3s** rather than 3s. Nine days old as of 2026-09-04 and raised in `awaiting-maintainer-decision.md`; the row is accurate about the mechanism and a reader will assume three seconds. | Smash demo match presentation |
 | Character select | Per-connected-pad cursor before joining, role cycle, fighter selection, selecting a fighter auto-claims an absent slot, random selection | `game/ambition_demo_smash/src/select*` |
 | Frontend exit | Universal pause/system menu can Quit to Title from character select | `ambition_game_shell::pause_menu` |
 | Taunt | A generic taunt action/move is reachable; directional variants remain backlog | Smash input/moveset routing |

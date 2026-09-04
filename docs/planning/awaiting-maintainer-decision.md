@@ -1965,6 +1965,33 @@ back one rung at rung 6 already removes that cell's significance, and back two
 rungs at rung 5 flips it. Whatever the right progression is, those are the two
 dials and the middle is where they are wrong.
 
+## ⏳ The 10x countdown you asked for on 2026-08-26 is still in — do you want it back?
+
+⭐ **This is a one-token question and it is only yours to answer.** `COUNTDOWN_SPEEDUP
+= 10` in `game/ambition_demo_smash/src/lib.rs`, from your request *"make the 3, 2,
+1, countdown go 10x as fast"* — so the ceremony a player watches is
+`3 * 60 / 10` = **18 ticks, 0.3 seconds**, not three.
+
+⚠ **It is not a leak and I am not reporting it as one.** It is dated, reasoned and
+marked `⚠⚠ TEMPORARY DEV MODE`, with the revert spelled out — *"setting
+`COUNTDOWN_SPEEDUP` back to 1 … so that nobody later reads `18` as a considered
+ceremony length"* — and deliberately a constant rather than a setting, *"a
+constant with a date and a sentence, which is what temporary means."*
+
+⇒ **Which is exactly why it is here: the date is nine days old.** The comment
+invites this check by carrying the date at all, and nothing else will ever raise
+it — a constant does not expire and no test can know when a playtest convenience
+has outlived its playtest.
+
+⇒ **Two answers and both are one token.** Keep it while the fighter is still being
+tuned (which it is — four open questions above), or set it to `1` now that the
+tuning is measurement-driven rather than watch-driven. ⚠ Worth knowing for the
+second: **every test that waits out the countdown reads the roster's value rather
+than a literal**, so reverting changes no test.
+
+⭐ **And the parity row is affected**: "Match ceremony — 3–2–1–GO" is accurate
+about the mechanism and a reader will assume three seconds.
+
 ## Waiting on maintainer measurement, not a decision
 
 ### The residency limit open work 4 needs

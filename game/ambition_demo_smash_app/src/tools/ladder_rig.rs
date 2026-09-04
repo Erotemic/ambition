@@ -577,9 +577,32 @@ fn authored_ladder(
 /// ⛔ TIES ARE DROPPED, not counted for either side. A pair whose two halves deal
 /// identical damage is evidence about neither rung, and folding it in as half a
 /// success would manufacture confidence out of a non-result.
+/// ⚠ TEST-ONLY SINCE THE REPAIR, and labelled rather than deleted. Production
+/// no longer turns paired DIFFERENCES into signs — `paired_outcomes` produces
+/// the outcomes directly, ordered stocks-first, and `paired_verdict` reads the
+/// same split for both the word and the test. What survives here is the
+/// sign-conversion half of the old road, kept because the properties its tests
+/// state (ties discarded, more agreeing evidence never less significant) are
+/// properties of the shared core below and are cheapest to state this way.
+/// ⇒ The PRODUCTION tie path is covered separately, at the real entry point, by
+/// `level_pairs_are_dropped_rather_than_counted`.
+#[cfg(test)]
 fn sign_test_says_within_spread(diffs: &[f32]) -> bool {
     let positives = diffs.iter().filter(|d| **d > 0.0).count();
     let negatives = diffs.iter().filter(|d| **d < 0.0).count();
+    sign_test_within_spread(positives, negatives)
+}
+
+/// The sign test on the COUNTS, so the direction and the inference are two
+/// readings of one split rather than two computations.
+///
+/// ⛔⛔ SPLITTING THIS OUT IS THE WHOLE REPAIR, not a tidy-up. While the only
+/// entry point took `&[f32]` differences and returned a bare bool, the caller
+/// had no way to learn WHICH side the significant split favoured — `k =
+/// positives.max(negatives)` throws it away — so the reported direction had to
+/// come from somewhere else, and it did: pooled medians over every bout. Two
+/// authors of one row's meaning, free to disagree, and they did.
+fn sign_test_within_spread(positives: usize, negatives: usize) -> bool {
     let n = positives + negatives;
     // ⛔ THERE WAS AN EXPLICIT `if n < 6 { return true }` HERE AND IT WAS DEAD
     // CODE. Removing it changed no test, which is how it was found: the poison
@@ -999,9 +1022,186 @@ fn fighters() -> [String; 2] {
     ]
 }
 
+/// The row's word and whether to qualify it — the ONE place a row's meaning is
+/// decided, so a test can ask the ROW and not only its parts.
+///
+/// ⛔⛔ EXTRACTED BECAUSE THE UNIT TESTS COULD NOT SEE THE DEFECT. With the
+/// paired authority written and five regressions green, `report_row` was
+/// deliberately re-wired back to the broken shape — the word from pooled
+/// medians, the qualifier from the pairs — and **all ten tests still passed.**
+/// They pinned `paired_verdict`, which was never what was wrong: the bug lived
+/// in which authority the ROW consulted. ⇒ A test that constructs its subject
+/// cannot witness that subject being bypassed, and the fix is to give the row's
+/// decision a name something can call.
+fn row_verdict(bouts: &[Bout], properly_paired: bool) -> (&'static str, bool) {
+    let dealt = |seat: usize| median(bouts.iter().map(|b| b.damage_taken[1 - seat]).collect());
+    let stocks_taken = |seat: usize| {
+        median(
+            bouts
+                .iter()
+                .map(|b| (ambition_demo_smash::STARTING_STOCKS - b.stocks[1 - seat]) as f32)
+                .collect(),
+        )
+    };
+    let (hi_took, lo_took) = (stocks_taken(0), stocks_taken(1));
+    let (hi_dealt, lo_dealt) = (dealt(0), dealt(1));
+    // ⚠ DESCRIPTIVE ONLY ON A PAIRED ROW. These pooled medians used to AUTHOR
+    // the verdict outright; on a paired row the paired outcomes do, and these
+    // stay as the columns a reader compares. On an unpaired row there are no
+    // pairs to reduce, so they are still the best available answer.
+    let pooled_verdict = if hi_took != lo_took {
+        if hi_took > lo_took {
+            "higher outfights"
+        } else {
+            "LOWER outfights"
+        }
+    } else if hi_dealt > lo_dealt {
+        "higher outfights"
+    } else if lo_dealt > hi_dealt {
+        "LOWER outfights"
+    } else {
+        "even"
+    };
+    let hi_dealt_all: Vec<f32> = bouts.iter().map(|b| b.damage_taken[1]).collect();
+    let lo_dealt_all: Vec<f32> = bouts.iter().map(|b| b.damage_taken[0]).collect();
+    if properly_paired {
+        // ⛔⛔ THIS WAS `mid.abs() < 0.5 * (hi - lo)` AND THAT TEST RAN BACKWARDS.
+        //
+        // `hi - lo` is the RANGE of the paired differences, and a range only
+        // GROWS as you add seeds — every new pair can widen it and none can
+        // narrow it. Meanwhile the median converges. ⇒ So the old criterion got
+        // strictly HARDER to pass the more evidence you collected, which is the
+        // exact opposite of what a significance test does.
+        //
+        // ⚠ CAUGHT BY IT ACTUALLY HAPPENING, 2026-09-04, not by reading: the
+        // `3 vs 1` cell of the shipped-ladder arm was the ONE cell in sixteen
+        // that printed without `(within spread)` at 12 seeds, and re-running the
+        // identical arm at 40 seeds made it `(within spread)`. More power, less
+        // significance. A single outlier pair also sets the range outright,
+        // making it the least robust statistic available for the job.
+        //
+        // ⇒ REPLACED BY A SIGN TEST, which is the standard non-parametric test
+        // for paired data and has none of those properties: count how many pairs
+        // favour the higher rung, and ask how surprising that split is under a
+        // fair coin. It gains power with seeds, ignores the magnitude of
+        // outliers entirely, and assumes nothing about the distribution — which
+        // matters here because bout damage is bounded, skewed and bimodal.
+        paired_verdict(&paired_outcomes(bouts))
+    } else {
+        (pooled_verdict, (hi_dealt - lo_dealt).abs()
+            < 0.5
+                * ((hi_dealt_all.iter().copied().fold(f32::NEG_INFINITY, f32::max)
+                    - hi_dealt_all.iter().copied().fold(f32::INFINITY, f32::min))
+                .max(
+                    lo_dealt_all.iter().copied().fold(f32::NEG_INFINITY, f32::max)
+                        - lo_dealt_all.iter().copied().fold(f32::INFINITY, f32::min),
+                )))
+    }
+}
+
+/// Which rung won ONE mirrored seed — the single authority for a paired row.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+enum PairedOutcome {
+    Higher,
+    Even,
+    Lower,
+}
+
+/// Reduce each mirrored seed to one outcome, scored the way the row is scored:
+/// stocks taken first, damage dealt only when the stocks tie.
+///
+/// ⭐ THE HALVES ARE ALREADY ORIENTED. `bouts_for_seed` calls `.mirrored()` on
+/// the swapped half, so `[0]` means the higher rung in BOTH bouts of a pair and
+/// this function must not swap anything itself. Re-orienting here would undo
+/// the mirror and average each rung with the other — the failure
+/// `the_mirror_puts_the_seats_back` exists to catch, which is why that test is
+/// load-bearing for this one.
+///
+/// ⚠ SUMMED ACROSS THE PAIR, not compared bout by bout. The pair is the unit
+/// `--paired` buys: the seat term appears once on each side and cancels in the
+/// sum. Comparing the two halves separately would put the seat term back.
+fn paired_outcomes(bouts: &[Bout]) -> Vec<PairedOutcome> {
+    bouts
+        .chunks_exact(2)
+        .map(|pair| {
+            let took = |seat: usize| -> u32 {
+                pair.iter()
+                    .map(|b| ambition_demo_smash::STARTING_STOCKS - b.stocks[1 - seat])
+                    .sum()
+            };
+            let dealt = |seat: usize| -> f32 { pair.iter().map(|b| b.damage_taken[1 - seat]).sum() };
+            let (hi_took, lo_took) = (took(0), took(1));
+            if hi_took != lo_took {
+                return if hi_took > lo_took {
+                    PairedOutcome::Higher
+                } else {
+                    PairedOutcome::Lower
+                };
+            }
+            let (hi_dealt, lo_dealt) = (dealt(0), dealt(1));
+            if hi_dealt > lo_dealt {
+                PairedOutcome::Higher
+            } else if lo_dealt > hi_dealt {
+                PairedOutcome::Lower
+            } else {
+                PairedOutcome::Even
+            }
+        })
+        .collect()
+}
+
+/// The row's word and its qualifier, BOTH read off the same split.
+///
+/// ⛔⛔ THE DEFECT THIS REPLACES COULD PRINT A DIRECTION ITS OWN EVIDENCE
+/// CONTRADICTED. The displayed verdict came from pooled medians over every
+/// bout; the qualifier came from a sign test on per-pair DAMAGE differences;
+/// and the sign test's answer was reduced to `p >= 0.05`, discarding which side
+/// had won. So a row could print `LOWER outfights`, unqualified, while its own
+/// significance evidence favoured HIGHER 16 pairs to 4. Reproduced as
+/// `a_row_cannot_be_significant_in_the_direction_it_does_not_report`.
+///
+/// ⚠ AND THE QUALIFIER TESTED THE WRONG QUANTITY WHENEVER STOCKS DECIDED. The
+/// old comment claimed it was "measured on the DECIDING quantity" — true only
+/// while damage decided, false on every row where `hi_took != lo_took`. A
+/// comment asserting a requirement the code misses by one condition is read by
+/// exactly the person who would otherwise check.
+///
+/// ⇒ There is now ONE authority. The direction is whichever side more pairs
+/// favoured; the significance is the same split's exact two-sided sign test.
+/// They cannot disagree, because there is nothing left to disagree with.
+fn paired_verdict(outcomes: &[PairedOutcome]) -> (&'static str, bool) {
+    let higher = outcomes.iter().filter(|o| **o == PairedOutcome::Higher).count();
+    let lower = outcomes.iter().filter(|o| **o == PairedOutcome::Lower).count();
+    // ⛔ TIES ARE DROPPED rather than split, the same rule the sign test uses: a
+    // pair that came out level is evidence about neither rung.
+    let word = match higher.cmp(&lower) {
+        std::cmp::Ordering::Greater => "higher outfights",
+        std::cmp::Ordering::Less => "LOWER outfights",
+        std::cmp::Ordering::Equal => "even",
+    };
+    (word, sign_test_within_spread(higher, lower))
+}
+
+/// The midpoint of a sample.
+///
+/// ⛔ THIS RETURNED `values[len / 2]`, THE UPPER MIDDLE ORDER STATISTIC, for a
+/// decade of even-sized runs — and every ladder run is even-sized under
+/// `--paired`. On stock summaries, which are small integers, that is the
+/// difference between a row reading `0` and `1`: a 20-bout sample split
+/// 10 zeroes / 10 ones reported ONE, the more flattering half, for both seats.
+/// ⚠ A function named `median` with hidden even-N semantics is worse than an
+/// honestly-named one, because every caller reads the name and not the body.
 fn median(mut values: Vec<f32>) -> f32 {
     values.sort_by(|a, b| a.partial_cmp(b).unwrap_or(std::cmp::Ordering::Equal));
-    values.get(values.len() / 2).copied().unwrap_or(0.0)
+    if values.is_empty() {
+        return 0.0;
+    }
+    let mid = values.len() / 2;
+    if values.len() % 2 == 1 {
+        values[mid]
+    } else {
+        (values[mid - 1] + values[mid]) / 2.0
+    }
 }
 
 fn secs(elapsed: f32) -> String {
@@ -1098,29 +1298,7 @@ fn report_row(label: &str, bouts: &[Bout]) {
     // resets on death, so peak systematically under-reads the fighter who died
     // more and, as a tiebreak, rewards needing MORE damage to close a stock.
     let dealt = |seat: usize| median(bouts.iter().map(|b| b.damage_taken[1 - seat]).collect());
-    let stocks_taken = |seat: usize| {
-        median(
-            bouts
-                .iter()
-                .map(|b| (ambition_demo_smash::STARTING_STOCKS - b.stocks[1 - seat]) as f32)
-                .collect(),
-        )
-    };
-    let (hi_took, lo_took) = (stocks_taken(0), stocks_taken(1));
     let (hi_dealt, lo_dealt) = (dealt(0), dealt(1));
-    let verdict = if hi_took != lo_took {
-        if hi_took > lo_took {
-            "higher outfights"
-        } else {
-            "LOWER outfights"
-        }
-    } else if hi_dealt > lo_dealt {
-        "higher outfights"
-    } else if lo_dealt > hi_dealt {
-        "LOWER outfights"
-    } else {
-        "even"
-    };
     // a verdict inside the seeds' own spread is not a verdict. Reported
     // rather than suppressed: the reader should see the overlap and discount the
     // word, not be handed a cleaner-looking table.
@@ -1130,8 +1308,6 @@ fn report_row(label: &str, bouts: &[Bout]) {
     // dealt, so the spread that matters is damage's. Leaving it on the old
     // column would have marked a decisive damage gap "within spread" whenever
     // the two seats happened to die at similar times.
-    let hi_dealt_all: Vec<f32> = bouts.iter().map(|b| b.damage_taken[1]).collect();
-    let lo_dealt_all: Vec<f32> = bouts.iter().map(|b| b.damage_taken[0]).collect();
     // ⭐ PAIRED RUNS ARE TESTED ON THE DIFFERENCES, NOT ON TWO POOLED MEDIANS.
     // `--paired` emits consecutive (straight, mirrored) bouts of ONE seed, so the
     // within-seed difference in damage dealt is available and it is the whole
@@ -1157,47 +1333,7 @@ fn report_row(label: &str, bouts: &[Bout]) {
             bouts.len()
         );
     }
-    let overlaps = if properly_paired {
-        let diffs: Vec<f32> = bouts
-            .chunks_exact(2)
-            .map(|pair| {
-                let dealt = |b: &Bout, seat: usize| b.damage_taken[1 - seat];
-                (dealt(&pair[0], 0) + dealt(&pair[1], 0)) / 2.0
-                    - (dealt(&pair[0], 1) + dealt(&pair[1], 1)) / 2.0
-            })
-            .collect();
-        // ⛔⛔ THIS WAS `mid.abs() < 0.5 * (hi - lo)` AND THAT TEST RAN BACKWARDS.
-        //
-        // `hi - lo` is the RANGE of the paired differences, and a range only
-        // GROWS as you add seeds — every new pair can widen it and none can
-        // narrow it. Meanwhile the median converges. ⇒ So the old criterion got
-        // strictly HARDER to pass the more evidence you collected, which is the
-        // exact opposite of what a significance test does.
-        //
-        // ⚠ CAUGHT BY IT ACTUALLY HAPPENING, 2026-09-04, not by reading: the
-        // `3 vs 1` cell of the shipped-ladder arm was the ONE cell in sixteen
-        // that printed without `(within spread)` at 12 seeds, and re-running the
-        // identical arm at 40 seeds made it `(within spread)`. More power, less
-        // significance. A single outlier pair also sets the range outright,
-        // making it the least robust statistic available for the job.
-        //
-        // ⇒ REPLACED BY A SIGN TEST, which is the standard non-parametric test
-        // for paired data and has none of those properties: count how many pairs
-        // favour the higher rung, and ask how surprising that split is under a
-        // fair coin. It gains power with seeds, ignores the magnitude of
-        // outliers entirely, and assumes nothing about the distribution — which
-        // matters here because bout damage is bounded, skewed and bimodal.
-        sign_test_says_within_spread(&diffs)
-    } else {
-        (hi_dealt - lo_dealt).abs()
-            < 0.5
-                * ((hi_dealt_all.iter().copied().fold(f32::NEG_INFINITY, f32::max)
-                    - hi_dealt_all.iter().copied().fold(f32::INFINITY, f32::min))
-                .max(
-                    lo_dealt_all.iter().copied().fold(f32::NEG_INFINITY, f32::max)
-                        - lo_dealt_all.iter().copied().fold(f32::INFINITY, f32::min),
-                ))
-    };
+    let (verdict, overlaps) = row_verdict(bouts, properly_paired);
     let verdict = if overlaps {
         format!("{verdict} (within spread)")
     } else {
@@ -1800,7 +1936,16 @@ mod tests {
     /// wrong. Every per-seat array has to swap, so a field added later without
     /// being swapped is caught here rather than by somebody wondering why
     /// pairing made the effect vanish.
-    #[test]
+    ///
+    /// ⛔⛔ THIS DOC AND ITS `#[test]` SPENT THEIR WHOLE LIFE ON THE WRONG
+    /// FUNCTION. A second doc comment and a second `#[test]` followed
+    /// immediately, so both attributes bound to
+    /// `adding_agreeing_evidence_never_makes_a_result_less_significant` and the
+    /// mirror check below became an ordinary private fn nothing called — dead
+    /// code wearing a test's name, reported only as `function ... is never
+    /// used` among the crate's other unused-function warnings. ⇒ The guard that
+    /// protects the orientation every paired reading depends on had never once
+    /// run.
     /// ⭐⭐ THE PROPERTY THE OLD TEST VIOLATED: more evidence must not make a
     /// result LESS significant.
     ///
@@ -1921,6 +2066,7 @@ mod tests {
         );
     }
 
+    #[test]
     fn mirroring_a_bout_swaps_every_per_seat_reading() {
         let m = bout().mirrored();
         assert_eq!(m.eliminated, [200, 100]);
@@ -1945,6 +2091,196 @@ mod tests {
         assert_eq!(twice.stocks, orig.stocks);
         assert_eq!(twice.peak_percent, orig.peak_percent);
         assert_eq!(twice.damage_taken, orig.damage_taken);
+    }
+
+    /// A bout where the higher rung dealt `hi`, the lower dealt `lo`, and each
+    /// seat ended with the given stocks. `damage_taken[0]` is what the HIGHER
+    /// seat absorbed, i.e. what the lower rung dealt.
+    fn scored(hi: f32, lo: f32, hi_stocks: u32, lo_stocks: u32) -> Bout {
+        Bout {
+            eliminated: [100, 100],
+            stocks: [hi_stocks, lo_stocks],
+            peak_percent: [1.0, 1.0],
+            damage_taken: [lo, hi],
+            closest_approach: 48.0,
+        }
+    }
+
+    /// ⛔⛔ THE ROW MAY NOT BE SIGNIFICANT IN A DIRECTION IT DOES NOT REPORT.
+    ///
+    /// This is the reviewer's fixture, kept exactly: 16 pairs where the higher
+    /// rung deals `[1000, 0]` against the lower's `[400, 400]`, and 4 pairs
+    /// where it deals `[0, 0]` against `[1000, 1000]`. Stocks are level
+    /// throughout, so damage decides every pair.
+    ///
+    /// ⭐ THE FIRST ASSERTION IS THAT THE FIXTURE IS STILL ADVERSARIAL. Pooled
+    /// medians over these 40 bouts say `LOWER`, because 24 of the higher rung's
+    /// 40 per-bout figures are zero while the lower's sit at 400 — the old
+    /// verdict authority. If a later change made the pooled reading agree with
+    /// the paired one, this test would still pass while testing nothing, so the
+    /// disagreement is pinned before the repair is checked.
+    #[test]
+    fn a_row_cannot_be_significant_in_the_direction_it_does_not_report() {
+        let mut bouts = Vec::new();
+        for _ in 0..16 {
+            bouts.push(scored(1000.0, 400.0, 1, 1));
+            bouts.push(scored(0.0, 400.0, 1, 1));
+        }
+        for _ in 0..4 {
+            bouts.push(scored(0.0, 1000.0, 1, 1));
+            bouts.push(scored(0.0, 1000.0, 1, 1));
+        }
+
+        let hi_pooled = median(bouts.iter().map(|b| b.damage_taken[1]).collect());
+        let lo_pooled = median(bouts.iter().map(|b| b.damage_taken[0]).collect());
+        assert!(
+            lo_pooled > hi_pooled,
+            "the fixture is supposed to be one where POOLED medians favour the \
+             lower rung ({lo_pooled} vs {hi_pooled}); without that it cannot \
+             witness the contradiction it exists for"
+        );
+
+        let outcomes = paired_outcomes(&bouts);
+        let higher = outcomes.iter().filter(|o| **o == PairedOutcome::Higher).count();
+        let lower = outcomes.iter().filter(|o| **o == PairedOutcome::Lower).count();
+        assert_eq!((higher, lower), (16, 4), "the pairs split 16-4 for the higher rung");
+
+        let (word, overlaps) = paired_verdict(&outcomes);
+        assert!(
+            !overlaps,
+            "16-4 is p = 0.0118, which is significant; the qualifier must be absent"
+        );
+        assert_eq!(
+            word, "higher outfights",
+            "the row is significant 16-4 FOR THE HIGHER RUNG, so it may not print \
+             LOWER — that pairing of word and qualifier is the defect this exists for"
+        );
+    }
+
+    /// ⛔⛔ THE ROW ITSELF TAKES ITS WORD FROM THE PAIRS — the assertion the
+    /// other tests here CANNOT make.
+    ///
+    /// Every regression above calls `paired_verdict` directly, and
+    /// `paired_verdict` was never the broken part. When this repair was first
+    /// written, `report_row` was deliberately wired back to the defect — word
+    /// from pooled medians, qualifier from the pairs — and **all ten tests
+    /// passed.** A test that constructs its subject cannot witness that subject
+    /// being bypassed, so the row's decision was given a name and this asks it
+    /// by that name.
+    ///
+    /// ⚠ IT USES THE SAME ADVERSARIAL FIXTURE ON PURPOSE. Pooled medians say
+    /// `LOWER` here and the pairs say `higher` 16-4, so the two authorities give
+    /// different answers and the test can only pass if the row consults the
+    /// right one. On a fixture where they agree it would prove nothing.
+    #[test]
+    fn a_paired_row_takes_its_word_from_the_pairs_not_the_pool() {
+        let mut bouts = Vec::new();
+        for _ in 0..16 {
+            bouts.push(scored(1000.0, 400.0, 1, 1));
+            bouts.push(scored(0.0, 400.0, 1, 1));
+        }
+        for _ in 0..4 {
+            bouts.push(scored(0.0, 1000.0, 1, 1));
+            bouts.push(scored(0.0, 1000.0, 1, 1));
+        }
+        assert_eq!(
+            row_verdict(&bouts, true),
+            ("higher outfights", false),
+            "a properly paired row must read the paired outcomes; the pooled \
+             medians on this fixture say LOWER, which is the answer the defect gave"
+        );
+        // ⭐ AND THE UNPAIRED ROW IS DELIBERATELY UNCHANGED: with no pairs to
+        // reduce there is no second authority to prefer, so the pooled reading
+        // is still the honest one and still says LOWER here.
+        assert_eq!(
+            row_verdict(&bouts, false).0,
+            "LOWER outfights",
+            "an unpaired row keeps the pooled verdict — the repair narrows what \
+             the pooled columns may decide, it does not delete them"
+        );
+    }
+
+    /// ⛔ WHEN STOCKS DECIDE, THE INFERENCE FOLLOWS STOCKS.
+    ///
+    /// The old qualifier was computed from damage differences whatever decided
+    /// the verdict, so a stocks-decided row was qualified by a quantity it had
+    /// not used. Here every pair is won on stocks by the higher rung and lost on
+    /// damage by a wide margin; the row must report — and test — the higher rung.
+    #[test]
+    fn the_paired_inference_follows_stocks_when_stocks_decide() {
+        let mut bouts = Vec::new();
+        for _ in 0..8 {
+            // The higher rung takes both of the lower's stocks in each half and
+            // is out-damaged ten to one while doing it.
+            bouts.push(scored(10.0, 100.0, 2, 0));
+            bouts.push(scored(10.0, 100.0, 2, 0));
+        }
+        let outcomes = paired_outcomes(&bouts);
+        assert!(
+            outcomes.iter().all(|o| *o == PairedOutcome::Higher),
+            "stocks are the primary outcome, so a pair won on stocks is won: {outcomes:?}"
+        );
+        let (word, overlaps) = paired_verdict(&outcomes);
+        assert_eq!(word, "higher outfights");
+        assert!(!overlaps, "8-0 is p = 0.0078 and is significant");
+    }
+
+    /// ⛔ A LEVEL PAIR IS EVIDENCE ABOUT NEITHER RUNG, and folding it in would
+    /// manufacture confidence.
+    ///
+    /// Five decisive pairs cannot reach significance — `2 * 0.5^5 = 0.0625`. Ten
+    /// level pairs alongside them must not change that. If ties were counted for
+    /// either side, or merely inflated `n`, this row would flip.
+    #[test]
+    fn level_pairs_are_dropped_rather_than_counted() {
+        let mut bouts = Vec::new();
+        for _ in 0..5 {
+            bouts.push(scored(100.0, 10.0, 1, 1));
+            bouts.push(scored(100.0, 10.0, 1, 1));
+        }
+        for _ in 0..10 {
+            bouts.push(scored(50.0, 50.0, 1, 1));
+            bouts.push(scored(50.0, 50.0, 1, 1));
+        }
+        let outcomes = paired_outcomes(&bouts);
+        assert_eq!(outcomes.iter().filter(|o| **o == PairedOutcome::Even).count(), 10);
+        let (word, overlaps) = paired_verdict(&outcomes);
+        assert_eq!(word, "higher outfights", "the direction is still the five decisive pairs");
+        assert!(
+            overlaps,
+            "five unanimous pairs are p = 0.0625; the ten level pairs are not evidence \
+             and must not push the row over the line"
+        );
+    }
+
+    /// ⭐ THE PAIRED READING IS BLIND TO THE SEAT, which is the property
+    /// `--paired` is bought for — asserted on the outcome authority itself
+    /// rather than on the damage arithmetic alone.
+    ///
+    /// A bout decided entirely by seat, paired with its own mirror, must reduce
+    /// to `Even`. If `paired_outcomes` re-oriented the already-mirrored half, the
+    /// seat term would come back and this pair would read as a win.
+    #[test]
+    fn a_pair_decided_only_by_the_seat_reduces_to_even() {
+        let pair = vec![bout(), bout().mirrored()];
+        assert_eq!(
+            paired_outcomes(&pair),
+            vec![PairedOutcome::Even],
+            "the mirror cancels the seat, so neither rung won this pair"
+        );
+    }
+
+    /// ⛔ `median` IS THE MIDPOINT, INCLUDING FOR EVEN SAMPLES — and every
+    /// `--paired` run is even.
+    ///
+    /// The old body returned `values[len / 2]`, the upper middle. On a small
+    /// integer column like stocks that is the difference between reporting 0 and
+    /// reporting 1 for an evenly split sample.
+    #[test]
+    fn the_median_of_an_even_sample_is_the_midpoint_not_the_upper_middle() {
+        assert_eq!(median(vec![0.0, 0.0, 1.0, 1.0]), 0.5);
+        assert_eq!(median(vec![1.0, 2.0, 3.0]), 2.0);
+        assert_eq!(median(vec![4.0, 1.0]), 2.5, "and it sorts first");
     }
 
     /// A PAIR OF MIRRORED BOUTS CARRIES NO SEAT ADVANTAGE.

@@ -151,11 +151,23 @@ explicit answer rather than a default nobody chose.
   afterwards — which matters, because that would be a memo with a restore
   obligation, and a memo is rollback state.
 
-  ⚠ **half of this is already true.** The TALKER's intent is already neutral:
-  `DIALOGUE_CONTEXT` captures their input, so their `ControlFrame` is default.
-  What is left is the other participant — an NPC whose brain may still be
-  steering it mid-sentence. Measure that before building anything; a brain that
-  already idles during dialogue means this row is finished.
+  ✔ **BOTH HALVES ARE TRUE NOW — this row is FINISHED, and the paragraph it
+  supersedes is compressed to a line rather than left standing below its own
+  answer.** It read *"half of this is already true … what is left is the other
+  participant — an NPC whose brain may still be steering it mid-sentence.
+  Measure that before building anything."* Measured 2026-09-04:
+  `project_conversation_hold` (`ambition_conversation/src/hold.rs:20`) claims the
+  other participant with `HeldByConversation` + `ControlHold::Conversation` and
+  releases it when the conversation ends — and the release names ONLY
+  `ControlHold::Conversation`, so other `ScriptedControl` claims survive.
+
+  ⚠ **AND ONE NAMING TRAP, recorded because it nearly cost a false correction:
+  `ActiveConversation::talker()` is NOT the one talking.** Its doc says *"The
+  body being talked TO. The hold applies to this one"*, and the initiator is
+  `initiator()`. So `let holding = conversation.talker()` in
+  `project_conversation_hold` **is** the other participant — but a reader
+  checking this row against the code will briefly conclude the opposite. The
+  page's claim is right; the identifier reads backwards.
 - ▢ **Multi-participant — STILL OPEN, and now explicitly guarded.** Everything
   above is written for two, and the code enforces that rather than degrading:
   `break_dialogue_on_hit_or_separation` destructures participants as `[a, b]`

@@ -1582,6 +1582,29 @@ app**. In the composed game the grid assembles ≥8 fighters (`smash_roster_move
 asserts that floor), because `ambition_content` registers the pirate admiral,
 Emmy Noether, the goblin and others that `assemble` then admits.
 
+⛔⛔⛔ **AND SMALLER STILL: IN THE COMPOSED APP THE TWO STAND-INS ARE NOT ON THE
+GRID AT ALL.** `assemble` drops a stand-in the moment the character it stands in
+for resolves —
+
+```rust
+!STAND_INS.iter().any(|(copy, real)| copy == *id && present(real))
+```
+
+— and `STAND_INS` is `[(smash_duelist_a, "player_robot_v3"), (smash_duelist_b,
+"player_robot_v2")]`. ⇒ `player_robot_v3` **is** on the composed grid:
+`smash_roster_movesets.rs`'s `KNOWN_UNARMED` names it, and that list is built by
+iterating the assembled grid in the composed host.
+
+⇒ **So the two 18-verb fighters exist in the STANDALONE SMASH DEMO and nowhere
+else.** In the composed app a player picks `player_robot_v3` — a real character
+with its own catalog row — and never meets `smash_duelist_a`.
+
+⚠ **Which does not make the finding empty, and the distinction is yours to
+weigh**: the standalone demo is a shipped product ("Super Smash Siblings"), its
+catalog default is one of the two, and a dead special button is a dead special
+button there. ⇒ **But it is a defect in ONE of the two products**, not in the
+fighter roster generally, and the decision below should be read that way.
+
 ⭐ **So the finding is unchanged in substance and much smaller in scope.** Two
 specific fighters — `smash_duelist_a` and `smash_duelist_b`, both carrying
 `fighter_moveset()` — bind 18 verbs against George's 26. That is still true, still

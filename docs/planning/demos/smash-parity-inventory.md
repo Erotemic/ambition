@@ -523,12 +523,21 @@ migration larger.
 When several feature rows are assigned in parallel, coordinate around these
 shared semantics. The ID is a planning reference, not a new runtime registry.
 
+⚠ **THIS TABLE UNDER-CLAIMS, measured 2026-09-03.** It carried two ✔ marks out
+of fourteen; `P01` and `P04` had both shipped and neither row knew — `P04`'s
+system is named as consumed in this page's own staleness paragraph. ⇒ **A row
+with no mark means NOBODY HAS CHECKED, not that it is absent.** The remaining
+ten are unverified in that sense and each needs reading before it is quoted as a
+gap: `P06`'s facts are demonstrably live (`initial_dash_time`,
+`turnaround_time`, `teeter_margin` in `LocomotionTuning`) even though its row is
+still unmarked here.
+
 | ID | Primitive | Class | Owner / purpose |
 |---|---|---:|---|
-| `P01` | True move charge state | E1 | `MoveSpec` charge policy + per-use `MovePlayback`; unlocks real held smashes and chargeable authored moves. |
+| `P01` | True move charge state | E1 | ✔ **SHIPPED — re-measured 2026-09-03, this table was under-claiming.** `MoveSpec` carries `charge: Option<MoveCharge>` (`ambition_combat/src/moveset/mod.rs:369`), `MoveCharge` and `StoredMoveCharge` are real types (:386, :413), and playback consults `charge.charging()` (:602). ⚠ **AUTHORING IS THE THIN HALF, not the mechanism**: exactly ONE authored move uses it (`game/ambition_content/src/projectile_polygon_moveset.rs`), so 'unlocks real held smashes' is unlocked and unspent. |
 | `P02` | Hit reaction policy | E1 | `HitVolume` reaction mode for ordinary/fixed/autolink/flinchless reactions plus small modifiers; unlocks spin multihits, wind/vacuum, set knockback. |
 | `P03` | Same-move hitbox arbitration | E1 | Deterministic hitbox identity/priority for sweetspots/sourspots and later independent hitbox parts. |
-| `P04` | Move defense windows | E1 | Make existing `WindowTag::Invuln` / `Armor` affect hit eligibility/reaction instead of parsing as inert vocabulary. |
+| `P04` | Move defense windows | E1 | ✔ **SHIPPED — and this page already said so two screens up.** `project_move_defense_windows` (`ambition_combat/src/moveset/mod.rs:3536`) consumes both tags and is scheduled in `ambition_platformer2d_runtime/src/combat_schedule.rs:172`; the staleness paragraph above names it as consumed. The tags are no longer inert vocabulary. |
 | `P05` | On-block cancel fact | E1 | ✔ SHIPPED 2026-08-31 — the fact is `MoveContact`'s three outcomes, fed by `ResolvedBodyHit` and `BlockedBodyHit`, and `CancelCondition::OnBlock` consumes it. |
 | `P06` | Ground locomotion phase | E1 | Walk/run, initial dash, turnaround/pivot facts; foxtrot, dash-dance, pivot grab/smash derive from this rather than separate named states. |
 | `P07` | Combat action buffer | E1 | Activate existing rollback-registered `BodyActionBuffer` for semantic press edges and spend buffered actions only through normal action acceptance. |

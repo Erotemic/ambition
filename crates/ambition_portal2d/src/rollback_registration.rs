@@ -94,8 +94,17 @@ where
     // The pair a body owns outlives the gun in its hand, so it is state the
     // same way the gun is: a rollback that restored the hand but not the
     // ownership would re-equip the wrong gun after the resimulation.
-    registrar
-        .rollback_component_clone::<crate::OwnedPortalGunPair>(OWNER, "portal.owned_gun_pair");
+    // ⛔ PROBED, NOT PRESENCE-ONLY. A bare `rollback_component_clone` satisfies
+    // the coverage census while the checksum sees only that the component
+    // EXISTS — and the pair is the whole point of this component, so a rollback
+    // that restored the presence and not the number would be invisible to a
+    // desync check. `OwnedPortalGunPair` is one `u8`, so the projection is the
+    // value itself.
+    registrar.rollback_component_clone_probed::<crate::OwnedPortalGunPair>(
+        OWNER,
+        "portal.owned_gun_pair",
+        |pair| u64::from(pair.0),
+    );
     registrar.clear_message_on_rollback::<crate::DropPortalGun>(OWNER, "message.drop_portal_gun");
     registrar.clear_message_on_rollback::<crate::DropPortalGun>(OWNER, "message.portal_gun_drop");
     registrar.clear_message_on_rollback::<crate::FirePortalGun>(OWNER, "message.fire_portal_gun");

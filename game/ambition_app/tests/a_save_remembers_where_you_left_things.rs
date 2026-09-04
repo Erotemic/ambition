@@ -622,3 +622,74 @@ fn a_gauntlet_the_item_catalog_never_heard_of_is_still_in_your_hands_after_a_loa
         "and it is in the HAND the save recorded, not lying on the floor"
     );
 }
+
+/// THE ROOM BUILD'S SECOND DESCRIBER, ON A SPEC THE ITEM CATALOG CANNOT RESOLVE.
+///
+/// ⛔⛔ `features/ecs/spawn/mod.rs:594` is the third and last production caller
+/// of `held_spec_by_id` that Ambition exploration owns — the arm that rebuilds a
+/// runtime mint the player left lying in a room, using the CHECKPOINT's
+/// description and the ledger's position. Its own comment records the failure it
+/// already fixed once: the narrow `held_item_by_id` lookup answered `None` for a
+/// javelin that came out of the inventory, and "lost it a second time".
+///
+/// ⇒ That was the CATALOG arm. This is the other one. A boss gauntlet resolves
+/// only through `HELD_ITEMS`, so if this describer ever narrowed the other way,
+/// a gauntlet put down in a room would be gone when the player walked back in
+/// and every catalog-known item would still be fine.
+///
+/// ```text
+/// mint   a real boss kill
+/// bank   a shrine rest WITH IT IN HAND — the minted capture takes only
+///        occurrences in custody, so this must precede the drop
+/// leave  put it down, walk out the door; the room unloads
+/// return the rebuild reinstates it, from the description and the ledger's `at`
+/// ```
+#[test]
+fn a_gauntlet_left_in_a_room_is_rebuilt_when_the_room_is() {
+    let mut sim = fixed_60hz_room_sim(TWO_ITEM_ROOM);
+    sim.step_n(base(), 30);
+    assert!(
+        dropped_gauntlet(&mut sim).is_empty(),
+        "precondition: the hub's authored `{GAUNTLET}` is a different road"
+    );
+
+    crate::boss_lifecycle::spawn_mockingbird(&mut sim, "left_behind_gauntlet_boss");
+    crate::boss_lifecycle::kill_boss_with_a_real_hit(&mut sim, "left_behind_gauntlet_boss", 600);
+    sim.step_n(base(), 120);
+    let dropped = dropped_gauntlet(&mut sim);
+    assert_eq!(dropped.len(), 1, "the kill must leave exactly one gauntlet");
+    let occurrence = dropped.into_iter().next().expect("one drop");
+
+    pick_up(&mut sim, &occurrence);
+    crate::death_restores_the_checkpoint::commit_a_checkpoint(&mut sim);
+    throw_it_down(&mut sim);
+    sim.step_n(base(), 120);
+    let where_it_fell = resting_place(&mut sim, &occurrence);
+
+    let away = walk_through_the_door_to(&mut sim, "vertical_shaft");
+    assert_ne!(
+        away, TWO_ITEM_ROOM,
+        "the body must actually have left the room, or nothing unloaded"
+    );
+    walk_through_the_door_to(&mut sim, TWO_ITEM_ROOM);
+    sim.step_n(base(), 60);
+
+    let back = occurrences(&mut sim, &occurrence);
+    assert_eq!(
+        back.len(),
+        1,
+        "exactly one live occurrence of `{}` after re-entering: zero means the \
+         room build could not resolve a spec the item catalog does not know, two \
+         means it authored one beside the one it reinstated. got {back:?}",
+        occurrence.as_str()
+    );
+    assert!(
+        back[0].1.in_world(),
+        "and it is lying in the room, not in a hand"
+    );
+    let now = resting_place(&mut sim, &occurrence);
+    assert!(
+        (now.0 - where_it_fell.0).abs() < 4.0 && (now.1 - where_it_fell.1).abs() < 4.0,
+        "and it is where it fell: dropped at {where_it_fell:?}, rebuilt at {now:?}"
+    );
+}

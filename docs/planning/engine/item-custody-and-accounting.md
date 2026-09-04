@@ -206,14 +206,22 @@ population:**
 ```text
 items/pickup/mod.rs:309         restore_custody_to_checkpoint's minted arm  ✔ covered
                                 (by BOTH the death restore and the save load)
-features/ecs/spawn/mod.rs:594   a room BUILD reinstating a minted occurrence  ▢
+features/ecs/spawn/mod.rs:594   a room BUILD reinstating a minted occurrence  ✔ covered
 items/match_spawn.rs:113        a match's authored spawn table                ▢ fighter side
 ```
 
-⇒ The one exploration-side gap is the room build: take a gauntlet, put it down in
-a room, leave, come back, and the rebuild must reinstate an occurrence whose spec
-the item catalog cannot resolve. That is one test, and it is the last road on
-this axis that Ambition exploration owns.
+✔ **THE EXPLORATION SIDE OF THIS AXIS IS CLOSED (2026-09-04).**
+`a_gauntlet_left_in_a_room_is_rebuilt_when_the_room_is` banks a gauntlet at a
+shrine, puts it down, walks out the door and comes back, and the rebuild
+reinstates it where it fell. ⭐ **The poison proves the two tests cover DIFFERENT
+call sites, which is the whole argument for having both:** narrowing only the
+room build's lookup to the catalog reddens that test alone — the save-load
+gauntlet test and the other four in its file stay green.
+⚠ That call site's own comment records the mirror-image failure it already fixed:
+the NARROW `held_item_by_id` answered `None` for a javelin from the inventory and
+"lost it a second time". Both arms of `held_spec_by_id` are now load-bearing at
+this site with a test each side.
+⇒ What remains is `match_spawn.rs:113`, and it belongs to the fighter side.
 
 ✔ **AND RE-MEASURING FOUND ONE REAL DEFECT, FIXED 2026-09-04: a death drop had
 no identity, so the same object was an occurrence or not depending on how it was

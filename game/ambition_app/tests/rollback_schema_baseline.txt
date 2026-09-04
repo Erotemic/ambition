@@ -401,6 +401,7 @@ portal.emission	component-clone	PortalEmission	bevy_ggrs clone snapshot; state c
 portal.gun	component-clone	PortalGun	bevy_ggrs clone snapshot; state checksum supplied by another authoritative projection
 portal.gun_pickup	component-clone	PortalGunPickup	bevy_ggrs clone snapshot; state checksum supplied by another authoritative projection
 portal.host_scanned	component-clone	PortalHostScanned	bevy_ggrs clone snapshot; state checksum supplied by another authoritative projection
+portal.owned_gun_pair	component-clone	OwnedPortalGunPair	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum
 portal.placed	component-clone	PlacedPortal	bevy_ggrs clone snapshot; state checksum supplied by another authoritative projection
 portal.policy	component-clone	PortalPolicy	bevy_ggrs clone snapshot; state checksum supplied by another authoritative projection
 portal.shot	component-clone	PortalShot	bevy_ggrs clone snapshot; state checksum supplied by another authoritative projection

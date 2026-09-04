@@ -287,6 +287,49 @@ digits. And when the honest answer is that the quantity does not exist — a
 killed run has no duration — say so instead of substituting the nearest one
 that does.
 
+### ⛔⛔ A CUT-OFF METRIC READS A SLOWDOWN AS A REDUCTION
+
+The sections above ask whether a number is stale or attached to the wrong noun.
+This one asks a different question: **what would this metric read if the same
+thing happened, just later?** If the answer is "a smaller number", the metric
+cannot support any claim about magnitude — and it will read every slowdown as a
+reduction, in a sentence that sounds like a mechanism.
+
+Anything measured at a fixed cut-off is this: stocks left at the timer, items
+collected in N frames, rooms reached inside a budget, encounters that never
+started. Each is a *how much has happened by the buzzer* quantity, and none can
+separate **less happens** from **the same happens later**.
+
+**Measured 2026-09-04 (peer session, smash ladder).** A 60-second window said
+platform stages "halve the lethality" — stocks left `1.64` (platforms) against
+`3.78` (flat). Re-run at the shipped clock, nine fixtures, both stages:
+
+| | flat | platforms |
+|---|---:|---:|
+| mean survival | 91.5s | 167.7s |
+| mean **stocks left** | **0.00** | **0.00** |
+| fixtures where every bout resolved | 9/9 | 9/9 |
+
+⇒ **Zero on both.** The whole `1.64` vs `3.78` spread was the cut-off. Platforms
+were not preventing kills, they were postponing them: 1.83× as long to reach the
+*same* end. Pace, not lethality — and the two want different design responses,
+so the wrong reading would have driven the wrong change. The companion metric
+fell with it: *"41 of 540 bouts unfought"* measured APPROACH TIME, not refusal to
+engage, because those bouts had not started yet.
+
+⭐ **THE FIX IS NOT A BETTER STATISTIC. It is a clock long enough for the thing
+being counted to finish.** Then a real reduction still shows, and a slowdown
+shows up as a duration, which is what it is.
+
+⚠ **The tell that the window produced your spread**: every arm reaches the SAME
+terminal value on the longer clock. A metric that separates arms at 60s and
+agrees at 170s was reading the timer.
+
+⚠ **And state the prediction before the run.** The peer predicted this outcome in
+writing, kept the prediction unedited above the result, and reported it as
+loudly as if it had been refuted. A prediction adjusted afterwards is worth
+nothing; one that could have been wrong is what makes the agreement evidence.
+
 ### ⛔ ONE INSTRUMENT FROM TWO REFERENCE POINTS LOOKS EXACTLY LIKE TWO INSTRUMENTS
 
 The section below is about one word meaning two things. This is its neighbour

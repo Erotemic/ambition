@@ -70,6 +70,20 @@ actual product requirement.
   variant both ways), the ledger's own `outlook_for`/codec arms, or the producer
   filter that refuses it. A round-trip that can carry a value nothing writes is
   not a producer.
+  ✔ **RE-DERIVED 2026-09-04 evening and the claim HOLDS — with a correction to
+  the method, not the answer.** Fourteen non-test-path mentions; every one is
+  the variant declaration, a reader match arm, the codec (`put_u8(.., 2)`), a
+  doc comment, or the word "Consumed" in ordinary English (`ldtk/surfaces.rs:7`).
+  ⛔ **Two of them LOOKED like producers and are tests** —
+  `continuity.rs:674` (`a_consumed_occurrence_is_not_resurrected_by_a_placement`)
+  and `save_data.rs:758`
+  (`every_whereabouts_variant_round_trips_including_the_terminal_one`) both
+  CONSTRUCT the variant. ⇒ Both sit inside a `#[cfg(test)] mod tests` **in an
+  ordinary source file**, which a filter keyed on `/tests` or `tests.rs` does not
+  exclude. **A path-based "non-test" grep over-reports on this repository**, and
+  on this card it would have reported the producer the card exists to say does
+  not exist. Check whether a hit is under an in-file `mod tests` before reading
+  it as production.
   Owner:
   [`engine/construction-and-reconstitution.md`](engine/construction-and-reconstitution.md).
 - ▢ **Item custody/accounting residual.** Complete body-owned instance/count

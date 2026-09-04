@@ -229,9 +229,24 @@ failure the skip existed to prevent.
 `ledge_grab` (*"the ledge anchor was a fact of the departure point"*), so the
 hang is declared after the transit, never before.
 
-⇒ **Remaining: 1 of 9.** `projectile_camper` needs live projectiles — the rig
-would have to RUN something rather than write a value, which is a genuinely
-different step from the three above.
+✔ **AND THE THREE RECLAIMS PERTURBED NOTHING ELSE — checked rather than
+assumed.** The four fixtures that already ran (`ledge_trap`, `recovery_left`,
+`recovery_right`, `recovery_below`) produce **byte-identical rows** before and
+after all three changes, compared by hashing their lines from the 5-of-9 run
+against the 8-of-9 one. ⇒ The new setup only fires where a fixture asks for it:
+`starting_velocities` returns `None` for a still fixture, `starting_hitstun`
+`Some((0.0, 0.0))` writes nothing, and `starting_ledge_hangs` skips a body that
+does not hang. A reclaim that also moved the existing numbers would have been a
+regression wearing a coverage win's clothes.
+
+⇒ **Remaining: 1 of 9.** `projectile_camper` needs a shot in the air.
+`ProjectileSpawnRequest::open(owner, spawn, start)` is public and the rig could
+write one — but it takes an authored `ProjectileSpawn`, and inventing one to
+match the fixture's *"damage 3, velocity (-400, 0)"* would stage a projectile the
+premise did not describe. ⛔ That is the same line the other three respected:
+reproduce the fixture's state from the real thing, or report it unreproduced.
+The honest next step is to fire an AUTHORED projectile whose spec already matches,
+not to fabricate a spec.
 
 ## Relationship to navigation/recovery architecture
 

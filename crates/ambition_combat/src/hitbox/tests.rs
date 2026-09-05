@@ -391,6 +391,74 @@ fn player_faction_hitbox_emits_an_attacker_side_feature_hit() {
     assert_eq!(cap.0[0].damage, 5);
 }
 
+/// ⛔⛔ A WORLD-ANCHORED BOX WHOSE OWNER IS GONE STILL RESOLVES — and until
+/// 2026-09-05 it did not, which made every thrown-item blast in the smash demo a
+/// ghost.
+///
+/// The owner's position was resolved at the top of the loop and `continue`d on
+/// failure, BEFORE any anchor was consulted. But `world_volume` reads
+/// `HitboxAnchor::World { center }` and ignores the owner's position entirely,
+/// so the requirement was never real for this anchor. ⇒ A bomb or a mine names
+/// the exploding `GroundItem` as its owner and that item despawns as it emits
+/// the effect, so the blast it had just spawned was skipped on the very next
+/// tick — every time, silently.
+///
+/// ⭐ THE SECOND ASSERTION IS THE ONE THAT KEEPS THE FIX HONEST: a `FollowOwner`
+/// box genuinely cannot be placed without an owner and must STILL be skipped.
+/// "Resolve everything" would pass the first assertion and is the wrong fix.
+#[test]
+fn a_world_anchored_box_outlives_its_owner_but_a_following_one_does_not() {
+    let run = |anchor: HitboxAnchor| -> usize {
+        let mut app = App::new();
+        app.add_message::<HitEvent>();
+        app.add_message::<LandedBodyHit>();
+        app.add_message::<ParriedBodyHit>();
+        app.add_message::<VfxMessage>();
+        app.init_resource::<CapturedHits>();
+        app.add_systems(Update, (apply_hitbox_damage, capture_hits).chain());
+        // An owner that carries NO position at all — the state a despawned
+        // `GroundItem` leaves behind for the tick its blast resolves on.
+        let owner = app.world_mut().spawn_empty().id();
+        app.world_mut().spawn((
+            Hitbox {
+                strike_sfx: None,
+                owner,
+                source: HitSide::Player,
+                anchor,
+                half_extent: ae::Vec2::new(60.0, 30.0),
+                shape: None,
+                facing: 1.0,
+                damage: 5,
+                knockback: crate::strike::HitboxKnockback::FeelScale(1.0),
+                launch_dir: None,
+                frame_down: ae::Vec2::new(0.0, 1.0),
+                reaction: None,
+            },
+            HitboxLifetime { remaining_s: 0.2 },
+            HitboxHits::default(),
+        ));
+        app.update();
+        app.world().resource::<CapturedHits>().0.len()
+    };
+
+    assert_eq!(
+        run(HitboxAnchor::World {
+            center: ae::Vec2::new(200.0, 80.0),
+        }),
+        1,
+        "a world-anchored blast was skipped because the object that spawned it \
+         had already despawned — it carries its own centre and needs no owner"
+    );
+    assert_eq!(
+        run(HitboxAnchor::FollowOwner {
+            local_offset: ae::Vec2::new(20.0, 0.0),
+        }),
+        0,
+        "a FOLLOWING box resolved without an owner to follow, so the fix was \
+         'resolve everything' rather than 'a world anchor carries its own centre'"
+    );
+}
+
 // ── S3e: relational actor-vs-actor melee ────────────────────────────────────
 
 use crate::targeting::FactionRelations;

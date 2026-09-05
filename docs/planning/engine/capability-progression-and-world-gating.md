@@ -472,9 +472,32 @@ things: posture makes the crouch a required ACTION, capability makes the ability
 to crouch a required UNLOCK. ⭐ The second is what
 [`../game/systemic-progression.md`](../game/systemic-progression.md)'s
 *"why can I go there now?"* is asking for, and the first is what is built.
-ⓘ Recorded rather than changed, because nothing authors `body.fits` yet — one
-of the five conditions the census measures as authored NOWHERE — so this is a
-decision the first author should make deliberately rather than inherit.
+⛔⛔ **AND ITS SIBLING ANSWERS THE OTHER KIND — the two body conditions are not
+the same sort of question, which is the finding rather than the posture itself.**
+Measured the same day: `body.can(verb)` reads `BodyAbilities.abilities`
+(`body_conditions.rs`, `ability_named(&set.abilities, verb) == Some(true)`) — a
+GRANTED capability, persistent, unchanged by what the body is doing this frame.
+`body.fits(height)` reads the body's current size.
+
+| condition | reads | changes when |
+|---|---|---|
+| `body.can(verb)` | `BodyAbilities` — a granted ability | the player ACQUIRES something |
+| `body.fits(height)` | `BodyKinematics.size` — current posture | the player CROUCHES |
+
+⇒ **An author reading "the body family" would reasonably expect both to ask
+what a body IS ABLE to do.** One does; one asks what it happens to be doing.
+⭐ **And only one of them serves the product criterion.** *"Acquire materially
+different traversal capabilities"* means a door that opens because you learned
+something and stays open — `body.can` does that, `body.fits` opens while you
+hold a button. Both are legitimate designs; they are just not the same design,
+and nothing currently says which the family is for.
+
+ⓘ Recorded rather than changed, because nothing authors `body.fits` **or**
+`body.can` yet — both are among the five conditions the census measures as
+authored NOWHERE — so this is a decision the first author should make
+deliberately rather than inherit. ⚠ If the answer is "the family asks about
+capability", `body.fits` wants to read `BodyBaseSize` (or ask whether any
+reachable stance fits) rather than `BodyKinematics.size`.
 
 ## Gate families
 

@@ -36,6 +36,29 @@ dated, not live):
 | durable fact family | route-readable? |
 |---|---|
 | `flags` | ✔ `world.flag_set` |
+⛔⛔ **THE `boss.cleared` DEFECT IS LATENT FOR SWITCHES — measured 2026-09-05,
+and it is cheap now for exactly as long as it stays unauthored.** 24 of the 25
+authored ids that durable rows key on are LDtk-GENERATED iids:
+
+```text
+  BossSpawn  11 placements — 1 authored (`cove.mockingbird`), 10 iids (`BossSpawn-0158`, …)
+  Switch     14 placements — 0 authored, 14 iids (`Switch-104796`, …)
+```
+
+✔ **And it is NOT live today**, checked rather than assumed: no shipped `.yarn`
+passes a switch id to `world.switch_on` in an executable region, and the only
+`gated_by` value in any world is `bob_field_survey_received` — a FLAG name, not a
+switch. `world.switch_on` is published and authored NOWHERE.
+
+⇒ **It goes live the first time someone authors a switch gate**, because they
+would have to type `Switch-104796` — a name no author can know, which is the
+whole of question 57 one family over. Jon's ruling already says what to do
+(*"keyed only by stable authored encounter/placement IDs"*), and the mechanism
+already exists: `BossSpawn.encounter_id` plus `ldtk::fields::boss_placement_id`.
+⚠ **The cost asymmetry is the point.** Adding authored ids to 14 switches before
+any content names one is a rename. Adding them after a save file keys rows by
+`Switch-104796` is a migration.
+
 | `switches` | ✔ `world.switch_on` — ⚠ but the durable fact has **three writing authorities**, measured 2026-09-05: `ambition_encounter/src/switches.rs`'s `drain_switch_activations` (three arms of one match, :401/:406/:410), `ambition_encounter_features/src/systems.rs:496` (greens every switch of a completed encounter), and `game/ambition_content/src/falling_sand_sim.rs:472` (the spout switches). The roads look DISJOINT by action kind — the generic one states *"an unhandled action must not touch persisted state at all"* — so this reads as a hand-off rather than a fork, and no behaviour is known wrong. ⛔ **What IS wrong is the comment**: `drain_switch_activations` calls itself *"The persisted write, in its one place"*, which is true inside that function and false at tree scope — and it is exactly what a fourth writer's author would read first. ⓘ Found only after repairing `durable_fact_writers.py`, which had been truncating each file at its first `#[cfg(test)]` and reporting two writers instead of five |
 | `items` | ✔ `inventory.holds` |
 | `occurrences` / `custody` | ✔ `custody.is_held` |

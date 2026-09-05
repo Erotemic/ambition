@@ -482,7 +482,43 @@ error the suite is written against.
 ## Open design questions — deliberately unresolved
 
 - Which persistent occurrence states are terminal, resettable, or recoverable?
+  ⭐⭐ **MEASURED 2026-09-05, and the taxonomy is smaller than the question
+  implies: there are THREE states, two live and one RESERVED.**
+
+| state | reachable today | ends how |
+|---|---|---|
+| `InCustody` | ✔ | resettable — the item is put down, a placement overwrites it |
+| `Placed` | ✔ | resettable — picked up again (custody overwrites), or `forget_everything` |
+| `Consumed` | ⛔ **no producer** | intended terminal |
+
+  The ledger says so in place: what ends a `Placed` row is *"the occurrence being
+  picked up again (custody overwrites it), a reset, or the
+  `OccurrenceWhereabouts::Consumed` producer **that does not exist yet**"*.
+  ⇒ `Consumed` is declared, codec'd (`put_u8(2)`) and in the save wire format,
+  and nothing writes it. **Reserved, not dead** — the difference from the
+  authored-but-unreachable defects this campaign keeps finding is that this one
+  says so at its own definition.
+
+  ⛔⛔ **AND THE CONSTRAINT ON WHOEVER ADDS THAT PRODUCER IS ALREADY WRITTEN,
+  which is the part worth carrying forward.** `AuthoredOccurrences::rewind_argument`:
+
+  > Live custody and placement producers republish their rows every tick […] If a
+  > non-rederived whereabouts state (such as `Consumed`) gains a producer, this
+  > ledger must become registered value state with a value-sensitive probe.
+
+  ⇒ The ledger is declared DERIVED because every row is republished from live
+  state each tick. A `Consumed` row could not be — nothing republishes it — so
+  adding the producer turns a derived ledger into rollback VALUE state. **That is
+  a rollback-registration change, not an item feature**, and it is the kind of
+  cost that is invisible until the day somebody writes `Consumed`.
+
 - How should persistent actor relocation outside authored home rooms be expressed?
+  ⓘ **The expression already exists for ITEMS** — `Placed { room, at }` written
+  unconditionally across the durable horizon and read back into
+  `continuity.rs`'s three dispositions (`Reinstated` here, `Suppressed`
+  elsewhere). ⇒ The open half is whether ACTORS join it, which is
+  [question 38](../awaiting-maintainer-decision.md), and that row is now costed
+  against this road rather than against a blank page.
 - Which durable relationships require stable IDs across a fresh process?
 - What exact peer barrier authorizes an external/P2P lifecycle commit once real
   transport exists?

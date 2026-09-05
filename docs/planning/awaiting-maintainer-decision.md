@@ -54,256 +54,52 @@ silently re-points every page that cited the original.
 
 ## Open decisions
 
-### ~~50. May a fighter leave the frame, or must the camera always contain the cast?~~ (WITHDRAWN 2026-09-04 — no fighter was ever outside a frame)
+### ~~50. May a fighter leave the frame, or must the camera always contain the cast?~~ (WITHDRAWN 2026-09-04 — the premise was false; compressed 2026-09-05)
 
-⛔⛔ **DO NOT ANSWER THIS. ITS PREMISE IS FALSE, and this file's own header names
-that as the failure worth avoiding: *"A decision resting on a premise the code
-has moved past costs you the answer AND the discovery that it was moot."***
+⛔⛔ **DO NOT ANSWER THIS.** No fighter was ever outside a frame, so neither
+reading of the question had a subject. This file's own header names that as the
+failure worth avoiding: *"A decision resting on a premise the code has moved past
+costs you the answer AND the discovery that it was moot."*
 
 **The frame nobody framed was `ResolvedCameraSnapshot::default()`, verbatim.**
-`local_view_facts()` puts the default on every view at spawn so a reader never
-meets a view whose state is missing; the resolver honours *"callers must not
-invent a world-origin fallback"* by returning without writing when the cast is
-unresolvable; and `CameraSnapshot2d::default()` is a ZERO centre with
-`default_base_view()`, whose own comment records that the default moved to
-568x320 on 2026-09-03 — the exact dimensions every failure reported.
+`local_view_facts()` put the default on every view at spawn so a reader never met
+a missing state; the resolver honoured *"callers must not invent a world-origin
+fallback"* by returning without writing when the cast was unresolvable; and the
+default is a ZERO centre at 568x320 — the exact dimensions every failure
+reported. ⇒ **Two individually correct decisions composed into a snapshot that
+was syntactically present and semantically a lie, and nobody wrote the
+fallback.** `every_live_fighter_stays_inside_the_frame` was measuring a default
+as though it were a camera, on the one tick where bodies exist and the cast has
+not resolved.
 
-⇒ **Two individually correct decisions composed into a snapshot that was
-syntactically present and semantically a lie. Nobody wrote the fallback.** So no
-fighter was ever outside a frame: the test was measuring a default as though it
-were a camera, on the one tick (`t3`) where bodies exist and the cast has not
-resolved.
-
-✔ **Fixed rather than ruled on** (`92f2f597b`): `ResolvedCameraSnapshot` is
+✔ **Fixed rather than ruled on** (`92f2f597b`): `ResolvedCameraSnapshot` became
 `Option<ResolvedCameraFrame>`, so an unframed view says so, the compiler asks
 every reader, and the frame checks skip that tick — which is what their
-`continue` always meant.
+`continue` always meant. ✔✔ **Measured, not argued:** the union at `5c320ebb5`
+read **7,137 passed / 0 failed**, the first fully green union this repository
+recorded, with the framing test in it.
 
-✔✔ **THE FIX IS MEASURED NOW (2026-09-04). The union at `5c320ebb5` reads
-**7,137 passed / 0 failed**, `cargo exit: 0` — the first fully green union this
-repository has recorded, and the framing test is in it. So the caveat below is
-DISCHARGED: `✔ Fixed` may be read as measured. ⛔ It was a mechanism argument for
-about a day, and the paragraph that said so is kept below rather than deleted,
-because the reason it was written is the reusable part.
+⭐ **What outlives the row, which is why any of it is kept:**
 
-✔✔ **AND THE FIX IS NOW MEASURED, not argued** (was flagged as unproven for
-several hours, deliberately). The failing arm was always a UNION-features run, and
-the default-features suite passed both before and after for different reasons, so
-it was never evidence. ⇒ Re-run on the fixed tree:
-`cargo test --workspace --features "<the 82-entry union>" --test smash_it` →
-**43 passed, 0 failed**, where the identical command previously gave 42 passed and
-`every_live_fighter_stays_inside_the_frame` FAILED. ⭐ Independently, the gate's
-full union at `5c320ebb5` is **7,137 passed / 0 failed** — the first fully green
-union in that row's history.
+* **Both cheap fixes were wrong-shaped, and not for the reason the entry gave.**
+  A containment CONTRACT had nothing to contain; a tolerance MARGIN would have
+  been chosen against a number that measures nothing, and would have hidden the
+  defect permanently by making the test pass.
+* **Identical coordinates across three runs mean deterministic, not loaded.** The
+  failure was blamed on load and contention for a while; three separate runs
+  producing the SAME seats at the SAME coordinates in the SAME frame is not what
+  a load-sensitive failure does. ⇒ It could be chased directly rather than
+  sampled.
+* **Grouping unlike failures let each stand as evidence for the others.** This
+  test was filed alongside two others as "three tests sharing a load signature"
+  (`dbf07bd6f` withdrew that): two were parameter panics, this was an assertion
+  about a camera centre. They shared no mechanism, and the grouping is how a load
+  story survived three investigations without ever producing one.
 
-⚠ Kept as a note rather than deleted, because the gap between *mechanism* and
-*measurement* is what this page recorded twice today in the other direction: a doc
-comment that named the symptom while describing a branch that never ran, and my
-own placement-race inference that a four-minute probe refuted.
-
-⚠ **Neither original reading survives**, which is the point. A containment
-CONTRACT has nothing to contain; a tolerance MARGIN would have been chosen
-against a number that measures nothing, and would have hidden the defect
-permanently by making the test pass. ⛔ Both cheap fixes were wrong-shaped, and
-not for the reason the entry gave.
-
-ⓘ The investigation below is kept because the retractions in it are the useful
-part — a `follow_world` diagnostic, a probe that refuted the placement inference
-it seemed to support, and a doc comment that named the symptom exactly while
-describing a branch that never ran.
-
-### ⓘ 50 (superseded, for the record). May a fighter leave the frame by 16 units for one body-frame?
-
-`the_stage_kills::every_live_fighter_stays_inside_the_frame`
-(`game/ambition_demo_smash_app/tests/the_stage_kills.rs:1094`) is RED under the
-gate's feature union, and it is the only survivor of the smash target — thirty-odd
-failures went to one. Its message:
-
-> *"a live fighter was drawn OUTSIDE the frame on 1 body-frames, worst 16 units
-> past the edge — the knockout that decides the match happens off-screen:
-> t3 seat 1 at (416,204) is 16 units outside a 800x450 frame centred (0,0)"*
-
-⇒ **The engineering half is not in question.** The test measures what it says it
-measures, one body-frame is genuinely outside, and 16 units on a 800-wide frame
-is 4% of the half-width. What is unanswered is whether that is a defect at all.
-
-Two readings, and they lead to different work:
-
-- **A containment CONTRACT** — the camera must always contain every live
-  fighter, so one frame outside is a bug in the camera's follow/zoom and the
-  test is correctly red.
-- **A tuning MARGIN** — a platform fighter's camera is allowed to lag a fast
-  body briefly, the assertion's tolerance is the thing that is wrong, and the
-  test should carry a stated allowance instead of zero.
-
-⛔⛔ **RE-MEASURED 2026-09-04 AND THE NUMBERS ARE EIGHT TIMES WORSE — the two
-readings above may BOTH be wrong.** Reproduced with one command on an
-already-built tree, no full union run needed:
-
-```
-cargo test --workspace --features "$(the 82-entry union)" --test smash_it
-```
-
-> *"a live fighter was drawn OUTSIDE the frame on 2 body-frames, worst 132 units
-> past the edge …*
-> *t3 seat 0 at (224,204) is 44 units outside a 568x320 frame centred (0,0)*
-> *t3 seat 1 at (416,204) is 132 units outside a 568x320 frame centred (0,0)"*
-
-⇒ **Three things changed from the reading above, and each one moves the answer:**
-
-1. **16 units → 132.** On this frame that is **46% of the half-width**, not 4%.
-   A camera that lags a fast body by 4% is a tuning margin; one that misses it by
-   nearly half a screen is not.
-2. **One fighter → BOTH.** Neither seat is inside the frame. A follow camera
-   trailing a launched body leaves ONE fighter behind; it does not lose both.
-3. **The frame itself changed, 800x450 → 568x320.** ⚠ **CORRECTED same day** — I
-   first wrote that the viewport is "not stable across runs" and used it to argue
-   any tolerance would be chosen against noise. That was wrong and it overstated.
-   THREE runs since (mine, and two of the peer session's, one of them under
-   `bevy_ecs/debug`) all report `568x320` and the **identical** seat coordinates
-   `(224,204)` and `(416,204)`. ⇒ The frame changed ONCE, between the original
-   800x450 measurement and now, and has been stable at the new value since. A
-   tolerance would be chosen against a reproducible number — the objection to
-   choosing one is the paragraph below, not this.
-
-⭐⭐ **AND THE CENTRE IS THE TELL: `(0,0)`, with both fighters at y≈204.** The
-camera is not lagging — it is sitting on the WORLD ORIGIN while the match happens
-elsewhere. ⛔ `CastFraming`'s own doc forbids exactly this: *"Empty or
-unresolvable casts return `None`; **callers must not invent a world-origin
-fallback**."* And `desired_target_world` is `input.focus.stable_center()`, which
-reads `center_world` — origin when the focus has not resolved.
-
-⛔⛔ **MEASURED, NOT INFERRED — and it clears the camera.** The test now reports
-what the camera was FOLLOWING (`ResolvedCameraSnapshot::follow_world`), and under
-the union it prints **`following (0,0)`** on both failing body-frames. ⇒ The
-camera is not lost and is not inventing anything: it is faithfully framing a body
-that IS at the world origin, while the two fighters are at y≈204.
-
-⚠ **I then inferred a placement race from that, and a probe REFUTED it. Recorded
-because the wrong inference is instructive.** The reasoning was: the resolver's
-unresolvable-cast arm `return`s without publishing, so the origin must come from
-the arm ABOVE it, which follows a real body — therefore a body must be sitting at
-the origin, unplaced.
-
-⛔ **No body is ever at the origin.** `probe_where_bodies_are_before_the_match_settles`
-walks every entity with `BodyKinematics` for the first twelve ticks of a match:
-
-```
-[probe] t0  0 bodies:
-[probe] t1  0 bodies:
-[probe] t2  0 bodies:
-[probe] t3  2 bodies: seat0@(224,204)  seat1@(416,204)
-[probe] t4  2 bodies: seat0@(224,204)  seat1@(416,204)
-```
-
-⇒ Zero bodies for three ticks, then exactly two, **both already at their spawn
-points**. There is no third body, no unplaced body, and nothing at `(0,0)` for a
-camera to follow. ⚠ The probe runs at DEFAULT features, where the test is green —
-deliberately, because the union is what makes a snapshot exist at `t3`, not what
-puts something at the origin. A probe under the union features is running to close
-that gap.
-
-⇒ **And that reopened it in the right place.** `follow_world` reports `(0,0)`
-while nothing in the world is at `(0,0)` — not a camera following an unplaced
-body, but a follow point corresponding to nothing.
-
-⭐⭐⭐ **SOLVED — the failing frame is the component's `Default`, verbatim.** Four
-checked facts, and the last one is the proof:
-
-1. `local_view_facts()` (production, `camera_snapshot.rs:1712`) puts
-   `ResolvedCameraSnapshot::default()` on every view at spawn. Its comment: *"a
-   reader must never see a frame where the view exists and its state does not."*
-2. `CameraSnapshot2d::default()` is `center_world: Vec2::ZERO` with
-   `visible_view: default_base_view()`.
-3. The resolver at `camera_snapshot.rs:1567` is the **only** production writer,
-   and it `return`s without writing when the cast is unresolvable — honouring
-   *"callers must not invent a world-origin fallback"* by staying silent.
-4. ⭐ **`default_base_view()` carries a comment reading *"the default moved to
-   `Duel` (568x320) on 2026-09-03"*.** ⇒ The failure reports a **568x320 frame
-   centred (0,0)** — that is not a camera that resolved badly, it is the Default
-   with its own dimensions, and the 800x450 in the original report is simply the
-   PREVIOUS default. ⚠ That also explains the frame-size change I first mistook
-   for instability: the default changed, not the camera.
-
-⛔⛔ **So two individually correct decisions compose into the behaviour the
-contract forbids.** The resolver refuses to invent an origin — correctly. The
-bundle guarantees a snapshot always exists — also reasonable. Between them, a
-reader gets a snapshot that is syntactically present and semantically a lie: a
-real-looking frame, at the world origin, containing nobody. ⇒ Nobody wrote the
-fallback; it fell out of `Default`.
-
-⚠ **Why `t3` and only `t3`**: bodies first exist at `t3` (the probe shows zero for
-`t0`–`t2`), the cast is not framable yet on that tick, so the resolver returns and
-the Default stands. By `t4` it resolves. Under default features the test skips
-those frames for an unrelated reason, which is why this only reddens under the
-union.
-
-⇒ **THE QUESTION IS NOW SMALL AND IT IS ENGINEERING, NOT FEEL.** Should
-`ResolvedCameraSnapshot` be able to say *"not resolved yet"*? ⭐ A flag or an
-`Option` lets a reader distinguish "the view has not been framed" from "the view
-is framed on the origin", which is the distinction that does not currently exist.
-⚠ It touches `ambition_render`, `local_view` and two tools, so it is a small
-cross-crate change rather than a local one — which is why it is here rather than
-already done.
-
-⇒ **So the likely reading is a THIRD one neither option names: at `t3` the cast
-has not resolved yet, and a snapshot is published anyway describing a frame that
-contains nobody.** ⚠ Both failing frames are at `t3` out of 600+ observed, so
-whatever it is, it is a one-tick startup transient and the camera is correct for
-the rest of the match. The ease path is not the culprit — it already ADOPTS on
-first resolve rather than easing from zero (`!state.target_initialized` →
-`live_target_world = desired_target_world`), which is the same rule
-`presented_roll_radians` documents as *"a view must open already oriented, not
-spin up from zero."*
-
-⇒ **Which makes the question sharper and cheaper than it was — but it is NOT yet
-the question I claimed.** I narrowed it twice and the second narrowing was wrong:
-*"may a match present a tick in which the followed body has not been placed?"*
-assumed an unplaced body that the probe shows does not exist. ⚠ What is
-established is only the first narrowing: it is not a tolerance question, because
-132 units on a 568-wide frame with BOTH fighters outside is not a camera lagging.
-⇒ The live question is still an engineering one and not yours until the union
-probe reports. ⭐ If no, this is an engine defect
-with a named contract already written down, the fix is upstream of the camera,
-and the test is correctly red. If yes, the test should skip unresolved frames —
-and that is a one-line change reading a fact that exists, not a tolerance pulled
-out of the air.
-
-⚠ **What I have NOT established.** Why the union feature set makes this appear at
-all: under default features the whole target is green (42 passed, verified), and
-the test's `let Some(view) else { continue }` means the snapshot simply is not
-there at `t3` by default. Something in the 82 features publishes it a tick
-earlier. ⛔ I did not bisect the features to find which — that is real work and it
-is only worth doing if the answer to the question above is *"no"*.
-
-⭐ **One thing this DOES settle, and it was a live disagreement:** the failure is
-not a load or contention artifact. This arm ran ONE test binary with nothing else
-building, and it reproduced. The cause is the feature set.
-
-⭐⭐ **And the values are reproducible even though the occurrence is not.** Three
-separate runs — this one, and two from the peer session including one under
-`bevy_ecs/debug` — produce the SAME two seats at the SAME coordinates in the SAME
-frame. ⛔ A load-sensitive failure does not land on identical coordinates three
-times. ⇒ Whatever this is, it is deterministic given the feature set, which means
-it can be chased directly rather than sampled.
-
-⚠ **A related reading has been retracted at the source.** This test was filed for
-a while alongside two others as "three tests sharing a load signature". The peer
-session withdrew that grouping (`dbf07bd6f`): one was a parameter panic and is
-fixed, one is a parameter panic that has fired once in three runs, and this one
-is an assertion about a camera centre. ⇒ They share no mechanism, and grouping
-them let each stand as evidence for the others — which is how a load story
-survived three investigations without ever producing one.
-
-⚠ **Why it is yours rather than mine**: which one is right depends on how a
-knockout should READ, and the test's own text says the stake — *"the knockout
-that decides the match happens off-screen"*. That is a feel judgement about the
-moment the match is decided on, not an engine fact. ⛔ And the cheap fixes are
-both wrong-shaped without the ruling: widening the tolerance answers it by
-accident, and chasing the camera answers it by assuming.
-
-⚠ Related but separate: entry 49 is also a `the_stage_kills` question. They are
-independent — that one is about CPU divergence, this one about framing.
+ⓘ **The 193-line investigation that stood here is deleted, not lost** — git
+history owns it (`92f2f597b`, `dbf07bd6f`, `5c320ebb5`). It was the largest entry
+in a file whose purpose is OPEN decisions, and a closed row that long is read as
+live work.
 
 ### 49. Is near-identical CPU play on a symmetric stage acceptable, or a defect?
 

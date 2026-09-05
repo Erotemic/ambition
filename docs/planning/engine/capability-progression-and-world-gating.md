@@ -402,6 +402,32 @@ across the five conditions with authored callers, 2026-09-04:
 | `quest.active` | 1 | `test_alias_arguments_name_something_real` |
 | `world.flag_set` | 3 | `test_every_gated_flag_has_a_writer` |
 
+⛔⛔ **AND FIVE OF THE GUARDS BEHIND THIS TABLE ARE INVISIBLE TO A PER-CRATE
+RUN — measured 2026-09-05, on my own work.** `yarn_condition_aliases.rs` is
+`#![cfg(feature = "ui")]`, and `ambition_content`'s manifest says `default = []`.
+So:
+
+```text
+cargo test -p ambition_content --test content_it yarn_condition_aliases
+  → running 0 tests
+cargo nextest run --workspace   (the same tests)
+  → PASS at 2604/7150
+```
+
+⇒ **They compile only because ANOTHER workspace crate turns on
+`ambition_content/ui`, and cargo unifies features across the graph.** The guards
+are real and they run in every lane anyone actually uses — but their existence
+depends on a feature edge in a crate that is not theirs. If that edge ever goes,
+five authored-integrity guards vanish and a `-p` run has been reporting `0 tests`
+the whole time rather than a failure.
+⚠ The gate is right where it says *"a crate built by itself is not compiled by
+`check_no_warnings.py` either"*; this is the same blind spot pointed at TESTS.
+⭐ ⓘ The honest split: the interpreter arms genuinely need `ui` (they drive real
+Yarn through `bevy_yarnspinner`). **`the_boss_fixture_id_is_not_a_name_any_shipped_dialogue_uses`
+does NOT** — it only reads `YARN_SOURCES` strings — so it is gated by where it
+happens to live rather than by what it needs, and moving it to an ungated file
+would make it survive the edge going away. That is the change to make.
+
 ⚠ **THE COUNTS IN THIS TABLE WERE RAW TEXT UNTIL 2026-09-05 and are now
 EXECUTABLE calls** — `inventory.holds` 7→5, `boss.cleared` 5→3,
 `quest.active` 3→1. The difference is characters SPEAKING a call in dialogue,

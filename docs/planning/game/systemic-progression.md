@@ -45,6 +45,17 @@ while `ParticipantId` itself has ~150 references — so participants are a settl
 concept and *what a participant owns* is simply not one of the things they can
 have.
 
+✔ **RE-DERIVED 2026-09-05 and holding, every part of it.** All three searches
+still return ZERO files (`ParticipantUnlock`, `ParticipantCapabilit`,
+`UnlockedAbilit`), and `ParticipantId` is at **157** references. ⭐ It also agrees
+with an independent measurement taken the same day from the other end — the
+capability page's layer table (authored defaults → `AbilityBase` →
+`BodyAbilities`, plus a session mask) finds **no participant layer at all**, and
+its one non-body layer is an INTERSECTION that can only take verbs away. ⚠ That
+layer is the F3 inspector (`EditableAbilitySet` lives in `ambition_dev_tools`),
+which strengthens this row rather than weakening it: the sole non-body layer is
+not even a game mechanism.
+
 ⇒ **That makes the next section's ambiguity currently unrepresentable rather than
 merely unresolved.** It says some theorem capabilities *"may transfer across
 possession; others may be body-owned"*, and that the ambiguity *"should be

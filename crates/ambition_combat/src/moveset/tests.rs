@@ -1559,7 +1559,7 @@ fn a_control_verb_edge_triggers_the_moveset_move_and_lands_it() {
     // (trigger → advance → damage → capture) + a victim in reach.
     let mut app = App::new();
     app.insert_resource(ambition_characters::actor::character_catalog::CharacterCatalog::empty());
-    app.init_resource::<super::super::authored_volumes::AuthoredAttackVolumeResolver>();
+    app.init_resource::<crate::authored_volumes::AuthoredAttackVolumeResolver>();
     app.add_message::<HitEvent>();
     app.add_message::<crate::hitbox::LandedBodyHit>();
     app.add_message::<crate::hitbox::ParriedBodyHit>();
@@ -4126,7 +4126,7 @@ fn charging_smash() -> MoveSpec {
 fn smash_charge_app() -> (App, Entity) {
     let mut app = App::new();
     app.insert_resource(ambition_characters::actor::character_catalog::CharacterCatalog::empty());
-    app.init_resource::<super::super::authored_volumes::AuthoredAttackVolumeResolver>();
+    app.init_resource::<crate::authored_volumes::AuthoredAttackVolumeResolver>();
     app.add_message::<HitEvent>();
     app.add_message::<crate::hitbox::LandedBodyHit>();
     app.add_message::<crate::hitbox::ParriedBodyHit>();
@@ -4722,7 +4722,7 @@ fn an_ordinary_move_grants_neither() {
 fn playing_app(moveset: MovesetContract) -> (App, Entity) {
     let mut app = App::new();
     app.insert_resource(ambition_characters::actor::character_catalog::CharacterCatalog::empty());
-    app.init_resource::<super::super::authored_volumes::AuthoredAttackVolumeResolver>();
+    app.init_resource::<crate::authored_volumes::AuthoredAttackVolumeResolver>();
     app.add_message::<HitEvent>();
     app.add_message::<crate::hitbox::LandedBodyHit>();
     app.add_message::<crate::hitbox::ParriedBodyHit>();
@@ -6010,7 +6010,7 @@ fn clashing_swing() -> MoveSpec {
 fn two_authored_attacks_that_meet_trade_and_both_moves_end() {
     let mut app = App::new();
     app.insert_resource(ambition_characters::actor::character_catalog::CharacterCatalog::empty());
-    app.init_resource::<super::super::authored_volumes::AuthoredAttackVolumeResolver>();
+    app.init_resource::<crate::authored_volumes::AuthoredAttackVolumeResolver>();
     app.add_message::<HitEvent>();
     app.add_message::<crate::hitbox::LandedBodyHit>();
     app.add_message::<crate::hitbox::ParriedBodyHit>();
@@ -6603,7 +6603,7 @@ fn a_special_charge_is_held_by_the_special_button_and_not_the_attack_button() {
         app.insert_resource(
             ambition_characters::actor::character_catalog::CharacterCatalog::empty(),
         );
-        app.init_resource::<super::super::authored_volumes::AuthoredAttackVolumeResolver>();
+        app.init_resource::<crate::authored_volumes::AuthoredAttackVolumeResolver>();
         app.add_message::<HitEvent>();
         app.add_message::<crate::hitbox::LandedBodyHit>();
     app.add_message::<crate::hitbox::ParriedBodyHit>();
@@ -8113,7 +8113,7 @@ fn latch_after(
 ) -> Option<ae::Vec2> {
     let mut app = App::new();
     app.insert_resource(ambition_characters::actor::character_catalog::CharacterCatalog::empty());
-    app.init_resource::<super::super::authored_volumes::AuthoredAttackVolumeResolver>();
+    app.init_resource::<crate::authored_volumes::AuthoredAttackVolumeResolver>();
     app.add_message::<HitEvent>();
     app.add_message::<crate::hitbox::LandedBodyHit>();
     app.add_message::<crate::hitbox::ParriedBodyHit>();
@@ -8493,5 +8493,217 @@ mod until_pressed_again_ends_on_any_action {
                 "{label} ended the freeze — it is how she MOVES down there"
             );
         }
+    }
+}
+
+/// THE AUTHORED FLOW: what happens next, based on what happened before.
+mod technique_flow {
+    use super::*;
+    use ambition_entity_catalog::{FlowNode, FlowSignal, TechniqueFlow};
+
+    #[derive(Resource, Default)]
+    struct FlowEffects(Vec<String>);
+
+    fn capture_effects(
+        mut reader: MessageReader<MoveEventMessage>,
+        mut cap: ResMut<FlowEffects>,
+    ) {
+        for ev in reader.read() {
+            if let MoveEventKind::Effect(effect) = &ev.kind {
+                cap.0.push(effect.key.clone());
+            }
+        }
+    }
+
+    fn effect(key: &str, then: usize) -> FlowNode {
+        FlowNode::Emit {
+            effect: ambition_entity_catalog::EffectRef {
+                key: key.to_string(),
+                params: ambition_entity_catalog::ParamValue::default(),
+            },
+            then,
+        }
+    }
+
+    /// A move that plays a flow and nothing else: the timeline is empty so the
+    /// only thing under test is the flow.
+    /// ⭐ `validate` is FALSE for exactly one fixture: the cyclic flow, which
+    /// `problems()` correctly rejects for having no reachable `Finish`. That the
+    /// authoring validator catches it is the point — the runtime budget exists
+    /// for the cycles it cannot catch, and the only way to test the budget is to
+    /// hand the interpreter something the validator would have refused.
+    fn move_with_validity(
+        flow: TechniqueFlow,
+        validate: bool,
+    ) -> ambition_entity_catalog::MoveSpec {
+        // Built from the shared melee helper rather than parsed: `ron` is an
+        // OPTIONAL dependency of this crate, so a RON fixture here compiles
+        // under some feature sets and not others.
+        let mut spec = simple_melee(&SimpleMeleeParams::default());
+        spec.id = "flow_move".to_string();
+        spec.duration_s = 5.0;
+        spec.events.clear();
+        if validate {
+            assert_eq!(
+                flow.problems(),
+                Vec::<String>::new(),
+                "the fixture flow is invalid before the interpreter ever sees it"
+            );
+        }
+        spec.flow = Some(flow);
+        spec
+    }
+
+    fn run(flow: TechniqueFlow, ticks: usize, connected: bool) -> (Vec<String>, u16) {
+        run_inner(flow, ticks, connected, true)
+    }
+
+    fn run_inner(
+        flow: TechniqueFlow,
+        ticks: usize,
+        connected: bool,
+        validate: bool,
+    ) -> (Vec<String>, u16) {
+        let mut app = App::new();
+        app.add_message::<MoveEventMessage>();
+        app.add_message::<HitEvent>();
+        app.add_message::<VfxMessage>();
+        app.add_message::<ambition_sfx::OwnedSfxMessage>();
+        app.add_message::<DebrisBurstMessage>();
+        app.init_resource::<FlowEffects>();
+        app.init_resource::<WorldTime>();
+        app.insert_resource(
+            ambition_characters::actor::character_catalog::CharacterCatalog::empty(),
+        );
+        app.init_resource::<crate::authored_volumes::AuthoredAttackVolumeResolver>();
+        app.world_mut().resource_mut::<WorldTime>().scaled_dt = 0.1;
+        app.world_mut().resource_mut::<WorldTime>().raw_dt = 0.1;
+        app.add_systems(Update, (advance_move_playback, capture_effects).chain());
+        let mut pb = MovePlayback::new(move_with_validity(flow, validate), 1.0);
+        // The fact the flow branches on, stated up front — this is the same
+        // field `mark_move_playback_landed_hits` writes in production.
+        pb.connected_hit = connected;
+        pb.landed_hit = connected;
+        let body = app
+            .world_mut()
+            .spawn((
+                // `advance_move_playback` narrows to combat bodies: without a
+                // faction the query does not match and the flow never runs —
+                // which is how the first version of this fixture "passed" the
+                // interpreter without ever reaching it.
+                ActorFaction::Player,
+                ambition_platformer2d_core::BodyKinematics::default(),
+                ae::CenteredAabb::from_center_size(ae::Vec2::ZERO, ae::Vec2::new(20.0, 40.0)),
+                pb,
+            ))
+            .id();
+        for _ in 0..ticks {
+            app.update();
+        }
+        let node = app
+            .world()
+            .get::<MovePlayback>(body)
+            .map(|pb| pb.flow_node)
+            .unwrap_or_default();
+        (app.world().resource::<FlowEffects>().0.clone(), node)
+    }
+
+    /// A flow EMITS, and what it emits is an ordinary effect.
+    ///
+    /// ⭐ The point of the rung: `Emit` writes the same `MoveEventMessage` a
+    /// timeline event does, so a flow reaches every technique the game
+    /// publishes without the flow knowing any of them.
+    #[test]
+    fn a_flow_emits_its_authored_effect() {
+        let (keys, node) = run(
+            TechniqueFlow {
+                nodes: vec![effect("smash.teleport", 1), FlowNode::Finish],
+            },
+            1,
+            false,
+        );
+        assert_eq!(
+            keys,
+            vec!["smash.teleport".to_string()],
+            "the flow's `Emit` did not reach the effect channel"
+        );
+        assert_eq!(node, 1, "the cursor did not advance past the emit");
+    }
+
+    /// A branch takes the CONNECT road only when the move connected.
+    ///
+    /// ⛔ THE HIT-CONFIRM, which is the whole reason a move wants a flow. Both
+    /// directions are asserted from the same flow, because a branch that always
+    /// went one way would pass either half alone.
+    #[test]
+    fn a_branch_reads_the_move_s_own_contact() {
+        let hit_confirm = || TechniqueFlow {
+            nodes: vec![
+                FlowNode::Branch {
+                    on: FlowSignal::Connected,
+                    then: 1,
+                    otherwise: 2,
+                },
+                effect("smash.followup", 3),
+                effect("smash.recover", 3),
+                FlowNode::Finish,
+            ],
+        };
+        let (hit, _) = run(hit_confirm(), 1, true);
+        let (whiff, _) = run(hit_confirm(), 1, false);
+        assert_eq!(hit, vec!["smash.followup".to_string()]);
+        assert_eq!(whiff, vec!["smash.recover".to_string()]);
+    }
+
+    /// A wait that is never satisfied takes its timeout road.
+    ///
+    /// ⛔ THE REASON THE TIMEOUT IS MANDATORY: without it this flow would hold
+    /// the fighter in its special until something else interrupted them.
+    #[test]
+    fn a_wait_that_is_never_satisfied_times_out() {
+        let flow = TechniqueFlow {
+            nodes: vec![
+                FlowNode::Wait {
+                    on: FlowSignal::Connected,
+                    timeout_s: 0.25,
+                    then: 1,
+                    on_timeout: 2,
+                },
+                effect("smash.caught", 3),
+                effect("smash.gave_up", 3),
+                FlowNode::Finish,
+            ],
+        };
+        // One tick is 0.1s: the wait survives two and expires on the third.
+        let (early, node) = run(flow.clone(), 2, false);
+        assert!(early.is_empty(), "the wait fired early: {early:?}");
+        assert_eq!(node, 0, "the cursor left the wait before its timeout");
+        let (late, _) = run(flow, 3, false);
+        assert_eq!(late, vec!["smash.gave_up".to_string()]);
+    }
+
+    /// A flow that loops with no wait STOPS instead of hanging the simulation.
+    ///
+    /// ⛔⛔ THE FAILURE THIS PREVENTS IS NOT A WRONG MOVE, IT IS A FROZEN GAME.
+    /// `Emit` and `Branch` both resolve within the tick, so a cycle through them
+    /// spins forever inside one frame. The authoring validator cannot catch it —
+    /// such a flow reaches `Finish` on paper, so `problems()` is happy — which is
+    /// exactly why the budget is enforced here as well.
+    #[test]
+    fn a_flow_that_loops_without_waiting_cannot_hang_the_tick() {
+        let (keys, _) = run_inner(
+            TechniqueFlow {
+                nodes: vec![effect("smash.spin", 1), effect("smash.spin", 0), FlowNode::Finish],
+            },
+            1,
+            false,
+            false,
+        );
+        assert!(
+            keys.len() <= 3,
+            "a cyclic flow emitted {} times in ONE tick — the step budget is not \
+             holding and a move can hang the simulation",
+            keys.len()
+        );
     }
 }

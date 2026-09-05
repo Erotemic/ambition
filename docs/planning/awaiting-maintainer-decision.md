@@ -1136,6 +1136,45 @@ mechanism would produce a gate that refuses everyone.
 `body.fits`, and anything later that reads the driven population), which is why
 it is filed against the population rather than against a condition.
 
+### 63. Three authored fields decide nothing. Wire them, or delete them? (2026-09-05)
+
+⭐ **MEASURED, and they are all the same shape**: authored on a spec, threaded
+into a component by `spawn_static.rs`, and read by NO production code.
+
+```text
+InteractableSpec.requires_facing -> Interactable.requires_facing   spawn_static.rs:231
+ChestSpec.persistent             -> Chest.persistent               spawn_static.rs:108
+PickupSpec.collected             -> Pickup.collected               spawn_static.rs:79
+```
+
+⛔ **`requires_facing` IS THE ONE WITH A PLAYER-VISIBLE CONSEQUENCE: an
+interactable that declares it must be faced can be used from behind.** The other
+two are bookkeeping whose live authority is elsewhere — collected-ness is the
+`Collected` MARKER COMPONENT, and an opened chest is remembered by
+`encounter_reward_looted_flag`, which never consults `persistent`.
+
+⇒ **The question is not "is this a bug" — it is which of two things the authored
+vocabulary is for**, and it is cheap either way while nothing depends on it:
+
+- **WIRE THEM.** ⭐ Note this is a ZERO-BEHAVIOUR-CHANGE landing today:
+  `requires_facing` is set `false` by every authored customer, so implementing
+  the facing check changes nothing until somebody authors `true`. That makes the
+  declaration honest and gives authors a rule they can reach for.
+  ⚠ It also builds a capability with no customer — the dormant-cluster shape this
+  stack keeps finding, and the reason to prefer the second option unless a level
+  actually wants it.
+- **DELETE THEM.** Removes three lies from the authored surface. ⛔ Costs an
+  authored-schema migration (the fields are in `PlacementSpec` shapes and one is
+  set in shipped content), which touches `ambition_map_assets` — see #62, and
+  that submodule is currently frozen.
+
+ⓘ **What is NOT being asked**: `BreakableSpec.pogo_refresh` looks identical from
+the authoring side and is NOT in this list, because it IS read
+(`features/ecs/damage/mod.rs:592`, `:938`). It is merely DORMANT — never set
+true by content — which is a design choice rather than a defect. Stranded and
+dormant are indistinguishable from the authored side and want opposite responses;
+telling them apart took reading the consumer.
+
 ### 62. A second box holds 4,741 uncommitted lines in `mary_o.ldtk`. Keep or discard? (2026-09-05)
 
 ⛔ **NEITHER AGENT WILL TOUCH THIS, AND THAT IS THE POINT — the fix is

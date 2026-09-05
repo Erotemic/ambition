@@ -457,7 +457,7 @@ fn a_cross_room_checkpoint_resume_stays_checksum_clean() {
         .expect("the world has a second room to resume into");
 
     let mut save = AmbitionGameSaveData::default();
-    save.checkpoint = Some(
+    save.set_checkpoint(
         ambition_platformer2d::persistence::save_data::PersistedCheckpoint::new(
             elsewhere.clone(),
             200,

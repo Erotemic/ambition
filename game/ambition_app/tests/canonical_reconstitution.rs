@@ -914,14 +914,14 @@ fn a_relocated_occurrence_is_suppressed_by_a_load_and_by_a_re_entry_alike() {
     let (relocatable, neighbour, empty_file) = relocatable_occurrence();
 
     let mut relocated_file = empty_file.clone();
-    relocated_file.occurrences = vec![PersistedOccurrence::new(
+    relocated_file.set_durable_horizon(vec![PersistedOccurrence::new(
         relocatable.clone(),
         PersistedWhereabouts::Placed {
             room: neighbour.clone(),
             x: 200,
             y: 200,
         },
-    )];
+    )], Vec::new());
 
     // The BOOT road.
     let mut loaded = boot_with_save(DURABLE_ROOM, &relocated_file);
@@ -983,14 +983,14 @@ fn a_load_never_authors_the_occurrence_it_is_about_to_suppress() {
     let (relocatable, neighbour, empty_file) = relocatable_occurrence();
 
     let mut relocated_file = empty_file.clone();
-    relocated_file.occurrences = vec![PersistedOccurrence::new(
+    relocated_file.set_durable_horizon(vec![PersistedOccurrence::new(
         relocatable.clone(),
         PersistedWhereabouts::Placed {
             room: neighbour.clone(),
             x: 200,
             y: 200,
         },
-    )];
+    )], Vec::new());
 
     // ⭐ BOOT WITH THE FILE, the way the binary does — bytes in the world before
     // the session activates. Writing the save into a RUNNING session measures
@@ -1087,15 +1087,15 @@ fn a_save_with_a_checkpoint_and_an_occurrence_lands_both() {
     // session opens in — which is the only shape that makes
     // `restore_checkpoint_on_session_start` take the slot at all.
     let mut file = empty_file;
-    file.checkpoint = Some(PersistedCheckpoint::new(resume_room.clone(), 200, 200));
-    file.occurrences = vec![PersistedOccurrence::new(
+    file.set_checkpoint(PersistedCheckpoint::new(resume_room.clone(), 200, 200));
+    file.set_durable_horizon(vec![PersistedOccurrence::new(
         resumed_object.clone(),
         PersistedWhereabouts::Placed {
             room: DURABLE_ROOM.to_string(),
             x: 200,
             y: 200,
         },
-    )];
+    )], Vec::new());
 
     let mut sim = Platformer2dSimHarness::new_with_options(
         fixed_60hz_room_options(DURABLE_ROOM).with_save(file),
@@ -1494,46 +1494,11 @@ fn durable_families_that_differ(
     before: &ambition_platformer2d::persistence::save_data::AmbitionGameSaveData,
     after: &ambition_platformer2d::persistence::save_data::AmbitionGameSaveData,
 ) -> Vec<&'static str> {
-    use ambition_platformer2d::persistence::save_data::AmbitionGameSaveData as D;
-    // ⛔ THE DESTRUCTURE IS THE GUARD. Do not replace it with `before.field`
-    // accesses: the compiler is what stops a fourteenth family from being added
-    // without a decision about whether a replay may keep it.
-    let D {
-        version: _,
-        encounters,
-        switches,
-        bosses,
-        quests,
-        flags,
-        dialog_visits,
-        items,
-        wallet,
-        inventory_saved,
-        checkpoint,
-        occurrences,
-        custody,
-        minted_items,
-    } = before;
-    let mut differ = Vec::new();
-    let mut check = |name: &'static str, same: bool| {
-        if !same {
-            differ.push(name);
-        }
-    };
-    check("encounters", *encounters == after.encounters);
-    check("switches", *switches == after.switches);
-    check("bosses", *bosses == after.bosses);
-    check("quests", *quests == after.quests);
-    check("flags", *flags == after.flags);
-    check("dialog_visits", *dialog_visits == after.dialog_visits);
-    check("items", *items == after.items);
-    check("wallet", *wallet == after.wallet);
-    check("inventory_saved", *inventory_saved == after.inventory_saved);
-    check("checkpoint", *checkpoint == after.checkpoint);
-    check("occurrences", *occurrences == after.occurrences);
-    check("custody", *custody == after.custody);
-    check("minted_items", *minted_items == after.minted_items);
-    differ
+    // ⛔ THE DESTRUCTURE IS STILL THE GUARD -- it now lives on the type, in
+    // `ambition_persistence`, because the fact fields are sealed and only that
+    // crate can destructure them. It also got stronger in the move: both sides
+    // are destructured now, where this copy destructured only `before`.
+    before.families_that_differ(after)
 }
 
 fn durable_facts(
@@ -1626,7 +1591,7 @@ fn a_replay_keeps_session_progress_and_reports_what_it_touches() {
     let after = durable_facts(&sim);
 
     assert_eq!(
-        after.wallet, disturbed.wallet,
+        after.wallet(), disturbed.wallet(),
         "a replay is not a refund: coins held during the attempt are session \
          progress and must survive it"
     );

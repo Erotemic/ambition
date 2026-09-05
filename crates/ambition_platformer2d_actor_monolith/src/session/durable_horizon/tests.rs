@@ -69,7 +69,7 @@ fn every_whereabouts_survives_the_write_and_the_read() {
     app.update();
 
     let written = app.world().resource::<AmbitionGameSave>().data().clone();
-    assert_eq!(written.occurrences.len(), 3, "every row reaches the file");
+    assert_eq!(written.occurrences().len(), 3, "every row reaches the file");
 
     let mut reloaded = horizon_app();
     reloaded.world_mut().resource_mut::<AmbitionGameSave>().0 = written;
@@ -138,23 +138,23 @@ fn an_in_custody_row_with_no_restorable_hand_behind_it_stays_out_of_the_file() {
     let written = app.world().resource::<AmbitionGameSave>().data().clone();
     assert!(
         written
-            .occurrences
+            .occurrences()
             .iter()
             .any(|row| row.id == "placement:dropped"),
         "the mirror wrote nothing at all, so the absence below proves nothing; \
          file was {:?}",
-        written.occurrences
+        written.occurrences()
     );
     assert!(
         !written
-            .occurrences
+            .occurrences()
             .iter()
             .any(|row| row.id == "placement:driven"),
         "the file claims something is holding `placement:driven` while carrying \
          nothing that could rebuild the hand. On load nobody is holding it, and a \
          room build reading that row authors nothing: the occurrence is gone from \
          the world permanently. File was {:?}",
-        written.occurrences
+        written.occurrences()
     );
 }
 
@@ -163,17 +163,19 @@ fn a_load_seeds_every_domain_baseline_and_requests_the_resume() {
     let mut app = horizon_app();
     {
         let mut data = app.world().resource::<AmbitionGameSave>().data().clone();
-        data.occurrences = vec![PersistedOccurrence::new(
-            "placement:carried",
-            PersistedWhereabouts::InCustody,
-        )];
-        data.custody = vec![PersistedCustody::new("placement:carried", "slot:0")];
-        data.minted_items = vec![PersistedMintedItem {
+        data.set_durable_horizon(
+            vec![PersistedOccurrence::new(
+                "placement:carried",
+                PersistedWhereabouts::InCustody,
+            )],
+            vec![PersistedCustody::new("placement:carried", "slot:0")],
+        );
+        data.set_minted_items(vec![PersistedMintedItem {
             occurrence: "slot:0/0".into(),
             parent: "slot:0".into(),
             sequence: 0,
             held_item: "javelin".into(),
-        }];
+        }]);
         app.world_mut().resource_mut::<AmbitionGameSave>().0 = data;
     }
     install_durable_save_horizon(&mut app);
@@ -223,9 +225,9 @@ fn an_untouched_world_writes_no_occurrence_rows() {
     install_durable_save_horizon(&mut app);
     app.update();
     let data = app.world().resource::<AmbitionGameSave>().data();
-    assert!(data.occurrences.is_empty());
-    assert!(data.custody.is_empty());
-    assert!(data.minted_items.is_empty());
+    assert!(data.occurrences().is_empty());
+    assert!(data.custody().is_empty());
+    assert!(data.minted_items().is_empty());
 }
 
 #[test]

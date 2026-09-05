@@ -551,7 +551,6 @@ fn a_confirmed_room_transition_leaves_the_old_room_s_gravity_behind() {
 #[test]
 fn a_local_guarded_save_write_diverges_and_the_sync_test_says_so() {
     use ambition_platformer2d::persistence::save::AmbitionGameSave;
-    use ambition_platformer2d::persistence::save_data::PersistedFlag;
     use bevy::prelude::{Local, ResMut};
 
     let mut sim = repro_sim();
@@ -566,9 +565,7 @@ fn a_local_guarded_save_write_diverges_and_the_sync_test_says_so() {
             };
             if !*written {
                 *written = true;
-                save.data_mut()
-                    .flags
-                    .push(PersistedFlag::new("probe_visited", true));
+                save.data_mut().set_flag("probe_visited", true);
             }
         },
     );

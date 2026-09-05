@@ -37,7 +37,7 @@ pub fn sync_map_from_save(
         return;
     }
     *hydrated = true;
-    for flag in &save.data().flags {
+    for flag in save.data().flags() {
         if let Some(room_id) = flag.id.strip_prefix("room_visited_") {
             map.record_visit(room_id);
         }

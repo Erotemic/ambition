@@ -344,11 +344,12 @@ fn a_second_session_does_not_inherit_the_first_sessions_occurrence_ledger() {
     // empty and the file holds the row, so leaving it there would test the SAVE
     // road and call it the resource road. Emptying it is what isolates the
     // question this case is about.
+    // Clears the PAIR: a custody row whose occurrence row is gone names
+    // nothing, so the two empty together.
     app.world_mut()
         .resource_mut::<ambition_platformer2d::persistence::save::AmbitionGameSave>()
         .0
-        .occurrences
-        .clear();
+        .set_durable_horizon(Vec::new(), Vec::new());
 
     app.world_mut()
         .write_message(ShellLauncherCommand::LaunchSelected);

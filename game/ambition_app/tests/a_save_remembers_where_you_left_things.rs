@@ -268,18 +268,18 @@ fn a_save_taken_mid_possession_does_not_delete_the_enemy_in_a_fresh_process() {
     // Transient possession custody must not reach either durable save table.
     let file = the_file(&sim);
     assert!(
-        !file.occurrences.iter().any(|row| row.id == id.as_str()),
+        !file.occurrences().iter().any(|row| row.id == id.as_str()),
         "the save carries a whereabouts for a body whose custodian is possession \
          state the save does not hold. On load nobody is driving it, and the only \
          thing standing between that row and the enemy's permanent deletion is a \
          live retraction winning a race. Saved occurrences were {:?}",
-        file.occurrences
+        file.occurrences()
     );
     assert!(
-        !file.custody.iter().any(|row| row.occurrence == id.as_str()),
+        !file.custody().iter().any(|row| row.occurrence == id.as_str()),
         "the save carries a custody row naming a hand it cannot reconstruct. \
          Saved custody was {:?}",
-        file.custody
+        file.custody()
     );
 
     // Fresh boot with no possession must restore exactly one authored enemy.
@@ -335,7 +335,7 @@ fn an_object_left_in_another_room_is_lying_there_after_a_load() {
 
     let file = the_file(&sim);
     assert_eq!(
-        file.occurrences,
+        file.occurrences(),
         vec![PersistedOccurrence::new(
             authored.as_str(),
             PersistedWhereabouts::Placed {
@@ -413,7 +413,7 @@ fn a_weapon_in_your_hands_is_still_in_your_hands_after_a_load() {
 
     let file = the_file(&sim);
     assert_eq!(
-        file.occurrences,
+        file.occurrences(),
         vec![PersistedOccurrence::new(
             reward.as_str(),
             PersistedWhereabouts::InCustody
@@ -422,14 +422,14 @@ fn a_weapon_in_your_hands_is_still_in_your_hands_after_a_load() {
          and the load below is not being asked the question this fixture is about"
     );
     assert_eq!(
-        file.custody.len(),
+        file.custody().len(),
         1,
         "⚠ and it must name the HAND separately: an `InCustody` row says somebody \
          has it, which is enough to stop a room minting a second one and NOT \
          enough to put it back. Got {:?}",
-        file.custody
+        file.custody()
     );
-    assert_eq!(file.custody[0].occurrence, reward.as_str());
+    assert_eq!(file.custody()[0].occurrence, reward.as_str());
 
     // ── LOAD ────────────────────────────────────────────────────────────────
     let mut loaded = boot_with(TWO_ITEM_ROOM, &file);
@@ -492,10 +492,10 @@ fn a_consumed_occurrence_is_not_resurrected_by_a_load_and_an_untouched_one_is_un
 
     // Load a file that marks only one occurrence as consumed.
     let mut file = AmbitionGameSaveData::new();
-    file.occurrences = vec![PersistedOccurrence::new(
+    file.set_durable_horizon(vec![PersistedOccurrence::new(
         ended.as_str(),
         PersistedWhereabouts::Consumed,
-    )];
+    )], Vec::new());
 
     let mut loaded = boot_with(TWO_ITEM_ROOM, &file);
 

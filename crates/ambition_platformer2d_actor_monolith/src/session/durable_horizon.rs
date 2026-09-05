@@ -120,7 +120,7 @@ fn adopt_the_ledger(
     custody_baseline: Option<ResMut<CustodyBaseline>>,
 ) {
     let ledger_rows: BTreeMap<SimId, OccurrenceWhereabouts> = data
-        .occurrences
+        .occurrences()
         .iter()
         .map(|row| {
             (
@@ -137,7 +137,7 @@ fn adopt_the_ledger(
         })
         .collect();
     let held: BTreeMap<SimId, SimId> = data
-        .custody
+        .custody()
         .iter()
         .map(|row| {
             (
@@ -176,7 +176,10 @@ pub fn complete_durable_restore(
     }
     restored.0 = true;
     let data = save.data();
-    if !data.occurrences.is_empty() || !data.custody.is_empty() || !data.minted_items.is_empty() {
+    if !data.occurrences().is_empty()
+        || !data.custody().is_empty()
+        || !data.minted_items().is_empty()
+    {
         resets.write(ResetToCheckpoint);
     }
 }
@@ -279,12 +282,13 @@ pub fn persist_occurrence_horizon_to_save(
         })
         .collect();
     let data = save.data();
-    if data.occurrences == rows && data.custody == custody {
+    if data.occurrences() == rows && data.custody() == custody {
         return;
     }
-    let data = save.data_mut();
-    data.occurrences = rows;
-    data.custody = custody;
+    // ⛔ `data_mut()` ONLY PAST THE GUARD ABOVE. Reaching it derefs the
+    // `ResMut`, which marks the resource changed whether or not the value
+    // differs -- that is what the early return protects.
+    save.data_mut().set_durable_horizon(rows, custody);
 }
 
 #[cfg(test)]

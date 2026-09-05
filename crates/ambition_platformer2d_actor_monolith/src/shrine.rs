@@ -141,8 +141,8 @@ pub fn heal_save_shrine_system(
             );
             // Assign only on a real change, so resting twice at the same shrine does
             // not churn the file.
-            if save.data().checkpoint.as_ref() != Some(&checkpoint) {
-                save.data_mut().checkpoint = Some(checkpoint);
+            if save.data().checkpoint() != Some(&checkpoint) {
+                save.data_mut().set_checkpoint(checkpoint);
             }
         }
         // RAISED UNCONDITIONALLY, and NOT inside the change guard above.
@@ -271,7 +271,7 @@ pub fn restore_checkpoint_on_session_start(
     if progress.applied_for == Some(generation) {
         return;
     }
-    let Some(checkpoint) = save.data().checkpoint.as_ref() else {
+    let Some(checkpoint) = save.data().checkpoint() else {
         // Nothing to resume. Mark the session handled so this stops looking.
         progress.applied_for = Some(generation);
         return;
@@ -411,7 +411,7 @@ pub fn resume_at_checkpoint_on_reset(
         return;
     };
     let active = room_set.active_spec();
-    let (target_room, arrival) = match save.data().checkpoint.as_ref() {
+    let (target_room, arrival) = match save.data().checkpoint() {
         // Not fatal: fall through to rebuilding where the player actually is.
         Some(checkpoint)
             if room_set

@@ -279,7 +279,7 @@ pub fn adopt_checkpoint_baselines_from_save(
 ) {
     if let Some(baseline) = minted_baseline {
         let minted = data
-            .minted_items
+            .minted_items()
             .iter()
             .map(|row| {
                 (
@@ -329,10 +329,13 @@ pub fn persist_minted_item_horizon_to_save(
         })
         .collect();
 
-    if save.data().minted_items == minted_items {
+    if save.data().minted_items() == minted_items {
         return;
     }
-    save.data_mut().minted_items = minted_items;
+    // ⛔ `data_mut()` ONLY PAST THE GUARD ABOVE. Reaching it derefs the
+    // `ResMut`, which marks the resource changed whether or not the value
+    // differs -- that is what the early return protects.
+    save.data_mut().set_minted_items(minted_items);
 }
 
 /// Rollback facet of the item checkpoint contribution.

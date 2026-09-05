@@ -196,8 +196,8 @@ fn resting_at_a_shrine_records_a_checkpoint_and_the_next_session_resumes_there()
         .world()
         .resource::<ambition_persistence::save::AmbitionGameSave>()
         .data()
-        .checkpoint
-        .clone()
+        .checkpoint()
+        .cloned()
         .expect(
             "resting at a shrine recorded no checkpoint, so the save point saves \
              nothing — which is what it did while logging that it had",
@@ -256,7 +256,7 @@ fn a_checkpoint_from_another_room_leaves_the_body_where_it_spawned() {
 
     let mut app = App::new();
     let mut save = ambition_persistence::save_data::AmbitionGameSaveData::default();
-    save.checkpoint = Some(ambition_persistence::save_data::PersistedCheckpoint::new(
+    save.set_checkpoint(ambition_persistence::save_data::PersistedCheckpoint::new(
         "somewhere_else",
         999,
         999,
@@ -319,7 +319,7 @@ fn a_checkpoint_in_another_room_of_this_world_routes_the_session_there() {
 
     let mut app = App::new();
     let mut save = ambition_persistence::save_data::AmbitionGameSaveData::default();
-    save.checkpoint = Some(ambition_persistence::save_data::PersistedCheckpoint::new(
+    save.set_checkpoint(ambition_persistence::save_data::PersistedCheckpoint::new(
         "rest_room",
         512,
         300,
@@ -604,8 +604,8 @@ fn the_checkpoint_records_where_the_resting_body_stood() {
         .world()
         .resource::<ambition_persistence::save::AmbitionGameSave>()
         .data()
-        .checkpoint
-        .clone()
+        .checkpoint()
+        .cloned()
         .expect("resting at a shrine records a checkpoint");
     assert_eq!(
         (checkpoint.x, checkpoint.y),

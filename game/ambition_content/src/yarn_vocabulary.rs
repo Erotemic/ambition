@@ -112,7 +112,7 @@ pub fn refresh_yarn_state_mirror(
     // `quest.active` answers it live, so a projection here would be a second
     // authority with a one-frame lag.
     snap.visit_counts.clear();
-    for visit in &data.dialog_visits {
+    for visit in data.dialog_visits() {
         snap.visit_counts.insert(visit.id.clone(), visit.count);
     }
 }

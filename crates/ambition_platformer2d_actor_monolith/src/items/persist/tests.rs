@@ -30,13 +30,14 @@ fn app_with(save: AmbitionGameSave, owned: OwnedItems, wallet: i32) -> (App, Ent
 #[test]
 fn a_loaded_save_restores_items_and_wallet_over_the_starter() {
     let mut save = AmbitionGameSave::default();
-    save.data_mut().inventory_saved = true;
-    save.data_mut().wallet = 137;
     // HealthCell is a stacking consumable; Bomb is a unique weapon (cap 1).
-    save.data_mut().items = vec![
-        ambition_persistence::save_data::PersistedItem::new(Item::HealthCell.dialog_id(), 4),
-        ambition_persistence::save_data::PersistedItem::new(Item::Bomb.dialog_id(), 1),
-    ];
+    save.data_mut().set_inventory(
+        vec![
+            ambition_persistence::save_data::PersistedItem::new(Item::HealthCell.dialog_id(), 4),
+            ambition_persistence::save_data::PersistedItem::new(Item::Bomb.dialog_id(), 1),
+        ],
+        137,
+    );
     // Live state is the starter (Fireball etc.), wallet 0.
     let (mut app, player) = app_with(save, OwnedItems::starter(), 0);
     app.update();
@@ -72,12 +73,12 @@ fn a_fresh_save_keeps_the_starter_and_then_persists_it() {
     // …and persist wrote the starter + wallet back into the save.
     let data = app.world().resource::<AmbitionGameSave>().data().clone();
     assert!(
-        data.inventory_saved,
+        data.inventory_saved(),
         "the fresh inventory is now marked saved"
     );
-    assert_eq!(data.wallet, 25, "wallet persisted");
+    assert_eq!(data.wallet(), 25, "wallet persisted");
     assert!(
-        data.items
+        data.items()
             .iter()
             .any(|i| i.id == Item::Fireball.dialog_id()),
         "the starter items were written to the save"
@@ -87,11 +88,13 @@ fn a_fresh_save_keeps_the_starter_and_then_persists_it() {
 #[test]
 fn a_fresh_process_adopts_the_post_load_bag_as_its_checkpoint_baseline() {
     let mut save = AmbitionGameSave::default();
-    save.data_mut().inventory_saved = true;
-    save.data_mut().items = vec![ambition_persistence::save_data::PersistedItem::new(
-        Item::HealthCell.dialog_id(),
-        4,
-    )];
+    save.data_mut().set_inventory(
+        vec![ambition_persistence::save_data::PersistedItem::new(
+            Item::HealthCell.dialog_id(),
+            4,
+        )],
+        0,
+    );
 
     // Deliberately start from a DIFFERENT live bag.
     let (mut app, _player) = app_with(save, OwnedItems::starter(), 0);

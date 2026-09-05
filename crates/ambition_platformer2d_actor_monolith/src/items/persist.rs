@@ -56,9 +56,9 @@ pub fn restore_inventory_from_save(
         return; // wait until the player exists
     };
     let data = save.data();
-    if data.inventory_saved {
-        owned.apply_persisted(&data.items);
-        wallet.balance = data.wallet;
+    if data.inventory_saved() {
+        owned.apply_persisted(data.items());
+        wallet.balance = data.wallet();
     }
     // Domain-owned durable adoption.
     crate::items::pickup::minted_horizon::adopt_checkpoint_baselines_from_save(
@@ -91,13 +91,13 @@ pub fn persist_inventory_to_save(
     };
     let items = owned.to_persisted();
     let data = save.data();
-    if data.inventory_saved && data.wallet == wallet.balance && data.items == items {
+    if data.inventory_saved() && data.wallet() == wallet.balance && data.items() == items {
         return; // unchanged → leave the save clean (no redundant autosave)
     }
-    let data = save.data_mut();
-    data.items = items;
-    data.wallet = wallet.balance;
-    data.inventory_saved = true;
+    // ⛔ `data_mut()` ONLY PAST THE GUARD ABOVE. Reaching it derefs the
+    // `ResMut`, which marks the resource changed whether or not the value
+    // differs -- that is what the early return protects.
+    save.data_mut().set_inventory(items, wallet.balance);
 }
 
 #[cfg(test)]

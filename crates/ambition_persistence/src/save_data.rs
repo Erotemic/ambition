@@ -308,35 +308,35 @@ impl PersistedCheckpoint {
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct AmbitionGameSaveData {
     #[serde(default = "default_save_version")]
-    pub version: u32,
+    pub(crate) version: u32,
     #[serde(default)]
-    pub encounters: Vec<PersistedEncounter>,
+    pub(crate) encounters: Vec<PersistedEncounter>,
     #[serde(default)]
-    pub switches: Vec<PersistedSwitch>,
+    pub(crate) switches: Vec<PersistedSwitch>,
     #[serde(default)]
-    pub bosses: Vec<PersistedBossDefeat>,
+    pub(crate) bosses: Vec<PersistedBossDefeat>,
     #[serde(default)]
-    pub quests: Vec<PersistedQuest>,
+    pub(crate) quests: Vec<PersistedQuest>,
     #[serde(default)]
-    pub flags: Vec<PersistedFlag>,
+    pub(crate) flags: Vec<PersistedFlag>,
     /// Per-dialogue-id visit counters. `#[serde(default)]` keeps
     /// older saves loadable: missing field → empty Vec.
     #[serde(default)]
-    pub dialog_visits: Vec<PersistedDialogVisit>,
+    pub(crate) dialog_visits: Vec<PersistedDialogVisit>,
     /// Owned catalog items (the OoT inventory), keyed by `dialog_id`.
     #[serde(default)]
-    pub items: Vec<PersistedItem>,
+    pub(crate) items: Vec<PersistedItem>,
     /// Player wallet balance.
     #[serde(default)]
-    pub wallet: i32,
+    pub(crate) wallet: i32,
     /// Set once the inventory has been persisted at least once, so a restore can
     /// tell a genuinely-saved-but-empty inventory (sold everything) from a fresh
     /// save (keep the starter set).
     #[serde(default)]
-    pub inventory_saved: bool,
+    pub(crate) inventory_saved: bool,
     /// The last checkpoint the player touched, if any. `None` is a fresh run.
     #[serde(default)]
-    pub checkpoint: Option<PersistedCheckpoint>,
+    pub(crate) checkpoint: Option<PersistedCheckpoint>,
     /// What became of each runtime occurrence the world remembers anything
     /// about — the durable half of the whereabouts ledger.
     ///
@@ -344,16 +344,16 @@ pub struct AmbitionGameSaveData {
     /// ended appear; everything else reconstructs from its authored record,
     /// which is what keeps a load from resurrecting the world's entire history.
     #[serde(default)]
-    pub occurrences: Vec<PersistedOccurrence>,
+    pub(crate) occurrences: Vec<PersistedOccurrence>,
     /// Which body was holding which occurrence when this save was written.
     /// Empty hands is a real answer and writes an empty list.
     #[serde(default)]
-    pub custody: Vec<PersistedCustody>,
+    pub(crate) custody: Vec<PersistedCustody>,
     /// How to remake the runtime-minted instances that were in a hand. Never
     /// a registry of every mint the session ever made — see
     /// [`PersistedMintedItem`].
     #[serde(default)]
-    pub minted_items: Vec<PersistedMintedItem>,
+    pub(crate) minted_items: Vec<PersistedMintedItem>,
 }
 
 /// v4 adds `occurrences`, `custody` and `minted_items` — the durable horizon.
@@ -522,6 +522,152 @@ impl AmbitionGameSaveData {
         } else {
             self.quests.push(PersistedQuest { id, state, step });
         }
+    }
+
+    /// The owned-item rows (the OoT inventory).
+    pub fn items(&self) -> &[PersistedItem] {
+        &self.items
+    }
+
+    /// The wallet balance.
+    pub fn wallet(&self) -> i32 {
+        self.wallet
+    }
+
+    /// Whether the inventory has been persisted at least once -- the bit that
+    /// separates "sold everything" from "fresh save".
+    pub fn inventory_saved(&self) -> bool {
+        self.inventory_saved
+    }
+
+    /// Replace the inventory triple. ONE setter for the three fields because
+    /// they are one fact: a save that records items without recording that it
+    /// recorded them reads as a fresh save on the next load.
+    pub fn set_inventory(&mut self, items: Vec<PersistedItem>, wallet: i32) {
+        self.items = items;
+        self.wallet = wallet;
+        self.inventory_saved = true;
+    }
+
+    /// The last checkpoint the player touched. `None` is a fresh run.
+    pub fn checkpoint(&self) -> Option<&PersistedCheckpoint> {
+        self.checkpoint.as_ref()
+    }
+
+    /// Record the checkpoint the player just touched.
+    pub fn set_checkpoint(&mut self, checkpoint: PersistedCheckpoint) {
+        self.checkpoint = Some(checkpoint);
+    }
+
+    /// The durable whereabouts rows -- sparse by construction.
+    pub fn occurrences(&self) -> &[PersistedOccurrence] {
+        &self.occurrences
+    }
+
+    /// Who was holding what when this save was written.
+    pub fn custody(&self) -> &[PersistedCustody] {
+        &self.custody
+    }
+
+    /// Replace the whereabouts ledger. ONE setter for both fields because a
+    /// custody row without its occurrence row names nothing.
+    pub fn set_durable_horizon(
+        &mut self,
+        occurrences: Vec<PersistedOccurrence>,
+        custody: Vec<PersistedCustody>,
+    ) {
+        self.occurrences = occurrences;
+        self.custody = custody;
+    }
+
+    /// How to remake the runtime-minted instances that were in a hand.
+    pub fn minted_items(&self) -> &[PersistedMintedItem] {
+        &self.minted_items
+    }
+
+    /// Replace the minted-item recipes.
+    pub fn set_minted_items(&mut self, minted_items: Vec<PersistedMintedItem>) {
+        self.minted_items = minted_items;
+    }
+
+    /// Which durable fact families differ between two saves, by name.
+    ///
+    /// ⛔ THE DESTRUCTURE IS THE GUARD, and it lives here BECAUSE the fields
+    /// are sealed. Do not replace it with `self.field` accesses: the compiler
+    /// is what stops a fifteenth family from being added without a decision
+    /// about whether a replay may keep it. `version` is excluded by name --
+    /// schema metadata, not a fact.
+    ///
+    /// It moved here from `canonical_reconstitution.rs` when the fields became
+    /// private, and got stronger on the way: the old copy destructured only the
+    /// BEFORE side and read the after side by field, so it was exhaustive in
+    /// one direction. Both sides are destructured now.
+    pub fn families_that_differ(&self, other: &Self) -> Vec<&'static str> {
+        let Self {
+            version: _,
+            encounters,
+            switches,
+            bosses,
+            quests,
+            flags,
+            dialog_visits,
+            items,
+            wallet,
+            inventory_saved,
+            checkpoint,
+            occurrences,
+            custody,
+            minted_items,
+        } = self;
+        let Self {
+            version: _,
+            encounters: o_encounters,
+            switches: o_switches,
+            bosses: o_bosses,
+            quests: o_quests,
+            flags: o_flags,
+            dialog_visits: o_dialog_visits,
+            items: o_items,
+            wallet: o_wallet,
+            inventory_saved: o_inventory_saved,
+            checkpoint: o_checkpoint,
+            occurrences: o_occurrences,
+            custody: o_custody,
+            minted_items: o_minted_items,
+        } = other;
+        let mut differ = Vec::new();
+        let mut check = |name: &'static str, same: bool| {
+            if !same {
+                differ.push(name);
+            }
+        };
+        check("encounters", encounters == o_encounters);
+        check("switches", switches == o_switches);
+        check("bosses", bosses == o_bosses);
+        check("quests", quests == o_quests);
+        check("flags", flags == o_flags);
+        check("dialog_visits", dialog_visits == o_dialog_visits);
+        check("items", items == o_items);
+        check("wallet", wallet == o_wallet);
+        check("inventory_saved", inventory_saved == o_inventory_saved);
+        check("checkpoint", checkpoint == o_checkpoint);
+        check("occurrences", occurrences == o_occurrences);
+        check("custody", custody == o_custody);
+        check("minted_items", minted_items == o_minted_items);
+        differ
+    }
+
+    /// Every recorded dialogue-visit row. A READER only: counts are advanced
+    /// one at a time through [`Self::increment_dialog_visit`].
+    pub fn dialog_visits(&self) -> &[PersistedDialogVisit] {
+        &self.dialog_visits
+    }
+
+    /// Every recorded flag row. A READER only: flags are written one at a time
+    /// through [`Self::set_flag`], which is what keeps "who wrote this flag"
+    /// answerable. Callers that want one flag should ask [`Self::flag`].
+    pub fn flags(&self) -> &[PersistedFlag] {
+        &self.flags
     }
 
     pub fn flag(&self, id: &str) -> bool {

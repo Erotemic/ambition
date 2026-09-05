@@ -132,7 +132,7 @@ fn saved_count(sim: &Platformer2dSimHarness, item: Item) -> u32 {
     sim.world()
         .resource::<AmbitionGameSave>()
         .data()
-        .items
+        .items()
         .iter()
         .find(|persisted| persisted.id == item.dialog_id())
         .map(|persisted| persisted.count)

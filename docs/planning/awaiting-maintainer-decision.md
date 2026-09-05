@@ -1177,6 +1177,49 @@ say which it is. ⓘ The guarded invariant does hold in both: conflicts touching
 the engine, so the finishing-zoom edge and the participant-removal ordering the
 `MatchOutcomeDecided` doc describes are both intact in the game a player runs.
 
+### 60. Two unordered systems write the same durable switch. Where does the edge go? (2026-09-05)
+
+⛔⛔ **MEASURED, and four shipped switches sit on it.** Two systems write
+`save.data_mut().set_switch(&activation.id, …)` for the same id, downstream of one
+`SwitchActivated` from `features/ecs/interact.rs`, in sets nothing orders:
+
+```text
+  ambition_encounter::switches::drain_switch_activations
+      .in_set(SwitchActivationDrained)   ← placed in NO simulation phase
+  ambition_content falling_sand_sim::capture_falling_sand_switch_interactions
+      .in_set(Platformer2dSimulationPhaseMonolith::GameplayEffects)
+```
+
+The collision is real, not theoretical: the four falling-sand spouts are authored
+`action: "ResetEncounter"` — exactly the arm the drain toggles — while the content
+road keys off the switch ID and writes its own value. The content road states in
+place that it means to win: *"without this write the save's switch flag stays
+whatever the encounter pipeline set it to."* **Nothing makes it last.**
+
+⚠ **A behavioural test passes either way.** The simulation is single-threaded, so
+an unordered pair still gets an order and that order is stable — deterministic,
+reproducible, and arbitrary. This is the same shape as the finishing-zoom edge the
+fighter lane found and fixed, one domain over.
+
+⇒ **THE DECISION IS WHERE THE EDGE LIVES, and it is a boundary question rather
+than a local one.**
+- **Content orders itself after the engine** — `capture_falling_sand_switch_interactions
+  .after(ambition_encounter::switches::SwitchActivationDrained)`. Smallest, and it
+  makes a content crate name an engine set, which it may already do; the cost is
+  that every future content overrider must know to.
+- **The engine places its set in a phase**, so the phase chain orders everything
+  downstream for free. Widest benefit, and it is a claim about where a durable
+  switch write BELONGS in the tick — which is an engine ruling, not a content one.
+- **The override stops being an override** — the drain learns that some ids are
+  content-owned and leaves them alone, which is the `_ => continue` rule extended
+  from actions to ids. Removes the double write entirely rather than sequencing it.
+
+⛔ Not an agent's call: the first two differ in who owns tick position, and the
+third changes what "the persisted write" means. ⚠ I put a WRONG invariant into
+`switches.rs` while working this out — that the roads are *"disjoint by action
+kind"* — inferred from a `_ => continue` rather than measured. Corrected in place;
+recorded here because the wrong version is exactly what makes this look fine.
+
 ### 59. Two ledgers went red on main because a landing ran no lane. Hook, or accept? (2026-09-05)
 
 ⭐⭐ **MEASURED, and the measurement kills the obvious explanation.** Two ratchets

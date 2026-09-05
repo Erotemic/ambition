@@ -47,6 +47,49 @@ const SHOOT_ANIM_HOLD_SECS: f32 = 0.18;
 /// state (which owns the shared refire floor), its surface frame, and an OPTIONAL archetype config
 /// for the per-archetype default look. Any body that emits `ActionRequest::Ranged` now fires
 /// through this one consumer.
+/// WHERE A SHOT IS BORN, for every muzzle a ranged action can name.
+///
+/// ⭐ EXTRACTED SO IT CAN BE ASKED. This was inline in the fire system, which
+/// meant the only way to check that an authored muzzle actually moved the spawn
+/// point was to stand up an app, a body, a weapon and a fired shot — so nothing
+/// checked it, and `Muzzle::Offset` could have resolved to the body origin
+/// forever without a test noticing.
+///
+/// `origin` is the body's spawn origin; `body_pos` and `facing` come from the
+/// same kinematics, and `height` scales the normalized offsets.
+pub fn muzzle_world_pos(
+    muzzle: ambition_characters::brain::action_set::Muzzle,
+    origin: ae::Vec2,
+    body_pos: ae::Vec2,
+    facing: f32,
+    height: f32,
+    world_dir: ae::Vec2,
+    gravity_dir: ae::Vec2,
+    frame: ae::AccelerationFrame,
+) -> ae::Vec2 {
+    match muzzle {
+        // A drawn weapon fires from the hand whether the pirate is still
+        // mounted or has fallen off the shark.
+        ambition_characters::brain::action_set::Muzzle::Hand { ahead } => {
+            let hand =
+                ambition_mount::rider_hand_world_pos_in_frame(body_pos, facing, height, gravity_dir);
+            hand + world_dir * ahead
+        }
+        ambition_characters::brain::action_set::Muzzle::BodyOrigin => {
+            origin + frame.to_world(ae::Vec2::new(0.0, -8.0))
+        }
+        // ⭐ THE ACTION'S OWN MUZZLE, resolved exactly the way the hand is:
+        // scaled by body height so one authored value fits every body and every
+        // sprite tier, flipped by facing, then taken through the acceleration
+        // frame so sideways gravity moves the muzzle with the fighter rather
+        // than leaving it pointing at the screen's up.
+        ambition_characters::brain::action_set::Muzzle::Offset { x, y } => {
+            let facing_sign = if facing >= 0.0 { 1.0 } else { -1.0 };
+            origin + frame.to_world(ae::Vec2::new(x * height * facing_sign, y * height))
+        }
+    }
+}
+
 pub fn spawn_projectiles_from_brain_actions(
     mut messages: MessageReader<ActorActionMessage>,
     mut projectiles: MessageWriter<ProjectileSpawnRequest>,
@@ -262,22 +305,16 @@ pub fn spawn_projectiles_from_brain_actions(
                 }
             }
         };
-        let spawn_origin = match discharge.muzzle {
-            // A drawn weapon fires from the hand whether the pirate is still
-            // mounted or has fallen off the shark.
-            ambition_characters::brain::action_set::Muzzle::Hand { ahead } => {
-                let hand = ambition_mount::rider_hand_world_pos_in_frame(
-                    kin.pos,
-                    kin.facing,
-                    kin.size.y,
-                    gravity_dir,
-                );
-                hand + world_dir * ahead
-            }
-            ambition_characters::brain::action_set::Muzzle::BodyOrigin => {
-                origin + frame.to_world(ae::Vec2::new(0.0, -8.0))
-            }
-        };
+        let spawn_origin = muzzle_world_pos(
+            discharge.muzzle,
+            origin,
+            kin.pos,
+            kin.facing,
+            kin.size.y,
+            world_dir,
+            gravity_dir,
+            frame,
+        );
         let spawn = ProjectileSpawn {
             origin: spawn_origin,
             dir: world_dir,
@@ -343,3 +380,95 @@ fn default_combat_tuning() -> ambition_combat::events::FeatureCombatTuning {
 
 #[cfg(test)]
 mod tests;
+
+#[cfg(test)]
+mod muzzle_tests {
+    use super::muzzle_world_pos;
+    use ambition_characters::brain::action_set::Muzzle;
+    use ambition_platformer2d_core as ae;
+
+    const HEIGHT: f32 = 48.0;
+    const DOWN: ae::Vec2 = ae::Vec2::new(0.0, 1.0);
+
+    fn at(muzzle: Muzzle, facing: f32) -> ae::Vec2 {
+        muzzle_world_pos(
+            muzzle,
+            ae::Vec2::ZERO,
+            ae::Vec2::ZERO,
+            facing,
+            HEIGHT,
+            ae::Vec2::new(1.0, 0.0),
+            DOWN,
+            ae::AccelerationFrame::new(DOWN),
+        )
+    }
+
+    /// An authored muzzle actually MOVES the spawn point.
+    ///
+    /// ⛔ THE FAILURE THIS EXISTS FOR IS SILENT. A `Muzzle::Offset` arm that
+    /// fell through to the body origin would spawn every shot eight pixels above
+    /// the midriff — exactly what the fighter did before the variant existed —
+    /// and the only symptom is art that looks slightly wrong to somebody who
+    /// never saw it right.
+    #[test]
+    fn an_authored_muzzle_is_not_the_body_origin() {
+        let authored = at(Muzzle::Offset { x: 0.22, y: -0.34 }, 1.0);
+        let default = at(Muzzle::BodyOrigin, 1.0);
+        assert!(
+            authored.distance(default) > 1.0,
+            "an authored muzzle resolved to the body origin ({authored:?} vs \
+             {default:?}), so the action stated where its cannon is and the \
+             engine fired from the stomach anyway"
+        );
+        assert!(
+            authored.y < default.y,
+            "the cannon did not resolve ABOVE the default muzzle: {authored:?} \
+             against {default:?} — up is negative"
+        );
+    }
+
+    /// The offset is scaled by the BODY, not pasted in pixels.
+    ///
+    /// ⭐ THE REASON THE FIELD IS NORMALIZED. Two fighters sharing one action
+    /// must put the muzzle at the same place on their own silhouettes; a pixel
+    /// offset would put a small fighter's cannon outside its own body.
+    #[test]
+    fn the_offset_scales_with_the_body() {
+        let muzzle = Muzzle::Offset { x: 0.22, y: -0.34 };
+        let small = muzzle_world_pos(
+            muzzle,
+            ae::Vec2::ZERO,
+            ae::Vec2::ZERO,
+            1.0,
+            HEIGHT / 2.0,
+            ae::Vec2::new(1.0, 0.0),
+            DOWN,
+            ae::AccelerationFrame::new(DOWN),
+        );
+        let big = at(muzzle, 1.0);
+        assert!(
+            small.length() < big.length(),
+            "halving the body height did not move the muzzle in ({small:?} vs \
+             {big:?}), so the offset is being read as pixels"
+        );
+    }
+
+    /// Facing flips the muzzle to the side the fighter is looking.
+    ///
+    /// ⛔ A CANNON THAT STAYS ON ONE SIDE fires out of the back of the head when
+    /// the fighter turns, and the shot is born behind its own barrel.
+    #[test]
+    fn the_muzzle_follows_the_facing() {
+        let right = at(Muzzle::Offset { x: 0.22, y: -0.34 }, 1.0);
+        let left = at(Muzzle::Offset { x: 0.22, y: -0.34 }, -1.0);
+        assert!(
+            right.x > 0.0 && left.x < 0.0,
+            "the muzzle did not flip with facing: right={right:?} left={left:?}"
+        );
+        assert_eq!(
+            right.y, left.y,
+            "turning around moved the cannon vertically, so facing is being \
+             applied to the wrong axis"
+        );
+    }
+}

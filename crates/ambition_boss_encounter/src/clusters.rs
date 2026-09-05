@@ -348,10 +348,21 @@ impl BossClusterScratch {
 ///
 /// R4 keys "cleared" by the boss's unique runtime/LDtk placement id
 /// (`config.id`), NOT the archetype — so the same archetype reused at another
-/// placement is not pre-marked defeated. The single definition of the
-/// "cleared" predicate, called by both the room-load save-sync
-/// (`sync_ecs_bosses_with_save`) and the per-tick encounter driver
-/// (`update_boss_encounters`) so the skip-check can't drift between them.
+/// placement is not pre-marked defeated. The single definition of the "cleared"
+/// predicate FOR THE ECS ROAD -- everything holding a `BossConfig`: the
+/// room-load save-sync (`sync_ecs_bosses_with_save`), the per-tick encounter
+/// driver (`update_boss_encounters`, twice), and the cut-rope victory NPC
+/// (`victory.rs`) -- so the skip-check cannot drift between them.
+///
+/// ⛔ IT IS NOT THE ONLY READING OF THE FACT, AND DO NOT MAKE IT ONE. The
+/// authored-condition road (`conditions::cleared`, the `boss.cleared(...)` a
+/// Yarn file asks) reads the STATE rather than this predicate, because it must
+/// explain WHY a false answer is false -- `Untouched` and `Failed` produce
+/// different `WhyNot` text. Routing it through this bool would force it to read
+/// the row a SECOND time for the message, which is more duplication than it
+/// removes. Two readings, one authority underneath
+/// (`save.data().boss(id)`): that accessor is the fact, this is a predicate
+/// over it.
 pub fn boss_is_cleared(
     save: &ambition_persistence::save::AmbitionGameSave,
     config: &BossConfig,

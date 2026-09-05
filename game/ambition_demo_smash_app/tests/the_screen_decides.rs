@@ -708,3 +708,100 @@ fn the_select_screen_plays_its_own_score_in_the_standalone_demo() {
     // asserts the precedence directly, and the Ambition host asserts the
     // consequence — a route whose default says something else entirely.
 }
+
+/// THE STOCKS BUTTON IS REACHABLE AND THE MATCH ACTUALLY USES WHAT IT SAYS.
+///
+/// ⛔⛔ THE SECOND HALF IS THE ONE THAT WOULD ROT SILENTLY, and it is the half
+/// this file's stage-button test claims in prose and does not take: a button
+/// that cycles a resource nothing reads looks completely correct on screen —
+/// the label even changes — while every match is still played at three stocks.
+/// So this presses the real button through the real screen, starts the real
+/// match, and reads the count off the roster the screen PUBLISHED.
+///
+/// ⭐ That is reachable here only because `apply_smash_match_rules` takes the
+/// count as an argument. While it read a constant, no test at any level could
+/// have told a wired button from an unwired one.
+#[test]
+fn the_stocks_button_sets_the_count_the_published_match_is_played_at() {
+    use ambition_demo_smash::SmashStockChoice;
+
+    let mut app = build_demo_app();
+    install_press_port(&mut app);
+    plug_in(&mut app, 2);
+    app.update();
+    let layout = layout(&app);
+
+    assert_eq!(
+        *app.world().resource::<SmashStockChoice>(),
+        SmashStockChoice::Three,
+        "the default is the count every recorded ladder number was measured at"
+    );
+
+    // One stock, and the label the player reads follows the value.
+    click(&mut app, 0, layout.stocks_button());
+    assert_eq!(
+        *app.world().resource::<SmashStockChoice>(),
+        SmashStockChoice::Five,
+        "pressing the stocks button did not change the count"
+    );
+    click(&mut app, 0, layout.stocks_button());
+    assert_eq!(
+        *app.world().resource::<SmashStockChoice>(),
+        SmashStockChoice::One,
+        "the stocks button latched instead of cycling"
+    );
+    assert!(
+        stocks_label_text(&mut app).contains('1'),
+        "the button reads {:?} after the count changed — a control that lies \
+         about what it sets",
+        stocks_label_text(&mut app)
+    );
+
+    // ⭐ ANY SEAT, like the stage cycle. Seat 1 moves it on, then back to one.
+    click(&mut app, 1, layout.stocks_button());
+    assert_eq!(
+        *app.world().resource::<SmashStockChoice>(),
+        SmashStockChoice::Three,
+        "only seat zero could change the count — the player-one-centric shape"
+    );
+    click(&mut app, 1, layout.stocks_button());
+    click(&mut app, 1, layout.stocks_button());
+    assert_eq!(*app.world().resource::<SmashStockChoice>(), SmashStockChoice::One);
+
+    // Seat the two players and start.
+    click(&mut app, 0, layout.role_button(0));
+    click(&mut app, 1, layout.role_button(1));
+    let token = placed_token(&app, 0);
+    click(&mut app, 0, token);
+    let cell = layout.portrait(nth(&app, 0)).expect("an authored portrait");
+    click(&mut app, 0, cell);
+    let token = placed_token(&app, 1);
+    click(&mut app, 1, token);
+    let cell = layout.portrait(nth(&app, 1)).expect("an authored portrait");
+    click(&mut app, 1, cell);
+    click(&mut app, 0, layout.start_button());
+
+    let roster = app
+        .world()
+        .get_resource::<ambition_platformer2d::actor::MatchParticipantRoster>()
+        .expect("clicking START publishes the roster the screen decided")
+        .clone();
+    assert_eq!(
+        roster.rules.stocks,
+        Some(1),
+        "the lobby said one stock and the published match says {:?} — the \
+         button is not wired to the match it claims to change",
+        roster.rules.stocks
+    );
+}
+
+/// What the stocks button is currently showing.
+fn stocks_label_text(app: &mut App) -> String {
+    use ambition_demo_smash::select_screen::StocksButtonLabel;
+    app.world_mut()
+        .query_filtered::<&Text, With<StocksButtonLabel>>()
+        .iter(app.world())
+        .next()
+        .map(|text| text.0.clone())
+        .unwrap_or_default()
+}

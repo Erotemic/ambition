@@ -552,7 +552,7 @@ impl SmashSelect {
         // the stage unarmed. That is the honest answer for a caller that has not
         // said what its experience grants; production goes through
         // `roster_seeded` with [`crate::smash_seating_melee`].
-        self.roster_seeded(fighters, 0, policy, &Default::default(), None)
+        self.roster_seeded(fighters, 0, policy, &Default::default(), None, crate::STARTING_STOCKS)
     }
 
     /// The match this screen decided, with the random squares resolved.
@@ -595,6 +595,12 @@ impl SmashSelect {
         // roster-preparation policy, and the seat's kit is settled here so the
         // body reaches simulation with ONE move authority.
         seating_melee: Option<ambition_platformer2d::character::MeleeActionSpec>,
+        // ⛔ STOCKS ARE STATED BY THE CALLER, not read from a resource in here,
+        // for the reason `apply_smash_match_rules` now records at length: this
+        // function is the road a PLAYER travels and `smash_roster` is the other
+        // one, and a default read inside would let this road silently keep three
+        // while the player had asked for one. Both roads name the number.
+        stocks: u32,
     ) -> Option<MatchParticipantRoster> {
         if !self.ready() {
             return None;
@@ -653,7 +659,7 @@ impl SmashSelect {
                 })
             })
             .collect();
-        crate::apply_smash_match_rules(&mut roster);
+        crate::apply_smash_match_rules(&mut roster, stocks);
         // WHOSE match this is. A host with a second stage in it removes "the
         // roster" on leaving its own route, and without an owner that teardown
         // reaches this one — which is how the stage stopped opening the day this

@@ -917,7 +917,7 @@ fn the_prepared_session_is_the_smash_stage() {
 #[test]
 fn the_match_declares_the_pool_every_fighters_percent_is_read_against() {
     let mut roster = ambition_platformer2d::actor::MatchParticipantRoster::of(["mary_o", "sanic"]);
-    apply_smash_match_rules(&mut roster);
+    apply_smash_match_rules(&mut roster, STARTING_STOCKS);
     assert_eq!(
         roster.rules.health_pool,
         Some(SMASH_PERCENT_REFERENCE),

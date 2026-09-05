@@ -130,12 +130,12 @@ where
             },
         )
         .collect();
-    apply_smash_match_rules(&mut roster);
+    apply_smash_match_rules(&mut roster, STARTING_STOCKS);
     roster.published_by(SMASH_EXPERIENCE)
 }
 
 /// WHAT KIND OF MATCH THIS IS — the Smash ruleset, in one place.
-pub fn apply_smash_match_rules(roster: &mut MatchParticipantRoster) {
+pub fn apply_smash_match_rules(roster: &mut MatchParticipantRoster, stocks: u32) {
     // ⛔⛔ THIS MATCH GRANTS NO PILOT LICENCE, AND THE HISTORY IS WORTH KEEPING.
     // It briefly did, in two places and then in one: `smash_roster` granted the
     // shark class per seat, `SmashSelect::roster_seeded` — the road a player
@@ -180,7 +180,16 @@ pub fn apply_smash_match_rules(roster: &mut MatchParticipantRoster) {
     // derived from `ActiveMatch::activated_on`, so it costs no rollback state;
     // see `MatchRules::time_remaining`.
     roster.rules.time_limit_ticks = SMASH_TIME_LIMIT_TICKS;
-    roster.rules.stocks = Some(STARTING_STOCKS);
+    // ⛔⛔ A PARAMETER, NOT A CONSTANT, AND NOT A RESOURCE READ IN HERE — because
+    // this function has TWO ROADS and this file already records what that costs.
+    // `smash_roster` granted a pilot licence per seat while
+    // `SmashSelect::roster_seeded` — the road a player actually travels —
+    // assembled its participants from scratch and never did, so the admiral
+    // reached the match unable to board its own summon. Jon found it by playing.
+    // ⇒ Taking the count as an argument makes both roads STATE it; a default
+    // read inside would let the select road keep three while the player asked
+    // for one, and nothing would have been red.
+    roster.rules.stocks = Some(stocks);
     // The match supplies one health pool for percent calculation so crossover
     // characters are measured against this ruleset rather than their home games.
     roster.rules.health_pool = Some(SMASH_PERCENT_REFERENCE);
@@ -2350,6 +2359,7 @@ impl bevy::prelude::Plugin for SmashSelectPlugin {
         // default is the stage every recorded measurement was taken on, so a
         // host that never touches it plays exactly what it played before.
         app.init_resource::<SmashStageChoice>();
+        app.init_resource::<SmashStockChoice>();
         app.init_resource::<select::SmashSelect>();
         // The pointer, and the one thing it can ask for that the value does not
         // hold. Both live outside `SmashSelect` on purpose: where a cursor is
@@ -2941,6 +2951,10 @@ fn start_the_battle_when_asked(
     // runs before the resource exists on the very first frame of a boot, and a screen with no rules
     // yet has no floor to hand out either.
     mut shell: bevy::prelude::MessageWriter<ambition_platformer2d::game_shell::ShellCommand>,
+    // WHAT THE LOBBY'S STOCKS BUTTON DECIDED. Read here, on the road a player
+    // travels, and handed to `roster_seeded` as a value — see that parameter's
+    // note for why the count is stated by each caller rather than read inside.
+    stocks: bevy::prelude::Res<SmashStockChoice>,
 ) {
     if !asked.0 {
         return;
@@ -2997,6 +3011,8 @@ fn start_the_battle_when_asked(
         // is DEFERRED, so on the frame that decides the match it did not exist
         // yet and `None` was published.
         Some(smash_seating_melee()),
+        // What the lobby's stocks button decided.
+        stocks.count(),
     ) else {
         return;
     };
@@ -3637,6 +3653,58 @@ pub enum SmashStageChoice {
     Flat,
     /// [`smash_platform_stage`] — the same floor with three drop-through tiers.
     Platforms,
+}
+
+/// HOW MANY STOCKS THIS MATCH GIVES EACH FIGHTER, as a match decision.
+///
+/// ⭐ The stock count was already a shipped primitive — `MatchRules::stocks`,
+/// which the engine pairs with `DeathPolicy::Unbounded` because neither half is
+/// meaningful alone. What was missing was a customer: the demo stated
+/// [`STARTING_STOCKS`] and no player could say otherwise, so *"rule selection"*
+/// stood open on the Super Smash Siblings checkpoint while the rule itself was
+/// finished.
+///
+/// Defaults to [`STARTING_STOCKS`], so a host that never touches it plays
+/// exactly the match it played before this existed.
+#[derive(bevy::prelude::Resource, Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub enum SmashStockChoice {
+    /// One stock. The genre's tournament-tense variant: no room to learn the
+    /// matchup inside the match.
+    One,
+    /// [`STARTING_STOCKS`] — the count every ladder number was measured at.
+    #[default]
+    Three,
+    /// Five. Long enough that an early mistake is recoverable.
+    Five,
+}
+
+impl SmashStockChoice {
+    /// The count this choice gives each fighter.
+    pub fn count(self) -> u32 {
+        match self {
+            SmashStockChoice::One => 1,
+            SmashStockChoice::Three => STARTING_STOCKS,
+            SmashStockChoice::Five => 5,
+        }
+    }
+
+    /// What the stocks button shows.
+    pub fn label(self) -> &'static str {
+        match self {
+            SmashStockChoice::One => "1",
+            SmashStockChoice::Three => "3",
+            SmashStockChoice::Five => "5",
+        }
+    }
+
+    /// The next count in the cycle, for a single button that walks them.
+    pub fn next(self) -> Self {
+        match self {
+            SmashStockChoice::One => SmashStockChoice::Three,
+            SmashStockChoice::Three => SmashStockChoice::Five,
+            SmashStockChoice::Five => SmashStockChoice::One,
+        }
+    }
 }
 
 impl SmashStageChoice {

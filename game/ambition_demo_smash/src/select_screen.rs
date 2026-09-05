@@ -40,6 +40,9 @@ pub enum SelectTarget {
     RoleButton(usize),
     /// The stage cycle beside START — a match decision, not a per-seat one.
     Stage,
+    /// The stocks cycle, left of the stage — also a match decision. Closes the
+    /// Super Smash Siblings checkpoint's *"rule selection is still absent"*.
+    Stocks,
     /// Begin the match.
     Start,
     /// Leave the lobby — see [`LeaveRequested`].
@@ -64,6 +67,8 @@ pub enum Anchored {
     RoleButton(usize),
     /// The stage cycle beside START — a match decision, not a per-seat one.
     Stage,
+    /// The stocks cycle, left of the stage.
+    Stocks,
     CardPortrait(usize),
     Start,
     Back,
@@ -99,6 +104,16 @@ pub struct StageButtonLabel;
 /// alone reads as a state, not a control.
 pub fn stage_button_text(choice: crate::SmashStageChoice) -> String {
     format!("Stage: {}", choice.label())
+}
+
+/// The stocks button's own label marker.
+#[derive(Component, Clone, Copy)]
+pub struct StocksButtonLabel;
+
+/// What the stocks button reads. Prefixed for the same reason the stage's is:
+/// a bare "3" reads as a state rather than as a control.
+pub fn stocks_button_text(choice: crate::SmashStockChoice) -> String {
+    format!("Stocks: {}", choice.label())
 }
 
 /// The chosen fighter's portrait on a card.
@@ -717,6 +732,30 @@ pub fn spawn_select_screen(
                 ));
             });
 
+            let mut stocks = anchored(Anchored::Stocks);
+            stocks.1.justify_content = JustifyContent::Center;
+            stocks.1.align_items = AlignItems::Center;
+            stocks.1.border = UiRect::all(Val::Px(2.0));
+            stocks.1.border_radius = BorderRadius::all(Val::Px(6.0));
+            root.spawn((
+                stocks,
+                BackgroundColor(Color::srgb(0.11, 0.12, 0.18)),
+                BorderColor::all(PANEL_EDGE),
+                GlobalZIndex(610),
+                Name::new("stocks button"),
+            ))
+            .with_children(|node| {
+                node.spawn((
+                    StocksButtonLabel,
+                    // Seeded with the default for the same reason the stage
+                    // button's is: it must not render blank for the frame
+                    // before its sync system first runs.
+                    Text::new(stocks_button_text(crate::SmashStockChoice::default())),
+                    text_font(14.0),
+                    TextColor(INK),
+                ));
+            });
+
             for slot in 0..MAX_SMASH_SEATS {
                 let mut card = anchored(Anchored::Card(slot));
                 card.1.flex_direction = FlexDirection::Column;
@@ -896,6 +935,12 @@ pub(crate) fn drive_the_cursor(
     // The stage the START below will play on. Lives outside `SmashSelect` for
     // the same reason the cursor does: it is not part of what a SEAT decided.
     mut stage: ResMut<crate::SmashStageChoice>,
+    // ⛔ A REQUIRED `ResMut`, exactly like `stage` above, and the fixtures
+    // register it rather than this becoming an `Option`. The stage button's
+    // own landing said why: an `Option` keeps the hand-built fixtures green
+    // and silently no-ops the button in production if the real registration
+    // is ever dropped.
+    mut stocks: ResMut<crate::SmashStockChoice>,
     policy: Res<SelectInteractionPolicy>,
     inputs: SelectScreenInputs,
     mut local: Local<SelectDriverLocal>,
@@ -1404,6 +1449,13 @@ pub(crate) fn drive_the_cursor(
                 (None, None, Some(SelectTarget::Stage)) => {
                     *stage = stage.next();
                 }
+                // ⭐ ANY SEAT, for the same reason the stage cycle takes any
+                // seat: how long the match runs is a decision about the MATCH,
+                // and gating it on card zero is the player-one-centric shape Jon
+                // rejected.
+                (None, None, Some(SelectTarget::Stocks)) => {
+                    *stocks = stocks.next();
+                }
                 (None, None, Some(SelectTarget::Start)) => {
                     if select.ready() {
                         start.0 = true;
@@ -1484,6 +1536,7 @@ pub fn place_the_screen(
             Anchored::Card(slot) => Some(layout.card(slot)),
             Anchored::RoleButton(slot) => Some(layout.role_button(slot)),
             Anchored::Stage => Some(layout.stage_button()),
+            Anchored::Stocks => Some(layout.stocks_button()),
             Anchored::CardPortrait(slot) => Some(layout.card_portrait(slot)),
             Anchored::Start => Some(layout.start_button()),
             Anchored::Back => Some(layout.back_button()),
@@ -1552,6 +1605,17 @@ pub fn sync_select_cards(
             With<StageButtonLabel>,
             Without<RoleButtonLabel>,
             Without<CardName>,
+            Without<StocksButtonLabel>,
+        ),
+    >,
+    stocks: Res<crate::SmashStockChoice>,
+    mut stocks_label: Query<
+        &mut Text,
+        (
+            With<StocksButtonLabel>,
+            Without<RoleButtonLabel>,
+            Without<CardName>,
+            Without<StageButtonLabel>,
         ),
     >,
     mut card_portraits: Query<(&CardPortrait, &mut ImageNode, &mut Visibility)>,
@@ -1590,6 +1654,12 @@ pub fn sync_select_cards(
     // which is worse than having no control.
     for mut text in &mut stage_label {
         let next = stage_button_text(*stage);
+        if text.0 != next {
+            text.0 = next;
+        }
+    }
+    for mut text in &mut stocks_label {
+        let next = stocks_button_text(*stocks);
         if text.0 != next {
             text.0 = next;
         }
@@ -1800,6 +1870,7 @@ mod touch_tests {
         // touch test in this module went red at once when it was missing, which
         // is the right failure and a loud one.
         app.init_resource::<crate::SmashStageChoice>();
+    app.init_resource::<crate::SmashStockChoice>();
         // See the note in `lib.rs`'s fixture: the cursor integrates a clock.
         app.init_resource::<Time>();
         app.init_resource::<Touches>();

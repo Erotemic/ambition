@@ -27,6 +27,9 @@ const START_W: f32 = 150.0;
 /// The stage cycle's width. Narrower than START because it is a setting rather
 /// than the commit, and still well over [`MIN_TOUCH_PX`].
 const STAGE_W: f32 = 132.0;
+/// The stocks cycle's width. Narrower than the stage's because its label is a
+/// single digit, and still well over [`MIN_TOUCH_PX`].
+const STOCKS_W: f32 = 108.0;
 const START_H: f32 = 34.0;
 /// Back control width, paired with the start control.
 const BACK_W: f32 = 150.0;
@@ -311,6 +314,22 @@ impl SelectLayout {
         )
     }
 
+    /// The stocks cycle, LEFT of the stage cycle.
+    ///
+    /// Both are match decisions rather than per-seat ones, so they sit together
+    /// on the same side of START, in the order a player reads them: how many
+    /// stocks, on which stage, then GO.
+    pub fn stocks_button(&self) -> HitRect {
+        let strip = self.control_strip();
+        HitRect::from_center_size(
+            Vec2::new(
+                strip.max.x - START_W - GAP - STAGE_W - GAP - STOCKS_W * 0.5,
+                strip.center().y,
+            ),
+            Vec2::new(STOCKS_W, START_H),
+        )
+    }
+
     pub fn start_button(&self) -> HitRect {
         let strip = self.control_strip();
         HitRect::from_center_size(
@@ -402,6 +421,10 @@ impl SelectLayout {
         // every existing index was already spoken for. The order is the
         // contract, and "append" is the only edit to it that costs nothing.
         targets.push((SelectTarget::Stage, self.stage_button()));
+        // APPENDED after `Stage`, by the same contract the comment above
+        // states: the cursor names a target by INDEX, so anything but an
+        // append re-points every walkthrough, capture and test.
+        targets.push((SelectTarget::Stocks, self.stocks_button()));
         targets
     }
 }

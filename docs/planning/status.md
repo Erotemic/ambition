@@ -12,9 +12,26 @@ ancestors of HEAD, re-checked 2026-09-03 with `git merge-base --is-ancestor`
 rather than `git cat-file` — an orphaned commit resolves under the second and
 not the first.
 
-⭐⭐ **NUMBERS MEASURED 2026-09-04 ON THIS BRANCH, so a reader orienting today
-has something current to stand on rather than only the caveats below.** Each was
-run, not carried forward:
+⭐⭐ **EVERY LIVE NUMBER IN THIS TABLE RE-DERIVED 2026-09-05, so a reader
+orienting today has something current to stand on rather than only the caveats
+below.** Each was run, not carried forward — and the sweep is worth its own
+sentence because FOUR of them were wrong:
+
+```text
+rollback wire format    v152 -> v157   five bumps of drift in a day
+feature-gated tests      813 -> 812    this page disagreed with run_tests.py AND the tool
+capability footprint     51/23 correct, SOURCE wrong (the ratchet prints no such line)
+"now 819 passed / 1 failed"            a live adverb inside a frozen 2026-09-03 receipt;
+                                       the named red has since been fixed
+```
+
+⚠ The pattern across all four: **the copy that goes stale is the one in a page
+nobody executes.** The tool, the footer and the constant all agreed with each
+other; only the prose drifted. ⇒ a row states a CLAIM and names WHERE the number
+lives — the rule this stack adopted on `tracks.md` the same day, arrived at from
+three directions.
+
+The 2026-09-03 receipt further down is history and is deliberately NOT updated.
 
 | what | figure | how |
 |---|---|---|

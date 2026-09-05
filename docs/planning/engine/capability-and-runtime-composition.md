@@ -17,6 +17,50 @@ Make engine composition reflect what a game actually chooses to use.
 
 ## The first measured baseline for this goal (2026-09-04)
 
+⭐⭐ **A CAPABILITY CAN BE COMPILED IN AND NEVER INSTALLED, AND THIS PROGRAM'S
+TEST CANNOT SEE IT (2026-09-05).** This page asks whether a capability can be
+INSTALLED ALONE. The sibling failure is the one the fighter lane hit: authored,
+compiled, and never SCHEDULED.
+
+⛔ `all_capabilities` turns on the optional `ambition_portal2d` DEPENDENCY; the
+`portal` FEATURE is what installs `PortalSchedulePlugin`. **They are not the same
+switch, and the crate compiles fine without the second one** — `PlacedPortal` is
+just a type, and the authored pair spawns happily. So a portal recovery landed
+and guarded in the smash demo opened two apertures a fighter fell straight
+through, while working correctly in `ambition_app`.
+
+⭐ **RE-DERIVED HERE, and the re-derivation is what makes it trustworthy**,
+because a first pass measured the wrong composition:
+
+```text
+feature          ambition_app   smash*   sanic*   mary_o*   twintrack*
+portal                    ON        .        .         .            .
+portal_render             ON        .        .         .            .
+audio                     ON       ON       ON        ON            .
+ui                        ON        .        .         .            .
+content_pack              ON       ON        .         .            .
+rollback / ldtk           ON       ON       ON        ON           ON
+* = measured under `--features visible`; these apps' `default` is EMPTY
+```
+
+⛔⛔ **MEASURING A DEMO AT DEFAULT FEATURES MEASURES NOTHING — `default = []`.**
+My first table read `audio` as OFF for every demo and it is ON in all three that
+ship it; that row was an artefact of asking for a build nobody runs. ⇒ **a
+capability table must name the feature set each app SHIPS with**, or it invents
+absences. The portal row is the one that SURVIVES the correction: still absent
+under `visible`, which is the build that ships.
+
+⚠ **AND NO TEST CAN CATCH THIS CLASS TODAY**, which is why it belongs on this
+page rather than in a queue row: every fixture registers its own systems by hand,
+so a hand-assembled test app cannot detect a missing PLUGIN. The dormant-mode
+census (`scripts/authored_parameter_modes.py`) finds fields nobody authors; this
+is its sibling — behaviour authored and compiled and never scheduled — and
+neither instrument sees it. The query that would is per-app: which systems does a
+shipped composition actually install.
+ⓘ Unlike the dormant-mode census, this one probably SHOULD be gated eventually:
+"this app installs a system whose capability nothing registers" is a crash, not a
+taste.
+
 ⭐ **ONE RUNTIME FILE INITIALISES 40 RESOURCES BELONGING TO 14 OTHER CRATES.**
 
 ⚠ **RE-MEASURED 2026-09-05: it is 37 across 12 now** (38 `init_resource` calls,

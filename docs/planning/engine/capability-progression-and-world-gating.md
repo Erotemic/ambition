@@ -633,6 +633,33 @@ language.
   body capability?
 - How expressive should compound requirements be before they become an
   accidental scripting language?
+  ⛔⛔ **NO LONGER PURELY HYPOTHETICAL — a ruling now DEPENDS on an answer that
+  is only half true. Measured 2026-09-05.** Jon's decision 57 says breadth
+  composes rather than getting its own mechanism, and gives the shape:
+
+  > `boss.cleared("cove.mockingbird") OR boss.cleared("tower.mockingbird")`
+
+  That composes in **dialogue** — a `.yarn` `<<if …>>` is evaluated by the Yarn
+  interpreter, which has `or` and `and`, and our conditions are registered
+  functions returning bools. ⇒ It does **NOT** compose in a **route gate**:
+  `prepare_authored_gate` (`world/gated_lock_walls.rs:355`) reads `gated_by` as
+  EITHER one `domain.question` line OR a bare flag name, and `prepare_line`
+  (`authored_logic/prepared.rs:131`) splits it into exactly one id plus args.
+  **There is no operator anywhere in that road.** A wall asks one question.
+
+  ⇒ **So "any Mockingbird cleared" can gate a CONVERSATION today and cannot gate
+  a DOOR.** That is not a defect in the ruling — the ruling is about keys, not
+  operators — but it means the composition it points at is unavailable in one of
+  the two places gates live, and the first author who needs it will discover that
+  from a wall that will not open.
+  ⇒ **This question therefore has a due date now**, and the cheapest honest
+  answers are worth naming: (a) leave it, and say in the gate's own error that
+  compound gates are not authorable; (b) allow exactly `and`/`or` over prepared
+  conditions and nothing else — no nesting, no negation, no values — which is the
+  smallest step that does not become a language; (c) let a gate name a flag that
+  a content system sets from a composed rule, which keeps the gate road simple
+  and moves the composition into code where it is already expressible.
+  ⚠ I did not pick one; the reason this bullet exists is that picking is Jon's.
 - Should "knowledge" ever be an engine fact, or remain Ambition/social AI data?
 - ⛔ LIVE, NOT HYPOTHETICAL, and filed as **awaiting-maintainer-decision #54**
   (2026-09-04): how should co-op gates behave when one participant can traverse

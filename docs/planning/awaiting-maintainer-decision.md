@@ -1488,6 +1488,18 @@ earlier test could not have, because it spelled both sides itself.
 broader question"* is a COMPOSITION of the narrow authority, never a second
 authority at the broader grain.
 
+⚠ **AND THE COMPOSITION IS ONLY HALF AVAILABLE — measured 2026-09-05, after the
+ruling landed.** `boss.cleared(a) OR boss.cleared(b)` composes in DIALOGUE (the
+Yarn interpreter has `or`/`and`). It does NOT compose in a ROUTE GATE:
+`prepare_authored_gate` reads `gated_by` as one condition line or one flag name,
+and `prepare_line` splits it into exactly one id plus args — no operator exists
+on that road. ⇒ *"Any Mockingbird cleared"* can gate a conversation today and
+cannot gate a door. Not a flaw in the ruling, which is about KEYS; but the
+composition it points at is unavailable in one of the two places gates live, and
+that now has a due date. Options costed on
+[`capability-progression-and-world-gating.md`](engine/capability-progression-and-world-gating.md)'s
+compound-requirements question.
+
 ⓘ The original finding, kept because the shape recurs:
 
 ⛔⛔ **THREE EXECUTABLE AUTHORED DIALOGUE CALLS HAD NEVER BEEN ABLE TO RETURN

@@ -399,8 +399,22 @@ pub fn ninja_shadow_oni_leader_moveset() -> MovesetContract {
     air_down_b.landing_lag_s = Some(0.28);
     let air_down_b = impulse(air_down_b, 0.05, (0.0, 1250.0), ImpulseMode::Set);
     let air_down_b = vfx_at(air_down_b, 0.0, "command_seal", (0.0, 0.0), 0.9);
-    let air_down_b = vfx_at(air_down_b, 0.05, "counter_ring", (0.0, 18.0), 1.0);
-    let air_down_b = sfx(air_down_b, 0.05, "faction.ninja.parry_flash");
+    // ⛔⛔ ITS PARRY CUES ARE GONE, AND REMOVING THEM IS MY DEBT RATHER THAN A
+    // SEPARATE DESIGN CALL. This dive wore `counter_ring` and
+    // `faction.ninja.parry_flash` while the GROUNDED seal beside it was also a
+    // plain strike — two moves telling the same small lie, which at least told
+    // it consistently. ⇒ The moment the grounded one became a real counter, a
+    // player learns "ring plus flash means he is parrying" and this move
+    // punishes that read: it is a fast-fall SPIKE (`impulse (0, 1250)`,
+    // `launch_dir (0, 1)`) with no defensive frame anywhere in it.
+    //
+    // ⭐ `smoke_fold` AND `smoke_poof` ARE WHAT IT ACTUALLY DOES, and both are
+    // already his: the seal closes around him as he drops — which is this move's
+    // own comment, three lines up — and he arrives in it. The `command_seal`
+    // above is untouched, so the seal imagery the comment claims is still there;
+    // what has gone is the claim to be answering an attack.
+    let air_down_b = vfx_at(air_down_b, 0.05, "smoke_fold", (0.0, 18.0), 1.0);
+    let air_down_b = sfx(air_down_b, 0.05, "faction.ninja.smoke_poof");
     let air_down_b = on_contact(air_down_b, "player.hit");
 
     // ONI'S CAPTURE KIT. The FASTEST grab in the game and the longest recovery
@@ -764,6 +778,46 @@ mod tests {
         assert!(
             cues.contains(&"counter_ring"),
             "the parry ring is gone: {cues:?}"
+        );
+    }
+
+    /// ⛔⛔ AND THE DIVE MUST NOT WEAR THE PARRY'S CLOTHES. `falling_seal` is a
+    /// fast-fall spike with no defensive frame, and it carried `counter_ring`
+    /// and `faction.ninja.parry_flash` — harmless while the grounded seal was
+    /// also a plain strike, and a trap the moment it became a real counter: the
+    /// player learns the cue on one move and is punished for reading it on the
+    /// other. ⇒ The cost of fixing a lie is checking who else was telling it.
+    #[test]
+    fn his_falling_seal_does_not_wear_the_counters_cues() {
+        let set = ninja_shadow_oni_leader_moveset();
+        let dive = find(&set, "falling_seal");
+        let cues: Vec<String> = dive
+            .events
+            .iter()
+            .filter_map(|event| match &event.kind {
+                ambition_platformer2d::entity_catalog::MoveEventKind::Vfx { effect, .. } => {
+                    Some(effect.clone())
+                }
+                ambition_platformer2d::entity_catalog::MoveEventKind::Sfx { cue } => {
+                    Some(cue.clone())
+                }
+                _ => None,
+            })
+            .collect();
+        for lie in ["counter_ring", "faction.ninja.parry_flash"] {
+            assert!(
+                !cues.iter().any(|c| c == lie),
+                "the dive still announces `{lie}`, which only the counter does: {cues:?}"
+            );
+        }
+        // ⭐ AND IT IS STILL A DIVE, so this is a cue swap and not a quiet
+        // declawing of the move.
+        assert!(
+            dive.windows
+                .iter()
+                .flat_map(|w| w.volumes.iter())
+                .any(|v| v.damage > 0),
+            "the dive lost its hitbox along with its borrowed cues"
         );
     }
 }

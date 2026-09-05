@@ -1495,173 +1495,69 @@ of question that is only cheap before there is content.
 ⓘ Full derivation and citations on
 [`engine/capability-progression-and-world-gating.md`](engine/capability-progression-and-world-gating.md).
 
-### ~~57. `boss_cleared("mockingbird")` can never be true. Which id is the boss id?~~ (RULED 2026-09-05)
+### ~~57. `boss_cleared("mockingbird")` can never be true. Which id is the boss id?~~ (RULED + IMPLEMENTED 2026-09-05)
 
-✔✔ **JON RULED, AND IT IS IMPLEMENTED.** In his words:
+✔✔ **RULED BY JON, IMPLEMENTED, GUARDED. Compressed to a receipt 2026-09-05; the
+full derivation — four costed options, the cardinality framing, the entanglement
+with #56 — is in this file's git history.** In his words:
 
 > Boss progress is keyed only by stable authored encounter/placement IDs.
 > `boss.cleared(id)` means "has this specific authored boss encounter been
 > cleared?"
 
 Breadth **composes** from placement predicates rather than getting a mechanism of
-its own — `boss.cleared("cove.mockingbird") OR boss.cleared("tower.mockingbird")`
-for *any*, an AND across the relevant encounters for *all*.
-⛔ Explicitly REJECTED, all four: behaviour/archetype ids as save keys;
+its own. ⛔ Explicitly REJECTED, all four: behaviour/archetype ids as save keys;
 `boss_cleared("mockingbird")` meaning *"some boss of this type"*; runtime ECS
-lookup translating a behaviour id into a placement (boss entities are
-ROOM-SCOPED, the record is DURABLE); and a second archetype-level table.
+lookup translating a behaviour id into a placement; and a second archetype-level
+table.
 
-**What landed.** `BossSpawn` gains an authored `encounter_id`
-(`tools/add_boss_encounter_id_field.py`, the same shape as the existing
-`add_path_motion_authoring_fields.py`); `ldtk::fields::boss_placement_id` is the
-ONE definition of a placement's id — authored value, else the iid — and
+**What landed (`dff7c908c`).** `BossSpawn` gains an authored `encounter_id`
+(`tools/add_boss_encounter_id_field.py`); `ldtk::fields::boss_placement_id` is
+the ONE definition of a placement's id — authored value, else the iid — and
 `convert_boss_spawn` calls it, so the save key, `FeatureId`, the duplicate-id
-check and mount links all read one id with no second spelling to keep in step.
-The Mockingbird placement is `cove.mockingbird`, and the three executable
-authored calls now spell that.
+check and mount links all read one id. The Mockingbird placement is
+`cove.mockingbird` and the three executable authored calls spell it.
 ⚠ The id names the narrative owner, NOT the level (`mockingbird_arena`): a
-durable save key that tracks a level identifier changes when the level is
-renamed, which is the property an authored id exists to avoid.
+durable key that tracks a level identifier changes when the level is renamed,
+which is the property an authored id exists to avoid.
 
 **Two guards, both poison-verified.**
 `every_authored_boss_cleared_call_names_a_real_boss_placement` resolves through
-the PRODUCTION function and reds on the original spelling — a wrong id is now a
-RED rather than a silently shut door, which is the failure mode that hid this for
-weeks. `the_shipped_mockingbird_gate_opens_when_its_authored_placement_is_cleared`
-walks it end to end: the id comes from the BOOTED ROOM, the question comes from
-the SHIPPED DIALOGUE, and nothing in the test picks either — the property every
-earlier test could not have, because it spelled both sides itself.
+the PRODUCTION function and reds on the original spelling — a wrong id is a RED
+rather than a silently shut door, which is the failure mode that hid this for
+weeks (a missing save key reads `Untouched`, so the gate just stayed closed and
+looked like content nobody wrote).
+`the_shipped_mockingbird_gate_opens_when_its_authored_placement_is_cleared`
+walks it end to end: the id comes from the BOOTED ROOM, the question from the
+SHIPPED DIALOGUE, and the test picks neither — the property every earlier test
+lacked, because it spelled both sides itself.
 
-⭐ **The generalisable rule, worth more than the fix:** the answer to *"I need a
-broader question"* is a COMPOSITION of the narrow authority, never a second
-authority at the broader grain.
+⭐⭐ **THE THREE THINGS WORTH CARRYING FORWARD:**
+1. **Breadth composes from the narrow authority, never a second authority at the
+   broader grain.** Jon's rule, and the same sentence as his move-architecture
+   rule one domain over.
+2. **A gate's answer may not depend on which room the player is standing in.**
+   That is what killed the live-ECS bridge: boss entities are ROOM-SCOPED, so the
+   same world state would answer `Unanswerable` in one room and `Satisfied` in
+   another — non-deterministic with respect to POSITION, and unreproducible from
+   a save.
+3. **The underlying question was CARDINALITY, not naming** — one behaviour, N
+   placements (`sandbox` authors `mode_collapse_boss` twice). Any answer that
+   says "the boss" without saying which cardinality it means is ambiguous again
+   at the next N > 1.
 
-⚠ **AND THE COMPOSITION IS ONLY HALF AVAILABLE — measured 2026-09-05, after the
-ruling landed.** `boss.cleared(a) OR boss.cleared(b)` composes in DIALOGUE (the
-Yarn interpreter has `or`/`and`). It does NOT compose in a ROUTE GATE:
-`prepare_authored_gate` reads `gated_by` as one condition line or one flag name,
-and `prepare_line` splits it into exactly one id plus args — no operator exists
-on that road. ⇒ *"Any Mockingbird cleared"* can gate a conversation today and
-cannot gate a door. Not a flaw in the ruling, which is about KEYS; but the
-composition it points at is unavailable in one of the two places gates live, and
-that now has a due date. Options costed on
+⚠ **STILL LIVE, and the only part of this row that is not closed: the
+composition is half available.** `boss.cleared(a) OR boss.cleared(b)` composes in
+DIALOGUE (the Yarn interpreter has `or`/`and`). It does NOT compose in a ROUTE
+GATE: `prepare_authored_gate` reads `gated_by` as one condition line or one flag
+name and `prepare_line` splits it into exactly one id plus args — no operator
+exists on that road. ⇒ *"Any Mockingbird cleared"* can gate a conversation and
+cannot gate a door. Options costed on
 [`capability-progression-and-world-gating.md`](engine/capability-progression-and-world-gating.md)'s
 compound-requirements question.
 
-ⓘ The original finding, kept because the shape recurs:
-
-⛔⛔ **THREE EXECUTABLE AUTHORED DIALOGUE CALLS HAD NEVER BEEN ABLE TO RETURN
-TRUE, and this was pre-existing rather than fallout from the migration.**
-⚠ This row first said FIVE; two of the five were the Kernel Guide SAYING the call
-in prose, counted by four whole-file scanners until `ea71c83a8`. Measured
-2026-09-04:
-
-```text
-authored (kernel.yarn, 5 calls)   boss_cleared("mockingbird")     <- BEHAVIOR id
-written  (boss_encounter/src/systems.rs:259)         set_boss(&runtime_id, Cleared)
-                                  runtime_id = feature.config.id  <- PLACEMENT id
-placement in sandbox.ldtk         BossSpawn-4308   name "Mockingbird"
-                                                   brain PhaseScript:mockingbird
-read     (conditions.rs)          save.data().boss(boss)          <- exact string
-```
-
-⇒ The writer keys the save by **placement** (`BossSpawn-4308`), the dialogue
-asks by **behavior** (`mockingbird`), and the evaluator does an exact lookup
-with no bridging. **They can never match**, so every dialogue branch gated on
-having beaten the Mockingbird stays closed however many times the player wins.
-
-✔ **NOT caused by the `boss.cleared` migration** — checked rather than assumed,
-because that migration was mine and today. The pre-migration mirror filled
-`bosses_cleared` from `data.bosses` keyed by `boss.id`, the same save key, and
-`boss_cleared(id)` was a set-membership test on it. ⇒ Identical semantics; the
-defect predates `39a48d4fa`.
-
-⛔ **The obvious repair is the wrong one.** Making the dialogue pass
-`BossSpawn-4308` puts an LDtk-generated identifier into an authored script — an
-id no author chose, that changes when the level is re-saved, and that no other
-authored vocabulary uses. Three options, and they differ in what they cost:
-- **`boss.cleared` accepts the archetype id** — resolve behavior → placements at
-  evaluation and answer for any/all of them. ⚠ Changes the question's meaning
-  when a world authors the same boss twice (`sandbox` authors
-  `mode_collapse_boss` at two placements, so this is not hypothetical).
-- **The writer keys by archetype** — matches what an author would type, and
-  ⛔ silently changes what existing saves mean; a save with `BossSpawn-4308`
-  cleared would read as untouched.
-- **Both ids are askable** — `boss.cleared` for the placement, a second named
-  question for the archetype. More vocabulary, no ambiguity.
-
-⭐⭐ **A FOURTH SHAPE LOOKS FREE AND IS NOT, and costing it is the useful thing
-this entry can do (2026-09-04).** `BossConfig` is a `Component` carrying BOTH
-ids (`id` = placement, `behavior` = archetype), and `cleared()` already takes
-`&World`. ⇒ So the bridge appears to be a pure READ with no new durable
-record: when the exact placement lookup misses, query `BossConfig` for entities
-whose `behavior.id` matches and answer from their rows. No save-format change,
-no new authority — which is exactly why it is the option to distrust.
-
-⛔⛔ **IT MAKES THE ANSWER DEPEND ON WHERE THE PLAYER IS STANDING.** Boss
-entities are ROOM-SCOPED — a room that authors a `BossSpawn` materialises it
-when that room is prepared (`assets/game_assets/mod.rs:99`: *"room that authors
-a `BossSpawn` is prepared (transition, prefetch, direct…)"*). A boss in an
-unloaded room has no `BossConfig` entity at all, so the bridge resolves the
-archetype to ZERO placements and answers `Unanswerable` — **in a different room
-it answers `Satisfied` for the same world state.**
-⇒ **A gate's answer may not depend on which room the player is standing in.**
-That is worse than being wrong: it is *non-deterministic with respect to
-position*, so a door opens or does not depending on the route taken to reach it,
-and the dialogue branch behind it is unreproducible from a save.
-⚠ This option would also make `boss.cleared` the only published condition that
-reads live ECS population rather than a durable fact — the others read the save
-or a component of the body being asked about, neither of which is
-location-scoped in this way.
-
-⇒ **So the cheap-looking option is the one to rule out first, and the real
-choice is between a save-format change and more vocabulary.**
-
-⚠ **And decision #56 is entangled with this one**: it asks whether a replay
-should retract a defeat, and the answer there is easier to state per-placement
-than per-archetype. ⇒ Worth answering together, and #57 probably first, because
-**"retract the defeat" is not answerable until "the defeat of WHAT" is.**
-
-⭐⭐ **THE UNDERLYING QUESTION IS CARDINALITY, not naming** — offered by
-`YardratAmbition`, who hit the same shape in the fighter surface the same day
-and it is the sharpest framing of this decision. Behavior-id versus
-placement-id is **one behavior, N placements**, exactly as their finishing-zoom
-trigger is one verdict versus N per-fighter eliminations: `FighterStockSpent`
-means "the finishing blow" in a 2-fighter match and "every elimination" in a
-4-fighter one. ⇒ **Any answer that says "the boss" without saying which
-cardinality it means will be ambiguous again at the next N > 1**, and `sandbox`
-authoring `mode_collapse_boss` at two placements is the case that makes that
-undeniable rather than theoretical.
-⭐⭐ **AND THE COARSE FACT DOES NOT EXIST DURABLY HERE, WHICH CHANGES THE
-COSTING** — checked 2026-09-04 because the precedent prompted it. The
-finishing-zoom choice was cheap for the fighter lane *because
-`StocksMatchDecided` already existed and was already published*: it cost a new
-READ. Here:
-- ⛔ **No archetype-keyed durable record exists.** `boss.cleared` is
-  `save.data().boss(id)`, an exact lookup on a placement-keyed row, and nothing
-  writes a row under an archetype.
-- ✔ **But the archetype id is ALREADY the quest system's currency**, so this is
-  not a new vocabulary: `boss_encounter/src/systems.rs:259` fires
-  `QuestAdvanceEvent::BossDefeated(archetype_id)` and quest steps match it with
-  `QuestStepCondition::BossDefeated("gradient_sentinel")`. The concept "this
-  ARCHETYPE was beaten" is established and consumed — it is just **transient**,
-  an event advancing a step rather than a fact anything can re-ask.
-⇒ So option 1 costs *a durable row where an event already flows*, which is
-cheaper than inventing the concept and dearer than adding a read. ⚠ And it
-raises its own question the placement road does not have: an event fires per
-kill, a durable fact is a state — so "beaten" for an archetype at two placements
-means "either" or "both", and that is the same cardinality question one level
-down.
-
-⇒ Their precedent, if it helps: they chose the COARSER fact deliberately
-(`StocksMatchDecided`, reading `MatchVerdict::winner()`) and said so in the
-type, so a `Draw` and a `NoContest` get no victory beat. The equivalent here is
-to decide whether `boss.cleared` is a question about a FIGHT or about a
-PLACEMENT, and to make the type say which.
-
-ⓘ The sibling alias is FINE: `quest_active("pirate_treasure")` names a real
-quest id (`quest.rs:37`), so this is specific to bosses rather than to the
-alias road.
+ⓘ **#56 was entangled with this one** — *"retract the defeat"* was unanswerable
+until *"the defeat of WHAT"* was — and is now unblocked.
 
 ### 56. A replay retracts ONE boss family's defeat of eleven. Which is right? (2026-09-04)
 

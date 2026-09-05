@@ -1181,8 +1181,9 @@ answer and nothing is currently mis-answered by it.** In the Ambition road,
 `DrivingParticipant` is inserted by exactly ONE production site,
 `control/authority.rs`, and it always inserts `PlayerSlot::PRIMARY` (possession
 moves the marker between bodies; it never mints a second slot). Every other
-insertion in the tree — `sim_view/facts.rs:1002`, `causal.rs:430`,
-`view_index.rs:1259` — is inside a `#[cfg(test)]` module, checked by position
+insertion in the tree — `crates/ambition_sim_view/src/facts.rs:1002`,
+`crates/ambition_platformer2d_actor_monolith/src/causal.rs:430`,
+`crates/ambition_sim_view/src/view_index.rs:1259` — is inside a `#[cfg(test)]` module, checked by position
 rather than by path, because this repo puts test modules inside ordinary source
 files.
 ⇒ **The existential `driven_bodies` performs is over a population of at most one

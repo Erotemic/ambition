@@ -74,6 +74,16 @@ def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--check", action="store_true", help="exit 1 when a count rises")
     parser.add_argument("--update", action="store_true", help="rewrite the baseline")
+    # ⭐ `--update` CONFLATES TWO OPERATIONS, and the conflation is a trap: it
+    # rewrites EVERY count, so the only way to give a newly-tracked crate a floor
+    # was also to bank every outstanding rise. `--adopt` does the first alone —
+    # it writes entries ONLY for crates missing from the baseline and leaves
+    # every existing count untouched.
+    parser.add_argument(
+        "--adopt",
+        action="store_true",
+        help="baseline ONLY crates that have no entry yet; never touch existing counts",
+    )
     args = parser.parse_args()
 
     baseline = {}
@@ -89,12 +99,27 @@ def main() -> int:
     # which reads exactly like a repair. ⇒ a baselined crate that is no longer
     # measured is a SHRINKING GUARD, and it fails here.
     orphaned = sorted(set(baseline) - set(CRATES))
-    if orphaned and not args.update:
+    if orphaned and not (args.update or args.adopt):
         print()
         print(f"⛔ {', '.join(orphaned)} is in the baseline and NOT in CRATES —")
         print("   the tracked set SHRANK. The total falls and reads as a repair.")
         print("   If a carve moved that code, add its DESTINATION crate to CRATES")
         print("   in this commit; only then `--update` to re-baseline.")
+        return 1
+
+    # ⛔⛔ AND THE MIRROR: a crate in CRATES with no baseline entry is TRACKED BUT
+    # UNRATCHETED. It prints "(new)", contributes to TOTAL, and has no floor — so
+    # its links may rise freely and nothing says so. The documented flow is to
+    # add the crate and `--update` IN THE SAME COMMIT; this makes that the only
+    # flow, instead of asking for it. ⚠ `--update` is exempt, because that is the
+    # command that establishes the floor.
+    unbaselined = sorted(set(CRATES) - set(baseline))
+    if unbaselined and baseline and not (args.update or args.adopt):
+        print()
+        print(f"⛔ {', '.join(unbaselined)} is in CRATES with NO baseline entry —")
+        print("   tracked but UNRATCHETED: it prints (new), counts toward TOTAL,")
+        print("   and has no floor, so its links can rise and nothing reports it.")
+        print("   Add the crate and `--update` in the SAME commit.")
         return 1
 
     counts: dict[str, int] = {}
@@ -132,6 +157,36 @@ def main() -> int:
         return 1
 
 
+
+    if args.adopt:
+        # ⛔ MERGE, NEVER REWRITE. Existing counts are the floor and are not this
+        # command's business; only absent crates gain an entry.
+        merged = dict(baseline)
+        added = {c: counts[c] for c in counts if c not in baseline}
+        if not added:
+            print("\nevery tracked crate already has a baseline entry; nothing to adopt.")
+            return 0
+        merged.update(added)
+        os.makedirs(os.path.dirname(BASELINE), exist_ok=True)
+        with open(BASELINE, "w", encoding="utf-8") as handle:
+            json.dump(
+                {
+                    "_comment": (
+                        "Broken intra-doc links per crate (ledger D103). A RATCHET: "
+                        "these may fall and must not rise. Lower them in the same "
+                        "commit that earns it — scripts/check_doc_link_ratchet.py --update."
+                    ),
+                    "crates": merged,
+                },
+                handle,
+                indent=2,
+                sort_keys=True,
+            )
+            handle.write("\n")
+        for crate, count in sorted(added.items()):
+            print(f"\nadopted {crate} at {count}")
+        print(f"baseline written: {BASELINE}   (existing counts untouched)")
+        return 0
 
     if args.update:
         os.makedirs(os.path.dirname(BASELINE), exist_ok=True)

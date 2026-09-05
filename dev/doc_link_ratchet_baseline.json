@@ -1,12 +1,15 @@
 {
   "_comment": "Broken intra-doc links per crate (ledger D103). A RATCHET: these may fall and must not rise. Lower them in the same commit that earns it \u2014 scripts/check_doc_link_ratchet.py --update.",
   "crates": {
+    "ambition_abilities": 12,
     "ambition_body_seed": 1,
     "ambition_boss_encounter": 10,
     "ambition_characters": 24,
     "ambition_combat": 16,
     "ambition_conversation": 1,
+    "ambition_encounter_features": 1,
     "ambition_items": 2,
+    "ambition_match": 4,
     "ambition_menu": 0,
     "ambition_platformer2d_actor_monolith": 59,
     "ambition_platformer2d_core": 34

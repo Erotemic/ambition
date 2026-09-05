@@ -1337,8 +1337,35 @@ committed, so it is a decision about how every box in this tree behaves —
 including agent boxes — and `core.hooksPath` in a shared virtiofs tree affects
 peers who did not choose it.
 
+⛔⛔ **A THIRD AND FOURTH OCCURRENCE THE SAME DAY, and the fourth adds a
+dimension this row did not have. 2026-09-05 evening:**
+
+```text
+the_rollback_ratchet_* (x3)   new=['stable_schema_names: message.parried_body_hit']
+every_module_map_matches_its_crate   two MODULES.md missing `smash_counter`
+```
+
+⇒ Four repo-coupled guards red from one landing, found hours later by a sweep.
+The wire-format baseline WAS carried by that work; the **stable-name** ledger is
+a second one and was not — carrying one of two ledgers reads exactly like
+carrying both.
+
+⭐ **THE NEW DIMENSION: one lane physically CANNOT run the gates.** The fighter
+lane's `target/` is at 98% and cannot build the workspace at all. That guard set
+needs no cargo and costs ~165 s
+(`python -m pytest scripts/tests -q -m 'not detached_tool'`), so it *would* run
+there — but nothing makes it, and the only box executing it is whichever one
+happens to sweep. ⇒ **"Accept and keep sweeping" is not a steady state when
+sweeping depends on one machine's spare capacity**, and that is a materially
+different argument from the one this row was filed with.
+⚠ It also cuts against a pre-push hook as the whole answer: a hook on a box that
+cannot build would have to run only the cargo-free guards, which is exactly the
+set that went red — so the cheap hook is also the useful one, and the expensive
+half was never the point.
+
 ⚠ **The honest alternative is "accept and keep sweeping."** It costs a red main
-between a landing and the next sweep, and it has now cost that twice. ⓘ A third
+between a landing and the next sweep, and it has now cost that FOUR times in two
+days. ⓘ A third
 document telling people to remember is NOT an option — that is what the previous
 occurrence already produced.
 

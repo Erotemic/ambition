@@ -19,6 +19,7 @@ pub mod capture;
 pub mod counter;
 pub mod george_booul_moveset;
 pub mod moveset;
+pub mod portal;
 pub mod select;
 pub mod select_screen;
 pub mod shark_ride;
@@ -909,6 +910,23 @@ impl bevy::prelude::Plugin for SmashRulesPlugin {
         // ⚠ AND IT MUST RUN EVERY FRAME OF THE STANCE. `parry_window_timer`
         // decays, so this is a heartbeat rather than a grant; see the
         // technique's own note.
+        // THE PORTAL RECOVERY. ⭐ `ContentSpecials`, the seam the runtime
+        // provides for a CONTENT TECHNIQUE that must produce its effects before
+        // the effect executors run — the same reasoning the shark's summon uses.
+        //
+        // ⛔ THE CLOSE IS CHAINED AFTER THE OPEN, so an aperture's authored
+        // lifetime is spent from the frame it appears. That costs the pair one
+        // tick and is the honest reading: a portal that existed for less than a
+        // frame was never a route.
+        app.add_systems(
+            sim,
+            (
+                crate::portal::open_authored_portal_pairs,
+                crate::portal::close_expired_move_portals,
+            )
+                .chain()
+                .in_set(ambition_platformer2d::platformer::schedule::CombatSet::ContentSpecials),
+        );
         app.add_systems(
             sim,
             crate::counter::hold_counter_parry_windows
@@ -2444,6 +2462,16 @@ impl bevy::prelude::Plugin for SmashSelectPlugin {
                 "ambition_demo_smash",
                 "smash.live_bomb",
                 crate::bomb::live_bomb_probe,
+            );
+            // The apertures a MOVE opened, and their clock. Same reasoning as
+            // the fuse above: the countdown outlives the tick that made it, so a
+            // rewind that put the portal back without putting its clock back
+            // gives the resimulated timeline a recovery route that closes at a
+            // different moment — or exists on one peer and not the other.
+            app.rollback_component_clone_probed::<crate::portal::MovePlacedPortal>(
+                "ambition_demo_smash",
+                "smash.move_placed_portal",
+                crate::portal::move_placed_portal_probe,
             );
         }
         // ⛔ BEFORE the preparation source can ask for it. `Res<SmashStageChoice>`

@@ -61,12 +61,15 @@ pub struct PortalPairParams {
     /// possible test of whether the placement seam takes an orientation at all.
     #[serde(default)]
     pub tilt_degrees: f32,
-    /// Which indexed channel pair to use. The partner is `index ^ 1`.
+    /// Which indexed channel pair to use. ⭐ The PARTNER is not computed here —
+    /// `PortalChannel::partner()` owns that rule, and a second copy of "the
+    /// partner is `n ^ 1`" is a pairing rule with two homes.
     ///
     /// ⛔ INDICES `8..` ONLY, which the colour table asks for in place: `0..=7`
     /// overlap the eight NAMED pairs in index space, and a move that quietly
-    /// took one would fight whatever authored that colour in the room.
-    pub channel_index: u16,
+    /// took one would fight whatever authored that colour in the room. ⓘ The
+    /// ceiling is the type's: `Indexed(u8)`, so 128 distinct pairs.
+    pub channel_index: u8,
 }
 
 /// Author a portal pair onto `spec`, opening at `at_s`.

@@ -50,8 +50,18 @@ pub fn build_demo_app() -> App {
             .with_room(ambition_demo_smash::smash_stage().metadata.clone()),
         );
         app.add_plugins(ambition_platformer2d::presentation::PlatformerPresentationPlugin);
-        select_smash_portal_presentation(&mut app);
     }
+    // ⛔⛔ OUTSIDE THE `visible` BLOCK, AND NOT ONLY TO SILENCE A WARNING. The
+    // smash ruleset's answer to "how do portals present" does not depend on
+    // whether this composition is drawing: a headless run that later gains a
+    // renderer, a diagnostic that reads the resource, and the windowed shell
+    // should all get the same answer. ⇒ Stating it unconditionally removes the
+    // cfg coupling entirely rather than adding an `allow(dead_code)` over it.
+    //
+    // ⚠ It is inert without the render plugin — two resources nobody reads —
+    // which is the correct cost of a host stating a preference it may not be
+    // able to act on yet.
+    select_smash_portal_presentation(&mut app);
     // Pin the frame dt to the tick dt so one `update()` is exactly one sim tick.
     let timestep = app.world().resource::<Time<Fixed>>().timestep();
     app.insert_resource(bevy::time::TimeUpdateStrategy::ManualDuration(timestep));

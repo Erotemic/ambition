@@ -280,6 +280,65 @@ pub fn goblin_moveset() -> MovesetContract {
     let side_b = vfx_at(side_b, 0.14, "dash_streak", (0.0, 0.0), 1.0);
     let side_b = sfx(side_b, 0.14, "enemy.goblin.attack");
     let side_b = on_contact(side_b, "enemy.goblin.hit");
+    // ⭐⭐ AND IF IT CONNECTS, IT DOES NOT LET GO — the second authored flow, and
+    // deliberately the OPPOSITE SHAPE to the first.
+    //
+    // ⛔ THE ONI'S FLOW BRANCHES ON A FAILURE (`Blocked`) TO ESCAPE; THIS ONE
+    // WAITS FOR A SUCCESS (`Connected`) TO COMMIT. If the four nodes only ever
+    // expressed "get out of trouble" the vocabulary would be a defensive gadget
+    // rather than a general one, so the point of authoring this second is that
+    // it needed no new node, no new signal and no engine change — the same
+    // `Wait`/`Emit` pair read the other way round.
+    //
+    // ⭐ IT IS ALSO THE MOVE THIS COMMENT ALREADY DESCRIBED. *"It runs at you"* —
+    // and then, before a flow existed, it bounced off and stood there. A tackle
+    // that ends with the goblin holding you is what a scrappy body-first fighter
+    // does, and every piece of it is already in its own kit: the grab it authors
+    // three functions down is the technique this emits.
+    //
+    // ⛔ ON THE CONNECT, NOT ON THE OVERLAP. `Overlapped` is true of a BLOCKED
+    // charge too, so waiting on it would hand the goblin a grab for running into
+    // a shield — the single most punishable thing in the genre becoming its best
+    // option. A guard stops the tackle, which is what a guard is for.
+    //
+    // ⚠ ROSTER DECISION #18, Jon's to overrule: a landed charge grabs. The
+    // captive's answer is the one the rules already give them —
+    // `grab_mash_seconds`, 14.4 frames per press — so this shortens the road to a
+    // throw rather than removing anybody's out.
+    let side_b = ambition_platformer2d::entity_catalog::MoveSpec {
+        flow: Some(ambition_platformer2d::entity_catalog::TechniqueFlow {
+            nodes: vec![
+                // ⛔ THE TIMEOUT SITS PAST THE ACTIVE WINDOW (0.14 + 0.10) AND
+                // SHORT OF THE TAIL. A charge that connected with nothing is a
+                // whiff, and a whiff is supposed to be the punish window.
+                ambition_platformer2d::entity_catalog::FlowNode::Wait {
+                    on: ambition_platformer2d::entity_catalog::FlowSignal::Connected,
+                    timeout_s: 0.30,
+                    then: 1,
+                    on_timeout: 2,
+                },
+                ambition_platformer2d::entity_catalog::FlowNode::Emit {
+                    effect: ambition_platformer2d::entity_catalog::EffectRef {
+                        key: ambition_platformer2d::characters::smash_capture::CAPTURE_ATTEMPT
+                            .to_string(),
+                        params: ambition_platformer2d::entity_catalog::ParamValue::from_typed(
+                            &CaptureAttemptParams {
+                                // Closer than its standing grab: it is already
+                                // inside you, which is how the charge landed.
+                                offset: (10.0, 1.0),
+                                half_extents: (17.0, 14.0),
+                                hold_offset: (13.0, 3.0),
+                            },
+                        )
+                        .expect("the goblin's tackle grab params serialize"),
+                    },
+                    then: 2,
+                },
+                ambition_platformer2d::entity_catalog::FlowNode::Finish,
+            ],
+        }),
+        ..side_b
+    };
 
     // UP — `scramble_leap`. THE RECOVERY, and the reason this batch is not
     // cosmetic: with no special at all, a goblin knocked off the stage had a
@@ -490,6 +549,79 @@ pub fn goblin_moveset() -> MovesetContract {
 
 #[cfg(test)]
 mod tests {
+    /// ⭐⭐ THE SECOND AUTHORED FLOW IS THE OPPOSITE SHAPE TO THE FIRST, and that
+    /// is the claim under test rather than "the goblin has a flow".
+    ///
+    /// The Shadow Oni branches on a FAILURE (`Blocked`) to escape; this waits for
+    /// a SUCCESS (`Connected`) to commit. ⇒ If the four nodes only ever expressed
+    /// "get out of trouble" the vocabulary would be a defensive gadget rather
+    /// than a general one — so what this asserts is that the same `Wait`/`Emit`
+    /// pair, read the other way round, needed no new node, no new signal and no
+    /// engine change.
+    ///
+    /// ⛔ AND IT MUST WAIT ON `Connected`, NOT `Overlapped`. An overlap is true of
+    /// a BLOCKED charge too, so waiting on it would hand the goblin a grab for
+    /// running into a shield — the most punishable act in the genre becoming its
+    /// best option.
+    #[test]
+    fn the_goblins_charge_grabs_on_a_connect_and_not_on_a_mere_overlap() {
+        use ambition_platformer2d::entity_catalog::{FlowNode, FlowSignal};
+        let set = super::goblin_moveset();
+        let charge = set
+            .moves
+            .iter()
+            .find(|m| m.id == "headlong_charge")
+            .expect("its side-B is in the table");
+        let flow = charge
+            .flow
+            .as_ref()
+            .expect("the charge authors no flow, so it bounces off and stands there");
+        assert!(
+            flow.problems().is_empty(),
+            "the goblin's flow does not validate: {:?}",
+            flow.problems()
+        );
+
+        let waited_on = flow.nodes.iter().find_map(|n| match n {
+            FlowNode::Wait { on, .. } => Some(*on),
+            _ => None,
+        });
+        assert_eq!(
+            waited_on,
+            Some(FlowSignal::Connected),
+            "the tackle waits on {waited_on:?} — an `Overlapped` charge includes \
+             one a guard ate, so the goblin would be rewarded for running into a \
+             shield"
+        );
+
+        // ⛔ THE FOLLOW-UP IS ITS OWN GRAB, not a bespoke technique. A flow that
+        // needed a new key to be useful would not have proven anything about the
+        // vocabulary reaching what the game already publishes.
+        let emitted = flow.nodes.iter().find_map(|n| match n {
+            FlowNode::Emit { effect, .. } => Some(effect.key.clone()),
+            _ => None,
+        });
+        assert_eq!(
+            emitted.as_deref(),
+            Some(ambition_platformer2d::characters::smash_capture::CAPTURE_ATTEMPT),
+            "the charge follows up with {emitted:?} rather than the capture the \
+             goblin already authors"
+        );
+
+        // ⛔ AND THE WHIFF STAYS PUNISHABLE: the wait must give up inside the move.
+        let timeout = flow.nodes.iter().find_map(|n| match n {
+            FlowNode::Wait { timeout_s, .. } => Some(*timeout_s),
+            _ => None,
+        });
+        let active_ends = 0.14 + 0.10;
+        assert!(
+            timeout.is_some_and(|t| t > active_ends && t < charge.duration_s),
+            "the wait times out at {timeout:?}, outside ({active_ends}, {}) — a \
+             charge that hit nothing must not still be waiting to grab",
+            charge.duration_s
+        );
+    }
+
     use super::*;
 
     // Fourteen fighters each carried a copy of it: every bound verb names a move

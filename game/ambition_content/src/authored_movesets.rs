@@ -234,3 +234,51 @@ mod reach_tests {
         );
     }
 }
+
+#[cfg(test)]
+mod flow_tests {
+    use super::tables;
+
+    /// ⭐⭐ EVERY AUTHORED FLOW IN EVERY SHIPPED ROSTER VALIDATES — the POPULATION,
+    /// not the two moves that happen to have one today.
+    ///
+    /// ⛔ `TechniqueFlow::problems()` exists because each of its failures is
+    /// SILENT at runtime: a transition past the end of the list, a flow with no
+    /// reachable `Finish`, a `Wait` that can never time out. Each produces a move
+    /// that plays and does nothing, or a fighter stuck in a special — and neither
+    /// reads as a data error to whoever is holding the controller.
+    ///
+    /// ⚠ THE PER-FIGHTER TESTS ARE NOT THIS TEST. The oni's and the goblin's each
+    /// validate their own flow, so a flow authored on a THIRD fighter tomorrow is
+    /// covered by neither. ⇒ This asks the question of the whole crate, which is
+    /// the only shape that stays true as the roster grows.
+    #[test]
+    fn every_authored_flow_in_the_shipped_rosters_validates() {
+        let mut broken: Vec<String> = Vec::new();
+        let mut flows = 0usize;
+        for (fighter, contract) in tables() {
+            for mv in &contract.moves {
+                let Some(flow) = mv.flow.as_ref() else {
+                    continue;
+                };
+                flows += 1;
+                for problem in flow.problems() {
+                    broken.push(format!("{fighter}/{}: {problem}", mv.id));
+                }
+            }
+        }
+        assert!(
+            broken.is_empty(),
+            "authored flows that cannot run:\n  {}",
+            broken.join("\n  ")
+        );
+        // ⛔ ANTI-VACUITY. A census that walks no flows passes forever, and this
+        // one would have passed every day before the first flow was authored —
+        // including a day when somebody deleted them all.
+        assert!(
+            flows >= 2,
+            "only {flows} authored flow(s) found across every shipped roster, so \
+             this guard is validating an empty set"
+        );
+    }
+}

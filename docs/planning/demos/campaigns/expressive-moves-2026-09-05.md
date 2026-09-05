@@ -113,10 +113,18 @@ none of them waits on `TechniqueFlow`.
   ▢ **Still open: the line presentation**, the fourth customer of `flyline.rs`'s
   procedural-visual shape. A tether that reaches 150px and draws nothing is the
   mechanic without the read.
-- ▢ **B3. Projectile interception as a projectile-domain operation** (proof move
-  3). Generalise parry's existing re-own — `ProjectileOwner`,
-  `ProjectileAllegiance`, velocity — into reflect / redirect / consume, keeping
-  the six ownership axes independent.
+- ◐ **B3. Projectile interception as a projectile-domain operation** (proof move
+  3). ✔ **THE OPERATION LANDED 2026-09-05** (`projectile/intercept.rs`):
+  `ProjectileInterception::{Reflect, Consume}` and `intercept_projectile`, with
+  the parry as its first caller. It touches exactly three of the six axes —
+  combat owner, allegiance, trajectory — and emits NO cues, because a parry
+  clangs where a reflector hums and an absorber swallows. Returns whether the
+  shot SURVIVED, which is the distinction an absorber needs on its first line.
+  ⛔ `Redirect` deliberately absent: no customer, no test, and a third variant
+  nothing calls is the speculative peer authority this campaign exists to avoid.
+  ▢ **What remains is the AUTHORED half**: a reflector move and an absorber move,
+  each an active volume that names an interception. `Consume` is tested but has
+  no authored customer until the absorber exists.
 - ◐ **B4. Per-action muzzle transform + sustained charge presentation.**
   ✔ **THE MUZZLE LANDED 2026-09-05.** `Muzzle::Offset { x, y }` joins `BodyOrigin`
   and `Hand`, as FRACTIONS of body height (the decision `HAND_OFFSET_NORM` already

@@ -47,10 +47,23 @@ fn reflect_parried_shot(
     sfx: &mut SfxWriter,
     vfx: &mut MessageWriter<VfxMessage>,
 ) {
-    commands
-        .entity(proj_entity)
-        .insert((ProjectileOwner(parrier), parrier_allegiance));
-    kin.vel = -kin.vel * PROJECTILE_REFLECT_SPEED_SCALE;
+    // ⭐ THE DOMAIN OPERATION, not this function's own edit. A parry is one
+    // interception among several the game will grow — a reflector, an absorber —
+    // and each would otherwise decide for itself which of the six ownership axes
+    // travel together. See `super::intercept`.
+    super::intercept::intercept_projectile(
+        commands,
+        proj_entity,
+        kin,
+        parrier,
+        parrier_allegiance,
+        &super::intercept::ProjectileInterception::Reflect {
+            speed_scale: PROJECTILE_REFLECT_SPEED_SCALE,
+        },
+    );
+    // ⛔ THE CUES STAY HERE, and that is the split. A parry CLANGS; a reflector
+    // would hum and an absorber swallow, and a domain operation that played one
+    // of those would make the other two wrong.
     sfx.write_for_body(
         parrier_source,
         SfxMessage::Play {

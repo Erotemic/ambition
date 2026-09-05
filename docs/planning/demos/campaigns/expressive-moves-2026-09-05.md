@@ -689,6 +689,37 @@ decides whether ANY hit lands is the worst thing to leave behind, and the shape
 above is a design decision about a shared resolver rather than a repair to my
 three moves. Recorded first so the analysis survives the session that found it.
 
+#### ✔ AND THE ONE UNAMBIGUOUS ENGINE BUG IN FINDING 1 IS FIXED
+
+`apply_hitbox_damage` resolved the owner's position at the top of its loop and
+`continue`d on failure **before consulting the anchor** — but `world_volume`
+reads `HitboxAnchor::World { center }` and ignores that position entirely, so the
+requirement was never real for a world box. ⇒ Every thrown-item blast in the
+demo was a ghost: the exploding `GroundItem` despawns as it emits the effect, so
+the blast it had just spawned was skipped on the very next tick, every time.
+
+⭐ The box's own centre is the substitute rather than a placeholder, because the
+value is still read for the launch direction and `source_pos` — a blast radiates
+from the blast, and a zero would have thrown every victim at the world origin.
+⛔ Poisoned in BOTH directions, and the second is the one worth having:
+"resolve everything" reddens the `FollowOwner` arm, which is the plausible wrong
+fix a reader reaches for.
+
+⚠⚠ **AND A SECOND THING FELL OUT THAT NOBODY HAS ASKED YET, WHICH IS PART OF
+JON'S QUESTION 1.** Inside that same loop the IMPACT POINT is
+`midpoint(victim.center, world_volume.center())` while the KNOCKBACK DIRECTION is
+measured from `owner_pos`. **For a `FollowOwner` box those nearly coincide; for a
+world box they can be anywhere relative to each other** — so a blast currently
+throws victims away from the FIGHTER rather than away from the explosion.
+
+⇒ I tried the principled version (a world box always radiates from its own
+centre) and **zero tests changed.** ⛔ By this page's own rule that is a COVERAGE
+finding, not a green light: **nothing in the suite asserts the knockback
+direction of a world-anchored box whose owner is somewhere else.** ⇒ Reverted
+rather than banked — changing a shared resolver's launch direction on the
+strength of "no test complained" is the gamble this campaign keeps writing down.
+**It belongs in the answer to question 1, with a test that pins it either way.**
+
 #### ✔ THE REVIEW'S FOURTH FINDING IS FIXED — BOLT AND SPRING PICKED WINNERS BY QUERY ORDER
 
 Both broke on the first overlapping body. **The spring ignored the seat outright

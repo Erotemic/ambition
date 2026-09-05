@@ -360,6 +360,34 @@ needs a new capability" is a claim, and the cheapest way to test it is to build
 the row.** Two of the three capability gaps this campaign predicted turned out to
 be already-shipped authorities under a name I had not searched for.
 
+### ⭐⭐ THE CENSUS PAID FOR ITSELF TWICE — TWO MOVES, ZERO ENGINE WORK
+
+Running the "what is built and unused" query as a JOIN rather than a list turned
+up **two complete, tested engine capabilities with no authored customer**, and
+both became fighters' moves the same day:
+
+| capability | state found in | now |
+|---|---|---|
+| `VolumeReaction::Windbox` | shipped down to a `WindboxWithDamage` validation error; `hit_reaction` already sets `flinchless` from it — *"this is a push, not a hit"*. **Zero authored windboxes on the roster** | the Officer's neutral: a sustained wall of air that hurts nobody |
+| `WindowTag::Armor` | consumed end to end — `MovePlayback` republishes `BodyCombat::armored` every tick, `hit_reaction` gates the launch on `!combat.armored`, tests either side. **No authored move had ever opened one** | the Patent Clerk's pass, armoured for exactly its crossing |
+
+⛔ **IN BOTH CASES WHAT WAS MISSING WAS A WAY TO *SAY* IT.** The engine was
+finished; `moveset_authoring` had no verb. `invuln()` existed and `armor()` did
+not, one enum variant apart — and the module's own comment on `invuln` already
+told the story: *"`WindowTag::Invuln` HAS BEEN AUTHORING VOCABULARY WITH NO WAY
+TO SAY IT."* Nobody wrote the sequel.
+
+⇒ **That is this campaign's thesis in its cheapest possible form.** Jon's
+acceptance test is *"a move must be expressible and AUTHORABLE easily and
+creatively"* — and here the whole gap between an unused engine and two new
+fighters' moves was two helper functions.
+
+⚠ **A field census could not have found the second one.** It counts leaves:
+`WindboxVolume.repeating` was visible, but a whole reaction with no customer is
+not a bool and so is invisible. The BRANCH axis — authored enum variants never
+named in content, 149 of 543 — is what surfaced `VolumeReaction::Windbox` and
+`WindowTag::Armor`. ⇒ **Ask about variants, not just fields.**
+
 ### ⛔⛔ AND ITS WORSE SIBLING: COMPILED IN, NEVER INSTALLED
 
 **The portal recovery was inert in one of the two apps that ship it, and every
@@ -528,4 +556,4 @@ re-derive it:
 | Stone / Withdraw | body/form mode + modified collision/movement + explicit exit conditions |
 | Shadow-Flare delayed mark | persistent gameplay occurrence attached to victim + timer/remote trigger |
 | Pikmin-like latch | owned secondary entity + body attachment + periodic effect |
-| Wind / vacuum ◐ | ⛔ **THE ENGINE HALF IS ALREADY COMPLETE AND NO FIGHTER USES IT.** `VolumeReaction::Windbox` is shipped down to a validation error for `WindboxWithDamage`; the push is an ordinary `knockback` + `launch_dir` with `flinchless` set, and `WindboxVolume::repeating` opts a gust out of the hit-once set so it pushes every frame you stand in it. ⇒ Not the whole reaction, not just the flag — **zero authored windboxes on the entire roster**. A gust move costs AUTHORING only, and this row's "generalize to a sustained field" was pricing work nobody needs yet |
+| Wind / vacuum ✔ | **LANDED 2026-09-05** on the Officer's neutral special (`officer_disperse`), plus a `moveset_authoring::gust` helper. ⛔ **THE ENGINE HALF WAS ALREADY COMPLETE AND NO FIGHTER USED IT**: `VolumeReaction::Windbox` ships down to a validation error for `WindboxWithDamage`, the push is an ordinary `knockback` + `launch_dir` with `flinchless` set, and `WindboxVolume::repeating` opts a gust out of the hit-once set so it pushes every frame you stand in it. ⇒ Not the flag, the whole reaction — **zero authored windboxes on the entire roster**, so this row's *"generalize to a sustained field"* was pricing work nobody needs. ⭐ What was actually missing was a way to SAY it: three silent invariants (damage must be zero or the catalog rejects it; growth must be fixed or wind obeys a hit's rule; the slash arc must go or a damageless blade swings), now held by the helper and guarded by three poisons |

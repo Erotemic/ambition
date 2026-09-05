@@ -220,6 +220,39 @@ pub fn invuln(mut m: MoveSpec, start_s: f32, end_s: f32) -> MoveSpec {
     m
 }
 
+/// SUPER ARMOR: through this window the body IS hit and does not answer for it.
+///
+/// ⭐⭐ THE OTHER HALF OF [`invuln`]'S STORY, one variant over and still missing.
+/// `WindowTag::Armor` is consumed end to end — `MovePlayback` republishes
+/// `BodyCombat::armored` from the live window every tick, and `hit_reaction`
+/// gates the launch on `!combat.armored` with tests either side of it — and
+/// **no authored move in the tree has ever opened one.** Measured 2026-09-05.
+/// The engine has had super armor for a while and the roster had no way to ask.
+///
+/// ⛔ NOT INVULNERABILITY, AND THE DIFFERENCE IS THE WHOLE MOVE. An armoured
+/// body takes the damage; what it does not take is the launch, the hitstun and
+/// the recoil lock. ⇒ So armour LOSES to chip and to grabs and wins the trade
+/// against one big hit, where i-frames do the opposite — which is why a fighter
+/// wants both words and not a switch between them.
+pub fn armor(mut m: MoveSpec, start_s: f32, end_s: f32) -> MoveSpec {
+    assert!(
+        end_s > start_s,
+        "armor window on `{}` runs {start_s}s..{end_s}s, which is never open — \
+         and an armour window that never opens is invisible in play: the move \
+         simply loses trades it looked like it should win",
+        m.id,
+    );
+    m.windows.push(MoveWindow {
+        start_s,
+        end_s,
+        tag: WindowTag::Armor,
+        volumes: Vec::new(),
+        motion_scale: 1.0,
+        sustain_effect: None,
+    });
+    m
+}
+
 /// FIXED KNOCKBACK: this hit launches the same at 0% and at 200%.
 ///
 /// ⭐⭐ THE THING [`strike`] CANNOT SAY. Its builder takes one `f32` and reads
@@ -622,6 +655,104 @@ pub fn multihit(m: MoveSpec, pulses: usize, pulse: Pulse) -> MoveSpec {
             .then(a.end_s.total_cmp(&b.end_s))
     });
     m
+}
+
+/// A GUST: a volume that SHOVES and does not hurt.
+///
+/// ⭐⭐ EVERYTHING THIS NEEDS WAS ALREADY IN THE ENGINE AND NO FIGHTER USED IT.
+/// `VolumeReaction::Windbox` ships with a validation error for a windbox that
+/// carries damage, and `hit_reaction` already sets `flinchless` from it — *"this
+/// is a push, not a hit"*. What was missing was a way to SAY it: authoring a
+/// gust meant hand-building a `MoveWindow` and remembering three separate
+/// invariants, and nobody did. Measured 2026-09-05: zero authored windboxes on
+/// the entire roster.
+///
+/// ⛔ THE THREE INVARIANTS THIS EXISTS TO HOLD, because each one is silent when
+/// broken. Damage must be ZERO or the catalog rejects the move
+/// (`WindboxWithDamage`). Knockback growth must be FIXED, or a gust shoves a
+/// damaged fighter further than a fresh one — which is a hit's rule, not wind's.
+/// And the slash arc must go: `strike` draws one from the spawned volume, so a
+/// gust built on it swings a visible blade that does no damage.
+pub struct Gust<'a> {
+    /// The move id. Unique within the kit.
+    pub id: &'a str,
+    /// The animation row, with `strike`'s fallbacks.
+    pub clip: &'a str,
+    /// The tell, before the air moves.
+    pub startup_s: f32,
+    /// How long the gust BLOWS.
+    pub active_s: f32,
+    /// The tail after it.
+    pub recover_s: f32,
+    /// Volume centre, body-local. Mirrors with facing.
+    pub offset: (f32, f32),
+    /// Volume half-extents, body-local.
+    pub half_extents: (f32, f32),
+    /// How hard it shoves. The same units as a strike's `knockback`, and it is
+    /// the ONLY thing this move does to whoever it catches.
+    pub push: f32,
+    /// Which way it shoves, body-local: `+x` toward facing, `+y` gravity-down.
+    ///
+    /// ⚠ AUTHORED RATHER THAN DERIVED, unlike a strike's `None`. The shared rule
+    /// derives a launch from where the victim stood relative to the volume, which
+    /// is right for a blow and wrong for wind: a gust blows ONE WAY regardless of
+    /// who walked into which side of it.
+    pub push_dir: (f32, f32),
+    /// Does it keep pushing while they stand in it?
+    ///
+    /// ⭐ `true` opts out of the hit-once set — correct for a sustained wind and
+    /// wrong for a one-shot shove, which is why `WindboxVolume::repeating` is
+    /// authored rather than assumed. A `false` gust is a single hard blast.
+    pub sustained: bool,
+}
+
+/// Author a gust: [`strike`]'s timeline, with the three windbox invariants held.
+///
+/// # Panics
+///
+/// If `push` is not positive. A gust that shoves nowhere is a move that spends a
+/// startup and a recovery to do nothing, and the volume it spawns is invisible —
+/// so there is no frame at which a player could see that it had failed.
+pub fn gust(spec: Gust<'_>) -> MoveSpec {
+    assert!(
+        spec.push > 0.0,
+        "gust `{}` shoves with {}, so it spends its whole timeline doing nothing \
+         visible to anybody",
+        spec.id,
+        spec.push,
+    );
+    let mut m = strike(Strike {
+        id: spec.id,
+        clip: spec.clip,
+        startup_s: spec.startup_s,
+        active_s: spec.active_s,
+        recover_s: spec.recover_s,
+        offset: spec.offset,
+        half_extents: spec.half_extents,
+        // ⛔ ZERO, AND THE CATALOG ENFORCES IT: `WindboxWithDamage` is a
+        // validation error, so a gust that chipped would not load.
+        damage: 0,
+        knockback: spec.push,
+        // Set on the volumes below rather than here: the builder reads its own
+        // zero as "this stage decides", which is the opposite of what wind wants.
+        knockback_growth: 0.0,
+        launch_dir: Some(spec.push_dir),
+        on_hit: None,
+    });
+    for volume in m.windows.iter_mut().flat_map(|w| w.volumes.iter_mut()) {
+        volume.reaction = Some(ambition_entity_catalog::VolumeReaction::Windbox(
+            ambition_entity_catalog::WindboxVolume {
+                repeating: spec.sustained,
+            },
+        ));
+        // ⛔ NO SLASH. `strike` draws its arc from the spawned volume, so without
+        // this the fighter swings a blade that does no damage and the player is
+        // told the wrong thing about a move whose whole point is that it is not
+        // a hit. ⚠ There is no wind art yet, so a gust currently draws NOTHING —
+        // which is honest and is a known gap rather than a choice.
+        volume.vfx = None;
+    }
+    fixed_knockback(m)
 }
 
 pub fn strike(spec: Strike<'_>) -> MoveSpec {

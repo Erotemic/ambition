@@ -31,9 +31,63 @@ pub fn officer_moveset() -> MovesetContract {
         &["polygon_brawler", "pugnacious_polygon"],
         "officer",
     );
+    crate::special_slots::replace_special(&mut set, "special", the_order_to_disperse());
     crate::special_slots::replace_special(&mut set, "special_forward", the_draw());
     crate::special_slots::replace_special(&mut set, "special_down", the_riot_shield());
     set
+}
+
+/// Neutral special: he shoves the room back, and it does not hurt anybody.
+///
+/// ⭐⭐ THE FIRST AUTHORED WINDBOX ON THE ROSTER. `VolumeReaction::Windbox` has
+/// been shipped for a long time — down to a validation error for a windbox that
+/// carries damage, and `hit_reaction`'s `flinchless: hitbox.windbox().is_some()`
+/// saying *"this is a push, not a hit"* — and NOTHING used it. Measured
+/// 2026-09-05: zero authored windboxes anywhere. ⇒ This move costs authoring
+/// only; see `moveset_authoring::gust`.
+///
+/// ⭐ IT MAKES HIS KIT ONE IDEA. He already draws a sidearm and plants a riot
+/// shield; a crowd-control officer's third tool is *get back*, not a haymaker.
+///
+/// ⛔⛔ IT DISPLACES A KO MOVE AND THAT IS THE REAL COST, stated rather than
+/// buried: the brawler's `haymaker` is `damage: 13, knockback: 142` and this
+/// does no damage at all. He keeps every smash, every tilt and `the_draw`, so
+/// he is not short of ways to finish — but a player who picks him is trading a
+/// button that kills for a button that CREATES SPACE, and that is a real
+/// character decision rather than a free addition. ⚠ Unlike the mine and Sing,
+/// there was no empty slot to take: the archetype fills all four specials.
+///
+/// ⚠ SUSTAINED, SO IT PUSHES EVERY FRAME YOU STAND IN IT. That is what makes it
+/// a wall rather than a shove, and it is the whole reason `repeating` is an
+/// authored bool: a one-shot version of this move would be a worse haymaker.
+fn the_order_to_disperse() -> ambition_platformer2d::entity_catalog::MoveSpec {
+    ambition_characters::moveset_authoring::gust(
+        ambition_characters::moveset_authoring::Gust {
+            id: "officer_disperse",
+            clip: "attack_side",
+            // Slower to open than the haymaker it replaces: holding ground is
+            // not a read, and he should not win the exchange by pressing first.
+            startup_s: 0.20,
+            // ⭐ LONG. The haymaker's danger lasted 0.08s; this lasts more than
+            // four times that, because a gust is an area you cannot walk through
+            // rather than a moment you can be caught by.
+            active_s: 0.34,
+            recover_s: 0.30,
+            // Out in front and slightly low — he is pushing at chest height with
+            // a shield, not swinging at a head.
+            offset: (30.0, 2.0),
+            half_extents: (30.0, 22.0),
+            // Firm enough to break a rush and take somebody off a ledge, well
+            // short of a launch: this must never be a kill button, or the trade
+            // above stops being a trade.
+            push: 96.0,
+            // Away and a little up, so a shoved fighter is briefly airborne and
+            // has to land before they can re-approach. ⛔ Authored rather than
+            // derived: wind blows ONE WAY, whichever side you walked in from.
+            push_dir: (1.0, -0.22),
+            sustained: true,
+        },
+    )
 }
 
 /// Down special: he plants a riot shield and EATS what is thrown at him.
@@ -199,6 +253,63 @@ mod tests {
         assert!(
             draw.windows.iter().all(|w| w.volumes.is_empty()),
             "the draw is hitless — the projectile is the damage"
+        );
+    }
+
+    /// ⛔⛔ ALL THREE WINDBOX INVARIANTS, because each one is SILENT when broken.
+    /// Damage above zero makes the catalog reject the move; growth above zero
+    /// shoves a damaged fighter further than a fresh one, which is a hit's rule
+    /// and not wind's; and a missing `repeating` turns a wall you cannot walk
+    /// through into a single shove that is strictly worse than the haymaker it
+    /// replaced. ⇒ A test that only found a `Windbox` reaction would pass
+    /// against all three.
+    #[test]
+    fn his_neutral_is_a_wall_of_air_that_hurts_nobody() {
+        let set = officer_moveset();
+        assert_eq!(
+            set.verbs.get("special").map(String::as_str),
+            Some("officer_disperse"),
+            "his neutral must be the shove"
+        );
+        let gust = set
+            .moves
+            .iter()
+            .find(|m| m.id == "officer_disperse")
+            .expect("…and the move it names must be in the table");
+
+        let volumes: Vec<&ambition_platformer2d::entity_catalog::HitVolume> = gust
+            .windows
+            .iter()
+            .flat_map(|window| window.volumes.iter())
+            .collect();
+        assert!(!volumes.is_empty(), "the gust spawns nothing at all");
+        for volume in &volumes {
+            let wind = volume
+                .windbox()
+                .expect("every volume of a gust is a windbox, not a hit");
+            assert!(
+                wind.repeating,
+                "the gust does not sustain, so it is a one-shot shove wearing a \
+                 wall's timing"
+            );
+            assert_eq!(volume.damage, 0, "a windbox that damages will not load");
+            assert_eq!(
+                volume.knockback_growth,
+                Some(0.0),
+                "the shove grows with the victim's damage, which is a hit's rule"
+            );
+            assert!(
+                volume.launch_dir.is_some(),
+                "the push direction is derived from geometry, so the gust blows \
+                 whichever way you walked into it"
+            );
+        }
+
+        // ⛔ AND THE ARCHETYPE'S HAYMAKER IS GONE rather than left unreachable,
+        // where every census that walks `moves` reports it as part of his kit.
+        assert!(
+            !set.moves.iter().any(|m| m.id == "officer_haymaker"),
+            "the displaced haymaker is still in the table"
         );
     }
 }

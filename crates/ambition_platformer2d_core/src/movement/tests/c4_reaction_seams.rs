@@ -390,3 +390,74 @@ fn c4_out_of_bounds_reset_is_gravity_relative() {
         );
     }
 }
+
+/// ⛔⛔ THE GRAVITY MODIFIER EXPIRES ON THE MOVEMENT DOMAIN'S CLOCK, AND
+/// NOTHING ELSE HAS TO REMEMBER TO END IT.
+///
+/// ⭐ THIS TEST EXISTS BECAUSE ITS ABSENCE WAS FOUND BY A POISON THAT DID NOT
+/// FIRE. Two guards already covered this feature — one in the integrator, one on
+/// the authored beat in `ambition_combat` — and setting the timer to `0.0` every
+/// tick left BOTH green. Neither fixture ran the body step that owns the
+/// countdown, so between them they asserted that a modifier can be set and read,
+/// and never that it ENDS. A regime that never expires is the exact failure the
+/// duration exists to prevent, and it was the one thing untested.
+///
+/// ⇒ So this drives the real `update_body_simulation_in_frame` and watches the
+/// value fall back on its own.
+#[test]
+fn a_gravity_modifier_expires_on_the_movement_clock() {
+    let f = AccelerationFrame::new(Vec2::Y);
+    let world = rig_world(&f);
+    let mut scratch = BodyClusterScratch::new_with_abilities(CENTER, AbilitySet::sandbox_all());
+
+    {
+        let (model, _) = scratch.parts();
+        assert!(
+            model.set_gravity_modifier(0.25, 0.20),
+            "the test body's policy cannot hold a modifier, so this rig proves \
+             nothing about expiry"
+        );
+        assert_eq!(
+            model.gravity_modifier(),
+            0.25,
+            "the modifier did not take before the clock was ever run"
+        );
+    }
+
+    // 0.10s of a 0.20s regime: still running. This half is what makes the
+    // expiry below a CLOCK rather than an immediate clear.
+    for _ in 0..6 {
+        update_player_simulation_with_tuning_scratch(
+            &world,
+            &mut scratch,
+            InputState::default(),
+            DT,
+            TEST_TUNING,
+        );
+    }
+    let (model, _) = scratch.parts();
+    assert_eq!(
+        model.gravity_modifier(),
+        0.25,
+        "a 0.20s regime was already gone after 0.10s — it is being cleared \
+         rather than counted down, so every duration an author writes is a lie"
+    );
+
+    // Past the end: it must give the body its gravity back with no second call.
+    for _ in 0..12 {
+        update_player_simulation_with_tuning_scratch(
+            &world,
+            &mut scratch,
+            InputState::default(),
+            DT,
+            TEST_TUNING,
+        );
+    }
+    let (model, _) = scratch.parts();
+    assert_eq!(
+        model.gravity_modifier(),
+        1.0,
+        "the regime OUTLIVED its authored duration — nobody else owes an 'off', \
+         so a body that floats past its timer floats forever"
+    );
+}

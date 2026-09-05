@@ -5,7 +5,7 @@
 //! kicks, uppercuts, shoulder rushes, grabs, pummels, and all four throws.
 
 use ambition_characters::moveset_authoring::Strike;
-use ambition_characters::moveset_authoring::{committed_tail, impulse, strike};
+use ambition_characters::moveset_authoring::{committed_tail, gravity_modifier, impulse, strike};
 use ambition_characters::smash_capture::{
     author_pummel, author_standing_grab, author_throw, capture_beat, grab_shell,
     CaptureAttemptParams, CaptureCues, CapturePummelParams, CaptureThrowParams,
@@ -249,6 +249,29 @@ pub fn pugnacious_polygon_moveset() -> MovesetContract {
     });
     uppercut.landing_lag_s = Some(0.25);
     let up_special = impulse(uppercut, 0.08, (0.0, -745.0), ImpulseMode::Set);
+    // ⭐⭐ AND THEN HE HANGS THERE. The rise is unchanged; what is new is the
+    // DESCENT, and it is the first authored customer for
+    // `MoveEventKind::GravityModifier`.
+    //
+    // ⛔ THIS FIGHTER WAS PICKED BY MEASUREMENT, NOT BY TASTE. The
+    // comment-vs-mechanics sweep scored every moveset in this crate, and his was
+    // the only one with ZERO claim markers across ten comment lines — five
+    // specials that are a haymaker, a shoulder rush, an uppercut, a ground slam
+    // and a body drop. Entirely honest and entirely dull, which is a different
+    // defect from the five that lied and the one the goal names in as many
+    // words: *"many have boring specials."*
+    //
+    // ⭐ THE FLOAT STARTS AFTER THE HIT, not at the press: the uppercut is still
+    // a committal rising attack that can be beaten, and the reward for landing
+    // it — or for surviving it — is the way home. 0.35 gravity for 1.1s is
+    // roughly a doubled descent, long enough to change a ledge read and short
+    // enough that it cannot stall out a whole stock.
+    //
+    // ⛔ IT OUTLIVES THE MOVE, WHICH IS THE POINT AND IS WHY IT IS AN EVENT. The
+    // uppercut's own timeline ends at 0.39s; the parasol is still running for
+    // nearly a second after that. A `WindowTag` could not say this, and the
+    // movement domain — not this move — is what ends it.
+    let up_special = gravity_modifier(up_special, 0.20, 0.35, 1.1);
 
     let grounded_down_special = committed_tail(
         strike(Strike {
@@ -388,6 +411,48 @@ pub fn pugnacious_polygon_moveset() -> MovesetContract {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// ⭐⭐ HIS UP-B OPENS A PARASOL THAT OUTLIVES IT, and the DURATION is the
+    /// assertion rather than the presence.
+    ///
+    /// ⛔ A `WindowTag` would satisfy "the move slows his fall" and fail this,
+    /// which is exactly the simplification a later reader will reach for. The
+    /// regime has to still be running after the move's own timeline ends, or the
+    /// descent it exists to give him is over before he starts falling.
+    #[test]
+    fn the_uppercut_leaves_him_floating_for_longer_than_the_move_lasts() {
+        use ambition_platformer2d::entity_catalog::MoveEventKind;
+        let moves = pugnacious_polygon_moveset();
+        let up = moves
+            .moves
+            .iter()
+            .find(|m| m.id == "polygon_brawler_uppercut")
+            .expect("his up-B is in the table");
+        let (at_s, scale, seconds) = up
+            .events
+            .iter()
+            .find_map(|e| match e.kind {
+                MoveEventKind::GravityModifier { scale, seconds } => Some((e.at_s, scale, seconds)),
+                _ => None,
+            })
+            .expect(
+                "his up-B authors no gravity modifier, so the roster's dullest \
+                 recovery is a bare uppercut again",
+            );
+        assert!(
+            scale < 1.0 && scale > 0.0,
+            "a modifier of {scale} does not SLOW a fall — 1.0 is a no-op and \
+             0.0 is a hover, and neither is a parasol"
+        );
+        let move_ends = up.duration_s;
+        assert!(
+            at_s + seconds > move_ends,
+            "the float ({seconds}s from {at_s}s) is spent by the time the move \
+             ends at {move_ends}s, so it can only slow a fall he is not having \
+             yet — the whole reason this is an event and not a window is that it \
+             has to outlast the move"
+        );
+    }
 
     #[test]
     fn the_reference_brawler_answers_the_complete_typed_repertoire() {

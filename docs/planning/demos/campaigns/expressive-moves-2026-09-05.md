@@ -28,7 +28,7 @@ each one as an **engine acceptance fixture** rather than a character feature:
 ⛔⛔ **AND I OVER-ESTIMATED HOW ASSEMBLED IT IS — correcting my own estimate from an hour earlier on this same page.** `acquire_captures` catches BODIES and a ledge is not one, so her 150px grab cannot become a ledge tether by reach alone. The probe exists (`probe_ledge_grab_in_frame`, which could be called at a VIRTUAL position — *"could a body standing there catch a ledge"* — a legitimate reuse) ⚠ **but it has NO production caller outside its own tests**, and it wants a `&World`, so wiring it into a move is engine work rather than composition. ⇒ The honest cost of this row is a technique plus a probe adapter plus the visual extension — comparable to the bolt, not to the mine. ⭐ `ledge_assist` on a TELEPORT remains the cheap way to get *"a recovery that catches a ledge"*; what it cannot give you is a tether. ⚠ Marked ◐ rather than ✔ deliberately: B2's own row says "ground tether", and reading that as the whole row is how a half-built capability gets reported as finished |
 | 5 ✔ | **Cargo command grab** — **LANDED 2026-09-05** on the goblin's down-throw | ⭐ **MOVEMENT WAS NEVER TOUCHED.** The claim was "capture and movement cooperate", and what actually happened is that capture RESTRICTS LESS: `restrict_captor_control` zeroed `locomotion` for every captor, and a carry is a hold that does not. ⇒ `carrying` rides `SmashHoldState` (the ruleset's half) rather than `CapturedBy` (the generic relation), on that component's own argument that platform-fighter rules do not belong on the relation |
 | 6 ✔ | **Remote mine** — **LANDED 2026-09-05** on Projectile Polygon's down-smash | persistent spawned identity, owner lookup, remote triggering, rollback. ⭐ **It cost one component with four fields and no new authority**: the object is a `GroundItem`, the blast is a `DamageBoxEffect`, and "where is it, whoever holds it" is `ItemWorldPos`. The mine contributes an arming clock and a decision |
-| 7 ▢ | **Parasol** | temporary movement modifiers/controllers are expressive enough for a long-lived post-move locomotion regime. ⛔ **MEASURED 2026-09-05 AND GENUINELY MISSING** — the one open row where the search found nothing. `ActorSurfaceState::gravity_scale` is per-body but **no TIMED modifier exists**: nothing owns "this scale, for N seconds, then back". ⛔⛔ **AND THE REAL BLOCKER IS SHARPER THAN THAT, re-measured after a first pass called it "the smallest new-state row": THREE domains already write `gravity_scale` with the same save-set-restore pattern** — capture (`prior_gravity_scale`), mount (restoring from a spawn baseline) and body-seed at construction. ⇒ A fourth writer cannot simply join them: a fighter who is floating AND then grabbed has two saved priors and the restore order decides which one wins. ⭐ So the honest shape is not "add a timer" — it is **a modifier the MOVEMENT domain owns and multiplies**, which the existing writers would then compose against instead of overwriting. That is engine work in `ambition_platformer2d_core`, and it is the row where this campaign's rule bites hardest: a move may ASK for a locomotion regime and must never become the authority for it. ⛔⛔ **AND THE BLOCKER DISSOLVED ON RE-MEASUREMENT 2026-09-05 — the fourth instance this week of an obstacle that was a sentence nobody re-read.** **THE KERNEL ALREADY COMPOSES GRAVITY SCALES BY MULTIPLICATION, and has two of them:** `integration.rs:773` is `*kin_vel += frame.gravity_acceleration() * (water_gravity_scale * jump_gravity_scale) * dt`. ⇒ The *"modifier the movement domain owns and multiplies"* this row asks for is not a new mechanism — **it is a third factor in a product that already exists**, resolved onto `NormalSpineCtx` (a `Copy` read-only gating struct whose fields the caller resolves, which is exactly how `water` and `crouching` already arrive). ⭐⭐ **AND THAT IS WHY THE RESTORE-ORDER ARGUMENT ABOVE DOES NOT APPLY TO IT.** The three save-set-restore writers all feed `ActorSurfaceState::gravity_scale`, which `gravity/resolve.rs:56` folds into the frame BEFORE the kernel's product. A timed move modifier joins at the OTHER end and **saves no prior at all**, so there is nothing to restore and no order to get wrong. ⇒ The row's stated blocker was a property of the approach it assumed (become a fourth writer of that field), not of the problem. ⚠⚠ **ONE REAL HAZARD FOUND WHILE MEASURING, AND IT IS THE FAMILIAR SHAPE:** `resolve.rs` has two arms, and the PLAYER arm is `let player_response = tuning.gravity;` — **`surface.gravity_scale` is not in it.** So that field does nothing on a `PlayerEntity`. ⇒ Smash fighters are safe (measured: nothing in `ambition_demo_smash` or its app carries `PlayerEntity`, so they resolve through the actor arm), but a Parasol authored against `surface.gravity_scale` would be **inert on an exploration player** — authored, paid for, and unreachable on one of the two paths, which is this campaign's most repeated finding |
+| 7 ✔ | **Parasol** — **LANDED 2026-09-05** on Pugnacious Polygon's up-B | temporary movement modifiers/controllers are expressive enough for a long-lived post-move locomotion regime. ⛔ **MEASURED 2026-09-05 AND GENUINELY MISSING** — the one open row where the search found nothing. `ActorSurfaceState::gravity_scale` is per-body but **no TIMED modifier exists**: nothing owns "this scale, for N seconds, then back". ⛔⛔ **AND THE REAL BLOCKER IS SHARPER THAN THAT, re-measured after a first pass called it "the smallest new-state row": THREE domains already write `gravity_scale` with the same save-set-restore pattern** — capture (`prior_gravity_scale`), mount (restoring from a spawn baseline) and body-seed at construction. ⇒ A fourth writer cannot simply join them: a fighter who is floating AND then grabbed has two saved priors and the restore order decides which one wins. ⭐ So the honest shape is not "add a timer" — it is **a modifier the MOVEMENT domain owns and multiplies**, which the existing writers would then compose against instead of overwriting. That is engine work in `ambition_platformer2d_core`, and it is the row where this campaign's rule bites hardest: a move may ASK for a locomotion regime and must never become the authority for it. ⛔⛔ **AND THE BLOCKER DISSOLVED ON RE-MEASUREMENT 2026-09-05 — the fourth instance this week of an obstacle that was a sentence nobody re-read.** **THE KERNEL ALREADY COMPOSES GRAVITY SCALES BY MULTIPLICATION, and has two of them:** `integration.rs:773` is `*kin_vel += frame.gravity_acceleration() * (water_gravity_scale * jump_gravity_scale) * dt`. ⇒ The *"modifier the movement domain owns and multiplies"* this row asks for is not a new mechanism — **it is a third factor in a product that already exists**, resolved onto `NormalSpineCtx` (a `Copy` read-only gating struct whose fields the caller resolves, which is exactly how `water` and `crouching` already arrive). ⭐⭐ **AND THAT IS WHY THE RESTORE-ORDER ARGUMENT ABOVE DOES NOT APPLY TO IT.** The three save-set-restore writers all feed `ActorSurfaceState::gravity_scale`, which `gravity/resolve.rs:56` folds into the frame BEFORE the kernel's product. A timed move modifier joins at the OTHER end and **saves no prior at all**, so there is nothing to restore and no order to get wrong. ⇒ The row's stated blocker was a property of the approach it assumed (become a fourth writer of that field), not of the problem. ⚠⚠ **ONE REAL HAZARD FOUND WHILE MEASURING, AND IT IS THE FAMILIAR SHAPE:** `resolve.rs` has two arms, and the PLAYER arm is `let player_response = tuning.gravity;` — **`surface.gravity_scale` is not in it.** So that field does nothing on a `PlayerEntity`. ⇒ Smash fighters are safe (measured: nothing in `ambition_demo_smash` or its app carries `PlayerEntity`, so they resolve through the actor arm), but a Parasol authored against `surface.gravity_scale` would be **inert on an exploration player** — authored, paid for, and unreachable on one of the two paths, which is this campaign's most repeated finding |
 | 8 ✔ | **Homing Attack** — **LANDED 2026-09-05** on Carl Stargan's slingshot side-B | deterministic semantic target queries and target-directed fighter motion. ⭐⭐ **AND THE TARGET QUERY WAS ALREADY PUBLIC** — `ambition_combat::targeting::assisted_fire_direction`, cone- and range-bounded, **tie-broken on the stable `SimId` rather than the `Entity`** because bevy_ggrs recreates rollback entities. ⇒ The move ASKS it every tick and owns no targeting; only the MOTION was new. ⚠ My earlier note that the query was "private to `teleport.rs`" was about `may_ambush` specifically and misread the general case. ⚠ **THE ROW SPLITS, AND THE CHEAP HALF DODGES WHAT IT WAS MEANT TO PROVE.** The TARGET QUERY exists — the teleport's ambush arrival does deterministic foe selection through `combat_relation`, *"the same call the damage side makes, so a teammate cannot become a target here after ceasing to be one there"* — but it is PRIVATE to `teleport.rs` (`fn may_ambush`), so it is built and not reusable. ⇒ A "homing attack" is authorable today as an ambush teleport plus a strike window, and **that would tick the row while skipping target-directed MOTION**, which is the half worth having. ⛔ Not doing it that way |
 | 9 ✔ | **Sing** — **COMPLETE 2026-09-05** on the Performer's neutral special | `BodyCombat::sleep_timer`, the `smash.sleep` technique and the area adapter, all guarded — and now with a customer. ⭐ **ADDED TO `the_monologue`, NOT SUBSTITUTED FOR IT**: her strike is 58×34 out in front and is unchanged to the number; the sleep is 26×26 centred on HER, wholly inside it. Everyone still gets the speech; only whoever stood next to her goes under |
 | 10 ◐ | **Limit** | character-local resource state, threshold transitions, timeout, action variants, stat modifiers. ⭐⭐ **THE METER IS SHIPPED AND I HAD THE WRONG NEAREST NEIGHBOUR.** `BodyMana { meter: ResourceMeter { current, max, regen_rate, decay_rate } }` is per-body, **rollback-canonical as `body.mana`**, published to presentation through `sim_view::facts`, ~~and already regenerating — so a first rung needs NO fill system at all.~~ ⛔⛔ **STRUCK 2026-09-05, AND IT WAS WRONG IN THE DIRECTION THAT FLATTERED THE ROW.** Measured, not read: **every `BodyMana` in the workspace is `ResourceMeter::new(100.0, 0.0, 0.0)` — regen ZERO** — and its only refill is the platformer's shrine, which no smash stage has. ⇒ A cost today buys a fixed number of uses per life and no way to earn another. **The gate was the cheap half; the FILL is a design decision and it is Jon's.** ⇒ **What is missing is the GATE**, and its shape is now located: the cost is authoring data and belongs on `MoveGates`, but the CHECK cannot go in `MoveGates::permits` — that is called from `ambition_entity_catalog`, a data crate which must not learn about body state. The check belongs at ACCEPTANCE in `ambition_combat::moveset`, where the body is in hand. ⛔ **AND THE OBSTACLE I NAMED WAS OVERSTATED — CHECKED BY COUNTING.** The sixteen-limit had already been hit and SOLVED: the body QUERY tuple reached it and nested a gesture triple to fit (now 14), while the SYSTEM itself carries 12 params. There was room, and the elegant answer Jon asked for was already sitting in the file — `guards: Query<&mut BodyShieldState>` and `jumps: Query<&mut BodyJumpState>` are BOTH spend-sites looked up by entity, so the meter became the third of exactly that shape rather than a fifteenth query member. ⇒ The earlier note said the acceptance authority is AT BEVY'S 16-PARAMETER CEILING and that its own comment says so — *"Bevy's `QueryData` tuple runs out at sixteen and this query reached it"* — so a `BodyMana` reader has to JOIN an existing grouped param rather than become a new one. ✔ **LANDED 2026-09-05 — the ENGINE half, deliberately without a priced move.** `MoveGates::meter_cost` (`#[serde(default)]`, so every move authored before it still costs nothing); `afford_meter`, the **third sibling** of `afford_recovery` and `permitted_while_held`, shaped like both on purpose — read-only, asked BEFORE any teardown, returning a plain bool; the spend at `start_move`, the one point both roads meet. ⛔ **REFUSES, NEVER SILENTLY NO-OPS** — `MoveGates`' own doc names that failure from the pirate's shark up-B: *"a rule enforced after acceptance is not a rule, it is a silent failure with a comment."* ⭐ **ROLLBACK: no schema bump.** `body.mana` is already `component-canonical` (codec snapshot + checksum projection); the cost is authored data and the spend mutates a field the codec already carries. ⚠ **NO AUTHORED CUSTOMER, AND THAT IS THE HONEST STATE OF THE ROW** — pricing a move before anything fills the meter would ship a special that works twice and then never again. The field is what any fill rule would spend. ⓘ `StoredMoveCharge` was my earlier guess at the nearest neighbour and it is the wrong one — a per-move CHARGE BANK, not a character meter|
@@ -614,6 +614,55 @@ adding on top. It is also the one that makes his kit a single idea (gun, shove,
 shield), so it is a real design choice rather than an oversight, and it is stated
 here to be argued with.
 
+### ⛔⛔ A POISON THAT DID NOT FIRE WAS THE MOST USEFUL RESULT OF THE ROW
+
+The Parasol landed with two guards — one on the integrator's product, one on the
+authored beat reaching the owner's movement policy — and both were green. Then a
+poison that **zeroed the modifier's countdown every tick left BOTH of them
+green.**
+
+⇒ Neither fixture ran the body step that owns the clock. Between them they proved
+a modifier can be SET and READ, and never that it ENDS. **A regime that never
+expires is the precise failure a duration exists to prevent, and it was the one
+thing untested.**
+
+⭐⭐ **THE RULE, and it is a real sharpening of this morning's:** *a poison that
+does not fire is a FINDING, not a badly-aimed poison.* The tempting reading was
+"wrong poison for this test, the clock isn't in that fixture" — which is true,
+and is exactly the sentence that would have left the gap in place. The right
+reading is that **no test anywhere ran that code**, and the poison is how I
+learned it. ⇒ Third guard added (`a_gravity_modifier_expires_on_the_movement_clock`),
+driving the real `update_body_simulation_in_frame`, and it now reddens in BOTH
+directions: a clock that clears instantly (*"every duration an author writes is a
+lie"*) and a clock that never decrements (*"a body that floats past its timer
+floats forever"*).
+
+⚠ Together with the cancel-road finding this morning, that is **two coverage holes
+in one day found by poisons rather than by failures**, both in guards I had just
+written and believed. The pair share a shape: *the fixture answered a smaller
+question than the assertion claimed*, and nothing in a green run distinguishes
+those.
+
+### ⚠ ROSTER DECISION #16 — PUGNACIOUS POLYGON GETS THE PARASOL, AND HE WAS PICKED BY MEASUREMENT
+
+His up-B was `impulse(0, -745, Set)` and nothing else. It now opens a 0.35-gravity
+float for 1.1s at 0.20s — after the hit, so the uppercut stays a committal rising
+attack that can be beaten, and the reward for landing or surviving it is the way
+home.
+
+⭐ **He is the fighter the comment-vs-mechanics sweep scored LAST**: the only
+moveset in the crate with **zero claim markers across ten comment lines**, five
+specials that are a haymaker, a shoulder rush, an uppercut, a ground slam and a
+body drop. ⇒ The sweep is blind to boredom and said so; this is the first row to
+act on what it could not see, by using its own ranking in the other direction.
+**Honest-and-dull was measurable all along — I just had to read the column I
+already had.**
+
+⚠ **It is a BUFF to a recovery and that is a balance decision, not a neutral
+one.** Jon's to overrule like the other fifteen; the move it replaces was dull
+rather than balanced, which is the argument for doing it here rather than on a
+fighter whose recovery is already load-bearing.
+
 ### ⛔ JON'S CALL — WHAT FILLS THE LIMIT METER (the gate is built and free)
 
 `MoveGates::meter_cost` ships defaulted to `0.0`, so nothing in the game costs
@@ -857,13 +906,29 @@ nobody**:
 |---|---|
 | `smash.sleep` (Sing) | engine landed the same morning, no authored customer until the Performer got it |
 | `TeleportParams::behind_nearest_foe` — the ambush arrival, its foe selection and its facing rule | **no authored customer anywhere in the tree**, until the Author's counter |
+| `MovePrefabRegistry` — the whole `key + params -> MoveSpec` seam (A2 / R2.3) | ⛔⛔ **a THIRD and a worse kind, found 2026-09-05 while triaging the registry inventory: EVERY `.expand()` call in the workspace is in `moveset/tests.rs`.** Not "no authored customer" — **no production caller at all.** It is `pub use`d, `Default`s to three engine prefabs, is fully tested, and nothing in the game has ever asked it for a move |
 
 ⇒ **This is a job for O4's installed-technique catalog, and it is a bigger one
 than the catalog was scoped for**: the useful census is not "what techniques
 exist" but **"which techniques, and which PARAMETER MODES, no authored content
 reaches"**. A list of what exists cannot find these; a JOIN against authored
-content can. ⚠ Both were found by accident, which is the argument — nobody was
+content can. ⚠ All three were found by accident, which is the argument — nobody was
 looking, and nothing would have complained.
+
+⭐⭐ **AND THE THIRD SHARPENS WHAT THE CENSUS HAS TO JOIN AGAINST.** The first two
+are techniques with no authored customer, which a content-side join finds. The
+prefab registry is a whole SEAM with no production caller, which that join cannot
+see at all — it is not a technique, it appears in no moveset, and its own tests
+exercise it thoroughly enough to look healthy. ⇒ **The two questions are
+different: "what does authored content never reach" and "what does the SHIPPED
+GAME never call".** A capability can pass the first and fail the second, and this
+one does.
+
+⚠ **It is not a defect and I am not deleting it** — built-ahead infrastructure is
+a legitimate thing to have, and the seam's argument (*"a content roster names a
+prefab + params to mint a move with ZERO new code"*) is one this campaign is
+actively making. ⇒ The finding is that **nobody knew**, and that a silent-overwrite
+hazard in it was being triaged as though it were reachable.
 
 ### Track A — the keystone
 

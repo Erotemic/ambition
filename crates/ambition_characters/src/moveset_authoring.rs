@@ -52,6 +52,27 @@ pub fn impulse(m: MoveSpec, at_s: f32, local: (f32, f32), mode: ImpulseMode) -> 
     event(m, at_s, MoveEventKind::Impulse { local, mode })
 }
 
+/// A TIMED GRAVITY REGIME: the owner falls at `scale` times its usual gravity
+/// for `seconds`, starting at this beat.
+///
+/// ⭐⭐ THE MOVE ASKS AND THE MOVEMENT DOMAIN OWNS IT, which is why an author
+/// gives a DURATION rather than switching a float on and owing an off. A move
+/// that owed an off would be the authority for a locomotion regime, and would
+/// leak one every time it was interrupted, cancelled or rolled back mid-flight
+/// — the shape this campaign's rule exists to forbid.
+///
+/// ⛔ THE REGIME OUTLIVES THE MOVE, ON PURPOSE. `seconds` runs from this beat,
+/// not from the end of the move, so a parasol opened during a 0.3s animation can
+/// hold its owner up for two seconds afterwards. That is the whole difference
+/// between this and a window tag, which cannot outlast the move it is on.
+///
+/// ⚠ `scale` is a MULTIPLIER, so `1.0` is a no-op and `0.0` is a hover. A
+/// non-positive `seconds` CLEARS whatever the body is under, which is how a
+/// second beat in the same move ends the float early.
+pub fn gravity_modifier(m: MoveSpec, at_s: f32, scale: f32, seconds: f32) -> MoveSpec {
+    event(m, at_s, MoveEventKind::GravityModifier { scale, seconds })
+}
+
 /// A CUE AT A MOMENT. The move's own timeline is where its sound lives, so a
 /// windup you can hear and a swing you can hear are two events and not two
 /// systems.

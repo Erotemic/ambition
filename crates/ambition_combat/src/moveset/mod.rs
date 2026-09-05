@@ -1110,6 +1110,17 @@ pub fn advance_move_playback(
         // same constant in the entity-reference probes, and swapped owners were
         // invisible. `None` (a bare test body) simply mints nothing.
         Option<&ambition_platformer2d_shared_tangle::sim_id::SimId>,
+        // MUTABLE FOR THE SAME REASON `BodyKinematics` IS, one variant deeper.
+        // A `MoveEventKind::GravityModifier` is authored SELF-STATE — the move
+        // asks its owner to fall differently for a while — and this is the
+        // system that holds the clock, so it is the one place that can apply it
+        // at the authored instant.
+        //
+        // ⛔ THE MOVE WRITES A REQUEST, NOT A REGIME. `MotionModel`'s own
+        // `set_gravity_modifier` stores a scale and a DURATION, and the movement
+        // kernel spends the clock; nothing here owes a matching "off". `None`
+        // for a bare test body, which then has no policy to float.
+        Option<&mut ae::MotionModel>,
     )>,
     // IS ATTACK STILL DOWN? The body-generic resolved gesture, produced by
     // `resolve_attack_gestures` earlier in this same tick — never a device and
@@ -1152,6 +1163,7 @@ pub fn advance_move_playback(
         mut kin,
         scale,
         owner_sim_id,
+        mut motion,
     ) in &mut players
     {
         // ⭐⭐ THE AIM LATCH, SAMPLED BEFORE THIS TICK'S EVENTS FIRE. A
@@ -1371,6 +1383,31 @@ pub fn advance_move_playback(
                 // writer, one site — publishing it as a message and applying it
                 // somewhere else is the follow-up-call shape this tree keeps
                 // paying for.
+                // ⭐ THE SAME CLASS AS THE IMPULSE BELOW, and handled beside it
+                // for the reason that comment gives: it names no consumer. A
+                // gravity modifier is a write on the OWNER's own movement
+                // policy, and this is the system that holds both the move clock
+                // and the body — publishing it as a message and applying it
+                // somewhere else is the follow-up-call shape this tree keeps
+                // paying for.
+                if let MoveEventKind::GravityModifier { scale, seconds } = &ev.kind {
+                    if let Some(motion) = motion.as_deref_mut() {
+                        // ⛔ THE BOOL IS READ. `set_gravity_modifier` answers
+                        // `false` when the owner runs a policy that cannot float
+                        // — momentum, crawler — and swallowing that would author
+                        // a move whose whole effect silently does nothing, which
+                        // is the failure this campaign has now found six times.
+                        if !motion.set_gravity_modifier(*scale, *seconds) {
+                            bevy::log::warn!(
+                                target: "ambition::moves",
+                                "move `{}` asked for a gravity modifier and its owner's \
+                                 movement policy has no such state — the beat did nothing",
+                                pb.spec.id
+                            );
+                        }
+                    }
+                    continue;
+                }
                 if let MoveEventKind::Impulse { local, mode } = &ev.kind {
                     let body_frame = owner_frames
                         .get(owner)
@@ -4063,6 +4100,11 @@ pub fn dispatch_move_events(
             // past this match and say what it means, which a `_ => {}` would
             // quietly excuse it from.
             MoveEventKind::Impulse { .. } => {}
+            // UNREACHABLE BY CONSTRUCTION, and named for the reason the arm
+            // above is. A `GravityModifier` is a write on the owner's own
+            // movement policy, so `advance_move_playback` applies it at the
+            // authored instant and never publishes it.
+            MoveEventKind::GravityModifier { .. } => {}
         }
     }
 }

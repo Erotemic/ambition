@@ -666,6 +666,47 @@ impl MotionModel {
         }
     }
 
+    /// The gravity multiplier this body is under, or `1.0` — the identity of
+    /// the product it joins — for a policy that has no such state.
+    ///
+    /// ⭐ THE READ SIBLING of [`Self::set_gravity_modifier`], and a real reader
+    /// rather than a test hatch: presentation wants it (a floating body is worth
+    /// drawing differently) and so does anything asking "why is this fighter
+    /// falling slowly". ⛔ Never `0.0` for a body that simply has no modifier —
+    /// see [`AxisManeuverState::gravity_modifier`] for why that distinction is
+    /// enforced one layer down rather than restated here.
+    pub fn gravity_modifier(&self) -> f32 {
+        match self {
+            Self::AxisSwept(axis) => axis.state.gravity_modifier(),
+            Self::SurfaceMomentum(_) | Self::AdhesiveCrawler(_) => 1.0,
+        }
+    }
+
+    /// Put this body under a TIMED GRAVITY MULTIPLIER, or do nothing for a
+    /// policy that has no such state. Returns whether it landed.
+    ///
+    /// ⭐ THE WRITE SIBLING of [`Self::jump_squat_remaining`] and
+    /// [`Self::holds_a_ledge`], and it exists for their reason turned around:
+    /// "float for a moment" is ASKED of any body while only one variant can
+    /// hold the answer, and matching the variant at the call site is how one
+    /// rule ends up spelled twice. A move should not have to know which
+    /// movement policy its owner runs.
+    ///
+    /// ⚠ THE BOOL IS NOT DECORATION. `false` means the request reached a body
+    /// whose policy cannot float — a momentum or crawler body — and a caller
+    /// that ignores it has authored a move that silently does nothing, which is
+    /// the failure this campaign keeps finding. It is returned rather than
+    /// logged so the decision belongs to whoever asked.
+    pub fn set_gravity_modifier(&mut self, scale: f32, seconds: f32) -> bool {
+        match self {
+            Self::AxisSwept(axis) => {
+                axis.state.set_gravity_modifier(scale, seconds);
+                true
+            }
+            Self::SurfaceMomentum(_) | Self::AdhesiveCrawler(_) => false,
+        }
+    }
+
     /// Has this body caught hold of a ledge? `false` for a policy that has
     /// no such thing. The sibling of [`Self::jump_squat_remaining`], and it
     /// exists for the same reason: a hang holds a body against its frame's pull

@@ -78,6 +78,25 @@ re-deriving recovery behaviour** — if the fighter's traversal through a portal
 does not already work, that is a finding about the portal seam, and it is worth
 more than the move.
 
+✔ **COSTED 2026-09-05 — it really is authoring plus a technique key, checked
+against the crate rather than hoped.** `PlacedPortal` is a **Component**, so
+placing one is a `spawn`; `PlacedPortal::fixed(channel, pos, normal, half_extent)`
+is the static (unhosted) constructor that fixtures and placement sites already
+use; and `PortalChannelColor::Indexed(n)` documents its own pairing rule —
+*"even = slot A, odd = slot B; the partner is `Indexed(n ^ 1)`"*, with indices
+`8..` reserved for exactly this kind of extra pair. ⇒ **A move-placed pair is two
+spawns on `Indexed(n)` and `Indexed(n ^ 1)`**, and the portal crate's own transit
+rules carry the fighter through — which is the point of using it rather than
+writing a recovery.
+
+⇒ **The slice, in the order it should be built:** a `smash.portal_pair` technique
+carrying rise, half-extent and (later) an angle; a smash-side adapter that spawns
+the two apertures — one under the fighter with an upward normal, one at the stage
+top facing down; and a LIFETIME, because a recovery that leaves a permanent hole
+in the stage is a different move. ⚠ The lifetime is the part with no obvious
+answer yet: close on move end, on first transit, or on a timer are three
+different mechanics, and that is a design call rather than a wiring one.
+
 ⓘ The angled variant (directional input on the up-B tilting the pair) is
 explicitly OURS rather than genre parity. It is also the cheapest possible test
 of whether the portal placement seam takes an authored orientation, so author

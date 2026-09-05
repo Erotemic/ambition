@@ -364,6 +364,50 @@ mod remainder_tests {
         }
     }
 
+    /// ⭐⭐ THE THREE-HALF-PLANE BUDGET, PINNED. A piece is NOT drawn as a
+    /// sub-rect quad: `clip_piece_transform` scales the quad to the WHOLE
+    /// sprite and every cut is a half-plane in [`crate::PortalClipMaterial`],
+    /// which carries exactly THREE. So a piece is affordable only if it differs
+    /// from the drawable's own bounds on at most three edges — the sprite's
+    /// outer edges come free with the quad, and only the edges the cover moved
+    /// need a plane.
+    ///
+    /// Cutting the bands full-width FIRST is what buys that: the two bands move
+    /// one edge each, and the two middle pieces move three. Four half-planes
+    /// meeting at the corners would need four on some piece and would not fit.
+    /// ⇒ The decomposition's shape is now load-bearing for a SECOND independent
+    /// reason, and this test fails if anyone re-cuts it.
+    #[test]
+    fn no_piece_needs_more_than_the_materials_three_clip_planes() {
+        let d = rect(0.0, 0.0, 10.0, 10.0);
+        let mut worst = 0;
+        for x in -3..=13 {
+            for y in -3..=13 {
+                let c = rect(x as f32, y as f32, x as f32 + 4.0, y as f32 + 6.0);
+                for piece in remainder(d, c).iter() {
+                    // A plane is needed only where the cover moved an edge in.
+                    let planes = [
+                        piece.min.x > d.0.x,
+                        piece.max.x < d.1.x,
+                        piece.min.y > d.0.y,
+                        piece.max.y < d.1.y,
+                    ]
+                    .iter()
+                    .filter(|moved| **moved)
+                    .count();
+                    assert!(
+                        planes <= 3,
+                        "piece {piece:?} needs {planes} planes; the material has 3"
+                    );
+                    worst = worst.max(planes);
+                }
+            }
+        }
+        // ⚠ Anti-vacuity: if nothing ever needed 3 the budget would be untested
+        // and a 4-plane decomposition could slip in under a looser bound.
+        assert_eq!(worst, 3, "no piece exercised the full three-plane budget");
+    }
+
     /// A cover meeting an edge exactly must not emit a zero-area quad: that is
     /// a draw call that shows nothing, and four of them per pane per actor.
     #[test]

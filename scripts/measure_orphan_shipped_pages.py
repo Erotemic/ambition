@@ -178,11 +178,52 @@ def reduced_tier_portraits(pngs: list[Path], assets: Path) -> list[Path]:
     ]
 
 
+#: Submodules whose tracked source can DECLARE an asset. The sprite generator is
+#: the load-bearing one; the rest are cheap to ask and wrong to omit for the same
+#: reason. Names rather than a discovery walk, so an added submodule is a
+#: deliberate edit here instead of a silent change in what the census believes.
+SUBMODULES = (
+    "tools/ambition_sprite2d_renderer",
+    "game/ambition_map_assets",
+    "tools/ambition_music_renderer",
+    "tools/ambition_sfx_renderer",
+    "dev/ambition_dev_measurements",
+)
+
+
 def unmentioned(pngs: list[Path], claimed: set[str], skip: set[str]) -> list[Path]:
     """Unclaimed PNGs whose filename appears in no committed source file.
 
     `git grep` over TRACKED files only: the tier dirs are gitignored, so a hit
     is a real declaration rather than one generated file naming another.
+
+    ⛔⛔ AND IT MUST ASK THE SUBMODULES, WHICH IT DID NOT UNTIL 2026-09-04.
+    A superproject `git grep` sees no submodule content, and the sprite
+    GENERATOR — the one source that necessarily names every file it emits —
+    lives in `tools/ambition_sprite2d_renderer`. So every generated asset whose
+    only declaration is its own generator read as "nothing mentions this".
+
+    ⇒ Measured: **112 files before, 28 after** — a 75% false-positive cut, and
+    every one of the 84 was declared by the sprite generator naming its own
+    output.
+
+    ⚠ THE REMAINING 28 ARE SEVEN ASSETS x FOUR TIERS AND ARE ALSO DECLARED —
+    by `target_name="super_mary_o_star_wand"` rather than by
+    `"super_mary_o_star_wand.png"`. This grep matches FILENAMES, so a target
+    named without its extension is invisible to it. ⛔ Deliberately NOT widened
+    to stems: a stem match lets any mention of `save_point` vouch for
+    `save_point.png`, including a local variable, which is exactly the
+    "something generated vouching for something generated" looseness the
+    paragraph above exists to prevent. ⇒ The strict proxy with a KNOWN residue
+    beats a loose one with an unknown one.
+    ⛔ The hazard is what a reader DOES with it: the obvious action on "nothing
+    references this" is deletion, and deleting these breaks
+    `scripts/regen/sprites.sh` — the road a fresh clone takes to a runnable game.
+
+    ⚠ The docstring above was not wrong, it was narrow: it reasons about
+    gitignored TIER DIRS and the intent is right — do not let one generated file
+    vouch for another. Submodule source is not a generated file; it is the
+    authoritative declaration, and it was invisible for the same reason.
     """
     candidates = [p for p in pngs if key(p) not in claimed and key(p) not in skip]
     if not candidates:
@@ -192,11 +233,23 @@ def unmentioned(pngs: list[Path], claimed: set[str], skip: set[str]) -> list[Pat
     handle.write("\n".join(names))
     handle.close()
     try:
+        globs = ["*.rs", "*.ron", "*.toml", "*.ldtk", "*.json", "*.py"]
         found = subprocess.run(
-            ["git", "grep", "-hoF", "-f", handle.name, "--",
-             "*.rs", "*.ron", "*.toml", "*.ldtk", "*.json", "*.py"],
+            ["git", "grep", "-hoF", "-f", handle.name, "--", *globs],
             capture_output=True, text=True, cwd=REPO,
         ).stdout.split()
+        # ⭐ EACH INITIALISED SUBMODULE, ASKED SEPARATELY. `git grep` in the
+        # superproject does not descend into them, and an uninitialised one is
+        # simply skipped rather than failing the census — a missing submodule
+        # makes this OVER-report, which is the safe direction for a list whose
+        # reader may delete what it names.
+        for sub in SUBMODULES:
+            if not (REPO / sub / ".git").exists():
+                continue
+            found += subprocess.run(
+                ["git", "grep", "-hoF", "-f", handle.name, "--", *globs],
+                capture_output=True, text=True, cwd=REPO / sub,
+            ).stdout.split()
     finally:
         os.unlink(handle.name)
     declared = set(found)

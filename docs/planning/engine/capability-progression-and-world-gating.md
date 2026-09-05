@@ -361,8 +361,12 @@
 > ⇒ **21 modes have no authored customer that turns them on** (17 dormant + 4
 > unnamed), 12 of them carrying a pointer worth one look each. In this lane:
 > `Interactable(Spec).requires_facing`, `Pickup(Spec).collected`,
-> `CameraZoneSpec.cinematic_lock`, `RoomLink.bidirectional`,
-> `RoomMetadata.gallery`, `PropSpec.flip_y`.
+> `CameraZoneSpec.cinematic_lock`, `RoomMetadata.gallery`, `PropSpec.flip_y`.
+> ⚠ **`RoomLink.bidirectional` WAS ON THIS LIST AND IS NOT DORMANT** — 122 of 151
+> authored zones set it, and the census could not read LDtk. Removed rather than
+> left, because a list of examples is the part of a row a reader trusts WITHOUT
+> re-running the tool: the count above is labelled and dated, and the names are
+> not.
 >
 > ⛔⛔ **AND THE CORPUS WAS TOO NARROW TOO — a second correction, from the other
 > lane.** `MoveGates.forbidden_while_held` and `roots_steering` were reported

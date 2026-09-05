@@ -1145,7 +1145,25 @@ into a component by `spawn_static.rs`, and read by NO production code.
 InteractableSpec.requires_facing -> Interactable.requires_facing   spawn_static.rs:231
 ChestSpec.persistent             -> Chest.persistent               spawn_static.rs:108
 PickupSpec.collected             -> Pickup.collected               spawn_static.rs:79
+BreakableSpec.debris_cue         -> Breakable.debris_cue           spawn_static.rs:179
 ```
+
+⭐ **FOUR, after sweeping every field `spawn_static.rs` threads** (13 distinct;
+the other nine are read). `debris_cue` was found that way and is the clearest of
+the set, because the value it should reach is RIGHT THERE and hardcoded:
+
+```rust
+// ambition_combat/src/breakables.rs:208 — emit_breakable_destroyed
+debris.write(DebrisBurstMessage { pos, cue: PhysicsDebrisCue::Breakable });
+```
+
+⇒ **every breakable throws identical debris no matter what its author declared.**
+⚠ And this one carries its own explanation for never having been wired: the
+authored field is `Option<String>` while `DebrisBurstMessage.cue` is a
+`PhysicsDebrisCue` enum, and **no string→cue resolution exists anywhere**. Wiring
+it is not a one-line thread; it needs the resolver first, which is a real (if
+small) piece of vocabulary design and is the kind of thing this decision should
+say yes or no to before somebody builds it speculatively.
 
 ⛔ **`requires_facing` IS THE ONE WITH A PLAYER-VISIBLE CONSEQUENCE: an
 interactable that declares it must be faced can be used from behind.** The other

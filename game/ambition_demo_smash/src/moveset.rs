@@ -1010,14 +1010,26 @@ mod tests {
     ///
     /// ⚠ A CEILING, NOT A CLAMP, and deliberately: clamping in the engine would
     /// silently truncate a deliberate long reach, which is worse than refusing
-    /// it. If a tether legitimately needs more, RAISE THIS NUMBER in the same
-    /// commit that authors it — that is the ratchet working, not an obstacle.
+    /// it.
+    ///
+    /// ⛔⛔ AND ITS NAME USED TO OVERCLAIM — it was
+    /// `no_authored_grab_reaches_further_than_the_stage_allows`, which reads as
+    /// a statement about the game and is a statement about TWO MOVESETS. This
+    /// crate does not depend on `ambition_content`, where eleven of the
+    /// selectable fighters' tables live, so a reader asking "are tethers
+    /// covered?" would have read the old name and stopped. Renamed 2026-09-05,
+    /// when Projectile Polygon's grab became a 150px tether and this guard —
+    /// the one whose doc invited exactly that change — could not see it.
+    /// ⇒ The sibling that CAN is
+    /// `ambition_content::authored_movesets`'s guard of the same name, which
+    /// walks `tables()` and holds the tether allowlist. A deliberate long reach
+    /// on a content fighter is declared there, not by raising this number.
     ///
     /// The bound is stated against the stage rather than the body: the smash
     /// platform is 480px wide, so 96 is a fifth of the ground a fighter stands
     /// on, and the longest thing authored today reaches 62.
     #[test]
-    fn no_authored_grab_reaches_further_than_the_stage_allows() {
+    fn no_grab_this_demo_authors_reaches_further_than_the_stage_allows() {
         use ambition_platformer2d::characters::smash_capture::{
             CaptureAttemptParams, CAPTURE_ATTEMPT,
         };

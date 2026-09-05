@@ -100,9 +100,19 @@ none of them waits on `TechniqueFlow`.
   ⭐ Highest fun-per-line on the page: it adds a READ to every exchange, which is
   what 1v1 depth is made of.
 - ▢ **B2. Ground tether grab** — authoring plus line presentation only.
-  `CaptureAttemptRequested` already takes an authored reach volume. ⓘ Raise
-  `MAX_REACH_PX` in `no_authored_grab_reaches_further_than_the_stage_allows` in
-  the same commit, which is what that guard's doc already instructs.
+  `CaptureAttemptRequested` already takes an authored reach volume.
+  ✔ **THE REACH LANDED 2026-09-05** on Projectile Polygon — her grab, not a
+  special, because in the genre a tether IS the grab and she is the roster's
+  ranged identity. 150px along the facing, with the vertical extent cut from
+  16px to 10px so the reward is distance and the price is precision.
+  ⛔ **The guard that was supposed to catch it could not see her**: the demo's
+  ceiling walks two movesets and `ambition_demo_smash` does not depend on
+  `ambition_content`. A sibling now walks `authored_movesets::tables()` and holds
+  a named TETHER allowlist rather than a raised ceiling — so one fighter having
+  a tether is a reviewed fact, not a loosened rule for everybody.
+  ▢ **Still open: the line presentation**, the fourth customer of `flyline.rs`'s
+  procedural-visual shape. A tether that reaches 150px and draws nothing is the
+  mechanic without the read.
 - ▢ **B3. Projectile interception as a projectile-domain operation** (proof move
   3). Generalise parry's existing re-own — `ProjectileOwner`,
   `ProjectileAllegiance`, velocity — into reflect / redirect / consume, keeping

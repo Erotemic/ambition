@@ -184,6 +184,15 @@ mod marker_registration_tests {
     /// ⚠ This pins the ARITHMETIC, not a list of names: a name list here would
     /// be the same hand-kept second spelling the derivation removed. Adding an
     /// engine converter should raise both sides together and keep this green.
+    ///
+    /// ⭐ IT IS NOT A SECOND SPELLING OF THE TEST ABOVE, and the difference is
+    /// worth stating because the two look redundant and the honest response to
+    /// two tests of one fact is to delete one. MEASURED by poisoning: replace an
+    /// exclusion with a DUPLICATE of the other (`["SurfaceLoop", "SurfaceLoop"]`)
+    /// and the test above still PASSES — both names are real vocabulary — while
+    /// this one fails. That state is a live defect, not a cosmetic one: the
+    /// displaced identifier is silently REGISTERED while the list still reads as
+    /// though two things are held back.
     #[test]
     fn the_registered_set_is_the_vocabulary_minus_the_excluded_pair() {
         let vocabulary = LdtkVocabulary::engine();

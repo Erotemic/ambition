@@ -409,6 +409,21 @@ on a typo. ⚠ That is the useful form of the claim: not *"six guards exist"* bu
 one remaining unreachable call is a design question rather than a spelling
 one."*
 
+✔ **AND EVERY FLOOR CLEARS ITS LARGEST SINGLE SOURCE — audited and poisoned
+2026-09-04, not assumed.** An anti-vacuity floor of "non-empty" is worthless
+when the corpus spans two files, because losing either leaves the other. Both
+guards whose corpus splits were poisoned by removing ONE file's spelling:
+
+```text
+  boss_cleared   kernel 3 + cove 2   floor raised >= 4   one file lost -> RED
+  world.flag_set kernel 1 + intro 2  floor >= 3 distinct one file lost -> RED
+```
+
+⛔ The alias floor was `assert asked` (non-empty) until this audit and would
+have survived losing `cove.yarn` entirely — which is exactly how a poison of
+mine passed earlier the same day and read, for a minute, as a broken guard
+rather than a mis-aimed poison.
+
 ⚠ **Run by name rather than trusted from the table**, because a table can list
 a test that no longer executes — which is not hypothetical here: a stolen
 `#[test]` attribute left `mirroring_a_bout_swaps_every_per_seat_reading` dead

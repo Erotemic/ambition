@@ -651,6 +651,21 @@ The one unresolved developer-policy choice from the session-ownership work is in
   backticked example of a fabricated id — **a doc discussing a fabricated id is
   a doc containing one.** Fixed by the guard's own documented escape (name the
   correct id in the same paragraph), which made the sentence better.
+  ✔✔ **CLOSED STRUCTURALLY 2026-09-04 (`c0f2eb83e`): the count now carries its
+  lane.** `2/2 jobs passed in 27s  [lane: --tool-tests]`, verified on a real
+  run. ⇒ The notice naming what a lane SKIPS already existed and printed further
+  down; the SUMMARY did not, and the summary is what travels — into a commit
+  message, a planning row, a review — with nothing attached saying which guards
+  were never asked. **A reader who quotes the number now quotes the scope.**
+  ⓘ Three sessions paid for this in one day: two union receipts of mine
+  recorded as "everything passes" when `--rust` had dropped the compile-cost
+  ratchet and `check_no_warnings`, and one commit the peer pushed against a
+  hand-assembled set. ⭐ Their framing of the third is the sharpest and is worse
+  than mine: *"I hand-assembled a lane and believed it because I chose its
+  members deliberately"* — strictly more dangerous than trusting a named lane,
+  because a named lane at least has a documented skip-list to read past and a
+  self-chosen one has none.
+
   ⛔⛔ **AND `--rust` IS A LANE, NOT THE GATE.** It drops the slow Python
   checkers, which includes the **compile-cost ratchet** — a job that reports six
   findings at HEAD. ⇒ `49/49` is true of the lane that ran; it is not

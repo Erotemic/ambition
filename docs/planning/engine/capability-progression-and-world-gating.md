@@ -499,6 +499,35 @@ deliberately rather than inherit. ⚠ If the answer is "the family asks about
 capability", `body.fits` wants to read `BodyBaseSize` (or ask whether any
 reachable stance fits) rather than `BodyKinematics.size`.
 
+## ⭐ What "world mechanism (partial)" means, measured 2026-09-04
+
+The family reads as half-built and the half is precise: **a route can be gated
+on a LATCHED SWITCH and on nothing else in the room**, because a switch is the
+only mechanism with a durable row.
+
+- ✔ `world.switch_on(switch)` reads `save.data().switch(name)` —
+  `AmbitionGameSaveData.switches` is one of the fourteen durable families.
+- ⛔ **A BROKEN BREAKABLE IS NOT A DURABLE FACT.** `BreakableFeature` is
+  rollback-registered (`ambition_combat/src/rollback_registration.rs:191`) and
+  appears in the reconstitution census as ECS state — but the save has no
+  breakables field, so a smashed wall is SESSION state restored by re-authoring,
+  not something a later room can ask about.
+- ⛔ Same for an opened door: no durable row, so no question.
+
+⇒ **So "partial" is not "the condition is incomplete" — the condition is
+complete over the facts that exist.** What is missing is a FACT, which is the
+same sentence [`../roadmap.md`](../roadmap.md)'s P2 tier reaches for the soft
+systemic and social/knowledge families: *"What is left is FACTS, not
+predicates."* Three of the seven gate families are waiting on durable state
+rather than on vocabulary.
+⚠ **And that is a deliberate boundary rather than an oversight**: making
+breakables durable means every smashed crate becomes save content, which
+[`construction-and-reconstitution.md`](construction-and-reconstitution.md)'s
+whereabouts ledger explicitly declines for `SpawnOrigin::Dynamic` — *"the
+running simulation minted this"*. ⇒ A breakable gate wants an authored,
+identified mechanism, not a persisted debris field, and that is a content-model
+question rather than a condition-vocabulary one.
+
 ## Gate families
 
 - **body capability:** climb, fly, morph, blink, portal use, attack/tool ability;

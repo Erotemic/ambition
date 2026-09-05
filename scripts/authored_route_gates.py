@@ -262,9 +262,15 @@ def main() -> int:
           f"   in {len({p for p, _, _ in generic})} file(s)")
     print(f"  named aliases:       {len(alias):>3}"
           f"   in {len({p for p, _, _ in alias})} file(s)")
+    # ⛔ THIS BREAKDOWN IS OVER *ALL* CALLS, generic + alias, not over the
+    # aliases printed just above. It used to be indented under that line with
+    # no header, so its column summed to the TOTAL while the label above it
+    # said 14 -- a reader adding it up got a number that contradicted the line
+    # it appeared to belong to. Say which population it counts.
     by_id = Counter(cid for _, cid, _ in calls)
+    print(f"  by condition id (all {len(calls)} uses, generic + alias):")
     for name, count in sorted(by_id.items()):
-        print(f"  {count:>3}  {name}")
+        print(f"    {count:>3}  {name}")
 
     print(
         f"\nTOTAL authored uses of the condition vocabulary: {len(gated) + len(calls)}"

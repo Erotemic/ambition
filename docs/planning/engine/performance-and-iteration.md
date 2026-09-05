@@ -36,10 +36,40 @@ is the asset campaign, and it is now the ONLY performance campaign:
 
 ## ⭐⭐ TWO OF THE RATCHET'S SIX FINDINGS ARE WORKSPACE GROWTH, NOT COUPLING — and its own percentage column already said so (2026-09-05)
 
-The compile-cost ratchet reports **6 findings** and is NOT in the `--rust` lane,
-so no union run touches it. It has been waiting on a carve owner because
-`--update` banks regressions together with wins. ⭐ **Two of the six are not
-carve work at all, and the report contains its own refutation.**
+The compile-cost ratchet reports findings and is NOT in the `--rust` lane, so no
+union run touches it.
+
+✔ **THE "WAITING ON A CARVE OWNER" BLOCKER IS GONE (2026-09-05).** It was
+waiting because `--update` banks regressions together with wins — an all-or-
+nothing re-freeze where refusing costs you the guard's tightness and accepting
+costs you the regression's visibility. ⇒ **`--adopt-wins`** takes only the
+improved numbers and leaves every regressed one frozen at its old, tighter value,
+so it stays red. A win is a measurement of work already done and banking it is
+bookkeeping; a regression is a CLAIM that the new number is acceptable, and that
+is a judgement somebody has to say out loud. Two decisions, two commands.
+
+Banked at `--adopt-wins`: `largest_unit` (monolith) 108,364 → 100,742 lines and
+`edit_cost_seconds` 1,264.9s → 1,216.8s, earned by `4c31111f9`
+(`ambition_abilities`, −4,824), `b67c1348f` (`ambition_encounter_features`,
+−2,206) and `7e625e5a5` (`ambition_match`, −2,112).
+
+⚠ **THE WIN AND THE PLACEHOLDER ARE THE SAME CRATES.** Three of the eight
+UNPRICED crates ARE those carves, so the SECONDS win is partly a change of ruler
+— that code is now priced at the population median, which predicts compile cost
+at R² = 0.12. The LINES win is counted and safe. If those crates later measure
+above the median, the seconds number regresses against a ceiling that was never
+real; recorded here so that regression is recognisable rather than surprising.
+
+⛔⛔ **AND THE FIRST VERSION OF `--adopt-wins` LAUNDERED THE THING IT EXISTS TO
+STOP**: it copied `unpriced_crates` from the current snapshot, silently accepting
+those eight placeholder prices. Findings fell 9 → 6 and only two of the three
+were wins. ⇒ A "bank only the good news" merge must enumerate what it KEEPS, not
+what it takes — anything unenumerated is inherited from the current snapshot,
+which is the failure direction. Poison-verified: adopting everything drops the
+gate from 7 findings to 1.
+
+⭐ **Two of the remaining findings are not carve work at all, and the report
+contains its own refutation.**
 
 ```text
                                     absolute            share of workspace

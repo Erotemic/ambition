@@ -84,6 +84,16 @@ note is trying not to make.
   ⚠ this said `:1271` until 2026-09-05, where the file now has `))` — the VALUE
   was and is 4, only the line drifted, and the citation checker validates the
   FILE so a drifted line passes it forever).
+  ⭐ **AND THE AMBIGUITY CHECK CATCHES DRIFT BY ACCIDENT, observed 2026-09-05.**
+  A citation on another page read `integration.rs:773` and was RED only because
+  the suffix matched two tracked files. Disambiguating it meant opening the file
+  — where `:773` turned out to be a comment about jump height, the other
+  candidate was only 768 lines long, and the real line was 798. ⇒ **The drift was
+  invisible to every gate; the ambiguity is what got a human to re-read a line
+  number at all.** That is not an argument for a line-drift gate (both its
+  predicates were measured this same day and neither is gateable) — it is a
+  reason to fix an ambiguous citation by RE-DERIVING the line rather than by
+  pasting a longer path.
   Test-only: `BOOT_MEGAPIXEL_BUDGET` and `SYSTEM_COUNT_BUDGET`
   (`game/ambition_app/tests/boot_budget.rs:25`, `:28`) and
   `SESSION_STAGED_CAST_BUDGET` (`game/ambition_app/tests/boot_budget.rs:247`).

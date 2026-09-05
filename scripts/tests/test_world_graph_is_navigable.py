@@ -67,3 +67,74 @@ def test_a_world_with_no_doors_is_a_failure_not_a_pass(tmp_path: Path) -> None:
     empty = tmp_path / "empty.ldtk"
     empty.write_text('{"levels": []}', encoding="utf-8")
     assert module.main() == 1
+
+
+def _world(levels: list[dict]) -> str:
+    import json
+
+    return json.dumps({"levels": levels})
+
+
+def _level(identifier: str, area: str | None, zones: list[tuple[str, str, bool]]) -> dict:
+    fields = []
+    if area is not None:
+        fields.append({"__identifier": "activeArea", "__type": "String", "__value": area})
+    entities = [
+        {
+            "__identifier": "LoadingZone",
+            "fieldInstances": [
+                {"__identifier": "id", "__value": zid},
+                {"__identifier": "target_room", "__value": target},
+                {"__identifier": "target_zone", "__value": "back"},
+                {"__identifier": "bidirectional", "__value": both},
+            ],
+        }
+        for zid, target, both in zones
+    ]
+    return {
+        "identifier": identifier,
+        "fieldInstances": fields,
+        "layerInstances": [{"entityInstances": entities}],
+    }
+
+
+def test_an_area_you_can_enter_and_not_leave_is_reported(tmp_path: Path) -> None:
+    """⛔⛔ THE SECOND FAILURE ARM, which the dangling-door poison cannot reach.
+
+    A guard with two arms needs two poisons: the shipped-world poison I ran
+    proved the DANGLING arm fires and says nothing about this one. `vault` is a
+    real area, so nothing dangles — it simply has no way out.
+    """
+    module = _module()
+    module.WORLDS = tmp_path
+    (tmp_path / "trap.ldtk").write_text(
+        _world(
+            [
+                _level("hub_level", "hub", [("to_vault", "vault", False)]),
+                # A real area with no outgoing zone at all.
+                _level("vault_level", "vault", []),
+            ]
+        ),
+        encoding="utf-8",
+    )
+    assert module.main() == 1
+
+
+def test_a_one_way_door_becomes_two_way_when_authored_bidirectional(
+    tmp_path: Path,
+) -> None:
+    """⚠ THE CONTROL for the arm above: the SAME shape with `bidirectional`
+    authored must PASS. Without it, the test above would also pass on a check
+    that called every world a trap."""
+    module = _module()
+    module.WORLDS = tmp_path
+    (tmp_path / "ok.ldtk").write_text(
+        _world(
+            [
+                _level("hub_level", "hub", [("to_vault", "vault", True)]),
+                _level("vault_level", "vault", []),
+            ]
+        ),
+        encoding="utf-8",
+    )
+    assert module.main() == 0

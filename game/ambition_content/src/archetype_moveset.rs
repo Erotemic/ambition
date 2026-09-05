@@ -142,11 +142,13 @@ mod tests {
                 crate::pugnacious_polygon_moveset::pugnacious_polygon_moveset(),
                 "officer",
                 &["polygon_brawler", "pugnacious_polygon"][..],
-                // His side-B is the draw and his down-B is the riot shield;
-                // everything else is the archetype's. ⓘ Two, not one, since
-                // 2026-09-05 — this count is the fighter STATING how many slots
-                // it owns, and the assertion below is only exact because of it.
-                2,
+                // ⭐ THREE OF FOUR SPECIALS ARE HIS, and together they are one
+                // idea: his neutral is the gust that shoves the room back, his
+                // side-B is the draw, his down-B is the riot shield. Only the
+                // recovery is still the archetype's. ⓘ The count went 1 → 2 → 3
+                // across 2026-09-05; it is the fighter STATING how many slots it
+                // owns, and the assertion below is only exact because of it.
+                3,
             ),
             (
                 crate::performer_moveset::performer_moveset(),

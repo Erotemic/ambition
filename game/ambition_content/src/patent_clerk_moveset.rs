@@ -345,6 +345,30 @@ pub fn patent_clerk_moveset() -> MovesetContract {
         on_hit: None,
     });
     let side_b = impulse(side_b, 0.20, (640.0, 0.0), ImpulseMode::Set);
+    // ⭐⭐ AND HE GOES THROUGH YOU. `WindowTag::Armor` is consumed end to end —
+    // `MovePlayback` republishes `BodyCombat::armored` from the live window every
+    // tick and `hit_reaction` gates the launch on `!combat.armored` — and until
+    // now NO AUTHORED MOVE IN THE TREE HAD EVER OPENED ONE. Measured 2026-09-05:
+    // the engine has had super armour for a while and the roster had no way to
+    // ask for it.
+    //
+    // ⭐ IT BELONGS ON THIS MOVE AND ON THIS FIGHTER RATHER THAN ANYWHERE ELSE.
+    // The comment above already calls the pass *"no take-backs"* — a commitment
+    // that any jab could cancel, which is the one thing a commitment must not be.
+    // And the module's own theme is MASS and AT REST: a body in motion staying in
+    // motion is not a metaphor here, it is the character.
+    //
+    // ⛔ IT IS NOT INVULNERABILITY. He takes every point of the damage; what he
+    // does not take is the launch, the hitstun and the recoil lock. ⇒ So the
+    // counterplay is real and is the genre's: chip him out of it, or grab him,
+    // which armour does nothing about at all.
+    //
+    // ⚠ THE PASS ONLY — `0.20..0.31` is the impulse through the end of the active
+    // window. His 0.20s of startup is still punishable and his locked tail is
+    // still a free hit, so armour buys the crossing and nothing on either side of
+    // it. ⇒ Every number on the move is otherwise unchanged: this is a window
+    // ADDED, not a rebalance.
+    let side_b = ambition_characters::moveset_authoring::armor(side_b, 0.20, 0.31);
     let side_b = committed_tail(side_b, 0.66, 0.0);
     let side_b = vfx_cued(
         side_b,
@@ -651,6 +675,57 @@ mod tests {
             strongest_tilt * 2.0 < weakest_smash,
             "a controller's tilts must be worth less than half its finishers \
              ({strongest_tilt} vs {weakest_smash}), or the finisher is decoration"
+        );
+    }
+
+    /// ⛔⛔ ARMOUR BUYS THE CROSSING AND NOTHING ON EITHER SIDE OF IT. A test that
+    /// only found an `Armor` window would pass against a window covering the whole
+    /// move — which is a different and much stronger move: his startup would stop
+    /// being punishable and his locked tail would stop being a free hit, and both
+    /// of those are the price the pass is supposed to pay.
+    #[test]
+    fn his_pass_is_armoured_only_while_he_is_crossing() {
+        let set = patent_clerk_moveset();
+        let pass = find(&set, "reference_frame");
+        let armor: Vec<(f32, f32)> = pass
+            .windows
+            .iter()
+            .filter(|w| matches!(w.tag, WindowTag::Armor))
+            .map(|w| (w.start_s, w.end_s))
+            .collect();
+        assert_eq!(armor.len(), 1, "expected exactly one armour window: {armor:?}");
+        let (start, end) = armor[0];
+
+        // The impulse fires at 0.20 and the active window ends at 0.31.
+        assert!(
+            (start - 0.20).abs() < 1e-4 && (end - 0.31).abs() < 1e-4,
+            "armour runs {start}s..{end}s, not the pass"
+        );
+        // ⛔ THE STARTUP IS STILL PUNISHABLE.
+        assert!(start > 0.0, "armour covers his wind-up");
+        // ⛔ AND THE LOCKED TAIL IS STILL A FREE HIT. `committed_tail` runs the
+        // move to 0.66s, so armour ending at 0.31 leaves a third of a second in
+        // which he can be launched — which is what makes the pass a commitment.
+        assert!(
+            end < pass.duration_s,
+            "armour runs to {end}s on a {}s move, so his recovery is covered too",
+            pass.duration_s
+        );
+    }
+
+    /// ⭐ AND HE IS STILL HIT. Armour is not i-frames: a move that quietly gained
+    /// an `Invuln` window beside the armour would pass the test above and be a
+    /// completely different fighter.
+    #[test]
+    fn the_armoured_pass_grants_no_invulnerability() {
+        let set = patent_clerk_moveset();
+        let pass = find(&set, "reference_frame");
+        assert!(
+            !pass
+                .windows
+                .iter()
+                .any(|w| matches!(w.tag, WindowTag::Invuln)),
+            "the pass carries i-frames, so he is not taking the hit at all"
         );
     }
 }

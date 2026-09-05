@@ -29,7 +29,49 @@ def crate_dirs() -> list[Path]:
     return found
 
 
-def scan_file(path: Path) -> tuple[int, int, set[str]]:
+def default_features(crate: Path) -> set[str]:
+    """Every feature reachable from this crate's `default`, transitively.
+
+    ⛔⛔ WITHOUT THIS THE SURVEY IS WRONG IN THE DIRECTION THAT MATTERS. It
+    counted any `#[cfg(feature = "x")]` as hidden, never asking whether `x` is ON
+    BY DEFAULT. `ambition_platformer2d_ldtk` was reported as *51 of 53 run bare
+    (ldtk_runtime, portal_ldtk)* while `--verify` -- which asks cargo -- answers
+    **53 of 53**, because both of those features are in `default`.
+
+    ⚠ The consumer is what makes it costly: the ledger test tells whoever moves
+    the number that their test "does NOT run in the default gate plan", and for a
+    default-on feature that sentence is false. MEASURED 2026-09-05 two ways: the
+    two tests that moved the count run under `cargo test --workspace`, and cargo
+    lists them in a bare `cargo test -p`.
+
+    ⭐ "Behind a cfg(feature)" and "absent from a default run" are DIFFERENT
+    CLAIMS. This function is what lets the survey make the second one.
+
+    `dep:` entries and `crate/feature` entries are not this crate's own features
+    and are skipped; a missing or unparseable manifest yields an empty set, which
+    keeps the OLD, over-reporting behaviour rather than inventing a clean bill.
+    """
+    try:
+        import tomllib
+    except ModuleNotFoundError:  # pragma: no cover - Python < 3.11
+        return set()
+    manifest = crate / 'Cargo.toml'
+    try:
+        table = tomllib.loads(manifest.read_text(encoding='utf8')).get('features', {})
+    except Exception:
+        return set()
+    closure: set[str] = set()
+    stack = list(table.get('default', []))
+    while stack:
+        name = stack.pop()
+        if '/' in name or name.startswith('dep:') or name in closure:
+            continue
+        closure.add(name)
+        stack.extend(table.get(name, []))
+    return closure
+
+
+def scan_file(path: Path, on_by_default: set[str] = frozenset()) -> tuple[int, int, set[str]]:
     """`(tests, gated_tests, features)` for one file.
 
     Brace-tracked rather than line-matched: a `#[cfg(feature)] mod x { … }`
@@ -42,6 +84,8 @@ def scan_file(path: Path) -> tuple[int, int, set[str]]:
 
     features: set[str] = set()
     file_level = [m for m in CFG_FEATURE.finditer(text) if m.group(0).startswith('#![')]
+    # A gate whose feature is ON BY DEFAULT hides nothing from a default run.
+    file_level = [m for m in file_level if m.group(1) not in on_by_default]
     file_gated = bool(file_level)
     features.update(m.group(1) for m in file_level)
 
@@ -56,7 +100,7 @@ def scan_file(path: Path) -> tuple[int, int, set[str]]:
         token = match.group(0)
         if token.startswith('#'):
             feature = CFG_FEATURE.search(token)
-            if feature and not token.startswith('#!['):
+            if feature and not token.startswith('#![') and feature.group(1) not in on_by_default:
                 pending_gate = feature.group(1)
                 features.add(feature.group(1))
             elif TEST_ATTR.match(token):
@@ -102,7 +146,7 @@ GATED_MOD_DECL = re.compile(
 )
 
 
-def gated_subtrees(crate: Path) -> dict[Path, str]:
+def gated_subtrees(crate: Path, on_by_default: set[str] = frozenset()) -> dict[Path, str]:
     """Files reached only through a `#[cfg(feature)] mod x;` DECLARATION.
 
     ⛔ **this is the difference between a useful number and a confidently wrong
@@ -121,6 +165,8 @@ def gated_subtrees(crate: Path) -> dict[Path, str]:
         for path in sorted(base.rglob('*.rs')):
             text = re.sub(r'//[^\n]*', '', path.read_text(encoding='utf8', errors='replace'))
             for feature, name in GATED_MOD_DECL.findall(text):
+                if feature in on_by_default:
+                    continue
                 parent = path.parent
                 for candidate in (parent / f'{name}.rs', parent / name / 'mod.rs'):
                     if candidate.exists():
@@ -135,10 +181,11 @@ def gated_subtrees(crate: Path) -> dict[Path, str]:
 def scan_crate(crate: Path) -> tuple[int, int, set[str]]:
     total = gated = 0
     features: set[str] = set()
-    subtrees = gated_subtrees(crate)
+    on_by_default = default_features(crate)
+    subtrees = gated_subtrees(crate, on_by_default)
     for sub in ('src', 'tests'):
         for path in sorted((crate / sub).rglob('*.rs')) if (crate / sub).is_dir() else []:
-            t, g, f = scan_file(path)
+            t, g, f = scan_file(path, on_by_default)
             total += t
             if path in subtrees:
                 # Reached only through a gated declaration: EVERY test in it is
@@ -209,7 +256,11 @@ def main() -> int:
             print(f'{name:44} {total - gated:4} of {total:4} run bare   ({", ".join(features)})')
         hidden = sum(r[2] for r in rows)
         print(f'\n{len(rows)} crates hide {hidden} tests behind features.')
-        print('⚠ over-counts default-on features; under-counts transitively gated modules.')
+        print(
+            '⚠ counts only OPT-IN features: a gate whose feature is reachable from\n'
+            '  `default` hides nothing from a default run and is not counted here.\n'
+            '  Still under-counts modules gated transitively through several hops.'
+        )
     return 0
 
 

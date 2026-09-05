@@ -24,6 +24,10 @@ pub(crate) const FLURRY_TO_S: f32 = 0.20;
 /// aerials rather than throwing a tilt in mid-air.
 pub(crate) fn grounded_only() -> MoveGates {
     MoveGates {
+        // ⛔ A POSTURE KNOWS NOTHING ABOUT A METER. What a move costs is the
+        // move's own statement, exactly as `recovery` is — see
+        // `MoveGates::meter_cost`.
+        meter_cost: 0.0,
         grounded: Some(true),
         // A GROUNDED ATTACK ROOTS ITS OWNER — the same statement
         // `SmashRepertoire`'s own `GROUNDED` makes, because these two constants
@@ -48,6 +52,10 @@ pub(crate) fn grounded_only() -> MoveGates {
 /// reach a move whose whole design is that landing costs you.
 pub(crate) fn airborne_only() -> MoveGates {
     MoveGates {
+        // ⛔ A POSTURE KNOWS NOTHING ABOUT A METER. What a move costs is the
+        // move's own statement, exactly as `recovery` is — see
+        // `MoveGates::meter_cost`.
+        meter_cost: 0.0,
         grounded: Some(false),
         // An aerial keeps its drift: air control is the trade for the ground
         // control above.

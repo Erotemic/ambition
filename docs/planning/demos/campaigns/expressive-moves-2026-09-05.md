@@ -31,7 +31,7 @@ each one as an **engine acceptance fixture** rather than a character feature:
 | 7 ▢ | **Parasol** | temporary movement modifiers/controllers are expressive enough for a long-lived post-move locomotion regime. ⛔ **MEASURED 2026-09-05 AND GENUINELY MISSING** — the one open row where the search found nothing. `ActorSurfaceState::gravity_scale` is per-body but **no TIMED modifier exists**: nothing owns "this scale, for N seconds, then back". ⛔⛔ **AND THE REAL BLOCKER IS SHARPER THAN THAT, re-measured after a first pass called it "the smallest new-state row": THREE domains already write `gravity_scale` with the same save-set-restore pattern** — capture (`prior_gravity_scale`), mount (restoring from a spawn baseline) and body-seed at construction. ⇒ A fourth writer cannot simply join them: a fighter who is floating AND then grabbed has two saved priors and the restore order decides which one wins. ⭐ So the honest shape is not "add a timer" — it is **a modifier the MOVEMENT domain owns and multiplies**, which the existing writers would then compose against instead of overwriting. That is engine work in `ambition_platformer2d_core`, and it is the row where this campaign's rule bites hardest: a move may ASK for a locomotion regime and must never become the authority for it |
 | 8 ✔ | **Homing Attack** — **LANDED 2026-09-05** on Carl Stargan's slingshot side-B | deterministic semantic target queries and target-directed fighter motion. ⭐⭐ **AND THE TARGET QUERY WAS ALREADY PUBLIC** — `ambition_combat::targeting::assisted_fire_direction`, cone- and range-bounded, **tie-broken on the stable `SimId` rather than the `Entity`** because bevy_ggrs recreates rollback entities. ⇒ The move ASKS it every tick and owns no targeting; only the MOTION was new. ⚠ My earlier note that the query was "private to `teleport.rs`" was about `may_ambush` specifically and misread the general case. ⚠ **THE ROW SPLITS, AND THE CHEAP HALF DODGES WHAT IT WAS MEANT TO PROVE.** The TARGET QUERY exists — the teleport's ambush arrival does deterministic foe selection through `combat_relation`, *"the same call the damage side makes, so a teammate cannot become a target here after ceasing to be one there"* — but it is PRIVATE to `teleport.rs` (`fn may_ambush`), so it is built and not reusable. ⇒ A "homing attack" is authorable today as an ambush teleport plus a strike window, and **that would tick the row while skipping target-directed MOTION**, which is the half worth having. ⛔ Not doing it that way |
 | 9 ✔ | **Sing** — **COMPLETE 2026-09-05** on the Performer's neutral special | `BodyCombat::sleep_timer`, the `smash.sleep` technique and the area adapter, all guarded — and now with a customer. ⭐ **ADDED TO `the_monologue`, NOT SUBSTITUTED FOR IT**: her strike is 58×34 out in front and is unchanged to the number; the sleep is 26×26 centred on HER, wholly inside it. Everyone still gets the speech; only whoever stood next to her goes under |
-| 10 ▢ | **Limit** | character-local resource state, threshold transitions, timeout, action variants, stat modifiers. ⭐⭐ **THE METER IS SHIPPED AND I HAD THE WRONG NEAREST NEIGHBOUR.** `BodyMana { meter: ResourceMeter { current, max, regen_rate, decay_rate } }` is per-body, **rollback-canonical as `body.mana`**, published to presentation through `sim_view::facts`, and already regenerating — so a first rung needs NO fill system at all. ⇒ **What is missing is the GATE**, and its shape is now located: the cost is authoring data and belongs on `MoveGates`, but the CHECK cannot go in `MoveGates::permits` — that is called from `ambition_entity_catalog`, a data crate which must not learn about body state. The check belongs at ACCEPTANCE in `ambition_combat::moveset`, where the body is in hand. ⛔ **AND THAT IS THE OBSTACLE, named rather than discovered later:** the acceptance authority `trigger_moveset_moves` is AT BEVY'S 16-PARAMETER CEILING and its own comment says so — *"Bevy's `QueryData` tuple runs out at sixteen and this query reached it"* — so a `BodyMana` reader has to JOIN an existing grouped param rather than become a new one. ⚠ Not started: a half-landed change to the system that decides whether ANY move happens is the worst thing to leave behind. ⓘ `StoredMoveCharge` was my earlier guess at the nearest neighbour and it is the wrong one — a per-move CHARGE BANK, not a character meter|
+| 10 ◐ | **Limit** | character-local resource state, threshold transitions, timeout, action variants, stat modifiers. ⭐⭐ **THE METER IS SHIPPED AND I HAD THE WRONG NEAREST NEIGHBOUR.** `BodyMana { meter: ResourceMeter { current, max, regen_rate, decay_rate } }` is per-body, **rollback-canonical as `body.mana`**, published to presentation through `sim_view::facts`, ~~and already regenerating — so a first rung needs NO fill system at all.~~ ⛔⛔ **STRUCK 2026-09-05, AND IT WAS WRONG IN THE DIRECTION THAT FLATTERED THE ROW.** Measured, not read: **every `BodyMana` in the workspace is `ResourceMeter::new(100.0, 0.0, 0.0)` — regen ZERO** — and its only refill is the platformer's shrine, which no smash stage has. ⇒ A cost today buys a fixed number of uses per life and no way to earn another. **The gate was the cheap half; the FILL is a design decision and it is Jon's.** ⇒ **What is missing is the GATE**, and its shape is now located: the cost is authoring data and belongs on `MoveGates`, but the CHECK cannot go in `MoveGates::permits` — that is called from `ambition_entity_catalog`, a data crate which must not learn about body state. The check belongs at ACCEPTANCE in `ambition_combat::moveset`, where the body is in hand. ⛔ **AND THE OBSTACLE I NAMED WAS OVERSTATED — CHECKED BY COUNTING.** The sixteen-limit had already been hit and SOLVED: the body QUERY tuple reached it and nested a gesture triple to fit (now 14), while the SYSTEM itself carries 12 params. There was room, and the elegant answer Jon asked for was already sitting in the file — `guards: Query<&mut BodyShieldState>` and `jumps: Query<&mut BodyJumpState>` are BOTH spend-sites looked up by entity, so the meter became the third of exactly that shape rather than a fifteenth query member. ⇒ The earlier note said the acceptance authority is AT BEVY'S 16-PARAMETER CEILING and that its own comment says so — *"Bevy's `QueryData` tuple runs out at sixteen and this query reached it"* — so a `BodyMana` reader has to JOIN an existing grouped param rather than become a new one. ✔ **LANDED 2026-09-05 — the ENGINE half, deliberately without a priced move.** `MoveGates::meter_cost` (`#[serde(default)]`, so every move authored before it still costs nothing); `afford_meter`, the **third sibling** of `afford_recovery` and `permitted_while_held`, shaped like both on purpose — read-only, asked BEFORE any teardown, returning a plain bool; the spend at `start_move`, the one point both roads meet. ⛔ **REFUSES, NEVER SILENTLY NO-OPS** — `MoveGates`' own doc names that failure from the pirate's shark up-B: *"a rule enforced after acceptance is not a rule, it is a silent failure with a comment."* ⭐ **ROLLBACK: no schema bump.** `body.mana` is already `component-canonical` (codec snapshot + checksum projection); the cost is authored data and the spend mutates a field the codec already carries. ⚠ **NO AUTHORED CUSTOMER, AND THAT IS THE HONEST STATE OF THE ROW** — pricing a move before anything fills the meter would ship a special that works twice and then never again. The field is what any fill rule would spend. ⓘ `StoredMoveCharge` was my earlier guess at the nearest neighbour and it is the wrong one — a per-move CHARGE BANK, not a character meter|
 | 11 ◐ | **Free-standing ally summon** | summon is not synonymous with mount; first owned-secondary-actor contract. ⭐⭐ **THE ENGINE ALREADY AGREES — measured 2026-09-05.** `Effect::Summon`'s spec carries `ridden_by_summoner: Option<SummonedRide>`, so **`None` IS a free-standing summon**, with `faction`, `health` and `keeps_contact_damage` already on it. The shark is the `Some(..)` case. ⇒ Summon and mount were never synonymous in the ENGINE; they are synonymous in the AUTHORING, because `author_summon_ride` is the only path and it always rides. ⇒ What is actually owed: a technique that asks for the un-ridden case, plus a LIFETIME (the spec has none — the shark's `seconds` is the RIDE's) which the mine and plate show costs one component with a clock. ⛔ **NOT BUILT, and the reason is the goal rather than the cost:** a summoned ally's value in a 1v1 human match is whatever its own BRAIN does, and CPU AI is explicitly deprioritised. A cheap row whose payoff sits behind a deprioritised one is not the next row |
 | 12 ✔ | **Reusable launch object** — **LANDED 2026-09-05** on Bob's down-B, additive to his slam | a fighter can create a persistent world actuator another fighter interacts with. ⭐ **AND THE WORD THAT MATTERS IS *ANOTHER***: the plate throws ANYBODY who steps on it, its dropper and his opponent alike — a plate that served only its owner would be a second recovery wearing an object's clothes. ⛔ THREE clocks and a use count, all rollback state. ⓘ Originally: **no placed launcher exists.** `PogoPolicy` is the nearest and is a different thing — bouncing off a body you HIT, not off an object somebody placed. ⭐ But the mine proves the spawning half is cheap (`GroundItem` + a seat-owned component), so what this row really needs is the ACTUATOR contract: a thing that launches whoever touches it, including its owner |
 | 13 ✔✔ | **Portal recovery** (Jon, added same day) — **LANDED 2026-09-05** on Alice's up-B, **and the ANGLED half completed the same day** | an authored customer places linked world portals and traverses them. ⭐⭐ **Jon's second sentence is now built too**: *"we can even exercise angled portals with directional input on the up b as a flavor that isn't actually in smash and is ours."* `tilt_degrees` was `0.0` in every literal in the tree — the parameter existed, the code applied it, nobody ever set it — and the player's own stick now leans the shaft ±32°. ⇒ **It reuses `MovePlayback::aimed_stick`, the LATCHED UNDAMPED aim the teleport already reads**, so no new authority: an aimed special is rooted, and a live stick read would be neutral for the whole move |
@@ -613,6 +613,72 @@ change that removes a way to finish a stock rather than replacing filler or
 adding on top. It is also the one that makes his kit a single idea (gun, shove,
 shield), so it is a real design choice rather than an oversight, and it is stated
 here to be argued with.
+
+### ⛔ JON'S CALL — WHAT FILLS THE LIMIT METER (the gate is built and free)
+
+`MoveGates::meter_cost` ships defaulted to `0.0`, so nothing in the game costs
+meter today and no authored move changed. **The engine half is done and the
+design half is one question:** *what earns it?*
+
+⛔ **The premise this row was written on turned out to be false, and correcting it
+is what surfaced the question.** The row said the meter was *"already
+regenerating — so a first rung needs NO fill system at all."* Measured instead of
+read: **every `BodyMana` in the workspace is `ResourceMeter::new(100.0, 0.0, 0.0)`
+— regen ZERO**, and its only refill anywhere is the platformer's shrine, which no
+smash stage has. ⇒ Price a move today and it works a fixed number of times per
+life and then never again.
+
+| option | what it feels like | cost |
+|---|---|---|
+| **damage dealt AND taken both fill it** (the genre's own answer) | the comeback mechanic: the player who is losing gets there first | a fill rule at the hit seam, plus a number |
+| damage TAKEN only | purely a comeback tool; a winning player never sees it | same |
+| a slow clock | a rhythm, not a comeback — closer to a cooldown than a Limit | cheapest; also the least interesting |
+| leave it at zero fill | a once-per-life resource, which is a real design (one Final Smash) | nothing — it already behaves this way |
+
+⭐ **My recommendation is the first**, because it is the one that makes the meter
+worth showing the player, and because "the fighter who is behind gets the tool
+first" is the reason the mechanic exists in the genre at all. ⚠ I did not build
+it: the fill rule decides the whole feel, it is the half a player actually
+experiences, and every option above spends the same field.
+
+### ⛔⛔ THREE VELOCITY WRITES I SHIPPED TODAY BROKE ADR 0024, AND A PEER FOUND THEM
+
+`engine.velocity-writes-are-authority-only` went red on `bolt.rs:268`,
+`homing.rs:158` and `spring.rs:165` — all three mine, all three from today.
+⇒ **Three new moves, three bare `kin.vel =` writes, and I did not run the
+workspace policy suite between writing them and pushing.**
+
+⭐ **The fix is one entry, not three, and the policy asked for that shape in its
+own words** — on `intercept.rs`: *"Waived at the OPERATION rather than at its
+callers, which is the point of having an operation: the next interception adds no
+entry here."* ⇒ `ambition_demo_smash/src/motion.rs` now owns
+`command_body_velocity`, all three call it, and the next smash move that launches
+somebody adds no policy entry. **Poisoned by restoring the bare write in
+`bolt.rs`: red, naming file and line** — so the waiver is scoped to the operation
+and did NOT blanket-skip the demo.
+
+⚠ **`AccelerationFrame::launch` was tried first and rejected for a stated reason,
+which is recorded in the module rather than lost:** it is the frame-aware
+authority, but it is scalar and always throws AWAY FROM THE FEET, which would
+have deleted the ANGLED plate that `PlaceSpringParams::launch` exists to author.
+⇒ The seam gives up frame-awareness and says so in its own header.
+
+### ⛔⛔ THE GUARD I WROTE COVERED ONE OF THE TWO ROADS, AND THE POISON FOUND IT
+
+The meter gate's first test drove `trigger_moveset_moves` and passed. **Then
+deleting the cancel road's copy of the check left all 605 tests in
+`ambition_combat` GREEN.**
+
+⇒ That is the exact defect the trigger site's own comment warns about — *"a gate
+enforced on only one of two entry paths is a gate somebody will walk around
+without meaning to"* — **except on the GUARD side, which is the half nobody
+notices**, because a one-road guard and a two-road guard both print `ok`.
+
+⭐ **The general form, and it is cheap to apply:** when the code you are guarding
+has N entry paths, poison EACH ONE separately. A single poison on the path you
+happened to write the fixture for proves only that the fixture works. The test
+now spawns a body mid-move whose window cancels into the priced one, and the
+re-run of that same poison fails with the message naming the cheaper road.
 
 ### ⛔⛔ A GUARD THAT VALIDATES WHAT SURVIVED A FILTER CANNOT SEE WHAT IT ATE
 

@@ -22,6 +22,10 @@ const GROUNDED: MoveGates = MoveGates {
     // lowering loop then DISCARDS in favour of whatever the move or the slot
     // said; see the destructure in `into_contract`.
     recovery: RecoveryUse::None,
+    // ⛔ AND A POSTURE KNOWS NOTHING ABOUT A METER EITHER, for the reason
+    // directly above: what a move COSTS is the move's own statement. Free
+    // here, and discarded by the same destructure that discards `recovery`.
+    meter_cost: 0.0,
     // A posture says nothing about being HELD. Whether a move refuses to
     // start from a saddle is that move's own statement -- `call_the_shark`
     // makes it -- and a stance default answering for every move would be
@@ -51,6 +55,10 @@ const AIRBORNE: MoveGates = MoveGates {
     // lowering loop then DISCARDS in favour of whatever the move or the slot
     // said; see the destructure in `into_contract`.
     recovery: RecoveryUse::None,
+    // ⛔ AND A POSTURE KNOWS NOTHING ABOUT A METER EITHER, for the reason
+    // directly above: what a move COSTS is the move's own statement. Free
+    // here, and discarded by the same destructure that discards `recovery`.
+    meter_cost: 0.0,
     // A posture says nothing about being HELD. Whether a move refuses to
     // start from a saddle is that move's own statement -- `call_the_shark`
     // makes it -- and a stance default answering for every move would be
@@ -69,6 +77,10 @@ const EITHER: MoveGates = MoveGates {
     // lowering loop then DISCARDS in favour of whatever the move or the slot
     // said; see the destructure in `into_contract`.
     recovery: RecoveryUse::None,
+    // ⛔ AND A POSTURE KNOWS NOTHING ABOUT A METER EITHER, for the reason
+    // directly above: what a move COSTS is the move's own statement. Free
+    // here, and discarded by the same destructure that discards `recovery`.
+    meter_cost: 0.0,
     // A posture says nothing about being HELD. Whether a move refuses to
     // start from a saddle is that move's own statement -- `call_the_shark`
     // makes it -- and a stance default answering for every move would be
@@ -423,6 +435,10 @@ impl SmashRepertoire {
                 // posture template that overwrote it would delete the route the
                 // planner reads.
                 recovery_route: _,
+                // ⛔ THE MOVE'S OWN, same side of the line as `recovery`: a stance
+                // template cannot know what a move costs, and one that answered
+                // would zero every authored price.
+                meter_cost: _,
             } = gates;
             spec.gates.grounded = grounded;
             spec.gates.roots_steering = roots_steering;
@@ -466,6 +482,10 @@ mod tests {
                 // lowering loop then DISCARDS in favour of whatever the move or the slot
                 // said; see the destructure in `into_contract`.
                 recovery: RecoveryUse::None,
+                // ⛔ AND A POSTURE KNOWS NOTHING ABOUT A METER EITHER, for the reason
+                // directly above: what a move COSTS is the move's own statement. Free
+                // here, and discarded by the same destructure that discards `recovery`.
+                meter_cost: 0.0,
                 // A posture says nothing about being HELD. Whether a move refuses to
                 // start from a saddle is that move's own statement -- `call_the_shark`
                 // makes it -- and a stance default answering for every move would be

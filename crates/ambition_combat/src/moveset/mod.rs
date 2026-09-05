@@ -2396,6 +2396,11 @@ struct StartingMove<'a, 'cw, 'cs> {
     shield: Option<bevy::prelude::Mut<'a, ae::BodyShieldState>>,
     oos_policy: Option<ae::OutOfShield>,
     jump: Option<bevy::prelude::Mut<'a, ae::BodyJumpState>>,
+    /// The body's METER, charged here when the accepted move authors a
+    /// `MoveGates::meter_cost`. `None` for a body that carries no `BodyMana` —
+    /// nothing requires the component, so a bare fixture legitimately lacks it,
+    /// and `afford_meter` has already read that as "free" rather than "broke".
+    meter: Option<bevy::prelude::Mut<'a, ambition_platformer2d_core::BodyMana>>,
     /// The B-REVERSE WINDOW this accepted move opens, the gesture history it
     /// opens on, and THE LATERAL SIGN THAT BOUGHT THE PRESS. `None` when the
     /// move is not a special, or the match declares no special turn — see
@@ -2449,6 +2454,7 @@ fn start_move(m: StartingMove<'_, '_, '_>) {
         mut shield,
         oos_policy,
         jump,
+        meter,
         weapon,
         gesture_window,
         banked_charge,
@@ -2470,6 +2476,22 @@ fn start_move(m: StartingMove<'_, '_, '_>) {
             // way, one line up: this is the punishment, not the cost.
             jump.post_recovery_helpless =
                 jump.recovery_charges == 0 && spec.gates.recovery.arms_freefall();
+        }
+    }
+    // ⭐⭐ THE METER SPEND, AND IT IS HERE FOR THE REASON THE RECOVERY SPEND IS:
+    // this function is the one place both roads meet, so charging here charges
+    // the trigger road and the cancel road with one line instead of two that can
+    // drift apart. `afford_meter` has already refused the move if the body could
+    // not pay, exactly as `afford_recovery` did above.
+    //
+    // ⛔ `try_spend` RATHER THAN A BARE SUBTRACTION, so the meter cannot go
+    // negative if these two ever disagree — and its bool is deliberately
+    // discarded: the affordance question was asked and answered while the move
+    // was still refusable, and re-answering it here, after the teardown, could
+    // only produce the silent failure this design exists to avoid.
+    if spec.gates.meter_cost > 0.0 {
+        if let Some(mut meter) = meter {
+            let _ = meter.meter.try_spend(spec.gates.meter_cost);
         }
     }
     // ⭐⭐ THE ONE LINE THAT SAYS A MOVE HAPPENED, and it is here because this is
@@ -2569,6 +2591,34 @@ fn afford_recovery(spec: &ambition_entity_catalog::MoveSpec, charges_left: Optio
 /// after acceptance has already spent what it cost.
 fn permitted_while_held(spec: &ambition_entity_catalog::MoveSpec, held: bool) -> bool {
     !(held && spec.gates.forbidden_while_held)
+}
+
+/// May this body START this move, as far as its METER is concerned?
+///
+/// ⭐ THE THIRD SIBLING of [`afford_recovery`] and [`permitted_while_held`], and
+/// shaped like both on purpose: read-only, asked BEFORE any teardown, returning
+/// a plain bool. It answers the same question they do — *is this move allowed to
+/// begin* — and it has to be asked in the same breath, because a move that
+/// passes two of three and fails the last after acceptance has already spent
+/// what starting it cost.
+///
+/// ⛔⛔ IT REFUSES; IT DOES NOT SILENTLY NO-OP. `MoveGates`' own doc names the
+/// failure this avoids, learned from the pirate's shark up-B: a rule enforced
+/// after acceptance *"is not a rule, it is a silent failure with a comment"* —
+/// there, the move started, the recovery was spent, the cues played, and no
+/// shark appeared. A meter test applied at the effect would do exactly that
+/// again, so this is asked where the move is still refusable.
+///
+/// ⚠ A BODY WITH NO METER IS A BARE FIXTURE, NOT A BODY THAT CANNOT PAY —
+/// `BodyMana` is required by nothing, so a test body legitimately lacks it. Same
+/// reading as [`afford_recovery`]'s `None`: no meter to spend and none to run
+/// out of. ⛔ Any move that costs nothing is affordable to everyone, and that
+/// arm is taken FIRST so a free move never consults a meter at all.
+fn afford_meter(spec: &ambition_entity_catalog::MoveSpec, meter_left: Option<f32>) -> bool {
+    if spec.gates.meter_cost <= 0.0 {
+        return true;
+    }
+    meter_left.is_none_or(|left| left >= spec.gates.meter_cost)
 }
 
 /// Does this move author a SHOT? A move whose timeline carries
@@ -2742,6 +2792,18 @@ pub fn trigger_moveset_moves(
     // THE RECOVERY BUDGET. Taken mutably and looked up by entity like the guard
     // above, and for the same reason: starting a recovery is a SPEND.
     mut jumps: Query<&mut ae::BodyJumpState>,
+    // THE METER, and it is the THIRD of these for the third time the same
+    // reason applies: starting a move that authors `MoveGates::meter_cost` is a
+    // SPEND, so it is taken mutably and looked up by entity exactly like the
+    // guard and the budget above.
+    //
+    // ⭐ A SEPARATE LOOKUP RATHER THAN A FIFTEENTH MEMBER OF THE BODY QUERY, and
+    // that is the established shape here rather than a dodge: `BodyShieldState`
+    // and `BodyJumpState` are both spent by this system and both live out here
+    // for it. ⚠ The body tuple reached Bevy's sixteen once already and had to
+    // nest a group to fit — see the gesture triple — so putting a fourth spend
+    // where the other three live keeps that ceiling at arm's length as well.
+    mut meters: Query<&mut ambition_platformer2d_core::BodyMana>,
     // Where the out-of-shield rule is authored: the body's own movement policy
     // carries its shield tuning. `None` for a bare test body, which then has no
     // rule and behaves exactly as it did.
@@ -3362,6 +3424,13 @@ pub fn trigger_moveset_moves(
             if !permitted_while_held(&spec, body_is_held) {
                 continue;
             }
+            // ⛔ AND THE METER ON THIS ROAD TOO, for the reason the line above
+            // gives: a move the body cannot pay for is unaffordable however it
+            // was reached, and a cost enforced on only the trigger road is one a
+            // fighter walks around by cancelling into it.
+            if !afford_meter(&spec, meters.get(entity).ok().map(|m| m.meter.current)) {
+                continue;
+            }
             let mut names: Vec<&str> = verb_names.to_vec();
             names.push(spec.id.as_str());
             if !pb.spec.cancel_permits(pb.t, pb.contact(), &names) {
@@ -3446,6 +3515,7 @@ pub fn trigger_moveset_moves(
                 shield: guards.get_mut(entity).ok(),
                 oos_policy,
                 jump: jumps.get_mut(entity).ok(),
+                meter: meters.get_mut(entity).ok(),
                 weapon: melee.as_deref_mut().zip(refire_s),
                 gesture_window: (special_turn_ticks > 0)
                     .then(|| {
@@ -3463,10 +3533,14 @@ pub fn trigger_moveset_moves(
         }
 
         let charges_left = jumps.get(entity).ok().map(|jump| jump.recovery_charges);
+        // Read beside the recovery budget and for the same reason: both are
+        // affordances, and both are asked while the move is still refusable.
+        let meter_left = meters.get(entity).ok().map(|m| m.meter.current);
         if let Some(spec) = spec
             .filter(|spec| afford_recovery(spec, charges_left))
             .filter(|spec| permitted_while_held(spec, body_is_held))
             .filter(|spec| weapon_ready(spec, melee.as_deref()))
+            .filter(|spec| afford_meter(spec, meter_left))
         {
             // ⭐⭐ THE ACCEPTED SPECIAL-TURN, and this is its ONE commit point on
             // this road. Proposed where the special was resolved; applied here,
@@ -3551,6 +3625,7 @@ pub fn trigger_moveset_moves(
                 shield: guards.get_mut(entity).ok(),
                 oos_policy,
                 jump: jumps.get_mut(entity).ok(),
+                meter: meters.get_mut(entity).ok(),
                 weapon: melee.as_deref_mut().zip(refire_s),
                 gesture_window: (special_turn_ticks > 0)
                     .then(|| {

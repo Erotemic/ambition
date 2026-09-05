@@ -6461,6 +6461,226 @@ fn a_recovery_is_refused_once_its_budget_is_spent() {
     );
 }
 
+/// ⛔⛔ A MOVE THAT COSTS METER IS REFUSED WHEN THE BODY CANNOT PAY — AND THE
+/// REFUSAL IS AT ACCEPTANCE, WHERE THE MOVE IS STILL REFUSABLE.
+///
+/// ⭐ THE WIRING IS THE CLAIM, NOT THE PREDICATE. `afford_meter` is four lines
+/// and reading it proves nothing: what can silently rot is whether the system
+/// CALLS it, and whether starting the move actually debits the meter. So this
+/// drives the real `trigger_moveset_moves` and asserts on the world — a body
+/// that cannot pay must end the tick with NO `MovePlayback` at all, which is the
+/// difference between a refusal and the silent no-op `MoveGates`' own doc warns
+/// about: *"a rule enforced after acceptance is not a rule, it is a silent
+/// failure with a comment."*
+#[test]
+fn a_move_that_costs_meter_is_refused_when_the_body_cannot_pay() {
+    use ambition_entity_catalog::{MoveGates, MoveSpec, MovesetContract};
+
+    let priced = |cost: f32| MoveSpec {
+        gates: MoveGates {
+            meter_cost: cost,
+            ..Default::default()
+        },
+        ..swat()
+    };
+    let contract = |cost: f32| MovesetContract {
+        verbs: [("special".to_string(), "swat".to_string())]
+            .into_iter()
+            .collect(),
+        moves: vec![priced(cost)],
+    };
+
+    // ── the predicate, all four states: a fence needs both sides, plus the two
+    // ways a body legitimately does not participate.
+    assert!(
+        super::afford_meter(&priced(30.0), Some(30.0)),
+        "exactly enough was refused — a cost has to be payable AT its price"
+    );
+    assert!(
+        !super::afford_meter(&priced(30.0), Some(29.9)),
+        "a body short of the price got the move anyway, so the cost is decoration"
+    );
+    assert!(
+        super::afford_meter(&priced(0.0), Some(0.0)),
+        "a FREE move consulted the meter, so an empty fighter cannot jab"
+    );
+    assert!(
+        super::afford_meter(&priced(30.0), None),
+        "a body with no BodyMana is a bare fixture, not a fighter who is broke"
+    );
+
+    // ── the wiring: two identical worlds that differ only in the meter.
+    let run = |meter: f32, cost: f32| -> (bool, f32) {
+        let mut app = App::new();
+        app.insert_resource(
+            ambition_characters::actor::character_catalog::CharacterCatalog::empty(),
+        );
+        app.init_resource::<crate::authored_volumes::AuthoredAttackVolumeResolver>();
+        app.add_message::<HitEvent>();
+        app.add_message::<crate::hitbox::LandedBodyHit>();
+        app.add_message::<crate::hitbox::ParriedBodyHit>();
+        app.add_message::<ambition_sfx::OwnedSfxMessage>();
+        app.add_message::<VfxMessage>();
+        app.add_message::<DebrisBurstMessage>();
+        app.add_message::<MoveEventMessage>();
+        app.add_message::<ambition_vfx::vfx::VfxMessage>();
+        app.init_resource::<WorldTime>();
+        app.world_mut().resource_mut::<WorldTime>().scaled_dt = 0.016;
+        app.world_mut().resource_mut::<WorldTime>().raw_dt = 0.016;
+        app.add_systems(
+            Update,
+            (
+                resolve_attack_gestures,
+                buffer_combat_action_presses,
+                trigger_moveset_moves,
+            )
+                .chain(),
+        );
+        let mut frame = ambition_characters::actor::control::ActorControlFrame::neutral();
+        frame.special_pressed = true;
+        let mut mana = ambition_platformer2d_core::BodyMana::default();
+        mana.meter.current = meter;
+        let body = app
+            .world_mut()
+            .spawn((
+                ae::CenteredAabb::new(ae::Vec2::new(100.0, 100.0), ae::Vec2::new(15.0, 24.0)),
+                ae::BodyKinematics {
+                    pos: ae::Vec2::new(100.0, 100.0),
+                    vel: ae::Vec2::ZERO,
+                    size: ae::Vec2::new(15.0, 24.0),
+                    facing: 1.0,
+                },
+                ActorFaction::Enemy,
+                ActorMoveset(contract(cost)),
+                ActorControl(frame),
+                mana,
+            ))
+            .id();
+        app.update();
+        let started = app.world().get::<MovePlayback>(body).is_some();
+        let left = app
+            .world()
+            .get::<ambition_platformer2d_core::BodyMana>(body)
+            .expect("the body kept its meter")
+            .meter
+            .current;
+        (started, left)
+    };
+
+    let (rich_started, rich_left) = run(40.0, 30.0);
+    assert!(
+        rich_started,
+        "a fighter who COULD pay was refused, so the gate refuses everyone"
+    );
+    assert_eq!(
+        rich_left, 10.0,
+        "the move started and the meter was not debited — the cost is a comment"
+    );
+
+    let (poor_started, poor_left) = run(29.0, 30.0);
+    assert!(
+        !poor_started,
+        "a fighter short of the price STARTED the move — this is the silent \
+         no-op `MoveGates` names: the cues play and the rule does nothing"
+    );
+    assert_eq!(
+        poor_left, 29.0,
+        "a refused move still charged the meter, which is worse than free"
+    );
+
+    // ⛔ POISON GUARD. Every assertion above would also hold if the fixture
+    // never started ANY move — a body that presses into a broken harness looks
+    // exactly like a body correctly refused.
+    let (free_started, _) = run(0.0, 0.0);
+    assert!(
+        free_started,
+        "poison: this fixture starts no move even when the move is FREE, so the \
+         refusal assertions above prove nothing about the meter"
+    );
+
+    // ⛔⛔ AND THE CANCEL ROAD, WHICH THE THREE RUNS ABOVE DO NOT REACH. Measured
+    // 2026-09-05: deleting the cancel road's copy of this check left all 605
+    // tests in this crate green. That is precisely the defect the trigger site's
+    // own comment warns about — *"a gate enforced on only one of two entry paths
+    // is a gate somebody will walk around without meaning to"* — except on the
+    // GUARD side, which is the half nobody notices.
+    //
+    // ⇒ A body already playing a move whose window cancels INTO the priced one,
+    // pressing special, short of the price. It must keep the move it has.
+    let cancel_road = |meter: f32| -> bool {
+        let mut app = App::new();
+        app.insert_resource(
+            ambition_characters::actor::character_catalog::CharacterCatalog::empty(),
+        );
+        app.init_resource::<crate::authored_volumes::AuthoredAttackVolumeResolver>();
+        app.add_message::<HitEvent>();
+        app.add_message::<crate::hitbox::LandedBodyHit>();
+        app.add_message::<crate::hitbox::ParriedBodyHit>();
+        app.add_message::<ambition_sfx::OwnedSfxMessage>();
+        app.add_message::<VfxMessage>();
+        app.add_message::<DebrisBurstMessage>();
+        app.add_message::<MoveEventMessage>();
+        app.add_message::<ambition_vfx::vfx::VfxMessage>();
+        app.init_resource::<WorldTime>();
+        app.world_mut().resource_mut::<WorldTime>().scaled_dt = 0.016;
+        app.world_mut().resource_mut::<WorldTime>().raw_dt = 0.016;
+        app.add_systems(
+            Update,
+            (
+                resolve_attack_gestures,
+                buffer_combat_action_presses,
+                trigger_moveset_moves,
+            )
+                .chain(),
+        );
+        let mut frame = ambition_characters::actor::control::ActorControlFrame::neutral();
+        frame.special_pressed = true;
+        let mut mana = ambition_platformer2d_core::BodyMana::default();
+        mana.meter.current = meter;
+        // The move being cancelled OUT of: cancelable into "swat" for its whole
+        // life, so the window is open on the tick the press lands.
+        let playing = ambition_characters::moveset_authoring::cancelable(
+            uncancelable("holding"),
+            0.0,
+            9.0,
+            &["swat"],
+            ambition_entity_catalog::CancelCondition::Always,
+        );
+        let body = app
+            .world_mut()
+            .spawn((
+                ae::CenteredAabb::new(ae::Vec2::new(100.0, 100.0), ae::Vec2::new(15.0, 24.0)),
+                ae::BodyKinematics {
+                    pos: ae::Vec2::new(100.0, 100.0),
+                    vel: ae::Vec2::ZERO,
+                    size: ae::Vec2::new(15.0, 24.0),
+                    facing: 1.0,
+                },
+                ActorFaction::Enemy,
+                ActorMoveset(contract(30.0)),
+                ActorControl(frame),
+                mana,
+                MovePlayback::new(playing, 1.0),
+            ))
+            .id();
+        app.update();
+        app.world()
+            .get::<MovePlayback>(body)
+            .is_some_and(|pb| pb.spec.id == "swat")
+    };
+    assert!(
+        !cancel_road(29.0),
+        "a fighter short of the price CANCELLED into the move anyway — the \
+         trigger road refuses it and the cancel road hands it over, which is \
+         the cheaper of the two roads to walk"
+    );
+    assert!(
+        cancel_road(40.0),
+        "poison: this fixture never cancels into the priced move even when the \
+         body can pay, so the refusal above proves nothing"
+    );
+}
+
 /// ... AND BEING RE-SEATED GIVES IT BACK. Landing, catching the ledge, being
 /// grabbed and a respawn all run the landing-class refresh.
 ///

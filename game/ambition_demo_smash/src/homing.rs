@@ -154,8 +154,13 @@ pub fn carry_homing_dashes(
             others,
         );
         // ⛔ SET, NOT ADD — the dash IS the fighter's motion for its duration,
-        // and adding would make a running start into a faster homing move.
-        kin.vel = heading.normalize_or_zero() * dash.speed;
+        // and adding would make a running start into a faster homing move. See
+        // `motion::command_body_velocity` for the ownership claim.
+        crate::motion::command_body_velocity(
+            &mut kin,
+            heading.normalize_or_zero() * dash.speed,
+            "homing dash",
+        );
     }
 }
 

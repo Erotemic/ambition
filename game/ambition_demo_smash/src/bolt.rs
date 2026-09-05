@@ -265,7 +265,7 @@ pub fn steer_and_fly_bolts(
                 // by flying it, and re-reading the stick at the impact would let
                 // them aim twice.
                 let push = bolt.vel.normalize_or_zero() * bolt.self_launch;
-                kin.vel = push;
+                crate::motion::command_body_velocity(&mut kin, push, "thunder jacket");
                 info!(target: "ambition::moves", "bolt came home: seat={} push={push:?}", seat.0);
             } else {
                 effects.write(ambition_platformer2d::vfx::EffectRequest {

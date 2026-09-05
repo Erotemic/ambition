@@ -90,6 +90,9 @@ pub fn duelist_moveset(numbers: DuelistNumbers) -> MovesetContract {
             // default, which is "the body keeps steering".
             roots_steering: false,
             recovery_route: None,
+            // Free: nothing in the duel arena fills a meter, so a price here
+            // would buy a fixed number of uses and no way to earn another.
+            meter_cost: 0.0,
             // Not a recovery: the duel arena authors no up-B slot, so nothing
             // here spends the once-per-airtime budget.
             recovery: RecoveryUse::None,

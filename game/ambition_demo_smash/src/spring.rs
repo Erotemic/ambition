@@ -159,10 +159,11 @@ pub fn fire_and_expire_springs(
             if offset.x > reach.x || offset.y > reach.y {
                 continue;
             }
-            // ⛔ SET, NOT ADD. A plate that added to whatever you arrived with
-            // would throw a fast-falling body less far than a walking one, which
-            // is the opposite of what every player expects from a spring.
-            kin.vel = spring.launch;
+            // ⛔ SET, NOT ADD — see `motion::command_body_velocity`, which owns
+            // that argument and the ADR-0024 ownership claim behind it. A plate
+            // that added to whatever you arrived with would throw a fast-falling
+            // body less far than a walking one.
+            crate::motion::command_body_velocity(&mut kin, spring.launch, "plate fired");
             spring.uses_left = spring.uses_left.saturating_sub(1);
             spring.rearm_s = 0.25;
             info!(target: "ambition::moves", "plate fired: {} use(s) left", spring.uses_left);

@@ -21,6 +21,7 @@ pub mod counter;
 pub mod george_booul_moveset;
 pub mod homing;
 pub mod mine;
+pub mod motion;
 pub mod moveset;
 pub mod portal;
 pub mod sing;

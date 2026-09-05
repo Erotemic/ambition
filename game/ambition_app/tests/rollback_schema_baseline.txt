@@ -333,6 +333,7 @@ message.encounter_gate	message-clear	EncounterGate	clear abandoned-future messag
 message.explosion_request	message-clear	FxRequest	clear abandoned-future message buffer in LoadWorld::Mapping
 message.fighter_respawn_due	message-clear	FighterRespawnDue	clear abandoned-future message buffer in LoadWorld::Mapping
 message.fighter_stock_spent	message-clear	FighterStockSpent	clear abandoned-future message buffer in LoadWorld::Mapping
+message.finish_zoom_request	message-clear	FinishZoomRequest	clear abandoned-future message buffer in LoadWorld::Mapping
 message.fire_portal_gun	message-clear	FirePortalGun	clear abandoned-future message buffer in LoadWorld::Mapping
 message.fireworks_request	message-clear	FireworksRequest	clear abandoned-future message buffer in LoadWorld::Mapping
 message.gameplay_banner_requested	message-clear	GameplayBannerRequested	clear abandoned-future message buffer in LoadWorld::Mapping

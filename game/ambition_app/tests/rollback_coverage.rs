@@ -1475,6 +1475,21 @@ const RESOURCE_WAIVED: &[(&str, &str)] = &[
          rollback state.",
     ),
     (
+        "ambition_demo_smash::SmashStockChoice",
+        "HOW MANY STOCKS the next match is played with — the stage choice's \
+         twin, waived on the same reading and re-derived for it rather than \
+         waived by resemblance. Written only by `drive_select_screen` \
+         (`select_screen.rs:943`), read once on the preparation road behind \
+         its `on_select` guard (`lib.rs:3012`, whose own comment says the \
+         guard exists because the system would otherwise re-fire DURING the \
+         match), and read by the button's label. Nothing inside a live match \
+         touches it, and GGRS rewinds ticks within a match. \
+         ⛔ Not `derived`: a player presses a button. ⭐ And the count does not \
+         stay here — `apply_smash_match_rules` takes it as an ARGUMENT, so the \
+         value the match runs on is passed, not re-read. If a rule ever lets a \
+         match change its stock count mid-session, this waiver is wrong.",
+    ),
+    (
         "ambition_demo_smash::select::SmashSelect",
         "the character-select screen's per-seat choices. All three readers are the          screen itself — present it, drive it, and hand off — and what the MATCH          reads is the `MatchParticipantRoster` it publishes, which is a different          resource with its own owner. Frontend state, decided before a session          exists. ⚠ read to its readers rather than waived by category: this repo          has been bitten repeatedly around rosters and seats, so \"it is only the          menu\" is a claim that has to be checked",
     ),

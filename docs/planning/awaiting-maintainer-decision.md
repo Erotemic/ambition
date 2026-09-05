@@ -2361,8 +2361,33 @@ is no axis.**
    not a near miss. ⇒ **Weigh the candidate against a defect of that strength**:
    it is worth fixing, and nobody should retune a ladder off one 12-seed run.
 
-   ⇒ **The headline survives: no cell is significantly inverted under the
-   candidate, two cells improve, none regresses.** `5 vs 3` loses its
+   ⛔⛔ **RE-RUN WITH SPLITS 2026-09-04 LATE, AND *"NONE REGRESSES"* IS FALSE.
+   `6 vs 5` regresses, and the verdict-only comparison could not see it because
+   both readings are the same three words.**
+
+   | cell | shipped | candidate | |
+   |---|---|---|---|
+   | `3 vs 1` | 11 : 1 = 92%, p = 0.006 | 11 : 1 = 92%, p = 0.006 | identical — levels 1–3 are untouched, so this is the arms' own control |
+   | `5 vs 3` | ⛔ **2 : 10 = 83%, p = 0.039** | 4 : 8 = 67%, p = 0.388 | ⭐ the inversion is genuinely weakened, and not merely un-resolvable |
+   | `6 vs 5` | 5 : 7 = 58%, p = 0.774 | ⛔ **3 : 9 = 75%, p = 0.146** | ⛔⛔ **a coin becomes ONE PAIR from a significant inversion** |
+   | `9 vs 6` | 7 : 5 = 58%, p = 0.774 | ⭐ **11 : 1 = 92%, p = 0.006** | now significantly ordered the right way |
+
+   ⇒ **The candidate is a TRADE, not a strict improvement.** It buys a genuinely
+   weakened `5 vs 3` (83% → 67%) and a genuinely ordered `9 vs 6` (58% → 92%),
+   and it pays by pushing `6 vs 5` from a coin toward inverted (58% → 75%,
+   p = 0.774 → 0.146). ⚠ **One more pair the same way and `6 vs 5` prints as a
+   significant inversion** — the defect this whole decision exists to remove,
+   relocated one rung up.
+   ⭐ **Both `6 vs 5` cells print `LOWER outfights … (within spread)`.** The
+   earlier comparison read those three words on both sides and recorded *"none
+   regresses"*, correctly by everything it could see. The split is the entire
+   difference between "a coin" and "one pair short", and it did not exist until
+   this evening. ⇒ **This is the clearest argument on the page for why a verdict
+   must travel with its split.**
+
+   ⇒ **The headline needs restating: no cell is significantly inverted under the
+   candidate, two cells improve, and ONE REGRESSES toward the inversion the
+   candidate is meant to fix.** `5 vs 3` loses its
    significance and `9 vs 6` gains it in the correct direction.
 
    ⛔⛔ **BUT THE CHARACTER OF THE `5 vs 3` IMPROVEMENT IS NOT WHAT THE PRE-REPAIR

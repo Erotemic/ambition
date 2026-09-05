@@ -547,8 +547,21 @@ The goal's own complaint has been argued from readings all campaign. ⇒ Measure
 from the authored DATA — a special is expressive when it carries a technique, a
 stance, a flow, or a gravity regime; a strike with cues is not:
 
-**17 expressive, 2 plain** — and one of the two is `theorem_chain`, the DUEL
-ARENA's robot. ⇒ **Exactly ONE smash fighter has plain specials: Oiler.**
+**18 expressive, 1 plain — and the one is `theorem_chain`, the DUEL ARENA's
+robot, which is a deliberately data-only two-hit combo demo.** ⇒ **Every fighter
+on the smash grid now has a special that does something a strike cannot.** The
+goal's complaint — *"many have boring specials"* — is closed, and closed as a
+number rather than an impression.
+
+⭐ **Oiler was the last one, and the art asked for it first**, which is how every
+good move on this roster arrived. His geyser already drew `oil_geyser_emerge`,
+three `oil_geyser_stream` rows *"so the column reads as continuous rather than as
+one puff"*, and `oil_geyser_impact` at the crest — **a column that reads as
+continuous and then leaves nothing behind is a column only its caster ever met.**
+It now leaves a one-use pool for 2.2s, thrown at less than his own climb, because
+a plate stronger than the move that made it is a recovery that improves by being
+used twice. **Roster decision #20.** ⛔ The ratchet caught its own removal on the
+first poison: deleting the pool drops the count to 17 and reddens the census.
 
 ⛔⛔ **AND THE FIRST VERSION OF THIS CENSUS SAID FOUR, BECAUSE MY OWN DEFINITION
 WAS TOO NARROW.** It counted techniques, stances, flows and gravity regimes — and

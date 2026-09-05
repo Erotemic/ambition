@@ -480,6 +480,48 @@ pub fn oiler_moveset() -> MovesetContract {
     let up_b = vfx(up_b, 0.66, "oil_geyser_stream");
     let up_b = vfx(up_b, 0.88, "oil_geyser_impact");
     let up_b = on_contact(up_b, "player.hit");
+    // ⭐⭐ AND THE COLUMN STAYS STANDING FOR A MOMENT — the one move that makes
+    // this fighter something other than a very well-described set of strikes.
+    //
+    // ⛔⛔ HE WAS THE LAST PLAIN FIGHTER ON THE ROSTER, AND THAT IS A MEASURED
+    // CLAIM RATHER THAN AN IMPRESSION. `authored_movesets`'s expressiveness
+    // census counts a special as expressive when it carries a technique, a
+    // stance, a flow, a gravity regime or a volume reaction — and of the smash
+    // grid, Oiler was the only fighter with none. ⇒ *"Many have boring specials"*
+    // had become exactly one, and this is that one.
+    //
+    // ⭐ THE ART ASKED FOR IT FIRST, which is how every good move on this roster
+    // arrived. The geyser already draws `oil_geyser_emerge`, three
+    // `oil_geyser_stream` rows over the climb *"so the column reads as continuous
+    // rather than as one puff"*, and `oil_geyser_impact` at the crest. A column
+    // that reads as continuous and then leaves nothing behind is a column only
+    // its caster ever met.
+    //
+    // ⛔ A GEYSER IS A LAUNCHER, so the technique is the plate rather than a new
+    // one: `smash.place_spring` already places a timed, use-limited actuator with
+    // an arming delay — the delay being what stops it throwing the fighter who
+    // made it, which a geyser needs more than a dropped plate does.
+    //
+    // ⚠ ROSTER DECISION #20, Jon's to overrule, and deliberately modest: ONE use,
+    // 2.2s, and it throws straight up at less than his own climb. It is a
+    // follow-up for whoever chases him offstage, not a second recovery — he is
+    // already gone by the time it matters to him.
+    let up_b = ambition_characters::smash_spring::author_place_spring(
+        up_b,
+        // At the CREST, where `oil_geyser_impact` draws. The column finishes and
+        // what it leaves is where it finished.
+        0.88,
+        ambition_characters::smash_spring::PlaceSpringParams {
+            // Up is negative y. Below `GEYSER_SPEED`: the pool is a bonus, not a
+            // better version of the move that made it.
+            launch: (0.0, -700.0),
+            half_extents: (26.0, 8.0),
+            lifetime_s: 2.2,
+            uses: 1,
+            // Under him, on the floor he left.
+            offset: (0.0, 18.0),
+        },
+    );
 
     // DOWN — `pressure_vent`. He cracks a valve and everything in the seal
     // goes at once.
@@ -700,6 +742,69 @@ fn total_active_s(m: &MoveSpec) -> f32 {
 
 #[cfg(test)]
 mod tests {
+    /// ⭐⭐ THE GEYSER LEAVES A POOL, AND IT MUST NOT BE A SECOND WAY HOME.
+    ///
+    /// Oiler was the last plain fighter on the smash grid — measured, not felt:
+    /// the expressiveness census counts a special as expressive when it carries a
+    /// technique, a stance, a flow, a gravity regime or a volume reaction, and he
+    /// had none. ⇒ *"Many have boring specials"* had become exactly one.
+    ///
+    /// ⛔ THE LAUNCH MUST BE WEAKER THAN HIS OWN CLIMB. A plate that threw harder
+    /// than the move that made it would be a recovery that improves by being used
+    /// twice — and the geyser's own doc says repeated use LOSES height on purpose,
+    /// *"a property of the numbers, held by a test"*. This is that test, for the
+    /// property the pool could have quietly reversed.
+    #[test]
+    fn the_geysers_pool_throws_less_hard_than_the_geyser_itself() {
+        use ambition_platformer2d::entity_catalog::MoveEventKind;
+        let set = super::oiler_moveset();
+        let up = set
+            .moves
+            .iter()
+            .find(|m| m.id == "oil_geyser")
+            .expect("his up-B is in the table");
+        let placed = up
+            .events
+            .iter()
+            .find_map(|e| match &e.kind {
+                MoveEventKind::Effect(effect)
+                    if effect.key == ambition_characters::smash_spring::PLACE_SPRING =>
+                {
+                    Some((
+                        e.at_s,
+                        effect
+                            .params
+                            .hydrate::<ambition_characters::smash_spring::PlaceSpringParams>(),
+                    ))
+                }
+                _ => None,
+            })
+            .expect("the geyser leaves nothing behind, so the column is one the caster alone met");
+        let (at_s, params) = placed;
+        let params = params.expect("the pool's params hydrate");
+
+        assert!(
+            params.launch.1 < 0.0,
+            "the pool throws DOWNWARD ({:?}) — up is negative y",
+            params.launch
+        );
+        assert!(
+            -params.launch.1 < super::GEYSER_SPEED,
+            "the pool throws at {} against the geyser's own {} — a plate stronger \
+             than the move that made it is a recovery that improves by being used \
+             twice",
+            -params.launch.1,
+            super::GEYSER_SPEED
+        );
+        // ⛔ AND IT LANDS AT THE CREST, where `oil_geyser_impact` draws. A pool
+        // authored at the press would appear under him before the column exists.
+        assert!(
+            at_s > 0.5,
+            "the pool is placed at {at_s}s, before the column has finished climbing"
+        );
+        assert_eq!(params.uses, 1, "a multi-use geyser pool is a platform");
+    }
+
     use super::*;
     use ambition_platformer2d::entity_catalog::{AttackDir, MoveEventKind};
 

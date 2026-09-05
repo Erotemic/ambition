@@ -320,7 +320,7 @@ mod expressiveness_census {
 
         /// The floor, raised deliberately as fighters gain techniques. Bumping it
         /// is a decision; watching it silently fall is the failure.
-        const FLOOR: usize = 17;
+        const FLOOR: usize = 18;
 
         let mut expressive: Vec<&str> = Vec::new();
         let mut plain: Vec<&str> = Vec::new();

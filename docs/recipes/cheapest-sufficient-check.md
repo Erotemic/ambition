@@ -298,6 +298,27 @@ where they are written — `` [`SimId`] ``, `` [`Hitbox`] ``, `` [`UserSettings`
 population is dominated by *"correct sentence, unlinkable from here"*, which is
 what my own `InteractableSpec` case turned out to be.
 
+⛔⛔ **AND SOME OF THEM ARE UNFIXABLE BY CONSTRUCTION, so the 274 is not a debt
+figure.** A `pub(crate)` item can NEVER be the target of a cross-crate doc link —
+rustdoc has nothing to point at. Found the same day when the fighter lane fixed
+the three carve-broken links and each needed a DIFFERENT fix:
+
+```text
+CombatGeometry                      same crate, just not in scope in the carved
+                                    file      -> `crate::body_geometry::CombatGeometry`
+CharacterDefinition::preserves_…    wrong PATH, right target; `actor` does not
+                                    re-export it -> name the real module
+enemy_default_brain                 `pub(crate)` in another crate — UNLINKABLE.
+                                    -> demote to prose naming crate + module,
+                                       WITH a note saying why it is not a link
+```
+
+⇒ **The terminal state for that third kind is prose that says "deliberately not
+a link, here is why"** — otherwise the next person tries the obvious fix, finds
+it cannot work, and reverts. ⚠ Which means a doc-link count mixes at least three
+populations: fixable-by-repointing, unfixable-by-visibility, and actually-wrong.
+Only the last is a claim about the code.
+
 ⛔ What that does NOT establish, and it is the half that would matter: whether
 each names a type that still EXISTS. A link that fails because the type was
 renamed or deleted IS a false claim, and rustdoc's warning cannot tell the two

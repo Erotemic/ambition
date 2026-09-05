@@ -38,12 +38,13 @@ decision policy is correct.
 > empty.**
 >
 > ✔ **ALL EIGHT LINE CITATIONS BELOW RE-VERIFIED BY OPENING THEM, and all eight
-> are exact** — `RecoveryLens` at `recovery.rs:79`, the three support/floor
+> are exact** — `RecoveryLens` at `crates/ambition_combat/src/brain/fighter/recovery.rs:79`, the three support/floor
 > queries at `collision_semantics.rs:82`/`:130`/`:136`, and the four
-> `CollisionWorld` questions at `collision.rs:96`/`:126`/`:148`/`:159`.
+> `CollisionWorld` questions at
+> `crates/ambition_platformer2d_world/src/collision.rs:96`/`:126`/`:148`/`:159`.
 > ⭐ Worth stating because three OTHER line citations in this planning stack
 > were found drifted the same day (`sim_core_resources.rs:85`,
-> `room_transition_assets.rs:1271`, `quality.rs:182`). ⇒ **citation drift is
+> `room_transition_assets.rs:1271`, `crates/ambition_render/src/quality.rs:182`). ⇒ **citation drift is
 > not uniform**; it tracks how often a page is re-derived rather than how old it
 > is, and this one has been.
 >

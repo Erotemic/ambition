@@ -32,11 +32,56 @@ each one as an **engine acceptance fixture** rather than a character feature:
 | 10 | **Limit** | character-local resource state, threshold transitions, timeout, action variants, stat modifiers |
 | 11 | **Free-standing ally summon** | summon is not synonymous with mount; first owned-secondary-actor contract |
 | 12 | **Reusable launch object** | a fighter can create a persistent world actuator another fighter interacts with |
+| 13 | **Portal recovery** (Jon, added same day) | an authored customer can place linked world portals and traverse them, exercising `ambition_portal2d` from a move — including an angled pair, which genre parity does not have |
 
 ⭐ **Sanic's spring analogue is a SPEED BUMP** (Jon): he slams down a ridiculous
 yellow-and-black speed bump that catapults anyone who touches it. On the ground
 it stays as the reusable launcher; in the air he drops it and it falls as an
 object/hazard. Same mechanical role, its own joke.
+
+## Roster assignments — who each proof move is FOR
+
+Jon, 2026-09-05, in the same breath as *"we have a lot of characters with boring
+specials, and when we build the code for these we should exercise them in the
+characters."* ⇒ **Every rung lands on a real fighter.** That is acceptance
+clause 2 for each row, pre-answered.
+
+| Fighter | Move | Proof rung |
+|---|---|---|
+| **Swordies** | **counter** | 2 — successful-defense consequence (B1) |
+| **Projectile Polygon** | **tether**, and probably the **remote mine** as down-smash | 4 and 6 |
+| **Performer** | **Sing** | 9 |
+| **Author** | **side-B: the "mind" attack**, PK-Thunder style | 1 — the keystone |
+| **Alice** (provisional) | **up-B: a portal recovery** | NEW, below |
+
+⚠ **PLACEMENT IS PROVISIONAL AND SAID SO** — Jon: *"We can tune who the moves
+belong to later. The important thing is that they can be expressed and authored
+easily and creatively."* ⇒ A rung is finished when the move is EASY TO AUTHOR,
+not when it is on the right fighter. Do not spend a decision on the roster slot;
+do spend it on whether a second fighter could take the same move by authoring
+alone.
+
+### The portal recovery — Jon's, and not a Smash move at all
+
+> *"up b opens a portal under him, and a portal at the very top of the stage, and
+> when he falls into it he comes out the higher portal (or vice versa, it's a
+> portal so just use the portal crate rules, we can even exercise angled portals
+> with directional input on the up b as a flavor that isn't actually in smash and
+> is ours)."*
+
+⭐ **This is the "author a customer for a shipped primitive" pattern in its
+purest form**, which the D72 row measured as almost always the real next slice.
+`ambition_portal2d` exists with link groups and portal rules; a recovery that
+places a linked pair and falls through it should be authoring plus a technique
+key, not portal physics. ⇒ **Use the portal crate's rules rather than
+re-deriving recovery behaviour** — if the fighter's traversal through a portal
+does not already work, that is a finding about the portal seam, and it is worth
+more than the move.
+
+ⓘ The angled variant (directional input on the up-B tilting the pair) is
+explicitly OURS rather than genre parity. It is also the cheapest possible test
+of whether the portal placement seam takes an authored orientation, so author
+the straight version first and let the angle be the second commit.
 
 ## Sequencing — two tracks, because the keystone is not the fun
 

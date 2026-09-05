@@ -47,6 +47,22 @@ pub fn world_size_to_bevy(size: Vec2, p: Vec2, z: f32) -> Vec3 {
     Vec3::new(p.x - size.x * 0.5, size.y * 0.5 - p.y, z)
 }
 
+/// The inverse of [`world_size_to_bevy`]: Bevy's centered, y-up space back to
+/// engine coordinates.
+///
+/// ⭐ HERE, BESIDE ITS FORWARD, because the sentence above already commits to it:
+/// *"the centering + y-flip math stays defined here, once."* A caller that needs
+/// the round trip — a host publishing engine-space facts derived from a
+/// `GlobalTransform`, say — would otherwise write `size.y * 0.5 - v.y` a second
+/// time, and the two copies would agree until the day the convention moves.
+///
+/// ⚠ Z IS DROPPED, deliberately. Engine coordinates are 2D; the render z is a
+/// presentation choice with no engine meaning, so returning it would invite a
+/// caller to treat it as one.
+pub fn bevy_size_to_world(size: Vec2, v: Vec2) -> Vec2 {
+    Vec2::new(v.x + size.x * 0.5, size.y * 0.5 - v.y)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -63,6 +79,23 @@ mod tests {
         assert!(bevy.x.abs() < 1e-3);
         assert!(bevy.y.abs() < 1e-3);
         assert_eq!(bevy.z, 1.0);
+    }
+
+    /// ⭐ The round trip, both ways, on an ASYMMETRIC point and an asymmetric
+    /// world — a square world and a centred point would agree under a y-flip
+    /// that was simply missing.
+    #[test]
+    fn bevy_and_world_coordinates_round_trip() {
+        let size = Vec2::new(1000.0, 600.0);
+        let p = Vec2::new(120.0, 470.0);
+        let there = world_size_to_bevy(size, p, 7.0);
+        let back = bevy_size_to_world(size, Vec2::new(there.x, there.y));
+        assert!((back - p).length() < 1e-4, "{p} -> {there} -> {back}");
+
+        let v = Vec2::new(-380.0, 210.0);
+        let engine = bevy_size_to_world(size, v);
+        let again = world_size_to_bevy(size, engine, 0.0);
+        assert!((Vec2::new(again.x, again.y) - v).length() < 1e-4);
     }
 
     #[test]

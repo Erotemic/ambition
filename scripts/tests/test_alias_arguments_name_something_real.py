@@ -33,6 +33,9 @@ import re
 from pathlib import Path
 
 REPO = Path(__file__).resolve().parent.parent.parent
+import sys  # noqa: E402
+sys.path.insert(0, str(REPO / "scripts"))
+from lib.yarn_source import executable_source  # noqa: E402
 DIALOGUE = REPO / "game/ambition_content/assets/dialogue"
 WORLDS = REPO / "game/ambition_content/assets/worlds"
 QUESTS = REPO / "game/ambition_content/src/quest.rs"
@@ -42,9 +45,21 @@ QUEST_CALL = re.compile(r'quest_active\(\s*"([^"]+)"')
 
 
 def _authored(pattern: re.Pattern[str]) -> dict[str, list[str]]:
+    """Arguments passed in EXECUTABLE Yarn only.
+
+    ⛔⛔ THIS SCANNED WHOLE FILES AND THAT IS A GUARD THAT FAILS ON PROSE. A
+    `.yarn` file is mostly spoken lines; only `<<…>>` is evaluated. `kernel.yarn`
+    contains `Kernel Guide: boss_cleared("mockingbird") returned TRUE.` — a
+    character EXPLAINING the call — and a whole-file regex reads it as one. ⇒ A
+    character saying a misspelling would have reddened CI over text the
+    interpreter never evaluates: a guard reporting a defect in the WRITING.
+    ⭐ `scripts/lib/yarn_source.py` is the one definition, mirroring
+    `dialogue_lint.rs::extract_command_calls`, which had it right all along.
+    """
     found: dict[str, list[str]] = {}
     for path in sorted(DIALOGUE.rglob("*.yarn")):
-        for name in pattern.findall(path.read_text(encoding="utf-8", errors="replace")):
+        source = executable_source(path.read_text(encoding="utf-8", errors="replace"))
+        for name in pattern.findall(source):
             found.setdefault(name, []).append(path.name)
     return found
 
@@ -85,7 +100,7 @@ def test_every_boss_cleared_argument_names_a_real_boss() -> None:
     # aimed at `kernel.yarn` alone left this green and read, for a minute, as a
     # floor that did not work.
     calls = sum(len(v) for v in asked.values())
-    assert calls >= 4, (
+    assert calls >= 3, (
         f"only {calls} `boss_cleared(\"…\")` call(s) across "
         f"{len({f for v in asked.values() for f in v})} file(s) — the call spelling "
         "this scans has changed, or a whole file stopped being read"
@@ -103,7 +118,7 @@ def test_every_boss_cleared_argument_names_a_real_boss() -> None:
 def test_every_quest_active_argument_names_a_real_quest() -> None:
     asked = _authored(QUEST_CALL)
     calls = sum(len(v) for v in asked.values())
-    assert calls >= 2, (
+    assert calls >= 1, (
         f"only {calls} `quest_active(\"…\")` call(s) in authored dialogue — the "
         "call spelling this scans has changed"
     )

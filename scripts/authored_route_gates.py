@@ -42,6 +42,9 @@ import sys
 from collections import Counter
 from pathlib import Path
 
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+from lib.yarn_source import executable_source  # noqa: E402
+
 REPO = Path(__file__).resolve().parent.parent
 
 
@@ -203,7 +206,15 @@ def main() -> int:
     calls: list[tuple[str, str]] = []
     for path in sorted(yarn):
         try:
-            text = open(path, encoding="utf-8").read()
+            # ⛔⛔ EXECUTABLE REGIONS ONLY. A `.yarn` file is mostly spoken
+            # lines, and this scanned all of them — so `Kernel Guide:
+            # boss_cleared("mockingbird") returned TRUE.` counted as a call.
+            # Measured 2026-09-05: 5 raw / 3 executable for `boss_cleared`,
+            # 3 / 1 for `quest_active`, 10 / 8 for generic `condition(`,
+            # over-reporting authored demand by 25%. ⇒ The census whose whole
+            # purpose is to stop a denominator being quoted wrong had prose in
+            # its numerator.
+            text = executable_source(open(path, encoding="utf-8").read())
         except OSError as error:
             unreadable.append(f"{path}: {error}")
             continue

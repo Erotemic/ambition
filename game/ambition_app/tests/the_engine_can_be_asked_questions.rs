@@ -405,49 +405,53 @@ fn every_condition_an_authored_yarn_file_asks_is_published_by_the_engine() {
     // file this test reads is a file the game loads. A `.yarn` on disk that is
     // not in the manifest is not content, and should not fail a content guard.
     for (name, text) in ambition_content::dialogue::yarn::YARN_SOURCES {
-        for rest in text.split("condition(").skip(1) {
-            // ⛔⛔ THE QUOTE MUST BE THE VERY NEXT NON-SPACE CHARACTER, and a
-            // looser rule made this test's FIRST RUN report a defect that was
-            // not there. `kernel.yarn` says, in PROSE, *"condition() reads the
-            // world-fact domain directly"* — and a scanner that took the next
-            // quoted token after `condition(` walked past the empty parens, past
-            // a sentence and a menu option, and grabbed the id out of
-            // `<<command "world.set_flag" …>>` two lines later. It then reported
-            // a COMMAND id as an unpublished CONDITION.
-            //
-            // ⇒ An instrument answering a wider question than the one asked: a
-            // `condition(` in prose is not a call, and a quoted string much
-            // further down the file is not its argument.
-            let after = rest.trim_start();
-            if !after.starts_with('"') {
-                continue;
-            }
-            let open = rest.len() - after.len();
-            let Some(close) = rest[open + 1..].find('"') else {
-                continue;
-            };
-            let raw = &rest[open + 1..open + 1 + close];
-            asked.push(((*name).to_string(), raw.to_string()));
+        // ⭐⭐ REGIONS FIRST, CALLS SECOND. `executable_regions` is the one
+        // definition of what the interpreter evaluates; a `condition(` outside
+        // one is a character SAYING the words, not the engine being asked.
+        //
+        // ⛔⛔ THIS LOOP USED TO SCAN THE WHOLE FILE and defend itself with a
+        // private rule — *"the quote must be the very next non-space
+        // character"* — grown after its first run reported a defect that was
+        // not there: `kernel.yarn` says in prose *"condition() reads the
+        // world-fact domain directly"*, and the scanner walked past the empty
+        // parens into `<<command "world.set_flag" …>>` two lines down and
+        // reported a COMMAND id as an unpublished CONDITION. That patch made
+        // this one sentence safe and left the class alive; two Python
+        // instruments then grew their own. ⇒ The heuristic is DELETED, not
+        // tuned. Prose is excluded by structure now, so a `condition(` that
+        // IS evaluated is checked however it is spaced.
+        for (_line, region) in ambition_content::dialogue::yarn::executable_regions(text) {
+            for rest in region.split("condition(").skip(1) {
+                let after = rest.trim_start();
+                let Some(inner) = after.strip_prefix('"') else {
+                    continue;
+                };
+                let Some(close) = inner.find('"') else {
+                    continue;
+                };
+                let raw = &inner[..close];
+                asked.push(((*name).to_string(), raw.to_string()));
 
-            let Some(id) = ConditionId::parse(raw) else {
-                unpublished.push(format!("{name}: {raw:?} is not a `domain.question` id"));
-                continue;
-            };
-            match catalog.describe(&id) {
-                None => unpublished.push(format!(
-                    "{name}: {raw:?} — no domain in the composed engine publishes it"
-                )),
-                Some(descriptor) if descriptor.params.len() != 1 => wrong_arity.push(format!(
-                    "{name}: {raw:?} declares {} parameter(s), but the Yarn verb passes exactly 1",
-                    descriptor.params.len()
-                )),
-                Some(_) => {}
+                let Some(id) = ConditionId::parse(raw) else {
+                    unpublished.push(format!("{name}: {raw:?} is not a `domain.question` id"));
+                    continue;
+                };
+                match catalog.describe(&id) {
+                    None => unpublished.push(format!(
+                        "{name}: {raw:?} — no domain in the composed engine publishes it"
+                    )),
+                    Some(descriptor) if descriptor.params.len() != 1 => wrong_arity.push(format!(
+                        "{name}: {raw:?} declares {} parameter(s), but the Yarn verb passes exactly 1",
+                        descriptor.params.len()
+                    )),
+                    Some(_) => {}
+                }
             }
         }
     }
 
     assert!(
-        asked.len() >= 10,
+        asked.len() >= 8,
         "only {} authored `condition(...)` call(s) found across {} shipped .yarn \\
          file(s) — the corpus this test walks has gone empty or the call spelling \\
          changed, and an empty walk passes every assertion below. Found: {asked:#?}",

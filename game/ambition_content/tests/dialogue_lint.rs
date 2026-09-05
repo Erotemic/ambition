@@ -76,30 +76,24 @@ struct CommandCall {
 /// Yarn built-ins (`if`/`set`/`jump`/…) and inline functions (`can_afford(…)`, called inside
 /// `<<if …>>`) are naturally skipped — they aren't in the table.
 fn extract_command_calls(file: &str, text: &str) -> Vec<CommandCall> {
-    let mut calls = Vec::new();
-    for (i, line) in text.lines().enumerate() {
-        let mut rest = line;
-        while let Some(open) = rest.find("<<") {
-            let after = &rest[open + 2..];
-            let Some(close) = after.find(">>") else {
-                break;
-            };
-            let inner = after[..close].trim();
+    // ⭐ ONE DEFINITION OF AN EXECUTABLE REGION. This function used to carry its
+    // own `<<`/`>>` walk — the only one in the repo that was RIGHT, while three
+    // other instruments scanned whole files and grew private prose heuristics.
+    // It now calls the library so there is nothing left to drift from.
+    ambition_content::dialogue::yarn::executable_regions(text)
+        .into_iter()
+        .filter_map(|(line, inner)| {
             let mut parts = inner.splitn(2, char::is_whitespace);
             let name = parts.next().unwrap_or("").trim();
             let args = parts.next().unwrap_or("");
-            if expected_arity(name).is_some() {
-                calls.push(CommandCall {
-                    file: file.to_string(),
-                    line: i + 1,
-                    name: name.to_string(),
-                    arg_count: count_args(args),
-                });
-            }
-            rest = &after[close + 2..];
-        }
-    }
-    calls
+            expected_arity(name).map(|_| CommandCall {
+                file: file.to_string(),
+                line,
+                name: name.to_string(),
+                arg_count: count_args(args),
+            })
+        })
+        .collect()
 }
 
 mod tests {

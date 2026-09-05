@@ -1353,6 +1353,95 @@ def record_carve(args: argparse.Namespace) -> int:
 # ---------------------------------------------------------------------------
 
 
+def adopt_wins(current: dict, frozen: dict) -> tuple[dict, list[str], list[str]]:
+    """A baseline that banks every IMPROVED number and keeps every regressed one.
+
+    ⛔⛔ `--update` IS ALL OR NOTHING, AND THAT IS WHY THIS GATE SITS RED. Today it
+    reports two real carves in `ambition_platformer2d_actor_monolith` (-7,622
+    lines, -48.0s) beside four regressions elsewhere. Banking the wins with
+    `--update` also banks the regressions -- it launders them into the baseline
+    as the new normal, and the next regression of the same size then lands
+    silently. Refusing to re-freeze keeps the regressions visible but ALSO leaves
+    the guard holding 7,622 lines of slack, so a fresh regression that size is
+    invisible too. Both roads lose a guard; that is what "needs a carve owner"
+    has meant on this row.
+
+    ⭐ The two are not one decision, so they get two commands. A WIN is a
+    measurement of work already done and banking it is bookkeeping. A REGRESSION
+    is a claim that the new number is acceptable, which is a judgement somebody
+    has to make and say out loud in a commit. This adopts only the first.
+
+    ⚠ THE FROZEN WEIGHTS ARE KEPT. Re-pricing during an adopt would move every
+    seconds number for reasons unrelated to the carve, so the wins it banks would
+    be partly a change of ruler.
+
+    ⚠ A metric whose SUBJECT CRATE changed is not adopted either way: `largest_unit`
+    naming a different crate makes "better" a comparison between two different
+    questions.
+
+    Returns `(baseline, adopted, held)` -- the two lists being what it banked and
+    what it deliberately left frozen, for the caller to print.
+    """
+    merged = json.loads(json.dumps(current))
+    merged["unit_weights"] = frozen["unit_weights"]
+    # ⛔⛔ AND THIS LINE IS THE ONE THIS FUNCTION ALMOST GOT WRONG. The first
+    # version copied `unpriced_crates` from the current snapshot, which SILENTLY
+    # ACCEPTED eight crates newly priced at the population median -- a placeholder
+    # the UNPRICED finding exists to keep loud, and precisely the judgement this
+    # command refuses to make on someone's behalf. Findings fell 9 -> 6 and only
+    # two of the three were wins.
+    #
+    # ⭐ The general rule this taught: a "bank only the good news" merge must
+    # enumerate what it KEEPS, not what it takes. Anything not explicitly
+    # settled below is inherited from the CURRENT snapshot, so a metric nobody
+    # thought about is adopted by default -- which is the failure direction.
+    merged["unpriced_crates"] = frozen.get("unpriced_crates", [])
+    adopted: list[str] = []
+    held: list[str] = []
+
+    def settle(label: str, now, then, write) -> None:
+        if now < then:
+            adopted.append(f"{label}: {then:,.1f} -> {now:,.1f}" if isinstance(now, float)
+                           else f"{label}: {then:,} -> {now:,}")
+        else:
+            write(then)
+            if now > then:
+                held.append(f"{label}: still {now:,.1f} against a frozen {then:,.1f}"
+                            if isinstance(now, float)
+                            else f"{label}: still {now:,} against a frozen {then:,}")
+
+    for key, field in (("largest_unit", "lines"),
+                       ("worst_edit_cost", "lines"),
+                       ("worst_edit_cost_seconds", "seconds")):
+        if key not in frozen or key not in merged:
+            continue
+        if merged[key].get("crate") != frozen[key].get("crate"):
+            merged[key] = frozen[key]
+            held.append(f"{key}: subject crate changed "
+                        f"({frozen[key].get('crate')} -> {current[key].get('crate')}), "
+                        f"not adopted -- re-freeze deliberately with --update")
+            continue
+        settle(f"{key} ({merged[key]['crate']})", merged[key][field], frozen[key][field],
+               lambda value, k=key, f=field: merged[k].__setitem__(f, value))
+
+    for name, frozen_entry in frozen.get("watched_edit_cost", {}).items():
+        if name not in merged.get("watched_edit_cost", {}):
+            continue
+        for field in ("lines", "seconds"):
+            if field not in frozen_entry or field not in merged["watched_edit_cost"][name]:
+                continue
+            settle(f"edit_cost_{field} ({name})",
+                   merged["watched_edit_cost"][name][field], frozen_entry[field],
+                   lambda value, n=name, f=field:
+                       merged["watched_edit_cost"][n].__setitem__(f, value))
+
+    settle("critical_path_crates", merged["critical_path_crates"],
+           frozen["critical_path_crates"],
+           lambda value: merged.__setitem__("critical_path_crates", value))
+
+    return merged, adopted, held
+
+
 def freeze(current: dict) -> None:
     # checked BEFORE the baseline is written, not between the two writes. This
     # function makes TWO records — the gate's baseline in the parent repo and a
@@ -1383,6 +1472,10 @@ def main(argv: list[str] | None = None) -> int:
                         help="print the numbers and exit 0 even on a violation")
     parser.add_argument("--update", action="store_true",
                         help="re-freeze the baseline and append a graph snapshot")
+    parser.add_argument("--adopt-wins", action="store_true",
+                        help="re-freeze ONLY the numbers that improved; leave every "
+                             "regression frozen at its old, tighter value so it "
+                             "stays red until somebody accepts it in a commit")
     parser.add_argument("--diff", action="store_true",
                         help="per-crate attribution against the frozen baseline")
     parser.add_argument("--carve", metavar="PATH",
@@ -1432,6 +1525,12 @@ def main(argv: list[str] | None = None) -> int:
         freeze(snapshot())
         return 0
 
+    if args.adopt_wins and not BASELINE.exists():
+        raise SystemExit(
+            "⛔ --adopt-wins needs a baseline to adopt AGAINST. Use --update to "
+            "freeze the first one."
+        )
+
     if not BASELINE.exists():
         raise SystemExit(
             f"⛔ {BASELINE.relative_to(ROOT)} is missing. Run `--update` to freeze "
@@ -1443,6 +1542,22 @@ def main(argv: list[str] | None = None) -> int:
 
     if args.diff:
         diff(current, frozen)
+        return 0
+
+    if args.adopt_wins:
+        merged, adopted, held = adopt_wins(current, frozen)
+        freeze(merged)
+        print("  adopted (banked as the new ceiling):")
+        for line in adopted or ["    (nothing improved)"]:
+            print(f"    {line}" if adopted else line)
+        print("\n  HELD FROZEN — still red, and deliberately so:")
+        for line in held or ["    (no regressions outstanding)"]:
+            print(f"    {line}" if held else line)
+        print(
+            "\n  ⚠ Say in the commit WHICH CARVE produced each adopted line. A win "
+            "banked\n     without a cause is a number nobody can defend when it "
+            "moves back."
+        )
         return 0
 
     findings = evaluate(current, frozen)

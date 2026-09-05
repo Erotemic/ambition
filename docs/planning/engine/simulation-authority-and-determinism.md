@@ -680,6 +680,18 @@ GameplayElapsed         CORRECT its contract is MONOTONE; a backward `obs_histor
 LiveMatchTicks          CORRECT already guarded — see below
 ```
 
+⚠ **THESE TWO ARE GUARDED DIFFERENTLY FROM THE FOUR THAT CAME BEFORE THEM, and
+the difference is worth stating.** `D-RESTORE-LEDGER-SCOPE` added
+`AuthoredOccurrences`, `OccurrenceBaseline`, `CustodyBaseline` and
+`MintedItemBaseline`, and each got a behavioural test that goes red when poisoned
+ALONE, at both session edges and at the launcher window. These two rest on the
+EXHAUSTIVE DESTRUCTURE instead: omitting the reset is `error[E0027]`, verified by
+poison for each. ⇒ that is a stronger guarantee that the reset HAPPENS and no
+statement at all that it MATTERS. A behavioural test here would assert the
+compiler's guarantee, which is why there is not one — but a reader comparing the
+two campaigns should know the guards are not the same kind, not conclude these
+were done less carefully.
+
 ⭐ **`LiveMatchTicks` was checked by the fighter lane and is the strongest of the
 three, because the guard already existed and DISCRIMINATES.** Its doc says the
 counter is *"stamped with the match it counts"*, but a stamp alone would only

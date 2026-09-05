@@ -1342,10 +1342,24 @@ vocabulary is for**, and it is cheap either way while nothing depends on it:
 
 ⓘ **What is NOT being asked**: `BreakableSpec.pogo_refresh` looks identical from
 the authoring side and is NOT in this list, because it IS read
-(`features/ecs/damage/mod.rs:592`, `:938`). It is merely DORMANT — never set
-true by content — which is a design choice rather than a defect. Stranded and
-dormant are indistinguishable from the authored side and want opposite responses;
-telling them apart took reading the consumer.
+(`crates/ambition_platformer2d_actor_monolith/src/features/ecs/damage/mod.rs:592`,
+`:938`). Stranded and dormant are indistinguishable from the authored side and
+want opposite responses; telling them apart took reading the consumer.
+
+⛔⛔ **AND THIS ROW SAID IT WAS "never set true by content", WHICH IS FALSE.**
+Re-measured 2026-09-05: **five `BreakablePogoOrb` entities are authored** across
+the shipped worlds, and `crates/ambition_platformer2d_ldtk/src/surfaces.rs:422`
+sets `breakable.pogo_refresh = pogo_orb_combo` for exactly those. It is LIVE, not
+dormant.
+
+⭐ **The reason it looked dormant is a THIRD form of authoring that no census
+sees.** A field can be turned on by a LITERAL (`flag: true`), by an ASSIGNMENT
+from a computed value — and here by an **ENTITY TYPE**: content authors
+`BreakablePogoOrb` instead of `Breakable`, and a converter turns that choice into
+a flag. ⇒ No text search for the FIELD can find that, because the author never
+writes the field's name. The dormant-mode census can only flag it as *"this name
+is assigned elsewhere — go look"*, which is exactly what its pointer annotation
+does and exactly why that annotation replaced a reclassification.
 
 ### 62. A second box holds 4,741 uncommitted lines in `mary_o.ldtk`. Keep or discard? (2026-09-05)
 

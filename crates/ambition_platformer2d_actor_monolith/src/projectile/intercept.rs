@@ -49,6 +49,20 @@ pub enum ProjectileInterception {
 ///
 /// Returns `true` when the projectile survives the interception, so a caller can
 /// tell "it is going back" from "it is gone" without inspecting the world again.
+///
+/// ⛔⛔ `#[must_use]` BECAUSE IGNORING THIS ANSWER WAS A SHIPPED BUG. The absorber
+/// branch of `step_projectiles` dropped it and continued its victim loop; the
+/// despawn is a DEFERRED command, so a swallowed shot stayed live for the rest of
+/// the tick and could strike a second body and then fall through to
+/// boss/breakable/world resolution. Found by the 2026-09-05 review, not by a
+/// test.
+///
+/// ⇒ The operation already knew the shot was gone and said so. The repair for
+/// that class is not care at the call site: it is making the answer impossible to
+/// drop silently. A caller that genuinely does not need it — a `Reflect`, which
+/// always survives — now has to say so with a `let _ =` and a reason, which is
+/// the difference between a decision and an oversight.
+#[must_use = "a consumed projectile is GONE for the rest of the tick: check the               survival answer and terminate the shot's collision step, or say in               a comment why this interception cannot destroy it"]
 pub fn intercept_projectile(
     commands: &mut Commands,
     projectile: Entity,

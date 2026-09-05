@@ -51,7 +51,12 @@ fn reflect_parried_shot(
     // interception among several the game will grow — a reflector, an absorber —
     // and each would otherwise decide for itself which of the six ownership axes
     // travel together. See `super::intercept`.
-    super::intercept::intercept_projectile(
+    // ⚠ THE SURVIVAL ANSWER IS DELIBERATELY DISCARDED HERE, and saying so is the
+    // point of `#[must_use]`. A `Reflect` cannot destroy the shot -- it re-owns
+    // it and turns it around -- so there is nothing to terminate. The caller's
+    // `reflected = true; break;` already handles the step. ⇒ If this ever passes
+    // an interception that CAN consume, this line must start reading the answer.
+    let _survives_by_construction = super::intercept::intercept_projectile(
         commands,
         proj_entity,
         kin,

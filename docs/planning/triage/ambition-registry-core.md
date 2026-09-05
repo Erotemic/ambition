@@ -1,7 +1,8 @@
 # `ambition_registry_core` — one protocol for canonical registries
 
 > **State:** R2 + R3 LANDED 2026-09-03 (crate built, two pilots migrated); R4
-> (evaluate before expansion) is next. Was TRIAGE — PROPOSED DIRECTION, 2026-07-22.
+> (evaluate before expansion) ANSWERED 2026-09-05 — four adopters, two of them
+> on the protocol's edge; see the R4 paragraph. Was TRIAGE — PROPOSED DIRECTION, 2026-07-22.
 >
 > ⭐ **What landed (`crates/ambition_registry_core`, dependency-free, ~150
 > lines):** `RegistrationMeta { owner, source, schema_id }` validated by
@@ -25,13 +26,42 @@
 > poison-verified). Capability footprint 44 → 45, declared in the baseline: a
 > crate count, not bytes; the code it replaced was linked before.
 >
-> **R4, honestly:** source reduction is small (the two pilots lost ~40 lines and
-> gained a dependency); the win is that the third protocol question ("does a
-> conflict leave the old registry unchanged") is now answered by one function
-> both read, and the next registry cannot answer it differently by accident.
-> Candidates that already copy this protocol by hand and would migrate the same
-> way: `PlacementLoweringRegistry`, `RoomContentStagingRegistry` (both carry
-> their own `EmptyIdentity`). The seven SILENT-overwrite registries in the
+> ⭐⭐ **R4 IS ANSWERED, AND BY ADOPTION RATHER THAN ANALYSIS — RE-MEASURED
+> 2026-09-05. There are FOUR adopters, not two.** This paragraph named
+> `PlacementLoweringRegistry` and `RoomContentStagingRegistry` as candidates
+> that "would migrate the same way". Both have since migrated, and neither
+> migrated the same way — which is the useful result:
+>
+> ```text
+> construction/registry.rs      ConstructionRegistry          pilot 1  full
+> runtime/rollback/registry.rs  RollbackRegistry              pilot 2  full
+> world/placements.rs           PlacementLoweringRegistry     full: classify + canonical_row
+> features/.../content_staging  RoomContentStagingRegistry    meta + require_non_empty; NO classify
+> ```
+>
+> ⭐ **The two later adopters landed on the protocol's EDGE, which is what an
+> evaluation wanted and no amount of reading would have produced.**
+> `PlacementLoweringRegistry` is the one registry in the workspace whose
+> IDENTITY INCLUDES A FUNCTION: it hand-writes `PartialEq` over
+> `std::ptr::fn_addr_eq` so that re-registering a kind with the same
+> owner/source/schema but a different lowering fn is a `Conflict`.
+> `RoomContentStagingRegistry` went the other way and REFUSED classification
+> with a stated reason: its value is `Arc<dyn Fn(..)>`, and a closure has no
+> meaningful equality — `Arc::ptr_eq` would call two identical registrations
+> from different call sites different, while comparing identity fields alone
+> would call two DIFFERENT stagers under one identity the same. So it takes
+> `RegistrationMeta` + `require_non_empty` and has no `Idempotent` case to have.
+>
+> ⇒ **`classify` refusing to be anybody's default is the crate's whole point,
+> and the fourth adopter is the evidence it works.** A registry that cannot
+> classify now says so in a comment instead of silently overwriting.
+> ⚠ `content_staging.rs` already cites THIS PAGE for that conclusion; until this
+> edit the page said the opposite. The code was ahead of the plan.
+>
+> **R4's cost side, unchanged:** source reduction is small (the two pilots lost
+> ~40 lines and gained a dependency); the win is that the third protocol
+> question ("does a conflict leave the old registry unchanged") is answered by
+> one function every adopter reads. The seven SILENT-overwrite registries in the
 > inventory are a different decision each — `classify` refuses to be their
 > default, which is the point; each must say "replace" in place or adopt refusal.
 > Fingerprint hashing was NOT extracted: rollback's hasher and version prefix

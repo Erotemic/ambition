@@ -2337,6 +2337,15 @@ earlier render leaving pages behind — the same staleness class as the tier
 variants above. ⛔ Checking the primary worktree does NOT count: its assets are
 symlinks at this checkout's, so it is the same bytes. The decider is a clean
 generation on another box.
+⚠ **ATTEMPTED 2026-09-05 AND IT DOES NOT COUNT — recorded so the next reader does
+not repeat it and claim more.** This checkout has REAL directories and real PNGs
+(not symlinks), and its tier trees carry mtimes of 2026-09-04, AFTER this note
+was written — which looks like a fresh generation and is the evidence a reader
+would accept. ⛔ But the condition is INDEPENDENCE, not freshness, and I cannot
+establish that the regeneration happened on a different box: the same machine
+reproduces the same leftovers by the same route. ⇒ The condition stands, and
+"real files, recent mtimes" is exactly the evidence that looks sufficient and is
+not.
 
 ⭐⭐ **PACK OCCUPANCY, MEASURED 2026-09-02 — AND THE ANSWER IS "STOP".** A page is
 decoded, uploaded and held resident whole; only the frame rects its baked

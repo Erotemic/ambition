@@ -41,7 +41,8 @@ const VERB: ParamSpec = ParamSpec {
 pub fn can_descriptor() -> ConditionDescriptor {
     ConditionDescriptor {
         id: ConditionId::new(DOMAIN, "can"),
-        summary: "true while the body the player is driving has this capability enabled",
+        summary: "true while the body the player is driving has this ability GRANTED \
+                  — a capability, so it does not change with what the body is doing",
         params: &[VERB],
     }
 }
@@ -224,7 +225,8 @@ const OPENING: ParamSpec = ParamSpec {
 pub fn fits_descriptor() -> ConditionDescriptor {
     ConditionDescriptor {
         id: ConditionId::new(DOMAIN, "fits"),
-        summary: "true while the body the player is driving is no taller than this opening",
+        summary: "true while the body the player is driving is no taller than this \
+                  opening RIGHT NOW — posture, so crouching changes the answer",
         params: &[OPENING],
     }
 }

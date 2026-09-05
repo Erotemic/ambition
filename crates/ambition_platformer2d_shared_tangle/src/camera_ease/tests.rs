@@ -276,3 +276,81 @@ fn a_placement_can_ask_for_a_snap_that_a_reset_would_otherwise_have_cleared() {
         "a second, shorter placement cut the snap window short"
     );
 }
+
+/// ⭐ THE PROPERTY THAT MAKES THE CALL SITE SAFE: idle is exactly `1.0`, so
+/// `camera_follow` can multiply unconditionally and a host that never decides a
+/// match presents a byte-identical scale to one without the feature.
+#[test]
+fn an_idle_finish_zoom_is_exactly_the_identity() {
+    let zoom = FinishZoomState::default();
+    assert_eq!(zoom.closeness, 0.0);
+    assert_eq!(zoom.scale_factor(FinishZoomTuning::default()), 1.0);
+}
+
+/// The zoom pulls IN — a factor BELOW one — which is the whole reason it cannot
+/// live in `zoom_multiplier`, whose policy floors itself at 1.0 twice over.
+#[test]
+fn a_kicked_finish_zoom_pulls_the_view_in_not_out() {
+    let mut zoom = FinishZoomState::default();
+    zoom.kick(1.0, FinishZoomTuning::default());
+    let factor = zoom.scale_factor(FinishZoomTuning::default());
+    assert!(factor < 1.0, "a finishing zoom must close the view, got {factor}");
+    assert!(factor > 0.0, "and must not invert it, got {factor}");
+    // Full strength at the default 0.30 fraction shows 70% of the width.
+    assert!((factor - 0.70).abs() < 1e-6, "expected 0.70, got {factor}");
+}
+
+/// Strongest-wins and non-stacking, exactly like the shake: several requests
+/// released together by the quarantine settle on the strongest rather than
+/// multiplying into an unreadable close-up.
+#[test]
+fn finish_zoom_kicks_do_not_stack() {
+    let tuning = FinishZoomTuning::default();
+    let mut zoom = FinishZoomState::default();
+    zoom.kick(1.0, tuning);
+    zoom.kick(1.0, tuning);
+    zoom.kick(0.2, tuning);
+    assert_eq!(zoom.closeness, 1.0, "a weaker kick cannot pull a strong one back");
+}
+
+/// ⛔ THE ARM THE HOLD EXISTS FOR. A zoom that begins releasing on the frame it
+/// arrives is a flicker, not a beat — so the hold must actually hold, and then
+/// must actually let go.
+#[test]
+fn the_finish_zoom_holds_before_it_releases() {
+    let tuning = FinishZoomTuning::default();
+    let mut zoom = FinishZoomState::default();
+    zoom.kick(1.0, tuning);
+
+    // Half the hold: still fully in.
+    let mut hold_left = zoom.hold_secs_left;
+    assert!(hold_left > 0.0, "a kick must arm the hold");
+    hold_left -= tuning.hold_secs * 0.5;
+    zoom.hold_secs_left = hold_left;
+    assert_eq!(zoom.closeness, 1.0, "the hold has not expired");
+
+    // Hold spent, then a second of release at 0.60/s.
+    zoom.hold_secs_left = 0.0;
+    zoom.closeness -= tuning.release_per_s * 1.0;
+    assert!(zoom.closeness < 1.0, "it must let go once the hold expires");
+
+    // And it bottoms out at the identity rather than going negative.
+    zoom.closeness = (zoom.closeness - tuning.release_per_s * 10.0).max(0.0);
+    assert_eq!(zoom.closeness, 0.0);
+    assert_eq!(zoom.scale_factor(tuning), 1.0, "it returns to the identity");
+}
+
+/// A clamp, because the request crosses a message boundary and nothing on the
+/// far side vets it: a producer asking for 12.0 must not invert the projection.
+#[test]
+fn a_wild_finish_zoom_request_cannot_invert_the_view() {
+    let tuning = FinishZoomTuning::default();
+    let mut zoom = FinishZoomState::default();
+    zoom.kick(12.0, tuning);
+    assert_eq!(zoom.closeness, 1.0, "closeness is clamped to 1.0");
+    assert!(zoom.scale_factor(tuning) > 0.0);
+
+    // And an absurd TUNING cannot either -- max_close_fraction caps at 0.9.
+    let wild = FinishZoomTuning { max_close_fraction: 5.0, ..tuning };
+    assert!(zoom.scale_factor(wild) > 0.0, "a wild tuning must not invert it");
+}

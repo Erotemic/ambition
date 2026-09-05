@@ -123,6 +123,16 @@ pub fn camera_follow(
         ambition_platformer2d_core::RoomGeometry,
     >,
     shake: Res<ambition_platformer2d_shared_tangle::camera_ease::CameraShakeState>,
+    // ⭐ OPTIONAL, and deliberately not `Res` like the shake beside it. A host
+    // that draws through `camera_follow` without installing the finishing
+    // zoom's resources should present an unzoomed camera, not panic on a
+    // missing resource — the same reasoning `shake_camera_on_landed_hits`
+    // states for its own feel tuning: *"a missing one means no shake rather
+    // than a panic"*. Making it required turned an existing render fixture
+    // red the moment it landed, which is the cheap version of the same
+    // report a downstream host would have made.
+    finish_zoom: Option<Res<ambition_platformer2d_shared_tangle::camera_ease::FinishZoomState>>,
+    finish_zoom_tuning: Option<Res<ambition_platformer2d_shared_tangle::camera_ease::FinishZoomTuning>>,
     #[cfg(feature = "portal_render")] mut portal_continuity: PortalCameraContinuityParams,
     // `With<MainCamera>` (not the broad `With<Camera2d>`): besides the #31 cube pause-menu
     // Camera3d, the portal view-cone renderer spawns offscreen capture `Camera2d`s.
@@ -148,6 +158,12 @@ pub fn camera_follow(
     // to disagree silently.
     let on_hand = ambition_sim_view::ViewsOnHand::survey(views.iter().map(|(view, ..)| view));
     let shake_offset = shake.offset();
+    // Resolved once per run rather than per camera: both resources are
+    // process-wide, and an absent pair is exactly the identity.
+    let finish_zoom_factor = match (finish_zoom.as_deref(), finish_zoom_tuning.as_deref()) {
+        (Some(zoom), Some(tuning)) => zoom.scale_factor(*tuning),
+        _ => 1.0,
+    };
 
     for (mut transform, mut projection, link) in &mut query {
         let Some(view_entity) = on_hand.presented_by(link.copied()) else {
@@ -237,7 +253,17 @@ pub fn camera_follow(
         *view_state = CameraViewState::from(&snapshot);
 
         if let Projection::Orthographic(orthographic) = &mut *projection {
-            orthographic.scale = snapshot.orthographic_scale;
+            // ⛔⛔ THE FINISHING ZOOM MULTIPLIES HERE AND NOWHERE UPSTREAM.
+            // `snapshot.orthographic_scale` descends from a policy that floors
+            // itself at 1.0 twice over — `CameraZoneSpec::effective_zoom` and
+            // `camera_snapshot`'s own `target_scale` — because the design view
+            // is a readability FLOOR the player is never given less than. A
+            // finishing zoom goes the other way, so it is applied to the
+            // PRESENTED projection instead of being allowed under that floor,
+            // exactly as the shake is applied to the presented transform.
+            // `scale_factor` returns 1.0 when idle, so this is a no-op for
+            // every host that never decides a match.
+            orthographic.scale = snapshot.orthographic_scale * finish_zoom_factor;
         }
         transform.translation.x = x + shake_offset.x;
         transform.translation.y = y + shake_offset.y;

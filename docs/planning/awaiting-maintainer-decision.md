@@ -1621,6 +1621,26 @@ system retracts a recorded defeat on `RoomReplayAdmitted`**
 placements. A room replay itself changes **zero** durable families — measured
 the same day — so nothing generic retracts anything.
 
+⭐⭐ **AND THE SCOPE IS WIDER THAN BOSSES — re-measured 2026-09-05.** Exactly
+**one** production system in the whole tree both reads a `RoomReplayAdmitted` and
+retracts a durable fact (`reset_cut_rope_attempt_on_replay`; the only other file
+that does both is `combat/rollback_registration.rs`, where the hits are message
+NAMES, not writes). So the same question is open for every durable family a room
+can change during an attempt, not just `bosses`:
+
+```text
+BossSpawn   11 authored placements   1 retracted on replay
+Switch      14 authored placements   0 retracted on replay
+encounters   generic writer          0 retracted on replay
+flags        generic writer          0 retracted on replay
+```
+
+⇒ **A switch flipped during an attempt stays flipped after the replay that undid
+the attempt** — so a puzzle room replays already solved, and nobody chose that
+either. The ruling this row asks for should therefore be stated for durable
+ATTEMPT STATE generally, or it will be answered once for bosses and re-asked for
+switches the first time a puzzle room needs a retry.
+
 ⇒ **For ten of eleven bosses, a defeat recorded during an attempt survives the
 replay that undoes the attempt.** The boss is rebuilt and refightable, the
 population census agrees perfectly, and `boss.cleared` — published 2026-09-04 —

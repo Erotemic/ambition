@@ -1148,7 +1148,7 @@ fn fighters() -> [String; 2] {
 /// in which authority the ROW consulted. ⇒ A test that constructs its subject
 /// cannot witness that subject being bypassed, and the fix is to give the row's
 /// decision a name something can call.
-fn row_verdict(bouts: &[Bout], properly_paired: bool) -> (&'static str, bool) {
+fn row_verdict(bouts: &[Bout], properly_paired: bool) -> (&'static str, bool, Option<PairedSplit>) {
     let dealt = |seat: usize| median(bouts.iter().map(|b| b.damage_taken[1 - seat]).collect());
     let stocks_taken = |seat: usize| {
         median(
@@ -1199,7 +1199,8 @@ fn row_verdict(bouts: &[Bout], properly_paired: bool) -> (&'static str, bool) {
         // fair coin. It gains power with seeds, ignores the magnitude of
         // outliers entirely, and assumes nothing about the distribution — which
         // matters here because bout damage is bounded, skewed and bimodal.
-        paired_verdict(&paired_outcomes(bouts))
+        let (word, within, split) = paired_verdict(&paired_outcomes(bouts));
+        (word, within, Some(split))
     } else {
         // ⛔⛔ AN UNPAIRED ROW MAKES NO INFERENCE AT ALL, and printing one was the
         // paired road's defect surviving on the road that is the DEFAULT.
@@ -1222,7 +1223,10 @@ fn row_verdict(bouts: &[Bout], properly_paired: bool) -> (&'static str, bool) {
         // ⇒ The word stays — pooled medians are the best DESCRIPTION available —
         // and the inferential qualifier is replaced at the print site by the
         // design fact, which is true and is what a reader should discount by.
-        (pooled_verdict, false)
+        // ⚠ No split: an unpaired row HAS no per-seed pairs to report, and
+        // inventing one from pooled medians is the two-authorities defect this
+        // file spent a day removing.
+        (pooled_verdict, false, None)
     }
 }
 
@@ -1296,17 +1300,50 @@ fn paired_outcomes(bouts: &[Bout]) -> Vec<PairedOutcome> {
 /// ⇒ There is now ONE authority. The direction is whichever side more pairs
 /// favoured; the significance is the same split's exact two-sided sign test.
 /// They cannot disagree, because there is nothing left to disagree with.
-fn paired_verdict(outcomes: &[PairedOutcome]) -> (&'static str, bool) {
+/// The per-seed split a paired verdict was computed from.
+///
+/// ⛔⛔ IT IS RETURNED BECAUSE A VERDICT NOBODY CAN RE-DERIVE IS A VERDICT YOU
+/// MUST TRUST. `paired_verdict` used to hand back only `(word, within_spread)`,
+/// so a row printed `higher outfights` beside pooled-median columns that no
+/// longer decide anything, and the 10-versus-2 that actually produced it existed
+/// for one stack frame and was gone. A reader who wanted to check the sign test
+/// had no numbers to check it with — `fighter-brain.md` recorded that as the
+/// repaired tool's one remaining limitation.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+struct PairedSplit {
+    higher: usize,
+    lower: usize,
+    tied: usize,
+}
+
+impl PairedSplit {
+    /// `10:2` — and `+1 tied` only when there IS one, so the common row stays
+    /// narrow and a dropped pair is never silently invisible.
+    fn describe(self) -> String {
+        if self.tied == 0 {
+            format!("{}:{}", self.higher, self.lower)
+        } else {
+            format!("{}:{} +{} tied", self.higher, self.lower, self.tied)
+        }
+    }
+}
+
+fn paired_verdict(outcomes: &[PairedOutcome]) -> (&'static str, bool, PairedSplit) {
     let higher = outcomes.iter().filter(|o| **o == PairedOutcome::Higher).count();
     let lower = outcomes.iter().filter(|o| **o == PairedOutcome::Lower).count();
     // ⛔ TIES ARE DROPPED rather than split, the same rule the sign test uses: a
     // pair that came out level is evidence about neither rung.
+    let tied = outcomes.len() - higher - lower;
     let word = match higher.cmp(&lower) {
         std::cmp::Ordering::Greater => "higher outfights",
         std::cmp::Ordering::Less => "LOWER outfights",
         std::cmp::Ordering::Equal => "even",
     };
-    (word, sign_test_within_spread(higher, lower))
+    (
+        word,
+        sign_test_within_spread(higher, lower),
+        PairedSplit { higher, lower, tied },
+    )
 }
 
 /// The midpoint of a sample.
@@ -1465,11 +1502,16 @@ fn report_row(label: &str, bouts: &[Bout]) {
             bouts.len()
         );
     }
-    let (verdict, overlaps) = row_verdict(bouts, properly_paired);
+    let (verdict, overlaps, split) = row_verdict(bouts, properly_paired);
+    // ⭐ THE SPLIT TRAVELS WITH THE WORD. A reader can now re-derive the sign
+    // test from the row instead of trusting it — `10:2` against 12 pairs is
+    // checkable by hand, and it is the only number on the line that DECIDED
+    // anything, the medians beside it being descriptive.
+    let seen = split.map(|s| format!(" [{}]", s.describe())).unwrap_or_default();
     let verdict = if overlaps {
-        format!("{verdict} (within spread)")
+        format!("{verdict}{seen} (within spread)")
     } else if properly_paired {
-        verdict.to_string()
+        format!("{verdict}{seen}")
     } else {
         // ⚠ NOT a significance claim, and deliberately not shaped like one: it
         // names the DESIGN that produced the row, so a reader discounts it for
@@ -2278,7 +2320,7 @@ mod tests {
         let lower = outcomes.iter().filter(|o| **o == PairedOutcome::Lower).count();
         assert_eq!((higher, lower), (16, 4), "the pairs split 16-4 for the higher rung");
 
-        let (word, overlaps) = paired_verdict(&outcomes);
+        let (word, overlaps, _split) = paired_verdict(&outcomes);
         assert!(
             !overlaps,
             "16-4 is p = 0.0118, which is significant; the qualifier must be absent"
@@ -2316,12 +2358,27 @@ mod tests {
             bouts.push(scored(0.0, 1000.0, 1, 1));
             bouts.push(scored(0.0, 1000.0, 1, 1));
         }
+        let (word, overlaps, split) = row_verdict(&bouts, true);
         assert_eq!(
-            row_verdict(&bouts, true),
+            (word, overlaps),
             ("higher outfights", false),
             "a properly paired row must read the paired outcomes; the pooled \
              medians on this fixture say LOWER, which is the answer the defect gave"
         );
+        // ⭐ AND THE ROW NOW CARRIES THE SPLIT THAT PRODUCED THAT WORD, so a
+        // reader can re-derive the sign test instead of trusting it. This is
+        // the fixture's own 10-0 sweep, and asserting it here is what stops the
+        // printed `[10:0]` drifting away from the numbers it claims to report.
+        let split = split.expect("a paired row must report its split");
+        // ⭐ 16:4 IS THE EXACT SPLIT `fighter-brain.md` NAMED AS UNCHECKABLE —
+        // *"no way to check the 16-versus-4 that produced it"*. It is this
+        // fixture's, and it is now on the printed row.
+        assert_eq!(
+            (split.higher, split.lower, split.tied),
+            (16, 4, 0),
+            "the reported split does not match the fixture that produced it"
+        );
+        assert_eq!(split.describe(), "16:4", "a tie-free split prints narrow");
         // ⭐ AND THE UNPAIRED ROW IS DELIBERATELY UNCHANGED: with no pairs to
         // reduce there is no second authority to prefer, so the pooled reading
         // is still the honest one and still says LOWER here.
@@ -2353,7 +2410,7 @@ mod tests {
             outcomes.iter().all(|o| *o == PairedOutcome::Higher),
             "stocks are the primary outcome, so a pair won on stocks is won: {outcomes:?}"
         );
-        let (word, overlaps) = paired_verdict(&outcomes);
+        let (word, overlaps, _split) = paired_verdict(&outcomes);
         assert_eq!(word, "higher outfights");
         assert!(!overlaps, "8-0 is p = 0.0078 and is significant");
     }
@@ -2377,7 +2434,7 @@ mod tests {
         }
         let outcomes = paired_outcomes(&bouts);
         assert_eq!(outcomes.iter().filter(|o| **o == PairedOutcome::Even).count(), 10);
-        let (word, overlaps) = paired_verdict(&outcomes);
+        let (word, overlaps, _split) = paired_verdict(&outcomes);
         assert_eq!(word, "higher outfights", "the direction is still the five decisive pairs");
         assert!(
             overlaps,
@@ -2451,7 +2508,7 @@ mod tests {
              decide the word and only damage could have produced the old qualifier"
         );
 
-        let (word, overlaps) = row_verdict(&bouts, false);
+        let (word, overlaps, _split) = row_verdict(&bouts, false);
         assert_eq!(
             word, "higher outfights",
             "a rung that takes every stock in every bout wins the row"

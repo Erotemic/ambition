@@ -63,15 +63,22 @@ withhold the label — a row could have printed a direction its own evidence
 contradicted — and the re-run is what converts *unconfirmed* into *confirmed*
 rather than assuming either.
 
-⚠ **AND A LIMITATION OF THE REPAIRED TOOL, WORTH KNOWING BEFORE THE RE-RUN: a
-paired verdict cannot be re-derived from the printed output.** The direction and
-the qualifier now both come from the per-seed split, but **the split itself is not
-printed** — `row_verdict` returns only `(word, within_spread)`. ⇒ A reader sees
-`higher outfights` beside pooled median columns that no longer decide anything,
-with no way to check the 16-versus-4 that produced it. ⓘ Not changed here:
-printing it means widening a return type, which is real code, and this box cannot
-compile. ⭐ Cheap for whoever can — it is the difference between a verdict you can
-audit and one you must trust.
+✔✔ **AND THE REPAIRED TOOL'S ONE REMAINING LIMITATION IS CLOSED — 2026-09-04.**
+It read: *"a paired verdict cannot be re-derived from the printed output… a
+reader sees `higher outfights` beside pooled median columns that no longer decide
+anything, with no way to check the 16-versus-4 that produced it. Cheap for
+whoever can [compile]."* ⇒ **The split now travels with the word**:
+`row_verdict` returns a `PairedSplit`, and a paired row prints
+`higher outfights [16:4]`, with `+N tied` appended only when a pair was dropped
+so the common row stays narrow and a discarded pair is never silently invisible.
+⭐ **That is the only number on the line that DECIDED anything** — the medians
+beside it are descriptive by construction since `36dd9a248` — so a reader can now
+re-derive the sign test by hand instead of trusting it. ⓘ An UNPAIRED row prints
+no split, deliberately: it has no per-seed pairs, and manufacturing one from
+pooled medians would be the two-authorities defect this page spent a day
+removing. ⚠ Guarded by the fixture that produced the doc's own example — the
+16-versus-4 named above is that test's split, asserted so the printed number
+cannot drift from the outcomes it claims to report.
 
 ⇒ **So: treat every *significant* / *(within spread)* label and every median column
 below as PRE-FIX.** ⭐ What survives untouched is anything established by

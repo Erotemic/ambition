@@ -25,6 +25,23 @@ names where the number lives.** A claim goes stale loudly, because the next
 person who reads it checks it; a copied count goes stale silently, and drifts
 into describing nothing.
 
+⭐⭐ **AND A NUMBER GOES STALE FOUR DIFFERENT WAYS — audited 2026-09-05 against
+figures I had published MYSELF earlier the same day, which found five.** The
+causes want different fixes, and reaching for the wrong one leaves the row
+wrong:
+
+| cause | example | the fix |
+|---|---|---|
+| the TREE changed | `4/14` session-scoped → `5/13`, because I landed the fix the census argued for | re-run and correct |
+| the INSTRUMENT was corrected | `149` unauthored variants → `91`, two scan fixes and no movement in the tree | correct, and SAY it was the instrument or a shrinking number reads as progress |
+| the SUBJECT moves continuously | workspace lines `614,016` → `616,760` in an afternoon | DATE it; a correction is pointless |
+| documenting it moved it | citation count grew while writing the page about citations | date it, and note the irony rather than chasing it |
+
+⛔ **The one that is hardest to see is the first, because nothing external
+drifted:** the row argues for a fix, the fix lands, and the row now describes the
+tree BEFORE its own conclusion was acted on. ⇒ **re-run a census AFTER landing
+the change it motivated.** It feels redundant and it is not.
+
 ## Replenishment order
 
 Unless Jon or a new reproducible report changes the order:

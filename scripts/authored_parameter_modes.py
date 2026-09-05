@@ -95,6 +95,28 @@ def git(*args: str) -> list[str]:
     ).stdout.split()
 
 
+def _is_test(path: str) -> bool:
+    """⛔⛔ THE EVIDENCE AND THE THING BEING PROVED MUST NOT SHARE A CORPUS.
+
+    A test that sets a field proves nothing about authored content, and a test is
+    often the LAST place a name survives after the real customer goes. ⇒ a field
+    set only in `*_tests.rs` is DORMANT, and a corpus containing tests calls it
+    LIVE — the exact inversion this census exists to avoid.
+
+    ⚠ This bit only after the corpus widened to `ambition_characters` for the
+    authoring helpers: that crate carries 60 test files which set gate fields
+    constantly. The narrow `game/` corpus had almost none, so the bug was latent
+    until the fix for a DIFFERENT false positive introduced it.
+    """
+    name = path.rsplit("/", 1)[-1]
+    return (
+        name == "tests.rs"
+        or name.endswith("_tests.rs")
+        or name == "test_support.rs"
+        or "/tests/" in path
+    )
+
+
 def authored_corpus(*, with_helpers: bool) -> tuple[str, int]:
     """The authored corpus. ⛔ THE TWO AXES NEED DIFFERENT ONES.
 
@@ -117,7 +139,7 @@ def authored_corpus(*, with_helpers: bool) -> tuple[str, int]:
         f
         for f in git("ls-files")
         if (f.endswith((".ron", ".ldtk", ".yarn")) and f.startswith("game/"))
-        or (f.endswith(".rs") and f.startswith(roots))
+        or (f.endswith(".rs") and f.startswith(roots) and not _is_test(f))
     ]
     text = "\n".join(
         (REPO / f).read_text(encoding="utf-8", errors="replace") for f in files

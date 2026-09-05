@@ -146,6 +146,30 @@ three are the limbed-host/giant-hand shape helpers (`is_limbed_host`,
 `giant_hand_plans`, `GiantHandPlan`). The type half may move on its own and is
 the cheapest first cut; the helper half is a shape query that may belong to
 neither side as it stands.
+⛔⛔ **"CHEAPEST" IS RELATIVE AND READS FAR CHEAPER THAN IT IS — measured
+2026-09-04, and the packet did not carry this.** The 15 production references
+are confirmed exactly, all in `construction/mod.rs`, splitting 3 / 6 / 6 across
+types, recipe constructors, and the limbed-host/giant-hand helpers — so that
+part of the packet is sound. ⚠ **But `SpawnActorKind` and `SpawnActorRequest`
+are PUBLIC SURFACE**: 90 sites, of which **55 are inside the monolith and 35 are
+outside it, across nine crates** — `ambition_content` 11, `ambition_sim_harness`
+9, `ambition_demo_twintrack` 5, `ambition_demo_mary_o` 2,
+`ambition_demo_mary_o_app` 2, `ambition_platformer2d_runtime` 2,
+`ambition_platformer2d_rollback_ggrs` 2, `ambition_app` 1,
+`ambition_platformer2d` 1.
+⇒ **So the "cheapest first cut" moves two types out from under nine crates**,
+and [`actor-monolith-decomposition.md`](actor-monolith-decomposition.md)'s
+non-goals forbid the escape hatch — *"keep historical re-exports for
+compatibility in this pre-release engine"* is on its **do not** list, so those
+35 are edits rather than a re-export.
+ⓘ **Count those sites by PATH, not by filtering the crate name out of the
+text.** `grep -v ambition_platformer2d_actor_monolith` answers **31**, four
+short, because four lines outside the monolith name it in a fully-qualified
+path — the filter deleted part of the denominator it was measuring.
+⭐ None of this argues against the cut: the types are spawn-request vocabulary
+and `construction/` is the construction protocol, so moving them DOWN is the
+semantically right direction. It argues against sequencing the packet as though
+the cheap half were cheap.
 
 ### Required result
 

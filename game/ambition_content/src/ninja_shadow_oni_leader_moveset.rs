@@ -275,6 +275,79 @@ pub fn ninja_shadow_oni_leader_moveset() -> MovesetContract {
     let side_b = vfx_at(side_b, 0.05, "iaijutsu_glint", (34.0, 0.0), 1.0);
     let side_b = sfx(side_b, 0.05, "enemy.shadow_oni.slash");
     let side_b = on_contact(side_b, "player.hit");
+    // ⭐⭐ AND IF YOU BLOCK IT, HE IS ALREADY GONE — the first authored
+    // `TechniqueFlow` in the game.
+    //
+    // ⛔⛔ THIS IS THE THING A TIMELINE CANNOT SAY. Windows and events state
+    // WHEN; every move in this file is a fixed clock and could not ask what
+    // HAPPENED. A shielded iaijutsu leaves him standing in front of a guard with
+    // 0.30s of recovery — the most punishable place in the genre — and the only
+    // fix available before a flow was to make the move safe for everybody, which
+    // is a worse move.
+    //
+    // ⭐ THE READ IS THE POINT, and it runs both ways. Block it and he escapes,
+    // so shielding the dash is no longer free; DON'T block it and you eat 11 and
+    // a launch. That is a 1v1 exchange with two live answers instead of one
+    // dominant one, which is what this campaign means by depth.
+    //
+    // ⇒ Four nodes, and every one of them is vocabulary that already shipped:
+    // wait for the swing to touch ANYTHING (`Overlapped` is true of a blocked
+    // strike too, which is exactly why the wait uses it and the branch does
+    // not), then ask whether a guard ate it, and if so spend his own teleport.
+    // The flow owns its cursor and nothing else — the teleport is the same
+    // technique his own counter answers with.
+    let side_b = ambition_platformer2d::entity_catalog::MoveSpec {
+        flow: Some(ambition_platformer2d::entity_catalog::TechniqueFlow {
+            nodes: vec![
+                // 0 — hold until the swing touches something. ⛔ THE TIMEOUT IS
+                // PAST THE ACTIVE WINDOW (0.05 + 0.05) and short of the tail: a
+                // swing that touched nothing by then whiffed, and a whiff is
+                // supposed to be punishable.
+                ambition_platformer2d::entity_catalog::FlowNode::Wait {
+                    on: ambition_platformer2d::entity_catalog::FlowSignal::Overlapped,
+                    timeout_s: 0.16,
+                    then: 1,
+                    on_timeout: 3,
+                },
+                // 1 — a guard, or a body? ⛔ A BRANCH RATHER THAN A SECOND WAIT:
+                // by here the contact is resolved and the answer cannot change,
+                // which is the distinction `FlowNode::Branch`'s doc draws.
+                ambition_platformer2d::entity_catalog::FlowNode::Branch {
+                    on: ambition_platformer2d::entity_catalog::FlowSignal::Blocked,
+                    then: 2,
+                    otherwise: 3,
+                },
+                // 2 — behind them, through the guard he just fed.
+                ambition_platformer2d::entity_catalog::FlowNode::Emit {
+                    effect: ambition_platformer2d::entity_catalog::EffectRef {
+                        key: ambition_platformer2d::characters::smash_teleport::TELEPORT
+                            .to_string(),
+                        params: ambition_platformer2d::entity_catalog::ParamValue::from_typed(
+                            &ambition_platformer2d::characters::smash_teleport::TeleportParams {
+                                behind_nearest_foe: true,
+                                behind_gap: 26.0,
+                                // Whoever just blocked him is within his own
+                                // reach by construction.
+                                distance: 180.0,
+                                // Not a recovery: a ledge grabbing this arrival
+                                // would turn an escape into a stall.
+                                ledge_assist: 0.0,
+                                // Through the shieldstun he is leaving, and no
+                                // longer.
+                                intangible_s: 0.12,
+                                depart_vfx: "smoke_fold".to_string(),
+                                arrive_vfx: "silent_step".to_string(),
+                            },
+                        )
+                        .expect("the oni's escape teleport params serialize"),
+                    },
+                    then: 3,
+                },
+                ambition_platformer2d::entity_catalog::FlowNode::Finish,
+            ],
+        }),
+        ..side_b
+    };
 
     // UP — `smoke_fold`. THE RECOVERY, and the reason this batch is not
     // cosmetic: with no special at all he had a double jump and nothing else.
@@ -534,6 +607,67 @@ pub fn ninja_shadow_oni_leader_moveset() -> MovesetContract {
 
 #[cfg(test)]
 mod tests {
+    /// ⭐⭐ THE FIRST AUTHORED FLOW IN THE GAME VALIDATES, and this asserts the
+    /// SHAPE rather than the node count.
+    ///
+    /// ⛔ `TechniqueFlow::problems()` exists because every one of its failures is
+    /// SILENT at runtime — a transition past the end of the list, a flow with no
+    /// reachable `Finish`, a `Wait` that can never time out. Each produces a move
+    /// that plays and does nothing, or a fighter stuck in a special, and neither
+    /// reads as a data error to whoever is holding the controller. ⇒ A flow that
+    /// nothing validates is worse than no flow.
+    #[test]
+    fn the_onis_iaijutsu_authors_a_flow_that_validates_and_escapes_only_on_block() {
+        use ambition_platformer2d::entity_catalog::{FlowNode, FlowSignal};
+        let set = super::ninja_shadow_oni_leader_moveset();
+        let side_b = set
+            .moves
+            .iter()
+            .find(|m| m.id == "iaijutsu")
+            .expect("his side-B is in the table");
+        let flow = side_b
+            .flow
+            .as_ref()
+            .expect("the iaijutsu authors no flow, so a shielded dash is a free punish again");
+        assert!(
+            flow.problems().is_empty(),
+            "the oni's flow does not validate: {:?}",
+            flow.problems()
+        );
+
+        // ⛔ THE BRANCH IS ON `Blocked`, NOT ON `Overlapped`. The WAIT uses
+        // `Overlapped` deliberately — it is true of a blocked strike too, which
+        // is what lets the wait end at all — so a branch that reused it would
+        // escape on every connect as well, and the move would be safe on
+        // everything rather than safe on shield.
+        let branch_signal = flow.nodes.iter().find_map(|n| match n {
+            FlowNode::Branch { on, .. } => Some(*on),
+            _ => None,
+        });
+        assert_eq!(
+            branch_signal,
+            Some(FlowSignal::Blocked),
+            "the escape branches on {branch_signal:?} — only a BLOCK may buy it, \
+             or the dash becomes safe on hit as well"
+        );
+
+        // ⛔ AND THE WAIT MUST TIME OUT SHORT OF THE MOVE. A whiffed dash is
+        // supposed to be punishable; a timeout past the tail would let a swing
+        // that touched nothing still reach the branch.
+        let timeout = flow.nodes.iter().find_map(|n| match n {
+            FlowNode::Wait { timeout_s, .. } => Some(*timeout_s),
+            _ => None,
+        });
+        let active_ends = 0.05 + 0.05;
+        assert!(
+            timeout.is_some_and(|t| t > active_ends && t < side_b.duration_s),
+            "the wait times out at {timeout:?}, which is not between the end of \
+             the active window ({active_ends}) and the end of the move \
+             ({}) — a whiff must not reach the escape",
+            side_b.duration_s
+        );
+    }
+
     use super::*;
     use ambition_platformer2d::entity_catalog::{MoveSpec, MoveWindow, WindowTag};
 

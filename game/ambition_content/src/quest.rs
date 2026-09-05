@@ -28,18 +28,6 @@ pub const PIRATE_TREASURE_REWARD: &[(Item, u32)] = &[
     (Item::DataChip, 1),
 ];
 
-/// Quest ids that auto-start at boot so the player sees HUD entries
-/// from the first frame. Starting is idempotent.
-const AUTO_START_QUESTS: &[&str] = &[
-    "first_steps",
-    "test_switch_quest",
-    "quest_lab_visit",
-    "pirate_treasure",
-    "intro_cartography_route",
-    "intro_p1_stabilizer",
-    "intro_first_system_boss",
-];
-
 /// Default quest specs the sandbox ships. The "First Steps" quest is
 /// a tutorial that walks the player through talking to a hub NPC,
 /// clearing the goblin encounter, and defeating the prototype boss — exactly
@@ -70,7 +58,8 @@ pub fn default_quest_specs() -> Vec<ambition_persistence::quest::QuestSpec> {
                     ),
                 ),
             ],
-        ),
+        )
+        .starting_at_boot(),
         ambition_persistence::quest::QuestSpec::new(
             "test_switch_quest",
             "Test the Memory",
@@ -81,7 +70,7 @@ pub fn default_quest_specs() -> Vec<ambition_persistence::quest::QuestSpec> {
                     "test_switch_toggled".into(),
                 ),
             )],
-        ),
+        ).starting_at_boot(),
         // Quest lab proof: minimal RoomEntered-driven quest. Auto-
         // starts at boot, advances when the player enters the
         // quest_lab room, completes when they walk back to the
@@ -104,7 +93,7 @@ pub fn default_quest_specs() -> Vec<ambition_persistence::quest::QuestSpec> {
                     ),
                 ),
             ],
-        ),
+        ).starting_at_boot(),
         // Pirate cove bounty: the cove's hoard was stolen by a
         // mockingbird. Auto-starts at boot so the player can take
         // either path first — slay the bird or chat up the admiral.
@@ -133,7 +122,7 @@ pub fn default_quest_specs() -> Vec<ambition_persistence::quest::QuestSpec> {
                     ),
                 ),
             ],
-        ),
+        ).starting_at_boot(),
         // Intro-v1 cartography route. Alice's sealed note → Bob's
         // field survey → first system boss + P5 Route Memory. Steps
         // are flag-set conditions wired to the PickupSpawn entities
@@ -164,7 +153,7 @@ pub fn default_quest_specs() -> Vec<ambition_persistence::quest::QuestSpec> {
                     ),
                 ),
             ],
-        ),
+        ).starting_at_boot(),
         // Intro-v1 P1 Stabilizer beat. Oiler is the social anchor in
         // Drain Market; talking to him plus picking up the stabilizer
         // entity (drain_alley spec) closes the beat.
@@ -186,7 +175,7 @@ pub fn default_quest_specs() -> Vec<ambition_persistence::quest::QuestSpec> {
                     ),
                 ),
             ],
-        ),
+        ).starting_at_boot(),
         // Intro-v1 first system boss clear, tracked as a separate
         // single-step quest gated by BossDefeated("clockwork_warden")
         // (the boss profile the first_system_boss room reuses).
@@ -203,7 +192,7 @@ pub fn default_quest_specs() -> Vec<ambition_persistence::quest::QuestSpec> {
                     "clockwork_warden".into(),
                 ),
             )],
-        ),
+        ).starting_at_boot(),
     ]
 }
 
@@ -225,9 +214,13 @@ pub fn populate_quest_registry(
         let (persisted, step) = save_data.quest(id);
         state.apply_persisted(persisted, step);
     }
-    for id in AUTO_START_QUESTS {
-        if let Some(q) = registry.quests.get_mut(*id) {
-            let _ = q.start();
+    // ⭐ THE QUESTS SAY SO THEMSELVES. This was a separate `AUTO_START_QUESTS`
+    // list of ids looked up with `get_mut`, so an id that stopped matching a
+    // spec started nothing and reported nothing. Reading the flag off the spec
+    // means a quest cannot be missing from a list it is not named in.
+    for state in registry.quests.values_mut() {
+        if state.spec.auto_start {
+            let _ = state.start();
         }
     }
     registry.initialized = true;
@@ -340,16 +333,36 @@ mod tests {
         assert!(banner.contains("TREASURE"));
     }
 
-    /// Every auto-start id must correspond to a shipped spec — a typo
-    /// here would silently never start the quest.
+    // ⭐⭐ `auto_start_ids_all_exist_in_default_specs` WAS HERE AND IS DELETED
+    // ON PURPOSE — it is no longer expressible. It checked that every id in a
+    // separate `AUTO_START_QUESTS` list matched a shipped spec, because a typo
+    // or a rename would silently never start the quest. The flag now lives on
+    // `QuestSpec` itself, so there is no second list to disagree with, and the
+    // property the test defended is a consequence of the type rather than a
+    // thing to assert. ⇒ the test did not become redundant, its SUBJECT did.
     #[test]
-    fn auto_start_ids_all_exist_in_default_specs() {
+    fn the_quests_that_should_greet_the_player_are_marked_auto_start() {
+        // ⛔ NOT a restatement of the deleted test. That one guarded a LIST
+        // against the specs; this guards the shipped CONTENT DECISION — that
+        // these seven are the ones with a HUD entry from the first frame — so a
+        // quest silently losing its `.auto_start()` is still caught.
         let specs = default_quest_specs();
-        for id in AUTO_START_QUESTS {
-            assert!(
-                specs.iter().any(|s| s.id == *id),
-                "auto-start quest id {id:?} has no spec"
-            );
-        }
+        let mut marked: Vec<&str> = specs
+            .iter()
+            .filter(|s| s.auto_start)
+            .map(|s| s.id.as_str())
+            .collect();
+        marked.sort_unstable();
+        let mut expected: Vec<&str> = vec![
+            "first_steps",
+            "test_switch_quest",
+            "quest_lab_visit",
+            "pirate_treasure",
+            "intro_cartography_route",
+            "intro_p1_stabilizer",
+            "intro_first_system_boss",
+        ];
+        expected.sort_unstable();
+        assert_eq!(marked, expected);
     }
 }

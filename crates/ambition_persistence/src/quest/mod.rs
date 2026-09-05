@@ -112,6 +112,18 @@ pub struct QuestSpec {
     pub title: String,
     pub summary: String,
     pub steps: Vec<QuestStepSpec>,
+    /// Start this quest as soon as the registry initialises, so it has a HUD
+    /// entry from the first frame. Starting is idempotent.
+    ///
+    /// ⭐ THE FLAG LIVES ON THE QUEST because the alternative was a SEPARATE
+    /// LIST OF IDS that had to agree with these specs by hand
+    /// (`AUTO_START_QUESTS` in `ambition_content`). The consumer looked its
+    /// ids up with `if let Some(q) = registry.quests.get_mut(id)`, so an id
+    /// that stopped matching a spec — a rename, a deleted quest — SILENTLY
+    /// auto-started nothing and no test or log said so. ⇒ a quest that cannot
+    /// be named in that list cannot be missing from it.
+    #[serde(default)]
+    pub auto_start: bool,
 }
 
 impl QuestSpec {
@@ -126,7 +138,23 @@ impl QuestSpec {
             title: title.into(),
             summary: summary.into(),
             steps,
+            auto_start: false,
         }
+    }
+
+    /// Mark this quest to start as soon as the registry initialises.
+    ///
+    /// ⭐ A BUILDER rather than a fifth `new()` argument: every existing caller
+    /// keeps compiling, and the quests that DO auto-start say so at their own
+    /// definition instead of in a list somewhere else.
+    ///
+    /// ⚠ NAMED `starting_at_boot`, NOT `auto_start`. Rust would allow a method
+    /// and a field to share that name, and a reader meeting `spec.auto_start`
+    /// and `spec.auto_start()` in the same file has to know which is which.
+    #[must_use]
+    pub fn starting_at_boot(mut self) -> Self {
+        self.auto_start = true;
+        self
     }
 }
 

@@ -279,6 +279,51 @@ none of them waits on `TechniqueFlow`.
   grep, and the next person on this row should start there. The structural finding
   above stands on its own and does not need that answer.
 
+### ✔ TRACK B IS COMPLETE (2026-09-05), and what it cost
+
+| rung | landed as | engine cost |
+|---|---|---|
+| B1 successful-defense consequence | `ParriedBodyHit` + `smash.counter`; stand-ins' `riposte` | one message |
+| B2 ground tether | Projectile Polygon's grab at 150px + a line on both roads | one read-model field |
+| B3 interception | `intercept_projectile`; reflector FREE by composition; Officer's riot shield absorbs | one enum, one shield field |
+| B4 per-action muzzle | `Muzzle::Offset`; Projectile Polygon fires from her cannon | one enum variant |
+
+⭐ **Three of the four cost one field or less, and one cost nothing at all.** The
+reflector was already shipped the moment the counter existed, because both roads
+gate on `parrying()`. That is the campaign's thesis surviving contact: the
+authorities were there and what was missing was coordination.
+
+### ⛔ WHAT IS BLOCKED, AND IT IS ONE DECISION RATHER THAN FOUR
+
+Three separate rows are stuck on the same thing — **the roster is full**, and
+filling a slot is a design call rather than engineering:
+
+* **Sing** — engine landed and guarded; the Performer has all five specials, and
+  her neutral (`the_monologue`) is ALREADY a proto-Sing that holds the room with
+  fixed knockback. Upgrading it is a balance change to shipped, documented
+  content: adding the sleep makes it much stronger, replacing the knockback
+  removes the hit.
+* **The stand-ins' last two presses** — `special_neutral_air` and
+  `special_back_air`. Four specials have been authored onto them this campaign
+  and each one narrows the open question of what they ARE. ⇒ Stopping there
+  deliberately.
+* **Any further absorber/reflector variants** — same reason; the Officer took the
+  one slot that was a borrowed generic rather than an authored move.
+
+⇒ **The single most unblocking answer is what the Performer's neutral should
+be**, because it decides whether Sing upgrades an existing move or wants a
+fighter of its own.
+
+### ⛔ AND TRACK A IS BLOCKED DIFFERENTLY — ordering, not permission
+
+`TechniqueFlow` runs with an authored customer. The next rung is NOT slots:
+a slot binds a symbol to a spawned OCCURRENCE, and projectiles carry no stable
+identity (`SimId` exists in `shared_tangle`; nothing in `ambition_projectiles`
+uses it). ⇒ **Slots come WITH the steerable projectile, not before it**, which
+makes Jon's stated order — input lease, steerable projectile, then PK-Thunder —
+the right one. ⓘ The input lease is control-authority work, outside the
+`ambition_combat` moveset / `ambition_demo_smash` lane this campaign has held.
+
 ### Track A — the keystone
 
 - ▢ **A1. `TechniqueFlow` minimum**: `emit` / `wait` / `branch` / `finish`,

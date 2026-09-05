@@ -40,7 +40,7 @@ dated, not live):
 | `items` | ✔ `inventory.holds` |
 | `occurrences` / `custody` | ✔ `custody.is_held` |
 | `encounters` | ✔ `encounter.cleared` (published 2026-09-04) |
-| `bosses` | ◐ `boss.cleared` published 2026-09-04, retiring a mirror slice — ⛔ **but its three executable authored callers can NEVER be true** (five raw; two are prose, re-measured 2026-09-05): they pass the BEHAVIOUR id while the save is keyed by PLACEMENT ([question 57](../awaiting-maintainer-decision.md)). Published, authored, and unreachable |
+| `bosses` | ✔ `boss.cleared` published 2026-09-04, retiring a mirror slice; **REACHABLE since 2026-09-05** — its three executable authored callers spell `cove.mockingbird`, the AUTHORED encounter id the save is now keyed by ([question 57](../awaiting-maintainer-decision.md), ruled and implemented). ⛔ They could never be true before that: they passed the BEHAVIOUR id against a save keyed by the LDtk placement, and a missing key reads `Untouched`, so the gate stayed shut and looked like content nobody wrote. Two guards hold it now — a wrong id is a RED, and an end-to-end arm takes the id from the booted room and the question from the shipped dialogue |
 | `quests` | ✔ `quest.active` (published 2026-09-04, retiring a mirror slice — and the first condition published by the GAME) |
 | `wallet` | ✔ `wallet.can_afford` (published 2026-09-04, retiring the mirror's LARGEST customer — ten authored shop lines) |
 | `dialog_visits`, `checkpoint`, `minted_items`, `inventory_saved` | ⛔ nothing publishes a condition |

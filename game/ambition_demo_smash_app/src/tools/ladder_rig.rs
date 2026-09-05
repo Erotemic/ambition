@@ -355,6 +355,11 @@ pub fn run(cli: LadderRigArgs) {
              read and prints every rung)"
         ),
     }
+    // ⭐ THE BAR SITS WITH THE STATISTICS rather than among the
+    // configuration lines: it is the last thing a reader passes before the
+    // column header, because it is what they need in hand while reading the
+    // rows underneath.
+    report_what_this_run_could_report();
     println!(
         // ⛔ "stocks" ALONE IS AMBIGUOUS AND WAS MISREAD. The column is stocks
         // REMAINING, so `0 : 0` means BOTH fighters were fully eliminated — the
@@ -656,7 +661,10 @@ fn ladder_rungs_summary() -> Vec<String> {
 fn sign_test_says_within_spread(diffs: &[f32]) -> bool {
     let positives = diffs.iter().filter(|d| **d > 0.0).count();
     let negatives = diffs.iter().filter(|d| **d < 0.0).count();
-    sign_test_within_spread(positives, negatives)
+    // ⭐ The threshold spelled out here rather than hidden behind a wrapper.
+    // The wrapper existed only for this helper, so in a non-test build it was
+    // dead — which `cargo test -p` cannot see and `check_no_warnings` did.
+    sign_test_p(positives, negatives) >= 0.05
 }
 
 /// The sign test on the COUNTS, so the direction and the inference are two
@@ -668,6 +676,19 @@ fn sign_test_says_within_spread(diffs: &[f32]) -> bool {
 /// positives.max(negatives)` throws it away — so the reported direction had to
 /// come from somewhere else, and it did: pooled medians over every bout. Two
 /// authors of one row's meaning, free to disagree, and they did.
+/// ⛔⛔ AND THE TAIL IS RETURNED, NOT A BOOLEAN, BECAUSE `(within spread)` WAS
+/// DOING TWO JOBS AND NOTHING TOLD THEM APART.
+///
+/// Measured 2026-09-04 on the shipped ladder: `6 vs 5` is 5:7 and `9 vs 6` is
+/// 7:5 — **p = 0.774, a coin** — while a cell one pair short of clearing is
+/// p = 0.146. Both printed the identical qualifier, so the page reading them had
+/// no way to separate *"nearly"* from *"not at all"*, and it treated them as one
+/// kind of near miss for weeks. The same collapse happens above the threshold:
+/// 11:1 and 2:10 are both *significant* and only the first survives a pair
+/// flipping.
+///
+/// ⇒ The threshold is unchanged; the caller compares against `0.05` and the row
+/// prints the number, so the distinction is readable rather than recomputable.
 fn sign_test_p(positives: usize, negatives: usize) -> f64 {
     let n = positives + negatives;
     // ⛔ THERE WAS AN EXPLICIT `if n < 6 { return true }` HERE AND IT WAS DEAD
@@ -704,19 +725,7 @@ fn sign_test_p(positives: usize, negatives: usize) -> f64 {
     (2.0 * tail).min(1.0)
 }
 
-/// ⛔⛔ `(within spread)` WAS DOING TWO JOBS AND NOTHING TOLD THEM APART.
-///
-/// Measured 2026-09-04 on the shipped ladder: `6 vs 5` is 5:7 and `9 vs 6` is
-/// 7:5 — **p = 0.774, a coin** — while a cell one pair short of clearing would
-/// be p = 0.146. Both printed the identical qualifier, so the page reading them
-/// had no way to separate *"nearly"* from *"not at all"*, and it treated them as
-/// the same kind of near-miss for weeks.
-///
-/// ⇒ The threshold stays where it was; the row now carries the number, so the
-/// distinction is readable instead of recomputable.
-fn sign_test_within_spread(positives: usize, negatives: usize) -> bool {
-    sign_test_p(positives, negatives) >= 0.05
-}
+
 
 /// Say WHICH TWO FIGHTERS the run is about, including when nobody chose them.
 ///
@@ -815,15 +824,65 @@ fn report_which_clock_is_in_play() {
     } else {
         println!(
             "[ladder_rig] ⛔ clock: {}s per bout, but the SHIPPED match limit is \
-             {}s. This run measures the first {:.0}% of a match. A bout that \
+             {}s. This run measures the first {} of a match. A bout that \
              cannot end leaves stocks TIED, and a tied stock count sends every \
              verdict to the damage tiebreak — so read every row below as \
              \"dealt more damage in {}s\", never as \"won\".",
             used / 60,
             shipped / 60,
-            100.0 * used as f32 / shipped as f32,
+            // ⛔ `{:.0}%` PRINTED "0%" FOR A TWO-SECOND RUN, which reads as
+            // "measures nothing" and is the same rounding collapse that made two
+            // p-values a hundred times apart both print as 0.000. A fraction
+            // this small wants a scale, not a rounded percent.
+            {
+                let share = 100.0 * used as f32 / shipped as f32;
+                if share < 1.0 {
+                    format!("{share:.2}%")
+                } else {
+                    format!("{share:.0}%")
+                }
+            },
             used / 60
         );
+    }
+}
+
+/// Say what majority this run's SEED COUNT could even report, before any row.
+///
+/// ⛔⛔ THE BAR IS A PROPERTY OF THE RUN LENGTH AND NOTHING SAID SO. A cell reads
+/// `(within spread)` for two unrelated reasons — the rungs are alike, or the run
+/// is too short for any split to clear — and a reader met both wearing the same
+/// words. Below six usable pairs NOTHING can clear, not even a unanimous sweep;
+/// at four seeds a `4:0 = 100%` row still prints `(within spread)`.
+///
+/// ⚠ AND THE BAR FALLS AS SEEDS RISE, which is the trap in comparing two runs:
+/// 83.3% at 12 pairs, 80.0% at 15, 71.4% at 28. A longer run can clear the same
+/// line with a materially weaker majority, so "significant at 12 and at 28" is
+/// two different claims. Printing the bar per run is what lets a reader see
+/// which one they are holding.
+fn report_what_this_run_could_report() {
+    // Ties are dropped by the sign test, so this is the CEILING on usable pairs
+    // — a run with ties has fewer, and a harsher bar than this line states.
+    let pairs = seed_count();
+    if !args().paired {
+        return;
+    }
+    match (pairs / 2..=pairs).find(|&k| sign_test_p(k, pairs - k) < 0.05) {
+        Some(k) => println!(
+            "[ladder_rig] significance bar: with {pairs} paired seeds a cell needs \
+             {k} of {pairs} ({:.0}%) going one way to print without \
+             `(within spread)`. ⚠ Ties are dropped, so a row with `+N tied` faces \
+             a HARSHER bar than this. A longer run accepts a WEAKER majority — \
+             compare two runs by the percentage, never by the p.",
+            100.0 * k as f64 / pairs as f64
+        ),
+        None => println!(
+            "[ladder_rig] ⛔ significance bar: {pairs} paired seeds CANNOT reach \
+             p < 0.05 at any split — not even a unanimous sweep. Every row below \
+             will print `(within spread)` because the RUN IS TOO SHORT, which is \
+             a different statement about the fighters than `the rungs are alike`. \
+             Six or more seeds is the floor."
+        ),
     }
 }
 
@@ -1345,7 +1404,39 @@ impl PairedSplit {
         // ⭐ THE p TRAVELS WITH THE SPLIT. `0.0386` and `0.0063` are both
         // "significant" and only one of them survives a pair flipping; `0.774`
         // and `0.146` are both "(within spread)" and only one is a near miss.
-        format!("{pairs}, p={:.3}", self.p)
+        //
+        // ⛔ AND IT NEEDS A SCALE, NOT THREE DECIMALS. The first version printed
+        // `{:.3}`, so a 28-seed run showed `p=0.000` for BOTH 3.0e-6 and 1.8e-4
+        // — two results a hundred times apart, rendered identically, by the very
+        // change that existed to stop a token collapsing two states.
+        let p = if self.p < 0.001 {
+            format!("{:.1e}", self.p)
+        } else {
+            format!("{:.3}", self.p)
+        };
+        // ⛔⛔ AND THE MAJORITY AS A PERCENTAGE, because comparing two runs by
+        // their p is the trap. A LARGER n accepts a WEAKER majority — the
+        // smallest reportable split is 83.3% at n=12 and 71.4% at n=28 — so a
+        // bigger run can clear the same line with a materially smaller effect
+        // and print no differently. The proportion is what is comparable across
+        // run lengths; the p is not.
+        let usable = self.higher + self.lower;
+        let pct = if usable == 0 {
+            String::new()
+        } else {
+            let share = 100.0 * self.higher.max(self.lower) as f64 / usable as f64;
+            // ⛔ NAME THE DENOMINATOR WHEN A TIE MOVED IT. `0:3 +1 tied = 100%`
+            // reads as 100% of four to anyone who has not memorised that the
+            // sign test drops ties — and it is 100% of THREE. The bar the header
+            // quotes is against the seed count, so a row whose denominator is
+            // smaller must say so or the two cannot be compared.
+            if self.tied == 0 {
+                format!(" = {share:.0}%")
+            } else {
+                format!(" = {share:.0}% of {usable} usable")
+            }
+        };
+        format!("{pairs}{pct}, p={p}")
     }
 }
 
@@ -2408,6 +2499,42 @@ mod tests {
             p(10, 2) >= 0.05 || sweep < squeak,
             "the sweep must read as stronger than the squeak"
         );
+
+        // ⛔⛔ AND A LARGER n ACCEPTS A WEAKER MAJORITY, which is why the row
+        // prints the percentage and not only the tail. A reader comparing two
+        // runs by p alone reads a bigger, weaker result as confirming a smaller,
+        // stronger one.
+        let smallest_clearing = |n: usize| {
+            (n / 2..=n)
+                .find(|&k| sign_test_p(k, n - k) < 0.05)
+                .map(|k| 100.0 * k as f64 / n as f64)
+                .expect("some majority clears at these n")
+        };
+        let at_12 = smallest_clearing(12);
+        let at_28 = smallest_clearing(28);
+        assert!(
+            at_28 < at_12 - 5.0,
+            "28 seeds should accept a materially weaker majority than 12 \
+             ({at_28:.1}% vs {at_12:.1}%) — if that stops being true this test's \
+             premise is gone and the percentage on the row buys nothing"
+        );
+
+        // ⛔ THE FLOOR THE HEADER CLAIMS. `report_what_this_run_could_report`
+        // tells a short run that NOTHING can clear, and says six is the floor.
+        // Both halves asserted, because a header stating a bound nobody checks
+        // is the shape this file has spent a day removing.
+        for n in 1..=5 {
+            assert!(
+                (n / 2..=n).all(|k| sign_test_p(k, n - k) >= 0.05),
+                "{n} pairs can somehow reach significance — the header tells a \
+                 run that short that nothing can, and would be lying"
+            );
+        }
+        assert!(
+            sign_test_p(6, 0) < 0.05,
+            "six unanimous pairs must clear, or `six or more is the floor` names \
+             the wrong number"
+        );
     }
 
     #[test]
@@ -2443,8 +2570,22 @@ mod tests {
         );
         assert_eq!(
             split.describe(),
-            "16:4, p=0.012",
-            "the split must print its pairs AND the tail they produced"
+            "16:4 = 80%, p=0.012",
+            "the split must print its pairs, the MAJORITY they make, and the \
+             tail they produced — the percentage is the only one of the three \
+             that is comparable between runs of different length"
+        );
+
+        // ⛔ A TIE MOVES THE DENOMINATOR AND THE ROW MUST SAY SO. `0:3 +1 tied
+        // = 100%` reads as 100% of four to anyone who has not memorised that
+        // the sign test drops ties; it is 100% of THREE, and the header's bar
+        // is quoted against the seed count, so the two cannot be compared
+        // unless the smaller denominator is named.
+        let tied = PairedSplit { higher: 0, lower: 3, tied: 1, p: sign_test_p(0, 3) };
+        assert_eq!(
+            tied.describe(),
+            "0:3 +1 tied = 100% of 3 usable, p=0.250",
+            "a split with ties must name the denominator its percentage is over"
         );
         // ⭐ AND THE UNPAIRED ROW IS DELIBERATELY UNCHANGED: with no pairs to
         // reduce there is no second authority to prefer, so the pooled reading

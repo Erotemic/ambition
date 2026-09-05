@@ -1674,7 +1674,7 @@ note under the table.
 | # | question | the measurement behind it | where |
 |---|---|---|---|
 | 1 | **Which of two ladder authorities should exist?** | `profile_for_level` forks between the shipped `.ron` and an engine floor; **four separate defects were symptoms of that one fork**. Removing the loser rewrites **no authored content** and there is exactly **one** production installer. ⚠ **A grep finds FOUR sites and only one is that installer**, so the breakdown is worth carrying: `ambition_content/src/plugin.rs:61` installs it in the game; `brain/fighter/profile.rs:106` is the struct DEFINITION; `ladder_rig.rs` and `capture_probe.rs` are the two tools' `--ladder` flags; and three more in `brain_builders.rs` sit under `#[cfg(test)]`. ⭐ **And it is not only about difficulty numbers: the floor switches the L3 rollout ON at rungs 6–9 (`rollout_depth: 12`) while the shipped `.ron` sets `0` on all nine — so an entire search subsystem, plus `read_weight` and the Dodge/Shield suppression, is reachable only through the authority that loses.** | below |
-| 2 | **What are the two Robots' four specials?** | ⭐ **Source measurement, no bouts and no statistics**: enumerating every `(base, direction, stance)` press shows George's unanswered set is a strict **SUBSET** of the stand-ins', with a surplus of **exactly eight, every one a `special`** — so the stand-ins are George's genre shape with the special button removed, and the four slots are named by the type. ⚠ The older ladder line (*George significantly outfights a stand-in, 318% : 199%*) is corroboration whose **`significantly` is on hold** until THAT arm is re-run — the four shipped-ladder rung cells were re-run on 2026-09-04 and this was not one of them; the decision does not rest on it. ⇒ The structural form of the question — should `fighter_moveset()` go through `SmashRepertoire` at all? — is below. | ↓ |
+| 2 | **What are the two Robots' four specials?** | ⭐ **Source measurement, no bouts and no statistics**: enumerating every `(base, direction, stance)` press shows George's unanswered set is a strict **SUBSET** of the stand-ins', with a surplus of **exactly eight, every one a `special`** — so the stand-ins are George's genre shape with the special button removed, and the four slots are named by the type. ✔✔ The ladder line (*George significantly outfights a stand-in*) is corroboration and its hold was **LIFTED 2026-09-04 by re-running that arm**: `12 : 0 = 100%, p = 4.9 × 10⁻⁴` — unanimous across every pair, the strongest split twelve seeds can produce, columns reproducing at `316% : 198%`; the decision does not rest on it. ⇒ The structural form of the question — should `fighter_moveset()` go through `SmashRepertoire` at all? — is below. | ↓ |
 | 3 | **`read_weight`: wire it up or delete it?** | Authored **0.0 → 1.0** on all nine rungs (`0.0 0.0 0.0 0.1 0.2 0.3 0.5 0.7 1.0`) and **read by nothing** — its only live consumer sits behind a rollout those rows disable. ≤184 bytes/fighter/snapshot, so the cost argument is weak; the legibility one is not. | ↓ |
 | 4 | ✔ **mostly answered** — does "harder" mean deals more damage, or is harder to beat? | Settled by fixing the clock: at the shipped 480s limit bouts RESOLVE, and rung 5 neither out-damages nor outlives rung 3. ⚠ **That rests on the rig's MEDIAN columns, and `median()` was itself corrected 2026-09-04** — it returned the upper-middle order statistic, and every `--paired` run has an even sample, so the recorded columns are all pre-fix. The conclusion is unlikely to move (it is a both-directions null, not a margin) but it is unverified against the corrected instrument. | ↓ |
 | 5 | **What is standing still WORTH?** | ⛔ **16 of George's 28 authored moves never start** in a 120s census on the shipped ladder — no smash, no tilt — with the dash attack at **81%** of starts. ⭐ Cause traced to source: movement and attack are scored INDEPENDENTLY and **neither axis declines on score**, so the fighter moves whenever it can and attacks whenever it can; 73 of 81 attack decisions coincide with `Approach`, which drives a run, where a neutral press converts to the dash attack. ⭐⭐ **You have ruled on this class before** — the CPU grab, in range 35% of a match and never thrown, was a missing SCORER TERM, and your 2026-08-19 ruling was the policy half first, owned by the fighter capability. ⇒ The template it produced (`capture_value`: a term of its own, gated on facts, with explicit zeros where a naive rule scores highest) applies directly. Mechanism, costed fix, acceptance test and the predicted failure mode are in `queue.md`. | `queue.md` |
@@ -2135,10 +2135,15 @@ shipped ladder and the shipped clock, George significantly outfights a stand-in.
 
 ⚠ **ON HOLD, and this row does not rest on it (2026-09-04).** *"Significantly"*
 here came from the rig, whose direction and qualifier were computed separately
-until `36dd9a248`; **THIS arm has not been re-run** — the four shipped-ladder
-rung cells were, on 2026-09-04, and came back unchanged, but George-vs-a-stand-in
-is a different arm and was not among them — and `median()` moved in the same pass,
-so the columns below are pre-fix too. ⇒ **The decision is carried by a source
+until `36dd9a248`. ✔✔ **RE-RUN 2026-09-04 AND THE HOLD IS LIFTED — the arm is
+UNANIMOUS.** Rung 5 against rung 5, George vs `smash_duelist_b`, paired, 12
+seeds, shipped clock: **`higher outfights [12 : 0 = 100%, p = 4.9 × 10⁻⁴]`** —
+every single pair, which is the strongest split twelve seeds can produce.
+Columns reproduced at `316% : 198%` against the `318% : 199%` recorded below, the
+small drift being `median()`'s correction exactly as predicted. ⇒ **So the
+corroboration is stronger than the word *significantly* ever conveyed**, and the
+decision now rests on a source measurement AND an unanimous bout result rather
+than on the source measurement alone. ⇒ **The decision is carried by a source
 measurement instead** — George's unanswered presses are a strict SUBSET of the
 stand-ins', surplus exactly eight `special`s — which involves no bouts, no seeds
 and no statistics. Treat the table below as corroboration.
@@ -2338,13 +2343,70 @@ is no axis.**
    spread)*. ⇒ **The defect this decision is about is real and marginal at n=12**,
    which is a different thing to be told than *"significant"*, and it is why the
    28-seed replication recorded above is load-bearing rather than a courtesy.
+   ✔✔ **AND THAT REPLICATION WAS RE-RUN WITH ITS SPLIT THE SAME EVENING: the
+   marginality is RUN LENGTH, not fragility.** `5 vs 3` comes back **4 : 24 at
+   28 seeds, p = 1.8 × 10⁻⁴** — a majority of **85.7%** against the 12-seed
+   83.3%, so the effect is slightly STRONGER with more evidence rather than
+   weaker. ⚠ **Compare the proportion, not the p**: n=28 accepts a majority as
+   low as 71.4%, so a `20 : 8` would have cleared the same line while being a
+   materially smaller effect, and both print unqualified. This is not that.
+   ⭐ The two undecided cells behaved like nulls at the same time — `6 vs 5` got
+   LESS separated (58.3% → 53.6%, p = 0.851) and `9 vs 6` stayed short
+   (p = 0.345) — which is what a coin does as n grows and the opposite of what
+   the two inverted cells did. ⇒ **So this decision is about a solid result with
+   two solid non-results beside it**, and the 12-seed squeak was the sample
+   rather than the fighters.
    ⚠ For contrast, `3 vs 1` is **11 : 1, p = 0.0063** and survives a pair
    flipping; `6 vs 5` and `9 vs 6` are 5 : 7 and 7 : 5 at **p = 0.774** — a coin,
    not a near miss. ⇒ **Weigh the candidate against a defect of that strength**:
    it is worth fixing, and nobody should retune a ladder off one 12-seed run.
 
-   ⇒ **The headline survives: no cell is significantly inverted under the
-   candidate, two cells improve, none regresses.** `5 vs 3` loses its
+   ⛔⛔ **RE-RUN WITH SPLITS 2026-09-04 LATE, AND *"NONE REGRESSES"* IS FALSE.
+   `6 vs 5` regresses, and the verdict-only comparison could not see it because
+   both readings are the same three words.**
+
+   | cell | shipped | candidate | |
+   |---|---|---|---|
+   | `3 vs 1` | 11 : 1 = 92%, p = 0.006 | 11 : 1 = 92%, p = 0.006 | identical — levels 1–3 are untouched, so this is the arms' own control |
+   | `5 vs 3` | ⛔ **2 : 10 = 83%, p = 0.039** | 4 : 8 = 67%, p = 0.388 | ⭐ the inversion is genuinely weakened, and not merely un-resolvable |
+   | `6 vs 5` | 5 : 7 = 58%, p = 0.774 | ⛔ **3 : 9 = 75%, p = 0.146** | ⛔⛔ **a coin becomes ONE PAIR from a significant inversion** |
+   | `9 vs 6` | 7 : 5 = 58%, p = 0.774 | ⭐ **11 : 1 = 92%, p = 0.006** | now significantly ordered the right way |
+
+   ⇒ **The candidate is a TRADE, not a strict improvement.** It buys a genuinely
+   weakened `5 vs 3` (83% → 67%) and a genuinely ordered `9 vs 6` (58% → 92%),
+   and it pays by pushing `6 vs 5` from a coin toward inverted (58% → 75%,
+   p = 0.774 → 0.146). ⚠ **One more pair the same way and `6 vs 5` prints as a
+   significant inversion** — the defect this whole decision exists to remove,
+   relocated one rung up.
+   ⭐ **Both `6 vs 5` cells print `LOWER outfights … (within spread)`.** The
+   earlier comparison read those three words on both sides and recorded *"none
+   regresses"*, correctly by everything it could see. The split is the entire
+   difference between "a coin" and "one pair short", and it did not exist until
+   this evening. ⇒ **This is the clearest argument on the page for why a verdict
+   must travel with its split.**
+
+   ⛔⛔ **AND I OVER-READ THAT AT TWELVE SEEDS — re-run at 28 the same night,
+   which is the check the squeak above says to make.** `6 vs 5`'s "one pair from
+   inverted" does NOT survive: 75% at n=12 falls to **61% (11 : 17, p = 0.345)**
+   at n=28, which is a coin regressing toward half, not an effect concentrating.
+
+   | cell | SHIPPED @ 28 | CANDIDATE @ 28 |
+   |---|---|---|
+   | `3 vs 1` | 26 : 2 = 93%, p = 3.0e-6 | 26 : 2 = 93%, p = 3.0e-6 |
+   | `5 vs 3` | ⛔ **4 : 24 = 86%, p = 1.8e-4** | **12 : 16 = 57%, p = 0.572** |
+   | `6 vs 5` | 13 : 15 = 54%, p = 0.851 | 11 : 17 = 61%, p = 0.345 |
+   | `9 vs 6` | 17 : 11 = 61%, p = 0.345 | ⭐ **26 : 2 = 93%, p = 3.0e-6** |
+
+   ⇒ **THE HONEST HEADLINE, at the n that carries it.** The candidate **removes
+   the inversion** — `5 vs 3` goes from a significant 86% LOWER to a 57% coin —
+   and **decisively orders `9 vs 6`** (61% → 93%, p = 3.0e-6). `6 vs 5` leans
+   inverted a little further (54% → 61%) and **neither ladder is near
+   significance there**. ⇒ So *"none regresses"* was nearer the truth than my
+   correction, and both the original claim and my correction were read off twelve
+   seeds. ⚠ **The residual `6 vs 5` lean is the one thing to watch** — it is the
+   cell the whole `frame_advantage`/`expected_payoff` story predicts should move
+   — but it is a lean, not a defect, and calling it one was me doing at midnight
+   exactly what this page spent the day correcting. `5 vs 3` loses its
    significance and `9 vs 6` gains it in the correct direction.
 
    ⛔⛔ **BUT THE CHARACTER OF THE `5 vs 3` IMPROVEMENT IS NOT WHAT THE PRE-REPAIR

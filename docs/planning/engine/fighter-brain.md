@@ -80,6 +80,36 @@ removing. ⚠ Guarded by the fixture that produced the doc's own example — the
 16-versus-4 named above is that test's split, asserted so the printed number
 cannot drift from the outcomes it claims to report.
 
+### ⭐ HOW TO READ A ROW (as of 2026-09-04)
+
+```text
+5 vs 3   …  298% : 349%  …  LOWER outfights [4:24 = 86%, p=1.8e-04]
+                            └─word──────────┘ │    │      └─exact two-sided tail
+                                              │    └─majority of the USABLE pairs
+                                              └─per-seed split, ties shown as `+N tied`
+```
+
+Five facts, and they answer different questions:
+
+| part | what it settles | what it does NOT |
+|---|---|---|
+| the **word** | which rung outfought | how strongly |
+| the **split** | the evidence, re-derivable by hand | anything about magnitude of damage |
+| the **majority %** | ⭐ the only figure **comparable between runs of different length** | significance on its own |
+| the **p** | significance at THIS n | comparison with another n |
+| `(within spread)` | did not clear p < 0.05 | whether it was near or a coin — read the p |
+
+⛔ **The header's `significance bar:` line states what majority this run could
+even report**, and below six paired seeds the answer is *none* — a `4:0 = 100%`
+row still prints `(within spread)` because the run is too short, which is a
+different statement about the fighters than *"the rungs are alike"*.
+⚠ **A row with `+N tied` says `= X% of N usable`**, because the sign test drops
+ties and the header's bar is quoted against the seed count — two denominators
+that must not be silently compared.
+⇒ **The medians to the left of the verdict are DESCRIPTIVE.** Since
+`36dd9a248` nothing in the bracket is derived from them, and a row where they
+disagree with the verdict is the instrument working, not a contradiction.
+
 ⛔⛔ **AND ONE THING NO RE-RUN FIXES RETROACTIVELY: EVERY TABLE ON THIS PAGE
 PRINTED BEFORE 2026-09-04 CARRIES A BARE QUALIFIER.** The rig only began printing
 its per-seed split and its exact tail that evening. ⇒ **A `significant` in an
@@ -112,7 +142,7 @@ The re-run bought exactly one arm and it is worth being precise about which:
 | arms **B / C / D** — engine floor ± rollout, and George | ⛔ no |
 | the **weight-isolation** arms (`frame_advantage` + `expected_payoff`) | ⛔ no — ⭐ but their finding never needed a label: it is a byte-for-byte output difference against a control |
 | the **scenario matrices** (nine fixtures, Shield model, flat-vs-platforms) | ⛔ no |
-| **George vs a stand-in** (`318% : 199%`) | ⛔ no |
+| **George vs a stand-in** (`318% : 199%`) | ✔✔ **YES, 2026-09-04** — and it is **UNANIMOUS**: `12 : 0 = 100%, p = 4.9 × 10⁻⁴` at rung 5 against rung 5, the strongest split n=12 can produce. Columns reproduced at `316% : 198%`. ⇒ The hold on this arm's *significantly* is lifted, and the arm is stronger than the word suggested |
 | the **candidate tuning ladder** (the pair held flat from level 4 up) vs the shipped one | ✔✔ **YES, 2026-09-04** — both arms, one binary; recorded in [`../awaiting-maintainer-decision.md`](../awaiting-maintainer-decision.md), and one of its supports did not survive |
 
 ⇒ **So "the hold is lifted" is true of the shipped ladder's four cells and of
@@ -1776,6 +1806,32 @@ do all the reflex knobs). Shipped clock, 12 seeds paired:
 gone, and `9 vs 6` — undetermined on the shipped rows — becomes significant in the
 CORRECT direction. ⭐ Two cells improve and none regresses.
 
+⛔⛔ **THAT LAST CLAUSE IS FALSE, AND THE TABLE ABOVE CANNOT SHOW WHY — re-run
+with splits 2026-09-04 late.** Both `6 vs 5` cells read `LOWER (within spread)`,
+which is why *"none regresses"* was written and was correct by everything
+visible. With the split printed they are opposites:
+
+| cell | shipped | candidate |
+|---|---|---|
+| `5 vs 3` | ⛔ 2 : 10 = 83%, p = 0.039 | 4 : 8 = 67%, p = 0.388 |
+| `6 vs 5` | 5 : 7 = 58%, **p = 0.774** | ⛔ 3 : 9 = 75%, **p = 0.146** |
+| `9 vs 6` | 7 : 5 = 58%, p = 0.774 | ⭐ 11 : 1 = 92%, p = 0.006 |
+
+⇒ **The candidate is a TRADE at twelve seeds.** ⛔⛔ **AND THE TRADE HALF DOES
+NOT SURVIVE 28 SEEDS — checked the same night.** `6 vs 5`'s 75% falls to
+**61% (11 : 17, p = 0.345)**, a coin regressing toward half rather than an effect
+concentrating. At n=28 the candidate takes `5 vs 3` from a significant **86%**
+inversion to a **57% coin** and `9 vs 6` from 61% to a significant **93%**, while
+`6 vs 5` leans from 54% to 61% with neither ladder near significance. ⇒ **The
+candidate removes the inversion; the "regression" was twelve seeds.** ⚠ Which
+makes this cell a THIRD demonstration of the same rule rather than a finding —
+and this time the over-read was mine, an hour after writing the caution.
+⭐ **This is the sharpest case on the page for a verdict travelling with its
+split**, sharper than `5 vs 3`'s squeak: there the qualifier at least changed,
+and here **the printed row is identical on both sides while the situations are
+opposites**. ⇒ Full comparison and the decision framing in
+[`../awaiting-maintainer-decision.md`](../awaiting-maintainer-decision.md).
+
 ⭐ **And the survival medians rise further and more cleanly**: 85s → 101s → 116s →
 122s, against the shipped ladder's 85s → 98s → 114s → 113s, where the top pair
 went backwards. Higher rungs take longer to kill each other, monotonically.
@@ -1936,16 +1992,49 @@ The row above recording *"significant at 12 and 28 on the shipped clock"* is wha
 carries this finding — a single 12-seed run at 10 : 2 would be a result nobody
 should tune a ladder on. ⇒ **Quote the inversion with its split**, not as a bare
 `significant`.
+
+✔✔ **AND THE 28-SEED ARM WAS RE-RUN WITH ITS SPLITS THE SAME EVENING. THE
+MARGINALITY IS A RUN-LENGTH ARTEFACT, NOT A FRAGILE EFFECT.**
+
+| cell | 12 seeds | 28 seeds | majority |
+|---|---|---|---|
+| `3 vs 1` | 11 : 1, p = 0.0063 | **26 : 2, p = 3.0 × 10⁻⁶** | 91.7% → **92.9%** |
+| `5 vs 3` | 2 : 10, p = 0.0386 | **4 : 24, p = 1.8 × 10⁻⁴** | 83.3% → **85.7%** |
+| `6 vs 5` | 5 : 7, p = 0.774 | 13 : 15, p = 0.851 | 58.3% → 53.6% |
+| `9 vs 6` | 7 : 5, p = 0.774 | 17 : 11, p = 0.345 | 58.3% → 60.7% |
+
+⛔⛔ **COMPARE THE PROPORTION, NOT THE p — that is the whole trap in "significant
+at 12 and at 28".** A larger n accepts a WEAKER majority: the smallest reportable
+split is 10 : 2 (83.3%) at n=12 and 20 : 8 (**71.4%**) at n=28. So a 28-seed
+`20 : 8` would clear the line while being a materially smaller effect than the
+12-seed result it appears to confirm, and both print without a qualifier.
+⇒ **`5 vs 3` came back at 85.7%, ABOVE its 12-seed 83.3%** — and the row now
+prints that percentage beside the split for exactly this comparison, so the next
+reader does not have to divide — more than two orders
+of magnitude clear of the line rather than one pair from it. **The inversion
+replicates and is if anything stronger than twelve seeds suggested.**
+⭐ **The two nulls behaved like nulls, which is the other half of believing this.**
+More evidence made `6 vs 5` *less* separated (58.3% → 53.6%, p = 0.851) and left
+`9 vs 6` short (60.7%, p = 0.345). A real effect concentrates with n and a coin
+regresses toward half; these did the second while the two inverted cells did the
+first.
+ⓘ **The readings were pre-registered before the run landed**, by the sibling
+session: *near 20 : 8* would have meant *"real and smaller than 12 seeds
+suggested"*, *near 23 : 5* would have been genuine corroboration, and *19 : 9*
+would have put the inversion back to unreportable at the larger n. It cleared the
+corroboration bar. ⇒ Naming those readings in advance is why this table is
+evidence rather than a number that arrived and was then interpreted.
 ⓘ `6 vs 5` and `9 vs 6` at p = 0.774 are worth naming separately: they are not
 marginal, they are 5 : 7 and 7 : 5 — a coin. *"Within spread"* has been carrying
 both *"nearly"* and *"not at all"* on this page, and these two are the second.
 ✔ **AND THE ROW PRINTS THE TAIL NOW, so that collapse cannot recur.** A cell
-reads `LOWER outfights [2:10, p=0.039]`, and the qualifier's two meanings are
+reads `LOWER outfights [2:10 = 83%, p=0.039]`, and the qualifier's two meanings are
 separated by the number rather than by a reader's memory. ⭐ It separates the
 same collapse on the OTHER side of the threshold too — `[11:1, p=0.006]` and
 `[2:10, p=0.039]` are both *significant* and only the first survives a pair
 flipping. ⓘ Worth seeing once on a short run: four seeds gives
-`[4:0, p=0.125] (within spread)` — **unanimous and still not significant**,
+`[4:0 = 100%, p=0.125] (within spread)` — **a 100% majority and still not
+significant**,
 because four pairs cannot clear no matter how they fall. That is the run being
 too short, said on the row, where the page previously had to explain it.
 

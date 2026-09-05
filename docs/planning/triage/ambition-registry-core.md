@@ -65,7 +65,20 @@
 > inventory are a different decision each — `classify` refuses to be their
 > default, which is the point; each must say "replace" in place or adopt refusal.
 >
-> ✔ **FIVE, and the two settled went OPPOSITE WAYS — which is the inventory's
+> ✔ **FOUR, and the three settled gave THREE DIFFERENT ANSWERS — which is the
+> inventory's own point, measured.** The third is `ParamSchemaRegistry`, and it
+> is the one that could not have adopted `classify` at any price: its value is a
+> `ParamCheck` FUNCTION POINTER, `classify` decides its three cases with
+> `PartialEq`, and `ambition_registry_core`'s own rule forbids a function address
+> from entering identity (two builds of the same content must fingerprint equal).
+> ⇒ A registry keyed by behaviour it cannot COMPARE has no Idempotent case to
+> detect and therefore no honest Conflict either. It states replacement, and
+> states what that costs if its single-caller premise ever breaks: a second
+> install silently replaces a validator, so an authored typo the first check
+> would have caught starts passing — a guard going quiet, not a behaviour
+> changing.
+>
+> ✔ **The two before it went OPPOSITE WAYS — which is the inventory's
 > own point, measured.** `EncounterRegistry` KEPT replacement and now says so:
 > it is an `id → live Entity` INDEX, not an authored table, and an encounter that
 > despawns and respawns legitimately gets a new entity — refusing the second
@@ -202,7 +215,7 @@ unhandled.
 | `FrontendAudioRegistry` | `crates/ambition_audio/src/selection.rs:181` | `String` | `declare_route` | silent |
 | `GatePortalRegistry` | `crates/ambition_platformer2d_world/src/rooms/gate_portal.rs:77` | `String` | `try_register` | ✔ Result (adopted 2026-09-05; map SEALED) |
 | `MovePrefabRegistry` | `crates/ambition_combat/src/moveset/prefab_registry.rs:21` | `String` | `register` | silent |
-| `ParamSchemaRegistry` | `crates/ambition_entity_catalog/src/lib.rs:135` | `String` | `register` | silent |
+| `ParamSchemaRegistry` | `crates/ambition_entity_catalog/src/lib.rs:135` | `String` | `register` | ✔ REPLACE, stated (2026-09-05; `classify` NOT expressible — the value is a fn pointer) |
 | `PreparedCharacterRegistry` | `crates/ambition_characters/src/prepared.rs:1320` | `ambition_entity_catalog::CharacterId` | `insert_prepared` | silent |
 | `RoomContentStagingRegistry` | `crates/ambition_platformer2d_actor_monolith/src/features/ecs/spawn/content_staging.rs:57` | `String` | `register` | silent |
 

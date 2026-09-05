@@ -139,6 +139,30 @@ pub struct ParamSchemaRegistry {
 impl ParamSchemaRegistry {
     /// Register a technique's param check. Last registration for a key wins
     /// (a re-register overrides — content install is the single caller).
+    ///
+    /// ⭐ REPLACEMENT IS DELIBERATE, and this registry is named in the
+    /// 2026-09-02 registry inventory among those whose second registration
+    /// overwrites. Two of the seven were settled 2026-09-05 in opposite
+    /// directions; this is the third answer, and it is *"replace, because
+    /// refusal is not expressible here"*:
+    ///
+    /// ⛔ `ambition_registry_core::classify` CANNOT BE ADOPTED, and the reason is
+    /// structural rather than effort. It decides New / Idempotent / Conflict by
+    /// comparing entries with `PartialEq`, and a [`ParamCheck`] is a FUNCTION
+    /// POINTER. That crate's own rule is that nothing process-local may enter a
+    /// registration's identity — *"a function address, a `TypeId`, an allocation
+    /// order — none of them, because two builds of the same content must
+    /// fingerprint equal"* — so comparing two checks would be exactly the thing
+    /// it forbids. A registry keyed by behaviour it cannot compare has no
+    /// Idempotent case to detect, and therefore no honest Conflict either.
+    ///
+    /// ⚠ WHAT THE POLICY COSTS IF THE SINGLE-CALLER PREMISE EVER BREAKS: a
+    /// second install overriding a key silently REPLACES a validator, so an
+    /// authored param typo that the first check would have caught starts passing
+    /// at startup. That is a guard going quiet, not a behaviour changing, which
+    /// is the harder kind to notice. The premise is stated above rather than
+    /// enforced because the enforcement would need the comparison this type
+    /// cannot make.
     pub fn register(&mut self, key: impl Into<String>, check: ParamCheck) {
         self.checks.insert(key.into(), check);
     }

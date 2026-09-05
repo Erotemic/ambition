@@ -1345,7 +1345,29 @@ impl PairedSplit {
         // ⭐ THE p TRAVELS WITH THE SPLIT. `0.0386` and `0.0063` are both
         // "significant" and only one of them survives a pair flipping; `0.774`
         // and `0.146` are both "(within spread)" and only one is a near miss.
-        format!("{pairs}, p={:.3}", self.p)
+        //
+        // ⛔ AND IT NEEDS A SCALE, NOT THREE DECIMALS. The first version printed
+        // `{:.3}`, so a 28-seed run showed `p=0.000` for BOTH 3.0e-6 and 1.8e-4
+        // — two results a hundred times apart, rendered identically, by the very
+        // change that existed to stop a token collapsing two states.
+        let p = if self.p < 0.001 {
+            format!("{:.1e}", self.p)
+        } else {
+            format!("{:.3}", self.p)
+        };
+        // ⛔⛔ AND THE MAJORITY AS A PERCENTAGE, because comparing two runs by
+        // their p is the trap. A LARGER n accepts a WEAKER majority — the
+        // smallest reportable split is 83.3% at n=12 and 71.4% at n=28 — so a
+        // bigger run can clear the same line with a materially smaller effect
+        // and print no differently. The proportion is what is comparable across
+        // run lengths; the p is not.
+        let usable = self.higher + self.lower;
+        let pct = if usable == 0 {
+            String::new()
+        } else {
+            format!(" = {:.0}%", 100.0 * self.higher.max(self.lower) as f64 / usable as f64)
+        };
+        format!("{pairs}{pct}, p={p}")
     }
 }
 
@@ -2408,6 +2430,25 @@ mod tests {
             p(10, 2) >= 0.05 || sweep < squeak,
             "the sweep must read as stronger than the squeak"
         );
+
+        // ⛔⛔ AND A LARGER n ACCEPTS A WEAKER MAJORITY, which is why the row
+        // prints the percentage and not only the tail. A reader comparing two
+        // runs by p alone reads a bigger, weaker result as confirming a smaller,
+        // stronger one.
+        let smallest_clearing = |n: usize| {
+            (n / 2..=n)
+                .find(|&k| sign_test_p(k, n - k) < 0.05)
+                .map(|k| 100.0 * k as f64 / n as f64)
+                .expect("some majority clears at these n")
+        };
+        let at_12 = smallest_clearing(12);
+        let at_28 = smallest_clearing(28);
+        assert!(
+            at_28 < at_12 - 5.0,
+            "28 seeds should accept a materially weaker majority than 12 \
+             ({at_28:.1}% vs {at_12:.1}%) — if that stops being true this test's \
+             premise is gone and the percentage on the row buys nothing"
+        );
     }
 
     #[test]
@@ -2443,8 +2484,10 @@ mod tests {
         );
         assert_eq!(
             split.describe(),
-            "16:4, p=0.012",
-            "the split must print its pairs AND the tail they produced"
+            "16:4 = 80%, p=0.012",
+            "the split must print its pairs, the MAJORITY they make, and the \
+             tail they produced — the percentage is the only one of the three \
+             that is comparable between runs of different length"
         );
         // ⭐ AND THE UNPAIRED ROW IS DELIBERATELY UNCHANGED: with no pairs to
         // reduce there is no second authority to prefer, so the pooled reading

@@ -1952,7 +1952,9 @@ at 12 and at 28".** A larger n accepts a WEAKER majority: the smallest reportabl
 split is 10 : 2 (83.3%) at n=12 and 20 : 8 (**71.4%**) at n=28. So a 28-seed
 `20 : 8` would clear the line while being a materially smaller effect than the
 12-seed result it appears to confirm, and both print without a qualifier.
-⇒ **`5 vs 3` came back at 85.7%, ABOVE its 12-seed 83.3%** — more than two orders
+⇒ **`5 vs 3` came back at 85.7%, ABOVE its 12-seed 83.3%** — and the row now
+prints that percentage beside the split for exactly this comparison, so the next
+reader does not have to divide — more than two orders
 of magnitude clear of the line rather than one pair from it. **The inversion
 replicates and is if anything stronger than twelve seeds suggested.**
 ⭐ **The two nulls behaved like nulls, which is the other half of believing this.**
@@ -1970,12 +1972,13 @@ evidence rather than a number that arrived and was then interpreted.
 marginal, they are 5 : 7 and 7 : 5 — a coin. *"Within spread"* has been carrying
 both *"nearly"* and *"not at all"* on this page, and these two are the second.
 ✔ **AND THE ROW PRINTS THE TAIL NOW, so that collapse cannot recur.** A cell
-reads `LOWER outfights [2:10, p=0.039]`, and the qualifier's two meanings are
+reads `LOWER outfights [2:10 = 83%, p=0.039]`, and the qualifier's two meanings are
 separated by the number rather than by a reader's memory. ⭐ It separates the
 same collapse on the OTHER side of the threshold too — `[11:1, p=0.006]` and
 `[2:10, p=0.039]` are both *significant* and only the first survives a pair
 flipping. ⓘ Worth seeing once on a short run: four seeds gives
-`[4:0, p=0.125] (within spread)` — **unanimous and still not significant**,
+`[4:0 = 100%, p=0.125] (within spread)` — **a 100% majority and still not
+significant**,
 because four pairs cannot clear no matter how they fall. That is the run being
 too short, said on the row, where the page previously had to explain it.
 

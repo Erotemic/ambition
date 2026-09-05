@@ -5,13 +5,13 @@
     "ambition_body_seed": 1,
     "ambition_boss_encounter": 10,
     "ambition_characters": 24,
-    "ambition_combat": 16,
+    "ambition_combat": 14,
     "ambition_conversation": 1,
     "ambition_encounter_features": 1,
     "ambition_items": 2,
     "ambition_match": 4,
     "ambition_menu": 0,
-    "ambition_platformer2d_actor_monolith": 59,
+    "ambition_platformer2d_actor_monolith": 43,
     "ambition_platformer2d_core": 34
   }
 }

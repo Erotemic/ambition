@@ -274,7 +274,7 @@ pub struct ActorConfig {
     /// sheet. Lets gameplay resolve any actor's `SheetRecord` / per-animation
     /// hit/hurt metrics — the same sprite-metadata path the player and bosses
     /// use — without reaching into the presentation registry. See
-    /// [`CombatGeometry`].
+    /// [`crate::body_geometry::CombatGeometry`].
     ///
     /// NOT the body's gameplay character authority, and `WornCharacter` OUTRANKS it (AC7.1). It
     /// is not: every seam that resolves a character asks `WornCharacter` first and falls back to a
@@ -285,12 +285,16 @@ pub struct ActorConfig {
     pub sprite_character_id: Option<String>,
     /// Does this body's autonomous driver share one deterministic cognitive
     /// stream with its twins? Resolved from the character at construction — see
-    /// [`ambition_characters::actor::CharacterDefinition::preserves_mirror_symmetry`].
+    /// [`ambition_characters::actor::definition::CharacterDefinition::preserves_mirror_symmetry`].
     ///
     /// it lives HERE, on the config, because three roads build this body's
     /// brain and they must not disagree: a match seat, a room spawn, and a
     /// rewind/live restore all go through
-    /// [`enemy_default_brain`](ambition_characters::features::ecs::enemy_default_brain), and
+    /// `enemy_default_brain` — ⚠ deliberately NOT a link: it is `pub(crate)` in
+    /// `ambition_platformer2d_actor_monolith::features::ecs::brain_builders`, so
+    /// no doc link from here can ever resolve to it. Naming the crate and module
+    /// in prose is the most a reader can be given — and
+    /// the
     /// the note on `PreparedCharacterDefinition::autonomous_profile` says why
     /// that matters — *"spawn, rewind and live restore all make the same call,
     /// which is why they cannot disagree"*. A trait the seat road looked up in a

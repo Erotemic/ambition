@@ -1925,6 +1925,15 @@ should tune a ladder on. ⇒ **Quote the inversion with its split**, not as a ba
 ⓘ `6 vs 5` and `9 vs 6` at p = 0.774 are worth naming separately: they are not
 marginal, they are 5 : 7 and 7 : 5 — a coin. *"Within spread"* has been carrying
 both *"nearly"* and *"not at all"* on this page, and these two are the second.
+✔ **AND THE ROW PRINTS THE TAIL NOW, so that collapse cannot recur.** A cell
+reads `LOWER outfights [2:10, p=0.039]`, and the qualifier's two meanings are
+separated by the number rather than by a reader's memory. ⭐ It separates the
+same collapse on the OTHER side of the threshold too — `[11:1, p=0.006]` and
+`[2:10, p=0.039]` are both *significant* and only the first survives a pair
+flipping. ⓘ Worth seeing once on a short run: four seeds gives
+`[4:0, p=0.125] (within spread)` — **unanimous and still not significant**,
+because four pairs cannot clear no matter how they fall. That is the run being
+too short, said on the row, where the page previously had to explain it.
 
 ⇒ **Every verdict identical; every column moved, and none by much** — the largest
 single move is `5 vs 3`'s lower-rung damage, 360% → 349%, and survival times shift

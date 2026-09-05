@@ -668,7 +668,7 @@ fn sign_test_says_within_spread(diffs: &[f32]) -> bool {
 /// positives.max(negatives)` throws it away — so the reported direction had to
 /// come from somewhere else, and it did: pooled medians over every bout. Two
 /// authors of one row's meaning, free to disagree, and they did.
-fn sign_test_within_spread(positives: usize, negatives: usize) -> bool {
+fn sign_test_p(positives: usize, negatives: usize) -> f64 {
     let n = positives + negatives;
     // ⛔ THERE WAS AN EXPLICIT `if n < 6 { return true }` HERE AND IT WAS DEAD
     // CODE. Removing it changed no test, which is how it was found: the poison
@@ -701,8 +701,21 @@ fn sign_test_within_spread(positives: usize, negatives: usize) -> bool {
             term = term * (n - i) as f64 / (i + 1) as f64;
         }
     }
-    let p = (2.0 * tail).min(1.0);
-    p >= 0.05
+    (2.0 * tail).min(1.0)
+}
+
+/// ⛔⛔ `(within spread)` WAS DOING TWO JOBS AND NOTHING TOLD THEM APART.
+///
+/// Measured 2026-09-04 on the shipped ladder: `6 vs 5` is 5:7 and `9 vs 6` is
+/// 7:5 — **p = 0.774, a coin** — while a cell one pair short of clearing would
+/// be p = 0.146. Both printed the identical qualifier, so the page reading them
+/// had no way to separate *"nearly"* from *"not at all"*, and it treated them as
+/// the same kind of near-miss for weeks.
+///
+/// ⇒ The threshold stays where it was; the row now carries the number, so the
+/// distinction is readable instead of recomputable.
+fn sign_test_within_spread(positives: usize, negatives: usize) -> bool {
+    sign_test_p(positives, negatives) >= 0.05
 }
 
 /// Say WHICH TWO FIGHTERS the run is about, including when nobody chose them.
@@ -1309,22 +1322,30 @@ fn paired_outcomes(bouts: &[Bout]) -> Vec<PairedOutcome> {
 /// for one stack frame and was gone. A reader who wanted to check the sign test
 /// had no numbers to check it with — `fighter-brain.md` recorded that as the
 /// repaired tool's one remaining limitation.
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+// ⚠ No `Eq`: it carries an `f64`. Tests compare the integer counts and the
+// rendered string, which is what a reader sees anyway.
+#[derive(Clone, Copy, Debug, PartialEq)]
 struct PairedSplit {
     higher: usize,
     lower: usize,
     tied: usize,
+    /// The exact two-sided sign-test tail this split produced.
+    p: f64,
 }
 
 impl PairedSplit {
     /// `10:2` — and `+1 tied` only when there IS one, so the common row stays
     /// narrow and a dropped pair is never silently invisible.
     fn describe(self) -> String {
-        if self.tied == 0 {
+        let pairs = if self.tied == 0 {
             format!("{}:{}", self.higher, self.lower)
         } else {
             format!("{}:{} +{} tied", self.higher, self.lower, self.tied)
-        }
+        };
+        // ⭐ THE p TRAVELS WITH THE SPLIT. `0.0386` and `0.0063` are both
+        // "significant" and only one of them survives a pair flipping; `0.774`
+        // and `0.146` are both "(within spread)" and only one is a near miss.
+        format!("{pairs}, p={:.3}", self.p)
     }
 }
 
@@ -1339,10 +1360,11 @@ fn paired_verdict(outcomes: &[PairedOutcome]) -> (&'static str, bool, PairedSpli
         std::cmp::Ordering::Less => "LOWER outfights",
         std::cmp::Ordering::Equal => "even",
     };
+    let p = sign_test_p(higher, lower);
     (
         word,
-        sign_test_within_spread(higher, lower),
-        PairedSplit { higher, lower, tied },
+        p >= 0.05,
+        PairedSplit { higher, lower, tied, p },
     )
 }
 
@@ -2347,6 +2369,47 @@ mod tests {
     /// `LOWER` here and the pairs say `higher` 16-4, so the two authorities give
     /// different answers and the test can only pass if the row consults the
     /// right one. On a fixture where they agree it would prove nothing.
+    /// ⛔⛔ `(within spread)` DESCRIBED TWO DIFFERENT SITUATIONS AND THE ROW
+    /// COULD NOT TELL THEM APART.
+    ///
+    /// Measured on the shipped ladder 2026-09-04: `6 vs 5` came out 5:7 and
+    /// `9 vs 6` came out 7:5 — **a coin, p = 0.774** — while a cell one pair
+    /// short of clearing is p = 0.146. Both printed the identical qualifier, so
+    /// `fighter-brain.md` read them as the same kind of near miss for weeks.
+    ///
+    /// ⭐ AND THE SAME COLLAPSE HAPPENS ON THE OTHER SIDE OF THE THRESHOLD:
+    /// 11:1 and 2:10 are both "significant", and only the first survives a pair
+    /// flipping. The page treated them as one class of result until the number
+    /// was on the row.
+    #[test]
+    fn the_printed_p_separates_a_coin_from_a_near_miss_and_a_sweep_from_a_squeak() {
+        let p = |a: usize, b: usize| (sign_test_p(a, b) * 1000.0).round() / 1000.0;
+
+        // Both (within spread), and not remotely the same claim.
+        let coin = p(5, 7);
+        let near_miss = p(3, 9);
+        assert!(coin >= 0.05 && near_miss >= 0.05, "both are within spread");
+        assert!(
+            coin > near_miss * 4.0,
+            "a coin ({coin}) and a near miss ({near_miss}) must be far apart, or \
+             printing the tail buys nothing"
+        );
+
+        // Both significant, and only one survives losing a pair.
+        let sweep = p(11, 1);
+        let squeak = p(2, 10);
+        assert!(sweep < 0.05 && squeak < 0.05, "both clear the threshold");
+        assert!(
+            p(3, 9) >= 0.05,
+            "one pair off the squeak must fall outside — that is what makes it a \
+             squeak rather than a result"
+        );
+        assert!(
+            p(10, 2) >= 0.05 || sweep < squeak,
+            "the sweep must read as stronger than the squeak"
+        );
+    }
+
     #[test]
     fn a_paired_row_takes_its_word_from_the_pairs_not_the_pool() {
         let mut bouts = Vec::new();
@@ -2378,7 +2441,11 @@ mod tests {
             (16, 4, 0),
             "the reported split does not match the fixture that produced it"
         );
-        assert_eq!(split.describe(), "16:4", "a tie-free split prints narrow");
+        assert_eq!(
+            split.describe(),
+            "16:4, p=0.012",
+            "the split must print its pairs AND the tail they produced"
+        );
         // ⭐ AND THE UNPAIRED ROW IS DELIBERATELY UNCHANGED: with no pairs to
         // reduce there is no second authority to prefer, so the pooled reading
         // is still the honest one and still says LOWER here.

@@ -1862,6 +1862,28 @@ until *"the defeat of WHAT"* was — and is now unblocked.
 
 ### 56. A replay retracts ONE boss family's defeat of eleven. Which is right? (2026-09-04)
 
+⭐⭐ **UNBLOCKED 2026-09-05: THIS WAS WAITING ON #57 AND #57 IS RULED.** The
+standing note said this was *"unanswerable until #57 says what 'the boss'
+names"* — #57 is now RULED AND IMPLEMENTED (a boss encounter is named by its
+stable authored `encounter_id`, `cove.mockingbird`, carried from placement
+through persistence and dialogue). ⇒ **The identity question this row was
+deferring to has an answer, so this row is answerable now.** Nothing about it is
+blocked any more.
+
+✔ **AND ITS NUMBERS RE-DERIVE UNCHANGED, checked the same day the identity
+landed** (a ruling resting on a stale count is worse than no ruling):
+**11 `BossSpawn` placements** — 1 `intro`, 9 `sandbox`, 1
+`you_have_to_cut_the_rope` — and **14 `Switch` placements**. The membership of
+`ContentRoomReplayResetSet` is still the single cut-rope system.
+
+⚠ **What I did NOT re-derive is the "exactly one system retracts" count**, and I
+am saying so rather than implying it. The row derives that from
+`durable_fact_writers.py` with string literals stripped and `#[cfg(test)]` items
+skipped structurally; my own quick grep for readers-that-also-write is far looser
+and returns candidates that are message DEFINITIONS and name lists, so it cannot
+confirm or refute the row's figure. ⇒ Trust the row's method, not my grep.
+
+
 ⭐⭐ **MEASURED, both directions, through the road a door reads**
 (`how_many_boss_families_retract_their_defeat_on_a_replay`,
 `canonical_reconstitution.rs`):

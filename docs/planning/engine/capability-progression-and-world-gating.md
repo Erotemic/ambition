@@ -380,6 +380,7 @@ fail at four different moments:
 | `every_condition_an_authored_yarn_file_asks_is_published_by_the_engine` | a `condition("…")` naming one, in dialogue | build |
 | `no_planning_doc_names_a_condition_the_engine_does_not_publish` | a fabricated id spreading through the planning prose | build |
 | `test_every_gated_flag_has_a_writer.py` | a flag NAME nothing can ever set | build |
+| `test_alias_arguments_name_something_real.py` | an ARGUMENT to a named alias that names no real boss or quest | build |
 
 ⛔ **The fourth was the hole, and it is invisible to the other three by
 construction.** `world.flag_set` takes an author-typed flag NAME, so a misspelt
@@ -389,6 +390,21 @@ name. ⇒ A wall gated on it never opens and a dialogue branch behind it is
 unreachable, and both look like content nobody wrote rather than content that is
 broken. The first three guards are all about the CONDITION; only this one looks
 at the FACT.
+
+⛔⛔ **AND THE FIFTH ONE LANDED ON A DEFECT THAT WAS ALREADY LIVE, which none
+of the other four did.** `boss_cleared("mockingbird")` — five authored calls —
+passes the BEHAVIOR id while `systems.rs:259` writes the save under the
+PLACEMENT (`BossSpawn-4308`). Exact lookup, no bridging, so those branches have
+never been able to open. ⇒ Filed as question 57 rather than repaired: making
+the dialogue pass `BossSpawn-4308` puts an LDtk-generated identifier into an
+authored script, and the alternatives change what existing saves mean.
+⚠ **So that guard accepts EITHER spelling on purpose.** It asks *"does this name
+a real boss at all"*, which is answerable today and catches the typo class;
+which id the API should take is 57's to answer. When 57 lands, narrow it and
+the losing spelling becomes a red.
+⭐ **The five fail at four different moments and on three different things** —
+the condition, the fact, and now the argument. The argument was the last one
+nobody was looking at, and it was the one already broken.
 
 ⭐ **Measured before the rule: four authored reads over three distinct flags,
 every one written** — `bob_field_survey_received` (yarn + `quest.rs`, and the

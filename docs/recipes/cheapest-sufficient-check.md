@@ -353,6 +353,26 @@ dormancy census cannot either (the field IS named in content). Two turned up on
 2026-09-05 in one crate, both by taking a single census hit seriously instead of
 publishing the list.
 
+⛔⛔ **AND READ THE VERDICT LINE, NOT THE EXIT CODE — the citation checker is
+deliberately NON-GATING.** Its lane job is named *"planning + doctrine citations
+(reports, does not gate)"*, and it exits **0 with findings** unless given
+`--strict`. ⇒ I verified it all day with `| tail -2` and read "all resolved";
+when my own edit introduced three ambiguous citations, the tail showed the tool's
+constant TRAILING FOOTER instead of the verdict, and the run looked identical to
+a pass. I committed *"planning citations all resolve"* in a change where three
+did not.
+
+```bash
+python3 scripts/check_planning_citations.py > /tmp/cit.log 2>&1
+grep -E 'checked|unresolved|all resolved' /tmp/cit.log    # the VERDICT, not the tail
+```
+
+⇒ **Decide BEFORE running a tool which line proves the outcome, and grep for that
+line.** An exit code proves nothing when the tool is deliberately non-gating; a
+tail proves nothing when the footer is constant in both outcomes.
+ⓘ And cite FULL PATHS: a bare `collision.rs:96` is AMBIGUOUS across four tracked
+files, which the checker reports as unresolved rather than guessing.
+
 ⭐ **So the discipline is the whole mechanism, and it is cheap:**
 1. **When you cite a line, OPEN it.** Three of the four above were found that
    way and by nothing else.

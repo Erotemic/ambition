@@ -640,6 +640,41 @@ impl MovePlayback {
         self
     }
 
+    /// WHERE THIS MOVE IS REACHING right now, body-local, if a capture attempt
+    /// is live under the clock.
+    ///
+    /// ⭐⭐ FOR PRESENTATION, and it exists because a 150px tether that draws
+    /// nothing is the mechanic without the read. A grab whose reach is the
+    /// length of an arm needs no line; one that crosses a third of the stage is
+    /// unreadable without one, and neither player can respect a threat they
+    /// cannot see.
+    ///
+    /// ⛔ THE LIVE WINDOW, NOT THE MOVE'S. Scanning every window would answer
+    /// "this move grabs at some point", which is true through its startup and
+    /// its recovery too — so the line would be drawn for the whole animation
+    /// and mean nothing.
+    ///
+    /// Returns `(offset, half_extent)` exactly as authored: the caller resolves
+    /// facing and the acceleration frame, because it has them and this does not.
+    pub fn live_capture_reach(&self) -> Option<(ae::Vec2, ae::Vec2)> {
+        self.spec
+            .windows
+            .iter()
+            .filter(|w| w.start_s <= self.t && self.t < w.end_s)
+            .find_map(|w| {
+                let effect = w.sustain_effect.as_ref()?;
+                if effect.key != ambition_characters::smash_capture::CAPTURE_ATTEMPT {
+                    return None;
+                }
+                let params: ambition_characters::smash_capture::CaptureAttemptParams =
+                    effect.params.hydrate().ok()?;
+                Some((
+                    ae::Vec2::new(params.offset.0, params.offset.1),
+                    ae::Vec2::new(params.half_extents.0, params.half_extents.1),
+                ))
+            })
+    }
+
     /// The three facts a cancel condition asks about, as one value.
     ///
     /// ⛔ ALWAYS THIS, never `landed_hit` alone: the bool means OVERLAP, and a
@@ -3964,9 +3999,17 @@ pub fn dispatch_move_events(
 /// volume is the authority. A body with no live move has its projected swing cleared (its cooldown
 /// floors still tick in `tick_body_melee_cooldowns`).
 ///
-/// Runs AFTER `advance_move_playback` (so `t` is current). It is the SOLE writer
-/// of a `MovesetMelee` body's swing — there is no flat melee driver competing for
-/// it anymore.
+/// Runs AFTER `advance_move_playback` (so `t` is current). It is the sole writer
+/// of a `MovesetMelee` body's swing DURING LIVE SIMULATION — there is no flat
+/// melee driver competing for it anymore.
+///
+/// ⚠ "SOLE WRITER" USED TO BE UNQUALIFIED HERE AND WAS FALSE — corrected
+/// 2026-09-05. `BodyMelee` is rollback-registered (`actor.body_melee`) and its
+/// `SnapshotState::decode` rebuilds `swing` wholesale from the wire, so the
+/// CODEC writes it on every rewind. A codec assembles a struct literal, which is
+/// why no grep for `swing =` can see it and why the original claim survived
+/// review. ⇒ The honest scope is "on a live entity"; the restore is the other
+/// writer and it is meant to be.
 pub fn project_moveset_melee_to_body_melee(
     mut bodies: Query<
         (Option<&MovePlayback>, Option<&ActorMoveset>, &mut BodyMelee),

@@ -198,6 +198,44 @@ fits the rollback contract that was already there.
 ⇒ For something that outlives the move — C4, a planted mine — **the entity keeps
 the occurrence identity**. The completed `MovePlayback` does not own it.
 
+### A "sole writer" claim has a blind spot, and it has a boundary
+
+⚠ **ToothbrushAmbition, 2026-09-05, and it is worth carrying:** *"the rollback
+codec is a writer of nearly every registered field and never appears in a grep
+for assignments."* A codec builds a struct LITERAL on decode, so
+`grep 'x.field ='` cannot see it. They found this by sealing a field and letting
+the compiler name the writer their sizing grep had missed.
+
+⇒ **So every "this is the only writer" comment about a COMPONENT FIELD in a
+rollback-registered type is suspect until `snapshot_impls` has been read.** I
+have written several such comments in the combat crates and I am not claiming to
+have audited them; the honest form is *"the only writer OUTSIDE the codec"*.
+
+✔ **AUDITED, AND IT FOUND ONE — 2026-09-05, in one command.** Toothbrush's
+triage is `git grep -l 'impl SnapshotState'`, which names the types whose fields
+a codec writes; in this lane that is `BodyCombat`, `ActorPose`, `SmashHoldState`,
+`MovePlayback` and `BodyMelee`. Checking the sole-writer comments about those
+types turned up exactly one false claim:
+`project_moveset_melee_to_body_melee` said it was **"the SOLE writer of a
+`MovesetMelee` body's swing"**, unqualified. `BodyMelee::decode` rebuilds `swing`
+wholesale from the wire on every rewind. ⇒ Corrected to "during live simulation";
+the restore is the other writer and is meant to be.
+
+⭐ **Two phrasings survive the check and they mean different things** (Toothbrush's
+distinction): *"the only writer on a live entity"* when the other writer is a
+constructor or a restore, and *"the only writer outside the codec"* when the
+codec genuinely rebuilds it. ⛔ And do not reach for `private` on a field the
+codec must rebuild — `snapshot_impls` is usually a SIBLING module, so private
+breaks it; `pub(crate)` is the honest seal.
+
+⭐ **The boundary, checked rather than assumed:** the caution does NOT reach
+MESSAGE publications. A message is registered with `clear_message_on_rollback`,
+which clears a buffer; no codec constructs one, and
+`grep 'ParriedBodyHit|BlockedBodyHit' crates/*/src/snapshot_impls.rs` is empty.
+⇒ `ParriedBodyHit`'s and `BlockedBodyHit`'s "written here and nowhere else" hold
+as written. **Component field: check the codec. Message: the claim is about
+publication, and the codec does not publish.**
+
 ## The capability inventory
 
 Jon's assessment of where the tree stands, 2026-09-05. ⓘ Recorded as **his

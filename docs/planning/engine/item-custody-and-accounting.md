@@ -234,9 +234,15 @@ the exact failure that comment warns about.
 ⚠ **RE-DERIVED 2026-09-05: it is 20 + 2 = 22 now, and it was 19 + 2 = 21 when
 written — the map gained `polygon_mine` the same day.** ⇒ **the CLAIM is the
 durable part and the number is not**: this population moves whenever content
-lands a held item, so re-derive it rather than quoting this line. The claim that
-does not move is that there are TWO registries and consulting one silently
-halves the answer.
+lands a held item, so re-derive it rather than quoting this line.
+
+⛔⛔ **AND THE CLAIM I CALLED PERMANENT WAS THE FIXABLE PART.** This row ended
+*"the claim that does not move is that there are TWO registries and consulting
+one silently halves the answer."* It moved the same day: **the second registry is
+DELETED** — see I2b. ⇒ A restatement that survives re-measurement can survive
+because nobody has tried to REMOVE the thing it describes. This row identified
+correctly which half of itself was durable (the claim, not the count) and still
+enshrined a DEFECT as the durable half.
 
 ⛔ **AND THE FOUR GAUNTLET ABILITIES ARE NOT A SEPARATE CLASS.** The row's
 hypothesis was that an ability may have no world form. It does:
@@ -356,9 +362,10 @@ the five arms runs on a spec the ITEM CATALOG knows: the authored axe and
 gun-sword, the menu-minted javelin, and — checked, because it looked like the
 exception — the room-transition arm's subject, which is `blink_run_pickup ->
 blink`, a row in BOTH registries and therefore dual-resolvable.
-⛔ **`held_spec_by_id` consults two registries and its own comment says
-"consulting one alone silently loses half the items". No arm had ever run on a
-spec only the SECOND one knows** — the boss gauntlets (`volley`, `meteor`,
+⛔ **`held_spec_by_id` consulted two registries and its own comment said
+"consulting one alone silently loses half the items" (ONE registry as of
+2026-09-05, I2b — the sentence is kept because the reasoning below was done under
+it). No arm had ever run on a spec only the SECOND one knew** — the boss gauntlets (`volley`, `meteor`,
 `beam`, `shockwave`, `vortex`, `sentry`, `dive`) are `HELD_ITEMS` rows with no
 `Item` row at all, so `Item::from_held_item_id` answers `None` for every one.
 ✔ One operation covers that path now:

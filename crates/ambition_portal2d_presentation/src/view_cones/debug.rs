@@ -683,7 +683,7 @@ fn write_compositing_section(
         if matches!(relation, crate::PaneRelation::Disjoint) {
             continue;
         }
-        let correct = crate::current_z_policy_is_correct_for(relation);
+        let correct = crate::current_z_policy_is_correct_for(relation, *z, crate::PORTAL_WINDOW_Z);
         if !correct {
             violations += 1;
         }
@@ -1102,7 +1102,10 @@ pub fn debug_portal_view_zones(
     viewer: Option<Res<PortalViewer>>,
     frame: Res<PortalWorldFrame>,
     portals: Query<&PlacedPortal>,
-    compositing: Query<&crate::PortalCompositingCandidate>,
+    // ⚠ THE TRANSFORM COMES WITH IT: the overlay used to colour a violation
+    // without knowing the drawn z at all, which meant it was carrying the same
+    // hardcoded "actors outrank panes" assumption the dump was built to expose.
+    compositing: Query<(&crate::PortalCompositingCandidate, Option<&GlobalTransform>)>,
     mut gizmos: Gizmos,
     // The session's portal map convention, from the resource that owns it.
     tuning: Option<Res<ambition_portal2d::PortalTuning>>,
@@ -1358,7 +1361,7 @@ fn draw_compositing_relations(
     gizmos: &mut Gizmos,
     panes: &[PlacedPortal],
     viewer: Option<&PortalViewer>,
-    candidates: &Query<&crate::PortalCompositingCandidate>,
+    candidates: &Query<(&crate::PortalCompositingCandidate, Option<&GlobalTransform>)>,
     to_render: impl Fn(Vec2) -> Vec2,
 ) {
     // ⛔ Near and far are relative to a viewpoint; with none there is nothing
@@ -1367,7 +1370,8 @@ fn draw_compositing_relations(
         return;
     };
     for pane in panes {
-        for candidate in candidates {
+        for (candidate, transform) in candidates {
+            let drawn_z = transform.map(|t| t.translation().z).unwrap_or(f32::NAN);
             let min = candidate.drawn_centre - candidate.drawn_half;
             let max = candidate.drawn_centre + candidate.drawn_half;
             let relation = crate::pane_relation(pane, viewer.eye, min, max, false);
@@ -1379,7 +1383,11 @@ fn draw_compositing_relations(
                 crate::PaneRelation::Transiting => Color::srgb(0.95, 0.85, 0.15),
                 // ⛔ Should be covered BY the pane, and today is drawn over it.
                 crate::PaneRelation::FarCovered
-                    if !crate::current_z_policy_is_correct_for(relation) =>
+                    if !crate::current_z_policy_is_correct_for(
+                        relation,
+                        drawn_z,
+                        crate::PORTAL_WINDOW_Z,
+                    ) =>
                 {
                     Color::srgb(0.95, 0.15, 0.15)
                 }

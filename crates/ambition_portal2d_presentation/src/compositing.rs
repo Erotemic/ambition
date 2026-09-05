@@ -90,23 +90,39 @@ pub fn pane_relation(
     }
 }
 
-/// Does the CURRENT global-z policy already draw this relation correctly?
+/// Does the drawn ordering MATCH the relation, given the two actual z values?
 ///
-/// ⭐ THE POINT OF THIS FUNCTION IS TO MAKE THE BUG COUNTABLE. Every actor z is
-/// above every pane z, so today's renderer composites `NearOccluder` correctly
-/// and `FarCovered` wrongly, always. A diagnostic that printed the relation
-/// without saying which ones the renderer then gets wrong would leave the reader
-/// to re-derive the very comparison the finding is about.
-pub fn current_z_policy_is_correct_for(relation: PaneRelation) -> bool {
+/// ⭐ THE POINT IS TO MAKE THE BUG COUNTABLE. A diagnostic that printed the
+/// relation without saying which ones the renderer then gets wrong would leave
+/// the reader to re-derive the very comparison the finding is about.
+///
+/// ⛔⛔ IT TAKES THE Z VALUES RATHER THAN ASSUMING THEM, AND THE FIRST VERSION
+/// DID NOT. It was a bare `match` returning `false` for `FarCovered` — a hardcoded
+/// statement that actors always outrank panes, written beside a dump that
+/// computed the same fact from `z > PORTAL_WINDOW_Z`. **Two readings of one
+/// fact, and the constant one goes stale the moment somebody moves a z.** If
+/// `PORTAL_WINDOW_Z` were raised above the actor band tomorrow, the hardcoded
+/// version would still report every far-side body as a violation and every
+/// near-side one as fine — with the truth exactly inverted, in the instrument
+/// built to find that class of error.
+///
+/// ⇒ Now there is ONE reading: the caller supplies what was actually drawn and
+/// what the pane actually is, and the answer follows. The dump no longer needs a
+/// second comparison of its own.
+pub fn current_z_policy_is_correct_for(
+    relation: PaneRelation,
+    drawable_z: f32,
+    pane_z: f32,
+) -> bool {
+    let drawn_above = drawable_z > pane_z;
     match relation {
-        // Drawn above the pane, and should be.
-        PaneRelation::NearOccluder => true,
-        // Not overlapping, so ordering cannot be observed.
-        PaneRelation::Disjoint => true,
-        // The split presentation owns it on its own layers.
-        PaneRelation::Transiting => true,
-        // ⛔ Drawn above the pane and should be covered BY it.
-        PaneRelation::FarCovered => false,
+        // Ordering cannot be observed: no overlap, or the split presentation
+        // owns the body on its own layers.
+        PaneRelation::Disjoint | PaneRelation::Transiting => true,
+        // It may occlude the aperture, so being drawn above is correct.
+        PaneRelation::NearOccluder => drawn_above,
+        // The pane's captured image should cover it, so it must NOT be above.
+        PaneRelation::FarCovered => !drawn_above,
     }
 }
 
@@ -148,9 +164,13 @@ mod tests {
         let relation = pane_relation(&p, viewer, min, max, false);
         assert_eq!(relation, PaneRelation::FarCovered);
         assert!(
-            !current_z_policy_is_correct_for(relation),
+            !current_z_policy_is_correct_for(relation, 11.0, crate::PORTAL_WINDOW_Z),
             "the whole finding is that today's z draws this one on top of the pane"
         );
+        // ⭐ AND THE ANSWER FOLLOWS THE NUMBERS, not a hardcoded verdict: put the
+        // same far-side body BELOW the pane and it is composited correctly. A
+        // constant `false` here would have called the fixed world broken too.
+        assert!(current_z_policy_is_correct_for(relation, 9.0, crate::PORTAL_WINDOW_Z));
     }
 
     /// ⚠ THE CONTROL. Without it, a classifier that answered `FarCovered` for
@@ -162,7 +182,10 @@ mod tests {
         let (min, max) = body(Vec2::new(100.0, 308.0)); // viewer's side
         let relation = pane_relation(&p, viewer, min, max, false);
         assert_eq!(relation, PaneRelation::NearOccluder);
-        assert!(current_z_policy_is_correct_for(relation));
+        assert!(current_z_policy_is_correct_for(relation, 11.0, crate::PORTAL_WINDOW_Z));
+        // ⚠ And a near-side body drawn BELOW the pane is wrong for the opposite
+        // reason -- it would be hidden by an aperture it is standing in front of.
+        assert!(!current_z_policy_is_correct_for(relation, 9.0, crate::PORTAL_WINDOW_Z));
     }
 
     #[test]

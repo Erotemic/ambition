@@ -128,7 +128,14 @@ pub fn fire_and_expire_springs(
     mut commands: Commands,
     time: Res<ambition_platformer2d::time::WorldTime>,
     mut springs: Query<(Entity, &mut PlacedSpring)>,
-    mut bodies: Query<(&mut ae::BodyKinematics, &ambition_platformer2d::actor::MatchSeat)>,
+    // ⛔ `Entity` IS IN HERE SO THE WINNER CAN BE CHOSEN BEFORE IT IS MOVED.
+    // The plate has ONE use to give and two fighters can stand on it, so the
+    // candidates are gathered read-only and the seat decides — see below.
+    mut bodies: Query<(
+        Entity,
+        &mut ae::BodyKinematics,
+        &ambition_platformer2d::actor::MatchSeat,
+    )>,
 ) {
     let dt = time.sim_dt();
     for (entity, mut spring) in &mut springs {
@@ -147,7 +154,23 @@ pub fn fire_and_expire_springs(
             continue;
         }
         // ⭐ ANYBODY. The plate does not ask who dropped it — see the module note.
-        for (mut kin, _seat) in &mut bodies {
+        //
+        // ⛔⛔ BUT IT DOES ASK *WHICH*, AND IT USED TO ANSWER BY QUERY ORDER. A
+        // plate has ONE use to give; this loop broke on the first overlapping
+        // body and ignored the seat entirely (`_seat`). Two fighters standing on
+        // it on the same tick meant Bevy's iteration order chose who got launched
+        // — which is not a decision anybody authored, is not stable across a
+        // rollback resimulation, and is exactly the class `assisted_fire_direction`
+        // already solved for aim assist by tie-breaking on a stable id.
+        //
+        // ⭐ THE LOWEST SEAT WINS, and the rule matters more than the winner: a
+        // `MatchSeat` is rollback-registered, so both peers resimulate the same
+        // launch. ⚠ It is arbitrary as FAIRNESS — in a tie, seat 0 is favoured —
+        // and that is accepted deliberately: two bodies inside one plate on one
+        // tick is rare, and a rare unfair outcome both peers agree on is better
+        // than a rare desync.
+        let mut winner: Option<(usize, Entity)> = None;
+        for (entity, kin, seat) in bodies.iter() {
             // ⛔⛔ THE BODY'S OWN HALF-SIZE, NOT A NUMBER I PICKED. This read
             // `+ 14.0 / + 26.0` — invented constants standing in for a
             // fighter's extent, on a component that CARRIES it. ⇒ The plate's
@@ -163,11 +186,21 @@ pub fn fire_and_expire_springs(
             // that argument and the ADR-0024 ownership claim behind it. A plate
             // that added to whatever you arrived with would throw a fast-falling
             // body less far than a walking one.
+            if winner.is_none_or(|(best, _)| seat.0 < best) {
+                winner = Some((seat.0, entity));
+            }
+        }
+        if let Some((seat, entity)) = winner {
+            let Ok((_, mut kin, _)) = bodies.get_mut(entity) else {
+                continue;
+            };
             crate::motion::command_body_velocity(&mut kin, spring.launch, "plate fired");
             spring.uses_left = spring.uses_left.saturating_sub(1);
             spring.rearm_s = 0.25;
-            info!(target: "ambition::moves", "plate fired: {} use(s) left", spring.uses_left);
-            break;
+            info!(
+                target: "ambition::moves",
+                "plate fired: seat={seat} {} use(s) left", spring.uses_left
+            );
         }
     }
 }

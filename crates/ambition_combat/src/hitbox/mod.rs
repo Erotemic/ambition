@@ -536,12 +536,35 @@ pub fn apply_hitbox_damage(
         // Actors carry `CenteredAabb`; bare fixtures may carry only
         // `BodyKinematics`. If neither resolves (owner despawned), leave the
         // hitbox a harmless ghost for `tick_and_despawn_hitboxes`.
-        let owner_pos = if let Ok(aabb) = owners.get(hitbox.owner) {
-            aabb.center
-        } else if let Ok(kin) = owner_kin.get(hitbox.owner) {
-            kin.pos
-        } else {
-            continue;
+        let resolved_owner = owners
+            .get(hitbox.owner)
+            .map(|aabb| aabb.center)
+            .ok()
+            .or_else(|| owner_kin.get(hitbox.owner).map(|kin| kin.pos).ok());
+        let owner_pos = match (resolved_owner, hitbox.anchor) {
+            (Some(pos), _) => pos,
+            // ⛔⛔ A WORLD-ANCHORED BOX DOES NOT NEED AN OWNER THAT STILL EXISTS,
+            // AND REQUIRING ONE MADE EVERY ITEM BLAST A GHOST. `world_volume`
+            // reads `HitboxAnchor::World { center }` and ignores `owner_pos`
+            // entirely — but this resolution ran FIRST and `continue`d before any
+            // anchor was consulted. ⇒ A bomb or mine that names the exploding
+            // `GroundItem` as its owner despawns as it emits the effect, so the
+            // blast it just spawned was skipped on the very next tick, every
+            // time, with nothing anywhere saying so.
+            //
+            // ⭐ THE BOX'S OWN CENTRE IS THE HONEST SUBSTITUTE, not a zero: the
+            // value is still used for the launch direction and for `source_pos`,
+            // and a blast's knockback radiates FROM THE BLAST. A placeholder
+            // would have thrown every victim toward the world origin.
+            //
+            // ⚠ ONLY WHEN THE OWNER CANNOT BE RESOLVED. A World box whose owner
+            // is alive keeps using the owner's position exactly as before, so
+            // this repairs the ghost without changing a single case that already
+            // worked.
+            (None, HitboxAnchor::World { center }) => center,
+            // A FollowOwner box genuinely cannot be placed without one. Leave it
+            // a harmless ghost for `tick_and_despawn_hitboxes`.
+            (None, HitboxAnchor::FollowOwner { .. }) => continue,
         };
         let world_volume = hitbox.world_volume(owner_pos);
         let source_faction = actor_faction_from_hit_side(hitbox.source);

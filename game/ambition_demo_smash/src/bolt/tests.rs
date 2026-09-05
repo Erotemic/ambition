@@ -238,3 +238,72 @@ fn a_caster_with_no_seat_fires_nothing() {
     fire(&mut app, unseated);
     assert!(bolts(&mut app).is_empty());
 }
+
+/// ⛔⛔ CASTER AND RIVAL IN ONE BOLT: THE SAME THING HAPPENS IN EITHER SPAWN
+/// ORDER, AND IT IS THE OFFENSIVE HIT.
+///
+/// This loop broke on the first overlapping body, so when the returning bolt
+/// found its caster and a rival on the same tick, Bevy's iteration order chose
+/// between the Thunder Jacket (a recovery, launching the caster) and an
+/// offensive hit (a `DamageBox` on the rival). ⇒ Two completely different moves,
+/// selected by nothing anybody authored, and not stable across a rollback
+/// resimulation.
+///
+/// ⭐ A RIVAL BEATS THE CASTER — the design statement, not just a stabilised
+/// coin-toss: a bolt that COULD connect does the offensive thing, and the jacket
+/// is what it does when it finds nobody else.
+#[test]
+fn a_bolt_touching_both_prefers_the_rival_in_either_spawn_order() {
+    let meeting = ae::Vec2::new(0.0, 0.0);
+
+    let outcome = |reversed: bool| -> (bool, bool) {
+        let mut app = app();
+        let seats: [usize; 2] = if reversed { [1, 0] } else { [0, 1] };
+        let mut caster = Entity::PLACEHOLDER;
+        for &s in &seats {
+            let e = fighter(&mut app, s, 0.0);
+            if s == 0 {
+                caster = e;
+            }
+        }
+        app.world_mut().spawn(SteeredBolt {
+            owner_seat: 0,
+            pos: meeting,
+            vel: ae::Vec2::new(300.0, 0.0),
+            remaining_s: 1.0,
+            turn_rate: 3.0,
+            radius: 10.0,
+            damage: 8,
+            knockback: 90.0,
+            self_launch: 640.0,
+            // It has left him: the jacket is legal this tick, which is what
+            // makes the two outcomes genuinely available at once.
+            clear_of_caster: true,
+        });
+        app.update();
+        let caster_launched = app
+            .world()
+            .get::<ae::BodyKinematics>(caster)
+            .is_some_and(|k| k.vel.length() > 1.0);
+        let damaged = !app
+            .world()
+            .resource::<bevy::ecs::message::Messages<EffectRequest>>()
+            .is_empty();
+        (caster_launched, damaged)
+    };
+
+    let forward = outcome(false);
+    let backward = outcome(true);
+    assert_eq!(
+        forward, backward,
+        "the bolt did {forward:?} in one spawn order and {backward:?} in the \
+         other (caster_launched, damaged) — iteration order is choosing between \
+         a recovery and an attack"
+    );
+    assert_eq!(
+        forward,
+        (false, true),
+        "a bolt touching a rival AND its caster must take the rival: the jacket \
+         is what it does when it finds nobody else"
+    );
+}

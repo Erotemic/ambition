@@ -643,6 +643,169 @@ written and believed. The pair share a shape: *the fixture answered a smaller
 question than the assertion claimed*, and nothing in a green run distinguishes
 those.
 
+### ⛔⛔⛔ THE BOMB, THE MINE AND THE BOLT DO ZERO DAMAGE TO A BODY — AND MY OWN RULE PREDICTED IT
+
+A GPT review Jon commissioned found it; **I re-derived every mechanical claim
+against current source before accepting any of it**, and all of them hold.
+
+| claim | re-derived |
+|---|---|
+| `HitSide::Neutral` damages nobody | ✔ `hitbox/mod.rs:556` — `melee_source` is `None` for `(HitSide::Neutral, _)`, and the terminal dispatch at 853 is literally `HitSide::Neutral => {}` with the comment *"Neutral never spawns a damaging hitbox"* |
+| all three author it | ✔ `bomb.rs:199`, `bolt.rs:285`, `mine.rs:166` — every one is `HitSide::Neutral` |
+| `DamageTeam` pins the same rule independently | ✔ `(Self::Neutral, _) => false`; **`Environment`** is the arm that damages Player, Enemy and Neutral |
+| a despawned owner makes the blast a ghost | ✔ the owner's position is resolved at the TOP of the loop and `continue`s when it fails — **before any world-anchor check**, so a World-anchored box still needs an owner that exists |
+| bomb/mine own the exploding item; bolt owns the victim | ✔ `owner: entity` on both items (a `GroundItem` despawned as it emits) and `owner: body` on the bolt, which is the CONTACTED RIVAL — so making it damaging would trip self-exclusion and skip the very body it hit |
+
+⛔⛔ **AND THE REASON NONE OF MY GUARDS CAUGHT IT IS THE RULE I WROTE THIS
+MORNING, APPLIED TO ME.** `mine/tests.rs` asserts `blasts(&mut app).len() == 1` —
+**that a `DamageBoxEffect` request EXISTS.** Nothing drives it through
+`apply_effects` → `apply_hitbox_damage` → a victim's health. ⇒ *The third cause
+for a silent poison: no fixture runs that code at all.* I formulated that
+sentence hours before this review landed, about a gravity clock, and it was
+already true of three moves I had shipped.
+
+⭐ **The tell I should have taken: I asserted on a MESSAGE, not on an OUTCOME.**
+A test that stops at "the request was written" is testing my own authoring, not
+the engine's answer to it — and the engine's answer here is *no*.
+
+⚠ **THE FIX IS FOUR QUESTIONS AND JON SAID SO EXPLICITLY — do not relabel
+everything `Player`, and do not conflate them:**
+
+1. **geometry anchor** — where the box IS. `World` is right for a blast, and the
+   resolver's owner-position `continue` is wrong for a World anchor: it does not
+   need one.
+2. **attribution** — who is credited. Should be the placing FIGHTER, not the
+   object that exploded.
+3. **damage relationship** — who may be hurt. A smash item blast hurts BOTH
+   fighters, which is `DamageTeam::Environment`'s meaning; `HitSide` has no such
+   variant, and that gap is the actual design question.
+4. **self-exclusion** — `victim.entity == hitbox.owner`. ⛔ **This COLLIDES with
+   (2)**: making the placer the owner for credit makes the placer immune, and
+   your own bomb hurting you is the genre's rule. That collision is why the four
+   cannot be answered with one field.
+
+⇒ **Not started here, deliberately.** A half-landed change to the system that
+decides whether ANY hit lands is the worst thing to leave behind, and the shape
+above is a design decision about a shared resolver rather than a repair to my
+three moves. Recorded first so the analysis survives the session that found it.
+
+#### ✔ AND THE ONE UNAMBIGUOUS ENGINE BUG IN FINDING 1 IS FIXED
+
+`apply_hitbox_damage` resolved the owner's position at the top of its loop and
+`continue`d on failure **before consulting the anchor** — but `world_volume`
+reads `HitboxAnchor::World { center }` and ignores that position entirely, so the
+requirement was never real for a world box. ⇒ Every thrown-item blast in the
+demo was a ghost: the exploding `GroundItem` despawns as it emits the effect, so
+the blast it had just spawned was skipped on the very next tick, every time.
+
+⭐ The box's own centre is the substitute rather than a placeholder, because the
+value is still read for the launch direction and `source_pos` — a blast radiates
+from the blast, and a zero would have thrown every victim at the world origin.
+⛔ Poisoned in BOTH directions, and the second is the one worth having:
+"resolve everything" reddens the `FollowOwner` arm, which is the plausible wrong
+fix a reader reaches for.
+
+⚠⚠ **AND A SECOND THING FELL OUT THAT NOBODY HAS ASKED YET, WHICH IS PART OF
+JON'S QUESTION 1.** Inside that same loop the IMPACT POINT is
+`midpoint(victim.center, world_volume.center())` while the KNOCKBACK DIRECTION is
+measured from `owner_pos`. **For a `FollowOwner` box those nearly coincide; for a
+world box they can be anywhere relative to each other** — so a blast currently
+throws victims away from the FIGHTER rather than away from the explosion.
+
+⇒ I tried the principled version (a world box always radiates from its own
+centre) and **zero tests changed.** ⛔ By this page's own rule that is a COVERAGE
+finding, not a green light: **nothing in the suite asserts the knockback
+direction of a world-anchored box whose owner is somewhere else.** ⇒ Reverted
+rather than banked — changing a shared resolver's launch direction on the
+strength of "no test complained" is the gamble this campaign keeps writing down.
+**It belongs in the answer to question 1, with a test that pins it either way.**
+
+#### ✔ FINDING 3 IS FIXED — THE PAIR HAS AN OCCURRENCE IDENTITY NOW
+
+`channel_index` is AUTHORING data — the same `8` for every Alice — and it was
+stored as `pair_index` as though it named a live pair. ⇒ Two Alices recovering at
+once put two entrances on channel 8 and two exits on 9; `find_portal` returns the
+FIRST match, so one could leave through the other's aperture, and the expiry
+sweep despawns every move portal carrying the index, so **one Alice's clock
+running out shut the other's pair mid-recovery.** A 2.5s lifetime makes that
+ordinary, not exotic.
+
+⭐ **The authored index is now a BASE and the SEAT makes it an occurrence** —
+each seat gets its own two-channel window above it, so two Alices open on 8/9 and
+10/11. ⛔ `MatchSeat`, not an `Entity`, exactly as the review asked: the seat is
+rollback-registered (`actor.match_seat`) so both peers derive the same channel
+for the same fighter, where bevy_ggrs recreates entities.
+
+⚠ **It saturates rather than wraps**, because a base near the top of the `u8`
+channel space with many seats could roll over onto somebody else's window — the
+precise collision this exists to prevent. An overflowing seat degrades to the old
+shared-channel behaviour rather than to a silent swap.
+
+⛔ **Requiring the seat broke FOUR existing portal fixtures, and that was the
+right answer rather than a reason to make it optional**: each spawned a caster
+with no `MatchSeat`, which is a body that cannot exist in a match. An `Option`
+with a default would have kept them green while hiding that they were asking the
+system a question about nobody. ⇒ Poisoned by restoring the static index, which
+prints the defect literally: `[Indexed(8), Indexed(9), Indexed(8), Indexed(9)]`.
+
+#### ✔ THE REVIEW'S FOURTH FINDING IS FIXED — BOLT AND SPRING PICKED WINNERS BY QUERY ORDER
+
+Both broke on the first overlapping body. **The spring ignored the seat outright
+(`_seat`)** and had one use to give; **the bolt's two answers are different
+MOVES** — the Thunder Jacket (a recovery that launches the caster) versus an
+offensive hit on a rival. ⇒ Bevy's iteration order chose, which is not stable
+across a rollback resimulation: two peers can resimulate one tick and launch
+different fighters, or turn one peer's attack into the other peer's recovery.
+
+⭐ **The spring takes the lowest `MatchSeat`** — rollback-registered, so both
+peers agree. ⚠ Arbitrary as FAIRNESS (seat 0 wins a tie) and accepted as such:
+two bodies inside one plate on one tick is rare, and **a rare unfair outcome both
+peers agree on beats a rare desync.** ⭐ **The bolt prefers a RIVAL over its
+caster**, which is a design statement rather than a stabilised coin-toss: a bolt
+that could connect does the offensive thing, and the jacket is what it does when
+it finds nobody else.
+
+⛔ **Guarded in the review's own shape — identical geometry, REVERSED SPAWN
+ORDER, same outcome** — because "somebody was launched" passes on the broken
+code. Poisoned by restoring first-wins: the spring's guard fails with *"launched
+seat 0 in one order and seat 1 in the other"*, reproducing the defect
+mechanically rather than by argument.
+
+### ⭐⭐ "MAKE IT REFUSE AND COUNT WHAT FALLS" IS A MEASUREMENT, AND IT SAVED ME FROM THE OBVIOUS FIX
+
+Two registries in the moveset lane were on a peer's silent-overwrite inventory.
+Applying the obvious ruling — adopt refusal — would have been wrong on one of
+them, and the thing that said so was **running the refusal and reading the names
+of the tests that broke.**
+
+| registry | verdict | what decided it |
+|---|---|---|
+| `PreparedCharacterRegistry` (production door) | **already done** | `register_character` refuses with `CharacterRegistrationError::DuplicateId`, whose own doc argues it: *"a stable id is the thing saves, replays, and the network key on."* The inventory row was stale |
+| `PreparedCharacterRegistry` (test-support hatch) | ⛔ **REPLACE, and now it SAYS so** | I sealed it. **Four tests fell**, and their names are the argument: `deleting_an_override_in_a_hot_reload…`, `a_new_cast_generation_refreshes_a_seated_fighters_kit`, `a_character_that_stops_authoring_hurtboxes_has_them_retracted`, `replacing_the_cast_reprojects_a_body_wearing_the_same_character`. ⇒ Every one re-registers ONE id deliberately, because **that is what a hot reload IS** |
+| `MovePrefabRegistry` | ✔ **refuse** — landed | Measured first: the only three registrations in the workspace are the engine seeds, under three distinct literal keys. **Nothing overrode anything**, so "(or override)" documented a capability no caller used and a hazard every caller inherited |
+
+⛔⛔ **THE ONE I WOULD HAVE GOT WRONG IS THE MIDDLE ROW, and I got it wrong for
+about four minutes.** The two roads into that registry answer DIFFERENTLY and
+both are right: at the production door a second write means two PROVIDERS claimed
+one stable id and somebody has to lose; at the hatch it means the SAME author
+published again, which is a republication. **A rule applied to the registry
+rather than to the road is wrong on one of them.**
+
+⭐ **And the count was the signal, not the failure.** Four tests falling said the
+road is exercised deliberately and for a reason; one falling would have said only
+that a fixture touched it. ⇒ This is the positive form of the poison rule two
+sections up — **when you poison a shared authority, the NUMBER that reddens tells
+you how many roads your fixtures actually reach.** A peer put it in exactly those
+words the same afternoon, from the opposite direction: emptying a shared table
+reddened three tests, and the three was the point.
+
+⚠ `MovePrefabRegistry` also does NOT adopt the shared `classify` helper, for a
+reason worth stating rather than inheriting: `classify` decides its three answers
+with `PartialEq`, and the value there is a `fn` POINTER. The compiler may merge
+identical functions or not, so "the same entry" is a question that depends on
+optimisation settings. ⇒ **A registry that cannot soundly recognise idempotence
+has no honest Idempotent arm**, and any second registration is a conflict.
+
 ### ⚠ ROSTER DECISION #16 — PUGNACIOUS POLYGON GETS THE PARASOL, AND HE WAS PICKED BY MEASUREMENT
 
 His up-B was `impulse(0, -745, Set)` and nothing else. It now opens a 0.35-gravity

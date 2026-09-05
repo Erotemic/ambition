@@ -48,7 +48,15 @@ pub fn move_placed_portal_probe(portal: &MovePlacedPortal) -> u64 {
 pub fn open_authored_portal_pairs(
     mut commands: Commands,
     mut actions: MessageReader<ActorActionMessage>,
-    bodies: Query<&ae::BodyKinematics>,
+    // ⛔⛔ THE SEAT COMES WITH THE BODY BECAUSE THE PAIR NEEDS AN OCCURRENCE
+    // IDENTITY, and `channel_index` cannot be one: it is AUTHORING data, the
+    // same `8` for every Alice in the match. ⇒ Two of them recovering at once
+    // put two entrances on channel 8 and two exits on 9, `find_portal` returns
+    // the FIRST match, and one fighter can leave through the other's aperture.
+    // Worse, the sweep closes every move portal carrying the index, so ONE
+    // Alice's expiry shut the OTHER Alice's pair — and a 2.5s lifetime makes the
+    // overlap ordinary rather than exotic.
+    bodies: Query<(&ae::BodyKinematics, &ambition_platformer2d::actor::MatchSeat)>,
     // ⭐ THE AIM THE TELEPORT ALREADY ASKS FOR. `MovePlayback::aimed_stick` is a
     // latched, undamped stick direction and is already rollback state, so the
     // portal reads the same fact rather than sampling a stick of its own — which
@@ -70,7 +78,7 @@ pub fn open_authored_portal_pairs(
                 continue;
             }
         };
-        let Ok(kin) = bodies.get(message.actor) else {
+        let Ok((kin, seat)) = bodies.get(message.actor) else {
             continue;
         };
         let half = ae::Vec2::new(params.half_extent.0, params.half_extent.1);
@@ -113,7 +121,26 @@ pub fn open_authored_portal_pairs(
         let down = -up;
         let entrance = kin.pos;
         let exit = kin.pos + up * params.rise;
-        let low = params.channel_index;
+        // ⭐⭐ THE AUTHORED INDEX IS A BASE; THE SEAT MAKES IT AN OCCURRENCE.
+        // A pair occupies two adjacent channels (`low` and its partner), so each
+        // seat is given its own two-channel window above the authored base. Two
+        // Alices now open on 8/9 and 10/11 and cannot see each other's
+        // apertures, and the expiry sweep — which matches on `pair_index` —
+        // closes only the pair it belongs to.
+        //
+        // ⛔ `MatchSeat`, NOT AN `Entity`. The seat is rollback-registered
+        // (`actor.match_seat`), so both peers derive the same channel for the
+        // same fighter across a resimulation; an `Entity` is recreated by
+        // bevy_ggrs and would name a different pair on each peer.
+        //
+        // ⚠ IT SATURATES RATHER THAN WRAPS. A channel space is `u8` and a base
+        // near the top with many seats could roll over onto somebody else's
+        // window, which is the exact collision this exists to prevent — so an
+        // overflowing seat lands on the base instead, degrading to the old
+        // shared-channel behaviour rather than to a silent swap.
+        let low = params
+            .channel_index
+            .saturating_add((seat.0 as u8).saturating_mul(2));
         // ⭐ THE PARTNER COMES FROM THE CRATE, not from `low ^ 1` written again
         // here. `PortalChannel::partner()` is where that rule lives, and a second
         // copy of it is a pairing rule with two homes that drift apart the day
@@ -242,10 +269,17 @@ mod tests {
         );
         let body = app
             .world_mut()
-            .spawn(ae::BodyKinematics {
-                pos: ae::Vec2::new(100.0, 200.0),
-                ..Default::default()
-            })
+            .spawn((
+                ae::BodyKinematics {
+                    pos: ae::Vec2::new(100.0, 200.0),
+                    ..Default::default()
+                },
+                // ⛔ THE SEAT IS NOT DECORATION HERE. The pair's channel is
+                // derived from it, so a body without one is a caster that cannot
+                // exist in a match — and a fixture that omitted it was asking
+                // the system a question about nobody.
+                ambition_platformer2d::actor::MatchSeat(0),
+            ))
             .id();
         app.world_mut().write_message(ActorActionMessage {
             actor: body,
@@ -258,6 +292,87 @@ mod tests {
             },
         });
         (app, body)
+    }
+
+    /// ⛔⛔ TWO ALICES RECOVERING AT ONCE OPEN FOUR DISTINCT APERTURES, AND ONE
+    /// EXPIRING DOES NOT CLOSE THE OTHER'S PAIR.
+    ///
+    /// `channel_index` is AUTHORING data — the same `8` for every Alice in the
+    /// match — and it was being stored as `pair_index` as though it identified a
+    /// live pair. ⇒ Two entrances landed on channel 8 and two exits on 9;
+    /// `find_portal(.., partner_channel)` returns the FIRST match, so one
+    /// fighter could leave through the other's aperture. And the expiry sweep
+    /// despawns every move portal carrying the index, so **one Alice's clock
+    /// running out shut the other Alice's pair mid-recovery** — with a 2.5s
+    /// lifetime, an ordinary occurrence rather than an exotic one.
+    ///
+    /// ⭐ The seat is the occurrence identity because it is ROLLBACK-REGISTERED;
+    /// an `Entity` is recreated by bevy_ggrs and would name a different pair on
+    /// each peer.
+    #[test]
+    fn two_fighters_recovering_at_once_get_pairs_that_cannot_see_each_other() {
+        let mut app = App::new();
+        app.add_message::<ActorActionMessage>();
+        app.add_message::<ambition_platformer2d::portal::PortalBodyTransited>();
+        app.init_resource::<ambition_platformer2d::time::WorldTime>();
+        {
+            let mut time = app
+                .world_mut()
+                .resource_mut::<ambition_platformer2d::time::WorldTime>();
+            time.scaled_dt = 1.0 / 60.0;
+            time.raw_dt = 1.0 / 60.0;
+        }
+        app.add_systems(Update, open_authored_portal_pairs);
+        for seat in [0usize, 1usize] {
+            let body = app
+                .world_mut()
+                .spawn((
+                    ae::BodyKinematics {
+                        pos: ae::Vec2::new(100.0 * seat as f32, 0.0),
+                        ..Default::default()
+                    },
+                    ambition_platformer2d::actor::MatchSeat(seat),
+                ))
+                .id();
+            app.world_mut().write_message(ActorActionMessage {
+                actor: body,
+                request: ActionRequest::Special {
+                    spec: SpecialActionSpec::Special(PORTAL_PAIR.to_string()),
+                    params: ambition_platformer2d::entity_catalog::ParamValue::from_typed(
+                        &params(2.5),
+                    )
+                    .expect("portal params serialize"),
+                },
+            });
+        }
+        app.update();
+
+        let channels: Vec<PortalChannel> = placed(&mut app).into_iter().map(|(c, _)| c).collect();
+        assert_eq!(channels.len(), 4, "two pairs is four apertures");
+        let mut unique = channels.clone();
+        unique.sort_by_key(|c| format!("{c:?}"));
+        unique.dedup();
+        assert_eq!(
+            unique.len(),
+            4,
+            "the two fighters share a channel ({channels:?}) — `find_portal` \
+             returns the first match, so one can leave through the other's exit"
+        );
+
+        let mut indices: Vec<u8> = app
+            .world_mut()
+            .query::<&MovePlacedPortal>()
+            .iter(app.world())
+            .map(|p| p.pair_index)
+            .collect();
+        indices.sort_unstable();
+        indices.dedup();
+        assert_eq!(
+            indices.len(),
+            2,
+            "both pairs carry one `pair_index` ({indices:?}), so the expiry \
+             sweep closes BOTH when either runs out"
+        );
     }
 
     fn placed(app: &mut App) -> Vec<(PortalChannel, ae::Vec2)> {
@@ -489,10 +604,13 @@ mod tests {
         p.aim_tilt_degrees = aim_tilt_degrees;
         let body = app
             .world_mut()
-            .spawn(ae::BodyKinematics {
-                pos: ae::Vec2::ZERO,
-                ..Default::default()
-            })
+            .spawn((
+                ae::BodyKinematics {
+                    pos: ae::Vec2::ZERO,
+                    ..Default::default()
+                },
+                ambition_platformer2d::actor::MatchSeat(0),
+            ))
             .id();
         // ⭐ THE LATCH, not a live stick: an aimed special is ROOTED, so the
         // damped `locomotion` a live read would see is neutral for the whole

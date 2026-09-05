@@ -117,10 +117,61 @@ none of them waits on `TechniqueFlow`.
   3). Generalise parry's existing re-own — `ProjectileOwner`,
   `ProjectileAllegiance`, velocity — into reflect / redirect / consume, keeping
   the six ownership axes independent.
-- ▢ **B4. Per-action muzzle transform + sustained charge presentation.** The two
-  concrete deficiencies the charge-ball source names about itself. Not a new
-  mechanic; the authored spatial/presentation contract being too weak. Fixes how
-  Projectile Polygon READS without touching how she works.
+- ◐ **B4. Per-action muzzle transform + sustained charge presentation.**
+  ✔ **THE MUZZLE LANDED 2026-09-05.** `Muzzle::Offset { x, y }` joins `BodyOrigin`
+  and `Hand`, as FRACTIONS of body height (the decision `HAND_OFFSET_NORM` already
+  made), facing-flipped and resolved through the acceleration frame. Projectile
+  Polygon's charge shot now leaves the head-mounted cannon that this repository
+  described in three separate files while the code fired from her midriff.
+  ⭐ **The resolution is a function (`muzzle_world_pos`) so it can be ASKED** —
+  inline in the fire system, the only way to check that an authored muzzle moved
+  anything was to stand up an app, a body, a weapon and a shot, which is why
+  nothing did.
+  ▢ **AND THE SECOND HALF TURNS OUT TO BE THE SAME DEFICIENCY, not a separate
+  one — measured, and it revises the row's premise.** The charge presentation is
+  ALREADY sustained: `draw_player_projectile_charge` despawns and respawns the orb
+  every frame from `BodyPoseView::charge_tier`, tracking the presented body and
+  scaling by tier. It is not a point VFX event. ⇒ What is wrong with it is the
+  same thing that was wrong with the shot: it draws at a HARDCODED body offset
+  (`size.x * 0.5 + 6.0`, `size.y * 0.20`), so the orb forms at the hip while the
+  shot now leaves the cannon.
+  ⛔⛔ **ANSWERED 2026-09-05 — AS TWO DEFECTS, NOT ONE, AND MY FIRST ANSWER
+  CONFLATED THEM.** This repository has THREE charge concepts and I read one as
+  another:
+  * the **exploration fireball** — `PlayerProjectileState::charging`, published as
+    `BodyPoseView::charge_tier`, drawn as the orb by
+    `sync_projectile_charge_visuals`;
+  * the **smash-attack** charge — `MovePlayback`'s, published as
+    `BodyPoseView::smash_charge`, which drives audio cues in `body_cues.rs`;
+  * the **ranged-action** charge — `RangedCharge` on a `RangedActionSpec`, which
+    is Projectile Polygon's.
+  ⇒ **The orb was never hers.** `RangedCharge::visuals` is documented as "one
+  `ProjectileVisualId` per tier": it changes how the FIRED SHOT looks, not how the
+  fighter looks while holding it.
+
+  ▢ **DEFECT ONE — the orb never renders in a versus match.** It is gated
+  `With<PlayerEntity>`, and every PRODUCTION insertion of that marker is
+  `PlayerIdentityBundle` inside `PlayerSimulationBundle`, which hardcodes
+  `PlayerSlot::PRIMARY` and `PrimaryPlayer`; the four others are all inside
+  `#[cfg(test)]` modules, checked one at a time. There is no `FeatureVisual`
+  counterpart. ⭐ This is exactly the defect `flyline.rs` names in bold — *"what
+  happened to the trapdoor, and every test it had spawned a `PlayerVisual`, so
+  none of them could fail."* Real, and about the fireball rather than about smash.
+
+  ▢ **DEFECT TWO — a held ranged charge publishes NOTHING, and this is the smash
+  one.** `BodyPoseView` carries `charge_tier` (fireball) and `smash_charge` (smash
+  attack) and no field for a ranged-action charge at all, so no renderer can show
+  one. ⇒ Projectile Polygon can hold a charge that multiplies damage 3.5×, speed
+  1.5× and size 2.4×, and neither player sees anything until the shot leaves. For
+  a 1v1 match that is the part both players would act on.
+
+  ⇒ **THE FIX FOR DEFECT TWO IS THE FACT, NOT THE ART.** Publish the held ranged
+  charge — fraction and tier — on both `BodyPoseView` and `FeatureView`, then draw
+  it at the authored muzzle. ⭐ That makes one published point serve three needs:
+  the missing indicator, the hardcoded body offset the orb uses, and the feature
+  road. ⛔ Not a second muzzle resolution in `ambition_render`: that math has one
+  home now. ⛔ And not a field on `PlayerProjectileState` — a presentation point
+  is not rollback state; it is derived per tick, a category the registry has.
 
 ### Track A — the keystone
 

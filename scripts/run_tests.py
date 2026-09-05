@@ -1166,6 +1166,19 @@ def run(jobs: list[Job], list_only: bool, timings_json: str | None = None,
     # where the edit-rebuild loop actually lives — `setdefault`, so anyone who
     # wants it back exports `CARGO_INCREMENTAL=1`.
     env.setdefault("CARGO_INCREMENTAL", "0")
+    # ⛔⛔ A CPU WITHOUT AN INVARIANT TSC ABORTS THE UNION JOB BEFORE ANY TEST
+    # RUNS, and the failure reads like a build problem: *"Tracy Profiler
+    # initialization failure: CPU doesn't support invariant TSC"*. The union
+    # enables every headless-safe feature, so it can pull a Tracy-linked build
+    # in on a machine whose CPU does not advertise `constant_tsc + nonstop_tsc`
+    # — measured 2026-09-05 on a peer's VM, where it cost an hour.
+    #
+    # ⭐ `setdefault`, and it is safe here for a reason worth stating: this lane
+    # RUNS TESTS, it does not measure time. `scripts/profile_desktop.sh` sets the
+    # same variable and records the caveat that matters where it does matter —
+    # zone RATIOS stay sound, absolute microseconds do not. A test suite reads
+    # neither.
+    env.setdefault("TRACY_NO_INVARIANT_CHECK", "1")
 
     # **REFUSE ON A FULL DISK RATHER THAN DYING HALFWAY THROUGH IT.**
     #

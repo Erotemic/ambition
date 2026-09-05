@@ -91,6 +91,21 @@ is order-independent. Where effects do not commute, define precedence or a
 canonical state-first/identity-last composition rather than laundering ECS query
 order into gameplay semantics.
 
+⭐ **THIS PARAGRAPH NAMES A SEARCHABLE CODE SHAPE, and searching for it found
+three violations in one crate (2026-09-05).** The grep is **a loop over a
+collected `Query` that contains a `break`** — a full iteration is
+order-independent by construction; one that stops early is picking a WINNER.
+`ambition_portal2d` had three, all fed from
+`portals.iter().cloned().collect()`: the body transit path, the ground-item
+teleport, and `find_portal`. ⇒ A body or a thrown item overlapping TWO apertures
+could be sent somewhere else on a replayed frame.
+
+⚠ **The repair is ONE tie-break per crate applied AT THE COLLECTION POINT, not a
+stable rule per site.** Three sites that each invent their own stable order still
+disagree with EACH OTHER — which is how a portal doorway got sized against one
+aperture while the body warped to another. `ambition_portal2d::stable_portal_order`
+is that crate's single answer.
+
 ### 5. Lifetime ownership
 
 Which gameplay session and rollback timeline may treat the state as authority?

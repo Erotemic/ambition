@@ -907,7 +907,42 @@ the guard's owner with a fixture.
 
 ---
 
-## ✔ CLOSED — is the "no General-MIDI fallbacks on new machines" ask actually guarded?
+## ⛔⛔ REOPENED 2026-09-04 EVENING — THE REFUSAL IS REAL AND IT IS NOT IN WHAT A FRESH CLONE GETS
+
+⛔ **The entry below concluded "yes, the ask is guarded" and it is TRUE OF A
+BRANCH NOBODY IS ON.** Measured, not recalled:
+
+| where | `test_refuses_the_general_midi_fallback.py` | the refusal in `cli.py` |
+|---|---|---|
+| `agent/sfizz-source-fallback-and-cue-fanout` (mine) | ✔ present, green | ✔ **10** matches — the `AMBITION_MUSIC_ALLOW_GM_FALLBACK` gate, its message, its exit |
+| the submodule's `main` — **what the superproject pins** (`4e5695c`) | ⛔ absent | ⛔ **1** match, and it is a **COMMENT** — line 528 of the renderer's `cli.py`, inside the submodule, which is why it carries no repo-relative citation: the superproject does not track submodule files and the citation checker cannot resolve one |
+
+⇒ **A fresh clone today gets a renderer that will render General-MIDI stand-ins
+and report success**, which is the exact outcome Jon's standing ask names. ⛔ And
+the entry below is what makes this dangerous rather than merely open: it
+establishes that `scripts/regen/music.sh` **warns and continues**, and *"defers
+entirely to the renderer refusing"*. That deferral is correct reasoning about a
+renderer that refuses. The pinned renderer does not.
+
+✔ **The work is done and integrated, and landing it is now one command.** The
+branch merged the submodule's `main` cleanly (`a5d9f3a`), `main` is an ancestor
+so it **fast-forwards**, and both sides' guards pass together: 14 tests — the
+GM refusal, the missing-named-library preflight, main's mirror-symlink publish
+guard and its CLI-entry guard. ⓘ Three failures in the full 262-test suite are
+**pre-existing** — verified by running them on `origin/main` itself, where they
+fail identically. They are spectrogram/plot tests.
+
+⏳ **NOT LANDED — Jon's call**, because it changes what every clone gets and the
+superproject pointer with it. ⚠ The pin is deliberate on its own terms: the
+sibling session re-pointed the superproject at `4e5695c` precisely because the
+previous pin was on **no remote branch at all**, so a dangling pointer was
+traded for a correct-but-unguarded one. ⇒ The remaining decision is only
+*"fast-forward the submodule's main and re-pin"*, and the reason to take it is
+that the ask is unprotected until somebody does.
+
+---
+
+## ✔ (superseded by the entry above — the conclusion holds for the branch, not for the pin) — is the "no General-MIDI fallbacks on new machines" ask actually guarded?
 
 **Checked 2026-09-04 without a compiler, because the whole path is shell and
 Python.** The answer is yes, and it is worth writing down where the protection

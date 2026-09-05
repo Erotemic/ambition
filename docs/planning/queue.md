@@ -2993,8 +2993,60 @@ queue read as an execution authority for work already done.
   `P11`'s **hit-grab** — nothing raises `CaptureAttemptRequested` from a landed
   hit; `P10`'s **tech result** — presentation only, because the AI half is
   deliberately absent under the no-cheat rule and publishing it would be a cheat;
-  and `P14`'s **finish-zoom eligibility** — the camera has the machinery and drives
-  it from zones, and no fact says *this blow is the finishing one*.
+  and ⇒ **`P14`'s finish-zoom is NO LONGER on this list: it is a READY packet, not
+  a missing seam (re-derived 2026-09-04).** This row and the inventory both said
+  *"no fact says this blow is the finishing one"*. Two do, and both endpoints of
+  the wire already exist:
+  * **The trigger.** `StocksMatchDecided { outcome: MatchVerdict }`
+    (`crates/ambition_combat/src/stocks.rs:588`) is written ONCE, *"when
+    `last_side_standing` first answers, the clock expires, or somebody stops the
+    match"*. ⭐ **That answers the design question the per-fighter fact leaves
+    open**: `FighterStockSpent::eliminated` is one fighter's last stock, which
+    is the finishing blow in a two-fighter match and not in a four-fighter one —
+    `StocksMatchDecided` is player-count-agnostic and fires exactly once. ⚠ Use
+    `MatchVerdict::winner()`, so a `Draw` and a `NoContest` do not get a
+    victory zoom; the type exists precisely to stop that collapse.
+  * **The precedent.** `ambition_combat/src/hit_camera_shake.rs` already turns a
+    combat fact into a camera request — `CameraShakeRequest` in
+    `ambition_platformer2d_shared_tangle::camera_ease`, rollback-registered as
+    `message.camera_shake_request` via `clear_message_on_rollback`. A zoom
+    request is the same shape and belongs beside it.
+  * **The consumer.** `camera_snapshot.rs` owns `zoom_multiplier` and eases it
+    with `zoom_in_rate` / `zoom_out_rate`; today it is fed only by
+    `CameraZoneSpec::effective_zoom`. The packet adds a transient source over
+    that, not a second authority for the same number.
+  ⇒ **So the work is a WIRE between two shipped endpoints with a shipped
+  precedent for its shape** — not "invent the gameplay fact", which is what the
+  old sentence described and is why nobody took it.
+  ⛔⛔ **BUT THE CONSUMER SIDE HAS A FLOOR, AND I PUBLISHED "just a wire" BEFORE
+  FINDING IT — corrected in the same session.** The camera's scale is a
+  **zoom-OUT-only** quantity: `CameraZoneSpec::effective_zoom` is
+  `self.zoom.unwrap_or(LEGACY_BREATH_ZOOM)` **`.max(1.0)`**
+  (`crates/ambition_platformer2d_world/src/rooms/camera.rs:110`), and
+  `camera_snapshot.rs` floors `target_scale` at `1.0` again independently. ⇒ **A
+  finish zoom wants to zoom IN — below 1.0 — and the policy cannot currently
+  express that at all.** The floor is deliberate and its reason is stated beside
+  `CAST_FRAMING_MARGIN`: *"the view is a FLOOR, so authored zoom still wins
+  whenever it is already wider"* — a readability guarantee that the player never
+  gets less than the design view.
+  ⭐⭐ **WHICH THE ARCHITECTURE ALREADY ANSWERS, and the answer is the precedent
+  itself.** The shake is **presentation-only and applied DOWNSTREAM of the
+  snapshot** — `camera_snapshot.rs:48` calls its own output *"final world-space
+  camera center **before presentation-only shake**"*. ⇒ **A finish zoom belongs
+  in the same place, for the same reason**: it is a cinematic flourish rather
+  than a simulation fact, so it never touches `zoom_multiplier`, never spends
+  the base-view floor that gameplay depends on, and cannot desynchronise a
+  rollback host because nothing downstream of the snapshot feeds back into it.
+  ⛔ Taking the other road — lifting the floor for a transient — would trade a
+  standing readability guarantee for a flourish, and would put a second
+  authority on the number `CameraZoneSpec` owns.
+  ⇒ **Revised packet, and it is still small**: `StocksMatchDecided` →
+  `FinishZoomRequest` (beside `CameraShakeRequest` in `camera_ease`,
+  rollback-registered the same way) → a decaying `FinishZoomState` → applied
+  where the shake is applied. ⚠ **Do NOT route it through
+  `CameraSnapshotInput`**; that is the mistake this note exists to prevent. ⛔ `P10`'s tech RESULT is
+  the genuinely missing fact of the pair and is now the harder of the two; the
+  two rows are no longer the same shape and the inventory says so.
   ⛔ **DO NOT tune the fighter brain against ladder-rig numbers yet — and the
   reason has been REPLACED, 2026-09-04.** The rig can now measure the shipped
   ladder (`--ladder PATH`) and has: four matched arms, `--paired --seeds 12`,

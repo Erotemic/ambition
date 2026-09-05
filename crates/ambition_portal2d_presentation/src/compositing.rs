@@ -259,3 +259,53 @@ mod tests {
         assert_eq!(first[1], second[0]);
     }
 }
+
+#[cfg(test)]
+mod band_tests {
+    /// ⛔⛔ THE OTHER HALF OF "THE PORTAL BAND SITS BELOW THE ACTOR BAND", and the
+    /// half THIS crate can see unconditionally.
+    ///
+    /// The claim spans two crates: the portal z constants live here, and the
+    /// `+ 1.0` that puts an actor above `WORLD_Z_DUMMY` lives in
+    /// `ambition_render`. Asserting all of it there needed the optional
+    /// `portal_render` feature — which is `default = []`, so the guard ran only
+    /// under the exhaustive lane and would not have stopped anyone.
+    ///
+    /// ⇒ Split on the shared term. `WORLD_Z_DUMMY` is the datum both crates
+    /// already depend on, so this pins `portal band <= datum` and
+    /// `ambition_render` pins `datum < actor`; together
+    /// `portal band <= WORLD_Z_DUMMY < actor`, with **no optional feature on
+    /// either side**.
+    ///
+    /// ⭐⭐ THIS IS THE GUARD AGAINST THE RULED-OUT CHEAP FIX. Raising
+    /// [`crate::PORTAL_WINDOW_Z`] above the cast is the two-line change that
+    /// makes a reported screenshot look right and INVERTS the bug — a near-side
+    /// actor would vanish behind an aperture it stands in front of.
+    #[test]
+    fn the_portal_band_stays_at_or_below_the_shared_world_datum() {
+        let datum = ambition_platformer2d_core::config::WORLD_Z_DUMMY;
+        for (name, z) in [
+            ("PORTAL_EXIT_COPY_Z", crate::PORTAL_EXIT_COPY_Z),
+            ("PORTAL_WINDOW_Z", crate::PORTAL_WINDOW_Z),
+            ("PORTAL_RIM_OVERLAY_Z", crate::PORTAL_RIM_OVERLAY_Z),
+        ] {
+            assert!(
+                z <= datum,
+                "{name} = {z} is above WORLD_Z_DUMMY ({datum}). If this moved to \
+                 fix a far-side actor drawing over a portal window: that INVERTS \
+                 the bug — a NEAR-side actor would vanish behind an aperture it \
+                 stands in front of. The fix is a per-pane compositing relation \
+                 (`crate::pane_relation`), not a global z, because one body is \
+                 near one pane and far of another in the same frame."
+            );
+        }
+    }
+
+    /// ⚠ The control: the band must be ORDERED within itself, or "below the
+    /// datum" is satisfied by three constants that say nothing about each other.
+    #[test]
+    fn the_portal_band_is_ordered_within_itself() {
+        assert!(crate::PORTAL_EXIT_COPY_Z < crate::PORTAL_WINDOW_Z);
+        assert!(crate::PORTAL_WINDOW_Z < crate::PORTAL_RIM_OVERLAY_Z);
+    }
+}

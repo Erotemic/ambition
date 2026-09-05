@@ -245,66 +245,37 @@ pub(super) fn spawn_world_label(
     );
 }
 
-#[cfg(all(test, feature = "portal_render"))]
-mod portal_band_tests {
+
+#[cfg(test)]
+mod actor_band_tests {
     use super::*;
 
-    /// ⛔⛔ THE PORTAL BAND SITS BELOW THE ACTOR BAND, AND UNTIL NOW THAT WAS A
-    /// COINCIDENCE OF LITERALS.
+    /// ⛔⛔ HALF OF "THE PORTAL BAND SITS BELOW THE ACTOR BAND", AND THE HALF THIS
+    /// CRATE CAN SEE UNCONDITIONALLY.
     ///
-    /// `PORTAL_WINDOW_Z = 9.5`, `PORTAL_RIM_OVERLAY_Z = 10.0` and
-    /// `WORLD_Z_DUMMY = 10.0` are defined in two different crates, and the portal
-    /// constants' docs assert a RELATIONSHIP to this one — *"below actors so a
-    /// near-side actor still occludes it"*, *"below actors"*. Nothing checked it.
-    /// `ambition_platformer2d_core` guards its OWN band's order
-    /// (`WORLD_Z_BLOCK < WORLD_Z_DUMMY < WORLD_Z_PLAYER < WORLD_Z_FX`) and cannot
-    /// see the portal band; the portal crate cannot see the `+ 1.0` that puts an
-    /// actor above `WORLD_Z_DUMMY`. **This crate is the only one that sees both.**
+    /// The claim spans two crates and my first attempt asserted all of it here,
+    /// behind `#[cfg(feature = "portal_render")]` — which `ambition_render`
+    /// declares `default = []`, so **the guard ran only under
+    /// `--run-everything-you-probably-dont-need-this`.** A guard whose job is to
+    /// stop a two-line wrong fix is worthless if it does not run in the plan the
+    /// person making that fix will run.
     ///
-    /// ⭐⭐ AND IT IS THE GUARD AGAINST THE RULED-OUT CHEAP FIX. The obvious way to
-    /// stop a far-side actor punching through a portal window is to raise
-    /// `PORTAL_WINDOW_Z` above the actor band. It is two lines, it fixes the
-    /// screenshot, and it inverts the bug: a near-side actor would then vanish
-    /// behind an aperture it is standing in front of. This test fails on that
-    /// change and says why in its message, which a comment in another crate
-    /// could not.
+    /// ⇒ SPLIT AT THE CRATE BOUNDARY so each half runs in its own crate's default
+    /// build: this one pins `WORLD_Z_DUMMY < actor`, and
+    /// `ambition_portal2d_presentation` pins `portal band <= WORLD_Z_DUMMY`.
+    /// `WORLD_Z_DUMMY` is the shared term — both crates already depend on
+    /// `ambition_platformer2d_core` — so together they imply
+    /// `portal band <= WORLD_Z_DUMMY < actor` with no optional feature anywhere.
     #[test]
-    fn the_portal_band_stays_below_the_actor_band() {
-        let actor_z = feature_z(FeatureVisualKind::Actor);
-        for (name, z) in [
-            (
-                "PORTAL_EXIT_COPY_Z",
-                ambition_portal2d_presentation::PORTAL_EXIT_COPY_Z,
-            ),
-            (
-                "PORTAL_WINDOW_Z",
-                ambition_portal2d_presentation::PORTAL_WINDOW_Z,
-            ),
-            (
-                "PORTAL_RIM_OVERLAY_Z",
-                ambition_portal2d_presentation::PORTAL_RIM_OVERLAY_Z,
-            ),
-        ] {
-            assert!(
-                z < actor_z,
-                "{name} = {z} is not below the actor draw z ({actor_z}). If this \
-                 moved to fix a far-side actor drawing over a portal window: that \
-                 inverts the bug -- a NEAR-side actor would vanish behind an \
-                 aperture it stands in front of. The fix is a per-pane compositing \
-                 relation (`ambition_portal2d_presentation::pane_relation`), not a \
-                 global z, because one body is near one pane and far of another in \
-                 the same frame."
-            );
-        }
-    }
-
-    /// ⚠ The control: the band this test compares against must itself be ordered,
-    /// or "below the actor band" is a comparison with nothing.
-    #[test]
-    fn the_actor_band_is_above_the_world_it_stands_on() {
+    fn every_actor_draws_strictly_above_the_shared_world_datum() {
+        let datum = ambition_platformer2d_core::config::WORLD_Z_DUMMY;
+        let actor = feature_z(FeatureVisualKind::Actor);
         assert!(
-            feature_z(FeatureVisualKind::Actor)
-                > ambition_platformer2d_core::config::WORLD_Z_BLOCK
+            actor > datum,
+            "the actor draw z ({actor}) is not above WORLD_Z_DUMMY ({datum}). The \
+             portal band is pinned at or below that datum in \
+             `ambition_portal2d_presentation`, and the two halves together are \
+             what keep a portal window from being raised over the cast."
         );
     }
 }

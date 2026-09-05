@@ -1510,9 +1510,17 @@ dealt, and the LOWER rung deals more: **215% against 191%**. Ten or more of the
 twelve seed-pairs have to agree for a cell to clear p < 0.05 at this n, so this is
 a consistent direction across pairs, not one lopsided bout.
 ⭐ **AND THAT THRESHOLD MOVES WITH TIES, which the printed split now lets a
-reader see — derived from `sign_test_within_spread`'s exact two-sided binomial
-tail, `2·P(X ≥ k)` for `X ~ Binomial(n, ½)`, where `n` counts only the pairs that
-were NOT ties:**
+reader see — derived from `smallest_clearing_majority`, which walks
+`sign_test_p`'s exact two-sided binomial tail `2·P(X ≥ k)` for `X ~ Binomial(n, ½)`,
+where `n` counts only the pairs that were NOT ties:**
+ⓘ **This table is a fourth copy of that rule and cannot derive itself, so it
+carries the function that can.** The rig prints the same bar per run in its
+`significance bar:` header, computed from the same place — if the two ever
+disagree, the header is right. ⚠ It already went stale once: it cited
+`sign_test_within_spread`, which was deleted the same night when the tail
+became the return value, and nothing but reading the source would have said so.
+
+
 
 | usable pairs `n` | majority needed | p |
 |---|---|---|

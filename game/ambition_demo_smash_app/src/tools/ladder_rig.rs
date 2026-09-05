@@ -689,6 +689,18 @@ fn sign_test_says_within_spread(diffs: &[f32]) -> bool {
 ///
 /// ⇒ The threshold is unchanged; the caller compares against `0.05` and the row
 /// prints the number, so the distinction is readable rather than recomputable.
+/// The smallest majority that clears p < 0.05 at `pairs` usable pairs, or
+/// `None` when no split can.
+///
+/// ⛔ ONE AUTHORITY, because there were two: the header line that tells a reader
+/// what this run could report, and the test asserting a longer run accepts a
+/// weaker majority, each ran their own `find` over `sign_test_p`. Two
+/// computations of one fact — and the fact is the bar the whole table is read
+/// against.
+fn smallest_clearing_majority(pairs: usize) -> Option<usize> {
+    (pairs / 2..=pairs).find(|&k| sign_test_p(k, pairs - k) < 0.05)
+}
+
 fn sign_test_p(positives: usize, negatives: usize) -> f64 {
     let n = positives + negatives;
     // ⛔ THERE WAS AN EXPLICIT `if n < 6 { return true }` HERE AND IT WAS DEAD
@@ -867,7 +879,7 @@ fn report_what_this_run_could_report() {
     if !args().paired {
         return;
     }
-    match (pairs / 2..=pairs).find(|&k| sign_test_p(k, pairs - k) < 0.05) {
+    match smallest_clearing_majority(pairs) {
         Some(k) => println!(
             "[ladder_rig] significance bar: with {pairs} paired seeds a cell needs \
              {k} of {pairs} ({:.0}%) going one way to print without \
@@ -2504,9 +2516,11 @@ mod tests {
         // prints the percentage and not only the tail. A reader comparing two
         // runs by p alone reads a bigger, weaker result as confirming a smaller,
         // stronger one.
+        // ⭐ THE SAME FUNCTION THE HEADER PRINTS FROM. The test used to run its
+        // own `find`, so a change to the threshold could have moved the header
+        // and left this asserting the old rule — a test agreeing with itself.
         let smallest_clearing = |n: usize| {
-            (n / 2..=n)
-                .find(|&k| sign_test_p(k, n - k) < 0.05)
+            smallest_clearing_majority(n)
                 .map(|k| 100.0 * k as f64 / n as f64)
                 .expect("some majority clears at these n")
         };

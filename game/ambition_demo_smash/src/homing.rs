@@ -110,7 +110,21 @@ pub fn carry_homing_dashes(
         &mut ae::BodyKinematics,
         Option<&mut HomingDash>,
         Option<&ambition_platformer2d::platformer::sim_id::SimId>,
+        // ⛔⛔ ELIGIBILITY, BECAUSE "NOT ME" IS NOT "A FOE". This filtered only
+        // `other != entity` and handed the raw body population to
+        // `assisted_fire_direction` — which is deliberately GEOMETRIC and
+        // assumes its caller supplied foes. ⇒ Carl's slingshot could bend toward
+        // a KO'd fighter (`OutOfPlay`, health reset full on respawn) or, in team
+        // versus, toward a teammate. Neither is a target and both look like the
+        // move working.
+        Option<&ambition_platformer2d::characters::actor::BodyHealth>,
+        bevy::prelude::Has<ambition_platformer2d::combat::death_rules::OutOfPlay>,
+        Option<&ambition_platformer2d::combat::components::ActorFaction>,
+        Option<&ambition_platformer2d::combat::targeting::MatchTeam>,
     )>,
+    // The match's own friendly-fire answer, so a teams ruleset that ENABLES it
+    // gets a dash that may bend at a teammate — the flag says what it means.
+    friendly_fire: Option<Res<ambition_platformer2d::combat::targeting::FriendlyFire>>,
 ) {
     let dt = time.sim_dt();
     if dt <= 0.0 {
@@ -120,16 +134,34 @@ pub fn carry_homing_dashes(
     // query, immutably, before anything moves — so every dash this tick steers
     // against the SAME world rather than against the partially-updated one its
     // predecessors left.
+    #[allow(clippy::type_complexity)]
     let candidates: Vec<(
         Entity,
         Option<ambition_platformer2d::platformer::sim_id::SimId>,
         ae::Vec2,
+        // Everything the eligibility question needs, captured with the position
+        // so the answer is asked against the SAME tick the geometry is.
+        bool,
+        Option<ambition_platformer2d::combat::components::ActorFaction>,
+        Option<ambition_platformer2d::combat::targeting::MatchTeam>,
     )> = bodies
         .iter()
-        .map(|(entity, kin, _, sim_id)| (entity, sim_id.cloned(), kin.pos))
+        .map(|(entity, kin, _, sim_id, health, out_of_play, faction, team)| {
+            (
+                entity,
+                sim_id.cloned(),
+                kin.pos,
+                ambition_platformer2d::combat::util::body_is_untouchable(health, out_of_play),
+                faction.copied(),
+                team.cloned(),
+            )
+        })
         .collect();
+    let ff = friendly_fire
+        .map(|f| *f)
+        .unwrap_or(ambition_platformer2d::combat::targeting::FriendlyFire { enabled: false });
 
-    for (entity, mut kin, dash, _) in &mut bodies {
+    for (entity, mut kin, dash, _, _, _, self_faction, self_team) in &mut bodies {
         let Some(mut dash) = dash else {
             continue;
         };
@@ -139,10 +171,29 @@ pub fn carry_homing_dashes(
             continue;
         }
         let from = kin.pos;
+        // ⛔⛔ A FOE, NOT MERELY SOMEBODY ELSE. `assisted_fire_direction` is
+        // deliberately geometric and assumes its caller supplied targets — its
+        // canonical caller asks `body_is_untouchable` AND the damage relation
+        // before handing anything over, and this did neither. ⇒ Reused rather
+        // than approximated: a `MatchSeat` comparison would have been shorter and
+        // would have called a teammate a foe the day this runs in team versus.
+        let self_faction = self_faction.copied().unwrap_or_default();
         let others: Vec<_> = candidates
             .iter()
-            .filter(|(other, _, _)| *other != entity)
-            .cloned()
+            .filter(|(other, _, _, untouchable, faction, team)| {
+                *other != entity
+                    && !*untouchable
+                    && ambition_platformer2d::combat::targeting::damage_lands_between(
+                        self_faction,
+                        faction.unwrap_or_default(),
+                        self_team,
+                        team.as_ref(),
+                        ff,
+                        None,
+                        *other,
+                    )
+            })
+            .map(|(other, sim_id, pos, _, _, _)| (*other, sim_id.clone(), *pos))
             .collect();
         let heading = ambition_platformer2d::combat::targeting::assisted_fire_direction(
             from,

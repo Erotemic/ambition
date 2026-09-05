@@ -1,6 +1,9 @@
 # Dialogue continuity — a conversation is sustained, not modal
 
-> **Verified against `ef2c4bd50` (2026-09-04).** Four claims re-derived from the
+> **Verified against `4dc3bef48` (2026-09-05); previously `ef2c4bd50` (2026-09-04).**
+> ✔ RE-DERIVED at the newer SHA, not carried forward: all four claims below still
+> hold at the exact lines cited — checked by reading those lines, which is the
+> only reason this header moved. Four claims re-derived from the
 > code, not re-read from this page: `crates/ambition_conversation/src/rules.rs:32` is still the `let [a, b] =
 > participants.as_slice()` let-else that guards multi-participant;
 > `can_hold_station(&AbilitySet, grounded: bool)` is still at

@@ -1350,8 +1350,21 @@ hazard in it was being triaged as though it were reachable.
     available before a flow was to make the move safe for everybody — which is a
     worse move. **That is the thing a timeline cannot say**, and it is the
     attacker-side answer to a block that B1's defender-side half could not give.
+  - ✔ **A SECOND FLOW, DELIBERATELY THE OPPOSITE SHAPE, AND IT NEEDED NOTHING
+    NEW.** The oni branches on a FAILURE (`Blocked`) to escape; the goblin's
+    `headlong_charge` now waits for a SUCCESS (`Connected`) and commits —
+    a landed tackle emits the grab the goblin already authors. ⇒ **If the four
+    nodes only ever expressed "get out of trouble" the vocabulary would be a
+    defensive gadget rather than a general one**; the same `Wait`/`Emit` pair read
+    the other way round is the whole difference, with no new node, no new signal
+    and no engine change. ⭐ It is also the move the comment already described:
+    *"It runs at you"* — and then, before a flow, bounced off and stood there.
+    ⛔ On the CONNECT, never the overlap: an `Overlapped` charge includes one a
+    guard ate, so waiting on it would reward the goblin for running into a
+    shield. **Roster decision #18.**
   - ▢ **Symbolic slots are the one part genuinely absent** — zero matches. The
-    four nodes and the three signals are all shipped.
+    four nodes and the three signals are all shipped, and two authored moves now
+    exercise both readings of them.
   - ⛔⛔ **AND THE GUARD TOOK THREE ATTEMPTS, EACH DEFECT INVISIBLE TO A
     NEGATIVE-ONLY ASSERTION.** (1) With only the escape observable, poisoning the
     timeout to never fire left the test GREEN — *"the escape did not fire"* is

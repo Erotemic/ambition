@@ -571,6 +571,33 @@ If choosing “stay,” the producer and reconstruction consumer must land toget
 recording a moved placement that construction refuses would only add warnings and
 still teleport the actor home.
 
+ⓘ⭐ **REACHABLE TODAY, NOT THEORETICAL — measured 2026-09-05, and this is the
+opposite of #45 and #54, which are cheap because their populations are one.**
+The relocation road ships:
+
+- **possession is a shipped traversal ability** —
+  `actor_monolith/src/abilities/traversal/possession.rs:1`, *"redirects the
+  primary participant's seat to a nearby actor"*;
+- **and a possessed body is CARRIED ACROSS a room boundary rather than retired**
+  — `world/rooms/stage.rs:308`, `retire_outgoing(.., carry_body: Option<Entity>)`,
+  whose own doc says *"the transiting possessed body may be carried across the
+  boundary instead of being retired."*
+
+⇒ Possess an actor, walk it through a transition, release it. The row's scenario
+is a player's ordinary sequence, not a hypothetical.
+
+⛔⛔ **AND "STAY WHERE LEFT" HAS A CONSEQUENCE NOBODY HAS STATED: bosses are
+valid possession targets.** `possession.rs:6` says so in place — *"Bosses are
+valid targets and consume the same driven-seat input through their boss path."*
+⇒ Under **stay**, a player could possess a boss, walk it out of its arena, and
+leave it somewhere else PERMANENTLY — with its encounter, its arena wiring and
+its `boss.cleared` placement record still keyed to a room it is no longer in.
+Under **go home** that cannot happen and the cost is only that relocation is
+never expressible.
+⚠ That is not an argument for either option. It is the case the ruling has to
+survive, and it is more specific than *"actors"* — a relocated shopkeeper and a
+relocated boss are different products.
+
 This decision feeds
 [`engine/construction-and-reconstitution.md`](engine/construction-and-reconstitution.md)
 and [`engine/open-world-runtime-and-residency.md`](engine/open-world-runtime-and-residency.md).

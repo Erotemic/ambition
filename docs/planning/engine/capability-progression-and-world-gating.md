@@ -636,6 +636,35 @@ language.
 
 - Which capabilities belong intrinsically to a body versus participant-level
   permanent progression?
+  ⭐⭐ **THE LAYERS THAT EXIST, MEASURED 2026-09-05 — and there is no
+  participant one at all:**
+
+| layer | home | kind |
+|---|---|---|
+| authored defaults | `Platformer2dGameplayDefaults` (asset resource) | what a body spawns with |
+| intrinsic | `AbilityBase` (component) | captured at spawn, held constant |
+| effective | `BodyAbilities` (component) | what the movement kernel reads |
+| session mask | `EditableAbilitySet` (resource) | a RESTRICTION — `effective = base ∩ mask` |
+| **participant progression** | — | **does not exist** |
+
+  ⇒ **Everything is body-scoped.** The one non-body layer is an intersection, so
+  it can only take verbs AWAY; nothing in the tree can grant one. There is no
+  per-participant store, and no `PlayerSlot`-keyed ability anything (searched
+  `ParticipantAbilities`, `ParticipantProgress`, `PlayerProgress`,
+  `ParticipantCapabilit`, `ProfileAbilities` — zero files each).
+  ⇒ ⭐ **So this question and the item-capability one above are the SAME missing
+  mechanism**: the `∪ gear/upgrades` union term the `AbilityBase` doc already
+  promises. A temporary item grant and a permanent participant unlock are both
+  "something outside the body contributes a verb to the effective set", differing
+  only in lifetime.
+  ⚠ **And Jon's ruling on decision 57 argues against the alternative shape**: a
+  participant-level capability STORE would be a second authority over *"can this
+  body do X"* at a broader grain, which is exactly what that ruling says not to
+  build — breadth composes from the narrow authority. The composition-shaped
+  answer is that capabilities stay on the BODY and participant progression GRANTS
+  to a body, rather than being a parallel truth something has to reconcile.
+  ⓘ That is an argument, not a ruling; it is recorded because the code currently
+  has no opinion and the first implementation will set one.
 - ✔ ANSWERED FOR ROUTES (2026-09-04): when possession changes bodies, which
   theorem abilities transfer and which do not? **None transfer, because a route
   asks the body a participant is DRIVING** — see the possession ruling above.

@@ -598,10 +598,21 @@ coherent for a mine and absurd for a plate. **The mine is visible because it is 
 ITEM, not because items are how you draw things** — I read a working example and
 generalised its mechanism instead of its property.
 
-⇒ The real requirement is narrower and has no shipped answer yet: **a persistent,
-positioned, non-custodial visual for a gameplay object that is not an item.**
-That is a genuine gap rather than a content decision, and it is sized differently
-from what the previous paragraph claimed.
+⇒ The real requirement is narrower: **a persistent, positioned, non-custodial
+visual for a gameplay object that is neither an item nor an authored room prop.**
+⭐ **Both shipped candidates were checked before saying that, because this
+paragraph has already been wrong once:**
+
+| candidate | why it does not fit |
+|---|---|
+| `GroundItem` (the mine's road) | *"pick-up-able with `Attack` when the player is empty-handed"* — a fighter could carry the plate off |
+| `PropVisual` (the portals' road) | *"marker for sprites spawned from `RoomSpec.props`"* — authored room furniture, not a thing a move creates mid-match |
+
+⇒ **A genuine gap, sized as one**, and the announcement cue is what stands in for
+it until somebody rules. ⚠ **The mine is visible because it is an ITEM, not
+because items are how you draw things** — the first version of this paragraph read
+a working example and generalised its MECHANISM instead of its PROPERTY, which is
+the same shape as every corpus and predicate error on this page.
 
 ⛔⛔ **AND THE GUARD TOOK FOUR ATTEMPTS, EVERY ONE A FIXTURE DEFECT I HAVE
 ALREADY WRITTEN DOWN:**

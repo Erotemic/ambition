@@ -428,5 +428,113 @@ impl PlayerBlinkCameraState {
     }
 }
 
+/// How close the finishing blow pulls the camera, and how long it stays there.
+///
+/// ⛔⛔ THIS IS PRESENTATION-ONLY AND MUST STAY THAT WAY, which is a stronger
+/// claim than it sounds. The camera's SCALE is a zoom-OUT quantity by design:
+/// `CameraZoneSpec::effective_zoom` is `.max(1.0)` and `camera_snapshot` floors
+/// `target_scale` at `1.0` again, independently — *"the view is a FLOOR, so
+/// authored zoom still wins whenever it is already wider"*, a readability
+/// guarantee that the player never gets LESS than the design view.
+///
+/// ⇒ A finishing zoom wants to go the other way, and the tempting fix — let a
+/// transient push `zoom_multiplier` under 1.0 — would spend that guarantee for
+/// every consumer and put a second authority on a number `CameraZoneSpec` owns.
+/// So this rides where the SHAKE rides instead: applied by `camera_follow`, on
+/// the presented projection, downstream of the resolved snapshot. Nothing
+/// downstream of the snapshot feeds back into it, so a rollback host cannot
+/// desynchronise on it and gameplay framing is untouched.
+#[derive(Resource, Clone, Copy, Debug, PartialEq)]
+pub struct FinishZoomTuning {
+    /// How far in, as a fraction of the presented view, at full strength.
+    /// `0.30` shows 70% of the width — noticeably closer, still legible.
+    pub max_close_fraction: f32,
+    /// Seconds at full strength before releasing. A zoom that begins releasing
+    /// on the frame it arrives is a flicker rather than a beat.
+    pub hold_secs: f32,
+    /// Per-second release rate once the hold expires.
+    pub release_per_s: f32,
+}
+
+impl Default for FinishZoomTuning {
+    fn default() -> Self {
+        Self { max_close_fraction: 0.30, hold_secs: 0.60, release_per_s: 0.60 }
+    }
+}
+
+/// Live finishing-zoom state: how far in the camera currently is.
+///
+/// Strongest-kick-wins and non-stacking, exactly like [`CameraShakeState`] and
+/// for the same reason — several requests released together by the quarantine
+/// settle on the strongest rather than multiplying into an unreadable close-up.
+#[derive(Resource, Clone, Copy, Debug, Default)]
+pub struct FinishZoomState {
+    /// 0.0 = no zoom, 1.0 = fully in. Not a scale: see [`Self::scale_factor`].
+    pub closeness: f32,
+    /// Seconds of hold left before the release begins.
+    pub hold_secs_left: f32,
+}
+
+impl FinishZoomState {
+    /// Pull the camera in to at least `closeness`, clamped to `0.0..=1.0`.
+    pub fn kick(&mut self, closeness: f32, tuning: FinishZoomTuning) {
+        let target = closeness.clamp(0.0, 1.0);
+        if target > self.closeness {
+            self.closeness = target;
+            self.hold_secs_left = tuning.hold_secs.max(0.0);
+        }
+    }
+
+    /// The multiplier to apply to the presented orthographic scale.
+    ///
+    /// ⭐ Returns exactly `1.0` when idle, so a host that never kicks it is
+    /// byte-identical to one without the feature — which is what makes it safe
+    /// to multiply unconditionally at the call site.
+    pub fn scale_factor(&self, tuning: FinishZoomTuning) -> f32 {
+        let close = self.closeness.clamp(0.0, 1.0) * tuning.max_close_fraction.clamp(0.0, 0.9);
+        1.0 - close
+    }
+}
+
+/// A simulation-produced request for the finishing zoom.
+///
+/// An INTENT, for the reason [`CameraShakeRequest`] spells out at length: a
+/// rollback host runs a frame more than once and its first pass is unconfirmed,
+/// so a match-decided that a later correction erases must not have already
+/// moved the camera. Journalled per frame, released once the host confirms.
+#[derive(bevy::ecs::message::Message, Clone, Copy, Debug)]
+pub struct FinishZoomRequest {
+    /// 0.0..=1.0. `1.0` is the full pull described by [`FinishZoomTuning`].
+    pub closeness: f32,
+}
+
+/// Apply released [`FinishZoomRequest`]s to the live state.
+///
+/// The presentation half of the seam, and the only writer of
+/// [`FinishZoomState`] on behalf of the simulation.
+pub fn apply_finish_zoom_requests(
+    mut requests: bevy::ecs::message::MessageReader<FinishZoomRequest>,
+    tuning: bevy::prelude::Res<FinishZoomTuning>,
+    mut zoom: bevy::prelude::ResMut<FinishZoomState>,
+) {
+    for request in requests.read() {
+        zoom.kick(request.closeness, *tuning);
+    }
+}
+
+/// Hold, then release. Runs every frame beside [`tick_camera_shake`].
+pub fn tick_finish_zoom(
+    time: bevy::prelude::Res<bevy::prelude::Time>,
+    tuning: bevy::prelude::Res<FinishZoomTuning>,
+    mut zoom: bevy::prelude::ResMut<FinishZoomState>,
+) {
+    let dt = time.delta_secs();
+    if zoom.hold_secs_left > 0.0 {
+        zoom.hold_secs_left = (zoom.hold_secs_left - dt).max(0.0);
+        return;
+    }
+    zoom.closeness = (zoom.closeness - tuning.release_per_s * dt).max(0.0);
+}
+
 #[cfg(test)]
 mod tests;

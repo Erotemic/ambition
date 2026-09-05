@@ -152,6 +152,8 @@ impl Plugin for SimCoreResourcesPlugin {
             .init_resource::<ambition_platformer2d_shared_tangle::camera_ease::CameraEaseTuning>()
             .init_resource::<ambition_platformer2d_shared_tangle::camera_ease::CameraShakeTuning>()
             .init_resource::<ambition_platformer2d_shared_tangle::camera_ease::CameraShakeState>()
+            .init_resource::<ambition_platformer2d_shared_tangle::camera_ease::FinishZoomTuning>()
+            .init_resource::<ambition_platformer2d_shared_tangle::camera_ease::FinishZoomState>()
             // Track B: the rollback-registered slot a lifecycle op records into
             // under a rollback host, committed on a confirmed frame.
             .init_resource::<ambition_platformer2d_actor_monolith::session::lifecycle_commit::PendingLifecycleCommit>()
@@ -207,6 +209,16 @@ impl Plugin for SimCoreResourcesPlugin {
                 Update,
                 ambition_platformer2d_shared_tangle::camera_ease::apply_camera_shake_requests
                     .before(ambition_platformer2d_shared_tangle::camera_ease::tick_camera_shake),
+            );
+        // The finishing zoom's applier, wired for the same reason and in the
+        // same order: apply the released intents BEFORE the hold/release tick,
+        // so a request that arrives this frame gets its full hold rather than
+        // being decayed by the tick that ran ahead of it.
+        app.add_message::<ambition_platformer2d_shared_tangle::camera_ease::FinishZoomRequest>()
+            .add_systems(
+                Update,
+                ambition_platformer2d_shared_tangle::camera_ease::apply_finish_zoom_requests
+                    .before(ambition_platformer2d_shared_tangle::camera_ease::tick_finish_zoom),
             );
 
         // The engine's closed actor construction recipes. `init_resource` above

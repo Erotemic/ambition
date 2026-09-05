@@ -435,6 +435,17 @@ impl Plugin for CombatSchedulePlugin {
                 .in_set(CombatSet::Settle),
         );
 
+        // The finishing zoom, from the MATCH VERDICT rather than from a hit.
+        // Same set and same reasoning: it publishes an intent that the
+        // confirmed-frame quarantine releases, so a decision an abandoned
+        // rollback branch produced never reaches the live camera.
+        app.add_systems(
+            sim,
+            ambition_combat::finish_zoom::zoom_camera_on_decided_match
+                .in_set(GameplayGated)
+                .in_set(CombatSet::Settle),
+        );
+
         // The MATCH's impact freeze. ⭐ ONE system — the hold is an absolute
         // expiry tick, so there is nothing to decay and nothing to hand back.
         //

@@ -482,3 +482,130 @@ mod camera_shake {
         );
     }
 }
+
+/// The finishing zoom, held to the same boundary as the shake beside it.
+///
+/// ⛔⛔ THE CASE THIS EXISTS FOR IS THE ONE A `replaying_history` GUARD CANNOT
+/// SEE, and it is worse here than for the shake. Under predicted remote input
+/// the FIRST execution of a frame is not a replay, so a match "decided" on a
+/// speculative frame would zoom the live camera — and `FinishZoomState` is
+/// presentation, so it is not rewound when the correction arrives. A shake that
+/// should not have happened is a stray thump; a finishing zoom that should not
+/// have happened tells the player the match is over while it is still running.
+mod finish_zoom {
+    use super::*;
+    use ambition_combat::finish_zoom::zoom_camera_on_decided_match;
+    use ambition_combat::stocks::{MatchVerdict, StocksMatchDecided};
+    use ambition_platformer2d_shared_tangle::camera_ease::{
+        apply_finish_zoom_requests, FinishZoomRequest, FinishZoomState, FinishZoomTuning,
+    };
+
+    /// A speculating host with the quarantine and a camera, and nothing else.
+    struct Match {
+        world: World,
+    }
+
+    impl Match {
+        fn new() -> Self {
+            let mut world = World::new();
+            world.init_resource::<Messages<StocksMatchDecided>>();
+            world.init_resource::<Messages<FinishZoomRequest>>();
+            world.init_resource::<ExternalEffectJournal<FinishZoomRequest>>();
+            world.init_resource::<FinishZoomState>();
+            world.init_resource::<FinishZoomTuning>();
+            world.insert_resource(ConfirmedFrameBoundary {
+                current: 0,
+                confirmed: -1,
+                session: 0,
+            });
+            Self { world }
+        }
+
+        /// One advance in the order the plugin schedules it, with the real
+        /// producer in the middle. `decide` says whether the match ends here.
+        fn advance(&mut self, frame: i32, confirmed: i32, decide: Option<MatchVerdict>) {
+            {
+                let mut boundary = self.world.resource_mut::<ConfirmedFrameBoundary>();
+                boundary.current = frame;
+                boundary.confirmed = confirmed;
+            }
+            self.world
+                .run_system_cached(open_sim_effect_outbox::<FinishZoomRequest>)
+                .expect("outbox opens");
+            if let Some(outcome) = decide {
+                self.world.write_message(StocksMatchDecided { outcome });
+            }
+            self.world
+                .run_system_cached(zoom_camera_on_decided_match)
+                .expect("the combat schedule's zoom producer runs");
+            self.world
+                .run_system_cached(journal_sim_effects::<FinishZoomRequest>)
+                .expect("journal runs");
+        }
+
+        /// The host's release, then presentation's applier: what a player sees.
+        fn presented_closeness(&mut self) -> f32 {
+            self.world
+                .run_system_cached(release_confirmed_effects::<FinishZoomRequest>)
+                .expect("release runs");
+            self.world
+                .run_system_cached(apply_finish_zoom_requests)
+                .expect("the applier runs");
+            self.world.resource::<FinishZoomState>().closeness
+        }
+
+        fn load(&mut self, frame: i32) {
+            self.world.resource_mut::<ConfirmedFrameBoundary>().current = frame;
+            self.world
+                .run_system_cached(discard_abandoned_predictions::<FinishZoomRequest>)
+                .expect("discard runs");
+        }
+    }
+
+    #[test]
+    fn a_decided_match_zooms_the_camera_once_its_frame_is_confirmed() {
+        let mut m = Match::new();
+        m.advance(0, -1, Some(MatchVerdict::Winner("left".into())));
+        assert_eq!(
+            m.presented_closeness(),
+            0.0,
+            "an unconfirmed decision must not reach the live camera"
+        );
+        m.advance(1, 0, None);
+        assert!(
+            m.presented_closeness() > 0.0,
+            "once frame 0 is confirmed the zoom is released"
+        );
+    }
+
+    /// ⭐ THE ARM THAT PAYS FOR THE WHOLE SEAM. The host predicts a decision,
+    /// the correction erases it, and the camera must never have moved.
+    #[test]
+    fn a_match_decided_on_an_abandoned_branch_never_zooms() {
+        let mut m = Match::new();
+        m.advance(7, 5, Some(MatchVerdict::Winner("left".into())));
+        assert_eq!(m.presented_closeness(), 0.0, "still speculative");
+
+        // The correction: rewind past it, and the branch is abandoned.
+        m.load(5);
+        // Re-simulate the same frames without the decision.
+        m.advance(6, 5, None);
+        m.advance(7, 7, None);
+        assert_eq!(
+            m.presented_closeness(),
+            0.0,
+            "a decision the correction erased must never reach the camera"
+        );
+    }
+
+    /// A draw decides a match and is not a victory, and that distinction has to
+    /// survive the trip through the quarantine rather than only holding in the
+    /// producer's own unit test.
+    #[test]
+    fn a_draw_confirmed_still_does_not_zoom() {
+        let mut m = Match::new();
+        m.advance(0, -1, Some(MatchVerdict::Draw));
+        m.advance(1, 0, None);
+        assert_eq!(m.presented_closeness(), 0.0, "a draw is not a finish");
+    }
+}

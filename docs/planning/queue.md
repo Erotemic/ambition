@@ -3044,7 +3044,26 @@ queue read as an execution authority for work already done.
   `FinishZoomRequest` (beside `CameraShakeRequest` in `camera_ease`,
   rollback-registered the same way) → a decaying `FinishZoomState` → applied
   where the shake is applied. ⚠ **Do NOT route it through
-  `CameraSnapshotInput`**; that is the mistake this note exists to prevent. ⛔ `P10`'s tech RESULT is
+  `CameraSnapshotInput`**; that is the mistake this note exists to prevent.
+  ✔✔ **TAKEN AND SHIPPED 2026-09-04, exactly as specified above.** Six seams,
+  all mirroring the shake's: the state and tuning in `camera_ease`, the producer
+  in `ambition_combat::finish_zoom`, `clear_message_on_rollback` as
+  `message.finish_zoom_request`, an `ExternalEffectQuarantinePlugin`, the
+  applier ordered `.before(tick_finish_zoom)`, and the multiply in
+  `camera_follow` on the PRESENTED projection.
+  ⭐ **Guarded at both levels and poison-verified at both.** The producer's arms
+  (`a_draw_and_a_no_contest_get_no_victory_zoom`) and the quarantine round trip
+  (`a_match_decided_on_an_abandoned_branch_never_zooms`,
+  `a_draw_confirmed_still_does_not_zoom`) both go red when the `winner()` check
+  is replaced by `true`; removing `scale_factor`'s clamps reddens exactly
+  `a_wild_finish_zoom_request_cannot_invert_the_view`.
+  ⚠ **One thing the build taught that the packet had not predicted:** taking the
+  camera's new inputs as required `Res` turned an existing `ambition_render`
+  fixture red on the first run. They are `Option<Res<..>>` now, so a host that
+  draws without installing them presents an unzoomed camera instead of panicking
+  — the pattern `shake_camera_on_landed_hits` already states for its own tuning
+  (*"a missing one means no shake rather than a panic"*). ⇒ The red fixture was
+  the cheap version of a report a downstream host would otherwise have filed. ⛔ `P10`'s tech RESULT is
   the genuinely missing fact of the pair and is now the harder of the two; the
   two rows are no longer the same shape and the inventory says so.
   ⛔ **DO NOT tune the fighter brain against ladder-rig numbers yet — and the

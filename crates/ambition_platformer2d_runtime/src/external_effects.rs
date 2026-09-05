@@ -279,6 +279,7 @@ pub fn quarantine_presentation_effects(app: &mut App, load_schedule: impl Schedu
         ExternalEffectQuarantinePlugin::<FireworksRequest>::default(),
         ExternalEffectQuarantinePlugin::<DebrisBurstMessage>::default(),
         ExternalEffectQuarantinePlugin::<CameraShakeRequest>::default(),
+        ExternalEffectQuarantinePlugin::<ambition_platformer2d_shared_tangle::camera_ease::FinishZoomRequest>::default(),
         ExternalEffectQuarantinePlugin::<KnockoutBeatRequested>::default(),
     ));
 
@@ -288,6 +289,7 @@ pub fn quarantine_presentation_effects(app: &mut App, load_schedule: impl Schedu
     quarantine_discard_on_load::<FireworksRequest>(app, load_schedule.clone());
     quarantine_discard_on_load::<DebrisBurstMessage>(app, load_schedule.clone());
     quarantine_discard_on_load::<CameraShakeRequest>(app, load_schedule.clone());
+    quarantine_discard_on_load::<ambition_platformer2d_shared_tangle::camera_ease::FinishZoomRequest>(app, load_schedule.clone());
     quarantine_discard_on_load::<KnockoutBeatRequested>(app, load_schedule);
 }
 

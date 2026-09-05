@@ -960,6 +960,36 @@ one.** Jon's to overrule like the other fifteen; the move it replaces was dull
 rather than balanced, which is the argument for doing it here rather than on a
 fighter whose recovery is already load-bearing.
 
+### ⛔ THE PORTAL FIX WAS PER-SEAT SEPARATION, NOT OCCURRENCE IDENTITY
+
+A second review caught the difference and it is a real one. `channel_index +
+seat*2` separates two DIFFERENT Alices; **it does not identify one ACTIVATION.**
+A pair lives 2.5s while the move finishes far sooner, and landing, a ledge catch
+or an accepted flinching strike all refresh the recovery — so **one seat could
+hold two live pairs on one channel window**, which brings the cross-link back
+inside a seat and makes the expiry sweep retire the NEWER pair when the older one
+runs out. ⚠ A peer's deterministic `find_portal` only made the wrong answer
+reproducible, and they said so themselves.
+
+✔ **CHOSEN: one live pair per caster — opening a second retires the first.** The
+review offered that or a rollback-stable per-activation `PortalPairId`, and this
+is the better move as well as the cheaper one: *you have one pair of portals* is
+the genre's own rule, legible without a tutorial, and it makes the seat-derived
+channel **true instead of approximately true** — with one live pair per seat,
+`pair_index` names the live pair exactly. ⇒ The alternative buys a second
+simultaneous pair that no authored move asks for.
+
+⚠ **ROSTER DECISION #17, Jon's to overrule:** recasting the up-B while your shaft
+is still open closes it. A player who wants the old exit keeps it by not pressing
+again.
+
+⛔ **THE SECOND ASSERTION IS THE ONE THAT MATTERS:** the survivors must be the NEW
+pair. A rule that merely CAPPED the count could satisfy "two apertures" by
+dropping the fresh cast — which is worse than the bug it replaces, since the
+player would press the button and get nothing. Poisoned both ways: not retiring
+prints four apertures on `Indexed(8)`/`Indexed(9)` twice, and refusing the new
+cast prints a surviving pair at the old position.
+
 ### ⛔⛔ A SECOND REVIEW: THE HOMING DASH TARGETED BODIES, NOT FOES
 
 `carry_homing_dashes` gathered every `BodyKinematics` and filtered **only**

@@ -62,6 +62,13 @@ pub fn open_authored_portal_pairs(
     // portal reads the same fact rather than sampling a stick of its own — which
     // would be neutral anyway, since an aimed special is rooted.
     playbacks: Query<&ambition_platformer2d::combat::moveset::MovePlayback>,
+    // The move portals already open, so a caster's second activation can retire
+    // the first — see the note at the despawn below.
+    existing: Query<(
+        Entity,
+        &MovePlacedPortal,
+        &ambition_platformer2d::portal::PlacedPortal,
+    )>,
 ) {
     for message in actions.read() {
         let ActionRequest::Special { spec, params } = &message.request else {
@@ -141,6 +148,31 @@ pub fn open_authored_portal_pairs(
         let low = params
             .channel_index
             .saturating_add((seat.0 as u8).saturating_mul(2));
+        // ⛔⛔ ONE LIVE PAIR PER CASTER, AND OPENING A SECOND RETIRES THE FIRST.
+        // The seat separates two DIFFERENT Alices; it does not identify one
+        // ACTIVATION, and a second review caught the difference. A pair lives
+        // 2.5s while the move finishes far sooner, and landing, a ledge catch or
+        // an accepted flinching strike all refresh the recovery — so **one seat
+        // could have two live pairs on one channel window**, which brings the
+        // cross-link back inside a seat and makes the expiry sweep retire the
+        // NEWER pair when the older one runs out.
+        //
+        // ⭐ THIS IS THE AUTHORED ANSWER RATHER THAN A NEW IDENTITY, and it is
+        // the better move as well as the cheaper one: *you have one pair of
+        // portals* is the genre's own rule, it is legible without a tutorial,
+        // and it makes the seat-derived channel TRUE instead of approximately
+        // true — with one live pair per seat, `pair_index` names the live pair
+        // exactly. ⇒ The alternative, a rollback-stable per-activation
+        // `PortalPairId`, buys a second simultaneous pair that no move asks for.
+        //
+        // ⚠ ROSTER DECISION #17, Jon's to overrule: recasting the up-B while
+        // your shaft is still open closes it. A player who wants the old exit
+        // keeps it by not pressing again.
+        for (entity, portal, _) in &existing {
+            if portal.pair_index == low {
+                commands.entity(entity).despawn();
+            }
+        }
         // ⭐ THE PARTNER COMES FROM THE CRATE, not from `low ^ 1` written again
         // here. `PortalChannel::partner()` is where that rule lives, and a second
         // copy of it is a pairing rule with two homes that drift apart the day
@@ -372,6 +404,86 @@ mod tests {
             2,
             "both pairs carry one `pair_index` ({indices:?}), so the expiry \
              sweep closes BOTH when either runs out"
+        );
+    }
+
+    /// ⛔⛔ ONE CASTER, ONE LIVE PAIR: A SECOND ACTIVATION RETIRES THE FIRST.
+    ///
+    /// The seat separates two DIFFERENT Alices; it does not identify one
+    /// ACTIVATION. A pair lives 2.5s while the move finishes far sooner, and
+    /// landing, a ledge catch or an accepted flinching strike all refresh the
+    /// recovery — so one seat could hold TWO live pairs on one channel window.
+    /// ⇒ That brings the cross-link back inside a seat (`find_portal` returns
+    /// the first match) and makes the expiry sweep retire the NEWER pair when
+    /// the older one runs out.
+    ///
+    /// ⭐ FOUR APERTURES WOULD BE THE BUG. The assertion is that a second cast
+    /// leaves TWO, and that the survivors are the NEW ones — a rule that merely
+    /// capped the count could satisfy the first half by dropping the newer pair,
+    /// which is the failure this replaces rather than a fix for it.
+    #[test]
+    fn a_second_cast_by_one_fighter_retires_its_first_pair() {
+        let mut app = App::new();
+        app.add_message::<ActorActionMessage>();
+        app.add_message::<ambition_platformer2d::portal::PortalBodyTransited>();
+        app.init_resource::<ambition_platformer2d::time::WorldTime>();
+        {
+            let mut time = app
+                .world_mut()
+                .resource_mut::<ambition_platformer2d::time::WorldTime>();
+            time.scaled_dt = 1.0 / 60.0;
+            time.raw_dt = 1.0 / 60.0;
+        }
+        app.add_systems(Update, open_authored_portal_pairs);
+        let body = app
+            .world_mut()
+            .spawn((
+                ae::BodyKinematics {
+                    pos: ae::Vec2::ZERO,
+                    ..Default::default()
+                },
+                ambition_platformer2d::actor::MatchSeat(0),
+            ))
+            .id();
+        let cast = |app: &mut App, at: ae::Vec2| {
+            app.world_mut().entity_mut(body).insert(ae::BodyKinematics {
+                pos: at,
+                ..Default::default()
+            });
+            app.world_mut().write_message(ActorActionMessage {
+                actor: body,
+                request: ActionRequest::Special {
+                    spec: SpecialActionSpec::Special(PORTAL_PAIR.to_string()),
+                    params: ambition_platformer2d::entity_catalog::ParamValue::from_typed(
+                        &params(2.5),
+                    )
+                    .expect("portal params serialize"),
+                },
+            });
+            app.update();
+        };
+
+        cast(&mut app, ae::Vec2::ZERO);
+        assert_eq!(placed(&mut app).len(), 2, "the first cast opened no pair");
+
+        // Somewhere else entirely, while the first pair is still well inside its
+        // 2.5s life.
+        let second = ae::Vec2::new(600.0, 0.0);
+        cast(&mut app, second);
+        let after = placed(&mut app);
+        assert_eq!(
+            after.len(),
+            2,
+            "one fighter holds {} apertures ({after:?}) — a second cast left the \
+             first pair live, so his own channels cross-link and whichever \
+             expires first closes both",
+            after.len()
+        );
+        assert!(
+            after.iter().any(|(_, pos)| (pos.x - second.x).abs() < 1.0),
+            "the surviving pair is not the NEW one ({after:?}) — a rule that \
+             merely caps the count could drop the fresh cast, which is worse than \
+             the bug it replaces"
         );
     }
 

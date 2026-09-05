@@ -2293,11 +2293,24 @@ updated 2026-09-05 each time, which is what this entry's guards instruct.**
 `special_forward` answers with `lunge_grab` (the command grab), `special_down`
 with `riposte` (the counter), and the NEUTRAL special with `read_and_seize` (a
 hit confirm into the grab).
-⭐ **The last of those took the gap from six to three by itself**, because
+⭐ **The neutral binding took the gap from six to three by itself**, because
 `directional_verb_chain` falls back to the base verb: binding `special` answers
-every remaining GROUND press. ⇒ What is left is the AERIAL column — three
-presses — because all three moves are `grounded_only`. That reframes the
-remaining question from "four specials" to "does this fighter act in the air".
+every remaining GROUND press. What was left was the AERIAL column, because all
+three moves were `grounded_only`.
+
+⛔⛔ **AND THAT EXPOSED SOMETHING WORSE THAN A GAP: THESE FIGHTERS HAD NO
+RECOVERY.** `special_up_air` fell through the whole chain to silence, so a
+stand-in knocked offstage had jumps, a ledge grab, and no special at all. A
+platform fighter without an up-B is not one with a small kit; it dies to any
+edgeguard. ✔ Fixed 2026-09-05 by `slip_upward`, an airborne-only teleport — the
+technique whose own doc says the aim assist "is the whole reason this is a
+technique rather than an authored impulse" — with ledge assist and brief
+intangibility. **Authoring, no engine.** ⇒ The gap is now **two**:
+`special_neutral_air` and `special_back_air`.
+
+⇒ So the remaining question is smaller and different from the one this entry
+asks. Not "what are their four specials" — they have four bound — but **what, if
+anything, these fighters do with the neutral and back special in the air.**
 The guards `the_only_presses_this_fighter_cannot_answer_are_specials` and
 `the_stand_in_is_george_s_genre_shape_with_the_special_button_removed` both
 carry `6` now and both went red on the change, which is the mechanism working.

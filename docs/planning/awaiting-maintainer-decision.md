@@ -1218,6 +1218,55 @@ mechanism would produce a gate that refuses everyone.
 `body.fits`, and anything later that reads the driven population), which is why
 it is filed against the population rather than against a condition.
 
+### 57. `boss_cleared("mockingbird")` can never be true. Which id is the boss id? (2026-09-04)
+
+⛔⛔ **FIVE AUTHORED DIALOGUE CALLS HAVE NEVER BEEN ABLE TO RETURN TRUE, and
+this is pre-existing rather than fallout from today's migration.** Measured
+2026-09-04:
+
+```text
+authored (kernel.yarn, 5 calls)   boss_cleared("mockingbird")     <- BEHAVIOR id
+written  (systems.rs:259)         set_boss(&runtime_id, Cleared)
+                                  runtime_id = feature.config.id  <- PLACEMENT id
+placement in sandbox.ldtk         BossSpawn-4308   name "Mockingbird"
+                                                   brain PhaseScript:mockingbird
+read     (conditions.rs)          save.data().boss(boss)          <- exact string
+```
+
+⇒ The writer keys the save by **placement** (`BossSpawn-4308`), the dialogue
+asks by **behavior** (`mockingbird`), and the evaluator does an exact lookup
+with no bridging. **They can never match**, so every dialogue branch gated on
+having beaten the Mockingbird stays closed however many times the player wins.
+
+✔ **NOT caused by the `boss.cleared` migration** — checked rather than assumed,
+because that migration was mine and today. The pre-migration mirror filled
+`bosses_cleared` from `data.bosses` keyed by `boss.id`, the same save key, and
+`boss_cleared(id)` was a set-membership test on it. ⇒ Identical semantics; the
+defect predates `39a48d4fa`.
+
+⛔ **The obvious repair is the wrong one.** Making the dialogue pass
+`BossSpawn-4308` puts an LDtk-generated identifier into an authored script — an
+id no author chose, that changes when the level is re-saved, and that no other
+authored vocabulary uses. Three options, and they differ in what they cost:
+- **`boss.cleared` accepts the archetype id** — resolve behavior → placements at
+  evaluation and answer for any/all of them. ⚠ Changes the question's meaning
+  when a world authors the same boss twice (`sandbox` authors
+  `mode_collapse_boss` at two placements, so this is not hypothetical).
+- **The writer keys by archetype** — matches what an author would type, and
+  ⛔ silently changes what existing saves mean; a save with `BossSpawn-4308`
+  cleared would read as untouched.
+- **Both ids are askable** — `boss.cleared` for the placement, a second named
+  question for the archetype. More vocabulary, no ambiguity.
+
+⚠ **And decision #56 is entangled with this one**: it asks whether a replay
+should retract a defeat, and the answer there is easier to state per-placement
+than per-archetype. ⇒ Worth answering together, and #57 probably first, because
+it decides what "the boss" names.
+
+ⓘ The sibling alias is FINE: `quest_active("pirate_treasure")` names a real
+quest id (`quest.rs:37`), so this is specific to bosses rather than to the
+alias road.
+
 ### 56. A replay retracts ONE boss family's defeat of eleven. Which is right? (2026-09-04)
 
 ⭐⭐ **MEASURED, both directions, through the road a door reads**

@@ -397,10 +397,18 @@ across the five conditions with authored callers, 2026-09-04:
 | condition | authored | arguments verified by |
 |---|---:|---|
 | `wallet.can_afford` | 10 | numbers; `shop::authored_price` accepts them and the action shares it |
-| `inventory.holds` | 7 | `every_authored_item_id_resolves_to_a_real_item` |
-| `boss.cleared` | 5 | ⛔ **none can be true** — behaviour id vs placement id, question 57 |
-| `quest.active` | 3 | `test_alias_arguments_name_something_real` |
+| `inventory.holds` | 5 | `every_authored_item_id_resolves_to_a_real_item` |
+| `boss.cleared` | 3 | ✔ resolvable since 2026-09-05 — `every_authored_boss_cleared_call_names_a_real_boss_placement` |
+| `quest.active` | 1 | `test_alias_arguments_name_something_real` |
 | `world.flag_set` | 3 | `test_every_gated_flag_has_a_writer` |
+
+⚠ **THE COUNTS IN THIS TABLE WERE RAW TEXT UNTIL 2026-09-05 and are now
+EXECUTABLE calls** — `inventory.holds` 7→5, `boss.cleared` 5→3,
+`quest.active` 3→1. The difference is characters SPEAKING a call in dialogue,
+which four whole-file scanners counted as code until `executable_regions` landed.
+✔ And `boss.cleared`'s row no longer says *"none can be true"*: Jon ruled
+question 57 and the placement carries an authored encounter id the dialogue
+names.
 
 ⇒ **Exactly one family is authored-but-dead, and it has a decision waiting.**
 The other four have every argument checked at build time by a guard that fails

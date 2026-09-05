@@ -886,6 +886,7 @@ impl bevy::prelude::Plugin for SmashRulesPlugin {
         app.add_message::<ambition_platformer2d::combat::capture::CaptureAttemptRequested>();
         app.add_message::<ambition_platformer2d::combat::capture::CapturePummelRequested>();
         app.add_message::<ambition_platformer2d::combat::capture::CaptureThrowRequested>();
+        app.add_message::<ambition_platformer2d::combat::capture::CaptureCarryRequested>();
 
         let sim = ambition_platformer2d::platformer::schedule::SimScheduleExt::sim_schedule(app);
         // THE CAPTURE LOOP, in the order the facts become available.
@@ -1002,6 +1003,12 @@ impl bevy::prelude::Plugin for SmashRulesPlugin {
                 // the pose sync so a thrown body is not snapped back into a hold
                 // it has just left.
                 ambition_platformer2d::combat::capture::systems::apply_capture_throws,
+                // THE CARRY, after the throw for the reason the throw sits after
+                // the pummel: a tick carrying both resolves in authored order.
+                // ⛔ And after rather than before because a release must win — a
+                // carry applied to a hold the same tick's throw has just ended
+                // would set terms on a relationship that no longer exists.
+                ambition_platformer2d::combat::capture::systems::apply_capture_carries,
                 ambition_platformer2d::combat::capture::systems::finalize_new_capture_pose,
                 // the captive's POSE, published beside the constraint that
                 // holds it. `CharacterAnim` has no held row, so this draws the

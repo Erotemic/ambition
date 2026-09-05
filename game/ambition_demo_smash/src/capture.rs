@@ -23,11 +23,11 @@ use bevy::prelude::*;
 use ambition_platformer2d::characters::brain::action_set::{ActionRequest, SpecialActionSpec};
 use ambition_platformer2d::characters::brain::ActorActionMessage;
 use ambition_platformer2d::characters::smash_capture::{
-    CaptureAttemptParams, CapturePummelParams, CaptureThrowParams, CAPTURE_ATTEMPT, CAPTURE_PUMMEL,
-    CAPTURE_THROW,
+    CaptureAttemptParams, CaptureCarryParams, CapturePummelParams, CaptureThrowParams,
+    CAPTURE_ATTEMPT, CAPTURE_CARRY, CAPTURE_PUMMEL, CAPTURE_THROW,
 };
 use ambition_platformer2d::combat::capture::{
-    CaptureAttemptRequested, CapturePummelRequested, CaptureThrowRequested,
+    CaptureAttemptRequested, CaptureCarryRequested, CapturePummelRequested, CaptureThrowRequested,
 };
 use ambition_platformer2d::engine_core as ae;
 
@@ -37,6 +37,7 @@ pub fn translate_smash_capture_effects(
     mut attempts: MessageWriter<CaptureAttemptRequested>,
     mut pummels: MessageWriter<CapturePummelRequested>,
     mut throws: MessageWriter<CaptureThrowRequested>,
+    mut carries: MessageWriter<CaptureCarryRequested>,
 ) {
     for message in actions.read() {
         let ActionRequest::Special { spec, params } = &message.request else {
@@ -109,6 +110,15 @@ pub fn translate_smash_capture_effects(
                 }
                 Err(err) => warn!("smash throw params did not hydrate: {err}"),
             },
+            CAPTURE_CARRY => match params.hydrate::<CaptureCarryParams>() {
+                Ok(p) => {
+                    carries.write(CaptureCarryRequested {
+                        captor: message.actor,
+                        hold_offset: ae::Vec2::new(p.hold_offset.0, p.hold_offset.1),
+                    });
+                }
+                Err(err) => warn!("smash carry params did not hydrate: {err}"),
+            },
             _ => continue,
         }
     }
@@ -140,6 +150,14 @@ mod tests {
         app.add_message::<ambition_platformer2d::combat::capture::CaptureAttemptRequested>();
         app.add_message::<ambition_platformer2d::combat::capture::CapturePummelRequested>();
         app.add_message::<ambition_platformer2d::combat::capture::CaptureThrowRequested>();
+        // ⛔⛔ AND THE CARRY, WHICH THIS FIXTURE CAUGHT THE ABSENCE OF. Adding a
+        // fourth `MessageWriter` to `translate_smash_capture_effects` made the
+        // WHOLE system fail parameter validation here, so George stopped being
+        // able to grab at all — a system that writes four messages does not run
+        // in a world that registers three. ⇒ Exactly why this repo has ruled
+        // twice against `Option<MessageWriter>`: the optional version would have
+        // left this test green and the adapter silently dead.
+        app.add_message::<ambition_platformer2d::combat::capture::CaptureCarryRequested>();
         app.add_message::<ambition_platformer2d::sfx::OwnedSfxMessage>();
         app.init_resource::<ambition_platformer2d::time::WorldTime>();
         app.insert_resource(
@@ -167,6 +185,7 @@ mod tests {
                 acquire_captures,
                 apply_capture_pummels,
                 apply_capture_throws,
+                ambition_platformer2d::combat::capture::systems::apply_capture_carries,
                 finalize_new_capture_pose,
                 release_interrupted_captures,
             )
@@ -390,5 +409,45 @@ mod tests {
             hurt + 11,
             "the throw's own damage did not land"
         );
+    }
+
+    /// ⛔ THE ADAPTER ARM ITSELF. Every other carry guard starts from a
+    /// `CaptureCarryRequested` that this module is the only writer of, so
+    /// without this one a typo'd key would leave the whole feature dead with a
+    /// fully green suite behind it.
+    #[test]
+    fn an_authored_carry_key_becomes_a_carry_request() {
+        let mut app = App::new();
+        app.add_message::<ActorActionMessage>();
+        app.add_message::<CaptureAttemptRequested>();
+        app.add_message::<CapturePummelRequested>();
+        app.add_message::<CaptureThrowRequested>();
+        app.add_message::<CaptureCarryRequested>();
+        app.add_systems(Update, translate_smash_capture_effects);
+        let captor = app.world_mut().spawn_empty().id();
+        app.world_mut().write_message(ActorActionMessage {
+            actor: captor,
+            request: ActionRequest::Special {
+                spec: SpecialActionSpec::Special(
+                    ambition_platformer2d::characters::smash_capture::CAPTURE_CARRY.to_string(),
+                ),
+                params: ambition_platformer2d::entity_catalog::ParamValue::from_typed(
+                    &CaptureCarryParams {
+                        hold_offset: (6.0, -18.0),
+                    },
+                )
+                .expect("carry params serialize"),
+            },
+        });
+        app.update();
+        let messages = app.world().resource::<Messages<CaptureCarryRequested>>();
+        let mut cursor = messages.get_cursor();
+        let out: Vec<&CaptureCarryRequested> = cursor.read(messages).collect();
+        assert_eq!(out.len(), 1, "the carry key produced no request");
+        assert_eq!(out[0].captor, captor);
+        assert_eq!(out[0].hold_offset, ae::Vec2::new(6.0, -18.0));
+        // ⛔ AND IT IS NOT A THROW. Same key, wrong arm, would end the hold.
+        let throws = app.world().resource::<Messages<CaptureThrowRequested>>();
+        assert_eq!(throws.get_cursor().read(throws).count(), 0);
     }
 }

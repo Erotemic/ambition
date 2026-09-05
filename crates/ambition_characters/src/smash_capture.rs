@@ -6,7 +6,7 @@
 //! parameter encoding stay centralized. The generic move timeline sees ordinary
 //! `MoveSpec` effect windows/events and does not learn capture-specific variants.
 
-use ambition_entity_catalog::{EffectRef, MoveSpec, ParamValue, VolumeShape};
+use ambition_entity_catalog::{EffectRef, MoveEvent, MoveEventKind, MoveSpec, ParamValue, VolumeShape};
 use serde::{Deserialize, Serialize};
 
 /// The effect key an active grab window sustains.
@@ -19,6 +19,18 @@ use serde::{Deserialize, Serialize};
 pub const CAPTURE_ATTEMPT: &str = "smash.capture_attempt";
 /// The effect key a pummel's impact frame emits, once.
 pub const CAPTURE_PUMMEL: &str = "smash.capture_pummel";
+/// The effect key a CARRY emits, once, on the frame the captor takes the weight.
+///
+/// ⭐⭐ A CARRY IS ENTERED FROM A THROW-SHAPED MOVE, not from the grab, and that
+/// is the genre's shape rather than a convenience: you grab normally, and then
+/// one of the four directions puts them on your shoulders instead of launching
+/// them. ⇒ It also means the carry costs NOTHING at the grab — `CaptureAttemptParams`
+/// is constructed literally at 29 sites and every one of them would have had to
+/// declare a `carry: false` it does not care about.
+///
+/// ⛔ IT IS NOT A THROW AND MUST NOT RELEASE. `apply_capture_throws` ends the
+/// relationship; this one keeps it and changes its terms.
+pub const CAPTURE_CARRY: &str = "smash.capture_carry";
 /// The effect key a throw's authored RELEASE frame emits, once.
 pub const CAPTURE_THROW: &str = "smash.capture_throw";
 
@@ -430,6 +442,44 @@ pub fn author_pummel(mut spec: MoveSpec, at_s: f32, params: CapturePummelParams)
 ///  the release is a timeline instant, not the button press. The captive stays
 /// constrained through the wind-up and leaves at this frame, which is what makes
 /// a throw's wind-up readable and punishable rather than instantaneous.
+/// Authored parameters of a carry.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct CaptureCarryParams {
+    /// Where the captive rides once carried, in the captor's body-local frame.
+    ///
+    /// ⭐ A CARRY MOVES THEM. The grab's `hold_offset` is out in front at arm's
+    /// length, which is where you hold somebody you are about to throw; a body
+    /// you intend to WALK with goes up and over, and the difference has to be
+    /// visible or the carry looks like a grab that forgot to end.
+    pub hold_offset: (f32, f32),
+}
+
+/// Author a carry onto a throw-shaped move: the captor takes the weight and
+/// keeps it.
+///
+/// # Panics
+///
+/// If `at_s` is past the move's own duration — the carry would never happen and
+/// the captor would spend the beat to keep an ordinary hold.
+pub fn author_carry(mut spec: MoveSpec, at_s: f32, params: CaptureCarryParams) -> MoveSpec {
+    assert!(
+        at_s <= spec.duration_s,
+        "move `{}` takes the weight at {at_s}s but only lasts {}s, so the carry \
+         never happens and the beat is spent on nothing",
+        spec.id,
+        spec.duration_s,
+    );
+    spec.events.push(MoveEvent {
+        at_s,
+        kind: MoveEventKind::Effect(EffectRef {
+            key: CAPTURE_CARRY.to_string(),
+            params: ParamValue::from_typed(&params).expect("capture-carry params serialize"),
+        }),
+    });
+    spec
+}
+
 pub fn author_throw(mut spec: MoveSpec, at_s: f32, params: CaptureThrowParams) -> MoveSpec {
     spec.events.push(ambition_entity_catalog::MoveEvent {
         at_s,
@@ -497,6 +547,25 @@ pub struct SmashHoldState {
     /// vocabulary should not pay to rewind this, exactly as it does not pay to
     /// rewind `pummels_landed`.
     pub throw_armed: bool,
+    /// May this hold's captor WALK while holding?
+    ///
+    /// ⭐⭐ THE CARGO CARRY, and it lives HERE for the reason the note on
+    /// [`Self::throw_armed`] gives about itself: "may the captor move" is a
+    /// platform-fighter rule, not a fact about who holds whom. `CapturedBy` is
+    /// the generic relation and has no opinion about locomotion — a game that
+    /// constrains bodies without a throw vocabulary should not pay to rewind
+    /// this, exactly as it does not pay to rewind `pummels_landed`.
+    ///
+    /// ⛔ IT REWINDS. It is decided once and then constant, which is precisely
+    /// why a rollback that restored the hold without it would be wrong: the
+    /// resimulated timeline would hand the captor back a hold they can no
+    /// longer walk with, and a carry that ends on one peer and not the other is
+    /// a divergence in position, not just in state.
+    ///
+    /// ⚠ FALSE BY DEFAULT, and `Default` is how every existing hold gets it. An
+    /// ordinary grab pins its captor, which is the genre's rule and was this
+    /// engine's only behaviour before the carry existed.
+    pub carrying: bool,
 }
 
 impl SmashHoldState {

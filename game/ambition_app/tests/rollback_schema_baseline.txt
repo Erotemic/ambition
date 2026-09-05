@@ -1,4 +1,4 @@
-ggrs-rollback-schema-v156
+ggrs-rollback-schema-v157
 ability.bomb_fuse	component-clone	BombFuse	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum
 ability.gravity_grenade_fuse	component-clone	GravityGrenadeFuse	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum
 ability.player_mark	component-clone	PlayerMark	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum
@@ -313,6 +313,7 @@ message.boss_phase_changed	message-clear	BossPhaseChanged	clear abandoned-future
 message.brain_command	message-clear	BrainCommand	clear abandoned-future message buffer in LoadWorld::Mapping
 message.camera_shake_request	message-clear	CameraShakeRequest	clear abandoned-future message buffer in LoadWorld::Mapping
 message.capture_attempt_requested	message-clear	CaptureAttemptRequested	clear abandoned-future message buffer in LoadWorld::Mapping
+message.capture_carry_requested	message-clear	CaptureCarryRequested	clear abandoned-future message buffer in LoadWorld::Mapping
 message.capture_pummel_requested	message-clear	CapturePummelRequested	clear abandoned-future message buffer in LoadWorld::Mapping
 message.capture_throw_requested	message-clear	CaptureThrowRequested	clear abandoned-future message buffer in LoadWorld::Mapping
 message.challenge_requested	message-clear	ChallengeRequested	clear abandoned-future message buffer in LoadWorld::Mapping

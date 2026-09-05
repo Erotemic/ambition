@@ -473,12 +473,17 @@ the template.
 wants: her blueprint asked for a counter and the deferral recording why she could
 not have one has now expired.
 
-### ⚠⚠ EIGHT ROSTER DECISIONS MADE UNDER DELEGATION — EVERY ONE IS JON'S TO OVERRULE
+### ⚠⚠ TWELVE ROSTER DECISIONS MADE UNDER DELEGATION — EVERY ONE IS JON'S TO OVERRULE
 
 Jon's grant was *"you can pick where to put the proof of concept for the other
 moves in the roster… we can tune who the moves belong to later."* ⇒ Here is
 everything spent against it on 2026-09-05, with what each one COST, so a review
-is a table rather than a git log. **Four cost nothing; four displaced something.**
+is a table rather than a git log. ⚠ **This table was written at EIGHT and is now
+TWELVE — I updated it rather than letting it read as complete**, which is the same
+failure as a stale deferral and would have been worse here, because its whole
+purpose is to be the thing Jon reads instead of the log.
+
+**Six cost nothing; five displaced something; one is presentation only.**
 
 | fighter · slot | change | cost |
 |---|---|---|
@@ -490,6 +495,10 @@ is a table rather than a git log. **Four cost nothing; four displaced something.
 | the Author · down-B | archetype low arc → **counter into ambush teleport** | ⚠ a borrowed poke that was never his. Gains a second slot of his own; his `owned_slots` went 1 → 2 |
 | the Shadow Oni · down-B | damage-10 poke → **counter into sleep** | ⚠ 10 damage. ⭐ But the move already carried a `counter_ring` and a `parry_flash` sound: the art always said counter |
 | **the Officer · neutral** | haymaker → **damageless gust** | ⛔⛔ **THE BIGGEST ONE, and the only KO move lost.** `damage: 13, knockback: 142` becomes a move that does no damage at all. He keeps every smash and `the_draw`; what a player trades is a button that kills for a button that creates space |
+| the cellular automaton · down-B | strike → **the same strike with three autolink pulses in front** | ⭐ none — the finisher is unchanged; the pulses are 2 chip each. It only does what its own comment always claimed |
+| the Author · **side-B** | archetype `vector_lunge` → **PK-Thunder** | ⚠ a borrowed poke that was never his. ⭐ Jon's own assignment, and his third owned slot |
+| the Shadow Oni · aerial down-B | `counter_ring` + `parry_flash` cues **removed** | ⚠ presentation only, and it is MY DEBT: converting his grounded seal to a real counter made the dive's borrowed parry cues a trap |
+| Emmy Noether · down-B | `invariant_field` → **counter that conserves the blow** | ⚠ her CHEAPEST special (`damage: 6`), and she keeps a second ground-claiming field. ⭐ Her own blueprint asked for a counter; the deferral saying she could not have one expired this morning |
 
 ⛔ **If exactly one of these is wrong, it is the Officer's** — it is the only
 change that removes a way to finish a stock rather than replacing filler or

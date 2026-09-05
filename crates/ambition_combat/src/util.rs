@@ -618,10 +618,17 @@ mod hit_feedback_tests {
 /// is what makes this a test of the GATE rather than of one scenario: a gate
 /// that had lost any single term would still pass a test that raised two.
 ///
-/// `parrying()` is `active && parry_window_timer > 0.0`, so the last case is
-/// the one that separates a parry from a held shield — a shield that is up but
-/// past its window leaves the body vulnerable HERE and is caught downstream by
-/// `shield_blocks_hit` instead. Two defences, two gates, different outcomes.
+/// ⚠ `parrying()` IS THE TIMER ALONE — `parry_window_timer > 0.0`, and NOT
+/// `active && …` as this sentence claimed until 2026-09-05. The distinction
+/// costs something real: a parry window can be open on a body whose shield is
+/// not raised, which is exactly what an authored counter stance is, and code
+/// written against the wrong reading raises `active` to "make the parry work"
+/// and silently gives the move a held shield's blocking, integrity cost and
+/// shieldstun as well.
+/// ⇒ The last case is still the one that separates a parry from a held shield:
+/// a shield that is up but past its window leaves the body vulnerable HERE and
+/// is caught downstream by `shield_blocks_hit` instead. Two defences, two
+/// gates, different outcomes.
 #[cfg(test)]
 mod vulnerability_gate_tests {
     use super::body_vulnerable;

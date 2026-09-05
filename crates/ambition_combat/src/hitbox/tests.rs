@@ -221,6 +221,13 @@ fn capture_landed_hits(
     cap.0.extend(reader.read().cloned());
 }
 
+#[derive(Resource, Default)]
+struct CapturedParries(Vec<ParriedBodyHit>);
+
+fn capture_parries(mut reader: MessageReader<ParriedBodyHit>, mut cap: ResMut<CapturedParries>) {
+    cap.0.extend(reader.read().copied());
+}
+
 /// Structural tangibility gate: a dead body is an intangible corpse — a swing passes through it,
 /// producing NO hit event. A live body in the exact same spot IS struck and emits one, so the
 /// silence is the tangibility gate, not the geometry. Removing the `body_is_corpse` skip in
@@ -334,6 +341,7 @@ fn player_faction_hitbox_emits_an_attacker_side_feature_hit() {
     let mut app = App::new();
     app.add_message::<HitEvent>();
     app.add_message::<LandedBodyHit>();
+    app.add_message::<ParriedBodyHit>();
     app.add_message::<VfxMessage>();
     app.init_resource::<CapturedHits>();
     app.add_systems(Update, (apply_hitbox_damage, capture_hits).chain());
@@ -393,6 +401,7 @@ fn arena_hitbox_app(relations: FactionRelations, victim_faction: ActorFaction) -
     let mut app = App::new();
     app.add_message::<HitEvent>();
     app.add_message::<LandedBodyHit>();
+    app.add_message::<ParriedBodyHit>();
     app.add_message::<VfxMessage>();
     app.init_resource::<CapturedHits>();
     app.insert_resource(relations);
@@ -519,6 +528,7 @@ fn enemy_hitbox_over_player_app_dealing(
     let mut app = App::new();
     app.add_message::<HitEvent>();
     app.add_message::<LandedBodyHit>();
+    app.add_message::<ParriedBodyHit>();
     app.add_message::<VfxMessage>();
     app.init_resource::<CapturedHits>();
     app.insert_resource(relations);
@@ -629,6 +639,7 @@ fn player_faction_hitbox_only_fires_once() {
     let mut app = App::new();
     app.add_message::<HitEvent>();
     app.add_message::<LandedBodyHit>();
+    app.add_message::<ParriedBodyHit>();
     app.add_message::<VfxMessage>();
     app.init_resource::<CapturedHits>();
     app.add_systems(Update, (apply_hitbox_damage, capture_hits).chain());
@@ -688,6 +699,7 @@ fn player_melee_never_targets_its_owner() {
     let mut app = App::new();
     app.add_message::<HitEvent>();
     app.add_message::<LandedBodyHit>();
+    app.add_message::<ParriedBodyHit>();
     app.add_message::<VfxMessage>();
     app.init_resource::<CapturedHits>();
     app.init_resource::<CapturedLandedHits>();
@@ -766,6 +778,7 @@ fn player_melee_resolves_a_targeted_victim_with_authored_knockback() {
     let mut app = App::new();
     app.add_message::<HitEvent>();
     app.add_message::<LandedBodyHit>();
+    app.add_message::<ParriedBodyHit>();
     app.add_message::<VfxMessage>();
     app.init_resource::<CapturedHits>();
     app.add_systems(Update, (apply_hitbox_damage, capture_hits).chain());
@@ -857,12 +870,20 @@ fn player_melee_targets_a_player_marked_opponent_on_another_match_team() {
     let mut app = App::new();
     app.add_message::<HitEvent>();
     app.add_message::<LandedBodyHit>();
+    app.add_message::<ParriedBodyHit>();
     app.add_message::<VfxMessage>();
     app.init_resource::<CapturedHits>();
     app.init_resource::<CapturedLandedHits>();
+    app.init_resource::<CapturedParries>();
     app.add_systems(
         Update,
-        (apply_hitbox_damage, capture_hits, capture_landed_hits).chain(),
+        (
+            apply_hitbox_damage,
+            capture_hits,
+            capture_landed_hits,
+            capture_parries,
+        )
+            .chain(),
     );
 
     let owner = app
@@ -962,6 +983,7 @@ fn player_followowner_strike_does_not_require_a_body_melee_projection() {
     let mut app = App::new();
     app.add_message::<HitEvent>();
     app.add_message::<LandedBodyHit>();
+    app.add_message::<ParriedBodyHit>();
     app.add_message::<VfxMessage>();
     app.init_resource::<CapturedHits>();
     app.add_systems(Update, (apply_hitbox_damage, capture_hits).chain());
@@ -1049,6 +1071,7 @@ fn a_body_owned_strike_publishes_its_unresolved_half_beside_the_resolved_body_hi
     let mut app = App::new();
     app.add_message::<HitEvent>();
     app.add_message::<LandedBodyHit>();
+    app.add_message::<ParriedBodyHit>();
     app.add_message::<VfxMessage>();
     app.init_resource::<CapturedHits>();
     app.add_systems(Update, (apply_hitbox_damage, capture_hits).chain());
@@ -1146,6 +1169,7 @@ fn the_authored_strike_sound_rides_the_overlap_onto_the_hit_event() {
     let mut app = App::new();
     app.add_message::<HitEvent>();
     app.add_message::<LandedBodyHit>();
+    app.add_message::<ParriedBodyHit>();
     app.add_message::<VfxMessage>();
     app.init_resource::<CapturedHits>();
     app.add_systems(Update, (apply_hitbox_damage, capture_hits).chain());
@@ -1406,12 +1430,20 @@ fn parry_fixture(shield: ae::BodyShieldState) -> (App, Entity) {
     let mut app = App::new();
     app.add_message::<HitEvent>();
     app.add_message::<LandedBodyHit>();
+    app.add_message::<ParriedBodyHit>();
     app.add_message::<VfxMessage>();
     app.init_resource::<CapturedHits>();
     app.init_resource::<CapturedLandedHits>();
+    app.init_resource::<CapturedParries>();
     app.add_systems(
         Update,
-        (apply_hitbox_damage, capture_hits, capture_landed_hits).chain(),
+        (
+            apply_hitbox_damage,
+            capture_hits,
+            capture_landed_hits,
+            capture_parries,
+        )
+            .chain(),
     );
     let owner = app
         .world_mut()
@@ -1517,6 +1549,59 @@ fn a_parry_window_does_not_catch_a_windbox() {
         !caught(&app, victim),
         "a parry CAUGHT a windbox — a gust says it does not interact with a \
          shield, and a parry is the strongest form of exactly that"
+    );
+}
+
+/// A successful parry NAMES ITS ATTACKER, which the defender's own state cannot.
+///
+/// ⭐⭐ THE DEFENDER ALREADY KNEW IT PARRIED — `BodyShieldState::parry_caught()`
+/// has said so for as long as the cue has existed. What no reader could get is
+/// WHO it parried, and that is the whole difference between a flash on the
+/// shield and a counter. A retaliation has to face somebody; a Revenge gauge has
+/// to credit somebody; a Witch-Time slow has to slow somebody. All three read
+/// this one message rather than three defensive mechanics deriving it three
+/// ways.
+///
+/// ⛔ AND IT CANNOT BE DERIVED FROM WHAT WAS ALREADY PUBLISHED. The parry arm
+/// negates the strike and `continue`s BEFORE the damage road runs, so there is
+/// no `LandedBodyHit` and no `ResolvedBodyHit` to correlate against — the
+/// absence of both is exactly what a parry looks like from outside, and it is
+/// also what a swing that reached nobody looks like. This is the same argument
+/// `BlockedBodyHit` makes for existing: the resolver knows, so the resolver
+/// says.
+#[test]
+fn a_parry_names_the_attacker_it_caught() {
+    let guarding = ae::BodyShieldState {
+        active: true,
+        parry_window_timer: 0.05,
+        ..Default::default()
+    };
+    let (mut app, victim) = parry_fixture(guarding);
+    // The striker, so the assertion can name both sides rather than just count.
+    let attacker = app
+        .world_mut()
+        .query_filtered::<Entity, With<crate::components::ActorFaction>>()
+        .iter(app.world())
+        .find(|e| *e != victim)
+        .expect("the fixture stands up an attacker beside the victim");
+    app.update();
+
+    let parries = &app.world().resource::<CapturedParries>().0;
+    assert_eq!(
+        parries.len(),
+        1,
+        "a caught parry published {} ParriedBodyHit(s). A counter has nothing \
+         to fire on and nothing to face.",
+        parries.len()
+    );
+    assert_eq!(
+        parries[0].defender, victim,
+        "the parry was credited to the wrong body"
+    );
+    assert_eq!(
+        parries[0].attacker, attacker,
+        "the parry did not name the body that swung, so a retaliation cannot \
+         turn toward it and a Revenge gauge cannot credit it"
     );
 }
 

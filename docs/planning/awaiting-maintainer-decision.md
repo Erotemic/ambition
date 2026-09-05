@@ -2344,6 +2344,20 @@ off the contracts themselves, that stand-in table binds **18 verbs to George's
 ⇒ The eight the Robots did not have: `special`, `special_forward`, `special_up`,
 `special_down`, `special_air_down`, `attack_forward`, `attack_dash`, `taunt`.
 
+✔✔ **TWO OF THE EIGHT ARE NOW AUTHORED, so the live figure is SIX — updated
+2026-09-05 in the commit that authored the second, which is what this entry's
+guards instruct.** `special_forward` answers with `lunge_grab` (the command
+grab) and `special_down` with `riposte` (the counter), each in both stances.
+The guards `the_only_presses_this_fighter_cannot_answer_are_specials` and
+`the_stand_in_is_george_s_genre_shape_with_the_special_button_removed` both
+carry `6` now and both went red on the change, which is the mechanism working.
+⚠ **THIS DOES NOT ANSWER THE QUESTION BELOW.** What are the Robots' specials, as
+an identity, is still Jon's — these two were authored because the ENGINE work
+needed a customer (Jon, 2026-09-05: *"when we build the code for these we should
+exercise them in the characters"* and *"we can tune who the moves belong to
+later"*), not because the roster question was settled. ⇒ Read the remaining four
+slots as four, not six.
+
 ⛔⛔ **AND THE VERB COUNT OVERSTATED IT, because a fighter ANSWERS presses it
 never BINDS.** `directional_verb_chain` always falls back to the base verb, so a
 missing `attack_forward` is not silence — the press answers with the `jab`.

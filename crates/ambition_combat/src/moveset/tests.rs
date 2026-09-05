@@ -467,6 +467,7 @@ fn player_robot_slash_overlay_preserves_authored_sfx() {
 fn a_swing_that_catches_two_bodies_stales_the_move_once() {
     let mut app = App::new();
     app.add_message::<crate::hitbox::LandedBodyHit>();
+    app.add_message::<crate::hitbox::ParriedBodyHit>();
     app.add_systems(Update, mark_move_playback_landed_hits);
 
     let attacker = app
@@ -659,6 +660,7 @@ fn app_with_victim() -> (App, Entity) {
     );
     app.add_message::<HitEvent>();
     app.add_message::<crate::hitbox::LandedBodyHit>();
+    app.add_message::<crate::hitbox::ParriedBodyHit>();
     app.add_message::<ambition_sfx::OwnedSfxMessage>();
     app.add_message::<VfxMessage>();
     app.add_message::<DebrisBurstMessage>();
@@ -1560,6 +1562,7 @@ fn a_control_verb_edge_triggers_the_moveset_move_and_lands_it() {
     app.init_resource::<super::super::authored_volumes::AuthoredAttackVolumeResolver>();
     app.add_message::<HitEvent>();
     app.add_message::<crate::hitbox::LandedBodyHit>();
+    app.add_message::<crate::hitbox::ParriedBodyHit>();
     app.add_message::<ambition_sfx::OwnedSfxMessage>();
     app.add_message::<VfxMessage>();
     app.add_message::<DebrisBurstMessage>();
@@ -4121,6 +4124,7 @@ fn smash_charge_app() -> (App, Entity) {
     app.init_resource::<super::super::authored_volumes::AuthoredAttackVolumeResolver>();
     app.add_message::<HitEvent>();
     app.add_message::<crate::hitbox::LandedBodyHit>();
+    app.add_message::<crate::hitbox::ParriedBodyHit>();
     app.add_message::<ambition_sfx::OwnedSfxMessage>();
     app.add_message::<MoveEventMessage>();
     app.add_message::<ambition_vfx::vfx::VfxMessage>();
@@ -4715,6 +4719,7 @@ fn playing_app(moveset: MovesetContract) -> (App, Entity) {
     app.init_resource::<super::super::authored_volumes::AuthoredAttackVolumeResolver>();
     app.add_message::<HitEvent>();
     app.add_message::<crate::hitbox::LandedBodyHit>();
+    app.add_message::<crate::hitbox::ParriedBodyHit>();
     app.add_message::<ambition_sfx::OwnedSfxMessage>();
     app.add_message::<MoveEventMessage>();
     app.add_message::<ambition_vfx::vfx::VfxMessage>();
@@ -6000,6 +6005,7 @@ fn two_authored_attacks_that_meet_trade_and_both_moves_end() {
     app.init_resource::<super::super::authored_volumes::AuthoredAttackVolumeResolver>();
     app.add_message::<HitEvent>();
     app.add_message::<crate::hitbox::LandedBodyHit>();
+    app.add_message::<crate::hitbox::ParriedBodyHit>();
     app.add_message::<ambition_sfx::OwnedSfxMessage>();
     app.add_message::<MoveEventMessage>();
     app.add_message::<ambition_vfx::vfx::VfxMessage>();
@@ -6592,6 +6598,7 @@ fn a_special_charge_is_held_by_the_special_button_and_not_the_attack_button() {
         app.init_resource::<super::super::authored_volumes::AuthoredAttackVolumeResolver>();
         app.add_message::<HitEvent>();
         app.add_message::<crate::hitbox::LandedBodyHit>();
+    app.add_message::<crate::hitbox::ParriedBodyHit>();
         app.add_message::<ambition_sfx::OwnedSfxMessage>();
         app.add_message::<MoveEventMessage>();
         app.add_message::<ambition_vfx::vfx::VfxMessage>();
@@ -8101,6 +8108,7 @@ fn latch_after(
     app.init_resource::<super::super::authored_volumes::AuthoredAttackVolumeResolver>();
     app.add_message::<HitEvent>();
     app.add_message::<crate::hitbox::LandedBodyHit>();
+    app.add_message::<crate::hitbox::ParriedBodyHit>();
     app.add_message::<ambition_sfx::OwnedSfxMessage>();
     app.add_message::<MoveEventMessage>();
     app.add_message::<ambition_vfx::vfx::VfxMessage>();

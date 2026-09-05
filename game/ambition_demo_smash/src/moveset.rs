@@ -750,6 +750,56 @@ pub fn fighter_moveset() -> MovesetContract {
     command_grab.start_impulse = Some((330.0, 0.0));
     moves.push(command_grab);
 
+    // DOWN SPECIAL — `riposte`. The second of George's eight dead specials this
+    // contract fills, and the first move in the demo that answers a DEFENCE.
+    //
+    // ⭐⭐ IT ADDS NO DEFENSIVE MECHANIC. The perfect shield already denies a
+    // qualifying attack and now names who threw it; this move holds that window
+    // open on purpose and names what to do about it. The counter is composition,
+    // which is why there is no counter system anywhere in this demo.
+    //
+    // ⭐ AND ITS ANSWER IS THE GRAB ABOVE. A parry into a command grab is a real
+    // fighting-game exchange, and it costs nothing new: `smash.capture_attempt`
+    // is already shipped, already authored by `lunge_grab`, and already lands in
+    // the generic `CapturedBy` authority. ⇒ The response is a KEY, so the day a
+    // resource technique or a slow exists, the same stance answers with those
+    // instead by changing one string.
+    //
+    // ⛔ THE RECOVERY IS THE PRICE AND IT IS DELIBERATELY LONG. 0.44s against a
+    // 0.16s stance: a counter you can throw out on reaction to nothing is a
+    // defensive option with no downside, which flattens the exchange it exists
+    // to deepen. Whiffing this should lose you the neutral.
+    //
+    // ⚠ THE HOLD MATCHES THE OTHER TWO GRABS, for the reason `lunge_grab` gives
+    // in place: the follow-up throws are shared, so a captive held somewhere
+    // else would make them read differently depending on which grab caught them.
+    let riposte = ambition_platformer2d::characters::smash_counter::counter_move(
+        "riposte",
+        "special",
+        0.06,
+        0.16,
+        0.44,
+        ambition_platformer2d::characters::smash_counter::CounterParams {
+            // ⛔ A HEARTBEAT, NOT A DURATION — `parry_window_timer` decays, and
+            // the stance re-arms it every frame it is live. Three ticks of slack
+            // at 60Hz, so a frame the sustain misses does not close the window.
+            window_s: 0.05,
+            response: ambition_platformer2d::characters::smash_capture::CAPTURE_ATTEMPT
+                .to_string(),
+            response_params: ambition_platformer2d::entity_catalog::ParamValue::from_typed(
+                &ambition_platformer2d::characters::smash_capture::CaptureAttemptParams {
+                    // Closer than the lunge: the attacker is already inside your
+                    // guard, which is how they got parried.
+                    offset: (24.0, 0.0),
+                    half_extents: (24.0, 22.0),
+                    hold_offset: (18.0, -2.0),
+                },
+            )
+            .expect("the riposte's capture params serialize"),
+        },
+    );
+    moves.push(riposte);
+
     let capture_verbs: Vec<(String, String)> = capture
         .bound()
         .into_iter()
@@ -772,9 +822,11 @@ pub fn fighter_moveset() -> MovesetContract {
         ("attack_air_back", "air_back"),
         ("attack_air_up", "air_up"),
         ("attack_air_down", "air_down"),
-        // ⭐ The only special this contract binds. See `lunge_grab` above for
-        // why it is a grab and why the other seven of George's verbs stay dead.
+        // ⭐ The two specials this contract binds. See `lunge_grab` and
+        // `riposte` above for what each is and why the rest of George's verbs
+        // stay dead.
         ("special_forward", "lunge_grab"),
+        ("special_down", "riposte"),
     ]
     .into_iter()
     .map(|(verb, id)| (verb.to_string(), id.to_string()))
@@ -835,14 +887,15 @@ mod tests {
              stopped, every planning claim about this fighter's reach is stale"
         );
 
-        // ⭐ The special family is the gap, and it is EIGHT of the ten special
-        // presses — only `special_forward` answers, grounded and aerial, and it
-        // does so because of `lunge_grab`. (Five directions x two stances = ten;
-        // the comment said seven before I counted them.)
+        // ⭐ The special family is the gap, and it is SIX of the ten special
+        // presses — `special_forward` answers with `lunge_grab` and
+        // `special_down` with `riposte`, each in both stances. (Five directions
+        // x two stances = ten; the comment said seven before I counted them,
+        // and eight before the counter was authored.)
         let specials: Vec<&String> = silent.iter().filter(|p| p.starts_with("special_")).collect();
         assert_eq!(
             specials.len(),
-            8,
+            6,
             "the special gap changed size: {specials:?}. If a special was \
              AUTHORED this is good news and the number wants updating here and \
              in `awaiting-maintainer-decision.md`; if one was LOST, that is a \
@@ -924,7 +977,7 @@ mod tests {
         );
         assert_eq!(
             extra.len(),
-            8,
+            6,
             "the stand-in/George special gap moved to {}: {extra:?}. If a special was AUTHORED on the stand-in this is the good failure — lower the number here in the same commit. If George LOST one, the subset assertion above would have fired first.",
             extra.len()
         );

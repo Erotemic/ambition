@@ -289,6 +289,13 @@ where
         OWNER,
         "message.blocked_body_hit",
     );
+    // The successful-defence answer, cleared for the same reason as the other
+    // two: a rewound frame must not leave a counter armed by a parry that the
+    // resimulation no longer produces.
+    registrar.clear_message_on_rollback::<crate::hitbox::ParriedBodyHit>(
+        OWNER,
+        "message.parried_body_hit",
+    );
     registrar.clear_message_on_rollback::<crate::events::HitEvent>(OWNER, "message.hit_event");
     registrar.clear_message_on_rollback::<crate::stocks::BodyKnockedOut>(
         OWNER,

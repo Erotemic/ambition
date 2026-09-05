@@ -288,9 +288,22 @@ mod tests {
 
     #[test]
     fn chest_default_state_is_closed_and_persistent() {
-        // Chests default to Closed and persistent=true so the save
-        // system records them automatically; reward is propagated as
-        // given (None for empty chests / triggers).
+        // Chests default to Closed, and `reward` is propagated as given (None
+        // for empty chests / triggers).
+        //
+        // ⛔ THE `persistent` FLAG IS NOT READ BY ANYTHING, and this comment
+        // used to say it was — *"so the save system records them
+        // automatically"*. Measured 2026-09-05: `ChestSpec.persistent` is
+        // authored, threaded through `spawn_static.rs` into this component, and
+        // then read by NO production code; the only reader in the tree is the
+        // assertion below. What actually remembers an opened chest is
+        // `encounter_reward_looted_flag`, a per-encounter save flag that does
+        // not consult this field.
+        //
+        // ⇒ The assertion stays, because the DEFAULT is still a real fact about
+        // the type and a change to it should be deliberate. But nobody should
+        // read this test as evidence that per-chest persistence works: setting
+        // `persistent: false` on an authored chest changes nothing today.
         let chest = Chest::new("hub_chest", Some(PickupKind::Health { amount: 2 }));
         assert_eq!(chest.state, ChestState::Closed);
         assert!(chest.persistent);

@@ -33,7 +33,7 @@ each one as an **engine acceptance fixture** rather than a character feature:
 | 9 ✔ | **Sing** — **COMPLETE 2026-09-05** on the Performer's neutral special | `BodyCombat::sleep_timer`, the `smash.sleep` technique and the area adapter, all guarded — and now with a customer. ⭐ **ADDED TO `the_monologue`, NOT SUBSTITUTED FOR IT**: her strike is 58×34 out in front and is unchanged to the number; the sleep is 26×26 centred on HER, wholly inside it. Everyone still gets the speech; only whoever stood next to her goes under |
 | 10 ▢ | **Limit** | character-local resource state, threshold transitions, timeout, action variants, stat modifiers. ⓘ **THE NEAREST SHIPPED THING IS `StoredMoveCharge`** — per-body, rollback-registered, with a value probe — but it is a CHARGE BANK keyed by move id, filled by holding a button. A meter filled by combat EVENTS and read by a move SELECTOR is a different object, and the selector half (`move_for_directional_verb` varies only on `grounded`) is the part with no precedent |
 | 11 | **Free-standing ally summon** | summon is not synonymous with mount; first owned-secondary-actor contract |
-| 12 ▢ | **Reusable launch object** | a fighter can create a persistent world actuator another fighter interacts with. ⓘ **Searched 2026-09-05: no placed launcher exists.** `PogoPolicy` is the nearest and is a different thing — bouncing off a body you HIT, not off an object somebody placed. ⭐ But the mine proves the spawning half is cheap (`GroundItem` + a seat-owned component), so what this row really needs is the ACTUATOR contract: a thing that launches whoever touches it, including its owner |
+| 12 ✔ | **Reusable launch object** — **LANDED 2026-09-05** on Bob's down-B, additive to his slam | a fighter can create a persistent world actuator another fighter interacts with. ⭐ **AND THE WORD THAT MATTERS IS *ANOTHER***: the plate throws ANYBODY who steps on it, its dropper and his opponent alike — a plate that served only its owner would be a second recovery wearing an object's clothes. ⛔ THREE clocks and a use count, all rollback state. ⓘ Originally: **no placed launcher exists.** `PogoPolicy` is the nearest and is a different thing — bouncing off a body you HIT, not off an object somebody placed. ⭐ But the mine proves the spawning half is cheap (`GroundItem` + a seat-owned component), so what this row really needs is the ACTUATOR contract: a thing that launches whoever touches it, including its owner |
 | 13 ✔✔ | **Portal recovery** (Jon, added same day) — **LANDED 2026-09-05** on Alice's up-B, **and the ANGLED half completed the same day** | an authored customer places linked world portals and traverses them. ⭐⭐ **Jon's second sentence is now built too**: *"we can even exercise angled portals with directional input on the up b as a flavor that isn't actually in smash and is ours."* `tilt_degrees` was `0.0` in every literal in the tree — the parameter existed, the code applied it, nobody ever set it — and the player's own stick now leans the shaft ±32°. ⇒ **It reuses `MovePlayback::aimed_stick`, the LATCHED UNDAMPED aim the teleport already reads**, so no new authority: an aimed special is rooted, and a live stick read would be neutral for the whole move |
 
 ⭐ **Sanic's spring analogue is a SPEED BUMP** (Jon): he slams down a ridiculous
@@ -542,6 +542,27 @@ change that removes a way to finish a stock rather than replacing filler or
 adding on top. It is also the one that makes his kit a single idea (gun, shove,
 shield), so it is a real design choice rather than an oversight, and it is stated
 here to be argued with.
+
+### ⛔⛔ A SPAWN POINT IS INSIDE THE SPAWNER — THREE TIMES, THREE DIFFERENT MOVES
+
+The same defect found by the first guard run on three unrelated objects, each
+time before a player could:
+
+| move | what happened on frame one | the fix |
+|---|---|---|
+| the remote mine | placing and detonating on consecutive presses | `arm_s`, an arming delay |
+| the steered bolt | it came home on the tick it was fired and threw the caster instantly | `clear_of_caster`, a latch |
+| the placed plate | it launched the engineer who dropped it, spending a use before anyone saw it | `arm_s` again |
+
+⇒ **A move that spawns something AT a fighter spawns it INSIDE that fighter.** The
+body-local offset is smaller than the contact tolerance every time, so contact
+logic that does not say so is not "usually fine" — it is wrong on frame one, and
+frame one runs before anything else can.
+
+⭐ **All three were found by a guard, none by reading**, and in each case the fix
+turned out to be the genre's own rule arrived at from the bug: a mine you cannot
+instantly detonate, a bolt that must leave before it can come home, a plate you
+step off before it works.
 
 ### ⭐⭐ A COUNTER IS NOT A MOVE TYPE — THREE ON ONE ROSTER, THREE DIFFERENT MOVES
 

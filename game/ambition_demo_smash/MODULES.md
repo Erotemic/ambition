@@ -6,7 +6,7 @@
 
 | Module | Its ONE concern (from the module's own `//!` header) |
 |---|---|
-| [`bolt`](src/bolt.rs) | The steered bolt: a thing you fly with the stick while standing still. |
+| [`bolt`](src/bolt.rs) | The steered bolt: a thing you fly with the same stick you walk with. |
 | [`bomb`](src/bomb.rs) | A live bomb on the stage: the ruleset half of `smash.drop_bomb`. |
 | [`capture`](src/capture.rs) | The Smash ruleset's capture adapter: authored effect keys → typed requests. |
 | [`counter`](src/counter.rs) | The counter, assembled from parts the engine already had. |
@@ -19,8 +19,9 @@
 | [`shark_ride`](src/shark_ride.rs) | The pirate's up-special: summon a burning flying shark and ride it. |
 | [`sing`](src/sing.rs) | Sing: an area that takes the floor away from whoever stood too close. |
 | [`smash_pack`](src/smash_pack.rs) | Smash demo content pack for George Booul. |
+| [`spring`](src/spring.rs) | A plate on the floor that throws whoever steps on it. |
 
-_13 crate-root modules. Regenerate: `python scripts/modules_md.py --write`._
+_14 crate-root modules. Regenerate: `python scripts/modules_md.py --write`._
 
 <!-- END generated module map -->
 

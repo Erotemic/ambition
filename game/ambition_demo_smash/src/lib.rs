@@ -23,6 +23,7 @@ pub mod mine;
 pub mod moveset;
 pub mod portal;
 pub mod sing;
+pub mod spring;
 pub mod select;
 pub mod select_screen;
 pub mod shark_ride;
@@ -953,6 +954,17 @@ impl bevy::prelude::Plugin for SmashRulesPlugin {
         app.add_systems(
             sim,
             (crate::bolt::fire_authored_bolts, crate::bolt::steer_and_fly_bolts)
+                .chain()
+                .in_set(ambition_platformer2d::platformer::schedule::CombatSet::ContentSpecials),
+        );
+        // THE PLACED SPRING. ⭐ `ContentSpecials` like every other content
+        // technique, and the DROP IS CHAINED BEFORE THE FIRE so a plate begins
+        // its arming clock on the tick it lands rather than a frame later —
+        // which matters because the frame it lands is the frame its dropper is
+        // standing inside it.
+        app.add_systems(
+            sim,
+            (crate::spring::drop_authored_springs, crate::spring::fire_and_expire_springs)
                 .chain()
                 .in_set(ambition_platformer2d::platformer::schedule::CombatSet::ContentSpecials),
         );
@@ -2543,6 +2555,16 @@ impl bevy::prelude::Plugin for SmashSelectPlugin {
                 "ambition_demo_smash",
                 "smash.steered_bolt",
                 crate::bolt::steered_bolt_probe,
+            );
+
+            // The plate's three clocks and its remaining uses. ⛔ A rewind that
+            // restored the plate without them would give the resimulated
+            // timeline a launch the confirmed one had already spent — and a
+            // launch is a fighter standing somewhere else.
+            app.rollback_component_clone_probed::<crate::spring::PlacedSpring>(
+                "ambition_demo_smash",
+                "smash.placed_spring",
+                crate::spring::placed_spring_probe,
             );
         }
         // ⛔ BEFORE the preparation source can ask for it. `Res<SmashStageChoice>`

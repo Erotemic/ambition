@@ -217,7 +217,7 @@ none of them waits on `TechniqueFlow`.
   `MovePlayback::live_capture_reach()`, so presentation never re-derives the
   reach from authored params it should not read. ⛔ Drawn on BOTH roads, with
   the actor arm poison-verified against the trapdoor's own defect.
-- ◐ **B3. Projectile interception as a projectile-domain operation** (proof move
+- ✔ **B3. Projectile interception as a projectile-domain operation** (proof move
   3). ✔ **THE OPERATION LANDED 2026-09-05** (`projectile/intercept.rs`):
   `ProjectileInterception::{Reflect, Consume}` and `intercept_projectile`, with
   the parry as its first caller. It touches exactly three of the six axes —
@@ -235,17 +235,23 @@ none of them waits on `TechniqueFlow`.
   the projectile re-owned and its velocity reversed, because both roads read one
   predicate. Proof move 3's reflector half needed no move and no engine change;
   it fell out of proof move 2.
-  ⚠ **BY CONSTRUCTION, NOT BY TEST, and the distinction is load-bearing.** The
-  existing parry tests call `reflect_parried_shot` DIRECTLY — they never exercise
-  the `shield.parrying()` gate — and the stance test asserts the window is open
-  without firing a shot at it. So the two halves are each covered and the join
-  is not. ⇒ If someone gates the projectile road on `active` as well (the exact
-  mistake `parrying()`'s own history records), the reflector silently stops and
-  nothing goes red.
-  ▢ **What remains is the AUTHORED half**: an absorber move, and an end-to-end
-  guard for the join above,
-  which is where `Consume` gets the customer it is
-  currently tested without.
+  ~~⚠ **BY CONSTRUCTION, NOT BY TEST**~~ ✔ **THE JOIN IS GUARDED, and this
+  warning is now stale** — `an_open_parry_window_reflects_a_shot_and_takes_it_over`
+  drives the real `step_projectiles` against an open window and asserts both the
+  reversed velocity AND the taken-over `ProjectileOwner`. ⛔ **Poisoned with the
+  row's own named mistake** — `caught = shield.parrying() && shield.active` — and
+  it reddens.
+  ⭐⭐ **AND A CONTROL WAS STILL MISSING, ADDED 2026-09-05 AT A PEER'S ASKING:
+  a CLOSED window must not reflect.** The reflect and absorb arms control each
+  other on the MODE, but both stand in front of an OPEN window — so neither could
+  see a gate that became always-true. **Demonstrated, not argued:** with
+  `caught = true` the open-window test still prints `ok` and only the new arm
+  fails, *"so the gate is not the window and every fighter reflects for free"*.
+  ✔ **And `Consume` has FOUR authored customers**, not none — the ninja, the
+  Officer, the Author and Emmy all arm `absorbs_projectiles`, and
+  `an_absorbing_parry_consumes_the_shot_rather_than_returning_it` uses the
+  reflect arm as its control. ⇒ **B3 is complete: operation, reflector, join,
+  control, customers.**
 - ◐ **B4. Per-action muzzle transform + sustained charge presentation.**
   ✔ **THE MUZZLE LANDED 2026-09-05.** `Muzzle::Offset { x, y }` joins `BodyOrigin`
   and `Hand`, as FRACTIONS of body height (the decision `HAND_OFFSET_NORM` already

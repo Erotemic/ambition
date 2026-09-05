@@ -11,6 +11,12 @@ fn app() -> App {
     let mut app = App::new();
     app.init_resource::<ambition_platformer2d::time::WorldTime>();
     app.add_message::<EffectRequest>();
+    // ⛔⛔ THE TRAIL CHANNEL, AND WITHOUT IT `steer_and_fly_bolts` DOES NOT RUN.
+    // A world that does not register a message a system WRITES fails that
+    // system's parameter validation and drops it silently — every bolt test went
+    // red at once when the bolt learned to draw itself. FOURTH time this shape
+    // has appeared in this demo today, and it is always a whole file at once.
+    app.add_message::<ambition_platformer2d::vfx::vfx::VfxMessage>();
     app.add_message::<ActorActionMessage>();
     let mut time = app
         .world_mut()
@@ -39,6 +45,8 @@ fn fighter(app: &mut App, seat: usize, x: f32) -> Entity {
 
 fn params() -> SteeredBoltParams {
     SteeredBoltParams {
+        trail_vfx: "test_trail".to_string(),
+        trail_every_s: 0.05,
         speed: 300.0,
         turn_rate_deg: 220.0,
         lifetime_s: 2.0,
@@ -267,6 +275,9 @@ fn a_bolt_touching_both_prefers_the_rival_in_either_spawn_order() {
             }
         }
         app.world_mut().spawn(SteeredBolt {
+            trail_vfx: "test_trail".to_string(),
+            trail_every_s: 0.05,
+            trail_in_s: 0.0,
             owner_seat: 0,
             pos: meeting,
             vel: ae::Vec2::new(300.0, 0.0),
@@ -305,5 +316,62 @@ fn a_bolt_touching_both_prefers_the_rival_in_either_spawn_order() {
         (false, true),
         "a bolt touching a rival AND its caster must take the rival: the jacket \
          is what it does when it finds nobody else"
+    );
+}
+
+/// ⛔⛔ THE BOLT DRAWS ITSELF WHILE IT FLIES, AND THE MOVE IS UNPLAYABLE WITHOUT
+/// IT.
+///
+/// `SteeredBolt` emitted a `DamageBox` on contact and NOTHING ELSE — no sprite,
+/// no effect, no trail. ⇒ A projectile whose entire mechanic is that the player
+/// steers it with the stick, which the player could not see. **That is worse than
+/// an invisible trap: a trap the opponent cannot see is unfair, a TOOL THE CASTER
+/// CANNOT SEE is unusable.**
+///
+/// ⭐ THE INTERVAL IS ASSERTED, NOT JUST THE PRESENCE. A 60Hz trail is sixty
+/// effect requests a second for one projectile that lives for seconds — the
+/// authored `trail_every_s` is what keeps the path readable without making one
+/// move the loudest thing on the channel. Counting marks over a known span is the
+/// only way to tell "it draws" from "it floods".
+#[test]
+fn the_bolt_marks_its_path_on_the_authored_interval_rather_than_every_tick() {
+    let mut app = app();
+    let caster = fighter(&mut app, 0, 0.0);
+    fire(&mut app, caster);
+
+    // One cursor across the whole flight — a fresh one per tick re-reads the
+    // double buffer and counts every mark twice.
+    let mut seen =
+        bevy::ecs::message::MessageCursor::<ambition_platformer2d::vfx::vfx::VfxMessage>::default();
+    let mut marks = 0usize;
+    // 30 ticks at 1/60s = 0.5s of flight against a 0.05s interval.
+    for _ in 0..30 {
+        app.update();
+        let messages = app
+            .world()
+            .resource::<Messages<ambition_platformer2d::vfx::vfx::VfxMessage>>();
+        marks += seen
+            .read(messages)
+            .filter(|m| {
+                matches!(
+                    m,
+                    ambition_platformer2d::vfx::vfx::VfxMessage::Effect { .. }
+                )
+            })
+            .count();
+    }
+
+    assert!(
+        marks > 0,
+        "the bolt flew for half a second and drew nothing — the caster is \
+         steering something invisible"
+    );
+    // 0.5s / 0.05s = 10, with a tick of slack either way.
+    assert!(
+        (8..=12).contains(&marks),
+        "the bolt drew {marks} marks in half a second against an authored 0.05s \
+         interval — under eight is a path the player cannot follow, over twelve \
+         means the interval is being ignored and one move is flooding the cue \
+         channel"
     );
 }

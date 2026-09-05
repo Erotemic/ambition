@@ -541,6 +541,33 @@ below names `start_impulse` ADDING rather than setting), `bulkhead_drop` (*"he
 drops a plate"* — an animation, and its `shockwave`/`landing_puff` cues agree),
 and Carl's `cosmic_calendar`. ⚠ **A method that only ever flags is a suspicion.**
 
+### ⛔⛔⛔ AND THE STEERED BOLT WAS INVISIBLE TOO — THE MOVE WHOSE MECHANIC *IS* SEEING IT
+
+Asking the same question of the other objects found a worse one. **`SteeredBolt`
+emitted a `DamageBox` on contact and nothing else** — no sprite, no effect, no
+trail — while the entire move is *"you fly your own bolt with the stick"*. ⇒ **A
+trap the opponent cannot see is unfair; a TOOL THE CASTER CANNOT SEE is
+unusable.** And it is PK-Thunder, one of Track A's four named rows.
+
+✔ `SteeredBoltParams::trail_vfx` + `trail_every_s`, both **required and asserted
+at the authoring seam** — the lesson from the plate applied on the first try
+rather than after a peer read my own default back to me. The Author draws his own
+`four_point_glint` every 0.05s.
+
+⭐ **THE INTERVAL IS ASSERTED, NOT JUST THE PRESENCE, and that is the half a
+"does it draw" test would have missed.** A 60Hz trail is sixty effect requests a
+second for one projectile that lives for seconds. ⇒ The guard counts marks over a
+known flight — 8 to 12 across half a second against an authored 0.05s — so it
+reddens for *"the player cannot follow the path"* AND for *"one move is flooding
+the cue channel"*. Poisoned both ways; the flood arm prints 31.
+
+⛔ **FOURTH TIME TODAY: adding a message writer broke every test in the file at
+once.** A world that does not register a message a system WRITES fails that
+system's parameter validation and drops it silently. ⇒ The mitigation is
+mechanical and I should have reached for it before the third repetition:
+**when a system gains a writer, grep its fixtures for `add_message` before
+running anything.**
+
 ### ⛔⛔ THE LAUNCH PLATE WAS INVISIBLE, AND ONLY THE INVISIBLE OBJECT THROWS YOU
 
 Found while asking whether the new moves are READABLE, which for a 1v1 match is

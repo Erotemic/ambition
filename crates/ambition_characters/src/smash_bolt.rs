@@ -55,6 +55,27 @@ pub struct SteeredBoltParams {
     pub turn_rate_deg: f32,
     /// Seconds before it fades on its own.
     pub lifetime_s: f32,
+    /// The cosmetic row drawn along its path, redrawn every
+    /// [`Self::trail_every_s`] while it flies.
+    ///
+    /// ⛔⛔ REQUIRED, BECAUSE THE BOLT WAS INVISIBLE AND THE MOVE IS "YOU FLY
+    /// IT". Measured 2026-09-05: `SteeredBolt` emitted a `DamageBox` on contact
+    /// and NOTHING ELSE — no sprite, no effect, no trail. ⇒ A projectile whose
+    /// entire mechanic is that the player steers it with the stick, which the
+    /// player could not see. That is worse than an invisible trap: a trap the
+    /// opponent cannot see is unfair, a TOOL the CASTER cannot see is unusable.
+    ///
+    /// ⭐ Not optional, for the reason the plate's cue is not: a field that
+    /// exists to end an invisible object must not default to the invisible
+    /// object. See `smash_spring::PlaceSpringParams::vfx`.
+    pub trail_vfx: String,
+    /// How often the trail row is redrawn, in seconds.
+    ///
+    /// ⚠ NOT EVERY TICK. A 60Hz trail is sixty effect requests a second for one
+    /// projectile, and the bolt lives for seconds — an authored interval keeps
+    /// the path readable without making one move the loudest thing on the
+    /// channel. Authors want roughly a body-width of travel between marks.
+    pub trail_every_s: f32,
     /// Damage to whoever it reaches — the caster excepted, who gets
     /// [`Self::self_launch`] instead.
     pub damage: i32,
@@ -82,6 +103,20 @@ pub struct SteeredBoltParams {
 /// not positive, because a bolt nobody can turn is a slow projectile wearing a
 /// steering move's startup.
 pub fn author_steered_bolt(mut spec: MoveSpec, at_s: f32, params: SteeredBoltParams) -> MoveSpec {
+    // ⛔ AN INVISIBLE BOLT IS AN UNPLAYABLE MOVE, not merely an unpolished one:
+    // the stick steers what the player can see.
+    assert!(
+        !params.trail_vfx.trim().is_empty(),
+        "move `{}` fires a bolt that draws nothing — the whole move is flying it, \
+         and the caster cannot fly what they cannot see",
+        spec.id,
+    );
+    assert!(
+        params.trail_every_s > 0.0,
+        "move `{}` redraws its bolt every {}s, which is never",
+        spec.id,
+        params.trail_every_s,
+    );
     assert!(
         at_s <= spec.duration_s,
         "move `{}` fires its bolt at {at_s}s but only lasts {}s, so the bolt \

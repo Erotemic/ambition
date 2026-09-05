@@ -113,6 +113,16 @@ pub struct SessionScopedResources<'w> {
     /// cutscene trigger, because the memory already said "you are there".
     quest_last_room: ResMut<'w, ambition_persistence::quest::LastQuestRoom>,
     cutscene_last_room: ResMut<'w, ambition_cutscene::LastCutsceneRoom>,
+    /// ⭐ THE DETERMINISTIC PROJECTILE ID SOURCE, and it is CANONICAL rollback
+    /// state (`rollback_resource_canonical::<ProjectileSeqCounter>`), so its
+    /// value is inside the state checksum. A process-global monotonic counter
+    /// that is never reset means session B's first projectile id depends on how
+    /// many session A fired — so two hosts with different local histories can
+    /// disagree at frame 0 in a CHECKSUMMED value, while every entity in the
+    /// world matches. Safe to scope: projectile ids are transient and reach no
+    /// save family, unlike a `SimId`, which is why the per-spawner `SimIdCounter`
+    /// (a COMPONENT, not a resource) is deliberately not here.
+    projectile_seq: ResMut<'w, ambition_projectiles::ProjectileSeqCounter>,
 }
 
 /// Re-establish the session mirrors for a scope that is about to be built.
@@ -175,6 +185,7 @@ fn reset(resources: SessionScopedResources) {
         mut minted_baseline,
         mut quest_last_room,
         mut cutscene_last_room,
+        mut projectile_seq,
     } = resources;
     *moving_platforms = MovingPlatformSet::default();
     *possession = PossessionState::default();
@@ -194,6 +205,7 @@ fn reset(resources: SessionScopedResources) {
     *minted_baseline = crate::items::pickup::minted_horizon::MintedItemBaseline::default();
     *quest_last_room = ambition_persistence::quest::LastQuestRoom::default();
     *cutscene_last_room = ambition_cutscene::LastCutsceneRoom::default();
+    *projectile_seq = ambition_projectiles::ProjectileSeqCounter::default();
 }
 
 /// Installs session-resource re-establishment at both edges of a session.

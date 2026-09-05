@@ -13,6 +13,19 @@ use ambition_encounter::{EncounterRegistry, SwitchActivation};
 use ambition_platformer2d_shared_tangle::safe_position::RoomTransitionCooldown;
 use ambition_platformer2d_world::collision::MovingPlatformSet;
 
+/// ⛔⛔ THIS LIST IS THE SECOND HALF OF `SessionScopedResources`, AND IT IS
+/// HAND-KEPT WHERE THE OTHER HALF IS NOT. The `reset` function destructures the
+/// `SystemParam` exhaustively, so a field added there and not reset is
+/// `error[E0027]` at compile time. Nothing does that for THIS list: every field
+/// is a plain `ResMut`, so a missing `init_resource` here is a RUNTIME panic —
+/// *"Parameter `SessionScopedResources<'_>::<field>` failed validation: Resource
+/// does not exist"* — in three tests at once, which is how `projectile_seq`
+/// announced itself on 2026-09-05.
+///
+/// ⇒ Adding a field to that `SystemParam` is TWO edits, and only one of them is
+/// guarded. The type system cannot enumerate a `SystemParam`'s fields, so this
+/// stays a list; the compile error tells you about the reset, and this comment
+/// is the only thing that tells you about the harness.
 fn app_with_populated_mirrors() -> App {
     let mut app = App::new();
     app.add_message::<SessionScopeRetired>();
@@ -36,6 +49,7 @@ fn app_with_populated_mirrors() -> App {
     app.init_resource::<crate::items::pickup::minted_horizon::MintedItemBaseline>();
     app.init_resource::<ambition_persistence::quest::LastQuestRoom>();
     app.init_resource::<ambition_cutscene::LastCutsceneRoom>();
+    app.init_resource::<ambition_projectiles::ProjectileSeqCounter>();
     app.add_systems(
         Update,
         (

@@ -390,6 +390,25 @@ seven test functions, all passing:** `test_every_gated_flag_has_a_writer` (1),
 `every_condition_an_authored_yarn_file_asks_is_published_by_the_engine` +
 `no_planning_doc_names_a_condition_the_engine_does_not_publish` (3 together),
 `every_authored_item_id_resolves_to_a_real_item` (1).
+⭐⭐ **AND WHAT THE SIX BUY, STATED AS A PROPERTY: "authored" now means
+"reachable" for every family except the one with a filed decision.** Checked
+across the five conditions with authored callers, 2026-09-04:
+
+| condition | authored | arguments verified by |
+|---|---:|---|
+| `wallet.can_afford` | 10 | numbers; `shop::authored_price` accepts them and the action shares it |
+| `inventory.holds` | 7 | `every_authored_item_id_resolves_to_a_real_item` |
+| `boss.cleared` | 5 | ⛔ **none can be true** — behaviour id vs placement id, question 57 |
+| `quest.active` | 3 | `test_alias_arguments_name_something_real` |
+| `world.flag_set` | 3 | `test_every_gated_flag_has_a_writer` |
+
+⇒ **Exactly one family is authored-but-dead, and it has a decision waiting.**
+The other four have every argument checked at build time by a guard that fails
+on a typo. ⚠ That is the useful form of the claim: not *"six guards exist"* but
+*"a misspelling in any authored condition argument now reddens a build, and the
+one remaining unreachable call is a design question rather than a spelling
+one."*
+
 ⚠ **Run by name rather than trusted from the table**, because a table can list
 a test that no longer executes — which is not hypothetical here: a stolen
 `#[test]` attribute left `mirroring_a_bout_swaps_every_per_seat_reading` dead

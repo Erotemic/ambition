@@ -139,8 +139,23 @@ pub struct PortalAffordanceBody;
 /// report. The diagnostics print the CANDIDATE COUNT for that reason — a report
 /// that says "0 overlapping drawables" beside a screenshot showing one is
 /// telling you the host has not tagged them, not that the geometry is fine.
-#[derive(Component)]
-pub struct PortalCompositingCandidate;
+///
+/// ⛔⛔ IT CARRIES ITS OWN DRAWN BOUNDS AND DOES NOT REUSE [`PortalBodyView`],
+/// which was the tempting shortcut and would have made the report LIE.
+/// `PortalBodyView::size` is the COLLISION box — its own doc says so, "crouch /
+/// morph compaction included" — and the question here is which PIXELS a pane
+/// should cover. A sprite is routinely taller and wider than the box that
+/// collides, so a report built on collision bounds would miss exactly the
+/// overhanging part of the sprite that punches through the window, which is the
+/// part of the screenshot Jon circled.
+#[derive(Component, Clone, Copy, Debug)]
+pub struct PortalCompositingCandidate {
+    /// World-space centre of the drawn sprite (engine coordinates).
+    pub drawn_centre: Vec2,
+    /// Half-extent of the drawn sprite, INCLUDING whatever the collision box
+    /// does not cover.
+    pub drawn_half: Vec2,
+}
 
 /// Host seam: the body-pose facts portal presentation places visuals against.
 ///

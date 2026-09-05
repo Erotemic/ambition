@@ -35,10 +35,9 @@ pub fn flush_portal_view_cone_debug_dump(
     candidates: Query<
         (
             Option<&Name>,
-            &crate::PortalBodyView,
+            &crate::PortalCompositingCandidate,
             Option<&GlobalTransform>,
         ),
-        With<crate::PortalCompositingCandidate>,
     >,
     rigs: Query<(
         &PortalViewRig,
@@ -69,7 +68,7 @@ pub fn flush_portal_view_cone_debug_dump(
     // ⭐ The host-tagged drawables, as (name, pose, drawn z). Collected here so
     // the text builder stays a pure function of plain data and can be tested
     // without a `World`.
-    let drawables: Vec<(String, crate::PortalBodyView, f32)> = candidates
+    let drawables: Vec<(String, crate::PortalCompositingCandidate, f32)> = candidates
         .iter()
         .map(|(name, view, transform)| {
             (
@@ -147,7 +146,7 @@ fn portal_view_cone_debug_dump_text(
         Option<&GlobalTransform>,
     )>,
     cone_visibility: &Query<(&Visibility, Option<&GlobalTransform>), With<PortalConeMesh>>,
-    drawables: &[(String, crate::PortalBodyView, f32)],
+    drawables: &[(String, crate::PortalCompositingCandidate, f32)],
     screen_scale: f32,
     convention: ambition_portal2d::pieces::MapConvention,
 ) -> String {
@@ -655,7 +654,7 @@ fn write_compositing_section(
     out: &mut String,
     portal: &PlacedPortal,
     viewer_pos: Option<Vec2>,
-    drawables: &[(String, crate::PortalBodyView, f32)],
+    drawables: &[(String, crate::PortalCompositingCandidate, f32)],
 ) {
     let _ = writeln!(out, "  compositing.pane_z: {:.3}", crate::PORTAL_WINDOW_Z);
     // ⛔ NEAR AND FAR ARE RELATIVE TO A VIEWPOINT. With no `PortalViewer` there
@@ -675,8 +674,9 @@ fn write_compositing_section(
     );
     let mut violations = 0usize;
     for (name, view, z) in drawables {
-        let half = view.size * 0.5;
-        let (min, max) = (view.pos - half, view.pos + half);
+        // ⚠ DRAWN bounds, not the collision box: the question is which pixels a
+        // pane should cover, and a sprite routinely overhangs the box.
+        let (min, max) = (view.drawn_centre - view.drawn_half, view.drawn_centre + view.drawn_half);
         let relation = crate::pane_relation(portal, viewer_pos, min, max, false);
         if matches!(relation, crate::PaneRelation::Disjoint) {
             continue;
@@ -691,7 +691,7 @@ fn write_compositing_section(
         let _ = writeln!(
             out,
             "    actor_front: {:.3}",
-            ambition_portal2d::pieces::front_distance(view.pos, &frame)
+            ambition_portal2d::pieces::front_distance(view.drawn_centre, &frame)
         );
         let _ = writeln!(out, "    expected_relation: {relation:?}");
         let _ = writeln!(
@@ -1232,11 +1232,10 @@ mod compositing_report_tests {
         }
     }
 
-    fn body_at(y: f32) -> crate::PortalBodyView {
-        crate::PortalBodyView {
-            pos: Vec2::new(100.0, y),
-            size: Vec2::new(28.0, 46.0),
-            facing: 1.0,
+    fn body_at(y: f32) -> crate::PortalCompositingCandidate {
+        crate::PortalCompositingCandidate {
+            drawn_centre: Vec2::new(100.0, y),
+            drawn_half: Vec2::new(14.0, 23.0),
         }
     }
 

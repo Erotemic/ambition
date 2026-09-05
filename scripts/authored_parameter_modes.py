@@ -32,6 +32,14 @@ where most authoring lives. The filtering is done in Python for that reason.
 ⚠ NOT A GATE, and it must not become one: content breadth is not gated in this
 repository. The number moves whenever content lands — it moved by one while this
 script was being written — so a run is a snapshot and prints its commit.
+
+⛔⛔ IT COUNTS LEAVES, NOT BRANCHES, and that blind spot is structural. A whole
+REACTION with no authored customer is invisible to a field census unless
+something inside it happens to be a bool: `VolumeReaction::Windbox` has no
+authored fighter at all, and this script only ever saw its `repeating` flag.
+`--variants` adds that axis. ⚠ It is WIDER AND NOISIER — many `Deserialize`
+enums are runtime state (`LocomotionState`, `CachePolicy`) rather than authored
+vocabulary — so it is a starting list for a person, never a verdict.
 """
 
 import re
@@ -108,6 +116,34 @@ def modes() -> list[tuple[str, str, str, bool]]:
     return out
 
 
+ENUM = re.compile(
+    r"#\[derive\([^)]*Deserialize[^)]*\)\]\s*(?:#\[[^\]]*\]\s*)*pub enum (\w+)\s*\{(.*?)\n\}",
+    re.S,
+)
+VARIANT = re.compile(r"\n\s+([A-Z]\w+)\s*(?:\{|\(|,|=)")
+
+
+def variants() -> list[tuple[str, str, str]]:
+    """`(enum, variant, file)` for authored enums — the BRANCH axis.
+
+    ⚠ Deliberately not filtered as hard as the field axis. Curating it needs
+    judgement about which `Deserialize` enums are authored vocabulary, so this
+    prints a list for a person rather than a count for a report.
+    """
+    out = []
+    for f in git("grep", "-l", "Deserialize", "--", "crates"):
+        if "/tests" in f or f.endswith("tests.rs"):
+            continue
+        text = (REPO / f).read_text(encoding="utf-8", errors="replace")
+        for m in ENUM.finditer(text):
+            name, body = m.group(1), m.group(2)
+            if NOT_AUTHORED.search(name) or name.endswith(("Error", "Kind")):
+                continue
+            for vm in VARIANT.finditer(body):
+                out.append((name, vm.group(1), f))
+    return out
+
+
 def main() -> int:
     corpus, n_files = authored_corpus()
     # ⛔ ANTI-VACUITY: a corpus that missed the content crates would report
@@ -156,6 +192,26 @@ def main() -> int:
         "\nⓘ A dormant mode is not a defect. It is a built behaviour with no "
         "authored customer — decide whether to author one or to delete it."
     )
+
+    if "--variants" in sys.argv:
+        rows = variants()
+        cold = [
+            (e, v, f)
+            for e, v, f in rows
+            if not re.search(r"\b" + re.escape(v) + r"\b", corpus)
+        ]
+        print(f"\n\nAUTHORED ENUM VARIANTS (the BRANCH axis)\n")
+        print(f"  variants examined                   {len(rows)}")
+        print(f"  never named in authored content     {len(cold)}")
+        print(
+            "\n⚠ WIDER AND NOISIER THAN THE FIELD AXIS. Many `Deserialize` enums are\n"
+            "   runtime state rather than authored vocabulary, so this is a starting\n"
+            "   list for a person, not a verdict. It exists because a field census\n"
+            "   counts LEAVES: a whole reaction with no authored customer is invisible\n"
+            "   to it unless something inside it happens to be a bool.\n"
+        )
+        for e, v, f in sorted(cold):
+            print(f"  {e}::{v}\n      {f}")
     return 0
 
 

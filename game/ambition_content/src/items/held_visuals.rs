@@ -75,6 +75,15 @@ pub(super) fn register(app: &mut App) {
             "sprites/props/gauntlet_bomb.png",
             Vec2::new(18.0, 18.0),
         ),
+        // ⭐ THE MINE WEARS THE BEACON, deliberately NOT the bomb icon. Her two
+        // stage objects have to be distinguishable at a glance — see the note on
+        // `polygon_mine` in the held-item registry — and a beacon is a thing you
+        // put down and come back to, which is what this one is.
+        HeldItemArtEntry::new(
+            "polygon_mine",
+            "sprites/props/mark_beacon.png",
+            Vec2::new(16.0, 16.0),
+        ),
         HeldItemArtEntry::new(
             "polygon_ponytail",
             "sprites/props/javelin.png",
@@ -103,7 +112,20 @@ mod tests {
         let mut app = App::new();
         register(&mut app);
         let manifest = app.world().resource::<HeldItemArtManifest>();
-        for id in ["axe", "javelin", "gun_sword", "gun_sword_heavy", "blink"] {
+        // ⭐ THE POLYGON'S THREE ARE NAMED EXPLICITLY, because this module's own
+        // note records that a missing art registration is not a silent fallback
+        // — it is an `ERROR` per spawn and an object drawn as nothing, measured
+        // on the first engine take of her down-B. Her mine is the third.
+        for id in [
+            "axe",
+            "javelin",
+            "gun_sword",
+            "gun_sword_heavy",
+            "blink",
+            "polygon_bomb",
+            "polygon_ponytail",
+            "polygon_mine",
+        ] {
             assert!(
                 manifest.0.iter().any(|e| e.item_id == id),
                 "{id} art must be registered"

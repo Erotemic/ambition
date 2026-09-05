@@ -18,6 +18,7 @@ pub mod bomb;
 pub mod capture;
 pub mod counter;
 pub mod george_booul_moveset;
+pub mod mine;
 pub mod moveset;
 pub mod portal;
 pub mod sing;
@@ -938,6 +939,21 @@ impl bevy::prelude::Plugin for SmashRulesPlugin {
             (
                 crate::portal::open_authored_portal_pairs,
                 crate::portal::close_expired_move_portals,
+            )
+                .chain()
+                .in_set(ambition_platformer2d::platformer::schedule::CombatSet::ContentSpecials),
+        );
+        // THE REMOTE MINE. ⭐ `ContentSpecials` like every other content
+        // technique, and the ARM IS CHAINED BEFORE THE PRESS so a mine that
+        // becomes live on this tick answers this tick's press. The other order
+        // would make the arming delay one frame longer than the number the
+        // moveset authored, which is the kind of drift nobody can see and
+        // everybody feels.
+        app.add_systems(
+            sim,
+            (
+                crate::mine::arm_placed_mines,
+                crate::mine::place_or_detonate_authored_mines,
             )
                 .chain()
                 .in_set(ambition_platformer2d::platformer::schedule::CombatSet::ContentSpecials),
@@ -2487,6 +2503,15 @@ impl bevy::prelude::Plugin for SmashSelectPlugin {
                 "ambition_demo_smash",
                 "smash.move_placed_portal",
                 crate::portal::move_placed_portal_probe,
+            );
+            // The mine's arming clock. Same reasoning as the fuse and the
+            // aperture above: it outlives the tick that made it, so a rewind
+            // that restored the mine without its clock would let the
+            // resimulated timeline answer a press the confirmed one ignored.
+            app.rollback_component_clone_probed::<crate::mine::PlacedMine>(
+                "ambition_demo_smash",
+                "smash.placed_mine",
+                crate::mine::placed_mine_probe,
             );
         }
         // ⛔ BEFORE the preparation source can ask for it. `Res<SmashStageChoice>`

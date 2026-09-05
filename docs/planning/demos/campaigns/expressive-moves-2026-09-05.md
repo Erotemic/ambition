@@ -25,7 +25,7 @@ each one as an **engine acceptance fixture** rather than a character feature:
 | 3 | **Reflector + absorber** | projectile interception is a projectile authority and supports more than parry reversal |
 | 4 | **Tether recovery + aerial tether grab** | terrain/body tethering composes with ledge and capture authorities |
 | 5 | **Cargo command grab** | capture and movement cooperate without either duplicating pose authority |
-| 6 | **Remote mine** | persistent spawned identity, owner/tag lookup, cross-move triggering, attachment, rollback |
+| 6 ✔ | **Remote mine** — **LANDED 2026-09-05** on Projectile Polygon's down-smash | persistent spawned identity, owner lookup, remote triggering, rollback. ⭐ **It cost one component with four fields and no new authority**: the object is a `GroundItem`, the blast is a `DamageBoxEffect`, and "where is it, whoever holds it" is `ItemWorldPos`. The mine contributes an arming clock and a decision |
 | 7 | **Parasol** | temporary movement modifiers/controllers are expressive enough for a long-lived post-move locomotion regime |
 | 8 | **Homing Attack** | deterministic semantic target queries and target-directed fighter motion |
 | 9 ◐ | **Sing** | ✔ **ENGINE LANDED 2026-09-05** — `BodyCombat::sleep_timer`, the `smash.sleep` technique and the area adapter, all guarded. ▢ **No authored customer**: see below |
@@ -324,6 +324,23 @@ makes Jon's stated order — input lease, steerable projectile, then PK-Thunder 
 the right one. ⓘ The input lease is control-authority work, outside the
 `ambition_combat` moveset / `ambition_demo_smash` lane this campaign has held.
 
+⛔⛔ **AND ONE CORRECTION TO THIS SECTION, FOUND BY BUILDING THE THING.** When
+this was first written it grouped the **remote mine** with slots, on the reading
+that both wanted "a spawned occurrence with a stable identity its owner can look
+up". ⇒ **That grouping was wrong, and the mine shipped the same day without any
+of it.** `MatchSeat` is already rollback-registered and is already how this
+codebase names a fighter durably — so "my mine" is a `usize` comparison.
+
+⭐ **The distinction that was missing: a TRAP needs to name its OWNER, and a SLOT
+needs to name the SPAWNED THING.** Those are different questions, and only the
+second one is open. A fighter has had a durable name in this codebase for a long
+time; a projectile has not.
+
+⚠ The general shape, and it is the same one the reflector produced: **"this row
+needs a new capability" is a claim, and the cheapest way to test it is to build
+the row.** Two of the three capability gaps this campaign predicted turned out to
+be already-shipped authorities under a name I had not searched for.
+
 ### Track A — the keystone
 
 - ▢ **A1. `TechniqueFlow` minimum**: `emit` / `wait` / `branch` / `finish`,
@@ -378,7 +395,7 @@ re-derive it:
 | Transform | flow requests form change; character-form authority changes the resolved form |
 | Sanic Homing Attack | deterministic target acquisition + temporary guided fighter-motion controller + hit/whiff branch |
 | Spring Jump analogue | spawn reusable stage actuator + self launch; the aerial version is a falling actuator/hazard |
-| Remote mine | persistent tagged occurrence + later move queries the owned tag and requests detonation |
+| Remote mine ✔ | ⭐ **THE TAG TURNED OUT TO BE A SEAT.** `MatchSeat` is already rollback-registered and is already how this codebase names a fighter durably — so "my mine" is a `usize` comparison, not an occurrence-identity scheme, and **this row did NOT need the `SimId` work Track A is blocked on.** ⚠ The scope that bought: ONE mine per seat, which is the rule that makes the arming delay a brake rather than a decoration |
 | Revenge-style counter | defensive contact interception → persistent character resource/modifier |
 | Cargo carry | capture relation with captor locomotion enabled + movement/capture constraint contract |
 | Pocket | projectile interception → immutable stored payload → later projectile respawn |

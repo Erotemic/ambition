@@ -246,6 +246,26 @@ static HELD_ITEMS: std::sync::LazyLock<std::collections::HashMap<&'static str, H
                 use_behavior: HeldUseBehavior::Auto,
             },
         );
+        // ⭐ THE MINE SHE PLANTS. Registered for the same reason and with the
+        // same shape as the bomb above — a thing somebody carries, with no verb
+        // of its own.
+        //
+        // ⛔⛔ A SECOND ITEM AND NOT A SECOND USE OF `polygon_bomb`, because the
+        // two objects answer to DIFFERENT TRIGGERS and a player has to be able
+        // to tell them apart on sight. One burns down and goes off if you throw
+        // it hard; the other sits there until its owner decides. Sharing an id
+        // would have shared the art as well, and "which of these is about to
+        // explode by itself" is not a question the game should make you guess.
+        items.insert(
+            "polygon_mine",
+            HeldItemSpec {
+                id: "polygon_mine".into(),
+                melee: None,
+                ranged: None,
+                // `Auto`, for the reason the bomb's is: a pure throwable.
+                use_behavior: HeldUseBehavior::Auto,
+            },
+        );
         // ⭐ THE POLYGON'S PONYTAIL, taken hold of for one move and let go again.
         //
         // ⛔ A HELD ITEM FOR A THING THAT IS PART OF HER, and that is the point

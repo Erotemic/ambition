@@ -22,6 +22,7 @@
 | [`rollback_registration`](src/rollback_registration.rs) | Rollback declaration owned by `ambition_characters`. |
 | [`smash_bomb`](src/smash_bomb.rs) | Put a live bomb on the stage: the authored vocabulary. |
 | [`smash_capture`](src/smash_capture.rs) | Platform-fighter capture vocabulary: grab, pummel, and throw. |
+| [`smash_counter`](src/smash_counter.rs) | The counter stance: the authored vocabulary for "if you hit me here, this happens". |
 | [`smash_fighter`](src/smash_fighter/mod.rs) | Character-owned authored `smash_fighter` facet. |
 | [`smash_flyline`](src/smash_flyline.rs) | Being lifted out of the scene on a wire: the authored vocabulary. |
 | [`smash_repertoire`](src/smash_repertoire.rs) | Standard Smash action grammar and repertoire bookkeeping. |
@@ -32,7 +33,7 @@
 | [`snapshot_impls`](src/snapshot_impls.rs) | `SnapshotState` for this crate's own types — the rollback wire format. |
 | [`technique`](src/technique.rs) | THE AUTHORED SCHEMAS OF ENGINE TECHNIQUES — the params an `on_hit` effect carries, and nothing that executes one. |
 
-_25 crate-root modules. Regenerate: `python scripts/modules_md.py --write`._
+_26 crate-root modules. Regenerate: `python scripts/modules_md.py --write`._
 
 <!-- END generated module map -->
 

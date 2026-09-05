@@ -413,6 +413,23 @@ tail proves nothing when the footer is constant in both outcomes.
 ⓘ And cite FULL PATHS: a bare `collision.rs:96` is AMBIGUOUS across four tracked
 files, which the checker reports as unresolved rather than guessing.
 
+ⓘ **AND THE MIRROR SWEEP — a citation that NAMES something can be checked, so I
+checked all of them.** 2,163 test-name-shaped backticked citations in comments
+across the tree; **210 name something with no `fn` anywhere**. ⚠ Most of those
+210 are FALSE POSITIVES: crate names (`ambition_platformer2d_actor_monolith`, 44
+hits), field names (`attack_from_aim_stick`), module paths — all match a
+"long snake_case in backticks" heuristic. ⇒ automated narrowing 2,163 → 210,
+judgement 210 → **one** real finding.
+
+⭐ The one: `spawn_actors.rs:861` justifies a LIVE setting with a deleted
+function — *"STRIKE offense is the frame-driven Boss hitboxes
+(`sync_boss_strike_hitboxes`), so `is_hostile` stays off"* — where that function
+exists nowhere. Six OTHER citations of the same name are CORRECT, because they
+name it as retired (*"the old …"*, *"retiring the bespoke …"*). ⇒ **naming a dead
+function is fine and often the point; naming it in the PRESENT TENSE as the
+current mechanism is the defect.** That distinction is what no automated check
+can make, and it is the whole finding.
+
 ⭐⭐ **NAME THE TEST, OR DO NOT CLAIM ONE — measured 2026-09-05, and the sample
 is small but the mechanism is not subtle.** Swept the exploration lane for prose
 asserting a guard exists:

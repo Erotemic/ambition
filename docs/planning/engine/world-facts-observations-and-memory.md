@@ -36,7 +36,7 @@ dated, not live):
 | durable fact family | route-readable? |
 |---|---|
 | `flags` | ✔ `world.flag_set` |
-| `switches` | ✔ `world.switch_on` |
+| `switches` | ✔ `world.switch_on` — ⚠ but the durable fact has **three writing authorities**, measured 2026-09-05: `ambition_encounter/src/switches.rs`'s `drain_switch_activations` (three arms of one match, :401/:406/:410), `ambition_encounter_features/src/systems.rs:496` (greens every switch of a completed encounter), and `game/ambition_content/src/falling_sand_sim.rs:472` (the spout switches). The roads look DISJOINT by action kind — the generic one states *"an unhandled action must not touch persisted state at all"* — so this reads as a hand-off rather than a fork, and no behaviour is known wrong. ⛔ **What IS wrong is the comment**: `drain_switch_activations` calls itself *"The persisted write, in its one place"*, which is true inside that function and false at tree scope — and it is exactly what a fourth writer's author would read first. ⓘ Found only after repairing `durable_fact_writers.py`, which had been truncating each file at its first `#[cfg(test)]` and reporting two writers instead of five |
 | `items` | ✔ `inventory.holds` |
 | `occurrences` / `custody` | ✔ `custody.is_held` |
 | `encounters` | ✔ `encounter.cleared` (published 2026-09-04) |

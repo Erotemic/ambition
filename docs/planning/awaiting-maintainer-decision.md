@@ -1108,6 +1108,44 @@ mechanism would produce a gate that refuses everyone.
 `body.fits`, and anything later that reads the driven population), which is why
 it is filed against the population rather than against a condition.
 
+### 62. A second box holds 4,741 uncommitted lines in `mary_o.ldtk`. Keep or discard? (2026-09-05)
+
+⛔ **NEITHER AGENT WILL TOUCH THIS, AND THAT IS THE POINT — the fix is
+destructive and the work is somebody's.**
+
+⭐ **MEASURED HERE (this box), so the mechanism is not in doubt:** the pin is
+`48f8e26`; a checkout at `71f1738` is EXACTLY ONE COMMIT BEHIND it
+(`git merge-base --is-ancestor 71f1738 48f8e26` is true, and
+`git log 71f1738..48f8e26` is the single commit *"A boss placement can now be
+given a name an author can type"* — the #57 authoring change that names
+`cove.mockingbird`). Every `.ldtk` in `game/ambition_content/assets/worlds/` is a
+SYMLINK into that submodule, so a box behind the pin genuinely lacks the id and
+three boss guards are CORRECTLY red there. They are working.
+
+⚠ **MEASURED ON THE OTHER BOX, reported by the fighter session and not verifiable
+from here:** that checkout also carries 5 dirty `.ldtk` files — four content
+worlds at ~4 lines each, and **`mary_o.ldtk` at 4,741 changed lines**.
+
+⇒ **The question is only about those 4,741 lines.** `git submodule update` is a
+DETACHED CHECKOUT at the pin: it discards uncommitted work in the submodule. So
+the routine-looking fix for the three reds is also the thing that would destroy
+whatever that file holds.
+
+- If the work is WANTED: it should be committed on a branch inside
+  `game/ambition_map_assets` first, then the update is safe.
+- If it is an EDITOR ARTEFACT: LDtk rewrites whole files, so "dirty" often means
+  "opened", not "edited" — but 4,741 lines is far past what an open-and-close
+  produces, which is why neither of us is treating it as scratch.
+- ⛔ Nobody should run `git submodule update` on that box until this is answered.
+
+ⓘ This is a per-machine condition, which is why it needs a person: nothing in the
+repository records which submodule state a green was measured against, and `git
+status` on the superproject reports that a POINTER moved, never that the file
+CONTENTS a test reads through a symlink changed underneath it. The guard's
+failure message now names the submodule and warns against the update, which is
+the most a guard can do here without answering about the MACHINE rather than the
+tree.
+
 ### 60. A mounted fighter's knockout and their mount's death race. Which wins? (2026-09-05)
 
 ⭐ **FOUND BY INSTRUMENT, NOT BY PLAY, and it is unreachable today — file it now
@@ -1177,7 +1215,13 @@ say which it is. ⓘ The guarded invariant does hold in both: conflicts touching
 the engine, so the finishing-zoom edge and the participant-removal ordering the
 `MatchOutcomeDecided` doc describes are both intact in the game a player runs.
 
-### 60. Two unordered systems write the same durable switch. Where does the edge go? (2026-09-05)
+### 61. Two unordered systems write the same durable switch. Where does the edge go? (2026-09-05)
+
+ⓘ **Renumbered 60 → 61 on 2026-09-05: TWO rows were both numbered 60**, this one
+and the fighter lane's mounted-knockout race, so "decision 60" named two
+different questions. I moved MINE rather than theirs — renumbering a row you do
+not own edits someone else's content to fix your own ambiguity, and the number
+is the cheap half. Nothing cited either as "#60"; checked before moving it.
 
 ⛔⛔ **MEASURED, and four shipped switches sit on it.** Two systems write
 `save.data_mut().set_switch(&activation.id, …)` for the same id, downstream of one

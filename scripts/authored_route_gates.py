@@ -273,16 +273,22 @@ def main() -> int:
         for name in unused:
             print(f"       {name}")
         # ⛔⛔ UNUSED IS NOT THE SAME AS UNREACHABLE, and this number only counts
-        # the first. `boss.cleared` has FIVE authored calls and none of them can
-        # ever be true: every one passes the BEHAVIOR id while the save is
-        # written under the PLACEMENT (awaiting-maintainer-decision #57). ⇒ So
-        # a reader taking "N of M authored nowhere" as "M - N are working"
-        # over-counts by at least one, and the census cannot see it — answerability
-        # is a property of the evaluator, not of the corpus this walks.
+        # the first — answerability is a property of the EVALUATOR, not of the
+        # corpus this walks, so a reader taking "N of M authored nowhere" as
+        # "M - N are working" can over-count and the census cannot see it.
+        #
+        # ✔ THE WORKED EXAMPLE IS NOW CLOSED, and it is kept because it is the
+        # reason this caveat exists. `boss.cleared` had three executable authored
+        # calls and NONE could ever be true: each passed the BEHAVIOUR id while
+        # the save was written under the PLACEMENT. Jon ruled decision 57 on
+        # 2026-09-05 — progress is keyed by stable AUTHORED encounter ids — and
+        # the placement is now `cove.mockingbird`, which is what the dialogue
+        # asks. `every_authored_boss_cleared_call_names_a_real_boss_placement`
+        # keeps it that way, so a wrong id is a RED rather than a shut door.
         print(
-            "       ⚠ plus `boss.cleared`, which IS authored (5 calls) and cannot"
-            "\n         ever be true — decision #57. Unused and unreachable are"
-            "\n         different, and only the first is counted above."
+            "       ⚠ authored-but-unreachable is a SEPARATE failure this census"
+            "\n         cannot see. The one known instance (`boss.cleared`) closed"
+            "\n         2026-09-05; a Rust guard now owns that property."
         )
 
     if unreadable:

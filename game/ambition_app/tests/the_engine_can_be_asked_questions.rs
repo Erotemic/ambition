@@ -631,3 +631,113 @@ fn backticked_dotted_words(line: &str) -> Vec<String> {
     }
     out
 }
+
+/// ⭐⭐ EVERY AUTHORED `boss_cleared("…")` NAMES A BOSS PLACEMENT THAT EXISTS.
+///
+/// Jon's ruling on decision 57 (2026-09-05): *"Boss progress is keyed only by
+/// stable authored encounter/placement IDs. `boss.cleared(id)` means 'has this
+/// specific authored boss encounter been cleared?'"* — and he named this guard
+/// as the fifth step, because the ruling is only worth anything if a typo cannot
+/// quietly reintroduce the defect it fixes.
+///
+/// ⛔⛔ THE DEFECT THIS EXISTS FOR WAS LIVE FOR WEEKS AND SILENT. The durable
+/// record is written under the PLACEMENT id and `boss.cleared` looks it up
+/// exactly, but an author can only type a name they can know — so `cove.yarn`
+/// and `kernel.yarn` asked `boss_cleared("mockingbird")`, the BEHAVIOUR id,
+/// against a save keyed `BossSpawn-4308`. Three executable branches that could
+/// never open, with no error anywhere: a missing key reads `Untouched`, so the
+/// gate simply stayed shut and looked like content nobody had written.
+///
+/// ⇒ A wrong id must be a RED, not a closed door. That is the whole point.
+///
+/// ⭐ Resolution goes through `boss_placement_id`, the PRODUCTION function
+/// `convert_boss_spawn` uses — not a copy of its rule — so this cannot certify a
+/// spelling the converter would resolve differently.
+#[test]
+fn every_authored_boss_cleared_call_names_a_real_boss_placement() {
+    let mut placements: Vec<(String, String)> = Vec::new();
+    for source in ambition_content::worlds::world_manifest().worlds {
+        // The loose path is the desktop road; the embedded text is the
+        // web/Android one. Same fallback the gate-condition arm above documents.
+        let text = match source.loose_path.as_deref().map(std::fs::read_to_string) {
+            Some(Ok(text)) => text,
+            _ => match source.embedded_text {
+                Some(text) => text.to_string(),
+                None => continue,
+            },
+        };
+        let Ok(project) =
+            serde_json::from_str::<ambition_platformer2d::ldtk_map::LdtkProject>(&text)
+        else {
+            continue;
+        };
+        for level in &project.levels {
+            for layer in &level.layer_instances {
+                for entity in &layer.entity_instances {
+                    if entity.identifier != "BossSpawn" {
+                        continue;
+                    }
+                    placements.push((
+                        source.id.as_str().to_string(),
+                        ambition_platformer2d::ldtk_map::boss_placement_id(entity),
+                    ));
+                }
+            }
+        }
+    }
+
+    // ⛔ ANTI-VACUITY, and the floor clears the LARGEST SINGLE WORLD: `sandbox`
+    // authors 9 of the 11 shipped placements, so a floor of 10 fails if that one
+    // world stops being read — the failure mode that would otherwise let this
+    // test certify an empty set.
+    assert!(
+        placements.len() >= 10,
+        "only {} boss placement(s) found across the shipped worlds; `sandbox` \
+         alone authors 9, so this walk has gone empty and every assertion below \
+         is vacuous. Found: {placements:#?}",
+        placements.len(),
+    );
+
+    let known: std::collections::BTreeSet<&str> =
+        placements.iter().map(|(_, id)| id.as_str()).collect();
+
+    let mut unresolved: Vec<String> = Vec::new();
+    let mut asked = 0usize;
+    for (name, text) in ambition_content::dialogue::yarn::YARN_SOURCES {
+        for (line, region) in ambition_content::dialogue::yarn::executable_regions(text) {
+            for rest in region.split("boss_cleared(").skip(1) {
+                let Some(inner) = rest.trim_start().strip_prefix('"') else {
+                    continue;
+                };
+                let Some(close) = inner.find('"') else {
+                    continue;
+                };
+                let id = &inner[..close];
+                asked += 1;
+                if !known.contains(id) {
+                    unresolved.push(format!(
+                        "{name}:{line} asks boss_cleared({id:?}), which names no \
+                         authored boss placement in any shipped world"
+                    ));
+                }
+            }
+        }
+    }
+
+    // ⛔ The corpus floor is EXECUTABLE calls: `kernel.yarn` also SPEAKS the call
+    // twice in Kernel Guide prose, and counting those was a real 25% over-count
+    // until `executable_regions` landed. Three is what the interpreter evaluates.
+    assert!(
+        asked >= 3,
+        "only {asked} executable `boss_cleared(...)` call(s) across the shipped \
+         .yarn corpus — the walk has gone empty or the spelling changed, and an \
+         empty walk passes the assertion below"
+    );
+    assert!(
+        unresolved.is_empty(),
+        "authored dialogue gates on boss placements that do not exist, so those \
+         branches can never open and nothing errors — the save simply reads \
+         `Untouched`:\n  {}\n\nAuthored placements are: {known:#?}",
+        unresolved.join("\n  "),
+    );
+}

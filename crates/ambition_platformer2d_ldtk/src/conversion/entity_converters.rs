@@ -799,7 +799,29 @@ pub(super) fn convert_boss_spawn(ctx: &LdtkEntityCtx<'_>) -> Result<RoomEmission
     let (entity, name, min, size) = ctx.parts();
     let brain =
         parse_boss_brain(&field_string(entity, "brain").unwrap_or_else(|| "Dormant".to_string()));
-    let (id, name, aabb) = authored_triple(entity, name, min, size);
+    let (_iid, name, aabb) = authored_triple(entity, name, min, size);
+    // ⭐⭐ THE AUTHORED ENCOUNTER ID IS THE PLACEMENT'S ID, not a second field
+    // beside it. Jon's ruling on question 57 (2026-09-05): *"Boss progress is
+    // keyed only by stable authored encounter/placement IDs"*, and
+    // `boss.cleared(id)` asks whether THIS authored encounter is cleared.
+    //
+    // ⛔⛔ IT USED TO BE THE LDtk IID, AND THAT MADE EVERY AUTHORED CALL FALSE.
+    // The durable record is written under this id (`boss_encounter/src/systems.rs`)
+    // and `boss.cleared` looks it up exactly — but an author writing Yarn can
+    // only type a name they can know, so `kernel.yarn` and `cove.yarn` asked
+    // `boss_cleared("mockingbird")`, the BEHAVIOUR id, against a save keyed
+    // `BossSpawn-4308`. Three executable branches that could never open.
+    //
+    // ⭐ Resolving it HERE, at the authoring boundary, is what keeps it one
+    // authority: everything downstream — the save key, `FeatureId`, the
+    // duplicate-id check, mount links — reads the same `id`, so there is no
+    // second spelling to keep in step. An unauthored placement falls back to
+    // the iid and behaves exactly as before.
+    //
+    // ⚠ The id is deliberately NOT derived from the level identifier: a
+    // durable save key that tracks a level name changes when the level is
+    // renamed, which is the property an authored id exists to avoid.
+    let id = crate::fields::boss_placement_id(entity);
     let mut emission = RoomEmission::boss_spawn(ambition_platformer2d_world::rooms::Authored::new(
         id.clone(),
         name,

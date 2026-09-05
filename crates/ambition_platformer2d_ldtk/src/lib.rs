@@ -46,7 +46,7 @@ pub use surfaces::{
 };
 
 // Field accessors used by entity converters.
-pub use fields::{field_bool, field_f32, field_i32, field_string};
+pub use fields::{boss_placement_id, field_bool, field_f32, field_i32, field_string};
 
 use fields::{
     edge_exit_step_up_px, entity_rect, entity_touches_level_edge, known_entity, pivot_is_top_left,

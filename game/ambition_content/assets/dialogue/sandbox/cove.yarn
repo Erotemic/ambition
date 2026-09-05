@@ -1,6 +1,6 @@
 title: pirate_admiral
 ---
-<<if boss_cleared("mockingbird")>>
+<<if boss_cleared("cove.mockingbird")>>
     Admiral: Landstrider returns! There's our chest. Put it by the bar before Bess fires a salute through the roof. Drinks are on us tonight.
     -> About the chest…
         <<jump pirate_admiral_after_treasure__1>>
@@ -217,7 +217,7 @@ Quartermaster: Up the riggin', through the hatch in the overhead — that's wher
 
 title: pirate_raider
 ---
-<<if boss_cleared("mockingbird")>>
+<<if boss_cleared("cove.mockingbird")>>
     Raider: There they are. The bird-killer. I owe you a drink and the Admiral owes you a fortune. I'll let you collect from the one that pays better.
     -> What's the cove drinking to tonight?
         <<jump pirate_raider_after_treasure__1>>

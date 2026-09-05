@@ -1902,3 +1902,94 @@ fn does_a_death_retract_a_boss_defeat_the_same_way_a_retry_does() {
         "one line per reason for the single cut-rope placement: {report:#?}"
     );
 }
+
+/// ⭐⭐ THE MOCKINGBIRD'S SHIPPED GATE, END TO END — the acceptance decision 57
+/// was missing, and the one that would have caught the defect at any point.
+///
+/// Jon's ruling (2026-09-05) keyed boss progress to a stable AUTHORED encounter
+/// id. This walks the whole road with nothing hand-seeded except the defeat
+/// itself: boot the real `mockingbird_arena`, read the placement id the ROOM
+/// gives its boss, record a clearance under exactly that id the way production
+/// does, and ask the condition catalog the question the shipped `cove.yarn` and
+/// `kernel.yarn` lines ask, spelled as an author spelled them.
+///
+/// ⛔⛔ EVERY EARLIER TEST OF THIS SPELLED THE ID ITSELF, which is why the bug
+/// survived. `yarn_condition_aliases.rs` seeded `set_boss("mockingbird")` and
+/// asked `boss_cleared("mockingbird")` — it agreed with itself under a key
+/// production never writes. A test that chooses both sides of an identity
+/// cannot discover that the two sides disagree. Here the id comes from the ROOM
+/// and the question comes from the SHIPPED DIALOGUE, and nothing in this file
+/// gets to pick either.
+#[test]
+fn the_shipped_mockingbird_gate_opens_when_its_authored_placement_is_cleared() {
+    use ambition_platformer2d::boss_encounter::BossConfig;
+    use ambition_platformer2d::persistence::save::AmbitionGameSave;
+    use ambition_platformer2d::platformer::authored_logic::{
+        AuthoredArg, ConditionCatalog, ConditionId, ConditionOutcome,
+    };
+
+    // The id is READ FROM THE SHIPPED DIALOGUE, not typed here, so this test
+    // cannot drift away from what an author actually wrote.
+    let authored: Vec<String> = ambition_content::dialogue::yarn::YARN_SOURCES
+        .iter()
+        .flat_map(|(_, text)| ambition_content::dialogue::yarn::executable_regions(text))
+        .filter_map(|(_, region)| {
+            let rest = region.split_once("boss_cleared(")?.1;
+            let inner = rest.trim_start().strip_prefix('"')?;
+            let close = inner.find('"')?;
+            Some(inner[..close].to_string())
+        })
+        .collect();
+    let asked = authored
+        .first()
+        .expect("the shipped corpus gates on at least one boss")
+        .clone();
+    assert!(
+        authored.iter().all(|id| *id == asked),
+        "this arm boots ONE room and so covers one id; the corpus now gates on \
+         several ({authored:?}) and the extras are uncovered"
+    );
+
+    let mut sim = fixed_60hz_room_sim("mockingbird_arena");
+    let _ = settle_after_construction(&mut sim, &BTreeSet::new());
+
+    let placements: Vec<String> = {
+        let mut q = sim.world_mut().query::<&BossConfig>();
+        let world = sim.world();
+        q.iter(world).map(|config| config.id.clone()).collect()
+    };
+    assert_eq!(
+        placements,
+        vec![asked.clone()],
+        "the booted room's boss placement id must BE the id the shipped dialogue \
+         asks about — that identity is the whole of Jon's ruling on 57, and when \
+         they differed the gate could never open"
+    );
+
+    let id = ConditionId::parse("boss.cleared").expect("well-formed id");
+    let ask = |sim: &mut Platformer2dSimHarness| {
+        let world = sim.world_mut();
+        world.resource_scope::<ConditionCatalog, _>(|world, catalog| {
+            catalog.evaluate(world, &id, &[AuthoredArg::Name(asked.clone())])
+        })
+    };
+
+    assert!(
+        matches!(ask(&mut sim), ConditionOutcome::NotSatisfied(_)),
+        "an undefeated boss must leave the authored branch SHUT; if this is \
+         already satisfied the arm below proves nothing"
+    );
+
+    {
+        let mut save = sim.world_mut().resource_mut::<AmbitionGameSave>();
+        save.data_mut().set_boss(
+            asked.clone(),
+            ambition_platformer2d::persistence::save_data::PersistedEncounterState::Cleared,
+        );
+    }
+    assert!(
+        matches!(ask(&mut sim), ConditionOutcome::Satisfied),
+        "recording a clearance under the placement id the ROOM published must \
+         open the branch the shipped dialogue gates on"
+    );
+}

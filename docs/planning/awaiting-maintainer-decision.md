@@ -1359,10 +1359,53 @@ of question that is only cheap before there is content.
 ⓘ Full derivation and citations on
 [`engine/capability-progression-and-world-gating.md`](engine/capability-progression-and-world-gating.md).
 
-### 57. `boss_cleared("mockingbird")` can never be true. Which id is the boss id? (2026-09-04)
+### ~~57. `boss_cleared("mockingbird")` can never be true. Which id is the boss id?~~ (RULED 2026-09-05)
 
-⛔⛔ **FIVE AUTHORED DIALOGUE CALLS HAVE NEVER BEEN ABLE TO RETURN TRUE, and
-this is pre-existing rather than fallout from today's migration.** Measured
+✔✔ **JON RULED, AND IT IS IMPLEMENTED.** In his words:
+
+> Boss progress is keyed only by stable authored encounter/placement IDs.
+> `boss.cleared(id)` means "has this specific authored boss encounter been
+> cleared?"
+
+Breadth **composes** from placement predicates rather than getting a mechanism of
+its own — `boss.cleared("cove.mockingbird") OR boss.cleared("tower.mockingbird")`
+for *any*, an AND across the relevant encounters for *all*.
+⛔ Explicitly REJECTED, all four: behaviour/archetype ids as save keys;
+`boss_cleared("mockingbird")` meaning *"some boss of this type"*; runtime ECS
+lookup translating a behaviour id into a placement (boss entities are
+ROOM-SCOPED, the record is DURABLE); and a second archetype-level table.
+
+**What landed.** `BossSpawn` gains an authored `encounter_id`
+(`tools/add_boss_encounter_id_field.py`, the same shape as the existing
+`add_path_motion_authoring_fields.py`); `ldtk::fields::boss_placement_id` is the
+ONE definition of a placement's id — authored value, else the iid — and
+`convert_boss_spawn` calls it, so the save key, `FeatureId`, the duplicate-id
+check and mount links all read one id with no second spelling to keep in step.
+The Mockingbird placement is `cove.mockingbird`, and the three executable
+authored calls now spell that.
+⚠ The id names the narrative owner, NOT the level (`mockingbird_arena`): a
+durable save key that tracks a level identifier changes when the level is
+renamed, which is the property an authored id exists to avoid.
+
+**Two guards, both poison-verified.**
+`every_authored_boss_cleared_call_names_a_real_boss_placement` resolves through
+the PRODUCTION function and reds on the original spelling — a wrong id is now a
+RED rather than a silently shut door, which is the failure mode that hid this for
+weeks. `the_shipped_mockingbird_gate_opens_when_its_authored_placement_is_cleared`
+walks it end to end: the id comes from the BOOTED ROOM, the question comes from
+the SHIPPED DIALOGUE, and nothing in the test picks either — the property every
+earlier test could not have, because it spelled both sides itself.
+
+⭐ **The generalisable rule, worth more than the fix:** the answer to *"I need a
+broader question"* is a COMPOSITION of the narrow authority, never a second
+authority at the broader grain.
+
+ⓘ The original finding, kept because the shape recurs:
+
+⛔⛔ **THREE EXECUTABLE AUTHORED DIALOGUE CALLS HAD NEVER BEEN ABLE TO RETURN
+TRUE, and this was pre-existing rather than fallout from the migration.**
+⚠ This row first said FIVE; two of the five were the Kernel Guide SAYING the call
+in prose, counted by four whole-file scanners until `ea71c83a8`. Measured
 2026-09-04:
 
 ```text

@@ -372,8 +372,12 @@ the replay.**
 this page's own history warns about.** `reset_cut_rope_attempt_on_replay`
 (`game/ambition_content/src/bosses/cut_rope/mod.rs`) clears three facts by hand
 on `RoomReplayAdmitted` — the persisted cleared record for every cut-rope
-placement in the room, the `smirking_behemoth_victory_npc_seen` flag, and the
-intro music claim. It is well-placed (the content half of the replay, in the
+placement in the room and the intro music claim. ⚠ **It cleared a third, a
+`smirking_behemoth_victory_npc_seen` flag, until 2026-09-05: that flag had ONE
+write (this one), ZERO readers anywhere, and nothing that ever set it true.** The
+behaviour its comment claimed — the post-boss conversation waiting for the next
+kill — is delivered by the placement record two lines above, which
+`spawn_cut_rope_victory_npc` gates on. Two facts by hand now, not three. It is well-placed (the content half of the replay, in the
 engine's `ContentRoomReplayResetSet` slot, so the host consumer never names
 cut-rope) and it is still a list that grows only when somebody notices — the
 same property that made `reset_ecs_room_features` a second constructor.

@@ -79,11 +79,14 @@ for exactly this.
 
 `ambition_dialog::YarnStateMirrorData` (`crates/ambition_dialog/src/bindings.rs:16`)
 **carried** `bosses_cleared` and `quests_active` — both now gone — alongside
-`visit_counts`, `wallet_balance` and `extras`, which remain. And
+`visit_counts` and `extras`, which remain. ⚠ **`wallet_balance` left too, on
+2026-09-05** — this sentence listed it as remaining. And
 `game/ambition_content/src/yarn_vocabulary.rs` **bound** `boss_cleared(id)`,
 `quest_active(id)`, `visit_count(id)`, `wallet_balance()` and `can_afford(price)`
-as bespoke Yarn functions over it; the first two are registered systems asking
-the catalog now, the last three still read the mirror. **Authored content called
+as bespoke Yarn functions over it; `boss_cleared`, `quest_active` and
+`can_afford` are registered systems asking the catalog now, `wallet_balance` is a
+registered system reading `BodyWallet` on the `PrimaryPlayer` DIRECTLY (it never
+needed the catalog), and only `visit_count` still reads the mirror. **Authored content called
 them then and calls them still, unchanged** — `cove.yarn:3`, `cove.yarn:220`,
 `kernel.yarn:271`, `kernel.yarn:293`.
 

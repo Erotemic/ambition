@@ -82,6 +82,18 @@ pub enum InteractionKind {
 }
 
 /// Collectible object semantics.
+///
+/// ⛔ `collected` IS NOT THE AUTHORITY AND NOTHING READS IT. Measured
+/// 2026-09-05: it is authored on `PickupSpec`, threaded into this component by
+/// `spawn_static.rs`, and read by no production code. What the runtime actually
+/// asks is whether the entity carries the `Collected` MARKER COMPONENT
+/// (`ambition_combat::components::Collected`, rollback-registered as
+/// `feature.collected`), which is what `pickups.rs` inserts and queries.
+///
+/// ⇒ One fact, two representations, and only the marker is live. The same shape
+/// as [`Chest::persistent`] one type up — an authored spec field carried end to
+/// end with no consumer. Wiring it or deleting it is a design call; what must
+/// not happen is a reader trusting this field because it exists.
 #[derive(Clone, Debug, PartialEq, serde::Serialize, serde::Deserialize)]
 pub struct Pickup {
     pub id: String,

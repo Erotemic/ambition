@@ -141,6 +141,40 @@ up. Custody answers *"who is holding this"*; entitlement answers *"whose is
 it"*. A held item whose owner is elsewhere is exactly the case that makes the
 difference visible, and until this it had no shipped instance.
 
+## ⛔⛔ TWO AUTHORED FIELDS CARRIED END TO END WITH NO CONSUMER (2026-09-05)
+
+Found by investigating hits of `scripts/authored_parameter_modes.py` one at a
+time rather than publishing its list. Both are in `ambition_interaction`, both
+are the SAME SHAPE, and neither is dormant-in-the-census sense:
+
+| field | authored | threaded to | read by |
+|---|---|---|---|
+| `ChestSpec.persistent` → `Chest.persistent` | ✔ | `spawn_static.rs:108` | **nothing** (one test asserts the default) |
+| `PickupSpec.collected` → `Pickup.collected` | ✔ | `spawn_static.rs:79` | **nothing** |
+
+⇒ **ONE FACT, TWO REPRESENTATIONS, and in both cases the live one is elsewhere.**
+Whether a pickup was collected is the `Collected` MARKER COMPONENT
+(`ambition_combat::components::Collected`, rollback-registered as
+`feature.collected`, inserted and queried by `pickups.rs`). Whether an opened
+chest is remembered is `encounter_reward_looted_flag`, a per-encounter save flag
+that never consults `Chest.persistent`. ⇒ **setting `persistent: false` on an
+authored chest changes nothing today.**
+
+⛔ **AND BOTH CARRIED PROSE ASSERTING A CONSUMER.** The chest's test comment said
+it defaults true *"so the save system records them automatically"*. That is the
+expensive part: a field with no reader is cheap, and a COMMENT promising a reader
+is what makes the next author build on it. Both corrected in place.
+
+⚠ **This is the STRANDED category, not "dead" and not "restraint"** — the value
+is authored, validated, threaded through construction and stored, and only the
+last hop is missing. A census of unused symbols cannot see it (every hop has a
+caller) and the dormancy census cannot either (the field IS named in content).
+It took reading the consumer side.
+
+ⓘ **Not deleted here.** Removing them changes the authored spec schema, and
+whether the intent is per-chest persistence and per-pickup collected state is a
+design question. Recorded so the answer is made rather than inherited.
+
 ## Remaining migration pressure
 
 ### I1 — body inventory replaces process-global equipped mirrors — ✔ CLOSED 2026-09-02

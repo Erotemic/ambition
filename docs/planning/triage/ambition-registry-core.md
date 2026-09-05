@@ -84,7 +84,9 @@
 > questions: what content never reaches, and what the shipped game never CALLS.
 >
 > ⓘ Same class found the same day in the exploration lane by a different route:
-> `PlacementLoweringPlan::lower_one` had TWO references in the workspace — its
+> `PlacementLoweringPlan::lower_one` (cite-ok — DELETED 2026-09-05, and naming a
+> dead symbol is the whole point of this sentence) had TWO references in the
+> workspace — its
 > definition, and a test comment saying it had been deleted. Its own doc still
 > named a consumer ("snapshot same-room reconstruction") that was removed. ⇒ When
 > a symbol has no caller, read what the code SAYS about it before deciding what

@@ -1246,7 +1246,7 @@ say yes or no to before somebody builds it speculatively.
 
 ⭐ **A FIFTH, found 2026-09-05 by a DIFFERENT instrument, and it is the same
 shape one layer up.** `CharacterCatalogEntry.flight_direct_velocity`
-(`ambition_characters/.../character_catalog/entry.rs:279`) is authored, then
+(`crates/ambition_characters/src/actor/character_catalog/entry.rs:279`) is authored, then
 threaded through FOUR structs to reach the code that reads it:
 
 ```text

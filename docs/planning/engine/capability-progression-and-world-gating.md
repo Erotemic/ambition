@@ -321,7 +321,7 @@
 > ⛔⛔ **AND A THIRD PATTERN HOLE, the largest of the three: the census matched
 > `field [:=] true`, so a field whose authored road runs through a VARIABLE was
 > invisible.** `Breakable.pogo_refresh` read UNNAMED — never mentioned anywhere —
-> while SEVEN production sites read it and `ldtk/surfaces.rs:422` sets it with
+> while SEVEN production sites read it and `crates/ambition_platformer2d_ldtk/src/surfaces.rs:422` sets it with
 > `breakable.pogo_refresh = pogo_orb_combo`, authored as an LDtk identifier. ⇒ A
 > field assigned from an expression is a THIRD state, not a missing one: the
 > authoring lives in whatever computes the expression, and the honest report is

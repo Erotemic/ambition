@@ -862,6 +862,30 @@ The one unresolved developer-policy choice from the session-ownership work is in
   reading it as *"everything passes"* is the exact mistake this file keeps
   recording: **a gate lane you did not run is a guard that does not exist.**
   Run `./run_tests.sh` with no lane flag to include it.
+  ⛔⛔ **AND THE REPO-COUPLED GUARD SET WENT RED FOUR WAYS IN ONE AFTERNOON,
+  2026-09-05 — the class `--rust-alone` drops, demonstrated again.** This
+  morning's backbone had ONE failure in that job (a stated count). By evening:
+
+```text
+  test_absence_contracts::the_rollback_ratchet_holds_against_the_live_tree      ⎫
+  test_absence_contracts::the_rollback_ratchet_catches_a_new_central_registration ⎬ one cause
+  test_absence_contracts::the_rollback_ratchet_catches_an_unpruned_baseline     ⎭
+      new=['stable_schema_names: message.parried_body_hit']
+  test_modules_md_is_current::every_module_map_matches_its_crate
+      crates/ambition_characters/MODULES.md, game/ambition_demo_smash/MODULES.md
+```
+
+  ⇒ All four from the parry/counter landings. The wire-format baseline WAS
+  carried by that work; the **stable-name** ledger is a second, separate one and
+  was not — the same two-ledger shape that has bitten here before.
+  ⭐ **The operational finding is the one to keep: this guard set needs no cargo
+  and costs ~165 s** — `python -m pytest scripts/tests -q -m 'not detached_tool'`
+  — so it runs on a machine that cannot build the workspace at all. ⚠ And that
+  matters right now, because the fighter lane's `target/` is at 98% and CANNOT
+  build, so the only box executing these guards is the one that happens to sweep.
+  ⇒ A guard set that is cheap, unrun, and owned by nobody's cadence is a guard
+  set that reports hours late by construction.
+
   ⭐⭐ **AND THE 2026-09-05 EXACT-HEAD UNION EARNED ITS HOUR: it found a class
   the default plan CANNOT see.** Nine tests in
   `ambition_platformer2d_actor_monolith` (`character_runtime::fight_tests`,

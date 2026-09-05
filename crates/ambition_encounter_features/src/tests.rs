@@ -292,10 +292,27 @@ fn registry_indexes_encounter_ids_to_entities() {
     let mut reg = EncounterRegistry::default();
     assert_eq!(reg.entity("goblin_encounter"), None);
     let e = bevy::prelude::Entity::PLACEHOLDER;
-    reg.insert("goblin_encounter", e);
+    reg.point_at_live_entity("goblin_encounter", e);
     assert_eq!(reg.entity("goblin_encounter"), Some(e));
     assert_eq!(reg.remove("goblin_encounter"), Some(e));
     assert_eq!(reg.entity("goblin_encounter"), None);
+
+    // ⭐ REPLACEMENT IS THE POLICY, so it gets an arm rather than a comment.
+    // This index points an id at whatever entity is LIVE; an encounter that
+    // despawns and respawns gets a new one, and refusing the second write would
+    // pin the index to a DEAD entity — the opposite of the defect the 2026-09-02
+    // registry inventory is about. Stated in
+    // `EncounterRegistry::point_at_live_entity` and asserted here so the
+    // decision cannot be quietly reversed into refusal by somebody applying that
+    // inventory's ruling mechanically.
+    let respawned = bevy::prelude::Entity::from_raw_u32(4242).expect("a valid raw entity");
+    reg.point_at_live_entity("goblin_encounter", e);
+    reg.point_at_live_entity("goblin_encounter", respawned);
+    assert_eq!(
+        reg.entity("goblin_encounter"),
+        Some(respawned),
+        "a respawned encounter must take the index from its dead predecessor"
+    );
 }
 
 #[test]

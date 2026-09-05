@@ -65,7 +65,18 @@
 > inventory are a different decision each — `classify` refuses to be their
 > default, which is the point; each must say "replace" in place or adopt refusal.
 >
-> ✔ **SIX. `GatePortalRegistry` adopted refusal on 2026-09-05** — a loading zone
+> ✔ **FIVE, and the two settled went OPPOSITE WAYS — which is the inventory's
+> own point, measured.** `EncounterRegistry` KEPT replacement and now says so:
+> it is an `id → live Entity` INDEX, not an authored table, and an encounter that
+> despawns and respawns legitimately gets a new entity — refusing the second
+> write would pin the index to a DEAD one, the opposite of the defect this page
+> is about. Renamed `insert` → `point_at_live_entity`, because the old name read
+> as a map operation and said nothing about what a second call means, and given
+> a test arm so the decision cannot be quietly reversed by somebody applying this
+> page's ruling mechanically. ⇒ **"Adopt refusal" is not the finding; "say which,
+> and why, in place" is.**
+>
+> ✔ **`GatePortalRegistry` adopted refusal on 2026-09-05** — a loading zone
 > is a place and two portals cannot both be there. ⭐ **And the lesson from doing
 > one: the refusal is only half of it.** That registry's `portals` map was `pub`,
 > so any crate could `insert` past the new check; a registry that validates in
@@ -187,7 +198,7 @@ unhandled.
 | `QuestRegistry` | `crates/ambition_persistence/src/quest/registry.rs:18` | `String` | `-` | no register fn |
 | `SfxRegistry` | `crates/ambition_audio/src/spec.rs:27` | `String` | `-` | no register fn |
 | `SheetRegistry` | `crates/ambition_sprite_sheet/src/lib.rs:565` | `String` | `-` | no register fn |
-| `EncounterRegistry` | `crates/ambition_encounter/src/registry.rs:18` | `String` | `insert` | silent |
+| `EncounterRegistry` | `crates/ambition_encounter/src/registry.rs:18` | `String` | `point_at_live_entity` | ✔ REPLACE, stated (2026-09-05; an id→live-Entity INDEX, not a table) |
 | `FrontendAudioRegistry` | `crates/ambition_audio/src/selection.rs:181` | `String` | `declare_route` | silent |
 | `GatePortalRegistry` | `crates/ambition_platformer2d_world/src/rooms/gate_portal.rs:77` | `String` | `try_register` | ✔ Result (adopted 2026-09-05; map SEALED) |
 | `MovePrefabRegistry` | `crates/ambition_combat/src/moveset/prefab_registry.rs:21` | `String` | `register` | silent |

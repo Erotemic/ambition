@@ -38,8 +38,25 @@ impl EncounterRegistry {
         self.ids.get(id).copied()
     }
 
-    /// Record (or replace) the live entity for an encounter id.
-    pub fn insert(&mut self, id: impl Into<String>, entity: Entity) {
+    /// Point an encounter id at its live entity, REPLACING any previous one.
+    ///
+    /// ⭐⭐ REPLACEMENT IS THE POLICY, ON PURPOSE, and this registry is named in
+    /// the 2026-09-02 registry inventory as one of seven whose second
+    /// registration overwrites silently. Six of those want refusal. This one
+    /// does NOT: it is an INDEX from id to a live `Entity`, not an authored
+    /// table, and an encounter that despawns and respawns legitimately gets a
+    /// new entity. Refusing the second write would pin the index to a dead
+    /// entity — the opposite of the defect the inventory is about.
+    ///
+    /// ⇒ So it says so here rather than adopting
+    /// `ambition_registry_core::classify`, which is exactly what that function
+    /// asks of a registry whose policy is genuinely different: `classify` has no
+    /// "replace" answer so that a silent overwrite can never be an ACCIDENTAL
+    /// default — but a deliberate one, stated, is a legitimate choice.
+    ///
+    /// ⚠ The name carries the policy. It used to be `insert`, which reads like a
+    /// map operation and says nothing about what a second call means.
+    pub fn point_at_live_entity(&mut self, id: impl Into<String>, entity: Entity) {
         self.ids.insert(id.into(), entity);
     }
 

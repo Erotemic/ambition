@@ -108,7 +108,7 @@ pub fn populate_encounter_registry(
         entity.insert(waves);
         scope.apply_to(&mut entity);
         let entity = entity.id();
-        registry.insert(id, entity);
+        registry.point_at_live_entity(id, entity);
     }
     registry.specs_loaded = true;
     // One-line census so "did encounters load?" is checkable from

@@ -813,6 +813,76 @@ fn an_open_parry_window_reflects_a_shot_and_takes_it_over() {
     );
 }
 
+/// ⛔⛔ AND A CLOSED WINDOW DOES NOT REFLECT — the control the pair above does
+/// not contain.
+///
+/// The reflect arm and the absorb arm control each other on the MODE (does a
+/// caught shot come back or vanish), and both stand in front of an OPEN window.
+/// ⇒ Neither can see a change that made the gate always true: everything would
+/// still reflect, everything would still absorb, and a body with no stance at
+/// all would silently start catching shots it should have been hit by. A
+/// named peer asked for this arm in exactly those words.
+///
+/// ⭐ ONE FIELD DIFFERENT FROM THE REFLECT ARM — `parry_window_timer: 0.0` — so
+/// the two together say the GATE is what decides, not the fixture.
+#[test]
+fn a_closed_parry_window_lets_the_shot_through() {
+    use ambition_platformer2d_core::BodyShieldState;
+
+    let world = ae::World::new(
+        "parry_gate_control",
+        ae::Vec2::new(2000.0, 2000.0),
+        ae::Vec2::new(200.0, 200.0),
+        Vec::new(),
+    );
+    let mut app = projectile_test_app(world, ae::Vec2::new(200.0, 200.0), 1.0);
+    app.update();
+
+    app.world_mut().spawn((
+        ambition_combat::components::ActorFaction::Enemy,
+        ae::BodyKinematics {
+            pos: ae::Vec2::new(500.0, 300.0),
+            size: ae::Vec2::new(28.0, 46.0),
+            ..Default::default()
+        },
+        ae::CenteredAabb::from_center_size(
+            ae::Vec2::new(500.0, 300.0),
+            ae::Vec2::new(28.0, 46.0),
+        ),
+        BodyHealth::restored(ambition_characters::actor::Health::new(100), 0, default()),
+        // The ONE difference from the reflect arm: no window is open.
+        BodyShieldState {
+            parry_window_timer: 0.0,
+            ..Default::default()
+        },
+    ));
+
+    {
+        let spec = ProjectileKind::Fireball.spec(
+            ae::Vec2::new(470.0, 300.0),
+            ae::Vec2::new(1.0, 0.0),
+            1.0,
+        );
+        let mut body = ambition_projectiles::ProjectileBody::from_spec(spec);
+        body.kin.pos = ae::Vec2::new(495.0, 300.0);
+        body.kin.vel = ae::Vec2::new(60.0, 0.0);
+        crate::projectile::tests::spawn_player_projectile(&mut app, body);
+    }
+    advance_time(&mut app, 0.016);
+    app.update();
+
+    // ⛔ NOT "the shot is gone" — a struck shot and a reflected one are both
+    // absent from a naive count. The claim is that nothing came BACK.
+    let reversed = crate::projectile::tests::projectile_bodies(&mut app)
+        .into_iter()
+        .any(|b| b.kin.vel.x < 0.0);
+    assert!(
+        !reversed,
+        "a body with NO parry window open sent the shot back anyway, so the gate \
+         is not the window and every fighter reflects for free"
+    );
+}
+
 /// AN ABSORBING STANCE EATS THE SHOT instead of returning it.
 ///
 /// ⭐⭐ THE OTHER RESPONSE, through the SAME operation. A counter stance already

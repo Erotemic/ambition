@@ -2338,6 +2338,19 @@ is no axis.**
    spread)*. ⇒ **The defect this decision is about is real and marginal at n=12**,
    which is a different thing to be told than *"significant"*, and it is why the
    28-seed replication recorded above is load-bearing rather than a courtesy.
+   ✔✔ **AND THAT REPLICATION WAS RE-RUN WITH ITS SPLIT THE SAME EVENING: the
+   marginality is RUN LENGTH, not fragility.** `5 vs 3` comes back **4 : 24 at
+   28 seeds, p = 1.8 × 10⁻⁴** — a majority of **85.7%** against the 12-seed
+   83.3%, so the effect is slightly STRONGER with more evidence rather than
+   weaker. ⚠ **Compare the proportion, not the p**: n=28 accepts a majority as
+   low as 71.4%, so a `20 : 8` would have cleared the same line while being a
+   materially smaller effect, and both print unqualified. This is not that.
+   ⭐ The two undecided cells behaved like nulls at the same time — `6 vs 5` got
+   LESS separated (58.3% → 53.6%, p = 0.851) and `9 vs 6` stayed short
+   (p = 0.345) — which is what a coin does as n grows and the opposite of what
+   the two inverted cells did. ⇒ **So this decision is about a solid result with
+   two solid non-results beside it**, and the 12-seed squeak was the sample
+   rather than the fighters.
    ⚠ For contrast, `3 vs 1` is **11 : 1, p = 0.0063** and survives a pair
    flipping; `6 vs 5` and `9 vs 6` are 5 : 7 and 7 : 5 at **p = 0.774** — a coin,
    not a near miss. ⇒ **Weigh the candidate against a defect of that strength**:

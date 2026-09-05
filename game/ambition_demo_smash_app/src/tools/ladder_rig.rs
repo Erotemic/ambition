@@ -827,9 +827,49 @@ fn report_which_clock_is_in_play() {
     }
 }
 
+/// Say what majority this run's SEED COUNT could even report, before any row.
+///
+/// ⛔⛔ THE BAR IS A PROPERTY OF THE RUN LENGTH AND NOTHING SAID SO. A cell reads
+/// `(within spread)` for two unrelated reasons — the rungs are alike, or the run
+/// is too short for any split to clear — and a reader met both wearing the same
+/// words. Below six usable pairs NOTHING can clear, not even a unanimous sweep;
+/// at four seeds a `4:0 = 100%` row still prints `(within spread)`.
+///
+/// ⚠ AND THE BAR FALLS AS SEEDS RISE, which is the trap in comparing two runs:
+/// 83.3% at 12 pairs, 80.0% at 15, 71.4% at 28. A longer run can clear the same
+/// line with a materially weaker majority, so "significant at 12 and at 28" is
+/// two different claims. Printing the bar per run is what lets a reader see
+/// which one they are holding.
+fn report_what_this_run_could_report() {
+    // Ties are dropped by the sign test, so this is the CEILING on usable pairs
+    // — a run with ties has fewer, and a harsher bar than this line states.
+    let pairs = seed_count();
+    if !args().paired {
+        return;
+    }
+    match (pairs / 2..=pairs).find(|&k| sign_test_p(k, pairs - k) < 0.05) {
+        Some(k) => println!(
+            "[ladder_rig] significance bar: with {pairs} paired seeds a cell needs \
+             {k} of {pairs} ({:.0}%) going one way to print without \
+             `(within spread)`. ⚠ Ties are dropped, so a row with `+N tied` faces \
+             a HARSHER bar than this. A longer run accepts a WEAKER majority — \
+             compare two runs by the percentage, never by the p.",
+            100.0 * k as f64 / pairs as f64
+        ),
+        None => println!(
+            "[ladder_rig] ⛔ significance bar: {pairs} paired seeds CANNOT reach \
+             p < 0.05 at any split — not even a unanimous sweep. Every row below \
+             will print `(within spread)` because the RUN IS TOO SHORT, which is \
+             a different statement about the fighters than `the rungs are alike`. \
+             Six or more seeds is the floor."
+        ),
+    }
+}
+
 fn report_which_ladder_is_in_play() {
     report_which_clock_is_in_play();
     report_which_fighters_are_in_play();
+    report_what_this_run_could_report();
     let mut app = build_demo_app();
     if let Some(ladder) = authored_ladder() {
         app.world_mut().insert_resource(ladder);
@@ -2448,6 +2488,23 @@ mod tests {
             "28 seeds should accept a materially weaker majority than 12 \
              ({at_28:.1}% vs {at_12:.1}%) — if that stops being true this test's \
              premise is gone and the percentage on the row buys nothing"
+        );
+
+        // ⛔ THE FLOOR THE HEADER CLAIMS. `report_what_this_run_could_report`
+        // tells a short run that NOTHING can clear, and says six is the floor.
+        // Both halves asserted, because a header stating a bound nobody checks
+        // is the shape this file has spent a day removing.
+        for n in 1..=5 {
+            assert!(
+                (n / 2..=n).all(|k| sign_test_p(k, n - k) >= 0.05),
+                "{n} pairs can somehow reach significance — the header tells a \
+                 run that short that nothing can, and would be lying"
+            );
+        }
+        assert!(
+            sign_test_p(6, 0) < 0.05,
+            "six unanimous pairs must clear, or `six or more is the floor` names \
+             the wrong number"
         );
     }
 

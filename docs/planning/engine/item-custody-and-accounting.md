@@ -378,6 +378,24 @@ reader to infer them from unrelated components.
 
 - Which item classes are rematerializable entitlements versus lossable physical
   occurrences?
+  ⓘ **The population is ONE, measured 2026-09-05.** The catalog holds 24 items
+  (Ability 7, Weapon 6, KeyItem 5, Consumable 5, Reserved 1) and exactly one —
+  the portal gun — takes the ENTITLEMENT road: `equip_portal_gun` /
+  `unequip_portal_gun` (`ambition_held_items/src/lib.rs:955`,
+  `#[cfg(feature = "portal")]`), with `OwnedPortalGunPair` deliberately
+  outliving the hand. The other 23 are ordinary held items on the occurrence
+  road, which is the one measured above as a complete write/read/build round
+  trip.
+  ⇒ So this is not *"classify 24 items"*; it is *"decide what the second one
+  does"*, and it is cheap while there is no second one. Filed as
+  [question 45](../awaiting-maintainer-decision.md).
+  ⛔ ⚠ **And "unique" already names two different properties, which will confuse
+  any classification made in its terms.** `ItemCategory::is_unique()` is
+  `!matches!(self, Consumable)` (`ambition_items/src/lib.rs:43`), so all 19
+  non-consumables clamp at 1 in `OwnedItems::grant` — you can never hold two
+  axes. That is a STACKING property. The portal gun's uniqueness is a LIFECYCLE
+  property: acquired once, never revoked, re-equipped from `OwnedItems`. One
+  word, two meanings, and only one item has the second.
 - When do stack merge/split operations preserve provenance?
 - What is the policy for unique-item destruction, recovery and reset?
 - What happens to a persistent dropped item in an unloaded room?

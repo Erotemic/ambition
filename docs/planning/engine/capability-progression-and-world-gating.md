@@ -415,6 +415,22 @@ only one already broken.** Worth remembering when the next vocabulary lands: the
 ID gets checked because it looks like an identifier; the ARGUMENT looks like
 data and does not.
 
+✔✔ **THE SWEEP IS FINISHED — every author-typed string in the dialogue
+vocabulary is accounted for (2026-09-04), and the two that are NOT guarded are
+recorded here so nobody sweeps again:**
+- `<<spawn_chest "kernel_demo_chest">>` — ⛔ **the verb is a STUB.**
+  `cmd_spawn_chest` logs *"(stub; chest spawn consumer pending)"* and returns.
+  There is nothing to validate the id against because nothing consumes it. ⚠ The
+  finding is not the id, it is that authored content calls a verb that does
+  nothing — worth knowing before someone debugs a chest that never appears.
+- `<<play_sfx "ui.notification.discovery">>` — ✔ **the one authored id
+  RESOLVES** (`ambition_sfx/src/ids.rs:228`, `UI_NOTIFICATION_DISCOVERY`), and a
+  guard over a corpus of one would be vacuous by any honest floor. ⚠ The failure
+  mode is real though — `SfxId::new` hashes at the call site, so a misspelling
+  plays SILENCE rather than erroring — so this is a "not yet", not a "never".
+  Revisit when the authored sfx corpus is big enough for a floor to mean
+  something.
+
 ⭐ **Measured before the rule: four authored reads over three distinct flags,
 every one written** — `bob_field_survey_received` (yarn + `quest.rs`, and the
 one LDtk gate), `kernel_guide_demo_flag` (yarn, set and cleared),

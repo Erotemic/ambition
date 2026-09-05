@@ -531,11 +531,19 @@ fn the_stage_button_cycles_the_stage_the_match_will_prepare() {
         stage_label_text(&mut app)
     );
 
-    // And it cycles rather than latching.
+    // And it cycles rather than latching — a full lap, so a stage that becomes
+    // unreachable from the button reddens here instead of passing quietly.
     click(&mut app, 0, layout.stage_button());
     assert_eq!(
         *app.world().resource::<SmashStageChoice>(),
-        SmashStageChoice::Flat
+        SmashStageChoice::Narrow,
+        "the third stage is not reachable from the button"
+    );
+    click(&mut app, 0, layout.stage_button());
+    assert_eq!(
+        *app.world().resource::<SmashStageChoice>(),
+        SmashStageChoice::Flat,
+        "the stage cycle does not return to its start"
     );
 }
 

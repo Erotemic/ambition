@@ -3047,6 +3047,19 @@ queue read as an execution authority for work already done.
   single fraction spanning both is a number without a population. ⇒ What remains
   HERE, and all of it genuinely needs a seam:
   `P11`'s **tether** — a grapple mechanic exists and nothing joins it to capture;
+  ◐ **`P11`'s hit-grab came OFF this list 2026-09-04** — the writer census was
+  right and the classification was not. The landed-hit-to-technique seam is
+  built and live: `LandedBodyHit` → `dispatch_landed_hit_effects` →
+  `OnHitEffectMessage` → **`apply_pogo_bounce`**, all scheduled, the message
+  rollback-registered. ⇒ A hit-grab is a **second consumer of a working seam**,
+  the same shape and size as `P14`'s finish zoom. ⚠ It carries a design fact:
+  this road fires from a hit that CONNECTED, so a shield blocks it — the
+  opposite of the overlap grab, which ignores shields deliberately to keep the
+  attack/grab/shield triangle. Two roads with opposite shield behaviour is
+  genre-correct and has to be chosen out loud. ⓘ I nearly recorded the reverse
+  (*"nothing consumes `OnHitEffectMessage`"*) off a grep that excluded the file
+  the consumer lives in. ⇒ **Two genuinely open seams remain, not three.**
+  ⓘ The superseded line read:
   `P11`'s **hit-grab** — nothing raises `CaptureAttemptRequested` from a landed
   hit; `P10`'s **tech result** — presentation only, because the AI half is
   deliberately absent under the no-cheat rule and publishing it would be a cheat;

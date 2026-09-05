@@ -20,7 +20,10 @@
 //!   confound (7 of the 9 fixtures put SELF, always the higher rung, offstage).
 //!   ⇒ It changed 14 of 36 verdicts: a 24:12 skew toward the lower rung became
 //!   16:19. The unpaired reading was measuring the seat.
-//! - `--stage flat|platforms` — which layout to fight on. Every number recorded
+//! - `--stage <name>` — which layout to fight on, named as the select screen's
+//!   own stage button spells it (today: `flat`, `platforms`, `narrow`; the flag
+//!   resolves through `SmashStageChoice::ALL`, so this list cannot go stale).
+//!   Every number recorded
 //!   before this flag was taken on `flat`, because it was the only stage; that
 //!   made the layout a confounder rather than a choice. The tiers roughly halve
 //!   the lethality, so the flag is not cosmetic.
@@ -753,18 +756,37 @@ fn report_which_fighters_are_in_play() {
 /// ⭐ So both go through here, and the header prints `label()` — the same string
 /// the game's own stage button shows.
 fn resolved_stage() -> ambition_demo_smash::SmashStageChoice {
-    match args().stage.trim().to_ascii_lowercase().as_str() {
-        "platforms" => ambition_demo_smash::SmashStageChoice::Platforms,
-        "flat" => ambition_demo_smash::SmashStageChoice::Flat,
+    // ⛔⛔ RESOLVED FROM `SmashStageChoice::ALL`, NOT FROM STRING LITERALS. This
+    // was a `match` over `"flat"` and `"platforms"`, and when a THIRD stage was
+    // authored it stayed a two-arm match: the stage existed, the select screen
+    // cycled to it, and the one instrument that measures stages could not be
+    // pointed at it. A stage nobody can take a number on cannot do the job a
+    // third stage was added for.
+    //
+    // ⭐ The names come from `label()`, which is what the game's own stage
+    // button shows — so the flag a reader types is the word they saw on screen,
+    // and a renamed stage renames its flag rather than orphaning it.
+    let asked = args().stage.trim().to_ascii_lowercase();
+    if asked.is_empty() {
         // ⭐ Nobody passed `--stage`: take the demo's OWN default rather than
         // naming one here, so changing it moves the rig with it.
-        "" => ambition_demo_smash::SmashStageChoice::default(),
-        other => panic!(
-            "unknown --stage {other:?}; the rig fights on `flat` or `platforms`. \
-             Defaulting would silently measure a stage nobody asked for, and the \
-             stage is exactly the variable this flag exists to control."
-        ),
+        return ambition_demo_smash::SmashStageChoice::default();
     }
+    ambition_demo_smash::SmashStageChoice::ALL
+        .into_iter()
+        .find(|stage| stage.label().to_ascii_lowercase() == asked)
+        .unwrap_or_else(|| {
+            let known: Vec<String> = ambition_demo_smash::SmashStageChoice::ALL
+                .iter()
+                .map(|stage| format!("`{}`", stage.label().to_ascii_lowercase()))
+                .collect();
+            panic!(
+                "unknown --stage {asked:?}; the rig fights on {}. Defaulting \
+                 would silently measure a stage nobody asked for, and the stage \
+                 is exactly the variable this flag exists to control.",
+                known.join(" or ")
+            )
+        })
 }
 
 /// Say how long a bout ran, and say loudly when that is not a real match.

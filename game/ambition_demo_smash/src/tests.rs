@@ -855,18 +855,92 @@ fn the_stage_choice_decides_which_stage_the_match_prepares() {
         4,
         "the platforms choice prepared a stage without its three tiers"
     );
-    // Same blast geometry, so a comparison between the two stages is a
+    let narrow = prepared_world_for(crate::SmashStageChoice::Narrow);
+    assert_eq!(
+        narrow.geometry().0.blocks.len(),
+        1,
+        "the narrow choice is a single surface like the flat one, only shorter"
+    );
+
+    // ⭐ THE NARROW STAGE'S WHOLE POINT, asserted rather than described: LESS
+    // GROUND, SAME ENVELOPE. Scaling the blast lines down with the width would
+    // have produced the same stage smaller and changed no decision.
+    let width = |w: &crate::ae::World| w.blocks[0].aabb.max.x - w.blocks[0].aabb.min.x;
+    assert!(
+        width(&narrow.geometry().0) < width(&flat.geometry().0),
+        "the narrow stage is not narrower than the flat one"
+    );
+
+    // Same blast geometry across ALL THREE, so a comparison between stages is a
     // comparison of their geometry and not of their kill boundaries.
-    assert_eq!(flat.geometry().0.edges.side, platforms.geometry().0.edges.side);
-    assert_eq!(flat.geometry().0.edges.fall, platforms.geometry().0.edges.fall);
+    for (name, other) in [("platforms", &platforms), ("narrow", &narrow)] {
+        assert_eq!(
+            flat.geometry().0.edges.side,
+            other.geometry().0.edges.side,
+            "{name} moved the side blast line, so it cannot be compared with flat"
+        );
+        assert_eq!(
+            flat.geometry().0.edges.fall,
+            other.geometry().0.edges.fall,
+            "{name} moved the fall blast line, so it cannot be compared with flat"
+        );
+    }
 
     // The default is still the stage every recorded measurement was taken on.
     assert_eq!(crate::SmashStageChoice::default(), crate::SmashStageChoice::Flat);
-    // And the cycle a stage button would walk returns to where it started.
+    // And the cycle a stage button would walk returns to where it started —
+    // now three long, and asserted as a full lap rather than as a count, so
+    // adding a fourth stage reddens this line instead of silently passing.
     assert_eq!(
-        crate::SmashStageChoice::Flat.next().next(),
-        crate::SmashStageChoice::Flat
+        crate::SmashStageChoice::Flat.next().next().next(),
+        crate::SmashStageChoice::Flat,
+        "the stage cycle does not return to its start in three steps"
     );
+    assert_ne!(
+        crate::SmashStageChoice::Flat.next().next(),
+        crate::SmashStageChoice::Flat,
+        "the cycle closed early — a stage is unreachable from the button"
+    );
+}
+
+/// ⛔⛔ EVERY STAGE MUST BE REACHABLE BY THE CYCLE **AND** BY ITS OWN NAME.
+///
+/// The third stage was authored, was reachable from the select screen, and was
+/// invisible to `ladder_rig --stage`, which matched two string literals. A stage
+/// nobody can take a number on cannot do the job a third stage was added for —
+/// giving a measurement something to be compared against.
+///
+/// ⭐ Asserted against `ALL` rather than against a written-out list, so a fourth
+/// stage joins this test by existing instead of by somebody remembering.
+#[test]
+fn every_stage_is_reachable_by_the_cycle_and_names_itself_uniquely() {
+    use std::collections::BTreeSet;
+
+    let all = crate::SmashStageChoice::ALL;
+    assert!(all.len() >= 3, "the stage-breadth checkpoint wants several");
+
+    // Distinct labels, or `--stage <name>` is ambiguous and a room id collision
+    // would make two stages the same room.
+    let labels: BTreeSet<String> =
+        all.iter().map(|s| s.label().to_ascii_lowercase()).collect();
+    assert_eq!(labels.len(), all.len(), "two stages share a label: {labels:?}");
+    let rooms: BTreeSet<&str> = all.iter().map(|s| s.room_id()).collect();
+    assert_eq!(rooms.len(), all.len(), "two stages share a room id: {rooms:?}");
+
+    // Walking `next()` from the default must visit every one of them and come
+    // back — which is what the select screen's single button can actually do.
+    let mut seen = BTreeSet::new();
+    let mut walk = crate::SmashStageChoice::default();
+    for _ in 0..all.len() {
+        seen.insert(walk.room_id());
+        walk = walk.next();
+    }
+    assert_eq!(
+        walk,
+        crate::SmashStageChoice::default(),
+        "the cycle does not return to its start after one lap"
+    );
+    assert_eq!(seen, rooms, "the button cannot reach every authored stage");
 }
 
 /// The prepared source carries the stage, not a default room.

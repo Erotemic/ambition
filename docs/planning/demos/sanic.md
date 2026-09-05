@@ -165,7 +165,7 @@ boundary nobody checks is the one everyone assumes has drifted:
 
 ## Proposed — polish backlog (2026-07-16)
 
-Landed this pass (commit `f558d124e` + generator bump `5e1ee9b`): the rev-dash
+Landed this pass (commit `f558d124e` + generator bump `5e1ee9b` in `tools/ambition_sprite2d_renderer`): the rev-dash
 **ball is now a real looping curl** (not a squished run) and momentum riders show
 a **skid** pose — both engine-reusable, through the ONE `pick_body_anim` ladder,
 with the stance-squash hack retired per pose whenever a sheet owns the row.

@@ -1238,6 +1238,18 @@ The one unresolved developer-policy choice from the session-ownership work is in
   second full engine build per feature combination.
 - ▢ **~47 GB ON THE SHARED VOLUME IS UNACCOUNTED FOR, AND THE NEW BINDMOUNT
   RULE DESCRIBES EXACTLY THIS SHAPE. REPORTED, NOT ACTED ON.**
+  ⓘ **THIS BOX IS NOT THAT SHAPE — checked 2026-09-05 rather than assumed from
+  the row.** `target_bindmount.sh --status` reads `BOUND` to a single backing
+  store, `mountpoint target` agrees, and `df` against the store's own size leaves
+  no shadowed remainder: the volume's 484 G was 394 G used with 290 G of that
+  the store itself. No hidden pre-bind copy here.
+  ✔ **And 93 GB came back for free.** `target/debug/incremental` held 93 G across
+  1,765 crate sessions; `clean_workspace_crates.sh --incremental-only --apply`
+  took the volume 82% → **62% used, 185 GB free**. ⭐ It costs almost nothing
+  because `run_tests.py` forces `CARGO_INCREMENTAL=0` — the suite never reads
+  those caches, so they were built only by ad-hoc `cargo test -p` runs and are
+  pure carry. ⇒ Worth doing BEFORE the floor is in sight rather than after: this
+  box was at 90 GB free and nothing had failed yet.
   Measured 2026-09-03 late on the calculex box, where `/dev/vda1` reads **278 GB
   used of 290, 12 GB free** — below `check_disk_headroom.py`'s 40 GB floor, so
   no Rust lane can start here at all. Walking the volume accounts for about

@@ -1544,9 +1544,16 @@ def main() -> int:
         # `--rust` used to drop this too, and the rollback ratchet, the codec
         # shape baseline and a stale MODULES.md all sat red for a day behind a
         # gate that reported 4/4 green. The cheap guards ride along now.
+        # ⛔⛔ NAMED FROM THE PLAN, like the footer -- and this line was the
+        # SECOND WRITER the footer fix missed. `coverage_notice` was repaired to
+        # name all four dropped checkers on 2026-09-04; this banner, at the other
+        # end of the same run, went on naming three. The compile-cost ratchet was
+        # the omission in BOTH places, which is what one-fact-several-writers
+        # looks like when you fix the writer you were looking at.
+        dropped = ", ".join(job.name for job in slow_python_checker_jobs())
         print("run_tests: RUST/CARGO lane + the repo-coupled pytest guard set "
-              "(~44s). The slower Python checkers (no-warnings, doc links, "
-              "planning citations) are omitted; run `./run_tests.sh` for those.")
+              f"(~44s). Omitted here: {dropped}. "
+              "Run `./run_tests.sh` for those.")
     if args.rust_alone:
         print("run_tests: ⛔ --rust-alone: NOTHING but Rust/Cargo. The repo-coupled "
               "guard set is NOT running -- rollback ratchets, codec shape and "

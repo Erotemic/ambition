@@ -298,6 +298,39 @@ fn the_monologue() -> MoveSpec {
         window.motion_scale = 0.0;
     }
     let spec = fixed_knockback(spec);
+    // ⭐⭐ AND THE ROOM GOES UNDER — Jon, 2026-09-05: *"performer gets sing."*
+    //
+    // ⛔⛔ ADDED TO THE MONOLOGUE, NOT SUBSTITUTED FOR IT, and the reach is what
+    // makes that honest. The strike above is 58×34 offset out in front of her:
+    // that is her ADDRESSING the room, and it is unchanged, every number intact.
+    // The sleep is 26×26 and centred on HER — a strictly smaller area, wholly
+    // inside the one she was already hitting, which a guard checks corner by
+    // corner rather than by comparing the two half-extents (they have different
+    // centres, so the smaller box is not automatically the contained one — at
+    // 26×30 it was not, and reached 2px past her strike's lower edge). ⇒ Everyone in the room still gets the
+    // speech; only whoever stood next to her while she gave it goes to sleep.
+    //
+    // ⭐ THAT IS THE COST, AND SLEEP HAS TO HAVE ONE. Stapling a hard lock onto
+    // an existing hit is otherwise pure gain, and the version of this move that
+    // simply REPLACED the strike would have been a rebalance of a shipped
+    // fighter rather than a technique finding its customer. Here the price is
+    // paid in position: she is rooted (`motion_scale = 0.0` above) for the whole
+    // 0.6s, and to sleep you she has to let you stand next to her for it.
+    //
+    // ⚠ FIRING AT THE END OF THE ACTIVE WINDOW rather than the start, for the
+    // same reason. Sleeping on frame one would catch whoever happened to be
+    // adjacent when she began; at 0.45s they had every frame of her wind-up and
+    // her swing to leave, and stayed.
+    let spec = ambition_characters::smash_sleep::author_sleep(
+        spec,
+        0.45,
+        ambition_characters::smash_sleep::SleepParams {
+            // Long enough that landing it is worth a charged smash, which is the
+            // whole payoff the genre's version trades its reach for.
+            duration_s: 1.4,
+            half_extents: (26.0, 26.0),
+        },
+    );
     let spec = sfx(spec, 0.0, "player.attack.charge");
     let spec = sfx(spec, 0.225, "player.slash");
     on_contact(spec, "player.hit")
@@ -820,6 +853,79 @@ mod tests {
                 trap.motion_scale_at(t),
             );
         }
+    }
+
+    /// ⛔⛔ THE CONTAINMENT IS THE DESIGN AND SO IT IS THE GUARD. Sing is stapled
+    /// onto a shipped strike, and the only thing keeping that from being a pure
+    /// buff is that the sleep reaches LESS FAR than the hit it rides on. A test
+    /// that merely found a `smash.sleep` event would pass against a version that
+    /// put the whole room to sleep.
+    #[test]
+    fn her_monologue_sleeps_only_whoever_stood_closer_than_it_hits() {
+        let set = performer_moveset();
+        let speech = set
+            .moves
+            .iter()
+            .find(|m| m.id == "performer_monologue")
+            .expect("her neutral special");
+
+        let sleep = speech
+            .events
+            .iter()
+            .find_map(|event| match &event.kind {
+                ambition_entity_catalog::MoveEventKind::Effect(effect)
+                    if effect.key == ambition_characters::smash_sleep::SLEEP =>
+                {
+                    Some((
+                        event.at_s,
+                        effect
+                            .params
+                            .hydrate::<ambition_characters::smash_sleep::SleepParams>()
+                            .expect("sleep params hydrate"),
+                    ))
+                }
+                _ => None,
+            })
+            .expect("the monologue sings");
+        let (at_s, sleep) = sleep;
+
+        // The strike, untouched: still a hit that hurts, still fixed knockback.
+        let volume = speech
+            .windows
+            .iter()
+            .flat_map(|window| window.volumes.iter())
+            .find(|volume| volume.damage > 0)
+            .expect("she still addresses the room");
+        assert_eq!(volume.damage, 6, "the speech itself is unchanged");
+
+        // ⭐ CORNER BY CORNER, from each box's own centre. The sleep is centred
+        // on her; the strike is offset out in front. Comparing half-extents
+        // would have called a box that pokes out of the bottom "smaller".
+        let (sx, sy) = sleep.half_extents;
+        let ambition_entity_catalog::VolumeShape::Rect { offset, half_extents } = volume.shape
+        else {
+            panic!("her speech is a rect");
+        };
+        let (hx, hy) = half_extents;
+        let (ox, oy) = offset;
+        assert!(
+            -sx >= ox - hx && sx <= ox + hx && -sy >= oy - hy && sy <= oy + hy,
+            "the sleep box (±{sx}, ±{sy} about her) leaves the strike box \
+             ({hx}×{hy} at {ox},{oy}), so she would sleep somebody she does not hit"
+        );
+
+        // ⚠ AND IT FIRES LATE, so standing next to her is a choice they had time
+        // to unmake. A pulse at the start of the move is a different move.
+        let active = speech
+            .windows
+            .iter()
+            .find(|window| window.volumes.iter().any(|volume| volume.damage > 0))
+            .expect("an active window");
+        assert!(
+            at_s >= active.start_s,
+            "the sleep fires at {at_s}s, before her swing opens at {}s",
+            active.start_s,
+        );
     }
 
     /// ⛔⛔ THE SPEECH HOLDS HER TOO, and for a while it held only the audience.

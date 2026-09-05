@@ -515,8 +515,18 @@ comment and the authored cues, then check the mechanics against them. A comment
 that names a feeling ("the order is obeyed instantly", "the cone closes", "the
 tool running") is a SPECIFICATION somebody wrote and nothing verifies.
 
-⭐⭐ **THE SWEEP IS NOW COMPLETE ACROSS ALL NINETEEN FIGHTERS: five flagged moves,
-all five fixed, and the rest positively CLEARED.** ⛔ Count MOVES, not fighters —
+⭐⭐ **THE SWEEP IS COMPLETE ACROSS THE SMASH ROSTER: five flagged moves, all five
+fixed, and the rest positively CLEARED.**
+⚠⚠ **AND THE ORIGINAL SENTENCE SAID "ALL NINETEEN FIGHTERS" WHEN WHAT I HAD
+SWEPT WAS NINETEEN FILES — corrected 2026-09-05 by a census that found a name I
+did not recognise.** `authored_movesets::tables()` lists **twenty** movesets:
+`theorem_chain_moveset()` lives INSIDE `player_robot_moveset.rs`, so one file
+holds two. ⇒ It is Robot **v2**'s DUEL-ARENA table (v3 carries the
+platform-fighter one), so the smash sweep really was complete — **but I had been
+counting files and saying fighters, which is the same class as every corpus error
+on this page.** ⓘ Swept it anyway: its doc claims *"a light poke into a heavier
+follow-up"* and it authors two volumes at damage 2/knockback 90 then damage
+3/knockback 160. Honest. **Cleared, twenty of twenty.** ⛔ Count MOVES, not fighters —
 **Bob and Carl each appear in BOTH lists**, so a fighter with one move that lies
 can own another that is scrupulous, and stopping at the fighter would have missed
 one of each. ⚠ Oiler's `convergence` is the model: its comment
@@ -530,6 +540,30 @@ so), `pressure_vent` (*"everything in the seal goes at once"* — and the paragr
 below names `start_impulse` ADDING rather than setting), `bulkhead_drop` (*"he
 drops a plate"* — an animation, and its `shockwave`/`landing_puff` cues agree),
 and Carl's `cosmic_calendar`. ⚠ **A method that only ever flags is a suspicion.**
+
+### ⭐⭐ "MANY HAVE BORING SPECIALS" IS NOW FOUR, AND IT IS A RATCHET RATHER THAN A FEELING
+
+The goal's own complaint has been argued from readings all campaign. ⇒ Measured
+from the authored DATA — a special is expressive when it carries a technique, a
+stance, a flow, or a gravity regime; a strike with cues is not:
+
+**15 expressive, 4 plain** — alice, bob, carl_stargan, goblin, the ninja, emmy,
+patent_clerk, pirate_admiral, player_robot, author, medic, officer, performer,
+projectile_polygon, pugnacious_polygon ⇒ against cellular_automaton, oiler,
+pointed_polygon, and `theorem_chain` (which is the DUEL ARENA's robot, not a
+smash fighter).
+
+⛔ **IT IS A RATCHET, NOT A TARGET.** Asserting every fighter must be expressive
+would be a design claim nobody has made — a plain-strike brawler is legitimate.
+What is not legitimate is going BACKWARDS silently, so the floor sits at today's
+count and the failure message prints the two lists. ⇒ **When it fails it answers
+the question the complaint was actually asking:** which fighters are carrying the
+roster and which are not.
+
+⚠ **And finding the floor was itself the measurement.** I set it to 99 on purpose
+to make the test fail and print the real number, rather than picking a figure and
+asserting it. That is how `theorem_chain` surfaced — **a name in the output I did
+not recognise**, which is what corrected the sweep's own headline two sections up.
 
 ### ⭐⭐ THE SWEEP FINISHED, AND THE HYPOTHESIS IT SUGGESTED WAS REFUTED
 

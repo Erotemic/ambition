@@ -282,3 +282,82 @@ mod flow_tests {
         );
     }
 }
+
+#[cfg(test)]
+mod expressiveness_census {
+    use super::tables;
+
+    /// ⭐⭐ HOW MANY FIGHTERS HAVE A SPECIAL THAT DOES SOMETHING A STRIKE CANNOT —
+    /// the goal's own complaint, measured instead of felt.
+    ///
+    /// Jon's standing goal says *"many have boring specials"*, and every roster
+    /// decision on this campaign has been argued from a reading rather than a
+    /// number. ⇒ This counts, from the authored DATA rather than from a grep over
+    /// the source: a special is EXPRESSIVE when it carries a technique
+    /// (`MoveEventKind::Effect`), a stance (`sustain_effect`), a flow, or a
+    /// gravity regime. A strike with cues is not.
+    ///
+    /// ⛔ IT IS A RATCHET, NOT A TARGET. Asserting that EVERY fighter must be
+    /// expressive would be a design claim nobody has made — a plain-strike
+    /// brawler is a legitimate character. What is not legitimate is going
+    /// BACKWARDS silently, so this holds the floor at what the roster has today
+    /// and prints the ranking when it fails.
+    ///
+    /// ⚠ IT WALKS THIS CRATE'S TABLES, WHICH IS NOT THE SMASH GRID.
+    /// `tables()` is *"every table in this crate that authors move events"* — so
+    /// it includes `theorem_chain`, Robot **v2**'s DUEL-ARENA moveset, which
+    /// shares a file with v3's platform-fighter table. It is counted as plain and
+    /// that is correct: it is a two-hit combo demo and deliberately data-only.
+    /// ⇒ Do not read the plain list as "boring smash fighters" without checking
+    /// which composition each entry belongs to.
+    ///
+    /// ⚠ THE PRINTED LIST IS HALF THE POINT. When this fails, the message names
+    /// which fighters are carrying the roster and which are not, which is the
+    /// question "many have boring specials" was actually asking.
+    #[test]
+    fn the_roster_does_not_get_less_expressive() {
+        use ambition_entity_catalog::MoveEventKind;
+
+        /// The floor, raised deliberately as fighters gain techniques. Bumping it
+        /// is a decision; watching it silently fall is the failure.
+        const FLOOR: usize = 15;
+
+        let mut expressive: Vec<&str> = Vec::new();
+        let mut plain: Vec<&str> = Vec::new();
+        for (fighter, contract) in tables() {
+            // Only the SPECIALS: a jab with a technique is not what the goal is
+            // asking about.
+            let special_ids: Vec<&String> = contract
+                .verbs
+                .iter()
+                .filter(|(verb, _)| verb.starts_with("special"))
+                .map(|(_, id)| id)
+                .collect();
+            let rich = contract.moves.iter().any(|mv| {
+                if !special_ids.iter().any(|id| **id == mv.id) {
+                    return false;
+                }
+                mv.flow.is_some()
+                    || mv.windows.iter().any(|w| w.sustain_effect.is_some())
+                    || mv.events.iter().any(|e| {
+                        matches!(
+                            e.kind,
+                            MoveEventKind::Effect(_) | MoveEventKind::GravityModifier { .. }
+                        )
+                    })
+            });
+            if rich {
+                expressive.push(fighter);
+            } else {
+                plain.push(fighter);
+            }
+        }
+
+        assert!(
+            expressive.len() >= FLOOR,
+            "the roster's expressive-special count fell to {} (floor {FLOOR}).\n  \
+             expressive: {expressive:?}\n  plain: {plain:?}",
+            expressive.len()
+        );
+    }
+}

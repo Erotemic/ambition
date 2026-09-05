@@ -124,6 +124,8 @@ fn the_riot_shield() -> ambition_platformer2d::entity_catalog::MoveSpec {
             // A heartbeat, not a duration — `parry_window_timer` decays, and the
             // stance re-arms it every frame it is live.
             window_s: 0.05,
+            // Its own answer, as every counter but the clerk's is.
+            answers_the_attacker: false,
             response: ambition_platformer2d::characters::smash_capture::CAPTURE_ATTEMPT.to_string(),
             response_params: ambition_platformer2d::entity_catalog::ParamValue::from_typed(
                 &ambition_platformer2d::characters::smash_capture::CaptureAttemptParams {

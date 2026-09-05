@@ -48,6 +48,34 @@ pub struct CounterParams {
     /// or a buff or a slow is which technique is named here, and nothing in the
     /// engine needs to know which of those it is.
     pub response: String,
+    /// Aim [`Self::response`] at the body that SWUNG rather than at the
+    /// stance's owner. `false` — the default, and what every stance authored
+    /// before this field existed meant.
+    ///
+    /// ⭐⭐ THE THIRD COUNTER THIS MODULE NAMES NEEDED A TARGET, NOT AN
+    /// AUTHORITY. The header lists the three a platform fighter wants — an
+    /// ordinary counter answers with an attack, a Revenge-style one with a
+    /// lasting modifier, and a **Witch-Time-style one by SLOWING THE ATTACKER**.
+    /// The first two shipped; the third could not be written, because every
+    /// response was dispatched to the stance's OWNER and no authored effect
+    /// could name the body that swung.
+    ///
+    /// ⛔ THE FACT WAS ALREADY PUBLISHED, which is the rule every signal here
+    /// obeys: `ParriedBodyHit::attacker` exists and its own doc says why the
+    /// parry road has it — *"known here, unlike on the block road, because a
+    /// parry is resolved at the strike rather than at a damage resolution that
+    /// may have lost the striker."*
+    ///
+    /// ⛔⛔ A `bool` AND NOT AN ENUM, AND THAT IS NOT A STYLE CHOICE. This was a
+    /// two-variant enum for an afternoon and **every counter in the game
+    /// silently stopped working**: `ParamValue` is a `ron::Value`, and a unit
+    /// variant does not survive the round trip (`InvalidValueForType { expected:
+    /// "enum …", found: "a unit value" }`). Hydration failed, the stance
+    /// resolved to `None`, and the only signal was a `warn!` nobody reads. ⇒ See
+    /// `round_trip_probe` at the bottom of this file: the guard that turns that
+    /// into a compile-fast failure instead of a playtest.
+    #[serde(default)]
+    pub answers_the_attacker: bool,
     /// The response technique's own authored params, passed through untouched.
     ///
     /// ⚠ NESTED, WHICH THE TELEPORT'S PARAMS DOC SAYS TO BE CAREFUL ABOUT.
@@ -175,6 +203,8 @@ mod tests {
     fn nested_response_params_survive_a_round_trip() {
         let params = CounterParams {
             window_s: 0.05,
+            // Its own answer, as every counter but the clerk's is.
+            answers_the_attacker: false,
             response: "smash.capture_attempt".to_string(),
             response_params: ParamValue::parse(
                 "(offset: (28.0, 0.0), half_extents: (20.0, 24.0), hold_offset: (24.0, 0.0))",
@@ -204,6 +234,8 @@ mod tests {
                 0.3,
                 CounterParams {
                     window_s: 0.0,
+                    // Its own answer, as every counter but the clerk's is.
+                    answers_the_attacker: false,
                     response: "whatever".to_string(),
                     response_params: ParamValue::default(),
                     absorbs_projectiles: false,
@@ -216,5 +248,30 @@ mod tests {
              move would stand there defending nothing and look like a timing \
              problem to whoever played it"
         );
+    }
+}
+
+#[cfg(test)]
+mod round_trip_probe {
+    use super::*;
+    use ambition_entity_catalog::ParamValue;
+
+    #[test]
+    fn counter_params_survive_a_param_value_round_trip() {
+        let params = CounterParams {
+            window_s: 0.05,
+            answers_the_attacker: true,
+            response: "smash.time_dilation".to_string(),
+            response_params: ParamValue::default(),
+            absorbs_projectiles: false,
+        };
+        let value = ParamValue::from_typed(&params).expect("serialize");
+        let back = value.hydrate::<CounterParams>();
+        assert!(
+            back.is_ok(),
+            "CounterParams did not survive a ParamValue round trip: {:?}",
+            back.err()
+        );
+        assert!(back.unwrap().answers_the_attacker);
     }
 }

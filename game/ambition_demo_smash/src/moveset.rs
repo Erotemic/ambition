@@ -792,6 +792,8 @@ pub fn fighter_moveset() -> MovesetContract {
             // the stance re-arms it every frame it is live. Three ticks of slack
             // at 60Hz, so a frame the sustain misses does not close the window.
             window_s: 0.05,
+            // Its own answer, as every counter but the clerk's is.
+            answers_the_attacker: false,
             response: ambition_platformer2d::characters::smash_capture::CAPTURE_ATTEMPT
                 .to_string(),
             response_params: ambition_platformer2d::entity_catalog::ParamValue::from_typed(

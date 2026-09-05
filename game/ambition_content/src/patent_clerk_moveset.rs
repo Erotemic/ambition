@@ -446,6 +446,61 @@ pub fn patent_clerk_moveset() -> MovesetContract {
     let down_b = vfx_at(down_b, 0.26, "clock_desync", (30.0, 18.0), SWING_FX);
     let down_b = vfx_at(down_b, 0.33, "known_result_stamp", (0.0, 4.0), STAMP_FX);
     let down_b = on_contact(down_b, "player.hit");
+    // ⭐⭐ AND THE TWO CLOCKS FINALLY DISAGREE — the third counter `smash_counter`
+    // names, and the first thing on this fighter that its own art already drew.
+    //
+    // ⛔⛔ THE MOVE HAS DRAWN `clock_desync` SINCE THE DAY IT WAS WRITTEN. Its
+    // comment says *"Two clocks, one slice"* and it paints `clock_sync` on one
+    // side and `clock_desync` on the other — over a plain strike where both
+    // clocks ran at exactly the same rate. ⇒ Sixth on this roster where the art
+    // asserted a mechanic the code did not have, and the only one whose fix was
+    // a technique that did not exist yet.
+    //
+    // ⭐ THE STANCE RIDES THE WINDUP, NOT THE WHOLE MOVE. `live_counter_stance`
+    // asks which window is under the clock, so a stance over `0.0..0.20` is open
+    // exactly while he is drawing the slice — and the strike that follows is
+    // unchanged. A fighter who swings into the windup has their clock desynced;
+    // one who waits eats an ordinary down-special.
+    //
+    // ⛔ `Attacker`, WHICH IS THE WHOLE REASON THE FIELD EXISTS. Every other
+    // counter on this roster answers on its owner; a Witch-Time answers on the
+    // body that swung, and `ParriedBodyHit` has carried that entity all along.
+    //
+    // ⚠ ROSTER DECISION #19, Jon's to overrule: 0.35 for 0.45s. Long enough that
+    // the punish is real, short enough that it is a read rather than a stun —
+    // and it slows their MOVES, their hurtbox resolution and their animation,
+    // not their walking, which `smash_time_dilation`'s header states.
+    let down_b = {
+        let mut spec = down_b;
+        spec.windows.push(ambition_platformer2d::entity_catalog::MoveWindow {
+            start_s: 0.0,
+            end_s: 0.20,
+            tag: ambition_platformer2d::entity_catalog::WindowTag::Active,
+            volumes: Vec::new(),
+            motion_scale: 1.0,
+            sustain_effect: Some(ambition_platformer2d::entity_catalog::EffectRef {
+                key: ambition_platformer2d::characters::smash_counter::COUNTER.to_string(),
+                params: ambition_platformer2d::entity_catalog::ParamValue::from_typed(
+                    &ambition_platformer2d::characters::smash_counter::CounterParams {
+                        window_s: 0.05,
+                        answers_the_attacker: true,
+                        response: ambition_platformer2d::characters::smash_time_dilation::TIME_DILATION
+                            .to_string(),
+                        response_params: ambition_platformer2d::entity_catalog::ParamValue::from_typed(
+                            &ambition_platformer2d::characters::smash_time_dilation::TimeDilationParams {
+                                scale: 0.35,
+                                seconds: 0.45,
+                            },
+                        )
+                        .expect("the clerk's dilation params serialize"),
+                        absorbs_projectiles: false,
+                    },
+                )
+                .expect("the clerk's counter params serialize"),
+            }),
+        });
+        spec
+    };
 
     // effect on ground. Think of bowser down b. In the air he just does a
     // downward slam, but on the ground, it causes him to jump in an arc and then
@@ -588,6 +643,68 @@ pub fn patent_clerk_moveset() -> MovesetContract {
 
 #[cfg(test)]
 mod tests {
+    /// ⭐⭐ THE CLERK'S TWO CLOCKS FINALLY DISAGREE — the third counter
+    /// `smash_counter` names, and the sixth move on this roster whose ART
+    /// asserted a mechanic the code did not have.
+    ///
+    /// `synchronize_clocks` has drawn `clock_sync` on one side and `clock_desync`
+    /// on the other since the day it was written, over a plain strike where both
+    /// clocks ran at exactly the same rate. ⇒ Now a fighter who swings into his
+    /// windup has theirs desynced.
+    ///
+    /// ⛔ THE `answers_the_attacker` ASSERTION IS THE WHOLE POINT. Every other
+    /// counter on this roster answers on its owner; a Witch-Time that slowed its
+    /// own caster would be a self-inflicted stun, and it is the failure the flag
+    /// exists to make impossible to author by accident.
+    #[test]
+    fn the_clerks_windup_desyncs_the_clock_of_whoever_swings_into_it() {
+        use ambition_platformer2d::characters::smash_counter::{CounterParams, COUNTER};
+        use ambition_platformer2d::characters::smash_time_dilation::{
+            TimeDilationParams, TIME_DILATION,
+        };
+        let set = super::patent_clerk_moveset();
+        let down = set
+            .moves
+            .iter()
+            .find(|m| m.id == "synchronize_clocks")
+            .expect("his down-B is in the table");
+        let stance = down
+            .windows
+            .iter()
+            .find_map(|w| {
+                let effect = w.sustain_effect.as_ref()?;
+                (effect.key == COUNTER).then(|| effect.params.hydrate::<CounterParams>())
+            })
+            .expect("his down-B holds no counter stance, so `clock_desync` is art again")
+            .expect("the stance's params hydrate");
+
+        assert!(
+            stance.answers_the_attacker,
+            "the stance answers its OWNER — a Witch-Time that slows its own caster \
+             is a self-inflicted stun"
+        );
+        assert_eq!(
+            stance.response, TIME_DILATION,
+            "the stance answers with {} rather than a dilation",
+            stance.response
+        );
+        let dilation = stance
+            .response_params
+            .hydrate::<TimeDilationParams>()
+            .expect("the dilation params hydrate");
+        assert!(
+            dilation.problems().is_empty(),
+            "the authored dilation is not one: {:?}",
+            dilation.problems()
+        );
+        // ⛔ A READ, NOT A STUN. Long enough to punish, short enough that the
+        // slowed fighter is still playing.
+        assert!(
+            dilation.seconds > 0.2 && dilation.seconds < 1.0,
+            "a {}s slow is not a read", dilation.seconds
+        );
+    }
+
     use super::*;
     use ambition_platformer2d::entity_catalog::{MoveSpec, WindowTag};
 

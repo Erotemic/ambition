@@ -1,4 +1,4 @@
-ggrs-rollback-schema-v161
+ggrs-rollback-schema-v162
 ability.bomb_fuse	component-clone	BombFuse	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum
 ability.gravity_grenade_fuse	component-clone	GravityGrenadeFuse	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum
 ability.player_mark	component-clone	PlayerMark	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum
@@ -477,3 +477,4 @@ smash.move_placed_portal	component-clone	MovePlacedPortal	bevy_ggrs clone snapsh
 smash.placed_mine	component-clone	PlacedMine	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum
 smash.placed_spring	component-clone	PlacedSpring	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum
 smash.steered_bolt	component-clone	SteeredBolt	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum
+smash.time_dilated	component-clone	TimeDilated	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum

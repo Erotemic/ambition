@@ -10,6 +10,7 @@
 | [`bomb`](src/bomb.rs) | A live bomb on the stage: the ruleset half of `smash.drop_bomb`. |
 | [`capture`](src/capture.rs) | The Smash ruleset's capture adapter: authored effect keys → typed requests. |
 | [`counter`](src/counter.rs) | The counter, assembled from parts the engine already had. |
+| [`dilation`](src/dilation.rs) | The game half of `smash.time_dilation`: who is slow, and for how long. |
 | [`george_booul_moveset`](src/george_booul_moveset.rs) | George Booul's authored fighter repertoire. |
 | [`homing`](src/homing.rs) | The homing dash: the fighter is carried at whoever they were pointing at. |
 | [`mine`](src/mine.rs) | The remote mine: a stage object that answers to one fighter and nobody else. |
@@ -23,7 +24,7 @@
 | [`smash_pack`](src/smash_pack.rs) | Smash demo content pack for George Booul. |
 | [`spring`](src/spring.rs) | A plate on the floor that throws whoever steps on it. |
 
-_16 crate-root modules. Regenerate: `python scripts/modules_md.py --write`._
+_17 crate-root modules. Regenerate: `python scripts/modules_md.py --write`._
 
 <!-- END generated module map -->
 

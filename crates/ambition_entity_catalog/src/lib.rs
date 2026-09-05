@@ -58,6 +58,24 @@ pub enum PickupKind {
 /// `Default` is the empty table `{}` (not `Unit`): a paramless `EffectRef`
 /// hydrates cleanly into a technique's all-defaults `#[derive(Deserialize)]`
 /// param struct.
+///
+/// ⛔⛔ A PARAMS STRUCT MAY NOT CARRY AN ENUM, AND THE FAILURE IS SILENT.
+/// This is a `ron::Value`, and a Rust enum does not survive the round trip —
+/// **including a plain unit-variant one**. `from_typed` succeeds, `hydrate`
+/// returns `InvalidValueForType { expected: "enum …", found: "a unit value" }`,
+/// and every consumer that treats a hydrate failure as "no params" stops working
+/// with nothing louder than a `warn!`.
+///
+/// ⚠ MEASURED 2026-09-05, NOT INFERRED FROM THE DOCS. A two-variant enum was
+/// added to `CounterParams` for one afternoon and **every counter in the game
+/// silently stopped answering** — five tests fell, and the cause was invisible
+/// in all five messages. ⇒ Use a `bool`, a number, or a string; if a params type
+/// genuinely needs a closed set, spell it as a string and validate it in that
+/// type's own `problems()`.
+///
+/// ⭐ AND WRITE THE ROUND-TRIP PROBE. `smash_counter::round_trip_probe` is four
+/// lines and turns this from a playtest into a compile-fast failure; every new
+/// params type is worth the same.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct ParamValue(pub ron::Value);
 

@@ -275,6 +275,22 @@ pub struct AxisTuningSpec {
     #[serde(default = "at_flight_terminal_speed")]
     pub flight_terminal_speed: f32,
     /// Whether the flight limb takes stick × terminal speed immediately.
+    ///
+    /// ⚠ DORMANT AS AN AUTHORING KNOB, measured 2026-09-05, and recorded here
+    /// rather than removed because that is a design call rather than a defect.
+    /// The READ is live (`movement/integration.rs`), so this is not a dead
+    /// field — but **no authored character sets it**, and the only production
+    /// site that wants the behaviour sets it as a Rust literal two layers below
+    /// the author: the boss spawn in `actor_monolith`'s `spawn_actors`, whose
+    /// `BossPattern` brain commands an exact per-tick velocity and needs the
+    /// limb to take it unsmoothed.
+    ///
+    /// ⇒ THE OPEN QUESTION, filed rather than answered: should an authoring
+    /// surface exist for a property only the engine's own spawn path asks for?
+    /// Keeping it costs nothing and an author may want it; removing it would
+    /// make the boss's requirement explicit at the one site that has it. ⛔ What
+    /// should NOT happen is somebody discovering the gap a third time and
+    /// assuming it is an oversight.
     #[serde(default)]
     pub flight_direct_velocity: bool,
     /// Optional invariant speed for proper-velocity flight.

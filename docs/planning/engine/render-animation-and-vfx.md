@@ -139,6 +139,16 @@ near-side actor would vanish behind the aperture. And do NOT mutate an actor's
 single z per frame — **one body can be NEAR one pane and FAR of another in the
 same frame**, and one entity z cannot say both.
 
+✔ **BOTH WRONG FIXES ARE NOW GUARDED, and the guards landed before the repair
+they constrain.** `the_portal_band_stays_below_the_actor_band`
+(`ambition_render::rendering::primitives`) fails if `PORTAL_WINDOW_Z` is raised,
+naming the inversion and pointing at `pane_relation`; the two-pane relation test
+fails any implementation that stores one ordering per actor. ⭐ `ambition_render`
+is the only crate that can see BOTH bands — core guards its own order and cannot
+see the portal constants, the portal crate cannot see the `+ 1.0` that puts an
+actor above `WORLD_Z_DUMMY` — so the relationship the portal docs assert had
+never been checkable from either side.
+
 ✔ **DONE: the shared authority.** `compositing::pane_relation(pane, viewer,
 drawable, transiting)` → `Disjoint | NearOccluder | FarCovered | Transiting`,
 plus `current_z_policy_is_correct_for(relation)` so the defect is countable.

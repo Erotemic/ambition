@@ -31,9 +31,7 @@ pub mod conditions;
 
 use bevy::prelude::*;
 
-use ambition_characters::brain::{
-    ActionSet, HeldItemSpec, HeldUseBehavior, MeleeActionSpec, SwipeSpec,
-};
+use ambition_characters::brain::{ActionSet, HeldItemSpec};
 use ambition_characters::control::ActorControl;
 use ambition_combat::held_items::HeldItem;
 use ambition_platformer2d_core::BodyKinematics;
@@ -798,31 +796,13 @@ pub struct StashedActionSet(pub ActionSet);
 
 /// Authored axe held item: a keep-on-use heavy melee swing (placeholder tuning).
 pub fn axe_spec() -> HeldItemSpec {
-    HeldItemSpec {
-        id: "axe".into(),
-        melee: Some(MeleeActionSpec::Swipe(SwipeSpec {
-            windup_s: 0.22,
-            active_s: 0.12,
-            recover_s: 0.30,
-            damage: 3,
-            reach_px: 64.0,
-        })),
-        ranged: None,
-        // Has a melee verb → Auto keeps it on use (swing, don't throw).
-        use_behavior: HeldUseBehavior::Auto,
-    }
+    ambition_characters::brain::held_item_by_id("axe").expect("axe is a built-in held item")
 }
 
 /// Authored javelin held item: a *pure throwable* (no melee/ranged verb), so
 /// using it (`Attack` while holding) throws it — the `ThrowOnUse` behavior.
 pub fn javelin_spec() -> HeldItemSpec {
-    HeldItemSpec {
-        id: "javelin".into(),
-        melee: None,
-        ranged: None,
-        // The canonical thrown item: using it (plain Attack) throws it.
-        use_behavior: HeldUseBehavior::ThrowOnUse,
-    }
+    ambition_characters::brain::held_item_by_id("javelin").expect("javelin is a built-in held item")
 }
 
 /// The laser gun-sword as a *player* held item — the same authored `gun_sword`
@@ -839,15 +819,8 @@ pub fn gunsword_spec() -> HeldItemSpec {
 /// a non-pickup source (the inventory menu). The three wired weapons each have a
 /// spec; everything else returns `None`.
 pub fn held_spec_for_item(item: ambition_items::Item) -> Option<HeldItemSpec> {
-    use ambition_items::Item;
-    match item {
-        Item::Axe => Some(axe_spec()),
-        Item::Javelin => Some(javelin_spec()),
-        Item::GunSword => Some(gunsword_spec()),
-        _ => item
-            .held_item_id()
-            .and_then(ambition_characters::brain::held_item_by_id),
-    }
+    item.held_item_id()
+        .and_then(ambition_characters::brain::held_item_by_id)
 }
 
 /// Resolve a held item's authored spec id back to its spec — the reverse of
@@ -860,14 +833,31 @@ pub fn held_spec_for_item(item: ambition_items::Item) -> Option<HeldItemSpec> {
 /// resolved spec would put a second authority for *what a javelin is* inside a
 /// snapshot, so the id has to be resolvable from outside.
 ///
-/// both registries, in that order, because there are two. The three wired
-/// weapons are built here by [`held_spec_for_item`] and are NOT rows in
-/// `ambition_characters`'s table; the pirates' `gun_sword_heavy` is a row there
-/// and has no catalog slot. Consulting one alone silently loses half the items.
+/// ⭐⭐ THERE IS ONE REGISTRY NOW, so this is a pass-through and the name is kept
+/// only because callers read better for it.
+///
+/// ⛔⛔ THIS USED TO CONSULT TWO TABLES IN ORDER, and its own doc said
+/// *"Consulting one alone silently loses half the items"* -- a rule that no
+/// upstream crate was able to follow. `axe` and `javelin` were built HERE while
+/// the other 20 ids were rows in `ambition_characters`, and this crate DEPENDS
+/// on that one, so `ambition_combat` and the LDtk construction path could reach
+/// only the narrow half. That cost two real defects: the brandish restore
+/// DELETED a carried axe it could not resolve, and an authored
+/// `GroundItem { held_item: "axe" }` is refused as an unknown id.
+///
+/// ⇒ The fix was not a better resolver, it was DELETING THE SECOND TABLE. Both
+/// were rows, not code -- nothing about an axe or a javelin needed the item
+/// catalog -- so they moved into `ambition_characters`'s table and every
+/// consumer, at any layer, now sees all of them. `gunsword_spec` never needed an
+/// arm here at all: it was already `held_item_by_id("gun_sword")`.
+///
+/// The reverse direction is what makes a durable description possible. A
+/// checkpoint that wants to rebuild a runtime-minted instance stores the id and
+/// nothing else (see the kernel's `items::pickup::minted_horizon`); storing the
+/// resolved spec would put a second authority for *what a javelin is* inside a
+/// snapshot, so the id has to be resolvable from outside.
 pub fn held_spec_by_id(id: &str) -> Option<HeldItemSpec> {
-    ambition_items::Item::from_held_item_id(id)
-        .and_then(held_spec_for_item)
-        .or_else(|| ambition_characters::brain::held_item_by_id(id))
+    ambition_characters::brain::held_item_by_id(id)
 }
 
 /// TAKE custody of a held item — one operation, both ends.

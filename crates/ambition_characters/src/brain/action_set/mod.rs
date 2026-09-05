@@ -525,6 +525,43 @@ static HELD_ITEMS: std::sync::LazyLock<std::collections::HashMap<&'static str, H
                 use_behavior: HeldUseBehavior::Auto,
             },
         );
+        // ⭐⭐ THE AXE AND THE JAVELIN LIVE HERE NOW, and moving them is what made
+        // this the ONLY held-item registry. They were built by
+        // `ambition_held_items::{axe_spec, javelin_spec}` — a SECOND table, in a
+        // crate that DEPENDS on this one, so every consumer upstream of it could
+        // reach only half the items and no discipline at the call site could fix
+        // that. `ambition_combat`'s brandish restore resolved through this table
+        // alone and DELETED a carried axe it could not find; the LDtk ground-item
+        // path still refuses `held_item: "axe"` as an unknown id for the same
+        // reason. Both are rows, not code: nothing about them needed the item
+        // catalog.
+        items.insert(
+            "axe",
+            HeldItemSpec {
+                id: "axe".into(),
+                melee: Some(MeleeActionSpec::Swipe(SwipeSpec {
+                    windup_s: 0.22,
+                    active_s: 0.12,
+                    recover_s: 0.30,
+                    damage: 3,
+                    reach_px: 64.0,
+                })),
+                ranged: None,
+                // Has a melee verb → Auto keeps it on use (swing, don't throw).
+                use_behavior: HeldUseBehavior::Auto,
+            },
+        );
+        // A *pure throwable* — no melee or ranged verb — so a plain `Attack`
+        // while holding it throws it.
+        items.insert(
+            "javelin",
+            HeldItemSpec {
+                id: "javelin".into(),
+                melee: None,
+                ranged: None,
+                use_behavior: HeldUseBehavior::ThrowOnUse,
+            },
+        );
         items
     });
 

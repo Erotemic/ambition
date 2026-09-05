@@ -2,6 +2,9 @@
 //! ranged swap, attack-press consume, and thrown-item gravity settling.
 
 use super::*;
+// ⚠ Not re-exported by the parent any more: the axe/javelin ROWS moved into
+// `ambition_characters`, so this file is the only remaining user of these types.
+use ambition_characters::brain::{MeleeActionSpec, SwipeSpec};
 use ambition_characters::actor::attack_gesture::{
     AttackGestureState, AttackGestureTuning, ResolvedAttackGesture,
 };
@@ -1753,4 +1756,45 @@ mod multi_seat {
             "seat a pressed nothing and must still be holding its axe"
         );
     }
+}
+
+/// ⭐⭐ EVERY CATALOG ITEM THAT CLAIMS A HELD FORM CAN ACTUALLY BE RESOLVED.
+///
+/// ⛔⛔ THIS IS THE GUARD FOR A SPLIT THAT USED TO EXIST. `axe` and `javelin` were
+/// built in THIS crate while the other twenty held ids were rows in
+/// `ambition_characters` — and this crate DEPENDS on that one, so every consumer
+/// upstream could reach only the narrow half. It cost two defects: the brandish
+/// restore DELETED a carried axe it could not resolve, and an authored
+/// `GroundItem { held_item: "axe" }` was refused as an unknown id.
+///
+/// ⚠ THE PROPERTY IS THE AGREEMENT, NOT THE TWO NAMES. Asserting "axe resolves"
+/// would pass again the moment somebody re-split the tables for a THIRD item, so
+/// this enumerates the POPULATION from the catalog — every `Item` that declares
+/// a `held_item_id()` — and requires the unresolvable remainder to be empty. A
+/// new catalog item with a held form and no row fails here by name.
+#[test]
+fn every_catalog_item_with_a_held_form_resolves_in_the_one_registry() {
+    let claimed: Vec<&'static str> = ambition_items::Item::ALL
+        .into_iter()
+        .filter_map(|item| item.held_item_id())
+        .collect();
+    assert!(
+        claimed.len() >= 3,
+        "premise: the catalog must claim SOME held forms, or this proves nothing \
+         (found {})",
+        claimed.len()
+    );
+
+    let unresolvable: Vec<&str> = claimed
+        .iter()
+        .copied()
+        .filter(|id| ambition_characters::brain::held_item_by_id(id).is_none())
+        .collect();
+    assert!(
+        unresolvable.is_empty(),
+        "the item catalog claims a held form for {unresolvable:?}, and the \
+         held-item registry has no row for them — a consumer upstream of this \
+         crate resolves through that registry alone and cannot see any second \
+         table you add here"
+    );
 }

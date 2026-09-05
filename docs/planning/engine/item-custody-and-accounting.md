@@ -249,6 +249,40 @@ across `game/ambition_map_assets/ambition_content/worlds/` gives **14 distinct
 and `fireball` are authored nowhere, so those three reach a hand only through
 the menu/grant road.
 
+### I2b — there is ONE held-item registry now — ✔ CLOSED 2026-09-05
+
+⭐⭐ **THE TWO-REGISTRY FACT THIS PAGE HAS BEEN RESTATING SINCE I2 IS NO LONGER
+TRUE, because the second table is DELETED.** `axe` and `javelin` were built in
+`ambition_held_items` while the other twenty ids were rows in
+`ambition_characters` — and `ambition_held_items` DEPENDS on
+`ambition_characters`, so every consumer upstream of it could reach only the
+narrow half. `held_spec_by_id` existed to paper over that, and its own doc said
+*"Consulting one alone silently loses half the items"* — a rule no upstream crate
+was able to follow.
+
+⇒ **The repair was not a better resolver. Both were ROWS, not code:**
+`axe_spec()` and `javelin_spec()` were plain `HeldItemSpec` literals that needed
+nothing from the item catalog, so they moved into the one table. ⓘ And
+`gunsword_spec()` never needed an arm at all — it was already
+`held_item_by_id("gun_sword")`, so the doc's "three wired weapons" was two.
+
+**What that closed, beyond the tidiness:**
+
+- I2a's defect class is gone at the root — no upstream consumer can resolve
+  through a half-registry, because there is no half.
+- ⭐ **An authored `GroundItem { held_item: "axe" }` now RESOLVES.**
+  `authored_ground_item_requests` refuses unknown ids with `UnknownHeldItem`, and
+  it asks the narrow table — so before today an author who placed an axe in a
+  world got a construction refusal. That is why this page could say `axe` and
+  `javelin` "reach a hand only through the menu/grant road": not a design
+  decision, a consequence of the split.
+
+⚠ Guard: `every_catalog_item_with_a_held_form_resolves_in_the_one_registry`
+enumerates the POPULATION from `Item::ALL` and requires the unresolvable
+remainder to be empty, rather than naming the two ids — asserting "axe resolves"
+would pass again the moment somebody re-split the tables for a third item.
+Poison-verified by deleting the axe row: it fails naming `["axe"]`.
+
 ### I2a — the brandish restore destroyed an unresolvable weapon — ✔ CLOSED 2026-09-05
 
 ⭐ **THE TWO-REGISTRY CLAIM ABOVE HAD A CONSUMER, and it was losing items.**

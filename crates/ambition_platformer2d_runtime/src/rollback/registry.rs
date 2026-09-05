@@ -225,7 +225,11 @@ use crate::content_identity::SnapshotSchemaFingerprint;
 /// restore that lost any of them hands the resimulated timeline a launch the
 /// confirmed one had already spent, and a launch is a fighter standing
 /// somewhere else.
-pub const GGRS_ROLLBACK_SCHEMA_VERSION: u32 = 159;
+/// ⛔ v160: `HomingDash`, a fighter being carried at whoever they were pointing
+/// at. Its clock and its COMMITTED direction both rewind: the direction is
+/// remembered at the press rather than re-read, so a restore that lost it would
+/// let the resimulated dash re-aim from a facing the confirmed one never used.
+pub const GGRS_ROLLBACK_SCHEMA_VERSION: u32 = 160;
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq, Ord, PartialOrd, Hash)]
 pub enum RollbackEntryKind {

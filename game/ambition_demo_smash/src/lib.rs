@@ -19,6 +19,7 @@ pub mod bomb;
 pub mod capture;
 pub mod counter;
 pub mod george_booul_moveset;
+pub mod homing;
 pub mod mine;
 pub mod moveset;
 pub mod portal;
@@ -954,6 +955,15 @@ impl bevy::prelude::Plugin for SmashRulesPlugin {
         app.add_systems(
             sim,
             (crate::bolt::fire_authored_bolts, crate::bolt::steer_and_fly_bolts)
+                .chain()
+                .in_set(ambition_platformer2d::platformer::schedule::CombatSet::ContentSpecials),
+        );
+        // THE HOMING DASH. ⭐ `ContentSpecials`, and the BEGIN is chained before
+        // the CARRY so a dash steers on the tick it starts rather than standing
+        // still for one frame — which on a 0.28s move is 6% of it.
+        app.add_systems(
+            sim,
+            (crate::homing::begin_authored_homing_dashes, crate::homing::carry_homing_dashes)
                 .chain()
                 .in_set(ambition_platformer2d::platformer::schedule::CombatSet::ContentSpecials),
         );
@@ -2565,6 +2575,16 @@ impl bevy::prelude::Plugin for SmashSelectPlugin {
                 "ambition_demo_smash",
                 "smash.placed_spring",
                 crate::spring::placed_spring_probe,
+            );
+
+            // The homing dash's clock and the direction it committed to. ⛔ Both
+            // decide where a FIGHTER is, so a restore that lost either leaves the
+            // two peers' fighters in different places — the same reasoning the
+            // bolt's row carries, one step more directly.
+            app.rollback_component_clone_probed::<crate::homing::HomingDash>(
+                "ambition_demo_smash",
+                "smash.homing_dash",
+                crate::homing::homing_dash_probe,
             );
         }
         // ⛔ BEFORE the preparation source can ask for it. `Res<SmashStageChoice>`

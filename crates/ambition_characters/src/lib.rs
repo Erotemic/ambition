@@ -39,6 +39,7 @@ pub mod smash_capture;
 pub mod smash_counter;
 pub mod smash_fighter;
 pub mod smash_flyline;
+pub mod smash_homing;
 pub mod smash_mine;
 pub mod smash_portal;
 pub mod smash_repertoire;

@@ -26,6 +26,7 @@
 | [`smash_counter`](src/smash_counter.rs) | The counter stance: the authored vocabulary for "if you hit me here, this happens". |
 | [`smash_fighter`](src/smash_fighter/mod.rs) | Character-owned authored `smash_fighter` facet. |
 | [`smash_flyline`](src/smash_flyline.rs) | Being lifted out of the scene on a wire: the authored vocabulary. |
+| [`smash_homing`](src/smash_homing.rs) | Carry the fighter at whoever they were pointing at: the authored vocabulary. |
 | [`smash_mine`](src/smash_mine.rs) | Place a mine the placer can set off from anywhere: the authored vocabulary. |
 | [`smash_portal`](src/smash_portal.rs) | The portal recovery: the authored vocabulary for "open a way up". |
 | [`smash_repertoire`](src/smash_repertoire.rs) | Standard Smash action grammar and repertoire bookkeeping. |
@@ -38,7 +39,7 @@
 | [`snapshot_impls`](src/snapshot_impls.rs) | `SnapshotState` for this crate's own types — the rollback wire format. |
 | [`technique`](src/technique.rs) | THE AUTHORED SCHEMAS OF ENGINE TECHNIQUES — the params an `on_hit` effect carries, and nothing that executes one. |
 
-_31 crate-root modules. Regenerate: `python scripts/modules_md.py --write`._
+_32 crate-root modules. Regenerate: `python scripts/modules_md.py --write`._
 
 <!-- END generated module map -->
 

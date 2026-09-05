@@ -2385,9 +2385,28 @@ is no axis.**
    this evening. ⇒ **This is the clearest argument on the page for why a verdict
    must travel with its split.**
 
-   ⇒ **The headline needs restating: no cell is significantly inverted under the
-   candidate, two cells improve, and ONE REGRESSES toward the inversion the
-   candidate is meant to fix.** `5 vs 3` loses its
+   ⛔⛔ **AND I OVER-READ THAT AT TWELVE SEEDS — re-run at 28 the same night,
+   which is the check the squeak above says to make.** `6 vs 5`'s "one pair from
+   inverted" does NOT survive: 75% at n=12 falls to **61% (11 : 17, p = 0.345)**
+   at n=28, which is a coin regressing toward half, not an effect concentrating.
+
+   | cell | SHIPPED @ 28 | CANDIDATE @ 28 |
+   |---|---|---|
+   | `3 vs 1` | 26 : 2 = 93%, p = 3.0e-6 | 26 : 2 = 93%, p = 3.0e-6 |
+   | `5 vs 3` | ⛔ **4 : 24 = 86%, p = 1.8e-4** | **12 : 16 = 57%, p = 0.572** |
+   | `6 vs 5` | 13 : 15 = 54%, p = 0.851 | 11 : 17 = 61%, p = 0.345 |
+   | `9 vs 6` | 17 : 11 = 61%, p = 0.345 | ⭐ **26 : 2 = 93%, p = 3.0e-6** |
+
+   ⇒ **THE HONEST HEADLINE, at the n that carries it.** The candidate **removes
+   the inversion** — `5 vs 3` goes from a significant 86% LOWER to a 57% coin —
+   and **decisively orders `9 vs 6`** (61% → 93%, p = 3.0e-6). `6 vs 5` leans
+   inverted a little further (54% → 61%) and **neither ladder is near
+   significance there**. ⇒ So *"none regresses"* was nearer the truth than my
+   correction, and both the original claim and my correction were read off twelve
+   seeds. ⚠ **The residual `6 vs 5` lean is the one thing to watch** — it is the
+   cell the whole `frame_advantage`/`expected_payoff` story predicts should move
+   — but it is a lean, not a defect, and calling it one was me doing at midnight
+   exactly what this page spent the day correcting. `5 vs 3` loses its
    significance and `9 vs 6` gains it in the correct direction.
 
    ⛔⛔ **BUT THE CHARACTER OF THE `5 vs 3` IMPROVEMENT IS NOT WHAT THE PRE-REPAIR

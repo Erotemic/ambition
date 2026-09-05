@@ -1817,10 +1817,15 @@ visible. With the split printed they are opposites:
 | `6 vs 5` | 5 : 7 = 58%, **p = 0.774** | ⛔ 3 : 9 = 75%, **p = 0.146** |
 | `9 vs 6` | 7 : 5 = 58%, p = 0.774 | ⭐ 11 : 1 = 92%, p = 0.006 |
 
-⇒ **The candidate is a TRADE.** It genuinely weakens `5 vs 3` (83% → 67%) and
-genuinely orders `9 vs 6` (58% → 92%), and it pushes `6 vs 5` **from a coin
-toward inverted** — one further pair the same way prints it as a significant
-inversion, which is the defect this candidate exists to remove, one rung up.
+⇒ **The candidate is a TRADE at twelve seeds.** ⛔⛔ **AND THE TRADE HALF DOES
+NOT SURVIVE 28 SEEDS — checked the same night.** `6 vs 5`'s 75% falls to
+**61% (11 : 17, p = 0.345)**, a coin regressing toward half rather than an effect
+concentrating. At n=28 the candidate takes `5 vs 3` from a significant **86%**
+inversion to a **57% coin** and `9 vs 6` from 61% to a significant **93%**, while
+`6 vs 5` leans from 54% to 61% with neither ladder near significance. ⇒ **The
+candidate removes the inversion; the "regression" was twelve seeds.** ⚠ Which
+makes this cell a THIRD demonstration of the same rule rather than a finding —
+and this time the over-read was mine, an hour after writing the caution.
 ⭐ **This is the sharpest case on the page for a verdict travelling with its
 split**, sharper than `5 vs 3`'s squeak: there the qualifier at least changed,
 and here **the printed row is identical on both sides while the situations are

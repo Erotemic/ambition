@@ -581,6 +581,96 @@ mod tests {
             );
         }
     }
+
+    /// The finishing zoom is ORDERED against the match verdict, not merely
+    /// observed to run after it.
+    ///
+    /// `zoom_camera_on_decided_match` reads `StocksMatchDecided`, which
+    /// `decide_stocks_match` writes from inside the ruleset's own `.chain()`.
+    /// Both sit in `CombatSet::Settle`, so the PHASE orders neither against the
+    /// other — this is the one case set membership cannot express: a system that
+    /// reads a message written in its OWN set. The `.after` on the registration
+    /// is the whole fix, and nothing else in the codebase would notice its
+    /// removal.
+    ///
+    /// ⛔⛔ A BEHAVIOURAL TEST CANNOT REPLACE THIS ONE. The sim schedule runs
+    /// under `SingleThreadedExecutor`, so an unordered pair still gets *some*
+    /// order, and it is stable — which makes a gameplay assertion pass whether
+    /// or not the edge exists. Deterministic, reproducible, and arbitrary. The
+    /// invariant is the EDGE, so this checks the edge, exactly as
+    /// `occupancy_collection_is_ordered_against_visibility_propagation` does in
+    /// the host presentation suite.
+    ///
+    /// ⭐ IT IS CHECKABLE EVEN THOUGH THE ROLLBACK HOST SILENCES AMBIGUITIES.
+    /// `ambiguity_detection: LogLevel::Ignore` (set for `GgrsSchedule`) gates
+    /// only the REPORT: `bevy_ecs` assigns `conflicting_systems` unconditionally
+    /// and consults the setting afterwards, purely to decide whether to warn or
+    /// error. The list is there to read either way.
+    ///
+    /// Scoped to the MESSAGE rather than to the two system names because names
+    /// are compiled out of `DebugName` without Bevy's `debug` feature, and
+    /// because the invariant is really about the resource: nothing in the sim
+    /// may race the match verdict, whoever the parties turn out to be.
+    ///
+    /// ⚠ THE COST OF LOSING THE EDGE IS NOT LATENESS, IT IS FRAME
+    /// MISATTRIBUTION — a reader that runs first picks the decision up on the
+    /// next tick, journalling the intent under a frame that did not produce it,
+    /// which is precisely what the confirmed-frame quarantine uses to decide
+    /// what an abandoned rollback branch may keep.
+    ///
+    /// Falsified before it was trusted: with the `.after` commented out this
+    /// reports 1 conflict (262 total over 410 systems); with it restored, 0
+    /// (261 total). A guard that has only ever been green has not been tested.
+    #[test]
+    fn the_finishing_zoom_is_ordered_against_the_match_verdict() {
+        let mut app = App::new();
+        app.add_plugins(bevy::MinimalPlugins);
+        // A plugin in the shipped group calls `init_asset`, which reads
+        // `Res<AssetServer>` eagerly and panics without this — the failure
+        // surfaces from `bevy_asset` with nothing naming a schedule, so it looks
+        // unrelated to ordering.
+        app.add_plugins(bevy::asset::AssetPlugin::default());
+        // The SHIPPED composition, not a hand-picked pair. The defect this
+        // guards is invisible to a smaller app: `decide_stocks_match` is
+        // registered by `WorldPrepSchedulePlugin`, so an app holding only
+        // `CombatSchedulePlugin` reports zero conflicts with the edge REMOVED —
+        // a guard that cannot fail.
+        app.add_plugins(crate::PlatformerEnginePlugins::fixed_tick());
+        let sim = app.sim_schedule();
+
+        let world = app.world_mut();
+        world.resource_scope::<Schedules, _>(|world, mut schedules| {
+            let verdict = world
+                .components()
+                .component_id::<bevy::ecs::message::Messages<
+                    ambition_combat::stocks::StocksMatchDecided,
+                >>()
+                .expect("the shipped sim registers the match-verdict message");
+            let schedule = schedules.get_mut(sim).expect("the sim schedule exists");
+            // The conflict list is only populated once the graph is BUILT, and
+            // nothing here runs a frame. `initialize` builds it without running
+            // a single system, so no resource needs to exist for this to be
+            // answerable.
+            schedule
+                .initialize(world)
+                .expect("the sim schedule builds");
+            let graph = schedule.graph();
+            let racing = graph
+                .conflicting_systems()
+                .iter()
+                .filter(|(_, _, ids)| ids.contains(&verdict))
+                .count();
+            assert_eq!(
+                racing, 0,
+                "{racing} system pair(s) touch StocksMatchDecided with nothing \
+                 ordering them. A reader that loses to the writer journals the \
+                 finishing zoom under the wrong frame, which the confirmed-frame \
+                 quarantine then judges on that frame's fate. Restore the \
+                 `.after(MatchOutcomeDecided)` on the reader rather than relying \
+                 on the executor's stable-but-arbitrary order."
+            );
+        });
+    }
 }
 
 /// A resolver closure that carries a snapshot of the authored sheets.
@@ -621,3 +711,4 @@ fn refresh_authored_volume_resolver(
 ) {
     *resolver = authored_volume_resolver_for(&sheets);
 }
+

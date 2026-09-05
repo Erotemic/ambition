@@ -126,6 +126,14 @@ actual product requirement.
   SHADOW's vocabulary, which is a different thing from a route being unreachable.
   See [`engine/fighter-brain.md`](engine/fighter-brain.md). Owner:
   [`engine/platformer-navigation-and-reachability.md`](engine/platformer-navigation-and-reachability.md).
+  ⓘ **Two facts a promoter needs that this row did not carry, both on the owner
+  page and both re-derived 2026-09-05:** the program is GREENFIELD — there is no
+  route planner of any kind, so promoting it is a build rather than a repair —
+  and it is **somebody else's blocker**, the last of the three foundations
+  [`engine/agentic-character-runtime.md`](engine/agentic-character-runtime.md)
+  waits on, since world facts and observations/memory both exist now. ⇒ Stated
+  as a pointer rather than a copy: the numbers live on the owner page, and a
+  figure restated in a backlog is a figure that goes stale where nobody looks.
 
 ### Capability, package and SDK boundaries
 

@@ -568,8 +568,23 @@ plate arriving by deserialization was silent with nobody typing anything.
 author remembered"* into *"an author could not omit it"* — the same move as
 gating the gravity modifier on its timer and deriving `overlapped` rather than
 mirroring it. ⚠ The blast radius was four construction sites, which is as cheap
-as that change was ever going to be; a field's default is worth auditing on the
-commit that introduces it, not the one that regrets it.
+as that change was ever going to be.
+
+⭐⭐ **AND AUDITING THE OTHER FOUR GAVE THE RULE A SHARPER FORM THAN "CHECK YOUR
+DEFAULTS".** Five fields gained defaults on this campaign in one day —
+`meter_cost` (0.0 = free), `answers_the_attacker` (false = the owner), the
+gravity modifier's timer-gated pair (inert), `TimeDilationParams` (no defaults at
+all), and this one. **Four were right for the same reason: their default means
+exactly what every value authored before them meant.**
+
+⇒ **The fifth was different in kind, and that is the finding: a
+`#[serde(default)]` that preserves the old behaviour is correct for a field that
+ADDS AN OPTION and wrong for one that REPAIRS A DEFECT.** The cue field existed
+because plates drew nothing; defaulting it to "draws nothing" shipped the defect
+as the path of least resistance. ⭐ **The tell is in the justification: if a
+default's doc sentence is a description of the bug, the default IS the bug** —
+mine read *"None draws nothing, which is what every plate authored before this
+field existed did"*, and a peer simply read it back to me.
 
 ⚠ **PERSISTENT VISIBILITY IS STILL OPEN AND THIS DOES NOT CLOSE IT.** A cue at
 each end does not draw the plate while it sits there. The shipped road is the

@@ -249,6 +249,43 @@ across `game/ambition_map_assets/ambition_content/worlds/` gives **14 distinct
 and `fireball` are authored nowhere, so those three reach a hand only through
 the menu/grant road.
 
+### I2a — the brandish restore destroyed an unresolvable weapon — ✔ CLOSED 2026-09-05
+
+⭐ **THE TWO-REGISTRY CLAIM ABOVE HAD A CONSUMER, and it was losing items.**
+`MoveBrandishedItem.previous` stored the displaced item's ID, and the restore
+resolved it through `ambition_characters::brain::held_item_by_id` — the NARROW
+registry — removing the body's `HeldItem` when that returned `None`. MEASURED:
+that table holds 20 ids and `axe`/`javelin` are in neither of them; both are
+built by `held_spec_for_item`. ⇒ a body carrying an axe and playing a move that
+brandishes had the axe DELETED rather than handed back, and by I1 the hand is
+the record, so it was not in the bag either.
+
+⛔ **THE WIDE RESOLVER COULD NOT BE CALLED FROM THERE.** `held_spec_by_id`
+consults both, but it lives in `ambition_held_items`, which DEPENDS on
+`ambition_combat`. The split is forced by a dependency edge, so no care at the
+call site could have fixed it — which is the general lesson: when a resolver is
+downstream of its caller, "remember to use the wide one" is not available as a
+rule.
+
+⇒ **The lookup is GONE rather than corrected.** The body HAD the spec; storing
+its id and deriving the spec back was a second authority for *what this body was
+holding*, and the derivation was the half that could fail. `previous` is now the
+spec, the restore is infallible, and `None` recovers its honest meaning (the
+body was carrying nothing) instead of doubling as *the lookup failed*.
+
+⚠ **LATENT, and the row says so rather than claiming a save.** No shipped move
+authors `equips` today — the only non-`None` writer is a test helper — so no
+player has hit this. It was worth closing anyway because the cost is one
+`HeldItemSpec` on a brandishing body, the same type `HeldItem` already keeps in
+rollback state on that entity, and because the failure mode is SILENT item
+destruction.
+
+⚠ The probe still hashes the id alone, so no checksum moved and no schema
+version bumped. Guard: `a_carried_weapon_no_registry_knows_is_returned_and_not_
+destroyed`, which uses an id NO registry answers to — pinning it with `axe` would
+pass again the moment somebody added `axe` to the narrow table, fixing one weapon
+and leaving the shape.
+
 ⛔ **"WHETHER THE ROAD PRESERVES IDENTITY ACROSS THE FIVE OPERATIONS IS
 UNMEASURED" WAS WRONG. Every operation has a live arm:**
 

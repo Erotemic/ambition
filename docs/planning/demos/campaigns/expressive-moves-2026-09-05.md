@@ -333,6 +333,29 @@ filling a slot is a design call rather than engineering:
 be**, because it decides whether Sing upgrades an existing move or wants a
 fighter of its own.
 
+---
+
+✔✔ **AND EVERY WORD ABOVE IS SUPERSEDED — kept because being wrong in a
+particular way is the finding, not because the section is still true.** All three
+rows were called blocked on "the roster is full", and none of them was:
+
+* **Sing** landed the same day on `the_monologue`. ⛔ The framing was a FALSE
+  DICHOTOMY — "upgrade her move OR give Sing its own fighter" — and the third
+  option displaced nothing: ADD the pulse at a strictly smaller radius, so her
+  strike is untouched to the number and only whoever stood next to her goes under.
+* **Further absorber/reflector variants** were not blocked either. Three more
+  counters landed (the Author, the Shadow Oni, Emmy), each answering with a
+  DIFFERENT technique, because the response was always an arbitrary one.
+* **The stand-ins' two presses** is the one row that stands — and it stands for
+  the reason given, which was never scarcity: authoring more onto a fighter whose
+  identity is an open question narrows that question by default.
+
+⭐ **The lesson, and it is the same one this campaign kept re-learning: "blocked"
+was a claim about the ROSTER when it was really a claim about my own framing.**
+Twelve roster decisions later, eleven of them found a seam nobody had to lose
+something for. ⇒ Before recording a row as blocked on a design call, look for the
+version that costs nothing — it existed here three times out of three.
+
 ### ⛔ AND TRACK A IS BLOCKED DIFFERENTLY — ordering, not permission
 
 ~~`TechniqueFlow` runs with an authored customer. The next rung is NOT slots: a
@@ -699,16 +722,22 @@ looking, and nothing would have complained.
   its first rung.** A2 stays open as real work for a genuine possession move; it
   is simply not a blocker for the Author's side-B.
 
-- ▢ **A3. Steerable projectile control source** + authored self-contact
-  eligibility. ⭐ **AND A2's READ OPENS A CHEAPER ROUTE WORTH PRICING FIRST.**
-  This row is blocked on projectiles carrying no stable identity — but
+- ✔ **A3. Steerable projectile control source** + authored self-contact
+  eligibility — **LANDED 2026-09-05** as the Author's side-B. ⛔ **AND BOTH
+  PREMISES BELOW WERE WRONG**, kept for the record: this row was never blocked on
+  identity (`ProjectileSeq` is rollback-canonical — see the struck paragraph
+  above), and it did not need the actor route either. `steer_axis()` was enough.
+  ⇒ What follows is the reasoning as it stood BEFORE the read, and it is exactly
+  the shape of over-pricing this campaign kept producing:
+
+  ~~This row is blocked on projectiles carrying no stable identity — but
   `TemporaryControl` names its controlled body by `SimId`, and **actors already
   have one**. ⇒ If PK-Thunder's bolt is a short-lived owned ACTOR rather than a
   projectile, it arrives with a `SimId`, a body, a control frame and rollback
   participation already attached, and A3 stops being identity work. ⚠ **NOT
   MEASURED**: what spawning an actor mid-match costs, and whether an actor's body
   is too heavy for something that lives about a second. Price it before choosing
-  it — this is a candidate, not a decision.
+  it — this is a candidate, not a decision.~~
 - ▢ **A4. PK-Thunder parody** as the acceptance fixture that consumes A1–A3.
 
 ### Then

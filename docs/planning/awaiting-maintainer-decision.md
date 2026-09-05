@@ -2288,10 +2288,16 @@ off the contracts themselves, that stand-in table binds **18 verbs to George's
 ⇒ The eight the Robots did not have: `special`, `special_forward`, `special_up`,
 `special_down`, `special_air_down`, `attack_forward`, `attack_dash`, `taunt`.
 
-✔✔ **TWO OF THE EIGHT ARE NOW AUTHORED, so the live figure is SIX — updated
-2026-09-05 in the commit that authored the second, which is what this entry's
-guards instruct.** `special_forward` answers with `lunge_grab` (the command
-grab) and `special_down` with `riposte` (the counter), each in both stances.
+✔✔ **THREE OF THE EIGHT ARE NOW AUTHORED, and the live figure is THREE —
+updated 2026-09-05 each time, which is what this entry's guards instruct.**
+`special_forward` answers with `lunge_grab` (the command grab), `special_down`
+with `riposte` (the counter), and the NEUTRAL special with `read_and_seize` (a
+hit confirm into the grab).
+⭐ **The last of those took the gap from six to three by itself**, because
+`directional_verb_chain` falls back to the base verb: binding `special` answers
+every remaining GROUND press. ⇒ What is left is the AERIAL column — three
+presses — because all three moves are `grounded_only`. That reframes the
+remaining question from "four specials" to "does this fighter act in the air".
 The guards `the_only_presses_this_fighter_cannot_answer_are_specials` and
 `the_stand_in_is_george_s_genre_shape_with_the_special_button_removed` both
 carry `6` now and both went red on the change, which is the mechanism working.

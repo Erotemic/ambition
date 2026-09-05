@@ -510,17 +510,19 @@ the template.
 wants: her blueprint asked for a counter and the deferral recording why she could
 not have one has now expired.
 
-### ⚠⚠ TWELVE ROSTER DECISIONS MADE UNDER DELEGATION — EVERY ONE IS JON'S TO OVERRULE
+### ⚠⚠ FOURTEEN ROSTER DECISIONS MADE UNDER DELEGATION — EVERY ONE IS JON'S TO OVERRULE
 
 Jon's grant was *"you can pick where to put the proof of concept for the other
 moves in the roster… we can tune who the moves belong to later."* ⇒ Here is
 everything spent against it on 2026-09-05, with what each one COST, so a review
-is a table rather than a git log. ⚠ **This table was written at EIGHT and is now
-TWELVE — I updated it rather than letting it read as complete**, which is the same
-failure as a stale deferral and would have been worse here, because its whole
-purpose is to be the thing Jon reads instead of the log.
+is a table rather than a git log. ⚠ **This table was written at EIGHT, corrected at TWELVE, and is now FOURTEEN.**
+⇒ I have now had to bring it current twice, which is the point rather than an
+apology: **the artefact whose whole purpose is to be current is the one that reads
+as complete when it is not**, and its reader is by construction somebody who will
+not check the log. The rule I keep failing and re-learning: update it in the same
+commit as the decision.
 
-**Six cost nothing; five displaced something; one is presentation only.**
+**Eight cost nothing; five displaced something; one is presentation only.**
 
 | fighter · slot | change | cost |
 |---|---|---|
@@ -536,6 +538,8 @@ purpose is to be the thing Jon reads instead of the log.
 | the Author · **side-B** | archetype `vector_lunge` → **PK-Thunder** | ⚠ a borrowed poke that was never his. ⭐ Jon's own assignment, and his third owned slot |
 | the Shadow Oni · aerial down-B | `counter_ring` + `parry_flash` cues **removed** | ⚠ presentation only, and it is MY DEBT: converting his grounded seal to a real counter made the dive's borrowed parry cues a trap |
 | Emmy Noether · down-B | `invariant_field` → **counter that conserves the blow** | ⚠ her CHEAPEST special (`damage: 6`), and she keeps a second ground-claiming field. ⭐ Her own blueprint asked for a counter; the deferral saying she could not have one expired this morning |
+| Bob · neutral (`rivet_gun`) | one long window → **three separated windows, then the same finisher** | ⭐ none — the finisher is unchanged and the pulses are 2 chip. It only does what its comment always claimed: *"it is not one hit, it is the tool running"* |
+| Bob · down-B (`bulkhead_drop`) | **+ a plate that throws whoever steps on it** | ⭐ none — the slam is untouched. ⚠ It throws HIM too, which is the row's point (a persistent actuator ANOTHER fighter interacts with) and not an oversight |
 
 ⛔ **If exactly one of these is wrong, it is the Officer's** — it is the only
 change that removes a way to finish a stock rather than replacing filler or

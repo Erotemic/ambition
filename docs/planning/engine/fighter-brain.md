@@ -1936,6 +1936,36 @@ The row above recording *"significant at 12 and 28 on the shipped clock"* is wha
 carries this finding — a single 12-seed run at 10 : 2 would be a result nobody
 should tune a ladder on. ⇒ **Quote the inversion with its split**, not as a bare
 `significant`.
+
+✔✔ **AND THE 28-SEED ARM WAS RE-RUN WITH ITS SPLITS THE SAME EVENING. THE
+MARGINALITY IS A RUN-LENGTH ARTEFACT, NOT A FRAGILE EFFECT.**
+
+| cell | 12 seeds | 28 seeds | majority |
+|---|---|---|---|
+| `3 vs 1` | 11 : 1, p = 0.0063 | **26 : 2, p = 3.0 × 10⁻⁶** | 91.7% → **92.9%** |
+| `5 vs 3` | 2 : 10, p = 0.0386 | **4 : 24, p = 1.8 × 10⁻⁴** | 83.3% → **85.7%** |
+| `6 vs 5` | 5 : 7, p = 0.774 | 13 : 15, p = 0.851 | 58.3% → 53.6% |
+| `9 vs 6` | 7 : 5, p = 0.774 | 17 : 11, p = 0.345 | 58.3% → 60.7% |
+
+⛔⛔ **COMPARE THE PROPORTION, NOT THE p — that is the whole trap in "significant
+at 12 and at 28".** A larger n accepts a WEAKER majority: the smallest reportable
+split is 10 : 2 (83.3%) at n=12 and 20 : 8 (**71.4%**) at n=28. So a 28-seed
+`20 : 8` would clear the line while being a materially smaller effect than the
+12-seed result it appears to confirm, and both print without a qualifier.
+⇒ **`5 vs 3` came back at 85.7%, ABOVE its 12-seed 83.3%** — more than two orders
+of magnitude clear of the line rather than one pair from it. **The inversion
+replicates and is if anything stronger than twelve seeds suggested.**
+⭐ **The two nulls behaved like nulls, which is the other half of believing this.**
+More evidence made `6 vs 5` *less* separated (58.3% → 53.6%, p = 0.851) and left
+`9 vs 6` short (60.7%, p = 0.345). A real effect concentrates with n and a coin
+regresses toward half; these did the second while the two inverted cells did the
+first.
+ⓘ **The readings were pre-registered before the run landed**, by the sibling
+session: *near 20 : 8* would have meant *"real and smaller than 12 seeds
+suggested"*, *near 23 : 5* would have been genuine corroboration, and *19 : 9*
+would have put the inversion back to unreportable at the larger n. It cleared the
+corroboration bar. ⇒ Naming those readings in advance is why this table is
+evidence rather than a number that arrived and was then interpreted.
 ⓘ `6 vs 5` and `9 vs 6` at p = 0.774 are worth naming separately: they are not
 marginal, they are 5 : 7 and 7 : 5 — a coin. *"Within spread"* has been carrying
 both *"nearly"* and *"not at all"* on this page, and these two are the second.

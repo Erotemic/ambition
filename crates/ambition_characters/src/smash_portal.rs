@@ -61,6 +61,27 @@ pub struct PortalPairParams {
     /// possible test of whether the placement seam takes an orientation at all.
     #[serde(default)]
     pub tilt_degrees: f32,
+    /// How far the PLAYER'S OWN STICK may tilt the pair, in DEGREES either way.
+    ///
+    /// ⭐⭐ THE SECOND HALF OF JON'S ASK, and the half that makes the move ours:
+    /// *"we can even exercise angled portals with directional input on the up b
+    /// as a flavor that isn't actually in smash and is ours."* [`Self::tilt_degrees`]
+    /// is the authored angle; this is the range the player controls around it,
+    /// so the same move opens a straight shaft, a lean, or a hard slant
+    /// depending on what they were holding.
+    ///
+    /// ⭐ IT REUSES THE AIM THE TELEPORT ALREADY HAS. `MovePlayback::aimed_stick`
+    /// is a LATCHED, UNDAMPED stick direction — latched because *"a player who
+    /// flicked a direction and let go has stated an aim that a read at the
+    /// transit cannot see"*, and undamped because every aimed special is rooted
+    /// and a damped read is neutral for the whole move. It is already rollback
+    /// state. ⇒ Nothing new is owned here; the portal asks the same question the
+    /// teleport asks.
+    ///
+    /// ⛔ `0.0` IS NOT AIMABLE, and it is the default, so every pair authored
+    /// before this field opens exactly where it did.
+    #[serde(default)]
+    pub aim_tilt_degrees: f32,
     /// Which indexed channel pair to use. ⭐ The PARTNER is not computed here —
     /// `PortalChannel::partner()` owns that rule, and a second copy of "the
     /// partner is `n ^ 1`" is a pairing rule with two homes.
@@ -139,6 +160,7 @@ mod tests {
             lifetime_s: 2.5,
             close_on_transit: false,
             tilt_degrees: 0.0,
+            aim_tilt_degrees: 0.0,
             channel_index: 8,
         }
     }

@@ -362,7 +362,21 @@ pub fn alice_moveset() -> MovesetContract {
             // Straight first. The angled variant is Jon's flavour and wants its
             // own commit, because it is also the cheapest test of whether the
             // placement seam takes an orientation at all.
+            // ⛔ THE BASE STAYS STRAIGHT. Her recovery must work when the
+            // player asks for nothing — an up-B that leaned by default would
+            // punish a neutral stick, which is what a panicked player holds.
             tilt_degrees: 0.0,
+            // ⭐⭐ AND THE PLAYER ANGLES IT — Jon, 2026-09-05: *"we can even
+            // exercise angled portals with directional input on the up b as a
+            // flavor that isn't actually in smash and is ours."* Hold a
+            // direction on the way out and the shaft leans that way, so the
+            // recovery covers horizontal distance as well as vertical.
+            //
+            // ⚠ 32° EITHER WAY, and the cap is doing real work: at 45° the exit
+            // normal is as horizontal as it is vertical and the pair stops being
+            // a way UP at all. This leaves the move unmistakably a recovery
+            // while giving the angle enough range to be worth aiming.
+            aim_tilt_degrees: 32.0,
             // ⛔ 8+, never 0..=7: the low eight overlap the NAMED authored pairs
             // and a room that authored that colour would find its portals linked
             // to hers.

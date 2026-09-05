@@ -409,6 +409,17 @@ on a typo. ⚠ That is the useful form of the claim: not *"six guards exist"* bu
 one remaining unreachable call is a design question rather than a spelling
 one."*
 
+✔ **ALL SIX RUN IN THE DEFAULT GATE, which is not automatic and was checked.**
+Three are pytest guards (`scripts/tests/`), which every lane keeps including
+`--rust`. The other three live in `app_it` and `content_it` in files carrying
+NO `#[cfg(feature)]`, verified by running them with no `--features` at all.
+⚠ **Worth stating because the sibling case exists**: the Yarn-interpreter
+acceptances for `boss_cleared` / `quest_active` / `can_afford` are
+`#![cfg(feature = "ui")]` and run ONLY under the exhaustive union — the right
+home, since `bevy_yarnspinner` exists only there, but it means a regression in
+those aliases passes the ordinary gate. ⇒ A guard's lane is part of what it
+guards.
+
 ✔ **AND EVERY FLOOR CLEARS ITS LARGEST SINGLE SOURCE — audited and poisoned
 2026-09-04, not assumed.** An anti-vacuity floor of "non-empty" is worthless
 when the corpus spans two files, because losing either leaves the other. Both

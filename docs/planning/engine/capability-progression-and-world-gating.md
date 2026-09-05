@@ -711,6 +711,29 @@ language.
   justify it) and makes the gear term impossible to forget rather than a thing
   the next author must remember to add in every writer. That is the change to
   make BEFORE gear, not after.
+
+  ⭐⭐ **AND THE CONCRETE SHAPE, now that both writers have been read.** The
+  formula has exactly ONE real implementation today —
+  `ambition_dev_tools/src/lib.rs:90`, `base.abilities.intersect(editable.as_engine())`
+  — and the portal pair is not a second implementation of it so much as a
+  DIFFERENT MECHANISM for the same job: suppress by overwriting the effective
+  set, restore by copying the base back.
+
+  ⇒ **The change that removes the class, rather than syncing it: the transit
+  should be a MASK, not a write.** `effective = base ∩ session_mask ∩
+  transit_mask (∪ gear)`, recomputed by one function. Then
+  `suppress_ledge_grab_during_transit` contributes a mask while the latch is
+  held, `restore_wall_abilities_after_transit` DELETES ITSELF — there is nothing
+  to restore, because nothing was overwritten — and the one-frame window where a
+  session mask is wrong closes by construction rather than by the F3 re-sync
+  catching up next frame.
+  ⚠ **The obstacle is ownership, and it is worth stating before anyone starts:**
+  `EditableAbilitySet` lives in `ambition_dev_tools`, so today the mask term is
+  owned by a dev-tools crate that `ambition_content` should not depend on. Making
+  the derivation shared means the MASK CONCEPT has to move to
+  `platformer2d_core` beside `AbilityBase`, with the dev editable becoming one
+  contributor to it rather than the definition of it. That is the actual cost of
+  this change — not the function, which is three lines.
 - How expressive should compound requirements be before they become an
   accidental scripting language?
   ⛔⛔ **NO LONGER PURELY HYPOTHETICAL — a ruling now DEPENDS on an answer that

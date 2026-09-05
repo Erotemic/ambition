@@ -79,9 +79,16 @@ def _real_quests() -> set[str]:
 
 def test_every_boss_cleared_argument_names_a_real_boss() -> None:
     asked = _authored(BOSS_CALL)
-    assert asked, (
-        "no `boss_cleared(\"…\")` call found in authored dialogue — the call "
-        "spelling this scans has changed, and an empty walk cannot fail"
+    # ⛔ A FLOOR ABOVE THE LARGEST SINGLE FILE, not above zero. `boss_cleared`
+    # is 3 calls in `kernel.yarn` and 2 in `cove.yarn`, so a non-empty check
+    # survives losing either file entirely — which is not hypothetical: a poison
+    # aimed at `kernel.yarn` alone left this green and read, for a minute, as a
+    # floor that did not work.
+    calls = sum(len(v) for v in asked.values())
+    assert calls >= 4, (
+        f"only {calls} `boss_cleared(\"…\")` call(s) across "
+        f"{len({f for v in asked.values() for f in v})} file(s) — the call spelling "
+        "this scans has changed, or a whole file stopped being read"
     )
     real = _real_bosses()
     assert len(real) >= 10, f"only {len(real)} boss id(s) found in shipped worlds"
@@ -95,7 +102,11 @@ def test_every_boss_cleared_argument_names_a_real_boss() -> None:
 
 def test_every_quest_active_argument_names_a_real_quest() -> None:
     asked = _authored(QUEST_CALL)
-    assert asked, "no `quest_active(\"…\")` call found in authored dialogue"
+    calls = sum(len(v) for v in asked.values())
+    assert calls >= 2, (
+        f"only {calls} `quest_active(\"…\")` call(s) in authored dialogue — the "
+        "call spelling this scans has changed"
+    )
     real = _real_quests()
     assert len(real) >= 5, f"only {len(real)} quest id(s) parsed from quest.rs"
     unknown = sorted(name for name in asked if name not in real)

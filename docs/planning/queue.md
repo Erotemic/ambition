@@ -956,22 +956,29 @@ The one unresolved developer-policy choice from the session-ownership work is in
   `git merge origin/main` mid-run is the same act, and in a shared tree it is the
   one you forget, because it does not feel like editing.
 
-  ⚠ **`largest_unit_lines` is 100,155 — back ABOVE the 100,000 this row
-  celebrated crossing** (re-measured 2026-09-05 at HEAD,
-  `python3 scripts/compile_ratchet.py --report-only`, which builds nothing). The
-  win is still real against the frozen baseline (108,364, so **−8,209**), and the
-  round number is not: it read 98,808 when that line was written and has since
-  taken back 1,347. ⇒ A milestone stated as a threshold goes stale in both
-  directions; the DELTA is the honest figure.
+  ⚠ **`largest_unit_lines` is back ABOVE the 100,000 this row celebrated
+  crossing.** Ask the tool for today's value —
+  `python3 scripts/compile_ratchet.py --report-only`, which builds nothing and
+  runs in seconds. The win against the frozen 108,364 is still real; the round
+  number is not.
+  ⛔ **AND THIS BULLET WENT STALE IN HALF A DAY, WHICH IS THE POINT IT WAS MAKING.**
+  It quoted 100,155 / −8,209 at 05:00 and the tool read 100,489 / **−7,875** by
+  11:00 — the crate grew under it. ⇒ The digits are removed rather than
+  refreshed: a figure that moves with every landing cannot be held correct in
+  prose, and this bullet proved that on itself while warning about it.
   ⛔⛔ **AND THIS ONE NUMBER IS NOW WRITTEN DOWN IN THREE PLACES THAT DISAGREE**,
   which is the same defect this campaign keeps finding in code, at the
   documentation layer:
 
 ```text
-  queue.md (this row, before today)              100,157   (−8,207)
+  queue.md (this row, an earlier day)            100,157   (−8,207)
   engine/actor-monolith-work-frontier.md:255     100,153   (−8,211)
-  scripts/compile_ratchet.py --report-only       100,155   (−8,209)   ← HEAD
+  this bullet, 2026-09-05 05:00                  100,155   (−8,209)
+  the tool, 2026-09-05 11:00                     100,489   (−7,875)
 ```
+
+  ⇒ **Four readings, four values, and the fourth is mine six hours after the
+  third.** Nothing here was wrong when written.
 
   Each was true on the day it was typed. ⇒ **The fix is not to sync three
   numbers — it is to stop restating one the tool prints on demand.** A figure

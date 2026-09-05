@@ -37,6 +37,7 @@ pub fn flush_portal_view_cone_debug_dump(
             Option<&Name>,
             &crate::PortalCompositingCandidate,
             Option<&GlobalTransform>,
+            Option<&RenderLayers>,
         ),
     >,
     rigs: Query<(
@@ -68,14 +69,15 @@ pub fn flush_portal_view_cone_debug_dump(
     // ⭐ The host-tagged drawables, as (name, pose, drawn z). Collected here so
     // the text builder stays a pure function of plain data and can be tested
     // without a `World`.
-    let drawables: Vec<(String, crate::PortalCompositingCandidate, f32)> = candidates
+    let drawables: Vec<(String, crate::PortalCompositingCandidate, f32, Option<RenderLayers>)> = candidates
         .iter()
-        .map(|(name, view, transform)| {
+        .map(|(name, view, transform, layers)| {
             (
                 name.map(|n| n.as_str().to_string())
                     .unwrap_or_else(|| "<unnamed>".to_string()),
                 *view,
                 transform.map(|t| t.translation().z).unwrap_or(f32::NAN),
+                layers.cloned(),
             )
         })
         .collect();
@@ -146,7 +148,7 @@ fn portal_view_cone_debug_dump_text(
         Option<&GlobalTransform>,
     )>,
     cone_visibility: &Query<(&Visibility, Option<&GlobalTransform>), With<PortalConeMesh>>,
-    drawables: &[(String, crate::PortalCompositingCandidate, f32)],
+    drawables: &[(String, crate::PortalCompositingCandidate, f32, Option<RenderLayers>)],
     screen_scale: f32,
     convention: ambition_portal2d::pieces::MapConvention,
 ) -> String {
@@ -654,7 +656,7 @@ fn write_compositing_section(
     out: &mut String,
     portal: &PlacedPortal,
     viewer_pos: Option<Vec2>,
-    drawables: &[(String, crate::PortalCompositingCandidate, f32)],
+    drawables: &[(String, crate::PortalCompositingCandidate, f32, Option<RenderLayers>)],
 ) {
     let _ = writeln!(out, "  compositing.pane_z: {:.3}", crate::PORTAL_WINDOW_Z);
     // ⛔ NEAR AND FAR ARE RELATIVE TO A VIEWPOINT. With no `PortalViewer` there
@@ -673,7 +675,7 @@ fn write_compositing_section(
         ambition_portal2d::pieces::front_distance(viewer_pos, &frame)
     );
     let mut violations = 0usize;
-    for (name, view, z) in drawables {
+    for (name, view, z, layers) in drawables {
         // ⚠ DRAWN bounds, not the collision box: the question is which pixels a
         // pane should cover, and a sprite routinely overhangs the box.
         let (min, max) = (view.drawn_centre - view.drawn_half, view.drawn_centre + view.drawn_half);
@@ -696,7 +698,23 @@ fn write_compositing_section(
         let _ = writeln!(out, "    expected_relation: {relation:?}");
         let _ = writeln!(
             out,
-            "    actual_ordering: {}",
+            "    render_layers: {}",
+            match layers {
+                Some(l) => format!("{l:?}"),
+                // ⚠ Bevy's default is layer 0, the world layer — the same one the
+                // capture reads. Saying "default(0)" rather than "none" stops a
+                // reader concluding the actor is on no layer at all.
+                None => "default(0)".to_string(),
+            }
+        );
+        // ⛔⛔ A Z COMPARISON ONLY SETTLES ORDERING IF BOTH DRAW UNDER THE SAME
+        // CAMERA ON A SHARED LAYER. The window mesh uses per-portal layers, so
+        // this line reports what the DEPTH says and marks it as such rather than
+        // claiming the composite outcome. Reading it as the outcome is the same
+        // over-claim as the z policy this whole section exists to expose.
+        let _ = writeln!(
+            out,
+            "    depth_says: {} (assumes a shared layer + camera; compare render_layers above)",
             if *z > crate::PORTAL_WINDOW_Z { "ABOVE_PANE" } else { "BELOW_PANE" }
         );
         let _ = writeln!(out, "    COMPOSITE_VIOLATION: {}", !correct);
@@ -1249,10 +1267,15 @@ mod compositing_report_tests {
         let mut out = String::new();
         // Viewer above the floor pane; the body BELOW it, overlapping, drawn at
         // the ordinary actor z.
-        let drawables = vec![("Perfect Cellular Automaton".to_string(), body_at(292.0), 11.0)];
+        let drawables = vec![(
+            "Perfect Cellular Automaton".to_string(),
+            body_at(292.0),
+            11.0,
+            None,
+        )];
         write_compositing_section(&mut out, &pane(), Some(Vec2::new(100.0, 360.0)), &drawables);
         assert!(out.contains("expected_relation: FarCovered"), "{out}");
-        assert!(out.contains("actual_ordering: ABOVE_PANE"), "{out}");
+        assert!(out.contains("depth_says: ABOVE_PANE"), "{out}");
         assert!(out.contains("COMPOSITE_VIOLATION: true"), "{out}");
         assert!(out.contains("compositing.violations: 1"), "{out}");
     }
@@ -1263,7 +1286,7 @@ mod compositing_report_tests {
     #[test]
     fn a_near_side_drawable_is_reported_as_correct_under_todays_z() {
         let mut out = String::new();
-        let drawables = vec![("Near NPC".to_string(), body_at(308.0), 11.0)];
+        let drawables = vec![("Near NPC".to_string(), body_at(308.0), 11.0, None)];
         write_compositing_section(&mut out, &pane(), Some(Vec2::new(100.0, 360.0)), &drawables);
         assert!(out.contains("expected_relation: NearOccluder"), "{out}");
         assert!(out.contains("COMPOSITE_VIOLATION: false"), "{out}");
@@ -1286,9 +1309,33 @@ mod compositing_report_tests {
     #[test]
     fn no_viewer_reports_that_it_cannot_classify() {
         let mut out = String::new();
-        let drawables = vec![("Somebody".to_string(), body_at(292.0), 11.0)];
+        let drawables = vec![("Somebody".to_string(), body_at(292.0), 11.0, None)];
         write_compositing_section(&mut out, &pane(), None, &drawables);
         assert!(out.contains("ABSENT — cannot classify"), "{out}");
         assert!(!out.contains("COMPOSITE_VIOLATION"), "{out}");
+    }
+    /// ⛔⛔ THE REPORT MUST NOT CLAIM MORE THAN A Z CAN SETTLE. A depth comparison
+    /// only decides ordering when both drawables share a camera AND a layer, and
+    /// the window mesh uses per-portal layers. So the line is `depth_says:` and
+    /// carries its own caveat, and the layer is printed beside it.
+    ///
+    /// ⚠ This is the same over-claim as the z policy the section exists to
+    /// expose, one level up: asserting an outcome from one of the two facts that
+    /// decide it.
+    #[test]
+    fn the_report_qualifies_what_a_depth_comparison_can_settle() {
+        let mut out = String::new();
+        let drawables = vec![("Somebody".to_string(), body_at(292.0), 11.0, None)];
+        write_compositing_section(&mut out, &pane(), Some(Vec2::new(100.0, 360.0)), &drawables);
+        assert!(out.contains("depth_says:"), "{out}");
+        assert!(out.contains("assumes a shared layer + camera"), "{out}");
+        assert!(
+            out.contains("render_layers: default(0)"),
+            "an absent RenderLayers is Bevy's layer 0, not 'no layer': {out}"
+        );
+        assert!(
+            !out.contains("actual_ordering"),
+            "the unqualified claim must be gone: {out}"
+        );
     }
 }

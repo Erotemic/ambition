@@ -18,6 +18,29 @@ Make engine composition reflect what a game actually chooses to use.
 ## The first measured baseline for this goal (2026-09-04)
 
 ⭐ **ONE RUNTIME FILE INITIALISES 40 RESOURCES BELONGING TO 14 OTHER CRATES.**
+
+⚠ **RE-MEASURED 2026-09-05: it is 37 across 12 now** (38 `init_resource` calls,
+one of which is the runtime's own `crate::`). The shape is unchanged and the
+baseline below still reads correctly; the digits moved because carves landed, so
+RE-RUN the count rather than quoting it. ⭐ What the recount adds is the
+per-crate breakdown, which is what actually sizes a first pilot:
+
+```text
+10  ambition_platformer2d_shared_tangle      3  ambition_platformer2d_actor_monolith
+ 5  ambition_time                            3  ambition_combat
+ 4  ambition_persistence                     2  ambition_encounter
+ 3  ambition_platformer2d_world              1  each: projectiles, core, items, input, gameplay_trace
+```
+
+ⓘ ⇒ **`ambition_encounter` is the cheapest non-trivial pilot at two resources**
+(`switches::SwitchActivationQueue`, `switches::EncounterSwitchIndex`), and
+`shared_tangle` at ten is the one that would prove the pattern.
+⛔ **But a pilot is only elegance if something can then DECLINE the capability.**
+Moving two `init_resource` lines into a plugin the runtime adds unconditionally
+relocates code and removes no authority — the test this program sets is whether
+the capability can be INSTALLED ALONE, so the pilot must come with a composition
+that omits it, or it is churn. Recorded as a sizing, not as a proposal.
+
 `crates/ambition_platformer2d_runtime/src/sim_core_resources.rs` calls
 `init_resource` forty times, and `lib.rs` adds fifty-two plugins. That is the
 runtime acting as the semantic owner of every capability's state — the failure

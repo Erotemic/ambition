@@ -520,6 +520,30 @@ error the suite is written against.
   [question 38](../awaiting-maintainer-decision.md), and that row is now costed
   against this road rather than against a blank page.
 - Which durable relationships require stable IDs across a fresh process?
+  ⭐⭐ **MEASURED 2026-09-05 — and the answer inverts the question.** The durable
+  relations are two, both keyed by `SimId` STRINGS:
+  `PersistedCustody { occurrence, custodian }` (a SimId→SimId relation) and
+  `PersistedOccurrence { id, whereabouts }` (a SimId → whereabouts that also
+  carries a room NAME).
+  ⇒ **Neither needs its id to be RE-DERIVABLE across a process, because the id is
+  PERSISTED.** The row stores the string; a load reads the relation back rather
+  than re-minting either end.
+
+  ⇒ **What must be stable is the one id reconstructed from CONTENT rather than
+  from the save: the authored placement.** Everything else already has a
+  discipline, and each states its reason in place (`sim_id.rs`):
+
+| flavour | how it is made | why it survives |
+|---|---|---|
+| `placement` | authored — an LDtk iid, a `FeatureId`, an actor config id | it is content, and question 57 just moved a boss's from an LDtk iid to an AUTHORED encounter id |
+| `spawned` | `(spawner, per-spawner counter)` | *"never from a global one: a global counter couples two unrelated spawners"* |
+| drop | DERIVED from `(parent, kind)` | *"a counter is rollback state and a derivation is not, so this stays stable across a rewind for free"* |
+
+  ⇒ So the open half is narrow: **an authored id that changes breaks every
+  durable row keyed by it, and nothing checks that authored ids are stable across
+  content edits.** That is the same exposure #57 closed for one boss by giving
+  the placement a name an author chose — and it is unclosed for every other
+  authored id a durable row can hold.
 - What exact peer barrier authorizes an external/P2P lifecycle commit once real
   transport exists?
 

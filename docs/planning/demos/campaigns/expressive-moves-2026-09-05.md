@@ -1207,10 +1207,37 @@ hazard in it was being triaged as though it were reachable.
 
 ### Track A — the keystone
 
-- ▢ **A1. `TechniqueFlow` minimum**: `emit` / `wait` / `branch` / `finish`,
-  slots, and the `MovePlayback` extension (current node, latches, issued-event
-  bookkeeping, timeouts, symbolic slots). ⛔ No variables, arithmetic,
-  expressions, ECS queries, or blackboard.
+- ◐ **A1. `TechniqueFlow` minimum** — ⭐⭐ **THE ENGINE HALF WAS ALREADY BUILT,
+  AND THE ROW'S ▢ WAS THE LAST STALE ONE ON THIS PAGE. Measured 2026-09-05.**
+  `FlowNode::{Emit, Wait, Branch, Finish}` and `FlowSignal::{Overlapped,
+  Connected, Blocked}` are in `ambition_entity_catalog`; `MovePlayback` carries
+  `flow_node` and `flow_wait_s`; `advance_move_playback` executes it with a hard
+  step budget (*"one visit per node per tick lets every straight-line flow
+  complete and stops every cycle"*), on proper time, owning its cursor and
+  nothing else. ⭐ **Rollback is free**: `actor.move_playback` is
+  `component-clone-resolved`, so a clone snapshot restores the cursor with no
+  codec and no schema bump.
+  - ⛔ **What it had was NO AUTHORED CUSTOMER — the thirteenth on this page, and
+    the keystone itself.** ✔ **Fixed: the Shadow Oni's `iaijutsu` is the game's
+    first flow.** Wait for the swing to touch anything, branch on whether a guard
+    ate it, and if so spend his own teleport. ⇒ **Block it and he is already
+    gone; don't block it and you eat 11 and a launch.** A shielded dash used to
+    leave him in front of a guard with 0.30s of recovery, and the only fix
+    available before a flow was to make the move safe for everybody — which is a
+    worse move. **That is the thing a timeline cannot say**, and it is the
+    attacker-side answer to a block that B1's defender-side half could not give.
+  - ▢ **Symbolic slots are the one part genuinely absent** — zero matches. The
+    four nodes and the three signals are all shipped.
+  - ⛔⛔ **AND THE GUARD TOOK THREE ATTEMPTS, EACH DEFECT INVISIBLE TO A
+    NEGATIVE-ONLY ASSERTION.** (1) With only the escape observable, poisoning the
+    timeout to never fire left the test GREEN — *"the escape did not fire"* is
+    equally true of a flow that timed out correctly and one FROZEN at the wait.
+    (2) Giving each road its own marker revealed the fixture ran **one tick**,
+    0.05s against a 0.20s patience, so the whiff arm was unreachable. (3) Fixing
+    that revealed `Messages` are double-buffered — an effect emitted on tick 1 is
+    gone by tick 8, so reading once at the end saw nothing. ⇒ **Three fixture
+    defects in a row, and every one of them satisfied "the escape did not
+    fire".** A branch is only tested when each road has a POSITIVE observable.
 - ◐ **A2. Input lease** — ⭐⭐ **THE SUBSTRATE IS ALREADY BUILT AND ALREADY
   ROLLBACK-SAFE; WHAT IS MISSING IS A SECOND DRIVER FOR IT.** Read 2026-09-05,
   and this row was written before that read:

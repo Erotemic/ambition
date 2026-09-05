@@ -9022,3 +9022,164 @@ fn an_authored_gravity_beat_reaches_the_movement_policy_and_outlives_the_move() 
          in a 0.3s animation has to hold its owner up afterwards"
     );
 }
+
+/// ⭐⭐ A FLOW BRANCHES ON WHAT HAPPENED — the claim the whole `TechniqueFlow`
+/// rung exists for, driven through the real `advance_move_playback`.
+///
+/// The catalog-side tests prove the vocabulary parses and validates; the ninja's
+/// own test proves the flow is AUTHORED with the right signal. ⛔ Neither asks
+/// the engine anything, and "the request exists" is the exact question that cost
+/// three moves their damage earlier today. ⇒ This asserts the OUTCOME: a blocked
+/// strike emits the escape and a connected one does not.
+///
+/// ⭐ ALL THREE ARMS, because a branch with one arm tested is a branch nobody has
+/// checked. Blocked escapes; connected does not; a whiff that never overlaps does
+/// not either — and the third is the one a timeout could silently break.
+#[test]
+fn a_flow_takes_the_blocked_road_and_only_the_blocked_road() {
+    use ambition_entity_catalog::{EffectRef, FlowNode, FlowSignal, ParamValue, TechniqueFlow};
+
+    const ESCAPE: &str = "test.escape";
+    const CONNECTED: &str = "test.connected";
+    const WHIFFED: &str = "test.whiffed";
+
+    let flowed = |contact: (bool, bool, bool)| -> Vec<String> {
+        let mut spec = swat();
+        spec.duration_s = 2.0;
+        spec.flow = Some(TechniqueFlow {
+            // ⛔⛔ EVERY ROAD EMITS ITS OWN MARKER, and the first version of this
+            // test did not. With only the escape observable, the WHIFF arm
+            // asserted "the escape did not fire" — which is equally true of a
+            // flow that timed out correctly and of one STUCK at the wait
+            // forever. ⇒ Poisoning the timeout to never fire left the test
+            // GREEN. A distinct marker per road makes the three outcomes
+            // distinguishable, which is the only thing that makes the third arm
+            // an assertion rather than a coincidence.
+            nodes: vec![
+                FlowNode::Wait {
+                    on: FlowSignal::Overlapped,
+                    timeout_s: 0.20,
+                    then: 1,
+                    on_timeout: 4,
+                },
+                FlowNode::Branch {
+                    on: FlowSignal::Blocked,
+                    then: 2,
+                    otherwise: 3,
+                },
+                FlowNode::Emit {
+                    effect: EffectRef {
+                        key: ESCAPE.to_string(),
+                        params: ParamValue::default(),
+                    },
+                    then: 5,
+                },
+                FlowNode::Emit {
+                    effect: EffectRef {
+                        key: CONNECTED.to_string(),
+                        params: ParamValue::default(),
+                    },
+                    then: 5,
+                },
+                FlowNode::Emit {
+                    effect: EffectRef {
+                        key: WHIFFED.to_string(),
+                        params: ParamValue::default(),
+                    },
+                    then: 5,
+                },
+                FlowNode::Finish,
+            ],
+        });
+
+        let mut app = App::new();
+        app.insert_resource(
+            ambition_characters::actor::character_catalog::CharacterCatalog::empty(),
+        );
+        app.init_resource::<crate::authored_volumes::AuthoredAttackVolumeResolver>();
+        app.add_message::<HitEvent>();
+        app.add_message::<crate::hitbox::LandedBodyHit>();
+        app.add_message::<crate::hitbox::ParriedBodyHit>();
+        app.add_message::<ambition_sfx::OwnedSfxMessage>();
+        app.add_message::<VfxMessage>();
+        app.add_message::<DebrisBurstMessage>();
+        app.add_message::<MoveEventMessage>();
+        app.add_message::<ambition_vfx::vfx::VfxMessage>();
+        app.init_resource::<WorldTime>();
+        app.world_mut().resource_mut::<WorldTime>().scaled_dt = 0.05;
+        app.world_mut().resource_mut::<WorldTime>().raw_dt = 0.05;
+        app.add_systems(Update, advance_move_playback);
+
+        let mut playback = MovePlayback::new(spec, 1.0);
+        playback.landed_hit = contact.0;
+        playback.connected_hit = contact.1;
+        playback.blocked_hit = contact.2;
+        app.world_mut().spawn((
+            ae::BodyKinematics {
+                pos: ae::Vec2::new(100.0, 100.0),
+                size: ae::Vec2::new(15.0, 24.0),
+                facing: 1.0,
+                ..Default::default()
+            },
+            ActorFaction::Enemy,
+            playback,
+        ));
+        // ⛔ ENOUGH TICKS TO REACH THE TIMEOUT — 8 x 0.05s against a 0.20s
+        // patience. The first version ran ONE update, so the whiff road was
+        // unreachable and "the escape did not fire" was true for a reason that
+        // had nothing to do with the branch. A fixture that cannot reach an arm
+        // is not testing that arm.
+        //
+        // ⛔⛔ AND THE HARVEST IS PER TICK, NOT AT THE END. `Messages` are
+        // double-buffered: an effect emitted on tick 1 is GONE by tick 8, so
+        // reading once at the end saw an empty list and reported that the
+        // blocked road was never taken. ⇒ Two fixture defects in a row, both of
+        // which a negative-only assertion would have swallowed — "the escape did
+        // not fire" is satisfied by a flow that never ran, by a fixture that
+        // cannot reach the arm, AND by a harvest that threw the answer away.
+        let mut seen: Vec<String> = Vec::new();
+        for _ in 0..8 {
+            app.update();
+            let messages = app.world().resource::<Messages<MoveEventMessage>>();
+            let mut cursor = messages.get_cursor();
+            seen.extend(cursor.read(messages).filter_map(|m| match &m.kind {
+                ambition_entity_catalog::MoveEventKind::Effect(effect) => Some(effect.key.clone()),
+                _ => None,
+            }));
+        }
+        seen
+    };
+
+    // BLOCKED: overlapped and blocked. The escape fires.
+    assert!(
+        flowed((true, false, true)).contains(&ESCAPE.to_string()),
+        "a BLOCKED strike did not take the escape road — the flow's whole \
+         purpose is that a shielded move is not a free punish"
+    );
+    // CONNECTED: overlapped, not blocked. The escape must NOT fire.
+    let connected = flowed((true, true, false));
+    assert!(
+        connected.contains(&CONNECTED.to_string()),
+        "a CONNECTED strike took neither road ({connected:?}) — the branch did \
+         not resolve at all"
+    );
+    assert!(
+        !connected.contains(&ESCAPE.to_string()),
+        "a CONNECTED strike escaped too, so the move is safe on everything \
+         rather than safe on shield — the branch is not reading `Blocked`"
+    );
+    // WHIFF: nothing overlapped at all. ⛔ THE POSITIVE ASSERTION IS THE REAL
+    // ONE — the timeout road must be TAKEN, not merely "the escape did not
+    // happen", which a flow frozen at the wait satisfies just as well.
+    let whiffed = flowed((false, false, false));
+    assert!(
+        whiffed.contains(&WHIFFED.to_string()),
+        "a WHIFF never reached the timeout road ({whiffed:?}) — the flow is stuck \
+         at the wait, and a fighter stuck in a special is what the mandatory \
+         timeout exists to prevent"
+    );
+    assert!(
+        !whiffed.contains(&ESCAPE.to_string()),
+        "a WHIFF reached the escape, so a swing that touched nothing is unpunishable"
+    );
+}

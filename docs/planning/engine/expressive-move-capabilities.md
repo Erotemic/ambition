@@ -198,6 +198,27 @@ fits the rollback contract that was already there.
 ⇒ For something that outlives the move — C4, a planted mine — **the entity keeps
 the occurrence identity**. The completed `MovePlayback` does not own it.
 
+### A "sole writer" claim has a blind spot, and it has a boundary
+
+⚠ **ToothbrushAmbition, 2026-09-05, and it is worth carrying:** *"the rollback
+codec is a writer of nearly every registered field and never appears in a grep
+for assignments."* A codec builds a struct LITERAL on decode, so
+`grep 'x.field ='` cannot see it. They found this by sealing a field and letting
+the compiler name the writer their sizing grep had missed.
+
+⇒ **So every "this is the only writer" comment about a COMPONENT FIELD in a
+rollback-registered type is suspect until `snapshot_impls` has been read.** I
+have written several such comments in the combat crates and I am not claiming to
+have audited them; the honest form is *"the only writer OUTSIDE the codec"*.
+
+⭐ **The boundary, checked rather than assumed:** the caution does NOT reach
+MESSAGE publications. A message is registered with `clear_message_on_rollback`,
+which clears a buffer; no codec constructs one, and
+`grep 'ParriedBodyHit|BlockedBodyHit' crates/*/src/snapshot_impls.rs` is empty.
+⇒ `ParriedBodyHit`'s and `BlockedBodyHit`'s "written here and nowhere else" hold
+as written. **Component field: check the codec. Message: the claim is about
+publication, and the codec does not publish.**
+
 ## The capability inventory
 
 Jon's assessment of where the tree stands, 2026-09-05. ⓘ Recorded as **his

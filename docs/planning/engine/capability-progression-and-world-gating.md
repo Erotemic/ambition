@@ -279,7 +279,27 @@
 > nothing: a technique or placement PARAMETER MODE can be fully built, guarded
 > and rollback-registered while every authored customer leaves it off. Two turned
 > up by accident in one day — `TeleportParams::behind_nearest_foe` and Sing's
-> engine — which is what the census is for. At `c9edaf545`:
+> engine — which is what the census is for.
+>
+> ⛔⛔ **AND THE SENTENCE ABOVE IS BROADER THAN THE INSTRUMENT UNDER IT. The census
+> counts BOOL fields.** A mode expressed as an `Option<T>` — authored or not — is
+> invisible to it, and MEASURED 2026-09-05 there are **154 `Option<T>` fields on
+> the very same structs** against the census's 88 bools. The unmeasured slice is
+> LARGER than the measured one.
+>
+> ⚠ **This is not a claim that 154 modes are dormant** — most authored `Option`s
+> are data (a name, an override, a sheet) rather than a mode, and nothing here has
+> counted which. It is a statement of what the number below does NOT cover, so the
+> row's general claim and its bounded evidence stop being read as the same size.
+>
+> ⭐ **A census is a statement about its PREDICATE as much as its corpus**, and the
+> predicate is the half that reads as the question rather than as an input to it.
+> Every earlier correction to this instrument was a POPULATION or a PATTERN; this
+> one is the definition. (The lesson is the fighter lane's, from a census that
+> called a fighter plain because its predicate omitted `VolumeReaction` — a move
+> that session had authored itself.)
+>
+> At `c9edaf545`:
 >
 > ```text
 > technique/placement bool modes   88        (at 9036cda18, re-measured 2026-09-05)

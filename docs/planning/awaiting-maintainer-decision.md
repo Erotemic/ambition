@@ -1235,6 +1235,18 @@ that produced this row.
 ⇒ So the population is *"at least one, and unbounded by anything I have run"*.
 A sweep that cannot find its own worked example is not evidence of absence.
 
+⭐ **THE RIGHT INSTRUMENT ALREADY EXISTS AND HAS NO SUCH BLIND SPOT.** Bevy's
+`conflicting_systems()` reports every unordered pair that touches the same data,
+however each side was triggered — a message, a queue, or a resource — so pointing
+it at `AmbitionGameSave`'s `ComponentId` counts exactly the pairs that can write
+the save in either order. The fighter lane already runs this shape against
+`Messages<StocksMatchDecided>` in `combat_schedule.rs`'s `mod tests`, and
+`ambiguity_detection: LogLevel::Ignore` gates only the LOGGING, so the list is
+readable even though the sim silences the report.
+⇒ **That census is the thing to run before ruling this row** — it turns *"at
+least one"* into a number, and a number decides whether the answer is an edge or
+a rule.
+
 ⇒ **THE DECISION IS WHERE THE EDGE LIVES, and it is a boundary question rather
 than a local one.**
 - **Content orders itself after the engine** — `capture_falling_sand_switch_interactions

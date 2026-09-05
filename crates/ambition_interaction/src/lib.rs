@@ -15,7 +15,8 @@ use bevy_math::bounding::Aabb2d as Aabb;
 /// A player-facing interaction trigger.
 ///
 /// ⛔ `requires_facing` IS READ BY NOTHING. Measured 2026-09-05: it is authored
-/// on [`InteractableSpec`], threaded into this component by `spawn_static.rs`,
+/// on `InteractableSpec` (in `ambition_entity_catalog`, so not linkable from
+/// here), threaded into this component by `spawn_static.rs`,
 /// set explicitly by content (`cut_rope/victory.rs`), and consulted by no
 /// production code — so an interactable that declares it must be faced can be
 /// used from behind. The THIRD field in this crate with that shape, after

@@ -394,7 +394,7 @@ at the FACT.
 
 ⛔⛔ **AND THE FIFTH ONE LANDED ON A DEFECT THAT WAS ALREADY LIVE, which none
 of the other four did.** `boss_cleared("mockingbird")` — five authored calls —
-passes the BEHAVIOR id while `systems.rs:259` writes the save under the
+passes the BEHAVIOR id while `boss_encounter/src/systems.rs:259` writes the save under the
 PLACEMENT (`BossSpawn-4308`). Exact lookup, no bridging, so those branches have
 never been able to open. ⇒ Filed as question 57 rather than repaired: making
 the dialogue pass `BossSpawn-4308` puts an LDtk-generated identifier into an

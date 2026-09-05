@@ -1226,7 +1226,7 @@ this is pre-existing rather than fallout from today's migration.** Measured
 
 ```text
 authored (kernel.yarn, 5 calls)   boss_cleared("mockingbird")     <- BEHAVIOR id
-written  (systems.rs:259)         set_boss(&runtime_id, Cleared)
+written  (boss_encounter/src/systems.rs:259)         set_boss(&runtime_id, Cleared)
                                   runtime_id = feature.config.id  <- PLACEMENT id
 placement in sandbox.ldtk         BossSpawn-4308   name "Mockingbird"
                                                    brain PhaseScript:mockingbird
@@ -1261,7 +1261,23 @@ authored vocabulary uses. Three options, and they differ in what they cost:
 ⚠ **And decision #56 is entangled with this one**: it asks whether a replay
 should retract a defeat, and the answer there is easier to state per-placement
 than per-archetype. ⇒ Worth answering together, and #57 probably first, because
-it decides what "the boss" names.
+**"retract the defeat" is not answerable until "the defeat of WHAT" is.**
+
+⭐⭐ **THE UNDERLYING QUESTION IS CARDINALITY, not naming** — offered by
+`YardratAmbition`, who hit the same shape in the fighter surface the same day
+and it is the sharpest framing of this decision. Behavior-id versus
+placement-id is **one behavior, N placements**, exactly as their finishing-zoom
+trigger is one verdict versus N per-fighter eliminations: `FighterStockSpent`
+means "the finishing blow" in a 2-fighter match and "every elimination" in a
+4-fighter one. ⇒ **Any answer that says "the boss" without saying which
+cardinality it means will be ambiguous again at the next N > 1**, and `sandbox`
+authoring `mode_collapse_boss` at two placements is the case that makes that
+undeniable rather than theoretical.
+⇒ Their precedent, if it helps: they chose the COARSER fact deliberately
+(`StocksMatchDecided`, reading `MatchVerdict::winner()`) and said so in the
+type, so a `Draw` and a `NoContest` get no victory beat. The equivalent here is
+to decide whether `boss.cleared` is a question about a FIGHT or about a
+PLACEMENT, and to make the type say which.
 
 ⓘ The sibling alias is FINE: `quest_active("pirate_treasure")` names a real
 quest id (`quest.rs:37`), so this is specific to bosses rather than to the

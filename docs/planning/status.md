@@ -22,6 +22,7 @@ run, not carried forward:
 | `examples/capability_demo` | **21 passed / 0 failed** | its rollback round trip had been dying in Bevy on frame one; `GgrsBackendPlugin` (`fa8656028`) closed six faults at once |
 | actor monolith lib | **1075 passed / 1 ignored** (re-measured 2026-09-04 late) | `cargo test -p ambition_platformer2d_actor_monolith --lib` |
 | `ambition_platformer2d_shared_tangle` lib | **252 passed** (re-measured 2026-09-04 late) | same shape |
+| whole-workspace nextest | **7,187 run / 7,187 passed / 0 failed / 33 skipped** (2026-09-05, 342 s, `[lane: cargo nextest run --workspace]`) — run AFTER the day's two field seals (`EncounterLifecycle::phase`, `AmbitionGameSaveData`'s fourteen fact fields) and their ~90 rewritten call sites | ⚠ the binaries were compiled before the last doc commits and before `every_durable_family_is_reported_under_its_own_name` was added, so that test is NOT in this 7,187 — it was verified separately at `cargo test -p ambition_persistence --lib`, 121 passed / 0 failed |
 | absence + dependency contracts | **38 of 38 hold** | `scripts/check_absence_contracts.py` |
 | capability footprint | **51 crates linked, 23 a movement-only game never asked for** | the ratchet's own line |
 | rollback wire format | **v152** (bumped with the parry work, 2026-09-05) — for the stable-name and encoded-type counts ASK the checker; they move with every registration and this row has carried 409, 410 and 412 on three different days | the same checker |

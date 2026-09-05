@@ -895,37 +895,45 @@ The one unresolved developer-policy choice from the session-ownership work is in
   `cargo nextest run --workspace` job, `FAILED` in the union job. Both modules
   are plain `#[cfg(test)]`, NOT feature-gated, so they genuinely execute in both;
   this is a behavioural difference, not a "did not run".
-  ⛔⛔ **THE CAUSE IS NOT YET KNOWN, and a first diagnosis was RETRACTED the same
-  evening — recorded because the retraction is the useful part.** I read the diff,
-  found that `7b0418faf` folded three loose `MessageWriter` params into
+  ✔✔ **CAUSE MEASURED 2026-09-05, and the panic names itself:**
+
+```text
+  Encountered an error in system `ambition_combat::hitbox::apply_hitbox_damage`:
+  Parameter `StrikeOutcomeWriters<'_>::parried` failed validation: Message not initialized
+```
+
+  `7b0418faf` folded three loose `MessageWriter` params into
   `StrikeOutcomeWriters` and added a FOURTH (`parried:
-  MessageWriter<ParriedBodyHit>`), saw that the failing tests hand-list exactly
-  the three that existed (`hurtbox_damage_tests.rs:71-73`, then
-  `add_systems(…, apply_hitbox_damage, …)` directly), and sent it to the fighter
-  lane as *"evidence-backed by the diff"*.
-  ⇒ **It cannot be the cause: the new field carries no `#[cfg]`, so it is
-  demanded in EVERY build.** A mechanism that is always active cannot explain a
-  failure that is feature-conditional. The diff half was right; the SUFFICIENCY
-  half was never checked.
-  ⚠ A second candidate died to one read as well: `causal` is on in the union and
-  off by default, and `BodyHitResolved` is `#[cfg(feature = "causal")]` — a
-  perfect fit, except it is written `Option<MessageWriter<…>>`
-  (`ambition_damage/src/lib.rs:470`), and an `Option` writer yields `None` for an
-  unregistered message instead of panicking.
-  ⇒ ⭐ **THE RULE THIS COST: when a failure is CONDITIONAL, the condition is the
-  fact with the most information in it.** Any candidate must explain why it
-  DIFFERS between the lanes, not merely why something breaks. "Green at default"
-  was treated as a loose end instead of as the constraint that eliminates
-  candidates.
-  ✔ **What survives:** the hand-listed registration fragility is real — a
-  hand-listed set of dependencies is a POPULATION, and adding to the SOURCE does
-  not update the LISTS, with no help from the compiler because an unregistered
-  message is a runtime panic. The registration site's own comment predicted that
-  shape: *"a message registered beside one of them panics the other."* It simply
-  is not what flipped these nine red.
-  ⚠ The panic text is SWALLOWED (`Encountered a panic in system Main::run_main!`
-  is all the log carries), so only a local `--all-features` reproduction has it.
-  Pending on this box.
+  MessageWriter<ParriedBodyHit>`). The failing tests build their app by
+  HAND-LISTING exactly the three that existed
+  (`hurtbox_damage_tests.rs:71-73`) and then `add_systems(…,
+  apply_hitbox_damage, …)` directly, so the fourth writer has no registration.
+  ⇒ **A hand-listed set of dependencies is a POPULATION, and adding to the SOURCE
+  does not update the LISTS** — with no help from the compiler, because this is a
+  runtime param validation. The registration site's own comment predicted the
+  shape: *"a message registered beside one of them panics the other, which is a
+  crash this repository has already shipped once."*
+
+  ⛔⛔ **AND THE "PASSES AT DEFAULT, PANICS UNDER THE UNION" ASYMMETRY WAS AN
+  ARTIFACT OF MY OWN TREE CHURN — this is the methodological finding.** I read it
+  off union #1 and it made me RETRACT the correct diagnosis, because a mechanism
+  with no `#[cfg]` cannot explain a feature-conditional failure. It never was
+  feature-conditional:
+
+```text
+  union #1 HEAD  bf748dd5a   committed 00:18:04
+  the parry/counter/riposte commits    00:43:26 – 00:43:31
+```
+
+  That run took ~5 hours and I merged `origin/main` into the tree repeatedly
+  while it ran. ⇒ **Its nextest job tested a tree WITHOUT those commits and its
+  feature-union job tested one WITH them.** Two trees, one receipt, and the
+  difference read exactly like a feature interaction.
+  ⚠ Union #2 confirms it: the same nine fail in the DEFAULT-features job, and
+  only docs commits landed during that run.
+  ⇒ ⭐ **"Do not edit while the suite runs" was never only about MY edits.** A
+  `git merge origin/main` mid-run is the same act, and in a shared tree it is the
+  one you forget, because it does not feel like editing.
 
   ⚠ **`largest_unit_lines` is 100,155 — back ABOVE the 100,000 this row
   celebrated crossing** (re-measured 2026-09-05 at HEAD,

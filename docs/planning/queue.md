@@ -3061,7 +3061,22 @@ queue read as an execution authority for work already done.
   the consumer lives in. ⇒ **Two genuinely open seams remain, not three.**
   ⓘ The superseded line read:
   `P11`'s **hit-grab** — nothing raises `CaptureAttemptRequested` from a landed
-  hit; `P10`'s **tech result** — presentation only, because the AI half is
+  hit; ◐ **`P10`'s tech result ALSO came off this list 2026-09-04**, and by the same
+  road as the hit-grab: the fact is published AND already spent. `MovementOp::Tech`
+  drives `PLAYER_TECH` and a particle burst through `movement_fx.rs`, plus a
+  `"TC"` trace glyph and a test. ⛔ The row's *"nothing publishes a tech happened
+  here"* came from a search of `ambition_sim_view`, `ambition_render` and
+  `ambition_vfx` — and the fact lives in `ambition_platformer2d_core` and the
+  actor monolith, neither of which was searched. ⇒ **A search space is a
+  denominator**, and this is the third row today whose "absent" was a population
+  error rather than a finding. ⭐ The precise residue is smaller and is the thing
+  the row's own title asks for: all three surfaces — wall, ceiling, floor —
+  emit ONE variant, so the *result vocabulary* is undifferentiated by
+  construction. ⚠ Not a defect: the FX module says *"a tech is the crisp recovery
+  that refused it"*, one beat for the concept, which is a feel decision rather
+  than an oversight. ⇒ **ONE genuinely open seam remains: the tether.**
+  ⓘ The superseded line read: `P10`'s **tech result** — presentation only,
+  because the AI half is
   deliberately absent under the no-cheat rule and publishing it would be a cheat;
   and ⇒ **`P14`'s finish-zoom is NO LONGER on this list: it is a READY packet, not
   a missing seam (re-derived 2026-09-04).** This row and the inventory both said

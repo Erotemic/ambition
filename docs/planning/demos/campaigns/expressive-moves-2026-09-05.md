@@ -547,11 +547,18 @@ The goal's own complaint has been argued from readings all campaign. ⇒ Measure
 from the authored DATA — a special is expressive when it carries a technique, a
 stance, a flow, or a gravity regime; a strike with cues is not:
 
-**15 expressive, 4 plain** — alice, bob, carl_stargan, goblin, the ninja, emmy,
-patent_clerk, pirate_admiral, player_robot, author, medic, officer, performer,
-projectile_polygon, pugnacious_polygon ⇒ against cellular_automaton, oiler,
-pointed_polygon, and `theorem_chain` (which is the DUEL ARENA's robot, not a
-smash fighter).
+**17 expressive, 2 plain** — and one of the two is `theorem_chain`, the DUEL
+ARENA's robot. ⇒ **Exactly ONE smash fighter has plain specials: Oiler.**
+
+⛔⛔ **AND THE FIRST VERSION OF THIS CENSUS SAID FOUR, BECAUSE MY OWN DEFINITION
+WAS TOO NARROW.** It counted techniques, stances, flows and gravity regimes — and
+**not `VolumeReaction`**. So it called the cellular automaton plain while its
+`generation_collapse` autolinks victims into one cell, which is the most
+characterful move that fighter has and which I authored myself earlier in this
+campaign. Same for the pointed polygon. ⇒ **I was one step from authoring a
+second mechanic for a fighter that already had one, on the strength of my own
+guard's definition.** A census is a statement about its predicate as much as its
+corpus, and the predicate is the half I keep writing and not auditing.
 
 ⛔ **IT IS A RATCHET, NOT A TARGET.** Asserting every fighter must be expressive
 would be a design claim nobody has made — a plain-strike brawler is legitimate.

@@ -320,7 +320,7 @@ mod expressiveness_census {
 
         /// The floor, raised deliberately as fighters gain techniques. Bumping it
         /// is a decision; watching it silently fall is the failure.
-        const FLOOR: usize = 15;
+        const FLOOR: usize = 17;
 
         let mut expressive: Vec<&str> = Vec::new();
         let mut plain: Vec<&str> = Vec::new();
@@ -338,7 +338,21 @@ mod expressiveness_census {
                     return false;
                 }
                 mv.flow.is_some()
-                    || mv.windows.iter().any(|w| w.sustain_effect.is_some())
+                    || mv.windows.iter().any(|w| {
+                        w.sustain_effect.is_some()
+                            // ⛔⛔ A VOLUME REACTION IS EXPRESSIVE AND THIS TEST
+                            // SAID IT WAS NOT. `VolumeReaction::{Autolink,
+                            // Windbox}` change what a hit DOES — a gather, a
+                            // shove — and the first version of this census
+                            // counted only techniques, stances, flows and
+                            // gravity. ⇒ It called the cellular automaton plain
+                            // while its `generation_collapse` autolinks victims
+                            // into one cell, which is the most characterful move
+                            // on that fighter. I was one step from authoring a
+                            // second mechanic for a fighter that already had one,
+                            // on the strength of my own guard's definition.
+                            || w.volumes.iter().any(|v| v.reaction.is_some())
+                    })
                     || mv.events.iter().any(|e| {
                         matches!(
                             e.kind,

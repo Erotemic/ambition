@@ -3675,8 +3675,16 @@ OPTIONAL dep + feature, never used:
   nothing in the whole crate directory names it (not `src/`, not tests, not
   `build.rs`), so no feature combination can need it; `cargo check -p
   ambition_platformer2d --all-targets` is clean; the workspace no-warnings gate
-  is clean; and the capability footprint is UNCHANGED at 47/20, which is the
-  row's own claim about redundancy holding up under measurement.
+  is clean; and the capability footprint DID NOT MOVE, which is the row's own
+  claim about redundancy holding up under measurement.
+  ⚠ **The "47/20" this sentence used to quote does not match the baseline it was
+  quoting** — `scripts/baselines/capability-footprint-baseline.json` reads
+  `closure_size: 51`, `never_asked_for_count: 23`, and its own `measured_on` is
+  the same 2026-09-03. ⇒ Whichever pair was right, a reader could not tell, so
+  the DIGITS are removed rather than corrected: the claim that matters here is
+  *"the ratchet did not move"*, and the numbers have exactly one home. Read them
+  from the baseline, which `check_absence_contracts.py` holds against the live
+  tree on every repo-coupled run.
   ✔ **THE FIVE OPTIONAL EDGES ARE STILL THERE AND STILL UNUSED — re-verified
   2026-09-03 late**, on a tree ~90 commits past the original measurement and
   after five carves, which is exactly when a "never used" claim is most likely

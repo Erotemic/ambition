@@ -285,11 +285,10 @@
 > technique/placement bool modes   88        (at 9036cda18, re-measured 2026-09-05)
 >   LIVE      set true in content  59
 >   ALWAYS ON defaults true, unset  7
->   DORMANT   default false, never  6
->   UNNAMED   never mentioned       2
->   ENGINE-SET set by code not content 4
->   DERIVED   assigned from an expression 10
+>   DORMANT   default false, never 18
+>   UNNAMED   never mentioned       4
 >   EXCLUDED  settings/budgets/dev 13        (now REPORTED, see below)
+>   (13 of the 22 carry a POINTER: the name is written elsewhere in the tree)
 > ```
 >
 > ⛔⛔ **THE FIRST RUN OF THIS CENSUS SPOKE FOR 51 MODES AND SILENTLY DROPPED 34
@@ -328,10 +327,22 @@
 > authoring lives in whatever computes the expression, and the honest report is
 > "derived, look here" rather than "nobody authors this". That moved 10 rows.
 >
-> ⇒ **8 modes have no authored customer that turns them on** (6 dormant + 2
-> unnamed). ⚠ That number has now been corrected FOUR times, 18 -> 23 -> 18 -> 8,
-> and every correction was the POPULATION or the PATTERN, never a verdict. In
-> this lane:
+> ⛔⛔ **AND THE FIX FOR THAT HOLE WAS ITSELF WRONG, in the dangerous direction.**
+> Reclassifying a row because its field name is assigned somewhere matched BY NAME
+> across the whole tree, and a bool field name is not unique: `PropSpec.flip_y`
+> collided with Bevy's `Sprite.flip_y`, `Pickup.collected` with an unrelated
+> `let collected = SINK.with(..)`. It silently retired `PickupSpec.collected` --
+> a field #63 documents as stranded -- into a bucket whose name reads "resolved",
+> and it took the count from 22 to 8.
+>
+> ⭐ **A filter whose mistakes all point at "nothing to see here" is worse than no
+> filter, because its errors are invisible by construction.** So the scan now
+> ANNOTATES rather than reclassifies: a row keeps its verdict and carries a
+> pointer for a person to check. Over-reporting candidates is the safe direction
+> for a census read by a human; under-reporting deletes findings.
+>
+> ⇒ **22 modes have no authored customer that turns them on** (18 dormant + 4
+> unnamed), 13 of them carrying a pointer worth one look each. In this lane:
 > `Interactable(Spec).requires_facing`, `Pickup(Spec).collected`,
 > `CameraZoneSpec.cinematic_lock`, `RoomLink.bidirectional`,
 > `RoomMetadata.gallery`, `PropSpec.flip_y`.

@@ -256,8 +256,30 @@ def set_from_expression(field: str) -> str | None:
             f"git grep failed for {field} (status {done.returncode}): "
             f"{done.stderr.strip()}"
         )
-    live = [f for f in done.stdout.split() if not _is_test(f)]
-    return live[0] if live else None
+    hits = [f for f in done.stdout.split() if not _is_test(f)]
+    if not hits:
+        return None
+
+    # ⛔⛔ A SAME-NAME THREAD IS NOT AUTHORING. `spawn_static.rs` writes
+    # `collected: authored.payload.collected` -- that carries the spec's value to
+    # the component and DECIDES nothing. Counting it as "derived, the authoring
+    # is elsewhere" would quietly retire a genuinely unauthored field into a
+    # bucket that sounds resolved, which is the same error as calling it live.
+    #
+    # ⇒ A row is DERIVED only if some assignment's right-hand side is something
+    # OTHER than the field's own name. `pogo_refresh = pogo_orb_combo` qualifies;
+    # `collected: authored.payload.collected` does not.
+    shown = subprocess.run(
+        ["git", "grep", "-hP", rf"\b{re.escape(field)}\s*=\s*(?!true|false)[A-Za-z_]",
+         "--", "crates", "game"],
+        cwd=REPO, capture_output=True, text=True,
+    )
+    for line in shown.stdout.splitlines():
+        rhs = line.split("=", 1)[1] if "=" in line else ""
+        tail = re.match(r"\s*([A-Za-z0-9_.]+)", rhs)
+        if tail and not tail.group(1).split(".")[-1] == field:
+            return hits[0]
+    return None
 
 
 def modes() -> list[tuple[str, str, str, bool]]:
@@ -394,18 +416,27 @@ def main() -> int:
         else:
             unnamed.append((name, field, where))
 
-    # ⭐ A dormant/unnamed row that PRODUCTION code sets is not dormant; it is
-    # unauthored. Ask the whole tree rather than growing the helper list again.
+    # ⛔⛔ THESE ANNOTATE, THEY DO NOT RECLASSIFY, and the difference is the whole
+    # lesson. Both scans match a field by NAME across the tree, and a bool field
+    # name is not unique: `PropSpec.flip_y` collided with Bevy's `Sprite.flip_y`,
+    # and `Pickup.collected` with `let collected = SINK.with(..)` in an unrelated
+    # crate. Reclassifying on those hits SILENTLY RETIRED `PickupSpec.collected`
+    # -- a field this repo has a written finding about -- out of the dormant list
+    # and into a bucket whose name reads "resolved".
+    #
+    # ⭐ A filter whose mistakes all point at "nothing to see here" is worse than
+    # no filter, because its errors are invisible by construction. So a row keeps
+    # its verdict and CARRIES A POINTER for a person to check. Over-reporting
+    # candidates is the safe direction for a census whose output is a list for a
+    # human; under-reporting deletes findings.
     for bucket in (dormant, unnamed):
-        for row in list(bucket):
+        for row in bucket:
             site = set_true_in_production(row[1])
             if site is not None:
-                bucket.remove(row)
                 engine_set.append((row[0], row[1], site))
                 continue
             site = set_from_expression(row[1])
             if site is not None:
-                bucket.remove(row)
                 derived.append((row[0], row[1], site))
 
     print(f"AUTHORED BOOLEAN PARAMETER MODES  (at {head}, corpus {n_files} files)\n")
@@ -414,8 +445,12 @@ def main() -> int:
     print(f"  ALWAYS ON — defaults true, unset    {len(always_on)}")
     print(f"  DORMANT   — default false, never on {len(dormant)}")
     print(f"  UNNAMED   — never mentioned         {len(unnamed)}")
-    print(f"  ENGINE-SET— set by code, not content {len(engine_set)}")
-    print(f"  DERIVED   — assigned from an expression {len(derived)}")
+    print(
+        f"\n  ⚠ {len(engine_set) + len(derived)} of those rows have their NAME "
+        "written elsewhere in the tree.\n     Listed below as pointers, NOT as "
+        "verdicts -- a bool field name is not unique,\n     so each one needs a "
+        "person to say whether it is the same field."
+    )
     if EXCLUDED:
         print("\n  EXCLUDED FROM THE SUBJECT CORPUS (not classified above):")
         for reason, count in sorted(EXCLUDED.items()):
@@ -425,7 +460,8 @@ def main() -> int:
             "here that looks\n       too large is a reason to re-read the rule "
             "that removed them."
         )
-    for label, rows in (("DORMANT", dormant), ("UNNAMED", unnamed), ("ENGINE-SET", engine_set), ("DERIVED", derived)):
+    for label, rows in (("DORMANT", dormant), ("UNNAMED", unnamed), ("NAME ALSO SET TRUE ELSEWHERE", engine_set),
+                        ("NAME ALSO ASSIGNED ELSEWHERE", derived)):
         if not rows:
             continue
         print(f"\n{label}:")

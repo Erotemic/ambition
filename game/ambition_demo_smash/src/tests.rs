@@ -787,7 +787,8 @@ fn the_stage_declares_its_di_budget_and_releases_it() {
 
     assert!(
         SMASH_DI_MAX_ANGLE > 0.0,
-        "⛔ a zero budget makes `di_adjust` a no-op, so declaring the rules              at all would be theatre — DI would be off and every test still green"
+        "⛔ a zero budget makes `di_adjust` a no-op, so declaring the rules at all would be \
+         theatre — DI would be off and every test still green"
     );
     // the same trap, one field over.
     assert!(
@@ -813,7 +814,8 @@ fn the_stage_declares_its_di_budget_and_releases_it() {
         .collect();
     assert!(
         released.contains(&rules),
-        "⛔ the stage's DI budget outlives its own experience and follows the              player into a game that authored none. Released: {released:?}"
+        "⛔ the stage's DI budget outlives its own experience and follows the player into a \
+         game that authored none. Released: {released:?}"
     );
 }
 

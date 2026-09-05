@@ -62,7 +62,8 @@ pub fn run() {
     let cards = fighters.len();
     assert!(
         cards >= 2,
-        "the composition seats {cards} fighter(s), so there is no choosing to walk          through — this is a finding about the catalog, not about the screen"
+        "the composition seats {cards} fighter(s), so there is no choosing to walk through — \
+         this is a finding about the catalog, not about the screen"
     );
     let picks = [(0usize, 0u8, cards - 1), (1, 1, 0), (2, 0, cards / 2)];
     for (owner_slot, driving_seat, character) in picks {

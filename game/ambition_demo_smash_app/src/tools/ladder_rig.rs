@@ -279,7 +279,15 @@ pub struct LadderRigArgs {
     /// engine and the table cannot separate them.
     #[arg(long)]
     pub per_bout: bool,
-    /// Stage to fight on: `flat` (default) or `platforms`.
+    /// Stage to fight on. The names are the stage button's own labels,
+    /// lowercased — `flat` (the demo's default), `platforms`, `narrow` — and an
+    /// unknown one is refused with the live list rather than defaulted.
+    ///
+    /// ⚠ THIS LINE SAID "`flat` (default) or `platforms`" WHILE THE RIG ALREADY
+    /// ACCEPTED `narrow`, which is the same defect one layer up from the stage
+    /// itself: a third stage was added, the resolver was derived from
+    /// `SmashStageChoice::ALL` so it needed no edit, and the HELP was the one
+    /// place still hand-listing two.
     ///
     /// ⭐ Every ladder number recorded before 2026-09-04 was measured on `flat`,
     /// which was the only stage there was. That makes the stage a CONFOUNDER
@@ -997,6 +1005,39 @@ fn force_noise_seed(app: &mut bevy::app::App, seed: u64) -> bool {
 /// Scenarios requiring velocity, phases, projectiles, or other explicit state are
 /// skipped using `Scenario::unreproduced_by_placement`.
 fn run_scenarios(seeds: usize) {
+    // ⛔⛔ THE LEDGE-HANG FIXTURE IS ANCHORED TO FLAT'S PLATFORM, WHATEVER
+    // `--stage` SAYS, so this mode REFUSES on any other stage rather than
+    // reporting a number taken against the wrong geometry.
+    //
+    // `place_at` reads `smash_stage().world.blocks[0].aabb` — always Flat,
+    // `x = 80..560` — and installs `LedgeGrabState::hanging` on that contact.
+    // Narrow's real platform is `x = 160..480`, so a Narrow ledge hang stages the
+    // fighter EIGHTY PIXELS past the ledge it claims to be holding, and the
+    // scenario then measures an edgeguard against a body hanging in mid-air.
+    // ⚠ The comment above that line says the anchor "comes from the REAL
+    // platform", which was true when Flat was the only stage.
+    //
+    // ⇒ REFUSED RATHER THAN FILTERED. Dropping the ledge-hang scenarios on a
+    // non-Flat stage would change the suite's denominator without saying so, and
+    // a table with a quietly different population is worse than no table — this
+    // rig has already produced five configuration defects of exactly that shape.
+    // ⇒ REFUSED RATHER THAN FIXED, for now: deriving the anchor from the live
+    // session's `RoomGeometry` (the seam `stage_bounds()` already uses) is the
+    // repair, and it is correctness work that has not been done yet. A refusal
+    // closes the wrong-data window COMPLETELY and immediately; a repair that has
+    // not landed does not.
+    let stage = resolved_stage();
+    if stage != ambition_demo_smash::SmashStageChoice::Flat {
+        panic!(
+            "--scenarios cannot run on `{}`: the ledge-hang fixtures anchor to \
+             Flat's platform regardless of --stage, so every hang would be \
+             staged against the wrong ledge. Run them on `flat`, or repair \
+             `place_at` to derive the ledge from the session's RoomGeometry \
+             first. ⚠ Distrust any non-Flat scenario numbers recorded before \
+             this refusal existed.",
+            stage.label(),
+        );
+    }
     let suite = ambition_platformer2d::combat::brain::fighter::scenarios::suite();
     let playable: Vec<_> = suite
         .iter()

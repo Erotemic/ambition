@@ -370,7 +370,42 @@ pub fn carl_stargan_moveset() -> MovesetContract {
         launch_dir: Some((0.9, -0.40)),
         on_hit: None,
     });
-    let side_b = impulse(side_b, 0.18, (700.0, 0.0), ImpulseMode::Set);
+    // ⭐⭐ THE SLINGSHOT NOW CURVES, AND ITS OWN ART ASKED FOR THAT. The move
+    // draws `orbit_lock` at 0.36s — a LOCK — while its only motion was
+    // `impulse(700, 0)`, a straight horizontal push that locks onto nothing. ⇒
+    // Same class as the ninja's `counter_ring` over a plain poke: the
+    // presentation named a mechanic the move did not have, and the player was
+    // told the wrong thing every time it came out.
+    //
+    // ⭐ AND A GRAVITATIONAL ASSIST IS EXACTLY THIS. The comment above already
+    // calls it a slingshot — a pass that BENDS around a mass — so the homing is
+    // the fiction, not a new idea bolted onto it.
+    //
+    // ⛔ IT REPLACES THE IMPULSE AND CHANGES NOTHING WHEN NOBODY IS THERE.
+    // `assisted_fire_direction` returns the COMMANDED direction when no foe is
+    // in the cone, so an unaimed pass is the same straight 700px/s dash it
+    // always was. The curve is what he gets for pointing at somebody.
+    //
+    // ⚠ THE HOMING ENDS AT 0.40s AND THE MOVE AT 0.62s, deliberately: he is
+    // carried through the pass and then he is not, so a whiffed slingshot leaves
+    // him in the air with a fifth of a second of nothing — which is the punish
+    // window the straight version also had and must not lose.
+    let side_b = ambition_characters::smash_homing::author_homing_dash(
+        side_b,
+        0.18,
+        ambition_characters::smash_homing::HomingDashParams {
+            // The impulse's own speed, kept.
+            speed: 700.0,
+            duration_s: 0.22,
+            // ⭐ 60°, NOT the 90° half-plane. He is passing something, not
+            // seeking it: a target has to be roughly ahead, and the narrower cone
+            // is what keeps this a read rather than a homing missile.
+            cone_degrees: 60.0,
+            // About a third of the stage — far enough to cross a gap at somebody,
+            // short enough that it is a commitment rather than a scan.
+            max_range: 320.0,
+        },
+    );
     let side_b = committed_tail(side_b, 0.62, 0.35);
     let side_b = vfx_at(side_b, 0.18, "planetary_slingshot", (30.0, 0.0), COSMIC_FX);
     let side_b = vfx_at(side_b, 0.36, "orbit_lock", (0.0, 0.0), SWING_FX);
@@ -853,5 +888,58 @@ mod tests {
                 m.clip.clip
             );
         }
+    }
+
+    /// ⛔⛔ THE `orbit_lock` EFFECT NAMED A MECHANIC THE MOVE DID NOT HAVE. It
+    /// drew a LOCK at 0.36s over a straight `impulse(700, 0)` that locked onto
+    /// nothing — the same class as a counter ring over a plain poke, and the
+    /// reader being misled is the PLAYER. This holds both halves: the pass homes
+    /// now, and it still ends before the move does.
+    #[test]
+    fn his_slingshot_bends_toward_what_it_passes_and_lets_go_first() {
+        let set = carl_stargan_moveset();
+        let pass = find(&set, "planetary_orbit");
+
+        let homing: ambition_platformer2d::characters::smash_homing::HomingDashParams = pass
+            .events
+            .iter()
+            .find_map(|event| match &event.kind {
+                ambition_platformer2d::entity_catalog::MoveEventKind::Effect(effect)
+                    if effect.key
+                        == ambition_platformer2d::characters::smash_homing::HOMING_DASH =>
+                {
+                    effect.params.hydrate().ok()
+                }
+                _ => None,
+            })
+            .expect("his slingshot homes");
+
+        // ⛔ IT LETS GO BEFORE THE MOVE ENDS. A dash carried through the recovery
+        // is a pass with no punish window, which is what the straight version
+        // had and must not lose.
+        let homing_ends = 0.18 + homing.duration_s;
+        assert!(
+            homing_ends < pass.duration_s,
+            "the homing runs to {homing_ends}s on a {}s move, so a whiff carries \
+             him through his own recovery",
+            pass.duration_s
+        );
+
+        // ⭐ A READ, NOT A MISSILE. Past the half-plane the cone reaches behind
+        // him and the move stops needing to be aimed.
+        assert!(
+            homing.cone_degrees <= 90.0 && homing.cone_degrees > 0.0,
+            "the cone is {}°",
+            homing.cone_degrees
+        );
+
+        // ⛔ AND THE SWING IS UNTOUCHED — this replaced the IMPULSE, not the move.
+        assert!(
+            pass.windows
+                .iter()
+                .flat_map(|w| w.volumes.iter())
+                .any(|v| v.damage == 10),
+            "the pass lost its authored hitbox"
+        );
     }
 }

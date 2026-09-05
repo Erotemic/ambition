@@ -33,15 +33,33 @@ through, while working correctly in `ambition_app`.
 because a first pass measured the wrong composition:
 
 ```text
-feature          ambition_app   smash*   sanic*   mary_o*   twintrack*
-portal                    ON        .        .         .            .
-portal_render             ON        .        .         .            .
-audio                     ON       ON       ON        ON            .
-ui                        ON        .        .         .            .
-content_pack              ON       ON        .         .            .
-rollback / ldtk           ON       ON       ON        ON           ON
+                       ambition_app   smash*   sanic*   mary_o*   twintrack*
+SIMULATION  portal               ON        .        .         .            .
+PRESENTATION portal_render       ON        .        .         .            .
+            audio                ON       ON       ON        ON            .
+            ui                   ON        .        .         .            .
+            content_pack         ON       ON        .         .            .
+            rollback / ldtk      ON       ON       ON        ON           ON
 * = measured under `--features visible`; these apps' `default` is EMPTY
 ```
+
+⭐⭐ **THE TWO PORTAL ROWS ARE NOT ONE FACT WITH A REDUNDANT SECOND ROW — they
+are SIMULATION and PRESENTATION, and getting their homes backwards is how the bug
+happened.** The distinction, not the feature names:
+
+- **SIMULATION belongs on the LIBRARY** that registers the systems, because that
+  crate is what makes the requirement true in EVERY composition including
+  headless tests, and no app should be able to compose it wrong.
+- **PRESENTATION belongs on the APP's `visible` feature**, because a headless
+  build linking a renderer is a real cost and there is no correctness argument
+  for it.
+
+⇒ `portal=1, portal_render=0` is a fighter simulating a correct recovery INTO
+NOTHING VISIBLE — the same symptom as the original bug, a different bug, and the
+one you ship if you stop at "portal=1". ⚠ The mirror case
+`portal=0, portal_render=1` should be impossible by construction, and is:
+`portal_render` names `portal` in its own feature list, so the manifest already
+encodes this asymmetry. It is the SIMULATION half that had no such protection.
 
 ⛔⛔ **MEASURING A DEMO AT DEFAULT FEATURES MEASURES NOTHING — `default = []`.**
 My first table read `audio` as OFF for every demo and it is ON in all three that

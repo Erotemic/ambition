@@ -222,6 +222,28 @@ predicate were measured and neither is gateable. The strong one runs at ~50%
 precision because prose legitimately cites a USE site rather than a definition,
 and judging that needs a person.
 
+⭐⭐ **AND THE CHECK THAT MAKES THIS ACTIONABLE RATHER THAN DESPAIRING: prose is
+verified by being USED.** All four instances were found by somebody trying to
+BUILD on the sentence — following a citation to make an edit, or relying on a
+comment's claim. Nobody found one by proofreading. ⇒ **treat any comment you are
+about to rely on as a claim to TEST, not a fact to cite.** That is the whole
+mechanism, it costs one grep, and it is the only thing that has ever caught one.
+
+ⓘ **A vocabulary for what you find, because the three want different responses:**
+
+```text
+DORMANT   a field authored content never turns on      a DESIGN CHOICE, not a defect
+DEAD      a field nothing reads                        a defect
+STRANDED  a field carried end to end with no consumer,
+          under prose claiming one                     a defect, and the hardest to find
+```
+
+⚠ STRANDED is invisible to both obvious censuses: a scan for unused symbols
+cannot see it (every hop HAS a caller — authored, threaded, stored), and a
+dormancy census cannot either (the field IS named in content). Two turned up on
+2026-09-05 in one crate, both by taking a single census hit seriously instead of
+publishing the list.
+
 ⭐ **So the discipline is the whole mechanism, and it is cheap:**
 1. **When you cite a line, OPEN it.** Three of the four above were found that
    way and by nothing else.

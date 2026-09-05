@@ -1085,6 +1085,21 @@ The one unresolved developer-policy choice from the session-ownership work is in
     `ambition_held_items`, `ambition_match`, `ambition_registry_core`,
     `ambition_world_items`) — every carve adds one of each, and the seconds
     columns stay a placeholder until someone spends the release rebuild.
+    ✔ **SPENT 2026-09-05, and six of the eight are no longer placeholders.**
+    `compile_collect.py --config release --phase cold` appended real seconds for
+    `ambition_abilities`, `ambition_body_seed`, `ambition_encounter_features`,
+    `ambition_held_items`, `ambition_match` and `ambition_world_items`;
+    `ambition_registry_core` and `ambition_sprite_fx` were already built and so
+    were not re-timed. Rows are in the measurements submodule (`f7a73bf`).
+    ⚠ **With their limits, because the numbers are useless without them:** the
+    target directory was WARM from a preceding attempt, so it recorded 36 unit
+    rows where an earlier release/cold run recorded 541 — indicative, not a
+    cold-graph measurement — and the run logged `build_foreign_cargo_peak: 1`
+    (mine, a `-p` test in the same window).
+    ⇒ **The GATE still reports UNPRICED 8**, because it reads the frozen baseline
+    rather than the ledger. Only a re-freeze applies these, and that is still the
+    carve owner's call since `--update` also banks the `critical_path_crates`
+    14 → 16 regression.
   * the two REGRESSED lines moved a little further out (+32,394 and +31,915
     against ~+10,800 budgets), unchanged in character.
   * ⭐ **CARVED — two real wins the baseline is not holding**:

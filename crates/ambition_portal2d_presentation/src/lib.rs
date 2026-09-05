@@ -18,6 +18,7 @@ use ambition_platformer2d_core as ae;
 
 mod camera_continuity;
 mod compositing;
+mod far_side;
 mod clip_material;
 mod effects;
 mod gun_visuals;
@@ -42,9 +43,10 @@ pub use clip_material::{
 /// name a `run_if` condition. One re-export costs nothing; an edge is priced by
 /// the compile ratchet forever.
 pub use ambition_portal2d::PlacedPortal;
+pub use far_side::{composite_far_side_bodies, PortalFarSideHidden, PortalFarSidePiece};
 pub use compositing::{
-    current_z_policy_is_correct_for, pane_relation, piece_clip_edges, uncovered_remainder,
-    PaneRelation,
+    current_z_policy_is_correct_for, pane_cover_rect, pane_relation, piece_clip_edges,
+    uncovered_remainder, PaneRelation,
     UncoveredPiece, UncoveredPieces,
 };
 pub use effects::{PortalEffectSelection, PortalVisualEffect};

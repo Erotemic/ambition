@@ -53,6 +53,19 @@ pub enum PaneRelation {
 /// near case; `front_distance` returning exactly zero for a far-side body is a
 /// measure-zero coincidence, and biasing it toward "occludes" fails visible
 /// rather than invisible.
+/// The pane's world rect: what it covers, and the region a far-side drawable
+/// must be subtracted by.
+///
+/// ⭐ ONE READING, BECAUSE THE TWO CALLERS MUST NOT DISAGREE. [`pane_relation`]
+/// says a drawable is `FarCovered` because it overlaps THIS rect, and the
+/// compositor then subtracts a rect from that drawable. If those were two
+/// spellings of `pos ± half_extent`, a body could be classified as covered and
+/// then clipped against a slightly different region -- which shows up as a hairline
+/// of the far body along the pane edge, exactly the artefact this repair is for.
+pub fn pane_cover_rect(pane: &PlacedPortal) -> (Vec2, Vec2) {
+    (pane.pos - pane.half_extent, pane.pos + pane.half_extent)
+}
+
 pub fn pane_relation(
     pane: &PlacedPortal,
     viewer: Vec2,
@@ -63,8 +76,7 @@ pub fn pane_relation(
     if transiting {
         return PaneRelation::Transiting;
     }
-    let pane_min = pane.pos - pane.half_extent;
-    let pane_max = pane.pos + pane.half_extent;
+    let (pane_min, pane_max) = pane_cover_rect(pane);
     let overlaps = drawable_min.x <= pane_max.x
         && drawable_max.x >= pane_min.x
         && drawable_min.y <= pane_max.y

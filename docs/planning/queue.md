@@ -848,6 +848,34 @@ The one unresolved developer-policy choice from the session-ownership work is in
   reading it as *"everything passes"* is the exact mistake this file keeps
   recording: **a gate lane you did not run is a guard that does not exist.**
   Run `./run_tests.sh` with no lane flag to include it.
+  ⭐⭐ **AND THE 2026-09-05 EXACT-HEAD UNION EARNED ITS HOUR: it found a class
+  the default plan CANNOT see.** Nine tests in
+  `ambition_platformer2d_actor_monolith` (`character_runtime::fight_tests`,
+  `character_runtime::hurtbox_damage_tests`,
+  `features::ecs::damage::tests`) **PASS at default features and PANIC under the
+  feature union** — same test, same crate, same run: `PASS` at 4341/7143 in the
+  `cargo nextest run --workspace` job, `FAILED` in the union job. Both modules
+  are plain `#[cfg(test)]`, NOT feature-gated, so they genuinely execute in both;
+  this is a behavioural difference, not a "did not run".
+  ⇒ **The mechanism, read off the diff rather than guessed:** `7b0418faf`
+  refactored three loose `MessageWriter` params into `StrikeOutcomeWriters` and
+  added a FOURTH (`parried: MessageWriter<ParriedBodyHit>`). The failing tests
+  build their app by HAND-LISTING exactly the three that existed
+  (`hurtbox_damage_tests.rs:71-73`) and never go through `sim_core_resources`,
+  so the new writer has no registration and panics in `Main::run_main`.
+  ⭐ The registration site's own comment predicted the shape: *"a message
+  registered beside one of them panics the other, which is a crash this
+  repository has already shipped once."* The hand-built test app is the "other".
+  ⇒ **The transferable rule: a hand-listed set of dependencies is a POPULATION,
+  and adding to the SOURCE does not update the LISTS.** Nothing about the change
+  points at the lists, and the compiler cannot help — an unregistered message is
+  a runtime panic, not a type error.
+  ⚠ **Still unexplained, and it is the more important half:** WHY the default
+  build is green. If a feature is what makes that writer live, then the default
+  suite cannot protect this seam at all, and "green backbone" says nothing about
+  it. Owned by the fighter lane; reproduction and the minimal triggering feature
+  are being measured.
+
   ⚠ **`largest_unit_lines` is 100,155 — back ABOVE the 100,000 this row
   celebrated crossing** (re-measured 2026-09-05 at HEAD,
   `python3 scripts/compile_ratchet.py --report-only`, which builds nothing). The

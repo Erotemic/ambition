@@ -130,19 +130,27 @@ pub fn resolve_portal_links(mut portals: Query<(&PortalLink, &mut PlacedPortal)>
 /// map is untouched; only the doorway size changes. Runs after
 /// [`resolve_portal_links`] so link channels are already paired.
 pub fn equalize_pair_apertures(mut portals: Query<&mut PlacedPortal>) {
-    // Snapshot (channel, normal, half_extent) so each portal can read its
-    // partner's opening.
-    let snapshot: Vec<(PortalChannel, Vec2, Vec2)> = portals
-        .iter()
-        .map(|p| (p.channel, p.normal, p.half_extent))
-        .collect();
+    // ⛔⛔ THE PARTNER IS CHOSEN BY `find_portal`, NOT BY A SECOND `.find()` HERE.
+    // This used to snapshot `(channel, normal, half_extent)` and take the FIRST
+    // row matching the partner channel — archetype order, because the snapshot
+    // comes from a `Query`. That is the same defect `find_portal` had, and
+    // TWO INDEPENDENT FIRST-MATCH RULES OVER ONE POPULATION IS WORSE THAN ONE:
+    // with `sandbox.ldtk`'s seven `purple` apertures, this could equalize the
+    // yellow doorway against one purple while transit warped the body to a
+    // DIFFERENT one — a doorway sized for a portal you do not arrive at.
+    //
+    // ⭐ One reading of "which portal is the partner", so the two cannot
+    // disagree. The snapshot is full portals now because that is what the shared
+    // lookup takes; the clone is per-frame and small.
+    let snapshot: Vec<PlacedPortal> = portals.iter().cloned().collect();
     for mut p in portals.iter_mut() {
         let partner = p.channel.partner();
-        let Some((_, pn, phe)) = snapshot.iter().find(|(c, _, _)| *c == partner) else {
+        let Some(partner_portal) = crate::find_portal(&snapshot, partner) else {
             continue; // no partner placed — leave the authored opening as-is
         };
         let self_open = portal_opening_half(p.normal, p.half_extent);
-        let partner_open = portal_opening_half(*pn, *phe);
+        let partner_open =
+            portal_opening_half(partner_portal.normal, partner_portal.half_extent);
         let min = self_open.min(partner_open);
         if (self_open - min).abs() > 1e-3 {
             p.half_extent = portal_half_extent_with_length(p.normal, min);
@@ -152,3 +160,78 @@ pub fn equalize_pair_apertures(mut portals: Query<&mut PlacedPortal>) {
 
 #[cfg(test)]
 mod tests;
+
+#[cfg(test)]
+mod aperture_partner_tests {
+    use super::*;
+    use crate::color::PortalChannelColor;
+    use crate::types::PORTAL_THICKNESS_HALF;
+    use bevy::prelude::App;
+
+    fn portal(channel: PortalChannel, x: f32, opening: f32) -> PlacedPortal {
+        PlacedPortal {
+            channel,
+            pos: Vec2::new(x, 0.0),
+            normal: Vec2::new(0.0, 1.0),
+            // Normal is +Y, so the OPENING runs along x.
+            half_extent: Vec2::new(opening, PORTAL_THICKNESS_HALF),
+            host: None,
+            host_lift: 0.0,
+            vel: Vec2::ZERO,
+            prev_pos: Vec2::new(x, 0.0),
+        }
+    }
+
+    fn equalized(order: &[PlacedPortal]) -> f32 {
+        let mut app = App::new();
+        for p in order {
+            app.world_mut().spawn(p.clone());
+        }
+        app.add_systems(bevy::prelude::Update, equalize_pair_apertures);
+        app.update();
+        let yellow = PortalChannelColor::Yellow.channel();
+        let mut q = app.world_mut().query::<&PlacedPortal>();
+        q.iter(app.world())
+            .find(|p| p.channel == yellow)
+            .expect("the yellow aperture")
+            .half_extent
+            .x
+    }
+
+    /// ⛔⛔ TWO SAME-CHANNEL APERTURES, WHICH IS SHIPPED CONTENT. `sandbox.ldtk`'s
+    /// `portal_lab` authors SEVEN `purple` against one `yellow`. This pass used
+    /// to run its OWN `.find()` over a snapshot of a `Query` — archetype order —
+    /// while transit chose through `find_portal`. ⇒ Two independent first-match
+    /// rules over one population, which could size the yellow doorway against
+    /// one purple while warping the body to a DIFFERENT one.
+    ///
+    /// ⭐ The property is that the two agree AND that neither depends on spawn
+    /// order, so the test spawns the same set twice in opposite orders and
+    /// requires the same doorway. The purples have deliberately different
+    /// openings, or every answer would look correct.
+    #[test]
+    fn the_doorway_is_sized_against_the_same_partner_transit_would_choose() {
+        let purple = PortalChannelColor::Purple.channel();
+        let yellow = PortalChannelColor::Yellow.channel();
+        // Lowest `pos.x` wins, so the 10.0-wide one at x=100 is the partner and
+        // the wide one at x=900 must NOT be.
+        let near = portal(purple, 100.0, 10.0);
+        let far = portal(purple, 900.0, 90.0);
+        let gate = portal(yellow, 500.0, 50.0);
+
+        let forward = equalized(&[near.clone(), far.clone(), gate.clone()]);
+        let reversed = equalized(&[gate.clone(), far.clone(), near.clone()]);
+
+        assert_eq!(
+            forward, reversed,
+            "spawn order changed the yellow doorway ({forward} vs {reversed}) — \
+             the aperture pass is choosing a partner by iteration order"
+        );
+        assert_eq!(
+            forward, 10.0,
+            "the doorway was not sized against the partner `find_portal` \
+             returns (lowest pos), so transit and the aperture disagree about \
+             which purple is the pair"
+        );
+    }
+}

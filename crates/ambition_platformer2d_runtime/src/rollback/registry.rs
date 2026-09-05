@@ -203,7 +203,7 @@ use crate::content_identity::SnapshotSchemaFingerprint;
 /// bolt at all. ⓘ Decayed beside `parry_window_timer` in the movement kernel, so
 /// a stance that stops re-arming stops absorbing on the same tick it stops
 /// parrying.
-pub const GGRS_ROLLBACK_SCHEMA_VERSION: u32 = 155;
+pub const GGRS_ROLLBACK_SCHEMA_VERSION: u32 = 156;
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq, Ord, PartialOrd, Hash)]
 pub enum RollbackEntryKind {

@@ -64,6 +64,7 @@ const PONYTAIL_ENDS_S: f32 = 0.40;
 /// The held-item id her down-B lays. It has to be a REGISTERED held item or
 /// nobody can pick the bomb up, which is half the move.
 const BOMB_ITEM: &str = "polygon_bomb";
+const MINE_ITEM: &str = "polygon_mine";
 
 /// When the bomb reaches the floor.
 const BOMB_LAID_AT_S: f32 = 0.18;
@@ -304,6 +305,43 @@ pub fn projectile_polygon_moveset() -> MovesetContract {
         on_hit: None,
     });
     down_smash.smash_charge_mult = 1.75;
+    // ⭐⭐ JON'S ASSIGNMENT, 2026-09-05: *"probably the remote mine as their down
+    // smash."* — AND THE SWING IS UNTOUCHED. Every number above is exactly as it
+    // was; the mine is an event ADDED to the move, not a replacement for it.
+    //
+    // ⛔ THAT IS WHY THE SMASH IS STILL A SMASH. A hitless mine-placer would
+    // have made `smash_charge_mult` a lie — nothing about a planted mine gets
+    // stronger for being charged — and would have cost her a charged down smash
+    // to buy a technique. Composing the two keeps the charge meaningful and
+    // makes the move read as one thing: she sweeps low and leaves something
+    // behind.
+    //
+    // ⭐ PRESSING IT AGAIN SETS THE MINE OFF AND SWINGS ANYWAY, because the
+    // ruleset decides which half of the press happened and the hitbox is not
+    // conditional. Detonating from across the stage costs you a swing at air;
+    // detonating from on top of it is a two-hit option that can also kill you,
+    // since the blast is neutral. Both of those are choices, which is the point.
+    let down_smash = ambition_characters::smash_mine::author_place_mine(
+        down_smash,
+        // The end of the active window: the sweep plants it. Placing during
+        // STARTUP would let her cancel the smash and keep the mine.
+        0.28,
+        ambition_characters::smash_mine::PlaceMineParams {
+            item_id: MINE_ITEM.to_string(),
+            // ⭐ LONGER THAN THE MOVE ITSELF (0.57s), so plant-and-detonate is
+            // never one continuous input. You have to survive the wait.
+            arm_s: 1.2,
+            // ⚠ UNDER the bomb's 12, and that is intentional: the mine chooses
+            // its own moment, and a trigger you aim in time should not also win
+            // the damage comparison against one you cannot.
+            damage: 10,
+            blast_radius: 52.0,
+            half_extents: (8.0, 8.0),
+            // Behind and below the sweep, like the bomb, so it is not planted
+            // inside her own body where nobody can pick it up.
+            offset: (-18.0, 14.0),
+        },
+    );
 
     let neutral_air = strike(Strike {
         id: "polygon_projectile_air_neutral",
@@ -662,5 +700,72 @@ mod tests {
         ] {
             assert!(moves.moves.iter().any(|m| m.id == id), "missing {id}");
         }
+    }
+
+    /// ⛔⛔ THE MINE IS AN ADDITION AND THE SWING IS UNTOUCHED — both halves, in
+    /// one test, because they are one claim. A guard that only checked for the
+    /// mine event would pass against a down smash that had quietly lost its
+    /// hitbox to make room for it, which is exactly the change this move was
+    /// authored to avoid.
+    #[test]
+    fn her_down_smash_still_swings_and_now_also_plants_a_mine() {
+        let moves = projectile_polygon_moveset();
+        let down_smash = moves
+            .moves
+            .iter()
+            .find(|m| m.id == "polygon_projectile_smash_down")
+            .expect("she has a down smash");
+
+        // The swing, unchanged.
+        assert_eq!(down_smash.smash_charge_mult, 1.75, "still a charged smash");
+        assert!(
+            down_smash
+                .windows
+                .iter()
+                .flat_map(|window| window.volumes.iter())
+                .any(|volume| volume.damage > 0),
+            "the down smash still has a hit volume that hurts"
+        );
+
+        // The mine, added.
+        let params = down_smash
+            .events
+            .iter()
+            .find_map(|event| match &event.kind {
+                ambition_entity_catalog::MoveEventKind::Effect(effect)
+                    if effect.key == ambition_characters::smash_mine::PLACE_MINE =>
+                {
+                    Some(
+                        effect
+                            .params
+                            .hydrate::<ambition_characters::smash_mine::PlaceMineParams>()
+                            .expect("place-mine params hydrate"),
+                    )
+                }
+                _ => None,
+            })
+            .expect("her down smash plants a mine");
+
+        // ⭐ THE BRAKE. Plant-and-detonate must never be one continuous input:
+        // the mine has to still be arming when the move that planted it ends.
+        assert!(
+            params.arm_s > down_smash.duration_s,
+            "the mine arms in {}s but the move lasts {}s, so she could plant and \
+             detonate without ever letting go",
+            params.arm_s,
+            down_smash.duration_s,
+        );
+
+        // ⛔ AND THE OBJECT HAS TO BE PICKABLE. An unregistered held item is an
+        // object nobody can pick up, which is half of what a stage object is.
+        // ⇒ Its ART is the other half and is guarded where the art lives, in
+        // `items::held_visuals` — `register` is `pub(in crate::items)` and this
+        // module cannot reach it, so splitting the claim beat widening a
+        // visibility to let one test see it.
+        assert!(
+            ambition_characters::brain::held_item_by_id(&params.item_id).is_some(),
+            "`{}` is not a registered held item, so nobody could pick the mine up",
+            params.item_id,
+        );
     }
 }

@@ -141,7 +141,16 @@ up. Custody answers *"who is holding this"*; entitlement answers *"whose is
 it"*. A held item whose owner is elsewhere is exactly the case that makes the
 difference visible, and until this it had no shipped instance.
 
-## ⛔⛔ TWO AUTHORED FIELDS CARRIED END TO END WITH NO CONSUMER (2026-09-05)
+## ⛔⛔ AUTHORED FIELDS CARRIED END TO END WITH NO CONSUMER (2026-09-05)
+
+ⓘ **THE FULL POPULATION LIVES ON [question 63](../awaiting-maintainer-decision.md),
+not here — FOUR fields, found by sweeping every field `spawn_static.rs` threads
+(13 distinct, nine of them read).** This section keeps the three that are
+custody- and interaction-shaped, because they are what this program owns; the
+fourth (`BreakableSpec.debris_cue`, whose value is hardcoded at the consumer) is
+breakable VFX and belongs to the decision rather than to this page. ⇒ one
+population, one home, and this row cites it rather than carrying a second copy
+that will disagree.
 
 Found by investigating hits of `scripts/authored_parameter_modes.py` one at a
 time rather than publishing its list. Both are in `ambition_interaction`, both

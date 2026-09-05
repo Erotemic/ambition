@@ -49,6 +49,11 @@ pub fn open_authored_portal_pairs(
     mut commands: Commands,
     mut actions: MessageReader<ActorActionMessage>,
     bodies: Query<&ae::BodyKinematics>,
+    // ⭐ THE AIM THE TELEPORT ALREADY ASKS FOR. `MovePlayback::aimed_stick` is a
+    // latched, undamped stick direction and is already rollback state, so the
+    // portal reads the same fact rather than sampling a stick of its own — which
+    // would be neutral anyway, since an aimed special is rooted.
+    playbacks: Query<&ambition_platformer2d::combat::moveset::MovePlayback>,
 ) {
     for message in actions.read() {
         let ActionRequest::Special { spec, params } = &message.request else {
@@ -72,8 +77,39 @@ pub fn open_authored_portal_pairs(
         // ⭐ THE TILT IS APPLIED TO BOTH NORMALS TOGETHER. Rotating one and not
         // the other would change where the pair sends you rather than how it is
         // angled, which is a different move and a confusing one.
-        let tilt = params.tilt_degrees.to_radians();
-        let up = ae::Vec2::new(-tilt.sin(), -tilt.cos());
+        // ⭐⭐ THE PLAYER ANGLES IT. The authored `tilt_degrees` is the base and
+        // `aim_tilt_degrees` is the range their stick may swing it through, so
+        // the same press opens a straight shaft or a hard slant depending on
+        // what they were holding on the way out.
+        //
+        // ⛔ THE HORIZONTAL COMPONENT ONLY, and that is the honest reading of a
+        // TILT: up and down are what the pair already does — you fall in the low
+        // one and leave the high one — so a vertical aim has nothing to say. A
+        // full-stick angle would let a player aim the exit DOWNWARD, which is not
+        // an angled recovery, it is a hole.
+        //
+        // ⚠ `0.0` aim range is not aimable and is the default, so a pair
+        // authored before this opens exactly where it always did.
+        let aim = playbacks
+            .get(message.actor)
+            .ok()
+            .and_then(|playback| playback.aimed_stick)
+            .map(|stick| stick.x.clamp(-1.0, 1.0))
+            .unwrap_or(0.0);
+        let tilt = (params.tilt_degrees + aim * params.aim_tilt_degrees).to_radians();
+        // ⛔⛔ POSITIVE TILT LEANS TOWARD `+x`, AND THAT SIGN IS A DECISION MADE
+        // HERE. The first version read `-tilt.sin()`, so holding RIGHT sent the
+        // exit 170px to the LEFT — correct against no written convention and
+        // wrong against every player's expectation. ⇒ Safe to fix rather than
+        // paper over with a negated aim, because `tilt_degrees` was `0.0`
+        // everywhere in the tree and `sin(0)` is zero under either sign: nothing
+        // authored could tell the difference, and now the number means what its
+        // name suggests.
+        //
+        // ⚠ WORLD SPACE, NOT BODY-LOCAL — deliberately unmirrored by facing. The
+        // stick is an AIM: holding right means "put the exit to my right on the
+        // screen", and a fighter who happens to be facing left still means that.
+        let up = ae::Vec2::new(tilt.sin(), -tilt.cos());
         let down = -up;
         let entrance = kin.pos;
         let exit = kin.pos + up * params.rise;
@@ -179,6 +215,7 @@ mod tests {
             lifetime_s,
             close_on_transit: false,
             tilt_degrees: 0.0,
+            aim_tilt_degrees: 0.0,
             channel_index: 8,
         }
     }
@@ -438,5 +475,120 @@ mod tests {
         let mut app = pair_world(true);
         transit_to(&mut app, ae::Vec2::new(500.0, 500.0));
         assert_eq!(apertures_left(&mut app), 2);
+    }
+
+    /// Open one aimable pair with the given latched stick, and report the two
+    /// aperture positions sorted so the EXIT (the higher one) comes first.
+    fn aimed_pair(aim_tilt_degrees: f32, stick: Option<ae::Vec2>) -> Vec<ae::Vec2> {
+        let mut app = App::new();
+        app.add_message::<ActorActionMessage>();
+        app.add_message::<ambition_platformer2d::portal::PortalBodyTransited>();
+        app.init_resource::<ambition_platformer2d::time::WorldTime>();
+        app.add_systems(Update, open_authored_portal_pairs);
+        let mut p = params(5.0);
+        p.aim_tilt_degrees = aim_tilt_degrees;
+        let body = app
+            .world_mut()
+            .spawn(ae::BodyKinematics {
+                pos: ae::Vec2::ZERO,
+                ..Default::default()
+            })
+            .id();
+        // ⭐ THE LATCH, not a live stick: an aimed special is ROOTED, so the
+        // damped `locomotion` a live read would see is neutral for the whole
+        // move. This is the same fact the teleport consumes.
+        if let Some(stick) = stick {
+            let spec = ambition_platformer2d::entity_catalog::MoveSpec {
+                id: "aim_fixture".to_string(),
+                display_name: None,
+                clip: ambition_platformer2d::entity_catalog::ClipBinding {
+                    clip: "special_up".to_string(),
+                    fallbacks: Vec::new(),
+                },
+                duration_s: 1.0,
+                windows: Vec::new(),
+                events: Vec::new(),
+                gates: Default::default(),
+                start_impulse: None,
+                smash_charge_mult: 1.0,
+                smash_charge: None,
+                charge_gesture: Default::default(),
+                repeat: None,
+                landing_lag_s: None,
+                autocancel_after_s: None,
+                sprite_spin_hz: None,
+                equips: None,
+                flow: None,
+            };
+            app.world_mut().entity_mut(body).insert(
+                ambition_platformer2d::combat::moveset::MovePlayback::new(spec, 1.0)
+                    .with_aimed_stick(Some(stick)),
+            );
+        }
+        app.world_mut().write_message(ActorActionMessage {
+            actor: body,
+            request: ActionRequest::Special {
+                spec: SpecialActionSpec::Special(PORTAL_PAIR.to_string()),
+                params: ambition_platformer2d::entity_catalog::ParamValue::from_typed(&p)
+                    .expect("portal params serialize"),
+            },
+        });
+        app.update();
+        let mut out: Vec<ae::Vec2> = app
+            .world_mut()
+            .query::<&PlacedPortal>()
+            .iter(app.world())
+            .map(|portal| portal.pos)
+            .collect();
+        // Up is NEGATIVE y, so the exit sorts first.
+        out.sort_by(|a, b| a.y.partial_cmp(&b.y).unwrap());
+        out
+    }
+
+    /// ⭐⭐ JON'S ANGLED PORTAL: the player's own direction leans the shaft.
+    ///
+    /// ⛔ AND THE NEUTRAL CASE IS THE OTHER HALF OF THE CLAIM. A recovery that
+    /// leaned without being asked would punish the neutral stick a panicking
+    /// player holds — so "held right leans right" is only correct alongside
+    /// "held nothing goes straight up".
+    #[test]
+    fn the_players_direction_angles_the_shaft_and_neutral_goes_straight_up() {
+        let straight = aimed_pair(32.0, None);
+        assert_eq!(straight.len(), 2);
+        assert!(
+            straight[0].x.abs() < 0.001,
+            "a neutral stick leaned the recovery to x={}",
+            straight[0].x
+        );
+
+        let right = aimed_pair(32.0, Some(ae::Vec2::new(1.0, 0.0)));
+        assert!(
+            right[0].x > 100.0,
+            "holding right moved the exit only {}px sideways",
+            right[0].x
+        );
+        let left = aimed_pair(32.0, Some(ae::Vec2::new(-1.0, 0.0)));
+        assert!(left[0].x < -100.0, "holding left leaned the wrong way");
+
+        // ⛔ STILL A WAY UP. At the authored 32° cap the exit must remain far
+        // higher than it is sideways, or the move has stopped being a recovery.
+        assert!(
+            right[0].y < straight[0].y * 0.7,
+            "the aimed exit rose only to y={} against a straight {}",
+            right[0].y,
+            straight[0].y
+        );
+    }
+
+    /// ⛔ AND A PAIR WITH NO AIM RANGE IGNORES THE STICK ENTIRELY — the default,
+    /// so every portal authored before this field opens exactly where it did.
+    #[test]
+    fn a_pair_with_no_aim_range_is_unmoved_by_the_stick() {
+        let aimed = aimed_pair(0.0, Some(ae::Vec2::new(1.0, 0.0)));
+        assert!(
+            aimed[0].x.abs() < 0.001,
+            "an unaimable pair leaned to x={}",
+            aimed[0].x
+        );
     }
 }

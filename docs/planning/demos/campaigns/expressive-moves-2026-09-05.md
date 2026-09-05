@@ -32,7 +32,7 @@ each one as an **engine acceptance fixture** rather than a character feature:
 | 10 | **Limit** | character-local resource state, threshold transitions, timeout, action variants, stat modifiers |
 | 11 | **Free-standing ally summon** | summon is not synonymous with mount; first owned-secondary-actor contract |
 | 12 | **Reusable launch object** | a fighter can create a persistent world actuator another fighter interacts with |
-| 13 ✔ | **Portal recovery** (Jon, added same day) — **LANDED 2026-09-05** on Alice's up-B | an authored customer can place linked world portals and traverse them, exercising `ambition_portal2d` from a move — including an angled pair, which genre parity does not have |
+| 13 ✔✔ | **Portal recovery** (Jon, added same day) — **LANDED 2026-09-05** on Alice's up-B, **and the ANGLED half completed the same day** | an authored customer places linked world portals and traverses them. ⭐⭐ **Jon's second sentence is now built too**: *"we can even exercise angled portals with directional input on the up b as a flavor that isn't actually in smash and is ours."* `tilt_degrees` was `0.0` in every literal in the tree — the parameter existed, the code applied it, nobody ever set it — and the player's own stick now leans the shaft ±32°. ⇒ **It reuses `MovePlayback::aimed_stick`, the LATCHED UNDAMPED aim the teleport already reads**, so no new authority: an aimed special is rooted, and a live stick read would be neutral for the whole move |
 
 ⭐ **Sanic's spring analogue is a SPEED BUMP** (Jon): he slams down a ridiculous
 yellow-and-black speed bump that catapults anyone who touches it. On the ground

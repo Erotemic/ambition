@@ -173,8 +173,14 @@ both mirror slices and their refresh loops are gone — the second and third to
 leave, after `flag` went when `world.flag_set` landed. That precedent, in the
 same function, is what made this a carve rather than a proposal.
   ⭐⭐ **AND NOT ONE WORD OF AUTHORED CONTENT CHANGED.** `cove.yarn` and
-`kernel.yarn` keep `boss_cleared("mockingbird")` and gain the live answer,
-because the fork was about AUTHORITY, not spelling. ⇒ **That is the question to
+`kernel.yarn` kept `boss_cleared("mockingbird")` and gained the live answer,
+because the fork was about AUTHORITY, not spelling.
+  ⓘ **Superseded as a statement about the CURRENT text, 2026-09-05:** those
+lines now read `boss_cleared("cove.mockingbird")` — not because this carve was
+wrong, but because question 57 later ruled that boss progress is keyed by an
+AUTHORED encounter id, and the spelling had to change for the calls to be
+answerable at all. The claim above remains true of THIS change and is left
+standing as its receipt. ⇒ **That is the question to
 ask first of any fork: can the loser be removed without rewriting what authors
 wrote?** Three for three today across both sessions when asked.
   ⭐ `quest.active` is **the first condition published by the GAME** rather than

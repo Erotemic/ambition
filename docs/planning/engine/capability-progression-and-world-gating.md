@@ -453,11 +453,23 @@ at the FACT.
 of the other four did.** `boss_cleared("mockingbird")` — **three** executable
 authored calls (five raw: two of the five are the Kernel Guide SAYING the call in
 prose, counted by four whole-file scanners until `ea71c83a8`) —
-passes the BEHAVIOR id while `boss_encounter/src/systems.rs:259` writes the save under the
-PLACEMENT (`BossSpawn-4308`). Exact lookup, no bridging, so those branches have
+passed the BEHAVIOR id while `boss_encounter/src/systems.rs:259` writes the save under the
+PLACEMENT (`BossSpawn-4308`). Exact lookup, no bridging, so those branches had
 never been able to open. ⇒ Filed as question 57 rather than repaired: making
 the dialogue pass `BossSpawn-4308` puts an LDtk-generated identifier into an
 authored script, and the alternatives change what existing saves mean.
+
+✔✔ **RULED AND CLOSED 2026-09-05 (`dff7c908c`), and the objection above is what
+the answer had to get past.** Jon: *"Boss progress is keyed only by stable
+authored encounter/placement IDs."* ⇒ Neither horn of the dilemma was taken —
+the dialogue does NOT carry `BossSpawn-4308`, and no existing save key was
+reinterpreted. A third option: the placement gets an AUTHORED id
+(`BossSpawn.encounter_id` = `cove.mockingbird`), so the id an author types IS the
+placement's id, and `ldtk::fields::boss_placement_id` is the one definition of
+it. The LDtk iid stops being exposed rather than being written into a script.
+⚠ Worth keeping as a pattern: *"an authored identifier the author can type"* is a
+third road whenever a durable key and an authoring surface disagree, and it was
+invisible while the choice looked like "use theirs or use ours".
 ⚠ **So that guard accepts EITHER spelling on purpose.** It asks *"does this name
 a real boss at all"*, which is answerable today and catches the typo class;
 which id the API should take is 57's to answer. When 57 lands, narrow it and

@@ -501,11 +501,34 @@ pub fn projectile_polygon_moveset() -> MovesetContract {
     let airborne_down_special =
         impulse(airborne_down_special, 0.10, (0.0, 1080.0), ImpulseMode::Set);
 
+    // ⭐⭐ THE TETHER, AND IT IS THE GRAB — not a special, and not a new
+    // mechanic. Samus's grab is a tether, and this fighter is the grid's ranged
+    // one, so the reach belongs on the verb she already had. ⇒ Verified before
+    // authoring rather than assumed: `acquire_captures` builds its box as
+    // `CenteredAabb::new(captor.pos + placed.world_offset, placed.half_extent)`
+    // and there is no distance term anywhere in `ambition_combat::capture` — no
+    // ceiling, no clamp, no range check. A tether grab is authored reach and
+    // nothing else, which is why this is a numbers change.
+    //
+    // ⛔ THE VERTICAL EXTENT SHRINKS AS THE HORIZONTAL GROWS, and that is the
+    // whole balance of it. 150px of reach with her old 16px height would be a
+    // wall a third of the platform wide that also happens to grab; 10px makes it
+    // a LINE, which has to be aimed by standing at the right height. The reach
+    // is the reward and the precision is the price.
+    //
+    // ⚠ AND THE RECOVERY PAYS FOR IT. 0.34s against the old 0.21s, with a
+    // slower extension (0.10s startup against 0.06s): a whiffed tether is a
+    // committed animation at the range where a ranged fighter least wants to be
+    // committed. A long grab that recovered like a short one would simply be a
+    // better grab.
     let grab = author_standing_grab(
-        grab_shell("polygon_projectile_grab", "grab", 0.06, 0.05, 0.21),
+        grab_shell("polygon_projectile_grab", "grab", 0.10, 0.06, 0.34),
         CaptureAttemptParams {
-            offset: (15.0, 1.0),
-            half_extents: (19.0, 16.0),
+            offset: (86.0, 1.0),
+            half_extents: (64.0, 10.0),
+            // The SAME hold as before. Where a captive is held is a property of
+            // this fighter's hands, not of how far away she caught them, and the
+            // throws that follow are shared.
             hold_offset: (14.0, 3.0),
         },
     );

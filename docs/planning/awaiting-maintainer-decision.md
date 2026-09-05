@@ -1282,7 +1282,7 @@ READ. Here:
   `save.data().boss(id)`, an exact lookup on a placement-keyed row, and nothing
   writes a row under an archetype.
 - ✔ **But the archetype id is ALREADY the quest system's currency**, so this is
-  not a new vocabulary: `systems.rs:259` fires
+  not a new vocabulary: `boss_encounter/src/systems.rs:259` fires
   `QuestAdvanceEvent::BossDefeated(archetype_id)` and quest steps match it with
   `QuestStepCondition::BossDefeated("gradient_sentinel")`. The concept "this
   ARCHETYPE was beaten" is established and consumed — it is just **transient**,

@@ -360,6 +360,30 @@ needs a new capability" is a claim, and the cheapest way to test it is to build
 the row.** Two of the three capability gaps this campaign predicted turned out to
 be already-shipped authorities under a name I had not searched for.
 
+### ⚠⚠ EIGHT ROSTER DECISIONS MADE UNDER DELEGATION — EVERY ONE IS JON'S TO OVERRULE
+
+Jon's grant was *"you can pick where to put the proof of concept for the other
+moves in the roster… we can tune who the moves belong to later."* ⇒ Here is
+everything spent against it on 2026-09-05, with what each one COST, so a review
+is a table rather than a git log. **Four cost nothing; four displaced something.**
+
+| fighter · slot | change | cost |
+|---|---|---|
+| Projectile Polygon · down-smash | **+ remote mine** | ⭐ none. Every number on the swing is unchanged; `smash_charge_mult` 1.75 intact |
+| the Performer · neutral (`the_monologue`) | **+ Sing pulse**, 26×26 centred on her | ⭐ none. Her 58×34 strike is untouched and the pulse sits wholly inside it — only whoever stood next to her goes under |
+| the Patent Clerk · side-B (`reference_frame`) | **+ super armour** over the crossing | ⭐ none. Armour covers `0.20..0.31` only; his startup is still punishable and his locked tail still a free hit |
+| Alice · up-B | **+ ±32° aim** on the portal | ⭐ none. Base tilt stays `0.0`, so a neutral stick recovers exactly as before |
+| the goblin · down-throw | throw → **cargo carry** | ⚠ the roster's weakest throw (damage 4, fallback clip). No empty slot existed — every fighter authors all four |
+| the Author · down-B | archetype low arc → **counter into ambush teleport** | ⚠ a borrowed poke that was never his. Gains a second slot of his own; his `owned_slots` went 1 → 2 |
+| the Shadow Oni · down-B | damage-10 poke → **counter into sleep** | ⚠ 10 damage. ⭐ But the move already carried a `counter_ring` and a `parry_flash` sound: the art always said counter |
+| **the Officer · neutral** | haymaker → **damageless gust** | ⛔⛔ **THE BIGGEST ONE, and the only KO move lost.** `damage: 13, knockback: 142` becomes a move that does no damage at all. He keeps every smash and `the_draw`; what a player trades is a button that kills for a button that creates space |
+
+⛔ **If exactly one of these is wrong, it is the Officer's** — it is the only
+change that removes a way to finish a stock rather than replacing filler or
+adding on top. It is also the one that makes his kit a single idea (gun, shove,
+shield), so it is a real design choice rather than an oversight, and it is stated
+here to be argued with.
+
 ### ⭐⭐ A COUNTER IS NOT A MOVE TYPE — THREE ON ONE ROSTER, THREE DIFFERENT MOVES
 
 `answer_a_parry_with_the_authored_counter` dispatches

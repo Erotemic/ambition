@@ -49,6 +49,10 @@ snapshot_pod!(crate::actor::body::BodyCombat {
     damage_invuln_timer: f32,
     hitstun_timer: f32,
     recoil_lock_timer: f32,
+    // ASLEEP. A control status a move applied, and rollback state for the same
+    // reason every lock beside it is: two peers disagreeing about how long a
+    // fighter stays helpless resimulate different matches from that moment.
+    sleep_timer: f32,
     // DERIVED and still encoded: it is republished from the live move every
     // tick, so a restore converges — but the tick a rewind lands ON reads it
     // before the projection runs again, and a peer that decided a launch from a

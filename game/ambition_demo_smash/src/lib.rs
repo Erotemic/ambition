@@ -20,6 +20,7 @@ pub mod counter;
 pub mod george_booul_moveset;
 pub mod moveset;
 pub mod portal;
+pub mod sing;
 pub mod select;
 pub mod select_screen;
 pub mod shark_ride;
@@ -910,6 +911,20 @@ impl bevy::prelude::Plugin for SmashRulesPlugin {
         // ⚠ AND IT MUST RUN EVERY FRAME OF THE STANCE. `parry_window_timer`
         // decays, so this is a heartbeat rather than a grant; see the
         // technique's own note.
+        // SING. ⭐ `ContentSpecials` beside the portal below, for the same
+        // reason: a content technique whose effect must exist before the effect
+        // executors run.
+        //
+        // ⚠ REGISTERED WITH NO AUTHORED CUSTOMER YET, deliberately and stated:
+        // the seam is real and tested, and which fighter sings is a DESIGN call
+        // (see the campaign row). A system that never fires costs a query per
+        // tick and keeps the road honest; an unregistered one would let the
+        // first authored sing fail silently.
+        app.add_systems(
+            sim,
+            crate::sing::apply_authored_sleep
+                .in_set(ambition_platformer2d::platformer::schedule::CombatSet::ContentSpecials),
+        );
         // THE PORTAL RECOVERY. ⭐ `ContentSpecials`, the seam the runtime
         // provides for a CONTENT TECHNIQUE that must produce its effects before
         // the effect executors run — the same reasoning the shark's summon uses.

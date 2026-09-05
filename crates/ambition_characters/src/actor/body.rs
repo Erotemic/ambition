@@ -269,6 +269,28 @@ pub struct BodyCombat {
     pub hitstun_timer: f32,
     /// Short HARD control-lock at the start of a knockback (no input authority).
     pub recoil_lock_timer: f32,
+    /// ASLEEP: a control status a MOVE put this body into, not a consequence of
+    /// being hit.
+    ///
+    /// A HARD control lock while positive, exactly like
+    /// [`Self::recoil_lock_timer`] — and deliberately NOT that field, for the
+    /// reason the landing lag beside it gives: the LOCK is shared and the CAUSE
+    /// is not. "Why is this fighter helpless" must keep one answer per cause, or
+    /// presentation and a trace both have to guess.
+    ///
+    /// ⛔ NOT `BodyShieldState::break_timer` EITHER, which is the shortcut this
+    /// field exists to refuse. That timer is the dizzy a broken guard owes and
+    /// presentation draws it as one; a sleep borrowing it would render as a
+    /// shield break and read in a trace as one.
+    ///
+    /// ⚠ THIS IS A DISABLE, NOT YET A SLEEP. It buys "cannot act for a
+    /// duration" and wake-on-damage. What it does NOT buy is the specific POSE
+    /// or the MASH escape, and those are what make a sleep richer than a
+    /// disable — neither is expressible as a timer in a `max`.
+    ///
+    /// `0.0` for every body nothing has put to sleep, which is all of them
+    /// until a move says otherwise.
+    pub sleep_timer: f32,
     /// SUPER ARMOR: an authored `WindowTag::Armor` window on the move this body
     /// is playing is holding it through hits.
     ///
@@ -293,7 +315,12 @@ impl BodyCombat {
     /// Hard control lock for this frame: the maximum of recoil lock and landing lag.
     /// `hitstun_timer` is excluded because hitstun reduces authority rather than removing it.
     pub fn hard_lock_timer(&self) -> f32 {
-        self.recoil_lock_timer.max(self.landing_lag_timer)
+        // ⭐ THE FIFTH CAUSE, and the seam was already a max over named ones —
+        // see `attack_support`'s `hard_lock_timer`, which folds this in beside
+        // the guard break, the shieldstun and the shield-drop lag.
+        self.recoil_lock_timer
+            .max(self.landing_lag_timer)
+            .max(self.sleep_timer)
     }
 
     /// Whether this body is currently in hitlag.
@@ -312,6 +339,7 @@ impl BodyCombat {
         self.hit_flash = (self.hit_flash - dt).max(0.0);
         self.hitstun_timer = (self.hitstun_timer - dt).max(0.0);
         self.recoil_lock_timer = (self.recoil_lock_timer - dt).max(0.0);
+        self.sleep_timer = (self.sleep_timer - dt).max(0.0);
         self.hitstop_timer = (self.hitstop_timer - dt).max(0.0);
         self.landing_lag_timer = (self.landing_lag_timer - dt).max(0.0);
     }
@@ -329,6 +357,9 @@ impl BodyCombat {
         self.hitstun_timer = 0.0;
         self.recoil_lock_timer = 0.0;
         self.landing_lag_timer = 0.0;
+        // A fighter who respawns still asleep from the stock before is helpless
+        // on arrival with nothing on screen explaining why.
+        self.sleep_timer = 0.0;
     }
 }
 
@@ -419,6 +450,9 @@ mod hard_lock_tests {
             hit_flash: _,
             hitstun_timer: _,
             recoil_lock_timer: _,
+            // Ticked with the rest: a sleep runs down on the same clock as
+            // every other reaction, so nothing has to remember it separately.
+            sleep_timer: _,
             hitstop_timer: _,
             landing_lag_timer: _,
 
@@ -447,6 +481,10 @@ mod hard_lock_tests {
             hitstun_timer: _,
             recoil_lock_timer: _,
             landing_lag_timer: _,
+            // ⭐ CLEARED, and it must be: a fighter who respawns still asleep
+            // from the stock before is helpless on arrival with nothing on
+            // screen explaining why.
+            sleep_timer: _,
 
             // NOT cleared, deliberately: `project_move_defense_windows`
             // republishes it from the live move every tick, so clearing it here

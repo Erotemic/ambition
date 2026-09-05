@@ -177,9 +177,13 @@ none of them waits on `TechniqueFlow`.
   `ambition_content`. A sibling now walks `authored_movesets::tables()` and holds
   a named TETHER allowlist rather than a raised ceiling — so one fighter having
   a tether is a reviewed fact, not a loosened rule for everybody.
-  ▢ **Still open: the line presentation**, the fourth customer of `flyline.rs`'s
-  procedural-visual shape. A tether that reaches 150px and draws nothing is the
-  mechanic without the read.
+  ✔ **THE LINE LANDED 2026-09-05**, and it is the fourth customer of
+  `flyline.rs`'s procedural-visual shape exactly as this row predicted — same
+  sprite, same `place_wire`. ⭐ Published as a POINT
+  (`BodyPoseView::grab_reach` / `FeatureView::grab_reach`) resolved from
+  `MovePlayback::live_capture_reach()`, so presentation never re-derives the
+  reach from authored params it should not read. ⛔ Drawn on BOTH roads, with
+  the actor arm poison-verified against the trapdoor's own defect.
 - ◐ **B3. Projectile interception as a projectile-domain operation** (proof move
   3). ✔ **THE OPERATION LANDED 2026-09-05** (`projectile/intercept.rs`):
   `ProjectileInterception::{Reflect, Consume}` and `intercept_projectile`, with

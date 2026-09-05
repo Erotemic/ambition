@@ -994,12 +994,16 @@ mod tests {
                     let reach = params.offset.0.abs() + params.half_extents.0.abs();
                     assert!(
                         reach <= MAX_REACH_PX,
-                        "{who}'s `{}` reaches {reach}px (offset {:?} + half                          {:?}), past the {MAX_REACH_PX}px ceiling. If this is a                          deliberate tether, raise MAX_REACH_PX here in the same                          commit; if it is a typo, this is the only thing that                          would have caught it",
+                        "{who}'s `{}` reaches {reach}px (offset {:?} + half {:?}), past the \
+                         {MAX_REACH_PX}px ceiling. If this is a deliberate tether, raise \
+                         MAX_REACH_PX here in the same commit; if it is a typo, this is the \
+                         only thing that would have caught it",
                         spec.id, params.offset, params.half_extents
                     );
                     assert!(
                         params.half_extents.0 > 0.0 && params.half_extents.1 > 0.0,
-                        "{who}'s `{}` has a non-positive grab box {:?}, so it                          can never catch anybody",
+                        "{who}'s `{}` has a non-positive grab box {:?}, so it can never catch \
+                         anybody",
                         spec.id, params.half_extents
                     );
                 }
@@ -1011,7 +1015,9 @@ mod tests {
         // exactly how it would rot if `sustain_effect` or the key ever moved.
         assert!(
             seen >= 3,
-            "found only {seen} authored capture attempt(s); the demo has at              least three (two stand-in grabs and George's), so this census is              measuring nothing rather than passing"
+            "found only {seen} authored capture attempt(s); the demo has at least three (two \
+             stand-in grabs and George's), so this census is measuring nothing rather than \
+             passing"
         );
     }
 

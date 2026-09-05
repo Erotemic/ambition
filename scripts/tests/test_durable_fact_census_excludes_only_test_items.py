@@ -116,3 +116,37 @@ def test_the_shipped_corpus_really_contains_the_shape():
         f"first `#[cfg(test)]` at :{first_test}, so this file no longer "
         "demonstrates the defect and the fixture above is the only cover left"
     )
+
+
+def test_the_census_runs_clean_against_the_live_tree():
+    """⛔⛔ THE EXIT CODE ONLY MEANS SOMETHING IF A LANE READS IT.
+
+    `durable_fact_writers.py` returns 1 when it cannot close a `#[cfg(test)]`
+    item, because a census that reports its own doubt and exits 0 trains every
+    reader — starting with its author — to treat the doubt as decoration. That
+    was the exact failure it shipped with: it printed *"files whose writes are
+    ALL after a `#[cfg(test)]`: 4 — read them if non-zero"* and exited 0, and the
+    miss it was warning about was real (`switches.rs` lost three production
+    writes, reporting 2 switch writers where there are 5).
+
+    ⇒ But an exit code nothing runs is the same decoration one layer down. The
+    fixtures above test `production_lines` as a FUNCTION; this arm runs the
+    SCRIPT, so a Rust file whose shape defeats the scanner fails a lane rather
+    than waiting for somebody to run a census by hand. ~2 s.
+    """
+    import subprocess
+
+    proc = subprocess.run(
+        [sys.executable, str(REPO / "scripts/durable_fact_writers.py")],
+        capture_output=True,
+        text=True,
+        cwd=REPO,
+    )
+    assert proc.returncode == 0, (
+        "the durable-fact census could not classify part of the tree, so its "
+        "writer counts are NOT authoritative:\n" + proc.stdout[-2000:]
+    )
+    assert "durable families named by production code:" in proc.stdout, (
+        "the census produced no report at all — it may have failed before "
+        "scanning, which exit 0 alone would not distinguish"
+    )

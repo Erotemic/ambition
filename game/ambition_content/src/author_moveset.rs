@@ -11,6 +11,14 @@
 
 use ambition_platformer2d::entity_catalog::MovesetContract;
 
+/// When the thought leaves him.
+const BOLT_AT_S: f32 = 0.20;
+
+/// When the move releases him. ⚠ LONGER THAN THE BOLT'S OWN LIFETIME IS WRONG —
+/// he must be free before the thought fades, or a whiff pins him through his own
+/// punish window with nothing on screen to explain it.
+const BOLT_ENDS_S: f32 = 0.46;
+
 /// When he vanishes. Slower than the robot's blink, because his is a written
 /// edit rather than a machine's phase-out.
 const TELEPORT_AT_S: f32 = 0.18;
@@ -49,7 +57,65 @@ pub fn author_moveset() -> MovesetContract {
     );
     crate::special_slots::replace_special(&mut set, "special_up", authors_teleport());
     crate::special_slots::replace_special(&mut set, "special_down", the_second_draft());
+    crate::special_slots::replace_special(&mut set, "special_forward", a_train_of_thought());
     set
+}
+
+/// Side special: he sends a thought out and flies it with the stick.
+///
+/// ⭐⭐ JON'S ASSIGNMENT, 2026-09-05: *"I want the author to have side-b be the
+/// pk-thunder style 'mind' attack."* This is that move, and it belongs to him
+/// twice over — the archetype's `vector_lunge` was a borrowed poke, and a writer
+/// steering a thought around the stage is the one fighter on the roster for whom
+/// the fiction is literal.
+///
+/// ⭐⭐ AND IT NEEDED NO INPUT LEASE, which the campaign plan had as the rung
+/// before it. `ActorControlFrame::steer_axis()` already publishes what the
+/// PLAYER is holding as distinct from what the BODY may move by — it exists
+/// because a rooted move reads `locomotion` as zero — so he stands still,
+/// keeps his own seat, and the bolt reads his live stick. Steering is not
+/// possession; only the first was ever wanted here.
+///
+/// ⛔ FLYING IT INTO HIS OWN BACK IS THE POINT. `self_launch` is what makes this
+/// a recovery as well as an attack, and it is why the move is worth its long
+/// commitment: he is helpless while the thought is out, and the way home is to
+/// aim it at himself.
+fn a_train_of_thought() -> ambition_platformer2d::entity_catalog::MoveSpec {
+    let spec = ambition_characters::moveset_authoring::hitless_special(
+        "author_train_of_thought",
+        "special_forward",
+        BOLT_AT_S,
+        BOLT_ENDS_S,
+    );
+    let spec = ambition_characters::smash_bolt::author_steered_bolt(
+        spec,
+        BOLT_AT_S,
+        ambition_characters::smash_bolt::SteeredBoltParams {
+            // Slow enough to steer and fast enough to cross a gap.
+            speed: 300.0,
+            // ⭐ THE NUMBER THAT IS THE MOVE. At 220°/s a full reversal takes
+            // most of a second, so a turn genuinely costs distance — too low and
+            // it is a straight shot, too high and it is a missile he cannot miss
+            // with.
+            turn_rate_deg: 220.0,
+            // Long enough to go out and come back, and short enough that a
+            // whiffed thought is a real punish window.
+            lifetime_s: 2.2,
+            damage: 8,
+            radius: 11.0,
+            knockback: 92.0,
+            // ⚠ THE RECOVERY'S WHOLE RANGE lives in this one number. Well above
+            // the bolt's own speed, because a self-launch that merely matched it
+            // would be a slower way to travel than walking.
+            self_launch: 700.0,
+            // Out at arm's length and a little above, so it leaves visibly
+            // rather than budding out of his chest.
+            offset: (24.0, -12.0),
+        },
+    );
+    let spec =
+        ambition_characters::moveset_authoring::sfx(spec, BOLT_AT_S, "player.attack.charge");
+    spec
 }
 
 /// The Author's counter: you land the blow, and it is revised out of the scene.
@@ -205,6 +271,64 @@ mod tests {
             "…and the archetype's spinning rise must not be left behind \
              unreachable, where every census that walks `moves` reports it as \
              part of his kit"
+        );
+    }
+
+    /// ⛔⛔ HE MUST BE FREE BEFORE THE THOUGHT FADES. The move's whole risk is
+    /// the commitment while the bolt is out — but if the commitment OUTLASTS the
+    /// bolt, a whiff pins him through his own punish window with nothing on
+    /// screen explaining why he cannot move. ⇒ A relationship between two
+    /// authored numbers, so the guard states the relationship rather than either
+    /// number.
+    #[test]
+    fn his_thought_outlives_the_move_that_threw_it() {
+        let set = author_moveset();
+        assert_eq!(
+            set.verbs.get("special_forward").map(String::as_str),
+            Some("author_train_of_thought"),
+            "his side-B must be the steered thought"
+        );
+        let move_spec = set
+            .moves
+            .iter()
+            .find(|m| m.id == "author_train_of_thought")
+            .expect("…and the move it names must be in the table");
+        let bolt: ambition_platformer2d::characters::smash_bolt::SteeredBoltParams = move_spec
+            .events
+            .iter()
+            .find_map(|event| match &event.kind {
+                ambition_platformer2d::entity_catalog::MoveEventKind::Effect(effect)
+                    if effect.key
+                        == ambition_platformer2d::characters::smash_bolt::STEERED_BOLT =>
+                {
+                    effect.params.hydrate().ok()
+                }
+                _ => None,
+            })
+            .expect("his side-B throws a bolt");
+        assert!(
+            bolt.lifetime_s > move_spec.duration_s,
+            "the thought fades at {}s inside a {}s move, so he is pinned watching \
+             nothing",
+            bolt.lifetime_s,
+            move_spec.duration_s,
+        );
+
+        // ⭐ AND IT CARRIES HIM. `self_launch` is what makes this a recovery
+        // rather than a slow projectile, and it must beat the bolt's own speed —
+        // a self-launch that merely matched it would be a worse way to travel
+        // than walking.
+        assert!(
+            bolt.self_launch > bolt.speed,
+            "the thunder jacket ({}) is slower than the bolt ({})",
+            bolt.self_launch,
+            bolt.speed,
+        );
+
+        // ⛔ AND THE ARCHETYPE'S LUNGE IS GONE rather than left unreachable.
+        assert!(
+            !set.moves.iter().any(|m| m.id == "author_vector_lunge"),
+            "the displaced lunge is still in the table"
         );
     }
 

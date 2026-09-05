@@ -20,10 +20,10 @@ each one as an **engine acceptance fixture** rather than a character feature:
 
 | # | Proof move | What it proves |
 |---|---|---|
-| 1 | **PK-Thunder parody** | `TechniqueFlow`, projectile input delegation, steerable projectile state, self-contact, correlated events, temporary fighter-control suppression |
+| 1 ✔ | **PK-Thunder parody** — **LANDED 2026-09-05** on the Author's side-B (`author_train_of_thought`) | ⭐⭐ **IT NEEDED NEITHER INPUT DELEGATION NOR FIGHTER-CONTROL SUPPRESSION.** `steer_axis()` already publishes what the PLAYER is holding as distinct from what the BODY may move by, so the caster stays rooted, keeps his own seat, and the bolt reads his live stick — steering, not possession. ⇒ The rung this row was blocked behind (A2) is not on its path. ⛔ And it did NOT need `TechniqueFlow` either: one technique, one component, one system |
 | 2 ✔ | **Counter + Revenge variant** — the stand-ins' `riposte`, and **2026-09-05 the Author's `author_second_draft`** | ⭐⭐ **"COUNTER" TURNED OUT NOT TO BE A MOVE TYPE AT ALL.** `answer_a_parry_with_the_authored_counter` dispatches `SpecialActionSpec::Special(stance.response.clone())` — fully generic — so a counter is **ANY TECHNIQUE, TRIGGERED BY A SUCCESSFUL PARRY**. Counter-into-grab (George), counter-into-teleport (the Author), counter-into-mine or -sleep are all authorable today with zero engine work. ⇒ I built this seam and then under-read it for a day |
-| 3 | **Reflector + absorber** | projectile interception is a projectile authority and supports more than parry reversal |
-| 4 | **Tether recovery + aerial tether grab** | terrain/body tethering composes with ledge and capture authorities |
+| 3 ✔ | **Reflector + absorber** — **LANDED 2026-09-05** as Track B's B3 | projectile interception is a projectile authority and supports more than parry reversal. ⭐ **The reflector cost NOTHING**: `step_projectiles` and the melee seam gate on the same `parrying()` window, so a stance that could counter could already return shots. The absorber cost one enum and one shield field, and is the Officer's riot shield. ⚠ This row sat unticked while its own Track B row said complete — corrected 2026-09-05 |
+| 4 ◐ | **Tether recovery + aerial tether grab** — **GROUND HALF LANDED** as Track B's B2 | terrain/body tethering composes with ledge and capture authorities. ✔ **Ground tether**: Projectile Polygon's grab reaches 150px and draws a line on both roads, for one read-model field. ▢ **The AERIAL half is NOT done** — a tether that catches a LEDGE and pulls her back is the recovery half of this row, and nothing has been built for it. ⚠ Marked ◐ rather than ✔ deliberately: B2's own row says "ground tether", and reading that as the whole row is how a half-built capability gets reported as finished |
 | 5 ✔ | **Cargo command grab** — **LANDED 2026-09-05** on the goblin's down-throw | ⭐ **MOVEMENT WAS NEVER TOUCHED.** The claim was "capture and movement cooperate", and what actually happened is that capture RESTRICTS LESS: `restrict_captor_control` zeroed `locomotion` for every captor, and a carry is a hold that does not. ⇒ `carrying` rides `SmashHoldState` (the ruleset's half) rather than `CapturedBy` (the generic relation), on that component's own argument that platform-fighter rules do not belong on the relation |
 | 6 ✔ | **Remote mine** — **LANDED 2026-09-05** on Projectile Polygon's down-smash | persistent spawned identity, owner lookup, remote triggering, rollback. ⭐ **It cost one component with four fields and no new authority**: the object is a `GroundItem`, the blast is a `DamageBoxEffect`, and "where is it, whoever holds it" is `ItemWorldPos`. The mine contributes an arming clock and a decision |
 | 7 | **Parasol** | temporary movement modifiers/controllers are expressive enough for a long-lived post-move locomotion regime |
@@ -379,6 +379,25 @@ time; a projectile has not.
 needs a new capability" is a claim, and the cheapest way to test it is to build
 the row.** Two of the three capability gaps this campaign predicted turned out to
 be already-shipped authorities under a name I had not searched for.
+
+### ⛔⛔ THE BOLT'S FIRST GUARD RUN FOUND A MOVE THAT COULD NOT BE PLAYED
+
+Not a test artefact — a defect the first run exposed and a player would have hit
+on every single press. **The bolt spawns at a body-local offset, which is INSIDE
+its caster's contact box, so it came home on the tick it was fired and threw him
+instantly.** Every use was a self-launch and the bolt was never seen.
+
+⇒ The fix is a latch (`clear_of_caster`), and it is also the genre's rule arrived
+at from the bug rather than from the reference: **a bolt cannot answer its caster
+until it has left him**, so flying it back is a manoeuvre instead of an accident
+of where it starts. ⭐ Removing that latch again fails THREE of the six guards,
+which is the shape of a fact the suite actually depends on rather than one test's
+private assumption.
+
+⚠ **The general form, for anything a move spawns AT a fighter:** the spawn point
+is inside the spawner. Contact logic that does not say so is not "usually fine",
+it is wrong on frame one — and frame one is the only frame that matters, because
+it happens before anything else can.
 
 ### ⚠⚠ EIGHT ROSTER DECISIONS MADE UNDER DELEGATION — EVERY ONE IS JON'S TO OVERRULE
 

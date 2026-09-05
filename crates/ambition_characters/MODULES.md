@@ -20,6 +20,7 @@
 | [`prepared`](src/prepared.rs) | Character registration and preparation. |
 | [`prepared_fixtures`](src/prepared_fixtures.rs) | Fixture builders shared by preparation's own tests and the registration tests one crate up. |
 | [`rollback_registration`](src/rollback_registration.rs) | Rollback declaration owned by `ambition_characters`. |
+| [`smash_bolt`](src/smash_bolt.rs) | A bolt the caster steers while standing still: the authored vocabulary. |
 | [`smash_bomb`](src/smash_bomb.rs) | Put a live bomb on the stage: the authored vocabulary. |
 | [`smash_capture`](src/smash_capture.rs) | Platform-fighter capture vocabulary: grab, pummel, and throw. |
 | [`smash_counter`](src/smash_counter.rs) | The counter stance: the authored vocabulary for "if you hit me here, this happens". |
@@ -36,7 +37,7 @@
 | [`snapshot_impls`](src/snapshot_impls.rs) | `SnapshotState` for this crate's own types — the rollback wire format. |
 | [`technique`](src/technique.rs) | THE AUTHORED SCHEMAS OF ENGINE TECHNIQUES — the params an `on_hit` effect carries, and nothing that executes one. |
 
-_29 crate-root modules. Regenerate: `python scripts/modules_md.py --write`._
+_30 crate-root modules. Regenerate: `python scripts/modules_md.py --write`._
 
 <!-- END generated module map -->
 

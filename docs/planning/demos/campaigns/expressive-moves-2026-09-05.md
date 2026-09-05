@@ -335,13 +335,33 @@ fighter of its own.
 
 ### ⛔ AND TRACK A IS BLOCKED DIFFERENTLY — ordering, not permission
 
-`TechniqueFlow` runs with an authored customer. The next rung is NOT slots:
-a slot binds a symbol to a spawned OCCURRENCE, and projectiles carry no stable
-identity (`SimId` exists in `shared_tangle`; nothing in `ambition_projectiles`
-uses it). ⇒ **Slots come WITH the steerable projectile, not before it**, which
-makes Jon's stated order — input lease, steerable projectile, then PK-Thunder —
-the right one. ⓘ The input lease is control-authority work, outside the
-`ambition_combat` moveset / `ambition_demo_smash` lane this campaign has held.
+~~`TechniqueFlow` runs with an authored customer. The next rung is NOT slots: a
+slot binds a symbol to a spawned OCCURRENCE, and projectiles carry no stable
+identity.~~
+
+⛔⛔ **THAT PARAGRAPH WAS WRONG AND IT IS STRUCK RATHER THAN QUIETLY EDITED,
+because it was published as a blocker and somebody could have planned around it.**
+Projectiles carry a stable, deterministic, ROLLBACK-CANONICAL identity:
+
+    ProjectileSeq(u64)      "Monotonic spawn-sequence id", registered as
+                            `projectile.seq` — component-canonical
+    ProjectileOwner(Entity) with `MapEntities`, remapped across a restore
+
+⇒ **Slots are NOT blocked on identity work.** A slot can bind to a spawned
+projectile today, by `ProjectileSeq`, which the step loop already sorts on so
+that iteration order is deterministic.
+
+⚠ **How the claim went wrong is the useful part: it was true about the word I
+searched and false about the thing I meant.** `SimId` genuinely is unused in
+`ambition_projectiles` — I checked that and reported it accurately — but "no
+`SimId`" is not "no identity", and I published the second as though I had
+measured it. ⇒ **This is the THIRD wrong absence claim in this campaign** (after
+the trap's owner identity and the input lease), and all three were assertions
+that something did not exist, made from one spelling.
+
+ⓘ The input lease is control-authority work outside the `ambition_combat`
+moveset / `ambition_demo_smash` lane — and, per the A2 note below, is not on
+PK-Thunder's path at all.
 
 ⛔⛔ **AND ONE CORRECTION TO THIS SECTION, FOUND BY BUILDING THE THING.** When
 this was first written it grouped the **remote mine** with slots, on the reading

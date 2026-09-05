@@ -251,6 +251,28 @@ UNCOVERED total (240) is a claim this run can make.
 having already fallen behind once, when a carve moved code out of a tracked crate
 and the count "read as a repair".
 
+⭐⭐ **AND RUNNING THE GUARD FOUND ITS PREDICTED FAILURE ALREADY LANDED
+(2026-09-05).** `check_doc_link_ratchet.py` is RED at HEAD: `ambition_combat`
+rose 16 → 17. The cause is exactly the shape its own `CRATES` comment warns
+about — commit `42a391d49` carved `actor_tuning.rs` out of the monolith and into
+`ambition_combat`, and **doc links that resolved in the old crate do not resolve
+in the new one**:
+
+```text
+unresolved link to `CombatGeometry`
+unresolved link to `ambition_characters::actor::CharacterDefinition::preserves_mirror_symmetry`
+unresolved link to `ambition_characters::features::ecs::enemy_default_brain`
+```
+
+⇒ **A CARVE BREAKS DOC LINKS SILENTLY**, because the compiler is happy either
+way: the prose moved to a crate where the names it cites are not in scope. That
+is the one case where a broken intra-doc link IS a real signal rather than
+tidy-up — it marks prose that has been separated from what it describes.
+ⓘ The ratchet also shows `actor_monolith` FELL 59 → 43 in the same window, which
+is the other half of the same carve and is precisely the "reduced coverage reads
+as improvement" the comment predicts. ⇒ **add a carve's DESTINATION crate to the
+tracked list in the carve's own commit**, and re-check doc links on both sides.
+
 ⚠⚠ **AND 274 IS NOT 274 FALSE CLAIMS — I nearly left that implication standing.**
 Characterised: **249 DISTINCT targets in 274 links**, almost no repetition, and
 the most-repeated is four. They are one-off references to types NOT IN SCOPE

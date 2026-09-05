@@ -130,6 +130,14 @@ pub fn brandish_the_playing_move_s_weapon(
             (Some((move_id, _)), Some(active)) if active.move_id == move_id => {}
             // A move that brandishes has started, or a different one took over.
             (Some((move_id, item)), _) => {
+                // ⚠ THE NARROW REGISTRY IS THE RIGHT ONE HERE, unlike the
+                // restore below. This resolves what the MOVE authored, and
+                // `MoveSpec.equips` is authored in `ambition_characters`, which
+                // cannot see `ambition_items` -- so the set a move can name IS
+                // this table, by construction. A move cannot brandish `axe` or
+                // `javelin`, and that is a coherent limit rather than the bug the
+                // restore had: the failure is a WARNING about a name, not the
+                // silent loss of an object the body owned.
                 let Some(spec) = ambition_characters::brain::held_item_by_id(item) else {
                     // A warning and not a refusal: the move is fine without the
                     // prop, and a silent nothing is how a typo in an id becomes

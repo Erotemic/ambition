@@ -74,12 +74,21 @@ SCRIPT = REPO / "scripts/measure_orphan_shipped_pages.py"
 # ⛔ KNOWN, MEASURED 2026-09-02, AND NOT A LICENCE. Each names a single-page
 # manifest with numbered siblings left beside it. Remove a name when its tree is
 # regenerated clean; do NOT add one to make a red test green.
-KNOWN_STRANDED_SHEETS = {
-    "carl_stargan",  # 4 pages, 2.9 MB
-    "pointed_polygon",  # 20 pages, 43.8 MB
-    "projectile_polygon",  # 8 pages, 9.5 MB
-    "pugnacious_polygon",  # 12 pages, 35.8 MB
-}
+# ⭐⭐ EMPTY, AND THAT IS A CAMPAIGN FINISHING — pruned 2026-09-04 because
+# `test_the_known_list_does_not_rot` asked for it, which is the ratchet working
+# in the direction ratchets usually do not.
+#
+# It held four sheets: `carl_stargan` (4 pages, 2.9 MB), `pointed_polygon`
+# (20, 43.8 MB), `projectile_polygon` (8, 9.5 MB) and `pugnacious_polygon`
+# (12, 35.8 MB) — **44 pages and 92.0 MB** that shipped inside the package and
+# nothing could ever load. The census now reports `stranded_pages: 0` across
+# 193 sheets and 1,666 PNGs.
+#
+# ⛔ VERIFIED NON-VACUOUS BEFORE PRUNING, because "no longer strands" and "no
+# longer exists" arrive identically here: all four still ship five sheet files
+# each, and the census still measures a real tree (1,666 PNGs, 912 claimed).
+# A census that had simply broken would have demanded this same deletion.
+KNOWN_STRANDED_SHEETS: set[str] = set()
 
 CANONICAL = pytest.mark.skipif(
     not ASSETS_ARE_CANONICAL,
@@ -132,6 +141,17 @@ def stranded_sheets() -> dict[str, int]:
 @CANONICAL
 def test_no_new_sheet_strands_pages():
     found = stranded_sheets()
+    # ⛔ A POPULATION FLOOR, AND IT MATTERS MORE SINCE THE KNOWN LIST EMPTIED.
+    # This assertion's healthy answer is now "nothing found" — the same answer a
+    # census that parsed nothing gives. With the allowlist non-empty, a broken
+    # census reddened `test_the_known_list_does_not_rot` instead; that alarm is
+    # gone with the list, and this is what replaces it.
+    module = load()
+    counts = module.census()
+    assert counts["total_pngs"] > 1000, (
+        f"premise: the sprite tree is large, saw {counts['total_pngs']} PNGs — "
+        "this census is measuring nothing rather than finding nothing"
+    )
     new = set(found) - KNOWN_STRANDED_SHEETS
     assert not new, (
         "a sheet ships numbered pages its own manifest does not name, so they "

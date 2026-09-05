@@ -106,37 +106,6 @@ impl<C: Send + Sync + 'static> PlacementLoweringPlan<C> {
         self.placements.is_empty()
     }
 
-    /// Lower one prepared authored placement by stable authored id.
-    ///
-    /// Snapshot same-room reconstruction uses this exact frozen interpreter
-    /// decision rather than consulting the live registry a second time.
-    pub fn lower_one<'w, 's>(
-        &self,
-        commands: &mut Commands<'w, 's>,
-        session_scope: SessionSpawnScope,
-        context: &C,
-        authored_id: &str,
-    ) -> bool {
-        let Some(planned) = self
-            .placements
-            .iter()
-            .find(|planned| planned.record.id.as_str() == authored_id)
-        else {
-            return false;
-        };
-        let root = commands.spawn_empty().id();
-        let mut ctx = LoweringCtx {
-            commands,
-            room_id: &self.room_id,
-            paths: &self.paths,
-            session_scope,
-            root,
-            context,
-        };
-        (planned.lower)(&planned.record, &mut ctx);
-        true
-    }
-
     /// Execute only the decisions frozen by [`PlacementLoweringRegistry::plan_room`].
     pub fn lower_all<'w, 's>(
         &self,

@@ -3268,8 +3268,9 @@ fn a_committed_placement_room_publishes_with_a_stamped_pickup() {
     );
 }
 
-/// A placement reconstructs through the planner — the `lower_one` fallback is
-/// deleted with the rest of the family-specific respawn branches.
+/// A placement reconstructs through the planner — the family-specific respawn
+/// branches are gone, and so, as of 2026-09-05, is the `lower_one` fallback
+/// itself: this comment was the only thing in the workspace that still named it.
 #[test]
 fn a_placement_respawns_through_the_planner() {
     let plan = prepare_with_placements(&placement_room()).expect("the gallery plans");

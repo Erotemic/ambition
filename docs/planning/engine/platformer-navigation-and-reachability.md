@@ -168,6 +168,38 @@ findings before the script existed, which is why it verifies the key against
 when the submodule is absent, and **cannot be evidence between two machines** —
 two boxes at the same commit can hold different worlds (#62).
 
+### ⭐⭐ THE VERDICT'S PREDICATE IS "A DOOR IS A `LoadingZone`", AND IT IS NOW ASSERTED
+
+**MEASURED 2026-09-05.** The claim above is exactly as large as what it counted,
+and what it counted is loading zones. A PORTAL is also a way between two places
+and this check does not model one, so the honest form of the verdict is *"no area
+is a trap **by the doors**"*.
+
+That bound is complete today, and the number says why rather than asserting it:
+
+```text
+authored Portal entities                            14
+portal groups (keyed by the `link` field)            7
+   of those, groups spanning MORE THAN ONE area      0
+   of those, falling back to `iid` (ungrouped)       0
+```
+
+⇒ Every group is a real PAIR — none is a singleton that could never span — so all
+seven are genuine candidates and none crosses an area. The predicate has no blind
+spot in the shipped content.
+
+⛔⛔ **But that is a fact with an expiry date, so the script FAILS on it rather
+than commenting it.** A cross-area portal breaks the verdict in BOTH directions at
+once: an area whose only exit is that portal reads as a trap it is not, and a
+connection the player can really use is missing from the graph. The new arm names
+what to do (teach the check about portal pairs) instead of just going red, and it
+ships with the control arm — without one, the guard would fire on every world that
+authors a portal at all, and all four do.
+
+⭐ The general shape, which cost two false findings on this page already: **audit
+the PREDICATE, not only the corpus.** `bidirectional` above was a matcher that
+could not read its corpus; this is a corpus the matcher never asked for.
+
 ## Important correction from fighter measurements
 
 The fighter `recovery_below` experiment does **not** validate the rollout/recovery

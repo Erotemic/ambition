@@ -103,6 +103,9 @@ def main() -> int:
         return 3
 
     areas: set[str] = set()
+    # Portal groups, keyed by link id when authored and by channel otherwise, so
+    # the predicate check below can see whether any spans two areas.
+    portal_groups: dict[str, set[str]] = collections.defaultdict(set)
     # ⭐ THE ARRIVAL SIDE, which the room check cannot see: a door may name a
     # room that exists and a ZONE in it that does not.
     zones_in_area: dict[str, set[str]] = collections.defaultdict(set)
@@ -119,6 +122,26 @@ def main() -> int:
                         for f in entity.get("fieldInstances") or []
                     }
                     zones_in_area[area].add(fields.get("id") or entity.get("iid"))
+            for layer in level.get("layerInstances") or []:
+                for entity in layer.get("entityInstances") or []:
+                    if entity.get("__identifier") != "Portal":
+                        continue
+                    fields = {
+                        f.get("__identifier"): f.get("__value")
+                        for f in entity.get("fieldInstances") or []
+                    }
+                    link = next(
+                        (v for k, v in fields.items() if "link" in k.lower() and v), None
+                    )
+                    colour = next(
+                        (
+                            v
+                            for k, v in fields.items()
+                            if ("color" in k.lower() or "channel" in k.lower()) and v
+                        ),
+                        None,
+                    )
+                    portal_groups[str(link or colour or entity.get("iid"))].add(area)
 
     edges: set[tuple[str, str]] = set()
     doors: list[tuple[str, str, str, str]] = []
@@ -148,6 +171,34 @@ def main() -> int:
     # clean bill for a world with nothing in it.
     if not edges:
         print("⛔ no loading zones with a target were found; the check is vacuous", file=sys.stderr)
+        return 1
+
+    # ⛔⛔ THE PREDICATE IS "A DOOR IS A LoadingZone", AND THAT IS AN ASSUMPTION
+    # WITH AN EXPIRY DATE. A PORTAL is also a way between places, and this check
+    # does not model one. MEASURED 2026-09-05: all seven authored portal groups
+    # stay INSIDE a single area, so the assumption is currently complete -- but
+    # the day a portal pair spans two areas, this file's verdict is wrong in both
+    # directions at once: an area whose only exit is that portal reads as a TRAP,
+    # and a connection the player can actually use is missing from the graph.
+    #
+    # ⭐ So the assumption is ASSERTED rather than commented. A comment saying
+    # "portals do not cross areas today" is a fact that rots silently; this fails
+    # and says what to do about it.
+    spanning = sorted(
+        group
+        for group, group_areas in portal_groups.items()
+        if len(group_areas) > 1
+    )
+    if spanning:
+        print(
+            "FAIL: portal groups span more than one area: " + ", ".join(spanning)
+            + "\n  This check models a door as a `LoadingZone` and does not know "
+            "about portals.\n  A cross-area portal makes its verdict wrong BOTH "
+            "ways: an area whose only exit is that portal reads as a trap, and a "
+            "real connection is missing from the graph.\n  ⇒ Teach this check "
+            "about portal pairs before trusting it again.",
+            file=sys.stderr,
+        )
         return 1
 
     outgoing: dict[str, set[str]] = collections.defaultdict(set)

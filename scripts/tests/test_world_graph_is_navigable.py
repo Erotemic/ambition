@@ -220,3 +220,60 @@ def test_a_door_naming_a_room_that_is_no_area_is_reported(tmp_path: Path) -> Non
         encoding="utf-8",
     )
     assert module.main() == 1
+
+
+def _portal(link: str) -> dict:
+    return {
+        "__identifier": "Portal",
+        "fieldInstances": [{"__identifier": "link_id", "__value": link}],
+    }
+
+
+def _level_with(identifier: str, area: str, zones, portals) -> dict:
+    level = _level(identifier, area, zones)
+    level["layerInstances"][0]["entityInstances"].extend(portals)
+    return level
+
+
+def test_a_portal_pair_spanning_two_areas_is_refused(tmp_path: Path) -> None:
+    """⛔⛔ THE CHECK'S OWN PREDICATE, ASSERTED.
+
+    It models a door as a `LoadingZone` and knows nothing about portals. All
+    seven authored portal groups stay inside one area today, so that is complete
+    — but a cross-area portal would make its verdict wrong BOTH ways at once: an
+    area whose only exit is that portal reads as a trap, and a real connection is
+    missing from the graph.
+
+    ⇒ Asserted rather than commented, because "portals do not cross areas today"
+    is a fact that rots in silence.
+    """
+    module = _module()
+    module.WORLDS = tmp_path
+    (tmp_path / "spanning.ldtk").write_text(
+        _world(
+            [
+                _level_with("hub_level", "hub", [("to_vault", "vault", "arrival", True)], [_portal("gate")]),
+                _level_with("vault_level", "vault", [("arrival", None, None, False)], [_portal("gate")]),
+            ]
+        ),
+        encoding="utf-8",
+    )
+    assert module.main() == 1
+
+
+def test_a_portal_pair_inside_one_area_is_fine(tmp_path: Path) -> None:
+    """⚠ Its control — which is the SHIPPED shape. Without it, the arm above
+    would also fire on every world that authors a portal at all, and the four
+    worlds do."""
+    module = _module()
+    module.WORLDS = tmp_path
+    (tmp_path / "contained.ldtk").write_text(
+        _world(
+            [
+                _level_with("hub_level", "hub", [("to_vault", "vault", "arrival", True)], [_portal("gate"), _portal("gate")]),
+                _level_with("vault_level", "vault", [("arrival", None, None, False)], []),
+            ]
+        ),
+        encoding="utf-8",
+    )
+    assert module.main() == 0

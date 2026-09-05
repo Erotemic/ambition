@@ -301,6 +301,17 @@
 > CONSTRUCTOR (`Chest::new`), not `impl Default` — a Default-only scan finds 1 of
 > the 16. ⇒ before reading any dormancy census, ask what the field's default IS.
 >
+> ⛔⛔ **AND THE FIELD CENSUS COUNTS LEAVES, NOT BRANCHES — a second axis exists
+> and it found a bigger gap.** `VolumeReaction::Windbox` has NO authored fighter
+> at all; the engine side is complete down to a validation error, and the field
+> scan only ever saw its `repeating` flag. A whole reaction with no customer is
+> structurally invisible to a scan over FIELDS unless something inside it happens
+> to be a bool. ⇒ `--variants` adds it: **543 authored enum variants, 149 never
+> named in authored content**, and it reports the Windbox row.
+> ⚠ Behind a flag and much noisier — many `Deserialize` enums are runtime state
+> (`LocomotionState`, `CachePolicy`) rather than authored vocabulary, so it is a
+> starting list for a person, never a count for a report.
+>
 > ⚠ **NOT A GATE, deliberately.** Content breadth is not gated here, and a
 > dormant mode is not a defect: it is a built behaviour with no authored
 > customer, and the choice each time is author one or delete it.

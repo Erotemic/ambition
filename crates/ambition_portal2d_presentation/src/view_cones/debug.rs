@@ -46,6 +46,10 @@ pub fn flush_portal_view_cone_debug_dump(
         &Projection,
         Option<&GlobalTransform>,
     )>,
+    // ⭐ EVERY camera, not just the portal rigs. Whether a pane and an actor are
+    // depth-compared at all depends on a camera rendering BOTH masks, and the
+    // rig query above cannot answer that -- it only sees the capture cameras.
+    all_cameras: Query<(Option<&Name>, &Camera, Option<&RenderLayers>)>,
     cone_visibility: Query<(&Visibility, Option<&GlobalTransform>), With<PortalConeMesh>>,
     screen_density: GameplayScreenDensity,
     // The session's portal map convention, from the resource that owns it.
@@ -82,6 +86,22 @@ pub fn flush_portal_view_cone_debug_dump(
         })
         .collect();
 
+    // The camera stack as (name, order, active, layers), ordered the way Bevy
+    // draws it, so the reader sees the same sequence the renderer does.
+    let mut cameras: Vec<(String, isize, bool, RenderLayers)> = all_cameras
+        .iter()
+        .map(|(name, camera, layers)| {
+            (
+                name.map(|n| n.as_str().to_string())
+                    .unwrap_or_else(|| "<unnamed>".to_string()),
+                camera.order,
+                camera.is_active,
+                layers.cloned().unwrap_or_default(),
+            )
+        })
+        .collect();
+    cameras.sort_by_key(|(_, order, _, _)| *order);
+
     let dump = portal_view_cone_debug_dump_text(
         &reason,
         &selection,
@@ -94,6 +114,7 @@ pub fn flush_portal_view_cone_debug_dump(
         &rigs,
         &cone_visibility,
         &drawables,
+        &cameras,
         screen_density.texels_per_world(host_view.as_deref()),
         convention,
     );
@@ -149,10 +170,22 @@ fn portal_view_cone_debug_dump_text(
     )>,
     cone_visibility: &Query<(&Visibility, Option<&GlobalTransform>), With<PortalConeMesh>>,
     drawables: &[(String, crate::PortalCompositingCandidate, f32, Option<RenderLayers>)],
+    cameras: &[(String, isize, bool, RenderLayers)],
     screen_scale: f32,
     convention: ambition_portal2d::pieces::MapConvention,
 ) -> String {
     let mut out = String::new();
+    // ⭐ THE CAMERA STACK, ONCE. Whether a pane and an actor are depth-compared
+    // at all depends on a camera rendering BOTH masks -- the fact the compositing
+    // section used to hedge about and could not name. Printed here rather than
+    // per pane because it is a property of the session, not of a portal.
+    let _ = writeln!(out, "cameras: {}", cameras.len());
+    for (name, order, active, layers) in cameras {
+        let _ = writeln!(
+            out,
+            "  camera {name:?} order={order} active={active} layers={layers:?}"
+        );
+    }
     let all: Vec<PlacedPortal> = portals.iter().cloned().collect();
     let (clip_min, clip_max) = portal_window_clip_rect(frame, host_view);
     let effective = effective_portal_capture_budget(config, quality);
@@ -630,7 +663,7 @@ fn portal_view_cone_debug_dump_text(
         } else {
             let _ = writeln!(out, "  render.present: false");
         }
-        write_compositing_section(&mut out, portal, viewer.map(|v| v.eye), drawables);
+        write_compositing_section(&mut out, portal, viewer.map(|v| v.eye), drawables, cameras);
         let _ = writeln!(out);
     }
 
@@ -657,6 +690,7 @@ fn write_compositing_section(
     portal: &PlacedPortal,
     viewer_pos: Option<Vec2>,
     drawables: &[(String, crate::PortalCompositingCandidate, f32, Option<RenderLayers>)],
+    cameras: &[(String, isize, bool, RenderLayers)],
 ) {
     let _ = writeln!(out, "  compositing.pane_z: {:.3}", crate::PORTAL_WINDOW_Z);
     // ⛔ NEAR AND FAR ARE RELATIVE TO A VIEWPOINT. With no `PortalViewer` there
@@ -674,6 +708,7 @@ fn write_compositing_section(
         "  compositing.viewer_front: {:.3}",
         ambition_portal2d::pieces::front_distance(viewer_pos, &frame)
     );
+    let pane_layers = crate::view_cones::portal_window_render_layers(portal.channel);
     let mut violations = 0usize;
     for (name, view, z, layers) in drawables {
         // ⚠ DRAWN bounds, not the collision box: the question is which pixels a
@@ -724,16 +759,40 @@ fn write_compositing_section(
         // "never compared" — an earlier version of this line said exactly that
         // and was wrong. Settling it needs the camera stack (which cameras, in
         // what order, with which masks), and that is the host's to publish.
+        let _ = writeln!(out, "    pane_render_layers: {pane_layers:?}");
+        // ⛔⛔ THE QUESTION IS NOT WHETHER THE MASKS INTERSECT EACH OTHER.
+        // `RenderLayers` gates which CAMERA sees an entity; it does not group
+        // depth. Two entities on DIFFERENT layers are still depth-tested when
+        // one camera renders both. An earlier version of this line read
+        // "disjoint masks ⇒ never compared" and was simply wrong.
+        //
+        // ⇒ The honest test is whether any ACTIVE camera's mask intersects BOTH.
+        let actor_layers = layers.clone().unwrap_or_default();
+        let comparing: Vec<&str> = cameras
+            .iter()
+            .filter(|(_, _, active, mask)| {
+                *active && mask.intersects(&actor_layers) && mask.intersects(&pane_layers)
+            })
+            .map(|(name, _, _, _)| name.as_str())
+            .collect();
+        let ordering = if *z > crate::PORTAL_WINDOW_Z { "ABOVE_PANE" } else { "BELOW_PANE" };
         let _ = writeln!(
             out,
-            "    pane_render_layers: {:?}",
-            crate::view_cones::portal_window_render_layers(portal.channel)
+            "    compared_by: {}",
+            if comparing.is_empty() {
+                "NONE — no active camera renders both masks".to_string()
+            } else {
+                comparing.join(", ")
+            }
         );
         let _ = writeln!(
             out,
-            "    depth_says: {} (a camera rendering BOTH masks compares them; \
-             the camera stack is not published here)",
-            if *z > crate::PORTAL_WINDOW_Z { "ABOVE_PANE" } else { "BELOW_PANE" }
+            "    depth_says: {}",
+            if comparing.is_empty() {
+                format!("{ordering} (but nothing compares them — see compared_by)")
+            } else {
+                ordering.to_string()
+            }
         );
         let _ = writeln!(out, "    COMPOSITE_VIOLATION: {}", !correct);
     }
@@ -1296,7 +1355,7 @@ mod compositing_report_tests {
             11.0,
             None,
         )];
-        write_compositing_section(&mut out, &pane(), Some(Vec2::new(100.0, 360.0)), &drawables);
+        write_compositing_section(&mut out, &pane(), Some(Vec2::new(100.0, 360.0)), &drawables, &[]);
         assert!(out.contains("expected_relation: FarCovered"), "{out}");
         assert!(out.contains("depth_says: ABOVE_PANE"), "{out}");
         assert!(out.contains("COMPOSITE_VIOLATION: true"), "{out}");
@@ -1310,7 +1369,7 @@ mod compositing_report_tests {
     fn a_near_side_drawable_is_reported_as_correct_under_todays_z() {
         let mut out = String::new();
         let drawables = vec![("Near NPC".to_string(), body_at(308.0), 11.0, None)];
-        write_compositing_section(&mut out, &pane(), Some(Vec2::new(100.0, 360.0)), &drawables);
+        write_compositing_section(&mut out, &pane(), Some(Vec2::new(100.0, 360.0)), &drawables, &[]);
         assert!(out.contains("expected_relation: NearOccluder"), "{out}");
         assert!(out.contains("COMPOSITE_VIOLATION: false"), "{out}");
         assert!(out.contains("compositing.violations: 0"), "{out}");
@@ -1322,7 +1381,7 @@ mod compositing_report_tests {
     #[test]
     fn an_untagged_host_reports_zero_candidates_rather_than_silence() {
         let mut out = String::new();
-        write_compositing_section(&mut out, &pane(), Some(Vec2::new(100.0, 360.0)), &[]);
+        write_compositing_section(&mut out, &pane(), Some(Vec2::new(100.0, 360.0)), &[], &[]);
         assert!(out.contains("compositing.candidates: 0"), "{out}");
         assert!(out.contains("compositing.violations: 0"), "{out}");
     }
@@ -1333,7 +1392,7 @@ mod compositing_report_tests {
     fn no_viewer_reports_that_it_cannot_classify() {
         let mut out = String::new();
         let drawables = vec![("Somebody".to_string(), body_at(292.0), 11.0, None)];
-        write_compositing_section(&mut out, &pane(), None, &drawables);
+        write_compositing_section(&mut out, &pane(), None, &drawables, &[]);
         assert!(out.contains("ABSENT — cannot classify"), "{out}");
         assert!(!out.contains("COMPOSITE_VIOLATION"), "{out}");
     }
@@ -1345,11 +1404,67 @@ mod compositing_report_tests {
     /// ⚠ This is the same over-claim as the z policy the section exists to
     /// expose, one level up: asserting an outcome from one of the two facts that
     /// decide it.
+    /// ⭐⭐ THE HALF THE REPORT COULD NOT ANSWER BEFORE. Whether a pane and an
+    /// actor are depth-compared depends on a camera rendering BOTH masks, and
+    /// naming that camera is what turns `depth_says` from a hedge into a fact.
+    ///
+    /// ⛔ It is NOT "do the two masks intersect each other". `RenderLayers`
+    /// gates which CAMERA sees an entity; it does not group depth. The actor
+    /// here is on layer 0 and the pane is not, and they ARE compared -- because
+    /// one camera renders both.
+    #[test]
+    fn a_camera_rendering_both_masks_is_named_as_the_one_that_compares_them() {
+        let mut out = String::new();
+        let drawables = vec![("Somebody".to_string(), body_at(292.0), 11.0, None)];
+        let main = (
+            "main".to_string(),
+            0isize,
+            true,
+            RenderLayers::layer(0).with(crate::PORTAL_WINDOW_RENDER_LAYER),
+        );
+        write_compositing_section(
+            &mut out,
+            &pane(),
+            Some(Vec2::new(100.0, 360.0)),
+            &drawables,
+            &[main],
+        );
+        assert!(out.contains("compared_by: main"), "{out}");
+        assert!(
+            !out.contains("but nothing compares them"),
+            "a comparing camera exists; the verdict must not be hedged: {out}"
+        );
+    }
+
+    /// ⚠ And the other direction, which is the one that makes a `depth_says`
+    /// verdict meaningless rather than merely uncertain: an INACTIVE camera
+    /// renders nothing, so it compares nothing.
+    #[test]
+    fn an_inactive_camera_does_not_compare_anything() {
+        let mut out = String::new();
+        let drawables = vec![("Somebody".to_string(), body_at(292.0), 11.0, None)];
+        let off = (
+            "disabled".to_string(),
+            0isize,
+            false,
+            RenderLayers::layer(0).with(crate::PORTAL_WINDOW_RENDER_LAYER),
+        );
+        write_compositing_section(
+            &mut out,
+            &pane(),
+            Some(Vec2::new(100.0, 360.0)),
+            &drawables,
+            &[off],
+        );
+        assert!(out.contains("compared_by: NONE"), "{out}");
+        assert!(out.contains("but nothing compares them"), "{out}");
+    }
+
     #[test]
     fn the_report_qualifies_what_a_depth_comparison_can_settle() {
         let mut out = String::new();
         let drawables = vec![("Somebody".to_string(), body_at(292.0), 11.0, None)];
-        write_compositing_section(&mut out, &pane(), Some(Vec2::new(100.0, 360.0)), &drawables);
+        write_compositing_section(&mut out, &pane(), Some(Vec2::new(100.0, 360.0)), &drawables, &[]);
         assert!(out.contains("depth_says:"), "{out}");
         // The qualifier names the CAMERA, because that is the fact that is
         // missing -- not the layers, which are both printed below.

@@ -25,7 +25,21 @@ made three times in one day:
     1  ambition_game_shell
     1  ambition_content
     ────
-   17  warnings across 7 of 43 crates; 36 clean
+   17  warning OCCURRENCES across 7 of 43 crates; 36 clean
+    6  DISTINCT sites — see below
+
+⛔⛔ AND THE PER-CRATE COUNT DOUBLE-COUNTS A DEPENDENCY'S WARNINGS, which is
+worth knowing before quoting the total. `ambition_conversation`'s three are not
+its own — they are `ambition_dialog`'s, recompiled by every dependent that
+builds it without `input`. By SITE the 17 is six:
+
+    crates/ambition_dialog/src/runtime.rs:363, :409, :512, :566   (the `input` four)
+    crates/ambition_game_shell/src/session.rs:147                 stub_live
+    game/ambition_content/src/portal/input_adapter.rs:114         presented_subject
+
+⇒ A per-crate count of a warning in a DEPENDENCY counts DEPENDENTS, not
+defects. This script reports per crate because that is what a consumer
+experiences; group by the `-->` line when you want the work.
 
 ⚠ NOT ALL OF THESE ARE DEFECTS, and `ambition_dialog` is the worked example:
 its four are `pub(crate)` view-model methods whose only callers are behind the

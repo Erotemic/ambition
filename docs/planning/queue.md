@@ -3496,16 +3496,37 @@ OPTIONAL dep + feature, never used:
   ⇒ **That is what a downstream consumer sees, and what `cargo test -p <crate>`
   sees** — the command this project reaches for constantly, and the one the
   disk-pressure guidance recommends over a lane.
-  ⭐⭐ **AND IT IS NOT ONE CRATE. Measured across the whole workspace
-  2026-09-04 by `scripts/measure_per_crate_warnings.py` (committed): 17 warnings
+  ⭐⭐ **AND IT IS NOT ONE CRATE — but it is SIX SITES, not seventeen, and the
+  first number here was mine and wrong.** Measured 2026-09-04 by
+  `scripts/measure_per_crate_warnings.py` (committed): 17 warning OCCURRENCES
   across 7 of 43 crates that declare a non-default feature, every one invisible
-  to a gate that reports the workspace clean.**
+  to a gate that reports the workspace clean.
+  ⛔⛔ **THAT 17 DOUBLE-COUNTS, and I published it before checking.**
+  `ambition_conversation`'s three are not its own — they are
+  `ambition_dialog`'s, surfacing because every dependent that builds
+  `ambition_dialog` without `input` recompiles the same dead methods. Counting
+  by SITE instead of by crate:
+
+```text
+  crates/ambition_dialog/src/runtime.rs:363, :409, :512, :566   (the `input` four)
+  crates/ambition_game_shell/src/session.rs:147                 stub_live
+  game/ambition_content/src/portal/input_adapter.rs:114         presented_subject
+  ────
+  6 distinct sites, 17 per-crate occurrences
+```
+
+  ⇒ **A per-crate count of a warning in a DEPENDENCY is a count of dependents,
+  not of defects.** The script reports per-crate because that is what a consumer
+  experiences; the census below is what wants fixing.
+  ⚠ `input_adapter.rs:114` is the same shape as the other five: its consumer at
+  `:162` is not compiled under the lib's own default features, so the binding is
+  unused there and used elsewhere.
 
 ```text
     4  ambition_dialog          2  ambition_platformer2d_actor_monolith
     3  ambition_sim_view        1  ambition_game_shell
     3  ambition_render          1  ambition_content
-    3  ambition_conversation
+    3  ambition_conversation      (per-crate OCCURRENCES; six distinct sites)
 ```
 
   ⚠ **A CENSUS, NOT A DEFECT LIST** — `ambition_dialog`'s four are the worked

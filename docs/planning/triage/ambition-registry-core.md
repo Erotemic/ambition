@@ -212,7 +212,7 @@ unhandled.
 | `SfxRegistry` | `crates/ambition_audio/src/spec.rs:27` | `String` | `-` | no register fn |
 | `SheetRegistry` | `crates/ambition_sprite_sheet/src/lib.rs:565` | `String` | `-` | no register fn |
 | `EncounterRegistry` | `crates/ambition_encounter/src/registry.rs:18` | `String` | `point_at_live_entity` | ✔ REPLACE, stated (2026-09-05; an id→live-Entity INDEX, not a table) |
-| `FrontendAudioRegistry` | `crates/ambition_audio/src/selection.rs:181` | `String` | `declare_route` | silent |
+| `FrontendAudioRegistry` | `crates/ambition_audio/src/selection.rs:181` | `String` | `declare_route` | ◐ replace, stated; sealed; 1 production caller — open half is PRECEDENCE (2026-09-05) |
 | `GatePortalRegistry` | `crates/ambition_platformer2d_world/src/rooms/gate_portal.rs:77` | `String` | `try_register` | ✔ Result (adopted 2026-09-05; map SEALED) |
 | `MovePrefabRegistry` | `crates/ambition_combat/src/moveset/prefab_registry.rs:21` | `String` | `register` | silent |
 | `ParamSchemaRegistry` | `crates/ambition_entity_catalog/src/lib.rs:135` | `String` | `register` | ✔ REPLACE, stated (2026-09-05; `classify` NOT expressible — the value is a fn pointer) |

@@ -118,7 +118,18 @@ provider because "particles" exist as a category.
 
 ## Current open work
 
-### ⛔⛔ Portal scene compositing — a global z cannot express portal optics (2026-09-05)
+### ✔ Portal scene compositing — a global z cannot express portal optics (2026-09-05, LANDED)
+
+✔ **ALL SIX ACCEPTANCE CASES JON NAMED ARE GREEN**, and both roads he ruled out
+stayed ruled out: `PORTAL_WINDOW_Z` is untouched, and no actor's z is mutated —
+asserted, not merely intended, by
+`the_player_band_and_the_actor_band_composite_identically`, which demands
+IDENTICAL output at z 11 and z 20. This repair never reads z at all.
+
+⚠ **Open, and small:** a split-screen session. One body is near for one player
+and far for the other — the two-pane problem again — and it would need per-view
+pieces on per-view layers. The seam cannot express it today: `PortalViewer` is a
+`Resource`, so there is exactly one eye by construction.
 
 **Reported by Jon with a screenshot**: a far-side Perfect Cellular Automaton's
 sprite draws OVER a seamless portal window it should be hidden behind.

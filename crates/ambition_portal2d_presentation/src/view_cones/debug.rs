@@ -1102,6 +1102,7 @@ pub fn debug_portal_view_zones(
     viewer: Option<Res<PortalViewer>>,
     frame: Res<PortalWorldFrame>,
     portals: Query<&PlacedPortal>,
+    compositing: Query<&crate::PortalCompositingCandidate>,
     mut gizmos: Gizmos,
     // The session's portal map convention, from the resource that owns it.
     tuning: Option<Res<ambition_portal2d::PortalTuning>>,
@@ -1120,6 +1121,7 @@ pub fn debug_portal_view_zones(
     let all: Vec<PlacedPortal> = portals.iter().cloned().collect();
     let viewer = viewer.as_deref();
     let to_render = |p: Vec2| frame.to_render(p, 0.0).truncate();
+    draw_compositing_relations(&mut gizmos, &all, viewer, &compositing, to_render);
     for portal in &all {
         let Some(partner) = find_portal(&all, portal.channel.partner()) else {
             continue;
@@ -1337,5 +1339,59 @@ mod compositing_report_tests {
             !out.contains("actual_ordering"),
             "the unqualified claim must be gone: {out}"
         );
+    }
+}
+
+/// Colour every candidate's bounds by what it is to each pane.
+///
+/// ⛔⛔ THE SCREENSHOT THAT STARTED THIS COULD NOT DIAGNOSE ITSELF. A far-side
+/// actor drawn over a seamless window looks exactly like a near-side actor
+/// correctly occluding one — the difference is which side of a plane it stands
+/// on, which no still image shows. ⇒ These outlines say it: a body the pane
+/// SHOULD be covering is drawn RED while it is drawn on top.
+///
+/// ⚠ ONE OUTLINE PER (PANE, CANDIDATE) PAIR, not one per candidate. A body is
+/// near one aperture and far of another in the same frame, and collapsing that
+/// to a single colour would reintroduce, in the diagnostic, the exact one-answer-
+/// per-actor assumption the bug is made of.
+fn draw_compositing_relations(
+    gizmos: &mut Gizmos,
+    panes: &[PlacedPortal],
+    viewer: Option<&PortalViewer>,
+    candidates: &Query<&crate::PortalCompositingCandidate>,
+    to_render: impl Fn(Vec2) -> Vec2,
+) {
+    // ⛔ Near and far are relative to a viewpoint; with none there is nothing
+    // honest to colour.
+    let Some(viewer) = viewer else {
+        return;
+    };
+    for pane in panes {
+        for candidate in candidates {
+            let min = candidate.drawn_centre - candidate.drawn_half;
+            let max = candidate.drawn_centre + candidate.drawn_half;
+            let relation = crate::pane_relation(pane, viewer.eye, min, max, false);
+            let colour = match relation {
+                crate::PaneRelation::Disjoint => continue,
+                // Correct under today's z: it may occlude, and it does.
+                crate::PaneRelation::NearOccluder => Color::srgb(0.20, 0.85, 0.30),
+                // The split presentation owns this body.
+                crate::PaneRelation::Transiting => Color::srgb(0.95, 0.85, 0.15),
+                // ⛔ Should be covered BY the pane, and today is drawn over it.
+                crate::PaneRelation::FarCovered
+                    if !crate::current_z_policy_is_correct_for(relation) =>
+                {
+                    Color::srgb(0.95, 0.15, 0.15)
+                }
+                crate::PaneRelation::FarCovered => Color::srgb(0.25, 0.45, 0.95),
+            };
+            let a = to_render(min);
+            let b = to_render(max);
+            gizmos.rect_2d(
+                Isometry2d::from_translation((a + b) * 0.5),
+                (b - a).abs(),
+                colour,
+            );
+        }
     }
 }

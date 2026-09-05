@@ -182,9 +182,14 @@ re-exports `PlacedPortal` (which its own public systems already query) rather th
 
 1. **`RenderLayers` and the camera stack** in the dump — main and capture camera
    order and layers, which need the host to publish them the same way.
-2. **F1/F3 visualization**: outline the pane polygon; colour overlapping actor
-   bounds green (near occluder) / blue (far, expected under) / yellow
-   (transiting) / red (ordering contradicts classification).
+✔ **DONE: the overlay colours the relation.** `debug_portal_view_zones` draws one
+outline per (pane, candidate) pair — green near-occluder, blue far-covered,
+yellow transiting, RED where the classification and today's ordering disagree.
+⚠ ONE OUTLINE PER PAIR, not per candidate: a body is near one aperture and far of
+another in the same frame, and collapsing that to a single colour would
+reintroduce, in the diagnostic, the one-answer-per-actor assumption the bug is
+made of. ⚠ Nothing is drawn without a `PortalViewer` — near and far are relative
+to a viewpoint.
 3. **The compositor itself** — and it needs NO NEW RENDER MACHINERY, which is
    the cheapest thing anyone can know before starting it.
    ⭐ **`PortalClipMaterial` already does exactly this job for transit pieces.**

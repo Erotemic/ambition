@@ -7,6 +7,7 @@
 
 use bevy::prelude::*;
 
+use crate::far_side;
 use crate::gun_visuals;
 #[cfg(feature = "effect_view_cones")]
 use crate::view_cones;
@@ -41,6 +42,16 @@ pub struct PortalPresentationPlugin {
     /// charts (here-slice at the entry, emerged slice at the exit), rebuilt
     /// from the real sprite each frame via [`crate::PortalClipMaterial`].
     pub body_pieces: bool,
+    /// Far-side compositing ([`far_side::composite_far_side_bodies`]): a body
+    /// standing BEHIND an aperture is redrawn as the part the pane leaves
+    /// visible, so the covered pixels are never submitted and no depth ordering
+    /// can bring them back.
+    ///
+    /// ⛔ Turning this off restores the punch-through Jon reported on
+    /// 2026-09-05: a pane draws at [`crate::PORTAL_WINDOW_Z`] (`9.5`) and every
+    /// actor above it, so a far-side body wins the depth test against the
+    /// captured image that should hide it.
+    pub far_side_compositing: bool,
     /// The held portal-gun sprite aimed by [`PortalAimHint`]
     /// ([`gun_visuals::sync_portal_mode_indicator`]).
     pub gun_indicator: bool,
@@ -60,6 +71,7 @@ impl Default for PortalPresentationPlugin {
         Self {
             portal_quads: true,
             body_pieces: true,
+            far_side_compositing: true,
             gun_indicator: true,
             disorientation: true,
             view_cones: true,
@@ -99,6 +111,15 @@ impl Plugin for PortalPresentationPlugin {
             app.add_systems(
                 Update,
                 visuals::sync_portal_body_pieces.in_set(PortalPresentationSet),
+            );
+        }
+        if self.far_side_compositing {
+            // Shares the clip material with the transit pieces; the adder is
+            // idempotent precisely because both flags default to on.
+            crate::clip_material::add_portal_clip_material_plugin(app);
+            app.add_systems(
+                Update,
+                far_side::composite_far_side_bodies.in_set(PortalPresentationSet),
             );
         }
         if self.gun_indicator {

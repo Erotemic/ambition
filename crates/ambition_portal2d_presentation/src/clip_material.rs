@@ -87,6 +87,14 @@ pub(crate) fn add_portal_clip_material_plugin(app: &mut App) {
     {
         return;
     }
+    // ⛔⛔ ENSURE, DON'T ADD. `add_plugins` PANICS on a duplicate, and this has
+    // more than one independent caller: the transit pieces and the far-side
+    // compositor each need the material and neither should have to know whether
+    // the other is enabled. Without this, turning both flags on -- the DEFAULT
+    // configuration -- crashes at startup.
+    if app.is_plugin_added::<Material2dPlugin<PortalClipMaterial>>() {
+        return;
+    }
     embedded_asset!(app, "shaders/portal_clip.wgsl");
     app.add_plugins(Material2dPlugin::<PortalClipMaterial>::default());
 }
@@ -123,3 +131,32 @@ pub fn clip_piece_transform(base: &Transform, anchor: Vec2, size: Vec2) -> Trans
 
 #[cfg(test)]
 mod tests;
+
+#[cfg(test)]
+mod idempotency_tests {
+    use super::*;
+    use bevy::asset::AssetPlugin;
+
+    /// ⛔⛔ TWO CALLERS, ONE MATERIAL, AND `add_plugins` PANICS ON A DUPLICATE.
+    /// The transit pieces and the far-side compositor each need this material
+    /// and both flags default to ON, so without the guard the DEFAULT plugin
+    /// configuration crashes at startup. A headless app without the embedded
+    /// registry returns early and never reaches the duplicate, which is why this
+    /// test installs `AssetPlugin` -- the bug is invisible to a test that does
+    /// not.
+    #[test]
+    fn adding_the_clip_material_twice_is_safe() {
+        let mut app = App::new();
+        app.add_plugins(AssetPlugin::default());
+        assert!(
+            app.world()
+                .get_resource::<bevy::asset::io::embedded::EmbeddedAssetRegistry>()
+                .is_some(),
+            "without the embedded registry this test cannot reach the duplicate path"
+        );
+        add_portal_clip_material_plugin(&mut app);
+        // The second call is the one that used to panic.
+        add_portal_clip_material_plugin(&mut app);
+        assert!(app.is_plugin_added::<Material2dPlugin<PortalClipMaterial>>());
+    }
+}

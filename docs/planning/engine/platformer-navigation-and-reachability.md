@@ -52,6 +52,22 @@ decision policy is correct.
 > — substrate present, policy unproven — is now sharper than "unproven": there is
 > no navigation consumer to prove or disprove.
 >
+> ✔ **RE-DERIVED INDEPENDENTLY 2026-09-05 at a later HEAD, and it holds** — by a
+> different search than the one above, which is what makes it worth a stamp
+> rather than a repetition. Searched `crates/` AND `game/` for
+> `navmesh|NavGraph|pathfind|path_to|astar|a_star|waypoint|navigation|
+> reachability`. ⛔ **The wide search returns APPARENT refutations and every one
+> is a false positive**: `a_star` matches
+> `a_starting_character_other_than_the_default_prepares`; `reachability` matches
+> `unreachable!()` and doc prose; and **all 38 files mentioning "navigation" are
+> MENU navigation** — `ambition_ui_nav`, `ambition_input`, `ambition_menu`,
+> `ambition_settings_menu`, `ambition_touch_input`, `game_shell`,
+> `menu_kaleidoscope`. Sorting hits by CRATE makes that visible in one line.
+> ⓘ `WorldView::reachable`, the one name in the tree that sounds like a route
+> query, is cited in
+> `crates/ambition_platformer2d_actor_monolith/src/features/ecs/perception.rs:877`
+> as something that USED to exist.
+>
 > ⚠ **Which makes this page the single remaining gate on another program.**
 > [`agentic-character-runtime.md`](agentic-character-runtime.md) says to wait for
 > actor/navigation/world-fact foundations; world facts and observations/memory

@@ -57,6 +57,19 @@ pub struct CounterParams {
     /// `nested_response_params_survive_a_round_trip` holds to.
     #[serde(default)]
     pub response_params: ParamValue,
+    /// This stance ABSORBS projectiles instead of returning them.
+    ///
+    /// ⭐ A COUNTER ALREADY REFLECTS SHOTS FOR FREE — the projectile road gates
+    /// on the same `parrying()` window this stance opens, which is how a
+    /// reflector arrived without anyone authoring one. This flips that: the shot
+    /// is consumed instead, and the stance's `response` is what the absorption
+    /// was WORTH.
+    ///
+    /// ⛔ THE RESPONSE IS STILL THE AUTHOR'S. Absorbing that heals, that fills a
+    /// gauge, and that simply deletes the shot are one interception and three
+    /// consequences; this field chooses the interception, not the consequence.
+    #[serde(default)]
+    pub absorbs_projectiles: bool,
 }
 
 /// A complete counter move: startup, the stance, and recovery.
@@ -167,6 +180,7 @@ mod tests {
                 "(offset: (28.0, 0.0), half_extents: (20.0, 24.0), hold_offset: (24.0, 0.0))",
             )
             .expect("the response params are valid RON"),
+            absorbs_projectiles: false,
         };
         let carried = ParamValue::from_typed(&params).expect("counter params serialize");
         let back: CounterParams = carried.hydrate().expect("counter params hydrate");
@@ -192,6 +206,7 @@ mod tests {
                     window_s: 0.0,
                     response: "whatever".to_string(),
                     response_params: ParamValue::default(),
+                    absorbs_projectiles: false,
                 },
             )
         });

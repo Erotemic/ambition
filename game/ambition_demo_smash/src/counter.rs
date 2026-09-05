@@ -59,6 +59,13 @@ pub fn hold_counter_parry_windows(
             continue;
         };
         shield.parry_window_timer = shield.parry_window_timer.max(params.window_s);
+        // ⭐ THE MODE, ARMED ON THE SAME HEARTBEAT. An absorber opens BOTH — the
+        // window that catches and the mode that decides what catching does — so
+        // a stance that stops re-arming stops absorbing on the same tick it
+        // stops parrying, and neither can outlive the other.
+        if params.absorbs_projectiles {
+            shield.absorb_window_timer = shield.absorb_window_timer.max(params.window_s);
+        }
     }
 }
 
@@ -265,6 +272,7 @@ mod tests {
             window_s: 0.05,
             response: CAPTURE_ATTEMPT.to_string(),
             response_params: Default::default(),
+            absorbs_projectiles: false,
         };
         app.world_mut().write_message(ActorActionMessage {
             actor: body,

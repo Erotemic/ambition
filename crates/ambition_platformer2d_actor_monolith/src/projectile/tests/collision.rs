@@ -812,3 +812,70 @@ fn an_open_parry_window_reflects_a_shot_and_takes_it_over() {
          to the body that just parried it"
     );
 }
+
+/// AN ABSORBING STANCE EATS THE SHOT instead of returning it.
+///
+/// ⭐⭐ THE OTHER RESPONSE, through the SAME operation. A counter stance already
+/// reflects for free — both roads gate on `parrying()` — so this proves
+/// `ProjectileInterception::Consume` reaches the world through
+/// `intercept_projectile` rather than through a second implementation.
+///
+/// ⛔ AND IT IS THE PAIR THAT MATTERS. Asserting "the shot is gone" alone would
+/// pass for a stance that simply failed to catch anything: a projectile that
+/// flew past and expired is also absent. The reflect arm above is the control —
+/// same fixture, same shot, one field different, opposite outcomes.
+#[test]
+fn an_absorbing_parry_consumes_the_shot_rather_than_returning_it() {
+    use ambition_platformer2d_core::BodyShieldState;
+
+    let world = ae::World::new(
+        "absorb_gate_test",
+        ae::Vec2::new(2000.0, 2000.0),
+        ae::Vec2::new(200.0, 200.0),
+        Vec::new(),
+    );
+    let mut app = projectile_test_app(world, ae::Vec2::new(200.0, 200.0), 1.0);
+    app.update();
+
+    app.world_mut().spawn((
+        ambition_combat::components::ActorFaction::Enemy,
+        ae::BodyKinematics {
+            pos: ae::Vec2::new(500.0, 300.0),
+            size: ae::Vec2::new(28.0, 46.0),
+            ..Default::default()
+        },
+        ae::CenteredAabb::from_center_size(
+            ae::Vec2::new(500.0, 300.0),
+            ae::Vec2::new(28.0, 46.0),
+        ),
+        BodyHealth::restored(ambition_characters::actor::Health::new(100), 0, default()),
+        // Both armed: the window that CATCHES and the mode that decides what
+        // catching does. A stance with only the mode absorbs nothing.
+        BodyShieldState {
+            parry_window_timer: 0.20,
+            absorb_window_timer: 0.20,
+            ..Default::default()
+        },
+    ));
+
+    {
+        let spec = ProjectileKind::Fireball.spec(
+            ae::Vec2::new(470.0, 300.0),
+            ae::Vec2::new(1.0, 0.0),
+            1.0,
+        );
+        let mut body = ambition_projectiles::ProjectileBody::from_spec(spec);
+        body.kin.pos = ae::Vec2::new(495.0, 300.0);
+        body.kin.vel = ae::Vec2::new(60.0, 0.0);
+        crate::projectile::tests::spawn_player_projectile(&mut app, body);
+    }
+    advance_time(&mut app, 0.016);
+    app.update();
+
+    assert!(
+        crate::projectile::tests::projectile_bodies(&mut app).is_empty(),
+        "an absorbing stance returned the shot instead of eating it — so
+         `absorb_window_timer` is not reaching the interception, and every
+         absorber is a reflector wearing another name"
+    );
+}

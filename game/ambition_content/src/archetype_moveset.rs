@@ -137,8 +137,11 @@ mod tests {
                 crate::pugnacious_polygon_moveset::pugnacious_polygon_moveset(),
                 "officer",
                 &["polygon_brawler", "pugnacious_polygon"][..],
-                // His side-B is the draw; everything else is the archetype's.
-                1,
+                // His side-B is the draw and his down-B is the riot shield;
+                // everything else is the archetype's. ⓘ Two, not one, since
+                // 2026-09-05 — this count is the fighter STATING how many slots
+                // it owns, and the assertion below is only exact because of it.
+                2,
             ),
             (
                 crate::performer_moveset::performer_moveset(),

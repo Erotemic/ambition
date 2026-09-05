@@ -564,6 +564,19 @@ pub const PARRY_CAUGHT_READ_TIME: f32 = 0.20;
 pub struct BodyShieldState {
     pub active: bool,
     pub parry_window_timer: f32,
+    /// While positive, this body's parry ABSORBS a projectile instead of
+    /// reflecting it.
+    ///
+    /// ⛔ A MODE ON THE PARRY, NOT A SECOND WINDOW. `parrying()` still decides
+    /// WHETHER a shot is caught; this decides what catching it does. A move that
+    /// opened this without opening a parry window would absorb nothing, which is
+    /// why an absorber stance arms both and the guard on it says so.
+    ///
+    /// ⭐ A TIMER RATHER THAN A FLAG, so it decays with its sibling above and a
+    /// stance that stops re-arming stops absorbing on its own — the same
+    /// heartbeat shape, and for the same reason: nothing has to remember to turn
+    /// it off.
+    pub absorb_window_timer: f32,
     /// Integrity SPENT, not integrity left — so the derived `Default` (a
     /// fresh, undamaged guard) is right for every body, including the bodies
     /// whose [`crate::ShieldTuning`] leaves the shield unlimited.
@@ -645,6 +658,11 @@ impl BodyShieldState {
     /// because such a shield has a zero timer.
     pub fn parrying(self) -> bool {
         self.parry_window_timer > 0.0
+    }
+
+    /// This body's parry consumes a caught projectile rather than returning it.
+    pub fn absorbs_projectiles(self) -> bool {
+        self.absorb_window_timer > 0.0
     }
 
     /// This shield's parry window just caught a strike.

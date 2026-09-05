@@ -796,6 +796,12 @@ pub fn fighter_moveset() -> MovesetContract {
                 },
             )
             .expect("the riposte's capture params serialize"),
+            // ⛔ THIS ONE RETURNS SHOTS, and that is the interesting default
+            // for a counter: reflecting a projectile is a reward the crowd can
+            // see, where absorbing one is quiet. An absorber is a DIFFERENT
+            // fighter's stance, and the field is stated here rather than
+            // defaulted so the choice is visible at both.
+            absorbs_projectiles: false,
         },
     );
     moves.push(riposte);

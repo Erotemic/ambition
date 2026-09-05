@@ -476,6 +476,33 @@ either a carve slice under D33, or a facade-optionality migration with 170
 consumer call sites. Both are real; neither is mechanical.
 ## Principles
 
+⭐⭐ **A REQUIRED `MessageWriter` IS A COMPOSITION DEPENDENCY, AND ADDING ONE
+BREAKS EVERY APP THAT HAND-LISTS ITS REGISTRATIONS. Measured 2026-09-05.**
+Folding three loose writer params into one SystemParam struct and adding a fourth
+(`StrikeOutcomeWriters::parried`) reddened nine tests with:
+
+```text
+Parameter `StrikeOutcomeWriters<'_>::parried` failed validation: Message not initialized
+```
+
+Those apps register the three messages the system used to need and then run it
+directly. ⇒ **A hand-listed set of dependencies is a POPULATION, and adding to
+the SOURCE does not update the LISTS** — with no help from the compiler, because
+this is runtime parameter validation, not a type error.
+
+⇒ **The composition question, which is this program's:** an outcome channel that
+not every composition cares about should be `Option<MessageWriter<T>>`, not a
+required one. `ambition_damage`'s `BodyHitResolved` already sets that precedent
+(`crates/ambition_damage/src/lib.rs:470`) and its doc explains why — it is *"an
+optional instrument, not required gameplay authority"*, so a composition that
+does not install the inspector simply gets `None`.
+⚠ **It is a SEMANTIC choice, not a tidy-up.** `Option` means *"this outcome may
+go unannounced"*, which is right for an instrument and wrong for a fact something
+must act on. The test is whether a composition can legitimately not care.
+⇒ Required is the correct default for gameplay authority; what is NOT correct is
+reaching for required by habit and discovering the answer from a panic in
+somebody's hand-built app.
+
 - capability selection is a semantic engine API, not a Cargo-feature illusion;
 - dependency closure and installed runtime behavior should agree;
 - the easy default may install a broad useful engine while narrow composition

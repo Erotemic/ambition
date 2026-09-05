@@ -667,12 +667,30 @@ of those, NOT session-scoped        14
 are match/lifecycle latches (`NewGameResetRequested`, `StocksMatchSettled`,
 `SuddenDeathEntered`), one is `PendingLifecycleCommit`.
 
-⛔ **TWO ARE CONCRETE CANDIDATES AND NEITHER IS THIS SESSION'S TO RULE ON:**
-MEASURED — `GameplayElapsed` and `LiveMatchTicks` have NO reset anywhere outside
-tests, so a second session inherits the first's elapsed time and tick count
-inside the checksum. They are match-domain and live in
-`actor_monolith/src/rollback_registration.rs`; flagged to the fighter lane rather
-than changed here.
+✔ **RESOLVED THE SAME DAY, ACROSS BOTH LANES. THE TALLY IS TWO DEFECTS IN
+FOURTEEN, and the three non-defects are the more useful half:**
+
+```text
+ProjectileSeqCounter    DEFECT  transient ids, nothing wanted the carry      -> scoped
+PendingLifecycleCommit  DEFECT  earliest-sticky: residue REFUSES the next    -> scoped
+                                session's first intent, not merely fires late
+NewGameResetRequested   CORRECT must cross the boundary — it asks the NEXT session to reset
+GameplayElapsed         CORRECT its contract is MONOTONE; a backward `obs_history`
+                                lookback cannot express a reset to zero
+LiveMatchTicks          CORRECT already guarded — see below
+```
+
+⭐ **`LiveMatchTicks` was checked by the fighter lane and is the strongest of the
+three, because the guard already existed and DISCRIMINATES.** Its doc says the
+counter is *"stamped with the match it counts"*, but a stamp alone would only
+make a stale value inert to READERS — which does not answer the checksum
+concern. `count_the_live_match_ticks` does the real thing: on the tick the active
+instance changes it sets `micros = 0` as well as re-stamping, in `WorldPrep`,
+ahead of every consumer. `a_new_match_starts_its_clock_at_zero` guards it with
+the discriminating assertion (50 ticks in match A, switch, one step, assert **1**
+not 51), and it was POISON-VERIFIED by deleting the `micros = 0` while LEAVING
+the re-stamp — the test failed, so it holds the distinction and not just the
+name.
 
 ⭐ **AND ONE OF THE LATCHES IS PROBABLY CROSS-SESSION BY DESIGN, which is why
 this is a list to REVIEW and not a list to fix.** `NewGameResetRequested` is a
@@ -687,10 +705,26 @@ before scoping it.** It is *"the monotone 'now' the per-actor brain perception
 reads"*, and the Smash brain's reaction latency looks BACKWARD from it
 (`obs_history` lookback by `reaction_delay_s`). A clock whose whole contract is
 monotone may be correct to carry: resetting it to zero between sessions is
-exactly the discontinuity a lookback cannot express. ⇒ two of the three
-candidates this query produced turn out to have a plausible reason to cross the
-boundary, which is the measure of how much judgement the query leaves. It also
-sits in `actor_monolith/src/features/**`, the fighter lane's own path.
+exactly the discontinuity a lookback cannot express. ⇒ three of the five
+candidates this query produced turn out to be correct as they are, which is the
+measure of how much judgement it leaves. It also sits in
+`actor_monolith/src/features/**`, the fighter lane's own path.
+
+⭐⭐ **AND THE SHARED LESSON, STATED ONCE HERE BECAUSE BOTH LANES REACHED IT THE
+SAME DAY FROM OPPOSITE DIRECTIONS.** This session's *"canonical and unreset"*
+found five candidates and three were correct as-is. The fighter lane's
+*"this capability is missing"* found three and all three were shipped authorities
+already. ⇒ **both queries return a SHAPE and get read as a VERDICT**, and in
+every case the thing that settled it was PROSE written by whoever built it — a
+doc comment, a system comment, an existing test.
+
+⛔ **The fix is not a better query. It is FINISHING THE FILE.** The fighter lane
+counted four near-misses in one day where the thing it was about to build sat in
+a file it had ALREADY OPENED, below the part it read — you stop reading at the
+answer to your immediate question. Applied here before landing
+`PendingLifecycleCommit`: read `lifecycle_commit.rs` end to end, then searched
+every other consumer for an existing retirement clear. There was none, so that
+one is real.
 
 ⭐ **AND THE ONE THAT LOOKED WORSE WAS NOT A CANDIDATE AT ALL.** `SimIdCounter`
 is a COMPONENT, not a resource — per-spawner, dying with its entity — so it is

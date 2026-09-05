@@ -855,17 +855,51 @@ fn the_stage_choice_decides_which_stage_the_match_prepares() {
         4,
         "the platforms choice prepared a stage without its three tiers"
     );
-    // Same blast geometry, so a comparison between the two stages is a
+    let narrow = prepared_world_for(crate::SmashStageChoice::Narrow);
+    assert_eq!(
+        narrow.geometry().0.blocks.len(),
+        1,
+        "the narrow choice is a single surface like the flat one, only shorter"
+    );
+
+    // ⭐ THE NARROW STAGE'S WHOLE POINT, asserted rather than described: LESS
+    // GROUND, SAME ENVELOPE. Scaling the blast lines down with the width would
+    // have produced the same stage smaller and changed no decision.
+    let width = |w: &crate::ae::World| w.blocks[0].aabb.max.x - w.blocks[0].aabb.min.x;
+    assert!(
+        width(&narrow.geometry().0) < width(&flat.geometry().0),
+        "the narrow stage is not narrower than the flat one"
+    );
+
+    // Same blast geometry across ALL THREE, so a comparison between stages is a
     // comparison of their geometry and not of their kill boundaries.
-    assert_eq!(flat.geometry().0.edges.side, platforms.geometry().0.edges.side);
-    assert_eq!(flat.geometry().0.edges.fall, platforms.geometry().0.edges.fall);
+    for (name, other) in [("platforms", &platforms), ("narrow", &narrow)] {
+        assert_eq!(
+            flat.geometry().0.edges.side,
+            other.geometry().0.edges.side,
+            "{name} moved the side blast line, so it cannot be compared with flat"
+        );
+        assert_eq!(
+            flat.geometry().0.edges.fall,
+            other.geometry().0.edges.fall,
+            "{name} moved the fall blast line, so it cannot be compared with flat"
+        );
+    }
 
     // The default is still the stage every recorded measurement was taken on.
     assert_eq!(crate::SmashStageChoice::default(), crate::SmashStageChoice::Flat);
-    // And the cycle a stage button would walk returns to where it started.
+    // And the cycle a stage button would walk returns to where it started —
+    // now three long, and asserted as a full lap rather than as a count, so
+    // adding a fourth stage reddens this line instead of silently passing.
     assert_eq!(
+        crate::SmashStageChoice::Flat.next().next().next(),
+        crate::SmashStageChoice::Flat,
+        "the stage cycle does not return to its start in three steps"
+    );
+    assert_ne!(
         crate::SmashStageChoice::Flat.next().next(),
-        crate::SmashStageChoice::Flat
+        crate::SmashStageChoice::Flat,
+        "the cycle closed early — a stage is unreachable from the button"
     );
 }
 

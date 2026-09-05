@@ -429,6 +429,35 @@ suggested.
 
 ---
 
+## ⛔ BLOCKED AGAIN 2026-09-04 EVENING — the volume is at 97% and the full lane REFUSES
+
+⛔⛔ **`./run_tests.sh --rust` will not start: *"REFUSING: 10.2 GB free on
+`…/target`, and a full suite needs about 40."*** Measured, not recalled:
+`target_bindmount.sh --status` says **BOUND** to `/dev/vda1`
+(`~/.cache/ambition-tools/…` backing), `target` itself **177 G**, and `df -h
+target` reads **290 G total, 280 G used, 11 G free, 97%**.
+
+⭐ **The reference point, because the number crossed a document boundary:** this
+same volume read **61.3 GB free against its 40 GB floor** at 19:50 the same
+evening, before a day of `--all-targets` checks across `ambition_render`,
+`ambition_platformer2d_host`, `ambition_demo_smash*` and two `check_no_warnings
+--fresh` runs. ⇒ **The gate's own message names the mechanism**: *"Every feature
+job builds its own variant of the graph and cargo never prunes the last one."*
+
+⇒ **NOT RECLAIMED, deliberately.** `AGENTS.md` is explicit: *"If it is bound and
+genuinely full: report it and STOP — the reclaim is Jon's call on Jon's
+machine."* The cut to reach for when he calls it is
+`clean_workspace_crates.sh --incremental-only`, whose own header measures it as
+*"the largest share of the directory while deleting NO artifact at all…
+invalidates NO fingerprint"* — it took 279 M to 80 G earlier in this run and
+rebuilt nothing.
+
+⚠ **What still works meanwhile, from the refusal's own advice:** `./run_tests.sh
+-p <crate>` fits, and every per-crate `cargo test` used this evening ran fine.
+⇒ So this blocks the LANE, not the work — but it blocks the one thing that would
+have caught the four guards that went red today, which is exactly the wrong thing
+to have blocked.
+
 ## ✔ CLOSED — the composed app could not be built on this VM, and `df` said otherwise
 
 ✔✔✔ **ALL RUN 2026-09-04 — Jon cleared the disk work and every queued measurement

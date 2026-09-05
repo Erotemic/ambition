@@ -154,7 +154,7 @@ named inline; a number here travels with the search that produced it.
 | 1 | Core fight | ✔ **met** — the mechanics it lists are the parity inventory's P01–P14, now 14 of 14 measured: ten shipped, three partial, **zero absent** |
 | 2 | Roster depth | ✔ **met, and it is the strongest of the six** — **21** authored movesets (19 in `ambition_content`, 2 smash-local) and **zero** character-ID gameplay branches in any engine crate |
 | 3 | Local play | ✔ **met** — driven end-to-end through the real screen, not the model. ⭐ **The evidence has a name and it was not written down**: `smash_tool select-walkthrough` drives the actual screen headlessly — a real cursor over `select_screen::layout`'s own rectangles, real presses, and the text read back through the SAME functions the cards render (`role_button_text`, `card_name_text`, `SmashSelect::blocker`), so it cannot show a screen a player would not see. ⚠ It is the ONE instrument for this surface and it appears in no planning page except the CLI-collapse campaign, so select-screen work does not find it. ⓘ Complements `capture_scene --route smash_select`, which photographs the screen; this prints what the screen BELIEVES. |
-| 4 | Stage breadth | ◐ **was NOT met; worked 2026-09-04 and now reachable in play** — `smash_platform_stage()` adds the genre's drop-through tiers, `SmashStageChoice` selects it, and a stage button on the select screen cycles it. Two stages is not yet *"several"* |
+| 4 | Stage breadth | ✔ **MET 2026-09-04 — THREE stages, and they differ on two independent axes.** `smash_stage()` flat; `smash_platform_stage()` the same floor with drop-through tiers; `smash_narrow_stage()` two thirds the ground with the blast envelope **unchanged**. ⭐ The third is the one that makes "several" mean something: holding the margins fixed while shrinking the platform moves every blast line from 1.000 / 1.125 / 0.875 platform-widths to **1.750 / 1.688 / 1.313**, so it is an edgeguard-and-recovery stage rather than the same stage smaller. ⛔ Not tuned and not balanced — authored to CHANGE the decisions the rig measures, which is what this row asks for |
 | 5 | Match completeness | ✔ **MET 2026-09-04, 4 of 4** — stage select landed, and rule selection landed with it: a `Stocks:` cycle beside the stage cycle, any seat, 1 / 3 / 5. ⭐ The rule itself was already shipped (`MatchRules::stocks`); what was missing was a customer, which is this page's own standing lesson about the primitive table |
 | 6 | CPU adoption | ◐ **partial, and the USE half is now measured — it is the weaker half.** The charter asks that the brain *"can use and answer"* the roster's mechanics. ⛔ **It does not use them**: a 120s census of George on the shipped ladder records **16 of his 28 authored moves never starting once** — all three smashes, all three tilts, three of five aerials — with the dash attack at **81%** of starts. ⭐ Root cause traced to source and it is not a Smash-only AI problem, which is the charter's actual concern: movement and attack are scored INDEPENDENTLY and **neither axis declines on score**, so the fighter moves whenever it can and attacks whenever it can, and 73 of 81 attack decisions land on a tick it also chose `Approach` — which drives a run, where a neutral press converts to the dash attack. ⇒ Indexed as decision 5 in [`../awaiting-maintainer-decision.md`](../awaiting-maintainer-decision.md). ⓘ The *answer* half is unmeasured. |
 
@@ -242,6 +242,24 @@ moves between them.
 ⇒ The player-facing half is `SelectTarget::Stage`, a cycle button beside START,
 pressable by any seat. ⚠ **Two stages is still not "several"** — checkpoint 4
 stays open and the next stage costs a `RoomSpec` and one enum variant.
+✔✔ **A THIRD STAGE LANDED 2026-09-04, so checkpoint 4 closes too.**
+`smash_narrow_stage()` is the flat block at two thirds the width —
+**320px, ten 32px tiles** — with `FALL`/`SIDE`/`CEILING_BLAST_MARGIN_PX`
+**unchanged**. ⭐ **The unchanged envelope is the design.** Those margins were
+chosen so the PLATFORM carries Final Destination's normalized proportions, so
+scaling them with the width would give the same stage smaller and change no
+decision. Held fixed, they move the blast lines from `1.000 / 1.125 / 0.875`
+platform-widths to `1.750 / 1.688 / 1.313` — less ground, same envelope, ledges
+nearer the centre, longer offstage relative to what a fighter is returning to.
+⇒ A third stage rather than an edit to either existing one, for the reason
+`smash_platform_stage` already gives: **every recorded spacing, recovery and
+edgeguard number was taken on `smash_stage`**, and the flat-versus-platforms
+comparison on this page was taken on that geometry. Adding beside them costs no
+recorded number its meaning. ⓘ Guarded by
+`the_stage_choice_decides_which_stage_the_match_prepares`, which now asserts the
+three share a blast envelope — so a fourth stage that moved one could not be
+compared with the corpus and this test says so.
+
 ✔✔ **RULE SELECTION LANDED 2026-09-04, so checkpoint 5 is closed**:
 `SelectTarget::Stocks`, a `Stocks: 1 / 3 / 5` cycle to the LEFT of the stage
 cycle, pressable by any seat for the same reason the stage is — how long the

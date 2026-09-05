@@ -633,6 +633,67 @@ pub fn smash_stage() -> RoomSpec {
 /// The room id of the platformed stage — see [`smash_platform_stage`].
 pub const SMASH_PLATFORM_STAGE_ROOM_ID: &str = "smash_platform_stage";
 
+/// The room id of the narrow stage — see [`smash_narrow_stage`].
+pub const SMASH_NARROW_STAGE_ROOM_ID: &str = "smash_narrow_stage";
+
+/// Ten 32px tiles. Two thirds of [`PLATFORM_WIDTH`], still exactly on the floor
+/// texture grid.
+const NARROW_PLATFORM_WIDTH: f32 = 320.0;
+
+/// The same flat block, two thirds as wide — and the blast envelope UNCHANGED.
+///
+/// ⚠ **THE UNCHANGED ENVELOPE IS THE DESIGN, not an omission.** The margins on
+/// [`smash_stage`] were chosen so the PLATFORM has Final Destination's
+/// normalized proportions, and scaling them down with the width would produce
+/// the same stage smaller — which changes the pixels and none of the decisions.
+/// Holding them fixed is what makes this a different stage to fight on:
+///
+/// | measured in platform widths | [`smash_stage`] | here |
+/// |---|---|---|
+/// | ledge → side blast line | 1.000 | **1.750** |
+/// | surface → ceiling blast line | 1.125 | **1.688** |
+/// | surface → fall blast line | 0.875 | **1.313** |
+///
+/// ⇒ **Less ground, same envelope**: the ledges are closer to the centre, every
+/// blast line is further away measured against the stage, and a launched body
+/// spends longer offstage relative to the platform it is trying to return to.
+/// That is an edgeguard-and-recovery stage rather than a neutral one.
+///
+/// ⛔ **NOT tuned, and nobody should read it as balanced.** It is authored to
+/// CHANGE the spacing and recovery decisions the ladder rig measures, which is
+/// what the Super Smash Siblings stage-breadth checkpoint asks for — a third
+/// stage exists so a measurement can be compared across geometries, and the
+/// comparison is the point rather than this layout's own numbers.
+///
+/// ⭐ A THIRD STAGE, not an edit to either existing one, for exactly the reason
+/// [`smash_platform_stage`] gives: every recorded spacing, recovery and
+/// edgeguard number was taken on [`smash_stage`], and the flat-versus-platforms
+/// comparison on this page was taken on that geometry. Adding beside them costs
+/// no recorded number its meaning.
+pub fn smash_narrow_stage() -> RoomSpec {
+    let mut world = ae::World::new(
+        "Smash Stage — Narrow",
+        STAGE_SIZE,
+        Vec2::new(STAGE_SIZE.x / 2.0, PLATFORM_TOP - 96.0),
+        vec![ae::Block::solid(
+            "smash_platform",
+            Vec2::new(
+                (STAGE_SIZE.x - NARROW_PLATFORM_WIDTH) / 2.0,
+                PLATFORM_TOP,
+            ),
+            Vec2::new(NARROW_PLATFORM_WIDTH, 32.0),
+        )],
+    );
+    world.edges.fall = FALL_BLAST_MARGIN_PX;
+    world.edges.side = Some(SIDE_BLAST_MARGIN_PX);
+    world.edges.rise = Some(CEILING_BLAST_MARGIN_PX);
+
+    let mut room = RoomSpec::new(SMASH_NARROW_STAGE_ROOM_ID, world);
+    room.metadata.mode = Some(SMASH_MODE.to_string());
+    room.metadata.nameplate_policy.label_driven_bodies = Some(true);
+    room
+}
+
 /// Height of each soft platform above the main stage surface, in world pixels.
 ///
 /// ⭐ **SIZED FROM THE FIGHTER'S MEASURED JUMP ARC, and the first numbers I
@@ -3653,6 +3714,8 @@ pub enum SmashStageChoice {
     Flat,
     /// [`smash_platform_stage`] — the same floor with three drop-through tiers.
     Platforms,
+    /// [`smash_narrow_stage`] — two thirds the ground, the same blast envelope.
+    Narrow,
 }
 
 /// HOW MANY STOCKS THIS MATCH GIVES EACH FIGHTER, as a match decision.
@@ -3713,6 +3776,7 @@ impl SmashStageChoice {
         match self {
             SmashStageChoice::Flat => SMASH_STAGE_ROOM_ID,
             SmashStageChoice::Platforms => SMASH_PLATFORM_STAGE_ROOM_ID,
+            SmashStageChoice::Narrow => SMASH_NARROW_STAGE_ROOM_ID,
         }
     }
 
@@ -3721,6 +3785,7 @@ impl SmashStageChoice {
         match self {
             SmashStageChoice::Flat => "Flat",
             SmashStageChoice::Platforms => "Platforms",
+            SmashStageChoice::Narrow => "Narrow",
         }
     }
 
@@ -3728,7 +3793,8 @@ impl SmashStageChoice {
     pub fn next(self) -> Self {
         match self {
             SmashStageChoice::Flat => SmashStageChoice::Platforms,
-            SmashStageChoice::Platforms => SmashStageChoice::Flat,
+            SmashStageChoice::Platforms => SmashStageChoice::Narrow,
+            SmashStageChoice::Narrow => SmashStageChoice::Flat,
         }
     }
 }
@@ -3749,11 +3815,11 @@ fn smash_prepared_session_world(
     };
 
     let choice = *choice;
-    let rooms = vec![smash_stage(), smash_platform_stage()];
+    let rooms = vec![smash_stage(), smash_platform_stage(), smash_narrow_stage()];
     let started = rooms
         .iter()
         .find(|room| room.id == choice.room_id())
-        .expect("both stage rooms are in the set the line above built");
+        .expect("every stage room is in the set the line above built");
     let geometry = ae::RoomGeometry(started.world.clone());
     let metadata = ActiveRoomMetadata(started.metadata.clone());
     // The match realizes its own cast; the id below is only this experience's catalog DEFAULT,

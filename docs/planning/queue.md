@@ -1367,6 +1367,18 @@ The one unresolved developer-policy choice from the session-ownership work is in
   opposite verdicts, because the input is gitignored generated art. ⇒ That is
   exactly this row's stated reason for not pruning, arrived at from the other
   direction: **do not delete the four names on one box's evidence.**
+  ✔ **A THIRD READING, 2026-09-05, AGREES WITH THE SECOND.** On the box whose
+  `/dev/vda1` is **484 GB** (distinguishable from calculex, which the disk row
+  above records at 290 GB), `lib.canonical_assets.assets_are_canonical(repo)`
+  returns **True** — all four sprite trees present — and
+  `test_the_known_list_does_not_rot` **PASSES** with the four names still listed.
+  ⇒ Two of three readings now say the names are NOT stale, and the one that said
+  they were is the outlier. **The instruction stands and is better supported than
+  when it was written.**
+  ⚠ I cannot tell whether this box IS the 2026-09-04 "second box" — the row does
+  not name it, and a reading that might be a re-run of the same machine is worth
+  less than a genuinely third one. Recorded with the distinguishing fact so the
+  next reader can settle it rather than inherit my count.
   With `canonical_assets.py` landed and this checkout detected as canonical
   (four sprite trees, 425 real PNGs, zero symlinks), the ten assertions that
   had never been evaluated by any lane ran here 2026-09-03 late: **23 passed,

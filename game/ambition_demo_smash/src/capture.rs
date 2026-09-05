@@ -51,11 +51,30 @@ pub fn translate_smash_capture_effects(
         let SpecialActionSpec::Special(key) = spec;
         match key.as_str() {
             CAPTURE_ATTEMPT => {
-                // a params typo is a STARTUP error, not a silent default: the
-                // key registers `check_hydrates` with the param-schema registry,
-                // so a fighter's bad grab data fails the content pass. Reaching
-                // here with unhydratable params means the registration is
-                // missing, which is worth the log rather than a silent skip.
+                // ⛔⛔ THIS COMMENT PROMISED A STARTUP CHECK THAT DOES NOT
+                // EXIST — corrected 2026-09-05 after ToothbrushAmbition counted
+                // the callers. It said a params typo "is a STARTUP error, not a
+                // silent default", because the key "registers `check_hydrates`
+                // with the param-schema registry". Nothing does.
+                // `ParamSchemaRegistry` has ZERO production users: `register`
+                // and `validate_all` are called only from
+                // `ambition_entity_catalog`'s own tests, and the type is not
+                // mentioned outside that crate. The registry is never populated
+                // in any shipped build.
+                //
+                // ⇒ SO THIS `Err` ARM IS NOT A LAST RESORT, IT IS THE ONLY
+                // THING between a fighter's bad grab data and a grab that
+                // silently does nothing. The old comment's conditional —
+                // "reaching here means the registration is missing" — was
+                // unconditionally true. The log fires; nothing fails at startup.
+                //
+                // ⚠ NOT KNOWN TO BE FIRING: whether any authored fighter has
+                // params that fail to hydrate was NOT established, so this is a
+                // missing guard rather than a broken grab. ⇒ Making it a real
+                // startup error is O4's business (the installed-technique
+                // catalog), and the first step is smaller than it looks —
+                // something must tell the registry that anything exists at all
+                // before it can answer "`smash.teleprot` does not exist".
                 match params.hydrate::<CaptureAttemptParams>() {
                     Ok(p) => attempts.write(CaptureAttemptRequested {
                         captor: message.actor,

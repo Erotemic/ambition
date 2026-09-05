@@ -433,6 +433,20 @@ Add durable lessons to `dev/benchmark-candidates/`; never transient project stat
   link to the artifact and its directory. Pattern: `scripts/git_debloat.py`.
 * `./run_tests.sh` is the broad repository test backbone. Prefer narrower checks
   when they cover the touched invariant.
+  * ⛔⛔ **`cargo test -p <crate>` DOES NOT COVER THE `-D warnings` INVARIANT, and
+    that is the narrow check everyone reaches for.** A warning is not a test
+    failure, so a green per-crate run says nothing about a build CI will reject.
+    `scripts/check_no_warnings.py` is what covers it, and it is in the class
+    `--rust` drops. ⇒ **Three separate reds in one day (2026-09-04) were caught by
+    that script alone**, after per-crate suites, the doc gates and the whole
+    852-test pytest guard set had all passed: four unused imports left by two D33
+    carves, and twice a function left dead by its own repair — once dead only in a
+    NON-test build, so `cargo test` was structurally unable to see it.
+  * ⭐ **A LANE YOU ASSEMBLE YOURSELF HAS NO SKIP-LIST TO READ PAST.** A named
+    lane at least prints what it omitted; a set of checks chosen deliberately
+    carries the feeling of completeness and names nothing. ⇒ If you go narrow,
+    say out loud what the narrow set omits — and if you cannot name the omission,
+    you have not built a lane, you have built a hope.
 * For long-running commands, read state they wrote rather than polling process
   names:
 

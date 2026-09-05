@@ -179,6 +179,50 @@ mod marker_registration_tests {
         }
     }
 
+    /// ⭐⭐ WHAT THE PLUGIN ACTUALLY REGISTERS, read back from `bevy_ecs_ldtk`.
+    ///
+    /// ⛔⛔ THE OTHER TWO TESTS COULD NOT SEE THIS ROAD. Both reason about the
+    /// vocabulary and the exclusion list; neither observes a single
+    /// `register_ldtk_entity` call, so a `build` that registered NOTHING -- or
+    /// registered a stale hardcoded set -- passes both. MEASURED: adding a new
+    /// converter to `standard_converters()` leaves both of them green, which is
+    /// correct behaviour for them and proves they are blind here.
+    ///
+    /// ⇒ When the code has N roads, poison EACH one. A single poison shows the
+    /// fixture works, not that the guard reaches the code. This one reads
+    /// `LdtkEntityMap` out of a built `App`, so it fails if the loop stops
+    /// iterating the vocabulary, if the exclusion silently widens, or if the
+    /// registration call is removed entirely.
+    #[test]
+    fn the_plugin_registers_exactly_the_vocabulary_it_derives_from() {
+        use bevy::prelude::App;
+
+        let mut app = App::new();
+        app.add_plugins(super::AmbitionLdtkRegistrationPlugin);
+
+        let map = app
+            .world_mut()
+            .get_non_send_resource::<bevy_ecs_ldtk::app::LdtkEntityMap>()
+            .expect("the plugin must have registered at least one entity");
+        let registered: std::collections::BTreeSet<String> = map
+            .keys()
+            .filter_map(|(_layer, identifier)| identifier.clone())
+            .collect();
+
+        let vocabulary = LdtkVocabulary::engine();
+        let expected: std::collections::BTreeSet<String> = vocabulary
+            .identifiers()
+            .filter(|identifier| !MARKERLESS_IDENTIFIERS.contains(identifier))
+            .map(str::to_string)
+            .collect();
+
+        assert_eq!(
+            registered, expected,
+            "the markers `bevy_ecs_ldtk` actually holds are not the engine \
+             vocabulary minus the excluded pair"
+        );
+    }
+
     /// The registration set is the vocabulary MINUS the excluded pair.
     ///
     /// ⚠ This pins the ARITHMETIC, not a list of names: a name list here would

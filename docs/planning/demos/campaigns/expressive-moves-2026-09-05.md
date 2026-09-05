@@ -20,7 +20,7 @@ each one as an **engine acceptance fixture** rather than a character feature:
 
 | # | Proof move | What it proves |
 |---|---|---|
-| 1 ✔ | **PK-Thunder parody** — **LANDED 2026-09-05** on the Author's side-B (`author_train_of_thought`) | ⭐⭐ **IT NEEDED NEITHER INPUT DELEGATION NOR FIGHTER-CONTROL SUPPRESSION.** `steer_axis()` already publishes what the PLAYER is holding as distinct from what the BODY may move by, so the caster stays rooted, keeps his own seat, and the bolt reads his live stick — steering, not possession. ⇒ The rung this row was blocked behind (A2) is not on its path. ⛔ And it did NOT need `TechniqueFlow` either: one technique, one component, one system |
+| 1 ✔ | **PK-Thunder parody** — **LANDED 2026-09-05** on the Author's side-B (`author_train_of_thought`) | ⭐⭐ **IT NEEDED NEITHER INPUT DELEGATION NOR FIGHTER-CONTROL SUPPRESSION.** ⛔ And **he is NOT rooted while it flies** — I wrote that he was, in three files, and the code never agreed: the move roots him to 0.46s and the bolt lives 2.2s, a gap the guard REQUIRES so a whiff cannot pin him through his own punish window. ⇒ So **one stick does both**: walking right also steers the bolt right. The cost is not helplessness, it is DIVISION. `steer_axis()` already publishes what the PLAYER is holding as distinct from what the BODY may move by, so the caster stays rooted, keeps his own seat, and the bolt reads his live stick — steering, not possession. ⇒ The rung this row was blocked behind (A2) is not on its path. ⛔ And it did NOT need `TechniqueFlow` either: one technique, one component, one system |
 | 2 ✔ | **Counter + Revenge variant** — the stand-ins' `riposte`, and **2026-09-05 the Author's `author_second_draft`** | ⭐⭐ **"COUNTER" TURNED OUT NOT TO BE A MOVE TYPE AT ALL.** `answer_a_parry_with_the_authored_counter` dispatches `SpecialActionSpec::Special(stance.response.clone())` — fully generic — so a counter is **ANY TECHNIQUE, TRIGGERED BY A SUCCESSFUL PARRY**. Counter-into-grab (George), counter-into-teleport (the Author), counter-into-mine or -sleep are all authorable today with zero engine work. ⇒ I built this seam and then under-read it for a day |
 | 3 ✔ | **Reflector + absorber** — **LANDED 2026-09-05** as Track B's B3 | projectile interception is a projectile authority and supports more than parry reversal. ⭐ **The reflector cost NOTHING**: `step_projectiles` and the melee seam gate on the same `parrying()` window, so a stance that could counter could already return shots. The absorber cost one enum and one shield field, and is the Officer's riot shield. ⚠ This row sat unticked while its own Track B row said complete — corrected 2026-09-05 |
 | 4 ◐ | **Tether recovery + aerial tether grab** — **GROUND HALF LANDED** as Track B's B2 | terrain/body tethering composes with ledge and capture authorities. ✔ **Ground tether**: Projectile Polygon's grab reaches 150px and draws a line on both roads, for one read-model field. ▢ **The AERIAL half is NOT done** — a tether that catches a LEDGE and pulls her back is the recovery half of this row. ⭐ **AND IT IS MOSTLY ASSEMBLED ALREADY**: `TeleportParams::ledge_assist` is a shipped, authored parameter whose doc calls it *"the aim assist… the difference between a recovery and a coin flip"* — within its radius an arrival is placed STANDING on the ledge. ⇒ So "a recovery that catches a ledge" EXISTS; what a tether adds is the visible line, and `TetherVisual` landed in B2. ⚠ Its one gap: `TetherVisual` names a `body: Entity` and draws to *"where its GRAB actually reaches"*, so drawing to a teleport destination is a small extension rather than a reuse. ⚠ Marked ◐ rather than ✔ deliberately: B2's own row says "ground tether", and reading that as the whole row is how a half-built capability gets reported as finished |
@@ -333,6 +333,29 @@ filling a slot is a design call rather than engineering:
 be**, because it decides whether Sing upgrades an existing move or wants a
 fighter of its own.
 
+---
+
+✔✔ **AND EVERY WORD ABOVE IS SUPERSEDED — kept because being wrong in a
+particular way is the finding, not because the section is still true.** All three
+rows were called blocked on "the roster is full", and none of them was:
+
+* **Sing** landed the same day on `the_monologue`. ⛔ The framing was a FALSE
+  DICHOTOMY — "upgrade her move OR give Sing its own fighter" — and the third
+  option displaced nothing: ADD the pulse at a strictly smaller radius, so her
+  strike is untouched to the number and only whoever stood next to her goes under.
+* **Further absorber/reflector variants** were not blocked either. Three more
+  counters landed (the Author, the Shadow Oni, Emmy), each answering with a
+  DIFFERENT technique, because the response was always an arbitrary one.
+* **The stand-ins' two presses** is the one row that stands — and it stands for
+  the reason given, which was never scarcity: authoring more onto a fighter whose
+  identity is an open question narrows that question by default.
+
+⭐ **The lesson, and it is the same one this campaign kept re-learning: "blocked"
+was a claim about the ROSTER when it was really a claim about my own framing.**
+Twelve roster decisions later, eleven of them found a seam nobody had to lose
+something for. ⇒ Before recording a row as blocked on a design call, look for the
+version that costs nothing — it existed here three times out of three.
+
 ### ⛔ AND TRACK A IS BLOCKED DIFFERENTLY — ordering, not permission
 
 ~~`TechniqueFlow` runs with an authored customer. The next rung is NOT slots: a
@@ -402,7 +425,7 @@ telling them leaves a comment that reads as checked and is not. ⭐ And Emmy's i
 now an OPPORTUNITY rather than a refusal — her blueprint wanted a counter and the
 engine offers one, which is a design call for Jon rather than a limit.
 
-### ⭐⭐ THREE MOVES WHOSE OWN PRESENTATION DESCRIBED A MECHANIC THEY DID NOT HAVE
+### ⭐⭐ FOUR MOVES WHOSE OWN COMMENT OR ART DESCRIBED A MECHANIC THEY DID NOT HAVE
 
 Not documentation drift — **the reader here is the PLAYER**, told the wrong thing
 every time the move came out. Found by reading each fighter's design comments and
@@ -413,6 +436,7 @@ cues against what the move actually did:
 | the Shadow Oni's `command_seal` | a `counter_ring` effect and a `faction.ninja.parry_flash` sound | a plain damage-10 poke | a counter that answers with smoke |
 | the automaton's `generation_collapse` | *"everything inside it arrives at the same cell"*, drawing a `causal_cone_collapse` | ⛔ **INVERTED** — `launch_dir: (0.7, -0.68)` threw victims AWAY | three autolink pulses that gather, then the finisher launches |
 | Alice's portal | Jon's *"angled portals with directional input"* | `tilt_degrees: 0.0` everywhere | the player's stick leans it ±32° |
+| Bob's `rivet_gun` | *"it is not one hit, it is **the tool running**"* | ⛔ one `strike` with a single contiguous `active_s: 0.14` — which the re-hit rule lands **exactly once** | three separated holding pulses, then the same finisher |
 
 ⛔ **NONE OF THE THREE NEEDED ENGINE WORK.** `smash.counter`, `VolumeReaction::Autolink`
 + `multihit`, and `tilt_degrees` were all shipped. ⇒ Converting them was not
@@ -420,8 +444,19 @@ redesign — it was each move becoming what it already looked like.
 
 ⭐ **The method, and it is cheap enough to run on any fighter:** read the design
 comment and the authored cues, then check the mechanics against them. A comment
-that names a feeling ("the order is obeyed instantly", "the cone closes") is a
-SPECIFICATION somebody wrote and nothing verifies.
+that names a feeling ("the order is obeyed instantly", "the cone closes", "the
+tool running") is a SPECIFICATION somebody wrote and nothing verifies.
+
+⭐⭐ **AND THE HIT RATE IS WORTH RECORDING: four of the nineteen fighters, found by
+reading — and the sweep also cleared Carl and Oiler**, whose comments describe
+exactly what their moves do. ⚠ Oiler's `convergence` is the model: its comment
+does not merely claim a multi-hit, it explains the GAP that makes one work. **A
+comment that says WHY is one that was checked.**
+
+⛔ Bob's is the sharpest of the four, because the comment names the precise
+property the engine REFUSES. `Pulse`'s own doc says it: *"a multi-hit that
+authored one long window, or windows that touch, lands exactly once."* ⇒ Nobody
+writing "it is not one hit" had read that, and nothing connected the two.
 
 ### ⛔⛔ THE BOLT'S FIRST GUARD RUN FOUND A MOVE THAT COULD NOT BE PLAYED
 
@@ -687,16 +722,22 @@ looking, and nothing would have complained.
   its first rung.** A2 stays open as real work for a genuine possession move; it
   is simply not a blocker for the Author's side-B.
 
-- ▢ **A3. Steerable projectile control source** + authored self-contact
-  eligibility. ⭐ **AND A2's READ OPENS A CHEAPER ROUTE WORTH PRICING FIRST.**
-  This row is blocked on projectiles carrying no stable identity — but
+- ✔ **A3. Steerable projectile control source** + authored self-contact
+  eligibility — **LANDED 2026-09-05** as the Author's side-B. ⛔ **AND BOTH
+  PREMISES BELOW WERE WRONG**, kept for the record: this row was never blocked on
+  identity (`ProjectileSeq` is rollback-canonical — see the struck paragraph
+  above), and it did not need the actor route either. `steer_axis()` was enough.
+  ⇒ What follows is the reasoning as it stood BEFORE the read, and it is exactly
+  the shape of over-pricing this campaign kept producing:
+
+  ~~This row is blocked on projectiles carrying no stable identity — but
   `TemporaryControl` names its controlled body by `SimId`, and **actors already
   have one**. ⇒ If PK-Thunder's bolt is a short-lived owned ACTOR rather than a
   projectile, it arrives with a `SimId`, a body, a control frame and rollback
   participation already attached, and A3 stops being identity work. ⚠ **NOT
   MEASURED**: what spawning an actor mid-match costs, and whether an actor's body
   is too heavy for something that lives about a second. Price it before choosing
-  it — this is a candidate, not a decision.
+  it — this is a candidate, not a decision.~~
 - ▢ **A4. PK-Thunder parody** as the acceptance fixture that consumes A1–A3.
 
 ### Then

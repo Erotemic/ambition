@@ -72,14 +72,22 @@ pub fn author_moveset() -> MovesetContract {
 /// ⭐⭐ AND IT NEEDED NO INPUT LEASE, which the campaign plan had as the rung
 /// before it. `ActorControlFrame::steer_axis()` already publishes what the
 /// PLAYER is holding as distinct from what the BODY may move by — it exists
-/// because a rooted move reads `locomotion` as zero — so he stands still,
-/// keeps his own seat, and the bolt reads his live stick. Steering is not
-/// possession; only the first was ever wanted here.
+/// because a rooted move reads `locomotion` as zero — so he keeps his own seat
+/// and the bolt reads his live stick. Steering is not possession; only the first
+/// was ever wanted here.
 ///
 /// ⛔ FLYING IT INTO HIS OWN BACK IS THE POINT. `self_launch` is what makes this
-/// a recovery as well as an attack, and it is why the move is worth its long
-/// commitment: he is helpless while the thought is out, and the way home is to
-/// aim it at himself.
+/// a recovery as well as an attack.
+///
+/// ⛔⛔ AND HE IS NOT HELPLESS WHILE IT IS OUT — an earlier version of this doc
+/// said he was, and the code never agreed. The move roots him to 0.46s; the
+/// thought lives 2.2s, and the guard below REQUIRES that gap so a whiff does not
+/// pin him through his own punish window. ⇒ For most of the flight he is free.
+///
+/// ⭐ WHICH MAKES THE COST BETTER THAN THE ONE I THOUGHT I HAD WRITTEN: he is not
+/// helpless, he is DIVIDED. One stick walks him and turns the thought, so every
+/// step he takes to reposition is a turn he did not choose — and flying it home
+/// means walking where the bolt needs him to walk.
 fn a_train_of_thought() -> ambition_platformer2d::entity_catalog::MoveSpec {
     let spec = ambition_characters::moveset_authoring::hitless_special(
         "author_train_of_thought",

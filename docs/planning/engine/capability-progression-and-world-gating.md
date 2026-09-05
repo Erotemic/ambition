@@ -273,6 +273,38 @@
 > across both consumers and both spellings. ⚠ The denominator moved from seven
 > when `boss.cleared` and `quest.active` shipped; the numerator did not.
 >
+> ⭐⭐ **THE SAME SHAPE EXISTS ONE LAYER OVER, AND IT NOW HAS A CENSUS —
+> `scripts/authored_parameter_modes.py` (2026-09-05).** Route-gate conditions are
+> not the only vocabulary that can be correct in every test and reached by
+> nothing: a technique or placement PARAMETER MODE can be fully built, guarded
+> and rollback-registered while every authored customer leaves it off. Two turned
+> up by accident in one day — `TeleportParams::behind_nearest_foe` and Sing's
+> engine — which is what the census is for. At `c9edaf545`:
+>
+> ```text
+> technique/placement bool modes   51
+>   LIVE      set true in content  25
+>   ALWAYS ON defaults true, unset  7
+>   DORMANT   default false, never 15
+>   UNNAMED   never mentioned       4
+> ```
+>
+> ⇒ **19 modes have no authored customer that turns them on.** In this lane:
+> `Interactable(Spec).requires_facing`, `Pickup(Spec).collected`,
+> `CameraZoneSpec.cinematic_lock`, `RoomLink.bidirectional`,
+> `RoomMetadata.gallery`, `PropSpec.flip_y`.
+>
+> ⛔ **IT FIRST SAID 26 AND THAT WAS WRONG — the fault is worth more than the
+> number.** A bool whose DEFAULT is `true` and which no content sets is not
+> dormant, it is ALWAYS ON; 16 of the 51 default true, so assuming default-false
+> inverts a third of the answer. ⚠ And the default usually arrives through a
+> CONSTRUCTOR (`Chest::new`), not `impl Default` — a Default-only scan finds 1 of
+> the 16. ⇒ before reading any dormancy census, ask what the field's default IS.
+>
+> ⚠ **NOT A GATE, deliberately.** Content breadth is not gated here, and a
+> dormant mode is not a defect: it is a built behaviour with no authored
+> customer, and the choice each time is author one or delete it.
+>
 > ✔ **AND THE VOCABULARY IS SAFE TO AUTHOR AGAINST NOW, which is what that slice
 > needed from engineering (2026-09-04).**
 > `every_authored_gate_condition_prepares_against_the_composed_catalog`

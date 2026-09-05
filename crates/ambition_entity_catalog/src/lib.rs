@@ -1259,6 +1259,10 @@ pub enum FlowSignal {
     /// The overlap resolved to a connect: damage or knockback reached a body.
     Connected,
     /// The overlap resolved to a BLOCK: a guard consumed it.
+    ///
+    /// ⚠ A PARRY IS NOT ONE. A perfect shield publishes `ParriedBodyHit`, which
+    /// reaches no contact field — see the enum's own note above. A flow that
+    /// means "my attack was defended" catches a block here and misses a parry.
     Blocked,
 }
 

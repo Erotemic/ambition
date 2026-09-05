@@ -80,6 +80,36 @@ removing. ⚠ Guarded by the fixture that produced the doc's own example — the
 16-versus-4 named above is that test's split, asserted so the printed number
 cannot drift from the outcomes it claims to report.
 
+### ⭐ HOW TO READ A ROW (as of 2026-09-04)
+
+```text
+5 vs 3   …  298% : 349%  …  LOWER outfights [4:24 = 86%, p=1.8e-04]
+                            └─word──────────┘ │    │      └─exact two-sided tail
+                                              │    └─majority of the USABLE pairs
+                                              └─per-seed split, ties shown as `+N tied`
+```
+
+Five facts, and they answer different questions:
+
+| part | what it settles | what it does NOT |
+|---|---|---|
+| the **word** | which rung outfought | how strongly |
+| the **split** | the evidence, re-derivable by hand | anything about magnitude of damage |
+| the **majority %** | ⭐ the only figure **comparable between runs of different length** | significance on its own |
+| the **p** | significance at THIS n | comparison with another n |
+| `(within spread)` | did not clear p < 0.05 | whether it was near or a coin — read the p |
+
+⛔ **The header's `significance bar:` line states what majority this run could
+even report**, and below six paired seeds the answer is *none* — a `4:0 = 100%`
+row still prints `(within spread)` because the run is too short, which is a
+different statement about the fighters than *"the rungs are alike"*.
+⚠ **A row with `+N tied` says `= X% of N usable`**, because the sign test drops
+ties and the header's bar is quoted against the seed count — two denominators
+that must not be silently compared.
+⇒ **The medians to the left of the verdict are DESCRIPTIVE.** Since
+`36dd9a248` nothing in the bracket is derived from them, and a row where they
+disagree with the verdict is the instrument working, not a contradiction.
+
 ⛔⛔ **AND ONE THING NO RE-RUN FIXES RETROACTIVELY: EVERY TABLE ON THIS PAGE
 PRINTED BEFORE 2026-09-04 CARRIES A BARE QUALIFIER.** The rig only began printing
 its per-seed split and its exact tail that evening. ⇒ **A `significant` in an

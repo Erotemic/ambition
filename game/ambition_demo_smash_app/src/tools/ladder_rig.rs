@@ -820,13 +820,24 @@ fn report_which_clock_is_in_play() {
     } else {
         println!(
             "[ladder_rig] ⛔ clock: {}s per bout, but the SHIPPED match limit is \
-             {}s. This run measures the first {:.0}% of a match. A bout that \
+             {}s. This run measures the first {} of a match. A bout that \
              cannot end leaves stocks TIED, and a tied stock count sends every \
              verdict to the damage tiebreak — so read every row below as \
              \"dealt more damage in {}s\", never as \"won\".",
             used / 60,
             shipped / 60,
-            100.0 * used as f32 / shipped as f32,
+            // ⛔ `{:.0}%` PRINTED "0%" FOR A TWO-SECOND RUN, which reads as
+            // "measures nothing" and is the same rounding collapse that made two
+            // p-values a hundred times apart both print as 0.000. A fraction
+            // this small wants a scale, not a rounded percent.
+            {
+                let share = 100.0 * used as f32 / shipped as f32;
+                if share < 1.0 {
+                    format!("{share:.2}%")
+                } else {
+                    format!("{share:.0}%")
+                }
+            },
             used / 60
         );
     }

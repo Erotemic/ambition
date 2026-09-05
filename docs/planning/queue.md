@@ -3668,7 +3668,21 @@ OPTIONAL dep + feature, never used:
   ⇒ **A per-crate count of a warning in a DEPENDENCY is a count of dependents,
   not of defects.** The script reports per-crate because that is what a consumer
   experiences; the census below is what wants fixing.
-  ✔✔ **AND ALL SIX ARE ONE SHAPE — every site classified, none is dead code.**
+  ✔ **ONE OF THE SIX IS FIXED (`2acf6ce7c`), and which one it was is the useful
+  distinction.** `input_adapter.rs:114` computed `presented_subject`
+  unconditionally while its only reader is `#[cfg(feature = "portal_render")]`;
+  the binding is now gated to match. ⇒ **Gated rather than underscored on
+  purpose** — `_presented_subject` silences the report while leaving a
+  computation nothing reads, and the honest structure is that the value exists
+  exactly when its reader does. Verified both ways: 0 warnings under default
+  features, none with `portal_render`, 38 content tests green.
+  ⛔ **The `ambition_dialog` four are NOT fixable the same way**, and that is the
+  point: their callers are behind `input` and the crate's own tests call the
+  methods under DEFAULT features, so gating the definitions would break the
+  tests. Same symptom, different remedy — which is why this census says to read
+  each SITE rather than act on the count. **Five sites remain.**
+
+  ✔✔ **AND ALL SIX WERE ONE SHAPE — every site classified, none is dead code.**
   Each is a consumer sitting behind a feature the crate's own default build does
   not enable, verified by turning that feature on and watching the warning go:
 

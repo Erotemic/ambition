@@ -1442,6 +1442,29 @@ impl PreparedCharacterRegistry {
     #[cfg(any(test, feature = "test-support"))]
     pub fn insert_prepared(&mut self, prepared: PreparedCharacterDefinition) {
         let generation = self.generation;
+        // ⛔⛔ THIS ONE REPLACES, AND THAT IS THE RULING RATHER THAN AN
+        // OVERSIGHT — measured 2026-09-05 by making it refuse and counting what
+        // fell. FOUR tests, and their names are the whole argument:
+        // `deleting_an_override_in_a_hot_reload_gives_the_body_its_own_numbers_back`,
+        // `a_new_cast_generation_refreshes_a_seated_fighters_kit`,
+        // `a_character_that_stops_authoring_hurtboxes_has_them_retracted`,
+        // `replacing_the_cast_reprojects_a_body_wearing_the_same_character`.
+        // ⇒ Every one of them re-registers ONE id on purpose, because that is
+        // what a hot reload IS, and refusing the second write would pin the
+        // registry to the pre-reload definition — the opposite of the defect a
+        // silent-overwrite audit is looking for.
+        //
+        // ⭐ THE TWO ROADS ANSWER DIFFERENTLY AND BOTH ARE RIGHT. The PRODUCTION
+        // door (`register_character`) refuses a duplicate as
+        // `CharacterRegistrationError::DuplicateId`, because there a second
+        // write means two PROVIDERS claimed one stable id and somebody has to
+        // lose. Here a second write means the SAME author published again, which
+        // is a republication and is the line directly below.
+        //
+        // ⚠ What that costs, said in place: a fixture that registers two
+        // genuinely different characters under one id keeps the second silently.
+        // Nothing distinguishes that from a reload, and it cannot — the hatch
+        // sees one definition, not an intent.
         self.insert(prepared);
         // Each hatched insert is its own publication: a test using the hatch has
         // no barrier to publish for it.

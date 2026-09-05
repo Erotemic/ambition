@@ -643,6 +643,41 @@ written and believed. The pair share a shape: *the fixture answered a smaller
 question than the assertion claimed*, and nothing in a green run distinguishes
 those.
 
+### ⭐⭐ "MAKE IT REFUSE AND COUNT WHAT FALLS" IS A MEASUREMENT, AND IT SAVED ME FROM THE OBVIOUS FIX
+
+Two registries in the moveset lane were on a peer's silent-overwrite inventory.
+Applying the obvious ruling — adopt refusal — would have been wrong on one of
+them, and the thing that said so was **running the refusal and reading the names
+of the tests that broke.**
+
+| registry | verdict | what decided it |
+|---|---|---|
+| `PreparedCharacterRegistry` (production door) | **already done** | `register_character` refuses with `CharacterRegistrationError::DuplicateId`, whose own doc argues it: *"a stable id is the thing saves, replays, and the network key on."* The inventory row was stale |
+| `PreparedCharacterRegistry` (test-support hatch) | ⛔ **REPLACE, and now it SAYS so** | I sealed it. **Four tests fell**, and their names are the argument: `deleting_an_override_in_a_hot_reload…`, `a_new_cast_generation_refreshes_a_seated_fighters_kit`, `a_character_that_stops_authoring_hurtboxes_has_them_retracted`, `replacing_the_cast_reprojects_a_body_wearing_the_same_character`. ⇒ Every one re-registers ONE id deliberately, because **that is what a hot reload IS** |
+| `MovePrefabRegistry` | ✔ **refuse** — landed | Measured first: the only three registrations in the workspace are the engine seeds, under three distinct literal keys. **Nothing overrode anything**, so "(or override)" documented a capability no caller used and a hazard every caller inherited |
+
+⛔⛔ **THE ONE I WOULD HAVE GOT WRONG IS THE MIDDLE ROW, and I got it wrong for
+about four minutes.** The two roads into that registry answer DIFFERENTLY and
+both are right: at the production door a second write means two PROVIDERS claimed
+one stable id and somebody has to lose; at the hatch it means the SAME author
+published again, which is a republication. **A rule applied to the registry
+rather than to the road is wrong on one of them.**
+
+⭐ **And the count was the signal, not the failure.** Four tests falling said the
+road is exercised deliberately and for a reason; one falling would have said only
+that a fixture touched it. ⇒ This is the positive form of the poison rule two
+sections up — **when you poison a shared authority, the NUMBER that reddens tells
+you how many roads your fixtures actually reach.** A peer put it in exactly those
+words the same afternoon, from the opposite direction: emptying a shared table
+reddened three tests, and the three was the point.
+
+⚠ `MovePrefabRegistry` also does NOT adopt the shared `classify` helper, for a
+reason worth stating rather than inheriting: `classify` decides its three answers
+with `PartialEq`, and the value there is a `fn` POINTER. The compiler may merge
+identical functions or not, so "the same entry" is a question that depends on
+optimisation settings. ⇒ **A registry that cannot soundly recognise idempotence
+has no honest Idempotent arm**, and any second registration is a conflict.
+
 ### ⚠ ROSTER DECISION #16 — PUGNACIOUS POLYGON GETS THE PARASOL, AND HE WAS PICKED BY MEASUREMENT
 
 His up-B was `impulse(0, -745, Set)` and nothing else. It now opens a 0.35-gravity

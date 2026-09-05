@@ -411,4 +411,26 @@ reader to infer them from unrelated components.
   ships, and `continuity.rs`'s three dispositions are the shape to copy.
 - How should possession transfer body inventory, equipment and participant
   entitlements?
+  ⭐⭐ **THERE IS NOTHING TO TRANSFER TODAY, and the reason is a storage fact
+  worth knowing before answering: the two layers have different scopes.**
+  Measured 2026-09-05:
+
+| layer | where it lives | scope |
+|---|---|---|
+| entitlements (`OwnedItems`) | a Bevy **`Resource`** (`ambition_items/src/lib.rs:529`) | the SESSION — one per world, not per body |
+| the physical hand | per-body components; *"the hand is read where it lives"* | the BODY |
+
+  ⇒ **Possession moves the DRIVER, not the goods.** `OwnedItems` never belonged
+  to a body, so possessing one cannot transfer it; the held item stays on the
+  body it is attached to, because that is where it is. Neither
+  `abilities/traversal/possession.rs` nor `control/authority.rs` names
+  `OwnedItems` at all — checked, not assumed.
+
+  ⭐ **And this is [question 45](../awaiting-maintainer-decision.md)'s split
+  visible at the STORAGE level.** An entitlement is session-scoped and an
+  occurrence is world/body-scoped, and the portal gun is exactly the item that is
+  BOTH — `Item::PortalGun` in the global `OwnedItems` and a `PortalGun` component
+  on the body. ⇒ That is not a bug; it is why the question is a question. The
+  ruling decides which of the two storages is the AUTHORITY when they can
+  disagree, and today they cannot, because dropping never revokes the grant.
 - What is authoritative/predicted for item custody in online multiplayer?

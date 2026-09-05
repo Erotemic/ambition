@@ -21,7 +21,15 @@ pub struct AmbitionLdtkRegistrationPlugin;
 
 impl Plugin for AmbitionLdtkRegistrationPlugin {
     fn build(&self, app: &mut App) {
-        for identifier in AMBITION_LDTK_ENTITY_IDENTIFIERS {
+        // ⭐ DERIVED, NOT LISTED. Every identifier the engine can CONVERT gets a
+        // `bevy_ecs_ldtk` marker registration, minus the pair below. The hand-kept
+        // 32-name list this replaced was a second spelling of a vocabulary that
+        // already has one owner, and it had already drifted from it.
+        let vocabulary = crate::conversion::LdtkVocabulary::engine();
+        for identifier in vocabulary.identifiers() {
+            if MARKERLESS_IDENTIFIERS.contains(&identifier) {
+                continue;
+            }
             app.register_ldtk_entity::<AmbitionLdtkMarkerBundle>(identifier);
         }
     }
@@ -130,37 +138,64 @@ pub fn sync_plugin_spawned_ambition_entities(
     }
 }
 
-pub const AMBITION_LDTK_ENTITY_IDENTIFIERS: &[&str] = &[
-    "PlayerStart",
-    "Solid",
-    "OneWayPlatform",
-    "BlinkWall",
-    "HazardBlock",
-    "PogoOrb",
-    "ReboundPad",
-    "LoadingZone",
-    "DamageVolume",
-    "KinematicPath",
-    "SurfaceChain",
-    "NpcSpawn",
-    "PickupSpawn",
-    "GroundItem",
-    "PortalGunSpawn",
-    "ShrineSpawn",
-    "GravityZone",
-    "ChestSpawn",
-    "BreakablePlatform",
-    "BreakablePogoOrb",
-    "EnemySpawn",
-    "BossSpawn",
-    "DebugLabel",
-    "CameraZone",
-    "StitchedBoundary",
-    "EncounterTrigger",
-    "Switch",
-    "LockWall",
-    "WaterVolume",
-    "MovingPlatform",
-    "Prop",
-    "Portal",
-];
+/// The engine identifiers that are CONVERTED but deliberately get no
+/// `bevy_ecs_ldtk` marker registration.
+///
+/// ⛔⛔ THIS USED TO BE THE WHOLE LIST -- 32 names typed out beside a converter
+/// table of 34, with no test pinning the two. It had drifted, and the drift is
+/// these two entries: they were authorable, convertible, and invisible to the
+/// marker path, and nothing said so. Inverting the list is what makes that
+/// impossible: a new engine entity is now registered BY DEFAULT, and leaving one
+/// out costs a line here with a reason attached.
+///
+/// ⚠ THE PAIR IS NOT ENDORSED, it is PRESERVED. Registering them would change
+/// what the `bevy_ecs_ldtk` path spawns, which is a behaviour decision filed as
+/// awaiting-maintainer-decision #64; this rewrite is deliberately
+/// behaviour-identical so that decision stays open and separate. MEASURED
+/// 2026-09-05: `sandbox.ldtk` authors one `SurfaceLoop` and no world defines or
+/// instances a `SurfaceRamp`, so the pair costs nothing while it waits.
+const MARKERLESS_IDENTIFIERS: &[&str] = &["SurfaceLoop", "SurfaceRamp"];
+
+#[cfg(test)]
+mod marker_registration_tests {
+    use super::MARKERLESS_IDENTIFIERS;
+    use crate::conversion::LdtkVocabulary;
+
+    /// ⛔ AN EXCLUSION THAT EXCLUDES NOTHING IS A LIE THAT COSTS NOTHING TO TELL.
+    /// Rename or delete a converter and `MARKERLESS_IDENTIFIERS` keeps naming it;
+    /// the registration loop then quietly registers everything and this file still
+    /// reads as though two entities were held back.
+    #[test]
+    fn every_markerless_identifier_is_one_the_engine_can_convert() {
+        let vocabulary = LdtkVocabulary::engine();
+        let known: Vec<&str> = vocabulary.identifiers().collect();
+        for identifier in MARKERLESS_IDENTIFIERS {
+            assert!(
+                known.contains(identifier),
+                "MARKERLESS_IDENTIFIERS names `{identifier}`, which the engine \
+                 vocabulary does not contain -- the exclusion is stale and is \
+                 holding nothing back"
+            );
+        }
+    }
+
+    /// The registration set is the vocabulary MINUS the excluded pair.
+    ///
+    /// ⚠ This pins the ARITHMETIC, not a list of names: a name list here would
+    /// be the same hand-kept second spelling the derivation removed. Adding an
+    /// engine converter should raise both sides together and keep this green.
+    #[test]
+    fn the_registered_set_is_the_vocabulary_minus_the_excluded_pair() {
+        let vocabulary = LdtkVocabulary::engine();
+        let registered = vocabulary
+            .identifiers()
+            .filter(|identifier| !MARKERLESS_IDENTIFIERS.contains(identifier))
+            .count();
+        assert_eq!(
+            registered,
+            vocabulary.identifiers().count() - MARKERLESS_IDENTIFIERS.len(),
+            "an excluded identifier appeared twice in the vocabulary, or an \
+             exclusion matched nothing"
+        );
+    }
+}

@@ -824,24 +824,24 @@ impl std::fmt::Debug for LdtkVocabulary {
 /// The engine's standard LDtk vocabulary, registered through the SAME
 /// registry shape content extensions use.
 ///
-/// ⛔⛔ THIS SAID THE KEYS MIRROR
-/// [`super::bevy_runtime::AMBITION_LDTK_ENTITY_IDENTIFIERS`] *"exactly (pinned
-/// by a test)"*. MEASURED 2026-09-05: **neither half is true.** This table has
-/// 34 keys (26 explicit + 8 surface-like) and that list has 32 — `SurfaceLoop`
-/// and `SurfaceRamp` have converters and no marker registration — and there is
-/// no test anywhere pinning the two. What IS pinned, and really is, is the
-/// CONTRACT against these converters: `contract/prover.rs` runs
-/// `ldtk_entity_contract.json` (34 entities) against the real parsers.
+/// ⛔⛔ THIS SAID THE KEYS MIRROR the marker-registration list *"exactly (pinned
+/// by a test)"*. MEASURED 2026-09-05: **neither half was true.** This table had
+/// 34 keys and the list had 32 — `SurfaceLoop` and `SurfaceRamp` had converters
+/// and no marker registration — and no test anywhere pinned the two.
 ///
-/// ⚠ The gap's consequence is NOT established here: the marker list drives
-/// `bevy_ecs_ldtk`'s `register_ldtk_entity`, and whether the shipped game
-/// reaches `SurfaceLoop` through that path or only through this conversion
-/// table is the open half. `sandbox.ldtk` authors ONE `SurfaceLoop` instance;
-/// `SurfaceRamp` is defined in no world and instanced in none.
+/// ⭐ THE LIST IS GONE. `bevy_runtime::AmbitionLdtkRegistrationPlugin` now
+/// DERIVES its registrations from this vocabulary, so the two cannot disagree:
+/// there is nothing left to disagree with. What remains is a named exclusion,
+/// `MARKERLESS_IDENTIFIERS`, holding back the same pair the drift had held back
+/// by accident — behaviour-identical on purpose, because registering them is a
+/// separate decision (awaiting-maintainer-decision #64).
 ///
-/// ⇒ Filed as a question rather than repaired, because adding the two to the
-/// marker list and adding the missing test are the same decision and it is not
-/// obviously the right one.
+/// ⚠ THE DRIFT WAS FOUND BY CHECKING A COMMENT, not by a failure, and the
+/// comment claiming a test was what made it invisible: a reader who believed
+/// the sentence had no reason to count either side. What IS pinned, and really
+/// is, is the CONTRACT against these converters: `contract/prover.rs` runs
+/// `ldtk_entity_contract.json` (34 entities) against the real parsers in both
+/// directions.
 fn standard_converters() -> &'static BTreeMap<&'static str, LdtkEntityConverter> {
     static STANDARD: OnceLock<BTreeMap<&'static str, LdtkEntityConverter>> = OnceLock::new();
     STANDARD.get_or_init(|| {

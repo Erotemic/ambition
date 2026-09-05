@@ -26,10 +26,10 @@ use ambition_characters::smash_capture::{
 use ambition_characters::smash_repertoire::{
     DownSpecial, NeutralSpecial, SmashRepertoire, UpSpecial,
 };
-use ambition_platformer2d::entity_catalog::{ImpulseMode, MovesetContract};
+use ambition_platformer2d::entity_catalog::{AutolinkVolume, ImpulseMode, MovesetContract};
 
 use ambition_characters::moveset_authoring::{
-    committed_tail, impulse, on_contact, sfx, strike, strike_tag, vfx_at,
+    committed_tail, impulse, multihit, on_contact, sfx, strike, strike_tag, vfx_at, Pulse,
 };
 
 const SHOP_FX: f32 = 0.85;
@@ -276,6 +276,50 @@ pub fn bob_moveset() -> MovesetContract {
         launch_dir: Some((0.92, -0.44)),
         on_hit: None,
     });
+    // ⭐⭐ AND NOW IT ACTUALLY RUNS. The comment above has always said "it is not
+    // one hit, it is the tool running" — and the move was ONE `strike` with a
+    // single 0.14s Active window, which the runtime's re-hit rule lands EXACTLY
+    // ONCE. ⇒ The `Pulse` doc says so in as many words: "a multi-hit that
+    // authored one long window, or windows that touch, lands exactly once." So
+    // the comment named the precise property the engine refuses.
+    //
+    // ⭐ THE FIX IS THE ONE THE ENGINE ASKS FOR: separated windows, which is what
+    // `multihit` builds. Oiler's `convergence` carries the same explanation
+    // beside it — that move genuinely multi-hits BECAUSE of the gap — so the
+    // vocabulary and the precedent were both already here.
+    //
+    // ⛔ THE FINISHER IS UNTOUCHED. Every number on the strike above is as it
+    // was; the pulses go IN FRONT at 2 chip each, which is the shape a multi-hit
+    // has in this repository — "the move is paid for by its finisher, and a
+    // multi-hit whose pulses hurt is a better move than its own ending."
+    //
+    // ⛔ THE ANCHOR'S x IS ZERO. `autolink_anchor_world` mirrors it with his
+    // facing, so a non-zero x makes the hold point depend on which way he is
+    // looking. A tool that pulls its work toward the man holding it does not
+    // care which way he turned.
+    let n_b = multihit(
+        n_b,
+        3,
+        Pulse {
+            // A little tighter than the finisher: the work is held where the
+            // tool is, not where the swing ends.
+            offset: (26.0, -2.0),
+            half_extents: (22.0, 16.0),
+            damage: 2,
+            // Separated, because touching windows are one hit wearing three
+            // windows' timing.
+            active_s: 0.030,
+            gap_s: 0.028,
+            autolink: AutolinkVolume {
+                anchor: (0.0, -4.0),
+                // He is planted while it runs — there is no motion of his own to
+                // hand on, so the hold is entirely the correction's.
+                carry: 0.0,
+                pull: 19.0,
+                max_speed: 900.0,
+            },
+        },
+    );
     let n_b = committed_tail(n_b, 0.70, 0.05);
     let n_b = vfx_at(n_b, 0.20, "electric_burst", (30.0, -2.0), RIG_FX);
     let n_b = sfx(n_b, 0.20, "player.directional_special");
@@ -530,5 +574,69 @@ mod tests {
                  cryptographer, so the pair is one table twice"
             );
         }
+    }
+
+    /// ⛔⛔ "IT IS NOT ONE HIT, IT IS THE TOOL RUNNING" — the comment on his
+    /// neutral, and for a long time it was false in the most specific way
+    /// possible: the move was ONE `strike` with a single contiguous active
+    /// window, which is exactly what the runtime's re-hit rule lands ONCE.
+    /// `Pulse`'s own doc says so — *"a multi-hit that authored one long window,
+    /// or windows that touch, lands exactly once."* ⇒ The sentence named the
+    /// property the engine refuses.
+    #[test]
+    fn his_rivet_gun_runs_rather_than_landing_once() {
+        let set = bob_moveset();
+        let gun = set
+            .moves
+            .iter()
+            .find(|m| m.id == "rivet_gun")
+            .expect("his neutral special");
+
+        let mut hitting: Vec<(f32, f32)> = gun
+            .windows
+            .iter()
+            .filter(|w| w.volumes.iter().any(|v| v.damage > 0))
+            .map(|w| (w.start_s, w.end_s))
+            .collect();
+        hitting.sort_by(|a, b| a.0.total_cmp(&b.0));
+        assert!(
+            hitting.len() >= 3,
+            "a tool that runs has more than {} hitting window(s)",
+            hitting.len()
+        );
+
+        // ⛔⛔ THE GAPS ARE THE MOVE, NOT THE COUNT. Three windows that TOUCH
+        // land once, exactly as one long window does — so this asserts the
+        // separation rather than the number of windows, which is the thing the
+        // runtime actually reads.
+        for pair in hitting.windows(2) {
+            let gap = pair[1].0 - pair[0].1;
+            assert!(
+                gap > 0.0,
+                "windows {:?} and {:?} touch, so the runtime hands the hit set \
+                 forward and the tool lands once",
+                pair[0],
+                pair[1]
+            );
+        }
+
+        // ⭐ AND THE PULSES HOLD. A multi-hit whose intermediate hits launch is
+        // a move that throws its victim out of its own later windows.
+        let holding = gun
+            .windows
+            .iter()
+            .flat_map(|w| w.volumes.iter())
+            .filter(|v| v.reaction.is_some())
+            .count();
+        assert!(holding >= 3, "only {holding} of the pulses hold their victim");
+
+        // ⛔ THE FINISHER IS UNTOUCHED — this was an addition, not a rebalance.
+        assert!(
+            gun.windows
+                .iter()
+                .flat_map(|w| w.volumes.iter())
+                .any(|v| v.reaction.is_none() && v.damage == 12),
+            "the rivet no longer drives home at its authored 12"
+        );
     }
 }

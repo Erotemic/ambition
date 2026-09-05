@@ -895,24 +895,37 @@ The one unresolved developer-policy choice from the session-ownership work is in
   `cargo nextest run --workspace` job, `FAILED` in the union job. Both modules
   are plain `#[cfg(test)]`, NOT feature-gated, so they genuinely execute in both;
   this is a behavioural difference, not a "did not run".
-  ⇒ **The mechanism, read off the diff rather than guessed:** `7b0418faf`
-  refactored three loose `MessageWriter` params into `StrikeOutcomeWriters` and
-  added a FOURTH (`parried: MessageWriter<ParriedBodyHit>`). The failing tests
-  build their app by HAND-LISTING exactly the three that existed
-  (`hurtbox_damage_tests.rs:71-73`) and never go through `sim_core_resources`,
-  so the new writer has no registration and panics in `Main::run_main`.
-  ⭐ The registration site's own comment predicted the shape: *"a message
-  registered beside one of them panics the other, which is a crash this
-  repository has already shipped once."* The hand-built test app is the "other".
-  ⇒ **The transferable rule: a hand-listed set of dependencies is a POPULATION,
-  and adding to the SOURCE does not update the LISTS.** Nothing about the change
-  points at the lists, and the compiler cannot help — an unregistered message is
-  a runtime panic, not a type error.
-  ⚠ **Still unexplained, and it is the more important half:** WHY the default
-  build is green. If a feature is what makes that writer live, then the default
-  suite cannot protect this seam at all, and "green backbone" says nothing about
-  it. Owned by the fighter lane; reproduction and the minimal triggering feature
-  are being measured.
+  ⛔⛔ **THE CAUSE IS NOT YET KNOWN, and a first diagnosis was RETRACTED the same
+  evening — recorded because the retraction is the useful part.** I read the diff,
+  found that `7b0418faf` folded three loose `MessageWriter` params into
+  `StrikeOutcomeWriters` and added a FOURTH (`parried:
+  MessageWriter<ParriedBodyHit>`), saw that the failing tests hand-list exactly
+  the three that existed (`hurtbox_damage_tests.rs:71-73`, then
+  `add_systems(…, apply_hitbox_damage, …)` directly), and sent it to the fighter
+  lane as *"evidence-backed by the diff"*.
+  ⇒ **It cannot be the cause: the new field carries no `#[cfg]`, so it is
+  demanded in EVERY build.** A mechanism that is always active cannot explain a
+  failure that is feature-conditional. The diff half was right; the SUFFICIENCY
+  half was never checked.
+  ⚠ A second candidate died to one read as well: `causal` is on in the union and
+  off by default, and `BodyHitResolved` is `#[cfg(feature = "causal")]` — a
+  perfect fit, except it is written `Option<MessageWriter<…>>`
+  (`ambition_damage/src/lib.rs:470`), and an `Option` writer yields `None` for an
+  unregistered message instead of panicking.
+  ⇒ ⭐ **THE RULE THIS COST: when a failure is CONDITIONAL, the condition is the
+  fact with the most information in it.** Any candidate must explain why it
+  DIFFERS between the lanes, not merely why something breaks. "Green at default"
+  was treated as a loose end instead of as the constraint that eliminates
+  candidates.
+  ✔ **What survives:** the hand-listed registration fragility is real — a
+  hand-listed set of dependencies is a POPULATION, and adding to the SOURCE does
+  not update the LISTS, with no help from the compiler because an unregistered
+  message is a runtime panic. The registration site's own comment predicted that
+  shape: *"a message registered beside one of them panics the other."* It simply
+  is not what flipped these nine red.
+  ⚠ The panic text is SWALLOWED (`Encountered a panic in system Main::run_main!`
+  is all the log carries), so only a local `--all-features` reproduction has it.
+  Pending on this box.
 
   ⚠ **`largest_unit_lines` is 100,155 — back ABOVE the 100,000 this row
   celebrated crossing** (re-measured 2026-09-05 at HEAD,

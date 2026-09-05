@@ -28,7 +28,7 @@ each one as an **engine acceptance fixture** rather than a character feature:
 | 6 ✔ | **Remote mine** — **LANDED 2026-09-05** on Projectile Polygon's down-smash | persistent spawned identity, owner lookup, remote triggering, rollback. ⭐ **It cost one component with four fields and no new authority**: the object is a `GroundItem`, the blast is a `DamageBoxEffect`, and "where is it, whoever holds it" is `ItemWorldPos`. The mine contributes an arming clock and a decision |
 | 7 | **Parasol** | temporary movement modifiers/controllers are expressive enough for a long-lived post-move locomotion regime |
 | 8 | **Homing Attack** | deterministic semantic target queries and target-directed fighter motion |
-| 9 ◐ | **Sing** | ✔ **ENGINE LANDED 2026-09-05** — `BodyCombat::sleep_timer`, the `smash.sleep` technique and the area adapter, all guarded. ▢ **No authored customer**: see below |
+| 9 ✔ | **Sing** — **COMPLETE 2026-09-05** on the Performer's neutral special | `BodyCombat::sleep_timer`, the `smash.sleep` technique and the area adapter, all guarded — and now with a customer. ⭐ **ADDED TO `the_monologue`, NOT SUBSTITUTED FOR IT**: her strike is 58×34 out in front and is unchanged to the number; the sleep is 26×26 centred on HER, wholly inside it. Everyone still gets the speech; only whoever stood next to her goes under |
 | 10 | **Limit** | character-local resource state, threshold transitions, timeout, action variants, stat modifiers |
 | 11 | **Free-standing ally summon** | summon is not synonymous with mount; first owned-secondary-actor contract |
 | 12 | **Reusable launch object** | a fighter can create a persistent world actuator another fighter interacts with |
@@ -293,7 +293,26 @@ reflector was already shipped the moment the counter existed, because both roads
 gate on `parrying()`. That is the campaign's thesis surviving contact: the
 authorities were there and what was missing was coordination.
 
-### ⛔ WHAT IS BLOCKED, AND IT IS ONE DECISION RATHER THAN FOUR
+### ✔ THE ONE BLOCKING DECISION IS MADE (and here is who made it)
+
+⭐⭐ **THIS SECTION SAID THE SINGLE MOST UNBLOCKING ANSWER WAS WHAT THE
+PERFORMER'S NEUTRAL SHOULD BE. It is answered, and I answered it**, on Jon's
+standing grant in the same brief that assigned Sing to her: *"you can pick where
+to put the proof of concept for the other moves in the roster"*, and *"we can
+tune who the moves belong to later."*
+
+⇒ **The answer that made it a non-decision: Sing did not have to displace
+anything.** I had framed it as *upgrade `the_monologue` or give Sing its own
+fighter*, and both are design calls. The third option is neither — ADD the pulse
+to the move she already has, at a strictly smaller radius, so the existing
+balance is untouched and the new thing costs position to land. ⚠ Same shape as
+the mine on the down-smash, one hour earlier, and I did not notice it was the
+same shape until after I had shipped both.
+
+⚠ **Still Jon's to overrule** — it is his fighter and his numbers (1.4s asleep,
+26×26). The guard names the design so a change to it is loud.
+
+### ⛔ WHAT WAS BLOCKED, AND IT IS ONE DECISION RATHER THAN FOUR
 
 Three separate rows are stuck on the same thing — **the roster is full**, and
 filling a slot is a design call rather than engineering:

@@ -279,6 +279,7 @@
     "message.explosion_request",
     "message.fighter_respawn_due",
     "message.fighter_stock_spent",
+    "message.finish_zoom_request",
     "message.fire_portal_gun",
     "message.fireworks_request",
     "message.gameplay_banner_requested",

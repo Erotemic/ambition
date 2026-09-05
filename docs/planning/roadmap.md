@@ -16,6 +16,32 @@ crate topology.
 
 ## Engineering priority order
 
+⭐⭐ **THE PRIORITIES BELOW ARE SCORED ON TWO AXES, NOT ONE.** Authority
+decomposition — which crate owns the fact, what may mutate it, one lifecycle,
+dependency direction — and **capability composability**: can this capability be
+ABSENT, does the rest still form a coherent application, does it declare only its
+real prerequisites. **The second does not follow from the first.** A repository
+can satisfy every ownership rule on every page here and still ship an
+effectively indivisible engine.
+
+⇒ Authority comes FIRST and sequencing is permitted; a slice need not deliver
+both. What is not permitted is a run of slices that all advance the first axis
+being read as progress on the engine's decomposition. **A landed slice says which
+axis it moved.**
+
+ⓘ The rule, the ordering, the absence criterion and the minimum-host tests that
+would prove it live in
+[`engine/decomposition.md`](engine/decomposition.md) under "Decomposition has two
+dimensions", with the durable statement in
+[`../architecture/package-and-capability-boundaries.md`](../architecture/package-and-capability-boundaries.md).
+Deliberately not restated here: that page says in its own words that it is the
+single home, and a second copy is how the two vocabularies drifted apart in the
+first place. ⚠ **This roadmap named neither axis until 2026-09-04** — a search
+for the concept as well as the spelling (*optional*, *install*, *minimal
+consumer*, *inherit*) returned nothing on this page, while
+`engine/actor-monolith-decomposition.md` had been carrying it as exit criteria 2
+and 4 all along.
+
 ### P0 — authoritative-state correctness and lifetime boundaries
 
 The immediate correctness program is broader than rollback registration. An

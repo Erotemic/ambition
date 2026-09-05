@@ -656,10 +656,19 @@ checksum, so a cross-session carry is a frame-0 disagreement:
 
 ```text
 canonical rollback RESOURCES        19   (one is `T`, the registrar's own generic — discard)
-of those, session-scoped             4   MovingPlatformSet, ProjectileSeqCounter,
-                                         RoomTransitionCooldown, SlotInteractionState
-of those, NOT session-scoped        14
+of those, session-scoped             5   MovingPlatformSet, PendingLifecycleCommit,
+                                         ProjectileSeqCounter, RoomTransitionCooldown,
+                                         SlotInteractionState
+of those, NOT session-scoped        13
 ```
+
+⚠ **THOSE FIGURES MOVED BECAUSE OF THIS ROW'S OWN FIXES — re-derived 2026-09-05
+after landing them.** The census was first written as 4 / 14 and is 5 / 13 now
+that `PendingLifecycleCommit` joined the set. ⇒ **a census published in the same
+breath as the change it motivates is stale on arrival**, and the only reason this
+one is not is that I re-ran it against HEAD afterwards. Anyone quoting these two
+digits should re-run rather than cite; the SHAPE (a handful scoped, most not,
+and most of those correct) is what the row is for.
 
 ⚠ REASONED grouping of the 14: eight are CLOCKS (`ClockState`, `SimDt`,
 `SimTick`, `WorldTime`, `RegimePolicy`, `RequestedClockScale`, `GameplayElapsed`,

@@ -24,7 +24,7 @@ run, not carried forward:
 | `ambition_platformer2d_shared_tangle` lib | **252 passed** (re-measured 2026-09-04 late) | same shape |
 | absence + dependency contracts | **38 of 38 hold** | `scripts/check_absence_contracts.py` |
 | capability footprint | **51 crates linked, 23 a movement-only game never asked for** | the ratchet's own line |
-| rollback wire format | **v151**, 410 stable names, 123 encoded types across 12 crates | the same checker |
+| rollback wire format | **v152** (bumped with the parry work, 2026-09-05) — for the stable-name and encoded-type counts ASK the checker; they move with every registration and this row has carried 409, 410 and 412 on three different days | the same checker |
 | feature-gated tests | **813 hidden behind features across 29 crates** (2026-09-05; the figure moved 793 → 798 → 800 → 803 → 810 → 812 → 813 in two days, so RUN the tool rather than quoting this — the magnitude is the point, the digits are not) | `scripts/feature_gated_tests.py` |
 | `cargo fmt --all -- --check` | **358 files / 710 hunks fail** | and that is POLICY, not drift — AGENTS.md: *"Formatting is advisory, never an acceptance gate."* |
 | the workspace FEATURE UNION | ◐ **49/53 jobs at `e13d36163`** (2026-09-05, `[lane: exhaustive]`, 2,669 s) — ⭐ **and unlike the run before it, this one IS attributable to a single HEAD**: only docs commits landed while it ran, checked with `git log <start>..HEAD` for `.rs`/`.toml` before writing this line. Four failing jobs, and **three are already repaired since it ran**: the 9 damage/hurtbox panics (`Parameter StrikeOutcomeWriters<'_>::parried failed validation: Message not initialized` — fixed by the fighter lane's `register_strike_outcome_messages`, verified here at 129 passed), the rollback stable-name ratchet (`message.parried_body_hit`, paid with its schema-version bump), and two stale `MODULES.md`. ⇒ **The residual is the compile-cost ratchet alone, which is red BY DESIGN during D33** and needs a carve owner before a re-freeze, because `--update` would bank a `critical_path_crates` 14 → 16 regression along with two wins. | ⛔⛔ **THE RUN BEFORE THIS ONE (50/53 at `bf748dd5a`) IS NOT A SINGLE-HEAD RECEIPT and is retained only as a lesson.** It took ~5 h and I merged `origin/main` into the tree repeatedly while it ran; the fighter lane's commits landed at 00:43 against a run whose HEAD was 00:18. Its nextest job tested a tree WITHOUT them and its union job one WITH them — which manufactured a *"passes at default, panics under the union"* asymmetry, and I used that fake constraint to RETRACT a correct diagnosis. ⇒ *"Do not edit while the suite runs"* was never only about my own edits: **a mid-run `git merge` is the same act and is the one you forget.** A receipt naming one SHA while the tree moved underneath is false even when every number in it is real. |
@@ -86,8 +86,21 @@ most recent one is the exhaustive plan on `c2b7f83c7` (an ancestor of HEAD):
 **48 of 52 jobs in 84.9 minutes**, every failure of which is filed in
 [`queue.md`](queue.md) with the run it was reproduced on.
 
-⭐ **RE-GATED 2026-09-03 late on the twice-merged tree, and these are the
-numbers to quote until someone runs the Rust lane:** `scripts/tests` **802
+⛔ **SUPERSEDED 2026-09-05 — the Rust lane HAS been run, twice, and this
+receipt's standing instruction to quote it has expired.** Today's readings, all
+on the 484 GB box: `scripts/tests` **727 passed / 3 skipped / 0 failed**;
+`check_absence_contracts.py` **38 of 38**; `check_doc_links` **283 documents /
+1077 local links**; `check_planning_citations` ~1,805 checked, **0 unresolved**;
+`cargo nextest run --workspace` **7,166 run / 7,164 passed** at a frozen HEAD,
+whose two failures (the wire baseline's version line, and an ADR-0024 policy
+violation) are both since repaired.
+⚠ **And this receipt's RED is resolved in the other direction**:
+`test_the_known_list_does_not_rot` PASSES here with all four names still listed,
+which is the per-box variance `queue.md` records rather than a fix — do not read
+it as either.
+
+ⓘ The 2026-09-03 receipt is kept below as history, because the instruction it
+carried is the thing worth seeing expire: `scripts/tests` **802
 passed / 13 skipped / 0 failed** — ⚠ **now 819 passed / 3 skipped / 1 failed**,
 because `scripts/lib/canonical_assets.py` landed and switched on ten asset
 ratchets that no lane had ever evaluated. The red is one of them

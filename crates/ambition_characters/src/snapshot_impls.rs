@@ -39,6 +39,10 @@ snapshot_pod!(crate::smash_capture::SmashHoldState {
     // frame the captor centred the stick has to un-arm it, or a replay throws
     // where the live session pummelled.
     throw_armed: bool,
+    // The cargo carry. Decided once and constant after, which is exactly why it
+    // has to rewind: a restore without it gives the resimulated captor a hold
+    // they can no longer walk with.
+    carrying: bool,
 });
 
 snapshot_pod!(crate::actor::body::BodyCombat {

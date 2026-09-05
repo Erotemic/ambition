@@ -69,6 +69,18 @@ pub struct CaptureAttemptRequested {
     pub hold_offset: ae::Vec2,
 }
 
+/// A carry: the captor takes the captive's weight and keeps hold of it.
+///
+/// ⛔ IT CARRIES NO VICTIM, like a pummel and unlike a grab, because the
+/// relationship already selected one. And it is NOT a throw: a throw ends the
+/// hold, this one changes its terms.
+#[derive(Message, Clone, Copy, Debug, PartialEq)]
+pub struct CaptureCarryRequested {
+    pub captor: Entity,
+    /// Where the captive rides from now on, captor-body-local.
+    pub hold_offset: ae::Vec2,
+}
+
 /// A pummel impact targeting the captive already selected by the relationship.
 ///
 /// It carries no victim because pummels do not reacquire through collision.

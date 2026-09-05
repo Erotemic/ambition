@@ -1482,6 +1482,128 @@ mod tests {
         );
     }
 
+    /// ⛔⛔ A CARRY RESTRICTS **LESS**, AND ONLY IN ONE CHANNEL. The whole move
+    /// is "the captor may walk", so a test that merely proved locomotion
+    /// survived would pass against a carry that also handed back the jump, the
+    /// shield and the special — which is not a cargo carry, it is a captor with
+    /// no downside holding a body that cannot act.
+    #[test]
+    fn a_carrying_captor_may_walk_and_still_may_do_nothing_else() {
+        let mut app = App::new();
+        app.add_systems(Update, restrict_captor_control);
+        let captor = grounded_body(&mut app, "captor", ae::Vec2::ZERO);
+        let victim = grounded_body(&mut app, "victim", ae::Vec2::new(16.0, 0.0));
+        let mut frame = ambition_characters::actor::control::ActorControlFrame::neutral();
+        frame.locomotion = ae::LocalAxes::X;
+        frame.jump_pressed = true;
+        frame.special_pressed = true;
+        frame.shield_held = true;
+        frame.grab_pressed = true;
+        app.world_mut()
+            .entity_mut(captor)
+            .insert(ambition_characters::control::ActorControl(frame));
+        let mut hold = fresh_hold();
+        hold.carrying = true;
+        app.world_mut().entity_mut(victim).insert((
+            CapturedBy {
+                captor,
+                hold_offset_local: ae::Vec2::new(6.0, -18.0),
+                prior_gravity_scale: 1.0,
+            },
+            hold,
+        ));
+        app.update();
+        let held = &app
+            .world()
+            .get::<ambition_characters::control::ActorControl>(captor)
+            .unwrap()
+            .0;
+        assert_eq!(
+            held.locomotion,
+            ae::LocalAxes::X,
+            "a carrying captor could not walk, which is the whole move"
+        );
+        assert!(
+            !held.jump_pressed,
+            "a carrying captor jumped — carrying is a WALK to the ledge, not a leap"
+        );
+        assert!(
+            !held.special_pressed && !held.shield_held && !held.grab_pressed,
+            "a carry handed back more than locomotion"
+        );
+    }
+
+    /// ⛔ A HOLD WITH NO RULESET ROW PINS ITS CAPTOR, unchanged. `carrying` lives
+    /// on the ruleset's half, so a game that constrains bodies without a throw
+    /// vocabulary carries no row and must behave exactly as it did before the
+    /// carry existed.
+    #[test]
+    fn a_hold_without_the_rulesets_half_still_pins_its_captor() {
+        let mut app = App::new();
+        app.add_systems(Update, restrict_captor_control);
+        let captor = grounded_body(&mut app, "captor", ae::Vec2::ZERO);
+        let victim = grounded_body(&mut app, "victim", ae::Vec2::new(16.0, 0.0));
+        let mut frame = ambition_characters::actor::control::ActorControlFrame::neutral();
+        frame.locomotion = ae::LocalAxes::X;
+        app.world_mut()
+            .entity_mut(captor)
+            .insert(ambition_characters::control::ActorControl(frame));
+        // ⛔ The relation ALONE — no `SmashHoldState`.
+        app.world_mut().entity_mut(victim).insert(CapturedBy {
+            captor,
+            hold_offset_local: ae::Vec2::new(16.0, 0.0),
+            prior_gravity_scale: 1.0,
+        });
+        app.update();
+        assert_eq!(
+            app.world()
+                .get::<ambition_characters::control::ActorControl>(captor)
+                .unwrap()
+                .0
+                .locomotion,
+            ae::LocalAxes::ZERO,
+            "a hold with no ruleset opinion let its captor walk"
+        );
+    }
+
+    /// ⭐ THE CARRY TAKES THE WEIGHT AND KEEPS THE HOLD. The failure it guards
+    /// against is the obvious one: implementing a carry by copying the throw and
+    /// forgetting to delete the release.
+    #[test]
+    fn a_carry_moves_the_captive_and_does_not_release_it() {
+        let mut app = App::new();
+        app.add_message::<crate::capture::CaptureCarryRequested>();
+        app.add_systems(Update, apply_capture_carries);
+        let captor = grounded_body(&mut app, "captor", ae::Vec2::ZERO);
+        let victim = grounded_body(&mut app, "victim", ae::Vec2::new(16.0, 0.0));
+        app.world_mut().entity_mut(victim).insert((
+            CapturedBy {
+                captor,
+                hold_offset_local: ae::Vec2::new(16.0, 0.0),
+                prior_gravity_scale: 1.0,
+            },
+            fresh_hold(),
+        ));
+        app.world_mut()
+            .write_message(crate::capture::CaptureCarryRequested {
+                captor,
+                hold_offset: ae::Vec2::new(6.0, -18.0),
+            });
+        app.update();
+        let held = app
+            .world()
+            .get::<CapturedBy>(victim)
+            .expect("the carry must NOT release the captive");
+        assert_eq!(held.hold_offset_local, ae::Vec2::new(6.0, -18.0), "hoisted");
+        assert!(
+            app.world()
+                .get::<ambition_characters::smash_capture::SmashHoldState>(victim)
+                .unwrap()
+                .carrying,
+            "the hold did not become a carry"
+        );
+    }
+
     /// A HIT ON EITHER BODY ENDS THE HOLD, AND GIVES BACK WHAT IT SUSPENDED.
     ///
     ///  the restored gravity is the body's OWN prior value, not `1.0`. This
@@ -2199,12 +2321,51 @@ pub fn finalize_new_capture_pose(
 ///  a future carry relationship may permit locomotion — cargo throws exist in
 /// the genre. That is a property of the RELATIONSHIP, so it belongs on whatever
 /// component expresses it, not baked in here.
+/// Take the weight: turn an ordinary hold into a carry.
+///
+/// ⛔⛔ IT DOES NOT RELEASE, and that is the entire difference between this and
+/// `apply_capture_throws` beside it. The relationship survives; two of its terms
+/// change — where the captive rides, and whether its captor may walk.
+///
+/// ⚠ A CARRY REQUEST WITH NO HOLD DOES NOTHING, silently. The move that emits it
+/// is only reachable from inside a capture (it is a throw-slot beat), so
+/// "captor holds nobody" here means the hold ended on the same tick the beat
+/// fired — a race the release path already won, and the honest resolution is
+/// that the release wins.
+pub fn apply_capture_carries(
+    mut requests: MessageReader<crate::capture::CaptureCarryRequested>,
+    mut captives: Query<(&mut CapturedBy, &mut ambition_characters::smash_capture::SmashHoldState)>,
+) {
+    for request in requests.read() {
+        for (mut held, mut hold) in &mut captives {
+            if held.captor != request.captor {
+                continue;
+            }
+            held.hold_offset_local = request.hold_offset;
+            hold.carrying = true;
+        }
+    }
+}
+
 pub fn restrict_captor_control(
-    captives: Query<&CapturedBy>,
+    captives: Query<(
+        &CapturedBy,
+        Option<&ambition_characters::smash_capture::SmashHoldState>,
+    )>,
     mut captors: Query<(Entity, &mut ambition_characters::control::ActorControl)>,
 ) {
-    let holding: std::collections::HashSet<Entity> =
-        captives.iter().map(|held| held.captor).collect();
+    // ⭐⭐ TWO SETS, NOT ONE, because a carry is a hold that restricts LESS. The
+    // generic relation says nothing about locomotion; the ruleset's half does,
+    // and a hold with no ruleset row (a game with no throw vocabulary) is
+    // correctly absent from the carrying set and pins its captor as before.
+    let mut holding: std::collections::HashSet<Entity> = std::collections::HashSet::new();
+    let mut carrying: std::collections::HashSet<Entity> = std::collections::HashSet::new();
+    for (held, hold) in &captives {
+        holding.insert(held.captor);
+        if hold.is_some_and(|hold| hold.carrying) {
+            carrying.insert(held.captor);
+        }
+    }
     if holding.is_empty() {
         return;
     }
@@ -2213,8 +2374,16 @@ pub fn restrict_captor_control(
             continue;
         }
         let frame = &mut control.0;
-        frame.locomotion = ae::LocalAxes::ZERO;
-        frame.velocity_target = ae::WorldVec2(ae::Vec2::ZERO);
+        // ⛔ THE ONE THING A CARRY BUYS, and it is deliberately only walking.
+        // Every other channel below is still stripped — a carrying captor may
+        // not jump, shield, special or grab again. ⇒ Carrying somebody off the
+        // stage is therefore a WALK to the ledge and not a leap, which keeps the
+        // move a repositioning tool rather than an instant KO, and turning the
+        // jump back on later is one line here rather than a redesign.
+        if !carrying.contains(&entity) {
+            frame.locomotion = ae::LocalAxes::ZERO;
+            frame.velocity_target = ae::WorldVec2(ae::Vec2::ZERO);
+        }
         frame.jump_pressed = false;
         frame.jump_held = false;
         frame.jump_released = false;

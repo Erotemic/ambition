@@ -24,7 +24,7 @@ each one as an **engine acceptance fixture** rather than a character feature:
 | 2 | **Counter + Revenge variant** | reactive defensive contact can emit either an immediate attack OR persistent character state, with no Counter subsystem |
 | 3 | **Reflector + absorber** | projectile interception is a projectile authority and supports more than parry reversal |
 | 4 | **Tether recovery + aerial tether grab** | terrain/body tethering composes with ledge and capture authorities |
-| 5 | **Cargo command grab** | capture and movement cooperate without either duplicating pose authority |
+| 5 ✔ | **Cargo command grab** — **LANDED 2026-09-05** on the goblin's down-throw | ⭐ **MOVEMENT WAS NEVER TOUCHED.** The claim was "capture and movement cooperate", and what actually happened is that capture RESTRICTS LESS: `restrict_captor_control` zeroed `locomotion` for every captor, and a carry is a hold that does not. ⇒ `carrying` rides `SmashHoldState` (the ruleset's half) rather than `CapturedBy` (the generic relation), on that component's own argument that platform-fighter rules do not belong on the relation |
 | 6 ✔ | **Remote mine** — **LANDED 2026-09-05** on Projectile Polygon's down-smash | persistent spawned identity, owner lookup, remote triggering, rollback. ⭐ **It cost one component with four fields and no new authority**: the object is a `GroundItem`, the blast is a `DamageBoxEffect`, and "where is it, whoever holds it" is `ItemWorldPos`. The mine contributes an arming clock and a decision |
 | 7 | **Parasol** | temporary movement modifiers/controllers are expressive enough for a long-lived post-move locomotion regime |
 | 8 | **Homing Attack** | deterministic semantic target queries and target-directed fighter motion |
@@ -455,7 +455,7 @@ re-derive it:
 | Spring Jump analogue | spawn reusable stage actuator + self launch; the aerial version is a falling actuator/hazard |
 | Remote mine ✔ | ⭐ **THE TAG TURNED OUT TO BE A SEAT.** `MatchSeat` is already rollback-registered and is already how this codebase names a fighter durably — so "my mine" is a `usize` comparison, not an occurrence-identity scheme, and **this row did NOT need the `SimId` work Track A is blocked on.** ⚠ The scope that bought: ONE mine per seat, which is the rule that makes the arming delay a brake rather than a decoration |
 | Revenge-style counter | defensive contact interception → persistent character resource/modifier |
-| Cargo carry | capture relation with captor locomotion enabled + movement/capture constraint contract |
+| Cargo carry ✔ | ⭐ **NO "CONSTRAINT CONTRACT" WAS NEEDED.** One bool on the ruleset's half of the hold, one branch in one system, one authored event on a throw-shaped beat. ⚠ **AND THE AUTHORING SEAM, NOT THE MECHANISM, IS WHAT PRICED IT**: the flag could not go on `CaptureAttemptParams` because that struct is constructed literally at 29 sites, so the carry had to be entered from a THROW instead of the grab — which is the genre's own shape anyway. ⇒ Worth recording as the general lesson: in this codebase a shared authored-params struct is the expensive place to add a field, and a new authored EVENT is the cheap one |
 | Pocket | projectile interception → immutable stored payload → later projectile respawn |
 | Corrin-like pin | directed movement/hit → terrain query → spatial attachment → input branch |
 | Sonic-Blade chaining | flow waits for repeat direction/input, reacquires target, runs another scoped motion segment |

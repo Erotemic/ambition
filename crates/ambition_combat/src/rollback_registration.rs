@@ -261,7 +261,7 @@ where
         |held| held.captor,
     );
     registrar.rollback_map_entities::<crate::capture::CapturedBy>(OWNER, "map.captured_by");
-    // the three capture REQUESTS are same-frame transients.
+    // the four capture REQUESTS are same-frame transients.
     registrar.clear_message_on_rollback::<crate::capture::CaptureAttemptRequested>(
         OWNER,
         "message.capture_attempt_requested",
@@ -273,6 +273,10 @@ where
     registrar.clear_message_on_rollback::<crate::capture::CaptureThrowRequested>(
         OWNER,
         "message.capture_throw_requested",
+    );
+    registrar.clear_message_on_rollback::<crate::capture::CaptureCarryRequested>(
+        OWNER,
+        "message.capture_carry_requested",
     );
     registrar.clear_message_on_rollback::<crate::hitbox::LandedBodyHit>(
         OWNER,

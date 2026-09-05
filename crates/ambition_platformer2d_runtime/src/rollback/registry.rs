@@ -203,7 +203,18 @@ use crate::content_identity::SnapshotSchemaFingerprint;
 /// bolt at all. ⓘ Decayed beside `parry_window_timer` in the movement kernel, so
 /// a stance that stops re-arming stops absorbing on the same tick it stops
 /// parrying.
-pub const GGRS_ROLLBACK_SCHEMA_VERSION: u32 = 156;
+/// ⛔ v156: `SmashHoldState` CARRIES WHETHER THE HOLD IS A CARGO CARRY. A carry
+/// is an ordinary hold with two terms changed — where the captive rides, and
+/// whether its captor may walk — so `carrying` rides the RULESET's half of the
+/// hold rather than `CapturedBy`, which is the generic relation and has no
+/// opinion about locomotion. It is state despite being decided once and constant
+/// after, and that is exactly the reason: a restore that put the hold back
+/// without it hands the resimulated captor a hold they can no longer walk with,
+/// so the two peers' captors stand in different places from that moment.
+/// ⓘ Also v156: `smash.placed_mine`, a clone-snapshotted arming clock, and
+/// `message.capture_carry_requested`, a same-frame transient beside the three
+/// capture requests it joins.
+pub const GGRS_ROLLBACK_SCHEMA_VERSION: u32 = 157;
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq, Ord, PartialOrd, Hash)]
 pub enum RollbackEntryKind {

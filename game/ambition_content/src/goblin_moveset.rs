@@ -413,14 +413,33 @@ pub fn goblin_moveset() -> MovesetContract {
         },
     );
 
-    let down_throw = author_throw(
+    // ⭐⭐ THE CARGO CARRY — proof move 5, and the goblin gets it because hauling
+    // somebody off is what a goblin DOES. Down + Attack inside a grab no longer
+    // throws: it hoists the captive onto its back and lets the goblin WALK.
+    //
+    // ⛔⛔ IT DISPLACES THE WEAKEST THING IN THE KIT AND THAT IS DELIBERATE. The
+    // move it replaces was `damage: 4, knockback: 74` on the fallback `"attack"`
+    // clip — the lowest-damage throw on the roster, generic in every field. ⇒ I
+    // looked for an EMPTY slot first, the way the mine and Sing found one, and
+    // there is none: every fighter authors all four throws. So the next-best
+    // rule is to spend the least, and this was the least.
+    //
+    // ⭐ AND THE OTHER THREE THROWS ARE THE EXIT. Nothing new had to be wired to
+    // put the captive down: while carrying, forward/back/up + Attack still throw,
+    // because a carry is an ordinary hold with two terms changed. Down enters,
+    // any direction leaves — which is the genre's own grammar, arrived at by not
+    // inventing one.
+    //
+    // ⚠ NO DAMAGE ON THE CARRY. Taking the weight is not a hit, and a carry that
+    // also chipped would make entering it strictly better than the throw it
+    // replaced instead of a different choice.
+    let down_throw = ambition_characters::smash_capture::author_carry(
         capture_beat("goblin_dthrow", "attack", 0.26),
         0.13,
-        CaptureThrowParams {
-            damage: 4,
-            knockback: 74.0,
-            knockback_growth: 1.76,
-            launch_dir: (0.4, -0.92),
+        ambition_characters::smash_capture::CaptureCarryParams {
+            // Up and over the shoulder. `+y` is gravity-DOWN, so the negative
+            // lifts them; slightly forward so the goblin is not wearing them.
+            hold_offset: (6.0, -18.0),
         },
     );
     SmashRepertoire {
@@ -548,6 +567,38 @@ mod tests {
             damage(&find(&goblin, "smash_forward")) < damage(&find(&robot, "smash_forward")),
             "and its kill move hits softer — a small fighter trades reach and \
              power for speed, or it is just the robot in a different sheet"
+        );
+    }
+
+    /// ⛔⛔ A CARRY, NOT A THROW, AND NOT BOTH. The failure this guards against is
+    /// the quiet one: leaving `author_throw` beside `author_carry` so the down
+    /// press hoists the captive AND launches it, which reads in play as a carry
+    /// that randomly does not work.
+    #[test]
+    fn the_goblins_down_throw_hauls_instead_of_launching() {
+        let moves = goblin_moveset();
+        let beat = moves
+            .moves
+            .iter()
+            .find(|m| m.id == "goblin_dthrow")
+            .expect("the goblin has a down-throw slot");
+        let keys: Vec<&str> = beat
+            .events
+            .iter()
+            .filter_map(|event| match &event.kind {
+                ambition_entity_catalog::MoveEventKind::Effect(effect) => {
+                    Some(effect.key.as_str())
+                }
+                _ => None,
+            })
+            .collect();
+        assert!(
+            keys.contains(&ambition_characters::smash_capture::CAPTURE_CARRY),
+            "the goblin's down press does not take the weight: {keys:?}"
+        );
+        assert!(
+            !keys.contains(&ambition_characters::smash_capture::CAPTURE_THROW),
+            "the goblin's down press both hauls AND throws: {keys:?}"
         );
     }
 }

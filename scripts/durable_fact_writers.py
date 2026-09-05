@@ -35,24 +35,76 @@ REPO = Path(__file__).resolve().parent.parent
 # Match the VERB on any receiver and name the families explicitly instead.
 FAMILIES = "boss|flag|switch|encounter|quest|item|occurrence|custody|checkpoint"
 CALL = re.compile(rf"\.\s*(set|clear|remove)_({FAMILIES})\s*\(")
-TEST_MOD = re.compile(r"^\s*#\[cfg\(test\)\]", re.M)
+TEST_ATTR = re.compile(r"^\s*#\[cfg\(test\)\]")
+# ⛔ BRACES INSIDE STRING LITERALS ARE NOT CODE. `collision.rs:365` asserts on
+# `"not ron at all {{{"` — three unmatched `{` in a test string, which left the
+# brace counter permanently open and made the whole file report as unclosed.
+# Strip string and char literals before counting. A raw string with an embedded
+# quote would defeat this; there is none in the corpus, and the ambiguity check
+# below FAILS rather than guessing if one ever appears.
+_LITERAL = re.compile(r'"(?:\\.|[^"\\])*"' + r"|'(?:\\.|[^'\\])'")
 
 
-def production_lines(text: str) -> list[tuple[int, str]]:
-    """Every line before the file's first `#[cfg(test)]`, 1-based.
+def _code(line: str) -> str:
+    """The part of a line that is Rust code: no line comment, no literals."""
+    return _LITERAL.sub("", line.split("//", 1)[0])
 
-    Crude on purpose and honest about it: a file with a `#[cfg(test)]` helper
-    ABOVE production code would under-count. Verified below — the script reports
-    how many files that shape applies to, so the crudeness is measured, not
-    assumed.
+
+def production_lines(text: str) -> tuple[list[tuple[int, str]], list[int]]:
+    """Every line NOT inside a `#[cfg(test)]` item, 1-based, plus unclosed spans.
+
+    ⛔⛔ THE FIRST VERSION TRUNCATED THE FILE AT THE FIRST `#[cfg(test)]`, AND
+    THAT IS NOT "EXCLUDE TEST CODE" — it is "discard everything after the first
+    test module". Measured 2026-09-05:
+    `crates/ambition_encounter/src/switches.rs` opens an inline
+    `mod queue_checksum_tests` at :123 and then continues with real systems —
+    `drain_switch_activations` at :384 holds the canonical persisted switch
+    writes at :401, :406, :410. The census reported `switch` had TWO writers
+    when it has FIVE, and the one it dropped is the system that describes itself
+    as the single author of the toggle.
+
+    ⚠ AND THE SCRIPT HAD SAID SO. It printed "files whose writes are ALL after a
+    `#[cfg(test)]`: 4 — read them if non-zero" and exited 0. A diagnostic that
+    does not fail is a diagnostic nobody reads; that is why ambiguity is now an
+    ERROR rather than a note.
+
+    ⭐ The rule is structural: on `#[cfg(test)]`, find the item it attaches to
+    and skip it — to the matching `}` for a braced body, or to the `;` for a
+    bodyless one (`#[cfg(test)] use …;`, `#[cfg(test)] mod tests;`). Nested
+    braces are counted, so the scan cannot stop at the first inner `}`.
     """
-    match = TEST_MOD.search(text)
-    cut = text[: match.start()].count("\n") + 1 if match else None
-    return [
-        (i + 1, line)
-        for i, line in enumerate(text.splitlines())
-        if cut is None or i + 1 < cut
-    ]
+    lines = text.splitlines()
+    out: list[tuple[int, str]] = []
+    unclosed: list[int] = []
+    i = 0
+    while i < len(lines):
+        if not TEST_ATTR.match(_code(lines[i])):
+            out.append((i + 1, lines[i]))
+            i += 1
+            continue
+
+        start = i
+        i += 1
+        depth = 0
+        opened = False
+        closed = False
+        while i < len(lines):
+            code = _code(lines[i])
+            if not opened and "{" not in code and ";" in code:
+                # A bodyless item: `use …;` or `mod tests;`. It ends here.
+                i += 1
+                closed = True
+                break
+            depth += code.count("{") - code.count("}")
+            if "{" in code:
+                opened = True
+            i += 1
+            if opened and depth <= 0:
+                closed = True
+                break
+        if not closed:
+            unclosed.append(start + 1)
+    return out, unclosed
 
 
 def main() -> int:
@@ -66,12 +118,14 @@ def main() -> int:
 
     writers: dict[str, list[str]] = defaultdict(list)
     suppressed = 0
-    early_test_mod = 0
+    ambiguous: list[str] = []
     for rel in files:
         if "/tests/" in rel or rel.endswith("tests.rs"):
             continue
         text = (REPO / rel).read_text(encoding="utf-8", errors="replace")
-        lines = production_lines(text)
+        lines, unclosed = production_lines(text)
+        if unclosed:
+            ambiguous.append(rel)
         total_hits = sum(
             len(CALL.findall(l.split("//", 1)[0])) for l in text.splitlines()
         )
@@ -87,15 +141,9 @@ def main() -> int:
                 writers[family].append(f"{rel}:{number} ({verb})")
                 prod_hits += 1
         suppressed += total_hits - prod_hits
-        # A `#[cfg(test)]` in the first third of a file that still has production
-        # writers after it is the shape this cut would mis-handle.
-        if TEST_MOD.search(text) and prod_hits == 0 and total_hits > 0:
-            early_test_mod += 1
 
     print(f"durable families named by production code: {len(writers)}")
-    print(f"in-file `#[cfg(test)]` writes excluded by position: {suppressed}")
-    print(f"files whose writes are ALL after a `#[cfg(test)]`: {early_test_mod}  "
-          f"(each is either all-test or a miss; read them if non-zero)")
+    print(f"in-file `#[cfg(test)]` writes excluded: {suppressed}")
     print()
     for family in sorted(writers, key=lambda f: (-len(writers[f]), f)):
         sites = writers[family]
@@ -103,6 +151,21 @@ def main() -> int:
         print(f"{len(sites):3}  {family}{mark}")
         for site in sites:
             print(f"       {site}")
+
+    # ⛔⛔ AN AMBIGUOUS CLASSIFICATION MUST NOT COEXIST WITH AN AUTHORITATIVE
+    # CENSUS. The earlier version printed a "possible misses" line, exited 0, and
+    # then printed writer counts that read as fact — and the miss it was warning
+    # about was real (`switches.rs` lost three production writes). A census that
+    # reports its own doubt and passes anyway trains the reader to skip the doubt.
+    if ambiguous:
+        print()
+        print(
+            f"⛔ {len(ambiguous)} file(s) have a `#[cfg(test)]` item this scanner "
+            "could not close, so the counts above are NOT authoritative:"
+        )
+        for rel in ambiguous:
+            print(f"       {rel}")
+        return 1
     return 0
 
 

@@ -1237,6 +1237,19 @@ different questions. I moved MINE rather than theirs — renumbering a row you d
 not own edits someone else's content to fix your own ambiguity, and the number
 is the cheap half. Nothing cited either as "#60"; checked before moving it.
 
+✔ **PREMISE RE-MEASURED 2026-09-05 AND IT HOLDS, unchanged in both halves:**
+`drain_switch_activations` is still `.in_set(SwitchActivationDrained)` at
+`crates/ambition_encounter/src/registry.rs:164`, and
+`capture_falling_sand_switch_interactions` is still
+`.in_set(Platformer2dSimulationPhaseMonolith::GameplayEffects)` at
+`game/ambition_content/src/falling_sand_sim.rs:255`. Both still write
+`set_switch`. ⇒ the question is live, not moot.
+⚠ **And a trap for the next re-measurer:** a plain grep for
+`drain_switch_activations` + `add_systems` lands FIRST on
+`switches.rs:463`, which is a `#[cfg(test)]` harness registering it bare in
+`Update` — it looks exactly like the set placement having been removed. The
+production registration is in `registry.rs`, a different file.
+
 ⛔⛔ **MEASURED, and four shipped switches sit on it.** Two systems write
 `save.data_mut().set_switch(&activation.id, …)` for the same id, downstream of one
 `SwitchActivated` from `features/ecs/interact.rs`, in sets nothing orders:

@@ -123,16 +123,20 @@ pub fn camera_follow(
         ambition_platformer2d_core::RoomGeometry,
     >,
     shake: Res<ambition_platformer2d_shared_tangle::camera_ease::CameraShakeState>,
-    // ⭐ OPTIONAL, and deliberately not `Res` like the shake beside it. A host
-    // that draws through `camera_follow` without installing the finishing
-    // zoom's resources should present an unzoomed camera, not panic on a
-    // missing resource — the same reasoning `shake_camera_on_landed_hits`
-    // states for its own feel tuning: *"a missing one means no shake rather
-    // than a panic"*. Making it required turned an existing render fixture
-    // red the moment it landed, which is the cheap version of the same
-    // report a downstream host would have made.
-    finish_zoom: Option<Res<ambition_platformer2d_shared_tangle::camera_ease::FinishZoomState>>,
-    finish_zoom_tuning: Option<Res<ambition_platformer2d_shared_tangle::camera_ease::FinishZoomTuning>>,
+    // ⛔ REQUIRED, not `Option<Res<..>>`, and the first version of this was the
+    // Option. The select screen's stage button already ruled on this exact
+    // question when its `ResMut` turned 28 tests red: *"Both register it now
+    // rather than the parameter becoming Option -- an Option would have kept
+    // the fixtures green and silently no-opped the stage button in production
+    // if the real registration were ever dropped."*
+    //
+    // ⭐ AND THE USUAL COUNTER-ARGUMENT IS ALREADY DEAD HERE: `shake` above is
+    // a required `Res` in this same signature, so a host that would panic on
+    // a missing `FinishZoomState` is a host that already panics on
+    // `CameraShakeState`. The Option bought nothing in production and cost the
+    // protection against a silent no-op.
+    finish_zoom: Res<ambition_platformer2d_shared_tangle::camera_ease::FinishZoomState>,
+    finish_zoom_tuning: Res<ambition_platformer2d_shared_tangle::camera_ease::FinishZoomTuning>,
     #[cfg(feature = "portal_render")] mut portal_continuity: PortalCameraContinuityParams,
     // `With<MainCamera>` (not the broad `With<Camera2d>`): besides the #31 cube pause-menu
     // Camera3d, the portal view-cone renderer spawns offscreen capture `Camera2d`s.
@@ -158,12 +162,10 @@ pub fn camera_follow(
     // to disagree silently.
     let on_hand = ambition_sim_view::ViewsOnHand::survey(views.iter().map(|(view, ..)| view));
     let shake_offset = shake.offset();
-    // Resolved once per run rather than per camera: both resources are
-    // process-wide, and an absent pair is exactly the identity.
-    let finish_zoom_factor = match (finish_zoom.as_deref(), finish_zoom_tuning.as_deref()) {
-        (Some(zoom), Some(tuning)) => zoom.scale_factor(*tuning),
-        _ => 1.0,
-    };
+    // Resolved once per run rather than per camera: both are process-wide, and
+    // an idle zoom is exactly 1.0, so this is a no-op for every host that
+    // never decides a match.
+    let finish_zoom_factor = finish_zoom.scale_factor(*finish_zoom_tuning);
 
     for (mut transform, mut projection, link) in &mut query {
         let Some(view_entity) = on_hand.presented_by(link.copied()) else {
@@ -336,6 +338,8 @@ mod two_views_one_simulation_tests {
             room(),
         );
         world.init_resource::<CameraShakeState>();
+        world.init_resource::<ambition_platformer2d_shared_tangle::camera_ease::FinishZoomState>();
+        world.init_resource::<ambition_platformer2d_shared_tangle::camera_ease::FinishZoomTuning>();
 
         let left = spawn_view(&mut world, 0, ae::Vec2::new(100.0, 200.0), 2.0);
         let right = spawn_view(&mut world, 1, ae::Vec2::new(700.0, 500.0), 0.5);

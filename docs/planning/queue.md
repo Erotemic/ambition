@@ -3057,13 +3057,22 @@ queue read as an execution authority for work already done.
   `a_draw_confirmed_still_does_not_zoom`) both go red when the `winner()` check
   is replaced by `true`; removing `scale_factor`'s clamps reddens exactly
   `a_wild_finish_zoom_request_cannot_invert_the_view`.
-  ⚠ **One thing the build taught that the packet had not predicted:** taking the
-  camera's new inputs as required `Res` turned an existing `ambition_render`
-  fixture red on the first run. They are `Option<Res<..>>` now, so a host that
-  draws without installing them presents an unzoomed camera instead of panicking
-  — the pattern `shake_camera_on_landed_hits` already states for its own tuning
-  (*"a missing one means no shake rather than a panic"*). ⇒ The red fixture was
-  the cheap version of a report a downstream host would otherwise have filed. ⛔ `P10`'s tech RESULT is
+  ⚠⚠ **One thing the build taught, and I drew the WRONG lesson from it first.**
+  Taking the camera's new inputs as required `Res` turned an `ambition_render`
+  fixture red on the first run, so I made them `Option<Res<..>>` — citing
+  `shake_camera_on_landed_hits`'s *"a missing one means no shake rather than a
+  panic"*. ⛔ **The select screen's own stage button had already ruled the other
+  way on this exact question**, and said why in its commit: adding a `ResMut`
+  reddened 28 select-screen tests, and *"Both register it now rather than the
+  parameter becoming Option — an Option would have kept the fixtures green and
+  silently no-opped the stage button in production if the real registration were
+  ever dropped."*
+  ⭐ **And the counter-argument is already dead in this signature:**
+  `camera_follow` takes `CameraShakeState` as a required `Res` today, so a host
+  that would panic on a missing `FinishZoomState` is a host that already panics
+  on the shake. ⇒ The `Option` bought nothing in production and cost exactly the
+  protection the stage button named. Reversed the same day: both are required,
+  and the fixture registers them the way it already registers the shake. ⛔ `P10`'s tech RESULT is
   the genuinely missing fact of the pair and is now the harder of the two; the
   two rows are no longer the same shape and the inventory says so.
   ⛔ **DO NOT tune the fighter brain against ladder-rig numbers yet — and the

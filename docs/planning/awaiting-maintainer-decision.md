@@ -1218,6 +1218,41 @@ mechanism would produce a gate that refuses everyone.
 `body.fits`, and anything later that reads the driven population), which is why
 it is filed against the population rather than against a condition.
 
+### 58. Does the BODY gate family ask what a body CAN DO or what it IS DOING? (2026-09-04)
+
+⛔ **The two conditions in one family answer different kinds of question**, and
+nothing says which kind the family is for. Measured 2026-09-04:
+
+| condition | reads | changes when |
+|---|---|---|
+| `body.can(verb)` | `BodyAbilities.abilities` — a granted ability | the player ACQUIRES something |
+| `body.fits(height)` | `BodyKinematics.size` — current posture | the player CROUCHES |
+
+⇒ An author reading *"the body family"* would reasonably expect both to ask
+what a body IS ABLE to do. One does; the other asks what it happens to be doing
+this frame — and because the wall is contributed per frame, a `body.fits` gate
+opens while the player crouches and closes when they stand.
+
+⭐ **Only one of them serves the product criterion.**
+[`../planning/game/open-world-roadmap.md`](game/open-world-roadmap.md)'s
+*"acquire materially different traversal capabilities"* means a door that opens
+because you learned something and stays open. `body.can` does that. `body.fits`
+opens while you hold a button. **Both are legitimate designs and they are not
+the same design.**
+
+⇒ **The ruling needed is one sentence: is the body family about CAPABILITY or
+about STATE?** If capability, `body.fits` should read `BodyBaseSize` (the
+authored standing size) or ask whether any reachable stance fits, rather than
+the live `BodyKinematics.size`. If state, then `body.can` is the odd one and the
+family wants a name that says so.
+
+ⓘ **Nothing authors either condition yet** — both are among the five the census
+measures as authored NOWHERE — so this costs nothing to answer now and gets
+expensive once a level depends on one reading. ⚠ Cheap to answer, and the kind
+of question that is only cheap before there is content.
+ⓘ Full derivation and citations on
+[`engine/capability-progression-and-world-gating.md`](engine/capability-progression-and-world-gating.md).
+
 ### 57. `boss_cleared("mockingbird")` can never be true. Which id is the boss id? (2026-09-04)
 
 ⛔⛔ **FIVE AUTHORED DIALOGUE CALLS HAVE NEVER BEEN ABLE TO RETURN TRUE, and

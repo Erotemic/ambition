@@ -80,7 +80,14 @@ pub struct GatePortalRegistry {
     /// held it, so `register` refusing a conflict would have been advice rather
     /// than a rule. A registry that validates in one function and leaves its map
     /// open has one authority for the checked road and none for the other.
-    portals: std::collections::HashMap<String, GatePortalConfig>,
+    /// ⚠ `BTreeMap`, matching [`GatePortalPhases`] next door and for its stated
+    /// reason: deterministic key order for every reader. It was a `HashMap`, and
+    /// SEALING THE FIELD is what exposed that — the iteration used to happen in
+    /// `ambition_render` and `actor_monolith` through the public map, where the
+    /// workspace determinism policy did not look. Moving the loop into the
+    /// owning crate made a latent rule live, which is the policy working rather
+    /// than the policy being in the way.
+    portals: std::collections::BTreeMap<String, GatePortalConfig>,
 }
 
 /// A second, DIFFERENT portal claiming a zone that already has one.
@@ -159,8 +166,10 @@ impl GatePortalRegistry {
 
     /// Every registered portal, for the tick and the visuals.
     ///
-    /// ⚠ Iteration order is arbitrary and every caller must be indifferent to
-    /// it — see `world/rooms/systems.rs`, which states why its tick is.
+    /// ⚠ Key order, deterministically — the map is a `BTreeMap` for that reason.
+    /// Callers should still not DEPEND on the order (`world/rooms/systems.rs`
+    /// states why its tick is indifferent to it); what determinism buys is that
+    /// two runs of the same content iterate identically.
     pub fn iter(&self) -> impl Iterator<Item = (&String, &GatePortalConfig)> {
         self.portals.iter()
     }

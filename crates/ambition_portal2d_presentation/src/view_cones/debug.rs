@@ -32,6 +32,14 @@ pub fn flush_portal_view_cone_debug_dump(
     frame: Res<PortalWorldFrame>,
     host_view: Option<Res<PortalCameraContinuityHostView>>,
     portals: Query<&PlacedPortal>,
+    candidates: Query<
+        (
+            Option<&Name>,
+            &crate::PortalBodyView,
+            Option<&GlobalTransform>,
+        ),
+        With<crate::PortalCompositingCandidate>,
+    >,
     rigs: Query<(
         &PortalViewRig,
         &Camera,
@@ -58,6 +66,21 @@ pub fn flush_portal_view_cone_debug_dump(
     request.pending = false;
     request.reason.clear();
 
+    // ⭐ The host-tagged drawables, as (name, pose, drawn z). Collected here so
+    // the text builder stays a pure function of plain data and can be tested
+    // without a `World`.
+    let drawables: Vec<(String, crate::PortalBodyView, f32)> = candidates
+        .iter()
+        .map(|(name, view, transform)| {
+            (
+                name.map(|n| n.as_str().to_string())
+                    .unwrap_or_else(|| "<unnamed>".to_string()),
+                *view,
+                transform.map(|t| t.translation().z).unwrap_or(f32::NAN),
+            )
+        })
+        .collect();
+
     let dump = portal_view_cone_debug_dump_text(
         &reason,
         &selection,
@@ -69,6 +92,7 @@ pub fn flush_portal_view_cone_debug_dump(
         &portals,
         &rigs,
         &cone_visibility,
+        &drawables,
         screen_density.texels_per_world(host_view.as_deref()),
         convention,
     );
@@ -123,6 +147,7 @@ fn portal_view_cone_debug_dump_text(
         Option<&GlobalTransform>,
     )>,
     cone_visibility: &Query<(&Visibility, Option<&GlobalTransform>), With<PortalConeMesh>>,
+    drawables: &[(String, crate::PortalBodyView, f32)],
     screen_scale: f32,
     convention: ambition_portal2d::pieces::MapConvention,
 ) -> String {
@@ -604,10 +629,79 @@ fn portal_view_cone_debug_dump_text(
         } else {
             let _ = writeln!(out, "  render.present: false");
         }
+        write_compositing_section(&mut out, portal, viewer.map(|v| v.eye), drawables);
         let _ = writeln!(out);
     }
 
     out
+}
+
+/// Why a drawable appeared above or below THIS pane.
+///
+/// ⛔⛔ THE EXISTING DUMP CAN PROVE THE POLYGON IS RIGHT AND MISS THE BUG
+/// ENTIRELY. It records the entry polygon, the source rect, the capture camera,
+/// blend and LOS — everything about GEOMETRY — and says nothing about ordering.
+/// So it reports a geometrically perfect pane while an actor at `z = 11.0`
+/// necessarily punches through it at `z = 9.5`. This section is the missing
+/// half: for each candidate whose drawn bounds meet the pane, the relation it
+/// SHOULD have and whether today's z gives it.
+///
+/// ⚠ THE CANDIDATE COUNT IS PRINTED EVEN WHEN IT IS ZERO, deliberately. A host
+/// that has tagged no [`crate::PortalCompositingCandidate`] gets an empty report,
+/// and an empty report beside a screenshot showing an overlap means THE HOST HAS
+/// NOT TAGGED, not that the scene is clean. Saying `candidates: 0` distinguishes
+/// those two; printing nothing would not.
+fn write_compositing_section(
+    out: &mut String,
+    portal: &PlacedPortal,
+    viewer_pos: Option<Vec2>,
+    drawables: &[(String, crate::PortalBodyView, f32)],
+) {
+    let _ = writeln!(out, "  compositing.pane_z: {:.3}", crate::PORTAL_WINDOW_Z);
+    // ⛔ NEAR AND FAR ARE RELATIVE TO A VIEWPOINT. With no `PortalViewer` there
+    // is no near side, so this reports that it cannot classify rather than
+    // picking a default and printing confident nonsense.
+    let Some(viewer_pos) = viewer_pos else {
+        let _ = writeln!(out, "  compositing.viewer: ABSENT — cannot classify");
+        return;
+    };
+    let _ = writeln!(out, "  compositing.viewer: {}", fmt_vec2(viewer_pos));
+    let _ = writeln!(out, "  compositing.candidates: {}", drawables.len());
+    let frame = portal.frame();
+    let _ = writeln!(
+        out,
+        "  compositing.viewer_front: {:.3}",
+        ambition_portal2d::pieces::front_distance(viewer_pos, &frame)
+    );
+    let mut violations = 0usize;
+    for (name, view, z) in drawables {
+        let half = view.size * 0.5;
+        let (min, max) = (view.pos - half, view.pos + half);
+        let relation = crate::pane_relation(portal, viewer_pos, min, max, false);
+        if matches!(relation, crate::PaneRelation::Disjoint) {
+            continue;
+        }
+        let correct = crate::current_z_policy_is_correct_for(relation);
+        if !correct {
+            violations += 1;
+        }
+        let _ = writeln!(out, "  compositing.drawable {name}");
+        let _ = writeln!(out, "    bounds_world: {} .. {}", fmt_vec2(min), fmt_vec2(max));
+        let _ = writeln!(out, "    render_z: {z:.3}");
+        let _ = writeln!(
+            out,
+            "    actor_front: {:.3}",
+            ambition_portal2d::pieces::front_distance(view.pos, &frame)
+        );
+        let _ = writeln!(out, "    expected_relation: {relation:?}");
+        let _ = writeln!(
+            out,
+            "    actual_ordering: {}",
+            if *z > crate::PORTAL_WINDOW_Z { "ABOVE_PANE" } else { "BELOW_PANE" }
+        );
+        let _ = writeln!(out, "    COMPOSITE_VIOLATION: {}", !correct);
+    }
+    let _ = writeln!(out, "  compositing.violations: {violations}");
 }
 
 #[derive(Clone, Copy, Debug)]
@@ -1117,5 +1211,85 @@ pub fn debug_portal_view_zones(
                 }
             }
         }
+    }
+}
+
+#[cfg(test)]
+mod compositing_report_tests {
+    use super::*;
+    use ambition_portal2d::{PlacedPortal, PortalChannel, PortalChannelColor};
+
+    fn pane() -> PlacedPortal {
+        PlacedPortal {
+            channel: PortalChannel::Authored(PortalChannelColor::Purple),
+            pos: Vec2::new(100.0, 300.0),
+            normal: Vec2::new(0.0, 1.0),
+            half_extent: Vec2::new(46.0, 9.0),
+            host: None,
+            host_lift: 0.0,
+            vel: Vec2::ZERO,
+            prev_pos: Vec2::new(100.0, 300.0),
+        }
+    }
+
+    fn body_at(y: f32) -> crate::PortalBodyView {
+        crate::PortalBodyView {
+            pos: Vec2::new(100.0, y),
+            size: Vec2::new(28.0, 46.0),
+            facing: 1.0,
+        }
+    }
+
+    /// ⛔⛔ THE DUMP MUST NAME THE VIOLATION, not merely describe geometry.
+    ///
+    /// The existing dump can prove the entry polygon is perfect while the actor
+    /// at `z = 11.0` necessarily punches through a pane at `z = 9.5`. This is the
+    /// arm that would have made the reported screenshot self-diagnosing.
+    #[test]
+    fn a_far_side_drawable_is_reported_as_a_composite_violation() {
+        let mut out = String::new();
+        // Viewer above the floor pane; the body BELOW it, overlapping, drawn at
+        // the ordinary actor z.
+        let drawables = vec![("Perfect Cellular Automaton".to_string(), body_at(292.0), 11.0)];
+        write_compositing_section(&mut out, &pane(), Some(Vec2::new(100.0, 360.0)), &drawables);
+        assert!(out.contains("expected_relation: FarCovered"), "{out}");
+        assert!(out.contains("actual_ordering: ABOVE_PANE"), "{out}");
+        assert!(out.contains("COMPOSITE_VIOLATION: true"), "{out}");
+        assert!(out.contains("compositing.violations: 1"), "{out}");
+    }
+
+    /// ⚠ THE CONTROL. A report that cried violation for every overlap would pass
+    /// the arm above and be useless: the near-side case is what today's z gets
+    /// RIGHT, and it must read as correct.
+    #[test]
+    fn a_near_side_drawable_is_reported_as_correct_under_todays_z() {
+        let mut out = String::new();
+        let drawables = vec![("Near NPC".to_string(), body_at(308.0), 11.0)];
+        write_compositing_section(&mut out, &pane(), Some(Vec2::new(100.0, 360.0)), &drawables);
+        assert!(out.contains("expected_relation: NearOccluder"), "{out}");
+        assert!(out.contains("COMPOSITE_VIOLATION: false"), "{out}");
+        assert!(out.contains("compositing.violations: 0"), "{out}");
+    }
+
+    /// ⛔ AN EMPTY REPORT MUST BE DISTINGUISHABLE FROM A CLEAN ONE. A host that
+    /// has tagged no candidates gets `candidates: 0`, which is what tells a
+    /// reader the instrument is blind rather than the scene innocent.
+    #[test]
+    fn an_untagged_host_reports_zero_candidates_rather_than_silence() {
+        let mut out = String::new();
+        write_compositing_section(&mut out, &pane(), Some(Vec2::new(100.0, 360.0)), &[]);
+        assert!(out.contains("compositing.candidates: 0"), "{out}");
+        assert!(out.contains("compositing.violations: 0"), "{out}");
+    }
+
+    /// ⛔ NEAR AND FAR NEED A VIEWPOINT. With no `PortalViewer` the section must
+    /// say it cannot classify rather than defaulting to one side.
+    #[test]
+    fn no_viewer_reports_that_it_cannot_classify() {
+        let mut out = String::new();
+        let drawables = vec![("Somebody".to_string(), body_at(292.0), 11.0)];
+        write_compositing_section(&mut out, &pane(), None, &drawables);
+        assert!(out.contains("ABSENT — cannot classify"), "{out}");
+        assert!(!out.contains("COMPOSITE_VIOLATION"), "{out}");
     }
 }

@@ -119,6 +119,29 @@ pub struct PortalSceneBody;
 #[derive(Component)]
 pub struct PortalAffordanceBody;
 
+/// Host seam: a drawable this crate must be able to COMPOSITE against a pane.
+///
+/// ⛔⛔ WITHOUT THIS THE CRATE CANNOT SEE THE BUG IT HAS. Its only body seams are
+/// [`PortalSceneBody`] (ONE entity — whose sprite is decomposed at the seam) and
+/// [`PortalAffordanceBody`] (whoever operates the portals). An ordinary NPC
+/// standing behind an aperture is neither, so portal presentation had no way to
+/// know it exists — while the renderer happily drew it at
+/// `WORLD_Z_DUMMY + 1.0`, above every pane. The far-side actor punching through
+/// a seamless window (Jon, 2026-09-05) is invisible from inside this crate.
+///
+/// ⭐ THE POPULATION WIDENS, NOT THE VOCABULARY. A tagged entity carries the
+/// same [`PortalBodyView`] the other two seams already publish; nothing new is
+/// invented for it. The host decides who is drawable — this crate still does not
+/// know what a "player" or an "NPC" is.
+///
+/// ⚠ TAGGING IS OPTIONAL AND ITS ABSENCE IS SILENT, which is the honest cost: a
+/// host that tags nothing gets today's behaviour and an empty compositing
+/// report. The diagnostics print the CANDIDATE COUNT for that reason — a report
+/// that says "0 overlapping drawables" beside a screenshot showing one is
+/// telling you the host has not tagged them, not that the geometry is fine.
+#[derive(Component)]
+pub struct PortalCompositingCandidate;
+
 /// Host seam: the body-pose facts portal presentation places visuals against.
 ///
 /// Published by the host onto every entity this crate must draw for — the

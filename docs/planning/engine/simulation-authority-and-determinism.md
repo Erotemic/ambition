@@ -621,6 +621,51 @@ not mention field`, verified by adding one. ⚠ And
 is the compiler's claim, not that test's, and its doc now says so rather than
 inviting the list to grow.
 
+⭐⭐ **THE COMPLEMENT WAS NEVER MEASURED, AND MEASURING IT FOUND ONE REAL
+CANDIDATE (2026-09-05).** This row says to treat additions as migration
+pressure, but the guard covers "in the set and not reset" — it says nothing
+about "should be in the set and is not". Compared the runtime's
+`sim_core_resources.rs` against the set:
+
+```text
+runtime init_resource types          36
+session-scoped reset set             17  -> 18 after this finding
+init'd but NOT session-scoped        31  -> 30
+```
+
+⚠ REASONED classification of the 31 (by name and by reading, not by a tool):
+seven tuning/settings, six clock/tick, three content catalogs, two instruments,
+one derived-per-frame, two save-backed and re-established through
+`SaveRestored`, three presentation, four transient per-frame, two portal, one
+overlay. Most are legitimately process-global.
+
+⛔⛔ **ONE WAS NOT: `ProjectileSeqCounter`.** MEASURED — it is
+`rollback_resource_canonical`, so its value is INSIDE THE STATE CHECKSUM, it is a
+process-global monotonic counter, and nothing reset it. ⇒ session B's first
+projectile id depended on how many projectiles session A fired, so two hosts
+with different local histories could disagree at frame 0 in a checksummed value
+while every entity matched. ✔ Added to the set; the exhaustive destructure then
+forces its reset.
+⚠ Not reproduced as a live desync, and whether a netplay session seeds initial
+state from one peer is not established here. The asymmetry is what is measured.
+
+⭐ **AND THE ONE THAT LOOKED WORSE WAS NOT A CANDIDATE AT ALL.** `SimIdCounter`
+is a COMPONENT, not a resource — per-spawner, dying with its entity — so it is
+absent from a resource set by construction. It also must NOT be naively reset:
+`SimId`s reach the save (`PersistedOccurrence.id`), so a restarted sequence
+could collide with saved ids. The distinction that makes the projectile counter
+safe to scope is exactly that projectile ids are transient.
+
+⛔⛔ **AND THE SET HAS A SECOND, UNGUARDED HALF.** `reset` is exhaustively
+destructured (E0027 on omission, poison-verified twice now), but the TEST
+HARNESS that must `init_resource` the same set is a hand-kept list of seventeen
+lines. A missing entry is not a compile error — it is a runtime *"Parameter
+`SessionScopedResources<'_>::<field>` failed validation: Resource does not
+exist"* in three tests at once. ⇒ **adding a field here is TWO edits and only
+one is guarded**, because the type system cannot enumerate a `SystemParam`'s
+fields. The harness now carries that warning where it is read; a guard is the
+fallback and here there is not even one.
+
 Addition 2026-09-02: the two room-entry edge memories S2 moved out of `Local`s
 (`LastQuestRoom`, `LastCutsceneRoom`) are in the set now. Each remembers "the
 room I last announced" and fires only on a change, so inherited across sessions

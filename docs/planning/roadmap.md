@@ -102,11 +102,21 @@ capability gating…") reads as five unbuilt things and three of them are done:
   than quoting this** — the figure moved 6 → 9 → 10 in a single day, and the
   phrasing this replaced ("five of the seven gate families", itself corrected
   from "all seven") had already been wrong twice.
-  ⛔ **What is left is FACTS, not predicates**, and that is unchanged: soft
-  systemic pressure and social/knowledge have nothing route-facing to read,
-  because no durable fact records them —
+  ⛔ **What is left is FACTS, not predicates**, and it is THREE families rather
+  than two — measured 2026-09-04. Soft systemic pressure and social/knowledge
+  have nothing route-facing to read, and the world-mechanism family is only
+  half-served for the same reason: `world.switch_on` reads a durable
+  `switches` row, while a broken breakable or an opened door has none, so a
+  route can be gated on a latched switch and on nothing else in the room.
+  ⇒ `BreakableFeature` is rollback-registered and in the reconstitution census
+  as ECS state; the save has no breakables field, so a smashed wall is SESSION
+  state restored by re-authoring. ⚠ Deliberate, not an oversight — persisting it
+  would make every smashed crate save content, which the whereabouts ledger
+  declines for `SpawnOrigin::Dynamic`. Full derivation on the owner page.
+  ⇒ All three are short of the same thing:
   [`engine/world-facts-observations-and-memory.md`](engine/world-facts-observations-and-memory.md)
-  measures the save's fourteen families and neither is among them.
+  measures the save's fourteen durable families, and no row in it records
+  systemic pressure, what an actor knows, or a broken mechanism.
   ⚠ **And the world does not USE the vocabulary**: the whole authored corpus of
   route gates is THREE walls, two gated, both on the same story flag, and five
   of the ten conditions are authored nowhere at all. Whether that is a content

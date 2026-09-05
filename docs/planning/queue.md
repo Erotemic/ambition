@@ -22,6 +22,27 @@ reproducible.
 
 ## Recent structural receipts
 
+⛔⛔ **AND THE FIX HAD A SECOND WRITER I DID NOT LOOK FOR — found 2026-09-04 by
+running the lane.** `--rust` prints its skip-list TWICE: a banner at the start of
+the run and `coverage_notice`'s footer at the end. I repaired the footer, guarded
+it, wrote the receipt below — and the **banner went on naming three**, with the
+compile-cost ratchet missing from it exactly as before. ⇒ **The receipt below was
+true of one print site and read as true of the lane.**
+⛔ **And my own guard could not see it**, which is the part worth keeping: it
+asserts about `coverage_notice`, and the banner is not `coverage_notice`. The
+queue already has the sentence for this one layer down — *"a test that constructs
+its subject cannot witness that subject being bypassed"* — and this is the same
+shape one layer out: **a test that names its subject cannot witness a SECOND
+subject stating the same fact.**
+✔ Both derive from `slow_python_checker_jobs()` now, and
+`test_the_rust_BANNER_names_every_checker_too_not_just_the_footer` asserts on the
+`if args.rust:` block's SOURCE — that it hard-codes no checker name and does
+derive from the plan — because a spelled-out list is the only thing that can
+drift again. Poison-verified by restoring the hand-written three.
+⚠ ⓘ Found only because the lane REFUSED to run for an unrelated reason and
+printed its banner anyway. A green run would have printed the same wrong line and
+nobody would have read it.
+
 ✔ **A GATE LANE'S OWN "HERE IS WHAT I SKIPPED" FOOTER WAS ITSELF SHORT ONE JOB
 — 2026-09-04 (`9378c5f5c`).** `--rust` drops four slow Python checkers; the
 footer named three. The missing one was the **compile-cost ratchet**, the job

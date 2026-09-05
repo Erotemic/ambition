@@ -371,3 +371,45 @@ def test_the_rust_notice_names_every_checker_that_lane_drops():
     assert not still_planned, (
         f"named as dropped but still in the --rust plan: {still_planned}"
     )
+
+
+def test_the_rust_BANNER_names_every_checker_too_not_just_the_footer():
+    """⛔⛔ THE SECOND WRITER, AND THE FIRST FIX MISSED IT.
+
+    `coverage_notice`'s footer was repaired to name all four dropped checkers.
+    The BANNER printed at the START of the same run — a separate `print` in
+    `main` — went on naming three, and the omission was the compile-cost ratchet
+    in both places. The guard above passed the whole time, because it asserts
+    about `coverage_notice` and the banner is not `coverage_notice`.
+
+    ⭐ *"A test that constructs its subject cannot witness that subject being
+    bypassed"* is already written in this repo's queue about a different
+    instrument. This is the same shape one layer out: a test that names its
+    subject cannot witness a SECOND subject stating the same fact.
+
+    ⇒ So this asserts on the source of the banner rather than on a captured
+    stdout, which keeps it honest without standing a whole run up: the banner
+    must not hard-code any checker name, because deriving it is the only fix
+    that cannot drift again.
+    """
+    import pathlib
+
+    source = pathlib.Path(run_tests.__file__).read_text(encoding="utf-8")
+    # The whole `if args.rust:` block, which is where the banner and the
+    # thing it derives from both live.
+    start = source.index("    if args.rust:\n")
+    block = source[start : source.index("    if args.rust_alone:\n", start)]
+
+    dropped = run_tests.slow_python_checker_jobs()
+    assert dropped, "the lane must drop something, or this test witnesses nothing"
+
+    # The banner must NOT spell any dropped checker out. Naming one by hand is
+    # exactly how it fell out of step with the plan.
+    hard_coded = [job.name for job in dropped if job.name in block]
+    assert not hard_coded, (
+        f"the --rust banner hard-codes checker name(s) {hard_coded} instead of "
+        "deriving them from slow_python_checker_jobs()"
+    )
+    assert "slow_python_checker_jobs()" in block, (
+        "the --rust banner must derive its skip-list from the plan"
+    )

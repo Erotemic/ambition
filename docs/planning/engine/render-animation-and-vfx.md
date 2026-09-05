@@ -118,6 +118,59 @@ provider because "particles" exist as a category.
 
 ## Current open work
 
+### ⛔⛔ Portal scene compositing — a global z cannot express portal optics (2026-09-05)
+
+**Reported by Jon with a screenshot**: a far-side Perfect Cellular Automaton's
+sprite draws OVER a seamless portal window it should be hidden behind.
+
+⭐ **MEASURED, and the premise is exact.** `PORTAL_WINDOW_Z = 9.5`
+(`crates/ambition_portal2d_presentation/src/lib.rs:68`); a generic actor draws at
+`WORLD_Z_DUMMY + 1.0 = 11.0` and the player at `WORLD_Z_PLAYER = 20.0`
+(`crates/ambition_platformer2d_core/src/config.rs:26`, `:27`). **Every actor wins
+the depth test against every pane.**
+
+⛔ **The constant's own doc names an intent it can only half-serve** — *"below
+actors so a near-side actor still occludes it"*. Near-side occlusion works;
+far-side covering cannot, ever. ⚠ The half that works is the visible one, which
+is why this survived.
+
+⛔ **DO NOT FIX BY RAISING THE PANE ABOVE ACTORS.** That inverts the bug: a
+near-side actor would vanish behind the aperture. And do NOT mutate an actor's
+single z per frame — **one body can be NEAR one pane and FAR of another in the
+same frame**, and one entity z cannot say both.
+
+✔ **DONE: the shared authority.** `compositing::pane_relation(pane, viewer,
+drawable, transiting)` → `Disjoint | NearOccluder | FarCovered | Transiting`,
+plus `current_z_policy_is_correct_for(relation)` so the defect is countable.
+It reuses the portal domain's `pieces::front_distance` rather than a private
+`.dot(normal)`. ⭐ **The two-pane poison Jon named is already in the tree** — one
+body, two facing apertures, opposite relations — so the cheap wrong fix cannot
+pass later. Nothing consumes it for drawing yet, deliberately: the diagnostics and
+the compositor must read the SAME answer.
+
+⇒ **Remaining, in the order Jon asked for:**
+
+1. **Diagnostics first.** Extend the Shift+F8 portal dump: per pane, every
+   character whose drawn bounds meet `entry_poly_world`, with stable id, sprite
+   bounds (not the collision AABB), actual z and `RenderLayers`, the signed side
+   for actor AND viewer, transit state, expected relation, actual ordering, and
+   an explicit violation flag — plus the main/capture camera order and layers.
+   ⚠ The existing dump can prove *"the polygon is geometrically correct"* while
+   missing *"the actor is at z 11 and the pane at 9.7, so it necessarily punches
+   through"*.
+2. **F1/F3 visualization**: outline the pane polygon; colour overlapping actor
+   bounds green (near occluder) / blue (far, expected under) / yellow
+   (transiting) / red (ordering contradicts classification).
+3. **The compositor itself.** A clipped near-side overlay, a stencil/mask, or a
+   dedicated pass — anything that expresses ordering PER PANE. The far/near
+   portal-FRAME treatment already in the renderer is the precedent that the
+   semantic distinction exists.
+
+⚠ **Acceptance Jon specified**: far-side NPC partially clipped by the pane; the
+same NPC near-side occluding it; both again for a player sprite (different z
+band); a transiting body keeping its split pieces and not gaining a third copy;
+a disjoint actor unchanged; and the two-pane case.
+
 ### Persistent emitter reconciliation
 
 Add only when a real persistent semantic source needs it. The simulation/source

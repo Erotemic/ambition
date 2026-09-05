@@ -205,11 +205,24 @@ impl BodyContactSnapshot {
 /// gravity applies to it.
 ///
 /// ⭐⭐ THE LIVE COMPONENTS ARE NOT THIS FACT, and that is the whole reason it
-/// exists as its own name. `BodyBaseSize` follows the STANCE, `BodyFlightState::
+/// exists as its own name. `BodyBaseSize` follows the FORM, `BodyFlightState::
 /// fly_enabled` is toggled at runtime, and `ActorSurfaceState::gravity_scale` is
 /// the value a mount ZEROES while it carries a rider. A respawn or a dismount
 /// asking any of them "what body should this be?" gets the answer for the body it
 /// currently is.
+///
+/// ⛔ THIS SAID "STANCE" UNTIL 2026-09-05, AND THAT WAS THE ONE WRONG WORD IT
+/// COULD HAVE PICKED. `BodyBaseSize` is the authored STANDING size — *"the
+/// baseline the morph / crouch / slide stances read from"*
+/// (`crates/ambition_platformer2d_core/src/body_clusters.rs:222`), written only
+/// by the identity authority
+/// (`crates/ambition_character_sprites/src/posed_body.rs:120`). A crouch moves
+/// `BodyKinematics::size` and leaves it alone. The ARGUMENT here is unchanged
+/// and still right — it follows the FORM, so Mary-O GROWING moves it and a
+/// respawn must not ask it — but "stance" is precisely what it does not follow.
+/// ⚠ `awaiting-maintainer-decision.md` #58 turns on that exact distinction: a
+/// reader checking whether `body.fits` could read this component would have been
+/// talked out of the option that works.
 ///
 /// ⛔ IT USED TO BE `ActorConfig::spawn`, two of its three fields, inside the
 /// actor monolith — so a mount dissolving a dead shark had to name the monolith's

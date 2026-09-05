@@ -59,6 +59,11 @@ pub struct RuntimeCensus {
     interval_s: f64,
     #[cfg(not(target_arch = "wasm32"))]
     started_at: Instant,
+    // ⛔ GATED LIKE `started_at` ABOVE, because the only code that touches it —
+    // `advance_runtime_census` — is `#[cfg(not(target_arch = "wasm32"))]`. On
+    // wasm the field had no reader and the compiler said so; the no-warnings
+    // gate could not, because it checks the HOST target under DEFAULT features.
+    #[cfg(not(target_arch = "wasm32"))]
     next_at: f64,
     /// Seconds since census start for this frame's sample, or `None` when this
     /// frame is not a sample frame.
@@ -91,6 +96,7 @@ impl RuntimeCensus {
             interval_s: 1.0 / hz,
             #[cfg(not(target_arch = "wasm32"))]
             started_at: Instant::now(),
+            #[cfg(not(target_arch = "wasm32"))]
             next_at: 0.0,
             due_at: None,
         }

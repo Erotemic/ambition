@@ -34,6 +34,57 @@ The remaining ones are the boot (504 ms) and portal_lab's entry (123 ms). That
 is the asset campaign, and it is now the ONLY performance campaign:
 [`asset-preparation-and-residency.md`](asset-preparation-and-residency.md).
 
+## ⛔⛔ The ratchet guards four numbers; the ledger says ONE of them tracks seconds — and that does NOT mean three are invalid
+
+**Read out of `dev/ambition_dev_measurements/compile_units.jsonl` on 2026-09-05
+with `python3 scripts/compile_collect.py --analyze`, which builds nothing. The
+data had been sitting there unread: the script's own docstring says the
+correlation "is printed whether it flatters the guard or not", and nobody had
+printed it.**
+
+Across **eleven** recorded runs (dev/release, cold/first-party, n≈55 crates
+each), joined to the frozen baseline's per-crate table:
+
+```text
+  seconds vs lines             r +0.32 … +0.79   rho +0.79 … +0.86   ← tracks
+  seconds vs edit_cost_lines   r −0.37 … +0.10   rho −0.41 … +0.04
+  seconds vs edit_cost_crates  r −0.35 … +0.07   rho −0.43 … +0.03
+  seconds vs depth             r −0.41 … +0.04   rho −0.48 … −0.03
+```
+
+⇒ `lines` tracks compile seconds strongly and consistently — which is the guard
+`largest_unit_lines` rests on, and it is earned. The other three are flat to
+NEGATIVE in every single run.
+
+⛔⛔ **AND THE OBVIOUS CONCLUSION — "three of the four guards are unfounded" —
+DOES NOT FOLLOW. The pairing is wrong for them, and I nearly published it.**
+The analysis correlates a crate's OWN compile seconds against graph properties
+that are not claims about a crate's own compile seconds:
+
+- `edit_cost_lines` / `edit_cost_crates` predict **the cost of EDITING that
+  crate** — the summed rebuild across its dependents. A crate can be tiny and
+  fast to compile while an edit to it rebuilds the world. That is the metric
+  working, not failing.
+- `critical_path_crates` is a claim about the **serial chain's WALL CLOCK** —
+  what parallelism cannot compress. Per-crate seconds do not test it at all.
+
+⭐ The negative sign is even explicable: the deepest, widest-blast-radius crates
+here are small foundational ones. `ambition_platformer2d_core` is the *lowest*
+ms/line in run after run (0.17–0.39) while sitting under almost everything. **A
+metric that anti-correlates with per-crate cost is exactly what "foundational"
+looks like.**
+
+⇒ ⭐ **What this DOES establish, and it is worth having:** the ratchet's four
+numbers are not four measurements of one thing. One tracks unit cost; two track
+edit blast radius; one tracks serial wall clock. **Reading them as a single
+"compile cost" score is the error** — and it is the error the row about
+`edit_cost_lines` growing while the monolith carve succeeds was already
+stumbling over from the other side.
+⚠ **What it does NOT establish:** that the depth or blast-radius guards are
+unfounded. Testing those needs a wall-clock-versus-depth pairing and an
+edit-cost-versus-dependent-rebuild pairing, neither of which the ledger holds
+yet. Stated so the next reader does not do what I almost did.
+
 ## WHERE THIS STANDS — 2026-09-01, end of the perception campaign
 
 **Where the day ended (2026-09-01, late).** Three findings changed the frame:

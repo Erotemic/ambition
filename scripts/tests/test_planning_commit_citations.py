@@ -150,8 +150,29 @@ def test_the_live_planning_tree_has_no_fabricated_commit():
     docs = sorted((REPO / "docs/planning").rglob("*.md"))
     findings, _ = module.unresolved_commits(REPO, docs)
     assert findings == [], (
-        "a planning row cites a commit no repository holds:\n"
+        # ⛔⛔ THE FIRST LINE USED TO SAY "no repository holds", WHICH IS A CLAIM
+        # THAT CAN BE FALSE. A superproject `git fetch` does NOT fetch submodule
+        # branches, so a commit that exists on the machine that wrote the row is
+        # simply absent here — measured 2026-09-04, where one
+        # `git -C tools/ambition_music_renderer fetch --all` took this arm from
+        # 1 failed to 9 passed with nothing edited. ⇒ The old wording sent a
+        # reader to correct a citation that was already correct, and cost about
+        # forty minutes.
+        # ⚠ It is also the wording a REWRITTEN sha deserves, and those two look
+        # identical here — same assertion, same message, opposite remedies. So
+        # the message now names both roads and the one command that tells them
+        # apart.
+        "a planning row cites a commit this checkout cannot resolve:\n"
         + "\n".join(f"  {f}:{n}  {c}" for f, n, c in findings)
+        + "\n\n  ⚠ THIS MAY BE YOUR CHECKOUT RATHER THAN THE CITATION."
+        "\n  A superproject fetch does not fetch submodule branches, so a"
+        "\n  commit written on another machine can be absent here."
+        "\n    1. `git submodule foreach git fetch` and re-run — if it clears,"
+        "\n       nothing was ever wrong with the row."
+        "\n    2. Still missing? `git cat-file -t <sha>` in the submodule."
+        "\n       Resolves there  -> foreign commit: name its repo for readers."
+        "\n       Resolves nowhere -> rewritten by a rebase: replace it with"
+        "\n       the surviving commit, do not merely qualify it."
     )
 
 

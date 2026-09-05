@@ -346,6 +346,7 @@ message.mount_died	message-clear	MountDied	clear abandoned-future message buffer
 message.move_event	message-clear	MoveEventMessage	clear abandoned-future message buffer in LoadWorld::Mapping
 message.on_hit_effect	message-clear	OnHitEffectMessage	clear abandoned-future message buffer in LoadWorld::Mapping
 message.owned_sfx	message-clear	OwnedSfxMessage	clear abandoned-future message buffer in LoadWorld::Mapping
+message.parried_body_hit	message-clear	ParriedBodyHit	clear abandoned-future message buffer in LoadWorld::Mapping
 message.payload_released	message-clear	PayloadReleased	clear abandoned-future message buffer in LoadWorld::Mapping
 message.pick_up_portal_gun	message-clear	PickUpPortalGun	clear abandoned-future message buffer in LoadWorld::Mapping
 message.player_heal_requested	message-clear	PlayerHealRequested	clear abandoned-future message buffer in LoadWorld::Mapping

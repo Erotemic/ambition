@@ -119,6 +119,43 @@ pub struct BlockedBodyHit {
     pub attacker: Option<bevy::prelude::Entity>,
 }
 
+/// A strike a PERFECT SHIELD caught: the defence succeeded and the attack was
+/// negated rather than absorbed.
+///
+/// ⭐⭐ THE THIRD ANSWER, and the family is the argument for it.
+/// [`LandedBodyHit`] means overlap, [`BlockedBodyHit`] means a guard ate it,
+/// and this means the window beat it. A consumer could not previously tell a
+/// parry from a block at all — the parry arm negates the strike BEFORE either
+/// of the other two is written, so a caught parry published exactly nothing and
+/// looked from the outside like a swing that never reached anybody.
+///
+/// ⛔ ONE AUTHORITY, on the same rule its sibling states: written where the
+/// parry is decided and nowhere else. A consumer that instead watched
+/// `BodyShieldState` for a `parry_window_timer` that stopped early would be a
+/// second opinion on a question this seam already answers, and it could not
+/// name the attacker at all.
+///
+/// ⇒ THE POINT OF PUBLISHING IT is that "a successful defensive interception"
+/// is the fact a counter, a Revenge-style gauge and a Witch-Time-style slow all
+/// need, and none of them should re-derive it. Those three differ only in what
+/// they do NEXT, which is composition rather than three defensive mechanics.
+/// See `docs/planning/engine/expressive-move-capabilities.md`.
+#[derive(bevy::prelude::Message, Debug, Clone, Copy, PartialEq)]
+pub struct ParriedBodyHit {
+    /// The body whose parry window caught the strike.
+    pub defender: bevy::prelude::Entity,
+    /// The body that swung it. Known here, unlike on the block road, because a
+    /// parry is resolved at the strike rather than at a damage resolution that
+    /// may have lost the striker.
+    pub attacker: bevy::prelude::Entity,
+    /// The live strike entity that was caught.
+    pub hitbox: bevy::prelude::Entity,
+    /// Representative world-space contact point, resolved exactly as
+    /// [`LandedBodyHit::contact`] is — so a retaliation and an ordinary hit
+    /// place their effects by the same rule.
+    pub contact: ae::Vec2,
+}
+
 /// Resolve a live hitbox's unit-bearing payload for one victim.
 ///
 /// Feel multipliers pass through unchanged. Launch-speed growth is resolved against the victim's
@@ -311,6 +348,94 @@ impl StrikeVictimItem<'_, '_> {
 /// and victim-specific knockback are identical for human- and brain-controlled
 /// bodies. The remaining `Player` + `World` branch is deliberately not melee: it
 /// is the legacy wielded world-AOE primitive consumed as a broadcast volume.
+/// Everything this sweep knows about the body that SWUNG, keyed by that body.
+///
+/// ⭐⭐ FIVE QUERIES THAT WERE ALWAYS ASKED THE SAME QUESTION. Each of these was
+/// a separate top-level parameter, and every single call site read it with
+/// `.get(hitbox.owner)` — so the entity was repeated at each use and the fact
+/// that they are one subject was expressible only by a shared `attacker_` name
+/// prefix. The accessors take the owner once and return the FACT, so a call
+/// site asks for the attacker's rage rather than for a health component it then
+/// has to reduce.
+///
+/// ⛔ AND THERE WERE SIX, BECAUSE TWO OF THEM WERE THE SAME QUERY.
+/// `attacker_playback` and `attacker_moves` were both
+/// `Query<&MovePlayback>` on the swing owner — one read for the stale-queue
+/// hash, one for the already-hit list — so the system carried two independent
+/// borrows of one component to answer two questions about it. Collapsing them
+/// is a removal, not a rename.
+#[derive(bevy::ecs::system::SystemParam)]
+pub struct AttackerFacts<'w, 's> {
+    aggression: Query<'w, 's, &'static ActorAggression>,
+    team: Query<'w, 's, &'static crate::targeting::MatchTeam>,
+    health: Query<'w, 's, &'static ambition_characters::actor::BodyHealth>,
+    stale: Query<'w, 's, &'static crate::stale::BodyStaleMoves>,
+    playback: Query<'w, 's, &'static crate::moveset::MovePlayback>,
+}
+
+impl AttackerFacts<'_, '_> {
+    /// The DAMAGE-side per-entity override: a specific body this one has decided
+    /// to oppose, which lets a hit land on a same-faction target without
+    /// re-tagging factions.
+    fn grudge(&self, owner: Entity) -> Option<Entity> {
+        self.aggression.get(owner).ok().and_then(|a| a.grudge)
+    }
+
+    fn team(&self, owner: Entity) -> Option<&crate::targeting::MatchTeam> {
+        self.team.get(owner).ok()
+    }
+
+    /// Accumulated damage, for RAGE. A body with no health pool has taken none.
+    fn damage_taken(&self, owner: Entity) -> i32 {
+        self.health.get(owner).map(|h| h.damage_taken()).unwrap_or(0)
+    }
+
+    /// How many times the move being swung has already been thrown. A body with
+    /// no live move or no queue has thrown nothing, and answers zero.
+    fn staleness(&self, owner: Entity) -> u32 {
+        match (self.playback.get(owner), self.stale.get(owner)) {
+            (Ok(playback), Ok(queue)) => {
+                queue.occurrences(crate::stale::stale_move_hash(&playback.spec.id))
+            }
+            _ => 0,
+        }
+    }
+
+    /// The per-strike dedup accumulator that keeps a multi-tick Active window
+    /// from re-smashing the same breakable every frame. A body with no playback
+    /// answers with an empty list and still strikes.
+    fn already_hit(&self, owner: Entity) -> Vec<String> {
+        self.playback
+            .get(owner)
+            .map(|pb| pb.hit_targets.clone())
+            .unwrap_or_default()
+    }
+}
+
+/// Everything the strike sweep PUBLISHES, in one parameter.
+///
+/// These four are the system's OUTPUTS, which is a group a reader can name, so
+/// the next publication belongs here rather than in another top-level slot.
+///
+/// ⓘ Bevy's system-parameter limit is 16 and this system was at it, which is
+/// what prompted the grouping — but the limit is worth knowing about for how it
+/// FAILS, not as a justification. A seventeenth parameter does not report "too
+/// many parameters": the function silently stops satisfying `IntoSystem`, and
+/// every `.chain()` mentioning it instead reports that a tuple of function types
+/// does not implement `Curve` — screens of `bevy_math::curve` diagnostics for a
+/// combat change that touched no curve. The error names nothing that appears in
+/// the edit that caused it.
+#[derive(bevy::ecs::system::SystemParam)]
+pub struct StrikeOutcomeWriters<'w> {
+    /// Wielded-AOE VFX only; victim-side `emit_hit_feedback` owns melee feedback.
+    pub vfx: MessageWriter<'w, VfxMessage>,
+    pub hit_events: MessageWriter<'w, HitEvent>,
+    /// Overlap.
+    pub landed: MessageWriter<'w, LandedBodyHit>,
+    /// A perfect shield caught it.
+    pub parried: MessageWriter<'w, ParriedBodyHit>,
+}
+
 pub fn apply_hitbox_damage(
     mut hitboxes: Query<(Entity, &Hitbox, &mut HitboxHits)>,
     owners: Query<&super::components::CenteredAabb>,
@@ -333,17 +458,11 @@ pub fn apply_hitbox_damage(
             With<ambition_characters::actor::BodyCombat>,
         ),
     >,
-    // The attacker's grudge, looked up from the swing owner — the DAMAGE-side
-    // per-entity override. Lets a hit land on a same-faction body the owner has a
-    // personal grudge against (two `Npc` duelists), without re-tagging factions.
-    // Read-only, so it may overlap the other actor queries.
-    attacker_aggression: Query<&ActorAggression>,
-    // The swing owner's team, looked up the same way its grudge is. Read-only,
-    // so it may overlap the victim query.
-    attacker_team: Query<&crate::targeting::MatchTeam>,
-    // The swing owner's own accumulated damage, for RAGE. Looked up exactly like
-    // its grudge and its team, and read-only for the same reason.
-    attacker_health: Query<&ambition_characters::actor::BodyHealth>,
+    // EVERYTHING KNOWN ABOUT THE BODY THAT SWUNG — grudge, team, rage,
+    // staleness and its already-hit list. All read-only, so they may overlap the
+    // victim query, and all keyed by the swing owner, which is why they are one
+    // parameter rather than five. See `AttackerFacts`.
+    attacker: AttackerFacts,
     // THE SIBLING VOLUMES of whatever move is swinging — read-only, so it
     // overlaps the `hitboxes` query above on `Hitbox` without conflicting
     // (only `HitboxHits` is taken mutably there).
@@ -357,19 +476,9 @@ pub fn apply_hitbox_damage(
     // `BodyShieldState` is deliberately absent from `StrikeVictim` so this is
     // the system's only access to it.
     mut guards: Query<&mut ambition_platformer2d_core::BodyShieldState>,
-    // The swing owner's stale queue and the move it is executing, so a repeated
-    // answer is worth less. Read-only, looked up by owner, like the three above.
-    attacker_stale: Query<&crate::stale::BodyStaleMoves>,
-    attacker_playback: Query<&crate::moveset::MovePlayback>,
-    // The attacker's own move state, read for ONE thing: the per-strike dedup accumulator that
-    // keeps a multi-tick Active window from re-smashing the same breakable every frame. A body with
-    // no playback answers with an empty list and still strikes.
-    attacker_moves: Query<&crate::moveset::MovePlayback>,
-    // Live Hitbox state is authoritative for damage; presentation projections must not gate it.
-    // Victim-side `emit_hit_feedback` owns melee feedback. This writer is only for wielded-AOE VFX.
-    mut vfx: MessageWriter<VfxMessage>,
-    mut hit_events: MessageWriter<HitEvent>,
-    mut landed_hits: MessageWriter<LandedBodyHit>,
+    // Live Hitbox state is authoritative for damage; presentation projections must
+    // not gate it. One parameter rather than four — see `StrikeOutcomeWriters`.
+    mut out: StrikeOutcomeWriters,
 ) {
     // Both rule reads take the resource by reference: the growth term is read
     // per victim below, and moving it here left that read with nothing.
@@ -427,10 +536,7 @@ pub fn apply_hitbox_damage(
         };
 
         if let Some(source_kind) = melee_source {
-            let owner_grudge = attacker_aggression
-                .get(hitbox.owner)
-                .ok()
-                .and_then(|a| a.grudge);
+            let owner_grudge = attacker.grudge(hitbox.owner);
 
             for victim in &victims {
                 // Identity beats every relationship rule. Friendly fire, match
@@ -450,7 +556,7 @@ pub fn apply_hitbox_damage(
                 if !crate::targeting::damage_lands_between(
                     source_faction,
                     victim.effective_faction(),
-                    attacker_team.get(hitbox.owner).ok(),
+                    attacker.team(hitbox.owner),
                     victim.team,
                     friendly_fire,
                     owner_grudge,
@@ -525,6 +631,17 @@ pub fn apply_hitbox_damage(
                             shield.catch_parry();
                             hits.hit.insert(victim.entity);
                             pulse_records.push((hitbox_entity, hitbox.owner, victim.entity));
+                            // ⭐ THE SUCCESSFUL DEFENCE, SAID OUT LOUD. Everything
+                            // above this line negates the strike; this is the only
+                            // place that reports the negation happened, and it is
+                            // written before the `continue` that ends the victim's
+                            // participation in the ordinary damage road.
+                            out.parried.write(ParriedBodyHit {
+                                defender: victim.entity,
+                                attacker: hitbox.owner,
+                                hitbox: hitbox_entity,
+                                contact: midpoint(victim.aabb.center, world_volume.center()),
+                            });
                             continue;
                         }
                     }
@@ -556,25 +673,8 @@ pub fn apply_hitbox_damage(
                 // pull opposite ways on purpose — a hurt fighter hits harder, a
                 // repeated move hits softer — and a game that declares neither
                 // gets exactly `1.0` from both.
-                let rage = rules.rage_scale(
-                    attacker_health
-                        .get(hitbox.owner)
-                        .map(|h| h.damage_taken())
-                        .unwrap_or(0),
-                );
-                let stale = rules.stale_scale(
-                    match (
-                        attacker_playback.get(hitbox.owner),
-                        attacker_stale.get(hitbox.owner),
-                    ) {
-                        (Ok(playback), Ok(queue)) => {
-                            queue.occurrences(crate::stale::stale_move_hash(&playback.spec.id))
-                        }
-                        // A body with no live move or no queue has thrown nothing
-                        // to wear out.
-                        _ => 0,
-                    },
-                );
+                let rage = rules.rage_scale(attacker.damage_taken(hitbox.owner));
+                let stale = rules.stale_scale(attacker.staleness(hitbox.owner));
                 let magnitude = magnitude.scaled(rage * stale);
                 let knockback = Some(HitKnockback {
                     // ⭐ A GUST IS THROWN THE SAME WAY A PUNCH IS — the strength
@@ -636,7 +736,7 @@ pub fn apply_hitbox_damage(
                                 .unwrap_or(ae::Vec2::ZERO),
                         }),
                 });
-                hit_events.write(HitEvent {
+                out.hit_events.write(HitEvent {
                     strike_sfx: hitbox.strike_sfx,
                     volume: world_volume.clone(),
                     // the DAMAGE stales with the launch. A move worn out that
@@ -659,7 +759,7 @@ pub fn apply_hitbox_damage(
                     knockback,
                     ignored_targets: Vec::new(),
                 });
-                landed_hits.write(LandedBodyHit {
+                out.landed.write(LandedBodyHit {
                     hitbox: hitbox_entity,
                     attacker: hitbox.owner,
                     victim: victim.entity,
@@ -689,7 +789,7 @@ pub fn apply_hitbox_damage(
             // must not damage bodies again. Per-strike dedup is authoritative in
             // `MovePlayback.hit_targets`, not the `BodyMelee` read model.
             {
-                hit_events.write(HitEvent {
+                out.hit_events.write(HitEvent {
                     strike_sfx: hitbox.strike_sfx,
                     volume: world_volume.clone(),
                     damage: hitbox.damage.max(damage_floor(hitbox.damage)),
@@ -698,10 +798,7 @@ pub fn apply_hitbox_damage(
                     target: HitTarget::UnresolvedFeatures,
                     mode: HitMode::Knockback,
                     knockback: None,
-                    ignored_targets: attacker_moves
-                        .get(hitbox.owner)
-                        .map(|pb| pb.hit_targets.clone())
-                        .unwrap_or_default(),
+                    ignored_targets: attacker.already_hit(hitbox.owner),
                 });
             }
             continue;
@@ -714,10 +811,10 @@ pub fn apply_hitbox_damage(
             HitSide::Player => {
                 debug_assert!(matches!(hitbox.anchor, HitboxAnchor::World { .. }));
                 if hits.hit.insert(hitbox.owner) {
-                    vfx.write(VfxMessage::Impact {
+                    out.vfx.write(VfxMessage::Impact {
                         pos: world_volume.center(),
                     });
-                    hit_events.write(HitEvent {
+                    out.hit_events.write(HitEvent {
                         strike_sfx: hitbox.strike_sfx,
                         volume: world_volume.clone(),
                         damage: hitbox.damage.max(damage_floor(hitbox.damage)),

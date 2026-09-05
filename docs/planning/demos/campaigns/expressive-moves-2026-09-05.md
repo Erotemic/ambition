@@ -542,6 +542,28 @@ looking, and nothing would have complained.
   ⚠ **NOT MEASURED**: that a versus match never sets `PossessionState.home`. That
   is the system's claim about itself, quoted, not something this read verified.
 
+- ⛔⛔ **AND A2 IS NOT ON PK-THUNDER'S PATH AT ALL — measured 2026-09-05.**
+  `ActorControlFrame::steer_axis()` already publishes **"what the PLAYER is
+  HOLDING, as opposed to what this body is ALLOWED to move by"**, and its doc
+  says why it exists: *"`update.rs` PUBLISHES THE DAMPED FRAME back onto the
+  component after integration, so a consumer reading `locomotion` off an actor's
+  `ActorControl` sees zero for the whole of a rooted move."* The B-reverse flick
+  already reads it. ⇒ **A move-scoped system can read the caster's live,
+  undamped stick every tick, while the caster stays rooted and keeps their own
+  seat.** No `DrivingParticipant` rewrite, no `TemporaryControl`, no two-writer
+  hazard, no lease.
+
+  ⭐⭐ **THE DISTINCTION THE PLAN WAS MISSING: STEERING IS NOT POSSESSION.**
+  · *Steering* — I stay put and my stick moves something else. Needs only
+    `steer_axis()`, which is shipped. **This is PK-Thunder.**
+  · *Possession* — my input drives another body through ITS OWN action set, and
+    my avatar goes inert. That is what `TemporaryControl` and a per-seat driver
+    are for, and no move in this campaign asks for it.
+
+  ⇒ **So Jon's stated order (lease → steerable projectile → PK-Thunder) can drop
+  its first rung.** A2 stays open as real work for a genuine possession move; it
+  is simply not a blocker for the Author's side-B.
+
 - ▢ **A3. Steerable projectile control source** + authored self-contact
   eligibility. ⭐ **AND A2's READ OPENS A CHEAPER ROUTE WORTH PRICING FIRST.**
   This row is blocked on projectiles carrying no stable identity — but

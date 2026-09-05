@@ -252,8 +252,9 @@ having already fallen behind once, when a carve moved code out of a tracked crat
 and the count "read as a repair".
 
 ⭐⭐ **AND RUNNING THE GUARD FOUND ITS PREDICTED FAILURE ALREADY LANDED
-(2026-09-05).** `check_doc_link_ratchet.py` is RED at HEAD: `ambition_combat`
-rose 16 → 17. The cause is exactly the shape its own `CRATES` comment warns
+(2026-09-05) — ✔ SINCE CLOSED, across both lanes, and the closure is the
+interesting part.** `check_doc_link_ratchet.py` was RED at HEAD:
+`ambition_combat` rose 16 → 17. The cause is exactly the shape its own `CRATES` comment warns
 about — commit `42a391d49` carved `actor_tuning.rs` out of the monolith and into
 `ambition_combat`, and **doc links that resolved in the old crate do not resolve
 in the new one**:
@@ -268,9 +269,17 @@ unresolved link to `ambition_characters::features::ecs::enemy_default_brain`
 way: the prose moved to a crate where the names it cites are not in scope. That
 is the one case where a broken intra-doc link IS a real signal rather than
 tidy-up — it marks prose that has been separated from what it describes.
-ⓘ The ratchet also shows `actor_monolith` FELL 59 → 43 in the same window, which
+ⓘ The ratchet also showed `actor_monolith` FELL 59 → 43 in the same window, which
 is the other half of the same carve and is precisely the "reduced coverage reads
-as improvement" the comment predicts. ⇒ **add a carve's DESTINATION crate to the
+as improvement" the comment predicts.
+
+✔ **CLOSED THE SAME DAY: exit 0, TOTAL 146, no rises and no unratcheted crates.**
+The three carve-broken links were each fixed DIFFERENTLY (repoint within the
+crate; correct a wrong path; demote a `pub(crate)` target to prose), and the
+tool gained two coverage guards plus an `--adopt` mode. ⇒ **the guard's own
+predicted failure was observed, diagnosed, and repaired in one day by two
+sessions that each held half of it** — one owned the crate, the other owned the
+tool. ⇒ **add a carve's DESTINATION crate to the
 tracked list in the carve's own commit**, and re-check doc links on both sides.
 
 ⛔ **AND THE REASON IT SAT RED UNSEEN IS ITS LANE: the ratchet is in

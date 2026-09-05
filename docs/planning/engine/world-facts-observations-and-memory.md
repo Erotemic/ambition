@@ -207,6 +207,26 @@ heard event Y, received item Z, witnessed gate opening.
 Actor-specific retained interpretation of observations. This may be incomplete,
 stale or wrong without changing world truth.
 
+⭐⭐ **THE TACTICAL SLICE OF THIS IS BUILT AND IT IS AN ENGINE FACT — worth naming
+because the open question above reads as if none of it existed.** `WorldMemory`
+(`crates/ambition_characters/src/perception.rs:785`) is *"the per-controller
+belief that outlives the viewport (invariant I6)"*: keyed by actor id, refreshed
+for what is seen, decayed for what has left view, forgotten below a confidence
+floor. Its `update` is pure, so it is replay-deterministic and assertable
+headless. ⇒ *"Should knowledge ever be an engine fact"* is answered YES for
+perception, by shipped code, in `ambition_characters` rather than in content.
+
+⛔⛔ **AND IT CAN NEVER BECOME THE DURABLE ONE — that is structural, not a
+backlog item.** `WorldMemory` DECAYS BY CONSTRUCTION and forgets below a
+confidence floor. That is exactly right for sight and exactly wrong for a grudge:
+*"this NPC knows you stole the thing"* must not fade because the NPC looked away.
+⇒ So durable social knowledge is not "the same system, persisted" — extending
+`WorldMemory` to carry it would mean removing the decay that makes it correct for
+its own job. **They are two mechanisms that share a word**, and the word is why
+this looks half-solved whenever anyone checks.
+⚠ It is also in none of the fourteen durable save families, so nothing persists
+it today by accident either.
+
 ## Why this matters
 
 - reactive dialogue without giant quest-stage switches;

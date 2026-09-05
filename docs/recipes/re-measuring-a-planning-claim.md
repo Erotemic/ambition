@@ -925,3 +925,28 @@ correcting a number, ask whether the thing it counts is repository content or
 build output.** Repository content that disagrees is drift. Build output that
 disagrees is two machines, and rewriting one machine's figure with another's
 manufactures a finding out of a build directory.
+
+## A SHA is only a citation in the repository that holds it
+
+`test_the_live_planning_tree_has_no_fabricated_commit` walks the SUPERPROJECT,
+so a commit cited bare is looked up there and nowhere else. This repository has
+a submodule whose commits get quoted in planning prose — pointer bumps,
+"landed on the renderer branch", merge results — and every one of those is
+`Not a valid object name` to the checker, correctly.
+
+⇒ **Name the repository when the SHA is not this one.** The form that passes is
+already in use: *"(`ambition_music_renderer` `8b10c5a`, pointer bumped here the
+same day)"* (`engine/project-build-and-distribution.md:268`) — the crate name
+carries the lookup a reader needs and the checker stops guessing.
+
+⚠ **This looks identical to the rebase trap and is not it.** A rewritten SHA
+and a submodule SHA both fail the same assertion with the same message, and
+they want opposite fixes: the rewritten one wants REPLACING with the surviving
+commit, the submodule one wants QUALIFYING with its repo. ⇒ Check `git cat-file
+-t <sha>` in the submodule before assuming a rebase ate it — a SHA that resolves
+there and not here was never fabricated.
+
+⛔ **And a bare submodule SHA is a worse citation than the checker can say.**
+It resolves for a reader only while that submodule happens to be checked out at
+a commit whose history contains it; a fresh clone at a different pointer gets
+nothing. The qualified form survives that.

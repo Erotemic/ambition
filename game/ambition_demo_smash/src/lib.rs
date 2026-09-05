@@ -3751,13 +3751,21 @@ impl SmashStockChoice {
         }
     }
 
-    /// What the stocks button shows.
-    pub fn label(self) -> &'static str {
-        match self {
-            SmashStockChoice::One => "1",
-            SmashStockChoice::Three => "3",
-            SmashStockChoice::Five => "5",
-        }
+    /// What the stocks button shows — **the count itself**, not a second
+    /// spelling of it.
+    ///
+    /// ⛔⛔ THIS WAS A `match` RETURNING `"1"` / `"3"` / `"5"` BESIDE A `count()`
+    /// RETURNING `1` / `STARTING_STOCKS` / `5`, which is one fact with two
+    /// authors and a latent lie: `STARTING_STOCKS` is 3 today, and the day it
+    /// becomes 4 the button reads **"3" while handing the match 4**. That is
+    /// precisely the *"a control that lies about what it sets"* defect the
+    /// select screen's own tests were written against, sitting inside the
+    /// control they were written for.
+    ///
+    /// ⇒ Deriving it means the button cannot disagree with the rules it sets,
+    /// rather than being tested for agreeing.
+    pub fn label(self) -> String {
+        self.count().to_string()
     }
 
     /// Every count, in cycle order — the one authority for both.

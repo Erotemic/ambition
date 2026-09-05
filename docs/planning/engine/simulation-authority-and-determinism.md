@@ -649,6 +649,39 @@ forces its reset.
 ⚠ Not reproduced as a live desync, and whether a netplay session seeds initial
 state from one peer is not established here. The asymmetry is what is measured.
 
+⭐⭐ **THE EXHAUSTIVE VERSION OF THAT QUERY, run the same day, because finding
+one by eye is not a census.** The precise question is *"canonical rollback
+resource AND not session-scoped"* — canonical means the value is inside the state
+checksum, so a cross-session carry is a frame-0 disagreement:
+
+```text
+canonical rollback RESOURCES        19   (one is `T`, the registrar's own generic — discard)
+of those, session-scoped             4   MovingPlatformSet, ProjectileSeqCounter,
+                                         RoomTransitionCooldown, SlotInteractionState
+of those, NOT session-scoped        14
+```
+
+⚠ REASONED grouping of the 14: eight are CLOCKS (`ClockState`, `SimDt`,
+`SimTick`, `WorldTime`, `RegimePolicy`, `RequestedClockScale`, `GameplayElapsed`,
+`LiveMatchTicks`), two are world constants (`BaseGravity`, `GravityField`), three
+are match/lifecycle latches (`NewGameResetRequested`, `StocksMatchSettled`,
+`SuddenDeathEntered`), one is `PendingLifecycleCommit`.
+
+⛔ **TWO ARE CONCRETE CANDIDATES AND NEITHER IS THIS SESSION'S TO RULE ON:**
+MEASURED — `GameplayElapsed` and `LiveMatchTicks` have NO reset anywhere outside
+tests, so a second session inherits the first's elapsed time and tick count
+inside the checksum. They are match-domain and live in
+`actor_monolith/src/rollback_registration.rs`; flagged to the fighter lane rather
+than changed here.
+
+⭐ **AND ONE OF THE LATCHES IS PROBABLY CROSS-SESSION BY DESIGN, which is why
+this is a list to REVIEW and not a list to fix.** `NewGameResetRequested` is a
+request that the NEXT session start fresh — it has to survive the boundary to do
+its job, and it has its own handling in `session/reset/mod.rs`. ⇒ *"canonical and
+unreset"* is a query that finds candidates, not defects; each one needs its
+lifetime named. The projectile counter was a defect because projectile ids are
+transient and nothing wanted the carry.
+
 ⭐ **AND THE ONE THAT LOOKED WORSE WAS NOT A CANDIDATE AT ALL.** `SimIdCounter`
 is a COMPONENT, not a resource — per-spawner, dying with its entity — so it is
 absent from a resource set by construction. It also must NOT be naively reset:

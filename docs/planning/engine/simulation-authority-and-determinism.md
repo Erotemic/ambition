@@ -150,6 +150,58 @@ must survive a timeline rebase; different gameplay sessions must not inherit it.
 
 ## Current work
 
+### ✔ S-AUDIT — the repo's OWN one-authority sentences, audited (2026-09-05)
+
+⭐⭐ **SEVEN CLAIMS CHECKED, TWO WERE FALSE.** The tree states its authority
+invariants in prose -- *"the sole writer"*, *"the single definition"*, *"the
+only writer of X"*. Those sentences are the closest thing this program has to a
+declared invariant, and **nothing checks them**. Grepped
+`sole caller|sole writer|single definition|only writer|sole authority` across
+this session's lane and tested each by reading the code it sits on:
+
+```text
+camera_ease.rs:224   only writer of CameraShakeState "on behalf of the simulation"   HOLDS
+camera_ease.rs:513   only writer of FinishZoomState  "on behalf of the simulation"   HOLDS
+asset_manager:367    resolve_local_file_path is the sole caller                      HOLDS
+audio_registries:45  sole authority for Ambition's audio catalog fragment            HOLDS
+external_effects:128 "simulation is not the only writer" (a NEGATIVE claim)          n/a
+boss_encounter:351   "the single definition of the cleared predicate"                FALSE
+encounter/lifecycle  "the reducer is the only writer of `phase`"                     FALSE
+```
+
+⭐ **The two survivors of the qualifier are the interesting part.** Both camera
+claims hold ONLY because of the phrase *"on behalf of the simulation"* -- each
+state has a second writer (its own `tick_*` decay). An unqualified version of
+either sentence would have been false. ⇒ **a scope phrase in an authority claim
+is load-bearing, and dropping it while "tidying" a comment turns a true sentence
+into a false one.**
+
+⛔ **AND A FALSE ONE INVITES THE WRONG REFACTOR, which is why these are not
+cosmetic.** `boss_is_cleared` claimed to be the only reading of its fact while a
+second reading sat 60 lines away. I started to unify them before finding the
+reason the second must stay: the authored road needs the STATE, not the
+predicate, because it must say WHY a false answer is false. The sentence was the
+invitation to make the code worse.
+
+**Both false ones are closed, and one structurally** — `EncounterLifecycle::phase`
+is now `pub(crate)` behind a `phase()` reader, so no consumer crate can assign
+it (poison-verified: a foreign-crate write fails E0616).
+
+⚠ **AND THE SEAL FOUND A WRITER THE GREP COULD NOT.** Sizing said "zero
+production writes outside the file", from a grep for `lifecycle.phase =`. The
+compiler then named `snapshot_impls::decode`, which rebuilds `phase` on a
+rollback restore -- invisible because a codec builds a STRUCT LITERAL, not an
+assignment. ⇒ **a name-based grep cannot answer a question about a field; seal
+it and read the compiler's list.** That is why the seal is `pub(crate)` and not
+private, and it is a caution for every other "sole writer" row in this program:
+the rollback codec is a writer of nearly everything, and it never appears in a
+grep for assignments.
+
+ⓘ Not proposed as a gate. These sentences are prose about six different kinds of
+authority; a checker would need to understand each. The cheap discipline is the
+one this audit used -- when you touch a comment claiming sole authority,
+re-derive it, and keep the scope phrase.
+
 ### S1 — scenario-populated rollback coverage — the timeline half landed 2026-09-02
 
 Boot-time/static registration checks cannot prove runtime-created authoritative

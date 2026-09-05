@@ -65,6 +65,32 @@
 > inventory are a different decision each — `classify` refuses to be their
 > default, which is the point; each must say "replace" in place or adopt refusal.
 >
+> ⭐⭐ **A FIFTH VERDICT THE INVENTORY DID NOT HAVE: REACHABLE BY NOBODY.**
+> Reported by the fighter session against `MovePrefabRegistry` — measured, every
+> `.expand()` in the workspace is in `moveset/tests.rs`, nothing installs it as a
+> resource, and no authored content names a prefab. Its silent-overwrite hazard
+> is therefore UNREACHABLE, and "fix the overwrite" is the wrong first move on a
+> registry nothing calls.
+>
+> ⇒ **This is why the verdict belongs on the page rather than in a commit: it
+> changes what you do, not just what you say.** A registry with no caller wants
+> its ABSENCE explained (speculative seam? carve remnant? customer deleted?)
+> before it wants a conflict protocol.
+>
+> ⚠ **AND IT IS A DIFFERENT QUESTION FROM THE ONE O4's CENSUS ASKS.** *"What does
+> authored content never reach"* finds a technique with no authored customer; a
+> whole SEAM with no production caller is invisible to that join — it is not a
+> technique, appears in no moveset, and its own tests make it look healthy. ⇒ Two
+> questions: what content never reaches, and what the shipped game never CALLS.
+>
+> ⓘ Same class found the same day in the exploration lane by a different route:
+> `PlacementLoweringPlan::lower_one` had TWO references in the workspace — its
+> definition, and a test comment saying it had been deleted. Its own doc still
+> named a consumer ("snapshot same-room reconstruction") that was removed. ⇒ When
+> a symbol has no caller, read what the code SAYS about it before deciding what
+> it is; there was documentary evidence of which of the four "unused" kinds it
+> was, and there usually is not.
+>
 > ⛔⛔ **TWO, AND ONE OF THE SEVEN WAS NEVER SILENT.** Re-read 2026-09-05,
 > `RoomContentStagingRegistry` already returns `Result`, refuses a duplicate
 > source TRANSACTIONALLY (the meta is built after the check, so a rejected

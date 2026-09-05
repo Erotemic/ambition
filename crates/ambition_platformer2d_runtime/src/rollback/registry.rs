@@ -219,7 +219,13 @@ use crate::content_identity::SnapshotSchemaFingerprint;
 /// — more than the mine's clock-only row, because a bolt is STEERED: two peers
 /// can agree on its lifetime and disagree about its HEADING, and the heading is
 /// what decides whether it comes home and throws a fighter across the stage.
-pub const GGRS_ROLLBACK_SCHEMA_VERSION: u32 = 158;
+/// ⛔ v159: `PlacedSpring`, a plate on the floor that throws whoever steps on it.
+/// THREE clocks and a use count all rewind — the lifetime, the per-body re-arm,
+/// and the arming delay that stops it launching the fighter who dropped it. ⇒ A
+/// restore that lost any of them hands the resimulated timeline a launch the
+/// confirmed one had already spent, and a launch is a fighter standing
+/// somewhere else.
+pub const GGRS_ROLLBACK_SCHEMA_VERSION: u32 = 159;
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq, Ord, PartialOrd, Hash)]
 pub enum RollbackEntryKind {

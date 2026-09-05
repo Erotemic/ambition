@@ -387,6 +387,51 @@ pub fn bob_moveset() -> MovesetContract {
         launch_dir: Some((0.7, -0.66)),
         on_hit: None,
     });
+    // ⭐⭐ AND THE PLATE STAYS. His comment has always said "he DROPS a plate" and
+    // "the move is that there is a floor to drop it ONTO" — an object, described
+    // in a move that only ever slammed. ⇒ Unlike the ninja's counter ring, that
+    // was not a LIE: `shockwave` and `landing_puff` are honest cues for a slam,
+    // and the sentence reads as an animation. But it is the sentence a launch pad
+    // was already waiting inside.
+    //
+    // ⭐ THE SLAM IS UNTOUCHED — every number above is as it was, and the plate is
+    // an event ADDED to the move. Same shape as the mine on the Polygon's
+    // down-smash: the swing still pays for itself and the object is the bonus.
+    //
+    // ⭐⭐ IT THROWS ANYBODY, AND THAT IS THE ROW IT PROVES. The campaign asks for
+    // "a fighter can create a persistent world actuator ANOTHER fighter interacts
+    // with" — so a plate that served only Bob would be a second recovery wearing
+    // an object's clothes. ⇒ Three uses, eight seconds, and whoever steps on it
+    // goes up: his opponent gets it too, and an engineer who leaves a hazard on
+    // the floor and forgets about it is the joke landing correctly.
+    let down_b = ambition_characters::smash_spring::author_place_spring(
+        down_b,
+        // The frame the plate meets the floor — the same instant the slam's
+        // shockwave and landing puff fire, so the object appears where the
+        // impact was drawn.
+        0.18,
+        ambition_characters::smash_spring::PlaceSpringParams {
+            // Up is NEGATIVE y. Hard enough to be a real reposition and short of
+            // his own `steam_lift`, so the plate is a tool rather than a better
+            // recovery than his recovery.
+            //
+            // ⛔ I WROTE THAT SENTENCE AND THEN AUTHORED 860 AGAINST HIS 800, and
+            // the guard below caught it in the same commit — which is the ideal
+            // case and worth leaving visible. ⇒ The number is not the point; the
+            // RELATIONSHIP is, so the guard asserts it against `steam_lift`'s
+            // impulse rather than against a constant nobody would re-derive.
+            launch: (0.0, -720.0),
+            // A plate, not a platform: wide enough to step on and thin enough to
+            // miss.
+            half_extents: (26.0, 6.0),
+            // ⚠ SHORT. A plate that outlived the exchange it was dropped in would
+            // be terrain he authored, and terrain is somebody else's authority.
+            lifetime_s: 8.0,
+            uses: 3,
+            // At his feet, where the slam landed.
+            offset: (0.0, 20.0),
+        },
+    );
     let down_b = committed_tail(down_b, 0.70, 0.0);
     let down_b = vfx_at(down_b, 0.18, "shockwave", (0.0, 20.0), RIG_FX);
     let down_b = vfx_at(down_b, 0.18, "landing_puff", (0.0, 22.0), SHOP_FX);
@@ -637,6 +682,80 @@ mod tests {
                 .flat_map(|w| w.volumes.iter())
                 .any(|v| v.reaction.is_none() && v.damage == 12),
             "the rivet no longer drives home at its authored 12"
+        );
+    }
+
+    /// ⛔⛔ THE PLATE IS AN ADDITION AND THE SLAM IS UNTOUCHED — both halves in one
+    /// test, because they are one claim. A guard that only found the plate would
+    /// pass against a down-B that had quietly lost its hitbox to make room, which
+    /// is the change this move was authored to avoid.
+    #[test]
+    fn his_bulkhead_drop_still_slams_and_now_leaves_the_plate_it_names() {
+        let set = bob_moveset();
+        let drop = set
+            .moves
+            .iter()
+            .find(|m| m.id == "bulkhead_drop")
+            .expect("his grounded down special");
+
+        // The slam, unchanged.
+        assert!(
+            drop.windows
+                .iter()
+                .flat_map(|w| w.volumes.iter())
+                .any(|v| v.damage == 12),
+            "the slam lost its authored damage"
+        );
+
+        let plate: ambition_platformer2d::characters::smash_spring::PlaceSpringParams = drop
+            .events
+            .iter()
+            .find_map(|event| match &event.kind {
+                ambition_platformer2d::entity_catalog::MoveEventKind::Effect(effect)
+                    if effect.key
+                        == ambition_platformer2d::characters::smash_spring::PLACE_SPRING =>
+                {
+                    effect.params.hydrate().ok()
+                }
+                _ => None,
+            })
+            .expect("he drops a plate, which his comment has always said");
+
+        // ⭐ IT THROWS, AND UPWARD. Up is NEGATIVE y everywhere in this codebase,
+        // and a plate that launched DOWN would be a hole.
+        assert!(plate.launch.1 < 0.0, "the plate throws downward: {:?}", plate.launch);
+        assert!(plate.uses > 0, "a plate nobody can use is an invisible object");
+
+        // ⛔ SHORT-LIVED, and the bound is the point rather than the number: a
+        // plate that outlived the exchange it was dropped in would be TERRAIN a
+        // fighter authored, and terrain is somebody else's authority.
+        assert!(
+            plate.lifetime_s <= 12.0,
+            "the plate lasts {}s, which is stage geometry rather than a move",
+            plate.lifetime_s
+        );
+
+        // ⚠ AND IT MUST NOT OUT-LAUNCH HIS OWN RECOVERY, or the down-B is a
+        // better `steam_lift` that also hits.
+        let lift = set
+            .moves
+            .iter()
+            .find(|m| m.id == "steam_lift")
+            .expect("his recovery");
+        let rise = lift
+            .events
+            .iter()
+            .find_map(|event| match &event.kind {
+                ambition_platformer2d::entity_catalog::MoveEventKind::Impulse { local, .. } => {
+                    Some(local.1.abs())
+                }
+                _ => None,
+            })
+            .unwrap_or(f32::INFINITY);
+        assert!(
+            plate.launch.1.abs() < rise,
+            "the plate ({}) throws harder than his recovery ({rise})",
+            plate.launch.1.abs(),
         );
     }
 }

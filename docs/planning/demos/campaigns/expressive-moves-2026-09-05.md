@@ -28,12 +28,12 @@ each one as an **engine acceptance fixture** rather than a character feature:
 ⛔⛔ **AND I OVER-ESTIMATED HOW ASSEMBLED IT IS — correcting my own estimate from an hour earlier on this same page.** `acquire_captures` catches BODIES and a ledge is not one, so her 150px grab cannot become a ledge tether by reach alone. The probe exists (`probe_ledge_grab_in_frame`, which could be called at a VIRTUAL position — *"could a body standing there catch a ledge"* — a legitimate reuse) ⚠ **but it has NO production caller outside its own tests**, and it wants a `&World`, so wiring it into a move is engine work rather than composition. ⇒ The honest cost of this row is a technique plus a probe adapter plus the visual extension — comparable to the bolt, not to the mine. ⭐ `ledge_assist` on a TELEPORT remains the cheap way to get *"a recovery that catches a ledge"*; what it cannot give you is a tether. ⚠ Marked ◐ rather than ✔ deliberately: B2's own row says "ground tether", and reading that as the whole row is how a half-built capability gets reported as finished |
 | 5 ✔ | **Cargo command grab** — **LANDED 2026-09-05** on the goblin's down-throw | ⭐ **MOVEMENT WAS NEVER TOUCHED.** The claim was "capture and movement cooperate", and what actually happened is that capture RESTRICTS LESS: `restrict_captor_control` zeroed `locomotion` for every captor, and a carry is a hold that does not. ⇒ `carrying` rides `SmashHoldState` (the ruleset's half) rather than `CapturedBy` (the generic relation), on that component's own argument that platform-fighter rules do not belong on the relation |
 | 6 ✔ | **Remote mine** — **LANDED 2026-09-05** on Projectile Polygon's down-smash | persistent spawned identity, owner lookup, remote triggering, rollback. ⭐ **It cost one component with four fields and no new authority**: the object is a `GroundItem`, the blast is a `DamageBoxEffect`, and "where is it, whoever holds it" is `ItemWorldPos`. The mine contributes an arming clock and a decision |
-| 7 ▢ | **Parasol** | temporary movement modifiers/controllers are expressive enough for a long-lived post-move locomotion regime. ⛔ **MEASURED 2026-09-05 AND GENUINELY MISSING** — the one open row where the search found nothing. `ActorSurfaceState::gravity_scale` is per-body and already suspended/restored by capture (`prior_gravity_scale`), but **no TIMED modifier exists**: nothing owns "this scale, for N seconds, then back". ⇒ That is the smallest honest shape of this row, and it IS new state — so it wants the campaign's rule applied deliberately: a move may ask for it and must not own it |
+| 7 ▢ | **Parasol** | temporary movement modifiers/controllers are expressive enough for a long-lived post-move locomotion regime. ⛔ **MEASURED 2026-09-05 AND GENUINELY MISSING** — the one open row where the search found nothing. `ActorSurfaceState::gravity_scale` is per-body but **no TIMED modifier exists**: nothing owns "this scale, for N seconds, then back". ⛔⛔ **AND THE REAL BLOCKER IS SHARPER THAN THAT, re-measured after a first pass called it "the smallest new-state row": THREE domains already write `gravity_scale` with the same save-set-restore pattern** — capture (`prior_gravity_scale`), mount (restoring from a spawn baseline) and body-seed at construction. ⇒ A fourth writer cannot simply join them: a fighter who is floating AND then grabbed has two saved priors and the restore order decides which one wins. ⭐ So the honest shape is not "add a timer" — it is **a modifier the MOVEMENT domain owns and multiplies**, which the existing writers would then compose against instead of overwriting. That is engine work in `ambition_platformer2d_core`, and it is the row where this campaign's rule bites hardest: a move may ASK for a locomotion regime and must never become the authority for it |
 | 8 ◐ | **Homing Attack** | deterministic semantic target queries and target-directed fighter motion. ⚠ **THE ROW SPLITS, AND THE CHEAP HALF DODGES WHAT IT WAS MEANT TO PROVE.** The TARGET QUERY exists — the teleport's ambush arrival does deterministic foe selection through `combat_relation`, *"the same call the damage side makes, so a teammate cannot become a target here after ceasing to be one there"* — but it is PRIVATE to `teleport.rs` (`fn may_ambush`), so it is built and not reusable. ⇒ A "homing attack" is authorable today as an ambush teleport plus a strike window, and **that would tick the row while skipping target-directed MOTION**, which is the half worth having. ⛔ Not doing it that way |
 | 9 ✔ | **Sing** — **COMPLETE 2026-09-05** on the Performer's neutral special | `BodyCombat::sleep_timer`, the `smash.sleep` technique and the area adapter, all guarded — and now with a customer. ⭐ **ADDED TO `the_monologue`, NOT SUBSTITUTED FOR IT**: her strike is 58×34 out in front and is unchanged to the number; the sleep is 26×26 centred on HER, wholly inside it. Everyone still gets the speech; only whoever stood next to her goes under |
 | 10 ▢ | **Limit** | character-local resource state, threshold transitions, timeout, action variants, stat modifiers. ⓘ **THE NEAREST SHIPPED THING IS `StoredMoveCharge`** — per-body, rollback-registered, with a value probe — but it is a CHARGE BANK keyed by move id, filled by holding a button. A meter filled by combat EVENTS and read by a move SELECTOR is a different object, and the selector half (`move_for_directional_verb` varies only on `grounded`) is the part with no precedent |
 | 11 | **Free-standing ally summon** | summon is not synonymous with mount; first owned-secondary-actor contract |
-| 12 ▢ | **Reusable launch object** | a fighter can create a persistent world actuator another fighter interacts with. ⓘ **Searched 2026-09-05: no placed launcher exists.** `PogoPolicy` is the nearest and is a different thing — bouncing off a body you HIT, not off an object somebody placed. ⭐ But the mine proves the spawning half is cheap (`GroundItem` + a seat-owned component), so what this row really needs is the ACTUATOR contract: a thing that launches whoever touches it, including its owner |
+| 12 ✔ | **Reusable launch object** — **LANDED 2026-09-05** on Bob's down-B, additive to his slam | a fighter can create a persistent world actuator another fighter interacts with. ⭐ **AND THE WORD THAT MATTERS IS *ANOTHER***: the plate throws ANYBODY who steps on it, its dropper and his opponent alike — a plate that served only its owner would be a second recovery wearing an object's clothes. ⛔ THREE clocks and a use count, all rollback state. ⓘ Originally: **no placed launcher exists.** `PogoPolicy` is the nearest and is a different thing — bouncing off a body you HIT, not off an object somebody placed. ⭐ But the mine proves the spawning half is cheap (`GroundItem` + a seat-owned component), so what this row really needs is the ACTUATOR contract: a thing that launches whoever touches it, including its owner |
 | 13 ✔✔ | **Portal recovery** (Jon, added same day) — **LANDED 2026-09-05** on Alice's up-B, **and the ANGLED half completed the same day** | an authored customer places linked world portals and traverses them. ⭐⭐ **Jon's second sentence is now built too**: *"we can even exercise angled portals with directional input on the up b as a flavor that isn't actually in smash and is ours."* `tilt_degrees` was `0.0` in every literal in the tree — the parameter existed, the code applied it, nobody ever set it — and the player's own stick now leans the shaft ±32°. ⇒ **It reuses `MovePlayback::aimed_stick`, the LATCHED UNDAMPED aim the teleport already reads**, so no new authority: an aimed special is rooted, and a live stick read would be neutral for the whole move |
 
 ⭐ **Sanic's spring analogue is a SPEED BUMP** (Jon): he slams down a ridiculous
@@ -510,17 +510,19 @@ the template.
 wants: her blueprint asked for a counter and the deferral recording why she could
 not have one has now expired.
 
-### ⚠⚠ TWELVE ROSTER DECISIONS MADE UNDER DELEGATION — EVERY ONE IS JON'S TO OVERRULE
+### ⚠⚠ FOURTEEN ROSTER DECISIONS MADE UNDER DELEGATION — EVERY ONE IS JON'S TO OVERRULE
 
 Jon's grant was *"you can pick where to put the proof of concept for the other
 moves in the roster… we can tune who the moves belong to later."* ⇒ Here is
 everything spent against it on 2026-09-05, with what each one COST, so a review
-is a table rather than a git log. ⚠ **This table was written at EIGHT and is now
-TWELVE — I updated it rather than letting it read as complete**, which is the same
-failure as a stale deferral and would have been worse here, because its whole
-purpose is to be the thing Jon reads instead of the log.
+is a table rather than a git log. ⚠ **This table was written at EIGHT, corrected at TWELVE, and is now FOURTEEN.**
+⇒ I have now had to bring it current twice, which is the point rather than an
+apology: **the artefact whose whole purpose is to be current is the one that reads
+as complete when it is not**, and its reader is by construction somebody who will
+not check the log. The rule I keep failing and re-learning: update it in the same
+commit as the decision.
 
-**Six cost nothing; five displaced something; one is presentation only.**
+**Eight cost nothing; five displaced something; one is presentation only.**
 
 | fighter · slot | change | cost |
 |---|---|---|
@@ -536,12 +538,35 @@ purpose is to be the thing Jon reads instead of the log.
 | the Author · **side-B** | archetype `vector_lunge` → **PK-Thunder** | ⚠ a borrowed poke that was never his. ⭐ Jon's own assignment, and his third owned slot |
 | the Shadow Oni · aerial down-B | `counter_ring` + `parry_flash` cues **removed** | ⚠ presentation only, and it is MY DEBT: converting his grounded seal to a real counter made the dive's borrowed parry cues a trap |
 | Emmy Noether · down-B | `invariant_field` → **counter that conserves the blow** | ⚠ her CHEAPEST special (`damage: 6`), and she keeps a second ground-claiming field. ⭐ Her own blueprint asked for a counter; the deferral saying she could not have one expired this morning |
+| Bob · neutral (`rivet_gun`) | one long window → **three separated windows, then the same finisher** | ⭐ none — the finisher is unchanged and the pulses are 2 chip. It only does what its comment always claimed: *"it is not one hit, it is the tool running"* |
+| Bob · down-B (`bulkhead_drop`) | **+ a plate that throws whoever steps on it** | ⭐ none — the slam is untouched. ⚠ It throws HIM too, which is the row's point (a persistent actuator ANOTHER fighter interacts with) and not an oversight |
 
 ⛔ **If exactly one of these is wrong, it is the Officer's** — it is the only
 change that removes a way to finish a stock rather than replacing filler or
 adding on top. It is also the one that makes his kit a single idea (gun, shove,
 shield), so it is a real design choice rather than an oversight, and it is stated
 here to be argued with.
+
+### ⛔⛔ A SPAWN POINT IS INSIDE THE SPAWNER — THREE TIMES, THREE DIFFERENT MOVES
+
+The same defect found by the first guard run on three unrelated objects, each
+time before a player could:
+
+| move | what happened on frame one | the fix |
+|---|---|---|
+| the remote mine | placing and detonating on consecutive presses | `arm_s`, an arming delay |
+| the steered bolt | it came home on the tick it was fired and threw the caster instantly | `clear_of_caster`, a latch |
+| the placed plate | it launched the engineer who dropped it, spending a use before anyone saw it | `arm_s` again |
+
+⇒ **A move that spawns something AT a fighter spawns it INSIDE that fighter.** The
+body-local offset is smaller than the contact tolerance every time, so contact
+logic that does not say so is not "usually fine" — it is wrong on frame one, and
+frame one runs before anything else can.
+
+⭐ **All three were found by a guard, none by reading**, and in each case the fix
+turned out to be the genre's own rule arrived at from the bug: a mine you cannot
+instantly detonate, a bolt that must leave before it can come home, a plate you
+step off before it works.
 
 ### ⭐⭐ A COUNTER IS NOT A MOVE TYPE — THREE ON ONE ROSTER, THREE DIFFERENT MOVES
 

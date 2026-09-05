@@ -858,8 +858,22 @@ fn boss_actor_cluster(
         fly_toggle: false,
         ..ae::AbilitySet::NONE
     };
-    // STRIKE offense is the frame-driven Boss hitboxes (`sync_boss_strike_hitboxes`), so
-    // `is_hostile` (actor melee) stays off.
+    // STRIKE offense is the boss's AUTHORED MOVESET — every boss strike, geometry
+    // and content-technique special alike, runs through the shared moveset
+    // runtime (`ambition_boss_encounter::attack_moveset::boss_attack_moveset`,
+    // built below at the second spawn site) — so `is_hostile`, which drives
+    // CONTACT damage rather than authored strikes, stays off.
+    //
+    // ⛔ THIS SENTENCE USED TO CITE `sync_boss_strike_hitboxes`, WHICH NO LONGER
+    // EXISTS. It was retired when the moveset runtime took over, and six other
+    // comments in the tree name it correctly — in the PAST tense, as the thing
+    // that was replaced. This one named it in the present as the live mechanism,
+    // and it is the stated REASON a setting stays off: a reader checking whether
+    // `is_hostile: false` is still right found nothing to check against.
+    //
+    // ⚠ THE CONCLUSION WAS NEVER WRONG, only its justification — which is the
+    // more dangerous shape, because the setting keeps working and nothing ever
+    // forces the sentence to be re-read.
     let body_damage = config.behavior.body_damage;
     let tuning = ambition_combat::actor_tuning::ActorTuning {
         chase_speed: BOSS_FLIGHT_SPEED,

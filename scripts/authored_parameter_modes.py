@@ -170,13 +170,55 @@ def authored_corpus(*, with_helpers: bool) -> tuple[str, int]:
     files = [
         f
         for f in git("ls-files")
-        if (f.endswith((".ron", ".ldtk", ".yarn")) and f.startswith("game/"))
+        # ⛔ AUTHORED DATA IS AUTHORED WHEREVER IT SITS. This required
+        # `game/`, and `platformer_defaults.ron` -- which authors
+        # `AbilitySet.reset` -- lives under `crates/…/assets/`. A .ron in an
+        # `assets/` directory is content by construction; the crate it is
+        # packaged under is a build fact, not an authorship one.
+        if (
+            f.endswith((".ron", ".ldtk", ".yarn"))
+            and (f.startswith("game/") or "/assets/" in f)
+        )
         or (f.endswith(".rs") and f.startswith(roots) and not _is_test(f))
     ]
     text = "\n".join(
         (REPO / f).read_text(encoding="utf-8", errors="replace") for f in files
     )
     return text, len(files)
+
+
+def set_true_in_production(field: str) -> str | None:
+    """Where non-test PRODUCTION code sets `field` true, outside the authored corpus.
+
+    ⛔⛔ THE HELPER CORPUS IS A HAND-LISTED GUESS AND IT WENT STALE TWICE. It named
+    `crates/ambition_characters` because authoring helpers live there -- and then
+    `QuestSpec::starting_at_boot()` shipped in `ambition_persistence`, setting
+    `auto_start` for seven quests, and this census called the field DORMANT. The
+    list was not wrong, it was INCOMPLETE, which is the failure mode every
+    hand-kept list has.
+
+    ⭐ SO STOP COMPLETING IT. A dormant verdict now asks the whole production tree
+    whether anything sets the field, and reports WHERE. That turns a false
+    "nobody wants this" into a true "no CONTENT sets it; this does" without the
+    census having to know in advance where authoring helpers live.
+
+    ⚠ Deliberately NOT folded into LIVE. "Content authored it" and "engine code
+    sets it" are different facts and the difference is the whole point of the
+    census -- a boss literal in `spawn_actors.rs` is not an authored customer.
+    The row stays out of DORMANT and gets its own bucket, because a reader needs
+    to see the location to judge which one it is.
+    """
+    # ⚠ NOT `git()`: it uses `check=True`, and `git grep` exits 1 for NO MATCH.
+    # No-match is the common, expected answer here, not an error.
+    done = subprocess.run(
+        ["git", "grep", "-l", "-E",
+         rf"\b{re.escape(field)}\s*[:=]\s*true\b", "--", "crates", "game"],
+        cwd=REPO, capture_output=True, text=True,
+    )
+    if done.returncode not in (0, 1):
+        raise SystemExit(f"git grep failed for {field}: {done.stderr.strip()}")
+    live = [f for f in done.stdout.split() if not _is_test(f)]
+    return live[0] if live else None
 
 
 def modes() -> list[tuple[str, str, str, bool]]:
@@ -299,7 +341,7 @@ def main() -> int:
         ["git", "rev-parse", "--short", "HEAD"], cwd=REPO, capture_output=True, text=True
     ).stdout.strip()
     fields = modes()
-    live, dormant, unnamed, always_on = [], [], [], []
+    live, dormant, unnamed, always_on, engine_set = [], [], [], [], []
     for name, field, where, defaults_true in fields:
         set_true = re.search(re.escape(field) + r"\s*[:=]\s*true\b", corpus)
         named = re.search(r"\b" + re.escape(field) + r"\b", corpus)
@@ -313,12 +355,22 @@ def main() -> int:
         else:
             unnamed.append((name, field, where))
 
+    # ⭐ A dormant/unnamed row that PRODUCTION code sets is not dormant; it is
+    # unauthored. Ask the whole tree rather than growing the helper list again.
+    for bucket in (dormant, unnamed):
+        for row in list(bucket):
+            site = set_true_in_production(row[1])
+            if site is not None:
+                bucket.remove(row)
+                engine_set.append((row[0], row[1], site))
+
     print(f"AUTHORED BOOLEAN PARAMETER MODES  (at {head}, corpus {n_files} files)\n")
     print(f"  technique/placement bool modes      {len(fields)}")
     print(f"  LIVE      — set true in content     {len(live)}")
     print(f"  ALWAYS ON — defaults true, unset    {len(always_on)}")
     print(f"  DORMANT   — default false, never on {len(dormant)}")
     print(f"  UNNAMED   — never mentioned         {len(unnamed)}")
+    print(f"  ENGINE-SET— set by code, not content {len(engine_set)}")
     if EXCLUDED:
         print("\n  EXCLUDED FROM THE SUBJECT CORPUS (not classified above):")
         for reason, count in sorted(EXCLUDED.items()):
@@ -328,7 +380,7 @@ def main() -> int:
             "here that looks\n       too large is a reason to re-read the rule "
             "that removed them."
         )
-    for label, rows in (("DORMANT", dormant), ("UNNAMED", unnamed)):
+    for label, rows in (("DORMANT", dormant), ("UNNAMED", unnamed), ("ENGINE-SET", engine_set)):
         if not rows:
             continue
         print(f"\n{label}:")

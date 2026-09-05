@@ -1193,7 +1193,7 @@ The one unresolved developer-policy choice from the session-ownership work is in
   `rollback_resource_canonical::<MovingPlatformSet>`
   (`rollback/mod.rs:101`) installs `bevy_ggrs`'s `ResourceChecksumPlugin`, whose
   system takes `Res<T>` — and `MovingPlatformSet` is initialised by
-  `platformer2d_runtime/src/sim_core_resources.rs:85`, a plugin this demo does
+  `platformer2d_runtime/src/sim_core_resources.rs:89`, a plugin this demo does
   not add. ⚠ The registrar's OWN doc comment already records this exact failure
   for a different type: *"panics on any frame the resource is absent — `Parameter
   `Res<'_, ActiveMatch>` failed validation: Resource does not exist`"*.

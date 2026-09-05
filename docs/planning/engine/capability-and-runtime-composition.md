@@ -616,7 +616,7 @@ minimum-host fixture.** Its rollback round trip composes exactly two plugins —
 `AmbitionRollbackPlugin` and `PulsePlugin` — and dies on frame one. Three
 distinct faults have been fixed or named in it, and the third
 (`rollback_resource_canonical::<MovingPlatformSet>`, whose resource
-`platformer2d_runtime/src/sim_core_resources.rs:85` inserts) makes the shape
+`platformer2d_runtime/src/sim_core_resources.rs:89` inserts) makes the shape
 plain: they are not three bugs, they are one seam producing a fault per
 canonical resource the twenty declare that a two-plugin host never inserts.
 

@@ -225,6 +225,15 @@ private, and it is a caution for every other "sole writer" row in this program:
 the rollback codec is a writer of nearly everything, and it never appears in a
 grep for assignments.
 
+✔ **THE CODEC CAVEAT WAS APPLIED BACK TO THIS AUDIT'S OWN SURVIVORS, 2026-09-05.**
+If a type is rollback-registered, its codec's `decode` writes every field it
+rebuilds, so an "only writer" claim on it is suspect by construction. Checked
+the two closest survivors: **neither `CameraShakeState` nor `FinishZoomState` is
+rollback-registered or has a `SnapshotState` impl** — they are presentation
+state, correctly outside rollback — so those verdicts stand unqualified. ⇒ the
+caveat bites only on types with a snapshot impl; `git grep -l 'impl SnapshotState'`
+is the suspect set for any future sweep.
+
 ⓘ Not proposed as a gate. These sentences are prose about six different kinds of
 authority; a checker would need to understand each. The cheap discipline is the
 one this audit used -- when you touch a comment claiming sole authority,

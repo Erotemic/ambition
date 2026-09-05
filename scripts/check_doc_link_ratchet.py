@@ -80,6 +80,23 @@ def main() -> int:
     if os.path.exists(BASELINE):
         baseline = json.load(open(BASELINE, encoding="utf-8")).get("crates", {})
 
+    # ⛔⛔ THE COVERAGE GUARD, and it exists because this file's own CRATES
+    # comment predicted the failure and then only ASKED a human to avoid it:
+    # *"When architecture moves out of a tracked crate, add its destination in
+    # the same change so the ratchet does not mistake reduced coverage for
+    # improvement."* Nothing enforced that. Dropping a name from CRATES leaves
+    # its baseline entry orphaned, stops measuring it, and the TOTAL falls —
+    # which reads exactly like a repair. ⇒ a baselined crate that is no longer
+    # measured is a SHRINKING GUARD, and it fails here.
+    orphaned = sorted(set(baseline) - set(CRATES))
+    if orphaned and not args.update:
+        print()
+        print(f"⛔ {', '.join(orphaned)} is in the baseline and NOT in CRATES —")
+        print("   the tracked set SHRANK. The total falls and reads as a repair.")
+        print("   If a carve moved that code, add its DESTINATION crate to CRATES")
+        print("   in this commit; only then `--update` to re-baseline.")
+        return 1
+
     counts: dict[str, int] = {}
     risen: list[str] = []
     fell: list[str] = []
@@ -113,6 +130,8 @@ def main() -> int:
         print("   build failed or the crate is gone, and zero warnings from a")
         print("   build that did not happen is not a score.")
         return 1
+
+
 
     if args.update:
         os.makedirs(os.path.dirname(BASELINE), exist_ok=True)

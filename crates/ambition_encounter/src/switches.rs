@@ -392,9 +392,26 @@ pub fn drain_switch_activations(
     }
     for activation in std::mem::take(&mut queue.0) {
         let action = SwitchAction::parse(&activation.action);
-        // The persisted write, in its one place. `ResetEncounter` TOGGLES;
-        // the gravity kinds latch ON so their sprite reads engaged; an
-        // unhandled action must not touch persisted state at all.
+        // THIS ROAD'S persisted write, in its one place: three arms of one
+        // match, so an action's meaning and its durable consequence cannot
+        // drift apart. `ResetEncounter` TOGGLES; the gravity kinds latch ON so
+        // their sprite reads engaged; an unhandled action must not touch
+        // persisted state at all.
+        //
+        // ⛔⛔ IT IS NOT THE ONLY WRITER OF THE `switches` SAVE FAMILY, and this
+        // comment said so until 2026-09-05 — true of this function, false of
+        // the tree, and exactly what the author of a FOURTH writer would read
+        // first. Measured: `encounter_features/src/systems.rs:496` greens every
+        // switch of a completed encounter, and `content/src/falling_sand_sim.rs`
+        // writes the spout switches.
+        //
+        // ⭐ The three roads are DISJOINT BY ACTION KIND and that is the design,
+        // not an accident: the `_ => continue` above means an action this match
+        // does not name leaves persisted state alone, which is what lets a
+        // content road own its own kinds without racing this one. ⇒ A fourth
+        // writer is fine if it claims kinds nobody else claims, and a defect if
+        // it does not — the check is the ACTION SET, never "is there one
+        // writer".
         let on = match &action {
             SwitchAction::ResetEncounter => {
                 let next = !save.data().switch(&activation.id);

@@ -202,7 +202,7 @@ mod marker_registration_tests {
 
         let map = app
             .world_mut()
-            .get_non_send_resource::<bevy_ecs_ldtk::app::LdtkEntityMap>()
+            .get_non_send::<bevy_ecs_ldtk::app::LdtkEntityMap>()
             .expect("the plugin must have registered at least one entity");
         let registered: std::collections::BTreeSet<String> = map
             .keys()

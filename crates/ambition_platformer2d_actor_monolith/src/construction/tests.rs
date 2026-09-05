@@ -1207,6 +1207,42 @@ fn successive_summons_allocate_non_overlapping_identities() {
 
 // ── Recipe descriptor and execution cannot drift ─────────────────────────────
 
+/// ⭐⭐ A WORLD MAY AUTHOR AN AXE ON THE GROUND, which it could not before
+/// 2026-09-05.
+///
+/// ⛔⛔ THIS WAS A CONSTRUCTION REFUSAL THAT GOT RECORDED AS A DESIGN DECISION.
+/// `authored_ground_item_requests` resolves `held_item` through
+/// `ambition_characters::brain::held_item_by_id` and refuses an unknown id with
+/// `UnknownHeldItem` -- and until the registries were merged, `axe` and
+/// `javelin` were built in `ambition_held_items`, a crate this one DEPENDS on,
+/// so they were unknown here. Placing an axe in an LDtk world was a refusal.
+/// The custody page wrote that up as "axe and javelin reach a hand only through
+/// the menu/grant road", which reads like an authoring choice and was a
+/// consequence of where two tables happened to live.
+///
+/// ⚠ `gun_sword` is deliberately NOT the subject: it was a row in the narrow
+/// table all along, so it would have passed before the merge and proves nothing
+/// about it. The subjects are the two ids that could not resolve.
+#[test]
+fn a_room_may_author_the_weapons_that_used_to_live_in_the_other_registry() {
+    for held in ["axe", "javelin"] {
+        let mut room = empty_room("cove");
+        room.ground_items.push(ground_item("dropped", held));
+
+        let requests = authored_ground_item_requests(&room).unwrap_or_else(|error| {
+            panic!(
+                "a world authoring `{held}` on the ground must construct, and was \
+                 refused: {error:?}"
+            )
+        });
+        assert_eq!(
+            requests.len(),
+            1,
+            "one authored ground item must yield one construction request"
+        );
+    }
+}
+
 /// Every parameter variant reports the recipe descriptor it is supposed to, AND
 /// constructs successfully through that same descriptor.
 ///

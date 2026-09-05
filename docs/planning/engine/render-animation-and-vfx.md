@@ -185,10 +185,22 @@ re-exports `PlacedPortal` (which its own public systems already query) rather th
 2. **F1/F3 visualization**: outline the pane polygon; colour overlapping actor
    bounds green (near occluder) / blue (far, expected under) / yellow
    (transiting) / red (ordering contradicts classification).
-3. **The compositor itself.** A clipped near-side overlay, a stencil/mask, or a
-   dedicated pass — anything that expresses ordering PER PANE. The far/near
-   portal-FRAME treatment already in the renderer is the precedent that the
-   semantic distinction exists.
+3. **The compositor itself** — and it needs NO NEW RENDER MACHINERY, which is
+   the cheapest thing anyone can know before starting it.
+   ⭐ **`PortalClipMaterial` already does exactly this job for transit pieces.**
+   It is a `Material2d` carrying THREE world-space clip half-planes
+   (`clip0/1/2`, each `(point.xy, normal.xy)`, `CLIP_PLANE_OFF` to disable), it
+   clips in the FRAGMENT SHADER against final render-world positions — so it is
+   exact for any anchor, trim rect, flip, roll or scale — and its own doc says the
+   through slice is clipped "to the front of the exit plane **plus the exit
+   aperture span**". ⇒ Clipping a sprite to a BOUNDED aperture is shipped and in
+   use; what step 3 owes is the piece decomposition for the FarCovered case, not
+   a new pass.
+   ⛔ **AND THIS IS WHY THE CHEAP FIX IS STILL FORBIDDEN.** With ONE pane, giving
+   a far-side drawable a z below `PORTAL_WINDOW_Z` would work and is a two-line
+   change. It cannot generalise: a body between two facing apertures is near one
+   and far of the other, and one entity z cannot say both. The two-pane test is
+   already in the tree for exactly that temptation.
 
 ⚠ **Acceptance Jon specified**: far-side NPC partially clipped by the pane; the
 same NPC near-side occluding it; both again for a player sprite (different z

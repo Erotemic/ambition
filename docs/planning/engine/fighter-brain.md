@@ -1465,6 +1465,28 @@ level at `2 : 2` **at this table's 60-second clock**; the verdict falls to damag
 dealt, and the LOWER rung deals more: **215% against 191%**. Ten or more of the
 twelve seed-pairs have to agree for a cell to clear p < 0.05 at this n, so this is
 a consistent direction across pairs, not one lopsided bout.
+⭐ **AND THAT THRESHOLD MOVES WITH TIES, which the printed split now lets a
+reader see — derived from `sign_test_within_spread`'s exact two-sided binomial
+tail, `2·P(X ≥ k)` for `X ~ Binomial(n, ½)`, where `n` counts only the pairs that
+were NOT ties:**
+
+| usable pairs `n` | majority needed | p |
+|---|---|---|
+| 12 | **10** | 0.0386 |
+| 11 | **10** | 0.0117 |
+| 10 | 9 | 0.0215 |
+| 9 | 8 | 0.0391 |
+| 8 | **8 — unanimous** | 0.0078 |
+| 7 | **7 — unanimous** | 0.0156 |
+| 6 | **6 — unanimous** | 0.0312 |
+
+⚠ **A single tie makes the bar HARSHER, not easier**: 10 of 11 rather than 10 of
+12. ⛔ And below nine usable pairs only unanimity can clear it — a cell there
+reads *(within spread)* **because the run is too short**, which is a different
+statement about the fighters than "the rungs are alike". The rig's own source
+says so in place, having found the dead `n < 6` special case the tail already
+covered. ⇒ The row prints `+N tied` when a pair was dropped, so `n` is readable
+off the line rather than assumed to be the seed count.
 ⚠ **The stock tie is a fact about the CLOCK, not about the cell.** At the shipped
 480 s clock the same cell ends `0 : 0` — both fighters eliminated — and the
 verdict *still* falls through to damage, because a tie is a tie at either end.

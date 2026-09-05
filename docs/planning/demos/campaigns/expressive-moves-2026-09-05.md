@@ -185,7 +185,7 @@ none of them waits on `TechniqueFlow`.
     the deliverable.** A `DefenseAnswered::{Parry, Block}` field on
     `CounterParams` compiles and dispatches cleanly — but a counter stance is a
     MOVE, and in this engine a move and a raised guard are alternative states.
-    Measured: `shield.active` is driven by `input.shield_held` alone and by no
+    Measured: `BodyShieldState::active` is driven by `input.shield_held` alone and by no
     move; `spend_out_of_shield` drops AND locks the guard whenever a body acts
     from one. ⇒ The only input that reaches a live stance window with a raised
     shield is *"cast the stance from neutral, THEN hold guard"* — reachable
@@ -937,6 +937,47 @@ already had.**
 one.** Jon's to overrule like the other fifteen; the move it replaces was dull
 rather than balanced, which is the argument for doing it here rather than on a
 fighter whose recovery is already load-bearing.
+
+### ✔ JON RULED THE PORTAL PRESENTATION, AND IT WAS ONE RESOURCE EACH
+
+Jon, 2026-09-05: *"because it is not a 1 player game, we can't use the seamless
+portal presentation. This will be a good check to make sure that it can be
+disabled on a case by case basis. I think we can use the static small cone
+presentation though."*
+
+⭐⭐ **THE REASON IS THE CAMERA, AND IT GENERALISES PAST PORTALS.**
+`PortalCameraTransitMode::Continuous` maps the viewpoint through an aperture
+while a CONTROLLED BODY straddles it — a single-subject effect by construction.
+A smash camera frames the whole cast, so there is no one body whose transit the
+view should follow, and **a continuity roll taken on one fighter's behalf moves
+the frame the other player is reading.** ⇒ `Pop`, and a portal becomes something
+that happens inside the shot rather than to it.
+
+⭐ **`Static` RATHER THAN `Off` IS THE MORE INTERESTING HALF.** The view window
+still draws — Alice's up-B opens two apertures and a player has to see where the
+far one leads — it simply stops being viewer-dependent. `Dynamic` gates the cone
+on one viewer's line of sight, **which asks the camera's unanswerable question
+again: WHOSE.** The authored cone is identical for both players, and small
+because a fighter-sized aperture is what she opens.
+
+✔ **THE CASE-BY-CASE CHECK PASSED, and it cost one `insert_resource` each.** Both
+are plain host overwrites, which `camera_continuity`'s own module doc names as
+the sanctioned road: *"the single source of truth for the live mode… hosts should
+not mirror the default into a second `DeveloperTools` or settings field."* ⇒ **The
+smash demo gained no portal-presentation setting of its own**; it states its
+answer to the one that already exists. ⚠ Applied AFTER
+`PlatformerPresentationPlugin` deliberately — an override placed before it would
+survive or not depending on whether the plugin used `init_resource` or
+`insert_resource`, which is not a detail a host should need to know.
+
+⛔ **THE GUARD ASSERTS THE ENGINE DEFAULT AS ITS CONTROL, and that is the whole
+test.** Checking only that the host holds `Pop`/`Static` would pass identically if
+those were the engine defaults and the function did nothing — the case-by-case
+claim would be untested, and silently false the day a default flips. So it
+asserts both: the engine ships `Continuous`/`Dynamic`, and the host ships
+neither. ⇒ It also fails loudly if `Pop` is ever promoted to the default, which is
+correct — at that moment this stops being a per-case decision and somebody should
+have to look.
 
 ### ⛔ JON'S CALL — WHAT FILLS THE LIMIT METER (the gate is built and free)
 

@@ -681,8 +681,31 @@ impl MovePlayback {
     /// blocked strike sets it. Reading it as "connected" is the defect
     /// `CancelCondition::OnBlock`'s note describes.
     pub fn contact(&self) -> ambition_entity_catalog::MoveContact {
+        // ⛔ CONNECTED AND BLOCKED EACH IMPLY OVERLAPPED, and nothing structural
+        // enforces it: `landed_hit` is set by the strike seam while the other two
+        // are set by `mark_move_playback_resolved_hits`, a different system on a
+        // different message. ⇒ A producer that ever set one without the other
+        // would make `Wait { on: Overlapped }` hang forever on a strike that
+        // CONNECTED — the silent freeze the mandatory timeout exists to bound and
+        // `TechniqueFlow::problems()` cannot see, because it arrives from the
+        // runtime rather than from the authored data.
         ambition_entity_catalog::MoveContact {
-            overlapped: self.landed_hit,
+            // ⛔⛔ DERIVED, NOT MIRRORED, AND A `debug_assert` PROVED IT HAD TO
+            // BE. `landed_hit` is set by the strike seam while `connected_hit`
+            // and `blocked_hit` are set by `mark_move_playback_resolved_hits` —
+            // a different system on a different message — so nothing structural
+            // made a resolved hit also an overlap. Asserting the implication
+            // reddened an existing test immediately (`connected=true,
+            // landed=false`), which is the measurement: the invariant was not
+            // true, and a `Wait { on: Overlapped }` could hang forever on a
+            // strike that CONNECTED.
+            //
+            // ⭐ A connected or blocked strike TOUCHED SOMETHING by definition,
+            // so deriving it here makes the broken state unrepresentable rather
+            // than merely detected — the same move as gating the gravity
+            // modifier on its timer instead of trusting every writer to set a
+            // sane scale.
+            overlapped: self.landed_hit || self.connected_hit || self.blocked_hit,
             connected: self.connected_hit,
             blocked: self.blocked_hit,
         }

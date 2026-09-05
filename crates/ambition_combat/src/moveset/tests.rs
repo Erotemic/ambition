@@ -9183,3 +9183,48 @@ fn a_flow_takes_the_blocked_road_and_only_the_blocked_road() {
         "a WHIFF reached the escape, so a swing that touched nothing is unpunishable"
     );
 }
+
+/// ⛔⛔ A CONNECTED STRIKE IS ALWAYS AN OVERLAP, SO A `Wait { on: Overlapped }`
+/// CANNOT HANG ON A HIT THAT LANDED.
+///
+/// `landed_hit` is set by the strike seam; `connected_hit` and `blocked_hit` are
+/// set by `mark_move_playback_resolved_hits`, a different system reading a
+/// different message. Nothing structural made a resolved hit also an overlap —
+/// and a `debug_assert` of the implication reddened an existing test on its first
+/// run, which is how we know it was not merely theoretical.
+///
+/// ⭐ `MovePlayback::contact()` now DERIVES `overlapped` instead of mirroring
+/// `landed_hit`, so the state a flow could freeze on is unrepresentable rather
+/// than detected. A peer predicted this failure from the vocabulary alone before
+/// anybody had reached it from the runtime.
+#[test]
+fn a_resolved_hit_is_always_an_overlap_so_a_wait_cannot_freeze() {
+    let mut playback = MovePlayback::new(swat(), 1.0);
+
+    // The shape the fixture produced: resolved, never recorded as an overlap.
+    playback.landed_hit = false;
+    playback.connected_hit = true;
+    assert!(
+        playback.contact().overlapped,
+        "a CONNECTED strike reported no overlap, so a flow waiting on `Overlapped` \
+         hangs forever on the move that hit — the fighter freezes mid-special and \
+         the authored timeout is the only thing that ever ends it"
+    );
+
+    playback.connected_hit = false;
+    playback.blocked_hit = true;
+    assert!(
+        playback.contact().overlapped,
+        "a BLOCKED strike reported no overlap, so a flow branching on a block \
+         never reaches the branch"
+    );
+
+    // ⛔ THE CONTROL. Deriving must not make EVERY move look like it touched
+    // something — a whiff is the case the whole staling and punish game rests on.
+    playback.blocked_hit = false;
+    assert!(
+        !playback.contact().overlapped,
+        "poison: a move that connected with nothing still reports an overlap, so \
+         `Overlapped` is now always true and a whiff is unpunishable"
+    );
+}

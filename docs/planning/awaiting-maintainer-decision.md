@@ -1403,8 +1403,10 @@ STANCE"*. Its ARGUMENT is right — a reset must not ask the live components wha
 body to restore, and `base_size` does move when Mary-O GROWS — but the word is
 wrong: it follows the FORM, and the stance is the one thing it does not follow.
 A reader checking this row against that comment would reject the sound option.
-⇒ Filed as a correction to make, not a defect in behaviour: no code reads that
-sentence.
+✔ **CORRECTED 2026-09-05** — the comment now reads *"`BodyBaseSize` follows the
+FORM"* and carries the wrong word it used to say, so the correction cannot be
+quietly re-broken. No behaviour changed: no code reads that sentence. ⇒ the
+`BodyBaseSize` option is no longer argued against by the tree.
 
 ⭐⭐ **THE TWO CAPABILITY OPTIONS COST WILDLY DIFFERENT AMOUNTS, measured
 2026-09-05 — and the row priced them as if they were alternatives of one kind.**

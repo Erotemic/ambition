@@ -117,10 +117,35 @@ none of them waits on `TechniqueFlow`.
   3). Generalise parry's existing re-own — `ProjectileOwner`,
   `ProjectileAllegiance`, velocity — into reflect / redirect / consume, keeping
   the six ownership axes independent.
-- ▢ **B4. Per-action muzzle transform + sustained charge presentation.** The two
-  concrete deficiencies the charge-ball source names about itself. Not a new
-  mechanic; the authored spatial/presentation contract being too weak. Fixes how
-  Projectile Polygon READS without touching how she works.
+- ◐ **B4. Per-action muzzle transform + sustained charge presentation.**
+  ✔ **THE MUZZLE LANDED 2026-09-05.** `Muzzle::Offset { x, y }` joins `BodyOrigin`
+  and `Hand`, as FRACTIONS of body height (the decision `HAND_OFFSET_NORM` already
+  made), facing-flipped and resolved through the acceleration frame. Projectile
+  Polygon's charge shot now leaves the head-mounted cannon that this repository
+  described in three separate files while the code fired from her midriff.
+  ⭐ **The resolution is a function (`muzzle_world_pos`) so it can be ASKED** —
+  inline in the fire system, the only way to check that an authored muzzle moved
+  anything was to stand up an app, a body, a weapon and a shot, which is why
+  nothing did.
+  ▢ **AND THE SECOND HALF TURNS OUT TO BE THE SAME DEFICIENCY, not a separate
+  one — measured, and it revises the row's premise.** The charge presentation is
+  ALREADY sustained: `draw_player_projectile_charge` despawns and respawns the orb
+  every frame from `BodyPoseView::charge_tier`, tracking the presented body and
+  scaling by tier. It is not a point VFX event. ⇒ What is wrong with it is the
+  same thing that was wrong with the shot: it draws at a HARDCODED body offset
+  (`size.x * 0.5 + 6.0`, `size.y * 0.20`), so the orb forms at the hip while the
+  shot now leaves the cannon.
+  ⚠ **Whether those two visibly disagree is NOT established.** The orb is gated
+  `With<PlayerEntity>`, whose doc says "zero or many may exist" — so it is not
+  obviously the exploration-only marker, and I did not verify whether a seated
+  versus fighter carries it. Verify that first: if no smash fighter renders the
+  orb, this is a coherence fix for the adventure game and not a smash one.
+  ⇒ **The wire, once that is known:** the sim resolves the charge origin (it has
+  `muzzle_world_pos` and the `ActionSet` component in the same crate as the
+  charging tick, `projectile/systems.rs:237`) and publishes it; presentation draws
+  there instead of guessing. ⛔ Do not resolve the muzzle a second time in
+  `ambition_render` — the facing and gravity math has one home now and that is the
+  point of it.
 
 ### Track A — the keystone
 

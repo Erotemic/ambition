@@ -216,9 +216,19 @@ pub fn reset_cut_rope_boss_attempt(
                 ambition_persistence::save_data::PersistedEncounterState::Untouched,
             );
         }
-        // The NPC appears only after the victory beat. Replaying the room should
-        // make the post-boss conversation available again only after the next kill.
-        data.set_flag("smirking_behemoth_victory_npc_seen", false);
+        // ⭐ THE LINE ABOVE IS WHAT MAKES THE POST-BOSS CONVERSATION WAIT FOR THE
+        // NEXT KILL, and nothing else is needed. `spawn_cut_rope_victory_npc`
+        // gates the NPC on `PayloadReleased` this frame (a fresh kill) OR the
+        // placement reading `Cleared` (a re-entry) — see `victory.rs`. Setting
+        // the placement back to `Untouched` closes both roads at once.
+        //
+        // ⛔⛔ THERE WAS A `set_flag("smirking_behemoth_victory_npc_seen", false)`
+        // here, under a comment claiming it did that job. It did not: measured
+        // 2026-09-05, that flag had ONE write (this one, to `false`), ZERO
+        // readers anywhere in the tree — Rust, executable Yarn, LDtk, JSON — and
+        // NOTHING that ever set it true. A durable fact with no reader and no
+        // producer of its true value is a SECOND AUTHORITY over a question the
+        // save record already answers, and it was costing a save key besides.
     }
     if let Some(music) = music_request {
         match intro_track.filter(|track| !track.is_empty()) {

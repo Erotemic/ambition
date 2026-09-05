@@ -1110,8 +1110,8 @@ def coverage_notice(
         scope = "this package filter" if filtered else "the default BACKBONE plan"
         notices.append(
             f"\n  ⚠ this was {scope}, which does NOT cover:\n"
-            "      - tests behind #[cfg(feature = \"...\")] — MEASURED 2026-09-04 at\n"
-            "        810 tests across 29 crates, the largest single omission this\n"
+            "      - tests behind #[cfg(feature = \"...\")] — MEASURED 2026-09-05 at\n"
+            "        812 tests across 29 crates, the largest single omission this\n"
             "        footer names. `python3 scripts/feature_gated_tests.py` prints\n"
             "        the current figure per crate (it says itself that the count is\n"
             "        approximate); `--verify <crate>` asks cargo for the exact pair.\n"

@@ -1442,9 +1442,13 @@ BossSpawn-105805   after a player death       boss.cleared = retracted
 ```
 
 ⛔ **So the one boss that CAN be re-fought also un-clears itself when you die in
-its room after winning** — along with `smirking_behemoth_victory_npc_seen`, so
-the post-fight conversation resets too. Nobody chose that either; it falls out of
-a system that never asked why the room was replaying. ⇒ **The options are three,
+its room after winning** — and with it the victory NPC, which `victory.rs` gates
+on that same placement reading `Cleared`. Nobody chose that either; it falls out
+of a system that never asked why the room was replaying.
+⚠ **Correction, same day:** this row first said the reset also cleared
+`smirking_behemoth_victory_npc_seen`, repeating the retraction's own comment.
+Measured: that flag had one write, ZERO readers anywhere, and nothing set it
+true. It is deleted; the placement record was always the whole mechanism. ⇒ **The options are three,
 not two, and the third — retract on a deliberate retry, keep on a death — is the
 one that matches the rule the portals already follow.** Note it is the DEFENSIBLE
 default in both directions at once: a retry is the player asking to do it again,

@@ -1819,10 +1819,17 @@ fn how_many_boss_families_retract_their_defeat_on_a_replay() {
 ///
 /// ⛔ AND THAT HAS A PLAYER-VISIBLE CONSEQUENCE, which is why this is measured
 /// and not merely noted: beat the Smirking Behemoth, then die to anything in
-/// that room, and the defeat you earned is retracted — along with
-/// `smirking_behemoth_victory_npc_seen`, so the post-fight conversation resets
-/// too. Nobody chose that; it falls out of a system that never asked why the
-/// room was replaying.
+/// that room, and the defeat you earned is retracted — and with it the victory
+/// NPC, which `victory.rs` gates on that same placement reading `Cleared`.
+/// Nobody chose that; it falls out of a system that never asked why the room was
+/// replaying.
+///
+/// ⛔ AN EARLIER VERSION OF THIS DOC ALSO BLAMED A FLAG,
+/// `smirking_behemoth_victory_npc_seen`, because the retraction's own comment
+/// said so. Measured 2026-09-05: that flag had one write, ZERO readers, and
+/// nothing ever set it true. I repeated a comment as fact in two places before
+/// grepping for a reader. The flag is gone; the sentence above names the
+/// mechanism that actually exists.
 ///
 /// ⛔ REPORTS, DOES NOT FAIL — the same reason the census above reports. Which
 /// reason should retract is 56's to answer. This arm exists so the answer is

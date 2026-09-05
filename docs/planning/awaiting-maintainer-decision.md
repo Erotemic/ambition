@@ -1075,6 +1075,31 @@ gun and walking away ever lose it?**
 ⛔ Not an agent's call — it decides whether a whole category of future item is
 losable. Recorded rather than implemented; I3 stays open behind it.
 
+ⓘ⭐ **PRICED 2026-09-05, and it is cheap TODAY for the same reason #54 is: the
+population is ONE.** The catalog holds **24** items —
+
+```text
+  Ability 7   Weapon 6   KeyItem 5   Consumable 5   Reserved 1
+```
+
+— and exactly one of them, the portal gun, takes the ENTITLEMENT road
+(`equip_portal_gun` / `unequip_portal_gun`, `ambition_held_items/src/lib.rs:955`,
+`#[cfg(feature = "portal")]`, with `OwnedPortalGunPair` deliberately outliving
+the hand). The other 23 are ordinary held items on the occurrence road.
+⇒ **Ruling it now costs one item's behaviour. Ruling it after a second capability
+item ships costs whichever road that author copied**, and they will copy the one
+that exists.
+
+⛔⛔ **AND "UNIQUE" ALREADY NAMES TWO DIFFERENT PROPERTIES IN THE CODE, which is
+worth fixing whichever way this goes.** `ItemCategory::is_unique()` is
+`!matches!(self, Consumable)` (`ambition_items/src/lib.rs:43`), so **all 19
+non-consumables** clamp at 1 in `OwnedItems::grant` — you can never hold two
+axes. That is a STACKING property. The portal gun's uniqueness is a LIFECYCLE
+property: acquired once, never revoked, re-equipped from `OwnedItems`.
+⇒ One word covers both, and only one item has the second. A reader asking *"is
+this item unique?"* gets an answer about stacking and may reasonably think they
+have learned the lifecycle.
+
 ### ▢ Should cast framing become BIDIRECTIONAL — a target rather than a floor?
 
 ⭐ Split out of the 2026-09-03 camera-zoom change, which landed the part that was

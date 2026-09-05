@@ -33,8 +33,19 @@ The repository already has useful pieces:
 These primitives are substrate. Their existence does not prove every consumer's
 decision policy is correct.
 
-> **RE-MEASURED against `5fdf977db` (2026-09-03): the substrate list is accurate, and
-> the layer above it is still empty.**
+> **RE-MEASURED against `46da98b7f` (2026-09-05); previously `5fdf977db`
+> (2026-09-03). The substrate list is accurate, and the layer above it is still
+> empty.**
+>
+> ✔ **ALL EIGHT LINE CITATIONS BELOW RE-VERIFIED BY OPENING THEM, and all eight
+> are exact** — `RecoveryLens` at `recovery.rs:79`, the three support/floor
+> queries at `collision_semantics.rs:82`/`:130`/`:136`, and the four
+> `CollisionWorld` questions at `collision.rs:96`/`:126`/`:148`/`:159`.
+> ⭐ Worth stating because three OTHER line citations in this planning stack
+> were found drifted the same day (`sim_core_resources.rs:85`,
+> `room_transition_assets.rs:1271`, `quality.rs:182`). ⇒ **citation drift is
+> not uniform**; it tracks how often a page is re-derived rather than how old it
+> is, and this one has been.
 >
 > Spot-checked the two most specific entries and one the kinematic campaign
 > added since: `RecoveryLens`

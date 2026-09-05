@@ -1273,6 +1273,27 @@ means "the finishing blow" in a 2-fighter match and "every elimination" in a
 cardinality it means will be ambiguous again at the next N > 1**, and `sandbox`
 authoring `mode_collapse_boss` at two placements is the case that makes that
 undeniable rather than theoretical.
+⭐⭐ **AND THE COARSE FACT DOES NOT EXIST DURABLY HERE, WHICH CHANGES THE
+COSTING** — checked 2026-09-04 because the precedent prompted it. The
+finishing-zoom choice was cheap for the fighter lane *because
+`StocksMatchDecided` already existed and was already published*: it cost a new
+READ. Here:
+- ⛔ **No archetype-keyed durable record exists.** `boss.cleared` is
+  `save.data().boss(id)`, an exact lookup on a placement-keyed row, and nothing
+  writes a row under an archetype.
+- ✔ **But the archetype id is ALREADY the quest system's currency**, so this is
+  not a new vocabulary: `systems.rs:259` fires
+  `QuestAdvanceEvent::BossDefeated(archetype_id)` and quest steps match it with
+  `QuestStepCondition::BossDefeated("gradient_sentinel")`. The concept "this
+  ARCHETYPE was beaten" is established and consumed — it is just **transient**,
+  an event advancing a step rather than a fact anything can re-ask.
+⇒ So option 1 costs *a durable row where an event already flows*, which is
+cheaper than inventing the concept and dearer than adding a read. ⚠ And it
+raises its own question the placement road does not have: an event fires per
+kill, a durable fact is a state — so "beaten" for an archetype at two placements
+means "either" or "both", and that is the same cardinality question one level
+down.
+
 ⇒ Their precedent, if it helps: they chose the COARSER fact deliberately
 (`StocksMatchDecided`, reading `MatchVerdict::winner()`) and said so in the
 type, so a `Draw` and a `NoContest` get no victory beat. The equivalent here is

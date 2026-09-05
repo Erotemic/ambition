@@ -186,9 +186,18 @@ actual product requirement.
   be explicit and separate from what a character has observed/believes.
   ⭐ **Measured 2026-09-04: layer ONE of the three is not missing — it is
   `AmbitionGameSaveData`**, thirteen TYPED fact families rather than the
-  key-value database this page refuses. Five of them are route-readable now
-  (`flags`, `switches`, `items`, `occurrences`/`custody`, `encounters`); the
-  first slice is therefore a PUBLICATION gap, not a representation decision.
+  key-value database this page refuses. ⛔ **This row used to say "Five of them are route-readable now (`flags`,
+  `switches`, `items`, `occurrences`/`custody`, `encounters`)" and that set was
+  neither of the two populations it could have meant — corrected 2026-09-05.**
+  READABLE (a published condition exists) and AUTHORED (shipped content asks it)
+  are different counts, and three of the five named above (`switches`,
+  `occurrences`/`custody`, `encounters`) are in the authored-NOWHERE list.
+  ⇒ **Do not carry a number here at all — `scripts/authored_route_gates.py` is
+  the one place it lives**, because this count moved four times in two days and a
+  copy in a reservoir nobody re-reads is how it ends up describing neither
+  population. As of 2026-09-05 it prints 10 published conditions, 5 of them
+  authored nowhere. The first slice is still a PUBLICATION gap rather than a
+  representation decision, which is the row's actual claim and is unaffected.
   ⛔ Layers two and three — observations and memory — have no durable
   representation outside the tactical-belief slice, and the table above is
   progress on one layer of three. Owner:

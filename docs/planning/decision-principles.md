@@ -28,11 +28,17 @@ Two tests make that judgeable rather than a matter of taste, and a change should
 
 A refactor that only moves code is not elegance. Name the authority or the dependency edge the change removes. If it removes neither, it is churn.
 
-Two things follow from the second test, and both were learned by getting them wrong.
+Three things follow from the second test, and all three were learned by getting them wrong.
 
 Making something impossible changes what its guard is for. A guard whose property has become structural is worth keeping only if it still names a reachable failure; re-aim it and say which, or delete it. Leaving it asserting what the compiler now guarantees, with a comment claiming otherwise, is worse than either.
 
 A claimed compile-time check must be shown to fail. Poison the case that only the new check can catch, not the nearest case to hand — a poison that fires through some other mechanism is indistinguishable from one that fires through yours. For a compile-time assertion specifically, make it unconditionally false and confirm the build breaks. An associated `const` holding an assertion can compile clean while never being evaluated, which is a guard that cannot fail wearing the strongest possible disguise.
+
+A schedule ordering edge is a fact that lives outside the compiler, so a guard is the right answer — but only a guard that has been run red. Bevy expresses ordering with sets, and the one thing a set cannot express is order *within itself*: a system that reads a message written by another member of its own set is unordered against the writer, and no phase chain will say so. The cost is not lateness but frame misattribution — the reader picks the message up on the following tick and journals its effect under a frame that did not produce it, which is what the rollback quarantine then judges. A behavioural test does not catch this. The simulation runs single-threaded, so an unordered pair still gets an order, and that order is stable: the gameplay assertion passes whether or not the edge exists. Deterministic, reproducible, and arbitrary.
+
+Check the edge itself. Bevy computes the schedule's conflict list unconditionally and consults `ambiguity_detection` only to decide whether to warn — so the list is readable even in the rollback host, which silences it. Assert zero conflicts on the *resource*, not between two named systems: system and resource names are compiled out without Bevy's `debug` feature, and the invariant is about the resource anyway. Two ways this guard fails green, both met in practice: composing a hand-assembled app rather than the shipped plugin group, which certifies an empty room because the writer's plugin was never added; and identifying the resource through anything that can silently return a different id. Falsify it by deleting the edge and watching the count rise, with the code that ships rather than an earlier draft.
+
+Do not answer this with a workspace-wide ambiguity ratchet. A banked count of existing conflicts is a denominator nobody re-measures, and it rots in the direction that looks like progress: when a conflict is genuinely fixed and the number stays put, the ratchet goes on certifying a population that no longer exists. A guard scoped to one resource banks nothing.
 
 Prefer the solution that best respects the project’s layer boundaries:
 

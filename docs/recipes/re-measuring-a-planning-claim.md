@@ -988,3 +988,30 @@ immediately on the box where they had not.
 ⚠ And a FLOOR does not rescue the second kind. An anti-vacuity floor proves the
 guard walked a corpus; it says nothing about whether the corpus is the same
 corpus somebody else has.
+
+### Which DIRECTION a guard may gate on, when its input is unshared
+
+The stranded-sheet guard could not be satisfied on two honest checkouts at once
+— with the allowlist populated one box was red, with it emptied the other was.
+The fix was not a value; it was splitting the guard by direction:
+
+- **ADD gates.** A sheet that STARTS stranding is a regression on any box,
+  because the new art is the thing under test and its **presence** is the
+  evidence.
+- **REMOVE reports.** An absence in gitignored art is produced identically by
+  *"somebody fixed the sheet"* and *"this checkout never rendered it"*, so
+  failing on it only ever yields a red a reader can clear by deleting a live
+  guard — which is what happened.
+
+⇒ **Fail on the direction whose evidence is a PRESENCE.** That is a property of
+the evidence, not of the assertion, and it is the mirror of the rule this
+repository already had: a one-directional ratchet lets the other direction rot,
+so fail on the good direction too — *unless* that direction's evidence is an
+absence in state git does not carry.
+
+⛔ **AND A WORKING INSTRUMENT READING UNSHARED INPUT STILL ANSWERS ABOUT THE
+MACHINE.** The census was verified correct before the allowlist was emptied —
+1,666 PNGs, 912 claimed, the sheets genuinely shipping unclaimed pages. That
+check separated *broken* from *working*; it could not separate *shared fact*
+from *local artifact*, and only the second mattered. ⇒ Verifying the tool is not
+verifying the input.

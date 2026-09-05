@@ -353,6 +353,17 @@ dormancy census cannot either (the field IS named in content). Two turned up on
 2026-09-05 in one crate, both by taking a single census hit seriously instead of
 publishing the list.
 
+⚠ **AND WHEN AUDITING WHETHER A GUARD IS ENFORCED, LOOK FOR A WRAPPER — the CLI
+flag is not the answer.** `check_absence_contracts.py` only exits non-zero under
+`--check`, and NO lane job invokes it at all: it appears in `run_tests.py` once,
+inside a help string. That reads exactly like a 38-contract guard nobody runs.
+⇒ It is enforced, by `scripts/tests/test_absence_contracts.py`'s
+`test_every_contract_holds_against_the_live_tree` — PARAMETRIZED, so each
+contract is its own test — inside the `repo tooling (scripts/tests)` job. A
+reader checking "does the lane pass `--check`?" concludes wrongly in the alarming
+direction. ⭐ Check for a test that IMPORTS the checker before concluding nothing
+runs it.
+
 ⛔⛔ **AND READ THE VERDICT LINE, NOT THE EXIT CODE — the citation checker is
 deliberately NON-GATING.** Its lane job is named *"planning + doctrine citations
 (reports, does not gate)"*, and it exits **0 with findings** unless given

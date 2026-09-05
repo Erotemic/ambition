@@ -168,12 +168,20 @@ shortcut and would have made the report miss the finding.
 
 ⇒ **Remaining, in the order Jon asked for:**
 
-1. **Host tagging** — nothing publishes `PortalCompositingCandidate` yet, so a
-   real dump prints `candidates: 0`. ⚠ That is deliberate and legible: the count
-   distinguishes "the host has not tagged" from "the scene is clean". The owner
-   is `ambition_render`, behind its optional `portal_render` feature. Also still
-   missing from the dump: `RenderLayers` and the main/capture camera order,
-   which need the host's camera stack.
+✔ **DONE: the host publishes.** `ambition_render` tags every drawn actor sprite
+behind its optional `portal_render` feature, in ENGINE coordinates, using
+`Sprite::custom_size` (the DRAWN rect) and the `bevy_size_to_world` inverse added
+beside its forward rather than a second y-flip. ⚠ Gated on a portal existing, so
+a portal-free room does no work; a sprite with no `custom_size` is SKIPPED rather
+than guessed at. ⭐ It needed no new dependency edge: the presentation crate
+re-exports `PlacedPortal` (which its own public systems already query) rather than
+`ambition_render -> ambition_portal2d` being added just to spell a `run_if` —
+`critical_path_crates` is a live compile-ratchet finding.
+
+⇒ **Remaining:**
+
+1. **`RenderLayers` and the camera stack** in the dump — main and capture camera
+   order and layers, which need the host to publish them the same way.
 2. **F1/F3 visualization**: outline the pane polygon; colour overlapping actor
    bounds green (near occluder) / blue (far, expected under) / yellow
    (transiting) / red (ordering contradicts classification).

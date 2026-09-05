@@ -4797,8 +4797,27 @@ OPTIONAL dep + feature, never used:
   ⭐ THE INSTRUMENT LANDED 2026-09-02, and it RANKS because the separation it was
   asked for CANNOT BE MADE. `tools/ambition_sprite2d_renderer/scripts/measure_clip_population.py` <!-- cite-ok: on an unmerged submodule branch, deliberately -->
   (the renderer submodule's script, not this repo's `scripts/`), branch `d129-composited-frames` @ `c6a9712` — ⚠ NOT in the
-  checked-in submodule pointer (`125adf8`), deliberately: the pointer is Jon's to
-  move. ⛔⛔ **The drawing canvas IS the logical frame, so the ink beyond it was
+  checked-in submodule pointer, deliberately: the pointer is Jon's to move.
+  ⛔⛔ **RE-MEASURED 2026-09-05 AND THE BLOCKER GOT MORE EXPENSIVE WHILE IT
+  WAITED — this row said `125adf8` and that is no longer the pointer.**
+
+```text
+  checked-in pointer   aba1c1e  "install() published through symlinks…"   ← moved, for an UNRELATED reason
+  d129 branch tip      c6a9712  "An instrument for D129's population…"    ← unchanged
+  relation             DIVERGED — the branch does NOT contain the pointer
+```
+
+  ⇒ **Two things this changes.** The instrument is still absent at the checked-in
+  pointer, so the blocker is real — but it is no longer *"move the pointer
+  forward"*, it is **a merge**, because mainline moved on independently while the
+  branch sat. ⚠ And *"the pointer is Jon's to move"* now reads as if the pointer
+  were frozen; it is not — it was moved for the symlink-install work and the D129
+  branch simply was not carried along. What is blocked is specifically MERGING
+  `d129-composited-frames`, not touching the pointer at all.
+  ⇒ That cost grows with every unrelated bump, which is the argument for deciding
+  it rather than leaving it. ⓘ Verified with
+  `git -C tools/ambition_sprite2d_renderer merge-base --is-ancestor`, not inferred
+  from the dates. ⛔⛔ **The drawing canvas IS the logical frame, so the ink beyond it was
   never rendered.** The obvious classifier — "seated flush" vs "still moving when
   cut" — was written first and does not survive its own data: `pirate_admiral`'s
   plume (a TIP) and `super_sanic`'s historical spike (a CUT) have the same

@@ -283,10 +283,11 @@
 >
 > ```text
 > technique/placement bool modes   88        (at 9036cda18, re-measured 2026-09-05)
->   LIVE      set true in content  58
+>   LIVE      set true in content  59
 >   ALWAYS ON defaults true, unset  7
->   DORMANT   default false, never 19
+>   DORMANT   default false, never 14
 >   UNNAMED   never mentioned       4
+>   ENGINE-SET set by code not content 4     (reported, not hidden)
 >   EXCLUDED  settings/budgets/dev 13        (now REPORTED, see below)
 > ```
 >
@@ -303,7 +304,21 @@
 > be audited by reading its output: the rows it dropped are exactly the rows not
 > printed. ⇒ Ask what a filter removes and whether the removal is observable.
 >
-> ⇒ **23 modes have no authored customer that turns them on** (19 dormant + 4
+> ⚠ **AND THE CORPUS HAD TWO MORE HOLES, both the same shape — a rule that
+> GUESSED WHERE AUTHORED THINGS LIVE.** The helper corpus hand-listed
+> `ambition_characters`, so `QuestSpec::starting_at_boot()` shipping in
+> `ambition_persistence` made `auto_start` read DORMANT while seven quests set
+> it; and the asset rule required `game/`, so `platformer_defaults.ron` under
+> `crates/…/assets/` could not author `AbilitySet.reset`. ⇒ The census no longer
+> tries to complete either list: a would-be dormant row asks the WHOLE production
+> tree whether anything sets it and reports WHERE, and a `.ron` in any `assets/`
+> directory is content.
+>
+> ⭐ `ENGINE-SET` is deliberately NOT folded into LIVE. "Content authored it" and
+> "engine code sets it" are different facts, and that difference is the census's
+> whole point — a boss literal in `spawn_actors.rs` is not an authored customer.
+>
+> ⇒ **18 modes have no authored customer that turns them on** (14 dormant + 4
 > unnamed). In this lane:
 > `Interactable(Spec).requires_facing`, `Pickup(Spec).collected`,
 > `CameraZoneSpec.cinematic_lock`, `RoomLink.bidirectional`,

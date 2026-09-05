@@ -277,6 +277,55 @@ fn the_match_gives_every_seat_a_kit_that_can_hit() {
 /// Both directions, because each alone is satisfiable by a broken filter: a
 /// grid of everything passes "only named ids" if it drops nothing, and an empty
 /// grid passes "only seatable ids" trivially.
+/// ⛔⛔ EVERY FIGHTER WHOSE MOVES SOMEBODY AUTHORED MUST REACH THE GRID, and the
+/// test beside this one cannot say so. That one checks that everything ON the
+/// grid is named and seatable plus a length floor — both of which a grid that
+/// silently DROPPED a fighter still passes. ⇒ Container versus contents: a guard
+/// that validates what survived a filter can never notice what the filter ate.
+///
+/// ⭐ This matters because a dropped id is invisible in exactly the way that
+/// costs most: the fighter's moveset still compiles, its content tests still
+/// pass, and nobody can pick it. On 2026-09-05 ten fighters gained authored
+/// techniques, and every one of them is only worth anything if it is selectable.
+#[test]
+fn every_fighter_this_composition_can_build_reaches_the_grid() {
+    use ambition_demo_smash::select::{SmashRoster, SMASH_ROSTER, STAND_INS};
+
+    let mut app =
+        ambition_app::app::build_visible_app(ambition_app::app::VisibleRenderMode::NoWindow, true);
+    app.update();
+    let registry =
+        app.world()
+            .resource::<ambition_platformer2d::characters::prepared::PreparedCharacterRegistry>();
+    let grid = SmashRoster::assemble(registry);
+    let offered: Vec<&str> = grid.ids().collect();
+
+    let mut missing: Vec<&str> = Vec::new();
+    for id in SMASH_ROSTER {
+        // Not buildable in this composition — correctly dropped, and the row
+        // beside this one already says why a hole is worse than an absence.
+        if registry.get(id).is_none() {
+            continue;
+        }
+        // A stand-in steps aside once the character it stands in for is present.
+        let stood_down = STAND_INS
+            .iter()
+            .any(|(copy, real)| copy == id && registry.get(real).is_some());
+        if stood_down {
+            continue;
+        }
+        if !offered.contains(id) {
+            missing.push(id);
+        }
+    }
+    assert!(
+        missing.is_empty(),
+        "these fighters are buildable in the shipped composition and are NOT on \
+         the select grid, so nobody can pick them and their authored moves never \
+         run: {missing:?}"
+    );
+}
+
 #[test]
 fn the_grid_offers_only_named_and_seatable_fighters() {
     use ambition_demo_smash::select::{SmashRoster, SMASH_ROSTER};

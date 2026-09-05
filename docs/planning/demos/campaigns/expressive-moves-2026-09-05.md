@@ -547,6 +547,29 @@ adding on top. It is also the one that makes his kit a single idea (gun, shove,
 shield), so it is a real design choice rather than an oversight, and it is stated
 here to be argued with.
 
+### ⛔⛔ A GUARD THAT VALIDATES WHAT SURVIVED A FILTER CANNOT SEE WHAT IT ATE
+
+Four instances in one day, three of them in guards somebody else wrote and one in
+a guard I wrote the same afternoon:
+
+| guard | what it validated | what it was blind to |
+|---|---|---|
+| the citation checker | every cited FILE exists | a drifted LINE number, forever |
+| the rollback schema ledger | the file's rows match the runtime | a row I had just added and never compared — until I poisoned it |
+| the select-grid test | everything ON the grid is named and seatable | a fighter the filter silently DROPPED |
+| my technique census | a key is NAMED by a ruleset crate | that the naming was in a **test**, not production |
+
+⇒ **"Everything present is valid" and "everything that should be present is
+present" are different assertions, and the first is the one that is easy to
+write.** A non-empty check does not close the gap: a grid missing one fighter is
+still non-empty.
+
+⭐ **The fix is to assert the POPULATION**: enumerate what should be there from
+the source of truth, subtract the documented exceptions, and require the
+remainder to be empty. `every_fighter_this_composition_can_build_reaches_the_grid`
+does that — and it matters here because **all ten fighters improved today are
+only worth anything if a player can pick them.**
+
 ### ⛔⛔ A SPAWN POINT IS INSIDE THE SPAWNER — THREE TIMES, THREE DIFFERENT MOVES
 
 The same defect found by the first guard run on three unrelated objects, each

@@ -737,7 +737,18 @@ fn every_authored_boss_cleared_call_names_a_real_boss_placement() {
         unresolved.is_empty(),
         "authored dialogue gates on boss placements that do not exist, so those \
          branches can never open and nothing errors — the save simply reads \
-         `Untouched`:\n  {}\n\nAuthored placements are: {known:#?}",
+         `Untouched`:\n  {}\n\nAuthored placements are: {known:#?}\n\n\
+         ⛔ BEFORE READING THIS AS A CONTENT DEFECT, CHECK YOUR SUBMODULE. Every \
+         `.ldtk` in `game/ambition_content/assets/worlds/` is a SYMLINK into the \
+         `game/ambition_map_assets` submodule, so this test reads whatever that \
+         checkout holds — not what the pin names. A checkout BEHIND the pin is \
+         missing the ids the pin authors, and this assertion is the symptom:\n\
+           git submodule status game/ambition_map_assets\n\
+         ⚠ and if it is behind, do NOT blindly `git submodule update`: that is a \
+         detached checkout which DISCARDS uncommitted work in the submodule. \
+         Commit anything dirty there first. (Measured 2026-09-05: a peer carried \
+         these three reds as a maintainer question for a day; the cause was one \
+         missing submodule commit.)",
         unresolved.join("\n  "),
     );
 }

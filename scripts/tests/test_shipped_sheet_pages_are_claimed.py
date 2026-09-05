@@ -74,21 +74,24 @@ SCRIPT = REPO / "scripts/measure_orphan_shipped_pages.py"
 # ⛔ KNOWN, MEASURED 2026-09-02, AND NOT A LICENCE. Each names a single-page
 # manifest with numbered siblings left beside it. Remove a name when its tree is
 # regenerated clean; do NOT add one to make a red test green.
-# ⭐⭐ EMPTY, AND THAT IS A CAMPAIGN FINISHING — pruned 2026-09-04 because
-# `test_the_known_list_does_not_rot` asked for it, which is the ratchet working
-# in the direction ratchets usually do not.
+# ⛔⛔ THIS LIST MAY ONLY BE PRUNED ALONGSIDE A REGEN, AND I PRUNED IT WRONG ON
+# 2026-09-04 — kept as a comment because the mistake is cheap to repeat.
 #
-# It held four sheets: `carl_stargan` (4 pages, 2.9 MB), `pointed_polygon`
-# (20, 43.8 MB), `projectile_polygon` (8, 9.5 MB) and `pugnacious_polygon`
-# (12, 35.8 MB) — **44 pages and 92.0 MB** that shipped inside the package and
-# nothing could ever load. The census now reports `stranded_pages: 0` across
-# 193 sheets and 1,666 PNGs.
+# `test_the_known_list_does_not_rot` demanded these four be removed: on this
+# checkout they no longer stranded pages. On the sibling session's checkout they
+# still did, at the same commit. **The evidence is gitignored generated art**, so
+# neither box can attribute it and neither answer is a fact about the repository.
 #
-# ⛔ VERIFIED NON-VACUOUS BEFORE PRUNING, because "no longer strands" and "no
-# longer exists" arrive identically here: all four still ship five sheet files
-# each, and the census still measures a real tree (1,666 PNGs, 912 claimed).
-# A census that had simply broken would have demanded this same deletion.
-KNOWN_STRANDED_SHEETS: set[str] = set()
+# ⚠ I checked the census was not broken — 1,666 PNGs, 912 claimed, all four
+# sheets still shipping five files each — and that was the wrong question. A
+# working instrument reading UNSHARED input still produces a verdict about the
+# machine. See the note on `test_the_known_list_does_not_rot` below.
+KNOWN_STRANDED_SHEETS = {
+    "carl_stargan",  # 4 pages, 2.9 MB
+    "pointed_polygon",  # 20 pages, 43.8 MB
+    "projectile_polygon",  # 8 pages, 9.5 MB
+    "pugnacious_polygon",  # 12 pages, 35.8 MB
+}
 
 CANONICAL = pytest.mark.skipif(
     not ASSETS_ARE_CANONICAL,
@@ -162,12 +165,47 @@ def test_no_new_sheet_strands_pages():
 
 @CANONICAL
 def test_the_known_list_does_not_rot():
-    """⛔ A RATCHET THAT ONLY EVER GROWS IS NOT A RATCHET."""
+    """⛔ A RATCHET THAT ONLY EVER GROWS IS NOT A RATCHET.
+
+    ⚠⚠ BUT ITS INPUT IS GITIGNORED GENERATED ART, SO THIS DEMAND IS ONLY VALID
+    ON A FRESHLY REGENERATED TREE. Acted on from a stale checkout it asks you to
+    delete a guard that is still catching something somewhere else — which
+    happened on 2026-09-04: this fired on one box and the identical commit was
+    red on another, because one had regenerated the four sheets and one had not.
+
+    ⇒ Before pruning, REGENERATE, and say in the commit that you did. A green
+    census here is a statement about the art in this working tree; it becomes a
+    statement about the repository only when the art was rebuilt from the
+    committed source.
+    """
     found = stranded_sheets()
     fixed = KNOWN_STRANDED_SHEETS - set(found)
+    if fixed:
+        # ⛔⛔ A SKIP, NOT A FAILURE, AND THE ASYMMETRY IS THE POINT.
+        #
+        # The ADD direction (`test_no_new_sheet_strands_pages`) gates, because a
+        # sheet that starts stranding pages is a regression on ANY box: the new
+        # art is the thing under test and its presence is the evidence.
+        #
+        # This direction cannot gate. Its evidence is an ABSENCE in gitignored
+        # generated art, and an absence is produced identically by "somebody
+        # fixed the sheet" and "this checkout never rendered it". On 2026-09-04
+        # the same commit was red on one box and green on another for exactly
+        # that reason, and whichever way the list was set, one of the two boxes
+        # was red. Asserting either state asserts something about a machine.
+        #
+        # ⇒ So it REPORTS. The prune is a human act that must accompany a regen,
+        # and the message says so; failing here only ever produced a red that
+        # the reader could clear by deleting a guard that still catches
+        # something somewhere else.
+        pytest.skip(
+            f"{sorted(fixed)} no longer strand pages IN THIS TREE. If its sprite "
+            "art was regenerated from committed source, prune them from "
+            "KNOWN_STRANDED_SHEETS and say so in the commit. If it was not, this "
+            "is a stale checkout reporting an absence it created — pruning on it "
+            "deletes a guard that is live elsewhere."
+        )
     assert not fixed, (
-        f"{sorted(fixed)} no longer strand pages — remove them from "
-        "KNOWN_STRANDED_SHEETS so a regression on them is caught"
     )
 
 

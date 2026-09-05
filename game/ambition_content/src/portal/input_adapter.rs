@@ -111,6 +111,15 @@ pub fn portal_input_adapter_system(
     // The body whose gun is DRAWN: the controlled subject, or — on the startup
     // frame before one resolves — the single fallback body, which is the only
     // one there is. Never "whichever seat the loop visited last".
+    // ⛔ GATED TO MATCH ITS ONLY CONSUMER. The reader below is
+    // `#[cfg(feature = "portal_render")]`, so without that feature this binding
+    // had no use and the crate's own default build warned — a warning the
+    // WORKSPACE gate never shows, because feature unification turns
+    // `portal_render` on for somebody else. ⇒ Gated rather than underscored:
+    // `_presented_subject` would silence the report while leaving a computation
+    // nothing reads, and the honest structure is that the value exists exactly
+    // when its reader does.
+    #[cfg(feature = "portal_render")]
     let presented_subject = presented_subject.or_else(|| subjects.first().copied());
     for subject in subjects {
         let Ok((driver, kin, gun)) = holders.get(subject) else {

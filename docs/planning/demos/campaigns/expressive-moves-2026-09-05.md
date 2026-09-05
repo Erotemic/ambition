@@ -388,7 +388,7 @@ output is invalidating those**, and nothing goes back to update them:
 
 | where | what it said | why it is now false |
 |---|---|---|
-| Emmy's `conservation_law` | *"not the counter the sheet's blueprint imagined — `MoveSpec` has no absorb or reflect, and inventing one for one character would be the wrong shape"* | `smash.counter` carries `absorbs_projectiles` and an arbitrary response, authored on **three** fighters — shared, not bespoke, so both halves of the objection are answered |
+| Emmy's `conservation_law` ✔ **and her counter has since landed on `invariant_field`** | *"not the counter the sheet's blueprint imagined — `MoveSpec` has no absorb or reflect, and inventing one for one character would be the wrong shape"* | `smash.counter` carries `absorbs_projectiles` and an arbitrary response, authored on **three** fighters — shared, not bespoke, so both halves of the objection are answered |
 | Projectile Polygon's `charge_shot` | *"a per-action MUZZLE offset would fix both ends at once; **it does not exist**, and inventing one here would be a fighter reaching into the shared fire site"* | `Muzzle::Offset` landed as Track B's B4 **with her as its customer**, two files away in `authored/projectile_polygon.rs` |
 
 ⚠ **The second is the worse one: her own sibling file already uses the thing her
@@ -508,8 +508,9 @@ ARBITRARY TECHNIQUE, so "counter" is a trigger, not a reaction:
 | George (stand-in) | `smash.capture_attempt` | a riposte into a grab; reflects shots |
 | the Author | `smash.teleport`, **ambush mode** | you commit, and he is behind you; absorbs shots |
 | the Shadow Oni | `smash.sleep` | a smoke seal — you wake up on the floor; absorbs shots |
+| Emmy Noether | `smash.vitality` | ⭐ **the theorem as a move**: a symmetry implies a CONSERVED QUANTITY, so the energy you put in is kept. She is simply better off for having been hit |
 
-⇒ **None of these needed engine work, and no two of them feel alike.** That is the
+⇒ **FOUR counters now, none needing engine work, and no two feel alike.** That is the
 campaign's thesis at its cheapest: the composition seam was already there, and
 what the roster lacked was somebody spending it.
 

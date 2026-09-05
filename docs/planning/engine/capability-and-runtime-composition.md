@@ -360,6 +360,33 @@ Its demonstrated value is:
 - public SDK quality;
 - making optional domains actually optional.
 
+> ⛔⛔ **AND THE OBVIOUS WAY TO PICK THE NEXT CARVE IS BACKWARDS (2026-09-05).**
+> The headline pair says HOW MANY crates a movement-only game never asked for; it
+> says nothing about which is cheap to unlink, and ranking by DEPENDENT COUNT
+> sends you at nearly the worst one. MEASURED with
+> `scripts/capability_edge_weight.py`:
+>
+> ```text
+>                          manifests  files
+>   ambition_sfx_bank              2      3   <- actually cheapest
+>   ambition_registry_core         4      8
+>   ambition_encounter_features    4     11
+>   ...
+>   ambition_match                 2     18   <- FEWEST manifests, 6x the files
+>   ...
+>   ambition_persistence          18    119
+> ```
+>
+> ⇒ **`ambition_match` has the fewest dependent manifests but eighteen files use
+> it** — across `character_runtime/`, `features/` and `avatar/` in the monolith
+> alone. A carve sized by "only two crates depend on it" would be sized at the
+> wrong granularity, which this repo has already done more than once.
+>
+> ⚠ **The script is a SIZING AID, not a verdict.** A crate named in many files may
+> still be cheap if every use is one re-export, and one named in three may be
+> load-bearing in all three. Its job is to stop the ranking that is confidently
+> backwards.
+>
 > **RE-MEASURED against `f32eb7274` (2026-09-02): this program has a LIVE MECHANICAL
 > GUARD, and the page does not mention it.**
 >

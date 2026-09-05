@@ -469,13 +469,18 @@ from"* (`body_clusters.rs:222`). ⇒ So the condition answers *"is this body
 shorter than the gap right now"*, which is exactly what its own summary says
 (*"no taller than this opening"*) — this is not a defect against its contract.
 
-⛔ **But the WALL is contributed per frame from that answer**, so a
-`body.fits`-gated wall opens while the player crouches and closes when they
-stand — the solid appears and disappears with posture, potentially around a body
-that is standing up inside the opening. ⚠ **REASONED, not measured**: the
-per-frame contribution and the current-size read are both confirmed in source;
-what a re-appearing solid does to a body occupying it is not, and would need a
-run to say.
+⛔ **And the WALL is re-evaluated EVERY TICK — measured, not inferred from the
+function's name.** `sync_authored_gated_lock_walls` is registered on the SIM
+schedule in `Platformer2dSimulationPhaseMonolith::WorldPrep`
+(`platformer2d_runtime/src/world_gating.rs:42`), after the feature overlay set
+and before hazard update — so it runs on every simulation tick rather than once
+at room load. ⇒ A `body.fits` gate therefore tracks posture frame by frame: the
+solid appears and disappears as the player stands and crouches.
+⚠ **What is still REASONED and not measured** is the consequence — what a
+re-appearing solid does to a body occupying its space. Both inputs are now
+confirmed in source (per-tick re-evaluation, current-size read); the collision
+outcome would need a run, and no shipped level authors `body.fits`, so there is
+nothing to run it against without writing the level first.
 
 ⇒ **The question for whoever authors the first one:** should `body.fits` ask
 about the body's POSTURE (as now) or its CAPABILITY — *"could this body get

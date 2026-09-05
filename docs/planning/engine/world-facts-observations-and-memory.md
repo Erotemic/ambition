@@ -40,7 +40,7 @@ dated, not live):
 | `items` | ✔ `inventory.holds` |
 | `occurrences` / `custody` | ✔ `custody.is_held` |
 | `encounters` | ✔ `encounter.cleared` (published 2026-09-04) |
-| `bosses` | ◐ `boss.cleared` published 2026-09-04, retiring a mirror slice — ⛔ **but its five authored callers can NEVER be true**: they pass the BEHAVIOUR id while the save is keyed by PLACEMENT ([question 57](../awaiting-maintainer-decision.md)). Published, authored, and unreachable |
+| `bosses` | ◐ `boss.cleared` published 2026-09-04, retiring a mirror slice — ⛔ **but its three executable authored callers can NEVER be true** (five raw; two are prose, re-measured 2026-09-05): they pass the BEHAVIOUR id while the save is keyed by PLACEMENT ([question 57](../awaiting-maintainer-decision.md)). Published, authored, and unreachable |
 | `quests` | ✔ `quest.active` (published 2026-09-04, retiring a mirror slice — and the first condition published by the GAME) |
 | `wallet` | ✔ `wallet.can_afford` (published 2026-09-04, retiring the mirror's LARGEST customer — ten authored shop lines) |
 | `dialog_visits`, `checkpoint`, `minted_items`, `inventory_saved` | ⛔ nothing publishes a condition |
@@ -145,7 +145,7 @@ FACT, AND IT HAS MORE AUTHORED CALLERS THAN ANY PUBLISHED CONDITION.**
 
 ```text
 can_afford(price)   10 authored calls   kernel.yarn (the whole shop menu)
-visit_count(id)      5 authored calls
+visit_count(id)      2 authored calls   (4 raw — 2 are spoken prose)
 wallet_balance()     0 authored calls
 ```
 

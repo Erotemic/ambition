@@ -450,7 +450,9 @@ broken. The first three guards are all about the CONDITION; only this one looks
 at the FACT.
 
 ⛔⛔ **AND THE FIFTH ONE LANDED ON A DEFECT THAT WAS ALREADY LIVE, which none
-of the other four did.** `boss_cleared("mockingbird")` — five authored calls —
+of the other four did.** `boss_cleared("mockingbird")` — **three** executable
+authored calls (five raw: two of the five are the Kernel Guide SAYING the call in
+prose, counted by four whole-file scanners until `ea71c83a8`) —
 passes the BEHAVIOR id while `boss_encounter/src/systems.rs:259` writes the save under the
 PLACEMENT (`BossSpawn-4308`). Exact lookup, no bridging, so those branches have
 never been able to open. ⇒ Filed as question 57 rather than repaired: making

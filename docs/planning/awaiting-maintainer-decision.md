@@ -1479,16 +1479,22 @@ question was itself the narrow reading: *"you look like you could climb that"* i
 a `.yarn` line is a `body.can` customer that costs no level geometry at all, and
 nobody has considered it because the owner page is written around routes.
 
-⭐⭐ **CURRENT FIGURES, 2026-09-04 evening — re-derived, and the corpus is
-HALF AGAIN AS BIG as this row's corrections had it:**
+⭐⭐ **CURRENT FIGURES, RE-MEASURED 2026-09-05 — and the first set was 25%
+TOO HIGH because the census counted PROSE.** A `.yarn` file is mostly spoken
+lines and only `<<…>>` is evaluated; `kernel.yarn` has the Kernel Guide SAY
+`boss_cleared("mockingbird") returned TRUE.` Four instruments each scanned whole
+files. Fixed in `ea71c83a8` — `ambition_content::dialogue::yarn::executable_regions`
+is now the one definition, mirrored for Python in `scripts/lib/yarn_source.py`.
+⇒ **The numbers below are EXECUTABLE calls; the 2026-09-04 evening figures they
+replace (30 / 7 / 5 / 3) were raw text.**
 
 ```text
-TOTAL authored uses: 30  (2 route gates + 28 dialogue lines)
+TOTAL authored uses: 24  (2 route gates + 22 dialogue lines)   [was 30]
    10  wallet.can_afford      <- more than any other, and it was invisible
-    7  inventory.holds
-    5  boss.cleared
-    3  quest.active
+    5  inventory.holds                                          [raw 7]
     3  world.flag_set
+    3  boss.cleared                                             [raw 5]
+    1  quest.active                                             [raw 3]
 published but authored NOWHERE (5 of 10):
   body.can  body.fits  custody.is_held  encounter.cleared  world.switch_on
 ```

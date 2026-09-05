@@ -1196,6 +1196,23 @@ road keys off the switch ID and writes its own value. The content road states in
 place that it means to win: *"without this write the save's switch flag stays
 whatever the encounter pipeline set it to."* **Nothing makes it last.**
 
+✔ **AND IT IS LATENT, NOT LIVE — measured, so the row is not read as an
+outage.** `falling_sand_room::the_sand_switch_pours_settles_and_becomes_persistent_ground`
+PASSES: the arbitrary order currently favours the content road and the sand
+pours. ⚠ Two things make that weak comfort:
+
+- **The chain is longer than a pair, and the drain is strictly behind it.**
+  `interact.rs` writes `SwitchActivated`; the falling-sand road reads that
+  message and writes the save **directly**, while the drain is TWO hops back —
+  `apply_switch_effects` (`features/ecs/effect_bus.rs:44`) pushes onto
+  `SwitchActivationQueue` and only then does `drain_switch_activations` write.
+  ⇒ The content road probably wins today by ACCIDENT OF DEPTH rather than by any
+  edge, and nothing holds that depth in place.
+- **The only witness is feature-gated.** That test is
+  `#![cfg(all(feature = "falling_sand", feature = "rl_sim"))]`, so it does not
+  run in the default plan; a reordering would be caught by the union lane or by a
+  player, and not by anything in between.
+
 ⚠ **A behavioural test passes either way.** The simulation is single-threaded, so
 an unordered pair still gets an order and that order is stable — deterministic,
 reproducible, and arbitrary. This is the same shape as the finishing-zoom edge the

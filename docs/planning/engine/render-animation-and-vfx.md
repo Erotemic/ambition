@@ -200,8 +200,24 @@ re-exports `PlacedPortal` (which its own public systems already query) rather th
 
 ⇒ **Remaining:**
 
-1. **`RenderLayers` and the camera stack** in the dump — main and capture camera
-   order and layers, which need the host to publish them the same way.
+1. ✔ **DONE: `RenderLayers` and the camera stack** in the dump. It needed NO host
+   seam after all — cameras are entities, so the debug system queries every one
+   of them (not just the portal rigs, which see only the capture cameras), prints
+   the stack in `order`, and per drawable names the ACTIVE camera whose mask
+   renders both the actor's layers and the pane's: `compared_by: main`, or
+   `compared_by: NONE — no active camera renders both masks`, which makes a
+   `depth_says` verdict meaningless rather than merely uncertain.
+   ⭐ The pane's own mask is printed too. The old report told the reader to
+   "compare render_layers above" while printing only the ACTOR's half, and
+   `portal_window_render_layers(channel)` is now the one authority for it —
+   previously spelled inline at the window spawn site, where a diagnostic copy
+   could have disagreed with the renderer about the fact it exists to explain.
+   ⛔⛔ **The predicate is about a CAMERA, not about the two masks intersecting
+   each other, and I shipped the wrong one first.** `RenderLayers` gates which
+   camera SEES an entity; it does not group depth. An actor on layer 0 and a pane
+   that is not ARE depth-compared, provided one camera renders both — so
+   "disjoint masks ⇒ never compared" was false, and two existing tests caught it
+   before it reached anyone.
 ✔ **DONE: the overlay colours the relation.** `debug_portal_view_zones` draws one
 outline per (pane, candidate) pair — green near-occluder, blue far-covered,
 yellow transiting, RED where the classification and today's ordering disagree.
@@ -240,8 +256,8 @@ to a viewpoint.
    default. The adder is idempotent now — invisible to a headless test, which
    returns early before reaching the duplicate.
 
-   ⓘ Remaining on this row: `RenderLayers` and the camera stack in the dump, and
-   a split-screen session, which would need per-view pieces on per-view layers —
+   ⓘ Remaining on this row: a split-screen session, which would need per-view
+   pieces on per-view layers —
    one body is near for one player and far for the other, the two-pane problem
    again. The seam cannot express it today (one eye, one resource).
 

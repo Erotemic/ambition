@@ -129,6 +129,21 @@ question below describes a registry that is empty in every shipped build.
 that comment calls a last resort is the ONLY thing standing between a params typo
 and a silently skipped grab. ⚠ Fighter lane's file; relayed rather than edited.
 
+⭐⭐ **AND THE TIMING QUESTION IS ANSWERED BY WHO IS BUILDING WHAT — measured
+2026-09-05.** The tree declares **38** distinct namespaced technique/relation
+keys as `pub const … &str` (`smash.capture_attempt`, `smash.teleport`,
+`ambition.mount`, …). Jon's example `smash.teleprot` is a typo of a REAL one.
+⚠ **But an author cannot make that typo today**: every Rust use goes through the
+constant, so a misspelling is a compile error. The keys appear as string literals
+only where they are DEFINED.
+⇒ **The risk arrives with a DATA authoring surface** — a move naming a technique
+by key in authored content rather than in Rust. That is precisely `TechniqueFlow`,
+which the fighter lane landed as an authored type with no interpreter yet.
+⇒ ⭐ **So this is not speculative generality: the consumer is being built
+concurrently.** The discovery substrate wants to land ALONGSIDE the first
+authored key, not after — because the day a `.ron` names `smash.teleprot`, the
+compiler stops helping and nothing replaces it.
+
 ⇒ ⭐ **THIS IS THE REAL O4 SUBSTRATE, and it is smaller and more concrete than
 the design question below.** Jon wants `smash.teleprot` to answer *"does not
 exist"*. The blocker is not that the registry conflates two absences — it is that

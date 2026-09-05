@@ -490,18 +490,37 @@ directly. ⇒ **A hand-listed set of dependencies is a POPULATION, and adding to
 the SOURCE does not update the LISTS** — with no help from the compiler, because
 this is runtime parameter validation, not a type error.
 
-⇒ **The composition question, which is this program's:** an outcome channel that
-not every composition cares about should be `Option<MessageWriter<T>>`, not a
-required one. `ambition_damage`'s `BodyHitResolved` already sets that precedent
-(`crates/ambition_damage/src/lib.rs:470`) and its doc explains why — it is *"an
-optional instrument, not required gameplay authority"*, so a composition that
-does not install the inspector simply gets `None`.
-⚠ **It is a SEMANTIC choice, not a tidy-up.** `Option` means *"this outcome may
-go unannounced"*, which is right for an instrument and wrong for a fact something
-must act on. The test is whether a composition can legitimately not care.
-⇒ Required is the correct default for gameplay authority; what is NOT correct is
-reaching for required by habit and discovering the answer from a panic in
-somebody's hand-built app.
+⛔⛔ **AND THE FIX IS NOT `Option` — I RECOMMENDED THAT HERE AND IT WAS WRONG.
+THIS REPO HAS RULED AGAINST IT TWICE, BOTH IN WRITING.** Verified in the tree
+rather than taken on report (`crates/ambition_render/src/rendering/camera.rs:126`):
+
+> ⛔ REQUIRED, not `Option<Res<..>>`, and the first version of this was the
+> Option. The select screen's stage button already ruled on this exact question
+> when its `ResMut` turned 28 tests red: *"an Option would have kept the fixtures
+> green and silently no-opped the stage button in production if the real
+> registration were ever dropped."* … The Option bought nothing in production and
+> cost the protection against a silent no-op.
+
+⇒ **`Option` buys GREEN FIXTURES and sells the guarantee that the thing happens.**
+A parry that goes unpublished is a counter that never fires, and nothing says so.
+
+⭐ **THE ANSWER IS TO STOP HAND-LISTING, NOT TO WEAKEN THE PARAM.** The landed
+fix is `register_strike_outcome_messages` (`ambition_combat/src/hitbox/mod.rs:429`)
+sitting beside the struct it mirrors, so the population is registered in one
+place and a fifth writer updates every consumer for free.
+⚠ ⓘ **And `damage/tests.rs` already had that idea, one crate too low to help** —
+its own registrar's doc says *"One list, one edit"*. ⇒ **The right pattern in the
+wrong scope is indistinguishable from the wrong pattern until the edge is
+crossed**, which is the sharpest form of this finding.
+
+⇒ **Where `Option` IS right, stated so the two are not confused:** an
+INSTRUMENT — something that only observes, which nothing acts on — versus an
+OUTCOME, which something acts on. `ambition_damage`'s `BodyHitResolved` is the
+former by its own doc (*"an optional instrument, not required gameplay
+authority"*, `crates/ambition_damage/src/lib.rs:470`) and is correctly `Option`.
+A parry is the latter. ⛔ *"Can a composition legitimately not care?"* is NOT the
+test — a hand-built test app not caring is exactly the wrong reason, and it is
+the reason `Option` gets reached for.
 
 - capability selection is a semantic engine API, not a Cargo-feature illusion;
 - dependency closure and installed runtime behavior should agree;

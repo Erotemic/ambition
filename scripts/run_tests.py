@@ -1303,7 +1303,25 @@ def run(jobs: list[Job], list_only: bool, timings_json: str | None = None,
     failed = [r.name for r in results if not r.ok]
     total = sum(r.seconds for r in results)
     print("\n" + "=" * 60)
-    print(f"  {passed}/{len(results)} jobs passed in {total:.0f}s")
+    # ⛔⛔ THE COUNT CARRIES ITS LANE, because the count is what gets quoted.
+    # This printed a bare `N/M jobs passed`, and the notice naming what the lane
+    # SKIPS prints further down — so the summary line travels into a commit
+    # message, a planning row or a review on its own, with nothing attached
+    # saying which guards were never asked. It cost three sessions in one day
+    # (2026-09-04): two union receipts recorded as "everything passes" when
+    # `--rust` had dropped the compile-cost ratchet and `check_no_warnings`, and
+    # one commit pushed against a hand-picked set believed complete.
+    # ⇒ A reader who quotes the number now quotes the scope with it.
+    lane = (
+        "--rust-alone" if rust_alone
+        else "--rust" if rust_only
+        else "--tool-tests" if tool_tests_only
+        else "--maintenance" if maintenance_only
+        else "-k/-p filtered" if filtered
+        else "exhaustive" if exhaustive
+        else "full gate"
+    )
+    print(f"  {passed}/{len(results)} jobs passed in {total:.0f}s  [lane: {lane}]")
     if failed:
         print("  FAILED jobs:")
         for n in failed:

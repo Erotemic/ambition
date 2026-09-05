@@ -100,6 +100,48 @@ validated before installation. Pure Rust `CharacterDefinition` construction can
 be declarative; a plugin that mutates runtime state while pretending to be a
 content document is not.
 
+## ⛔⛔ An unknown technique key PASSES validation, because absence means two things
+
+**Measured 2026-09-05, and it is the same defect shape as `boss.cleared` one
+surface over.** `ParamSchemaRegistry::validate`
+(`crates/ambition_entity_catalog/src/lib.rs:151`) says so in its own doc:
+
+> The engine matches no key, so an unregistered key always passes (a paramless
+> content-const technique needs no schema).
+
+⇒ **The reason is legitimate and the consequence is not.** A technique with no
+params genuinely needs no check, so the registry cannot distinguish *"this key
+has nothing to validate"* from *"this key does not exist"*. Both are an absence,
+and absence passes. An authored `smash.teleprot` — a typo for a real technique —
+validates clean at startup and does nothing in play.
+
+⭐ **That is exactly the `boss.cleared` failure, and it cost weeks there:** a
+missing save key read `Untouched`, so a wrong id was a silently shut door rather
+than an error. Here a missing schema reads "fine", so a wrong key is a silently
+inert effect. **An absence that reads as a pass is the shape to hunt.**
+
+⇒ ⭐ **THE FIX IS TO SEPARATE THE TWO FACTS, not to make unknown keys fail.**
+A technique should register its EXISTENCE always, and a param check optionally.
+Then all three answers become distinct and correct:
+
+| authored key | today | with the split |
+|---|---|---|
+| unknown (`smash.teleprot`) | ✔ passes | ⛔ *"no technique is installed under this key"* |
+| known, paramless | ✔ passes | ✔ passes |
+| known, with a schema | validated | validated |
+
+⚠ **The cost is one registration per technique, and the design question that
+comes with it is who owns the installed set** — the same crate that owns the
+checks, or the content install that already calls `register`. That is the
+question to answer before writing any of it, because an installed-set registry
+maintained separately from the code that installs techniques is a second
+authority over "does this exist", which is the thing this repo keeps removing.
+
+ⓘ This is the substrate under the discovery surface Jon asked for —
+`smash_tool techniques` / `technique <key>` / `mechanics <domain>` — and it is
+the half worth building first: a catalog cannot list what the engine cannot be
+asked about. `ConditionCatalog::describe` is the working precedent for the shape.
+
 ## Program requirements
 
 ### A1 — capability discovery

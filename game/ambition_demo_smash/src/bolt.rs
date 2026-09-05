@@ -1,4 +1,4 @@
-//! The steered bolt: a thing you fly with the stick while standing still.
+//! The steered bolt: a thing you fly with the same stick you walk with.
 //!
 //! ⭐⭐ THE STICK IS READ FROM THE CASTER, WHO NEVER STOPS BEING THE CASTER.
 //! `ActorControlFrame::steer_axis()` is *"what the PLAYER is HOLDING, as opposed
@@ -176,10 +176,15 @@ pub fn steer_and_fly_bolts(
             continue;
         }
 
-        // ⭐ THE LIVE STICK, from the caster who is still standing there. Reading
-        // `locomotion` here would find zero every tick, because the move that
-        // fired this is rooted — which is exactly the trap `steer_axis` exists
-        // to keep techniques out of.
+        // ⭐ THE LIVE STICK, and `steer_axis()` is right in both regimes. While
+        // the move is damping him it returns the value recorded BEFORE the damp;
+        // once the move ends — which happens LONG before the bolt fades, by
+        // design — nothing damped it and it returns the live axis. ⇒ Reading
+        // `locomotion` would have been correct only in the second case, and
+        // silently zero in the first.
+        //
+        // ⚠ SO ONE STICK DOES BOTH once he is free: walking right also steers
+        // the bolt right. That is the move's real cost and it is not a bug.
         let steer = steering
             .iter()
             .find(|(seat, _)| seat.0 == bolt.owner_seat)

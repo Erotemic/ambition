@@ -1,4 +1,4 @@
-//! A bolt the caster steers while standing still: the authored vocabulary.
+//! A bolt the caster steers with the same stick they walk with.
 //!
 //! ⭐⭐ JON'S ASSIGNMENT, 2026-09-05: *"I want the author to have side-b be the
 //! pk-thunder style 'mind' attack."*
@@ -8,8 +8,21 @@
 //! PLAYER is HOLDING, as opposed to what this body is ALLOWED to move by"* — it
 //! exists because `update.rs` republishes the DAMPED frame after integration, so
 //! a rooted move reads `locomotion` as zero for its whole duration. ⇒ The caster
-//! stays rooted and keeps their own seat; a system reads their live stick and
-//! turns the bolt with it.
+//! keeps their own seat; a system reads their live stick and turns the bolt with
+//! it, and `steer_axis()` is right whether the move is damping them or not — it
+//! returns the value recorded BEFORE damping, or the live one when nothing
+//! damped.
+//!
+//! ⛔⛔ AND THE CASTER IS NOT ROOTED FOR THE BOLT'S WHOLE LIFE — I wrote that it
+//! was and it is not. `hitless_special` roots the MOVE, and the bolt is authored
+//! to OUTLIVE it deliberately (a whiff must not pin the caster through their own
+//! punish window). ⇒ So for most of the flight he is free, and **one stick does
+//! both**: walking right also steers the bolt right.
+//!
+//! ⭐ THAT IS THE MOVE'S REAL COST, and it is better than the commitment I
+//! thought I had authored. He is not helpless — he is DIVIDED. Repositioning
+//! himself and aiming the thought are the same input, so every step he takes is
+//! a turn he did not choose.
 //!
 //! ⛔ STEERING IS NOT POSSESSION, and only the first is wanted here. Possession
 //! is "my input drives another body through ITS OWN action set while my avatar

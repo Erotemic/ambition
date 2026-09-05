@@ -210,8 +210,43 @@ another in the same frame, and collapsing that to a single colour would
 reintroduce, in the diagnostic, the one-answer-per-actor assumption the bug is
 made of. ⚠ Nothing is drawn without a `PortalViewer` — near and far are relative
 to a viewpoint.
-3. **The compositor itself** — and it needs NO NEW RENDER MACHINERY, which is
-   the cheapest thing anyone can know before starting it.
+3. ✔ **DONE: the compositor itself** (`far_side::composite_far_side_bodies`,
+   flag `far_side_compositing`, default ON). A far-covered body's whole-sprite
+   draw is withdrawn and the uncovered remainder is drawn as clipped quads on the
+   road the transit path already uses. It needed NO new render machinery.
+   ⭐ **It serves the RIGHT population.** `tag_portal_scene_bodies` bridges
+   `PlayerVisual` only — its own doc says "the player's sprite" — so the
+   clipped-piece machinery could only ever decompose the player, and Jon's
+   screenshot is an NPC. This reads `PortalCompositingCandidate`, which is
+   population-agnostic, so an ordinary actor is served without naming its kind.
+   ⛔⛔ **Three defects were found AFTER the first version was pushed, all by
+   asking what the code assumed rather than by a failing test:**
+   - it hardcoded `transiting: false`, so a straddling body was `FarCovered` and
+     gained a THIRD copy beside its two transit slices, with two systems writing
+     its `Visibility`. `PaneRelation::Transiting` existed the whole time. **With
+     the defect restored, 10 of 11 arms still pass** — every other arm is
+     satisfied by a body that is also mid-transit, because none put a
+     `PortalTransit` on anything;
+   - it wrote `Inherited` onto EVERY candidate each frame, which would overrule
+     every other reason a body can be hidden (death, culling, a cutscene).
+     `PortalFarSideHidden` records what this system did so it reverses that and
+     nothing else; and
+   - it read the eye as a COMPONENT while the host publishes a `Resource`. That
+     happens to work — resources live on a singleton entity — so the tests were
+     green against a world shape the game never produces.
+   ⚠ **And registering it would have CRASHED every default host at startup**:
+   `add_plugins(Material2dPlugin<..>)` panics on a duplicate, and the transit
+   pieces and the compositor both need that material with both flags ON by
+   default. The adder is idempotent now — invisible to a headless test, which
+   returns early before reaching the duplicate.
+
+   ⓘ Remaining on this row: `RenderLayers` and the camera stack in the dump, and
+   a split-screen session, which would need per-view pieces on per-view layers —
+   one body is near for one player and far for the other, the two-pane problem
+   again. The seam cannot express it today (one eye, one resource).
+
+   The original sizing, kept because it was right: it needs NO NEW RENDER
+   MACHINERY, which is the cheapest thing anyone can know before starting it.
    ⭐ **`PortalClipMaterial` already does exactly this job for transit pieces.**
    It is a `Material2d` carrying THREE world-space clip half-planes
    (`clip0/1/2`, each `(point.xy, normal.xy)`, `CLIP_PLANE_OFF` to disable), it

@@ -541,6 +541,32 @@ below names `start_impulse` ADDING rather than setting), `bulkhead_drop` (*"he
 drops a plate"* — an animation, and its `shockwave`/`landing_puff` cues agree),
 and Carl's `cosmic_calendar`. ⚠ **A method that only ever flags is a suspicion.**
 
+### ⭐⭐ THE READABILITY SWEEP, COMPLETE — CAN A PLAYER SEE WHAT THESE MOVES MAKE?
+
+Every object a smash move puts into the world, and what a player actually sees of
+it. ⇒ Three tiers, and only the first was a bug I could fix.
+
+| object | seen as | why |
+|---|---|---|
+| `PlacedSpring` | ⛔ **nothing** → ✔ fixed | a bare component has no render seam at all |
+| `SteeredBolt` | ⛔ **nothing** → ✔ fixed | same, and the move's entire mechanic is steering it |
+| `PlacedMine`, the bomb, the ponytail | ⚠ **a placeholder quad** | `GroundItem` resolves through `HeldItemArt`, whose doc says *"absent / unmatched → the placeholder quad"* |
+| Alice's portals | ✔ drawn | the portal presentation owns them |
+| a dilated clock, a parasol float, a homing dash | ✔ the FIGHTER is the tell | no object exists; the body's own animation and motion carry it |
+
+⭐ **THE DISTINCTION THAT MATTERS IS SEAM VERSUS ART, and it is why the mine was
+fine and the plate was not.** `GroundItem` has a resolution seam WITH A FALLBACK,
+so an item with no authored art still draws *something*. A bare gameplay
+component has no seam, so it draws *nothing* — and nothing is not a degraded
+version of something, it is a different failure.
+
+⚠ **TIER TWO IS JON'S AND I AM NOT INVENTING IT.** `ambition_demo_smash`
+contributes **no `HeldItemArtEntry` at all**, so its mine, bomb and ponytail are
+grey quads: visible as *"a thing is there"*, unidentifiable as *"that is a mine"*.
+For a 1v1 read that is the difference between knowing to jump and knowing what you
+are jumping over. ⇒ It is an ART ask — somebody has to draw three icons — and the
+seam to hang them on already exists and needs no render dependency.
+
 ### ⛔⛔⛔ AND THE STEERED BOLT WAS INVISIBLE TOO — THE MOVE WHOSE MECHANIC *IS* SEEING IT
 
 Asking the same question of the other objects found a worse one. **`SteeredBolt`

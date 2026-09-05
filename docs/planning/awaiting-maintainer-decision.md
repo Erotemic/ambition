@@ -1352,6 +1352,40 @@ authored standing size) or ask whether any reachable stance fits, rather than
 the live `BodyKinematics.size`. If state, then `body.can` is the odd one and the
 family wants a name that says so.
 
+⭐⭐ **THE `BodyBaseSize` OPTION IS SOUND — RE-MEASURED 2026-09-05, because one
+of the repo's own comments says the opposite and would have talked a reader out
+of it.** Three independent sources agree that `BodyBaseSize` is IDENTITY-scoped,
+not stance-following:
+
+- its definition (`platformer2d_core/src/body_clusters.rs:222`) — *"the player's
+  authored STANDING body size — the baseline the morph / crouch / slide stances
+  read from"*;
+- `character_sprites/src/posed_body.rs:120` — *"only the identity authority may
+  write it (`reset_body_clusters` restores, never redefines)"*;
+- and a test in `body_clusters.rs:1347` that separates the two by construction:
+  *"an identity authority (Mary-O's `sync_grown_form`) grew her… and something
+  transient shrank the live collider, as a crouch would"* — the crouch moves
+  `kinematics.size` and leaves `base_size` alone.
+
+⇒ A crouch does NOT move `BodyBaseSize`. So `body.fits` reading it would ask
+*"is this body short enough to pass"* about the body's STANDING size, which is
+the capability reading.
+
+⛔ **AND A COMMENT IN THE TREE SAYS OTHERWISE, on exactly the word this ruling
+turns on.** `shared_tangle/src/body.rs:208` reads *"`BodyBaseSize` follows the
+STANCE"*. Its ARGUMENT is right — a reset must not ask the live components what
+body to restore, and `base_size` does move when Mary-O GROWS — but the word is
+wrong: it follows the FORM, and the stance is the one thing it does not follow.
+A reader checking this row against that comment would reject the sound option.
+⇒ Filed as a correction to make, not a defect in behaviour: no code reads that
+sentence.
+
+⚠ **What is still NOT measured, and would decide it if the answer is
+"capability":** whether *"ask whether any reachable stance fits"* is even
+answerable — it needs the set of stances a body can enter, and I have not checked
+that such a set exists as a readable fact rather than as behaviour spread across
+the stance systems. That is the costing this row still owes.
+
 ⓘ **Nothing authors either condition yet** — both are among the five the census
 measures as authored NOWHERE — so this costs nothing to answer now and gets
 expensive once a level depends on one reading. ⚠ Cheap to answer, and the kind

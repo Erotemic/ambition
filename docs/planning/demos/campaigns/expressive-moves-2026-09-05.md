@@ -135,17 +135,35 @@ none of them waits on `TechniqueFlow`.
   same thing that was wrong with the shot: it draws at a HARDCODED body offset
   (`size.x * 0.5 + 6.0`, `size.y * 0.20`), so the orb forms at the hip while the
   shot now leaves the cannon.
-  ⚠ **Whether those two visibly disagree is NOT established.** The orb is gated
-  `With<PlayerEntity>`, whose doc says "zero or many may exist" — so it is not
-  obviously the exploration-only marker, and I did not verify whether a seated
-  versus fighter carries it. Verify that first: if no smash fighter renders the
-  orb, this is a coherence fix for the adventure game and not a smash one.
-  ⇒ **The wire, once that is known:** the sim resolves the charge origin (it has
-  `muzzle_world_pos` and the `ActionSet` component in the same crate as the
-  charging tick, `projectile/systems.rs:237`) and publishes it; presentation draws
-  there instead of guessing. ⛔ Do not resolve the muzzle a second time in
-  `ambition_render` — the facing and gravity math has one home now and that is the
-  point of it.
+  ⛔⛔ **ANSWERED 2026-09-05, AND IT IS WORSE THAN A DISAGREEMENT: THE CHARGE
+  INDICATOR DOES NOT RENDER IN A VERSUS MATCH AT ALL.**
+  `draw_player_projectile_charge` is gated `With<PlayerEntity>`, and every
+  PRODUCTION insertion of that marker is `PlayerIdentityBundle` inside
+  `PlayerSimulationBundle`, which hardcodes `PlayerSlot::PRIMARY` and
+  `PrimaryPlayer` — the single exploration avatar. The four other insertions in
+  the tree are all inside `#[cfg(test)]` modules, checked one at a time. There is
+  exactly one charge-visual system and no `FeatureVisual` counterpart.
+  ⇒ **Projectile Polygon's charge — which her own module doc calls "the whole
+  character" — is invisible to both players in a 1v1 match.** The mechanic works:
+  `charge_tier` is published, damage/speed/size scale, the tiers are authored.
+  What is missing is the only part either player can act on.
+  ⭐ **THIS IS THE DEFECT `flyline.rs` ALREADY NAMES IN BOLD**, one system over:
+  *"a visual gated on it alone appears in an Ambition room and never once in a
+  versus match. That is precisely what happened to the trapdoor, and every test it
+  had spawned a `PlayerVisual`, so none of them could fail."* The charge indicator
+  is the trapdoor's defect still standing, in the mechanic Jon calls the character.
+  ⇒ **THE FIX IS THE SAME SHAPE, AND ONE FACT SERVES THREE NEEDS.** `FeatureView`
+  carries no `charge_tier` and no facing, so the feature road cannot place the orb
+  from what it holds. ⇒ The sim resolves a **charge ORIGIN** — a world point, from
+  the authored muzzle, at the charging tick (`projectile/systems.rs:237`, the same
+  crate as `muzzle_world_pos` and the `ActionSet` component) — and publishes it on
+  both views. Presentation then draws at a POINT and needs neither facing nor size
+  nor the muzzle, which fixes the hardcoded body offset, the orb/shot
+  disagreement and the missing feature road together.
+  ⛔ Not a second muzzle resolution in `ambition_render`: that math has one home
+  now and keeping it there is the point of extracting it. ⛔ And not a field on
+  `PlayerProjectileState` — a presentation point is not rollback state; it is
+  derived per tick, which is a category the registry already has.
 
 ### Track A — the keystone
 

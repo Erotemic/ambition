@@ -40,7 +40,7 @@ fn body(app: &mut App, seat: usize, at: ae::Vec2) -> Entity {
 
 fn params() -> PlaceSpringParams {
     PlaceSpringParams {
-        vfx: None,
+        vfx: "test_plate".to_string(),
         // Up is NEGATIVE y, as everywhere in this codebase.
         launch: (0.0, -900.0),
         half_extents: (22.0, 6.0),
@@ -336,7 +336,7 @@ fn a_plate_with_an_authored_cue_announces_both_its_arrival_and_its_launch() {
     let mut placed = app();
     let dropper = body(&mut placed, 0, ae::Vec2::new(0.0, -200.0));
     let mut authored = params();
-    authored.vfx = Some("oil_slick".to_string());
+    authored.vfx = "oil_slick".to_string();
     placed.world_mut().write_message(ActorActionMessage {
         actor: dropper,
         request: ActionRequest::Special {
@@ -382,17 +382,26 @@ fn a_plate_with_an_authored_cue_announces_both_its_arrival_and_its_launch() {
         "the plate fired silently — the fighter it launched was thrown by nothing"
     );
 
-    // ⛔ POISON GUARD. A plate authored with NO cue must stay silent, or the
-    // two assertions above are about a system that announces unconditionally
-    // and the authored field means nothing.
+    // ⛔ POISON GUARD, AND IT CHANGED SHAPE WHEN THE FIELD BECAME REQUIRED. It
+    // used to author a plate with no cue and assert silence; that state is now
+    // unrepresentable through `author_place_spring`, which refuses an empty
+    // announcement outright. ⇒ So the control drives the ADAPTER directly with an
+    // empty cue — the shape a hand-built `PlaceSpringParams` could still reach —
+    // and asserts it stays quiet, which is what proves the two assertions above
+    // are about the authored field rather than about a system that announces
+    // unconditionally.
     let mut quiet = app();
     let hand = body(&mut quiet, 0, ae::Vec2::new(0.0, -200.0));
     quiet.world_mut().write_message(ActorActionMessage {
         actor: hand,
         request: ActionRequest::Special {
             spec: SpecialActionSpec::Special(PLACE_SPRING.to_string()),
-            params: ambition_platformer2d::entity_catalog::ParamValue::from_typed(&params())
-                .expect("spring params serialize"),
+            params: ambition_platformer2d::entity_catalog::ParamValue::from_typed(&{
+                let mut silent = params();
+                silent.vfx = String::new();
+                silent
+            })
+            .expect("spring params serialize"),
         },
     });
     quiet.update();
@@ -415,5 +424,34 @@ fn a_plate_with_an_authored_cue_announces_both_its_arrival_and_its_launch() {
         quiet_cues, 0,
         "a plate that authored NO cue announced itself anyway, so the field is \
          decoration and the assertions above prove nothing about authoring"
+    );
+}
+
+/// ⛔⛔ AUTHORING A SILENT PLATE IS REFUSED AT THE SEAM, NOT LEFT TO DISCIPLINE.
+///
+/// `PlaceSpringParams::vfx` was `Option<String>` with `#[serde(default)]` for one
+/// commit, and a peer caught the shape in a sentence I had written myself: *"None
+/// draws nothing, which is what every plate authored before this field existed
+/// did."* ⇒ **The default value of the new field was exactly the invisible-ambush
+/// state the field exists to end.** Both shipped authors set it; nothing made a
+/// third.
+///
+/// ⭐ Required and asserted turns "an author remembered" into "an author could
+/// not omit it" — the same move as gating the gravity modifier on its timer and
+/// deriving `overlapped` rather than mirroring it.
+#[test]
+#[should_panic(expected = "announces nothing")]
+fn a_plate_authored_with_no_cue_is_refused() {
+    let mut silent = params();
+    silent.vfx = String::new();
+    let _ = ambition_platformer2d::characters::smash_spring::author_place_spring(
+        ambition_platformer2d::characters::moveset_authoring::hitless_special(
+            "silent_plate",
+            "special",
+            0.0,
+            0.10,
+        ),
+        0.05,
+        silent,
     );
 }

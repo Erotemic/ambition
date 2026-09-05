@@ -556,6 +556,21 @@ and again at FIRE, and both of Bob's plate and Oiler's new pool author one. ⭐
 firing is what the LAUNCHED player must be able to attribute, since without it a
 fighter is thrown by nothing.
 
+⛔⛔ **AND THE FIRST VERSION OF THE FIX HAD THE BUG AS ITS DEFAULT — caught by a
+peer, in a sentence I wrote myself.** `vfx` was `Option<String>` with
+`#[serde(default)]`, and my own doc said *"`None` draws nothing, which is what
+every plate authored before this field existed did."* ⇒ **The default value of the
+new field was exactly the invisible-ambush state the field exists to end.** Both
+shipped authors set it and nothing made a third; worse, `serde(default)` meant a
+plate arriving by deserialization was silent with nobody typing anything.
+
+⭐ **Now required and asserted non-empty at the authoring seam**, which turns *"an
+author remembered"* into *"an author could not omit it"* — the same move as
+gating the gravity modifier on its timer and deriving `overlapped` rather than
+mirroring it. ⚠ The blast radius was four construction sites, which is as cheap
+as that change was ever going to be; a field's default is worth auditing on the
+commit that introduces it, not the one that regrets it.
+
 ⚠ **PERSISTENT VISIBILITY IS STILL OPEN AND THIS DOES NOT CLOSE IT.** A cue at
 each end does not draw the plate while it sits there. The shipped road is the
 mine's — a `GroundItem` with authored art — and that is a content decision rather

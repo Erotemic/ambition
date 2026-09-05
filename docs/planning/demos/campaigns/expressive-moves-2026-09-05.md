@@ -32,7 +32,7 @@ each one as an **engine acceptance fixture** rather than a character feature:
 | 10 | **Limit** | character-local resource state, threshold transitions, timeout, action variants, stat modifiers |
 | 11 | **Free-standing ally summon** | summon is not synonymous with mount; first owned-secondary-actor contract |
 | 12 | **Reusable launch object** | a fighter can create a persistent world actuator another fighter interacts with |
-| 13 | **Portal recovery** (Jon, added same day) | an authored customer can place linked world portals and traverse them, exercising `ambition_portal2d` from a move — including an angled pair, which genre parity does not have |
+| 13 ✔ | **Portal recovery** (Jon, added same day) — **LANDED 2026-09-05** on Alice's up-B | an authored customer can place linked world portals and traverse them, exercising `ambition_portal2d` from a move — including an angled pair, which genre parity does not have |
 
 ⭐ **Sanic's spring analogue is a SPEED BUMP** (Jon): he slams down a ridiculous
 yellow-and-black speed bump that catapults anyone who touches it. On the ground
@@ -52,7 +52,7 @@ clause 2 for each row, pre-answered.
 | **Projectile Polygon** | **tether**, and probably the **remote mine** as down-smash | 4 and 6 |
 | **Performer** | **Sing** | 9 |
 | **Author** | **side-B: the "mind" attack**, PK-Thunder style | 1 — the keystone |
-| **Alice** (provisional) | **up-B: a portal recovery** | NEW, below |
+| **Alice** (provisional) | **up-B: a portal recovery** | ✔ LANDED 2026-09-05 (`9444800b7`) |
 
 ⚠ **PLACEMENT IS PROVISIONAL AND SAID SO** — Jon: *"We can tune who the moves
 belong to later. The important thing is that they can be expressed and authored

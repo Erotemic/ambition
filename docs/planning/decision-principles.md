@@ -20,6 +20,20 @@ If you need to make an architecture decision while operating autonomously, use t
 
 Prefer the solution that is more elegant. In this project, “elegant” means the solution composes cleanly, has an obvious source of truth, follows existing seams, and does not require callers to remember hidden ordering rules or workaround behavior.
 
+Two tests make that judgeable rather than a matter of taste, and a change should pass at least one.
+
+*One authority per fact.* If a fact is read or written in two places, the elegant change is not to keep them in step — it is to remove one of them. A test asserting that two copies agree is a guard compensating for a fact having two homes, and it is evidence the change has not been made yet.
+
+*Make it impossible, not checked.* Prefer the structure that cannot express the defect over the test that catches it. A guard is the right answer only where a type cannot state the rule — an authored string, a content file, a fact that lives outside the compiler.
+
+A refactor that only moves code is not elegance. Name the authority or the dependency edge the change removes. If it removes neither, it is churn.
+
+Two things follow from the second test, and both were learned by getting them wrong.
+
+Making something impossible changes what its guard is for. A guard whose property has become structural is worth keeping only if it still names a reachable failure; re-aim it and say which, or delete it. Leaving it asserting what the compiler now guarantees, with a comment claiming otherwise, is worse than either.
+
+A claimed compile-time check must be shown to fail. Poison the case that only the new check can catch, not the nearest case to hand — a poison that fires through some other mechanism is indistinguishable from one that fires through yours. For a compile-time assertion specifically, make it unconditionally false and confirm the build breaks. An associated `const` holding an assertion can compile clean while never being evaluated, which is a guard that cannot fail wearing the strongest possible disguise.
+
 Prefer the solution that best respects the project’s layer boundaries:
 
 * Rust is for behavior.

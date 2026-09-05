@@ -774,6 +774,24 @@ language.
   to restore, because nothing was overwritten — and the one-frame window where a
   session mask is wrong closes by construction rather than by the F3 re-sync
   catching up next frame.
+  ⛔ **DECIDED 2026-09-05: DO NOT BUILD IT YET, and the reason is reachability
+  rather than difficulty.** The gear term does not exist, so the erasure this
+  would prevent has nothing to erase. What IS reachable today is only the
+  one-frame mask window, and only in a dev build: `ambition_app`'s default is
+  `desktop_dev`, which includes `dev_tools`, so an F3 mask that gates off a wall
+  verb is restored to BASE for a frame on portal exit before the re-sync
+  re-applies it.
+  ⚠ **That one-frame claim is the CODE'S, not a measurement of mine** — the
+  restore's own comment says the F3 re-sync *"re-applies the mask on the next
+  frame"*. I did not build a fixture for it, because the decision does not turn
+  on the exact frame count.
+  ⇒ **Building a mask-contribution mechanism now would be a new engine
+  abstraction whose only live customer is a one-frame dev-tools artifact.** The
+  trigger that changes this is the gear/upgrade term landing — at that moment the
+  portal restore silently erases a granted verb, and the shape below is what to
+  build. Recorded so the next reader inherits the design and the timing, not just
+  the design.
+
   ⚠ **The obstacle is ownership, and it is worth stating before anyone starts:**
   `EditableAbilitySet` lives in `ambition_dev_tools`, so today the mask term is
   owned by a dev-tools crate that `ambition_content` should not depend on. Making

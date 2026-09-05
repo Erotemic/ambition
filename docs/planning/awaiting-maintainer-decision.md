@@ -1412,6 +1412,34 @@ materially different traversal capabilities"* cannot currently be authored as
 SHOULD be ability verbs is a separate question this measurement raises and does
 not answer.
 
+⭐⭐ **AND `body.fits` IS ALONE IN THE WHOLE CATALOG, which is the cleanest
+argument this row has.** Classified all ten published conditions by what they
+read (2026-09-05):
+
+```text
+DURABLE (the save)   boss.cleared  encounter.cleared  world.flag_set
+                     world.switch_on  quest.active
+LIVE (ECS)           body.can  body.fits  inventory.holds
+                     custody.is_held  wallet.can_afford
+```
+
+⚠ **The durable/live split is NOT the interesting axis** — it is correct design.
+`inventory.holds` must be live because a player can drop a thing, and
+`wallet.can_afford` reads the live `BodyWallet` across a proper load/save
+boundary (`items/persist.rs`), not as a second authority.
+
+⇒ **The axis that matters is PERSISTENT vs TRANSIENT, and both can be live.**
+Of the five live conditions, four read facts that are stable under play — a
+granted ability, what you carry, what holds you, what you have. **`body.fits`
+alone reads a fact that changes while a button is held**: `BodyKinematics::size`
+is the per-frame collider, so its gate opens on the way down into a crouch and
+shuts on the way up.
+
+⇒ So the ruling is not *"the body family is inconsistent with itself"*, it is
+**"one condition of ten answers a different kind of question than the other
+nine"** — which is a much easier sentence to rule on, and it does not require
+deciding anything about `body.can`.
+
 ⓘ **Nothing authors either condition yet** — both are among the five the census
 measures as authored NOWHERE — so this costs nothing to answer now and gets
 expensive once a level depends on one reading. ⚠ Cheap to answer, and the kind

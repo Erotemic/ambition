@@ -201,7 +201,7 @@ dependency mandatory: **fixing a guard by changing the contract it guards.**
 ✔ **The three tests were asserting an optional path unconditionally, and they
 skip now** — the move this suite already makes four times, for `librosa`,
 `pyloudnorm`, `PySide6` and `pedalboard`. ⇒ Fixed on
-`agent/sfizz-source-fallback-and-cue-fanout` (`486f5fb`); suite goes from
+`agent/sfizz-source-fallback-and-cue-fanout` (`486f5fb`, also in `tools/ambition_music_renderer`); suite goes from
 **258 passed / 3 failed** to **259 passed / 4 skipped / 0 failed**.
 
 ⭐ **And the fallback the docstring promises had NO test — the one path a fresh
@@ -957,7 +957,7 @@ entirely to the renderer refusing"*. That deferral is correct reasoning about a
 renderer that refuses. The pinned renderer does not.
 
 ✔ **The work is done and integrated, and landing it is now one command.** The
-branch merged the submodule's `main` cleanly (`a5d9f3a`), `main` is an ancestor
+branch merged the submodule's `main` cleanly (`a5d9f3a` — a commit in `tools/ambition_music_renderer`, not in this repository), `main` is an ancestor
 so it **fast-forwards**, and both sides' guards pass together: 14 tests — the
 GM refusal, the missing-named-library preflight, main's mirror-symlink publish
 guard and its CLI-entry guard. ⓘ Three failures in the full 262-test suite are
@@ -971,6 +971,23 @@ previous pin was on **no remote branch at all**, so a dangling pointer was
 traded for a correct-but-unguarded one. ⇒ The remaining decision is only
 *"fast-forward the submodule's main and re-pin"*, and the reason to take it is
 that the ask is unprotected until somebody does.
+
+⛔⛔ **A SUBMODULE SHA IN PLANNING PROSE RESOLVES OR NOT DEPENDING ON THE
+READER'S FETCH STATE, and that cost a red on the sibling's machine while this one
+was green — 2026-09-04.** `a5d9f3a` is a commit in
+`tools/ambition_music_renderer`. It exists here because this checkout created it,
+and it did **not** exist there, because a superproject `git fetch` does not fetch
+submodule branches. ⇒ **The same superproject commit produced two different
+verdicts from `test_the_live_planning_tree_has_no_fabricated_commit`**, which is
+worse than a wrong citation: the guard is answering a question about the reader.
+ⓘ The checker already warns about exactly this — *"a submodule's objects can
+simply be stale, so run `git submodule foreach git fetch` before believing this
+one"* — so a fetch clears it. ⭐ **But the durable fix is to QUALIFY**: name the
+repository a SHA lives in whenever it is not this one. A fetch fixes one machine;
+qualification fixes every reader, including one who never fetches. ⚠ Distinct
+from the rebase trap recorded above, which has the identical symptom and the
+opposite fix — a rewritten SHA wants **replacing**, a foreign one wants
+**naming**.
 
 ⛔⛔ **DO NOT "FIX" THIS BY REVERTING THE PIN, which is the move it invites.**
 The guarded commit lives on a **deletable agent branch**; `4e5695c` is on the

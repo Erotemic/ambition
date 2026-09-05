@@ -135,35 +135,43 @@ none of them waits on `TechniqueFlow`.
   same thing that was wrong with the shot: it draws at a HARDCODED body offset
   (`size.x * 0.5 + 6.0`, `size.y * 0.20`), so the orb forms at the hip while the
   shot now leaves the cannon.
-  ⛔⛔ **ANSWERED 2026-09-05, AND IT IS WORSE THAN A DISAGREEMENT: THE CHARGE
-  INDICATOR DOES NOT RENDER IN A VERSUS MATCH AT ALL.**
-  `draw_player_projectile_charge` is gated `With<PlayerEntity>`, and every
-  PRODUCTION insertion of that marker is `PlayerIdentityBundle` inside
-  `PlayerSimulationBundle`, which hardcodes `PlayerSlot::PRIMARY` and
-  `PrimaryPlayer` — the single exploration avatar. The four other insertions in
-  the tree are all inside `#[cfg(test)]` modules, checked one at a time. There is
-  exactly one charge-visual system and no `FeatureVisual` counterpart.
-  ⇒ **Projectile Polygon's charge — which her own module doc calls "the whole
-  character" — is invisible to both players in a 1v1 match.** The mechanic works:
-  `charge_tier` is published, damage/speed/size scale, the tiers are authored.
-  What is missing is the only part either player can act on.
-  ⭐ **THIS IS THE DEFECT `flyline.rs` ALREADY NAMES IN BOLD**, one system over:
-  *"a visual gated on it alone appears in an Ambition room and never once in a
-  versus match. That is precisely what happened to the trapdoor, and every test it
-  had spawned a `PlayerVisual`, so none of them could fail."* The charge indicator
-  is the trapdoor's defect still standing, in the mechanic Jon calls the character.
-  ⇒ **THE FIX IS THE SAME SHAPE, AND ONE FACT SERVES THREE NEEDS.** `FeatureView`
-  carries no `charge_tier` and no facing, so the feature road cannot place the orb
-  from what it holds. ⇒ The sim resolves a **charge ORIGIN** — a world point, from
-  the authored muzzle, at the charging tick (`projectile/systems.rs:237`, the same
-  crate as `muzzle_world_pos` and the `ActionSet` component) — and publishes it on
-  both views. Presentation then draws at a POINT and needs neither facing nor size
-  nor the muzzle, which fixes the hardcoded body offset, the orb/shot
-  disagreement and the missing feature road together.
-  ⛔ Not a second muzzle resolution in `ambition_render`: that math has one home
-  now and keeping it there is the point of extracting it. ⛔ And not a field on
-  `PlayerProjectileState` — a presentation point is not rollback state; it is
-  derived per tick, which is a category the registry already has.
+  ⛔⛔ **ANSWERED 2026-09-05 — AS TWO DEFECTS, NOT ONE, AND MY FIRST ANSWER
+  CONFLATED THEM.** This repository has THREE charge concepts and I read one as
+  another:
+  * the **exploration fireball** — `PlayerProjectileState::charging`, published as
+    `BodyPoseView::charge_tier`, drawn as the orb by
+    `sync_projectile_charge_visuals`;
+  * the **smash-attack** charge — `MovePlayback`'s, published as
+    `BodyPoseView::smash_charge`, which drives audio cues in `body_cues.rs`;
+  * the **ranged-action** charge — `RangedCharge` on a `RangedActionSpec`, which
+    is Projectile Polygon's.
+  ⇒ **The orb was never hers.** `RangedCharge::visuals` is documented as "one
+  `ProjectileVisualId` per tier": it changes how the FIRED SHOT looks, not how the
+  fighter looks while holding it.
+
+  ▢ **DEFECT ONE — the orb never renders in a versus match.** It is gated
+  `With<PlayerEntity>`, and every PRODUCTION insertion of that marker is
+  `PlayerIdentityBundle` inside `PlayerSimulationBundle`, which hardcodes
+  `PlayerSlot::PRIMARY` and `PrimaryPlayer`; the four others are all inside
+  `#[cfg(test)]` modules, checked one at a time. There is no `FeatureVisual`
+  counterpart. ⭐ This is exactly the defect `flyline.rs` names in bold — *"what
+  happened to the trapdoor, and every test it had spawned a `PlayerVisual`, so
+  none of them could fail."* Real, and about the fireball rather than about smash.
+
+  ▢ **DEFECT TWO — a held ranged charge publishes NOTHING, and this is the smash
+  one.** `BodyPoseView` carries `charge_tier` (fireball) and `smash_charge` (smash
+  attack) and no field for a ranged-action charge at all, so no renderer can show
+  one. ⇒ Projectile Polygon can hold a charge that multiplies damage 3.5×, speed
+  1.5× and size 2.4×, and neither player sees anything until the shot leaves. For
+  a 1v1 match that is the part both players would act on.
+
+  ⇒ **THE FIX FOR DEFECT TWO IS THE FACT, NOT THE ART.** Publish the held ranged
+  charge — fraction and tier — on both `BodyPoseView` and `FeatureView`, then draw
+  it at the authored muzzle. ⭐ That makes one published point serve three needs:
+  the missing indicator, the hardcoded body offset the orb uses, and the feature
+  road. ⛔ Not a second muzzle resolution in `ambition_render`: that math has one
+  home now. ⛔ And not a field on `PlayerProjectileState` — a presentation point
+  is not rollback state; it is derived per tick, a category the registry has.
 
 ### Track A — the keystone
 

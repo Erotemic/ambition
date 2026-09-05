@@ -1031,10 +1031,17 @@ impl<D: ConstructionDomain> ConstructionPlan<D> {
     /// Construct the named rows, and wire exactly the relations that lie wholly
     /// within them.
     ///
-    /// This is the only executor. A full commit is this over every row; a
-    /// single-entity rebuild is this over one. Ordinary construction and
-    /// reconstruction cannot drift because there is nothing for them to drift
-    /// between.
+    /// ⭐ THERE IS ONE EXECUTOR AND IT IS PRIVATE: [`Self::execute`]. This and
+    /// [`Self::commit`] are its only two shapes — `commit` is `execute(None)`,
+    /// this is `execute(Some(ids))` — so a full commit is the same code over
+    /// every row and a single-entity rebuild is the same code over one.
+    /// Ordinary construction and reconstruction cannot drift because there is
+    /// nothing for them to drift between.
+    ///
+    /// ⚠ This line used to read "this is the only executor", sitting here on
+    /// `commit_subset`. The STRUCTURE it describes is real and unchanged; the
+    /// sentence named the wrong subject, and an authority claim that points at
+    /// one of two callers invites someone to add a third beside it.
     ///
     /// A subset containing exactly ONE end of a planned relation is such a refusal, in either
     /// direction: rebuilding the source alone leaves it unwired, and rebuilding the target

@@ -1258,6 +1258,33 @@ authored vocabulary uses. Three options, and they differ in what they cost:
 - **Both ids are askable** — `boss.cleared` for the placement, a second named
   question for the archetype. More vocabulary, no ambiguity.
 
+⭐⭐ **A FOURTH SHAPE LOOKS FREE AND IS NOT, and costing it is the useful thing
+this entry can do (2026-09-04).** `BossConfig` is a `Component` carrying BOTH
+ids (`id` = placement, `behavior` = archetype), and `cleared()` already takes
+`&World`. ⇒ So the bridge appears to be a pure READ with no new durable
+record: when the exact placement lookup misses, query `BossConfig` for entities
+whose `behavior.id` matches and answer from their rows. No save-format change,
+no new authority — which is exactly why it is the option to distrust.
+
+⛔⛔ **IT MAKES THE ANSWER DEPEND ON WHERE THE PLAYER IS STANDING.** Boss
+entities are ROOM-SCOPED — a room that authors a `BossSpawn` materialises it
+when that room is prepared (`assets/game_assets/mod.rs:99`: *"room that authors
+a `BossSpawn` is prepared (transition, prefetch, direct…)"*). A boss in an
+unloaded room has no `BossConfig` entity at all, so the bridge resolves the
+archetype to ZERO placements and answers `Unanswerable` — **in a different room
+it answers `Satisfied` for the same world state.**
+⇒ **A gate's answer may not depend on which room the player is standing in.**
+That is worse than being wrong: it is *non-deterministic with respect to
+position*, so a door opens or does not depending on the route taken to reach it,
+and the dialogue branch behind it is unreproducible from a save.
+⚠ This option would also make `boss.cleared` the only published condition that
+reads live ECS population rather than a durable fact — the others read the save
+or a component of the body being asked about, neither of which is
+location-scoped in this way.
+
+⇒ **So the cheap-looking option is the one to rule out first, and the real
+choice is between a save-format change and more vocabulary.**
+
 ⚠ **And decision #56 is entangled with this one**: it asks whether a replay
 should retract a defeat, and the answer there is easier to state per-placement
 than per-archetype. ⇒ Worth answering together, and #57 probably first, because

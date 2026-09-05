@@ -283,9 +283,9 @@
 >
 > ```text
 > technique/placement bool modes   88        (at 9036cda18, re-measured 2026-09-05)
->   LIVE      set true in content  59
+>   LIVE      set true in content  60
 >   ALWAYS ON defaults true, unset  7
->   DORMANT   default false, never 18
+>   DORMANT   default false, never 17
 >   UNNAMED   never mentioned       4
 >   EXCLUDED  settings/budgets/dev 13        (now REPORTED, see below)
 >   (13 of the 22 carry a POINTER: the name is written elsewhere in the tree)
@@ -341,8 +341,25 @@
 > pointer for a person to check. Over-reporting candidates is the safe direction
 > for a census read by a human; under-reporting deletes findings.
 >
-> ⇒ **22 modes have no authored customer that turns them on** (18 dormant + 4
-> unnamed), 13 of them carrying a pointer worth one look each. In this lane:
+> ⛔⛔ **AND A FOURTH HOLE, THE ONE THAT MATTERED MOST TO THIS PAGE: the census
+> could not read LDtk.** The corpus INCLUDED `.ldtk` files, so the world-authoring
+> surface appeared covered — but the matcher is Rust/RON syntax (`field: true`)
+> and LDtk is JSON whose field instances put the name and the value in DIFFERENT
+> KEYS (`"__identifier": "bidirectional" … "__value": true`). `sandbox.ldtk`
+> mentions `bidirectional` **124 times and matched the old pattern ZERO times**,
+> and this page called the field dormant while **122 of 151 authored
+> LoadingZones set it true**. ⇒ A corpus that is present but unreadable by the
+> matcher is worse than an absent one: it looks like coverage.
+>
+> ⭐ Fixed with a STRUCTURED parse of `fieldInstances`, not a widened regex — a
+> regex over that JSON would match a field's definition block and its
+> `defaultOverride` as readily as an authored instance. ⚠ **Honest impact: ONE
+> row.** Exactly one LDtk field identifier is ever set `true` across all four
+> worlds, and it is `bidirectional`. The value is that the surface is now visible
+> at all, not that the numbers moved far.
+>
+> ⇒ **21 modes have no authored customer that turns them on** (17 dormant + 4
+> unnamed), 12 of them carrying a pointer worth one look each. In this lane:
 > `Interactable(Spec).requires_facing`, `Pickup(Spec).collected`,
 > `CameraZoneSpec.cinematic_lock`, `RoomLink.bidirectional`,
 > `RoomMetadata.gallery`, `PropSpec.flip_y`.

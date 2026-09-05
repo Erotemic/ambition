@@ -282,6 +282,56 @@ def set_from_expression(field: str) -> str | None:
     return None
 
 
+def ldtk_fields_set_true() -> set[str]:
+    """Every LDtk field identifier an authored entity sets to `true`, anywhere.
+
+    ⛔⛔ THE CENSUS WAS BLIND TO EVERY LDtk-AUTHORED BOOLEAN, and LDtk is where
+    world content is authored. The corpus already included `.ldtk` files, but the
+    PATTERN is Rust/RON syntax (`field: true` / `field = true`) and LDtk is JSON
+    whose field instances look like:
+
+        {"__identifier": "bidirectional", "__type": "Bool", "__value": true}
+
+    -- the name and the value are in DIFFERENT KEYS, so `bidirectional: true`
+    never appears in the file. `sandbox.ldtk` mentions `bidirectional` 124 times
+    and matches the old pattern ZERO times.
+
+    ⇒ MEASURED 2026-09-05: **122 of 151 authored LoadingZones set
+    `bidirectional` true**, and this census reported the field DORMANT. That is
+    the fourth population/pattern fault in this script and the largest, because
+    it silently excluded the entire world-authoring surface while APPEARING to
+    include it -- the `.ldtk` files were in the corpus, just unreadable by the
+    matcher.
+
+    ⚠ Structured parse, not a widened regex: a regex over JSON would match a
+    field's `defaultOverride` and its definition block as readily as an authored
+    instance, which is how a fix for a blind spot becomes a false positive.
+    """
+    import json
+
+    names: set[str] = set()
+    for path in git("ls-files"):
+        if not path.endswith(".ldtk"):
+            continue
+        try:
+            document = json.loads((REPO / path).read_text(encoding="utf-8", errors="replace"))
+        except Exception:
+            # ⚠ A world that will not parse is REPORTED, not skipped: a silent
+            # skip here is the "scanner that swallows a read error" that has
+            # produced false facts about this repo before.
+            print(f"warning: {path} did not parse as LDtk JSON", file=sys.stderr)
+            continue
+        for level in document.get("levels") or []:
+            for layer in level.get("layerInstances") or []:
+                for entity in layer.get("entityInstances") or []:
+                    for field in entity.get("fieldInstances") or []:
+                        if field.get("__value") is True:
+                            identifier = field.get("__identifier")
+                            if identifier:
+                                names.add(identifier)
+    return names
+
+
 def modes() -> list[tuple[str, str, str, bool]]:
     """`(struct, field, file, defaults_true)` for every authored bool mode.
 
@@ -402,9 +452,14 @@ def main() -> int:
         ["git", "rev-parse", "--short", "HEAD"], cwd=REPO, capture_output=True, text=True
     ).stdout.strip()
     fields = modes()
+    # ⭐ The world-authoring surface, read structurally rather than by regex.
+    ldtk_true = ldtk_fields_set_true()
     live, dormant, unnamed, always_on, engine_set, derived = [], [], [], [], [], []
     for name, field, where, defaults_true in fields:
-        set_true = re.search(re.escape(field) + r"\s*[:=]\s*true\b", corpus)
+        set_true = (
+            re.search(re.escape(field) + r"\s*[:=]\s*true\b", corpus) is not None
+            or field in ldtk_true
+        )
         named = re.search(r"\b" + re.escape(field) + r"\b", corpus)
         if defaults_true and not set_true:
             # ⛔ NOT DORMANT — the behaviour is on everywhere by default.

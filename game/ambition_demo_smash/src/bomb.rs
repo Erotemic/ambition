@@ -196,7 +196,13 @@ pub fn burn_fuses_and_answer_impacts(
                     // everybody standing in it — including whoever threw it,
                     // which is what makes a live bomb a thing you respect
                     // rather than a free projectile.
-                    faction: ambition_platformer2d::vfx::HitSide::Neutral,
+                    // ⛔⛔ `Environment`, NOT `Neutral`. This read `Neutral` with a comment
+                            // saying Neutral hurts everybody; the resolver says the exact opposite
+                            // — `melee_source` excludes it from the body path and its terminal arm
+                            // is empty, with the contract that Neutral never spawns a damaging
+                            // hitbox. ⇒ This blast damaged NOBODY, and the test only asked whether
+                            // the effect request existed.
+                            faction: ambition_platformer2d::vfx::HitSide::Environment,
                     half_extent: ae::Vec2::splat(bomb.blast_radius),
                     damage: bomb.damage,
                     knockback: bomb.blast_radius * 2.4,

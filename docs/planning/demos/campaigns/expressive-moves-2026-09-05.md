@@ -684,10 +684,45 @@ everything `Player`, and do not conflate them:**
    your own bomb hurting you is the genre's rule. That collision is why the four
    cannot be answered with one field.
 
-⇒ **Not started here, deliberately.** A half-landed change to the system that
-decides whether ANY hit lands is the worst thing to leave behind, and the shape
-above is a design decision about a shared resolver rather than a repair to my
-three moves. Recorded first so the analysis survives the session that found it.
+#### ✔ AND THEN IT WAS ANSWERED — `HitSide::Environment`, FOUR QUESTIONS, FOUR ANSWERS
+
+⭐⭐ **A peer supplied the half that unlocked it, and it is worth quoting because
+it dissolves the collision rather than trading it off:** *"If Environment damage
+simply does not consult self-exclusion, the collision dissolves without touching
+attribution at all."* ⇒ `hitbox.owner` was answering two questions — **who is
+credited** and **who is immune** — and the genre wants them to disagree. Your own
+bomb hurts you, and you still placed it. That is one field doing two jobs, which
+is the shape this whole campaign has been removing.
+
+| question | answer |
+|---|---|
+| geometry anchor | `World`, and it no longer needs a living owner (fixed above) |
+| attribution | the placing **fighter**. ⛔ The bolt was crediting **the body it hit**, so a kill made a fighter their own attacker; it now resolves the caster by seat |
+| damage relationship | **`HitSide::Environment`**, the presentation-side name for `DamageTeam::Environment` — a relationship that was **already settled and guarded** (`placements.rs` asserts both `Environment.can_damage(Player)` and `.can_damage(Enemy)`), used by exploration hazards today |
+| self-exclusion | **a hazard consults none.** That is what lets attribution stay honest |
+
+⛔ **IT COULD NOT SIMPLY REUSE `DamageTeam`, and the reason is worth recording:**
+the exploration hazard road never passes through `Hitbox`, which carries `owner`,
+`source: HitSide` and a bare `damage: i32` and has **no `DamageTeam` at all**.
+Two mechanisms, one relationship — so the new variant maps onto the existing
+meaning rather than inventing a second, which would have left the repo with two
+answers to *"what is a hazard to a fighter"* that must agree forever.
+
+⭐ **The blast radius was three compile errors, not the twenty-eight files the
+name-count suggested** — the exhaustive matches named every site that had to
+decide. ⭐ **And no schema bump:** `combat.hitbox` is `component-clone`, so a
+clone snapshot restores the new variant with no codec.
+
+⛔ **The guard asserts the CONTROL as well as the fix**: a `Neutral` box reaches
+`(0, 0)` bodies and an `Environment` box reaches both — **including its owner** —
+so the test can tell the broken vocabulary from the fixed one. Poisoned three
+ways: hazard consulting self-exclusion (*"the blast spared the body that OWNS
+it"*), hazard back on the no-damage path, and the mine re-authoring `Neutral`
+(*"it would explode and hurt nobody"*).
+
+⚠ **And the demo-side test now asserts the FACTION, not the request.** That is
+the actual repair to my method: asking whether a `DamageBoxEffect` exists is a
+question about my own authoring, and the engine's answer to it was *no*.
 
 #### ✔ AND THE ONE UNAMBIGUOUS ENGINE BUG IN FINDING 1 IS FIXED
 

@@ -55,6 +55,29 @@ pub enum HitSide {
     Boss,
     /// Inert/non-combatant side.
     Neutral,
+    /// A HAZARD: it belongs to no side and hurts every fighter, including the
+    /// one who placed it.
+    ///
+    /// ⭐⭐ IT IS THE PRESENTATION-SIDE NAME FOR `DamageTeam::Environment`, and
+    /// deliberately not a new idea. That relationship is already settled and
+    /// guarded one layer down — `placements.rs` asserts both
+    /// `Environment.can_damage(Player)` and `Environment.can_damage(Enemy)` —
+    /// and exploration hazards use it today through `DamageVolume`. ⇒ A thrown
+    /// bomb wants exactly that relationship, and inventing a second meaning for
+    /// it would give the repo two answers to "what is a hazard to a fighter"
+    /// that then have to agree forever.
+    ///
+    /// ⛔ THE REASON IT COULD NOT SIMPLY REUSE `DamageTeam`: the exploration
+    /// hazard road never passes through `Hitbox`, which carries `owner`,
+    /// `source: HitSide` and a bare `damage: i32` and has no `DamageTeam` at
+    /// all. Two mechanisms, one relationship, and this is where the second one
+    /// learns to say it.
+    ///
+    /// ⚠ IT IS NOT `Neutral` WITH DAMAGE. `Neutral` means *takes no part* and
+    /// the resolver is explicit that it never spawns a damaging hitbox; bomb,
+    /// mine and steered bolt all authored it and therefore hurt nobody at all.
+    /// This is the opposite: a side that hurts EVERYONE.
+    Environment,
 }
 
 impl HitSide {

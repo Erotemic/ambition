@@ -99,6 +99,18 @@ pub fn actor_faction_from_hit_side(side: ambition_vfx::HitSide) -> ActorFaction 
         ambition_vfx::HitSide::Npc => ActorFaction::Npc,
         ambition_vfx::HitSide::Boss => ActorFaction::Boss,
         ambition_vfx::HitSide::Neutral => ActorFaction::Neutral,
+        // ⛔⛔ A HAZARD HAS NO FACTION, AND THIS PROJECTION IS NOT WHAT DECIDES
+        // WHO IT HURTS. `HitSide::Environment` bypasses the faction relationship
+        // entirely at the resolver — see `apply_hitbox_damage` — because
+        // `DamageTeam::Environment` damages Player, Enemy and Neutral alike, and
+        // routing that through a same-faction rule would let a bomb become
+        // harmless to whichever side it was projected onto.
+        //
+        // ⇒ `Neutral` is the honest projection for everything ELSE this value is
+        // used for (presentation vocabulary, "which side does this read as"),
+        // and it is deliberately the answer that is INERT rather than one that
+        // picks a team.
+        ambition_vfx::HitSide::Environment => ActorFaction::Neutral,
     }
 }
 

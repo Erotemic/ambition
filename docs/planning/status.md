@@ -36,7 +36,12 @@ frame one, and a number that can move that far on one commit describes a tree,
 not a trend.
 
 ⛔⛔ **AND THE DEFAULT GATE WAS NOT GREEN WHILE ALL OF THAT WAS MEASURED.**
-`cargo test -p ambition_workspace_policy --test policy` fails at default features
+✔ **GREEN AT HEAD, re-run 2026-09-05: 36 passed / 0 failed in 4.8 s.** The
+paragraph below is the RECORD OF A PAST RED and is kept for its lesson, not as
+current status — it read present-tense ("fails") above its own "Fixed
+2026-09-04" line, which is exactly how a closed finding goes on scaring
+readers. What follows describes the state on 2026-09-03:
+`cargo test -p ambition_workspace_policy --test policy` failed at default features
 in 4.6 s on a clean checkout — `ambition_portal2d_presentation` gained a
 dependency its allowlist did not name — and `tests/ambition_workspace_policy` IS
 a workspace member (the workspace root `Cargo.toml`, `members` list), so the plan's own

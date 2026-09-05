@@ -347,10 +347,49 @@ be already-shipped authorities under a name I had not searched for.
   slots, and the `MovePlayback` extension (current node, latches, issued-event
   bookkeeping, timeouts, symbolic slots). ⛔ No variables, arithmetic,
   expressions, ECS queries, or blackboard.
-- ▢ **A2. Input lease** — routing selected input channels to another controlled
-  entity, and restoring them.
+- ◐ **A2. Input lease** — ⭐⭐ **THE SUBSTRATE IS ALREADY BUILT AND ALREADY
+  ROLLBACK-SAFE; WHAT IS MISSING IS A SECOND DRIVER FOR IT.** Read 2026-09-05,
+  and this row was written before that read:
+  - `DrivingParticipant(PlayerSlot)` — a per-body component, *"the authoritative
+    driver identity"*, rollback state *"because no upstream component can
+    reconstruct the seat assignment after rewind"*.
+  - `ActorControl` — the per-tick control frame, *"a separate component rather
+    than a field on `Brain` precisely so a brain swap cannot disturb the frame"*.
+    ⇒ That sentence is the input lease's hardest requirement, already met.
+  - `TemporaryControl` — which controller masks a body's autonomous brain,
+    named by **stable `SimId`, never a raw `Entity`**, with `Player` and
+    `Mounted` variants already shipped.
+  - ⭐ And **combat already reads `DrivingParticipant` for attribution**:
+    `causal::seat_of` resolves a body to a seat, so a body driven by seat N
+    already has its hits attributed to seat N. Nothing to build for that.
+
+  ⛔ **THE ONE DRIVER OF ALL THAT IS SINGLE-SEAT AND EXPLORATION-ONLY.**
+  `project_driving_participant` is the documented SOLE writer, and it reads one
+  resource (`PossessionState`, one `possessed` and one `home`) and hard-wires
+  `PlayerSlot::PRIMARY`. Its own comment closes the case: *"A session that never
+  possesses — a versus match whose seat-0 fighter legitimately holds PRIMARY —
+  never reaches here at all."*
+
+  ⇒ **So A2 is not "build an input lease" and not "it already exists". It is:
+  give the existing substrate a per-seat driver a MOVE can operate.** ⚠ And the
+  hard constraint that shapes it: a move must FEED that projection, never write
+  `DrivingParticipant` itself — the system's own comment describes the failure
+  when two holders answer one seat's press, which is *"the exact two-writer state
+  this whole component exists to make impossible"*.
+
+  ⚠ **NOT MEASURED**: that a versus match never sets `PossessionState.home`. That
+  is the system's claim about itself, quoted, not something this read verified.
+
 - ▢ **A3. Steerable projectile control source** + authored self-contact
-  eligibility.
+  eligibility. ⭐ **AND A2's READ OPENS A CHEAPER ROUTE WORTH PRICING FIRST.**
+  This row is blocked on projectiles carrying no stable identity — but
+  `TemporaryControl` names its controlled body by `SimId`, and **actors already
+  have one**. ⇒ If PK-Thunder's bolt is a short-lived owned ACTOR rather than a
+  projectile, it arrives with a `SimId`, a body, a control frame and rollback
+  participation already attached, and A3 stops being identity work. ⚠ **NOT
+  MEASURED**: what spawning an actor mid-match costs, and whether an actor's body
+  is too heavy for something that lives about a second. Price it before choosing
+  it — this is a candidate, not a decision.
 - ▢ **A4. PK-Thunder parody** as the acceptance fixture that consumes A1–A3.
 
 ### Then

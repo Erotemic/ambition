@@ -18,6 +18,7 @@ pub mod bolt;
 pub mod bomb;
 pub mod capture;
 pub mod counter;
+pub mod dilation;
 pub mod george_booul_moveset;
 pub mod homing;
 pub mod mine;
@@ -976,6 +977,20 @@ impl bevy::prelude::Plugin for SmashRulesPlugin {
         app.add_systems(
             sim,
             (crate::spring::drop_authored_springs, crate::spring::fire_and_expire_springs)
+                .chain()
+                .in_set(ambition_platformer2d::platformer::schedule::CombatSet::ContentSpecials),
+        );
+        // THE TIME DILATION. ⭐ `ContentSpecials` like every other content
+        // technique, and CHAINED so a dilation applied this tick is not expired
+        // by the same tick's sweep — the arming-order rule the mine states below,
+        // read the other way: apply first, spend second, so a 0.40s slow lasts
+        // 0.40s rather than 0.40s minus one frame.
+        app.add_systems(
+            sim,
+            (
+                crate::dilation::apply_authored_time_dilations,
+                crate::dilation::expire_time_dilations,
+            )
                 .chain()
                 .in_set(ambition_platformer2d::platformer::schedule::CombatSet::ContentSpecials),
         );
@@ -2582,6 +2597,20 @@ impl bevy::prelude::Plugin for SmashSelectPlugin {
             // decide where a FIGHTER is, so a restore that lost either leaves the
             // two peers' fighters in different places — the same reasoning the
             // bolt's row carries, one step more directly.
+            // ⛔⛔ A DILATION'S CLOCK IS WHERE A FIGHTER WILL BE. The scale
+            // itself is already canonical as `actor.proper_time_scale`, but the
+            // REMAINING SECONDS are this crate's — and they decide how much
+            // longer the victim's own moves, hurtboxes and animation run slow.
+            // ⇒ Two peers disagreeing about the remainder do not disagree about a
+            // flag; they resimulate different swings from that tick on. The
+            // `prior` travels with it because a restore that lost it would put
+            // the body back on the wrong clock forever.
+            app.rollback_component_clone_probed::<crate::dilation::TimeDilated>(
+                "ambition_demo_smash",
+                "smash.time_dilated",
+                crate::dilation::time_dilated_probe,
+            );
+
             app.rollback_component_clone_probed::<crate::homing::HomingDash>(
                 "ambition_demo_smash",
                 "smash.homing_dash",

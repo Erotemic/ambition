@@ -97,8 +97,17 @@ pub fn answer_a_parry_with_the_authored_counter(
         let Some(stance) = live_counter_stance(playback) else {
             continue;
         };
+        // ⭐ WHO THE ANSWER IS AIMED AT. The stance says; the seam already holds
+        // both bodies. ⇒ A riposte answers on its owner, and a Witch-Time slow
+        // answers on the fighter who swung — the third counter this module's own
+        // header names and the only one that could not be written.
+        let target = if stance.answers_the_attacker {
+            parry.attacker
+        } else {
+            parry.defender
+        };
         actions.write(ActorActionMessage {
-            actor: parry.defender,
+            actor: target,
             request: ActionRequest::Special {
                 spec: SpecialActionSpec::Special(stance.response.clone()),
                 params: stance.response_params.clone(),
@@ -213,6 +222,75 @@ mod tests {
         );
     }
 
+    /// ⭐⭐ A WITCH-TIME STANCE ANSWERS THE FIGHTER WHO SWUNG, NOT ITS OWNER.
+    ///
+    /// `smash_counter`'s header names three counters a platform fighter wants and
+    /// the third — *"answers by SLOWING THE ATTACKER"* — could not be written,
+    /// because every response was dispatched to the stance's owner. ⇒ The fact
+    /// was already published: `ParriedBodyHit::attacker` exists precisely because
+    /// a parry resolves at the strike.
+    ///
+    /// ⛔ BOTH ARMS, because a dispatcher that aimed EVERYTHING at the attacker
+    /// would pass a test that only checked this one — and would send every
+    /// riposte, heal and escape on the roster to the wrong body.
+    #[test]
+    fn a_stance_that_answers_the_attacker_aims_there_and_the_others_still_do_not() {
+        let aimed_at = |answers_the_attacker: bool| -> Vec<Entity> {
+            let mut app = app_with_counter_systems();
+            let defender = app.world_mut().spawn_empty().id();
+            let attacker = app.world_mut().spawn_empty().id();
+            let mut spec = shipped_riposte();
+            for window in &mut spec.windows {
+                if let Some(effect) = window.sustain_effect.as_mut() {
+                    if effect.key == COUNTER {
+                        let mut params = effect
+                            .params
+                            .hydrate::<CounterParams>()
+                            .expect("the shipped riposte hydrates");
+                        params.answers_the_attacker = answers_the_attacker;
+                        effect.params =
+                            ambition_platformer2d::entity_catalog::ParamValue::from_typed(&params)
+                                .expect("re-serialize");
+                    }
+                }
+            }
+            // ⛔ MID-STANCE. `live_counter_stance` asks which window is under the
+            // clock, and a playback at `t = 0` is in its startup — so a fixture
+            // that never advanced would dispatch nothing and both arms would
+            // agree on an empty list, which is what the poison arm caught.
+            let stance = spec.windows[1].clone();
+            let mut playback = MovePlayback::new(spec, 1.0);
+            playback.t = (stance.start_s + stance.end_s) * 0.5;
+            app.world_mut().entity_mut(defender).insert(playback);
+            let hitbox = app.world_mut().spawn_empty().id();
+            app.world_mut().write_message(ParriedBodyHit {
+                defender,
+                attacker,
+                hitbox,
+                contact: ae::Vec2::ZERO,
+            });
+            app.update();
+            let messages = app
+                .world()
+                .resource::<bevy::ecs::message::Messages<ActorActionMessage>>();
+            let mut cursor = messages.get_cursor();
+            cursor.read(messages).map(|m| m.actor).collect()
+        };
+
+        let owner_run = aimed_at(false);
+        assert!(
+            !owner_run.is_empty(),
+            "poison: this fixture dispatches nothing at all, so neither arm below \
+             says anything about targeting"
+        );
+        let attacker_run = aimed_at(true);
+        assert_ne!(
+            owner_run, attacker_run,
+            "the stance aimed at the same body either way ({owner_run:?}) — the \
+             flag is not being read, so a Witch-Time slows its own caster"
+        );
+    }
+
     /// A parry caught OUTSIDE the stance answers with nothing.
     ///
     /// ⛔ THE HALF THAT MAKES THE OTHER ONE MEAN SOMETHING. Scanning the move's
@@ -270,6 +348,8 @@ mod tests {
             .id();
         let params = ambition_platformer2d::characters::smash_counter::CounterParams {
             window_s: 0.05,
+            // Its own answer, as every counter but the clerk's is.
+            answers_the_attacker: false,
             response: CAPTURE_ATTEMPT.to_string(),
             response_params: Default::default(),
             absorbs_projectiles: false,

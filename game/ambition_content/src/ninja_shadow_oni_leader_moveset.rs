@@ -416,6 +416,8 @@ pub fn ninja_shadow_oni_leader_moveset() -> MovesetContract {
             // A heartbeat, not a duration: `parry_window_timer` decays and the
             // stance re-arms it every live frame.
             window_s: 0.05,
+            // Its own answer, as every counter but the clerk's is.
+            answers_the_attacker: false,
             response: ambition_characters::smash_sleep::SLEEP.to_string(),
             response_params: ambition_platformer2d::entity_catalog::ParamValue::from_typed(
                 &ambition_characters::smash_sleep::SleepParams {

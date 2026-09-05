@@ -960,6 +960,56 @@ one.** Jon's to overrule like the other fifteen; the move it replaces was dull
 rather than balanced, which is the argument for doing it here rather than on a
 fighter whose recovery is already load-bearing.
 
+### ⭐⭐ THE THIRD COUNTER FINALLY EXISTS, AND AN ENUM IN A PARAMS STRUCT NEARLY ATE EVERY COUNTER IN THE GAME
+
+`smash_counter`'s header has always named three counters a platform fighter
+wants — *"an ordinary counter answers with an attack; a Revenge-style counter
+answers with a lasting character modifier; a Witch-Time-style counter answers by
+SLOWING THE ATTACKER"* — and the third had **no vocabulary at all** while the
+first two shipped. Two things were missing and neither was an authority.
+
+⭐ **`smash.time_dilation`, which adds no time authority.**
+`ambition_time::ProperTimeScale` is a per-body component the engine ALREADY
+integrates against — `WorldTime::entity_dt` is what move playback, hurtbox
+resolution and the animation clock all read (ADR 0011), and it is already
+rollback-canonical. ⇒ **Nothing could SAY a number into it.** The technique
+writes a scale and a duration; the adapter owns the clock and puts the world
+back, exactly as the parasol's gravity modifier does. ⚠ Measured limit stated in
+the module: the movement kernel does not read `entity_dt`, so a dilated body
+still WALKS normally — its moves, hurtboxes and animation slow. For a counter
+that is the effect that matters; for a move that dilated in neutral it would look
+wrong, and the doc is where the next author learns that instead of the playtest.
+
+⭐ **`CounterParams::answers_the_attacker`, which adds no fact.**
+`ParriedBodyHit::attacker` already exists and its own doc says why the parry road
+has it. Every response was dispatched to the stance's OWNER, so a Witch-Time
+could only have slowed its own caster. ⇒ The third counter needed a TARGET, not
+an authority.
+
+✔ **The customer is the Patent Clerk's `synchronize_clocks`, and it is the SIXTH
+move on this roster whose art asserted a mechanic the code lacked.** It has drawn
+`clock_sync` on one side and `clock_desync` on the other since it was written,
+over a plain strike where both clocks ran at the same rate. The stance rides the
+WINDUP only, so a fighter who swings into it has their clock desynced and one who
+waits eats an ordinary down-special. **Roster decision #19.**
+
+⛔⛔ **AND THE FIELD WAS A TWO-VARIANT ENUM FOR ONE AFTERNOON, DURING WHICH EVERY
+COUNTER IN THE GAME SILENTLY STOPPED ANSWERING.** `ParamValue` is a `ron::Value`
+and a Rust enum does not survive the round trip — **including a plain unit
+variant**. `from_typed` succeeds; `hydrate` returns
+`InvalidValueForType { expected: "enum …", found: "a unit value" }`;
+`live_counter_stance` reads that as "no stance" and warns into a logger nobody
+reads. ⇒ **Five tests fell and the cause was invisible in all five messages** — I
+found it by writing a four-line round-trip probe rather than by reading any of
+them.
+
+⭐ **The repair is three things, and the last is the one that lasts:** the field
+became a `bool`; `round_trip_probe` is in the tree; and the constraint is now on
+`ParamValue` itself — the type every technique author touches — instead of only
+in the teleport's params doc where it had been sitting all along. ⇒ **A warning
+in the wrong file is a warning nobody reads**, which is this page's oldest
+finding wearing new clothes.
+
 ### ⛔ THE PORTAL FIX WAS PER-SEAT SEPARATION, NOT OCCURRENCE IDENTITY
 
 A second review caught the difference and it is a real one. `channel_index +

@@ -65,7 +65,21 @@
 > inventory are a different decision each — `classify` refuses to be their
 > default, which is the point; each must say "replace" in place or adopt refusal.
 >
-> ✔ **FOUR, and the three settled gave THREE DIFFERENT ANSWERS — which is the
+> ⛔⛔ **TWO, AND ONE OF THE SEVEN WAS NEVER SILENT.** Re-read 2026-09-05,
+> `RoomContentStagingRegistry` already returns `Result`, refuses a duplicate
+> source TRANSACTIONALLY (the meta is built after the check, so a rejected
+> registration constructs nothing), keeps its `stagers` sealed, uses this crate's
+> `RegistrationMeta` and `require_non_empty`, and carries a comment explaining
+> why `classify` is inapplicable to an `Arc<dyn Fn>`. It is the best-documented
+> of the seven and the table called it silent. ⇒ **A triage row is evidence of
+> when it was written, not of what the code does now** — and the cost of a stale
+> row here is that the best example in the set was invisible as an example.
+>
+> ⇒ The genuinely open remainder is **two**: `MovePrefabRegistry` and
+> `PreparedCharacterRegistry`, both in the fighter lane and claimed by that
+> session.
+>
+> ✔ **THREE SETTLED, THREE DIFFERENT ANSWERS — which is the
 > inventory's own point, measured.** The third is `ParamSchemaRegistry`, and it
 > is the one that could not have adopted `classify` at any price: its value is a
 > `ParamCheck` FUNCTION POINTER, `classify` decides its three cases with
@@ -217,7 +231,7 @@ unhandled.
 | `MovePrefabRegistry` | `crates/ambition_combat/src/moveset/prefab_registry.rs:21` | `String` | `register` | silent |
 | `ParamSchemaRegistry` | `crates/ambition_entity_catalog/src/lib.rs:135` | `String` | `register` | ✔ REPLACE, stated (2026-09-05; `classify` NOT expressible — the value is a fn pointer) |
 | `PreparedCharacterRegistry` | `crates/ambition_characters/src/prepared.rs:1320` | `ambition_entity_catalog::CharacterId` | `insert_prepared` | silent |
-| `RoomContentStagingRegistry` | `crates/ambition_platformer2d_actor_monolith/src/features/ecs/spawn/content_staging.rs:57` | `String` | `register` | silent |
+| `RoomContentStagingRegistry` | `crates/ambition_platformer2d_actor_monolith/src/features/ecs/spawn/content_staging.rs:57` | `String` | `register` | ⛔ ROW WAS STALE — already Result + transactional refusal, sealed, `classify` inapplicable and says so (re-read 2026-09-05) |
 
 ### What the inventory says
 

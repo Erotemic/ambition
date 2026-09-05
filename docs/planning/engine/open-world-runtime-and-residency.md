@@ -167,6 +167,38 @@ before carving.
 
 ## Open design questions — deliberately unresolved
 
+⭐⭐ **TWO OF THESE HAVE A DE-FACTO ANSWER IN THE CODE ALREADY — measured
+2026-09-05 — and reading the list without that makes the design space look four
+times wider than it is.**
+
+**The unit of residency today is the ROOM, and there are TWO TIERS, not one:**
+
+| tier | what exists | authority |
+|---|---|---|
+| RESIDENT | entities, simulated | `RoomScopedEntity` — *"despawn when the current authored room unloads"* (`platformer2d_shared_tangle/src/lifecycle/markers.rs:7`) |
+| PREPARED | a `RoomConstructionPlan`, DATA only | `room_transition/prefetch.rs` — keyed by content epoch, session scope, and the room you are standing in |
+
+⇒ **A prepared neighbour is not a resident room.** It is a cached construction
+artifact that the transition promotes *"only if every identity term still
+matches, so a hot reload, a provider swap, or a session change is a safe MISS
+rather than a stale promotion"*. No entity exists for it and nothing about it
+ticks.
+
+⇒ **So "room, region, chunk, or hierarchy" is not open four ways.** One room is
+resident; a two-level structure already exists; and the live question is whether
+the PREPARED tier should ever become *simulated* rather than remain data — which
+is a much smaller question than the bullet implies.
+
+**And background simulation for dormant actors is ZERO today.** ⚠ Checked
+against the thing that looks like a counter-example: `features/ecs/dormancy.rs`
+is *"optional distance-based brain dormancy"* — it sleeps the BRAIN of an actor
+inside the resident room while *"body physics continues"*. That is an intra-room
+cost optimisation, not simulation of a non-resident room. Nothing outside the
+current room ticks at all.
+ⓘ Both statements are MEASURED. What each *should* be remains a design question,
+and the bullets below are unchanged — they are now asked against a known
+baseline instead of a blank page.
+
 - Is the unit of residency a room, region, chunk, or a hierarchy of these?
 - How much background simulation should occur for dormant persistent actors?
 - Should dormant simulation advance continuously, event-wise, or only when a

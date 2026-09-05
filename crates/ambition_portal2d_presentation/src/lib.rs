@@ -17,6 +17,7 @@ use bevy::prelude::*;
 use ambition_platformer2d_core as ae;
 
 mod camera_continuity;
+mod compositing;
 mod clip_material;
 mod effects;
 mod gun_visuals;
@@ -34,6 +35,7 @@ pub use clip_material::{
     clip_piece_transform, clip_plane_render, sprite_frame_basis, PortalClipMaterial,
     SpriteFrameBasis, CLIP_PLANE_OFF,
 };
+pub use compositing::{current_z_policy_is_correct_for, pane_relation, PaneRelation};
 pub use effects::{PortalEffectSelection, PortalVisualEffect};
 pub use gun_visuals::{sync_portal_mode_indicator, PortalModeIndicator};
 pub use plugin::{PortalPresentationPlugin, PortalPresentationSet};

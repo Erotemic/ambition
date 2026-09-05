@@ -152,7 +152,35 @@ must survive a timeline rebase; different gameplay sessions must not inherit it.
 
 ### ✔ S-AUDIT — the repo's OWN one-authority sentences, audited (2026-09-05)
 
-⭐⭐ **SEVEN CLAIMS CHECKED, TWO WERE FALSE.** The tree states its authority
+⭐⭐ **ELEVEN CLAIMS CHECKED, THREE NEEDED FIXING** (the first sweep of seven is
+below; a second pass over the phrasings it missed — `the one place`, `the only
+consumer`, `the only executor`, `one authority` — added four more):
+
+```text
+encounter/lifecycle.rs:284   EncounterCommand: "the reducer is the only consumer"    HOLDS (1 reader)
+authored_logic/prepared.rs   "the ONE AUTHORITY on what an authored value means"     HOLDS
+settings/video/quality.rs    "THIS IS THE ONE AUTHORITY", below every consumer       HOLDS
+construction/mod.rs:1034     "This is the only executor"                             MISPLACED
+```
+
+⭐ **The `prepared.rs` and `quality.rs` survivors are scope phrases again.** A
+SECOND truth-parser exists (`gameplay_trace/policy.rs` accepts `1|true|yes|on`)
+but it parses an ENVIRONMENT VARIABLE, not an authored value — a different
+domain, so the qualifier "an authored value" is what makes the sentence true.
+`quality.rs` is stronger still: the bypass it describes (three consumers, one
+reading the resource and two calling `resolved_budget()` directly, so a forced
+`potato` materialized half a room's cast at each tier) is GONE — the only
+callers left are inside the authority's own implementation, plus a comment
+warning against it.
+
+⛔ **`construction/mod.rs` was the third fix, and a new shape: the claim was
+not false, it named the WRONG SUBJECT.** "This is the only executor" sat on
+`commit_subset`. There IS one executor and it is the private `execute`;
+`commit` and `commit_subset` are its two thin shapes. The structure was right
+the whole time — an authority sentence pointing at one of two callers invites
+someone to add a third beside it.
+
+⭐⭐ **FIRST SWEEP — SEVEN CLAIMS CHECKED, TWO WERE FALSE.** The tree states its authority
 invariants in prose -- *"the sole writer"*, *"the single definition"*, *"the
 only writer of X"*. Those sentences are the closest thing this program has to a
 declared invariant, and **nothing checks them**. Grepped

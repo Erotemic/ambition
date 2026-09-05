@@ -1663,7 +1663,11 @@ is right, the habit of running it before landing is what does not hold."*
 ### 58. Does the BODY gate family ask what a body CAN DO or what it IS DOING? (2026-09-04)
 
 ⛔ **The two conditions in one family answer different kinds of question**, and
-nothing says which kind the family is for. Measured 2026-09-04:
+nothing says which kind the family is for. Measured 2026-09-04, ✔ **re-derived
+2026-09-05 late and HOLDING**: `body.can`
+(`crates/ambition_platformer2d_actor_monolith/src/body_conditions.rs:43`) and
+`body.fits` (`:227`) are still the two, and `fits` still reads
+`BodyKinematics::size` — its own doc comment at `:237` says so.
 
 | condition | reads | changes when |
 |---|---|---|

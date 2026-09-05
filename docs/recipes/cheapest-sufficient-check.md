@@ -18,6 +18,7 @@ adding safety.
   | anything a `#[cfg(feature = …)]` gates | `cargo test -p <crate> --features <f>` | that the app still builds; other combinations |
   | a crate SEAM: a trait, a re-export, a dependency edge, a registration | `cargo check -p ambition_app` then `cargo test -p ambition_app --test app_it -- <module>` | ⛔ a defect that only exists where two CONTENT crates meet — no per-crate job can see it (see the `Empowered` double-registration, 2026-08-03) |
   | a rollback registration, a schedule pin, a message channel | `cargo test -p ambition_app --test app_it -- rollback_` **and** `python3 -m pytest scripts/tests/ -q` | feature-gated channels: only the union job compiles those |
+  | a NEW PARAM on a shared `SystemParam` struct (a writer, a reader, a resource) | `git grep -l '<the system>'` → `cargo test -p` **each crate that names it**, not just the one that owns it | ⛔ nothing else. See the note below: the compiler cannot help here |
   | Bevy app WIRING (plugins, systems, ordering) | `cargo test -p ambition_app --test app_it -- <module>` | ⚠ pin `TimeUpdateStrategy` in any new test app or it measures the machine's load |
   | authored CONTENT (LDtk, catalogs, characters) | `cargo test -p ambition_app --test app_it -- declared_art_resolves registered_character_art` | that it plays; use `capture_scene` |
   | anything you can SEE | `capture_scene --route <id> out.png 1280x720 --warmup N` | correctness; it only proves what is drawn |
@@ -266,3 +267,27 @@ reclaim if he chooses to.
 checkout links against whatever `main` is mid-edit; recovering from that means
 touching the workspace, which rebuilds it, which is a fresh copy of the graph.
 That is the other reason the write-ahead worktree must not BUILD.
+
+⛔⛔ **WHY THAT LAST ROW EXISTS — measured 2026-09-05, nine tests red.** Folding
+three loose `MessageWriter` params into one `SystemParam` struct and adding a
+fourth produced:
+
+```text
+Parameter `StrikeOutcomeWriters<'_>::parried` failed validation: Message not initialized
+```
+
+in every app that builds that system BY HAND. Those apps register the messages
+the system used to need and then `add_systems(…)` it directly, so the new param
+has no registration. ⇒ **A hand-listed set of dependencies is a POPULATION, and
+adding to the SOURCE does not update the LISTS.** The compiler cannot help: this
+is runtime parameter validation, not a type error, so the owning crate builds and
+tests clean while its consumers panic.
+⭐ **The cheapest sufficient check is therefore a GREP FIRST** — `git grep -l` the
+system's name — because the population you must test is not derivable from the
+crate you edited. That is the one shape on this page where the right command
+depends on a search rather than on what you changed.
+
+✔ **AND THE ROW ABOVE IT WAS ALREADY RIGHT AND WAS NOT RUN.** The same landing
+added a message channel; `python3 -m pytest scripts/tests/ -q` catches
+`stable_schema_names: message.parried_body_hit` and it went unrun for hours. This
+page's problem has never been that the rows are wrong.

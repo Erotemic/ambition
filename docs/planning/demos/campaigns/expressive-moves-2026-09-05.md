@@ -830,7 +830,29 @@ finding, not a green light: **nothing in the suite asserts the knockback
 direction of a world-anchored box whose owner is somewhere else.** ⇒ Reverted
 rather than banked — changing a shared resolver's launch direction on the
 strength of "no test complained" is the gamble this campaign keeps writing down.
-**It belongs in the answer to question 1, with a test that pins it either way.**
+
+✔ **AND THE SECOND REVIEW SUPPLIED THE CUSTOMER, SO IT LANDED — WITH THE TEST
+FIRST.** The steered bolt is the named case: its `DamageBox` is centred at
+`bolt.pos` while the owner is the CASTER, so a curved bolt struck from one side
+and launched its victim away from Carl on the other. ⇒ `spatial_source` now
+splits from attribution — `World` takes the authored centre, `FollowOwner` takes
+the owner — and **`hitbox.owner` keeps answering only "who is credited"**, which
+is Jon's own separation of the four questions.
+
+⭐ **Written as a FAILING test before the fix**, which is the repair to the
+earlier gamble: two victims placed symmetrically about a blast must be thrown
+APART, and before the split they were both thrown the same way (`1.0` vs `1.0`)
+because the direction was measured from an owner standing off to one side.
+
+⛔⛔ **AND THE OVER-CORRECTION POISON DID NOT FIRE — the third time today a
+silent poison found a hole.** Making `spatial_source` the volume centre for BOTH
+anchors left all 613 tests green: **nothing asserted the `FollowOwner` half at
+all**, so somebody could have "simplified" the split away in one line. ⇒ Control
+added, and it is a real property rather than a formality: a reaching strike's
+volume sits well in front of the body, and a victim standing BETWEEN the two must
+still be thrown away from the ATTACKER — measuring from the volume centre throws
+them backwards *through* the fighter who hit them, which the poison now prints
+verbatim (`-1`).
 
 #### ✔ FINDING 3 IS FIXED — THE PAIR HAS AN OCCURRENCE IDENTITY NOW
 

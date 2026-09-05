@@ -567,6 +567,22 @@ pub fn apply_hitbox_damage(
             (None, HitboxAnchor::FollowOwner { .. }) => continue,
         };
         let world_volume = hitbox.world_volume(owner_pos);
+        // ⭐⭐ WHERE THE HIT CAME FROM IS THE ANCHOR'S QUESTION, NOT THE OWNER'S.
+        // `world_volume` already ignores `owner_pos` for a `World` anchor, but
+        // the knockback DIRECTION and `source_pos` still read it — so the same
+        // explosion threw a victim differently depending on where the entity
+        // CREDITED with it happened to be standing. ⇒ A steered bolt centres its
+        // blast at the bolt while its owner is the caster, so a curved shot
+        // struck from one side and launched away from the caster on the other.
+        //
+        // ⛔ ATTRIBUTION IS A DIFFERENT QUESTION AND KEEPS ITS OWN FIELD.
+        // `hitbox.owner` still answers "who is credited" for kills, grudges and
+        // staleness; this answers "what did the victim get hit BY", and a blast
+        // is hit by the blast.
+        let spatial_source = match hitbox.anchor {
+            HitboxAnchor::World { center } => center,
+            HitboxAnchor::FollowOwner { .. } => owner_pos,
+        };
         let source_faction = actor_faction_from_hit_side(hitbox.source);
 
         // ONE BODY, ONE PATH: every body-owned melee strike resolves contacts
@@ -725,7 +741,7 @@ pub fn apply_hitbox_damage(
                 // sideways gravity the attacker and victim separate along
                 // world-Y, exactly when a screen-X comparison degenerates.
                 let side = victim.knockback_side();
-                let dir = if (victim_body.center() - owner_pos).dot(side) >= 0.0 {
+                let dir = if (victim_body.center() - spatial_source).dot(side) >= 0.0 {
                     1.0
                 } else {
                     -1.0
@@ -768,7 +784,7 @@ pub fn apply_hitbox_damage(
                     },
                     dir,
                     magnitude,
-                    source_pos: owner_pos,
+                    source_pos: spatial_source,
                     impact_pos: impact,
                     launch_dir: hitbox.launch_dir,
                     // AUTOLINK, and the ATTACKER'S VELOCITY is sampled HERE.

@@ -2720,6 +2720,15 @@ skip_paths = [
     # Domain integrator: a projectile reflecting off a surface, mirroring its own
     # velocity. The same class as the projectile paths already listed above.
     "ambition_platformer2d_actor_monolith/src/projectile/systems.rs",
+    # ⭐ THE SAME WRITE, MOVED — and the guard catching that is the ledger
+    # working exactly as designed. `intercept_projectile` lifted the reflection
+    # out of `systems.rs` so a reflector and an absorber could share it, and the
+    # sanctioned write went with it while the waiver did not. The justification
+    # is unchanged and is the one above verbatim: this is the projectile domain
+    # re-aiming its own body, not a foreign system relocating somebody else's.
+    # ⇒ Waived at the OPERATION rather than at its callers, which is the point of
+    # having an operation: the next interception adds no entry here.
+    "ambition_platformer2d_actor_monolith/src/projectile/intercept.rs",
     # GAME bodies with their own motion rules, not engine bodies: Mary-O's
     # snake segments and Sanic's ball dash. Listed individually rather than
     # skipping `game/`, so a NEW game reaching for a bare velocity write still

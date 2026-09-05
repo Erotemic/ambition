@@ -1241,8 +1241,22 @@ hazard in it was being triaged as though it were reachable.
   when two holders answer one seat's press, which is *"the exact two-writer state
   this whole component exists to make impossible"*.
 
-  ⚠ **NOT MEASURED**: that a versus match never sets `PossessionState.home`. That
-  is the system's claim about itself, quoted, not something this read verified.
+  ✔ **NOW MEASURED (2026-09-05), AND IT HOLDS.** The only PRODUCTION setter of
+  `PossessionState.home` is `possession.rs:253`, inside the possession ability —
+  and **neither `ambition_demo_smash` nor its app references `PossessionState` or
+  possession at all.** `control/authority.rs:76` is production but only CLEARS it;
+  the other three writes are `#[cfg(test)]` fixtures. ⇒ A versus match never sets
+  it, so the system's quoted claim about itself is true and A2's shape stands.
+
+  ⚠⚠ **AND THE FIRST VERSION OF THAT MEASUREMENT WAS WRONG IN THE USUAL WAY.** My
+  opening grep found ONE writer because I filtered it by the word *possession*;
+  widening it found **five**, across two files, and only reading each one
+  separated production-set from production-clear from test-fixture. ⇒ **A census
+  is a statement about the grep, not about the field** — the same correction a
+  peer published about a portal-channel census within the hour, from the opposite
+  direction: they had censused what an AUTHOR wrote without checking what a
+  SYSTEM rewrote before the reader saw it. **Census the field, then find every
+  writer, then ask which of them can actually run here.**
 
 - ⛔⛔ **AND A2 IS NOT ON PK-THUNDER'S PATH AT ALL — measured 2026-09-05.**
   `ActorControlFrame::steer_axis()` already publishes **"what the PLAYER is

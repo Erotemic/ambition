@@ -449,9 +449,27 @@ fn disturb_the_room(sim: &mut Platformer2dSimHarness) -> usize {
 }
 
 fn replay_the_room(sim: &mut Platformer2dSimHarness, live: &BTreeSet<Entity>) -> BTreeSet<Entity> {
-    sim.world_mut().write_message(
+    replay_the_room_because(
+        sim,
+        live,
         ambition_platformer2d::actors::session::reset::RoomReplayRequested::manual(),
-    );
+    )
+}
+
+/// A replay for a stated REASON.
+///
+/// ⭐ `RoomResetReason` is `{PlayerDeath, Manual}` and the distinction is not
+/// decoration — `RoomReplayAdmitted`'s own doc records that policy already
+/// differs by it: *"a death preserves the player's placed gun portals, a
+/// deliberate retry clears them."* So "does the attempt's residue survive" is a
+/// question this codebase already answers per reason, and a measurement that
+/// only ever passes `manual()` cannot see that axis.
+fn replay_the_room_because(
+    sim: &mut Platformer2dSimHarness,
+    live: &BTreeSet<Entity>,
+    request: ambition_platformer2d::actors::session::reset::RoomReplayRequested,
+) -> BTreeSet<Entity> {
+    sim.world_mut().write_message(request);
     settle_after_construction(sim, live)
 }
 
@@ -1782,5 +1800,98 @@ fn how_many_boss_families_retract_their_defeat_on_a_replay() {
         report.len(),
         2,
         "one line per authored boss placement across the two rooms: {report:#?}"
+    );
+}
+
+/// ⭐⭐ THE AXIS QUESTION 56 DID NOT KNOW IT HAD: **does the REASON matter?**
+///
+/// 56 frames the ruling as binary — retract the defeat on a replay, or keep it.
+/// But a replay carries a `RoomResetReason`, and this codebase ALREADY answers
+/// "does the attempt's residue survive" per reason: `RoomReplayAdmitted`'s own
+/// doc records *"a death preserves the player's placed gun portals, a deliberate
+/// retry clears them."*
+///
+/// ⇒ So there is a third option nobody has costed — **retract on a deliberate
+/// retry, keep on a death** — and it is the one that matches the rule the
+/// portals already follow. This arm measures whether the one existing retraction
+/// distinguishes the two. It does NOT: `reset_cut_rope_attempt_on_replay` reads
+/// the message and ignores `reason` entirely.
+///
+/// ⛔ AND THAT HAS A PLAYER-VISIBLE CONSEQUENCE, which is why this is measured
+/// and not merely noted: beat the Smirking Behemoth, then die to anything in
+/// that room, and the defeat you earned is retracted — along with
+/// `smirking_behemoth_victory_npc_seen`, so the post-fight conversation resets
+/// too. Nobody chose that; it falls out of a system that never asked why the
+/// room was replaying.
+///
+/// ⛔ REPORTS, DOES NOT FAIL — the same reason the census above reports. Which
+/// reason should retract is 56's to answer. This arm exists so the answer is
+/// chosen from three options instead of two.
+#[test]
+fn does_a_death_retract_a_boss_defeat_the_same_way_a_retry_does() {
+    use ambition_platformer2d::actors::session::reset::RoomReplayRequested;
+    use ambition_platformer2d::boss_encounter::BossConfig;
+    use ambition_platformer2d::persistence::save::AmbitionGameSave;
+    use ambition_platformer2d::platformer::authored_logic::{
+        AuthoredArg, ConditionCatalog, ConditionId, ConditionOutcome,
+    };
+
+    // The ONE family that retracts at all. A family that never retracts cannot
+    // distinguish the reasons, so it would measure nothing here.
+    const ROOM: &str = "you_have_to_cut_the_rope";
+
+    let id = ConditionId::parse("boss.cleared").expect("well-formed id");
+    let mut report: Vec<String> = Vec::new();
+
+    for (label, request) in [
+        ("a deliberate retry", RoomReplayRequested::manual()),
+        ("a player death", RoomReplayRequested::player_death()),
+    ] {
+        let mut sim = fixed_60hz_room_sim(ROOM);
+        let live = settle_after_construction(&mut sim, &BTreeSet::new());
+
+        let placements: Vec<String> = {
+            let mut q = sim.world_mut().query::<&BossConfig>();
+            let world = sim.world();
+            q.iter(world).map(|config| config.id.clone()).collect()
+        };
+        assert!(
+            !placements.is_empty(),
+            "`{ROOM}` authored no boss, so this arm is measuring nothing"
+        );
+
+        for placement in &placements {
+            {
+                let mut save = sim.world_mut().resource_mut::<AmbitionGameSave>();
+                save.data_mut().set_boss(
+                    placement.clone(),
+                    ambition_platformer2d::persistence::save_data::PersistedEncounterState::Cleared,
+                );
+            }
+        }
+        replay_the_room_because(&mut sim, &live, request);
+        for placement in &placements {
+            let after = {
+                let world = sim.world_mut();
+                world.resource_scope::<ConditionCatalog, _>(|world, catalog| {
+                    catalog.evaluate(world, &id, &[AuthoredArg::Name(placement.clone())])
+                })
+            };
+            report.push(format!(
+                "{placement}: after {label}, `boss.cleared` = {}",
+                match after {
+                    ConditionOutcome::Satisfied => "STILL CLEARED",
+                    ConditionOutcome::NotSatisfied(_) => "retracted",
+                    ConditionOutcome::Unanswerable(_) => "unanswerable",
+                }
+            ));
+        }
+    }
+
+    eprintln!("[boss-retraction-by-reason]\n  {}", report.join("\n  "));
+    assert_eq!(
+        report.len(),
+        2,
+        "one line per reason for the single cut-rope placement: {report:#?}"
     );
 }

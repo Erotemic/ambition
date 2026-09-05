@@ -1389,8 +1389,32 @@ replay that undoes the attempt.** The boss is rebuilt and refightable, the
 population census agrees perfectly, and `boss.cleared` — published 2026-09-04 —
 goes on answering YES to every `gated_by` and every `<<if boss_cleared(...)>>`.
 
+⭐⭐ **AND THERE IS A THIRD OPTION, MEASURED 2026-09-05, that this row was
+missing — the ruling is not binary.** A replay carries a `RoomResetReason`
+(`{PlayerDeath, Manual}`), and this codebase ALREADY answers *"does the attempt's
+residue survive"* per reason: `RoomReplayAdmitted`'s own doc records *"a death
+preserves the player's placed gun portals, a deliberate retry clears them."*
+The one existing boss retraction does **not** make that distinction — it reads
+the message and ignores `reason` entirely
+(`does_a_death_retract_a_boss_defeat_the_same_way_a_retry_does`,
+`canonical_reconstitution.rs`):
+
+```text
+BossSpawn-105805   after a deliberate retry   boss.cleared = retracted
+BossSpawn-105805   after a player death       boss.cleared = retracted
+```
+
+⛔ **So the one boss that CAN be re-fought also un-clears itself when you die in
+its room after winning** — along with `smirking_behemoth_victory_npc_seen`, so
+the post-fight conversation resets too. Nobody chose that either; it falls out of
+a system that never asked why the room was replaying. ⇒ **The options are three,
+not two, and the third — retract on a deliberate retry, keep on a death — is the
+one that matches the rule the portals already follow.** Note it is the DEFENSIBLE
+default in both directions at once: a retry is the player asking to do it again,
+a death is not.
+
 ⛔ **THIS IS A RULING AND NOT A BUG REPORT, which is why the test reports rather
-than fails.** Both behaviours are defensible:
+than fails.** The behaviours are defensible:
 - *retract* — the replay undoes the attempt, so a door opened by that fight
   should shut again and the fight should count only once it is won for real;
 - *keep* — a one-time story boss whose defeat is world progress rather than
@@ -1407,6 +1431,15 @@ boss says which it is — rather than implied by the presence of a system.
 generic (the placement id and the persisted row are both generic); only the
 cut-rope system's NAME-SCOPING is specific. A default retraction plus an opt-out
 for story bosses inverts the current default without a registry.
+⭐ **And the same shape carries the third option at no extra cost** — a generic
+retraction reads `reason` where the cut-rope system does not, so *"retry only"*
+is one `match` in the system that would already be written, not a second design.
+⚠ **What makes this worth ruling rather than leaving:** the durable fact is
+WRITTEN by one generic authority (`boss_encounter/src/systems.rs:259`, keyed by
+placement, on the death edge) and RETRACTED by a content system naming itself.
+A fact with a generic writer and a hand-named retractor gets its policy from who
+remembered — which is the absence this row is about, stated as an authority
+question.
 ⚠ **Cost if the answer is "keep by default":** nothing changes in code, and the
 cut-rope system becomes the opt-in — but the ten silent keeps should still be
 made explicit, or the next boss inherits an unstated rule.

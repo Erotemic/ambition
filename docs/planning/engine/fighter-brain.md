@@ -80,6 +80,20 @@ removing. ⚠ Guarded by the fixture that produced the doc's own example — the
 16-versus-4 named above is that test's split, asserted so the printed number
 cannot drift from the outcomes it claims to report.
 
+⛔⛔ **AND ONE THING NO RE-RUN FIXES RETROACTIVELY: EVERY TABLE ON THIS PAGE
+PRINTED BEFORE 2026-09-04 CARRIES A BARE QUALIFIER.** The rig only began printing
+its per-seed split and its exact tail that evening. ⇒ **A `significant` in an
+older table may be an 11:1 sweep (p = 0.006) or a 10:2 squeak (p = 0.039) that
+one pair would have erased, and nothing in the table distinguishes them.**
+Likewise `(within spread)` may be a 5:7 coin (p = 0.774) or a near miss
+(p = 0.146). ⚠ **This is not a reason to disbelieve those tables** — the verdicts
+were computed by the same rule the row still uses. It is a reason not to read
+their labels as comparable strengths, which this page did for weeks: the `3 vs 1`
+ordering and the `5 vs 3` inversion sat side by side as one class of result and
+are 11:1 and 2:10. ⇒ **Only a table with brackets can be compared by strength.**
+Re-running an old arm is the only way to give it one, and that is a real cost per
+arm rather than a sweep somebody can do in an afternoon.
+
 ⇒ **So: treat every *significant* / *(within spread)* label and every median column
 below as PRE-FIX.** ⭐ What survives untouched is anything established by
 **comparing two arms byte-for-byte against a control** — the weight isolation, the

@@ -437,9 +437,17 @@ warning from anywhere.
 
 ⭐⭐ **AND THE REACH IS WIDER THAN "A SECOND BOSS FAMILY" — measured 2026-09-05.**
 Exactly ONE production system in the whole tree both reads a `RoomReplayAdmitted`
-and retracts a durable fact. (The only other file matching both greps is
-`crates/ambition_combat/src/rollback_registration.rs`, where the hits are message
-NAMES rather than writes — checked, not assumed.)
+and retracts a durable fact: `game/ambition_content/src/bosses/cut_rope/mod.rs`,
+family `boss`.
+⭐ **RE-DERIVED with a repaired instrument and it came out CLEANER.** The first
+pass matched TWO files and I dismissed the second by hand
+(`crates/ambition_combat/src/rollback_registration.rs`, whose hits are message
+NAMES inside string literals rather than writes). `durable_fact_writers.py` now
+strips string literals and skips `#[cfg(test)]` items structurally, so that false
+positive disappears on its own and the count is 1 with no caveat attached.
+⚠ The same crude lens was ALSO wrong in the other direction — it truncated each
+file at its first test module and under-counted `switch` writers 2 against 5. A
+hand-dismissed false positive and a silent false negative came from one instrument.
 
 ```text
 BossSpawn   11 authored placements   1 retracted on replay

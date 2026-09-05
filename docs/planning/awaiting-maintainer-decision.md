@@ -1656,9 +1656,11 @@ the same day — so nothing generic retracts anything.
 
 ⭐⭐ **AND THE SCOPE IS WIDER THAN BOSSES — re-measured 2026-09-05.** Exactly
 **one** production system in the whole tree both reads a `RoomReplayAdmitted` and
-retracts a durable fact (`reset_cut_rope_attempt_on_replay`; the only other file
-that does both is `combat/rollback_registration.rs`, where the hits are message
-NAMES, not writes). So the same question is open for every durable family a room
+retracts a durable fact (`reset_cut_rope_attempt_on_replay`).
+⭐ Re-derived with a repaired `durable_fact_writers.py` that strips string
+literals and skips `#[cfg(test)]` items structurally: the file I had previously
+dismissed by hand (`combat/rollback_registration.rs`, whose hits are message
+NAMES in literals) no longer matches at all, so the count is 1 with no caveat. So the same question is open for every durable family a room
 can change during an attempt, not just `bosses`:
 
 ```text

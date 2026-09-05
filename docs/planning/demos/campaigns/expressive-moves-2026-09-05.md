@@ -643,6 +643,75 @@ written and believed. The pair share a shape: *the fixture answered a smaller
 question than the assertion claimed*, and nothing in a green run distinguishes
 those.
 
+### ⛔⛔⛔ THE BOMB, THE MINE AND THE BOLT DO ZERO DAMAGE TO A BODY — AND MY OWN RULE PREDICTED IT
+
+A GPT review Jon commissioned found it; **I re-derived every mechanical claim
+against current source before accepting any of it**, and all of them hold.
+
+| claim | re-derived |
+|---|---|
+| `HitSide::Neutral` damages nobody | ✔ `hitbox/mod.rs:556` — `melee_source` is `None` for `(HitSide::Neutral, _)`, and the terminal dispatch at 853 is literally `HitSide::Neutral => {}` with the comment *"Neutral never spawns a damaging hitbox"* |
+| all three author it | ✔ `bomb.rs:199`, `bolt.rs:285`, `mine.rs:166` — every one is `HitSide::Neutral` |
+| `DamageTeam` pins the same rule independently | ✔ `(Self::Neutral, _) => false`; **`Environment`** is the arm that damages Player, Enemy and Neutral |
+| a despawned owner makes the blast a ghost | ✔ the owner's position is resolved at the TOP of the loop and `continue`s when it fails — **before any world-anchor check**, so a World-anchored box still needs an owner that exists |
+| bomb/mine own the exploding item; bolt owns the victim | ✔ `owner: entity` on both items (a `GroundItem` despawned as it emits) and `owner: body` on the bolt, which is the CONTACTED RIVAL — so making it damaging would trip self-exclusion and skip the very body it hit |
+
+⛔⛔ **AND THE REASON NONE OF MY GUARDS CAUGHT IT IS THE RULE I WROTE THIS
+MORNING, APPLIED TO ME.** `mine/tests.rs` asserts `blasts(&mut app).len() == 1` —
+**that a `DamageBoxEffect` request EXISTS.** Nothing drives it through
+`apply_effects` → `apply_hitbox_damage` → a victim's health. ⇒ *The third cause
+for a silent poison: no fixture runs that code at all.* I formulated that
+sentence hours before this review landed, about a gravity clock, and it was
+already true of three moves I had shipped.
+
+⭐ **The tell I should have taken: I asserted on a MESSAGE, not on an OUTCOME.**
+A test that stops at "the request was written" is testing my own authoring, not
+the engine's answer to it — and the engine's answer here is *no*.
+
+⚠ **THE FIX IS FOUR QUESTIONS AND JON SAID SO EXPLICITLY — do not relabel
+everything `Player`, and do not conflate them:**
+
+1. **geometry anchor** — where the box IS. `World` is right for a blast, and the
+   resolver's owner-position `continue` is wrong for a World anchor: it does not
+   need one.
+2. **attribution** — who is credited. Should be the placing FIGHTER, not the
+   object that exploded.
+3. **damage relationship** — who may be hurt. A smash item blast hurts BOTH
+   fighters, which is `DamageTeam::Environment`'s meaning; `HitSide` has no such
+   variant, and that gap is the actual design question.
+4. **self-exclusion** — `victim.entity == hitbox.owner`. ⛔ **This COLLIDES with
+   (2)**: making the placer the owner for credit makes the placer immune, and
+   your own bomb hurting you is the genre's rule. That collision is why the four
+   cannot be answered with one field.
+
+⇒ **Not started here, deliberately.** A half-landed change to the system that
+decides whether ANY hit lands is the worst thing to leave behind, and the shape
+above is a design decision about a shared resolver rather than a repair to my
+three moves. Recorded first so the analysis survives the session that found it.
+
+#### ✔ THE REVIEW'S FOURTH FINDING IS FIXED — BOLT AND SPRING PICKED WINNERS BY QUERY ORDER
+
+Both broke on the first overlapping body. **The spring ignored the seat outright
+(`_seat`)** and had one use to give; **the bolt's two answers are different
+MOVES** — the Thunder Jacket (a recovery that launches the caster) versus an
+offensive hit on a rival. ⇒ Bevy's iteration order chose, which is not stable
+across a rollback resimulation: two peers can resimulate one tick and launch
+different fighters, or turn one peer's attack into the other peer's recovery.
+
+⭐ **The spring takes the lowest `MatchSeat`** — rollback-registered, so both
+peers agree. ⚠ Arbitrary as FAIRNESS (seat 0 wins a tie) and accepted as such:
+two bodies inside one plate on one tick is rare, and **a rare unfair outcome both
+peers agree on beats a rare desync.** ⭐ **The bolt prefers a RIVAL over its
+caster**, which is a design statement rather than a stabilised coin-toss: a bolt
+that could connect does the offensive thing, and the jacket is what it does when
+it finds nobody else.
+
+⛔ **Guarded in the review's own shape — identical geometry, REVERSED SPAWN
+ORDER, same outcome** — because "somebody was launched" passes on the broken
+code. Poisoned by restoring first-wins: the spring's guard fails with *"launched
+seat 0 in one order and seat 1 in the other"*, reproducing the defect
+mechanically rather than by argument.
+
 ### ⭐⭐ "MAKE IT REFUSE AND COUNT WHAT FALLS" IS A MEASUREMENT, AND IT SAVED ME FROM THE OBVIOUS FIX
 
 Two registries in the moveset lane were on a peer's silent-overwrite inventory.

@@ -233,7 +233,39 @@ pub fn steer_and_fly_bolts(
                 bolt.clear_of_caster = true;
             }
         }
+        // ⛔⛔ WHICH BODY THE BOLT MEETS WAS DECIDED BY QUERY ORDER, and the two
+        // answers are completely different moves. If the returning caster and a
+        // rival overlap the bolt on the same tick, Bevy's iteration order chose
+        // between the Thunder Jacket (a recovery) and an offensive hit — not
+        // stable across a rollback resimulation, and not a decision anybody
+        // authored.
+        //
+        // ⭐ A RIVAL BEATS THE CASTER, and that is a design statement rather than
+        // a coin-toss made deterministic: a bolt that COULD connect does the
+        // offensive thing, and the jacket is what happens when it finds nobody
+        // else. Rivals tie-break on the lowest `MatchSeat`, which is
+        // rollback-registered, so both peers resimulate the same contact.
+        let mut caster_hit: Option<Entity> = None;
+        let mut rival_hit: Option<(usize, Entity)> = None;
+        for (body, kin, seat) in bodies.iter() {
+            let reach = ae::Vec2::splat(bolt.radius) + kin.size * 0.5;
+            let offset = (kin.pos - bolt.pos).abs();
+            if offset.x > reach.x || offset.y > reach.y {
+                continue;
+            }
+            if seat.0 == bolt.owner_seat {
+                if bolt.clear_of_caster {
+                    caster_hit = Some(body);
+                }
+            } else if rival_hit.is_none_or(|(best, _)| seat.0 < best) {
+                rival_hit = Some((seat.0, body));
+            }
+        }
+        let chosen = rival_hit.map(|(_, e)| e).or(caster_hit);
         for (body, mut kin, seat) in &mut bodies {
+            if Some(body) != chosen {
+                continue;
+            }
             // ⛔⛔ THE BODY'S OWN HALF-SIZE, NOT A NUMBER I PICKED. This read
             // `bolt.radius + 16.0 / + 24.0` — two constants approximating a
             // fighter's extent, on a component that CARRIES that extent. ⇒ A

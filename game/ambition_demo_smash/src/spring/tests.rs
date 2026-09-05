@@ -224,3 +224,65 @@ fn the_plate_is_taken_away_when_its_clock_runs_out() {
     }
     assert!(plates(&mut app).is_empty(), "the plate outlived its clock");
 }
+
+/// ⛔⛔ TWO FIGHTERS ON ONE PLATE: THE SAME ONE IS LAUNCHED WHICHEVER ORDER
+/// THEY WERE SPAWNED IN.
+///
+/// A plate has ONE use to give and this loop used to `break` on the first
+/// overlapping body with the seat ignored (`_seat`), so Bevy's iteration order
+/// picked the winner. ⇒ Nobody authored that choice, and it is not stable across
+/// a rollback resimulation — the two peers can resimulate the same tick and
+/// launch different fighters, which is a desync with a plausible-looking cause.
+///
+/// ⭐ THE TEST IS THE REVIEW'S OWN SHAPE: identical geometry, REVERSED SPAWN
+/// ORDER, same outcome. Asserting "somebody was launched" would pass on the
+/// broken code; only comparing the two orders can see it.
+#[test]
+fn two_fighters_on_one_plate_launch_the_same_one_in_either_spawn_order() {
+    let on_the_plate = ae::Vec2::new(0.0, 0.0);
+
+    let launched_seat = |reversed: bool| -> usize {
+        let mut app = app();
+        let seats: [usize; 2] = if reversed { [1, 0] } else { [0, 1] };
+        let bodies: Vec<(usize, Entity)> = seats
+            .iter()
+            .map(|&s| (s, body(&mut app, s, on_the_plate)))
+            .collect();
+        app.world_mut().spawn(PlacedSpring {
+            pos: on_the_plate,
+            half_extents: ae::Vec2::new(22.0, 6.0),
+            launch: ae::Vec2::new(0.0, -900.0),
+            remaining_s: 8.0,
+            uses_left: 1,
+            rearm_s: 0.0,
+            arm_s: 0.0,
+        });
+        app.update();
+        let moved: Vec<usize> = bodies
+            .iter()
+            .filter(|(_, e)| {
+                app.world()
+                    .get::<ae::BodyKinematics>(*e)
+                    .is_some_and(|k| k.vel.y < -1.0)
+            })
+            .map(|(s, _)| *s)
+            .collect();
+        assert_eq!(
+            moved.len(),
+            1,
+            "a one-use plate launched {} bodies (reversed={reversed}) — the use \
+             count is not what limits it",
+            moved.len()
+        );
+        moved[0]
+    };
+
+    let forward = launched_seat(false);
+    let backward = launched_seat(true);
+    assert_eq!(
+        forward, backward,
+        "the plate launched seat {forward} when the fighters were spawned in one \
+         order and seat {backward} in the other — the winner is Bevy's iteration \
+         order, so two peers resimulating this tick can launch different fighters"
+    );
+}

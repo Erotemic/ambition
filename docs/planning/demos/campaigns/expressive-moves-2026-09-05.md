@@ -720,6 +720,34 @@ rather than banked — changing a shared resolver's launch direction on the
 strength of "no test complained" is the gamble this campaign keeps writing down.
 **It belongs in the answer to question 1, with a test that pins it either way.**
 
+#### ✔ FINDING 3 IS FIXED — THE PAIR HAS AN OCCURRENCE IDENTITY NOW
+
+`channel_index` is AUTHORING data — the same `8` for every Alice — and it was
+stored as `pair_index` as though it named a live pair. ⇒ Two Alices recovering at
+once put two entrances on channel 8 and two exits on 9; `find_portal` returns the
+FIRST match, so one could leave through the other's aperture, and the expiry
+sweep despawns every move portal carrying the index, so **one Alice's clock
+running out shut the other's pair mid-recovery.** A 2.5s lifetime makes that
+ordinary, not exotic.
+
+⭐ **The authored index is now a BASE and the SEAT makes it an occurrence** —
+each seat gets its own two-channel window above it, so two Alices open on 8/9 and
+10/11. ⛔ `MatchSeat`, not an `Entity`, exactly as the review asked: the seat is
+rollback-registered (`actor.match_seat`) so both peers derive the same channel
+for the same fighter, where bevy_ggrs recreates entities.
+
+⚠ **It saturates rather than wraps**, because a base near the top of the `u8`
+channel space with many seats could roll over onto somebody else's window — the
+precise collision this exists to prevent. An overflowing seat degrades to the old
+shared-channel behaviour rather than to a silent swap.
+
+⛔ **Requiring the seat broke FOUR existing portal fixtures, and that was the
+right answer rather than a reason to make it optional**: each spawned a caster
+with no `MatchSeat`, which is a body that cannot exist in a match. An `Option`
+with a default would have kept them green while hiding that they were asking the
+system a question about nobody. ⇒ Poisoned by restoring the static index, which
+prints the defect literally: `[Indexed(8), Indexed(9), Indexed(8), Indexed(9)]`.
+
 #### ✔ THE REVIEW'S FOURTH FINDING IS FIXED — BOLT AND SPRING PICKED WINNERS BY QUERY ORDER
 
 Both broke on the first overlapping body. **The spring ignored the seat outright

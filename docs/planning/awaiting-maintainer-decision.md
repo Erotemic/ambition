@@ -1136,38 +1136,53 @@ mechanism would produce a gate that refuses everyone.
 `body.fits`, and anything later that reads the driven population), which is why
 it is filed against the population rather than against a condition.
 
-### 65. `portal_lab` authors SEVEN `purple` apertures against ONE `yellow`. Which one is the exit? (2026-09-05)
+### 65. ~~`portal_lab`'s seven `purple` apertures~~ — WITHDRAWN 2026-09-05, my premise was wrong
 
-⭐ **MEASURED, in shipped content.** `sandbox.ldtk`'s `portal_lab` level authors
-14 `Portal` entities: **purple ×7**, yellow ×1, and one each of red, teal, green,
-magenta, cyan, rose. All in ONE level, so all live at once.
+⛔⛔ **I FILED THIS AND THEN DISPROVED IT MYSELF. Withdrawn rather than deleted,
+because the mistake is more useful than the question was.**
 
-⛔ **The DETERMINISM half is already fixed and needs no ruling.** `find_portal`
-took the FIRST match in iteration order, and its callers feed it
-`Query<&PlacedPortal>` collected into a `Vec` — archetype order, which is not a
-promise and is not reproduced by a rollback resimulation. So the single yellow
-resolved to whichever purple the archetype happened to list first, and a resim
-could pick a different one: a body warped somewhere else on a replayed frame. It
-now picks the lowest `pos` — arbitrary but REPRODUCIBLE, since placements are
-authored.
+**What I measured and got right:** `sandbox.ldtk`'s `portal_lab` authors 14
+`Portal` entities — `purple` ×7 against one `yellow`, plus six other colours —
+all in one level.
 
-⇒ **What is left is authoring intent, and only you can settle it:**
+**What I concluded and got WRONG:** that seven purple apertures are therefore
+live at once, so a channel lookup has seven candidates. ⇒ **All 14 of those
+portals also carry a LINK ID**, and `resolve_portal_links` — which runs FIRST in
+the sim chain, before transit, carve and eviction — reassigns every one of them
+to a distinct `Indexed(base + slot)`. **The authored colour is a placeholder that
+never reaches a lookup.** There is no runtime ambiguity and there is no authoring
+question to answer.
 
-- **Is seven-to-one deliberate?** Many entrances to one exit is a coherent design
-  and reads fine in one direction: entering any purple leads to the yellow,
-  unambiguously. It is the OTHER direction that has no answer — entering the
-  yellow must pick one purple of seven, and nothing in the authoring says which.
-- **Or is `portal_lab` a test bed where any answer will do?** Then the current
-  arbitrary-but-stable rule is already right and this closes with a sentence.
-- ⚠ **If neither: the authoring vocabulary is missing a way to say it.** A pair
-  is identified by a COLOUR, and a colour cannot distinguish two pairs — the same
-  shape the fighter lane hit with `channel_index` and solved with a live
-  occurrence id. Exploration has no equivalent.
+⭐ **THE LESSON, which is the reason this row survives its own withdrawal: I READ
+THE AUTHORED DATA AND CALLED IT THE RUNTIME POPULATION.** A `.ldtk` census is a
+measurement of what an author WROTE; between it and the lookup sat a system that
+rewrites the very field I was counting. ⇒ **Census the field, then ask what
+writes it before the reader runs.** The `git grep` for producers is the step I
+skipped, and it is the same step that has saved me four times today on other
+rows.
 
-ⓘ **Cheapest sufficient answer if you want one now:** a validator rule that an
-authored channel may appear at most TWICE per level would make the ambiguity
-unauthorable, and would red `portal_lab` today — which is either the finding or
-the reason to say seven-to-one is intended.
+✔ **The two code changes stand and are relabelled PREVENTIVE in place**
+(`find_portal` and `equalize_pair_apertures` both now use one total order rather
+than archetype order). They are worth keeping for a reason that does not depend
+on the false premise: **nothing in either function requires channels to be
+unique**, so both were relying on a guarantee made three systems away, and a
+total order costs nothing.
+
+⇒ **ONE REAL QUESTION SURVIVES, and it is smaller and sharper.** Link groups are
+assigned `Indexed((64 + gi) * 2 + slot)` and `portal_lab` uses SEVEN of them, so
+`Indexed(128..=141)` are occupied at runtime today. Authoring admits
+`PortalChannelColorSpec::Indexed(u8)` for ANY value — the LDtk token `c128`
+parses straight through. The separation is a documented CONVENTION (*"link
+channels live in the HIGH `Indexed` range … authors use from 0 up"*) with nothing
+enforcing it. ⚠ No world authors a `cN` today, so this is preventive too. ⛔ And
+the constant cannot simply be shared: `LINK_GROUP_BASE` lives in
+`ambition_portal2d`, the authoring enum in `ambition_entity_catalog`, and
+portal2d does not depend on the catalog — the same downstream-resolver shape as
+the held-item registries. ⇒ Either a `PortalChannel::Link(u8)` variant (making
+the collision unrepresentable, ~6 exhaustive arms in `color.rs`) or a validator
+rule at the LDtk boundary. **Worth a ruling only if `cN` authoring is meant to
+stay available at all** — if it is not, deleting `Indexed` from the authoring
+enum closes it for free.
 
 ### 64. Should `SurfaceLoop` and `SurfaceRamp` get marker registrations? (2026-09-05, narrowed same day)
 

@@ -135,9 +135,12 @@ pub fn equalize_pair_apertures(mut portals: Query<&mut PlacedPortal>) {
     // row matching the partner channel — archetype order, because the snapshot
     // comes from a `Query`. That is the same defect `find_portal` had, and
     // TWO INDEPENDENT FIRST-MATCH RULES OVER ONE POPULATION IS WORSE THAN ONE:
-    // with `sandbox.ldtk`'s seven `purple` apertures, this could equalize the
-    // yellow doorway against one purple while transit warped the body to a
-    // DIFFERENT one — a doorway sized for a portal you do not arrive at.
+    // wherever a channel is not unique, this could equalize a doorway against
+    // one aperture while transit warped the body to a DIFFERENT one — a doorway
+    // sized for a portal you do not arrive at. ⚠ PREVENTIVE: I first cited
+    // `sandbox.ldtk`'s seven `purple` apertures as the live case and that was
+    // WRONG — they are all link-resolved to distinct channels before any lookup
+    // runs. See `find_portal`'s comment.
     //
     // ⭐ One reading of "which portal is the partner", so the two cannot
     // disagree. The snapshot is full portals now because that is what the shared
@@ -198,12 +201,13 @@ mod aperture_partner_tests {
             .x
     }
 
-    /// ⛔⛔ TWO SAME-CHANNEL APERTURES, WHICH IS SHIPPED CONTENT. `sandbox.ldtk`'s
-    /// `portal_lab` authors SEVEN `purple` against one `yellow`. This pass used
-    /// to run its OWN `.find()` over a snapshot of a `Query` — archetype order —
-    /// while transit chose through `find_portal`. ⇒ Two independent first-match
-    /// rules over one population, which could size the yellow doorway against
-    /// one purple while warping the body to a DIFFERENT one.
+    /// ⛔⛔ TWO SAME-CHANNEL APERTURES. This pass used to run its OWN `.find()`
+    /// over a snapshot of a `Query` — archetype order — while transit chose
+    /// through `find_portal`. ⇒ Two independent first-match rules over one
+    /// population, which could size a doorway against one aperture while warping
+    /// the body to a DIFFERENT one. ⚠ Contrived, not shipped: the seven authored
+    /// `purple` apertures I first cited are link-resolved to distinct channels
+    /// before any lookup sees them.
     ///
     /// ⭐ The property is that the two agree AND that neither depends on spawn
     /// order, so the test spawns the same set twice in opposite orders and

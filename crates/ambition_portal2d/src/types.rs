@@ -112,12 +112,22 @@ pub fn find_portal<'a>(
     // into a `Vec`, so "first" meant ARCHETYPE ORDER: not a promise, and not
     // reproduced by a rollback resimulation.
     //
-    // ⚠ AND IT IS REACHABLE IN SHIPPED CONTENT, not a theoretical tie.
-    // MEASURED 2026-09-05: `sandbox.ldtk`'s `portal_lab` level authors SEVEN
-    // `purple` apertures against ONE `yellow`, all in the same level and
-    // therefore all live at once. Entering the single yellow resolved to
-    // whichever purple the archetype happened to list first, and a resim could
-    // pick a different one — a body warped somewhere else on a replayed frame.
+    // ⛔⛔ AND MY FIRST VERSION OF THIS COMMENT WAS WRONG, which is worth keeping
+    // rather than quietly deleting. It said the tie was REACHABLE IN SHIPPED
+    // CONTENT because `sandbox.ldtk`'s `portal_lab` authors SEVEN `purple`
+    // apertures against one `yellow`. That is true of the AUTHORED DATA and
+    // false at RUNTIME: all 14 of that level's portals also carry a link id, and
+    // `resolve_portal_links` — which runs FIRST in the sim chain, before transit,
+    // carve and eviction — REASSIGNS every one of them to a distinct
+    // `Indexed(base + slot)`. The authored colour is a placeholder that never
+    // survives to a lookup.
+    //
+    // ⇒ So this is PREVENTIVE, and the honest reason to keep it is that the
+    // guarantee lives in another system: nothing here requires channels to be
+    // unique, and a portal that reaches a lookup WITHOUT having been link-
+    // resolved (a fixture, a future authoring road, a host that reorders the
+    // chain) would land back on archetype order. A total order costs nothing and
+    // does not depend on a promise made three systems away.
     //
     // ⭐ LOWEST POSITION WINS, which is arbitrary but REPRODUCIBLE: placements
     // are authored, so the order is identical on every run and every machine.
@@ -256,10 +266,11 @@ mod find_portal_determinism_tests {
         }
     }
 
-    /// ⛔⛔ SEVEN PURPLE APERTURES ARE SHIPPED CONTENT, not a contrived tie.
-    /// `sandbox.ldtk`'s `portal_lab` authors seven `purple` against one
-    /// `yellow`, all in one level and all live together, so the lookup that
-    /// resolves "the purple side" has seven candidates every frame.
+    /// ⚠ A CONTRIVED TIE, DELIBERATELY, and the comment on `find_portal` says why
+    /// the shipped one I first cited is not real: `portal_lab`'s seven authored
+    /// `purple` apertures are all link-resolved to distinct channels before any
+    /// lookup sees them. The property is still worth pinning — nothing in this
+    /// function requires channels to be unique.
     ///
     /// ⭐ THE PROPERTY IS ORDER-INDEPENDENCE, so the test states it the only way
     /// that means anything: the SAME set in a DIFFERENT order must answer the

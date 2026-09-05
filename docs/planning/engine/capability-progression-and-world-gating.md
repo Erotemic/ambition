@@ -706,3 +706,30 @@ language.
   nobody chose.
 - What constitutes a soft gate that AI/navigation should still consider
   reachable?
+  ⓘ⭐ **THIS HAS NO CONSUMER TODAY — measured 2026-09-05, and that is the useful
+  answer rather than a design.** There is no world-space route planner in the
+  tree: no navmesh, no nav graph, no A*. Every one of the 38 files mentioning
+  *"navigation"* is MENU navigation (`ambition_ui_nav`, `ambition_input`,
+  `ambition_menu`, `ambition_settings_menu`, `ambition_touch_input`,
+  `game_shell`, `menu_kaleidoscope`). Perception does line-of-sight and
+  line-of-fire against the real geometry, and `WorldView::reachable` — the one
+  name that sounds like a route query — is cited in `perception.rs:877` as a
+  thing that USED to exist.
+  ⇒ So an AI sees geometry and nothing else. A standing `GatedLockWall` is
+  geometry that blocks; an opened one is absent. **There is no layer that could
+  classify a gate as "soft"**, because nothing plans a route that would need the
+  classification.
+  ⇒ ⭐ The question is therefore PREMATURE rather than unanswered, and the
+  actionable form is: *when a route planner lands, the gate classification is
+  part of its design, not a thing bolted onto it afterwards.* Leaving it on this
+  list without that note invites someone to answer it in the abstract and build a
+  taxonomy nothing consumes.
+  ⚠ **Method, because this is a NEGATIVE claim and my first search was too
+  narrow.** Grepping `navmesh|NavGraph|pathfind|path_to` returned nothing, which
+  would have been right by luck. Widening to `astar|a_star|waypoint|navigation|
+  reachability` returned APPARENT refutations — 5 files with `a_star`, 8 with
+  `reachability` — every one a substring false positive
+  (`a_starting_character…`, `unreachable!`, prose). ⇒ A widened search can
+  manufacture false POSITIVES that talk you out of a true negative, exactly as a
+  narrow one manufactures false negatives. Both halves need reading, not
+  counting.

@@ -123,6 +123,75 @@ pick up a temporary item after C1 → die       → key stays acquired, temporar
 *checkpoint-shaped* rather than *item-shaped*. A `KeyItem` special case satisfies
 lines one and two and fails line three.
 
+## 2026-09-05 — four rulings on the smash moveset, and one about AUTHORSHIP ITSELF
+
+### The portal presentation is per-composition, and smash turns the seamless one off
+
+> **"because it is not a 1 player game, we can't use the seamless portal
+> presentation. This will be a good check to make sure that it can be disabled on
+> a case by case basis. I think we can use the static small cone presentation
+> though."**
+
+Confidence: **High**. ⇒ Implemented as two host resource overwrites
+(`PortalCameraTransitMode::Pop`, `PortalViewConeMode::Static`), with the ENGINE
+DEFAULT asserted as the guard's control so the per-case claim is tested rather
+than assumed.
+
+### The Limit meter fills from EVERY obvious source, and the design must not close the others off
+
+> **"It will depend on the mechanic. There could be a cloud like meter, where a
+> move fills it. Or a damage only meter, or whatever, make sure the meter doesn't
+> push future uses of it into a box. Let's make it tick up VERY slowly over time
+> by default, a small tick up when you deal damage, and a bigger tick up when you
+> take damage. So let's say the meter has a cap of 60, add 1 tick every 2 seconds,
+> add 1 tick on each damage instance plus 0.1x the damage dealt, and add 2 ticks
+> for each instance of damage taken plus 0.2x the damage taken. Give the limit
+> ability to the goblin maybe? This is just an example, you can tweak things, but
+> I think we do it such that the baseline version of the limit expresses all
+> obvious ways you might want to do it. And give whoever gets the limit meter some
+> move they can use when it fills."**
+
+Confidence: **Medium** on the numbers (*"this is just an example, you can tweak
+things"*), **High** on the shape: ⛔ **the fill sources are AUTHORED and
+composable — time, damage dealt, damage taken, and a move that fills it — not a
+hardcoded rule.** *"Make sure the meter doesn't push future uses of it into a
+box"* is the binding constraint; the baseline numbers are the demonstration that
+all four express.
+
+### The demo's items are worth real art
+
+Grey placeholder quads for the mine, the bomb and the ponytail are **visible as
+"a thing is there" and unidentifiable as "that is a mine"**. Confidence: **High**
+— three icons, hung on the existing `HeldItemArtEntry` seam, which needs no render
+dependency.
+
+### ⭐⭐ AUTHORSHIP IS THE DEMO'S CLAIM, so what Jon authored must be RECORDED and everything else is the agent's to change
+
+> **"The entire point is that this game is demoing the capabilities of an LLM to
+> make a game, and every decision or explicit authoring choice I make takes away
+> from that claim. […] almost every move isn't great or polished, they all need a
+> lot of work. But I think we need the elegant way to express them, and probably a
+> good way to iterate on them before we put too too much effort into it."**
+
+Confidence: **High**, and it reframes every roster row on the campaign page:
+**agent-decided moves are a feature, not a liability.** ⇒ Two consequences:
+
+1. **Jon's explicitly authored moves must be identifiable**, so a polish pass
+   cannot silently rewrite one as though it were free. From memory he named: the
+   **pirate's up-B**, the **performer's up-B and down-B**, the **author's up-B**
+   (his idea, execution *"isn't great right now"*, polishing it is the agent's to
+   do and low priority), the **officer's side-B**, **"PCA needs to shoot a
+   glider"**, and help with the **polygons' up-air and basic attacks**.
+   ⓘ Measured against the code the same day: every one of those except the
+   polygons' basics already carries a verbatim attribution in its own moveset
+   file, and *"PCA needs to shoot a glider"* is **satisfied** — the Perfect
+   Cellular Automaton's action set carries `.with_ranged_vfx("glider")`; its
+   side-B deliberately does not spawn a second one, on the stated reasoning that
+   *"a second spawner here would be two authorities on one pattern."*
+2. **The priority is EXPRESSION and ITERATION over polish.** Effort spent making
+   any individual move good is worth less right now than the vocabulary to state
+   it and the loop to tune it.
+
 ## 2026-09-02 — no mechanism may draw fewer pixels than the quality setting asks
 
 Jon, verbatim, after an **Ultra** host capture drew `hall_of_characters` from

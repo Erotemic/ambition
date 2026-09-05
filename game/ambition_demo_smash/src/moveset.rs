@@ -945,6 +945,76 @@ mod tests {
     /// a regression introduced by whoever ran it: check the two commits that
     /// touched this file while it was dead (both add tests only and neither
     /// touches `lunge_grab`, so green is expected) before hunting a live cause.
+    /// ⛔⛔ NOTHING BOUNDS AN AUTHORED GRAB'S REACH — not the params schema, not
+    /// `acquire_captures`, not the content pass. A typo in `half_extents` is a
+    /// grab that catches across the stage, and no other test would say so.
+    ///
+    /// ⭐ THE REASON THIS IS WORTH A GUARD NOW rather than when it breaks: every
+    /// authored grab today is small enough that the missing bound never shows.
+    /// The parity inventory's TETHER is the first move that would make a large
+    /// number look correct, and the moment somebody authors one is the moment a
+    /// stage-crossing typo stops being obviously wrong.
+    ///
+    /// ⚠ A CEILING, NOT A CLAMP, and deliberately: clamping in the engine would
+    /// silently truncate a deliberate long reach, which is worse than refusing
+    /// it. If a tether legitimately needs more, RAISE THIS NUMBER in the same
+    /// commit that authors it — that is the ratchet working, not an obstacle.
+    ///
+    /// The bound is stated against the stage rather than the body: the smash
+    /// platform is 480px wide, so 96 is a fifth of the ground a fighter stands
+    /// on, and the longest thing authored today reaches 62.
+    #[test]
+    fn no_authored_grab_reaches_further_than_the_stage_allows() {
+        use ambition_platformer2d::characters::smash_capture::{
+            CaptureAttemptParams, CAPTURE_ATTEMPT,
+        };
+
+        /// A fifth of the shipped platform's width. See the note above.
+        const MAX_REACH_PX: f32 = 96.0;
+
+        let mut seen = 0usize;
+        for (who, set) in [
+            ("the stand-in fighter", fighter_moveset()),
+            ("George", crate::george_booul_moveset::george_booul_moveset()),
+        ] {
+            for spec in &set.moves {
+                for window in &spec.windows {
+                    let Some(effect) = window.sustain_effect.as_ref() else {
+                        continue;
+                    };
+                    if effect.key != CAPTURE_ATTEMPT {
+                        continue;
+                    }
+                    let params: CaptureAttemptParams = effect
+                        .params
+                        .hydrate()
+                        .expect("an authored capture attempt must hydrate");
+                    seen += 1;
+                    // The far edge of the reach box, along the captor's facing.
+                    let reach = params.offset.0.abs() + params.half_extents.0.abs();
+                    assert!(
+                        reach <= MAX_REACH_PX,
+                        "{who}'s `{}` reaches {reach}px (offset {:?} + half                          {:?}), past the {MAX_REACH_PX}px ceiling. If this is a                          deliberate tether, raise MAX_REACH_PX here in the same                          commit; if it is a typo, this is the only thing that                          would have caught it",
+                        spec.id, params.offset, params.half_extents
+                    );
+                    assert!(
+                        params.half_extents.0 > 0.0 && params.half_extents.1 > 0.0,
+                        "{who}'s `{}` has a non-positive grab box {:?}, so it                          can never catch anybody",
+                        spec.id, params.half_extents
+                    );
+                }
+            }
+        }
+
+        // ⛔ A POPULATION FLOOR. This check's healthy answer is "no offender",
+        // and a census that walked nothing answers the same way — which is
+        // exactly how it would rot if `sustain_effect` or the key ever moved.
+        assert!(
+            seen >= 3,
+            "found only {seen} authored capture attempt(s); the demo has at              least three (two stand-in grabs and George's), so this census is              measuring nothing rather than passing"
+        );
+    }
+
     #[test]
     fn the_side_special_is_a_command_grab_and_not_the_standing_grab_renamed() {
         use ambition_platformer2d::entity_catalog::WindowTag;

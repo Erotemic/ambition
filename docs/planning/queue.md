@@ -2999,7 +2999,33 @@ queue read as an execution authority for work already done.
   `a_smash_thrown_out_of_a_turnaround_points_the_new_way` is in
   `crates/ambition_combat/src/moveset/tests.rs`.
   ⇒ **So this row's *authoring alone* list is now EMPTY**: the command grab was
-  taken today and the foxtrot was already done. ⭐ Found by two documents
+  taken today and the foxtrot was already done.
+  ⛔⛔ **AND IT IS NOT EMPTY ANY MORE — RE-CLASSIFIED LATE 2026-09-04, and the
+  whole costing above moved with it.** Four rows that read *"needs a seam"* were
+  re-derived rather than built, and every one of them was a search space that
+  excluded where the answer lived:
+  * **`P14` finish zoom** — the fact existed and was already spent; ✔ **BUILT**
+    today (`abd5191f3`), so this one did become work.
+  * **`P11` hit-grab** — the landed-hit→technique seam is built, scheduled and
+    already carrying `apply_pogo_bounce`. ⇒ a second consumer **plus** a
+    targeted attempt; not new plumbing.
+  * **`P10` tech result** — published AND spent (`MovementOp::Tech` drives
+    `PLAYER_TECH` and a burst). ⇒ the residue is a FEEL call about whether three
+    surfaces should sound alike, not engineering.
+  * **`P11` tether** — the grapple is the wrong mechanic and is not needed; the
+    capture reach is unbounded, so ⇒ **AUTHORING**, plus a fourth customer of
+    `flyline.rs`'s procedural-visual shape.
+  ⇒ **The *authoring alone* list is `tether`, and the seam list is EMPTY.**
+  ⭐ **The transferable part, and it is the day's best lesson: A SEARCH SPACE IS
+  A DENOMINATOR.** *"A workspace-wide search"* meant three crates in the row that
+  said it. ⇒ These four cost four greps and produced four corrections, one real
+  hazard (an unbounded authored grab reach, now guarded by
+  `no_authored_grab_reaches_further_than_the_stage_allows`) and **zero builds** —
+  the cheapest work on the page, wearing the label of the most expensive.
+  ⓘ **And what made them catchable was that the rows RECORDED WHERE THEY
+  LOOKED.** A row saying *"searched `ambition_sim_view`, `ambition_render` and
+  `ambition_vfx`"* is falsifiable in one command; *"nothing publishes it"* is
+  not. **When writing "X is absent", write where you looked.** ⭐ Found by two documents
   disagreeing — this row said open, the inventory said shipped — which is worth
   more than either page's own review, and is why the counts get read across pages
   rather than down one.

@@ -427,8 +427,16 @@ reasoning was wrong in the direction that dismisses a real gap — the second ti
 today a note of mine labelled as reasoning turned out false while everything
 labelled as measured held.
 
-⛔⛔ **AND THE WITHIN-A-STEP GAP IS REAL AND STILL OPEN. Negative result recorded
-so nobody runs it twice.** A portal shot travels ~31.7px per 60Hz step, so one
+✔✔ **THE WITHIN-A-STEP GAP IS CLOSED — and this heading said "REAL AND STILL
+OPEN" until 2026-09-05, directly above the measurement that reversed it.** The
+body below already recorded the resolution; only the heading kept the old verdict,
+so a reader skimming for open work found one that was not there.
+⚠ That is the failure mode this whole section is about, wearing its own clothes:
+a NEGATIVE result written down as a standing gap, and then not un-written when it
+was overturned. **The retraction has to reach the sentence a reader arrives at
+first.**
+
+ⓘ The original finding, kept because the reversal is only legible beside it: A portal shot travels ~31.7px per 60Hz step, so one
 fired within that of the fizzle line lives and dies inside a single `sim.step()`
 — the sharpest known instance, and not hypothetical: it needs a player firing
 about 32px from a wall, and the shot carries a minted `SimId` precisely so it

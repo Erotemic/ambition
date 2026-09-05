@@ -10,11 +10,16 @@ engine earlier the same day), which is what this census is for: a catalog that
 only lists what EXISTS cannot find them; one that joins the type against
 authored content can.
 
-⛔ IT COUNTS THREE STATES, and the middle one is the finding:
-  live     — set `true` somewhere in authored content
-  dormant  — NAMED in authored content but never set true (the expensive case:
-             it looks used, and a grep for the field says "used")
-  unnamed  — never mentioned at all
+⛔ IT COUNTS BY EFFECTIVE DEFAULT, and getting that wrong inverts the answer.
+A field whose DEFAULT is `true` and which no content sets is not dormant — it is
+ALWAYS ON. 16 of 51 modes default true here (via `impl Default` OR a constructor
+like `Chest::new`), so a census assuming default-false mislabels a third of the
+population. The first version of this script did exactly that.
+
+  live     — default false and set `true` somewhere, or default true (always on)
+  dormant  — DEFAULT FALSE and never set true. The expensive case: it looks used
+             because the field is named, and a grep for it says "used"
+  unnamed  — never mentioned in content at all (dormant unless default true)
 
 ⚠ THE AUTHORED CORPUS INCLUDES RUST. This repo authors content in `.ron`,
 `.ldtk`, `.yarn` AND in the content crates' own `.rs`. A first version of this
@@ -76,18 +81,30 @@ def authored_corpus() -> tuple[str, int]:
     return text, len(files)
 
 
-def modes() -> list[tuple[str, str, str]]:
+def modes() -> list[tuple[str, str, str, bool]]:
+    """`(struct, field, file, defaults_true)` for every authored bool mode.
+
+    ⛔ `defaults_true` scans EVERY `impl` block on the type in its own file, not
+    just `impl Default` — `Chest::new` sets `persistent: true` in a constructor,
+    and a Default-only scan finds 1 of the 16 that actually default true.
+    """
     out = []
     for f in git("grep", "-l", "Deserialize", "--", "crates"):
         if "/tests" in f or f.endswith("tests.rs"):
             continue
         text = (REPO / f).read_text(encoding="utf-8", errors="replace")
+        impls: dict[str, str] = {}
+        for im in re.finditer(r"\nimpl(?:\s+Default\s+for)?\s+(\w+)\b", text):
+            impls[im.group(1)] = impls.get(im.group(1), "") + text[im.start() : im.start() + 3000]
         for m in STRUCT.finditer(text):
             name, body = m.group(1), m.group(2)
             if NOT_AUTHORED.search(name):
                 continue
+            blob = impls.get(name, "")
             for fm in BOOL_FIELD.finditer(body):
-                out.append((name, fm.group(1), f))
+                field = fm.group(1)
+                defaults_true = bool(re.search(r"\b" + re.escape(field) + r"\s*:\s*true\b", blob))
+                out.append((name, field, f, defaults_true))
     return out
 
 
@@ -109,20 +126,26 @@ def main() -> int:
         ["git", "rev-parse", "--short", "HEAD"], cwd=REPO, capture_output=True, text=True
     ).stdout.strip()
     fields = modes()
-    live, dormant, unnamed = [], [], []
-    for name, field, where in fields:
-        if re.search(re.escape(field) + r"\s*[:=]\s*true\b", corpus):
+    live, dormant, unnamed, always_on = [], [], [], []
+    for name, field, where, defaults_true in fields:
+        set_true = re.search(re.escape(field) + r"\s*[:=]\s*true\b", corpus)
+        named = re.search(r"\b" + re.escape(field) + r"\b", corpus)
+        if defaults_true and not set_true:
+            # ⛔ NOT DORMANT — the behaviour is on everywhere by default.
+            always_on.append((name, field, where))
+        elif set_true:
             live.append((name, field, where))
-        elif re.search(r"\b" + re.escape(field) + r"\b", corpus):
+        elif named:
             dormant.append((name, field, where))
         else:
             unnamed.append((name, field, where))
 
     print(f"AUTHORED BOOLEAN PARAMETER MODES  (at {head}, corpus {n_files} files)\n")
     print(f"  technique/placement bool modes      {len(fields)}")
-    print(f"  LIVE     — set true in content      {len(live)}")
-    print(f"  DORMANT  — named, never set true    {len(dormant)}")
-    print(f"  UNNAMED  — never mentioned          {len(unnamed)}")
+    print(f"  LIVE      — set true in content     {len(live)}")
+    print(f"  ALWAYS ON — defaults true, unset    {len(always_on)}")
+    print(f"  DORMANT   — default false, never on {len(dormant)}")
+    print(f"  UNNAMED   — never mentioned         {len(unnamed)}")
     for label, rows in (("DORMANT", dormant), ("UNNAMED", unnamed)):
         if not rows:
             continue

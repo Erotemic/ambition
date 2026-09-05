@@ -159,6 +159,50 @@ how that memory participates in rollback/lifetime semantics.
 > which is itself worth recording — most of the cross-plan joins checked this
 > week did not.
 
+✔✔ **THE GATE FIRED 2026-09-05 — Jon, after reading the tree and the moves
+already built.** The row above recorded two consumers "neither yet reported as
+struggling" and correctly concluded the trigger had not fired. A third customer
+has now been named, and it satisfies this row's own three clauses rather than
+two of them:
+
+- **a trigger representation its current format handles poorly** —
+  PK-Thunder-style behaviour: spawn a projectile, lease steering input to it,
+  restrict fighter control, wait on *self-hit / other-hit / expiry*, and branch
+  to a directed launch. A `MoveSpec` timeline can state WHEN something happens;
+  it cannot state *what happens next, based on what happened before*, which is
+  the whole of this move.
+- **semantic effects that already have owning domains** — every operation in it
+  is owned elsewhere already: projectile spawning and trajectory by projectile
+  authority, input routing by control authority, fighter motion by movement
+  authority, contact by the relevant contact authority. ⭐ Not one of them
+  belongs to the sequencer, which is why this customer tests the rung rather
+  than smuggling in a general one.
+- **who owns per-occurrence runtime memory, and its rollback semantics** —
+  `MovePlayback`, extended with current flow node, trigger/input latches,
+  issued-event bookkeeping, timeouts and local symbolic slots. ✔ Verified
+  2026-09-05 against `crates/ambition_combat/src/moveset/mod.rs`: it already
+  carries `t`, `landed_hit` / `connected_hit` / `blocked_hit` / `hit_targets`,
+  `aim` / `aimed_stick`, `charge`, `looped_s` and `instance` — per-use
+  deterministic state that is rollback-carried today. The flow adds a cursor to
+  an occurrence record that already exists rather than a second lifetime.
+
+⛔⛔ **AND IT IS SCOPED SO IT CANNOT BECOME THE UNIVERSAL SEQUENCER THIS PAGE
+REFUSES.** Named `TechniqueFlow` / `MoveFlow`, explicitly NOT `ActionGraph` —
+Jon's reason is that the latter "sounds like a universal gameplay execution
+model, which is precisely what the planning docs are trying not to introduce".
+The node vocabulary is `emit` / `wait` / `branch` / `finish` plus symbolic slots,
+with **no** variables, arithmetic, arbitrary expressions, arbitrary ECS queries,
+general scripting, behaviour trees or global blackboard. ⇒ It is MOVE-SCOPED:
+"a domain decides *when* to ask/effect" still holds, and the domain here is the
+move. A slot exists so a move references a semantic occurrence (`"thunder"`)
+instead of holding an `Entity`, which is what keeps rewind, inspection and
+remote detonation clean.
+
+⇒ Design and capability map:
+[`expressive-move-capabilities.md`](expressive-move-capabilities.md).
+Execution order:
+[`../demos/campaigns/expressive-moves-2026-09-05.md`](../demos/campaigns/expressive-moves-2026-09-05.md).
+
 ### O4 — keep discovery/inspection first-class
 
 Authoring and agent tooling should be able to enumerate:
@@ -171,6 +215,24 @@ Authoring and agent tooling should be able to enumerate:
 
 Do not require a developer to search Rust registration topology to discover the
 authored vocabulary.
+
+⭐ **A CONCRETE ASK LANDED HERE 2026-09-05, from the same direction that fired
+O3, and it names the exact hole.** `ParamSchemaRegistry` intentionally accepts an
+unknown effect key, so it can report *the parameters for `smash.teleport` are
+malformed* but not *`smash.teleprot` does not exist*. ⇒ Add an **installed
+technique descriptor catalog** — preparation, inspection and tooling only, ⛔
+never the runtime reducer — carrying per technique: key, owning
+capability/domain, documentation, parameter schema, where it may be used
+(event / sustained window / on-hit), the signals it may produce, and examples.
+Then make the Smash provider's content-finalization pass strict (**every
+authored `EffectRef` must resolve to an installed technique**) and expose
+`smash_tool techniques`, `smash_tool technique <key>` and
+`smash_tool mechanics <domain>`.
+
+ⓘ **The motivation is agent behaviour, not typo-catching.** Jon: authoring
+agents do not reach for capabilities unless told they exist, and a catalog makes
+it materially harder to decide *"I guess I need to write a new system"* before
+discovering that capture, teleport, stored charge and mount already do it.
 
 ✔ M5, the why-not half, landed 2026-09-02: `ConditionOutcome::NotSatisfied`
 carries `WhyNot { term, subject, observed }` and every production evaluator

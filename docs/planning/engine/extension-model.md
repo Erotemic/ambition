@@ -53,6 +53,17 @@ See [`godot-class-2d-capability.md`](godot-class-2d-capability.md).
 >
 > ⛔ A rung having an implementation is not the same as that rung being GOOD. This
 > table says the ladder exists, not that its steps are the right height.
+>
+> ✔✔ **AND THE MISSING RUNG NOW HAS A CUSTOMER, 2026-09-05.** O3's gate fired on
+> PK-Thunder-style behaviour, which needs *what happens next, based on what
+> happened before* and cannot get it from a `MoveSpec` timeline. The answer is a
+> MOVE-SCOPED `TechniqueFlow` (`emit` / `wait` / `branch` / `finish` plus symbolic
+> slots), not a general representation — so this row goes from "partial, no
+> general representation" to "partial, and deliberately staying that way".
+> ⛔ Deliberately not upgraded to ✔: a move-scoped flow is not the general
+> orchestration representation this row measures, and marking it complete would
+> lose exactly the distinction the rung exists to track. See
+> [`expressive-move-capabilities.md`](expressive-move-capabilities.md).
 
 ⭐ **the orchestration rung is new and is the one identified gap** — authoring is
 strong for nouns and weak for verbs and relationships over time. It is owned by

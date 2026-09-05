@@ -2901,6 +2901,28 @@ queue read as an execution authority for work already done.
 
 - ▢ **D72 — continue Super Smash Siblings as a product/engine customer from the
   current parity inventory.** Do not resurrect the historical fun-push campaign.
+  ⭐⭐⭐ **SUPERSEDED IN DIRECTION 2026-09-05 — Jon set a new target and a new
+  architecture for reaching it, and it changes what "the next slice" means on
+  this row.** The target is **a 1v1 human-vs-human match that is excellent**,
+  and ⛔ **great CPU AI is explicitly deprioritised** — so the ladder /
+  fighter-brain measurement work below is no longer the frontier, and the
+  remaining ladder rows are not to be picked up on that basis.
+  ⇒ The architecture: **do not create new peer engine authorities** for the
+  missing mechanics. Ambition already has most of them; what is missing is a way
+  for a move to COMPOSE and COORDINATE them over time. O3's orchestration gate
+  fired on PK-Thunder-style behaviour, and the answer is a move-scoped
+  `TechniqueFlow`, not an `ActionGraph`.
+  ⇒ Capability/authority map:
+  [`engine/expressive-move-capabilities.md`](engine/expressive-move-capabilities.md).
+  Execution order, two tracks:
+  [`demos/campaigns/expressive-moves-2026-09-05.md`](demos/campaigns/expressive-moves-2026-09-05.md).
+  ⭐ **The takeable slices are Track B**, which need no new engine rung at all:
+  the successful-defense consequence (counters/Revenge/Witch-Time by
+  composition), the ground tether grab (authoring plus a line), projectile
+  interception as a projectile-domain operation, and the charge ball's two named
+  presentation deficiencies.
+  ⓘ The state below remains accurate as history and its ✔ rows still hold; read
+  it after the two pages above rather than before them.
   ⭐⭐ **STATE AS OF 2026-09-04, because this row is now ~175 lines and the history
   below is not what a reader needs first.** Three things, and only one of them is
   a slice anybody can take today:

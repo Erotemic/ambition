@@ -1136,6 +1136,44 @@ mechanism would produce a gate that refuses everyone.
 `body.fits`, and anything later that reads the driven population), which is why
 it is filed against the population rather than against a condition.
 
+### 66. The citation checker is at ZERO and still does not gate. Ratchet it? (2026-09-05)
+
+⭐ **MEASURED 2026-09-05: `check_planning_citations.py` reports 1,938 citations
+across 102 planning files and FIVE doc corpora, with ZERO unresolved.** It has a
+working `--strict` mode that returns 1. **Nothing invokes it.**
+
+⛔ **The non-gating choice is DELIBERATE and its reasoning is in the lane
+definition**, so this is a question rather than a fix: *"it can name something it
+cannot know about (a macro-declared const, an upstream type) rather than a
+defect. Failing the lane on one would train everybody to pass `--no-verify`."*
+That is a real objection and I am not overriding it.
+
+⇒ **What has changed since that was written, and why it is worth re-asking:**
+
+- **The count is ZERO.** The false positives the reasoning fears are not
+  currently occurring, across five corpora.
+- ⭐ **`cite-ok` EXISTS.** A per-line, reviewable opt-out means a legitimate
+  macro-declared const has a one-line fix that is *not* `--no-verify`. The
+  objection assumed no escape hatch; there is one, and its wrapper already tests
+  that a `cite-ok` line is not reported.
+- ⛔ **A report is only as good as the reading.** Its footer is IDENTICAL whether
+  the body is clean or not, and I have now been caught by that twice — once
+  committing "citations all resolve" when three did not, and once today finding
+  three unresolved that I had written myself, only because I deliberately read
+  the body. ⇒ **This is the one instrument in the repo whose green is
+  indistinguishable from its red without reading it.**
+
+⇒ **The shape I would suggest if the answer is yes is a RATCHET, not `--strict`**
+— gate on the count not INCREASING, exactly as `check_doc_link_ratchet.py` does,
+so a genuine unknowable name can be banked with a reason instead of forcing
+either a `cite-ok` or a bypass. At zero, that is the same thing as gating, and it
+degrades gracefully if the false-positive class ever shows up.
+
+⚠ **Cheapest sufficient alternative if you would rather not gate at all:** have
+the lane print the COUNT rather than the footer, so a skim shows `0 unresolved`
+instead of a sentence that reads the same either way. That fixes the reading
+problem without touching the severity.
+
 ### 65. ~~`portal_lab`'s seven `purple` apertures~~ — WITHDRAWN 2026-09-05, my premise was wrong
 
 ⛔⛔ **I FILED THIS AND THEN DISPROVED IT MYSELF. Withdrawn rather than deleted,

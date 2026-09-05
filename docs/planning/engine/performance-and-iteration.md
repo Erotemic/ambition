@@ -50,7 +50,11 @@ edit_cost_lines        p2d_core     537,395 -> 583,171   95.2% -> 95.0%  FELL
 Both are flagged **REGRESSED** on the absolute line count. Both have a
 **share of the workspace that went DOWN**. Reconstructing the workspace size
 from the report's own percentages: it grew from ~564,500 lines at the freeze
-(2026-08-27) to **614,016** today, +49,500 lines.
+(2026-08-27) to **614,016 as measured on 2026-09-05**, +49,500 lines. ⚠ It read
+**616,760** a few hours later the same day — which is not a correction but the
+POINT: the denominator moves continuously, so any absolute figure here is a
+timestamp and the ARGUMENT is what survives. Re-run the ratchet rather than
+quoting either number.
 
 ```text
                        growth alone predicts   actual

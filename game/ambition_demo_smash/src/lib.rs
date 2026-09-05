@@ -580,30 +580,25 @@ const FALL_BLAST_MARGIN_PX: f32 = 240.0;
 const SIDE_BLAST_MARGIN_PX: f32 = 400.0;
 const CEILING_BLAST_MARGIN_PX: f32 = 240.0;
 
-/// The stage: a platform surrounded by nothing.
+/// Everything that makes a room a SMASH stage, stated once.
 ///
-/// That shape is the whole difference from every other room the engine has
-/// loaded. A platformer room is a box you cannot leave; a fighter stage is a
-/// thing you can be knocked OFF, and the emptiness around it is the mechanic
-/// rather than the absence of one.
+/// ⛔⛔ THREE STAGE BUILDERS EACH RESTATED THIS, and the drift it invites is not
+/// hypothetical: `test_the_stage_choice_decides_which_stage_the_match_prepares`
+/// exists partly to assert the three share a blast envelope, which is a guard
+/// compensating for one fact having three authors. A stage that quietly moved
+/// its side margin would be incomparable with every number this project has
+/// recorded, and nothing but that test would have said so.
 ///
-/// Authored in Rust rather than LDtk deliberately, and the repo's own rule says
-/// which way that goes: LDtk is preferred for content, Rust rooms are for DEMOS.
-/// A stage this shape is four numbers, and putting it in a level file would make
-/// the ONE interesting fact about it — the blast margin — a field in an editor
-/// nobody opens.
-pub fn smash_stage() -> RoomSpec {
+/// ⇒ A stage now states only what makes it DIFFERENT — its name, its room id and
+/// its geometry. Size, spawn, blast envelope, mode and nameplate policy are here.
+fn smash_stage_room(name: &str, id: &str, blocks: Vec<ae::Block>) -> RoomSpec {
     let mut world = ae::World::new(
-        "Smash Stage",
+        name,
         STAGE_SIZE,
         // Spawn above the platform, like a respawn: the fighters are placed by
         // seating, and this is only where a lone visitor lands.
         Vec2::new(STAGE_SIZE.x / 2.0, PLATFORM_TOP - 96.0),
-        vec![ae::Block::solid(
-            "smash_platform",
-            Vec2::new((STAGE_SIZE.x - PLATFORM_WIDTH) / 2.0, PLATFORM_TOP),
-            Vec2::new(PLATFORM_WIDTH, 32.0),
-        )],
+        blocks,
     );
     world.edges.fall = FALL_BLAST_MARGIN_PX;
     // The SIDES are the interesting ones and they are not the default. A body
@@ -614,7 +609,7 @@ pub fn smash_stage() -> RoomSpec {
     world.edges.side = Some(SIDE_BLAST_MARGIN_PX);
     world.edges.rise = Some(CEILING_BLAST_MARGIN_PX);
 
-    let mut room = RoomSpec::new(SMASH_STAGE_ROOM_ID, world);
+    let mut room = RoomSpec::new(id, world);
     room.metadata.mode = Some(SMASH_MODE.to_string());
     // ⭐⭐ EVERY FIGHTER IS LABELLED THE SAME WAY. The presentation default hides
     // the plate over a body somebody is driving, which is the right EXPLORATION
@@ -628,6 +623,30 @@ pub fn smash_stage() -> RoomSpec {
     // the way of reading the fight.
     room.metadata.nameplate_policy.label_driven_bodies = Some(true);
     room
+}
+
+/// The stage: a platform surrounded by nothing.
+///
+/// That shape is the whole difference from every other room the engine has
+/// loaded. A platformer room is a box you cannot leave; a fighter stage is a
+/// thing you can be knocked OFF, and the emptiness around it is the mechanic
+/// rather than the absence of one.
+///
+/// Authored in Rust rather than LDtk deliberately, and the repo's own rule says
+/// which way that goes: LDtk is preferred for content, Rust rooms are for DEMOS.
+/// A stage this shape is four numbers, and putting it in a level file would make
+/// the ONE interesting fact about it — the blast margin — a field in an editor
+/// nobody opens.
+pub fn smash_stage() -> RoomSpec {
+    smash_stage_room(
+        "Smash Stage",
+        SMASH_STAGE_ROOM_ID,
+        vec![ae::Block::solid(
+            "smash_platform",
+            Vec2::new((STAGE_SIZE.x - PLATFORM_WIDTH) / 2.0, PLATFORM_TOP),
+            Vec2::new(PLATFORM_WIDTH, 32.0),
+        )],
+    )
 }
 
 /// The room id of the platformed stage — see [`smash_platform_stage`].
@@ -671,27 +690,15 @@ const NARROW_PLATFORM_WIDTH: f32 = 320.0;
 /// comparison on this page was taken on that geometry. Adding beside them costs
 /// no recorded number its meaning.
 pub fn smash_narrow_stage() -> RoomSpec {
-    let mut world = ae::World::new(
+    smash_stage_room(
         "Smash Stage — Narrow",
-        STAGE_SIZE,
-        Vec2::new(STAGE_SIZE.x / 2.0, PLATFORM_TOP - 96.0),
+        SMASH_NARROW_STAGE_ROOM_ID,
         vec![ae::Block::solid(
             "smash_platform",
-            Vec2::new(
-                (STAGE_SIZE.x - NARROW_PLATFORM_WIDTH) / 2.0,
-                PLATFORM_TOP,
-            ),
+            Vec2::new((STAGE_SIZE.x - NARROW_PLATFORM_WIDTH) / 2.0, PLATFORM_TOP),
             Vec2::new(NARROW_PLATFORM_WIDTH, 32.0),
         )],
-    );
-    world.edges.fall = FALL_BLAST_MARGIN_PX;
-    world.edges.side = Some(SIDE_BLAST_MARGIN_PX);
-    world.edges.rise = Some(CEILING_BLAST_MARGIN_PX);
-
-    let mut room = RoomSpec::new(SMASH_NARROW_STAGE_ROOM_ID, world);
-    room.metadata.mode = Some(SMASH_MODE.to_string());
-    room.metadata.nameplate_policy.label_driven_bodies = Some(true);
-    room
+    )
 }
 
 /// Height of each soft platform above the main stage surface, in world pixels.
@@ -779,10 +786,9 @@ pub fn smash_platform_stage() -> RoomSpec {
             SOFT_PLATFORM_SIZE,
         )
     };
-    let mut world = ae::World::new(
+    smash_stage_room(
         "Smash Stage (platforms)",
-        STAGE_SIZE,
-        Vec2::new(centre_x, PLATFORM_TOP - 96.0),
+        SMASH_PLATFORM_STAGE_ROOM_ID,
         vec![
             main,
             soft(
@@ -797,19 +803,7 @@ pub fn smash_platform_stage() -> RoomSpec {
             ),
             soft("smash_soft_top", centre_x, SOFT_PLATFORM_HIGH_RISE),
         ],
-    );
-    // The blast geometry is the stage's identity as much as its blocks are, and
-    // a second stage that quietly used the engine defaults would differ from the
-    // first in ways nobody chose. Same margins, so a comparison between the two
-    // stages is a comparison of their GEOMETRY.
-    world.edges.fall = FALL_BLAST_MARGIN_PX;
-    world.edges.side = Some(SIDE_BLAST_MARGIN_PX);
-    world.edges.rise = Some(CEILING_BLAST_MARGIN_PX);
-
-    let mut room = RoomSpec::new(SMASH_PLATFORM_STAGE_ROOM_ID, world);
-    room.metadata.mode = Some(SMASH_MODE.to_string());
-    room.metadata.nameplate_policy.label_driven_bodies = Some(true);
-    room
+    )
 }
 
 pub fn stage_centre() -> Vec2 {

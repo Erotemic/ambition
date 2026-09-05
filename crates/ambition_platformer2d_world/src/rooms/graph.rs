@@ -121,6 +121,13 @@ impl RoomSet {
             .position(|room| room.id == id || room.world.name == id)
     }
 
+    /// ⚠ `#[must_use]`: FALSE MEANS THE START ROOM WAS NOT SET, and a caller that
+    /// drops that runs a DIFFERENT PROGRAM than the one it was asked for -- the
+    /// `--start-room` road silently keeping whatever room the world already had.
+    /// Its one caller checks today; the attribute is what keeps the next one
+    /// honest.
+    #[must_use = "false means the id matched no room and the start was NOT \
+                  changed: report it, or the session silently starts elsewhere"]
     pub fn set_start_by_id(&mut self, id: &str) -> bool {
         let Some(index) = self.room_index_by_id(id) else {
             return false;

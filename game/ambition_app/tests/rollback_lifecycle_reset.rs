@@ -121,7 +121,8 @@ fn smash_one_brick(world: &mut World) -> SimId {
     let mut feature = world
         .get_mut::<ambition_platformer2d::combat::components::BreakableFeature>(brick)
         .expect("breakable feature");
-    feature.breakable.apply_damage(9999);
+    // Fixture setup: drive it to broken; this test asserts the RESET, not the break.
+    let _broke = feature.breakable.apply_damage(9999);
     assert!(feature.broken(), "the brick is broken after lethal damage");
     id
 }

@@ -412,7 +412,8 @@ fn disturb_the_room(sim: &mut Platformer2dSimHarness) -> usize {
             // Through the domain's own verb, so the fixture cannot invent a
             // state the game never produces.
             let hp = breakable.breakable.health.max;
-            breakable.breakable.apply_damage(hp);
+            // Fixture setup: the break itself is the point, not its consequences.
+            let _broke = breakable.breakable.apply_damage(hp);
             changed += 1;
         }
     }

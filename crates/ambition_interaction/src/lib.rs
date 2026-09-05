@@ -247,6 +247,11 @@ impl Breakable {
         }
     }
 
+    /// ⚠ `#[must_use]`: TRUE MEANS IT BROKE THIS CALL, and breaking is an event
+    /// with consequences a caller owes -- debris, a gate opening, an occurrence
+    /// recorded. Dropping it damages the feature and drops the moment it died.
+    #[must_use = "true means the breakable BROKE on this call: the caller owes \
+                  the break its consequences"]
     pub fn apply_damage(&mut self, amount: i32) -> bool {
         let broke = self.health.damage(amount);
         if broke {

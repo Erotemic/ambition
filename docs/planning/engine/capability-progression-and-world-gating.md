@@ -424,9 +424,21 @@ the whole time rather than a failure.
 `check_no_warnings.py` either"*; this is the same blind spot pointed at TESTS.
 ⭐ ⓘ The honest split: the interpreter arms genuinely need `ui` (they drive real
 Yarn through `bevy_yarnspinner`). **`the_boss_fixture_id_is_not_a_name_any_shipped_dialogue_uses`
-does NOT** — it only reads `YARN_SOURCES` strings — so it is gated by where it
-happens to live rather than by what it needs, and moving it to an ungated file
-would make it survive the edge going away. That is the change to make.
+does NOT** — it only reads `YARN_SOURCES` strings — so it was gated by where it
+happened to live rather than by what it needs. ✔ **Moved to the ungated
+`dialogue_lint` module (`82e01a37e`), taking `SYNTHETIC_BOSS` with it as the one
+definition**: default-features content tests go 32 → 33 and `--features ui` stays
+39, so nothing was traded for it.
+
+⛔ **AND THE OBVIOUS SWEEP FOR MORE OF THESE DOES NOT WORK — negative result
+recorded so nobody runs it twice.** *"Which test files are gated on a
+NON-DEFAULT feature of their own crate?"* returns **62 of 62**. Gating a test
+file on `rl_sim` / `causal` / `input` / `visible` / `ui` is this repo's standard
+practice, which is exactly why the union lane exists.
+⇒ **A filter that selects the entire population is not a filter.** The real
+question is per-TEST — does this test's BODY need the feature — and answering it
+for 62 files means reading them, not querying manifests. The one case here was
+found by asking what a specific guard needed, not by a census.
 
 ⚠ **THE COUNTS IN THIS TABLE WERE RAW TEXT UNTIL 2026-09-05 and are now
 EXECUTABLE calls** — `inventory.holds` 7→5, `boss.cleared` 5→3,

@@ -13,6 +13,18 @@
 //! above the player inverts the bug onto near-side bodies, and an actor's single
 //! z cannot serve two panes that disagree about it in the same frame.
 //!
+//! ⚠ ONE EYE, BY CONSTRUCTION. [`PortalViewer`] is a RESOURCE, so there is
+//! exactly one viewpoint and no arbitration to do. ⇒ A split-screen session
+//! would need per-view pieces on per-view render layers, because one body is
+//! near for one player and far for the other -- structurally the two-pane
+//! problem again -- but that is not a case this seam can even express today.
+//!
+//! ⚠ The pieces carry no `RenderLayers` because actor sprites do not: the
+//! per-view isolation pass writes layers onto things keyed by `PresentedForView`
+//! -- labels, backdrop panels, plates -- and a body sprite is none of those. The
+//! transit pieces make the same assumption, so this matches the shipped road
+//! rather than adding one.
+//!
 //! ⚠ ONE COVERING PANE. Subtracting two apertures from one body would exceed the
 //! three clip half-planes [`PortalClipMaterial`] carries. MEASURED 2026-09-05
 //! (`scripts/portal_pane_separation.py`): the closest two panes a body could be
@@ -62,7 +74,7 @@ pub fn composite_far_side_bodies(
     stale: Query<Entity, With<PortalFarSidePiece>>,
     hidden: Query<Entity, With<PortalFarSideHidden>>,
     portals: Query<&PlacedPortal>,
-    viewers: Query<&PortalViewer>,
+    viewer: Option<Res<PortalViewer>>,
     images: Option<Res<Assets<Image>>>,
     layouts: Option<Res<Assets<TextureAtlasLayout>>>,
     meshes: Option<ResMut<Assets<Mesh>>>,
@@ -84,7 +96,14 @@ pub fn composite_far_side_bodies(
 
     // ⛔ Near and far are relative to a viewpoint. Without one there is no
     // honest classification, so every body draws exactly as it did before.
-    let Ok(viewer) = viewers.single() else {
+    //
+    // ⭐ `Res`, because that is what the eye IS: the host writes it through
+    // `ResMut<PortalViewer>` and every shipped reader takes `Res<PortalViewer>`.
+    // The first version queried it as a component, which HAPPENS to work --
+    // resources live on a singleton entity, so the query finds it -- and that is
+    // exactly why it was worth changing: one fact read two ways, where the
+    // second way is an accident of storage rather than a statement of intent.
+    let Some(viewer) = viewer.filter(|v| v.present) else {
         restore_hidden(&mut commands, &hidden, &mut candidates);
         return;
     };
@@ -261,8 +280,17 @@ mod tests {
     }
 
     /// `eye` sits well in FRONT of the pane (low x), so a body at high x is far.
+    ///
+    /// ⭐ INSERTED AS A RESOURCE, WHICH IS HOW THE HOST PUBLISHES IT. The first
+    /// version SPAWNED it as a component; that passes -- resources live on a
+    /// singleton entity, so a component query finds them -- and it meant every
+    /// test built its subject a way the game never does.
     fn spawn_viewer(app: &mut App, eye: Vec2) {
-        app.world_mut().spawn(PortalViewer { eye, ..default() });
+        app.insert_resource(PortalViewer {
+            present: true,
+            eye,
+            ..default()
+        });
     }
 
     fn spawn_candidate(app: &mut App, centre: Vec2, half: Vec2) -> Entity {
@@ -368,6 +396,25 @@ mod tests {
             app.update();
         }
         assert_eq!(first, pieces(&mut app), "pieces accumulated across frames");
+    }
+
+    /// ⛔ `present: false` MEANS THERE IS NO EYE THIS FRAME, and the `eye` field
+    /// is then meaningless. Compositing on it would classify near and far from a
+    /// stale or default position -- a body hidden against a viewpoint nobody
+    /// has. The flag exists to be asked.
+    #[test]
+    fn an_absent_eye_composites_nothing() {
+        let mut app = test_app();
+        app.world_mut().spawn(pane());
+        app.insert_resource(PortalViewer {
+            present: false,
+            eye: Vec2::new(400.0, 300.0),
+            ..default()
+        });
+        let body = spawn_candidate(&mut app, Vec2::new(505.0, 300.0), Vec2::new(24.0, 24.0));
+        app.update();
+        assert_eq!(visibility(&app, body), Visibility::Inherited);
+        assert_eq!(pieces(&mut app), 0);
     }
 
     /// ⛔⛔ A TRANSITING BODY IS ANOTHER PRESENTATION'S. `sync_portal_body_pieces`

@@ -4245,7 +4245,20 @@ OPTIONAL dep + feature, never used:
      carve broke an architectural rule" when it only moved the rule's home.
      ⇒ Point the exclusion at the new path IN THE SAME COMMIT; widening the
      paths or deleting the contract launders the rule the carve was meant to
-     preserve, and looks like a clean carve in the diff. ⚠ Such a contract is
+     preserve, and looks like a clean carve in the diff.
+     ✔ **SWEPT 2026-09-05 FOR EVIDENCE OF THAT LAUNDERING, AND FOUND NONE.** The
+     file carries 10 path exclusions; no single contract spreads them to hide a
+     growing population. The one with THREE —
+     `the-catalog-default-action-set-is-confined-to-one-file` — is a definition
+     plus two callers, all three live (`grep -c` on each: 1, 1, 1, no stale
+     entries), and its `reason` carries a DATED history of every move plus an
+     explicit tripwire: *"Two files, still one decision per character; the day a
+     registered character is resolved in both is the day this contract has
+     stopped meaning anything, so read them together before adding a third."*
+     ⇒ That is the pattern working, not laundering. ⚠ Its `id` still says
+     *"confined-to-one-file"* while the rule is two callers — a slug lagging a
+     dated reason, left alone deliberately: the reason is authoritative and
+     rewriting well-maintained text to match a slug is churn. ⚠ Such a contract is
      invisible when you grep for the file it protects — it names that file in a
      `:!` path rather than in its rule, which is why this is a table:
 

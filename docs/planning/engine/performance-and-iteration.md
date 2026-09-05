@@ -119,10 +119,31 @@ exactly the rows `unit_weights()` discards. **The warm target dir in the working
 tree is what makes it a REBUILD at all** — isolation and warmth are in direct
 tension here, and warmth is the one the measurement requires.
 
-⇒ **The precondition for clearing UNPRICED is a coordinated quiet window in a
-tree with a WARM release target**, not an isolated checkout. Recorded so the next
-agent spends the build once, in the right phase, and does not lose an hour to the
-worktree idea.
+⇒ **The precondition for TAKING THE MEASUREMENT is a coordinated quiet window in
+a tree with a WARM release target**, not an isolated checkout.
+
+✔ **TAKEN 2026-09-05, and it worked: `--phase first-party`, 245s, 675 fresh / 67
+dirty units, `backfilled=0`.** Six of the eight now carry measured rates
+(`ambition_match` 1.6496 ms/line, `ambition_abilities` 1.915,
+`ambition_world_items` 2.8125, plus body_seed, encounter_features, held_items);
+`unit_weights()` went from 56 crates to 68. ⚠ `ambition_registry_core` and
+`ambition_sprite_fx` are unreachable by this build at any phase — they are not in
+`cargo test -p ambition_app --test app_it`'s first-party set.
+
+⛔⛔ **AND IT DOES NOT CLEAR THE FINDING — I was wrong about that, and acted on
+being wrong.** I claimed earlier that pricing comes from the LEDGER rather than
+the baseline, so measuring would clear UNPRICED without a re-freeze. It does not:
+the gate reads the weights FROZEN in the baseline
+(`snapshot(weights=frozen.get("unit_weights"))`, `compile_ratchet.py:1442`) —
+deliberately, *"so that appending to `compile_units.jsonl` cannot move a guarded
+number without a re-freeze"*. ⇒ **UNPRICED is a re-freeze finding like the others,
+not an independent one**, and the carve owner's decision covers it too.
+
+⭐ What the run bought is still real: the rows are measured, correct and banked,
+so the re-freeze no longer has to spend a build first. ⇒ **the finding's text is
+misleading and that is worth knowing** — *"Run `compile_collect.py` to measure
+them and re-freeze"* reads as two independent options and is one instruction with
+two steps.
 
 ⓘ The two cold runs are in the ledger and are not waste for every purpose — they
 are honest release/cold rows — they simply cannot feed the weight table.

@@ -14,18 +14,28 @@ use bevy_yarnspinner::prelude::DialogueRunner;
 /// lets runner-library closures read the projection without borrowing a Bevy resource.
 ///
 /// ⭐⭐ **AND THE "QUERIED THERE" RULE HAS TEETH NOW — THIS TYPE HAS SHRUNK
-/// THREE TIMES BY IT.** `flag` left when `world.flag_set` was published;
+/// FOUR TIMES BY IT.** `flag` left when `world.flag_set` was published;
 /// `bosses_cleared` and `quests_active` left on 2026-09-04 when `boss.cleared`
-/// and `quest.active` were. Each time the Yarn function stayed, its NAME stayed,
-/// and authored `.yarn` content was untouched — the function became a registered
-/// system asking the catalog live instead of a closure over a field here.
+/// and `quest.active` were; `wallet_balance` left on 2026-09-05. Each time the
+/// Yarn function stayed, its NAME stayed, and authored `.yarn` content was
+/// untouched — the function became a registered system reading the live
+/// authority instead of a closure over a field here.
 ///
-/// ⇒ **So a new field is a claim that the catalog cannot answer the question**,
-/// and the burden is on the field. What is left is deliberately not migrating:
-/// `visit_counts` is dialogue's own bookkeeping rather than a world fact, and
-/// `wallet_balance` is a NUMBER the catalog's boolean-outcome shape cannot
-/// express without inventing a comparison vocabulary. ⛔ An empty mirror is not
-/// the goal; one authority per question is.
+/// ⛔⛔ **AND THE WALLET ONE CORRECTS A SENTENCE THIS DOC USED TO MAKE.** It said
+/// `wallet_balance` was *"deliberately not migrating"* because a NUMBER cannot
+/// pass through the catalog's boolean-outcome shape *"without inventing a
+/// comparison vocabulary"*. That reasoning was sound about the CATALOG and wrong
+/// about the MIRROR: the two are different claims, and only the first was
+/// checked. `ask_wallet_balance` is now a registered system reading `BodyWallet`
+/// on the `PrimaryPlayer` directly — it never needed the catalog, so the mirror
+/// was holding a projection for a reason that did not apply to it.
+/// ⇒ *"The catalog cannot answer this"* does NOT imply *"this field must
+/// exist"*. Ask what reads the field, not what the catalog can express.
+///
+/// ⇒ **So a new field is a claim that NOTHING ELSE can answer the question**,
+/// and the burden is on the field. What is left is `visit_counts` — dialogue's
+/// own bookkeeping rather than a world fact — and content-owned `extras`.
+/// ⛔ An empty mirror is not the goal; one authority per question is.
 ///
 /// ⚠ NOT EVERY READER IS A CLOSURE ANY MORE. The functions that migrated take
 /// `&mut World`, because a catalog evaluator does; the ones still here are

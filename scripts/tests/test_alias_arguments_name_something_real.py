@@ -12,18 +12,29 @@ author-typed string straight through to a save lookup. A misspelt one is
 invisible: it parses, the alias is registered, the condition is published, the
 evaluation succeeds — and it answers NO for the rest of the game.
 
-⭐ MEASURED 2026-09-04, and the boss side was ALREADY BROKEN: all five authored
-`boss_cleared` calls pass `"mockingbird"`, which is the BEHAVIOR id, while
-`systems.rs:259` writes the save under `feature.config.id` — the PLACEMENT
-(`BossSpawn-4308`). They can never match. Filed as awaiting-maintainer-decision
-#57, because the repair is a design choice and not a spelling fix.
+⭐ MEASURED 2026-09-04, and the boss side WAS broken: the authored
+`boss_cleared` calls passed `"mockingbird"`, the BEHAVIOR id, while
+`systems.rs:259` writes the save under `feature.config.id` — the PLACEMENT. They
+could never match. Filed as awaiting-maintainer-decision #57, because the repair
+was a design choice and not a spelling fix.
 
-⚠ SO THIS GUARD DELIBERATELY ACCEPTS EITHER SPELLING. Its question is *"does
-this name a real boss at all"*, which is answerable today and catches the typo
-class. **Which of the two ids the API should take is #57's to answer**, and a
-guard that pre-empted it would either fail on shipped content or bake in an
-answer nobody has given. ⇒ When #57 lands, narrow this to the surviving id and
-the other spelling becomes a red.
+⚠ TWO CORRECTIONS TO THE SENTENCE ABOVE, both 2026-09-05 and both kept visible
+because each was a claim this file made and then had to withdraw.
+⛔ **"All FIVE authored calls" was never true — there are THREE.** Two of the
+five raw matches are the Kernel Guide SAYING the call in spoken prose, which four
+whole-file scanners counted as code until `executable_regions` landed. This
+module now reads executable Yarn only.
+✔ **And #57 is RULED and implemented**, so those three calls resolve today. The
+paragraph is left standing rather than deleted because the guard's shape is still
+explained by it.
+
+⚠ THIS GUARD STILL ACCEPTS EITHER SPELLING, and that is now a deliberate
+LEFTOVER rather than a deferral. Its question is *"does this name a real boss at
+all"*, which catches the typo class; the id question is settled and the
+narrowing — making the behaviour id a red — is owned by the Rust guard
+`every_authored_boss_cleared_call_names_a_real_boss_placement`, which resolves
+against real placements. ⇒ Nothing here should be tightened without checking
+that arm first, or two guards end up asserting the same property.
 """
 
 from __future__ import annotations

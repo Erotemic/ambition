@@ -252,7 +252,7 @@ none of them waits on `TechniqueFlow`.
   `an_absorbing_parry_consumes_the_shot_rather_than_returning_it` uses the
   reflect arm as its control. ⇒ **B3 is complete: operation, reflector, join,
   control, customers.**
-- ◐ **B4. Per-action muzzle transform + sustained charge presentation.**
+- ✔ **B4. Per-action muzzle transform + sustained charge presentation** — **SMASH HALF COMPLETE**; what remains is exploration-scoped.
   ✔ **THE MUZZLE LANDED 2026-09-05.** `Muzzle::Offset { x, y }` joins `BodyOrigin`
   and `Hand`, as FRACTIONS of body height (the decision `HAND_OFFSET_NORM` already
   made), facing-flipped and resolved through the acceleration frame. Projectile
@@ -302,11 +302,34 @@ none of them waits on `TechniqueFlow`.
   ⇒ The name is smash-flavoured and the FACT is general — which is the second time
   in this same investigation I read a name as a scope.
 
-  ▢ **WHAT IS ESTABLISHED, and it is structural rather than a claim about what a
-  player sees:** `FeatureView` carries no charge field at all (zero matches for
-  `charge` in `view_index.rs`), while `BodyPoseView` carries two. So whatever the
-  player road can present, the FEATURE road — the one the `flyline` doc says every
-  match fighter takes — cannot present at all, because the fact never reaches it.
+  ~~▢ **WHAT IS ESTABLISHED**~~ ⛔⛔ **AND THAT PREMISE IS WRONG TOO — MEASURED
+  2026-09-05.** `FeatureView` does carry no charge field. But **a match fighter
+  does not take the feature road for its pose**: `rebuild_body_pose_views` filters
+  `Or<(With<PlayerVisual>, With<PosedBody>)>`, and
+  `character_runtime/presentation.rs` inserts `PosedBody` on **every granted
+  character body** — its own comment says *"EVERY GRANTED CHARACTER BODY PUBLISHES
+  ITS POSE READ MODEL… without this marker the read model was gated on
+  `PlayerVisual`, which only the exploration player's avatar ever receives, so no
+  match fighter had one."* ⇒ **The fact reaches every fighter, on `BodyPoseView`,
+  and has since that widening.**
+
+  ✔ **SO THE SMASH-RELEVANT HALF OF B4 IS COMPLETE, and the charge is READABLE
+  by an opponent at both ends:** `body_cues.rs` turns `smash_charge` into audio,
+  and `SMASH_CHARGE_CLIP` is a sheet row — **authored in all seven humanoid clip
+  sets** (`smash_charge.clip.json`) and present in the generated sheets. ⇒ A
+  charging fighter both sounds and looks like one.
+
+  ⚠⚠ **AND I NEARLY PUBLISHED "ZERO FIGHTERS HAVE A CHARGE TELL" FROM THE WRONG
+  CORPUS.** Grepping `game/ambition_content/assets/**.json` for `smash_charge`
+  returns **0** — the clips live in `tools/ambition_sprite2d_renderer/.../clips/`,
+  which is where the art pipeline authors them. ⇒ Same shape as the `tests.rs`
+  census earlier on this page: **a count is a statement about the corpus you
+  chose**, and a zero is the cheapest possible way to be confidently wrong.
+
+  ⇒ **What genuinely remains is EXPLORATION-scoped, not smash-scoped** — the
+  fireball orb's `PlayerEntity` gate, and `FeatureView`'s missing field for things
+  that really are features. Neither blocks a 1v1 match, and the row should not be
+  read as if they did.
   Consumers of `smash_charge` today: `emit_smash_charge_cues` (audio) and a
   `hit_flash` overlay fed from anim frames.
 

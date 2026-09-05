@@ -824,7 +824,7 @@ entirely about George's movesets and does not mention a submodule. The bump is
 
 ⭐ **I did not revert it, and the checks are why.** In order:
 
-- `8b10c5a` is the sibling session's music work — *"The refusal was
+- `8b10c5a` (in `tools/ambition_music_renderer`) is the sibling session's music work — *"The refusal was
   all-or-nothing; one missing family still shipped wrong music"*, sitting on
   *"The refusal that protects Jon's no-GM-fallbacks ask had no test"*.
 - It **is** pushed: `git branch -r --contains` finds it on
@@ -966,7 +966,7 @@ fail identically. They are spectrogram/plot tests.
 
 ⏳ **NOT LANDED — Jon's call**, because it changes what every clone gets and the
 superproject pointer with it. ⚠ The pin is deliberate on its own terms: the
-sibling session re-pointed the superproject at `4e5695c` precisely because the
+sibling session re-pointed the superproject at `4e5695c` — the music renderer's own `main` — precisely because the
 previous pin was on **no remote branch at all**, so a dangling pointer was
 traded for a correct-but-unguarded one. ⇒ The remaining decision is only
 *"fast-forward the submodule's main and re-pin"*, and the reason to take it is
@@ -988,6 +988,16 @@ qualification fixes every reader, including one who never fetches. ⚠ Distinct
 from the rebase trap recorded above, which has the identical symptom and the
 opposite fix — a rewritten SHA wants **replacing**, a foreign one wants
 **naming**.
+ⓘ **Swept the whole planning tree rather than fixing the one that fired:
+26 cited SHAs resolve ONLY inside a submodule**, across four of the five
+(`ambition_music_renderer` 14, `ambition_sprite2d_renderer` 5,
+`ambition_dev_measurements` 4, `ambition_map_assets` 3). Most already name their
+repository; **three did not in any way a reader could infer** and now do —
+`5e1ee9b` in `demos/sanic.md` (*"generator bump"*), `8b10c5a` here, and this
+paragraph's own `4e5695c`. ⇒ Every one of the 26 is a latent red for a reader
+who has not fetched that submodule, and **not one of them is red for anybody
+today** — which is exactly why the class needed sweeping rather than patching:
+the symptom appears on somebody else's machine, at a time nobody chose.
 
 ⛔⛔ **DO NOT "FIX" THIS BY REVERTING THE PIN, which is the move it invites.**
 The guarded commit lives on a **deletable agent branch**; `4e5695c` is on the

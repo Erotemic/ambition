@@ -117,7 +117,7 @@ pub fn drive_symmetry_attunement(
         return;
     };
     if room_set.active_spec().id == SYMMETRY_ROOM_ID
-        && matches!(lifecycle.phase, EncounterPhase::Inactive)
+        && matches!(lifecycle.phase(), EncounterPhase::Inactive)
     {
         lifecycle_commands.write(EncounterCommand::new(
             SYMMETRY_ATTUNEMENT_ID,

@@ -79,7 +79,7 @@ impl WaveEncounter {
     fn tick(&mut self, dt: f32) -> Vec<EncounterEvent> {
         let mut events = Vec::new();
         let mut commands = Vec::new();
-        if matches!(self.lifecycle.phase, EncounterPhase::Active)
+        if matches!(self.lifecycle.phase(), EncounterPhase::Active)
             && self.waves.tick_active(dt, &mut self.parts, &mut events)
         {
             commands.push(EncounterCommandKind::Signal(
@@ -171,12 +171,12 @@ fn entering_trigger_starts_first_wave() {
     ));
     let mut enc = WaveEncounter::new(spec);
     let events = enc.start();
-    assert!(enc.lifecycle.phase.locks_exits());
+    assert!(enc.lifecycle.phase().locks_exits());
     assert!(events.contains(&EncounterEvent::Started));
     assert!(events.contains(&EncounterEvent::LockChanged { locked: true }));
     // First Active tick arms wave 0 and spawns its single mob.
     enc.tick(0.001);
-    assert_eq!(enc.lifecycle.phase, EncounterPhase::Active);
+    assert_eq!(enc.lifecycle.phase(), EncounterPhase::Active);
     assert_eq!(enc.waves.run.wave_index, Some(0));
     assert_eq!(enc.waves.remaining_mobs(&enc.parts), 1);
 }
@@ -205,7 +205,7 @@ fn defeating_all_mobs_clears_each_wave_and_then_encounter() {
     enc.tick(0.001);
     assert_eq!(enc.waves.run.wave_index, Some(1), "wave 2 armed");
     assert_eq!(
-        enc.lifecycle.phase,
+        enc.lifecycle.phase(),
         EncounterPhase::Active,
         "no completion between waves (exhaustion signal not yet fired)"
     );
@@ -216,7 +216,7 @@ fn defeating_all_mobs_clears_each_wave_and_then_encounter() {
     // generic objective (exhaustion signal + all minions defeated).
     kill_all(&mut enc.parts);
     let events = enc.tick(0.001);
-    assert_eq!(enc.lifecycle.phase, EncounterPhase::Completed);
+    assert_eq!(enc.lifecycle.phase(), EncounterPhase::Completed);
     assert!(events.contains(&EncounterEvent::Completed));
     assert!(events.contains(&EncounterEvent::LockChanged { locked: false }));
 }
@@ -237,17 +237,17 @@ fn player_death_fails_then_resets_for_a_fresh_attempt() {
         Some(&objective),
     );
     assert!(events.contains(&EncounterEvent::Failed));
-    assert_eq!(enc.lifecycle.phase, EncounterPhase::Inactive);
-    assert!(!enc.lifecycle.phase.locks_exits());
+    assert_eq!(enc.lifecycle.phase(), EncounterPhase::Inactive);
+    assert!(!enc.lifecycle.phase().locks_exits());
 }
 
 #[test]
 fn lock_active_truthy_during_active_phase() {
     let mut enc = WaveEncounter::new(lab_spec());
     enc.start();
-    assert!(enc.lifecycle.phase.locks_exits());
+    assert!(enc.lifecycle.phase().locks_exits());
     enc.tick(0.001);
-    assert!(enc.lifecycle.phase.locks_exits());
+    assert!(enc.lifecycle.phase().locks_exits());
 }
 
 #[test]
@@ -255,7 +255,7 @@ fn hud_summary_shows_wave_progress() {
     let mut enc = WaveEncounter::new(lab_spec());
     enc.start();
     enc.tick(0.001);
-    let summary = enc.waves.hud_summary(enc.lifecycle.phase, &enc.parts);
+    let summary = enc.waves.hud_summary(enc.lifecycle.phase(), &enc.parts);
     assert!(summary.contains("WAVE 1/2"), "got: {summary}");
     assert!(summary.contains("1 left"), "got: {summary}");
 }
@@ -305,7 +305,7 @@ fn active_camera_zoom_picks_active_encounter() {
     let mut enc = WaveEncounter::new(spec);
     enc.start();
     assert_eq!(
-        active_encounter_camera_zoom([(enc.lifecycle.phase, enc.waves.spec.camera_zoom)]),
+        active_encounter_camera_zoom([(enc.lifecycle.phase(), enc.waves.spec.camera_zoom)]),
         1.6
     );
 }
@@ -317,7 +317,7 @@ fn active_camera_zoom_falls_back_to_one_when_inactive() {
     let enc = WaveEncounter::new(spec);
     // Phase still Inactive — no zoom applied.
     assert_eq!(
-        active_encounter_camera_zoom([(enc.lifecycle.phase, enc.waves.spec.camera_zoom)]),
+        active_encounter_camera_zoom([(enc.lifecycle.phase(), enc.waves.spec.camera_zoom)]),
         1.0
     );
 }
@@ -327,8 +327,8 @@ fn a_lifecycle_built_from_a_cleared_save_keeps_the_lock_off() {
     let mut enc = WaveEncounter::new(lab_spec());
     enc.lifecycle =
         EncounterLifecycle::from_persisted(0.0, PersistedEncounterState::Cleared);
-    assert_eq!(enc.lifecycle.phase, EncounterPhase::Completed);
-    assert!(!enc.lifecycle.phase.locks_exits());
+    assert_eq!(enc.lifecycle.phase(), EncounterPhase::Completed);
+    assert!(!enc.lifecycle.phase().locks_exits());
 }
 
 #[test]
@@ -476,7 +476,7 @@ fn intro_delays_first_wave_spawn_until_elapsed() {
     // only runs while Active).
     let evs = enc.tick(0.5);
     assert!(matches!(
-        enc.lifecycle.phase,
+        enc.lifecycle.phase(),
         EncounterPhase::Starting { .. }
     ));
     assert!(!evs
@@ -485,7 +485,7 @@ fn intro_delays_first_wave_spawn_until_elapsed() {
     // After the rest of the intro: Active; the NEXT tick spawns (the adapter
     // reads the reducer's phase, one frame behind at most).
     enc.tick(1.2);
-    assert_eq!(enc.lifecycle.phase, EncounterPhase::Active);
+    assert_eq!(enc.lifecycle.phase(), EncounterPhase::Active);
     let evs = enc.tick(0.001);
     assert!(evs
         .iter()
@@ -593,7 +593,7 @@ fn just_spawned_mob_survives_one_tick_before_liveness_refresh() {
     kill_all(&mut enc.parts);
     enc.tick(0.001);
     assert_eq!(
-        enc.lifecycle.phase,
+        enc.lifecycle.phase(),
         EncounterPhase::Active,
         "just-spawned mob must survive the first tick"
     );
@@ -682,13 +682,13 @@ fn lock_wall_is_derived_while_active_and_dropped_when_inactive() {
     enc.start();
     // In-flight phase → the gate solid is derived this frame. Generic (E12):
     // the derivation reads the LIFECYCLE + the authored wall, never the kind.
-    let blocks = desired_lock_wall_blocks([("goblin_encounter", enc.lifecycle.phase, &wall)]);
+    let blocks = desired_lock_wall_blocks([("goblin_encounter", enc.lifecycle.phase(), &wall)]);
     assert!(blocks.iter().any(|b| b.name == "lockwall:goblin_encounter"));
     // Reset back to Inactive — the overlay clears each frame, so "removal" is
     // simply the wall no longer being derived (no reconcile against a base).
     enc.lifecycle
         .reduce(0.0, [&EncounterCommandKind::Reset], &enc.parts, None);
-    let blocks = desired_lock_wall_blocks([("goblin_encounter", enc.lifecycle.phase, &wall)]);
+    let blocks = desired_lock_wall_blocks([("goblin_encounter", enc.lifecycle.phase(), &wall)]);
     assert!(!blocks.iter().any(|b| b.name == "lockwall:goblin_encounter"));
 }
 
@@ -713,10 +713,10 @@ fn a_non_wave_encounter_stages_the_same_lock_and_zoom() {
         min: [0.0, 0.0],
         size: [16.0, 64.0],
     };
-    let blocks = desired_lock_wall_blocks([("signal_puzzle", lifecycle.phase, &wall)]);
+    let blocks = desired_lock_wall_blocks([("signal_puzzle", lifecycle.phase(), &wall)]);
     assert!(blocks.iter().any(|b| b.name == "lockwall:signal_puzzle"));
     assert_eq!(
-        active_encounter_camera_zoom([(lifecycle.phase, 1.4)]),
+        active_encounter_camera_zoom([(lifecycle.phase(), 1.4)]),
         1.4,
         "zoom derives from the staging policy, not the wave component"
     );

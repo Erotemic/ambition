@@ -59,6 +59,6 @@ pub fn contribute_encounter_lock_walls(
     overlay.gate_solids.extend(desired_lock_wall_blocks(
         encounters
             .iter()
-            .map(|(enc, lifecycle, wall)| (enc.id.as_str(), lifecycle.phase, &wall.0)),
+            .map(|(enc, lifecycle, wall)| (enc.id.as_str(), lifecycle.phase(), &wall.0)),
     ));
 }

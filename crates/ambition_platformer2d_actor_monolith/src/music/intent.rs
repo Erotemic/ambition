@@ -72,7 +72,7 @@ pub fn compute_music_intent(
     // wave index/clock the adaptive states key on.
     let states: HashMap<&str, (EncounterPhase, &EncounterWaves)> = encounters
         .iter()
-        .map(|(enc, lifecycle, waves)| (enc.id.as_str(), (lifecycle.phase, waves)))
+        .map(|(enc, lifecycle, waves)| (enc.id.as_str(), (lifecycle.phase(), waves)))
         .collect();
     let active_catalog = audio_selection
         .provider_id()

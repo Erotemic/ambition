@@ -29,7 +29,7 @@ fn attunement_phase(sim: &mut Platformer2dSimHarness) -> EncounterPhase {
         .expect("query builds");
     q.iter(sim.world())
         .find(|(enc, _)| enc.id == SYMMETRY_ATTUNEMENT_ID)
-        .map(|(_, lifecycle)| lifecycle.phase)
+        .map(|(_, lifecycle)| lifecycle.phase())
         .expect("the attunement authority exists")
 }
 

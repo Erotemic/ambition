@@ -71,14 +71,26 @@ impl EncounterPhase {
 /// `complete` and `fail` also assign it; both are private and called only from
 /// `reduce`.
 ///
-/// ⚠ THE FIELD ITSELF IS STILL `pub`, so this is a claim about the SAVE road,
-/// not a sealed field: nothing yet stops a system from assigning `phase`
-/// directly. Measured 2026-09-05: production writes of `lifecycle.phase`
-/// outside this file number ZERO, against 38 reads -- so sealing it behind an
-/// accessor is a cheap next step and no existing caller is the obstacle.
+/// ⭐ AND THE FIELD IS SEALED `pub(crate)`, which makes the sentence above a
+/// compiler-enforced invariant rather than a habit: NO OTHER CRATE CAN ASSIGN
+/// `phase` AT ALL. Outside readers use `phase()`. Sealing cost 38 read sites
+/// and zero write sites outside this crate -- measured 2026-09-05 before the
+/// change, which is why it was cheap: nothing was writing it, the type merely
+/// permitted it.
+///
+/// ⚠ THERE IS A SECOND LEGITIMATE WRITER INSIDE THIS CRATE, and the seal is
+/// what surfaced it: `snapshot_impls::decode` reconstructs `phase` when a
+/// rollback restores a frame. That is not a lifecycle transition -- it is the
+/// frame being put back as it was -- but it IS a road to the field, and a
+/// grep for `lifecycle.phase =` never saw it because the codec builds a struct
+/// literal. `pub(crate)` is therefore the honest seal: sealed at the crate
+/// boundary, where every consumer lives, and open to the codec that must
+/// rebuild the value wholesale.
 #[derive(Component, Clone, Debug, Default)]
 pub struct EncounterLifecycle {
-    pub phase: EncounterPhase,
+    /// ⛔ `pub(crate)` ON PURPOSE -- outside this crate, read it with
+    /// [`EncounterLifecycle::phase`]. See the type's doc for who may write it.
+    pub(crate) phase: EncounterPhase,
     /// Authored intro window (seconds spent in `Starting` after a `Start`
     /// command before the encounter goes `Active`). Definition datum, set at
     /// spawn; `0.0` skips straight to `Active`.
@@ -93,6 +105,12 @@ pub struct EncounterLifecycle {
 }
 
 impl EncounterLifecycle {
+    /// The current phase. Read-only by construction: see the type's doc for why
+    /// the field is sealed.
+    pub fn phase(&self) -> EncounterPhase {
+        self.phase
+    }
+
     /// Build a lifecycle whose phase is reconstructed from a
     /// `PersistedEncounterState` (save load), with an authored intro window.
     ///

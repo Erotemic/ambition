@@ -204,7 +204,7 @@ pub fn drive_wave_encounters(
     let died_this_frame = died_messages.read().next().is_some();
     if died_this_frame {
         for (enc, lifecycle, _waves, _participants) in &encounters {
-            if lifecycle.phase.in_flight() {
+            if lifecycle.phase().in_flight() {
                 lifecycle_commands
                     .write(EncounterCommand::new(&enc.id, EncounterCommandKind::Fail));
                 lifecycle_commands
@@ -219,7 +219,7 @@ pub fn drive_wave_encounters(
     //    Reset event despawns the encounter's SPAWNED mobs — pre-E10 they
     //    lingered until a death or re-arm, which was accidental, not policy.)
     for (enc, lifecycle, _waves, _participants) in &encounters {
-        if lifecycle.phase.in_flight() && enc.id != active_area {
+        if lifecycle.phase().in_flight() && enc.id != active_area {
             lifecycle_commands.write(EncounterCommand::new(&enc.id, EncounterCommandKind::Reset));
             ending_this_tick.insert(enc.id.clone());
         }
@@ -235,7 +235,7 @@ pub fn drive_wave_encounters(
         .iter_mut()
         .find(|(enc, _, _, _)| enc.id == active_area)
     {
-        if !lifecycle.phase.in_flight() && armed_active {
+        if !lifecycle.phase().in_flight() && armed_active {
             // Iterate every player so any player walking into the trigger
             // fires the encounter — single-player behavior preserved because
             // the iterator has one entity today. OVERNIGHT-TODO #17.8.
@@ -253,7 +253,7 @@ pub fn drive_wave_encounters(
             });
             if entered {
                 if !matches!(
-                    lifecycle.phase,
+                    lifecycle.phase(),
                     ambition_encounter::EncounterPhase::Inactive
                 ) {
                     lifecycle_commands
@@ -275,7 +275,7 @@ pub fn drive_wave_encounters(
         if enc.id != active_area || ending_this_tick.contains(&enc.id) {
             continue;
         }
-        match lifecycle.phase {
+        match lifecycle.phase() {
             ambition_encounter::EncounterPhase::Active => {
                 // Refresh each Minion participant's liveness + cached entity
                 // from the runtime BEFORE the director tick (live resolution
@@ -389,7 +389,7 @@ pub fn drive_wave_encounters(
                     if let Some((_, lifecycle, _, _)) =
                         encounters.iter().find(|(enc, _, _, _)| enc.id == target_id)
                     {
-                        if !lifecycle.phase.in_flight() {
+                        if !lifecycle.phase().in_flight() {
                             lifecycle_commands.write(EncounterCommand::new(
                                 &target_id,
                                 EncounterCommandKind::Reset,
@@ -518,7 +518,7 @@ pub fn apply_wave_encounter_effects(
     // above `base_track`, so this can't clobber a concurrent focused fight's
     // music.
     let active_track = staged.iter().find_map(|(lifecycle, _, track)| {
-        if lifecycle.phase.in_flight() {
+        if lifecycle.phase().in_flight() {
             track.map(|t| t.0.clone())
         } else {
             None
@@ -533,7 +533,7 @@ pub fn apply_wave_encounter_effects(
     encounter_view.camera_zoom = ambition_encounter::active_encounter_camera_zoom(
         staged
             .iter()
-            .filter_map(|(lifecycle, zoom, _)| zoom.map(|z| (lifecycle.phase, z.0))),
+            .filter_map(|(lifecycle, zoom, _)| zoom.map(|z| (lifecycle.phase(), z.0))),
     );
 
     // Project the lifecycle to the save (Completed/Failed survive, in-flight

@@ -146,7 +146,7 @@ pub fn sync_boss_encounter_entities(
                     .iter()
                     .find(|(enc, _, _)| enc.id == config.id.as_str())
                 {
-                    match lifecycle.phase {
+                    match lifecycle.phase() {
                         // Room re-entry: the reset wrap waits Inactive.
                         ambition_encounter::EncounterPhase::Inactive => {
                             lifecycle_commands.write(EncounterCommand::new(
@@ -290,7 +290,7 @@ pub fn update_encounter_progress(
         if !any_resolved && !participants.members.is_empty() {
             if lifecycle.is_some_and(|lc| {
                 matches!(
-                    lc.phase,
+                    lc.phase(),
                     ambition_encounter::EncounterPhase::Starting { .. }
                         | ambition_encounter::EncounterPhase::Active
                 )
@@ -306,7 +306,7 @@ pub fn update_encounter_progress(
         // reducer's completion decision (E8 — objective evaluation happens
         // there, once; this mirror is one frame behind at most).
         progress.complete = lifecycle
-            .is_some_and(|lc| matches!(lc.phase, ambition_encounter::EncounterPhase::Completed));
+            .is_some_and(|lc| matches!(lc.phase(), ambition_encounter::EncounterPhase::Completed));
     }
 }
 

@@ -123,7 +123,7 @@ fn the_wrap_persists_and_resets_when_its_member_leaves_the_world() {
             .query::<(&EncounterDef, &EncounterLifecycle)>()
             .iter(app.world())
             .next()
-            .map(|(_, lc)| lc.phase)
+            .map(|(_, lc)| lc.phase())
             .expect("the wrap exists")
     };
     assert_eq!(

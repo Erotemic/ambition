@@ -222,14 +222,14 @@ pub(super) fn update_hud(
     let encounter_line = {
         let mut bits = Vec::new();
         for (enc, lifecycle, waves, participants) in &lifecycle_encounters {
-            if lifecycle.phase.in_flight() {
+            if lifecycle.phase().in_flight() {
                 bits.push(match (waves, participants) {
                     (Some(waves), Some(participants)) => {
-                        waves.hud_summary(lifecycle.phase, participants)
+                        waves.hud_summary(lifecycle.phase(), participants)
                     }
                     // A non-wave encounter (signal puzzle, timed section)
                     // reads its generic lifecycle status.
-                    _ => format!("[{}] {}", enc.id, lifecycle.phase.label()),
+                    _ => format!("[{}] {}", enc.id, lifecycle.phase().label()),
                 });
             }
         }

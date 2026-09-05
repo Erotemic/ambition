@@ -974,6 +974,29 @@ The one unresolved developer-policy choice from the session-ownership work is in
   the workspace, −3.3 pts**. So the two are not one story: the carve is buying
   what it aimed at while `platformer2d_core`'s dependent closure grows underneath
   it, and a reader taking "compile cost" as one number sees neither.
+  ⭐ **SIX OF THE EIGHT ARE NOW MEASURED IN THE LEDGER (2026-09-05), and the
+  GATE still says eight — because it reads the frozen baseline, not the
+  telemetry.** `python3 scripts/compile_collect.py --config release --phase cold`
+  appended real seconds for `ambition_abilities`, `ambition_body_seed`,
+  `ambition_encounter_features`, `ambition_held_items`, `ambition_match` and
+  `ambition_world_items`. `ambition_registry_core` and `ambition_sprite_fx` were
+  already built and so were not re-timed.
+  ⇒ **One of the two objections to a re-freeze is therefore retired by DATA
+  rather than by accepting the guess** — but only a re-freeze applies it, and
+  that is still the carve owner's call, because `--update` also banks the
+  `critical_path_crates` 14 → 16 regression.
+  ⚠⚠ **AND THE RUN'S OWN LIMITS, recorded because the numbers are useless
+  without them.** It appended **36** unit rows where the earlier release/cold run
+  appended 541: the target directory was WARM from a preceding attempt, so this
+  is not a cold-graph measurement and the six seconds are indicative rather than
+  authoritative. The script also recorded `build_foreign_cargo_peak: 1` and
+  `load_mean 7.77` — one competing cargo, which was MINE, running a `-p` test in
+  the same window. ⇒ Treat these six as "no longer a population-median
+  placeholder", not as a frozen price.
+  ⭐ The instrument caught the contention itself, which is why it can be trusted
+  to say when it should not be: it samples load on a thread rather than taking
+  endpoints, *"contention that starts halfway through is invisible to two endpoint
+  readings"*.
   ⚠ `UNPRICED` is **EIGHT** now, not seven: `ambition_sprite_fx` joined
   `ambition_abilities`, `ambition_body_seed`, `ambition_encounter_features`,
   `ambition_held_items`, `ambition_match`, `ambition_registry_core`,

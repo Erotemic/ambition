@@ -23,12 +23,12 @@ use ambition_characters::smash_repertoire::{
     DownSpecial, NeutralSpecial, SmashRepertoire, UpSpecial,
 };
 use ambition_platformer2d::entity_catalog::{
-    ClipBinding, HitVolume, ImpulseMode, MoveEvent, MoveEventKind, MoveSpec, MoveWindow,
-    MovesetContract, VolumeShape, WindowTag,
+    AutolinkVolume, ClipBinding, HitVolume, ImpulseMode, MoveEvent, MoveEventKind, MoveSpec,
+    MoveWindow, MovesetContract, VolumeShape, WindowTag,
 };
 
 use ambition_characters::moveset_authoring::{
-    committed_tail, impulse, on_contact, sfx, strike, vfx_at,
+    committed_tail, impulse, multihit, on_contact, sfx, strike, vfx_at, Pulse,
 };
 
 /// How big a pattern's burst is drawn, as a multiple of the presentation
@@ -424,6 +424,51 @@ pub fn cellular_pulse_moveset() -> MovesetContract {
         launch_dir: Some((0.7, -0.68)),
         on_hit: None,
     });
+    // ⭐⭐ AND NOW IT ACTUALLY COLLAPSES. The comment above has always said
+    // "everything inside it arrives at the same cell", and the move drew a
+    // `causal_cone_collapse` to say so — while its mechanics were a plain strike
+    // with `launch_dir: (0.7, -0.68)`, which throws victims AWAY. ⇒ The
+    // description was not merely unfulfilled, it was INVERTED: the one move on
+    // the roster whose whole idea is convergence was the one pushing outward.
+    //
+    // ⭐ `VolumeReaction::Autolink` is what says it — "HOLDS its victim near the
+    // attacker instead of launching it away" — and `multihit` is the combinator
+    // that puts holding pulses in front of a finisher. Nothing new was needed.
+    //
+    // ⛔ THE ANCHOR'S x IS ZERO, and that is load-bearing rather than tidy:
+    // `autolink_anchor_world` mirrors the anchor with the attacker's facing, so
+    // any non-zero x makes the gather point depend on which way it happens to be
+    // looking. A cone that closes on a different cell depending on facing is not
+    // running the rule backwards, it is running a poke.
+    //
+    // ⚠ THE FINISHER IS UNCHANGED and still launches. That is the genre's shape
+    // and it is also the honest reading of the fiction: the generations collapse
+    // to one cell, and then that cell resolves. The pulses are chip — 2 damage
+    // each — so the move is paid for by its ending, not by its gather.
+    let down_b = multihit(
+        down_b,
+        3,
+        Pulse {
+            // Centred and a little wider than the finisher: the cone closing is
+            // bigger than the cell it closes on.
+            offset: (0.0, 0.0),
+            half_extents: (46.0, 34.0),
+            damage: 2,
+            // ⛔ SEPARATED WINDOWS. The runtime's re-hit rule refuses a
+            // contiguous track, so touching windows would land exactly once and
+            // the collapse would be a single tick wearing three windows' timing.
+            active_s: 0.035,
+            gap_s: 0.030,
+            autolink: AutolinkVolume {
+                anchor: (0.0, -6.0),
+                // It does not move, so there is nothing of its own motion to
+                // hand the victim: the gather is entirely the correction's.
+                carry: 0.0,
+                pull: 20.0,
+                max_speed: 900.0,
+            },
+        },
+    );
     let down_b = committed_tail(down_b, 0.74, 0.0);
     let down_b = vfx_at(down_b, 0.06, "corruption_seed", (0.0, 12.0), CELL_FX);
     let down_b = vfx_at(down_b, 0.22, "causal_cone_collapse", (0.0, 0.0), PATTERN_FX);
@@ -636,6 +681,63 @@ mod tests {
             startup(&pca, "generation_wipe") > startup(&goblin, "smash_forward"),
             "the automaton's kill move comes out faster than the goblin's, so it \
              is a fighter with a boss's health rather than a boss"
+        );
+    }
+
+    /// ⛔⛔ THE COLLAPSE MUST ACTUALLY CONVERGE. Its comment has always said
+    /// "everything inside it arrives at the same cell" and it drew a
+    /// `causal_cone_collapse` to say so — while its only mechanic was a strike
+    /// with `launch_dir: (0.7, -0.68)`, which throws victims AWAY. ⇒ The
+    /// description was not unfulfilled, it was INVERTED, and this test is what
+    /// keeps it from inverting again.
+    #[test]
+    fn the_generation_collapse_gathers_before_it_launches() {
+        let set = cellular_pulse_moveset();
+        let collapse = set
+            .moves
+            .iter()
+            .find(|m| m.id == "generation_collapse")
+            .expect("it has a grounded down special");
+
+        let holds: Vec<ambition_platformer2d::entity_catalog::AutolinkVolume> = collapse
+            .windows
+            .iter()
+            .flat_map(|w| w.volumes.iter())
+            .filter_map(|v| match v.reaction {
+                Some(ambition_platformer2d::entity_catalog::VolumeReaction::Autolink(a)) => {
+                    Some(a)
+                }
+                _ => None,
+            })
+            .collect();
+        assert!(
+            holds.len() >= 2,
+            "a cone that closes has more than one generation: {} holding pulse(s)",
+            holds.len()
+        );
+
+        // ⛔ THE ANCHOR'S x IS ZERO. `autolink_anchor_world` mirrors it with the
+        // attacker's facing, so a non-zero x makes the gather point depend on
+        // which way it happens to be looking — a cone that closes on a different
+        // cell depending on facing is not running the rule backwards.
+        for hold in &holds {
+            assert_eq!(
+                hold.anchor.0, 0.0,
+                "the gather point moves with facing, so the collapse is a poke"
+            );
+            assert!(hold.pull > 0.0, "a hold that does not pull holds nothing");
+        }
+
+        // ⭐ AND THE FINISHER STILL LAUNCHES, which is the genre's shape and the
+        // fiction's: the generations collapse to one cell, and then that cell
+        // resolves. A move that only gathered would never let go.
+        assert!(
+            collapse
+                .windows
+                .iter()
+                .flat_map(|w| w.volumes.iter())
+                .any(|v| v.reaction.is_none() && v.damage > 0),
+            "nothing in the collapse launches, so it gathers forever"
         );
     }
 }

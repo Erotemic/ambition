@@ -380,6 +380,27 @@ needs a new capability" is a claim, and the cheapest way to test it is to build
 the row.** Two of the three capability gaps this campaign predicted turned out to
 be already-shipped authorities under a name I had not searched for.
 
+### ⭐⭐ THREE MOVES WHOSE OWN PRESENTATION DESCRIBED A MECHANIC THEY DID NOT HAVE
+
+Not documentation drift — **the reader here is the PLAYER**, told the wrong thing
+every time the move came out. Found by reading each fighter's design comments and
+cues against what the move actually did:
+
+| move | what its art and comment said | what it did | now |
+|---|---|---|---|
+| the Shadow Oni's `command_seal` | a `counter_ring` effect and a `faction.ninja.parry_flash` sound | a plain damage-10 poke | a counter that answers with smoke |
+| the automaton's `generation_collapse` | *"everything inside it arrives at the same cell"*, drawing a `causal_cone_collapse` | ⛔ **INVERTED** — `launch_dir: (0.7, -0.68)` threw victims AWAY | three autolink pulses that gather, then the finisher launches |
+| Alice's portal | Jon's *"angled portals with directional input"* | `tilt_degrees: 0.0` everywhere | the player's stick leans it ±32° |
+
+⛔ **NONE OF THE THREE NEEDED ENGINE WORK.** `smash.counter`, `VolumeReaction::Autolink`
++ `multihit`, and `tilt_degrees` were all shipped. ⇒ Converting them was not
+redesign — it was each move becoming what it already looked like.
+
+⭐ **The method, and it is cheap enough to run on any fighter:** read the design
+comment and the authored cues, then check the mechanics against them. A comment
+that names a feeling ("the order is obeyed instantly", "the cone closes") is a
+SPECIFICATION somebody wrote and nothing verifies.
+
 ### ⛔⛔ THE BOLT'S FIRST GUARD RUN FOUND A MOVE THAT COULD NOT BE PLAYED
 
 Not a test artefact — a defect the first run exposed and a player would have hit

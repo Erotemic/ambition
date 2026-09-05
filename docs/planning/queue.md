@@ -842,11 +842,31 @@ The one unresolved developer-policy choice from the session-ownership work is in
   reading it as *"everything passes"* is the exact mistake this file keeps
   recording: **a gate lane you did not run is a guard that does not exist.**
   Run `./run_tests.sh` with no lane flag to include it.
-  ⚠ **`largest_unit_lines` is 100,157 — back ABOVE the 100,000 this row
-  celebrated crossing.** The win is still real against the frozen baseline
-  (108,364, so **−8,207**), and the round number is not: it read 98,808 when
-  that line was written and has since taken back 1,349. ⇒ A milestone stated as
-  a threshold goes stale in both directions; the DELTA is the honest figure.
+  ⚠ **`largest_unit_lines` is 100,155 — back ABOVE the 100,000 this row
+  celebrated crossing** (re-measured 2026-09-05 at HEAD,
+  `python3 scripts/compile_ratchet.py --report-only`, which builds nothing). The
+  win is still real against the frozen baseline (108,364, so **−8,209**), and the
+  round number is not: it read 98,808 when that line was written and has since
+  taken back 1,347. ⇒ A milestone stated as a threshold goes stale in both
+  directions; the DELTA is the honest figure.
+  ⛔⛔ **AND THIS ONE NUMBER IS NOW WRITTEN DOWN IN THREE PLACES THAT DISAGREE**,
+  which is the same defect this campaign keeps finding in code, at the
+  documentation layer:
+
+```text
+  queue.md (this row, before today)              100,157   (−8,207)
+  engine/actor-monolith-work-frontier.md:255     100,153   (−8,211)
+  scripts/compile_ratchet.py --report-only       100,155   (−8,209)   ← HEAD
+```
+
+  Each was true on the day it was typed. ⇒ **The fix is not to sync three
+  numbers — it is to stop restating one the tool prints on demand.** A figure
+  that moves with every carve cannot be held correct in prose, and three copies
+  guarantee that a reader picks one at random. Any page needing it should name
+  the command and the date, as this bullet now does.
+  ⚠ `engine/actor-monolith-work-frontier.md`'s table still carries the 09-04
+  reading; it is the monolith carve's own page, so its owner should re-measure
+  it rather than have me edit their row.
   ⚠ `edit_cost_lines (ambition_platformer2d_core)` 537,395 → **576,719**
   (+39,324 against a +10,747 budget) — still growing, and further out than the
   +31,329 this row last recorded.

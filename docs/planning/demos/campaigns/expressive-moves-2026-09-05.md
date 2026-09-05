@@ -441,22 +441,85 @@ cues against what the move actually did:
 | Bob's `rivet_gun` | *"it is not one hit, it is **the tool running**"* | ⛔ one `strike` with a single contiguous `active_s: 0.14` — which the re-hit rule lands **exactly once** | three separated holding pulses, then the same finisher |
 | Carl's `planetary_orbit` | draws **`orbit_lock`** at 0.36s — a LOCK | ⛔ a straight `impulse(700, 0)` that locks onto nothing | a homing dash inside a 60° cone; an unaimed pass is the same straight dash it always was |
 
-⛔ **NONE OF THE THREE NEEDED ENGINE WORK.** `smash.counter`, `VolumeReaction::Autolink`
-+ `multihit`, and `tilt_degrees` were all shipped. ⇒ Converting them was not
-redesign — it was each move becoming what it already looked like.
+⛔ **THREE OF THE FIVE NEEDED NO ENGINE WORK AT ALL.** `smash.counter`,
+`VolumeReaction::Autolink` + `multihit`, and `Pulse`'s separation rule were all
+already shipped, so the ninja's, the automaton's and Bob's were not redesign —
+each became what it already looked like. ⚠ **The other two were not free, and
+saying so is the point:** Alice's tilt was authored-but-inert until the `portal`
+FEATURE was added to the demo's build, and Carl's `orbit_lock` needed a NEW
+technique (`smash.homing_dash`), because nothing shipped could bend a dash toward
+a target. ⇒ **Reading found all five; only three were cheap to answer.**
 
 ⭐ **The method, and it is cheap enough to run on any fighter:** read the design
 comment and the authored cues, then check the mechanics against them. A comment
 that names a feeling ("the order is obeyed instantly", "the cone closes", "the
 tool running") is a SPECIFICATION somebody wrote and nothing verifies.
 
-⭐⭐ **AND THE HIT RATE IS WORTH RECORDING: four of the nineteen fighters, found by
-reading — and the sweep also cleared Carl and Oiler**, whose comments describe
-exactly what their moves do. ⚠ Oiler's `convergence` is the model: its comment
+⭐⭐ **THE SWEEP IS NOW COMPLETE ACROSS ALL NINETEEN FIGHTERS: five flagged moves,
+all five fixed, and the rest positively CLEARED.** ⛔ Count MOVES, not fighters —
+**Bob and Carl each appear in BOTH lists**, so a fighter with one move that lies
+can own another that is scrupulous, and stopping at the fighter would have missed
+one of each. ⚠ Oiler's `convergence` is the model: its comment
 does not merely claim a multi-hit, it explains the GAP that makes one work. **A
 comment that says WHY is one that was checked.**
 
-⛔ Bob's is the sharpest of the four, because the comment names the precise
+⇒ **The four cleared hardest, because each LOOKED like a hit:**
+`slick_dash` (*"he oils the floor under himself"* — the oil is him sliding, and
+its second paragraph names the unlocked `motion_scale: 1.0` tail that makes it
+so), `pressure_vent` (*"everything in the seal goes at once"* — and the paragraph
+below names `start_impulse` ADDING rather than setting), `bulkhead_drop` (*"he
+drops a plate"* — an animation, and its `shockwave`/`landing_puff` cues agree),
+and Carl's `cosmic_calendar`. ⚠ **A method that only ever flags is a suspicion.**
+
+### ⭐⭐ THE SWEEP FINISHED, AND THE HYPOTHESIS IT SUGGESTED WAS REFUTED
+
+**Six fighters were still unread when this section first claimed to be complete**
+— `archetype`, `medic`, `pirate_admiral`, `player_robot`, `pointed_polygon`,
+`pugnacious_polygon`. ⇒ The claim was written from the thirteen I had touched.
+Finishing them cleared all six, so the sentence is now true; it was not when I
+wrote it, and the check that caught it was counting the files.
+
+⛔⛔ **AND THE OBVIOUS PREDICTOR IS WRONG. MEASURED, NOT ASSUMED.** The tempting
+rule after five hits — *"the liars are the ones without tests"* — does not
+survive contact: **`#[test]` count per file averages 4.0 for the five that lied
+and 5.4 for the fourteen clean**, which is noise. **Carl had SEVEN tests and
+still drew `orbit_lock` over a straight impulse.**
+
+⭐ **The variable is not how many tests a fighter has; it is whether ANY test
+names the mechanic the ART asserts.** Measured on Carl at the commit before the
+fix: `orbit_lock` appears **five times in his authoring code and zero times in
+his seven tests**. His suite asserted frames, budgets and shapes — every one of
+them true — and nothing connected the effect name to the impulse under it.
+
+⇒ **So the instrument is a census, not a reading.** Every effect name authored in
+`ambition_content`, checked against whether any test anywhere names it:
+**110 distinct names, 100 of them named by no test.** Most of that 100 is
+decoration and needs none — `oil_drip`, `landing_puff`, `sand_burst`. The
+harvest is the subset whose NAME asserts an engine behaviour, and that list is
+short enough to read by hand.
+
+⚠⚠ **AND EVERY ONE OF THE FOUR IT SURFACED SURVIVED THE CHECK — which is the
+result that makes the method trustworthy rather than the result I wanted.**
+
+| suspect | why it looked like a hit | what cleared it |
+|---|---|---|
+| `stamp_at_rest` / `stamp_moving` (clerk) | a PAIR implies the move branches on the target's motion | they track the CLERK's own motion per move — jab and back-air at rest, forward-air and forward-tilt moving. Coherent relativity flavour, no branch claimed |
+| `ether_cancel` (Emmy) | "cancel" is a real engine feature and she authors no `cancelable` | Michelson–Morley, not a cancel window — and the file explicitly considered one and rejected it with a reason |
+| `still_life_lock` (automaton) | a LOCK, in the file that already held one inversion | a jab, and a still life is a Life pattern that does not change. No prose claims a lock |
+| `fixed_point_acquire` (automaton) | its comment says *"and **holds it there**"* over `knockback_growth: 1.65`, which sends a hurt victim FARTHER | **measured against the roster**: 1.65 growth / 84 kb sits mid-range of fourteen up-airs (1.55–1.90), slightly BELOW median. An ordinary juggling up-air is what "holds it there" describes |
+
+⭐ **The last one is the one worth keeping.** Reading flagged it and the
+comparison cleared it — and the comparison took one script. ⇒ **A single move's
+numbers mean nothing without the column they sit in**, which is the same rule as
+the balance guard that caught the plate at 860 against `steam_lift`'s 800.
+
+⛔ **What the sweep does NOT find: boredom.** `pugnacious_polygon` has ten
+comment lines, zero claim markers and five specials that are a haymaker, a
+shoulder rush, an uppercut, a ground slam and a body drop. Perfectly honest, and
+exactly the *"many have boring specials"* the goal names. ⇒ **Honest and dull is
+a different defect from dishonest, and this instrument is blind to it.**
+
+⛔ Bob's `rivet_gun` is the sharpest of the five flagged, because its comment names the precise
 property the engine REFUSES. `Pulse`'s own doc says it: *"a multi-hit that
 authored one long window, or windows that touch, lands exactly once."* ⇒ Nobody
 writing "it is not one hit" had read that, and nothing connected the two.

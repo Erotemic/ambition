@@ -139,6 +139,19 @@ only where they are DEFINED.
 ⇒ **The risk arrives with a DATA authoring surface** — a move naming a technique
 by key in authored content rather than in Rust. That is precisely `TechniqueFlow`,
 which the fighter lane landed as an authored type with no interpreter yet.
+✔ **CHECKED, and it is sharper than that: the surface ALREADY EXISTS and is
+armed.** `FlowNode::Emit` carries *"an ordinary `EffectRef` — the same value a
+window's `sustain_effect` or an event's `Effect` carries"*, and an `EffectRef` is
+`{ key: String, params }`. ⇒ **A flow names its technique by a STRING**, so the
+moment one is authored, `smash.teleprot` is typeable and nothing checks it.
+⭐ `TechniqueFlow` and `ParamSchemaRegistry` are in the SAME crate
+(`ambition_entity_catalog`), so the consumer and the empty validator are already
+neighbours.
+⇒ The exact state: **the surface exists, the authored population is zero
+(`MoveSpec::flow` is `None` everywhere), and the validator is empty.** That is
+the one moment when adding the check costs nothing and prevents everything —
+before the first `Some(flow)`.
+
 ⇒ ⭐ **So this is not speculative generality: the consumer is being built
 concurrently.** The discovery substrate wants to land ALONGSIDE the first
 authored key, not after — because the day a `.ron` names `smash.teleprot`, the

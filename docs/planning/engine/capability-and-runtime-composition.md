@@ -382,10 +382,28 @@ Its demonstrated value is:
 > alone. A carve sized by "only two crates depend on it" would be sized at the
 > wrong granularity, which this repo has already done more than once.
 >
+> ⛔⛔ **AND THE CHEAPEST-LOOKING ROW WAS NOT CUTTABLE AT ALL.** `ambition_sfx_bank`
+> has the fewest files of all 23 — **three, of which TWO ARE COMMENTS** and the
+> third is a re-export inside `ambition_sfx`, which is itself unasked-for and 118
+> files wide. ⇒ A crate can RIDE IN on another crate in the same list, and then
+> neither count means anything: it cannot leave the closure until its carrier
+> does. The script marks those `CARRIED` and sorts them last.
+>
+> ⚠ **Optional dependencies do not put a crate in the closure**, and counting them
+> hid exactly this case: `ambition_platformer2d` declares `ambition_sfx_bank` as
+> `optional = true`, so the only real road in is `ambition_sfx`. Until that was
+> excluded, the uncuttable row looked independently cuttable.
+>
+> ⇒ **Cheapest genuinely cuttable today: `ambition_registry_core` (8 files)** —
+> which is a DELIBERATE shared protocol four crates adopted, so it is in the
+> closure on purpose and the script cannot know that. The real candidates behind
+> it are `ambition_encounter_features` (11) and `ambition_world_items` (12), both
+> in the exploration lane.
+>
 > ⚠ **The script is a SIZING AID, not a verdict.** A crate named in many files may
 > still be cheap if every use is one re-export, and one named in three may be
-> load-bearing in all three. Its job is to stop the ranking that is confidently
-> backwards.
+> load-bearing in all three. Its job is to stop the rankings that are confidently
+> backwards — and there turned out to be two of them.
 >
 > **RE-MEASURED against `f32eb7274` (2026-09-02): this program has a LIVE MECHANICAL
 > GUARD, and the page does not mention it.**

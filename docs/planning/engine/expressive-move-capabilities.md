@@ -138,6 +138,29 @@ timeouts
 local symbolic slots
 ```
 
+### What the flow cursor costs in the rollback wire — measured 2026-09-05
+
+⛔⛔ **`MovePlayback` IS ROLLBACK STATE, AND ITS SNAPSHOT IS A PROJECTION RATHER
+THAN A CLONE.** `MovePlayback::resumed(spec, facing, t, landed_hit)` is what
+comes back from a rewind, and its own doc says the blob carries *"the CHOICE —
+which move, how far in, did it land"*. ⇒ A flow cursor added to the struct and
+NOT added to that projection would silently reset on every rewind: the move would
+restart its flow mid-play, deterministically and invisibly, and the only symptom
+would be a desync checksum.
+
+⇒ So the rung's real obligation, before a line of it is written:
+
+1. the cursor, latches, timeouts and slots join `MovePlayback`;
+2. they join its **checksum projection**, or peers diverge;
+3. the schema version bumps (currently **151**) with a note saying why;
+4. the wire baseline records it in the same commit.
+
+ⓘ The registry's own history says this is the normal cost and not a surprise:
+**v144** added two contact facts to this exact projection, and **v145** added the
+instance — for a reason that is precisely a flow cursor's: *"two peers agreeing
+on the move id and its clock could still disagree about whether this is the first
+jab or the second"*. A cursor is the same class of fact.
+
 ### Slots, and why a move must not hold an `Entity`
 
 ```text
@@ -149,6 +172,13 @@ wait projectile.hit_owner("thunder")
 holds a symbol, not a handle. That is what makes rollback, inspection, remote
 detonation and later entity replacement clean rather than a table of stale
 `Entity` values that a rewind invalidates.
+
+⭐⭐ **AND THE CODEBASE ALREADY REFUSES THE ALTERNATIVE, which upgrades this from
+a preference to a constraint.** `MovePlayback`'s own snapshot doc states
+*"a blob cannot carry an `Entity` (N3.1 decision 2), and it does not have to"* —
+so a slot holding a handle is not merely fragile, it cannot be stored in the one
+place the flow's memory is allowed to live. ⇒ Symbols are the only design that
+fits the rollback contract that was already there.
 
 ⇒ For something that outlives the move — C4, a planted mine — **the entity keeps
 the occurrence identity**. The completed `MovePlayback` does not own it.

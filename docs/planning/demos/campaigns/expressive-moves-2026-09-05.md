@@ -28,7 +28,7 @@ each one as an **engine acceptance fixture** rather than a character feature:
 | 6 | **Remote mine** | persistent spawned identity, owner/tag lookup, cross-move triggering, attachment, rollback |
 | 7 | **Parasol** | temporary movement modifiers/controllers are expressive enough for a long-lived post-move locomotion regime |
 | 8 | **Homing Attack** | deterministic semantic target queries and target-directed fighter motion |
-| 9 | **Sing** | a real non-hitstun control status with explicit lifetime/wake policy — ⭐ **COSTED 2026-09-05, and it is one field**: see below |
+| 9 ◐ | **Sing** | ✔ **ENGINE LANDED 2026-09-05** — `BodyCombat::sleep_timer`, the `smash.sleep` technique and the area adapter, all guarded. ▢ **No authored customer**: see below |
 | 10 | **Limit** | character-local resource state, threshold transitions, timeout, action variants, stat modifiers |
 | 11 | **Free-standing ally summon** | summon is not synonymous with mount; first owned-secondary-actor contract |
 | 12 | **Reusable launch object** | a fighter can create a persistent world actuator another fighter interacts with |
@@ -86,6 +86,23 @@ escape. Those are what make a sleep richer than a Disable, and neither is
 expressible as a timer in a max. ⇒ A first version without them is honest and
 playable; it is a Disable wearing Sing's name, and the row should say so rather
 than claim the mechanic is finished.
+
+✔ **BUILT 2026-09-05 exactly as costed** — `BodyCombat::sleep_timer` folded into
+`hard_lock_timer()`, ticked by the shared decay, cleared by `reset()`, and woken
+by a real hit inside the windbox guard (a flinchless gust declines to charge
+stun, so it must not discharge a sleep either). `smash.sleep` is the authored
+key; `apply_authored_sleep` finds the bodies in range. Three poisons fire: the
+singer caught by their own song, songs that STACK instead of taking the longer,
+and an ignored area.
+
+⛔⛔ **AND IT HAS NO AUTHORED CUSTOMER, WHICH MEANS THIS ROW IS NOT DONE BY THIS
+PAGE'S OWN BAR.** Jon assigned Sing to the Performer, and she already has all
+five specials — including `the_monologue`, which is a proto-Sing that holds the
+room with FIXED KNOCKBACK and holds her too. ⇒ Turning that into a real status is
+a BALANCE change to shipped, documented content: adding the sleep on top makes
+the move much stronger, and replacing the knockback removes the hit. Neither is
+mine to decide, so the seam is registered and tested and the move is not
+authored. ⚠ Do not read the ✔ as "Sing ships".
 
 ⛔ **Do NOT reach for `break_timer`.** It is the shield-break dizzy, presentation
 draws it as one, and overloading it would make "why is this fighter helpless"

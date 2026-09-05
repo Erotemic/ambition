@@ -186,7 +186,15 @@ use crate::content_identity::SnapshotSchemaFingerprint;
 /// snapshot, so the cursor is restored either way; what the projection buys is
 /// that the divergence is caught at the checksum rather than when the world
 /// shows it.
-pub const GGRS_ROLLBACK_SCHEMA_VERSION: u32 = 153;
+/// ⛔ v154: `BodyCombat` CARRIES A SLEEP. A move may now put a body to sleep —
+/// a fifth named cause in the control lock's `max()`, beside the recoil and
+/// landing locks it sits with and the guard-break dizzy and shieldstun the
+/// shield owes. It is state for the same reason every lock beside it is: two
+/// peers disagreeing about how long a fighter stays helpless resimulate
+/// different matches from that moment. ⓘ Cleared by `reset()` (a fighter who
+/// respawns still asleep is helpless on arrival with nothing explaining why) and
+/// by a real hit (`hit_reaction`), which is the move's whole counterplay.
+pub const GGRS_ROLLBACK_SCHEMA_VERSION: u32 = 154;
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq, Ord, PartialOrd, Hash)]
 pub enum RollbackEntryKind {

@@ -336,6 +336,19 @@ pub fn apply_body_hit_reaction(
     // pulse declines to charge stun; it does not discharge it.
     if !knockback.is_windbox() {
         combat.hitstun_timer = ae::hit_response::hitstun_duration(Some(knockback), &response);
+        // ⭐⭐ AND A REAL HIT WAKES A SLEEPING BODY. A status that outlasted
+        // being struck would let one Sing carry a whole stock: the victim
+        // cannot act, and hitting them does not change that, so there is no
+        // counterplay at all. Waking here rather than in the status's own tick
+        // puts it next to the hitstun it replaces — the body stops being ASLEEP
+        // and starts being HIT, which is a different helplessness with an end
+        // the attacker earned.
+        //
+        // ⛔ INSIDE THE WINDBOX GUARD, on that comment's own reasoning one line
+        // up: a flinchless gust declines to charge stun, so it must not
+        // discharge a sleep either. Blowing a sleeping fighter across the stage
+        // should not wake them — the wake is what a real hit buys.
+        combat.sleep_timer = 0.0;
     }
     // Brief hard control-lock at the front of the hitstun window: the body is thrown with no
     // authority, then regains the attack verb the instant it clears (while still in hitstun +

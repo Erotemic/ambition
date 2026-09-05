@@ -130,6 +130,10 @@ pub fn apply_post_hit_input_gates(
     // charges. `shield_held` is not among the verbs stripped below, so a stunned
     // blocker keeps its guard up — which is the difference between shieldstun
     // and a break.
+    // ⓘ `combat.hard_lock_timer()` now folds a FIFTH cause — a sleep a move
+    // applied — beside the recoil and landing locks. It is listed there rather
+    // than here because it is a fact the BODY owns, like those two, and not one
+    // the guard owes.
     let hard_lock_timer = combat
         .hard_lock_timer()
         .max(shield.break_timer)

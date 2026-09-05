@@ -271,9 +271,12 @@ mod boss_combat_rebuild_contract {
     #[allow(dead_code)]
     fn every_body_combat_field_declares_whether_the_boss_sync_writes_it(combat: &BodyCombat) {
         let BodyCombat {
-            // ── UNTOUCHED (8) — reaction history the damage path owns, the
+            // ── UNTOUCHED (10) — reaction history the damage path owns, the
             // move-derived super-armor bit, and the authored sandbag flag. The
             // boss sync writes NOTHING here now.
+            // ⓘ The count said 8 while listing 9, corrected 2026-09-05 when a
+            // tenth arrived. A tally beside an exhaustive list is the one thing
+            // in this guard the compiler cannot check.
             hit_flash: _,
             damage_invuln_timer: _,
             hitstun_timer: _,
@@ -281,6 +284,9 @@ mod boss_combat_rebuild_contract {
             hitstop_timer: _,
             asdi_owed: _,
             landing_lag_timer: _,
+            // A sleep a MOVE applied. Reaction history like the locks above it,
+            // and the boss sync has no opinion about it either.
+            sleep_timer: _,
             armored: _,
             training_dummy: _,
         } = combat;

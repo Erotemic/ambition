@@ -2215,6 +2215,9 @@ mod body_combat_rebuild_contract {
             hitstop_timer: _,
             asdi_owed: _,
             landing_lag_timer: _,
+            // A sleep a move applied — reaction history like the locks above it,
+            // owned by the body and never rewritten from the cluster.
+            sleep_timer: _,
             // ── Republished every tick from the live move by
             // `project_move_defense_windows`, which is the ONE writer. This
             // sync must never touch it: a second writer would fight the

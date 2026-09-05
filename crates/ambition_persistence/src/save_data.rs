@@ -829,6 +829,94 @@ impl AmbitionGameSaveData {
 mod tests {
     use super::*;
 
+    /// ⭐⭐ EVERY ARM OF `families_that_differ` IS CHECKED BY ITS OWN NAME, and
+    /// the reason is the shape of the function: thirteen hand-written
+    /// comparisons over paired bindings (`items` vs `o_items`). A mis-paired
+    /// line — `check("bosses", quests == o_quests)` — type-checks, and the
+    /// exhaustive destructure that guards against a MISSING family cannot see a
+    /// SWAPPED one.
+    ///
+    /// ⛔ The caller that motivated this only ever asserted two names (`wallet`
+    /// and `flags`), so eleven arms were live but unvalidated.
+    #[test]
+    fn every_durable_family_is_reported_under_its_own_name() {
+        use std::collections::BTreeSet;
+        // (name(s) the mutation should produce, how to make it)
+        let cases: Vec<(Vec<&str>, fn(&mut AmbitionGameSaveData))> = vec![
+            (vec!["encounters"], |d| {
+                d.set_encounter("e", PersistedEncounterState::Cleared)
+            }),
+            (vec!["switches"], |d| d.set_switch("s", true)),
+            (vec!["bosses"], |d| {
+                d.set_boss("b", PersistedEncounterState::Cleared)
+            }),
+            (vec!["quests"], |d| {
+                d.set_quest("q", PersistedQuestState::InProgress, 1)
+            }),
+            (vec!["flags"], |d| d.set_flag("f", true)),
+            (vec!["dialog_visits"], |d| d.increment_dialog_visit("dv")),
+            (vec!["checkpoint"], |d| {
+                d.set_checkpoint(PersistedCheckpoint::new("room", 1, 2))
+            }),
+            (vec!["minted_items"], |d| {
+                d.set_minted_items(vec![PersistedMintedItem {
+                    occurrence: "o".into(),
+                    parent: "p".into(),
+                    sequence: 0,
+                    held_item: "h".into(),
+                }])
+            }),
+            // These setters write a PAIR / TRIPLE on purpose — the fields are
+            // one fact — so the expectation names every family they touch.
+            (vec!["items", "wallet", "inventory_saved"], |d| {
+                d.set_inventory(vec![PersistedItem::new("i", 1)], 7)
+            }),
+            (vec!["occurrences", "custody"], |d| {
+                d.set_durable_horizon(
+                    vec![PersistedOccurrence::new("occ", PersistedWhereabouts::InCustody)],
+                    vec![PersistedCustody::new("occ", "slot:0")],
+                )
+            }),
+        ];
+
+        let mut seen: BTreeSet<&str> = BTreeSet::new();
+        for (expected, mutate) in cases {
+            let base = AmbitionGameSaveData::new();
+            let mut changed = base.clone();
+            mutate(&mut changed);
+            let differ = base.families_that_differ(&changed);
+            let mut want = expected.clone();
+            want.sort_unstable();
+            let mut got = differ.clone();
+            got.sort_unstable();
+            assert_eq!(
+                got, want,
+                "mutating {expected:?} must report exactly those families; got {differ:?}"
+            );
+            // ...and the comparison is symmetric.
+            let mut back = changed.families_that_differ(&base);
+            back.sort_unstable();
+            assert_eq!(back, want, "the difference must not depend on argument order");
+            seen.extend(expected);
+        }
+
+        // ⭐ ANTI-VACUITY: the cases above must cover every family the function
+        // reports, or an unchecked arm hides here rather than in the caller.
+        // `version` is excluded by name in the function itself.
+        let all: BTreeSet<&str> = [
+            "encounters", "switches", "bosses", "quests", "flags", "dialog_visits",
+            "items", "wallet", "inventory_saved", "checkpoint", "occurrences",
+            "custody", "minted_items",
+        ]
+        .into_iter()
+        .collect();
+        assert_eq!(seen, all, "a durable family has no case in this test");
+
+        // An unchanged pair reports nothing.
+        let a = AmbitionGameSaveData::new();
+        assert!(a.families_that_differ(&a.clone()).is_empty());
+    }
+
     #[test]
     fn missing_encounter_reads_untouched() {
         let s = AmbitionGameSaveData::default();

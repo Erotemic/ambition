@@ -43,9 +43,20 @@ carve work at all, and the report contains its own refutation.**
 
 ```text
                                     absolute            share of workspace
-worst_edit_cost_lines  geometry     540,227 -> 586,482   95.7% -> 95.5%  FELL
-edit_cost_lines        p2d_core     537,395 -> 583,171   95.2% -> 95.0%  FELL
+worst_edit_cost_lines  geometry     540,227 -> 590,339   95.7% -> 95.5%  FELL  -0.1 pts
+edit_cost_lines        p2d_core     537,395 -> 587,028   95.2% -> 95.0%  FELL  -0.1 pts
+edit_cost_lines        monolith     285,213 -> 293,082   50.5% -> 47.4%  FELL  -3.1 pts
 ```
+
+⭐⭐ **RE-DERIVED 2026-09-05 LATE, and it is now THREE, with the third being the
+sharpest example this page has.** `actor_monolith`'s edit cost is flagged
+REGRESSED on the absolute count while its SHARE OF THE WORKSPACE FELL **3.1
+POINTS** — a large, real decoupling win, reported as a regression. ⇒ the ratchet
+is not merely noisy here; on this row it says the OPPOSITE of what happened.
+ⓘ The two seconds-based regressions (`worst_edit_cost_seconds` geometry,
+`edit_cost_seconds` p2d_core) are the same quantity multiplied by a rate, so
+they are the same finding counted twice more. **Five of the nine current
+findings are growth.**
 
 Both are flagged **REGRESSED** on the absolute line count. Both have a
 **share of the workspace that went DOWN**. Reconstructing the workspace size

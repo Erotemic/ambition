@@ -80,7 +80,10 @@ note is trying not to make.
   ONE of the four is runtime policy and three are TEST RATCHETS**, which is a
   distinction worth keeping: a test budget fails a build, it does not bound a
   running game. Runtime: `NEIGHBOR_PREFETCH_ROOM_BUDGET = 4`
-  (`game/ambition_app/src/app/world_flow/room_transition_assets.rs:1271`).
+  (`game/ambition_app/src/app/world_flow/room_transition_assets.rs:1367`;
+  ⚠ this said `:1271` until 2026-09-05, where the file now has `))` — the VALUE
+  was and is 4, only the line drifted, and the citation checker validates the
+  FILE so a drifted line passes it forever).
   Test-only: `BOOT_MEGAPIXEL_BUDGET` and `SYSTEM_COUNT_BUDGET`
   (`game/ambition_app/tests/boot_budget.rs:25`, `:28`) and
   `SESSION_STAGED_CAST_BUDGET` (`game/ambition_app/tests/boot_budget.rs:247`).

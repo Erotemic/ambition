@@ -223,6 +223,33 @@ actually costs a reader — an in-range citation pointing at an unrelated line �
 is invisible to it, because deciding it requires reading the PROSE and the LINE
 and judging whether they agree.
 
+⭐⭐ **AND A STRONGER PREDICATE WAS MEASURED TOO, because "don't build it" was
+the right answer to the WEAK one and not obviously to every one.** The defect is
+"the cited line does not show what the prose names", so the sharper check is
+SYMBOL PROXIMITY: for a citation of the form `` `SYMBOL` … (`path:NNN`) ``, does
+`SYMBOL` appear within a few lines of `NNN`? That WOULD have caught both of
+today's real drifts. Measured across `docs/planning/**`:
+
+```text
+citations with an adjacent backticked symbol   65
+symbol found within +/-3 lines                 35
+symbol NOT found                               30   <- ~46%, and NOT all drift
+```
+
+⛔ **Roughly half of those 30 are correct citations.** A citation legitimately
+points at the USE site rather than the definition — `` `AbilitySet`
+(`body_conditions.rs:59`) `` cites `pub fn can`, the READER of the type, which is
+exactly what that sentence was about. Others sit just outside the window
+(`upgrade_actor_sprites` cited at `:639`, defined at `:633`).
+⇒ **Real drift is in there** — `log_quality_profile_override` cited at `:182`,
+defined at `:136`, fixed today — but at roughly 50% precision.
+
+⇒ **So: not a GATE in either form.** The weak predicate decides nothing; the
+strong one would fail builds on correct citations about half the time, and a
+gate that cries wolf gets suppressed and then ignored. ⭐ It is worth running BY
+HAND as a periodic audit where a person judges each hit, and the 30-line script
+above is reproducible from this description.
+
 ⭐ **The transferable rule: when a defect suggests a gate, ask what the gate
 could DECIDE before writing it.** Here the cheap, automatable predicate and the
 defect are disjoint, so the gate would have run forever, passed forever, and

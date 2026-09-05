@@ -2975,7 +2975,7 @@ input: possibly a driver on any host rather than time on the one 3090.
 > OWN setting instead of silently substituting a tier they did not choose"*.
 >
 > ⓘ **And the warning for that case EXISTS and is well written** —
-> `log_quality_profile_override` (`ambition_render/src/quality.rs:182`) warns
+> `log_quality_profile_override` (`ambition_render/src/quality.rs:136`) warns
 > *"…is not a profile; using the saved setting instead. Expected one of: potato,
 > low, medium, high, ultra"*. It simply never fired: **neither** run printed it,
 > the valid one included, and neither printed the success message either. So

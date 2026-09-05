@@ -281,6 +281,15 @@ the change it exists to catch, and a carve is precisely the moment you want it.
 `python3 scripts/check_doc_link_ratchet.py --check` IN THE CARVE'S OWN COMMIT,
 the same way its `CRATES` list is supposed to be updated there.
 
+✔ **AND THE LANE IS NOT SYSTEMICALLY ROTTEN — checked, so the finding is not
+over-read.** `build_maintenance_jobs()` holds five jobs; the other two drift
+checks were run the same day and both pass: the zone-name ratchet (*"no world
+gained an id-shaped zone name"*) and the vanished-name check against its fixed
+baseline, both exit 0. ⇒ **one red, isolated, with a known cause** — not "nobody
+has run maintenance in weeks". Worth saying, because "a guard in a lane nobody
+runs" invites the assumption that everything behind it is rotten, and here it was
+not.
+
 ⚠⚠ **AND 274 IS NOT 274 FALSE CLAIMS — I nearly left that implication standing.**
 Characterised: **249 DISTINCT targets in 274 links**, almost no repetition, and
 the most-repeated is four. They are one-off references to types NOT IN SCOPE

@@ -4873,13 +4873,19 @@ OPTIONAL dep + feature, never used:
     the compile ratchet's *"the round number moved, not the win"* — the carves'
     gain against the frozen baseline is real and the absolute figure is drifting
     up underneath it.
-    ⛔ **AND THE TWO RULERS NO LONGER AGREE.** This row records that on 09-03 the
-    ratchet's `largest_unit_lines` and a plain `wc -l` both read 98,509 — the
-    agreement is what let the row say "same ruler, different reference point".
-    Today `wc -l` reads **100,489** and the ratchet reads **100,155**: a gap of
-    **334**. ⚠ I did NOT establish which files the difference is — only that the
-    agreement the row relies on has lapsed, so quoting either number as "the
-    kernel's size" now needs to say which ruler produced it.
+    ✔ **AND THE TWO RULERS STILL AGREE — a "divergence" I published an hour
+    earlier was my own error, corrected here.** Run at the same moment, the
+    ratchet's `largest_unit_lines` and a plain `wc -l` both read **100,489**.
+    ⛔ I had compared a FRESH `wc` against a ratchet figure I read hours before,
+    when the crate was smaller, and attributed the 334-line difference to the
+    INSTRUMENTS. It was two moments, not two rulers — the same mistake as reading
+    a suite's two jobs across a tree that moved under them. `crate_lines` globs
+    `src/**/*.rs` and counts every line including blanks, comments and inline
+    test modules, which is exactly what `wc -l` does; there was never a reason
+    for them to differ.
+    ⇒ **The row's "same ruler, different reference point" holds.** ⚠ And the win
+    it measures has shrunk with the growth: the ratchet now reports **−7,875**
+    against the frozen 108,364, where it read −8,209 earlier today.
     ⭐ The count HOLDING across the abilities and encounter-features carves is
     the more interesting reading, and it is the one this row is about: those
     domains were already depended upon before they were crates, so drawing the

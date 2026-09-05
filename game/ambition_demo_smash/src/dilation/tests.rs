@@ -133,3 +133,110 @@ fn a_speed_up_or_a_zero_duration_is_refused_rather_than_applied() {
          nothing about the guard"
     );
 }
+
+/// ⭐⭐ THE JOIN: A WITCH-TIME STANCE ACTUALLY SLOWS THE FIGHTER WHO SWUNG,
+/// THROUGH BOTH SYSTEMS IN THE ORDER THE SHIPPED SCHEDULE RUNS THEM.
+///
+/// The counter's own tests prove it dispatches to the attacker; this file's other
+/// tests prove the adapter applies a scale. ⛔ Neither asks whether they MEET —
+/// and in `lib.rs` the dilation adapter is registered BEFORE the counter's answer
+/// (`ContentSpecials`, 991 vs 1035), so the `ActorActionMessage` is read on the
+/// FOLLOWING tick. That is a real property of the composition, not a detail: it
+/// works only because Bevy messages survive a frame, and "two halves each tested"
+/// is exactly the shape that has hidden four defects on this campaign already.
+///
+/// ⇒ Systems added in the SHIPPED order rather than a convenient one, because a
+/// fixture that ran them the other way round would prove something the game does
+/// not do.
+#[test]
+fn a_witch_time_stance_slows_the_attacker_across_the_frame_boundary() {
+    use ambition_platformer2d::characters::smash_counter::CounterParams;
+    use ambition_platformer2d::combat::hitbox::ParriedBodyHit;
+    use ambition_platformer2d::combat::moveset::MovePlayback;
+
+    let mut app = App::new();
+    app.add_message::<ActorActionMessage>();
+    app.add_message::<ParriedBodyHit>();
+    app.init_resource::<ambition_platformer2d::time::WorldTime>();
+    {
+        let mut time = app
+            .world_mut()
+            .resource_mut::<ambition_platformer2d::time::WorldTime>();
+        time.scaled_dt = 1.0 / 60.0;
+        time.raw_dt = 1.0 / 60.0;
+    }
+    // ⛔ THE SHIPPED ORDER: the adapter first, the counter's answer second.
+    app.add_systems(
+        Update,
+        (
+            apply_authored_time_dilations,
+            expire_time_dilations,
+            crate::counter::hold_counter_parry_windows,
+            crate::counter::answer_a_parry_with_the_authored_counter,
+        )
+            .chain(),
+    );
+
+    let stance_params = CounterParams {
+        window_s: 0.05,
+        answers_the_attacker: true,
+        response: TIME_DILATION.to_string(),
+        response_params: ambition_platformer2d::entity_catalog::ParamValue::from_typed(
+            &TimeDilationParams {
+                scale: 0.35,
+                seconds: 0.45,
+            },
+        )
+        .expect("dilation params serialize"),
+        absorbs_projectiles: false,
+    };
+    let mut spec = ambition_platformer2d::characters::smash_counter::counter_move(
+        "probe_stance",
+        "special",
+        0.05,
+        0.20,
+        0.20,
+        stance_params,
+    );
+    spec.duration_s = 4.0;
+    let stance = spec.windows[1].clone();
+    let mut playback = MovePlayback::new(spec, 1.0);
+    playback.t = (stance.start_s + stance.end_s) * 0.5;
+
+    let defender = app
+        .world_mut()
+        .spawn((
+            playback,
+            ae::BodyShieldState::default(),
+            ambition_platformer2d::time::ProperTimeScale::default(),
+        ))
+        .id();
+    let attacker = app
+        .world_mut()
+        .spawn(ambition_platformer2d::time::ProperTimeScale::default())
+        .id();
+
+    app.world_mut().write_message(ParriedBodyHit {
+        defender,
+        attacker,
+        hitbox: attacker,
+        contact: ae::Vec2::ZERO,
+    });
+    // Two ticks: the answer is written on the first and read on the second.
+    app.update();
+    app.update();
+
+    assert_eq!(
+        scale_of(&app, attacker),
+        0.35,
+        "the fighter who swung is running at full speed — the counter's answer \
+         never reached the dilation adapter, which is the join neither side's \
+         tests can see"
+    );
+    assert_eq!(
+        scale_of(&app, defender),
+        1.0,
+        "the STANCE'S OWNER was slowed instead of, or as well as, the attacker — \
+         a Witch-Time that stuns its own caster"
+    );
+}

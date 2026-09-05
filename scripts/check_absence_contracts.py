@@ -1732,6 +1732,29 @@ def main() -> int:
         )
         for crate in grown:
             print(f"       NEW    {crate} entered the consumer's closure")
+        # ⛔⛔ A RISE HERE IS NOT AUTOMATICALLY A REGRESSION, AND THIS LINE EXISTS
+        # BECAUSE THE PLANNING ROW HAD TO SAY SO ONCE PER RISE INSTEAD.
+        #
+        # The count moves in OPPOSITE directions for the two architectural axes.
+        # Carving a domain OUT of the monolith raises it: the domain was always
+        # linked, and extraction only makes it a visible crate in the closure —
+        # not one byte more is compiled by a movement-only game. Making a domain
+        # OPTIONAL lowers it. So the LEVEL says nothing on its own; only a
+        # classified delta does, and the classification is a human judgement this
+        # script cannot make.
+        #
+        # ⇒ Six rises were recorded before this line existed, and every one of
+        # them needed a sentence in `queue.md` explaining which kind it was.
+        print(
+            "       ⇒ CLASSIFY IT before reading it as a regression. A CARVE "
+            "raises this count while compiling\n"
+            "         no more code — the domain was already linked inside the "
+            "monolith and is now its own crate.\n"
+            "         A genuinely NEW dependency also raises it. The two are "
+            "opposite outcomes with the same delta,\n"
+            "         so record which one this is in the baseline and in the "
+            "queue's capability-footprint row."
+        )
 
     new, stale = rollback_schema_violations(root)
     if not new and not stale:

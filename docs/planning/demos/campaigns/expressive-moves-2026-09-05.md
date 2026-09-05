@@ -158,20 +158,30 @@ none of them waits on `TechniqueFlow`.
   happened to the trapdoor, and every test it had spawned a `PlayerVisual`, so
   none of them could fail."* Real, and about the fireball rather than about smash.
 
-  ▢ **DEFECT TWO — a held ranged charge publishes NOTHING, and this is the smash
-  one.** `BodyPoseView` carries `charge_tier` (fireball) and `smash_charge` (smash
-  attack) and no field for a ranged-action charge at all, so no renderer can show
-  one. ⇒ Projectile Polygon can hold a charge that multiplies damage 3.5×, speed
-  1.5× and size 2.4×, and neither player sees anything until the shot leaves. For
-  a 1v1 match that is the part both players would act on.
+  ⛔⛔ **"DEFECT TWO" WAS WRONG AND IS RETRACTED — the fact IS published.**
+  I claimed a held ranged charge publishes nothing. It does.
+  `charge_shot()` authors `smash_charge: Some(SmashChargeSpec { … })` with
+  `ChargeGesture::Special`, so `MovePlayback.charge` is populated while she holds;
+  `smash_charge_fraction()` reads that same `MoveCharge`; and
+  `BodyPoseView::smash_charge` publishes the fraction every tick she is charging.
+  ⇒ The name is smash-flavoured and the FACT is general — which is the second time
+  in this same investigation I read a name as a scope.
 
-  ⇒ **THE FIX FOR DEFECT TWO IS THE FACT, NOT THE ART.** Publish the held ranged
-  charge — fraction and tier — on both `BodyPoseView` and `FeatureView`, then draw
-  it at the authored muzzle. ⭐ That makes one published point serve three needs:
-  the missing indicator, the hardcoded body offset the orb uses, and the feature
-  road. ⛔ Not a second muzzle resolution in `ambition_render`: that math has one
-  home now. ⛔ And not a field on `PlayerProjectileState` — a presentation point
-  is not rollback state; it is derived per tick, a category the registry has.
+  ▢ **WHAT IS ESTABLISHED, and it is structural rather than a claim about what a
+  player sees:** `FeatureView` carries no charge field at all (zero matches for
+  `charge` in `view_index.rs`), while `BodyPoseView` carries two. So whatever the
+  player road can present, the FEATURE road — the one the `flyline` doc says every
+  match fighter takes — cannot present at all, because the fact never reaches it.
+  Consumers of `smash_charge` today: `emit_smash_charge_cues` (audio) and a
+  `hit_flash` overlay fed from anim frames.
+
+  ⛔⛔ **AND THE HONEST LIMIT: I DID NOT ESTABLISH WHAT A PLAYER ACTUALLY SEES.**
+  Three times in this one thread I inferred a user-visible outcome from code
+  structure and was wrong twice — the orb was the fireball's, and the "unpublished"
+  fact was published under another name. ⇒ **Whether a charging fighter reads as
+  charging in a versus match is a question for RUNNING THE DEMO**, not for another
+  grep, and the next person on this row should start there. The structural finding
+  above stands on its own and does not need that answer.
 
 ### Track A — the keystone
 

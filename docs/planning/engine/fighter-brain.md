@@ -1806,6 +1806,27 @@ do all the reflex knobs). Shipped clock, 12 seeds paired:
 gone, and `9 vs 6` — undetermined on the shipped rows — becomes significant in the
 CORRECT direction. ⭐ Two cells improve and none regresses.
 
+⛔⛔ **THAT LAST CLAUSE IS FALSE, AND THE TABLE ABOVE CANNOT SHOW WHY — re-run
+with splits 2026-09-04 late.** Both `6 vs 5` cells read `LOWER (within spread)`,
+which is why *"none regresses"* was written and was correct by everything
+visible. With the split printed they are opposites:
+
+| cell | shipped | candidate |
+|---|---|---|
+| `5 vs 3` | ⛔ 2 : 10 = 83%, p = 0.039 | 4 : 8 = 67%, p = 0.388 |
+| `6 vs 5` | 5 : 7 = 58%, **p = 0.774** | ⛔ 3 : 9 = 75%, **p = 0.146** |
+| `9 vs 6` | 7 : 5 = 58%, p = 0.774 | ⭐ 11 : 1 = 92%, p = 0.006 |
+
+⇒ **The candidate is a TRADE.** It genuinely weakens `5 vs 3` (83% → 67%) and
+genuinely orders `9 vs 6` (58% → 92%), and it pushes `6 vs 5` **from a coin
+toward inverted** — one further pair the same way prints it as a significant
+inversion, which is the defect this candidate exists to remove, one rung up.
+⭐ **This is the sharpest case on the page for a verdict travelling with its
+split**, sharper than `5 vs 3`'s squeak: there the qualifier at least changed,
+and here **the printed row is identical on both sides while the situations are
+opposites**. ⇒ Full comparison and the decision framing in
+[`../awaiting-maintainer-decision.md`](../awaiting-maintainer-decision.md).
+
 ⭐ **And the survival medians rise further and more cleanly**: 85s → 101s → 116s →
 122s, against the shipped ladder's 85s → 98s → 114s → 113s, where the top pair
 went backwards. Higher rungs take longer to kill each other, monotonically.

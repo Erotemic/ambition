@@ -587,9 +587,21 @@ mine read *"None draws nothing, which is what every plate authored before this
 field existed did"*, and a peer simply read it back to me.
 
 ⚠ **PERSISTENT VISIBILITY IS STILL OPEN AND THIS DOES NOT CLOSE IT.** A cue at
-each end does not draw the plate while it sits there. The shipped road is the
-mine's — a `GroundItem` with authored art — and that is a content decision rather
-than a field.
+each end does not draw the plate while it sits there.
+
+⛔⛔ **AND I NAMED THE WRONG ROAD FOR IT — struck after checking, one commit
+later.** I wrote that the fix was *"the mine's: a `GroundItem` with authored
+art."* `GroundItem`'s own doc says what that type IS: *"a held item resting in the
+world, **pick-up-able with `Attack` when the player is empty-handed**."* ⇒ That
+road would let a fighter **pick the launch plate up and throw it**, which is
+coherent for a mine and absurd for a plate. **The mine is visible because it is an
+ITEM, not because items are how you draw things** — I read a working example and
+generalised its mechanism instead of its property.
+
+⇒ The real requirement is narrower and has no shipped answer yet: **a persistent,
+positioned, non-custodial visual for a gameplay object that is not an item.**
+That is a genuine gap rather than a content decision, and it is sized differently
+from what the previous paragraph claimed.
 
 ⛔⛔ **AND THE GUARD TOOK FOUR ATTEMPTS, EVERY ONE A FIXTURE DEFECT I HAVE
 ALREADY WRITTEN DOWN:**

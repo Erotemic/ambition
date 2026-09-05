@@ -71,6 +71,44 @@ fn mines(app: &mut App) -> Vec<(usize, f32)> {
         .collect()
 }
 
+/// ⛔⛔ THE FACTION IS THE ASSERTION THAT WAS MISSING, AND ITS ABSENCE COST
+/// THREE MOVES THEIR DAMAGE. Every test in this file asked whether a
+/// `DamageBoxEffect` REQUEST EXISTS — which is a question about my own
+/// authoring, not about the engine's answer to it. The blast authored
+/// `HitSide::Neutral`, which `apply_hitbox_damage` excludes from the body path
+/// entirely, so it hurt nobody and every one of these tests stayed green.
+///
+/// ⇒ `HitSide::Environment` is the relationship that damages every fighter
+/// including the placer; `ambition_combat`'s
+/// `a_hazard_hits_bystander_and_owner_alike_where_a_neutral_box_hits_neither`
+/// proves that end. This asserts the two halves MEET.
+#[test]
+fn the_blast_is_authored_as_a_hazard_and_not_as_an_inert_side() {
+    let mut app = app();
+    let fighter = a_fighter(&mut app, 0, 0.0);
+    press(&mut app, fighter);
+    wait(&mut app, 1.5);
+    press(&mut app, fighter);
+    app.update();
+    let messages = app.world().resource::<Messages<EffectRequest>>();
+    let mut cursor = messages.get_cursor();
+    let sides: Vec<ambition_platformer2d::vfx::HitSide> = cursor
+        .read(messages)
+        .filter_map(|request| match &request.effect {
+            Effect::DamageBox(b) if b.name == Some("mine blast") => Some(b.faction),
+            _ => None,
+        })
+        .collect();
+    assert_eq!(sides.len(), 1, "the armed mine did not answer at all");
+    assert_eq!(
+        sides[0],
+        ambition_platformer2d::vfx::HitSide::Environment,
+        "the mine's blast is authored {:?}, which the damage resolver does not \
+         put on the body path — it would explode and hurt nobody",
+        sides[0]
+    );
+}
+
 /// Blasts written this frame, with their centres.
 fn blasts(app: &mut App) -> Vec<ae::Vec2> {
     let messages = app.world().resource::<Messages<EffectRequest>>();

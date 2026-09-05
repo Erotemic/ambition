@@ -163,7 +163,13 @@ pub fn place_or_detonate_authored_mines(
                         // own mine free — and "get them to stand near it" is the
                         // entire move. A neutral blast is what makes the timing
                         // a decision instead of a formality.
-                        faction: ambition_platformer2d::vfx::HitSide::Neutral,
+                        // ⛔⛔ `Environment`, NOT `Neutral`. This read `Neutral` with a comment
+                            // saying Neutral hurts everybody; the resolver says the exact opposite
+                            // — `melee_source` excludes it from the body path and its terminal arm
+                            // is empty, with the contract that Neutral never spawns a damaging
+                            // hitbox. ⇒ This blast damaged NOBODY, and the test only asked whether
+                            // the effect request existed.
+                            faction: ambition_platformer2d::vfx::HitSide::Environment,
                         half_extent: ae::Vec2::splat(mine.blast_radius),
                         damage: mine.damage,
                         knockback: mine.blast_radius * 2.4,

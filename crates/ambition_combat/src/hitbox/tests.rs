@@ -459,6 +459,100 @@ fn a_world_anchored_box_outlives_its_owner_but_a_following_one_does_not() {
     );
 }
 
+/// Spawn a body that `apply_hitbox_damage` will consider as a victim, at `at`.
+fn hazard_victim(app: &mut App, faction: ActorFaction, at: ae::Vec2) -> Entity {
+    app.world_mut()
+        .spawn((
+            ae::CenteredAabb::new(at, ae::Vec2::new(14.0, 20.0)),
+            faction,
+            ambition_platformer2d_core::BodyOffense::default(),
+            ambition_platformer2d_core::BodyMotionFacts::default(),
+            ambition_platformer2d_core::BodyShieldState::default(),
+            ambition_characters::actor::BodyCombat::default(),
+        ))
+        .id()
+}
+
+/// ⛔⛔ A HAZARD DAMAGES EVERY BODY IT REACHES — INCLUDING THE ONE THAT OWNS IT.
+///
+/// The bomb, the mine and the steered bolt all authored `HitSide::Neutral` with
+/// comments saying Neutral hurts everybody. The resolver says the opposite:
+/// `melee_source` excludes Neutral from the body path and its terminal arm is
+/// empty. ⇒ **All three damaged nobody**, and every test stopped at "a
+/// `DamageBoxEffect` request exists" so nothing ever asked.
+///
+/// ⭐ THE OWNER ASSERTION IS THE ONE THAT ENCODES JON'S FOURTH QUESTION.
+/// `hitbox.owner` answers *who is credited*; it must not also answer *who is
+/// immune*, because your own bomb hurts you and you still placed it. A hazard
+/// consults no self-exclusion, which is what lets attribution stay honest.
+#[test]
+fn a_hazard_hits_bystander_and_owner_alike_where_a_neutral_box_hits_neither() {
+    let hits_for = |source: HitSide| -> (usize, usize) {
+        let mut app = App::new();
+        app.add_message::<HitEvent>();
+        app.add_message::<LandedBodyHit>();
+        app.add_message::<ParriedBodyHit>();
+        app.add_message::<VfxMessage>();
+        app.init_resource::<CapturedHits>();
+        app.init_resource::<crate::targeting::FriendlyFire>();
+        app.add_systems(Update, (apply_hitbox_damage, capture_hits).chain());
+        let at = ae::Vec2::new(200.0, 80.0);
+        // The OWNER stands in its own blast, and a bystander stands beside it.
+        let owner = hazard_victim(&mut app, ActorFaction::Player, at);
+        let _bystander = hazard_victim(&mut app, ActorFaction::Enemy, at);
+        app.world_mut().spawn((
+            Hitbox {
+                strike_sfx: None,
+                owner,
+                source,
+                anchor: HitboxAnchor::World { center: at },
+                half_extent: ae::Vec2::new(60.0, 30.0),
+                shape: None,
+                facing: 1.0,
+                damage: 5,
+                knockback: crate::strike::HitboxKnockback::FeelScale(1.0),
+                launch_dir: None,
+                frame_down: ae::Vec2::new(0.0, 1.0),
+                reaction: None,
+            },
+            HitboxLifetime { remaining_s: 0.2 },
+            HitboxHits::default(),
+        ));
+        app.update();
+        let cap = app.world().resource::<CapturedHits>();
+        let bodies: Vec<&HitEvent> = cap
+            .0
+            .iter()
+            .filter(|e| matches!(e.target, HitTarget::Body(_)))
+            .collect();
+        let on_owner = bodies
+            .iter()
+            .filter(|e| matches!(e.target, HitTarget::Body(b) if b == owner))
+            .count();
+        (bodies.len(), on_owner)
+    };
+
+    // ⛔ THE CONTROL, and it is what the three shipped moves were doing.
+    assert_eq!(
+        hits_for(HitSide::Neutral),
+        (0, 0),
+        "poison: a Neutral box damaged somebody, so this test cannot tell the \
+         broken vocabulary from the fixed one"
+    );
+
+    let (total, on_owner) = hits_for(HitSide::Environment);
+    assert_eq!(
+        total, 2,
+        "a hazard reached {total} bodies of the two standing in it"
+    );
+    assert_eq!(
+        on_owner, 1,
+        "the blast spared the body that OWNS it — self-exclusion is answering \
+         'who is immune' with the field that means 'who is credited', and your \
+         own bomb is supposed to hurt you"
+    );
+}
+
 // ── S3e: relational actor-vs-actor melee ────────────────────────────────────
 
 use crate::targeting::FactionRelations;

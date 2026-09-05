@@ -577,6 +577,13 @@ pub fn apply_hitbox_damage(
             (HitSide::Enemy | HitSide::Npc, _) => Some(HitSource::Melee),
             (HitSide::Boss, _) => Some(HitSource::Melee),
             (HitSide::Player, HitboxAnchor::World { .. }) | (HitSide::Neutral, _) => None,
+            // ⭐⭐ A HAZARD TAKES THE BODY PATH, WHICH IS THE WHOLE POINT. A
+            // thrown bomb, a placed mine and a steered bolt all authored
+            // `Neutral` and therefore hurt NOBODY — the resolver is explicit
+            // that Neutral never spawns a damaging hitbox, and three shipped
+            // moves believed the opposite. This is the side that means "hurts
+            // everyone", and everyone is reached through the melee path.
+            (HitSide::Environment, _) => Some(HitSource::Melee),
         };
 
         if let Some(source_kind) = melee_source {
@@ -586,7 +593,19 @@ pub fn apply_hitbox_damage(
                 // Identity beats every relationship rule. Friendly fire, match
                 // teams, and grudges can decide whether TWO bodies may fight;
                 // none of them can make one body become its own victim.
-                if victim.entity == hitbox.owner {
+                // ⛔⛔ …EXCEPT A HAZARD, WHICH HAS NO SELF TO EXCLUDE. This is
+                // the collision Jon's four questions name: `hitbox.owner` was
+                // doing two jobs — WHO IS CREDITED and WHO IS IMMUNE — and the
+                // genre wants them to disagree. Your own bomb hurts you, and you
+                // still placed it.
+                //
+                // ⭐ Splitting them here rather than at attribution is what lets
+                // the owner stay the placing FIGHTER (so a kill is credited, a
+                // grudge is tracked, and a rollback names the same body) while
+                // the blast still catches them. `DamageTeam::Environment` says
+                // the same thing one layer down: it damages Player, Enemy and
+                // Neutral, with no exception carved for whoever spawned it.
+                if victim.entity == hitbox.owner && hitbox.source != HitSide::Environment {
                     continue;
                 }
                 // Structural tangibility gate: a dead body is
@@ -597,15 +616,24 @@ pub fn apply_hitbox_damage(
                 if victim.is_corpse() {
                     continue;
                 }
-                if !crate::targeting::damage_lands_between(
-                    source_faction,
-                    victim.effective_faction(),
-                    attacker.team(hitbox.owner),
-                    victim.team,
-                    friendly_fire,
-                    owner_grudge,
-                    victim.entity,
-                ) {
+                // ⛔ A HAZARD ASKS NO RELATIONSHIP QUESTION EITHER, and routing
+                // it through one would be worse than pointless: the faction
+                // projection of `Environment` is `Neutral`, and a same-faction
+                // rule would then make a bomb harmless to any Neutral body while
+                // `DamageTeam::Environment::can_damage(Neutral)` says the
+                // opposite. ⇒ One relationship, stated once, in the vocabulary
+                // that already had it.
+                if hitbox.source != HitSide::Environment
+                    && !crate::targeting::damage_lands_between(
+                        source_faction,
+                        victim.effective_faction(),
+                        attacker.team(hitbox.owner),
+                        victim.team,
+                        friendly_fire,
+                        owner_grudge,
+                        victim.entity,
+                    )
+                {
                     continue;
                 }
                 if hits.hit.contains(&victim.entity) {
@@ -875,7 +903,9 @@ pub fn apply_hitbox_damage(
             // by the direct melee path above with its real faction).
             HitSide::Neutral => {}
             // These sides were consumed by `melee_source` and continued above.
-            HitSide::Enemy | HitSide::Boss | HitSide::Npc => unreachable!(),
+            HitSide::Enemy | HitSide::Boss | HitSide::Npc | HitSide::Environment => {
+                unreachable!()
+            }
         }
     }
 

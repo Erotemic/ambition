@@ -262,6 +262,19 @@ pub fn steer_and_fly_bolts(
             }
         }
         let chosen = rival_hit.map(|(_, e)| e).or(caster_hit);
+        // ⛔⛔ WHO IS CREDITED IS NOT WHO WAS HIT, and this used to pass the
+        // VICTIM as the blast's owner. Attribution is a different question from
+        // geometry and from the damage relationship — a kill, a grudge and a
+        // staleness record all key on the owner, so crediting the body that was
+        // struck makes a fighter their own attacker.
+        //
+        // ⇒ The CASTER owns the blast. Resolved by seat rather than kept as an
+        // `Entity` for the reason the seat exists: bevy_ggrs recreates entities
+        // across a rollback and `MatchSeat` is registered state.
+        let caster_entity = bodies
+            .iter()
+            .find(|(_, _, seat)| seat.0 == bolt.owner_seat)
+            .map(|(e, _, _)| e);
         for (body, mut kin, seat) in &mut bodies {
             if Some(body) != chosen {
                 continue;
@@ -301,20 +314,24 @@ pub fn steer_and_fly_bolts(
                 info!(target: "ambition::moves", "bolt came home: seat={} push={push:?}", seat.0);
             } else {
                 effects.write(ambition_platformer2d::vfx::EffectRequest {
-                    owner: body,
+                    // The CASTER, not the body it struck — see `caster_entity`.
+                    // Falling back to the victim only if the caster has left the
+                    // match, which is the one case where no better answer exists.
+                    owner: caster_entity.unwrap_or(body),
                     effect: ambition_platformer2d::vfx::Effect::DamageBox(
                         ambition_platformer2d::vfx::DamageBoxEffect {
                             center: bolt.pos,
-                            // ⛔ THE CASTER/FOE DISTINCTION IS MADE ABOVE, NOT
-                            // HERE. `HitSide` has no "everyone but my owner" —
-                            // its arms are Player/Enemy/Npc/Boss/Neutral — and it
-                            // does not need one: the branch this box sits in only
-                            // runs for a body that is NOT the owner's seat, and
-                            // the owner's contact returns the launch instead. ⇒ A
-                            // caster standing inside their own bolt's blast is
-                            // caught by it, which is the honest reading of being
-                            // there.
-                            faction: ambition_platformer2d::vfx::HitSide::Neutral,
+                            // ⭐ AND A CASTER STANDING IN THEIR OWN BLAST IS
+                            // CAUGHT BY IT, which is the honest reading of being
+                            // there — `Environment` consults no self-exclusion,
+                            // so the blast does not check whose it is.
+                            // ⛔⛔ `Environment`, NOT `Neutral`. This read `Neutral` with a comment
+                            // saying Neutral hurts everybody; the resolver says the exact opposite
+                            // — `melee_source` excludes it from the body path and its terminal arm
+                            // is empty, with the contract that Neutral never spawns a damaging
+                            // hitbox. ⇒ This blast damaged NOBODY, and the test only asked whether
+                            // the effect request existed.
+                            faction: ambition_platformer2d::vfx::HitSide::Environment,
                             half_extent: ae::Vec2::splat(bolt.radius),
                             damage: bolt.damage,
                             knockback: bolt.knockback,

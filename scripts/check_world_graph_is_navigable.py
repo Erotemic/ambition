@@ -103,11 +103,25 @@ def main() -> int:
         return 3
 
     areas: set[str] = set()
+    # ⭐ THE ARRIVAL SIDE, which the room check cannot see: a door may name a
+    # room that exists and a ZONE in it that does not.
+    zones_in_area: dict[str, set[str]] = collections.defaultdict(set)
     for _, document in readable:
         for level in document.get("levels") or []:
-            areas.add(area_of(level))
+            area = area_of(level)
+            areas.add(area)
+            for layer in level.get("layerInstances") or []:
+                for entity in layer.get("entityInstances") or []:
+                    if entity.get("__identifier") != "LoadingZone":
+                        continue
+                    fields = {
+                        f.get("__identifier"): f.get("__value")
+                        for f in entity.get("fieldInstances") or []
+                    }
+                    zones_in_area[area].add(fields.get("id") or entity.get("iid"))
 
     edges: set[tuple[str, str]] = set()
+    doors: list[tuple[str, str, str, str]] = []
     zones = both_ways = 0
     for _, document in readable:
         for level in document.get("levels") or []:
@@ -124,6 +138,7 @@ def main() -> int:
                     if not target or not fields.get("target_zone"):
                         continue
                     zones += 1
+                    doors.append((room, fields.get("id") or entity.get("iid"), target, fields["target_zone"]))
                     edges.add((room, target))
                     if fields.get("bidirectional") is True:
                         both_ways += 1
@@ -141,6 +156,14 @@ def main() -> int:
     entered = {target for _, target in edges}
 
     dangling = sorted(t for t in entered if t not in areas)
+    # ⚠ Only for doors whose ROOM resolves -- a door into a nonexistent area has
+    # no zone list to be missing from, and reporting it twice would make one
+    # defect look like two.
+    lost_arrivals = sorted(
+        f"{room}/{zone} -> {target}/{target_zone}"
+        for room, zone, target, target_zone in doors
+        if target in areas and target_zone not in zones_in_area.get(target, set())
+    )
     trapped = sorted(r for r in entered if r in areas and not outgoing.get(r))
 
     print(
@@ -163,9 +186,23 @@ def main() -> int:
             "`bidirectional` on the way in.",
             file=sys.stderr,
         )
-    if dangling or trapped:
+    if lost_arrivals:
+        print(
+            "FAIL: doors naming an arrival zone that does not exist in the target "
+            "area:\n  "
+            + "\n  ".join(lost_arrivals)
+            + "\n  The room resolves and the ZONE does not, so the arrival has no "
+            "place to put the body.\n  ⚠ What the host does with an unresolvable "
+            "arrival is NOT established by this check -- only that the authoring "
+            "is inconsistent.",
+            file=sys.stderr,
+        )
+    if dangling or trapped or lost_arrivals:
         return 1
-    print("ok: every authored door leads to a real area, and no area is a trap")
+    print(
+        "ok: every authored door leads to a real area with a real arrival zone, "
+        "and no area is a trap"
+    )
     return 0
 
 

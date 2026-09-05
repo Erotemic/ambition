@@ -75,7 +75,14 @@ def _world(levels: list[dict]) -> str:
     return json.dumps({"levels": levels})
 
 
-def _level(identifier: str, area: str | None, zones: list[tuple[str, str, bool]]) -> dict:
+def _level(identifier: str, area: str | None, zones: list[tuple[str, str, str, bool]]) -> dict:
+    """A level whose doors each name their ARRIVAL ZONE explicitly.
+
+    ⚠ The arrival zone used to be hardcoded to `"back"` here, and the third arm
+    caught it the moment it existed: two fixtures were quietly authoring doors
+    into a zone nothing declared. A helper that fills in a field the test is
+    about makes every fixture agree with itself and with nothing else.
+    """
     fields = []
     if area is not None:
         fields.append({"__identifier": "activeArea", "__type": "String", "__value": area})
@@ -85,11 +92,13 @@ def _level(identifier: str, area: str | None, zones: list[tuple[str, str, bool]]
             "fieldInstances": [
                 {"__identifier": "id", "__value": zid},
                 {"__identifier": "target_room", "__value": target},
-                {"__identifier": "target_zone", "__value": "back"},
+                {"__identifier": "target_zone", "__value": target_zone},
                 {"__identifier": "bidirectional", "__value": both},
             ],
         }
-        for zid, target, both in zones
+        # `target=None` is an ARRIVAL-ONLY zone: a real place to land that
+        # authors no door of its own.
+        for zid, target, target_zone, both in zones
     ]
     return {
         "identifier": identifier,
@@ -110,7 +119,7 @@ def test_an_area_you_can_enter_and_not_leave_is_reported(tmp_path: Path) -> None
     (tmp_path / "trap.ldtk").write_text(
         _world(
             [
-                _level("hub_level", "hub", [("to_vault", "vault", False)]),
+                _level("hub_level", "hub", [("to_vault", "vault", "vault_door", False)]),
                 # A real area with no outgoing zone at all.
                 _level("vault_level", "vault", []),
             ]
@@ -131,10 +140,83 @@ def test_a_one_way_door_becomes_two_way_when_authored_bidirectional(
     (tmp_path / "ok.ldtk").write_text(
         _world(
             [
-                _level("hub_level", "hub", [("to_vault", "vault", True)]),
-                _level("vault_level", "vault", []),
+                _level("hub_level", "hub", [("to_vault", "vault", "arrival", True)]),
+                # ⚠ An ARRIVAL-ONLY zone: it exists so the door has somewhere to
+                # land, and authors no target of its own, so `vault` still has no
+                # way out except the `bidirectional` reverse edge. That is the
+                # real authoring pattern, and hardcoding a shared zone name hid
+                # it until the arrival arm existed.
+                _level("vault_level", "vault", [("arrival", None, None, False)]),
             ]
         ),
         encoding="utf-8",
     )
     assert module.main() == 0
+
+
+def test_a_door_naming_an_arrival_zone_that_does_not_exist_is_reported(
+    tmp_path: Path,
+) -> None:
+    """⛔ THE THIRD ARM: the room resolves and the ZONE does not.
+
+    A door can name a real area and a zone in it that was never authored, and the
+    room-level check cannot see that -- it only asks whether the target area
+    exists. Nothing in the engine checks the arrival side either.
+    """
+    module = _module()
+    module.WORLDS = tmp_path
+    (tmp_path / "lost.ldtk").write_text(
+        _world(
+            [
+                _level("hub_level", "hub", [("to_vault", "vault", "no_such_zone", True)]),
+                # `vault` exists; its only zone is `back_to_hub`, and the door
+                # above arrives at `no_such_zone`, which nothing authors.
+                _level("vault_level", "vault", [("back_to_hub", "hub", "to_vault", True)]),
+            ]
+        ),
+        encoding="utf-8",
+    )
+    assert module.main() == 1
+
+
+def test_the_same_world_passes_when_the_arrival_zone_exists(tmp_path: Path) -> None:
+    """⚠ Its control: rename the vault's zone to the one the door names and the
+    identical world must PASS, or the arm above would also fire on a healthy
+    world."""
+    module = _module()
+    module.WORLDS = tmp_path
+    (tmp_path / "found.ldtk").write_text(
+        _world(
+            [
+                _level("hub_level", "hub", [("to_vault", "vault", "back", True)]),
+                _level("vault_level", "vault", [("back", "hub", "to_vault", True)]),
+            ]
+        ),
+        encoding="utf-8",
+    )
+    assert module.main() == 0
+
+
+def test_a_door_naming_a_room_that_is_no_area_is_reported(tmp_path: Path) -> None:
+    """⛔⛔ THE FIRST ARM, AND IT HAD NO FIXTURE TEST UNTIL NOW.
+
+    I poisoned this one ONCE, against a real shipped world, by repointing a
+    `target_room` at a nonexistent area -- a one-off that proved the arm fires
+    and left nothing behind. MEASURED: disabling the `dangling` computation left
+    all seven of the other tests GREEN.
+
+    ⇒ Three arms, and poisoning them one at a time is the only way to find the
+    one nobody covers. A one-off poison proves the CODE works today; a fixture
+    proves it still will.
+    """
+    module = _module()
+    module.WORLDS = tmp_path
+    (tmp_path / "dangling.ldtk").write_text(
+        _world(
+            [
+                _level("hub_level", "hub", [("to_nowhere", "no_such_area", "arrival", True)]),
+            ]
+        ),
+        encoding="utf-8",
+    )
+    assert module.main() == 1

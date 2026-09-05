@@ -621,6 +621,7 @@ fn update_body_simulation_inner(
             }
         }
         clusters.shield.parry_window_timer = dec(clusters.shield.parry_window_timer);
+        clusters.shield.absorb_window_timer = dec(clusters.shield.absorb_window_timer);
         clusters.shield.parry_caught_timer = dec(clusters.shield.parry_caught_timer);
         clusters.shield.drop_lag_timer = dec(clusters.shield.drop_lag_timer);
         if crate::body_clusters::tick_shield_resource(clusters.shield, tuning.abilities.shield, dt)

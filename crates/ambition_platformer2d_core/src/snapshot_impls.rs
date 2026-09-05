@@ -184,6 +184,10 @@ snapshot_pod!(crate::body_clusters::BodyDodgeState {
 snapshot_pod!(crate::body_clusters::BodyShieldState {
     active: bool,
     parry_window_timer: f32,
+    // The parry's MODE: whether a caught projectile is absorbed or returned.
+    // State for the same reason the window beside it is — two peers disagreeing
+    // about which one a stance is doing send the same shot two different ways.
+    absorb_window_timer: f32,
     depleted: f32,
     break_timer: f32,
     stun_timer: f32,

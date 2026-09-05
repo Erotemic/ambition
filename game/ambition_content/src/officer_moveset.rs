@@ -32,7 +32,57 @@ pub fn officer_moveset() -> MovesetContract {
         "officer",
     );
     crate::special_slots::replace_special(&mut set, "special_forward", the_draw());
+    crate::special_slots::replace_special(&mut set, "special_down", the_riot_shield());
     set
+}
+
+/// Down special: he plants a riot shield and EATS what is thrown at him.
+///
+/// ⭐⭐ A COUNTER STANCE WHOSE ANSWER IS TO SWALLOW. The engine already gives a
+/// counter a reflector for free — the projectile road gates on the same
+/// `parrying()` window a stance opens — so this move exists to prove the other
+/// response: `absorbs_projectiles` makes the caught shot go AWAY instead of
+/// back, through the one `intercept_projectile` operation the parry already
+/// uses.
+///
+/// ⛔ AND IT IS THE RIGHT FIGHTER FOR IT. Reflecting is loud and rewards a read;
+/// absorbing is quiet and rewards STANDING THERE, which is what a man with a
+/// riot shield does. The Officer's other authored move is a gun — a fighter who
+/// answers ranged pressure at both ends is a coherent one.
+///
+/// ⚠ HIS SPECIALS WERE THE BRAWLER ARCHETYPE'S until now, which is the case Jon
+/// named: *"we have a lot of characters with boring specials."* This replaces a
+/// borrowed generic with something only he does.
+///
+/// ⚠ The response is the standing grab: absorbing a shot leaves him next to
+/// whoever threw it, and a stance that ate the projectile and did nothing else
+/// would be a wall rather than a decision.
+fn the_riot_shield() -> ambition_platformer2d::entity_catalog::MoveSpec {
+    ambition_characters::smash_counter::counter_move(
+        "officer_riot_shield",
+        "special",
+        // Slower to plant than a sword counter: this is a commitment to a
+        // POSITION, not a read on one attack.
+        0.12,
+        0.20,
+        0.38,
+        ambition_characters::smash_counter::CounterParams {
+            // A heartbeat, not a duration — `parry_window_timer` decays, and the
+            // stance re-arms it every frame it is live.
+            window_s: 0.05,
+            response: ambition_platformer2d::characters::smash_capture::CAPTURE_ATTEMPT.to_string(),
+            response_params: ambition_platformer2d::entity_catalog::ParamValue::from_typed(
+                &ambition_platformer2d::characters::smash_capture::CaptureAttemptParams {
+                    offset: (26.0, 0.0),
+                    half_extents: (22.0, 22.0),
+                    hold_offset: (18.0, -2.0),
+                },
+            )
+            .expect("the riot shield's capture params serialize"),
+            // ⭐ THE WHOLE POINT OF THIS MOVE.
+            absorbs_projectiles: true,
+        },
+    )
 }
 
 /// Side special: he draws the sidearm and fires one round.

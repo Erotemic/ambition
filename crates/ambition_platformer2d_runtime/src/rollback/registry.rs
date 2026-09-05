@@ -194,7 +194,16 @@ use crate::content_identity::SnapshotSchemaFingerprint;
 /// different matches from that moment. ⓘ Cleared by `reset()` (a fighter who
 /// respawns still asleep is helpless on arrival with nothing explaining why) and
 /// by a real hit (`hit_reaction`), which is the move's whole counterplay.
-pub const GGRS_ROLLBACK_SCHEMA_VERSION: u32 = 154;
+/// ⛔ v155: `BodyShieldState` CARRIES THE PARRY'S MODE. A stance may now absorb a
+/// caught projectile instead of returning it, and `absorb_window_timer` is a
+/// MODE on the existing parry window rather than a second window — `parrying()`
+/// still decides whether a shot is caught. It is state because two peers
+/// disagreeing about which response a stance is running send the same shot two
+/// different ways: one has a bolt flying back at the firer and the other has no
+/// bolt at all. ⓘ Decayed beside `parry_window_timer` in the movement kernel, so
+/// a stance that stops re-arming stops absorbing on the same tick it stops
+/// parrying.
+pub const GGRS_ROLLBACK_SCHEMA_VERSION: u32 = 155;
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq, Ord, PartialOrd, Hash)]
 pub enum RollbackEntryKind {

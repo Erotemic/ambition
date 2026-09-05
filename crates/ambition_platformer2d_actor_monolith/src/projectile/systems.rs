@@ -727,16 +727,41 @@ pub fn step_projectiles(
                 // policy. A body with no shield state simply cannot parry.
                 // The SAME catch the melee strike seam resolves, from the
                 // other route a strike arrives on: one fact, both roads.
-                let parried = guards
+                // ⭐ AND WHAT THE CATCH DOES, which is a MODE on the same
+                // window rather than a second one. `parrying()` decides whether
+                // the shot is caught; `absorbs_projectiles()` decides whether it
+                // goes back or goes away. An absorber stance arms both.
+                let (parried, absorbs) = guards
                     .get_mut(victim.entity)
                     .map(|mut shield| {
                         let caught = shield.parrying();
                         if caught {
                             shield.catch_parry();
                         }
-                        caught
+                        (caught, shield.absorbs_projectiles())
                     })
-                    .unwrap_or(false);
+                    .unwrap_or((false, false));
+                if parried && absorbs {
+                    // ⛔ THE SAME DOMAIN OPERATION, a different response — which
+                    // is the whole reason `intercept_projectile` exists rather
+                    // than each interception editing the shot's components. The
+                    // cue stays here: an absorber swallows where a parry clangs.
+                    super::intercept::intercept_projectile(
+                        &mut commands,
+                        proj_entity,
+                        &mut kin,
+                        victim.entity,
+                        ProjectileAllegiance {
+                            faction: *victim.faction,
+                            team: victim.team.cloned(),
+                        },
+                        &super::intercept::ProjectileInterception::Consume,
+                    );
+                    if victim.is_player {
+                        heals.write(crate::avatar::PlayerHealRequested::new(PARRY_HEAL));
+                    }
+                    continue;
+                }
                 if parried {
                     reflect_parried_shot(
                         &mut commands,

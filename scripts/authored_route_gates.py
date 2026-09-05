@@ -235,6 +235,13 @@ def main() -> int:
     print(f"\ndialogue files: {len(yarn)}  (using condition vocabulary: "
           f"{len({p for p, _, _ in calls})})")
     print(f"dialogue condition uses: {len(calls)}")
+    # ⛔⛔ A CALL IS NOT A WORKING CALL. `boss.cleared`'s five authored uses are
+    # all `boss_cleared("mockingbird")`, and that can never be true: the save is
+    # keyed by PLACEMENT (`BossSpawn-4308`) and the dialogue passes the BEHAVIOR
+    # id. See awaiting-maintainer-decision #57. ⇒ Read the per-id counts below as
+    # authored DEMAND — what content asks for — not as evidence the question is
+    # answerable. This census measures the vocabulary's reach, and a permanently
+    # false call reaches just as far as a true one.
     print(f"  generic condition(): {len(generic):>3}"
           f"   in {len({p for p, _, _ in generic})} file(s)")
     print(f"  named aliases:       {len(alias):>3}"

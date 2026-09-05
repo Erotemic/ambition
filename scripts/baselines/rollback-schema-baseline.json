@@ -257,6 +257,7 @@
     "message.brain_command",
     "message.camera_shake_request",
     "message.capture_attempt_requested",
+    "message.capture_carry_requested",
     "message.capture_pummel_requested",
     "message.capture_throw_requested",
     "message.causal_body_hit_resolved",

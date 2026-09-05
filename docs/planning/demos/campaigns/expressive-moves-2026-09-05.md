@@ -360,6 +360,55 @@ needs a new capability" is a claim, and the cheapest way to test it is to build
 the row.** Two of the three capability gaps this campaign predicted turned out to
 be already-shipped authorities under a name I had not searched for.
 
+### ⛔⛔ AND ITS WORSE SIBLING: COMPILED IN, NEVER INSTALLED
+
+**The portal recovery was inert in one of the two apps that ship it, and every
+test passed.** Found 2026-09-05 by chasing `close_on_transit` — a field that was
+not merely dormant but **DEAD**: authored, stored, snapshotted into rollback
+state, and read by nothing.
+
+| app | `ambition_platformer2d_runtime` `portal` feature |
+|---|---|
+| `ambition_app` | ✔ on |
+| `ambition_demo_smash_app` | ⛔ **off** |
+
+⇒ **`all_capabilities` turns on the optional `ambition_portal2d` DEPENDENCY; a
+separate `portal` FEATURE installs `PortalSchedulePlugin`. Two switches, one
+name-shaped concept** — and without the second everything still COMPILES, because
+`PlacedPortal` is just a type and the spawn system spawns two of them happily. A
+fighter's recovery opened two apertures they fell straight through.
+
+⛔ **Every guard passed because every fixture registers its own systems by hand.**
+A hand-built `App` cannot detect a missing PLUGIN: the fixture IS the plugin. The
+guards proved the systems work; nothing proved they RUN in a shipped composition.
+
+⭐ **The check, and it belongs in this campaign's acceptance list:** a row is not
+landed until `cargo tree -p <each shipping app> -e features -i <providing crate>`
+shows the feature on in EVERY app. And the requirement goes in the Cargo.toml of
+the crate that REGISTERS the systems, not in each app that composes it.
+
+⛔⛔ **NAME THE FEATURE SET OR THE NUMBER IS ABOUT NOTHING.** `ambition_demo_smash_app`
+has `default = []`, so a `cargo tree` with no `--features` measures a composition
+nobody runs and reports nearly every capability off. ⇒ My original `0` was
+**right by luck**; the peer re-measurement that caught it also showed `audio`
+absent from three demos that ship it. Re-measured after the fix, under both:
+
+    smash_app [default]            portal=1  portal_render=0
+    smash_app [--features visible] portal=1  portal_render=3
+
+⭐ **And that shape is the fix, not an accident of it.** Simulation is
+unconditional — `portal` rides `ambition_demo_smash`'s own dependency, because
+that crate registers the systems in every composition including headless tests.
+Presentation is not — `portal_render` rides the app's `visible` feature, because
+a headless build has no business linking a renderer. ⚠ Stopping at `portal=1`
+would have shipped a demo that simulates the recovery correctly and draws no
+apertures at all: the same symptom, a different bug.
+
+⚠ **What made it findable was adding the first HARD dependency** — a
+`MessageReader` for a message the plugin registers, where the old code only
+spawned a component. The breakage had been shipping quietly until something
+needed the plugin to actually be there.
+
 ### ⭐⭐ A CAPABILITY WITH NO CUSTOMER IS ONE NOBODY CAN TELL IS BROKEN
 
 Twice in one day a technique turned out to be **fully built, guarded, and used by
@@ -479,4 +528,4 @@ re-derive it:
 | Stone / Withdraw | body/form mode + modified collision/movement + explicit exit conditions |
 | Shadow-Flare delayed mark | persistent gameplay occurrence attached to victim + timer/remote trigger |
 | Pikmin-like latch | owned secondary entity + body attachment + periodic effect |
-| Wind / vacuum | existing force/wind semantics, generalized to a sustained field only for a persistent customer |
+| Wind / vacuum ◐ | ⛔ **THE ENGINE HALF IS ALREADY COMPLETE AND NO FIGHTER USES IT.** `VolumeReaction::Windbox` is shipped down to a validation error for `WindboxWithDamage`; the push is an ordinary `knockback` + `launch_dir` with `flinchless` set, and `WindboxVolume::repeating` opts a gust out of the hit-once set so it pushes every frame you stand in it. ⇒ Not the whole reaction, not just the flag — **zero authored windboxes on the entire roster**. A gust move costs AUTHORING only, and this row's "generalize to a sustained field" was pricing work nobody needs yet |

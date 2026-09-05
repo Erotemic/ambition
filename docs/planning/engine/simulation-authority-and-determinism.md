@@ -682,6 +682,16 @@ unreset"* is a query that finds candidates, not defects; each one needs its
 lifetime named. The projectile counter was a defect because projectile ids are
 transient and nothing wanted the carry.
 
+⚠ **AND `GameplayElapsed` MAY BE THE SAME KIND OF FALSE POSITIVE — read its doc
+before scoping it.** It is *"the monotone 'now' the per-actor brain perception
+reads"*, and the Smash brain's reaction latency looks BACKWARD from it
+(`obs_history` lookback by `reaction_delay_s`). A clock whose whole contract is
+monotone may be correct to carry: resetting it to zero between sessions is
+exactly the discontinuity a lookback cannot express. ⇒ two of the three
+candidates this query produced turn out to have a plausible reason to cross the
+boundary, which is the measure of how much judgement the query leaves. It also
+sits in `actor_monolith/src/features/**`, the fighter lane's own path.
+
 ⭐ **AND THE ONE THAT LOOKED WORSE WAS NOT A CANDIDATE AT ALL.** `SimIdCounter`
 is a COMPONENT, not a resource — per-spawner, dying with its entity — so it is
 absent from a resource set by construction. It also must NOT be naively reset:

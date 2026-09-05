@@ -781,6 +781,26 @@ pub enum Muzzle {
     /// fighter's midriff — and it follows the hand whether the pirate is still
     /// mounted or has fallen off the shark.
     Hand { ahead: f32 },
+    /// A point on the BODY the action names for itself — the cannon, the mouth,
+    /// the shoulder — as a fraction of body height.
+    ///
+    /// ⭐⭐ THE ONE THAT LETS A CHARACTER'S SILHOUETTE BE TRUE. Every ranged
+    /// action that is not a drawn weapon fired from [`Self::BodyOrigin`], which
+    /// is the midriff, so a beast whose whole identity is a head-mounted cannon
+    /// launched its shot from its stomach and the charge art had to be drawn to
+    /// disguise it. ⇒ The move states where its own muzzle is.
+    ///
+    /// ⛔ FRACTIONS OF BODY HEIGHT, NOT PIXELS, and that is the same decision
+    /// the hand offset already made (`HAND_OFFSET_NORM`, `(0.18, -0.05)`): a
+    /// pixel offset authored against one fighter's height is silently wrong on
+    /// every other body that shares the action, and every sprite tier rescales
+    /// the body underneath it.
+    ///
+    /// ⛔ `x` IS FORWARD and flips with facing; `y` IS UP when NEGATIVE, matching
+    /// the hand and [`Self::BodyOrigin`]'s own `-8.0`. Both are then resolved
+    /// through the acceleration frame, so a fighter under sideways gravity fires
+    /// from the same point on its body rather than the same point on the screen.
+    Offset { x: f32, y: f32 },
 }
 
 /// The gun-sword's discharge: the spinning blade, the hand, the cue and the kick
@@ -968,6 +988,21 @@ impl RangedActionSpec {
     /// Author how far this weapon will bend a shot toward a target.
     /// State how this shot leaves the weapon. See [`Discharge`].
     pub fn with_discharge(mut self, discharge: Discharge) -> Self {
+        self.discharge = Some(discharge);
+        self
+    }
+
+    /// State WHERE this shot leaves the body, keeping the rest of the discharge.
+    ///
+    /// ⭐ THE COMMON CASE, and without it an author changing only the muzzle has
+    /// to spell out a whole `Discharge` with `..Default::default()` — which the
+    /// officer's table does, and which quietly re-states the recoil and the cue
+    /// as if this action had an opinion about them. Preserves an existing
+    /// discharge rather than replacing it, so order of authoring does not
+    /// matter.
+    pub fn with_muzzle(mut self, muzzle: Muzzle) -> Self {
+        let mut discharge = self.discharge.unwrap_or_default();
+        discharge.muzzle = muzzle;
         self.discharge = Some(discharge);
         self
     }

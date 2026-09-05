@@ -1,5 +1,19 @@
 # Ambition open-world roadmap — world first, story over reality
 
+⚠ **THE TRACKED CRITERION IS NARROWER THAN THE STATED ONE (noticed 2026-09-05).**
+The milestone list says *"acquire materially different traversal**/interaction**
+capabilities"*; the status row drops `/interaction` and has only ever been
+assessed on traversal. That is not a wording nit: **`interact` IS an ability
+verb** (`AbilitySet::interact`, `platformer2d_core/src/abilities.rs:157`), so
+`body.can(interact)` is a publishable gate today and an interaction capability
+could be acquired and gated exactly as a traversal one is.
+
+⇒ Either the criterion means both halves and this row is under-tracking one, or
+it means traversal alone and the list above should say so. ⓘ It also bears on
+[decision #58](../awaiting-maintainer-decision.md), which asks whether the body
+gate family is about CAPABILITY or about STATE — the answer changes what
+"acquire" can mean for the interaction half too.
+
 **State:** OPEN — this is the flagship product direction, not a linear quest checklist.
 
 ## North star
@@ -75,7 +89,7 @@ would actually be the first to exercise.
 | acceptance criterion | engine acceptance at HEAD |
 |---|---|
 | explore multiple interconnected regions | ✔ `leaving_a_room_and_returning_rebuilds_what_entering_it_built` |
-| acquire materially different traversal capabilities | ◐ **the ENGINE pins it since 2026-09-04; no shipped level authors it** — `a_wall_may_be_gated_on_what_the_body_can_do` and `a_wall_may_be_gated_on_the_body_being_small_enough_to_pass` (`gated_lock_walls/tests.rs`), see below |
+| acquire materially different traversal capabilities ⚠ (the criterion above says traversal**/interaction**; this row has only ever tracked the traversal half — see the note below the table) | ◐ **the ENGINE pins it since 2026-09-04; no shipped level authors it** — `a_wall_may_be_gated_on_what_the_body_can_do` and `a_wall_may_be_gated_on_the_body_being_small_enough_to_pass` (`gated_lock_walls/tests.rs`), see below |
 | move/hold/equip/drop persistent objects | ✔ `an_object_in_your_hands_survives_a_replay_and_is_not_re_authored` (both retention legs) |
 | alter world mechanisms, return to the changed state | ✔ `switches_restore_their_on_state_from_the_save`, and the reconstitution census compares switch position across every lifecycle path |
 | encounter persistent and spawned actors | ✔ the encounter suite, plus `a_spawn_request_on_the_bus_becomes_a_body` |

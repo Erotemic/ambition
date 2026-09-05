@@ -381,6 +381,7 @@ fail at four different moments:
 | `no_planning_doc_names_a_condition_the_engine_does_not_publish` | a fabricated id spreading through the planning prose | build |
 | `test_every_gated_flag_has_a_writer.py` | a flag NAME nothing can ever set | build |
 | `test_alias_arguments_name_something_real.py` | an ARGUMENT to a named alias that names no real boss or quest | build |
+| `every_authored_item_id_resolves_to_a_real_item` | an ITEM id no catalog spelling resolves | build |
 
 ⛔ **The fourth was the hole, and it is invisible to the other three by
 construction.** `world.flag_set` takes an author-typed flag NAME, so a misspelt
@@ -402,9 +403,17 @@ authored script, and the alternatives change what existing saves mean.
 a real boss at all"*, which is answerable today and catches the typo class;
 which id the API should take is 57's to answer. When 57 lands, narrow it and
 the losing spelling becomes a red.
-⭐ **The five fail at four different moments and on three different things** —
-the condition, the fact, and now the argument. The argument was the last one
-nobody was looking at, and it was the one already broken.
+⭐ **The six now cover every author-typed string family the dialogue vocabulary
+has** — the condition id, the fact (flag) name, the alias argument, and the item
+id. Between them a misspelling in authored content stops being invisible.
+⚠ **And the item guard ASKS the resolver rather than listing the items**
+(`Item::from_dialog_id`), because a table of valid spellings would be a second
+authority on normalisation — the exact defect `normalize_item_id` was deleted
+for, a second copy that agreed until it did not.
+⛔ **The argument family was the last one nobody was looking at, and it was the
+only one already broken.** Worth remembering when the next vocabulary lands: the
+ID gets checked because it looks like an identifier; the ARGUMENT looks like
+data and does not.
 
 ⭐ **Measured before the rule: four authored reads over three distinct flags,
 every one written** — `bob_field_survey_received` (yarn + `quest.rs`, and the

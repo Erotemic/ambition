@@ -3760,14 +3760,22 @@ impl SmashStockChoice {
         }
     }
 
+    /// Every count, in cycle order — the one authority for both.
+    pub const ALL: [Self; 3] = [Self::One, Self::Three, Self::Five];
+
     /// The next count in the cycle, for a single button that walks them.
+    ///
+    /// ⭐ DERIVED FROM [`Self::ALL`], for the reason [`SmashStageChoice::next`]
+    /// gives: a hand-written cycle makes the ORDER a second authority, and a
+    /// count added to one and not the other is authored and unreachable.
     pub fn next(self) -> Self {
-        match self {
-            SmashStockChoice::One => SmashStockChoice::Three,
-            SmashStockChoice::Three => SmashStockChoice::Five,
-            SmashStockChoice::Five => SmashStockChoice::One,
-        }
+        let here = Self::ALL
+            .iter()
+            .position(|count| *count == self)
+            .expect("every variant is in ALL — asserted by `all_lists_every_variant`");
+        Self::ALL[(here + 1) % Self::ALL.len()]
     }
+
 }
 
 impl SmashStageChoice {
@@ -3800,13 +3808,20 @@ impl SmashStageChoice {
     }
 
     /// The next stage in the cycle, for a single button that walks them.
+    ///
+    /// ⭐ DERIVED FROM [`Self::ALL`] RATHER THAN RESTATED. It was a hand-written
+    /// three-arm `match`, which made the stage ORDER a fact with two authors:
+    /// adding a stage to `ALL` and forgetting the cycle left it authored,
+    /// selectable by `--stage`, and unreachable from the button. A test caught
+    /// that; deriving means there is nothing left to catch.
     pub fn next(self) -> Self {
-        match self {
-            SmashStageChoice::Flat => SmashStageChoice::Platforms,
-            SmashStageChoice::Platforms => SmashStageChoice::Narrow,
-            SmashStageChoice::Narrow => SmashStageChoice::Flat,
-        }
+        let here = Self::ALL
+            .iter()
+            .position(|stage| *stage == self)
+            .expect("every variant is in ALL — asserted by `all_lists_every_variant`");
+        Self::ALL[(here + 1) % Self::ALL.len()]
     }
+
 }
 
 /// The stage, as the shared preparation lifecycle wants it.

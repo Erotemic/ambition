@@ -912,6 +912,75 @@ fn the_stage_choice_decides_which_stage_the_match_prepares() {
 ///
 /// ⭐ Asserted against `ALL` rather than against a written-out list, so a fourth
 /// stage joins this test by existing instead of by somebody remembering.
+/// ⛔⛔ `ALL` LISTS EVERY VARIANT — the one thing neither the compiler nor a
+/// cycle test can see, and I tried to make it a compile error and failed.
+///
+/// Adding a variant IS caught by the compiler, because `room_id` and `label` are
+/// exhaustive matches: a new stage is `E0004` at both. What the compiler does
+/// NOT catch is adding the arms and forgetting `ALL` — and since `next()` and
+/// `--stage` now both read `ALL`, such a stage is authored, matched everywhere,
+/// and unreachable.
+///
+/// ⚠ **AN ATTEMPT AT A COMPILE-TIME VERSION IS RECORDED HERE BECAUSE IT LOOKED
+/// LIKE IT WORKED.** An associated `const EVERY_VARIANT_IS_IN_ALL: () = { … }`
+/// holding an exhaustive count and `assert!(counted == ALL.len())`, bound in
+/// `next()` as `let () = Self::…`, compiles clean **even when the assertion is
+/// unconditionally false**: the block is never evaluated. ⇒ It was a guard that
+/// could not fail, in a codebase whose rule is to run the guard rather than read
+/// it. A cycle test cannot substitute either — `next()` derives from `ALL`, so a
+/// missing variant is simply never visited and every cycle assertion passes.
+///
+/// ⇒ So it is a runtime count, which is the honest form: the exhaustive `match`
+/// forces a new variant to be CONSIDERED here, and the length comparison forces
+/// it to be REGISTERED.
+#[test]
+fn all_lists_every_variant() {
+    // Exhaustive by construction: a new variant makes this fail to compile,
+    // in the test that tells you to add it to `ALL`.
+    fn counted(stage: crate::SmashStageChoice) -> usize {
+        match stage {
+            crate::SmashStageChoice::Flat
+            | crate::SmashStageChoice::Platforms
+            | crate::SmashStageChoice::Narrow => 1,
+        }
+    }
+    let total: usize = [
+        crate::SmashStageChoice::Flat,
+        crate::SmashStageChoice::Platforms,
+        crate::SmashStageChoice::Narrow,
+    ]
+    .into_iter()
+    .map(counted)
+    .sum();
+    assert_eq!(
+        total,
+        crate::SmashStageChoice::ALL.len(),
+        "a stage is matched above but missing from ALL — `next()` and `--stage` \
+         both read ALL, so it would be authored and unreachable"
+    );
+
+    fn counted_stocks(count: crate::SmashStockChoice) -> usize {
+        match count {
+            crate::SmashStockChoice::One
+            | crate::SmashStockChoice::Three
+            | crate::SmashStockChoice::Five => 1,
+        }
+    }
+    let stock_total: usize = [
+        crate::SmashStockChoice::One,
+        crate::SmashStockChoice::Three,
+        crate::SmashStockChoice::Five,
+    ]
+    .into_iter()
+    .map(counted_stocks)
+    .sum();
+    assert_eq!(
+        stock_total,
+        crate::SmashStockChoice::ALL.len(),
+        "a stock count is matched above but missing from ALL"
+    );
+}
+
 #[test]
 fn every_stage_is_reachable_by_the_cycle_and_names_itself_uniquely() {
     use std::collections::BTreeSet;

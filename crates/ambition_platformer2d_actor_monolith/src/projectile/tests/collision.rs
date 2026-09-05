@@ -717,3 +717,98 @@ fn two_stacked_victims_are_struck_in_identity_order_whatever_the_archetype_order
         "the tie-break is the victim's SimId, so the lower placement id is struck"
     );
 }
+
+/// AN OPEN PARRY WINDOW REFLECTS A SHOT — the join the two halves never met at.
+///
+/// ⭐⭐ THIS IS WHAT MAKES A COUNTER STANCE A REFLECTOR FOR FREE.
+/// `step_projectiles` gates its parry on `shield.parrying()`, and its own
+/// comment says why: *"The SAME catch the melee strike seam resolves, from the
+/// other route a strike arrives on: one fact, both roads."* The smash demo's
+/// `smash.counter` technique opens exactly that window, so a fighter standing in
+/// a counter reflects an incoming projectile without anybody authoring a
+/// reflector.
+///
+/// ⛔⛔ AND NOTHING CHECKED THE JOIN. The existing `parry_tests` call
+/// `reflect_parried_shot` DIRECTLY, so they prove the reflection and never the
+/// GATE; the stance's own test asserts the window is open and never fires a shot
+/// at it. Each half was covered and the middle was not — so gating this road on
+/// `active` as well (the exact mistake `parrying()`'s history records) would
+/// silently stop every reflector and redden nothing.
+#[test]
+fn an_open_parry_window_reflects_a_shot_and_takes_it_over() {
+    use ambition_platformer2d_core::BodyShieldState;
+
+    let world = ae::World::new(
+        "parry_gate_test",
+        ae::Vec2::new(2000.0, 2000.0),
+        ae::Vec2::new(200.0, 200.0),
+        Vec::new(),
+    );
+    let mut app = projectile_test_app(world, ae::Vec2::new(200.0, 200.0), 1.0);
+    app.update();
+
+    // The parrier: a body with nothing but a guard, standing where the shot goes.
+    let parrier = app
+        .world_mut()
+        .spawn((
+            ambition_combat::components::ActorFaction::Enemy,
+            ae::BodyKinematics {
+                pos: ae::Vec2::new(500.0, 300.0),
+                size: ae::Vec2::new(28.0, 46.0),
+                ..Default::default()
+            },
+            ae::CenteredAabb::from_center_size(
+                ae::Vec2::new(500.0, 300.0),
+                ae::Vec2::new(28.0, 46.0),
+            ),
+            BodyHealth::restored(ambition_characters::actor::Health::new(100), 0, default()),
+            // ⭐ THE WHOLE FIXTURE: an open parry window and no raised shield,
+            // which is exactly the state `smash.counter` puts a fighter in.
+            BodyShieldState {
+                parry_window_timer: 0.20,
+                ..Default::default()
+            },
+        ))
+        .id();
+
+    {
+        let spec = ProjectileKind::Fireball.spec(
+            ae::Vec2::new(470.0, 300.0),
+            ae::Vec2::new(1.0, 0.0),
+            1.0,
+        );
+        let mut body = ambition_projectiles::ProjectileBody::from_spec(spec);
+        body.kin.pos = ae::Vec2::new(495.0, 300.0);
+        body.kin.vel = ae::Vec2::new(60.0, 0.0);
+        crate::projectile::tests::spawn_player_projectile(&mut app, body);
+    }
+    advance_time(&mut app, 0.016);
+    app.update();
+
+    let bodies = crate::projectile::tests::projectile_bodies(&mut app);
+    assert_eq!(
+        bodies.len(),
+        1,
+        "the parried shot did not survive — a reflection returns it, it does not \
+         consume it"
+    );
+    assert!(
+        bodies[0].kin.vel.x < 0.0,
+        "the shot kept flying forward past an open parry window ({:?}), so the \
+         counter stance does not reflect and the gate is not the shield",
+        bodies[0].kin.vel
+    );
+
+    let owner = app
+        .world_mut()
+        .query::<&ambition_projectiles::entity::ProjectileOwner>()
+        .iter(app.world())
+        .map(|o| o.0)
+        .next();
+    assert_eq!(
+        owner,
+        Some(parrier),
+        "the reflected shot still belongs to whoever fired it, so it is hostile \
+         to the body that just parried it"
+    );
+}

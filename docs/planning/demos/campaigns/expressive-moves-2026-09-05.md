@@ -141,9 +141,26 @@ none of them waits on `TechniqueFlow`.
   shot SURVIVED, which is the distinction an absorber needs on its first line.
   ⛔ `Redirect` deliberately absent: no customer, no test, and a third variant
   nothing calls is the speculative peer authority this campaign exists to avoid.
-  ▢ **What remains is the AUTHORED half**: a reflector move and an absorber move,
-  each an active volume that names an interception. `Consume` is tested but has
-  no authored customer until the absorber exists.
+  ⭐⭐ **AND THE REFLECTOR TURNS OUT TO BE ALREADY SHIPPED, BY COMPOSITION —
+  found 2026-09-05, no work.** `step_projectiles` gates its parry on
+  `shield.parrying()`, and its comment says so in place: *"The SAME catch the
+  melee strike seam resolves, from the other route a strike arrives on: one
+  fact, both roads."* The counter stance (`smash.counter`) opens exactly that
+  window. ⇒ **A fighter standing in `riposte` reflects an incoming shot**, with
+  the projectile re-owned and its velocity reversed, because both roads read one
+  predicate. Proof move 3's reflector half needed no move and no engine change;
+  it fell out of proof move 2.
+  ⚠ **BY CONSTRUCTION, NOT BY TEST, and the distinction is load-bearing.** The
+  existing parry tests call `reflect_parried_shot` DIRECTLY — they never exercise
+  the `shield.parrying()` gate — and the stance test asserts the window is open
+  without firing a shot at it. So the two halves are each covered and the join
+  is not. ⇒ If someone gates the projectile road on `active` as well (the exact
+  mistake `parrying()`'s own history records), the reflector silently stops and
+  nothing goes red.
+  ▢ **What remains is the AUTHORED half**: an absorber move, and an end-to-end
+  guard for the join above,
+  which is where `Consume` gets the customer it is
+  currently tested without.
 - ◐ **B4. Per-action muzzle transform + sustained charge presentation.**
   ✔ **THE MUZZLE LANDED 2026-09-05.** `Muzzle::Offset { x, y }` joins `BodyOrigin`
   and `Hand`, as FRACTIONS of body height (the decision `HAND_OFFSET_NORM` already

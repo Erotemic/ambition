@@ -66,9 +66,22 @@ def declared_ids() -> list[str]:
             "If it was renamed or moved, update this check -- do not delete it: "
             "the manifest entries it guards are still there."
         )
-    ids = re.findall(r'"([a-z0-9_]+)"', match.group(1))
+    # ⭐ EVERY quoted string, then REJECT the unexpected -- never a pattern that
+    # matches the ids I expect. A regex of `[a-z0-9_]+` silently DROPS an id
+    # spelled any other way, and a dropped id is one this check then passes over
+    # while reporting success: the guard's subject would be the output of a
+    # filter whose removals nobody can see.
+    ids = re.findall(r'"([^"]*)"', match.group(1))
     if not ids:
         raise SystemExit("GAUNTLET_PROP_IDS parsed as EMPTY; the check would be vacuous")
+    odd = [i for i in ids if not re.fullmatch(r"[a-z0-9_]+", i)]
+    if odd:
+        raise SystemExit(
+            "GAUNTLET_PROP_IDS holds ids this check cannot match to a filename: "
+            + ", ".join(repr(i) for i in odd)
+            + "\n  Widen the comparison deliberately rather than letting them "
+              "drop out of it."
+        )
     return ids
 
 

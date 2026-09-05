@@ -3771,6 +3771,16 @@ impl SmashStockChoice {
 }
 
 impl SmashStageChoice {
+    /// Every stage, in cycle order.
+    ///
+    /// ⭐ EXISTS SO NOTHING HAS TO ENUMERATE THEM BY HAND. `ladder_rig`'s
+    /// `--stage` used to `match` two string literals, so the third stage was
+    /// authored, reachable from the select screen, and **invisible to the one
+    /// instrument that measures stages** — a stage nobody could take a number on
+    /// is a stage that cannot do the job it was added for. Resolving through
+    /// this list means adding a variant moves every consumer with it.
+    pub const ALL: [Self; 3] = [Self::Flat, Self::Platforms, Self::Narrow];
+
     /// The room this choice starts in.
     pub fn room_id(self) -> &'static str {
         match self {

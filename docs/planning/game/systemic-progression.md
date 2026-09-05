@@ -55,6 +55,18 @@ engine page is right that the first slice should decide capability ownership
 against real types. It is recorded because a reader of EITHER page alone sees
 seven items and no gap; the gap only exists between them.
 
+✔ **RE-DERIVED 2026-09-04 evening and UNCHANGED**, recorded so the next reader
+does not spend the search again: `ParticipantUnlock` / `ParticipantCapabilit*` /
+`UnlockedAbilit*` still return **0** across `crates/` and `game/`, while
+`ParticipantId` returns **154** (the "~150" above). ⇒ The asymmetry is intact —
+participants are a settled concept and *what a participant owns* is still not
+one of the things they can have.
+⚠ **And it did not move on a day when the gate vocabulary moved a lot.** Ten
+conditions are published now, up from six, and `body.can`/`body.fits` made body
+capability route-readable — none of which touches the participant side. That is
+the useful shape: **the engine grew the BODY half of this table and left the
+participant half at zero**, which is what the next slice would have to change.
+
 ## Design pressure from possession
 
 Do not flatten all progression into "the participant permanently owns ability

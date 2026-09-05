@@ -6,6 +6,25 @@ queue. [`queue.md`](queue.md) owns execution order. A focused plan owns design.
 When the queue needs another row, re-check the candidate against HEAD and promote
 one concrete slice. Do not copy campaign history here.
 
+⛔⛔ **AND DO NOT COPY COUNTS HERE — cite the script or the owning page instead.**
+This reservoir decays more quietly than any other planning file BY
+CONSTRUCTION: nothing re-reads a row until somebody picks it, so a number
+written here is unread for weeks and then trusted at exactly the moment it is
+used to size work. ⚠ **Audited 2026-09-05 and THREE rows were stale**, one of
+them in the worst way available:
+
+- the gauntlet-drop gap was described as open; it had been closed by a test;
+- *"knowledge/keys/theorems remain participant-owned"* read as a description of
+  the tree, and there is no participant layer at all;
+- a route-gate count named neither of the two populations it could have meant —
+  READABLE and AUTHORED are different sets, and three of the five families it
+  listed were in the authored-NOWHERE list.
+
+⇒ The rule that would have prevented all three: **a row states a CLAIM and
+names where the number lives.** A claim goes stale loudly, because the next
+person who reads it checks it; a copied count goes stale silently, and drifts
+into describing nothing.
+
 ## Replenishment order
 
 Unless Jon or a new reproducible report changes the order:

@@ -205,10 +205,19 @@ def main() -> int:
     # ⛔ ANTI-VACUITY: a corpus that missed the content crates would report
     # almost everything as unnamed and read as a catastrophe. This field is
     # authored in Rust, so its absence means the corpus is broken, not the tree.
-    # ⛔ TWO CALIBRATION POINTS, one of each polarity, because a filter that
-    # only keeps true positives can be achieved by reporting everything.
-    #   known TRUE  dormant: `behind_nearest_foe` was authored `false` everywhere
-    #   known FALSE dormant: `forbidden_while_held` IS set, by an authoring helper
+    # ⛔⛔ THE CALIBRATION PAIR IS ASYMMETRIC ON PURPOSE, and only one half can
+    # be an assertion.
+    #
+    #   known FALSE dormant  — `forbidden_while_held` IS set, by an authoring
+    #     helper. STABLE: a false positive is a defect in this census and stays
+    #     fixed once fixed. This is the assertion below.
+    #   known TRUE dormant   — PERISHABLE, and cannot be asserted on. A true
+    #     dormant is by construction a thing somebody is about to author, so the
+    #     moment the list is useful the point FLIPS. Three have flipped while
+    #     this script was being written: `behind_nearest_foe` (authored by the
+    #     Author's counter), `VolumeReaction::Windbox` (the Officer's neutral
+    #     special, the first on the roster), and `close_on_transit` (implemented
+    #     rather than authored). Each flip is the instrument working.
     # ⛔ A HELPER-ONLY MARKER. `forbidden_while_held` is NAMED in `game/` too, so
     # its presence proves nothing; the ASSIGNMENT only exists in the helper.
     if "spec.gates.forbidden_while_held = true" not in corpus:

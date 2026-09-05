@@ -95,7 +95,14 @@ pub const SMASH_ROSTER: &[&str] = &[
 /// this is the ONLY sanctioned duplication, and it exists because a demo that
 /// composes nothing else still has to have a cast — not because copies are
 /// acceptable. Everything else names the shared id; see [`SMASH_ROSTER`].
-const STAND_INS: &[(&str, &str)] = &[
+///
+/// ⚠ PUBLIC ONLY SO THE COMPOSITION CAN CHECK ITSELF. The one guard that can ask
+/// "did every buildable fighter reach the grid" lives in `ambition_app`, because
+/// this crate cannot fill a registry — the same reason the neighbouring
+/// seatability test gives for living there. ⇒ Without this list that guard
+/// cannot tell a fighter DROPPED BY A BUG from one that correctly stood down,
+/// and a guard that cannot tell those apart is one that never fails.
+pub const STAND_INS: &[(&str, &str)] = &[
     (crate::SMASH_CHARACTER_ID, "player_robot_v3"),
     (crate::SMASH_OPPONENT_ID, "player_robot_v2"),
 ];

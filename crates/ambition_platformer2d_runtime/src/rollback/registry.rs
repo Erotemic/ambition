@@ -177,7 +177,16 @@ use crate::content_identity::SnapshotSchemaFingerprint;
 /// mismatch with no obvious cause. ⇒ The buffer is cleared on rollback beside
 /// `blocked_body_hit` and `resolved_body_hit`, and a peer without that clear
 /// cannot share this stream.
-pub const GGRS_ROLLBACK_SCHEMA_VERSION: u32 = 152;
+/// ⛔ v153: `MovePlayback` CARRIES A FLOW CURSOR. A move may now author a
+/// `TechniqueFlow` — what happens next, based on what happened before — and the
+/// node it is on plus that node's wait clock are per-occurrence state. This is
+/// v145's reasoning one rung up: two peers agreeing on the move id AND its
+/// clock can still disagree about which BRANCH the move took, and from there
+/// they resimulate different moves under one name. ⓘ The component is a CLONE
+/// snapshot, so the cursor is restored either way; what the projection buys is
+/// that the divergence is caught at the checksum rather than when the world
+/// shows it.
+pub const GGRS_ROLLBACK_SCHEMA_VERSION: u32 = 153;
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq, Ord, PartialOrd, Hash)]
 pub enum RollbackEntryKind {

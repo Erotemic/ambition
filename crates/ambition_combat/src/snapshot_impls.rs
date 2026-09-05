@@ -195,6 +195,15 @@ impl SnapshotResolve for crate::moveset::MovePlayback {
         // A LOOPED move's lap count is state: a rewind that restored the clock
         // without it would resimulate a flurry with a fresh maximum, so one
         // peer's rapid jab ends and the other's does not.
+        // THE FLOW CURSOR IS STATE, on v145's reasoning one rung up: two peers
+        // agreeing on the move id and its clock can still disagree about which
+        // BRANCH the move took, and then resimulate different moves under one
+        // name. ⛔ Encoded for DETECTION, not for restoration — the component is
+        // a clone snapshot, so the cursor comes back on its own; what this buys
+        // is that a divergence on it is noticed at the checksum instead of when
+        // the world shows it.
+        put_u32(out, self.flow_node as u32);
+        put_f32(out, self.flow_wait_s);
         put_f32(out, self.looped_s);
         match self.charge {
             Some(charge) => {

@@ -367,6 +367,21 @@ pub struct MovePlayback {
     /// the same `MoveSpec` reached through another verb plays its plain
     /// timeline. Rollback state, carried with the rest of this component.
     pub charge: Option<MoveCharge>,
+    /// WHERE THIS MOVE'S FLOW IS, if it authored one — an index into
+    /// [`MoveSpec::flow`]'s nodes.
+    ///
+    /// ⛔ ROLLBACK STATE, and for v145's reason one rung up: two peers agreeing
+    /// on the move id and its clock can still disagree about which BRANCH the
+    /// move took, and from there they resimulate different moves under one name.
+    /// The component is snapshotted as a CLONE so this is restored for free;
+    /// what earns its place in `encode_ref` is that a divergence on it is
+    /// otherwise invisible until the world shows it.
+    pub flow_node: u16,
+    /// Seconds the current [`FlowNode::Wait`] has been waiting.
+    ///
+    /// Reset every time the cursor moves, so a flow that loops back to a wait
+    /// waits again rather than inheriting the last visit's patience.
+    pub flow_wait_s: f32,
     /// Seconds of this use's proper time spent going ROUND the authored loop
     /// ([`MoveSpec::repeat`]) — `0.0` for a move that plays once.
     ///
@@ -681,6 +696,10 @@ impl MovePlayback {
             live_boxes: Vec::new(),
             fired,
             hit_targets: Vec::new(),
+            // A flow starts at its first node, and a move with no flow never
+            // reads this.
+            flow_node: 0,
+            flow_wait_s: 0.0,
             // What the flat swing published for a move no direction asked for.
             // `with_attack_intent` is the seam that says otherwise.
             attack_intent: AttackIntent::Forward,
@@ -1399,6 +1418,81 @@ pub fn advance_move_playback(
                         presentation_source: presentation_source.clone(),
                         kind: MoveEventKind::Effect(effect.clone()),
                     });
+                }
+            }
+        }
+
+        // ── THE AUTHORED FLOW ────────────────────────────────────────────
+        //
+        // ⭐⭐ WHAT HAPPENS NEXT, BASED ON WHAT HAPPENED BEFORE — the one thing
+        // the timeline above cannot say. Windows and events state WHEN; a flow
+        // states the sequence, and it runs BESIDE them rather than replacing
+        // them: every window still opens and every event still fires.
+        //
+        // ⛔ IT OWNS ITS CURSOR AND NOTHING ELSE. `Emit` writes the same
+        // `MoveEventMessage` a timeline event writes, so a flow reaches every
+        // technique the game publishes and gains a new one the day it is
+        // registered. `Wait` and `Branch` read contact facts the damage road
+        // already decided. Nothing here owns a projectile, a body or an effect.
+        //
+        // ⭐ ON PROPER TIME, like the rest of the move. A fighter under a
+        // slowdown waits longer in world seconds, which is what makes the flow
+        // part of the move rather than a clock running beside it.
+        if let Some(flow) = pb.spec.flow.clone() {
+            pb.flow_wait_s += dt;
+            // ⛔ A HARD STEP BUDGET, and it is the node count. `Emit` and
+            // `Branch` resolve within the tick, so a cycle through them with no
+            // `Wait` between would spin forever and hang the simulation — worse
+            // than a move that does nothing. One visit per node per tick lets
+            // every straight-line flow complete and stops every cycle.
+            for _ in 0..flow.nodes.len().max(1) {
+                let Some(node) = flow.nodes.get(pb.flow_node as usize) else {
+                    break;
+                };
+                match node {
+                    ambition_entity_catalog::FlowNode::Finish => break,
+                    ambition_entity_catalog::FlowNode::Emit { effect, then } => {
+                        events.write(MoveEventMessage {
+                            world_offset: ae::Vec2::ZERO,
+                            // Routed to a keyed TECHNIQUE, not drawn as art, so
+                            // it has no pose of its own — the same reasoning the
+                            // sustained effect above states.
+                            world_pose: ambition_vfx::FxPose::UPRIGHT,
+                            owner,
+                            move_id: pb.spec.id.clone(),
+                            presentation_source: presentation_source.clone(),
+                            kind: MoveEventKind::Effect(effect.clone()),
+                        });
+                        pb.flow_node = *then as u16;
+                        pb.flow_wait_s = 0.0;
+                    }
+                    ambition_entity_catalog::FlowNode::Branch {
+                        on,
+                        then,
+                        otherwise,
+                    } => {
+                        let contact = pb.contact();
+                        pb.flow_node = if on.satisfied_by(contact) { *then } else { *otherwise }
+                            as u16;
+                        pb.flow_wait_s = 0.0;
+                    }
+                    ambition_entity_catalog::FlowNode::Wait {
+                        on,
+                        timeout_s,
+                        then,
+                        on_timeout,
+                    } => {
+                        let contact = pb.contact();
+                        if on.satisfied_by(contact) {
+                            pb.flow_node = *then as u16;
+                            pb.flow_wait_s = 0.0;
+                        } else if pb.flow_wait_s >= *timeout_s {
+                            pb.flow_node = *on_timeout as u16;
+                            pb.flow_wait_s = 0.0;
+                        } else {
+                            break;
+                        }
+                    }
                 }
             }
         }

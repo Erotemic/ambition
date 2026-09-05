@@ -741,6 +741,28 @@ language.
   and moves the composition into code where it is already expressible.
   ⚠ I did not pick one; the reason this bullet exists is that picking is Jon's.
 - Should "knowledge" ever be an engine fact, or remain Ambition/social AI data?
+  ⭐⭐ **HALF OF THIS IS ALREADY ANSWERED BY SHIPPED CODE, in the "engine fact"
+  direction. Measured 2026-09-05.** `WorldMemory`
+  (`crates/ambition_characters/src/perception.rs:785`) is *"the per-controller
+  belief that outlives the viewport (invariant I6)"* — keyed by actor id,
+  refreshed for what is seen, DECAYED for what has left view, and forgotten below
+  a confidence floor. It is engine code, in `ambition_characters`, not Ambition
+  content, and its `update` is pure so it is replay-deterministic.
+  ⇒ **The engine already owns TRANSIENT PERCEPTUAL knowledge** — who I have seen,
+  where, and how sure I am.
+  ⛔ **What has no home at all is DURABLE SOCIAL knowledge** — *"this NPC knows
+  you stole the thing"*, *"the village heard about the boss"*. It is in none of
+  the fourteen durable save families (version, encounters, switches, bosses,
+  quests, flags, dialog_visits, items, wallet, inventory_saved, checkpoint,
+  occurrences, custody, minted_items), and `WorldMemory` cannot carry it: it
+  decays by construction, which is the correct behaviour for sight and the wrong
+  one for a grudge.
+  ⇒ ⭐ **So the question splits, and only the second half is open:** perceptual
+  knowledge is settled (engine, transient, per-controller); durable social
+  knowledge is unowned, and the reason it looks answered is that the word
+  "knowledge" covers both. ⚠ Worth splitting the bullet before anyone answers it,
+  because an answer aimed at the whole word would either make sight durable or
+  make grudges decay.
 - ⛔ LIVE, NOT HYPOTHETICAL, and filed as **awaiting-maintainer-decision #54**
   (2026-09-04): how should co-op gates behave when one participant can traverse
   and another cannot? The code answers "the party" today, by an existential

@@ -148,10 +148,15 @@ pub fn fire_and_expire_springs(
         }
         // ⭐ ANYBODY. The plate does not ask who dropped it — see the module note.
         for (mut kin, _seat) in &mut bodies {
+            // ⛔⛔ THE BODY'S OWN HALF-SIZE, NOT A NUMBER I PICKED. This read
+            // `+ 14.0 / + 26.0` — invented constants standing in for a
+            // fighter's extent, on a component that CARRIES it. ⇒ The plate's
+            // catch was sized for one body shape and every other fighter got a
+            // different plate. ⭐ The shape, named by a peer: two things agree on
+            // a POSITION and disagree on a TOLERANCE.
+            let reach = spring.half_extents + kin.size * 0.5;
             let offset = (kin.pos - spring.pos).abs();
-            if offset.x > spring.half_extents.x + 14.0
-                || offset.y > spring.half_extents.y + 26.0
-            {
+            if offset.x > reach.x || offset.y > reach.y {
                 continue;
             }
             // ⛔ SET, NOT ADD. A plate that added to whatever you arrived with

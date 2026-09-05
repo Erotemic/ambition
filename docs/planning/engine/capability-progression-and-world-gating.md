@@ -776,7 +776,9 @@ language.
   `ambition_menu`, `ambition_settings_menu`, `ambition_touch_input`,
   `game_shell`, `menu_kaleidoscope`). Perception does line-of-sight and
   line-of-fire against the real geometry, and `WorldView::reachable` — the one
-  name that sounds like a route query — is cited in `perception.rs:877` as a
+  name that sounds like a route query — is cited in
+  `crates/ambition_platformer2d_actor_monolith/src/features/ecs/perception.rs:877`
+  as a
   thing that USED to exist.
   ⇒ So an AI sees geometry and nothing else. A standing `GatedLockWall` is
   geometry that blocks; an opened one is absent. **There is no layer that could

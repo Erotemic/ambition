@@ -383,6 +383,18 @@ fail at four different moments:
 | `test_alias_arguments_name_something_real.py` | an ARGUMENT to a named alias that names no real boss or quest | build |
 | `every_authored_item_id_resolves_to_a_real_item` | an ITEM id no catalog spelling resolves | build |
 
+✔ **ALL SIX VERIFIED LIVE 2026-09-04, by name, after the last of them landed —
+seven test functions, all passing:** `test_every_gated_flag_has_a_writer` (1),
+`test_alias_arguments_name_something_real` (2),
+`every_authored_gate_condition_prepares_against_the_composed_catalog` +
+`every_condition_an_authored_yarn_file_asks_is_published_by_the_engine` +
+`no_planning_doc_names_a_condition_the_engine_does_not_publish` (3 together),
+`every_authored_item_id_resolves_to_a_real_item` (1).
+⚠ **Run by name rather than trusted from the table**, because a table can list
+a test that no longer executes — which is not hypothetical here: a stolen
+`#[test]` attribute left `mirroring_a_bout_swaps_every_per_seat_reading` dead
+for a day earlier the same day, and it read as a test in every listing.
+
 ⛔ **The fourth was the hole, and it is invisible to the other three by
 construction.** `world.flag_set` takes an author-typed flag NAME, so a misspelt
 one parses, names a published condition, evaluates successfully — **and answers

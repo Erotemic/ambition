@@ -394,6 +394,27 @@ never expressible.
 survive, and it is more specific than *"actors"* — a relocated shopkeeper and a
 relocated boss are different products.
 
+⭐⭐ **AND "STAY WHERE LEFT" IS NOT A MECHANISM TO DESIGN — ITEMS ALREADY SHIP
+IT, all three links verified 2026-09-05.** This row warns that *"the producer and
+reconstruction consumer must land together"*. For dropped ITEMS they already do:
+
+```text
+  WRITE   session/durable_horizon.rs:246   `Placed { room, at }` crosses the durable
+                                           horizon unconditionally
+  READ    session/durable_horizon.rs:130   restored to `OccurrenceWhereabouts::Placed`
+  BUILD   lifecycle/continuity.rs:207      placed in THIS room → `Reinstated { at }`;
+                                           placed elsewhere    → `Suppressed`
+```
+
+with the rule stated in place: *"Lying in some OTHER room. Not alive — that room
+unloaded and took it with it — but not this room's to author either: it comes
+back when the room it is lying in is built, from the record this room holds."*
+⇒ **So the ruling is not "design relocation", it is "do actors join the road
+items are already on".** `continuity.rs`'s three dispositions — Reinstated,
+Suppressed, and the authored default — are the shape, and the cost question
+becomes whether an actor's identity survives the same round trip, not whether the
+round trip exists.
+
 This decision feeds
 [`engine/construction-and-reconstitution.md`](engine/construction-and-reconstitution.md)
 and [`engine/open-world-runtime-and-residency.md`](engine/open-world-runtime-and-residency.md).

@@ -381,6 +381,34 @@ reader to infer them from unrelated components.
 - When do stack merge/split operations preserve provenance?
 - What is the policy for unique-item destruction, recovery and reset?
 - What happens to a persistent dropped item in an unloaded room?
+  ✔✔ **ANSWERED IN CODE — measured 2026-09-05, all three links verified.** It is
+  remembered and reinstated where it lies:
+
+```text
+  WRITE    session/durable_horizon.rs:246  `Placed { room, at }` crosses the durable
+                                           horizon UNCONDITIONALLY — "a fact about the
+                                           world itself"; only `InCustody` is filtered,
+                                           to a hand the file can reconstruct
+  READ     session/durable_horizon.rs:130  restored to `OccurrenceWhereabouts::Placed`
+  BUILD    lifecycle/continuity.rs:207     placed in THIS room → `Reinstated { at }`;
+                                           placed elsewhere    → `Suppressed`
+```
+
+  The construction rule states itself in place: *"Lying in some OTHER room. Not
+  alive — that room unloaded and took it with it — but not this room's to author
+  either: it comes back when the room it is lying in is built, from the record
+  this room holds."*
+  ⇒ **Position survives at integer pixels** (deliberately — a float would cost
+  the save's `Eq` and rewrite the file every frame on a NaN).
+
+  ⭐⭐ **AND THIS IS THE WORKED EXAMPLE
+  [question 38](../awaiting-maintainer-decision.md) SAYS ACTORS LACK.** That row
+  offers *"stay where left"* for actors and warns that *"the producer and
+  reconstruction consumer must land together; recording a moved placement that
+  construction refuses would only add warnings and still teleport the actor
+  home."* ⇒ For ITEMS both halves already exist and agree. Whoever rules 38 is
+  not designing a mechanism — they are deciding whether actors join one that
+  ships, and `continuity.rs`'s three dispositions are the shape to copy.
 - How should possession transfer body inventory, equipment and participant
   entitlements?
 - What is authoritative/predicted for item custody in online multiplayer?

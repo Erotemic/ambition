@@ -74,6 +74,7 @@ pub fn composite_far_side_bodies(
         &Sprite,
         Option<&Anchor>,
         &GlobalTransform,
+        Option<&ambition_portal2d::PortalTransit>,
         &mut Visibility,
     )>,
 ) {
@@ -103,15 +104,22 @@ pub fn composite_far_side_bodies(
         .get_or_insert_with(|| meshes.add(Rectangle::default()))
         .clone();
 
-    for (entity, candidate, sprite, anchor, transform, mut visibility) in &mut candidates {
+    for (entity, candidate, sprite, anchor, transform, transit, mut visibility) in &mut candidates {
         let min = candidate.drawn_centre - candidate.drawn_half;
         let max = candidate.drawn_centre + candidate.drawn_half;
 
         // The first covering pane in the stable order; see the module note on
         // why one is enough for the shipped worlds and why it is not arbitrary.
+        // ⛔⛔ THE TRANSIT FLAG IS NOT A FORMALITY, AND HARDCODING IT `false`
+        // WAS A REAL DEFECT. A straddling body is already drawn as two clipped
+        // slices by `sync_portal_body_pieces`, which also owns its `Visibility`.
+        // Classifying it `FarCovered` gives it a THIRD copy and puts two systems
+        // on one fact -- the exact shape `PortalFarSideHidden` exists to prevent
+        // one level down. `PaneRelation::Transiting` is the vocabulary for
+        // "another presentation owns this body"; it only works if it is asked.
         let cover = panes.iter().find(|pane| {
             matches!(
-                crate::pane_relation(pane, viewer.eye, min, max, false),
+                crate::pane_relation(pane, viewer.eye, min, max, transit.is_some()),
                 crate::PaneRelation::FarCovered
             )
         });
@@ -193,6 +201,7 @@ fn restore_hidden(
         &Sprite,
         Option<&Anchor>,
         &GlobalTransform,
+        Option<&ambition_portal2d::PortalTransit>,
         &mut Visibility,
     )>,
 ) {
@@ -359,6 +368,41 @@ mod tests {
             app.update();
         }
         assert_eq!(first, pieces(&mut app), "pieces accumulated across frames");
+    }
+
+    /// ⛔⛔ A TRANSITING BODY IS ANOTHER PRESENTATION'S. `sync_portal_body_pieces`
+    /// already draws it as two clipped slices and owns its `Visibility`;
+    /// compositing it too would give it a THIRD copy and put two systems on one
+    /// fact. Jon named this case explicitly.
+    ///
+    /// ⚠ The first version hardcoded `transiting: false` into the
+    /// classification, so this body was `FarCovered` and got the third copy.
+    /// `PaneRelation::Transiting` existed the whole time -- a vocabulary is only
+    /// worth having if it is asked.
+    #[test]
+    fn a_transiting_body_is_left_to_the_split_presentation() {
+        let mut app = test_app();
+        app.world_mut().spawn(pane());
+        spawn_viewer(&mut app, Vec2::new(400.0, 300.0));
+        // The same far-side position that IS composited without the marker.
+        let body = spawn_candidate(&mut app, Vec2::new(505.0, 300.0), Vec2::new(24.0, 24.0));
+        app.world_mut()
+            .entity_mut(body)
+            .insert(ambition_portal2d::PortalTransit {
+                straddling: PortalChannel::Authored(PortalChannelColor::Purple),
+                crossed: false,
+            });
+        app.update();
+        assert_eq!(
+            visibility(&app, body),
+            Visibility::Inherited,
+            "the transit presentation owns this body's visibility"
+        );
+        assert_eq!(
+            pieces(&mut app),
+            0,
+            "a transiting body must not gain a third copy"
+        );
     }
 
     /// ⛔⛔ VISIBILITY BELONGS TO WHOEVER SET IT. A body hidden for reasons that

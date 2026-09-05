@@ -4864,6 +4864,22 @@ OPTIONAL dep + feature, never used:
     29 → 33 across those same carves, because a kernel that stops CONTAINING a
     domain starts DEPENDING on it. Success reads as regression there.
     ✔ **Re-measured 2026-09-03 late: still 33 `ambition_*` entries (52 total).**
+    ✔ **And again 2026-09-05: STILL 33 of 52.** The count has not moved in two
+    days of carving, which is this bullet's point holding rather than decaying —
+    a kernel that stops CONTAINING a domain starts DEPENDING on it, so the table
+    stays wide even when the source shrinks.
+    ⚠ **The SOURCE, though, has grown back: `wc -l` over `src/` reads 100,489**
+    against the 98,509 recorded on 09-03 (+1,980 across 236 files). Same story as
+    the compile ratchet's *"the round number moved, not the win"* — the carves'
+    gain against the frozen baseline is real and the absolute figure is drifting
+    up underneath it.
+    ⛔ **AND THE TWO RULERS NO LONGER AGREE.** This row records that on 09-03 the
+    ratchet's `largest_unit_lines` and a plain `wc -l` both read 98,509 — the
+    agreement is what let the row say "same ruler, different reference point".
+    Today `wc -l` reads **100,489** and the ratchet reads **100,155**: a gap of
+    **334**. ⚠ I did NOT establish which files the difference is — only that the
+    agreement the row relies on has lapsed, so quoting either number as "the
+    kernel's size" now needs to say which ruler produced it.
     ⭐ The count HOLDING across the abilities and encounter-features carves is
     the more interesting reading, and it is the one this row is about: those
     domains were already depended upon before they were crates, so drawing the

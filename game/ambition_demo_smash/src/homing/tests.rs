@@ -21,6 +21,13 @@ fn app() -> App {
     app
 }
 
+/// ⛔⛔ A FIGHTER, NOT A POSITION. This spawned `BodyKinematics` + `MatchSeat`
+/// and nothing else, so **nothing in this file could tell an ally from a corpse**
+/// — which is exactly how the dash came to steer at every body in the world.
+/// A real match gives every seated fighter `ActorFaction::Player` and its own
+/// `MatchTeam` (the smash rules keep global friendly fire OFF and say why:
+/// *"teams already decide who may hit whom"*), so a fixture without them was
+/// modelling a body that cannot legally fight anybody.
 fn body(app: &mut App, seat: usize, at: ae::Vec2) -> Entity {
     app.world_mut()
         .spawn((
@@ -30,6 +37,8 @@ fn body(app: &mut App, seat: usize, at: ae::Vec2) -> Entity {
                 ..Default::default()
             },
             MatchSeat(seat),
+            ambition_platformer2d::combat::components::ActorFaction::Player,
+            ambition_platformer2d::combat::targeting::MatchTeam::new(format!("seat{seat}")),
         ))
         .id()
 }
@@ -143,5 +152,64 @@ fn turning_mid_dash_does_not_sweep_the_cone() {
         vel.x > 0.0,
         "turning mid-dash re-aimed it, so the commanded direction is being \
          re-read rather than remembered: {vel:?}"
+    );
+}
+
+/// ⛔⛔ A KO'd FIGHTER IS NOT A TARGET, AND THE DASH USED TO STEER AT ONE.
+///
+/// `assisted_fire_direction` is deliberately GEOMETRIC and assumes its caller
+/// supplied foes; this handed it every body in the world filtered only by "not
+/// me". ⇒ A fighter who has just lost a stock carries `OutOfPlay` and — because
+/// a respawn restores it — FULL HEALTH, so nothing about their numbers says they
+/// are gone. The dash bent at a body the player could not even hit.
+///
+/// ⭐ The fix reuses `body_is_untouchable`, the combat domain's own participation
+/// gate, rather than approximating it: its doc is explicit that out-of-play
+/// belongs there precisely so TARGET SELECTION sees it, and that folding it into
+/// invulnerability would leave "a hunter going on chasing a body it merely could
+/// not damage."
+#[test]
+fn a_ko_d_fighter_does_not_attract_the_dash() {
+    let mut app = app();
+    let hunter = body(&mut app, 1, ae::Vec2::ZERO);
+    let gone = body(&mut app, 0, ae::Vec2::new(160.0, -160.0));
+    app.world_mut()
+        .entity_mut(gone)
+        .insert(ambition_platformer2d::combat::death_rules::OutOfPlay);
+    dash(&mut app, hunter);
+    let vel = velocity(&app, hunter);
+    assert!(
+        vel.y > -100.0,
+        "the dash bent upward at a fighter who is OUT OF PLAY ({vel:?}) — they \
+         are unhittable, so the move spends itself flying at nobody"
+    );
+}
+
+/// ⛔⛔ AND NEITHER DOES A TEAMMATE.
+///
+/// The smash rules keep global friendly fire OFF and say why in place: *"teams
+/// already decide who may hit whom. Switching global friendly fire on to let two
+/// humans trade would make TEAMMATES hittable too."* ⇒ So a dash that steered by
+/// "not me" would, in team versus, bend a fighter at the ally standing beside
+/// them — a move that actively fights its owner.
+///
+/// ⭐ THE CONTROL IS THE TEST ABOVE IT, `the_dash_bends_toward_a_foe_inside_the_cone`:
+/// same geometry, same cone, one field different (a shared team), opposite
+/// outcome. Asserting only that a teammate is ignored would pass for a dash that
+/// homes on nothing at all.
+#[test]
+fn a_teammate_does_not_attract_the_dash() {
+    let mut app = app();
+    let hunter = body(&mut app, 1, ae::Vec2::ZERO);
+    let ally = body(&mut app, 0, ae::Vec2::new(160.0, -160.0));
+    let shared = ambition_platformer2d::combat::targeting::MatchTeam::new("blue");
+    app.world_mut().entity_mut(hunter).insert(shared.clone());
+    app.world_mut().entity_mut(ally).insert(shared);
+    dash(&mut app, hunter);
+    let vel = velocity(&app, hunter);
+    assert!(
+        vel.y > -100.0,
+        "the dash bent upward at a TEAMMATE ({vel:?}) — friendly fire is off, so \
+         it is steering at a body it cannot hit"
     );
 }

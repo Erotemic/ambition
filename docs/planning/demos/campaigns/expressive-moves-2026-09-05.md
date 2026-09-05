@@ -938,6 +938,37 @@ one.** Jon's to overrule like the other fifteen; the move it replaces was dull
 rather than balanced, which is the argument for doing it here rather than on a
 fighter whose recovery is already load-bearing.
 
+### ⛔⛔ A SECOND REVIEW: THE HOMING DASH TARGETED BODIES, NOT FOES
+
+`carry_homing_dashes` gathered every `BodyKinematics` and filtered **only**
+`other != entity`, then handed that raw population to `assisted_fire_direction`
+— which is deliberately GEOMETRIC and assumes its caller supplied foes. ⇒ Carl's
+slingshot could bend toward a **KO'd fighter** (`OutOfPlay`, and health RESET
+FULL by the respawn, so nothing about their numbers says they are gone) or,
+in team versus, toward a **teammate**.
+
+⭐ **REUSED, NOT APPROXIMATED, and the review was explicit about that.** The fix
+calls `body_is_untouchable` — whose own doc says out-of-play belongs there
+precisely so TARGET SELECTION sees it, and that folding it into invulnerability
+would leave *"a hunter going on chasing a body it merely could not damage"* — and
+`damage_lands_between`, the same relation the damage road asks. ⛔ **A `MatchSeat`
+comparison would have been shorter and would have called a teammate a foe** the
+day this runs in team versus.
+
+⚠⚠ **THE FIXTURE WAS THE REAL FINDING, AND THE REVIEW SAW IT FIRST:** every body
+in `homing/tests.rs` carried `BodyKinematics` + `MatchSeat` and **nothing else**,
+so *nothing in that file could tell an ally from a corpse.* A real match gives a
+seated fighter `ActorFaction::Player` and its own `MatchTeam` — the smash rules
+keep global friendly fire OFF and say why in place: *"teams already decide who
+may hit whom."* ⇒ **A fixture without them was modelling a body that cannot
+legally fight anybody**, which is exactly why the bug was invisible.
+
+⛔ **AND MY FIRST POISON CHANGED TWO THINGS AT ONCE**, so the KO arm passed for
+the wrong reason — inverting the relation excluded the (foe) corpse anyway.
+Re-poisoned each gate ALONE: dropping the untouchable check reddens only the KO
+arm, dropping the relation check reddens only the teammate arm. **A poison that
+moves two variables cannot tell you which one the test is watching.**
+
 ### ✔ JON RULED THE PORTAL PRESENTATION, AND IT WAS ONE RESOURCE EACH
 
 Jon, 2026-09-05: *"because it is not a 1 player game, we can't use the seamless

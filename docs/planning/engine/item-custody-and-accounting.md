@@ -151,8 +151,18 @@ are the SAME SHAPE, and neither is dormant-in-the-census sense:
 |---|---|---|---|
 | `ChestSpec.persistent` → `Chest.persistent` | ✔ | `spawn_static.rs:108` | **nothing** (one test asserts the default) |
 | `PickupSpec.collected` → `Pickup.collected` | ✔ | `spawn_static.rs:79` | **nothing** |
+| `InteractableSpec.requires_facing` → `Interactable.requires_facing` | ✔ (content sets it) | `spawn_static.rs:231` | **nothing** |
 
-⇒ **ONE FACT, TWO REPRESENTATIONS, and in both cases the live one is elsewhere.**
+⭐ **THREE NOW, AND THE THIRD IS THE ONE WITH A CONSEQUENCE A PLAYER COULD SEE:**
+`requires_facing` is set by content (`cut_rope/victory.rs`) and read by nothing,
+so **an interactable that declares it must be faced can be used from behind.**
+The other two are bookkeeping; this one is a rule that does not exist.
+⚠ Its sibling `pogo_refresh` is NOT in this table and was checked: it IS read
+(`features/ecs/damage/mod.rs:592`, `:938`), so it is merely dormant — never set
+true by content — not stranded. The difference took reading the consumer, which
+is the only way to tell them apart.
+
+⇒ **ONE FACT, TWO REPRESENTATIONS, and in the first two cases the live one is elsewhere.**
 Whether a pickup was collected is the `Collected` MARKER COMPONENT
 (`ambition_combat::components::Collected`, rollback-registered as
 `feature.collected`, inserted and queried by `pickups.rs`). Whether an opened

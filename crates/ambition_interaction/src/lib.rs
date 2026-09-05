@@ -13,6 +13,17 @@ use ambition_entity_catalog::placements::HazardRespawn;
 use bevy_math::bounding::Aabb2d as Aabb;
 
 /// A player-facing interaction trigger.
+///
+/// ⛔ `requires_facing` IS READ BY NOTHING. Measured 2026-09-05: it is authored
+/// on [`InteractableSpec`], threaded into this component by `spawn_static.rs`,
+/// set explicitly by content (`cut_rope/victory.rs`), and consulted by no
+/// production code — so an interactable that declares it must be faced can be
+/// used from behind. The THIRD field in this crate with that shape, after
+/// [`Chest::persistent`] and [`Pickup::collected`].
+///
+/// ⇒ Wiring it or deleting it is a design call. What is measured is that the
+/// authored value currently decides nothing, and a reader should not assume the
+/// facing rule exists because the field does.
 #[derive(Clone, Debug, PartialEq, serde::Serialize, serde::Deserialize)]
 pub struct Interactable {
     pub id: String,

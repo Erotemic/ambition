@@ -197,6 +197,39 @@ a run pins several cores and still feels slow, suspect a single long pole before
 suspecting a lock or an I/O bottleneck — the CPU-percentage signature is the same
 for both.
 
+## ⛔ A CHECK THAT IS CHEAP, DECISIVE, AND USELESS — the line-citation case (2026-09-05)
+
+Two planning pages cited `platformer2d_runtime/src/sim_core_resources.rs:85` as
+where `MovingPlatformSet` is initialised. It is line 89; line 85 is
+`RequestedClockScale`. `scripts/check_planning_citations.py` validates that the
+FILE exists — 1,825 citations, all resolved, before AND after the fix — so a
+drifted line number passes it forever.
+
+The obvious next gate is "check the line number too". ⭐ **It was measured before
+being built, and it should not be built.** Across `docs/planning/**`:
+
+```text
+distinct line citations   383
+resolved and in range     355
+PAST END OF FILE            0   <- the only thing this check can decide
+path not resolvable         3   <- all deliberate examples: `file.rs:123`,
+                                   `path.rs:123`, `semantic_NOPE.rs:9999`
+ambiguous basename         25   <- abbreviated paths matching several files
+```
+
+⇒ **Zero findings, and the one real defect was IN RANGE.** A line-number gate
+can only decide "past EOF", which nothing in the tree is; the failure that
+actually costs a reader — an in-range citation pointing at an unrelated line —
+is invisible to it, because deciding it requires reading the PROSE and the LINE
+and judging whether they agree.
+
+⭐ **The transferable rule: when a defect suggests a gate, ask what the gate
+could DECIDE before writing it.** Here the cheap, automatable predicate and the
+defect are disjoint, so the gate would have run forever, passed forever, and
+certified nothing — while reading as coverage. That is worse than no gate.
+⇒ The discipline that works is the one that found it: when you cite a line,
+open it; when you follow a citation and it looks wrong, fix it and say so.
+
 ## Waiting on a long command
 
 - To wait on a long command, read state it WROTE — for the suite that is

@@ -50,6 +50,20 @@ fn portal_capture_parallax_layer(channel: PortalChannel) -> usize {
     PORTAL_CAPTURE_PARALLAX_LAYER_BASE + portal_channel_render_slot(channel)
 }
 
+/// The layers a portal's WINDOW MESH draws on.
+///
+/// ⭐ ONE AUTHORITY, because the diagnostic must not spell this a second way.
+/// The dump reports whether a pane and an actor share a layer at all -- a depth
+/// comparison between entities on disjoint layers settles nothing -- and a
+/// second spelling here would let the report disagree with the renderer about
+/// the very fact it exists to explain.
+pub(crate) fn portal_window_render_layers(channel: PortalChannel) -> RenderLayers {
+    // Shared layer = what the MAIN camera renders; the per-portal layer lets
+    // other rigs' captures include this window without any capture ever seeing
+    // its OWN window.
+    RenderLayers::layer(PORTAL_WINDOW_RENDER_LAYER).with(portal_window_self_layer(channel))
+}
+
 fn portal_window_self_layer(channel: PortalChannel) -> usize {
     PORTAL_WINDOW_SELF_LAYER_BASE + portal_channel_render_slot(channel)
 }
@@ -1036,11 +1050,7 @@ pub fn sync_portal_view_cones(
                 cone_tf,
                 cone_vis,
                 PortalConeMesh,
-                // Shared layer = what the MAIN camera renders; the per-portal
-                // layer lets other rigs' captures include this window without
-                // any capture ever seeing its OWN window.
-                RenderLayers::layer(PORTAL_WINDOW_RENDER_LAYER)
-                    .with(portal_window_self_layer(portal.channel)),
+                portal_window_render_layers(portal.channel),
                 // The mesh's vertices are rewritten in place every frame as the
                 // viewer moves, but Bevy computes a mesh entity's culling Aabb
                 // ONCE (calculate_bounds only fills in missing Aabbs; mutating

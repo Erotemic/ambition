@@ -708,13 +708,31 @@ fn write_compositing_section(
             }
         );
         // ⛔⛔ A Z COMPARISON ONLY SETTLES ORDERING IF BOTH DRAW UNDER THE SAME
-        // CAMERA ON A SHARED LAYER. The window mesh uses per-portal layers, so
-        // this line reports what the DEPTH says and marks it as such rather than
-        // claiming the composite outcome. Reading it as the outcome is the same
-        // over-claim as the z policy this whole section exists to expose.
+        // CAMERA ON A SHARED LAYER, and this now ANSWERS that rather than
+        // warning about it. The window mesh carries the shared window layer plus
+        // a per-portal one; an actor sprite carries none, i.e. Bevy's default
+        // layer 0. If those masks do not intersect, the two are never compared
+        // by any depth test and a `depth_says` verdict is not weak evidence --
+        // it is NO evidence.
+        // ⚠ THE PANE'S LAYERS, which the report used to tell the reader to
+        // "compare" without ever printing. Both masks are here now.
+        //
+        // ⛔⛔ AND THEY DO NOT SETTLE IT, WHICH IS WHY THE HEDGE STAYS.
+        // `RenderLayers` gates which CAMERA sees an entity; it does not group
+        // depth. Two entities on different layers rendered by the SAME camera
+        // are still depth-tested against each other, so "disjoint masks" is not
+        // "never compared" — an earlier version of this line said exactly that
+        // and was wrong. Settling it needs the camera stack (which cameras, in
+        // what order, with which masks), and that is the host's to publish.
         let _ = writeln!(
             out,
-            "    depth_says: {} (assumes a shared layer + camera; compare render_layers above)",
+            "    pane_render_layers: {:?}",
+            crate::view_cones::portal_window_render_layers(portal.channel)
+        );
+        let _ = writeln!(
+            out,
+            "    depth_says: {} (a camera rendering BOTH masks compares them; \
+             the camera stack is not published here)",
             if *z > crate::PORTAL_WINDOW_Z { "ABOVE_PANE" } else { "BELOW_PANE" }
         );
         let _ = writeln!(out, "    COMPOSITE_VIOLATION: {}", !correct);
@@ -1333,10 +1351,18 @@ mod compositing_report_tests {
         let drawables = vec![("Somebody".to_string(), body_at(292.0), 11.0, None)];
         write_compositing_section(&mut out, &pane(), Some(Vec2::new(100.0, 360.0)), &drawables);
         assert!(out.contains("depth_says:"), "{out}");
-        assert!(out.contains("assumes a shared layer + camera"), "{out}");
+        // The qualifier names the CAMERA, because that is the fact that is
+        // missing -- not the layers, which are both printed below.
+        assert!(out.contains("camera"), "depth must stay qualified: {out}");
         assert!(
             out.contains("render_layers: default(0)"),
             "an absent RenderLayers is Bevy's layer 0, not 'no layer': {out}"
+        );
+        // ⚠ BOTH masks, because the old report told the reader to "compare
+        // render_layers" while printing only the actor's half.
+        assert!(
+            out.contains("pane_render_layers:"),
+            "the pane's own layers were never printed: {out}"
         );
         assert!(
             !out.contains("actual_ordering"),

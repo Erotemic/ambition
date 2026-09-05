@@ -93,7 +93,7 @@ pub fn tick_portal_phases_system(
     // each portal's tick reads only its own switch and writes only its own
     // phase, so no portal can observe another's update. Nothing here folds an
     // order-dependent accumulator.
-    for (zone_id, config) in &portals.portals {
+    for (zone_id, config) in portals.iter() {
         let switch_on = save.data().switch(&config.switch_id);
         tick_gate_portal_phase(phases.phase_mut(zone_id), switch_on, dt);
     }

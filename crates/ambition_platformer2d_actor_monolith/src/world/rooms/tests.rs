@@ -1046,7 +1046,9 @@ fn a_rewind_across_the_portal_opening_window_restores_the_confirmed_phase() {
     fn portal_app() -> App {
         let mut app = App::new();
         let mut registry = GatePortalRegistry::default();
-        registry.register(ZONE, "gate_switch", "portal", "ring");
+        registry
+            .try_register(ZONE, "gate_switch", "portal", "ring")
+            .expect("a fresh registry has no conflicting portal");
         app.insert_resource(registry);
         app.init_resource::<GatePortalPhases>();
         let mut save = ambition_persistence::save::AmbitionGameSave::default();

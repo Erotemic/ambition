@@ -176,7 +176,9 @@ mod production_passes {
         // insert, and the probe passes while proving nothing — which is exactly
         // what it did on the first run.
         let mut registry = ambition_platformer2d_world::rooms::GatePortalRegistry::default();
-        registry.register("zone", "switch", "portal", "ring");
+        registry
+            .try_register("zone", "switch", "portal", "ring")
+            .expect("a fresh registry has no conflicting portal");
         app.insert_resource(registry);
         app.init_resource::<ambition_platformer2d_world::rooms::GatePortalPhases>();
         app.world_mut().spawn((

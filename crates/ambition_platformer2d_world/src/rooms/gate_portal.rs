@@ -75,29 +75,94 @@ pub struct GatePortalConfig {
 /// live rollback state lives in [`GatePortalPhases`].
 #[derive(Resource, Default, Debug, Clone, PartialEq, Eq)]
 pub struct GatePortalRegistry {
-    pub portals: std::collections::HashMap<String, GatePortalConfig>,
+    /// ⛔ SEALED, and that is the point of the refusal below. While this was
+    /// `pub` any crate could `portals.insert(..)` and take a zone from whoever
+    /// held it, so `register` refusing a conflict would have been advice rather
+    /// than a rule. A registry that validates in one function and leaves its map
+    /// open has one authority for the checked road and none for the other.
+    portals: std::collections::HashMap<String, GatePortalConfig>,
+}
+
+/// A second, DIFFERENT portal claiming a zone that already has one.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct GatePortalConflict {
+    pub zone_id: String,
+    pub existing: GatePortalConfig,
+    pub incoming: GatePortalConfig,
+}
+
+impl std::fmt::Display for GatePortalConflict {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(
+            f,
+            "loading zone `{}` already has a gate portal commanded by switch \
+             `{}`; a second registration wants switch `{}`. One zone is one \
+             portal — rename the zone or reuse the existing registration.",
+            self.zone_id, self.existing.switch_id, self.incoming.switch_id
+        )
+    }
 }
 
 impl GatePortalRegistry {
-    pub fn register(
+    /// Claim a loading zone for a portal, REFUSING a conflicting second claim.
+    ///
+    /// ⛔⛔ THIS USED TO BE A BARE `insert`, one of seven registries in the
+    /// 2026-09-02 inventory whose second registration silently overwrote. The
+    /// inventory's ruling is that a silent overwrite must not be anyone's
+    /// accidental default: each of the seven has to say "replace" in place or
+    /// adopt refusal. ⇒ This one refuses, because a loading zone is a place and
+    /// two portals cannot both be there. Re-registering the SAME portal is
+    /// idempotent, so a plugin whose install runs twice is not an error.
+    ///
+    /// ⚠ PREVENTIVE, not a repair: MEASURED 2026-09-05, production has exactly
+    /// ONE caller (`ambition_content`'s intro portal, itself latch-guarded), so
+    /// no conflict is reachable today. What it buys is that the second portal —
+    /// which the open-world roadmap wants — cannot silently unseat the first.
+    ///
+    /// `ambition_registry_core::classify` decides the three cases so this
+    /// registry does not re-answer a question `PlacementLoweringRegistry` next
+    /// door already answers.
+    pub fn try_register(
         &mut self,
         zone_id: impl Into<String>,
         switch_id: impl Into<String>,
         portal_sprite_name: impl Into<String>,
         ring_sprite_name: impl Into<String>,
-    ) {
-        self.portals.insert(
-            zone_id.into(),
-            GatePortalConfig {
-                switch_id: switch_id.into(),
-                portal_sprite_name: portal_sprite_name.into(),
-                ring_sprite_name: ring_sprite_name.into(),
-            },
-        );
+    ) -> Result<ambition_registry_core::RegistrationOutcome, GatePortalConflict> {
+        let zone_id = zone_id.into();
+        let incoming = GatePortalConfig {
+            switch_id: switch_id.into(),
+            portal_sprite_name: portal_sprite_name.into(),
+            ring_sprite_name: ring_sprite_name.into(),
+        };
+        match ambition_registry_core::classify(self.portals.get(&zone_id), &incoming) {
+            ambition_registry_core::Classification::Idempotent => {
+                Ok(ambition_registry_core::RegistrationOutcome::Idempotent)
+            }
+            ambition_registry_core::Classification::Conflict { existing } => {
+                Err(GatePortalConflict {
+                    zone_id,
+                    existing: existing.clone(),
+                    incoming,
+                })
+            }
+            ambition_registry_core::Classification::New => {
+                self.portals.insert(zone_id, incoming);
+                Ok(ambition_registry_core::RegistrationOutcome::Inserted)
+            }
+        }
     }
 
     pub fn is_portal(&self, zone_id: &str) -> bool {
         self.portals.contains_key(zone_id)
+    }
+
+    /// Every registered portal, for the tick and the visuals.
+    ///
+    /// ⚠ Iteration order is arbitrary and every caller must be indifferent to
+    /// it — see `world/rooms/systems.rs`, which states why its tick is.
+    pub fn iter(&self) -> impl Iterator<Item = (&String, &GatePortalConfig)> {
+        self.portals.iter()
     }
 }
 
@@ -543,5 +608,64 @@ mod tests {
         assert!(GatePortalPhase::Opening { elapsed: 0.0 }.portal_sprite_visible());
         assert!(GatePortalPhase::On.portal_sprite_visible());
         assert!(GatePortalPhase::Closing { elapsed: 0.0 }.portal_sprite_visible());
+    }
+}
+
+#[cfg(test)]
+mod gate_portal_registry_tests {
+    use super::*;
+
+    fn config(switch: &str) -> (&str, &str, &str) {
+        (switch, "portal_sprite", "ring_sprite")
+    }
+
+    /// ⭐ THE THREE ANSWERS, one test each, because they are three different
+    /// decisions and a single "it works" arm would only exercise the first.
+    #[test]
+    fn a_fresh_zone_is_inserted() {
+        let mut registry = GatePortalRegistry::default();
+        let (s, p, r) = config("gate_switch");
+        assert_eq!(
+            registry.try_register("cove_gate", s, p, r),
+            Ok(ambition_registry_core::RegistrationOutcome::Inserted)
+        );
+        assert!(registry.is_portal("cove_gate"));
+    }
+
+    /// A plugin whose install runs twice is not an error.
+    #[test]
+    fn the_same_portal_registered_twice_is_idempotent() {
+        let mut registry = GatePortalRegistry::default();
+        let (s, p, r) = config("gate_switch");
+        registry.try_register("cove_gate", s, p, r).expect("first");
+        assert_eq!(
+            registry.try_register("cove_gate", s, p, r),
+            Ok(ambition_registry_core::RegistrationOutcome::Idempotent)
+        );
+    }
+
+    /// ⛔⛔ THE ONE THAT USED TO BE SILENT. A bare `insert` accepted this and the
+    /// first portal simply stopped existing, with no error and no log — the
+    /// behaviour the 2026-09-02 registry inventory found in seven registries.
+    #[test]
+    fn a_different_portal_may_not_take_a_zone_that_is_already_claimed() {
+        let mut registry = GatePortalRegistry::default();
+        let (s, p, r) = config("gate_switch");
+        registry.try_register("cove_gate", s, p, r).expect("first");
+
+        let refused = registry
+            .try_register("cove_gate", "other_switch", p, r)
+            .expect_err("a different portal on a claimed zone must be refused");
+        assert_eq!(refused.existing.switch_id, "gate_switch");
+        assert_eq!(refused.incoming.switch_id, "other_switch");
+
+        // ⚠ AND THE REGISTRY IS UNCHANGED. A refusal that had already mutated
+        // would be an overwrite wearing an error's clothes -- the fourth of the
+        // inventory's four protocol questions, and the one a caller cannot check
+        // for itself.
+        assert!(registry
+            .iter()
+            .any(|(zone, held)| zone == "cove_gate" && held.switch_id == "gate_switch"));
+        assert_eq!(registry.iter().count(), 1);
     }
 }

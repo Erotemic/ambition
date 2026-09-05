@@ -39,7 +39,7 @@ pub fn sync_portal_sprite_visibility(
     phases: Res<GatePortalPhases>,
     mut sprites: Query<(Entity, &PropVisual, &mut Visibility, Option<&PortalSprite>)>,
 ) {
-    for (zone_id, config) in &portals.portals {
+    for (zone_id, config) in portals.iter() {
         let target_visibility = if phases.phase(zone_id).portal_sprite_visible() {
             Visibility::Inherited
         } else {
@@ -79,7 +79,7 @@ pub fn sync_portal_sprite_animation(
     mut sprites: Query<(&PropVisual, &mut Sprite, &mut CharacterAnimator)>,
 ) {
     let dt = presentation_time.scaled_dt();
-    for (zone_id, config) in &portals.portals {
+    for (zone_id, config) in portals.iter() {
         let target_anim = match phases.phase(zone_id) {
             GatePortalPhase::Off => continue,
             GatePortalPhase::Opening { .. } => CharacterAnim::Idle,
@@ -120,7 +120,7 @@ pub fn sync_portal_ring_rotation_system(
     // Use scaled dt so the boot-spin slows during bullet time and
     // freezes during pause — same world-clock the phase timer reads.
     let dt = presentation_time.scaled_dt();
-    for (zone_id, config) in &portals.portals {
+    for (zone_id, config) in portals.iter() {
         let phase = phases.phase(zone_id);
         let spinning = matches!(phase, GatePortalPhase::Opening { .. });
         // Sheet mapping (see GATE_RING_SHEET):

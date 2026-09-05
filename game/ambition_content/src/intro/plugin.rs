@@ -190,12 +190,18 @@ pub(crate) fn install_intro_gated_zones_system(
     let Some(mut registry) = registry else {
         return;
     };
-    registry.register(
+    // ⚠ A REFUSAL HERE IS A CONTENT BUG, NOT A RUNTIME CONDITION: it means
+    // something else already claimed this loading zone for a different portal.
+    // Logged rather than panicked because a missing portal is a recoverable
+    // world, and silence is what the registry's old bare `insert` gave.
+    if let Err(conflict) = registry.try_register(
         INTRO_PORTAL_ZONE_ID,
         INTRO_PORTAL_SWITCH_ID,
         INTRO_PORTAL_SPRITE_NAME,
         INTRO_PORTAL_RING_NAME,
-    );
+    ) {
+        bevy::log::error!("the intro portal was refused: {conflict}");
+    }
     installed.0 = true;
 }
 

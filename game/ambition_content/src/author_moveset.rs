@@ -48,7 +48,77 @@ pub fn author_moveset() -> MovesetContract {
         "author",
     );
     crate::special_slots::replace_special(&mut set, "special_up", authors_teleport());
+    crate::special_slots::replace_special(&mut set, "special_down", the_second_draft());
     set
+}
+
+/// The Author's counter: you land the blow, and it is revised out of the scene.
+///
+/// ⭐⭐ JON'S ASSIGNMENT, 2026-09-05: *"Swordies will get a counter."* The Author
+/// IS the sword archetype — this module's own first line says so — and until now
+/// the counter's only authored customers were demo stand-ins. This puts it on a
+/// fighter somebody picks.
+///
+/// ⭐⭐ AND THE RESPONSE IS HIS TELEPORT, WHICH MAKES THE MOVE HIS RATHER THAN A
+/// SECOND COPY OF GEORGE'S. `riposte` answers a parry with a GRAB; this answers
+/// with `smash.teleport` in its **ambush** mode — `behind_nearest_foe`, which
+/// arrives on the far side of the foe. ⇒ You commit to a swing, and he is behind
+/// you. That is a sentence being rewritten while you are still in it, and it is
+/// the same technique as his up-B with one flag flipped.
+///
+/// ⛔⛔ `behind_nearest_foe: true` HAD NO AUTHORED CUSTOMER ANYWHERE IN THE TREE.
+/// The ambush arrival, its foe selection and its facing rule were all built and
+/// nothing used them — the same state Sing's engine was in this morning. ⇒ A
+/// capability with no customer is one nobody can tell is broken, so this is
+/// worth more than the move it adds.
+///
+/// ⚠ HE ABSORBS SHOTS RATHER THAN RETURNING THEM, and that is the deliberate
+/// difference from `riposte`, whose note argues reflection is "a reward the crowd
+/// can see". An author does not throw your sentence back at you; he deletes it.
+/// It also keeps the move from being strictly better than George's: reposition
+/// OR reflection, not both.
+fn the_second_draft() -> ambition_platformer2d::entity_catalog::MoveSpec {
+    ambition_platformer2d::characters::smash_counter::counter_move(
+        "author_second_draft",
+        "special",
+        // Faster to open than the riposte and shorter-lived: he is not blocking,
+        // he is noticing.
+        0.05,
+        0.14,
+        0.42,
+        ambition_platformer2d::characters::smash_counter::CounterParams {
+            // A HEARTBEAT, not a duration — `parry_window_timer` decays and the
+            // stance re-arms it every live frame. Three ticks of slack at 60Hz.
+            window_s: 0.05,
+            response: ambition_platformer2d::characters::smash_teleport::TELEPORT.to_string(),
+            response_params: ambition_platformer2d::entity_catalog::ParamValue::from_typed(
+                &ambition_platformer2d::characters::smash_teleport::TeleportParams {
+                    behind_nearest_foe: true,
+                    // From the foe's EDGE, so he arrives the same distance behind
+                    // a small body and a large one.
+                    behind_gap: 26.0,
+                    // ⛔ A RANGE, NOT A LEASH — the field's own doc: a foe beyond
+                    // this is not a target and the teleport REFUSES rather than
+                    // carrying him partway and landing him in front. Whoever just
+                    // got parried is by definition within a melee reach of him,
+                    // so this only has to cover that.
+                    distance: 180.0,
+                    // ⛔ ZERO, which the field's doc names as what a teleport that
+                    // is not a recovery wants. He is arriving behind somebody, not
+                    // climbing back on stage, and a ledge grabbing that arrival
+                    // would take the punish away.
+                    ledge_assist: 0.0,
+                    // Through the swing he just answered, and no longer.
+                    intangible_s: 0.14,
+                    // His own two rows, the same glint his up-B uses.
+                    depart_vfx: "four_point_glint".to_string(),
+                    arrive_vfx: "four_point_glint".to_string(),
+                },
+            )
+            .expect("the second draft's teleport params serialize"),
+            absorbs_projectiles: true,
+        },
+    )
 }
 
 /// The Author's recovery: he edits himself out and back in somewhere else.
@@ -135,6 +205,76 @@ mod tests {
             "…and the archetype's spinning rise must not be left behind \
              unreachable, where every census that walks `moves` reports it as \
              part of his kit"
+        );
+    }
+
+    /// ⛔⛔ THE COUNTER IS HIS, AND THE AMBUSH IS THE PART WORTH GUARDING. A test
+    /// that only found a `smash.counter` on his down-B would pass against a
+    /// second copy of George's riposte — the whole reason this move is the
+    /// Author's is that its response is a teleport that arrives BEHIND you.
+    #[test]
+    fn the_authors_counter_answers_by_arriving_behind_whoever_swung() {
+        let set = author_moveset();
+        assert_eq!(
+            set.verbs.get("special_down").map(String::as_str),
+            Some("author_second_draft"),
+            "his down-B must be the counter"
+        );
+        let counter = set
+            .moves
+            .iter()
+            .find(|m| m.id == "author_second_draft")
+            .expect("…and the move it names must be in the table");
+
+        let params: ambition_platformer2d::characters::smash_counter::CounterParams = counter
+            .windows
+            .iter()
+            .filter_map(|window| window.sustain_effect.as_ref())
+            .find(|effect| {
+                effect.key == ambition_platformer2d::characters::smash_counter::COUNTER
+            })
+            .expect("the move holds a counter stance")
+            .params
+            .hydrate()
+            .expect("counter params hydrate");
+
+        assert_eq!(
+            params.response,
+            ambition_platformer2d::characters::smash_teleport::TELEPORT,
+            "his counter must answer with the teleport, not a grab"
+        );
+        let teleport: ambition_platformer2d::characters::smash_teleport::TeleportParams =
+            params.response_params.hydrate().expect("teleport params hydrate");
+        assert!(
+            teleport.behind_nearest_foe,
+            "the response is an AIMED teleport, so he answers a parry by leaving \
+             rather than by arriving behind the swing"
+        );
+        // ⛔ NOT A RECOVERY. `ledge_assist` above zero would let a ledge catch the
+        // ambush arrival and take the punish away — and would quietly hand him a
+        // second recovery on his down-B.
+        assert_eq!(teleport.ledge_assist, 0.0);
+        assert!(
+            params.absorbs_projectiles,
+            "he deletes shots rather than returning them — the difference from \
+             the riposte, and what stops this being strictly better than it"
+        );
+    }
+
+    /// ⛔ THE DOWN SWAP TOOK THE GROUNDED HALF AND LEFT THE AERIAL ONE. His
+    /// borrowed down-special is `DownSpecial::ByPosture`, so it is TWO moves on
+    /// two verbs; replacing `special_down` must not take his air-down with it.
+    #[test]
+    fn the_counter_displaced_the_ground_low_arc_and_spared_the_falling_edge() {
+        let set = author_moveset();
+        assert!(
+            !set.moves.iter().any(|m| m.id == "author_low_arc"),
+            "the displaced grounded down-B is still in the table, where every \
+             census that walks `moves` reports it as part of his kit"
+        );
+        assert!(
+            set.moves.iter().any(|m| m.id == "author_falling_edge"),
+            "his AERIAL down-special went with it — that verb was never replaced"
         );
     }
 

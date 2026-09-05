@@ -21,7 +21,7 @@ each one as an **engine acceptance fixture** rather than a character feature:
 | # | Proof move | What it proves |
 |---|---|---|
 | 1 | **PK-Thunder parody** | `TechniqueFlow`, projectile input delegation, steerable projectile state, self-contact, correlated events, temporary fighter-control suppression |
-| 2 | **Counter + Revenge variant** | reactive defensive contact can emit either an immediate attack OR persistent character state, with no Counter subsystem |
+| 2 ✔ | **Counter + Revenge variant** — the stand-ins' `riposte`, and **2026-09-05 the Author's `author_second_draft`** | ⭐⭐ **"COUNTER" TURNED OUT NOT TO BE A MOVE TYPE AT ALL.** `answer_a_parry_with_the_authored_counter` dispatches `SpecialActionSpec::Special(stance.response.clone())` — fully generic — so a counter is **ANY TECHNIQUE, TRIGGERED BY A SUCCESSFUL PARRY**. Counter-into-grab (George), counter-into-teleport (the Author), counter-into-mine or -sleep are all authorable today with zero engine work. ⇒ I built this seam and then under-read it for a day |
 | 3 | **Reflector + absorber** | projectile interception is a projectile authority and supports more than parry reversal |
 | 4 | **Tether recovery + aerial tether grab** | terrain/body tethering composes with ledge and capture authorities |
 | 5 ✔ | **Cargo command grab** — **LANDED 2026-09-05** on the goblin's down-throw | ⭐ **MOVEMENT WAS NEVER TOUCHED.** The claim was "capture and movement cooperate", and what actually happened is that capture RESTRICTS LESS: `restrict_captor_control` zeroed `locomotion` for every captor, and a carry is a hold that does not. ⇒ `carrying` rides `SmashHoldState` (the ruleset's half) rather than `CapturedBy` (the generic relation), on that component's own argument that platform-fighter rules do not belong on the relation |
@@ -359,6 +359,23 @@ time; a projectile has not.
 needs a new capability" is a claim, and the cheapest way to test it is to build
 the row.** Two of the three capability gaps this campaign predicted turned out to
 be already-shipped authorities under a name I had not searched for.
+
+### ⭐⭐ A CAPABILITY WITH NO CUSTOMER IS ONE NOBODY CAN TELL IS BROKEN
+
+Twice in one day a technique turned out to be **fully built, guarded, and used by
+nobody**:
+
+| capability | state found in |
+|---|---|
+| `smash.sleep` (Sing) | engine landed the same morning, no authored customer until the Performer got it |
+| `TeleportParams::behind_nearest_foe` — the ambush arrival, its foe selection and its facing rule | **no authored customer anywhere in the tree**, until the Author's counter |
+
+⇒ **This is a job for O4's installed-technique catalog, and it is a bigger one
+than the catalog was scoped for**: the useful census is not "what techniques
+exist" but **"which techniques, and which PARAMETER MODES, no authored content
+reaches"**. A list of what exists cannot find these; a JOIN against authored
+content can. ⚠ Both were found by accident, which is the argument — nobody was
+looking, and nothing would have complained.
 
 ### Track A — the keystone
 

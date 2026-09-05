@@ -1167,7 +1167,7 @@ behaviour-identical and left the decision here.
   authoring tool used to patch both places when it added an identifier, and
   these two reached the converters without it.
 
-### 63. Three authored fields decide nothing. Wire them, or delete them? (2026-09-05)
+### 63. Five authored fields decide nothing. Wire them, or delete them? (2026-09-05)
 
 ⭐ **MEASURED, and they are all the same shape**: authored on a spec, threaded
 into a component by `spawn_static.rs`, and read by NO production code.
@@ -1195,6 +1195,34 @@ authored field is `Option<String>` while `DebrisBurstMessage.cue` is a
 it is not a one-line thread; it needs the resolver first, which is a real (if
 small) piece of vocabulary design and is the kind of thing this decision should
 say yes or no to before somebody builds it speculatively.
+
+⭐ **A FIFTH, found 2026-09-05 by a DIFFERENT instrument, and it is the same
+shape one layer up.** `CharacterCatalogEntry.flight_direct_velocity`
+(`ambition_characters/.../character_catalog/entry.rs:279`) is authored, then
+threaded through FOUR structs to reach the code that reads it:
+
+```text
+CharacterCatalogEntry.flight_direct_velocity   entry.rs:279   (authored)
+  -> ActorTuning.flight_direct_velocity         actor_tuning.rs:60
+  -> MovementTuning.flight_direct_velocity      movement/tuning.rs:468
+  -> FlightTuning.direct_velocity               movement/tuning.rs:1281
+  -> READ at movement/integration.rs:1499,1503  ✔
+```
+
+⚠ **The read is real, so this is not a dead knob — it is a knob with an authored
+road nobody travels.** MEASURED: outside tests, exactly ONE production site sets
+it true, and it is a hardcoded `ActorTuning` literal for a scripted boss
+(`spawn_actors.rs:884`), which is legitimate — that brain commands an exact
+per-tick velocity. No authored character sets it anywhere.
+
+⇒ So the question here is narrower than for the other four: not "is the behaviour
+reachable" but **"should the authored field exist at all, when the only caller
+that wants the behaviour sets it in Rust two layers below the author?"** Deleting
+the authored end costs nothing today and shortens a four-hop thread; keeping it
+is a bet that a character will want it.
+
+⚠ **DIFFERENT LANE, NOT ACTED ON.** `ambition_characters` authoring is the
+fighter session's surface, so this is recorded rather than repaired.
 
 ⭐⭐ **AND THE MISMATCH IS ITSELF EVIDENCE, which is the sharper way to read it:
 a stranded field with a TYPE MISMATCH at its destination was probably abandoned

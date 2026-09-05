@@ -294,9 +294,14 @@ mod tests {
     }
 
     fn spawn_candidate(app: &mut App, centre: Vec2, half: Vec2) -> Entity {
+        // The generic actor band, `WORLD_Z_DUMMY + 1.0`.
+        spawn_candidate_at_z(app, centre, half, 11.0)
+    }
+
+    fn spawn_candidate_at_z(app: &mut App, centre: Vec2, half: Vec2, z: f32) -> Entity {
         let sprite = loaded_sprite(app);
         let frame = PortalWorldFrame { size: WORLD };
-        let translation = frame.to_render(centre, 11.0);
+        let translation = frame.to_render(centre, z);
         app.world_mut()
             .spawn((
                 PortalCompositingCandidate {
@@ -396,6 +401,47 @@ mod tests {
             app.update();
         }
         assert_eq!(first, pieces(&mut app), "pieces accumulated across frames");
+    }
+
+    /// ⭐⭐ THE PLAYER BAND AND THE ACTOR BAND GET THE SAME ANSWER, WHICH IS THE
+    /// WHOLE POINT. `WORLD_Z_PLAYER` is 20 and a generic actor sits at 11; both
+    /// are above `PORTAL_WINDOW_Z` (9.5), which is why a single z could not
+    /// serve them and why Jon asked for the pair twice.
+    ///
+    /// ⇒ This repair never READS z. It subtracts the pane's rect from the
+    /// drawable's, so the answer is geometry and the band is irrelevant --
+    /// asserted by giving the same body two very different z values and
+    /// demanding identical output. A version that reached for z to decide
+    /// anything would fail here.
+    #[test]
+    fn the_player_band_and_the_actor_band_composite_identically() {
+        let mut counts = Vec::new();
+        for z in [11.0_f32, 20.0] {
+            let mut app = test_app();
+            app.world_mut().spawn(pane());
+            spawn_viewer(&mut app, Vec2::new(400.0, 300.0));
+            let far =
+                spawn_candidate_at_z(&mut app, Vec2::new(505.0, 300.0), Vec2::new(24.0, 24.0), z);
+            let near =
+                spawn_candidate_at_z(&mut app, Vec2::new(470.0, 300.0), Vec2::new(4.0, 4.0), z);
+            app.update();
+            assert_eq!(
+                visibility(&app, far),
+                Visibility::Hidden,
+                "far-side body at z={z} was not composited"
+            );
+            assert_eq!(
+                visibility(&app, near),
+                Visibility::Inherited,
+                "near-side body at z={z} must be left alone"
+            );
+            counts.push(pieces(&mut app));
+        }
+        assert_eq!(
+            counts[0], counts[1],
+            "the two z bands produced different pieces; this repair must not read z"
+        );
+        assert!(counts[0] > 0, "no pieces drawn at either band");
     }
 
     /// ⛔ `present: false` MEANS THERE IS NO EYE THIS FRAME, and the `eye` field

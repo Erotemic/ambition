@@ -2331,6 +2331,18 @@ is no axis.**
    | 6 vs 5 | LOWER *(within spread)* · 345% : 359% | LOWER *(within spread)* · 398% : 405% |
    | 9 vs 6 | higher *(within spread)* · 398% : 386% | ✔ **higher**, significant · 446% : 375% |
 
+   ⛔⛔ **BEFORE READING THAT COMPARISON — HOW STRONG IS THE THING BEING FIXED?
+   MEASURED 2026-09-04 once the rig started printing its splits.** The shipped
+   ladder's `5 vs 3` is **2 : 10 of twelve pairs, p = 0.0386** — significant, and
+   **one pair from not being**: nine of twelve is p = 0.1460 and prints *(within
+   spread)*. ⇒ **The defect this decision is about is real and marginal at n=12**,
+   which is a different thing to be told than *"significant"*, and it is why the
+   28-seed replication recorded above is load-bearing rather than a courtesy.
+   ⚠ For contrast, `3 vs 1` is **11 : 1, p = 0.0063** and survives a pair
+   flipping; `6 vs 5` and `9 vs 6` are 5 : 7 and 7 : 5 at **p = 0.774** — a coin,
+   not a near miss. ⇒ **Weigh the candidate against a defect of that strength**:
+   it is worth fixing, and nobody should retune a ladder off one 12-seed run.
+
    ⇒ **The headline survives: no cell is significantly inverted under the
    candidate, two cells improve, none regresses.** `5 vs 3` loses its
    significance and `9 vs 6` gains it in the correct direction.

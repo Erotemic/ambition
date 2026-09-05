@@ -1901,6 +1901,31 @@ clock, same 12 seeds, an instrument with two authors for one verdict and a
 | 6 vs 5 | 103.6s : 104.7s | 0 : 0 | 346% : 361% | LOWER *(within spread)* |
 | 9 vs 6 | 112.0s : 116.5s | 0 : 0 | 407% : 390% | higher *(within spread)* |
 
+⭐⭐ **AND THE SPLITS ARE PRINTED NOW, SO THE PAGE'S CENTRAL FINDING IS AUDITABLE
+FOR THE FIRST TIME — re-run 2026-09-04, same binary, same seeds, columns
+byte-identical to the table above:**
+
+| cell | verdict | split | usable `n` | exact p | reading |
+|---|---|---|---|---|---|
+| `3 vs 1` | ⭐ higher | **11 : 1** | 12 | **0.0063** | comfortably clear |
+| `5 vs 3` | ⛔ **LOWER** | **2 : 10** | 12 | **0.0386** | ⚠ **clears by ONE PAIR** |
+| `6 vs 5` | LOWER *(within spread)* | 5 : 7 | 12 | 0.7744 | nowhere near |
+| `9 vs 6` | higher *(within spread)* | 7 : 5 | 12 | 0.7744 | nowhere near |
+
+⛔⛔ **THE INVERSION IS REAL AND IT IS ONE PAIR FROM NOT BEING REPORTABLE AT THIS
+n.** Ten of twelve is exactly the threshold (p = 0.0386); nine of twelve is
+p = 0.1460 and prints *(within spread)*. ⇒ **So `5 vs 3` and `3 vs 1` are not
+the same strength of result and this page has been treating them as one class.**
+`3 vs 1` at 11 : 1 survives a pair flipping; `5 vs 3` does not.
+⭐ **That makes the 28-seed replication load-bearing rather than a courtesy.**
+The row above recording *"significant at 12 and 28 on the shipped clock"* is what
+carries this finding — a single 12-seed run at 10 : 2 would be a result nobody
+should tune a ladder on. ⇒ **Quote the inversion with its split**, not as a bare
+`significant`.
+ⓘ `6 vs 5` and `9 vs 6` at p = 0.774 are worth naming separately: they are not
+marginal, they are 5 : 7 and 7 : 5 — a coin. *"Within spread"* has been carrying
+both *"nearly"* and *"not at all"* on this page, and these two are the second.
+
 ⇒ **Every verdict identical; every column moved, and none by much** — the largest
 single move is `5 vs 3`'s lower-rung damage, 360% → 349%, and survival times shift
 by under a second and a half. ⭐ **That is what an even-sample median error is

@@ -1482,7 +1482,10 @@ fn running_one_lifecycle_path_then_another_lands_in_the_same_room() {
 /// `quest.active`, `wallet.can_afford`.
 ///
 /// ⭐ DESTRUCTURED, NOT FIELD-LISTED, and that is the whole point of doing it
-/// here. `reset_cut_rope_attempt_on_replay` clears three durable facts by hand,
+/// here. `reset_cut_rope_attempt_on_replay` clears its durable facts by hand
+/// (three when this was written; ONE since 2026-09-05, when a flag with no
+/// reader was removed — the count shrinking on its own is the argument, not a
+/// counter-example),
 /// and a hand-kept list grows only when somebody notices — the property that
 /// made `reset_ecs_room_features` a second constructor with sixteen queries.
 /// This comparison cannot fall behind: adding a field to

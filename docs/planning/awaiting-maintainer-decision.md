@@ -1628,6 +1628,14 @@ boss says which it is — rather than implied by the presence of a system.
 generic (the placement id and the persisted row are both generic); only the
 cut-rope system's NAME-SCOPING is specific. A default retraction plus an opt-out
 for story bosses inverts the current default without a registry.
+⭐ **And the flag deletion SHARPENED that estimate the same day.** With
+`smirking_behemoth_victory_npc_seen` gone, the cut-rope system's durable work is
+exactly ONE generic line — set the placement's persisted row back to
+`Untouched`, keyed by an id the engine already owns. Everything still
+content-specific in it (reclaiming the intro track from the profile catalog) is
+NON-DURABLE. ⇒ the generic retraction is not "mostly generic with a content
+tail"; the durable half is already fully generic, and the content half is
+music that a generic system would simply not do.
 ⭐ **And the same shape carries the third option at no extra cost** — a generic
 retraction reads `reason` where the cut-rope system does not, so *"retry only"*
 is one `match` in the system that would already be written, not a second design.

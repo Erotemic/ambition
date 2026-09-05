@@ -193,9 +193,11 @@ pub fn emit_cut_rope_room_replay_after_the_conversation_ends(
 /// construction from there. (It used to name a
 /// `rooms::reconstitute_the_active_room` (cite-ok: naming the dead function is
 /// the point); that function is gone.) This helper only clears the *persisted* "cleared"
-/// record (so the rebuilt boss isn't constructed pre-marked defeated), re-hides
-/// the victory NPC, and restores the intro music from the read-only profile
-/// catalog.
+/// record (so the rebuilt boss isn't constructed pre-marked defeated) and
+/// restores the intro music from the read-only profile catalog. Re-hiding the
+/// victory NPC is not a second action: it FALLS OUT of that one record, because
+/// the NPC's spawn gate reads the same placement state (see the star comment in
+/// the body, and `victory.rs`).
 ///
 /// R4: "cleared" is keyed by PLACEMENT (the boss's `config.id`), so the caller
 /// passes the cut-rope boss placement ids currently in the room to clear.
@@ -238,9 +240,12 @@ pub fn reset_cut_rope_boss_attempt(
     }
 }
 
-/// On a generic [`RoomReplayRequested`](ambition_platformer2d_actor_monolith::session::reset::RoomReplayRequested),
-/// clear the cut-rope boss's per-attempt state (persisted "cleared" record,
-/// victory-NPC flag, intro music) for every cut-rope placement in the room.
+/// On an ADMITTED room replay ([`RoomReplayAdmitted`](ambition_combat::events::RoomReplayAdmitted)
+/// — not the request; see the parameter's comment), clear the cut-rope boss's
+/// per-attempt state for every cut-rope placement in the room. That is now ONE
+/// durable fact (the placement's persisted "cleared" record) plus the
+/// non-durable intro music; the `victory-NPC flag` this line used to name was
+/// removed 2026-09-05 as a fact with no reader and no producer.
 ///
 /// This is the CONTENT half of the room-replay: the host's app-side replay
 /// consumer resets the player + world (and its `RoomReplayAdmitted`

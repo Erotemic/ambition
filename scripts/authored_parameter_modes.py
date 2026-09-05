@@ -59,6 +59,16 @@ from pathlib import Path
 REPO = Path(__file__).resolve().parent.parent
 
 #: Crates whose `.rs` IS authored content rather than engine code.
+#:
+#: ⛔⛔ `ambition_characters` IS ON THIS LIST, and leaving it off is why the
+#: first version reported two gameplay-critical gates as unauthored. In this
+#: repo CONTENT CALLS AUTHORING HELPERS AND THE HELPERS SET THE GATES:
+#: `smash_ride::author_summon_ride` writes `spec.gates.forbidden_while_held =
+#: true` (the rule that stops a rider recasting his up-B from the saddle), and
+#: `smash_repertoire` applies `roots_steering` centrally per slot family because
+#: it is a fact about the STANCE rather than about any one move. No content file
+#: names either field. ⇒ a corpus restricted to `game/` is blind to every field
+#: applied that way, and reports engine RULES as unauthored.
 CONTENT_CRATES = (
     "game/ambition_content/",
     "game/ambition_demo_smash/",
@@ -85,12 +95,29 @@ def git(*args: str) -> list[str]:
     ).stdout.split()
 
 
-def authored_corpus() -> tuple[str, int]:
+def authored_corpus(*, with_helpers: bool) -> tuple[str, int]:
+    """The authored corpus. ⛔ THE TWO AXES NEED DIFFERENT ONES.
+
+    `with_helpers=True` (FIELD axis) includes `ambition_characters`, because in
+    this repo content calls AUTHORING HELPERS and the helpers SET the gates:
+    `smash_ride::author_summon_ride` writes `spec.gates.forbidden_while_held =
+    true` and no content file names it. Without them the census reports engine
+    RULES as unauthored.
+
+    `with_helpers=False` (VARIANT axis) excludes them, because a helper that
+    OFFERS a builder is vocabulary, not a customer. `moveset_authoring.rs` names
+    `WindboxVolume` six times while no fighter authors a windbox — including it
+    makes the one confirmed gap disappear.
+
+    ⇒ APPLIES vs OFFERS is the distinction, and it is not lexical. Two corpora is
+    the honest answer; a single one is wrong for one axis whichever way it goes.
+    """
+    roots = CONTENT_CRATES + (("crates/ambition_characters/",) if with_helpers else ())
     files = [
         f
         for f in git("ls-files")
         if (f.endswith((".ron", ".ldtk", ".yarn")) and f.startswith("game/"))
-        or (f.endswith(".rs") and f.startswith(CONTENT_CRATES))
+        or (f.endswith(".rs") and f.startswith(roots))
     ]
     text = "\n".join(
         (REPO / f).read_text(encoding="utf-8", errors="replace") for f in files
@@ -174,10 +201,24 @@ def variants() -> list[tuple[str, str, str, str | None]]:
 
 
 def main() -> int:
-    corpus, n_files = authored_corpus()
+    corpus, n_files = authored_corpus(with_helpers=True)
     # ⛔ ANTI-VACUITY: a corpus that missed the content crates would report
     # almost everything as unnamed and read as a catastrophe. This field is
     # authored in Rust, so its absence means the corpus is broken, not the tree.
+    # ⛔ TWO CALIBRATION POINTS, one of each polarity, because a filter that
+    # only keeps true positives can be achieved by reporting everything.
+    #   known TRUE  dormant: `behind_nearest_foe` was authored `false` everywhere
+    #   known FALSE dormant: `forbidden_while_held` IS set, by an authoring helper
+    # ⛔ A HELPER-ONLY MARKER. `forbidden_while_held` is NAMED in `game/` too, so
+    # its presence proves nothing; the ASSIGNMENT only exists in the helper.
+    if "spec.gates.forbidden_while_held = true" not in corpus:
+        print(
+            "authored corpus has lost the authoring helpers in "
+            "`ambition_characters` — every gate they apply will be reported as "
+            "unauthored, including engine RULES like the shark-ride recast lock.",
+            file=sys.stderr,
+        )
+        return 1
     if "behind_nearest_foe" not in corpus:
         print(
             "authored corpus does not contain a field known to be authored in Rust "
@@ -224,6 +265,8 @@ def main() -> int:
 
     if "--variants" in sys.argv:
         rows = variants()
+        # ⛔ THE VARIANT AXIS USES THE NARROWER CORPUS — see `authored_corpus`.
+        corpus, _ = authored_corpus(with_helpers=False)
         cold = [
             (e, v, f)
             for e, v, f, payload in rows

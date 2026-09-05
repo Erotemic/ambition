@@ -1010,6 +1010,22 @@ in the teleport's params doc where it had been sitting all along. ⇒ **A warnin
 in the wrong file is a warning nobody reads**, which is this page's oldest
 finding wearing new clothes.
 
+#### ✔ AND THE JOIN IS TESTED, IN THE ORDER THE SHIPPED SCHEDULE RUNS IT
+
+The counter's tests prove it dispatches to the attacker; the adapter's tests
+prove it applies a scale. ⛔ **Neither asks whether they MEET** — which is the
+shape that has hidden four defects on this page already. ⇒ In `lib.rs` the
+dilation adapter is registered BEFORE the counter's answer (`ContentSpecials`,
+991 vs 1035), so the `ActorActionMessage` is read on the FOLLOWING tick. That is
+a real property of the composition: it works only because Bevy messages survive a
+frame, and it matches the Officer's capture counter, which has the same shape.
+
+⭐ **The fixture adds the systems in the SHIPPED order rather than a convenient
+one**, because one that ran them the other way round would prove something the
+game does not do. Poisoned at both ends — the counter aiming at its owner, and
+the adapter ignoring the request — and each reddens the same assertion from the
+opposite side, which is what a join test is for.
+
 ### ⛔ THE PORTAL FIX WAS PER-SEAT SEPARATION, NOT OCCURRENCE IDENTITY
 
 A second review caught the difference and it is a real one. `channel_index +

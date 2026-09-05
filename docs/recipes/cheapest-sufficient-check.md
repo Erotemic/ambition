@@ -211,7 +211,8 @@ quality.rs:182              cited for a function defined at :136
                              DID NOT EXIST — written by the person who owned the file
 ```
 
-⇒ **The tests pass, the citation checker passes (1,842 citations, all resolved),
+⇒ **The tests pass, the citation checker passes (1,842 citations, all resolved
+on 2026-09-05; 1,866 a few hours later, because writing this page ADDED some),
 the link checker passes.** None of them reads a sentence and asks whether it is
 true. ⚠ And the fourth is the worst shape: not a stale pointer but an
 INVENTED MECHANISM, cited as the reason a neighbouring invariant mattered.
@@ -271,7 +272,7 @@ The obvious next gate is "check the line number too". ⭐ **It was measured befo
 being built, and it should not be built.** Across `docs/planning/**`:
 
 ```text
-distinct line citations   383
+distinct line citations   383      (2026-09-05; every count here is a timestamp)
 resolved and in range     355
 PAST END OF FILE            0   <- the only thing this check can decide
 path not resolvable         3   <- all deliberate examples: `file.rs:123`,

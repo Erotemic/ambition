@@ -234,6 +234,18 @@ state, correctly outside rollback — so those verdicts stand unqualified. ⇒ t
 caveat bites only on types with a snapshot impl; `git grep -l 'impl SnapshotState'`
 is the suspect set for any future sweep.
 
+⭐⭐ **AND THAT TRIAGE FOUND A REAL FALSE CLAIM IN THE OTHER LANE THE SAME DAY,
+which is what makes this a class rather than one file's habit.** The fighter
+session ran it over `crates/ambition_combat` / `ambition_characters` — five
+types with snapshot impls (`BodyCombat`, `ActorPose`, `SmashHoldState`,
+`MovePlayback`, `BodyMelee`) — and `project_moveset_melee_to_body_melee`
+declared itself *"the SOLE writer of a `MovesetMelee` body's swing"*,
+unqualified. `BodyMelee` is rollback-registered as `actor.body_melee` and its
+`decode` rebuilds `swing` wholesale, so the codec writes it on every rewind;
+corrected to *"during live simulation"*. ⇒ **two independent lanes, one query,
+one false claim each — and in both the claim had been checked the only way
+anyone would check it, with a grep that could not fail.**
+
 ⓘ Not proposed as a gate. These sentences are prose about six different kinds of
 authority; a checker would need to understand each. The cheap discipline is the
 one this audit used -- when you touch a comment claiming sole authority,

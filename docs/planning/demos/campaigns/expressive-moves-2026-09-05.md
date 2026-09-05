@@ -586,6 +586,27 @@ body-local offset is smaller than the contact tolerance every time, so contact
 logic that does not say so is not "usually fine" — it is wrong on frame one, and
 frame one runs before anything else can.
 
+⭐⭐ **AND THE GENERALISATION, named by the peer reviewing this work, is bigger
+than the frame-one case: TWO THINGS AGREE ON A POSITION AND DISAGREE ON A
+TOLERANCE.** The emitter's offset is authored per move by somebody thinking in
+sprite pixels; the consumer's radius is written by somebody thinking "about a body
+wide". ⇒ Applied to my own new code it found a live defect immediately:
+
+    the bolt   `offset.x > bolt.radius + 16.0 || offset.y > bolt.radius + 24.0`
+    the plate  `offset.x > half_extents.x + 14.0 || offset.y > half_extents.y + 26.0`
+
+⛔ **Four invented constants approximating a fighter's extent — on a component
+that CARRIES that extent.** `BodyKinematics` has `size: Vec2` and both systems
+were already reading it for `pos`. Every fighter but the default-sized one got a
+contact box built for somebody else, and nothing would ever have said so: no test
+fails, because the fixtures spawn default bodies. ⇒ Both now read
+`half_extents + kin.size * 0.5`.
+
+⚠ **The bolt had the same tolerance written TWICE** — once for contact and once
+for its "have I cleared my caster" latch — which is the second-order version:
+two answers to one question inside one system, so a bolt could clear itself under
+one and report a hit under the other.
+
 ⭐ **All three were found by a guard, none by reading**, and in each case the fix
 turned out to be the genre's own rule arrived at from the bug: a mine you cannot
 instantly detonate, a bolt that must leave before it can come home, a plate you

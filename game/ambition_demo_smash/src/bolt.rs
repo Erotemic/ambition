@@ -222,16 +222,32 @@ pub fn steer_and_fly_bolts(
                 if seat.0 != bolt.owner_seat {
                     return false;
                 }
+                // The SAME reach the contact test uses — two different answers to
+                // "is it inside him" is how a bolt clears and then immediately
+                // reports a hit.
+                let reach = ae::Vec2::splat(bolt.radius) + kin.size * 0.5;
                 let offset = (kin.pos - bolt.pos).abs();
-                offset.x <= bolt.radius + 16.0 && offset.y <= bolt.radius + 24.0
+                offset.x <= reach.x && offset.y <= reach.y
             });
             if !still_inside {
                 bolt.clear_of_caster = true;
             }
         }
         for (body, mut kin, seat) in &mut bodies {
+            // ⛔⛔ THE BODY'S OWN HALF-SIZE, NOT A NUMBER I PICKED. This read
+            // `bolt.radius + 16.0 / + 24.0` — two constants approximating a
+            // fighter's extent, on a component that CARRIES that extent. ⇒ A
+            // bigger or smaller fighter got a contact box sized for somebody
+            // else, and nothing would ever have said so.
+            //
+            // ⭐ THE GENERAL SHAPE, named by a peer reviewing the spring: TWO
+            // THINGS AGREE ON A POSITION AND DISAGREE ON A TOLERANCE. The
+            // emitter's offset is authored per move; the consumer's radius was
+            // invented here. That is the same defect as the spawn-point one,
+            // one level up.
+            let reach = ae::Vec2::splat(bolt.radius) + kin.size * 0.5;
             let offset = (kin.pos - bolt.pos).abs();
-            if offset.x > bolt.radius + 16.0 || offset.y > bolt.radius + 24.0 {
+            if offset.x > reach.x || offset.y > reach.y {
                 continue;
             }
             if seat.0 == bolt.owner_seat {

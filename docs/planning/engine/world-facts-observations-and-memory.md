@@ -25,9 +25,27 @@ and the open question is which of its rows a rule can READ.** The page's
 "Candidate crate" section says *"do not begin with a universal key-value fact
 database; prefer typed domain facts"*, and that is already what shipped: the save
 holds **thirteen** typed fact families, not a string map. ⚠ `AmbitionGameSaveData`
-has FOURTEEN `pub` fields; `version` is schema metadata rather than a fact, which
+has FOURTEEN fields; `version` is schema metadata rather than a fact, which
 is the one exclusion — said here so a recount reads as agreement instead of a
-correction. **TEN published conditions read SEVEN of them** (⚠ this sentence has been
+correction.
+
+⭐⭐ **AND THE FIELDS ARE SEALED SINCE 2026-09-05: `pub(crate)` behind readers
+and named setters, so NO OTHER CRATE CAN WRITE A DURABLE FACT BY ASSIGNMENT.**
+Six families already had getter/setter pairs; seven (`items`, `wallet`,
+`inventory_saved`, `checkpoint`, `occurrences`, `custody`, `minted_items`) were
+reached by raw field access and now have them. ⇒ **this is why
+`scripts/durable_fact_writers.py` can answer its question at all.** The census
+exists to say who writes a durable fact; before the seal the honest answer was
+"anyone, by assignment, under any variable name", and the census was a
+best-effort grep. A write is now a named method call.
+⛔ The seal immediately caught a bypass a grep never would: a rollback test was
+doing `.flags.push(PersistedFlag::new(..))`, appending a raw row instead of
+`set_flag` — the one road that cannot duplicate an id.
+⚠ Two setters PAIR fields that are one fact and could not be paired as fields:
+`set_inventory` also sets `inventory_saved` (a save recording items without
+recording that it did reads as FRESH on the next load), and
+`set_durable_horizon` writes occurrences with custody (a custody row whose
+occurrence row is missing names nothing). **TEN published conditions read SEVEN of them** (⚠ this sentence has been
 re-measured three times in one day — six reading four, then nine reading six,
 now ten reading seven as `wallet.can_afford` landed. ⇒ Re-run
 `scripts/authored_route_gates.py` rather than quoting it; the counts here are

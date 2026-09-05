@@ -75,6 +75,19 @@ pub(crate) fn author(_id: &str, definition: CharacterDefinition) -> CharacterDef
             smash_duelist: true,
             ..Default::default()
         })
+        // ⭐⭐ JON'S DESIGN, 2026-09-05: *"PCA needs to shoot a glider."* ⇒ THIS
+        // IS THAT, and the attribution lives here because the request was
+        // SATISFIED and UNRECORDED — a polish pass could have swapped this
+        // ranged action for something else without ever learning that the
+        // maintainer asked for it by name.
+        //
+        // ⚠ AND IT IS THE RANGED ACTION, NOT THE SIDE-B, DELIBERATELY. The
+        // automaton's `glider_launch` special DISPLACES it rather than spawning a
+        // second one — *"a second spawner here would be two authorities on one
+        // pattern"* — so the button that shoots a glider is the ranged one. If
+        // the intent was the SPECIAL, this comment is where somebody should
+        // notice the difference and say so.
+        //
         // the glider — a cellular-automaton spaceship as the
         // zoning tool. The projectile is a functional `Rock`; the Conway
         // glider is chosen by the authored visual id below, which the

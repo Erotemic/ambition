@@ -5199,7 +5199,34 @@ OPTIONAL dep + feature, never used:
   the 170 call sites above are really 90, `ambition_render` alone. ⭐ The two
   lists are now equal: all 19 arrive through the monolith alone, so no facade
   cut removes any of them, which makes the honest acceptance above stronger
-  rather than weaker. Guarded by
+  rather than weaker.
+  ✔ **RE-DERIVED LIVE 2026-09-04 — the CLAIM holds and the NUMBER is stale: it
+  is 23, not 19.** Measured rather than recalled, and by SET equality rather than
+  by comparing two counts: `never_asked_for` and
+  `reachable_via_ambition_platformer2d_actor_monolith_alone` are the **same 23
+  crates**, and `reachable_only_through_the_facade` is exactly one —
+  `ambition_render`. ⇒ *"No facade cut removes any of them"* is confirmed; the
+  four that joined since 19 are the carves that landed in between.
+  ⭐ The row's own classification holds where it would have been easiest to get
+  wrong: `ambition_sprite_fx` is the ONE recorded arrival that is **not** in
+  `never_asked_for`, exactly as this row claims — a movement-only game draws
+  sprites.
+  ⭐⭐ **AND THE SERIES HAS A PROPERTY THIS ROW ANNOTATES CASE BY CASE WITHOUT
+  NAMING: THE METRIC MOVES IN OPPOSITE DIRECTIONS FOR THE TWO ARCHITECTURAL
+  AXES.** A **carve** raises it — the domain was always linked inside the
+  monolith, and extraction makes it a visible crate in the closure while changing
+  not one byte of what a movement-only game compiles. Making a domain
+  **optional** lowers it. ⇒ **So the LEVEL is not readable as progress or
+  regression in either direction; only a CLASSIFIED delta means anything** —
+  which is exactly why this row has had to gloss every rise since 45/18 with
+  *"do not read the series as regression"*. ⓘ Measured: **9 of the 23** are
+  crates the baseline itself records ARRIVING (`abilities`, `body_seed`,
+  `damage`, `encounter_features`, `held_items`, `match`, `mount`,
+  `registry_core`, `world_items`). ⇒ **The two-dimensions rule showing up inside
+  the composability metric itself**, and the strongest argument on this page for
+  the roadmap's new requirement that a slice say which axis it moved: a run of
+  carves drives this number UP while doing exactly the work the program asks
+  for. Guarded by
   `scripts/tests/test_capability_footprint_baseline_is_coherent.py` — the
   ratchet only ever looked for crates ENTERING.
 - ✔ **`string_id!` was defined THREE times; it is written once now.** Fixed by

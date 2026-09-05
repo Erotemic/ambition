@@ -3999,9 +3999,17 @@ pub fn dispatch_move_events(
 /// volume is the authority. A body with no live move has its projected swing cleared (its cooldown
 /// floors still tick in `tick_body_melee_cooldowns`).
 ///
-/// Runs AFTER `advance_move_playback` (so `t` is current). It is the SOLE writer
-/// of a `MovesetMelee` body's swing — there is no flat melee driver competing for
-/// it anymore.
+/// Runs AFTER `advance_move_playback` (so `t` is current). It is the sole writer
+/// of a `MovesetMelee` body's swing DURING LIVE SIMULATION — there is no flat
+/// melee driver competing for it anymore.
+///
+/// ⚠ "SOLE WRITER" USED TO BE UNQUALIFIED HERE AND WAS FALSE — corrected
+/// 2026-09-05. `BodyMelee` is rollback-registered (`actor.body_melee`) and its
+/// `SnapshotState::decode` rebuilds `swing` wholesale from the wire, so the
+/// CODEC writes it on every rewind. A codec assembles a struct literal, which is
+/// why no grep for `swing =` can see it and why the original claim survived
+/// review. ⇒ The honest scope is "on a live entity"; the restore is the other
+/// writer and it is meant to be.
 pub fn project_moveset_melee_to_body_melee(
     mut bodies: Query<
         (Option<&MovePlayback>, Option<&ActorMoveset>, &mut BodyMelee),

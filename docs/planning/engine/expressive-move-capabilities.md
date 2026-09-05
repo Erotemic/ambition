@@ -211,6 +211,23 @@ rollback-registered type is suspect until `snapshot_impls` has been read.** I
 have written several such comments in the combat crates and I am not claiming to
 have audited them; the honest form is *"the only writer OUTSIDE the codec"*.
 
+✔ **AUDITED, AND IT FOUND ONE — 2026-09-05, in one command.** Toothbrush's
+triage is `git grep -l 'impl SnapshotState'`, which names the types whose fields
+a codec writes; in this lane that is `BodyCombat`, `ActorPose`, `SmashHoldState`,
+`MovePlayback` and `BodyMelee`. Checking the sole-writer comments about those
+types turned up exactly one false claim:
+`project_moveset_melee_to_body_melee` said it was **"the SOLE writer of a
+`MovesetMelee` body's swing"**, unqualified. `BodyMelee::decode` rebuilds `swing`
+wholesale from the wire on every rewind. ⇒ Corrected to "during live simulation";
+the restore is the other writer and is meant to be.
+
+⭐ **Two phrasings survive the check and they mean different things** (Toothbrush's
+distinction): *"the only writer on a live entity"* when the other writer is a
+constructor or a restore, and *"the only writer outside the codec"* when the
+codec genuinely rebuilds it. ⛔ And do not reach for `private` on a field the
+codec must rebuild — `snapshot_impls` is usually a SIBLING module, so private
+breaks it; `pub(crate)` is the honest seal.
+
 ⭐ **The boundary, checked rather than assumed:** the caution does NOT reach
 MESSAGE publications. A message is registered with `clear_message_on_rollback`,
 which clears a buffer; no codec constructs one, and

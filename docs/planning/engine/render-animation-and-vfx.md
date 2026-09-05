@@ -139,15 +139,25 @@ near-side actor would vanish behind the aperture. And do NOT mutate an actor's
 single z per frame — **one body can be NEAR one pane and FAR of another in the
 same frame**, and one entity z cannot say both.
 
-✔ **BOTH WRONG FIXES ARE NOW GUARDED, and the guards landed before the repair
-they constrain.** `the_portal_band_stays_below_the_actor_band`
-(`ambition_render::rendering::primitives`) fails if `PORTAL_WINDOW_Z` is raised,
-naming the inversion and pointing at `pane_relation`; the two-pane relation test
-fails any implementation that stores one ordering per actor. ⭐ `ambition_render`
-is the only crate that can see BOTH bands — core guards its own order and cannot
-see the portal constants, the portal crate cannot see the `+ 1.0` that puts an
-actor above `WORLD_Z_DUMMY` — so the relationship the portal docs assert had
-never been checkable from either side.
+✔ **BOTH WRONG FIXES ARE NOW GUARDED, IN THE DEFAULT LANE, and the guards landed
+before the repair they constrain.** Raising `PORTAL_WINDOW_Z` fails
+`the_portal_band_stays_at_or_below_the_shared_world_datum`, naming the inversion
+and pointing at `pane_relation`; the two-pane relation test fails any
+implementation that stores one ordering per actor.
+
+⛔⛔ **AND THE FIRST VERSION OF THE BAND GUARD DID NOT RUN.** I put it in
+`ambition_render` — the only crate that can see both bands — behind
+`#[cfg(feature = "portal_render")]`, and that crate declares `default = []`, so
+it executed only under `--run-everything`. The gated-test ledger going 447 → 449
+is what caught it. **A guard that stops a two-line wrong fix is worthless if it
+does not run in the plan the person making that fix will run.**
+
+⭐ **Fixed by splitting the claim on a shared term rather than adding a feature.**
+Both crates already depend on `ambition_platformer2d_core`, so portal
+presentation pins `portal band <= WORLD_Z_DUMMY` and render pins
+`WORLD_Z_DUMMY < actor draw z`; together the same claim, with no optional feature
+on either side. ⇒ It only LOOKED cross-crate because I phrased it in terms of the
+actor z rather than the datum underneath both.
 
 ✔ **DONE: the shared authority.** `compositing::pane_relation(pane, viewer,
 drawable, transiting)` → `Disjoint | NearOccluder | FarCovered | Transiting`,

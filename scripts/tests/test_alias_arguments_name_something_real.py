@@ -140,3 +140,37 @@ def test_every_quest_active_argument_names_a_real_quest() -> None:
         "authored dialogue asks about quests the roster does not define:\n  "
         + "\n  ".join(f"{n}  (in {', '.join(sorted(set(asked[n])))})" for n in unknown)
     )
+
+
+def test_the_route_gate_census_runs_clean_against_the_live_tree():
+    """⛔ `authored_route_gates.py` RETURNS 1 when a world cannot be read, and
+    nothing was reading that.
+
+    Its own message says why the exit code matters: *"N world(s) could not be
+    READ, so the counts above are incomplete and describe only what answered"* —
+    a census that reports a partial scan and exits 0 publishes a denominator
+    nobody can trust. That is the same shape as the durable-fact census printing
+    "read them if non-zero" beside `exit 0`, and it had the same cause: the
+    contract existed and no lane read it.
+
+    ⇒ This arm runs the script (~0.7 s), so an unreadable world fails a lane
+    rather than printing a caveat into a terminal somebody has already stopped
+    reading.
+    """
+    import subprocess
+    import sys as _sys
+
+    proc = subprocess.run(
+        [_sys.executable, str(REPO / "scripts/authored_route_gates.py")],
+        capture_output=True,
+        text=True,
+        cwd=REPO,
+    )
+    assert proc.returncode == 0, (
+        "the authored route-gate census could not read part of the world set, so "
+        "its authored-use counts are incomplete:\n" + proc.stdout[-2000:]
+    )
+    assert "TOTAL authored uses of the condition vocabulary:" in proc.stdout, (
+        "the census produced no total — it may have failed before walking the "
+        "corpus, which the exit code alone would not distinguish"
+    )

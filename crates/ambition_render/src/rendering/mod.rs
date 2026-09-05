@@ -18,6 +18,8 @@ mod camera;
 pub mod debug_viz;
 pub mod deferred_write_safety;
 pub mod dizzy_stars;
+#[cfg(feature = "portal_render")]
+pub mod portal_compositing;
 mod features;
 pub mod flyline;
 pub mod tether;

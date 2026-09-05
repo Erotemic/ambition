@@ -62,6 +62,22 @@ impl Plugin for SessionRoomVisualsPlugin {
         );
         // The composition that spawns blocks also applies authored per-block art overrides.
         app.add_systems(Update, crate::rendering::apply_block_art);
+        // ⭐ THE HOST TELLS PORTAL PRESENTATION WHAT IT DRAWS. That crate's body
+        // seams are the ONE decomposed scene body and the affordance body, so an
+        // ordinary NPC behind an aperture is invisible to it while this crate
+        // draws it above every pane.
+        //
+        // ⚠ GATED ON A PORTAL EXISTING, so a room with none does no work at all:
+        // this writes a component per drawable per frame, and paying that in
+        // every portal-free room would be a cost with no reader.
+        #[cfg(feature = "portal_render")]
+        app.add_systems(
+            Update,
+            crate::rendering::portal_compositing::publish_portal_compositing_candidates
+                .run_if(bevy::prelude::any_with_component::<
+                    ambition_portal2d_presentation::PlacedPortal,
+                >),
+        );
         // The layer-spawning composition owns active-room theme loading and the refresh that
         // materializes newly available/quality-changed parallax assets.
         app.add_systems(

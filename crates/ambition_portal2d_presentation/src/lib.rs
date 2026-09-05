@@ -35,6 +35,13 @@ pub use clip_material::{
     clip_piece_transform, clip_plane_render, sprite_frame_basis, PortalClipMaterial,
     SpriteFrameBasis, CLIP_PLANE_OFF,
 };
+/// ⭐ RE-EXPORTED FOR HOSTS, not for convenience. A host composing portal
+/// presentation must be able to say "run this only when a portal exists", and
+/// every public system in this crate already queries the type — so the alternative
+/// was a NEW DEPENDENCY EDGE from the renderer to `ambition_portal2d` purely to
+/// name a `run_if` condition. One re-export costs nothing; an edge is priced by
+/// the compile ratchet forever.
+pub use ambition_portal2d::PlacedPortal;
 pub use compositing::{current_z_policy_is_correct_for, pane_relation, PaneRelation};
 pub use effects::{PortalEffectSelection, PortalVisualEffect};
 pub use gun_visuals::{sync_portal_mode_indicator, PortalModeIndicator};

@@ -631,6 +631,45 @@ language.
   bodies at all is a different question and this does not touch it.
 - Can an item temporarily satisfy a capability requirement without becoming a
   body capability?
+  ⭐⭐ **THE ANSWER IS ALREADY STATED IN THE CODE'S OWN CONTRACT, and the
+  structure to do it ships. Measured 2026-09-05.** `AbilityBase`
+  (`platformer2d_core/src/body_clusters.rs:124`) is the intrinsic set and
+  `BodyAbilities` the effective one, and the doc states the derivation:
+
+  > `effective = base ∩ session_mask` (∪ gear/upgrades once those land)
+
+  ⇒ So yes — an item contributes to the EFFECTIVE set without touching the base,
+  which is exactly *"satisfies the requirement without becoming a body
+  capability"*. The two-layer split already exists and already earns its keep:
+  the F3 dev mask gates a verb off without destroying the authored kit.
+
+  ⛔⛔ **BUT THAT FORMULA HAS THREE AUTHORITIES AND ONLY ONE OF THEM IS THE
+  FORMULA.** Nothing computes it; two systems each restate a PIECE of it by
+  writing `BodyAbilities` directly:
+
+  - the F3 re-sync (`ambition_dev_tools/src/lib.rs:68`) — primary-only, applies
+    `base ∩ mask` every frame;
+  - `restore_wall_abilities_after_transit`
+    (`ambition_content/src/portal/ability_adapter.rs:83`) — writes
+    `effective.wall_verbs = base.wall_verbs` for four verbs, for every body,
+    *"restoring from the BASE (not a saved copy) keeps this stateless"*.
+
+  ⇒ **The day a gear term lands, the portal restore silently erases it.** It
+  implements `effective = base`, not `effective = base ∩ mask ∪ gear`, so a
+  transit would strip an item-granted `wall_climb` and nothing would report it —
+  the player would simply stop being able to climb after using a portal.
+  ⚠ And the pair is ALREADY reconciled by a sync rather than by structure: the
+  restore's own comment says *"if a session mask also gates one of these verbs
+  off for the primary, the F3 re-sync re-applies the mask on the next frame"* —
+  a one-frame window where the mask is wrong, guarded by nothing.
+
+  ⇒ ⭐ **The elegant precondition to answering this question is to make the
+  derivation a FUNCTION every writer calls** — `effective(base, mask, gear)` —
+  rather than a sentence in a doc comment that three places re-implement. That
+  removes a restatement which exists TODAY (two writers, no gear needed to
+  justify it) and makes the gear term impossible to forget rather than a thing
+  the next author must remember to add in every writer. That is the change to
+  make BEFORE gear, not after.
 - How expressive should compound requirements be before they become an
   accidental scripting language?
   ⛔⛔ **NO LONGER PURELY HYPOTHETICAL — a ruling now DEPENDS on an answer that

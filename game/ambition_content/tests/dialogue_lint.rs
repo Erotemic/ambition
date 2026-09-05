@@ -346,6 +346,76 @@ mod tests {
         );
     }
 
+    /// ⛔⛔ EVERY AUTHORED ITEM ID MUST RESOLVE, and the resolver is asked
+    /// rather than re-implemented.
+    ///
+    /// `<<give_item "sealednote" 1>>`, `<<buy_item "axe" 25>>` and
+    /// `condition("inventory.holds", "gunsword")` all pass an author-typed
+    /// string. `Item::from_dialog_id` is the single owner of loose spelling —
+    /// it accepts `HealthPotion`, `health_potion` and `healthcell` alike — so a
+    /// misspelling is not a compile error and not a Yarn error. The command
+    /// `warn!`s and returns; the condition answers `Unanswerable`, which
+    /// collapses to false. ⇒ Either way the line silently does nothing.
+    ///
+    /// ⭐ THIS CALLS `Item::from_dialog_id` INSTEAD OF LISTING THE ITEMS. A
+    /// hand-kept table of valid spellings would be a second authority on
+    /// normalisation and would drift the first time an alias is added — the
+    /// exact defect `normalize_item_id` was deleted for, which was a second copy
+    /// of that logic that agreed until it did not.
+    #[test]
+    fn every_authored_item_id_resolves_to_a_real_item() {
+        use ambition_items::Item;
+
+        let mut files = Vec::new();
+        yarn_files(&dialogue_root(), &mut files);
+        let mut asked: Vec<(String, usize, String)> = Vec::new();
+        for path in &files {
+            let text = std::fs::read_to_string(path).expect("authored dialogue is readable");
+            let name = path
+                .file_name()
+                .and_then(|n| n.to_str())
+                .unwrap_or("<unnamed>")
+                .to_string();
+            for (index, line) in text.split('\n').enumerate() {
+                for verb in ["give_item ", "buy_item ", "sell_item "] {
+                    if let Some(rest) = line.split_once(verb) {
+                        if let Some(id) = rest.1.split('"').nth(1) {
+                            asked.push((name.clone(), index + 1, id.to_string()));
+                        }
+                    }
+                }
+                if let Some(rest) = line.split_once("inventory.holds\"") {
+                    if let Some(id) = rest.1.split('"').nth(1) {
+                        asked.push((name.clone(), index + 1, id.to_string()));
+                    }
+                }
+            }
+        }
+
+        // ⛔ A FLOOR ABOVE THE LARGEST SINGLE FILE: `kernel.yarn` alone supplies
+        // most of these, so a floor of 1 would survive losing every other file.
+        assert!(
+            asked.len() >= 15,
+            "only {} authored item id(s) parsed across {} .yarn file(s) — the \
+             command grammar this reads has changed, and an empty walk cannot fail",
+            asked.len(),
+            files.len()
+        );
+
+        let unresolved: Vec<String> = asked
+            .iter()
+            .filter(|(_, _, id)| Item::from_dialog_id(id).is_none())
+            .map(|(file, line, id)| format!("{file}:{line}: `{id}`"))
+            .collect();
+        assert!(
+            unresolved.is_empty(),
+            "authored dialogue names items no catalog spelling resolves, so those \
+             lines silently do nothing — a command `warn!`s and returns, a \
+             condition answers unanswerable and the branch stays shut:\n  {}",
+            unresolved.join("\n  ")
+        );
+    }
+
     #[test]
     fn count_args_is_quote_aware() {
         assert_eq!(count_args(""), 0);

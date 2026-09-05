@@ -40,7 +40,7 @@ dated, not live):
 | `items` | ✔ `inventory.holds` |
 | `occurrences` / `custody` | ✔ `custody.is_held` |
 | `encounters` | ✔ `encounter.cleared` (published 2026-09-04) |
-| `bosses` | ✔ `boss.cleared` (published 2026-09-04, retiring a mirror slice) |
+| `bosses` | ◐ `boss.cleared` published 2026-09-04, retiring a mirror slice — ⛔ **but its five authored callers can NEVER be true**: they pass the BEHAVIOUR id while the save is keyed by PLACEMENT ([question 57](../awaiting-maintainer-decision.md)). Published, authored, and unreachable |
 | `quests` | ✔ `quest.active` (published 2026-09-04, retiring a mirror slice — and the first condition published by the GAME) |
 | `wallet` | ✔ `wallet.can_afford` (published 2026-09-04, retiring the mirror's LARGEST customer — ten authored shop lines) |
 | `dialog_visits`, `checkpoint`, `minted_items`, `inventory_saved` | ⛔ nothing publishes a condition |

@@ -104,6 +104,27 @@ on plain defaults prints them. ⇒ The real cause is **workspace feature
 unification**: `reveal_full_line`, `reveal_full_options`, `select_delta`,
 `select_delta_clamped`, `confirm_or_advance` and `reveal_full` are live when the
 crate is built as part of the workspace graph and dead when it is built ALONE.
+⭐⭐ **A SEPARATE CLASS, swept 2026-09-05: AN EXIT CODE NOTHING READS.** Two
+censuses already returned 1 on a bad scan and no lane looked —
+`durable_fact_writers.py` when it cannot close a `#[cfg(test)]` item, and
+`authored_route_gates.py` when a world cannot be read (*"the counts above are
+incomplete and describe only what answered"*). Both are now run by the
+repo-tooling lane (2.1 s and 0.7 s), poison-verified in both directions, and both
+arms assert the REPORT TEXT as well as the exit code — a script that fails before
+scanning can exit 0, and "no output" must not read as "clean".
+⇒ **The pattern: an instrument written to REPORT grows a pass/fail contract
+later, and nothing goes back to wire it up.**
+⚠ **SWEPT BEFORE GENERALISING, and the fix is correctly scoped rather than a
+policy: 7 of 38 scripts with a `return 1` have no lane reading it, and all seven
+are right as they are** — `asset_pacer_ab_report`, `audit_git_media_history`,
+`non_ecs_inventory`, `probe_dead_public_fns`, `regen_music_registry`,
+`render_line_profiles`, `sim_scaling_curve`. Every one is a manual tool, report
+or regen.
+⇒ ⭐ **The distinction that decides it: wire an exit code that means "MY OUTPUT IS
+NOT TRUSTWORTHY", never one that means "this invocation failed".** A CLI
+returning 1 because its arguments were wrong needs no lane; a census that can
+silently publish an incomplete denominator does.
+
 ⛔⛔ **AND A THIRD BLIND SPOT, measured 2026-09-05: THE TARGET.** The gate runs
 `cargo check --all-targets` on the HOST and says so in its own success line —
 *"compiled with no warnings, under DEFAULT features"* — so a warning that exists

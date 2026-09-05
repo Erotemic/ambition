@@ -308,20 +308,59 @@ pub fn ninja_shadow_oni_leader_moveset() -> MovesetContract {
     // instantly."* He plants a seal and the ring closes on it: no displacement,
     // no reach, and the longest tail he owns. The order is given; standing there
     // while it is obeyed is the cost.
-    let down_b = strike(Strike {
-        id: "command_seal",
-        clip: "attack_down",
-        startup_s: 0.06,
-        active_s: 0.05,
-        recover_s: 0.36,
-        offset: (0.0, 6.0),
-        half_extents: (38.0, 26.0),
-        damage: 10,
-        knockback: 98.0,
-        knockback_growth: 1.75,
-        launch_dir: Some((0.65, -0.70)),
-        on_hit: None,
-    });
+    // ⭐⭐ AND IT IS NOW ACTUALLY A COUNTER, which is not a redesign — it is the
+    // move finally being what its own presentation has always said it is. Every
+    // cue below was authored for a counter and kept beneath a plain strike: a
+    // `counter_ring` at 0.06s and `faction.ninja.parry_flash` on the same frame.
+    // ⇒ The art and the audio announced a parry and the mechanics were a
+    // damage-10 poke. Same class as prose describing code that is not there,
+    // except the reader is the PLAYER, who was being told the wrong thing about
+    // a move every time it came out.
+    //
+    // ⭐ THE ANSWER IS SMOKE. `smash.sleep` is the Performer's engine and this
+    // is its second customer with a completely unrelated fiction: she holds the
+    // room with her voice, he drops a smoke seal and you wake up on the floor.
+    // ⇒ Distinct from both counters already on the roster — George's answers
+    // with a GRAB, the Author's with an ambush TELEPORT — which is the point of
+    // the response being an arbitrary technique rather than a fixed reaction.
+    //
+    // ⛔ SHORT SLEEP, AND THE REASON IS THE GUARANTEE. The Performer earns 1.4s
+    // by standing next to somebody while rooted for 0.6s; this is handed over by
+    // a successful parry, which is already a full punish. Half her duration is
+    // still a free smash and does not read as a stun-lock.
+    let down_b = ambition_characters::smash_counter::counter_move(
+        "command_seal",
+        "attack_down",
+        // His original 0.06s tell, kept: *"a leader's hardest order is the one
+        // obeyed instantly."*
+        0.06,
+        // ⭐ THE STANCE IS THE OLD ACTIVE WINDOW, DOUBLED. A 0.05s hitbox is a
+        // poke; a 0.05s parry window is unusable — it is three frames at 60Hz
+        // and the reads it would demand are not reads, they are guesses.
+        0.10,
+        0.36,
+        ambition_characters::smash_counter::CounterParams {
+            // A heartbeat, not a duration: `parry_window_timer` decays and the
+            // stance re-arms it every live frame.
+            window_s: 0.05,
+            response: ambition_characters::smash_sleep::SLEEP.to_string(),
+            response_params: ambition_platformer2d::entity_catalog::ParamValue::from_typed(
+                &ambition_characters::smash_sleep::SleepParams {
+                    duration_s: 0.7,
+                    // Tight and centred on the seal: the smoke catches whoever
+                    // was close enough to swing at him, which by construction is
+                    // whoever he just parried.
+                    half_extents: (34.0, 26.0),
+                },
+            )
+            .expect("the seal's sleep params serialize"),
+            // ⛔ HE SWALLOWS SHOTS. A ninja who returned them would be reflecting
+            // with a smoke bomb, and the roster's reflector is already George's
+            // riposte — stated here rather than defaulted so the choice is
+            // visible at both ends.
+            absorbs_projectiles: true,
+        },
+    );
     let down_b = committed_tail(down_b, 0.70, 0.0);
     let down_b = vfx_at(down_b, 0.0, "command_seal", (0.0, 10.0), 1.0);
     let down_b = sfx(down_b, 0.0, "enemy.shadow_oni.alert");
@@ -631,6 +670,100 @@ mod tests {
              and the price is paid at the other end",
             recovery(&o),
             recovery(&a)
+        );
+    }
+
+    /// ⛔⛔ THE SEAL IS A COUNTER, AND ITS OWN ART SAID SO FIRST. `counter_ring`
+    /// and `faction.ninja.parry_flash` were authored on this move while it was a
+    /// damage-10 poke — the presentation announced a parry the mechanics did not
+    /// have, which is the player being told the wrong thing every time it came
+    /// out. ⇒ This test holds BOTH halves together: it is a counter now, and it
+    /// still wears the cues that always claimed it was one.
+    #[test]
+    fn the_command_seal_parries_and_keeps_the_cues_that_always_said_so() {
+        let set = ninja_shadow_oni_leader_moveset();
+        let seal = find(&set, "command_seal");
+
+        let params: ambition_platformer2d::characters::smash_counter::CounterParams = seal
+            .windows
+            .iter()
+            .filter_map(|window| window.sustain_effect.as_ref())
+            .find(|effect| {
+                effect.key == ambition_platformer2d::characters::smash_counter::COUNTER
+            })
+            .expect("the seal holds a counter stance")
+            .params
+            .hydrate()
+            .expect("counter params hydrate");
+
+        // ⛔ AND IT NO LONGER POKES. A counter that also swung would put its own
+        // strike into the set of things its parry can catch.
+        assert!(
+            !seal
+                .windows
+                .iter()
+                .flat_map(|w| w.volumes.iter())
+                .any(|v| v.damage > 0),
+            "the seal still carries a damaging volume, so it is a strike wearing \
+             a parry ring"
+        );
+
+        // ⭐ THE ANSWER IS SMOKE, not a grab (George's) and not a teleport
+        // (the Author's). The response being an arbitrary technique is the whole
+        // reason three counters on one roster are three different moves.
+        assert_eq!(
+            params.response,
+            ambition_platformer2d::characters::smash_sleep::SLEEP,
+            "the seal must answer with the sleep pulse"
+        );
+        let sleep: ambition_platformer2d::characters::smash_sleep::SleepParams =
+            params.response_params.hydrate().expect("sleep params hydrate");
+
+        // ⛔ SHORTER THAN THE PERFORMER'S, and the comparison is the point rather
+        // than the number: she EARNS 1.4s by standing next to somebody while
+        // rooted, and this is handed over by a successful parry, which is already
+        // a full punish. A guaranteed sleep must not also be the longest one.
+        let monologue = crate::performer_moveset::performer_moveset();
+        let hers: ambition_platformer2d::characters::smash_sleep::SleepParams = monologue
+            .moves
+            .iter()
+            .find(|m| m.id == "performer_monologue")
+            .expect("her neutral special")
+            .events
+            .iter()
+            .find_map(|event| match &event.kind {
+                ambition_platformer2d::entity_catalog::MoveEventKind::Effect(effect)
+                    if effect.key == ambition_platformer2d::characters::smash_sleep::SLEEP =>
+                {
+                    effect.params.hydrate().ok()
+                }
+                _ => None,
+            })
+            .expect("she sings");
+        assert!(
+            sleep.duration_s < hers.duration_s,
+            "the ninja's guaranteed sleep ({}s) outlasts the Performer's earned \
+             one ({}s)",
+            sleep.duration_s,
+            hers.duration_s,
+        );
+
+        // ⭐ AND THE CUES SURVIVED. If the conversion had dropped them, the move
+        // would have become a counter that no longer looks like one — trading one
+        // half of the mismatch for the other.
+        let cues: Vec<&str> = seal
+            .events
+            .iter()
+            .filter_map(|event| match &event.kind {
+                ambition_platformer2d::entity_catalog::MoveEventKind::Vfx { effect, .. } => {
+                    Some(effect.as_str())
+                }
+                _ => None,
+            })
+            .collect();
+        assert!(
+            cues.contains(&"counter_ring"),
+            "the parry ring is gone: {cues:?}"
         );
     }
 }

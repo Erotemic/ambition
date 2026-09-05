@@ -360,6 +360,31 @@ needs a new capability" is a claim, and the cheapest way to test it is to build
 the row.** Two of the three capability gaps this campaign predicted turned out to
 be already-shipped authorities under a name I had not searched for.
 
+### ⭐⭐ A COUNTER IS NOT A MOVE TYPE — THREE ON ONE ROSTER, THREE DIFFERENT MOVES
+
+`answer_a_parry_with_the_authored_counter` dispatches
+`SpecialActionSpec::Special(stance.response.clone())`. The response is an
+ARBITRARY TECHNIQUE, so "counter" is a trigger, not a reaction:
+
+| fighter | answers a parry with | reads as |
+|---|---|---|
+| George (stand-in) | `smash.capture_attempt` | a riposte into a grab; reflects shots |
+| the Author | `smash.teleport`, **ambush mode** | you commit, and he is behind you; absorbs shots |
+| the Shadow Oni | `smash.sleep` | a smoke seal — you wake up on the floor; absorbs shots |
+
+⇒ **None of these needed engine work, and no two of them feel alike.** That is the
+campaign's thesis at its cheapest: the composition seam was already there, and
+what the roster lacked was somebody spending it.
+
+⛔⛔ **AND THE NINJA'S WAS ALREADY DRESSED AS A COUNTER.** `command_seal` carried
+a `counter_ring` effect and a `faction.ninja.parry_flash` sound on top of a plain
+damage-10 poke. ⇒ **The presentation announced a parry the mechanics did not
+have** — the same class as prose describing code that is not there, except the
+reader is the PLAYER, who was told the wrong thing every time the move came out.
+Converting it was not a redesign; it was the move becoming what it already looked
+like. ⚠ The guard holds both halves: it is a counter now, AND it still wears the
+cues that always claimed it was one.
+
 ### ⭐⭐ THE CENSUS PAID FOR ITSELF TWICE — TWO MOVES, ZERO ENGINE WORK
 
 Running the "what is built and unused" query as a JOIN rather than a list turned

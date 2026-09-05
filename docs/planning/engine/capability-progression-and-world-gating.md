@@ -688,7 +688,8 @@ language.
   FORMULA.** Nothing computes it; two systems each restate a PIECE of it by
   writing `BodyAbilities` directly:
 
-  - the F3 re-sync (`ambition_dev_tools/src/lib.rs:68`) — primary-only, applies
+  - the F3 re-sync (`crates/ambition_dev_tools/src/lib.rs:90`, the `intersect`
+    itself; the system is `sync_live_player_dev_edits_system` at `:61`) — primary-only, applies
     `base ∩ mask` every frame;
   - `restore_wall_abilities_after_transit`
     (`ambition_content/src/portal/ability_adapter.rs:83`) — writes

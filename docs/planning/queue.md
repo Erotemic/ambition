@@ -3650,6 +3650,16 @@ OPTIONAL dep + feature, never used:
 
 - ▢ **POST-CARVE: SWEEP THE DOCS FOR PROSE LOCATIONS, because the citation
   checker is STRUCTURALLY BLIND TO THEM.** (Found 2026-09-03.)
+  ⚠ **A THIRD FAILURE MODE, committed by me on 2026-09-05 and caught by
+  re-reading rather than by any tool: a citation whose FILE is right and whose
+  LINE points at nothing relevant.** I wrote `ambition_dev_tools/src/lib.rs:68`
+  for *"the F3 re-sync applies `base ∩ mask`"*. Line 68 is a `Query<` parameter;
+  the `intersect` is at `:90` and the system starts at `:61`. ⇒ The citation
+  checker RESOLVED it — the file exists and is unambiguous — so it passed every
+  gate while showing a reader nothing. **`file:line` is only as good as the line,
+  and nothing in this repo checks the line.** The cheap discipline: cite the line
+  you actually READ to make the claim, not the line your grep happened to land
+  on.
   ✔ **SWEPT FOR THE `ambition_abilities` CARVE, 2026-09-04, AND NOTHING WAS
   STALE — recorded because "nothing changed" is a result the next sweeper should
   not have to re-derive.** The four planning citations that name a traversal

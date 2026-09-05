@@ -815,10 +815,19 @@ pub fn fighter_moveset() -> MovesetContract {
     // would grab through a guard, which is the single most abusable thing a
     // fighting game can ship. `Connected` is the damage road's verdict.
     //
-    // ⚠ THE TIMEOUT IS WHAT MAKES A WHIFF PUNISHABLE. 0.22s of waiting after the
-    // active window is the read: throw this at nothing and you are committed
-    // long enough to be hit for it. Without it the move would simply end, and a
-    // confirm with no downside is not a decision.
+    // ⚠ THE TIMEOUT IS A BOUND ON THE SEQUENCE, NOT THE SOURCE OF THE PUNISH —
+    // corrected 2026-09-05, because the first version of this comment said "0.22s
+    // of waiting AFTER the active window" and the arithmetic does not say that.
+    // The flow's wait starts when the MOVE does, so 0.22s expires 0.08s after the
+    // active window closes (0.09 → 0.14), not 0.22s after it. ⇒ What makes a
+    // whiff punishable is the 0.40s RECOVERY, which is paid either way; the
+    // timeout only stops the flow waiting past the point a connect could still
+    // arrive.
+    //
+    // ⛔ SO THE INVARIANT IS THAT THE WAIT OUTLASTS THE WINDOW IT CONFIRMS. A
+    // timeout shorter than `startup + active` makes the confirm impossible to
+    // land — the flow gives up before the strike can report — and the move would
+    // read as a grab that simply never comes out. Guarded below.
     let mut confirm = strike(Strike {
         id: "read_and_seize",
         clip: "special",
@@ -1586,6 +1595,54 @@ mod hit_confirm_tests {
             emitted,
             vec![ambition_platformer2d::characters::smash_capture::CAPTURE_ATTEMPT],
             "the confirm's payoff is {emitted:?} rather than the grab"
+        );
+    }
+
+    /// The confirm's wait OUTLASTS the window it is confirming.
+    ///
+    /// ⛔⛔ A TIMEOUT SHORTER THAN `startup + active` MAKES THE MOVE IMPOSSIBLE
+    /// TO LAND, and nothing else would say so. The flow gives up before the
+    /// strike can report a connect, so the grab never comes out however cleanly
+    /// the hit landed — which reads in play as a move that is simply broken, and
+    /// in code as four perfectly reasonable numbers.
+    ///
+    /// ⚠ THIS GUARD EXISTS BECAUSE I GOT THE ARITHMETIC WRONG IN PROSE FIRST.
+    /// The comment on the move claimed the timeout gave "0.22s of waiting after
+    /// the active window"; the wait starts at move START, so it expires 0.08s
+    /// after that window, and the whiff punish is really the recovery. A number
+    /// that survives review in a comment is worth pinning as an assertion.
+    #[test]
+    fn the_confirms_wait_outlasts_the_window_it_confirms() {
+        let set = super::fighter_moveset();
+        let id = set.verbs.get("special").expect("a neutral special is bound");
+        let spec = set.moves.iter().find(|m| &m.id == id).expect("it names a move");
+        let flow = spec.flow.as_ref().expect("the confirm authors a flow");
+
+        let timeout = flow
+            .nodes
+            .iter()
+            .find_map(|n| match n {
+                FlowNode::Wait { timeout_s, .. } => Some(*timeout_s),
+                _ => None,
+            })
+            .expect("the confirm waits");
+        // The last moment a strike can still report a connect: the end of the
+        // authored Active window.
+        let active_ends = spec
+            .windows
+            .iter()
+            .filter(|w| matches!(w.tag, ambition_platformer2d::entity_catalog::WindowTag::Active))
+            .map(|w| w.end_s)
+            .fold(0.0_f32, f32::max);
+        assert!(
+            active_ends > 0.0,
+            "the confirm has no Active window, so there is nothing to confirm"
+        );
+        assert!(
+            timeout > active_ends,
+            "the confirm gives up at {timeout}s but its strike stays live until \
+             {active_ends}s — the flow stops waiting before the hit can report, \
+             so the grab never comes out however clean the confirm was"
         );
     }
 

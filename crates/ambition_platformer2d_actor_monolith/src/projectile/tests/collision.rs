@@ -879,3 +879,162 @@ fn an_absorbing_parry_consumes_the_shot_rather_than_returning_it() {
          absorber is a reflector wearing another name"
     );
 }
+
+/// ⛔⛔ AN ABSORBED SHOT STOPS. It does not carry on into the body behind.
+///
+/// `intercept_projectile(.., Consume)` returns `false` to say the projectile did
+/// NOT survive, and `step_projectiles` used to discard that answer and `continue`
+/// the victim loop. The despawn is a DEFERRED command, so the entity is still
+/// live for the rest of the tick: one shot could be swallowed by the nearest
+/// absorber, damage a second body, and -- setting neither `struck` nor
+/// `reflected` -- fall through to boss/breakable/world resolution as well.
+///
+/// ⭐ THE EXISTING ABSORBER TEST CANNOT SEE THIS: it has ONE victim, and
+/// "the projectile is absent afterwards" is equally true of a shot that was
+/// eaten and of a shot that was eaten and then went on hitting things. The
+/// second body is the whole instrument.
+///
+/// ⚠ RUN IN BOTH SPAWN ORDERS, because the victim sweep is ordered by geometry
+/// and a test that only ever spawns the absorber first would pass on a fixture
+/// that happened to visit it first for the wrong reason.
+#[test]
+fn a_shot_swallowed_by_an_absorber_never_reaches_the_body_behind_it() {
+    use ambition_platformer2d_core::BodyShieldState;
+
+    for absorber_first in [true, false] {
+        let world = ae::World::new(
+            "absorb_terminal_test",
+            ae::Vec2::new(2000.0, 2000.0),
+            ae::Vec2::new(200.0, 200.0),
+            Vec::new(),
+        );
+        let mut app = projectile_test_app(world, ae::Vec2::new(200.0, 200.0), 1.0);
+        app.update();
+
+        // The absorber is NEARER the shot's origin, so the geometry-ordered
+        // sweep reaches it first in both spawn orders.
+        let spawn_absorber = |app: &mut App| {
+            app.world_mut()
+                .spawn((
+                    ambition_combat::components::ActorFaction::Enemy,
+                    ae::BodyKinematics {
+                        pos: ae::Vec2::new(500.0, 300.0),
+                        size: ae::Vec2::new(28.0, 46.0),
+                        ..Default::default()
+                    },
+                    ae::CenteredAabb::from_center_size(
+                        ae::Vec2::new(500.0, 300.0),
+                        ae::Vec2::new(28.0, 46.0),
+                    ),
+                    BodyHealth::restored(
+                        ambition_characters::actor::Health::new(100),
+                        0,
+                        default(),
+                    ),
+                    BodyShieldState {
+                        parry_window_timer: 0.20,
+                        absorb_window_timer: 0.20,
+                        ..Default::default()
+                    },
+                ))
+                .id()
+        };
+        // Directly behind, overlapping the same contact region, with no stance
+        // of its own: the body that must NOT be hit.
+        let spawn_bystander = |app: &mut App| {
+            app.world_mut()
+                .spawn((
+                    ambition_combat::components::ActorFaction::Enemy,
+                    ae::BodyKinematics {
+                        pos: ae::Vec2::new(508.0, 300.0),
+                        size: ae::Vec2::new(28.0, 46.0),
+                        ..Default::default()
+                    },
+                    ae::CenteredAabb::from_center_size(
+                        ae::Vec2::new(508.0, 300.0),
+                        ae::Vec2::new(28.0, 46.0),
+                    ),
+                    BodyHealth::restored(
+                        ambition_characters::actor::Health::new(100),
+                        0,
+                        default(),
+                    ),
+                ))
+                .id()
+        };
+
+        let (_absorber, bystander) = if absorber_first {
+            let a = spawn_absorber(&mut app);
+            (a, spawn_bystander(&mut app))
+        } else {
+            let b = spawn_bystander(&mut app);
+            (spawn_absorber(&mut app), b)
+        };
+
+        {
+            let spec = ProjectileKind::Fireball.spec(
+                ae::Vec2::new(470.0, 300.0),
+                ae::Vec2::new(1.0, 0.0),
+                1.0,
+            );
+            let mut body = ambition_projectiles::ProjectileBody::from_spec(spec);
+            body.kin.pos = ae::Vec2::new(495.0, 300.0);
+            body.kin.vel = ae::Vec2::new(60.0, 0.0);
+            crate::projectile::tests::spawn_player_projectile(&mut app, body);
+        }
+        advance_time(&mut app, 0.016);
+        app.update();
+
+        let order = if absorber_first { "absorber first" } else { "bystander first" };
+
+        let surviving = app
+            .world_mut()
+            .query::<&ambition_projectiles::ProjectileGameplay>()
+            .iter(app.world())
+            .count();
+        assert_eq!(
+            surviving, 0,
+            "({order}) the absorbed shot must be gone after the tick"
+        );
+
+        // ⛔ THE OBSERVABLE IS THE EMITTED `HitEvent`, NOT `damage_taken()`.
+        // This fixture registers `HitEvent` as a message and installs only
+        // `apply_feature_hit_events` — nothing applies a BODY hit to health — so
+        // `damage_taken()` is 0 here whatever happens, and asserting on it was a
+        // test that could not fail. Found by poisoning: reverting the fix left
+        // it green, and a control with the absorber removed showed the lone
+        // bystander taking 0 damage too.
+        let msgs = app
+            .world()
+            .resource::<bevy::ecs::message::Messages<ambition_combat::events::HitEvent>>();
+        let mut cursor = msgs.get_cursor();
+        let hits_on_bystander = cursor
+            .read(msgs)
+            .filter(|hit| hit.target == ambition_combat::events::HitTarget::Body(bystander))
+            .count();
+        assert_eq!(
+            hits_on_bystander, 0,
+            "({order}) the shot was SWALLOWED by the absorber in front and still \
+             struck the body behind it — a consumed projectile must terminate its \
+             whole collision step, not merely skip one victim"
+        );
+
+        // ⭐ AND THE ROAD BELOW THE VICTIM LOOP, which is the half a
+        // second-body assertion alone would miss. Setting neither `struck` nor
+        // `reflected`, an absorbed shot used to fall through to
+        // boss/breakable/world resolution and emit the `UnresolvedFeatures` hit
+        // as well — a consequence with no victim at all.
+        let mut cursor = msgs.get_cursor();
+        let unresolved = cursor
+            .read(msgs)
+            .filter(|hit| {
+                hit.target == ambition_combat::events::HitTarget::UnresolvedFeatures
+            })
+            .count();
+        assert_eq!(
+            unresolved, 0,
+            "({order}) an absorbed shot went on to feature/world resolution"
+        );
+    }
+}
+

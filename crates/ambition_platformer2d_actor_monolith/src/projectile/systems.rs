@@ -625,6 +625,8 @@ pub fn step_projectiles(
             }
             let mut struck = false;
             let mut reflected = false;
+            // Absorbed: the shot is spent and every later road must be skipped.
+            let mut consumed = false;
             // ⛔⛔ NEAREST FIRST, AND IT USED TO BE QUERY ORDER. This loop `break`s
             // on the first row that qualifies, and `&victims` is a Bevy query —
             // archetype order, which is not a promise and is not reproduced by a
@@ -746,7 +748,7 @@ pub fn step_projectiles(
                     // is the whole reason `intercept_projectile` exists rather
                     // than each interception editing the shot's components. The
                     // cue stays here: an absorber swallows where a parry clangs.
-                    super::intercept::intercept_projectile(
+                    let survived = super::intercept::intercept_projectile(
                         &mut commands,
                         proj_entity,
                         &mut kin,
@@ -759,6 +761,27 @@ pub fn step_projectiles(
                     );
                     if victim.is_player {
                         heals.write(crate::avatar::PlayerHealRequested::new(PARRY_HEAL));
+                    }
+                    // ⛔⛔ A SWALLOWED SHOT IS GONE, AND THIS USED TO `continue`
+                    // THE VICTIM LOOP. `intercept_projectile` returns whether the
+                    // projectile SURVIVED precisely so a caller can tell "it is
+                    // going back" from "it is gone" -- and the answer was
+                    // discarded here. The despawn is a DEFERRED command, so the
+                    // entity is still live for the rest of this tick: the shot
+                    // could be swallowed by the nearest absorber, carry on to a
+                    // second body, and -- setting neither `struck` nor
+                    // `reflected` -- fall through to boss/breakable/world
+                    // resolution as well. One shot, several consequences, after
+                    // being absorbed.
+                    //
+                    // ⭐ THE RETURN VALUE DECIDES, not a match on the variant.
+                    // Duplicating "Consume destroys it" here would be a second
+                    // authority for a fact the operation already answers, and the
+                    // day a third interception is added it is the copy that goes
+                    // stale.
+                    if !survived {
+                        consumed = true;
+                        break;
                     }
                     continue;
                 }
@@ -831,8 +854,11 @@ pub fn step_projectiles(
                 struck = true;
                 break;
             }
-            // A parried shot survives as the parrier's bolt (keep it in flight).
-            if reflected {
+            // ⚠ TWO DIFFERENT REASONS TO STOP, kept apart on purpose. A parried
+            // shot SURVIVES as the parrier's bolt and is deliberately left in
+            // flight; an absorbed one is GONE and is not traced as a hit, because
+            // it did not hit anything. Both skip every road below.
+            if consumed || reflected {
                 continue;
             }
             if struck {

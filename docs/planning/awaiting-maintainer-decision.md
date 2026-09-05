@@ -1457,6 +1457,17 @@ because you learned something and stays open. `body.can` does that. `body.fits`
 opens while you hold a button. **Both are legitimate designs and they are not
 the same design.**
 
+⚠ **AND THE CRITERION IS WIDER THAN THIS QUOTE — corrected 2026-09-05.** The
+roadmap's milestone list says *"acquire materially different
+traversal**/interaction** capabilities"*; its own status table drops
+`/interaction`, and this row quoted the table. The half that was dropped is
+live: **`interact` IS an ability verb** (`AbilitySet::interact`,
+`platformer2d_core/src/abilities.rs:157`), so `body.can(interact)` is a
+publishable gate today. ⇒ that STRENGTHENS the capability reading rather than
+changing the question — an interaction capability is acquired and kept in
+exactly the way a traversal one is, and there is no posture-shaped counterpart
+to it at all.
+
 ⇒ **The ruling needed is one sentence: is the body family about CAPABILITY or
 about STATE?** If capability, `body.fits` should read `BodyBaseSize` (the
 authored standing size) or ask whether any reachable stance fits, rather than

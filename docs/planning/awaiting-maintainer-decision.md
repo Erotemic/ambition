@@ -1380,11 +1380,37 @@ A reader checking this row against that comment would reject the sound option.
 ⇒ Filed as a correction to make, not a defect in behaviour: no code reads that
 sentence.
 
-⚠ **What is still NOT measured, and would decide it if the answer is
-"capability":** whether *"ask whether any reachable stance fits"* is even
-answerable — it needs the set of stances a body can enter, and I have not checked
-that such a set exists as a readable fact rather than as behaviour spread across
-the stance systems. That is the costing this row still owes.
+⭐⭐ **THE TWO CAPABILITY OPTIONS COST WILDLY DIFFERENT AMOUNTS, measured
+2026-09-05 — and the row priced them as if they were alternatives of one kind.**
+*"Ask whether any reachable stance fits"* needs three facts. Two exist as
+readable authorities and the third does not exist at all:
+
+| the fact | status |
+|---|---|
+| the STANCE SET | ✔ `BodyMode` is an enum — Standing, Crouching, Crawling, Sliding, MorphBall, Climbing, … |
+| stance → SIZE | ✔ `BodyMode::shape(base_size)` is a pure total function (`player_state.rs:216`); a crouch is exactly half height, a crawl 0.85 × 0.35 |
+| which stances THIS BODY MAY ENTER | ⛔ **NOT A READABLE FACT** |
+
+⛔ **`body.can` cannot express stance reachability, because there is no verb for
+it.** `body.can` reads `AbilitySet` FIELD NAMES exactly (`body_conditions.rs:59`)
+and `AbilitySet` has no `morph`, `crouch`, `crawl` or `slide` — its verbs are
+`jump`, `wall_climb`, `dash`, `fly`, `blink`, `swim`, `glide` and the like.
+Whether a body may ball up lives in the stance-transition systems' BEHAVIOUR, not
+in any component an authored condition can ask.
+
+⇒ **So the two "capability" readings are not one option:**
+- **`body.fits` reads `BodyBaseSize`** — a field swap, and the fact it needs is
+  already there. Cheap today.
+- **"any reachable stance fits"** — needs a fact the engine does not have. It is
+  a NEW AUTHORITY (which stances a body may enter), not a composition of existing
+  ones, which is the shape Jon's ruling on 57 says to avoid taking casually.
+
+ⓘ ⭐ And that is itself a finding worth its own row if 58 goes the capability
+way: stance reachability being absent from `AbilitySet` means *"acquire
+materially different traversal capabilities"* cannot currently be authored as
+"you learned to ball up", only as "you learned to dash". Whether morph/crawl
+SHOULD be ability verbs is a separate question this measurement raises and does
+not answer.
 
 ⓘ **Nothing authors either condition yet** — both are among the five the census
 measures as authored NOWHERE — so this costs nothing to answer now and gets

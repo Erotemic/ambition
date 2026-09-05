@@ -50,6 +50,7 @@ pub fn build_demo_app() -> App {
             .with_room(ambition_demo_smash::smash_stage().metadata.clone()),
         );
         app.add_plugins(ambition_platformer2d::presentation::PlatformerPresentationPlugin);
+        select_smash_portal_presentation(&mut app);
     }
     // Pin the frame dt to the tick dt so one `update()` is exactly one sim tick.
     let timestep = app.world().resource::<Time<Fixed>>().timestep();
@@ -104,6 +105,7 @@ pub fn build_windowed_demo_app(display: ambition_platformer2d::app::Display) -> 
         .with_room(ambition_demo_smash::smash_stage().metadata.clone()),
     );
     app.add_plugins(ambition_platformer2d::presentation::PlatformerPresentationPlugin);
+    select_smash_portal_presentation(&mut app);
     // One `update()` is exactly one sim tick, as in `build_demo_app`. For a
     // capture this is the difference between "about a second later" and "sixty
     // ticks later".
@@ -113,6 +115,53 @@ pub fn build_windowed_demo_app(display: ambition_platformer2d::app::Display) -> 
         .timestep();
     app.insert_resource(bevy::time::TimeUpdateStrategy::ManualDuration(timestep));
     app
+}
+
+/// ⭐⭐ A VERSUS MATCH CANNOT USE THE SEAMLESS PORTAL PRESENTATION, AND SAYING SO
+/// HERE IS THE POINT — Jon, 2026-09-05: *"because it is not a 1 player game, we
+/// can't use the seamless portal presentation. This will be a good check to make
+/// sure that it can be disabled on a case by case basis. I think we can use the
+/// static small cone presentation though."*
+///
+/// ⛔ THE REASON IS THE CAMERA, NOT TASTE. `PortalCameraTransitMode::Continuous`
+/// maps the viewpoint through an aperture while a CONTROLLED BODY straddles it —
+/// a single-subject effect by construction. A smash camera frames the whole
+/// cast, so there is no one body whose transit the view should follow, and a
+/// continuity roll taken on one fighter's behalf moves the frame the OTHER
+/// player is reading. ⇒ `Pop`: the camera behaves exactly as it always does, and
+/// a portal becomes something that happens inside the shot rather than to it.
+///
+/// ⭐ AND `Static` RATHER THAN `Off`, which is the more interesting half. The
+/// view window still draws — Alice's up-B opens two apertures and a player has
+/// to see where the far one leads — it simply stops being viewer-dependent.
+/// `Dynamic` gates the cone on one viewer's line of sight, which asks the same
+/// unanswerable question the camera does: WHOSE. The authored cone is identical
+/// for both players, and small because a fighter-sized aperture is what she
+/// opens.
+///
+/// ⇒ **This is the case-by-case check Jon asked for, and it is one resource
+/// each.** Both are plain overwrites on the host, which `camera_continuity`'s
+/// own module doc names as the sanctioned road: *"The resource in this module is
+/// the single source of truth for the live mode. Hosts may surface it in a debug
+/// menu, but should not mirror the default into a second `DeveloperTools` or
+/// settings field."* ⛔ So the smash demo gains no portal-presentation setting of
+/// its own; it states its answer to the one that already exists.
+///
+/// ⚠ CALLED AFTER `PlatformerPresentationPlugin`, deliberately. The plugin
+/// installs the engine defaults (`Continuous`, `Dynamic`), and an override
+/// placed before it would be silently replaced or not depending on whether the
+/// plugin used `init_resource` or `insert_resource` — which is not a detail a
+/// host should have to know to be correct.
+fn select_smash_portal_presentation(app: &mut App) {
+    use ambition_platformer2d::portal_presentation as portal_view;
+
+    app.insert_resource(portal_view::PortalCameraContinuitySelection {
+        mode: portal_view::PortalCameraTransitMode::Pop,
+    });
+    app.insert_resource(portal_view::PortalViewConeConfig {
+        mode: portal_view::PortalViewConeMode::Static,
+        ..Default::default()
+    });
 }
 
 fn compose_smash_shell(app: &mut App) {
@@ -145,4 +194,61 @@ fn compose_smash_shell(app: &mut App) {
         ]),
     )
     .install(app, ambition_demo_smash::SmashExperiencePlugin);
+}
+
+#[cfg(test)]
+mod portal_presentation_tests {
+    use super::*;
+
+    /// ⭐⭐ THE SMASH HOST TURNS THE SEAMLESS PORTAL PRESENTATION OFF, AND THE
+    /// ENGINE DEFAULT PROVES IT IS AN OVERRIDE — Jon, 2026-09-05: *"a good check
+    /// to make sure that it can be disabled on a case by case basis."*
+    ///
+    /// ⛔ THE CONTROL IS THE WHOLE TEST. Asserting only that the host holds `Pop`
+    /// and `Static` would pass just as well if those were the ENGINE defaults and
+    /// this function did nothing — the case-by-case claim would be untested and
+    /// the day the default flips, silently false. So both halves are asserted:
+    /// the engine ships `Continuous`/`Dynamic`, and the host ships neither.
+    ///
+    /// ⚠ It also fails LOUDLY if somebody promotes `Pop` to the engine default,
+    /// which is correct: at that moment this override stops being a per-case
+    /// decision and becomes a restatement, and somebody should have to look.
+    #[test]
+    fn the_smash_host_overrides_both_portal_presentation_defaults() {
+        use ambition_platformer2d::portal_presentation as portal_view;
+
+        let engine_camera = portal_view::PortalCameraContinuitySelection::default().mode;
+        let engine_cones = portal_view::PortalViewConeConfig::default().mode;
+        assert_eq!(
+            engine_camera,
+            portal_view::PortalCameraTransitMode::Continuous,
+            "the engine no longer defaults to the seamless camera, so this host's \
+             `Pop` is a restatement rather than an override and the case-by-case \
+             claim needs re-checking"
+        );
+        assert_eq!(
+            engine_cones,
+            portal_view::PortalViewConeMode::Dynamic,
+            "the engine no longer defaults to viewer-dependent cones, so this \
+             host's `Static` proves nothing about disabling it per case"
+        );
+
+        let mut app = App::new();
+        select_smash_portal_presentation(&mut app);
+
+        assert_eq!(
+            app.world()
+                .resource::<portal_view::PortalCameraContinuitySelection>()
+                .mode,
+            portal_view::PortalCameraTransitMode::Pop,
+            "the smash host kept the seamless camera — a continuity roll taken on \
+             one fighter's behalf moves the frame the other player is reading"
+        );
+        assert_eq!(
+            app.world().resource::<portal_view::PortalViewConeConfig>().mode,
+            portal_view::PortalViewConeMode::Static,
+            "the smash host kept viewer-dependent cones, which asks the same \
+             unanswerable question the camera does: WHOSE line of sight"
+        );
+    }
 }

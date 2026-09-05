@@ -520,6 +520,10 @@ pub fn oiler_moveset() -> MovesetContract {
             uses: 1,
             // Under him, on the floor he left.
             offset: (0.0, 18.0),
+            // ⛔ SO THE OTHER PLAYER SEES IT ARRIVE. A plate draws nothing of its
+            // own — see `PlaceSpringParams::vfx` — so without this the pool is
+            // an ambush rather than a move.
+            vfx: Some("oil_slick".to_string()),
         },
     );
 

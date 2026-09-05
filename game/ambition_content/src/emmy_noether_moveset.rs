@@ -543,6 +543,7 @@ pub fn emmy_noether_moveset() -> MovesetContract {
         autocancel_after_s: None,
         sprite_spin_hz: None,
         equips: None,
+        flow: None,
     };
     up_b.windows.push(MoveWindow {
         start_s: LIFT_AT_S,

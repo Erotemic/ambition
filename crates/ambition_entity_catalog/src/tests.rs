@@ -128,6 +128,7 @@ fn bare_move(id: &str, grounded: Option<bool>) -> MoveSpec {
         smash_charge: None,
         charge_gesture: ChargeGesture::default(),
         repeat: None,
+        flow: None,
     }
 }
 
@@ -1134,6 +1135,7 @@ fn timed_move(id: &str, duration_s: f32, events: Vec<MoveEvent>) -> MoveSpec {
         autocancel_after_s: None,
         sprite_spin_hz: None,
         equips: None,
+        flow: None,
     }
 }
 
@@ -1386,6 +1388,7 @@ fn a_smash_charge_policy_is_derived_from_the_moves_own_windup() {
         autocancel_after_s: None,
         sprite_spin_hz: None,
         equips: None,
+        flow: None,
     };
     let derived = spec.charge_policy().expect("a paying smash charges");
     // ⭐ THE HOLD SITS WHERE THE WINDUP BEGINS, and this assertion read `0.3` —
@@ -1804,4 +1807,136 @@ fn a_windbox_that_authors_damage_is_rejected_and_a_zero_damage_one_is_not() {
         "a windbox authoring NO damage was rejected, which makes the mechanic \
          unauthorable rather than validated"
     );
+}
+
+/// Flow validation, which exists because every one of these failures is SILENT.
+mod technique_flow {
+    use crate::{EffectRef, FlowNode, FlowSignal, MoveContact, ParamValue, TechniqueFlow};
+
+    fn emit(then: usize) -> FlowNode {
+        FlowNode::Emit {
+            effect: EffectRef {
+                key: "smash.whatever".to_string(),
+                params: ParamValue::default(),
+            },
+            then,
+        }
+    }
+
+    /// A transition past the end of the list is refused by name and index.
+    ///
+    /// ⛔ AT RUNTIME THIS IS A MOVE THAT STOPS. The interpreter would find no
+    /// node at the index and have nothing to do, so the fighter plays an
+    /// animation and the sequence silently never continues — which reads as a
+    /// move that "doesn't work sometimes" rather than as bad data.
+    #[test]
+    fn a_transition_past_the_end_is_refused() {
+        let flow = TechniqueFlow {
+            nodes: vec![emit(7), FlowNode::Finish],
+        };
+        let problems = flow.problems();
+        assert!(
+            problems.iter().any(|p| p.contains("past the last node")),
+            "a transition to node 7 of a 2-node flow was accepted: {problems:?}"
+        );
+    }
+
+    /// A flow with no REACHABLE `Finish` is refused, even though it has one.
+    ///
+    /// ⭐⭐ THE CHECK THAT "does the flow contain a Finish" WOULD HAVE PASSED.
+    /// Node 1 here is a `Finish` nobody arrives at, and node 0 loops to itself:
+    /// presence and reachability are different questions, and only the second
+    /// one is the invariant.
+    #[test]
+    fn a_finish_nothing_reaches_is_not_a_finish() {
+        let flow = TechniqueFlow {
+            nodes: vec![emit(0), FlowNode::Finish],
+        };
+        let problems = flow.problems();
+        assert!(
+            problems.iter().any(|p| p.contains("no `Finish` is reachable")),
+            "a flow whose only Finish is unreachable was accepted, so the move \
+             would stay under its control forever: {problems:?}"
+        );
+    }
+
+    /// A reachable `Finish` behind a branch satisfies it — the check is not
+    /// "node 0 is a Finish".
+    #[test]
+    fn a_finish_reached_through_a_branch_is_enough() {
+        let flow = TechniqueFlow {
+            nodes: vec![
+                FlowNode::Branch {
+                    on: FlowSignal::Connected,
+                    then: 1,
+                    otherwise: 1,
+                },
+                FlowNode::Finish,
+            ],
+        };
+        assert_eq!(
+            flow.problems(),
+            Vec::<String>::new(),
+            "a flow that reaches its Finish through a branch was reported broken"
+        );
+    }
+
+    /// A wait that can never time out is refused.
+    ///
+    /// ⛔ THERE IS NO AUTHORED VALUE OF "wait forever" THAT IS NOT A BUG. A
+    /// signal whose producer died leaves the fighter suspended in a special for
+    /// the rest of the match, and the move's own duration is not a bound because
+    /// the flow is what decides when the move is done.
+    #[test]
+    fn a_wait_with_no_patience_is_refused() {
+        let flow = TechniqueFlow {
+            nodes: vec![
+                FlowNode::Wait {
+                    on: FlowSignal::Connected,
+                    timeout_s: 0.0,
+                    then: 1,
+                    on_timeout: 1,
+                },
+                FlowNode::Finish,
+            ],
+        };
+        let problems = flow.problems();
+        assert!(
+            problems.iter().any(|p| p.contains("never expires")),
+            "a wait with a zero timeout was accepted: {problems:?}"
+        );
+    }
+
+    /// An empty flow is refused rather than treated as "no flow".
+    #[test]
+    fn an_empty_flow_is_refused() {
+        let problems = TechniqueFlow { nodes: Vec::new() }.problems();
+        assert!(
+            problems.iter().any(|p| p.contains("no nodes")),
+            "an empty flow was accepted: {problems:?}"
+        );
+    }
+
+    /// `Overlapped` is not `Connected`, which is the distinction a blocked
+    /// strike turns on.
+    ///
+    /// ⛔ THE ONE A FLOW AUTHOR WILL GET WRONG. `overlapped` is the staling
+    /// fact and a shield sets it, so a hit-confirm written against it continues
+    /// into its follow-up on a BLOCKED strike — the exact defect
+    /// `CancelCondition::OnBlock`'s note describes, reproduced one rung up.
+    #[test]
+    fn a_blocked_strike_overlaps_without_connecting() {
+        let blocked = MoveContact {
+            overlapped: true,
+            connected: false,
+            blocked: true,
+        };
+        assert!(FlowSignal::Overlapped.satisfied_by(blocked));
+        assert!(FlowSignal::Blocked.satisfied_by(blocked));
+        assert!(
+            !FlowSignal::Connected.satisfied_by(blocked),
+            "a blocked strike satisfied `Connected`, so every hit-confirm flow \
+             would continue on a shielded hit"
+        );
+    }
 }

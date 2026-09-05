@@ -203,6 +203,7 @@ mod tests {
             autocancel_after_s: None,
             sprite_spin_hz: None,
             equips: item.map(str::to_string),
+            flow: None,
         }
     }
 

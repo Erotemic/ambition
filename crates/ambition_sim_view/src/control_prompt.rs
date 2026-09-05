@@ -570,6 +570,7 @@ mod tests {
                 smash_charge: None,
                 charge_gesture: ambition_entity_catalog::ChargeGesture::default(),
                 repeat: None,
+                flow: None,
             }];
         }
         (BodyAbilities::new(a), ActorMoveset(m))

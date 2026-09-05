@@ -1671,6 +1671,7 @@ fn a_forward_special_selects_the_directional_move() {
         autocancel_after_s: None,
         sprite_spin_hz: None,
         equips: None,
+        flow: None,
     };
     let moveset = MovesetContract {
         verbs: std::collections::BTreeMap::from([
@@ -1723,6 +1724,7 @@ fn gesture_test_move(id: &str) -> MoveSpec {
         autocancel_after_s: None,
         sprite_spin_hz: None,
         equips: None,
+        flow: None,
     }
 }
 
@@ -1845,6 +1847,7 @@ fn a_move_start_impulse_lunges_the_body_toward_facing() {
         autocancel_after_s: None,
         sprite_spin_hz: None,
         equips: None,
+        flow: None,
     };
     let mut verbs = std::collections::BTreeMap::new();
     verbs.insert(ATTACK_VERB.to_string(), ATTACK_VERB.to_string());
@@ -3810,6 +3813,7 @@ fn uncancelable(id: &str) -> MoveSpec {
         autocancel_after_s: None,
         sprite_spin_hz: None,
         equips: None,
+        flow: None,
     }
 }
 
@@ -4113,6 +4117,7 @@ fn charging_smash() -> MoveSpec {
         autocancel_after_s: None,
         sprite_spin_hz: None,
         equips: None,
+        flow: None,
     }
 }
 
@@ -4607,6 +4612,7 @@ fn defended_move() -> MoveSpec {
         autocancel_after_s: None,
         sprite_spin_hz: None,
         equips: None,
+        flow: None,
     }
 }
 
@@ -4815,6 +4821,7 @@ fn chain_link(
         autocancel_after_s: None,
         sprite_spin_hz: None,
         equips: None,
+        flow: None,
     }
 }
 
@@ -5510,6 +5517,7 @@ fn a_buffered_up_special_replays_as_an_up_special_after_the_stick_centres() {
         autocancel_after_s: None,
         sprite_spin_hz: None,
         equips: None,
+        flow: None,
     };
     let moveset = MovesetContract {
         verbs: std::collections::BTreeMap::from([

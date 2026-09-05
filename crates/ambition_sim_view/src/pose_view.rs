@@ -788,6 +788,7 @@ mod pose_view_tests {
             autocancel_after_s: None,
             sprite_spin_hz: Some(10.0),
             equips: None,
+            flow: None,
         };
 
         // Parked inside a mirrored half-period.

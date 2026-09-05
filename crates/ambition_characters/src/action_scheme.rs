@@ -532,6 +532,7 @@ mod tests {
                 autocancel_after_s: None,
                 sprite_spin_hz: None,
                 equips: None,
+                flow: None,
             })
             .collect();
         m.verbs = verbs

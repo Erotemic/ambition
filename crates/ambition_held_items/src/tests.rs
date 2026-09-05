@@ -113,6 +113,7 @@ fn timeline(id: &str, grounded: Option<bool>) -> MoveSpec {
         smash_charge: None,
         charge_gesture: ambition_entity_catalog::ChargeGesture::default(),
         repeat: None,
+        flow: None,
     }
 }
 

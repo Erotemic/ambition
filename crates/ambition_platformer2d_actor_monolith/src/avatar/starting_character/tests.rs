@@ -1136,6 +1136,7 @@ fn a_registered_characters_moveset_becomes_the_identity_baseline() {
         smash_charge: None,
         charge_gesture: ambition_entity_catalog::ChargeGesture::default(),
         repeat: None,
+        flow: None,
     };
     let mut registry = ambition_characters::prepared::PreparedCharacterRegistry::default();
     let prepared = crate::character_runtime::prepare_and_finalize_for_test(

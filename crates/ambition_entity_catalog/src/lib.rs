@@ -1089,6 +1089,205 @@ impl MoveGates {
     }
 }
 
+/// What a move does NEXT, based on what happened BEFORE.
+///
+/// ⭐⭐ THE ONE THING A `MoveSpec` TIMELINE CANNOT SAY. Windows and events state
+/// WHEN something happens on a fixed clock; neither can express "wait until the
+/// strike connects, and if it did, continue — otherwise recover". A move that
+/// needs that is not a move with more events, it is a move with a SEQUENCE.
+///
+/// ⛔⛔ AND IT IS DELIBERATELY NOT A LANGUAGE. There are no variables, no
+/// arithmetic, no expressions, no queries and no blackboard, and adding any of
+/// them turns a move-scoped flow into the universal sequencer that
+/// `docs/planning/engine/authored-gameplay-logic-and-orchestration.md` spends a
+/// section refusing. Four node kinds, and transitions are indices into one list.
+///
+/// ⛔ THE FLOW OWNS NO STATE THAT IS NOT ITS CURSOR. Every operation it can
+/// perform belongs to some other authority — an effect key reaches a technique,
+/// a signal is read off facts the combat road already publishes. The rule, from
+/// `expressive-move-capabilities.md`: *a complex move may coordinate many
+/// authorities, but it must not become the authority for their state.*
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct TechniqueFlow {
+    /// The nodes, in authored order. Execution starts at index 0.
+    ///
+    /// ⛔ INDICES, NOT NAMES, and validated at authoring time by
+    /// [`TechniqueFlow::problems`]. A named-label graph would need a symbol
+    /// table and a resolution pass to say the same thing, and the authored form
+    /// is small enough that the index IS readable.
+    pub nodes: Vec<FlowNode>,
+}
+
+/// One step of a [`TechniqueFlow`].
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub enum FlowNode {
+    /// Fire a semantic effect and move on in the same tick.
+    ///
+    /// The effect is an ordinary [`EffectRef`] — the same value a window's
+    /// `sustain_effect` or an event's `Effect` carries — so a flow can reach
+    /// every technique the game publishes and gains access to a new one the day
+    /// it is registered, with no change here.
+    Emit { effect: EffectRef, then: usize },
+    /// Hold here until a signal arrives, or until the patience runs out.
+    ///
+    /// ⭐ THE TIMEOUT IS MANDATORY, and that is a decision rather than an
+    /// oversight. A wait with no bound is a move that can hang forever on a
+    /// signal that never comes — a fighter frozen mid-special because the thing
+    /// it was waiting for died — and there is no authored value of "wait
+    /// forever" that is not a bug. The move's own duration is not a bound,
+    /// because a flow is what decides when the move is done.
+    Wait {
+        on: FlowSignal,
+        timeout_s: f32,
+        then: usize,
+        on_timeout: usize,
+    },
+    /// Take one road or the other, deciding immediately on a fact that is
+    /// already true.
+    ///
+    /// ⛔ NOT A SHORTHAND FOR `Wait`. A wait suspends and resumes; a branch
+    /// resolves within the tick it is reached. They differ in whether the
+    /// answer can still change.
+    Branch {
+        on: FlowSignal,
+        then: usize,
+        otherwise: usize,
+    },
+    /// The flow is over. The move plays out whatever timeline it has left.
+    Finish,
+}
+
+/// Something a flow can wait for or branch on.
+///
+/// ⛔⛔ EVERY VARIANT MUST BE A FACT SOME OTHER AUTHORITY ALREADY PUBLISHES.
+/// The moment a signal needs new state kept for it, the flow has become the
+/// authority for that state and the rule above is broken. ⇒ The list starts at
+/// one variant on purpose: the contact facts `MovePlayback` already carries and
+/// the damage road already decides.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+pub enum FlowSignal {
+    /// This move's own strike overlapped a hurtbox — the staling fact. ⚠ TRUE
+    /// FOR A BLOCKED STRIKE TOO; a flow that means "it worked" wants
+    /// [`Self::Connected`].
+    Overlapped,
+    /// The overlap resolved to a connect: damage or knockback reached a body.
+    Connected,
+    /// The overlap resolved to a BLOCK: a guard consumed it.
+    Blocked,
+}
+
+impl FlowSignal {
+    /// Is this signal true of `contact` right now?
+    pub fn satisfied_by(self, contact: MoveContact) -> bool {
+        match self {
+            FlowSignal::Overlapped => contact.overlapped,
+            FlowSignal::Connected => contact.connected,
+            FlowSignal::Blocked => contact.blocked,
+        }
+    }
+}
+
+impl TechniqueFlow {
+    /// Everything wrong with this flow, as sentences an author can act on.
+    ///
+    /// ⭐ VALIDATED WHERE IT IS AUTHORED, because every one of these failures is
+    /// SILENT at runtime. A transition past the end of the list, a flow with no
+    /// reachable `Finish`, a `Wait` that can never time out — each produces a
+    /// move that plays and does nothing, or a fighter stuck in a special, and
+    /// neither reads as a data error to whoever is holding the controller.
+    pub fn problems(&self) -> Vec<String> {
+        let mut problems = Vec::new();
+        if self.nodes.is_empty() {
+            problems.push("the flow has no nodes, so the move it is on does nothing".to_string());
+            return problems;
+        }
+        let len = self.nodes.len();
+        // A closure borrowing `problems` would conflict with the pushes below,
+        // so transitions are collected first and reported after.
+        let mut dangling: Vec<(usize, &str, usize)> = Vec::new();
+        for (index, node) in self.nodes.iter().enumerate() {
+            match node {
+                FlowNode::Emit { then, .. } => dangling.push((index, "then", *then)),
+                FlowNode::Wait {
+                    then,
+                    on_timeout,
+                    timeout_s,
+                    ..
+                } => {
+                    dangling.push((index, "then", *then));
+                    dangling.push((index, "on_timeout", *on_timeout));
+                    if !(*timeout_s > 0.0) {
+                        problems.push(format!(
+                            "node {index} waits with a {timeout_s}s timeout, which never \
+                             expires — a signal that never comes would hold the move open \
+                             for the rest of the match"
+                        ));
+                    }
+                }
+                FlowNode::Branch {
+                    then, otherwise, ..
+                } => {
+                    dangling.push((index, "then", *then));
+                    dangling.push((index, "otherwise", *otherwise));
+                }
+                FlowNode::Finish => {}
+            }
+        }
+        for (index, what, target) in dangling {
+            if target >= len {
+                problems.push(format!(
+                    "node {index}'s `{what}` goes to {target}, past the last node ({})",
+                    len - 1
+                ));
+            }
+        }
+        // ⛔ REACHABILITY, not merely presence. A `Finish` sitting in the list
+        // that no transition arrives at is the same as no `Finish` at all, and
+        // "the flow contains one" is the check that would have missed it.
+        if !self.reaches_finish() {
+            problems.push(
+                "no `Finish` is reachable from node 0, so the flow can never end and the \
+                 move stays under its control until something else interrupts it"
+                    .to_string(),
+            );
+        }
+        problems
+    }
+
+    /// Can execution starting at node 0 arrive at a [`FlowNode::Finish`]?
+    fn reaches_finish(&self) -> bool {
+        let mut seen = vec![false; self.nodes.len()];
+        let mut stack = vec![0usize];
+        while let Some(index) = stack.pop() {
+            let Some(node) = self.nodes.get(index) else {
+                continue;
+            };
+            if seen[index] {
+                continue;
+            }
+            seen[index] = true;
+            match node {
+                FlowNode::Finish => return true,
+                FlowNode::Emit { then, .. } => stack.push(*then),
+                FlowNode::Wait {
+                    then, on_timeout, ..
+                } => {
+                    stack.push(*then);
+                    stack.push(*on_timeout);
+                }
+                FlowNode::Branch {
+                    then, otherwise, ..
+                } => {
+                    stack.push(*then);
+                    stack.push(*otherwise);
+                }
+            }
+        }
+        false
+    }
+}
+
 /// One ability activation: a clip binding plus the full gameplay meaning of
 /// the ability on one timeline. The move timeline is authoritative for both
 /// gameplay and presentation — windows advance on the owner's proper time
@@ -1223,6 +1422,14 @@ pub struct MoveSpec {
     /// `None` = every move that has not opted in, which is all of them but one.
     #[serde(default)]
     pub equips: Option<String>,
+    /// WHAT HAPPENS NEXT, based on what happened before — see [`TechniqueFlow`].
+    ///
+    /// `None` for every move whose whole meaning is its timeline, which is all
+    /// of them but the ones that branch. ⛔ A flow does not replace the
+    /// timeline: windows still open, volumes still live, events still fire. It
+    /// runs BESIDE them and decides the things a fixed clock cannot.
+    #[serde(default)]
+    pub flow: Option<TechniqueFlow>,
 }
 
 /// Serde default for [`MoveSpec::smash_charge_mult`]: the multiplicative

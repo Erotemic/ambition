@@ -91,6 +91,7 @@ fn strike_hitting_for(id: &str, reach_offset: f32, damage: i32) -> MoveSpec {
         smash_charge: None,
         charge_gesture: ambition_entity_catalog::ChargeGesture::default(),
         repeat: None,
+        flow: None,
     }
 }
 

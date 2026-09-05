@@ -64,6 +64,7 @@ pub fn slash(id: &str, cue: &str, strike: &str) -> MoveSpec {
         charge_gesture: ambition_entity_catalog::ChargeGesture::default(),
         smash_charge: None,
         repeat: None,
+        flow: None,
     }
 }
 

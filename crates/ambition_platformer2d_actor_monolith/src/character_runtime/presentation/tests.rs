@@ -421,6 +421,7 @@ fn a_spawned_actor_with_no_worn_character_still_gets_the_registered_moveset() {
         smash_charge: None,
         charge_gesture: ambition_entity_catalog::ChargeGesture::default(),
         repeat: None,
+        flow: None,
     };
     let moveset = MovesetContract {
         verbs: std::collections::BTreeMap::from([(
@@ -509,6 +510,7 @@ fn wearing_a_quieter_character_retracts_the_previous_ones_moves() {
         smash_charge: None,
         charge_gesture: ambition_entity_catalog::ChargeGesture::default(),
         repeat: None,
+        flow: None,
     };
     app.register_character(
         CharacterDefinition::new("armed", "Armed", "demo").with_moveset(MovesetContract {
@@ -606,6 +608,7 @@ fn routing_markers_are_derived_from_whatever_wrote_the_moveset() {
                 smash_charge: None,
                 charge_gesture: ambition_entity_catalog::ChargeGesture::default(),
                 repeat: None,
+                flow: None,
             }],
         }
     }
@@ -693,6 +696,7 @@ fn replacing_the_cast_reprojects_a_body_wearing_the_same_character() {
                 smash_charge: None,
                 charge_gesture: ambition_entity_catalog::ChargeGesture::default(),
                 repeat: None,
+                flow: None,
             }],
         }
     }

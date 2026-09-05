@@ -326,6 +326,7 @@ mod tests {
             charge_gesture: crate::ChargeGesture::default(),
             smash_charge: None,
             repeat: None,
+            flow: None,
         }
     }
 

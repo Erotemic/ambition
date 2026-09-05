@@ -509,5 +509,6 @@ fn widening_swing() -> ambition_entity_catalog::MoveSpec {
         smash_charge: None,
         charge_gesture: ambition_entity_catalog::ChargeGesture::default(),
         repeat: None,
+        flow: None,
     }
 }

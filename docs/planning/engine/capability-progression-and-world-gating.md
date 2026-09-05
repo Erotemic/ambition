@@ -446,6 +446,36 @@ sets it at runtime, and the looseness is in the safe direction: it under-reports
 rather than over-reports, and the failure it exists for is a TYPO, where the
 misspelling appears in exactly one place in the repository.
 
+## ⚠ `body.fits` answers from POSTURE, not from capability — for the first
+## author of one (found 2026-09-04, LATENT: no shipped level authors it)
+
+**MEASURED.** `fits` compares `BodyKinematics.size.y` against the authored
+opening (`body_conditions.rs:275`), and `size` is the body's CURRENT size:
+`BodyBaseSize` exists separately and is documented as *"the player's authored
+STANDING body size — the baseline the morph / crouch / slide stances… read
+from"* (`body_clusters.rs:222`). ⇒ So the condition answers *"is this body
+shorter than the gap right now"*, which is exactly what its own summary says
+(*"no taller than this opening"*) — this is not a defect against its contract.
+
+⛔ **But the WALL is contributed per frame from that answer**, so a
+`body.fits`-gated wall opens while the player crouches and closes when they
+stand — the solid appears and disappears with posture, potentially around a body
+that is standing up inside the opening. ⚠ **REASONED, not measured**: the
+per-frame contribution and the current-size read are both confirmed in source;
+what a re-appearing solid does to a body occupying it is not, and would need a
+run to say.
+
+⇒ **The question for whoever authors the first one:** should `body.fits` ask
+about the body's POSTURE (as now) or its CAPABILITY — *"could this body get
+through, crouching if it can"*? Both are defensible and they gate different
+things: posture makes the crouch a required ACTION, capability makes the ability
+to crouch a required UNLOCK. ⭐ The second is what
+[`../game/systemic-progression.md`](../game/systemic-progression.md)'s
+*"why can I go there now?"* is asking for, and the first is what is built.
+ⓘ Recorded rather than changed, because nothing authors `body.fits` yet — one
+of the five conditions the census measures as authored NOWHERE — so this is a
+decision the first author should make deliberately rather than inherit.
+
 ## Gate families
 
 - **body capability:** climb, fly, morph, blink, portal use, attack/tool ability;

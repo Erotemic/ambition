@@ -223,6 +223,39 @@ predicate were measured and neither is gateable. The strong one runs at ~50%
 precision because prose legitimately cites a USE site rather than a definition,
 and judging that needs a person.
 
+⭐⭐ **THERE IS EXACTLY ONE PLACE WHERE PROSE-ABOUT-CODE HAS A REAL CHECKER, AND
+IT WATCHES 12 CRATES OF 78.** rustdoc resolves intra-doc links, so
+`` [`SomeType`] `` in a doc comment IS verified — `cargo doc -p <crate>
+--no-deps` warns on every broken one, and `scripts/check_doc_link_ratchet.py`
+runs it as a ratchet. ⚠ Over a HAND-KEPT list of 12 crates.
+
+Measured 2026-09-05, `cargo doc --workspace --no-deps` over all **78** crates:
+
+```text
+unresolved intra-doc links, whole workspace   274
+  in the crates the ratchet watches            34
+  in crates NOBODY watches                    240
+worst uncovered: asset_manager 44, app_tools 35, shared_tangle 30,
+                 platformer2d 26, persistence 21
+```
+
+⛔ **THE 34 IS NOT A COMPARABLE NUMBER TO THE RATCHET'S BASELINE OF 147, and
+saying so matters more than the figure.** The ratchet runs `cargo doc -p <crate>`
+per crate; this was one workspace pass with `--no-deps`. Different feature
+resolution, different counts. ⇒ **do not read "34" as the baseline having
+improved** — it is a different measurement of the same crates, and only the
+UNCOVERED total (240) is a claim this run can make.
+
+⇒ The guard is real, it works, and its REACH is the finding: a broken link in
+66 of 78 crates is invisible, and the list is hand-kept — its own comment records
+having already fallen behind once, when a carve moved code out of a tracked crate
+and the count "read as a repair".
+ⓘ ⭐ Worked example the same day: I wrote `` [`InteractableSpec`] `` in
+`ambition_interaction`, a crate not on the list. It does not resolve — the type
+is in another crate — and nothing in the normal build says so. `cargo check`
+does not check doc links; I found it by running rustdoc on a hunch, an hour
+after writing this page.
+
 ⭐⭐ **AND THE CHECK THAT MAKES THIS ACTIONABLE RATHER THAN DESPAIRING: prose is
 verified by being USED.** All four instances were found by somebody trying to
 BUILD on the sentence — following a citation to make an edit, or relying on a

@@ -148,16 +148,32 @@ body, two facing apertures, opposite relations — so the cheap wrong fix cannot
 pass later. Nothing consumes it for drawing yet, deliberately: the diagnostics and
 the compositor must read the SAME answer.
 
+✔ **DONE: the Shift+F8 dump reports ordering, not only geometry.** Each selected
+pane now prints its z, the viewer, the candidate count, the viewer's signed side,
+and per overlapping drawable: drawn bounds, render z, its signed side, the
+expected `PaneRelation`, the ACTUAL ordering, and `COMPOSITE_VIOLATION`, plus a
+per-pane violation total.
+
+⛔⛔ **AND IT NEEDED A NEW HOST SEAM, WHICH IS ITSELF A FINDING.** The presentation
+crate could not SEE the bug it has: its only body seams are `PortalSceneBody`
+(ONE entity, whose sprite is decomposed at the seam) and `PortalAffordanceBody`
+(whoever operates the portals). An ordinary NPC behind an aperture is neither.
+`PortalCompositingCandidate` widens the POPULATION, not the vocabulary.
+
+⚠ **It carries DRAWN bounds, not `PortalBodyView`** — that seam's `size` is the
+COLLISION box ("crouch / morph compaction included") and the question is which
+PIXELS a pane covers. A sprite overhangs its box, and the overhang is the part of
+the screenshot that punches through. Reusing the existing seam was the tempting
+shortcut and would have made the report miss the finding.
+
 ⇒ **Remaining, in the order Jon asked for:**
 
-1. **Diagnostics first.** Extend the Shift+F8 portal dump: per pane, every
-   character whose drawn bounds meet `entry_poly_world`, with stable id, sprite
-   bounds (not the collision AABB), actual z and `RenderLayers`, the signed side
-   for actor AND viewer, transit state, expected relation, actual ordering, and
-   an explicit violation flag — plus the main/capture camera order and layers.
-   ⚠ The existing dump can prove *"the polygon is geometrically correct"* while
-   missing *"the actor is at z 11 and the pane at 9.7, so it necessarily punches
-   through"*.
+1. **Host tagging** — nothing publishes `PortalCompositingCandidate` yet, so a
+   real dump prints `candidates: 0`. ⚠ That is deliberate and legible: the count
+   distinguishes "the host has not tagged" from "the scene is clean". The owner
+   is `ambition_render`, behind its optional `portal_render` feature. Also still
+   missing from the dump: `RenderLayers` and the main/capture camera order,
+   which need the host's camera stack.
 2. **F1/F3 visualization**: outline the pane polygon; colour overlapping actor
    bounds green (near occluder) / blue (far, expected under) / yellow
    (transiting) / red (ordering contradicts classification).

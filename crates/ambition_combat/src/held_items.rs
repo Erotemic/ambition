@@ -59,6 +59,11 @@ pub struct MoveBrandishedItem {
     /// DEPENDS on this crate; calling it would be a cycle. The split is forced by
     /// the layering, so no amount of care at the call site fixes it.
     ///
+    /// ⚠ TWO SHIPPED MOVESETS AUTHOR `equips` -- the pirate admiral's side-B and
+    /// Projectile Polygon's -- so this path is LIVE, not theoretical. Both
+    /// equipped ids are in the narrow table, so the DRAW was never at risk; what
+    /// was at risk is whatever the presser was already carrying.
+    ///
     /// ⭐ SO THE LOOKUP IS GONE INSTEAD OF FIXED. The body HAD the spec; storing
     /// its id and deriving the spec back was a second authority for "what this
     /// body was holding", and the derivation was the part that could fail.

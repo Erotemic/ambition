@@ -273,12 +273,31 @@ holding*, and the derivation was the half that could fail. `previous` is now the
 spec, the restore is infallible, and `None` recovers its honest meaning (the
 body was carrying nothing) instead of doubling as *the lookup failed*.
 
-⚠ **LATENT, and the row says so rather than claiming a save.** No shipped move
-authors `equips` today — the only non-`None` writer is a test helper — so no
-player has hit this. It was worth closing anyway because the cost is one
-`HeldItemSpec` on a brandishing body, the same type `HeldItem` already keeps in
-rollback state on that entity, and because the failure mode is SILENT item
-destruction.
+⛔⛔ **MY FIRST LATENCY ARGUMENT WAS FALSE, corrected 2026-09-05 by
+YardratAmbition.** I wrote *"no shipped move authors `equips`; the only
+non-`None` writer is a test helper"*. **TWO shipped movesets author it** — the
+pirate admiral's side-B (`pirate_admiral_moveset.rs:354`, Jon's own 2026-08-27
+design, whose comment says *"THE DRAW is `MoveSpec::equips`"*) and Projectile
+Polygon's (`projectile_polygon_moveset.rs:458`).
+
+⚠ **THE METHOD IS THE LESSON.** Both write `side_b.equips = Some(..)` — an
+ASSIGNMENT — and I grepped for `equips: Some`, the struct-literal form. My
+follow-up scan would have caught them and was cut off by a `head -10` before it
+reached `game/ambition_content`. ⇒ A NEGATIVE claim ("nothing authors this")
+cannot be made from a truncated scan or from one spelling of an assignment.
+
+✔ **The fix is unaffected and neither equipped id was ever at risk**:
+`polygon_ponytail` and `admiral_gun_sword` are both in the NARROW table, so the
+DRAW resolved either way. The destruction path was only ever `previous`, the
+DISPLACED item.
+
+◐ **What safety actually rested on, which is far more fragile than "nobody
+authors it":** nobody who authors `equips` is holding a WIDE-registry item at the
+moment they press. In `ambition_demo_smash` that is structural today (it authors
+no `HeldItem` at all). In the platformer — where `axe` and `javelin` exist and
+the admiral is a placed NPC — it is UNMEASURED, and this row does not claim it.
+⇒ Closing it while it was cheap was right for a better reason than the one I
+gave.
 
 ⚠ The probe still hashes the id alone, so no checksum moved and no schema
 version bumped. Guard: `a_carried_weapon_no_registry_knows_is_returned_and_not_

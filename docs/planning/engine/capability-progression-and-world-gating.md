@@ -285,9 +285,10 @@
 > technique/placement bool modes   88        (at 9036cda18, re-measured 2026-09-05)
 >   LIVE      set true in content  59
 >   ALWAYS ON defaults true, unset  7
->   DORMANT   default false, never 14
->   UNNAMED   never mentioned       4
->   ENGINE-SET set by code not content 4     (reported, not hidden)
+>   DORMANT   default false, never  6
+>   UNNAMED   never mentioned       2
+>   ENGINE-SET set by code not content 4
+>   DERIVED   assigned from an expression 10
 >   EXCLUDED  settings/budgets/dev 13        (now REPORTED, see below)
 > ```
 >
@@ -318,8 +319,19 @@
 > "engine code sets it" are different facts, and that difference is the census's
 > whole point — a boss literal in `spawn_actors.rs` is not an authored customer.
 >
-> ⇒ **18 modes have no authored customer that turns them on** (14 dormant + 4
-> unnamed). In this lane:
+> ⛔⛔ **AND A THIRD PATTERN HOLE, the largest of the three: the census matched
+> `field [:=] true`, so a field whose authored road runs through a VARIABLE was
+> invisible.** `Breakable.pogo_refresh` read UNNAMED — never mentioned anywhere —
+> while SEVEN production sites read it and `ldtk/surfaces.rs:422` sets it with
+> `breakable.pogo_refresh = pogo_orb_combo`, authored as an LDtk identifier. ⇒ A
+> field assigned from an expression is a THIRD state, not a missing one: the
+> authoring lives in whatever computes the expression, and the honest report is
+> "derived, look here" rather than "nobody authors this". That moved 10 rows.
+>
+> ⇒ **8 modes have no authored customer that turns them on** (6 dormant + 2
+> unnamed). ⚠ That number has now been corrected FOUR times, 18 -> 23 -> 18 -> 8,
+> and every correction was the POPULATION or the PATTERN, never a verdict. In
+> this lane:
 > `Interactable(Spec).requires_facing`, `Pickup(Spec).collected`,
 > `CameraZoneSpec.cinematic_lock`, `RoomLink.bidirectional`,
 > `RoomMetadata.gallery`, `PropSpec.flip_y`.

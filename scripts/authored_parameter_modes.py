@@ -221,6 +221,45 @@ def set_true_in_production(field: str) -> str | None:
     return live[0] if live else None
 
 
+def set_from_expression(field: str) -> str | None:
+    """Where production code assigns `field` from something that is not a literal.
+
+    ⛔⛔ THE THIRD TIME THE PATTERN WAS THE POPULATION BUG. `Breakable.pogo_refresh`
+    read UNNAMED -- never mentioned anywhere -- while SEVEN production sites read
+    it and `ldtk/surfaces.rs` sets it with `breakable.pogo_refresh =
+    pogo_orb_combo`. The census matched `field [:=] true`, so a field whose
+    authored road runs through a VARIABLE was invisible to it, exactly as a field
+    set by a helper in an unlisted crate had been.
+
+    ⭐ A field assigned from an expression is a THIRD state, not a missing one:
+    the authoring lives in whatever computes that expression -- here an LDtk
+    entity identifier -- and the census cannot follow it. Saying "derived, look
+    here" is the honest answer; saying "nobody authors this" was a false one.
+
+    ⚠ `: false` and `: true` are excluded so this only catches the non-literal
+    case; the literal roads already have their own buckets.
+    """
+    # ⛔⛔ FLAGS BEFORE THE PATTERN, and NEVER swallow a bad status. Written as
+    # `["-E", pattern, "-P"]` git read `-P` as a REVISION and died with `fatal:
+    # unable to resolve revision: -P` -- status 128, which an
+    # `if returncode not in (0, 1): return None` turned into "no match" for every
+    # field on the list. The bucket printed 0 and looked like a clean result.
+    # A scanner that swallows a read error reports its own failure as a finding.
+    done = subprocess.run(
+        ["git", "grep", "-lP",
+         rf"\b{re.escape(field)}\s*=\s*(?!true|false)[A-Za-z_]",
+         "--", "crates", "game"],
+        cwd=REPO, capture_output=True, text=True,
+    )
+    if done.returncode not in (0, 1):
+        raise SystemExit(
+            f"git grep failed for {field} (status {done.returncode}): "
+            f"{done.stderr.strip()}"
+        )
+    live = [f for f in done.stdout.split() if not _is_test(f)]
+    return live[0] if live else None
+
+
 def modes() -> list[tuple[str, str, str, bool]]:
     """`(struct, field, file, defaults_true)` for every authored bool mode.
 
@@ -341,7 +380,7 @@ def main() -> int:
         ["git", "rev-parse", "--short", "HEAD"], cwd=REPO, capture_output=True, text=True
     ).stdout.strip()
     fields = modes()
-    live, dormant, unnamed, always_on, engine_set = [], [], [], [], []
+    live, dormant, unnamed, always_on, engine_set, derived = [], [], [], [], [], []
     for name, field, where, defaults_true in fields:
         set_true = re.search(re.escape(field) + r"\s*[:=]\s*true\b", corpus)
         named = re.search(r"\b" + re.escape(field) + r"\b", corpus)
@@ -363,6 +402,11 @@ def main() -> int:
             if site is not None:
                 bucket.remove(row)
                 engine_set.append((row[0], row[1], site))
+                continue
+            site = set_from_expression(row[1])
+            if site is not None:
+                bucket.remove(row)
+                derived.append((row[0], row[1], site))
 
     print(f"AUTHORED BOOLEAN PARAMETER MODES  (at {head}, corpus {n_files} files)\n")
     print(f"  technique/placement bool modes      {len(fields)}")
@@ -371,6 +415,7 @@ def main() -> int:
     print(f"  DORMANT   — default false, never on {len(dormant)}")
     print(f"  UNNAMED   — never mentioned         {len(unnamed)}")
     print(f"  ENGINE-SET— set by code, not content {len(engine_set)}")
+    print(f"  DERIVED   — assigned from an expression {len(derived)}")
     if EXCLUDED:
         print("\n  EXCLUDED FROM THE SUBJECT CORPUS (not classified above):")
         for reason, count in sorted(EXCLUDED.items()):
@@ -380,7 +425,7 @@ def main() -> int:
             "here that looks\n       too large is a reason to re-read the rule "
             "that removed them."
         )
-    for label, rows in (("DORMANT", dormant), ("UNNAMED", unnamed), ("ENGINE-SET", engine_set)):
+    for label, rows in (("DORMANT", dormant), ("UNNAMED", unnamed), ("ENGINE-SET", engine_set), ("DERIVED", derived)):
         if not rows:
             continue
         print(f"\n{label}:")

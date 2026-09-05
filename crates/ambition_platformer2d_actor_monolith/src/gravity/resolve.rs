@@ -48,6 +48,27 @@ pub fn resolve_body_motion_frames(
         Without<ambition_platformer2d_shared_tangle::markers::PlayerEntity>,
     >,
 ) {
+    // ⚠ THE PLAYER ARM DOES NOT MULTIPLY BY `surface.gravity_scale`, AND THAT IS
+    // NOT AN OVERSIGHT — it is why the two arms exist. MEASURED 2026-09-05, after
+    // the fighter session read this as a hazard: a player entity has NO
+    // `ActorSurfaceState` at all. `PlayerSimulationBundle` does not carry one and
+    // no avatar or ability path inserts one, so there is no scale here to apply.
+    //
+    // ⇒ Every writer of `gravity_scale` — the mount saddle pin, capture, the body
+    // seed — targets bodies that DO have the component, and those match the
+    // `Without<PlayerEntity>` arm below, where the scale IS applied. Possession
+    // does not change that: it queries `Without<PlayerEntity>` and leaves the
+    // marker on the player box, so a possessed body keeps resolving as an actor.
+    //
+    // ⛔ IF A PLAYER EVER GAINS `ActorSurfaceState`, THIS ARM SILENTLY IGNORES IT,
+    // and NOTHING HERE WILL TELL YOU — said plainly because I tried to guard it
+    // and the guards I could write were worse than the gap. A runtime test can
+    // only spawn a bare marker (that tests Bevy, not this repo); the real bundle's
+    // helpers are private to `avatar/bundles.rs`; and an absence contract greps a
+    // single token, which cannot express "these two things must not co-occur"
+    // without banning the component's legitimate uses. ⇒ The honest artifact is
+    // this measurement, dated, with the mechanism — not a green test that could
+    // never go red.
     let player_response = tuning.gravity;
     for (kin, mut resolved) in &mut players {
         resolved.publish_resolved_frame(env.resolve(kin.aabb(), player_response));
@@ -67,6 +88,8 @@ fn bosses_resolve_through_the_actor_arm(_: &BossConfig) {}
 #[cfg(test)]
 mod tests {
     use super::*;
+
+
     use ambition_platformer2d_core as ae;
     use ambition_platformer2d_shared_tangle::frame_env::{collect_force_zones, ForceZones};
     use ambition_platformer2d_shared_tangle::gravity::{

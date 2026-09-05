@@ -131,6 +131,43 @@ decision policy is correct.
 > one question. That is the cheapest thing this page can inherit from the gating
 > track, and it costs nothing to honour now and a migration to honour later.
 
+## ✔ THE ROOM GRAPH IS NAVIGABLE, measured 2026-09-05 — a POSITIVE verdict
+
+⭐ **Written down because an unmeasured row and a satisfied one look identical in
+a summary.** Across the four shipped worlds:
+
+```text
+areas (activeArea, falling back to the level id)   72
+directed room edges                               150
+LoadingZones with a target                        151
+   of those, authoring `bidirectional`            122
+doors targeting a room that is not an area          0
+areas you can ENTER but not LEAVE                   0
+```
+
+⇒ Every authored door leads to a real area and nothing is a one-way trap. Guarded
+by `scripts/check_world_graph_is_navigable.py`, because the engine's own response
+to a dangling target is `eprintln!("room graph warning: unknown target room …")`
+— a build-time warning nobody reads, on a door that then silently does nothing.
+
+⛔⛔ **AND `RoomLink.bidirectional` IS NOT DORMANT — the dormant-mode census could
+not read LDtk.** 122 of 151 zones set it. The census matcher is Rust/RON syntax
+(`field: true`) and LDtk is JSON with the name and value in DIFFERENT KEYS, so
+`sandbox.ldtk` mentions `bidirectional` 124 times and matched ZERO times. Fixed
+with a structured `fieldInstances` parse. ⇒ **A corpus that is present but
+unreadable by the matcher is worse than an absent one: it looks like coverage.**
+
+⚠ **THE KEY IS `activeArea`, camelCase, and getting it wrong is invisible.**
+Keying on the level identifier invents areas and reports their cross-area doors
+as dangling; keying on `active_area` matches nothing and falls back to
+identifiers everywhere, which looks the same as working. I produced BOTH false
+findings before the script existed, which is why it verifies the key against
+`LdtkLevel::raw_active_area` rather than commenting it.
+
+⚠ This gate reads the map SUBMODULE through symlinks, so it exits 3 and SKIPS
+when the submodule is absent, and **cannot be evidence between two machines** —
+two boxes at the same commit can hold different worlds (#62).
+
 ## Important correction from fighter measurements
 
 The fighter `recovery_below` experiment does **not** validate the rollout/recovery

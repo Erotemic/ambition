@@ -1136,6 +1136,39 @@ mechanism would produce a gate that refuses everyone.
 `body.fits`, and anything later that reads the driven population), which is why
 it is filed against the population rather than against a condition.
 
+### 65. `portal_lab` authors SEVEN `purple` apertures against ONE `yellow`. Which one is the exit? (2026-09-05)
+
+⭐ **MEASURED, in shipped content.** `sandbox.ldtk`'s `portal_lab` level authors
+14 `Portal` entities: **purple ×7**, yellow ×1, and one each of red, teal, green,
+magenta, cyan, rose. All in ONE level, so all live at once.
+
+⛔ **The DETERMINISM half is already fixed and needs no ruling.** `find_portal`
+took the FIRST match in iteration order, and its callers feed it
+`Query<&PlacedPortal>` collected into a `Vec` — archetype order, which is not a
+promise and is not reproduced by a rollback resimulation. So the single yellow
+resolved to whichever purple the archetype happened to list first, and a resim
+could pick a different one: a body warped somewhere else on a replayed frame. It
+now picks the lowest `pos` — arbitrary but REPRODUCIBLE, since placements are
+authored.
+
+⇒ **What is left is authoring intent, and only you can settle it:**
+
+- **Is seven-to-one deliberate?** Many entrances to one exit is a coherent design
+  and reads fine in one direction: entering any purple leads to the yellow,
+  unambiguously. It is the OTHER direction that has no answer — entering the
+  yellow must pick one purple of seven, and nothing in the authoring says which.
+- **Or is `portal_lab` a test bed where any answer will do?** Then the current
+  arbitrary-but-stable rule is already right and this closes with a sentence.
+- ⚠ **If neither: the authoring vocabulary is missing a way to say it.** A pair
+  is identified by a COLOUR, and a colour cannot distinguish two pairs — the same
+  shape the fighter lane hit with `channel_index` and solved with a live
+  occurrence id. Exploration has no equivalent.
+
+ⓘ **Cheapest sufficient answer if you want one now:** a validator rule that an
+authored channel may appear at most TWICE per level would make the ambiguity
+unauthorable, and would red `portal_lab` today — which is either the finding or
+the reason to say seven-to-one is intended.
+
 ### 64. Should `SurfaceLoop` and `SurfaceRamp` get marker registrations? (2026-09-05, narrowed same day)
 
 ✔ **THE LIST HALF IS DONE AND IS NO LONGER A QUESTION.** This was filed as *"two

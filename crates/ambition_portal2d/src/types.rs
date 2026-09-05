@@ -106,7 +106,39 @@ pub fn find_portal<'a>(
     portals: impl IntoIterator<Item = &'a PlacedPortal>,
     channel: PortalChannel,
 ) -> Option<PlacedPortal> {
-    portals.into_iter().find(|p| p.channel == channel).cloned()
+    // ⛔⛔ THIS WAS `.find(..)` — THE FIRST MATCH IN ITERATION ORDER, AND ITS
+    // CALLERS FEED IT A BEVY QUERY. `portal_list` in
+    // `ambition_platformer2d_host::portal` is `Query<&PlacedPortal>` collected
+    // into a `Vec`, so "first" meant ARCHETYPE ORDER: not a promise, and not
+    // reproduced by a rollback resimulation.
+    //
+    // ⚠ AND IT IS REACHABLE IN SHIPPED CONTENT, not a theoretical tie.
+    // MEASURED 2026-09-05: `sandbox.ldtk`'s `portal_lab` level authors SEVEN
+    // `purple` apertures against ONE `yellow`, all in the same level and
+    // therefore all live at once. Entering the single yellow resolved to
+    // whichever purple the archetype happened to list first, and a resim could
+    // pick a different one — a body warped somewhere else on a replayed frame.
+    //
+    // ⭐ LOWEST POSITION WINS, which is arbitrary but REPRODUCIBLE: placements
+    // are authored, so the order is identical on every run and every machine.
+    // `total_cmp` rather than `partial_cmp` so there is no `unwrap` and no NaN
+    // ordering hole.
+    //
+    // ⚠ THIS SETTLES DETERMINISM, NOT DESIGN. Which purple the yellow SHOULD
+    // lead to is an authoring question (awaiting-maintainer-decision #65); what
+    // this fixes is that the answer no longer changes between two runs of the
+    // same content. The projectile sweep learned the same lesson first — see
+    // `projectile/systems.rs`, "NEAREST FIRST, AND IT USED TO BE QUERY ORDER".
+    portals
+        .into_iter()
+        .filter(|p| p.channel == channel)
+        .min_by(|a, b| {
+            a.pos
+                .x
+                .total_cmp(&b.pos.x)
+                .then_with(|| a.pos.y.total_cmp(&b.pos.y))
+        })
+        .cloned()
 }
 
 /// A portal opening is the SAME size in every orientation: a doorway
@@ -203,5 +235,70 @@ impl PortalHostDepths {
             .find(|(c, _)| *c == channel)
             .map(|(_, d)| *d)
             .unwrap_or(f32::INFINITY)
+    }
+}
+
+#[cfg(test)]
+mod find_portal_determinism_tests {
+    use super::*;
+    use crate::color::PortalChannelColor;
+
+    fn portal(channel: PortalChannel, x: f32, y: f32) -> PlacedPortal {
+        PlacedPortal {
+            channel,
+            pos: Vec2::new(x, y),
+            normal: Vec2::new(0.0, 1.0),
+            half_extent: Vec2::new(PORTAL_OPENING_HALF, PORTAL_THICKNESS_HALF),
+            host: None,
+            host_lift: 0.0,
+            vel: Vec2::ZERO,
+            prev_pos: Vec2::new(x, y),
+        }
+    }
+
+    /// ⛔⛔ SEVEN PURPLE APERTURES ARE SHIPPED CONTENT, not a contrived tie.
+    /// `sandbox.ldtk`'s `portal_lab` authors seven `purple` against one
+    /// `yellow`, all in one level and all live together, so the lookup that
+    /// resolves "the purple side" has seven candidates every frame.
+    ///
+    /// ⭐ THE PROPERTY IS ORDER-INDEPENDENCE, so the test states it the only way
+    /// that means anything: the SAME set in a DIFFERENT order must answer the
+    /// same. A test that fed one order and asserted one answer would pass on the
+    /// `.find()` this replaced.
+    #[test]
+    fn the_same_apertures_in_a_different_order_resolve_to_the_same_one() {
+        let purple = PortalChannelColor::Purple.channel();
+        let mut apertures: Vec<PlacedPortal> = (0..7)
+            .map(|i| portal(purple, 400.0 - (i as f32) * 37.0, 100.0 + (i as f32) * 11.0))
+            .collect();
+
+        let forward = find_portal(&apertures, purple).expect("a purple aperture");
+        apertures.reverse();
+        let reversed = find_portal(&apertures, purple).expect("a purple aperture");
+        apertures.rotate_left(3);
+        let rotated = find_portal(&apertures, purple).expect("a purple aperture");
+
+        assert_eq!(
+            forward.pos, reversed.pos,
+            "reversing the aperture order changed which portal the channel \
+             resolves to — a rollback resimulation reorders the query, so this \
+             is a body warping somewhere else on a replayed frame"
+        );
+        assert_eq!(rotated.pos, forward.pos, "rotating the order changed the answer");
+    }
+
+    /// ⚠ The control: a channel with ONE aperture is unaffected, and a channel
+    /// with none still answers `None`. Without these the test above would pass
+    /// on a function that returned the same portal for everything.
+    #[test]
+    fn a_single_aperture_and_an_absent_channel_are_unchanged() {
+        let purple = PortalChannelColor::Purple.channel();
+        let yellow = PortalChannelColor::Yellow.channel();
+        let only = vec![portal(yellow, 12.0, 34.0)];
+        assert_eq!(
+            find_portal(&only, yellow).map(|p| p.pos),
+            Some(Vec2::new(12.0, 34.0))
+        );
+        assert!(find_portal(&only, purple).is_none());
     }
 }

@@ -1243,9 +1243,22 @@ the save in either order. The fighter lane already runs this shape against
 `Messages<StocksMatchDecided>` in `combat_schedule.rs`'s `mod tests`, and
 `ambiguity_detection: LogLevel::Ignore` gates only the LOGGING, so the list is
 readable even though the sim silences the report.
-⇒ **That census is the thing to run before ruling this row** — it turns *"at
-least one"* into a number, and a number decides whether the answer is an edge or
-a rule.
+✔✔ **RUN 2026-09-05 BY THE FIGHTER LANE, AND THE NUMBER SETTLES THE FORK: 20
+unordered pairs touch `AmbitionGameSave`** (of 261 conflicts over 410 systems, in
+`PlatformerEnginePlugins::fixed_tick()`).
+
+⇒ **At 20 the answer is a RULE about where durable writes belong in the tick, not
+a single edge.** Ordering one pair by hand leaves nineteen, and the next content
+road that writes the save adds a twentieth.
+
+⚠ **Read it as a POPULATION, not as 20 defects, and the caveats are the measurer's
+own:** any two systems taking `ResMut<AmbitionGameSave>` conflict at TYPE level
+whether or not they can ever touch the same key, and that census ran the ENGINE
+composition — the falling-sand roads in this row may not even be in it. ⇒ 20
+bounds the problem; it does not enumerate it.
+ⓘ Run as a temporary probe and removed rather than kept: *"a banked count is the
+denominator that rots, and this one would."* The number is recorded here, where a
+reader can re-derive it, instead of in a ratchet nobody re-measures.
 
 ⇒ **THE DECISION IS WHERE THE EDGE LIVES, and it is a boundary question rather
 than a local one.**

@@ -435,6 +435,30 @@ It works for the one content domain that wrote it; nothing generic retracts
 anything, and a second boss family that forgets to write its own reset gets no
 warning from anywhere.
 
+⭐⭐ **AND THE REACH IS WIDER THAN "A SECOND BOSS FAMILY" — measured 2026-09-05.**
+Exactly ONE production system in the whole tree both reads a `RoomReplayAdmitted`
+and retracts a durable fact. (The only other file matching both greps is
+`crates/ambition_combat/src/rollback_registration.rs`, where the hits are message
+NAMES rather than writes — checked, not assumed.)
+
+```text
+BossSpawn   11 authored placements   1 retracted on replay
+Switch      14 authored placements   0 retracted on replay
+encounters   generic writer          0 retracted on replay
+flags        generic writer          0 retracted on replay
+```
+
+⇒ **A switch flipped during an attempt stays flipped after the replay that undid
+the attempt**, so a puzzle room replays already solved. Nobody chose that; it is
+the same absence one family over, and it means the ruling
+[question 56](../awaiting-maintainer-decision.md) asks for should be stated for
+durable ATTEMPT STATE generally. Answered only for bosses, it gets re-asked for
+switches by whoever is holding that room rather than by whoever decided the
+policy.
+ⓘ This is the first open question below — *"which persistent occurrence states
+are terminal, resettable, or recoverable?"* — reached from the replay end with a
+measurement attached.
+
 ⚠ **AND THE DURABLE ARM'S FIRST RUN REPORTED A DEFECT THAT WAS NOT THERE**, which is
 worth keeping because this file exists to catch exactly it. The disturbance
 originally wrote `save.data_mut().wallet += 137` — a PROJECTION — which the

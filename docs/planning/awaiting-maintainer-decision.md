@@ -24,7 +24,14 @@ edits their content to fix your ambiguity.
 
 > ✔ **PREMISES RE-MEASURED 2026-09-03. Every question here still rests on a fact
 > that is still true**, which is the thing that decides whether answering them is
-> a good use of your time. A decision resting on a premise the code has moved past
+> a good use of your time.
+>
+> ⭐ **PARTIAL RE-SWEEP 2026-09-05 — the four exploration-lane rows only (45, 56,
+> 58, 61), each re-derived from the code and holding.** Stated as PARTIAL on
+> purpose: the fighter-lane rows were not re-checked in that pass, and a header
+> claiming the whole file was swept when half of it was is precisely the failure
+> this page warns about one paragraph down. Each re-measurement is dated on its
+> own row rather than only here. A decision resting on a premise the code has moved past
 > costs you the answer AND the discovery that it was moot.
 >
 > Checked against HEAD: the windbox vocabulary is still authored by nothing (39);
@@ -902,6 +909,13 @@ from `fallback_dialogue`, overridden by any authored node of the same title).
 Content call; the engine side is unchanged either way.
 
 ### 45. Is a unique capability item an ENTITLEMENT or an OCCURRENCE? (2026-09-02)
+
+✔ **PREMISE RE-MEASURED 2026-09-05 AND IT HOLDS.** `equip_portal_gun`
+(`ambition_held_items/src/lib.rs:953`) still inserts
+`(PortalGun::for_pair(pair), OwnedPortalGunPair(pair))`, and
+`unequip_portal_gun` (`:973`) removes `PortalGun` and `StashedActionSet` and
+**not** `OwnedPortalGunPair` — so the entitlement still outlives the hand, which
+is the whole asymmetry this question is about.
 
 `item-custody-and-accounting.md` I3 asks special pickup roads to "converge
 toward the same occurrence/custody model as ordinary held items **when that

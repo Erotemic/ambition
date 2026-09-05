@@ -30,7 +30,6 @@ from ambition_ldtk_tools.edit.defs import (  # noqa: E402
     field_def as _new_field_def,
     load_project,
     load_spec,
-    patch_runtime_identifiers,
     patch_validator_known_entities,
     repair_and_validate,
     write_project,
@@ -453,9 +452,6 @@ def main(argv=None) -> int:
     # `install_ldtk_entity_converters`, never the engine's lists.
     if created and not args.no_source_patch and not args.game_owned:
         patch_validator_known_entities(created)
-        added_runtime = patch_runtime_identifiers(created)
-        if added_runtime:
-            print(f"bevy_runtime AMBITION_LDTK_ENTITY_IDENTIFIERS += {added_runtime}")
 
     if args.no_repair:
         return 0

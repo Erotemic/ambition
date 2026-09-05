@@ -64,10 +64,7 @@ The tool:
    validator stops calling it "unsupported". Field RULES are not written
    there — the converter does not exist yet, and the Rust prover would
    catch any guess.
-5. Adds the identifier to `bevy_runtime.rs`'s
-   `AMBITION_LDTK_ENTITY_IDENTIFIERS` so `bevy_ecs_ldtk` registers a
-   marker bundle for the new entity.
-6. Runs `ambition_ldtk_tools repair --in-place` and
+5. Runs `ambition_ldtk_tools repair --in-place` and
    `ambition_ldtk_tools validate --schema ... --require-schema`.
 """
 
@@ -399,54 +396,6 @@ def patch_validator_known_entities(identifiers: list[str]) -> list[str]:
     return additions
 
 
-def patch_runtime_identifiers(identifiers: list[str]) -> list[str]:
-    """Add `identifiers` to `bevy_runtime.rs::AMBITION_LDTK_ENTITY_IDENTIFIERS`.
-
-    ⛔ **ENGINE identifiers only.** That list mirrors `standard_converters()` and a
-    test pins the two equal, so adding a GAME's entity to it makes the engine
-    claim a vocabulary it cannot convert. A game registers its own nouns through
-    `install_ldtk_entity_converters` at plugin-build time and must not appear
-    here — `MaryOBlock` is the first such entity and the reason this note exists.
-
-    ⚠ the file being absent is a WARNING, not a crash. It used to be a hardcoded
-    path three renames stale, so `def register-entity` wrote the entity into the
-    .ldtk and then died — leaving a non-zero exit and a file that HAD been
-    changed. A half-succeeded tool is worse than a failed one.
-    """
-    if not RUNTIME_RS.exists():
-        print(
-            f"warning: {RUNTIME_RS} not found; skipped the engine identifier list. "
-            "If this is an ENGINE entity, that list now disagrees with the project."
-        )
-        return []
-    text = RUNTIME_RS.read_text()
-    match = re.search(
-        r"pub const AMBITION_LDTK_ENTITY_IDENTIFIERS: &\[&str\] = &\[\s*([^]]+?)\];",
-        text,
-        flags=re.DOTALL,
-    )
-    if not match:
-        raise SystemExit(
-            "could not find AMBITION_LDTK_ENTITY_IDENTIFIERS in bevy_runtime.rs"
-        )
-    block = match.group(1)
-    existing = re.findall(r'"([^"]+)"', block)
-    additions = [name for name in identifiers if name not in existing]
-    if not additions:
-        return []
-    new_list = existing + additions
-    rendered = "    " + ",\n    ".join(f'"{name}"' for name in new_list) + ",\n"
-    new_text = (
-        text[: match.start()]
-        + "pub const AMBITION_LDTK_ENTITY_IDENTIFIERS: &[&str] = &[\n"
-        + rendered
-        + "];"
-        + text[match.end() :]
-    )
-    RUNTIME_RS.write_text(new_text)
-    return additions
-
-
 def main(argv=None) -> int:
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     parser.add_argument(
@@ -521,15 +470,16 @@ def main(argv=None) -> int:
         # world. It is also the list the Rust prover pins against
         # `standard_converters()`, so a game entity in it makes the engine claim a
         # vocabulary it cannot convert.
-        # `AMBITION_LDTK_ENTITY_IDENTIFIERS` mirrors `standard_converters()` with
-        # a test pinning them equal, so a game entity there makes the engine claim
-        # a vocabulary it cannot convert. A game registers its own through
-        # `install_ldtk_entity_converters`; the project's `defs` is where tooling
-        # sees it, and the validator accepts an identifier the project defines.
+        # ⭐ THERE IS NO LONGER A MARKER LIST TO PATCH. This used to write the
+        # identifier into `AMBITION_LDTK_ENTITY_IDENTIFIERS` as a third place the
+        # same noun had to be spelled, and the comment here claimed "a test pins
+        # them equal" -- which was never true and is how the list drifted by two
+        # entries. The plugin now DERIVES its registrations from the converter
+        # vocabulary, so an engine entity gets its marker by existing.
+        # A game registers its own through `install_ldtk_entity_converters`; the
+        # project's `defs` is where tooling sees it, and the validator accepts an
+        # identifier the project defines.
         added_validator = [] if args.game_owned else patch_validator_known_entities(new_identifiers)
-        added_runtime = [] if args.game_owned else patch_runtime_identifiers(new_identifiers)
-        if added_runtime:
-            print(f"bevy_runtime AMBITION_LDTK_ENTITY_IDENTIFIERS += {added_runtime}")
 
     if args.no_repair:
         return 0

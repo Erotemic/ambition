@@ -1136,39 +1136,36 @@ mechanism would produce a gate that refuses everyone.
 `body.fits`, and anything later that reads the driven population), which is why
 it is filed against the population rather than against a condition.
 
-### 64. Two LDtk identifiers have converters and no marker registration (2026-09-05)
+### 64. Should `SurfaceLoop` and `SurfaceRamp` get marker registrations? (2026-09-05, narrowed same day)
 
-⛔ **MEASURED, and the prose said the opposite.** `standard_converters()` in
-`ambition_platformer2d_ldtk` has **34** keys; `AMBITION_LDTK_ENTITY_IDENTIFIERS`
-has **32**. `SurfaceLoop` and `SurfaceRamp` are converters with no marker
-registration.
+✔ **THE LIST HALF IS DONE AND IS NO LONGER A QUESTION.** This was filed as *"two
+identifiers have converters and no marker registration, and three prose sites
+claim a test pins the lists equal — there is no such test."* The registration
+list has since been DELETED: `AmbitionLdtkRegistrationPlugin` derives its
+registrations from `LdtkVocabulary::engine()`, so the two lists cannot disagree
+because there is only one. The false "a test pins them equal" claim is gone from
+`conversion/mod.rs` and from both sites in `edit/defs.py`, and the tool step that
+patched the second list is deleted rather than repaired — an engine entity now
+gets its marker by existing.
 
-⛔⛔ **AND THREE SEPARATE PROSE SITES CLAIM A TEST PINS THEM EQUAL. There is no
-such test** — searched the whole tree; the constant has exactly one consumer (the
-plugin's own `register_ldtk_entity` loop) and one doc mention. The claim appears
-in `conversion/mod.rs` (corrected), in `tools/…/edit/defs.py` twice, and in an
-archived review.
+⇒ **What remains is one behaviour question, and only you can answer it:** the
+derivation carries a named exclusion, `MARKERLESS_IDENTIFIERS`, holding back
+exactly the pair the drift had held back by accident. Registering them would
+change what the `bevy_ecs_ldtk` path spawns, so the rewrite was deliberately
+behaviour-identical and left the decision here.
 
-✔ What IS pinned, and genuinely: `contract/prover.rs` runs
-`ldtk_entity_contract.json` (**34** entities, including both) against the real
-parsers. The contract agrees with the converters; the marker list is the outlier.
-
-⇒ **The question is whether the two belong in the marker list.**
-
-- The list drives `bevy_ecs_ldtk`'s `register_ldtk_entity::<AmbitionLdtkMarkerBundle>`.
-  ⚠ Whether the shipped game reaches `SurfaceLoop` through that path or only
-  through the conversion table is NOT established here, and it decides whether
-  this is a latent inconsistency or a live gap.
-- Authored reality: `SurfaceLoop` is DEFINED in all four shipped worlds with
-  **one placed instance** (`sandbox.ldtk`). `SurfaceRamp` is defined in none and
-  instanced in none.
-- ⓘ `tools/ambition_ldtk_tools/…/edit/defs.py` patches BOTH lists when it adds an
-  identifier, which suggests these two were added to the converters by hand
-  without it — an oversight rather than a decision. That is a reason to suspect
-  the answer is "yes, add them", not a reason to skip asking.
-
-⇒ Adding them to the list and adding the missing test are ONE change. Doing
-either alone leaves the other claim false.
+- ⓘ **The cost of waiting is measured and it is zero.** `SurfaceLoop` is defined
+  in all four shipped worlds with **one** placed instance (`sandbox.ldtk`);
+  `SurfaceRamp` is defined in no world and instanced in none.
+- ⚠ **The consequence of registering is NOT established.** Marker registration
+  makes `bevy_ecs_ldtk` spawn an `AmbitionLdtkMarkerBundle` entity; the
+  identifier-match arm that inserts collision components has no case for either,
+  so the new entities would carry a `Name` and no collision. Extra entities are
+  not free in a rollback world, which is the part worth your judgement rather
+  than my guess.
+- ⓘ The evidence they were an oversight rather than a decision still stands: the
+  authoring tool used to patch both places when it added an identifier, and
+  these two reached the converters without it.
 
 ### 63. Three authored fields decide nothing. Wire them, or delete them? (2026-09-05)
 

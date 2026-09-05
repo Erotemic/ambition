@@ -8,6 +8,20 @@ history.
 
 This file intentionally does not retain answered decision transcripts.
 
+⛔ **NUMBERING: take `max + 1` OVER THE WHOLE FILE, not "one past the row above".**
+Answered rows are removed, so the numbers are sparse (30 rows, highest 62) and
+the top of the file is NOT the highest number. Two sessions both filed a "60" on
+2026-09-05 — one mounted-fighter question and one durable-switch question — and
+"decision 60" named two different things until one was renumbered. The one-liner:
+
+```bash
+grep -oE '^### ~?~?[0-9]+\.' docs/planning/awaiting-maintainer-decision.md \
+  | tr -d '#~ .' | sort -n | tail -1
+```
+
+⚠ And if you find a collision, renumber YOUR OWN row. Renumbering someone else's
+edits their content to fix your ambiguity.
+
 > ✔ **PREMISES RE-MEASURED 2026-09-03. Every question here still rests on a fact
 > that is still true**, which is the thing that decides whether answering them is
 > a good use of your time. A decision resting on a premise the code has moved past

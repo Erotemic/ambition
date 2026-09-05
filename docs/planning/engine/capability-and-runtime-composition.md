@@ -531,6 +531,21 @@ rather than taken on report (`crates/ambition_render/src/rendering/camera.rs:126
 ⇒ **`Option` buys GREEN FIXTURES and sells the guarantee that the thing happens.**
 A parry that goes unpublished is a counter that never fires, and nothing says so.
 
+⭐⭐ **A THIRD, INDEPENDENT INSTANCE LANDED 2026-09-05, and it argues the ruling
+better than either ruling argues for itself — because the cost was paid AT A
+DISTANCE.** The fighter lane added a FOURTH `MessageWriter` to
+`translate_smash_capture_effects`, and the whole system failed parameter
+validation in a fixture that registered three: George silently could not grab,
+and the red landed on a test about CARRYING. ⇒ a fixture caught a capability
+quietly going missing on a system it has no relationship with, which is exactly
+the protection an `Option` removes. Reported by that lane; the two earlier
+instances were verified in the tree here.
+
+⚠ **The distinction that survives all three is INSTRUMENT vs OUTCOME.** An
+instrument a composition may legitimately omit — a tracer, a census sink — is
+optional. An OUTCOME the system exists to produce is required, and a composition
+that cannot receive it should fail to run rather than run without it.
+
 ⭐ **THE ANSWER IS TO STOP HAND-LISTING, NOT TO WEAKEN THE PARAM.** The landed
 fix is `register_strike_outcome_messages` (`ambition_combat/src/hitbox/mod.rs:429`)
 sitting beside the struct it mirrors, so the population is registered in one

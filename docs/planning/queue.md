@@ -960,9 +960,20 @@ The one unresolved developer-policy choice from the session-ownership work is in
   ⚠ `engine/actor-monolith-work-frontier.md`'s table still carries the 09-04
   reading; it is the monolith carve's own page, so its owner should re-measure
   it rather than have me edit their row.
-  ⚠ `edit_cost_lines (ambition_platformer2d_core)` 537,395 → **576,719**
-  (+39,324 against a +10,747 budget) — still growing, and further out than the
-  +31,329 this row last recorded.
+  ⚠ `edit_cost_lines (ambition_platformer2d_core)` 537,395 → **580,634**
+  (+43,239 against a +10,747 budget) — still growing, and further out than the
+  +39,324 this row recorded on 2026-09-04 or the +31,329 before that.
+  ⇒ **Three readings, three days, monotonically worse: +31,329 → +39,324 →
+  +43,239.** Re-measured 2026-09-05 with
+  `python3 scripts/compile_ratchet.py --report-only`, which builds nothing.
+  ⚠ **The DIRECTION is the finding, not the digits** — this bullet has now been
+  corrected twice by re-measurement rather than by anything acting on it, which
+  is what a number nobody owns looks like from the outside.
+  ⭐ ⓘ And the same run shows the monolith carve WORKING on its own metric in the
+  same window: `edit_cost_lines (actor_monolith)` is 288,554, **50.5% → 47.2% of
+  the workspace, −3.3 pts**. So the two are not one story: the carve is buying
+  what it aimed at while `platformer2d_core`'s dependent closure grows underneath
+  it, and a reader taking "compile cost" as one number sees neither.
   ⚠ `UNPRICED` is **EIGHT** now, not seven: `ambition_sprite_fx` joined
   `ambition_abilities`, `ambition_body_seed`, `ambition_encounter_features`,
   `ambition_held_items`, `ambition_match`, `ambition_registry_core`,

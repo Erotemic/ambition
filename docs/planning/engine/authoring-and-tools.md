@@ -100,7 +100,46 @@ validated before installation. Pure Rust `CharacterDefinition` construction can
 be declarative; a plugin that mutates runtime state while pretending to be a
 content document is not.
 
-## ⛔⛔ An unknown technique key PASSES validation, because absence means two things
+## ⛔⛔ The param-schema validator has NO production users at all
+
+**Measured 2026-09-05, and it supersedes the section below rather than adding to
+it.** `ParamSchemaRegistry` is a complete, well-documented mechanism with **zero**
+production callers:
+
+```text
+  ParamSchemaRegistry::register     called only in crates/ambition_entity_catalog/src/tests.rs
+  ParamSchemaRegistry::validate_all called only in crates/ambition_entity_catalog/src/tests.rs
+  the type itself                   3 mentions in the whole tree, all in its own crate
+```
+
+⇒ Nothing registers a `ParamCheck`, nothing runs a validation pass, and the
+registry is never populated. **So it does not "let unknown keys through" — it
+validates nothing whatsoever**, and the doc caveat that framed the design
+question below describes a registry that is empty in every shipped build.
+
+⛔⛔ **AND A COMMENT IN THE SMASH CAPTURE ROAD CLAIMS THE PROTECTION IT PROVIDES.**
+`game/ambition_demo_smash/src/capture.rs:54`:
+
+> a params typo is a STARTUP error, not a silent default: the key registers
+> `check_hydrates` with the param-schema registry, so a fighter's bad grab data
+> fails the content pass. Reaching here with unhydratable params means the
+> registration is missing, which is worth the log rather than a silent skip.
+
+⇒ **The registration IS missing — for every key, always.** The `match` fallback
+that comment calls a last resort is the ONLY thing standing between a params typo
+and a silently skipped grab. ⚠ Fighter lane's file; relayed rather than edited.
+
+⇒ ⭐ **THIS IS THE REAL O4 SUBSTRATE, and it is smaller and more concrete than
+the design question below.** Jon wants `smash.teleprot` to answer *"does not
+exist"*. The blocker is not that the registry conflates two absences — it is that
+nothing ever tells the registry anything. **First a technique must register; only
+then does distinguishing "no params" from "no such technique" become the next
+question.**
+
+ⓘ The design question below stands and is now second in line, kept because it is
+what the first population will immediately hit.
+
+## ⓘ An unknown technique key PASSES validation, because absence means two things
 
 **Measured 2026-09-05, and it is the same defect shape as `boss.cleared` one
 surface over.** `ParamSchemaRegistry::validate`

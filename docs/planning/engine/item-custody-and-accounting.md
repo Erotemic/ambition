@@ -122,6 +122,25 @@ answered rather than guessed at now:
 ⇒ Neither is a defect to fix today; both are the same under-specification, and
 answering question 45 is what makes them precise.
 
+⭐⭐ **AND THE LAST INVARIANT GAINED A SHIPPED CASE WHERE IT GENUINELY DIVIDES
+(2026-09-05), which is the strongest evidence it is a real distinction and not an
+unexercised sentence.** The fighter lane's placed mine
+(`game/ambition_demo_smash/src/mine.rs`) keys DETONATION ENTITLEMENT to a SEAT —
+`PlacedMine { owner_seat: usize, .. }`, deliberately not an `Entity` — while the
+object itself is an ordinary `GroundItem` that anyone can pick up. ⇒ **an
+opponent can be holding the mine while it remains the placer's to set off.**
+Physical custody moved; entitlement did not; neither was inferred from the other.
+⚠ Re-derived here by reading `mine.rs`, not taken from the report: the owner
+field is a `usize` seat and the detonation test is `mine.owner_seat ==
+owner_seat`.
+
+ⓘ Note the shape it shares with the boss-cleared split recorded on
+[`simulation-authority-and-determinism.md`](simulation-authority-and-determinism.md):
+one object, two facts, and the temptation is to unify them because the types line
+up. Custody answers *"who is holding this"*; entitlement answers *"whose is
+it"*. A held item whose owner is elsewhere is exactly the case that makes the
+difference visible, and until this it had no shipped instance.
+
 ## Remaining migration pressure
 
 ### I1 — body inventory replaces process-global equipped mirrors — ✔ CLOSED 2026-09-02

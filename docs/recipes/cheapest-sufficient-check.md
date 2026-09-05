@@ -290,6 +290,26 @@ has run maintenance in weeks". Worth saying, because "a guard in a lane nobody
 runs" invites the assumption that everything behind it is rotten, and here it was
 not.
 
+✔ **GREEN AGAIN THE SAME DAY — `ambition_combat` 17 → 14, under its old baseline
+of 16 — and all three needed DIFFERENT fixes**, which is the part worth keeping,
+because "re-point the link" was right for only one:
+
+| link | why it broke | fix |
+|---|---|---|
+| `CombatGeometry` | a trait in `ambition_combat` **itself**, 60 lines away — just not in scope in the carved file | `crate::body_geometry::CombatGeometry` |
+| `CharacterDefinition::preserves_mirror_symmetry` | the PATH was wrong, not the target: `actor` does not re-export it | `actor::definition::CharacterDefinition::…` |
+| `enemy_default_brain` | ⛔ `pub(crate)` in `actor_monolith::features::ecs::brain_builders` | **UNLINKABLE BY CONSTRUCTION** — demoted to prose naming the crate and module, with a note saying why |
+
+⛔⛔ **THE THIRD IS A CATEGORY, NOT A CASE: a `pub(crate)` item can never be the
+target of a cross-crate doc link**, so part of any broken-link population is not
+fixable at all and should not be counted as debt. ⇒ The terminal state for those
+is prose that names the crate and module **plus an explicit "deliberately not a
+link, here is why"** — otherwise the next person tries the same fix and reverts
+it.
+
+⭐ And the first is the strongest evidence for the carve framing: a SAME-CRATE
+link, still correct as prose, unresolvable purely because the file moved.
+
 ⚠⚠ **AND 274 IS NOT 274 FALSE CLAIMS — I nearly left that implication standing.**
 Characterised: **249 DISTINCT targets in 274 links**, almost no repetition, and
 the most-repeated is four. They are one-off references to types NOT IN SCOPE

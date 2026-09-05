@@ -273,6 +273,14 @@ is the other half of the same carve and is precisely the "reduced coverage reads
 as improvement" the comment predicts. ⇒ **add a carve's DESTINATION crate to the
 tracked list in the carve's own commit**, and re-check doc links on both sides.
 
+⛔ **AND THE REASON IT SAT RED UNSEEN IS ITS LANE: the ratchet is in
+`build_maintenance_jobs()`, not the default or `--rust` lane** — reasonably, it
+is a cold `cargo doc` measured in minutes. But that places the guard DAYS from
+the change it exists to catch, and a carve is precisely the moment you want it.
+⇒ the cheap habit is not a lane change (which would slow every run); it is
+`python3 scripts/check_doc_link_ratchet.py --check` IN THE CARVE'S OWN COMMIT,
+the same way its `CRATES` list is supposed to be updated there.
+
 ⚠⚠ **AND 274 IS NOT 274 FALSE CLAIMS — I nearly left that implication standing.**
 Characterised: **249 DISTINCT targets in 274 links**, almost no repetition, and
 the most-repeated is four. They are one-off references to types NOT IN SCOPE

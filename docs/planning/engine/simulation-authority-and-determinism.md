@@ -676,8 +676,12 @@ and most of those correct) is what the row is for.
 are match/lifecycle latches (`NewGameResetRequested`, `StocksMatchSettled`,
 `SuddenDeathEntered`), one is `PendingLifecycleCommit`.
 
-✔ **RESOLVED THE SAME DAY, ACROSS BOTH LANES. THE TALLY IS TWO DEFECTS IN
-FOURTEEN, and the three non-defects are the more useful half:**
+✔ **RESOLVED THE SAME DAY, ACROSS BOTH LANES. THE TALLY WAS TWO DEFECTS IN THE
+FOURTEEN THIS CENSUS EXAMINED, and the three non-defects are the more useful
+half:** ⚠ *fourteen* is the population AS MEASURED, before either fix landed;
+both defects have since moved into the scoped set, so the same query at HEAD
+returns thirteen. The tally is a statement about that census, not about the tree
+now.
 
 ```text
 ProjectileSeqCounter    DEFECT  transient ids, nothing wanted the carry      -> scoped

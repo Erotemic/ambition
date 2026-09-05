@@ -318,8 +318,11 @@
 > at all; the engine side is complete down to a validation error, and the field
 > scan only ever saw its `repeating` flag. A whole reaction with no customer is
 > structurally invisible to a scan over FIELDS unless something inside it happens
-> to be a bool. ⇒ `--variants` adds it: **543 authored enum variants, 149 never
-> named in authored content**, and it reports the Windbox row.
+> to be a bool. ⇒ `--variants` adds it: **543 authored enum variants, 91 never
+> named in authored content** (re-derived 2026-09-05 late; first published as 149
+> and cut twice since — once by matching a variant's three spellings, because
+> content writes the payload type or a snake_case field far more often than the
+> CamelCase name, and once by giving this axis its own narrower corpus).
 > ⚠ Behind a flag and much noisier — many `Deserialize` enums are runtime state
 > (`LocomotionState`, `CachePolicy`) rather than authored vocabulary, so it is a
 > starting list for a person, never a count for a report.

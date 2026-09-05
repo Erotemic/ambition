@@ -1107,4 +1107,3 @@ fn a_shot_swallowed_by_an_absorber_never_reaches_the_body_behind_it() {
         );
     }
 }
-

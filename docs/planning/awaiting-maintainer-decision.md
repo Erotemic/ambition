@@ -1218,6 +1218,52 @@ mechanism would produce a gate that refuses everyone.
 `body.fits`, and anything later that reads the driven population), which is why
 it is filed against the population rather than against a condition.
 
+### 60. A mounted fighter's knockout and their mount's death race. Which wins? (2026-09-05)
+
+⭐ **FOUND BY INSTRUMENT, NOT BY PLAY, and it is unreachable today — file it now
+because the day it becomes reachable it will present as an unrepeatable bug.**
+`spend_fighter_stocks` and `enforce_mount_rider_link` both sit in
+`CombatSet::Settle` with nothing ordering them, and both take `&mut BodyHealth`.
+Bevy's own conflict list reports the pair; the two conflicting components
+resolve by id to `BodyHealth` and `BodyKinematics`, checked against the ids of
+those types rather than inferred from the signatures.
+
+⚠ **THE TWO WRITES DISAGREE ABOUT WHAT A HEALTH POOL MEANS ON THIS TICK.**
+`spend_fighter_stocks` CLEARS the meter for a fighter coming back — a respawn is
+a fresh body. `enforce_mount_rider_link` DAMAGES the rider when their mount
+dies, and then re-reads `alive()` to decide whether that killed them. Heal then
+damage leaves a fighter alive on a fresh stock; damage then heal leaves the same
+fighter alive with the mount's death silently absorbed; and if the damage lands
+first on a body that was already at zero, the second read decides a death the
+respawn was about to undo. Whichever is right, it should not be decided by which
+order the scheduler happened to pick.
+
+ⓘ **REACHABILITY, measured rather than assumed.** `spend_fighter_stocks` skips
+any body it cannot find in `Query<&mut FighterStocks>`, so the collision needs
+ONE entity holding both `FighterStocks` and `RidingOn`. No shipped content
+builds that: stocks are Smash's and mounts are Mary-O's. But the engine composes
+both plugins into the same schedule, the pairing is not exotic for a fighting
+game — a stocked fighter riding anything — and the ambiguity is already in the
+graph waiting for it.
+
+⇒ **What is being asked.** Not "add an edge": the `MatchOutcomeDecided` doc
+argues, correctly, that ordering a whole ruleset behind the engine's answer
+takes away concurrency a game wants, and it orders only PARTICIPANT-REMOVING
+rules for that reason. A mount-death damage transfer is arguably exactly such a
+rule, which would put it before the spend. But that is a claim about what a
+mount's death MEANS, and mount semantics are not mine to settle. Two candidate
+answers, both cheap:
+* **The mount's damage is a participant-removing rule** — order it before
+  `FighterStocksSpent`, matching the rule the stocks doc already states.
+* **A respawn outranks anything the old body was owed** — order the spend first
+  and let the fresh stock discard the mount's damage.
+
+ⓘ Found while guarding a different member of the same class (`4cf7ffe07`): a
+system reading or writing what another member of ITS OWN set writes, which is
+the one relationship a phase cannot express. The census that turned it up is in
+[`decision-principles.md`](decision-principles.md); `Settle` holds 13 systems
+and exactly this one unordered pair remains.
+
 ### 59. Two ledgers went red on main because a landing ran no lane. Hook, or accept? (2026-09-05)
 
 ⭐⭐ **MEASURED, and the measurement kills the obvious explanation.** Two ratchets

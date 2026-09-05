@@ -17,6 +17,21 @@ first pass at this counted 7 `set_flag` writers; most were test seeds inside
 ⚠ It is a LEXICAL census and says so: it finds `.set_<family>(` calls, not
 every road to a durable write. A helper that wraps one is counted at the helper.
 Read it as "where does the tree name this family", not as a proof of arity.
+
+⭐⭐ AND SINCE 2026-09-05 THAT CAVEAT IS MUCH SMALLER, because the structure
+changed under it. `AmbitionGameSaveData`'s fourteen fact fields were `pub`, so
+any crate could write a durable fact by assignment under any variable name —
+which is what made this census best-effort rather than an answer. They are now
+`pub(crate)` behind named setters, so FROM OUTSIDE `ambition_persistence` A
+SETTER CALL IS THE ONLY ROAD, and the lexical scan is complete for that
+population.
+
+⛔ What is still outside the scan, stated precisely so nobody over-reads the
+number: (1) writes INSIDE `ambition_persistence` itself, where the fields are
+visible — including `snapshot_impls`-style codecs that rebuild a value from a
+struct literal, which no grep for `.set_x(` or `x =` can ever see; (2) helpers
+that wrap a setter, counted at the helper. ⇒ the census is now an answer about
+CONSUMER crates and an approximation about the owning crate.
 """
 
 import re

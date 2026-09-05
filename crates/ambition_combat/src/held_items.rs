@@ -42,9 +42,31 @@ pub struct MoveBrandishedItem {
     /// asking the id rather than "is anything playing" so a move CANCELLED into
     /// another one that brandishes nothing still puts the old item back.
     pub move_id: String,
-    /// The held-item id this displaced, restored when the move ends. `None` is a
-    /// body that was carrying nothing, which is most of them.
-    pub previous: Option<String>,
+    /// The SPEC this displaced, restored when the move ends. `None` is a body
+    /// that was carrying nothing, which is most of them.
+    ///
+    /// ⛔⛔ THIS WAS THE ID, AND RE-RESOLVING IT COULD DESTROY THE ITEM. The
+    /// restore looked the id up through `ambition_characters::brain::held_item_by_id`
+    /// -- ONE of the two held-item registries -- and on `None` it removed the
+    /// body's `HeldItem` entirely. `axe` and `javelin` live only in the OTHER
+    /// registry (`ambition_held_items::held_spec_for_item`), so a body carrying
+    /// one and playing a move that brandishes would have had it deleted rather
+    /// than returned. Per item custody I1 the hand IS the record, so that is not
+    /// a cosmetic loss: the axe is not in the bag either. It is gone.
+    ///
+    /// ⛔ AND THE WIDE RESOLVER CANNOT BE CALLED FROM HERE. `held_spec_by_id`
+    /// consults both registries, but it lives in `ambition_held_items`, which
+    /// DEPENDS on this crate; calling it would be a cycle. The split is forced by
+    /// the layering, so no amount of care at the call site fixes it.
+    ///
+    /// ⭐ SO THE LOOKUP IS GONE INSTEAD OF FIXED. The body HAD the spec; storing
+    /// its id and deriving the spec back was a second authority for "what this
+    /// body was holding", and the derivation was the part that could fail.
+    /// Keeping the spec makes the restore INFALLIBLE -- no registry, no `None`
+    /// branch, and no arrangement of ids that loses a weapon. The cost is one
+    /// `HeldItemSpec` per brandishing body, the same type `HeldItem` already
+    /// keeps in rollback state on that same entity.
+    pub previous: Option<ambition_characters::brain::HeldItemSpec>,
 }
 
 /// The localizer's window on a brandish: WHICH move drew it and WHAT it
@@ -66,7 +88,10 @@ pub fn move_brandished_item_probe(item: &MoveBrandishedItem) -> u64 {
         h
     }
     let mut out = hash(&item.move_id);
-    out = out.rotate_left(17) ^ item.previous.as_deref().map_or(0, hash);
+    // ⚠ Still the ID and nothing else: the probe's job is a stable checksum, and
+    // widening it to the whole spec would change every recorded value for no
+    // gain -- two bodies holding the same id hold the same spec.
+    out = out.rotate_left(17) ^ item.previous.as_ref().map_or(0, |spec| hash(&spec.id));
     out
 }
 
@@ -125,7 +150,7 @@ pub fn brandish_the_playing_move_s_weapon(
                         // fighter's own hands rather than to the middle of it.
                         previous: match brandished {
                             Some(active) => active.previous.clone(),
-                            None => held.map(|h| h.id().to_string()),
+                            None => held.map(|h| h.spec.clone()),
                         },
                     },
                 ));
@@ -134,11 +159,10 @@ pub fn brandish_the_playing_move_s_weapon(
             (None, Some(active)) => {
                 let mut body = commands.entity(entity);
                 body.remove::<MoveBrandishedItem>();
-                match active
-                    .previous
-                    .as_deref()
-                    .and_then(ambition_characters::brain::held_item_by_id)
-                {
+                // ⭐ NO LOOKUP. `previous` IS the spec, so `None` here means the
+                // body was carrying nothing before the move -- the one reading
+                // that legitimately ends with an empty hand.
+                match active.previous.clone() {
                     Some(spec) => {
                         body.insert(HeldItem::new(spec));
                     }
@@ -218,6 +242,66 @@ mod tests {
             .entity(body)
             .get::<HeldItem>()
             .map(|item| item.id().to_string())
+    }
+
+    /// ⛔⛔ A WEAPON THIS REGISTRY HAS NEVER HEARD OF STILL COMES BACK.
+    ///
+    /// The restore used to resolve `previous` through
+    /// `ambition_characters::brain::held_item_by_id` -- ONE of the two
+    /// held-item registries -- and remove the body's `HeldItem` when that
+    /// returned `None`. `axe` and `javelin` live ONLY in the other registry
+    /// (`ambition_held_items::held_spec_for_item`), so a body carrying one and
+    /// playing a move that brandishes had it DELETED rather than handed back.
+    /// Per item-custody I1 the hand is the record, so the axe was not in the bag
+    /// either.
+    ///
+    /// ⭐ This test uses an id NO registry answers to, deliberately. Pinning it
+    /// with `axe` would pass again the moment somebody adds `axe` to the narrow
+    /// table -- which would fix this one weapon and leave the SHAPE, because the
+    /// two registries are forced apart by a dependency edge
+    /// (`ambition_held_items` depends on this crate, so the wide resolver cannot
+    /// be called from here). The property is "the restore consults nothing", and
+    /// an unresolvable id is the only way to state it.
+    #[test]
+    fn a_carried_weapon_no_registry_knows_is_returned_and_not_destroyed() {
+        let mut app = app();
+        let carried = ambition_characters::brain::HeldItemSpec {
+            id: "a_weapon_no_registry_has_heard_of".to_string(),
+            melee: None,
+            ranged: None,
+            use_behavior: Default::default(),
+        };
+        assert!(
+            ambition_characters::brain::held_item_by_id(&carried.id).is_none(),
+            "premise: the id must be unresolvable, or this proves nothing"
+        );
+
+        let body = app
+            .world_mut()
+            .spawn((
+                HeldItem::new(carried.clone()),
+                crate::moveset::MovePlayback::new(
+                    drawing("run_out_the_guns", Some("admiral_gun_sword")),
+                    1.0,
+                ),
+            ))
+            .id();
+
+        app.update();
+        assert_eq!(
+            held(&app, body).as_deref(),
+            Some("admiral_gun_sword"),
+            "premise: the move must actually draw, or the restore never runs"
+        );
+
+        end_the_move(&mut app, body);
+        app.update();
+        assert_eq!(
+            held(&app, body).as_deref(),
+            Some(carried.id.as_str()),
+            "the body was carrying a weapon this registry cannot resolve; the \
+             brandish must hand back what it displaced, not destroy it"
+        );
     }
 
     #[test]

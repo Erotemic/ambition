@@ -597,7 +597,7 @@ pub fn return_released_items(
         // Outside a brandish the two are the same string, which is why this read
         // like a hand comparison for so long.
         let in_custody = match brandished {
-            Some(brandish) => brandish.previous.as_deref(),
+            Some(brandish) => brandish.previous.as_ref().map(|spec| spec.id.as_str()),
             None => held.map(|held| held.id()),
         };
         if in_custody == Some(item.spec.id.as_str()) {

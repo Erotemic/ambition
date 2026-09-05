@@ -1452,7 +1452,7 @@ fn a_brandished_move_weapon_does_not_orphan_the_item_in_custody() {
         HeldItem::new(drawn),
         ambition_combat::held_items::MoveBrandishedItem {
             move_id: "admiral_side_special".to_string(),
-            previous: Some(axe_spec().id.clone()),
+            previous: Some(axe_spec()),
         },
     ));
     for _ in 0..3 {

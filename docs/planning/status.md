@@ -683,6 +683,18 @@ Questions that genuinely need Jon rather than engineering inference are in
 [`awaiting-maintainer-decision.md`](awaiting-maintainer-decision.md). Answered
 rulings live in [`maintainer-decisions.md`](maintainer-decisions.md).
 
+⭐ **NONE OF THE OPEN ROWS IS WAITING ON MEASUREMENT (2026-09-05 late).** Every
+premise was re-derived at HEAD on the day, so a ruling can be made from the page
+as written: **#57 RULED AND IMPLEMENTED** (a boss is named by its stable authored
+`encounter_id`); **#56 UNBLOCKED BY that ruling** — it had been deferring the
+identity question — with its counts re-derived unchanged (11 `BossSpawn`, 14
+`Switch`); **#58's premise re-derived and holding**. #62 (a second box's 4,741
+uncommitted `mary_o.ldtk` lines), #63 (five authored fields that decide nothing),
+#64 (two LDtk identifiers with converters and no marker), #65 (an authoring
+namespace two allocators share) and #66 (a citation checker at zero that does not
+gate) are all measured and stated with their cheapest-sufficient options. ⇒ **The
+constraint on all of them is a decision, not more work.**
+
 Dated GPT review files are evidence, not status. Phase 3 removes the closed dated
 review reports from live planning; git history retains them. Any review finding
 that still needs work must be promoted directly to the queue, tracks, a focused

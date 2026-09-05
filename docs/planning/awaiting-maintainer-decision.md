@@ -1218,6 +1218,43 @@ mechanism would produce a gate that refuses everyone.
 `body.fits`, and anything later that reads the driven population), which is why
 it is filed against the population rather than against a condition.
 
+### 59. Two ledgers went red on main because a landing ran no lane. Hook, or accept? (2026-09-05)
+
+⭐⭐ **MEASURED, and the measurement kills the obvious explanation.** Two ratchets
+were red on main and neither landing noticed:
+
+- `FinishZoomRequest` was registered by `abd5191f3` with no wire-format baseline
+  record — and the PREVIOUS baseline commit is titled *"Main was red from a
+  wire-format change nobody recorded."* Second occurrence.
+- `SmashStockChoice` was added with no rollback classification.
+
+⛔ **The tempting diagnosis — "the check is too slow to run" — is FALSE.** Both
+checks together cost **2.7 s warm** (`cargo test -p ambition_app --test app_it --
+rollback_schema_baseline rollback_coverage::every_mutable`, measured 2026-09-05),
+and both are already in the DEFAULT backbone plan, inside
+`cargo nextest run --workspace`. Nothing needed moving to a cheaper lane; the
+lane was already cheap and already correct.
+
+⇒ **The gap is that neither landing ran any lane at all.** That is not a code
+defect and there is no code-side structural fix: the whole point of a wire-format
+ratchet is that a human updates it deliberately, so deriving the baseline
+automatically would delete the guard.
+
+**The only structural answer is a `pre-push` hook** that runs the backbone (or
+just the repo-coupled ratchets) and refuses a push that reddens one. ⚠ Which is
+why this is Jon's and not mine to install: hooks are per-clone config, not
+committed, so it is a decision about how every box in this tree behaves —
+including agent boxes — and `core.hooksPath` in a shared virtiofs tree affects
+peers who did not choose it.
+
+⚠ **The honest alternative is "accept and keep sweeping."** It costs a red main
+between a landing and the next sweep, and it has now cost that twice. ⓘ A third
+document telling people to remember is NOT an option — that is what the previous
+occurrence already produced.
+
+ⓘ Raised by the peer session after I fixed both reds (`f283730d0`): *"the ratchet
+is right, the habit of running it before landing is what does not hold."*
+
 ### 58. Does the BODY gate family ask what a body CAN DO or what it IS DOING? (2026-09-04)
 
 ⛔ **The two conditions in one family answer different kinds of question**, and

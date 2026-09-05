@@ -3046,6 +3046,22 @@ queue read as an execution authority for work already done.
   into its `P06` and `P11` rows and does not carry `P14`'s finish-zoom), so a
   single fraction spanning both is a number without a population. ⇒ What remains
   HERE, and all of it genuinely needs a seam:
+  ◐ **`P11`'s tether came off too, and it is the last one — 2026-09-04.** The
+  grapple observation is true and about the wrong mechanic: `grapple_system`
+  casts at a SOLID SURFACE and yanks the caster toward it. A tether grab does not
+  need it. `CaptureAttemptRequested` already carries `offset` and `half_extents`,
+  and **nothing bounds them** — not the schema, not `acquire_captures`, not the
+  content pass. ⇒ The capture half is AUTHORING, like the command grab; the LINE
+  half is a fourth customer of `flyline.rs`'s procedural per-body-visual shape,
+  whose own note says a generalisation *"is better with three examples than with
+  one"*. ⛔ It carries a hazard worth the same pass: an unbounded reach means a
+  typo in authored `half_extents` is a grab that catches across the stage, with
+  no schema bound, no clamp and no test that would say so — and the tether is the
+  first move that makes a large number LOOK correct.
+  ⇒ **ZERO genuinely open seams remain on `P11`/`P10`/`P14`.** All three were
+  resolved by re-deriving the absence, none by building, and each had the same
+  cause: **a search space that excluded where the answer lived.**
+  ⓘ The superseded line read:
   `P11`'s **tether** — a grapple mechanic exists and nothing joins it to capture;
   ◐ **`P11`'s hit-grab came OFF this list 2026-09-04** — the writer census was
   right and the classification was not. The landed-hit-to-technique seam is
@@ -3061,7 +3077,22 @@ queue read as an execution authority for work already done.
   the consumer lives in. ⇒ **Two genuinely open seams remain, not three.**
   ⓘ The superseded line read:
   `P11`'s **hit-grab** — nothing raises `CaptureAttemptRequested` from a landed
-  hit; `P10`'s **tech result** — presentation only, because the AI half is
+  hit; ◐ **`P10`'s tech result ALSO came off this list 2026-09-04**, and by the same
+  road as the hit-grab: the fact is published AND already spent. `MovementOp::Tech`
+  drives `PLAYER_TECH` and a particle burst through `movement_fx.rs`, plus a
+  `"TC"` trace glyph and a test. ⛔ The row's *"nothing publishes a tech happened
+  here"* came from a search of `ambition_sim_view`, `ambition_render` and
+  `ambition_vfx` — and the fact lives in `ambition_platformer2d_core` and the
+  actor monolith, neither of which was searched. ⇒ **A search space is a
+  denominator**, and this is the third row today whose "absent" was a population
+  error rather than a finding. ⭐ The precise residue is smaller and is the thing
+  the row's own title asks for: all three surfaces — wall, ceiling, floor —
+  emit ONE variant, so the *result vocabulary* is undifferentiated by
+  construction. ⚠ Not a defect: the FX module says *"a tech is the crisp recovery
+  that refused it"*, one beat for the concept, which is a feel decision rather
+  than an oversight. ⇒ **ONE genuinely open seam remains: the tether.**
+  ⓘ The superseded line read: `P10`'s **tech result** — presentation only,
+  because the AI half is
   deliberately absent under the no-cheat rule and publishing it would be a cheat;
   and ⇒ **`P14`'s finish-zoom is NO LONGER on this list: it is a READY packet, not
   a missing seam (re-derived 2026-09-04).** This row and the inventory both said

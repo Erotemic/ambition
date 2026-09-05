@@ -282,17 +282,29 @@
 > engine — which is what the census is for. At `c9edaf545`:
 >
 > ```text
-> technique/placement bool modes   51
->   LIVE      set true in content  25
->   ALWAYS ON defaults true, unset  7
+> technique/placement bool modes   51        (at 8811f38fe)
+>   LIVE      set true in content  28
+>   ALWAYS ON defaults true, unset  5
 >   DORMANT   default false, never 15
->   UNNAMED   never mentioned       4
+>   UNNAMED   never mentioned       3
 > ```
 >
-> ⇒ **19 modes have no authored customer that turns them on.** In this lane:
+> ⇒ **18 modes have no authored customer that turns them on.** In this lane:
 > `Interactable(Spec).requires_facing`, `Pickup(Spec).collected`,
 > `CameraZoneSpec.cinematic_lock`, `RoomLink.bidirectional`,
 > `RoomMetadata.gallery`, `PropSpec.flip_y`.
+>
+> ⛔⛔ **AND THE CORPUS WAS TOO NARROW TOO — a second correction, from the other
+> lane.** `MoveGates.forbidden_while_held` and `roots_steering` were reported
+> dormant and both are SET: in this repo **content calls AUTHORING HELPERS and
+> the helpers set the gates.** `smash_ride::author_summon_ride` writes
+> `spec.gates.forbidden_while_held = true` — the rule stopping a rider recasting
+> his up-B from the saddle — and no content file names it. ⇒ deleting it would
+> have removed the rule; authoring it onto a move would have duplicated the
+> helper. The field corpus now includes `crates/ambition_characters`.
+> ⚠ And the SAME widening breaks the variant axis, because a helper that OFFERS
+> a builder is vocabulary rather than a customer — so the two axes use different
+> corpora, and APPLIES vs OFFERS is a distinction no lexical rule can make.
 >
 > ⛔ **IT FIRST SAID 26 AND THAT WAS WRONG — the fault is worth more than the
 > number.** A bool whose DEFAULT is `true` and which no content sets is not

@@ -822,10 +822,26 @@ impl std::fmt::Debug for LdtkVocabulary {
 }
 
 /// The engine's standard LDtk vocabulary, registered through the SAME
-/// registry shape content extensions use. Keys mirror
-/// [`super::bevy_runtime::AMBITION_LDTK_ENTITY_IDENTIFIERS`] exactly
-/// (pinned by a test) — the marker-registration list and the converter
-/// table must not drift.
+/// registry shape content extensions use.
+///
+/// ⛔⛔ THIS SAID THE KEYS MIRROR
+/// [`super::bevy_runtime::AMBITION_LDTK_ENTITY_IDENTIFIERS`] *"exactly (pinned
+/// by a test)"*. MEASURED 2026-09-05: **neither half is true.** This table has
+/// 34 keys (26 explicit + 8 surface-like) and that list has 32 — `SurfaceLoop`
+/// and `SurfaceRamp` have converters and no marker registration — and there is
+/// no test anywhere pinning the two. What IS pinned, and really is, is the
+/// CONTRACT against these converters: `contract/prover.rs` runs
+/// `ldtk_entity_contract.json` (34 entities) against the real parsers.
+///
+/// ⚠ The gap's consequence is NOT established here: the marker list drives
+/// `bevy_ecs_ldtk`'s `register_ldtk_entity`, and whether the shipped game
+/// reaches `SurfaceLoop` through that path or only through this conversion
+/// table is the open half. `sandbox.ldtk` authors ONE `SurfaceLoop` instance;
+/// `SurfaceRamp` is defined in no world and instanced in none.
+///
+/// ⇒ Filed as a question rather than repaired, because adding the two to the
+/// marker list and adding the missing test are the same decision and it is not
+/// obviously the right one.
 fn standard_converters() -> &'static BTreeMap<&'static str, LdtkEntityConverter> {
     static STANDARD: OnceLock<BTreeMap<&'static str, LdtkEntityConverter>> = OnceLock::new();
     STANDARD.get_or_init(|| {

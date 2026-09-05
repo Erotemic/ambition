@@ -1136,6 +1136,40 @@ mechanism would produce a gate that refuses everyone.
 `body.fits`, and anything later that reads the driven population), which is why
 it is filed against the population rather than against a condition.
 
+### 64. Two LDtk identifiers have converters and no marker registration (2026-09-05)
+
+⛔ **MEASURED, and the prose said the opposite.** `standard_converters()` in
+`ambition_platformer2d_ldtk` has **34** keys; `AMBITION_LDTK_ENTITY_IDENTIFIERS`
+has **32**. `SurfaceLoop` and `SurfaceRamp` are converters with no marker
+registration.
+
+⛔⛔ **AND THREE SEPARATE PROSE SITES CLAIM A TEST PINS THEM EQUAL. There is no
+such test** — searched the whole tree; the constant has exactly one consumer (the
+plugin's own `register_ldtk_entity` loop) and one doc mention. The claim appears
+in `conversion/mod.rs` (corrected), in `tools/…/edit/defs.py` twice, and in an
+archived review.
+
+✔ What IS pinned, and genuinely: `contract/prover.rs` runs
+`ldtk_entity_contract.json` (**34** entities, including both) against the real
+parsers. The contract agrees with the converters; the marker list is the outlier.
+
+⇒ **The question is whether the two belong in the marker list.**
+
+- The list drives `bevy_ecs_ldtk`'s `register_ldtk_entity::<AmbitionLdtkMarkerBundle>`.
+  ⚠ Whether the shipped game reaches `SurfaceLoop` through that path or only
+  through the conversion table is NOT established here, and it decides whether
+  this is a latent inconsistency or a live gap.
+- Authored reality: `SurfaceLoop` is DEFINED in all four shipped worlds with
+  **one placed instance** (`sandbox.ldtk`). `SurfaceRamp` is defined in none and
+  instanced in none.
+- ⓘ `tools/ambition_ldtk_tools/…/edit/defs.py` patches BOTH lists when it adds an
+  identifier, which suggests these two were added to the converters by hand
+  without it — an oversight rather than a decision. That is a reason to suspect
+  the answer is "yes, add them", not a reason to skip asking.
+
+⇒ Adding them to the list and adding the missing test are ONE change. Doing
+either alone leaves the other claim false.
+
 ### 63. Three authored fields decide nothing. Wire them, or delete them? (2026-09-05)
 
 ⭐ **MEASURED, and they are all the same shape**: authored on a spec, threaded

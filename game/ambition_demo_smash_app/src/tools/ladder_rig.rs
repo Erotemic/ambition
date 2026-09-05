@@ -355,6 +355,11 @@ pub fn run(cli: LadderRigArgs) {
              read and prints every rung)"
         ),
     }
+    // ⭐ THE BAR SITS WITH THE STATISTICS rather than among the
+    // configuration lines: it is the last thing a reader passes before the
+    // column header, because it is what they need in hand while reading the
+    // rows underneath.
+    report_what_this_run_could_report();
     println!(
         // ⛔ "stocks" ALONE IS AMBIGUOUS AND WAS MISREAD. The column is stocks
         // REMAINING, so `0 : 0` means BOTH fighters were fully eliminated — the
@@ -869,7 +874,6 @@ fn report_what_this_run_could_report() {
 fn report_which_ladder_is_in_play() {
     report_which_clock_is_in_play();
     report_which_fighters_are_in_play();
-    report_what_this_run_could_report();
     let mut app = build_demo_app();
     if let Some(ladder) = authored_ladder() {
         app.world_mut().insert_resource(ladder);
@@ -1405,7 +1409,17 @@ impl PairedSplit {
         let pct = if usable == 0 {
             String::new()
         } else {
-            format!(" = {:.0}%", 100.0 * self.higher.max(self.lower) as f64 / usable as f64)
+            let share = 100.0 * self.higher.max(self.lower) as f64 / usable as f64;
+            // ⛔ NAME THE DENOMINATOR WHEN A TIE MOVED IT. `0:3 +1 tied = 100%`
+            // reads as 100% of four to anyone who has not memorised that the
+            // sign test drops ties — and it is 100% of THREE. The bar the header
+            // quotes is against the seed count, so a row whose denominator is
+            // smaller must say so or the two cannot be compared.
+            if self.tied == 0 {
+                format!(" = {share:.0}%")
+            } else {
+                format!(" = {share:.0}% of {usable} usable")
+            }
         };
         format!("{pairs}{pct}, p={p}")
     }
@@ -2545,6 +2559,18 @@ mod tests {
             "the split must print its pairs, the MAJORITY they make, and the \
              tail they produced — the percentage is the only one of the three \
              that is comparable between runs of different length"
+        );
+
+        // ⛔ A TIE MOVES THE DENOMINATOR AND THE ROW MUST SAY SO. `0:3 +1 tied
+        // = 100%` reads as 100% of four to anyone who has not memorised that
+        // the sign test drops ties; it is 100% of THREE, and the header's bar
+        // is quoted against the seed count, so the two cannot be compared
+        // unless the smaller denominator is named.
+        let tied = PairedSplit { higher: 0, lower: 3, tied: 1, p: sign_test_p(0, 3) };
+        assert_eq!(
+            tied.describe(),
+            "0:3 +1 tied = 100% of 3 usable, p=0.250",
+            "a split with ties must name the denominator its percentage is over"
         );
         // ⭐ AND THE UNPAIRED ROW IS DELIBERATELY UNCHANGED: with no pairs to
         // reduce there is no second authority to prefer, so the pooled reading

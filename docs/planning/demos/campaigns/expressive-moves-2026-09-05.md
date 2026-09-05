@@ -541,6 +541,46 @@ below names `start_impulse` ADDING rather than setting), `bulkhead_drop` (*"he
 drops a plate"* — an animation, and its `shockwave`/`landing_puff` cues agree),
 and Carl's `cosmic_calendar`. ⚠ **A method that only ever flags is a suspicion.**
 
+### ⛔⛔ THE LAUNCH PLATE WAS INVISIBLE, AND ONLY THE INVISIBLE OBJECT THROWS YOU
+
+Found while asking whether the new moves are READABLE, which for a 1v1 match is
+not a polish question. **`PlacedSpring` draws nothing — no sprite, no effect, no
+cue.** The remote mine is visible for free because it is a `GroundItem` and
+`item_visuals` gives those a sprite; the plate is a bare component with no art
+road at all. ⇒ **Two objects a fighter puts on the floor, one readable and one
+invisible, and only the invisible one launches you.**
+
+✔ **The announcement half landed**: `PlaceSpringParams::vfx` draws at PLACEMENT
+and again at FIRE, and both of Bob's plate and Oiler's new pool author one. ⭐
+**Two moments, two audiences** — placement is what the OTHER player must see;
+firing is what the LAUNCHED player must be able to attribute, since without it a
+fighter is thrown by nothing.
+
+⚠ **PERSISTENT VISIBILITY IS STILL OPEN AND THIS DOES NOT CLOSE IT.** A cue at
+each end does not draw the plate while it sits there. The shipped road is the
+mine's — a `GroundItem` with authored art — and that is a content decision rather
+than a field.
+
+⛔⛔ **AND THE GUARD TOOK FOUR ATTEMPTS, EVERY ONE A FIXTURE DEFECT I HAVE
+ALREADY WRITTEN DOWN:**
+1. Adding a message writer to a system **broke all seven existing spring tests at
+   once** — a world that does not register a message a system writes fails
+   parameter validation and drops the system silently. Third appearance of that
+   shape in this demo, and it is always a whole file.
+2. I left the dropper standing on his own plate, which spends the single use
+   before the victim exists — **the wrinkle this very file documents** and which
+   `arm_s` exists because of.
+3. Reading cues once at the end saw nothing: `Messages` are double-buffered and
+   the fire cue, emitted the moment the plate arms, was gone by the last tick.
+   **Second time today.**
+4. Harvesting with a FRESH cursor each tick then counted every cue twice (3 for
+   1). ⇒ **The cursor is the thing that remembers what has been seen**, and
+   making a new one each tick throws that away.
+
+⭐ Same head as the flow guard's three attempts: **the fixture is where these
+live, not the code**, and every one of them produced a confident, wrong,
+well-worded failure message.
+
 ### ⭐⭐ "MANY HAVE BORING SPECIALS" IS NOW FOUR, AND IT IS A RATCHET RATHER THAN A FEELING
 
 The goal's own complaint has been argued from readings all campaign. ⇒ Measured

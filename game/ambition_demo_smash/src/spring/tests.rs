@@ -10,6 +10,12 @@ fn app() -> App {
     let mut app = App::new();
     app.init_resource::<ambition_platformer2d::time::WorldTime>();
     app.add_message::<ActorActionMessage>();
+    // ⛔⛔ THE CUE CHANNEL, AND WITHOUT IT NEITHER SPRING SYSTEM RUNS AT ALL. A
+    // world that does not register a message a system writes fails that system's
+    // parameter validation and drops it silently — every test in this file went
+    // red at once the moment the plate learned to announce itself. Third time
+    // this shape has appeared in this demo, and it is always a whole file.
+    app.add_message::<ambition_platformer2d::vfx::vfx::VfxMessage>();
     let mut time = app
         .world_mut()
         .resource_mut::<ambition_platformer2d::time::WorldTime>();
@@ -34,6 +40,7 @@ fn body(app: &mut App, seat: usize, at: ae::Vec2) -> Entity {
 
 fn params() -> PlaceSpringParams {
     PlaceSpringParams {
+        vfx: None,
         // Up is NEGATIVE y, as everywhere in this codebase.
         launch: (0.0, -900.0),
         half_extents: (22.0, 6.0),
@@ -249,6 +256,7 @@ fn two_fighters_on_one_plate_launch_the_same_one_in_either_spawn_order() {
             .map(|&s| (s, body(&mut app, s, on_the_plate)))
             .collect();
         app.world_mut().spawn(PlacedSpring {
+            vfx: String::new(),
             pos: on_the_plate,
             half_extents: ae::Vec2::new(22.0, 6.0),
             launch: ae::Vec2::new(0.0, -900.0),
@@ -284,5 +292,128 @@ fn two_fighters_on_one_plate_launch_the_same_one_in_either_spawn_order() {
         "the plate launched seat {forward} when the fighters were spawned in one \
          order and seat {backward} in the other — the winner is Bevy's iteration \
          order, so two peers resimulating this tick can launch different fighters"
+    );
+}
+
+/// ⛔⛔ A PLATE ANNOUNCES ITSELF WHEN IT ARRIVES AND WHEN IT FIRES.
+///
+/// `PlacedSpring` draws NOTHING of its own — no sprite, no effect — while the
+/// remote mine is visible for free because it is a `GroundItem` and
+/// `item_visuals` gives those a sprite. ⇒ Two objects a fighter puts on the
+/// floor, one readable and one invisible, **and only the invisible one launches
+/// you**. A plate nobody saw arrive is an ambush rather than a move.
+///
+/// ⭐ BOTH MOMENTS, AND THEY ARE DIFFERENT AUDIENCES. Placement is what the
+/// OTHER player must see; firing is what the LAUNCHED player must be able to
+/// attribute — without it a fighter is thrown by nothing.
+///
+/// ⚠ THIS IS THE ANNOUNCEMENT HALF ONLY. It does not make the plate visible
+/// while it sits there; the shipped road for that is the mine's, a `GroundItem`
+/// with authored art, and that is a content decision rather than a field.
+#[test]
+fn a_plate_with_an_authored_cue_announces_both_its_arrival_and_its_launch() {
+    // ⛔⛔ ONE CURSOR, HELD ACROSS THE WHOLE RUN. A fresh cursor per tick
+    // re-reads whatever is still in the double buffer, so a single cue counts
+    // TWICE and the totals are quietly inflated — which is exactly what a first
+    // version of this test reported (3 for 1). ⇒ The cursor is the thing that
+    // remembers what has been seen; making a new one each tick throws that away.
+    let mut seen =
+        bevy::ecs::message::MessageCursor::<ambition_platformer2d::vfx::vfx::VfxMessage>::default();
+    let mut cues = |app: &mut App| -> usize {
+        let messages = app
+            .world()
+            .resource::<Messages<ambition_platformer2d::vfx::vfx::VfxMessage>>();
+        seen.read(messages)
+            .filter(|m| {
+                matches!(
+                    m,
+                    ambition_platformer2d::vfx::vfx::VfxMessage::Effect { .. }
+                )
+            })
+            .count()
+    };
+
+    let mut placed = app();
+    let dropper = body(&mut placed, 0, ae::Vec2::new(0.0, -200.0));
+    let mut authored = params();
+    authored.vfx = Some("oil_slick".to_string());
+    placed.world_mut().write_message(ActorActionMessage {
+        actor: dropper,
+        request: ActionRequest::Special {
+            spec: SpecialActionSpec::Special(PLACE_SPRING.to_string()),
+            params: ambition_platformer2d::entity_catalog::ParamValue::from_typed(&authored)
+                .expect("spring params serialize"),
+        },
+    });
+    placed.update();
+    assert_eq!(
+        cues(&mut placed),
+        1,
+        "the plate arrived silently — the other player has no way to know it is there"
+    );
+
+    // ⛔ WALK THE DROPPER OFF FIRST. He is INSIDE his own plate by construction —
+    // it lands 18px away and the tolerance is 32 — so leaving him there spends
+    // the single use before the victim exists, which is the same wrinkle the
+    // throw test above records and which I walked straight into.
+    placed
+        .world_mut()
+        .entity_mut(dropper)
+        .insert(ae::BodyKinematics {
+            pos: ae::Vec2::new(600.0, -200.0),
+            facing: 1.0,
+            ..Default::default()
+        });
+    // ON the plate: the drop offset is `(0.0, 18.0)` body-local, so it lands at
+    // -182 from a body at -200. The same placement the throw test uses.
+    let _victim = body(&mut placed, 1, ae::Vec2::new(0.0, -182.0));
+    // ⛔⛔ HARVEST PER TICK. `Messages` are double-buffered, so the fire cue —
+    // emitted the moment the plate arms, around tick 18 — is GONE by tick 24.
+    // Reading once at the end saw nothing and reported that the plate fired
+    // silently, which is the second time today this exact trap has produced a
+    // convincing false failure.
+    let mut fired = 0usize;
+    for _ in 0..24 {
+        placed.update();
+        fired += cues(&mut placed);
+    }
+    assert_eq!(
+        fired, 1,
+        "the plate fired silently — the fighter it launched was thrown by nothing"
+    );
+
+    // ⛔ POISON GUARD. A plate authored with NO cue must stay silent, or the
+    // two assertions above are about a system that announces unconditionally
+    // and the authored field means nothing.
+    let mut quiet = app();
+    let hand = body(&mut quiet, 0, ae::Vec2::new(0.0, -200.0));
+    quiet.world_mut().write_message(ActorActionMessage {
+        actor: hand,
+        request: ActionRequest::Special {
+            spec: SpecialActionSpec::Special(PLACE_SPRING.to_string()),
+            params: ambition_platformer2d::entity_catalog::ParamValue::from_typed(&params())
+                .expect("spring params serialize"),
+        },
+    });
+    quiet.update();
+    let quiet_cues = {
+        let messages = quiet
+            .world()
+            .resource::<Messages<ambition_platformer2d::vfx::vfx::VfxMessage>>();
+        let mut cursor = messages.get_cursor();
+        cursor
+            .read(messages)
+            .filter(|m| {
+                matches!(
+                    m,
+                    ambition_platformer2d::vfx::vfx::VfxMessage::Effect { .. }
+                )
+            })
+            .count()
+    };
+    assert_eq!(
+        quiet_cues, 0,
+        "a plate that authored NO cue announced itself anyway, so the field is \
+         decoration and the assertions above prove nothing about authoring"
     );
 }

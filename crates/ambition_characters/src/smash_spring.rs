@@ -46,6 +46,24 @@ pub struct PlaceSpringParams {
     pub uses: u8,
     /// Where it lands, body-local (`+x` toward facing, `+y` gravity-down).
     pub offset: (f32, f32),
+    /// The cosmetic row drawn when it is PLACED and again when it FIRES.
+    /// `None` draws nothing, which is what every plate authored before this
+    /// field existed did.
+    ///
+    /// ⛔⛔ A PLATE NOBODY CAN SEE IS NOT A MOVE, IT IS AN AMBUSH. Measured
+    /// 2026-09-05: `PlacedSpring` draws NOTHING — no sprite, no effect, no cue —
+    /// while the remote mine is visible for free because it is a `GroundItem`
+    /// and `item_visuals` gives those a sprite. ⇒ Two objects a fighter puts on
+    /// the floor, one readable and one invisible, and only the invisible one
+    /// launches you.
+    ///
+    /// ⚠ THIS IS THE ANNOUNCEMENT HALF ONLY, AND SAYING SO IS THE POINT. A cue
+    /// at placement and at fire means the other player SEES it happen; it does
+    /// not make the plate persistently visible in between. The shipped road for
+    /// that is the mine's — a `GroundItem` with authored art — and it is a
+    /// content decision rather than a field.
+    #[serde(default)]
+    pub vfx: Option<String>,
 }
 
 /// Author a spring placement onto a move's timeline.

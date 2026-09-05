@@ -430,6 +430,9 @@ pub fn bob_moveset() -> MovesetContract {
             uses: 3,
             // At his feet, where the slam landed.
             offset: (0.0, 20.0),
+            // ⛔ SO THE OTHER PLAYER SEES THE PLATE ARRIVE. It draws nothing of
+            // its own — see `PlaceSpringParams::vfx`.
+            vfx: Some("steam_vent".to_string()),
         },
     );
     let down_b = committed_tail(down_b, 0.70, 0.0);

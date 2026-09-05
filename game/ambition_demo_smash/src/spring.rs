@@ -26,6 +26,9 @@ use ambition_platformer2d::engine_core as ae;
 /// launch is a fighter standing somewhere else.
 #[derive(Component, Clone, Debug, PartialEq)]
 pub struct PlacedSpring {
+    /// The cosmetic row this plate draws when it fires — see
+    /// `PlaceSpringParams::vfx`. Empty draws nothing.
+    pub vfx: String,
     /// Where it sits.
     pub pos: ae::Vec2,
     /// Its size on the floor.
@@ -75,6 +78,8 @@ pub fn drop_authored_springs(
     mut commands: Commands,
     mut actions: MessageReader<ActorActionMessage>,
     bodies: Query<&ae::BodyKinematics>,
+    // The plate's own announcement — see `PlaceSpringParams::vfx`.
+    mut cues: MessageWriter<ambition_platformer2d::vfx::vfx::VfxMessage>,
 ) {
     for message in actions.read() {
         let ActionRequest::Special { spec, params } = &message.request else {
@@ -101,9 +106,20 @@ pub fn drop_authored_springs(
             "plate dropped at {at:?} launch={:?} uses={}",
             params.launch, params.uses,
         );
+        // ⭐ ANNOUNCE IT. A plate the other player never saw arrive is an ambush
+        // rather than a move — see `PlaceSpringParams::vfx`.
+        if let Some(row) = params.vfx.as_ref() {
+            cues.write(ambition_platformer2d::vfx::vfx::VfxMessage::Effect {
+                pos: at,
+                fx: ambition_platformer2d::vfx::fx::FxId::new(row),
+                scale: 1.0,
+                pose: ambition_platformer2d::vfx::FxPose::UPRIGHT,
+            });
+        }
         commands.spawn((
             Name::new("Placed spring"),
             PlacedSpring {
+                vfx: params.vfx.clone().unwrap_or_default(),
                 pos: at,
                 half_extents: ae::Vec2::new(params.half_extents.0, params.half_extents.1),
                 launch: ae::Vec2::new(params.launch.0, params.launch.1),
@@ -136,6 +152,8 @@ pub fn fire_and_expire_springs(
         &mut ae::BodyKinematics,
         &ambition_platformer2d::actor::MatchSeat,
     )>,
+    // The plate's own announcement when it throws somebody.
+    mut cues: MessageWriter<ambition_platformer2d::vfx::vfx::VfxMessage>,
 ) {
     let dt = time.sim_dt();
     for (entity, mut spring) in &mut springs {
@@ -194,6 +212,17 @@ pub fn fire_and_expire_springs(
             let Ok((_, mut kin, _)) = bodies.get_mut(entity) else {
                 continue;
             };
+            // ⭐ AND IT SAYS SO WHEN IT FIRES. Placement is what the other player
+            // must SEE; firing is what the launched player must be able to
+            // ATTRIBUTE — without it a fighter is thrown by nothing.
+            if !spring.vfx.is_empty() {
+                cues.write(ambition_platformer2d::vfx::vfx::VfxMessage::Effect {
+                    pos: spring.pos,
+                    fx: ambition_platformer2d::vfx::fx::FxId::new(&spring.vfx),
+                    scale: 1.0,
+                    pose: ambition_platformer2d::vfx::FxPose::UPRIGHT,
+                });
+            }
             crate::motion::command_body_velocity(&mut kin, spring.launch, "plate fired");
             spring.uses_left = spring.uses_left.saturating_sub(1);
             spring.rearm_s = 0.25;

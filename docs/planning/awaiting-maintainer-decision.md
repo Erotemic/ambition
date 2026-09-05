@@ -1218,6 +1218,23 @@ an unordered pair still gets an order and that order is stable — deterministic
 reproducible, and arbitrary. This is the same shape as the finishing-zoom edge the
 fighter lane found and fixed, one domain over.
 
+⛔⛔ **AND I CANNOT TELL YOU THIS IS THE ONLY ONE — my sweep for siblings is
+blind to exactly this case.** I looked for *"two production files that read the
+SAME message and both write the same durable family"*. It scanned 6 files and
+returned one candidate (`flag` + `EncounterEventMsg`, read by
+`encounter_features/src/systems.rs` and `content/src/encounters.rs`) — **not a
+collision**, checked: they write different flag names
+(`switch_{id}_used` vs `SYMMETRY_ATTUNEMENT_FLAG`).
+
+⇒ **But the sweep would not have found THIS row either.** The falling-sand road
+reads a `MessageReader<SwitchActivated>`; `drain_switch_activations` reads a
+`ResMut<SwitchActivationQueue>`. They are not two readers of one message — they
+are a reader and a queue-consumer, one hop apart. **A query shaped around
+`MessageReader` cannot see a collision mediated by a queue**, which is the shape
+that produced this row.
+⇒ So the population is *"at least one, and unbounded by anything I have run"*.
+A sweep that cannot find its own worked example is not evidence of absence.
+
 ⇒ **THE DECISION IS WHERE THE EDGE LIVES, and it is a boundary question rather
 than a local one.**
 - **Content orders itself after the engine** — `capture_falling_sand_switch_interactions

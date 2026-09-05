@@ -211,6 +211,20 @@ to a viewpoint.
    aperture span**". ⇒ Clipping a sprite to a BOUNDED aperture is shipped and in
    use; what step 3 owes is the piece decomposition for the FarCovered case, not
    a new pass.
+   ⛔⛔ **AND THE DECOMPOSITION IS NOT OPTIONAL — MEASURED IN THE SHADER.**
+   `portal_clip.wgsl` discards where `dot(p - point, normal) < 0` for ANY active
+   plane, so the material KEEPS THE INTERSECTION of up to three half-planes: a
+   CONVEX region. The far-side case needs the opposite — *discard the part inside
+   the aperture, keep everything else* — and the complement of a convex region is
+   a UNION, which an intersection cannot express in one draw. ⇒ A far-side sprite
+   needs up to FOUR clipped quads (above / below / left / right of the aperture),
+   each one a single half-plane keep, which is precisely what the material is good
+   at. The transit path already draws a body as multiple clipped pieces, so this
+   is the same shape one step wider.
+   ⚠ **The alternative — drawing a second copy of the PANE above the actor band —
+   does not work without a mask**: it would cover near-side actors too, which is
+   the inverted bug. That road wants a stencil, i.e. new machinery; the piece
+   road wants none.
    ⛔ **AND THIS IS WHY THE CHEAP FIX IS STILL FORBIDDEN.** With ONE pane, giving
    a far-side drawable a z below `PORTAL_WINDOW_Z` would work and is a two-line
    change. It cannot generalise: a body between two facing apertures is near one

@@ -43,7 +43,8 @@ pub use clip_material::{
 /// the compile ratchet forever.
 pub use ambition_portal2d::PlacedPortal;
 pub use compositing::{
-    current_z_policy_is_correct_for, pane_relation, uncovered_remainder, PaneRelation,
+    current_z_policy_is_correct_for, pane_relation, piece_clip_edges, uncovered_remainder,
+    PaneRelation,
     UncoveredPiece, UncoveredPieces,
 };
 pub use effects::{PortalEffectSelection, PortalVisualEffect};

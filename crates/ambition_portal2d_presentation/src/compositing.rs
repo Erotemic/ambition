@@ -259,6 +259,104 @@ pub fn uncovered_remainder(
     out
 }
 
+/// The clip half-planes one piece needs, as `(point, inward normal)` in ENGINE
+/// world space, ready for `clip_plane_render` to map into the render frame.
+///
+/// ⭐ ONE DERIVATION, NOT TWO. A plane is needed exactly where the piece's edge
+/// differs from the drawable's own edge, because the quad already supplies the
+/// sprite's four outer edges. Deriving that here — from the same rects
+/// [`uncovered_remainder`] produced — is what keeps the piece list and the plane
+/// list from becoming two accounts of one fact that can disagree.
+///
+/// At most three are ever `Some`, which
+/// `no_piece_needs_more_than_the_materials_three_clip_planes` pins;
+/// [`crate::PortalClipMaterial`] carries exactly three.
+pub fn piece_clip_edges(
+    piece: &UncoveredPiece,
+    drawable_min: Vec2,
+    drawable_max: Vec2,
+) -> [Option<(Vec2, Vec2)>; 4] {
+    let keep = |moved: bool, point: Vec2, normal: Vec2| moved.then_some((point, normal));
+    [
+        keep(
+            piece.min.x > drawable_min.x,
+            Vec2::new(piece.min.x, piece.min.y),
+            Vec2::X,
+        ),
+        keep(
+            piece.max.x < drawable_max.x,
+            Vec2::new(piece.max.x, piece.min.y),
+            -Vec2::X,
+        ),
+        keep(
+            piece.min.y > drawable_min.y,
+            Vec2::new(piece.min.x, piece.min.y),
+            Vec2::Y,
+        ),
+        keep(
+            piece.max.y < drawable_max.y,
+            Vec2::new(piece.min.x, piece.max.y),
+            -Vec2::Y,
+        ),
+    ]
+}
+
+#[cfg(test)]
+mod clip_edge_tests {
+    use super::*;
+
+    /// The planes must actually RECONSTRUCT the piece: a normal pointing the
+    /// wrong way keeps the complement, which is the original bug wearing a
+    /// different mask — the far body would draw exactly where it must not.
+    #[test]
+    fn the_planes_keep_the_piece_and_reject_outside_it() {
+        let (dmin, dmax) = (Vec2::new(0.0, 0.0), Vec2::new(10.0, 10.0));
+        let cover = (Vec2::new(3.0, 3.0), Vec2::new(7.0, 8.0));
+        let pieces = uncovered_remainder(dmin, dmax, cover.0, cover.1);
+        assert_eq!(pieces.len(), 4, "expected all four pieces for an interior cover");
+        for piece in pieces.iter() {
+            let edges = piece_clip_edges(&piece, dmin, dmax);
+            // Sample the drawable densely; a point survives every active plane
+            // exactly when it is inside this piece.
+            let mut inside_kept = 0;
+            for i in 0..=40 {
+                for j in 0..=40 {
+                    let p = Vec2::new(i as f32 * 0.25, j as f32 * 0.25);
+                    let survives = edges.iter().flatten().all(|(point, normal)| {
+                        (p - *point).dot(*normal) >= 0.0
+                    });
+                    let inside = p.x >= piece.min.x
+                        && p.x <= piece.max.x
+                        && p.y >= piece.min.y
+                        && p.y <= piece.max.y;
+                    assert_eq!(
+                        survives, inside,
+                        "point {p:?} survives={survives} but inside={inside} for {piece:?}"
+                    );
+                    inside_kept += usize::from(inside);
+                }
+            }
+            assert!(inside_kept > 0, "piece {piece:?} contained no sample point");
+        }
+    }
+
+    /// ⚠ The count must match the budget the material actually has, and it is
+    /// asserted against the SAME pieces the drawing road uses rather than a
+    /// hand-written rect — a piece list and a plane list are one fact.
+    #[test]
+    fn a_whole_uncovered_sprite_needs_no_planes_at_all() {
+        let (dmin, dmax) = (Vec2::new(0.0, 0.0), Vec2::new(10.0, 10.0));
+        let pieces = uncovered_remainder(dmin, dmax, Vec2::new(50.0, 50.0), Vec2::new(60.0, 60.0));
+        let piece = pieces.iter().next().expect("one whole piece");
+        let edges = piece_clip_edges(&piece, dmin, dmax);
+        assert_eq!(
+            edges.iter().flatten().count(),
+            0,
+            "an unclipped sprite must cost no planes; it is the common case"
+        );
+    }
+}
+
 #[cfg(test)]
 mod remainder_tests {
     use super::*;

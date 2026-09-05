@@ -292,6 +292,7 @@
     "message.move_event",
     "message.on_hit_effect",
     "message.owned_sfx",
+    "message.parried_body_hit",
     "message.payload_released",
     "message.pick_up_portal_gun",
     "message.player_heal_requested",

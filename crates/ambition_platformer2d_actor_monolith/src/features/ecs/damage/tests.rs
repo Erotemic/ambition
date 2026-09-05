@@ -20,8 +20,7 @@ use bevy::prelude::{App, IntoScheduleConfigs, Update};
 /// `MessageWriter` for an unregistered message PANICS the system rather than no-opping. One list,
 /// one edit.
 fn register_hit_pipeline_messages(app: &mut App) {
-    app.add_message::<HitEvent>();
-    app.add_message::<ambition_combat::hitbox::LandedBodyHit>();
+    ambition_combat::hitbox::register_strike_outcome_messages(app);
     app.add_message::<SetFlagRequested>();
     app.add_message::<ambition_sfx::OwnedSfxMessage>();
     app.add_message::<VfxMessage>();

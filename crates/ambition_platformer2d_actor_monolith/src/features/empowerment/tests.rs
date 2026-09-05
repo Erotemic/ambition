@@ -21,8 +21,7 @@ fn app_with_striker_and_victim(
         scaled_dt: 1.0 / 60.0,
         ..Default::default()
     });
-    app.add_message::<HitEvent>();
-    app.add_message::<ambition_combat::hitbox::LandedBodyHit>();
+    ambition_combat::hitbox::register_strike_outcome_messages(&mut app);
     let pos = ae::Vec2::new(100.0, 100.0);
     let size = ae::Vec2::new(30.0, 48.0);
     let striker = app

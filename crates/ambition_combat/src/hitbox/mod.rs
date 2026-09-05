@@ -412,6 +412,27 @@ impl AttackerFacts<'_, '_> {
     }
 }
 
+/// Register every message [`StrikeOutcomeWriters`] can write.
+///
+/// ⛔⛔ THE LIST AND THE STRUCT MUST CHANGE TOGETHER, AND THIS EXISTS BECAUSE
+/// THEY ONCE DID NOT. Adding `ParriedBodyHit` to the writer struct broke nine
+/// tests in another crate, in a way no compiler could see: those apps
+/// hand-listed `HitEvent`, `LandedBodyHit` and `VfxMessage` — precisely the set
+/// the system needed at the time — and a `MessageWriter` for an unregistered
+/// message panics inside `Main::run_main` with the underlying message swallowed,
+/// so the whole diagnostic was "a system panicked".
+///
+/// ⇒ A hand-listed set of dependencies is a POPULATION, and adding to the source
+/// does not update the lists. Every app that runs [`apply_hitbox_damage`] calls
+/// this instead of enumerating, so the next output added to the struct reaches
+/// all of them at once.
+pub fn register_strike_outcome_messages(app: &mut bevy::prelude::App) {
+    app.add_message::<VfxMessage>();
+    app.add_message::<HitEvent>();
+    app.add_message::<LandedBodyHit>();
+    app.add_message::<ParriedBodyHit>();
+}
+
 /// Everything the strike sweep PUBLISHES, in one parameter.
 ///
 /// These four are the system's OUTPUTS, which is a group a reader can name, so

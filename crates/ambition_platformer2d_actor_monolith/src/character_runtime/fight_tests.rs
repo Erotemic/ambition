@@ -483,8 +483,7 @@ fn fight_app() -> App {
         time.scaled_dt = TICK;
         time.raw_dt = TICK;
     }
-    app.add_message::<ambition_combat::events::HitEvent>();
-    app.add_message::<ambition_combat::hitbox::LandedBodyHit>();
+    ambition_combat::hitbox::register_strike_outcome_messages(&mut app);
     app.add_message::<ambition_combat::events::SetFlagRequested>();
     app.add_message::<ambition_sfx::OwnedSfxMessage>();
     app.add_message::<ambition_vfx::vfx::VfxMessage>();

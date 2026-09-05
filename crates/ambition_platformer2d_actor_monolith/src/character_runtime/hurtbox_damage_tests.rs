@@ -22,7 +22,6 @@ use ambition_combat::hitbox::{apply_hitbox_damage, HitSide, Hitbox, HitboxHits, 
 use ambition_entity_catalog::{HurtboxKeyframe, HurtboxTimeline, VolumeShape};
 use ambition_platformer2d_core as ae;
 use ambition_platformer2d_core::AabbExt;
-use ambition_vfx::vfx::VfxMessage;
 
 use crate::features::refresh_body_damageable_volumes;
 use ambition_combat::hurtbox_resolution::{AuthoredHurtboxes, ResolvedHurtboxes};
@@ -68,9 +67,10 @@ fn narrow_torso() -> HurtboxDoc {
 /// let the production damage system resolve overlap against what was published.
 fn fight_app() -> App {
     let mut app = App::new();
-    app.add_message::<HitEvent>();
-    app.add_message::<ambition_combat::hitbox::LandedBodyHit>();
-    app.add_message::<VfxMessage>();
+    // ⭐ ONE CALL, NOT A LIST. See `register_strike_outcome_messages`: these
+    // apps hand-listed exactly the writers `apply_hitbox_damage` had, and a
+    // fourth one added later panicked all of them inside `Main::run_main`.
+    ambition_combat::hitbox::register_strike_outcome_messages(&mut app);
     app.init_resource::<CapturedHits>();
     app.add_systems(
         Update,
@@ -424,9 +424,10 @@ fn a_widening_move_silhouette_is_hittable_on_the_tick_it_widens() {
                 .in_set(ambition_platformer2d_shared_tangle::schedule::CombatSet::Resolve),
         ),
     );
-    app.add_message::<HitEvent>();
-    app.add_message::<ambition_combat::hitbox::LandedBodyHit>();
-    app.add_message::<VfxMessage>();
+    // ⭐ ONE CALL, NOT A LIST. See `register_strike_outcome_messages`: these
+    // apps hand-listed exactly the writers `apply_hitbox_damage` had, and a
+    // fourth one added later panicked all of them inside `Main::run_main`.
+    ambition_combat::hitbox::register_strike_outcome_messages(&mut app);
     app.add_message::<ambition_combat::moveset::MoveEventMessage>();
     app.init_resource::<CapturedHits>();
     app.init_resource::<ambition_time::WorldTime>();

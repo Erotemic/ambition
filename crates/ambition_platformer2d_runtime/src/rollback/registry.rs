@@ -168,7 +168,16 @@ use crate::content_identity::SnapshotSchemaFingerprint;
 /// constant left at 150, and the guard that says so —
 /// `rollback-wire-format-changes-are-declared` — could not run at all, because a
 /// stale sentinel `Cargo.lock` was crashing the checker before it reported.
-pub const GGRS_ROLLBACK_SCHEMA_VERSION: u32 = 151;
+/// ⛔ v152: `message.parried_body_hit` JOINS THE CLEARED-ON-ROLLBACK SET. A
+/// successful parry is now published as a fact naming its attacker, and a
+/// counter stance answers it — so the message is not decoration, it drives a
+/// move. Two peers that disagree about whether a rewound frame's parry survives
+/// disagree about whether a counter fires: one replays the retaliation, the
+/// other does not, and the divergence appears a tick later as a checksum
+/// mismatch with no obvious cause. ⇒ The buffer is cleared on rollback beside
+/// `blocked_body_hit` and `resolved_body_hit`, and a peer without that clear
+/// cannot share this stream.
+pub const GGRS_ROLLBACK_SCHEMA_VERSION: u32 = 152;
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq, Ord, PartialOrd, Hash)]
 pub enum RollbackEntryKind {

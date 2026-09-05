@@ -961,3 +961,30 @@ surviving commit, the foreign one wants FETCHING (and, for the reader, naming).
 ⇒ `git cat-file -t <sha>` inside the submodule separates them in one command.
 Both happened on 2026-09-04, hours apart, and the first taught the wrong lesson
 for the second.
+
+## A guard reading state git does not carry is asking about the MACHINE
+
+Both instances landed on 2026-09-04, hours apart, from different mechanisms —
+and both look exactly like a defect in the tree:
+
+| guard | red because | cleared by |
+|---|---|---|
+| `test_the_live_planning_tree_has_no_fabricated_commit` | a superproject `git fetch` does not fetch submodule branches, so a commit written on another machine was absent here | `git submodule foreach git fetch` — nothing edited |
+| `test_no_new_sheet_strands_pages` | the sprite pages it reads are GITIGNORED generated art, regenerated on one box and not the other | nothing; the two boxes disagree and neither is wrong |
+
+⇒ **Before treating either as a finding, ask what the guard reads and whether
+git carries it.** A verdict that differs between two checkouts at one commit is
+a statement about the reader, and the danger is that it is indistinguishable
+from a real red: the message names a file and a fact, and the fact is true
+where you are standing.
+
+⛔ **The two want opposite responses.** The first is recoverable — fetch and it
+goes away, so the citation was never wrong. The second is not: no command makes
+the boxes agree, because the input is not in the repository. ⇒ **Never edit a
+shared allowlist on one box's generated output.** The stranded-sheet list was
+emptied on the box where those four sheets had been regenerated, and went red
+immediately on the box where they had not.
+
+⚠ And a FLOOR does not rescue the second kind. An anti-vacuity floor proves the
+guard walked a corpus; it says nothing about whether the corpus is the same
+corpus somebody else has.

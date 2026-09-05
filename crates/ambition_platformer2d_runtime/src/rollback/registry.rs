@@ -214,7 +214,12 @@ use crate::content_identity::SnapshotSchemaFingerprint;
 /// ⓘ Also v156: `smash.placed_mine`, a clone-snapshotted arming clock, and
 /// `message.capture_carry_requested`, a same-frame transient beside the three
 /// capture requests it joins.
-pub const GGRS_ROLLBACK_SCHEMA_VERSION: u32 = 157;
+/// ⛔ v158: `SteeredBolt`, a bolt the caster flies with the stick. Position,
+/// velocity, clock AND the latch that says it has cleared its caster all rewind
+/// — more than the mine's clock-only row, because a bolt is STEERED: two peers
+/// can agree on its lifetime and disagree about its HEADING, and the heading is
+/// what decides whether it comes home and throws a fighter across the stage.
+pub const GGRS_ROLLBACK_SCHEMA_VERSION: u32 = 158;
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq, Ord, PartialOrd, Hash)]
 pub enum RollbackEntryKind {

@@ -14,6 +14,7 @@ use ambition_platformer2d::engine_core as ae;
 use ambition_platformer2d::engine_core::Vec2;
 use ambition_platformer2d::world::rooms::RoomSpec;
 
+pub mod bolt;
 pub mod bomb;
 pub mod capture;
 pub mod counter;
@@ -941,6 +942,17 @@ impl bevy::prelude::Plugin for SmashRulesPlugin {
                 crate::portal::open_authored_portal_pairs,
                 crate::portal::close_expired_move_portals,
             )
+                .chain()
+                .in_set(ambition_platformer2d::platformer::schedule::CombatSet::ContentSpecials),
+        );
+        // THE STEERED BOLT. ⭐ `ContentSpecials` like every other content
+        // technique, and the FIRE IS CHAINED BEFORE THE FLIGHT so a bolt begins
+        // moving on the tick it appears rather than hanging at the caster's
+        // shoulder for a frame — which is also the frame it is inside him, and
+        // the one place the clearance latch must not be resolved wrongly.
+        app.add_systems(
+            sim,
+            (crate::bolt::fire_authored_bolts, crate::bolt::steer_and_fly_bolts)
                 .chain()
                 .in_set(ambition_platformer2d::platformer::schedule::CombatSet::ContentSpecials),
         );
@@ -2519,6 +2531,18 @@ impl bevy::prelude::Plugin for SmashSelectPlugin {
                 "ambition_demo_smash",
                 "smash.placed_mine",
                 crate::mine::placed_mine_probe,
+            );
+
+            // The bolt in flight: where it is, where it is going, how long it has
+            // left, and whether it has cleared its caster. ⛔ MORE THAN THE
+            // MINE'S CLOCK, because a bolt is STEERED — two peers can agree on
+            // its lifetime and disagree about its heading, and the heading is
+            // what decides whether it comes home and throws a fighter across the
+            // stage.
+            app.rollback_component_clone_probed::<crate::bolt::SteeredBolt>(
+                "ambition_demo_smash",
+                "smash.steered_bolt",
+                crate::bolt::steered_bolt_probe,
             );
         }
         // ⛔ BEFORE the preparation source can ask for it. `Res<SmashStageChoice>`

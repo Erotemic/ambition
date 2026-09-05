@@ -129,13 +129,14 @@ mod tests {
                 crate::pointed_polygon_moveset::pointed_polygon_moveset(),
                 "author",
                 &["polygon", "pointed_polygon"][..],
-                // ⭐ TWO NOW: his up-B (the teleport) and, since 2026-09-05, his
-                // down-B (the counter that answers by arriving behind you).
-                // Everything else is the archetype's. ⇒ This number is DECLARED
-                // rather than derived precisely so that adding a slot has to be
-                // said out loud here — the counter landed and this row went red,
-                // which is the guard doing the only job it has.
-                2,
+                // ⭐ THREE OF HIS FOUR SPECIALS ARE HIS OWN, and only the neutral
+                // is still the archetype's: the teleport up-B, the counter that
+                // answers by arriving behind you, and the steered thought he
+                // flies with the stick. ⓘ The count went 1 → 2 → 3 across
+                // 2026-09-05; it is DECLARED rather than derived precisely so
+                // that taking a slot has to be said out loud here, and each of
+                // those landings turned this row red until it was.
+                3,
             ),
             (
                 crate::officer_moveset::officer_moveset(),

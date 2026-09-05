@@ -33,6 +33,7 @@ pub mod perception;
 pub mod prepared;
 #[cfg(any(test, feature = "test-support"))]
 pub mod prepared_fixtures;
+pub mod smash_bolt;
 pub mod smash_bomb;
 pub mod smash_capture;
 pub mod smash_counter;

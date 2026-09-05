@@ -89,22 +89,9 @@ pub fn a_conversation_is_live(
 /// work for a reader that is usually absent is wrong at any size.
 pub fn refresh_yarn_state_mirror(
     save: Option<Res<AmbitionGameSave>>,
-    wallet: Query<
-        &ambition_characters::actor::BodyWallet,
-        With<ambition_platformer2d_shared_tangle::markers::PrimaryPlayer>,
-    >,
     mirror: Res<YarnStateMirror>,
 ) {
     let mut snap = mirror.0.write().expect("YarnStateMirror poisoned");
-    // ⛔ EXACTLY ONE, matching `apply_shop_transactions` (`wallets.single_mut()`)
-    // and `wallet.can_afford`. This read the FIRST of several, so a world with
-    // two primaries would have shown a balance from one purse while the
-    // condition declined to answer and the transaction system refused to run —
-    // three readers of one fact disagreeing about which body owns it.
-    // ⚠ Found by checking my own change rather than by a report: the
-    // single-wallet policy landed on the condition and the action in the same
-    // commit and left this third reader on the old rule.
-    snap.wallet_balance = wallet.single().map(|w| w.balance).unwrap_or(0);
     //  the inventory slice is GONE — a whole second copy of `OwnedItems`,
     // rebuilt every frame under both a catalog id and a legacy alias, so that a
     // synchronous `<<if>>` could read it. `inventory.holds` is published, so the
@@ -511,6 +498,37 @@ fn ask_can_afford(In(price): In<f32>, world: &mut World) -> bool {
     outcome.is_satisfied()
 }
 
+/// `wallet_balance()` — the player's coins, read from the wallet itself.
+///
+/// ⛔⛔ THIS WAS A SNAPSHOT, AND THE NOTE SAYING IT HAD TO BE WAS MY OWN FALSE
+/// INFERENCE. `wallet_conditions.rs` and this file both recorded that the
+/// mirror's `wallet_balance` field *"stays, because that verb really is a value
+/// the catalog cannot return"*. The first half is true — a boolean-outcome
+/// catalog cannot hand back a number — and the conclusion does not follow: the
+/// catalog is not the only alternative to a mirror. A REGISTERED SYSTEM returns
+/// whatever it likes, and `ask_can_afford` beside it already proved the shape.
+///
+/// ⇒ So the live `BodyWallet` was projected into TWO places every frame — this
+/// mirror field and `AmbitionGameSaveData::wallet` (`items/persist.rs`) — for a
+/// verb no authored `.yarn` line calls. One fact, two copies, and the copy that
+/// existed for a reader that does not exist yet.
+///
+/// ⚠ EXACTLY ONE WALLET, matching `wallet.can_afford` and
+/// `apply_shop_transactions`. A world with two primary purses has no single
+/// balance to report, and answering from the first would make three readers of
+/// one fact disagree about which body owns it.
+fn ask_wallet_balance(In(()): In<()>, world: &mut World) -> f32 {
+    let mut wallets = world.query_filtered::<
+        &ambition_characters::actor::BodyWallet,
+        bevy::prelude::With<ambition_platformer2d_shared_tangle::markers::PrimaryPlayer>,
+    >();
+    let mut found = wallets.iter(world);
+    match (found.next().map(|w| w.balance), found.next()) {
+        (Some(balance), None) => balance as f32,
+        _ => 0.0,
+    }
+}
+
 /// Build closures around the shared mirror and register the remaining
 /// mirror-backed functions on the runner's library. Called from
 /// `spawn_dialogue_runner` after the runner is built but before it
@@ -547,10 +565,15 @@ pub fn register_functions(
     runner.library_mut().add_function("quest_active", quest_active);
     // ⭐ THE FOURTH SLICE, and the biggest by authored demand: `can_afford`
     // asked a per-frame snapshot of a fact the wallet domain now publishes.
-    // The mirror's `wallet_balance` FIELD stays — `wallet_balance()` still
-    // needs it, and that verb really is a value the catalog cannot return.
     let can_afford = commands.register_system(ask_can_afford);
     runner.library_mut().add_function("can_afford", can_afford);
+    // ⭐ AND THE FIFTH TAKES THE WALLET SLICE WITH IT. This said the mirror's
+    // `wallet_balance` field had to stay because the catalog cannot return a
+    // number — true about the CATALOG, and it does not follow: a registered
+    // system returns whatever it likes. The field and its per-frame write are
+    // gone, and the live `BodyWallet` is the one authority again.
+    let wallet_balance = commands.register_system(ask_wallet_balance);
+    runner.library_mut().add_function("wallet_balance", wallet_balance);
 
     let lib = runner.library_mut();
     // visit_count(id) -> f32:
@@ -568,13 +591,7 @@ pub fn register_functions(
     // `Item::from_dialog_id` as the single owner of loose spelling. See
     // `ambition_platformer2d_actor_monolith::items::conditions`. wallet_balance() -> number: the
     // player's current money, so a merchant node can show it ("You have {wallet_balance()}g").
-    let m = Arc::clone(&mirror.0);
-    lib.add_function("wallet_balance", move || -> f32 {
-        m.read()
-            .map(|snap| snap.wallet_balance as f32)
-            .unwrap_or(0.0)
-    });
-}
+    }
 
 //  `mirror_inventory_has` and `normalize_item_id` lived here and are gone
 // with the function they served. `normalize_item_id` was a second copy of the

@@ -36,8 +36,6 @@ pub struct YarnStateMirrorData {
     pub visit_counts: std::collections::HashMap<String, u32>,
     /// Content-owned string values; the generic refresh does not modify them.
     pub extras: std::collections::HashMap<String, String>,
-    /// Primary wallet balance exposed to Yarn functions such as `wallet_balance`.
-    pub wallet_balance: i32,
 }
 
 #[derive(Resource, Default, Clone)]

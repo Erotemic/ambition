@@ -135,6 +135,12 @@ fn put_axis_maneuver_state(out: &mut Vec<u8>, state: &crate::AxisManeuverState) 
     put_bool(out, state.blink_aiming);
     put_vec2(out, state.blink_aim_offset);
     put_f32(out, state.blink_grace_timer);
+    // ⛔ THE PAIR TRAVELS TOGETHER AND IN THIS ORDER. Write order here and read
+    // order below are one wire format; splitting the two fields across the
+    // struct would still work, but keeping them adjacent is what makes a future
+    // reader able to check the halves match by eye.
+    put_f32(out, state.gravity_modifier_scale);
+    put_f32(out, state.gravity_modifier_timer);
     put_f32(out, state.dodge_roll_timer);
     put_f32(out, state.evade_invuln_timer);
     put_f32(out, state.dodge_roll_push);
@@ -190,6 +196,8 @@ fn axis_maneuver_state(r: &mut Reader<'_>) -> Option<crate::AxisManeuverState> {
         blink_aiming: r.bool()?,
         blink_aim_offset: r.vec2()?,
         blink_grace_timer: r.f32()?,
+        gravity_modifier_scale: r.f32()?,
+        gravity_modifier_timer: r.f32()?,
         dodge_roll_timer: r.f32()?,
         evade_invuln_timer: r.f32()?,
         dodge_roll_push: r.f32()?,

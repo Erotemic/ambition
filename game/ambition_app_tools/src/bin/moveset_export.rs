@@ -524,6 +524,12 @@ fn event_json(event: &ambition_platformer2d::entity_catalog::MoveEvent) -> serde
             ("impulse", format!("{mode:?} ({}, {})", local.0, local.1))
         }
         MoveEventKind::Ranged => ("ranged", String::new()),
+        // The DURATION is in the detail because it is the half a reader cannot
+        // infer: a scale says how much lighter the body gets, and only the
+        // seconds say whether the regime outlives the move that opened it.
+        MoveEventKind::GravityModifier { scale, seconds } => {
+            ("gravity_modifier", format!("x{scale} for {seconds}s"))
+        }
     };
     serde_json::json!({
         "at_s": event.at_s,

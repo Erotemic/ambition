@@ -229,7 +229,19 @@ use crate::content_identity::SnapshotSchemaFingerprint;
 /// at. Its clock and its COMMITTED direction both rewind: the direction is
 /// remembered at the press rather than re-read, so a restore that lost it would
 /// let the resimulated dash re-aim from a facing the confirmed one never used.
-pub const GGRS_ROLLBACK_SCHEMA_VERSION: u32 = 160;
+/// ⛔ v161: `AxisManeuverState` CARRIES A TIMED GRAVITY MULTIPLIER — the pair
+/// `gravity_modifier_scale` + `gravity_modifier_timer`, appended to the motion
+/// codec beside `blink_grace_timer`. A move asks for a locomotion regime (a
+/// parasol, a float, a slow-fall) and the MOVEMENT domain owns the clock, so
+/// the state is where every other maneuver timer already lives. ⇒ It rewinds
+/// because gravity is integrated every tick: two peers disagreeing about how
+/// much longer a float lasts do not disagree about a flag, they disagree about
+/// where the body IS, and the gap widens for as long as the modifier runs.
+/// ⓘ The TIMER is the activation switch and the scale is read only while it is
+/// positive, so a restore that lands on a zeroed pair means "no modifier"
+/// rather than "zero gravity" — the dangerous state is unrepresentable rather
+/// than merely avoided.
+pub const GGRS_ROLLBACK_SCHEMA_VERSION: u32 = 161;
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq, Ord, PartialOrd, Hash)]
 pub enum RollbackEntryKind {

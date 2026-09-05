@@ -501,6 +501,10 @@ pub(super) fn integrate_normal_clusters(
     // the actor-generic spine context (ability components → gating flags) and
     // run the one spine.
     let initial_dash_dir = resolve_initial_dash(state, ground.on_ground, input, dt, tuning);
+    // Read BEFORE the call, which borrows `state` mutably for three of its
+    // arguments — the same reason `initial_dash_dir` is resolved on the line
+    // above rather than inline.
+    let gravity_modifier = state.gravity_modifier();
 
     integrate_normal_spine(
         &mut kinematics.vel,
@@ -550,6 +554,7 @@ pub(super) fn integrate_normal_clusters(
                 && state.dodge_roll_timer <= 0.0
                 && state.air_dodge_timer <= 0.0,
             can_variable_jump: abilities.abilities.variable_jump,
+            gravity_modifier,
         },
         input,
         dt,
@@ -595,6 +600,16 @@ pub struct NormalSpineCtx {
     /// this the integrator would grant variable height to a body whose ability
     /// set denies it.
     pub can_variable_jump: bool,
+    /// The TIMED gravity multiplier this body is under, or `1.0` for none —
+    /// [`crate::movement::AxisManeuverState::gravity_modifier`].
+    ///
+    /// ⭐ RESOLVED BY THE CALLER, exactly as `water` and `crouching` are, and
+    /// for the same reason: this function takes neither the clusters nor the
+    /// maneuver state. ⛔ It arrives ALREADY NEUTRALISED — a caller passes
+    /// `1.0`, never a raw scale — so a body with no modifier is indistinguishable
+    /// here from one whose modifier expired, and neither can fall under zero
+    /// gravity by omission.
+    pub gravity_modifier: f32,
 }
 
 /// THE INITIAL DASH's phase for this tick — start it, keep it, or answer that
@@ -697,6 +712,10 @@ impl NormalSpineCtx {
             can_glide: false,
             can_move_horizontal: true,
             can_variable_jump: false,
+            // ⛔ NEUTRAL, NOT ZERO. A bare actor carries no maneuver state to
+            // hold a modifier, and `1.0` is the identity of the product it
+            // joins — a `0.0` here would make every enemy and NPC weightless.
+            gravity_modifier: 1.0,
             // A bare actor has no crouch: nothing puts one in `BodyMode::Crouching`.
             crouching: false,
             // and no dash phase: the caller that resolves one is the player
@@ -770,7 +789,15 @@ pub fn integrate_normal_spine(
                 }
             }
         };
-        *kin_vel += frame.gravity_acceleration() * (water_gravity_scale * jump_gravity_scale) * dt;
+        // ⭐⭐ THE THIRD FACTOR, and it is a FACTOR rather than an assignment on
+        // purpose. A parasol, the water it is swimming in and the arc of the
+        // jump it is inside are three independent statements about one body's
+        // gravity; multiplying lets all three hold at once, where a writer of
+        // `ActorSurfaceState::gravity_scale` would have to save a prior and
+        // restore it, and two such writers have to agree on the order.
+        *kin_vel += frame.gravity_acceleration()
+            * (water_gravity_scale * jump_gravity_scale * ctx.gravity_modifier)
+            * dt;
         *kin_vel += frame.external_acceleration() * dt;
     }
     if input.fast_fall_pressed() && ctx.can_fast_fall && !ctx.on_ground {

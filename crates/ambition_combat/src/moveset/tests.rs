@@ -8927,3 +8927,98 @@ mod technique_flow {
         );
     }
 }
+
+/// ⭐⭐ AN AUTHORED `GravityModifier` BEAT REACHES THE OWNER'S MOVEMENT POLICY,
+/// AND THE REGIME OUTLIVES THE MOVE.
+///
+/// Row 7's authoring half. The claim under test is the campaign's rule made
+/// checkable: a move ASKS for a locomotion regime by naming a scale and a
+/// duration, and the movement domain owns the clock — so the modifier is still
+/// running after the move that opened it has ended, and no second beat, system
+/// or "off" event is owed by anybody.
+///
+/// ⛔ THE THIRD ASSERTION IS THE ONE THAT WOULD CATCH A REWRITE. A window tag
+/// would satisfy the first two and fail this one, because a window cannot
+/// outlast its move — and "make it a window" is the obvious simplification a
+/// later reader will propose.
+#[test]
+fn an_authored_gravity_beat_reaches_the_movement_policy_and_outlives_the_move() {
+    let mut app = App::new();
+    app.insert_resource(ambition_characters::actor::character_catalog::CharacterCatalog::empty());
+    app.init_resource::<crate::authored_volumes::AuthoredAttackVolumeResolver>();
+    app.add_message::<HitEvent>();
+    app.add_message::<crate::hitbox::LandedBodyHit>();
+    app.add_message::<crate::hitbox::ParriedBodyHit>();
+    app.add_message::<ambition_sfx::OwnedSfxMessage>();
+    app.add_message::<VfxMessage>();
+    app.add_message::<DebrisBurstMessage>();
+    app.add_message::<MoveEventMessage>();
+    app.add_message::<ambition_vfx::vfx::VfxMessage>();
+    app.init_resource::<WorldTime>();
+    app.world_mut().resource_mut::<WorldTime>().scaled_dt = 0.05;
+    app.world_mut().resource_mut::<WorldTime>().raw_dt = 0.05;
+    app.add_systems(Update, advance_move_playback);
+
+    // A SHORT move — 0.05s of startup and nothing else — that opens a two
+    // second parasol on its first beat. The mismatch is the point.
+    let spec = ambition_characters::moveset_authoring::gravity_modifier(
+        ambition_characters::moveset_authoring::hitless_special("parasol", "special", 0.0, 0.05),
+        0.0,
+        0.25,
+        2.0,
+    );
+    let body = app
+        .world_mut()
+        .spawn((
+            ae::BodyKinematics {
+                pos: ae::Vec2::new(100.0, 100.0),
+                size: ae::Vec2::new(15.0, 24.0),
+                facing: 1.0,
+                ..Default::default()
+            },
+            ActorFaction::Enemy,
+            ae::MotionModel::default(),
+            MovePlayback::new(spec, 1.0),
+        ))
+        .id();
+
+    let modifier = |app: &App| {
+        app.world()
+            .get::<ae::MotionModel>(body)
+            .expect("the body kept its motion model")
+            .gravity_modifier()
+    };
+
+    assert_eq!(
+        modifier(&app),
+        1.0,
+        "poison: the body was already under a modifier before the beat fired, \
+         so the assertion below would hold for a beat that did nothing"
+    );
+
+    app.update();
+    assert_eq!(
+        modifier(&app),
+        0.25,
+        "the authored beat did not reach the owner's movement policy — the \
+         move asked for a regime and nothing heard it"
+    );
+
+    // The move is 0.05s long and the parasol is 2.0s. Run well past the end of
+    // the move and nowhere near the end of the regime.
+    for _ in 0..10 {
+        app.update();
+    }
+    assert!(
+        app.world().get::<MovePlayback>(body).is_none(),
+        "poison: the move is still playing after 0.55s of a 0.05s timeline, so \
+         'outlives the move' is not what the next assertion is testing"
+    );
+    assert_eq!(
+        modifier(&app),
+        0.25,
+        "the regime died with the move — a window tag would do this, and the \
+         whole reason this is an EVENT with a duration is that a parasol opened \
+         in a 0.3s animation has to hold its owner up afterwards"
+    );
+}

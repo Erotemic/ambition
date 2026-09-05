@@ -877,6 +877,28 @@ pub enum MoveEventKind {
         #[serde(default)]
         mode: ImpulseMode,
     },
+    /// Put the OWNER under a timed gravity multiplier: a parasol, a float, a
+    /// slow-fall. `scale` multiplies the body's gravity for `seconds`, after
+    /// which the movement domain restores it with no second call.
+    ///
+    /// ⭐⭐ THE MOVE ASKS; THE MOVEMENT DOMAIN OWNS IT. That is this campaign's
+    /// rule, and it is why this is a DURATION rather than an on/off pair: a move
+    /// that turned float on and owed a matching off would be the authority for a
+    /// locomotion regime, and would leak one every time it was interrupted,
+    /// cancelled, or rolled back mid-flight.
+    ///
+    /// ⛔ THE REGIME OUTLIVES THE MOVE ON PURPOSE. `seconds` runs from the beat
+    /// that fires it, not from the end of the move, so a parasol opened in a
+    /// 0.3s animation can hold a body up for two seconds afterwards. A
+    /// `WindowTag` could not say this — a window ends when its move does.
+    GravityModifier {
+        /// Multiplier on the body's gravity. `1.0` is no change, `0.25` is a
+        /// parasol, `0.0` is a hover and is legal.
+        scale: f32,
+        /// How long it lasts, from this beat. Non-positive CLEARS whatever
+        /// modifier the body is under, which is how a move ends one early.
+        seconds: f32,
+    },
 }
 
 /// How a [`MoveEventKind::Impulse`] meets the velocity the body already had.

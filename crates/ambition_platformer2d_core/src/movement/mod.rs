@@ -515,6 +515,10 @@ fn update_body_simulation_inner(
         clusters.dash.cooldown = dec(clusters.dash.cooldown);
         clusters.blink.cooldown = dec(clusters.blink.cooldown);
         state.blink_grace_timer = dec(state.blink_grace_timer);
+        // ⭐ THE MOVEMENT DOMAIN OWNS THE CLOCK, which is the whole point of
+        // putting the modifier here: it expires on the same tick every other
+        // maneuver timer does, and no move has to remember to end it.
+        state.gravity_modifier_timer = dec(state.gravity_modifier_timer);
         state.rebound_cooldown = dec(state.rebound_cooldown);
         // ⭐⭐ THE ROLL HANDS OFF TO ITS OWN ENDLAG, exactly as the air dodge
         // below does: "invulnerable" and "committed" become separable states

@@ -127,24 +127,9 @@ fn play(app: &mut App, node: &str) -> Vec<String> {
     app.world().resource::<PresentedLines>().0.clone()
 }
 
-/// The id every boss arm here uses — SYNTHETIC, and deliberately not a name any
-/// shipped `.yarn` file types.
-///
-/// ⛔⛔ THIS FIXTURE USED TO SAY `"mockingbird"`, THE SHIPPED SPELLING, AND THAT
-/// MADE IT READ AS EVIDENCE THE SHIPPED LINE WORKS. It is not, and the
-/// difference is the whole of question 57: `boss_encounter/src/systems.rs:259`
-/// writes the save under the PLACEMENT id (`BossSpawn-4308`) while
-/// `kernel.yarn` asks under the BEHAVIOUR id, so the shipped branch has never
-/// been able to open. This test seeds the save BY HAND under whatever id it
-/// asks about, so it agrees with itself no matter which key production uses —
-/// it can no more detect that mismatch than a test can detect a bug in the
-/// fixture it wrote.
-///
-/// ⭐ WHAT IT DOES PROVE, exactly: an authored `boss_cleared("x")` reaches
-/// `ask_boss_cleared` through the registration name, the interpreter's dispatch,
-/// its arity rules and its string→`String` conversion, and selects the branch
-/// the save's state implies. The ROUND TRIP, not the shipped content.
-const SYNTHETIC_BOSS: &str = "yarn_alias_test_boss";
+/// ⭐ ONE DEFINITION, and it lives in an UNGATED module so its guard survives
+/// this file's `#![cfg(feature = "ui")]` — see `dialogue_lint::SYNTHETIC_BOSS`.
+use crate::dialogue_lint::SYNTHETIC_BOSS;
 
 /// A save carrying one boss in the given state, under [`SYNTHETIC_BOSS`].
 fn save_with_boss(state: PersistedEncounterState) -> AmbitionGameSave {
@@ -153,30 +138,6 @@ fn save_with_boss(state: PersistedEncounterState) -> AmbitionGameSave {
     save
 }
 
-/// ⭐ THE FIXTURE ID MUST STAY UNSPEAKABLE IN SHIPPED CONTENT, so nobody can
-/// cite these tests as coverage of a line an author wrote. If someone ever names
-/// a real boss this, the tests above quietly become a claim about the game.
-#[test]
-fn the_boss_fixture_id_is_not_a_name_any_shipped_dialogue_uses() {
-    let spoken: Vec<&str> = ambition_content::dialogue::yarn::YARN_SOURCES
-        .iter()
-        .filter(|(_, text)| text.contains(SYNTHETIC_BOSS))
-        .map(|(name, _)| *name)
-        .collect();
-    assert!(
-        spoken.is_empty(),
-        "{SYNTHETIC_BOSS:?} is now authored in {spoken:?} — these tests seed the \
-         save by hand and would read as proof that authored line works. Rename \
-         the fixture, not the content."
-    );
-    assert!(
-        ambition_content::dialogue::yarn::YARN_SOURCES
-            .iter()
-            .any(|(_, text)| text.contains("boss_cleared(")),
-        "no shipped .yarn calls `boss_cleared` at all, so the assertion above is \
-         trivially true and this file guards nothing"
-    );
-}
 
 /// A save carrying one quest in the given state.
 fn save_with_quest(state: PersistedQuestState) -> AmbitionGameSave {

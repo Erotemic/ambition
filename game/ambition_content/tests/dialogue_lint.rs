@@ -631,3 +631,44 @@ mod tests {
         );
     }
 }
+
+
+/// The id the Yarn alias fixtures seed a boss under — SYNTHETIC, and deliberately
+/// not a name any shipped `.yarn` file types.
+///
+/// ⭐⭐ IT LIVES HERE, IN AN UNGATED MODULE, AND ITS GUARD WITH IT. The fixtures
+/// that USE it are `#![cfg(feature = "ui")]` because they drive a real Yarn
+/// interpreter; this constant and the check below need nothing but
+/// `YARN_SOURCES` strings. ⛔ Measured 2026-09-05, before the move:
+/// `cargo test -p ambition_content --test content_it yarn_condition_aliases`
+/// reported **running 0 tests** while the same tests PASS at 2604/7150 under
+/// `cargo nextest run --workspace` — they compile only because another workspace
+/// crate turns on `ambition_content/ui` and cargo unifies features. ⇒ A guard
+/// whose existence depends on a feature edge in somebody else's crate is one
+/// that vanishes silently, and a `-p` run reports zero rather than failing.
+pub const SYNTHETIC_BOSS: &str = "yarn_alias_test_boss";
+
+/// ⭐ THE FIXTURE ID MUST STAY UNSPEAKABLE IN SHIPPED CONTENT, so nobody can cite
+/// the alias fixtures as coverage of a line an author wrote. If someone ever
+/// names a real boss this, those tests quietly become a claim about the game.
+#[test]
+fn the_boss_fixture_id_is_not_a_name_any_shipped_dialogue_uses() {
+    let spoken: Vec<&str> = ambition_content::dialogue::yarn::YARN_SOURCES
+        .iter()
+        .filter(|(_, text)| text.contains(SYNTHETIC_BOSS))
+        .map(|(name, _)| *name)
+        .collect();
+    assert!(
+        spoken.is_empty(),
+        "{SYNTHETIC_BOSS:?} is now authored in {spoken:?} — the alias fixtures seed \
+         the save by hand and would read as proof that authored line works. Rename \
+         the fixture, not the content."
+    );
+    assert!(
+        ambition_content::dialogue::yarn::YARN_SOURCES
+            .iter()
+            .any(|(_, text)| text.contains("boss_cleared(")),
+        "no shipped .yarn calls `boss_cleared` at all, so the assertion above is \
+         trivially true and this guard is vacuous"
+    );
+}

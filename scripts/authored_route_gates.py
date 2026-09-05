@@ -261,6 +261,18 @@ def main() -> int:
         print(f"published but authored NOWHERE ({len(unused)} of {len(published)}):")
         for name in unused:
             print(f"       {name}")
+        # ⛔⛔ UNUSED IS NOT THE SAME AS UNREACHABLE, and this number only counts
+        # the first. `boss.cleared` has FIVE authored calls and none of them can
+        # ever be true: every one passes the BEHAVIOR id while the save is
+        # written under the PLACEMENT (awaiting-maintainer-decision #57). ⇒ So
+        # a reader taking "N of M authored nowhere" as "M - N are working"
+        # over-counts by at least one, and the census cannot see it — answerability
+        # is a property of the evaluator, not of the corpus this walks.
+        print(
+            "       ⚠ plus `boss.cleared`, which IS authored (5 calls) and cannot"
+            "\n         ever be true — decision #57. Unused and unreachable are"
+            "\n         different, and only the first is counted above."
+        )
 
     if unreadable:
         print(

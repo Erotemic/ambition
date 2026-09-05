@@ -50,6 +50,7 @@ fn app_with_populated_mirrors() -> App {
     app.init_resource::<ambition_persistence::quest::LastQuestRoom>();
     app.init_resource::<ambition_cutscene::LastCutsceneRoom>();
     app.init_resource::<ambition_projectiles::ProjectileSeqCounter>();
+    app.init_resource::<crate::session::lifecycle_commit::PendingLifecycleCommit>();
     app.add_systems(
         Update,
         (

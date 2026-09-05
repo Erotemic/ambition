@@ -123,6 +123,14 @@ pub struct SessionScopedResources<'w> {
     /// save family, unlike a `SimId`, which is why the per-spawner `SimIdCounter`
     /// (a COMPONENT, not a resource) is deliberately not here.
     projectile_seq: ResMut<'w, ambition_projectiles::ProjectileSeqCounter>,
+    /// ⭐ THE ONE-SLOT, EARLIEST-STICKY LIFECYCLE INTENT. `take()` clears it when
+    /// the host commits and `retract_transition_for_subject` clears a matching
+    /// transition, but a session that RETIRES with an intent still pending
+    /// clears nothing — and the slot is rollback-registered, so its stale
+    /// `frame` is a frame index from the DEAD session. Because `record` keeps
+    /// the EARLIEST intent, that residue does not merely fire late: it REFUSES
+    /// the next session's first lifecycle intent.
+    pending_lifecycle: ResMut<'w, crate::session::lifecycle_commit::PendingLifecycleCommit>,
 }
 
 /// Re-establish the session mirrors for a scope that is about to be built.
@@ -186,6 +194,7 @@ fn reset(resources: SessionScopedResources) {
         mut quest_last_room,
         mut cutscene_last_room,
         mut projectile_seq,
+        mut pending_lifecycle,
     } = resources;
     *moving_platforms = MovingPlatformSet::default();
     *possession = PossessionState::default();
@@ -206,6 +215,7 @@ fn reset(resources: SessionScopedResources) {
     *quest_last_room = ambition_persistence::quest::LastQuestRoom::default();
     *cutscene_last_room = ambition_cutscene::LastCutsceneRoom::default();
     *projectile_seq = ambition_projectiles::ProjectileSeqCounter::default();
+    *pending_lifecycle = crate::session::lifecycle_commit::PendingLifecycleCommit::default();
 }
 
 /// Installs session-resource re-establishment at both edges of a session.

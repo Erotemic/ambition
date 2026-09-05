@@ -92,9 +92,17 @@ actual product requirement.
   record. ⭐ **I2's exploration half and I4 closed 2026-09-04, so what remains is
   two DECISIONS and one fighter-side call site, not migration work:** I3 is
   question 45 (is a unique capability item an entitlement or an occurrence),
-  I2's residual is `match_spawn.rs:113`, and the gauntlet drop road has no
-  end-to-end arm because `force_kill_boss` writes HP to zero and produces no
-  drops. Owner:
+  I2's residual is `match_spawn.rs:113`. ✔ **The gauntlet-drop gap this row
+  used to name is CLOSED** — it said the road had no end-to-end arm because
+  `force_kill_boss` writes HP to zero and never enters `apply_boss_hit`'s
+  `killed` branch, which is where every boss drop is spawned. It has one now:
+  `a_defeated_boss_drops_its_signature_gauntlet_on_the_real_kill_road`
+  (`boss_lifecycle.rs`) delivers a real `HitEvent` in a vulnerable phase and
+  asserts the gauntlet exists as a pick-up-able `GroundItem`, re-run green
+  2026-09-05. ⚠ The distinction the old row was right about still holds:
+  `defeated_boss_is_recorded_cleared_drops_reward_and_clears_music` sees its
+  chest through the SAVE, which is a different road a real kill is not needed
+  for. Owner:
   [`engine/item-custody-and-accounting.md`](engine/item-custody-and-accounting.md).
 - ▢ **Capability progression/world gating.** Physical verbs remain body-owned;
   knowledge/keys/theorems remain participant-owned. Grow the authoring vocabulary

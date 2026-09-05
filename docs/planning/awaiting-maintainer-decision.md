@@ -1165,6 +1165,15 @@ it is not a one-line thread; it needs the resolver first, which is a real (if
 small) piece of vocabulary design and is the kind of thing this decision should
 say yes or no to before somebody builds it speculatively.
 
+⭐⭐ **AND THE MISMATCH IS ITSELF EVIDENCE, which is the sharper way to read it:
+a stranded field with a TYPE MISMATCH at its destination was probably abandoned
+DELIBERATELY, not overlooked.** Somebody authored `Option<String>`, met an enum
+at the consumer, and stopped. ⇒ read the gap as a decision that was deferred
+rather than as an oversight, and price the resolver before assuming the field
+wants wiring. The other three have no mismatch — their destinations would take
+the value as-is — so they are the ones where "overlooked" is the likelier
+story.
+
 ⛔ **`requires_facing` IS THE ONE WITH A PLAYER-VISIBLE CONSEQUENCE: an
 interactable that declares it must be faced can be used from behind.** The other
 two are bookkeeping whose live authority is elsewhere — collected-ness is the

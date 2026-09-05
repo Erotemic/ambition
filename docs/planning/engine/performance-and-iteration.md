@@ -104,11 +104,25 @@ produces rebuild rows is `--phase first-party`.
 
 ⛔ **AND THAT PHASE PERTURBS SHARED SOURCE.** `first-party` calls
 `perturb(roots)`, which EDITS every first-party lib root and restores them from
-saved bytes afterwards. In a tree shared with an active peer that restore is the
-`cp`-restore hazard: a peer editing a perturbed file inside the ~10-minute
-window is silently reverted. ⇒ **the precondition for clearing UNPRICED is an
-isolated worktree or a tree that is genuinely yours, not merely a quiet one.**
-Recorded so the next agent spends the build once, in the right phase.
+saved bytes afterwards.
+
+⚠ **THE RISK IS NARROWER THAN "it edits the tree" — read `perturb` before
+deciding.** It REFUSES to start if any of those files already has uncommitted
+changes, and it touches only `src/lib.rs`-shaped ROOTS, not ordinary modules.
+⇒ the exposure is exactly: somebody edits a crate's LIB ROOT inside the ~10
+minute window and the restore overwrites them. That is a window to coordinate,
+not a reason the measurement can never be taken.
+
+⛔⛔ **AND A WORKTREE DOES NOT SOLVE IT, which was the obvious dodge.** A
+worktree gets fresh cargo fingerprints, so the build is COLD again and produces
+exactly the rows `unit_weights()` discards. **The warm target dir in the working
+tree is what makes it a REBUILD at all** — isolation and warmth are in direct
+tension here, and warmth is the one the measurement requires.
+
+⇒ **The precondition for clearing UNPRICED is a coordinated quiet window in a
+tree with a WARM release target**, not an isolated checkout. Recorded so the next
+agent spends the build once, in the right phase, and does not lose an hour to the
+worktree idea.
 
 ⓘ The two cold runs are in the ledger and are not waste for every purpose — they
 are honest release/cold rows — they simply cannot feed the weight table.

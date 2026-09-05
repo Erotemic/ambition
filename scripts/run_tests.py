@@ -958,7 +958,8 @@ def append_cost_ledger(results: list[JobResult], exhaustive: bool,
                        filtered: bool, rust_only: bool = False,
                        tool_tests_only: bool = False,
                        maintenance_only: bool = False,
-                       *, rust_alone: bool = False) -> Path | None:
+                       *, rust_alone: bool = False,
+                       job_limit: int | None = None) -> Path | None:
     """Append this run's cost so test-iteration trends can be compared.
 
     The ledger is append-only; individual runs remain available for comparison.
@@ -1014,6 +1015,17 @@ def append_cost_ledger(results: list[JobResult], exhaustive: bool,
         "rust_alone": rust_alone,
         "tool_tests_only": tool_tests_only,
         "maintenance_only": maintenance_only,
+        # ⛔⛔ A CAPPED RUN'S WALL CLOCK IS NOT THE MACHINE'S COST. `-j5` on a
+        # 16-core box inflates every duration, and a reader comparing this row
+        # against an uncapped baseline would read a deliberate courtesy to a
+        # shared machine as a compile-time REGRESSION.
+        #
+        # ⭐ Passed in, never re-read from `os.environ`: `run()` sets
+        # `CARGO_BUILD_JOBS` in the CHILD environment without touching the
+        # parent, so an env read here answers about the wrong process -- the
+        # exact trap the `incremental` field above documents. `None` means
+        # uncapped, which is what every historical row already means.
+        "job_limit": job_limit,
         "per_job": timings_payload(results),
     }
     try:
@@ -1142,7 +1154,8 @@ def run(jobs: list[Job], list_only: bool, timings_json: str | None = None,
         filtered: bool = False, rust_only: bool = False,
         tool_tests_only: bool = False,
         maintenance_only: bool = False,
-        rust_alone: bool = False) -> int:
+        rust_alone: bool = False,
+        job_limit: int | None = None) -> int:
     if list_only:
         print(f"Planned {len(jobs)} job(s):\n")
         for j in jobs:
@@ -1167,6 +1180,28 @@ def run(jobs: list[Job], list_only: bool, timings_json: str | None = None,
     # where the edit-rebuild loop actually lives — `setdefault`, so anyone who
     # wants it back exports `CARGO_INCREMENTAL=1`.
     env.setdefault("CARGO_INCREMENTAL", "0")
+    # ⭐ ONE WRITER FOR THE CAP, and it is the environment rather than the ~20
+    # `[CARGO, ...]` argv sites. Cargo reads `CARGO_BUILD_JOBS` natively, so a
+    # single assignment here covers every job -- test, check, build, run, doc,
+    # nextest -- including any added later, which an argv edit would silently
+    # miss. Jobs run SEQUENTIALLY in this runner, so cargo's own parallelism is
+    # the whole of the CPU story.
+    #
+    # ⚠ Compiling and TEST-RUNNING are two different consumers and `-j` caps
+    # both: `CARGO_BUILD_JOBS` bounds rustc processes, and the test-thread
+    # variables bound the threads a test binary then spawns. Capping only the
+    # first still lets a single binary saturate the machine.
+    #
+    # ⛔ Assigned, not `setdefault`: an explicit `-j` is the caller telling this
+    # machine what it may use, and it must beat an ambient value.
+    if job_limit is not None:
+        env["CARGO_BUILD_JOBS"] = str(job_limit)
+        env["RUST_TEST_THREADS"] = str(job_limit)
+        env["NEXTEST_TEST_THREADS"] = str(job_limit)
+        print(f"run_tests: capped at {job_limit} build job(s) and "
+              f"{job_limit} test thread(s) [-j{job_limit}]. "
+              "⚠ Wall-clock timings from this run are NOT comparable with an "
+              "uncapped baseline.")
     # ⛔⛔ A CPU WITHOUT AN INVARIANT TSC ABORTS THE UNION JOB BEFORE ANY TEST
     # RUNS, and the failure reads like a build problem: *"Tracy Profiler
     # initialization failure: CPU doesn't support invariant TSC"*. The union
@@ -1357,7 +1392,7 @@ def run(jobs: list[Job], list_only: bool, timings_json: str | None = None,
     # Keep the persistent suite-cost ledger separate from the optional per-run timing export.
     ledger = append_cost_ledger(
         results, exhaustive, filtered, rust_only, tool_tests_only, maintenance_only,
-        rust_alone=rust_alone
+        rust_alone=rust_alone, job_limit=job_limit,
     )
     if ledger:
         print(f"  cost appended to {ledger.relative_to(REPO) if ledger.is_relative_to(REPO) else ledger}")
@@ -1490,6 +1525,11 @@ def main() -> int:
     ap.add_argument("--maintenance", action="store_true",
                     help="run periodic repository-hygiene audits only; these "
                          "maintainer checks do not block ordinary code validation")
+    ap.add_argument("-j", "--jobs", type=int, default=None, metavar="N",
+                    help="cap CPU use: at most N cargo build jobs AND N test "
+                         "threads. Use when the machine is shared -- `-j5` "
+                         "leaves the rest of the cores alone. Unset means "
+                         "cargo's default, which is every core.")
     ap.add_argument("--list", action="store_true", help="print job plan, run nothing")
     ap.add_argument("-k", metavar="SUBSTR", default=None,
                     help="only tests whose name contains SUBSTR (libtest filter)")
@@ -1507,6 +1547,9 @@ def main() -> int:
     ap.add_argument("cargo_extra", nargs="*",
                     help="args after `--` forwarded to libtest")
     args = ap.parse_args()
+
+    if args.jobs is not None and args.jobs < 1:
+        ap.error("-j/--jobs must be at least 1")
 
     scope_flags = [args.rust, args.rust_alone, args.tool_tests, args.maintenance]
     if sum(bool(flag) for flag in scope_flags) > 1:
@@ -1527,7 +1570,7 @@ def main() -> int:
         return run(
             jobs, args.list, timings_json=args.timings_json,
             status_json=args.status_json, exhaustive=False, filtered=False,
-            tool_tests_only=True,
+            tool_tests_only=True, job_limit=args.jobs,
         )
 
     if args.maintenance:
@@ -1537,7 +1580,7 @@ def main() -> int:
         return run(
             jobs, args.list, timings_json=args.timings_json,
             status_json=args.status_json, exhaustive=False, filtered=False,
-            maintenance_only=True,
+            maintenance_only=True, job_limit=args.jobs,
         )
 
     libtest_args = list(args.cargo_extra)
@@ -1601,7 +1644,7 @@ def main() -> int:
                status_json=args.status_json,
                exhaustive=args.run_everything or args.heavy,
                filtered=bool(args.package), rust_only=args.rust,
-               rust_alone=args.rust_alone)
+               rust_alone=args.rust_alone, job_limit=args.jobs)
 
 
 if __name__ == "__main__":

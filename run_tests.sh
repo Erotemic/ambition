@@ -3,6 +3,8 @@
 # developer tools, maintenance audits, ignored tests, and exhaustive feature jobs are opt-in.
 #
 # Common lanes: `--rust`, `--tool-tests`, `--maintenance`, `-p <crate>`, `-k <substr>`, `--list`.
+# On a SHARED machine use `-jN` (e.g. `-j5`): it caps cargo build jobs AND test threads, so the
+# suite leaves the rest of the cores alone. Uncapped, cargo takes every core.
 # Arguments after `--` go to libtest. Use `--heavy` or
 # `--run-everything-you-probably-dont-need-this` only when exhaustive coverage is intended.
 #

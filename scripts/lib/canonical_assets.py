@@ -197,6 +197,29 @@ def assets_are_canonical(
     # ⇒ A stale box must SKIP, loudly, naming the freshness check — not produce
     # a false content finding, and not have the assertions widened to tolerate
     # it.
+    #
+    # ⛔⛔ AND HERE IS WHAT THIS FUNCTION STILL DOES NOT ANSWER, measured the hard
+    # way on 2026-09-04. `variants_are_fresh` compares a REDUCED TIER against its
+    # own full-resolution page — tier-versus-page consistency. It does not
+    # compare a page against the GENERATOR that produces it.
+    #
+    # ⇒ So two boxes can both be canonical, both be fresh, and hold different
+    # art, because one ran `scripts/regen/sprites.sh` more recently than the
+    # other. That is exactly what happened: `test_the_known_list_does_not_rot`
+    # demanded four names be pruned from a stranded-sheet allowlist on a
+    # regenerated box, and the identical commit was RED on a box that had not
+    # regenerated. Both passed this gate.
+    #
+    # ⚠ The distinction is "are these assets MINE and internally consistent"
+    # (what this answers) versus "were they built from THIS COMMIT's generator"
+    # (what a cross-box ratchet needs). The second needs the generator's inputs
+    # hashed beside its outputs and nothing records that today.
+    #
+    # ⇒ Until it does, a ratchet over generated art may gate on art APPEARING —
+    # a new stranded sheet is real evidence on any box — and must only REPORT on
+    # art having vanished, because an absence is produced identically by "fixed"
+    # and "never rendered here". `test_shipped_sheet_pages_are_claimed.py`
+    # carries that split and the reasoning for it.
     return (fresh or variants_are_fresh)(repo)[0]
 
 

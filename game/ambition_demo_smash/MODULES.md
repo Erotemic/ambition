@@ -11,12 +11,13 @@
 | [`counter`](src/counter.rs) | The counter, assembled from parts the engine already had. |
 | [`george_booul_moveset`](src/george_booul_moveset.rs) | George Booul's authored fighter repertoire. |
 | [`moveset`](src/moveset.rs) | Shared authored platform-fighter repertoire for demo fighters that do not provide a character-owned table. |
+| [`portal`](src/portal.rs) | The portal recovery, assembled from the portal crate's own parts. |
 | [`select`](src/select.rs) | Pure character-select state for up to four match seats. |
 | [`select_screen`](src/select_screen.rs) | Smash character-select presentation and cursor interaction. |
 | [`shark_ride`](src/shark_ride.rs) | The pirate's up-special: summon a burning flying shark and ride it. |
 | [`smash_pack`](src/smash_pack.rs) | Smash demo content pack for George Booul. |
 
-_9 crate-root modules. Regenerate: `python scripts/modules_md.py --write`._
+_10 crate-root modules. Regenerate: `python scripts/modules_md.py --write`._
 
 <!-- END generated module map -->
 

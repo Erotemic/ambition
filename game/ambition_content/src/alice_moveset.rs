@@ -305,8 +305,23 @@ pub fn alice_moveset() -> MovesetContract {
     let side_b = sfx(side_b, 0.13, "player.blink");
     let side_b = on_contact(side_b, "player.hit");
 
-    // UP — `elliptic_curve`. THE RECOVERY. She rides the curve up. Cheap to
-    // land, because her whole design is that a whiff does not end her.
+    // UP — `elliptic_curve`. THE RECOVERY, AND IT IS A PORTAL PAIR, not an arc.
+    //
+    // ⭐⭐ JON'S MOVE, 2026-09-05: *"up b opens a portal under him, and a portal
+    // at the very top of the stage, and when he falls into it he comes out the
+    // higher portal … it's a portal so just use the portal crate rules."*
+    // ⇒ So the RISE comes from `ambition_portal2d`'s own transit and not from an
+    // impulse this move throws. Everything else about the move is unchanged —
+    // the swing still hits, the rune still draws, the landing lag still costs.
+    //
+    // ⛔ THE IMPULSE IS GONE, DELIBERATELY, and this is the one behavioural
+    // change: a `-760` `Set` alongside the pair would make the portal decorative
+    // and the arc the actual recovery, which is the opposite of the move. ⚠ If
+    // this reads worse in play than the curve did, the impulse is one line to
+    // restore — the slot is provisional (Jon: *"we can tune who the moves belong
+    // to later"*) and so is this.
+    //
+    // ⓘ Cheap to land, because her whole design is that a whiff does not end her.
     let mut up_b = strike(Strike {
         id: "elliptic_curve",
         clip: "attack_up",
@@ -322,7 +337,38 @@ pub fn alice_moveset() -> MovesetContract {
         on_hit: None,
     });
     up_b.landing_lag_s = Some(0.22);
-    let up_b = impulse(up_b, 0.07, (0.0, -760.0), ImpulseMode::Set);
+    // ⭐ THE PAIR OPENS ON THE SAME BEAT THE IMPULSE USED TO FIRE, so the
+    // move's timing is untouched: the rune draws, and the way up is there.
+    let up_b = ambition_characters::smash_portal::author_portal_pair(
+        up_b,
+        0.07,
+        ambition_characters::smash_portal::PortalPairParams {
+            // ⚠ TUNING, and a knob rather than a derived constant. 320px is a
+            // little over twice the engine's own jump ceiling, so the exit is
+            // somewhere she could not simply jump to — which is the whole
+            // reason to open a hole instead.
+            rise: 320.0,
+            // Wide and shallow: you fall INTO it, so the horizontal mouth is
+            // what matters and depth would only make it a wall.
+            half_extent: (26.0, 6.0),
+            // Long enough to fall through after the animation, short enough that
+            // the stage is not permanently rearranged by one recovery.
+            lifetime_s: 2.5,
+            // ⛔ A ROUTE, NOT AN ESCAPE HATCH — it stays open for anyone,
+            // including whoever is chasing her. That is the interesting version
+            // and it is the one that makes the move a stage event rather than a
+            // private button; `true` would shut it behind her.
+            close_on_transit: false,
+            // Straight first. The angled variant is Jon's flavour and wants its
+            // own commit, because it is also the cheapest test of whether the
+            // placement seam takes an orientation at all.
+            tilt_degrees: 0.0,
+            // ⛔ 8+, never 0..=7: the low eight overlap the NAMED authored pairs
+            // and a room that authored that colour would find its portals linked
+            // to hers.
+            channel_index: 8,
+        },
+    );
     let up_b = committed_tail(up_b, 0.48, 0.25);
     let up_b = vfx_at(up_b, 0.07, "rune_circle", (0.0, 0.0), GLYPH_FX);
     let up_b = sfx(up_b, 0.07, "player.double_jump");
@@ -542,6 +588,68 @@ mod tests {
         assert!(
             damage(&bob, "rivet_smash") > damage(&alice, "brute_force"),
             "and the one who builds things hits harder when he connects"
+        );
+    }
+}
+
+#[cfg(test)]
+mod portal_recovery_tests {
+    use ambition_characters::smash_portal::{PortalPairParams, PORTAL_PAIR};
+    use ambition_platformer2d::entity_catalog::MoveEventKind;
+
+    /// Her up-B opens a portal pair, and does NOT also throw an impulse.
+    ///
+    /// ⛔⛔ THE SECOND HALF IS THE ASSERTION THAT MATTERS. A move carrying both
+    /// would recover on the impulse and leave the portals as scenery — the
+    /// pair would look right, play wrong, and every test asserting "it opens a
+    /// portal" would still pass. ⇒ The recovery is the portal or it is not this
+    /// move.
+    #[test]
+    fn the_up_special_recovers_through_a_portal_rather_than_an_arc() {
+        let kit = super::alice_moveset();
+        let up_b = kit
+            .moves
+            .iter()
+            .find(|m| m.id == "elliptic_curve")
+            .expect("Alice authors her up-special");
+
+        let pair = up_b
+            .events
+            .iter()
+            .find_map(|ev| match &ev.kind {
+                MoveEventKind::Effect(effect) if effect.key == PORTAL_PAIR => Some(effect),
+                _ => None,
+            })
+            .expect("the up-special opens a portal pair");
+        let params: PortalPairParams = pair.params.hydrate().expect("portal params hydrate");
+        assert!(
+            params.rise > 0.0,
+            "the pair's exit is not above its entrance, so falling in returns \
+             her where she started"
+        );
+
+        assert!(
+            up_b.start_impulse.is_none(),
+            "the up-special still throws a start impulse alongside its portal \
+             pair, so the arc is the recovery and the portals are scenery"
+        );
+        // ⛔⛔ AN IMPULSE IS ITS OWN EVENT KIND, not an effect with a telling
+        // name. The first version of this assertion looked for
+        // `Effect { key: contains("impulse") }`, which cannot match anything —
+        // poisoning the impulse back in left the test GREEN, and that is the
+        // only reason this line is right.
+        let thrown: Vec<(f32, &ambition_platformer2d::entity_catalog::ImpulseMode)> = up_b
+            .events
+            .iter()
+            .filter_map(|ev| match &ev.kind {
+                MoveEventKind::Impulse { mode, .. } => Some((ev.at_s, mode)),
+                _ => None,
+            })
+            .collect();
+        assert!(
+            thrown.is_empty(),
+            "the up-special throws {thrown:?} beside its portal pair, so the arc \
+             is the recovery and the portals are scenery"
         );
     }
 }

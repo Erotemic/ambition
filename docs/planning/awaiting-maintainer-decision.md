@@ -1260,9 +1260,32 @@ answers, both cheap:
 
 ⓘ Found while guarding a different member of the same class (`4cf7ffe07`): a
 system reading or writing what another member of ITS OWN set writes, which is
-the one relationship a phase cannot express. The census that turned it up is in
-[`decision-principles.md`](decision-principles.md); `Settle` holds 13 systems
-and exactly this one unordered pair remains.
+the one relationship a phase cannot express. The technique is in
+[`decision-principles.md`](decision-principles.md).
+
+⚠ **THE CENSUS ABOVE IS THE ENGINE'S, AND THE GAME'S IS MUCH LARGER — the
+number that answers this question depends on which composition you ask.**
+Unordered pairs whose two systems share a combat phase:
+
+| phase | `PlatformerEnginePlugins::fixed_tick()` | the shipped `build_demo_app()` |
+|---|---|---|
+| Trigger | 0 of 6 members | 0 of 6 |
+| Playback | 0 of 11 | 0 of 11 |
+| Materialize | 0 of 14 | **14** of 22 |
+| Resolve | 0 of 10 | 0 of 10 |
+| Settle | **1** of 13 | **24** of 32 |
+| ContentSpecials | 0 of 0 | 0 of 2 |
+| totals | 261 conflicts, 410 systems | 329 conflicts, 442 systems |
+
+⇒ Smash's own content systems add 19 members to `Settle` and take its unordered
+pairs from 1 to 24. **That is a population, not a defect count** — Bevy's
+conflict detection is type-level, so two systems writing the same component on
+entities that never coexist are reported exactly like two systems racing over
+one body. The pair filed above is the one that has been read closely enough to
+say which it is. ⓘ The guarded invariant does hold in both: conflicts touching
+`Messages<StocksMatchDecided>` measure **0** in the shipped demo as well as in
+the engine, so the finishing-zoom edge and the participant-removal ordering the
+`MatchOutcomeDecided` doc describes are both intact in the game a player runs.
 
 ### 59. Two ledgers went red on main because a landing ran no lane. Hook, or accept? (2026-09-05)
 

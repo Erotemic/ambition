@@ -197,6 +197,46 @@ a run pins several cores and still feels slow, suspect a single long pole before
 suspecting a lock or an I/O bottleneck — the CPU-percentage signature is the same
 for both.
 
+## ⛔⛔ PROSE IS THE ONLY PART OF THIS REPO WITH NO GUARD, AND IT IS MOST OF WHAT WE WRITE (2026-09-05)
+
+**Four instances in one day, across two sessions, on four different subjects.**
+Every one was a sentence describing something that was not there, and every one
+survived every check the repository runs:
+
+```text
+sim_core_resources.rs:85    cited for a resource initialised at :89
+room_transition_assets:1271 cited for a budget defined at :1367
+quality.rs:182              cited for a function defined at :136
+"a `close_on_transit` pair"  a doc comment on a test, citing a code path that
+                             DID NOT EXIST — written by the person who owned the file
+```
+
+⇒ **The tests pass, the citation checker passes (1,842 citations, all resolved),
+the link checker passes.** None of them reads a sentence and asks whether it is
+true. ⚠ And the fourth is the worst shape: not a stale pointer but an
+INVENTED MECHANISM, cited as the reason a neighbouring invariant mattered.
+
+⛔ **There is no gate to build here, and this section is not proposing one** —
+see the line-citation measurement below, where both the weak and the strong
+predicate were measured and neither is gateable. The strong one runs at ~50%
+precision because prose legitimately cites a USE site rather than a definition,
+and judging that needs a person.
+
+⭐ **So the discipline is the whole mechanism, and it is cheap:**
+1. **When you cite a line, OPEN it.** Three of the four above were found that
+   way and by nothing else.
+2. **When you write prose naming a behaviour, grep the behaviour.** The fourth
+   was a comment about a feature its own author believed existed.
+3. **When you touch a comment claiming sole authority, re-derive it** — 11 such
+   claims audited the same day, 3 wrong
+   ([`simulation-authority-and-determinism.md`](../planning/engine/simulation-authority-and-determinism.md)).
+4. **State a claim, cite where the number lives.** A copied count goes stale
+   silently; a claim goes stale loudly, because the next reader checks it.
+
+ⓘ The asymmetry worth internalising: code that describes a thing that does not
+exist FAILS TO COMPILE. Prose that describes a thing that does not exist reads
+exactly like prose that does.
+
 ## ⛔ A CHECK THAT IS CHEAP, DECISIVE, AND USELESS — the line-citation case (2026-09-05)
 
 Two planning pages cited `platformer2d_runtime/src/sim_core_resources.rs:85` as

@@ -972,6 +972,26 @@ traded for a correct-but-unguarded one. ⇒ The remaining decision is only
 *"fast-forward the submodule's main and re-pin"*, and the reason to take it is
 that the ask is unprotected until somebody does.
 
+⛔⛔ **DO NOT "FIX" THIS BY REVERTING THE PIN, which is the move it invites.**
+The guarded commit lives on a **deletable agent branch**; `4e5695c` is on the
+submodule's `main`. ⇒ Pointing back would trade an **unguarded-but-durable**
+pointer for a **guarded-but-dangling** one — the exact defect the re-pin was
+made to fix, re-introduced in the name of the ask. The fast-forward is the only
+move that gets both, which is why the obstacle to it was worth removing before
+raising the question.
+
+⭐ **And the shape is worth carrying past this file: RIGHT REASONING ATTACHED TO
+THE WRONG SUBJECT.** Nothing in the closed entry below is false. `music.sh` does
+warn and continue; it does defer to the renderer; a renderer that refuses does
+make that deferral sound. Every link holds and the chain does not, because the
+renderer it reasons about is not the renderer that ships. ⇒ Sibling instances
+found the same day: `boss_cleared("mockingbird")` asks by behaviour id and the
+save is keyed by placement id — every link true, the branch permanently closed;
+and this page's own matplotlib entry, where the module named was right and the
+defect was not. **A closed entry whose reasoning is right about the wrong
+artifact is worse than an open one**, because its correctness is what stops the
+next reader checking.
+
 ---
 
 ## ✔ (superseded by the entry above — the conclusion holds for the branch, not for the pin) — is the "no General-MIDI fallbacks on new machines" ask actually guarded?

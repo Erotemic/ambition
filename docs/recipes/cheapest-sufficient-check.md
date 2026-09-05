@@ -250,6 +250,21 @@ UNCOVERED total (240) is a claim this run can make.
 66 of 78 crates is invisible, and the list is hand-kept — its own comment records
 having already fallen behind once, when a carve moved code out of a tracked crate
 and the count "read as a repair".
+
+⚠⚠ **AND 274 IS NOT 274 FALSE CLAIMS — I nearly left that implication standing.**
+Characterised: **249 DISTINCT targets in 274 links**, almost no repetition, and
+the most-repeated is four. They are one-off references to types NOT IN SCOPE
+where they are written — `` [`SimId`] ``, `` [`Hitbox`] ``, `` [`UserSettings`]
+`` — so the prose usually NAMES A REAL TYPE and only the hyperlink fails. ⇒ the
+population is dominated by *"correct sentence, unlinkable from here"*, which is
+what my own `InteractableSpec` case turned out to be.
+
+⛔ What that does NOT establish, and it is the half that would matter: whether
+each names a type that still EXISTS. A link that fails because the type was
+renamed or deleted IS a false claim, and rustdoc's warning cannot tell the two
+apart. ⇒ **the 274 sizes an unlinked-prose problem, not a wrong-prose problem**,
+and anyone acting on it should de-link rather than hunt — unless they check the
+name, which is the expensive part and the only part that finds a lie.
 ⓘ ⭐ Worked example the same day: I wrote `` [`InteractableSpec`] `` in
 `ambition_interaction`, a crate not on the list. It does not resolve — the type
 is in another crate — and nothing in the normal build says so. `cargo check`

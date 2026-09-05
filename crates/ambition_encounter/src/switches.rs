@@ -405,13 +405,24 @@ pub fn drain_switch_activations(
         // switch of a completed encounter, and `content/src/falling_sand_sim.rs`
         // writes the spout switches.
         //
-        // ⭐ The three roads are DISJOINT BY ACTION KIND and that is the design,
-        // not an accident: the `_ => continue` above means an action this match
-        // does not name leaves persisted state alone, which is what lets a
-        // content road own its own kinds without racing this one. ⇒ A fourth
-        // writer is fine if it claims kinds nobody else claims, and a defect if
-        // it does not — the check is the ACTION SET, never "is there one
-        // writer".
+        // ⛔⛔ AND THEY ARE NOT DISJOINT. An earlier version of this comment
+        // claimed the roads separated by ACTION KIND — inferred from the
+        // `_ => continue` below rather than measured, and wrong.
+        // `content/src/falling_sand_sim.rs` keys off the switch ID, not the
+        // action, and the four falling-sand spouts are authored
+        // `action: ResetEncounter` — the arm right below. ⇒ Both roads write
+        // `set_switch` for the same id on the same activation, and the content
+        // one says in place that it means to win: *"without this write the
+        // save's switch flag stays whatever the encounter pipeline set it to"*.
+        //
+        // ⚠ NOTHING ORDERS THEM. This system is `.in_set(SwitchActivationDrained)`,
+        // which is not placed in any simulation phase; the falling-sand reader is
+        // `.in_set(Platformer2dSimulationPhaseMonolith::GameplayEffects)`. Both
+        // are downstream of one `SwitchActivated` from `features/ecs/interact.rs`.
+        // Whichever runs last wins, and the executor's order is stable but
+        // arbitrary — so a behavioural test passes either way. Recorded in
+        // `world-facts-observations-and-memory.md`; the fix is an ordering edge
+        // and it is a content/engine boundary decision, not a local one.
         let on = match &action {
             SwitchAction::ResetEncounter => {
                 let next = !save.data().switch(&activation.id);

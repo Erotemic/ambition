@@ -129,10 +129,30 @@ ENUM = re.compile(
     r"#\[derive\([^)]*Deserialize[^)]*\)\]\s*(?:#\[[^\]]*\]\s*)*pub enum (\w+)\s*\{(.*?)\n\}",
     re.S,
 )
-VARIANT = re.compile(r"\n\s+([A-Z]\w+)\s*(?:\{|\(|,|=)")
+#: `Foo,` / `Foo {` / `Foo(Payload)` — the payload is captured because content
+#: often names the TYPE rather than the variant.
+VARIANT = re.compile(r"\n\s+([A-Z]\w+)\s*(?:\{|\(\s*(\w+)|,|=)")
 
 
-def variants() -> list[tuple[str, str, str]]:
+def _camel_to_snake(name: str) -> str:
+    return re.sub(r"(?<!^)(?=[A-Z])", "_", name).lower()
+
+
+def variant_is_authored(variant: str, payload: str | None, corpus: str) -> bool:
+    """⛔ THREE SPELLINGS, because content rarely writes the variant name.
+
+    `VolumeReaction::Autolink` is authored — as a field `autolink:` carrying an
+    `AutolinkVolume`, and the CamelCase variant name appears nowhere in content.
+    A variant-name-only search called it dead, which is a FALSE POSITIVE that
+    would have sent someone to author a thing that exists.
+    """
+    for spelling in (variant, _camel_to_snake(variant), payload or ""):
+        if spelling and re.search(r"\b" + re.escape(spelling) + r"\b", corpus):
+            return True
+    return False
+
+
+def variants() -> list[tuple[str, str, str, str | None]]:
     """`(enum, variant, file)` for authored enums — the BRANCH axis.
 
     ⚠ Deliberately not filtered as hard as the field axis. Curating it needs
@@ -149,7 +169,7 @@ def variants() -> list[tuple[str, str, str]]:
             if NOT_AUTHORED.search(name) or name.endswith(("Error", "Kind")):
                 continue
             for vm in VARIANT.finditer(body):
-                out.append((name, vm.group(1), f))
+                out.append((name, vm.group(1), f, vm.group(2)))
     return out
 
 
@@ -206,8 +226,8 @@ def main() -> int:
         rows = variants()
         cold = [
             (e, v, f)
-            for e, v, f in rows
-            if not re.search(r"\b" + re.escape(v) + r"\b", corpus)
+            for e, v, f, payload in rows
+            if not variant_is_authored(v, payload, corpus)
         ]
         print(f"\n\nAUTHORED ENUM VARIANTS (the BRANCH axis)\n")
         print(f"  variants examined                   {len(rows)}")

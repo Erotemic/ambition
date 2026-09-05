@@ -800,6 +800,86 @@ pub fn fighter_moveset() -> MovesetContract {
     );
     moves.push(riposte);
 
+    // NEUTRAL SPECIAL — `read_and_seize`. THE FIRST AUTHORED FLOW, and the
+    // third of George's eight dead specials this contract fills.
+    //
+    // ⭐⭐ A HIT CONFIRM, which is a thing a MoveSpec timeline cannot express.
+    // Windows say WHEN; this move has to say "swing, and IF that connected, go
+    // for the grab — otherwise eat the recovery". That is a sequence, and the
+    // sequence is the whole move. ⇒ `TechniqueFlow`, four nodes, no new engine
+    // anything: the answer it emits is `smash.capture_attempt`, the same
+    // technique `lunge_grab` and `riposte` already use.
+    //
+    // ⛔ IT WAITS ON `Connected`, NOT `Overlapped`. A shielded poke sets
+    // `overlapped` — it is the staling fact — so a confirm written against it
+    // would grab through a guard, which is the single most abusable thing a
+    // fighting game can ship. `Connected` is the damage road's verdict.
+    //
+    // ⚠ THE TIMEOUT IS WHAT MAKES A WHIFF PUNISHABLE. 0.22s of waiting after the
+    // active window is the read: throw this at nothing and you are committed
+    // long enough to be hit for it. Without it the move would simply end, and a
+    // confirm with no downside is not a decision.
+    let mut confirm = strike(Strike {
+        id: "read_and_seize",
+        clip: "special",
+        startup_s: 0.09,
+        active_s: 0.05,
+        recover_s: 0.40,
+        offset: (24.0, -2.0),
+        half_extents: (18.0, 20.0),
+        // Deliberately weak. The payoff is the GRAB, not this hit — a confirm
+        // that also hurt would be a better jab with a bonus.
+        damage: 2,
+        knockback: 40.0,
+        knockback_growth: 0.80,
+        launch_dir: None,
+        on_hit: None,
+    });
+    confirm.gates = grounded_only();
+    confirm.flow = Some(ambition_platformer2d::entity_catalog::TechniqueFlow {
+        nodes: vec![
+            // 0 — hold for the verdict on this swing.
+            ambition_platformer2d::entity_catalog::FlowNode::Wait {
+                on: ambition_platformer2d::entity_catalog::FlowSignal::Connected,
+                timeout_s: 0.22,
+                then: 1,
+                on_timeout: 2,
+            },
+            // 1 — it landed: go for the grab, at the reach the standing grab uses.
+            ambition_platformer2d::entity_catalog::FlowNode::Emit {
+                effect: ambition_platformer2d::entity_catalog::EffectRef {
+                    key: ambition_platformer2d::characters::smash_capture::CAPTURE_ATTEMPT
+                        .to_string(),
+                    params: ambition_platformer2d::entity_catalog::ParamValue::from_typed(
+                        &ambition_platformer2d::characters::smash_capture::CaptureAttemptParams {
+                            offset: (22.0, 0.0),
+                            half_extents: (20.0, 20.0),
+                            hold_offset: (18.0, -2.0),
+                        },
+                    )
+                    .expect("the confirm's capture params serialize"),
+                },
+                then: 2,
+            },
+            // 2 — done either way; the move plays out its own recovery.
+            ambition_platformer2d::entity_catalog::FlowNode::Finish,
+        ],
+    });
+    // ⛔ VALIDATED WHERE IT IS AUTHORED. Every failure `problems()` names is
+    // silent at runtime — a dangling transition is a move that stops mid-
+    // sequence, and an unreachable `Finish` is a fighter stuck in a special.
+    assert_eq!(
+        confirm
+            .flow
+            .as_ref()
+            .expect("just authored")
+            .problems(),
+        Vec::<String>::new(),
+        "`read_and_seize`'s flow is invalid, so the move would misbehave in a way \
+         nothing at runtime would report"
+    );
+    moves.push(confirm);
+
     let capture_verbs: Vec<(String, String)> = capture
         .bound()
         .into_iter()
@@ -827,6 +907,7 @@ pub fn fighter_moveset() -> MovesetContract {
         // stay dead.
         ("special_forward", "lunge_grab"),
         ("special_down", "riposte"),
+        ("special", "read_and_seize"),
     ]
     .into_iter()
     .map(|(verb, id)| (verb.to_string(), id.to_string()))
@@ -887,15 +968,19 @@ mod tests {
              stopped, every planning claim about this fighter's reach is stale"
         );
 
-        // ⭐ The special family is the gap, and it is SIX of the ten special
-        // presses — `special_forward` answers with `lunge_grab` and
-        // `special_down` with `riposte`, each in both stances. (Five directions
-        // x two stances = ten; the comment said seven before I counted them,
-        // and eight before the counter was authored.)
+        // ⭐ The special family is the gap, and it is THREE of the ten special
+        // presses — and all three are AERIAL. `special_forward` answers with
+        // `lunge_grab` and `special_down` with `riposte` in both stances, and
+        // binding the NEUTRAL special to `read_and_seize` answered every
+        // remaining GROUND press through `directional_verb_chain`'s fallback:
+        // a grounded up-B or back-B now resolves to the neutral special rather
+        // than to silence. ⇒ What is left is the aerial column, because that
+        // move is `grounded_only`. (Ten presses; the comment said seven before
+        // anyone counted, then eight, then six.)
         let specials: Vec<&String> = silent.iter().filter(|p| p.starts_with("special_")).collect();
         assert_eq!(
             specials.len(),
-            6,
+            3,
             "the special gap changed size: {specials:?}. If a special was \
              AUTHORED this is good news and the number wants updating here and \
              in `awaiting-maintainer-decision.md`; if one was LOST, that is a \
@@ -977,7 +1062,7 @@ mod tests {
         );
         assert_eq!(
             extra.len(),
-            6,
+            3,
             "the stand-in/George special gap moved to {}: {extra:?}. If a special was AUTHORED on the stand-in this is the good failure — lower the number here in the same commit. If George LOST one, the subset assertion above would have fired first.",
             extra.len()
         );
@@ -1375,6 +1460,102 @@ mod tests {
             set.move_for_directional_verb("attack", AttackDir::Up, true)
                 .map(|mv| mv.id.as_str()),
             Some("tilt_up"),
+        );
+    }
+}
+
+#[cfg(test)]
+mod hit_confirm_tests {
+    use ambition_platformer2d::entity_catalog::{FlowNode, FlowSignal};
+
+    /// The neutral special CONFIRMS: it waits on a connect, and answers with a
+    /// grab.
+    ///
+    /// ⛔⛔ THE SIGNAL IS THE ASSERTION. `Overlapped` is the staling fact and a
+    /// SHIELDED poke sets it, so a confirm written against it would grab through
+    /// a guard — the single most abusable thing a fighting game can ship, and
+    /// invisible in any test that only checks "it grabs after it hits". This
+    /// pins the signal by name.
+    #[test]
+    fn the_neutral_special_confirms_on_a_connect_and_not_on_a_shield() {
+        let set = super::fighter_moveset();
+        let id = set
+            .verbs
+            .get("special")
+            .expect("the contract binds a neutral special");
+        let spec = set
+            .moves
+            .iter()
+            .find(|m| &m.id == id)
+            .expect("the neutral special names a move the contract carries");
+        let flow = spec
+            .flow
+            .as_ref()
+            .expect("the neutral special is a hit confirm, so it authors a flow");
+        assert_eq!(
+            flow.problems(),
+            Vec::<String>::new(),
+            "the shipped confirm's flow is invalid: {:?}",
+            flow.problems()
+        );
+
+        let waits: Vec<FlowSignal> = flow
+            .nodes
+            .iter()
+            .filter_map(|n| match n {
+                FlowNode::Wait { on, .. } => Some(*on),
+                _ => None,
+            })
+            .collect();
+        assert_eq!(
+            waits,
+            vec![FlowSignal::Connected],
+            "the confirm waits on {waits:?}. `Overlapped` is set by a BLOCKED \
+             strike, so a confirm on it grabs through a shield"
+        );
+
+        // ⛔ AND IT MUST ANSWER WITH SOMETHING. A flow that waits correctly and
+        // emits nothing is a move that commits to a read and cashes it for
+        // nothing, which no assertion about the signal would notice.
+        let emitted: Vec<&str> = flow
+            .nodes
+            .iter()
+            .filter_map(|n| match n {
+                FlowNode::Emit { effect, .. } => Some(effect.key.as_str()),
+                _ => None,
+            })
+            .collect();
+        assert_eq!(
+            emitted,
+            vec![ambition_platformer2d::characters::smash_capture::CAPTURE_ATTEMPT],
+            "the confirm's payoff is {emitted:?} rather than the grab"
+        );
+    }
+
+    /// Every authored flow in this contract is valid.
+    ///
+    /// ⭐ A POPULATION CHECK, not one move: the next flow anybody authors here
+    /// is covered without remembering to add a test, and a flow with a dangling
+    /// transition is silent at runtime.
+    #[test]
+    fn every_authored_flow_in_this_contract_is_valid() {
+        let set = super::fighter_moveset();
+        let mut seen = 0usize;
+        for spec in &set.moves {
+            if let Some(flow) = spec.flow.as_ref() {
+                seen += 1;
+                assert_eq!(
+                    flow.problems(),
+                    Vec::<String>::new(),
+                    "`{}` authors an invalid flow",
+                    spec.id
+                );
+            }
+        }
+        assert!(
+            seen >= 1,
+            "no move in this contract authors a flow, so this guard is measuring \
+             nothing rather than passing"
         );
     }
 }

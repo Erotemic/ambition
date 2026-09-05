@@ -1262,13 +1262,20 @@ reader can re-derive it, instead of in a ratchet nobody re-measures.
 
 ⇒ **THE DECISION IS WHERE THE EDGE LIVES, and it is a boundary question rather
 than a local one.**
-- **Content orders itself after the engine** — `capture_falling_sand_switch_interactions
+- ⛔ **Content orders itself after the engine** — `capture_falling_sand_switch_interactions
   .after(ambition_encounter::switches::SwitchActivationDrained)`. Smallest, and it
   makes a content crate name an engine set, which it may already do; the cost is
   that every future content overrider must know to.
-- **The engine places its set in a phase**, so the phase chain orders everything
+  **⇒ EFFECTIVELY ELIMINATED BY THE 20.** It fixes one pair and leaves nineteen,
+  and it scales by requiring every future writer to know a rule nothing states.
+- ⭐ **The engine places its set in a phase**, so the phase chain orders everything
   downstream for free. Widest benefit, and it is a claim about where a durable
   switch write BELONGS in the tick — which is an engine ruling, not a content one.
+  **⇒ The measurement points here**: `SwitchActivationDrained` is in no phase at
+  all, and a phase placement is the only one of the three that acts on the
+  population rather than on the instance. ⚠ It is also the one that could REORDER
+  something that currently works by accident, so it wants the census re-run after,
+  not just before.
 - **The override stops being an override** — the drain learns that some ids are
   content-owned and leaves them alone, which is the `_ => continue` rule extended
   from actions to ids. Removes the double write entirely rather than sequencing it.

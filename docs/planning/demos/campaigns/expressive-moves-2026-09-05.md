@@ -442,6 +442,37 @@ is inside the spawner. Contact logic that does not say so is not "usually fine",
 it is wrong on frame one — and frame one is the only frame that matters, because
 it happens before anything else can.
 
+### ⓘ WHERE THE ROSTER STANDS, AND WHY THE OBVIOUS METRIC IS WRONG
+
+**Nine fighters gained an expressive move on 2026-09-05**: Projectile Polygon
+(mine), the Performer (Sing), the goblin (cargo carry), the Author (counter AND
+the steered bolt), Alice (portal aim), the Officer (gust), the Patent Clerk
+(armour), the Shadow Oni (counter, plus a cue repair), and the cellular automaton
+(the collapse that finally collapses).
+
+⛔⛔ **DO NOT MEASURE THIS BY COUNTING `smash_*::` CALLS PER FIGHTER. I tried, and
+it reports the goblin and the automaton at ZERO** — the goblin's carry is a
+CAPTURE-family technique and the automaton's collapse is a `VolumeReaction`, not
+a `smash_*` helper at all. Alice's angled portal is a PARAMETER on a technique she
+already had. ⇒ Three of the nine are invisible to the obvious grep, so a count
+that looks objective would rank the two fighters improved most recently as the
+least improved.
+
+⭐ **The real signal is not countable and should not be faked:** whether a
+fighter's four specials do four DIFFERENT KINDS of thing. That needs reading the
+moves, which is how every one of today's finds was made.
+
+▢ **Four fighters remain as candidates** — `bob`, `carl_stargan`, `emmy_noether`
+and `oiler` — none of which author a technique yet. ⚠ `pointed_polygon` and
+`pugnacious_polygon` are deliberately excluded: they are the sword and brawler
+REFERENCE fighters, and their own comments say a new humanoid should copy them
+before it has a reason to differ. Giving them a bespoke technique would corrupt
+the template.
+
+⭐ **And Emmy is the best of the four**, because her file already says what she
+wants: her blueprint asked for a counter and the deferral recording why she could
+not have one has now expired.
+
 ### ⚠⚠ EIGHT ROSTER DECISIONS MADE UNDER DELEGATION — EVERY ONE IS JON'S TO OVERRULE
 
 Jon's grant was *"you can pick where to put the proof of concept for the other

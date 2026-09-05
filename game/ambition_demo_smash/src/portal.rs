@@ -101,29 +101,66 @@ pub fn open_authored_portal_pairs(
     }
 }
 
-/// Close a move-placed pair when its clock runs out.
+/// Close a move-placed pair — when its clock runs out, or when somebody used it
+/// and the pair was authored to be one-shot.
 ///
 /// ⛔ BOTH ENDS TOGETHER, ALWAYS. A pair with one aperture left is a hole that
 /// swallows and never returns, which is worse than either closing or staying
-/// open — so the sweep collects the pairs whose clock expired and despawns every
+/// open — so the sweep collects the pairs that are done and despawns every
 /// aperture carrying that index.
+///
+/// ⛔⛔ AND ONE SYSTEM DECIDES, FOR THAT SAME REASON. `close_on_transit` shipped
+/// as a field nothing read: it was authored, stored, and SNAPSHOTTED INTO
+/// ROLLBACK STATE while doing nothing at all, so a move that set it got an
+/// ordinary portal and a doc comment promising otherwise. ⇒ Implementing it as a
+/// second system would have put two despawners on one pair; it belongs in the
+/// one place that already owns "this pair is finished".
+///
+/// ⭐ A TRANSIT IS MATCHED BY WHERE THE BODY ARRIVED. `PortalBodyTransited`
+/// names the body and the exit position but not the apertures, so the pair is
+/// identified by the aperture the arrival landed inside — which is exact, because
+/// the exit position IS that aperture's centroid.
 pub fn close_expired_move_portals(
     mut commands: Commands,
     time: Res<ambition_platformer2d::time::WorldTime>,
-    mut portals: Query<(Entity, &mut MovePlacedPortal)>,
+    mut transits: MessageReader<ambition_platformer2d::portal::PortalBodyTransited>,
+    // ⛔ ONE QUERY, NOT TWO. A second `Query<&MovePlacedPortal>` beside this
+    // one's `&mut` is a `B0001` access conflict — and merging is the right fix
+    // rather than a `ParamSet`, because the clock and the aperture are two facts
+    // about the SAME thing: every move-placed aperture carries both, and nothing
+    // here wants one without the other.
+    mut portals: Query<(
+        Entity,
+        &mut MovePlacedPortal,
+        &ambition_platformer2d::portal::PlacedPortal,
+    )>,
 ) {
     let dt = time.sim_dt();
     let mut expired: Vec<u8> = Vec::new();
-    for (_, mut portal) in &mut portals {
+    for (_, mut portal, _) in &mut portals {
         portal.remaining_s -= dt;
         if portal.remaining_s <= 0.0 {
             expired.push(portal.pair_index);
         }
     }
+    // ⚠ THE READER IS DRAINED WHETHER OR NOT ANY PAIR IS ONE-SHOT. A reader that
+    // only advanced when it had work hands a backlog of stale transits to the
+    // first frame that does — the same shape `record_stock_lifecycle` documents.
+    for transit in transits.read() {
+        for (_, portal, aperture) in &portals {
+            if !portal.close_on_transit {
+                continue;
+            }
+            let offset = (transit.exit_pos - aperture.pos).abs();
+            if offset.x <= aperture.half_extent.x && offset.y <= aperture.half_extent.y {
+                expired.push(portal.pair_index);
+            }
+        }
+    }
     if expired.is_empty() {
         return;
     }
-    for (entity, portal) in &portals {
+    for (entity, portal, _) in &portals {
         if expired.contains(&portal.pair_index) {
             commands.entity(entity).despawn();
         }
@@ -149,6 +186,11 @@ mod tests {
     fn app_with(lifetime_s: f32) -> (App, Entity) {
         let mut app = App::new();
         app.add_message::<ActorActionMessage>();
+        // ⛔ THE SWEEP READS TRANSITS NOW. A world that does not register this
+        // fails the system's parameter validation, and the sweep never runs —
+        // which is why three separate fixtures in this file went red at once
+        // when `close_on_transit` stopped being a dead field.
+        app.add_message::<ambition_platformer2d::portal::PortalBodyTransited>();
         app.init_resource::<ambition_platformer2d::time::WorldTime>();
         {
             let mut time = app
@@ -253,6 +295,11 @@ mod tests {
             time.scaled_dt = 1.0 / 60.0;
             time.raw_dt = 1.0 / 60.0;
         }
+        // ⛔ THE SYSTEM NOW READS TRANSITS, so a world that does not register the
+        // message fails its parameter validation and the sweep silently never
+        // runs. Second time today: the same shape took George's grab away when
+        // the capture adapter grew a fourth writer.
+        app.add_message::<ambition_platformer2d::portal::PortalBodyTransited>();
         app.add_systems(Update, close_expired_move_portals);
         let channel = PortalChannel::Authored(
             ambition_platformer2d::portal::PortalChannelColor::Indexed(8),
@@ -297,5 +344,99 @@ mod tests {
              swallows and never returns",
             placed(&mut app).len()
         );
+    }
+
+    /// Build a world with one move-placed pair, both ends at the origin and at
+    /// `(0, -40)`, sharing `pair_index` 3.
+    fn pair_world(close_on_transit: bool) -> App {
+        let mut app = App::new();
+        app.init_resource::<ambition_platformer2d::time::WorldTime>();
+        {
+            let mut time = app
+                .world_mut()
+                .resource_mut::<ambition_platformer2d::time::WorldTime>();
+            time.scaled_dt = 1.0 / 60.0;
+            time.raw_dt = 1.0 / 60.0;
+        }
+        app.add_message::<ambition_platformer2d::portal::PortalBodyTransited>();
+        app.add_message::<ambition_platformer2d::portal::PortalBodyTransited>();
+        app.add_systems(Update, close_expired_move_portals);
+        let channel = PortalChannel::Authored(
+            ambition_platformer2d::portal::PortalChannelColor::Indexed(6),
+        );
+        for (pos, chan) in [
+            (ae::Vec2::ZERO, channel),
+            (ae::Vec2::new(0.0, -40.0), channel.partner()),
+        ] {
+            app.world_mut().spawn((
+                PlacedPortal::fixed(chan, pos, ae::Vec2::new(0.0, -1.0), ae::Vec2::splat(12.0)),
+                MovePlacedPortal {
+                    // Long enough that nothing here can expire.
+                    remaining_s: 60.0,
+                    close_on_transit,
+                    pair_index: 3,
+                },
+            ));
+        }
+        app
+    }
+
+    fn transit_to(app: &mut App, exit_pos: ae::Vec2) {
+        let body = app.world_mut().spawn_empty().id();
+        app.world_mut()
+            .write_message(ambition_platformer2d::portal::PortalBodyTransited {
+                body,
+                enter_normal: ae::Vec2::new(0.0, -1.0),
+                exit_normal: ae::Vec2::new(0.0, 1.0),
+                facing_flip: false,
+                input_warp: false,
+                exit_pos,
+            });
+        app.update();
+    }
+
+    fn apertures_left(app: &mut App) -> usize {
+        app.world_mut()
+            .query::<&MovePlacedPortal>()
+            .iter(app.world())
+            .count()
+    }
+
+    /// ⭐⭐ THE ONE-SHOT PAIR: the door closes behind whoever went through it.
+    ///
+    /// ⛔ THIS FIELD SHIPPED DEAD. It was authored, stored and snapshotted into
+    /// rollback state while NOTHING READ IT, so a move that asked for a one-shot
+    /// portal got an ordinary one and a doc comment promising otherwise. This
+    /// test is the difference between the promise and the behaviour.
+    #[test]
+    fn a_one_shot_pair_closes_behind_whoever_used_it() {
+        let mut app = pair_world(true);
+        transit_to(&mut app, ae::Vec2::new(0.0, -40.0));
+        assert_eq!(
+            apertures_left(&mut app),
+            0,
+            "a one-shot pair stayed open after somebody used it"
+        );
+    }
+
+    /// ⛔ AND AN ORDINARY PAIR SURVIVES BEING USED, which is the half a test of
+    /// the feature alone would not hold: a sweep that closed every pair on every
+    /// transit would pass the test above and break every portal in the game.
+    #[test]
+    fn an_ordinary_pair_survives_being_used() {
+        let mut app = pair_world(false);
+        transit_to(&mut app, ae::Vec2::new(0.0, -40.0));
+        assert_eq!(apertures_left(&mut app), 2, "an ordinary pair closed itself");
+    }
+
+    /// ⛔ A TRANSIT SOMEWHERE ELSE IS SOMEBODY ELSE'S PORTAL. The message names no
+    /// aperture, so the pair is identified by where the arrival landed — and a
+    /// match that ignored position would close a move's pair every time anything
+    /// on the stage used any portal at all.
+    #[test]
+    fn a_transit_through_another_portal_leaves_this_pair_alone() {
+        let mut app = pair_world(true);
+        transit_to(&mut app, ae::Vec2::new(500.0, 500.0));
+        assert_eq!(apertures_left(&mut app), 2);
     }
 }

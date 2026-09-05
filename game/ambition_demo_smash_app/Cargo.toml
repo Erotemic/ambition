@@ -60,7 +60,13 @@ default = []
 #
 # SUPPORTED INSTEAD: the workspace feature union (`nextest --workspace`, which
 # the gate runs), and `build_windowed_demo_app` for anything that must draw.
-visible = ["ambition_platformer2d/visible", "ambition_platformer2d/basic_shell_presentation", "ambition_platformer2d/audio", "input"]
+# ⛔ `portal_render` IS HERE AND NOT IN THE HEADLESS SET, because it is the
+# PRESENTATION half of a move this demo authors. Simulation lives on the
+# `portal` feature that `ambition_demo_smash` now requires; without this one a
+# visible build simulated Alice's recovery correctly and drew no apertures at
+# all, which is a different bug with the same symptom — the player sees her
+# vanish into nothing.
+visible = ["ambition_platformer2d/visible", "ambition_platformer2d/basic_shell_presentation", "ambition_platformer2d/audio", "ambition_platformer2d/portal_render", "input"]
 input = ["ambition_platformer2d/input"]
 # The causal log, for `ladder_probe`'s seam trace. Off by default (§2e): a demo
 # that never opens an inspector must not link one. With it, the probe reads the

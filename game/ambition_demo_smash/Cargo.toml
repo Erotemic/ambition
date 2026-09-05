@@ -13,5 +13,16 @@ serde = { workspace = true }
 # a STOCKS match needs a type the umbrella does not re-export, that is an engine leak and it
 # fails to compile HERE, which is the point. A game that never validates its content still must
 # not — that is why the feature exists.
-ambition_platformer2d = { path = "../../crates/ambition_platformer2d", default-features = false, features = ["all_capabilities", "content_pack"] }
+# ⛔⛔ `portal` IS NAMED EXPLICITLY AND IS NOT IN `all_capabilities`. That list
+# turns on the optional `ambition_portal2d` DEPENDENCY; the `portal` FEATURE is
+# what installs `PortalSchedulePlugin`, and they are not the same switch.
+# ⇒ Without it this crate still COMPILED — `PlacedPortal` is a type, and
+# `open_authored_portal_pairs` spawns one happily — but nothing simulated a
+# transit, so Alice's portal recovery opened two apertures a fighter fell
+# straight through. Measured 2026-09-05: `ambition_app` had the feature and
+# `ambition_demo_smash_app` did not, so the same authored move worked in the
+# shipped game and was inert in the standalone demo.
+# ⚠ This crate REGISTERS those systems unconditionally, so the requirement
+# belongs here rather than on each app that composes it.
+ambition_platformer2d = { path = "../../crates/ambition_platformer2d", default-features = false, features = ["all_capabilities", "content_pack", "portal"] }
 bevy = { version = "0.19.1", default-features = false }

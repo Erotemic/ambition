@@ -385,3 +385,90 @@ fn classic_laws_are_c4_covariant() {
         }
     }
 }
+
+/// ⭐⭐ A TIMED GRAVITY MODIFIER COMPOSES WITH THE KERNEL'S OTHER SCALES AND
+/// EXPIRES ON THE MOVEMENT DOMAIN'S OWN CLOCK.
+///
+/// The Parasol row's shape: a move ASKS for a locomotion regime and never
+/// becomes the authority for it. What that buys is here — the caller writes a
+/// scale and a duration, and nothing outside this crate ends it.
+///
+/// ⛔⛔ THE THIRD ASSERTION IS THE ONE THAT MATTERS AND IT IS ABOUT ZERO. The
+/// neutral value of a multiplier is `1.0`; the neutral value of an `f32` is
+/// `0.0`. A default body, a rollback restore of an untouched frame and a bare
+/// enemy all present a zeroed struct, and if the scale were read
+/// unconditionally every one of them would fall under NO gravity — a weightless
+/// roster, from a field nobody set.
+#[test]
+fn a_timed_gravity_modifier_scales_the_fall_and_then_gives_it_back() {
+    let frame = MotionFrame::from_direction(Vec2::Y, 2250.0);
+    let dt = 1.0 / 60.0;
+
+    let fall_after = |modifier: f32| -> f32 {
+        let mut vel = Vec2::ZERO;
+        let mut phase = PhasedJumpState::default();
+        let mut fast_falling = false;
+        let mut gliding = false;
+        let mut carried_run = 0.0;
+        let mut carried_hold = 0.0;
+        integrate_normal_spine(
+            &mut vel,
+            &mut fast_falling,
+            &mut gliding,
+            &mut carried_run,
+            &mut carried_hold,
+            &mut phase,
+            NormalSpineCtx {
+                gravity_modifier: modifier,
+                ..NormalSpineCtx::bare(false)
+            },
+            InputState::default(),
+            dt,
+            frame,
+            classic_tuning().axis_swept_params(),
+        );
+        vel.y
+    };
+
+    let full = fall_after(1.0);
+    assert!(
+        full > 0.0,
+        "poison: an UNMODIFIED body did not accelerate downward at all, so \
+         every comparison below is between two zeroes"
+    );
+    let halved = fall_after(0.5);
+    assert!(
+        (halved - full * 0.5).abs() < 1e-3,
+        "a 0.5 modifier did not halve the fall ({halved} vs {full}) — the \
+         factor is not reaching the product"
+    );
+
+    // ── the state half: the timer gates the scale, and the movement domain
+    // spends it.
+    let mut state = crate::movement::AxisManeuverState::default();
+    assert_eq!(
+        state.gravity_modifier(),
+        1.0,
+        "a DEFAULT body reported a gravity modifier of {} — a zeroed struct \
+         must read as NEUTRAL, or every untouched body in the game is weightless",
+        state.gravity_modifier()
+    );
+
+    state.set_gravity_modifier(0.35, 0.5);
+    assert_eq!(
+        state.gravity_modifier(),
+        0.35,
+        "a move asked for a modifier and the body did not take it"
+    );
+
+    // ⛔ A NON-POSITIVE DURATION CLEARS RATHER THAN ARMS. A move that asks for
+    // zero seconds of float is asking for none, and the alternative — storing
+    // the scale with a dead timer — is the state this design exists to make
+    // unrepresentable.
+    state.set_gravity_modifier(0.0, 0.0);
+    assert_eq!(
+        state.gravity_modifier(),
+        1.0,
+        "a zero-second request armed a ZERO-GRAVITY modifier instead of clearing"
+    );
+}

@@ -197,6 +197,35 @@ pub struct AxisManeuverState {
     pub blink_aiming: bool,
     pub blink_aim_offset: Vec2,
     pub blink_grace_timer: f32,
+    /// A TIMED GRAVITY MULTIPLIER this body is under: a parasol, a float, a
+    /// slow-fall. Applied by the movement kernel as a THIRD FACTOR beside
+    /// `water_gravity_scale` and `jump_gravity_scale` — see
+    /// `integration::apply_gravity`.
+    ///
+    /// ⭐⭐ A MOVE ASKS FOR THIS AND NEVER OWNS IT. That is this campaign's rule
+    /// stated as a data layout: the move writes a scale and a duration, and the
+    /// movement domain owns the clock, the composition and the expiry. Nothing
+    /// outside this crate can make a body float FOREVER by forgetting to
+    /// restore something, because there is nothing to restore.
+    ///
+    /// ⛔⛔ THE TIMER IS THE ACTIVATION SWITCH, NOT THE SCALE, AND THAT IS
+    /// DELIBERATE. The neutral value of a multiplier is `1.0` while the neutral
+    /// value of an `f32` is `0.0`, so a scale read unconditionally would make
+    /// every zeroed body — a `Default`, a rollback restore of an untouched
+    /// frame, a bare fixture — fall under ZERO gravity. Reading the scale only
+    /// while `gravity_modifier_timer > 0.0` makes the dangerous state
+    /// unrepresentable instead of merely avoided. See
+    /// [`Self::gravity_modifier`].
+    ///
+    /// ⚠ IT DOES NOT REPLACE `ActorSurfaceState::gravity_scale`, and must not:
+    /// three domains already save-set-restore that field (capture, mount, body
+    /// seed) and it is folded into the frame by `gravity/resolve.rs` BEFORE the
+    /// kernel's product. This joins at the other end and saves no prior, which
+    /// is precisely why a fourth participant is safe here and was not there.
+    pub gravity_modifier_scale: f32,
+    /// Seconds left on [`Self::gravity_modifier_scale`]. `<= 0.0` means NO
+    /// modifier, and the scale beside it is then not read.
+    pub gravity_modifier_timer: f32,
     pub dodge_roll_timer: f32,
     /// How much longer this evade is INTANGIBLE — the staled half of an evade,
     /// and the only half staling is allowed to touch.
@@ -394,6 +423,36 @@ pub struct AxisManeuverState {
     pub phased_jump: PhasedJumpState,
 }
 
+impl AxisManeuverState {
+    /// The gravity multiplier this body is under RIGHT NOW: the authored scale
+    /// while the modifier is live, and `1.0` — the identity of a product —
+    /// otherwise.
+    ///
+    /// ⭐ THE ONE READER OF THE PAIR, so the "timer gates the scale" rule is
+    /// enforced in a single place rather than restated at every call site. A
+    /// caller that reached for `gravity_modifier_scale` directly would get the
+    /// zero this exists to hide.
+    pub fn gravity_modifier(&self) -> f32 {
+        if self.gravity_modifier_timer > 0.0 {
+            self.gravity_modifier_scale
+        } else {
+            1.0
+        }
+    }
+
+    /// Put this body under a timed gravity multiplier. A non-positive duration
+    /// clears it; the LAST caller wins rather than stacking, because two floats
+    /// multiplying into a body is a regime nobody authored.
+    pub fn set_gravity_modifier(&mut self, scale: f32, seconds: f32) {
+        if seconds <= 0.0 {
+            self.gravity_modifier_timer = 0.0;
+            return;
+        }
+        self.gravity_modifier_scale = scale;
+        self.gravity_modifier_timer = seconds;
+    }
+}
+
 impl Default for AxisManeuverState {
     /// No in-flight maneuver: everything zero/false/None except the blink aim
     /// offset, which rests at "one blink forward" (matching the historical
@@ -418,6 +477,12 @@ impl Default for AxisManeuverState {
             blink_aiming: false,
             blink_aim_offset: Vec2::new(BLINK_DISTANCE, 0.0),
             blink_grace_timer: 0.0,
+            // Both zero = NO modifier. The scale is deliberately 0.0 rather
+            // than 1.0 to prove the point above: it is never read while the
+            // timer is spent, so an unsafe-looking value is inert by
+            // construction rather than by everyone remembering.
+            gravity_modifier_scale: 0.0,
+            gravity_modifier_timer: 0.0,
             dodge_roll_timer: 0.0,
             evade_invuln_timer: 0.0,
             dodge_roll_push: 0.0,

@@ -413,6 +413,29 @@ tail proves nothing when the footer is constant in both outcomes.
 ⓘ And cite FULL PATHS: a bare `collision.rs:96` is AMBIGUOUS across four tracked
 files, which the checker reports as unresolved rather than guessing.
 
+⭐⭐ **NAME THE TEST, OR DO NOT CLAIM ONE — measured 2026-09-05, and the sample
+is small but the mechanism is not subtle.** Swept the exploration lane for prose
+asserting a guard exists:
+
+```text
+"pinned by `item_meta_table_is_index_aligned`"                    EXISTS ✔
+"Pinned by `a_staged_actor_naming_a_character_takes_…`"           EXISTS ✔
+"mirror AMBITION_LDTK_ENTITY_IDENTIFIERS exactly (pinned by a test)"   NO SUCH TEST ⛔
+```
+
+⇒ **Both claims that NAMED a test were true; the one that said "a test" was
+false** — and it was false twice over, because the two things it claimed were
+pinned are not even equal (34 converter keys vs 32 identifiers).
+
+⛔ A phantom guard is worse than a stale fact: a wrong fact invites correction,
+while *"pinned by a test"* tells the reader the property is already defended and
+therefore not worth checking. ⚠ **And it propagates** — that one claim appeared
+in THREE places, because each author believed the previous one.
+
+⭐ A named test is verifiable in ONE grep and cannot rot silently: rename or
+delete it and the citation dangles. An unnamed one is unfalsifiable by
+convenience. ⇒ if you cannot name the test, you have not checked that it exists.
+
 ⭐ **So the discipline is the whole mechanism, and it is cheap:**
 1. **When you cite a line, OPEN it.** Three of the four above were found that
    way and by nothing else.

@@ -105,7 +105,13 @@ actual product requirement.
   for. Owner:
   [`engine/item-custody-and-accounting.md`](engine/item-custody-and-accounting.md).
 - ▢ **Capability progression/world gating.** Physical verbs remain body-owned;
-  knowledge/keys/theorems remain participant-owned. Grow the authoring vocabulary
+  knowledge/keys/theorems remain participant-owned. ⚠ **That second clause is an
+  INTENT, not a state — measured 2026-09-05: there is no participant layer at
+  all.** Everything is body-scoped (authored defaults → `AbilityBase` →
+  `BodyAbilities`), and the one non-body layer is an INTERSECTION
+  (`EditableAbilitySet`, which can only take verbs away — and is the F3
+  inspector, not a game mechanism). A reader taking "remain" as descriptive
+  would look for a store that does not exist. Grow the authoring vocabulary
   only from concrete progression needs. ⭐ **The first slice landed 2026-09-04:**
   an authored `gated_by` is a condition LINE, so a route may ask any published
   condition (`inventory.holds axe`) instead of only `world.flag_set`, and
@@ -113,7 +119,10 @@ actual product requirement.
   ⭐ **FIVE of the seven families are route-reachable as of the same day**
   (⚠ corrected from "all seven": soft systemic pressure and social/knowledge
   have no fact to read) — `body.fits(height)` (the crawlspace, reading the
-  CURRENT `BodyKinematics::size` so a crouch counts) and `world.switch_on(id)`
+  CURRENT `BodyKinematics::size` so a crouch counts — ⚠ and whether that is the
+  RIGHT reading is open as decision #58, which asks whether the body family is
+  about CAPABILITY or about STATE; this row states the behaviour, it does not
+  ratify it) and `world.switch_on(id)`
   (a mechanism's own latched state, whose producer was already flowing from wave
   encounters) closed body-property and world-mechanism, each walked end to end
   from an authored `gated_by` rather than unit-tested in isolation.

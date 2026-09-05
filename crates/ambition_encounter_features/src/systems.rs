@@ -79,8 +79,7 @@ pub fn populate_encounter_registry(
     let entries = load_encounter_specs_from_rooms(&rooms.rooms, save.data(), waves.as_deref());
     let count = entries.len();
     for (id, spec, persisted) in entries {
-        let mut lifecycle = EncounterLifecycle::with_intro(spec.intro_seconds);
-        lifecycle.apply_persisted(persisted);
+        let lifecycle = EncounterLifecycle::from_persisted(spec.intro_seconds, persisted);
         let waves = EncounterWaves::new(spec);
         let objective = waves.objective();
         let mut entity = commands.spawn((

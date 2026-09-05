@@ -62,8 +62,20 @@ impl EncounterPhase {
     }
 }
 
-/// The one lifecycle authority component. Every encounter entity carries one;
-/// the reducer is the only writer of `phase`.
+/// The one lifecycle authority component. Every encounter entity carries one.
+///
+/// ⭐ ON A SPAWNED ENTITY THE REDUCER IS THE ONLY WRITER OF `phase`, and that
+/// is now structural rather than conventional: the save-load road is
+/// [`EncounterLifecycle::from_persisted`], a CONSTRUCTOR, so a persisted state
+/// can only reach `phase` before the entity exists. Inside the reducer,
+/// `complete` and `fail` also assign it; both are private and called only from
+/// `reduce`.
+///
+/// ⚠ THE FIELD ITSELF IS STILL `pub`, so this is a claim about the SAVE road,
+/// not a sealed field: nothing yet stops a system from assigning `phase`
+/// directly. Measured 2026-09-05: production writes of `lifecycle.phase`
+/// outside this file number ZERO, against 38 reads -- so sealing it behind an
+/// accessor is a cheap next step and no existing caller is the obstacle.
 #[derive(Component, Clone, Debug, Default)]
 pub struct EncounterLifecycle {
     pub phase: EncounterPhase,
@@ -81,21 +93,27 @@ pub struct EncounterLifecycle {
 }
 
 impl EncounterLifecycle {
-    /// A lifecycle with an authored intro window.
-    pub fn with_intro(intro_seconds: f32) -> Self {
+    /// Build a lifecycle whose phase is reconstructed from a
+    /// `PersistedEncounterState` (save load), with an authored intro window.
+    ///
+    /// ⭐ A CONSTRUCTOR, NOT A MUTATOR, AND THAT IS THE POINT. This was
+    /// `apply_persisted(&mut self, ..)`, which meant the save could write
+    /// `phase` through any `&mut EncounterLifecycle` -- including a `Mut<..>`
+    /// pulled from a query on a LIVE encounter, which would move a spawned
+    /// encounter between phases behind the reducer's back. Both callers only
+    /// ever used it on a stack value they were about to spawn, so the rule was
+    /// real but conventional. Returning `Self` makes it structural: after an
+    /// entity exists there is no road from a persisted state to its `phase`.
+    pub fn from_persisted(intro_seconds: f32, persisted: PersistedEncounterState) -> Self {
         Self {
             intro_seconds,
+            phase: match persisted {
+                PersistedEncounterState::Untouched => EncounterPhase::Inactive,
+                PersistedEncounterState::Cleared => EncounterPhase::Completed,
+                PersistedEncounterState::Failed => EncounterPhase::Failed,
+            },
             ..Self::default()
         }
-    }
-
-    /// Reconstruct the phase from a `PersistedEncounterState` (save load).
-    pub fn apply_persisted(&mut self, persisted: PersistedEncounterState) {
-        self.phase = match persisted {
-            PersistedEncounterState::Untouched => EncounterPhase::Inactive,
-            PersistedEncounterState::Cleared => EncounterPhase::Completed,
-            PersistedEncounterState::Failed => EncounterPhase::Failed,
-        };
     }
 
     /// Project the live phase onto the persisted shape. In-flight collapses to
@@ -366,7 +384,8 @@ mod tests {
 
     #[test]
     fn an_authored_intro_counts_down_before_active() {
-        let mut lc = EncounterLifecycle::with_intro(1.0);
+        let mut lc =
+            EncounterLifecycle::from_persisted(1.0, PersistedEncounterState::Untouched);
         lc.reduce(
             0.0,
             [&EncounterCommandKind::Start],
@@ -528,7 +547,7 @@ mod tests {
         let mut lc = EncounterLifecycle::default();
         lc.phase = EncounterPhase::Active;
         assert_eq!(lc.to_persisted(), PersistedEncounterState::Untouched);
-        lc.apply_persisted(PersistedEncounterState::Cleared);
+        let lc = EncounterLifecycle::from_persisted(0.0, PersistedEncounterState::Cleared);
         assert_eq!(lc.phase, EncounterPhase::Completed);
         assert_eq!(lc.to_persisted(), PersistedEncounterState::Cleared);
     }

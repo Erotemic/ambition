@@ -51,7 +51,8 @@ struct WaveEncounter {
 
 impl WaveEncounter {
     fn new(spec: EncounterSpec) -> Self {
-        let lifecycle = EncounterLifecycle::with_intro(spec.intro_seconds);
+        let lifecycle =
+            EncounterLifecycle::from_persisted(spec.intro_seconds, PersistedEncounterState::Untouched);
         Self {
             lifecycle,
             waves: EncounterWaves::new(spec),
@@ -322,10 +323,10 @@ fn active_camera_zoom_falls_back_to_one_when_inactive() {
 }
 
 #[test]
-fn apply_persisted_cleared_keeps_lock_off() {
+fn a_lifecycle_built_from_a_cleared_save_keeps_the_lock_off() {
     let mut enc = WaveEncounter::new(lab_spec());
-    enc.lifecycle
-        .apply_persisted(PersistedEncounterState::Cleared);
+    enc.lifecycle =
+        EncounterLifecycle::from_persisted(0.0, PersistedEncounterState::Cleared);
     assert_eq!(enc.lifecycle.phase, EncounterPhase::Completed);
     assert!(!enc.lifecycle.phase.locks_exits());
 }

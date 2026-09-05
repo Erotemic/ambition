@@ -68,10 +68,16 @@ pub fn spawn_symmetry_attunement(
     if existing.iter().any(|enc| enc.id == SYMMETRY_ATTUNEMENT_ID) {
         return;
     }
-    let mut lifecycle = EncounterLifecycle::default();
-    if save.data().flag(SYMMETRY_ATTUNEMENT_FLAG) {
-        lifecycle.apply_persisted(PersistedEncounterState::Cleared);
-    }
+    // `Untouched` maps to `Inactive`, which is `default()`'s phase, so the
+    // unflagged arm is the same lifecycle it always built.
+    let lifecycle = EncounterLifecycle::from_persisted(
+        0.0,
+        if save.data().flag(SYMMETRY_ATTUNEMENT_FLAG) {
+            PersistedEncounterState::Cleared
+        } else {
+            PersistedEncounterState::Untouched
+        },
+    );
     let mut entity = commands.spawn((
         Encounter::new(SYMMETRY_ATTUNEMENT_ID),
         ambition_platformer2d_shared_tangle::sim_id::SimId::encounter(SYMMETRY_ATTUNEMENT_ID),

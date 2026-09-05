@@ -92,12 +92,26 @@ const BOMB_ENDS_S: f32 = 0.46;
 ///
 /// ⚠ THE BALL BUILDS WHERE THE SHOT LEAVES, which is not where his cannon is.
 /// `spawn_projectiles_from_brain_actions` launches every ordinary shot from the
-/// body centre plus a shared `(0, -8)`, and that offset belongs to the engine
-/// rather than to this fighter. Drawing the charge at the head-mounted cannon
-/// and then firing from the chest would read as the ball teleporting, so the
-/// effect matches the spawn instead. A per-action MUZZLE offset would fix both
-/// ends at once; it does not exist, and inventing one here would be a fighter
-/// reaching into the shared fire site.
+/// ⛔⛔ THAT PARAGRAPH RECORDED A DEFERRAL AND THE DEFERRAL EXPIRED, so it is
+/// rewritten rather than left to mislead. It used to say the shot spawns at
+/// `body centre + (0, -8)`, that drawing the charge at the head-mounted cannon
+/// while firing from the chest would read as the ball teleporting, and that
+/// *"a per-action MUZZLE offset would fix both ends at once; it does not exist,
+/// and inventing one here would be a fighter reaching into the shared fire
+/// site."*
+///
+/// ⭐ IT EXISTS AND SHE IS ITS CUSTOMER. `Muzzle::Offset { x: 0.22, y: -0.34 }`
+/// is authored on her ranged action in `authored/projectile_polygon.rs`, and the
+/// note there records what it bought: *"THE SHOT LEAVES THE CANNON NOW, not the
+/// stomach"* — and that the charge art had been drawn as a body-wide aura
+/// specifically to hide a ball blooming out of her midriff. ⇒ The old objection
+/// was right in its own terms: the fix belonged in the SHARED fire site as a
+/// spatial contract an action can state, not in this fighter.
+///
+/// ⚠ A DEFERRAL IS A MEASUREMENT AND MEASUREMENTS EXPIRE. Left as written, this
+/// comment would have taught the next author that the engine refuses something
+/// it now offers — which is worse than saying nothing, because it reads as
+/// having been checked.
 ///
 /// ⚠ THE FILL IS FIRED ONCE, AT THE LATCH, and that is a real limitation rather
 /// than a design. A move event is a point on a timeline and a charge is a

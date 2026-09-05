@@ -380,6 +380,28 @@ needs a new capability" is a claim, and the cheapest way to test it is to build
 the row.** Two of the three capability gaps this campaign predicted turned out to
 be already-shipped authorities under a name I had not searched for.
 
+### ⛔⛔ A DEFERRAL IS A MEASUREMENT, AND THIS CAMPAIGN EXPIRED TWO OF ITS OWN
+
+A comment that says *"the engine cannot do X, so this move does Y instead"* is a
+measurement of the engine on the day it was written. **This campaign's whole
+output is invalidating those**, and nothing goes back to update them:
+
+| where | what it said | why it is now false |
+|---|---|---|
+| Emmy's `conservation_law` | *"not the counter the sheet's blueprint imagined — `MoveSpec` has no absorb or reflect, and inventing one for one character would be the wrong shape"* | `smash.counter` carries `absorbs_projectiles` and an arbitrary response, authored on **three** fighters — shared, not bespoke, so both halves of the objection are answered |
+| Projectile Polygon's `charge_shot` | *"a per-action MUZZLE offset would fix both ends at once; **it does not exist**, and inventing one here would be a fighter reaching into the shared fire site"* | `Muzzle::Offset` landed as Track B's B4 **with her as its customer**, two files away in `authored/projectile_polygon.rs` |
+
+⚠ **The second is the worse one: her own sibling file already uses the thing her
+moveset file says does not exist.** Both are corrected in place rather than
+deleted, because the reasoning was RIGHT when written — the muzzle did belong in
+the shared fire site, and a bespoke counter would have been the wrong shape.
+
+⇒ **The rule this earns: when a capability lands, grep the content crates for the
+deferral that asked for it.** A deferral records who was waiting; shipping without
+telling them leaves a comment that reads as checked and is not. ⭐ And Emmy's is
+now an OPPORTUNITY rather than a refusal — her blueprint wanted a counter and the
+engine offers one, which is a design call for Jon rather than a limit.
+
 ### ⭐⭐ THREE MOVES WHOSE OWN PRESENTATION DESCRIBED A MECHANIC THEY DID NOT HAVE
 
 Not documentation drift — **the reader here is the PLAYER**, told the wrong thing

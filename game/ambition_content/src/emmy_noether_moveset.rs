@@ -414,9 +414,30 @@ pub fn emmy_noether_moveset() -> MovesetContract {
     // paying. Three terms at even intervals, identical every time: what the field
     // returns does not decay, which is the conservation idea stated as a move.
     //
-    // not the counter the sheet's blueprint imagined — `MoveSpec` has no
+    // ⛔⛔ THIS NOTE RECORDED A DEFERRAL AND THE DEFERRAL HAS EXPIRED. It read:
+    // *"not the counter the sheet's blueprint imagined — `MoveSpec` has no
     // absorb or reflect, and inventing one for one character would be the wrong
-    // shape. See the module doc.
+    // shape."* Both halves were true when written and neither is true now.
+    //
+    // ⭐ AS OF 2026-09-05 THE ENGINE HAS BOTH, and not as one character's
+    // invention: `smash.counter` carries `CounterParams { response,
+    // absorbs_projectiles }`, where the response is an ARBITRARY technique and
+    // the flag chooses absorb-versus-reflect. Three fighters author one — George
+    // answers a parry with a grab, the Author with an ambush teleport, the Shadow
+    // Oni with a sleep pulse — so the "wrong shape" objection is answered by the
+    // thing being shared rather than bespoke.
+    //
+    // ⚠ HER MOVE IS DELIBERATELY LEFT AS THE FIELD, and that is a decision to be
+    // overruled rather than an oversight. `conservation_law` is richly authored —
+    // three even terms and four cues — and swapping it out is a design call on a
+    // fighter whose blueprint I have not read. ⇒ What is fixed here is the false
+    // sentence: somebody reading this file should learn that the counter is
+    // AVAILABLE, not that the engine refuses it. See
+    // `docs/planning/demos/campaigns/expressive-moves-2026-09-05.md`.
+    //
+    // ⭐ AND THE MOVE BELOW IS STILL WORTH ITS OWN DEFENCE: three terms at even
+    // intervals, identical every time, is the conservation idea stated AS A MOVE
+    // — which a counter would not be.
     let n_b = strike(Strike {
             id: "conservation_law",
             clip: "conservation_law",

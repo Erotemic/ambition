@@ -1176,6 +1176,26 @@ behave when one participant can traverse and another cannot"* as an open design
 question since the page was written. ⭐ **It stopped being hypothetical on
 2026-09-04: the code now answers it, by default, in one direction.**
 
+ⓘ⭐ **BUT THE POPULATION IS ONE TODAY, measured 2026-09-05 — so this is cheap to
+answer and nothing is currently mis-answered by it.** In the Ambition road,
+`DrivingParticipant` is inserted by exactly ONE production site,
+`control/authority.rs`, and it always inserts `PlayerSlot::PRIMARY` (possession
+moves the marker between bodies; it never mints a second slot). Every other
+insertion in the tree — `sim_view/facts.rs:1002`, `causal.rs:430`,
+`view_index.rs:1259` — is inside a `#[cfg(test)]` module, checked by position
+rather than by path, because this repo puts test modules inside ordinary source
+files.
+⇒ **The existential `driven_bodies` performs is over a population of at most one
+body**, so the direction the code picked is not currently producing a wrong
+answer for anybody. ⚠ That is an argument for ruling it NOW rather than later:
+the cost of the ruling is zero while no second participant exists, and the second
+participant is exactly what makes it expensive.
+⚠ Method, so the negative claim can be re-derived: `grep` for
+`insert(DrivingParticipant` / `try_insert(DrivingParticipant` /
+`DrivingParticipant(` across `crates/` and `game/`, then each hit's enclosing
+module checked for `#[cfg(test)]` above it. A bundle field would still have to
+construct the tuple struct, so it would appear in that grep.
+
 `driven_bodies` (`actor_monolith/src/body_conditions.rs`) asks
 `ControlledSubject` first and then falls back to ANY holder of
 `DrivingParticipant`. With one participant that names the one driven body and

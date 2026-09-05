@@ -118,7 +118,22 @@ validates clean at startup and does nothing in play.
 ⭐ **That is exactly the `boss.cleared` failure, and it cost weeks there:** a
 missing save key read `Untouched`, so a wrong id was a silently shut door rather
 than an error. Here a missing schema reads "fine", so a wrong key is a silently
-inert effect. **An absence that reads as a pass is the shape to hunt.**
+inert effect.
+
+⚠ **AND THE CLASS IS NARROWER THAN "AN ABSENCE THAT PASSES" — I swept for that
+and it would have been the wrong hunt.** `MoveGates::permits` returns `true` for
+an unconstrained move, `sim_selection`'s fold takes the first candidate, and
+`ExperienceStaging::is_writable_by` returns `true` for an unclaimed slot; all
+three are correct, and the last one states the rule this page needs:
+
+> *"Nobody claimed this" and "somebody else claimed this" are different answers
+> and only the second is a refusal.* — `ambition_match/src/staging.rs:517`
+
+⇒ ⭐ **The defect is not that absence passes. It is that ONE ABSENCE CARRIES TWO
+MEANINGS.** In those three, absence means exactly one thing. In
+`ParamSchemaRegistry` it means *"nothing to validate"* AND *"no such technique"*,
+and only the first should pass. **That is the shape to hunt: not a permissive
+default, but a single `None` that answers two questions.**
 
 ⇒ ⭐ **THE FIX IS TO SEPARATE THE TWO FACTS, not to make unknown keys fail.**
 A technique should register its EXISTENCE always, and a param check optionally.

@@ -3570,9 +3570,29 @@ OPTIONAL dep + feature, never used:
   ⇒ **A per-crate count of a warning in a DEPENDENCY is a count of dependents,
   not of defects.** The script reports per-crate because that is what a consumer
   experiences; the census below is what wants fixing.
-  ⚠ `input_adapter.rs:114` is the same shape as the other five: its consumer at
-  `:162` is not compiled under the lib's own default features, so the binding is
-  unused there and used elsewhere.
+  ✔✔ **AND ALL SIX ARE ONE SHAPE — every site classified, none is dead code.**
+  Each is a consumer sitting behind a feature the crate's own default build does
+  not enable, verified by turning that feature on and watching the warning go:
+
+```text
+  ambition_dialog     4 sites   --features input               -> 0 warnings
+  ambition_game_shell 1 site    --features basic_presentation  -> 0 warnings
+  ambition_content    1 site    consumer at input_adapter.rs:162, gated
+```
+
+  ⇒ **So the gate hole is real and the backlog behind it is empty.** The right
+  reading is not "17 warnings to fix", nor even "6": it is *"a crate's own
+  default build has no caller for code its dependents do call"*, six times, and
+  every instance is a feature doing exactly what its manifest says.
+  ⛔ **Which makes the DELTA the only useful number here**, as the script says:
+  a NEW site appearing means a caller moved behind a feature since the last run,
+  and that is worth a look. A site already on this list is not a defect waiting
+  to be worked.
+  ⚠ **And do not "fix" these by gating the definitions to match.** For
+  `ambition_dialog` that breaks the crate's own tests, which call the methods
+  under default features; the same trap will apply to the others. The honest
+  options are: accept the warning as the report of a stub, or decide the crate's
+  default build should not exist without its consumer — a manifest question.
 
 ```text
     4  ambition_dialog          2  ambition_platformer2d_actor_monolith

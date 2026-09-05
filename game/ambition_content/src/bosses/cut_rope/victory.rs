@@ -56,10 +56,13 @@ pub fn spawn_cut_rope_victory_npc(
     // "cleared" record by PLACEMENT (`config.id`). Spawn the victory NPC when
     // EITHER the behemoth just released its payload this frame (fresh kill) OR
     // the placement reads cleared in the save (room re-entry).
-    let boss_persisted_cleared = matches!(
-        save.data().boss(&boss.config.id),
-        ambition_persistence::save_data::PersistedEncounterState::Cleared
-    );
+    // ⭐ THE SHARED PREDICATE, not a second copy of its body. This site used to
+    // inline the same `matches!` on `save.data().boss(&config.id)`, which is
+    // exactly what `boss_is_cleared` exists to prevent — `save_sync.rs` says so
+    // where it calls it: *"shared predicate (`boss_is_cleared`) with the per-tick
+    // encounter driver so they can't drift."* A third reading that agreed by
+    // copy-paste is the drift that has not happened yet.
+    let boss_persisted_cleared = ambition_boss_encounter::boss_is_cleared(&save, &boss.config);
     let released_now = released_hosts.contains(&boss_entity);
     if !boss_persisted_cleared && !released_now {
         return;

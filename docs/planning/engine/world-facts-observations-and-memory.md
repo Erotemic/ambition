@@ -344,15 +344,24 @@ that is already in the tree and already rollback-registered. See
   kept as counts and one distance rather than dropped silently. ⚠ That bounds
   the per-tick kept set, NOT retention over time, which is still open.
 
-⚠ The remaining questions below are untouched by that work.
-
+⛔ **THIS LIST USED TO REPEAT ALL EIGHT QUESTIONS UNCHANGED, three of them
+twenty lines under their own answers, beneath a sentence claiming the list was
+"untouched by that work" — corrected 2026-09-05.** The prose above and the list
+below stated the same fact (which questions are open) and disagreed, so a reader
+scanning the list counted eight and re-derived three that are already in the
+tree. The answered ones now say so where they are read.
 
 - Typed facts/components versus an extensible fact registry?
 - Which events deserve durable history and which are ephemeral messages?
-- How is observation permission determined: proximity, line-of-sight, room,
-  explicit communication, something else?
-- How long should memories persist, and what is saved?
+- ⚠ *(tactical-belief slice ANSWERED above — viewport containment, not
+  line-of-sight; open for the general program)* How is observation permission
+  determined: proximity, line-of-sight, room, explicit communication, something
+  else?
+- ⚠ *(half-answered above — the per-tick kept set is bounded at 16; RETENTION
+  OVER TIME is still open)* How long should memories persist, and what is saved?
 - Should beliefs support contradiction/uncertainty explicitly?
 - What facts are private to a participant in multiplayer?
 - How are summaries generated for LLM context without losing critical detail?
-- What parts, if any, participate in deterministic rollback?
+- ⚠ *(tactical-belief slice ANSWERED above — the remembered-actor set is
+  rollback state; open for the general program)* What parts, if any, participate
+  in deterministic rollback?

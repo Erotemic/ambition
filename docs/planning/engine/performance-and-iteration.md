@@ -80,6 +80,35 @@ here. ⚠ REASONED, not measured: it plausibly contributes to
 that is +2 and one new crate is +1 at most, so something else moved too. Whoever
 takes the re-freeze should name both, not assume this is the whole answer.
 
+⛔⛔ **AND UNPRICED CANNOT BE CLEARED BY THE OBVIOUS RUN — measured the hard
+way, 2026-09-05, two 10-minute builds for nothing.** The finding says *"Run
+`python3 scripts/compile_collect.py` to measure them"*. Running it with
+`--phase cold` produces a clean 742-row release build in which all eight
+unpriced crates appear — and moves the finding not at all.
+
+```text
+run 1  --phase cold, tree NOT quiet   742 rows, ALL backfilled=true   dropped: `lines` describes another tree
+run 2  --phase cold, tree quiet       742 rows, backfilled=0          STILL not counted
+```
+
+⭐ The reason is in `unit_weights()`: `WEIGHT_CACHE_CLASS = "rebuild"`. Weights
+come only from REBUILD-class builds — dependencies cached, first-party dirty —
+because the question a weight answers is *"an edit to this crate forces these to
+recompile"*. A cold build is classified `cold` and filtered out whole.
+⇒ **`--phase cold` can never price a crate for this ratchet.** The phase that
+produces rebuild rows is `--phase first-party`.
+
+⛔ **AND THAT PHASE PERTURBS SHARED SOURCE.** `first-party` calls
+`perturb(roots)`, which EDITS every first-party lib root and restores them from
+saved bytes afterwards. In a tree shared with an active peer that restore is the
+`cp`-restore hazard: a peer editing a perturbed file inside the ~10-minute
+window is silently reverted. ⇒ **the precondition for clearing UNPRICED is an
+isolated worktree or a tree that is genuinely yours, not merely a quiet one.**
+Recorded so the next agent spends the build once, in the right phase.
+
+ⓘ The two cold runs are in the ledger and are not waste for every purpose — they
+are honest release/cold rows — they simply cannot feed the weight table.
+
 ⇒ **Recommendation for the carve owner, unchanged in shape but smaller in
 scope:** 4 findings need a decision, not 6. The two above want the GUARD
 changed (gate the share, or re-freeze on every workspace-size change and admit

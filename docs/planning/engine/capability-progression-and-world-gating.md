@@ -693,11 +693,88 @@ language.
 | session mask | `EditableAbilitySet` (resource) | a RESTRICTION — `effective = base ∩ mask` |
 | **participant progression** | — | **does not exist** |
 
-  ⇒ **Everything is body-scoped.** The one non-body layer is an intersection, so
-  it can only take verbs AWAY; nothing in the tree can grant one. There is no
+  ⇒ **Everything is body-scoped.** The one non-body LAYER is an intersection, so
+  it can only take verbs AWAY — ⚠ **and it is the F3 INSPECTOR, not a game
+  mechanism**: `EditableAbilitySet` lives in `ambition_dev_tools`, applied by
+  `sync_live_player_dev_edits_system`. It ships (`dev_tools` is inside the
+  default `desktop_dev` feature) but it is a debug affordance, which makes the
+  conclusion below stronger rather than weaker: the table's only non-body row is
+  not a design layer at all. There is no
   per-participant store, and no `PlayerSlot`-keyed ability anything (searched
   `ParticipantAbilities`, `ParticipantProgress`, `PlayerProgress`,
   `ParticipantCapabilit`, `ProfileAbilities` — zero files each).
+  ⛔⛔ **THIS ROW SAID "nothing in the tree can grant one" UNTIL 2026-09-05, AND
+  A CONTENT SYSTEM FALSIFIES IT — which makes the row's own argument stronger.**
+  `game/ambition_content/src/falling_sand_sim.rs:488`,
+  `grant_room_swim_controls`, does exactly this:
+
+```rust
+state.swim_snapshot = Some(SwimSnapshot { player_entity: entity,
+                                          previous_swim: abilities.abilities.swim });
+abilities.abilities.swim = true;          // in the room
+...
+abilities.abilities.swim = snapshot.previous_swim;   // on leaving
+```
+
+  ⇒ **The one system that needed to GRANT a verb had to hand-roll a
+  snapshot/restore against the body's effective set, because there is no union
+  term to contribute through.** That is not a counter-example to the missing
+  mechanism; it is its first customer, already shipped, paying the cost in a
+  content file. ⚠ And it is a THIRD lifetime the layer table does not name:
+  neither intrinsic nor permanent progression, but ROOM-SCOPED and restoring —
+  which a `∪` union term would express as "this room contributes `swim` while
+  you are in it" instead of as a saved previous value one system owns.
+  ⛔⛔ **AND IT WRITES THE EFFECTIVE SET, WHICH IS THE EXACT HAZARD `AbilityBase`
+  WAS INTRODUCED TO REMOVE.** That type's own doc
+  (`platformer2d_core/src/body_clusters.rs:112`) says it exists because
+  *"anything that wrote the effective set (the F3 dev sync) erased the authored
+  kit permanently"*, and states the intended algebra:
+  `effective = base ∩ session_mask (∪ gear/upgrades once those land)`.
+  `grant_room_swim_controls` writes `BodyAbilities` — the effective set —
+  and survives only by hand-rolling the save/restore that `AbilityBase` exists
+  to make unnecessary. ⇒ **the union term is not a nice-to-have; one shipped
+  content system is already emulating it, in the one way the kernel doc warns
+  against.**
+
+  ⛔⛔ **AND THE HAND-ROLLED RESTORE IS NOT ROLLBACK STATE, WHICH THE UNION TERM
+  WOULD HAVE MADE IMPOSSIBLE. Measured 2026-09-05:**
+
+```text
+BodyAbilities         ROLLBACK STATE   rollback_component_canonical::<BodyAbilities>(OWNER, "body.abilities")
+                                       + a SnapshotState impl (platformer2d_core/src/snapshot_impls.rs:86)
+FallingSandRoomState  NOT registered   #[derive(Resource, Default)] -- no rollback, no snapshot impl
+```
+
+  The grant is rollback state; **the only record of what it must be restored TO
+  is not.** ⚠ REASONED from there, not measured — the failing order is a rewind
+  spanning the room EXIT: the exit does `swim_snapshot.take()` and restores
+  `swim = false`; a rewind puts `BodyAbilities.swim` back to `true` (the
+  confirmed in-room value) but does NOT put the snapshot back, because process
+  state does not rewind. Re-simulating, `needs_capture` is
+  `snapshot.map(..).unwrap_or(true)` = **true**, so it re-captures
+  `previous_swim` from the ALREADY-GRANTED value, and the next exit restores
+  `swim = true`. ⇒ the player keeps the room's verb permanently.
+
+  ⛔ **I HAVE NOT SHOWN THAT SUCH A REWIND IS REACHABLE IN THIS ROOM** — whether
+  exploration rooms run under the GGRS host at all is the question that decides
+  whether this is a live bug or a latent one, and it is not answered here.
+  ⓘ What IS measured about that: the rollback backend is LINKED into the default
+  app build (`ambition_platformer2d`'s `default = ["all_capabilities"]` includes
+  `"rollback"`, and `cargo tree -p ambition_app -e features` shows
+  `ambition_platformer2d_rollback_ggrs`). ⚠ LINKED IS NOT INSTALLED — a GGRS
+  session still has to be created for a rewind to exist — so this narrows the
+  question without answering it, and anyone closing this row must check the
+  session, not the manifest. What
+  IS measured is the asymmetry: a rollback-registered fact whose restore value
+  lives in unregistered process state.
+  ⭐ **Either way it is the argument for the union term, not against it**: a
+  room contributing `swim` through `∪` holds no previous value to lose, so the
+  whole class of failure stops existing rather than being tested for.
+
+  ⚠ The other `&mut BodyAbilities` holders are not grants: the portal adapter
+  only SUPPRESSES wall verbs during transit, and the dev-tools / sim-harness
+  writers are instruments, not content.
+
   ⇒ ⭐ **So this question and the item-capability one above are the SAME missing
   mechanism**: the `∪ gear/upgrades` union term the `AbilityBase` doc already
   promises. A temporary item grant and a permanent participant unlock are both

@@ -3046,6 +3046,22 @@ queue read as an execution authority for work already done.
   into its `P06` and `P11` rows and does not carry `P14`'s finish-zoom), so a
   single fraction spanning both is a number without a population. ⇒ What remains
   HERE, and all of it genuinely needs a seam:
+  ◐ **`P11`'s tether came off too, and it is the last one — 2026-09-04.** The
+  grapple observation is true and about the wrong mechanic: `grapple_system`
+  casts at a SOLID SURFACE and yanks the caster toward it. A tether grab does not
+  need it. `CaptureAttemptRequested` already carries `offset` and `half_extents`,
+  and **nothing bounds them** — not the schema, not `acquire_captures`, not the
+  content pass. ⇒ The capture half is AUTHORING, like the command grab; the LINE
+  half is a fourth customer of `flyline.rs`'s procedural per-body-visual shape,
+  whose own note says a generalisation *"is better with three examples than with
+  one"*. ⛔ It carries a hazard worth the same pass: an unbounded reach means a
+  typo in authored `half_extents` is a grab that catches across the stage, with
+  no schema bound, no clamp and no test that would say so — and the tether is the
+  first move that makes a large number LOOK correct.
+  ⇒ **ZERO genuinely open seams remain on `P11`/`P10`/`P14`.** All three were
+  resolved by re-deriving the absence, none by building, and each had the same
+  cause: **a search space that excluded where the answer lived.**
+  ⓘ The superseded line read:
   `P11`'s **tether** — a grapple mechanic exists and nothing joins it to capture;
   ◐ **`P11`'s hit-grab came OFF this list 2026-09-04** — the writer census was
   right and the classification was not. The landed-hit-to-technique seam is

@@ -16,6 +16,7 @@
 /// projectile model content-free is the same boundary that puts this component
 /// beside the stepper that reads it.
 mod allegiance;
+pub mod intercept;
 pub use allegiance::{stamp_new_projectile_allegiance, ProjectileAllegiance};
 
 pub mod systems;

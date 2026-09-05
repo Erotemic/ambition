@@ -140,26 +140,41 @@ local symbolic slots
 
 ### What the flow cursor costs in the rollback wire — measured 2026-09-05
 
-⛔⛔ **`MovePlayback` IS ROLLBACK STATE, AND ITS SNAPSHOT IS A PROJECTION RATHER
-THAN A CLONE.** `MovePlayback::resumed(spec, facing, t, landed_hit)` is what
-comes back from a rewind, and its own doc says the blob carries *"the CHOICE —
-which move, how far in, did it land"*. ⇒ A flow cursor added to the struct and
-NOT added to that projection would silently reset on every rewind: the move would
-restart its flow mid-play, deterministically and invisibly, and the only symptom
-would be a desync checksum.
+⛔⛔ **CORRECTED 2026-09-05 — THE FIRST VERSION OF THIS SECTION WAS WRONG, and
+it was wrong in the direction that would have made somebody build the wrong
+thing.** It said `MovePlayback`'s snapshot is a PROJECTION rather than a clone,
+so a flow cursor added to the struct but not to the projection *"would silently
+reset on every rewind"*. It would not.
 
-⇒ So the rung's real obligation, before a line of it is written:
+`rollback_component_resolved` records itself as **"bevy_ggrs clone snapshot +
+canonical authored-reference checksum projection"** — the whole component is
+cloned and restored, and `encode_ref` is the CHECKSUM, not the restore. ⇒ New
+fields come back from a rewind for free.
 
-1. the cursor, latches, timeouts and slots join `MovePlayback`;
-2. they join its **checksum projection**, or peers diverge;
-3. the schema version bumps (currently **151**) with a note saying why;
-4. the wire baseline records it in the same commit.
+⚠ **AND I QUOTED A FUNCTION NOTHING CALLS.** The claim rested on
+`MovePlayback::resumed(spec, facing, t, landed_hit)` and its doc about what "the
+blob carries". That function has **no callers anywhere in `crates` or `game`** —
+it is dead `pub` API, which is why no `dead_code` warning names it. I read a
+signature and a doc comment and inferred a live mechanism from both.
 
-ⓘ The registry's own history says this is the normal cost and not a surprise:
-**v144** added two contact facts to this exact projection, and **v145** added the
-instance — for a reason that is precisely a flow cursor's: *"two peers agreeing
-on the move id and its clock could still disagree about whether this is the first
-jab or the second"*. A cursor is the same class of fact.
+⇒ **THE REAL BILL, which is smaller and differently shaped:**
+
+1. the cursor, latches and timeouts join `MovePlayback` — **restored
+   automatically**, because the snapshot is a clone;
+2. they join `encode_ref` — not to be restored, but so a peer DIVERGENCE on them
+   is detected. Omitting this does not reset anything; it means two peers whose
+   flows are on different nodes agree on the checksum until the difference
+   becomes visible in the world, which is the worst moment to find out;
+3. that changes the wire fingerprint, so the schema version bumps and the
+   readable baseline records it — including the version line in its header,
+   which is part of the fingerprint by design.
+
+ⓘ The registry's history still says this is the normal price and for the right
+reason: **v144** added two contact facts to this exact projection and **v145**
+added the instance, because *"two peers agreeing on the move id and its clock
+could still disagree about whether this is the first jab or the second"*. A
+cursor is the same class of fact — the correction is about WHY it must be
+encoded, not whether.
 
 ### Slots, and why a move must not hold an `Entity`
 

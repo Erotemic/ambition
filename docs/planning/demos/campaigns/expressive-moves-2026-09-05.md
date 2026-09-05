@@ -162,12 +162,43 @@ the fun**, and they do not depend on each other, so they run as two tracks.
 Taken first, because each lands as something two humans can feel in a match and
 none of them waits on `TechniqueFlow`.
 
-- ▢ **B1. Successful-defense consequence** (proof move 2's engine half). Parry
-  already denies a qualifying contact; what is missing is emitting an authored
-  semantic effect when it succeeds. One seam, and it unlocks ordinary counters,
-  Revenge-style stacking and Witch-Time-style application as pure composition.
-  ⭐ Highest fun-per-line on the page: it adds a READ to every exchange, which is
-  what 1v1 depth is made of.
+- ✔ **B1. Successful-defense consequence — THE PARRY HALF IS DONE AND GENERAL,
+  and the row's ▢ was stale.** `ParriedBodyHit` is published and rollback-registered;
+  `answer_a_parry_with_the_authored_counter` finds the window under the clock and
+  dispatches the stance's authored `response` with its own params. ⭐⭐ **And the
+  generality is proven by CONTENT, not by argument: four shipped stances answer
+  with four different KINDS** — the Author with a teleport (reposition), the
+  ninja with sleep (status), Emmy with vitality (a heal), the Officer with a
+  capture (a grab). `CounterParams::response`'s own doc says why there is no
+  `CounterKind`: *"A KEY, NOT A KIND… nothing in the engine needs to know which
+  of those it is."* ⇒ The row's *"unlocks ordinary counters, Revenge-style
+  stacking and Witch-Time-style application as pure composition"* is not a
+  promise; it is four authored fighters. Guarded on the SHIPPED riposte with an
+  outside-the-stance control.
+  - ⛔⛔ **BUT "DEFENSE" IS BROADER THAN "PARRY", AND THE BLOCK HALF IS GENUINELY
+    ABSENT.** `BlockedBodyHit` exists and is read in exactly ONE place — to set
+    `blocked_hit` on the **attacker's** playback for `OnBlock` cancels. **Nothing
+    gives the DEFENDER a consequence for a successful block**, so the soft read
+    (a shield that punishes chip pressure) has no vocabulary at all where the
+    hard read has four.
+  - ⚠ **I BUILT IT AS A MOVE WINDOW AND THEN REVERTED IT, and the measurement is
+    the deliverable.** A `DefenseAnswered::{Parry, Block}` field on
+    `CounterParams` compiles and dispatches cleanly — but a counter stance is a
+    MOVE, and in this engine a move and a raised guard are alternative states.
+    Measured: `shield.active` is driven by `input.shield_held` alone and by no
+    move; `spend_out_of_shield` drops AND locks the guard whenever a body acts
+    from one. ⇒ The only input that reaches a live stance window with a raised
+    shield is *"cast the stance from neutral, THEN hold guard"* — reachable
+    (`shield_blocks_hit` never consults `MovePlayback`), and odd enough that
+    nobody would find it.
+  - ⭐ **So the finding is the carrier, not the field: a block-answer is
+    SHIELD-scoped and a counter stance is MOVE-scoped, and they do not compose.**
+    The right home is a character-level defensive property — *"while this
+    fighter guards, a successful block does X"* — which is a bigger row than a
+    param and deserves to be sized as one rather than smuggled in as a field
+    whose only reachable input is a curiosity. ⇒ Shipping it as a window would
+    have been the fourth *"authored, paid for, and unreachable"* on this page,
+    and this time before anyone else had to find it.
 - ▢ **B2. Ground tether grab** — authoring plus line presentation only.
   `CaptureAttemptRequested` already takes an authored reach volume.
   ✔ **THE REACH LANDED 2026-09-05** on Projectile Polygon — her grab, not a
@@ -723,6 +754,23 @@ it"*), hazard back on the no-damage path, and the mine re-authoring `Neutral`
 ⚠ **And the demo-side test now asserts the FACTION, not the request.** That is
 the actual repair to my method: asking whether a `DamageBoxEffect` exists is a
 question about my own authoring, and the engine's answer to it was *no*.
+
+⭐⭐ **AND A PEER CHECKED THE SEAM BETWEEN THE TWO HALVES, WHICH I HAD NOT.** A
+demo-side faction assertion plus a resolver-side behaviour assertion is a JOIN,
+not the end-to-end road the review asked for — **if anything between them rewrote
+the side, both halves would pass and the road would still be broken.** Re-derived:
+`spawn_damage_box(source: HitSide, ..)` at `strike.rs:198` passes `source`
+straight into `Hitbox.source` at `:208` with no remapping. ⇒ **The join is
+honest, and saying so is part of the claim** — two tests that meet are only
+evidence if somebody has checked that they meet.
+
+⛔⛔ **AND THE BOLT'S DEFECT WAS NASTIER THAN THE REVIEW DESCRIBED, which I found
+by fixing attribution rather than by being told.** The review said the bolt named
+the contacted rival as owner and that self-exclusion would therefore skip it. True
+— but the same field is what a kill, a grudge and a staleness record key on. ⇒ Had
+the vocabulary been fixed without attribution, **every bolt kill would have been
+credited to the fighter who died of it.** "The review said `Neutral`" undersells
+what was wrong with that line.
 
 #### ✔ AND THE ONE UNAMBIGUOUS ENGINE BUG IN FINDING 1 IS FIXED
 

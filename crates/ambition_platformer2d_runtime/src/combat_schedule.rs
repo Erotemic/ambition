@@ -457,6 +457,18 @@ impl Plugin for CombatSchedulePlugin {
         // ⇒ Ordered on the SET rather than on `decide_stocks_match` itself: the
         // set is `ambition_combat`'s published seam and the function lives in
         // the actor monolith, which this crate should not need to name.
+        //
+        // ⭐ THE OTHER TWO `Settle` MEMBERS ARE FINE AND DO NOT WANT THIS —
+        // checked, so nobody adds a needless `.after` to them later.
+        // `shake_camera_on_landed_hits` reads a QUERY, not a message, and is
+        // idempotent by design: its own docs say it re-kicks every frame the
+        // freeze is live precisely so it needs no edge detection.
+        // `request_impact_hitstop_on_resolved_hits` reads `ResolvedBodyHit`,
+        // which is written in `CombatSet::Resolve` — an EARLIER phase — so the
+        // set chain already orders it.
+        // ⇒ The distinction is not "reads a message" but "reads a message
+        // written in ITS OWN set", which is the one case set ordering cannot
+        // express and the one this system was in.
         app.add_systems(
             sim,
             ambition_combat::finish_zoom::zoom_camera_on_decided_match

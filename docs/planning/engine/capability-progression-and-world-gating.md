@@ -282,14 +282,29 @@
 > engine — which is what the census is for. At `c9edaf545`:
 >
 > ```text
-> technique/placement bool modes   51        (at 8811f38fe)
->   LIVE      set true in content  28
->   ALWAYS ON defaults true, unset  5
->   DORMANT   default false, never 15
->   UNNAMED   never mentioned       3
+> technique/placement bool modes   88        (at 9036cda18, re-measured 2026-09-05)
+>   LIVE      set true in content  58
+>   ALWAYS ON defaults true, unset  7
+>   DORMANT   default false, never 19
+>   UNNAMED   never mentioned       4
+>   EXCLUDED  settings/budgets/dev 13        (now REPORTED, see below)
 > ```
 >
-> ⇒ **18 modes have no authored customer that turns them on.** In this lane:
+> ⛔⛔ **THE FIRST RUN OF THIS CENSUS SPOKE FOR 51 MODES AND SILENTLY DROPPED 34
+> OF THEM, INCLUDING THIS LANE'S ENTIRE SUBJECT.** The exclusion rule matched type
+> NAMES — `Settings|DeveloperTools|ControlFrame|Budget|Tuning|AbilitySet` — and
+> `AbilitySet` is the capability vocabulary itself: `jump`, `wall_climb`,
+> `blink_through_hard_walls`, 28 LIVE authored toggles, the exact population this
+> page is about. `BossMacroTuning.suppress_attacks_while_moving` went with them.
+> The word "Tuning" in a type name says nothing about who authors it.
+>
+> ⭐ **The census now REPORTS what it excluded, which is the only reason this was
+> findable.** A census that prints its classifications and not its removals cannot
+> be audited by reading its output: the rows it dropped are exactly the rows not
+> printed. ⇒ Ask what a filter removes and whether the removal is observable.
+>
+> ⇒ **23 modes have no authored customer that turns them on** (19 dormant + 4
+> unnamed). In this lane:
 > `Interactable(Spec).requires_facing`, `Pickup(Spec).collected`,
 > `CameraZoneSpec.cinematic_lock`, `RoomLink.bidirectional`,
 > `RoomMetadata.gallery`, `PropSpec.flip_y`.

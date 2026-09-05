@@ -51,6 +51,7 @@ the second case is exactly the finding. The filter cannot tell them apart, and
 neither can any rule over names; it takes knowing what the enum is for.
 """
 
+import collections
 import re
 import subprocess
 import sys
@@ -79,8 +80,23 @@ CONTENT_CRATES = (
 )
 
 #: Deserializable types that are NOT authored content: user settings, dev
-#: toggles, per-frame input, and budgets/tuning the engine defaults.
-NOT_AUTHORED = re.compile(r"Settings|DeveloperTools|ControlFrame|Budget|Tuning|AbilitySet")
+#: toggles, per-frame input, and performance budgets.
+#:
+#: ⛔⛔ THIS USED TO ALSO EXCLUDE `Tuning` AND `AbilitySet`, AND THAT WAS WRONG --
+#: it removed 34 of the modes this census exists to count, including the whole
+#: capability vocabulary. MEASURED 2026-09-05 by classifying the excluded rows
+#: instead of trusting the rule: `AbilitySet` is 28 LIVE authored capability
+#: toggles (`jump`, `wall_climb`, `blink_through_hard_walls` -- the progression
+#: vocabulary itself), and `BossMacroTuning.suppress_attacks_while_moving` is
+#: authored content too. The word "Tuning" in a type name says nothing about
+#: whether content authors it.
+#:
+#: ⚠ THE EXCLUSION WAS INVISIBLE, WHICH IS WHY IT SURVIVED. The census printed
+#: its classifications and not its removals, so the 34 missing rows could only be
+#: found by asking what the filter dropped. `EXCLUDED` now reports that, and the
+#: rule kept here is the narrow one: a thing a PLAYER or a DEVELOPER sets, not a
+#: thing an AUTHOR sets.
+NOT_AUTHORED = re.compile(r"Settings|DeveloperTools|ControlFrame|Budget")
 
 STRUCT = re.compile(
     r"#\[derive\([^)]*Deserialize[^)]*\)\]\s*(?:#\[[^\]]*\]\s*)*pub struct (\w+)\s*\{(.*?)\n\}",
@@ -93,6 +109,22 @@ def git(*args: str) -> list[str]:
     return subprocess.run(
         ["git", *args], cwd=REPO, capture_output=True, text=True, check=True
     ).stdout.split()
+
+
+#: ⭐ WHAT THIS CENSUS THREW AWAY, counted so a reader can see it.
+#:
+#: ⛔⛔ THIS SCRIPT PUBLISHED A WRONG NUMBER TWICE, and both times the defect was
+#: the POPULATION rather than the classification: a corpus missing the
+#: `ambition_characters` authoring helpers invented two dormant modes, and a
+#: polarity fault counted 16 always-on modes as dormant. A census whose subject
+#: is the output of several silent filters cannot be audited by reading its
+#: output, because the rows it dropped are exactly the rows not printed.
+#:
+#: ⇒ Every `continue` that removes a candidate increments a named bucket, and
+#: the report prints them. This does not change a single classification -- it
+#: makes the SHAPE of the corpus visible, so "is that number too small?" is a
+#: question a reader can actually ask.
+EXCLUDED: dict[str, int] = collections.defaultdict(int)
 
 
 def _is_test(path: str) -> bool:
@@ -157,6 +189,7 @@ def modes() -> list[tuple[str, str, str, bool]]:
     out = []
     for f in git("grep", "-l", "Deserialize", "--", "crates"):
         if "/tests" in f or f.endswith("tests.rs"):
+            EXCLUDED["test files"] += 1
             continue
         text = (REPO / f).read_text(encoding="utf-8", errors="replace")
         impls: dict[str, str] = {}
@@ -165,6 +198,8 @@ def modes() -> list[tuple[str, str, str, bool]]:
         for m in STRUCT.finditer(text):
             name, body = m.group(1), m.group(2)
             if NOT_AUTHORED.search(name):
+                if BOOL_FIELD.search(body):
+                    EXCLUDED["structs ruled not-authored"] += 1
                 continue
             blob = impls.get(name, "")
             for fm in BOOL_FIELD.finditer(body):
@@ -216,6 +251,7 @@ def variants() -> list[tuple[str, str, str, str | None]]:
         for m in ENUM.finditer(text):
             name, body = m.group(1), m.group(2)
             if NOT_AUTHORED.search(name) or name.endswith(("Error", "Kind")):
+                EXCLUDED["enums ruled not-authored"] += 1
                 continue
             for vm in VARIANT.finditer(body):
                 out.append((name, vm.group(1), f, vm.group(2)))
@@ -283,6 +319,15 @@ def main() -> int:
     print(f"  ALWAYS ON — defaults true, unset    {len(always_on)}")
     print(f"  DORMANT   — default false, never on {len(dormant)}")
     print(f"  UNNAMED   — never mentioned         {len(unnamed)}")
+    if EXCLUDED:
+        print("\n  EXCLUDED FROM THE SUBJECT CORPUS (not classified above):")
+        for reason, count in sorted(EXCLUDED.items()):
+            print(f"    {count:4d}  {reason}")
+        print(
+            "    ⚠ These are the rows this census cannot speak for. A number "
+            "here that looks\n       too large is a reason to re-read the rule "
+            "that removed them."
+        )
     for label, rows in (("DORMANT", dormant), ("UNNAMED", unnamed)):
         if not rows:
             continue

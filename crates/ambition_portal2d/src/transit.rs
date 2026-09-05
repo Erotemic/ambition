@@ -71,7 +71,15 @@ pub fn publish_portal_carves(
     use super::placement::{approach_box, capture_box, portal_fits};
 
     carves.holes.clear();
-    let all: Vec<PlacedPortal> = portals.iter().cloned().collect();
+    // ⛔⛔ SORTED AT THE COLLECTION POINT, because everything downstream picks a
+    // WINNER from this list and a `Query` yields archetype order -- not a
+    // promise, and not reproduced by a rollback resimulation. The body path's
+    // `for enter in portals { .. break }` and the item path's own loop both
+    // select the first match, so an entity overlapping TWO apertures could be
+    // sent somewhere else on a replayed frame. One sort here beats three
+    // tie-breaks that could disagree with each other.
+    let mut all: Vec<PlacedPortal> = portals.iter().cloned().collect();
+    all.sort_by(crate::stable_portal_order);
     if all.is_empty() {
         return;
     }
@@ -236,7 +244,15 @@ pub fn portal_transit(
     // plugin still runs transit. The ledger is diagnostic, never load-bearing.
     mut class_b: Option<ResMut<ClassBRemapLog>>,
 ) {
-    let all: Vec<PlacedPortal> = portals.iter().cloned().collect();
+    // ⛔⛔ SORTED AT THE COLLECTION POINT, because everything downstream picks a
+    // WINNER from this list and a `Query` yields archetype order -- not a
+    // promise, and not reproduced by a rollback resimulation. The body path's
+    // `for enter in portals { .. break }` and the item path's own loop both
+    // select the first match, so an entity overlapping TWO apertures could be
+    // sent somewhere else on a replayed frame. One sort here beats three
+    // tie-breaks that could disagree with each other.
+    let mut all: Vec<PlacedPortal> = portals.iter().cloned().collect();
+    all.sort_by(crate::stable_portal_order);
     if all.is_empty() {
         return;
     }
@@ -420,7 +436,15 @@ pub fn portal_teleport_ground_items(
     tuning: Res<crate::tuning::PortalTuning>,
 ) {
     let convention = tuning.convention.map_convention();
-    let all: Vec<PlacedPortal> = portals.iter().cloned().collect();
+    // ⛔⛔ SORTED AT THE COLLECTION POINT, because everything downstream picks a
+    // WINNER from this list and a `Query` yields archetype order -- not a
+    // promise, and not reproduced by a rollback resimulation. The body path's
+    // `for enter in portals { .. break }` and the item path's own loop both
+    // select the first match, so an entity overlapping TWO apertures could be
+    // sent somewhere else on a replayed frame. One sort here beats three
+    // tie-breaks that could disagree with each other.
+    let mut all: Vec<PlacedPortal> = portals.iter().cloned().collect();
+    all.sort_by(crate::stable_portal_order);
     if all.is_empty() {
         return;
     }

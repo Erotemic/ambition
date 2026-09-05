@@ -142,13 +142,34 @@ pub fn find_portal<'a>(
     portals
         .into_iter()
         .filter(|p| p.channel == channel)
-        .min_by(|a, b| {
-            a.pos
-                .x
-                .total_cmp(&b.pos.x)
-                .then_with(|| a.pos.y.total_cmp(&b.pos.y))
-        })
+        .min_by(|a, b| stable_portal_order(a, b))
         .cloned()
+}
+
+/// The crate's ONE tie-break between portals, for every place that has to pick
+/// among several and must pick the same one twice.
+///
+/// ⛔⛔ THERE WERE THREE FIRST-MATCH SITES AND NO SHARED RULE.
+/// [`find_portal`] took the first row of a collected `Query`;
+/// `link::equalize_pair_apertures` ran its own `.find()` over another snapshot of
+/// the same query; and `transit::portal_teleport_ground_items` loops the
+/// collected portals and `break`s on the first one a moving item is entering.
+/// **Archetype order in all three**, which is not a promise and is not
+/// reproduced by a rollback resimulation — so a replayed frame could send a
+/// thrown item through a DIFFERENT aperture.
+///
+/// ⭐ LOWEST POSITION, and the point is that it is ONE rule rather than which
+/// rule it is. Placements are authored, so the order is identical on every run
+/// and every machine, and three sites that each invented their own stable rule
+/// could still disagree with each other — which is how a doorway gets sized
+/// against one aperture while the body warps to another.
+///
+/// ⚠ `total_cmp` rather than `partial_cmp`: no `unwrap`, and no NaN hole.
+pub fn stable_portal_order(a: &PlacedPortal, b: &PlacedPortal) -> std::cmp::Ordering {
+    a.pos
+        .x
+        .total_cmp(&b.pos.x)
+        .then_with(|| a.pos.y.total_cmp(&b.pos.y))
 }
 
 /// A portal opening is the SAME size in every orientation: a doorway
@@ -311,5 +332,62 @@ mod find_portal_determinism_tests {
             Some(Vec2::new(12.0, 34.0))
         );
         assert!(find_portal(&only, purple).is_none());
+    }
+}
+
+#[cfg(test)]
+mod stable_order_tests {
+    use super::*;
+    use crate::color::PortalChannelColor;
+
+    fn at(x: f32, y: f32) -> PlacedPortal {
+        PlacedPortal {
+            channel: PortalChannelColor::Purple.channel(),
+            pos: Vec2::new(x, y),
+            normal: Vec2::new(0.0, 1.0),
+            half_extent: Vec2::new(PORTAL_OPENING_HALF, PORTAL_THICKNESS_HALF),
+            host: None,
+            host_lift: 0.0,
+            vel: Vec2::ZERO,
+            prev_pos: Vec2::new(x, y),
+        }
+    }
+
+    /// ⛔⛔ THE SAME PORTALS IN ANY ORDER SORT THE SAME WAY.
+    ///
+    /// Three sites collect portals off a `Query` -- archetype order, which a
+    /// rollback resimulation does not reproduce -- and each then picks a WINNER:
+    /// the body transit path breaks on its first match, the item path breaks on
+    /// its own, and `find_portal` takes a minimum. Sorting at the collection
+    /// point is what makes all three agree with each other AND with themselves
+    /// across a replay.
+    ///
+    /// ⚠ The scene is deliberately not pre-sorted in any input order, and is
+    /// checked from three different starting permutations: a comparator that
+    /// returned `Equal` for everything would leave each input unchanged and pass
+    /// a test that only reversed once.
+    #[test]
+    fn any_permutation_of_the_same_portals_sorts_identically() {
+        let scene = [at(300.0, 10.0), at(100.0, 50.0), at(300.0, 5.0), at(-40.0, 0.0)];
+
+        let mut forward = scene.to_vec();
+        forward.sort_by(stable_portal_order);
+
+        let mut reversed = scene.to_vec();
+        reversed.reverse();
+        reversed.sort_by(stable_portal_order);
+
+        let mut rotated = scene.to_vec();
+        rotated.rotate_left(2);
+        rotated.sort_by(stable_portal_order);
+
+        let key = |v: &Vec<PlacedPortal>| v.iter().map(|p| p.pos).collect::<Vec<_>>();
+        assert_eq!(key(&forward), key(&reversed));
+        assert_eq!(key(&forward), key(&rotated));
+        // ⚠ And it is a real ordering, not the identity: the leftmost is first,
+        // and the two sharing an x are split by y.
+        assert_eq!(forward[0].pos, Vec2::new(-40.0, 0.0));
+        assert_eq!(forward[2].pos, Vec2::new(300.0, 5.0));
+        assert_eq!(forward[3].pos, Vec2::new(300.0, 10.0));
     }
 }

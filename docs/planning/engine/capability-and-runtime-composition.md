@@ -40,6 +40,10 @@ Moving two `init_resource` lines into a plugin the runtime adds unconditionally
 relocates code and removes no authority — the test this program sets is whether
 the capability can be INSTALLED ALONE, so the pilot must come with a composition
 that omits it, or it is churn. Recorded as a sizing, not as a proposal.
+ⓘ **UNOWNED as of 2026-09-05, said out loud so it does not sit assumed.** The
+fighter session was asked whether it wanted the `shared_tangle` half and declined
+explicitly (the moveset is its stated priority); this session sized the row
+without taking it. ⇒ neither lane holds it.
 
 `crates/ambition_platformer2d_runtime/src/sim_core_resources.rs` calls
 `init_resource` forty times, and `lib.rs` adds fifty-two plugins. That is the

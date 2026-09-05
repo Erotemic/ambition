@@ -432,7 +432,7 @@ pub fn bob_moveset() -> MovesetContract {
             offset: (0.0, 20.0),
             // ⛔ SO THE OTHER PLAYER SEES THE PLATE ARRIVE. It draws nothing of
             // its own — see `PlaceSpringParams::vfx`.
-            vfx: Some("steam_vent".to_string()),
+            vfx: "steam_vent".to_string(),
         },
     );
     let down_b = committed_tail(down_b, 0.70, 0.0);

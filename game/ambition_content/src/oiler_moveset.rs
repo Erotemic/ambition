@@ -523,7 +523,7 @@ pub fn oiler_moveset() -> MovesetContract {
             // ⛔ SO THE OTHER PLAYER SEES IT ARRIVE. A plate draws nothing of its
             // own — see `PlaceSpringParams::vfx` — so without this the pool is
             // an ambush rather than a move.
-            vfx: Some("oil_slick".to_string()),
+            vfx: "oil_slick".to_string(),
         },
     );
 

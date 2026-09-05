@@ -108,7 +108,8 @@ pub fn drop_authored_springs(
         );
         // ⭐ ANNOUNCE IT. A plate the other player never saw arrive is an ambush
         // rather than a move — see `PlaceSpringParams::vfx`.
-        if let Some(row) = params.vfx.as_ref() {
+        if !params.vfx.trim().is_empty() {
+            let row = &params.vfx;
             cues.write(ambition_platformer2d::vfx::vfx::VfxMessage::Effect {
                 pos: at,
                 fx: ambition_platformer2d::vfx::fx::FxId::new(row),
@@ -119,7 +120,7 @@ pub fn drop_authored_springs(
         commands.spawn((
             Name::new("Placed spring"),
             PlacedSpring {
-                vfx: params.vfx.clone().unwrap_or_default(),
+                vfx: params.vfx.clone(),
                 pos: at,
                 half_extents: ae::Vec2::new(params.half_extents.0, params.half_extents.1),
                 launch: ae::Vec2::new(params.launch.0, params.launch.1),

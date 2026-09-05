@@ -62,8 +62,19 @@ pub struct PlaceSpringParams {
     /// not make the plate persistently visible in between. The shipped road for
     /// that is the mine's — a `GroundItem` with authored art — and it is a
     /// content decision rather than a field.
-    #[serde(default)]
-    pub vfx: Option<String>,
+    ///
+    /// ⛔⛔ REQUIRED, AND IT WAS `Option<String>` WITH `#[serde(default)]` FOR
+    /// ONE COMMIT. A peer caught the shape in a sentence I had written myself:
+    /// *"`None` draws nothing, which is what every plate authored before this
+    /// field existed did"* — ⇒ **the DEFAULT value of the new field was exactly
+    /// the invisible-ambush state the field exists to end.** Both shipped authors
+    /// set it, and nothing made a third do so; worse, `serde(default)` meant a
+    /// plate arriving by deserialization was silent without anyone typing
+    /// anything. ⭐ Non-optional and asserted non-empty turns *"an author
+    /// remembered"* into *"an author could not omit it"*, which is the same move
+    /// as gating the gravity modifier on its timer and deriving `overlapped`
+    /// instead of mirroring it.
+    pub vfx: String,
 }
 
 /// Author a spring placement onto a move's timeline.
@@ -81,6 +92,16 @@ pub fn author_place_spring(mut spec: MoveSpec, at_s: f32, params: PlaceSpringPar
          would never appear and the move would spend a recovery to do nothing",
         spec.id,
         spec.duration_s,
+    );
+    // ⛔ AN UNANNOUNCED PLATE IS AN AMBUSH, NOT A MOVE. The invisible-object
+    // assertion below refuses a plate with no USES for the same reason; this
+    // refuses one nobody can see arrive.
+    assert!(
+        !params.vfx.trim().is_empty(),
+        "move `{}` drops a plate that announces nothing — `PlacedSpring` draws no \
+         sprite of its own, so a plate with no cue is an object the other player \
+         is never told about",
+        spec.id,
     );
     assert!(
         params.uses > 0,

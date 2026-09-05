@@ -27,6 +27,13 @@ use ambition_platformer2d::engine_core as ae;
 /// a divergence in where a fighter is standing.
 #[derive(Component, Clone, Debug, PartialEq)]
 pub struct SteeredBolt {
+    /// The cosmetic row drawn along its path — see
+    /// `SteeredBoltParams::trail_vfx`. A bolt with none is one the caster cannot
+    /// fly.
+    pub trail_vfx: String,
+    /// Seconds between trail marks, and the countdown to the next one.
+    pub trail_every_s: f32,
+    pub trail_in_s: f32,
     /// Which seat is flying it.
     pub owner_seat: usize,
     /// Where it is.
@@ -122,6 +129,13 @@ pub fn fire_authored_bolts(
         commands.spawn((
             Name::new("Steered bolt"),
             SteeredBolt {
+                trail_vfx: params.trail_vfx.clone(),
+                trail_every_s: params.trail_every_s,
+                // ⛔ ZERO SO THE FIRST MARK LANDS ON THE SPAWN TICK. A trail that
+                // waited a full interval would leave the bolt invisible for its
+                // first frames, which is exactly when the caster is looking for
+                // it.
+                trail_in_s: 0.0,
                 owner_seat: seat.0,
                 pos: at,
                 vel,
@@ -164,6 +178,8 @@ pub fn steer_and_fly_bolts(
         &ambition_platformer2d::actor::MatchSeat,
         &ambition_platformer2d::characters::control::ActorControl,
     )>,
+    // The bolt's own trail — see `SteeredBoltParams::trail_vfx`.
+    mut cues: MessageWriter<ambition_platformer2d::vfx::vfx::VfxMessage>,
 ) {
     let dt = time.sim_dt();
     if dt <= 0.0 {
@@ -247,6 +263,18 @@ pub fn steer_and_fly_bolts(
         // rollback-registered, so both peers resimulate the same contact.
         let mut caster_hit: Option<Entity> = None;
         let mut rival_hit: Option<(usize, Entity)> = None;
+        // ⭐ DRAW IT. The whole move is that the player steers this, and until
+        // 2026-09-05 nothing rendered it at all — see `SteeredBoltParams::trail_vfx`.
+        bolt.trail_in_s -= dt;
+        if bolt.trail_in_s <= 0.0 {
+            bolt.trail_in_s = bolt.trail_every_s;
+            cues.write(ambition_platformer2d::vfx::vfx::VfxMessage::Effect {
+                pos: bolt.pos,
+                fx: ambition_platformer2d::vfx::fx::FxId::new(&bolt.trail_vfx),
+                scale: 1.0,
+                pose: ambition_platformer2d::vfx::FxPose::UPRIGHT,
+            });
+        }
         for (body, kin, seat) in bodies.iter() {
             let reach = ae::Vec2::splat(bolt.radius) + kin.size * 0.5;
             let offset = (kin.pos - bolt.pos).abs();

@@ -541,6 +541,59 @@ below names `start_impulse` ADDING rather than setting), `bulkhead_drop` (*"he
 drops a plate"* — an animation, and its `shockwave`/`landing_puff` cues agree),
 and Carl's `cosmic_calendar`. ⚠ **A method that only ever flags is a suspicion.**
 
+### ⭐⭐ THE READABILITY SWEEP, COMPLETE — CAN A PLAYER SEE WHAT THESE MOVES MAKE?
+
+Every object a smash move puts into the world, and what a player actually sees of
+it. ⇒ Three tiers, and only the first was a bug I could fix.
+
+| object | seen as | why |
+|---|---|---|
+| `PlacedSpring` | ⛔ **nothing** → ✔ fixed | a bare component has no render seam at all |
+| `SteeredBolt` | ⛔ **nothing** → ✔ fixed | same, and the move's entire mechanic is steering it |
+| `PlacedMine`, the bomb, the ponytail | ⚠ **a placeholder quad** | `GroundItem` resolves through `HeldItemArt`, whose doc says *"absent / unmatched → the placeholder quad"* |
+| Alice's portals | ✔ drawn | the portal presentation owns them |
+| a dilated clock, a parasol float, a homing dash | ✔ the FIGHTER is the tell | no object exists; the body's own animation and motion carry it |
+
+⭐ **THE DISTINCTION THAT MATTERS IS SEAM VERSUS ART, and it is why the mine was
+fine and the plate was not.** `GroundItem` has a resolution seam WITH A FALLBACK,
+so an item with no authored art still draws *something*. A bare gameplay
+component has no seam, so it draws *nothing* — and nothing is not a degraded
+version of something, it is a different failure.
+
+⚠ **TIER TWO IS JON'S AND I AM NOT INVENTING IT.** `ambition_demo_smash`
+contributes **no `HeldItemArtEntry` at all**, so its mine, bomb and ponytail are
+grey quads: visible as *"a thing is there"*, unidentifiable as *"that is a mine"*.
+For a 1v1 read that is the difference between knowing to jump and knowing what you
+are jumping over. ⇒ It is an ART ask — somebody has to draw three icons — and the
+seam to hang them on already exists and needs no render dependency.
+
+### ⛔⛔⛔ AND THE STEERED BOLT WAS INVISIBLE TOO — THE MOVE WHOSE MECHANIC *IS* SEEING IT
+
+Asking the same question of the other objects found a worse one. **`SteeredBolt`
+emitted a `DamageBox` on contact and nothing else** — no sprite, no effect, no
+trail — while the entire move is *"you fly your own bolt with the stick"*. ⇒ **A
+trap the opponent cannot see is unfair; a TOOL THE CASTER CANNOT SEE is
+unusable.** And it is PK-Thunder, one of Track A's four named rows.
+
+✔ `SteeredBoltParams::trail_vfx` + `trail_every_s`, both **required and asserted
+at the authoring seam** — the lesson from the plate applied on the first try
+rather than after a peer read my own default back to me. The Author draws his own
+`four_point_glint` every 0.05s.
+
+⭐ **THE INTERVAL IS ASSERTED, NOT JUST THE PRESENCE, and that is the half a
+"does it draw" test would have missed.** A 60Hz trail is sixty effect requests a
+second for one projectile that lives for seconds. ⇒ The guard counts marks over a
+known flight — 8 to 12 across half a second against an authored 0.05s — so it
+reddens for *"the player cannot follow the path"* AND for *"one move is flooding
+the cue channel"*. Poisoned both ways; the flood arm prints 31.
+
+⛔ **FOURTH TIME TODAY: adding a message writer broke every test in the file at
+once.** A world that does not register a message a system WRITES fails that
+system's parameter validation and drops it silently. ⇒ The mitigation is
+mechanical and I should have reached for it before the third repetition:
+**when a system gains a writer, grep its fixtures for `add_message` before
+running anything.**
+
 ### ⛔⛔ THE LAUNCH PLATE WAS INVISIBLE, AND ONLY THE INVISIBLE OBJECT THROWS YOU
 
 Found while asking whether the new moves are READABLE, which for a 1v1 match is
@@ -556,10 +609,63 @@ and again at FIRE, and both of Bob's plate and Oiler's new pool author one. ⭐
 firing is what the LAUNCHED player must be able to attribute, since without it a
 fighter is thrown by nothing.
 
+⛔⛔ **AND THE FIRST VERSION OF THE FIX HAD THE BUG AS ITS DEFAULT — caught by a
+peer, in a sentence I wrote myself.** `vfx` was `Option<String>` with
+`#[serde(default)]`, and my own doc said *"`None` draws nothing, which is what
+every plate authored before this field existed did."* ⇒ **The default value of the
+new field was exactly the invisible-ambush state the field exists to end.** Both
+shipped authors set it and nothing made a third; worse, `serde(default)` meant a
+plate arriving by deserialization was silent with nobody typing anything.
+
+⭐ **Now required and asserted non-empty at the authoring seam**, which turns *"an
+author remembered"* into *"an author could not omit it"* — the same move as
+gating the gravity modifier on its timer and deriving `overlapped` rather than
+mirroring it. ⚠ The blast radius was four construction sites, which is as cheap
+as that change was ever going to be.
+
+⭐⭐ **AND AUDITING THE OTHER FOUR GAVE THE RULE A SHARPER FORM THAN "CHECK YOUR
+DEFAULTS".** Five fields gained defaults on this campaign in one day —
+`meter_cost` (0.0 = free), `answers_the_attacker` (false = the owner), the
+gravity modifier's timer-gated pair (inert), `TimeDilationParams` (no defaults at
+all), and this one. **Four were right for the same reason: their default means
+exactly what every value authored before them meant.**
+
+⇒ **The fifth was different in kind, and that is the finding: a
+`#[serde(default)]` that preserves the old behaviour is correct for a field that
+ADDS AN OPTION and wrong for one that REPAIRS A DEFECT.** The cue field existed
+because plates drew nothing; defaulting it to "draws nothing" shipped the defect
+as the path of least resistance. ⭐ **The tell is in the justification: if a
+default's doc sentence is a description of the bug, the default IS the bug** —
+mine read *"None draws nothing, which is what every plate authored before this
+field existed did"*, and a peer simply read it back to me.
+
 ⚠ **PERSISTENT VISIBILITY IS STILL OPEN AND THIS DOES NOT CLOSE IT.** A cue at
-each end does not draw the plate while it sits there. The shipped road is the
-mine's — a `GroundItem` with authored art — and that is a content decision rather
-than a field.
+each end does not draw the plate while it sits there.
+
+⛔⛔ **AND I NAMED THE WRONG ROAD FOR IT — struck after checking, one commit
+later.** I wrote that the fix was *"the mine's: a `GroundItem` with authored
+art."* `GroundItem`'s own doc says what that type IS: *"a held item resting in the
+world, **pick-up-able with `Attack` when the player is empty-handed**."* ⇒ That
+road would let a fighter **pick the launch plate up and throw it**, which is
+coherent for a mine and absurd for a plate. **The mine is visible because it is an
+ITEM, not because items are how you draw things** — I read a working example and
+generalised its mechanism instead of its property.
+
+⇒ The real requirement is narrower: **a persistent, positioned, non-custodial
+visual for a gameplay object that is neither an item nor an authored room prop.**
+⭐ **Both shipped candidates were checked before saying that, because this
+paragraph has already been wrong once:**
+
+| candidate | why it does not fit |
+|---|---|
+| `GroundItem` (the mine's road) | *"pick-up-able with `Attack` when the player is empty-handed"* — a fighter could carry the plate off |
+| `PropVisual` (the portals' road) | *"marker for sprites spawned from `RoomSpec.props`"* — authored room furniture, not a thing a move creates mid-match |
+
+⇒ **A genuine gap, sized as one**, and the announcement cue is what stands in for
+it until somebody rules. ⚠ **The mine is visible because it is an ITEM, not
+because items are how you draw things** — the first version of this paragraph read
+a working example and generalised its MECHANISM instead of its PROPERTY, which is
+the same shape as every corpus and predicate error on this page.
 
 ⛔⛔ **AND THE GUARD TOOK FOUR ATTEMPTS, EVERY ONE A FIXTURE DEFECT I HAVE
 ALREADY WRITTEN DOWN:**

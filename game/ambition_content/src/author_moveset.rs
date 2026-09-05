@@ -119,6 +119,12 @@ fn a_train_of_thought() -> ambition_platformer2d::entity_catalog::MoveSpec {
             // Out at arm's length and a little above, so it leaves visibly
             // rather than budding out of his chest.
             offset: (24.0, -12.0),
+            // ⛔ THE BOLT MUST BE VISIBLE — it is the only move in the game whose
+            // mechanic IS steering it, and nothing rendered it until this field
+            // existed. His own star flash, marked often enough that the path
+            // reads as a line rather than as dots.
+            trail_vfx: "four_point_glint".to_string(),
+            trail_every_s: 0.05,
         },
     );
     let spec =

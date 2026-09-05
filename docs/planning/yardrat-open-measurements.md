@@ -187,7 +187,39 @@ one"*), and the crate it credits, `ambition_characters`, has **no `systems.rs`
 anywhere in its source**. The ambiguity report is what surfaced it. Passed to
 the session that owns the file.
 
-## ⚠ OPEN — three music-renderer tests need an undeclared dependency
+## ✔ CLOSED — three music-renderer tests were wrong, and the manifest was right
+
+⛔⛔ **THE DIAGNOSIS BELOW NAMES THE RIGHT MODULE AND THE WRONG DEFECT, and
+acting on it would have changed a contract to satisfy a test.** `matplotlib` is
+undeclared **on purpose**. `write_spectrograms` says so in its own docstring —
+*"Matplotlib is intentionally optional. If it is not installed, write a clear
+note and let the rest of the bundle succeed"* — and the production code does
+exactly that, writing `spectrograms_skipped.txt` and returning. ⇒ Adding
+`matplotlib` to `pyproject.toml` would have made an intentionally-optional
+dependency mandatory: **fixing a guard by changing the contract it guards.**
+
+✔ **The three tests were asserting an optional path unconditionally, and they
+skip now** — the move this suite already makes four times, for `librosa`,
+`pyloudnorm`, `PySide6` and `pedalboard`. ⇒ Fixed on
+`agent/sfizz-source-fallback-and-cue-fanout` (`486f5fb`); suite goes from
+**258 passed / 3 failed** to **259 passed / 4 skipped / 0 failed**.
+
+⭐ **And the fallback the docstring promises had NO test — the one path a fresh
+machine actually takes.** It has one now: no plots written, the note present, and
+the note naming its CAUSE, because *"skipped"* alone sends a reader looking for a
+renderer defect, which is precisely the trip that produced the wrong diagnosis
+below. ⚠ The arm forces the `ImportError` through `sys.modules` rather than
+relying on the module being absent, so it exercises the same branch on a machine
+that HAS matplotlib — otherwise it would pass **vacuously** exactly where
+somebody would run it to check the claim.
+
+ⓘ **The entry's stated reasons for not taking it were all true when written and
+none survived**: the box could not run the suite (it can — 20s), the submodule
+was another session's slice (the fix is on my own branch), and it needed a
+pointer bump (it does not; it rides the branch).
+
+ⓘ **The superseded diagnosis follows, kept because the symptom it describes is
+real and the reasoning from symptom to cause is the interesting part.**
 
 ⓘ **Re-verified 2026-09-04 late: still open.** `matplotlib` is absent from
 `tools/ambition_music_renderer/pyproject.toml`. ⚠ Not taken here: that submodule
@@ -939,6 +971,26 @@ previous pin was on **no remote branch at all**, so a dangling pointer was
 traded for a correct-but-unguarded one. ⇒ The remaining decision is only
 *"fast-forward the submodule's main and re-pin"*, and the reason to take it is
 that the ask is unprotected until somebody does.
+
+⛔⛔ **DO NOT "FIX" THIS BY REVERTING THE PIN, which is the move it invites.**
+The guarded commit lives on a **deletable agent branch**; `4e5695c` is on the
+submodule's `main`. ⇒ Pointing back would trade an **unguarded-but-durable**
+pointer for a **guarded-but-dangling** one — the exact defect the re-pin was
+made to fix, re-introduced in the name of the ask. The fast-forward is the only
+move that gets both, which is why the obstacle to it was worth removing before
+raising the question.
+
+⭐ **And the shape is worth carrying past this file: RIGHT REASONING ATTACHED TO
+THE WRONG SUBJECT.** Nothing in the closed entry below is false. `music.sh` does
+warn and continue; it does defer to the renderer; a renderer that refuses does
+make that deferral sound. Every link holds and the chain does not, because the
+renderer it reasons about is not the renderer that ships. ⇒ Sibling instances
+found the same day: `boss_cleared("mockingbird")` asks by behaviour id and the
+save is keyed by placement id — every link true, the branch permanently closed;
+and this page's own matplotlib entry, where the module named was right and the
+defect was not. **A closed entry whose reasoning is right about the wrong
+artifact is worse than an open one**, because its correctness is what stops the
+next reader checking.
 
 ---
 

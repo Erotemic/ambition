@@ -84,11 +84,13 @@ impl BossProfile {
     pub fn for_encounter_id_or_name(catalog: &BossCatalog, id_or_name: &str) -> Option<Self> {
         let id = super::encounter_id_from_name(id_or_name);
         Self::from_id(catalog, &id)
-            // Legacy alias: pre-rename gradient_sentinel ids in saves still
-            // resolve to the renamed `clockwork_warden` profile.
-            .or_else(|| match id.as_str() {
-                "gradient_sentinel" => Self::from_id(catalog, "clockwork_warden"),
-                _ => None,
+            // A retired id in an old save resolves to what it became. The PAIR
+            // is `ids::renamed_encounter_id` and is not spelled here -- it used
+            // to be, in this file and in `behavior.rs`, with nothing making the
+            // two agree.
+            .or_else(|| {
+                super::renamed_encounter_id(&id)
+                    .and_then(|current| Self::from_id(catalog, current))
             })
     }
 }

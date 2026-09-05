@@ -46,7 +46,7 @@ mod roster;
 #[cfg(test)]
 mod tests;
 
-pub use ids::encounter_id_from_name;
+pub use ids::{encounter_id_from_name, renamed_encounter_id};
 // The engine hard-codes no boss id: `ids` ships only the slugging helper.
 pub use ambition_characters::boss_encounter::{
     ActorPhaseState, BossEncounterPhase, BossEncounterSpec, BossPhaseEvent, PhaseTrigger,

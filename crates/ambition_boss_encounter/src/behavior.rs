@@ -90,8 +90,11 @@ impl BossBehaviorProfileExt for BossBehaviorProfile {
 
     fn for_authored_boss(catalog: &super::BossCatalog, id_or_name: &str) -> Self {
         let key = crate::encounter_id_from_name(id_or_name);
-        if key == "gradient_sentinel" {
-            return <Self as BossBehaviorProfileExt>::from_data(catalog, "clockwork_warden");
+        // A retired id takes its successor's behaviour BEFORE the catalog is
+        // consulted, because the catalog no longer carries the old key at all.
+        // The pair itself lives in `ids::renamed_encounter_id`.
+        if let Some(current) = crate::renamed_encounter_id(&key) {
+            return <Self as BossBehaviorProfileExt>::from_data(catalog, current);
         }
         match catalog.behavior(&key) {
             Some(profile) => profile.clone(),

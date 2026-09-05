@@ -602,9 +602,27 @@ The current strategic order is:
    CONSTRAINT: as of 2026-09-03 this box cannot run its own full suite without a
    clean (see Build/test iteration above), so the gates that would validate 1–4
    are the thing that does not fit. Recorded rather than reordered — the
-   strategic order is Jon's, and a constraint is not a priority;
+   strategic order is Jon's, and a constraint is not a priority.
+   ⛔⛔ **SHARPER AS OF 2026-09-04 EVENING, and it is no longer "without a
+   clean": `./run_tests.sh --rust` REFUSES TO START.** *"10.2 GB free on
+   `target`, and a full suite needs about 40"* — the volume is 97% used and
+   `target` alone is 177 G. ⇒ The constraint has crossed from *expensive* to
+   *unavailable*, and it cost something the same day: a commit landed **four red
+   guards** that the lane would have caught, found by the sibling session instead.
+   ⚠ Not reclaimed: `AGENTS.md` says a bound-and-full volume is reported and left
+   for Jon. Reference point and the reclaim to reach for are in
+   [`yardrat-open-measurements.md`](yardrat-open-measurements.md);
 6. **residual actor-kernel, capability, and SDK boundaries** — continue from real
-   ownership/dependency pressure rather than size or speculative performance;
+   ownership/dependency pressure rather than size or speculative performance.
+   ⭐ **TWO AXES, NOT ONE, AND THIS ITEM NAMES BOTH IN ONE BREATH.** *Residual
+   actor-kernel* is authority decomposition; *capability boundaries* is
+   composability — **can this capability be ABSENT** — and the second does not
+   follow from the first. ⇒ Measured, and it is why the distinction earns a line
+   here: the capability-footprint count **rises** when a carve succeeds, because
+   extraction makes an always-linked domain a visible crate, and **falls** only
+   when a domain becomes optional. A run of slices on axis one drives the axis-two
+   number the wrong way while doing exactly the right work. The rule's home is
+   [`engine/decomposition.md`](engine/decomposition.md);
 7. **multiview/multiplayer, reactive world, and richer authoring** — advance from
    concrete Ambition/TwinTrack/Smash customers.
 

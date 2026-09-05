@@ -104,6 +104,20 @@ on plain defaults prints them. ⇒ The real cause is **workspace feature
 unification**: `reveal_full_line`, `reveal_full_options`, `select_delta`,
 `select_delta_clamped`, `confirm_or_advance` and `reveal_full` are live when the
 crate is built as part of the workspace graph and dead when it is built ALONE.
+⛔⛔ **AND A THIRD BLIND SPOT, measured 2026-09-05: THE TARGET.** The gate runs
+`cargo check --all-targets` on the HOST and says so in its own success line —
+*"compiled with no warnings, under DEFAULT features"* — so a warning that exists
+only on another compilation TARGET is invisible to it.
+⇒ Live instance, found in the exact-HEAD union's wasm job: *"field `next_at` is
+never read"* at `crates/ambition_dev_tools/src/runtime_census.rs:62`. It is not a
+dead field — `advance_runtime_census` reads and writes it — but that function is
+`#[cfg(not(target_arch = "wasm32"))]`, so on wasm the field has no reader. ⭐ The
+neighbouring `started_at` is ALREADY gated the same way; `next_at` simply was
+not, which is why the compiler can see the inconsistency and the gate cannot.
+⚠ Worth naming because I nearly mis-classified it: a *"never read"* warning is a
+claim about ONE CONFIGURATION, not about the code. Grepping the field found four
+uses before any edit was made.
+
 ⛔ **So `check_no_warnings.py` makes a WORKSPACE-UNIFIED claim, and that is the
 exact mirror of the caveat it already prints.** It warns that code behind a
 non-default `#[cfg(feature)]` is not compiled by its run; the unsaid other half

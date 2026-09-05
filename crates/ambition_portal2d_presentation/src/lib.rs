@@ -42,7 +42,10 @@ pub use clip_material::{
 /// name a `run_if` condition. One re-export costs nothing; an edge is priced by
 /// the compile ratchet forever.
 pub use ambition_portal2d::PlacedPortal;
-pub use compositing::{current_z_policy_is_correct_for, pane_relation, PaneRelation};
+pub use compositing::{
+    current_z_policy_is_correct_for, pane_relation, uncovered_remainder, PaneRelation,
+    UncoveredPiece, UncoveredPieces,
+};
 pub use effects::{PortalEffectSelection, PortalVisualEffect};
 pub use gun_visuals::{sync_portal_mode_indicator, PortalModeIndicator};
 pub use plugin::{PortalPresentationPlugin, PortalPresentationSet};

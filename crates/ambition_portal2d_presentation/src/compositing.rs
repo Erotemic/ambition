@@ -126,6 +126,256 @@ pub fn current_z_policy_is_correct_for(
     }
 }
 
+/// One axis-aligned piece of a drawable that the compositor may draw.
+///
+/// A piece is a SUB-RECT of the original sprite, so the four sides of the
+/// rectangle it must not exceed come from the quad's own extent. That is why
+/// this road needs no clip planes: [`crate::PortalClipMaterial`] carries three
+/// half-planes and an axis-aligned rectangle wants four, but a quad IS its own
+/// four planes.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct UncoveredPiece {
+    pub min: Vec2,
+    pub max: Vec2,
+}
+
+impl UncoveredPiece {
+    /// Zero for a degenerate piece, which is why degenerate pieces are dropped
+    /// rather than emitted: a zero-area quad is a draw call that shows nothing.
+    pub fn area(&self) -> f32 {
+        ((self.max.x - self.min.x) * (self.max.y - self.min.y)).max(0.0)
+    }
+
+    fn is_degenerate(&self) -> bool {
+        self.max.x <= self.min.x || self.max.y <= self.min.y
+    }
+
+    fn overlaps(&self, other: &Self) -> bool {
+        self.min.x < other.max.x
+            && other.min.x < self.max.x
+            && self.min.y < other.max.y
+            && other.min.y < self.max.y
+    }
+}
+
+/// Up to four disjoint pieces, held inline because this runs per (far drawable,
+/// pane) per frame and the count is bounded by the geometry, not by content.
+#[derive(Clone, Copy, Debug, Default)]
+pub struct UncoveredPieces {
+    pieces: [Option<UncoveredPiece>; 4],
+    len: usize,
+}
+
+impl UncoveredPieces {
+    fn push(&mut self, piece: UncoveredPiece) {
+        if piece.is_degenerate() {
+            return;
+        }
+        self.pieces[self.len] = Some(piece);
+        self.len += 1;
+    }
+
+    pub fn len(&self) -> usize {
+        self.len
+    }
+
+    pub fn is_empty(&self) -> bool {
+        self.len == 0
+    }
+
+    pub fn iter(&self) -> impl Iterator<Item = UncoveredPiece> + '_ {
+        self.pieces[..self.len].iter().filter_map(|p| *p)
+    }
+}
+
+/// The part of `drawable` that `cover` does NOT hide, as up to four disjoint
+/// axis-aligned pieces.
+///
+/// ⭐⭐ THIS IS WHAT MAKES THE DEFECT INEXPRESSIBLE RATHER THAN CAUGHT. Jon's
+/// report is a far-side body drawn over the pane that should hide it, and the
+/// two obvious repairs were both ruled out for good reasons: raising
+/// [`crate::PORTAL_WINDOW_Z`] above the player only inverts the bug onto
+/// near-side bodies, and moving an actor's single z cannot serve two panes that
+/// disagree about it in the same frame. ⇒ The covered region is never handed to
+/// the renderer AT ALL. There is no ordering to get wrong, because the pixels
+/// that could be wrong are not in any piece — asserted by
+/// `no_piece_ever_overlaps_the_cover` over a grid of offsets.
+///
+/// The decomposition is the standard one and its shape is load-bearing: a
+/// full-width band below the cover, a full-width band above it, then the left
+/// and right pieces of the middle band only. Cutting the bands full-width first
+/// is what keeps the four disjoint; four half-open half-planes would overlap at
+/// the corners and draw them twice, which for a translucent sprite is visible.
+///
+/// Total on no overlap (one whole piece) and on total cover (none), so the
+/// caller needs no special case for either.
+pub fn uncovered_remainder(
+    drawable_min: Vec2,
+    drawable_max: Vec2,
+    cover_min: Vec2,
+    cover_max: Vec2,
+) -> UncoveredPieces {
+    let mut out = UncoveredPieces::default();
+    let whole = UncoveredPiece {
+        min: drawable_min,
+        max: drawable_max,
+    };
+    if whole.is_degenerate() {
+        return out;
+    }
+    let cover = UncoveredPiece {
+        min: cover_min,
+        max: cover_max,
+    };
+    // No overlap: the cover hides nothing of this drawable, so it draws whole.
+    // ⚠ A degenerate cover takes this road too — a zero-area aperture must hide
+    // NOTHING, and treating it as covering everything would blank the actor.
+    if cover.is_degenerate() || !whole.overlaps(&cover) {
+        out.push(whole);
+        return out;
+    }
+
+    // Bands run the full width so the corners belong to exactly one piece.
+    out.push(UncoveredPiece {
+        min: drawable_min,
+        max: Vec2::new(drawable_max.x, cover_min.y.min(drawable_max.y)),
+    });
+    out.push(UncoveredPiece {
+        min: Vec2::new(drawable_min.x, cover_max.y.max(drawable_min.y)),
+        max: drawable_max,
+    });
+
+    // The middle band is the vertical overlap only; its left and right remain.
+    let band_lo = drawable_min.y.max(cover_min.y);
+    let band_hi = drawable_max.y.min(cover_max.y);
+    out.push(UncoveredPiece {
+        min: Vec2::new(drawable_min.x, band_lo),
+        max: Vec2::new(cover_min.x.min(drawable_max.x), band_hi),
+    });
+    out.push(UncoveredPiece {
+        min: Vec2::new(cover_max.x.max(drawable_min.x), band_lo),
+        max: Vec2::new(drawable_max.x, band_hi),
+    });
+    out
+}
+
+#[cfg(test)]
+mod remainder_tests {
+    use super::*;
+
+    fn rect(x0: f32, y0: f32, x1: f32, y1: f32) -> (Vec2, Vec2) {
+        (Vec2::new(x0, y0), Vec2::new(x1, y1))
+    }
+
+    fn remainder(d: (Vec2, Vec2), c: (Vec2, Vec2)) -> UncoveredPieces {
+        uncovered_remainder(d.0, d.1, c.0, c.1)
+    }
+
+    /// ⭐⭐ THE PROPERTY THE WHOLE REPAIR RESTS ON, over a grid rather than a
+    /// hand-picked case: whatever the cover is, NO emitted piece overlaps it.
+    /// A far-side body cannot draw inside the aperture because those pixels are
+    /// never in a piece — there is no z, and no ordering, to get wrong.
+    #[test]
+    fn no_piece_ever_overlaps_the_cover() {
+        let d = rect(0.0, 0.0, 10.0, 10.0);
+        let mut checked = 0;
+        for x in -3..=13 {
+            for y in -3..=13 {
+                let c = rect(x as f32, y as f32, x as f32 + 4.0, y as f32 + 6.0);
+                let cover = UncoveredPiece { min: c.0, max: c.1 };
+                for piece in remainder(d, c).iter() {
+                    assert!(
+                        !piece.overlaps(&cover),
+                        "piece {piece:?} overlaps cover {cover:?}"
+                    );
+                    checked += 1;
+                }
+            }
+        }
+        // ⚠ An anti-vacuity floor that clears the largest arrangement, not zero:
+        // 17x17 offsets, and the interior ones emit all four pieces.
+        assert!(checked > 400, "only {checked} pieces examined");
+    }
+
+    /// The pieces must also TILE the visible part: dropping a piece would pass
+    /// the overlap property above while leaving a hole in the actor.
+    #[test]
+    fn the_pieces_tile_exactly_the_visible_area() {
+        let d = rect(0.0, 0.0, 10.0, 10.0);
+        for (x, y, w, h) in [
+            (2.0f32, 2.0f32, 4.0f32, 6.0f32),
+            (-5.0, 3.0, 7.0, 2.0),
+            (8.0, -2.0, 5.0, 20.0),
+            (0.0, 0.0, 10.0, 5.0),
+        ] {
+            let c = rect(x, y, x + w, y + h);
+            let overlap_w = (x + w).min(10.0) - x.max(0.0);
+            let overlap_h = (y + h).min(10.0) - y.max(0.0);
+            let hidden = overlap_w.max(0.0) * overlap_h.max(0.0);
+            let visible: f32 = remainder(d, c).iter().map(|p| p.area()).sum();
+            assert!(
+                (visible - (100.0 - hidden)).abs() < 1e-3,
+                "cover ({x},{y},{w},{h}): pieces cover {visible}, expected {}",
+                100.0 - hidden
+            );
+        }
+    }
+
+    /// Disjointness is not implied by the two properties above — a double-drawn
+    /// corner tiles the right AREA only if you count it twice, and on a
+    /// translucent sprite it shows as a bright square.
+    #[test]
+    fn the_pieces_never_overlap_each_other() {
+        let d = rect(0.0, 0.0, 10.0, 10.0);
+        for x in -2..=12 {
+            for y in -2..=12 {
+                let c = rect(x as f32, y as f32, x as f32 + 3.0, y as f32 + 3.0);
+                let pieces: Vec<_> = remainder(d, c).iter().collect();
+                for (i, a) in pieces.iter().enumerate() {
+                    for b in &pieces[i + 1..] {
+                        assert!(!a.overlaps(b), "pieces {a:?} and {b:?} overlap");
+                    }
+                }
+            }
+        }
+    }
+
+    #[test]
+    fn a_cover_that_hides_everything_emits_no_pieces() {
+        let out = remainder(rect(1.0, 1.0, 4.0, 4.0), rect(0.0, 0.0, 9.0, 9.0));
+        assert!(out.is_empty(), "fully covered drawable emitted {}", out.len());
+    }
+
+    /// ⚠ Both of the ways "nothing is hidden" arrives, because they take
+    /// DIFFERENT roads through the function and a zero-area aperture reading as
+    /// a total cover would blank the actor outright — the loudest possible
+    /// version of the bug being repaired.
+    #[test]
+    fn nothing_hidden_draws_the_whole_sprite_once() {
+        for cover in [
+            rect(50.0, 50.0, 60.0, 60.0), // disjoint
+            rect(5.0, 5.0, 5.0, 5.0),     // degenerate
+        ] {
+            let out = remainder(rect(0.0, 0.0, 10.0, 10.0), cover);
+            assert_eq!(out.len(), 1, "cover {cover:?} should leave one whole piece");
+            let piece = out.iter().next().expect("one piece");
+            assert_eq!(piece.min, Vec2::new(0.0, 0.0));
+            assert_eq!(piece.max, Vec2::new(10.0, 10.0));
+        }
+    }
+
+    /// A cover meeting an edge exactly must not emit a zero-area quad: that is
+    /// a draw call that shows nothing, and four of them per pane per actor.
+    #[test]
+    fn an_edge_flush_cover_emits_no_degenerate_piece() {
+        let out = remainder(rect(0.0, 0.0, 10.0, 10.0), rect(0.0, 0.0, 10.0, 4.0));
+        assert_eq!(out.len(), 1, "expected only the band above");
+        let piece = out.iter().next().expect("one piece");
+        assert_eq!(piece.min, Vec2::new(0.0, 4.0));
+        assert_eq!(piece.max, Vec2::new(10.0, 10.0));
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

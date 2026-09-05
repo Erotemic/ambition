@@ -227,10 +227,47 @@ to a viewpoint.
    CONVEX region. The far-side case needs the opposite — *discard the part inside
    the aperture, keep everything else* — and the complement of a convex region is
    a UNION, which an intersection cannot express in one draw. ⇒ A far-side sprite
-   needs up to FOUR clipped quads (above / below / left / right of the aperture),
-   each one a single half-plane keep, which is precisely what the material is good
-   at. The transit path already draws a body as multiple clipped pieces, so this
-   is the same shape one step wider.
+   needs up to FOUR clipped quads (above / below / left / right of the aperture).
+   The transit path already draws a body as multiple clipped pieces, so this is
+   the same shape one step wider.
+
+   ✔ **DONE: the decomposition, as `compositing::uncovered_remainder`.** It
+   returns the part of a drawable the pane does NOT hide, as up to four disjoint
+   axis-aligned pieces, and is total on both ends (no overlap → one whole piece,
+   full cover → none). ⭐⭐ **The covered region is never handed to the renderer,
+   so there is no ordering left to get wrong** — asserted as
+   `no_piece_ever_overlaps_the_cover` over a 17×17 grid of offsets rather than a
+   hand-picked case. That is the (B) test instead of a guard that catches a bad z
+   after the fact.
+
+   ⛔⛔ **CORRECTION, measured 2026-09-05: "each one a single half-plane keep" was
+   WRONG, and it mattered.** `clip_piece_transform` scales the quad to the WHOLE
+   sprite, so a piece is not a sub-rect and every cut is a plane. The two BANDS
+   cost one plane each; the two MIDDLE pieces cost THREE (one lateral, two
+   bounding the band). ⇒ Worst case is exactly three — the material's budget
+   exactly, with nothing spare. It is pinned by
+   `no_piece_needs_more_than_the_materials_three_clip_planes`, which asserts the
+   worst case IS 3 — without that equality the bound would pass just as well on a
+   decomposition that never exercised the budget.
+   ⚠ **This is why the bands are cut FULL-WIDTH FIRST.** Four half-planes meeting
+   at the corners would need four on some piece and would not fit, besides drawing
+   the corners twice. The shape was chosen to avoid double-drawing; it turns out
+   to be the only shape that fits the budget, and a future re-cut is far more
+   likely to remember the first reason than the second.
+
+   ✔ **AND THE BUDGET IS ENOUGH FOR THE SHIPPED WORLDS — MEASURED, not assumed.**
+   Subtracting TWO apertures from one body would exceed three planes, so the road
+   is complete only if no body can be far-covered by two panes at once. All 14
+   portals sit in ONE area (`sandbox:portal_lab`), 91 pairs. The closest pair is
+   32px — and is NOT a counter-example: same link, opposing normals, i.e. a
+   back-to-back thin-wall doorway where "far of both" is the band BETWEEN them,
+   the inside of the wall slab, which `compute_cone`'s doorway clamp already
+   treats specially. **The closest pair a body could really be far of BOTH is
+   163.2px, against a body about 32px wide — a five-fold margin.**
+   ⚠ That is a fact about CONTENT with no structural guarantee behind it, so
+   `scripts/portal_pane_separation.py` PRINTS the margin rather than asserting a
+   threshold: the number is the thing to watch, and authoring that halves it is
+   the signal to revisit, not a build to break.
    ⚠ **The alternative — drawing a second copy of the PANE above the actor band —
    does not work without a mask**: it would cover near-side actors too, which is
    the inverted bug. That road wants a stencil, i.e. new machinery; the piece

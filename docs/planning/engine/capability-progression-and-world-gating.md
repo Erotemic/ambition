@@ -420,9 +420,14 @@ vocabulary is accounted for (2026-09-04), and the two that are NOT guarded are
 recorded here so nobody sweeps again:**
 - `<<spawn_chest "kernel_demo_chest">>` — ⛔ **the verb is a STUB.**
   `cmd_spawn_chest` logs *"(stub; chest spawn consumer pending)"* and returns.
-  There is nothing to validate the id against because nothing consumes it. ⚠ The
-  finding is not the id, it is that authored content calls a verb that does
-  nothing — worth knowing before someone debugs a chest that never appears.
+  There is nothing to validate the id against because nothing consumes it.
+  ⚠ **And it is called from the DEVELOPER command menu, not from shipped
+  narrative** — `kernel.yarn`'s `-> Command: spawn_chest` /
+  `hub_guide__test_chest`, one of a row of `hub_guide__test_*` nodes that exist
+  to exercise each verb by hand. ⇒ So this is a stub whose only caller is the
+  stub-tester, which is the correct state and not a player-facing gap. Checked
+  rather than assumed: my first note here said "authored content calls a verb
+  that does nothing", which is true and reads as worse than it is.
 - `<<play_sfx "ui.notification.discovery">>` — ✔ **the one authored id
   RESOLVES** (`ambition_sfx/src/ids.rs:228`, `UI_NOTIFICATION_DISCOVERY`), and a
   guard over a corpus of one would be vacuous by any honest floor. ⚠ The failure

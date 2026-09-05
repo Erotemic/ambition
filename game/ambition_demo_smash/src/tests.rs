@@ -871,8 +871,19 @@ fn the_stage_choice_decides_which_stage_the_match_prepares() {
         "the narrow stage is not narrower than the flat one"
     );
 
-    // Same blast geometry across ALL THREE, so a comparison between stages is a
-    // comparison of their geometry and not of their kill boundaries.
+    // ⭐ SAME BLAST GEOMETRY ACROSS ALL THREE — and as of `smash_stage_room` this
+    // asserts something DIFFERENT from what it did when it was written.
+    //
+    // It used to guard three copies of the envelope against drifting apart. One
+    // function sets it now, so agreement is structural and this can no longer
+    // fail that way. What it still catches is the case the structure cannot:
+    // a FOURTH stage built by hand instead of through the builder. That is a
+    // real possibility — `RoomSpec::new` is public and the builder is a
+    // convention — and it is the only way these can disagree again.
+    //
+    // ⇒ Kept, re-aimed rather than deleted. A guard whose property became
+    // structural is worth keeping only if it still names a reachable failure;
+    // this one does, and the comment says which.
     for (name, other) in [("platforms", &platforms), ("narrow", &narrow)] {
         assert_eq!(
             flat.geometry().0.edges.side,

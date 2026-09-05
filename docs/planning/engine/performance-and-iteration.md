@@ -34,6 +34,57 @@ The remaining ones are the boot (504 ms) and portal_lab's entry (123 ms). That
 is the asset campaign, and it is now the ONLY performance campaign:
 [`asset-preparation-and-residency.md`](asset-preparation-and-residency.md).
 
+## ⭐⭐ TWO OF THE RATCHET'S SIX FINDINGS ARE WORKSPACE GROWTH, NOT COUPLING — and its own percentage column already said so (2026-09-05)
+
+The compile-cost ratchet reports **6 findings** and is NOT in the `--rust` lane,
+so no union run touches it. It has been waiting on a carve owner because
+`--update` banks regressions together with wins. ⭐ **Two of the six are not
+carve work at all, and the report contains its own refutation.**
+
+```text
+                                    absolute            share of workspace
+worst_edit_cost_lines  geometry     540,227 -> 586,482   95.7% -> 95.5%  FELL
+edit_cost_lines        p2d_core     537,395 -> 583,171   95.2% -> 95.0%  FELL
+```
+
+Both are flagged **REGRESSED** on the absolute line count. Both have a
+**share of the workspace that went DOWN**. Reconstructing the workspace size
+from the report's own percentages: it grew from ~564,500 lines at the freeze
+(2026-08-27) to **614,016** today, +49,500 lines.
+
+```text
+                       growth alone predicts   actual
+geometry                     +47,386           +46,255
+platformer2d_core            +47,148           +45,776
+```
+
+⇒ **The actual increases are SMALLER than pure growth predicts.** Editing a very
+upstream crate rebuilds more lines than it did in August because there are more
+lines, not because anything grew a dependency edge — and the coupling those rows
+exist to measure improved slightly. ⚠ The ratchet's message offers both readings
+(*"Something got bigger or grew a dependency edge"*); this says which, with
+arithmetic, so the carve owner does not go looking for an edge that is not there.
+
+⛔ **THE GATE FAULT, STATED PLAINLY: an absolute-count guard frozen against a
+growing workspace reddens on growth alone.** These two rows can never go green
+again by any carve short of one that shrinks the workspace, and they will keep
+reddening every month. The quantity that expresses the thing being guarded is
+the SHARE, which the report already prints and does not gate on.
+
+ⓘ **What the diff DOES name:** `ambition_registry_core [NEW CRATE]` at +470,854
+edit-cost lines / +1,604.6s. That is a dependency-free crate at the BOTTOM of
+the graph, so nearly everything is downstream of it, and that is the shape of
+the [one-authority protocol win](../triage/ambition-registry-core.md) — paid for
+here. ⚠ REASONED, not measured: it plausibly contributes to
+`critical_path_crates 14 -> 16` by adding a level below `shared_tangle`, but
+that is +2 and one new crate is +1 at most, so something else moved too. Whoever
+takes the re-freeze should name both, not assume this is the whole answer.
+
+⇒ **Recommendation for the carve owner, unchanged in shape but smaller in
+scope:** 4 findings need a decision, not 6. The two above want the GUARD
+changed (gate the share, or re-freeze on every workspace-size change and admit
+the row is growth-tracking), not a carve.
+
 ## ⛔⛔ The ratchet guards four numbers; the ledger says ONE of them tracks seconds — and that does NOT mean three are invalid
 
 **Read out of `dev/ambition_dev_measurements/compile_units.jsonl` on 2026-09-05

@@ -64,6 +64,16 @@
 > one function every adopter reads. The seven SILENT-overwrite registries in the
 > inventory are a different decision each — `classify` refuses to be their
 > default, which is the point; each must say "replace" in place or adopt refusal.
+>
+> ✔ **SIX. `GatePortalRegistry` adopted refusal on 2026-09-05** — a loading zone
+> is a place and two portals cannot both be there. ⭐ **And the lesson from doing
+> one: the refusal is only half of it.** That registry's `portals` map was `pub`,
+> so any crate could `insert` past the new check; a registry that validates in
+> one function and leaves its map open has one authority for the checked road and
+> none for the other. ⇒ **When taking one of the remaining six, seal the
+> collection in the same commit** or the adoption is advice. (Preventive: that
+> registry has exactly one production caller, so no conflict was reachable — the
+> value is that the roadmap's SECOND portal cannot unseat the first.)
 > Fingerprint hashing was NOT extracted: rollback's hasher and version prefix
 > stay its own, so no ledger moved.
 >
@@ -179,7 +189,7 @@ unhandled.
 | `SheetRegistry` | `crates/ambition_sprite_sheet/src/lib.rs:565` | `String` | `-` | no register fn |
 | `EncounterRegistry` | `crates/ambition_encounter/src/registry.rs:18` | `String` | `insert` | silent |
 | `FrontendAudioRegistry` | `crates/ambition_audio/src/selection.rs:181` | `String` | `declare_route` | silent |
-| `GatePortalRegistry` | `crates/ambition_platformer2d_world/src/rooms/gate_portal.rs:77` | `String` | `register` | silent |
+| `GatePortalRegistry` | `crates/ambition_platformer2d_world/src/rooms/gate_portal.rs:77` | `String` | `try_register` | ✔ Result (adopted 2026-09-05; map SEALED) |
 | `MovePrefabRegistry` | `crates/ambition_combat/src/moveset/prefab_registry.rs:21` | `String` | `register` | silent |
 | `ParamSchemaRegistry` | `crates/ambition_entity_catalog/src/lib.rs:135` | `String` | `register` | silent |
 | `PreparedCharacterRegistry` | `crates/ambition_characters/src/prepared.rs:1320` | `ambition_entity_catalog::CharacterId` | `insert_prepared` | silent |

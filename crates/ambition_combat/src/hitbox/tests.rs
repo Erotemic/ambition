@@ -553,6 +553,155 @@ fn a_hazard_hits_bystander_and_owner_alike_where_a_neutral_box_hits_neither() {
     );
 }
 
+/// ⛔⛔ A WORLD-ANCHORED BLAST LAUNCHES AWAY FROM THE BLAST, NOT AWAY FROM ITS
+/// OWNER.
+///
+/// `world_volume()` already ignores `owner_pos` for a `World` anchor — but the
+/// knockback DIRECTION and `source_pos` still read it, so the same explosion
+/// threw a victim differently depending on where the entity credited with it
+/// happened to be standing. ⇒ The steered bolt is the named customer: its
+/// `DamageBox` is centred at `bolt.pos` while the owner is the CASTER, so a
+/// curved bolt striking from one side launched its victim away from Carl on the
+/// other.
+///
+/// ⭐ ATTRIBUTION AND GEOMETRY ARE DIFFERENT QUESTIONS, which is Jon's own split:
+/// `hitbox.owner` keeps answering "who is credited"; where the hit came FROM is
+/// the anchor's business. ⛔ Two victims placed symmetrically about the blast
+/// must be thrown APART — that is the shape a shared owner position cannot
+/// produce, because it throws them both the same way.
+#[test]
+fn a_world_blast_throws_victims_apart_regardless_of_where_its_owner_stands() {
+    let blast = ae::Vec2::new(200.0, 80.0);
+    // The owner stands far to one side — the caster of a bolt that curved.
+    let owner_at = ae::Vec2::new(-400.0, 80.0);
+
+    let mut app = App::new();
+    app.add_message::<HitEvent>();
+    app.add_message::<LandedBodyHit>();
+    app.add_message::<ParriedBodyHit>();
+    app.add_message::<VfxMessage>();
+    app.init_resource::<CapturedHits>();
+    app.init_resource::<crate::targeting::FriendlyFire>();
+    app.add_systems(Update, (apply_hitbox_damage, capture_hits).chain());
+
+    let owner = hazard_victim(&mut app, ActorFaction::Player, owner_at);
+    let left = hazard_victim(&mut app, ActorFaction::Enemy, blast - ae::Vec2::new(24.0, 0.0));
+    let right = hazard_victim(&mut app, ActorFaction::Enemy, blast + ae::Vec2::new(24.0, 0.0));
+    app.world_mut().spawn((
+        Hitbox {
+            strike_sfx: None,
+            owner,
+            source: HitSide::Environment,
+            anchor: HitboxAnchor::World { center: blast },
+            half_extent: ae::Vec2::new(60.0, 30.0),
+            shape: None,
+            facing: 1.0,
+            damage: 5,
+            knockback: crate::strike::HitboxKnockback::FeelScale(1.0),
+            launch_dir: None,
+            frame_down: ae::Vec2::new(0.0, 1.0),
+            reaction: None,
+        },
+        HitboxLifetime { remaining_s: 0.2 },
+        HitboxHits::default(),
+    ));
+    app.update();
+
+    let cap = app.world().resource::<CapturedHits>();
+    let side_for = |who: Entity| -> Option<f32> {
+        cap.0
+            .iter()
+            .find(|e| matches!(e.target, HitTarget::Body(b) if b == who))
+            .and_then(|e| e.knockback.as_ref())
+            .map(|k| k.dir)
+    };
+    let (l, r) = (side_for(left), side_for(right));
+    assert!(
+        l.is_some() && r.is_some(),
+        "the blast did not reach both bodies standing in it (left={l:?}, right={r:?})"
+    );
+    assert_ne!(
+        l, r,
+        "both victims were thrown the SAME way ({l:?} vs {r:?}) — the direction \
+         is being measured from the owner, who is off to one side, rather than \
+         from the explosion they are standing around"
+    );
+}
+
+/// ⛔⛔ AND A FOLLOWING BOX STILL MEASURES FROM ITS OWNER, NOT FROM ITS OWN
+/// VOLUME — the control the world-blast test above cannot supply.
+///
+/// ⭐ FOUND BY A POISON THAT DID NOT FIRE. Making `spatial_source` the volume
+/// centre for BOTH anchors left the whole crate green, which means nothing
+/// asserted the `FollowOwner` half at all. ⇒ The world arm alone would have let
+/// somebody "simplify" the split away in one line.
+///
+/// ⛔ THE PROPERTY IS THE ATTACKER, NOT THE SWORD TIP. A reaching strike's volume
+/// sits well in front of the body; a victim standing BETWEEN the two must still
+/// be thrown away from the attacker. Measuring from the volume centre would
+/// throw them backwards THROUGH the fighter who hit them.
+#[test]
+fn a_following_box_throws_away_from_the_owner_not_from_its_own_volume() {
+    let owner_at = ae::Vec2::new(200.0, 80.0);
+    // The volume reaches far to the right of the body.
+    let reach = ae::Vec2::new(90.0, 0.0);
+    // The victim stands BETWEEN the owner and the volume's centre, so the two
+    // candidate sources disagree about which way to throw them.
+    let between = owner_at + ae::Vec2::new(40.0, 0.0);
+
+    let mut app = App::new();
+    app.add_message::<HitEvent>();
+    app.add_message::<LandedBodyHit>();
+    app.add_message::<ParriedBodyHit>();
+    app.add_message::<VfxMessage>();
+    app.init_resource::<CapturedHits>();
+    app.init_resource::<crate::targeting::FriendlyFire>();
+    app.add_systems(Update, (apply_hitbox_damage, capture_hits).chain());
+
+    let owner = hazard_victim(&mut app, ActorFaction::Player, owner_at);
+    let victim = hazard_victim(&mut app, ActorFaction::Enemy, between);
+    app.world_mut().spawn((
+        Hitbox {
+            strike_sfx: None,
+            owner,
+            // ⛔ THE OWNER'S OWN SIDE. `HitSide::Enemy` here would make the
+            // source faction match the victim's, and a same-faction hit is
+            // blocked with friendly fire off — the strike would simply not land
+            // and the test would fail for a reason unrelated to direction.
+            source: HitSide::Player,
+            anchor: HitboxAnchor::FollowOwner {
+                local_offset: reach,
+            },
+            half_extent: ae::Vec2::new(70.0, 30.0),
+            shape: None,
+            facing: 1.0,
+            damage: 5,
+            knockback: crate::strike::HitboxKnockback::FeelScale(1.0),
+            launch_dir: None,
+            frame_down: ae::Vec2::new(0.0, 1.0),
+            reaction: None,
+        },
+        HitboxLifetime { remaining_s: 0.2 },
+        HitboxHits::default(),
+    ));
+    app.update();
+
+    let cap = app.world().resource::<CapturedHits>();
+    let dir = cap
+        .0
+        .iter()
+        .find(|e| matches!(e.target, HitTarget::Body(b) if b == victim))
+        .and_then(|e| e.knockback.as_ref())
+        .map(|k| k.dir)
+        .expect("the reaching strike did not land on the body inside it");
+    assert!(
+        dir > 0.0,
+        "the victim was thrown BACK toward the fighter who hit them ({dir}) — the \
+         direction is being measured from the volume's centre, which is out at \
+         the end of the reach, rather than from the attacker"
+    );
+}
+
 // ── S3e: relational actor-vs-actor melee ────────────────────────────────────
 
 use crate::targeting::FactionRelations;

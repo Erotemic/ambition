@@ -602,22 +602,67 @@ pub fn emmy_noether_moveset() -> MovesetContract {
         "vfx.noether.conserved_current.loop",
     );
 
-    // DOWN — `invariant_field`. A low, wide field that denies the ground in
-    // front of her. The widest box in the table and the cheapest damage on it.
-    let down_b = strike(Strike {
-        id: "invariant_field",
-        clip: "invariant_field",
-        startup_s: 0.14,
-        active_s: 0.15,
-        recover_s: 0.30,
-        offset: (14.0, 20.0),
-        half_extents: (40.0, 13.0),
-        damage: 6,
-        knockback: 74.0,
-        knockback_growth: 1.50,
-        launch_dir: Some((0.8, -0.5)),
-        on_hit: None,
-    });
+    // DOWN — `invariant_field`. ⭐⭐ IT IS THE COUNTER HER BLUEPRINT ASKED FOR,
+    // and the note that recorded why she could not have one expired this
+    // morning: *"`MoveSpec` has no absorb or reflect, and inventing one for one
+    // character would be the wrong shape."* Both halves are answered —
+    // `smash.counter` carries an ARBITRARY response and an absorb flag, and four
+    // fighters now author one, so it is shared rather than bespoke.
+    //
+    // ⭐⭐ AND THE RESPONSE IS THE THEOREM. Noether's is that a symmetry implies
+    // a CONSERVED QUANTITY: put energy in and it is not destroyed. So the answer
+    // to being struck is `smash.vitality` — she keeps it. ⇒ Four counters on this
+    // roster and no two alike: George grabs, the Author arrives behind you, the
+    // Shadow Oni puts you out, and she is simply better off for having been hit.
+    //
+    // ⛔ SHE ABSORBS RATHER THAN REFLECTS, which is the same idea and not a
+    // second one. Returning the shot would be conservation of MOMENTUM — George's
+    // riposte already does that — and this move is about the energy going
+    // nowhere. One conservation law per move.
+    //
+    // ⚠ WHAT IT COSTS HER, stated rather than buried: the displaced field was a
+    // low wide poke at `damage: 6`, the CHEAPEST special she owns, and she keeps
+    // a second ground-claiming field in `conservation_law`. ⇒ So the kit loses a
+    // duplicate and gains a defensive option, which is why this slot rather than
+    // the neutral her blueprint named — that one is three even terms and four
+    // cues, and displacing it would cost her the move that states her idea.
+    //
+    // ⚠ THE HEAL IS SMALL ON PURPOSE. A parry is already a full punish window;
+    // three points is a reason to take the read, not a reason to turtle.
+    let down_b = ambition_characters::smash_counter::counter_move(
+        "invariant_field",
+        // Her own clip, kept: the art is a field closing and that is still what
+        // the move looks like.
+        "invariant_field",
+        0.14,
+        // The old ACTIVE window, kept as the stance. 0.15s is a real read at
+        // 60Hz — nine frames — where the 0.05s windows elsewhere on this roster
+        // would be a guess.
+        0.15,
+        0.30,
+        ambition_characters::smash_counter::CounterParams {
+            // A heartbeat, not a duration: `parry_window_timer` decays and the
+            // stance re-arms it every live frame.
+            window_s: 0.05,
+            response: ambition_characters::smash_vitality::VITALITY.to_string(),
+            response_params: ambition_platformer2d::entity_catalog::ParamValue::from_typed(
+                &ambition_characters::smash_vitality::VitalityParams {
+                    change: 3,
+                    // ⓘ IGNORED BY A RESTORE — the floor only bounds a PRICE, and
+                    // this is a gain. Stated at the type's own default rather
+                    // than left to look meaningful.
+                    floor: 1,
+                    // ⭐ HER OWN ROWS. `conserved_current` is the effect her
+                    // neutral and her recovery both use for the theorem, which is
+                    // exactly what this is: the quantity that did not go away.
+                    vfx: "conserved_current".to_string(),
+                    sfx: "player.attack.charge".to_string(),
+                },
+            )
+            .expect("the invariant field's vitality params serialize"),
+            absorbs_projectiles: true,
+        },
+    );
     let down_b = vfx_cued(
         down_b,
         0.14,
@@ -1074,5 +1119,67 @@ mod tests {
                 m.clip.clip
             );
         }
+    }
+
+    /// ⛔⛔ THE THEOREM IS THE MOVE: a symmetry implies a CONSERVED QUANTITY, so
+    /// the answer to being struck is that the energy is kept. A test that only
+    /// found a counter would pass against one that answered with a grab — which
+    /// would be George's move on her fighter, and would say nothing.
+    #[test]
+    fn her_field_answers_a_blow_by_conserving_it() {
+        let set = emmy_noether_moveset();
+        let field = set
+            .moves
+            .iter()
+            .find(|m| m.id == "invariant_field")
+            .expect("her grounded down special");
+
+        let params: ambition_platformer2d::characters::smash_counter::CounterParams = field
+            .windows
+            .iter()
+            .filter_map(|w| w.sustain_effect.as_ref())
+            .find(|e| e.key == ambition_platformer2d::characters::smash_counter::COUNTER)
+            .expect("the field holds a counter stance")
+            .params
+            .hydrate()
+            .expect("counter params hydrate");
+
+        assert_eq!(
+            params.response,
+            ambition_platformer2d::characters::smash_vitality::VITALITY,
+            "she must answer by keeping the energy, not by grabbing or leaving"
+        );
+        let gain: ambition_platformer2d::characters::smash_vitality::VitalityParams =
+            params.response_params.hydrate().expect("vitality params hydrate");
+        assert!(
+            gain.change > 0,
+            "a conservation law that COSTS her health is the opposite of the move: {}",
+            gain.change
+        );
+        // ⛔ SMALL. A parry is already a full punish window; this is a reason to
+        // take the read, not a reason to turtle.
+        assert!(gain.change <= 5, "the heal is worth turtling for: {}", gain.change);
+
+        // ⭐ SHE ABSORBS RATHER THAN REFLECTS — the same conservation idea, not a
+        // second one. Returning the shot is conservation of MOMENTUM and is
+        // already George's riposte.
+        assert!(
+            params.absorbs_projectiles,
+            "she returns shots, which is the other fighter's law"
+        );
+
+        // ⛔ AND THE STANCE IS A REAL READ. Her old ACTIVE window was 0.15s —
+        // nine frames — and a counter inherits it; the 0.05s stances elsewhere on
+        // the roster are for fighters who answer fast, not for a field.
+        let stance = field
+            .windows
+            .iter()
+            .find(|w| w.sustain_effect.is_some())
+            .expect("a stance window");
+        assert!(
+            stance.end_s - stance.start_s >= 0.12,
+            "the stance is {}s, which is a guess rather than a read",
+            stance.end_s - stance.start_s
+        );
     }
 }

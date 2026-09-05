@@ -23,15 +23,15 @@ each one as an **engine acceptance fixture** rather than a character feature:
 | 1 ✔ | **PK-Thunder parody** — **LANDED 2026-09-05** on the Author's side-B (`author_train_of_thought`) | ⭐⭐ **IT NEEDED NEITHER INPUT DELEGATION NOR FIGHTER-CONTROL SUPPRESSION.** `steer_axis()` already publishes what the PLAYER is holding as distinct from what the BODY may move by, so the caster stays rooted, keeps his own seat, and the bolt reads his live stick — steering, not possession. ⇒ The rung this row was blocked behind (A2) is not on its path. ⛔ And it did NOT need `TechniqueFlow` either: one technique, one component, one system |
 | 2 ✔ | **Counter + Revenge variant** — the stand-ins' `riposte`, and **2026-09-05 the Author's `author_second_draft`** | ⭐⭐ **"COUNTER" TURNED OUT NOT TO BE A MOVE TYPE AT ALL.** `answer_a_parry_with_the_authored_counter` dispatches `SpecialActionSpec::Special(stance.response.clone())` — fully generic — so a counter is **ANY TECHNIQUE, TRIGGERED BY A SUCCESSFUL PARRY**. Counter-into-grab (George), counter-into-teleport (the Author), counter-into-mine or -sleep are all authorable today with zero engine work. ⇒ I built this seam and then under-read it for a day |
 | 3 ✔ | **Reflector + absorber** — **LANDED 2026-09-05** as Track B's B3 | projectile interception is a projectile authority and supports more than parry reversal. ⭐ **The reflector cost NOTHING**: `step_projectiles` and the melee seam gate on the same `parrying()` window, so a stance that could counter could already return shots. The absorber cost one enum and one shield field, and is the Officer's riot shield. ⚠ This row sat unticked while its own Track B row said complete — corrected 2026-09-05 |
-| 4 ◐ | **Tether recovery + aerial tether grab** — **GROUND HALF LANDED** as Track B's B2 | terrain/body tethering composes with ledge and capture authorities. ✔ **Ground tether**: Projectile Polygon's grab reaches 150px and draws a line on both roads, for one read-model field. ▢ **The AERIAL half is NOT done** — a tether that catches a LEDGE and pulls her back is the recovery half of this row, and nothing has been built for it. ⚠ Marked ◐ rather than ✔ deliberately: B2's own row says "ground tether", and reading that as the whole row is how a half-built capability gets reported as finished |
+| 4 ◐ | **Tether recovery + aerial tether grab** — **GROUND HALF LANDED** as Track B's B2 | terrain/body tethering composes with ledge and capture authorities. ✔ **Ground tether**: Projectile Polygon's grab reaches 150px and draws a line on both roads, for one read-model field. ▢ **The AERIAL half is NOT done** — a tether that catches a LEDGE and pulls her back is the recovery half of this row. ⭐ **AND IT IS MOSTLY ASSEMBLED ALREADY**: `TeleportParams::ledge_assist` is a shipped, authored parameter whose doc calls it *"the aim assist… the difference between a recovery and a coin flip"* — within its radius an arrival is placed STANDING on the ledge. ⇒ So "a recovery that catches a ledge" EXISTS; what a tether adds is the visible line, and `TetherVisual` landed in B2. ⚠ Its one gap: `TetherVisual` names a `body: Entity` and draws to *"where its GRAB actually reaches"*, so drawing to a teleport destination is a small extension rather than a reuse. ⚠ Marked ◐ rather than ✔ deliberately: B2's own row says "ground tether", and reading that as the whole row is how a half-built capability gets reported as finished |
 | 5 ✔ | **Cargo command grab** — **LANDED 2026-09-05** on the goblin's down-throw | ⭐ **MOVEMENT WAS NEVER TOUCHED.** The claim was "capture and movement cooperate", and what actually happened is that capture RESTRICTS LESS: `restrict_captor_control` zeroed `locomotion` for every captor, and a carry is a hold that does not. ⇒ `carrying` rides `SmashHoldState` (the ruleset's half) rather than `CapturedBy` (the generic relation), on that component's own argument that platform-fighter rules do not belong on the relation |
 | 6 ✔ | **Remote mine** — **LANDED 2026-09-05** on Projectile Polygon's down-smash | persistent spawned identity, owner lookup, remote triggering, rollback. ⭐ **It cost one component with four fields and no new authority**: the object is a `GroundItem`, the blast is a `DamageBoxEffect`, and "where is it, whoever holds it" is `ItemWorldPos`. The mine contributes an arming clock and a decision |
-| 7 | **Parasol** | temporary movement modifiers/controllers are expressive enough for a long-lived post-move locomotion regime |
-| 8 | **Homing Attack** | deterministic semantic target queries and target-directed fighter motion |
+| 7 ▢ | **Parasol** | temporary movement modifiers/controllers are expressive enough for a long-lived post-move locomotion regime. ⛔ **MEASURED 2026-09-05 AND GENUINELY MISSING** — the one open row where the search found nothing. `ActorSurfaceState::gravity_scale` is per-body and already suspended/restored by capture (`prior_gravity_scale`), but **no TIMED modifier exists**: nothing owns "this scale, for N seconds, then back". ⇒ That is the smallest honest shape of this row, and it IS new state — so it wants the campaign's rule applied deliberately: a move may ask for it and must not own it |
+| 8 ◐ | **Homing Attack** | deterministic semantic target queries and target-directed fighter motion. ⚠ **THE ROW SPLITS, AND THE CHEAP HALF DODGES WHAT IT WAS MEANT TO PROVE.** The TARGET QUERY exists — the teleport's ambush arrival does deterministic foe selection through `combat_relation`, *"the same call the damage side makes, so a teammate cannot become a target here after ceasing to be one there"* — but it is PRIVATE to `teleport.rs` (`fn may_ambush`), so it is built and not reusable. ⇒ A "homing attack" is authorable today as an ambush teleport plus a strike window, and **that would tick the row while skipping target-directed MOTION**, which is the half worth having. ⛔ Not doing it that way |
 | 9 ✔ | **Sing** — **COMPLETE 2026-09-05** on the Performer's neutral special | `BodyCombat::sleep_timer`, the `smash.sleep` technique and the area adapter, all guarded — and now with a customer. ⭐ **ADDED TO `the_monologue`, NOT SUBSTITUTED FOR IT**: her strike is 58×34 out in front and is unchanged to the number; the sleep is 26×26 centred on HER, wholly inside it. Everyone still gets the speech; only whoever stood next to her goes under |
-| 10 | **Limit** | character-local resource state, threshold transitions, timeout, action variants, stat modifiers |
+| 10 ▢ | **Limit** | character-local resource state, threshold transitions, timeout, action variants, stat modifiers. ⓘ **THE NEAREST SHIPPED THING IS `StoredMoveCharge`** — per-body, rollback-registered, with a value probe — but it is a CHARGE BANK keyed by move id, filled by holding a button. A meter filled by combat EVENTS and read by a move SELECTOR is a different object, and the selector half (`move_for_directional_verb` varies only on `grounded`) is the part with no precedent |
 | 11 | **Free-standing ally summon** | summon is not synonymous with mount; first owned-secondary-actor contract |
-| 12 | **Reusable launch object** | a fighter can create a persistent world actuator another fighter interacts with |
+| 12 ▢ | **Reusable launch object** | a fighter can create a persistent world actuator another fighter interacts with. ⓘ **Searched 2026-09-05: no placed launcher exists.** `PogoPolicy` is the nearest and is a different thing — bouncing off a body you HIT, not off an object somebody placed. ⭐ But the mine proves the spawning half is cheap (`GroundItem` + a seat-owned component), so what this row really needs is the ACTUATOR contract: a thing that launches whoever touches it, including its owner |
 | 13 ✔✔ | **Portal recovery** (Jon, added same day) — **LANDED 2026-09-05** on Alice's up-B, **and the ANGLED half completed the same day** | an authored customer places linked world portals and traverses them. ⭐⭐ **Jon's second sentence is now built too**: *"we can even exercise angled portals with directional input on the up b as a flavor that isn't actually in smash and is ours."* `tilt_degrees` was `0.0` in every literal in the tree — the parameter existed, the code applied it, nobody ever set it — and the player's own stick now leans the shaft ±32°. ⇒ **It reuses `MovePlayback::aimed_stick`, the LATCHED UNDAMPED aim the teleport already reads**, so no new authority: an aimed special is rooted, and a live stick read would be neutral for the whole move |
 
 ⭐ **Sanic's spring analogue is a SPEED BUMP** (Jon): he slams down a ridiculous
@@ -388,7 +388,7 @@ output is invalidating those**, and nothing goes back to update them:
 
 | where | what it said | why it is now false |
 |---|---|---|
-| Emmy's `conservation_law` | *"not the counter the sheet's blueprint imagined — `MoveSpec` has no absorb or reflect, and inventing one for one character would be the wrong shape"* | `smash.counter` carries `absorbs_projectiles` and an arbitrary response, authored on **three** fighters — shared, not bespoke, so both halves of the objection are answered |
+| Emmy's `conservation_law` ✔ **and her counter has since landed on `invariant_field`** | *"not the counter the sheet's blueprint imagined — `MoveSpec` has no absorb or reflect, and inventing one for one character would be the wrong shape"* | `smash.counter` carries `absorbs_projectiles` and an arbitrary response, authored on **three** fighters — shared, not bespoke, so both halves of the objection are answered |
 | Projectile Polygon's `charge_shot` | *"a per-action MUZZLE offset would fix both ends at once; **it does not exist**, and inventing one here would be a fighter reaching into the shared fire site"* | `Muzzle::Offset` landed as Track B's B4 **with her as its customer**, two files away in `authored/projectile_polygon.rs` |
 
 ⚠ **The second is the worse one: her own sibling file already uses the thing her
@@ -442,12 +442,48 @@ is inside the spawner. Contact logic that does not say so is not "usually fine",
 it is wrong on frame one — and frame one is the only frame that matters, because
 it happens before anything else can.
 
-### ⚠⚠ EIGHT ROSTER DECISIONS MADE UNDER DELEGATION — EVERY ONE IS JON'S TO OVERRULE
+### ⓘ WHERE THE ROSTER STANDS, AND WHY THE OBVIOUS METRIC IS WRONG
+
+**Nine fighters gained an expressive move on 2026-09-05**: Projectile Polygon
+(mine), the Performer (Sing), the goblin (cargo carry), the Author (counter AND
+the steered bolt), Alice (portal aim), the Officer (gust), the Patent Clerk
+(armour), the Shadow Oni (counter, plus a cue repair), and the cellular automaton
+(the collapse that finally collapses).
+
+⛔⛔ **DO NOT MEASURE THIS BY COUNTING `smash_*::` CALLS PER FIGHTER. I tried, and
+it reports the goblin and the automaton at ZERO** — the goblin's carry is a
+CAPTURE-family technique and the automaton's collapse is a `VolumeReaction`, not
+a `smash_*` helper at all. Alice's angled portal is a PARAMETER on a technique she
+already had. ⇒ Three of the nine are invisible to the obvious grep, so a count
+that looks objective would rank the two fighters improved most recently as the
+least improved.
+
+⭐ **The real signal is not countable and should not be faked:** whether a
+fighter's four specials do four DIFFERENT KINDS of thing. That needs reading the
+moves, which is how every one of today's finds was made.
+
+▢ **Four fighters remain as candidates** — `bob`, `carl_stargan`, `emmy_noether`
+and `oiler` — none of which author a technique yet. ⚠ `pointed_polygon` and
+`pugnacious_polygon` are deliberately excluded: they are the sword and brawler
+REFERENCE fighters, and their own comments say a new humanoid should copy them
+before it has a reason to differ. Giving them a bespoke technique would corrupt
+the template.
+
+⭐ **And Emmy is the best of the four**, because her file already says what she
+wants: her blueprint asked for a counter and the deferral recording why she could
+not have one has now expired.
+
+### ⚠⚠ TWELVE ROSTER DECISIONS MADE UNDER DELEGATION — EVERY ONE IS JON'S TO OVERRULE
 
 Jon's grant was *"you can pick where to put the proof of concept for the other
 moves in the roster… we can tune who the moves belong to later."* ⇒ Here is
 everything spent against it on 2026-09-05, with what each one COST, so a review
-is a table rather than a git log. **Four cost nothing; four displaced something.**
+is a table rather than a git log. ⚠ **This table was written at EIGHT and is now
+TWELVE — I updated it rather than letting it read as complete**, which is the same
+failure as a stale deferral and would have been worse here, because its whole
+purpose is to be the thing Jon reads instead of the log.
+
+**Six cost nothing; five displaced something; one is presentation only.**
 
 | fighter · slot | change | cost |
 |---|---|---|
@@ -459,6 +495,10 @@ is a table rather than a git log. **Four cost nothing; four displaced something.
 | the Author · down-B | archetype low arc → **counter into ambush teleport** | ⚠ a borrowed poke that was never his. Gains a second slot of his own; his `owned_slots` went 1 → 2 |
 | the Shadow Oni · down-B | damage-10 poke → **counter into sleep** | ⚠ 10 damage. ⭐ But the move already carried a `counter_ring` and a `parry_flash` sound: the art always said counter |
 | **the Officer · neutral** | haymaker → **damageless gust** | ⛔⛔ **THE BIGGEST ONE, and the only KO move lost.** `damage: 13, knockback: 142` becomes a move that does no damage at all. He keeps every smash and `the_draw`; what a player trades is a button that kills for a button that creates space |
+| the cellular automaton · down-B | strike → **the same strike with three autolink pulses in front** | ⭐ none — the finisher is unchanged; the pulses are 2 chip each. It only does what its own comment always claimed |
+| the Author · **side-B** | archetype `vector_lunge` → **PK-Thunder** | ⚠ a borrowed poke that was never his. ⭐ Jon's own assignment, and his third owned slot |
+| the Shadow Oni · aerial down-B | `counter_ring` + `parry_flash` cues **removed** | ⚠ presentation only, and it is MY DEBT: converting his grounded seal to a real counter made the dive's borrowed parry cues a trap |
+| Emmy Noether · down-B | `invariant_field` → **counter that conserves the blow** | ⚠ her CHEAPEST special (`damage: 6`), and she keeps a second ground-claiming field. ⭐ Her own blueprint asked for a counter; the deferral saying she could not have one expired this morning |
 
 ⛔ **If exactly one of these is wrong, it is the Officer's** — it is the only
 change that removes a way to finish a stock rather than replacing filler or
@@ -477,8 +517,9 @@ ARBITRARY TECHNIQUE, so "counter" is a trigger, not a reaction:
 | George (stand-in) | `smash.capture_attempt` | a riposte into a grab; reflects shots |
 | the Author | `smash.teleport`, **ambush mode** | you commit, and he is behind you; absorbs shots |
 | the Shadow Oni | `smash.sleep` | a smoke seal — you wake up on the floor; absorbs shots |
+| Emmy Noether | `smash.vitality` | ⭐ **the theorem as a move**: a symmetry implies a CONSERVED QUANTITY, so the energy you put in is kept. She is simply better off for having been hit |
 
-⇒ **None of these needed engine work, and no two of them feel alike.** That is the
+⇒ **FOUR counters now, none needing engine work, and no two feel alike.** That is the
 campaign's thesis at its cheapest: the composition seam was already there, and
 what the roster lacked was somebody spending it.
 

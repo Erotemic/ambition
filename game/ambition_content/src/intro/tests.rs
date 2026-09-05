@@ -14,6 +14,15 @@ use ambition_dialog::DialogueContext;
 fn every_intro_dialogue_id_is_registered_with_validator() {
     // Each intro dialogue id must be in `known_dialogue_ids` so the LDtk content validator
     // accepts `NpcSpawn.dialogue_id` references.
+    //
+    // ⭐ THIS ABSORBED `known_dialogue_ids_contains_every_intro_id`, which
+    // asserted the SAME property over the SAME corpus in the same direction —
+    // one built a `HashSet` and the other scanned linearly, and neither could
+    // fail without the other failing too. Two tests for one fact is the same
+    // defect as two authorities for one fact: they cannot disagree usefully,
+    // and a reader has to check both to learn they say one thing.
+    // ⚠ The name kept is the one that says WHY the property matters; the
+    // deleted name said only what the code did.
     let catalog = crate::character_catalog::load_catalog();
     let known: std::collections::HashSet<String> = crate::dialogue::known_dialogue_ids(&catalog)
         .into_iter()
@@ -38,18 +47,6 @@ fn dialog_start_sets_dialogue_id_for_intro_and_sandbox() {
     assert_eq!(state.dialogue_id(), "oiler_intro");
     state.start("hub_guide", "Kernel Guide", DialogueContext::scripted());
     assert_eq!(state.dialogue_id(), "hub_guide");
-}
-
-#[test]
-fn known_dialogue_ids_contains_every_intro_id() {
-    let catalog = crate::character_catalog::load_catalog();
-    let known = crate::dialogue::known_dialogue_ids(&catalog);
-    for id in intro_dialogue_ids() {
-        assert!(
-            known.iter().any(|known_id| known_id == id),
-            "known_dialogue_ids() missing intro id '{id}'"
-        );
-    }
 }
 
 /// ⛔⛔ EVERY INTRO `NpcSpawn` MUST NAME A CHARACTER THE CATALOG KNOWS.

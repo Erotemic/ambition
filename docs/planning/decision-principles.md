@@ -28,6 +28,10 @@ Two tests make that judgeable rather than a matter of taste, and a change should
 
 A refactor that only moves code is not elegance. Name the authority or the dependency edge the change removes. If it removes neither, it is churn.
 
+*One absence must not answer two questions.* A lookup that returns nothing is answering exactly one question unless somebody made it answer two, and the second one then passes silently. `ParamSchemaRegistry` has no entry for a technique with no params and no entry for a technique that does not exist, so an authored typo validates clean at startup and is inert in play; `boss.cleared` read a missing save key as `Untouched`, so a wrong id was a shut door rather than an error. The fix is never to make absence fail — it is to split the facts, so that unknown fails, known-and-empty passes, and known-and-checked is checked. ⚠ The permissive default itself is usually right: an unconstrained move permits, an unclaimed slot is writable, and `ExperienceStaging::is_writable_by` states the distinction outright — *"nobody claimed this" and "somebody else claimed this" are different answers and only the second is a refusal*. Hunt the `None` that means two things, not the one that means yes.
+
+A class claimed from one example is a hypothesis. Sweep for the other instances before writing the generalisation down, because they are as likely to refute the wording as to confirm it — the sentence above was first written as "an absence that reads as a pass", and every other instance in the tree turned out to be correct.
+
 Three things follow from the second test, and all three were learned by getting them wrong.
 
 Making something impossible changes what its guard is for. A guard whose property has become structural is worth keeping only if it still names a reachable failure; re-aim it and say which, or delete it. Leaving it asserting what the compiler now guarantees, with a comment claiming otherwise, is worse than either.

@@ -880,6 +880,62 @@ pub fn fighter_moveset() -> MovesetContract {
     );
     moves.push(confirm);
 
+    // UP SPECIAL — `slip_upward`. THE RECOVERY, and until now these fighters
+    // did not have one.
+    //
+    // ⛔⛔ PRESSING UP-B IN THE AIR DID NOTHING. All three specials authored
+    // above are `grounded_only`, so `special_up_air` fell through the whole
+    // directional chain to silence — a platform fighter knocked off the stage
+    // had jumps and a ledge grab and no special at all. That is not a missing
+    // flourish; it is the button the genre is built around.
+    //
+    // ⭐ THE TELEPORT, NOT AN ARC, because the technique already IS a recovery:
+    // its own doc says the aim assist "is the whole reason this is a technique
+    // rather than an authored impulse — a recovery that vanishes and reappears
+    // is trivial to write and unusable if it drops you a pixel under the
+    // stage." Ledge assist, wall clamping and destination resolution all come
+    // with it. ⇒ Authoring, not engine.
+    //
+    // ⚠ AIRBORNE ONLY, deliberately. On the ground these fighters answer up-B
+    // with the neutral special through the fallback chain, which is a real move;
+    // a grounded blink would replace that with a worse one.
+    let recovery = ambition_platformer2d::characters::smash_teleport::author_teleport(
+        {
+            let mut shell = ambition_platformer2d::characters::moveset_authoring::hitless_special(
+                "slip_upward",
+                "special",
+                0.10,
+                0.46,
+            );
+            shell.gates = airborne_only();
+            // The genre's rule, and the reason a recovery is a decision: one use
+            // per airtime, helpless after. Stated by the repertoire slot below.
+            shell.landing_lag_s = Some(0.16);
+            shell
+        },
+        0.10,
+        ambition_platformer2d::characters::smash_teleport::TeleportParams {
+            // ⛔ AIMED, NOT AN AMBUSH. `behind_nearest_foe` is the other thing
+            // this technique does, and a recovery that teleports you next to
+            // whoever is edgeguarding you is the opposite of an escape.
+            behind_nearest_foe: false,
+            behind_gap: 0.0,
+            // ⚠ TUNING against the engine's jump arc: far enough that it is
+            // worth having, short enough that it is not a free return from
+            // anywhere. A knob.
+            distance: 250.0,
+            // The whole reason this is a technique. Without it a recovery that
+            // lands a pixel under the lip is a death that reads as a bug.
+            ledge_assist: 26.0,
+            // Brief, and it is the counterplay: you cannot be hit out of the
+            // blink itself, so an edgeguard has to cover where you ARRIVE.
+            intangible_s: 0.18,
+            depart_vfx: "rune_circle".to_string(),
+            arrive_vfx: "rune_circle".to_string(),
+        },
+    );
+    moves.push(recovery);
+
     let capture_verbs: Vec<(String, String)> = capture
         .bound()
         .into_iter()
@@ -908,6 +964,7 @@ pub fn fighter_moveset() -> MovesetContract {
         ("special_forward", "lunge_grab"),
         ("special_down", "riposte"),
         ("special", "read_and_seize"),
+        ("special_up", "slip_upward"),
     ]
     .into_iter()
     .map(|(verb, id)| (verb.to_string(), id.to_string()))
@@ -968,8 +1025,8 @@ mod tests {
              stopped, every planning claim about this fighter's reach is stale"
         );
 
-        // ⭐ The special family is the gap, and it is THREE of the ten special
-        // presses — and all three are AERIAL. `special_forward` answers with
+        // ⭐ The special family is the gap, and it is TWO of the ten special
+        // presses — `special_neutral_air` and `special_back_air`. `special_forward` answers with
         // `lunge_grab` and `special_down` with `riposte` in both stances, and
         // binding the NEUTRAL special to `read_and_seize` answered every
         // remaining GROUND press through `directional_verb_chain`'s fallback:
@@ -980,7 +1037,7 @@ mod tests {
         let specials: Vec<&String> = silent.iter().filter(|p| p.starts_with("special_")).collect();
         assert_eq!(
             specials.len(),
-            3,
+            2,
             "the special gap changed size: {specials:?}. If a special was \
              AUTHORED this is good news and the number wants updating here and \
              in `awaiting-maintainer-decision.md`; if one was LOST, that is a \
@@ -1062,7 +1119,7 @@ mod tests {
         );
         assert_eq!(
             extra.len(),
-            3,
+            2,
             "the stand-in/George special gap moved to {}: {extra:?}. If a special was AUTHORED on the stand-in this is the good failure — lower the number here in the same commit. If George LOST one, the subset assertion above would have fired first.",
             extra.len()
         );
@@ -1556,6 +1613,75 @@ mod hit_confirm_tests {
             seen >= 1,
             "no move in this contract authors a flow, so this guard is measuring \
              nothing rather than passing"
+        );
+    }
+}
+
+#[cfg(test)]
+mod recovery_tests {
+    use ambition_platformer2d::characters::smash_teleport::{TeleportParams, TELEPORT};
+    use ambition_platformer2d::entity_catalog::MoveEventKind;
+
+    /// These fighters can recover, and the recovery is AIMED.
+    ///
+    /// ⛔⛔ THE GAP THIS CLOSED WAS TOTAL SILENCE. Every special this contract
+    /// authored before was `grounded_only`, so `special_up_air` fell through the
+    /// whole directional chain — a fighter knocked offstage had jumps, a ledge
+    /// grab, and no special at all. A platform fighter without an up-B is not a
+    /// fighter with a small kit; it is one that dies to any edgeguard.
+    ///
+    /// ⛔ AND `behind_nearest_foe` MUST BE FALSE. The teleport technique does two
+    /// things, and the other one puts you on the far side of the nearest
+    /// opponent — which, for a fighter recovering from offstage, teleports them
+    /// next to whoever is edgeguarding. That is the opposite of an escape, and
+    /// nothing about the move's name or its timing would reveal it.
+    #[test]
+    fn the_up_special_is_an_aimed_airborne_recovery() {
+        let set = super::fighter_moveset();
+        let id = set
+            .verbs
+            .get("special_up")
+            .expect("these fighters bind an up-special");
+        let spec = set
+            .moves
+            .iter()
+            .find(|m| &m.id == id)
+            .expect("the up-special names a move the contract carries");
+
+        assert_eq!(
+            spec.gates.grounded,
+            Some(false),
+            "the recovery is not airborne-only, so it replaces the grounded \
+             up-B — which already answers with the neutral special — with a \
+             worse move"
+        );
+
+        let params: TeleportParams = spec
+            .events
+            .iter()
+            .find_map(|ev| match &ev.kind {
+                MoveEventKind::Effect(effect) if effect.key == TELEPORT => {
+                    Some(effect.params.hydrate().expect("teleport params hydrate"))
+                }
+                _ => None,
+            })
+            .expect("the recovery teleports");
+        assert!(
+            !params.behind_nearest_foe,
+            "the recovery teleports BEHIND THE NEAREST FOE, so a fighter \
+             recovering from offstage arrives next to their edgeguard"
+        );
+        assert!(
+            params.ledge_assist > 0.0,
+            "the recovery has no ledge assist ({}), which is the whole reason \
+             this is a technique rather than an authored impulse — a blink that \
+             drops you a pixel under the lip reads as a bug, not a miss",
+            params.ledge_assist
+        );
+        assert!(
+            params.distance > 0.0,
+            "the recovery covers no distance ({})",
+            params.distance
         );
     }
 }

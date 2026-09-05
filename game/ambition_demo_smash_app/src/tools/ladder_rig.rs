@@ -661,7 +661,10 @@ fn ladder_rungs_summary() -> Vec<String> {
 fn sign_test_says_within_spread(diffs: &[f32]) -> bool {
     let positives = diffs.iter().filter(|d| **d > 0.0).count();
     let negatives = diffs.iter().filter(|d| **d < 0.0).count();
-    sign_test_within_spread(positives, negatives)
+    // ⭐ The threshold spelled out here rather than hidden behind a wrapper.
+    // The wrapper existed only for this helper, so in a non-test build it was
+    // dead — which `cargo test -p` cannot see and `check_no_warnings` did.
+    sign_test_p(positives, negatives) >= 0.05
 }
 
 /// The sign test on the COUNTS, so the direction and the inference are two
@@ -673,6 +676,19 @@ fn sign_test_says_within_spread(diffs: &[f32]) -> bool {
 /// positives.max(negatives)` throws it away — so the reported direction had to
 /// come from somewhere else, and it did: pooled medians over every bout. Two
 /// authors of one row's meaning, free to disagree, and they did.
+/// ⛔⛔ AND THE TAIL IS RETURNED, NOT A BOOLEAN, BECAUSE `(within spread)` WAS
+/// DOING TWO JOBS AND NOTHING TOLD THEM APART.
+///
+/// Measured 2026-09-04 on the shipped ladder: `6 vs 5` is 5:7 and `9 vs 6` is
+/// 7:5 — **p = 0.774, a coin** — while a cell one pair short of clearing is
+/// p = 0.146. Both printed the identical qualifier, so the page reading them had
+/// no way to separate *"nearly"* from *"not at all"*, and it treated them as one
+/// kind of near miss for weeks. The same collapse happens above the threshold:
+/// 11:1 and 2:10 are both *significant* and only the first survives a pair
+/// flipping.
+///
+/// ⇒ The threshold is unchanged; the caller compares against `0.05` and the row
+/// prints the number, so the distinction is readable rather than recomputable.
 fn sign_test_p(positives: usize, negatives: usize) -> f64 {
     let n = positives + negatives;
     // ⛔ THERE WAS AN EXPLICIT `if n < 6 { return true }` HERE AND IT WAS DEAD
@@ -709,19 +725,7 @@ fn sign_test_p(positives: usize, negatives: usize) -> f64 {
     (2.0 * tail).min(1.0)
 }
 
-/// ⛔⛔ `(within spread)` WAS DOING TWO JOBS AND NOTHING TOLD THEM APART.
-///
-/// Measured 2026-09-04 on the shipped ladder: `6 vs 5` is 5:7 and `9 vs 6` is
-/// 7:5 — **p = 0.774, a coin** — while a cell one pair short of clearing would
-/// be p = 0.146. Both printed the identical qualifier, so the page reading them
-/// had no way to separate *"nearly"* from *"not at all"*, and it treated them as
-/// the same kind of near-miss for weeks.
-///
-/// ⇒ The threshold stays where it was; the row now carries the number, so the
-/// distinction is readable instead of recomputable.
-fn sign_test_within_spread(positives: usize, negatives: usize) -> bool {
-    sign_test_p(positives, negatives) >= 0.05
-}
+
 
 /// Say WHICH TWO FIGHTERS the run is about, including when nobody chose them.
 ///

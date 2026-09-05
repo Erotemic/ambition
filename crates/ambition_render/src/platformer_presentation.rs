@@ -456,6 +456,7 @@ mod tests {
             visible: true,
             submerged: false,
             wire_anchor: None,
+            grab_reach: None,
             flash: false,
             breakable_state: None,
             chest_opened: false,

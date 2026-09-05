@@ -180,6 +180,7 @@ fn actor_view(submerged: bool) -> ambition_sim_view::FeatureView {
         visible: !submerged,
         submerged,
         wire_anchor: None,
+        grab_reach: None,
         flash: false,
         breakable_state: None,
         chest_opened: false,

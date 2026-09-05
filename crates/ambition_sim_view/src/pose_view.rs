@@ -103,6 +103,15 @@ pub struct BodyPoseView {
     /// presentation rule stated on only one of them is not stated. Two
     /// read-models, one sentence — the way `submerged` above is.
     pub wire_anchor: Option<ambition_platformer2d_core::Vec2>,
+    /// WHERE A LIVE GRAB IS REACHING TO, in world space — the far edge of the
+    /// authored capture box along the body's facing, or `None` when no capture
+    /// window is under the move clock.
+    ///
+    /// ⭐ A POINT, NOT A FLAG, for the reason `wire_anchor` beside it gives: a
+    /// renderer that had to re-derive the reach would need the authored params,
+    /// the facing and the acceleration frame, and would be a second authority on
+    /// where the grab goes.
+    pub grab_reach: Option<ambition_platformer2d_core::Vec2>,
     /// Fireball charge tier while the fire button is held (`None` when not
     /// charging): 0 / 1 / 2+ pick the charge-indicator size/alpha.
     pub charge_tier: Option<u8>,
@@ -161,6 +170,7 @@ impl Default for BodyPoseView {
             morph_ball: false,
             submerged: false,
             wire_anchor: None,
+            grab_reach: None,
             charge_tier: None,
             smash_charge: None,
             authored_render: None,
@@ -441,6 +451,25 @@ pub fn rebuild_body_pose_views(
             // The SAME projection the actor road reads — see
             // `BodyMotionFacts::wire_anchor`.
             wire_anchor: motion_facts.and_then(|m| m.wire_anchor),
+            // ⛔ RESOLVED HERE because this is where the facing and the frame
+            // are both in hand — the same reason the move timeline resolves its
+            // own event offsets rather than publishing body-local ones.
+            grab_reach: playback.and_then(|pb| {
+                pb.live_capture_reach().map(|(offset, half)| {
+                    // ⛔ THE MOVE'S OWN FACING, not the drawn one. A move
+                    // LOCKS its facing at start (the Smash convention — a swing
+                    // does not re-aim mid-animation) and its volumes are placed
+                    // with `MovePlayback::facing`. A line drawn from the
+                    // presented facing would part company with the box it is
+                    // meant to be showing the moment a fighter turns.
+                    let side = if pb.facing >= 0.0 { 1.0 } else { -1.0 };
+                    kinematics.pos
+                        + ambition_platformer2d_core::Vec2::new(
+                            (offset.x + half.x) * side,
+                            offset.y,
+                        )
+                })
+            }),
             charge_tier: projectile_state
                 .and_then(|s| s.charging.map(|hold| s.charge_tuning.tier_for_hold(hold))),
             smash_charge: charge,

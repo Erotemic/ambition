@@ -20,6 +20,7 @@ pub mod deferred_write_safety;
 pub mod dizzy_stars;
 mod features;
 pub mod flyline;
+pub mod tether;
 pub mod gate_portal_visuals;
 pub mod gravity_visuals;
 mod health;
@@ -218,6 +219,10 @@ impl bevy::prelude::Plugin for PlayerVisualSchedulePlugin {
                     // only because it shares the group's `after(sync_visuals)`
                     // and readiness gate.
                     flyline::sync_flyline_visuals.in_set(SpriteVisualSync),
+                    // The tether line, beside the flying wire it borrows its
+                    // rope from — same set, same per-frame lifecycle, and the
+                    // same both-roads rule.
+                    tether::sync_tether_visuals.in_set(SpriteVisualSync),
                 )
                     .chain()
                     .after(actors::sync_visuals)

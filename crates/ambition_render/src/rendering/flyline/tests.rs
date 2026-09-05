@@ -39,6 +39,7 @@ fn actor_view(
         visible: true,
         submerged: false,
         wire_anchor,
+        grab_reach: None,
         flash: false,
         breakable_state: None,
         chest_opened: false,

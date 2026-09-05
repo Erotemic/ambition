@@ -54,6 +54,11 @@ pub struct FeatureView {
     /// needs the point to draw a rope to, and a bool would make it re-derive one
     /// out of tuning it must not read.
     pub wire_anchor: Option<ae::Vec2>,
+    /// WHERE A LIVE GRAB IS REACHING TO, in world space — the twin of
+    /// `BodyPoseView::grab_reach`, and present here for the reason the anchor
+    /// above it is: a match fighter takes THIS road, and a presentation rule
+    /// stated only on the player road never fires in a versus match.
+    pub grab_reach: Option<ae::Vec2>,
     pub flash: bool,
     /// For `FeatureVisualKind::Breakable`: the current authored breakable
     /// state, so presentation can select intact/cracked/broken art without
@@ -272,6 +277,10 @@ pub fn rebuild_feature_view_index(
             // absent, and this row is the ONE authority for whether an actor is
             // drawn — the same field that already hides a dead one.
             Option<&ambition_platformer2d_core::BodyModeState>,
+            // THE MOVE THIS BODY IS PLAYING, read for one thing: where a live
+            // grab is reaching. It carries its own locked facing, which is why
+            // this needs no body facing beside it.
+            Option<&ambition_combat::moveset::MovePlayback>,
         ),
         // Bosses carry the shared actor read-models (`ActorDisposition` etc., synced by
         // `sync_boss_actor_components`) but are their OWN feature family below. Without this
@@ -312,6 +321,7 @@ pub fn rebuild_feature_view_index(
                 visible: collected.is_none(),
                 submerged: false,
                 wire_anchor: None,
+                grab_reach: None,
                 flash: false,
                 breakable_state: None,
                 chest_opened: false,
@@ -341,6 +351,7 @@ pub fn rebuild_feature_view_index(
                 visible: true,
                 submerged: false,
                 wire_anchor: None,
+                grab_reach: None,
                 flash: opened.is_some(),
                 breakable_state: None,
                 chest_opened: opened.is_some(),
@@ -370,6 +381,7 @@ pub fn rebuild_feature_view_index(
                 visible: !breakable.broken(),
                 submerged: false,
                 wire_anchor: None,
+                grab_reach: None,
                 flash: breakable.breakable.state == ambition_interaction::BreakableState::Cracking,
                 breakable_state: Some(breakable.breakable.state),
                 chest_opened: false,
@@ -399,6 +411,7 @@ pub fn rebuild_feature_view_index(
                 visible: true,
                 submerged: false,
                 wire_anchor: None,
+                grab_reach: None,
                 flash: false,
                 breakable_state: None,
                 chest_opened: false,
@@ -433,6 +446,7 @@ pub fn rebuild_feature_view_index(
         sprite_offset,
         respawn_grace,
         body_mode,
+        playback,
     ) in &actors
     {
         let roll_rad = roll.map_or(0.0, |r| r.angle);
@@ -489,6 +503,15 @@ pub fn rebuild_feature_view_index(
                 visible,
                 submerged,
                 wire_anchor: motion.and_then(|m| m.wire_anchor),
+                // ⛔ THE MOVE'S OWN FACING, not a body facing this road does not
+                // carry: a move locks its facing at start and places its volumes
+                // with it, so the line and the box agree even mid-turn.
+                grab_reach: playback.and_then(|pb| {
+                    pb.live_capture_reach().map(|(offset, half)| {
+                        let side = if pb.facing >= 0.0 { 1.0 } else { -1.0 };
+                        aabb.center + ae::Vec2::new((offset.x + half.x) * side, offset.y)
+                    })
+                }),
                 flash,
                 breakable_state: None,
                 chest_opened: false,
@@ -541,6 +564,7 @@ pub fn rebuild_feature_view_index(
                 visible: hazard.hazard.active(),
                 submerged: false,
                 wire_anchor: None,
+                grab_reach: None,
                 flash: false,
                 breakable_state: None,
                 chest_opened: false,
@@ -579,6 +603,7 @@ pub fn rebuild_feature_view_index(
                 // A boss has no trapdoor: nothing puts one under the stage.
                 submerged: false,
                 wire_anchor: None,
+                grab_reach: None,
                 // Hit-flash reads the shared combat mirror; telegraph /
                 // active windows read `BossAttackState` (the move-derived
                 // source of truth, already a component).
@@ -1022,6 +1047,7 @@ mod view_index_tests {
             visible,
             submerged: false,
             wire_anchor: None,
+            grab_reach: None,
             flash: false,
             breakable_state: None,
             chest_opened: false,

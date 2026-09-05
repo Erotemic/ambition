@@ -223,7 +223,7 @@ pub fn sync_flyline_visuals(
 /// chain of segments the way `grapple.rs` draws its line out of VFX bursts. A
 /// swinging rope changes angle every frame, and a segment chain would have to
 /// respawn its whole length each time.
-fn place_wire(
+pub(crate) fn place_wire(
     room: &ambition_platformer2d_core::World,
     transform: &mut Transform,
     art: &mut Sprite,

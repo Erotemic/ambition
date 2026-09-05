@@ -35,6 +35,7 @@ pub mod prepared;
 pub mod prepared_fixtures;
 pub mod smash_bomb;
 pub mod smash_capture;
+pub mod smash_counter;
 pub mod smash_fighter;
 pub mod smash_flyline;
 pub mod smash_repertoire;

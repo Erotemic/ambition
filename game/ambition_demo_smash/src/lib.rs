@@ -16,6 +16,7 @@ use ambition_platformer2d::world::rooms::RoomSpec;
 
 pub mod bomb;
 pub mod capture;
+pub mod counter;
 pub mod george_booul_moveset;
 pub mod moveset;
 pub mod select;
@@ -897,6 +898,43 @@ impl bevy::prelude::Plugin for SmashRulesPlugin {
         // own doc says what it is for: *"a thing must EXIST before it can hit
         // anything"*. A capture relationship is exactly such a thing — the
         // pummel and throw that target it are moves that come later.
+        // THE COUNTER STANCE, held open before anything resolves.
+        //
+        // ⛔⛔ `Materialize` AND NOT `Playback`, because the window has to be
+        // open when the strike is judged and `apply_hitbox_damage` judges it in
+        // `Resolve`. The sustained effect that arms this is emitted while the
+        // move advances in `Playback`, so this sits between the two — the one
+        // phase where the message exists and the verdict has not been reached.
+        //
+        // ⚠ AND IT MUST RUN EVERY FRAME OF THE STANCE. `parry_window_timer`
+        // decays, so this is a heartbeat rather than a grant; see the
+        // technique's own note.
+        app.add_systems(
+            sim,
+            crate::counter::hold_counter_parry_windows
+                .in_set(ambition_platformer2d::platformer::schedule::CombatSet::Materialize),
+        );
+        // …and the ANSWER, once the verdict is in.
+        //
+        // ⭐ `Settle` NEEDS NO EXPLICIT EDGE HERE, and that is worth stating
+        // because the finishing zoom next door needs one. `ParriedBodyHit` is
+        // written by `apply_hitbox_damage` in `CombatSet::Resolve` — an EARLIER
+        // phase — so the phase chain already orders this reader after its
+        // writer. The rule that separates the two cases is not "reads a
+        // message" but "reads a message written in its OWN set", which is the
+        // one relationship a phase cannot express.
+        //
+        // ⚠ THE RESPONSE LANDS ON THE NEXT TICK, DELIBERATELY. Its
+        // `ActorActionMessage` is read by the technique adapters in
+        // `Materialize`, which this tick has already passed. A counter that
+        // answered inside the same frame it caught would have no visible catch
+        // at all — the parry and its answer would be one instant — and message
+        // buffers survive the frame boundary, so nothing is lost by the wait.
+        app.add_systems(
+            sim,
+            crate::counter::answer_a_parry_with_the_authored_counter
+                .in_set(ambition_platformer2d::platformer::schedule::CombatSet::Settle),
+        );
         app.add_systems(
             sim,
             (

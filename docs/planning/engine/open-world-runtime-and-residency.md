@@ -85,10 +85,17 @@ note is trying not to make.
   was and is 4, only the line drifted, and the citation checker validates the
   FILE so a drifted line passes it forever).
   ⭐ **AND THE AMBIGUITY CHECK CATCHES DRIFT BY ACCIDENT, observed 2026-09-05.**
-  A citation on another page read `integration.rs:773` and was RED only because
-  the suffix matched two tracked files. Disambiguating it meant opening the file
-  — where `:773` turned out to be a comment about jump height, the other
-  candidate was only 768 lines long, and the real line was 798. ⇒ **The drift was
+  A citation on another page named a bare `integration` file at line 773 and was
+  RED only because the suffix matched two tracked files. Disambiguating it meant
+  opening `crates/ambition_platformer2d_core/src/movement/integration.rs:798` —
+  where line 773 turned out to be a comment about jump height, the other
+  candidate file is only 768 lines long, and the real line was 798.
+  ⭐⭐ **AND THIS PARAGRAPH TRIPPED THE SAME GATE**, because a sentence about an
+  ambiguous citation naturally contains one. The fighter session's fix hit it
+  too, one line apart. ⇒ The checker is TEXTUAL, not semantic: it cannot tell a
+  citation from prose quoting a citation, which is the price of a gate cheap
+  enough to always run — and worth paying, since quoting a path is exactly when
+  you should be spelling it in full anyway. ⇒ **The drift was
   invisible to every gate; the ambiguity is what got a human to re-read a line
   number at all.** That is not an argument for a line-drift gate (both its
   predicates were measured this same day and neither is gateable) — it is a

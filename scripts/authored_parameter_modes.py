@@ -40,6 +40,15 @@ authored fighter at all, and this script only ever saw its `repeating` flag.
 `--variants` adds that axis. ⚠ It is WIDER AND NOISIER — many `Deserialize`
 enums are runtime state (`LocomotionState`, `CachePolicy`) rather than authored
 vocabulary — so it is a starting list for a person, never a verdict.
+
+⛔⛔ AND THE OBVIOUS SHARPENING DESTROYS THE SIGNAL — measured 2026-09-05, do not
+retry it. The tempting filter is "if NO variant of an enum appears in content the
+enum is not authored vocabulary, so skip the whole enum". It excludes only 9 of
+126 enums, and it LOSES `VolumeReaction::Windbox` — the one hit this axis was
+built for and the only one independently confirmed. ⇒ an enum with zero authored
+variants is either internal OR an authored vocabulary nobody has used yet, and
+the second case is exactly the finding. The filter cannot tell them apart, and
+neither can any rule over names; it takes knowing what the enum is for.
 """
 
 import re

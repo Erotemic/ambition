@@ -439,11 +439,42 @@ impl Plugin for CombatSchedulePlugin {
         // Same set and same reasoning: it publishes an intent that the
         // confirmed-frame quarantine releases, so a decision an abandoned
         // rollback branch produced never reaches the live camera.
+        //
+        // ⛔⛔ AND IT MUST RUN AFTER THE DECISION, WHICH `CombatSet::Settle`
+        // ALONE DOES NOT GIVE IT. `decide_stocks_match` writes
+        // `StocksMatchDecided` from `MatchOutcomeDecided`, and that system is
+        // ALSO in `Settle` — inside the ruleset's own `.chain()`, which this
+        // reader is not part of. Two systems in one set are unordered, so this
+        // could read before the write.
+        //
+        // ⚠ THE COST IS NOT "ONE FRAME LATE", it is a frame MISATTRIBUTION. A
+        // `MessageReader` that runs first sees nothing this tick and picks the
+        // decision up on the next one, so the intent is journalled under a frame
+        // that did not produce it — and the confirmed-frame quarantine's whole
+        // job is to discard intents whose producing frame was abandoned. A
+        // rewind past the real frame would leave this one standing.
+        //
+        // ⇒ Ordered on the SET rather than on `decide_stocks_match` itself: the
+        // set is `ambition_combat`'s published seam and the function lives in
+        // the actor monolith, which this crate should not need to name.
+        //
+        // ⭐ THE OTHER TWO `Settle` MEMBERS ARE FINE AND DO NOT WANT THIS —
+        // checked, so nobody adds a needless `.after` to them later.
+        // `shake_camera_on_landed_hits` reads a QUERY, not a message, and is
+        // idempotent by design: its own docs say it re-kicks every frame the
+        // freeze is live precisely so it needs no edge detection.
+        // `request_impact_hitstop_on_resolved_hits` reads `ResolvedBodyHit`,
+        // which is written in `CombatSet::Resolve` — an EARLIER phase — so the
+        // set chain already orders it.
+        // ⇒ The distinction is not "reads a message" but "reads a message
+        // written in ITS OWN set", which is the one case set ordering cannot
+        // express and the one this system was in.
         app.add_systems(
             sim,
             ambition_combat::finish_zoom::zoom_camera_on_decided_match
                 .in_set(GameplayGated)
-                .in_set(CombatSet::Settle),
+                .in_set(CombatSet::Settle)
+                .after(ambition_combat::stocks::MatchOutcomeDecided),
         );
 
         // The MATCH's impact freeze. ⭐ ONE system — the hold is an absolute

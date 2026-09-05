@@ -173,9 +173,17 @@ nine rows, but that is the ITEM CATALOG's view and the road's resolver is
 `held_spec_by_id`, which consults the catalog AND
 `ambition_characters::brain::held_item_by_id`. Its own doc comment says why:
 *"both registries, in that order, because there are two … Consulting one alone
-silently loses half the items."* `HELD_ITEMS` holds 19 specs; `axe` and
-`javelin` are built in `held_spec_for_item`. This row consulted one registry —
+silently loses half the items."* `HELD_ITEMS` holds the bulk; `axe` and
+`javelin` are built separately in `held_spec_for_item`
+(`ambition_held_items/src/lib.rs:802`, `:820`). This row consulted one registry —
 the exact failure that comment warns about.
+
+⚠ **RE-DERIVED 2026-09-05: it is 20 + 2 = 22 now, and it was 19 + 2 = 21 when
+written — the map gained `polygon_mine` the same day.** ⇒ **the CLAIM is the
+durable part and the number is not**: this population moves whenever content
+lands a held item, so re-derive it rather than quoting this line. The claim that
+does not move is that there are TWO registries and consulting one silently
+halves the answer.
 
 ⛔ **AND THE FOUR GAUNTLET ABILITIES ARE NOT A SEPARATE CLASS.** The row's
 hypothesis was that an ability may have no world form. It does:

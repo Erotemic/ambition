@@ -68,20 +68,48 @@ def read_sheet(path: pathlib.Path) -> dict:
     }
 
 
-def report(row: dict) -> str:
+# ⭐⭐ A COUNT OF 1 IS NOT THE DEFECT; A RATIO NEAR ZERO IS. The first version of
+# this script flagged `distinct == 1`, which fires only on the DEGENERATE TAIL of
+# the distribution and let a sheet with 7 boxes across 136 poses read as healthy.
+# Measured across the roster:
+#
+#     boss                          6 poses    1 distinct   0.17
+#     mary_o_v2                     9 poses    1 distinct   0.11
+#     mary_o_v2_tall               12 poses    2 distinct   0.17
+#     mary_o_v2_fire               12 poses    3 distinct   0.25
+#     perfect_cellular_automaton  136 poses    7 distinct   0.05
+#     noether                     123 poses  111 distinct   0.90
+#     player_robot_v3             133 poses   95 distinct   0.71
+#
+# ⚠ THE THRESHOLD IS NOT A JUDGEMENT CALL BECAUSE THE DISTRIBUTION HAS A HOLE IN
+# IT: nothing sits between 0.25 and 0.71, so every cut in that range returns the
+# same set and the answer does not depend on where in the gap it lands. That is the
+# only honest way to pick a magnitude -- show the verdict is insensitive to it --
+# and `--ratio` exists so a reader can move it and see that for themselves.
+#
+# ⚠ IT IS ALSO THE TIER-INDEPENDENT READING. Distinctness moves with resolution
+# (`player_robot_v3` reads 27/83/92/95 across potato/0_25x/0_5x/1x) because low
+# tiers quantise boxes together, but the RATIO's ordering does not move. A bare
+# count is a statement about which tier you happened to read.
+FLAT_RATIO = 0.5
+
+
+def report(row: dict, ratio_cut: float = FLAT_RATIO) -> str:
     poses, distinct = row["poses"], row["distinct"]
     if not poses:
-        # ⚠ Genuinely absent per-pose metrics -- the case the original report
-        # described. Distinct from "one box repeated", and the two want different
-        # fixes, so they must never print the same line.
+        # ⚠ Genuinely absent per-pose metrics -- a DIFFERENT defect from "one box
+        # repeated", wanting a different fix, so it never prints the same line.
         return f"{row['path']}: NO per-pose hurtbox bbox at all (sheet box: {row['sheet_box']})"
-    shared = distinct == 1 and len(poses) > 1
-    flag = "  ⛔ ONE BOX FOR EVERY POSE" if shared else ""
+    ratio = distinct / len(poses)
+    flag = ""
+    if len(poses) > 1 and ratio <= ratio_cut:
+        flag = "  ⛔ BARELY MOVES" if distinct > 1 else "  ⛔ ONE BOX FOR EVERY POSE"
     same_as_sheet = ""
-    if shared and next(iter(poses.values())) == row["sheet_box"]:
+    if distinct == 1 and len(poses) > 1 and next(iter(poses.values())) == row["sheet_box"]:
         same_as_sheet = " (identical to the sheet-level body_pixel_bbox)"
     return (
-        f"{row['path']}: {len(poses)} poses, {distinct} distinct{flag}{same_as_sheet}"
+        f"{row['path']}: {len(poses)} poses, {distinct} distinct, "
+        f"ratio {ratio:.2f}{flag}{same_as_sheet}"
     )
 
 
@@ -102,6 +130,14 @@ def main(argv: list[str]) -> int:
     ap = argparse.ArgumentParser(description=__doc__)
     ap.add_argument("sheets", nargs="*", type=pathlib.Path)
     ap.add_argument("--all", action="store_true", help="every tracked *_spritesheet.ron")
+    ap.add_argument(
+        "--ratio",
+        type=float,
+        default=FLAT_RATIO,
+        help="flag sheets at or below this distinct/pose ratio (default %(default)s); "
+        "the observed distribution has a hole between 0.25 and 0.71, so any cut in "
+        "that range gives the same answer -- move it and see",
+    )
     args = ap.parse_args(argv)
 
     sheets = list(args.sheets)
@@ -111,14 +147,24 @@ def main(argv: list[str]) -> int:
         ap.error("name at least one sheet, or pass --all")
 
     rows = [read_sheet(p) for p in sheets]
-    for row in sorted(rows, key=lambda r: (r["distinct"], str(r["path"]))):
-        print(report(row))
 
-    flat = [r for r in rows if r["poses"] and r["distinct"] == 1 and len(r["poses"]) > 1]
+    def rank(r: dict) -> tuple:
+        # Ratio first: the reading that survives a tier change.
+        return (r["distinct"] / len(r["poses"]) if r["poses"] else -1.0, str(r["path"]))
+
+    for row in sorted(rows, key=rank):
+        print(report(row, args.ratio))
+
+    flat = [
+        r
+        for r in rows
+        if r["poses"] and len(r["poses"]) > 1 and r["distinct"] / len(r["poses"]) <= args.ratio
+    ]
     print(
-        f"\n{len(rows)} sheet(s); {len(flat)} publish ONE box for every pose."
-        "\n⇒ A flat sheet resolves fine and passes any `bbox.is_some()` guard:"
-        "\n  the box is plausible, it is just not THIS pose's."
+        f"\n{len(rows)} sheet(s); {len(flat)} at or below ratio {args.ratio}."
+        "\n⇒ These resolve fine and pass any `bbox.is_some()` guard: the box is"
+        "\n  plausible, it is just not THIS pose's. Only DISTINCTNESS can see it,"
+        "\n  and only as a RATIO -- a count of 1 is the tail, not the defect."
     )
     return 0
 

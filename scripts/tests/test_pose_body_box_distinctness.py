@@ -90,6 +90,38 @@ def test_a_single_pose_sheet_is_not_called_flat(tmp_path):
     assert "ONE BOX FOR EVERY POSE" not in mod.report(mod.read_sheet(p))
 
 
+def test_a_sheet_that_barely_moves_is_flagged_even_though_it_is_not_flat(tmp_path):
+    """⭐ THE CASE A `distinct == 1` FLAG MISSES, and it is a selectable fighter.
+
+    `perfect_cellular_automaton` publishes 7 distinct boxes across 136 poses. A
+    flag that fires only at 1 reads that as healthy; it is the same defect as a
+    flat sheet, two orders of magnitude of poses later. The count is the tail, the
+    RATIO is the defect.
+    """
+    poses = {f"pose_{i}": "x: 1, y: 1, w: 4, h: 8" for i in range(20)}
+    poses["odd"] = "x: 2, y: 2, w: 4, h: 8"
+    p = _write(tmp_path, "barely", _sheet("x: 0, y: 0, w: 9, h: 9", poses))
+    row = mod.read_sheet(p)
+    assert row["distinct"] == 2 and len(row["poses"]) == 21
+    line = mod.report(row)
+    assert "BARELY MOVES" in line
+    # ⚠ And it must NOT claim to be flat: those want different conversations.
+    assert "ONE BOX FOR EVERY POSE" not in line
+
+
+def test_the_flag_moves_with_the_ratio_argument(tmp_path):
+    """⚠ The threshold is a knob a reader can move, which is what makes the claim
+    'the answer does not depend on where in the gap it sits' checkable rather than
+    asserted."""
+    poses = {f"pose_{i}": f"x: {i}, y: 1, w: 4, h: 8" for i in range(10)}
+    poses.update({f"same_{i}": "x: 99, y: 1, w: 4, h: 8" for i in range(10)})
+    p = _write(tmp_path, "mid", _sheet("x: 0, y: 0, w: 9, h: 9", poses))
+    row = mod.read_sheet(p)
+    assert row["distinct"] == 11 and len(row["poses"]) == 20  # ratio 0.55
+    assert "⛔" not in mod.report(row, 0.5)
+    assert "BARELY MOVES" in mod.report(row, 0.6)
+
+
 def test_an_unreadable_sheet_raises_rather_than_reporting_zero(tmp_path):
     """⛔ A swallowed read error would report itself as 'no per-pose boxes'."""
     missing = tmp_path / "gone_spritesheet.ron"

@@ -977,7 +977,40 @@ nothing to be wrong. ⚠ Her body's own render quad is correct in the same frame
 (`60.95, 73.14`), which is why the geometry looks clean from here: **the half that
 is right is the half a headless fixture can see.**
 
-⇒ **SO THE NEXT MEASUREMENT IS THE RENDER BIND WITH REAL LOADED ART** — which
+## ⭐⭐⭐ PHOTOGRAPHED IT (2026-09-06): TWO SPRITES ARE DRAWN FOR ONE MARY-O
+
+Built and ran the existing rendered instrument —
+`cargo build -p ambition_demo_mary_o_app --bin capture_mary_o --features capture`,
+then `capture_mary_o out.png 640x360 --warmup 60 --walk 400`. It renders through
+`OffscreenGpu` on this machine's llvmpipe adapter. **The image shows a TINY brown
+blob standing correctly on the tiles AND a large cropped Mary-O face floating in
+the air above it.** Two drawables, one character.
+
+⇒ **THE ARITHMETIC NAMES BOTH OF THEM.** Her manifest declares a LOGICAL frame of
+`160×192` and, separately, per-frame TRIMMED atlas rects — `idle` is
+`(x: 1, y: 427, w: 63, h: 86, off: (43, 105))`. At the shared `0.381` scale:
+
+| number | source | what it is |
+|---|---|---|
+| ~24 × 33 | trimmed rect `63×86` × 0.381 | the small blob, correctly on the ground |
+| 61 × 73 | LOGICAL frame `160×192` × 0.381 | the floating magnified crop |
+
+⚠ **And a component census the same day found exactly those two:** two entities
+carrying `ActorRenderSize`, `Vec2(23.34, 23.34)` and `Vec2(60.95, 73.14)`. I read
+the second as "the player" and the first as some other actor. **The picture says
+they are both hers.**
+
+⇒ **SO THE DEFECT IS A SECOND DRAWABLE SIZED FROM THE LOGICAL FRAME while the
+correct one is sized from the trimmed rect** — which is why she "is not standing on
+the ground": the thing a player's eye follows is the big one, and it is placed by a
+quad that ignores the trim offset `(43, 105)`.
+
+⛔ **NOT YET IDENTIFIED: WHICH system spawns the second drawable.** That is the next
+step, and it is now a component question rather than a pixel one — find the two
+entities' markers. `[sprite-size] player first observed at 61x73` in the capture's
+own log is the thread to pull.
+
+⇒ **THE OLD NEXT-MEASUREMENT LINE, kept because the instrument note is still true:** — which
 sheet `sync_visuals` bound and at what quad — and that is the one thing no
 headless fixture reaches. ⭐ **The instrument exists and is available on this
 machine:** `VisibleRenderMode::OffscreenGpu` gives a real wgpu backend and a

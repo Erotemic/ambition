@@ -158,6 +158,47 @@ Immediate execution lives in [`queue.md`](queue.md). Standing deferred work live
 in [`tracks.md`](tracks.md). Focused plans own design details.
 
 
+## ✔ RECEIPT 2026-09-06 — 5/6 jobs, lane `--rust`, at `e8bb682b1`
+
+```text
+930.7s  ok    workspace (default features)
+214.2s  ok    acceptance: the render composition draws a frame
+ 24.2s  ok    web build check [web_served_assets]
+ 19.4s  ok    external consumer: outlander COMPILES against the umbrella
+ 11.8s  ok    workspace doctests
+ 56.7s  FAIL  repo tooling  — 8 failed, 826 passed, 4 skipped, 140 deselected
+```
+
+⭐ **THE WORKSPACE JOB INCLUDES `dive_drill_lunges_through_the_targets`**, which
+was failing deterministically earlier today until the fighter lane route-scoped
+`SmashLimitFill`. Re-derived here rather than accepted on report.
+
+⛔⛔ **CORRECTED WITHIN THE HOUR: the eight reds were MY GUARD'S RESPONSE to Q65,
+not Q65.** They are gone — repo tooling on this box now reads **967 passed, 0
+failed, 12 skipped**, the eight held-item tests SKIPPING honestly. I had made an
+`ImportError` on a NAME a hard failure (right for renderer DRIFT), and it also
+fired on a checkout merely BEHIND the pin — the ordinary state here. The check
+asks the PIN now and tells the two apart. ⇒ Q65 is still real and still open; what
+was red was my reaction to it. The paragraph below is kept as filed rather than
+rewritten, because a receipt that quietly changes its own numbers is worth less
+than one that shows the correction.
+
+⛔ **THE EIGHT REDS ARE ALL ONE FILE AND ONE MACHINE**:
+`test_held_item_props_are_rendered.py`, which cannot import the sprite renderer
+because THIS CHECKOUT'S submodule is divergent from the pin — Q65 in
+`awaiting-maintainer-decision.md`, a maintainer action, not a code defect. The
+fighter lane's box, whose submodule matches the pin, reads **824 passed / 0
+failed** on the same commit.
+⚠ **So this receipt names its MACHINE as well as its lane**, because those two
+numbers are both honest and they disagree. A repo-tooling count is not portable
+while an uninitialised or divergent submodule can change what a guard is able to
+examine.
+
+⚠ Not covered here: no-warnings, doc links, planning citations, and the
+compile-cost ratchet — `--rust` drops them. `check_no_warnings.py` was run
+separately and is clean under default features; the ratchet remains the documented
+six findings with a standing ruling against re-freezing.
+
 ## ✔ RECEIPT 2026-09-05 — 5/5 jobs, 1,133 s, lane `--rust-alone`
 
 The first clean workspace run of the day, after two rounds of mutual breakage:

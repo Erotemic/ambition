@@ -51,6 +51,7 @@ ordinary state on a checkout without the submodule, and a DIFFERENT fact from
 from __future__ import annotations
 
 import re
+import subprocess
 import sys
 from pathlib import Path
 
@@ -82,6 +83,37 @@ def registered_art() -> dict[str, str]:
             "-- do not delete it: the registrations it guards are still there."
         )
     return dict(pairs)
+
+
+def _pin_still_exports(message: str) -> bool:
+    """Does the PINNED submodule commit still export the missing name?
+
+    `True` means this checkout is merely behind the pin — a stale working copy,
+    which is the ordinary state in a repo where `git submodule update` is not run
+    casually. `False` means the pinned tree really has lost the name, which is the
+    renderer drift this file exists to catch.
+
+    ⚠ Fails CLOSED: if git cannot answer — no submodule entry, objects absent, a
+    detached superproject — this returns `False` and the caller raises, because
+    "I could not check" must not read as "stale, carry on".
+    """
+    name = re.search(r"cannot import name '(\w+)'", message)
+    if not name:
+        return False
+    try:
+        pin = subprocess.run(
+            ["git", "ls-tree", "HEAD", "tools/ambition_sprite2d_renderer"],
+            cwd=REPO_ROOT, capture_output=True, text=True, check=True,
+        ).stdout.split()
+        blob = subprocess.run(
+            ["git", "show",
+             f"{pin[2]}:ambition_sprite2d_renderer/targets/icons/item_icons.py"],
+            cwd=REPO_ROOT / "tools/ambition_sprite2d_renderer",
+            capture_output=True, text=True, check=True,
+        ).stdout
+    except Exception:
+        return False
+    return name.group(1) in blob
 
 
 def drawn_art() -> dict[str, str] | None:
@@ -119,6 +151,18 @@ def drawn_art() -> dict[str, str] | None:
         # MODULE is a machine that cannot check, and a missing NAME is exactly
         # the renderer drift this file exists to catch.
         if "ambition_sprite2d_renderer" in str(error) and "cannot import name" not in str(error):
+            return None
+        # ⭐⭐ ASK THE PIN, WHICH IS WHAT THE MESSAGE BELOW TELLS YOU TO DO — so do
+        # it here rather than making every reader do it by hand. If the commit
+        # this superproject PINS still exports the name, the tree is fine and the
+        # WORKING COPY is behind: that is "cannot check", the same answer an
+        # uninitialised submodule gets, and it must not be a hard failure.
+        # ⚠ Otherwise eight tests go red on the normal state of this repo, where
+        # `git submodule update` is deliberately not run and a checkout sitting
+        # behind the pin is expected. I made exactly that mistake on 2026-09-06:
+        # the hard failure was correct for DRIFT and wrong for STALENESS, and it
+        # is only one `git show` away from telling them apart.
+        if _pin_still_exports(str(error)):
             return None
         raise SystemExit(
             "the renderer is importable but does not export what this check "
@@ -167,8 +211,18 @@ def main() -> int:
         print(
             "cannot check: the ambition_sprite2d_renderer package is not "
             "importable.\n  This is NOT a pass -- the held-item art went "
-            "unexamined.\n  fix: git submodule update --init "
-            "tools/ambition_sprite2d_renderer",
+            "unexamined.\n"
+            "  ⇒ If the submodule directory is EMPTY, it is not checked out:\n"
+            "       git submodule update --init tools/ambition_sprite2d_renderer\n"
+            "  ⛔⛔ IF IT IS POPULATED, DO NOT RUN THAT COMMAND BLIND. A checkout\n"
+            "  BEHIND or DIVERGENT from the pin gives this same answer, and\n"
+            "  `submodule update` would move it -- ORPHANING any commit that\n"
+            "  exists only there. That is a live hazard in this repo, not a\n"
+            "  hypothetical: see Q65 in `awaiting-maintainer-decision.md`, where\n"
+            "  the working copy holds an unpushed commit the pin does not contain.\n"
+            "  Check first, and let a maintainer reconcile it:\n"
+            "       git -C tools/ambition_sprite2d_renderer log origin/main..HEAD\n"
+            "       git -C tools/ambition_sprite2d_renderer merge-base HEAD <pin>",
             file=sys.stderr,
         )
         return 3

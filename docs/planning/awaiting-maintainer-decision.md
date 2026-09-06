@@ -2070,6 +2070,27 @@ you_have_to_cut_the_rope/BossSpawn-105805   after a replay  boss.cleared = retra
 mockingbird_arena/BossSpawn-4308            after a replay  boss.cleared = STILL CLEARED
 ```
 
+⚠ **THE KEY IN THAT SECOND ROW IS HISTORICAL AS OF 2026-09-06.** Jon's ruling on
+decision 57 landed and `mockingbird_arena` now carries an authored
+`encounter_id: "cove.mockingbird"`, which `boss_placement_id` prefers over the
+LDtk iid — so the durable key is `cove.mockingbird`, and the three executable
+`boss_cleared("cove.mockingbird")` calls in `sandbox/cove.yarn` and
+`sandbox/kernel.yarn` can now be true. The BEHAVIOUR above is unchanged and its
+test still passes; only the name it is recorded under moved.
+
+⭐ **AND THE REST OF THE POPULATION IS MEASURED, because the fallback is a legacy
+road rather than a design.** Of the nine `BossSpawn` placements in `sandbox`,
+**exactly ONE carries an authored `encounter_id`** — `mockingbird_arena`. The
+other eight (`basement_boss`, `flying_spaghetti_monster_arena`, `trex_arena`,
+`mode_collapse_arena`, `exploding_gradient_arena`, `overfit_annex_boss`,
+`overflow_arena`, `gnu_ton_arena`) fall back to an iid no author can type.
+⚠ **That is not a defect today and the guard is why**: nothing gates dialogue on
+those eight, and `test_alias_arguments_name_something_real` fails if any authored
+`boss_cleared("…")` names a placement that does not resolve. ⇒ the moment someone
+writes `boss_cleared("trex")` the guard stops them until the placement is named,
+which is exactly the ruling's fifth step working. The eight are a COST that comes
+due only when someone gates on them.
+
 The shipped worlds author **eleven** `BossSpawn` placements — one in `intro`,
 nine in `sandbox`, one in `you_have_to_cut_the_rope`. **Exactly one content
 system retracts a recorded defeat on `RoomReplayAdmitted`**

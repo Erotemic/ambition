@@ -262,6 +262,11 @@ pub fn sync_trapdoor_visuals(
                 transform,
                 Visibility::Visible,
                 TrapdoorVisual { body },
+                // ⭐ THE SAME FACT THIS DRAWABLE ALREADY KNOWS, said in the ONE
+                // spelling every consumer can ask for. The field above stays --
+                // this visual needs the body to place itself -- but a consumer that
+                // knows nothing about it can now find out whose body it draws.
+                ambition_platformer2d_shared_tangle::lifecycle::PresentationOf(body),
                 Name::new("Trapdoor Visual"),
             ),
         );

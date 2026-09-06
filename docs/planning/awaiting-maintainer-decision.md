@@ -3682,8 +3682,8 @@ merge base                            2b15cc8   "Start git epoch 1"
 PER-LINE opt-in, and putting scanner syntax inside a fenced block would render
 literally to a reader — while teaching the checker to skip fences would create a
 standing block-level exemption in exactly the place a table of shas lives. The
-sha is `2b4d59f`, carried in the four marked rulings below where it can be acted
-on.  <!-- cite-ok -->
+sha is `2b4d59f`, carried in the four marked rulings below where it can be acted  <!-- cite-ok -->
+on.
 
 ⇒ **They are DIVERGENT, sharing only the epoch root.** Neither is an ancestor of
 the other, so:
@@ -3699,7 +3699,7 @@ SILENCE.** The citation guard reports this sha as *"a commit that exists only on
 the machine that wrote it"* — which is this ticket's SUBJECT SENTENCE, so the
 guard is working exactly as designed. ⛔ But it can never go green: the sha names
 a SUBMODULE commit and the scanner reads superproject shas, so even pushing
-`2b4d59f` to the renderer's remote would not make it resolvable here. A red that
+`2b4d59f` to the renderer's remote would not make it resolvable here. A red that  <!-- cite-ok -->
 cannot be cleared by fixing the thing it points at is an alarm, not a finding, and
 it trains readers to skip the guard.
 ⇒ Marked deliberate, which is what `cite-ok` is for (*"a row quoting a mistake it

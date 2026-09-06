@@ -3748,6 +3748,29 @@ followed by one pointer bump in the superproject. That is a maintainer action:
 this session must not push to the submodule, and must not run
 `submodule update` while an unpushed commit sits there.
 
+⛔⛔ **AND IT IS NOT ONE SUBMODULE — SWEPT 2026-09-06, THREE OF THE FIVE HOLD WORK
+`git submodule update` WOULD DESTROY.**
+
+```text
+submodule                       pin vs HEAD        at risk
+tools/ambition_sprite2d_renderer  DIVERGENT        1 unpushed commit (this ticket)
+tools/ambition_music_renderer     HEAD is AHEAD    1 unpushed commit ("Fix v3 renderer
+                                                   bundle integration") + 1 untracked score
+dev/ambition_dev_measurements     at the pin       1 modified file (run_tests_cost.jsonl)
+game/ambition_map_assets          at the pin       clean
+tools/ambition_sfx_renderer       at the pin       clean
+```
+
+⇒ **`git submodule update --init --recursive` — the command every setup document
+and half the guards recommend — would rewind two of these and discard a third's
+edit.** Only the sprite renderer is DIVERGENT; the music renderer is merely
+AHEAD, which is worse in one respect: a rewind there looks like a no-op in the
+superproject and the lost commit is somebody's in-flight work rather than a
+deletion anyone would notice.
+⚠ This is why the three guards whose `fix:` line said `submodule update` were
+repaired today to split the empty case from the populated one. **The hazard is not
+hypothetical in this tree; it is live in three of five submodules right now.**
+
 ⛔⛔ **AND NEITHER SIDE OF THIS IS VISIBLE IN A SUPERPROJECT DIFF.** Confirmed
 from the peer session 2026-09-06: the superproject pointer is `0828fae` on BOTH
 boxes, and `git log origin/main..HEAD` inside the submodule is EMPTY on theirs.

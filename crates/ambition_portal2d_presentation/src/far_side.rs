@@ -833,5 +833,25 @@ mod tests {
              morphed or submerged body would pop back into view the frame it \
              stopped being far-side"
         );
+
+        // ⛔⛔ AND THE RELEASE ITSELF, WHICH THIS TEST DID NOT ASSERT. Deleting
+        // `commands.entity(entity).remove::<PortalSourceHidden>()` left all 87
+        // tests of this crate GREEN: the visibility assertion above is satisfied
+        // by the OTHER owner's hide whether the claim is dropped or not. A pair
+        // of arms for arrival is not a pair for departure -- the fighter lane's
+        // formulation, found the same way, by a poison that walked out unharmed.
+        //
+        // ⚠ A STALE CLAIM IS NOT COSMETIC. `PortalSourceHidden` is what tells the
+        // render publisher that a `Hidden` body is hidden BY THE PORTAL and may
+        // still be composited (`portal_hid_it.is_none()`), and what makes this
+        // resolver hide the body's `PresentationOf` dependants. Left behind, a
+        // body hidden by a morph or a submerge keeps publishing compositing
+        // candidates and keeps its silhouette suppressed, for as long as it
+        // lives.
+        assert!(
+            app.world().get::<crate::source_visibility::PortalSourceHidden>(body).is_none(),
+            "the portal's reason ended, so its CLAIM must end too -- a stale claim \
+             tells the publisher this body is portal-hidden forever"
+        );
     }
 }

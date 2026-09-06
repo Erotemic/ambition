@@ -107,3 +107,24 @@ def test_a_read_inside_a_cfg_test_helper_is_not_a_production_reader() -> None:
     kept, _unclosed = module.production_lines(source)
     body = "\n".join(line for _number, line in kept)
     assert module.messages_read_directly(body) == []
+
+
+def test_an_over_matching_reader_detector_fails_rather_than_reporting_a_clean_zero() -> None:
+    """⭐⭐ THE OPERAND-FLOOR DEFECT, named by the peer session: a guard whose
+    finding is a set DIFFERENCE cannot be protected by flooring one operand.
+
+    `MIN_DECLARED` floors the DECLARED side. The silent-failure direction is the
+    other one — a reader matcher that accepts too much, after which every message
+    has a "reader", `with NONE: 0` prints, and the run exits 0 looking immaculate.
+    A positive control asks the detector about a name that cannot possibly have a
+    reader.
+    """
+    module = _module()
+    real = module.generic_inners
+    module.generic_inners = lambda text, name: (
+        real(text, "add_message") if name == "MessageReader" else real(text, name)
+    )
+    try:
+        assert module.main() == 1
+    finally:
+        module.generic_inners = real

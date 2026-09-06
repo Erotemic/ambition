@@ -201,6 +201,29 @@ def main() -> int:
         for name, _where in messages_read_directly(text):
             read.setdefault(name, []).append(rel)
 
+    # ⭐⭐ A POSITIVE CONTROL FOR THE ANSWER "NOBODY READS THIS", which the floor
+    # below cannot give. `MIN_DECLARED` floors ONE OPERAND; the finding is a set
+    # DIFFERENCE, and its silent-failure direction is a reader detector that
+    # matches TOO MUCH -- then every message has a "reader", `with NONE: 0` prints,
+    # and the run exits 0 looking immaculate. (Verified: forcing the reader
+    # matcher to also accept `add_message` sites produces exactly that.)
+    # ⇒ Ask the detector about a name that CANNOT have a reader. If it finds one,
+    # the instrument is over-matching and every zero it reports is worthless.
+    # The peer session's formulation, which this is: a guard whose population is
+    # an INTERSECTION must floor the intersection, not its operands.
+    sentinel = "AMessageTypeThatDoesNotExistAnywhere"
+    probe = f"app.add_message::<{sentinel}>();"
+    probe_read = [payload(inner) for inner in generic_inners(probe, "MessageReader")]
+    probe_read += [name for name, _line in messages_read_directly(probe)]
+    if sentinel in read or sentinel in probe_read:
+        print(
+            f"FAIL: the reader detector claims `{sentinel}` has a reader.\n"
+            "  Nothing declares or reads that name, so the matcher is "
+            "over-matching and\n  every 'no reader' answer in this report is "
+            "worthless -- including a clean zero.",
+            file=sys.stderr,
+        )
+        return 1
     if len(declared) < MIN_DECLARED:
         print(
             f"FAIL: only {len(declared)} message type(s) declared — the sweep is "

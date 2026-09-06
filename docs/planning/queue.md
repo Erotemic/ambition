@@ -786,6 +786,34 @@ and run that one. `cargo check -p <crate>` with no features is seconds.
   reader-by-reader audit of which context each surface should declare, not a
   blanket gate — and it wants somebody who can watch a screen.
 
+  ⭐⭐ **BUT THE SHAPE OF THE FIX IS ALREADY SETTLED BY A WORKED EXAMPLE IN THE
+  TREE, and this row did not know — found 2026-09-06 while re-deriving its
+  blockers.** `the_select_screen_owns_its_input`
+  (`game/ambition_demo_smash/src/lib.rs:3471`) is the second-heaviest reader on
+  the list doing exactly what the row asks for: it ASKS `SeatInputContexts`
+  instead of reading the raw channel. Its own doc records the bug it fixed —
+  *"the arrows drove BOTH — the menu's cursor and the lobby — because the two
+  read different channels and neither could consume the other's edge"* — which is
+  this row's defect on one surface.
+
+  ⇒ **Three decisions the next surface should copy rather than re-derive:**
+  1. **Gate on the ROUTE first** (`on_the_select_route`), so a surface that is not
+     up cannot claim anything;
+  2. **ask whether ANY seat still owns the context, not seat 0** — *"there is one
+     cursor and four people may drive it, so the screen stops when the whole
+     screen is outranked and not when player one's claim happens to be the one
+     that lost"*;
+  3. **`None` reads as OWNED** — *"a test that wires no contexts is testing the
+     screen, not the arbitration"* — so unit fixtures do not have to stand up a
+     resolver.
+
+  ✔ **And it is tested**, in `game/ambition_demo_smash/src/pause_arbitration_tests.rs`,
+  so the pattern comes with its own evidence rather than as a suggestion.
+  ⇒ **What is left for the audit is per-surface JUDGMENT — which context each of
+  the other readers should declare — not the mechanism.** That is a smaller and
+  differently-shaped ask than the row states, and the screen-watching is needed to
+  confirm the judgment rather than to discover the pattern.
+
 ## Current execution order
 
 - ✔ **D-CUT-VOICE — LANDED 2026-09-06, and EVERY BLOCKING CLAIM BELOW WAS

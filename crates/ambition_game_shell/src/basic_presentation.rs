@@ -911,7 +911,27 @@ fn shell_frame_key(
         // `restyle_bevy_ui_menu_controls` recolours what changed. This key names
         // only what a REBUILD is actually needed for: which rows exist and what
         // they say.
-        return format!("launcher:{}:{:?}", presentation.title, catalog.entries);
+        // ⛔⛔ THE TAB IS STRUCTURE, NOT CURSOR, AND LEAVING IT OUT MADE THE
+        // SETTINGS TAB UNREACHABLE BY EVERY ROAD AT ONCE. Reported by Jon three
+        // times (2026-09-06): *"I can't click, tap, nothing"*, then *"Q and E do
+        // not change the visible menu"*. Both are this line. `ShellLauncherState.tab`
+        // selects WHICH ROWS EXIST -- the game list or the settings rows -- so a
+        // key without it is identical either side of a tab switch, `render_basic_shell`
+        // returns early, and the view keeps drawing the page you left.
+        //
+        // ⚠ THE STATE WAS ALWAYS CHANGING, which is what made it so hard to find:
+        // `ShellLauncherState.tab` flipped to `Settings` on every road (pointer,
+        // `E`/`Q`, bumpers) and the tests that assert the STATE passed throughout.
+        // Measured in the shipped composition: state `Home` -> `Settings`, tab
+        // `active` flags unchanged, text nodes unchanged at 29.
+        //
+        // ⇒ Contrast `selected` above, which is correctly absent: a cursor moves
+        // in place through `MenuVisualState`. The discriminator is whether the
+        // field changes WHICH NODES SHOULD EXIST, and a tab does.
+        return format!(
+            "launcher:{:?}:{}:{:?}",
+            launcher.tab, presentation.title, catalog.entries
+        );
     }
     sequence_frame(sequence).key
 }

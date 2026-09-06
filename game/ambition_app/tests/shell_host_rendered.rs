@@ -1353,3 +1353,116 @@ fn the_shipped_title_screen_is_wired_for_a_pointer() {
          the Settings tab stays unreachable by pointer"
     );
 }
+
+/// ⛔⛔ THE TAB SWITCHED AND THE SCREEN DID NOT. Jon, three times on 2026-09-06:
+/// *"there is no way to select the settings menu, I can't click, tap, nothing"*,
+/// then *"Q and E do not change the visible menu"*, then *"I feel like it is a
+/// visibility or update problem"* — which was exactly right.
+///
+/// ⇒ `ShellLauncherState.tab` flipped to `Settings` on EVERY road the whole time.
+/// `render_basic_shell` early-returns when `shell_frame_key` is unchanged, and
+/// that key held the title and the catalog entries but NOT the tab — so the key
+/// was identical either side of a switch and the view kept drawing the page you
+/// had left.
+///
+/// ⚠ AND THE TESTS THAT EXISTED ASSERTED THE STATE, which never broke.
+/// `the_shipped_title_screen_is_wired_for_a_pointer` checks
+/// `ShellLauncherState.tab == Settings` and passed throughout. This asserts what
+/// the player can actually SEE: the tab strip's active flag and the words on the
+/// screen.
+#[test]
+fn switching_the_tab_redraws_the_menu_the_player_sees() {
+    use ambition_platformer2d::game_shell::{LauncherTab, ShellLauncherState};
+    use ambition_platformer2d::menu::render::bevy_ui::BevyUiMenuTab;
+
+    let mut app = rendered_app();
+    settle(&mut app);
+
+    let words = |app: &mut App| -> Vec<String> {
+        let mut q = app.world_mut().query::<&bevy::prelude::Text>();
+        let mut v: Vec<String> = q.iter(app.world()).map(|t| t.0.clone()).collect();
+        v.sort();
+        v
+    };
+    let active_tab = |app: &mut App| -> Option<usize> {
+        let mut q = app.world_mut().query::<&BevyUiMenuTab>();
+        q.iter(app.world()).find(|t| t.active).map(|t| t.index)
+    };
+
+    assert_eq!(
+        app.world().resource::<ShellLauncherState>().tab,
+        LauncherTab::Home,
+        "premise: the title screen opens on the game list"
+    );
+    let before_words = words(&mut app);
+    let before_tab = active_tab(&mut app);
+
+    app.world_mut()
+        .resource_mut::<bevy::ecs::message::Messages<
+            ambition_platformer2d::menu::MenuTabActivated,
+        >>()
+        .write(ambition_platformer2d::menu::MenuTabActivated { index: 1 });
+    for _ in 0..8 {
+        app.update();
+    }
+
+    assert_eq!(
+        app.world().resource::<ShellLauncherState>().tab,
+        LauncherTab::Settings,
+        "premise: the shell consumed the activation"
+    );
+    assert_ne!(
+        active_tab(&mut app),
+        before_tab,
+        "the tab strip still highlights the tab the player left, so the switch is \
+         invisible even though the state changed"
+    );
+    assert_ne!(
+        words(&mut app),
+        before_words,
+        "the launcher drew the same words after switching to Settings: the view \
+         never rebuilt, which is what made the Settings tab unreachable by pointer, \
+         by `E`/`Q` and by the bumpers at once"
+    );
+}
+
+/// ⭐ AND IT MUST NOT REBUILD WHEN NOTHING HAPPENED — Jon, in the same breath as
+/// the bug: *"we very likely don't want an architecture that causes menu rebuilds
+/// all the time, that seems very inefficient."*
+///
+/// ⛔ THIS GUARDS THE WRONG FIX, which is the cheap one: dropping the key, or
+/// keying on something that changes every frame, would make the test above pass
+/// while respawning every node continuously. `shell_frame_key`'s own comment
+/// records that `selected` was removed from it for exactly this reason — an arrow
+/// press was despawning and respawning the whole launcher.
+///
+/// ⇒ The rule the key encodes: a field belongs in it when it changes WHICH NODES
+/// SHOULD EXIST. A tab does; a cursor does not.
+#[test]
+fn an_idle_title_screen_does_not_rebuild_its_menu() {
+    let mut app = rendered_app();
+    settle(&mut app);
+
+    let words = |app: &mut App| -> Vec<String> {
+        let mut q = app.world_mut().query::<&bevy::prelude::Text>();
+        let mut v: Vec<String> = q.iter(app.world()).map(|t| t.0.clone()).collect();
+        v.sort();
+        v
+    };
+
+    let mut rebuilds = 0;
+    let mut last = words(&mut app);
+    for _ in 0..60 {
+        app.update();
+        let now = words(&mut app);
+        if now != last {
+            rebuilds += 1;
+            last = now;
+        }
+    }
+    assert_eq!(
+        rebuilds, 0,
+        "the idle title screen rebuilt its menu {rebuilds} time(s) in 60 frames; \
+         the frame key must name what a REBUILD is for, not what changes per frame"
+    );
+}

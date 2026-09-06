@@ -695,6 +695,69 @@ mod expressiveness_census {
         }) {
             why.push("ranged");
         }
+        // ⛔⛔ AND THE SAME DISCIPLINE APPLIED TO THE OTHER TWO CLOSED SETS, so
+        // that this definition is complete BY CONSTRUCTION rather than by
+        // whatever the last author happened to need. Enumerating `MoveEventKind`
+        // is what moved the answer from 48 to 13; enumerating `WindowTag`,
+        // `HitVolume` and `MoveSpec`'s own fields is the rest of that job, and it
+        // was done in one pass on 2026-09-06 after the third consecutive move I
+        // sat down to author turned out to want a mechanic the census could not
+        // see (set knockback, then armour, then a cancel).
+        //
+        // ⚠ THE COUNT THIS MOVES IS AN INSTRUMENT DELTA, NOT AUTHORING. Reported
+        // separately for that reason: a definition that grows and a roster that
+        // improves are two different facts and they must never be added together.
+        // ⛔ MATCHED EXHAUSTIVELY IN A CLOSURE rather than pushed from a loop, so
+        // a move with three invulnerable windows says "invuln" once — and so that
+        // a seventh `WindowTag` is a COMPILE error here rather than a silent
+        // omission, which is the whole lesson of the `MoveEventKind` miscount.
+        let tagged = |wanted: fn(&ambition_platformer2d::entity_catalog::WindowTag) -> bool| {
+            mv.windows.iter().any(|w| wanted(&w.tag))
+        };
+        // Invincibility frames: a move you can throw THROUGH something.
+        if tagged(|t| {
+            matches!(t, ambition_platformer2d::entity_catalog::WindowTag::Invuln)
+        }) {
+            why.push("invuln");
+        }
+        // Super armour: you get hit and you swing anyway.
+        if tagged(|t| matches!(t, ambition_platformer2d::entity_catalog::WindowTag::Armor)) {
+            why.push("armor");
+        }
+        // A cancel window is authored follow-up: what this move is ALLOWED to
+        // become, which a plain strike cannot say.
+        if tagged(|t| {
+            matches!(
+                t,
+                ambition_platformer2d::entity_catalog::WindowTag::Cancelable { .. }
+            )
+        }) {
+            why.push("cancelable");
+        }
+        // A technique the volume fires ON CONTACT — the conditional sibling of an
+        // `Effect` event, and it was uncounted because it hangs off the VOLUME
+        // rather than off the timeline.
+        if mv
+            .windows
+            .iter()
+            .any(|w| w.volumes.iter().any(|v| v.on_hit.is_some()))
+        {
+            why.push("on-hit technique");
+        }
+        // ⭐ SET KNOCKBACK. `knockback_growth: Some(0.0)` means the launch is the
+        // same at 0% and at 150%, which is the genre's combo-starter and its
+        // set-up-a-kill tool. `fixed_knockback` is the verb that authors it.
+        if mv.windows.iter().any(|w| {
+            w.volumes
+                .iter()
+                .any(|v| v.knockback_growth == Some(0.0) && v.damage > 0)
+        }) {
+            why.push("set knockback");
+        }
+        // A move that LOOPS is a held stance rather than a swing.
+        if mv.repeat.is_some() {
+            why.push("loop");
+        }
         // ⛔⛔ THESE THREE LIVED ONLY IN THE PER-SPECIAL CENSUS BELOW, as its own
         // private `extras` list, and that is how this file came to state one
         // definition of "expressive" and compute another. A charge, a launch
@@ -805,7 +868,7 @@ mod expressiveness_census {
     /// ⇒ Jon's words were *"a lot of characters have boring specials"*. The
     /// SPECIAL is the unit of that sentence, and counting it changes the answer
     /// from "0 plain" to this: measured 2026-09-06, **75 of 88 specials carry a
-    /// mechanic and 13 do not**. Both numbers come from `expressive_reasons`, the
+    /// mechanic and 11 do not**. Both numbers come from `expressive_reasons`, the
     /// one definition in this file, so this test and the per-special census
     /// cannot drift apart the way the census and its own doc comment did.
     ///
@@ -841,7 +904,7 @@ mod expressiveness_census {
         /// Raised deliberately as specials gain mechanics. ⛔ Raising it is a
         /// decision with a commit behind it; watching it fall silently is the
         /// failure this exists to catch.
-        const FLOOR: usize = 75;
+        const FLOOR: usize = 77;
 
         let mut rich: Vec<String> = Vec::new();
         let mut bare: Vec<String> = Vec::new();

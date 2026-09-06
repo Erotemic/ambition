@@ -48,6 +48,7 @@ pub mod smash_sleep;
 pub mod smash_spring;
 pub mod smash_limit;
 pub mod smash_teleport;
+pub mod smash_tether;
 pub mod smash_time_dilation;
 pub mod smash_trapdoor;
 pub mod smash_vitality;

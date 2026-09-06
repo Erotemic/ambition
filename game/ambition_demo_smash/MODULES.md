@@ -25,8 +25,9 @@
 | [`sing`](src/sing.rs) | Sing: an area that takes the floor away from whoever stood too close. |
 | [`smash_pack`](src/smash_pack.rs) | Smash demo content pack for George Booul. |
 | [`spring`](src/spring.rs) | A plate on the floor that throws whoever steps on it. |
+| [`tether`](src/tether.rs) | The tether reel: she throws a line at a ledge and it pulls her to it. |
 
-_19 crate-root modules. Regenerate: `python scripts/modules_md.py --write`._
+_20 crate-root modules. Regenerate: `python scripts/modules_md.py --write`._
 
 <!-- END generated module map -->
 

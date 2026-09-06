@@ -264,7 +264,19 @@ use crate::content_identity::SnapshotSchemaFingerprint;
 /// objects it marks permanently unsweepable — cleanup that silently stops working
 /// after the first rollback. ⓘ `component-clone` like the four objects it marks:
 /// a stable identity copied at spawn has nothing for a codec to normalise.
-pub const GGRS_ROLLBACK_SCHEMA_VERSION: u32 = 163;
+/// ⛔ v164: `TetherReel`, the ledge a tether latched and the clock reeling to it.
+/// The aerial half of the Projectile Polygon's tether: a line thrown at a ledge,
+/// which then pulls her to the exact point the ledge authority wants a hanging
+/// body to occupy. ⇒ The reel is several frames of authored motion, so its clock
+/// decides where a fighter IS — the same argument `HomingDash` carries.
+/// ⭐ THE ANCHOR IS THE STRONGER HALF, AND IT IS WHY THIS CANNOT BE RECOMPUTED
+/// ON RESTORE. It is not merely a destination: it is a point on the stage she
+/// committed to on ONE frame, chosen by probing the solids at that frame. A peer
+/// that restored the reel without it would re-probe against its own view and
+/// could latch a DIFFERENT ledge — a divergence that grows with every tick
+/// instead of correcting itself. ⓘ `component-clone`: two floats and a point,
+/// with nothing for a codec to normalise.
+pub const GGRS_ROLLBACK_SCHEMA_VERSION: u32 = 164;
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq, Ord, PartialOrd, Hash)]
 pub enum RollbackEntryKind {

@@ -50,6 +50,17 @@ const CHARGE_FIRE_AT_S: f32 = 0.26;
 /// held-item registry: a held item for a thing that is part of her, because the
 /// seam is "while this move plays the fighter is WIELDING this, and its ranged
 /// verb is the shot" — which is what throwing your own tail is.
+/// How far her line reaches, in world px.
+///
+/// ⭐⭐ ONE NUMBER FOR TWO MOVES, because they are one fiction. Her GRAB is a
+/// tether (`offset.0 + half_extents.0` = 86 + 64) and her UP-B throws the same
+/// line at a ledge. A tether that reached further off-stage than it does
+/// on-stage would be two moves wearing one animation, and the way that happens
+/// is somebody tuning one of them. ⇒ `the_tether_reaches_as_far_as_her_grab`
+/// holds the two together, because a constant only stops drift where it is
+/// actually read, and the grab's is authored as a box rather than a distance.
+const THE_TETHERS_REACH: f32 = 150.0;
+
 const PONYTAIL: &str = "polygon_ponytail";
 
 /// When the tail leaves her hand. Late enough to read as a wind-up and be
@@ -486,6 +497,41 @@ pub fn projectile_polygon_moveset() -> MovesetContract {
     uppercut.landing_lag_s = Some(0.25);
     let up_special = impulse(uppercut, 0.08, (0.0, -745.0), ImpulseMode::Set);
 
+    // ⭐⭐ AND THE LIFT THROWS HER LINE, which is what makes her recovery HERS.
+    // A 745px/s pop is a recovery every fighter could have; a tether that bites
+    // a ledge and reels her onto it is the ranged fighter's version of the same
+    // verb she already grabs with. ⇒ The reach is `THE_TETHERS_REACH`, the same
+    // number her grab uses, because they are one fiction: a line that reached
+    // further off-stage than it does on-stage would be two moves wearing one
+    // animation.
+    //
+    // ⛔ IT CATCHES NOTHING BY ITSELF. The reel delivers her to the anchor the
+    // ledge authority wants a hanging body to occupy and then lets go; the
+    // kernel's own `try_start_ledge_grab_clusters_in_frame` decides whether she
+    // catches, with its release cooldown and its eligibility intact. See
+    // `ambition_demo_smash::tether` for why that separation is the point.
+    //
+    // ⚠ AND IT HAS TO BE AIMED. The line goes where she FACES, so a recovery
+    // that drifts out facing away from the stage gets the plain 745px/s pop and
+    // nothing more — which is the read that keeps a tether from being a free
+    // return ticket.
+    let up_special = ambition_characters::smash_tether::author_tether_pull(
+        up_special,
+        // Just after the pop, so the line goes out while she is rising rather
+        // than at the apex where she has already spent the height.
+        0.10,
+        ambition_characters::smash_tether::TetherPullParams {
+            reach: THE_TETHERS_REACH,
+            // Faster than the pop that threw her: once the line bites, the reel
+            // IS her motion, and a reel slower than a fall would lose ground.
+            speed: 900.0,
+            // 315px of travel against a 150px line — the failsafe is generous
+            // on purpose, because the case it exists for is a ledge that stops
+            // being reachable, not a reel that is merely slow.
+            timeout_s: 0.35,
+        },
+    );
+
     // DOWN (grounded) — `polygon_lay_bomb`. SHE PUTS A LIVE BOMB ON THE FLOOR.
     //
     // ⭐⭐ JON'S DESIGN, 2026-08-27: *"The projectile polygon should poop a bomb
@@ -577,6 +623,8 @@ pub fn projectile_polygon_moveset() -> MovesetContract {
     let grab = author_standing_grab(
         grab_shell("polygon_projectile_grab", "grab", 0.10, 0.06, 0.34),
         CaptureAttemptParams {
+            // ⭐ 86 + 64 = `THE_TETHERS_REACH`. Her up-B throws the same line
+            // and reads the constant, so the two cannot drift apart silently.
             offset: (86.0, 1.0),
             half_extents: (64.0, 10.0),
             // The SAME hold as before. Where a captive is held is a property of
@@ -676,6 +724,58 @@ pub fn projectile_polygon_moveset() -> MovesetContract {
 
 #[cfg(test)]
 mod tests {
+
+    /// ⛔ THE COMMENT ON HER GRAB CLAIMS 86 + 64 IS THE TETHER'S REACH. That is
+    /// a specification, so it is checked here rather than trusted: retune either
+    /// move alone and this reddens.
+    #[test]
+    fn the_tether_reaches_as_far_as_her_grab() {
+        let set = projectile_polygon_moveset();
+        let grab = set
+            .moves
+            .iter()
+            .find(|m| m.id == "polygon_projectile_grab")
+            .expect("she has a grab");
+        // ⛔ A GRAB'S REACH IS NOT ON ITS TIMELINE. `author_standing_grab` hangs
+        // the capture on the ACTIVE WINDOW as a `sustain_effect` — the attempt
+        // is live for the window's duration rather than fired at an instant —
+        // so a scan of `events` finds nothing. Written after that scan failed.
+        let capture: ambition_characters::smash_capture::CaptureAttemptParams = grab
+            .windows
+            .iter()
+            .filter_map(|window| window.sustain_effect.as_ref())
+            .find(|effect| effect.key == ambition_characters::smash_capture::CAPTURE_ATTEMPT)
+            .and_then(|effect| effect.params.hydrate().ok())
+            .expect("her grab captures");
+
+        let lift = set
+            .moves
+            .iter()
+            .find(|m| m.id == "polygon_projectile_recoil_lift")
+            .expect("she has an up-B");
+        let tether: ambition_characters::smash_tether::TetherPullParams = lift
+            .events
+            .iter()
+            .find_map(|event| match &event.kind {
+                ambition_platformer2d::entity_catalog::MoveEventKind::Effect(effect)
+                    if effect.key == ambition_characters::smash_tether::TETHER_PULL =>
+                {
+                    effect.params.hydrate().ok()
+                }
+                _ => None,
+            })
+            .expect("her up-B throws the tether");
+
+        assert_eq!(
+            tether.reach,
+            capture.reach_x(),
+            "her up-B throws a {}px line while her grab reaches {}px — one \
+             fiction, two numbers",
+            tether.reach,
+            capture.reach_x(),
+        );
+        assert_eq!(tether.reach, THE_TETHERS_REACH);
+    }
     use super::*;
 
     #[test]

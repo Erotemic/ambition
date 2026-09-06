@@ -677,7 +677,7 @@ has** — the condition id, the fact (flag) name, the alias argument, and the it
 id. Between them a misspelling in authored content stops being invisible.
 ⚠ **And the item guard ASKS the resolver rather than listing the items**
 (`Item::from_dialog_id`), because a table of valid spellings would be a second
-authority on normalisation — the exact defect `normalize_item_id` was deleted
+authority on normalisation — the exact defect `normalize_item_id` was deleted  <!-- cite-ok: the row records the deletion -->
 for, a second copy that agreed until it did not.
 ⛔ **The argument family was the last one nobody was looking at, and it was the
 only one already broken.** Worth remembering when the next vocabulary lands: the

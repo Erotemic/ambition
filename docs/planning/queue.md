@@ -1330,7 +1330,7 @@ and run that one. `cargo check -p <crate>` with no features is seconds.
   `ambition_platformer2d_actor_monolith` (`character_runtime::fight_tests`,
   `character_runtime::hurtbox_damage_tests`,
   `features::ecs::damage::tests`) **PASS at default features and PANIC under the
-  feature union** — same test, same crate, same run: `PASS` at 4341/7143 in the
+  feature union** — same test, same crate, same run: PASS at 4341/7143 in the
   `cargo nextest run --workspace` job, `FAILED` in the union job. Both modules
   are plain `#[cfg(test)]`, NOT feature-gated, so they genuinely execute in both;
   this is a behavioural difference, not a "did not run".
@@ -4588,7 +4588,7 @@ OPTIONAL dep + feature, never used:
   **156/5318**.** The denominator grew by 42 as the day's public surface landed
   (`authored_price`, `AuthoredPriceProblem::observed`, `can_afford_descriptor`,
   `can_afford`, `WalletConditionsPlugin`, `QuestConditionsPlugin`, …) and the
-  orphan count went DOWN by one — the stranded `run_bout` wrapper deleted in
+  orphan count went DOWN by one — the stranded `run_bout` wrapper deleted in  <!-- cite-ok: the row records the deletion -->
   `2e77f9f7a`. ⇒ **Every `pub fn` added today has a production caller**, which
   is the property this census exists to measure and is worth stating because
   "I added public surface" is exactly when dormant additions appear. The delta

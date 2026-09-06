@@ -380,7 +380,7 @@ kill — is delivered by the placement record two lines above, which
 `spawn_cut_rope_victory_npc` gates on. Two facts by hand now, not three. It is well-placed (the content half of the replay, in the
 engine's `ContentRoomReplayResetSet` slot, so the host consumer never names
 cut-rope) and it is still a list that grows only when somebody notices — the
-same property that made `reset_ecs_room_features` a second constructor.
+same property that made `reset_ecs_room_features` a second constructor.  <!-- cite-ok: names the carved-away function on purpose -->
 ⇒ **The difference is scale, not kind:** that ledger had sixteen queries and
 twelve families; this has three facts. Which is an argument for a guard now,
 while it is three.

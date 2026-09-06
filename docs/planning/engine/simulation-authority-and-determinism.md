@@ -839,7 +839,7 @@ host anchors BEFORE its generic replay consumer).
 ⛔⛔ **THE STANDING NOTE SAYS THAT LIST HOLDS "EXACTLY ONE" SYSTEM. IT HOLDS
 THREE, ACROSS TWO CONTENT CRATES** — `reset_cut_rope_attempt_on_replay`, plus
 mary_o's `rearm_bricks_for_a_fresh_attempt` and
-`rearm_power_blocks_for_a_fresh_attempt`. ⇒ A missed registration is a live risk
+`rearm_power_blocks_for_a_fresh_attempt`. ⇒ A missed registration is a live risk  <!-- cite-ok: the historical system names, marked as such above -->
 with two independent authors, not the theoretical one a single entry implies.
 
 ⚠ **Sites are not systems, and that is how "exactly one" survived.** The two

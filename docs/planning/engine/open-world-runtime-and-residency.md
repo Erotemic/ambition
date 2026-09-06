@@ -356,7 +356,7 @@ fix will shorten a list.
 WRITTEN — no producer, no consumer, not in any rollback ledger — and
 `ambition_menu` has no external-consumer fixture: its seven dependents are all
 in-repo. ⛔ **And the crate doc asserted otherwise**, telling hosts to *"translate
-the `MenuActionActivated` / `MenuClosedRequested` messages this crate emits"* when
+the `MenuActionActivated` / `MenuClosedRequested` messages this crate emits"* when  <!-- cite-ok: quoting the doc line that named a message now deleted -->
 it emitted only the first.
 ⭐ **The live road was already generic, which is why the second one never got
 built**: closing arrives as the HOST's own action variant on `MenuActionActivated`

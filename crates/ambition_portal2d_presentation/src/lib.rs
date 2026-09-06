@@ -51,7 +51,7 @@ pub use clip_material::{
 pub use ambition_portal2d::{PlacedPortal, PortalChannel, PortalChannelColor};
 pub use far_side::{composite_far_side_bodies, PortalFarSideHidden, PortalFarSidePiece};
 pub use source_visibility::{
-    resolve_portal_source_visibility, PortalSourceHidden, PortalTransitHidden,
+    resolve_portal_source_visibility, PortalDependantHidden, PortalSourceHidden, PortalTransitHidden,
 };
 pub use compositing::{
     current_z_policy_is_correct_for, pane_cover_rect, pane_relation, piece_clip_edges,

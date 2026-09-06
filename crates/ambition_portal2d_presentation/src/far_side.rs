@@ -793,27 +793,77 @@ mod tests {
              whole, so a far-side character shows its outline over the pane"
         );
 
-        // ⭐ AND THE DEPARTURE, WHICH IS "DO NOTHING" AND THEREFORE HAS NO LINE
-        // TO POISON. When the owner stops being far-side, this pass simply stops
-        // overriding the dependant -- it must NOT latch it hidden, because the
-        // drawable's own writer (`overlay_look` for a hit flash) sets its value
-        // every frame and that value is the right one.
-        // ⚠ Asserted by writing VISIBLE and checking it survives: a latch would
-        // stamp `Hidden` back over it, and nothing else in this fixture writes
-        // the silhouette. Without this the release is a claim nothing checks --
-        // the same gap the body's own release had, found the same day.
+        // ⛔⛔ AND THE DEPARTURE, WITH NOTHING WRITING THE SILHOUETTE. This half
+        // used to stamp `Visibility::Visible` onto the silhouette before stepping
+        // again, on the stated premise that "the drawable's own writer sets its
+        // value every frame". THAT PREMISE IS FALSE for the population this seam
+        // exists to serve: the hit-flash overlay is spawned `Visible` and its
+        // update path says visibility "stays `Visible` permanently", writing only
+        // transform and material. So the test repaired the very thing it was
+        // checking, and the release half could not fail. Found by a GPT review
+        // 2026-09-06.
+        //
+        // ⇒ Nothing touches the silhouette here now. If the resolver does not
+        // restore what it took, this asserts `Hidden` and fails — which is the
+        // shipped bug: one far-side crossing and that character never flashes,
+        // parries or blinks visibly again for the rest of the session.
         {
             let mut entity = app.world_mut().entity_mut(body);
             entity.get_mut::<PortalCompositingCandidate>().unwrap().drawn_centre =
                 Vec2::new(495.0, 300.0);
         }
-        *app.world_mut().get_mut::<Visibility>(silhouette).unwrap() = Visibility::Visible;
         app.update();
-        assert_eq!(
+        assert_ne!(
             visibility(&app, silhouette),
-            Visibility::Visible,
-            "the owner is no longer far-side, so this pass must stop overriding \
-             its dependants rather than latching them hidden"
+            Visibility::Hidden,
+            "the owner returned to the near side and the portal never released its \
+             hide, so this drawable is latched hidden for the rest of the session"
+        );
+    }
+
+    /// ⭐⭐ A DEPENDANT THE COMPOSITOR CAN SEE ANSWERS FOR ITSELF — body ownership
+    /// is not compositing geometry authority.
+    ///
+    /// A tether line, flyline or any other unparented sprite that names a body is
+    /// exactly the population `publish_portal_compositing_candidates` evaluates,
+    /// so its OWN bounds decide whether the pane hides it. Copying the owner's
+    /// scalar answer onto it hides a line that is nowhere near the pane merely
+    /// because the body it names overlaps one. Raised by a GPT review 2026-09-06.
+    ///
+    /// ⚠ The silhouette in the test above is deliberately NOT a sprite: that is
+    /// the case where a scalar hide is the only tool available, and it must still
+    /// be claimed and released. Two populations, two answers, one seam.
+    #[test]
+    fn a_sprite_dependant_disjoint_from_the_pane_is_not_hidden_by_its_owner() {
+        use ambition_platformer2d_shared_tangle::lifecycle::PresentationOf;
+
+        let mut app = test_app();
+        app.world_mut().spawn(pane());
+        spawn_viewer(&mut app, Vec2::new(400.0, 300.0));
+        let body = spawn_candidate(&mut app, Vec2::new(505.0, 300.0), Vec2::new(24.0, 24.0));
+        // An unparented sprite drawable naming that body, far from the pane.
+        let line = app
+            .world_mut()
+            .spawn((
+                Visibility::Visible,
+                Sprite::default(),
+                Transform::from_xyz(120.0, 300.0, 0.0),
+                PresentationOf(body),
+            ))
+            .id();
+
+        app.update();
+
+        assert_eq!(
+            visibility(&app, body),
+            Visibility::Hidden,
+            "premise: the OWNER is far-side and hidden, or this proves nothing"
+        );
+        assert_ne!(
+            visibility(&app, line),
+            Visibility::Hidden,
+            "a sprite dependant 380px from the pane was hidden because the body it \
+             names overlaps one — body ownership became compositing authority"
         );
     }
 

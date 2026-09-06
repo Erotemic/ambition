@@ -180,4 +180,3 @@ pub fn author_cut(mut spec: MoveSpec, at_s: f32, params: RiposteStrikeParams) ->
     });
     spec
 }
-

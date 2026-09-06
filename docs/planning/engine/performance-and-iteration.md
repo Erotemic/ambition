@@ -757,9 +757,24 @@ doing nothing.
 ⛔⛔ **AND THE WRONG TURN IS WORTH MORE THAN THE ANSWER.** I read `mana 100/100`
 off `AgentObservation`, told the fighter lane their rule was excluded, and asked
 them to stop their experiment. Both readers name `cluster.mana.meter` — the SAME
-field — so they must be reading different BODIES; an earlier probe had already
-shown TWO `ActorControl`s in that world and I did not follow it. **I falsified a
-correct hypothesis with a sibling reader and called it data.**
+field, and they disagreed. **I falsified a correct hypothesis with a sibling
+reader and called it data.**
+
+⛔⛔ **AND MY EXPLANATION OF THE DISAGREEMENT WAS ALSO WRONG — IT IS ONE BODY AND
+ONE FRAME.** I supposed the two readers must be loading different entities (an
+earlier probe had shown two `ActorControl`s in that world, which made the tidy
+story tidier). Probed instead of assumed: `PrimaryPlayer entities: [481v0]` and
+`DIVEPROBE body=481v0`. **The same entity, the same `BodyMana`, two values inside
+one frame** — `(current 0.0, max 60.0)` where the dive reads it before `Trigger`,
+`(100, 100)` where the observation reads it at the end of the frame.
+⭐ Which is precisely why BOTH sessions' instruments said "not here": an
+end-of-frame projection cannot see a mid-frame state, and a grep cannot see a
+crate it did not sweep. **A value that exists for PART of a frame is invisible to
+every tool either of us reached for**, and the only thing that saw it was a print
+inside the system that reads it.
+⇒ **The rule: when a projection and a mechanism disagree about a value with the
+same name, do not jump to different SUBJECTS — check whether they sample at
+different TIMES.** The probe that settled it was one line.
 ⚠ The other lane made the mirror error from the other side: a grep for a `BodyMana`
 consumer on the dive path found none, so "the dive does not spend mana" — while
 the spend is right there. Two sessions, two instruments, one cause, and both

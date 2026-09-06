@@ -18,6 +18,24 @@ spells it inline eleven times — but `app.insert_resource(..)` inside
 plugin's build. So a resource inserted there exists in every composition that
 includes the demo, for the whole process, whatever mode the player is in.
 
+⭐⭐ AND THE OBVIOUS NARROWING RULE IS NOT THE RIGHT ONE, which the fighter lane
+caught before it was written. "Inserted at build AND defined OUTSIDE the demo"
+catches `PlayerManaRegen` and misses `SmashLimitFill` — smash defines that type
+itself, and it caused two of the three bugs. ⇒ the property those two share is
+that their READERS query a component the demo does not own (`BodyMana`), not that
+the resource's type is foreign. That is a reachability question, which is exactly
+the half this census does not answer; it is named here so the next person does not
+implement the tidy rule and believe it covers the class.
+
+⭐⭐ AND THE OBVIOUS NARROWING RULE IS NOT THE RIGHT ONE, which the fighter lane
+caught before it was written. "Inserted at build AND defined OUTSIDE the demo"
+catches `PlayerManaRegen` and MISSES `SmashLimitFill` -- smash defines that type
+itself, and it caused two of the three bugs. ⇒ the property those two share is
+that their READERS query a component the demo does not own (`BodyMana`), not that
+the resource's own type is foreign. That is a reachability question, which is
+exactly the half this census does not answer; it is named here so the next person
+does not implement the tidy rule and believe it covers the class.
+
 ⚠ THIS REPORTS AND DOES NOT FAIL. Inserting a resource at build is often exactly
 right: a demo's own tuning, its own select-screen state, and the engine's
 `FeatureEcsWorldOverlay` (which mary_o and sanic both insert because a composition

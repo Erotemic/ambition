@@ -545,7 +545,7 @@ the double-transition consequence, crate count 70 → 69 → 70. It carries an
 anti-vacuity assertion that id and caption still differ, so if the converter's
 format changes the test loses its realism, not its meaning.
 
-### ◐ THE SAME CLASS, ONE ROOM OVER: a prop's identity is answered by THREE fields and the one built for it is `#[allow(dead_code)]` — measured 2026-09-06, NOT yet changed
+### ✔ THE SAME CLASS, ONE ROOM OVER: a prop's identity was answered by THREE fields and the code asked the two that cannot know — measured AND CLOSED 2026-09-06 (`3c9d5d149`)
 
 Found by grepping for the shape the room alias had (`a.id == x || a.name == x`).
 Three sites in the cut-rope arena match a prop with
@@ -579,13 +579,28 @@ CHANGES and patches over the change with a caption. `kind` being mutable is not 
 bug — it honestly means "what this is drawn as right now" — the defect is asking
 it who the prop IS.
 
-⇒ **The elegant change is to identify the heavy object by its authored identity,
-after which both compensations collapse**: one `key_matches` field and no
-`ANVIL || PIANO`. ⚠ NOT DONE HERE, and deliberately: it is content-behaviour
-surgery on a working boss, the disjunction is correct today, and this page would
-rather carry a measured finding than a rushed edit. The room-alias commit
-(`ef3e864de`) is the same shape with a clean removal available; this one is not
-clean, and saying which is which is the point of writing it down.
+✔ **DONE — `is_heavy_object(prop, anvil) = prop.id == anvil.id`.** Both
+compensations collapsed: no caption alias, no `ANVIL || PIANO`. A third heavy
+object needs no new arm, which is the thing a disjunction could never promise.
+`authored_prop` also stopped accepting the caption, and `mod.rs` stopped
+re-spelling that lookup by hand — the copy had drifted, still carrying the alias the
+original had dropped. ambition_content 332 + 33 green, `--all-targets` clean.
+
+⚠ **BOTH GUARDS FAILED SILENTLY FIRST, and each failed a DIFFERENT way**:
+* **Vacuous.** The decoy prop (kind `wall_poster`, CAPTIONED `cut_rope_anvil`) was
+  authored AFTER the real anvil, and `find` returns the FIRST match — so the poison
+  left it green. The decoy's POSITION is the entire test.
+* **Constructed its own subject.** It asserted a struct literal keeps its own
+  field: true of every struct, evidence about nothing. Fixed by NAMING the rule so
+  the test can exercise the production predicate. ⇒ Naming it was the better
+  architecture regardless — an identity spelled at the point of use is a rule only
+  its one caller obeys, which is this page's own alias-authority rule applied to
+  itself.
+
+⇒ **I had deferred this as "content-behaviour surgery on a working boss".** That
+was the right call at the time and the wrong conclusion to keep: once the finding
+named which field was the identity, the change was a rename plus two deletions. ⚠ A
+deferral is a measurement of what you knew THEN, and re-deriving it is cheap.
 
 ### ⭐⭐ THE RULE THESE THREE CASES YIELD: a second name is fine when the ALIAS SET has one authority; it is a defect when each lookup spells its own disjunction
 

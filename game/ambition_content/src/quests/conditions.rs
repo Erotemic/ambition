@@ -55,10 +55,43 @@ pub fn active_descriptor() -> ConditionDescriptor {
 /// ⚠ AN UNRECORDED QUEST IS `NotSatisfied`, not `Unanswerable`: the save's
 /// accessor reconstructs a missing row as `NotStarted`, so absence is a real
 /// state. What IS unanswerable is having no save layer at all.
+///
+/// ⛔⛔ BUT "UNRECORDED" AND "NOT A QUEST" ARE TWO ABSENCES, AND THE SAVE CANNOT
+/// TELL THEM APART. `save.data().quest(id)` reconstructs ANY string as
+/// `NotStarted`, so before this check existed a misspelt authored id was
+/// `NotSatisfied` forever — a dialogue branch or a gate that never fires, with
+/// no diagnostic anywhere, indistinguishable from a quest the player simply has
+/// not begun. That is the permissive default [`ParamKind::Name`] warns about:
+/// preparation cannot refuse an unknown name because it holds no `World`, so the
+/// refusal has to happen here.
+///
+/// ⭐ THE ROSTER IS THE `QuestRegistry`, NOT `default_quest_specs()`, and the
+/// difference is load-bearing: the registry is what a composition actually ran,
+/// including anything it added through `ensure`, while the static list is only
+/// what this crate ships. Validating against the static list would reject a
+/// legitimately registered quest.
+///
+/// ⚠ AND IT IS CONSULTED ONLY WHEN `initialized`, because the registry is
+/// populated by a SYSTEM (`populate_quest_registry`). An empty registry on a
+/// frame before that system runs is "the roster is not known yet", not "no such
+/// quest" — trusting it would turn every real quest into a diagnostic for one
+/// frame. No roster ⇒ this falls through and answers from the save exactly as
+/// before, which is what a save-only composition (a dialogue test) gets.
 pub fn active(world: &World, args: &[AuthoredArg]) -> ConditionOutcome {
     let Some(quest) = args[0].as_name() else {
         return ConditionOutcome::unanswerable("`quest` must be a name");
     };
+    // The roster BEFORE the save, for the reason `body.can` states about its
+    // verb: resolving progress first would answer "it has not been started" for
+    // a misspelling, which is the wrong sentence about the wrong subject.
+    if let Some(registry) = world.get_resource::<crate::quest::QuestRegistry>() {
+        if registry.initialized && registry.get(quest).is_none() {
+            return ConditionOutcome::unanswerable(format!(
+                "no quest is spelled `{quest}`; the registry knows {}",
+                registry.quests.len()
+            ));
+        }
+    }
     let Some(save) = world.get_resource::<ambition_persistence::save::AmbitionGameSave>() else {
         return ConditionOutcome::unanswerable(
             "no save layer is installed in this composition, so no quest progress is recorded",
@@ -112,6 +145,73 @@ mod tests {
         active(world, &[AuthoredArg::Name(quest.to_string())])
     }
 
+    /// A world that also carries a POPULATED roster, so the misspelling check is
+    /// live. `initialized` is set by hand rather than by running the content
+    /// pump: the pump is a different capability, and this file tests the
+    /// question, not the progression.
+    fn world_with_roster(quest: &str, state: PersistedQuestState, known: &[&str]) -> App {
+        let mut app = world_with(quest, state);
+        let mut registry = crate::quest::QuestRegistry::default();
+        for id in known {
+            registry.ensure(ambition_persistence::quest::QuestSpec::new(
+                *id,
+                "a title",
+                "a summary",
+                Vec::new(),
+            ));
+        }
+        registry.initialized = true;
+        app.insert_resource(registry);
+        app
+    }
+
+    /// ⛔⛔ THE ABSENCE THAT ANSWERED TWO QUESTIONS, split. A quest id the roster
+    /// has never heard of is `Unanswerable` — a content diagnostic — and NOT the
+    /// `NotSatisfied` the save alone would produce, because `save.data().quest`
+    /// reconstructs any string at all as `NotStarted`. Without this the only
+    /// symptom of a misspelt authored id is a branch that never fires.
+    #[test]
+    fn a_quest_the_roster_never_heard_of_is_a_diagnostic_not_a_no() {
+        let app = world_with_roster(
+            "pirate_treasure",
+            PersistedQuestState::InProgress,
+            &["pirate_treasure"],
+        );
+        assert!(
+            matches!(ask(app.world(), "pirat_treasure"), ConditionOutcome::Unanswerable(_)),
+            "a misspelling must not be reported as a quest that has not been started"
+        );
+    }
+
+    /// ⚠ AND THE DIAGNOSTIC MUST NOT SWALLOW THE REAL NO. A quest the roster
+    /// KNOWS, which the player has genuinely not begun, is still a plain
+    /// `NotSatisfied` — the check above would be worthless if it turned every
+    /// unstarted quest into an error.
+    #[test]
+    fn a_real_quest_that_is_merely_unstarted_is_still_a_plain_no() {
+        let app = world_with_roster(
+            "pirate_treasure",
+            PersistedQuestState::NotStarted,
+            &["pirate_treasure"],
+        );
+        assert!(matches!(
+            ask(app.world(), "pirate_treasure"),
+            ConditionOutcome::NotSatisfied(_)
+        ));
+    }
+
+    /// ⛔ AN UNPOPULATED ROSTER IS "NOT KNOWN YET", NOT "NO SUCH QUEST". The
+    /// registry is filled by a system, so on any frame before it runs every real
+    /// quest is missing from it. Trusting it then would make the whole roster
+    /// unanswerable for a frame; this asserts the fall-through, which is the arm
+    /// a poison on the `initialized` guard would otherwise leave green.
+    #[test]
+    fn an_uninitialized_roster_rejects_nothing() {
+        let mut app = world_with("pirate_treasure", PersistedQuestState::InProgress);
+        app.insert_resource(crate::quest::QuestRegistry::default());
+        assert_eq!(ask(app.world(), "pirate_treasure"), ConditionOutcome::Satisfied);
+    }
+
     fn world_with(quest: &str, state: PersistedQuestState) -> App {
         let mut app = App::new();
         app.insert_resource(AmbitionGameSave::default());
@@ -142,6 +242,11 @@ mod tests {
     /// ⚠ AND AN UNSTARTED QUEST IS NOT ACTIVE EITHER — the why-not says which of
     /// the three it is, in the domain's words, so a reader is not left guessing
     /// whether the quest was finished or never begun.
+    ///
+    /// ⛔ SCOPE: this fixture carries NO `QuestRegistry`, and that is why an id
+    /// nobody offered still answers `NotSatisfied` here. It pins the save-only
+    /// composition. Once a roster is present the same id is `Unanswerable` —
+    /// see `a_quest_the_roster_never_heard_of_is_a_diagnostic_not_a_no`.
     #[test]
     fn an_unrecorded_quest_is_not_active_and_says_which_state_it_is_in() {
         let app = world_with("pirate_treasure", PersistedQuestState::InProgress);

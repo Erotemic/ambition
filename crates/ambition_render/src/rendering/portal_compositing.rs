@@ -55,7 +55,14 @@ pub fn publish_portal_compositing_candidates(
     // than an assumption: a parented drawable would need the propagated pose and
     // must not be silently published with a local one.
     drawables: Query<
-        (Entity, &Sprite, &Transform, Option<&bevy::sprite::Anchor>),
+        (
+            Entity,
+            &Sprite,
+            &Transform,
+            Option<&bevy::sprite::Anchor>,
+            &Visibility,
+            Option<&ambition_portal2d_presentation::PortalSourceHidden>,
+        ),
         (
             Or<(
                 With<crate::rendering::primitives::FeatureVisual>,
@@ -81,7 +88,23 @@ pub fn publish_portal_compositing_candidates(
     // without a session world -- which is the honest behaviour: there is no
     // coordinate frame to publish engine positions in.
     let size = world.0.size;
-    for (entity, sprite, transform, anchor) in &drawables {
+    for (entity, sprite, transform, anchor, visibility, portal_hid_it) in &drawables {
+        // ⛔⛔ A DRAWABLE NOBODY IS DRAWING IS NOT A CANDIDATE. Publication took
+        // no account of visibility, so while a player was MORPHED its hidden base
+        // sprite still produced far-side pieces -- the wrong representation
+        // clipped against the pane while the ball, the one actually drawing, was
+        // composited too. A GPT review found the pair 2026-09-06.
+        //
+        // ⚠ EXCEPT WHEN THE PORTAL IS THE ONE HIDING IT, which is the whole
+        // subtlety: a far-side body is Hidden BECAUSE it has been replaced by
+        // clipped pieces. Skipping it on that basis would drop its candidate, the
+        // compositor would give the body back, and the next frame would hide it
+        // again -- a flicker built out of two correct rules disagreeing.
+        // ⇒ The question is not "is it hidden" but "is somebody OTHER than the
+        // portal hiding it".
+        if matches!(visibility, Visibility::Hidden) && portal_hid_it.is_none() {
+            continue;
+        }
         let Some(drawn) = sprite.custom_size else {
             continue;
         };
@@ -181,6 +204,65 @@ mod tests {
         let mut sprite = Sprite::default();
         sprite.custom_size = Some(size);
         sprite
+    }
+
+    /// ⛔⛔ THE HIDDEN BASE SPRITE OF A MORPHED PLAYER MUST NOT BE COMPOSITED.
+    ///
+    /// While morphed, `sync_morph_ball_visual` hides the base `PlayerVisual` and
+    /// the ball draws instead. Publication took no account of visibility, so the
+    /// hidden sprite still became a candidate and produced far-side pieces: the
+    /// WRONG representation clipped against the pane, while the ball -- the one
+    /// actually drawing -- was composited as well. A GPT review found the pair.
+    #[test]
+    fn a_drawable_hidden_by_someone_else_is_not_composited() {
+        let mut app = app();
+        let hidden = app
+            .world_mut()
+            .spawn((
+                PlayerVisual,
+                sprite(Vec2::new(24.0, 24.0)),
+                Transform::from_translation(Vec3::new(300.0, 300.0, 20.0)),
+                Visibility::Hidden,
+            ))
+            .id();
+        app.update();
+
+        assert!(
+            candidate(&app, hidden).is_none(),
+            "a sprite nobody is drawing became a compositing candidate, so the \
+             pane clips a representation that is not on screen"
+        );
+    }
+
+    /// ⭐ THE OTHER HALF, AND THE REASON THE RULE IS NOT "SKIP HIDDEN".
+    ///
+    /// A far-side body is `Hidden` precisely BECAUSE the compositor replaced it
+    /// with clipped pieces. Dropping its candidate on that basis would make the
+    /// compositor give the body back, hide it again next frame, and flicker --
+    /// two correct rules disagreeing. The question is whether somebody OTHER
+    /// than the portal is hiding it.
+    #[test]
+    fn a_body_the_portal_itself_hid_keeps_publishing() {
+        use ambition_portal2d_presentation::PortalSourceHidden;
+
+        let mut app = app();
+        let composited = app
+            .world_mut()
+            .spawn((
+                PlayerVisual,
+                sprite(Vec2::new(24.0, 24.0)),
+                Transform::from_translation(Vec3::new(300.0, 300.0, 20.0)),
+                Visibility::Hidden,
+                PortalSourceHidden,
+            ))
+            .id();
+        app.update();
+
+        assert!(
+            candidate(&app, composited).is_some(),
+            "the compositor's own hidden source stopped being a candidate, so its \
+             pieces would vanish and the body would flicker back"
+        );
     }
 
     /// ⛔⛔ A MORPHED PLAYER'S BALL IS THE PLAYER, and it was invisible to this

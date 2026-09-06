@@ -65,7 +65,45 @@ pub fn resolve_portal_source_visibility(
             With<PortalSourceHidden>,
         )>,
     >,
+    // ⛔⛔ A BODY'S OTHER DRAWABLES MUST FOLLOW ITS HIDE. The hit-flash
+    // silhouette is a separate root mesh that MIRRORS the base sprite, and
+    // `overlay_look` already blanks it when its source is `Hidden` -- but
+    // `sync_hit_flash_overlays` runs BEFORE portal presentation, so on the frame
+    // the portal hides a far-side body the overlay was computed from a VISIBLE
+    // source and drew the whole silhouette over the pane.
+    // ⚠ ORDERING CANNOT FIX IT: the portal publisher runs `.after(
+    // animate_feature_sprites)`, which is itself after the hit-flash mirror in
+    // the render chain, so making the mirror run later is a CYCLE.
+    // ⇒ This resolver runs late and already owns the answer, so it settles the
+    // dependants too. That is what `PresentationOf` was for: the drawable says
+    // whose body it draws, and the body's hide reaches it without either side
+    // learning about the other.
+    dependants: Query<
+        (
+            Entity,
+            &ambition_platformer2d_shared_tangle::lifecycle::PresentationOf,
+        ),
+        Without<PortalSourceHidden>,
+    >,
+    mut dependant_visibility: Query<
+        &mut Visibility,
+        (
+            With<ambition_platformer2d_shared_tangle::lifecycle::PresentationOf>,
+            // ⛔ ALL THREE REASON MARKERS, or Bevy refuses the system (B0001):
+            // the `bodies` query above takes `&mut Visibility` over exactly the
+            // entities carrying any of them, so excluding only two leaves an
+            // entity both queries could match and the two borrows conflict.
+            // Missing `PortalSourceHidden` here panicked seven tests at once.
+            Without<PortalTransitHidden>,
+            Without<crate::far_side::PortalFarSideHidden>,
+            Without<PortalSourceHidden>,
+        ),
+    >,
 ) {
+    // Which bodies the portal is hiding THIS frame, so their other drawables can
+    // be settled in the same pass.
+    let mut hidden_bodies: bevy::platform::collections::HashSet<Entity> =
+        bevy::platform::collections::HashSet::new();
     for (entity, mut visibility, far_side, transit, we_hid_it) in &mut bodies {
         // ⭐ ANY reason hides. The reasons are deliberately not ranked: "the
         // pieces are the body" and "the far side draws it" are both complete
@@ -87,12 +125,48 @@ pub fn resolve_portal_source_visibility(
             if *visibility != Visibility::Hidden {
                 *visibility = Visibility::Hidden;
             }
+            hidden_bodies.insert(entity);
             if !we_hid_it {
                 commands.entity(entity).insert(PortalSourceHidden);
             }
         } else if we_hid_it {
-            *visibility = Visibility::Inherited;
+            // ⛔⛔ RELEASE THE CLAIM WITHOUT ASSERTING A VALUE. Writing
+            // `Inherited` here assumed that when the portal's reason ends the
+            // correct state is VISIBLE -- and other owners have live hide
+            // authority over the same component. Morph-ball presentation hides
+            // the base `PlayerVisual` while morphed; submerged presentation hides
+            // it too. ⇒ A body that stops being far-side on the same frame it
+            // morphs was hidden by ITS owner and then RESURRECTED here, because
+            // this branch only knew that the portal had once hidden it.
+            //
+            // ⭐ THE ORDERING IS WHAT MAKES DOING NOTHING CORRECT, not laziness:
+            // this resolver runs late in `PortalPresentationSet`, after
+            // `sync_visuals` and the other presentation writers have already put
+            // THIS FRAME's value in the component. Dropping the claim leaves that
+            // value standing, which is exactly what "the portal no longer has an
+            // opinion" should mean. Reasserting `Hidden` while a reason STANDS is
+            // still required (see above) for the same reason: those writers run
+            // every frame and would otherwise win.
+            // ⚠ A body nothing else writes therefore stays as it was rather than
+            // springing back — correct here, because every population this
+            // reaches has a per-frame owner, and a guess would be wrong for the
+            // ones that do.
             commands.entity(entity).remove::<PortalSourceHidden>();
+        }
+    }
+
+    // ⭐ THE DEPENDANTS, AFTER the bodies are settled. Only drawables that name
+    // a body are touched, and only while that body is portal-hidden -- a
+    // dependant with its own portal reason is excluded by the query, because
+    // then it is a source in its own right and the loop above owns it.
+    for (drawable, owner) in &dependants {
+        if !hidden_bodies.contains(&owner.0) {
+            continue;
+        }
+        if let Ok(mut visibility) = dependant_visibility.get_mut(drawable) {
+            if *visibility != Visibility::Hidden {
+                *visibility = Visibility::Hidden;
+            }
         }
     }
 }

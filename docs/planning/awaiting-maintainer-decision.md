@@ -1397,6 +1397,35 @@ three boss guards are CORRECTLY red there. They are working.
 from here:** that checkout also carries 5 dirty `.ldtk` files — four content
 worlds at ~4 lines each, and **`mary_o.ldtk` at 4,741 changed lines**.
 
+⛔⛔ **THE EPOCH ANSWERED THIS BY ACCIDENT — 2026-09-06, and the answer it gave
+was KEEP.** The history truncation squashed `game/ambition_map_assets` to a single
+root (`cb7062a95a4f`, *"Start git epoch 1"*), and that submodule is now CLEAN:
+nothing is dirty in it, so whatever working tree existed at the moment of the
+squash is what the root commit contains.
+
+⭐ **An external reviewer compared the pre-epoch source snapshot to the new tree
+directly (not through ancestry, which the truncation destroyed) and found exactly
+five changed `.ldtk` files: `hall_of_characters`, `intro`, `sandbox`,
+`you_have_to_cut_the_rope` and `mary_o`** — the same population this row
+describes, with the four content worlds each carrying one semantic change
+(`"pxHei": 2484 → 2468`) and `mary_o.ldtk` carrying 2,765 added + 1,976 removed =
+**exactly 4,741 changed lines**. That is this row's number, to the line.
+
+⇒ **So the undecided work is now canonical source, and no agent chose that.** The
+row said neither agent would touch it because the fix is destructive and the work
+is somebody's; a repository-wide operation captured it instead.
+
+⚠ **NOTHING HAS BEEN TOUCHED SINCE, deliberately.** The decision is still Jon's
+and it is now a different decision:
+- **KEEP** — the epoch already did it; close this row with the provenance above,
+  and the 4,741 lines are simply part of the world from here.
+- **DISCARD** — this is the cheapest moment, before new history accumulates on
+  top. It needs a deliberate correction reconstructed against the pre-epoch
+  `48f8e26` tree, which lives in the history store `.git-epoch.yaml` names.
+⛔ **Do not let an implementation agent infer the answer from the new root being
+clean.** A clean tree after a squash is evidence about the SQUASH, not about
+anyone's intent.
+
 ⇒ **The question is only about those 4,741 lines.** `git submodule update` is a
 DETACHED CHECKOUT at the pin: it discards uncommitted work in the submodule. So
 the routine-looking fix for the three reds is also the thing that would destroy

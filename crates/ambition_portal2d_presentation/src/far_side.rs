@@ -733,6 +733,13 @@ mod tests {
             .get_mut::<PortalCompositingCandidate>(body)
             .expect("candidate");
         candidate.drawn_centre = Vec2::new(495.0, 300.0);
+        // ⭐ THE BODY'S OWN VISIBILITY OWNER, which production always has and
+        // this fixture did not. `sync_visuals` writes every `FeatureVisual`'s
+        // visibility every frame, and morph-ball sync writes the ball's; the
+        // portal resolver runs after them. Releasing the portal's claim now
+        // means "the portal has no opinion", so the owner's value stands --
+        // which is only observable if an owner exists.
+        app.world_mut().entity_mut(body).insert(Visibility::Inherited);
         app.update();
         assert_eq!(
             visibility(&app, body),
@@ -740,5 +747,91 @@ mod tests {
             "crossing to the near side must give the whole sprite back"
         );
         assert_eq!(pieces(&mut app), 0);
+    }
+
+    /// ⛔⛔ A FAR-SIDE BODY'S OTHER DRAWABLES MUST FOLLOW ITS HIDE.
+    ///
+    /// The hit-flash silhouette is a separate root mesh that MIRRORS the base
+    /// sprite. `overlay_look` already blanks it when its source is `Hidden` --
+    /// but `sync_hit_flash_overlays` runs BEFORE portal presentation, so on the
+    /// frame the portal hides a far-side body the overlay was computed from a
+    /// VISIBLE source and drew the whole silhouette over the pane while the base
+    /// art was correctly clipped. A GPT review reported it 2026-09-06.
+    ///
+    /// ⚠ ORDERING CANNOT FIX IT: the portal publisher runs `.after(
+    /// animate_feature_sprites)`, which is itself after the hit-flash mirror in
+    /// the render chain, so moving the mirror later is a cycle.
+    /// ⭐ So the resolver settles the dependants in the same pass, using the
+    /// `PresentationOf` seam: the drawable says whose body it draws, and the
+    /// body's hide reaches it without either side learning about the other.
+    #[test]
+    fn a_drawable_that_names_a_hidden_body_is_hidden_with_it() {
+        use ambition_platformer2d_shared_tangle::lifecycle::PresentationOf;
+
+        let mut app = test_app();
+        app.world_mut().spawn(pane());
+        spawn_viewer(&mut app, Vec2::new(400.0, 300.0));
+        let body = spawn_candidate(&mut app, Vec2::new(505.0, 300.0), Vec2::new(24.0, 24.0));
+        // Its silhouette: a separate root that mirrors it, visible as the
+        // hit-flash overlay is spawned.
+        let silhouette = app
+            .world_mut()
+            .spawn((Visibility::Visible, PresentationOf(body)))
+            .id();
+
+        app.update();
+
+        assert_eq!(
+            visibility(&app, body),
+            Visibility::Hidden,
+            "premise: the body itself is far-side and hidden"
+        );
+        assert_eq!(
+            visibility(&app, silhouette),
+            Visibility::Hidden,
+            "the body is drawn as clipped pieces but its silhouette still draws \
+             whole, so a far-side character shows its outline over the pane"
+        );
+    }
+
+    /// ⛔⛔ RELEASING THE PORTAL'S CLAIM MUST NOT RESURRECT A BODY SOMEBODY ELSE
+    /// IS HIDING. The exact handoff a GPT review asked for, 2026-09-06.
+    ///
+    /// Frame N: the body is far-side, so the portal hides it and records that
+    /// the hide is its own. Frame N+1: it crosses to the NEAR side while an
+    /// independent owner -- morph-ball presentation hiding the base
+    /// `PlayerVisual`, or submerged presentation -- still requires it hidden.
+    /// The portal reason is gone, and the release branch used to write
+    /// `Visibility::Inherited` on the strength of its own bookkeeping marker
+    /// alone ⇒ the portal subsystem un-hid a body it did not own.
+    #[test]
+    fn releasing_the_portal_hide_leaves_another_owners_hide_alone() {
+        let mut app = test_app();
+        app.world_mut().spawn(pane());
+        spawn_viewer(&mut app, Vec2::new(400.0, 300.0));
+        let body = spawn_candidate(&mut app, Vec2::new(505.0, 300.0), Vec2::new(24.0, 24.0));
+        app.update();
+        assert_eq!(
+            visibility(&app, body),
+            Visibility::Hidden,
+            "premise: the portal owns this hide on the first frame"
+        );
+
+        // It crosses to the near side, and something else wants it hidden.
+        {
+            let mut entity = app.world_mut().entity_mut(body);
+            entity.get_mut::<PortalCompositingCandidate>().unwrap().drawn_centre =
+                Vec2::new(495.0, 300.0);
+            *entity.get_mut::<Visibility>().unwrap() = Visibility::Hidden;
+        }
+        app.update();
+
+        assert_eq!(
+            visibility(&app, body),
+            Visibility::Hidden,
+            "the portal released its own hide and overwrote another owner's -- a \
+             morphed or submerged body would pop back into view the frame it \
+             stopped being far-side"
+        );
     }
 }

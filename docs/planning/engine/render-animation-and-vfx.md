@@ -819,20 +819,48 @@ readers:**
   `tumbling` or `hitstun_timer > 0`, and it deliberately ORs the two so a consumer
   does not drop the row the instant a launched body stops tumbling.
 
-⛔ **WHAT ACTUALLY HAS NOTHING: `sleep_timer`, `landing_lag_timer` and
-`recoil_lock_timer`.** `recoil_lock_timer` reaches presentation only as
-`LaunchedBodyFact::launch_beat_secs` — a field OF the launch row, so it cannot
-answer for a body that is not launched. Measured: no published fact names why a body
-is held (`git grep` for a `HoldReason`/`ControlLock`-shaped view type returns
-nothing).
+⛔ **WHAT THE POSE CANNOT SEE: `sleep_timer`, `landing_lag_timer` and
+`recoil_lock_timer`** — and each is unreachable for a DIFFERENT reason, which is
+what a fix has to respect:
+* `sleep_timer` — **zero** hits across `sim_view`, `render` and
+  `character_sprites`. Genuinely unpublished.
+* `landing_lag_timer` — ⚠ **IS published**, as `landing_lag_s`
+  (`crates/ambition_sim_view/src/combat_geometry_view.rs:240`). But that read-model
+  opens by saying it "answers the two questions a combat debugger needs", and it
+  feeds debug overlays rather than the pose. So the plumbing exists and the POSE is
+  what is missing — a weaker and more useful claim than "nothing publishes it",
+  which the next reader would falsify in one grep.
+* `recoil_lock_timer` — reaches presentation only as
+  `LaunchedBodyFact::launch_beat_secs`, a field OF the launch row, so it cannot
+  answer for a body that is not launched.
 
-⇒ **THE ELEGANT SHAPE IS ONE PUBLISHED REASON, NOT THREE MORE TIMERS.** A renderer
-handed three timers has to RANK them to pick a pose, which is a rule that would then
-live in presentation while the sim owns the states — a second authority over "what
-is holding this body". One `HoldReason` published by the sim keeps the ranking where
-the states are.
+⛔⛔ **CORRECTION, SAME DAY, BEFORE ANYONE ACTED ON IT: I FIRST WROTE THAT THE FIX
+WAS A NEW `HoldReason` PUBLISHED BY THE SIM. That is wrong, and it would have built
+a parallel mechanism beside one that already exists.**
 
-⚠ **AND IT WANTS THE `LaunchedBodyFact` PRECEDENT READ FIRST**, because that row
-already solved the same problem once: it ORs two sim conditions into one published
-fact precisely so presentation never re-derives the union. A `HoldReason` that
-enumerates causes without saying which wins would re-open what that row closed.
+⇒ **THE RANKING ALREADY HAS ONE AUTHORITY: `pick_body_anim(&BodyAnimView)`**
+(`crates/ambition_character_sprites/src/anim/mod.rs:357`). It is a single ordered
+ladder — `dead` → `held` → `knocked_down` → `getting_up` → `hit | tumbling |
+guard_broken` → `dodge_roll` → `air_dodge` — and its comments already argue about
+RANK for exactly the reason a new reason type would have had to re-argue ("the floor
+game outranks the hit flash… reading `hit` first would draw the struck pose for the
+whole prone beat"). The renderer draws `pose.anim` (`animation.rs:183`); it does no
+ranking and must not start.
+
+⇒ **So the sleep pose is ONE FLAG ON `BodyAnimView` PLUS ONE ARM AT THE RIGHT RANK**,
+not a new published fact. ⚠ And the rank is the whole design question, not a
+detail: sleep must outrank `hit` (a slept body is still inside hitstun, the same
+argument the knockdown arm won) while losing to `dead` and `held`.
+
+⚠ **THERE IS ALSO A SECOND LEVEL TO USE RATHER THAN DUPLICATE.** The `guard_broken`
+arm returns `Hit` and says why: *"`body_state_clip` asks the sheet for `dizzy`
+first, and a fighter sheet has that row. This arm is what a sheet without one lands
+on."* ⇒ A sleep gets the same treatment — a sheet-specific clip when the sheet has
+one, and a ladder arm as the floor — so a character without sleep art degrades
+instead of drawing nothing.
+
+⭐ **WHY I NEARLY GOT IT WRONG IS THE REUSABLE PART**: I measured which FACTS were
+published, found none for sleep, and concluded a fact was missing. The fact was not
+missing — the INPUT to an existing ranking was. Asking "what is published?" and
+asking "who already decides this?" are different questions, and only the second
+finds a ladder.

@@ -129,7 +129,7 @@ An edge list says which modules reference which. It does not say which
 | edge | refs | effect on the knot |
 |---|---|---|
 | `assets -> session` | **1** | **14 -> 12** — took `assets` AND `character_sprites` out |
-| `avatar -> control` | 1 | 12 -> 11 |
+| `avatar -> control` | **1** | ✔ **12 -> 11** — took `avatar` out |
 | `features -> projectile` | 1 | 12 -> 11 |
 | `shrine -> session` | 6 | 12 -> 11 |
 | ~~`features -> schedule`~~ | ~~1~~ | **not real** — a `#[cfg(test)]` fixture, see above |
@@ -149,7 +149,22 @@ alone. ⇒ The sentence matters because "fell out" reads, to somebody planning a
 carve, as "those two are ready", and they are not — they are a smaller, separate
 problem, which is still a strictly better position than being inside the twelve.
 
-⚠ **THE REMAINING THREE ARE CHEAP AND NOT ALL OF THEM ARE RIGHT, which is the
+✔ **AND THE SECOND ONE FELL TO THE SAME LENS, AFTER I HAD JUDGED IT "CORRECT AS
+IT STANDS".** `avatar -> control` was a bundle carrying `LocalPlayer`, and I read
+that as a real dependency because both ends looked right. ⛔ `LocalPlayer` is a
+**zero-field marker with no dependencies**, and `shared_tangle::markers` — whose
+own first line is *"content-free entity markers shared by reusable mechanics and
+presentation"* — already held `ControlledSubject` and `PrimaryPlayer`, its two
+siblings. ⇒ The question was never *"should a marker live in the floor crate"*; it
+was *"why did this one not"*. Moved, and the component went **12 → 11**.
+
+⚠ **AND THE MOVE ONLY WORKED AFTER THE RE-EXPORT WAS ALSO REMOVED.** Leaving
+`pub use …markers::LocalPlayer` in `control` and letting `avatar/bundles.rs` say
+`use crate::control::LocalPlayer` compiles, passes, and **leaves the edge exactly
+where it was** — the graph did not move until the consumer named the definition.
+That is the fourth time today the same trap has decided an outcome.
+
+⚠ **THE REMAINING CHEAP CUTS ARE STILL NOT ALL RIGHT, which is the
 distinction the ranking cannot make.** `avatar -> control` is a bundle carrying
 `LocalPlayer`, and `features -> projectile` is a perception query reading
 `ProjectileAllegiance`: both types are where they belong, so removing those edges

@@ -15,7 +15,12 @@ pub mod slots;
 pub use acting::ActingParticipant;
 pub use ambition_characters::control::DrivingParticipant;
 pub use authority::project_driving_participant;
-pub use components::{LocalPlayer};
+// ⛔ RE-EXPORTED FROM THE FLOOR CRATE, NOT DEFINED HERE. `LocalPlayer` moved to
+// `shared_tangle::markers` beside `ControlledSubject` and `PrimaryPlayer`, which
+// is where a zero-field content-free marker belongs — it was filed next to the
+// control systems that first read it, and that placement was the whole of the
+// `avatar -> control` edge in the kernel's cyclic component.
+pub use ambition_platformer2d_shared_tangle::markers::LocalPlayer;
 pub use input_systems::{
     cleanup_timers_system, derive_slot_direction_gestures, interaction_input_system,
     tick_home_body_reaction_timers, tick_room_transition_cooldown, InputTimersAdvanced,

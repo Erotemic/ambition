@@ -219,7 +219,7 @@ fn bind_seat_control(commands: &mut Commands, body: Entity, authority: &ControlA
             // seat the simulation reads is a projection of the participant
             // channel, and `participant_seat` is where that projection lives.
             commands.entity(body).insert((
-                crate::control::components::LocalPlayer,
+                ambition_platformer2d_shared_tangle::markers::LocalPlayer,
                 ambition_characters::control::DrivingParticipant(
                     crate::participant_seat::player_slot_of(*channel),
                 ),

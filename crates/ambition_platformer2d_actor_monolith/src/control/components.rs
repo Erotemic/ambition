@@ -1,22 +1,19 @@
 //! The control-seam STATE: which controlled bodies are local, plus the gesture
 //! state owned by each controller slot.
 //!
-//! `LocalPlayer` says *this body is driven by an input source on this machine*.
+//! ⛔ `LocalPlayer` MOVED OUT ON 2026-09-06 — it is
+//! `ambition_platformer2d_shared_tangle::markers::LocalPlayer` now, beside
+//! `ControlledSubject` and `PrimaryPlayer`, which is where a zero-field
+//! content-free marker belongs. It still says *this body is driven by an input
+//! source on this machine*; what changed is that its placement here was the
+//! whole of the `avatar -> control` edge in the kernel's cyclic component, and
+//! moving it took that component from twelve modules to eleven.
+//!
 //! The actual per-tick input authority is [`ambition_characters::control::SlotControls`],
 //! keyed by the body's [`PlayerSlot`]; it is deliberately not copied onto the
 //! body. `SlotGestures` / `SlotInteractionState` are likewise SLOT-level: a
 //! gesture belongs to a controller and follows it onto whatever body it drives.
 
-use bevy::prelude::*;
-
-
-/// Marks a player whose input comes from this machine's input devices
-/// (keyboard / gamepad / touch). In single-player today the local
-/// player is also the primary player. In a future networked build,
-/// remote players would have `PlayerEntity` (+ `PlayerSlot`) but not
-/// `LocalPlayer`.
-#[derive(Component, Clone, Copy, Debug, Default, PartialEq, Eq)]
-pub struct LocalPlayer;
 
 // Player health is now the unified `ambition_characters::actor::BodyHealth` (the keystone
 // collapse of the identical `PlayerHealth` / `ActorHealth` wrappers into one

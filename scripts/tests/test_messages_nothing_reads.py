@@ -163,3 +163,25 @@ def test_a_whole_file_test_module_is_not_production() -> None:
     module = _module()
     names = {p.name for p in module.rust_files()}
     assert "tests.rs" not in names
+
+
+def test_a_fifth_unread_message_must_be_triaged_before_the_number_moves() -> None:
+    """⭐⭐ THE DIRECTION THE FLOOR CANNOT SEE. `MIN_DECLARED` catches the sweep
+    collapsing; it is blind to someone ADDING a message nothing reads — the count
+    goes up, the report prints it, the run exits 0.
+
+    ⚠ This does not make "unread" a finding: a published channel is legitimate and
+    the docstring says so. It makes a NEW unread channel a DECISION, the same
+    bargain `per_attempt_resource_census.py` strikes.
+    """
+    module = _module()
+    real = module.generic_inners
+    try:
+        module.generic_inners = lambda text, name: (
+            real(text, name) + ["ANewUnreadMessage"]
+            if name == "add_message"
+            else real(text, name)
+        )
+        assert module.main() == 1
+    finally:
+        module.generic_inners = real

@@ -140,8 +140,24 @@ def cargo_test(args: list[str], libtest: list[str]) -> list[str]:
 # Features that cannot run on a headless desktop test host: other-platform
 # selectors, wasm/web, and static-asset embedding (needs generated assets).
 # Everything else (visible, input, ui, audio, kira, portal*, dev_tools,
-# basic_presentation, falling_sand, mobile_touch, ...) is headless-safe here --
-# the suite already exercises them via default features.
+# basic_presentation, falling_sand, mobile_touch, ...) is headless-safe here.
+#
+# ⛔⛔ THE REASON THIS COMMENT USED TO GIVE WAS FALSE FOR A THIRD OF ITS OWN LIST.
+# It said the suite "already exercises them via default features". Measured
+# 2026-09-06 by walking `ambition_app`'s `default` closure: `kira`,
+# `basic_presentation` and `falling_sand` are NOT in it. `ambition_content`'s own
+# default is `[]`, and `falling_sand = ["dep:bevy_falling_sand"]` is optional.
+#
+# ⇒ What actually exercises them is THE UNION RUN -- they are absent from
+# `DENY_EXACT`, which is this list's whole job. The "headless-safe" claim stands;
+# the justification did not, and the justification is the half a reader uses.
+# ⚠ IT COST A REAL HOUR: a poison added to `falling_sand.rs` produced EXIT 0 and no
+# error under `cargo check -p ambition_content`, which reads exactly like a guard
+# that does not work. Nothing had compiled the file. The same command reports 332
+# tests without the feature and 339 with it.
+# ⇒ IF YOU ARE ABOUT TO TRUST A DEFAULT-FEATURES GREEN for a file, check that the
+# module is not `#[cfg(feature = ...)]` first. A count that moves is the cheap
+# proof that your run compiled what you edited.
 DENY_EXACT = {
     "default",
     "android", "android_dev", "android_platform",

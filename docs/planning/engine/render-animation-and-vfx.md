@@ -940,8 +940,23 @@ scale is arbitrary here because nothing will resolve a body from it; 1.0 keeps t
 arithmetic honest."* ⇒ If the demo app's fixture took that arm, a box that did
 not move would be the DEGENERATE SCALE rather than a failed swap.
 
-✔ **RESOLVED THE SAME HOUR — THE FALLBACK DOES NOT RUN, AND THE MEASUREMENT
-STANDS.** `small_form_pixel_height()` calls `posed_body_geometry("mary_o_v2",
+⛔⛔ **RETRACTED IN FULL: THE MEASUREMENT BELOW WAS TAKEN ONE FRAME TOO EARLY, AND
+THE MECHANISM WORKS.** `drive_until` returns on the SAME frame the wand equips,
+and the projection runs on `Changed<WornCharacter>`. Adding settle frames and
+watching: **the box moves on the very next update, `Vec2(21.33, 32.0)` →
+`Vec2(21.33, 64.0)`** — exactly the 64.0 predicted from the tall sheet's 168px at
+a 0.381 scale. ⇒ **`SpritePosedBody` DOES follow the worn form onto the tall
+sheet, and the demo app grows her correctly.** Everything below about a "confirmed
+defect" is wrong and is kept only so the mistake is not repeated: *a value read on
+the frame an event lands is a value read before the frame's consumers ran.*
+
+⇒ **WHAT THAT LEAVES: Mary-O's growth path is sound in the shipped demo app**, so
+Jon's misalignment is not "the swap does not resize her". The remaining suspects
+are the ART side (which sheet is BOUND and at what quad) and his session's asset
+state, not the body geometry.
+
+✔ **The scale reasoning below is still correct and still useful — THE FALLBACK
+DOES NOT RUN.** `small_form_pixel_height()` calls `posed_body_geometry("mary_o_v2",
 Idle, 1.0)`, the same BAKED-manifest lookup `ambition_character_sprites`' own
 tests make with no `App` at all. It resolves to the sheet's 84px, so the scale is
 `32 / 84 = 0.381`. ⭐ **And the arithmetic closes on the measured number: 84px ×

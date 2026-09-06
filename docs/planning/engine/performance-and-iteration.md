@@ -738,6 +738,14 @@ then moves the body **zero pixels** and deals no damage. The remaining suspects
 are the grab not granting the ability, or the dive not firing; the room, the walk
 and the timing are ruled out.
 
+✔✔ **FIXED AND RE-DERIVED, 2026-09-06.** The fighter lane route-scoped
+`SmashLimitFill` — the stage declares it on arrival and gives the prior owner's
+value back on leaving, the same shape as the portal cone beside it — so the rule
+is absent outside the stage and never touches an Ambition body.
+`dive_drill_lunges_through_the_targets ... ok` **verified on this box after
+pulling**, not taken from theirs. ⇒ this row is CLOSED as a defect; what follows
+is kept because the diagnosis is worth more than the fix.
+
 ✔ **ROOT CAUSE FOUND, and it is not a flake at all** — same day. Instrumenting
 `fire_dive_system` itself rather than the harness observation:
 

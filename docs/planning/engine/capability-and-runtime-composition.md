@@ -1093,6 +1093,21 @@ route-scope the insertion** rather than gating the readers. That is their lane;
 this row is the census and the pattern, so the next instance is recognised as the
 fourth rather than diagnosed from scratch.
 
+✔ **AND THE FIRST ONE IS DONE, MEASURED HERE RATHER THAN REPORTED.**
+`SmashLimitFill` is route-scoped: the census reads **23 across 4 demos, smash 13**,
+down from 24/14, and the resource now moves through the stage route's
+insert-on-arrival / restore-prior-on-leave pair. ⇒ the count is a receipt, which
+is why it is worth having a census for a pattern rather than only fixes.
+⚠ **AND THE NARROWING RULE I PROPOSED WOULD HAVE MISSED IT.** "Inserted at build
+AND defined outside the demo" catches six of smash's remaining thirteen
+(`RespawnInterval`, `SmashStageChoice`, `SmashStockChoice`, `SeatMenuFrames`,
+`LocalSeatOffer`, `ActiveUiCues`) — but `SmashLimitFill` is smash's OWN type, and
+it caused two of the three bugs. The property that catches both is on the READER
+side: a system that holds the resource and queries a component the demo does not
+own. ⛔ Measured, that rule as stated is too broad — every select-screen system
+matches it through bevy's `Node`/`Text`/`Visibility`, so it wants "a component
+defined in an `ambition_*` crate", and even then the population needs a human.
+
 ⛔ **A measurement note that is half the value here.** This file's matcher was
 wrong twice, and the failure direction is the dangerous one: `fn build` is written
 both `&mut App` and `&mut bevy::prelude::App`, and the short spelling ALONE

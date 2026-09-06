@@ -968,6 +968,15 @@ canonical heights and the shared scale are identical in each. ⛔ **There is no
 shell-host test that takes a wand**, so the path is verified in one host and
 merely shared into the other.
 
+✔ **AND THE BIND IS CONFIRMED UNOBSERVABLE HEADLESSLY, measured rather than
+assumed: after the wand and eight settle frames, the world contains ZERO
+`PlayerSpriteCharacter` components.** That is the component the actor bind writes
+to record WHICH character's sheet a body is drawn from — the `bound` column in
+`rendering/actors/mod.rs` — so with no art the bind never runs and there is
+nothing to be wrong. ⚠ Her body's own render quad is correct in the same frame
+(`60.95, 73.14`), which is why the geometry looks clean from here: **the half that
+is right is the half a headless fixture can see.**
+
 ⇒ **SO THE NEXT MEASUREMENT IS THE RENDER BIND WITH REAL LOADED ART** — which
 sheet `sync_visuals` bound and at what quad — and that is the one thing no
 headless fixture reaches. ⭐ **The instrument exists and is available on this

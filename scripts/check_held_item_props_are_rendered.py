@@ -123,8 +123,20 @@ def drawn_art() -> dict[str, str] | None:
         raise SystemExit(
             "the renderer is importable but does not export what this check "
             f"reads: {error}\n"
-            "  That is DRIFT, not an unavailable machine. Repoint this check at "
-            "the renderer's current spec list rather than letting it skip."
+            "  ⛔⛔ CHECK YOUR SUBMODULE CHECKOUT BEFORE CONCLUDING DRIFT. In this\n"
+            "  repo `git submodule update` is not run casually, so a working copy\n"
+            "  sitting behind — or DIVERGENT from — the pinned commit is the\n"
+            "  NORMAL state, and it produces exactly this error.\n"
+            "      git ls-tree HEAD tools/ambition_sprite2d_renderer   # the PIN\n"
+            "      git -C tools/ambition_sprite2d_renderer rev-parse HEAD\n"
+            "      git -C tools/ambition_sprite2d_renderer show <pin>:"
+            "ambition_sprite2d_renderer/targets/icons/item_icons.py | grep -c "
+            "HELD_ITEM_ICON_SPECS\n"
+            "  Ask the PIN, not the file on disk. I concluded 'the renderer\n"
+            "  consolidated this away' from a stale checkout on 2026-09-06 and\n"
+            "  repointed this check at the wrong list.\n"
+            "  Only if the PIN also lacks the name is it drift; then repoint this\n"
+            "  check at the renderer's current spec list rather than letting it skip."
         )
     # ⭐⭐ BOTH LISTS, BECAUSE THE RENDERER DRAWS HELD ITEMS FROM BOTH AND EITHER
     # ONE ALONE MAKES THIS CHECK VACUOUS.

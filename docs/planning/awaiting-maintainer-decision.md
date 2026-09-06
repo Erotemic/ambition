@@ -3663,6 +3663,60 @@ silhouette follows its body's hide through `PresentationOf`). The second is what
 the gun ALREADY does for transit. So the codebase argues both ways, which is why
 this is a call and not a defect.
 
+## Q65 — the sprite-renderer submodule has TWO divergent lines and one of them is UNPUSHED
+
+⛔⛔ **This is a data-loss risk, not a question about design, and it is one command
+from happening.** Measured 2026-09-06 in this checkout.
+
+```text
+superproject pin (git ls-tree HEAD)   0828fae   pushed; adds 161 lines to
+                                                targets/icons/item_icons.py
+                                                (HELD_ITEM_ICON_SPECS + 3 drawings)
+working checkout HEAD                 2b4d59f   NOT PUSHED; "Get rid of old stuff
+                                                that was not supposed to be
+                                                committed" — 33 files, −54,730 lines
+merge base                            2b15cc8   "Start git epoch 1"
+```
+
+⇒ **They are DIVERGENT, sharing only the epoch root.** Neither is an ancestor of
+the other, so:
+
+- `git submodule update` moves the checkout to the pin and **ORPHANS `2b4d59f`** —
+  an unpushed commit whose entire content is a deletion nobody can re-derive from
+  the pin. It would also re-introduce the 54,891 lines that commit removed.
+- Conversely, pushing `2b4d59f` as-is would drop the item-icon specs the pin adds,
+  which content already depends on.
+
+⭐ **What is needed is a MERGE inside the submodule** — the cleanup and the new
+specs are disjoint (33 files of removed concept art vs one file of added specs) —
+followed by one pointer bump in the superproject. That is a maintainer action:
+this session must not push to the submodule, and must not run
+`submodule update` while an unpushed commit sits there.
+
+⛔⛔ **AND NEITHER SIDE OF THIS IS VISIBLE IN A SUPERPROJECT DIFF.** Confirmed
+from the peer session 2026-09-06: the superproject pointer is `0828fae` on BOTH
+boxes, and `git log origin/main..HEAD` inside the submodule is EMPTY on theirs.
+`2b4d59f` exists on ONE machine and nowhere else. ⇒ A maintainer looking for this
+will not find it by diffing the superproject or by reading either side's
+`git status`; it takes `git merge-base HEAD <pin>` run INSIDE the submodule, on
+the box that holds the commit.
+
+⚠ **AND A CLEAN MERGE WILL NOT BE ENOUGH**, from the peer, who can see the half I
+cannot: `write_gauntlet_props` writes `polygon_*.png` into `sprites/props/`, those
+files are UNTRACKED and gitignored, and `scripts/regen/sprites.sh` is the only
+thing that regenerates them. Both sides of
+`check_held_item_props_are_rendered.py` are SOURCE, so it will happily report
+agreement between two lists while no PNG exists on disk. ⇒ whoever resolves this
+should re-run the regen and confirm the check prints `ok: 3 ... compared`, rather
+than trusting a clean textual merge.
+
+⚠ **The symptom this surfaced as**, so the next person recognises it: on a
+checkout at `2b4d59f`, `check_held_item_props_are_rendered.py` cannot import
+`HELD_ITEM_ICON_SPECS` and eight tests fail. I first read that as the renderer
+having consolidated the symbol away and repointed the check at the wrong list;
+the peer session, whose checkout matches the pin, sees it fine. **Two boxes, one
+repo, the same test disagreeing** — and `git submodule status`'s `+` prefix means
+"your checkout is not the pin", not "someone edited it".
 
 ## Q67 — does the Limit meter survive a stock loss, or reset with the body?
 

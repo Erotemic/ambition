@@ -70,7 +70,15 @@ def test_it_answers_with_real_install_names_rather_than_none():
     module = load()
     claimed = module.claimed_install_names(["alice"])
     assert claimed is not None, (
-        "the renderer is checked out, so this must not report 'cannot check'"
+        "the renderer is checked out, so this must not report 'cannot check'.\n"
+        "  ⚠ THE LIKELY CAUSE IS YOUR TOOL VENV, NOT THE TREE. The renderer is\n"
+        "  reached by a `sys.path` insert, which gives you the PACKAGE but not\n"
+        "  its DEPENDENCIES -- importing `cli.commands` needs `resvg_py`.\n"
+        "  `resvg-py>=0.3` was added to the scripts env on 2026-09-06, so a venv\n"
+        "  provisioned before that still lacks it and this reads red.\n"
+        "  fix: scripts/setup/python_tools.sh   (re-provisioning, not a repair)\n"
+        "  ⛔ `--verify` will NOT catch this: it checks the STORE, not whether\n"
+        "  the environment carries what the suite imports."
     )
     names = claimed.get("alice")
     assert names, "alice is a rostered target and declares install names"

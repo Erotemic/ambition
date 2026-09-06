@@ -70,6 +70,18 @@ def test_they_are_still_outside_the_default_closure():
     instead, so the list gets re-derived rather than quietly becoming decoration.
     """
     closure = _default_closure()
+    # ⛔⛔ FLOOR THE CLASSIFIER, NOT ONLY THE FINDING. "Outside the default
+    # closure" is vacuously true of EVERY feature when the closure is empty, so a
+    # collapsed walk — a renamed `default`, a manifest shape change, a `stack`
+    # that never seeds — turns this test into a guarantee it cannot make. Measured
+    # 2026-09-06: emptying the walk left all three tests GREEN.
+    # ⇒ `visible` is in the closure by measurement, so its absence means the walk
+    # broke rather than that the manifest changed meaning.
+    assert "visible" in closure and len(closure) > 5, (
+        f"the default-feature walk resolved {len(closure)} feature(s) and did not "
+        f"reach `visible`; it is broken, and every 'outside the closure' claim "
+        f"below would be vacuously true"
+    )
     covered = sorted(f for f in UNION_ONLY if f in closure)
     assert not covered, (
         f"{covered} reached `ambition_app`'s default closure, so 'union-only' is no "

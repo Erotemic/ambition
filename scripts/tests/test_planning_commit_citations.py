@@ -22,6 +22,7 @@ guess would be a heuristic.
 from __future__ import annotations
 
 import importlib.util
+import re
 import subprocess
 import sys
 from pathlib import Path
@@ -214,10 +215,33 @@ def test_no_unresolvable_citation_that_the_epoch_did_not_grandfather():
     findings, _ = module.unresolved_commits(REPO, docs)
     allowed = grandfathered()
     # ⚠ Findings carry the citation as it appears in prose, backticks included;
-    # the grandfathered file holds bare names. Compare the NAMES.
-    ungrandfathered = sorted(
-        {cite.strip("`") for _, _, cite in findings} - allowed
-    )
+    # the grandfathered set holds bare names. Compare the NAMES.
+    #
+    # ⛔⛔ AND `strip("`")` WAS NOT ENOUGH, WHICH MADE THIS GUARD REPORT 365
+    # FINDINGS WHERE THERE WAS ONE. `unresolved_commits` appends a DIAGNOSIS to
+    # the citation when the object is present but unreachable — "`00030e603`
+    # (exists locally, reachable from NO ref — rebased away or on a deleted
+    # branch; push it or cite the commit that landed)" — so stripping backticks
+    # leaves a SENTENCE, and a sentence never matches a bare sha. Every
+    # annotated finding was therefore reported as ungrandfathered.
+    #
+    # ⚠ IT IS INVISIBLE ON A CLONE THAT LACKS THE PRE-EPOCH OBJECTS, which is why
+    # it was green on one machine and red on another from the same source: the
+    # annotation only appears for objects the store HAS. A checkout that predates
+    # the truncation carries them and sees 365; a fresh one carries none and sees
+    # the bare form that happens to compare correctly. ⇒ The guard's own note
+    # about a reviewer measuring a different number from the same documents was
+    # about the FINDINGS; this is the same hazard reaching the COMPARISON.
+    #
+    # ⇒ Take the sha, not the prose around it. `unresolved_commits` guarantees a
+    # citation starts with its hex run; anything after it is commentary this
+    # comparison must not read.
+    def sha_name(cite: str) -> str:
+        match = re.match(r"[0-9a-f]+", cite.strip("`"))
+        assert match, f"a finding that does not start with a sha: {cite!r}"
+        return match.group(0)
+
+    ungrandfathered = sorted({sha_name(cite) for _, _, cite in findings} - allowed)
     assert not ungrandfathered, (
         f"{len(ungrandfathered)} commit citation(s) resolve nowhere and were NOT "
         f"cited at the epoch:\n  " + "\n  ".join(ungrandfathered[:10]) + "\n\n"

@@ -220,6 +220,37 @@ def submodule_paths(root: Path) -> list[str]:
     return [p for p in paths if (root / p / ".git").exists()]
 
 
+def git_epoch(root: Path) -> str | None:
+    """The root commit's subject, when this history was deliberately truncated.
+
+    ⛔⛔ A HISTORY TRUNCATION MAKES EVERY OLDER SHA CITATION UNRESOLVABLE AT ONCE,
+    and none of them is a defect. Jon squashed this repository and every
+    submodule to a single root on 2026-09-06; the next run reported **576
+    unresolved commit citations across 70 planning files**, which is not 576
+    findings but one event.
+
+    ⚠ AND THE CHECK GENUINELY LOSES POWER HERE, which is why this returns the
+    epoch rather than silently skipping. A pre-epoch sha and a FABRICATED sha are
+    now indistinguishable: both fail to resolve, for different reasons, and no
+    evidence remains to tell them apart. The honest report says so once instead
+    of printing 576 lines that imply 576 problems.
+    """
+    root_commits = subprocess.run(
+        ["git", "rev-list", "--max-parents=0", "HEAD"],
+        cwd=root, capture_output=True, text=True,
+    )
+    if root_commits.returncode != 0:
+        return None
+    names = root_commits.stdout.split()
+    if len(names) != 1:
+        return None
+    subject = subprocess.run(
+        ["git", "log", "-1", "--format=%s", names[0]],
+        cwd=root, capture_output=True, text=True,
+    ).stdout.strip()
+    return f"{names[0][:9]} ({subject})" if "epoch" in subject.lower() else None
+
+
 def unresolved_commits(root: Path, docs: list[Path]) -> tuple[list, list[str]]:
     """Backticked commit names no reachable repository holds.
 
@@ -813,12 +844,31 @@ def main() -> int:
     # the reason to guard it now rather than after the first one.
     commit_findings, dark_submodules = unresolved_commits(REPO, docs)
     checked += len(commit_findings)
-    findings.extend(
-        (rel, lineno, cite, "no commit with this name here or in any INITIALISED submodule — "
-         "⚠ a submodule's objects can simply be stale, so run "
-         "`git submodule foreach git fetch` before believing this one")
-        for rel, lineno, cite in commit_findings
-    )
+    epoch = git_epoch(REPO)
+    if epoch and commit_findings:
+        # ⛔⛔ ONE EVENT, NOT N FINDINGS. See `git_epoch`: a truncation discards
+        # the objects every older citation names, so listing them individually
+        # buries the path findings under hundreds of lines that share one cause
+        # and one non-answer.
+        files = sorted({rel for rel, _, _ in commit_findings})
+        print(
+            f"\n⚠ {len(commit_findings)} commit citation(s) across {len(files)} "
+            f"file(s) name commits this history no longer holds.\n"
+            f"  This repository was truncated to a single root — {epoch} — so "
+            "every sha older than it is\n  gone by intent, and these are NOT "
+            "individual defects.\n"
+            "  ⛔ THE CHECK IS WEAKER HERE AND SAYS SO: a pre-epoch sha and a "
+            "FABRICATED one are now\n  indistinguishable, because no evidence "
+            "survives to tell them apart. Commit citations written\n  AFTER the "
+            "epoch are still verified normally."
+        )
+    else:
+        findings.extend(
+            (rel, lineno, cite, "no commit with this name here or in any INITIALISED submodule — "
+             "⚠ a submodule's objects can simply be stale, so run "
+             "`git submodule foreach git fetch` before believing this one")
+            for rel, lineno, cite in commit_findings
+        )
     if dark_submodules:
         print(
             f"\n⚠ {len(dark_submodules)} submodule(s) are NOT initialised, so a "

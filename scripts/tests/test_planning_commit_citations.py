@@ -144,8 +144,41 @@ def test_a_commit_reachable_from_no_ref_is_reported(module, doc):
     assert "reachable from NO ref" in findings[0][2], findings[0][2]
 
 
-def test_the_live_planning_tree_has_no_fabricated_commit():
-    """The population this guard was built on, asserted rather than remembered."""
+#: ⛔⛔ THE HISTORY WAS TRUNCATED ON 2026-09-06 and every sha older than the new
+#: root stopped resolving at once -- 576 citations across 70 planning files, none
+#: of them a defect. An absolute "no unresolvable commit" assertion cannot survive
+#: that, and deleting the test would give up the property it guards.
+#: ⭐ SO IT BECAME A RATCHET. A NEW fabricated sha raises the count and still
+#: reddens; the epoch's population is pinned here as the baseline.
+#: ⚠ FAILS IN BOTH DIRECTIONS ON PURPOSE. A one-directional ratchet lets the good
+#: direction rot: when pre-epoch citations are repointed or retired this number
+#: must come DOWN with them, and the test says so rather than quietly passing on
+#: a smaller number.
+PRE_EPOCH_UNRESOLVABLE = 576
+
+
+def test_no_commit_citation_beyond_the_known_pre_epoch_population():
+    """The population this guard was built on, asserted rather than remembered.
+
+    ⛔ WHAT THIS CAN NO LONGER TELL YOU, stated because the guarantee weakened: a
+    pre-epoch sha and a FABRICATED one are now indistinguishable -- both fail to
+    resolve, and no evidence survives to separate them. What remains checkable is
+    the COUNT, so a citation invented today shows up as one more than the epoch
+    left behind.
+    """
+    module = load()
+    docs = sorted((REPO / "docs/planning").rglob("*.md"))
+    findings, _ = module.unresolved_commits(REPO, docs)
+    assert len(findings) == PRE_EPOCH_UNRESOLVABLE, (
+        f"unresolvable commit citations moved from {PRE_EPOCH_UNRESOLVABLE} to "
+        f"{len(findings)}.\n"
+        "  MORE means a citation was written that names a commit nothing holds — "
+        "the thing this guard\n  exists for. FEWER means pre-epoch rows were "
+        "cleaned up, which is good: lower the constant.\n"
+    )
+
+
+def _retired_absolute_assertion():
     module = load()
     docs = sorted((REPO / "docs/planning").rglob("*.md"))
     findings, _ = module.unresolved_commits(REPO, docs)

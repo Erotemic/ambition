@@ -2021,6 +2021,35 @@ and run that one. `cargo check -p <crate>` with no features is seconds.
   edit-rebuild loop actually lives". The suite is already opted out; what regrows
   it is AGENT ad-hoc runs, so the place to set `CARGO_INCREMENTAL=0` is an
   agent's own invocations, not the repo's config.
+
+  ⛔⛔ **AND THAT PRESCRIPTION IS NOW PRICED, AND IT COSTS MORE THAN THE DISEASE —
+  measured 2026-09-06 on this box, from an empty `debug/incremental`.** The
+  edit-rebuild loop it protects is the agent's loop too, not only the human's:
+
+  | | incremental ON | `CARGO_INCREMENTAL=0` |
+  |---|---|---|
+  | first build after an edit | 174 s | 180 s |
+  | **second edit** | **8 s** | **34 s** |
+  | disk minted, ONE crate | **3.6 GB** | ~0 |
+
+  ⇒ **Incremental buys 26 seconds per iteration and costs 3.6 GB per crate.** A
+  session doing fifty test iterations across half a dozen crates pays about
+  **22 minutes** for the disabling — against a reclaim that took **under one
+  second** for 419 MB, and completed 37 GB across 451 crate sessions inside a
+  single command invocation earlier the same day.
+  ⇒ **So the refined prescription is the opposite of the one above: keep
+  incremental ON for ad-hoc runs and reclaim on the FLOOR rather than on a
+  schedule.** The row's objection — *"a chore that comes back, not a fix"* — is
+  correct and does not survive the numbers: a one-second chore against a
+  26-second-per-iteration tax is the right trade, and `free_gb_on_target()`
+  already exists to trigger it.
+
+  ⚠⚠ **AND TODAY'S ACTUAL FAILURE WAS NOT THE MINTING.** This box went under the
+  40 GB floor at 39.3 and reddened five unrelated `test_run_tests_job_cap.py`
+  cases — but the trigger was running a **1.3 GB asset regeneration at 40.6 GB
+  free**, with the incremental already banked. ⇒ The lesson is **check the floor
+  before an operation that WRITES**, not stop minting: nothing had failed at 74 GB
+  with the same caches present.
   Measured 2026-09-03 late on the calculex box, where `/dev/vda1` reads **278 GB
   used of 290, 12 GB free** — below `check_disk_headroom.py`'s 40 GB floor, so
   no Rust lane can start here at all. Walking the volume accounts for about

@@ -1072,6 +1072,33 @@ the design decision and the GUARD asserting it, which are this project's
 standards rather than the vocabulary's cost. ⇒ Quote 73 for "is it authorable";
 do not quote it for "what does a move cost to land here".
 
+⭐⭐ **AND THE COST IS PREDICTED BY WHETHER A VERB EXISTS — which turns the
+acceptance test into a to-do list.** Of the mechanics the census counts, SIX had
+no one-call verb, and they are exactly the expensive ones:
+
+| mechanic | verb | authoring cost |
+|---|---|---|
+| armour, invuln, cancel, set knockback, sweetspot, wake, autolink, gravity, impulse | ✔ one call | **1–13 lines** |
+| **charge** | ⛔ none → **`charge` added 2026-09-06** | 14 lines of raw struct → **one call** |
+| **flow** | ⛔ none | ~25 lines of `TechniqueFlow { nodes: vec![…] }` per move, ×3 authored |
+| stance, ranged, loop, landing lag | ⛔ none | no authored customer is paying for it yet |
+
+⇒ **`charge` was built because it had the strongest customer case: TEN sites, all
+setting all five spec fields, with two companions travelling as separate
+statements** — `smash_charge_mult` beside 4 of 10 and `charge_gesture` beside 3.
+The multiplier lives on the MOVE rather than in the spec, so a charge authored
+from the struct alone silently defaults to buying nothing.
+⭐ **A customer refuted the verb's own assertion before it shipped**: the first
+draft refused a multiplier of exactly 1.0, and the Projectile Polygon authors that
+deliberately because its payoff is `RangedCharge`'s tier ladder rather than a
+bigger swing. **A charge's reward may live outside the move, where the verb cannot
+see it.**
+
+⇒ **`flow` is the next candidate by the same measure and it is NOT built here**,
+because three authored customers is a thin case and the shape is unsettled — a
+verb over `nodes: vec![…]` would freeze a node vocabulary that A1's own row says
+is still one part short. ⚠ Recorded as the measurement, not as a plan.
+
 ⚠ **The 24-line outlier is the honest shape of the vocabulary, not a defect.**
 `multihit` takes a whole `Pulse` — offset, extents, damage, active window, gap and
 an `AutolinkVolume` — because a gather has that many decisions in it. A verb whose

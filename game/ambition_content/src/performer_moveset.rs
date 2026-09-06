@@ -530,24 +530,31 @@ fn trapdoor(id: &str, clip: &str) -> MoveSpec {
     // ⛔ AND IT MUST NOT ROOT HER. A smash's freeze roots because a windup is a
     // commitment; this one holds TRAVEL. `SmashChargeSpec::roots` is where the
     // two uses of one mechanic say which they are.
-    spec.smash_charge = Some(ambition_entity_catalog::SmashChargeSpec {
-        hold_at_s: HOLD_UNDER_AT_S,
-        max_hold_s: MAX_UNDER_S,
-        // Nothing is banked: what she was holding was a position, and she is
-        // out of the hole either way.
-        stores: false,
-        roots: false,
-        // ⛔⛔ AND NOBODY HAS TO HOLD ANYTHING. Jon, 2026-08-28, on the first
-        // version of this: *"The latest main the actor doesn't spend any time
-        // under the stage… It looks like the pop up happens immediately."* He
-        // was not holding B, and nobody would while steering — the three seconds
-        // under the stage are a DURATION he asked for outright, and ending them
-        // early is a thing he asked to be able to DO, not a thing he has to stop
-        // doing.
-        sustain: ambition_entity_catalog::ChargeSustain::UntilPressedAgain,
-    });
-    // The press that STARTED this move is the one that holds it — down-Special.
-    spec.charge_gesture = ambition_entity_catalog::ChargeGesture::Special;
+    let spec = ambition_characters::moveset_authoring::charge(
+        spec,
+        ambition_characters::moveset_authoring::Charge {
+            hold_at_s: HOLD_UNDER_AT_S,
+            max_hold_s: MAX_UNDER_S,
+            // Nothing is banked: what she was holding was a position, and she is
+            // out of the hole either way.
+            stores: false,
+            roots: false,
+            // ⛔⛔ AND NOBODY HAS TO HOLD ANYTHING. Jon, 2026-08-28, on the first
+            // version of this: *"The latest main the actor doesn't spend any
+            // time under the stage… It looks like the pop up happens
+            // immediately."* He was not holding B, and nobody would while
+            // steering — the three seconds under the stage are a DURATION he
+            // asked for outright, and ending them early is a thing he asked to
+            // be able to DO, not a thing he has to stop doing.
+            sustain: ambition_entity_catalog::ChargeSustain::UntilPressedAgain,
+            // The press that STARTED this move holds it — down-Special.
+            gesture: ambition_entity_catalog::ChargeGesture::Special,
+            // ⚠ 1.0 ON PURPOSE. Her hold buys TIME under the stage, not a bigger
+            // hit — the payoff is the duration and the reposition, so scaling the
+            // move would be scaling the wrong thing. See `Charge::multiplier`.
+            multiplier: 1.0,
+        },
+    );
     // ⛔⛔ SHE GOES UNDER, AND SHE COMES BACK. Two beats of one technique, and
     // the second one is the half whose absence is a fighter gone for the match.
     let spec = author_trapdoor(

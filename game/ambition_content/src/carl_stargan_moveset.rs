@@ -358,25 +358,28 @@ pub fn carl_stargan_moveset() -> MovesetContract {
     // ⛔ IT DOES NOT STORE. A stored charge is a threat you carry into the next
     // exchange, which is the brawler's haymaker and a different character; his
     // is a thing you commit to on the page you are on.
-    let mut n_b = n_b;
-    n_b.smash_charge = Some(ambition_platformer2d::entity_catalog::SmashChargeSpec {
-        // Just after the sweep's own cue at 0.04s, so the wind-up reads before
-        // the freeze rather than a statue appearing.
-        hold_at_s: 0.08,
-        // Long, and shorter than the brawler's 1.2s: Carl is not a threat you
-        // have to respect from across the stage, he is a slow swing you can
-        // choose to make slower.
-        max_hold_s: 0.9,
-        stores: false,
-        // ⭐ ROOTED, the rule every charge in the game follows: a wind-up you
-        // could walk around with is a threat with no commitment behind it.
-        roots: true,
-        sustain: ambition_platformer2d::entity_catalog::ChargeSustain::WhileHeld,
-    });
-    n_b.charge_gesture = ambition_platformer2d::entity_catalog::ChargeGesture::Special;
-    // 1.45x at a full hold: 11 damage becomes 15, and the knockback with it.
-    // Below the haymaker's 1.6 because this already covers the whole page.
-    n_b.smash_charge_mult = 1.45;
+    let n_b = ambition_characters::moveset_authoring::charge(
+        n_b,
+        ambition_characters::moveset_authoring::Charge {
+            // Just after the sweep's own cue at 0.04s, so the wind-up reads
+            // before the freeze rather than a statue appearing.
+            hold_at_s: 0.08,
+            // Long, and shorter than the brawler's 1.2s: Carl is not a threat
+            // you have to respect from across the stage, he is a slow swing you
+            // can choose to make slower.
+            max_hold_s: 0.9,
+            stores: false,
+            // ⭐ ROOTED, the rule every charge in the game follows: a wind-up
+            // you could walk around with is a threat with no commitment.
+            roots: true,
+            sustain: ambition_platformer2d::entity_catalog::ChargeSustain::WhileHeld,
+            gesture: ambition_platformer2d::entity_catalog::ChargeGesture::Special,
+            // 1.45x at a full hold: 11 damage becomes 15, and the knockback with
+            // it. Below the haymaker's 1.6 because this already covers the whole
+            // page.
+            multiplier: 1.45,
+        },
+    );
     let n_b = vfx_at(n_b, 0.04, "cosmic_calendar_sweep", (0.0, -6.0), COSMIC_FX);
     let n_b = vfx_at(n_b, 0.30, "perspective_shift", (36.0, -4.0), SWING_FX);
     let n_b = on_contact(n_b, "player.hit");

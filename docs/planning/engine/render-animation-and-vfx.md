@@ -1145,7 +1145,19 @@ outlier at 61.9% while her TALL form is 7.1%**, so *"it gets worse when she grab
 wand"* points the opposite way from the sheets. Worth re-checking with Jon before
 anyone designs around it.
 
-⇒ **THE FIX SHAPE: one writer owns size+anchor+offset together.** Where the animator
+⇒ **SO THERE ARE TWO REPAIRS AND THEY ARE NOT THE SAME REPAIR.**
+
+* **(a) FIX THE RENDERER.** One writer owns size + anchor + offset together, so a
+  correction can never outlive the quad it was computed for. Helps every sheet,
+  moves seven of them visibly, and needs eyes on more than one room. ⭐ This is the
+  one the architecture program asks for: it removes an authority rather than
+  cancelling a symptom.
+* **(b) RE-AUTHOR `mary_o_v2` so her body sits near her frame centre**, like the
+  other 190 sheets. Fixes the visible case today and leaves the latent defect for
+  the next sheet drawn with headroom — and the generator can produce one at any
+  time.
+
+⇒ **THE FIX SHAPE FOR (a): one writer owns size+anchor+offset together.** Where the animator
 owns the first two, it must own the third, or `sync_visuals` must not apply a
 translation computed for a quad it no longer set. ⛔ Which of the two is
 authoritative is a rendering decision with a Sanic and Solid-Snake blast radius, so

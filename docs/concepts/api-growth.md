@@ -8,7 +8,6 @@ related_docs:
   - docs/planning/engine/public-sdk-1.0.md
   - docs/planning/engine/capability-and-runtime-composition.md
   - docs/adr/0031-public-facade-is-the-compatibility-boundary.md
-  - docs/archive/planning-superseded/2026-08-13/engine/api-1.0-campaign.md
 ---
 
 # Grow the public API from real consumers

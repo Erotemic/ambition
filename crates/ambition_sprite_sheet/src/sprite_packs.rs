@@ -15,7 +15,7 @@
 //! A consumer never reads pack pixels for gameplay: the synthesized
 //! [`SheetRecord`](crate::SheetRecord) view carries no
 //! `body_metrics` (packs are visual storage truth only — see
-//! `docs/archive/reviews/sprite-pipeline-2026-07/data-driven-sprites-and-characters.md`).
+//! the 2026-07 sprite-pipeline review `data-driven-sprites-and-characters` -- deleted from the checkout 2026-09-05, still in git history).
 
 use std::collections::HashMap;
 use std::sync::OnceLock;

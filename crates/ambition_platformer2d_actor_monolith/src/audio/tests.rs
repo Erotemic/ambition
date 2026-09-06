@@ -250,7 +250,7 @@ fn music_track_order_cycles() {
 
 /// Live-runtime guardrail: the audio module must not gain a new
 /// fundsp / procedural-music reference. The renderer was retired
-/// (see `docs/archive/retired/fundsp-audio.md`) and re-introducing it would silently
+/// (see the retired `fundsp-audio` review -- deleted 2026-09-05, still in git history) and re-introducing it would silently
 /// resurrect the dead code paths the rest of this task tore out.
 ///
 /// This walks the `audio/*.rs` source tree at test time and rejects
@@ -300,7 +300,7 @@ fn no_runtime_references_to_retired_procedural_renderer() {
         findings.is_empty(),
         "runtime audio module re-introduced retired procedural / fundsp \
          references:\n{}\n\nThe fundsp procedural renderer was retired in \
-         favor of authored OGGs + the SFX bank (see docs/archive/retired/fundsp-audio.md). \
+         favor of authored OGGs + the SFX bank (see the retired fundsp-audio review -- deleted 2026-09-05, still in git history). \
          If a new realtime DSP/effects layer is wanted, gate it behind an \
          `audio_fx` feature and a separate module — do not re-thread it \
          through the runtime audio module.",

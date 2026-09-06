@@ -14,7 +14,6 @@ related_docs:
   - docs/mechanics/expressibility-checklist.md
   - docs/mechanics/body-modes.md
   - docs/planning/engine/collision-and-ccd.md
-  - docs/archive/planning-superseded/2026-08-13/engine/collision-and-ccd.md
 ---
 
 # Movement and collision

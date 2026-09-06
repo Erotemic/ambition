@@ -535,12 +535,8 @@ fn install_menu_setup_and_hotkeys(app: &mut App) {
     // `ambition_platformer2d_runtime::durable_save_horizon::DurableSaveHorizonPlugin` owns it now,
     // beside the checkpoint horizon it serializes.
     app.insert_resource(inventory_ui::InventoryUiState::default())
-        .add_systems(
-            Update,
-            (ambition_platformer2d::menu::map::sync_map_menu,)
-                .after(Platformer2dSimulationPhaseMonolith::CoreSimulation)
-                .run_if(ambition_platformer2d::platformer::lifecycle::session_world_exists),
-        )
+        // `sync_map_menu` is installed by `MapStatePlugin`, with the hotkey and
+        // the pointer dismissal it shares an ordering with.
         .add_systems(
             Startup,
             (

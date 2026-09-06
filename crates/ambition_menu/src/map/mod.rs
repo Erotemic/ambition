@@ -117,11 +117,18 @@ impl bevy::prelude::Plugin for MapStatePlugin {
         app.add_systems(
             bevy::prelude::Update,
             (
-                input::handle_map_menu_hotkeys.after(
-                    ambition_platformer2d_shared_tangle::schedule::Platformer2dSimulationPhaseMonolith::CoreSimulation,
-                ),
+                input::handle_map_menu_hotkeys,
                 pointer::map_menu_pointer_dismiss,
+                // ⭐ THE VIEW JOINS ITS OWN DOMAIN. The host registered this with
+                // the IDENTICAL ordering the hotkey needed -- after the simulation
+                // phase, while a session world exists -- in a separate
+                // `add_systems` call thirty lines away. One group says once what
+                // three registrations said three times.
+                ui::sync_map_menu,
             )
+                .after(
+                    ambition_platformer2d_shared_tangle::schedule::Platformer2dSimulationPhaseMonolith::CoreSimulation,
+                )
                 .run_if(ambition_platformer2d_shared_tangle::lifecycle::session_world_exists),
         );
     }

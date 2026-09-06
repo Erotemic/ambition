@@ -94,11 +94,14 @@ fn the_plugin_installs_the_map_menu_systems_it_owns() {
     // vacuously in this build — it would find nothing and say nothing.
     let installed = update.systems().expect("initialized").count();
     assert_eq!(
-        installed, 2,
+        installed, 3,
         "`MapStatePlugin` installs {installed} Update system(s); it owns exactly \
-         two — `handle_map_menu_hotkeys` and `map_menu_pointer_dismiss`. ⇒ If this \
-         DROPPED, the map menu is dead in every composition and nothing else in \
-         the tree says so (there is no app-level map-menu test). If it GREW, raise \
-         this number deliberately and say what joined them."
+         three — `handle_map_menu_hotkeys`, `map_menu_pointer_dismiss` and \
+         `sync_map_menu`. ⇒ If this DROPPED, the map menu is dead in every \
+         composition and nothing else in the tree says so (there is no app-level \
+         map-menu test). If it GREW, raise this number deliberately and say what \
+         joined them.\n\n\
+         ⭐ It went 2 → 3 on 2026-09-06 when `sync_map_menu` was carved out of the \
+         shell, and this assertion is what made that a decision instead of a drift."
     );
 }

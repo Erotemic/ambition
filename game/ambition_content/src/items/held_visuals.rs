@@ -65,29 +65,35 @@ pub(super) fn register(app: &mut App) {
         // nothing. Measured on the first engine take of her new down-B, which
         // otherwise worked end to end.
         //
-        // ⚠ BOTH BORROW ART THAT EXISTS. The bomb wears the gauntlet bomb icon,
-        // which is a bomb; the ponytail wears the javelin, which is a thrown
-        // stick and is honestly a placeholder. Drawing her own tail is an art
-        // job — see `tools/ambition_sprite2d_renderer` — and a wrong picture the
-        // reader can see beats a missing one the log has to explain.
+        // ✔ ALL THREE NOW WEAR THEIR OWN ART (they borrowed the gauntlet bomb,
+        // the beacon and the javelin until 2026-09-06). The drawings live in
+        // `item_icons.py::HELD_ITEM_ICON_SPECS` and are installed here by
+        // `scripts/regen/sprites.sh`; each `key` there is the id on this line.
+        //
+        // ⭐ THE BOMB AND THE MINE ARE DRAWN TO BE TOLD APART AT A GLANCE, which
+        // is a gameplay requirement and not a taste one: both are her stage
+        // objects and they do opposite things. The bomb is a tall faceted hex on
+        // a lit fuse; the mine is a wide low puck on anchor prongs with one red
+        // eye. Silhouette carries it, so the distinction survives at 16px and in
+        // the colour-blind case.
+        //
+        // ⚠ ALL THREE SOURCES ARE SQUARE (64×64), so these extents must stay
+        // square too — the javelin's 44×6 was the shape of the art it borrowed,
+        // and keeping it would have squashed the tress flat.
         HeldItemArtEntry::new(
             "polygon_bomb",
-            "sprites/props/gauntlet_bomb.png",
+            "sprites/props/polygon_bomb.png",
             Vec2::new(18.0, 18.0),
         ),
-        // ⭐ THE MINE WEARS THE BEACON, deliberately NOT the bomb icon. Her two
-        // stage objects have to be distinguishable at a glance — see the note on
-        // `polygon_mine` in the held-item registry — and a beacon is a thing you
-        // put down and come back to, which is what this one is.
         HeldItemArtEntry::new(
             "polygon_mine",
-            "sprites/props/mark_beacon.png",
+            "sprites/props/polygon_mine.png",
             Vec2::new(16.0, 16.0),
         ),
         HeldItemArtEntry::new(
             "polygon_ponytail",
-            "sprites/props/javelin.png",
-            Vec2::new(44.0, 6.0),
+            "sprites/props/polygon_ponytail.png",
+            Vec2::new(28.0, 28.0),
         ),
     ];
     // Wielded gauntlets: a 64×64 procedural icon shown ~26px square on the

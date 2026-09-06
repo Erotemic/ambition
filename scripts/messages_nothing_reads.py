@@ -74,13 +74,27 @@ def rust_files() -> list[pathlib.Path]:
     published seam's consumer lives, so leaving it out biased the sweep toward
     calling published things unread.
     """
+    # ⛔⛔ AND A WHOLE-FILE TEST MODULE CARRIES NO MARKER OF ITS OWN.
+    # `production_lines` excludes `#[cfg(test)]` items BY POSITION, which is right
+    # for an inline `mod tests { .. }` — but this repo also writes
+    # `#[cfg(test)] mod tests;` and puts the module in its own `tests.rs`, where
+    # nothing inside the file says it is test code. MEASURED 2026-09-06: all 209
+    # `src/**/tests.rs` files are declared that way (the six that resisted a naive
+    # check are `#[cfg(all(test, feature = "..."))]`), so the NAME is a sound
+    # signal here.
+    # ⚠ It cost a real misclassification: an emission test I had just written
+    # drained `Messages<PortalGunEquipped>`, and this census read that as a
+    # PRODUCTION reader — so the message it was written to protect stopped being
+    # reported as unread. A guard that its own test can satisfy is measuring the
+    # test.
     return sorted(
-        [
+        path
+        for path in [
             *REPO.glob("crates/**/*.rs"),
             *REPO.glob("game/**/*.rs"),
             *REPO.glob("examples/**/*.rs"),
-        ],
-        key=str,
+        ]
+        if path.name != "tests.rs" and "tests" not in path.parts
     )
 
 
@@ -147,11 +161,24 @@ def messages_read_directly(text: str) -> list[tuple[str, int]]:
         name = payload(text[match.end() : end])
         if not name:
             continue
-        # The verb may sit lines below through a `let` binding, so look at the
-        # statement this handle belongs to rather than the same line.
-        tail = text[end : end + 400]
+        # ⛔⛔ THE VERB IS OFTEN NOT IN THIS STATEMENT AT ALL. The production
+        # reader of `RunAuthoredCommand` is
+        #     let Some(mut messages) = world.get_resource_mut::<Messages<T>>() else { return; };
+        #     let requests: Vec<T> = messages.drain().collect();
+        # -- and a window cut at the first `;` stops inside the `else` block, so
+        # the drain two lines down was never seen. It only LOOKED resolved while
+        # a `tests.rs` elsewhere happened to drain the same type in one statement;
+        # excluding test files is what exposed it.
+        # ⇒ Follow the BINDING: take the name this handle is bound to, then look
+        # for `name.<read verb>` in the lines that follow.
+        tail = text[end : end + 800]
         statement = tail.split(";", 1)[0]
         if any(f".{verb}" in statement for verb in _READ_VERBS):
+            found.append((name, text[: match.start()].count("\n") + 1))
+            continue
+        head = text[max(0, match.start() - 200) : match.start()]
+        bind = re.findall(r"let\s+(?:Some\(\s*)?(?:mut\s+)?([a-z_][a-z0-9_]*)", head)
+        if bind and any(f"{bind[-1]}.{verb}" in tail for verb in _READ_VERBS):
             found.append((name, text[: match.start()].count("\n") + 1))
     return found
 

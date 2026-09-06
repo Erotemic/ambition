@@ -3743,10 +3743,17 @@ AND ONE OF THEM IS A REVIEW FIX.** `tools/ambition_music_renderer` is `ahead 3` 
 `origin/main`:
 
 ```text
-d911d1f  minimize_motion meant "inside this clip", not "through this voice"   <- a GPT-review MEDIUM
-f2ae21f  Update music
-42336c9  Fix v3 renderer bundle integration
+(newest)  minimize_motion meant "inside this clip", not "through this voice"   <- a GPT-review MEDIUM
+          Update music
+(oldest)  Fix v3 renderer bundle integration
 ```
+
+⚠ **BY SUBJECT LINE, NOT BY SHA.** These are SUBMODULE commits and they are
+UNPUSHED, so their hashes resolve only on the machine that wrote them. Citing one
+made `origin/main` red on `test_no_unresolvable_citation_that_the_epoch_did_not_grandfather`
+**for every other checkout while passing on mine** — the guard asks the local
+submodule, and the local submodule has the object. ⇒ A submodule sha is not a shared
+address until it is pushed; a parent-repo sha is one as soon as it is.
 
 ⇒ **This raises what the question is holding.** It was filed as a data-loss risk;
 it now also holds a shipped-defect repair, and a reader prices those differently.
@@ -3755,9 +3762,10 @@ it now also holds a shipped-defect repair, and a reader prices those differently
 whole subject. The parent still shows ` M tools/ambition_music_renderer`.
 
 ⭐ **AND ONE OF THOSE UNPUSHED COMMITS QUIETLY INVALIDATED A REVIEW WITNESS.**
-`f2ae21f` "Update music" replaced `scores/active/standing_on_shoulders.music.yaml`
-— a v3 parity source at `ff26b4f`, carrying the "Parity-first v3 source" header the
-review quotes — with a `schema: ambition.musicir.v1` score. Measured:
+the middle commit above ("Update music") replaced
+`scores/active/standing_on_shoulders.music.yaml` — previously a v3 parity source
+carrying the "Parity-first v3 source" header the review quotes — with a
+`schema: ambition.musicir.v1` score. Measured:
 `_expand_generator_clips` now runs **zero** times for it, so the song cannot
 witness the v3 bridge either way. ⇒ An unpushed commit changed what a review's
 evidence meant, and nothing announced that. That is the cost of the state this

@@ -3620,3 +3620,39 @@ sheet-authored, which today means the dev experiment and little else.
 ⚠ Not a genre or feel call, and not urgent — nothing is blocked on it. But it
 decides whether a documented oddity is a feature to protect or dead weight to
 remove, and only the maintainer knows whether that preview still earns its keep.
+
+## Q64 — what does a far-side character do with a HELD GUN: lose it, or hold a clipped one?
+
+**Not blocked on this**, and nothing in the shipped game reaches it today. Raised
+2026-09-06 while closing the portal-compositing review findings, because the
+answer changes CODE and I will not guess a look.
+
+**The mechanism.** A body on the far side of a portal is hidden and redrawn as
+clip-material pieces, so only the part behind the pane shows.
+`sync_portal_mode_indicator` draws the held gun from the carrier's
+`PortalBodyView`, and — MEASURED from its signature — takes
+`(&PortalBodyView, &PortalGun, Option<&PortalTransit>)` with
+`With<PortalAffordanceBody>`: no `Visibility`, no hide marker. ⇒ it already
+charts the TRANSIT case itself (one clipped quad per chart, pinned by
+`transiting_carrier_gun_decomposes_into_two_clipped_charts`) and is blind to
+every other reason its carrier is hidden. A far-side carrier therefore draws
+clipped body pieces AND a whole gun at the authoritative pose.
+
+**Why it is not reachable yet.** It needs all three at once: far-side
+compositing, a carrier that is not the viewer, and a held portal gun. The middle
+one is the POSSESSION case — the affordance body is tagged from
+`ControlledSubject`, so it is the controlled body, not the home avatar.
+
+⇒ **The two answers cost about the same and look different:**
+- **THE GUN FOLLOWS THE BODY'S HIDE.** Order the indicator
+  `.after(resolve_portal_source_visibility)` and read the carrier's SETTLED
+  `Visibility`. One authority: the gun re-derives nothing about portals, it just
+  does not draw for a carrier that is not drawing. A far-side character is then
+  GUNLESS through the pane.
+- **THE GUN CHARTS THE FAR SIDE too**, the way it already charts a transit. More
+  code, and the character keeps a clipped gun through the pane.
+
+⚠ The first is what the rest of the presentation stack does (the hit-flash
+silhouette follows its body's hide through `PresentationOf`). The second is what
+the gun ALREADY does for transit. So the codebase argues both ways, which is why
+this is a call and not a defect.

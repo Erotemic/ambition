@@ -19,6 +19,7 @@
 | [`motion`](src/motion.rs) | THE SMASH RULESET'S COMMANDED-VELOCITY SEAM (ADR 0024, authority #4). |
 | [`moveset`](src/moveset.rs) | Shared authored platform-fighter repertoire for demo fighters that do not provide a character-owned table. |
 | [`portal`](src/portal.rs) | The portal recovery, assembled from the portal crate's own parts. |
+| [`riposte`](src/riposte.rs) | The answering cut: a parry's response that hits back. |
 | [`select`](src/select.rs) | Pure character-select state for up to four match seats. |
 | [`select_screen`](src/select_screen.rs) | Smash character-select presentation and cursor interaction. |
 | [`shark_ride`](src/shark_ride.rs) | The pirate's up-special: summon a burning flying shark and ride it. |
@@ -27,7 +28,7 @@
 | [`spring`](src/spring.rs) | A plate on the floor that throws whoever steps on it. |
 | [`tether`](src/tether.rs) | The tether reel: she throws a line at a ledge and it pulls her to it. |
 
-_20 crate-root modules. Regenerate: `python scripts/modules_md.py --write`._
+_21 crate-root modules. Regenerate: `python scripts/modules_md.py --write`._
 
 <!-- END generated module map -->
 

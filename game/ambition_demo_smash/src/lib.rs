@@ -27,6 +27,7 @@ pub mod mine;
 pub mod motion;
 pub mod moveset;
 pub mod portal;
+pub mod riposte;
 pub mod sing;
 pub mod tether;
 pub mod spring;
@@ -974,6 +975,15 @@ impl bevy::prelude::Plugin for SmashRulesPlugin {
             sim,
             (crate::homing::begin_authored_homing_dashes, crate::homing::carry_homing_dashes)
                 .chain()
+                .in_set(ambition_platformer2d::platformer::schedule::CombatSet::ContentSpecials),
+        );
+        // THE ANSWERING CUT. ⭐ `ContentSpecials` like every other technique.
+        // ⛔ It reads the SAME `ActorActionMessage` the counter writes, so it
+        // needs no counter-specific wiring: a parry's response is an ordinary
+        // special request, and any move that names the key gets a cut.
+        app.add_systems(
+            sim,
+            crate::riposte::cut_where_a_riposte_answers
                 .in_set(ambition_platformer2d::platformer::schedule::CombatSet::ContentSpecials),
         );
         // THE TETHER REEL. ⭐ `ContentSpecials` beside the homing dash, and the

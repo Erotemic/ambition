@@ -44,6 +44,7 @@ pub mod smash_mine;
 pub mod smash_portal;
 pub mod smash_repertoire;
 pub mod smash_ride;
+pub mod smash_riposte;
 pub mod smash_sleep;
 pub mod smash_spring;
 pub mod smash_limit;

@@ -552,6 +552,16 @@ the half he actually named.
 
 > **19 authored technique params across 16 modules; 1–10 fields, median 4.**
 
+**Re-measured 2026-09-06, after the tether and the riposte landed:**
+
+> **21 authored technique params across 18 modules; 1–10 fields, median 4.**
+
+⇒ Two techniques added and the MEDIAN DID NOT MOVE, which is the number worth
+watching: a vocabulary that grows by getting harder to use is not growing.
+`TetherPullParams` is 3 fields and `RiposteStrikeParams` is 5.
+⛔ The old figure is kept rather than overwritten because it was true at
+`b2acd849f` and a measurement without its reference point is a rumour.
+
 ⇒ To give a fighter a remote mine, a portal recovery, a counter, a sleep, a
 steered bolt or a Limit fill, an author names the technique's key and fills a
 params struct whose median size is **four fields**. Nothing else is owed: no new

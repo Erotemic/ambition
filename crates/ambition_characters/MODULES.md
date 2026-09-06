@@ -32,6 +32,7 @@
 | [`smash_portal`](src/smash_portal.rs) | The portal recovery: the authored vocabulary for "open a way up". |
 | [`smash_repertoire`](src/smash_repertoire.rs) | Standard Smash action grammar and repertoire bookkeeping. |
 | [`smash_ride`](src/smash_ride.rs) | Summon-a-mount-and-ride: the authored vocabulary. |
+| [`smash_riposte`](src/smash_riposte.rs) | Answer a parry with the blade: the authored vocabulary. |
 | [`smash_sleep`](src/smash_sleep.rs) | Putting a body to sleep: the authored vocabulary. |
 | [`smash_spring`](src/smash_spring.rs) | Leave a plate on the stage that throws whoever steps on it. |
 | [`smash_teleport`](src/smash_teleport.rs) | Teleport-as-a-recovery: the authored vocabulary. |
@@ -42,7 +43,7 @@
 | [`snapshot_impls`](src/snapshot_impls.rs) | `SnapshotState` for this crate's own types — the rollback wire format. |
 | [`technique`](src/technique.rs) | THE AUTHORED SCHEMAS OF ENGINE TECHNIQUES — the params an `on_hit` effect carries, and nothing that executes one. |
 
-_35 crate-root modules. Regenerate: `python scripts/modules_md.py --write`._
+_36 crate-root modules. Regenerate: `python scripts/modules_md.py --write`._
 
 <!-- END generated module map -->
 

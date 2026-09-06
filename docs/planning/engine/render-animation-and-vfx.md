@@ -650,7 +650,7 @@ for the robot v3. ⇒ A posed actor is placed by one rule on its spawn frame and
 another on every frame after, so its art can shift by a pixel or two the moment
 the offset lands. That is a ONE-FRAME POP at spawn, small and real.
 ⭐ The (A) repair is therefore NOT "delete the second authority" but "give the
-spawn path the same authority": have `spawn_actors` publish the offset beside the
+spawn path the same authority": have `actor_spawn` publish the offset beside the
 size (both come from sheet metadata it already reads), after which the fallback
 genuinely has no producer and can go. ⛔ Not done here — it is four spawn sites in
 the monolith and wants its own change with the suite behind it.

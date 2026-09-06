@@ -223,7 +223,27 @@ now the whole of the remaining work.** It stands on six modules:
 | `ecs/spawn_static.rs` | 697 | 9, 2 to `features` | ▢ 1 ref, drags |
 | `ecs/autonomous_reconcile.rs` | — | — | ▢ 1 ref, arrived WITH `conversion` |
 
-⇒ **16 → 13 refs.** `construction -> actor_spawn` is 15 and one-way;
+⇒ **16 → 7 refs.** Two more steps, and NEITHER was a module that needed moving:
+
+| step | refs | what it was |
+|---|---|---|
+| `HeldItem` repointed to its definition | 10 → 7... (3) | ⛔ **a re-export, not a dependency.** `HeldItem` lives in `ambition_combat::held_items`, a crate BELOW this one; `features::ecs` merely re-exports it. Naming the re-export made the primitives depend on the feature layer for a type it does not own. **One line.** |
+| `character_spawn_plan` moved down | 13 → 10 (3) | measured first this time — no `super::` at all, and its only `crate::` dependency is `character_runtime`, which `actor_spawn` already needs. It added no edge and removed three. |
+
+⭐ **THE RE-EXPORT ONE IS THE TRANSFERABLE FINDING: a dependency drawn through a
+re-export is an edge to a module that owns nothing in it.** It cost one line and
+three references, and nothing in the code looked wrong — the same shape as
+`assets -> session`, and the same shape as the `host_input` re-export that made a
+foreign-ordering census see half its registrations. **Check what a path RESOLVES
+to before believing the edge it draws.**
+
+⇒ **The last seven, all singletons:** `npcs::{resolve_npc_brain, NPC_TALK_RADIUS}`
+and `NPC_HOSTILE_STRIKE_THRESHOLD` (3), `ecs::boss_component_snapshot`,
+`ecs::spawn_static::interactable_from_authored`,
+`ecs::autonomous_reconcile::provoked_projection`, and the
+`{EnemyActorBundle, FeatureBaseBundle}` pair.
+
+⇒ ~~16 → 13 refs.~~ `construction -> actor_spawn` is 15 and one-way;
 `features -> actor_spawn` rose 8 → 33, which is the correct direction and is what
 moving three helpers down looks like from above.
 

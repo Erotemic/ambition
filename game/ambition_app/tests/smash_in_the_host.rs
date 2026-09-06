@@ -1973,7 +1973,7 @@ fn start_and_report(app: &mut App) -> MatchStart {
             let mut seated = world.query::<&ambition_platformer2d::versus_match::MatchSeat>();
             let seats = seated.iter(world).count();
             let mut loose = world.query_filtered::<Entity, (
-                With<ambition_platformer2d::actors::control::components::LocalPlayer>,
+                With<ambition_platformer2d::actors::control::LocalPlayer>,
                 Without<ambition_platformer2d::versus_match::MatchSeat>,
             )>();
             let orphans = loose.iter(world).count();

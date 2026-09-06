@@ -2,7 +2,11 @@
 //! per-player components (attacks, safety anchors) plus slot-owned input, and the
 //! singleton queries / heal routing stay independent and correct.
 
-use super::*;
+// ⚠ NAMED HERE NOW. This file is `#[path]`-included from `components.rs`, which
+// used to carry the prelude for it; that import became unused there the moment
+// `LocalPlayer` moved to the floor crate and left the module with nothing else.
+use bevy::prelude::*;
+
 use ambition_combat::BodyMelee;
 use ambition_platformer2d_core as ae;
 use ambition_platformer2d_shared_tangle::markers::PrimaryPlayerOnly;

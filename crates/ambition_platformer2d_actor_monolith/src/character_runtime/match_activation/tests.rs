@@ -460,7 +460,7 @@ fn a_local_human_body_keeps_local_source_identity_on_the_slot_model() {
 
     let world = app.world_mut();
     let mut locals = world.query::<(
-        &crate::control::components::LocalPlayer,
+        &ambition_platformer2d_shared_tangle::markers::LocalPlayer,
         Option<&ambition_characters::control::DrivingParticipant>,
     )>();
     let seats: Vec<_> = locals

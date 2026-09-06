@@ -5,7 +5,12 @@ use ambition_platformer2d_core::CenteredAabb;
 use bevy::prelude::*;
 
 use crate::body_mode::BodyModeCapabilities;
-use crate::control::LocalPlayer;
+// ⛔ THE DEFINITION, NOT `crate::control`'s RE-EXPORT — and this line IS the
+// finding. `LocalPlayer` is a zero-field marker that now lives in
+// `shared_tangle::markers`; naming the re-export would leave the `avatar ->
+// control` edge intact while looking like the move had worked, which is the
+// same trap that hid four "dependencies" in the F1 packet today.
+use ambition_platformer2d_shared_tangle::markers::LocalPlayer;
 use ambition_characters::actor::BodyAnimFacts;
 use ambition_characters::actor::{BodyCombat, BodyHealth, BodyWallet};
 use ambition_characters::brain::{ActionSet, Brain};

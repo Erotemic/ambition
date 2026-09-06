@@ -74,7 +74,17 @@ silently re-points every page that cited the original.
     grep -oE '^### [0-9]+\.' awaiting-maintainer-decision.md | tr -d '#. ' | sort -n | tail -1
 
 
-## ⊙ Q70 — what is a successful BLOCK worth on the Limit meter? (2026-09-06)
+## ⊙ Q71 — what is a successful BLOCK worth on the Limit meter? (2026-09-06)
+
+<!-- ⛔ RENUMBERED FROM Q70 THE SAME DAY: a peer independently took Q70 for the
+     Settings-tab question, having checked and found 70 free — it was, at the
+     moment they looked, because my row had not landed yet. Two agents each
+     measured the next free number correctly and still collided, because the
+     answer changes between reading it and writing it.
+     ⇒ `scripts/tests/test_maintainer_questions_are_uniquely_numbered.py` makes
+     the collision impossible to push rather than asking the next author to be
+     luckier. I renumbered mine rather than theirs: it is my content, and it
+     resolves without editing a row I do not own. -->
 
 ⭐ **THE SHAPE IS ALREADY YOUR RULING; ONLY THE NUMBER IS MINE.** You said *"make
 sure the meter doesn't push future uses of it into a box"*, so `LimitMeterFill`

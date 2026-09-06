@@ -71,3 +71,24 @@ pub fn body_collects_on_touch(
             Some(crate::temporary_control::TemporaryControl::Player { .. })
         )
 }
+
+// ⭐⭐ MOVED HERE 2026-09-06 FROM `actor_monolith::control::components`, and the
+// move is worth two sentences because it cost the kernel a cycle. This file is
+// "content-free entity markers shared by reusable mechanics and presentation" and
+// `LocalPlayer` is a zero-field marker with no dependencies — it was simply filed
+// beside the control systems that first read it. That placement was the whole of
+// the `avatar -> control` edge, which the module-graph census names as one of
+// three single-reference edges holding the residual kernel's twelve-module
+// component together.
+//
+// ⛔ ITS SIBLINGS WERE ALREADY HERE. `ControlledSubject` and `PrimaryPlayer` are
+// the same kind of thing and this module's own doc names them — so the question
+// was never "should a marker live in the floor crate", it was "why did this one
+// not".
+/// Marks a player whose input comes from this machine's input devices
+/// (keyboard / gamepad / touch). In single-player today the local
+/// player is also the primary player. In a future networked build,
+/// remote players would have `PlayerEntity` (+ `PlayerSlot`) but not
+/// `LocalPlayer`.
+#[derive(Component, Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub struct LocalPlayer;

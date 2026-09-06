@@ -4149,3 +4149,46 @@ line is a product judgement about what an Ambition game IS.
 
 ⛔ **NOT GUESSED, per the standing rule.** The wiring defect Jon actually hit is
 fixed; this is the vocabulary question underneath it.
+
+## Q69 — Does the title screen's Settings tab HIGHLIGHT when the pointer is over it?
+
+**2026-09-06. One observation Jon can make in a second, and it splits the search
+space in half.** Everything I can measure headlessly about the Settings tab is
+CORRECT, so the next move depends on a fact only a real window has.
+
+**MEASURED, in the shipped composition (`rendered_app()`, settled):**
+
+| checked | result |
+|---|---|
+| tab buttons drawn | 2 — `Choose Game`, `Settings` |
+| computed sizes | 73×44 and 71×44 px — not zero |
+| positions | (36.5, 22) and (108.5, 22) — top-left, on screen |
+| `InheritedVisibility` | `true` for both |
+| `Interaction` component | present on both |
+| picking plugins | `PickingPlugin`, `InteractionPlugin`, `PointerInputPlugin` all installed |
+| `bevy/ui_picking` backend | ON — `bevy_ui_menu` is in the default `desktop_dev → visible` chain |
+| activation road | `Interaction` → `publish_bevy_ui_menu_tabs` → `MenuTabActivated` → `basic_shell_pointer` → `SelectTab`, all registered, set ungated |
+| activation logic | tested and poison-verified, including across a tab-bar republish |
+
+⛔ **AND THE REASON I CANNOT GO FURTHER ALONE: the test fixture has NO WINDOW**
+(`window=None`), so nothing in it can hit-test. That is not a fixture wart, it is
+why **every** menu pointer test in this repo triggers `Pointer<Press>` observers
+DIRECTLY on a target entity (`menu/test_support.rs`). ⇒ **No test in the tree can
+catch "a click at these pixels reaches nothing"** — which is exactly the class
+this bug is in. The one link in the chain that no test covers is the one link
+left unexplained.
+
+⭐ **THE QUESTION: hover the Settings tab with the mouse. Does it change
+appearance at all?**
+
+- **YES, it highlights** ⇒ hit-testing works and `Interaction` is reaching the
+  tab. The defect is DOWNSTREAM of picking, in a place I can reach with a test —
+  press/release sequencing, or the shell consuming `SelectTab`.
+- **NO, nothing happens** ⇒ picking never reaches the tab at all. Cause is
+  UPSTREAM: a camera/render-target mismatch, a z-order overlay covering the
+  strip, or a `Pickable` opt-out. Different code, different fix.
+
+⚠ **A related observation I did NOT chase, recorded so it is not lost:** in that
+windowless fixture 18 of the 20 buttons compute to 0×0 while the two tabs have
+real sizes. Most likely a layout artifact of having no window, but if hover DOES
+highlight, this is the next thing to measure with a real one.

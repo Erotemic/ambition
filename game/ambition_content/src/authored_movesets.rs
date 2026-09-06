@@ -748,10 +748,22 @@ mod tests {
     /// this file inventing a quota. What it is for is READING — run it with
     /// `--nocapture` and the roster sorts itself by how much of each fighter is
     /// actually authored.
+    ///
+    /// ⛔⛔ AND "BARE" MEANS NO TECHNIQUE, NOT "BORING" — a distinction this
+    /// census learned the hard way. Reading the first version I went looking for
+    /// the emptiest fighter and found the Perfect Cellular Automaton with five
+    /// bare specials, then opened its down-B: a three-pulse `multihit` collapse
+    /// with authored autolink volumes, a telegraph, and its own cue. Nothing
+    /// about it wants a technique key. ⇒ A fighter can be richly authored with
+    /// none, so the census now reports what ELSE a special carries — extra
+    /// windows, a charge, a start impulse, timeline events. A special with
+    /// NEITHER a technique nor any of those is the only row that is honestly
+    /// a hitbox on a different button, and those are the ones worth reading.
     #[test]
     fn the_census_of_specials_that_carry_no_technique() {
         let tables = tables();
         let mut bare_total = 0usize;
+        let mut plain_total = 0usize;
         let mut special_total = 0usize;
         println!("\n{:<22} {:<34} {}", "FIGHTER", "SPECIAL", "TECHNIQUE");
         for (name, table) in &tables {
@@ -767,23 +779,50 @@ mod tests {
                 };
                 special_total += 1;
                 let keys = techniques(spec);
+                // What a move carries besides a technique. Every one of these is
+                // authoring a reader would call expressive.
+                let mut extras: Vec<String> = Vec::new();
+                let hitbox_windows = spec
+                    .windows
+                    .iter()
+                    .filter(|window| !window.volumes.is_empty())
+                    .count();
+                if hitbox_windows > 1 {
+                    extras.push(format!("{hitbox_windows} hit windows"));
+                }
+                if spec.smash_charge.is_some() {
+                    extras.push("charge".to_string());
+                }
+                if spec.start_impulse.is_some() {
+                    extras.push("impulse".to_string());
+                }
+                if !spec.events.is_empty() {
+                    extras.push(format!("{} event(s)", spec.events.len()));
+                }
                 if keys.is_empty() {
                     bare_total += 1;
+                    if extras.is_empty() {
+                        plain_total += 1;
+                    }
                 }
                 println!(
                     "{:<22} {:<34} {}",
                     name,
                     id,
-                    if keys.is_empty() {
-                        "— bare".to_string()
-                    } else {
+                    if !keys.is_empty() {
                         keys.join(", ")
+                    } else if extras.is_empty() {
+                        "— PLAIN (no technique, no other authoring)".to_string()
+                    } else {
+                        format!("— no technique, but {}", extras.join(" + "))
                     },
                 );
             }
         }
         println!(
-            "\n{bare_total} of {special_total} specials across {} fighters carry no technique.",
+            "\n{bare_total} of {special_total} specials across {} fighters carry \
+             no technique; {plain_total} of those carry no other authoring \
+             either, and those are the ones worth reading.",
             tables.len(),
         );
         assert!(

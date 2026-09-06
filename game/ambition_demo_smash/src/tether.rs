@@ -158,10 +158,17 @@ pub fn begin_authored_tether_pulls(
 pub fn reel_tethered_fighters(
     mut commands: Commands,
     time: Res<ambition_platformer2d::time::WorldTime>,
-    mut bodies: Query<(Entity, &mut ae::BodyKinematics, &mut TetherReel)>,
+    collision: ambition_platformer2d::world::collision::CollisionWorld,
+    mut bodies: Query<(
+        Entity,
+        &mut ae::BodyKinematics,
+        &mut TetherReel,
+        &ambition_platformer2d::world::ResolvedMotionFrame,
+    )>,
 ) {
     let dt = time.sim_dt();
-    for (entity, mut kin, mut reel) in &mut bodies {
+    let solids = collision.solids();
+    for (entity, mut kin, mut reel, frame) in &mut bodies {
         reel.remaining_s -= dt;
         let to_anchor = reel.anchor - kin.pos;
         let distance = to_anchor.length();
@@ -174,8 +181,41 @@ pub fn reel_tethered_fighters(
             commands.entity(entity).try_remove::<TetherReel>();
             continue;
         }
-        if distance <= ARRIVED_PX {
-            // ⭐ ARRIVING HANDS HER TO GRAVITY AND GETS OUT OF THE WAY. See the
+        // ⭐⭐ ASK THE AUTHORITY WHETHER IT WOULD CATCH HER HERE, rather than
+        // wait for her to stand on a point. That is the reel's actual job, and
+        // chasing the anchor cannot finish it:
+        //
+        // ⛔ THE ANCHOR IS A HANG POSITION, AND A HANGING BODY OVERLAPS THE WALL.
+        // Measured in a live match: her body is 34.4px wide, the anchor sat at
+        // x=63.8 and the platform's face at x=80, so the anchor puts her right
+        // edge 1px INSIDE the solid. The swept resolve correctly refuses to move
+        // her there, so she pins ~1px short and `distance <= ARRIVED_PX` never
+        // becomes true.
+        //
+        // ⚠ AND THE FIRST VERSION OF THIS COMMENT CALLED THAT A LIVELOCK, WHICH
+        // IS FALSE — the poison that was supposed to prove it PASSED. Chasing
+        // the anchor does not stop the catch, it DELAYS it: the reel runs out
+        // its whole timeout pinned against the wall, releases on the clock, and
+        // the authority then catches her anyway. Measured on the live stage:
+        // tick 22 chasing the anchor against tick 6 asking the authority. ⇒ The
+        // cost is a quarter-second of a fighter stuck to a wall doing nothing,
+        // which reads as the move failing and then working for no reason.
+        //
+        // ⇒ The moment the authority's own probe accepts where she IS, the reel
+        // is done. No tolerance to tune, and it cannot disagree with the thing
+        // it is handing her to.
+        let caught_here = solids.as_ref().is_some_and(|world| {
+            ae::ledge_grab::probe_ledge_grab_in_frame(
+                kin.pos,
+                kin.size,
+                -kin.facing.signum(),
+                world,
+                frame.down(),
+            )
+            .is_some()
+        });
+        if caught_here || distance <= ARRIVED_PX {
+            // ⭐ RELEASING HANDS HER TO GRAVITY AND GETS OUT OF THE WAY. See the
             // module header: the ledge authority catches a FALLING body, so
             // releasing her with upward velocity would leave her hanging in the
             // air beside the ledge she just reached.

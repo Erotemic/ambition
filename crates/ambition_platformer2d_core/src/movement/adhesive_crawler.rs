@@ -377,6 +377,24 @@ fn chain_capture(world: &World, pos: Vec2, body_thick: f32) -> Option<(u32, f32)
 /// crawler's semantic support fact. The clung block supplies the source kind
 /// and its frame motion; if the probe unexpectedly finds nothing the contact
 /// still records the attachment (static, unknown-solid), never silence.
+/// Publish the Attachment contact for a crawler stuck to a BLOCK.
+///
+/// ⭐⭐ THE INVARIANT THIS HALF-IMPLEMENTS, stated because reconstructing it costs
+/// twenty minutes: **every exit of `step_crawler` publishes exactly ONE
+/// `ContactKind::Attachment`, and it does so by TWO mechanisms.** Five paths call
+/// this function; the sixth returns from `crawl_chain`, which pushes its own
+/// contact inline. ⇒ a new exit must publish exactly once — and a `step_crawler`
+/// that wrapped its body to publish "on every path" would DOUBLE-publish the
+/// chain one.
+///
+/// ⚠ THE TWO ARE NOT A DUPLICATION AND SHOULD NOT BE MERGED. The chain path HAS
+/// the geometry (`f.point`, `f.normal` come from the polyline frame) and the
+/// surface it is riding; this path must PROBE the world for the block it is clung
+/// to, and falls back to zero velocity and an anonymous `GeoId` when nothing
+/// answers. Different information, therefore different construction.
+/// ⭐ What they DO share is the rule that matters, and they already share it in
+/// one place: `impact_speed` is `collision_semantics::closing_speed(vel, normal)`
+/// on both roads, because a crawler ATTACHES rather than arrives.
 fn publish_attachment_contact(
     motion: &AdhesiveCrawlerMotion,
     world: &World,

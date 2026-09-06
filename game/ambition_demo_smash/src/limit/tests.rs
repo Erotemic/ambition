@@ -275,3 +275,81 @@ fn a_match_that_declares_no_limit_fills_nothing() {
         "a match with no Limit rule moved a meter anyway"
     );
 }
+
+/// What the meter read at the moment a move's cost would be priced.
+#[derive(bevy::prelude::Resource, Default, Debug)]
+struct SeenWhenAMoveIsPriced(Option<(f32, f32)>);
+
+fn watch_the_meter(
+    mut seen: bevy::prelude::ResMut<SeenWhenAMoveIsPriced>,
+    meters: bevy::prelude::Query<&ae::BodyMana>,
+) {
+    for mana in &meters {
+        seen.0 = Some((mana.meter.current, mana.meter.max));
+    }
+}
+
+/// ⛔⛔ DYING MUST NOT GRANT THE LIMIT, which is what the shipped order did for
+/// one frame.
+///
+/// A stock loss keeps the body entity and calls `reset_body_clusters`, which
+/// assigns `BodyMana::default()` — a 100-point pool that starts FULL, because
+/// `ResourceMeter::new` sets `current` to `max`. That happens in
+/// `CombatSet::Settle`. The Limit's emptying lived only in `fill_limit_meters`,
+/// in `CombatSet::ContentFlavor` — AFTER `CombatSet::Trigger`, where a move's
+/// cost is checked. ⇒ On the frame after a respawn the meter read 100/100
+/// against a Limit priced at the cap, and respawn protection permits a swing.
+///
+/// ⭐ THE FIXTURE IS THE SHIPPED ORDER, not a convenient one: `adopt_the_limit_cap`
+/// (before Trigger), then an observer standing exactly where a cost is priced,
+/// then `fill_limit_meters` (ContentFlavor). Remove the first and this test
+/// reports the bug it was written for.
+#[test]
+fn a_meter_that_arrives_as_a_full_mana_pool_is_not_spendable_when_a_move_is_priced() {
+    let mut app = App::new();
+    app.add_message::<ActorActionMessage>();
+    app.add_message::<ResolvedBodyHit>();
+    app.init_resource::<ambition_platformer2d::time::WorldTime>();
+    app.init_resource::<SeenWhenAMoveIsPriced>();
+    app.insert_resource(SmashLimitFill(LimitMeterFill {
+        cap: 60.0,
+        ..Default::default()
+    }));
+    {
+        let mut time = app
+            .world_mut()
+            .resource_mut::<ambition_platformer2d::time::WorldTime>();
+        time.scaled_dt = 1.0 / 60.0;
+        time.raw_dt = 1.0 / 60.0;
+    }
+    app.add_systems(
+        Update,
+        (adopt_the_limit_cap, watch_the_meter, fill_limit_meters).chain(),
+    );
+    // Exactly what a respawn leaves behind: a full 100-point pool.
+    let her = app.world_mut().spawn(ae::BodyMana::default()).id();
+    assert_eq!(
+        app.world().get::<ae::BodyMana>(her).unwrap().meter.current,
+        100.0,
+        "the fixture no longer starts from the state a respawn leaves, so it \
+         cannot be testing this",
+    );
+
+    app.update();
+
+    let (current, max) = app
+        .world()
+        .resource::<SeenWhenAMoveIsPriced>()
+        .0
+        .expect("the observer ran");
+    assert_eq!(
+        max, 60.0,
+        "a move priced at the match's cap was checked against a {max}-point \
+         meter, so the cap had not been adopted yet",
+    );
+    assert_eq!(
+        current, 0.0,
+        "the meter read {current} when a move's cost would be priced — a \
+         fighter who just died could spend the Limit for free",
+    );
+}

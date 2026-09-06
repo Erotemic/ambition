@@ -772,8 +772,8 @@ and run that one. `cargo check -p <crate>` with no features is seconds.
 
 ## Current execution order
 
-- ▢ **D-LIMIT-RESPAWN — a respawned fighter appears to hold a FULL Limit for one
-  frame, found 2026-09-06 while filing Q67.** Not a maintainer question: whichever
+- ✔ **D-LIMIT-RESPAWN — CLOSED 2026-09-06, same day. A respawned fighter could
+  spend the Limit for free on the frame after dying.** Not a maintainer question: whichever
   way Q67 is ruled, this is a bug, because the behaviour is neither answer.
   ⭐ **Measured, not inferred, from three registrations.** A stock loss keeps the
   body ENTITY (`place_respawning_fighters` queries `event.body` and repositions
@@ -804,9 +804,22 @@ and run that one. `cargo check -p <crate>` with no features is seconds.
   meter that arrived wearing another rule's shape, and it answers no question
   about crossing the cap this frame. Extracting it leaves the three sources
   together, which is what the comment is protecting.
-  ⚠ **Not yet reproduced by a test**, and that is the first step rather than the
-  fix: the reasoning is from registrations and phase order, which is exactly the
-  kind of chain that has been wrong before in this file.
+  ✔ **REPRODUCED, THEN FIXED.** `adopt_the_limit_cap` extracts the `max != cap`
+  normalisation and registers `.before(CombatSet::Trigger)`, so any path that
+  hands a body a fresh `BodyMana` is corrected before a cost is read — the class,
+  not the respawn. The three fill sources stay together in `fill_limit_meters`,
+  which keeps the objection its own doc raises.
+  ⭐ **TWO tests, because they prove different things and one of them cannot see
+  the bug.** The unit test builds the shipped order — adoption, an observer
+  standing exactly where a move is priced, then the fill — and asserts the
+  observer sees `0/60` rather than `100/100`; poisoned by making the adoption a
+  no-op, red. ⛔ But that test constructs its OWN schedule, so it is green
+  wherever the ruleset actually registers the system — and the bug WAS the
+  registration. `test_the_limit_cap_is_adopted_before_a_move_is_priced.py` pins
+  the placement; poisoned three ways (into `ContentFlavor`, with no ordering at
+  all, and by renaming the system away), red each time.
+  ⚠ **What neither covers**: a `.before(..)` that Bevy resolves differently than
+  it reads. `sim_phase_pins` is where that would go, in another crate.
 
 - ✔ **D-TITLE-MENU — CLOSED 2026-09-05.** Jon: the title screen stacked the
   settings menu over the game picker, both live, the winner apparently random.

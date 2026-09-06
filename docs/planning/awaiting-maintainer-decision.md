@@ -3745,9 +3745,7 @@ in `CombatSet::ContentFlavor`/`ContentSpecials` — AFTER `CombatSet::Trigger`,
 where a move's cost is checked. So for at least one frame a respawned fighter
 appears to hold a full 100-point meter against a Limit priced at the match's cap.
 If that frame is reachable by input, dying GRANTS the comeback move rather than
-costing it, which is the opposite of both answers below. ⇒ I am writing the test
-that decides it; if it confirms, that is a bug to fix regardless of the ruling,
-and the ruling then applies to a behaviour somebody chose.
+costing it, which is the opposite of both answers below. ✔ **IT CONFIRMED AND IT IS FIXED (D-LIMIT-RESPAWN, 2026-09-06).** `adopt_the_limit_cap` now runs `.before(CombatSet::Trigger)`, so the meter is emptied before any cost is priced. ⇒ **This question is therefore clean again**: the answer today is RESET, by a system that means it, and the ruling below applies to a behaviour somebody chose rather than to a one-frame accident.
 
 **Why it is a product question and not an engineering one.** Both answers are
 cheap and both are defensible genre positions, which is exactly why I will not

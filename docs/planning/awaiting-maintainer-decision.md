@@ -3717,3 +3717,75 @@ having consolidated the symbol away and repointed the check at the wrong list;
 the peer session, whose checkout matches the pin, sees it fine. **Two boxes, one
 repo, the same test disagreeing** — and `git submodule status`'s `+` prefix means
 "your checkout is not the pin", not "someone edited it".
+
+## Q67 — does the Limit meter survive a stock loss, or reset with the body?
+
+**Blocking a ✔-marked row that is only half true.** The Limit is shipped on the
+goblin (Jon: *"Give the limit ability to the goblin maybe? […] And give whoever
+gets the limit meter some move they can use when it fills."*), and the meter
+fills, decays and gates a move. What nothing ever decided is what a STOCK LOSS
+does to it, and the current answer was arrived at by accident rather than
+authored: the meter lives on the body, a KO'd fighter respawns as a fresh body,
+so **the meter resets and nobody wrote that down** — see the corrected mechanism
+below, which I got wrong on the first filing and which matters because the way it
+resets is where the interesting problem is.
+
+⛔ **AND THE MECHANISM IS NOT THE ONE I FIRST WROTE HERE.** The body ENTITY
+survives a stock loss — `place_respawning_fighters` queries `event.body` and
+repositions it — so "a fresh body" was wrong. What resets the meter is explicit:
+`reset_body_clusters` does `*clusters.mana = BodyMana::default()`, and
+`fill_limit_meters` then re-adopts the match's cap on its next run, emptying it
+because `max != cap`. ⇒ The answer today is still RESET, arrived at through two
+systems neither of which was thinking about this question.
+
+⚠ **AND THAT PAIR LEAVES A WINDOW I HAVE NOT YET CLOSED, raised here because it
+may change the answer.** `BodyMana::default()` is a 100-point pool that starts
+FULL (`ResourceMeter::new` sets `current` to `max`), and the re-emptying happens
+in `CombatSet::ContentFlavor`/`ContentSpecials` — AFTER `CombatSet::Trigger`,
+where a move's cost is checked. So for at least one frame a respawned fighter
+appears to hold a full 100-point meter against a Limit priced at the match's cap.
+If that frame is reachable by input, dying GRANTS the comeback move rather than
+costing it, which is the opposite of both answers below. ⇒ I am writing the test
+that decides it; if it confirms, that is a bug to fix regardless of the ruling,
+and the ruling then applies to a behaviour somebody chose.
+
+**Why it is a product question and not an engineering one.** Both answers are
+cheap and both are defensible genre positions, which is exactly why I will not
+pick one:
+
+* **Resets** — the comeback mechanic is per-life. Dying costs you the meter you
+  built, so a player who is losing does not accumulate a reward for losing.
+* **Survives** — the comeback mechanic is per-MATCH. A player down a stock keeps
+  what they earned, which is what makes it a comeback rather than a bonus for
+  whoever is already ahead.
+
+⚠ **The second reading is the one the genre usually takes** (a rage/comeback
+resource that grows as you lose), and the fighter it is on is a goblin whose
+whole role is scrappy. But "usually" is not a decision, and the difference is
+visible to a player within one match.
+
+**What lands either way.** A test naming the choice, because right now nothing
+asserts it in either direction — the behaviour is a consequence of where the
+component sits and would change silently if the respawn path were rewritten.
+
+## Q68 — how far may the camera zoom out before the fight stops being legible?
+
+**Jon raised the feature, 2026-09-05:** *"thinking about the off the stage issue
+with the camera. In smash if the camera zooms out too much a minimap appears. Do
+we have that feature on our list? If not we should add it."* ⇒ The feature is on
+the list. What is not decided is the THRESHOLD, and the threshold is the whole
+design: a minimap that appears too early is clutter over a readable fight, and
+one that appears too late arrives after the moment it exists for.
+
+**Why it cannot be measured into existence.** The trigger is a legibility floor —
+"a fighter is too small to read" — and legibility is a judgement about a player's
+screen, not a number the code can derive. The candidates are all authorable and
+none is obviously right: a zoom factor, a fighter's on-screen height in pixels, a
+stage-width fraction, or the camera reaching its own clamp.
+
+⛔ **AND THE ANSWER SHOULD BE A NUMBER JON HAS SEEN, not one I picked.** The
+honest form of this question is a build with a debug readout of the current
+value, played once, with him saying "there" — which is a small piece of work I
+can do on request but should not do speculatively, because the readout is only
+worth building if he wants to answer it that way.
+

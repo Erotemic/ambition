@@ -1550,3 +1550,75 @@ fn activating_a_settings_row_changes_the_setting_and_launches_nothing() {
          the positive direction, the same convention the pause menu states"
     );
 }
+
+/// ⛔⛔ A SETTINGS ROW THAT SHOWS NO VALUE IS NOT A SETTINGS ROW. Jon, 2026-09-06:
+/// *"video settings and audio settings seem not there or not hooked up."* They
+/// were there. They drew "Master Volume" and no number, so there was nothing to
+/// watch change — which is most of why the rows read as dead.
+///
+/// ⇒ TWO defects, one visible symptom. The `bevy_ui` backend DISCARDED the
+/// control's `detail` (`detail: _`) while the kaleidoscope backend draws it, so
+/// two renderers of one model disagreed about whether a control has a visible
+/// value. And `shell_frame_key` did not name the audio values, so even once drawn
+/// they would have frozen at whatever they were when the page was last built.
+///
+/// ⚠ THIS ASSERTS BOTH AT ONCE, deliberately: the percentages must be PRESENT and
+/// the one the player adjusted must MOVE. Either fix alone leaves a row that lies.
+#[test]
+fn a_settings_row_shows_its_value_and_the_value_follows_the_setting() {
+    use ambition_platformer2d::game_shell::ShellLauncherCommand;
+    use ambition_platformer2d::persistence::settings::UserSettings;
+
+    let mut app = rendered_app();
+    settle(&mut app);
+    app.world_mut()
+        .resource_mut::<bevy::ecs::message::Messages<ShellLauncherCommand>>()
+        .write(ShellLauncherCommand::SelectTab(1));
+    for _ in 0..6 {
+        app.update();
+    }
+
+    let percents = |app: &mut App| -> Vec<String> {
+        let mut q = app.world_mut().query::<&bevy::prelude::Text>();
+        let mut v: Vec<String> = q
+            .iter(app.world())
+            .map(|t| t.0.clone())
+            .filter(|s| s.ends_with('%'))
+            .collect();
+        v.sort();
+        v
+    };
+
+    // A known mid value: `nudge_master` clamps at 1.0, so a saved maximum would
+    // make a correct step-up indistinguishable from a dead control.
+    app.world_mut()
+        .resource_mut::<UserSettings>()
+        .audio
+        .master_volume = 0.5;
+    for _ in 0..4 {
+        app.update();
+    }
+
+    let before = percents(&mut app);
+    assert!(
+        !before.is_empty(),
+        "the settings rows drew no value at all: a volume row with no number gives \
+         the player nothing to watch change, which is how four live controls read \
+         as dead"
+    );
+
+    // Row 1 is Master Volume (`ShellAudioControl::ALL` opens with `Mute`).
+    app.world_mut()
+        .resource_mut::<bevy::ecs::message::Messages<ShellLauncherCommand>>()
+        .write(ShellLauncherCommand::Activate(1));
+    for _ in 0..6 {
+        app.update();
+    }
+
+    assert_ne!(
+        percents(&mut app),
+        before,
+        "the setting moved and the drawn percentage did not: the rebuild key does \
+         not name the values, so the row keeps showing whatever it was built with"
+    );
+}

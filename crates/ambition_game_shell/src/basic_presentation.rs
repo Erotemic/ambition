@@ -419,7 +419,13 @@ fn render_basic_shell(
     let frame_key = format!(
         "{:?}:{}",
         router.active.as_ref().map(|active| active.activation_id),
-        shell_frame_key(&launcher, &catalog, &launcher_presentation, &sequence),
+        shell_frame_key(
+            &launcher,
+            &catalog,
+            &launcher_presentation,
+            &sequence,
+            settings.as_deref(),
+        ),
     );
     if *prior_key == frame_key {
         return;
@@ -899,6 +905,7 @@ fn shell_frame_key(
     catalog: &ShellLaunchCatalog,
     presentation: &ShellLauncherPresentation,
     sequence: &ActiveShellSequence,
+    settings: Option<&ambition_persistence::settings::UserSettings>,
 ) -> String {
     if launcher.active {
         // `launcher.selected` is DELIBERATELY not here. It was, and an
@@ -943,8 +950,27 @@ fn shell_frame_key(
         // `ShellLauncherState` silently does nothing until someone remembers this
         // line, and `switching_the_tab_redraws_the_menu_the_player_sees` exists
         // because remembering is not a mechanism.
+        // ⛔⛔ AND THE VALUES A SETTINGS ROW SHOWS ARE PART OF WHAT IT SAYS.
+        // The rows read their text at BUILD time (`control.value(settings)`), so
+        // without this a volume change moved `UserSettings` and left the drawn
+        // percentage untouched -- the same defect as the missing tab, one level
+        // down, and the one Jon would have met next: "I press master volume and
+        // the number does not change."
+        //
+        // ⚠ It stays cheap for the reason the whole key is cheap: these values
+        // change when somebody adjusts a control, not per frame. Measured: an
+        // idle title screen still rebuilds 0 times in 60 frames.
+        let audio = settings
+            .map(|s| {
+                ShellAudioControl::ALL
+                    .iter()
+                    .map(|c| c.value(s))
+                    .collect::<Vec<_>>()
+                    .join(",")
+            })
+            .unwrap_or_default();
         return format!(
-            "launcher:{:?}:{}:{:?}",
+"launcher:{:?}:{}:{:?}:{audio}",
             launcher.tab, presentation.title, catalog.entries
         );
     }

@@ -86,7 +86,7 @@ pub(super) fn spawn_node<Action>(
             rect,
             kind,
             label,
-            detail: _,
+            detail,
             icon,
             selected,
             important,
@@ -98,6 +98,7 @@ pub(super) fn spawn_node<Action>(
                 *rect,
                 *kind,
                 label,
+                detail.as_deref(),
                 icon.as_deref(),
                 *selected,
                 *important,
@@ -139,6 +140,13 @@ fn spawn_control<Action>(
     rect: MenuRect,
     kind: MenuControlKind,
     label: &str,
+    // ⛔⛔ THE VALUE A SETTINGS ROW SHOWS, and this backend used to DISCARD it
+    // (`detail: _`). The kaleidoscope backend draws it (`page.rs:414`), so two
+    // renderers of ONE model disagreed about whether a control has a visible
+    // value -- and every `bevy_ui` menu drew "Master Volume" with no number.
+    // Reported by Jon 2026-09-06: "video settings and audio settings seem not
+    // there or not hooked up." They were there; they showed nothing.
+    detail: Option<&str>,
     icon: Option<&str>,
     selected: bool,
     important: bool,
@@ -224,6 +232,26 @@ fn spawn_control<Action>(
                 // a `Text` with no `TextFont` is not "unstyled" — Bevy inserts the default one
                 // as a required component, and that resolves the built-in ASCII-only
                 // `FiraMono-subset.ttf`.
+                TextFont {
+                    font: font.cloned().unwrap_or_default(),
+                    ..default()
+                },
+                TextColor(label_color),
+            ));
+        });
+    }
+
+    // ⭐ THE VALUE, BESIDE THE LABEL. Only when there is one, so every row that
+    // carries no detail keeps exactly the layout it had — a settings row gains a
+    // number and nothing else moves.
+    if let Some(detail) = detail.filter(|d| !d.is_empty()) {
+        control.with_children(|c| {
+            c.spawn((
+                Node {
+                    margin: UiRect::left(Val::Px(12.0)),
+                    ..default()
+                },
+                Text::new(detail.to_string()),
                 TextFont {
                     font: font.cloned().unwrap_or_default(),
                     ..default()

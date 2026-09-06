@@ -113,7 +113,21 @@ pub fn begin_authored_tether_pulls(
         // whose face points BACK at her — the same reading the kernel uses for
         // an airborne grab request (`requested_wall_normal_clusters` answers
         // `-stick.x.signum()`).
-        let reach_dir = ae::Vec2::new(kin.facing.signum(), 0.0);
+        //
+        // ⛔⛔ "WHERE SHE FACES" IS HER FRAME'S SIDE AXIS, AND THIS WALKED WORLD
+        // +X UNTIL 2026-09-06. The probe below is the frame-aware one — its
+        // `wall_normal_x` is documented as the side normal *"expressed in the
+        // controlled body's local side axis"* — so the question was asked in her
+        // frame while the walk that chose WHERE to ask it was asked in the
+        // world's. Under normal gravity the two are the same line, which is why
+        // every fixture agreed. `to_world` is the same transform the authored
+        // volumes and `spawn_body_strike` use; a tether and a hitbox must not
+        // disagree about which way forward points.
+        let reach_dir = frame
+            .basis()
+            .to_world(ae::Vec2::new(kin.facing.signum(), 0.0));
+        // Frame-relative already, so it needs no rotation: a sign in the local
+        // side axis, not a world direction.
         let wall_normal_x = -kin.facing.signum();
         let steps = (params.reach / LINE_SAMPLE_PX).ceil().max(1.0) as i32;
         let mut bite = None;

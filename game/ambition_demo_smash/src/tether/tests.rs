@@ -139,6 +139,62 @@ fn a_line_within_reach_bites_the_ledge() {
     );
 }
 
+/// ⭐⭐ THE LINE GOES WHERE SHE FACES, AND "WHERE SHE FACES" IS HER FRAME'S SIDE
+/// AXIS, NOT WORLD +X.
+///
+/// ⛔⛔ IT WALKED WORLD +X WHILE ASKING A FRAME-AWARE QUESTION. Every sample fed
+/// `frame.down()` to `probe_ledge_grab_in_frame`, whose `wall_normal_x` is
+/// documented as *"the side-face normal expressed in the controlled body's local
+/// side axis"* — so the probe reasoned in her frame while the walk that chose
+/// where to probe reasoned in the world's. Under normal gravity those are the
+/// same line and no fixture here could tell them apart.
+///
+/// ⭐ THE STAGE IS THE ONE ABOVE, TURNED 90°. Rotating the whole scene by
+/// `(x,y) -> (y,-x)` and sliding it back into the room maps the reference block
+/// onto ITSELF, so this test and `a_line_within_reach_bites_the_ledge` are the
+/// same geometry asked in two frames — and the expected anchor is the rotation
+/// of that test's, `(87,119) -> (119,313)`.
+///
+/// ⚠ THE DECOY IS WHAT MAKES THE RED HONEST. Without it the bug shows up as "no
+/// bite", which a dozen unrelated breakages also produce. The decoy sits exactly
+/// where the world-x walk was looking — its lip 90..135px along world +x, its
+/// side face 10px from her reaching side — so the shipped code LATCHES it and
+/// reels her the wrong way. The two blocks are mutually invisible: the reference
+/// block is 60px off the world-x walk's reaching side (the magnet is 10px), and
+/// the decoy's lip is 200 where the frame-correct walk's head band tops out at
+/// 117.
+#[test]
+fn the_line_sweeps_her_own_side_axis_when_the_frame_is_turned() {
+    let mut app = app(vec![
+        stage().remove(0),
+        // Where the world-x walk searched, and nowhere the correct walk looks.
+        Block::solid(
+            "decoy",
+            ae::Vec2::new(200.0, 320.0),
+            ae::Vec2::new(100.0, 40.0),
+        ),
+    ]);
+    // START, rotated: (26,110) -> (110,-26) -> +400y.
+    let her = fighter(&mut app, ae::Vec2::new(110.0, 374.0), false);
+    {
+        let rotated = ae::MotionFrame::from_direction(ae::Vec2::new(1.0, 0.0), 0.0);
+        let mut her_mut = app.world_mut().entity_mut(her);
+        let mut frame = her_mut
+            .get_mut::<ambition_platformer2d::world::ResolvedMotionFrame>()
+            .expect("the fixture gives every fighter a frame");
+        frame.publish_resolved_frame(rotated);
+    }
+    throw(&mut app, her, 150.0);
+
+    let reel = reel(&app, her).expect("the same 60px-away ledge, asked in her own frame");
+    assert!(
+        (reel.anchor - ae::Vec2::new(119.0, 313.0)).length() < 6.0,
+        "latched {:?}; the reference block's lip is at (119,313) in this frame and \
+         the decoy the world-x walk finds is at (219,373)",
+        reel.anchor,
+    );
+}
+
 /// ⛔ THE PAIRED MISS, and it is the half that makes the test above mean
 /// something: the SAME stage and the SAME fighter with a line too short.
 #[test]

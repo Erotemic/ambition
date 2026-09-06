@@ -158,6 +158,17 @@ def cargo_test(args: list[str], libtest: list[str]) -> list[str]:
 # ⇒ IF YOU ARE ABOUT TO TRUST A DEFAULT-FEATURES GREEN for a file, check that the
 # module is not `#[cfg(feature = ...)]` first. A count that moves is the cheap
 # proof that your run compiled what you edited.
+#
+# ⛔ A SECOND INSTANCE, SAME DAY, DIFFERENT CRATE, AND IT COST ANOTHER READING.
+# `ambition_game_shell`'s `default = []` and `mod pause_menu` is
+# `#[cfg(feature = "basic_presentation")]`, so `cargo test -p ambition_game_shell
+# --lib` reports "45 passed, 0 failed" WITH THE FILE UNDER TEST GUTTED -- 45 tests
+# from other modules and 84 filtered. `--features basic_presentation` gives 85 and
+# the poison fires at once.
+# ⇒ THE TELL IS THE COUNT, NOT THE EXIT CODE: 45 vs 85, 332 vs 339. Read the
+# number before the verdict, because both runs say `ok`. ⚠ And note what makes
+# this one easy to miss twice -- the crate name says nothing about presentation,
+# so nothing at the call site suggests a feature is involved.
 DENY_EXACT = {
     "default",
     "android", "android_dev", "android_platform",

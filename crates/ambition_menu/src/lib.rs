@@ -3,9 +3,17 @@
 //!
 //! This crate is split into host-owned DATA and renderer-owned PRESENTATION.
 //! Hosts build generic [`MenuPageModel`] / [`ItemsOnlyPageSpec`] values from
-//! their own resources, then translate the [`MenuActionActivated`] /
-//! [`MenuClosedRequested`] messages this crate emits back into gameplay events;
-//! it never names `OwnedItems`, health, or player components. This crate ships
+//! their own resources, then translate the [`MenuActionActivated`] messages this
+//! crate emits back into gameplay events; it never names `OwnedItems`, health, or
+//! player components.
+//!
+//! ⭐ CLOSING IS A HOST ACTION, NOT A SEPARATE CHANNEL. This paragraph used to
+//! name a `MenuClosedRequested` beside it — a message this crate declared,
+//! defined, and NEVER WROTE, with no reader either. The live road is the host's
+//! own action variant arriving on `MenuActionActivated`
+//! (`game_shell/src/pause_menu.rs`'s `PauseEntry::Close`), which is already
+//! generic because the host names its own actions. Two designs for one request,
+//! one of them never built; the unbuilt one is gone. This crate ships
 //! the flat tabbed [`render::bevy_ui`] renderer; the bevy_lunex 3D OoT-style
 //! cube renderer is the optional `ambition_menu_kaleidoscope` extension crate
 //! (E1e) — both consume the same page model, which is what validates the seam.
@@ -478,9 +486,7 @@ pub struct AmbitionInventoryUiPlugin;
 
 impl Plugin for AmbitionInventoryUiPlugin {
     fn build(&self, app: &mut App) {
-        app.init_resource::<MenuShellEffects>()
-            .add_message::<MenuModelChanged>()
-            .add_message::<MenuClosedRequested>();
+        app.init_resource::<MenuShellEffects>();
     }
 }
 
@@ -729,14 +735,6 @@ pub struct MenuTabActivated {
 pub struct MenuActionPreviewed<Action> {
     pub action: Action,
 }
-
-/// The host or renderer requested a model refresh.
-#[derive(Message, Clone, Copy, Debug, Default, Eq, PartialEq)]
-pub struct MenuModelChanged;
-
-/// The UI requested that the host close the menu.
-#[derive(Message, Clone, Copy, Debug, Default, Eq, PartialEq)]
-pub struct MenuClosedRequested;
 
 /// Stable slot identity for an items-only inventory page.
 #[derive(Clone, Copy, Debug, Default, Eq, PartialEq, Hash, Ord, PartialOrd)]

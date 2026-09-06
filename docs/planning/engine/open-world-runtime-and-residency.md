@@ -285,12 +285,23 @@ discovery below: 108 types are registered with `add_message`, 101 have a
 `MessageReader` somewhere, and seven have none.
 
 ```text
-LoadEvent              ambition_load/src/plugin.rs
-MenuClosedRequested    ambition_menu/src/lib.rs
-MenuModelChanged       ambition_menu/src/lib.rs
-PortalGunEquipped      ambition_portal2d/src/plugin.rs
-SemanticActionPressed  ambition_platformer2d_host/src/lib.rs
+LoadEvent              ambition_load/src/plugin.rs        PUBLISHED — tested here now
+PortalGunEquipped      ambition_portal2d/src/plugin.rs    open, costs a schema row
+SemanticActionPressed  ambition_platformer2d_host/src/lib.rs   open
+MenuClosedRequested    ambition_menu/src/lib.rs           ✔ DELETED 2026-09-06
+MenuModelChanged       ambition_menu/src/lib.rs           ✔ DELETED 2026-09-06
 ```
+
+✔ **The two menu entries were DEAD by every test and are gone.** Neither was ever
+WRITTEN — no producer, no consumer, not in any rollback ledger — and
+`ambition_menu` has no external-consumer fixture: its seven dependents are all
+in-repo. ⛔ **And the crate doc asserted otherwise**, telling hosts to *"translate
+the `MenuActionActivated` / `MenuClosedRequested` messages this crate emits"* when
+it emitted only the first.
+⭐ **The live road was already generic, which is why the second one never got
+built**: closing arrives as the HOST's own action variant on `MenuActionActivated`
+(`game_shell/src/pause_menu.rs`'s `PauseEntry::Close`). Two designs for one
+request, one never built and one documented as if it were.
 
 ⛔⛔ **THAT LIST READ SEVEN WHEN FIRST PUBLISHED, AND TWO OF THE SEVEN WERE
 FALSE.** `RunAuthoredCommand` and `TouchInput` came off it within the hour, which

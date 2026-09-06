@@ -113,7 +113,13 @@ fn dive_drill_lunges_through_the_targets() {
     );
     sim.step(base());
 
-    let before_x = sim.observation().player_pos.0;
+    // ⚠ MANA IS PART OF "COULD THE DIVE FIRE", so the diagnostic reports it. The
+    // failure line used to give x and HP only, which cannot distinguish "the dive
+    // ran and went nowhere" from "the dive was never affordable" — and those want
+    // opposite investigations.
+    let before = sim.observation();
+    let before_mana = (before.mana, before.mana_max);
+    let before_x = before.player_pos.0;
     let before_hps = enemy_hps(&mut sim);
     let before_alive = before_hps.iter().filter(|&&hp| hp > 0).count();
     assert!(
@@ -137,8 +143,11 @@ fn dive_drill_lunges_through_the_targets() {
     let after_hps = enemy_hps(&mut sim);
     let after_alive = after_hps.iter().filter(|&&hp| hp > 0).count();
     eprintln!(
-        "dive: x {before_x:.0}->{after_x:.0} ({:+.0}px), target HP {before_hps:?} -> {after_hps:?}, resets={}",
-        after_x - before_x, obs.resets
+        "dive: x {before_x:.0}->{after_x:.0} ({:+.0}px), target HP {before_hps:?} -> \
+         {after_hps:?}, mana {}/{} -> {}/{}, body {:?}, resets={}",
+        after_x - before_x,
+        before_mana.0, before_mana.1, obs.mana, obs.mana_max,
+        obs.body_mode, obs.resets
     );
     assert!(
         after_x > 525.0,

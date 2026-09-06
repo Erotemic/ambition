@@ -2,7 +2,7 @@
 //! encounter mobs, and mounted-rider archetypes (ADR 0020).
 
 use super::super::brain_builders::enemy_default_brain;
-use super::super::spawn_actors::spawn_boss_with_overrides_into;
+use crate::actor_spawn::spawn_boss_with_overrides_into;
 use super::*;
 use ambition_characters::actor::{BodyCombat, BodyHealth};
 use ambition_characters::brain::{
@@ -552,7 +552,7 @@ fn authored_npc_takes_its_label_from_the_catalog_display_name() {
         ambition_characters::actor::character_catalog::CharacterCatalog,
     >| {
         let root = commands.spawn_empty().id();
-        super::super::spawn_actors::spawn_interactable_into(
+        crate::actor_spawn::spawn_interactable_into(
             &mut commands,
             &catalog,
             &Default::default(),
@@ -621,7 +621,7 @@ mod authored_enemy_reads_its_character {
         };
         let named = npc(Some("npc_pirate_quartermaster"));
         assert_eq!(
-            crate::features::ecs::spawn_actors::npc_character_id(&named),
+            crate::actor_spawn::npc_character_id(&named),
             Some("npc_pirate_quartermaster"),
             "a placement that names a character produced no gameplay identity, so \
              provocation cannot ask that creature what it becomes when struck"
@@ -629,7 +629,7 @@ mod authored_enemy_reads_its_character {
 
         let anonymous = npc(None);
         assert_eq!(
-            crate::features::ecs::spawn_actors::npc_character_id(&anonymous),
+            crate::actor_spawn::npc_character_id(&anonymous),
             None,
             "a placement that names nobody was given an identity anyway"
         );
@@ -1126,7 +1126,7 @@ mod authored_enemy_reads_its_character {
         let unauthored = spawn_respawn(None);
         assert_eq!(
             unauthored,
-            crate::features::ecs::spawn_actors::UNDESCRIBED_BODY_RESPAWN,
+            crate::actor_spawn::UNDESCRIBED_BODY_RESPAWN,
             "a placement that says nothing must take the engine's stated answer \
              for an undescribed body — it used to inherit whatever archetype row \
              its brain key happened to name (AC6)"

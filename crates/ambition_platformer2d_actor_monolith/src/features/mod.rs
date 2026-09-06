@@ -53,7 +53,7 @@ pub mod stocks_match;
 // Stable facade for boss attack geometry.
 pub mod ecs;
 pub(crate) mod enemies;
-mod npcs;
+pub(crate) mod npcs;
 
 // Re-export the generic combat kit so existing feature-facing paths stay stable.
 // None of them is player-only: `movement_fx` turns a frame's engine `FrameEvents` into Sfx/Vfx

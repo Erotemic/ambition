@@ -847,6 +847,21 @@ and run that one. `cargo check -p <crate>` with no features is seconds.
   straight up, because it is the Performer's flyline lift. A diagonal ledge
   tether does not fit that shape, and widening it is changing an engine
   authority for one move.
+  ⛔⛔ **A THIRD ROAD WAS CHECKED ON 2026-09-06 AND IT FAILS ON ASSETS, recorded
+  so nobody re-explores it.** The demo crate already writes `VfxMessage::Effect`
+  at arbitrary world points — the steered bolt marks its own path that way — so a
+  BEADED line from her to the anchor would need no layering change at all and no
+  published view state. ⇒ It fails because **there is no fx row that reads as a
+  taut line**: the bank's families are explosion-shaped (`classic_burst`,
+  `shockwave`, `smoke_burst`, `starburst`), and a row of those along a rope reads
+  as a string of detonations rather than a wire. The visual this move wants is
+  the one `flyline.rs::place_wire` already draws, which is why the choice really
+  is between the two roads below.
+  ⚠ **AND `sync_tether_visuals` TAKES NO REQUEST** — checked rather than assumed:
+  it is driven by `FeatureViewIndex` and body queries, so there is no "draw a wire
+  between these two points" message a ruleset could write. That is what makes this
+  a layering decision instead of a plumbing one.
+
   ⇒ **Two roads, both real, and the choice is a layering decision rather than a
   drawing one:** (A) a ruleset-owned visual, which asks where ruleset-specific
   presentation lives when rendering is an engine crate — the mine and the bomb

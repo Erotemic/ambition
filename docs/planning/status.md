@@ -158,6 +158,34 @@ Immediate execution lives in [`queue.md`](queue.md). Standing deferred work live
 in [`tracks.md`](tracks.md). Focused plans own design details.
 
 
+## ⭐ WHAT THE ELEGANT-ARCHITECTURE GOAL PRODUCED — 2026-09-06, Ambition lane
+
+**Seven changes that removed an authority or made a defect unrepresentable**, each
+named in its commit:
+
+```text
+AttemptScoped + rearm_attempt_scoped   3 copies of "a fresh attempt re-arms my
+                                       resource" -> 1; an implementor names WHAT
+                                       and WHICH ROOM, and CANNOT name WHEN
+gated_lock_walls_to_publish            4 exits each spelling "retract, then
+                                       return" -> 1; "nothing to publish" IS the
+                                       `None`, so forgetting is unrepresentable
+LoadCoordinator::mutate_plan           7 emission sites -> 1
+epoch grandfather list                 381 stored entries -> derived from the
+                                       epoch tree; an amnesty you cannot append to
+default_registry                       11 restatements of one invariant -> 1
+freezes_player_input                   a POLICY spelled as a fact, 0 callers, gone
+MenuClosedRequested / MenuModelChanged declared, never written, never read; the
+                                       crate doc claimed it emitted one
+```
+
+⚠ **The largest single defect found was not architecture**: a smash Limit rule
+reached an Ambition body and silently disabled a traversal ability
+(`try_spend` on a `0.0/60.0` meter). Fixed in the fighter lane by route-scoping.
+⭐ **Three bugs in one day were one shape** — a demo plugin's `build` reaching the
+aggregate app — and that now has a census
+(`scripts/demo_resources_inserted_at_plugin_build.py`) rather than three fixes.
+
 ## ✔✔ RECEIPT 2026-09-06 LATE — 6/6 jobs, lane `--rust`, at `cc4e523ed`, EXIT 0
 
 ```text

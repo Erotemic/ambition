@@ -1099,6 +1099,20 @@ packed sheet from flashing at the full logical size."* So for a trimmed sheet th
 ANIMATOR is the authority on size and anchor, and `sync_visuals`' `authored_render`
 / `authored_offset` pair is a second authority for the same placement.
 
+⛔⛔ **AND THE OFFSET IS ELIMINATED BY EXPERIMENT, NOT BY ARGUMENT.** Suppressed it
+(`pose.authored_offset.filter(|_| animator.is_none())`), rebuilt, re-photographed:
+**she floats exactly as before, unmoved.** A 19.8-unit correction that is genuinely
+applied cannot be removed with no visible change. ⇒ **The offset never reaches the
+screen** — `sync_visuals` writes `transform.translation` and something later
+rewrites it — so it is not the cause, and the "two frames of reference" story is
+wrong about WHICH half is broken.
+
+⇒ **THAT LEAVES THE ANIMATOR'S ANCHOR, which is the other thing `animate_player`
+writes** (`anchor.0 = anchor_v` from `current_render()`). Size and anchor arrive
+together from the trimmed basis; the size is demonstrably right (24×32.76 matches
+her 21.33×32 box), so the anchor is where the vertical error lives. **That is now
+the one remaining suspect rather than one of several.**
+
 ⇒ **THE FIX SHAPE: one writer owns size+anchor+offset together.** Where the animator
 owns the first two, it must own the third, or `sync_visuals` must not apply a
 translation computed for a quad it no longer set. ⛔ Which of the two is

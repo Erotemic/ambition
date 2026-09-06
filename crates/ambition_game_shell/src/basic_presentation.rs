@@ -1675,9 +1675,9 @@ mod cursor_moves_without_a_rebuild_tests {
             ..Default::default()
         };
 
-        let at_row_0 = shell_frame_key(&launcher, &catalog, &presentation, &sequence);
+        let at_row_0 = shell_frame_key(&launcher, &catalog, &presentation, &sequence, None);
         launcher.selected = 3;
-        let at_row_3 = shell_frame_key(&launcher, &catalog, &presentation, &sequence);
+        let at_row_3 = shell_frame_key(&launcher, &catalog, &presentation, &sequence, None);
 
         assert_eq!(
             at_row_0, at_row_3,
@@ -1704,6 +1704,7 @@ mod cursor_moves_without_a_rebuild_tests {
             &catalog,
             &ShellLauncherPresentation::default(),
             &sequence,
+            None,
         );
         let after = shell_frame_key(
             &launcher,
@@ -1713,6 +1714,7 @@ mod cursor_moves_without_a_rebuild_tests {
                 ..Default::default()
             },
             &sequence,
+            None,
         );
         assert_ne!(before, after, "a real structural change still rebuilds");
     }

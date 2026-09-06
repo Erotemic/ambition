@@ -178,28 +178,17 @@ pub fn break_bricks(
     }
 }
 
-/// Re-arm every brick when the room (re)loads or replays, so the next lap —
-/// and the next LIFE — starts against a whole wall. Mirrors
-/// [`crate::powerups::rearm_power_blocks_for_a_fresh_attempt`].
+/// Broken bricks are per-attempt: the next lap — and the next LIFE — starts
+/// against a whole wall.
 ///
-/// A death emits [`RoomReplayRequested`], which the host answers with `RoomReplayAdmitted`;
-/// `RoomLoaded` is written from exactly one place, an actual room load. The two are different
-/// events on purpose, and per-attempt CONTENT state has to answer the replay — that is what
-/// `ContentRoomReplayResetSet` is for, and the bosses were already using it.
-///
-/// the `room_id == LEVEL_1_1_ROOM_ID` gate is gone too. It predates 1-2,
-/// and it meant a wall smashed in 1-2 stayed smashed through every reload of it.
-/// Broken names are per-room authored and you can only stand in one room, so
-/// "any room boundary re-arms everything" is both simpler and correct.
-pub fn rearm_bricks_for_a_fresh_attempt(
-    // The union of a load and an ADMITTED replay: re-arming the bricks for an
-    // attempt that was refused would hand the player a fresh wall in a room
-    // nothing rebuilt.
-    mut attempt: ambition_platformer2d::combat::events::FreshAttempt,
-    mut broken: ResMut<BrokenBricks>,
-) {
-    if attempt.began() {
-        broken.clear();
+/// ⭐ `ROOM` stays `None`, and the `room_id == LEVEL_1_1_ROOM_ID` gate this
+/// replaces is why. It predated 1-2, and it meant a wall smashed in 1-2 stayed
+/// smashed through every reload of it. Broken names are per-room authored and
+/// you can only stand in one room, so "any room boundary re-arms everything" is
+/// both simpler and correct.
+impl ambition_platformer2d::actors::session::reset::AttemptScoped for BrokenBricks {
+    fn rearm(&mut self) {
+        self.clear();
     }
 }
 
@@ -596,7 +585,7 @@ mod tests {
         app.insert_resource(broken);
         app.add_message::<RoomLoaded>();
         app.add_message::<ambition_platformer2d::combat::events::RoomReplayAdmitted>();
-        app.add_systems(Update, rearm_bricks_for_a_fresh_attempt);
+        app.add_systems(Update, ambition_platformer2d::actors::session::reset::rearm_attempt_scoped::<BrokenBricks>);
 
         app.world_mut()
             .resource_mut::<bevy::ecs::message::Messages<RoomLoaded>>()
@@ -622,7 +611,7 @@ mod tests {
         app.insert_resource(broken);
         app.add_message::<RoomLoaded>();
         app.add_message::<ambition_platformer2d::combat::events::RoomReplayAdmitted>();
-        app.add_systems(Update, rearm_bricks_for_a_fresh_attempt);
+        app.add_systems(Update, ambition_platformer2d::actors::session::reset::rearm_attempt_scoped::<BrokenBricks>);
 
         app.world_mut()
             .resource_mut::<bevy::ecs::message::Messages<ambition_platformer2d::combat::events::RoomReplayAdmitted>>()

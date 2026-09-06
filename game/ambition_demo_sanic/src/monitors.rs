@@ -219,29 +219,23 @@ pub fn contribute_broken_monitors_to_overlay(
     overlay.removed_block_names.extend(spent.0.iter().cloned());
 }
 
-/// Re-arm every monitor when the speedway (re)loads OR replays, so the next
-/// LIFE starts against a full set of boxes. Mirrors Mary-O's
-/// `rearm_bricks_for_a_fresh_attempt`, which documents why both signals are
-/// needed.
+/// Spent monitors are per-attempt: the next LIFE starts against a full set of
+/// boxes.
 ///
-/// ⛔⛔ THE REPLAY HALF WAS MISSING AND IT WAS A PLAYER-VISIBLE BUG. Sanic
-/// declares `DeathRules::replay_level_after(0.0)`, so a pit death REPLAYS the
-/// room in place -- and an in-place replay does NOT emit [`RoomLoaded`], which
-/// "is written from exactly one place, an actual room load". A monitor broken
-/// before the death therefore stayed broken after the respawn, and its grant was
-/// unreachable for the rest of the run.
-///
-/// ⇒ Per-attempt CONTENT state has to answer the ADMITTED replay, which is what
-/// `ContentRoomReplayResetSet` is for. The two messages are different on purpose
-/// and reading only one of them is the whole defect.
-pub fn rearm_monitors_for_a_fresh_attempt(
-    // The ADMITTED replay, not the ask: re-arming for an attempt the lifecycle
-    // slot refused would restock a room that nothing rebuilt.
-    mut attempt: ambition_platformer2d::combat::events::FreshAttempt,
-    mut spent: ResMut<SpentMonitors>,
-) {
-    if attempt.began_in(SPEEDWAY_ROOM_ID) {
-        spent.0.clear();
+/// ⛔⛔ THIS RE-ARM ANSWERED THE LOAD ONLY, AND IT WAS A PLAYER-VISIBLE BUG.
+/// Sanic declares `DeathRules::replay_level_after(0.0)`, so a pit death REPLAYS
+/// the room in place — and an in-place replay does NOT emit `RoomLoaded`, which
+/// is written from exactly one place, an actual room load. A monitor broken
+/// before the death stayed broken after the respawn and its grant was
+/// unreachable for the rest of the run. ⇒ the trait exists so that shape can no
+/// longer be written: an implementor names WHAT to re-arm, never which signal
+/// counts.
+impl ambition_platformer2d::actors::session::reset::AttemptScoped for SpentMonitors {
+    /// The speedway alone — these names are authored in that room.
+    const ROOM: Option<&'static str> = Some(SPEEDWAY_ROOM_ID);
+
+    fn rearm(&mut self) {
+        self.0.clear();
     }
 }
 
@@ -278,7 +272,7 @@ mod tests {
         // reason that has nothing to do with its subject. Adding the replay
         // reader broke this arm exactly that way.
         app.add_message::<ambition_platformer2d::combat::events::RoomReplayAdmitted>();
-        app.add_systems(Update, rearm_monitors_for_a_fresh_attempt);
+        app.add_systems(Update, ambition_platformer2d::actors::session::reset::rearm_attempt_scoped::<SpentMonitors>);
         app.world_mut()
             .resource_mut::<bevy::ecs::message::Messages<RoomLoaded>>()
             .write(RoomLoaded {
@@ -288,6 +282,41 @@ mod tests {
         assert!(
             app.world().resource::<SpentMonitors>().0.is_empty(),
             "a level (re)load restocks the monitors"
+        );
+    }
+
+    /// ⭐ THE ROOM SCOPE, WHICH NOTHING PINNED UNTIL THE TRAIT MADE IT VISIBLE.
+    /// `SpentMonitors` declares `ROOM = Some(SPEEDWAY_ROOM_ID)`, so a load of a
+    /// DIFFERENT room must leave the speedway's monitors alone -- these names
+    /// are authored in the speedway and re-arming them from someone else's
+    /// boundary would restock a room the player is not in.
+    ///
+    /// ⚠ FOUND BY A POISON THAT DID NOT FIRE. Replacing the const's branch with
+    /// a bare `began()` left all 79 Sanic tests green: the scope was a real
+    /// behavioural claim with no test behind it, in both the hand-written system
+    /// and its replacement. (The REPLAY leg is deliberately unfiltered -- a
+    /// replay is always in the room you are in -- which
+    /// `a_death_replay_rearms_the_monitors` covers.)
+    #[test]
+    fn a_load_of_another_room_leaves_the_speedways_monitors_spent() {
+        let mut app = App::new();
+        app.insert_resource(SpentMonitors(vec![SPEED_MONITOR.to_string()]));
+        app.add_message::<RoomLoaded>();
+        app.add_message::<ambition_platformer2d::combat::events::RoomReplayAdmitted>();
+        app.add_systems(
+            Update,
+            ambition_platformer2d::actors::session::reset::rearm_attempt_scoped::<SpentMonitors>,
+        );
+        app.world_mut()
+            .resource_mut::<bevy::ecs::message::Messages<RoomLoaded>>()
+            .write(RoomLoaded {
+                room_id: "some_other_room".to_string(),
+            });
+        app.update();
+        assert_eq!(
+            app.world().resource::<SpentMonitors>().0.len(),
+            1,
+            "another room's load must not restock the speedway"
         );
     }
 
@@ -306,7 +335,7 @@ mod tests {
         app.insert_resource(SpentMonitors(vec![SPEED_MONITOR.to_string()]));
         app.add_message::<RoomLoaded>();
         app.add_message::<ambition_platformer2d::combat::events::RoomReplayAdmitted>();
-        app.add_systems(Update, rearm_monitors_for_a_fresh_attempt);
+        app.add_systems(Update, ambition_platformer2d::actors::session::reset::rearm_attempt_scoped::<SpentMonitors>);
         app.world_mut()
             .resource_mut::<bevy::ecs::message::Messages<
                 ambition_platformer2d::combat::events::RoomReplayAdmitted,
@@ -333,7 +362,7 @@ mod tests {
         app.insert_resource(SpentMonitors(vec![SPEED_MONITOR.to_string()]));
         app.add_message::<RoomLoaded>();
         app.add_message::<ambition_platformer2d::combat::events::RoomReplayAdmitted>();
-        app.add_systems(Update, rearm_monitors_for_a_fresh_attempt);
+        app.add_systems(Update, ambition_platformer2d::actors::session::reset::rearm_attempt_scoped::<SpentMonitors>);
         app.update();
         assert_eq!(
             app.world().resource::<SpentMonitors>().0.len(),

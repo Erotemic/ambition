@@ -721,11 +721,36 @@ what a hit flash is.
 markers left an entity both `&mut Visibility` queries could match, panicking seven
 tests. All three are excluded now.
 
-⚠ **The held gun in TRANSIT (`visuals.rs`) is the same shape and is NOT yet
-covered** — the dependant pass settles far-side and transit hides of the BODY, but
-whether the gun should follow a transit split the way the silhouette follows a
-far-side hide is a question about what a split MEANS for a sibling drawable, not
-about wiring.
+⛔ **AND MY NOTE ABOUT THE HELD GUN WAS FALSE — I named the wrong case.** The gun
+in TRANSIT is not uncovered; it has been handled since before this work.
+`sync_portal_mode_indicator` branches on `Option<&PortalTransit>` and draws one
+clip-material quad PER CHART, and
+`transiting_carrier_gun_decomposes_into_two_clipped_charts` pins it (verified
+green 2026-09-06, and the docstring records why: the single sprite visibly
+SNAPPED by the pair separation at the centroid crossing while the body slices
+stayed continuous).
+
+⚠ **The real gap is FAR SIDE, and it is narrower.** MEASURED from the system's
+own signature: `sync_portal_mode_indicator` takes
+`(&PortalBodyView, &PortalGun, Option<&PortalTransit>)` with
+`With<PortalAffordanceBody>` — no `Visibility`, no hide marker. ⇒ the gun's draw
+is independent of the carrier's visibility for EVERY reason except transit, which
+it charts itself. So a far-side-composited carrier draws clipped body pieces AND
+a whole gun at the authoritative pose.
+
+⚠ **Reachability is a CONJUNCTION and nobody has hit it**: far-side compositing,
+plus a carrier that is not the viewer (the affordance body is tagged from
+`ControlledSubject`, so this is the POSSESSION case — see the `code_smells.md`
+entry where the gun drew on the home avatar), plus a held portal gun. That is why
+it is a row and not a fix.
+⛔ **And the `PresentationOf` seam does NOT close it as-is**: the gun has no
+ordering edge to the resolver, and it despawns/respawns its copies every frame, so
+a stamp applied after the resolver ran settles nothing. The honest options are an
+`.after(resolve_portal_source_visibility)` edge plus reading the carrier's SETTLED
+visibility (one authority, the gun re-derives nothing), or charting the gun for a
+far-side hide the way it already charts a transit. Those differ in what a far-side
+character LOOKS like — gunless, or holding a clipped gun — which is a call, not a
+wiring detail.
 
 ⛔ **A COUNT I PUBLISHED HERE WAS WRONG AND IS CORRECTED**: I first measured six
 body-naming components, counting `SlashVisual { owner }` twice. One of those two

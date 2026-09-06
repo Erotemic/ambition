@@ -52,10 +52,14 @@ LOAD = "RoomLoaded"
 REPLAY = "RoomReplayAdmitted"
 UNION = "FreshAttempt"
 ESCAPE = "ALLOW_LOAD_ONLY"
-#: ⭐ Four call sites adopted the type on 2026-09-05 (bricks, power blocks,
-#: monitors, pending player hits). A drop below this means the abstraction is
-#: being abandoned, which is the thing worth hearing about.
+#: The type reaches a system by TWO roads and the floor must count both.
+#: 2026-09-05: four systems took it as a parameter (bricks, power blocks,
+#: monitors, pending player hits). 2026-09-06: three of those four became
+#: `AttemptScoped` impls behind ONE generic `rearm_attempt_scoped::<T>`, so the
+#: direct count fell to 2 and this floor reddened -- on the abstraction WINNING.
+#: ⇒ An adopter is a direct parameter OR an impl of the trait; five today.
 MIN_ADOPTERS = 4
+TRAIT = "AttemptScoped"
 
 
 def git_grep(pattern: str, *paths: str) -> list[str]:
@@ -129,9 +133,20 @@ def main() -> int:
         and not line.split(":", 2)[2].lstrip().startswith("//")
         and re.search(rf":\s*[\w:]*{UNION}\s*[,<]", line.split(":", 2)[2])
     ]
-    if len(call_sites) < MIN_ADOPTERS:
+    # ⭐ THE SECOND ROAD. A system that implements `AttemptScoped` never names
+    # `FreshAttempt` at all -- the engine's `rearm_attempt_scoped::<T>` asks it
+    # on the system's behalf, which is the point of the trait. Counting only
+    # parameters read that consolidation as ABANDONMENT and failed this guard on
+    # the day the abstraction spread.
+    impls = [
+        line for line in production(git_grep(f"impl .*{TRAIT} for", "crates/", "game/"))
+        if not line.split(":", 2)[2].lstrip().startswith("//")
+    ]
+    adopted = len(call_sites) + len(impls)
+    if adopted < MIN_ADOPTERS:
         print(
-            f"FAIL: only {len(call_sites)} call site(s) of `{UNION}`, expected at "
+            f"FAIL: only {adopted} adopter(s) of `{UNION}` "
+            f"({len(call_sites)} direct, {len(impls)} via `{TRAIT}`), expected at "
             f"least {MIN_ADOPTERS}.\n"
             "  Either the abstraction is being abandoned, or it was renamed and "
             "this guard now\n  certifies an empty set. Both are worth a look.",
@@ -203,7 +218,8 @@ def main() -> int:
         return 1
 
     print(
-        f"ok: {len(call_sites)} `{UNION}` call site(s); no system assembles the "
+        f"ok: {adopted} `{UNION}` adopter(s) ({len(call_sites)} direct, "
+        f"{len(impls)} via `{TRAIT}`); no system assembles the "
         f"load/replay union by hand; {checked} remaining `{LOAD}`+`ResMut` "
         f"system(s) all answer a replay."
     )

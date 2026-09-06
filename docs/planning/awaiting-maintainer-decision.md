@@ -4098,3 +4098,54 @@ disclosure now makes it readable.
 this: *"Changing which number the findings compare against is a change to what the
 gate MEANS, and that belongs to whoever owns the carve programme — not to the run
 that noticed."*
+
+### 68. Which settings are the EVERGREEN BASELINE every game inherits? (2026-09-06)
+
+⭐ **JON'S ASK, verbatim:** *"we need to make sure the general game-agnostic
+settings are all available in every setting menu. Things like video settings and
+audio settings seem not there or not hooked up… there are likely a bunch of
+evergreen video and audio settings that likely apply to all games and would make
+good default baseline menus to have that other games can extend or modify (or
+ignore and roll their own) if they need to."*
+
+⇒ **MEASURED 2026-09-06: THERE ARE TWO SETTINGS VOCABULARIES AND A GAME GETS
+WHICHEVER SURFACE IT HAPPENED TO INSTALL.**
+
+| surface | offers |
+|---|---|
+| `ambition_settings_menu` | **58 options** in 4 categories — Audio, Video, Controls, Gameplay (volumes, mute, display mode, vsync, visual quality, frame pacing, ~20 shader knobs, deadzones, keyboard/controller presets, colorblind, flashes, difficulty, HUD toggles…) |
+| the shell's pause + launcher tab | **4** — `Mute`, `MasterVolume`, `MusicVolume`, `SfxVolume` |
+
+⚠ `ambition_settings_menu` is an OPTIONAL dependency of the platformer facade, and
+the Sanic and Mary-O binaries do not install it. So a demo's entire settings
+surface is the shell's four audio rows — which is what Jon met.
+
+✔ **THE WIRING HALF IS FIXED and needed no ruling** (`73018211c`): those four rows
+displayed values they could not change, because `UserSettings` was inserted only by
+`ambition_app`'s `init_sandbox_resources` while the pause menu is what any game
+installs. Drawing tolerated the absence (`unwrap_or_default()`), editing did not.
+The plugin that offers the menu now supplies the settings it edits.
+
+⇒ **WHAT NEEDS A RULING IS THE VOCABULARY, and the options differ in what a game
+must do to opt out:**
+
+* **(a) THE SHELL'S BASELINE GROWS.** Whatever is game-agnostic — audio, display,
+  accessibility — moves into the set every `ShellPauseMenuPlugin` offers. Cheapest
+  for a demo (installs nothing, gets everything) and hardest to opt OUT of: a game
+  that wants three rows now hides fifty-five.
+* **(b) `ambition_settings_menu` BECOMES THE BASELINE** and the shell's four rows
+  become a thin default for compositions that decline it. Richest, and makes the
+  demos install a dependency they currently do not.
+* **(c) A DECLARED SET.** The engine publishes evergreen groups (audio / video /
+  input / accessibility) and a game names which it adopts, extends, or replaces.
+  Most expressive, most machinery, and the only one that answers "modify" rather
+  than just "extend or ignore".
+
+⚠ **THE PART I WOULD NOT GUESS AT:** which settings are genuinely
+GAME-AGNOSTIC. Volumes and vsync plainly are. `Difficulty`, `PlayerDamage`,
+`QuestHud`, `PortalReverseFacing` plainly are not. `CameraFraming`,
+`MovementFrameMode` and the 20 shader knobs are the interesting middle, and that
+line is a product judgement about what an Ambition game IS.
+
+⛔ **NOT GUESSED, per the standing rule.** The wiring defect Jon actually hit is
+fixed; this is the vocabulary question underneath it.

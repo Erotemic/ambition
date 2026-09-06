@@ -260,6 +260,23 @@ class CitationLookupFailed(RuntimeError):
     """
 
 
+def _reachable_from_remote(cwd: Path) -> set[str] | None:
+    """Every commit in `cwd` reachable from a REMOTE-TRACKING ref, or None.
+
+    ⭐ `--remotes`, not `--all`. A commit on a local branch and nowhere else is an
+    address only its own machine can resolve, which is exactly the citation this
+    exists to refuse. Returning None on failure keeps a git error meaning UNKNOWN
+    rather than "nothing is shared" — the same rule `missing_in` learned the hard
+    way, in the opposite direction.
+    """
+    proc = subprocess.run(
+        ["git", "rev-list", "--remotes"], cwd=cwd, capture_output=True, text=True,
+    )
+    if proc.returncode != 0:
+        return None
+    return set(proc.stdout.split())
+
+
 def unresolved_commits(root: Path, docs: list[Path]) -> tuple[list, list[str]]:
     """Backticked commit names no reachable repository holds.
 
@@ -322,10 +339,41 @@ def unresolved_commits(root: Path, docs: list[Path]) -> tuple[list, list[str]]:
         cwd=root, capture_output=True, text=True,
     ).stdout.split()[1::2]
     live = submodule_paths(root)
+    # ⛔⛔ A SUBMODULE COMMIT MUST BE ON THE SUBMODULE'S REMOTE, NOT MERELY IN ITS
+    # LOCAL OBJECT STORE — and the difference is the whole reason this is here.
+    # 2026-09-06: I cited an UNPUSHED music-renderer commit three times. It exists
+    # here, so this checker said RESOLVED and the lane was green; on the fighter
+    # lane's machine the object does not exist and `origin/main` went RED. ⇒ The
+    # guard was answering about MY CHECKOUT while its docstring says it "asks the
+    # submodule, which is a fact". The unstated scope was WHOSE submodule.
+    #
+    # ⚠ THE RULE IS DELIBERATELY STRICTER THAN THE PARENT'S, which accepts any ref
+    # (`rev-list --all`, remote branches included) because citing unmerged parent
+    # work is legitimate and the parent gets pushed as a matter of course. A
+    # SUBMODULE pointer is deliberately NOT pushed here — that is the subject of an
+    # open maintainer question — so "reachable from some local branch" is precisely
+    # the state that fools the author and nobody else.
+    # ⇒ Reachable from a REMOTE-TRACKING ref is the honest test for "an address
+    # another checkout can fetch".
     for sub in live:
         if not outstanding:
             break
-        outstanding = missing_in(root / sub, outstanding)
+        present_here = [n for n in outstanding if n not in missing_in(root / sub, outstanding)]
+        if not present_here:
+            continue
+        shared = _reachable_from_remote(root / sub)
+        if shared is None:
+            # ⚠ Could not ask. UNKNOWN is not RESOLVED — leave them outstanding.
+            continue
+        resolved_names = []
+        for name in present_here:
+            full_sha = subprocess.run(
+                ["git", "rev-parse", f"{name}^{{commit}}"], cwd=root / sub,
+                capture_output=True, text=True,
+            ).stdout.strip()
+            if full_sha and full_sha in shared:
+                resolved_names.append(name)
+        outstanding = [n for n in outstanding if n not in resolved_names]
     findings = [
         (rel, lineno, f"`{name}`") for name in outstanding for rel, lineno in seen[name]
     ]

@@ -4,9 +4,26 @@
 migration row is CLOSED. I1 (2026-09-02) and I4 are done; I2's exploration half
 is done and its one residual (`match_spawn.rs:113`) belongs to the fighter lane;
 I3 is a maintainer DECISION rather than an implementation (question 45). What is
-left on this page is that decision, that one fighter call site, and the
-gauntlet-drop road's missing end-to-end arm, which is blocked on
-`force_kill_boss` producing no drops — also fighter side.
+left on this page is that decision and that one fighter call site.
+
+⛔⛔ **THE THIRD ITEM WAS FALSE AND HAD BEEN FOR SOME TIME — re-derived 2026-09-06.**
+This sentence used to end *"and the gauntlet-drop road's missing end-to-end arm,
+which is blocked on `force_kill_boss` producing no drops — also fighter side."*
+The arm EXISTS:
+`boss_lifecycle::a_defeated_boss_drops_its_signature_gauntlet_on_the_real_kill_road`
+delivers a real `HitEvent` in a vulnerable phase and asserts the gauntlet lands as
+a pick-up-able `GroundItem`. Run today: **ok, 1.21 s.**
+⚠ And `force_kill_boss` producing no drops is TRUE — it writes HP to zero and never
+enters `apply_boss_hit`'s `killed` branch. That fact is why the test was written;
+the row recorded it as the reason the test could not be. **The blocker and the
+motivation were the same sentence, and the row kept the wrong half.**
+
+⭐ **A filed BLOCKER is structurally different from a filed MEASUREMENT: a
+measurement is the output of LOOKING, a blocker is the output of STOPPING.** So a
+blocker is written at the moment its author knew least about it, and is then
+quoted rather than re-derived. ⇒ re-deriving the blockers is the first step of
+picking up a deferred row, not a courtesy. (The fighter lane closed D-CUT-VOICE the
+same day by doing exactly this: three blocking claims, all three false.)
 
 ⛔ **So a reader should not take "OPEN" as "unbuilt".** Physical custody, the
 instance/count boundary and persistent occurrence behaviour across

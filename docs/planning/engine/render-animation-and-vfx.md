@@ -799,3 +799,40 @@ again with no manual visibility repair (**already guarded** —
 from the pane stays visible while its body overlaps (**already guarded** —
 `a_sprite_dependant_disjoint_from_the_pane_is_not_hidden_by_its_owner`); morph ball
 and the two-visible-portals poison stay correct.
+
+## ◐ THREE holds have no published presentation fact — not five (measured 2026-09-06)
+
+The fighter lane raised it as *"a slept fighter stands identically to one in
+shieldstun, landing lag, a recoil lock or a guard break, so in a 1v1 neither player
+can tell which of five causes is holding them"*. ⇒ **The concern is real and the
+count is not**, which changes what the fix has to cover.
+
+✔ **TWO OF THE FIVE ARE ALREADY DISTINGUISHED, by published facts with presentation
+readers:**
+* **shieldstun** — the sim publishes its timer and
+  `crates/ambition_render/src/rendering/bubble_shield.rs` normalises it into a
+  flare. That file's own comment states the split: the SIM publishes the timer, the
+  RENDERER owns how long the flare is spent.
+* **guard break** — `crates/ambition_character_sprites/src/anim/mod.rs:247` carries
+  a `GuardBreakBeat`.
+* **launch/hitstun** is a third: `pose_view` publishes `LaunchedBodyFact` whenever
+  `tumbling` or `hitstun_timer > 0`, and it deliberately ORs the two so a consumer
+  does not drop the row the instant a launched body stops tumbling.
+
+⛔ **WHAT ACTUALLY HAS NOTHING: `sleep_timer`, `landing_lag_timer` and
+`recoil_lock_timer`.** `recoil_lock_timer` reaches presentation only as
+`LaunchedBodyFact::launch_beat_secs` — a field OF the launch row, so it cannot
+answer for a body that is not launched. Measured: no published fact names why a body
+is held (`git grep` for a `HoldReason`/`ControlLock`-shaped view type returns
+nothing).
+
+⇒ **THE ELEGANT SHAPE IS ONE PUBLISHED REASON, NOT THREE MORE TIMERS.** A renderer
+handed three timers has to RANK them to pick a pose, which is a rule that would then
+live in presentation while the sim owns the states — a second authority over "what
+is holding this body". One `HoldReason` published by the sim keeps the ranking where
+the states are.
+
+⚠ **AND IT WANTS THE `LaunchedBodyFact` PRECEDENT READ FIRST**, because that row
+already solved the same problem once: it ORs two sim conditions into one published
+fact precisely so presentation never re-derives the union. A `HoldReason` that
+enumerates causes without saying which wins would re-open what that row closed.

@@ -3894,3 +3894,52 @@ value, played once, with him saying "there" — which is a small piece of work I
 can do on request but should not do speculatively, because the readout is only
 worth building if he wants to answer it that way.
 
+
+## Q69 — what does "the art agrees with the hitbox" mean in pixels?
+
+**Asked 2026-09-06.** The moveset observatory's last open milestone (M3,
+art/geometry agreement) has been carrying a remainder that turns out not to be
+code. Its own page says so, one paragraph below the part that gets quoted:
+*"composing the mapping is the easy half, and deciding what 'agreement' means in
+pixels (which anchor, what tolerance, at which zoom) is the half this page still
+owes."*
+
+⛔ **THE SEAM IS NOT THE WORK, and I am not building it.** The row priced "a small
+helper composing `center_world` + `orthographic_scale` + viewport px". Bevy already
+composes that — `Camera::world_to_viewport` — and it is in production use in this
+repo for exactly M3's purpose: `capture_sanic.rs:230` projects a world subject to
+viewport pixels and checks `logical_viewport_size()` to prove the subject is in
+frame for a capture. Building a parallel helper from the published sim-view
+components would be a second source of truth for a mapping the renderer owns, and
+a prediction from the simulation's INTENT can disagree with the picture — which
+would then be scored as an art failure. Measure the frame with the camera that
+drew it.
+
+⇒ **WHAT IS ACTUALLY OWED IS THREE NUMBERS AND ONE CHOICE, and every one of them
+is a judgment about how the game should LOOK rather than about how it is built:**
+
+1. **Which anchor.** A hitbox is a rectangle and a sprite is a drawing. Do they
+   agree at the volume's CENTRE, at its LEADING EDGE (the part a player reads for
+   spacing — and the thing `VolumeShape::leading_edge_x` exists for), or over the
+   whole rect as an overlap fraction?
+2. **What tolerance.** In screen pixels at a stated zoom, or as a fraction of the
+   body's height? ⚠ A fixed pixel tolerance means a zoomed-out match fails
+   everything, which is why the zoom has to be part of the answer rather than an
+   afterthought.
+3. **At which zoom.** The match camera moves. Is agreement asserted at a canonical
+   zoom (and if so, which — the 1v1 default?), across a sampled range, or at the
+   most zoomed-OUT framing the fight reaches, where legibility is worst?
+4. **And what a failure means.** A red gate, or a reported number nobody blocks
+   on? ⭐ The whole roster was authored before this existed, so a strict gate on
+   day one would fail moves that play fine.
+
+⚠ **RELATED TO [Q68](#q68) AND PROBABLY WANTS ONE ANSWER.** Q68 asks how far the
+camera may zoom out before the fight stops being legible. That is the same
+question wearing a camera's clothes: both are asking what "legible" is worth in
+pixels, and answering one probably fixes the other's units. ⇒ If they are answered
+apart, they should at least be answered in the same unit.
+
+⭐ **What I can do without a ruling:** nothing that is not guessing. A tolerance I
+choose is a design claim nobody has made, and the roster would be measured against
+my taste. ⇒ The measurement harness is cheap once the numbers exist; the numbers
+are the deliverable.

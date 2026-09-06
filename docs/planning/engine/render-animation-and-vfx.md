@@ -1045,6 +1045,34 @@ against a 32-unit body. ⚠ The SIGN is right (the character sits low in the fra
 so the quad must rise); the MAGNITUDE is what nobody has checked against a measured
 on-screen position.
 
+⛔ **AND A DOUBLE-APPLICATION IS RULED OUT TOO:** `ActorSpriteOffset` has ONE
+producer (`sync_sprite_posed_bodies`) and ONE consumer (`translation.y -= offset.y`),
+and that branch forces `Anchor::CENTER` so the anchor cannot also encode it.
+
+## ⛔⛔ I AM STOPPING HERE, AND THE REASON IS THE USEFUL PART
+
+**Four hypotheses named and refuted on this bug in one afternoon** — a deferred
+`Commands` write, a missing sheet, a failed form swap, and a texture-tier mismatch —
+plus a fifth (double-applied offset) ruled out above. Every one was reasoned from a
+single observation and killed by the next measurement.
+
+⇒ **The pattern in all five is one thing: I read a NUMBER without asking which
+BRANCH produced it.** `21×32` was the colored-rectangle fallback, not a variant
+frame. `32.0` unchanged was a value sampled one frame before its consumers ran. Two
+log lines were two facts, not two writers. ⇒ **A number is not evidence until you
+know which arm emitted it**, and this bug has four arms feeding one component.
+
+⭐ **WHAT THE NEXT PERSON ACTUALLY NEEDS, and it does not exist: a frame where the
+body's world position and size and the sprite's final `transform.translation` are
+printed TOGETHER.** Every instrument here reports one side. The picture shows the
+disagreement and cannot quantify it; the components quantify one half each and
+never meet. ⇒ That is a ten-line diagnostic in the capture tool, and it is worth
+more than another hypothesis.
+
+⚠ **What is certain and is enough to act on:** she is drawn too HIGH relative to her
+box, at every quality profile, in a host where the geometry is correct. It is a
+placement defect, not a sizing one, and not a form-swap one.
+
 ⇒ **THE DRAWN QUAD TRACKS THE BAKED FRAME, NOT THE LOADED VARIANT.** `sprites/` is 160×192,
 `sprites_0_5x/` 80×96, `sprites_0_25x/` 40×48, `sprites_potato/` 10×12 — all
 declaring `target: "mary_o_v2"`. ⛔ **But `posed_body_geometry` reads the BAKED

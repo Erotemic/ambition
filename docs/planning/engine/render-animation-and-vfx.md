@@ -1024,12 +1024,26 @@ before the art has loaded**, so the two numbers are a LOAD-TIMING artifact of th
 diagnostic and not two authorities. 61×73 is the `authored_render` branch, which is
 the real one.
 
-⇒ **THE MECHANISM THAT REMAINS, and it is the original one (REASONED from the code,
-with the pictures as the measured symptom): `authored_render` is `frame_w × frame_h
-× world_per_pixel` read from the BAKED manifest, while the IMAGE is whichever
-resolution variant the runtime loaded.** The baked frame is 160×192 for every tier;
-the `sprites_potato/` image declares 10×12. Nothing reconciles them, so the art is
-drawn into a quad sized for a frame it does not have.
+⛔⛔ **AND THE TIER MECHANISM IS RETRACTED TOO — MEASURED, and it is the fourth
+correction on this bug.** Captured the same scene at `AMBITION_QUALITY_PROFILE=potato`
+and `=ultra` and logged the final quad: **both end at 61×73.** The quad is
+tier-INDEPENDENT, which is correct and is what a gameplay-facing size should be.
+
+⇒ **So the two pictures differed only in which IMAGE was loaded**: a `potato`
+texture is a 10×12 image stretched into a 61×73 world quad, which looks like a
+magnified blob **because that is what a potato texture tier IS.** Not a defect —
+my own software-adapter seed, photographed and then over-read.
+
+⭐ **WHAT SURVIVES IS ONE DEFECT, AND IT IS TIER-INDEPENDENT: she is drawn too HIGH
+relative to her collision box, at every profile.** That is Jon's *"she is not
+standing on the ground wrt to visuals"*, and it is the whole remaining bug. The
+offset that positions the quad is
+`geometry.sprite_offset = (frame_w × 0.5 − cx, frame_h × 0.5 − cy) × world_per_pixel`,
+consumed as `translation.y -= offset.y`. For small Mary-O that is
+`(80 − 78, 96 − 148) × 0.381 = (0.76, −19.8)`, moving the art UP 19.8 world units
+against a 32-unit body. ⚠ The SIGN is right (the character sits low in the frame,
+so the quad must rise); the MAGNITUDE is what nobody has checked against a measured
+on-screen position.
 
 ⇒ **THE DRAWN QUAD TRACKS THE BAKED FRAME, NOT THE LOADED VARIANT.** `sprites/` is 160×192,
 `sprites_0_5x/` 80×96, `sprites_0_25x/` 40×48, `sprites_potato/` 10×12 — all

@@ -733,6 +733,13 @@ mod tests {
             .get_mut::<PortalCompositingCandidate>(body)
             .expect("candidate");
         candidate.drawn_centre = Vec2::new(495.0, 300.0);
+        // ⭐ THE BODY'S OWN VISIBILITY OWNER, which production always has and
+        // this fixture did not. `sync_visuals` writes every `FeatureVisual`'s
+        // visibility every frame, and morph-ball sync writes the ball's; the
+        // portal resolver runs after them. Releasing the portal's claim now
+        // means "the portal has no opinion", so the owner's value stands --
+        // which is only observable if an owner exists.
+        app.world_mut().entity_mut(body).insert(Visibility::Inherited);
         app.update();
         assert_eq!(
             visibility(&app, body),
@@ -740,5 +747,46 @@ mod tests {
             "crossing to the near side must give the whole sprite back"
         );
         assert_eq!(pieces(&mut app), 0);
+    }
+
+    /// ⛔⛔ RELEASING THE PORTAL'S CLAIM MUST NOT RESURRECT A BODY SOMEBODY ELSE
+    /// IS HIDING. The exact handoff a GPT review asked for, 2026-09-06.
+    ///
+    /// Frame N: the body is far-side, so the portal hides it and records that
+    /// the hide is its own. Frame N+1: it crosses to the NEAR side while an
+    /// independent owner -- morph-ball presentation hiding the base
+    /// `PlayerVisual`, or submerged presentation -- still requires it hidden.
+    /// The portal reason is gone, and the release branch used to write
+    /// `Visibility::Inherited` on the strength of its own bookkeeping marker
+    /// alone ⇒ the portal subsystem un-hid a body it did not own.
+    #[test]
+    fn releasing_the_portal_hide_leaves_another_owners_hide_alone() {
+        let mut app = test_app();
+        app.world_mut().spawn(pane());
+        spawn_viewer(&mut app, Vec2::new(400.0, 300.0));
+        let body = spawn_candidate(&mut app, Vec2::new(505.0, 300.0), Vec2::new(24.0, 24.0));
+        app.update();
+        assert_eq!(
+            visibility(&app, body),
+            Visibility::Hidden,
+            "premise: the portal owns this hide on the first frame"
+        );
+
+        // It crosses to the near side, and something else wants it hidden.
+        {
+            let mut entity = app.world_mut().entity_mut(body);
+            entity.get_mut::<PortalCompositingCandidate>().unwrap().drawn_centre =
+                Vec2::new(495.0, 300.0);
+            *entity.get_mut::<Visibility>().unwrap() = Visibility::Hidden;
+        }
+        app.update();
+
+        assert_eq!(
+            visibility(&app, body),
+            Visibility::Hidden,
+            "the portal released its own hide and overwrote another owner's -- a \
+             morphed or submerged body would pop back into view the frame it \
+             stopped being far-side"
+        );
     }
 }

@@ -91,7 +91,27 @@ pub fn resolve_portal_source_visibility(
                 commands.entity(entity).insert(PortalSourceHidden);
             }
         } else if we_hid_it {
-            *visibility = Visibility::Inherited;
+            // ⛔⛔ RELEASE THE CLAIM WITHOUT ASSERTING A VALUE. Writing
+            // `Inherited` here assumed that when the portal's reason ends the
+            // correct state is VISIBLE -- and other owners have live hide
+            // authority over the same component. Morph-ball presentation hides
+            // the base `PlayerVisual` while morphed; submerged presentation hides
+            // it too. ⇒ A body that stops being far-side on the same frame it
+            // morphs was hidden by ITS owner and then RESURRECTED here, because
+            // this branch only knew that the portal had once hidden it.
+            //
+            // ⭐ THE ORDERING IS WHAT MAKES DOING NOTHING CORRECT, not laziness:
+            // this resolver runs late in `PortalPresentationSet`, after
+            // `sync_visuals` and the other presentation writers have already put
+            // THIS FRAME's value in the component. Dropping the claim leaves that
+            // value standing, which is exactly what "the portal no longer has an
+            // opinion" should mean. Reasserting `Hidden` while a reason STANDS is
+            // still required (see above) for the same reason: those writers run
+            // every frame and would otherwise win.
+            // ⚠ A body nothing else writes therefore stays as it was rather than
+            // springing back — correct here, because every population this
+            // reaches has a per-frame owner, and a guess would be wrong for the
+            // ones that do.
             commands.entity(entity).remove::<PortalSourceHidden>();
         }
     }

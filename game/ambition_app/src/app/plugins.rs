@@ -595,7 +595,10 @@ fn install_menu_setup_and_hotkeys(app: &mut App) {
             (
                 handle_ldtk_hot_reload,
                 ambition_platformer2d::actors::trace::handle_trace_hotkey,
-                ambition_platformer2d::menu::map::handle_map_menu_hotkeys,
+                // `handle_map_menu_hotkeys` LEFT THIS CHAIN: `MapStatePlugin`
+                // installs it now, ordered against the simulation phase rather
+                // than behind two systems it shares no state with. The chain's
+                // reason belongs to the pair above it.
             )
                 .chain()
                 .after(Platformer2dSimulationPhaseMonolith::CoreSimulation)
@@ -768,12 +771,8 @@ fn install_misc_visual_sync_systems(app: &mut App) {
             .after(ambition_platformer2d::render::rendering::SpriteVisualSync)
             .run_if(ambition_platformer2d::platformer::lifecycle::session_world_exists),
     )
-    // Mouse / touch dismissal for the map menu.
-    .add_systems(
-        Update,
-        ambition_platformer2d::menu::map::map_menu_pointer_dismiss
-            .run_if(ambition_platformer2d::platformer::lifecycle::session_world_exists),
-    )
+    // Mouse / touch dismissal for the map menu is installed by `MapStatePlugin`,
+    // beside the hotkey it belongs with.
     // Quest panel runs alongside the verbose HUD.
     .add_systems(
         Update,

@@ -95,6 +95,35 @@ pub struct MapStatePlugin;
 impl bevy::prelude::Plugin for MapStatePlugin {
     fn build(&self, app: &mut bevy::prelude::App) {
         app.init_resource::<MapMenuState>();
+        // ⭐⭐ AND THE TWO SYSTEMS THIS DOMAIN OWNS, because the SECOND consumer
+        // the note above waits for has arrived: the app's shell host and the
+        // runtime's progression schedule both reach into this crate and name
+        // these functions themselves.
+        //
+        // ⛔ `handle_map_menu_hotkeys` WAS A PASSENGER IN SOMEBODY ELSE'S CHAIN.
+        // The host registered it `.chain()`ed behind `handle_ldtk_hot_reload` and
+        // `handle_trace_hotkey` — three crates in one sequence — and that chain
+        // exists for a reason that is not this system's: the two ahead of it were
+        // ordered because `handle_debug_hotkeys` and `handle_ldtk_hot_reload` both
+        // write `DeveloperRuntimeState`. ⇒ MEASURED: the three write DISJOINT
+        // resources (`DeveloperRuntimeState`, `GameplayTraceBuffer`,
+        // `MapMenuState`), so the order was grouping, not a dependency.
+        //
+        // ⭐ WHAT IT ACTUALLY NEEDS is expressible in vocabulary this crate
+        // already depends on: after the simulation phase, while a session world
+        // exists. No new dependency edge — `Platformer2dSimulationPhaseMonolith`
+        // and `session_world_exists` both live in `shared_tangle`.
+
+        app.add_systems(
+            bevy::prelude::Update,
+            (
+                input::handle_map_menu_hotkeys.after(
+                    ambition_platformer2d_shared_tangle::schedule::Platformer2dSimulationPhaseMonolith::CoreSimulation,
+                ),
+                pointer::map_menu_pointer_dismiss,
+            )
+                .run_if(ambition_platformer2d_shared_tangle::lifecycle::session_world_exists),
+        );
     }
 }
 

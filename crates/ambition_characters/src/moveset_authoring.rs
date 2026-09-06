@@ -1033,6 +1033,105 @@ mod multihit_tests {
 /// re-authored, re-tuned or deleted, and the day it is, the mechanic it was
 /// silently holding up goes with it.
 #[cfg(test)]
+mod wake_tests {
+    use super::*;
+
+    fn kick() -> MoveSpec {
+        strike(Strike {
+            id: "test_wake",
+            clip: "attack_down",
+            startup_s: 0.12,
+            active_s: 0.08,
+            recover_s: 0.24,
+            offset: (18.0, 16.0),
+            half_extents: (30.0, 10.0),
+            damage: 6,
+            knockback: 70.0,
+            knockback_growth: 1.35,
+            launch_dir: Some((0.7, -0.6)),
+            on_hit: None,
+        })
+    }
+
+    fn dust() -> Wake {
+        Wake {
+            offset: (58.0, 14.0),
+            half_extents: (24.0, 8.0),
+            push: 60.0,
+            push_dir: (1.0, -0.15),
+            repeating: false,
+        }
+    }
+
+    /// ⭐⭐ THE HIT STAYS AHEAD OF THE SHOVE, which is the whole ranking decision
+    /// and the exact inverse of [`tipper`]'s. A wake ranked FIRST would shove
+    /// people the move was about to hit, turning a kick into a worse gust.
+    #[test]
+    fn the_wake_is_ranked_behind_the_hit() {
+        let m = wake(kick(), dust());
+        let window = m
+            .windows
+            .iter()
+            .find(|w| w.tag == WindowTag::Active && !w.volumes.is_empty())
+            .expect("an active window");
+        assert_eq!(window.volumes.len(), 2);
+        assert!(window.volumes[0].damage > 0, "index 0 is the HIT");
+        assert_eq!(window.volumes[1].damage, 0, "index 1 is the wind");
+        assert!(
+            window.volumes[1].shape.leading_edge_x()
+                > window.volumes[0].shape.leading_edge_x(),
+            "the wake trails BEYOND the hit"
+        );
+    }
+
+    /// It is a windbox, not a weak second hitbox: zero damage, flat push, and the
+    /// reaction that makes `hit_reaction` read it as flinchless.
+    #[test]
+    fn the_wake_pushes_and_does_not_hurt() {
+        let m = wake(kick(), dust());
+        let wind = m
+            .windows
+            .iter()
+            .flat_map(|w| w.volumes.iter())
+            .find(|v| v.damage == 0)
+            .expect("a wind volume");
+        assert!(matches!(
+            wind.reaction,
+            Some(ambition_entity_catalog::VolumeReaction::Windbox(_))
+        ));
+        assert_eq!(
+            wind.knockback_growth,
+            Some(0.0),
+            "a shove that grew with damage is a hit's rule in wind's costume"
+        );
+    }
+
+    #[test]
+    fn a_wake_adds_no_window() {
+        let base = kick();
+        let m = wake(base.clone(), dust());
+        assert_eq!(m.windows.len(), base.windows.len());
+        assert_eq!(m.duration_s, base.duration_s);
+    }
+
+    #[test]
+    #[should_panic(expected = "dead code")]
+    fn a_wake_inside_the_hit_is_refused() {
+        let mut enclosed = dust();
+        enclosed.offset = (10.0, 16.0);
+        let _ = wake(kick(), enclosed);
+    }
+
+    #[test]
+    #[should_panic(expected = "no push")]
+    fn a_wake_that_does_not_push_is_refused() {
+        let mut still = dust();
+        still.push = 0.0;
+        let _ = wake(kick(), still);
+    }
+}
+
+#[cfg(test)]
 mod tipper_tests {
     use super::*;
 
@@ -1187,6 +1286,100 @@ mod tipper_tests {
             .expect("an active window");
         assert_eq!(window.volumes.len(), 2);
     }
+}
+
+/// The push a move leaves BEYOND its hit — the dust, the wake, the displaced air.
+///
+/// ⭐⭐ THE INVERSE OF A TIP, AND THE RANKING SAYS SO. A [`Tip`] goes in FIRST
+/// because the far volume should win wherever both reach; a wake is APPENDED,
+/// because it is what you get when the hit misses you. Standing in both means you
+/// were hit, and being shoved instead is the consolation for being out of range.
+///
+/// ⛔ IT CANNOT CARRY DAMAGE and the catalog enforces that — `WindboxWithDamage`
+/// is a validation error, so a wake that chipped would not load. That is the
+/// whole character of the thing: it moves you and does not hurt you, so it reads
+/// as space rather than as a second hitbox.
+pub struct Wake {
+    /// Where the push sits, body-local, and how big it is.
+    pub offset: (f32, f32),
+    pub half_extents: (f32, f32),
+    /// How hard it shoves, in the same units a volume's `knockback` uses.
+    pub push: f32,
+    /// Which way it shoves, body-local. A ground wake pushes ALONG the floor; a
+    /// gust pushes away from the chest.
+    pub push_dir: (f32, f32),
+    /// May it move the same body again while that body stands in it?
+    ///
+    /// `true` for a sustained wind you cannot walk through; `false` for a
+    /// one-shot displacement. See [`WindboxVolume::repeating`] — the hit-once
+    /// set exists so a long window cannot re-shove a stationary target every
+    /// frame, and this is the opt-out.
+    pub repeating: bool,
+}
+
+/// Give a strike a WAKE: a pushing volume beyond its hit that does no damage.
+///
+/// ⭐ ONE CALL FOR "IT HITS, AND WHAT IT MISSES GETS SHOVED". Everything here has
+/// shipped for a long time — `VolumeReaction::Windbox`, the validation, and
+/// `hit_reaction`'s `flinchless: hitbox.windbox().is_some()` saying *"this is a
+/// push, not a hit"* — but the only way to author one was [`gust`], which builds
+/// a WHOLE MOVE that is nothing but wind. A fighter who wanted a kick that also
+/// threw dirt had to hand-build a `HitVolume` in a content file, and nobody did.
+///
+/// # Panics
+///
+/// If the move has no Active volume for a wake to trail; if the wake does not
+/// reach FURTHER than the hit (a push INSIDE the hitbox is unreachable in the
+/// way a hilt sweetspot is not — the damaging volume is ranked first and wins
+/// there, so an enclosed wake is authored dead code); or if the push is not
+/// positive, which would be a volume that costs a window and does nothing.
+pub fn wake(mut m: MoveSpec, wake: Wake) -> MoveSpec {
+    let id = m.id.clone();
+    assert!(
+        wake.push > 0.0,
+        "move `{id}` authors a wake with no push, which is a volume that costs a \
+         window and does nothing"
+    );
+    let window = m
+        .windows
+        .iter_mut()
+        .find(|w| w.tag == WindowTag::Active && !w.volumes.is_empty())
+        .unwrap_or_else(|| panic!("move `{id}` has no active volume for a wake to trail"));
+    let hit_edge = window.volumes[0].shape.leading_edge_x();
+    let wake_edge = wake.offset.0 + wake.half_extents.0;
+    assert!(
+        wake_edge > hit_edge,
+        "move `{id}` authors a wake reaching {wake_edge} inside a hit reaching \
+         {hit_edge} — the damaging volume is ranked first and wins wherever both \
+         reach, so an enclosed wake is authored dead code"
+    );
+    // ⛔ APPENDED, and that is the mechanic. See [`Wake`]: first-authored wins,
+    // so the hit must stay ahead of the shove.
+    window.volumes.push(HitVolume {
+        shape: VolumeShape::Rect {
+            offset: wake.offset,
+            half_extents: wake.half_extents,
+        },
+        // ⛔ ZERO. `WindboxWithDamage` is a validation error.
+        damage: 0,
+        knockback: wake.push,
+        // A shove that grew with the victim's damage would be a hit's rule
+        // wearing wind's costume — the same reasoning `gust` states.
+        knockback_growth: Some(0.0),
+        launch_dir: Some(wake.push_dir),
+        reaction: Some(ambition_entity_catalog::VolumeReaction::Windbox(
+            ambition_entity_catalog::WindboxVolume {
+                repeating: wake.repeating,
+            },
+        )),
+        on_hit: None,
+        vfx: None,
+        // A wake is silent on its own: the move's own cues already say a kick
+        // happened, and a second sound for the dust would fire on a body that
+        // was NOT hit — a hit sound for a miss.
+        hit_sfx: None,
+    });
+    m
 }
 
 /// The far half of a swing, authored to outrank the near half.

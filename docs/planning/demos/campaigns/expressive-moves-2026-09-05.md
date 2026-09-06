@@ -201,7 +201,7 @@ none of them waits on `TechniqueFlow`.
     whose only reachable input is a curiosity. ⇒ Shipping it as a window would
     have been the fourth *"authored, paid for, and unreachable"* on this page,
     and this time before anyone else had to find it.
-- ▢ **B2. Ground tether grab** — authoring plus line presentation only.
+- ✔ **B2. Ground tether grab** — authoring plus line presentation only. ⚠ **THE MARKER WAS STALE until 2026-09-06**: both halves inside this row already read ✔ LANDED (the reach on 2026-09-05, the line the same day), and only the bullet still said otherwise. A row whose own body contradicts its marker is read by its marker.
   `CaptureAttemptRequested` already takes an authored reach volume.
   ✔ **THE REACH LANDED 2026-09-05** on Projectile Polygon — her grab, not a
   special, because in the genre a tether IS the grab and she is the roster's
@@ -2132,7 +2132,22 @@ hazard in it was being triaged as though it were reachable.
   MEASURED**: what spawning an actor mid-match costs, and whether an actor's body
   is too heavy for something that lives about a second. Price it before choosing
   it — this is a candidate, not a decision.~~
-- ▢ **A4. PK-Thunder parody** as the acceptance fixture that consumes A1–A3.
+- ⛔ **A4. PK-Thunder parody** as the acceptance fixture that consumes A1–A3 —
+  **CLOSED 2026-09-06 BECAUSE ITS PREMISE IS FALSE, not because it was built.**
+  The move landed (row 1, the Author's `author_train_of_thought`), but it does not
+  consume A1–A3: measured, the Author's whole table authors **zero flows**, and
+  A2 was shown not to be on this move's path at all. `steer_axis()` was enough on
+  its own. ⇒ **There is no fixture to write, because the composition this row
+  exists to prove does not occur** — a fixture asserting that PK-Thunder exercises
+  the flow rung would have to first make it use one, which is the tail wagging the
+  dog.
+  ⭐ **AND THAT IS THE FOURTH TIME THIS PAGE PRICED A RUNG THAT TURNED OUT NOT TO
+  BE NEEDED** — after A2 dropping its rung, A3 shedding identity work, and the
+  reflector arriving free by composition. The pattern is consistent enough to be
+  the page's main finding: **this engine keeps already having the thing, and the
+  missing piece keeps being a way to SAY it.** Of the nine specials authored on
+  2026-09-06, every one was authoring against a capability that had shipped and
+  had no verb, and exactly one new verb (`wake`) was written.
 
 ### Then
 

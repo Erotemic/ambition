@@ -45,7 +45,10 @@ use ambition_boss_encounter::ecs::boss_component_snapshot;
 // costs nothing to fix. ⇒ A re-export hides where a thing lives, and a
 // dependency drawn through one is an edge to a module that owns nothing in it.
 use ambition_combat::held_items::HeldItem;
-use crate::features::{EnemyActorBundle, FeatureBaseBundle};
+// ⛔ THE MODULE, NOT THE RE-EXPORT — third time today. `actor_bundles` is a
+// top-level module now; `features` still re-exports it, and importing through
+// that re-export would keep an edge to a module that no longer owns the types.
+use crate::actor_bundles::{EnemyActorBundle, FeatureBaseBundle};
 use ambition_platformer2d_core as ae;
 // The platformer-strict AABB semantics (edge-touching boxes do not overlap).
 use ae::AabbExt as _;

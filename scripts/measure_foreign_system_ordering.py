@@ -162,6 +162,22 @@ def sets_by_system() -> dict[str, set[str]]:
     does NOT mean the fix is automatic: a set is usually WIDER than the system,
     so ordering against it is strictly stronger, and a consumer that must
     interleave *within* the set cannot take it.
+
+    ⛔⛔ AND THE QUESTION THIS ANSWERS IS NARROWER THAN IT READS. It says "this
+    system is installed into a set SOMEWHERE IN THE SOURCE" — not "in the
+    composition you are building". For a capability that is compiled out, or one
+    whose install lives behind a feature this build does not enable, the hint
+    will name a set for an installation that does not happen. ⇒ A consumer edge
+    written on that basis orders against a set with no members and is a silent
+    no-op, which is the failure the `scripted_input` comment already names for
+    systems: *"ordering against a system nobody composed is a silent no-op"*.
+
+    ⚠ The reason it is safe as written is that it reads SOURCE and not a runtime
+    registry — a peer's `EncounterRegistry` finding is the same trap one layer
+    over: an index of what is alive right now looks exactly like a roster of what
+    exists, same key type and opposite membership rule, and only the doc
+    distinguishes them. Reachability is not enough; the thing reached has to be
+    the population the question is about.
     """
     found: dict[str, set[str]] = {}
     for root in ROOTS:

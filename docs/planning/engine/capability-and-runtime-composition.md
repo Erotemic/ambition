@@ -1107,6 +1107,14 @@ are four demos. Zero is printed now. ⇒ the floor that found it also could not 
 caught this file's own spelling bug (`MIN_DEMOS = 3` against four passes when
 exactly one drops out, which is what losing `&mut bevy::prelude::App` did).
 
+✔ **AND A SECOND OVERWRITING INSERT NOW FAILS — `MAX_OVERWRITING_FOREIGN_INSERTS
+= 1`, 2026-09-06.** The membership floor catches a demo disappearing from the
+sweep and was blind to one ADDING an overwriting `insert_resource` of a foreign
+type — precisely the shape behind all three bugs above. The report printed such a
+line and the run exited 0. ⚠ Today's one is smash's `RespawnInterval`, whose own
+doc makes smash the sole production owner, so the ceiling is 1 rather than 0.
+Poison-verified in the ADDITION direction, which is the case a floor cannot reach.
+
 ⚠ **AND THE NARROWING RULE I PROPOSED WOULD HAVE MISSED IT.** "Inserted at build
 AND defined outside the demo" catches six of smash's remaining thirteen
 (`RespawnInterval`, `SmashStageChoice`, `SmashStockChoice`, `SeatMenuFrames`,

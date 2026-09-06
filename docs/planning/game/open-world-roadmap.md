@@ -19,7 +19,10 @@ BODY CAPABILITY AT ALL — neither half.** Across every shipped `.ldtk`, the ent
 authored condition surface is **six `gated_by` values, all of them the same quest
 flag** (`bob_field_survey_received`). Zero `body.can`, zero `body.fits`, zero of
 any other condition field. `sync_authored_gated_lock_walls` reads exactly that
-field, so the lock-wall road is the same six.
+field, and all six ARE `LockWall` entities — three in `intro.ldtk:alice_relay`,
+three in `intro.ldtk:gate_stack_lower`. ⇒ **the gated-lock-wall machinery is LIVE
+with six authored customers**; what is absent is not the mechanism but any gate
+whose condition is a body capability rather than a quest flag.
 
 ⇒ **So the row is not under-tracking interaction relative to traversal; it is
 tracking a criterion the authored world does not yet exercise in EITHER half.**

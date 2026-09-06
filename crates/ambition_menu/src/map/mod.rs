@@ -131,7 +131,19 @@ impl bevy::prelude::Plugin for MapStatePlugin {
         app.add_systems(
             bevy::prelude::Update,
             (
-                input::handle_map_menu_hotkeys,
+                // ⛔⛔ GATED ON THE INPUT RESOURCE, and the carve is why. While the
+                // SHELL registered this, its population was "compositions with a
+                // shell", which always carry `bevy_input`. `MapStatePlugin` is
+                // installed by the runtime plugin group, so moving the install
+                // here widened the population to EVERY composition -- including
+                // headless test apps with no `ButtonInput<KeyCode>`, where a
+                // missing `Res` is a validation PANIC rather than a skip. Six
+                // unrelated app tests died on it at once.
+                //
+                // ⇒ MOVING AN INSTALL MOVES ITS POPULATION, and a system's params
+                // are a claim about the composition it runs in.
+                input::handle_map_menu_hotkeys
+                    .run_if(bevy::prelude::resource_exists::<bevy::input::ButtonInput<bevy::prelude::KeyCode>>),
                 pointer::map_menu_pointer_dismiss,
                 // ⭐ THE VIEW JOINS ITS OWN DOMAIN. The host registered this with
                 // the IDENTICAL ordering the hotkey needed -- after the simulation

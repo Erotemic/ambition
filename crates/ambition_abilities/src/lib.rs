@@ -49,6 +49,24 @@ pub mod thrown;
 pub mod traversal;
 
 #[cfg(any(test, feature = "test-support"))]
+// ⛔⛔ THE FEATURE EXISTED AND THE GATE DID NOT. `test-support = []` has been in
+// this crate's manifest, and `ambition_platformer2d_actor_monolith` already asks
+// for it in its DEV-dependencies — so the whole wiring was in place and the
+// module shipped in every build anyway, because nothing conditioned it. Its own
+// first line says "Test-only fixtures for ability modules".
+//
+// ⚠ IT IS NOT DEAD WEIGHT ALONE: it writes `ControlledSubject`, a control
+// authority, so a census of "who decides which body a participant controls"
+// counted a fixture among the answers. That is the cost of an ungated
+// test-support module — it is indistinguishable from production authority.
+// ⚠ `any(test, feature)` AND NOT THE FEATURE ALONE, which is the idiom and the
+// mistake I made first: this crate's OWN tests use `crate::test_support`, so
+// gating on the feature alone breaks `cargo test -p ambition_abilities` while
+// leaving `cargo check --workspace --tests` GREEN — workspace feature
+// unification turns the feature on for everybody, so the single-crate build is
+// the only one that sees it. A workspace check is not evidence a crate builds
+// alone.
+#[cfg(any(test, feature = "test-support"))]
 pub mod test_support;
 
 use bevy::prelude::*;

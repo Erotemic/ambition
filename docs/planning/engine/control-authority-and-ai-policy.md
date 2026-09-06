@@ -14,6 +14,74 @@
 construction work. ⛔ **the review also REFUSED the obvious version of it**, and
 that refusal is the first thing to read.
 
+
+## ⭐⭐ PREREQUISITE B, MEASURED 2026-09-06 — THE SIX QUESTIONS, ANSWERED FROM THE TREE
+
+The frontier marks control / possession / custody **DESIGN NEEDED** and the
+architecture program lists six questions that must have crisp answers before the
+control/body crates exist. Measured rather than designed, because four of the six
+already have one answer and the interesting finding is *where* it lives.
+
+⚠ **PRODUCTION WRITERS ONLY** — inline `#[cfg(test)] mod` blocks stripped. Counting
+them put a test fixture among the answers on the first pass, which is the same
+error `measure_kernel_module_graph.py` shipped with.
+
+| authority | crate / module | production writers |
+|---|---|---|
+| `DrivingParticipant` | `ambition_characters::control` | **1** — `actor_monolith::control::authority` |
+| `PossessionState` | `actor_monolith::abilities::traversal::possession` | 2 — `possession.rs`, `control/authority.rs` |
+| `TemporaryControl` | `shared_tangle::temporary_control` | 2 — `ambition_mount`, `possession.rs` |
+| `ControlledSubject` | `shared_tangle::markers` | 2 — `possession.rs`, ~~`ambition_abilities::test_support`~~ (gated, below) |
+
+### The answers
+
+* **Who owns `PossessionState`?** `actor_monolith::abilities::traversal::possession`
+  — ⛔ filed as a **traversal ability**, not as control authority. It is the same
+  shape as the `assets -> session` edge: a thing filed beside its first consumer.
+* **Who decides which body a participant controls?** `control/authority.rs`, and
+  the doc claim that it is the SOLE writer of `DrivingParticipant` **holds** —
+  one production writer, verified.
+* **Who owns the transition between bodies?** `possession.rs`, de facto: it is the
+  only file that writes THREE of the four types. ⇒ That is the control-transition
+  authority, and its module path does not say so.
+* **Who owns body custody when mounted / carried / possessed?** **Two crates**:
+  `ambition_mount` and `possession.rs`, both writing `TemporaryControl`. Two
+  mechanisms, one type, no arbiter — which is the question's real content.
+* **Actor simulation state vs controller state?** The split is already clean at the
+  TYPE level: simulation state is on the body, controller identity is
+  `DrivingParticipant`, policy is `Brain`, and `ActorControl` is a separate
+  component *"precisely so a brain swap cannot disturb the frame"*.
+* **What is traversal capability state?** Unanswered here, and `PossessionState`
+  living under `abilities/traversal/` is why the question is confusing: possession
+  is currently *classified* as traversal.
+
+⇒ **The topology finding: three of the four types are floor- or
+domain-owned already (`shared_tangle`, `ambition_characters`), and the writers are
+concentrated in two monolith files.** The carve is therefore not "extract control"
+— it is **name the transition authority and move it out of the ability tree**,
+after which `possession.rs` and `control/authority.rs` are one domain with a
+module path that says so.
+
+### ✔ AND ONE THING THE CENSUS FIXED ON THE WAY
+
+`ambition_abilities::test_support` — a module whose own first line says
+*"Test-only fixtures"* — was declared unconditionally and shipped in every build.
+It writes `ControlledSubject`, so **a census of "who decides which body a
+participant controls" counted a fixture among the answers**; an ungated
+test-support module is indistinguishable from production authority.
+
+⭐ The feature already existed (`test-support = []`) and the monolith's
+DEV-dependencies already asked for it. Only the `#[cfg]` was missing. Now
+`#[cfg(any(test, feature = "test-support"))]`.
+
+⛔⛔ **AND THE FEATURE ALONE WAS WRONG, IN A WAY ONLY ONE OF THREE BUILDS COULD
+SEE.** Gating on the feature broke `cargo test -p ambition_abilities` — the crate's
+own tests use `crate::test_support` — while `cargo check --workspace --tests`
+stayed **green**, because workspace feature unification turns the feature on for
+everybody. ⇒ *A workspace check is not evidence that a crate builds alone*, and
+the single-crate build is the only one that sees a gate like this.
+
+
 ## ✔ LANDED 2026-08-20 — `Brain::Player(PlayerSlot)` is DELETED
 
 `Brain` is now `StateMachine(StateMachineCfg)` and nothing else. Who drives a

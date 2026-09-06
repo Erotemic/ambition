@@ -44,6 +44,17 @@ a size assertion there measures regeneration history rather than content.
 it. ⇒ **On a working box the usual reason these ten skip is stale tiers rather
 than borrowed assets**, and the fix is three minutes, so a lane that reports them
 skipped is worth one command rather than a shrug.
+⭐ **What it buys, measured on the same box:** the `scripts/tests` lane went from
+**836 passed / 16 skipped** to **850 passed / 7 skipped**. Nine of those skips
+were these ratchets.
+⚠ **AND IT COSTS DISK — 1.3 GB here, which was enough to break unrelated tests.**
+Free space went 40.6 → 39.3 GB, under `MIN_FREE_GB`, and
+`test_run_tests_job_cap.py` then failed FIVE cases with *"run_tests ABORTED on
+disk headroom, not on caps"*. ⇒ The failure names itself correctly, but it arrives
+in a file about job caps immediately after an asset command, so check headroom
+after regenerating rather than reading it as a regression.
+(`./scripts/clean_workspace_crates.sh --incremental-only --apply` returned 37 GB
+here and invalidates no fingerprint.)
 ⚠ Read `why_not`'s FULL string. Truncating it at a terminal width chops the
 "but the quality tiers are STALE" clause and leaves a reason that reads as the
 canonical condition — which looks exactly like an inverted detector.

@@ -68,3 +68,43 @@ requirement proves Bevy UI insufficient.
   release?
 - How should dialogue/UI text be scoped across shared and split views?
 - Which UI functionality is generic enough for an ecosystem crate?
+
+## ◐ The title screen's pointer road: what is VERIFIED, what is RULED OUT, and the one link a headless repo cannot reach (2026-09-06)
+
+Jon reported the Settings tab unreachable by click or tap, then reported it still
+bugged after the first fix. This records the investigation so nobody repeats it.
+
+✔ **FIXED AND VERIFIED IN THE ASSEMBLED HOST** (`the_shipped_title_screen_is_wired_for_a_pointer`):
+* the strip is drawn as **two real `Button`s** carrying `BevyUiMenuTab`;
+* the **tab road is installed** — this was the actual defect:
+  `install_bevy_ui_menu_tabs` had exactly ONE caller in the workspace and it was
+  the kaleidoscope menu, so `publish_bevy_ui_menu_tabs` was never registered on
+  this screen and the buttons reached no system;
+* the shell **consumes** the renderer's `MenuTabActivated` and moves the strip.
+
+⛔ **RULED OUT BY MEASUREMENT, each a plausible story that is false:**
+| hypothesis | measurement |
+|---|---|
+| the pointer system is not registered | `basic_shell_pointer` is added `.after(BevyUiMenuInteractionSet)` |
+| that set has a run condition that excludes the title screen | no `configure_sets`/`run_if` names it anywhere |
+| the shell composition never builds | `ambition_platformer2d/basic_shell_presentation` IS in `ambition_app`'s default feature closure |
+| a node occludes the tabs | menu root is `GlobalZIndex(1000)`, the shell's other node is 900 |
+| picking is blocked on the tab tree | the only `Pickable::IGNORE` in the renderer is a scrollbar thumb |
+| the UI picking BACKEND is absent | `bevy_ui_menu = ["bevy/ui_picking"]` and `ambition_platformer2d/bevy_ui_menu` is in the default closure |
+
+⚠ **THE ONE LINK THIS REPO CANNOT EXERCISE: the press EDGE.** Bevy's UI focus
+system **recomputes `Interaction` every frame from live pointer state**, so a
+headless test that writes `Interaction::Pressed` has it overwritten with `None`
+before any consumer runs — measured directly (`DIAG tab has Button=true
+Interaction=Some(None)`). ⇒ An earlier version of that test reported "the tab strip
+is drawn as buttons that nothing listens to" **while the shipped chain was fine**,
+and it took one `eprintln!` of the component being written to see it.
+⭐ **A test that writes a component the engine OWNS is asserting against its own
+write, not against the system under test.** Same family as a test that constructs
+its subject.
+
+⇒ **The next reader's cheapest discriminator is a HUMAN one**: does the Settings
+tab change appearance on hover? The active tab draws filled gold, inactive dark
+blue. Highlight-but-no-switch puts the fault downstream of the press edge, where
+this repo can test; no highlight at all puts it upstream, in picking, where it
+cannot.

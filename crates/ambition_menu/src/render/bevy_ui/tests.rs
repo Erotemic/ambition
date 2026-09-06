@@ -901,3 +901,68 @@ fn single_tap_mode_answers_for_the_destructive_row_too() {
         "the configured policy wins over the row's riskiness"
     );
 }
+
+/// ⛔ THE TAB BAR REPUBLISHES CONSTANTLY — the view respawns its nodes — so a
+/// press and its release routinely land on DIFFERENT entities carrying the same
+/// tab index. This asserts the press survives that, which is the arm the
+/// publisher's own comment calls out ("the tab bar mid-republish, whose fresh
+/// nodes read `None` until the next frame's focus pass") and which no test
+/// covered: the existing tab tests all press and release the same entity.
+///
+/// ⚠ It passes today. It is here because I predicted it would NOT, reasoning
+/// that the release arm matches on the armed ENTITY; it matches on the tab
+/// INDEX, which a respawn preserves. The test pins the property the reasoning
+/// got wrong, so the next person to touch that match does not have to re-derive
+/// it.
+#[test]
+fn a_press_that_survives_a_tab_bar_republish_still_activates() {
+    let mut app = build_app();
+    install_bevy_ui_menu_tabs(&mut app);
+    spawn_view(&mut app, 0, None);
+
+    let tab_of = |app: &mut App, index: usize| -> Entity {
+        let mut q = app.world_mut().query::<(Entity, &BevyUiMenuTab)>();
+        q.iter(app.world())
+            .find_map(|(entity, tab)| (tab.index == index).then_some(entity))
+            .expect("the sample view has this tab")
+    };
+    let drain = |app: &mut App| -> Vec<crate::MenuTabActivated> {
+        app.world_mut()
+            .resource_mut::<Messages<crate::MenuTabActivated>>()
+            .drain()
+            .collect()
+    };
+
+    let pressed = tab_of(&mut app, 2);
+    app.world_mut()
+        .entity_mut(pressed)
+        .insert(Interaction::Pressed);
+    app.update();
+    assert!(drain(&mut app).is_empty(), "premise: down is not a tab change");
+
+    // The republish: this tab's node is despawned and rebuilt, so the release
+    // lands on a DIFFERENT entity that carries the same index.
+    app.world_mut().despawn(pressed);
+    let fresh = app
+        .world_mut()
+        .spawn((
+            Button,
+            Interaction::None,
+            BevyUiMenuTab {
+                index: 2,
+                active: false,
+                focused: false,
+            },
+        ))
+        .id();
+    app.update();
+    assert_ne!(fresh, pressed, "premise: the republish produced a new entity");
+
+    app.world_mut().entity_mut(fresh).insert(Interaction::Hovered);
+    app.update();
+    assert_eq!(
+        drain(&mut app).into_iter().map(|m| m.index).collect::<Vec<_>>(),
+        vec![2],
+        "a press that survived a republish must still activate the tab it began on"
+    );
+}

@@ -73,6 +73,22 @@ pub fn adopt_the_limit_cap(
 /// tick's worth of meter. Splitting them would make "did this fighter cross the
 /// cap this frame" a question with three answers, and the move that spends a
 /// full meter reads exactly that.
+/// Is guarding the SAFE option rather than the greedy one under this fill?
+///
+/// ⭐⭐ A SMASH BALANCE DOCTRINE, AND IT LIVES HERE BECAUSE OF WHAT IT IS. It was
+/// briefly a validity rule inside `LimitMeterFill::problems()` — the generic
+/// vocabulary of independent meter sources — where it would have refused to let a
+/// future meter that deliberately rewards defensive play (parry 10, damage taken
+/// 0) exist at all. ⇒ The mechanism answers "is this fill well formed"; whether
+/// one source should outrank another is this ruleset's question.
+///
+/// In THIS game blocking is the safe option, so a meter paying more for guarding
+/// than for eating the hit inverts the defensive read: the maximising play becomes
+/// to guard, and taking damage stops being a cost.
+pub fn guarding_is_the_safe_option(fill: &LimitMeterFill) -> bool {
+    fill.on_block <= 0.0 || fill.on_block < fill.on_damage_taken
+}
+
 pub fn fill_limit_meters(
     rule: Option<Res<SmashLimitFill>>,
     time: Res<ambition_platformer2d::time::WorldTime>,

@@ -96,10 +96,13 @@ pub struct LimitMeterFill {
     /// damage, so it writes no `ResolvedBodyHit` and every existing source
     /// reads zero. That is why the gap survived: the meter looked complete.
     ///
-    /// ⚠ AUTHOR IT BELOW `on_damage_taken`, and the baseline does. Blocking is
-    /// the SAFE option; a meter that paid more for guarding than for eating the
-    /// hit would make taking damage the mistake it already is AND make blocking
-    /// the greedy play, which is backwards. `problems()` refuses the inversion.
+    /// ⚠ THE SMASH BASELINE AUTHORS IT BELOW `on_damage_taken`, and that is a
+    /// RULESET choice rather than a rule of this type. Blocking is the safe
+    /// option in that game, so paying more for guarding than for eating the hit
+    /// would make blocking the greedy play. ⛔ But a different meter may
+    /// deliberately reward defence, so the relationship is asserted in
+    /// `ambition_demo_smash::limit` and NOT in `problems()` — the mechanism says
+    /// what is well formed; the ruleset says what is balanced.
     ///
     /// ⭐ PER STRIKE, NOT PER POINT — there is no per-point sibling because a
     /// blocked hit has no damage to scale by. The size of the swing you ate is
@@ -186,19 +189,6 @@ impl LimitMeterFill {
         self.on_block
     }
 
-    /// Is guarding the SAFE option rather than the greedy one under this rule?
-    ///
-    /// ⭐ THE ONE RELATIONSHIP BETWEEN TWO SOURCES THAT IS A DESIGN RULE AND NOT
-    /// A TUNING NUMBER. Every other field here is independent by construction —
-    /// that independence is Jon's ruling — but a meter that pays MORE for
-    /// blocking than for eating the hit inverts the whole defensive read: the
-    /// maximising play becomes to guard, and taking damage stops being a cost.
-    /// ⇒ Stated as a predicate so the shipped baseline can be asserted against
-    /// it, rather than as prose nobody re-checks.
-    pub fn guarding_is_the_safe_option(&self) -> bool {
-        self.on_block <= 0.0 || self.on_block < self.on_damage_taken
-    }
-
     /// Everything wrong with this fill, as sentences an author can act on.
     pub fn problems(&self) -> Vec<String> {
         let mut problems = Vec::new();
@@ -208,14 +198,16 @@ impl LimitMeterFill {
                 self.cap
             ));
         }
-        if self.on_block > 0.0 && self.on_block >= self.on_damage_taken {
-            problems.push(format!(
-                "a block pays {} and eating the hit pays {}, so guarding is the \
-                 GREEDY play rather than the safe one — a fighter maximises the \
-                 meter by blocking, and taking damage stops being the cost it is",
-                self.on_block, self.on_damage_taken,
-            ));
-        }
+        // ⛔⛔ AND NOT "a block must pay less than eating the hit", WHICH USED TO
+        // BE HERE. That is a BALANCE DOCTRINE, not a mechanical invariant, and
+        // this type is the generic vocabulary of independent meter sources — a
+        // future meter that deliberately rewards defensive play (parry 10, damage
+        // taken 0) is coherent and this function would have refused to let it
+        // exist. ⇒ `problems()` answers "is this fill well formed"; whether one
+        // source should outrank another is the RULESET's question and now lives
+        // where the ruleset does, as `smash_limit_guarding_is_the_safe_option` in
+        // `ambition_demo_smash::limit`. The same mechanism/policy split the
+        // scoped-ruleset work is making everywhere else.
         // ⛔ NOT "at least one source must be non-zero" — a meter filled ONLY by
         // an authored `smash.fill_meter` move is exactly the "cloud like meter"
         // Jon named, and every field here is legitimately zero for it.

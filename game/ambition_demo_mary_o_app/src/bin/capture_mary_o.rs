@@ -274,6 +274,16 @@ fn report_body_against_sprite(
         Has<ambition_platformer2d::platformer::lifecycle::PlayerVisual>,
         Option<&ambition_platformer2d::platformer::lifecycle::PresentationOf>,
     )>,
+    // ⭐ WHICH BRANCH `sync_visuals` TOOK. `authored_render` and `authored_offset`
+    // are both gated on one `sheet_authored_body` flag, so they are Some together
+    // or None together -- and the branch that applies the offset is the SAME branch
+    // that sets the size from `authored_render`. Printing both is the only way to
+    // know whether a placement came from the sheet or from the feet-anchor
+    // fallback, which is a distinction four of my hypotheses turned on.
+    poses: Query<
+        &ambition_platformer2d::sim_view::BodyPoseView,
+        ambition_platformer2d::platformer::markers::PrimaryPlayerOnly,
+    >,
 ) {
     // Only on the frame the shutter fires, so the line is one row and not a stream.
     if target.is_none_or(|target| target.adopted == 0) || warmup.remaining > 0 {
@@ -290,6 +300,12 @@ fn report_body_against_sprite(
         kin.size.y,
         kin.pos.y + kin.size.y * 0.5,
     );
+    for pose in &poses {
+        eprintln!(
+            "[align]   pose authored_render={:?} authored_offset={:?}",
+            pose.authored_render, pose.authored_offset,
+        );
+    }
     // EVERY drawable, with its markers — because "the player's sprite" turned out
     // to name more than one entity, and a diagnostic that reports `single()` hides
     // exactly that.

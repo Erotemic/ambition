@@ -1081,12 +1081,29 @@ I built four hypotheses on the wrong one. There is also no second player drawabl
 the big face in the earlier picture is another actor, and "two sprites for one
 character" was me reading a photograph instead of a query.
 
-⇒ **THE FIX IS A CHOICE OF REFERENCE, and both halves already exist**: either size
-the quad from the logical frame (so the existing offset is right), or compute the
-offset from the trimmed rect's own origin (so the existing quad is right). ⛔ Not
-guessed here — the manifest carries the trim `off: (43, 105)` precisely so a
-consumer can convert between them, and which side is authoritative is a rendering
-decision with a Sanic/Snake blast radius.
+⇒ **AND THE MECHANISM IS NOW MEASURED RATHER THAN INFERRED — TWO WRITERS OF ONE
+PLACEMENT, AND ONLY HALF OF ONE SURVIVES.** The pose publishes BOTH
+(`authored_render=Some(60.95, 73.14)`, `authored_offset=Some(0.76, −19.81)`), so
+`sync_visuals` DOES take its branch: it sets `custom_size` to the frame quad,
+applies `translation.y -= offset.y`, and forces `Anchor::CENTER`.
+
+⛔⛔ **THEN `animate_player` OVERWRITES THE SIZE AND THE ANCHOR AND LEAVES THE
+TRANSLATION ALONE.** `(size, anchor_v) = animator.current_render()` →
+`sprite.custom_size = Some(size)` (the TRIMMED 24×32.76) and `anchor.0 = anchor_v`.
+⇒ **The frame-referenced offset is applied to a quad and anchor that no longer
+exist.** −19.8 units on a 32-unit body is the float.
+
+⭐ **The animation module already knows the frame quad is wrong for a packed
+sheet** — its own comment says the render basis is what *"prevents frame zero of a
+packed sheet from flashing at the full logical size."* So for a trimmed sheet the
+ANIMATOR is the authority on size and anchor, and `sync_visuals`' `authored_render`
+/ `authored_offset` pair is a second authority for the same placement.
+
+⇒ **THE FIX SHAPE: one writer owns size+anchor+offset together.** Where the animator
+owns the first two, it must own the third, or `sync_visuals` must not apply a
+translation computed for a quad it no longer set. ⛔ Which of the two is
+authoritative is a rendering decision with a Sanic and Solid-Snake blast radius, so
+it is not guessed here — but it is now a one-line question rather than a search.
 
 ## ⛔⛔ THE ROUTE THAT GOT HERE, AND THE REASON IT TOOK ALL AFTERNOON
 

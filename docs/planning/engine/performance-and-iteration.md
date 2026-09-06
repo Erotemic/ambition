@@ -37,7 +37,52 @@ is the asset campaign, and it is now the ONLY performance campaign:
 ## ⭐⭐ TWO OF THE RATCHET'S SIX FINDINGS ARE WORKSPACE GROWTH, NOT COUPLING — and its own percentage column already said so (2026-09-05)
 
 The compile-cost ratchet reports findings and is NOT in the `--rust` lane, so no
-union run touches it.
+union run touches it. ⚠ It IS in the default lane's `slow_python_checker_jobs()`,
+so "no union run touches it" is a statement about `--rust`, not about the gate.
+
+⚠ **RE-MEASURED 2026-09-06: SEVEN findings, not six** — six REGRESSED plus the
+UNPRICED row (now eight crates). Anyone pricing the carve off "six" is working from
+a count that moved.
+
+## ⛔⛔ AND `--adopt-wins` — THE COMMAND THAT UNBLOCKED THIS ROW — IS WHY THE BASELINE HOLDS ONE FACT TWICE
+
+The section above records the carve-owner blocker as gone because `--adopt-wins`
+banks wins without banking regressions. ✔ That is still true and still the right
+split. ⇒ **But the same command refreshes the `crates` table from the CURRENT
+snapshot while writing the derived scalars back from the OLD one**, so the frozen
+file ends up holding one fact twice, with different values:
+
+```text
+ambition_geometry                      stored 540,227   its own table 592,091   (+51,864)
+ambition_platformer2d_core             stored 537,395   its own table 588,780   (+51,385)
+ambition_platformer2d_actor_monolith   stored 285,213   its own table 294,327   (+ 9,114)
+```
+
+⇒ **The findings compare against the STALE copy**, so most of each reported
+regression predates the baseline it is measured against:
+
+| finding | reported | predates the baseline | budget |
+|---|---|---|---|
+| `worst_edit_cost_lines` (geometry) | +68,648 | 51,864 | +10,804 |
+| `edit_cost_lines` (core) | +68,169 | 51,385 | +10,747 |
+| `edit_cost_lines` (monolith) | +18,280 | 9,114 | +5,704 |
+
+⇒ The real movement is roughly **one budget over**, not six. ⚠ Still over — this is
+not an all-clear — but "+68,648 against a +10,804 budget" and "+16,784 against a
++10,804 budget" call for different responses, and only the first is what the report
+used to show.
+
+✔ **FIXED THE READING, NOT THE NUMBER (`6de30f272`).** Every affected finding now
+carries the disclosure inline. ⛔ **The comparison itself is untouched, deliberately**
+— the script's own comment says changing which number the findings compare against
+is a change to what the gate MEANS and belongs to whoever owns the carve programme.
+This run only noticed.
+
+⇒ **THE DECISION THAT WOULD CLOSE IT** is small and is the (A) form: the scalars are
+DERIVATIONS of the `crates` table (a max and a selection), so the elegant fix is to
+stop storing them and derive them at read time — then they cannot disagree, and
+`--adopt-wins` has one fact to write instead of two. That changes today's verdicts,
+which is why it is a ruling and not a tidy.
 
 ✔ **THE "WAITING ON A CARVE OWNER" BLOCKER IS GONE (2026-09-05).** It was
 waiting because `--update` banks regressions together with wins — an all-or-

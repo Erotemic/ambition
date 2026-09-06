@@ -183,7 +183,31 @@ def main(argv: list[str]) -> int:
         )
         return 2
 
-    text = "".join(chunks)
+    # ⛔⛔ THE HEADER IS PART OF THE ARTIFACT, NOT DECORATION. `dev/patches/` is
+    # guarded by `test_the_patch_announces_that_it_has_not_landed`, which reads
+    # the opening lines and requires the file to say it is UNAPPLIED -- so a
+    # reader who finds it cannot mistake a proposal for a landed change. This
+    # generator emitted a bare diff, so REGENERATING the patch broke that guard
+    # every time. Found 2026-09-06, when a history truncation forced the first
+    # regeneration since the guard was written: the patch had been hand-headed
+    # once and nothing kept the two in step.
+    # ⇒ The generator now writes what the guard requires, so the file it produces
+    # is valid on its own terms rather than needing a human to remember.
+    banner = (
+        f"PROPOSED, NOT APPLIED — retarget the LDtk player-preview tileset to "
+        f"{args.tier}\n"
+        "\n"
+        f"    cd <repo root> && git apply {args.out or '<this file>'}\n"
+        f"    # regenerate: scripts/propose_ldtk_tileset_retarget.py --out "
+        f"{args.out or '<this file>'}\n"
+        "\n"
+        "⛔ THE FILES ARE IN `game/ambition_map_assets`, WHICH IS A SUBMODULE.\n"
+        "Applying this changes the submodule's working tree and needs a commit\n"
+        "there plus a pointer bump in the superproject. That is why it is a\n"
+        "patch and not a commit.\n"
+        "\n"
+    )
+    text = banner + "".join(chunks)
     if args.out:
         Path(args.out).write_text(text)
         print(f"wrote {args.out} — {touched} world(s), {text.count(chr(10))} diff lines")

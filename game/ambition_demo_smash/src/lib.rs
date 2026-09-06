@@ -1064,6 +1064,16 @@ impl bevy::prelude::Plugin for SmashRulesPlugin {
             crate::match_scope::sweep_objects_from_ended_matches
                 .in_set(ambition_platformer2d::platformer::schedule::CombatSet::Trigger),
         );
+        // ⛔⛔ THE CAP ADOPTION RUNS BEFORE ANYTHING PRICES A MOVE. A stock loss
+        // hands the body a fresh `BodyMana` in `CombatSet::Settle` — a 100-point
+        // pool that starts FULL — and `Trigger` reads a move's cost before
+        // `ContentFlavor` would have emptied it, so the frame after dying used to
+        // offer the Limit for free. See `adopt_the_limit_cap`.
+        app.add_systems(
+            sim,
+            crate::limit::adopt_the_limit_cap
+                .before(ambition_platformer2d::platformer::schedule::CombatSet::Trigger),
+        );
         app.add_systems(
             sim,
             crate::limit::fill_limit_meters

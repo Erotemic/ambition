@@ -3729,6 +3729,23 @@ comes from the same fallback, which is why the collision looks right.
 this line question is settled. Nothing else about that row is blocked — the
 mechanism is pinned by a characterization test with a stated exit.
 
+⛔⛔ **AND IT IS TWO ROWS, NOT ONE — checked rather than assumed, 2026-09-06.**
+`D129` (player-visible sprite clipping through authored geometry) has a
+population-complete sweep behind it — **38 targets, 405 frames** — and its stated
+repair is *"fix the authored canvas/pose/geometry rather than weakening the
+guard"*. Those targets are
+`tools/ambition_sprite2d_renderer/ambition_sprite2d_renderer/targets/`, i.e. this
+same submodule. ⇒ **Q65 currently gates every player-visible art repair in the
+project**, which is a different order of cost from the tidy-up the question's
+title suggests.
+
+⚠ **AND THAT CUTS BOTH WAYS, so it is not an argument for hurrying.** The reason
+nobody should run `git submodule update` here is that it would discard an unpushed
+line; the reason it matters more than usual is that the same submodule is where
+the next several fixes have to be written. Settling the line question unblocks the
+work AND removes the data-loss risk — they are the same action, not competing
+ones.
+
 ```text
 superproject pin (git ls-tree HEAD)   0828fae   pushed; adds 161 lines to
                                                 targets/icons/item_icons.py

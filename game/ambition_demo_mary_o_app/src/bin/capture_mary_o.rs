@@ -159,6 +159,9 @@ fn main() {
         at,
     });
     app.add_systems(Startup, setup_capture_target);
+    // Reports on the shutter frame; see the function's own note for why the two
+    // halves have to be printed together.
+    app.add_systems(Update, report_body_against_sprite);
     // the placement runs in the SIM schedule, not beside the other capture
     // systems. It calls `transit_body`, which writes `MotionModel` — rollback
     // state — and `scripts/check_rollback_mutators_run_in_sim.py` catches
@@ -241,6 +244,68 @@ fn shoot_when_warm(
 /// Put her where `--at` says, once, as soon as something is drawing.
 ///
 /// through the movement authority, not a bare pose write: a discrete
+/// ⭐⭐ THE ONE FRAME WHERE BOTH HALVES ARE PRINTED TOGETHER.
+///
+/// Chasing Mary-O's floating sprite produced five refuted hypotheses in an
+/// afternoon, and every one died the same way: a number read without knowing which
+/// BRANCH produced it. Every instrument in this area reports ONE side — the picture
+/// shows a disagreement it cannot quantify, and the components quantify one half
+/// each and never meet.
+///
+/// ⇒ This prints the BODY (world position, collision size, and the bottom edge its
+/// feet stand on) beside the DRAWN sprite (final `transform.translation` and the
+/// quad it was given), on the shutter frame. A placement defect is then a
+/// subtraction rather than an argument.
+///
+/// ⚠ It reports rather than asserts, deliberately: what "aligned" means depends on
+/// the sheet's own feet anchor, and inventing a tolerance here would be a second
+/// authority for a fact the manifest already holds.
+fn report_body_against_sprite(
+    target: Option<Res<CaptureTarget>>,
+    warmup: Res<Warmup>,
+    bodies: Query<
+        &ae::BodyKinematics,
+        ambition_platformer2d::platformer::markers::PrimaryPlayerOnly,
+    >,
+    drawn: Query<(
+        Entity,
+        &GlobalTransform,
+        &Sprite,
+        Has<ambition_platformer2d::platformer::lifecycle::PlayerVisual>,
+        Option<&ambition_platformer2d::platformer::lifecycle::PresentationOf>,
+    )>,
+) {
+    // Only on the frame the shutter fires, so the line is one row and not a stream.
+    if target.is_none_or(|target| target.adopted == 0) || warmup.remaining > 0 {
+        return;
+    }
+    let Ok(kin) = bodies.single() else {
+        return;
+    };
+    eprintln!(
+        "[align] body pos=({:.2},{:.2}) size=({:.2},{:.2}) feet_y={:.2}",
+        kin.pos.x,
+        kin.pos.y,
+        kin.size.x,
+        kin.size.y,
+        kin.pos.y + kin.size.y * 0.5,
+    );
+    // EVERY drawable, with its markers — because "the player's sprite" turned out
+    // to name more than one entity, and a diagnostic that reports `single()` hides
+    // exactly that.
+    for (entity, transform, sprite, visual, presented) in &drawn {
+        let t = transform.translation();
+        eprintln!(
+            "[align]   {entity:?} xy=({:.2},{:.2}) quad={:?} player_visual={} presentation_of={:?}",
+            t.x,
+            t.y,
+            sprite.custom_size,
+            visual,
+            presented.map(|p| p.0),
+        );
+    }
+}
+
 /// relocation that leaves the body's contacts and collapsed sweep describing the
 /// spawn point is the defect ADR 0024's authorities exist to prevent, and a
 /// capture tool that corrupts the thing it photographs is worse than no tool.

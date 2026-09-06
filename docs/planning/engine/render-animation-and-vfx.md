@@ -1049,7 +1049,46 @@ on-screen position.
 producer (`sync_sprite_posed_bodies`) and ONE consumer (`translation.y -= offset.y`),
 and that branch forces `Anchor::CENTER` so the anchor cannot also encode it.
 
-## ⛔⛔ I AM STOPPING HERE, AND THE REASON IS THE USEFUL PART
+## ⭐⭐⭐ FOUND IT, WITH THE DIAGNOSTIC THAT PRINTS BOTH HALVES (2026-09-06)
+
+Built the ten-line instrument the section below asks for — `capture_mary_o` now
+prints the BODY and every DRAWABLE in the shutter frame — and the answer was in the
+first run.
+
+```
+[align] body pos=(131.34,346.25) size=(21.33,32.00) feet_y=362.25
+[align]   709v0 quad=Some(Vec2(24.0, 32.761906)) player_visual=true
+```
+
+⇒ **ONE player drawable, and its quad is `24.0 × 32.76`.** Unscale by the sheet's
+`0.381`: **63 × 86 px** — which is the TRIMMED ATLAS RECT (`idle` is
+`w: 63, h: 86`), **not the logical frame** `160 × 192`.
+
+⛔⛔ **BUT THE OFFSET IS COMPUTED FROM THE LOGICAL FRAME.**
+`sprite_offset = (frame_w × 0.5 − cx, frame_h × 0.5 − cy) × world_per_pixel`
+`= (80 − 78, 96 − 148) × 0.381 = (0.76, −19.8)` world units, consumed as
+`translation.y -= offset.y`, which RAISES the quad by 19.8.
+
+⇒ **A frame-referenced offset applied to a rect-sized quad. Two frames of reference
+for one placement.** 19.8 units on a 32-unit body is **62% of her height** — which
+is exactly how far she floats in the capture. ⭐ **That is Jon's *"she is not
+standing on the ground wrt to visuals"*, as arithmetic rather than a story.**
+
+⚠ **AND IT CORRECTS TWO OF MY OWN READINGS.** The `[sprite-size]` diagnostic reports
+`61×73` for "the player" — the logical-frame value — while the drawable's real
+`custom_size` is `24×32.76`. **Two instruments, one subject, different answers**, and
+I built four hypotheses on the wrong one. There is also no second player drawable:
+the big face in the earlier picture is another actor, and "two sprites for one
+character" was me reading a photograph instead of a query.
+
+⇒ **THE FIX IS A CHOICE OF REFERENCE, and both halves already exist**: either size
+the quad from the logical frame (so the existing offset is right), or compute the
+offset from the trimmed rect's own origin (so the existing quad is right). ⛔ Not
+guessed here — the manifest carries the trim `off: (43, 105)` precisely so a
+consumer can convert between them, and which side is authoritative is a rendering
+decision with a Sanic/Snake blast radius.
+
+## ⛔⛔ THE ROUTE THAT GOT HERE, AND THE REASON IT TOOK ALL AFTERNOON
 
 **Four hypotheses named and refuted on this bug in one afternoon** — a deferred
 `Commands` write, a missing sheet, a failed form swap, and a texture-tier mismatch —

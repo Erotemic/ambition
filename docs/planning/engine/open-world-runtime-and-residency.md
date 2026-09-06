@@ -491,3 +491,96 @@ on the re-removal.
 ⚠ The revision-counter redesign named above is still the (A) answer and is still
 not done; what landed removes the restatement, not the question of what a plan
 revision is.
+
+## ⭐ A room had TWO NAMES and the second one was its CAPTION — removed `ef3e864de` (2026-09-06)
+
+`RoomSet::room_index_by_id` matched `room.id == id || room.world.name == id`, so
+every room answered to two names. ⛔ **And the second is a DISPLAY TITLE**: the
+LDtk converter builds it as `format!("Ambition: {}", area_id.replace('_', " "))`,
+so `lab_genesis` is captioned `Ambition: lab genesis` and **every authored room's
+two names differ**. This was never a synonym kept for convenience — it made a
+room's human-facing caption an equally authoritative way to name it, and a caption
+is a string a non-programmer edits.
+
+⭐ **WHAT A SECOND NAME COSTS ITS READERS, which is why this is architecture and
+not tidying.** `same_destination` — the room-transition dedup key — compares two
+intents with `intent.target_room() == intent.target_room()`, raw. Two intents
+naming ONE room, one by id and one by caption, read as two destinations and open
+**two transactions into one room** — the exact defect that key's own comment
+records having already fixed once, when it ANDed in `zone.id`. One name per room
+makes that comparison unable to be wrong, which is the (B) form: the defect is no
+longer expressible rather than newly detected.
+
+⚠ **MEASURED BEFORE REMOVAL, and the positive control is the load-bearing half.**
+Making the lookup exact fells NO test — which alone proves only that nothing looked.
+Making it return `None` always fells **four**, so the function is genuinely covered
+by the suites that then went green. Every documented `--start-room` value is an id
+(`goblin_encounter`, `hall_of_characters`). `git log -S` dates the alias to git
+epoch 1, when a world's name plausibly WAS its id; the converter's caption format
+arrived later and turned a synonym into an alias behind it.
+
+⇒ **AND THE REMOVAL COLLAPSED A SECOND COPY.** With the lookup exact,
+`loading.rs`'s `target_label` — resolve the index, read `rooms[i].id` back out,
+fall back to the intent — is provably `intent.target_room()` on BOTH branches. It
+had been CANONICALISING, and only the alias gave it anything to canonicalise. So
+`ActiveRoomTransitionLoad::target_room_id` was a `String` sitting beside the
+`intent` it was copied from — one fact, two places, one struct, held in agreement
+by nothing but the constructor happening to be its only writer — and is now an
+accessor. ⚠ Sibling `target_room` (the `usize` index) stays a FIELD and the doc
+says why: resolving it needs the live `RoomSet`, so it is a real cache; the id
+needed nothing.
+
+⭐⭐ **THE TRANSFERABLE LESSON, and it nearly went the other way.** I first read
+that round trip as an identity function and was about to delete it as redundant.
+It was not: `room_index_by_id` was fuzzy, so the round trip was doing real work,
+and the "simplification" would have silently changed behaviour. **A
+CANONICALISATION IS EVIDENCE THAT SOMETHING UPSTREAM CAN ARRIVE NON-CANONICAL.**
+Ask what, and you find either a live defect or a second authority to remove —
+reading the LOOKUP is what turned a wrong simplification into the actual finding.
+
+Guard on the GAP: `a_rooms_display_title_is_not_a_second_name_for_it` builds a room
+captioned the way the converter captions one and asserts the caption does not
+resolve. Poison-verified — restoring the `||` reddens it with the message naming
+the double-transition consequence, crate count 70 → 69 → 70. It carries an
+anti-vacuity assertion that id and caption still differ, so if the converter's
+format changes the test loses its realism, not its meaning.
+
+### ◐ THE SAME CLASS, ONE ROOM OVER: a prop's identity is answered by THREE fields and the one built for it is `#[allow(dead_code)]` — measured 2026-09-06, NOT yet changed
+
+Found by grepping for the shape the room alias had (`a.id == x || a.name == x`).
+Three sites in the cut-rope arena match a prop with
+`prop.kind == needle || prop.name == needle`
+(`arena.rs:256`, `arena.rs:282`, `mod.rs:315`).
+
+✔ **THE AUTHORED DATA SAYS THE FALLBACK IS REDUNDANT.** Parsing
+`you_have_to_cut_the_rope.ldtk`: exactly **2** `Prop` entities carry a cut-rope
+kind, and both have `kind == name` (`cut_rope_rope`, `cut_rope_anvil`). So on
+authored data the `name` half never adds a match. ⚠ **But that is not the whole
+story, and stopping there would have produced a wrong edit** — the same near-miss
+as the room alias, twice in one hour.
+
+⛔⛔ **`PropVisual.kind` IS MUTATED AT RUNTIME.** The arena cycles the hanging
+weight anvil → piano, and `apply_cut_rope_heavy_object_sprite` does
+`prop.kind = desired_kind.to_string()` (`arena.rs:341`). `name` is never mutated.
+⇒ After one cycle the SAME entity reads `kind = "cut_rope_piano"`,
+`name = "cut_rope_anvil"`. The `|| name ==` half is therefore not dead
+defensiveness: it is what keeps the entity findable **across its own re-skin**,
+and the sibling `key_matches(ANVIL) || key_matches(PIANO)` disjunction is a second
+compensation for the same thing.
+
+⭐⭐ **THE ACTUAL FINDING IS NOT THE ALIAS, IT IS WHICH FIELD IS THE IDENTITY.**
+`PropVisual` carries `id` (the LDtk iid — "for debug overlay + future save-key
+joins", and marked `#[allow(dead_code)]`), `kind` ("registry key the sprite was
+looked up under") and `name` (the author-edited caption). The stable authored
+identity is `id`, and it is UNUSED; the code identifies props by a field that
+CHANGES and patches over the change with a caption. `kind` being mutable is not a
+bug — it honestly means "what this is drawn as right now" — the defect is asking
+it who the prop IS.
+
+⇒ **The elegant change is to identify the heavy object by its authored identity,
+after which both compensations collapse**: one `key_matches` field and no
+`ANVIL || PIANO`. ⚠ NOT DONE HERE, and deliberately: it is content-behaviour
+surgery on a working boss, the disjunction is correct today, and this page would
+rather carry a measured finding than a rushed edit. The room-alias commit
+(`ef3e864de`) is the same shape with a clean removal available; this one is not
+clean, and saying which is which is the point of writing it down.

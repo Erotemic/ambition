@@ -3760,7 +3760,11 @@ repo, the same test disagreeing** — and `git submodule status`'s `+` prefix me
 
 ## Q67 — does the Limit meter survive a stock loss, or reset with the body?
 
-**Blocking a ✔-marked row that is only half true.** The Limit is shipped on the
+**Not blocking anything, and that is a change since this was filed.** Row 10 of
+the expressive-moves campaign is closed: every engine clause is met and the
+respawn bug that writing this question uncovered is fixed, so what is left here is
+a design ruling about SHIPPED behaviour rather than a gap in the work. The Limit
+is shipped on the
 goblin (Jon: *"Give the limit ability to the goblin maybe? […] And give whoever
 gets the limit meter some move they can use when it fills."*), and the meter
 fills, decays and gates a move. What nothing ever decided is what a STOCK LOSS

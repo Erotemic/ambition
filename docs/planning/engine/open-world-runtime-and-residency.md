@@ -285,12 +285,30 @@ discovery below: 108 types are registered with `add_message`, 101 have a
 `MessageReader` somewhere, and seven have none.
 
 ```text
-LoadEvent              ambition_load/src/plugin.rs        PUBLISHED — tested here now
-PortalGunEquipped      ambition_portal2d/src/plugin.rs    open, costs a schema row
-SemanticActionPressed  ambition_platformer2d_host/src/lib.rs   open
-MenuClosedRequested    ambition_menu/src/lib.rs           ✔ DELETED 2026-09-06
-MenuModelChanged       ambition_menu/src/lib.rs           ✔ DELETED 2026-09-06
+LoadEvent              ambition_load/src/plugin.rs         PUBLISHED — tested here now
+SemanticActionPressed  platformer2d_host/src/lib.rs        PUBLISHED — by design
+PulseFired             examples/capability_demo/src/lib.rs PUBLISHED — "for anyone
+                                                           who wants to react to it"
+PortalGunEquipped      ambition_portal2d/src/plugin.rs     ⚠ OPEN, costs a schema row
+MenuClosedRequested    ambition_menu/src/lib.rs            ✔ DELETED 2026-09-06
+MenuModelChanged       ambition_menu/src/lib.rs            ✔ DELETED 2026-09-06
 ```
+
+⚠ **`SemanticActionPressed` is PUBLISHED BY DESIGN and must not be chased.**
+`examples/capability_demo` exists to demonstrate that seam and states the reason
+in its own docs: a press comes back as `SemanticActionPressed`, and *"what the
+composition still owns is the last hop — which seat drives which body — because
+that is the one fact this crate refuses to know."* The missing reader IS the
+design. ✔ Its emission is already asserted in-tree (`semantic.rs:796`), which is
+what the published class actually owes.
+
+⛔ **AND ADDING `examples/` TO THE SWEEP ADDED AN ENTRY RATHER THAN REMOVING
+ONE.** The scan covered `crates/` and `game/` only — a blind spot, because an
+example crate is exactly where a published seam's consumer would live. Fixing it
+did NOT resolve `SemanticActionPressed` (the example names it in prose, not in a
+`MessageReader`) and surfaced `PulseFired`, invisible until then. ⇒ widening a
+population makes latent members visible in BOTH directions; do not assume a scope
+fix will shorten a list.
 
 ✔ **The two menu entries were DEAD by every test and are gone.** Neither was ever
 WRITTEN — no producer, no consumer, not in any rollback ledger — and

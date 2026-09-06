@@ -64,8 +64,22 @@ MIN_DECLARED = 40
 
 
 def rust_files() -> list[pathlib.Path]:
+    """Every workspace source tree — INCLUDING `examples/`.
+
+    ⛔⛔ THE BLIND SPOT THAT MISCLASSIFIED `SemanticActionPressed`. It scanned
+    `crates/` and `game/` only, so the message reported no reader — while
+    `examples/capability_demo` exists precisely to demonstrate that seam and says
+    in its own docs that *"a press comes back as `SemanticActionPressed`"* and the
+    COMPOSITION owns the last hop. ⇒ an example crate is exactly where a
+    published seam's consumer lives, so leaving it out biased the sweep toward
+    calling published things unread.
+    """
     return sorted(
-        [*REPO.glob("crates/**/*.rs"), *REPO.glob("game/**/*.rs")],
+        [
+            *REPO.glob("crates/**/*.rs"),
+            *REPO.glob("game/**/*.rs"),
+            *REPO.glob("examples/**/*.rs"),
+        ],
         key=str,
     )
 

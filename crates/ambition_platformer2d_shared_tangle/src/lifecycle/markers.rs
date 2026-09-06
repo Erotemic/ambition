@@ -49,6 +49,36 @@ pub struct ModeScopedEntity(pub String);
 #[derive(Component, Clone, Default)]
 pub struct PlayerVisual;
 
+/// WHOSE BODY THIS DRAWABLE DRAWS — the one way to ask.
+///
+/// ⛔⛔ THE SAME FACT WAS SPELLED THREE WAYS AND OMITTED ONCE. Measured
+/// 2026-09-06 across `ambition_render`: `FlylineVisual { body }`,
+/// `TrapdoorVisual { body }` and `TetherVisual { body }` say `body`;
+/// `HitFlashOverlay { source }` says `source`; `SlashVisual { owner }` (twice)
+/// says `owner`; and `MorphBallVisual` records NO owner at all, because it is a
+/// per-session singleton. Five families, three names, one silence.
+///
+/// ⇒ **A consumer could not ask "what else draws this body?", because there was
+/// no question to ask.** That is why portal composition sees only the base
+/// `FeatureVisual` / `PlayerVisual` sprite: a far-side character can have its
+/// base art correctly clipped while its hit-flash silhouette draws whole over
+/// the pane, and a MORPHED player bypasses portal composition entirely — the ball
+/// sits at `WORLD_Z_PLAYER + 0.05`, far above the portal band pinned at or below
+/// `WORLD_Z_DUMMY`.
+///
+/// ⭐ THIS LIVES IN `shared_tangle` BECAUSE OF THE DEPENDENCY DIRECTION, not by
+/// preference: `ambition_render` depends on `ambition_portal2d_presentation`, so
+/// a component defined in the render crate is invisible to the compositor that
+/// needs to read it. Both crates already depend on this one — the same reason
+/// `PlayerVisual` above sits here.
+///
+/// ⚠ IT DOES NOT REPLACE A DRAWABLE'S OWN DATA. `TetherVisual` still needs to
+/// know which body is reaching in order to place its line; what moves here is the
+/// ANSWER to "whose body", so a consumer that does not care about tethers can
+/// still ask it.
+#[derive(Component, Clone, Copy, Debug, PartialEq, Eq)]
+pub struct PresentationOf(pub Entity);
+
 /// PUBLISH THIS BODY'S POSE READ MODEL — which row it draws, which clip, which
 /// frame — whether or not anything is rendering.
 ///

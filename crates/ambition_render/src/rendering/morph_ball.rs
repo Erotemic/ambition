@@ -145,6 +145,7 @@ pub fn spawn_morph_ball_visual(
 /// AABB. Hides the regular player sprite while the ball is active so
 /// the standing-rig animation doesn't show through.
 pub fn sync_morph_ball_visual(
+    mut commands: Commands,
     world: ambition_platformer2d_shared_tangle::lifecycle::SessionWorldRef<
         ambition_platformer2d_core::RoomGeometry,
     >,
@@ -173,15 +174,26 @@ pub fn sync_morph_ball_visual(
     // own `BodyPoseView` is the fact; who the primary player is was never part
     // of the question.
     mut player_query: Query<
-        (&ambition_sim_view::BodyPoseView, &mut Visibility),
+        (Entity, &ambition_sim_view::BodyPoseView, &mut Visibility),
         (
             With<ambition_platformer2d_shared_tangle::lifecycle::PlayerVisual>,
             Without<MorphBallVisual>,
         ),
     >,
-    mut ball_query: Query<(&mut Transform, &mut Sprite, &mut Visibility), With<MorphBallVisual>>,
+    mut ball_query: Query<
+        (
+            Entity,
+            &mut Transform,
+            &mut Sprite,
+            &mut Visibility,
+            Option<&ambition_platformer2d_shared_tangle::lifecycle::PresentationOf>,
+        ),
+        With<MorphBallVisual>,
+    >,
 ) {
-    let Ok((mut transform, mut sprite, mut ball_visibility)) = ball_query.single_mut() else {
+    let Ok((ball, mut transform, mut sprite, mut ball_visibility, owned_by)) =
+        ball_query.single_mut()
+    else {
         return;
     };
     let Ok((pose, presented)) = player_q.single() else {
@@ -208,10 +220,22 @@ pub fn sync_morph_ball_visual(
     // rather than by the one the ball happens to be following. It runs on both
     // arms so a body that stops being morphed is handed back even on the frame
     // the ball is still showing for somebody else.
-    for (pose, mut player_vis) in &mut player_query {
+    for (body, pose, mut player_vis) in &mut player_query {
         if pose.morph_ball {
             if *player_vis != Visibility::Hidden {
                 *player_vis = Visibility::Hidden;
+            }
+            // ⭐ WHOSE BODY THE BALL IS DRAWING, recorded while it is drawing it.
+            // The ball is a per-session singleton and named no owner at all, so
+            // nothing could ask what draws a morphed player -- and while morphed
+            // the ball IS the player's representation, at
+            // `WORLD_Z_PLAYER + 0.05`, above the portal band. Stamped here rather
+            // than at spawn because the ball is built before any body exists, and
+            // idempotently because this runs every frame.
+            if owned_by.map(|owner| owner.0) != Some(body) {
+                commands.entity(ball).insert(
+                    ambition_platformer2d_shared_tangle::lifecycle::PresentationOf(body),
+                );
             }
         } else if matches!(*player_vis, Visibility::Hidden) {
             // Inherited visibility lets the parent / overlay control
@@ -244,6 +268,33 @@ mod tests {
             size: ambition_platformer2d_core::Vec2::new(24.0, 24.0),
             ..Default::default()
         }
+    }
+
+    /// ⛔⛔ WHILE MORPHED, THE BALL IS THE PLAYER'S REPRESENTATION — and until
+    /// 2026-09-06 it recorded no owner at all, so nothing could ask what draws a
+    /// morphed player.
+    ///
+    /// It is a per-session singleton spawned before any body exists, which is why
+    /// it names nobody at spawn; the consequence was that PORTAL COMPOSITION saw
+    /// only the base `PlayerVisual` — hidden while morphed — and the ball, at
+    /// `WORLD_Z_PLAYER + 0.05` = 20.05, drew straight over a pane pinned at or
+    /// below `WORLD_Z_DUMMY` = 10. A morphed player bypassed the compositor
+    /// entirely. Raised by a GPT review; the fix is one shared component rather
+    /// than a portal-specific special case for the ball.
+    #[test]
+    fn a_morphed_ball_records_whose_body_it_draws() {
+        use ambition_platformer2d_shared_tangle::lifecycle::PresentationOf;
+
+        let (mut app, player, ball) = rig(true);
+        app.update();
+
+        assert_eq!(
+            app.world().get::<PresentationOf>(ball).map(|owner| owner.0),
+            Some(player),
+            "the ball is drawing this player while morphed and does not say so, \
+             so no consumer -- portal composition included -- can find out that \
+             the body's visible pixels are over here"
+        );
     }
 
     /// The rig `sync_morph_ball_visual` actually runs against: a player body that

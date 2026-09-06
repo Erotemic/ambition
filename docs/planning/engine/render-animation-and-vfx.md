@@ -955,6 +955,27 @@ Jon's misalignment is not "the swap does not resize her". The remaining suspects
 are the ART side (which sheet is BOUND and at what quad) and his session's asset
 state, not the body geometry.
 
+✔ **BOTH HALVES MEASURED AFTER SETTLING, AND BOTH ARE THE TALL SHEET'S:** box
+`(21.33, 64.0)` and render quad `(60.95, 73.14)`. The arithmetic closes on the
+sheet — collision `168px × 0.381 = 64.0`, quad `192px × 0.381 = 73.14`. **Nothing
+about her geometry is wrong in that host.**
+
+⚠ **AND THE TWO HOSTS ARE NOT A SUSPECT EITHER, checked rather than assumed.** Jon
+plays through the shell and the test drives the standalone demo — normally a real
+difference in this repo — but both reach the same registrations through
+`provider.rs:137 → install_mary_o_content`, so the sprite-authored bodies, the
+canonical heights and the shared scale are identical in each. ⛔ **There is no
+shell-host test that takes a wand**, so the path is verified in one host and
+merely shared into the other.
+
+⇒ **SO THE NEXT MEASUREMENT IS THE RENDER BIND WITH REAL LOADED ART** — which
+sheet `sync_visuals` bound and at what quad — and that is the one thing no
+headless fixture reaches. ⭐ **The instrument exists and is available on this
+machine:** `VisibleRenderMode::OffscreenGpu` gives a real wgpu backend and a
+completing readback (`capture_scene` uses it), and `vulkaninfo` reports a working
+`llvmpipe` software adapter here. ⚠ The lavapipe ban on D-RASTER-3 is about
+TIMING; a correctness photograph is exactly what software rendering is for.
+
 ✔ **The scale reasoning below is still correct and still useful — THE FALLBACK
 DOES NOT RUN.** `small_form_pixel_height()` calls `posed_body_geometry("mary_o_v2",
 Idle, 1.0)`, the same BAKED-manifest lookup `ambition_character_sprites`' own

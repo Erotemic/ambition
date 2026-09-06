@@ -84,6 +84,41 @@ stop storing them and derive them at read time — then they cannot disagree, an
 `--adopt-wins` has one fact to write instead of two. That changes today's verdicts,
 which is why it is a ruling and not a tidy.
 
+## ✔ THERE WAS A THIRD ROAD, AND IT NEEDED NO RULING — landed `b91b8dd52` (2026-09-06)
+
+The paragraph above frames the choice as *derive at read time (changes verdicts, so
+a ruling)* versus *leave it (keeps the contradiction)*. **There is a version that
+removes the contradiction and changes no verdict**, and it comes from `adopt_wins`'s
+own stated rule turned on itself: *"a 'bank only the good news' merge must enumerate
+what it KEEPS, not what it takes. Anything not explicitly settled below is inherited
+from the CURRENT snapshot… which is the failure direction."*
+
+⇒ **The `crates` table is exactly such an unsettled field**, so the fix is to settle
+it: **the table ROW a held scalar was derived from is now held with it**, and only
+for crates whose scalar was actually held — an adopted crate keeps the current row,
+or the two disagree in the other direction. Both arms are tested and poisoned
+separately.
+
+✔ **VERDICT VERIFIED UNCHANGED: still exactly 7 findings.** Nothing is laundered —
+every regression still compares against its older, tighter held scalar, which is the
+number the deferral was protecting. ⭐ **It also repairs `--diff`**, which reads
+`frozen["crates"]`: while the table advanced and the scalar did not, `--diff` offered
+a range beginning AFTER the change it pointed at — the report's own *"understates
+where to look"* warning. A held row and a held scalar now describe one commit.
+
+⚠ **SCOPE: this prevents FUTURE divergence and does not repair the gap already
+stored.** The three rows in the table above still disagree until somebody re-freezes,
+and that re-freeze is still the carve owner's judgement. ⛔ **And a re-freeze writes
+TWO records** — `freeze()` opens with `require_writable(GRAPH_LEDGER)`, which is
+`compile_graph.jsonl` *inside the measurements submodule*, while the baseline itself
+is `dev/compile_ratchet_baseline.json` in the PARENT repo. Both `--update` and
+`--adopt-wins` go through it. A guard clause naming a path is a declaration that the
+function writes there.
+
+⭐ **AND THE ROW ABOVE OVERSTATES THE COST OF LOOKING.** The ratchet is STATIC —
+"frozen weights, not a stopwatch" — so it runs in about two seconds. "The gate no
+union run touches" is cheap to run at any time; nobody has to buy a build to read it.
+
 ✔ **THE "WAITING ON A CARVE OWNER" BLOCKER IS GONE (2026-09-05).** It was
 waiting because `--update` banks regressions together with wins — an all-or-
 nothing re-freeze where refusing costs you the guard's tightness and accepting

@@ -792,13 +792,36 @@ meshes), and a body straddling a pair needs TWO flash pieces the way a transitin
 body needs two sprite slices — so the overlay stops being "one sibling mesh per
 character sprite", which is the sentence its module opens with.
 
+⛔⛔ **AND THE ACCEPTANCE IS VISUAL, WHICH THIS TREE CANNOT CHECK (measured
+2026-09-06).** Every criterion below is about PIXELS — which of the flash's pixels
+survive against a pane. The shipped rendered-app test fixture settles with **no
+window at all**, so nothing in `cargo test` can hit-test or photograph anything;
+that is why every menu pointer test triggers observers directly rather than
+clicking. ⇒ **The only instrument for this row is `capture_scene`** (`game/
+ambition_app_tools/src/bin/capture_scene.rs`), which photographs a room through the
+real render stack and needs a GPU. **Whoever takes this cannot verify it from a
+green suite, and should plan a capture per acceptance case up front** rather than
+discovering that at the end.
+
+✔ **One hazard checked and ABSENT, so nobody has to worry about it:**
+`hit_flash.wgsl` appears at two paths, and the web one
+(`game/ambition_app/web/assets/shaders/`) is a **symlink** to the monolith copy.
+One authority; a uniform added once reaches both.
+
 ⇒ Acceptance for whoever takes it, from the review: an active far-side hit flash
 loses only its pane-overlapping pixels; the actor returns near-side and flashes
 again with no manual visibility repair (**already guarded** —
 `a_drawable_that_names_a_hidden_body_is_hidden_with_it`); a long flyline disjoint
 from the pane stays visible while its body overlaps (**already guarded** —
 `a_sprite_dependant_disjoint_from_the_pane_is_not_hidden_by_its_owner`); morph ball
-and the two-visible-portals poison stay correct.
+and the two-visible-portals poison stay correct. ⚠ **The 2026-09-06 review adds
+two cases**: the flash pixels OUTSIDE the pane must stay visible while the
+overlapping ones are covered (the current whole-entity hide fails exactly here —
+the entire silhouette vanishes, including pixels the pane never touched), and a
+**two-pane** case where the body has a different relation to each. ⇒ It also names
+the shape to avoid: *a per-pane representation for the drawable*, **not another
+body-global visibility rule** — the fallback this replaces is body-global, which is
+why it is wrong rather than merely coarse.
 
 ## ◐ THREE holds have no published presentation fact — not five (measured 2026-09-06)
 

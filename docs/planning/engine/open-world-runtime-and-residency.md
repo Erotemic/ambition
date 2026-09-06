@@ -711,8 +711,25 @@ no schedule reading was needed.
 frame carries its backlog forward, and this system's early return already drains
 for that reason.
 
-⇒ **STILL OPEN, and now safe to take:** `CutRopeBossArenaState.active_room`
-hand-rolls a room-change detector that `FreshAttempt::began_in` already is, spelled
-three times, with a fourth site checking the same condition and BAILING instead of
-resetting (an unexpressed ordering dependency). `a_replay_lets_the_rope_be_cut_again`
-is the arm that would catch a mistake, and it exists now.
+⇒ **STILL OPEN, NOW SAFE, AND DELIBERATELY NOT TAKEN — and the measurement is why.**
+`CutRopeBossArenaState.active_room` hand-rolls a room-change detector that
+`FreshAttempt::began_in` already is, spelled three times, with a fourth site
+checking the same condition and BAILING instead of resetting (an unexpressed
+ordering dependency). `a_replay_lets_the_rope_be_cut_again` would catch a mistake,
+so the risk that blocked it this morning is gone.
+
+⚠ **BUT THE PATTERN HAS EXACTLY ONE PRODUCTION INSTANCE.** Grepping the shape
+(`.active_room != `) across the tree: the only other hits are TEST and tooling code
+reading `observation().active_room`, which is a legitimate observation field, not a
+resource hand-rolling a detector. ⇒ The prize is one field and three checks **in one
+file**, not a shared mechanism adopted N times — and it is a working boss with a
+behaviour wrinkle: `reset_cut_rope_boss_arena_on_room_reset` also calls
+`heavy_object.advance()`, which fires on a REPLAY today and would begin firing on
+room ENTRY under a `FreshAttempt` swap. The anvil/piano would alternate when you
+walk in rather than when you die.
+
+⇒ **So the honest verdict is "small, safe, and wants a decision about the heavy-object
+cycle first" rather than "ready".** Recorded rather than done, because the count is
+what makes that defensible: re-measure a pattern's instances BEFORE sizing work on
+it — a one-instance pattern is a tidy, and the same afternoon spent on the
+duplicate retractor above bought a fact that could not previously be tested at all.

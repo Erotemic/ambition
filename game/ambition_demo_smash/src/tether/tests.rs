@@ -258,6 +258,82 @@ fn where_the_reel_releases_her_is_a_place_the_authority_would_catch() {
 /// ⛔ GIVING UP IS NOT ARRIVING. The first draft collapsed the two exits, which
 /// meant an expired reel also stopped her dead — deleting the recovery she had
 /// left and reading as the game freezing her in the air.
+/// ⭐⭐ A REEL AUTHORED AT EXACTLY ITS BUDGET MUST PULL, and it did not.
+///
+/// `author_tether_pull` asserts `speed * timeout_s >= reach` — the authoring
+/// contract that a reel can physically cross its own reach. ⛔ `reel_tethered_
+/// fighters` decremented `remaining_s` and THEN tested the timeout, so a reel
+/// authored at exactly the budget spent its whole allowance reaching the
+/// give-up branch and issued **zero** pulls. An N-tick reel got N−1.
+///
+/// ⚠ THE ASSERTION IS THE MOVEMENT, NOT THE COMPONENT. A test that only checked
+/// the reel still exists passes against a version that keeps the component and
+/// pulls nothing, which is the defect wearing a different face.
+#[test]
+fn a_reel_with_exactly_one_tick_left_spends_it_pulling() {
+    let mut app = app(stage());
+    let her = fighter(&mut app, START, false);
+    let anchor = START + ae::Vec2::new(60.0, 0.0);
+    {
+        let world = app.world_mut();
+        world.entity_mut(her).insert(TetherReel {
+            // EXACTLY one tick at the fixture's 1/60 dt — the boundary the
+            // authoring assert accepts.
+            remaining_s: 1.0 / 60.0,
+            speed: 900.0,
+            anchor,
+        });
+        world.entity_mut(her).get_mut::<ae::BodyKinematics>().unwrap().vel = ae::Vec2::ZERO;
+    }
+    app.update();
+    let moved = body(&app, her).vel;
+    assert!(
+        moved.length() > 0.0,
+        "a reel with a full tick of budget issued no pull at all: vel {moved:?}",
+    );
+    assert!(
+        moved.x > 0.0,
+        "the pull went the wrong way for an anchor to her right: {moved:?}",
+    );
+}
+
+/// The other half of the same interval bug: N ticks of budget must buy N pulls.
+///
+/// ⛔ Counted rather than asserted qualitatively, because "it moved" is true of
+/// a reel that lost one tick out of five.
+#[test]
+fn a_reel_spends_every_tick_of_its_budget() {
+    let mut app = app(stage());
+    let her = fighter(&mut app, START, false);
+    let anchor = START + ae::Vec2::new(4000.0, 0.0);
+    {
+        let world = app.world_mut();
+        world.entity_mut(her).insert(TetherReel {
+            // Three ticks exactly.
+            remaining_s: 3.0 / 60.0,
+            speed: 900.0,
+            anchor,
+        });
+    }
+    // ⛔ THE VELOCITY IS ZEROED BEFORE EVERY TICK, and the first draft of this
+    // test did not do that: `vel` PERSISTS between updates, so leftover motion
+    // from the previous pull made the give-up tick look like a pull and the test
+    // passed against the very bug it was written for.
+    let mut pulls = 0;
+    for _ in 0..4 {
+        app.world_mut()
+            .entity_mut(her)
+            .get_mut::<ae::BodyKinematics>()
+            .unwrap()
+            .vel = ae::Vec2::ZERO;
+        app.update();
+        if body(&app, her).vel.length() > 0.0 {
+            pulls += 1;
+        }
+    }
+    assert_eq!(pulls, 3, "three ticks of budget must buy three pulls, not {pulls}");
+}
+
 #[test]
 fn a_reel_that_gives_up_leaves_her_momentum_alone() {
     let mut app = app(stage());
@@ -267,7 +343,14 @@ fn a_reel_that_gives_up_leaves_her_momentum_alone() {
         let world = app.world_mut();
         world.entity_mut(her).insert(TetherReel {
             // Already expired: this update is the one that gives up.
-            remaining_s: 1.0 / 120.0,
+            //
+            // ⚠ THIS WAS `1.0 / 120.0` AND THAT ENCODED THE OFF-BY-ONE. Half a
+            // tick read as "expired" only because the loop decremented before
+            // testing, so any budget below one tick reached the give-up branch
+            // without pulling. Under the corrected interval ownership a reel with
+            // ANY budget spends it — which is what `speed * timeout_s >= reach`
+            // promises — so expressing "expired" now means exactly that.
+            remaining_s: 0.0,
             speed: 900.0,
             anchor: ae::Vec2::new(4000.0, 110.0),
         });

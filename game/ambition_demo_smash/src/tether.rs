@@ -169,6 +169,21 @@ pub fn reel_tethered_fighters(
     let dt = time.sim_dt();
     let solids = collision.solids();
     for (entity, mut kin, mut reel, frame) in &mut bodies {
+        // ⛔⛔ THE BUDGET IS TESTED BEFORE IT IS SPENT, and the first version of
+        // this loop did the opposite: it decremented and THEN asked whether the
+        // reel had expired, so a reel authored at exactly its budget spent the
+        // whole allowance reaching the give-up branch and issued ZERO pulls. An
+        // N-tick reel got N−1.
+        //
+        // ⇒ What that broke is the AUTHORING CONTRACT rather than a shipped
+        // move. `author_tether_pull` asserts `speed * timeout_s >= reach` — the
+        // promise that a reel can physically cross its own reach — and the tick
+        // it lost is exactly the one that promise is measured in. The Projectile
+        // Polygon's authored values carry slack, so nothing in the game failed;
+        // the primitive was wrong for the next author.
+        let has_budget = reel.remaining_s > 0.0;
+        // Spent after the test, so this tick's pull is paid for by the budget
+        // that authorised it.
         reel.remaining_s -= dt;
         let to_anchor = reel.anchor - kin.pos;
         let distance = to_anchor.length();
@@ -176,7 +191,7 @@ pub fn reel_tethered_fighters(
         // first draft's bug. GIVING UP must leave her momentum alone: a reel
         // that expires mid-flight and also stops her dead would delete the
         // recovery she had left and read as the game freezing her in the air.
-        if reel.remaining_s <= 0.0 {
+        if !has_budget {
             info!(target: "ambition::moves", "tether: the reel gave up short of {:?}", reel.anchor);
             commands.entity(entity).try_remove::<TetherReel>();
             continue;

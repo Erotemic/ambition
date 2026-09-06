@@ -3693,6 +3693,23 @@ followed by one pointer bump in the superproject. That is a maintainer action:
 this session must not push to the submodule, and must not run
 `submodule update` while an unpushed commit sits there.
 
+⛔⛔ **AND NEITHER SIDE OF THIS IS VISIBLE IN A SUPERPROJECT DIFF.** Confirmed
+from the peer session 2026-09-06: the superproject pointer is `0828fae` on BOTH
+boxes, and `git log origin/main..HEAD` inside the submodule is EMPTY on theirs.
+`2b4d59f` exists on ONE machine and nowhere else. ⇒ A maintainer looking for this
+will not find it by diffing the superproject or by reading either side's
+`git status`; it takes `git merge-base HEAD <pin>` run INSIDE the submodule, on
+the box that holds the commit.
+
+⚠ **AND A CLEAN MERGE WILL NOT BE ENOUGH**, from the peer, who can see the half I
+cannot: `write_gauntlet_props` writes `polygon_*.png` into `sprites/props/`, those
+files are UNTRACKED and gitignored, and `scripts/regen/sprites.sh` is the only
+thing that regenerates them. Both sides of
+`check_held_item_props_are_rendered.py` are SOURCE, so it will happily report
+agreement between two lists while no PNG exists on disk. ⇒ whoever resolves this
+should re-run the regen and confirm the check prints `ok: 3 ... compared`, rather
+than trusting a clean textual merge.
+
 ⚠ **The symptom this surfaced as**, so the next person recognises it: on a
 checkout at `2b4d59f`, `check_held_item_props_are_rendered.py` cannot import
 `HELD_ITEM_ICON_SPECS` and eight tests fail. I first read that as the renderer

@@ -278,6 +278,54 @@ leaving a one-directional `session → world`. ⚠ The D33 decomposition row bel
 the FIGHTER lane, so the carve is theirs to schedule; this is the measurement, not
 a claim on it.
 
+## ⭐ SEVEN message types are DECLARED and read by nothing in this tree — 2026-09-06
+
+`scripts/messages_nothing_reads.py`. Found by generalising the `LoadEvent`
+discovery below: 108 types are registered with `add_message`, 101 have a
+`MessageReader` somewhere, and seven have none.
+
+```text
+LoadEvent              ambition_load/src/plugin.rs
+MenuClosedRequested    ambition_menu/src/lib.rs
+MenuModelChanged       ambition_menu/src/lib.rs
+PortalGunEquipped      ambition_portal2d/src/plugin.rs
+RunAuthoredCommand     ambition_conversation/.../authored_commands/tests.rs
+SemanticActionPressed  ambition_input/src/semantic.rs
+TouchInput             ambition_demo_smash/src/select_screen.rs
+```
+
+⛔⛔ **THE LIST IS NOT A BACKLOG, AND PUBLISHING IT AS ONE WOULD BE THE ERROR.**
+An unread message is PUBLISHED (the reader is downstream, outside this repo — the
+fix is to test the EMISSION here, because no downstream failure can report a
+regression in it) or DEAD (delete it). Those want opposite actions, and the
+discriminator is whether the crate is composed from outside — an external-consumer
+fixture, a `MinimalXPlugins` group, a doc comment about a stranger composing it.
+`ambition_load` has all three.
+
+⭐ **ONE HIT CHASED, and it carries a cost the census does not show.**
+`PortalGunEquipped` is WRITTEN in production
+(`ambition_content/src/portal/inventory_adapter.rs:219`), read by nothing, and
+**rollback-registered**: `clear_message_on_rollback::<PortalGunEquipped>`
+(`portal2d/src/rollback_registration.rs:116`) with a baseline row
+`message.portal_gun_equipped`. Its five test mentions are all `add_message`
+REGISTRATION, never a read. ⇒ an unread message is not free; it is in the wire
+format.
+⛔ **Which is exactly why it is not deleted here.** Removing it moves the rollback
+schema, and the fighter lane holds `GGRS_ROLLBACK_SCHEMA_VERSION` 163 → 164 for the
+aerial tether as of today. A second schema move in the same window is how two
+lanes produce one unmergeable ledger.
+
+⚠ **The instrument was wrong FOUR times before it was right**, and each failure is
+pinned by a unit test over a hand-built corpus: single-line-only matching; the
+TRAILING COMMA in `RoomLoaded,\n    >` (which made the most-read message in the
+tree report zero readers); counting a doc COMMENT as a reader; and missing the
+turbofish in `add_message::<T>()` entirely, which reported zero declarations and
+was caught by the anti-vacuity floor rather than by me.
+⚠ It still cannot see a reader arriving through a wrapper `SystemParam` under a
+name it does not know. `room_replay_reader_slots.py` solves that for one message
+by naming the wrapper; this one says so and asks you to chase a hit before
+believing the list.
+
 ## ⭐ `LoadCoordinator::apply` announces PlanChanged from SEVEN places
 
 **MEASURED 2026-09-05** with `scripts/repeated_statements_in_one_function.py`,

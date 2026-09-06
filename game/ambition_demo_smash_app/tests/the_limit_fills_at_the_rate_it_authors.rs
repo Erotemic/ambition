@@ -47,11 +47,27 @@ fn meters(app: &mut App) -> (f32, usize) {
 /// `regen` overrides the composition's mana policy, so the same fight can be run
 /// with and without the platformer's refill.
 fn a_live_match(regen: Option<f32>) -> App {
+    a_live_match_with(regen, |_| {})
+}
+
+/// `a_live_match`, with a chance to plant state BEFORE the stage is entered —
+/// which is the only moment a prior owner's configuration can exist.
+fn a_live_match_from(before: impl FnOnce(&mut App)) -> App {
+    a_live_match_with(None, before)
+}
+
+fn a_live_match_with(regen: Option<f32>, before: impl FnOnce(&mut App)) -> App {
     let characters = [
         ambition_demo_smash::SMASH_GEORGE_BOOUL,
         ambition_demo_smash::SMASH_GEORGE_BOOUL,
     ];
     let mut app = build_demo_app();
+    // ⛔ BEFORE ANY TICK, because a prior owner's configuration has to exist
+    // before Smash ever looks. ⚠ The first version of this hook was accepted as a
+    // parameter and never CALLED — it compiled, the closure silently never ran,
+    // and the test failed for a reason that had nothing to do with the code under
+    // test. Its `println` not appearing is what gave it away.
+    before(&mut app);
     for _ in 0..30 {
         app.update();
     }
@@ -265,6 +281,80 @@ fn probe_how_long_the_limit_takes() {
             secs(WINDOW)
         ),
     }
+}
+
+/// ⛔⛔ LEAVING SMASH PUTS BACK WHAT WAS THERE — IT DOES NOT DELETE IT.
+///
+/// The first version of the override REMOVED the portal resources on leaving,
+/// and Smash does not own them: `PortalPresentationPlugin` calls `init_resource`
+/// for `PortalCameraContinuitySelection` and `PortalViewConeConfig`, and
+/// `sync_portal_view_cones` takes `config: Res<PortalViewConeConfig>` — REQUIRED,
+/// not `Option`. In the aggregate app the portal plugin is installed globally, so
+/// leaving Smash deleted a resource a live system needs. ⚠ And even where nothing
+/// fails, "remove" is not "restore": a developer-selected configuration was
+/// destroyed rather than put back.
+///
+/// ⭐ THE SENTINEL IS HOW A STANDALONE COMPOSITION WITNESSES THE AGGREGATE CASE.
+/// This demo has no portal plugin creating a baseline, so the interesting state —
+/// somebody ELSE'S configuration standing before Smash overrides it — is planted
+/// here. Without it the test could only prove "None came back as None", which is
+/// exactly the case the bug got right.
+#[test]
+fn leaving_the_stage_restores_another_owners_portal_config() {
+    use ambition_platformer2d::portal_presentation as portal_view;
+
+    let mut app = a_live_match_from(|app| {
+        // Somebody else's baseline, standing before Smash ever runs.
+        app.world_mut().insert_resource(portal_view::PortalViewConeConfig {
+            mode: portal_view::PortalViewConeMode::Dynamic,
+            dynamic_depth_close: 999.0,
+            ..Default::default()
+        });
+    });
+
+    // On the stage, Smash's answer wins.
+    let on_stage = app
+        .world()
+        .get_resource::<portal_view::PortalViewConeConfig>()
+        .map(|c| c.mode);
+    assert_eq!(
+        on_stage,
+        Some(portal_view::PortalViewConeMode::Static),
+        "Smash did not take the cone while on its own stage"
+    );
+
+    // Leave.
+    app.world_mut()
+        .write_message(ambition_platformer2d::game_shell::ShellCommand::GoTo(
+            ambition_platformer2d::game_shell::ShellRouteId::new(
+                ambition_demo_smash::SMASH_SELECT_ROUTE,
+            ),
+        ));
+    for _ in 0..30 {
+        app.update();
+    }
+
+    let after = app
+        .world()
+        .get_resource::<portal_view::PortalViewConeConfig>()
+        .cloned();
+    let after = after.expect(
+        "leaving Smash DELETED the portal cone config. Smash does not own it — \
+         `PortalPresentationPlugin` creates it and `sync_portal_view_cones` takes \
+         it as a required `Res`, so in the aggregate app that system now has a \
+         missing parameter.",
+    );
+    assert_eq!(
+        after.mode,
+        portal_view::PortalViewConeMode::Dynamic,
+        "the prior owner's cone MODE was not restored"
+    );
+    assert_eq!(
+        after.dynamic_depth_close, 999.0,
+        "the cone config came back as a DEFAULT rather than as the value that was \
+         there. Restoring a default is not restoring: a developer-selected \
+         configuration is still destroyed, just less visibly."
+    );
 }
 
 /// ⛔⛔ WHAT SMASH DECLARES, SMASH GIVES BACK — and composing it declares nothing.

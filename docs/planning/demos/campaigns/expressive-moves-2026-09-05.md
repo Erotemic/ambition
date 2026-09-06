@@ -558,6 +558,17 @@ the half he actually named.
 
 ⇒ Two techniques added and the MEDIAN DID NOT MOVE, which is the number worth
 watching: a vocabulary that grows by getting harder to use is not growing.
+
+⛔ **AND THAT NUMBER WAS HALF THE ANSWER, which the instrument now says out loud.**
+A technique count measures what it costs to REACH FOR a keyed technique. Most of
+what a move IS gets written with verbs that are not techniques at all —
+`multihit`, `gust`, `tipper`, `invuln`, `armor`, `committed_tail`, `cancelable` —
+and a reader asking *"what can I author?"* was getting the smaller half.
+⇒ `scripts/authoring_surface.py` reports both now: **21 technique params (median
+4 fields) beside 22 authoring verbs**, ranked by what an author SUPPLIES (arguments
+minus the `MoveSpec` being threaded). ⚠ The two are printed apart and never summed:
+fields and arity are different methods, and one number made of two methods is a
+rumour.
 `TetherPullParams` is 3 fields and `RiposteStrikeParams` is 5.
 ⛔ The old figure is kept rather than overwritten because it was true at
 `b2acd849f` and a measurement without its reference point is a rumour.

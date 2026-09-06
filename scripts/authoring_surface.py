@@ -67,6 +67,50 @@ def main():
         "⇒ That is the whole seam: name the key, fill the fields. No system, no "
         "schedule row, no rollback registration, no new component."
     )
+    report_the_authoring_verbs()
+
+
+#: The module holding the verbs a fighter author composes a move OUT OF, as
+#: opposed to the keyed techniques a move REACHES FOR.
+VERBS = REPO / "crates/ambition_characters/src/moveset_authoring.rs"
+
+
+def report_the_authoring_verbs() -> None:
+    """The other half of the same question, and it was missing.
+
+    ⛔⛔ A TECHNIQUE COUNT IS NOT AN AUTHORING SURFACE. Everything above measures
+    what it costs to reach for a keyed technique — but most of what a move IS
+    gets written with verbs that are not techniques at all: `multihit`, `gust`,
+    `tipper`, `invuln`, `armor`, `committed_tail`, `cancelable`. A reader asking
+    "what can I author?" got half an answer, and the half it got was the smaller
+    one.
+
+    ⚠ ARITY, NOT FIELDS, and the two are not comparable — which is why they are
+    printed apart rather than summed. A verb's cost is its arguments minus the
+    `MoveSpec` it threads; a technique's is its params struct. Adding them would
+    make one number out of two methods.
+    """
+    if not VERBS.exists():
+        print(f"\n⚠ the authoring verbs are not where this script looks: {VERBS}")
+        return
+    text = VERBS.read_text(encoding="utf-8")
+    verbs = []
+    for match in re.finditer(r"^pub fn ([a-z_]+)\(([^)]*)\)", text, re.M):
+        name, args = match.group(1), match.group(2)
+        arity = len([a for a in args.split(",") if a.strip()])
+        # The `MoveSpec` being decorated is not something an author SUPPLIES.
+        supplied = arity - 1 if "MoveSpec" in args else arity
+        verbs.append((name, max(supplied, 0)))
+    if not verbs:
+        print("\n⚠ no authoring verbs found — this half is measuring nothing")
+        return
+    print(f"\nAUTHORING VERBS ({VERBS.name}), by what an author supplies:")
+    for name, supplied in sorted(verbs, key=lambda v: (v[1], v[0])):
+        print(f"  {name:24s} {supplied} argument(s)")
+    print(
+        f"\n{len(verbs)} verbs beside the techniques above. ⇒ The vocabulary a "
+        "move is composed OF, which is the half a technique count cannot see."
+    )
 
 
 if __name__ == "__main__":

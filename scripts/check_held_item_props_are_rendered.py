@@ -95,11 +95,37 @@ def drawn_art() -> dict[str, str] | None:
         sys.path.append(str(RENDERER_ROOT))
     try:
         from ambition_sprite2d_renderer.targets.icons.item_icons import (
-            HELD_ITEM_ICON_SPECS,
+            GAUNTLET_ICON_SPECS,
         )
-    except Exception:
-        return None
-    return {spec.key: PROP_DIR + spec.filename for spec in HELD_ITEM_ICON_SPECS}
+    except ImportError as error:
+        # ⛔⛔ A BARE `except Exception` HERE REPORTED ITS OWN BLINDNESS AS A FACT
+        # ABOUT THE MACHINE, and this check sat SKIPPED for as long as that was
+        # true. The renderer consolidated `HELD_ITEM_ICON_SPECS` into `ICON_SPECS`
+        # with a `category` field; the import then raised `ImportError`, `None`
+        # came back, and six tests skipped with "renderer submodule not
+        # importable" — which was FALSE. The submodule was right there.
+        #
+        # ⇒ Distinguish the two, because they want opposite responses: a missing
+        # MODULE is a machine that cannot check, and a missing NAME is exactly
+        # the renderer drift this file exists to catch.
+        if "ambition_sprite2d_renderer" in str(error) and "cannot import name" not in str(error):
+            return None
+        raise SystemExit(
+            "the renderer is importable but does not export what this check "
+            f"reads: {error}\n"
+            "  That is DRIFT, not an unavailable machine. Repoint this check at "
+            "the renderer's current spec list rather than letting it skip."
+        )
+    # ⚠ `GAUNTLET_ICON_SPECS`, NOT `ICON_SPECS`. The file defines TWO lists, and
+    # the obvious-looking one holds the 20 movement/combat/utility ability tiles
+    # — no held items at all. The held-item props are the `held_item` half of the
+    # gauntlet list (7 of its 14). Filtering the wrong list produced an EMPTY map,
+    # which this file's own anti-vacuity guard caught rather than certifying zero.
+    return {
+        spec.key: PROP_DIR + spec.filename
+        for spec in GAUNTLET_ICON_SPECS
+        if spec.category == "held_item"
+    }
 
 
 def main() -> int:
@@ -172,9 +198,47 @@ def main() -> int:
             )
     if mismatched or orphaned:
         return 1
+    # ⛔⛔ THE SUCCESS LINE USED TO NAME `len(drawn)`, WHICH IS NOT WHAT IT
+    # COMPARED. `mismatched` is built from `key in registered`, so the population
+    # this check actually verifies is the INTERSECTION -- and today that is
+    # EMPTY: the renderer draws `bomb`/`grapple`/..., the game registers
+    # `polygon_bomb`/`polygon_mine`/..., and the two vocabularies do not meet at
+    # a single key. "ok: 7 ... all match" was a true-looking sentence about
+    # SEVEN comparisons that never happened.
+    compared = sorted(set(drawn) & set(registered))
+    # ⛔⛔ A FAMILY WITH NO SPECS CAN NEVER BE IN `families`, so the `orphaned`
+    # clause is structurally unable to fire for the FIRST id of a new family. The
+    # restriction is derived from the DRAWN keys (the `axe`/`javelin` measurement
+    # in the docstring) -- right for a family this list partly covers, blind for
+    # one it does not cover at all.
+    # ⚠ LOUD, NOT RED. `polygon_bomb`/`polygon_mine`/`polygon_ponytail` sit in
+    # exactly that position today and it is DELIBERATE: they were moved off
+    # borrowed art onto self-named paths on 2026-09-06 with the drawings still to
+    # come. Reddening for that "punishes the normal order", which is this file's
+    # own stated rule for the other direction.
+    unclassifiable = sorted(
+        key
+        for key, path in registered.items()
+        if key not in drawn
+        and path == f"{PROP_DIR}{key}.png"
+        and key.split("_", 1)[0] not in families
+    )
+    if unclassifiable:
+        print(
+            "note: "
+            + ", ".join(unclassifiable)
+            + " point at self-named art in a family this spec list does not "
+            "cover at all,\n  so the orphan rule cannot judge them either way "
+            "-- they are OUTSIDE what this check\n  can see, not verified by it. "
+            "⚠ Two DIFFERENT states look identical from here: `axe` and "
+            "`javelin`\n  are drawn by another renderer target and are fine, "
+            "while an id whose art nothing\n  draws logs 'failed to load' every "
+            "spawn. This check cannot tell them apart."
+        )
     print(
-        f"ok: {len(drawn)} rendered held-item props all match the path the "
-        "game points at"
+        f"ok: {len(compared)} held-item prop(s) compared "
+        f"({len(drawn)} drawn, {len(registered)} registered); every compared "
+        "pair matches the path the game points at"
     )
     return 0
 

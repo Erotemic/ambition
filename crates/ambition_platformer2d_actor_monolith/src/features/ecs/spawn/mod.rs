@@ -17,7 +17,7 @@ mod gravity_construction;
 #[cfg(feature = "portal")]
 mod portal_construction;
 
-mod character_spawn_plan;
+pub(crate) mod character_spawn_plan;
 pub(crate) use character_spawn_plan::{
     report_unprepared_character, CharacterSpawnPlan, SpawnContext,
 };
@@ -27,7 +27,7 @@ pub use content_staging::{
     RoomContentStagingError, RoomContentStagingRegistrationError, RoomContentStagingRegistry,
 };
 
-pub(crate) use super::spawn_actors::{spawn_runtime_minion, spawn_runtime_minion_into};
+pub(crate) use crate::actor_spawn::{spawn_runtime_minion, spawn_runtime_minion_into};
 
 /// Spawn ECS-native feature entities for every authored static
 /// feature in a room. One loop per family.
@@ -88,7 +88,7 @@ impl std::error::Error for RoomFeatureConstructionError {}
 #[derive(Clone)]
 pub struct RoomFeatureConstructionPlan {
     room: ambition_platformer2d_world::rooms::RoomSpec,
-    content_requests: Vec<super::spawn_actors::SpawnActorRequest>,
+    content_requests: Vec<crate::actor_spawn::SpawnActorRequest>,
     /// The primary actor-domain construction lane. Every actor-owned
     /// authoritative family is planned here; optional capabilities compose
     /// separate typed lanes beside it instead of entering this domain enum.
@@ -878,7 +878,7 @@ impl RoomFeatureConstructionPlan {
             {
                 names.push(request.name.clone());
                 // The kind may carry the catalog id the display name is not.
-                if let super::spawn_actors::SpawnActorKind::Enemy { character, .. } =
+                if let crate::actor_spawn::SpawnActorKind::Enemy { character, .. } =
                     &request.kind
                 {
                     names.push(character.to_string());
@@ -1034,7 +1034,7 @@ pub fn spawn_encounter_mob(
     encounter_id: impl Into<String>,
     mob: EncounterMobSeed<'_>,
 ) {
-    super::spawn_actors::spawn_encounter_mob(
+    crate::actor_spawn::spawn_encounter_mob(
         commands,
         catalog,
         authored_sheets,

@@ -61,7 +61,7 @@ fn shark_charge_crashed_geometry(
         || crashed(charge_vec.y, pos.y, prev_pos.y, vel.y)
 }
 
-mod conversion;
+pub(crate) mod conversion;
 mod crowd_observation;
 mod limbs;
 mod motion;

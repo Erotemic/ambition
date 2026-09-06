@@ -22,6 +22,21 @@ pub mod brain_tick;
 pub mod causal;
 #[cfg(test)]
 mod character_roster;
+/// Actor SPAWN PRIMITIVES — the layer `construction`'s recipes are built out of.
+///
+/// ⭐⭐ IT SITS BELOW `construction` DELIBERATELY, AND THAT IS THE WHOLE F1 CUT.
+/// These functions were in `features::ecs::spawn_actors`, which made
+/// `construction/mod.rs` name `crate::features` fifteen times — the reverse
+/// dependency the work frontier's F1 packet exists to remove. They are not
+/// feature systems: nothing here reads a message, owns a schedule slot or
+/// consumes a construction plan. They are "put an actor of this shape into the
+/// world", which is what a recipe is made OF.
+///
+/// ⛔ THE DIRECTION IS RECIPES -> PRIMITIVES, NEVER BACK. Anything here that
+/// starts needing a `ConstructionPlan`, a receipt or a request builder belongs
+/// one layer up in `construction`, and the cycle this cut removed is what that
+/// mistake looks like when it is left alone.
+pub mod actor_spawn;
 pub mod construction;
 /// The local control seam: device frame -> slot -> the body carrying that slot's
 /// player brain. See `control/mod.rs`.

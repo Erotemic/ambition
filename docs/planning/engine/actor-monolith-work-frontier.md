@@ -79,7 +79,76 @@ that reverse dependency.
 The line counts above are a receipt, not a score. The objective is a smaller
 semantic cycle and cleaner ownership.
 
-## READY - F1: invert actor construction recipe ownership
+## ◐ PART-LANDED - F1: invert actor construction recipe ownership
+
+### ◐ STATUS 2026-09-06 — THE STATED CONDITION IS MET AND THE CYCLE IS NOT CLOSED
+
+⭐⭐ **THE PACKET'S FRAMING WAS WRONG IN A WAY THAT MADE THE WORK LOOK HARDER THAN
+IT IS, AND THEN EASIER.** It reads as two authorities depending on each other.
+Measured: **all fifteen** of `construction/mod.rs`'s upward references resolve to
+symbols defined in **one file**, `features/ecs/spawn_actors.rs`; and of the thirty
+references the other way, the five in that same file were **all inside one
+function**, `apply_summon_effects`. ⇒ The cycle was **one file holding two
+layers** — the spawn primitives that construction legitimately consumes, and one
+orchestration system that legitimately consumes construction. No move of
+`construction` could have broken it while that was true.
+
+**What landed:**
+
+| step | result |
+|---|---|
+| the summon road left the primitives' file | `features/ecs/summon.rs`; `spawn_actors.rs` names `crate::construction` **0** times, was 5 |
+| the primitives became a named layer | `crate::actor_spawn`, declared above `construction` in `lib.rs` |
+| the recipes point down | `construction -> crate::features` is **0**, was 15; `construction -> actor_spawn` is 15 |
+| guard | `scripts/tests/test_actor_construction_inversion.py`, poisoned in both import spellings |
+
+⛔⛔ **AND THE PART THAT IS NOT DONE, MEASURED RATHER THAN ESTIMATED.** The
+packet's own Required Result forbids introducing a new upward dependency to hide
+the old one, and by `scripts/measure_kernel_module_graph.py` the edge **moved one
+hop** rather than vanishing:
+
+```text
+before:  construction  <->  features            (15 / 30)
+after:   construction  -->  actor_spawn  -->  features  -->  construction
+                                    (15)          (16)          (30)
+```
+
+⇒ **F1 is complete when `actor_spawn -> features` reaches zero, and that number is
+now the whole of the remaining work.** It stands on six modules:
+
+| module | lines | its own `crate::` refs | note |
+|---|---|---|---|
+| `features/ecs/brain_builders.rs` | 926 | **0** | pure leaf — moves for free |
+| `features/ecs/actors/conversion.rs` | 274 | **0** | pure leaf — moves for free |
+| `features/ecs/spawn/character_spawn_plan.rs` | 209 | 4, none to `features` | near-leaf |
+| `features/ecs/held_items/` | (dir) | — | 3 references, all `HeldItem` |
+| `features/npcs.rs` | 915 | 7, 3 to `features` | drags |
+| `features/ecs/spawn_static.rs` | 697 | 9, 2 to `features` | drags |
+
+⭐ **THREE OF THE SIX MAKE NO INTRA-CRATE REFERENCE AT ALL**, so roughly a third of
+the residual edge is a free move. That is the next agent's cheapest start, and it
+is a measurement rather than a guess.
+
+⚠ **THE GUARD'S CEILING IS 16 AND IT IS DELIBERATELY NOT ZERO.** A guard asserting
+zero would have to be deleted to land the first half, which is how a half-finished
+carve loses its ratchet. The number may fall and may not rise.
+
+⛔ **AND ITS FIRST POISON PASSED**, which is worth carrying forward: the checker
+matched `crate::features::[A-Za-z_]\w*`, so a **brace import** —
+`use crate::features::{SpawnActorKind, SpawnActorRequest}` — was invisible, and
+putting the original reverse dependency back left the guard green. The one
+spelling it could not see was the most likely one. Fixed and re-poisoned in both
+forms.
+
+ⓘ **A SECOND FINDING THE CUT SURFACED, filed for prerequisite C rather than
+fixed here:** `ambition_demo_smash` orders a system with
+`.before(ambition_platformer2d::actors::features::apply_summon_effects)` — a
+ruleset crate naming a foreign system identity, which is exactly the
+private-cross-domain-ordering shape the schedule-authority prerequisite exists to
+remove. Moving `apply_summon_effects` had to preserve its public path for that
+reason alone.
+
+### Original packet
 
 ### Goal
 

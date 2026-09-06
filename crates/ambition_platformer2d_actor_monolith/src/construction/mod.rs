@@ -14,7 +14,7 @@ use ambition_platformer2d_shared_tangle::lifecycle::SpawnSessionScopedExt;
 use ambition_platformer2d_shared_tangle::sim_id::SimId;
 use bevy::prelude::{Entity, World};
 
-use crate::features::{SpawnActorKind, SpawnActorRequest};
+use crate::actor_spawn::{SpawnActorKind, SpawnActorRequest};
 use crate::world::placements::ActorPlacementContext;
 use ambition_boss_encounter::BossCatalog;
 
@@ -571,7 +571,7 @@ fn construct_staged_actor(
     let ActorConstructionParams::StagedActor(request) = parameters else {
         unreachable!("dispatch pairs this fn with StagedActor parameters")
     };
-    crate::features::spawn_staged_actor_into(
+    crate::actor_spawn::spawn_staged_actor_into(
         ctx.commands,
         &ctx.services.context.characters,
         &ctx.services.context.sheets,
@@ -593,7 +593,7 @@ fn construct_summoned_minion(
     let ActorConstructionParams::SummonedMinion(minion) = parameters else {
         unreachable!("dispatch pairs this fn with SummonedMinion parameters")
     };
-    crate::features::spawn_runtime_minion_into(
+    crate::actor_spawn::spawn_runtime_minion_into(
         ctx.commands,
         &ctx.services.context.characters,
         &ctx.services.context.sheets,
@@ -633,7 +633,7 @@ fn construct_giant_host(
     // inside the generic spawn file. The shared call it wraps stays where it is;
     // what is gone is a name crossing the boundary to say something only
     // construction cares about.
-    crate::features::spawn_enemy_with_faction_into(
+    crate::actor_spawn::spawn_enemy_with_faction_into(
         ctx.commands,
         &ctx.services.context.characters,
         &ctx.services.context.sheets,
@@ -665,7 +665,7 @@ fn construct_giant_hand(
     // construction paths. Non-hostile by construction — the limb fan-out is its
     // only driver, and targeting must ignore it. The `Limb` component and the
     // host's rig entry come from the `ambition.limb` relation, not from here.
-    crate::features::spawn_enemy_with_faction_into(
+    crate::actor_spawn::spawn_enemy_with_faction_into(
         ctx.commands,
         &ctx.services.context.characters,
         &ctx.services.context.sheets,
@@ -687,7 +687,7 @@ fn construct_authored_enemy(
     let ActorConstructionParams::AuthoredEnemy { authored, paths } = parameters else {
         unreachable!("dispatch pairs this fn with AuthoredEnemy parameters")
     };
-    crate::features::spawn_enemy_with_faction_into(
+    crate::actor_spawn::spawn_enemy_with_faction_into(
         ctx.commands,
         &ctx.services.context.characters,
         &ctx.services.context.sheets,
@@ -709,7 +709,7 @@ fn construct_authored_boss(
     let ActorConstructionParams::AuthoredBoss { authored } = parameters else {
         unreachable!("dispatch pairs this fn with AuthoredBoss parameters")
     };
-    crate::features::spawn_boss_with_overrides_into(
+    crate::actor_spawn::spawn_boss_with_overrides_into(
         ctx.commands,
         &ctx.services.boss_catalog,
         ctx.session,
@@ -1288,9 +1288,9 @@ fn planned_body_character(parameters: &ActorConstructionParams) -> Option<&str> 
             Some(authored.payload.character_id.as_str())
         }
         ActorConstructionParams::StagedActor(request) => match &request.kind {
-            crate::features::SpawnActorKind::Enemy { character, .. } => Some(character.as_str()),
+            crate::actor_spawn::SpawnActorKind::Enemy { character, .. } => Some(character.as_str()),
             // A staged boss builds from the boss catalog, like an authored one.
-            crate::features::SpawnActorKind::Boss { .. } => None,
+            crate::actor_spawn::SpawnActorKind::Boss { .. } => None,
         },
         ActorConstructionParams::SummonedMinion(minion) => Some(minion.character_id.as_str()),
         ActorConstructionParams::AuthoredBoss { .. }
@@ -1664,7 +1664,7 @@ pub fn staged_actor_requests(
             // This also asked the roster, whose lookup could not fail — so an
             // unresolvable key answered the `combatant` row, which is not a
             // limbed host, so the two agreed by luck rather than by design.
-            if crate::features::is_limbed_host(resolve_planned_character(prepared, character)) {
+            if crate::actor_spawn::is_limbed_host(resolve_planned_character(prepared, character)) {
                 let aabb = ambition_platformer2d_core::Aabb::new(request.pos, request.half_size);
                 // Invisible while an archetype row could answer for the brain key; a refusal the
                 // moment they went (AC6).
@@ -1678,7 +1678,7 @@ pub fn staged_actor_requests(
                     aabb,
                     host_payload,
                 );
-                let hands = crate::features::giant_hand_plans(&request.id, aabb);
+                let hands = crate::actor_spawn::giant_hand_plans(&request.id, aabb);
                 let room = room_id.to_string();
                 let provider_owned = provider.to_string();
                 let host_origin = SpawnOrigin::ProviderStaged {
@@ -1742,12 +1742,12 @@ pub fn authored_actor_requests(
     for enemy in &room.enemy_spawns {
         // See the twin in `staged_actor_requests`: a character states its limbs,
         // and nothing else does.
-        if crate::features::is_limbed_host(resolve_planned_character(
+        if crate::actor_spawn::is_limbed_host(resolve_planned_character(
             prepared,
             &enemy.payload.character_id,
         )) {
             let giant_sim = SimId::placement(&enemy.id);
-            let hands = crate::features::giant_hand_plans(&enemy.id, enemy.aabb);
+            let hands = crate::actor_spawn::giant_hand_plans(&enemy.id, enemy.aabb);
             let source = room.id.clone();
             let hand_source = source.clone();
             requests.append(&mut giant_cluster_rows(
@@ -1816,9 +1816,9 @@ fn giant_cluster_rows(
     >,
     faction: ambition_combat::components::ActorFaction,
     paths: Vec<(String, ambition_platformer2d_core::KinematicPath)>,
-    hands: Vec<crate::features::GiantHandPlan>,
+    hands: Vec<crate::actor_spawn::GiantHandPlan>,
     host_origin: SpawnOrigin,
-    mut hand_origin: impl FnMut(&crate::features::GiantHandPlan) -> SpawnOrigin,
+    mut hand_origin: impl FnMut(&crate::actor_spawn::GiantHandPlan) -> SpawnOrigin,
 ) -> Vec<ActorConstructionRequest> {
     let mut rows = vec![ActorConstructionRequest {
         sim_id: host_sim.clone(),

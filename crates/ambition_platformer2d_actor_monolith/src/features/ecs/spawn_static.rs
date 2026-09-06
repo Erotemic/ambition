@@ -218,7 +218,7 @@ fn interaction_kind_from_spec(
     }
 }
 
-pub(super) fn interactable_from_authored(
+pub(crate) fn interactable_from_authored(
     authored: &ambition_platformer2d_world::rooms::Authored<
         ambition_platformer2d_world::rooms::InteractableSpec,
     >,
@@ -375,7 +375,7 @@ pub(crate) fn lower_interactable_placement(
         aabb: record.aabb,
         payload: spec.clone(),
     };
-    super::spawn_actors::spawn_interactable_into(
+    crate::actor_spawn::spawn_interactable_into(
         ctx.commands,
         &ctx.context.characters,
         &ctx.context.sheets,

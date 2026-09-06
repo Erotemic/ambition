@@ -4,8 +4,23 @@
 //! boss minions, and encounter mobs. Static pickups/chests/breakables live in
 //! `spawn_static.rs`; composite mount/rider fan-out lives in `spawn_mounts.rs`.
 
-use super::brain_builders::enemy_default_brain;
-use super::*;
+// ⭐⭐ EVERY DEPENDENCY NAMED, BECAUSE `use super::*` IS WHAT HID THE LAYER.
+// While this file lived under `features::ecs` it inherited that module's whole
+// scope, so nothing in it announced which parts of the feature layer it actually
+// needed — and a file whose dependencies are invisible cannot be argued about.
+// The list below IS the argument: these are spawn primitives, and what they
+// reach for is bundles, brains and component snapshots, never a construction
+// plan, a receipt or a request builder.
+use crate::features::ecs::actors::conversion::enemy_component_snapshot;
+use crate::features::ecs::boss_component_snapshot;
+use crate::features::ecs::brain_builders::enemy_default_brain;
+use crate::features::ecs::HeldItem;
+use crate::features::{EnemyActorBundle, FeatureBaseBundle};
+use ambition_platformer2d_core as ae;
+// The platformer-strict AABB semantics (edge-touching boxes do not overlap).
+use ae::AabbExt as _;
+use ambition_platformer2d_shared_tangle::lifecycle::RoomVisual;
+use bevy::prelude::{warn, Commands, Entity};
 use ambition_boss_encounter::{BossCatalog, BossClusterScratch, BossConfig, BossOverrides};
 use ambition_characters::actor::character_catalog::CharacterCatalog;
 use ambition_characters::actor::limb::LimbSlot;
@@ -477,7 +492,7 @@ impl EnemyActorSpawnPlan {
             )
             .id();
         if let Some(item) = self.held_item {
-            commands.entity(entity).insert(super::HeldItem::new(item));
+            commands.entity(entity).insert(crate::features::ecs::HeldItem::new(item));
         }
         // Data-driven signature moves: the body carries its authored repertoire as
         // an `ActorMoveset`; `trigger_moveset_moves` starts a move on a control verb
@@ -592,7 +607,7 @@ impl NpcActorSpawnPlan {
             Some(character) => match prepared.get(character) {
                 Some(prepared) => prepared.kit.action_set(),
                 None => {
-                    super::spawn::report_unprepared_character(
+                    crate::features::ecs::spawn::character_spawn_plan::report_unprepared_character(
                         character,
                         &format!("NPC `{}`", id),
                         prepared,
@@ -613,7 +628,7 @@ impl NpcActorSpawnPlan {
             // have nothing to swing — the same gap Smash's generic fighter floor
             // filled for a seat whose character stated no repertoire, and the
             // reason both are one concept.
-            None => super::brain_builders::default_fighting_kit(),
+            None => crate::features::ecs::brain_builders::default_fighting_kit(),
         };
         let (mut seed, render_size) = ambition_body_seed::ActorClusterSeed::new_peaceful_npc_in(
             authored_sheets,
@@ -631,7 +646,7 @@ impl NpcActorSpawnPlan {
         // inference. A catalog-backed NPC also gets a `BrainBinding` +
         // `AuthoredBrainContext` so its brain can be switched at runtime, rebuilt
         // around its authored home, and its selection survives snapshot.
-        let (brain, brain_binding) = super::super::npcs::resolve_npc_brain(
+        let (brain, brain_binding) = crate::features::npcs::resolve_npc_brain(
             catalog,
             prepared,
             &interactable,
@@ -681,7 +696,7 @@ impl NpcActorSpawnPlan {
             action_set: combat_kit.to_action_set(None),
             combat_kit,
             aggression: ambition_combat::components::ActorAggression::retaliates_when_hit(
-                super::super::NPC_HOSTILE_STRIKE_THRESHOLD as u8,
+                crate::features::NPC_HOSTILE_STRIKE_THRESHOLD as u8,
             ),
         }
     }
@@ -709,9 +724,9 @@ impl NpcActorSpawnPlan {
         // Dialogue is a SHARED actor capability (`ActorInteraction`).
         let interaction = ambition_combat::components::ActorInteraction {
             interactable: self.interactable,
-            talk_radius: super::super::npcs::NPC_TALK_RADIUS,
+            talk_radius: crate::features::npcs::NPC_TALK_RADIUS,
         };
-        let (identity, disposition, combat) = super::actors::actor_component_snapshot(
+        let (identity, disposition, combat) = crate::features::ecs::actors::actor_component_snapshot(
             &self.seed,
             ambition_combat::components::ActorDisposition::Peaceful,
         );
@@ -1420,9 +1435,9 @@ pub(crate) fn spawn_enemy_with_faction_into(
     // no archetype. So the question is no longer *which road builds this body*
     // but simply *which character is it*, and the answer is required.
     let character = authored.payload.gameplay_character_id();
-    let plan = super::spawn::CharacterSpawnPlan::new(
+    let plan = crate::features::ecs::spawn::character_spawn_plan::CharacterSpawnPlan::new(
         character,
-        super::spawn::SpawnContext {
+        crate::features::ecs::spawn::character_spawn_plan::SpawnContext {
             feature_id: &authored.id,
             aabb: authored.aabb,
         },
@@ -1568,7 +1583,7 @@ pub(crate) fn spawn_enemy_with_faction_into(
         if let Some(id) = definition.held_item.as_deref() {
             match ambition_characters::brain::held_item_by_id(id) {
                 Some(spec) => {
-                    commands.entity(root).insert(super::HeldItem::new(spec));
+                    commands.entity(root).insert(crate::features::ecs::HeldItem::new(spec));
                 }
                 None => bevy::log::warn!(
                     "character `{}` holds `{id}`, which is not a registered held item",
@@ -1855,7 +1870,7 @@ pub(crate) fn spawn_interactable_into(
     forced_brains: &ambition_characters::brain::AuthoredBrainOverride,
 ) {
     let feature_aabb = CenteredAabb::from_aabb(authored.aabb);
-    let interactable = super::spawn_static::interactable_from_authored(authored);
+    let interactable = crate::features::ecs::spawn_static::interactable_from_authored(authored);
     let interactable = &interactable;
     if matches!(
         interactable.kind,

@@ -149,8 +149,16 @@ EOF
 # about what this environment needs because only one of them had a list at all.
 # Every name here is a COLLECTION-TIME dependency of `scripts/tests`: absent, the
 # whole detached-tools job dies at import rather than skipping a test.
+# ⚠ `yaml` and `resvg_py` are TRANSITIVE — nothing under `scripts/` imports
+# either. `yaml` arrives with the editable moveset inspector; `resvg_py` is what
+# `ambition_sprite2d_renderer.cli.commands` needs, reached through a `sys.path`
+# insert that gives you the PACKAGE and not its dependencies. Both belong here for
+# the same reason: what this list checks is what the SUITE needs to run, not what
+# `scripts/` names.
+# ⛔ `resvg_py` was missing until 2026-09-06 and its absence read as a renderer
+# problem, red-ing a positive control written to stop exactly that confusion.
 scripts_env_modules() {
-    echo tree_sitter_rust pytest numpy soundfile rich yaml PIL
+    echo tree_sitter_rust pytest numpy soundfile rich yaml PIL resvg_py
 }
 
 verify_tool_environments() {

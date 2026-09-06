@@ -283,10 +283,20 @@ pub struct BodyCombat {
     /// presentation draws it as one; a sleep borrowing it would render as a
     /// shield break and read in a trace as one.
     ///
-    /// ⚠ THIS IS A DISABLE, NOT YET A SLEEP. It buys "cannot act for a
-    /// duration" and wake-on-damage. What it does NOT buy is the specific POSE
-    /// or the MASH escape, and those are what make a sleep richer than a
-    /// disable — neither is expressible as a timer in a `max`.
+    /// ⚠ ~~THIS IS A DISABLE, NOT YET A SLEEP~~ — HALF ANSWERED 2026-09-06, and
+    /// the half that remains is named so the next reader knows which. It buys
+    /// "cannot act for a duration" and wake-on-damage; the MASH ESCAPE now
+    /// exists too (`ambition_demo_smash::sing::mash_out_of_sleep` — a sleeping
+    /// fighter's press burns 0.05s off this timer, one credit per tick, read
+    /// off `ActorControl` because `apply_post_hit_input_gates` blanks the
+    /// derived input while this is positive).
+    ///
+    /// ⛔ WHAT IS STILL MISSING IS THE POSE, and it is the half a PLAYER sees:
+    /// a slept fighter stands exactly like one in shieldstun, in landing lag or
+    /// in a recoil lock, so in a 1v1 neither player can tell which of the five
+    /// causes is holding them. That is a presentation row and it is not
+    /// expressible as a timer in a `max` — which is the sentence this comment
+    /// has always been making, now about one thing instead of two.
     ///
     /// `0.0` for every body nothing has put to sleep, which is all of them
     /// until a move says otherwise.

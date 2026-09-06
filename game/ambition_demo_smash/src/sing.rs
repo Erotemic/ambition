@@ -68,6 +68,82 @@ pub fn apply_authored_sleep(
     }
 }
 
+/// Seconds one credited press burns off a sleep.
+///
+/// ⭐ CHOSEN AGAINST A HUMAN'S MASH RATE, and the arithmetic is the design. A
+/// player mashes roughly ten times a second, so mashing decays a sleep at about
+/// `1.0 + 10 * 0.05 = 1.5x` — a 1.4s song holds a struggling fighter for about
+/// 0.93s. ⇒ **The mash buys back a third of the punish and cannot beat the
+/// clock**, which is the shape the move needs: the singer paid a slow,
+/// self-centred, area move for the window and must keep most of it.
+///
+/// ⛔ A RULESET CONSTANT AND NOT AN AUTHORED FIELD, deliberately. Putting it on
+/// `SleepParams` is cheap — the struct already round-trips — and cheap is not a
+/// reason. Two sleeps ship (the Performer's song and the Shadow Oni's seal) and
+/// neither has asked to be harder or easier to escape than the other. ⇒ The
+/// condition that would reopen it, so it can be checked rather than re-argued:
+/// **a second move that wants a different escape rate than the first**. Until
+/// then a per-move knob is a rollback-carried field on every victim with one
+/// setting.
+const MASH_SECONDS: f32 = 0.05;
+
+/// A sleeping fighter's press buys back time — the counterplay the status was
+/// missing.
+///
+/// ⛔⛔ `BodyCombat::sleep_timer`'s OWN DOC SAID THIS WAS ABSENT: *"THIS IS A
+/// DISABLE, NOT YET A SLEEP. It buys 'cannot act for a duration' and
+/// wake-on-damage. What it does NOT buy is the specific POSE or the MASH
+/// escape."* That sentence was true for as long as the status shipped, and a
+/// sleep is the LONGEST disable in the game — the one window in a 1v1 where a
+/// human had nothing at all to do.
+///
+/// ⭐⭐ IT READS `ActorControl` RATHER THAN THE GATED INPUT, AND THAT IS THE
+/// WHOLE TRICK. `attack_support::apply_post_hit_input_gates` blanks every verb
+/// while `hard_lock_timer() > 0.0`, and a sleep is one of the five causes it
+/// folds — so a reader placed after the gate samples zeros and would conclude
+/// that sleeping fighters never struggle. ⇒ It works here because the gate runs
+/// on a TRANSIENT `InputState` built by `engine_input_from_actor_control`; the
+/// component keeps the raw press. `sample_capture_escape` had to be scheduled
+/// twice to dodge the same trap, because a captive's frame is blanked in place.
+///
+/// ⛔ ONE CREDIT PER TICK, NOT ONE PER BUTTON — copied from that function
+/// deliberately, and for its reason: a chord of six buttons would otherwise be
+/// six presses and the escape would reward a controller layout.
+///
+/// ⚠ ROLLBACK: nothing new. `sleep_timer` is a field on `BodyCombat`, which
+/// already snapshots (`ambition_characters::snapshot_impls`), and every press
+/// this reads is `ActorControl`, which is re-derived from the rolled-back input
+/// every tick. A rewind restores the timer and re-plays the presses that
+/// shortened it.
+pub fn mash_out_of_sleep(
+    mut sleepers: Query<(
+        &mut ambition_platformer2d::characters::actor::BodyCombat,
+        &ambition_platformer2d::characters::control::ActorControl,
+    )>,
+) {
+    for (mut combat, control) in &mut sleepers {
+        // Read before write: an awake body must not be touched at all, or every
+        // fighter takes a change-detection write to rollback state every tick
+        // for a status none of them has.
+        if combat.sleep_timer <= 0.0 {
+            continue;
+        }
+        let frame = &control.0;
+        // Any action press. Asking for one specific button would be a
+        // control-scheme decision this has no reason to make, and a sleeper
+        // mashing the "wrong" one would look like a broken mechanic.
+        let pressed = frame.melee_pressed
+            || frame.jump_pressed
+            || frame.burst_pressed
+            || frame.special_pressed
+            || frame.grab_pressed
+            || frame.projectile_pressed;
+        if pressed {
+            combat.sleep_timer = (combat.sleep_timer - MASH_SECONDS).max(0.0);
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -76,7 +152,9 @@ mod tests {
     fn app() -> App {
         let mut app = App::new();
         app.add_message::<ActorActionMessage>();
-        app.add_systems(Update, apply_authored_sleep);
+        // The SHIPPED order (see `lib.rs`): the mash runs first, so a press is
+        // never spent on a sleep that did not exist when it was made.
+        app.add_systems(Update, (mash_out_of_sleep, apply_authored_sleep).chain());
         app
     }
 
@@ -90,6 +168,7 @@ mod tests {
                 },
                 ae::CenteredAabb::from_center_size(at, ae::Vec2::new(28.0, 46.0)),
                 BodyCombat::default(),
+                control(),
             ))
             .id()
     }
@@ -138,6 +217,166 @@ mod tests {
             slept(&app, far),
             0.0,
             "a body well outside the pulse was caught, so the area means nothing"
+        );
+    }
+
+    /// Bodies whose `BodyCombat` was written this tick, collected AFTER the
+    /// system under test so the assertion is about its writes and no others.
+    #[derive(Resource, Default)]
+    struct Touched(Vec<Entity>);
+
+    fn note_touched(
+        mut seen: ResMut<Touched>,
+        changed: Query<
+            Entity,
+            Changed<ambition_platformer2d::characters::actor::BodyCombat>,
+        >,
+    ) {
+        seen.0.extend(changed.iter());
+    }
+
+    fn control() -> ambition_platformer2d::characters::control::ActorControl {
+        ambition_platformer2d::characters::control::ActorControl(Default::default())
+    }
+
+    /// Press one action THIS tick on `who`. Rising edges, so a fixture that
+    /// wanted a hold would have to re-set them every tick — which is the point.
+    fn mash(app: &mut App, who: Entity) {
+        let mut frame = app
+            .world_mut()
+            .get_mut::<ambition_platformer2d::characters::control::ActorControl>(who)
+            .expect("the fixture gives every fighter a control frame");
+        frame.0.melee_pressed = true;
+    }
+
+    /// ⭐⭐ THE SLEEPING PLAYER HAS SOMETHING TO DO, AND UNTIL 2026-09-06 THEY
+    /// DID NOT. `BodyCombat::sleep_timer`'s own doc said so: *"THIS IS A
+    /// DISABLE, NOT YET A SLEEP. It buys 'cannot act for a duration' and
+    /// wake-on-damage. What it does NOT buy is the specific POSE or the MASH
+    /// escape."* This is the second of those two, turned from a comment into a
+    /// rule — the sleep is the longest disable in the game and it was the only
+    /// one a human could not answer.
+    #[test]
+    fn a_mashing_fighter_wakes_sooner_than_one_who_waits() {
+        let mut app = app();
+        let singer = body(&mut app, ae::Vec2::new(0.0, 0.0));
+        let masher = body(&mut app, ae::Vec2::new(30.0, 0.0));
+        let still = body(&mut app, ae::Vec2::new(50.0, 0.0));
+        sing(&mut app, singer, 1.4);
+        app.update();
+        assert_eq!(slept(&app, masher), slept(&app, still), "the two started apart");
+
+        for _ in 0..10 {
+            mash(&mut app, masher);
+            app.update();
+        }
+        assert!(
+            slept(&app, masher) < slept(&app, still),
+            "mashing bought nothing: masher {} vs still {}",
+            slept(&app, masher),
+            slept(&app, still),
+        );
+        // ⛔ AND IT DOES NOT DELETE THE PUNISH. Ten presses off a 1.4s song
+        // leaves most of it: a sleep a mash ends outright is not a status, and
+        // the singer paid a slow, self-centred move for the window.
+        assert!(
+            slept(&app, masher) > 0.0,
+            "ten presses ended the whole sleep, so the singer's payoff is gone",
+        );
+    }
+
+    /// ⛔ ONE CREDIT PER TICK, NEVER ONE PER BUTTON — the same rule
+    /// `sample_capture_escape` states for a grab, and for its reason: a chord of
+    /// six buttons would otherwise be six presses, and escape would reward a
+    /// control-scheme trick rather than a mash.
+    #[test]
+    fn a_chord_of_every_button_buys_exactly_what_one_press_buys() {
+        let mut app = app();
+        let singer = body(&mut app, ae::Vec2::new(0.0, 0.0));
+        let one = body(&mut app, ae::Vec2::new(30.0, 0.0));
+        let all = body(&mut app, ae::Vec2::new(50.0, 0.0));
+        sing(&mut app, singer, 1.4);
+        app.update();
+
+        mash(&mut app, one);
+        {
+            let mut frame = app
+                .world_mut()
+                .get_mut::<ambition_platformer2d::characters::control::ActorControl>(all)
+                .expect("a control frame");
+            frame.0.melee_pressed = true;
+            frame.0.jump_pressed = true;
+            frame.0.burst_pressed = true;
+            frame.0.special_pressed = true;
+            frame.0.grab_pressed = true;
+            frame.0.projectile_pressed = true;
+        }
+        app.update();
+        assert_eq!(
+            slept(&app, one),
+            slept(&app, all),
+            "six buttons in one tick beat one button, so the escape rewards a \
+             controller layout instead of a mash",
+        );
+    }
+
+    /// ⛔⛔ A FIGHTER WHO IS NOT ASLEEP TAKES NO WRITE — and the FIRST draft of
+    /// this test could not see its own subject.
+    ///
+    /// It asserted `sleep_timer == 0.0` after an awake fighter mashed, which is
+    /// true of the guarded version AND of one that subtracts unconditionally:
+    /// `(0.0 - 0.05).max(0.0)` is `0.0`. The value is identical; what differs is
+    /// that the unguarded version takes a change-detection write to ROLLBACK
+    /// STATE on every body on every tick, forever, for a status none of them
+    /// has. That is the defect `sample_capture_escape`'s `With<CapturedBy>`
+    /// filter exists to prevent, and the number cannot distinguish them.
+    ///
+    /// ⇒ So it observes the WRITE. `Changed<BodyCombat>` after the system, with
+    /// a baseline tick first because inserting a component marks it changed.
+    #[test]
+    fn mashing_while_awake_takes_no_write_at_all() {
+        let mut app = app();
+        app.init_resource::<Touched>();
+        app.add_systems(Update, note_touched.after(mash_out_of_sleep));
+        let awake = body(&mut app, ae::Vec2::new(0.0, 0.0));
+        // The insertion itself is a change; spend it before measuring.
+        app.update();
+        app.world_mut().resource_mut::<Touched>().0.clear();
+
+        mash(&mut app, awake);
+        app.update();
+        assert_eq!(
+            slept(&app, awake),
+            0.0,
+            "an awake fighter's timer moved",
+        );
+        assert!(
+            app.world().resource::<Touched>().0.is_empty(),
+            "an awake fighter's BodyCombat was written to; that is a rollback \
+             checksum churning every tick for a status nobody has",
+        );
+    }
+
+    /// ⭐ AND THE POSITIVE CONTROL FOR THE ASSERTION ABOVE, without which it
+    /// passes against a `note_touched` that never sees anything: a fighter who
+    /// IS asleep and mashes must show up in the very same set.
+    #[test]
+    fn a_sleeping_masher_does_take_the_write() {
+        let mut app = app();
+        app.init_resource::<Touched>();
+        app.add_systems(Update, note_touched.after(mash_out_of_sleep));
+        let singer = body(&mut app, ae::Vec2::new(0.0, 0.0));
+        let victim = body(&mut app, ae::Vec2::new(30.0, 0.0));
+        sing(&mut app, singer, 1.4);
+        app.update();
+        app.world_mut().resource_mut::<Touched>().0.clear();
+
+        mash(&mut app, victim);
+        app.update();
+        assert!(
+            app.world().resource::<Touched>().0.contains(&victim),
+            "a sleeping fighter mashed and nothing was written, so the test \
+             above proves nothing",
         );
     }
 

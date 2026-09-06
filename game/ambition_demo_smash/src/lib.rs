@@ -930,14 +930,25 @@ impl bevy::prelude::Plugin for SmashRulesPlugin {
         // reason: a content technique whose effect must exist before the effect
         // executors run.
         //
-        // ⚠ REGISTERED WITH NO AUTHORED CUSTOMER YET, deliberately and stated:
-        // the seam is real and tested, and which fighter sings is a DESIGN call
-        // (see the campaign row). A system that never fires costs a query per
-        // tick and keeps the road honest; an unregistered one would let the
-        // first authored sing fail silently.
+        // ⚠ ~~REGISTERED WITH NO AUTHORED CUSTOMER YET~~ — STALE SINCE THE
+        // PERFORMER GOT THE SONG. Two moves author a sleep today: her
+        // `speech`'s pulse (`performer_moveset`, a strictly smaller area than
+        // the swing it rides on) and the Shadow Oni leader's seal, whose
+        // guaranteed sleep is deliberately shorter than hers. The road from an
+        // authored `MoveEventKind::Effect` to this system is the keyed-technique
+        // bridge at `crates/ambition_combat/src/moveset/mod.rs:4080`.
+        //
+        // ⛔ THE MASH RUNS FIRST, so a press cannot be spent on a sleep that did
+        // not exist when it was made. `apply_authored_sleep` takes a `max`, so
+        // the landing tick is unchanged either way; the order is the honest
+        // reading rather than a fix.
         app.add_systems(
             sim,
-            crate::sing::apply_authored_sleep
+            (
+                crate::sing::mash_out_of_sleep,
+                crate::sing::apply_authored_sleep,
+            )
+                .chain()
                 .in_set(ambition_platformer2d::platformer::schedule::CombatSet::ContentSpecials),
         );
         // THE PORTAL RECOVERY. ⭐ `ContentSpecials`, the seam the runtime

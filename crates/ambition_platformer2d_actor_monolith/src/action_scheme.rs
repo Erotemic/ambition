@@ -105,15 +105,16 @@ impl Plugin for ActionSchemePlugin {
             sim,
             (
                 ambition_items::equipment::reconcile_equipment_grants
+                    .in_set(ambition_items::equipment::EquipmentGrantsReconciled)
                     .after(ambition_platformer2d_shared_tangle::schedule::PlayerInputSet::Persona),
                 // The routing markers follow whatever the moveset finally IS —
                 // after identity derived it and equipment overlaid its grants, so
                 // a ranged move granted by a row routes through the move timeline
                 // on the same tick it is granted.
                 ambition_combat::moveset::reconcile_moveset_routing_markers
-                    .after(ambition_items::equipment::reconcile_equipment_grants),
+                    .after(ambition_items::equipment::EquipmentGrantsReconciled),
                 reconcile_action_schemes
-                    .after(ambition_items::equipment::reconcile_equipment_grants),
+                    .after(ambition_items::equipment::EquipmentGrantsReconciled),
             )
                 .in_set(Platformer2dSimulationPhaseMonolith::PlayerInput),
         );

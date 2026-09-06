@@ -7,10 +7,18 @@ OTHER crates' private systems has taken authority over domains it does not own,
 and moving those domains into separately composable crates does not make them
 separately composable — the edge is in the code, not in the packaging.
 
-⛔ THIS IS A RATCHET, NOT A GATE, AND THE NUMBERS ARE NOT ZERO. Eighty-seven of
-these exist today. A test asserting zero would have to be deleted the moment
-anybody ran it, which is how a measurement stops being kept; a ceiling that may
-only fall is what survives the distance between "measured" and "fixed".
+⛔ A RATCHET, NOT A GATE — AND ONE HALF OF IT HAS REACHED ZERO. Eighty-seven
+existed when this was written and the capability-written half is now **0**: every
+row a ruleset or capability wrote has been converted to published-set vocabulary.
+The composition-layer half (72) has not, so the total ceiling is still a ratchet
+rather than a gate.
+
+⚠ AND THE ANTI-VACUITY FLOOR HAD TO MOVE WHEN THAT HAPPENED. It floored the
+CAPABILITY bucket — "zero would be excellent news and is not what this tree
+contains" — which stopped being true. Deleting it would have left the classifier
+free to collapse unnoticed; it now floors the population that is still non-empty,
+and the classifier stays pinned separately. **A floor protects the population it
+names, and the population it names can be fixed out from under it.**
 
 ⚠ THE MEASURE ITSELF TOOK FOUR CORRECTIONS AND EACH ONE MATTERED, recorded in
 `scripts/measure_foreign_system_ordering.py` so the next reader inherits them
@@ -57,8 +65,8 @@ MEASURE = REPO / "scripts" / "measure_foreign_system_ordering.py"
 # ruleset was naming the function because there was nothing else to name — the
 # system belonged to no published set — which is the shape of most of what is
 # left here.
-CAPABILITY_ORDERING_CEILING = 6
-TOTAL_ORDERING_CEILING = 78
+CAPABILITY_ORDERING_CEILING = 0
+TOTAL_ORDERING_CEILING = 72
 
 
 def _module():
@@ -125,11 +133,16 @@ def test_the_capability_split_is_not_degenerate() -> None:
         "the runtime is no longer recognised as a composition layer, so the "
         "split has collapsed the other way and every row reads as a capability"
     )
-    _, capability = _rows()
-    assert capability, (
-        "zero capability-written foreign orderings would be excellent news and is "
-        "not what this tree contains; a zero here means the measure stopped "
-        "finding them rather than that somebody fixed them"
+    # ⛔⛔ THIS ARM USED TO SAY "zero would be excellent news and is not what this
+    # tree contains", floored on the CAPABILITY bucket. It is zero now — somebody
+    # did fix them — so the floor had to move rather than be deleted, or the
+    # classifier could collapse and nothing would notice. ⇒ Floor the population
+    # that is still non-empty, and keep the classifier pinned above.
+    ordering, _ = _rows()
+    assert ordering, (
+        "zero foreign orderings ANYWHERE, capability and composition alike. That "
+        "would be a finished prerequisite and is not what this tree contains: a "
+        "zero here means the measure stopped finding them"
     )
 
 

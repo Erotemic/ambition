@@ -119,8 +119,8 @@ identities."* Turned from a principle into a work list.
 
 | population | count | meaning |
 |---|---|---|
-| ORDERING a foreign system | **79** (was 87) | a crate fixing the relative order of systems it does not own |
-| — written by a capability / ruleset | **7** (was 15) | no defence: not composing anything, just reaching in |
+| ORDERING a foreign system | **72** (was 87) | a crate fixing the relative order of systems it does not own |
+| — written by a capability / ruleset | **0** (was 15) ✔ | no defence: not composing anything, just reaching in |
 | — written by a composition layer | 72 | ⚠ **still the defect** — see below |
 | INSTALLING a foreign system | 203 | the broader *"who installs it"* question |
 
@@ -252,7 +252,40 @@ system name adjacent to `.in_set(`, and the commonest spelling is
 installed into the set three lines down. Fixed to allow the chain. **Seventh
 instrument correction of the day, same direction as the other six.**
 
-### The 7 remaining with no defence
+### ✔ THE CAPABILITY-WRITTEN HALF IS ZERO — 15 → 0
+
+Every row a ruleset or capability wrote is now published-set vocabulary. The last
+group needed the shape none of the earlier ones did:
+
+⭐⭐ **A CHAIN OF SYSTEMS BECAME A CHAIN OF SETS.** `actor_monolith` chained
+`ambition_combat::…::tick_capture_holds` directly to
+`ambition_mount::steer_mount_from_rider` inside `BeforeIntegrate` — one crate
+fixing the relative order of two OTHER crates' private systems, which is the
+named form of the defect. A peer published `CaptureHoldsTicked` and
+`MountsSteeredByRiders` as bare markers; the order between them is now stated
+with `configure_sets`, in vocabulary both owning crates hold.
+
+⛔ **AND THE SYSTEM CHAIN HAD TO GO, not just gain set memberships.** Leaving
+`.chain()` around the pair as well would say the same thing twice in two
+vocabularies, and the system-level one is the half neither domain can reason
+about. The local tail (`advance_moving_platforms`, `snapshot_body_contact`) keeps
+its chain and hangs off the last published set, so the four-step contract is
+unchanged end to end.
+
+⚠ **THE COMPOSITION-LAYER HALF (72) IS UNTOUCHED AND IS NOT THE SAME JOB.** Those
+are the runtime and host installing capabilities' systems — the *"who installs
+it"* question, which the program answers with *"its own plugin/composition
+unit"*. That is a plugin-ownership project, not an ordering one.
+
+⛔⛔ **AND REACHING ZERO BROKE MY OWN ANTI-VACUITY FLOOR**, which is worth more
+than the zero. The guard floored the CAPABILITY bucket — *"zero would be excellent
+news and is not what this tree contains"* — and that stopped being true. Deleting
+the floor would have left the classifier free to collapse unnoticed; it now floors
+the population still non-empty, with the classifier pinned separately. ⇒ **A floor
+protects the population it names, and that population can be fixed out from under
+it.**
+
+### ~~The 7 remaining with no defence~~ — all landed
 
 `ambition_content -> actor_monolith::features::ecs::dormancy::assess_dormancy`;
 `ambition_demo_smash -> platformer2d::actors::features::apply_summon_effects`;

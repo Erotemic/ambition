@@ -35,7 +35,6 @@ use bevy::prelude::{Commands, Entity, MessageWriter, Query, Res, ResMut, With, W
 
 use ambition_time::WorldTime;
 
-pub mod actor_bundles;
 pub(crate) mod actors;
 mod aggression;
 pub mod anim_helpers;

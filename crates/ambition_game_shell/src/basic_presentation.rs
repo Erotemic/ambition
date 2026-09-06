@@ -928,6 +928,21 @@ fn shell_frame_key(
         // ⇒ Contrast `selected` above, which is correctly absent: a cursor moves
         // in place through `MenuVisualState`. The discriminator is whether the
         // field changes WHICH NODES SHOULD EXIST, and a tab does.
+        //
+        // ⭐⭐ AND THE SIBLING KEY IN THIS REPO CANNOT HAVE THIS BUG, which is the
+        // lesson worth carrying. `ambition_load_presentation`'s `render_basic_load`
+        // keys on `"{load_id}:{text}"` where `text` is the RENDERED CONTENT it is
+        // about to draw. ⇒ A key derived from the OUTPUT cannot omit a field. A key
+        // assembled from selected INPUTS -- which is what this one is -- can, and
+        // did: two inputs were named here and the third was not, for as long as
+        // there had been a third.
+        //
+        // ⚠ This one cannot simply copy that shape: its output is a whole page
+        // model rather than a string, so naming the inputs is the affordable
+        // approximation. The cost of the approximation is that adding a field to
+        // `ShellLauncherState` silently does nothing until someone remembers this
+        // line, and `switching_the_tab_redraws_the_menu_the_player_sees` exists
+        // because remembering is not a mechanism.
         return format!(
             "launcher:{:?}:{}:{:?}",
             launcher.tab, presentation.title, catalog.entries

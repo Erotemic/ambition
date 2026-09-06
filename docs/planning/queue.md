@@ -951,6 +951,49 @@ and run that one. `cargo check -p <crate>` with no features is seconds.
   Acceptance: the offset is gone AND the mechanism explains the snake's varying
   size, or the two are shown to be separate with evidence.
 
+  ⭐⭐ **THE MECHANISM, MEASURED 2026-09-06 — AND IT IS AN ASSET GAP, WHICH IS WHY
+  EVERY CODE ROAD BELOW WAS CORRECTLY RULED OUT.**
+
+  `SpriteSheetRecord::pose_body_bbox` resolves a pose's OWN hurtbox and then falls
+  back: `.or(self.body_pixel_bbox)`. So a sheet that publishes no per-pose metrics
+  still yields `Some(..)` — the SHEET-WIDE rectangle — for every pose.
+
+  | sheet | distinct boxes across 10 poses |
+  |---|---|
+  | `player_robot_v3` | **10** — one per pose, which is what the system is for |
+  | `mary_o_v2` | **1** |
+  | `mary_o_v2_tall` | **1** |
+  | `mary_o_v2_fire` | **1** |
+
+  ⇒ **Idle, Walk, Run, Jump, Fall, Slash, Hit, Dash, LedgeGrab and Taunt all
+  resolve the SAME rectangle on all three of her sheets.** And
+  `sync_sprite_posed_bodies` positions her quad with `geometry.sprite_offset`,
+  whose whole job its own comment states as *"where does the frame go so the
+  POSE's rectangle lands on the box"*. For her there is no this-pose rectangle, so
+  the art is placed against one generic box no matter what she is doing — a
+  persistent misposition that changes with the pose, exactly as reported. ⭐ The
+  collider is derived from the same fallback, which is why *"collision looks
+  correct"*: it is a plausible box, just not this pose's.
+
+  ⛔⛔ **AND THE GUARD THAT SHOULD HAVE CAUGHT IT ASSERTS THE OPPOSITE OF WHAT ITS
+  MESSAGE SAYS.** `every_pose_she_plays_resolves_in_every_form` fails with *"these
+  poses publish no body metrics"* — but it tests `.is_some()`, which the fallback
+  satisfies. It is green **because** the thing it names is true of her. ⇒ Same
+  defect class as the specials census: the predicate cannot distinguish the
+  failure the message describes.
+
+  ✔ **Pinned by `mary_o_has_no_per_pose_body_metrics_and_the_robot_does`**, a
+  characterization test with a stated exit: the robot arm is the positive control
+  (without it, the assertions pass against a probe returning a constant — poisoned,
+  RED), and when her sheets gain per-pose hurtboxes the test goes red and THAT is
+  the signal to close this row. Its sibling's population was also widened from the
+  five locomotion poses to the nine a match actually drives her through.
+
+  ⇒ **NEXT ACTION IS NOW A SHEET REGENERATION, not a code hunt:** her generator
+  must emit per-animation `hurtbox` metrics the way the robot's does. ⚠ That is
+  the sprite-renderer submodule, which is under the Q65 hold — so it wants Jon's
+  call before anybody regenerates anything.
+
   ◐ **MAPPED 2026-09-05, not yet reproduced. The map is the deliverable so far;
   every road below was read, and the two that could be checked headlessly were.**
 

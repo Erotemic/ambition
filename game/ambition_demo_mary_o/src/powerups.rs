@@ -2761,16 +2761,101 @@ mod scale_fallback_tests {
     /// lookup returns `None` for that frame and the body keeps whatever box and
     /// quad it last had. The state that "varies" would then be WHICH ANIMATION IS
     /// PLAYING — walking off a ledge would change her size.
+    /// ⭐⭐ HER ART IS PLACED AGAINST ONE GENERIC RECTANGLE IN EVERY POSE, AND
+    /// THAT IS A MEASUREMENT RATHER THAN A READING — 2026-09-06.
+    ///
+    /// `pose_body_bbox` resolves a pose's OWN hurtbox and then falls back:
+    /// `.or(self.body_pixel_bbox)`. So `posed_body_geometry(...).is_some()` — the
+    /// thing the sibling guard below asserts — is satisfied by the SHEET-WIDE box,
+    /// and a sheet that publishes no per-pose metrics at all passes it.
+    ///
+    /// ⛔⛔ MEASURED, TEN POSES EACH: `player_robot_v3` resolves **10 distinct
+    /// boxes**, one per pose, which is what the system is for. All three of
+    /// Mary-O's sheets resolve **ONE** — Idle, Walk, Run, Jump, Fall, Slash, Hit,
+    /// Dash, LedgeGrab and Taunt every one of them the same rectangle. ⇒ Her
+    /// quad is positioned by a term (`geometry.sprite_offset`) whose whole job is
+    /// "where does the frame go so THIS POSE's rectangle lands on the box", and
+    /// for her there is no this-pose rectangle.
+    ///
+    /// ⇒ **This is the mechanism D-MARYO-SPRITE was missing, and it is an ASSET
+    /// gap rather than a placement bug** — which is why every code road in that
+    /// row was ruled out one at a time. The collider is derived from the same
+    /// fallback, so it looks plausible while the art does not sit on it.
+    ///
+    /// ⚠ A CHARACTERIZATION TEST WITH A STATED EXIT. It pins the defect so it
+    /// cannot be lost, and the robot arm is the POSITIVE CONTROL proving the
+    /// per-pose road works at all. **When her sheets gain per-pose hurtboxes this
+    /// goes red, and that is the signal to close D-MARYO-SPRITE** — update the
+    /// expectation in the same commit that regenerates the sheet.
+    #[test]
+    fn mary_o_has_no_per_pose_body_metrics_and_the_robot_does() {
+        use ambition_platformer2d::sprite_sheet::character::CharacterAnim;
+        let poses = [
+            CharacterAnim::Idle, CharacterAnim::Walk, CharacterAnim::Run,
+            CharacterAnim::Jump, CharacterAnim::Fall, CharacterAnim::Slash,
+            CharacterAnim::Hit, CharacterAnim::Dash, CharacterAnim::LedgeGrab,
+        ];
+        let distinct = |target: &str| -> usize {
+            poses
+                .iter()
+                .filter_map(|anim| {
+                    ambition_platformer2d::character_sprites::posed_body_geometry(
+                        target, *anim, 1.0,
+                    )
+                })
+                .map(|g| format!("{:?}|{:?}", g.collision, g.sprite_offset))
+                .collect::<std::collections::BTreeSet<_>>()
+                .len()
+        };
+
+        // ⭐ THE POSITIVE CONTROL FIRST. Without it, the assertions below pass
+        // just as well against a `posed_body_geometry` that returned a constant.
+        assert!(
+            distinct("player_robot_v3") > 1,
+            "the robot's sheet publishes per-pose hurtboxes; if this is 1 the \
+             probe is broken rather than Mary-O being fixed",
+        );
+
+        for target in [
+            super::SMALL_SHEET_TARGET,
+            super::TALL_SHEET_TARGET,
+            super::FIRE_SHEET_TARGET,
+        ] {
+            assert_eq!(
+                distinct(target),
+                1,
+                "`{target}` now resolves more than one box across poses — her \
+                 sheet has gained per-pose hurtboxes, which is the fix \
+                 D-MARYO-SPRITE is waiting for. Update this expectation in the \
+                 commit that regenerates the sheet.",
+            );
+        }
+    }
+
     #[test]
     fn every_pose_she_plays_resolves_in_every_form() {
         use ambition_platformer2d::sprite_sheet::character::CharacterAnim;
-        // The locomotion set a player drives her through in a single jump.
+        // The locomotion set a player drives her through in a single jump...
+        // ⛔⛔ ...WHICH WAS THE WHOLE POPULATION, AND IT IS NOT THE WHOLE KIT.
+        // She is on the smash roster (`SMASH_ROSTER` carries `mary_o_tall`), and
+        // a match drives her through combat and ledge poses this list never
+        // named. A pose that publishes no metrics makes `sync_sprite_posed_bodies`
+        // `continue`, which skips BOTH the resize and the offset publish — so her
+        // COLLISION stays correct while her ART keeps the previous pose's
+        // placement. That is a persistent misposition with a correct-looking
+        // collider, which is exactly the shape of the report this guard exists
+        // under (D-MARYO-SPRITE, Jon 2026-09-05).
         let played = [
             CharacterAnim::Idle,
             CharacterAnim::Walk,
             CharacterAnim::Run,
             CharacterAnim::Jump,
             CharacterAnim::Fall,
+            // The match half.
+            CharacterAnim::Slash,
+            CharacterAnim::Hit,
+            CharacterAnim::Dash,
+            CharacterAnim::LedgeGrab,
         ];
         let mut missing = Vec::new();
         for target in [

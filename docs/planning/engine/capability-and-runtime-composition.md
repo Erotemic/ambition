@@ -2,6 +2,71 @@
 
 **State:** OPEN successor program.
 
+
+## ⭐⭐ PREREQUISITE C, MEASURED 2026-09-06 — 87 FOREIGN ORDERINGS, 15 OF THEM WRITTEN BY CAPABILITIES
+
+The rule: *"Every load-bearing cross-capability ordering relationship must be
+expressible using public phase/set vocabulary rather than foreign system
+identities."* Turned from a principle into a work list.
+
+`python3 scripts/measure_foreign_system_ordering.py`, ratcheted by
+`scripts/tests/test_foreign_system_ordering.py`:
+
+| population | count | meaning |
+|---|---|---|
+| ORDERING a foreign system | **87** | a crate fixing the relative order of systems it does not own |
+| — written by a capability / ruleset | **15** | no defence: not composing anything, just reaching in |
+| — written by a composition layer | 72 | ⚠ **still the defect** — see below |
+| INSTALLING a foreign system | 203 | the broader *"who installs it"* question |
+
+⛔⛔ **BEING THE RUNTIME IS NOT AN EXEMPTION, AND THE FIRST VERSION OF THIS MEASURE
+MADE IT ONE — which excused the architecture note's own named example.** The
+runtime owns phases and the order of phases. It does not own the pairwise order of
+two capabilities' private systems, and
+`ambition_mount::enforce_mount_rider_link` chained with
+`actor_monolith::rebuild_dismounted_rider_brains` is written by
+`ambition_platformer2d_runtime`. Writer role is reported as information, never as
+a reason to drop a row.
+
+⚠ **THE MEASURE TOOK FOUR CORRECTIONS AND EVERY ONE CHANGED THE NUMBER BY MORE
+THAN THE FIXES WOULD HAVE**, which is the transferable part:
+
+| the version said | it was wrong because |
+|---|---|
+| 28 capability violations | a bare module path (`actors::sync_visuals`) is INTRA-crate; most were a crate ordering itself |
+| the runtime is exempt | the program's own example is written by the runtime |
+| 9 orderings | `.before(` is not the only spelling — the named example is a CHAINED TUPLE and scored as absent |
+| 174 orderings | a chain is only the defect when it spans TWO DIFFERENT foreign crates; the rest is a runtime doing its job |
+
+⇒ **A measurement instrument's first number is a hypothesis.** Four times the
+population was wider or narrower than the claim, and each time the error ran in
+the direction that made the finding look cleaner.
+
+⭐ **THE GUARD PINS THE NAMED EXAMPLE ON PURPOSE.** Two versions of the matcher
+stopped seeing `enforce_mount_rider_link`; a ceiling cannot notice that, because a
+matcher that finds nothing satisfies every ceiling. ⛔ And a fourth test exists
+because its poison PASSED: collapsing `is_composition_layer` to `true` empties the
+capability bucket, so the ceiling reads as perfect compliance. **A ceiling sees the
+number grow; it cannot see the classifier collapse.**
+
+### The 15 with no defence
+
+`ambition_content -> actor_monolith::features::ecs::dormancy::assess_dormancy`;
+`ambition_demo_smash -> platformer2d::actors::features::apply_summon_effects` and
+`-> platformer2d::mount::apply_dismount_requests`; `ambition_platformer2d ->
+platformer2d_runtime::host_input::{commit_seat_raw_frames,
+publish_seat_controls_when_nobody_else_does}` (a capability ordering against the
+COMPOSITION layer — an inverted dependency); and `actor_monolith ->
+{ambition_characters::brain::emit_brain_action_messages,
+ambition_combat::capture::systems::tick_capture_holds,
+ambition_combat::hurtbox_resolution::resolve_body_hurtboxes,
+ambition_items::equipment::reconcile_equipment_grants,
+ambition_mount::steer_mount_from_rider}`.
+
+⇒ Each is a published-phase question: what SET should the named system belong to,
+such that the ordering becomes a membership rather than a reference?
+
+
 ## Goal
 
 ⭐ **THIS PROGRAM OWNS THE SECOND OF THE TWO ARCHITECTURAL GOALS.** Authority

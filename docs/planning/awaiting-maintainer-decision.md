@@ -3717,6 +3717,18 @@ this is a call and not a defect.
 ⛔⛔ **This is a data-loss risk, not a question about design, and it is one command
 from happening.** Measured 2026-09-06 in this checkout.
 
+⭐ **AND IT NOW BLOCKS A DEFECT YOU REPORTED, which raises its cost from "tidy this
+up eventually" to "a player-visible bug waits on it".** `D-MARYO-SPRITE` — your
+2026-09-05 report that Mary-O's sprite sits wrong against her collider — was
+measured to its mechanism on 2026-09-06: **her three sheets publish no per-pose
+hurtbox metrics at all.** Ten poses resolve ONE rectangle on `mary_o_v2`,
+`mary_o_v2_tall` and `mary_o_v2_fire`, where `player_robot_v3` resolves TEN. Her
+quad is therefore placed against a generic box in every pose, and the collider
+comes from the same fallback, which is why the collision looks right.
+⇒ **The fix is a sheet regeneration in this submodule**, so it cannot start until
+this line question is settled. Nothing else about that row is blocked — the
+mechanism is pinned by a characterization test with a stated exit.
+
 ```text
 superproject pin (git ls-tree HEAD)   0828fae   pushed; adds 161 lines to
                                                 targets/icons/item_icons.py

@@ -14,7 +14,7 @@ use ambition_characters::smash_capture::{
 use ambition_characters::smash_repertoire::{
     DownSpecial, NeutralSpecial, SmashRepertoire, UpSpecial,
 };
-use ambition_platformer2d::entity_catalog::{ImpulseMode, MovesetContract};
+use ambition_platformer2d::entity_catalog::{ImpulseMode, MovesetContract, SmashChargeSpec};
 
 pub fn pugnacious_polygon_moveset() -> MovesetContract {
     let jab = strike(Strike {
@@ -240,24 +240,60 @@ pub fn pugnacious_polygon_moveset() -> MovesetContract {
     });
     down_air.landing_lag_s = Some(0.25);
 
-    let neutral_special = committed_tail(
-        strike(Strike {
-            id: "polygon_brawler_haymaker",
-            clip: "attack_side",
-            startup_s: 0.16,
-            active_s: 0.08,
-            recover_s: 0.27,
-            offset: (29.0, -4.0),
-            half_extents: (24.0, 19.0),
-            damage: 13,
-            knockback: 142.0,
-            knockback_growth: 2.75,
-            launch_dir: Some((1.0, -0.28)),
-            on_hit: None,
-        }),
-        0.58,
-        0.18,
-    );
+    // NEUTRAL — `polygon_brawler_haymaker`. A CHARGED PUNCH.
+    //
+    // ⭐⭐ IT WAS ONE OF FIVE SPECIALS IN THE WHOLE ROSTER WITH NOTHING ON IT.
+    // `the_census_of_specials_that_carry_no_technique` reports what a special
+    // carries BESIDES a technique — extra windows, a charge, an impulse, events
+    // — and this move had none of them: a single hitbox on its own button, on
+    // the fighter whose entire identity is the size of one punch.
+    //
+    // ⛔ A CHARGE IS NOT A TECHNIQUE AND DOES NOT WANT TO BE. `smash_charge` is
+    // engine-shipped timeline machinery: the move freezes at `hold_at_s` while
+    // Attack is held and `smash_charge_mult` interpolates damage AND knockback
+    // by how far the clock got. Nothing new is owed for this — which is the
+    // point of authoring it here rather than inventing a technique for it.
+    //
+    // ⚠ IT DOES NOT STORE, and that is the deliberate contrast with the
+    // Projectile Polygon's neutral-B, which Jon asked to store for Samus/Mewtwo
+    // parity. A ranged fighter banks a shot and picks its moment; a brawler
+    // commits in front of you and either lands it or wears the recovery. Storing
+    // would turn the read into a resource.
+    let mut haymaker = strike(Strike {
+        id: "polygon_brawler_haymaker",
+        clip: "attack_side",
+        startup_s: 0.16,
+        active_s: 0.08,
+        recover_s: 0.27,
+        offset: (29.0, -4.0),
+        half_extents: (24.0, 19.0),
+        damage: 13,
+        knockback: 142.0,
+        knockback_growth: 2.75,
+        launch_dir: Some((1.0, -0.28)),
+        on_hit: None,
+    });
+    haymaker.smash_charge = Some(SmashChargeSpec {
+        // Early in the 0.16s startup: the wind-up is visible before the freeze,
+        // so the opponent sees it begin rather than seeing a statue appear.
+        hold_at_s: 0.06,
+        // A LONG hold, because the whole move is the threat of it. 1.2s is far
+        // longer than the Polygon's fill per tier and it is meant to be: this is
+        // a punch you have to be made to respect, not one you sneak out.
+        max_hold_s: 1.2,
+        stores: false,
+        // ⭐ ROOTED, which is Jon's rule for every smash in the game and doubly
+        // right here: a brawler planting his feet to wind up is the tell the
+        // opponent is reading, and a charge you could walk around with would be
+        // a threat with no commitment behind it.
+        roots: true,
+        sustain: ambition_platformer2d::entity_catalog::ChargeSustain::WhileHeld,
+    });
+    // The button that charges it is the SPECIAL, not a smash-attack gesture.
+    haymaker.charge_gesture = ambition_platformer2d::entity_catalog::ChargeGesture::Special;
+    // 1.6x at a full hold — 13 damage becomes 20, and the knockback with it.
+    haymaker.smash_charge_mult = 1.6;
+    let neutral_special = committed_tail(haymaker, 0.58, 0.18);
     // SIDE — `polygon_brawler_collar`. A COMMAND GRAB, replacing a shoulder rush
     // that was a dash with a hitbox on it.
     //
@@ -476,6 +512,59 @@ pub fn pugnacious_polygon_moveset() -> MovesetContract {
 
 #[cfg(test)]
 mod tests {
+
+    /// ⭐⭐ HIS PUNCH CHARGES, AND IT DOES NOT STORE — the second half is the
+    /// design claim, and it is about TWO fighters at once.
+    ///
+    /// Jon asked the Projectile Polygon's neutral-B for Samus/Mewtwo parity:
+    /// *"it needs to be able to store a charge and fire at different sizes."* A
+    /// ranged fighter banks a shot and picks its moment. A brawler commits in
+    /// front of you and either lands it or wears the recovery — storing would
+    /// turn the read into a resource. ⇒ Prose in two files cannot hold that
+    /// apart; this can, and it fails if either fighter is retuned toward the
+    /// other.
+    #[test]
+    fn his_haymaker_charges_and_deliberately_does_not_store() {
+        let set = pugnacious_polygon_moveset();
+        let haymaker = set
+            .moves
+            .iter()
+            .find(|m| m.id == "polygon_brawler_haymaker")
+            .expect("his neutral-B");
+        let charge = haymaker
+            .smash_charge
+            .as_ref()
+            .expect("his neutral-B charges");
+        assert!(
+            !charge.stores,
+            "his haymaker stores its charge, which makes the commitment a \
+             resource and takes the read out of the move",
+        );
+        assert!(
+            charge.roots,
+            "a charge that does not root him is a threat with no commitment",
+        );
+        assert!(
+            haymaker.smash_charge_mult > 1.0,
+            "charging his punch pays {}x, so holding it is strictly worse than \
+             throwing it",
+            haymaker.smash_charge_mult,
+        );
+
+        // The other half of the contrast, asserted rather than described.
+        let hers = crate::projectile_polygon_moveset::projectile_polygon_moveset();
+        let shot = hers
+            .moves
+            .iter()
+            .find(|m| m.id == "polygon_projectile_charge_shot")
+            .expect("her neutral-B");
+        assert!(
+            shot.smash_charge.as_ref().is_some_and(|c| c.stores),
+            "her charge shot stopped storing, so the brawler's not-storing says \
+             nothing any more — Jon asked for parity with samus/mewtwo on THAT \
+             move specifically",
+        );
+    }
 
     /// Every capture attempt a move authors, by move id.
     fn capture_of(set: &MovesetContract, id: &str) -> CaptureAttemptParams {

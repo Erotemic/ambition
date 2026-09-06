@@ -28,7 +28,7 @@ pub use horizon::{
 };
 pub use markers::{
     BodyCustodySettled, FeatureSimEntity, InCustodyOf, LoadingZoneVisual, ModeScopedEntity,
-    PlayerVisual, PosedBody, RoomResident, RoomScopedEntity, RoomVisual,
+    PlayerVisual, PosedBody, PresentationOf, RoomResident, RoomScopedEntity, RoomVisual,
 };
 pub use round::{
     despawn_departed_round_entities, ActiveRoundScope, RoundScopeId, RoundScopePlugin,

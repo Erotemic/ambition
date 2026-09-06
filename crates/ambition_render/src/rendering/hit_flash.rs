@@ -293,6 +293,15 @@ pub fn attach_hit_flash_overlays(
                     HitFlashOverlay {
                         source: source_entity,
                     },
+                    // ⭐ THE OWNERSHIP FACT, stated where the drawable is made.
+                    // `source` above is this overlay's own business (it mirrors
+                    // that sprite); this says WHOSE BODY it draws, in the one
+                    // spelling every consumer can ask for -- portal composition
+                    // among them, which could not previously see that a far-side
+                    // character has a silhouette as well as a base sprite.
+                    ambition_platformer2d_shared_tangle::lifecycle::PresentationOf(
+                        source_entity,
+                    ),
                     // NOT `RoomVisual` — that requires `RoomScopedEntity`,
                     // and the room-transition pass despawns every
                     // RoomScopedEntity. The player isn't room-scoped, so

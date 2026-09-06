@@ -1466,3 +1466,87 @@ fn an_idle_title_screen_does_not_rebuild_its_menu() {
          the frame key must name what a REBUILD is for, not what changes per frame"
     );
 }
+
+/// ⛔⛔ A ROW INDEX MEANS NOTHING WITHOUT ITS TAB. Jon, 2026-09-06, minutes after
+/// the tab strip started redrawing: *"Double clicking master volume launches
+/// sanic. Double clicking music volume launches maryo."*
+///
+/// ⇒ The settings rows carry `BasicLauncherAction(index)` — deliberately, "the
+/// same contract the game rows use" — and `ShellLauncherCommand::Activate`
+/// resolved that index against the GAME CATALOG unconditionally. Row 0 → game 0,
+/// row 1 → game 1: the positional correspondence is the signature.
+///
+/// ⚠ THE VOLUME ASSERTION IS THE ONE THAT DISCRIMINATES HERE, and the route one
+/// is defence rather than coverage — measured by poisoning the fix: reverting the
+/// tab check reddens the volume arm, and the route arm stays green because this
+/// composition's catalog has no launchable entry at index 1. ⇒ Kept anyway,
+/// because the defect Jon hit IS a route and a future fixture with a fuller
+/// catalog should not have to rediscover that the assertion belongs here. Saying
+/// which arm carries the poison is the honest form.
+#[test]
+fn activating_a_settings_row_changes_the_setting_and_launches_nothing() {
+    use ambition_platformer2d::game_shell::{
+        LauncherTab, ShellLauncherCommand, ShellLauncherState,
+    };
+    use ambition_platformer2d::persistence::settings::UserSettings;
+
+    let mut app = rendered_app();
+    settle(&mut app);
+
+    // Onto the settings tab by the road the tab strip uses.
+    app.world_mut()
+        .resource_mut::<bevy::ecs::message::Messages<ShellLauncherCommand>>()
+        .write(ShellLauncherCommand::SelectTab(1));
+    for _ in 0..4 {
+        app.update();
+    }
+    assert_eq!(
+        app.world().resource::<ShellLauncherState>().tab,
+        LauncherTab::Settings,
+        "premise: the launcher is showing the settings rows"
+    );
+
+    let route_before = app
+        .world()
+        .resource::<ambition_platformer2d::game_shell::ShellRouter>()
+        .active
+        .as_ref()
+        .map(|a| a.activation_id);
+    // ⚠ SET A KNOWN MID VALUE FIRST. `nudge_master` clamps to `0.0..=1.0`, so a
+    // shipped save already at maximum makes a correct step-up indistinguishable
+    // from a dead control — which is exactly how this class of bug hides.
+    app.world_mut()
+        .resource_mut::<UserSettings>()
+        .audio
+        .master_volume = 0.5;
+    let volume_before = app.world().resource::<UserSettings>().audio.master_volume;
+
+    // ⚠ ROW 1, NOT ROW 0: `ShellAudioControl::ALL` opens with `Mute`, so index 0
+    // is the mute toggle and index 1 is Master Volume. (That ordering is also why
+    // mute was the one control that appeared to work while the tab was stuck —
+    // it is the row a stray confirm lands on first.)
+    app.world_mut()
+        .resource_mut::<bevy::ecs::message::Messages<ShellLauncherCommand>>()
+        .write(ShellLauncherCommand::Activate(1));
+    for _ in 0..6 {
+        app.update();
+    }
+
+    let route_after = app
+        .world()
+        .resource::<ambition_platformer2d::game_shell::ShellRouter>()
+        .active
+        .as_ref()
+        .map(|a| a.activation_id);
+    assert_eq!(
+        route_after, route_before,
+        "activating a SETTINGS row routed the shell somewhere: the row index was \
+         resolved against the game catalog, so Master Volume launched a game"
+    );
+    assert_ne!(
+        app.world().resource::<UserSettings>().audio.master_volume,
+        volume_before,
+        "activating Master Volume did not change it; confirm on an audio row is \
+         the positive direction, the same convention the pause menu states"
+    );
+}

@@ -598,6 +598,30 @@ fn sync_launcher_activation(
     }
 }
 
+/// Apply a settings-tab row activation: move the cursor there and step the
+/// control in the POSITIVE direction.
+///
+/// ⭐ THE SAME CONVENTION THE PAUSE MENU ALREADY STATES -- *"Confirm on an audio
+/// row is the positive direction: mute toggles and volume sliders step up."* Two
+/// surfaces offering the same four controls must answer a confirm the same way,
+/// and the only way to guarantee that is one implementation: the adjust LAW stays
+/// in `ShellAudioControl`, exactly as `AdjustSetting` already uses it.
+///
+/// ⚠ CLAMPED TO THE CONTROL LIST, not to the game list. The row index arriving
+/// here is a position in the settings rows, and clamping it to the number of
+/// games is how a hover on the last control lands on the wrong one.
+fn adjust_settings_row(
+    index: usize,
+    state: &mut crate::launcher::ShellLauncherState,
+    settings: Option<&mut ResMut<ambition_persistence::settings::UserSettings>>,
+) {
+    let row = index.min(ShellAudioControl::ALL.len().saturating_sub(1));
+    state.selected = row;
+    if let (Some(control), Some(settings)) = (ShellAudioControl::ALL.get(row), settings) {
+        control.adjust(1, settings);
+    }
+}
+
 fn process_launcher_commands(
     mut commands: MessageReader<ShellLauncherCommand>,
     catalog: Res<ShellLaunchCatalog>,
@@ -693,12 +717,25 @@ fn process_launcher_commands(
                 state.selected = cursor.selected();
             }
             ShellLauncherCommand::LaunchSelected => {
+                // Same rule as `Activate`: confirming on the settings tab is a
+                // settings gesture, not a launch. Reached by keyboard/controller
+                // confirm, so leaving it out would fix the pointer alone.
+                if state.tab == crate::launcher::LauncherTab::Settings {
+                    adjust_settings_row(state.selected, &mut state, settings.as_mut());
+                    continue;
+                }
                 let selected = state.selected.min(selectable - 1);
                 if exit_index == Some(selected) {
                     shell.write(ShellCommand::ExitProcess);
                 } else if let Some(entry) = available.get(selected) {
                     shell.write(ShellCommand::GoTo(entry.route_id.clone()));
                 }
+            }
+            ShellLauncherCommand::Focus(index) if state.tab == crate::launcher::LauncherTab::Settings => {
+                // The settings tab has its OWN row count; clamping a hover to the
+                // number of GAMES puts the cursor on the wrong row whenever the
+                // two lists differ in length.
+                state.selected = (*index).min(ShellAudioControl::ALL.len() - 1);
             }
             ShellLauncherCommand::Focus(index) => {
                 // Clamped, not ignored: the row count can shrink between the
@@ -709,6 +746,20 @@ fn process_launcher_commands(
                 state.selected = (*index).min(selectable - 1);
             }
             ShellLauncherCommand::Activate(index) => {
+                // ⛔⛔ A ROW INDEX MEANS NOTHING WITHOUT ITS TAB, and this arm used
+                // to read it as a game every time. The settings rows carry
+                // `BasicLauncherAction(index)` -- deliberately, "the same contract
+                // the game rows use" -- so activating Master Volume sent
+                // `Activate(0)` here and LAUNCHED THE FIRST GAME. Jon, 2026-09-06:
+                // *"Double clicking master volume launches sanic. Double clicking
+                // music volume launches maryo."* Row 0 -> game 0, row 1 -> game 1;
+                // the positional correspondence IS the bug's signature.
+                //
+                // ⇒ The index is a position in WHICHEVER LIST THE TAB IS SHOWING.
+                if state.tab == crate::launcher::LauncherTab::Settings {
+                    adjust_settings_row(*index, &mut state, settings.as_mut());
+                    continue;
+                }
                 let selected = (*index).min(selectable - 1);
                 state.selected = selected;
                 if exit_index == Some(selected) {

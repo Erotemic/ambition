@@ -4216,6 +4216,15 @@ gamepad.** `MenuPageRight` is bound to `KeyCode::KeyE` (`presets.rs:447-451`) an
 cycles the title-screen tab strip — Jon's own 2026-09-05 design, guarded by
 `the_bumpers_cycle_the_title_screen_tabs`.
 
+✔ **AND THE COMMAND ROAD IS VERIFIED IN THE SHIPPED COMPOSITION, not a fixture.**
+`the_shipped_title_screen_is_wired_for_a_pointer` writes a real
+`MenuTabActivated { index: 1 }` into `rendered_app()` and asserts
+`ShellLauncherState.tab` becomes `Settings`; re-run 2026-09-06, it does. The
+`Interaction` → `MenuTabActivated` half is covered separately by
+`ambition_menu`'s 32 tab tests. ⇒ **EVERY SEGMENT IS VERIFIED EXCEPT ONE: [real
+pointer → `Interaction`].** That segment needs a window, and is the only place the
+defect can now be.
+
 ⇒ **THAT IS ALSO THE SHARPEST DISCRIMINATOR AVAILABLE**, better than the hover
 question below: if `E` reaches Settings and clicking does not, the tab ROAD is
 sound and the defect is **pointer-only** — hit-testing, not the shell. If `E` also

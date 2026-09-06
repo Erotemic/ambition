@@ -47,7 +47,7 @@ LINE_COMMENT = re.compile(r"//.*$", re.MULTILINE)
 # `ecs::held_items` (3), `npcs` (3, one of them a re-exported constant),
 # `ecs::spawn_static` (1), `ecs::autonomous_reconcile` (1), plus
 # `ecs::boss_component_snapshot` and the `EnemyActorBundle` pair.
-PRIMITIVE_UPWARD_REACH_CEILING = 2
+PRIMITIVE_UPWARD_REACH_CEILING = 0
 
 
 def _production_files(root: pathlib.Path) -> list[pathlib.Path]:
@@ -111,10 +111,11 @@ def test_the_spawn_primitives_upward_reach_only_shrinks() -> None:
         for ref in _references(path, "features")
     ]
     assert len(reach) <= PRIMITIVE_UPWARD_REACH_CEILING, (
-        f"the spawn primitives now reach {len(reach)} times into `features` "
-        f"(ceiling {PRIMITIVE_UPWARD_REACH_CEILING}). F1's cycle is not closed "
-        "yet, so this number is what stands between the two — raising it moves "
-        "the reverse dependency deeper instead of removing it:\n  "
+        f"the spawn primitives reach {len(reach)} times into `features` "
+        f"(ceiling {PRIMITIVE_UPWARD_REACH_CEILING}). ⛔ THIS REACHED ZERO ON "
+        "2026-09-06 and the ceiling is now a GATE, not a ratchet: F1's completion "
+        "criterion is `actor_spawn -> features == 0`, so any new reference here "
+        "re-opens a closed carve rather than slowing an open one:\n  "
         + "\n  ".join(sorted(set(reach)))
     )
 

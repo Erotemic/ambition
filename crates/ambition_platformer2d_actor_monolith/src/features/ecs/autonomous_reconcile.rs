@@ -15,85 +15,14 @@
 //! [`peaceful_config`] (the generic peaceful NPC seed a catalog switch restores),
 //! both applied by `provoke_actor_in_place` and `brain_command`.
 
-use super::HeldItem;
 use ambition_characters::actor::character_catalog::{CharacterBodyKind, CharacterCatalog};
 use ambition_characters::brain::{Brain, NPC_PATROL_SPEED};
-use ambition_combat::actor_tuning::ActorConfig;
 use ambition_combat::actor_tuning::{ActorTuning, BrainProfile};
 use ambition_combat::components::CombatKit;
 use ambition_combat::CombatCapabilities;
 use ambition_entity_catalog::placements::CharacterBrain;
 
-/// What provocation produces: a MIND and a KIT. Never a body.
-///
-/// The comment three lines above the code that did it already stated the correct invariant:
-/// *"provocation is one body, a different driver, a changed relationship. The body stays exactly as
-/// its character built it."* It was describing the OTHER branch.
-///
-///  what a provocation may change is the POLICY the body is driven by, the KIT
-/// it swings if it has none of its own, and its relationship to whoever struck
-/// it. Its speed, its locomotion, its capabilities and its silhouette are facts
-/// about the creature, and being hit is not an argument about any of them.
-///
-/// do not add a third. Every field on this struct is now a MIND or a KIT;
-/// a body fact reappearing here is the ontology growing back.
-///
-/// and the brain is lowered against the BODY's tuning now, not the
-/// archetype's — §4.7, a policy states normalized effort and the body states the
-/// speed. A provoked villager chases at a villager's top speed, which is the
-/// same sentence as the paragraph above with the consequence attached.
-///
-/// Both the live provoke flip (`provoke_actor_in_place`) and the post-restore
-/// reconstruction apply this exact projection, so a provoked actor is identical
-/// whether it was just challenged or rebuilt after a GGRS load.
-pub(crate) struct ProvokedArchetype {
-    pub brain_profile: BrainProfile,
-    /// The `ActorConfig.brain` read-model marker for a provoked actor.
-    pub config_brain: CharacterBrain,
-    pub brain: Brain,
-    pub action_set: ambition_characters::brain::ActionSet,
-}
 
-/// The projection itself, from a POLICY rather than from a row.
-///
-/// the policy is pinned equal to the `combatant` row while that row survives
-/// (`an_engine_default_provoked_policy_matches_the_combatant_row`); when the row
-/// goes, this signature is already the one that stays.
-pub(crate) fn provoked_projection(
-    brain_profile: BrainProfile,
-    current_config: &ActorConfig,
-    combat_kit: &CombatKit,
-    held_item: Option<&HeldItem>,
-    body: ambition_platformer2d_core::AbilitySet,
-) -> ProvokedArchetype {
-    // the POLICY is the provoked one; the BODY is the one that was struck.
-    let mut hostile_config = current_config.clone();
-    hostile_config.brain_profile = brain_profile;
-    let (brain, action_set) = crate::actor_spawn::brain_builders::aggressive_brain_and_action_set_for_enemy(
-        &hostile_config,
-        combat_kit,
-        held_item,
-        body,
-    );
-    // that read-model is a SILHOUETTE, and it was being used as a hostility
-    // flag. `evaluate_enemy_ai_output` branched `Passive => aggro 0.0` and
-    // `patrol_enabled = !Passive`, so a provoked body needed a NON-`Passive`
-    // value to read correctly — and the only one to hand was an archetype name.
-    // Both branches ask their `BrainProfile` now, so nothing needs the name.
-    //
-    //  derived like every other road derives it (`config_brain_for`), which
-    // answers `Patrol` for a patrol brain and `Passive` otherwise. The live
-    // provoke and the reconstruction agreed on `Custom("combatant")` before and
-    // agree on the derived value now, which is this module's central claim.
-    let config_brain = crate::features::brain_command::config_brain_for(&brain);
-
-    ProvokedArchetype {
-        config_brain,
-        brain,
-        action_set,
-        brain_profile,
-    }
-}
 
 /// Mirrors `ActorClusterSeed:new_peaceful_npc_in`: an undescribed-pool stroller with default
 /// brain-spec / capabilities, its authored combat kit as body-capability action set, and
@@ -173,7 +102,7 @@ pub(crate) fn peaceful_config(
     // `config.brain` (the integrator read-model) is DERIVED from the resolved
     // autonomous brain through the SHARED helper the spawn plan and runtime switch
     // both use, so the classification can never disagree with the actual brain.
-    let config_brain = crate::features::brain_command::config_brain_for(resolved_brain);
+    let config_brain = crate::actor_spawn::conversion::config_brain_for(resolved_brain);
     PeacefulConfig {
         tuning,
         brain_profile: BrainProfile::default(),
@@ -192,6 +121,10 @@ pub(crate) fn peaceful_config(
 #[cfg(test)]
 mod tests {
     use super::*;
+    // ⚠ TEST-ONLY: the production half of this module stopped naming `ActorConfig`
+    // when `provoked_projection` moved to `actor_spawn::conversion`, so importing
+    // it at file scope is an unused import in a release build.
+    use ambition_combat::actor_tuning::ActorConfig;
 
     fn config_fixture() -> ActorConfig {
         ActorConfig {
@@ -233,7 +166,7 @@ mod tests {
         config.tuning.surface_walker = true;
 
         let before = config.clone();
-        let proj = provoked_projection(
+        let proj = crate::actor_spawn::conversion::provoked_projection(
             crate::actor_spawn::brain_builders::default_provoked_policy(),
             &config,
             &CombatKit::default(),
@@ -273,7 +206,7 @@ mod tests {
         );
         assert_eq!(
             proj.config_brain,
-            crate::features::brain_command::config_brain_for(&proj.brain),
+            crate::actor_spawn::conversion::config_brain_for(&proj.brain),
             "the read-model disagrees with what deriving it from the actual brain \
              gives, so provocation has a second answer to a question one function \
              owns"
@@ -285,7 +218,7 @@ mod tests {
         // an EXHAUSTIVE destructure rather than a field read: adding a field
         // breaks this line, where reading four fields would silently ignore a
         // fifth.
-        let ProvokedArchetype {
+        let crate::actor_spawn::conversion::ProvokedArchetype {
             brain_profile: _,
             config_brain: _,
             brain: _,

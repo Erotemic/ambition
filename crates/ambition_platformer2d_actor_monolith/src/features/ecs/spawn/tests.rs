@@ -561,7 +561,9 @@ fn authored_npc_takes_its_label_from_the_catalog_display_name() {
             &Default::default(),
             SessionSpawnScope::UNSCOPED,
             root,
-            &authored,
+            // The fixture converts, exactly as the production caller does now.
+            &crate::features::ecs::spawn_static::interactable_from_authored(&authored),
+            &authored.name,
             &[],
             &ambition_characters::brain::AuthoredBrainOverride::default(),
         );

@@ -1895,17 +1895,24 @@ pub(crate) fn spawn_interactable_into(
     prepared: &ambition_characters::prepared::PreparedCharacterRegistry,
     session_scope: SessionSpawnScope,
     root: bevy::ecs::entity::Entity,
-    authored: &ambition_platformer2d_world::rooms::Authored<
-        ambition_platformer2d_world::rooms::InteractableSpec,
-    >,
+    // ⭐⭐ THE RUNTIME COMPONENT AND ITS AUTHORED NAME, NOT THE AUTHORED SPEC.
+    // This took `Authored<InteractableSpec>` and converted it here with
+    // `features::ecs::spawn_static::interactable_from_authored` — an
+    // authored-content conversion reached UPWARD from a spawn primitive, and the
+    // last of F1's sixteen references. ⇒ The caller already owns it:
+    // `spawn_static.rs` both defines that conversion and calls this function.
+    //
+    // ⚠ `authored_name` rides beside it because `Interactable` carries none, and
+    // inventing a field on the runtime component to save a parameter would move
+    // authored vocabulary DOWN to avoid passing it.
+    interactable: &ambition_interaction::Interactable,
+    authored_name: &str,
     paths: &[(String, ambition_platformer2d_core::KinematicPath)],
     // The developer brain knobs, as a VALUE. See `resolve_npc_brain`: the sim
     // reads a session-owned override the dev tool writes, never the dev crate.
     forced_brains: &ambition_characters::brain::AuthoredBrainOverride,
 ) {
-    let feature_aabb = CenteredAabb::from_aabb(authored.aabb);
-    let interactable = crate::features::ecs::spawn_static::interactable_from_authored(authored);
-    let interactable = &interactable;
+    let feature_aabb = CenteredAabb::from_aabb(interactable.aabb);
     if matches!(
         interactable.kind,
         ambition_interaction::InteractionKind::Npc { .. }
@@ -1918,16 +1925,16 @@ pub(crate) fn spawn_interactable_into(
         // (nameplates, interaction banner, dialogue speaker fallback, speech
         // SFX keying, and the `id_for_display_name` sprite-size lookup) depends
         // on this being the display name.
-        let label = npc_display_label(catalog, interactable, &authored.name);
+        let label = npc_display_label(catalog, interactable, authored_name);
         NpcActorSpawnPlan::peaceful(
             catalog,
             authored_sheets,
             prepared,
             format!("Feature actor npc: {label}"),
             feature_aabb,
-            authored.id.clone(),
+            interactable.id.clone(),
             label,
-            authored.aabb,
+            interactable.aabb,
             interactable.clone(),
             paths,
             forced_brains,
@@ -1939,11 +1946,11 @@ pub(crate) fn spawn_interactable_into(
                 session_scope,
                 root,
                 (
-                    Name::new(format!("Feature switch: {}", authored.name)),
+                    Name::new(format!("Feature switch: {authored_name}")),
                     FeatureSimEntity,
                     RoomVisual,
-                    FeatureId::new(authored.id.clone()),
-                    FeatureName::new(authored.name.clone()),
+                    FeatureId::new(interactable.id.clone()),
+                    FeatureName::new(authored_name.to_string()),
                     feature_aabb,
                     SwitchFeature::new(activation),
                     SwitchOn(false),
@@ -1954,7 +1961,7 @@ pub(crate) fn spawn_interactable_into(
                 target: "ambition_platformer2d::construction",
                 "interactable `{}` carries an unparseable Custom payload; the row will fail \
                  boundary verification",
-                authored.id
+                interactable.id
             );
         }
     }

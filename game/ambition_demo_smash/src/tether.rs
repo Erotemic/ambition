@@ -113,7 +113,21 @@ pub fn begin_authored_tether_pulls(
         // whose face points BACK at her — the same reading the kernel uses for
         // an airborne grab request (`requested_wall_normal_clusters` answers
         // `-stick.x.signum()`).
-        let reach_dir = ae::Vec2::new(kin.facing.signum(), 0.0);
+        //
+        // ⛔⛔ "WHERE SHE FACES" IS HER FRAME'S SIDE AXIS, AND THIS WALKED WORLD
+        // +X UNTIL 2026-09-06. The probe below is the frame-aware one — its
+        // `wall_normal_x` is documented as the side normal *"expressed in the
+        // controlled body's local side axis"* — so the question was asked in her
+        // frame while the walk that chose WHERE to ask it was asked in the
+        // world's. Under normal gravity the two are the same line, which is why
+        // every fixture agreed. `to_world` is the same transform the authored
+        // volumes and `spawn_body_strike` use; a tether and a hitbox must not
+        // disagree about which way forward points.
+        let reach_dir = frame
+            .basis()
+            .to_world(ae::Vec2::new(kin.facing.signum(), 0.0));
+        // Frame-relative already, so it needs no rotation: a sign in the local
+        // side axis, not a world direction.
         let wall_normal_x = -kin.facing.signum();
         let steps = (params.reach / LINE_SAMPLE_PX).ceil().max(1.0) as i32;
         let mut bite = None;
@@ -169,6 +183,21 @@ pub fn reel_tethered_fighters(
     let dt = time.sim_dt();
     let solids = collision.solids();
     for (entity, mut kin, mut reel, frame) in &mut bodies {
+        // ⛔⛔ THE BUDGET IS TESTED BEFORE IT IS SPENT, and the first version of
+        // this loop did the opposite: it decremented and THEN asked whether the
+        // reel had expired, so a reel authored at exactly its budget spent the
+        // whole allowance reaching the give-up branch and issued ZERO pulls. An
+        // N-tick reel got N−1.
+        //
+        // ⇒ What that broke is the AUTHORING CONTRACT rather than a shipped
+        // move. `author_tether_pull` asserts `speed * timeout_s >= reach` — the
+        // promise that a reel can physically cross its own reach — and the tick
+        // it lost is exactly the one that promise is measured in. The Projectile
+        // Polygon's authored values carry slack, so nothing in the game failed;
+        // the primitive was wrong for the next author.
+        let has_budget = reel.remaining_s > 0.0;
+        // Spent after the test, so this tick's pull is paid for by the budget
+        // that authorised it.
         reel.remaining_s -= dt;
         let to_anchor = reel.anchor - kin.pos;
         let distance = to_anchor.length();
@@ -176,7 +205,7 @@ pub fn reel_tethered_fighters(
         // first draft's bug. GIVING UP must leave her momentum alone: a reel
         // that expires mid-flight and also stops her dead would delete the
         // recovery she had left and read as the game freezing her in the air.
-        if reel.remaining_s <= 0.0 {
+        if !has_budget {
             info!(target: "ambition::moves", "tether: the reel gave up short of {:?}", reel.anchor);
             commands.entity(entity).try_remove::<TetherReel>();
             continue;

@@ -139,6 +139,62 @@ fn a_line_within_reach_bites_the_ledge() {
     );
 }
 
+/// ⭐⭐ THE LINE GOES WHERE SHE FACES, AND "WHERE SHE FACES" IS HER FRAME'S SIDE
+/// AXIS, NOT WORLD +X.
+///
+/// ⛔⛔ IT WALKED WORLD +X WHILE ASKING A FRAME-AWARE QUESTION. Every sample fed
+/// `frame.down()` to `probe_ledge_grab_in_frame`, whose `wall_normal_x` is
+/// documented as *"the side-face normal expressed in the controlled body's local
+/// side axis"* — so the probe reasoned in her frame while the walk that chose
+/// where to probe reasoned in the world's. Under normal gravity those are the
+/// same line and no fixture here could tell them apart.
+///
+/// ⭐ THE STAGE IS THE ONE ABOVE, TURNED 90°. Rotating the whole scene by
+/// `(x,y) -> (y,-x)` and sliding it back into the room maps the reference block
+/// onto ITSELF, so this test and `a_line_within_reach_bites_the_ledge` are the
+/// same geometry asked in two frames — and the expected anchor is the rotation
+/// of that test's, `(87,119) -> (119,313)`.
+///
+/// ⚠ THE DECOY IS WHAT MAKES THE RED HONEST. Without it the bug shows up as "no
+/// bite", which a dozen unrelated breakages also produce. The decoy sits exactly
+/// where the world-x walk was looking — its lip 90..135px along world +x, its
+/// side face 10px from her reaching side — so the shipped code LATCHES it and
+/// reels her the wrong way. The two blocks are mutually invisible: the reference
+/// block is 60px off the world-x walk's reaching side (the magnet is 10px), and
+/// the decoy's lip is 200 where the frame-correct walk's head band tops out at
+/// 117.
+#[test]
+fn the_line_sweeps_her_own_side_axis_when_the_frame_is_turned() {
+    let mut app = app(vec![
+        stage().remove(0),
+        // Where the world-x walk searched, and nowhere the correct walk looks.
+        Block::solid(
+            "decoy",
+            ae::Vec2::new(200.0, 320.0),
+            ae::Vec2::new(100.0, 40.0),
+        ),
+    ]);
+    // START, rotated: (26,110) -> (110,-26) -> +400y.
+    let her = fighter(&mut app, ae::Vec2::new(110.0, 374.0), false);
+    {
+        let rotated = ae::MotionFrame::from_direction(ae::Vec2::new(1.0, 0.0), 0.0);
+        let mut her_mut = app.world_mut().entity_mut(her);
+        let mut frame = her_mut
+            .get_mut::<ambition_platformer2d::world::ResolvedMotionFrame>()
+            .expect("the fixture gives every fighter a frame");
+        frame.publish_resolved_frame(rotated);
+    }
+    throw(&mut app, her, 150.0);
+
+    let reel = reel(&app, her).expect("the same 60px-away ledge, asked in her own frame");
+    assert!(
+        (reel.anchor - ae::Vec2::new(119.0, 313.0)).length() < 6.0,
+        "latched {:?}; the reference block's lip is at (119,313) in this frame and \
+         the decoy the world-x walk finds is at (219,373)",
+        reel.anchor,
+    );
+}
+
 /// ⛔ THE PAIRED MISS, and it is the half that makes the test above mean
 /// something: the SAME stage and the SAME fighter with a line too short.
 #[test]
@@ -258,6 +314,82 @@ fn where_the_reel_releases_her_is_a_place_the_authority_would_catch() {
 /// ⛔ GIVING UP IS NOT ARRIVING. The first draft collapsed the two exits, which
 /// meant an expired reel also stopped her dead — deleting the recovery she had
 /// left and reading as the game freezing her in the air.
+/// ⭐⭐ A REEL AUTHORED AT EXACTLY ITS BUDGET MUST PULL, and it did not.
+///
+/// `author_tether_pull` asserts `speed * timeout_s >= reach` — the authoring
+/// contract that a reel can physically cross its own reach. ⛔ `reel_tethered_
+/// fighters` decremented `remaining_s` and THEN tested the timeout, so a reel
+/// authored at exactly the budget spent its whole allowance reaching the
+/// give-up branch and issued **zero** pulls. An N-tick reel got N−1.
+///
+/// ⚠ THE ASSERTION IS THE MOVEMENT, NOT THE COMPONENT. A test that only checked
+/// the reel still exists passes against a version that keeps the component and
+/// pulls nothing, which is the defect wearing a different face.
+#[test]
+fn a_reel_with_exactly_one_tick_left_spends_it_pulling() {
+    let mut app = app(stage());
+    let her = fighter(&mut app, START, false);
+    let anchor = START + ae::Vec2::new(60.0, 0.0);
+    {
+        let world = app.world_mut();
+        world.entity_mut(her).insert(TetherReel {
+            // EXACTLY one tick at the fixture's 1/60 dt — the boundary the
+            // authoring assert accepts.
+            remaining_s: 1.0 / 60.0,
+            speed: 900.0,
+            anchor,
+        });
+        world.entity_mut(her).get_mut::<ae::BodyKinematics>().unwrap().vel = ae::Vec2::ZERO;
+    }
+    app.update();
+    let moved = body(&app, her).vel;
+    assert!(
+        moved.length() > 0.0,
+        "a reel with a full tick of budget issued no pull at all: vel {moved:?}",
+    );
+    assert!(
+        moved.x > 0.0,
+        "the pull went the wrong way for an anchor to her right: {moved:?}",
+    );
+}
+
+/// The other half of the same interval bug: N ticks of budget must buy N pulls.
+///
+/// ⛔ Counted rather than asserted qualitatively, because "it moved" is true of
+/// a reel that lost one tick out of five.
+#[test]
+fn a_reel_spends_every_tick_of_its_budget() {
+    let mut app = app(stage());
+    let her = fighter(&mut app, START, false);
+    let anchor = START + ae::Vec2::new(4000.0, 0.0);
+    {
+        let world = app.world_mut();
+        world.entity_mut(her).insert(TetherReel {
+            // Three ticks exactly.
+            remaining_s: 3.0 / 60.0,
+            speed: 900.0,
+            anchor,
+        });
+    }
+    // ⛔ THE VELOCITY IS ZEROED BEFORE EVERY TICK, and the first draft of this
+    // test did not do that: `vel` PERSISTS between updates, so leftover motion
+    // from the previous pull made the give-up tick look like a pull and the test
+    // passed against the very bug it was written for.
+    let mut pulls = 0;
+    for _ in 0..4 {
+        app.world_mut()
+            .entity_mut(her)
+            .get_mut::<ae::BodyKinematics>()
+            .unwrap()
+            .vel = ae::Vec2::ZERO;
+        app.update();
+        if body(&app, her).vel.length() > 0.0 {
+            pulls += 1;
+        }
+    }
+    assert_eq!(pulls, 3, "three ticks of budget must buy three pulls, not {pulls}");
+}
+
 #[test]
 fn a_reel_that_gives_up_leaves_her_momentum_alone() {
     let mut app = app(stage());
@@ -267,7 +399,14 @@ fn a_reel_that_gives_up_leaves_her_momentum_alone() {
         let world = app.world_mut();
         world.entity_mut(her).insert(TetherReel {
             // Already expired: this update is the one that gives up.
-            remaining_s: 1.0 / 120.0,
+            //
+            // ⚠ THIS WAS `1.0 / 120.0` AND THAT ENCODED THE OFF-BY-ONE. Half a
+            // tick read as "expired" only because the loop decremented before
+            // testing, so any budget below one tick reached the give-up branch
+            // without pulling. Under the corrected interval ownership a reel with
+            // ANY budget spends it — which is what `speed * timeout_s >= reach`
+            // promises — so expressing "expired" now means exactly that.
+            remaining_s: 0.0,
             speed: 900.0,
             anchor: ae::Vec2::new(4000.0, 110.0),
         });

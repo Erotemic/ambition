@@ -4219,3 +4219,42 @@ appearance at all?**
 windowless fixture 18 of the 20 buttons compute to 0×0 while the two tabs have
 real sizes. Most likely a layout artifact of having no window, but if hover DOES
 highlight, this is the next thing to measure with a real one.
+
+## Q72 — `EncounterEffect::SetMusic` has no customer. Give it identity, or remove it?
+
+**2026-09-06, from a GPT review, re-derived here before recording.** The effect
+exists, is wired end to end, and **nothing in production constructs it**: every
+`EncounterEffect::SetMusic` site is inside `#[cfg(test)]` (`timeline.rs:218` is the
+only construction, and its module opens at `:172`), and no authored `.ron` names it.
+
+⛔ **Its ownership does not survive a second customer.** `SCRIPT_MUSIC_OWNER` is one
+`&'static str` for every `EncounterScript` instance, and
+`EncounterMusicRequest::priority_owner` is `Option<&'static str>`, so the priority
+tier cannot tell two scripts apart:
+
+- two live scripts silently overwrite each other's track — last writer wins;
+- a script that ends while another still lives leaves its claim latched, because the
+  cleanup arm is `scripts.is_empty()`.
+
+⇒ **Neither is reachable today** (no content ships a second concurrent script, and
+nothing emits the effect at all), which is why this is a question and not a bug.
+
+**The three answers, and what each costs:**
+
+1. **Per-script identity.** `encounter_id` is already in the driving loop and is a
+   durable authored id, so the work is widening `priority_owner` from `&'static str`
+   to something that can carry one — across all five owners (`BOSS_`, `DEATH_`,
+   `CUT_ROPE_`, `SCRIPT_`, plus `base_track`). ⛔ **Not an ECS `Entity`**: a slot in
+   an allocator that does not survive the thing it names.
+2. **One deterministic aggregator** that picks a winner among live claimants, leaving
+   the owner tag alone.
+3. **Remove the effect** until something wants it. It is vocabulary with no speaker,
+   and the project's stated bias is to delete rather than carry.
+
+⚠ **Whichever lands owes a TWO-SCRIPT poison** — no single-script test can fail on
+this, which is exactly why the gap survived review of the tests.
+
+⭐ **NOT GUESSED.** Option 3 is a product call about the authored timeline vocabulary,
+and 1 vs 2 changes a type five owners share. The constraint is written at the claim
+site (`encounter_script.rs`) so the first content author to emit `SetMusic` meets it
+there rather than here.

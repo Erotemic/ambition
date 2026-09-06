@@ -79,6 +79,32 @@ pub fn tick_encounter_scripts(
     // states — "reaches the 'no boss is fighting' arm on every frame" — applied
     // here: with no scripts alive there is nothing to hold the claim.
     // ⚠ Owner-scoped, so a conversation cue or the generic boss owner keep theirs.
+    //
+    // ⛔⛔ TWO CORRECTIONS FROM REVIEW (2026-09-06), AND THE FIRST IS ABOUT WHAT
+    // THIS FIXED. There is NO production `EncounterEffect::SetMusic` — measured:
+    // every construction site is inside `#[cfg(test)]` (`timeline.rs:218`) and no
+    // authored `.ron` names it. ⇒ This is a CAPABILITY-OWNERSHIP repair, not a
+    // verified repair of a shipped encounter bug. The leak Jon actually hit came
+    // through `CUT_ROPE_MUSIC_OWNER`; the paragraph above is right that the same
+    // shape is available here, and wrong if read as "this was firing".
+    //
+    // ⛔⛔ AND THE RELEASE IS CORRECT ONLY WHILE AT MOST ONE SCRIPT IS LIVE.
+    // `SCRIPT_MUSIC_OWNER` is ONE `&'static str` for every `EncounterScript`
+    // instance, and `priority_owner` is `Option<&'static str>`, so the tier cannot
+    // tell two scripts apart:
+    //   · two live scripts silently overwrite each other's track, last writer wins;
+    //   · a script that ends while another still lives leaves its claim latched —
+    //     `scripts.is_empty()` is false, so this arm does not run.
+    // ⇒ Today no content ships a second concurrent script, which is why this is
+    // documented rather than built. THE FIRST CONTENT THAT DOES makes it a bug.
+    //
+    // ⭐ THE FIX HAS A SHAPE AND ONE FORBIDDEN INGREDIENT. `encounter_id` is
+    // already in this loop and is a durable authored id, so per-script ownership
+    // needs `priority_owner` widened from `&'static str` to something that can
+    // carry it — across all five owners — or one deterministic aggregator that
+    // picks a winner. ⛔ NOT an ECS `Entity`: it is a slot in an allocator that
+    // does not survive the thing it names. Whichever lands owes a TWO-SCRIPT
+    // poison, because no single-script test can fail on this.
     if scripts.is_empty() {
         music.release_priority(SCRIPT_MUSIC_OWNER);
     }

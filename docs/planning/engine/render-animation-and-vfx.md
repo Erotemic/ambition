@@ -702,15 +702,30 @@ must read it — the same reason `PlayerVisual` sits there.
   when a component starts naming a body and is not classified — the fallback
   where a type cannot say it, because a Bevy spawn is a tuple.
 
-⚠ **STILL OPEN: the HIT FLASH, and the reason is shape, not wiring.** The overlay
-is a `Mesh2d` + `MeshMaterial2d`, not a `Sprite` with a `custom_size`, so the
-sprite-shaped publisher can now FIND it and still cannot describe it. Its geometry
-mirrors the source sprite ⇒ the likely answer is that it should be clipped by
-whatever clips its SOURCE rather than published as its own candidate. That is a
-design question about how a mirrored drawable inherits a clip, and guessing at it
-would produce the special case the seam exists to avoid.
-⚠ The held gun in TRANSIT (`visuals.rs`) is the same shape and the same open
-question.
+✔ **THE HIT FLASH IS CLOSED TOO, and it did not need the publisher.** The
+overlay is a `Mesh2d`, not a `Sprite` with a `custom_size`, so the sprite-shaped
+publisher could never describe it as a candidate — but it never had to.
+`overlay_look` ALREADY blanks the silhouette when its source is `Hidden`; the
+defect was that `sync_hit_flash_overlays` runs BEFORE portal presentation, so on
+the frame the portal hides a far-side body the overlay had been computed from a
+VISIBLE source.
+
+⛔ **Ordering cannot fix that**: the publisher runs `.after(animate_feature_sprites)`,
+which is itself after the hit-flash mirror in the render chain, so moving the
+mirror later is a cycle. ⇒ `resolve_portal_source_visibility` settles the
+DEPENDANTS in the same pass instead — a drawable carrying `PresentationOf` is
+hidden while the body it names is portal-hidden. Neither side learns about the
+other: the overlay does not know what a portal is, and the portal does not know
+what a hit flash is.
+⚠ Bevy refused the first version (B0001): excluding two of the three reason
+markers left an entity both `&mut Visibility` queries could match, panicking seven
+tests. All three are excluded now.
+
+⚠ **The held gun in TRANSIT (`visuals.rs`) is the same shape and is NOT yet
+covered** — the dependant pass settles far-side and transit hides of the BODY, but
+whether the gun should follow a transit split the way the silhouette follows a
+far-side hide is a question about what a split MEANS for a sibling drawable, not
+about wiring.
 
 ⛔ **A COUNT I PUBLISHED HERE WAS WRONG AND IS CORRECTED**: I first measured six
 body-naming components, counting `SlashVisual { owner }` twice. One of those two

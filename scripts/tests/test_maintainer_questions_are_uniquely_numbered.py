@@ -81,3 +81,17 @@ def test_the_matcher_sees_both_heading_shapes() -> None:
         f"(`## Qn`) heading — marked {len(marked)}, plain {len(plain)}. If one "
         "dialect is gone the guard above is only being tested against the other"
     )
+
+
+# ⛔⛔ RUN AS A SCRIPT THIS FILE USED TO EXIT 0 HAVING DONE NOTHING — a peer
+# caught it. No `__main__` means the test functions are defined and never called,
+# so `python3 scripts/tests/<this>.py` printed nothing and succeeded. Fine under
+# pytest, and the lane runs pytest; not fine for the next person sanity-checking
+# it by hand, who gets a confident pass from a file that did not look.
+#
+# ⇒ It is the silent-green shape this whole file exists to prevent, in the file
+# that prevents it.
+if __name__ == "__main__":
+    test_no_two_questions_share_a_number()
+    test_the_matcher_sees_both_heading_shapes()
+    print(f"ok: {len(_questions())} questions, all uniquely numbered")

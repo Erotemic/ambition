@@ -2397,7 +2397,7 @@ queue read as an execution authority for work already done.
   `EncounterMob`, `RuntimeStagedActor`, `PostBossNpc`, the two reward chests
   (`EncounterRewardChest`, `BossRewardChest`), and `SpawnOrigin::Dynamic` loot
   by construction PROVENANCE. The peaceful-NPC bundle in
-  `crates/ambition_platformer2d_actor_monolith/src/features/ecs/spawn_actors.rs`
+  `crates/ambition_platformer2d_actor_monolith/src/actor_spawn/mod.rs`
   carries none of them. ⇒ The NPC lands in `FeatureViewIndex` and never in
   `DynamicFeatureViews`, so its `FeatureVisual` is created by
   `draw_unclaimed_feature_views` as the PLACEHOLDER — which
@@ -2452,7 +2452,7 @@ queue read as an execution authority for work already done.
   (`crates/ambition_render/src/rendering/world.rs:187`) and bosses (:200) as
   much as NPCs — they are downstream of the same early return. ⇒ But NOT
   encounter-WAVE mobs or runtime-staged actors: those carry `EncounterMob`
-  (added at `spawn_actors.rs:1348`) and `RuntimeStagedActor` (:305), so the
+  (added at `crates/ambition_platformer2d_actor_monolith/src/actor_spawn/mod.rs:1375`) and `RuntimeStagedActor` (:305), so the
   dynamic rebuild gives them a view by a second road the gate does not touch.
   ⛔ **So the shape to look for is authored-vs-dynamic, NOT npc-vs-everything.**
   If NPCs alone are late while authored room enemies are on time, this

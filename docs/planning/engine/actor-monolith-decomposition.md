@@ -902,7 +902,7 @@ file, not the domain.
 
 **(a) A mob spawn becomes a construction REQUEST — and the road already exists.**
 `spawn_encounter_mob` in `features/ecs/spawn/mod.rs:1028` is a pure pass-through
-to `spawn_actors.rs:1947`; it is not a construction wrapper today. But the kernel
+to `crates/ambition_platformer2d_actor_monolith/src/actor_spawn/mod.rs:1974`; it is not a construction wrapper today. But the kernel
 already serves runtime actor spawns as requests: `ActorConstructionParams`
 (`crates/ambition_platformer2d_actor_monolith/src/construction/mod.rs:135`)
 carries `StagedActor(SpawnActorRequest)`, `SummonedMinion`, `AuthoredEnemy` and
@@ -915,7 +915,7 @@ it declares `PortalGunConstructionParams` (pure data), implements
 `ConstructionDomain`, and owns its construct fn. The kernel does not know it.
 ✔ **`EncounterMobSeed` is ALREADY pure data over crates below the kernel** —
 `String`, `Option<&str>`, `ambition_entity_catalog::placements::CharacterBrain`,
-`ae::Vec2` (`spawn_actors.rs:1916`). Nothing kernel-only is in it. The single
+`ae::Vec2` (`crates/ambition_platformer2d_actor_monolith/src/actor_spawn/mod.rs:1943`). Nothing kernel-only is in it. The single
 reason `ambition_encounter` cannot emit one is that the TYPE lives in the kernel.
 ✔ **And the dependency is available:** `ambition_encounter` already depends on
 `ambition_platformer2d_core` and `ambition_platformer2d_shared_tangle`; it needs
@@ -930,7 +930,7 @@ weighing the two options.** The choice looked open — a new
 `ActorConstructionParams` variant (kernel keeps the recipe) versus
 `ambition_encounter` implementing its own `ConstructionDomain` like
 `ambition_portal2d`. It is not: `spawn_encounter_mob` builds its body with
-`ActorClusterSeed::new_character_in` (`features/ecs/spawn_actors.rs:1975`),
+`ActorClusterSeed::new_character_in` (`crates/ambition_platformer2d_actor_monolith/src/actor_spawn/mod.rs:2002`),
 which was the actor kernel's body builder when this was written (the seed is
 `ambition_body_seed::ActorClusterSeed` since the same night — a VALUE the
 kernel spawns from; `spawn_encounter_mob` itself is still the kernel's). For

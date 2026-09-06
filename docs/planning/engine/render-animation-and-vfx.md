@@ -640,7 +640,7 @@ runs late in that same frame and reads the pair. The body is therefore
 size-without-placement for exactly one frame, every time a posed character is
 projected.
 ⚠ Conditional on that spawn having set a render size at all
-(`spawn_actors.rs:806`, `if let Some(size) = render_size`), so it is every posed
+(`crates/ambition_platformer2d_actor_monolith/src/actor_spawn/mod.rs:833`, `if let Some(size) = render_size`), so it is every posed
 actor spawned WITH one, not literally every actor.
 
 ⚠ **And that makes it a defect worth naming rather than a wart to delete.** The

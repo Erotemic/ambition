@@ -1360,7 +1360,7 @@ CharacterCatalogEntry.flight_direct_velocity   entry.rs:279   (authored)
 ⚠ **The read is real, so this is not a dead knob — it is a knob with an authored
 road nobody travels.** MEASURED: outside tests, exactly ONE production site sets
 it true, and it is a hardcoded `ActorTuning` literal for a scripted boss
-(`spawn_actors.rs:884`), which is legitimate — that brain commands an exact
+(`crates/ambition_platformer2d_actor_monolith/src/actor_spawn/mod.rs:911`), which is legitimate — that brain commands an exact
 per-tick velocity. No authored character sets it anywhere.
 
 ⇒ So the question here is narrower than for the other four: not "is the behaviour
@@ -2658,7 +2658,7 @@ decide how expensive a fork removal is, and both have answers here:
 2. **How many compositions rely on the fallback?** ⇒ **There is exactly ONE
    production installer of `AuthoredFighterLadder`** — `game/ambition_content/src/plugin.rs:61`.
    Every `AuthoredFighterLadder` insertion in
-   `crates/ambition_platformer2d_actor_monolith/src/features/ecs/brain_builders.rs`
+   `crates/ambition_platformer2d_actor_monolith/src/actor_spawn/brain_builders.rs`
    is inside `#[cfg(test)]`. ⇒ **So every composition that does not include
    `ambition_content` fights the floor**, and that set is exactly the standalone
    demo apps — including the smash demo, which is the one that has been measuring

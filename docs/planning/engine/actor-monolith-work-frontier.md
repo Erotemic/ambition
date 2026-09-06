@@ -182,7 +182,7 @@ cannot find**, and that belongs in the price of any composition wave.
 ⭐⭐ **THE PACKET'S FRAMING WAS WRONG IN A WAY THAT MADE THE WORK LOOK HARDER THAN
 IT IS, AND THEN EASIER.** It reads as two authorities depending on each other.
 Measured: **all fifteen** of `construction/mod.rs`'s upward references resolve to
-symbols defined in **one file**, `features/ecs/spawn_actors.rs`; and of the thirty
+symbols defined in **one file**, `crates/ambition_platformer2d_actor_monolith/actor_spawn/mod.rs`; and of the thirty
 references the other way, the five in that same file were **all inside one
 function**, `apply_summon_effects`. ⇒ The cycle was **one file holding two
 layers** — the spawn primitives that construction legitimately consumes, and one
@@ -214,9 +214,9 @@ now the whole of the remaining work.** It stands on six modules:
 
 | module | lines | intra-crate refs | state |
 |---|---|---|---|
-| `ecs/brain_builders.rs` | 926 | **0** `crate::`, **0** `super::` | ✔ MOVED — `actor_spawn/brain_builders.rs` |
-| `ecs/actor_clusters.rs` | 298 | **0** `crate::`, **0** `super::` | ✔ MOVED — `actor_spawn/actor_clusters.rs` |
-| `ecs/actors/conversion.rs` | 274 | 0 `crate::`, **3** `super::` | ✔ MOVED — traded 2 refs for 1 |
+| `actor_spawn/brain_builders.rs` | 926 | **0** `crate::`, **0** `super::` | ✔ MOVED — `actor_spawn/brain_builders.rs` |
+| `actor_spawn/actor_clusters.rs` | 298 | **0** `crate::`, **0** `super::` | ✔ MOVED — `actor_spawn/actor_clusters.rs` |
+| `actor_spawn/conversion.rs` | 274 | 0 `crate::`, **3** `super::` | ✔ MOVED — traded 2 refs for 1 |
 | `ecs/spawn/character_spawn_plan.rs` | 209 | 4, none to `features` | ▢ 3 refs, the next cheap one |
 | `ecs/held_items/` | (dir) | — | ▢ 3 refs, all `HeldItem` |
 | `features/npcs.rs` | 915 | 7, 3 to `features` | ▢ 3 refs, drags |

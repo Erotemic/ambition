@@ -349,6 +349,34 @@ pub fn carl_stargan_moveset() -> MovesetContract {
         launch_dir: Some((0.8, -0.60)),
         on_hit: None,
     });
+    // ⭐⭐ A CHARGE, BECAUSE THE MOVE IS ABOUT COMPRESSED TIME AND HAD NO TIME IN
+    // IT. Fourteen billion years on one page, authored as a slow sweep that is
+    // the same sweep however long you look at it — one of the roster's specials
+    // carrying no mechanic at all. Holding it now buys the reach's worth of
+    // damage.
+    //
+    // ⛔ IT DOES NOT STORE. A stored charge is a threat you carry into the next
+    // exchange, which is the brawler's haymaker and a different character; his
+    // is a thing you commit to on the page you are on.
+    let mut n_b = n_b;
+    n_b.smash_charge = Some(ambition_platformer2d::entity_catalog::SmashChargeSpec {
+        // Just after the sweep's own cue at 0.04s, so the wind-up reads before
+        // the freeze rather than a statue appearing.
+        hold_at_s: 0.08,
+        // Long, and shorter than the brawler's 1.2s: Carl is not a threat you
+        // have to respect from across the stage, he is a slow swing you can
+        // choose to make slower.
+        max_hold_s: 0.9,
+        stores: false,
+        // ⭐ ROOTED, the rule every charge in the game follows: a wind-up you
+        // could walk around with is a threat with no commitment behind it.
+        roots: true,
+        sustain: ambition_platformer2d::entity_catalog::ChargeSustain::WhileHeld,
+    });
+    n_b.charge_gesture = ambition_platformer2d::entity_catalog::ChargeGesture::Special;
+    // 1.45x at a full hold: 11 damage becomes 15, and the knockback with it.
+    // Below the haymaker's 1.6 because this already covers the whole page.
+    n_b.smash_charge_mult = 1.45;
     let n_b = vfx_at(n_b, 0.04, "cosmic_calendar_sweep", (0.0, -6.0), COSMIC_FX);
     let n_b = vfx_at(n_b, 0.30, "perspective_shift", (36.0, -4.0), SWING_FX);
     let n_b = on_contact(n_b, "player.hit");
@@ -728,6 +756,32 @@ mod tests {
             .find(|m| m.id == id)
             .unwrap_or_else(|| panic!("{id} exists"))
             .clone()
+    }
+
+    /// ⭐⭐ TIME IS THE MOVE, SO IT HOLDS AND DOES NOT KEEP.
+    ///
+    /// ⛔ `stores` IS THE ASSERTION THAT MATTERS. A stored charge is a threat
+    /// carried into the NEXT exchange — that is the brawler's haymaker and a
+    /// different character. Carl's is a thing you commit to on the page you are
+    /// on, and a guard that only found a `smash_charge` passes against the
+    /// version that changes who he is.
+    #[test]
+    fn the_cosmic_calendar_is_held_on_the_page_it_is_thrown_on() {
+        let calendar = find(&carl_stargan_moveset(), "cosmic_calendar");
+        let charge = calendar
+            .smash_charge
+            .as_ref()
+            .expect("fourteen billion years is a hold");
+        assert!(!charge.stores, "a stored calendar is somebody else's move");
+        assert!(charge.roots, "a wind-up you can walk around with is not a commitment");
+        assert!(
+            charge.hold_at_s > 0.0 && charge.hold_at_s < calendar.duration_s,
+            "the freeze must sit inside the move"
+        );
+        assert!(
+            calendar.smash_charge_mult > 1.0,
+            "holding it must buy something"
+        );
     }
 
     /// ⭐⭐ THE PIXEL IS THE KILL, AND ITS RANK IS THE MECHANIC.

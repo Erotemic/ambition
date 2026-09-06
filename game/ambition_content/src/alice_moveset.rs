@@ -30,7 +30,7 @@ use ambition_characters::smash_repertoire::{
 use ambition_platformer2d::entity_catalog::{AutolinkVolume, ImpulseMode, MovesetContract};
 
 use ambition_characters::moveset_authoring::{
-    committed_tail, impulse, multihit, on_contact, sfx, strike, vfx_at, Pulse,
+    armor, committed_tail, impulse, multihit, on_contact, sfx, strike, vfx_at, Pulse,
 };
 
 /// How big a cipher's burst draws.
@@ -277,6 +277,21 @@ pub fn alice_moveset() -> MovesetContract {
         launch_dir: Some((0.9, -0.48)),
         on_hit: None,
     });
+    // ⭐⭐ ARMOUR, BECAUSE A ONE-TIME PAD IS THE ONE CIPHER THAT CANNOT BE BROKEN.
+    // The move was named for unbreakability and authored as an ordinary heavy
+    // swing — one of the roster's specials carrying no mechanic at all. Now she
+    // eats a hit during the wind-up and swings anyway.
+    //
+    // ⛔ OVER THE STARTUP ONLY, 0.06s..0.18s, ending exactly when the hitbox
+    // opens. Armour that covered the active frames would make the trade free:
+    // she would win every simultaneous exchange rather than winning the ones she
+    // committed to FIRST. The window is the commitment, and it is why this is a
+    // read rather than a button.
+    //
+    // ⚠ SHE STILL TAKES THE DAMAGE. `WindowTag::Armor` is "you get hit and you
+    // swing anyway", not invulnerability — so trading into it costs her, and a
+    // fast enough answer still beats it by hitting before 0.06s.
+    let n_b = armor(n_b, 0.06, 0.18);
     let n_b = committed_tail(n_b, 0.66, 0.05);
     let n_b = vfx_at(n_b, 0.18, "magic_seal_break", (30.0, -4.0), SEAL_FX);
     let n_b = sfx(n_b, 0.18, "player.directional_special");
@@ -602,6 +617,43 @@ pub fn alice_moveset() -> MovesetContract {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// ⭐⭐ THE PAD IS UNBREAKABLE DURING THE WIND-UP AND NOT AFTER IT.
+    ///
+    /// ⛔ THE END OF THE ARMOUR IS THE TEST, not its presence. Armour that
+    /// covered the active frames would make the trade free — she would win every
+    /// simultaneous exchange instead of winning the ones she committed to first
+    /// — and a guard that only found a `WindowTag::Armor` passes against exactly
+    /// that move.
+    #[test]
+    fn her_one_time_pad_is_armoured_only_while_she_winds_up() {
+        use ambition_platformer2d::entity_catalog::WindowTag;
+        let pad = alice_moveset()
+            .move_by_id("one_time_pad")
+            .expect("one_time_pad exists")
+            .clone();
+        let armor = pad
+            .windows
+            .iter()
+            .find(|w| w.tag == WindowTag::Armor)
+            .expect("the unbreakable cipher is armoured");
+        let active = pad
+            .windows
+            .iter()
+            .find(|w| w.tag == WindowTag::Active && !w.volumes.is_empty())
+            .expect("it is still a strike");
+        assert!(
+            armor.end_s <= active.start_s,
+            "armour must close as the hitbox opens, or the trade is free: \
+             armour ends {}, hitbox opens {}",
+            armor.end_s,
+            active.start_s,
+        );
+        assert!(
+            armor.start_s > 0.0,
+            "a fast enough answer must still beat it, so it cannot open on frame 0"
+        );
+    }
 
     /// ⭐⭐ TWO INPUTS, ONE OUTPUT — AS AN ASSERTION RATHER THAN AS A COMMENT.
     ///

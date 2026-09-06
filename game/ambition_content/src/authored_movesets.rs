@@ -868,7 +868,8 @@ mod expressiveness_census {
     /// ⇒ Jon's words were *"a lot of characters have boring specials"*. The
     /// SPECIAL is the unit of that sentence, and counting it changes the answer
     /// from "0 plain" to this: measured 2026-09-06, **75 of 88 specials carry a
-    /// mechanic and 11 do not**. Both numbers come from `expressive_reasons`, the
+    /// mechanic and 8 do not** (it opened at 75/13 and five specials have been
+    /// authored since). Both numbers come from `expressive_reasons`, the
     /// one definition in this file, so this test and the per-special census
     /// cannot drift apart the way the census and its own doc comment did.
     ///
@@ -904,7 +905,7 @@ mod expressiveness_census {
         /// Raised deliberately as specials gain mechanics. ⛔ Raising it is a
         /// decision with a commit behind it; watching it fall silently is the
         /// failure this exists to catch.
-        const FLOOR: usize = 77;
+        const FLOOR: usize = 80;
 
         let mut rich: Vec<String> = Vec::new();
         let mut bare: Vec<String> = Vec::new();

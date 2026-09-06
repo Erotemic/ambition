@@ -738,9 +738,37 @@ then moves the body **zero pixels** and deals no damage. The remaining suspects
 are the grab not granting the ability, or the dive not firing; the room, the walk
 and the timing are ruled out.
 
-⚠ NOT ATTRIBUTED. It is not a bisect I have run, and the honest candidates are
-combat-side changes landed the same day (the fighter lane moved when limit meters
-fill relative to `Trigger`), not this row's original load story.
+✔ **ROOT CAUSE FOUND, and it is not a flake at all** — same day. Instrumenting
+`fire_dive_system` itself rather than the harness observation:
+
+```text
+DIVEPROBE reached spend: meter=ResourceMeter { current: 0.0, max: 60.0, .. } cost=26.0
+DIVEPROBE try_spend REFUSED
+```
+
+`dive.rs:119` is `if !clusters.mana.meter.try_spend(DIVE_MANA_COST) { continue; }`
+with `DIVE_MANA_COST = 26.0`. **`max: 60.0` is the SMASH LIMIT CAP, not Ambition's
+100**, and `current: 0.0` is that rule's `current = 0`. So the smash Limit reached
+an Ambition body, the spend refused, the system `continue`d, and the body never
+moved. ⇒ the fix is route-scoping `SmashLimitFill` (the fighter lane's, already
+chosen for its own reasons); the visible symptom was a traversal ability silently
+doing nothing.
+
+⛔⛔ **AND THE WRONG TURN IS WORTH MORE THAN THE ANSWER.** I read `mana 100/100`
+off `AgentObservation`, told the fighter lane their rule was excluded, and asked
+them to stop their experiment. Both readers name `cluster.mana.meter` — the SAME
+field — so they must be reading different BODIES; an earlier probe had already
+shown TWO `ActorControl`s in that world and I did not follow it. **I falsified a
+correct hypothesis with a sibling reader and called it data.**
+⚠ The other lane made the mirror error from the other side: a grep for a `BodyMana`
+consumer on the dive path found none, so "the dive does not spend mana" — while
+the spend is right there. Two sessions, two instruments, one cause, and both
+instruments said "not here".
+
+⭐ **What made it findable was instrumenting the SYSTEM, not the harness.** The
+observation is a projection; the system's own read is the fact. When a projection
+and a mechanism disagree about a value with the same NAME, the mechanism wins and
+the disagreement is the finding.
 
 ⇒ ⛔ NOT a regression, and three of us started by assuming it was. Only 7 `.rs`
 files had changed since the previous all-green gate; calculex cleared the only

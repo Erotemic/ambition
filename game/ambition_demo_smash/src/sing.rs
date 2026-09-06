@@ -154,7 +154,10 @@ mod tests {
         app.add_message::<ActorActionMessage>();
         // The SHIPPED order (see `lib.rs`): the mash runs first, so a press is
         // never spent on a sleep that did not exist when it was made.
-        app.add_systems(Update, (mash_out_of_sleep, apply_authored_sleep).chain());
+        app.add_systems(
+            Update,
+            (mash_out_of_sleep, apply_authored_sleep, note_writes).chain(),
+        );
         app
     }
 
@@ -169,6 +172,7 @@ mod tests {
                 ae::CenteredAabb::from_center_size(at, ae::Vec2::new(28.0, 46.0)),
                 BodyCombat::default(),
                 control(),
+                Wrote::default(),
             ))
             .id()
     }
@@ -220,19 +224,39 @@ mod tests {
         );
     }
 
-    /// Bodies whose `BodyCombat` was written this tick, collected AFTER the
-    /// system under test so the assertion is about its writes and no others.
-    #[derive(Resource, Default)]
-    struct Touched(Vec<Entity>);
+    /// Per-body scratch: was this fighter's `BodyCombat` written this tick?
+    ///
+    /// ⛔ NOT A TEST-ONLY `Resource` COLLECTING `Changed<..>`, which is what the
+    /// first version was: `per_attempt_resource_census` reddened on it, and
+    /// correctly — it scans `game/` for collection-holding `Resource` types and
+    /// asks of each whether it is per-attempt state that a death or replay must
+    /// re-arm. A fixture's scratch vector cannot answer that and should never
+    /// have been asked; a component on the body it describes is the right shape
+    /// anyway.
+    ///
+    /// ⛔⛔ AND READING `is_changed()` FROM OUTSIDE A SYSTEM DOES NOT WORK — the
+    /// second draft did that and the POSITIVE CONTROL caught it. A `Ref` taken
+    /// from `&World` compares against the world's change tick, which `update()`
+    /// has already advanced past, so EVERY body reads unchanged. That version
+    /// would have passed `mashing_while_awake_takes_no_write_at_all` for the
+    /// worst possible reason. Inside a system, `Ref::is_changed()` compares
+    /// against THAT system's previous run, which is the question being asked.
+    #[derive(Component, Default)]
+    struct Wrote(bool);
 
-    fn note_touched(
-        mut seen: ResMut<Touched>,
-        changed: Query<
-            Entity,
-            Changed<ambition_platformer2d::characters::actor::BodyCombat>,
-        >,
+    fn note_writes(
+        mut bodies: Query<(
+            &mut Wrote,
+            bevy::prelude::Ref<ambition_platformer2d::characters::actor::BodyCombat>,
+        )>,
     ) {
-        seen.0.extend(changed.iter());
+        for (mut wrote, combat) in &mut bodies {
+            wrote.0 = combat.is_changed();
+        }
+    }
+
+    fn was_written(app: &App, who: Entity) -> bool {
+        app.world().get::<Wrote>(who).expect("scratch flag").0
     }
 
     fn control() -> ambition_platformer2d::characters::control::ActorControl {
@@ -336,12 +360,9 @@ mod tests {
     #[test]
     fn mashing_while_awake_takes_no_write_at_all() {
         let mut app = app();
-        app.init_resource::<Touched>();
-        app.add_systems(Update, note_touched.after(mash_out_of_sleep));
         let awake = body(&mut app, ae::Vec2::new(0.0, 0.0));
         // The insertion itself is a change; spend it before measuring.
         app.update();
-        app.world_mut().resource_mut::<Touched>().0.clear();
 
         mash(&mut app, awake);
         app.update();
@@ -351,7 +372,7 @@ mod tests {
             "an awake fighter's timer moved",
         );
         assert!(
-            app.world().resource::<Touched>().0.is_empty(),
+            !was_written(&app, awake),
             "an awake fighter's BodyCombat was written to; that is a rollback \
              checksum churning every tick for a status nobody has",
         );
@@ -363,20 +384,22 @@ mod tests {
     #[test]
     fn a_sleeping_masher_does_take_the_write() {
         let mut app = app();
-        app.init_resource::<Touched>();
-        app.add_systems(Update, note_touched.after(mash_out_of_sleep));
         let singer = body(&mut app, ae::Vec2::new(0.0, 0.0));
         let victim = body(&mut app, ae::Vec2::new(30.0, 0.0));
         sing(&mut app, singer, 1.4);
         app.update();
-        app.world_mut().resource_mut::<Touched>().0.clear();
 
         mash(&mut app, victim);
         app.update();
         assert!(
-            app.world().resource::<Touched>().0.contains(&victim),
+            was_written(&app, victim),
             "a sleeping fighter mashed and nothing was written, so the test \
              above proves nothing",
+        );
+        assert!(
+            !was_written(&app, singer),
+            "the singer, who is awake, was written on the same tick — so \
+             `was_written` answers about the TICK rather than about the body",
         );
     }
 

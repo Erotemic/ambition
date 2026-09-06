@@ -637,3 +637,44 @@ name; an alias set spelled at the point of use is a rule that only one caller ob
 Measured 2026-09-06: after the room removal, the tree contains **exactly one**
 remaining inline disjunction of this shape — the cut-rope props above — and it is
 the one this page already flags as needing a different fix.
+
+### ✔ The cut-rope fight's one content trigger now has an end-to-end net — and the third stale deferral of the day (`f0274d38f`, 2026-09-06)
+
+I went looking to replace `CutRopeBossArenaState.active_room` — a hand-rolled
+room-change detector that `FreshAttempt::began_in` already IS, spelled three times,
+with a **fourth** site checking the same condition and BAILING instead of resetting
+(so it silently depends on another system having run first). The swap carries a
+one-frame ordering hazard. ⇒ **So I asked what would catch a mistake, and the
+answer was nothing.**
+
+⛔⛔ **AND THE REASON WAS A DEFERRAL THAT NAMED ITS OWN EXPIRY CONDITION.**
+`boss_lifecycle`'s header: *"content-specific + headless-hard (R5 rewrites cut-rope
+as an EncounterScript); they remain an explicit in-game verification item"*.
+**R5 has landed** — `setup_cut_rope_encounter` is registered in
+`ContentEncounterScriptSet`, and its own doc says the fight is now the generic
+encounter pieces with "no cut-rope-specific physics or steering". Measured: the
+room boots headlessly in **0.87 s** with both authored props present.
+
+⭐ **THE SEAM WAS ALREADY THE RIGHT OBSERVABLE, AND ITS PRIVACY IS WHY.**
+`CutRopeBossArenaState`'s fields are ALL private — a test cannot read `rope_cut`
+even from inside the workspace. That reads like an obstacle and is the opposite:
+`detect_cut_rope_rope_cut` publishes `EncounterGate("rope_cut")`, its doc calls the
+rope-cut *"the ONLY cut-rope-specific trigger; everything after it is the generic
+encounter script"*, and a published message is what other code actually depends on.
+⇒ **When private state blocks a test, check whether the thing you should be
+asserting is the message it publishes instead.**
+
+Three arms, two poisons, each firing on the arm built for it: the gate fires on a
+rope hit (poison: delete the `write`); no gate without a hit (or the first arm
+passes if the gate fired every frame); a hit 4000px away is not a cut (poison:
+`if false &&` on the AABB test — without this arm a geometry-blind detector passes
+the other two). The rope's position is read from the LIVE room, and the start room
+is REQUIRED — the tolerant road falls back to the authored start and would have run
+the whole test in the wrong room, green.
+
+⇒ **THREE STALE DEFERRALS IN ONE DAY, ALL FOUND THE SAME WAY**: item-custody's
+"blocked on `force_kill_boss`", my own cut-rope prop-identity ◐, and this one. ⭐
+The pattern that connects them: **a deferral records what its author knew at the
+moment they stopped, and is then QUOTED rather than re-derived.** Two of these
+three even named the condition that would expire them. Re-deriving a deferral costs
+minutes; this one cost an afternoon of not having a net.

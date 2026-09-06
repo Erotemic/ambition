@@ -1363,6 +1363,8 @@ echo "==> wielded-gauntlet prop icons (procedural → $props_dir)"
 # meteor) have no character rig, so their ground/held icons are procedural
 # 64x64 PNGs from `item_icons.py::write_gauntlet_props`, consumed at runtime by
 # `item_pickup::item_sprite`. (No canonical-pose copy step — drawn directly.)
+# The same call also writes the `polygon_*.png` held-item props from that
+# module's HELD_ITEM_ICON_SPECS, which `HeldItemArt` resolves instead.
 (cd "$renderer_dir" && "$python_bin" -c "from ambition_sprite2d_renderer.targets.icons.item_icons import write_gauntlet_props as w; w('$props_dir')")
 
 echo "==> heal/save shrine prop (procedural obelisk → $props_dir)"

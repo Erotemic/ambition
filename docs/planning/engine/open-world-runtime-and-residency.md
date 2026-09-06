@@ -278,6 +278,107 @@ leaving a one-directional `session → world`. ⚠ The D33 decomposition row bel
 the FIGHTER lane, so the carve is theirs to schedule; this is the measurement, not
 a claim on it.
 
+## ⭐ SEVEN message types are DECLARED and read by nothing in this tree — 2026-09-06
+
+`scripts/messages_nothing_reads.py`. Found by generalising the `LoadEvent`
+discovery below: 108 types are registered with `add_message`, 101 have a
+`MessageReader` somewhere, and seven have none.
+
+```text
+LoadEvent              ambition_load/src/plugin.rs         PUBLISHED — tested here now
+SemanticActionPressed  platformer2d_host/src/lib.rs        PUBLISHED — by design
+PulseFired             examples/capability_demo/src/lib.rs PUBLISHED — "for anyone
+                                                           who wants to react to it"
+PortalGunEquipped      ambition_portal2d/src/plugin.rs     ⚠ OPEN, costs a schema row
+MenuClosedRequested    ambition_menu/src/lib.rs            ✔ DELETED 2026-09-06
+MenuModelChanged       ambition_menu/src/lib.rs            ✔ DELETED 2026-09-06
+```
+
+⚠ **`SemanticActionPressed` is PUBLISHED BY DESIGN and must not be chased.**
+`examples/capability_demo` exists to demonstrate that seam and states the reason
+in its own docs: a press comes back as `SemanticActionPressed`, and *"what the
+composition still owns is the last hop — which seat drives which body — because
+that is the one fact this crate refuses to know."* The missing reader IS the
+design. ✔ Its emission is already asserted in-tree (`semantic.rs:796`), which is
+what the published class actually owes.
+
+⛔ **AND ADDING `examples/` TO THE SWEEP ADDED AN ENTRY RATHER THAN REMOVING
+ONE.** The scan covered `crates/` and `game/` only — a blind spot, because an
+example crate is exactly where a published seam's consumer would live. Fixing it
+did NOT resolve `SemanticActionPressed` (the example names it in prose, not in a
+`MessageReader`) and surfaced `PulseFired`, invisible until then. ⇒ widening a
+population makes latent members visible in BOTH directions; do not assume a scope
+fix will shorten a list.
+
+✔ **The two menu entries were DEAD by every test and are gone.** Neither was ever
+WRITTEN — no producer, no consumer, not in any rollback ledger — and
+`ambition_menu` has no external-consumer fixture: its seven dependents are all
+in-repo. ⛔ **And the crate doc asserted otherwise**, telling hosts to *"translate
+the `MenuActionActivated` / `MenuClosedRequested` messages this crate emits"* when
+it emitted only the first.
+⭐ **The live road was already generic, which is why the second one never got
+built**: closing arrives as the HOST's own action variant on `MenuActionActivated`
+(`game_shell/src/pause_menu.rs`'s `PauseEntry::Close`). Two designs for one
+request, one never built and one documented as if it were.
+
+⛔⛔ **THAT LIST READ SEVEN WHEN FIRST PUBLISHED, AND TWO OF THE SEVEN WERE
+FALSE.** `RunAuthoredCommand` and `TouchInput` came off it within the hour, which
+is a 29% error rate in something I had already committed. Both were missed ROADS,
+and neither is exotic:
+
+```text
+RunAuthoredCommand   read by `authored_logic/commands.rs:312`, which takes
+                     `world.get_resource_mut::<Messages<T>>()` and DRAINS it —
+                     with a comment saying why a `MessageReader` would be wrong
+                     there (its cursor is `Local` state GGRS never rewinds)
+TouchInput           `Messages<TouchInput>` at select_screen.rs:2520, but the
+                     verb is `.write(..)` — the OPPOSITE of a read
+```
+
+⚠ **And the first correction OVER-corrected.** Counting every `Messages<T>` as a
+read road resolved `TouchInput` for the wrong reason and would have hidden any
+write-only channel behind its own writer. The rule is now: a `Messages<T>` handle
+counts only when a READ VERB (`drain`/`iter`/`get_cursor`/`read`) appears in the
+same statement, and the whole sweep runs on PRODUCTION lines — `semantic.rs:926`
+drains `SemanticActionPressed` inside a `#[cfg(test)]` helper, and a test draining
+a channel does not make it a wired one.
+⭐ `#[cfg(test)]` exclusion is IMPORTED from `durable_fact_writers.py` rather than
+re-derived: that file already excludes test items BY POSITION (this repo puts
+`#[cfg(test)] mod tests` inside ordinary source files) and has already had its own
+truncation bug found and fixed. A second copy of that rule would be a worse copy.
+
+⛔⛔ **THE LIST IS NOT A BACKLOG, AND PUBLISHING IT AS ONE WOULD BE THE ERROR.**
+An unread message is PUBLISHED (the reader is downstream, outside this repo — the
+fix is to test the EMISSION here, because no downstream failure can report a
+regression in it) or DEAD (delete it). Those want opposite actions, and the
+discriminator is whether the crate is composed from outside — an external-consumer
+fixture, a `MinimalXPlugins` group, a doc comment about a stranger composing it.
+`ambition_load` has all three.
+
+⭐ **ONE HIT CHASED, and it carries a cost the census does not show.**
+`PortalGunEquipped` is WRITTEN in production
+(`ambition_content/src/portal/inventory_adapter.rs:219`), read by nothing, and
+**rollback-registered**: `clear_message_on_rollback::<PortalGunEquipped>`
+(`portal2d/src/rollback_registration.rs:116`) with a baseline row
+`message.portal_gun_equipped`. Its five test mentions are all `add_message`
+REGISTRATION, never a read. ⇒ an unread message is not free; it is in the wire
+format.
+⛔ **Which is exactly why it is not deleted here.** Removing it moves the rollback
+schema, and the fighter lane holds `GGRS_ROLLBACK_SCHEMA_VERSION` 163 → 164 for the
+aerial tether as of today. A second schema move in the same window is how two
+lanes produce one unmergeable ledger.
+
+⚠ **The instrument was wrong FOUR times before it was right**, and each failure is
+pinned by a unit test over a hand-built corpus: single-line-only matching; the
+TRAILING COMMA in `RoomLoaded,\n    >` (which made the most-read message in the
+tree report zero readers); counting a doc COMMENT as a reader; and missing the
+turbofish in `add_message::<T>()` entirely, which reported zero declarations and
+was caught by the anti-vacuity floor rather than by me.
+⚠ It still cannot see a reader arriving through a wrapper `SystemParam` under a
+name it does not know. `room_replay_reader_slots.py` solves that for one message
+by naming the wrapper; this one says so and asks you to chase a hit before
+believing the list.
+
 ## ⭐ `LoadCoordinator::apply` announces PlanChanged from SEVEN places
 
 **MEASURED 2026-09-05** with `scripts/repeated_statements_in_one_function.py`,
@@ -309,6 +410,31 @@ closure (`mutate_plan(load_id, events, |plan| ..)`) keeps each arm's own
 condition and announces on success; comparing a plan REVISION before and after
 and announcing once removes the question entirely but is a redesign of what a
 plan is. The second is the (A) answer and the first is the cheap one.
-⛔ **Not started.** `ambition_load` is claimed by neither lane, and the standing
-rule is to say so to the peer before taking generic architecture. Recorded with
-its line numbers so whoever takes it starts from the population.
+✔ **DONE 2026-09-06, the cheap shape.** `mutate_plan(load_id, &mut events,
+|plan| ..)` holds the rule once; seven arms became calls and each keeps its own
+condition as the closure's `bool` return. The pushes go 8 → 2 (the helper, plus
+`Begin`, which CREATES a plan rather than mutating one and is deliberately left
+out — folding it in means a helper whose first job is deciding which of two
+things it is doing).
+
+⛔⛔ **AND THE POISON FOUND SOMETHING LARGER THAN THE DUPLICATION.** Deleting
+every `PlanChanged` push left **all 13 tests of the crate green**. Chasing that:
+`MessageReader<LoadEvent>` returns **ZERO hits in the whole tree**, and the only
+in-tree writers of any variant are two `CommitAuthorized`/`CommitRejected` sites
+in `platformer2d_runtime/src/room_transition/loading.rs`.
+
+⚠ **THAT IS NOT DEAD CODE, AND THE DISTINCTION IS THE POINT.** `ambition_load` is
+composed by EXTERNAL consumers — its own plugin test exists because *"the external
+consumer, invisible to a repo grep, sat red until somebody read the panic"*. So
+`LoadEvent` is a published API surface with no in-tree reader, which is precisely
+why its emissions need a test HERE: no downstream failure can ever report a
+regression in it.
+✔ `a_command_that_changes_a_plan_announces_it_and_one_that_does_not_stays_quiet`
+walks all six mutating commands and both quiet cases (a re-removal that finds the
+plan and changes nothing; an unknown load with no plan at all). Poison-verified in
+BOTH directions — never emitting fails on `upsert`, emitting unconditionally fails
+on the re-removal.
+
+⚠ The revision-counter redesign named above is still the (A) answer and is still
+not done; what landed removes the restatement, not the question of what a plan
+revision is.

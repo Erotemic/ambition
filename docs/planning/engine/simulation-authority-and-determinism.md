@@ -889,8 +889,9 @@ the registration.
 this reader in the right set" but "does a system holding per-attempt state have a
 retraction at all". That is a claim about state, not about message readers.
 
-✔ **AND CHASING IT FOUND A LIVE PLAYER-VISIBLE BUG THE SAME DAY.** Of 19
-collection-holding content resources, one — Sanic's `SpentMonitors` — was named
+✔ **AND CHASING IT FOUND A LIVE PLAYER-VISIBLE BUG THE SAME DAY.** Of 17
+collection-holding content resources (**this row said 19 until 2026-09-06 —
+see the correction below**), one — Sanic's `SpentMonitors` — was named
 exactly like `SpentPowerBlocks`, which does retract, in a demo that had
 registered nothing into the replay set. It was rearmed on `RoomLoaded` ONLY, and
 Sanic declares `DeathRules::replay_level_after(0.0)`: a pit death replays the
@@ -1021,6 +1022,32 @@ change that spread the type. The floor now counts BOTH ROADS (2 direct + 3 impls
 ⭐ Worth keeping as a shape: **an adopter floor has to count every road to the
 abstraction, exactly as the reader census already had to** — the same lesson, one
 file over, arriving from the other direction.
+
+### ✔ The sweep is now a committed script — and it corrected its own number
+
+`scripts/per_attempt_resource_census.py`, 2026-09-06. The sweep that found Sanic
+was run by hand and never committed, so its population could not be re-derived.
+It now runs, reports, and floors on the three known per-attempt resources still
+implementing `AttemptScoped` — a presence, so a rename or a dropped impl reddens.
+
+⛔⛔ **AND WRITING IT DOWN COST THE ROW ITS NUMBER: 19 → 17.** The reconstruction
+reproduced 19 exactly, which read as confirmation. Then a unit test asking the
+narrower question — *does the sweep require a COLLECTION field, or just a
+`Resource` derive?* — failed: the body was a fixed 40-line window cut at the first
+`\n}`, and a TUPLE struct has no closing brace on its own line, so its body ran on
+through whatever followed. `AttemptsSeen(u32)` and `Forced(u32)` in
+`smash_app/src/tools/capture_probe.rs` are plain counters; they counted only
+because a `Vec` sat below them in the file.
+⭐ **Reproducing a figure exactly is not evidence the figure is right** — it is
+evidence the method is stable, and a stable method can be stably wrong. The
+correction changes no conclusion: both false hits are dev-tool probes, and the
+three per-attempt resources are the same three.
+
+⚠ **THE DENOMINATOR IS `game/`, AND THE SCOPE PHRASE IS LOAD-BEARING.** The same
+sweep over `crates/` returns **217**, dominated by registries, catalogs, views and
+indexes — engine per-attempt state is entity-shaped or lives in the rollback
+registry. Asking the content question of that population would bury three answers
+in two hundred non-answers, which is why the script scopes itself and says so.
 
 ⚠ **The other half stays open and is worth stating precisely**: state that is
 never cleared by ANY room signal is still invisible. This guard sees only systems

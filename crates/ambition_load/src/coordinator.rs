@@ -44,6 +44,38 @@ impl LoadCoordinator {
         self.plans.get(load).map(|plan| plan.state)
     }
 
+    /// Mutate an ACTIVE plan and report the change, in one operation.
+    ///
+    /// ⭐ THE EMISSION IS NOT THE CALLER'S TO REMEMBER. Seven `apply` arms each
+    /// spelled the same three steps — find the active plan, mutate it, push
+    /// `PlanChanged` — so "a successful plan mutation is observable" was a fact
+    /// stated seven times and true only by everyone's diligence. It is stated
+    /// here now, and an arm that mutates through this helper cannot fail to
+    /// announce it.
+    ///
+    /// `change` returns whether it actually changed anything: a `RemoveWork` for
+    /// an id that is not there found its plan and did nothing, and a listener
+    /// that re-derives a snapshot on every `PlanChanged` should not be woken for
+    /// it.
+    ///
+    /// ⚠ NOT used by `Begin`, deliberately. That arm creates the plan rather
+    /// than mutating an existing one, so there is no active plan to find, and
+    /// folding it in would mean a helper whose first job is to decide which of
+    /// two things it is doing.
+    fn mutate_plan(
+        &mut self,
+        load_id: LoadId,
+        events: &mut Vec<LoadEvent>,
+        change: impl FnOnce(&mut PlanRecord) -> bool,
+    ) {
+        let Some(plan) = self.active_plan_mut(&load_id) else {
+            return;
+        };
+        if change(plan) {
+            events.push(LoadEvent::PlanChanged { load_id });
+        }
+    }
+
     pub fn apply(&mut self, command: LoadCommand) -> Vec<LoadEvent> {
         let mut events = Vec::new();
         match command {
@@ -70,7 +102,7 @@ impl LoadCoordinator {
                 events.push(LoadEvent::PlanChanged { load_id: id });
             }
             LoadCommand::DeclareBarrier { load_id, spec } => {
-                if let Some(plan) = self.active_plan_mut(&load_id) {
+                self.mutate_plan(load_id, &mut events, |plan| {
                     plan.barriers.insert(
                         spec.id.clone(),
                         BarrierRecord {
@@ -78,8 +110,8 @@ impl LoadCoordinator {
                             commit_authorized: false,
                         },
                     );
-                    events.push(LoadEvent::PlanChanged { load_id });
-                }
+                    true
+                });
             }
             LoadCommand::SetDiscovery {
                 load_id,
@@ -87,17 +119,17 @@ impl LoadCoordinator {
                 open,
                 forecast,
             } => {
-                if let Some(barrier) = self
-                    .active_plan_mut(&load_id)
-                    .and_then(|plan| plan.barriers.get_mut(&barrier_id))
-                {
+                self.mutate_plan(load_id, &mut events, |plan| {
+                    let Some(barrier) = plan.barriers.get_mut(&barrier_id) else {
+                        return false;
+                    };
                     barrier.spec.discovery_open = open;
                     barrier.spec.forecast = forecast;
-                    events.push(LoadEvent::PlanChanged { load_id });
-                }
+                    true
+                });
             }
             LoadCommand::UpsertWork { load_id, spec } => {
-                if let Some(plan) = self.active_plan_mut(&load_id) {
+                self.mutate_plan(load_id, &mut events, |plan| {
                     let state = plan
                         .work
                         .get(&spec.id)
@@ -105,54 +137,52 @@ impl LoadCoordinator {
                         .unwrap_or(LoadWorkState::Planned);
                     plan.work
                         .insert(spec.id.clone(), WorkRecord { spec, state });
-                    events.push(LoadEvent::PlanChanged { load_id });
-                }
+                    true
+                });
             }
             LoadCommand::SetWorkState {
                 load_id,
                 work_id,
                 state,
             } => {
-                if let Some(work) = self
-                    .active_plan_mut(&load_id)
-                    .and_then(|plan| plan.work.get_mut(&work_id))
-                {
+                self.mutate_plan(load_id, &mut events, |plan| {
+                    let Some(work) = plan.work.get_mut(&work_id) else {
+                        return false;
+                    };
                     work.state = state;
-                    events.push(LoadEvent::PlanChanged { load_id });
-                }
+                    true
+                });
             }
             LoadCommand::RemoveWork { load_id, work_id } => {
-                if let Some(plan) = self.active_plan_mut(&load_id) {
-                    if plan.work.remove(&work_id).is_some() {
-                        events.push(LoadEvent::PlanChanged { load_id });
-                    }
-                }
+                self.mutate_plan(load_id, &mut events, |plan| {
+                    plan.work.remove(&work_id).is_some()
+                });
             }
             LoadCommand::SetWorkPriority {
                 load_id,
                 work_id,
                 priority,
             } => {
-                if let Some(work) = self
-                    .active_plan_mut(&load_id)
-                    .and_then(|plan| plan.work.get_mut(&work_id))
-                {
+                self.mutate_plan(load_id, &mut events, |plan| {
+                    let Some(work) = plan.work.get_mut(&work_id) else {
+                        return false;
+                    };
                     work.spec.priority = priority;
-                    events.push(LoadEvent::PlanChanged { load_id });
-                }
+                    true
+                });
             }
             LoadCommand::PromoteWork {
                 load_id,
                 work_id,
                 barrier_id,
             } => {
-                if let Some(work) = self
-                    .active_plan_mut(&load_id)
-                    .and_then(|plan| plan.work.get_mut(&work_id))
-                {
+                self.mutate_plan(load_id, &mut events, |plan| {
+                    let Some(work) = plan.work.get_mut(&work_id) else {
+                        return false;
+                    };
                     work.spec.requirement.add_barrier(barrier_id);
-                    events.push(LoadEvent::PlanChanged { load_id });
-                }
+                    true
+                });
             }
             LoadCommand::Cancel { load_id } => {
                 if let Some(plan) = self.plans.get_mut(&load_id) {

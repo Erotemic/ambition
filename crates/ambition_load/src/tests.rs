@@ -239,3 +239,106 @@ fn late_completion_is_ignored_after_cancellation() {
     assert_eq!(snapshot.completed_steps, 0);
     assert_eq!(snapshot.known_remaining_steps, 1);
 }
+
+/// ⛔⛔ NOTHING IN THIS TREE READS `LoadEvent`. Measured 2026-09-06: zero
+/// `MessageReader<LoadEvent>` anywhere, and the only in-tree writers of a variant
+/// are two `CommitAuthorized`/`CommitRejected` sites in the runtime. The channel
+/// exists for the EXTERNAL consumers this crate is composed by — which is exactly
+/// why its emissions need a test HERE. Deleting every `PlanChanged` push left all
+/// 13 tests of this crate green.
+///
+/// So: a command that changes a plan announces it, and one that changes nothing
+/// stays quiet. A listener that re-derives a snapshot per `PlanChanged` should
+/// not be woken by a `RemoveWork` for an id that was never there.
+#[test]
+fn a_command_that_changes_a_plan_announces_it_and_one_that_does_not_stays_quiet() {
+    let (mut coordinator, load, barrier) = setup();
+    let work = LoadWorkId::new("shader");
+
+    let changed = |events: &[LoadEvent]| {
+        events
+            .iter()
+            .filter(|event| matches!(event, LoadEvent::PlanChanged { .. }))
+            .count()
+    };
+
+    // Every mutating command on an active plan: each must announce exactly once.
+    for (label, command) in [
+        (
+            "upsert",
+            LoadCommand::UpsertWork {
+                load_id: load.clone(),
+                spec: LoadWorkSpec::required("shader", "Shader", barrier.clone()),
+            },
+        ),
+        (
+            "set state",
+            LoadCommand::SetWorkState {
+                load_id: load.clone(),
+                work_id: work.clone(),
+                state: LoadWorkState::Running { progress: None },
+            },
+        ),
+        (
+            "set priority",
+            LoadCommand::SetWorkPriority {
+                load_id: load.clone(),
+                work_id: work.clone(),
+                priority: LoadPriority::High,
+            },
+        ),
+        (
+            "promote",
+            LoadCommand::PromoteWork {
+                load_id: load.clone(),
+                work_id: work.clone(),
+                barrier_id: barrier.clone(),
+            },
+        ),
+        (
+            "discovery",
+            LoadCommand::SetDiscovery {
+                load_id: load.clone(),
+                barrier_id: barrier.clone(),
+                open: true,
+                forecast: None,
+            },
+        ),
+        (
+            "remove",
+            LoadCommand::RemoveWork {
+                load_id: load.clone(),
+                work_id: work.clone(),
+            },
+        ),
+    ] {
+        let events = coordinator.apply(command);
+        assert_eq!(
+            changed(&events),
+            1,
+            "`{label}` changed the plan and must announce it once, got {events:?}"
+        );
+    }
+
+    // The same removal again finds the plan and changes nothing.
+    let events = coordinator.apply(LoadCommand::RemoveWork {
+        load_id: load.clone(),
+        work_id: work,
+    });
+    assert_eq!(
+        changed(&events),
+        0,
+        "removing work that is already gone changed nothing, got {events:?}"
+    );
+
+    // And a command naming a plan that does not exist reaches no plan at all.
+    let events = coordinator.apply(LoadCommand::RemoveWork {
+        load_id: LoadId::new("no-such-load"),
+        work_id: LoadWorkId::new("shader"),
+    });
+    assert_eq!(
+        changed(&events),
+        0,
+        "an unknown load has no plan to change, got {events:?}"
+    );
+}

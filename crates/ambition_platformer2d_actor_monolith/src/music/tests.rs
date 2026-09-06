@@ -276,3 +276,63 @@ fn an_empty_id_is_not_a_claim() {
         Some("for_emmy_forever_ago")
     );
 }
+
+
+/// ⛔⛔ A CLEARED ENCOUNTER MUST NOT LOOP ITS OWN OUTRO — Jon, 2026-09-06, with
+/// logs showing a 7.30s cycle against a 7.285s outro:
+///
+/// ```text
+/// finish_adaptive_outro cue=first_goblin_tune_v2 t=7.285
+/// start_adaptive_state  cue=first_goblin_tune_v2 state=outro   <- same frame
+/// resume_simple_music   target=long_lofi_drift                 <- loses the fight
+/// ```
+///
+/// `EncounterPhase::Completed` returned `Play { cleared_state }` UNCONDITIONALLY
+/// while `Inactive` already refused to re-request a finished cue. Completed is the
+/// phase an encounter SITS in, so it is the arm that loops.
+///
+/// ⭐ AND THE DIRECTOR CANNOT DEFEND ITSELF, which is why the fix belongs here:
+/// `finish_adaptive_outro` sets `AdaptiveFinished` and CLEARS `active_cue_id`, so a
+/// standing request satisfies BOTH of `should_restart_adaptive`'s conditions at
+/// once — `!same_cue` because the id is gone, and `mode_lost_adaptive` because
+/// `AdaptiveFinished` is in its list.
+#[test]
+fn a_cleared_encounter_stops_asking_once_its_outro_has_run_out() {
+    let catalog = MusicCueCatalog::from_parts(
+        Vec::new(),
+        vec![EncounterMusicBinding {
+            encounter_id: "goblin_encounter".into(),
+            cue_id: "first_goblin_tune_v2".into(),
+            starting_state: "intro".into(),
+            wave_states: vec!["wave1".into()],
+            wave2_reinforced_state: None,
+            cleared_state: "outro".into(),
+        }],
+    );
+    let waves = waves_fixture(EncounterRun::default());
+    let states = lookup("goblin_encounter", EncounterPhase::Completed, &waves);
+
+    // ⚠ THE PREMISE FIRST: while the outro has NOT run out, a cleared encounter
+    // must still ask for it — or this test would pass on a resolver that never
+    // plays an outro at all.
+    let mut director = MusicDirectorState::default();
+    director.mode = MusicDirectorMode::AdaptiveOutro;
+    director.active_cue_id = Some("first_goblin_tune_v2".into());
+    assert!(
+        matches!(
+            resolve_adaptive_directive(&catalog, &states, &director),
+            Some(AdaptiveCueDirective::Play { .. })
+        ),
+        "a cleared encounter mid-outro must keep asking for it"
+    );
+
+    // Exactly what `finish_adaptive_outro` leaves behind.
+    director.mode = MusicDirectorMode::AdaptiveFinished;
+    director.active_cue_id = None;
+    assert_eq!(
+        resolve_adaptive_directive(&catalog, &states, &director),
+        None,
+        "the outro has already run to completion and the encounter is still \
+         Completed, so asking again restarts it — the 7.3s loop Jon heard"
+    );
+}

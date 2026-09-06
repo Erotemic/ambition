@@ -173,6 +173,52 @@ pub(super) fn resolve_adaptive_directive(
 ///   phase mapped to a cue state.
 /// - `None` when the encounter is unknown / inactive AND its cue is
 ///   not playing — the binding doesn't claim audio this frame.
+/// The outro request for a cleared encounter — the ONE rule both `Completed` and
+/// `Inactive` ask, because they mean the same thing to the music.
+///
+/// ⭐ `AdaptiveFinished` IS THE WHOLE ANSWER, and it is why this must not be
+/// spelled twice. The director sets that mode at the instant an outro runs out;
+/// re-requesting the cue afterwards is what resurrects it. The old `Completed` arm
+/// did not ask, so a cleared encounter looped its own outro indefinitely.
+///
+/// ⚠ `require_active` is the difference the two phases legitimately keep.
+/// `Inactive` also demands the cue be the one already playing: by then the
+/// encounter is gone from the world, and a binding whose cue never started has no
+/// business hard-cutting room music into an outro. At `Completed` the encounter is
+/// still there and its cue is the one that was just playing, so requiring it would
+/// refuse the outro on the very frame it should begin.
+fn outro_directive(
+    binding: &EncounterMusicBinding,
+    director: &MusicDirectorState,
+    require_active: bool,
+) -> Option<AdaptiveCueDirective> {
+    // ⭐ THE ONLY CONDITION BOTH PHASES SHARE, and the one that stops the loop:
+    // the director sets `AdaptiveFinished` the instant an outro runs out, so
+    // re-requesting the cue after that is what resurrects it.
+    if director.mode == MusicDirectorMode::AdaptiveFinished {
+        return None;
+    }
+    // ⚠ `Idle` AND "the cue is already the active one" BELONG TO `Inactive` ONLY,
+    // and I nearly widened them onto `Completed` while fixing the loop. There the
+    // encounter is gone from the world: a binding whose cue never started has no
+    // business hard-cutting silence or room music into an outro. At `Completed`
+    // the encounter is still present and this is the frame its outro should
+    // BEGIN, so either check would refuse the outro entirely.
+    // ⇒ Caught by `resolver_iterates_multiple_bindings`, which clears an
+    // encounter against a DEFAULT (`Idle`) director and expects a `Play`.
+    if require_active {
+        if director.mode == MusicDirectorMode::Idle
+            || director.active_cue_id.as_deref() != Some(binding.cue_id.as_str())
+        {
+            return None;
+        }
+    }
+    Some(AdaptiveCueDirective::Play {
+        cue_id: binding.cue_id.clone(),
+        state_id: binding.cleared_state.clone(),
+    })
+}
+
 pub(super) fn resolve_directive_for_binding(
     binding: &EncounterMusicBinding,
     states: &HashMap<&str, (EncounterPhase, &EncounterWaves)>,
@@ -209,25 +255,28 @@ pub(super) fn resolve_directive_for_binding(
                 state_id,
             })
         }
-        EncounterPhase::Completed => Some(AdaptiveCueDirective::Play {
-            cue_id: binding.cue_id.clone(),
-            state_id: binding.cleared_state.clone(),
-        }),
-        EncounterPhase::Inactive => {
-            // The encounter often resets to Inactive immediately after clear;
-            // if this adaptive cue is already active, continue into its outro
-            // instead of hard-cutting to room music.
-            if cue_active
-                && director.mode != MusicDirectorMode::AdaptiveFinished
-                && director.mode != MusicDirectorMode::Idle
-            {
-                Some(AdaptiveCueDirective::Play {
-                    cue_id: binding.cue_id.clone(),
-                    state_id: binding.cleared_state.clone(),
-                })
-            } else {
-                None
-            }
+        // ⛔⛔ AN OUTRO IS A ONE-SHOT, AND ASKING FOR IT IS NOT THE SAME AS
+        // WANTING IT AGAIN. This arm returned `Play { cleared_state }`
+        // UNCONDITIONALLY while the `Inactive` arm below already refused to
+        // re-request a finished cue. One rule, stated in one place and missing
+        // from the other -- and `Completed` is the phase an encounter SITS in,
+        // so it is the arm that loops.
+        //
+        // ⇒ The director, on finishing an outro, sets `AdaptiveFinished` and
+        // CLEARS `active_cue_id`. A standing request then satisfies BOTH of
+        // `should_restart_adaptive`'s restart conditions at once (`!same_cue`
+        // because the id was cleared, and `mode_lost_adaptive` because
+        // `AdaptiveFinished` is in its list), so the outro restarts, plays its
+        // full length, finishes, and restarts again -- forever.
+        // Jon 2026-09-06, with logs: a 7.30s cycle against a 7.285s outro,
+        // `finish_adaptive_outro` -> `start_adaptive_state state=outro` on the
+        // same frame, with `resume_simple_music target=long_lofi_drift` losing the
+        // fight in between.
+        EncounterPhase::Completed | EncounterPhase::Inactive => {
+            // The encounter often resets to Inactive immediately after clear, so
+            // both phases mean the same thing to the music: keep playing the
+            // outro until it has actually run out.
+            outro_directive(binding, director, *phase == EncounterPhase::Inactive)
         }
         EncounterPhase::Failed => Some(AdaptiveCueDirective::StopNow),
     }

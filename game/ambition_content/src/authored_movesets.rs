@@ -252,6 +252,103 @@ mod flow_tests {
     /// validate their own flow, so a flow authored on a THIRD fighter tomorrow is
     /// covered by neither. ⇒ This asks the question of the whole crate, which is
     /// the only shape that stays true as the roster grows.
+    /// ⛔⛔ EVERY HELD ITEM A MOVE CREATES HAS ART, OR IT IS A PLACEHOLDER QUAD.
+    ///
+    /// Jon, 2026-09-05, asked for three icons — the mine, the bomb and the
+    /// ponytail — and this is the executable form of that ask. `HeldItemArt`'s
+    /// own doc says the resolution is *"absent / unmatched → the placeholder
+    /// quad"*, so a move that spawns a pickup nobody drew ships a grey box that
+    /// no test notices and every player does.
+    ///
+    /// ⭐ THE SCAN IS STRUCTURAL, NOT A LIST OF TECHNIQUES. `ParamValue` is a
+    /// `ron::Value`, so this walks every authored effect's params for a field
+    /// literally named `item_id` — whatever technique owns it. A future move
+    /// that names a held item is covered without anybody remembering this test,
+    /// which is the failure mode a hand-kept list of keys always has.
+    ///
+    /// ⚠ IT PASSES, AND I EXPECTED IT TO FAIL — which corrected the row it was
+    /// written for. The campaign recorded the mine, the bomb and the ponytail as
+    /// "drawing the placeholder quad", and I read that as missing REGISTRATIONS.
+    /// They are all three registered (`items/held_visuals.rs`); my earlier grep
+    /// matched only literal `HeldItemArtEntry::new("…")` calls and missed how
+    /// these are declared. ⇒ What is actually missing is the ART FILE — no
+    /// `polygon_*.png` exists anywhere in the asset tree.
+    ///
+    /// ⛔ AND THAT IS NOT THIS TEST'S QUESTION, deliberately. Sprites are
+    /// GENERATED and gitignored, so a Rust test asserting a PNG exists would
+    /// fail on every checkout that has not run the sprite pipeline. Presence
+    /// belongs to `scripts/check_published_sheets_are_present.py`, which asks the
+    /// renderer what it claims to install. What THIS holds is the half that is
+    /// always true on every machine: a move that names a held item must have an
+    /// entry, or the id resolves to nothing whatever the asset tree looks like.
+    #[test]
+    fn every_held_item_a_move_creates_has_art() {
+        use bevy::prelude::App;
+
+        // What the roster ASKS FOR: every `item_id` any authored effect names.
+        fn item_ids_in(params: &ambition_platformer2d::entity_catalog::ParamValue) -> Vec<String> {
+            let ron::Value::Map(map) = &params.0 else {
+                return Vec::new();
+            };
+            map.iter()
+                .filter(|(key, _)| {
+                    matches!(key, ron::Value::String(name) if name == "item_id")
+                })
+                .filter_map(|(_, value)| match value {
+                    ron::Value::String(id) => Some(id.clone()),
+                    _ => None,
+                })
+                .collect()
+        }
+
+        let mut wanted: std::collections::BTreeSet<String> = Default::default();
+        for (_, contract) in tables() {
+            for mv in &contract.moves {
+                for window in &mv.windows {
+                    if let Some(effect) = window.sustain_effect.as_ref() {
+                        wanted.extend(item_ids_in(&effect.params));
+                    }
+                }
+                for event in &mv.events {
+                    if let ambition_platformer2d::entity_catalog::MoveEventKind::Effect(effect) =
+                        &event.kind
+                    {
+                        wanted.extend(item_ids_in(&effect.params));
+                    }
+                }
+            }
+        }
+
+        // ⛔ ANTI-VACUITY. A walk that finds no item at all passes forever, and
+        // it is what a structural scan looks like when the field is renamed.
+        assert!(
+            !wanted.is_empty(),
+            "no authored effect names an `item_id`, so this guard is comparing \
+             an empty set against the manifest"
+        );
+
+        // What the game DRAWS.
+        let mut app = App::new();
+        app.add_plugins(crate::items::AmbitionItemRosterPlugin);
+        let drawn: std::collections::BTreeSet<String> = app
+            .world()
+            .get_resource::<ambition_platformer2d::platformer::held_item_art::HeldItemArtManifest>()
+            .map(|manifest| manifest.0.iter().map(|e| e.item_id.clone()).collect())
+            .unwrap_or_default();
+        assert!(
+            !drawn.is_empty(),
+            "the item roster plugin registered no held-item art at all, so every \
+             id below would be reported missing for the wrong reason"
+        );
+
+        let missing: Vec<&String> = wanted.difference(&drawn).collect();
+        assert!(
+            missing.is_empty(),
+            "these held items are created by a move and have no art, so they draw \
+             the placeholder quad: {missing:?}"
+        );
+    }
+
     /// ⛔⛔ AN AUTHORED PORTAL RISE HAS TO LAND INSIDE THE STAGE A PLAYER CAN SEE.
     ///
     /// Jon, 2026-09-05, playing it: *"the second portal appears too high, I want

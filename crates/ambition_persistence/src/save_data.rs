@@ -1206,4 +1206,90 @@ mod tests {
         );
         assert_eq!(s.version, CURRENT_SAVE_VERSION);
     }
+
+    /// Every durable family states whether an admitted ROOM REPLAY retracts it.
+    ///
+    /// ⛔⛔ THE REPLAY PATH HAS NO DURABLE-FACT POLICY OF ITS OWN, and that is the
+    /// gap this destructure closes. Measured: a room replay changes ZERO durable
+    /// families by itself, so every attempt-scoped retraction is a CONTENT system
+    /// naming itself — and there is exactly ONE
+    /// (`reset_cut_rope_attempt_on_replay`, which clears a persisted `cleared`
+    /// record for cut-rope placements only). A hand-kept list of one is also the
+    /// only mechanism, so a new family inherits "survives" by DEFAULT and nobody
+    /// is asked.
+    ///
+    /// ⭐ THE DESTRUCTURE BELOW HAS NO `..`, so a fourteenth field does not
+    /// compile (E0027) and lands its author here. The point is not to forbid a
+    /// field: it is to make "does replaying the room take this back?" a decision
+    /// somebody wrote down rather than a default nobody noticed.
+    ///
+    /// ⚠ THE ANSWERS TODAY, and each is a claim about the SHIPPED tree:
+    /// * `bosses` — the ONLY family with a retraction, and it is content-scoped:
+    ///   cut-rope placements only. Every other `BossSpawn` keeps its defeat
+    ///   across a replay, which is decision 56's open question, not a defect.
+    /// * `encounters`, `switches`, `quests`, `flags`, `dialog_visits`,
+    ///   `occurrences`, `custody`, `minted_items`, `items`, `wallet`,
+    ///   `checkpoint`, `inventory_saved` — SURVIVE. A replay returns the body to
+    ///   the room spawn and rebuilds the room's scoped population; it is not a
+    ///   load, and progress the player kept outside the room stays kept.
+    /// * `version` — not a world fact at all; it is the file's own schema.
+    ///
+    /// ⚠ THIS IS THE THIRD EXHAUSTIVE DESTRUCTURE OVER THIS TYPE AND THEY MUST
+    /// NOT BE MERGED. `families_that_differ` asks "is every family COMPARED",
+    /// the clearing path asks "is every family CLEARED", this one asks "does a
+    /// replay RETRACT it". Three questions, three coverages; a merged one would
+    /// answer whichever question its author had in mind and silently stop asking
+    /// the others. Adding a fourteenth field yields THREE `E0027`s, which is the
+    /// system working — verified by poisoning the struct.
+    ///
+    /// ⇒ If you are adding a field, the question to answer first is not "should
+    /// this persist?" but "when the player dies and the room replays, is this
+    /// still true?" ⚠ ENTITY-shaped state needs no answer — the rebuild despawns
+    /// and respawns it. RESOURCE-shaped per-attempt state has its own seam
+    /// (`AttemptScoped`). This list is for what reaches the SAVE.
+    #[test]
+    fn every_durable_family_says_whether_a_replay_retracts_it() {
+        let data = AmbitionGameSaveData::new();
+        // No `..`: this is the whole type, on purpose.
+        let AmbitionGameSaveData {
+            version,
+            encounters,
+            switches,
+            bosses,
+            quests,
+            flags,
+            dialog_visits,
+            items,
+            wallet,
+            inventory_saved,
+            checkpoint,
+            occurrences,
+            custody,
+            minted_items,
+        } = &data;
+
+        // ⚠ ANTI-VACUITY: a fresh save must hold NO durable facts, or the
+        // destructure above would be classifying a type whose emptiness is
+        // accidental rather than stated.
+        assert_eq!(*version, CURRENT_SAVE_VERSION);
+        assert!(
+            encounters.is_empty()
+                && switches.is_empty()
+                && bosses.is_empty()
+                && quests.is_empty()
+                && flags.is_empty()
+                && dialog_visits.is_empty()
+                && occurrences.is_empty()
+                && custody.is_empty()
+                && minted_items.is_empty(),
+            "a new save carries no durable world facts to retract"
+        );
+        assert!(
+            checkpoint.is_none() && !*inventory_saved && *wallet == 0,
+            "and no checkpoint, no saved inventory, no money"
+        );
+        // `items` is deliberately NOT asserted empty: `new()` seeds a starter
+        // inventory, which the test above this one pins.
+        let _ = items;
+    }
 }

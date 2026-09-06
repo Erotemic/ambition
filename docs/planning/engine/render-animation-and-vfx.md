@@ -681,8 +681,39 @@ missing concept: **which drawables belong to which logical body.** The repair is
 that seam — a body→drawable ownership relation the compositor can ask — and
 adding flash, ball, gun and shield as special cases would make the next one
 harder, not easier.
-⛔ **Not started, deliberately.** It is a design decision about a shared
-presentation contract, not a fix; taking it in the last half hour of a session
-would produce exactly the accumulation of special cases the review warns against.
-Acceptance when it is taken: far-side hit flash, far-side morph ball, and the
-already-documented mid-transit flash.
+✔ **THE SEAM LANDED 2026-09-06, and the morph-ball half is closed.**
+`PresentationOf(Entity)` (`shared_tangle`'s `lifecycle::markers`) is how a
+drawable says whose body it draws. It lives there BY DEPENDENCY DIRECTION rather
+than preference: `ambition_render` depends on `ambition_portal2d_presentation`,
+so a component defined in the render crate is invisible to the compositor that
+must read it — the same reason `PlayerVisual` sits there.
+
+- All five body-drawing families carry it: flyline, trapdoor, tether, hit-flash
+  overlay, slash. Each keeps its own field (a tether still needs its body to
+  place a line); what is added is the ANSWER to *"whose body"*, askable by a
+  consumer that knows nothing about tethers.
+- The morph ball is stamped in its SYNC rather than at spawn, because the ball is
+  built before any body exists — and idempotently, because that runs every frame.
+- `publish_portal_compositing_candidates` now admits anything carrying the
+  component, so **a morphed player is composited** where before only its hidden
+  base sprite was visible to the publisher. ⭐ Not a special case for balls: the
+  next drawable that declares an owner is composited without touching that file.
+- A census guard (`scripts/check_body_drawables_declare_their_owner.py`) fails
+  when a component starts naming a body and is not classified — the fallback
+  where a type cannot say it, because a Bevy spawn is a tuple.
+
+⚠ **STILL OPEN: the HIT FLASH, and the reason is shape, not wiring.** The overlay
+is a `Mesh2d` + `MeshMaterial2d`, not a `Sprite` with a `custom_size`, so the
+sprite-shaped publisher can now FIND it and still cannot describe it. Its geometry
+mirrors the source sprite ⇒ the likely answer is that it should be clipped by
+whatever clips its SOURCE rather than published as its own candidate. That is a
+design question about how a mirrored drawable inherits a clip, and guessing at it
+would produce the special case the seam exists to avoid.
+⚠ The held gun in TRANSIT (`visuals.rs`) is the same shape and the same open
+question.
+
+⛔ **A COUNT I PUBLISHED HERE WAS WRONG AND IS CORRECTED**: I first measured six
+body-naming components, counting `SlashVisual { owner }` twice. One of those two
+is a FUNCTION PARAMETER (`fn spawn_one(.., owner: Entity, ..)`). Five components
+draw a body; the sixth name, `PortalCaptureParallaxLayerVisual`, is a portal rig's
+parallax layer and is excluded after reading it.

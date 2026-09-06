@@ -251,6 +251,15 @@ def git_epoch(root: Path) -> str | None:
     return f"{names[0][:9]} ({subject})" if "epoch" in subject.lower() else None
 
 
+class CitationLookupFailed(RuntimeError):
+    """A repository could not answer whether it holds a commit.
+
+    ⭐ RAISED RATHER THAN LOGGED, because the alternative this replaced was to
+    treat silence as a clean answer. A check that cannot reach its evidence must
+    say so loudly enough to stop the run.
+    """
+
+
 def unresolved_commits(root: Path, docs: list[Path]) -> tuple[list, list[str]]:
     """Backticked commit names no reachable repository holds.
 
@@ -275,12 +284,32 @@ def unresolved_commits(root: Path, docs: list[Path]) -> tuple[list, list[str]]:
         return [], []
 
     def missing_in(cwd: Path, names: list[str]) -> list[str]:
+        """Which of `names` this repository does not hold.
+
+        ⛔⛔ A GIT FAILURE MEANS UNKNOWN, NEVER "ALL RESOLVED". This read the
+        subprocess's stdout and ignored its RETURN CODE, so a repository that
+        could not answer -- an unsafe-directory refusal, a broken object store --
+        produced empty stdout, `zip` then paired nothing, and every name came
+        back RESOLVED. A reviewer reproduced exactly that: a fabricated
+        `deadbeef1234` was reported as fine because one initialised submodule's
+        git invocation failed.
+        ⚠ `zip` is the second half of the same trap: it stops at the shorter
+        sequence, so a PARTIAL answer silently certified the names git never got
+        to. Both are now errors.
+        """
         query = "\n".join(f"{n}^{{commit}}" for n in names)
-        result = subprocess.run(
+        proc = subprocess.run(
             ["git", "cat-file", "--batch-check"], cwd=cwd,
             input=query, capture_output=True, text=True,
-        ).stdout.splitlines()
-        return [n for n, line in zip(names, result) if "missing" in line]
+        )
+        lines = proc.stdout.splitlines()
+        if proc.returncode != 0 or len(lines) != len(names):
+            raise CitationLookupFailed(
+                f"`git cat-file` in {cwd} exited {proc.returncode} and answered "
+                f"{len(lines)} of {len(names)} name(s): "
+                f"{(proc.stderr or '').strip()[:200]}"
+            )
+        return [n for n, line in zip(names, lines) if "missing" in line]
 
     outstanding = missing_in(root, list(seen))
     # ⛔ ONLY THE SUPERPROJECT'S OWN COMMITS GET THE REACHABILITY TEST BELOW. A

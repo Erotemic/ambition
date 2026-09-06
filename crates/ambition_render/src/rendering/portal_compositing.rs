@@ -60,6 +60,18 @@ pub fn publish_portal_compositing_candidates(
             Or<(
                 With<crate::rendering::primitives::FeatureVisual>,
                 With<ambition_platformer2d_shared_tangle::lifecycle::PlayerVisual>,
+                // ⛔⛔ A BODY'S OTHER REPRESENTATIONS DRAW TOO, and the base
+                // markers do not find them. While a player is MORPHED its
+                // `PlayerVisual` sprite is hidden and the ball IS the player --
+                // a separate root at `WORLD_Z_PLAYER + 0.05` = 20.05, far above
+                // the portal band pinned at or below `WORLD_Z_DUMMY` = 10. It
+                // therefore drew straight over a pane while the hidden base
+                // sprite was the only thing this publisher could see.
+                // ⇒ `PresentationOf` is how such a drawable says whose body it
+                // draws, so asking for it here is asking the question the
+                // compositor could not previously form. Raised by a GPT review
+                // 2026-09-06.
+                With<ambition_platformer2d_shared_tangle::lifecycle::PresentationOf>,
             )>,
             Without<bevy::prelude::ChildOf>,
         ),
@@ -169,6 +181,53 @@ mod tests {
         let mut sprite = Sprite::default();
         sprite.custom_size = Some(size);
         sprite
+    }
+
+    /// ⛔⛔ A MORPHED PLAYER'S BALL IS THE PLAYER, and it was invisible to this
+    /// publisher.
+    ///
+    /// While morphed the base `PlayerVisual` sprite is HIDDEN and
+    /// `MorphBallVisual` draws instead — a separate root at
+    /// `WORLD_Z_PLAYER + 0.05` = 20.05, far above the portal band this crate
+    /// pins at or below `WORLD_Z_DUMMY` = 10. The publisher's population was
+    /// `FeatureVisual OR PlayerVisual`, so the only thing it could see was the
+    /// hidden sprite, and the ball drew straight over any pane it stood behind.
+    ///
+    /// ⭐ IT IS NOT A PORTAL SPECIAL CASE FOR BALLS. The ball says whose body it
+    /// draws (`PresentationOf`), and this publisher asks that question — so the
+    /// next overlay that declares an owner is composited without touching this
+    /// file. Raised by a GPT review 2026-09-06.
+    #[test]
+    fn a_drawable_that_names_its_body_is_published_even_without_the_base_markers() {
+        use ambition_platformer2d_shared_tangle::lifecycle::PresentationOf;
+
+        let mut app = app();
+        // The body itself, hidden as morphing leaves it.
+        let body = app
+            .world_mut()
+            .spawn((PlayerVisual, sprite(Vec2::new(24.0, 24.0)), Transform::default()))
+            .id();
+        // Its OTHER representation: no `PlayerVisual`, no `FeatureVisual`, and
+        // the only thing actually drawing.
+        let ball = app
+            .world_mut()
+            .spawn((
+                sprite(Vec2::new(16.0, 16.0)),
+                Transform::from_translation(Vec3::new(300.0, 300.0, 20.05)),
+                GlobalTransform::from(Transform::from_translation(Vec3::new(
+                    300.0, 300.0, 20.05,
+                ))),
+                PresentationOf(body),
+            ))
+            .id();
+        app.update();
+
+        assert!(
+            candidate(&app, ball).is_some(),
+            "the drawable that IS the player while morphed is not a compositing \
+             candidate, so a pane cannot clip it and it draws over the aperture \
+             the body is standing behind"
+        );
     }
 
     /// ⛔⛔ THE POSE MUST BE THIS FRAME'S, and the two components are made to

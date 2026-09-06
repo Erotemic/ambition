@@ -144,37 +144,51 @@ def test_a_commit_reachable_from_no_ref_is_reported(module, doc):
     assert "reachable from NO ref" in findings[0][2], findings[0][2]
 
 
-#: ⛔⛔ THE HISTORY WAS TRUNCATED ON 2026-09-06 and every sha older than the new
-#: root stopped resolving at once -- 576 citations across 70 planning files, none
-#: of them a defect. An absolute "no unresolvable commit" assertion cannot survive
-#: that, and deleting the test would give up the property it guards.
-#: ⭐ SO IT BECAME A RATCHET. A NEW fabricated sha raises the count and still
-#: reddens; the epoch's population is pinned here as the baseline.
-#: ⚠ FAILS IN BOTH DIRECTIONS ON PURPOSE. A one-directional ratchet lets the good
-#: direction rot: when pre-epoch citations are repointed or retired this number
-#: must come DOWN with them, and the test says so rather than quietly passing on
-#: a smaller number.
-PRE_EPOCH_UNRESOLVABLE = 576
+#: Commit citations that existed in `docs/planning` when the epoch root was cut.
+GRANDFATHERED = REPO / "dev/epoch-grandfathered-citations.txt"
 
 
-def test_no_commit_citation_beyond_the_known_pre_epoch_population():
-    """The population this guard was built on, asserted rather than remembered.
+def grandfathered() -> set[str]:
+    return {
+        line.strip()
+        for line in GRANDFATHERED.read_text(encoding="utf-8").splitlines()
+        if line.strip() and not line.startswith("#")
+    }
 
-    ⛔ WHAT THIS CAN NO LONGER TELL YOU, stated because the guarantee weakened: a
-    pre-epoch sha and a FABRICATED one are now indistinguishable -- both fail to
-    resolve, and no evidence survives to separate them. What remains checkable is
-    the COUNT, so a citation invented today shows up as one more than the epoch
-    left behind.
+
+def test_no_unresolvable_citation_that_the_epoch_did_not_grandfather():
+    """Every sha that fails to resolve must be one the epoch left behind.
+
+    ⛔⛔ THIS WAS A COUNT AND THE COUNT WAS NOT AN INVARIANT. It asserted
+    `len(findings) == 576`, which is what THIS checkout happens to fail to
+    resolve; a reviewer with deliberately shallow submodule history measured 615
+    from the same source. ⇒ A number derived from the OBJECT STORE cannot gate a
+    property of the DOCUMENTS.
+
+    ⭐ MEMBERSHIP INSTEAD, derived from the documents and therefore identical on
+    every checkout: a citation written before the epoch is grandfathered (and
+    readable in the history store `.git-epoch.yaml` names); one written after
+    must resolve normally. An unresolved sha that is NOT grandfathered is new,
+    and is exactly the fabrication this guard exists for.
+    ⚠ It also cannot be defeated the way a count could -- by deleting one stale
+    citation while adding one fabricated one.
     """
     module = load()
     docs = sorted((REPO / "docs/planning").rglob("*.md"))
     findings, _ = module.unresolved_commits(REPO, docs)
-    assert len(findings) == PRE_EPOCH_UNRESOLVABLE, (
-        f"unresolvable commit citations moved from {PRE_EPOCH_UNRESOLVABLE} to "
-        f"{len(findings)}.\n"
-        "  MORE means a citation was written that names a commit nothing holds — "
-        "the thing this guard\n  exists for. FEWER means pre-epoch rows were "
-        "cleaned up, which is good: lower the constant.\n"
+    allowed = grandfathered()
+    # ⚠ Findings carry the citation as it appears in prose, backticks included;
+    # the grandfathered file holds bare names. Compare the NAMES.
+    ungrandfathered = sorted(
+        {cite.strip("`") for _, _, cite in findings} - allowed
+    )
+    assert not ungrandfathered, (
+        f"{len(ungrandfathered)} commit citation(s) resolve nowhere and were NOT "
+        f"cited at the epoch:\n  " + "\n  ".join(ungrandfathered[:10]) + "\n\n"
+        "  Each is either a FABRICATION or a commit that exists only on the "
+        "machine that wrote it.\n"
+        "  A pre-epoch citation is readable in the history store named by "
+        "`.git-epoch.yaml`.\n"
     )
 
 

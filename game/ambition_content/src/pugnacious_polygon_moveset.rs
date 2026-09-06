@@ -255,10 +255,19 @@ pub fn pugnacious_polygon_moveset() -> MovesetContract {
     // point of authoring it here rather than inventing a technique for it.
     //
     // ⚠ IT DOES NOT STORE, and that is the deliberate contrast with the
-    // Projectile Polygon's neutral-B, which Jon asked to store for Samus/Mewtwo
-    // parity. A ranged fighter banks a shot and picks its moment; a brawler
-    // commits in front of you and either lands it or wears the recovery. Storing
-    // would turn the read into a resource.
+    // Projectile Polygon's neutral-B, which IS authored to store — the
+    // maintainer's request and his words for it live in
+    // `projectile_polygon_moveset.rs`, where the fighter he spoke about is.
+    // A ranged fighter banks a shot and picks its moment; a brawler commits in
+    // front of you and either lands it or wears the recovery. Storing would turn
+    // the read into a resource.
+    //
+    // ⛔ AND HIS NAME STAYS OUT OF THIS FILE ON PURPOSE.
+    // `test_the_reviews_page_agrees_with_the_code_about_whose_moves_these_are`
+    // reads the maintainer's NAME in a moveset file as "he has spoken about this
+    // fighter", and this brawler is on the free-to-change list. Quoting him here
+    // about ANOTHER fighter's move would tell a future polish pass that these
+    // moves are his. It caught me doing exactly that.
     let mut haymaker = strike(Strike {
         id: "polygon_brawler_haymaker",
         clip: "attack_side",
@@ -282,7 +291,7 @@ pub fn pugnacious_polygon_moveset() -> MovesetContract {
         // a punch you have to be made to respect, not one you sneak out.
         max_hold_s: 1.2,
         stores: false,
-        // ⭐ ROOTED, which is Jon's rule for every smash in the game and doubly
+        // ⭐ ROOTED, which is the rule every smash in the game follows and doubly
         // right here: a brawler planting his feet to wind up is the tell the
         // opponent is reading, and a charge you could walk around with would be
         // a threat with no commitment behind it.
@@ -516,8 +525,8 @@ mod tests {
     /// ⭐⭐ HIS PUNCH CHARGES, AND IT DOES NOT STORE — the second half is the
     /// design claim, and it is about TWO fighters at once.
     ///
-    /// Jon asked the Projectile Polygon's neutral-B for Samus/Mewtwo parity:
-    /// *"it needs to be able to store a charge and fire at different sizes."* A
+    /// The Projectile Polygon's neutral-B is authored to STORE, at the
+    /// maintainer's request (his words are in that fighter's own file). A
     /// ranged fighter banks a shot and picks its moment. A brawler commits in
     /// front of you and either lands it or wears the recovery — storing would
     /// turn the read into a resource. ⇒ Prose in two files cannot hold that
@@ -561,8 +570,8 @@ mod tests {
         assert!(
             shot.smash_charge.as_ref().is_some_and(|c| c.stores),
             "her charge shot stopped storing, so the brawler's not-storing says \
-             nothing any more — Jon asked for parity with samus/mewtwo on THAT \
-             move specifically",
+             nothing any more — the storing was asked for on THAT move \
+             specifically",
         );
     }
 

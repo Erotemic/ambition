@@ -97,7 +97,18 @@ def main() -> int:
             f"{WORLDS.relative_to(REPO)} (they are symlinks into the "
             "`game/ambition_map_assets` submodule).\n"
             "  This is NOT a pass -- no door was examined.\n"
-            "  fix: git submodule update --init game/ambition_map_assets",
+            "  ⇒ If the submodule directory is EMPTY, it is not checked out:\n"
+            "       git submodule update --init game/ambition_map_assets\n"
+            "  ⛔⛔ IF IT IS POPULATED, DO NOT RUN THAT COMMAND. It moves the\n"
+            "  submodule to the recorded commit and ORPHANS anything that exists\n"
+            "  only in that working copy -- and this submodule in particular is\n"
+            "  under a standing maintainer hold (decision #62), so an agent must\n"
+            "  not move it at all. Report the symptom instead:\n"
+            "       git -C game/ambition_map_assets status --porcelain\n"
+            "       git -C game/ambition_map_assets log origin/main..HEAD\n"
+            "  ⚠ A worlds directory that is populated but unreadable is a\n"
+            "  DIFFERENT fault from an uninitialised submodule and wants a\n"
+            "  different answer; this message used to give one remedy for both.",
             file=sys.stderr,
         )
         return 3

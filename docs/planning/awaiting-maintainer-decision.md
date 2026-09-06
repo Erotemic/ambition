@@ -4150,7 +4150,7 @@ line is a product judgement about what an Ambition game IS.
 ⛔ **NOT GUESSED, per the standing rule.** The wiring defect Jon actually hit is
 fixed; this is the vocabulary question underneath it.
 
-## Q69 — Does the title screen's Settings tab HIGHLIGHT when the pointer is over it?
+## Q70 — Does the title screen's Settings tab HIGHLIGHT when the pointer is over it?
 
 **2026-09-06. One observation Jon can make in a second, and it splits the search
 space in half.** Everything I can measure headlessly about the Settings tab is

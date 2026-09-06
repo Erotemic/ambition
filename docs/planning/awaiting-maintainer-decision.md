@@ -3681,11 +3681,23 @@ merge base                            2b15cc8   "Start git epoch 1"
 ⇒ **They are DIVERGENT, sharing only the epoch root.** Neither is an ancestor of
 the other, so:
 
-- `git submodule update` moves the checkout to the pin and **ORPHANS `2b4d59f`** —
+- `git submodule update` moves the checkout to the pin and **ORPHANS `2b4d59f`** —  <!-- cite-ok -->
   an unpushed commit whose entire content is a deletion nobody can re-derive from
   the pin. It would also re-introduce the 54,891 lines that commit removed.
-- Conversely, pushing `2b4d59f` as-is would drop the item-icon specs the pin adds,
+- Conversely, pushing `2b4d59f` as-is would drop the item-icon specs the pin adds,  <!-- cite-ok -->
   which content already depends on.
+
+⚠ **THE `2b4d59f` CITATIONS CARRY `cite-ok`, AND THAT IS A RULING, NOT A
+SILENCE.** The citation guard reports this sha as *"a commit that exists only on
+the machine that wrote it"* — which is this ticket's SUBJECT SENTENCE, so the
+guard is working exactly as designed. ⛔ But it can never go green: the sha names
+a SUBMODULE commit and the scanner reads superproject shas, so even pushing
+`2b4d59f` to the renderer's remote would not make it resolvable here. A red that
+cannot be cleared by fixing the thing it points at is an alarm, not a finding, and
+it trains readers to skip the guard.
+⇒ Marked deliberate, which is what `cite-ok` is for (*"a row quoting a mistake it
+is recording"*). The ticket stays OPEN; the marker records that the citation is
+unresolvable ON PURPOSE.
 
 ⭐ **What is needed is a MERGE inside the submodule** — the cleanup and the new
 specs are disjoint (33 files of removed concept art vs one file of added specs) —
@@ -3696,7 +3708,7 @@ this session must not push to the submodule, and must not run
 ⛔⛔ **AND NEITHER SIDE OF THIS IS VISIBLE IN A SUPERPROJECT DIFF.** Confirmed
 from the peer session 2026-09-06: the superproject pointer is `0828fae` on BOTH
 boxes, and `git log origin/main..HEAD` inside the submodule is EMPTY on theirs.
-`2b4d59f` exists on ONE machine and nowhere else. ⇒ A maintainer looking for this
+`2b4d59f` exists on ONE machine and nowhere else. ⇒ A maintainer looking for this  <!-- cite-ok -->
 will not find it by diffing the superproject or by reading either side's
 `git status`; it takes `git merge-base HEAD <pin>` run INSIDE the submodule, on
 the box that holds the commit.
@@ -3711,7 +3723,7 @@ should re-run the regen and confirm the check prints `ok: 3 ... compared`, rathe
 than trusting a clean textual merge.
 
 ⚠ **The symptom this surfaced as**, so the next person recognises it: on a
-checkout at `2b4d59f`, `check_held_item_props_are_rendered.py` cannot import
+checkout at `2b4d59f`, `check_held_item_props_are_rendered.py` cannot import  <!-- cite-ok -->
 `HELD_ITEM_ICON_SPECS` and eight tests fail. I first read that as the renderer
 having consolidated the symbol away and repointed the check at the wrong list;
 the peer session, whose checkout matches the pin, sees it fine. **Two boxes, one

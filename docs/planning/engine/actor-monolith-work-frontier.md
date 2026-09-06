@@ -86,25 +86,40 @@ semantically known"* before any crate-composition push, and names re-measuring
 the actor/world/session graph as the last step before the go line. **Measured, and
 the answer is a single number.**
 
-⛔⛔ **THE RESIDUAL KERNEL HAS ONE STRONGLY-CONNECTED COMPONENT OF 13 OF ITS 38
+⛔⛔ **THE RESIDUAL KERNEL HAS ONE STRONGLY-CONNECTED COMPONENT OF 12 OF ITS 38
 TOP-LEVEL MODULES.** Reproduce with
 `python3 scripts/measure_kernel_module_graph.py --scc --cuts`:
 
 ```text
 abilities, actor_spawn, avatar, character_runtime, construction,
-control, features, items, projectile, schedule, session, shrine, world
+control, features, items, projectile, session, shrine, world
 ```
 
 ⇒ **No member of that set can be extracted into its own crate without the other
-twelve.** That is the whole prerequisite question answered at once, and it
+eleven.** That is the whole prerequisite question answered at once, and it
 re-frames every packet on this page: F1's `construction <-> features` was **one
-edge pair inside a thirteen-module knot**, not a boundary of its own.
+edge pair inside a twelve-module knot**, not a boundary of its own.
 
-⭐ **IT ALSO CONFIRMS JON'S PREREQUISITE LIST FROM A DIFFERENT DIRECTION.** Three
-of the five things he wants resolved before composition — control/possession
-topology, cross-domain schedule authority, session/provider policy — are
-`control`, `schedule` and `session`, and **all three are inside the knot**. They
-are not five independent programs; they are five views of one component.
+⛔⛔ **AND THE FIRST NUMBER I PUBLISHED WAS 13, BECAUSE THE INSTRUMENT DID HALF OF
+WHAT ITS OWN DOCSTRING PROMISED.** `measure_kernel_module_graph.py` says test
+files are excluded *"because a test reaching across modules is a fixture, not a
+dependency"* — and it excluded test FILES while counting inline
+`#[cfg(test)] mod` blocks inside production files as production. On the strength
+of **one line** in a `composed_app()` fixture,
+`crate::schedule::configure_platformer2d_simulation_phases(&mut app)`,
+**`schedule` appeared to be inside the cycle and is not.** Fixed by brace-matching
+those blocks away; every number on this page is post-fix.
+
+⇒ *A stated rule the code applies to one of its two cases is worse than no rule*,
+because the docstring is what the next reader checks instead of the code.
+
+⭐ **IT STILL CONFIRMS JON'S PREREQUISITE LIST, WITH ONE FEWER MEMBER THAN I
+FIRST WROTE.** Two of the five things he wants resolved before composition —
+control/possession topology and session/provider policy — are `control` and
+`session`, and **both are inside the knot**. ⚠ Cross-domain schedule authority is
+NOT: `schedule` has no production inbound edge from the component at all, which
+makes it the one prerequisite that can be worked independently of this carve
+rather than through it.
 
 ### ⭐ AND THE CHEAPEST CUT WAS ONE LINE, WHICH THE EDGE TABLE COULD NOT SHOW
 
@@ -113,11 +128,11 @@ An edge list says which modules reference which. It does not say which
 
 | edge | refs | effect on the knot |
 |---|---|---|
-| `assets -> session` | **1** | **15 -> 13** — took `assets` AND `character_sprites` out |
-| `avatar -> control` | 1 | 13 -> 12 |
-| `features -> projectile` | 1 | 13 -> 12 |
-| `features -> schedule` | 1 | 13 -> 12 |
-| `shrine -> session` | 6 | 13 -> 12 |
+| `assets -> session` | **1** | **14 -> 12** — took `assets` AND `character_sprites` out |
+| `avatar -> control` | 1 | 12 -> 11 |
+| `features -> projectile` | 1 | 12 -> 11 |
+| `shrine -> session` | 6 | 12 -> 11 |
+| ~~`features -> schedule`~~ | ~~1~~ | **not real** — a `#[cfg(test)]` fixture, see above |
 
 ⇒ ✔ **THE FIRST ONE IS DONE.** `assets -> session` was a single `use` of
 `Platformer2dGameplayDefaults` — a two-field `Deserialize + Asset` struct with a
@@ -125,6 +140,15 @@ An edge list says which modules reference which. It does not say which
 filed beside the system that first registered a handle for it. Moved to
 `assets::gameplay_defaults`, where it always belonged, and **the knot lost two
 modules for eleven lines of housekeeping.**
+
+⚠ **THE REMAINING THREE ARE CHEAP AND NOT ALL OF THEM ARE RIGHT, which is the
+distinction the ranking cannot make.** `avatar -> control` is a bundle carrying
+`LocalPlayer`, and `features -> projectile` is a perception query reading
+`ProjectileAllegiance`: both types are where they belong, so removing those edges
+means changing what the consumer DOES, not where a type lives. ⇒ **The cheapest
+cut and the correct cut are different sets.** The instrument ranks by cost;
+reading the edge decides. `assets -> session` was worth taking because the type
+was genuinely misfiled — that is what made it free.
 
 ⛔ **A DATA TYPE FILED BESIDE ITS FIRST CONSUMER IS HOW A DEPENDENCY GRAPH
 ACQUIRES AN EDGE NOBODY INTENDED**, and it is invisible in review: the `use` line

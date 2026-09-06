@@ -32,6 +32,46 @@ KERNEL = REPO / "crates" / "ambition_platformer2d_actor_monolith" / "src"
 PATH_REF = re.compile(r"\bcrate::([a-z_][a-z0-9_]*)")
 
 
+INLINE_TEST_MOD = re.compile(r"#\[cfg\(test\)\]\s*(?:pub(?:\(crate\))?\s+)?mod\s+\w+\s*\{")
+
+
+def strip_inline_test_modules(text: str) -> str:
+    """Remove `#[cfg(test)] mod ... { ... }` blocks by brace matching.
+
+    ⛔⛔ THIS FILE'S OWN DOCSTRING PROMISED IT AND THE CODE DID HALF OF IT. Test
+    FILES were excluded — *"a test reaching across modules is a fixture, not a
+    dependency"* — while an inline `#[cfg(test)] mod` inside a production file
+    was counted as production. Measured 2026-09-06: that alone put `schedule`
+    inside the residual kernel's cyclic component, on the strength of ONE line,
+    `crate::schedule::configure_platformer2d_simulation_phases(&mut app)`, inside
+    a `composed_app()` fixture in `features/mod.rs`. The reported component was
+    13 modules; it is 12.
+
+    ⇒ A stated rule that the code applies to one of its two cases is worse than
+    no rule, because the docstring is what the next reader checks instead of the
+    code.
+    """
+    out: list[str] = []
+    i = 0
+    while True:
+        match = INLINE_TEST_MOD.search(text, i)
+        if not match:
+            out.append(text[i:])
+            return "".join(out)
+        out.append(text[i : match.start()])
+        j = match.end() - 1
+        depth = 0
+        while j < len(text):
+            if text[j] == "{":
+                depth += 1
+            elif text[j] == "}":
+                depth -= 1
+                if depth == 0:
+                    break
+            j += 1
+        i = j + 1
+
+
 def is_test_file(path: Path) -> bool:
     name = path.name
     return name == "tests.rs" or name.endswith("_tests.rs") or "tests" in path.parent.parts[-1:]
@@ -61,13 +101,17 @@ def measure() -> tuple[dict[str, int], dict[str, int], dict[str, collections.Cou
         for f in fs:
             if is_test_file(f):
                 continue
-            with f.open(errors="replace") as handle:
-                for line in handle:
-                    if line.lstrip().startswith("//"):
-                        continue
-                    for target in PATH_REF.findall(line):
-                        if target in mods and target != m:
-                            edges[m][target] += 1
+            # ⛔ INLINE `#[cfg(test)] mod` BLOCKS TOO, not only test FILES — see
+            # `strip_inline_test_modules`. The docstring above always claimed
+            # both; the code did one, and it cost `schedule` a place in the
+            # reported cycle on the strength of a single fixture line.
+            body = strip_inline_test_modules(f.read_text(errors="replace"))
+            for line in body.split("\n"):
+                if line.lstrip().startswith("//"):
+                    continue
+                for target in PATH_REF.findall(line):
+                    if target in mods and target != m:
+                        edges[m][target] += 1
     return prod, total, edges
 
 

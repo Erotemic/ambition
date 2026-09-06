@@ -570,21 +570,78 @@ def _seconds(value: float) -> str:
     return f"{value:,.1f}s"
 
 
+def _predates_note(frozen: dict, crate: str, derived_from_lines: bool = False) -> str:
+    """How much of a reported regression predates the baseline it compares against.
+
+    ⛔⛔ THE GAP THIS CLOSES IS A READING ERROR, NOT AN ARITHMETIC ONE. `--adopt-wins`
+    refreshes the `crates` table from the CURRENT snapshot and writes the derived
+    scalars back from the OLD one, so the baseline holds one fact twice with
+    different values (see the disclosure in `report`). The findings compare
+    against the STALE copy -- correctly, because changing that is a change to what
+    the gate MEANS and belongs to the carve owner, not to the run that noticed.
+
+    ⇒ So the number stays and the CONTEXT travels with it. A reader who meets
+    `+68,648, budget +10,804` with no annotation concludes a catastrophic
+    regression; the same reader told `+51,864 of this predates the baseline`
+    concludes something roughly one budget over. Same number, opposite actions.
+
+    ⚠ `derived_from_lines` hedges deliberately: seconds are priced from lines, so
+    a line baseline that disagrees carries into the seconds figure -- but the
+    exact split is not recomputed here, so the note says WHICH WAY it leans and
+    does not invent a figure.
+    """
+    if not crate:
+        return ""
+    for _label, entry in _derived_scalars(frozen):
+        if entry.get("crate") != crate:
+            continue
+        table = (frozen.get("crates") or {}).get(crate, {}).get("edit_cost_lines")
+        stored = entry.get("lines")
+        if table is None or stored is None or table == stored:
+            continue
+        gap = table - stored
+        if gap <= 0:
+            continue
+        if derived_from_lines:
+            return (
+                f" ⚠ THIS CRATE'S LINE BASELINE DISAGREES WITH ITS OWN TABLE by "
+                f"{_lines(gap)}; seconds are priced from lines, so part of this "
+                f"delta predates the baseline too."
+            )
+        return (
+            f" ⚠ {_lines(gap)} OF THIS PREDATES THE BASELINE -- the stored scalar "
+            f"disagrees with this baseline's own `crates` table by that much, and "
+            f"the comparison above uses the stored one."
+        )
+    return ""
+
+
 def _compare(
     label: str,
     current: float,
     frozen: float,
     headroom: float,
     fmt=_lines,
+    predates: str = "",
 ) -> tuple[str, str] | None:
-    """`(severity, message)` for one number, or None when it is inside budget."""
+    """`(severity, message)` for one number, or None when it is inside budget.
+
+    ⚠ `predates` carries the self-disagreement disclosure TO THE FINDING. The
+    banner at the top of the run already says a baseline scalar disagrees with its
+    own `crates` table, but it prints twenty lines above the findings and in
+    different words -- so a reader meets `+68,648, budget +10,804` with nothing
+    attached to it and reads a catastrophe. The number is not wrong; it is
+    UNREADABLE ALONE, which is the same defect as a correct rule with an unstated
+    scope.
+    """
     if current > frozen + headroom:
         return (
             "REGRESSED",
             f"{label}: {fmt(frozen)} -> {fmt(current)} (+{fmt(current - frozen)}, "
-            f"budget +{fmt(headroom)}). Something got bigger or grew a dependency "
-            f"edge. If this is a deliberate landing, say so and re-freeze; if it "
-            f"is a module that belongs in its own crate, that is the finding.",
+            f"budget +{fmt(headroom)}).{predates} Something got bigger or grew a "
+            f"dependency edge. If this is a deliberate landing, say so and "
+            f"re-freeze; if it is a module that belongs in its own crate, that is "
+            f"the finding.",
         )
     if current < frozen - headroom:
         return (
@@ -602,13 +659,19 @@ def evaluate(current: dict, frozen: dict) -> list[tuple[str, str]]:
     fraction = frozen.get("headroom_fraction", HEADROOM_FRACTION)
     findings: list[tuple[str, str]] = []
 
-    def line_check(label: str, now: int, then: int) -> None:
-        result = _compare(label, now, then, max(1, int(then * fraction)))
+    def line_check(label: str, now: int, then: int, crate: str = "") -> None:
+        result = _compare(
+            label, now, then, max(1, int(then * fraction)),
+            predates=_predates_note(frozen, crate),
+        )
         if result:
             findings.append(result)
 
-    def seconds_check(label: str, now: float, then: float) -> None:
-        result = _compare(label, now, then, max(0.1, then * fraction), fmt=_seconds)
+    def seconds_check(label: str, now: float, then: float, crate: str = "") -> None:
+        result = _compare(
+            label, now, then, max(0.1, then * fraction), fmt=_seconds,
+            predates=_predates_note(frozen, crate, derived_from_lines=True),
+        )
         if result:
             findings.append(result)
 
@@ -629,6 +692,7 @@ def evaluate(current: dict, frozen: dict) -> list[tuple[str, str]]:
             f"worst_edit_cost_seconds ({current['worst_edit_cost_seconds']['crate']})",
             current["worst_edit_cost_seconds"]["seconds"],
             frozen["worst_edit_cost_seconds"]["seconds"],
+            crate=frozen.get("worst_edit_cost", {}).get("crate", ""),
         )
 
     # a crate priced by the fallback is a crate this guard cannot see, and the
@@ -660,6 +724,7 @@ def evaluate(current: dict, frozen: dict) -> list[tuple[str, str]]:
         f"worst_edit_cost_lines ({current['worst_edit_cost']['crate']})",
         current["worst_edit_cost"]["lines"],
         frozen["worst_edit_cost"]["lines"],
+        crate=frozen["worst_edit_cost"].get("crate", ""),
     )
     if current["largest_unit"]["crate"] != frozen["largest_unit"]["crate"]:
         findings.append(
@@ -689,12 +754,14 @@ def evaluate(current: dict, frozen: dict) -> list[tuple[str, str]]:
             f"edit_cost_lines ({name})",
             current["watched_edit_cost"][name]["lines"],
             frozen_entry["lines"],
+            crate=name,
         )
         if "seconds" in frozen_entry:
             seconds_check(
                 f"edit_cost_seconds ({name})",
                 current["watched_edit_cost"][name]["seconds"],
                 frozen_entry["seconds"],
+                crate=name,
             )
 
     # EXACT, both directions, and deliberately not budgeted. This number only moves when the SHAPE

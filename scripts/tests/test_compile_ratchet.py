@@ -526,3 +526,75 @@ def test_accept_keeps_the_split_provenance():
         "accept must not stamp provenance; the envelope owns it"
     )
     assert merged["carried_from"] == "oldersha"
+
+
+# ---------------------------------------------------------------------------
+# a finding must be readable ALONE
+# ---------------------------------------------------------------------------
+
+
+def test_a_regression_says_how_much_of_it_predates_the_baseline(model):
+    """⛔⛔ A CORRECT NUMBER THAT IS UNREADABLE ALONE.
+
+    `--adopt-wins` refreshes the `crates` table from the CURRENT snapshot and
+    writes the derived scalars back from the OLD one, so a baseline holds one fact
+    twice with different values. The findings compare against the STALE copy --
+    deliberately, since changing that is a change to what the gate MEANS and
+    belongs to the carve owner. But the disclosure printed twenty lines above, in
+    different words, so a reader met `+68,648, budget +10,804` with nothing
+    attached and read a catastrophe where the real movement was roughly one budget
+    over. Same number, opposite actions.
+    """
+    _weights, before, frozen = model
+    crate = frozen["worst_edit_cost"]["crate"]
+    stored = frozen["worst_edit_cost"]["lines"]
+
+    # The baseline disagreeing with itself: the table says MORE than the scalar.
+    frozen = {
+        **frozen,
+        "crates": {**frozen["crates"], crate: {**frozen["crates"][crate],
+                                               "edit_cost_lines": stored + 40_000}},
+    }
+    current = {
+        **before,
+        "worst_edit_cost": {**before["worst_edit_cost"], "lines": stored + 60_000},
+    }
+
+    findings = dict(
+        (message.split(":")[0], message) for _sev, message in ratchet.evaluate(current, frozen)
+    )
+    worst = next(m for k, m in findings.items() if k.startswith("worst_edit_cost_lines"))
+    assert "PREDATES THE BASELINE" in worst
+    assert ratchet._lines(40_000) in worst, "it must name the amount, not just warn"
+
+
+def test_a_metric_whose_baseline_agrees_with_itself_gets_no_such_note(model):
+    """⚠ ANTI-FALSE-POSITIVE, and the arm that makes the one above mean something.
+
+    If the note were appended unconditionally, the test above would pass on a
+    baseline that is perfectly consistent — and every reader would learn to skip
+    the sentence.
+    """
+    _weights, before, frozen = model
+    stored = frozen["worst_edit_cost"]["lines"]
+    current = {
+        **before,
+        "worst_edit_cost": {**before["worst_edit_cost"], "lines": stored + 60_000},
+    }
+    messages = [m for _s, m in ratchet.evaluate(current, frozen)
+                if m.startswith("worst_edit_cost_lines")]
+    assert messages, "the regression itself must still be reported"
+    assert "PREDATES THE BASELINE" not in messages[0]
+
+
+def test_largest_unit_is_not_annotated_because_it_is_not_a_derived_scalar(model):
+    """⭐ `_derived_scalars` is the ONE list saying which numbers are derivations.
+
+    `largest_unit` is primary — a max over per-crate line counts with no stored
+    duplicate — so it can never disagree with the table and must never carry the
+    note. A note there would be a false claim about the baseline.
+    """
+    _weights, before, frozen = model
+    labels = [label for label, _entry in ratchet._derived_scalars(frozen)]
+    assert "worst_edit_cost" in labels
+    assert not any(label.startswith("largest_unit") for label in labels)

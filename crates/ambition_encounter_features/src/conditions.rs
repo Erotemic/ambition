@@ -52,6 +52,25 @@ pub fn cleared_descriptor() -> ConditionDescriptor {
 /// usually written to disk; missing entries reconstruct to this value" — so
 /// absence is a real state here rather than a missing subject. What IS
 /// unanswerable is having no save layer, because then nothing recorded anything.
+/// ⛔⛔ A MISSPELT ENCOUNTER ID IS `NotSatisfied` FOREVER, AND THAT IS RULED
+/// RATHER THAN OVERLOOKED — the same ruling `world.switch_on` states. The save's
+/// accessor reconstructs ANY string as `Untouched`, so "no such encounter" and
+/// "that encounter, not cleared" are one answer here. Validating authored ids is
+/// a CONTENT-VALIDATION question, not a runtime one.
+///
+/// ⚠ AND THE OBVIOUS RUNTIME FIX IS A BUG, which is why the ruling needs writing
+/// down. `EncounterRegistry` looks like the roster to check against and is not:
+/// its own doc calls it *"an INDEX from id to a live `Entity`, not an authored
+/// table"*, and a despawned encounter is REMOVED from it. Refusing ids the
+/// registry does not hold would make `encounter.cleared` unanswerable for every
+/// encounter that is not currently spawned — which is precisely the population
+/// the question exists to ask about, since a player asks "did I clear that arena"
+/// after leaving it. ⇒ The check would fail exactly where the question is used.
+///
+/// ⇒ Contrast `quest.active`, which DOES refuse: `QuestRegistry` holds every
+/// quest the composition registered whether or not it is under way, so it is a
+/// roster. Reachability is not enough — the thing reached has to be the
+/// population the question is about.
 pub fn cleared(world: &World, args: &[AuthoredArg]) -> ConditionOutcome {
     let Some(encounter) = args[0].as_name() else {
         return ConditionOutcome::unanswerable("`encounter` must be a name");

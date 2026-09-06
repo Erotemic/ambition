@@ -4205,8 +4205,29 @@ catch "a click at these pixels reaches nothing"** — which is exactly the class
 this bug is in. The one link in the chain that no test covers is the one link
 left unexplained.
 
-⭐ **THE QUESTION: hover the Settings tab with the mouse. Does it change
-appearance at all?**
+✔ **ONE HYPOTHESIS ELIMINATED, MEASURED 2026-09-06 — "is the main menu drawn on
+top?" (Jon's words). NO.** Enumerated every UI node whose rect contains the
+Settings tab's centre in the settled shipped app: **two of 65**, and both are the
+tab itself (stack index 7) and its own text label (index 8, `ChildOf` the tab).
+Nothing overlays the strip; there is no full-screen container above it.
+
+⭐ **AND THERE IS A WAY IN RIGHT NOW: `E` (or `Q`) on the keyboard, bumpers on a
+gamepad.** `MenuPageRight` is bound to `KeyCode::KeyE` (`presets.rs:447-451`) and
+cycles the title-screen tab strip — Jon's own 2026-09-05 design, guarded by
+`the_bumpers_cycle_the_title_screen_tabs`.
+
+⇒ **THAT IS ALSO THE SHARPEST DISCRIMINATOR AVAILABLE**, better than the hover
+question below: if `E` reaches Settings and clicking does not, the tab ROAD is
+sound and the defect is **pointer-only** — hit-testing, not the shell. If `E` also
+fails, it is the launcher command road and I can test that headlessly today.
+
+⚠ **A BOUND ON EVERYTHING MEASURED HERE:** in the windowless fixture the tab strip
+lays out (71×44, fixed px) while **18 of 20 buttons compute to 0×0** — nodes whose
+size depends on the viewport collapse without one. So headless geometry is
+trustworthy for the fixed-size strip and says nothing about content-sized rows.
+
+⭐ **THE ORIGINAL QUESTION, still useful if `E` works: hover the Settings tab with
+the mouse. Does it change appearance at all?**
 
 - **YES, it highlights** ⇒ hit-testing works and `Interaction` is reaching the
   tab. The defect is DOWNSTREAM of picking, in a place I can reach with a test —

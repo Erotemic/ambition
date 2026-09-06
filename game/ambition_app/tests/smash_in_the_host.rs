@@ -6433,13 +6433,18 @@ fn pause_row_index(app: &mut App, label: &str) -> usize {
         .map(|kids| kids.iter().collect::<Vec<_>>())
         .collect();
     let mut texts = world.query::<&Text>();
+    // ⛔ THE ROW'S LABEL IS ITS FIRST TEXT CHILD, NOT ALL OF THEM JOINED. A
+    // control now draws its VALUE as a second text when it has one
+    // (`spawn_control`'s `detail`), so joining every child turned "Master Volume"
+    // into "Master Volume 85%" and an exact-match lookup stopped finding rows it
+    // had always found. The label is what this test is about; the value is not.
     let labels: Vec<String> = children
         .iter()
         .map(|kids| {
             kids.iter()
                 .filter_map(|kid| texts.get(world, *kid).ok().map(|t| t.0.clone()))
-                .collect::<Vec<_>>()
-                .join(" ")
+                .next()
+                .unwrap_or_default()
         })
         .collect();
     let position = |wanted: &str| {

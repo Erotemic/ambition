@@ -179,9 +179,21 @@ fn the_reel_stops_on_the_anchor_and_hands_her_to_gravity() {
     }
     assert!(reel(&app, her).is_none(), "the reel never let go");
     let kin = body(&app, her);
+    // ⛔⛔ NOT "ON THE ANCHOR", AND THAT CHANGE IS THE WHOLE LESSON OF THIS ROW.
+    // This asserted arrival within 1px, and a live match showed why that is the
+    // wrong contract: the anchor is a HANG position, and a hanging body overlaps
+    // the wall. Her body is 34.4px wide, the anchor sat 1px inside the solid,
+    // the swept resolve correctly refused to move her there, and she pinned
+    // ~1px short until the reel's clock ran out — 22 ticks to be caught instead
+    // of 6, a quarter-second stuck to a wall. ⇒ The reel's contract is "somewhere the
+    // authority accepts", which
+    // `where_the_reel_releases_her_is_a_place_the_authority_would_catch` states
+    // directly. What is still true here is that she gets CLOSE — a reel that
+    // released at its starting position would be a whiff wearing a success.
     assert!(
-        (kin.pos - anchor).length() < 1.0,
-        "released at {:?}, {}px from the anchor {:?}",
+        (kin.pos - anchor).length() < 24.0,
+        "released at {:?}, {}px from the anchor {:?} — that is not a reel, it is \
+         a shrug",
         kin.pos,
         (kin.pos - anchor).length(),
         anchor,

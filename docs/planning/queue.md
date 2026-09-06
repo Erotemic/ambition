@@ -4678,6 +4678,67 @@ OPTIONAL dep + feature, never used:
   and nothing in this repo checks the line.** The cheap discipline: cite the line
   you actually READ to make the claim, not the line your grep happened to land
   on.
+
+  ⭐⭐ **AND THE AUDIT IS SECONDS, NOT A SWEEP — done 2026-09-06, and it caught a
+  live instance on the first run.** Extract `` `([\w./-]+\.rs):(\d+)` `` from a
+  diff, open each file, print that line. Twelve citations added to `docs/planning`
+  across thirty commits, no build, no index:
+
+  * **Eleven point at what they claim.** `crates/ambition_sim_view/src/camera_snapshot.rs:611` lands on the
+    `to_screen` closure, `game/ambition_demo_sanic_app/src/bin/capture_sanic.rs:230` on `world_to_viewport`,
+    `crates/ambition_combat/src/rollback_registration.rs:153` on
+    `rollback_component_resolved::<MovePlayback>`, `crates/ambition_sfx/src/ids.rs:158` on
+    `WORLD_ROCK_HIT`, `game/ambition_demo_smash/src/lib.rs:3471` on
+    `the_select_screen_owns_its_input`.
+  * ⛔ **One pointed at an argument list**, and the diagnosis took two people.
+    `open-world-runtime-and-residency.md` quotes
+    `prop.kind = desired_kind.to_string()` against
+    `game/ambition_content/src/bosses/cut_rope/arena.rs:341` — which reads
+    `&mut sprite,`, an argument at the CALL SITE, while the assignment sits at
+    line 388 inside `apply_cut_rope_heavy_object_sprite` at line 371.
+    ⛔⛔ **AND IT IS NOT THIS ROW'S THIRD MODE, which is what I first called it.**
+    `git show <the citing commit>:…/arena.rs | sed -n '341p'` prints the quoted
+    assignment **verbatim**: the citation was RIGHT when written. What moved it
+    was the citer's own commit two hours later, adding ~30 lines of doc to the
+    same file. Three citations rotted from that one edit.
+    ⇒ **A fourth failure mode, and the cheapest of the four to prevent: the AUTHOR
+    invalidates their own citation, in the same file, in the same session, with
+    the doc and the code both open.** The rule is narrower than a sweep —
+    **after editing a file you have cited, re-check your citations INTO it** —
+    and it is the only case where the person who can fix it for free is still
+    sitting there.
+
+  ⚠⚠ **AND THE FIRST DRAFT OF THIS VERY PARAGRAPH FAILED THE OTHER CITATION GUARD**
+  — every example above was written as a BARE filename (`ids.rs:158`, <!-- cite-ok: quoted AS the bad form; the point of the line is that it is ambiguous -->
+  `lib.rs:3471`), which `test_the_live_planning_tree_has_no_ambiguous_citations` <!-- cite-ok: quoted AS the bad form -->
+  reddened immediately: `lib.rs` matches 80 tracked files. ⇒ A note about
+  citation discipline, containing undisciplined citations, caught by a guard
+  rather than by its author. **The two failure modes are independent** — the
+  ambiguity guard sees a bare name and cannot see a wrong line; the line audit
+  sees a wrong line and cannot see ambiguity — and a citation needs to survive
+  both.
+  ⚠ **And a third thing this paragraph had to learn about itself: the two bare
+  names above are MARKED `cite-ok`, because a note explaining a bad citation form
+  has to QUOTE it, and the guard cannot tell an example from a claim.** That is
+  the marker's legitimate use — as against the amnesty use, where it is added to
+  quiet a finding — and the difference is that here the line is not citing
+  anything at all.
+
+  ⛔ **AND THE AUDIT MUST RESOLVE BY SUFFIX, or its negatives lie.** A quick
+  regex-and-open version that resolves paths EXACTLY reports every legitimate
+  PARTIAL-path citation as a missing file — `check_planning_citations.py` resolves
+  by suffix and passes them. Run on the whole tree it handed its author five
+  phantoms beside one real finding, with nothing to tell them apart. ⇒ **Match the
+  real checker's resolution or do not report absences at all** — the same rule as
+  every other instrument today: a negative is a claim about the tool until it
+  matches the tool it is standing in for.
+
+  ⇒ **So the row's ask is smaller than "sweep the docs": run it on the DIFF at
+  write time.** It catches the citation while the author still remembers which
+  line they read, which is the only moment the right answer is free. ⚠ It cannot
+  be a gate — judging whether a line "supports" a claim is a reading, not a
+  match — which is why it belongs in the writing habit rather than in
+  `check_planning_citations.py`.
   ✔ **SWEPT FOR THE `ambition_abilities` CARVE, 2026-09-04, AND NOTHING WAS
   STALE — recorded because "nothing changed" is a result the next sweeper should
   not have to re-derive.** The four planning citations that name a traversal

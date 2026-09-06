@@ -20,7 +20,7 @@ pub mod yarn;
 pub use banter::{install_boss_banter, tick_boss_idle_barks};
 pub use cut_rope::{
     detect_cut_rope_rope_cut, emit_cut_rope_room_replay_after_the_conversation_ends,
-    is_cut_rope_boss, reset_cut_rope_attempt_on_replay, reset_cut_rope_boss_arena_on_room_reset,
+    is_cut_rope_boss, release_cut_rope_music_outside_its_room, reset_cut_rope_attempt_on_replay, reset_cut_rope_boss_arena_on_room_reset,
     reset_cut_rope_boss_attempt, setup_cut_rope_encounter, spawn_cut_rope_victory_npc,
     sync_cut_rope_boss_arena_prop_visuals, tick_cut_rope_flavor, CutRopeBossArenaState,
     CutRopeHeavyObjectCycle, CutRopeRoomReplayRequested, PendingCutRopeRoomReplay,
@@ -321,6 +321,18 @@ impl Plugin for AmbitionBossContentPlugin {
                     .in_set(ambition_platformer2d_actor_monolith::session::reset::ContentRoomReplayResetSet),
             ),
         );
+
+        // ⛔⛔ NO RUN CONDITION, DELIBERATELY, and that is the whole point.
+        // `reset_cut_rope_attempt_on_replay` CLAIMS this boss's music on a room
+        // replay -- which is what a death is -- and the only release lived in the
+        // same one-shot. A claim released only by the system that took it is
+        // released only while that system runs, and a one-shot stops running by
+        // definition, so the Smirking Behemoth's intro followed the player out of
+        // the room and BEAT the room's own music (the priority tier outranks it).
+        // ⇒ This reaches its release arm on every frame the player is elsewhere,
+        // the same discipline `ambition_boss_encounter`'s generic music system
+        // states for itself.
+        app.add_systems(sim, release_cut_rope_music_outside_its_room);
 
         // Cut-rope post-damage flavor (rope-cut detection → gate, hazard→
         // visual mirror + impact flavor, prop visuals). Runs in the engine's

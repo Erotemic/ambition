@@ -223,3 +223,61 @@ fn falling_hazard_drops_when_aligned_and_fires_impact_gate() {
     let mut q = app.world_mut().query::<&FallingHazard>();
     assert_eq!(q.iter(app.world()).count(), 0, "hazard retires on impact");
 }
+
+
+/// ⛔⛔ A DESPAWNED ENCOUNTER TAKES ITS MUSIC CLAIM WITH IT — the generic twin of
+/// the bug Jon hit on 2026-09-06: "the symmetry room, where if I die or trigger
+/// something (not the pca fight) I get the grinning colossus music."
+///
+/// `SetMusic` is an EFFECT, fired once when a beat reaches it, so
+/// `release_priority` is reachable ONLY while some live script emits
+/// `SetMusic(None)`. An encounter that ends without that beat — or simply
+/// despawns when the player leaves its room — leaves the claim standing, and
+/// `desired_track` puts the priority tier ABOVE room music, so the fight's track
+/// then wins everywhere the player goes.
+///
+/// ⚠ THE PREMISE IS ASSERTED FIRST: while the script is ALIVE the claim must
+/// survive, or a release that fires unconditionally would pass this test while
+/// silencing every fight it belongs to.
+#[test]
+fn a_scripts_music_claim_does_not_outlive_the_script() {
+    use ambition_platformer2d_shared_tangle::lifecycle::session_world_component_mut;
+
+    let mut app = test_app();
+    let script = app
+        .world_mut()
+        .spawn((
+            EncounterParticipants::new(Vec::new()),
+            EncounterScript::new(vec![EncounterBeat::new(
+                EncounterTrigger::Gate("never".into()),
+                Vec::new(),
+            )]),
+        ))
+        .id();
+
+    // What a `SetMusic(Some(..))` beat leaves behind.
+    session_world_component_mut::<EncounterMusicRequest>(app.world_mut())
+        .expect("the fixture inserts one")
+        .claim_priority(super::SCRIPT_MUSIC_OWNER, "smirking_behemoth_intro");
+
+    app.update();
+    assert_eq!(
+        session_world_component_mut::<EncounterMusicRequest>(app.world_mut())
+            .expect("present")
+            .desired_track(),
+        Some("smirking_behemoth_intro"),
+        "premise: a LIVE script keeps its music claim"
+    );
+
+    // The player leaves the room: the encounter is gone.
+    app.world_mut().entity_mut(script).despawn();
+    app.update();
+    assert_eq!(
+        session_world_component_mut::<EncounterMusicRequest>(app.world_mut())
+            .expect("present")
+            .desired_track(),
+        None,
+        "the script is gone but its claim still wins, so its track beats room \
+         music in every room the player visits"
+    );
+}

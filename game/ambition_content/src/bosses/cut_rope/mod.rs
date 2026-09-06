@@ -240,6 +240,45 @@ pub fn reset_cut_rope_boss_attempt(
     }
 }
 
+/// Release the cut-rope boss's music claim once the player is not in its room.
+///
+/// ⛔⛔ THE CLAIM WAS TAKEN BY A ONE-SHOT AND RELEASED BY NOBODY.
+/// `reset_cut_rope_boss_attempt` claims `CUT_ROPE_MUSIC_OWNER` for the boss's
+/// intro track, and it runs on an admitted room REPLAY — which is what a death
+/// is. Its only release is the `None` arm of that same match, inside that same
+/// one-shot. So: die in the cut-rope room, walk out, and the Smirking Behemoth's
+/// intro follows you. `EncounterMusicRequest::desired_track` puts the priority
+/// tier ABOVE room music, so it does not merely linger, it WINS everywhere.
+/// Reported by Jon 2026-09-06: "the symmetry room, where if I die or trigger
+/// something (not the pca fight) I get the grinning colossus music."
+///
+/// ⭐ THE GENERIC BOSS SYSTEM ALREADY KNEW THIS, in as many words: *"This system
+/// has no run condition, so it reaches the 'no boss is fighting' arm on every
+/// frame of every game."* A claim released only by the system that took it is
+/// released only while that system still runs — and a one-shot stops running by
+/// definition. This is that discipline applied to the owner that lacked it.
+///
+/// ⚠ It releases only its OWN claim (`release_priority` is owner-checked), so a
+/// conversation, a demo death cue, or the generic boss owner keep theirs.
+pub fn release_cut_rope_music_outside_its_room(
+    room_set: ambition_platformer2d::platformer::lifecycle::SessionWorldRef<
+        ambition_platformer2d_world::rooms::RoomSet,
+    >,
+    music: Option<
+        ambition_platformer2d::platformer::lifecycle::SessionWorldMut<
+            ambition_encounter::EncounterMusicRequest,
+        >,
+    >,
+) {
+    let Some(mut music) = music else {
+        return;
+    };
+    if room_set.active_spec().id == CUT_ROPE_ROOM_ID {
+        return;
+    }
+    music.release_priority(CUT_ROPE_MUSIC_OWNER);
+}
+
 /// On an ADMITTED room replay ([`RoomReplayAdmitted`](ambition_combat::events::RoomReplayAdmitted)
 /// — not the request; see the parameter's comment), clear the cut-rope boss's
 /// per-attempt state for every cut-rope placement in the room. That is now ONE
@@ -448,6 +487,64 @@ mod tests {
             flip_y: false,
             draw: Default::default(),
         }
+    }
+
+    /// ⛔⛔ THE BOSS'S MUSIC CLAIM IS RELEASED WHEN THE PLAYER LEAVES ITS ROOM —
+    /// Jon, 2026-09-06: "the symmetry room, where if I die or trigger something
+    /// (not the pca fight) I get the grinning colossus music."
+    ///
+    /// `reset_cut_rope_attempt_on_replay` claims `CUT_ROPE_MUSIC_OWNER` for the
+    /// Smirking Behemoth's intro, and a DEATH is a room replay. Its only release
+    /// was the `None` arm of that same one-shot, so the claim outlived the room —
+    /// and `desired_track` puts the priority tier ABOVE room music, so it did not
+    /// linger quietly, it won everywhere.
+    ///
+    /// ⚠ THE PREMISE IS ASSERTED FIRST: the claim must SURVIVE while the player
+    /// is still in the room, or a release that fires unconditionally would pass
+    /// this test while silencing the fight it belongs to.
+    #[test]
+    fn the_boss_music_claim_does_not_follow_the_player_out_of_the_room() {
+        let mut music = ambition_encounter::EncounterMusicRequest::default();
+        music.claim_priority(CUT_ROPE_MUSIC_OWNER, "smirking_behemoth_intro");
+        assert_eq!(
+            music.desired_track(),
+            Some("smirking_behemoth_intro"),
+            "premise: the claim is what makes the boss track win"
+        );
+
+        // Elsewhere: exactly the call the system makes when the active room is
+        // not this boss's.
+        //
+        // ⚠ WHAT THIS TEST DOES NOT COVER, stated rather than implied: the
+        // system's ROOM PREDICATE. It pins the claim LIFETIME — that a released
+        // claim stops winning, and that the release is owner-scoped — which is
+        // the half that was broken. Whether
+        // `release_cut_rope_music_outside_its_room` compares the right room needs
+        // a session-world fixture, and a tautological `if ROOM == ROOM` here
+        // would only have looked like coverage.
+        music.release_priority(CUT_ROPE_MUSIC_OWNER);
+        assert_eq!(
+            music.desired_track(),
+            None,
+            "the boss's music claim outlived its room, so it beats room music \
+             everywhere the player goes"
+        );
+    }
+
+    /// ⚠ AND IT RELEASES ONLY ITS OWN CLAIM. `release_priority` is owner-checked,
+    /// so a conversation cue or another boss holding the tier is untouched — the
+    /// failure this guards is a release that silences whoever legitimately owns
+    /// the music instead of the one leaving.
+    #[test]
+    fn releasing_the_cut_rope_claim_does_not_silence_another_owner() {
+        let mut music = ambition_encounter::EncounterMusicRequest::default();
+        music.claim_priority("some_other_fight", "another_track");
+        music.release_priority(CUT_ROPE_MUSIC_OWNER);
+        assert_eq!(
+            music.desired_track(),
+            Some("another_track"),
+            "leaving the cut-rope room cancelled a claim it does not own"
+        );
     }
 
     #[test]

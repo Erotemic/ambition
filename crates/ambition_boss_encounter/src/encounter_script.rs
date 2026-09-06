@@ -61,6 +61,28 @@ pub fn tick_encounter_scripts(
     let dt = world_time.sim_dt();
     let fired: Vec<String> = gates.read().map(|g| g.gate.clone()).collect();
 
+    // ⛔⛔ NO SCRIPT MEANS NO SCRIPT MUSIC. `SetMusic` is an EFFECT, fired once
+    // when a beat reaches it, so `release_priority` below is reachable ONLY when
+    // some live script emits `SetMusic(None)`. An encounter that ends without
+    // that beat — or simply despawns when the player leaves its room — takes its
+    // claim with it, and `EncounterMusicRequest::desired_track` puts the priority
+    // tier ABOVE room music, so the fight's track then wins everywhere.
+    //
+    // ⭐ THIS IS THE GENERIC TWIN OF A BUG JON HIT ON 2026-09-06 ("the symmetry
+    // room… I get the grinning colossus music"). That one leaked through
+    // `CUT_ROPE_MUSIC_OWNER`; the Smirking Behemoth is ALSO an `EncounterScript`
+    // since R5, so the same track could leak again through this owner after that
+    // fix. A claim released only by the path that took it is released only while
+    // that path still runs.
+    //
+    // ⇒ The rule `ambition_boss_encounter`'s own boss-music system already
+    // states — "reaches the 'no boss is fighting' arm on every frame" — applied
+    // here: with no scripts alive there is nothing to hold the claim.
+    // ⚠ Owner-scoped, so a conversation cue or the generic boss owner keep theirs.
+    if scripts.is_empty() {
+        music.release_priority(SCRIPT_MUSIC_OWNER);
+    }
+
     for (participants, mut script, encounter_id, mut counter) in &mut scripts {
         let effects = script.advance(dt, participants, &fired);
         let member_entity = |i: usize| participants.members.get(i).and_then(|p| p.entity);

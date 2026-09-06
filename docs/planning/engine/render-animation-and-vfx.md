@@ -523,7 +523,8 @@ receipt so the next reader does not re-derive it.
 `TetherVisual { body }` names the body doing the REACHING — the line's owner, used
 to dedup and to despawn when the reach ends
 (`crates/ambition_render/src/rendering/tether.rs:83`). The far end is ALREADY a
-point: `rendering/tether.rs:61` reads `pose.grab_reach` as a `Vec2` and hands it to
+point: `crates/ambition_render/src/rendering/tether.rs:61` reads `pose.grab_reach`
+as a `Vec2` and hands it to
 `flyline::place_wire` as `to`. ⇒ A tether that catches the STAGE is already
 expressible in this crate; a `Point` variant would be a sum type whose two arms
 are both a point.

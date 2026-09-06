@@ -876,7 +876,7 @@ mod expressiveness_census {
     /// ⇒ Jon's words were *"a lot of characters have boring specials"*. The
     /// SPECIAL is the unit of that sentence, and counting it changes the answer
     /// from "0 plain" to this: measured 2026-09-06, **75 of 88 specials carry a
-    /// mechanic and 6 do not** (it opened at 75/13 and seven specials have been
+    /// mechanic and 4 do not** (it opened at 75/13 and nine specials have been
     /// authored since). Both numbers come from `expressive_reasons`, the
     /// one definition in this file, so this test and the per-special census
     /// cannot drift apart the way the census and its own doc comment did.
@@ -913,7 +913,7 @@ mod expressiveness_census {
         /// Raised deliberately as specials gain mechanics. ⛔ Raising it is a
         /// decision with a commit behind it; watching it fall silently is the
         /// failure this exists to catch.
-        const FLOOR: usize = 82;
+        const FLOOR: usize = 84;
 
         let mut rich: Vec<String> = Vec::new();
         let mut bare: Vec<String> = Vec::new();
@@ -950,6 +950,43 @@ mod expressiveness_census {
             "specials carrying a mechanic fell to {} (floor {FLOOR}).\n  \
              without a mechanic: {bare:?}",
             rich.len(),
+        );
+
+        /// ⭐⭐ AND A CEILING ON PLAINNESS, WHICH IS THE HALF A FLOOR CANNOT HOLD.
+        ///
+        /// A floor catches a mechanic being REMOVED. It cannot catch a plain
+        /// special being ADDED: a new bare swing raises the roster's total and
+        /// leaves `rich` exactly where it was, so `rich >= FLOOR` stays green
+        /// while the thing Jon complained about gets worse. ⇒ Both directions or
+        /// neither.
+        ///
+        /// ⛔ FOUR, AND ALL FOUR ARE DELIBERATE — a count, never an allowlist of
+        /// names, because a name list absorbs the guard's own weaknesses the
+        /// moment somebody adds a row to quiet it. Each of the four states its
+        /// reason in its own file: the goblin's `scrap_flail` (*"no technique at
+        /// all: it turns its whole body into the swing and hopes"*),
+        /// `cellular_pulse` (a migration promise not to retune it),
+        /// `performer_the_line` (an explicit refusal of `MoveEventKind::Ranged`)
+        /// and `performer_trapdoor_air` (a deliberate FAKE — the same first
+        /// frames as the real trapdoor and no door, explicitly no i-frames, whose
+        /// whole design is that it does nothing).
+        ///
+        /// ⇒ Raising this is a design decision with a commit behind it, exactly
+        /// like lowering the floor. A plain-strike brawler is legitimate; a
+        /// plain-strike brawler nobody decided on is the complaint.
+        ///
+        /// ⭐ POISONED 2026-09-06 with an ADDITION rather than a removal, because
+        /// that is the case the floor cannot see: widening the corpus to every
+        /// verb starting with "s" took plainness to 57 and reddened THIS while
+        ///  stayed green throughout.
+        const PLAIN_CEILING: usize = 4;
+
+        assert!(
+            bare.len() <= PLAIN_CEILING,
+            "specials with no mechanic rose to {} (ceiling {PLAIN_CEILING}).\n  \
+             the four expected are deliberate and say so in their own files; \
+             anything else here is a bare swing nobody decided on:\n  {bare:#?}",
+            bare.len(),
         );
     }
 

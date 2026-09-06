@@ -30,7 +30,7 @@ use ambition_platformer2d::entity_catalog::{
 // table below is written with the same `strike` this one is rather than a copy
 // of it. They left this file the day a second character authored moves.
 use ambition_characters::moveset_authoring::{
-    committed_tail, impulse, on_contact, sfx, strike, vfx_at,
+    armor, committed_tail, impulse, on_contact, sfx, strike, vfx_at,
 };
 use ambition_platformer2d::entity_catalog::ImpulseMode;
 
@@ -390,6 +390,22 @@ pub fn player_robot_moveset() -> MovesetContract {
         launch_dir: Some((0.75, -0.62)),
         on_hit: None,
     });
+    // ⭐⭐ ARMOUR THROUGH THE DROP, BECAUSE THE MOVE IS ALREADY ABOUT WEIGHT AND
+    // HAD NO WAY TO SAY SO. "It drops its weight through its stabilizers and the
+    // floor answers" was authored as a wide flat hitbox and nothing else — one of
+    // the roster's specials carrying no mechanic. A machine that plants itself and
+    // takes the hit is what a stabilizer IS.
+    //
+    // ⛔ THE STARTUP ONLY, 0.04s..0.14s, closing as the floor answers. Armour over
+    // the active frames would win every simultaneous exchange rather than the
+    // ones it committed to first, and this move's stated risk is that "whiffing
+    // it is the whole risk" — armour that also covered the hit would delete the
+    // risk instead of pricing it.
+    //
+    // ⚠ IT STILL TAKES THE DAMAGE. `WindowTag::Armor` is "you get hit and you
+    // swing anyway", not invulnerability: trading into a heavy robot costs the
+    // robot, and anything faster than 0.04s beats it outright.
+    let down_b = armor(down_b, 0.04, 0.14);
     let down_b = committed_tail(down_b, 0.62, 0.0);
     let down_b = vfx_at(down_b, 0.14, "shockwave", (0.0, 20.0), 1.1);
     let down_b = sfx(down_b, 0.14, "player.land.heavy");
@@ -538,6 +554,44 @@ pub fn player_robot_moveset() -> MovesetContract {
         },
     }
     .into_contract()
+}
+
+#[cfg(test)]
+mod stabilizer_tests {
+    use super::*;
+
+    /// ⭐⭐ IT PLANTS ITSELF AND TAKES THE HIT — BUT ONLY WHILE IT IS PLANTING.
+    ///
+    /// ⛔ THE END OF THE ARMOUR IS THE TEST. This move's own comment says
+    /// "whiffing it is the whole risk"; armour covering the active frames would
+    /// delete that risk instead of pricing it, by winning every simultaneous
+    /// exchange rather than the ones it committed to first. A guard that only
+    /// found a `WindowTag::Armor` passes against exactly that move.
+    #[test]
+    fn the_stabilizer_slam_is_armoured_only_while_it_plants() {
+        use ambition_platformer2d::entity_catalog::WindowTag;
+        let slam = player_robot_moveset()
+            .move_by_id("stabilizer_slam")
+            .expect("stabilizer_slam exists")
+            .clone();
+        let armor = slam
+            .windows
+            .iter()
+            .find(|w| w.tag == WindowTag::Armor)
+            .expect("a machine that plants itself has armour");
+        let active = slam
+            .windows
+            .iter()
+            .find(|w| w.tag == WindowTag::Active && !w.volumes.is_empty())
+            .expect("the floor still answers");
+        assert!(
+            armor.end_s <= active.start_s,
+            "armour must close as the floor answers: armour ends {}, hit opens {}",
+            armor.end_s,
+            active.start_s,
+        );
+        assert!(armor.start_s > 0.0, "anything faster must still beat it");
+    }
 }
 
 #[cfg(test)]

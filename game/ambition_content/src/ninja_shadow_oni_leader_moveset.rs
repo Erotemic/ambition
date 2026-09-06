@@ -245,6 +245,29 @@ pub fn ninja_shadow_oni_leader_moveset() -> MovesetContract {
         launch_dir: Some((0.9, -0.50)),
         on_hit: None,
     });
+    // ⭐⭐ THE ANSWER CONFIRMS INTO THE DRAW. `shadow_answer` is the fastest button
+    // on this fighter — 0.06s — and it was a bare poke with 0.34s of recovery,
+    // one of the roster's specials carrying no mechanic. What "answer" was
+    // missing is the second half of the conversation: land it, and he may cancel
+    // into `iaijutsu`, the committed draw whose flow already branches on being
+    // blocked.
+    //
+    // ⛔ `OnHit`, NOT `OnBlock`, AND THE DIFFERENCE IS THE WHOLE BALANCE. A
+    // block-cancel would let him escape the recovery he is supposed to eat for
+    // throwing the fastest thing in the game, and the draw's own flow already
+    // teleports him out when a guard eats THAT — two escapes stacked, and
+    // pressing this becomes free. A hit-confirm rewards the read and leaves the
+    // whiff and the block priced exactly as they were.
+    //
+    // ⚠ THE WINDOW OPENS AFTER THE ACTIVE FRAMES CLOSE (0.10s), so the cancel is
+    // a decision made once the verdict is in, not a buffer held from the press.
+    let n_b = ambition_characters::moveset_authoring::cancelable(
+        n_b,
+        0.10,
+        0.30,
+        &["special_forward"],
+        ambition_platformer2d::entity_catalog::CancelCondition::OnHit,
+    );
     let n_b = committed_tail(n_b, 0.62, 0.0);
     let n_b = vfx_at(n_b, 0.02, "oni_eye_flash", (0.0, -10.0), 0.8);
     let n_b = sfx(n_b, 0.02, "enemy.shadow_oni.alert");
@@ -605,6 +628,58 @@ pub fn ninja_shadow_oni_leader_moveset() -> MovesetContract {
         },
     }
     .into_contract()
+}
+
+#[cfg(test)]
+mod answer_tests {
+    use super::*;
+
+    /// ⭐⭐ THE ANSWER CONFIRMS ON A HIT AND NOT ON A BLOCK.
+    ///
+    /// ⛔⛔ `OnHit` IS THE ASSERTION, NOT THE CANCEL. A block-cancel would let him
+    /// leave the recovery he is supposed to eat for throwing the fastest button
+    /// in the game — and `iaijutsu`, the move he cancels INTO, already teleports
+    /// him out when a guard eats that. Two escapes stacked and the press becomes
+    /// free. A guard that only found a `Cancelable` window passes against the
+    /// version that changes the whole matchup.
+    #[test]
+    fn the_shadow_answer_confirms_on_a_hit_and_not_on_a_block() {
+        use ambition_platformer2d::entity_catalog::{CancelCondition, WindowTag};
+        let answer = ninja_shadow_oni_leader_moveset()
+            .move_by_id("shadow_answer")
+            .expect("shadow_answer exists")
+            .clone();
+        let active = answer
+            .windows
+            .iter()
+            .find(|w| w.tag == WindowTag::Active && !w.volumes.is_empty())
+            .expect("it still cuts");
+        let cancel = answer
+            .windows
+            .iter()
+            .find_map(|w| match &w.tag {
+                WindowTag::Cancelable { into, condition } => Some((w, into, condition)),
+                _ => None,
+            })
+            .expect("the answer has a second half");
+        assert_eq!(
+            cancel.2,
+            &CancelCondition::OnHit,
+            "a block-cancel stacks two escapes and makes the fastest button free"
+        );
+        assert!(
+            cancel.1.iter().any(|verb| verb == "special_forward"),
+            "it confirms into the DRAW: {:?}",
+            cancel.1
+        );
+        assert!(
+            cancel.0.start_s >= active.end_s,
+            "the window opens once the verdict is in ({} vs {}), not as a buffer \
+             held from the press",
+            cancel.0.start_s,
+            active.end_s,
+        );
+    }
 }
 
 #[cfg(test)]

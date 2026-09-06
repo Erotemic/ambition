@@ -441,9 +441,17 @@ def test_adopt_wins_records_where_the_unadopted_numbers_came_from():
 
     `--adopt-wins` banks improvements and leaves every regression at its older,
     tighter value — but `commit` comes from the CURRENT snapshot, so it advanced
-    for numbers that did not. MEASURED 2026-09-05: `f507fcb91` changed ONLY
-    `commit` (11ef33c5b5a5 -> c4a51a1b76a9) and left `critical_path_crates: 14`
-    as measured at the older one. The report then claimed the newer commit and
+    for numbers that did not. MEASURED 2026-09-05: `f507fcb91` advanced `commit`
+    (11ef33c5b5a5 -> c4a51a1b76a9) while leaving `critical_path_crates: 14` as
+    measured at the older one.
+
+    ⚠ THIS DOCSTRING USED TO SAY THAT COMMIT "changed ONLY `commit`". It did not
+    — it also re-recorded the whole per-crate table, 538 insertions — and
+    `compile_ratchet.py` retracts the sentence in its own comment: *"I had
+    grepped the diff for two field names and read the filtered view as the
+    whole."* The retraction lived in the source and the retracted claim lived
+    here, so the test went on teaching the wrong fact. ⇒ A correction has to land
+    everywhere the claim does. The report then claimed the newer commit and
     `--diff` offered a range in which no manifest had changed at all, while the
     PATH finding told the reader to "say which carve did it".
     """
@@ -598,3 +606,78 @@ def test_largest_unit_is_not_annotated_because_it_is_not_a_derived_scalar(model)
     labels = [label for label, _entry in ratchet._derived_scalars(frozen)]
     assert "worst_edit_cost" in labels
     assert not any(label.startswith("largest_unit") for label in labels)
+
+
+def _with_table(snapshot: dict, **rows: int) -> dict:
+    """Give a snapshot the per-crate table its scalars are derived from."""
+    snapshot["crates"] = {
+        name: {"edit_cost_lines": lines, "lines": lines, "direct_dependents": []}
+        for name, lines in rows.items()
+    }
+    return snapshot
+
+
+def test_a_held_scalar_holds_the_table_row_it_was_derived_from():
+    """⛔⛔ ONE FACT, TWO VALUES: the defect that made the ratchet's own report
+    print `⚠ baseline disagrees with itself`.
+
+    `worst_edit_cost` and `watched_edit_cost` are DERIVED from the `crates` table.
+    `adopt_wins` starts from the CURRENT snapshot and writes held scalars back
+    from the OLD one, so before this the table advanced while the scalar did not
+    and the file stored one crate's line count twice with two values. Measured on
+    the real baseline: `ambition_geometry` read 540,227 in the scalar and 592,091
+    in the same file's table, and `+51,864` of a reported regression was that gap
+    rather than any code anyone wrote.
+
+    ⚠ This is NOT the change the module defers to the carve owner. Findings still
+    compare against the HELD scalar, so a regression keeps its older, tighter
+    value and nothing is laundered — the table simply stops contradicting it.
+    """
+    frozen = _with_table(_snapshot("oldersha", critical_path=14, largest=100),
+                         ambition_mono=100, ambition_other=50)
+    frozen["watched_edit_cost"] = {"ambition_mono": {"lines": 100}}
+    # `ambition_mono` REGRESSED (100 -> 130), so its scalar is held.
+    current = _with_table(_snapshot("newersha", critical_path=14, largest=100),
+                          ambition_mono=130, ambition_other=50)
+    current["watched_edit_cost"] = {"ambition_mono": {"lines": 130}}
+
+    merged, _adopted, held = ratchet.adopt_wins(current, frozen)
+
+    assert any("ambition_mono" in row for row in held), (
+        f"premise: the regression must be HELD, not adopted; held={held}"
+    )
+    assert merged["watched_edit_cost"]["ambition_mono"]["lines"] == 100, (
+        "premise: a held scalar keeps its older, tighter value"
+    )
+    assert merged["crates"]["ambition_mono"]["edit_cost_lines"] == 100, (
+        "the table row a held scalar was derived from must be held with it; "
+        "otherwise the baseline stores one fact twice with two values, and the "
+        "gap is reported as a regression nobody caused"
+    )
+
+
+def test_an_adopted_crate_keeps_the_current_table_row():
+    """⚠ THE OTHER ARM, and the one that makes the rule above falsifiable.
+
+    Holding every row would be a different bug — it would freeze the table
+    against a snapshot nobody measured. Only a crate whose SCALAR was held keeps
+    its old row; a crate that IMPROVED has its scalar adopted, so its row must
+    move with it or the two disagree in the opposite direction.
+    """
+    frozen = _with_table(_snapshot("oldersha", critical_path=14, largest=100),
+                         ambition_mono=100)
+    frozen["watched_edit_cost"] = {"ambition_mono": {"lines": 100}}
+    # A real carve: 100 -> 70.
+    current = _with_table(_snapshot("newersha", critical_path=14, largest=100),
+                          ambition_mono=70)
+    current["watched_edit_cost"] = {"ambition_mono": {"lines": 70}}
+
+    merged, adopted, _held = ratchet.adopt_wins(current, frozen)
+
+    assert any("ambition_mono" in row for row in adopted), (
+        f"premise: the improvement must be ADOPTED; adopted={adopted}"
+    )
+    assert merged["watched_edit_cost"]["ambition_mono"]["lines"] == 70
+    assert merged["crates"]["ambition_mono"]["edit_cost_lines"] == 70, (
+        "an adopted scalar must not be left beside a stale table row"
+    )

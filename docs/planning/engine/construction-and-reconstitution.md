@@ -432,11 +432,27 @@ resource can express. ⇒ The hand-kept list is real, it is ONE row long, and th
 next boss that needs durable retraction will copy cut-rope rather than implement
 a trait, because there is no trait to implement.
 
-⚠ **That is a design question, not a build task, and it is Q56's.** "Does a
-replay retract a defeat" has to be answered before a durable equivalent of
-`AttemptScoped` can name what it retracts — and Q57 has to say what "the boss"
-means before either. ⇒ Do not build the trait first; the shape follows the
-ruling.
+⚠ **That is a design question, not a build task, and it is Q56's alone.** ⛔ I
+first wrote "and Q57 has to say what 'the boss' means before either" — **wrong,
+and stale by a day**: Q57 was RULED 2026-09-05 (a boss is named by its stable
+authored `encounter_id`, e.g. `cove.mockingbird`), implemented, and is held by
+two guards, one resolving through the production `boss_placement_id` so a
+behaviour id is a red. The identity question has an answer.
+
+⇒ **So the only thing outstanding is Q56 — "a replay retracts ONE boss family's
+defeat of eleven; which is right?" — which that ruling UNBLOCKED rather than
+answered.** It is a policy choice about scope, not an identity question, and it
+is the one input a durable `AttemptScoped` equivalent would need in order to say
+WHAT it retracts. ⇒ Still do not build the trait first; but the reason is one
+open question, not two.
+
+✔ **Numbers re-derived 2026-09-06 with the committed census
+(`scripts/room_replay_reader_slots.py`), not quoted:** 9 readers of
+`RoomReplayAdmitted` (5 engine, 4 content) by two roads — 7 direct
+`MessageReader<..>` and 2 through `FreshAttempt` — and 3 registration sites into
+`ContentRoomReplayResetSet`, one of which registers a tuple. **Sites are not
+systems**, which is how "exactly one" survived in this page for as long as it
+did.
 
 ⛔ **THE ATTEMPT SIDE IS DELIBERATELY NOT ASSERTED, and the reason is scoping
 rather than caution.** The one production consumer clears the persisted record

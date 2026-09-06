@@ -1621,13 +1621,34 @@ def adopt_wins(current: dict, frozen: dict) -> tuple[dict, list[str], list[str]]
     merged["carried_from"] = frozen.get("commit")
     adopted: list[str] = []
     held: list[str] = []
+    # ⛔⛔ THE `crates` TABLE IS A FIELD NOBODY SETTLED, AND THIS FUNCTION'S OWN
+    # RULE SAYS THAT IS THE FAILURE DIRECTION. The scalars above are DERIVED from
+    # that table (a max and a selection over it); `merged = current` refreshes the
+    # table wholesale while `settle` writes the OLD value back into the scalar. ⇒
+    # every partial adopt left the file holding ONE FACT TWICE with two values,
+    # and the report had to grow a warning to disclose it -- `ambition_geometry`
+    # read 540,227 in the held scalar and 592,091 in the same file's table.
+    #
+    # ⚠ THIS DOES NOT CHANGE WHAT THE GATE MEANS, which is the judgement this
+    # command refuses to make. Findings still compare against the HELD scalar, so
+    # every regression stays at its older, tighter value and nothing is
+    # laundered. Holding the ROW the held scalar came from only stops the file
+    # contradicting itself.
+    #
+    # ⭐ AND IT FIXES `--diff` IN THE SAME MOTION. `--diff` reads `frozen["crates"]`,
+    # so while the table advanced and the scalar did not, it offered a range that
+    # began AFTER the change it was pointing at -- the "understates where to look"
+    # warning. A held row and a held scalar now describe the same commit.
+    held_crates: set[str] = set()
 
-    def settle(label: str, now, then, write) -> None:
+    def settle(label: str, now, then, write, crate: str | None = None) -> None:
         if now < then:
             adopted.append(f"{label}: {then:,.1f} -> {now:,.1f}" if isinstance(now, float)
                            else f"{label}: {then:,} -> {now:,}")
         else:
             write(then)
+            if crate:
+                held_crates.add(crate)
             if now > then:
                 held.append(f"{label}: still {now:,.1f} against a frozen {then:,.1f}"
                             if isinstance(now, float)
@@ -1640,12 +1661,15 @@ def adopt_wins(current: dict, frozen: dict) -> tuple[dict, list[str], list[str]]
             continue
         if merged[key].get("crate") != frozen[key].get("crate"):
             merged[key] = frozen[key]
+            if frozen[key].get("crate"):
+                held_crates.add(frozen[key]["crate"])
             held.append(f"{key}: subject crate changed "
                         f"({frozen[key].get('crate')} -> {current[key].get('crate')}), "
                         f"not adopted -- re-freeze deliberately with --update")
             continue
         settle(f"{key} ({merged[key]['crate']})", merged[key][field], frozen[key][field],
-               lambda value, k=key, f=field: merged[k].__setitem__(f, value))
+               lambda value, k=key, f=field: merged[k].__setitem__(f, value),
+               crate=merged[key].get("crate"))
 
     for name, frozen_entry in frozen.get("watched_edit_cost", {}).items():
         if name not in merged.get("watched_edit_cost", {}):
@@ -1656,11 +1680,20 @@ def adopt_wins(current: dict, frozen: dict) -> tuple[dict, list[str], list[str]]
             settle(f"edit_cost_{field} ({name})",
                    merged["watched_edit_cost"][name][field], frozen_entry[field],
                    lambda value, n=name, f=field:
-                       merged["watched_edit_cost"][n].__setitem__(f, value))
+                       merged["watched_edit_cost"][n].__setitem__(f, value),
+                   crate=name)
 
     settle("critical_path_crates", merged["critical_path_crates"],
            frozen["critical_path_crates"],
            lambda value: merged.__setitem__("critical_path_crates", value))
+
+    # The table row a held scalar was derived from is held with it. ⚠ Only for
+    # crates whose scalar was actually held: an ADOPTED crate keeps the current
+    # row, because there the scalar and the table already agree on the new value.
+    frozen_table = frozen.get("crates") or {}
+    for crate in sorted(held_crates):
+        if crate in frozen_table:
+            merged.setdefault("crates", {})[crate] = frozen_table[crate]
 
     return merged, adopted, held
 

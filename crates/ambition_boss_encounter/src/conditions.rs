@@ -58,13 +58,23 @@ pub fn cleared_descriptor() -> ConditionDescriptor {
 ///
 /// ⛔⛔ AND THAT SENTENCE ANSWERS ONE ABSENCE WHILE A SECOND HIDES BEHIND IT.
 /// "Not recorded" is also what a boss id that does not exist looks like, so a
-/// misspelling is `NotSatisfied` forever with no diagnostic. ⚠ UNLIKE
-/// `quest.active`, this one CANNOT be fixed yet: the roster to check against is
-/// the set of authored boss ids, and Q57 has not ruled whether that means
-/// PLACEMENT ids or BEHAVIOUR ids — the same ambiguity that makes the five
-/// authored callers pass a key this fact is not stored under. ⇒ Deliberately
-/// left open, because a roster check written against the wrong key would make
-/// every legitimate caller unanswerable instead of merely false.
+/// misspelling is `NotSatisfied` forever with no diagnostic — and on this
+/// condition that is not hypothetical: `cove.yarn` and `kernel.yarn` asked
+/// `boss_cleared("mockingbird")`, the BEHAVIOUR id, against a save keyed by the
+/// PLACEMENT, and three executable branches could never open for weeks.
+///
+/// ✔ **IT IS ANSWERED, AND THE ANSWER IS CONTENT VALIDATION — the same stance
+/// `world.switch_on` takes.** Jon ruled decision 57 on 2026-09-05 (*"Boss
+/// progress is keyed only by stable authored encounter/placement IDs"*), the
+/// callers were migrated, and TWO guards now hold the line:
+/// `every_authored_boss_cleared_call_names_a_real_boss_placement` resolves each
+/// authored argument through `boss_placement_id` — the production function
+/// `convert_boss_spawn` uses, not a copy — so a behaviour id is a RED; and the
+/// Python alias guard catches the wider "names nothing at all" typo class.
+///
+/// ⇒ So this evaluator stays permissive ON PURPOSE. The roster it would need
+/// lives in the authored worlds, not in any resource a `&World` here can reach,
+/// and the check already runs where the roster is.
 ///
 /// ⚠ AN UNRECORDED BOSS IS `NotSatisfied`, not `Unanswerable` — the save's own
 /// accessor reconstructs a missing row as `Untouched`, so absence is a real

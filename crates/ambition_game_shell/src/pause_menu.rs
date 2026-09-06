@@ -1026,7 +1026,13 @@ mod tests {
     fn adjusting_a_volume_row_writes_the_persisted_setting() {
         use ambition_persistence::settings::UserSettings;
         let mut app = app();
-        app.init_resource::<UserSettings>();
+        // ⛔ NO `init_resource::<UserSettings>()` HERE, DELIBERATELY. It used to
+        // be, and that is exactly why this test stayed green while the shipped
+        // plugin supplied no settings at all: a test that hand-registers the
+        // resource under test cannot witness its absence. `app()` installs
+        // `ShellPauseMenuPlugin`, which supplies it — so if that ever stops, the
+        // rows this test is about go red too, not only the one guard that names
+        // the resource.
         press_start(&mut app);
         navigate_to(
             &mut app,
@@ -1055,7 +1061,7 @@ mod tests {
     fn confirming_the_mute_row_toggles_mute() {
         use ambition_persistence::settings::UserSettings;
         let mut app = app();
-        app.init_resource::<UserSettings>();
+        // Supplied by `ShellPauseMenuPlugin`; see the volume-row test above.
         press_start(&mut app);
         navigate_to(
             &mut app,

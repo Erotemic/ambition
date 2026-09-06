@@ -405,9 +405,26 @@ pub fn drive_wave_encounters(
                     // the edge.
                 }
             }
-            // Authored but not a kind this engine acts on. The string road could
-            // not tell this apart from a handled action that did nothing.
-            ambition_encounter::switches::SwitchAction::Unhandled(_) => {}
+            // ⭐⭐ THE VARIANT'S OWN DOC SAYS IT IS "carried rather than dropped
+            // SO A CONSUMER CAN REPORT IT" -- and until 2026-09-06 both consumers
+            // ignored it silently, so the sentence was true about the type and
+            // false about the tree. An authored `SetGravtiyUp` typo reached here
+            // and vanished; the string road it replaced could not tell an
+            // unhandled action from a handled one that did nothing, and neither
+            // could this.
+            // ⚠ It fires on NOTHING today: all 85 authored switch actions across
+            // the shipped worlds parse (55 `ResetEncounter`, 6 `FlipGravity`, 24
+            // `SetGravity<Face>`). This is a latent report for the first typo,
+            // not noise -- which is why it is a warning and not an error.
+            ambition_encounter::switches::SwitchAction::Unhandled(action) => {
+                bevy::log::warn!(
+                    target: "ambition_encounter::switches",
+                    "switch {} names action {:?}, which this engine does not act on \
+                     -- the switch will toggle and do nothing",
+                    activation.id,
+                    action,
+                );
+            }
         }
     }
 }

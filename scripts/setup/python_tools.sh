@@ -234,13 +234,28 @@ install_scripts_env() {
     # `networkx` (`module_graph.py`), `scriptconfig` (`git_debloat.py`, cited by
     # AGENTS.md only as an OUTPUT-FORMAT pattern, never as a command), and
     # `ambition_sprite2d_renderer` (which `generate_visual_quality_variants.py`
-    # reaches by inserting the submodule root on `sys.path` first, so it is not
-    # a venv dependency at all). ⇒ The list below is complete for the suite. Add
-    # to it only when a NEW module-scope import appears, and re-run that sweep
+    # reaches by inserting the submodule root on `sys.path` first). Add to the
+    # list only when a NEW module-scope import appears, and re-run that sweep
     # rather than trusting a green local run: a warm machine has packages a
     # fresh clone does not.
+    #
+    # ⛔⛔ AND THE SWEEP'S CONCLUSION ABOUT THAT THIRD ONE WAS WRONG, WHICH COST A
+    # RED GATE LANE. It said the renderer "is not a venv dependency at all"
+    # because a `sys.path` insert reaches it. ⭐ A `sys.path` INSERT GIVES YOU A
+    # PACKAGE, NOT ITS DEPENDENCIES: `scripts/lib/sprite_install_names.py` imports
+    # `ambition_sprite2d_renderer.cli.commands`, which imports `resvg_py`, which
+    # no `sys.path` entry can conjure. So `claimed_install_names` returned its
+    # "cannot check" `None` on every machine set up by this script, and
+    # `test_sheet_presence_check_can_actually_run.py` -- a POSITIVE CONTROL
+    # written to stop exactly that silence -- failed instead.
+    # ⚠ The sweep looked for MODULE-SCOPE imports in `scripts/`. This dependency
+    # is TRANSITIVE, one hop past a package the suite reaches by path, so no
+    # amount of care about `scripts/` could have found it. `resvg-py>=0.3` is
+    # declared in the renderer's own `pyproject.toml`; it is pinned here because
+    # this environment is what the repo-tooling lane runs in.
     uv pip install --python "$venv_python" \
-        pytest tree_sitter tree_sitter_rust numpy soundfile rich pillow
+        pytest tree_sitter tree_sitter_rust numpy soundfile rich pillow \
+        "resvg-py>=0.3"
     # The moveset inspector is imported directly out of `tools/` by
     # `scripts/tests/test_moveset_inspector_renderer.py`, so it belongs in THIS
     # environment rather than one of its own. Installed editable so its

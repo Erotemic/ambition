@@ -101,17 +101,50 @@ def test_art_named_after_an_unowned_item_is_not_a_failure() -> None:
 
 
 def test_a_drawing_the_game_has_not_wired_is_a_note_not_a_failure() -> None:
-    """The loose direction, which keeps the normal authoring order legal."""
+    """The loose direction, which keeps the normal authoring order legal.
+
+    ⛔⛔ THE FIXTURE USED TO ADD `polygon_unwired`, AND THAT WAS NOT ISOLATED.
+    Adding any `polygon_*` drawing puts `polygon` into `families`, which
+    immediately makes the three REAL registered items (`polygon_bomb`,
+    `polygon_mine`, `polygon_ponytail`) orphans and turns this test red for a
+    reason that has nothing to do with its subject. It went unnoticed only
+    because the whole file was SKIPPING. A fixture that names a live family is
+    testing the tree, not the rule.
+    """
     module = _module()
     real = module.drawn_art
     try:
         module.drawn_art = lambda: {
             **real(),
-            "polygon_unwired": "sprites/props/polygon_unwired.png",
+            "zzfixture_unwired": "sprites/props/zzfixture_unwired.png",
         }
         assert module.main() == 0
     finally:
         module.drawn_art = real
+
+
+def test_a_self_named_orphan_fails_only_once_its_family_is_covered() -> None:
+    """⭐ THE STRUCTURAL BLIND SPOT, pinned on both sides.
+
+    The orphan rule is scoped to families derived from the DRAWN keys, so the
+    FIRST id of a family this list does not cover can never trip it. That is why
+    `polygon_bomb` and friends draw an ERROR every spawn while this check reports
+    ok — and why the same ids go red the moment ANY `polygon_*` drawing lands.
+    """
+    module = _module()
+    real_drawn, real_registered = module.drawn_art, module.registered_art
+    try:
+        module.registered_art = lambda: {
+            "fam_thing": "sprites/props/fam_thing.png",
+        }
+        # No `fam` spec: the family is uncovered, so the rule abstains.
+        module.drawn_art = lambda: {"other_thing": "sprites/props/other_thing.png"}
+        assert module.main() == 0, "an uncovered family must not fail"
+        # One `fam` drawing arrives and the SAME registration is now an orphan.
+        module.drawn_art = lambda: {"fam_other": "sprites/props/fam_other.png"}
+        assert module.main() == 1, "a covered family must fail the self-named orphan"
+    finally:
+        module.drawn_art, module.registered_art = real_drawn, real_registered
 
 
 def test_an_empty_spec_list_is_a_failure_not_a_vacuous_pass() -> None:

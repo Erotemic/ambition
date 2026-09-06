@@ -92,7 +92,7 @@ pub fn sync_sprite_posed_bodies(
         Option<&ActorAnimOverride>,
         &mut ae::BodyKinematics,
         Option<&mut ae::BodyBaseSize>,
-        Option<&ActorRenderSize>,
+        Option<&mut ActorRenderSize>,
         Option<&ActorSpriteOffset>,
         // The STANCE, which composes with the pose rather than competing with
         // it. Absent  a body that never body-modes, and the pose IS the box.
@@ -168,10 +168,29 @@ pub fn sync_sprite_posed_bodies(
             // body through the ground it is standing on.
             ae::resize_feet_planted(&mut kin, posed_collision, gravity_dir);
         }
-        if render_size.map(|r| r.0) != Some(geometry.render) {
-            commands
-                .entity(entity)
-                .try_insert(ActorRenderSize(geometry.render));
+        // Written in the same instant as the box rather than through `Commands`:
+        // both facts come from ONE `geometry`, so one mechanism is simpler than
+        // two. `try_insert` remains for a body that has no `ActorRenderSize` yet,
+        // where there is nothing to write into.
+        //
+        // ⚠ THIS IS A TIDY, NOT A FIX, AND THE DIFFERENCE COST ME A TEST. I wrote
+        // it believing the deferred insert made the drawn size lag the collision
+        // box by a frame -- the shape of Jon's 2026-09-06 Mary-O report. Then the
+        // poison did not fire: an observer ordered after this system sees the
+        // flushed value, because ordering between systems inserts a SYNC POINT.
+        // ⇒ A `Commands` write is not late for any consumer that is ordered after
+        // it, which is every consumer that matters. The deferred write was never
+        // the defect, and the Mary-O misalignment remains unexplained.
+        match render_size {
+            Some(mut existing) if existing.0 != geometry.render => {
+                existing.0 = geometry.render;
+            }
+            None => {
+                commands
+                    .entity(entity)
+                    .try_insert(ActorRenderSize(geometry.render));
+            }
+            Some(_) => {}
         }
         // The stance moved the body's CENTRE without moving its FEET, and the
         // quad is placed relative to that centre — so the placement owes the

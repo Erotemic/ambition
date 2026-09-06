@@ -53,6 +53,28 @@ def _is_test_module(path):
     return path.name == "tests.rs" or path.stem.endswith("_tests")
 
 
+# ⛔⛔ EVERY ROAD TO A MATCH OBJECT, NOT JUST THE ONE SPELLING — and this is a
+# repair, not a flourish. `checked` counted files containing `.spawn(`, and the
+# ruleset has SIX of them against a floor of FIVE. ⇒ One consolidation and this
+# guard reddens on an IMPROVEMENT: move two spawns behind a helper and the
+# corpus check fails while the invariant it guards is better held than before.
+# A peer hit exactly this on `check_reload_resets_also_answer_replay.py`, which
+# floors on adopters of a type and counted PARAMETER declarations — three
+# adopters stopped declaring one because a generic began asking on their behalf,
+# and the floor failed on the change that SPREAD the type.
+#
+# ⇒ A file creates match objects if it spawns, OR stamps, OR names the marker.
+# Add the next road here rather than lowering the number: the floor is protecting
+# against the corpus quietly emptying, and that is still worth catching.
+ROADS = ("a `.spawn(` site", f"a `{STAMP}` call", "a mention of `MatchScoped`")
+
+
+def _creates_match_objects(path):
+    """Whether this file is on ANY road to creating a match-scoped object."""
+    text = path.read_text()
+    return bool(_production_spawn_lines(path)) or STAMP in text or "MatchScoped" in text
+
+
 def _production_spawn_lines(path):
     """Spawn sites before the file's test module. A fixture spawning a bare
     component is not a ruleset creating a world object."""
@@ -74,10 +96,11 @@ def test_every_spawn_in_the_ruleset_says_what_ends_it():
     for path in sorted(RULESET.glob("*.rs")):
         if _is_test_module(path):
             continue
+        if _creates_match_objects(path):
+            checked += 1
         sites = _production_spawn_lines(path)
         if not sites:
             continue
-        checked += 1
         if path.name in EXEMPT:
             continue
         body = path.read_text()
@@ -95,8 +118,13 @@ def test_every_spawn_in_the_ruleset_says_what_ends_it():
     # "the thing this guard looks for was renamed". Found by poisoning, not by
     # reading, which is how the same defect turned up twice in one day.
     assert checked >= 5, (
-        f"only {checked} file(s) in the ruleset spawn anything; this guard has "
-        "lost its corpus"
+        f"only {checked} file(s) in the ruleset create match objects; this guard "
+        "has lost its corpus.\n"
+        "  The roads counted are: " + ", ".join(ROADS) + ".\n"
+        "  ⇒ If spawning moved behind a HELPER, add that helper as a road here. "
+        "Do NOT lower the number: the floor exists so an emptied corpus fails, "
+        "and a floor that counts one spelling fails on the refactor that "
+        "consolidates the others."
     )
     assert stamped_files >= 1, (
         f"no file calls `{STAMP}`. Five sites were stamped when the match-scoped "
@@ -115,4 +143,34 @@ def test_every_spawn_in_the_ruleset_says_what_ends_it():
         "a player rather than by this suite. If the object genuinely outlives a "
         "match, add it to EXEMPT in this file with the reason and say what DOES "
         "end it."
+    )
+
+
+def test_a_spawn_that_moves_behind_a_helper_does_not_empty_the_corpus(monkeypatch):
+    """⛔⛔ THE FLOOR MUST NOT FAIL ON THE REFACTOR THAT IMPROVES THE THING.
+
+    The ruleset has SIX files that spell `.spawn(` against a floor of FIVE, so
+    consolidating two spawn sites behind a helper would have reddened this guard
+    while the invariant it holds got BETTER. That is a real margin, not a
+    hypothetical one: a peer hit the same shape on an adopter floor that counted
+    parameter declarations and failed on the change that spread the type.
+
+    ⇒ This simulates the consolidation by making every `.spawn(` invisible, and
+    the corpus must survive on the other roads — the files still stamp, and they
+    still name the marker.
+    """
+    import sys
+
+    monkeypatch.setattr(
+        sys.modules[__name__], "_production_spawn_lines", lambda _path: []
+    )
+    surviving = [
+        path.name
+        for path in sorted(RULESET.glob("*.rs"))
+        if not _is_test_module(path) and _creates_match_objects(path)
+    ]
+    assert len(surviving) >= 5, (
+        "with every spawn moved behind a helper the corpus fell to "
+        f"{surviving} — the floor still counts one spelling, so it would fail "
+        "on the consolidation instead of on an emptied ruleset"
     )

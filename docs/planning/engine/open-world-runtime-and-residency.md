@@ -320,6 +320,17 @@ MenuClosedRequested    ambition_menu/src/lib.rs            ✔ DELETED 2026-09-0
 MenuModelChanged       ambition_menu/src/lib.rs            ✔ DELETED 2026-09-06
 ```
 
+✔ **AND A FIFTH NOW NEEDS A DECISION — `MAX_UNREAD = 4`, added 2026-09-06.** The
+census floored only its DECLARED side, so a NEW message that nothing reads raised
+the count, printed in the report, and exited 0. **A floor catches the sweep
+collapsing and is blind to the direction that gets worse** — the fighter lane's
+formulation, from the same blindness in a specials ratchet the same day.
+⚠ It does NOT make "unread" a finding; a published channel is legitimate and the
+script says so at length. It makes a NEW one a DECISION, the same bargain
+`per_attempt_resource_census.py` strikes for collection resources.
+⚠ **A COUNT, never a list of names**: a name list is an amnesty whose diff reads
+as housekeeping. Poison-verified in the ADDITION direction.
+
 ✔ **`PortalGunEquipped` IS PUBLISHED TOO, AND IT SAYS SO ITSELF** — 2026-09-06.
 I had it as the one that "looks wrong": written in production, read by nothing,
 carrying a rollback schema row. Reading the type settled it. Its own doc calls it

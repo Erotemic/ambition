@@ -62,6 +62,23 @@ pub struct RiposteStrikeParams {
     /// ⚠ SHORT. This is a hitbox that appears in one place rather than sweeping,
     /// so a long life is a lingering trap rather than a swing.
     pub lifetime_s: f32,
+    /// What the cut SOUNDS like when it lands — an `SfxId` name such as
+    /// `"player.slash"` for a blade or `"world.rock.hit"` for something blunt.
+    /// `None` leaves the victim's own hurt sound, which is what every technique
+    /// in the game used to get.
+    ///
+    /// ⭐⭐ THIS IS THE MOVE'S VOICE AND IT IS THE CHEAPEST CHARACTER THERE IS.
+    /// A swordfighter's counter and a brawler's ground shock are the same
+    /// mechanic here — both spawn a body strike — and the ONLY thing that makes
+    /// them different events to a player who is not looking at the animation is
+    /// this string.
+    ///
+    /// ⛔ A NAME, NOT AN ID, and safe by construction: it is lowered with
+    /// `SfxId::new` at spawn (a runtime hash of any `&str`), and a name the bank
+    /// never rendered simply plays nothing. ⚠ That last part is the reason to
+    /// author only ids that exist — silence is WORSE than `None`, which at least
+    /// gives the victim's material sound.
+    pub hit_sfx: Option<String>,
 }
 
 impl RiposteStrikeParams {

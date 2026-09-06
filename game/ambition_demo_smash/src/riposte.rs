@@ -106,6 +106,14 @@ pub fn cut_where_a_riposte_answers(
             params.damage as i32,
             params.knockback,
             params.lifetime_s,
+            // ⭐ THE AUTHOR'S VOICE FOR THIS CUT. Resolved here rather than in
+            // the params struct because `SfxId` is a runtime hash and the
+            // authored surface stays a plain string — an author writes
+            // `"player.slash"`, not an id.
+            params
+                .hit_sfx
+                .as_deref()
+                .map(ambition_platformer2d::sfx::SfxId::new),
         );
     }
 }

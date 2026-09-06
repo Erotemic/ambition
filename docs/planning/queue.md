@@ -772,8 +772,41 @@ and run that one. `cargo check -p <crate>` with no features is seconds.
 
 ## Current execution order
 
-- ▢ **D-CUT-VOICE — a technique's hit cannot be voiced by its author, and the
-  missing half is an ASSET rather than code. Measured 2026-09-06, small.**
+- ✔ **D-CUT-VOICE — LANDED 2026-09-06, and EVERY BLOCKING CLAIM BELOW WAS
+  WRONG.** I filed this row the same day and re-checked it before deferring it
+  again, which is the only reason it is closed rather than sitting behind an
+  asset that already exists.
+
+  | the row said | measured |
+  |---|---|
+  | *"there is no name→id resolver"* | `SfxId::new(s: &str)` is a plain runtime hash of any string, and `hazard_sfx_id` already resolves hazard names through it |
+  | *"authored params cannot supply a name"* | `HitVolume::hit_sfx` is `Option<String>` and its doc says *"the `SfxId` name (lowered via `SfxId::new` at spawn)"* — the exact authored-string road this row calls impossible |
+  | *"there is no blunt counterpart in `ids.rs` at all"* | **`world.rock.hit` is at `ids.rs:158`**, is named in `hit_sfx`'s own doc as the bludgeon example, and is RENDERED (`tools/ambition_sfx_renderer/output/world.rock.hit/`) |
+
+  ⇒ **The real gap was one hard-coded `None`.** `spawn_body_strike` wrote
+  `strike_sfx: None` on every hitbox it made, so the two techniques that use it —
+  the swordfighter's riposte and the brawler's ground shock, mechanically the same
+  move — were the same EVENT to anybody not watching the animation. It now takes
+  the voice, `RiposteStrikeParams` carries `hit_sfx: Option<String>`, and the two
+  are authored apart: `player.slash` and `world.rock.hit`.
+
+  ⛔ **The guard asserts the two ids DIFFER, not that a field is set.** A test
+  finding `Some(_)` passes against a seam that ignores the authored string and
+  stamps one constant on everything — the same bug in a different costume.
+  Poisoned both ways: dropping the `.map()` reddens on "the cut carries the voice
+  it was authored with"; stamping one id reddens on "a blade and a rock resolved
+  to the same sound".
+
+  ⚠ **What I got right and should keep doing:** the row recorded that this was
+  *not* a silence bug, because `resolve_strike_sfx` falls back to the victim's
+  material. That check was worth more than the three that were wrong — it is why
+  the fix is a distinction rather than a repair.
+
+  ⭐ **AND THE FAILURE MODE IS THE DAY'S OWN:** three claims of absence, none
+  measured against the DEFINITION side. Same as `key_exchange` and
+  `medic_tourniquet` — the thing was already there.
+
+  ~~Original reasoning, kept because it is the mistake:~~
   ⚠ **NOT a silence bug, and I checked before filing**: `resolve_strike_sfx`
   falls back to `hurt.sfx` when a hitbox carries `strike_sfx: None`, so the
   riposte cut and the brawler's shock DO make the victim's material sound. What

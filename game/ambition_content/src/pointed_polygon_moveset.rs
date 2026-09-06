@@ -433,6 +433,13 @@ pub fn pointed_polygon_moveset() -> MovesetContract {
                     reach: 52.0,
                     half_extents: (34.0, 14.0),
                     lifetime_s: 0.08,
+                    // ⭐ A BLADE. Until 2026-09-06 this cut and the brawler's
+                    // ground shock were the same event to anybody not watching
+                    // the animation: both spawn a body strike, and the spawner
+                    // hard-coded `strike_sfx: None`, so both fell back to the
+                    // VICTIM's material sound. A counter that answers a swing
+                    // should be heard answering it.
+                    hit_sfx: Some("player.slash".to_string()),
                 },
             )
             .expect("the riposte cut's params serialize"),

@@ -788,7 +788,7 @@ made the timing question askable:
 - `rebuild_dynamic_feature_views` (`ambition_sim_view/src/facts.rs:517`) selects
   by MARKER: `EncounterMob`, `RuntimeStagedActor`, `PostBossNpc`, the two reward
   chests, and `SpawnOrigin::Dynamic` loot.
-- The interactable-NPC bundle (`features/ecs/spawn_actors.rs:732`) carries
+- The interactable-NPC bundle (`crates/ambition_platformer2d_actor_monolith/src/actor_spawn/mod.rs:759`) carries
   `EnemyActorBundle` + `FeatureBaseBundle` (so a `FeatureId`), cluster, brain,
   action set, `ActorControl`, `ActorInteraction`, `WornCharacter` — **and none
   of those five markers.**
@@ -814,7 +814,7 @@ count looked like a tier-scaled ramp, and it should not be read as a ruling.
 ✔ **EXECUTED, not only read (2026-09-03).** The trace above was confirmed by
 running the rebuilder against an NPC-shaped entity — `FeatureId`,
 `CenteredAabb`, `ActorDisposition`, `ActorConfig`, and none of the five markers,
-exactly as `spawn_actors.rs:732` builds one:
+exactly as `crates/ambition_platformer2d_actor_monolith/src/actor_spawn/mod.rs:759` builds one:
 
 ```text
 PROBE RESULT: DynamicFeatureViews holds 0 fact(s); NpcSpawn present = false

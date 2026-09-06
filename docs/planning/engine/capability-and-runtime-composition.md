@@ -3,6 +3,66 @@
 **State:** OPEN successor program.
 
 
+
+## ⭐⭐ PREREQUISITE D, ANSWERED 2026-09-06 — THE DECISION IS COMPILE-TIME, AND IT IS ALREADY MADE
+
+The program says the composition-aware rollback declaration *"needs an actual
+architecture decision"* and names the obstacle correctly: `RollbackRegistrar` is
+generic and not object-safe, so *"store domain registration callbacks and invoke
+them later"* does not work. ⇒ Measured, and the answer is smaller than the
+question.
+
+### What is actually there
+
+| measured | |
+|---|---|
+| domain registration calls in the runtime's one list | **21** |
+| of those, `#[cfg(feature)]`-gated | **1** (`portal`) |
+| optional dependencies in the RUNTIME's own manifest | **3** — `ldtk`, `causal`, `portal2d` |
+| of those three, ones that declare rollback state | **1**, and it is the gated one |
+| domain crates that depend on a rollback BACKEND | **0** |
+
+⇒ **The registration list is already consistent with the composition surface as
+it stands.** The twenty-domain census is not a correctness problem today; it is a
+correctness problem the moment a capability outside those three becomes optional.
+
+⚠ **AND THE PRESSURE IS REAL, WHICH IS WHAT MAKES THIS WORTH A GUARD RATHER THAN
+A SHRUG.** Eight of the domains in that list are already optional dependencies in
+OTHER manifests — `portal2d` in seven, `persistence` and `cutscene` in two each,
+`vfx`, `sim_view`, `projectiles`, `items`, `encounter` in one. The runtime is the
+lagging manifest, so the next capability to go optional there breaks the contract
+**by omission**: a line that was correct until the dependency changed under it.
+⇒ `scripts/tests/test_optional_capability_rollback_is_gated.py`.
+
+### The decision, and the second reason it is not obvious
+
+**Composition here stays COMPILE-TIME, through Cargo features, and that is a
+choice rather than an accident.** The route to runtime composition fails twice:
+
+1. **Storage.** `RollbackRegistrar` has twenty GENERIC methods, so
+   `Vec<fn(&mut impl RollbackRegistrar)>` cannot exist — the obstacle the program
+   already names.
+2. ⭐ **Erasure, which is the non-obvious half and the one that settles it.** The
+   natural repair is to erase the OPERATION instead of the registrar: have each
+   generic call site emit a monomorphic thunk. But the thunk has to apply the
+   registration, and applying it needs the backend's `AmbitionRollbackApp`
+   extension trait in scope — which lives in the **backend crate**. Building
+   thunks inside domain crates would therefore make every domain depend on a
+   rollback backend, **giving back exactly the property the
+   `GgrsBackendPlugin` / `AmbitionRollbackPlugin` split bought** (measured above:
+   zero domains depend on a backend today).
+
+⇒ Cargo features are the composition granularity that keeps domains
+backend-neutral, and `portal` is the worked example of the whole pattern: one
+feature gating the dependency, the plugin and the rollback line together.
+
+⛔ **THE CONDITION THAT REOPENS IT, so it is checked rather than re-argued: one
+binary needing to compose different capability sets at RUNTIME.** At that point
+the registrar must be redesigned around erased descriptors plus a
+backend-provided applier — a real project, not a refactor, and worth pricing
+before anything depends on it.
+
+
 ## ⭐⭐ PREREQUISITE C, MEASURED 2026-09-06 — 87 FOREIGN ORDERINGS, 15 OF THEM WRITTEN BY CAPABILITIES
 
 The rule: *"Every load-bearing cross-capability ordering relationship must be

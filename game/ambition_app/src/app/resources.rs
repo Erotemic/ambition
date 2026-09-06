@@ -89,7 +89,7 @@ pub fn init_sandbox_resources(app: &mut App) {
     // unaffected by who inserts the resource.
     let world_manifest = ambition_content::worlds::world_manifest();
 
-    let sandbox_data = data::Platformer2dGameplayDefaults::load_embedded();
+    let sandbox_data = ambition_platformer2d::actors::assets::gameplay_defaults::Platformer2dGameplayDefaults::load_embedded();
     // Audio lives in its own registries, separate from sandbox tuning and
     // from each other (SFX synthesis vs. generated music pointers).
     let (music_registry, sfx_registry) = {

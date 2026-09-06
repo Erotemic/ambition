@@ -1612,11 +1612,11 @@ fn every_gameplay_message_channel_is_rewound_on_rollback_or_named() {
             "developer hotkeys: shell, trace and debug-viz consumers, none in the sim",
         ),
         (
-            "bevy_asset::event::AssetEvent<ambition_platformer2d_actor_monolith::session::data::Platformer2dGameplayDefaults>",
+            "bevy_asset::event::AssetEvent<ambition_platformer2d_actor_monolith::assets::gameplay_defaults::Platformer2dGameplayDefaults>",
             "bevy's asset lifecycle, delivered on the frame clock",
         ),
         (
-            "bevy_asset::event::AssetLoadFailedEvent<ambition_platformer2d_actor_monolith::session::data::Platformer2dGameplayDefaults>",
+            "bevy_asset::event::AssetLoadFailedEvent<ambition_platformer2d_actor_monolith::assets::gameplay_defaults::Platformer2dGameplayDefaults>",
             "bevy's asset lifecycle, delivered on the frame clock",
         ),
         (

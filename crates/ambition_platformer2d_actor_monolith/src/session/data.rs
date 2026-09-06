@@ -12,30 +12,19 @@
 //! read them from the `AudioCatalogRegistry` resource) — SFX and music are separate concerns
 //! from gameplay tuning and from each other.
 
-use ambition_platformer2d_core as ae;
-use bevy::asset::{Asset, AssetServer};
+use bevy::asset::{AssetServer};
 use bevy::prelude::{Commands, Handle, Res, Resource};
-use bevy::reflect::TypePath;
-use serde::Deserialize;
 #[cfg(test)]
 use ambition_audio::spec::{MusicRegistry, SfxRegistry};
 #[cfg(test)]
 use std::collections::HashSet;
 
-pub const PLATFORMER_DEFAULTS_ASSET: &str = "ambition/platformer_defaults.ron";
+// ⛔ THE DEFAULTS ASSET MOVED TO `crate::assets::gameplay_defaults`, and that
+// single `use` in `assets/loading.rs` was the whole of the `assets -> session`
+// edge — the one that held `assets` and `character_sprites` inside the kernel's
+// 15-module cycle. Imported here now, in the correct direction.
+use crate::assets::gameplay_defaults::{Platformer2dGameplayDefaults, PLATFORMER_DEFAULTS_ASSET};
 
-#[derive(Clone, Debug, Deserialize, Asset, TypePath, Resource)]
-pub struct Platformer2dGameplayDefaults {
-    pub abilities: ae::AbilitySet,
-    pub tuning: ae::MovementTuning,
-}
-
-impl Platformer2dGameplayDefaults {
-    pub fn load_embedded() -> Self {
-        ron::from_str(include_str!("../../assets/ambition/platformer_defaults.ron"))
-            .expect("embedded assets/ambition/platformer_defaults.ron should parse")
-    }
-}
 
 // Authored audio is App-local now (R3.2: the engine ships no tracks and no
 // cues). A provider registers an `ambition_audio::catalog::AudioCatalogFragment`

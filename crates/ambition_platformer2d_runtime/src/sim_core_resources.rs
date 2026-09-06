@@ -22,6 +22,7 @@
 use bevy::prelude::*;
 
 use ambition_combat::death_rules::ActorDiedMessage;
+use ambition_platformer2d_actor_monolith::assets;
 use ambition_platformer2d_actor_monolith::session::data;
 use ambition_vfx::vfx::DebrisBurstMessage;
 use ambition_vfx::{FireworksRequest, FxRequest, VfxMessage};
@@ -114,7 +115,7 @@ impl Plugin for SimCoreResourcesPlugin {
             .add_message::<ambition_platformer2d_shared_tangle::block_nudge::BlockStruck>()
             // Session data-spec RON loader (the engine's own asset format).
             .add_plugins(bevy_common_assets::ron::RonAssetPlugin::<
-                data::Platformer2dGameplayDefaults,
+                assets::gameplay_defaults::Platformer2dGameplayDefaults,
             >::new(&["ron"]))
             // Every in-flight projectile is an ECS entity; one monotonic
             // spawn-id source orders the unified live-projectile population.

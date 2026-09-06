@@ -1170,7 +1170,7 @@ const RESOURCE_WAIVED: &[(&str, &str)] = &[
         "authored LDtk project; hot reload restarts the session",
     ),
     (
-        "::session::data::Platformer2dGameplayDefaults",
+        "::assets::gameplay_defaults::Platformer2dGameplayDefaults",
         "authored data-spec value",
     ),
     (

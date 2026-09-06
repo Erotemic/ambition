@@ -79,6 +79,70 @@ that reverse dependency.
 The line counts above are a receipt, not a score. The objective is a smaller
 semantic cycle and cleaner ownership.
 
+## ⭐⭐ THE AUTHORITY-TOPOLOGY CHECKPOINT — MEASURED 2026-09-06
+
+Jon's sequencing asks for a point where *"the remaining boundaries are
+semantically known"* before any crate-composition push, and names re-measuring
+the actor/world/session graph as the last step before the go line. **Measured, and
+the answer is a single number.**
+
+⛔⛔ **THE RESIDUAL KERNEL HAS ONE STRONGLY-CONNECTED COMPONENT OF 13 OF ITS 38
+TOP-LEVEL MODULES.** Reproduce with
+`python3 scripts/measure_kernel_module_graph.py --scc --cuts`:
+
+```text
+abilities, actor_spawn, avatar, character_runtime, construction,
+control, features, items, projectile, schedule, session, shrine, world
+```
+
+⇒ **No member of that set can be extracted into its own crate without the other
+twelve.** That is the whole prerequisite question answered at once, and it
+re-frames every packet on this page: F1's `construction <-> features` was **one
+edge pair inside a thirteen-module knot**, not a boundary of its own.
+
+⭐ **IT ALSO CONFIRMS JON'S PREREQUISITE LIST FROM A DIFFERENT DIRECTION.** Three
+of the five things he wants resolved before composition — control/possession
+topology, cross-domain schedule authority, session/provider policy — are
+`control`, `schedule` and `session`, and **all three are inside the knot**. They
+are not five independent programs; they are five views of one component.
+
+### ⭐ AND THE CHEAPEST CUT WAS ONE LINE, WHICH THE EDGE TABLE COULD NOT SHOW
+
+An edge list says which modules reference which. It does not say which
+**cannot be separated**, and the two answers rank the work very differently:
+
+| edge | refs | effect on the knot |
+|---|---|---|
+| `assets -> session` | **1** | **15 -> 13** — took `assets` AND `character_sprites` out |
+| `avatar -> control` | 1 | 13 -> 12 |
+| `features -> projectile` | 1 | 13 -> 12 |
+| `features -> schedule` | 1 | 13 -> 12 |
+| `shrine -> session` | 6 | 13 -> 12 |
+
+⇒ ✔ **THE FIRST ONE IS DONE.** `assets -> session` was a single `use` of
+`Platformer2dGameplayDefaults` — a two-field `Deserialize + Asset` struct with a
+`load_embedded`, naming nothing in `session` and nothing in the crate. It had been
+filed beside the system that first registered a handle for it. Moved to
+`assets::gameplay_defaults`, where it always belonged, and **the knot lost two
+modules for eleven lines of housekeeping.**
+
+⛔ **A DATA TYPE FILED BESIDE ITS FIRST CONSUMER IS HOW A DEPENDENCY GRAPH
+ACQUIRES AN EDGE NOBODY INTENDED**, and it is invisible in review: the `use` line
+is correct, the type is correct, and only a component analysis shows what it
+costs. Three of the four remaining cuts are also single references.
+
+⚠ **THE `include_str!` SURVIVED BY ARITHMETIC AND I CHECKED RATHER THAN HOPED**:
+it is relative to the FILE, and `src/session/data.rs` and
+`src/assets/gameplay_defaults.rs` are the same depth. One level deeper and the
+path would have needed rewriting.
+
+⚠ **AND THE MOVE'S REAL BLAST RADIUS WAS TYPE-PATH STRINGS, NOT CODE**: two
+rollback oracles assert fully-qualified type names
+(`bevy_asset::event::AssetEvent<...::session::data::Platformer2dGameplayDefaults>`),
+so a module move edits test data. Those tests are doing their job — but it means
+**every type move in this crate has a documentation-shaped cost that a compiler
+cannot find**, and that belongs in the price of any composition wave.
+
 ## ◐ PART-LANDED - F1: invert actor construction recipe ownership
 
 ### ◐ STATUS 2026-09-06 — THE STATED CONDITION IS MET AND THE CYCLE IS NOT CLOSED

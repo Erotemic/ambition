@@ -71,9 +71,102 @@ def measure() -> tuple[dict[str, int], dict[str, int], dict[str, collections.Cou
     return prod, total, edges
 
 
+
+def strongly_connected(edges: dict[str, "collections.Counter[str]"]) -> list[list[str]]:
+    """Tarjan's SCCs over the module graph.
+
+    ⭐⭐ THE QUESTION THE EDGE TABLE CANNOT ANSWER. An edge list says which
+    modules reference which; it does not say which modules CANNOT BE SEPARATED.
+    A component of size N means no member of it can leave for its own crate
+    without the other N-1, however clean any individual edge looks — which is
+    the only question that matters before a capability-composition push.
+    """
+    adjacency = {src: set(dsts) for src, dsts in edges.items()}
+    nodes = sorted(set(adjacency) | {d for dsts in adjacency.values() for d in dsts})
+    index: dict[str, int] = {}
+    low: dict[str, int] = {}
+    on_stack: set[str] = set()
+    stack: list[str] = []
+    components: list[list[str]] = []
+    counter = [0]
+
+    def visit(root: str) -> None:
+        work = [(root, 0)]
+        while work:
+            node, child = work[-1]
+            if child == 0:
+                index[node] = low[node] = counter[0]
+                counter[0] += 1
+                stack.append(node)
+                on_stack.add(node)
+            recursed = False
+            successors = sorted(adjacency.get(node, ()))
+            for i in range(child, len(successors)):
+                nxt = successors[i]
+                if nxt not in index:
+                    work[-1] = (node, i + 1)
+                    work.append((nxt, 0))
+                    recursed = True
+                    break
+                if nxt in on_stack:
+                    low[node] = min(low[node], index[nxt])
+            if recursed:
+                continue
+            if low[node] == index[node]:
+                component = []
+                while True:
+                    popped = stack.pop()
+                    on_stack.discard(popped)
+                    component.append(popped)
+                    if popped == node:
+                        break
+                components.append(sorted(component))
+            work.pop()
+            if work:
+                parent = work[-1][0]
+                low[parent] = min(low[parent], low[node])
+
+    for node in nodes:
+        if node not in index:
+            visit(node)
+    return sorted((c for c in components if len(c) > 1), key=len, reverse=True)
+
+
+def shrinking_cuts(edges) -> list[tuple[int, int, str, str]]:
+    """Single edges whose removal makes the largest component smaller.
+
+    ⛔ A DENSE KNOT USUALLY HAS NONE, WHICH IS WHY THE ONES IT HAS ARE WORTH
+    FINDING. Measured 2026-09-06: `assets -> session` was ONE reference — a
+    single `use` of a two-field `Deserialize` struct — and removing it took the
+    kernel's component from 15 modules to 13. The cheapest cut and the biggest
+    payoff were the same edge, and nothing in the edge table said so.
+    """
+    biggest = len(strongly_connected(edges)[0]) if strongly_connected(edges) else 0
+    rows = []
+    for src in list(edges):
+        for dst in list(edges[src]):
+            trimmed = {a: collections.Counter(b) for a, b in edges.items()}
+            del trimmed[src][dst]
+            after = strongly_connected(trimmed)
+            size = len(after[0]) if after else 0
+            if size < biggest:
+                rows.append((size, edges[src][dst], src, dst))
+    return sorted(rows, key=lambda r: (r[0], r[1]))
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     parser.add_argument("--edges", type=int, default=0, help="also print the top-N edges")
+    parser.add_argument(
+        "--scc",
+        action="store_true",
+        help="print the cyclic components — which modules cannot be separated",
+    )
+    parser.add_argument(
+        "--cuts",
+        action="store_true",
+        help="single edges whose removal shrinks the largest component",
+    )
     args = parser.parse_args()
     prod, total, edges = measure()
     print(f"{'module':22} {'prod':>6} {'all':>6}  out-edges (module:refs)")
@@ -90,6 +183,20 @@ def main() -> int:
         for c, m, t in flat[: args.edges]:
             back = edges[t][m]
             print(f"  {c:4}  {m} -> {t}" + (f"   (and {back} back)" if back else ""))
+    if args.scc:
+        components = strongly_connected(edges)
+        print("\ncyclic components (modules that cannot be separated):")
+        if not components:
+            print("  none — the module graph is a DAG")
+        for component in components:
+            print(f"  {len(component)}: {', '.join(component)}")
+    if args.cuts:
+        print("\nsingle edges whose removal shrinks the largest component:")
+        rows = shrinking_cuts(edges)
+        if not rows:
+            print("  none — no single edge splits it; the knot needs a coordinated cut")
+        for after, refs, src, dst in rows:
+            print(f"  -> {after:2}   {refs:3} refs   {src} -> {dst}")
     return 0
 
 

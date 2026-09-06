@@ -13,6 +13,7 @@
 //!   manifest states and the code does not honour is not a boundary.
 
 pub mod game_assets;
+pub mod gameplay_defaults;
 #[cfg(feature = "ldtk_runtime")]
 pub mod loading;
 pub mod platformer_assets;

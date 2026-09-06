@@ -91,6 +91,7 @@ bugged after the first fix. This records the investigation so nobody repeats it.
 | a node occludes the tabs | menu root is `GlobalZIndex(1000)`, the shell's other node is 900 |
 | picking is blocked on the tab tree | the only `Pickable::IGNORE` in the renderer is a scrollbar thumb |
 | the UI picking BACKEND is absent | `bevy_ui_menu = ["bevy/ui_picking"]` and `ambition_platformer2d/bevy_ui_menu` is in the default closure |
+| **the fix is on the WRONG SURFACE** — the shipped title screen is the kaleidoscope menu, not the shell launcher | ⭐ the most dangerous of the six, and false: `rendered_app()` builds `ambition_app::app::build_visible_app(VisibleRenderMode::NoWindow, true)` — the SHIPPED visible-app builder, windowless. The fixture is the real composition, so the two tab buttons it finds are the ones a player sees |
 
 ⚠ **THE ONE LINK THIS REPO CANNOT EXERCISE: the press EDGE.** Bevy's UI focus
 system **recomputes `Interaction` every frame from live pointer state**, so a

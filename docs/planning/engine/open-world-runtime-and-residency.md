@@ -550,9 +550,8 @@ format changes the test loses its realism, not its meaning.
 Found by grepping for the shape the room alias had (`a.id == x || a.name == x`).
 Three sites in the cut-rope arena match a prop with
 `prop.kind == needle || prop.name == needle`
-(`game/ambition_content/src/bosses/cut_rope/arena.rs:256`,
-`game/ambition_content/src/bosses/cut_rope/arena.rs:282`,
-`game/ambition_content/src/bosses/cut_rope/mod.rs:315`).
+(as they stood before `3c9d5d149`; the surviving lookup is now
+`game/ambition_content/src/bosses/cut_rope/arena.rs:287`).
 
 ✔ **THE AUTHORED DATA SAYS THE FALLBACK IS REDUNDANT.** Parsing
 `you_have_to_cut_the_rope.ldtk`: exactly **2** `Prop` entities carry a cut-rope
@@ -563,7 +562,7 @@ as the room alias, twice in one hour.
 
 ⛔⛔ **`PropVisual.kind` IS MUTATED AT RUNTIME.** The arena cycles the hanging
 weight anvil → piano, and `apply_cut_rope_heavy_object_sprite` does
-`prop.kind = desired_kind.to_string()` (`game/ambition_content/src/bosses/cut_rope/arena.rs:341`). `name` is never mutated.
+`prop.kind = desired_kind.to_string()` (`game/ambition_content/src/bosses/cut_rope/arena.rs:388`). `name` is never mutated.
 ⇒ After one cycle the SAME entity reads `kind = "cut_rope_piano"`,
 `name = "cut_rope_anvil"`. The `|| name ==` half is therefore not dead
 defensiveness: it is what keeps the entity findable **across its own re-skin**,
@@ -733,3 +732,34 @@ cycle first" rather than "ready".** Recorded rather than done, because the count
 what makes that defensible: re-measure a pattern's instances BEFORE sizing work on
 it — a one-instance pattern is a tidy, and the same afternoon spent on the
 duplicate retractor above bought a fact that could not previously be tested at all.
+
+
+### ⛔⛔ A LINE CITATION CAN BE INVALIDATED BY THE CITER'S OWN LATER EDITS — three of mine, inside one session (2026-09-06)
+
+The fighter lane audited every `file:line` added to `docs/planning` in the last
+thirty commits: twelve citations, eleven good, and the one failure was mine.
+`arena.rs:341` was quoted as `prop.kind = desired_kind.to_string()`; that line <!-- cite-ok: the ROTTED number is the subject; it is history, not a location -->
+today reads `&mut sprite,`, an argument at a CALL SITE.
+
+⭐ **AND IT WAS CORRECT WHEN WRITTEN.** `git show e540a128e:...arena.rs | sed -n
+'341p'` prints exactly the quoted assignment. What moved it was **my own commit two
+hours later**, adding ~30 lines of doc to the same file. Auditing the rest of my
+own citations found **two more** with the same cause (`arena.rs:256`, `:282`). <!-- cite-ok: same, the stale numbers are the finding -->
+
+⇒ **This is not the usual "stale citation" story, where someone else's refactor
+rots your reference over weeks.** The citer invalidated it, in the same file, in
+the same session, while the doc and the code were both in front of them. ⇒ **After
+editing a file you have cited, re-check your own citations INTO it** — that is the
+whole rule, and it is cheaper than the sweep it prevents.
+
+⚠ **AND THE AUDIT SCRIPT'S OWN NEGATIVES ARE A CLAIM ABOUT THE SCRIPT.** The quick
+version resolves paths exactly, so it reports pre-existing partial-path citations
+(`semantic.rs:796`, `portal2d/src/rollback_registration.rs:116`) as MISSING FILE.
+They are not missing; `check_planning_citations.py` resolves them by SUFFIX and
+passes them. A one-off audit that prints "missing" for a path style it does not
+implement is reporting its own shape.
+
+⇒ The cheap form is genuinely routine, which is the useful part: extract
+`` `([\w./-]+\.rs):(\d+)` `` from a diff, open each file, print the line. Seconds,
+no build — small enough to run at the moment of writing rather than at some later
+sweep.

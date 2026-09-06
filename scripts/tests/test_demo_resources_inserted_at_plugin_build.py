@@ -77,3 +77,45 @@ def test_an_overwriting_insert_of_a_foreign_type_is_flagged_and_a_variable_is_no
     flagged = [o for o in out if "OVERWRITING" in o]
     assert any(o.startswith("RespawnInterval") for o in flagged), flagged
     assert not any("goal_pole" in o for o in flagged), flagged
+
+
+def test_a_broken_signature_matcher_is_caught_by_an_INDEPENDENT_witness() -> None:
+    """⛔⛔ THE COUNT FLOOR COULD NOT CATCH THIS FILE'S OWN BUG. `MIN_DEMOS = 3`
+    against five demos passes when exactly one drops out — and exactly one
+    dropping out is what happened, when `BUILD` matched only `&mut App` and lost
+    `ambition_demo_smash`.
+
+    ⛔ AND THE FIRST MEMBERSHIP CHECK COULD NOT EITHER, because it derived its
+    expectation with `BUILD` too: poisoning the matcher removed the demo from the
+    findings AND from the expectation, and the check stayed green. A membership
+    assertion whose subject is its own filter's output proves nothing.
+    """
+    import re
+
+    module = _module()
+    real = module.BUILD
+    try:
+        module.BUILD = re.compile(r"fn build\(\s*&self,\s*app:\s*&mut\s*App\s*\)\s*\{")
+        assert module.main() == 1
+    finally:
+        module.BUILD = real
+
+
+def test_the_plugin_witness_matches_both_trait_spellings() -> None:
+    """⚠ THE SAME BLINDNESS, HIT TWICE IN ONE FILE. `impl Plugin for` alone misses
+    `ambition_demo_smash`, which writes `impl bevy::prelude::Plugin for` — the
+    identical qualified-vs-short problem that hid it from `BUILD`, met again while
+    writing the witness meant to catch that."""
+    module = _module()
+    assert module.PLUGIN_IMPL.search("impl Plugin for P {")
+    assert module.PLUGIN_IMPL.search("impl bevy::prelude::Plugin for SmashRulesPlugin {")
+    assert not module.PLUGIN_IMPL.search("struct NotAPlugin;")
+
+
+def test_a_demo_that_inserts_nothing_is_reported_as_zero_not_omitted(capsys) -> None:
+    """`ambition_demo_pocket` has a `Plugin::build` and inserts NOTHING in it. A
+    reader seeing four rows concludes there are four demos; it was invisible until
+    the membership check replaced the count floor."""
+    module = _module()
+    assert module.main() == 0
+    assert "ambition_demo_pocket: 0" in capsys.readouterr().out

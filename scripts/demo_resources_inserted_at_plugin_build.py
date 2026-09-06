@@ -63,6 +63,9 @@ REPO = pathlib.Path(__file__).resolve().parent.parent
 #: ⚠ Both spellings. See the docstring: the short one alone reported smash as 0.
 BUILD = re.compile(r"fn build\(\s*&self,\s*app:\s*&mut\s*[\w:]*App\s*\)\s*\{")
 INSERT = re.compile(r"(?:init_resource::<|insert_resource\()\s*([A-Za-z_][\w:]*)")
+#: An INDEPENDENT witness that a crate is a Bevy plugin — deliberately not
+#: `BUILD`, so a bug in the signature regex cannot cancel on both sides.
+PLUGIN_IMPL = re.compile(r"impl\s+(?:[\w:]+\s*)?Plugin\s+for\b")
 MIN_DEMOS = 3
 
 
@@ -102,6 +105,7 @@ def inserted_at_build() -> dict[str, list[tuple[str, str]]]:
             src = path.read_text(encoding="utf-8", errors="replace")
             for match in BUILD.finditer(src):
                 body = body_of(src, match.end() - 1)
+                found.setdefault(crate, [])  # scanned, even if it inserts nothing
                 for hit in INSERT.finditer(body):
                     name = hit.group(1).split("::")[-1]
                     # ⭐ `insert_resource` OVERWRITES; `init_resource` is a no-op
@@ -124,17 +128,50 @@ def inserted_at_build() -> dict[str, list[tuple[str, str]]]:
 
 def main() -> int:
     found = inserted_at_build()
-    if len(found) < MIN_DEMOS:
+    # ⛔⛔ A COUNT FLOOR WITH A MARGIN OF ONE COULD NOT CATCH THIS FILE'S OWN BUG.
+    # `MIN_DEMOS = 3` against FOUR demos passes when exactly one drops out — and
+    # exactly one dropping out is what happened: matching only `&mut App` and not
+    # `&mut bevy::prelude::App` lost `ambition_demo_smash`, the demo with the most
+    # insertions and every known instance of the leak. 4 → 3 would have been GREEN.
+    # ⭐ So assert MEMBERSHIP, derived rather than listed: every demo crate that
+    # HAS a `Plugin::build` must appear. A new demo joins the expectation by
+    # existing, and a matcher that stops seeing one is named.
+    # ⛔⛔ DERIVED FROM A DIFFERENT SIGNAL THAN `BUILD`, AND THE FIRST VERSION WAS
+    # NOT. It used `BUILD` on both sides, so poisoning the matcher removed a demo
+    # from the FINDINGS and from the EXPECTATION together and the check stayed
+    # GREEN — a membership assertion whose subject is its own filter's output,
+    # which is the trap this repo already has a name for. `impl Plugin for` is an
+    # independent witness: it does not move when the signature regex does.
+    expected = {
+        demo.parent.name
+        for demo in REPO.glob("game/ambition_demo_*/src")
+        # ⚠ SPELLING-TOLERANT, because `impl Plugin for` alone misses
+        # `ambition_demo_smash`, which writes `impl bevy::prelude::Plugin for` —
+        # the SAME qualified-vs-short blindness that hid smash from `BUILD`, hit a
+        # second time while writing the check meant to catch the first.
+        if any(PLUGIN_IMPL.search(f.read_text(encoding="utf-8", errors="replace"))
+               for f in demo.rglob("*.rs"))
+    }
+    missing = sorted(expected - set(found))
+    if missing or len(found) < MIN_DEMOS:
         print(
-            f"FAIL: only {len(found)} demo(s) matched — the sweep is broken, not "
-            f"the tree.\n  Expected at least {MIN_DEMOS}. Check the `fn build` "
-            "spellings this repo uses.",
+            f"FAIL: {len(found)} demo(s) matched; {sorted(found)}.\n"
+            + (f"  MISSING, though they do define a `Plugin::build`: {missing}\n"
+               if missing else "")
+            + "  The sweep is broken, not the tree — check the `fn build` "
+            "spellings this repo uses\n  (`&mut App` and `&mut bevy::prelude::App` "
+            "both occur).",
             file=sys.stderr,
         )
         return 1
     total = sum(len(v) for v in found.values())
     print(f"resources inserted at demo PLUGIN BUILD: {total} across {len(found)} demos")
     for crate, hits in sorted(found.items(), key=lambda kv: -len(kv[1])):
+        # ⭐ ZERO IS PRINTED, NOT OMITTED. `ambition_demo_pocket` defines a
+        # `Plugin::build` and inserts NOTHING in it — which is the shape the other
+        # demos are being measured against, and a reader who sees four rows
+        # concludes there are four demos. It was invisible until the membership
+        # check below replaced a count floor.
         print(f"  {crate}: {len(hits)}")
         for name, ty in hits:
             print(f"      {name}: {ty}")

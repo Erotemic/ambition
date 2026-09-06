@@ -44,7 +44,7 @@ fn realize_seat(
     // the destination solver's private state.
     let motion_model = seed.config.tuning.motion_model();
     let (identity, _seed_disposition, combat) =
-        crate::features::ecs::enemy_component_snapshot(&seed);
+        crate::actor_spawn::conversion::enemy_component_snapshot(&seed);
     // A match participant is a COMBATANT, whatever drives it. The disposition the seed derives
     // follows the authored brain, and a local-input seat authors `Passive` — `apply_actor_hit`
     // reads the disposition first, and a peaceful body takes NO health damage.
@@ -74,7 +74,7 @@ fn realize_seat(
             // the AI's capability read asks the SAME effective set the kit was
             // derived against: a driver that believes it may shield in a match
             // that forbids shielding reaches for a verb the body does not have.
-            crate::features::ecs::enemy_default_brain(
+            crate::actor_spawn::brain_builders::enemy_default_brain(
                 &seed.config,
                 seat.effective_abilities
                     .unwrap_or(seed.body.0.abilities.abilities),
@@ -90,8 +90,8 @@ fn realize_seat(
         .spawn_session_scoped(
             session_scope,
             (
-                crate::features::EnemyActorBundle::new(
-                    crate::features::FeatureBaseBundle::new(
+                crate::actor_bundles::EnemyActorBundle::new(
+                    crate::actor_bundles::FeatureBaseBundle::new(
                         // THE SEAT, not the character. This passed
                         // `character_id`, so two fighters wearing one character
                         // WERE ONE FEATURE: `spawn_dynamic_feature_visuals`

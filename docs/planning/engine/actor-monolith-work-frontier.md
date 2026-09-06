@@ -121,6 +121,26 @@ NOT: `schedule` has no production inbound edge from the component at all, which
 makes it the one prerequisite that can be worked independently of this carve
 rather than through it.
 
+### ⛔ WHERE THE MECHANICAL PHASE ENDS — 14 → 11, AND THE REST NEED DECISIONS
+
+Five edges fell to two lenses and no design work: **a type filed beside its first
+consumer**, and **a dependency drawn through a re-export**. What is left does not.
+
+| remaining cut | refs | why it is not mechanical |
+|---|---|---|
+| `features -> projectile` | 1 | `ProjectileAllegiance` is rollback-registered with a comment stating the ACTOR side owns it deliberately — *"domain-owned registration follows the concrete type to the actor-side projectile integration that owns it"*. A considered placement, not a misfiling. |
+| `projectile -> features` | 2 | genuine calls into feature systems (`spawn_encounter_mob`, `apply_feature_hit_events`) |
+| `shrine -> session` | 6 | not yet read |
+
+⭐⭐ **AND THE LENS HAS A LIMIT WORTH STATING: A DELIBERATE PLACEMENT LOOKS
+EXACTLY LIKE A MISFILING UNTIL YOU READ THE COMMENT.** `ProjectileAllegiance` is a
+zero-dependency two-field struct used by a lower crate — by every structural
+signal, the same shape as `Platformer2dGameplayDefaults` and `LocalPlayer`, both
+of which moved for a component each. The difference is a sentence in its rollback
+registration, and no census can see it.
+
+⇒ **So the ranking says where to LOOK and the comment says whether to MOVE.**
+
 ### ⭐ AND THE CHEAPEST CUT WAS ONE LINE, WHICH THE EDGE TABLE COULD NOT SHOW
 
 An edge list says which modules reference which. It does not say which

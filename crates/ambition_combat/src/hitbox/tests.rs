@@ -1636,6 +1636,165 @@ mod ruleset_knockback_growth {
 /// dealt a point regardless. A gust, a suction pulse, a stage wind, a
 /// pull-in — every move whose whole design is "displace, do not hurt" — came
 /// out as a one-damage poke.
+mod strike_rank {
+    //! ⭐⭐ THE SWEETSPOT ARBITRATION, WHICH HAD NO TEST ANYWHERE — measured
+    //! 2026-09-06: `StrikeRank`, `outranked`, `sourspot` and `sweetspot` appeared
+    //! in ZERO tests across the workspace, while the seam's own comment records
+    //! the bug it exists to fix (*"one swing landed twice, for two different
+    //! damages and two knockbacks, until this"*).
+    //!
+    //! ⛔ TWO VERBS SHIPPED ON TOP OF IT THE SAME DAY. `tipper` inserts its tip at
+    //! rank 0 so the far volume wins wherever both reach; `wake` APPENDS its
+    //! windbox so the hit stays ahead of the shove. Both are statements about this
+    //! arbitration and neither could be checked here.
+    //!
+    //! ⭐ POISONED, AND THE TWO POISONS FAIL DIFFERENT ASSERTIONS — which is why
+    //! both the COUNT and the DAMAGE are asserted rather than either alone.
+    //! Removing the stand-down (`if outranked { continue }`) makes one swing land
+    //! TWICE and fails the count; reversing the comparison (`sibling_rank <` to
+    //! `>`) makes the LAST-authored volume win and fails the damage. Each poison
+    //! reddens only the two "body in both" cases and leaves the single-volume
+    //! ones green, so the tests discriminate the rule rather than the fixture.
+    use super::*;
+    use crate::moveset::StrikeRank;
+
+    /// Two volumes of ONE move, ranked, over a body at `victim_x`.
+    ///
+    /// The geometry is a real tipper's: a wide base that contains a small far
+    /// tip, so a body at the tip is reached by BOTH and a body up close is
+    /// reached only by the base. That overlap is the whole point — volumes that
+    /// cannot both reach never exercise the rule.
+    fn two_ranked_volumes(victim_x: f32, second_damage: i32, second_is_wind: bool) -> App {
+        let mut app = App::new();
+        app.add_message::<HitEvent>();
+        app.add_message::<LandedBodyHit>();
+        app.add_message::<ParriedBodyHit>();
+        app.add_message::<VfxMessage>();
+        app.init_resource::<CapturedHits>();
+        app.insert_resource(FactionRelations::default());
+        app.add_systems(Update, (apply_hitbox_damage, capture_hits).chain());
+        let owner = app
+            .world_mut()
+            .spawn(ae::CenteredAabb::new(
+                ae::Vec2::new(0.0, 100.0),
+                ae::Vec2::new(12.0, 16.0),
+            ))
+            .id();
+        let mut volume = |center: ae::Vec2, half: ae::Vec2, damage: i32, volume_rank: u16, wind: bool| {
+            app.world_mut().spawn((
+                Hitbox {
+                    strike_sfx: None,
+                    owner,
+                    source: HitSide::Enemy,
+                    anchor: HitboxAnchor::World { center },
+                    half_extent: half,
+                    shape: None,
+                    facing: 1.0,
+                    damage,
+                    knockback: crate::strike::HitboxKnockback::LaunchSpeed {
+                        base: 120.0,
+                        growth: None,
+                    },
+                    launch_dir: None,
+                    frame_down: ae::Vec2::new(0.0, 1.0),
+                    reaction: wind.then(|| {
+                        ambition_entity_catalog::VolumeReaction::Windbox(
+                            ambition_entity_catalog::WindboxVolume { repeating: false },
+                        )
+                    }),
+                },
+                HitboxLifetime { remaining_s: 0.2 },
+                HitboxHits::default(),
+                StrikeRank { window: 0, volume: volume_rank },
+            ));
+        };
+        // Rank 0 — the TIP: small, far, and contained by the base below.
+        volume(ae::Vec2::new(160.0, 100.0), ae::Vec2::new(8.0, 8.0), 14, 0, false);
+        // Rank 1 — the BASE (or, for `wake`, the wind): wide, near, spans 85..175.
+        volume(
+            ae::Vec2::new(130.0, 100.0),
+            ae::Vec2::new(45.0, 25.0),
+            second_damage,
+            1,
+            second_is_wind,
+        );
+        app.world_mut().spawn((
+            ambition_platformer2d_shared_tangle::markers::PlayerEntity,
+            ActorFaction::Player,
+            ambition_platformer2d_core::BodyKinematics {
+                pos: ae::Vec2::new(victim_x, 100.0),
+                size: ae::Vec2::new(28.0, 46.0),
+                facing: 1.0,
+                ..Default::default()
+            },
+            ae::CenteredAabb::from_center_size(
+                ae::Vec2::new(victim_x, 100.0),
+                ae::Vec2::new(28.0, 46.0),
+            ),
+            ambition_platformer2d_core::BodyOffense::default(),
+            ambition_platformer2d_core::BodyMotionFacts::default(),
+            ambition_platformer2d_core::BodyShieldState::default(),
+            ambition_characters::actor::BodyCombat::default(),
+        ));
+        app.update();
+        app
+    }
+
+    fn hits(app: &App) -> Vec<crate::events::HitEvent> {
+        app.world()
+            .resource::<CapturedHits>()
+            .body_hits()
+            .into_iter()
+            .cloned()
+            .collect()
+    }
+
+    /// ⭐ A BODY REACHED BY BOTH IS HIT ONCE, BY THE FIRST-AUTHORED VOLUME.
+    ///
+    /// ⛔ THE COUNT IS HALF THE ASSERTION. Without it this passes against a seam
+    /// that lands BOTH volumes and happens to report the tip first — which is
+    /// precisely the defect the rule was added for.
+    #[test]
+    fn a_body_in_both_volumes_takes_the_first_authored_one_and_no_other() {
+        let app = two_ranked_volumes(160.0, 7, false);
+        let landed = hits(&app);
+        assert_eq!(landed.len(), 1, "one swing must land once: {landed:?}");
+        assert_eq!(landed[0].damage, 14, "the FIRST-authored volume is the tip");
+    }
+
+    /// The sourspot is not disabled — it is outranked only where the tip reaches.
+    #[test]
+    fn a_body_the_tip_misses_still_takes_the_base() {
+        let app = two_ranked_volumes(100.0, 7, false);
+        let landed = hits(&app);
+        assert_eq!(landed.len(), 1, "the base alone reaches: {landed:?}");
+        assert_eq!(landed[0].damage, 7, "and it lands for its own damage");
+    }
+
+    /// ⭐⭐ `wake`'S CLAIM AT THE SEAM: the hit stays ahead of the shove.
+    ///
+    /// A wake is a rank-1 windbox behind a rank-0 hit. A body standing in both
+    /// was KICKED, and being shoved instead is what happens to a body the hit
+    /// missed — so the windbox must stand down here rather than adding a push to
+    /// a landed hit.
+    #[test]
+    fn a_body_in_both_the_hit_and_its_wake_is_hit_and_not_pushed() {
+        let app = two_ranked_volumes(160.0, 0, true);
+        let landed = hits(&app);
+        assert_eq!(landed.len(), 1, "the wake must not add a second contact: {landed:?}");
+        assert_eq!(landed[0].damage, 14, "the boot landed, not the dust");
+    }
+
+    /// And the other half of the same move: what the hit misses IS shoved.
+    #[test]
+    fn a_body_only_in_the_wake_is_pushed_for_no_damage() {
+        let app = two_ranked_volumes(100.0, 0, true);
+        let landed = hits(&app);
+        assert_eq!(landed.len(), 1, "the wake reaches alone: {landed:?}");
+        assert_eq!(landed[0].damage, 0, "dirt does not wound");
+    }
+}
+
 mod windbox {
     use super::*;
 

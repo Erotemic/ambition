@@ -30,6 +30,23 @@ a documented opt-in would break anyone using it.
 tests build real and symlinked trees in `tmp_path` to check both answers, but
 "the ten ratchets pass on the canonical box" is a claim only that box can make.
 Nothing here should be read as evidence that they do.
+
+✔ **AND THAT CLAIM HAS NOW BEEN MADE, 2026-09-06: 23 passed, 1 skipped** across
+`test_shipped_sheet_pages_are_claimed.py` and
+`test_tier_variants_are_actually_smaller.py`, on a checkout this function reported
+canonical. ⇒ The enabled arm is no longer unexercised, and the ten ratchets do
+pass on a real canonical box rather than only in `tmp_path`.
+⚠ **GETTING THERE TOOK A REGENERATION, WHICH IS THE PART WORTH KNOWING.** The
+checkout was NOT canonical: its sprite trees were its own, but 42 quality-tier
+files were older than the art they derive from, so `why_not` correctly refused —
+a size assertion there measures regeneration history rather than content.
+`./scripts/regen/quality_variants.sh --sprites-only` (199 s, incremental) cleared
+it. ⇒ **On a working box the usual reason these ten skip is stale tiers rather
+than borrowed assets**, and the fix is three minutes, so a lane that reports them
+skipped is worth one command rather than a shrug.
+⚠ Read `why_not`'s FULL string. Truncating it at a terminal width chops the
+"but the quality tiers are STALE" clause and leaves a reason that reads as the
+canonical condition — which looks exactly like an inverted detector.
 """
 
 from __future__ import annotations

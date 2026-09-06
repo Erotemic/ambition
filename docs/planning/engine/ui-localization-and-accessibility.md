@@ -109,3 +109,31 @@ tab change appearance on hover? The active tab draws filled gold, inactive dark
 blue. Highlight-but-no-switch puts the fault downstream of the press edge, where
 this repo can test; no highlight at all puts it upstream, in picking, where it
 cannot.
+
+### ⭐⭐ WHY THE SAME TECHNIQUE IS SOUND AT CRATE LEVEL AND UNSOUND AT APP LEVEL — read this before writing a menu test
+
+`grid_backend/tests.rs` drives a tap by writing `Interaction::Pressed` then
+`Interaction::Hovered`, and it is **correct**. I wrote the identical thing against
+the assembled host and it was **wrong**. The difference is not the code — it is
+which harness is running.
+
+| harness | who writes `Interaction` | writing it yourself |
+|---|---|---|
+| minimal crate app (`StatesPlugin` + the systems under test) | nobody | ✔ the only way to produce the edge |
+| assembled host (`build_visible_app`) | **Bevy's UI focus system, every frame, from live pointer state** | ⛔ overwritten with `None` before any consumer runs |
+
+⇒ **So the two levels can only assert different things, and pretending otherwise
+produces a confident false negative.** Mine reported *"the tab strip is drawn as
+buttons that nothing listens to"* while the shipped chain was fine.
+
+* **Crate level** — exercise the HANDLER. A minimal app has no competing writer, so
+  a written `Interaction` is a real input and the system under test sees it.
+* **App level** — assert the WIRING. Is the road installed in this composition, do
+  the entities carry their markers, does the consumer move state when the message
+  arrives? These are the links that actually go missing: the shipped defect here
+  was an INSTALL with one caller in the whole workspace.
+
+⚠ **The general rule, worth more than the table: before driving a component in a
+test, ask who else writes it every frame.** `Interaction`, `Visibility`,
+`Transform` and their kin are engine outputs, not test inputs. Writing one tests
+your own assignment.

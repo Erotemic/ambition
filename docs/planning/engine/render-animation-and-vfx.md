@@ -1005,6 +1005,49 @@ correct one is sized from the trimmed rect** — which is why she "is not standi
 the ground": the thing a player's eye follows is the big one, and it is placed by a
 quad that ignores the trim offset `(43, 105)`.
 
+## ⭐⭐⭐ REPRODUCED, AND THE TEXTURE TIER SELECTS THE SYMPTOM (2026-09-06)
+
+Two captures of the same scene, same binary, differing only in the visual-quality
+profile:
+
+| run | `[sprite-size] player first observed at` | what the picture shows |
+|---|---|---|
+| default | **61 × 73** | a magnified CROP of her face, floating high above the ground |
+| `AMBITION_QUALITY_PROFILE=ultra` | **21 × 32** | a correct, recognisable Mary-O — **still floating above the tiles** |
+
+⇒ **THE DRAWN QUAD TRACKS THE TEXTURE VARIANT.** `sprites/` is 160×192,
+`sprites_0_5x/` 80×96, `sprites_0_25x/` 40×48, `sprites_potato/` 10×12 — all
+declaring `target: "mary_o_v2"`. ⛔ **But `posed_body_geometry` reads the BAKED
+manifest and computes `render: Vec2::new(frame_w, frame_h) * world_per_pixel` plus
+a `sprite_offset` from that same frame.** So the geometry is derived from ONE
+resolution while the art is loaded at ANOTHER, and they agree only when the runtime
+happens to pick the tier the baked registry holds.
+
+⭐ **THAT IS ONE FACT — "how big is a frame" — WITH TWO AUTHORITIES**, and the
+disagreement is a clean multiple: 160/40 = 4×, which is the magnification in the
+first picture. The offset is derived from the same wrong frame, which is the float.
+
+⭐⭐ **AND IT EXPLAINS THE FIRST-TIME BIAS JON REPORTED.** The capture log:
+*"visual quality seeded to `potato` for a Cpu adapter (llvmpipe); this is a
+FIRST-RUN default and the settings menu owns it from here."* **The tier is SEEDED on
+a first run and read from saved settings afterwards** — so the first session after a
+fresh profile draws at one tier and later ones at another. *"Usually just the first
+time"* is a settings seed, not a cache.
+
+⛔⛔ **SEPARATE BUG FOUND IN THE SAME LINE: `AMBITION_QUALITY_PROFILE` IS ANNOUNCED
+AND THEN OVERRIDDEN.** The run logs *"visual quality forced to `ultra` by
+AMBITION_QUALITY_PROFILE; the settings menu cannot change it this run"* and then,
+0.3s later, *"visual quality seeded to `potato` for a Cpu adapter"*. The knob that
+says it wins does not. ⇒ A profile override and an adapter seed are two writers of
+one setting, and the seed runs last.
+
+**REPRODUCTION, both pictures in one command each:**
+```bash
+cargo build -p ambition_demo_mary_o_app --bin capture_mary_o --features capture
+./target/debug/capture_mary_o out.png 640x360 --warmup 60 --walk 400
+AMBITION_QUALITY_PROFILE=ultra ./target/debug/capture_mary_o out2.png 640x360 --warmup 60 --walk 400
+```
+
 ⛔ **NOT YET IDENTIFIED: WHICH system spawns the second drawable.** That is the next
 step, and it is now a component question rather than a pixel one — find the two
 entities' markers. `[sprite-size] player first observed at 61x73` in the capture's

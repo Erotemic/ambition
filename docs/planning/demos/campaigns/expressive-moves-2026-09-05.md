@@ -2059,6 +2059,77 @@ prefab + params to mint a move with ZERO new code"*) is one this campaign is
 actively making. ⇒ The finding is that **nobody knew**, and that a silent-overwrite
 hazard in it was being triaged as though it were reachable.
 
+### ⛔⛔ I SET OUT TO BUILD SING AND IT HAD SHIPPED — AND THE THING I NEARLY BUILT WAS A DUPLICATE AUTHORITY
+
+The goal's roster names **Performer = Sing** and it was the one slot I could not
+find. So I priced it: a sleep is *"helpless for an authored duration with no launch
+behind it"*, the floor game already owns helplessness, and `tumble_from_footstool`
+is literally that primitive named after the one customer that motivated it. ⇒ I was
+one edit away from adding a **`sleep_timer` to `AxisManeuverState`** plus a typed
+content→movement op beside `footstool_victim` — a new field on rollback-serialized
+movement state, and a **second authority for a status that already had one**.
+
+**It already ships, entirely, and has for some time:**
+
+| piece | where |
+|---|---|
+| the status | `BodyCombat::sleep_timer`, folded into `hard_lock_timer()`'s `max` over named causes |
+| the authored verb | `ambition_characters::smash_sleep::author_sleep` + `SleepParams` |
+| the ruleset half | `ambition_demo_smash::sing::apply_authored_sleep`, area-shaped and self-excluding |
+| the wake | `hit_reaction.rs:351` — a real hit clears it, and a windbox deliberately does not |
+| the respawn clear | `actor/body.rs` — *"a fighter who respawns still asleep from the stock before is helpless"* |
+| **two authored customers** | the Performer's `speech` pulse and the Shadow Oni leader's seal, guarded so the guaranteed one is the shorter |
+
+⭐⭐ **WHY MY SEARCH MISSED IT, STATED SO THE NEXT ONE DOES NOT.** I searched the
+DEFINITION side — the right instinct — but **in the wrong domain**. I enumerated
+`AxisManeuverState`'s 51 fields and grepped for a *type* named `Sleep`, because I
+had already decided helplessness was movement's. The status is a field on a
+**combat** component, spelled `sleep_timer`, in a module named `smash_sleep`. ⇒ *A
+definition-side search is only as good as the guess about which domain owns the
+thing* — and the guess is the part that feels like knowledge.
+
+⚠ **AND THE ROSTER WAS COMPLETE ALL ALONG.** Swordies = counter ✔, Projectile
+Polygon = tether ✔ + remote mine down-smash ✔, Author = side-B PK-Thunder ✔, Alice
+= up-B portal recovery ✔, Performer = Sing ✔. The reason Sing read as missing is
+that it does **not occupy a special slot**: it rides her `speech` as an on-hit
+pulse, and I was looking at the five `replace_special` calls.
+
+#### ✔ AND THEN THE REAL GAP WAS IN THE FIELD'S OWN DOC, THREE FILES FROM WHERE I WAS
+
+> *"⚠ THIS IS A DISABLE, NOT YET A SLEEP. It buys 'cannot act for a duration' and
+> wake-on-damage. What it does NOT buy is the specific POSE or the MASH escape, and
+> those are what make a sleep richer than a disable."*
+
+⇒ **The mash half is now built** (`mash_out_of_sleep`): a sleeping fighter's press
+burns 0.05s off the timer, one credit per tick. At a human's ~10 presses/s that is
+about `1.5x` decay — a 1.4s song holds a struggling fighter for ~0.93s, so the mash
+buys back a third of the punish and **cannot beat the clock**. Before it, a sleep
+was the longest disable in the game and the one window in a 1v1 where a human had
+nothing at all to do.
+
+⭐ **THE PLACEMENT IS THE WHOLE TRICK, and it is stolen from `sample_capture_escape`.**
+`apply_post_hit_input_gates` blanks every verb while `hard_lock_timer() > 0.0`, and
+a sleep is one of the five causes it folds — so a reader placed after the gate
+samples zeros and would conclude that sleeping fighters never struggle. It works
+because that gate runs on a **transient** `InputState` built by
+`engine_input_from_actor_control`; the `ActorControl` component keeps the raw press.
+A captive's frame is blanked in place, which is why that function is scheduled twice.
+
+⛔⛔ **AND THE AWAKE-BODY GUARD'S TEST COULD NOT SEE ITS OWN SUBJECT.** The first
+draft asserted `sleep_timer == 0.0` after an awake fighter mashed — true of the
+guarded version AND of one that subtracts unconditionally, because
+`(0.0 - 0.05).max(0.0)` is `0.0`. **The value is identical; the difference is a
+change-detection write to rollback state on every body every tick.** It now observes
+the WRITE through `Changed<BodyCombat>`, with a positive control so it cannot pass
+against a collector that never sees anything. ⇒ *The fifth time on this page that a
+guard asserted a number where the subject was an effect.*
+
+⚠ **WHAT IS STILL MISSING IS THE POSE, and it is the half a PLAYER sees.** A slept
+fighter stands exactly like one in shieldstun, in landing lag, in a recoil lock or
+in a guard break — five causes, one silhouette — so in a 1v1 neither player can tell
+which is holding them. Filed as presentation, not mechanics; the field's doc names
+it and now names only it.
+
 ### Track A — the keystone
 
 - ◐ **A1. `TechniqueFlow` minimum** — ⭐⭐ **THE ENGINE HALF WAS ALREADY BUILT,

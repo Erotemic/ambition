@@ -68,29 +68,40 @@ def read_sheet(path: pathlib.Path) -> dict:
     }
 
 
-# ⭐⭐ A COUNT OF 1 IS NOT THE DEFECT; A RATIO NEAR ZERO IS. The first version of
-# this script flagged `distinct == 1`, which fires only on the DEGENERATE TAIL of
-# the distribution and let a sheet with 7 boxes across 136 poses read as healthy.
-# Measured across the roster:
+# ⭐⭐ TWO SIGNALS, AND THEY FAIL IN OPPOSITE DIRECTIONS -- so the script reports
+# both and neither is allowed to be "the" answer.
 #
-#     boss                          6 poses    1 distinct   0.17
-#     mary_o_v2                     9 poses    1 distinct   0.11
-#     mary_o_v2_tall               12 poses    2 distinct   0.17
-#     mary_o_v2_fire               12 poses    3 distinct   0.25
-#     perfect_cellular_automaton  136 poses    7 distinct   0.05
-#     noether                     123 poses  111 distinct   0.90
-#     player_robot_v3             133 poses   95 distinct   0.71
+# (1) RATIO = distinct / poses, per sheet file. A count of 1 is only the
+#     DEGENERATE TAIL: `perfect_cellular_automaton` publishes 7 boxes across 136
+#     poses and a `distinct == 1` flag reads that as healthy.
+# (2) TIER-INVARIANCE, per sheet NAME across its four tiers. Quantisation collapses
+#     boxes together at low resolution, so a healthy sheet LOSES distinctness as
+#     tiers shrink. A sheet that is not measuring finely enough has nothing to lose.
 #
-# ⚠ THE THRESHOLD IS NOT A JUDGEMENT CALL BECAUSE THE DISTRIBUTION HAS A HOLE IN
-# IT: nothing sits between 0.25 and 0.71, so every cut in that range returns the
-# same set and the answer does not depend on where in the gap it lands. That is the
-# only honest way to pick a magnitude -- show the verdict is insensitive to it --
-# and `--ratio` exists so a reader can move it and see that for themselves.
+#     noether                    111 / 110 / 103 /  ..   moves  ✔
+#     player_robot_v3             95 /  92 /  83 /  27   moves  ✔
+#     perfect_cellular_automaton   7 /   7 /   7 /   7   FLAT   ⛔
 #
-# ⚠ IT IS ALSO THE TIER-INDEPENDENT READING. Distinctness moves with resolution
-# (`player_robot_v3` reads 27/83/92/95 across potato/0_25x/0_5x/1x) because low
-# tiers quantise boxes together, but the RATIO's ordering does not move. A bare
-# count is a statement about which tier you happened to read.
+# ⛔⛔ EACH ONE IS WRONG ABOUT A SHEET THE OTHER GETS RIGHT, measured, which is the
+# whole reason both are printed:
+#   • RATIO FALSE POSITIVE -- `player_robot_v3` at `sprites_potato` reads 27/133 =
+#     0.20 and trips any threshold below 0.2. It is a healthy sheet read at a tier
+#     that quantised it. ⚠ THIS ALSO KILLED THE "the distribution has a hole
+#     between 0.25 and 0.71" ARGUMENT an earlier version of this file used to
+#     justify its cut: that hole exists only within ONE tier. Sampling a single
+#     tier and calling the result the distribution is the exact mistake the tier
+#     caveat below warns about, committed by the file that carries the caveat.
+#   • INVARIANCE FALSE NEGATIVE -- `mary_o_v2_fire` reads 3 / 2 / 3 / 2 and so
+#     "moves", but it is genuinely affected: it publishes a per-STANCE box, and the
+#     wobble is one 1px pose rounding differently between tiers.
+#
+# ⇒ USE THEM TOGETHER. Invariance answers "is this sheet authored coarse?" with no
+# threshold to defend; the ratio RANKS and is what puts `perfect_cellular_automaton`
+# at the bottom of the tree. Neither alone would have found both fighters.
+#
+# ⚠ WHAT NEITHER MEASURES: whether a low ratio is partly legitimate because a sheet
+# holds many near-identical frames. Both are good COMPARATORS and bad ABSOLUTES;
+# "how bad is 0.05" needs the frames looked at, not the ratio quoted harder.
 FLAT_RATIO = 0.5
 
 
@@ -155,16 +166,39 @@ def main(argv: list[str]) -> int:
     for row in sorted(rows, key=rank):
         print(report(row, args.ratio))
 
+    groups: dict[str, list[dict]] = {}
+    for r in rows:
+        if r["poses"]:
+            groups.setdefault(r["path"].name, []).append(r)
+    invariant = {
+        name: rs
+        for name, rs in groups.items()
+        if len(rs) > 1
+        and len({r["distinct"] for r in rs}) == 1
+        # ⚠ A sheet with one distinct box per pose has nothing to quantise either;
+        # it is invariant for the OPPOSITE reason and is not this defect.
+        and rs[0]["distinct"] < len(rs[0]["poses"])
+    }
+    if invariant:
+        print("\n⛔ DISTINCTNESS DOES NOT MOVE WITH TIER (authored coarse, not quantised coarse):")
+        for name, rs in sorted(invariant.items()):
+            counts = " / ".join(str(r["distinct"]) for r in rs)
+            print(f"  {name}: {counts} across {len(rs)} tiers, {len(rs[0]['poses'])} poses")
+
     flat = [
         r
         for r in rows
         if r["poses"] and len(r["poses"]) > 1 and r["distinct"] / len(r["poses"]) <= args.ratio
     ]
     print(
-        f"\n{len(rows)} sheet(s); {len(flat)} at or below ratio {args.ratio}."
+        f"\n{len(rows)} sheet(s); {len(flat)} row(s) at or below ratio {args.ratio}"
+        "\n(rows are FILES: one sheet appears once per tier, so divide by ~4 for"
+        "\n characters). Most sheets publish no per-pose boxes at all and are"
+        "\n outside this population entirely -- a different defect, different fix."
         "\n⇒ These resolve fine and pass any `bbox.is_some()` guard: the box is"
-        "\n  plausible, it is just not THIS pose's. Only DISTINCTNESS can see it,"
-        "\n  and only as a RATIO -- a count of 1 is the tail, not the defect."
+        "\n  plausible, it is just not THIS pose's. READ BOTH SIGNALS -- the ratio"
+        "\n  ranks but false-positives a quantised tier; invariance is threshold-free"
+        "\n  but misses a sheet whose coarseness wobbles by a pixel."
     )
     return 0
 

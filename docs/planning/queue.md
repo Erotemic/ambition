@@ -772,6 +772,25 @@ and run that one. `cargo check -p <crate>` with no features is seconds.
 
 ## Current execution order
 
+- ▢ **D-CUT-VOICE — a technique's hit cannot be voiced by its author, and the
+  missing half is an ASSET rather than code. Measured 2026-09-06, small.**
+  ⚠ **NOT a silence bug, and I checked before filing**: `resolve_strike_sfx`
+  falls back to `hurt.sfx` when a hitbox carries `strike_sfx: None`, so the
+  riposte cut and the brawler's shock DO make the victim's material sound. What
+  they cannot be is DISTINCT — `strike::spawn_body_strike` takes no sfx, and
+  `RiposteStrikeParams` has no field for one, so a swordfighter's counter and a
+  brawler's ground shock are voiced identically.
+  ⇒ The clean shape is a coarse authored enum (`Blade` / `Blunt`) rather than a
+  free string, because there is no name→id resolver: `ids::name_of` runs the
+  other way (id → name, for logs) and `SfxId::from_static` needs a `'static`
+  spelling that authored params cannot supply.
+  ⛔ **AND ONE ARM OF THAT ENUM HAS NOTHING TO MAP TO.** `PLAYER_ROBOT_SLASH_IMPACT`
+  is the blade half and it is the good one — `resolve_strike_sfx` treats it as a
+  SELECTOR that picks flesh / robot / metal variants from the victim. There is no
+  blunt counterpart in `ids.rs` at all (the nearest matches are two door sounds).
+  ⇒ So this row is blocked on an ASSET, not on code, and building the enum first
+  would ship a knob with one usable setting.
+
 - ▢ **D-TETHER-LINE — the ledge tether draws no line, and the one line renderer
   that exists cannot show it. Measured 2026-09-06 after landing the aerial
   tether.**

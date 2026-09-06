@@ -252,6 +252,90 @@ system name adjacent to `.in_set(`, and the commonest spelling is
 installed into the set three lines down. Fixed to allow the chain. **Seventh
 instrument correction of the day, same direction as the other six.**
 
+### ⇒ C2 — THE REMAINING HALF, AND ITS WORK LIST BY TRUE OWNER (2026-09-06)
+
+A review's sequencing: *"stop looking for more capability-private ordering edges:
+that count is already zero. The remaining problem is composition ownership — the
+composition layer still orders 72 foreign systems and installs roughly 200. Move
+installation into capability-owned plugins that place private systems into the
+public sets/phases already established."* And, importantly: **C2 does not have to
+reach zero before the crate-composition wave starts, because moving installation
+into capability plugins IS that work.**
+
+⛔⛔ **BUT THE FIRST WORK LIST I BUILT WAS ABOUT SPELLINGS, NOT OWNERSHIP.** By the
+path each caller wrote, the biggest target was `ambition_platformer2d` with **101**
+rows — the UMBRELLA crate, which owns none of them. Resolving each system to the
+crate that DEFINES it: **31 of those 101 are `ambition_platformer2d_runtime`
+installing its OWN systems through a re-export**, counted as reaching into
+somebody else's crate. ⇒ **Seventh time in one day a re-export split a name from
+what it owns**, and the first time it inflated a plan rather than a measurement.
+
+⇒ The census resolves by definition now. **By true owner — this is the C2 list:**
+
+| capability | foreign rows | note |
+|---|---|---|
+| `ambition_combat` | 53 | |
+| `ambition_platformer2d_actor_monolith` | 53 | |
+| `ambition_platformer2d_shared_tangle` | 45 | floor crate — some of these may be correct as installs |
+| `ambition_render` | 34 | |
+| `ambition_platformer2d_runtime` | 31 | ⚠ the INVERSE case: systems the runtime defines that others install |
+| `ambition_input` 13, `ambition_dev_tools` 12, `ambition_mount` 7, `ambition_time` 7, `ambition_menu` 6 | | the tractable tail |
+
+⚠ **AND THE TOTAL WENT 72 → 78 WITHOUT THE TREE GETTING WORSE.** The instrument
+changed under the ratchet: dropping 31 self-installs and catching more whose head
+looked local, net +6. ⇒ **A ratchet is only meaningful while the instrument is
+fixed**, and re-baselining after an instrument change is indistinguishable from
+laundering a regression unless the reason sits next to the number. It does, in the
+guard. ⭐ The invariant that matters survived the change: **capability-written is
+still 0, measured the new way.**
+
+### ⚠ C2 FEASIBILITY, MEASURED — GOOD NEWS AND ONE DOCUMENTED REFUSAL
+
+**The precondition holds where it matters.** A capability plugin can only install
+itself if it can NAME the published phases, so I checked whether the targets depend
+on the phase-vocabulary crate:
+
+| capability | depends on `shared_tangle` | has a `Plugin` |
+|---|---|---|
+| `ambition_mount` | ✔ | ✗ — **none at all** |
+| `ambition_combat` | ✔ | ✗ — see below |
+| `ambition_menu` | ✔ | ✔ |
+| `ambition_time` | ✗ | ✔ (publishes its own) |
+
+⇒ **The two biggest tractable targets already depend on the vocabulary, so C2
+needs no new dependency for them.** `ambition_mount` is the exemplar: **seven rows,
+no plugin, and all seven installed by two other crates** (the runtime's combat
+schedule × 4, the actor monolith × 2, plus 2 orderings). One plugin absorbs the
+whole capability.
+
+⛔⛔ **BUT THE OTHER BIG TARGET CARRIES A STATED REFUSAL, AND IT IS ARGUED RATHER
+THAN ASSUMED.** `ambition_combat`, on `EffectExecutionSet`:
+
+> *"this crate has no `Plugin` and deliberately keeps none: it is an effect
+> VOCABULARY plus one executor, and the host decides when to run it. **A set is the
+> smaller thing that makes the host's decision expressible** — it says WHERE the
+> executor sits without claiming when the host should install it."*
+
+⇒ That is a direct tension with C2's *"move installation into capability-owned
+plugins"*, and it is the `ProjectileAllegiance` shape again: **a deliberate
+placement that a structural census cannot distinguish from a gap.** 53 rows sit
+behind it.
+
+⭐ **A SYNTHESIS MAY EXIST AND IT IS NOT MINE TO PICK.** The refusal objects to a
+capability claiming *when* it runs. A plugin that installs its systems into a
+PUBLISHED SET claims where, not when — the host still decides whether to compose
+the plugin at all, and which schedule the set lives in. If that reading is
+accepted the refusal and C2 are compatible; if not, `ambition_combat` stays a
+vocabulary and its 53 rows are correct as they are. ⇒ **Filed as a question for
+whoever owns the carve, not resolved here** — the comment is the only record that
+the decision was ever made, and overruling it silently is how a considered choice
+becomes an accident.
+
+⇒ **Recommended order regardless of that answer:** `ambition_mount` first (7 rows,
+no plugin, no dependency change, and a worked example of the whole pattern), then
+`menu`/`time`/`input`/`dev_tools`, and `combat` only after the refusal is
+readdressed.
+
 ### ✔ THE CAPABILITY-WRITTEN HALF IS ZERO — 15 → 0
 
 Every row a ruleset or capability wrote is now published-set vocabulary. The last

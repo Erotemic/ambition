@@ -46,6 +46,20 @@ MEASURE = REPO / "scripts" / "measure_foreign_system_ordering.py"
 
 #  measured 2026-09-06. Both may fall; neither may rise.
 #
+# ⛔⛔ AND THE TOTAL WENT 72 -> 78 WITHOUT THE TREE GETTING WORSE, which is the
+# one thing a ratchet cannot express and must therefore say in prose. The measure
+# began resolving a system to the crate that DEFINES it rather than to the crate
+# the caller spelled — and that moved rows in BOTH directions: it dropped 31
+# self-installs (the runtime naming its own systems through the `ambition_platformer2d`
+# umbrella, counted as reaching into somebody else's crate) and it caught more
+# whose head looked local. Net +6.
+#
+# ⇒ A RATCHET IS ONLY MEANINGFUL WHILE THE INSTRUMENT IS FIXED. Re-baselining after
+# an instrument change is not laundering a regression — but it is indistinguishable
+# from one unless the reason is written next to the number, so it is.
+# ⭐ The invariant that matters held through the change: capability-written is
+# still 0, measured the new way.
+#
 # ⭐ 15 -> 10 AND 87 -> 82 IN THREE STEPS, AND ONLY TWO OF THEM WERE FIXES:
 #   · the dismount worked example (below) — 15 -> 13;
 #   · `apply_summon_effects` joining `EffectExecutionSet` — 13 -> 12;
@@ -66,7 +80,7 @@ MEASURE = REPO / "scripts" / "measure_foreign_system_ordering.py"
 # system belonged to no published set — which is the shape of most of what is
 # left here.
 CAPABILITY_ORDERING_CEILING = 0
-TOTAL_ORDERING_CEILING = 72
+TOTAL_ORDERING_CEILING = 78
 
 
 def _module():

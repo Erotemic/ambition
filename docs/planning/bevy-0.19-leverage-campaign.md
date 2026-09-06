@@ -512,8 +512,7 @@ Do not try to convert every census field during this campaign. Select the values
 
 ---
 
-# A5. Surface Bevy render-pass diagnostics  ✔ DONE 2026-08-31 (⚠ REOPENED AND
-# CLOSED PROPERLY THE SAME DAY)
+# A5. Surface Bevy render-pass diagnostics ✔ DONE 2026-08-31 (⚠ REOPENED AND CLOSED PROPERLY THE SAME DAY)
 
 ⛔⛔ THE FIRST CLOSE WAS WRONG, AND A REVIEW CAUGHT IT. This section was marked
 "ANSWERED — nothing to publish" on the reasoning below: the measurements exist

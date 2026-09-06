@@ -47,35 +47,59 @@ pub fn rebuild_dialog_view(dialogue: Res<DialogState>, mut view: ResMut<DialogVi
     if !dialogue.is_changed() && !view.active && !dialogue.active() {
         return;
     }
-    view.active = dialogue.active();
-    if !view.active {
-        view.dialogue_id.clear();
-        view.speaker_character_id.clear();
-        view.portrait_clip.clear();
-        view.speaker_label.clear();
-        view.conversation_label.clear();
-        view.body.clear();
-        view.option_labels.clear();
-        view.selected_option = 0;
+    // ⭐⭐ ONE DESTRUCTURE, NO `..`, COVERING BOTH BRANCHES. Every field of the
+    // view was written by hand TWICE here — once to blank it when the dialogue
+    // ends, once to refill it while one runs — so a TENTH field would have been
+    // missed by both lists and leaked its previous dialogue's value into the
+    // next. This row is what the overlay DRAWS, so that leak is a visible wrong
+    // portrait or a stale line, not an internal inconsistency.
+    //
+    // ⇒ Adding a field is now `E0027` right here, and the author is asked the two
+    // questions the two branches ask: what is this when idle, and where does it
+    // come from when active?
+    //
+    // ⚠ BINDINGS, NOT A STRUCT LITERAL, and deliberately. `*view = DialogView
+    // { .. }` would also be exhaustive (E0063) and would throw away every String
+    // buffer on a row that rebuilds on EVERY REVEAL TICK of an active dialogue —
+    // the allocation this function's change-gate exists to avoid.
+    let DialogView {
+        active,
+        dialogue_id,
+        speaker_character_id,
+        portrait_clip,
+        speaker_label,
+        conversation_label,
+        body,
+        option_labels,
+        selected_option,
+    } = &mut *view;
+
+    *active = dialogue.active();
+    if !*active {
+        dialogue_id.clear();
+        speaker_character_id.clear();
+        portrait_clip.clear();
+        speaker_label.clear();
+        conversation_label.clear();
+        body.clear();
+        option_labels.clear();
+        *selected_option = 0;
         return;
     }
-    view.dialogue_id.clear();
-    view.dialogue_id.push_str(dialogue.dialogue_id());
-    view.speaker_character_id.clear();
-    view.speaker_character_id
-        .push_str(dialogue.speaker_character_id());
-    view.portrait_clip.clear();
-    view.portrait_clip.push_str(dialogue.portrait_clip());
-    view.speaker_label.clear();
-    view.speaker_label.push_str(dialogue.speaker_label());
-    view.conversation_label.clear();
-    view.conversation_label
-        .push_str(dialogue.conversation_label());
-    view.body = dialogue.body();
-    view.option_labels.clear();
-    view.option_labels
-        .extend(dialogue.options().iter().map(|o| o.label.clone()));
-    view.selected_option = dialogue.selected_option();
+    dialogue_id.clear();
+    dialogue_id.push_str(dialogue.dialogue_id());
+    speaker_character_id.clear();
+    speaker_character_id.push_str(dialogue.speaker_character_id());
+    portrait_clip.clear();
+    portrait_clip.push_str(dialogue.portrait_clip());
+    speaker_label.clear();
+    speaker_label.push_str(dialogue.speaker_label());
+    conversation_label.clear();
+    conversation_label.push_str(dialogue.conversation_label());
+    *body = dialogue.body();
+    option_labels.clear();
+    option_labels.extend(dialogue.options().iter().map(|o| o.label.clone()));
+    *selected_option = dialogue.selected_option();
 }
 
 #[cfg(test)]

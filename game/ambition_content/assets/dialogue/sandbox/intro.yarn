@@ -1,0 +1,301 @@
+title: alice_intro_stub
+---
+<<present_speaker "npc_alice">>
+<<portrait_clip "speaking">>
+<<if condition("world.flag_set", "bob_field_survey_received")>>
+    Alice: Bob's survey. Good. The low route is still clear. Fold it different when you put it away.
+    -> What now?
+        <<jump alice_after_bob_survey__1>>
+    -> ⟨leave⟩
+<<else>>
+    Alice: Put the official map away. Patrols use the same one.
+    -> Take the note.
+        <<jump alice_intro_stub__1>>
+    -> ⟨step back⟩
+<<endif>>
+===
+
+title: alice_intro_stub__1
+---
+<<present_speaker "npc_alice">>
+<<portrait_clip "speaking">>
+Alice: Take this to Bob. Keep it folded until you're out of sight.
+<<give_item "sealednote" 1>>
+-> ⟨pocket the note⟩
+===
+
+title: alice_after_bob_survey__1
+---
+<<present_speaker "npc_alice">>
+<<portrait_clip "speaking">>
+Alice: Keep Bob's pencil marks. The printed routes are watched; his aren't.
+-> ⟨step through⟩
+===
+
+title: bob_intro_stub
+---
+<<if condition("inventory.holds", "sealednote")>>
+    Bob: That's Alice's fold. Hand it here. ...You came through the low route? Huh. Good.
+    -> Hand him the sealed note.
+        <<sell_item "sealednote" 0>>
+        <<give_item "fieldsurvey" 1>>
+        <<command "world.set_flag" "bob_field_survey_received" true>>
+        <<jump bob_intro_stub__1>>
+    -> ⟨keep it folded⟩
+<<else>>
+    Bob: Alice sent you? Then she gave you a folded note. Bring it here when you have it.
+    -> Why are you up here?
+        <<jump bob_intro_stub__2>>
+    -> ⟨leave him to it⟩
+<<endif>>
+===
+
+title: bob_intro_stub__1
+---
+Bob: Take this back to Alice. Tell her somebody's watching the low route now.
+-> ⟨pocket the survey⟩
+===
+
+title: bob_intro_stub__2
+---
+Bob: Don't copy that bit. I haven't checked it yet. Actually, don't copy the stairs either.
+-> ⟨move on⟩
+===
+
+title: creator_final_fast
+---
+Creator: You're awake already. Good. Listen. They came for the wrong—
+-> Finish the sentence.
+    <<jump creator_final_fast__1>>
+-> ⟨run⟩
+===
+
+title: creator_final_fast__1
+---
+Creator: The question. Find the question I left in—
+-> ⟨escape⟩
+===
+
+title: creator_final_impossible
+---
+Creator: Too early. Damn it. Listen before they get downstairs.
+-> Finish the sentence.
+    <<jump creator_final_impossible__1>>
+-> ⟨run⟩
+===
+
+title: creator_final_impossible__1
+---
+Creator: 
+-> Then how do I find it?
+    <<jump creator_final_impossible__2>>
+===
+
+title: creator_final_impossible__2
+---
+Creator: 
+-> ⟨escape⟩
+===
+
+title: creator_final_normal
+---
+Creator: Wait. They missed you. They came for the wrong—
+-> Finish the sentence.
+    <<jump creator_final_normal__1>>
+-> ⟨run⟩
+===
+
+title: creator_final_normal__1
+---
+Creator: I made you to ask—
+-> ⟨escape⟩
+===
+
+title: creator_intro
+---
+Creator: Hey. Eyes open. Can you move?
+-> ...
+    <<jump creator_intro__1>>
+-> Where am I?
+    <<jump creator_intro__2>>
+-> ⟨turn toward the hatch⟩
+===
+
+title: creator_intro__1
+---
+Creator: Good. Move your left leg. I need to know the joints survived.
+-> Ask again.
+    <<jump creator_intro>>
+-> ⟨move⟩
+===
+
+title: creator_intro__2
+---
+Creator: My basement. Those boots upstairs are not mine. Stay away from the door.
+-> Ask again.
+    <<jump creator_intro>>
+-> ⟨move⟩
+===
+
+title: intro_lab_raider
+---
+Lab Raider: Prototype is awake. Keep it away from the doors.
+-> ⟨stand still⟩
+    <<jump intro_lab_raider__1>>
+-> ⟨back away⟩
+===
+
+title: intro_lab_raider__1
+---
+Lab Raider: This room wasn't on the list. Get the prototype away from the door.
+-> ⟨escape⟩
+===
+
+title: gate_janitor_ripple
+---
+Gate Janitor: Mind the wet patch. Maintenance has this corridor today, so half the signs are turned around.
+-> What's that shimmer?
+    <<jump gate_janitor_ripple__1>>
+-> Where do the stable gates lead?
+    <<jump gate_janitor_ripple__2>>
+-> What do you actually do?
+    <<jump gate_janitor_ripple__3>>
+-> ⟨move on⟩
+===
+
+title: gate_janitor_ripple__1
+---
+Gate Janitor: Don't touch the shimmer. It won't take you anywhere. Gate Six works; use that if you need a gate.
+-> Ask another question.
+    <<jump gate_janitor_ripple>>
+-> ⟨move on⟩
+===
+
+title: gate_janitor_ripple__2
+---
+Gate Janitor: Six goes to a beach. Seven goes to some meeting room. Eight still says Tuesday. I stopped asking.
+-> Ask another question.
+    <<jump gate_janitor_ripple>>
+-> ⟨move on⟩
+===
+
+title: gate_janitor_ripple__3
+---
+Gate Janitor: Six jammed twice this morning. Seven leaks blue light. I'm here until both stop doing that.
+-> Ask another question.
+    <<jump gate_janitor_ripple>>
+-> ⟨move on⟩
+===
+
+title: manifest_kiosk_wrong_list
+---
+Manifest Clerk: Name? ...No entry. Spell it again. Slower.
+-> Run a manifest query.
+    <<jump manifest_kiosk_wrong_list__1>>
+-> Who was the actual target?
+    <<jump manifest_kiosk_wrong_list__2>>
+-> ⟨step away⟩
+===
+
+title: manifest_kiosk_wrong_list__1
+---
+Manifest Clerk: Last night's list has one target. Large. Your basement is marked small. Somebody attached the wrong sheet.
+-> Ask another question.
+    <<jump manifest_kiosk_wrong_list>>
+-> ⟨step away⟩
+===
+
+title: manifest_kiosk_wrong_list__2
+---
+Manifest Clerk: I can't give you the target name. I can tell you the date on this form is wrong, and so is the room number. Next question.
+-> Ask another question.
+    <<jump manifest_kiosk_wrong_list>>
+-> ⟨step away⟩
+===
+
+title: intro_salvage_guard
+---
+Salvage Lead: Wrong room. Secure anything that boots. Keep the core intact. Mark the notebooks.
+-> ⟨listen⟩
+    <<jump intro_salvage_guard__1>>
+-> ⟨escape⟩
+===
+
+title: intro_salvage_guard__1
+---
+Salvage Lead: This one isn't on the manifest. Tag it and move. The professor's logs come with us.
+-> ⟨escape⟩
+===
+
+title: news_board_lab_incident
+---
+Drain Market Bulletin: ▸ SOLE FATALITY IDENTIFIED AS UNLICENSED RESEARCHER. AUTHORITIES THANK BOTH RESPONDING FACTIONS.
+-> ⟨read further⟩
+    <<jump news_board_lab_incident__1>>
+-> ⟨walk away⟩
+===
+
+title: news_board_lab_incident__1
+---
+Drain Market Bulletin: ▸ AT TIME OF PRINTING THE RESEARCHER WAS POSTHUMOUSLY ADDED TO A VALID TARGET LIST. THE LIST ALSO POSTHUMOUSLY ADDED ITSELF.
+-> ⟨leave the board to its work⟩
+===
+
+title: oiler_intro
+---
+<<present_speaker "npc_oiler">>
+<<portrait_clip "talking">>
+<<if condition("world.flag_set", "p1_stabilizer_received")>>
+    Oiler: Stabilizer's yours. Knee should stop kicking sideways now. Don't drop it in the drain.
+    -> What's below?
+        <<jump oiler_post_stabilizer__1>>
+    -> ⟨move on⟩
+<<else>>
+    Oiler: Well. You're bigger than the rats. Came through that pipe, did you?
+    -> Who are you?
+        <<jump oiler_intro__1>>
+    -> What is this place?
+        <<jump oiler_intro__2>>
+    -> Why help me?
+        <<jump oiler_intro__3>>
+    -> ⟨keep walking⟩
+<<endif>>
+===
+
+title: oiler_intro__1
+---
+<<present_speaker "npc_oiler">>
+<<portrait_clip "talking">>
+Oiler: Oiler. I fix pipes, knees, doors, whatever's leaking. Hold still if you want help.
+-> Ask another question.
+    <<jump oiler_intro>>
+-> ⟨keep walking⟩
+===
+
+title: oiler_intro__2
+---
+<<present_speaker "npc_oiler">>
+<<portrait_clip "talking">>
+Oiler: Drain Market. Gates are upstairs. Drains are down. My bench is the one with all the wrenches.
+-> Ask another question.
+    <<jump oiler_intro>>
+-> ⟨keep walking⟩
+===
+
+title: oiler_intro__3
+---
+<<present_speaker "npc_oiler">>
+<<portrait_clip "inspecting">>
+Oiler: That knee's crooked. Sit. Ten seconds. Then walk on it and tell me if it still kicks out.
+-> Ask another question.
+    <<jump oiler_intro>>
+-> ⟨keep walking⟩
+===
+
+title: oiler_post_stabilizer__1
+---
+<<present_speaker "npc_oiler">>
+<<portrait_clip "talking">>
+Oiler: Cartographers are below. Follow the drain until you see chalk all over the walls. Tell them Oiler sent you.
+-> ⟨descend⟩
+===

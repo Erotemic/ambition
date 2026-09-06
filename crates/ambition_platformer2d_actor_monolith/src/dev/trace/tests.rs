@@ -1,0 +1,804 @@
+//! Unit tests for trace OOB detection and frame-diff event synthesis against a
+//! dummy world.
+
+use super::*;
+use ae::{Block, World};
+use std::path::Path;
+use std::time::{SystemTime, UNIX_EPOCH};
+use ambition_gameplay_trace::ControlFrameTrace;
+use ambition_gameplay_trace::DumpReason;
+use ambition_gameplay_trace::GameplayTraceBuffer;
+use ambition_gameplay_trace::GameplayTraceEvent;
+use ambition_gameplay_trace::GameplayTraceFrame;
+use ambition_gameplay_trace::OobReason;
+use ambition_gameplay_trace::PlayerTraceState;
+use ambition_gameplay_trace::TraceAabb;
+use ambition_gameplay_trace::TracePoint;
+use ambition_gameplay_trace::dump_paths;
+use ambition_gameplay_trace::timestamp_label;
+use ambition_gameplay_trace::timestamp_label_with_seq;
+use ambition_gameplay_trace::write_dump;
+
+fn dummy_world() -> World {
+    let blocks = vec![Block::solid(
+        "floor",
+        ae::Vec2::new(0.0, 100.0),
+        ae::Vec2::new(200.0, 20.0),
+    )];
+    World::new(
+        "test",
+        ae::Vec2::new(200.0, 200.0),
+        ae::Vec2::new(50.0, 50.0),
+        blocks,
+    )
+}
+
+fn dummy_player(at: ae::Vec2) -> ae::BodyClusterScratch {
+    crate::avatar::primary_player_scratch(at, ae::AbilitySet::sandbox_all())
+}
+
+fn scratch_from(scratch: &ae::BodyClusterScratch) -> ae::BodyClusterScratch {
+    scratch.clone()
+}
+
+fn dummy_moving_platform() -> ambition_platformer2d_world::platforms::MovingPlatformState {
+    ambition_platformer2d_world::platforms::MovingPlatformState::from_authored(
+        ae::Vec2::new(96.0, 80.0),
+        ae::Vec2::new(80.0, 12.0),
+        48.0,
+        30.0,
+    )
+}
+
+#[test]
+fn ring_buffer_caps_at_capacity() {
+    let mut buf = GameplayTraceBuffer::with_capacity(4, 4);
+    for i in 0..10 {
+        buf.push_frame(GameplayTraceFrame {
+            sim_session: None,
+            sim_frame: None,
+            seq: i,
+            tick: i,
+            real_dt: 0.016,
+            sim_dt: 0.016,
+            time_scale: 1.0,
+            game_mode: "Playing".into(),
+            active_area: "test".into(),
+            world_size: TracePoint::default(),
+            world_spawn: TracePoint::default(),
+            player: PlayerTraceState {
+                pos: TracePoint::default(),
+                vel: TracePoint::default(),
+                size: TracePoint::default(),
+                aabb: TraceAabb::default(),
+                facing: 1.0,
+                on_ground: false,
+                on_wall: false,
+                wall_clinging: false,
+                wall_climbing: false,
+                fast_falling: false,
+                fly_enabled: false,
+                dash_charges_available: 0,
+                air_jumps_available: 0,
+                blink_aiming: false,
+                blink_grace: false,
+                locomotion: "Airborne".into(),
+                body_mode: "Standing".into(),
+                last_safe_pos: TracePoint::default(),
+                time_alive: 0.0,
+                resets: 0,
+                wall_normal_x: 0.0,
+                ledge_grabbing: false,
+                attacking: false,
+                hitstun_timer: 0.0,
+                damage_invuln_timer: 0.0,
+                attack_ability_enabled: true,
+            },
+            controls: ControlFrameTrace::default(),
+            nearby_collision: Vec::new(),
+            moving_platforms: Vec::new(),
+        });
+    }
+    assert_eq!(buf.frame_count(), 4, "wraparound should cap at capacity");
+    // Earliest preserved frame should be the 6th pushed (index 6).
+    let first = buf.frames.front().expect("non-empty");
+    assert_eq!(first.tick, 6);
+    let last = buf.frames.back().expect("non-empty");
+    assert_eq!(last.tick, 9);
+}
+
+#[test]
+fn detect_oob_inside_world_returns_none() {
+    let world = dummy_world();
+    let player = dummy_player(ae::Vec2::new(50.0, 50.0));
+    assert!(detect_oob_scratch(&player, &world, OOB_MARGIN).is_none());
+}
+
+#[test]
+fn detect_oob_outside_envelope_x() {
+    let world = dummy_world();
+    // Place player far to the right of world envelope + margin.
+    let player = dummy_player(ae::Vec2::new(2000.0, 50.0));
+    match detect_oob_scratch(&player, &world, OOB_MARGIN) {
+        Some(OobReason::OutsideWorldEnvelope { axis }) => assert_eq!(axis, 'x'),
+        other => panic!("expected OutsideWorldEnvelope x, got {other:?}"),
+    }
+}
+
+#[test]
+fn detect_oob_outside_envelope_y() {
+    let world = dummy_world();
+    let player = dummy_player(ae::Vec2::new(50.0, -2000.0));
+    match detect_oob_scratch(&player, &world, OOB_MARGIN) {
+        Some(OobReason::OutsideWorldEnvelope { axis }) => assert_eq!(axis, 'y'),
+        other => panic!("expected OutsideWorldEnvelope y, got {other:?}"),
+    }
+}
+
+#[test]
+fn detect_oob_inside_solid() {
+    let world = dummy_world();
+    // Floor is at (0,100)-(200,120). Place player center in floor.
+    let player = dummy_player(ae::Vec2::new(100.0, 110.0));
+    match detect_oob_scratch(&player, &world, OOB_MARGIN) {
+        Some(OobReason::InsideSolid { block_name }) => assert_eq!(block_name, "floor"),
+        other => panic!("expected InsideSolid, got {other:?}"),
+    }
+}
+
+#[test]
+fn detect_oob_position_non_finite() {
+    let world = dummy_world();
+    let mut player = dummy_player(ae::Vec2::new(50.0, 50.0));
+    player.kinematics.pos = ae::Vec2::new(f32::NAN, 0.0);
+    assert!(matches!(
+        detect_oob_scratch(&player, &world, OOB_MARGIN),
+        Some(OobReason::PositionNonFinite)
+    ));
+}
+
+#[test]
+fn detect_oob_absurd_velocity() {
+    let world = dummy_world();
+    let mut player = dummy_player(ae::Vec2::new(50.0, 50.0));
+    player.kinematics.vel = ae::Vec2::new(1.0e6, 0.0);
+    assert!(matches!(
+        detect_oob_scratch(&player, &world, OOB_MARGIN),
+        Some(OobReason::AbsurdVelocity { .. })
+    ));
+}
+
+#[test]
+fn dump_paths_does_not_panic_and_is_unique_per_label() {
+    let dir = Path::new("/tmp/nope");
+    let (a_json, a_md) = dump_paths(dir, "label_a");
+    let (b_json, b_md) = dump_paths(dir, "label_b");
+    assert!(a_json.to_string_lossy().ends_with("label_a.json"));
+    assert!(a_md.to_string_lossy().ends_with("label_a.md"));
+    assert_ne!(a_json, b_json);
+    assert_ne!(a_md, b_md);
+}
+
+#[test]
+fn timestamp_label_changes_with_time() {
+    // Construct two SystemTimes one second apart.
+    let a = UNIX_EPOCH + std::time::Duration::from_secs(1_700_000_000);
+    let b = UNIX_EPOCH + std::time::Duration::from_secs(1_700_000_001);
+    assert_ne!(timestamp_label(a), timestamp_label(b));
+}
+
+#[test]
+fn record_frame_with_oob_pushes_event_and_requests_dump() {
+    let mut buf = GameplayTraceBuffer::with_capacity(8, 8);
+    buf.min_context_frames = 0; // exercise dump logic without the warm-up gate
+    let world = dummy_world();
+    let mut player = dummy_player(ae::Vec2::new(50.0, 50.0));
+    player.kinematics.pos = ae::Vec2::new(2000.0, 50.0); // outside envelope.x
+    let mut scratch = scratch_from(&player);
+    let clusters = scratch.as_mut();
+    let frame = build_frame(
+        &clusters,
+        &ae::BodyMotionFacts::default(),
+        &ambition_characters::actor::BodyCombat::default(),
+        &ambition_combat::BodyMelee::default(),
+        &ambition_time::ClockState::default(),
+        &ambition_platformer2d_shared_tangle::safe_position::PlayerSafetyState::default(),
+        &world,
+        ControlFrame::default(),
+        0.016,
+        0.016,
+        "Playing",
+        "test",
+        0,
+        0,
+        &[],
+        "Airborne",
+        "Standing",
+    );
+    let oob = detect_oob_scratch(&player, &world, OOB_MARGIN);
+    record_frame(&mut buf, frame, oob.as_ref(), false, None);
+    assert_eq!(buf.frame_count(), 1);
+    assert_eq!(buf.event_count(), 1, "OOB event should be pushed");
+    assert!(matches!(buf.dump_request, Some(DumpReason::OobAuto { .. })));
+}
+
+#[test]
+fn write_dump_writes_two_files() {
+    let mut buf = GameplayTraceBuffer::with_capacity(4, 4);
+    let world = dummy_world();
+    let player = dummy_player(ae::Vec2::new(50.0, 50.0));
+    let mut scratch = scratch_from(&player);
+    let clusters = scratch.as_mut();
+    let frame = build_frame(
+        &clusters,
+        &ae::BodyMotionFacts::default(),
+        &ambition_characters::actor::BodyCombat::default(),
+        &ambition_combat::BodyMelee::default(),
+        &ambition_time::ClockState::default(),
+        &ambition_platformer2d_shared_tangle::safe_position::PlayerSafetyState::default(),
+        &world,
+        ControlFrame::default(),
+        0.016,
+        0.016,
+        "Playing",
+        "test",
+        0,
+        0,
+        &[],
+        "Airborne",
+        "Standing",
+    );
+    record_frame(&mut buf, frame, None, false, None);
+    let dir = std::env::temp_dir().join("ambition_gameplay_trace_test_dump");
+    let _ = std::fs::remove_dir_all(&dir);
+    let json_path = write_dump(&buf, &DumpReason::Manual, &dir).expect("write dump");
+    assert!(json_path.exists());
+    let md_path = json_path.with_extension("md");
+    assert!(md_path.exists());
+    let json_body = std::fs::read_to_string(&json_path).unwrap();
+    assert!(json_body.contains("\"schema_version\": 1"));
+    assert!(json_body.contains("\"dump_reason\""));
+}
+
+/// P1 — `timestamp_label` calls in quick succession (same nanosecond
+/// or not) must produce distinct strings, because the atomic
+/// sequence counter is appended.
+#[test]
+fn timestamp_label_unique_in_tight_loop() {
+    let now = SystemTime::now();
+    // Use a fixed `ts` so the seconds/nanoseconds segments do not
+    // change between calls; the only differentiator left is the
+    // atomic sequence.
+    let labels: Vec<String> = (0..32).map(|_| timestamp_label(now)).collect();
+    let unique: std::collections::HashSet<&String> = labels.iter().collect();
+    assert_eq!(
+        unique.len(),
+        labels.len(),
+        "all dump labels in a tight loop must be unique; got {labels:?}"
+    );
+}
+
+/// P1 — `timestamp_label_with_seq` lets tests pin a sequence value
+/// for stable expectations. Two distinct sequences must produce
+/// different strings even when `ts` is identical.
+#[test]
+fn timestamp_label_with_seq_is_stable_per_seq() {
+    let now = SystemTime::UNIX_EPOCH + std::time::Duration::from_secs(1_777_902_031);
+    let a = timestamp_label_with_seq(now, 0);
+    let b = timestamp_label_with_seq(now, 1);
+    assert_ne!(a, b);
+    // Same inputs produce same output.
+    assert_eq!(a, timestamp_label_with_seq(now, 0));
+}
+
+/// P2 — pressing a button that wasn't pressed last frame should
+/// emit an `InputEdge` event. We seed the buffer with an initial
+/// snapshot, then call `synthesize_events_from_diff` directly so
+/// the test doesn't need a full Bevy App.
+#[test]
+fn synthesizes_input_edge_event_on_button_press() {
+    let mut buf = GameplayTraceBuffer::with_capacity(16, 16);
+    let _world = dummy_world();
+    let player = dummy_player(ae::Vec2::new(50.0, 50.0));
+    let mut scratch = scratch_from(&player);
+    let clusters = scratch.as_mut();
+    // Seed previous snapshot with no buttons pressed.
+    update_previous_snapshot(
+        &mut buf,
+        &clusters,
+        &ae::BodyMotionFacts::default(),
+        20,
+        ControlFrame::default(),
+        "test",
+        ae::LocomotionState::Grounded,
+        ae::BodyMode::Standing,
+    );
+    // Player starts pressing Jump this frame.
+    let mut controls = ControlFrame::default();
+    controls.jump_pressed = true;
+    synthesize_events_from_diff(
+        &mut buf,
+        &clusters,
+        &ae::BodyMotionFacts::default(),
+        20,
+        controls,
+        0.016,
+        "test",
+        ae::LocomotionState::Grounded,
+        ae::BodyMode::Standing,
+        &dummy_world(),
+    );
+    let edges: Vec<_> = buf
+        .events()
+        .filter_map(|e| match e {
+            GameplayTraceEvent::InputEdge { action, .. } => Some(action.clone()),
+            _ => None,
+        })
+        .collect();
+    assert!(
+        edges.iter().any(|a| a == "Jump"),
+        "expected Jump InputEdge; got {edges:?}"
+    );
+}
+
+#[test]
+fn synthesizes_collision_correction_on_unexplained_teleport() {
+    let mut buf = GameplayTraceBuffer::with_capacity(16, 16);
+    buf.min_context_frames = 0; // exercise dump logic without the warm-up gate
+    let _world = dummy_world();
+    let player_prev = dummy_player(ae::Vec2::new(62.0, 1564.0));
+    {
+        let mut scratch_prev = scratch_from(&player_prev);
+        let clusters_prev = scratch_prev.as_mut();
+        update_previous_snapshot(
+            &mut buf,
+            &clusters_prev,
+            &ae::BodyMotionFacts::default(),
+            20,
+            ControlFrame::default(),
+            "square_arena",
+            ae::LocomotionState::WallCling,
+            ae::BodyMode::Standing,
+        );
+    }
+    // Now jump to a wildly different position with no plausible
+    // velocity to explain it. Same active area + same `resets` so
+    // the teleport detector isn't suppressed by Reset/RoomTransition.
+    let mut player_cur = dummy_player(ae::Vec2::new(62.0, -23.0));
+    player_cur.kinematics.vel = ae::Vec2::ZERO;
+    let mut scratch_cur = scratch_from(&player_cur);
+    let clusters_cur = scratch_cur.as_mut();
+    synthesize_events_from_diff(
+        &mut buf,
+        &clusters_cur,
+        &ae::BodyMotionFacts::default(),
+        20,
+        ControlFrame::default(),
+        0.0069,
+        "square_arena",
+        ae::LocomotionState::Grounded,
+        ae::BodyMode::Standing,
+        &dummy_world(),
+    );
+    let teleports: Vec<_> = buf
+        .events()
+        .filter(|e| matches!(e, GameplayTraceEvent::CollisionCorrection { .. }))
+        .collect();
+    assert_eq!(
+        teleports.len(),
+        1,
+        "expected one CollisionCorrection event for the teleport; got {teleports:?}"
+    );
+    // The teleport-class correction also requests an auto-dump so the
+    // ring buffer is captured while the pre-teleport frames survive.
+    assert!(
+        matches!(buf.dump_request, Some(DumpReason::TeleportAuto { .. })),
+        "an unexplained teleport should request a TeleportAuto dump; got {:?}",
+        buf.dump_request
+    );
+}
+
+/// A portal transit opens a suppression WINDOW (`teleport_suppress_ticks`); while it is open,
+/// the same big unexplained position delta as
+/// `synthesizes_collision_correction_on_unexplained_teleport` must NOT request a TeleportAuto
+/// dump — a normal crossing should never spam a trace dump.
+#[test]
+fn portal_transit_window_suppresses_teleport_autodump() {
+    let mut buf = GameplayTraceBuffer::with_capacity(16, 16);
+    buf.min_context_frames = 0; // isolate the suppression-window behavior from the warm-up gate
+    let player_prev = dummy_player(ae::Vec2::new(62.0, 1564.0));
+    {
+        let mut scratch_prev = scratch_from(&player_prev);
+        let clusters_prev = scratch_prev.as_mut();
+        update_previous_snapshot(
+            &mut buf,
+            &clusters_prev,
+            &ae::BodyMotionFacts::default(),
+            20,
+            ControlFrame::default(),
+            "square_arena",
+            ae::LocomotionState::Grounded,
+            ae::BodyMode::Standing,
+        );
+    }
+    // A portal `BodyTeleported` opened the suppression window this frame.
+    buf.teleport_suppress_ticks = 8;
+    // Same wild teleport as the un-suppressed test — but it must be ignored now.
+    let mut player_cur = dummy_player(ae::Vec2::new(62.0, -23.0));
+    player_cur.kinematics.vel = ae::Vec2::ZERO;
+    let mut scratch_cur = scratch_from(&player_cur);
+    let clusters_cur = scratch_cur.as_mut();
+    synthesize_events_from_diff(
+        &mut buf,
+        &clusters_cur,
+        &ae::BodyMotionFacts::default(),
+        20,
+        ControlFrame::default(),
+        0.0069,
+        "square_arena",
+        ae::LocomotionState::Grounded,
+        ae::BodyMode::Standing,
+        &dummy_world(),
+    );
+    assert!(
+        buf.dump_request.is_none(),
+        "a portal transit must NOT auto-dump the trace on its position snap while \
+         the suppression window is open; got {:?}",
+        buf.dump_request
+    );
+}
+
+/// P2 — incrementing `player.resets` should emit a `Reset` event
+/// AND suppress the teleport detector (the player position can
+/// legitimately jump to spawn on reset).
+#[test]
+fn reset_emits_event_and_suppresses_teleport_event() {
+    let mut buf = GameplayTraceBuffer::with_capacity(16, 16);
+    let _world = dummy_world();
+    let player_prev = dummy_player(ae::Vec2::new(50.0, 50.0));
+    {
+        let mut scratch_prev = scratch_from(&player_prev);
+        let clusters_prev = scratch_prev.as_mut();
+        update_previous_snapshot(
+            &mut buf,
+            &clusters_prev,
+            &ae::BodyMotionFacts::default(),
+            20,
+            ControlFrame::default(),
+            "test",
+            ae::LocomotionState::Grounded,
+            ae::BodyMode::Standing,
+        );
+    }
+    let mut player_cur = dummy_player(ae::Vec2::new(150.0, 150.0));
+    player_cur.lifetime.resets = player_prev.lifetime.resets + 1;
+    let mut scratch_cur = scratch_from(&player_cur);
+    let clusters_cur = scratch_cur.as_mut();
+    synthesize_events_from_diff(
+        &mut buf,
+        &clusters_cur,
+        &ae::BodyMotionFacts::default(),
+        20,
+        ControlFrame::default(),
+        0.016,
+        "test",
+        ae::LocomotionState::Grounded,
+        ae::BodyMode::Standing,
+        &dummy_world(),
+    );
+    let resets: Vec<_> = buf
+        .events()
+        .filter(|e| matches!(e, GameplayTraceEvent::Reset { .. }))
+        .collect();
+    assert_eq!(resets.len(), 1, "expected one Reset event");
+    let teleports: Vec<_> = buf
+        .events()
+        .filter(|e| matches!(e, GameplayTraceEvent::CollisionCorrection { .. }))
+        .collect();
+    assert!(
+        teleports.is_empty(),
+        "Reset should suppress the teleport detector"
+    );
+}
+
+/// P3 — frame snapshots include a populated `moving_platforms` slot
+/// with the active sandbox platform.
+#[test]
+fn frame_includes_moving_platform_state() {
+    let world = dummy_world();
+    let player = dummy_player(ae::Vec2::new(50.0, 50.0));
+    let mut scratch = scratch_from(&player);
+    let clusters = scratch.as_mut();
+    let frame = build_frame(
+        &clusters,
+        &ae::BodyMotionFacts::default(),
+        &ambition_characters::actor::BodyCombat::default(),
+        &ambition_combat::BodyMelee::default(),
+        &ambition_time::ClockState::default(),
+        &ambition_platformer2d_shared_tangle::safe_position::PlayerSafetyState::default(),
+        &world,
+        ControlFrame::default(),
+        0.016,
+        0.016,
+        "Playing",
+        "test",
+        0,
+        0,
+        &[dummy_moving_platform()],
+        "Grounded",
+        "Standing",
+    );
+    assert_eq!(
+        frame.moving_platforms.len(),
+        1,
+        "expected one moving-platform entry per frame"
+    );
+    let platform = &frame.moving_platforms[0];
+    assert!(platform.size.x > 0.0);
+    assert!(platform.size.y > 0.0);
+    assert!(platform.player_distance > 0.0);
+}
+
+/// P4 — `BodyMode::from_clusters` reads `player.body_mode` (the
+/// authoritative field). Default is `Standing`; setting the field
+/// changes what the recorder/HUD see.
+#[test]
+fn body_mode_reads_authoritative_field() {
+    let mut player = dummy_player(ae::Vec2::ZERO);
+    assert_eq!(
+        ae::BodyMode::from_clusters(&player.body_mode),
+        ae::BodyMode::Standing
+    );
+    player.body_mode.body_mode = ae::BodyMode::MorphBall;
+    assert_eq!(
+        ae::BodyMode::from_clusters(&player.body_mode),
+        ae::BodyMode::MorphBall
+    );
+}
+
+// ---------------------------------------------------------------------------
+// The forensic-trace rollback policy.
+//
+// What the old gate did was neither. `simulation_pass_is_authoritative` means
+// FIRST PASS, not confirmed; a first pass can be a prediction, and skipping the
+// corrected re-simulation left the guess in the record permanently.
+// ---------------------------------------------------------------------------
+
+/// Build one row at `pos`, stamped as describing simulation frame `sim_frame`.
+fn frame_at(sim_frame: Option<i32>, pos: ae::Vec2) -> GameplayTraceFrame {
+    let world = dummy_world();
+    let mut player = dummy_player(pos);
+    player.kinematics.pos = pos;
+    let mut scratch = scratch_from(&player);
+    let clusters = scratch.as_mut();
+    let mut frame = build_frame(
+        &clusters,
+        &ae::BodyMotionFacts::default(),
+        &ambition_characters::actor::BodyCombat::default(),
+        &ambition_combat::BodyMelee::default(),
+        &ambition_time::ClockState::default(),
+        &ambition_platformer2d_shared_tangle::safe_position::PlayerSafetyState::default(),
+        &world,
+        ControlFrame::default(),
+        0.016,
+        0.016,
+        "Playing",
+        "test",
+        0,
+        0,
+        &[],
+        "Airborne",
+        "Standing",
+    );
+    frame.sim_session = sim_frame.map(|_| 0);
+    frame.sim_frame = sim_frame;
+    frame
+}
+
+#[test]
+fn a_corrected_pass_replaces_the_row_its_prediction_wrote() {
+    let mut buf = GameplayTraceBuffer::with_capacity(8, 8);
+    record_frame(
+        &mut buf,
+        frame_at(Some(4), ae::Vec2::new(10.0, 0.0)),
+        None,
+        false,
+        Some(4),
+    );
+    // The host rewinds and re-simulates frame 4; the body ends up elsewhere.
+    record_frame(
+        &mut buf,
+        frame_at(Some(4), ae::Vec2::new(99.0, 0.0)),
+        None,
+        true,
+        Some(4),
+    );
+
+    assert_eq!(
+        buf.frame_count(),
+        1,
+        "one instant must be described by one row, not by two contradictory ones"
+    );
+    assert_eq!(
+        buf.frames().next().unwrap().player.pos.x,
+        99.0,
+        "the record must hold the corrected state, not the guess it replaced"
+    );
+}
+
+#[test]
+fn a_replaced_row_keeps_its_place_in_the_recording() {
+    let mut buf = GameplayTraceBuffer::with_capacity(8, 8);
+    record_frame(
+        &mut buf,
+        frame_at(Some(1), ae::Vec2::ZERO),
+        None,
+        false,
+        Some(1),
+    );
+    record_frame(
+        &mut buf,
+        frame_at(Some(2), ae::Vec2::ZERO),
+        None,
+        false,
+        Some(2),
+    );
+    let seq_before = buf.frames().next().unwrap().seq;
+
+    record_frame(
+        &mut buf,
+        frame_at(Some(1), ae::Vec2::new(7.0, 0.0)),
+        None,
+        true,
+        Some(2),
+    );
+
+    let rows: Vec<_> = buf.frames().collect();
+    assert_eq!(rows.len(), 2);
+    assert_eq!(rows[0].player.pos.x, 7.0, "frame 1 was corrected in place");
+    assert_eq!(
+        rows[0].seq, seq_before,
+        "seq describes where a row sits in the recording; correcting its \
+         contents does not move it"
+    );
+    assert_eq!(rows[1].sim_frame, Some(2), "later frames are undisturbed");
+}
+
+#[test]
+fn distinct_frames_still_append() {
+    let mut buf = GameplayTraceBuffer::with_capacity(8, 8);
+    for frame in 0..4 {
+        record_frame(
+            &mut buf,
+            frame_at(Some(frame), ae::Vec2::ZERO),
+            None,
+            false,
+            Some(frame),
+        );
+    }
+    assert_eq!(buf.frame_count(), 4);
+}
+
+/// A host that does not speculate has no frame identity to key on, and must
+/// keep appending — otherwise every fixed-tick trace collapses to one row.
+#[test]
+fn without_frame_identity_every_row_appends() {
+    let mut buf = GameplayTraceBuffer::with_capacity(8, 8);
+    for _ in 0..4 {
+        record_frame(&mut buf, frame_at(None, ae::Vec2::ZERO), None, false, None);
+    }
+    assert_eq!(buf.frame_count(), 4);
+}
+
+/// Re-simulating the same OOB replaces the pending assessment and produces one event/dump when
+/// the confirmation line reaches it.
+#[test]
+fn a_resimulated_anomaly_is_reported_once_when_confirmed() {
+    let mut buf = GameplayTraceBuffer::with_capacity(8, 8);
+    buf.min_context_frames = 0;
+    let world = dummy_world();
+    let mut player = dummy_player(ae::Vec2::new(50.0, 50.0));
+    player.kinematics.pos = ae::Vec2::new(2000.0, 50.0);
+    let oob = detect_oob_scratch(&player, &world, OOB_MARGIN);
+
+    let out_of_bounds = ae::Vec2::new(2000.0, 50.0);
+    record_frame(
+        &mut buf,
+        frame_at(Some(3), out_of_bounds),
+        oob.as_ref(),
+        false,
+        Some(2),
+    );
+    assert_eq!(buf.event_count(), 0, "frame 3 is still speculative");
+    assert!(buf.dump_request.is_none());
+
+    record_frame(
+        &mut buf,
+        frame_at(Some(3), out_of_bounds),
+        oob.as_ref(),
+        true,
+        Some(3),
+    );
+    assert_eq!(buf.event_count(), 1);
+    assert!(matches!(buf.dump_request, Some(DumpReason::OobAuto { .. })));
+    assert_eq!(
+        buf.frame_count(),
+        1,
+        "the corrected row replaced its prediction rather than appending"
+    );
+}
+
+#[test]
+fn a_healthy_correction_cancels_a_speculative_oob() {
+    let mut buf = GameplayTraceBuffer::with_capacity(8, 8);
+    buf.min_context_frames = 0;
+    let world = dummy_world();
+    let player = dummy_player(ae::Vec2::new(2000.0, 50.0));
+    let oob = detect_oob_scratch(&player, &world, OOB_MARGIN);
+
+    record_frame(
+        &mut buf,
+        frame_at(Some(4), ae::Vec2::new(2000.0, 50.0)),
+        oob.as_ref(),
+        false,
+        Some(3),
+    );
+    record_frame(
+        &mut buf,
+        frame_at(Some(4), ae::Vec2::new(50.0, 50.0)),
+        None,
+        true,
+        Some(4),
+    );
+
+    assert_eq!(buf.event_count(), 0);
+    assert!(
+        buf.dump_request.is_none(),
+        "the abandoned prediction must not cause an irreversible dump"
+    );
+}
+
+#[test]
+fn an_oob_correction_replaces_a_healthy_prediction_before_confirmation() {
+    let mut buf = GameplayTraceBuffer::with_capacity(8, 8);
+    buf.min_context_frames = 0;
+    let world = dummy_world();
+    let player = dummy_player(ae::Vec2::new(2000.0, 50.0));
+    let oob = detect_oob_scratch(&player, &world, OOB_MARGIN);
+
+    record_frame(
+        &mut buf,
+        frame_at(Some(5), ae::Vec2::new(50.0, 50.0)),
+        None,
+        false,
+        Some(4),
+    );
+    record_frame(
+        &mut buf,
+        frame_at(Some(5), ae::Vec2::new(2000.0, 50.0)),
+        oob.as_ref(),
+        true,
+        Some(5),
+    );
+
+    assert_eq!(buf.event_count(), 1);
+    assert!(matches!(buf.dump_request, Some(DumpReason::OobAuto { .. })));
+}
+
+#[test]
+fn equal_frame_numbers_from_different_sessions_do_not_replace_each_other() {
+    let mut buf = GameplayTraceBuffer::with_capacity(8, 8);
+    let mut first = frame_at(Some(0), ae::Vec2::new(10.0, 0.0));
+    first.sim_session = Some(1);
+    let mut second = frame_at(Some(0), ae::Vec2::new(20.0, 0.0));
+    second.sim_session = Some(2);
+
+    record_frame(&mut buf, first, None, false, Some(0));
+    record_frame(&mut buf, second, None, false, Some(0));
+
+    assert_eq!(buf.frame_count(), 2);
+    assert_eq!(
+        buf.frames().map(|row| row.player.pos.x).collect::<Vec<_>>(),
+        vec![10.0, 20.0]
+    );
+}

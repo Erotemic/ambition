@@ -1,0 +1,62 @@
+[package]
+name = "ambition_boss_encounter"
+version = "0.1.0"
+edition.workspace = true
+license.workspace = true
+authors.workspace = true
+description = "Ambition's boss-fight DOMAIN: the boss data model (BossConfig / BossEncounter / BossOverrides + the borrow views), the authored boss catalog and behavior profiles, the phase machine tick, the optional encounter entity and its scripted beats, boss reward chests, attack geometry, and boss spritesheets. Carved out of ambition_platformer2d_actor_monolith (D33)."
+
+[lib]
+crate-type = ["rlib"]
+
+[features]
+# The boss test FIXTURES (`test_boss_catalog`, `clusters::test_support`).
+# dev-only by construction: `#[cfg(test)]` does not cross a crate boundary,
+# and the monolith's boss-adjacent tests (damage routing, mount dissolution,
+# construction, spawn) build the same shapes. Enabled only from a
+# `[dev-dependencies]` edge so the fixtures never reach a shipping build.
+test-support = []
+content_pack = ["dep:ambition_content_pack"]
+
+[dependencies]
+bevy = { version = "0.19.1", default-features = false, features = ["bevy_log"] }
+# ⭐ OPTIONAL AND DEFAULT-OFF, the same shape `ambition_characters` and
+# `ambition_combat` use: `pattern::content_schema` compiles the authored
+# boss-behaviour schemas, and a game that never validates its content must not
+# link a compiler. Arrived with the boss thinking (D168, 2026-08-27).
+ambition_content_pack = { path = "../ambition_content_pack", optional = true }
+ron = { workspace = true }
+# ⭐ ARRIVED WITH `pattern::profile` (D168, 2026-08-27): the boss-profile
+# authoring vocabulary is what `boss_profiles.ron` deserializes into, and it came
+# here with the rest of the boss's thinking. `ron` was already a dependency for
+# exactly that reason — this is the derive half of a pair that was split across
+# two crates.
+serde = { workspace = true }
+# The phase-machine vocabulary this crate coordinates (`ActorPhaseState`,
+# `BossEncounterPhase`, `PhaseTrigger`) plus the boss brain/pattern model.
+ambition_characters = { path = "../ambition_characters" }
+# Feature/chest/banner components + the `falling_chest` settle math the reward
+# chests land on.
+ambition_combat = { path = "../ambition_combat" }
+# `CutsceneTriggerQueue` — the boss intro asks for `boss_intro_<id>` and knows
+# nothing else about cutscenes.
+ambition_cutscene = { path = "../ambition_cutscene" }
+# The generic encounter TIMELINE vocabulary (`EncounterBeat`/`EncounterScript`/
+# `EncounterTrigger`/`EncounterGate`) a boss script is authored in.
+ambition_encounter = { path = "../ambition_encounter" }
+ambition_entity_catalog = { path = "../ambition_entity_catalog" }
+ambition_persistence = { path = "../ambition_persistence" }
+ambition_platformer2d_core = { path = "../ambition_platformer2d_core" }
+# `BodyKinematics`, `FeatureSimEntity`, and `MountDied` — the body facts this
+# domain reads from below rather than from the monolith it left.
+ambition_platformer2d_shared_tangle = { path = "../ambition_platformer2d_shared_tangle" }
+ambition_sfx = { path = "../ambition_sfx" }
+ambition_sprite_sheet = { path = "../ambition_sprite_sheet" }
+ambition_time = { path = "../ambition_time" }
+ambition_vfx = { path = "../ambition_vfx" }
+ambition_interaction = { path = "../ambition_interaction" }
+# `CollisionWorld` — the boss ECS tick sweeps its bodies against the room,
+# and this is the ONE dependency that module needed that this crate lacked.
+# A clean downward edge: `_world` sees only asset_manager / _core /
+# entity_catalog / shared_tangle, so there is no cycle.
+ambition_platformer2d_world = { path = "../ambition_platformer2d_world" }

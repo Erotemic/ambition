@@ -1,0 +1,87 @@
+// Ambition sandbox data manifest.
+//
+// This file is loaded as a Bevy asset via bevy_common_assets and also embedded
+// synchronously at startup until the sandbox grows a proper loading state.
+(
+    abilities: (
+        move_horizontal: true,
+        jump: true,
+        variable_jump: true,
+        double_jump: true,
+        fast_fall: true,
+        wall_jump: true,
+        wall_cling: true,
+        wall_climb: true,
+        dash: true,
+        double_dash: true,
+        fly: true,
+        blink: true,
+        precision_blink: true,
+        blink_through_soft_walls: true,
+        blink_through_hard_walls: true,
+        attack: true,
+        pogo: true,
+        directional_primary: true,
+        directional_special: true,
+        rebound: true,
+        reset: true,
+        ledge_grab: true,
+        swim: true,
+        glide: true,
+        dodge: true,
+        shield: true,
+        interact: true,
+    ),
+    tuning: (
+        gravity: 2250.0,
+        run_accel: 5200.0,
+        air_accel: 3100.0,
+        ground_friction: 7600.0,
+        air_friction: 650.0,
+        max_run_speed: 270.0,
+        // Effectively no terminal velocity: a hands-off fall is pure ballistic
+        // at ANY height (the Round 5 zero-air-drag principle), so falling into
+        // a ground portal pair pops back up to the SAME height. A finite cap
+        // turns the down-leg into drag — with the old 950 the rebound
+        // saturated at 950²/2g ≈ 200px no matter how tall the drop (the
+        // "portal damped my fall" report; it was never the portal). Landing
+        // readability on long falls is the tradeoff knob: lower this again to
+        // taste, at the cost of tall portal bounces returning short.
+        max_fall_speed: 100000.0,
+        jump_speed: 630.0,
+        double_jump_speed: 520.0,
+        wall_jump_x: 430.0,
+        wall_slide_speed: 145.0,
+        wall_climb_speed: 210.0,
+        dash_speed: 760.0,
+        dash_time: 0.115,
+        dash_cooldown: 0.160,
+        dash_buffer: 0.100,
+        blink_distance: 190.0,
+        precision_blink_distance: 430.0,
+        precision_blink_aim_speed: 1650.0,
+        blink_hold_threshold: 0.100,
+        blink_cooldown: 0.180,
+        blink_grace_time: 0.090,
+        blink_max_downward_speed: 55.0,
+        precision_blink_max_downward_speed: 18.0,
+        fast_fall_accel: 1850.0,
+        fast_fall_speed: 1380.0,
+        glide_fall_speed: 220.0,
+        glide_air_accel: 6200.0,
+        flight_accel: 3200.0,
+        flight_drag: 2400.0,
+        flight_terminal_speed: 760.0,
+        flight_hover_speed: 35.0,
+        flight_hover_hz: 0.85,
+        coyote_time: 0.120,
+        jump_buffer: 0.135,
+        pogo_speed: 720.0,
+        slash_recoil: 110.0,
+        air_jumps: 1,
+        dodge_roll_time: 0.22,
+        dodge_roll_speed: 530.0,
+        dodge_roll_cooldown: 0.42,
+        parry_window_time: 0.15,
+    ),
+)

@@ -1,0 +1,298 @@
+[workspace]
+members = [
+    "crates/ambition_sprite_fx",
+    "crates/ambition_platformer2d",
+    "crates/ambition_relativity",
+    "crates/ambition_relativity2d",
+    "crates/ambition_characters",
+    "crates/ambition_character_sprites",
+    "game/ambition_app",
+    "game/ambition_app_tools",
+    "game/ambition_demo_mary_o",
+    "game/ambition_demo_mary_o_app",
+    "game/ambition_demo_twintrack",
+    "game/ambition_demo_twintrack_app",
+    "game/ambition_demo_sanic",
+    "game/ambition_demo_smash",
+    "game/ambition_demo_smash_app",
+    "game/ambition_demo_pocket",
+    "game/ambition_demo_sanic_app",
+    "crates/ambition_asset_manager",
+    "crates/ambition_audio",
+    "crates/ambition_combat",
+    "crates/ambition_causal",
+    "crates/ambition_content_pack",
+    "crates/ambition_content_cli",
+    "crates/ambition_conversation",
+    "crates/ambition_boss_encounter",
+    "crates/ambition_damage",
+    "crates/ambition_mount",
+    "game/ambition_content",
+    "crates/ambition_cutscene",
+    "crates/ambition_dev_tools",
+    "crates/ambition_dialog",
+    "crates/ambition_entity_catalog",
+    "crates/ambition_geometry",
+    "crates/ambition_projectile_spec",
+    "crates/ambition_encounter",
+    "crates/ambition_encounter_features",
+    "crates/ambition_vfx",
+    "crates/ambition_binding",
+    "crates/ambition_platformer2d_core",
+    "crates/ambition_input",
+    "crates/ambition_interaction",
+    "crates/ambition_items",
+    "crates/ambition_world_items",
+    "crates/ambition_abilities",
+    "crates/ambition_held_items",
+    "crates/ambition_body_seed",
+    "crates/ambition_match",
+    "crates/ambition_inventory_ui",
+    "crates/ambition_platformer2d_ldtk",
+    "crates/ambition_load",
+    "crates/ambition_game_shell",
+    "crates/ambition_load_presentation",
+    "crates/ambition_menu",
+    "crates/ambition_persistence",
+    "crates/ambition_platformer2d_shared_tangle",
+    "crates/ambition_platformer2d_provider",
+    "crates/ambition_portal2d",
+    "crates/ambition_projectiles",
+    "crates/ambition_render",
+    "crates/ambition_sim_harness",
+    "crates/ambition_settings_menu",
+    "crates/ambition_portal2d_presentation",
+    "crates/ambition_platformer2d_actor_monolith",
+    "crates/ambition_platformer2d_runtime",
+    "crates/ambition_platformer2d_rollback_ggrs",
+    "crates/ambition_platformer2d_host",
+    "crates/ambition_sfx",
+    "crates/ambition_sim_view",
+    "crates/ambition_sfx_bank",
+    "crates/ambition_sprite_sheet",
+    "crates/ambition_time",
+    "crates/ambition_registry_core",
+    "crates/ambition_gameplay_trace",
+    "crates/ambition_touch_input",
+    "crates/ambition_ui_nav",
+    "crates/ambition_platformer2d_world",
+    "game/ambition_menu_kaleidoscope",
+    "tests/ambition_workspace_policy",
+]
+# `dev/bevy_ceiling` is the empty-window frame-time ceiling (its README): a
+# stock Bevy app with none of this workspace in it, so it keeps its own lockfile.
+# The Phase-6 external-architecture proof: a consumer game that must live
+# OUTSIDE the workspace so it exercises exactly what a third-party crate
+# would — the `ambition_platformer2d` umbrella via a path dependency, its own lockfile,
+# no workspace dependency table, no policy exemptions.
+exclude = ["fixtures/external_consumer", "dev/bevy_ceiling"]
+resolver = "2"
+
+# One version per shared external dependency. Before this table existed, `ron`
+# was pinned 0.11 in thirteen manifests and 0.12 in one, and `thiserror` 1 in
+# three — so the workspace compiled two copies of each. Add a crate here when a
+# second manifest wants it; keep per-crate FEATURE sets in the member manifests
+# (they legitimately differ).
+#
+# NOTE: `bevy` is deliberately NOT here yet. It is pinned in ~46 manifests, each
+# with a carefully trimmed and genuinely different feature set (see
+# `ambition_menu` for why that matters), so the conversion is its own reviewable
+# pass — tracked in docs/planning/tracks.md.
+[workspace.dependencies]
+serde = { version = "1", features = ["derive"] }
+ron = "0.11"
+thiserror = "2"
+# ⭐ THE CLI ARGUMENT PARSER FOR MODAL TOOL BINARIES (Jon's ruling 2026-09-03).
+# Every new CLI uses this; the hand-rolled `std::env::args()` scanning it
+# replaces accepted a flag anywhere in the vector, documented nothing, and
+# produced no `--help`. `derive` because the argument surface belongs beside the
+# type it fills in, not in a builder chain three functions away.
+clap = { version = "4", features = ["derive"] }
+
+[workspace.package]
+edition = "2021"
+license = "Apache-2.0"
+authors = ["Jon Crall + ChatGPT + Claude"]
+description = "Ambition: a code-generated endgame movement sandbox for a mathematical AI-first platformer."
+
+# A plain `--release` build of this app is ~220 MB, which can take a browser a minute to compile
+# and presents as "the page loads and nothing happens" — the same symptom as a panic, which is
+# why it is worth being able to rule out.
+#
+# opt-in (`./build_for_web.sh --optimize`), because fat LTO + one codegen unit
+# turns a ~6 minute build into a much longer one, and the ordinary web dev loop
+# wants the fast build.
+[profile.ship]
+# Native distribution profile: this is the artifact policy used by
+# `./run_game.sh --ship`.  Optimize across the complete crate graph and emit
+# one codegen unit so LLVM can see as much of the final program as possible.
+# Keep the build portable across supported Steam PCs: CPU-specific tuning
+# belongs in separately targeted packages, never in this baseline profile.
+inherits = "release"
+opt-level = 3
+lto = "fat"
+codegen-units = 1
+panic = "abort"
+strip = "symbols"
+debug = false
+incremental = false
+
+[profile.profiling]
+# Runtime profiling profile: `./run_game.sh profiling`, and the default build
+# `scripts/profile_desktop.sh` launches.
+#
+# `release` optimization so a measurement describes the shipped runtime rather
+# than the edit-loop build, and enough DWARF left in place that `perf`, Tracy,
+# and `addr2line` can name a frame. `ship` is the wrong instrument for this:
+# it strips symbols and fat-LTOs the graph, so every hot frame reads as one
+# inlined blob with no attribution.
+inherits = "release"
+debug = 1
+strip = "none"
+split-debuginfo = "off"
+# ⚠ THIS PROFILE HAS NO FRAME POINTERS, so `perf --call-graph fp` returns EMPTY
+# stacks and every "who called that" question needs `--call-graph dwarf` — which
+# records fine and then takes longer than ten minutes to REPORT on a 3.8 MB
+# capture. That cost was paid three times on 2026-09-01 chasing the caller of a
+# symbol worth 10.7% of the process.
+#
+# ⛔⛔ AND `force-frame-pointers` IS NOT A CARGO PROFILE KEY. Setting it here is
+# accepted silently as `unused manifest key: profile.profiling.force-frame-pointers`
+# and changes NOTHING — it was tried, it built in 35s because no fingerprint
+# moved, and the `fp` stacks were still empty. It needs `RUSTFLAGS=-C
+# force-frame-pointers=yes`, which re-fingerprints the entire dependency graph.
+#
+# ⇒ NOT DONE, deliberately, and the reason is that it would not have answered the
+# question that prompted it: the unresolved caller was above `getenv`, inside
+# precompiled `std` and glibc, which have no frame pointers whatever this crate
+# is built with. A `-Z build-std` toolchain is the actual price of that answer.
+# Deps keep line tables only. Symbol NAMES live in `.symtab`, which `strip =
+# "none"` preserves either way; full DWARF for bevy + wgpu would add tens of
+# gigabytes to the target directory and buys nothing perf can use.
+[profile.profiling.package."*"]
+debug = "line-tables-only"
+
+[profile.web-release]
+inherits = "release"
+opt-level = "s"
+lto = "fat"
+codegen-units = 1
+panic = "abort"
+strip = "symbols"
+
+[profile.android-size]
+inherits = "release"
+opt-level = "z"
+lto = "thin"
+codegen-units = 1
+panic = "abort"
+strip = "symbols"
+
+
+[profile.android-profile]
+inherits = "release"
+# Optimized like release, but keep enough DWARF in the native library for
+# host simpleperf / addr2line to recover Rust function names in Android profiles.
+debug = 1
+strip = "none"
+split-debuginfo = "off"
+
+[profile.dev]
+# Optional, but often good for Bevy/game dev:
+# optimize your own workspace crates a little without going full release.
+opt-level = 1
+
+# Huge disk saver versus full DWARF debug info.
+# Keeps useful file/line backtraces.
+debug = "line-tables-only"
+
+# ⛔ `split-debuginfo` DELIBERATELY UNSET — measured 2026-09-03 and it does not
+# pay here. `unpacked` shrank `smash_tool` 510 MB -> 302 MB (41%) but wrote
+# 9,938 `.dwo` files totalling 532 MB, so the TOTAL on disk went UP by 324 MB
+# for a single binary. The `.dwo` set is shared, so it wins only when many
+# executables would each carry their own copy of the same DWARF — which is the
+# redundancy the modal-CLI collapse already removed, and removed harder
+# (4.79 GB -> 0.50 GB). ⚠ It also invalidates the profile for EVERY crate: the
+# experiment recompiled 352, of which 342 were third-party, 7m24s against 2m53s.
+# ⇒ Revisit only if a crate ever has many binaries again. See
+# `docs/planning/modal-cli-binary-collapse.md`.
+
+# Incremental can make target/debug enormous.
+# Leave true if you strongly value fast edit-compile cycles;
+# set false if disk size is the priority.
+incremental = true
+
+[profile.dev.package."*"]
+# Optimize registry/git deps like Bevy, wgpu, image codecs, math crates, etc.
+opt-level = 3
+
+# Big disk saver for dependencies.
+debug = false
+
+# More release-like behavior for dependencies.
+debug-assertions = false
+overflow-checks = false
+
+# Codegen-heavy workspace crates that are NOT hot loops under test. Measured:
+# workspace members get `profile.dev`'s opt-level=1 (the `package."*"` glob above
+# applies to dependencies only), and `ambition_platformer2d_runtime` spent 91 of
+# its 120 build seconds in codegen. Neither crate carries a per-tick numeric
+# kernel — the runtime is schedule/rollback plumbing and render never runs
+# headless — so dropping their codegen cost buys edit-compile time without
+# slowing what the tests actually spend their time doing.
+[profile.dev.package.ambition_platformer2d_runtime]
+opt-level = 0
+
+[profile.dev.package.ambition_render]
+opt-level = 0
+
+# `ambition_app` joins them. It is the SECOND
+# most-edited crate in the repo and it is composition — plugin wiring, CLI, menu
+# assembly — with no per-tick numeric kernel of its own.
+#
+#   | config              | 3000-tick sim | build after an app-source edit |
+#   |---------------------|---------------|--------------------------------|
+#   | opt-1 (baseline)    | 2.57 / 2.67s  | 32.4s                          |
+#   | app opt-0           | 2.49 / 2.52s  | 23.3s                          |
+#   | monolith opt-0      | 4.08 / 4.16s  | 33.4s                          |
+#
+# So the app pays 28% of the edit loop back and costs NOTHING to run.
+#
+# and the actor monolith is deliberately NOT here. It is the single
+# most-edited crate, so it is the obvious next candidate, and it is the wrong one:
+# at opt-0 the simulation runs 1.6x slower (4.08s against 2.57s over the same
+# 3000 ticks, tight variance across repeats) while doing nothing at all for an
+# app-source edit. That crate IS the per-tick numeric kernel this comment's first
+# paragraph excludes — the exclusion was written as a judgement and is now a
+# number. Its 1169 tests execute in 0.58s either way, so the TEST suite would
+# never have caught the cost; only running the sim does.
+[profile.dev.package.ambition_app]
+opt-level = 0
+
+[profile.dev.build-override]
+# Build scripts / proc macros are separate from normal deps.
+# Usually keep these cheap to compile.
+opt-level = 0
+debug = false
+codegen-units = 256
+
+# ────────────────────────── patched dependencies ──────────────────────────
+# Crates we consume with a local change that upstream has not released yet.
+# Each entry is a TEMPORARY bridge and must name the condition that deletes it.
+# Pinned by `rev`, never by branch: a branch would drift silently under
+# `cargo update` and make builds unreproducible.
+[patch.crates-io]
+# The `GgrsFrameTiming` accessor (timestep / overstep / overstep_fraction) presentation reads to
+# find the intra-tick phase under rollback. Ambition's own fork is RETIRED: the work was merged
+# UPSTREAM as gschup/bevy_ggrs#134, and this rev IS that merge commit, so the pin now tracks the
+# canonical repository rather than a private branch. It is still a pin because the merge landed
+# AFTER the v0.22.0 release — `bevy_ggrs = "0.22"` from crates.io has no `GgrsFrameTiming`.
+# Consumer is tagged FORK(ggrs-frame-timing).
+# RETIRE when a bevy_ggrs release contains #134: drop this entry and keep the version requirement.
+# ⚠ Upstream at this rev takes `ggrs` from its git main rather than the v0.13.0 release, so
+# `ggrs` is pinned by Cargo.lock rather than by a requirement here; `cargo update -p ggrs` moves it.
+# ⛔ AND THAT MOVE IS NOW GUARDED, because it moves the DETERMINISTIC CORE with no diff a reviewer
+# reads as a rollback change:
+# `scripts/tests/test_sdk_manifest_advice_is_current.py` pins the resolved `ggrs` commit. A
+# deliberate bump edits that constant in the same commit and says what was re-measured.
+bevy_ggrs = { git = "https://github.com/gschup/bevy_ggrs", rev = "f1853823bfb888fcd9d468a136bb81fd6b9ed481" }

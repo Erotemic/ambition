@@ -1,0 +1,715 @@
+//! Bevy plugins that drive shell routing, sequences, and launcher commands.
+
+use bevy::prelude::{
+    App, Commands, IntoScheduleConfigs, MessageReader, MessageWriter, Plugin, Query, Res, ResMut,
+    Time, Update, With,
+};
+
+use ambition_input::participant::{context_priority, ContextClaim};
+use ambition_input::{
+    InputParticipant, InputSet, ParticipantContexts, LAUNCHER_CONTEXT, STARTUP_ACKNOWLEDGE_CONTEXT,
+};
+use ambition_load::{AmbitionLoadSet, LoadCoordinator};
+use tracing::{debug, error, warn};
+
+use crate::audio_controls::ShellAudioControl;
+
+use crate::{
+    ActiveGameplaySession, ActiveShellSequence, AmbitionGameShellSet, PreparedSessionRegistry,
+    ShellCommand, ShellCommandRejection, ShellEvent, ShellExperienceRegistry,
+    ShellHostConfiguration, ShellLaunchCatalog, ShellLauncherCommand, ShellLauncherPresentation,
+    ShellLauncherState, ShellRouteCatalog, ShellRouteHolds, ShellRouter, ShellScopedEntity,
+    ShellSegmentScopedEntity, ShellSequenceCatalog, ShellSequenceCommand, ShellSequenceRuntime,
+    ShellSequenceSet, BASIC_LAUNCHER_EXPERIENCE,
+};
+
+#[derive(Default)]
+pub struct AmbitionGameShellPlugin;
+
+#[derive(Default)]
+pub struct ShellSequencePlugin;
+
+#[derive(Default)]
+pub struct ShellLauncherPlugin;
+
+impl Plugin for AmbitionGameShellPlugin {
+    fn build(&self, app: &mut App) {
+        app.init_resource::<ambition_load::LoadCoordinator>()
+            .init_resource::<ShellRouteCatalog>()
+            .init_resource::<ShellHostConfiguration>()
+            .init_resource::<ShellRouter>()
+            .init_resource::<PreparedSessionRegistry>()
+            .init_resource::<ShellRouteHolds>()
+            .init_resource::<ShellFailureLog>()
+            .add_message::<ShellCommand>()
+            .add_message::<ShellEvent>()
+            // The contributed-row channel. Registered by the CORE plugin, not by
+            // the pause menu that writes it: an experience must be able to
+            // install its reader in a composition that draws no menu at all, and
+            // a reader whose channel does not exist fails parameter validation.
+            .add_message::<crate::abandon::ShellAbandonRequested>()
+            .add_message::<ambition_platformer2d_shared_tangle::developer_hotkeys::DeveloperAction>(
+            )
+            .configure_sets(
+                Update,
+                (
+                    AmbitionGameShellSet::Commands,
+                    AmbitionGameShellSet::Pending,
+                    AmbitionGameShellSet::Cleanup,
+                )
+                    .chain()
+                    .after(AmbitionLoadSet::Commands),
+            )
+            .add_systems(
+                Update,
+                (
+                    initialize_shell,
+                    quit_active_session_from_developer_action,
+                    process_shell_commands,
+                )
+                    .chain()
+                    .in_set(AmbitionGameShellSet::Commands),
+            )
+            .add_systems(
+                Update,
+                advance_pending_route.in_set(AmbitionGameShellSet::Pending),
+            )
+            .add_systems(
+                Update,
+                (
+                    cleanup_scoped_entities,
+                    // The RESOURCE half of the same rule the line above is the
+                    // entity half of: state a provider published lives exactly
+                    // as long as its stay on its own routes. In `Cleanup`
+                    // because `active` and `pending` are both settled for this
+                    // frame by the end of `Pending`.
+                    crate::scope::release_departed_experience_state,
+                    log_shell_routing_failures,
+                )
+                    .chain()
+                    .in_set(AmbitionGameShellSet::Cleanup),
+            );
+    }
+}
+
+impl Plugin for ShellSequencePlugin {
+    fn build(&self, app: &mut App) {
+        // Idempotent: a windowed host's DefaultPlugins already own Time; a bare
+        // headless host needs one so drive_sequence can tick.
+        app.init_resource::<bevy::prelude::Time>()
+            .init_resource::<ShellSequenceCatalog>()
+            .init_resource::<ActiveShellSequence>()
+            .add_message::<ShellSequenceCommand>()
+            .configure_sets(
+                Update,
+                (
+                    ShellSequenceSet::Sync,
+                    ShellSequenceSet::Tick,
+                    ShellSequenceSet::Programmatic,
+                    ShellSequenceSet::Commands,
+                    ShellSequenceSet::Cleanup,
+                )
+                    .chain()
+                    .after(AmbitionGameShellSet::Pending)
+                    .before(AmbitionGameShellSet::Cleanup),
+            )
+            // A confirm edge or card tap consumed THIS frame is applied to
+            // the sequence THIS frame — command processing never trails the
+            // input consumers by a frame.
+            .configure_sets(Update, ShellSequenceSet::Commands.after(InputSet::Consume))
+            .add_systems(
+                Update,
+                start_or_stop_sequence.in_set(ShellSequenceSet::Sync),
+            )
+            // The sequence surface OWNS the startup-acknowledge input
+            // context: it declares the claim while a card sequence is
+            // active and retracts it when the sequence ends. Ownership is
+            // declared, never inferred from GameMode or actor presence.
+            .add_systems(
+                Update,
+                declare_startup_acknowledge_context
+                    .in_set(InputSet::ResolveContext)
+                    .after(ShellSequenceSet::Sync),
+            )
+            .add_systems(Update, drive_sequence.in_set(ShellSequenceSet::Tick))
+            .add_systems(
+                Update,
+                process_sequence_commands.in_set(ShellSequenceSet::Commands),
+            )
+            .add_systems(
+                Update,
+                cleanup_segment_scoped_entities.in_set(ShellSequenceSet::Cleanup),
+            );
+    }
+}
+
+impl Plugin for ShellLauncherPlugin {
+    fn build(&self, app: &mut App) {
+        app.init_resource::<ShellLaunchCatalog>()
+            .init_resource::<ShellExperienceRegistry>()
+            .init_resource::<ShellLauncherPresentation>()
+            .init_resource::<ShellLauncherState>()
+            .add_message::<ShellLauncherCommand>()
+            .add_systems(
+                Update,
+                (
+                    crate::experience::sync_registry_into_launch_catalog,
+                    sync_launcher_activation,
+                    // A nav/confirm edge consumed this frame moves the cursor
+                    // or launches THIS frame — never a frame later.
+                    process_launcher_commands.after(InputSet::Consume),
+                )
+                    .chain()
+                    .after(AmbitionGameShellSet::Pending),
+            )
+            // The launcher surface OWNS the launcher input context: claimed
+            // while the launcher route is active, retracted when it is not.
+            .add_systems(
+                Update,
+                declare_launcher_context
+                    .in_set(InputSet::ResolveContext)
+                    .after(sync_launcher_activation),
+            );
+    }
+}
+
+/// While a shell card sequence is active, the startup-acknowledge context
+/// owns the participant's actions (one semantic "continue"; tap-anywhere).
+fn declare_startup_acknowledge_context(
+    sequence: Res<ActiveShellSequence>,
+    mut participants: Query<&mut ParticipantContexts, With<InputParticipant>>,
+) {
+    let active = sequence.activation_id.is_some() && sequence.runtime.is_some();
+    for mut contexts in &mut participants {
+        if contexts.is_declared(STARTUP_ACKNOWLEDGE_CONTEXT) != active {
+            contexts.sync(
+                ContextClaim::capturing(
+                    STARTUP_ACKNOWLEDGE_CONTEXT,
+                    context_priority::STARTUP_ACKNOWLEDGE,
+                ),
+                active,
+            );
+        }
+    }
+}
+
+/// While the launcher route is active, the launcher context owns the
+/// participant's actions — capturing, so gameplay actions cannot route
+/// underneath the title menu.
+fn declare_launcher_context(
+    state: Res<ShellLauncherState>,
+    mut participants: Query<&mut ParticipantContexts, With<InputParticipant>>,
+) {
+    for mut contexts in &mut participants {
+        if contexts.is_declared(LAUNCHER_CONTEXT) != state.active {
+            contexts.sync(
+                ContextClaim::capturing(LAUNCHER_CONTEXT, context_priority::LAUNCHER),
+                state.active,
+            );
+        }
+    }
+}
+
+fn initialize_shell(
+    host: Res<ShellHostConfiguration>,
+    router: Res<ShellRouter>,
+    mut commands: MessageWriter<ShellCommand>,
+) {
+    if !router.is_initialized() && host.spec.is_some() {
+        commands.write(ShellCommand::Initialize);
+    }
+}
+
+fn quit_active_session_from_developer_action(
+    mut actions: MessageReader<
+        ambition_platformer2d_shared_tangle::developer_hotkeys::DeveloperAction,
+    >,
+    active: Option<Res<ActiveGameplaySession>>,
+    mut shell: MessageWriter<ShellCommand>,
+) {
+    let requested = actions.read().any(|action| {
+        *action == ambition_platformer2d_shared_tangle::developer_hotkeys::DeveloperAction::QuitToHome
+    });
+    if requested
+        && active
+            .as_deref()
+            .and_then(|active| active.0.as_ref())
+            .is_some()
+    {
+        shell.write(ShellCommand::QuitToHome);
+    }
+}
+
+fn process_shell_commands(
+    mut commands: MessageReader<ShellCommand>,
+    catalog: Res<ShellRouteCatalog>,
+    host: Res<ShellHostConfiguration>,
+    mut loads: ResMut<LoadCoordinator>,
+    mut prepared: ResMut<PreparedSessionRegistry>,
+    mut router: ResMut<ShellRouter>,
+    mut events: MessageWriter<ShellEvent>,
+) {
+    for command in commands.read() {
+        for event in router.apply(command.clone(), &catalog, &host, &mut loads, &mut prepared) {
+            events.write(event);
+        }
+    }
+}
+
+fn advance_pending_route(
+    catalog: Res<ShellRouteCatalog>,
+    mut loads: ResMut<LoadCoordinator>,
+    mut prepared: ResMut<PreparedSessionRegistry>,
+    mut router: ResMut<ShellRouter>,
+    holds: Res<ShellRouteHolds>,
+    mut events: MessageWriter<ShellEvent>,
+) {
+    for event in router.advance_pending(&catalog, &mut loads, &mut prepared, &holds) {
+        events.write(event);
+    }
+}
+
+fn cleanup_scoped_entities(
+    mut commands: Commands,
+    mut events: MessageReader<ShellEvent>,
+    entities: Query<(bevy::prelude::Entity, &ShellScopedEntity)>,
+) {
+    for event in events.read() {
+        let ShellEvent::RouteDeactivated(active) = event else {
+            continue;
+        };
+        for (entity, scope) in &entities {
+            if scope.activation_id == active.activation_id {
+                commands.entity(entity).despawn();
+            }
+        }
+    }
+}
+
+/// Surface every terminal shell-routing failure to the log, in ANY host.
+///
+/// A windowed shell renders load failures through `ambition_load_presentation`, but a headless
+/// host — a scripted test, a CI gate, an out-of-tree consumer's binary — has no presentation
+/// layer. The router now carries the coordinator's well-worded [`LoadFailure`] reasons through
+/// [`ShellCommandRejection::LoadFailed`]; this system is what makes them observable. Logging is
+/// purely additive: it never suppresses the user-facing presentation, it only guarantees the
+/// developer detail reaches the log wherever the sim runs. The reasons routing has refused this
+/// host, kept where a consumer can READ them.
+///
+/// These reasons already existed and already reached the log. That was not enough, and slice
+/// B paid for finding out. A movement-only game composed, booted, and sat in `Activating` for
+/// 600 ticks: preparation had refused it over a missing audio fragment, `log_shell_rejection`
+/// said so at `error!`, and the consumer — a headless test with no log subscriber — saw a host
+/// that simply never started. `ShellCommandRejection::LoadFailed`'s own doc comment already
+/// recorded the shape of this: without the carried failures "the route appeared to stall
+/// forever with no diagnosable cause".
+///
+/// A log line is an operator affordance. This is the API one.
+#[derive(bevy::prelude::Resource, Default, Debug, Clone)]
+pub struct ShellFailureLog {
+    reasons: Vec<String>,
+}
+
+impl ShellFailureLog {
+    /// Every refusal recorded, oldest first.
+    pub fn reasons(&self) -> &[String] {
+        &self.reasons
+    }
+
+    /// The most recent refusal, which is what a poll loop wants to print.
+    pub fn latest(&self) -> Option<&str> {
+        self.reasons.last().map(String::as_str)
+    }
+
+    pub fn is_empty(&self) -> bool {
+        self.reasons.is_empty()
+    }
+
+    fn record(&mut self, reason: String) {
+        self.reasons.push(reason);
+    }
+}
+
+/// One reader of `ShellEvent` for failures, recording AND logging.
+///
+/// Deliberately not two systems.
+fn log_shell_routing_failures(
+    mut events: MessageReader<ShellEvent>,
+    mut failures: ResMut<ShellFailureLog>,
+) {
+    for event in events.read() {
+        match event {
+            ShellEvent::CommandRejected(rejection) => {
+                log_shell_rejection(rejection);
+                if let Some(reason) = describe_rejection(rejection) {
+                    failures.record(reason);
+                }
+            }
+            ShellEvent::ExperienceFailed {
+                activation_id,
+                message,
+            } => {
+                error!("shell experience {activation_id:?} failed: {message}");
+                failures.record(format!("experience failed: {message}"));
+            }
+            _ => {}
+        }
+    }
+}
+
+/// A refusal as one line a consumer can act on, or `None` for the routine
+/// non-faults.
+///
+/// Cancellation and supersession are terminal without being wrong — they are
+/// ordinary navigation — so recording them would fill the log with noise and
+/// teach readers to ignore it, which is how a guard becomes decoration.
+fn describe_rejection(rejection: &ShellCommandRejection) -> Option<String> {
+    match rejection {
+        ShellCommandRejection::LoadFailed {
+            readiness,
+            failures,
+        } => {
+            if failures.is_empty() {
+                return None;
+            }
+            Some(format!(
+                "route load {readiness:?}: {}",
+                failures
+                    .iter()
+                    .map(|failure| format!(
+                        "{} ({})",
+                        failure.player_message, failure.developer_detail
+                    ))
+                    .collect::<Vec<_>>()
+                    .join("; ")
+            ))
+        }
+        ShellCommandRejection::HostNotConfigured => {
+            Some("the host names no initial route, so nothing was prepared".to_string())
+        }
+        ShellCommandRejection::UnknownRoute(route) => {
+            Some(format!("unknown route `{}`", route.as_str()))
+        }
+        ShellCommandRejection::PreparedSessionUnavailable(_) => {
+            Some("a route activated with no prepared session behind it".to_string())
+        }
+        ShellCommandRejection::LoadCommitRejected(rejection) => {
+            Some(format!("load commit rejected: {rejection:?}"))
+        }
+        ShellCommandRejection::StaleActivation(_) => None,
+    }
+}
+
+fn log_shell_rejection(rejection: &ShellCommandRejection) {
+    match rejection {
+        ShellCommandRejection::LoadFailed {
+            readiness,
+            failures,
+        } => {
+            if failures.is_empty() {
+                // Cancellation / supersession are terminal but carry no per-work
+                // failure — routine navigation, not a fault worth an error line.
+                debug!("shell route load ended {readiness:?} with no per-work failure");
+            } else {
+                for failure in failures {
+                    if failure.retryable {
+                        warn!(
+                            "shell route load failed (retryable): {} ({})",
+                            failure.player_message, failure.developer_detail
+                        );
+                    } else {
+                        error!(
+                            "shell route load failed: {} ({})",
+                            failure.player_message, failure.developer_detail
+                        );
+                    }
+                }
+            }
+        }
+        // A command that targeted an activation the router already superseded is
+        // a benign navigation race, not a misconfiguration.
+        ShellCommandRejection::StaleActivation(activation_id) => {
+            debug!("shell command rejected — stale activation {activation_id:?}");
+        }
+        // Host misconfiguration or a load-commit contract violation: an author or
+        // integrator error the external consumer needs to see loudly.
+        other => error!("shell command rejected: {other:?}"),
+    }
+}
+
+fn start_or_stop_sequence(
+    mut events: MessageReader<ShellEvent>,
+    catalog: Res<ShellSequenceCatalog>,
+    mut active: ResMut<ActiveShellSequence>,
+) {
+    for event in events.read() {
+        match event {
+            ShellEvent::RouteActivated(route) => {
+                if let Some(spec) = catalog.get(&route.experience_id) {
+                    active.activation_id = Some(route.activation_id);
+                    active.runtime = Some(ShellSequenceRuntime::new(spec.clone()));
+                }
+            }
+            ShellEvent::RouteDeactivated(route)
+                if active.activation_id == Some(route.activation_id) =>
+            {
+                active.activation_id = None;
+                active.runtime = None;
+            }
+            _ => {}
+        }
+    }
+}
+
+fn drive_sequence(
+    time: Res<Time>,
+    mut active: ResMut<ActiveShellSequence>,
+    mut shell: MessageWriter<ShellCommand>,
+) {
+    let Some(activation_id) = active.activation_id else {
+        return;
+    };
+    let Some(runtime) = active.runtime.as_mut() else {
+        return;
+    };
+    if runtime.tick(std::time::Duration::from_secs_f32(time.delta_secs())) || runtime.finished {
+        shell.write(ShellCommand::ExperienceCompleted { activation_id });
+        active.activation_id = None;
+        active.runtime = None;
+    }
+}
+
+fn process_sequence_commands(
+    mut commands: MessageReader<ShellSequenceCommand>,
+    mut active: ResMut<ActiveShellSequence>,
+    mut shell: MessageWriter<ShellCommand>,
+) {
+    for command in commands.read() {
+        let Some(active_id) = active.activation_id else {
+            continue;
+        };
+        let target_id = match command {
+            ShellSequenceCommand::Skip { activation_id }
+            | ShellSequenceCommand::Acknowledge { activation_id }
+            | ShellSequenceCommand::ProgrammaticSegmentCompleted { activation_id, .. }
+            | ShellSequenceCommand::ProgrammaticSegmentFailed { activation_id, .. } => {
+                *activation_id
+            }
+        };
+        if target_id != active_id {
+            continue;
+        }
+
+        let mut failure = None;
+        let completed = {
+            let Some(runtime) = active.runtime.as_mut() else {
+                continue;
+            };
+            let current_segment = runtime.current().map(|segment| segment.id.clone());
+            let advanced = match command {
+                ShellSequenceCommand::Skip { .. } => runtime.skip(),
+                ShellSequenceCommand::Acknowledge { .. } => runtime.acknowledge(),
+                ShellSequenceCommand::ProgrammaticSegmentCompleted { segment_id, .. }
+                    if current_segment.as_ref() == Some(segment_id) =>
+                {
+                    runtime.complete_programmatic_segment()
+                }
+                ShellSequenceCommand::ProgrammaticSegmentFailed {
+                    segment_id,
+                    message,
+                    ..
+                } if current_segment.as_ref() == Some(segment_id) => {
+                    failure = Some(message.clone());
+                    false
+                }
+                ShellSequenceCommand::ProgrammaticSegmentCompleted { .. }
+                | ShellSequenceCommand::ProgrammaticSegmentFailed { .. } => false,
+            };
+            advanced || runtime.finished
+        };
+
+        if let Some(message) = failure {
+            shell.write(ShellCommand::ExperienceFailed {
+                activation_id: active_id,
+                message,
+            });
+            active.activation_id = None;
+            active.runtime = None;
+            continue;
+        }
+        if completed {
+            shell.write(ShellCommand::ExperienceCompleted {
+                activation_id: active_id,
+            });
+            active.activation_id = None;
+            active.runtime = None;
+        }
+    }
+}
+
+fn cleanup_segment_scoped_entities(
+    mut commands: Commands,
+    active: Res<ActiveShellSequence>,
+    entities: Query<(bevy::prelude::Entity, &ShellSegmentScopedEntity)>,
+) {
+    let current = active
+        .runtime
+        .as_ref()
+        .and_then(|runtime| runtime.current())
+        .and_then(|segment| {
+            active
+                .activation_id
+                .map(|activation_id| (activation_id, &segment.id))
+        });
+    for (entity, scope) in &entities {
+        let owned_by_current = current.is_some_and(|(activation_id, segment_id)| {
+            scope.activation_id == activation_id && &scope.segment_id == segment_id
+        });
+        if !owned_by_current {
+            commands.entity(entity).despawn();
+        }
+    }
+}
+
+fn sync_launcher_activation(
+    router: Res<ShellRouter>,
+    catalog: Res<ShellLaunchCatalog>,
+    presentation: Res<ShellLauncherPresentation>,
+    mut state: ResMut<ShellLauncherState>,
+) {
+    let active = router
+        .active
+        .as_ref()
+        .is_some_and(|active| active.experience_id.as_str() == BASIC_LAUNCHER_EXPERIENCE);
+    if state.active != active {
+        state.active = active;
+        state.selected = 0;
+    }
+    if state.active {
+        // Selection space: the available experiences plus the built-in Exit
+        // row (when the presentation shows one).
+        let available = catalog
+            .entries
+            .iter()
+            .filter(|entry| entry.available)
+            .count();
+        let selectable = available + usize::from(presentation.exit_label.is_some());
+        state.selected = state.selected.min(selectable.saturating_sub(1));
+    }
+}
+
+fn process_launcher_commands(
+    mut commands: MessageReader<ShellLauncherCommand>,
+    catalog: Res<ShellLaunchCatalog>,
+    presentation: Res<ShellLauncherPresentation>,
+    mut state: ResMut<ShellLauncherState>,
+    mut shell: MessageWriter<ShellCommand>,
+    // ⚠ `Option`: a thin composition may not carry user settings, and a title
+    // screen that refuses to open because nobody registered a volume would be a
+    // worse failure than a settings tab that cannot change one.
+    mut settings: Option<ResMut<ambition_persistence::settings::UserSettings>>,
+) {
+    if !state.active {
+        return;
+    }
+    let available: Vec<_> = catalog
+        .entries
+        .iter()
+        .filter(|entry| entry.available)
+        .collect();
+    // The Exit row sits after the last available experience.
+    let exit_index = presentation.exit_label.is_some().then_some(available.len());
+    let selectable = available.len() + usize::from(exit_index.is_some());
+    // ⛔ NOT AN EARLY RETURN ANY MORE. With no launchable row this bailed before
+    // reading a single command -- which was fine when every command was about
+    // the game list, and silently disables the SETTINGS tab now that one exists.
+    // A build with an empty catalog is exactly where a player still wants the
+    // volume controls.
+    let has_launchable = selectable > 0;
+    for command in commands.read() {
+        match command {
+            // ⛔ THE SECOND COPY OF THE SAME ARITHMETIC. This wrote
+            // `checked_sub(1).unwrap_or(len - 1)` and `(selected + 1) % len`
+            // by hand, which is exactly `ListCursor`'s wrap — the pause menu
+            // hand-rolled its own answer to the same question and DISAGREED
+            // (it clamped), which is why that crate exists. Two menus agreeing
+            // by coincidence is one edit away from two menus disagreeing.
+            //
+            // ⭐ AND IT CLAMPS FIRST NOW, which the old `Previous` did not: a
+            // `selected` left over from a longer roster (an experience became
+            // unavailable) walked from a stale index. `LaunchSelected` below
+            // already defended against exactly that with `.min(selectable - 1)`.
+            // ⭐ The tab strip cycles with wraparound, and the arithmetic lives
+            // on `LauncherTab` rather than here -- the comment below is about a
+            // second copy of cursor arithmetic, and a second copy of TAB
+            // arithmetic would be the same mistake one strip over.
+            ShellLauncherCommand::CycleTab(bump) => {
+                state.tab = state.tab.cycled(*bump);
+                // ⚠ The row cursor is per-tab in meaning but shared in storage,
+                // so a stale index from the longer tab would land somewhere
+                // arbitrary. Home re-clamps below on every move; Settings starts
+                // at its first row.
+                state.selected = 0;
+            }
+            ShellLauncherCommand::SelectRow(row) => {
+                state.selected = *row;
+            }
+            // ⭐ The adjust LAW stays in `ShellAudioControl`, which the pause
+            // menu already uses. Two surfaces offering the same four controls
+            // must change them the same way, and the only way to guarantee that
+            // is for there to be one implementation.
+            ShellLauncherCommand::AdjustSetting(direction) => {
+                if let Some(control) = ShellAudioControl::ALL.get(state.selected) {
+                    if let Some(settings) = settings.as_mut() {
+                        control.adjust(*direction, settings);
+                    }
+                }
+            }
+            // ⚠ The list arms are the ones that needed the old early return, and
+            // they keep it -- as a GUARD on themselves rather than on the whole
+            // command loop, so a tab or a volume still works with no games.
+            ShellLauncherCommand::Previous | ShellLauncherCommand::Next => {
+                // ⚠ Guarded INSIDE the arm, not as a match guard: a guard clause
+                // makes this `match` non-exhaustive, and the only way back is a
+                // catch-all -- which would silently swallow the next command
+                // somebody adds. The exhaustive destructure is the thing that
+                // caught `CycleTab`, `SelectRow` and `AdjustSetting` on the way
+                // in, and it is worth more than the tidier syntax.
+                if !has_launchable {
+                    continue;
+                }
+                let mut cursor = ambition_ui_nav::ListCursor::new(state.selected, selectable);
+                cursor.apply_directional(
+                    matches!(command, ShellLauncherCommand::Previous),
+                    matches!(command, ShellLauncherCommand::Next),
+                );
+                state.selected = cursor.selected();
+            }
+            ShellLauncherCommand::LaunchSelected => {
+                let selected = state.selected.min(selectable - 1);
+                if exit_index == Some(selected) {
+                    shell.write(ShellCommand::ExitProcess);
+                } else if let Some(entry) = available.get(selected) {
+                    shell.write(ShellCommand::GoTo(entry.route_id.clone()));
+                }
+            }
+            ShellLauncherCommand::Focus(index) => {
+                // Clamped, not ignored: the row count can shrink between the
+                // frame a pointer hovered and the frame this runs (an
+                // experience becoming unavailable), and a hover that lands out
+                // of range should settle on the last row rather than leave the
+                // cursor somewhere the pointer is not.
+                state.selected = (*index).min(selectable - 1);
+            }
+            ShellLauncherCommand::Activate(index) => {
+                let selected = (*index).min(selectable - 1);
+                state.selected = selected;
+                if exit_index == Some(selected) {
+                    shell.write(ShellCommand::ExitProcess);
+                } else if let Some(entry) = available.get(selected) {
+                    shell.write(ShellCommand::GoTo(entry.route_id.clone()));
+                }
+            }
+        }
+    }
+}

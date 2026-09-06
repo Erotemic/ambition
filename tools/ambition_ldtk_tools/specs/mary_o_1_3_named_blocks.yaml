@@ -1,0 +1,70 @@
+# mary_o_1_3's NAMED static collision — the pieces `area create` cannot author.
+#
+# `area create` LOWERS every `Solid` / `OneWayPlatform` / `BlinkWall` in its
+# `entities:` list into IntGrid cells, and `int_grid_value_to_block`
+# (crates/ambition_platformer2d_ldtk/src/intgrid.rs) names an IntGrid-derived
+# block `"ldtk solid"` / `"ldtk one-way"`. The author's `name` is DROPPED, with
+# no warning that anything was lost.
+#
+# Mary-O reads those names. `dress_authored_blocks` and
+# `scenery_for_authored_room` (game/ambition_demo_mary_o/src/lib.rs) key off
+# them, and `authored_pole` PANICS when the room has no `goal_pole` block:
+#
+#   goal_pole          -> the grab band + the shaft art, and the level's END
+#   goal_pole_knob     -> the finial   (shaft_top - 16, 16x16)
+#   goal_pole_banner   -> the flag     (shaft_top + 16, 16x32)
+#   vault_*            -> masonry paint (VAULT_MASONRY_PREFIX)
+#
+# So they are added as entity INSTANCES in a second pass. `entity add` does not
+# lower. Same two-pass shape 1-2's flagpole repair used
+# (mary_o_1_2_goal_pole_dressing.yaml).
+#
+#   PYTHONPATH=tools/ambition_ldtk_tools python3 -m ambition_ldtk_tools entity add \
+#       tools/ambition_ldtk_tools/specs/mary_o_1_3_named_blocks.yaml \
+#       --ldtk game/ambition_demo_mary_o/assets/worlds/mary_o.ldtk --in-place
+#
+# Offsets are 1-1's, re-based on this level's floor top (384 instead of 416):
+#   1-1 shaft [3136, 128] 16x288 -> bottom flush on the 416 floor
+#   1-3 shaft [1952, 160] 16x224 -> bottom flush on the 384 floor
+level_id: mary_o_1_3
+entities:
+  # The cellar the warp tube leads into: an island of masonry hanging in the
+  # void under the surface rock, the same shape 1-1's coin vault is.
+  # THE CELLAR STARTS AT 736, NOT AT THE PIT. The surface pit is 640..736, and
+  # a cellar floor under it would catch the fall — which turns a death pit into a
+  # one-way trip into a room whose only exit is a warp tube. Starting the masonry
+  # where segment B starts leaves the pit column open to the bottom of the level,
+  # so a miss resets to spawn exactly as 1-1's three pits do, and the cellar stays
+  # what it is meant to be: reachable only through the tube.
+  - type: Solid
+    px: [736, 480]
+    size: [32, 224]
+    fields:
+      name: vault_wall_0
+  - type: Solid
+    px: [1120, 480]
+    size: [32, 224]
+    fields:
+      name: vault_wall_1
+  - type: Solid
+    px: [736, 704]
+    size: [416, 32]
+    fields:
+      name: vault_floor
+  # The goal. Three blocks, because the pole's look is three props laid over
+  # one collision shaft.
+  - type: OneWayPlatform
+    px: [1952, 160]
+    size: [16, 224]
+    fields:
+      name: goal_pole
+  - type: OneWayPlatform
+    px: [1952, 144]
+    size: [16, 16]
+    fields:
+      name: goal_pole_knob
+  - type: OneWayPlatform
+    px: [1952, 176]
+    size: [16, 32]
+    fields:
+      name: goal_pole_banner

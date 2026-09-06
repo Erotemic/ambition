@@ -1,0 +1,15 @@
+# The engine repo's `.cargo/config.toml` sits above this directory, so without
+# an override here cargo would inherit its `target-dir` and co-mingle this
+# INDEPENDENT resolution's artifacts with the workspace's. The two graphs
+# resolve the same crates with different feature sets; sharing one target dir
+# lets an interleaved workspace build poison this one with same-version,
+# different-instance dependency artifacts ("multiple different versions of
+# crate `bevy_ecs`" on crates that compiled fine minutes earlier).
+#
+# The path is config-relative (cargo resolves it against the directory holding
+# this `.cargo`), so it lands in the workspace's own `target/` — which
+# `scripts/setup/target_bindmount.sh` may have bound to fast local storage.
+# ⛔ It must NOT be an absolute machine path: this file used to name one, and it
+# stopped resolving the day the parent config dropped its own.
+[build]
+target-dir = "../../target/outlander"

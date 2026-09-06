@@ -1,0 +1,27 @@
+type: ipfs-sidecar
+cid: bafybeiepzzdbjn6ptpd2u3tnurvmy6qvw7jb53vlev5nmnhndn6co5xxpy
+rel_path: manual-art
+size: 49.68 KiB
+num_items: 3
+add_config:
+  path: manual-art/
+  name: null
+  recursive: true
+  progress: true
+  cid_version: 1
+  raw_leaves: false
+  only_hash: false
+  pin: true
+  sidecar: true
+  update_gitignore: true
+  git_add_sidecar: true
+  dry_run: false
+add_datetime: 2026-07-27T104546-5
+add_duration: 2.452808625996113
+local_quickstat:
+  kind: dir
+  bytes: 50869
+  mtime: 1785095942.6247852
+  nfiles: 2
+pin_name: pkg:github/Erotemic/ambition#assets/manual-art
+pin_name_source: generated

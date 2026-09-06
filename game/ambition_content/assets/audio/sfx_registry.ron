@@ -1,0 +1,71 @@
+// Ambition SFX registry — procedural sound-design synthesis specs.
+//
+// Hand-authored: one entry per typed cue (waveform / envelope / pitch
+// sweep) plus the synth sample rate. Deliberately separate from
+// music_registry.ron — SFX and music are different concerns. Parsed into
+// `ambition_audio::spec::SfxRegistry`.
+//
+// Note: the runtime prefers packed SFX-bank clips (audio/sfx.bank) when
+// present; these specs are the procedural fallback / source of truth for
+// the cue set.
+(
+    sample_rate: 44100,
+    sfx: [
+        (cue: Some(Jump), waveform: Sine, frequency: 460.0, frequency_end: 720.0, duration: 0.085, volume: 0.22, attack: 0.003, release: 0.045, noise: 0.0),
+        (cue: Some(DoubleJump), waveform: Triangle, frequency: 520.0, frequency_end: 940.0, duration: 0.115, volume: 0.22, attack: 0.003, release: 0.045, noise: 0.0),
+        (cue: Some(Dash), waveform: Saw, frequency: 260.0, frequency_end: 110.0, duration: 0.105, volume: 0.18, attack: 0.003, release: 0.045, noise: 0.0),
+        (cue: Some(Blink), waveform: Triangle, frequency: 740.0, frequency_end: 260.0, duration: 0.090, volume: 0.18, attack: 0.003, release: 0.045, noise: 0.0),
+        (cue: Some(PrecisionBlink), waveform: Sine, frequency: 880.0, frequency_end: 180.0, duration: 0.160, volume: 0.20, attack: 0.003, release: 0.045, noise: 0.08),
+        (cue: Some(Slash), waveform: Square, frequency: 620.0, frequency_end: 340.0, duration: 0.075, volume: 0.16, attack: 0.003, release: 0.045, noise: 0.0),
+        (cue: Some(Hit), waveform: Triangle, frequency: 220.0, frequency_end: 88.0, duration: 0.105, volume: 0.26, attack: 0.003, release: 0.045, noise: 0.44),
+        (cue: Some(Pogo), waveform: Sine, frequency: 360.0, frequency_end: 880.0, duration: 0.105, volume: 0.22, attack: 0.003, release: 0.045, noise: 0.0),
+        (cue: Some(Reset), waveform: Sine, frequency: 160.0, frequency_end: 90.0, duration: 0.150, volume: 0.16, attack: 0.003, release: 0.045, noise: 0.0),
+        (cue: Some(Death), waveform: Saw, frequency: 140.0, frequency_end: 48.0, duration: 0.220, volume: 0.24, attack: 0.003, release: 0.045, noise: 0.18),
+        (cue: Some(Respawn), waveform: Triangle, frequency: 440.0, frequency_end: 660.0, duration: 0.145, volume: 0.20, attack: 0.003, release: 0.045, noise: 0.0),
+
+        // The canonical robot protagonist's DRY SWING — the whiff every attack
+        // fires from its move event, whether or not the blade connects. Authored
+        // by id, like the host cues below, because it is not one of the typed
+        // engine cues.
+        //
+        //  it was silent from 2026-07-26 to 2026-08-02. `apply_player_robot_slash_sfx`
+        // swaps the generic `player.slash` for this id on every attack move, and
+        // `player.slash` is authored here (typed `Slash`) while this id was not.
+        // A source's authorized set is `registry cue ids ∪ bank ids`, so the swap
+        // moved the swing off a cue authorized unconditionally and onto one that
+        // is authorized only while the packed bank is loaded — and a rejected cue
+        // is counted, not heard.
+        //
+        // Noise-dominated with a fast downward sweep: this is air moving, not a
+        // struck surface. The impact cues stay separate and only fire on contact.
+        (id: Some("player.robot.slash.air"), waveform: Saw, frequency: 900.0, frequency_end: 300.0, duration: 0.090, volume: 0.14, attack: 0.002, release: 0.050, noise: 0.70),
+
+        // A caught parry: a bright metallic clang that RISES, so it reads as
+        // deflection rather than as another impact. Clean — no noise at all —
+        // because everything else in a contact exchange is noisy and this beat
+        // has to be the one that stands out of it.
+        (id: Some("player.parry"), waveform: Triangle, frequency: 1180.0, frequency_end: 1760.0, duration: 0.110, volume: 0.20, attack: 0.001, release: 0.070, noise: 0.0),
+
+        // A successful tech: a short, hard, bright clack with a fast upward
+        // snap. It has to cut through the hit that caused it, land in well
+        // under a tenth of a second, and never be mistaken for the getup
+        // roll's dash whoosh.
+        (id: Some("player.tech"), waveform: Square, frequency: 520.0, frequency_end: 880.0, duration: 0.050, volume: 0.19, attack: 0.001, release: 0.028, noise: 0.30),
+
+        // The two beats of a held smash. The LATCH is a mechanical cock —
+        // noise-heavy, low, and over in a twentieth of a second, so it reads as
+        // a mechanism catching rather than as a hit. The LOADED lock answers it
+        // an octave and a half up with no noise at all, because "this is as far
+        // as it goes" has to cut through a busy match and must never be
+        // mistaken for the charge starting again.
+        (id: Some("player.smash_charge.latch"), waveform: Square, frequency: 300.0, frequency_end: 170.0, duration: 0.055, volume: 0.17, attack: 0.001, release: 0.030, noise: 0.55),
+        (id: Some("player.smash_charge.loaded"), waveform: Sine, frequency: 900.0, frequency_end: 1240.0, duration: 0.070, volume: 0.16, attack: 0.002, release: 0.040, noise: 0.0),
+
+        // Host/frontend cues are authored by id so shell experiences use the
+        // same provider-relative procedural path as gameplay. A packed bank may
+        // override these with higher-fidelity samples when present.
+        (id: Some("ui.menu.move_icon"), waveform: Triangle, frequency: 520.0, frequency_end: 680.0, duration: 0.055, volume: 0.16, attack: 0.002, release: 0.025, noise: 0.0),
+        (id: Some("ui.menu.accept"), waveform: Sine, frequency: 620.0, frequency_end: 920.0, duration: 0.090, volume: 0.18, attack: 0.002, release: 0.040, noise: 0.0),
+        (id: Some("ui.menu.back"), waveform: Triangle, frequency: 520.0, frequency_end: 260.0, duration: 0.085, volume: 0.16, attack: 0.002, release: 0.040, noise: 0.02),
+    ],
+)

@@ -1,0 +1,61 @@
+title: ninja_duelist
+---
+Duelist: Quiet. The Leader is meditating. Slam the door and I have to kill you. ...Good. You managed it. What do you want?
+-> Heard you're working with pirates now.
+    <<jump ninja_duelist__1>>
+-> Any tips for the bird?
+    <<jump ninja_duelist__2>>
+-> Carry on.
+===
+
+title: ninja_duelist__1
+---
+Duelist: Temporary. Bird first, pirates later. I can smell the cove from here.
+-> Ask another question.
+    <<jump ninja_duelist>>
+-> Carry on.
+===
+
+title: ninja_duelist__2
+---
+Duelist: It steals voices. Wait for the gap after it calls, then go. If it starts sounding like you, stop listening.
+-> Ask another question.
+    <<jump ninja_duelist>>
+-> Carry on.
+===
+
+title: ninja_leader
+---
+Shadow Oni: You came in without invitation. I have not decided whether that was nerve or skill. The Mockingbird stole one of our katas. It dies for that. The pirates happen to want the same bird.
+-> Why team up with the pirates?
+    <<jump ninja_leader__1>>
+-> What's your grievance with the bird?
+    <<jump ninja_leader__2>>
+-> Where does the dojo stand on the cove?
+    <<jump ninja_leader__3>>
+-> Open the arena door.
+===
+
+title: ninja_leader__1
+---
+Shadow Oni: The Admiral keeps the east side. We take the roofs. Nobody sings at anyone, nobody touches anyone else's weapons, and this arrangement ends with the bird.
+-> Ask another question.
+    <<jump ninja_leader>>
+-> Open the arena door.
+===
+
+title: ninja_leader__2
+---
+Shadow Oni: It watched one morning lesson. At dawn it came back, did the kata in our courtyard, then laughed in my voice. I want its beak.
+-> Ask another question.
+    <<jump ninja_leader>>
+-> Open the arena door.
+===
+
+title: ninja_leader__3
+---
+Shadow Oni: Tell the Admiral we hold the eastern thermals. Afterward he goes back to his cove. I go back to wishing he had stayed there.
+-> Ask another question.
+    <<jump ninja_leader>>
+-> Open the arena door.
+===

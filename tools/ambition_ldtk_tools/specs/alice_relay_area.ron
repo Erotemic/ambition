@@ -1,0 +1,287 @@
+// alice_relay — Alice Map Alcove.
+//
+// Built as part of intro-v1 Task 04 ("Under-town cartography route").
+// Sits east of `under_town_pipes`, same row in the gridvania view,
+// so the path from drain → under-town → Alice reads as a coherent
+// eastward private route.
+//
+// Function: Alice gives the sealed route note and frames map
+// knowledge as something that can be protected or exposed. The room
+// is a small alcove with one warm NPC, a few labels naming the
+// progression beat, and a sealed private door whose label promises
+// it opens after Bob's field survey.
+//
+// Width 1024 keeps the world-row tidy. Height 768 matches
+// under_town_pipes for a clean side-scroll transition.
+//
+// Transitions:
+// - Left-edge EdgeExit `alice_from_under_town` ← under_town_pipes/under_town_to_alice
+// - Right-edge EdgeExit `alice_to_bob` → bob_relay/bob_from_alice
+// - Private return door (Task 08 wires it): currently a LockWall +
+//   label "MAP_SECRET: opens after Bob survey". Forward-declared so
+//   Task 08 can promote it to a real LoadingZone without rebuilding
+//   the alcove.
+//
+// Layout (1024×768):
+//
+//   +---------------------------------------------------+
+//   | ▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒ ceiling ▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒  |
+//   |                                                   |
+//   |   [Alice]                                         |  Alice alcove
+//   |   ←from pipes                          → to Bob  |
+//   |   ▒▒▒▒▒▒    P2: Sealed Route Note                 |
+//   |   ▒▒▒▒▒▒    Reward: Private Map Marks             |
+//   |             [private return — sealed]             |  LockWall placeholder
+//   |▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒ floor ▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒  |
+//   +---------------------------------------------------+
+
+(
+    id: "alice_relay",
+    level_id: "alice_relay",
+    world_x: 4928,
+    world_y: 1024,
+    px_wid: 1024,
+    px_hei: 768,
+    fill_collision: "empty",
+    bg_color: "#11161E",
+    biome: "cave",
+    music_track: "tech_bros_disruption",
+    entities: [
+        (
+            type: "Solid",
+            px: [
+                0,
+                736,
+            ],
+            size: [
+                1024,
+                32,
+            ],
+            fields: (
+                name: "floor",
+            ),
+        ),
+        (
+            type: "Solid",
+            px: [
+                16,
+                0,
+            ],
+            size: [
+                992,
+                32,
+            ],
+            fields: (
+                name: "ceiling",
+            ),
+        ),
+        (
+            type: "PlayerStart",
+            px: [
+                120,
+                690,
+            ],
+            size: [
+                28,
+                46,
+            ],
+            fields: (
+                name: "alice_relay_spawn",
+            ),
+        ),
+        (
+            type: "LoadingZone",
+            px: [
+                0,
+                560,
+            ],
+            size: [
+                16,
+                176,
+            ],
+            fields: (
+                id: "alice_from_under_town",
+                name: "alice_from_under_town",
+                activation: "EdgeExit",
+                target_room: "under_town_pipes",
+                target_zone: "under_town_to_alice",
+                bidirectional: true,
+            ),
+        ),
+        (
+            type: "LoadingZone",
+            px: [
+                1008,
+                560,
+            ],
+            size: [
+                16,
+                176,
+            ],
+            fields: (
+                id: "alice_to_bob",
+                name: "alice_to_bob",
+                activation: "EdgeExit",
+                target_room: "bob_relay",
+                target_zone: "bob_from_alice",
+                bidirectional: true,
+            ),
+        ),
+        (
+            type: "NpcSpawn",
+            px: [
+                320,
+                688,
+            ],
+            size: [
+                32,
+                48,
+            ],
+            fields: (
+                name: "Alice",
+                prompt: "Talk to Alice",
+                dialogue_id: "alice_intro_stub",
+            ),
+        ),
+        (
+            type: "Solid",
+            px: [
+                288,
+                656,
+            ],
+            size: [
+                128,
+                16,
+            ],
+            fields: (
+                name: "alice_bench",
+            ),
+        ),
+        (
+            type: "PickupSpawn",
+            px: [
+                400,
+                696,
+            ],
+            size: [
+                24,
+                24,
+            ],
+            fields: (
+                name: "alice_route_note",
+                kind: "flag:alice_route_note_carried",
+            ),
+        ),
+        (
+            type: "DebugLabel",
+            px: [
+                40,
+                96,
+            ],
+            size: [
+                400,
+                24,
+            ],
+            fields: (
+                name: "alice_quote_official_maps",
+                text: "Alice: \"Official maps are for people who enjoy being found.\"",
+                category: "Custom",
+            ),
+        ),
+        (
+            type: "DebugLabel",
+            px: [
+                40,
+                128,
+            ],
+            size: [
+                400,
+                24,
+            ],
+            fields: (
+                name: "alice_quote_carry_to_bob",
+                text: "Alice: \"Carry this to Bob. Do not unfold it where the walls can read.\"",
+                category: "Custom",
+            ),
+        ),
+        (
+            type: "DebugLabel",
+            px: [
+                40,
+                320,
+            ],
+            size: [
+                400,
+                24,
+            ],
+            fields: (
+                name: "alice_label_p2_note",
+                text: "P2: Alice's Sealed Route Note",
+                category: "Custom",
+            ),
+        ),
+        (
+            type: "DebugLabel",
+            px: [
+                40,
+                352,
+            ],
+            size: [
+                400,
+                24,
+            ],
+            fields: (
+                name: "alice_label_map_reward",
+                text: "Reward: Private Map Marks (Task 08 wires unlock)",
+                category: "Custom",
+            ),
+        ),
+        (
+            type: "LockWall",
+            px: [
+                800,
+                624,
+            ],
+            size: [
+                96,
+                112,
+            ],
+            fields: (
+                id: "alice_private_return_lock",
+                name: "alice_private_return_lock",
+            ),
+        ),
+        (
+            type: "DebugLabel",
+            px: [
+                768,
+                600,
+            ],
+            size: [
+                240,
+                24,
+            ],
+            fields: (
+                name: "alice_private_return_label",
+                text: "MAP_SECRET: opens after Bob survey",
+                category: "Custom",
+            ),
+        ),
+        (
+            type: "CameraZone",
+            px: [
+                0,
+                0,
+            ],
+            size: [
+                1024,
+                768,
+            ],
+            fields: (
+                id: "alice_relay_camera",
+                name: "alice_relay_camera",
+                mode: "Default",
+            ),
+        ),
+    ],
+)

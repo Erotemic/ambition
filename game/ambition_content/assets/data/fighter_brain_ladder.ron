@@ -1,0 +1,46 @@
+// Fighter-brain difficulty rows. Validation requires reaction/APM/noise to be
+// monotone and reaction to stay nonzero. `reaction_ms` controls the delayed
+// perception buffer. Rollout fields remain zero until rollout fidelity is good
+// enough to enable them without changing lower-level behavior. Utility weights
+// are authored difficulty parameters; low levels intentionally omit some cues.
+[
+    // Level 1 — half a second late, barely acts, sprays. Reads nothing.
+    (level: 1, reaction_ms: 500.0, apm_cap:  60.0, execution_noise: 0.40,
+     rollout_depth: 0, rollout_k: 0, read_weight: 0.0,
+     utility_weights: (reach_fit: 1.0, frame_advantage: 0.10, kill_potential: 0.00, stage_risk: -0.10, expected_payoff: 0.00)),
+
+    (level: 2, reaction_ms: 450.0, apm_cap:  90.0, execution_noise: 0.35,
+     rollout_depth: 0, rollout_k: 0, read_weight: 0.0,
+     utility_weights: (reach_fit: 1.0, frame_advantage: 0.20, kill_potential: 0.00, stage_risk: -0.20, expected_payoff: 0.00)),
+
+    (level: 3, reaction_ms: 400.0, apm_cap: 120.0, execution_noise: 0.30,
+     rollout_depth: 0, rollout_k: 0, read_weight: 0.0,
+     utility_weights: (reach_fit: 1.0, frame_advantage: 0.30, kill_potential: 0.10, stage_risk: -0.30, expected_payoff: 0.10)),
+
+    // Level 4 — the first rung that notices the opponent has habits.
+    (level: 4, reaction_ms: 350.0, apm_cap: 160.0, execution_noise: 0.25,
+     rollout_depth: 0, rollout_k: 0, read_weight: 0.1,
+     utility_weights: (reach_fit: 1.0, frame_advantage: 0.40, kill_potential: 0.20, stage_risk: -0.40, expected_payoff: 0.20)),
+
+    (level: 5, reaction_ms: 300.0, apm_cap: 200.0, execution_noise: 0.20,
+     rollout_depth: 0, rollout_k: 0, read_weight: 0.2,
+     utility_weights: (reach_fit: 1.0, frame_advantage: 0.50, kill_potential: 0.30, stage_risk: -0.50, expected_payoff: 0.30)),
+
+    (level: 6, reaction_ms: 260.0, apm_cap: 240.0, execution_noise: 0.16,
+     rollout_depth: 0, rollout_k: 0, read_weight: 0.3,
+     utility_weights: (reach_fit: 1.0, frame_advantage: 0.60, kill_potential: 0.40, stage_risk: -0.60, expected_payoff: 0.40)),
+
+    (level: 7, reaction_ms: 220.0, apm_cap: 280.0, execution_noise: 0.12,
+     rollout_depth: 0, rollout_k: 0, read_weight: 0.5,
+     utility_weights: (reach_fit: 1.0, frame_advantage: 0.60, kill_potential: 0.40, stage_risk: -0.70, expected_payoff: 0.45)),
+
+    (level: 8, reaction_ms: 185.0, apm_cap: 320.0, execution_noise: 0.08,
+     rollout_depth: 0, rollout_k: 0, read_weight: 0.7,
+     utility_weights: (reach_fit: 1.0, frame_advantage: 0.60, kill_potential: 0.40, stage_risk: -0.80, expected_payoff: 0.50)),
+
+    // Level 9 — 150ms, nine ticks at 60Hz. A very good human's reaction time, not
+    // zero. Its skill is the read (`read_weight: 1.0`), not the reflex.
+    (level: 9, reaction_ms: 150.0, apm_cap: 360.0, execution_noise: 0.05,
+     rollout_depth: 0, rollout_k: 0, read_weight: 1.0,
+     utility_weights: (reach_fit: 1.0, frame_advantage: 0.60, kill_potential: 0.40, stage_risk: -0.80, expected_payoff: 0.50)),
+]

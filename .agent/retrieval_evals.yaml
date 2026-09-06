@@ -1,0 +1,157 @@
+schema_version: 3
+source: dev/benchmark-candidates
+purpose: >-
+  Repository-specific retrieval and localization checks. These are not gameplay
+  correctness benchmarks; they check whether an agent can find the right
+  concepts, files, memory entries, tools, and validation commands before editing.
+
+evals:
+  - id: bevy-native-data-driven-ecs
+    question: An old doc suggests adding a backend-neutral adapter or a RON room manifest. What current decision supersedes that?
+    expected_concepts:
+      - bevy-native-data-driven-ecs
+    expected_docs:
+      - docs/adr/0002-engine-must-be-bevy-native.md
+      - docs/adr/0003-data-specs-and-asset-loading.md
+      - docs/adr/0009-world-composition-and-ldtk-authoring.md
+    expected_answer_contains:
+      - Bevy-native
+      - LDtk
+      - ECS
+
+  - id: platform-sensitive-feature-change
+    question: A patch touches input, assets, or app features. Which platform docs should be consulted before editing?
+    expected_concepts:
+      - platform-targets
+    expected_docs:
+      - docs/recipes/web-build.md
+      - docs/recipes/android-build.md
+      - docs/systems/input-control-and-ui.md
+      - docs/systems/asset-manager.md
+      - docs/tools/index.md
+    expected_answer_contains:
+      - web
+      - Android
+      - Steam Deck
+      - touch
+
+  - id: tool-lookup-ldtk-area
+    question: The agent needs to add or repair an LDtk area. What tool and docs should it use instead of hand-editing JSON?
+    expected_concepts:
+      - tools-and-generated-content
+      - ldtk-world-composition
+    expected_docs:
+      - docs/tools/index.md
+      - docs/tools/ldtk-tools.md
+      - docs/recipes/ldtk-authoring.md
+    expected_answer_contains:
+      - ambition_ldtk_tools
+      - validate
+      - repair
+
+  - id: movement-wall-cling-teleport
+    question: The player teleports upward while wall-clinging or sweeping near an edge. What should I read, edit, and test?
+    expected_concepts:
+      - movement-collision
+    expected_memory:
+      - dev/journals/movement-edge-touch-y-sweep-lessons-2026-05-11.md
+      - dev/benchmark-candidates/movement-edge-touch-y-sweep-question-2026-05-11.md
+    expected_files:
+      - crates/ambition_engine/src/kinematic.rs
+      - crates/ambition_engine/src/movement.rs
+    expected_tests_contains:
+      - wall
+      - repro_walls
+
+  - id: mechanics-checklist-status
+    question: Are up slash, down slash, projectiles, and shield still TODOs or already expressible?
+    expected_docs:
+      - docs/mechanics/expressibility-checklist.md
+      - docs/concepts/movement-collision.md
+    expected_answer_contains:
+      - upward slash
+      - downward slash
+      - projectile
+      - shield
+
+  - id: rust-module-split-import-closure
+    question: A Rust module split compiles locally in one file but breaks helper methods, extension traits, or private imports elsewhere. What prior trap applies?
+    expected_concepts:
+      - rust-module-boundaries
+    expected_memory:
+      - dev/journals/rust-module-split-import-visibility-lessons-2026-05-11.md
+      - dev/benchmark-candidates/rust-module-split-subtle-review-question-2026-05-11.md
+    expected_answer_contains:
+      - re-export
+      - extension trait
+      - visibility
+
+  - id: ldtk-runtime-collision
+    question: LDtk levels load visually but collision or loading-zone behavior is wrong at runtime. Which docs and memory should the agent retrieve?
+    expected_concepts:
+      - ldtk-world-composition
+    expected_docs:
+      - docs/systems/ldtk-world-composition.md
+      - docs/recipes/ldtk-authoring.md
+      - docs/adr/0009-world-composition-and-ldtk-authoring.md
+      - docs/tools/ldtk-tools.md
+    expected_memory:
+      - dev/benchmark-candidates/ldtk-runtime-collision-questions.md
+
+  - id: generated-audio-refactor
+    question: A music director or generated-audio refactor breaks imports, balances, or runtime cue behavior. What should be searched first?
+    expected_concepts:
+      - generated-assets-audio
+      - sim-presentation-seam
+      - tools-and-generated-content
+    expected_memory:
+      - dev/journals/music-director-refactor-lessons-2026-05-11.md
+      - dev/benchmark-candidates/music-director-module-split-question-2026-05-11.md
+    expected_docs:
+      - docs/recipes/generated-music-workflow.md
+      - docs/tools/generated-audio-tools.md
+      - docs/systems/asset-manager.md
+
+  - id: cargo-test-filter
+    question: The agent wants to run multiple cargo test filters in one command. What lesson prevents the bad command?
+    expected_memory:
+      - dev/journals/cargo-test-command-lessons-2026-05-11.md
+      - dev/benchmark-candidates/cargo-test-single-filter-question-2026-05-11.md
+    expected_answer_contains:
+      - one filter
+      - cargo test
+
+  - id: stale-overlay-feature-events-api
+    question: An overlay replaces broad files and may clobber typed events or platform entrypoints. What pre-flight checks apply?
+    expected_concepts:
+      - patch-overlays-and-repo-state
+      - sim-presentation-seam
+      - platform-targets
+    expected_memory:
+      - dev/benchmark-candidates/overlay-stale-feature-events-api-question-2026-05-12.md
+    expected_answer_contains:
+      - stale
+      - entrypoint
+      - validation
+
+  - id: collision-secondary-physics-boundary
+    question: Should a debris or prop change move the player controller to Avian2D?
+    expected_docs:
+      - docs/adr/0007-avian2d-secondary-physics.md
+      - docs/systems/collision-geometry-and-secondary-physics.md
+    expected_answer_contains:
+      - secondary physics
+      - player controller
+      - kinematic
+
+  - id: tool-inventory-generated-assets
+    question: Which tools generate audio, sprites, backgrounds, parallax assets, and reports?
+    expected_docs:
+      - docs/tools/index.md
+      - docs/tools/generated-audio-tools.md
+      - docs/tools/generated-visual-tools.md
+      - docs/tools/optimization-and-reporting.md
+    expected_answer_contains:
+      - ambition_music_renderer
+      - ambition_sprite2d_renderer
+      - optimization_report

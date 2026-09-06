@@ -1,0 +1,145 @@
+// trex_arena — boss arena for the T-Rex (canon: Jon — a grounded bipedal boss to
+// flex the player/boss unification). Reached from the Hall of Bosses gallery.
+//
+// Behaviour + encounter are data-authored:
+//   assets/data/boss_profiles.ron  (grounded charge + stomp/bite/sweep)
+//   assets/data/boss_encounters/trex_boss.ron (HP/phases/music)
+// The trex sprite (trex_enemy_spritesheet) isn't boss-wired yet, so it renders
+// via the generic boss fallback until its sheet is added (BossSheetSpec + loader).
+//
+// A wide, low arena suits the grounded charger; the BossSpawn sits ON the floor.
+(
+    id: "trex_arena",
+    level_id: "trex_arena",
+    world_x: -14000,
+    world_y: 0,
+    px_wid: 1024,
+    px_hei: 640,
+    fill_collision: "empty",
+    bg_color: "#1A1614",
+    biome: "boss",
+    music_track: "dinosaur_liberators",
+    connect_to: [
+        (
+            target_room: "hall_of_bosses",
+            px: [
+                1190,
+                384,
+            ],
+            size: [
+                48,
+                96,
+            ],
+            id: "hall_to_trex_portal",
+            target_zone: "trex_arena_entry",
+            activation: "Door",
+            bidirectional: true,
+        ),
+    ],
+    entities: [
+        (
+            type: "Solid",
+            px: [
+                0,
+                608,
+            ],
+            size: [
+                1024,
+                32,
+            ],
+            fields: (
+                name: "floor",
+            ),
+        ),
+        (
+            type: "Solid",
+            px: [
+                0,
+                0,
+            ],
+            size: [
+                16,
+                608,
+            ],
+            fields: (
+                name: "left_wall",
+            ),
+        ),
+        (
+            type: "Solid",
+            px: [
+                1008,
+                0,
+            ],
+            size: [
+                16,
+                608,
+            ],
+            fields: (
+                name: "right_wall",
+            ),
+        ),
+        (
+            type: "Solid",
+            px: [
+                16,
+                0,
+            ],
+            size: [
+                992,
+                16,
+            ],
+            fields: (
+                name: "ceiling",
+            ),
+        ),
+        (
+            type: "PlayerStart",
+            px: [
+                96,
+                544,
+            ],
+            size: [
+                24,
+                48,
+            ],
+            fields: (
+                name: "trex_arena_spawn",
+            ),
+        ),
+        (
+            type: "LoadingZone",
+            px: [
+                160,
+                512,
+            ],
+            size: [
+                48,
+                96,
+            ],
+            fields: (
+                id: "trex_arena_entry",
+                name: "trex_arena_entry",
+                activation: "Door",
+                target_room: "hall_of_bosses",
+                target_zone: "hall_to_trex_portal",
+                bidirectional: true,
+            ),
+        ),
+        (
+            type: "BossSpawn",
+            px: [
+                620,
+                496,
+            ],
+            size: [
+                140,
+                112,
+            ],
+            fields: (
+                name: "T-Rex",
+                brain: "PhaseScript:trex_boss",
+            ),
+        ),
+    ],
+)

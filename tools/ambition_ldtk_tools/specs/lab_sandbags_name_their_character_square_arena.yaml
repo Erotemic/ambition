@@ -1,0 +1,14 @@
+# The square arena's indestructible dummy names its character.
+#
+# The sibling of `lab_sandbags_name_their_character.yaml`, split only because
+# `entity set-field` takes one `level_id` and the combat-feel lab's two dummies
+# are in two rooms. See that file for why `sandbag_infinite` is a second creature
+# rather than a flag on `sandbag`.
+#
+#   PYTHONPATH=tools/ambition_ldtk_tools python -m ambition_ldtk_tools entity set-field \
+#       tools/ambition_ldtk_tools/specs/lab_sandbags_name_their_character_square_arena.yaml \
+#       --ldtk game/ambition_content/assets/worlds/sandbox.ldtk --in-place
+level_id: square_arena
+edits:
+  - target: { iid: EnemySpawn-0095 }
+    fields: { character_id: "sandbag_infinite" }

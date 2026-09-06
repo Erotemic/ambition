@@ -1,0 +1,43 @@
+[package]
+name = "ambition_projectiles"
+version = "0.1.0"
+edition.workspace = true
+license.workspace = true
+authors.workspace = true
+description = "Reusable, content-free projectile MODEL: shot vocabulary, charge state, ECS projectile components, the unified ProjectileSpawnRequest materialization seam, and pure portal transit. Pure logic over the projectile-physics primitive; game ECS steppers consume it."
+
+[lib]
+crate-type = ["rlib"]
+
+[features]
+default = []
+portal = ["dep:ambition_portal2d"]
+
+[dependencies]
+# Geometry (Vec2 / Aabb / AabbExt / World) + the shared BodyKinematics body.
+ambition_platformer2d_core = { path = "../ambition_platformer2d_core" }
+# The generic projectile-physics primitive (spec / body / collision) the model
+# steps through, plus lifecycle/gravity/marker vocabulary.
+ambition_platformer2d_shared_tangle = { path = "../ambition_platformer2d_shared_tangle" }
+# Portal-aperture transit hooks (PlacedPortal + transit math).
+# Optional: a shot flies THROUGH a portal aperture, but a game with no
+# portals has none to fly through.
+ambition_portal2d = { path = "../ambition_portal2d", optional = true }
+# The composited collision world a shot flies through (gate solids + portal
+# carves). R3 moved that builder into the space IR, which is what let
+# `ProjectileCollisionWorld` come home (fable F2).
+ambition_platformer2d_world = { path = "../ambition_platformer2d_world" }
+# The flight-recorder event schema PlayerProjectileState emits into.
+ambition_gameplay_trace = { path = "../ambition_gameplay_trace" }
+# Motion-gesture recognition (Hadouken input buffer) — pure input logic.
+ambition_input = { path = "../ambition_input" }
+# Substrate-neutral authored spawn data carried by open projectile requests.
+ambition_projectile_spec = { path = "../ambition_projectile_spec" }
+ambition_sfx = { path = "../ambition_sfx" }
+# Presentation-only expiry vocabulary (`ProjectileExpiryBurst` -> Fx/VfxMessage).
+# Projectile spawning itself no longer travels through this crate.
+ambition_vfx = { path = "../ambition_vfx" }
+# Serde derives on the shot kind + visual-kind art descriptors (ron-room bake).
+serde = { workspace = true }
+# ECS derives plus logging used directly by `diagnostics.rs`.
+bevy = { version = "0.19.1", default-features = false, features = ["bevy_log"] }

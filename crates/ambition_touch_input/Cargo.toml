@@ -1,0 +1,59 @@
+[package]
+name = "ambition_touch_input"
+version = "0.1.0"
+edition.workspace = true
+license.workspace = true
+authors.workspace = true
+description = "Mobile / touch input for ambition: an always-built pure touch-state vocabulary plus a mobile_touch-gated HUD and Leafwing virtual-device adapter. Touch resolves through the persistent participant's bindings and contexts alongside keyboard/gamepad instead of writing semantic frames directly. Extracted from ambition_app for app-thinness (ADR 0019)."
+
+[lib]
+# rlib only: consumed by the ambition_app host. Packaging is the binary's job.
+crate-type = ["rlib"]
+
+[features]
+# Track 7 (touch semantics vs presentation): the pure `state` vocabulary is
+# ALWAYS built and depends only on the input/foundation seams. EVERYTHING
+# presentation / virtual-device-facing (the virtual-joystick
+# overlay, fonts, menu bridge, sim/actors reach) is `mobile_touch`-gated AND
+# its crates are optional, so a desktop / headless / RL consumer of the fold
+# compiles no render stack at all.
+default = []
+input = ["ambition_platformer2d_actor_monolith?/input", "ambition_render?/input", "dep:leafwing-input-manager"]
+mobile_touch = [
+    "input",
+    "dep:ambition_platformer2d_actor_monolith",
+    "ambition_platformer2d_actor_monolith/input",
+    "ambition_platformer2d_actor_monolith/mobile_touch",
+    "dep:ambition_sim_view",
+    "dep:ambition_render",
+    "ambition_render/input",
+    "dep:ambition_cutscene",
+    "dep:ambition_ui_nav",
+    "dep:ambition_persistence",
+    "dep:bevy",
+    "dep:virtual_joystick",
+]
+
+[dependencies]
+# The shared action/control vocabulary used by the virtual-device adapter.
+ambition_input = { path = "../ambition_input" }
+ambition_geometry = { path = "../ambition_geometry" }
+ambition_platformer2d_shared_tangle = { path = "../ambition_platformer2d_shared_tangle" }
+# The gated plugin/menu-bridge reach the sim + render + nav + cutscene layers.
+# All OPTIONAL (track 7): only the `mobile_touch` overlay/adapter half needs
+# them; the pure state vocabulary stands on the input seam alone.
+ambition_platformer2d_actor_monolith = { path = "../ambition_platformer2d_actor_monolith", default-features = false, optional = true }
+# The control-prompt read-model the overlay renders (label source; the actors
+# reach for glyph/pressed stays until P5).
+ambition_sim_view = { path = "../ambition_sim_view", optional = true }
+ambition_render = { path = "../ambition_render", optional = true }
+ambition_cutscene = { path = "../ambition_cutscene", optional = true }
+ambition_ui_nav = { path = "../ambition_ui_nav", optional = true }
+ambition_persistence = { path = "../ambition_persistence", optional = true }
+# The overlay half's UI/state features; the pure fold uses no Bevy at all.
+bevy = { version = "0.19.1", default-features = false, features = ["ui_api", "bevy_state"], optional = true }
+leafwing-input-manager = { version = "0.21", optional = true }
+virtual_joystick = { version = "2.8.0", default-features = false, optional = true }
+# The virtual-device input kinds (leafwing Buttonlike/DualAxislike over the
+# touch state) must serialize like every other leafwing user input.
+serde = { workspace = true }

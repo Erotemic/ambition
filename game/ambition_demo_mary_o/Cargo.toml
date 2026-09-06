@@ -1,0 +1,15 @@
+[package]
+name = "ambition_demo_mary_o"
+version = "0.1.0"
+edition.workspace = true
+license.workspace = true
+authors.workspace = true
+description = "Tiny Mary-O demo content home used as an oracle for the Ambition facade crate."
+
+[dependencies]
+ambition_platformer2d = { path = "../../crates/ambition_platformer2d", default-features = false, features = ["all_capabilities"] }
+# A content crate that defines its own ECS components/resources cannot reach
+# bevy's derive macros through `ambition_platformer2d::bevy` — they resolve `bevy_ecs` through
+# the CONSUMER's manifest, so a re-export does not satisfy them. The E9 oracle's
+# real claim: a downstream game names `ambition_platformer2d` + `bevy`, and NOTHING ELSE.
+bevy = { version = "0.19.1", default-features = false }

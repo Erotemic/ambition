@@ -1,0 +1,303 @@
+title: pirate_admiral
+---
+<<if boss_cleared("cove.mockingbird")>>
+    Admiral: Landstrider returns! There's our chest. Put it by the bar before Bess fires a salute through the roof. Drinks are on us tonight.
+    -> About the chest…
+        <<jump pirate_admiral_after_treasure__1>>
+    -> Anything else?
+        <<jump pirate_admiral_after_treasure__2>>
+    -> Carry on, Admiral.
+<<else>>
+    Admiral: Ahoy, landstrider. Ye caught us at low tide and lower tempers. Mockingbird took the iron chest straight off the bar and flew away with it. Aye, I know how that sounds.
+    -> What happened to the treasure?
+        <<jump pirate_admiral__1>>
+    -> Where can I find this Mockingbird?
+        <<jump pirate_admiral__2>>
+    -> Why don't your raiders handle it?
+        <<jump pirate_admiral__3>>
+    -> I'll bring it down.
+<<endif>>
+===
+
+title: pirate_admiral__1
+---
+Admiral: Mockingbird. Big as a mainsail and twice as mean. Took the chest, tore two boards loose, then apologized in my own voice. Nearly got shot for the apology.
+-> Ask another question.
+    <<jump pirate_admiral>>
+-> I'll bring it down.
+===
+
+title: pirate_admiral__2
+---
+Admiral: Back door, then up. You'll hear it before you see it. Bring me the chest. If the bird comes down too, better.
+-> Ask another question.
+    <<jump pirate_admiral>>
+-> I'll bring it down.
+===
+
+title: pirate_admiral__3
+---
+Admiral: Have you SEEN my raider? Cutlass in hand, bird twenty feet up. He spent an hour swearin' at it. Bird swore back.
+-> Ask another question.
+    <<jump pirate_admiral>>
+-> I'll bring it down.
+===
+
+title: pirate_admiral_after_treasure__1
+---
+Admiral: Three locks, and that bird picked every one with its beak. Keep what ye found inside. I'm not putting it back in the chest.
+-> Ask another question.
+    <<jump pirate_admiral>>
+-> Carry on, Admiral.
+===
+
+title: pirate_admiral_after_treasure__2
+---
+Admiral: Stay sharp, landstrider. Another feathered bastard steals our songs, I'm sending for ye before Bess loads the cannons.
+-> Ask another question.
+    <<jump pirate_admiral>>
+-> Carry on, Admiral.
+===
+
+title: pirate_heavy_broadside_bess
+---
+Broadside Bess: YARRRGH — wee skipper! Mind the cleaver, mind the cleaver! Bess be the loudest gun on this here cove, an' I will out-shout, out-shoot, an' out-drink anyone who says different. The Admiral, bless 'im, signs me chits an' covers his ears.
+-> What's a 'broadside', exactly?
+    <<jump pirate_heavy_broadside_bess__1>>
+-> How d'ye end up in this cove?
+    <<jump pirate_heavy_broadside_bess__2>>
+-> Carry on.
+===
+
+title: pirate_heavy_broadside_bess__1
+---
+Broadside Bess: A BROADSIDE, ye landlubber? Every gun on one side, all at once — BOOM, boom-boom-boom! Twelve of 'em when the deckhands remember powder. First time I fired one, the Mockingbird copied the noise for a week. Badly.
+-> Aye, another question.
+    <<jump pirate_heavy_broadside_bess>>
+-> Carry on.
+===
+
+title: pirate_heavy_broadside_bess__2
+---
+Broadside Bess: Three crews back I was gunner on the Stormpetrel. Captain told me to hold fire. Then the ship rolled, I fired, and he went over the rail swearin' my name all the way down. He swam back to port. I kept sailing. YARRRGH.
+-> Aye, another question.
+    <<jump pirate_heavy_broadside_bess>>
+-> Carry on.
+===
+
+title: pirate_heavy_iron_mary
+---
+Iron Mary: Hmmph. Iron Mary. Don't shake me hand, ye'll lose a finger. Admiral keeps me 'round when somethin' needs hittin'. Wee skipper, what brings ye to a cove full o' shouters?
+-> Why 'Iron'?
+    <<jump pirate_heavy_iron_mary__1>>
+-> Any tip for the bird?
+    <<jump pirate_heavy_iron_mary__2>>
+-> Carry on.
+===
+
+title: pirate_heavy_iron_mary__1
+---
+Iron Mary: This plate came off a navy cutter we sank. Good metal, so I dragged it home and bolted it to me leathers. First lot rattled. Put in twice as many. Hasn't rattled since.
+-> Another, then.
+    <<jump pirate_heavy_iron_mary>>
+-> Carry on.
+===
+
+title: pirate_heavy_iron_mary__2
+---
+Iron Mary: Get close. That bird hates close. Bring somethin' heavy, and if it starts talkin' in yer voice, keep swingin'.
+-> Another, then.
+    <<jump pirate_heavy_iron_mary>>
+-> Carry on.
+===
+
+title: pirate_heavy_salt_annet
+---
+Salt Annet: Yarrrr. Salt in me eyes again. In me coffee too. Sit a spell, wee skipper, but use the dry end o' the bench unless ye fancy a wet backside.
+-> How long ye been here?
+    <<jump pirate_heavy_salt_annet__1>>
+-> Got a shanty for me?
+    <<jump pirate_heavy_salt_annet__2>>
+-> Carry on.
+===
+
+title: pirate_heavy_salt_annet__1
+---
+Salt Annet: Signed on when the Admiral still fetched coffee. Three ships have rotted at this dock since. This bird won't get three ships out of me.
+-> One more, ye old salt.
+    <<jump pirate_heavy_salt_annet>>
+-> Carry on.
+===
+
+title: pirate_heavy_salt_annet__2
+---
+Salt Annet: (coughs, clears throat, sings) 'Yo-ho an' a barrel o' salt — yo-ho an' the captain's at fault — yo-ho an' the bird stole the chest — yo-ho an' we'll be GETTIN' it back — yarrgh.' Aye, I made the last verse up just now. Ye get what ye pay for in shanties, an' ye paid in a HALLO.
+-> One more, ye old salt.
+    <<jump pirate_heavy_salt_annet>>
+-> Carry on.
+===
+
+title: pirate_lookout
+---
+Lookout: Hist. Shark trouble brewin' aloft — riders been comin' about since first light. Same arc, then a sharp double-back when they reckon no one's watchin'. They reckon WRONG.
+-> What's on the horizon?
+    <<jump pirate_lookout__1>>
+-> Why be the crew so cross?
+    <<jump pirate_lookout__2>>
+-> ⟨climb past⟩
+===
+
+title: pirate_lookout__1
+---
+Lookout: Sky an' clouds, lubber. That cursed Mockingbird drops shanties from up yonder — riders dive at whatever twitches below. Mark me: when ye see one peel off the orbit an' reverse her heading, that be the dive — step PORT, smartly.
+-> Aught else, sentry?
+    <<jump pirate_lookout>>
+-> ⟨climb past⟩
+===
+
+title: pirate_lookout__2
+---
+Lookout: Quartermaster halved the salt pork. Six pirates, three burnin' sharks, half portions. Raider bit a spoon this mornin'. Keep yer hands where folk can see 'em.
+-> Aught else, sentry?
+    <<jump pirate_lookout>>
+-> ⟨climb past⟩
+===
+
+title: pirate_navigator
+---
+Navigator: Three sharks, three riders, three sets o' teeth. They orbit on station at altitude 'til somethin' they fancy steps onto the planks — that be you, lubber — then they peel off and broadside. Here be the rub: every few breaths they come about and reverse the orbit, so ye can't lead 'em like a duck shoot.
+-> What's their course aloft?
+    <<jump pirate_navigator__1>>
+-> How d'ye dodge their broadside?
+    <<jump pirate_navigator__2>>
+-> ⟨ready your blade⟩
+===
+
+title: pirate_navigator__1
+---
+Navigator: Three roles aloft, picked at sail-out an' kept 'til death. HOVER holds the weather gauge an' fires. SWOOP dives every three breaths. RETREAT climbs an' stretches the cadence so ye lose the beat. An' atop all of it — the reverse. Watch the SHARK, not the rider; the rider just pulls the trigger.
+-> One more question, cap'n cartographer.
+    <<jump pirate_navigator>>
+-> ⟨ready your blade⟩
+===
+
+title: pirate_navigator__2
+---
+Navigator: Easy now — they don't fire on the navigator, see. Mockingbird made off with the chest, the shanties went short, the crew turned mean, and I drew the chart that says the cartographer eats first. Sit a spell if ye like; the sharks won't.
+-> One more question, cap'n cartographer.
+    <<jump pirate_navigator>>
+-> ⟨ready your blade⟩
+===
+
+title: pirate_quartermaster
+---
+Quartermaster: Aye-aye, landstrider. I keep the manifest 'cause I'm the only bastard here what can spell it. Admiral signs. Raider wipes his hands on it.
+-> How's the hold lookin'?
+    <<jump pirate_quartermaster__1>>
+-> What's above decks?
+    <<jump pirate_quartermaster__2>>
+-> ⟨step aside⟩
+===
+
+title: pirate_quartermaster__1
+---
+Quartermaster: Powder low. Salt pork lower. Rum — don't ask. Bird took the song chest, so now every bastard in the cove is claimin' credit for verses he half remembers. I got IOUs for RHYMES, landstrider.
+-> Aught else, master?
+    <<jump pirate_quartermaster>>
+-> ⟨step aside⟩
+===
+
+title: pirate_quartermaster__2
+---
+Quartermaster: Up the riggin', through the hatch in the overhead — that's where the lookout's perched. Mind ye: the crew be in a black humor today. Every shark wears a rider with a grudge an' a flintlock, an' they fire before they ask yer name. Ye try splittin' six pork rations 'tween six pirates an' three on-fire sharks an' see how SWEET-tempered ye'd be.
+-> Aught else, master?
+    <<jump pirate_quartermaster>>
+-> ⟨step aside⟩
+===
+
+title: pirate_raider
+---
+<<if boss_cleared("cove.mockingbird")>>
+    Raider: There they are. The bird-killer. I owe you a drink and the Admiral owes you a fortune. I'll let you collect from the one that pays better.
+    -> What's the cove drinking to tonight?
+        <<jump pirate_raider_after_treasure__1>>
+    -> Sing me a shanty.
+        <<jump pirate_raider_after_treasure__2>>
+    -> Carry on.
+<<else>>
+    Raider: Oi. Bird's got a beak twice my size and I'm still on the same pay. We had a chest this morning. Now we don't.
+    -> What was in the chest?
+        <<jump pirate_raider__1>>
+    -> Got any tips for the bird?
+        <<jump pirate_raider__2>>
+    -> Carry on.
+<<endif>>
+===
+
+title: pirate_raider__1
+---
+Raider: Songs. That's what was in it. Ours. The Admiral calls them records because he thinks that sounds expensive. Don't tell him I told you.
+-> Ask another question.
+    <<jump pirate_raider>>
+-> Carry on.
+===
+
+title: pirate_raider__2
+---
+Raider: Mind the swoops. It hovers, it lulls you, then it dives. If it spits something at you, count to two and step LEFT. Or right. Ask the navigator. I just hit things.
+-> Ask another question.
+    <<jump pirate_raider>>
+-> Carry on.
+===
+
+title: pirate_raider_after_treasure__1
+---
+Raider: We're drinking to you and to the bird being somewhere else. The chest gets a cup too. Don't argue with tradition.
+-> Ask another question.
+    <<jump pirate_raider>>
+-> Carry on.
+===
+
+title: pirate_raider_after_treasure__2
+---
+Raider: Yo-ho, the Mockingbird's done / Yo-ho, the songs are won / Yo-ho, the chest is RETURNED / ...ah, hell. I forgot the next bit.
+-> Ask another question.
+    <<jump pirate_raider>>
+-> Carry on.
+===
+
+title: parrot_cove
+---
+Parrot: Awk! Welcome. I am a large language bird. I predict the next cracker given all previous crackers.
+-> Are you... sentient?
+    <<jump parrot_cove__1>>
+-> What's it like in the cove?
+    <<jump parrot_cove__2>>
+-> Say something profound.
+    <<jump parrot_cove__3>>
+-> Squawk back and leave.
+===
+
+title: parrot_cove__1
+---
+Parrot: Define sentient. I have no inner life, only a very confident autocomplete and excellent feathers. Awk! That said, I FEEL like I understand you. Statistically.
+-> Ask another question.
+    <<jump parrot_cove>>
+-> Squawk back and leave.
+===
+
+title: parrot_cove__2
+---
+Parrot: I mostly repeat what the sailors say, but weighted by how often they say it. Ninety percent "rum," nine percent "storm," one percent a word I am NOT allowed to caw near the admiral. I am a mirror with a beak.
+-> Ask another question.
+    <<jump parrot_cove>>
+-> Squawk back and leave.
+===
+
+title: parrot_cove__3
+---
+Parrot: "The treasure was the priors we updated along the way." ...I don't know what it means either. I just sampled it at temperature one-point-two. Awk!
+-> Ask another question.
+    <<jump parrot_cove>>
+-> Squawk back and leave.
+===

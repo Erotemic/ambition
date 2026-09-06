@@ -1,0 +1,652 @@
+//! Content-free equipment rules. [`WornEquipment`] affects a body through three seams:
+//! numeric [`ParamModifier`] folds at read time, capability [`EquipmentGrant`]s, and
+//! [`OnHit::ConsumeAsArmor`] in the victim-side hit resolver. Modified values are not written
+//! back into base state.
+
+use crate::brain::action_set::{ActionSet, MeleeActionSpec, RangedActionSpec};
+use bevy::ecs::component::Component;
+
+/// Body-param keys A3 folds worn modifiers against (scope [`ModifierScope::Body`]).
+/// A move/verb param uses its own authored key namespace; these name the handful of
+/// body-level values equipment can move.
+pub mod body_param {
+    /// Multiplies/adds onto the body's base collision + render size.
+    pub const BODY_SCALE: &str = "body_scale";
+    /// Adds onto the body's maximum health.
+    pub const MAX_HEALTH: &str = "max_health";
+}
+
+/// One authored equipment row. The rows a body currently wears live in
+/// [`WornEquipment`]; a content game authors rows as RON and equips them through
+/// the ordinary wear seam.
+///
+/// `Deserialize`-only, matching the codebase's authored-content convention
+/// (`HeldItemSpec`): rows are read from content, never written back.
+#[derive(Clone, Debug, Default, PartialEq, serde::Deserialize)]
+pub struct EquipmentRow {
+    /// Optional EXCLUSIVE slot. Two rows naming the same slot cannot be worn at
+    /// once: equipping one replaces the other.
+    ///
+    /// Naming a slot says "this is a STATE, of which a body has one", which is what makes a
+    /// superseding row's `downgrade_to` the authority on what losing it means.
+    #[serde(default)]
+    pub exclusive_slot: Option<String>,
+    /// Stable authoring id (`"mushroom"`, `"fire_flower"`). Also what
+    /// [`WornEquipment::consume_armor`] reports when this row absorbs a hit.
+    pub id: String,
+    /// Numeric modifiers this row folds into resolved params ([`resolved_param`]).
+    #[serde(default)]
+    pub modifiers: Vec<ParamModifier>,
+    /// Capabilities this row grants on equip and revokes on unequip.
+    #[serde(default)]
+    pub grants: Vec<EquipmentGrant>,
+    /// What happens when the wearer is hit while this row is worn. Absent = the hit
+    /// damages HP as usual.
+    #[serde(default)]
+    pub on_hit: Option<OnHit>,
+}
+
+/// A numeric modifier one worn row contributes to a resolved param. See
+/// [`resolved_param`] for the fold rule (all Adds, then all Muls).
+#[derive(Clone, Debug, PartialEq, serde::Deserialize)]
+pub struct ParamModifier {
+    /// The param key this modifier moves — a body-param key ([`body_param`]) for a
+    /// [`ModifierScope::Body`] modifier, or a move's own authored param key for a
+    /// [`ModifierScope::Move`]/[`ModifierScope::Verb`] modifier.
+    pub param: String,
+    /// Add or multiply.
+    pub op: ModifierOp,
+    /// Which resolution context this modifier applies in. Defaults to the body.
+    #[serde(default)]
+    pub scope: ModifierScope,
+}
+
+/// Add or multiply. Adds apply before Muls (see [`resolved_param`]).
+#[derive(Clone, Copy, Debug, PartialEq, serde::Deserialize)]
+pub enum ModifierOp {
+    Add(f32),
+    Mul(f32),
+}
+
+/// Where a modifier applies. A `Body` modifier folds at body-param reads; a
+/// `Move`/`Verb` modifier folds only when THAT move/verb resolves its params.
+#[derive(Clone, Debug, Default, PartialEq, serde::Deserialize)]
+pub enum ModifierScope {
+    /// Body-level params (size, max HP). The default, so a terse body modifier
+    /// authors no `scope`.
+    #[default]
+    Body,
+    /// A specific move, matched by its move id.
+    Move(String),
+    /// Any move triggered by this input verb.
+    Verb(String),
+}
+
+/// The context a param is being resolved IN — passed to [`resolved_param`], which
+/// folds only the modifiers whose declared [`ModifierScope`] matches. Borrowed, so
+/// a resolution site names its move/verb without allocating.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub enum ResolveScope<'a> {
+    /// Resolving a body-level param.
+    Body,
+    /// Resolving a param for a specific move, optionally triggered by a verb.
+    Move { id: &'a str, verb: Option<&'a str> },
+}
+
+impl ModifierScope {
+    /// Whether a modifier declared with this scope applies while resolving in
+    /// `ctx`. `Body`↔`Body`, `Move(id)` matches the move id, `Verb(v)` matches the
+    /// triggering verb; the body and move contexts are otherwise disjoint.
+    fn applies_in(&self, ctx: ResolveScope<'_>) -> bool {
+        match (self, ctx) {
+            (ModifierScope::Body, ResolveScope::Body) => true,
+            (ModifierScope::Move(m), ResolveScope::Move { id, .. }) => m == id,
+            (ModifierScope::Verb(v), ResolveScope::Move { verb: Some(vb), .. }) => v == vb,
+            _ => false,
+        }
+    }
+}
+
+/// A capability a row confers on equip and revokes on unequip. Grants are ordinary
+/// `ActionSet` verbs — the flower grants a ranged verb, from which the moveset
+/// derives its `simple_ranged` move — never a bespoke mechanism.
+#[derive(Clone, Debug, PartialEq, serde::Deserialize)]
+pub enum EquipmentGrant {
+    /// Grant a ranged verb (overlaid onto `ActionSet.ranged`).
+    Ranged(RangedActionSpec),
+    /// Grant a melee verb (overlaid onto `ActionSet.melee`).
+    Melee(MeleeActionSpec),
+}
+
+impl EquipmentGrant {
+    /// Overlay this grant onto an action set, exactly as `HeldItemSpec` does for a
+    /// wielded weapon. Applied on equip; the caller re-derives the moveset after.
+    pub fn apply_to_action_set(&self, actions: &mut ActionSet) {
+        match self {
+            EquipmentGrant::Ranged(r) => actions.ranged = Some(r.clone()),
+            EquipmentGrant::Melee(m) => actions.melee = Some(*m),
+        }
+    }
+}
+
+/// What being hit does to a worn row.
+#[derive(Clone, Debug, PartialEq, serde::Deserialize)]
+pub enum OnHit {
+    /// A downgrade row is expected to be grant-free (modifiers/armor only): the
+    /// armor spend happens inside the victim-side resolver, which can rewrite the
+    /// worn set but cannot run equip-time grant application. A grant-bearing
+    /// downgrade is out of v1 scope.
+    ConsumeAsArmor {
+        #[serde(default)]
+        downgrade_to: Option<Box<EquipmentRow>>,
+    },
+}
+
+/// The equipment a body currently wears — the single per-body worn set. Its rows'
+/// modifiers fold at read time and its armor rows are spent by the victim-side
+/// resolver; nothing here is baked into other state.
+#[derive(Component, Clone, Debug, Default, PartialEq)]
+pub struct WornEquipment {
+    pub rows: Vec<EquipmentRow>,
+}
+
+impl WornEquipment {
+    pub fn new(rows: Vec<EquipmentRow>) -> Self {
+        Self { rows }
+    }
+
+    /// True iff a row with this id is worn.
+    pub fn wears(&self, id: &str) -> bool {
+        self.rows.iter().any(|r| r.id == id)
+    }
+
+    /// Equip a row. A row naming an [`EquipmentRow::exclusive_slot`] REPLACES
+    /// whatever else occupies that slot, in place; everything else appends.
+    ///
+    /// Replacing in place rather than removing-then-pushing keeps the worn order
+    /// stable, which matters because [`Self::consume_armor`] spends the FIRST
+    /// armor row it finds.
+    pub fn equip(&mut self, row: EquipmentRow) {
+        if let Some(slot) = row.exclusive_slot.as_deref() {
+            if let Some(existing) = self
+                .rows
+                .iter_mut()
+                .find(|r| r.exclusive_slot.as_deref() == Some(slot))
+            {
+                *existing = row;
+                return;
+            }
+        }
+        self.rows.push(row);
+    }
+
+    /// Remove the first row with this id, returning it. Grant revocation is the
+    /// caller's job.
+    pub fn unequip(&mut self, id: &str) -> Option<EquipmentRow> {
+        let idx = self.rows.iter().position(|r| r.id == id)?;
+        Some(self.rows.remove(idx))
+    }
+
+    /// A3 armor-on-hit, called inside the ONE victim-side resolver before body
+    /// damage. If any worn row absorbs hits ([`OnHit::ConsumeAsArmor`]), spend the
+    /// first such row — remove it, or replace it in place with its downgrade — and
+    /// return the spent row's id. `None` means no armor was worn: the hit proceeds
+    /// to HP.
+    pub fn consume_armor(&mut self) -> Option<String> {
+        let idx = self
+            .rows
+            .iter()
+            .position(|r| matches!(r.on_hit, Some(OnHit::ConsumeAsArmor { .. })))?;
+        let consumed = self.rows.remove(idx);
+        let id = consumed.id.clone();
+        if let Some(OnHit::ConsumeAsArmor {
+            downgrade_to: Some(downgrade),
+        }) = consumed.on_hit
+        {
+            self.rows.insert(idx, *downgrade);
+        }
+        Some(id)
+    }
+}
+
+/// Fold worn-equipment numeric modifiers into `base` at READ time.
+///
+/// Ordering (documented, load-bearing): ALL matching Adds first, then ALL
+/// matching Muls. So a `+10` and a `×2` on the same param yield `(base + 10) × 2`,
+/// and two rows' Muls compose multiplicatively regardless of equip order — the
+/// result is independent of the order rows were worn, which a fold that interleaved
+/// Adds and Muls could not promise.
+///
+/// Only modifiers whose [`ModifierScope`] matches `scope` and whose `param` equals
+/// `param` participate. This is a pure read: it never writes back, so the caller
+/// must call it wherever the value is consumed rather than caching a folded result.
+pub fn resolved_param(
+    base: f32,
+    worn: &WornEquipment,
+    param: &str,
+    scope: ResolveScope<'_>,
+) -> f32 {
+    let matching = || {
+        worn.rows
+            .iter()
+            .flat_map(|r| r.modifiers.iter())
+            .filter(|m| m.param == param && m.scope.applies_in(scope))
+    };
+    let mut value = base;
+    for m in matching() {
+        if let ModifierOp::Add(a) = m.op {
+            value += a;
+        }
+    }
+    for m in matching() {
+        if let ModifierOp::Mul(x) = m.op {
+            value *= x;
+        }
+    }
+    value
+}
+
+/// Param keys a ranged shot resolves against worn modifiers at fire
+/// (trigger-resolve). A `Move`/`Verb`-scoped modifier on these keys scales the
+/// projectile the flower-analog grants.
+pub mod ranged_param {
+    /// The shot's launch speed.
+    pub const SPEED: &str = "speed";
+    /// The shot's damage.
+    pub const DAMAGE: &str = "damage";
+}
+
+/// Apply every worn row's [`EquipmentGrant`]s onto an action set — the equip step.
+/// Grants overlay in worn order (a later row's grant wins), exactly as stacked
+/// held items would; the caller re-derives the moveset from the result. Unequip is
+/// its inverse: drop the row from [`WornEquipment`] and rebuild the set from the
+/// remaining grants.
+pub fn apply_equipment_grants(actions: &mut ActionSet, worn: &WornEquipment) {
+    for row in &worn.rows {
+        for grant in &row.grants {
+            grant.apply_to_action_set(actions);
+        }
+    }
+}
+
+/// Fold worn `Move`/`Verb`-scoped modifiers into a ranged shot's speed + damage at
+/// the moment it fires (trigger-resolve). This is the A3 "a Mul modifier visibly
+/// scales one authored param at trigger-resolve" seam: the flower's fireball hits
+/// harder because a worn row scales [`ranged_param::DAMAGE`], resolved here rather
+/// than baked into the spec. `move_id` + `verb` scope the fold so a body wearing
+/// two weapons doesn't cross-contaminate their shots.
+pub fn resolved_ranged(
+    base: RangedActionSpec,
+    worn: &WornEquipment,
+    move_id: &str,
+    verb: &str,
+) -> RangedActionSpec {
+    let scope = ResolveScope::Move {
+        id: move_id,
+        verb: Some(verb),
+    };
+    let speed = resolved_param(base.speed(), worn, ranged_param::SPEED, scope);
+    let damage = resolved_param(base.damage() as f32, worn, ranged_param::DAMAGE, scope)
+        .round()
+        .max(0.0) as i32;
+    // Only the folded params change; the action's cadence, authored flight, and visual identity
+    // ride along untouched.
+    RangedActionSpec {
+        speed,
+        damage,
+        ..base
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    // Test-only: the equip fixtures below author ranged styles, but nothing in
+    // this module's production code names one.
+    use crate::brain::action_set::RangedStyle;
+
+    fn modifier(param: &str, op: ModifierOp, scope: ModifierScope) -> ParamModifier {
+        ParamModifier {
+            param: param.to_string(),
+            op,
+            scope,
+        }
+    }
+
+    fn row(id: &str, modifiers: Vec<ParamModifier>) -> EquipmentRow {
+        EquipmentRow {
+            id: id.to_string(),
+            modifiers,
+            grants: Vec::new(),
+            on_hit: None,
+            exclusive_slot: None,
+        }
+    }
+
+    #[test]
+    fn no_worn_equipment_returns_the_base_untouched() {
+        let worn = WornEquipment::default();
+        assert_eq!(
+            resolved_param(42.0, &worn, body_param::MAX_HEALTH, ResolveScope::Body),
+            42.0
+        );
+    }
+
+    #[test]
+    fn adds_apply_before_muls_regardless_of_authoring_order() {
+        // A `+10` and a `×2` on max HP, authored Mul-first, must still be (base+10)*2.
+        let worn = WornEquipment::new(vec![row(
+            "gear",
+            vec![
+                modifier(
+                    body_param::MAX_HEALTH,
+                    ModifierOp::Mul(2.0),
+                    ModifierScope::Body,
+                ),
+                modifier(
+                    body_param::MAX_HEALTH,
+                    ModifierOp::Add(10.0),
+                    ModifierScope::Body,
+                ),
+            ],
+        )]);
+        assert_eq!(
+            resolved_param(100.0, &worn, body_param::MAX_HEALTH, ResolveScope::Body),
+            220.0
+        );
+    }
+
+    #[test]
+    fn two_rows_muls_compose_and_are_order_independent() {
+        let a = row(
+            "a",
+            vec![modifier(
+                body_param::BODY_SCALE,
+                ModifierOp::Mul(1.5),
+                ModifierScope::Body,
+            )],
+        );
+        let b = row(
+            "b",
+            vec![modifier(
+                body_param::BODY_SCALE,
+                ModifierOp::Mul(2.0),
+                ModifierScope::Body,
+            )],
+        );
+        let ab = WornEquipment::new(vec![a.clone(), b.clone()]);
+        let ba = WornEquipment::new(vec![b, a]);
+        assert_eq!(
+            resolved_param(1.0, &ab, body_param::BODY_SCALE, ResolveScope::Body),
+            3.0
+        );
+        assert_eq!(
+            resolved_param(1.0, &ba, body_param::BODY_SCALE, ResolveScope::Body),
+            3.0
+        );
+    }
+
+    #[test]
+    fn a_body_modifier_does_not_leak_into_a_move_resolution() {
+        // A body-scoped size buff must not scale a move's damage.
+        let worn = WornEquipment::new(vec![row(
+            "gear",
+            vec![modifier(
+                "damage",
+                ModifierOp::Mul(2.0),
+                ModifierScope::Body,
+            )],
+        )]);
+        assert_eq!(
+            resolved_param(
+                50.0,
+                &worn,
+                "damage",
+                ResolveScope::Move {
+                    id: "fireball",
+                    verb: Some("ranged")
+                }
+            ),
+            50.0,
+            "a Body-scoped modifier is inert in a Move context"
+        );
+    }
+
+    #[test]
+    fn a_move_scoped_mul_scales_only_its_own_move() {
+        let worn = WornEquipment::new(vec![row(
+            "fire_flower",
+            vec![modifier(
+                "damage",
+                ModifierOp::Mul(1.5),
+                ModifierScope::Move("fireball".to_string()),
+            )],
+        )]);
+        // The named move is scaled...
+        assert_eq!(
+            resolved_param(
+                10.0,
+                &worn,
+                "damage",
+                ResolveScope::Move {
+                    id: "fireball",
+                    verb: None
+                }
+            ),
+            15.0
+        );
+        // ...a different move is not.
+        assert_eq!(
+            resolved_param(
+                10.0,
+                &worn,
+                "damage",
+                ResolveScope::Move {
+                    id: "iceball",
+                    verb: None
+                }
+            ),
+            10.0
+        );
+    }
+
+    #[test]
+    fn a_verb_scoped_modifier_matches_the_triggering_verb() {
+        let worn = WornEquipment::new(vec![row(
+            "gauntlet",
+            vec![modifier(
+                "speed",
+                ModifierOp::Add(100.0),
+                ModifierScope::Verb("ranged".to_string()),
+            )],
+        )]);
+        // Same verb, any move id → applies.
+        assert_eq!(
+            resolved_param(
+                300.0,
+                &worn,
+                "speed",
+                ResolveScope::Move {
+                    id: "anything",
+                    verb: Some("ranged")
+                }
+            ),
+            400.0
+        );
+        // A move with no verb, or a different verb → inert.
+        assert_eq!(
+            resolved_param(
+                300.0,
+                &worn,
+                "speed",
+                ResolveScope::Move {
+                    id: "anything",
+                    verb: Some("melee")
+                }
+            ),
+            300.0
+        );
+    }
+
+    #[test]
+    fn consume_armor_removes_the_row_and_reports_its_id() {
+        let mut worn = WornEquipment::new(vec![EquipmentRow {
+            id: "mushroom".to_string(),
+            on_hit: Some(OnHit::ConsumeAsArmor { downgrade_to: None }),
+            ..Default::default()
+        }]);
+        assert_eq!(worn.consume_armor().as_deref(), Some("mushroom"));
+        assert!(worn.rows.is_empty(), "the spent armor row is gone");
+        // A second hit finds no armor: it proceeds to HP.
+        assert_eq!(worn.consume_armor(), None);
+    }
+
+    #[test]
+    fn consume_armor_downgrades_in_place_when_a_downgrade_is_authored() {
+        // big → small: the first hit downgrades, the second (small has no armor)
+        // proceeds to HP.
+        let small = EquipmentRow {
+            id: "mushroom_small".to_string(),
+            ..Default::default()
+        };
+        let mut worn = WornEquipment::new(vec![EquipmentRow {
+            id: "mushroom_big".to_string(),
+            on_hit: Some(OnHit::ConsumeAsArmor {
+                downgrade_to: Some(Box::new(small)),
+            }),
+            ..Default::default()
+        }]);
+        assert_eq!(worn.consume_armor().as_deref(), Some("mushroom_big"));
+        assert!(worn.wears("mushroom_small"), "downgraded in place");
+        assert_eq!(
+            worn.consume_armor(),
+            None,
+            "the downgrade has no armor: the next hit hits HP"
+        );
+    }
+
+    #[test]
+    fn consume_armor_skips_non_armor_rows_to_find_the_armor() {
+        let mut worn = WornEquipment::new(vec![
+            row("plain", vec![]),
+            EquipmentRow {
+                id: "shell".to_string(),
+                on_hit: Some(OnHit::ConsumeAsArmor { downgrade_to: None }),
+                ..Default::default()
+            },
+        ]);
+        assert_eq!(worn.consume_armor().as_deref(), Some("shell"));
+        assert!(worn.wears("plain"), "a non-armor row is untouched by a hit");
+    }
+
+    #[test]
+    fn a_grant_overlays_the_action_set_slot_it_names() {
+        let mut actions = ActionSet::peaceful();
+        assert!(actions.ranged.is_none());
+        let grant = EquipmentGrant::Ranged(RangedActionSpec::bolt(400.0, 8));
+        grant.apply_to_action_set(&mut actions);
+        assert!(
+            matches!(
+                actions.ranged,
+                Some(RangedActionSpec {
+                    style: RangedStyle::Bolt,
+                    ..
+                })
+            ),
+            "the flower's ranged verb lands in the action set"
+        );
+    }
+
+    #[test]
+    fn an_equipment_row_round_trips_from_ron() {
+        // The authoring shape a content game writes: a mushroom (body size + armor)
+        // and a flower (a ranged grant + a move-scoped damage buff).
+        let mushroom: EquipmentRow = ron::from_str(
+            r#"(
+                id: "mushroom",
+                modifiers: [ (param: "body_scale", op: Mul(1.4)) ],
+                on_hit: Some(ConsumeAsArmor(downgrade_to: None)),
+            )"#,
+        )
+        .expect("mushroom row parses");
+        assert_eq!(mushroom.id, "mushroom");
+        assert_eq!(mushroom.modifiers[0].scope, ModifierScope::Body);
+        assert!(matches!(
+            mushroom.on_hit,
+            Some(OnHit::ConsumeAsArmor { downgrade_to: None })
+        ));
+
+        let flower: EquipmentRow = ron::from_str(
+            r#"(
+                id: "fire_flower",
+                grants: [ Ranged((style: Bolt, speed: 420.0, damage: 6)) ],
+                modifiers: [ (param: "damage", op: Mul(1.5), scope: Move("fireball")) ],
+            )"#,
+        )
+        .expect("flower row parses");
+        assert_eq!(flower.grants.len(), 1);
+        assert_eq!(
+            flower.modifiers[0].scope,
+            ModifierScope::Move("fireball".to_string())
+        );
+    }
+
+    #[test]
+    fn apply_grants_overlays_every_worn_grant_and_unequip_is_its_inverse() {
+        let flower = EquipmentRow {
+            id: "fire_flower".to_string(),
+            grants: vec![EquipmentGrant::Ranged(RangedActionSpec::bolt(420.0, 6))],
+            ..Default::default()
+        };
+        // Equip: the base set had no ranged verb; the grant confers one.
+        let mut worn = WornEquipment::default();
+        worn.equip(flower);
+        let mut actions = ActionSet::peaceful();
+        apply_equipment_grants(&mut actions, &worn);
+        assert!(actions.ranged.is_some(), "the flower grants a ranged verb");
+
+        // Unequip: with the row gone, rebuilding from scratch has no ranged verb —
+        // the grant is not baked into anything that outlives the worn row.
+        worn.unequip("fire_flower");
+        let mut after = ActionSet::peaceful();
+        apply_equipment_grants(&mut after, &worn);
+        assert!(after.ranged.is_none(), "unequip revokes the granted verb");
+    }
+
+    #[test]
+    fn resolved_ranged_scales_the_shot_by_a_move_scoped_mul_at_fire() {
+        // A fireball whose damage a worn row scales ×1.5 (Move-scoped), speed +60
+        // (Verb-scoped): the shot that leaves the barrel carries the folded values,
+        // while the authored spec on the action set is untouched.
+        let worn = WornEquipment::new(vec![EquipmentRow {
+            id: "fire_flower".to_string(),
+            modifiers: vec![
+                ParamModifier {
+                    param: ranged_param::DAMAGE.to_string(),
+                    op: ModifierOp::Mul(1.5),
+                    scope: ModifierScope::Move("fireball".to_string()),
+                },
+                ParamModifier {
+                    param: ranged_param::SPEED.to_string(),
+                    op: ModifierOp::Add(60.0),
+                    scope: ModifierScope::Verb("ranged".to_string()),
+                },
+            ],
+            ..Default::default()
+        }]);
+        let base = RangedActionSpec::bolt(400.0, 6);
+        let shot = resolved_ranged(base.clone(), &worn, "fireball", "ranged");
+        assert_eq!(shot.damage(), 9, "×1.5 on 6 damage");
+        assert_eq!(shot.speed(), 460.0, "+60 on 400 speed via the ranged verb");
+
+        // A different move id keeps the Verb-scoped speed buff but drops the
+        // Move("fireball") damage scaling.
+        let other = resolved_ranged(base, &worn, "icebolt", "ranged");
+        assert_eq!(
+            other.damage(),
+            6,
+            "the Move-scoped buff is inert for icebolt"
+        );
+        assert_eq!(other.speed(), 460.0, "the Verb-scoped buff still applies");
+    }
+}

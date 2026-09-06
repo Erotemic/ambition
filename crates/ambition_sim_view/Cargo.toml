@@ -1,0 +1,56 @@
+[package]
+name = "ambition_sim_view"
+version = "0.1.0"
+edition.workspace = true
+license.workspace = true
+authors.workspace = true
+description = "[the observation boundary] (E4): the SimView read-model — per-body pose + velocity views, the feature/actor/boss/nameplate indexes, the item/hud/prop fact resources, and the follow-camera snapshot resolve. Rebuilt once per sim tick as pure functions of sim state; render, RL observation, netcode confirmation, and slower-light shaders are all the SAME KIND of consumer."
+
+[lib]
+crate-type = ["rlib"]
+
+[features]
+default = []
+# The blink-preview fact reads device actions, so it exists only with the
+# input layer; forwarded so a mismatched combination is a compile error.
+input = ["ambition_platformer2d_actor_monolith/input"]
+# The portal read-model, offered to a game that has portals.
+portal = ["dep:ambition_portal2d", "ambition_platformer2d_actor_monolith/portal"]
+
+[dependencies]
+ambition_abilities = { path = "../ambition_abilities" }
+# The sim this crate observes (Tier 3 → Tier 4 arrow; render depends on THIS
+# crate for views instead of querying the sim heart).
+# The saddle geometry a rider's hand is drawn from — `ambition_mount` owns the
+# pair now (D33), and this reads it the same way it always did.
+ambition_mount = { path = "../ambition_mount" }
+ambition_platformer2d_actor_monolith = { path = "../ambition_platformer2d_actor_monolith", default-features = false, features = [
+    "input",
+] }
+# `WorldItem` / `ItemMotion` for the item facts this view publishes; the two
+# moved out of the actor monolith in D33.
+ambition_world_items = { path = "../ambition_world_items" }
+ambition_held_items = { path = "../ambition_held_items" }
+ambition_projectiles = { path = "../ambition_projectiles" }
+ambition_combat = { path = "../ambition_combat" }
+ambition_dialog = { path = "../ambition_dialog" }
+ambition_boss_encounter = { path = "../ambition_boss_encounter" }
+ambition_encounter = { path = "../ambition_encounter" }
+ambition_characters = { path = "../ambition_characters" }
+ambition_platformer2d_core = { path = "../ambition_platformer2d_core" }
+ambition_entity_catalog = { path = "../ambition_entity_catalog" }
+# `MovingPlatformSet` — the world IR owns the live platform set the moving-
+# platform view facts read (R3).
+ambition_platformer2d_world = { path = "../ambition_platformer2d_world" }
+ambition_interaction = { path = "../ambition_interaction" }
+ambition_platformer2d_shared_tangle = { path = "../ambition_platformer2d_shared_tangle" }
+ambition_portal2d = { path = "../ambition_portal2d", optional = true }
+ambition_time = { path = "../ambition_time" }
+ambition_persistence = { path = "../ambition_persistence" }
+ambition_dev_tools = { path = "../ambition_dev_tools" }
+ambition_sprite_sheet = { path = "../ambition_sprite_sheet" }
+ambition_character_sprites = { path = "../ambition_character_sprites" }
+ambition_input = { path = "../ambition_input", features = ["input"] }
+leafwing-input-manager = "0.21"
+bevy = { version = "0.19.1", default-features = false, features = ["bevy_state"] }
+bevy_math = "0.19.1"

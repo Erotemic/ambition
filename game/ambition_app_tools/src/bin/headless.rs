@@ -1,0 +1,248 @@
+//! Headless Ambition sandbox driver.
+//!
+//! Useful for environments without a display (CI, remote VMs) and as a foundation for future RL
+//! drivers that need deterministic stepping. See `crate::headless::run_headless` for what is
+//! and is not exercised.
+//!
+//! Usage:
+//!
+//! ```bash
+//! cargo run -p ambition_app_tools --bin headless                       # 120 ticks (default)
+//! cargo run -p ambition_app_tools --bin headless -- 600                # 600 ticks
+//! cargo run -p ambition_app_tools --bin headless -- 600 --dump-trace path/  # dump trace to dir
+//! cargo run -p ambition_app_tools --bin headless -- 600 --start-room goblin_encounter
+//! ```
+//!
+//! `--dump-trace DIR` writes a GameplayTraceBuffer JSON+Markdown dump
+//! after the final tick so trace_replay can re-drive the same input
+//! sequence later. The dump is named `ambition_gameplay_trace_<timestamp>.json`
+//! per the existing dump_paths convention.
+
+use std::path::PathBuf;
+
+use ambition_app::rl_sim::{
+    AmbitionSim, Platformer2dSimHarness, Platformer2dSimHarnessOptions, TimestepMode,
+};
+use ambition_platformer2d::actors::trace::record_simulation_frame;
+use ambition_platformer2d::gameplay_trace as trace;
+use ambition_platformer2d::gameplay_trace::{DumpReason, GameplayTraceBuffer};
+use ambition_platformer2d::input::ControlFrame;
+
+fn parse_max_ticks(args: &[String]) -> u32 {
+    // First positional non-flag arg is the tick count.
+    for a in args.iter().skip(1) {
+        if a.starts_with('-') {
+            continue;
+        }
+        if let Ok(n) = a.parse() {
+            return n;
+        }
+    }
+    120
+}
+
+fn parse_named_value(args: &[String], name: &str) -> Option<String> {
+    let mut i = 0;
+    while i < args.len() {
+        if args[i] == name {
+            return args.get(i + 1).cloned();
+        }
+        let prefix = format!("{name}=");
+        if args[i].starts_with(&prefix) {
+            return Some(args[i].trim_start_matches(&prefix).to_string());
+        }
+        i += 1;
+    }
+    None
+}
+
+fn run_with_trace_dump(max_ticks: u32, dump_dir: PathBuf, start_room: Option<String>) -> i32 {
+    let mut options =
+        Platformer2dSimHarnessOptions::default().with_timestep(TimestepMode::fixed_60hz());
+    if let Some(room) = start_room {
+        options = options.with_required_start_room(room);
+    }
+    let mut sim = match Platformer2dSimHarness::new_with_options(options) {
+        Ok(s) => s,
+        Err(error) => {
+            eprintln!("headless run failed: {error}");
+            return 1;
+        }
+    };
+
+    // Build a buffer sized to hold the full run so we can replay.
+    let mut buffer = GameplayTraceBuffer::with_capacity(max_ticks as usize + 16, 256);
+
+    // Drive the sim manually so we can record each frame after each step.
+    // Idle inputs only -- the trace captures the deterministic gameplay
+    // baseline; agents that want a richer trace can replay this binary
+    // pattern from their own scripted policy.
+    use ambition_platformer2d::engine_core::RoomGeometry;
+    use ambition_platformer2d::platformer::safe_position::PlayerSafetyState;
+    use ambition_platformer2d::platformer::schedule::GameMode as GameModeState;
+    use ambition_platformer2d::world::rooms::RoomSet;
+    use bevy::state::state::State;
+
+    for _ in 0..max_ticks {
+        sim.step(ambition_app::AgentAction::default());
+
+        // Clone the resources record_simulation_frame needs as owned
+        // values so the immutable borrow on `sim` ends before we take
+        // the mutable cluster borrow below. ae::World + Vec<...> + the
+        // ClockState resource are all `Clone`, so this is cheap
+        // for a once-per-tick trace dump.
+        let (clock, control_frame, active_area, mode_label, moving_platforms, game_world) = {
+            let world_ref = sim.world();
+            let clock = *world_ref.resource::<ambition_platformer2d::time::ClockState>();
+            let control_frame = *world_ref.resource::<ControlFrame>();
+            let room_set = ambition_platformer2d::platformer::lifecycle::session_world_component::<
+                RoomSet,
+            >(world_ref)
+            .expect("active session RoomSet");
+            let game_mode = world_ref.resource::<State<GameModeState>>();
+            let moving_platforms =
+                world_ref.resource::<ambition_platformer2d::world::collision::MovingPlatformSet>();
+            let game_world =
+                ambition_platformer2d::platformer::lifecycle::session_world_component::<RoomGeometry>(world_ref)
+                    .expect("active session RoomGeometry");
+            let active_area = room_set.active_spec().id.clone();
+            let mode_label = format!("{:?}", game_mode.get());
+            (
+                clock,
+                control_frame,
+                active_area,
+                mode_label,
+                moving_platforms.0.clone(),
+                game_world.0.clone(),
+            )
+        };
+
+        let safety = {
+            let mut safety_q = sim
+                .world_mut()
+                .query_filtered::<&PlayerSafetyState, ambition_platformer2d::platformer::markers::PrimaryPlayerOnly>();
+            safety_q.single(sim.world()).copied().unwrap_or_default()
+        };
+
+        // Combat-gate state (hitstun / invuln / active-attack) lives on a
+        // separate component from the cluster query, so fetch a clone before
+        // the cluster borrow takes the world.
+        let combat = {
+            let mut combat_q = sim
+                .world_mut()
+                .query_filtered::<&ambition_platformer2d::characters::actor::BodyCombat, ambition_platformer2d::platformer::markers::PrimaryPlayerOnly>();
+            combat_q.single(sim.world()).cloned().unwrap_or_default()
+        };
+
+        // AC3.1.B: the melee AUTHORITY the trace's `attacking` column reads.
+        let melee = {
+            let mut melee_q = sim
+                .world_mut()
+                .query_filtered::<&ambition_platformer2d::combat::BodyMelee, ambition_platformer2d::platformer::markers::PrimaryPlayerOnly>();
+            melee_q.single(sim.world()).cloned().unwrap_or_default()
+        };
+
+        // The movement policy + its published projection (ADR 0024): the
+        // locomotion label reads the model; the trace flags read facts. Both
+        // copied out before the mutable cluster borrow below.
+        let (motion_model, motion_facts) = {
+            let mut model_q =
+                sim.world_mut().query_filtered::<(
+                    &ambition_platformer2d::engine_core::MotionModel,
+                    &ambition_platformer2d::engine_core::BodyMotionFacts,
+                ), ambition_platformer2d::platformer::markers::PrimaryPlayerOnly>(
+                );
+            let Ok((model, facts)) = model_q.single(sim.world()) else {
+                continue;
+            };
+            (model.clone(), *facts)
+        };
+
+        // Query the player's 18 cluster components in one shot via
+        // `BodyClusterQueryData::as_clusters_mut()` so the trace
+        // recorder can read them through a `BodyClustersMut` view.
+        let mut cluster_q = sim
+            .world_mut()
+            .query_filtered::<ambition_platformer2d::engine_core::BodyClusterQueryData, ambition_platformer2d::platformer::markers::PrimaryPlayerOnly>();
+        let Ok(mut cluster_item) = cluster_q.single_mut(sim.world_mut()) else {
+            continue;
+        };
+        let clusters = cluster_item.as_clusters_mut();
+        let locomotion_state = ambition_platformer2d::engine_core::LocomotionState::from_body(
+            &motion_model,
+            clusters.ground,
+            clusters.wall,
+            clusters.flight,
+        );
+        let body_mode_state =
+            ambition_platformer2d::engine_core::BodyMode::from_clusters(clusters.body_mode);
+        record_simulation_frame(
+            &mut buffer,
+            &clusters,
+            &motion_facts,
+            &combat,
+            &melee,
+            &clock,
+            &safety,
+            &game_world,
+            control_frame,
+            1.0 / 60.0,
+            1.0 / 60.0,
+            &mode_label,
+            &active_area,
+            &moving_platforms,
+            locomotion_state.label(),
+            body_mode_state.label(),
+            // The headless driver runs the sim once per step and never rewinds.
+            (None, false),
+        );
+    }
+
+    match trace::write_dump(
+        &buffer,
+        &DumpReason::Programmatic {
+            label: "headless".into(),
+        },
+        &dump_dir,
+    ) {
+        Ok(path) => {
+            println!(
+                "headless run completed: {} ticks; trace dumped to {}",
+                max_ticks,
+                path.display()
+            );
+            0
+        }
+        Err(error) => {
+            eprintln!("headless trace dump failed: {error}");
+            1
+        }
+    }
+}
+
+fn main() {
+    let args: Vec<String> = std::env::args().collect();
+    let max_ticks = parse_max_ticks(&args);
+    let dump_dir = parse_named_value(&args, "--dump-trace").map(PathBuf::from);
+    let start_room = parse_named_value(&args, "--start-room");
+
+    if let Some(dir) = dump_dir {
+        let code = run_with_trace_dump(max_ticks, dir, start_room);
+        std::process::exit(code);
+    }
+
+    // Plain run: the existing `run_headless` entry point.
+    //
+    // `cli_start_room_arg()` reads `std::env::args()` directly, so the sandbox resource init
+    // honours the flag on EVERY path; the explicit `start_room` threaded into the trace-dump
+    // call below is how that path states it, not the only way it works.
+    match ambition_app::run_headless(max_ticks) {
+        Ok(report) => {
+            println!("{report}");
+        }
+        Err(error) => {
+            eprintln!("headless run failed: {error}");
+            std::process::exit(1);
+        }
+    }
+}

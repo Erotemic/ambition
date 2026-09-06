@@ -1,0 +1,999 @@
+// Authored boss behavior profiles. Shape: `{ "<id>": BossBehaviorProfile }`.
+// Bosses without a row use the generic fallback.
+// `Cycle` rotates through `attacks` with flat durations; `Scripted` uses per-phase
+// Telegraph/Strike/Rest timelines.
+// `Strike("key")` selects body-mounted geometry; `Special("key")` dispatches a
+// content-owned technique with no body geometry.
+{
+    // Clockwork Warden / Gradient Sentinel: scripted multi-phase profile.
+    "clockwork_warden": (
+        id: "clockwork_warden",
+        sprite_target: Some("boss"),
+        reward_ability: Some("markrecall"),
+        // Combat size follows the visible body bbox rather than the full sprite frame.
+        combat_size: Some((54.0, 56.0)),
+        movement: AnchorSway(
+            x_radius: 130.0,
+            y_bob: 18.0,
+            x_frequency: 0.72,
+            y_frequency: 1.10,
+            chase_scale: 0.18,
+            chase_limit: 70.0,
+            speed: 220.0,
+        ),
+        // Phase 2 swaps to a wide AirSwoop — boss reads as breaking
+        // its anchor and flying across the arena.
+        movement_phase2: Some(AirSwoop(
+            x_radius: 360.0,
+            y_radius: 110.0,
+            x_frequency: 0.95,
+            y_frequency: 0.72,
+            chase_scale: 0.35,
+            chase_limit: 220.0,
+            speed: 320.0,
+        )),
+        // Enrage commits visually to chasing.
+        movement_enrage: Some(AirSwoop(
+            x_radius: 380.0,
+            y_radius: 140.0,
+            x_frequency: 1.35,
+            y_frequency: 0.95,
+            chase_scale: 0.55,
+            chase_limit: 280.0,
+            speed: 420.0,
+        )),
+        // Hold roughly steady while a special strike is live —
+        // World-anchored hitboxes shouldn't drift mid-strike.
+        strike_speed_scale: 0.20,
+        macro_tuning: (
+            too_close_distance: 110.0,
+            too_far_distance: 480.0,
+            engage_distance: 220.0,
+            approach_duration_s: 3.2,
+            retreat_duration_s: 2.4,
+            engage_max_duration_s: 9.0,
+            approach_speed_scale: 1.50,
+            retreat_speed_scale: 0.80,
+            retreat_distance: 280.0,
+        ),
+        // Scripted timing ignores `attacks`; the list remains the profile's diagnostic vocabulary.
+        attacks: [
+            Strike("floor_slam"),
+            Strike("side_sweep"),
+            Strike("full_body_pulse"),
+            Strike("hazard_column"),
+            Special("overfit_volley"),
+            Special("minima_trap"),
+            Special("saddle_point"),
+            Special("gradient_cascade"),
+        ],
+        attack_cooldown: 1.35,
+        attack_windup: 0.52,
+        attack_active: 0.32,
+        attack_damage: 2,
+        body_damage: 1,
+        attack_pattern: Scripted(
+            // Single show-of-force beat to anchor the tone.
+            intro: (steps: [
+                Telegraph(profile: Strike("floor_slam"), duration: 1.4),
+                Strike(profile: Strike("floor_slam"), duration: 0.4),
+                Rest(duration: 1.2),
+            ]),
+            phase1: (steps: [
+                // Beat 1: FloorSlam — familiar ground-pound.
+                Telegraph(profile: Strike("floor_slam"), duration: 1.2),
+                Strike(profile: Strike("floor_slam"), duration: 0.4),
+                Rest(duration: 1.4),
+                // Beat 2: HazardColumn — vertical hazard column.
+                Telegraph(profile: Strike("hazard_column"), duration: 1.4),
+                Strike(profile: Strike("hazard_column"), duration: 1.0),
+                Rest(duration: 1.0),
+                // Beat 3: MemorizedVolley — markers track player.
+                Telegraph(profile: Special("overfit_volley"), duration: 1.4),
+                Strike(profile: Special("overfit_volley"), duration: 0.30),
+                Rest(duration: 1.5),
+                // Beat 4: SideSweep — classic two-arm sweep.
+                Telegraph(profile: Strike("side_sweep"), duration: 0.9),
+                Strike(profile: Strike("side_sweep"), duration: 0.4),
+                // Long breather closes the loop.
+                Rest(duration: 2.0),
+            ]),
+            // Pure 3 s rest so the music swap has space.
+            transition: (steps: [Rest(duration: 3.0)]),
+            phase2: (steps: [
+                // Beat 1: PitTrap — pit + puppy_slug spawn.
+                Telegraph(profile: Special("minima_trap"), duration: 1.0),
+                Strike(profile: Special("minima_trap"), duration: 0.6),
+                Rest(duration: 1.4),
+                // Beat 2: RotatingCross — rotating cross hazard.
+                Telegraph(profile: Special("saddle_point"), duration: 1.4),
+                Strike(profile: Special("saddle_point"), duration: 4.8),
+                Rest(duration: 1.2),
+                // Beat 3: MinionCascade — 2 slop minions (npc_ai_slop).
+                Telegraph(profile: Special("gradient_cascade"), duration: 1.2),
+                Strike(profile: Special("gradient_cascade"), duration: 0.4),
+                Rest(duration: 2.4),
+                // Beat 4: MemorizedVolley returns, faster.
+                Telegraph(profile: Special("overfit_volley"), duration: 1.2),
+                Strike(profile: Special("overfit_volley"), duration: 0.30),
+                Rest(duration: 1.4),
+                // Beat 5: FullBodyPulse — close-range pulse.
+                Telegraph(profile: Strike("full_body_pulse"), duration: 1.1),
+                Strike(profile: Strike("full_body_pulse"), duration: 0.5),
+                Rest(duration: 1.0),
+            ]),
+            enrage: (steps: [
+                // Tight PitTrap → MemorizedVolley combo.
+                Telegraph(profile: Special("minima_trap"), duration: 0.7),
+                Strike(profile: Special("minima_trap"), duration: 0.5),
+                Telegraph(profile: Special("overfit_volley"), duration: 0.7),
+                Strike(profile: Special("overfit_volley"), duration: 0.3),
+                Rest(duration: 0.6),
+                // Faster RotatingCross — shorter total exposure.
+                Telegraph(profile: Special("saddle_point"), duration: 1.0),
+                Strike(profile: Special("saddle_point"), duration: 3.0),
+                // HazardColumn closer for the final punish.
+                Telegraph(profile: Strike("hazard_column"), duration: 0.7),
+                Strike(profile: Strike("hazard_column"), duration: 0.8),
+                Rest(duration: 1.2),
+            ]),
+        ),
+    ),
+    // ============================================================
+    // Mockingbird — airborne ship/bird-like boss. Cycle pattern,
+    // no per-phase movement variants. Underdeveloped today; the
+    // intent is a duel-style boss whose three attacks (WingSweep /
+    // DiveLane / Broadside) chain via the flat cycle rhythm.
+    // ============================================================
+    "mockingbird": (
+        id: "mockingbird",
+        sprite_target: Some("mockingbird_boss"),
+        signature_gauntlet: Some("volley"),
+        combat_size: Some((500.0, 185.0)),
+        movement: AirSwoop(
+            x_radius: 250.0,
+            y_radius: 62.0,
+            x_frequency: 0.56,
+            y_frequency: 1.35,
+            chase_scale: 0.08,
+            chase_limit: 95.0,
+            speed: 320.0,
+        ),
+        movement_phase2: None,
+        movement_enrage: None,
+        strike_speed_scale: 1.0,
+        // Macro tuning disabled — Mockingbird stays in Engage,
+        // attacks via flat Cycle rhythm. All zeros / 1.0s.
+        macro_tuning: (
+            too_close_distance: 0.0,
+            too_far_distance: 0.0,
+            engage_distance: 0.0,
+            approach_duration_s: 0.0,
+            retreat_duration_s: 0.0,
+            engage_max_duration_s: 0.0,
+            approach_speed_scale: 1.0,
+            retreat_speed_scale: 1.0,
+            retreat_distance: 0.0,
+        ),
+        attacks: [
+            Strike("wing_sweep"),
+            Strike("dive_lane"),
+            Strike("broadside"),
+            // The mimic copies one shot across a cone aimed at you.
+            Special("echo_fan"),
+        ],
+        attack_cooldown: 1.05,
+        attack_windup: 0.44,
+        attack_active: 0.28,
+        attack_damage: 2,
+        body_damage: 1,
+        attack_pattern: Cycle,
+        reward: DropChest(
+            pickup: Custom("pirate_hoard"),
+            offset: (0.0, 24.0),
+            size: (56.0, 56.0),
+        ),
+    ),
+    // ============================================================
+    // GNU-ton RIDER (ADR 0020 mount/rider split — G2). GNU-ton IS this row: the
+    // scholar is the boss (BossConfig + encounter HP) and he rides the
+    // `giant_gnu` MOUNT actor, whose hand limbs his strikes drive. The fused
+    // single-profile GNU-ton — one body with a render-only hands overlay — was
+    // torn down in the E6 teardown (`refactor-chain.md` R2); a two-part boss is
+    // two linked actors, so the hands can be hit, and the giant can die out from
+    // under the scholar.
+    //   * `sprite_target: "gnu_ton_rider"` — the scholar's own trimmed sheet.
+    //     The giant's body geometry rides the `giant_gnu` MOUNT's sheet.
+    //   * `pilotable_mount_classes: ["giant"]` — `spawn_boss` attaches a
+    //     `CanPilot` so this boss can board the `giant_gnu` mount.
+    //   * `combat_size` is the scholar's small footprint, not the giant's.
+    //   * hand_slam / hand_sweep / converging_shockwave are `limb_routing`-mapped
+    //     onto the giant's hands (G3). `head_descent` stays a host-body move and
+    //     `apple_rain` a Special. The on-foot mini-phase fires via the encounter
+    //     spec's `extra_phase_triggers` mount_died External trigger
+    //     (gnu_ton_rider.ron).
+    "gnu_ton_rider": (
+        bark_anchor: (dx_px: 0.0, dy_half_h: -1.0, dy_px: -18.0),
+        id: "gnu_ton_rider",
+        sprite_target: Some("gnu_ton_rider"),
+        reward_ability: Some("fireball"),
+        signature_gauntlet: Some("meteor"),
+        // Scholar footprint (a human on the giant's shoulder), not the giant's
+        // 220x220 envelope — that belongs to the `giant_gnu` mount.
+        combat_size: Some((54.0, 96.0)),
+        // ADR 0020: this boss RIDES a "giant"-class mount. `spawn_boss` attaches
+        // the CanPilot tag from this list.
+        pilotable_mount_classes: ["giant"],
+        // Q18 (G3) limb routing — which of the giant mount's hand limbs each strike
+        // drives, and how. `route_boss_strikes_to_limbs` reads THIS map off the
+        // rider boss and writes per-limb intents onto the linked giant. BLIND / Jon
+        // retunes later ("don't care yet"):
+        //   * hand_slam  → both hands, overhead SlamDown.
+        //   * hand_sweep → the facing-side hand only, lateral SweepAcross.
+        //   * converging_shockwave → both hands, SlamDown.
+        // head_descent stays a host-body move (no limb route) and apple_rain stays a
+        // Special — neither appears here, so they route to NO limb (unchanged).
+        limb_routing: [
+            ("hand_slam", (slots: ["hand_left", "hand_right"], motion: SlamDown)),
+            ("hand_sweep", (slots: ["hand_left", "hand_right"], motion: SweepAcross)),
+            ("converging_shockwave", (slots: ["hand_left", "hand_right"], motion: SlamDown)),
+        ],
+        // G5 (R10.6): the possessed-verb map — possess the scholar and your
+        // controller verbs command his kit through the same directional-verb
+        // chain an actor melee resolves (attack_down → attack). Because the
+        // move keys match `limb_routing`, these verbs drive the giant's hands
+        // when he's aboard: neutral/side attack sweeps the facing-side hand,
+        // down+attack slams both hands, up+attack raises the converging
+        // shockwave slam, special rains apples. BLIND / Jon retunes bindings:
+        possessed_verbs: [
+            ("attack", "hand_sweep"),
+            ("attack_down", "hand_slam"),
+            ("attack_up", "converging_shockwave"),
+            ("special", "apple_rain"),
+        ],
+        movement: StationaryGiant(
+            sway_amplitude: 6.0,
+            sway_frequency: 0.28,
+            speed: 40.0,
+        ),
+        movement_phase2: None,
+        movement_enrage: None,
+        strike_speed_scale: 1.0,
+        self_dodge: Some((70.0, 1.6)),
+        macro_tuning: (
+            too_close_distance: 0.0,
+            too_far_distance: 0.0,
+            engage_distance: 0.0,
+            approach_duration_s: 0.0,
+            retreat_duration_s: 0.0,
+            engage_max_duration_s: 0.0,
+            approach_speed_scale: 1.0,
+            retreat_speed_scale: 1.0,
+            retreat_distance: 0.0,
+        ),
+        attacks: [
+            Strike("hand_slam"),
+            Strike("hand_sweep"),
+            Strike("head_descent"),
+            Strike("converging_shockwave"),
+            Special("apple_rain"),
+        ],
+        attack_cooldown: 0.0,
+        attack_windup: 0.0,
+        attack_active: 0.0,
+        attack_damage: 2,
+        // The scholar body deals no contact damage (the giant's limbs are the
+        // threat once G3 lands).
+        body_damage: 0,
+        attack_pattern: Scripted(
+            intro: (steps: [
+                Telegraph(profile: Strike("hand_slam"), duration: 1.6),
+                Strike(profile: Strike("hand_slam"), duration: 0.55),
+                Rest(duration: 1.4),
+            ]),
+            phase1: (steps: [
+                Telegraph(profile: Strike("hand_slam"), duration: 1.6),
+                Strike(profile: Strike("hand_slam"), duration: 0.55),
+                Rest(duration: 1.2),
+                Telegraph(profile: Strike("hand_sweep"), duration: 1.4),
+                Strike(profile: Strike("hand_sweep"), duration: 0.50),
+                Rest(duration: 1.0),
+                Telegraph(profile: Special("apple_rain"), duration: 1.0),
+                Strike(profile: Special("apple_rain"), duration: 2.2),
+                Rest(duration: 1.0),
+                Telegraph(profile: Strike("hand_slam"), duration: 1.6),
+                Strike(profile: Strike("hand_slam"), duration: 0.55),
+                Rest(duration: 1.8),
+            ]),
+            transition: (steps: [Rest(duration: 3.0)]),
+            phase2: (steps: [
+                Telegraph(profile: Strike("hand_slam"), duration: 1.4),
+                Strike(profile: Strike("hand_slam"), duration: 0.55),
+                Rest(duration: 1.0),
+                Telegraph(profile: Strike("head_descent"), duration: 1.8),
+                Strike(profile: Strike("head_descent"), duration: 1.4),
+                Rest(duration: 1.4),
+                Telegraph(profile: Strike("hand_sweep"), duration: 1.4),
+                Strike(profile: Strike("hand_sweep"), duration: 0.50),
+                Rest(duration: 2.0),
+            ]),
+            enrage: (steps: [
+                Telegraph(profile: Strike("hand_slam"), duration: 0.90),
+                Strike(profile: Strike("hand_slam"), duration: 0.45),
+                Telegraph(profile: Strike("hand_sweep"), duration: 0.90),
+                Strike(profile: Strike("hand_sweep"), duration: 0.45),
+                Rest(duration: 0.6),
+                Telegraph(profile: Strike("converging_shockwave"), duration: 1.10),
+                Strike(profile: Strike("converging_shockwave"), duration: 0.70),
+                Rest(duration: 1.2),
+            ]),
+        ),
+        reward: DropChest(
+            pickup: Custom("gnu_scroll"),
+            offset: (0.0, 30.0),
+            size: (52.0, 52.0),
+        ),
+    ),
+    // ============================================================
+    // Smirking Behemoth — "You Have To Cut The Rope" parody boss.
+    //
+    // The player cannot attrition this boss down. Player damage is
+    // ignored in the cut-rope arena; the intended clear condition is
+    // cutting the LDtk-authored rope above the boss so the anvil prop
+    // drops onto its head.
+    // ============================================================
+    "smirking_behemoth_boss": (
+        id: "smirking_behemoth_boss",
+        signature_gauntlet: Some("beam"),
+        // Environmental puzzle boss: ordinary slashes/projectiles never
+        // damage it; the only kill condition is the LDtk-authored
+        // rope/anvil trap (see ambition_content::bosses::cut_rope).
+        environmental_kill_only: true,
+        // Matches the generated Smirking Behemoth monolith body metrics:
+        // x=0, y=22, w=208, h=266.  The bottom sits exactly on the sprite
+        // frame floor so contact blocks morph-ball tunneling under the boss
+        // without extending below the visible body into the room floor.
+        combat_size: Some((208.0, 266.0)),
+        movement: AnchorSway(
+            // Smirking Behemoth's movement should be macro-driven:
+            // Approach closes distance to the player, Engage holds
+            // position and maybe fires the eye beam. Zeroing the sway
+            // prevents the old spawn-anchor drift from looking like a
+            // retreat after the boss has run in.
+            x_radius: 0.0,
+            y_bob: 0.0,
+            x_frequency: 0.0,
+            y_frequency: 0.0,
+            chase_scale: 0.0,
+            chase_limit: 0.0,
+            speed: 135.0,
+        ),
+        movement_phase2: Some(AnchorSway(
+            x_radius: 0.0,
+            y_bob: 0.0,
+            x_frequency: 0.0,
+            y_frequency: 0.0,
+            chase_scale: 0.0,
+            chase_limit: 0.0,
+            speed: 150.0,
+        )),
+        movement_enrage: Some(AnchorSway(
+            x_radius: 0.0,
+            y_bob: 0.0,
+            x_frequency: 0.0,
+            y_frequency: 0.0,
+            chase_scale: 0.0,
+            chase_limit: 0.0,
+            speed: 165.0,
+        )),
+        strike_speed_scale: 0.20,
+        macro_tuning: (
+            // Contact boss: never retreat from the player just because
+            // they are close. Approach moves toward the player until it
+            // is either in body-contact range or blocked by a front wall;
+            // Engage then holds position and probabilistically starts an
+            // eye-beam after the minimum Rest beat.
+            too_close_distance: 0.0,
+            too_far_distance: 0.0,
+            engage_distance: 0.0,
+            approach_duration_s: 8.0,
+            retreat_duration_s: 0.0,
+            engage_max_duration_s: 0.0,
+            front_wall_standoff: 48.0,
+            idle_attack_chance_per_second: 0.55,
+            hold_position_while_engaged: true,
+            approach_speed_scale: 1.05,
+            retreat_speed_scale: 1.0,
+            retreat_distance: 0.0,
+            suppress_attacks_while_moving: true,
+        ),
+        attacks: [
+            Special("eye_beam"),
+        ],
+        attack_cooldown: 0.0,
+        attack_windup: 0.0,
+        attack_active: 0.0,
+        attack_damage: 1,
+        body_damage: 1,
+        projectile_origin_offset: (0.0, -88.0),
+        attack_pattern: Scripted(
+            intro: (steps: [Rest(duration: 1.0)]),
+            phase1: (steps: [
+                Rest(duration: 1.4),
+                Telegraph(profile: Special("eye_beam"), duration: 0.75),
+                Strike(profile: Special("eye_beam"), duration: 0.25),
+            ]),
+            transition: (steps: [Rest(duration: 1.0)]),
+            phase2: (steps: [
+                Rest(duration: 1.2),
+                Telegraph(profile: Special("eye_beam"), duration: 0.65),
+                Strike(profile: Special("eye_beam"), duration: 0.25),
+            ]),
+            enrage: (steps: [
+                Rest(duration: 0.95),
+                Telegraph(profile: Special("eye_beam"), duration: 0.55),
+                Strike(profile: Special("eye_beam"), duration: 0.22),
+            ]),
+        ),
+    ),
+    // Flying Spaghetti Monster — a false-god boss (canon: Jon). A floaty,
+    // noodly-appendage monster. Composed ENTIRELY of reusable attack profiles
+    // (no new hardcoded attack types): MemorizedVolley = meatball volley that
+    // tracks the player, RotatingCross = rotating noodle cross, MinionCascade =
+    // spawns lesser appendages (minions), FullBodyPulse / SideSweep = His Noodly
+    // touch + appendage sweep. Sprite/animation fidelity + the Will-Smith finish
+    // are follow-ups; this is the playable fight.
+    "flying_spaghetti_monster_boss": (
+        id: "flying_spaghetti_monster_boss",
+        reward_ability: Some("blink"),
+        combat_size: Some((168.0, 150.0)),
+        movement: AirSwoop(
+            x_radius: 190.0,
+            y_radius: 70.0,
+            x_frequency: 0.62,
+            y_frequency: 1.15,
+            chase_scale: 0.12,
+            chase_limit: 110.0,
+            speed: 240.0,
+        ),
+        movement_phase2: Some(AirSwoop(
+            x_radius: 230.0,
+            y_radius: 90.0,
+            x_frequency: 0.9,
+            y_frequency: 1.0,
+            chase_scale: 0.26,
+            chase_limit: 170.0,
+            speed: 300.0,
+        )),
+        movement_enrage: Some(AirSwoop(
+            x_radius: 260.0,
+            y_radius: 110.0,
+            x_frequency: 1.15,
+            y_frequency: 1.1,
+            chase_scale: 0.44,
+            chase_limit: 230.0,
+            speed: 360.0,
+        )),
+        strike_speed_scale: 0.30,
+        macro_tuning: (
+            too_close_distance: 0.0,
+            too_far_distance: 0.0,
+            engage_distance: 0.0,
+            approach_duration_s: 0.0,
+            retreat_duration_s: 0.0,
+            engage_max_duration_s: 0.0,
+            approach_speed_scale: 1.0,
+            retreat_speed_scale: 1.0,
+            retreat_distance: 0.0,
+        ),
+        attacks: [
+            Special("overfit_volley"),
+            Special("saddle_point"),
+            Special("gradient_cascade"),
+            Strike("full_body_pulse"),
+            Strike("side_sweep"),
+        ],
+        attack_cooldown: 1.1,
+        attack_windup: 0.5,
+        attack_active: 0.32,
+        attack_damage: 2,
+        body_damage: 1,
+        projectile_origin_offset: (0.0, -40.0),
+        attack_pattern: Scripted(
+            intro: (steps: [
+                Telegraph(profile: Strike("full_body_pulse"), duration: 1.2),
+                Strike(profile: Strike("full_body_pulse"), duration: 0.4),
+                Rest(duration: 1.0),
+            ]),
+            phase1: (steps: [
+                // Meatball volley tracks the player.
+                Telegraph(profile: Special("overfit_volley"), duration: 1.3),
+                Strike(profile: Special("overfit_volley"), duration: 0.32),
+                Rest(duration: 1.3),
+                // Appendage sweep.
+                Telegraph(profile: Strike("side_sweep"), duration: 0.9),
+                Strike(profile: Strike("side_sweep"), duration: 0.4),
+                Rest(duration: 1.1),
+                // Rotating noodle cross.
+                Telegraph(profile: Special("saddle_point"), duration: 1.2),
+                Strike(profile: Special("saddle_point"), duration: 0.8),
+                Rest(duration: 1.6),
+            ]),
+            transition: (steps: [Rest(duration: 2.4)]),
+            phase2: (steps: [
+                // Summon lesser appendages.
+                Telegraph(profile: Special("gradient_cascade"), duration: 1.2),
+                Strike(profile: Special("gradient_cascade"), duration: 0.5),
+                Rest(duration: 1.2),
+                Telegraph(profile: Special("overfit_volley"), duration: 1.0),
+                Strike(profile: Special("overfit_volley"), duration: 0.30),
+                Rest(duration: 1.0),
+                Telegraph(profile: Strike("full_body_pulse"), duration: 1.0),
+                Strike(profile: Strike("full_body_pulse"), duration: 0.45),
+                Rest(duration: 1.2),
+            ]),
+            enrage: (steps: [
+                Telegraph(profile: Special("overfit_volley"), duration: 0.7),
+                Strike(profile: Special("overfit_volley"), duration: 0.28),
+                Telegraph(profile: Special("saddle_point"), duration: 0.8),
+                Strike(profile: Special("saddle_point"), duration: 0.7),
+                Rest(duration: 0.6),
+                Telegraph(profile: Strike("side_sweep"), duration: 0.6),
+                Strike(profile: Strike("side_sweep"), duration: 0.35),
+                Rest(duration: 0.8),
+            ]),
+        ),
+        reward: DropChest(
+            pickup: Custom("noodly_relic"),
+            offset: (0.0, 24.0),
+            size: (54.0, 54.0),
+        ),
+    ),
+    // T-rex — a bipedal, GROUNDED, melee-centric boss (Jon canon: "a boss to
+    // flex the player/boss unification with a bipedal character like the trex").
+    // Deliberately the opposite of the aerial Flying Spaghetti Monster: it stays
+    // on the floor and charges the player (macro Approach), then stomps / bites /
+    // tail-sweeps (melee profiles FloorSlam / FullBodyPulse / SideSweep — all
+    // contact-AABB, no projectiles), stressing the grounded shared-kinematic path.
+    "trex_boss": (
+        id: "trex_boss",
+        reward_ability: Some("grapple"),
+        signature_gauntlet: Some("shockwave"),
+        combat_size: Some((140.0, 112.0)),
+        movement: AnchorSway(
+            x_radius: 0.0,
+            y_bob: 0.0,
+            x_frequency: 0.0,
+            y_frequency: 0.0,
+            chase_scale: 0.0,
+            chase_limit: 0.0,
+            speed: 170.0,
+        ),
+        movement_phase2: Some(AnchorSway(
+            x_radius: 0.0,
+            y_bob: 0.0,
+            x_frequency: 0.0,
+            y_frequency: 0.0,
+            chase_scale: 0.0,
+            chase_limit: 0.0,
+            speed: 205.0,
+        )),
+        movement_enrage: Some(AnchorSway(
+            x_radius: 0.0,
+            y_bob: 0.0,
+            x_frequency: 0.0,
+            y_frequency: 0.0,
+            chase_scale: 0.0,
+            chase_limit: 0.0,
+            speed: 250.0,
+        )),
+        strike_speed_scale: 0.15,
+        macro_tuning: (
+            // Grounded charger: Approach runs at the player until it's in bite
+            // range or blocked by a wall; Engage holds and stomps/bites.
+            too_close_distance: 0.0,
+            too_far_distance: 0.0,
+            engage_distance: 0.0,
+            approach_duration_s: 6.0,
+            retreat_duration_s: 0.0,
+            engage_max_duration_s: 0.0,
+            front_wall_standoff: 56.0,
+            idle_attack_chance_per_second: 0.6,
+            hold_position_while_engaged: true,
+            approach_speed_scale: 1.1,
+            retreat_speed_scale: 1.0,
+            retreat_distance: 0.0,
+            suppress_attacks_while_moving: true,
+        ),
+        attacks: [
+            Strike("floor_slam"),
+            Strike("full_body_pulse"),
+            Strike("side_sweep"),
+            Special("seismic_stomp"),
+        ],
+        attack_cooldown: 1.0,
+        attack_windup: 0.5,
+        attack_active: 0.34,
+        attack_damage: 2,
+        body_damage: 2,
+        attack_pattern: Scripted(
+            intro: (steps: [
+                Telegraph(profile: Strike("floor_slam"), duration: 1.3),
+                Strike(profile: Strike("floor_slam"), duration: 0.4),
+                Rest(duration: 1.0),
+            ]),
+            phase1: (steps: [
+                // Stomp.
+                Telegraph(profile: Strike("floor_slam"), duration: 1.1),
+                Strike(profile: Strike("floor_slam"), duration: 0.4),
+                Rest(duration: 1.3),
+                // Bite.
+                Telegraph(profile: Strike("full_body_pulse"), duration: 0.9),
+                Strike(profile: Strike("full_body_pulse"), duration: 0.4),
+                Rest(duration: 1.2),
+                // Tail sweep.
+                Telegraph(profile: Strike("side_sweep"), duration: 0.9),
+                Strike(profile: Strike("side_sweep"), duration: 0.45),
+                Rest(duration: 1.6),
+            ]),
+            transition: (steps: [Rest(duration: 2.2)]),
+            phase2: (steps: [
+                Telegraph(profile: Strike("floor_slam"), duration: 0.9),
+                Strike(profile: Strike("floor_slam"), duration: 0.4),
+                Rest(duration: 0.9),
+                // Seismic stomp — a floor shockwave rolls out both ways; jump it.
+                Telegraph(profile: Special("seismic_stomp"), duration: 1.0),
+                Strike(profile: Special("seismic_stomp"), duration: 0.4),
+                Rest(duration: 1.1),
+                Telegraph(profile: Strike("full_body_pulse"), duration: 0.8),
+                Strike(profile: Strike("full_body_pulse"), duration: 0.4),
+                Rest(duration: 0.8),
+                Telegraph(profile: Strike("side_sweep"), duration: 0.8),
+                Strike(profile: Strike("side_sweep"), duration: 0.45),
+                Rest(duration: 1.2),
+            ]),
+            enrage: (steps: [
+                Telegraph(profile: Strike("full_body_pulse"), duration: 0.6),
+                Strike(profile: Strike("full_body_pulse"), duration: 0.4),
+                Telegraph(profile: Strike("floor_slam"), duration: 0.6),
+                Strike(profile: Strike("floor_slam"), duration: 0.4),
+                Rest(duration: 0.5),
+                Telegraph(profile: Strike("side_sweep"), duration: 0.6),
+                Strike(profile: Strike("side_sweep"), duration: 0.4),
+                Rest(duration: 0.7),
+            ]),
+        ),
+        reward: DropChest(
+            pickup: Custom("trex_bone_relic"),
+            offset: (0.0, 26.0),
+            size: (56.0, 56.0),
+        ),
+    ),
+    // Mode Collapse — a floating summoner boss (a training failure that keeps
+    // generating the SAME output, so it floods the arena with identical lesser
+    // copies). Reuses proven attack profiles; the MinionCascade summon leads
+    // every phase, with MemorizedVolley + RotatingCross pressuring the player while
+    // the adds close. Behavior only — encounter numbers live in
+    // boss_encounters/mode_collapse_boss.ron.
+    "mode_collapse_boss": (
+        id: "mode_collapse_boss",
+        signature_gauntlet: Some("vortex"),
+        combat_size: Some((140.0, 132.0)),
+        movement: AirSwoop(
+            x_radius: 130.0,
+            y_radius: 46.0,
+            x_frequency: 0.5,
+            y_frequency: 0.9,
+            chase_scale: 0.10,
+            chase_limit: 90.0,
+            speed: 175.0,
+        ),
+        movement_phase2: Some(AirSwoop(
+            x_radius: 170.0,
+            y_radius: 64.0,
+            x_frequency: 0.72,
+            y_frequency: 0.95,
+            chase_scale: 0.22,
+            chase_limit: 140.0,
+            speed: 225.0,
+        )),
+        movement_enrage: Some(AirSwoop(
+            x_radius: 210.0,
+            y_radius: 80.0,
+            x_frequency: 1.0,
+            y_frequency: 1.05,
+            chase_scale: 0.40,
+            chase_limit: 210.0,
+            speed: 300.0,
+        )),
+        strike_speed_scale: 0.30,
+        macro_tuning: (
+            too_close_distance: 0.0,
+            too_far_distance: 0.0,
+            engage_distance: 0.0,
+            approach_duration_s: 0.0,
+            retreat_duration_s: 0.0,
+            engage_max_duration_s: 0.0,
+            approach_speed_scale: 1.0,
+            retreat_speed_scale: 1.0,
+            retreat_distance: 0.0,
+        ),
+        attacks: [
+            Special("gradient_cascade"),
+            Special("overfit_volley"),
+            Special("saddle_point"),
+            Special("mode_collapse_converge"),
+        ],
+        attack_cooldown: 1.0,
+        attack_windup: 0.5,
+        attack_active: 0.32,
+        attack_damage: 2,
+        body_damage: 1,
+        projectile_origin_offset: (0.0, -36.0),
+        attack_pattern: Scripted(
+            intro: (steps: [
+                Telegraph(profile: Special("gradient_cascade"), duration: 1.3),
+                Strike(profile: Special("gradient_cascade"), duration: 0.5),
+                Rest(duration: 1.1),
+            ]),
+            phase1: (steps: [
+                Telegraph(profile: Special("gradient_cascade"), duration: 1.2),
+                Strike(profile: Special("gradient_cascade"), duration: 0.5),
+                Rest(duration: 1.4),
+                Telegraph(profile: Special("overfit_volley"), duration: 1.2),
+                Strike(profile: Special("overfit_volley"), duration: 0.32),
+                Rest(duration: 1.2),
+                Telegraph(profile: Special("saddle_point"), duration: 1.1),
+                Strike(profile: Special("saddle_point"), duration: 0.8),
+                Rest(duration: 1.5),
+            ]),
+            transition: (steps: [Rest(duration: 2.2)]),
+            phase2: (steps: [
+                Telegraph(profile: Special("gradient_cascade"), duration: 1.0),
+                Strike(profile: Special("gradient_cascade"), duration: 0.5),
+                Rest(duration: 1.0),
+                Telegraph(profile: Special("overfit_volley"), duration: 1.0),
+                Strike(profile: Special("overfit_volley"), duration: 0.30),
+                Rest(duration: 0.9),
+                // Mode collapse: the diverse population converges onto the spot
+                // you stood on during the long telegraph — step off the mode.
+                Telegraph(profile: Special("mode_collapse_converge"), duration: 1.5),
+                Strike(profile: Special("mode_collapse_converge"), duration: 0.4),
+                Rest(duration: 1.2),
+                Telegraph(profile: Special("gradient_cascade"), duration: 1.0),
+                Strike(profile: Special("gradient_cascade"), duration: 0.5),
+                Rest(duration: 1.1),
+            ]),
+            enrage: (steps: [
+                Telegraph(profile: Special("gradient_cascade"), duration: 0.8),
+                Strike(profile: Special("gradient_cascade"), duration: 0.45),
+                Telegraph(profile: Special("overfit_volley"), duration: 0.7),
+                Strike(profile: Special("overfit_volley"), duration: 0.28),
+                Rest(duration: 0.6),
+                Telegraph(profile: Special("saddle_point"), duration: 0.7),
+                Strike(profile: Special("saddle_point"), duration: 0.7),
+                Rest(duration: 0.7),
+            ]),
+        ),
+        reward: DropChest(
+            pickup: Custom("collapsed_relic"),
+            offset: (0.0, 24.0),
+            size: (54.0, 54.0),
+        ),
+    ),
+    // Exploding Gradient — a floating ranged-pressure boss (a divergent training
+    // run: the gradients blow up, so its barrages escalate into chaos). No
+    // summons — pure projectile pressure that ramps each phase. Reuses proven
+    // attack profiles. Encounter numbers in boss_encounters/exploding_gradient_boss.ron.
+    "exploding_gradient_boss": (
+        id: "exploding_gradient_boss",
+        signature_gauntlet: Some("sentry"),
+        combat_size: Some((150.0, 140.0)),
+        movement: AirSwoop(
+            x_radius: 200.0,
+            y_radius: 80.0,
+            x_frequency: 0.8,
+            y_frequency: 1.2,
+            chase_scale: 0.16,
+            chase_limit: 130.0,
+            speed: 260.0,
+        ),
+        movement_phase2: Some(AirSwoop(
+            x_radius: 240.0,
+            y_radius: 100.0,
+            x_frequency: 1.1,
+            y_frequency: 1.3,
+            chase_scale: 0.30,
+            chase_limit: 190.0,
+            speed: 330.0,
+        )),
+        movement_enrage: Some(AirSwoop(
+            x_radius: 280.0,
+            y_radius: 120.0,
+            x_frequency: 1.4,
+            y_frequency: 1.4,
+            chase_scale: 0.50,
+            chase_limit: 250.0,
+            speed: 400.0,
+        )),
+        strike_speed_scale: 0.30,
+        macro_tuning: (
+            too_close_distance: 0.0,
+            too_far_distance: 0.0,
+            engage_distance: 0.0,
+            approach_duration_s: 0.0,
+            retreat_duration_s: 0.0,
+            engage_max_duration_s: 0.0,
+            approach_speed_scale: 1.0,
+            retreat_speed_scale: 1.0,
+            retreat_distance: 0.0,
+        ),
+        attacks: [
+            Special("overfit_volley"),
+            Special("saddle_point"),
+            Special("gradient_nova"),
+            Strike("side_sweep"),
+            Strike("full_body_pulse"),
+        ],
+        attack_cooldown: 0.9,
+        attack_windup: 0.45,
+        attack_active: 0.30,
+        attack_damage: 2,
+        body_damage: 1,
+        projectile_origin_offset: (0.0, -38.0),
+        attack_pattern: Scripted(
+            intro: (steps: [
+                Telegraph(profile: Strike("full_body_pulse"), duration: 1.0),
+                Strike(profile: Strike("full_body_pulse"), duration: 0.4),
+                Rest(duration: 0.9),
+            ]),
+            phase1: (steps: [
+                Telegraph(profile: Special("overfit_volley"), duration: 1.1),
+                Strike(profile: Special("overfit_volley"), duration: 0.32),
+                Rest(duration: 1.0),
+                Telegraph(profile: Special("saddle_point"), duration: 1.0),
+                Strike(profile: Special("saddle_point"), duration: 0.8),
+                Rest(duration: 1.1),
+                Telegraph(profile: Strike("side_sweep"), duration: 0.8),
+                Strike(profile: Strike("side_sweep"), duration: 0.4),
+                Rest(duration: 1.0),
+            ]),
+            transition: (steps: [Rest(duration: 2.0)]),
+            phase2: (steps: [
+                Telegraph(profile: Special("overfit_volley"), duration: 0.9),
+                Strike(profile: Special("overfit_volley"), duration: 0.30),
+                Rest(duration: 0.8),
+                Telegraph(profile: Special("saddle_point"), duration: 0.9),
+                Strike(profile: Special("saddle_point"), duration: 0.8),
+                Rest(duration: 0.8),
+                // Runaway gradients explode outward — an omnidirectional nova
+                // with ragged speed tiers; weave between the slow and fast fronts.
+                Telegraph(profile: Special("gradient_nova"), duration: 0.9),
+                Strike(profile: Special("gradient_nova"), duration: 0.4),
+                Rest(duration: 0.9),
+            ]),
+            enrage: (steps: [
+                Telegraph(profile: Special("overfit_volley"), duration: 0.6),
+                Strike(profile: Special("overfit_volley"), duration: 0.26),
+                Telegraph(profile: Special("saddle_point"), duration: 0.7),
+                Strike(profile: Special("saddle_point"), duration: 0.7),
+                Telegraph(profile: Strike("side_sweep"), duration: 0.5),
+                Strike(profile: Strike("side_sweep"), duration: 0.32),
+                Rest(duration: 0.5),
+            ]),
+        ),
+        reward: DropChest(
+            pickup: Custom("divergence_shard"),
+            offset: (0.0, 24.0),
+            size: (54.0, 54.0),
+        ),
+    ),
+    // Overflow — an aerial melee dive-bomber (a numerical overflow: it bursts
+    // past its bounds and crashes into you). A high-chase AirSwoop closes the
+    // gap; FullBodyPulse + SideSweep are its contact slams (no projectiles),
+    // with an MemorizedVolley poke when you flee. Distinct from the ranged
+    // Exploding Gradient + summoner Mode Collapse — pure close-range aggression.
+    "overflow_boss": (
+        id: "overflow_boss",
+        signature_gauntlet: Some("dive"),
+        combat_size: Some((150.0, 145.0)),
+        movement: AirSwoop(
+            x_radius: 120.0,
+            y_radius: 70.0,
+            x_frequency: 0.9,
+            y_frequency: 1.3,
+            chase_scale: 0.40,
+            chase_limit: 220.0,
+            speed: 300.0,
+        ),
+        movement_phase2: Some(AirSwoop(
+            x_radius: 140.0,
+            y_radius: 80.0,
+            x_frequency: 1.1,
+            y_frequency: 1.4,
+            chase_scale: 0.60,
+            chase_limit: 280.0,
+            speed: 360.0,
+        )),
+        movement_enrage: Some(AirSwoop(
+            x_radius: 160.0,
+            y_radius: 90.0,
+            x_frequency: 1.3,
+            y_frequency: 1.5,
+            chase_scale: 0.85,
+            chase_limit: 360.0,
+            speed: 440.0,
+        )),
+        strike_speed_scale: 0.30,
+        macro_tuning: (
+            too_close_distance: 0.0,
+            too_far_distance: 0.0,
+            engage_distance: 0.0,
+            approach_duration_s: 0.0,
+            retreat_duration_s: 0.0,
+            engage_max_duration_s: 0.0,
+            approach_speed_scale: 1.0,
+            retreat_speed_scale: 1.0,
+            retreat_distance: 0.0,
+        ),
+        attacks: [
+            Strike("full_body_pulse"),
+            Strike("side_sweep"),
+            Special("overfit_volley"),
+            Special("overflow_flood"),
+        ],
+        attack_cooldown: 0.85,
+        attack_windup: 0.45,
+        attack_active: 0.34,
+        attack_damage: 3,
+        body_damage: 2,
+        projectile_origin_offset: (0.0, -34.0),
+        attack_pattern: Scripted(
+            intro: (steps: [
+                Telegraph(profile: Strike("full_body_pulse"), duration: 1.0),
+                Strike(profile: Strike("full_body_pulse"), duration: 0.45),
+                Rest(duration: 0.8),
+            ]),
+            phase1: (steps: [
+                Telegraph(profile: Strike("side_sweep"), duration: 0.8),
+                Strike(profile: Strike("side_sweep"), duration: 0.4),
+                Rest(duration: 0.9),
+                Telegraph(profile: Strike("full_body_pulse"), duration: 0.9),
+                Strike(profile: Strike("full_body_pulse"), duration: 0.45),
+                Rest(duration: 1.0),
+                Telegraph(profile: Special("overfit_volley"), duration: 1.0),
+                Strike(profile: Special("overfit_volley"), duration: 0.30),
+                Rest(duration: 1.1),
+            ]),
+            transition: (steps: [Rest(duration: 1.8)]),
+            phase2: (steps: [
+                Telegraph(profile: Strike("side_sweep"), duration: 0.7),
+                Strike(profile: Strike("side_sweep"), duration: 0.4),
+                Rest(duration: 0.7),
+                Telegraph(profile: Strike("full_body_pulse"), duration: 0.8),
+                Strike(profile: Strike("full_body_pulse"), duration: 0.45),
+                Rest(duration: 0.8),
+                // The bounds overflow: a wall of values floods down across the
+                // arena, leaving only the lane you held during the telegraph.
+                Telegraph(profile: Special("overflow_flood"), duration: 1.1),
+                Strike(profile: Special("overflow_flood"), duration: 0.4),
+                Rest(duration: 1.0),
+            ]),
+            enrage: (steps: [
+                Telegraph(profile: Strike("full_body_pulse"), duration: 0.55),
+                Strike(profile: Strike("full_body_pulse"), duration: 0.45),
+                Telegraph(profile: Strike("side_sweep"), duration: 0.5),
+                Strike(profile: Strike("side_sweep"), duration: 0.35),
+                Rest(duration: 0.5),
+                Telegraph(profile: Strike("side_sweep"), duration: 0.5),
+                Strike(profile: Strike("side_sweep"), duration: 0.35),
+                Rest(duration: 0.6),
+            ]),
+        ),
+        reward: DropChest(
+            pickup: Custom("stack_frame_relic"),
+            offset: (0.0, 24.0),
+            size: (54.0, 54.0),
+        ),
+    ),
+}

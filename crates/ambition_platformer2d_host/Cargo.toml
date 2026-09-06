@@ -1,0 +1,70 @@
+[package]
+name = "ambition_platformer2d_host"
+version = "0.1.0"
+edition.workspace = true
+license.workspace = true
+authors.workspace = true
+description = "The windowed-HOST face (decomposition E5 step 5): a `PlatformerHostPlugins` plugin group that assembles the wiring only a VISIBLE platformer host needs on top of `PlatformerEnginePlugins` — the leafwing input bindings/bridge and the camera follow/shake cluster. MAY dep render/input/runtime/sim_view/leafwing. Must NOT dep ambition_content — that one IS boundary-tested (engine.host-names-no-content). Avoiding a DIRECT ambition_platformer2d_actor_monolith dep is a goal, not a ratchet: no guard has ever enforced it, and actors already arrives transitively via ambition_platformer2d_runtime, so do not cite it as settled — see docs/planning/engine/actor-monolith-decomposition.md. The shared per-frame SIM wiring lives in `ambition_platformer2d_runtime` (headless/RL runs it too)."
+
+[dependencies]
+ambition_platformer2d_core = { path = "../ambition_platformer2d_core" }
+ambition_input = { path = "../ambition_input" }
+ambition_platformer2d_shared_tangle = { path = "../ambition_platformer2d_shared_tangle" }
+ambition_portal2d = { path = "../ambition_portal2d", optional = true }
+ambition_portal2d_presentation = { path = "../ambition_portal2d_presentation", optional = true }
+ambition_render = { path = "../ambition_render" }
+# Named directly so the host can hand the menu crate the font the render side
+# resolved. `ambition_render` must NOT depend on `ambition_menu` — presentation
+# does not own the menu IR — and the menu crate must not know an asset path, so
+# the composition root is the only place the two can meet.
+ambition_menu = { path = "../ambition_menu", features = ["bevy_ui_menu"] }
+ambition_platformer2d_runtime = { path = "../ambition_platformer2d_runtime" }
+ambition_sim_view = { path = "../ambition_sim_view" }
+# Sprite metadata for the projectile visual passes this crate registers:
+# `SheetRegistryPlugin` provides the `SheetRegistry` they read. The edge already
+# existed transitively through `ambition_render`; naming it is what lets this
+# crate install the plugin rather than assume somebody else did.
+ambition_sprite_sheet = { path = "../ambition_sprite_sheet" }
+bevy = { version = "0.19.1", default-features = false, features = [
+    "bevy_asset",
+    "bevy_image",
+    "bevy_input_focus",
+    "bevy_state",
+    # Screen occupancy is derived from real `bevy_ui` layout (ComputedNode +
+    # UiGlobalTransform) rather than from a second hand-maintained rectangle.
+    # Declared explicitly: relying on a co-built sibling to unify the feature in
+    # is the trap this workspace has already been bitten by.
+    "bevy_ui",
+] }
+leafwing-input-manager = { version = "0.21", optional = true }
+
+[features]
+default = []
+# The leafwing input bindings + the device→ControlFrame bridge
+# (HostInputBindingsPlugin). Mirrors the app's `input` persona feature.
+input = [
+    "ambition_input/input",
+    "ambition_render/input",
+    "ambition_sim_view/input",
+    "dep:leafwing-input-manager",
+]
+# Portal camera-continuity wiring inside HostCameraPlugin. Forwards the
+# runtime's portal feature: host portal wiring is meaningless without the
+# portal sim, and `PlatformerEnginePlugins` (which every host composition
+# installs) only registers `PortalPlugin` + its messages under
+# `ambition_platformer2d_runtime/portal`. The facade already co-forwards the pair at the
+# composition root; this states the same truth for host-standalone graphs, so
+# `cargo test -p ambition_platformer2d_host --features portal_render` composes a complete
+# sim instead of panicking on unregistered portal messages.
+portal = ["dep:ambition_portal2d", "ambition_platformer2d_runtime/portal"]
+portal_render = [
+    "portal",
+    "dep:ambition_portal2d_presentation",
+    "ambition_render/portal_render",
+]
+
+[dev-dependencies]
+# The demo-shell smoke test (E5 step 6) assembles foundation + engine group +
+# this host group + a fixture content plugin (which builds a one-room world).
+ambition_characters = { path = "../ambition_characters" }
+ambition_platformer2d_provider = { path = "../ambition_platformer2d_provider" }

@@ -1,0 +1,1601 @@
+#!/usr/bin/env python3
+"""Write `summary.md`, the front page of a profiling bundle.
+
+Reports MEASUREMENTS. Where a diagnostic is absent it says which of three
+things happened, because those three call for different next steps:
+
+* **measured** — the number is here;
+* **unavailable on this machine/backend** — the tool or the adapter could not
+  produce it, and a different machine would;
+* **not applicable** — this was a headless/CPU-only run and the measurement is
+  about a GPU that was never asked to draw.
+
+An omitted section reads as "free", which is the one conclusion the absence of
+a measurement can never support.
+"""
+
+from __future__ import annotations
+
+import csv
+import json
+import os
+import re
+import sys
+from pathlib import Path
+
+ADAPTER = re.compile(r"AdapterInfo \{[^}]*\}")
+PERCENT = re.compile(r"\s*[0-9]+(\.[0-9]+)?%")
+SOFTWARE_MARKERS = ("device_type: Cpu", "llvmpipe", "lavapipe", "swiftshader", "softpipe")
+
+DSO_BUCKETS = [
+    ("software rasterizer (CPU emulating a GPU)",
+     ("llvmpipe", "lvp", "lavapipe", "swiftshader", "softpipe", "[JIT]")),
+    ("GPU driver / graphics stack",
+     ("nvidia", "radeonsi", "iris", "amdgpu", "i965", "libvulkan", "libGLX", "libEGL", "libdrm", "zink")),
+    ("kernel", ("[kernel", "[kvm", "[nvidia_uvm", "[snd", "[vdso")),
+    ("audio", ("pipewire", "pulse", "alsa", "libspa")),
+]
+
+# perf truncates COMM to 15 characters, so every needle here must match within
+# that prefix ("Tracy Symbol Wo", not "Tracy Symbol Worker").
+COMPILER_THREADS = "compiler / codegen / linker"
+LAUNCHER_THREADS = "build launcher (cargo, shell)"
+THREAD_BUCKETS = [
+    ("profiler (Tracy)", ("tracy",)),
+    # ⛔⛔ THE COMPILER IS MOSTLY NOT CALLED `rustc`. A cargo build spawns one
+    # `rustc` per crate, but the cycles are in the threads it forks: `ld.mold`
+    # for the link and up to `2 * jobs` threads named `lto cgu.NN` / `opt cgu.NN`
+    # doing LLVM codegen. Bucketing on `cargo`/`rustc` alone reported 4.0% "build
+    # tooling" for `desktop-timeline-run-20260831T212248Z` while its own
+    # `perf-report-by-thread.txt` shows 9.11% mold plus twenty cgu threads at
+    # 1.3-2.6% each — well over a third of the capture. This section is the one a
+    # reader uses to decide whether to trust the rest, so it under-reporting the
+    # single biggest non-game cost is the worst place for it to be wrong.
+    #
+    # ⚠ Needles are matched as substrings against a COMM that perf truncates to
+    # 15 characters. These were taken from real thread names in that bundle, not
+    # guessed: `ld.mold`, `lto cgu.00`, `opt cgu.15`, `rustc`, `cargo`, `clang`.
+    # ⛔⛔ AND `cargo` IS NOT A COMPILE. Splitting these apart is the second half
+    # of the same repair. `desktop-perf-run-20260901T003332Z` is 88.0% game and
+    # 9.4% "build tooling" with ZERO compiler workers in its thread table: that
+    # 9.4% is the `cargo run` launcher waiting on a child that had nothing to do.
+    # Folded together, the trust verdict had to guess whether a COMPILE ran from
+    # a number that also counts a launcher — and it guessed by asking whether the
+    # combined bucket out-cost the game, which calls a real 20%-compiler capture
+    # clean and a 9%-launcher capture suspicious. Only the CODEGEN bucket dilutes
+    # a native profile, so only it decides.
+    (COMPILER_THREADS, ("rustc", "cgu.", "mold", "ld.", "lld", "clang", "collect2", "cc1")),
+    # ⚠ `sh` USED TO BE A NEEDLE HERE and matched any COMM containing those two
+    # letters. Removed: `cargo`, `bash` and `dirname` are the launcher threads
+    # this repository's captures actually show.
+    (LAUNCHER_THREADS, ("cargo", "bash", "dirname")),
+    # `pw-data-loop` is PipeWire's realtime thread; the truncated COMM never
+    # contains "pipewire", which is why audio read as 0.2% on a bundle whose
+    # audio thread was sampled the whole run.
+    ("audio", ("pipewire", "pw-", "pulse", "alsa", "spa-")),
+]
+GAME_THREADS = "the game itself"
+
+# ⭐ THE FLOOR IS ABOUT DILUTION, NOT ABOUT PURITY. Cycles spent in codegen are
+# cycles the native percentages below are divided by, so a 20% compile moves
+# every game symbol's share by a fifth. Under ~1% the shift is smaller than the
+# run-to-run spread of `perf` sampling itself, and calling that contaminated
+# would mark every capture untrustworthy and teach the reader to skip the
+# verdict.
+COMPILE_CONTAMINATION_FLOOR = 1.0
+
+# Above this, a DSO table is INCLUSIVE (`--children`) and its rows overlap. Self
+# time sums to ~100% with rounding; a partition cannot reach 110.
+INCLUSIVE_ACCOUNTING_CEILING = 110.0
+
+
+class Bundle:
+    def __init__(self, path: str) -> None:
+        self.path = path
+
+    def read(self, name: str) -> str:
+        try:
+            with open(os.path.join(self.path, name), encoding="utf-8", errors="replace") as handle:
+                return handle.read()
+        except OSError:
+            return ""
+
+    def rows(self, name: str) -> list[dict]:
+        path = os.path.join(self.path, name)
+        if not os.path.exists(path):
+            return []
+        with open(path, newline="", encoding="utf-8", errors="replace") as handle:
+            return list(csv.DictReader(handle))
+
+    def exists(self, name: str) -> bool:
+        return os.path.exists(os.path.join(self.path, name))
+
+    def metadata(self) -> dict:
+        text = self.read("metadata.json")
+        if text:
+            try:
+                return json.loads(text)
+            except json.JSONDecodeError:
+                pass
+        data = {}
+        for line in self.read("metadata.txt").splitlines():
+            key, sep, value = line.partition("=")
+            if sep:
+                data[key] = value
+        return data
+
+    def status(self, name: str) -> str:
+        return self.read(f"{name}.status").strip() or "not run"
+
+
+def number(row: dict, key: str, default: float = 0.0) -> float:
+    try:
+        return float(row.get(key, default))
+    except (TypeError, ValueError):
+        return default
+
+
+# ── Whether the native profile below can be quoted ──────────────────────────
+#
+# ⛔⛔ TWO INDEPENDENT PROSE BRANCHES PRODUCED A SELF-CONTRADICTING REPORT. Until
+# 2026-08-31 this section asked two questions and answered them in two `if`s that
+# could not see each other: "did a compile pollute the capture" and "did Tracy".
+# `desktop-timeline-run-20260831T210231Z` therefore printed
+#
+#     The native symbol ranking and the DSO split below must not be quoted.
+#     ... eleven lines later ...
+#     The profiler cost 0% of sampled cycles. Low enough that the
+#     measurements below stand on their own.
+#
+# Both sentences were reached, and only the first was right. The second was only
+# ever about TRACY and was worded as a conclusion about everything.
+#
+# ⇒ the verdict is now a single VALUE. A contradiction has to be written into one
+# function rather than falling out of two that never met.
+
+TRUST_CLEAN = "clean"
+TRUST_COMPILE = "compile-contaminated"
+TRUST_PROFILER = "profiler-contaminated"
+TRUST_BOTH = "compile- and profiler-contaminated"
+TRUST_NO_GAME = "not a profile of the game"
+
+# ⛔⛔ THE HOLE THE COMPILER-BUCKET REPAIR OPENED, CAUGHT BY RE-RUNNING EVERY
+# BUNDLE. The old rule `build_share > game_share` was wrong about what it MEANT,
+# but it accidentally covered one case the replacement does not:
+# `desktop-timeline-run-20260829T020516Z` is 94.4% `cargo` and 5.6% `bash` — the
+# game contributed ZERO samples. Judged on the codegen bucket alone that capture
+# is 0.0% compiler and reads CLEAN, which is the most wrong a verdict can be:
+# there is no game in it to quote.
+#
+# ⇒ a native profile is quotable only when the GAME DOMINATES the capture,
+# whatever the rest of the cycles turn out to be. This asks that directly rather
+# than inferring it from a contaminant somebody thought to bucket — and it is
+# checked LAST, so a capture whose missing game HAS a named cause still gets
+# told which one.
+GAME_SHARE_FLOOR = 50.0
+
+
+def native_profile_trust(compiler_share, game_share, profiler_share):
+    """Whether the native symbol/DSO attribution below stands.
+
+    Codegen inside the capture dilutes every percentage in the native profile; a
+    profiler over a quarter of the capture has done the same with its own code.
+    They are independent, so all four combinations are real.
+
+    ⛔⛔ THE FIRST ARGUMENT IS THE COMPILER BUCKET, NOT "build tooling". It used
+    to be the combined bucket, tested as `build_share > game_share`, and that
+    rule is wrong in both directions: a capture that is 70% game and 20% rustc
+    reads CLEAN, and one that is 88% game and 9% idle `cargo` launcher reads
+    suspicious. `game_share` survives only so the prose can quote it.
+    """
+    compiled = compiler_share >= COMPILE_CONTAMINATION_FLOOR
+    profiled = profiler_share >= 25.0
+    # ⭐ A NAMED CONTAMINANT WINS, because it is the ACTIONABLE answer. A capture
+    # that is 92% codegen also fails the game-share floor, and calling that "not
+    # a profile of the game" would be true and useless — the reader needs to be
+    # sent to `warm-build.status`, not told the obvious. The floor below is the
+    # FALLBACK: the game is missing and nothing this classifier buckets explains
+    # where it went.
+    if compiled and profiled:
+        return TRUST_BOTH
+    if compiled:
+        return TRUST_COMPILE
+    if profiled:
+        return TRUST_PROFILER
+    if game_share < GAME_SHARE_FLOOR:
+        return TRUST_NO_GAME
+    return TRUST_CLEAN
+
+
+def native_profile_trust_lines(
+    trust, compiler_share, game_share, profiler_share, headless, launcher_share=0.0
+):
+    """The ONE verdict, plus whatever detail the state earns."""
+    lines = [
+        "```text",
+        f"profiler (Tracy) overhead : {profiler_share:4.1f}%",
+        f"codegen inside the capture: {compiler_share:4.1f}%   (rustc / LLVM / linker threads)",
+        f"build launcher            : {launcher_share:4.1f}%   (cargo and shell; NOT a compile)",
+        f"the game itself           : {game_share:4.1f}%",
+        f"native attribution        : {trust.upper()}",
+        "```",
+        "",
+    ]
+    if trust == TRUST_CLEAN:
+        lines += [
+            "Neither the profiler nor a compile took a share worth correcting for, so",
+            "the native symbol ranking and the DSO split below stand on their own.",
+            "",
+        ]
+        return lines
+
+    # ⭐ THE VERDICT COMES FIRST AND IS NEVER SPLIT. Whatever contaminated it, the
+    # reader's question is the same one and gets one answer.
+    lines += [
+        f"⚠⚠ **The native profile below is {trust.upper()} and must not be quoted.**",
+        "",
+    ]
+    if trust == TRUST_NO_GAME:
+        lines += [
+            f"Only {game_share:.1f}% of sampled cycles are the game's own threads. Every",
+            "percentage below is a share of a capture the game barely appears in, so there",
+            "is no ranking here to correct — there is nothing to rank. Check that the run",
+            "actually launched and that `perf` followed the child process.",
+            "",
+        ]
+
+    # ⛔⛔ WHAT SURVIVES DEPENDS ON WHICH CONTAMINANT. This paragraph used to be
+    # unconditional, so a profiler-contaminated report said "everything keyed to
+    # GAME TIME is unaffected" and then, eleven lines later, "every frame time
+    # here is inflated too". Both were printed for the same capture. A compile
+    # and a profiler are not the same kind of contaminant and cannot share one
+    # sentence about what is left standing:
+    #
+    #   a compile  — ran BESIDE the game, mostly BEFORE `exec`. It dilutes the
+    #                sampled percentages and nothing else. The game's own census
+    #                really is untouched.
+    #   a profiler — ran INSIDE the process, competing for the same cores. It
+    #                inflates the very frame times the census records.
+    if trust == TRUST_COMPILE:
+        lines += [
+            "⭐ Everything keyed to GAME TIME is unaffected — `frame_times.csv`,",
+            "`frame_spikes.csv`, `runtime_census.csv` and the image censuses come from the",
+            "game's own stderr census, not from `perf` samples, and a compile competes for",
+            "cores mostly before the game starts.",
+            "",
+        ]
+    else:
+        lines += [
+            "⚠ The game's own census is NOT a way around this. `frame_times.csv`,",
+            "`frame_spikes.csv` and `runtime_census.csv` are recorded by a process the",
+            "profiler is running inside, so they carry the same inflation the native",
+            "profile does. Only RATIOS between them survive.",
+            "",
+        ]
+
+    if trust in (TRUST_COMPILE, TRUST_BOTH):
+        lines += [
+            f"**A compile ran inside this capture** — {compiler_share:.0f}% of sampled cycles in",
+            f"rustc, LLVM codegen and linker threads, against the game's own {game_share:.0f}%.",
+            "Check `warm-build.status` and the gap between `wall_s` and `game_s` in",
+            "`frame_spikes.csv`: a first frame tens of seconds into the capture is the",
+            "build. If the warm build ran and the launch rebuilt anyway, the two are",
+            "asking cargo for different fingerprints — see the `build_env` rows in",
+            "`run_game.sh --print-plan`.",
+            "",
+        ]
+    if trust in (TRUST_PROFILER, TRUST_BOTH):
+        lines += [
+            f"**Tracy cost {profiler_share:.0f}% of sampled cycles.** Its symbol-resolution and",
+            "compression threads compete with the game for the same cores, so every frame",
+            "time, zone duration and plugin-build number here is inflated too.",
+            "",
+            "Zone RATIOS remain usable — the instrumentation is uniform across systems.",
+            "Absolute per-frame costs are not. For an honest frame time, re-run:",
+            "",
+            "```bash",
+            "scripts/profile_desktop.sh --no-tracy" + (" --headless" if headless else ""),
+            "```",
+            "",
+            "which drops `--features profile` (and with it the per-system zones), and",
+            "compare its frame census against this one to size the gap.",
+            "",
+        ]
+    return lines
+
+
+def section(lines: list[str], title: str) -> None:
+    lines += [f"## {title}", ""]
+
+
+# ── Room reveal tells ────────────────────────────────────────────────────
+#
+# The hall-entry campaign named three host tells and nothing checked them, so a
+# capture had to be READ and judged. These parse them out of the game's own
+# stamped log.
+#
+# ⛔ THE WARNING'S DIAGNOSIS SPLIT IN THREE and the campaign's phrasing ("zero
+# 'nothing demanded it' warnings") predates the split. A RETIRED sheet was
+# demanded AND decoded, so counting it beside "never materialized" is the exact
+# conflation `retired_tier` was added to end. The split is reported.
+STAMPED = re.compile(r"^\[\s*([0-9.]+)s\]\s?(.*)$")
+PLACEHOLDER = "drawing the placeholder rectangle"
+ROOM_TRANSITION = re.compile(
+    r"room transition (\d+) (\S+) -> (\S+):.*?asset_wait_ms=(?:Some\(([0-9.]+)\)|None)"
+    r".*?covered=(\w+)"
+)
+# ⛔ THE SPIKE LOG'S CAP NOTICE SHARES THIS PREFIX: `[frame-spike] 11.600s
+# reached 60 logged spikes; further per-frame lines suppressed`. It is excluded
+# because a WORD follows the timestamp where this pattern requires a number —
+# not by the `ms` suffix, and not by the `continue` below, both of which I
+# claimed in turn and neither of which is what does it. The `continue` is a
+# second, independent guard; the test pins the OUTCOME (60 spikes, not 61)
+# rather than either mechanism.
+FRAME_SPIKE = re.compile(r"\[frame-spike\]\s+([0-9.]+)s\s+([0-9.]+)ms")
+SPIKE_CAP_HIT = "logged spikes; further per-frame lines suppressed"
+
+
+def room_reveal_tells(log: str) -> dict:
+    """The three tells, plus what the reader needs to distrust them."""
+    transitions: list[dict] = []
+    spikes: list[tuple[float, float]] = []
+    placeholders = {"never materialized": 0, "retired": 0, "undeclared": 0}
+    spike_cap_hit = False
+    saw_stamp = False
+
+    for raw in log.splitlines():
+        stamp = STAMPED.match(raw)
+        if stamp:
+            saw_stamp = True
+            at, body = float(stamp.group(1)), stamp.group(2)
+        else:
+            at, body = None, raw
+        if PLACEHOLDER in body:
+            if "RETIRED from" in body:
+                placeholders["retired"] += 1
+            elif "never materialized" in body:
+                placeholders["never materialized"] += 1
+            else:
+                placeholders["undeclared"] += 1
+        if SPIKE_CAP_HIT in body:
+            spike_cap_hit = True
+            continue
+        spike = FRAME_SPIKE.search(body)
+        if spike:
+            # ⛔⛔ TWO CLOCKS ON ONE LINE, AND THEY ARE NOT THE SAME CLOCK.
+            # `[   2.386s] [frame-spike]    1.071s   125.3ms` carries the
+            # STAMPER's wall time (2.386) and the GAME's own elapsed time
+            # (1.071) — 1.3 s apart on a real host capture. The transition line
+            # is a `tracing` record with no game clock at all, so the only
+            # quantity both share is the stamp. Ordering a spike's GAME time
+            # against a transition's STAMP compares different origins; it
+            # happened to give the right verdict on the first host bundle
+            # (every spike preceded the reveal either way) and would be wrong
+            # on any run where a spike follows it — which is the case the tell
+            # exists to detect.
+            spikes.append(
+                {"stamp": at, "game": float(spike.group(1)), "ms": float(spike.group(2))}
+            )
+        move = ROOM_TRANSITION.search(body)
+        if move:
+            transitions.append(
+                {
+                    "at": at,
+                    "sequence": move.group(1),
+                    "source": move.group(2),
+                    "target": move.group(3),
+                    "asset_wait_ms": float(move.group(4)) if move.group(4) else None,
+                    "covered": move.group(5) == "true",
+                }
+            )
+    return {
+        "transitions": transitions,
+        "spikes": spikes,
+        "placeholders": placeholders,
+        "spike_cap_hit": spike_cap_hit,
+        "stamped": saw_stamp,
+    }
+
+
+def _first_room_parser():
+    """The boot-population parser, IMPORTED rather than reimplemented.
+
+    ⛔⛔ TWO IMPLEMENTATIONS OF ONE QUESTION EVENTUALLY PRINT TWO ANSWERS. This
+    section asks exactly what `scripts/measure_first_room_manifest.py` asks, and
+    that script already carries the three things a second copy would get wrong:
+    it orders by FRAME (the census runs in `Last`, so its clock can read after a
+    `room-loaded` the same frame's `PreUpdate` preceded), it knows `[image]`
+    prints only decodes >= 1.0 MP, and it parses both the stamped and unstamped
+    line shapes. Importing keeps one definition to be wrong in.
+
+    Returns `None` when the script is absent, so a bundle summary never fails
+    over a missing sibling.
+    """
+    import importlib.util
+
+    script = Path(__file__).resolve().parents[1] / "measure_first_room_manifest.py"
+    if not script.exists():
+        return None
+    spec = importlib.util.spec_from_file_location("first_room_manifest", script)
+    module = importlib.util.module_from_spec(spec)
+    sys.modules[spec.name] = module
+    spec.loader.exec_module(module)
+    return module
+
+
+def _census_resident_mb(log: str) -> float | None:
+    """Resident megabytes from the `[image-census]` line, via the one parser.
+
+    Delegates for the same reason `boot_population_lines` does: one definition
+    of how that line is read.
+    """
+    module = _first_room_parser()
+    if module is None:
+        return None
+    return module.parse(log.splitlines()).get("census_resident_mb")
+
+
+def boot_population_lines(log: str) -> list[str]:
+    """What decoded before the first room, which is where the hitch now is.
+
+    The hall reveal is fixed; the same host run says the remaining hitch is
+    STARTUP. This puts the boot population in the capture's own summary so a
+    walk answers it without a second command and without the reader having to
+    know that ordering by clock puts a 7.6 MP decode in the wrong bucket.
+    """
+    module = _first_room_parser()
+    if module is None:
+        return []
+    parsed = module.parse(log.splitlines())
+    images, loaded = parsed["images"], parsed["room_loaded"]
+    if not images or not loaded:
+        return []
+
+    framed = all(image["frame"] is not None for image in images) and loaded[1] is not None
+    if framed:
+        before = [i for i in images if i["frame"] < loaded[1]]
+        ordered = "frame"
+    else:
+        before = [i for i in images if i["at"] < loaded[0]]
+        ordered = "game time (no frame column in this capture)"
+
+    total = parsed["census_total"]
+    lines = ["## Boot population (what decoded before the first room)", ""]
+    if total:
+        lines += [
+            f"⚠ SAMPLE, NOT POPULATION: `[image]` prints only decodes >= "
+            f"{module.NOTABLE_MP if hasattr(module, 'NOTABLE_MP') else 1.0} MP. "
+            f"This run decoded {total[0]} images / {total[1]} MP in total; "
+            f"{len(images)} were notable enough to print.",
+            "",
+        ]
+    else:
+        lines += [
+            "⚠ No `[image-census]` line in this log, so there is no denominator "
+            "and the counts below are a FLOOR, not a total.",
+            "",
+        ]
+    by_road: dict[str, list[float]] = {}
+    for image in before:
+        by_road.setdefault(image["road"] or "(no demand stamp)", []).append(image["mp"])
+    lines += [
+        "```text",
+        f"ordered by: {ordered}",
+        f"before {loaded[2]}: {len(before)} image(s), "
+        f"{sum(i['mp'] for i in before):.1f} MP",
+    ]
+    for road, mps in sorted(by_road.items(), key=lambda kv: -sum(kv[1])):
+        lines.append(f"  {road:<22} {len(mps):3d}  {sum(mps):6.1f} MP")
+    lines += ["```", ""]
+    return lines
+
+
+def room_reveal_lines(log: str) -> list[str]:
+    tells = room_reveal_tells(log)
+    if not tells["transitions"] and not any(tells["placeholders"].values()):
+        return []
+
+    lines: list[str] = ["## Room reveal", ""]
+    placeholders = tells["placeholders"]
+    total = sum(placeholders.values())
+    lines += [
+        "Placeholder rectangles drawn (an actor resolved no sprite), counted "
+        "over the whole run. The hall reveal fired one hundred and eleven of "
+        "these on 2026-09-01 and they were the campaign's main evidence:",
+        "",
+        "```text",
+        f"  never materialized  {placeholders['never materialized']:5d}   "
+        "nothing decoded its sheet",
+        f"  retired             {placeholders['retired']:5d}   "
+        "decoded, then dropped by a quality change — a re-realization owed, not art nobody asked for",
+        f"  undeclared          {placeholders['undeclared']:5d}   "
+        "no loaded content declares the name (typo, or art not published)",
+        f"  total               {total:5d}",
+        "```",
+        "",
+    ]
+
+    if tells["transitions"]:
+        lines += [
+            "Room transitions, and how long the cover held for art:",
+            "",
+            "```text",
+            "  seq  wait_ms  covered  move",
+        ]
+        for move in tells["transitions"]:
+            wait = (
+                f"{move['asset_wait_ms']:7.0f}"
+                if move["asset_wait_ms"] is not None
+                else "      -"
+            )
+            lines.append(
+                f"  {move['sequence']:>3}  {wait}  {str(move['covered']):>7}  "
+                f"{move['source']} -> {move['target']}"
+            )
+        lines += ["```", ""]
+
+        last = tells["transitions"][-1]
+        if last["at"] is not None:
+            # Same clock on both sides: the stamp.
+            after = [
+                s
+                for s in tells["spikes"]
+                if s["stamp"] is not None and s["stamp"] > last["at"]
+            ]
+            unplaceable = [s for s in tells["spikes"] if s["stamp"] is None]
+            worst = max((s["ms"] for s in after), default=0.0)
+            lines += [
+                f"Frames over {33.4:.1f} ms AFTER the last transition was logged "
+                f"(t={last['at']:.3f}s): **{len(after)}**"
+                + (f", worst {worst:.1f} ms" if after else "")
+                + ".",
+                "",
+                "The hall entry hitched for nine such frames on 2026-09-01, "
+                "the worst well over a third of a second, all AFTER the cover "
+                "lifted. Under the cover they are cover time, which is what a "
+                "cover is for.",
+                "",
+            ]
+            if unplaceable:
+                lines += [
+                    f"⚠ {len(unplaceable)} spike(s) carry no `[  N.NNNs]` stamp "
+                    "and cannot be placed against the reveal, so they are "
+                    "neither counted nor dismissed.",
+                    "",
+                ]
+            if tells["spike_cap_hit"]:
+                lines += [
+                    "⛔ **THE SPIKE LOG HIT ITS 60-LINE CAP, so this count is a "
+                    "FLOOR, not a total.** Percentile summaries continued; the "
+                    "per-frame lines did not.",
+                    "",
+                ]
+        elif not tells["stamped"]:
+            lines += [
+                "⚠ The log carries no `[  N.NNNs]` stamps, so spikes cannot be "
+                "placed before or after the reveal. Counting them all would "
+                "blame the transition for the whole run.",
+                "",
+            ]
+
+    return lines
+
+
+def build_summary(bundle: Bundle) -> str:
+    meta = bundle.metadata()
+    lines: list[str] = ["# Profiling bundle", ""]
+
+    # `all-run` writes one sub-bundle per mode and this top level holds only
+    # the shared metadata; say so instead of reporting a page of UNAVAILABLE.
+    children = sorted(
+        name
+        for name in os.listdir(bundle.path)
+        if os.path.isdir(os.path.join(bundle.path, name))
+        and os.path.exists(os.path.join(bundle.path, name, "summary.md"))
+    )
+    if children:
+        lines += [
+            "This run captured several modes. Each has its own complete bundle:",
+            "",
+        ]
+        lines += [f"- [`{name}/summary.md`]({name}/summary.md)" for name in children]
+        lines += [
+            "",
+            "The sections below describe only what this top level holds — the shared",
+            "build, host, and capture settings.",
+            "",
+        ]
+
+    headless = meta.get("headless") == "yes"
+    log = bundle.read("game-stderr-stamped.txt") or bundle.read("game-stdout-stamped.txt")
+    adapter_match = ADAPTER.search(log) or ADAPTER.search(bundle.read("perf-record.stderr"))
+    adapter = adapter_match.group(0) if adapter_match else ""
+    software = any(marker in adapter for marker in SOFTWARE_MARKERS)
+
+    # ── What was measured ────────────────────────────────────────────────
+    section(lines, "What this measured")
+    lines += [
+        "| fact | value |",
+        "| --- | --- |",
+        f"| git commit | `{meta.get('git_head_short', '?')}` on `{meta.get('git_branch', '?')}` |",
+        f"| working tree | {'clean' if meta.get('git_clean', True) else 'DIRTY — the binary is not this commit alone'} |",
+        f"| cargo profile | `{meta.get('cargo_profile', '?')}` (`target/{meta.get('profile_dir', '?')}`) |",
+        f"| cargo features | `{meta.get('cargo_features') or '<none>'}` |",
+        f"| executable | `{meta.get('binary_path', '?')}` |",
+        f"| package / bin | `{meta.get('package', '?')}` / `{meta.get('binary', '?')}` |",
+        f"| rust target | `{meta.get('rust_target', '?')}` |",
+        f"| rustc | `{meta.get('rustc_version', '?')}` |",
+        f"| capture mode | `{meta.get('mode', '?')}` |",
+        f"| run command | `{meta.get('run_command', '?')}` |",
+        f"| host | `{meta.get('hostname', '?')}` |",
+        f"| kernel | `{meta.get('uname', '?')}` |",
+        f"| workload census | {'on at ' + meta.get('census_hz', '?') + ' Hz' if meta.get('census_enabled') == 'yes' else 'OFF (--no-census)'} |",
+        f"| headless | {'yes, ' + meta.get('headless_ticks', '?') + ' ticks' if headless else 'no'} |",
+        # ⭐ The front door's own claim first: `--smash` names a workload
+        # without passing anything through `--`, and `headless_scenario` is
+        # `n/a` for every windowed run, so the old row said nothing about the
+        # one thing the reader most needs to know -- WHAT RAN.
+        f"| scenario | `{meta.get('scenario_id') or meta.get('headless_scenario', 'n/a')}` |",
+        "",
+    ]
+    if meta.get("cargo_profile") == "dev":
+        lines += [
+            "> **This is the DEVELOPMENT build.** Workspace crates are built at low",
+            "> optimization on purpose (see `[profile.dev]` in Cargo.toml), so these",
+            "> numbers answer *why is my edit/play build slow*, NOT *why is the",
+            "> optimized runtime slow*. For the second question re-run without",
+            "> `--dev-build`.",
+            "",
+        ]
+    elif meta.get("cargo_profile") == "profiling":
+        lines += [
+            "Release-level optimization with symbols and line tables kept, so this",
+            "is representative of shipped runtime performance and still attributable.",
+            "",
+        ]
+
+    for line in bundle.read("host-environment.txt").splitlines():
+        if line.startswith("model name") or line.startswith("logical_cpus") or line.startswith("MemTotal"):
+            lines.append(f"- {line.strip()}")
+    lines.append("")
+
+    # ── Renderer ─────────────────────────────────────────────────────────
+    section(lines, "Renderer")
+    if headless:
+        lines += [
+            "**NOT APPLICABLE — headless run.** The game ran its supported headless",
+            "path (`--headless`), which selects `backends: None`: no window, no wgpu",
+            "adapter, and therefore no render app and no GPU work at all. The",
+            "presentation composition itself may still exist — where camera and view",
+            "rows appear below, they are real and they are what a windowed run would",
+            "have drawn — but nothing here measures drawing.",
+            "",
+            "Every GPU and render-pass measurement below is marked not-applicable",
+            "rather than missing. This run is not evidence that rendering is cheap.",
+            "",
+        ]
+    elif adapter:
+        lines += ["```text", adapter, "```", ""]
+        if software:
+            lines += [
+                "**SOFTWARE RENDERING — READ THIS BEFORE THE NUMBERS BELOW.**",
+                "",
+                "This run had no GPU: every pixel was rasterized on the CPU. Expect the",
+                "bulk of samples in llvmpipe/lavapipe threads and in unsymbolized `[JIT]`",
+                "frames, which are the rasterizer's runtime-compiled shaders -- perf can",
+                "never attribute those to a pass, a material, or a draw call. Game-code",
+                "symbols in this profile describe only the few percent left over.",
+                "",
+                "This is NOT a measurement of GPU rendering performance, and it must not",
+                "be reported as one. Check `host-environment.txt` for why no GPU adapter",
+                "was selected (missing ICD, `VK_*`/`WGPU_*` override, no DRM render node,",
+                "headless session).",
+                "",
+            ]
+        else:
+            lines += ["Hardware rendering was available and used.", ""]
+    else:
+        lines += [
+            "UNAVAILABLE — no `AdapterInfo` line was found in the captured logs, so",
+            "this bundle cannot say which adapter drew. See `host-environment.txt`.",
+            "",
+        ]
+
+    # ── Session and frame time ───────────────────────────────────────────
+    stamps = [float(m.group(1)) for m in re.finditer(r"^\[\s*([0-9.]+)s\]", log, re.M)]
+    duration = max(stamps) if stamps else 0.0
+    section(lines, "Session")
+    if duration:
+        lines.append(f"Observed span of the game's own log: **{duration:.1f}s**.")
+    else:
+        lines.append("No stamped game log in this bundle (attach modes do not capture stdio).")
+    lines.append("")
+
+    frames = bundle.rows("frame_times.csv")
+    spikes = bundle.rows("frame_spikes.csv")
+    windows = bundle.rows("frame_windows.csv")
+    section(lines, "Frame time")
+    if frames:
+        worst = sorted(frames, key=lambda row: -number(row, "max"))[:8]
+        lines += [
+            f"{len(frames)} census windows at {meta.get('census_hz', '?')} Hz. Worst windows by max frame:",
+            "",
+            "```text",
+            f'{"t":>9} {"frames":>7} {"mean":>7} {"p50":>7} {"p95":>7} {"p99":>7} {"max":>8}',
+        ]
+        for row in worst:
+            lines.append(
+                f"{number(row, 't'):9.1f} {number(row, 'frames'):7.0f} {number(row, 'mean'):7.1f} "
+                f"{number(row, 'p50'):7.1f} {number(row, 'p95'):7.1f} {number(row, 'p99'):7.1f} "
+                f"{number(row, 'max'):8.1f}"
+            )
+        lines += ["```", "", "Full series: `frame_times.csv`.", ""]
+    elif windows:
+        lines += [
+            "The 1 Hz census series is absent; the always-on 5s windows are in",
+            "`frame_windows.csv`.",
+            "",
+        ]
+    else:
+        lines += ["UNAVAILABLE — no frame-time rows were captured.", ""]
+
+    if spikes:
+        ranked = sorted(spikes, key=lambda row: -number(row, "frame_ms"))[:10]
+        lines += [
+            f"{len(spikes)} frames over the 33.4ms spike threshold. Worst, with the",
+            "wall-clock second to look up in the other CSVs:",
+            "",
+            "```text",
+        ]
+        for row in ranked:
+            lines.append(f"{number(row, 'wall_s'):9.3f}s  {number(row, 'frame_ms'):8.1f} ms")
+        lines += ["```", "", "Full list: `frame_spikes.csv`.", ""]
+    else:
+        lines += ["No frames crossed the 33.4ms spike threshold.", ""]
+
+    # ── Room reveal ──────────────────────────────────────────────────────
+    # Placed right after the frame-time section: the hall-entry hitch IS a
+    # frame-time story, and a reader who has just seen the spike list needs the
+    # reveal beside it to know whether those spikes were under the cover.
+    lines += room_reveal_lines(log)
+    lines += boot_population_lines(log)
+
+    # ── Views and cameras ────────────────────────────────────────────────
+    section(lines, "Cameras and views")
+    view_totals = bundle.rows("view_totals.csv")
+    cameras = bundle.rows("camera_views.csv")
+    if view_totals:
+        peak = max(view_totals, key=lambda row: number(row, "world_rendering"))
+        lines += [
+            "```text",
+            f'{"t":>9} {"cameras":>8} {"active":>7} {"world":>6} {"offscr":>7} {"views":>6}',
+        ]
+        for row in view_totals[:: max(1, len(view_totals) // 20)]:
+            lines.append(
+                f"{number(row, 't'):9.1f} {number(row, 'cameras'):8.0f} {number(row, 'active'):7.0f} "
+                f"{number(row, 'world_rendering'):6.0f} {number(row, 'offscreen'):7.0f} "
+                f"{number(row, 'local_views'):6.0f}"
+            )
+        lines += ["```", ""]
+        world_peak = number(peak, "world_rendering")
+        # ⭐ THE SENTENCE AFTER THE MEASUREMENT. The count above is the answer to
+        # "is this world being drawn more than once per frame", and a reader who
+        # has to know that a HUD camera is excluded before the number means
+        # anything will not reach the answer. Say it.
+        lines += [
+            f"Peak world-rendering cameras: **{world_peak:.0f}** at "
+            f"t={number(peak, 't'):.1f}s.",
+            "",
+        ]
+        if world_peak >= 2:
+            lines += [
+                f"⭐ **The world was drawn {world_peak:.0f} times in one frame at peak.** Only",
+                "cameras that draw the SIMULATED WORLD are counted — main gameplay, a",
+                "split-screen local view, a portal capture rig — so the HUD is not one of",
+                "these. Each is a full pass over the visible population. Check",
+                "`camera_views.csv` for which roles were live together and at what",
+                "resolution each drew.",
+                "",
+            ]
+        elif world_peak == 1:
+            lines += [
+                "The world was drawn **once** per frame throughout: one active",
+                "world-rendering camera, no portal capture and no second view. Repeated",
+                "world rendering is not what this run's frame cost is.",
+                "",
+            ]
+        else:
+            lines += [
+                "No active world-rendering camera was sampled. Either nothing was on",
+                "screen at the sampled instants, or this run never reached gameplay.",
+                "",
+            ]
+        if cameras:
+            roles: dict[str, set[str]] = {}
+            for row in cameras:
+                roles.setdefault(row.get("role", "?"), set()).add(row.get("name", "?"))
+            lines += ["Distinct cameras seen, by role:", "", "```text"]
+            for role, names in sorted(roles.items()):
+                lines.append(f"{role:>16}  {', '.join(sorted(names))[:100]}")
+            lines += ["```", "", "Per-sample rows: `camera_views.csv`.", ""]
+    elif meta.get("census_enabled") != "yes":
+        lines += ["OFF — the workload census was disabled with `--no-census`.", ""]
+    elif headless:
+        lines += ["NOT APPLICABLE — a headless run composes no cameras.", ""]
+    else:
+        lines += ["UNAVAILABLE — no camera census rows reached this bundle.", ""]
+
+    # ── Portals / offscreen ──────────────────────────────────────────────
+    section(lines, "Portal and offscreen workload")
+    portals = bundle.rows("portal_activity.csv")
+    targets = bundle.rows("render_target_census.csv")
+    if portals:
+        peak = max(portals, key=lambda row: number(row, "active"))
+        lines += [
+            f"Peak active portal capture rigs: **{number(peak, 'active'):.0f}** of "
+            f"{number(peak, 'rigs'):.0f} at t={number(peak, 't'):.1f}s.",
+            "",
+            "```text",
+            f'{"t":>9} {"rigs":>5} {"active":>7}  budget',
+        ]
+        for row in portals[:: max(1, len(portals) // 12)]:
+            budget = (
+                f"res<={row.get('max_resolution', '?')} depth={row.get('recursion_depth', '?')} "
+                f"captures<={row.get('max_active_captures', '?')} "
+                f"updates/frame<={row.get('max_updates_per_frame', '?')}"
+            )
+            lines.append(
+                f"{number(row, 't'):9.1f} {number(row, 'rigs'):5.0f} {number(row, 'active'):7.0f}  {budget}"
+            )
+        lines += ["```", "", "Full series: `portal_activity.csv`.", ""]
+    elif headless:
+        lines += ["NOT APPLICABLE — headless runs compose no portal capture rigs.", ""]
+    elif meta.get("census_enabled") != "yes":
+        lines += ["OFF — the workload census was disabled with `--no-census`.", ""]
+    else:
+        lines += ["No portal capture rigs were reported in this run.", ""]
+
+    if targets:
+        peak = max(targets, key=lambda row: number(row, "image_targets"))
+        lines += [
+            f"Peak offscreen image render targets: **{number(peak, 'image_targets'):.0f}** "
+            f"(largest dimension {number(peak, 'largest_dim'):.0f}px) at t={number(peak, 't'):.1f}s.",
+            "",
+            "Full series: `render_target_census.csv`. ⚠ `cpu_bytes` there is the CPU-side"
+            " copy an image still holds; a target uploaded and dropped reports 0 and is"
+            " still costing VRAM.",
+            "",
+        ]
+
+    # ── Scene scale ──────────────────────────────────────────────────────
+    section(lines, "Scene and ECS workload")
+    ecs = bundle.rows("runtime_census.csv")
+    draws = bundle.rows("draw_census.csv")
+    schedules = bundle.rows("schedule_census.csv")
+    if ecs:
+        first, last = ecs[0], ecs[-1]
+        lines += [
+            "```text",
+            f'{"":>10} {"entities":>10} {"archetypes":>11} {"bodies":>8} {"players":>8}',
+            f'{"start":>10} {number(first, "entities"):10.0f} {number(first, "archetypes"):11.0f} '
+            f'{number(first, "bodies"):8.0f} {number(first, "players"):8.0f}',
+            f'{"end":>10} {number(last, "entities"):10.0f} {number(last, "archetypes"):11.0f} '
+            f'{number(last, "bodies"):8.0f} {number(last, "players"):8.0f}',
+            f'{"peak":>10} {max(number(r, "entities") for r in ecs):10.0f} '
+            f'{max(number(r, "archetypes") for r in ecs):11.0f} '
+            f'{max(number(r, "bodies") for r in ecs):8.0f} '
+            f'{max(number(r, "players") for r in ecs):8.0f}',
+            "```",
+            "",
+        ]
+        # A leak is monotonic growth that KEEPS GOING. Spawning a room once and
+        # then holding steady has the same start-to-end delta and is the
+        # healthy case, so comparing first to last flags every normal run.
+        # Split the session and ask whether the second half is still climbing.
+        counts = [number(row, "entities") for row in ecs]
+        growth = counts[-1] - counts[0]
+        if growth > 0:
+            half = len(counts) // 2
+            late_growth = counts[-1] - counts[half] if half else 0.0
+            settled = max(counts[half:]) - min(counts[half:]) if half else 0.0
+            if late_growth > 0 and settled > 0:
+                lines += [
+                    f"⚠ Entity count rose by {growth:.0f} over the session and was **still",
+                    f"climbing in the second half** (+{late_growth:.0f} after t="
+                    f"{number(ecs[half], 't'):.1f}s). Growth that never falls across room",
+                    "transitions is the shape of a lifecycle leak; check `runtime_census.csv`",
+                    "against the room markers in `timeline.md`.",
+                    "",
+                ]
+            else:
+                lines += [
+                    f"Entity count rose by {growth:.0f} and then held flat at "
+                    f"{counts[-1]:.0f} for the rest of the session — the shape of a scene",
+                    "spawning once, not a leak.",
+                    "",
+                ]
+    elif meta.get("census_enabled") != "yes":
+        lines += ["OFF — the workload census was disabled with `--no-census`.", ""]
+    else:
+        lines += ["UNAVAILABLE — no ECS census rows reached this bundle.", ""]
+
+    if headless and ecs and max(number(row, "bodies") for row in ecs) == 0:
+        lines += [
+            "> **No simulated bodies existed in this run.** The scenario named in the",
+            f"> table above (`{meta.get('headless_scenario', 'n/a')}`) never reached a",
+            "> state with a body in it, so the numbers here describe composition rather",
+            "> than gameplay, and no simulation cost can be read off them. A capture",
+            "> that was supposed to exercise the sim and reports this either did not",
+            "> run long enough (`--headless-ticks`) or never activated a session.",
+            "",
+        ]
+
+    if draws:
+        peak = max(draws, key=lambda row: number(row, "sprites"))
+        lines += [
+            f"Peak sprites: **{number(peak, 'sprites'):.0f}** "
+            f"({number(peak, 'sprites_visible'):.0f} visible), "
+            f"text2d {number(peak, 'text2d'):.0f}, "
+            f"per-view projections {number(peak, 'per_view_projections'):.0f} "
+            f"at t={number(peak, 't'):.1f}s. Full series: `draw_census.csv`.",
+            "",
+        ]
+    if schedules:
+        peak = max(schedules, key=lambda row: number(row, "systems"))
+        lines += [
+            f"Peak registered systems across visible schedules: **{number(peak, 'systems'):.0f}** "
+            f"in {number(peak, 'schedules'):.0f} schedules.",
+            "",
+        ]
+
+    # ── Render passes ────────────────────────────────────────────────────
+    section(lines, "Render passes")
+    passes = bundle.rows("render_diagnostics.csv")
+    pass_status = bundle.rows("render_diagnostics_status.csv")
+    if headless:
+        lines += [
+            "NOT APPLICABLE — a headless run has no render app, so there are no",
+            "passes to time. This is not a claim that rendering is cheap.",
+            "",
+        ]
+    elif passes:
+        totals: dict[str, list[float]] = {}
+        for row in passes:
+            path = row.get("path", "")
+            try:
+                value = float(row.get("value", "nan"))
+            except ValueError:
+                continue
+            totals.setdefault(path, []).append(value)
+        # Times and counts are different units and must not share a ranking:
+        # sorted together, a million shader invocations always outranks a 20ms
+        # pass and the expensive pass falls off the bottom of the table.
+        def emit(out: list[str], title: str, paths: list[str], unit: str) -> None:
+            if not paths:
+                return
+            ranked = sorted(paths, key=lambda path: -(sum(totals[path]) / len(totals[path])))
+            out += [title, "", "```text", f'{"mean":>14} {"max":>14} {"samples":>8}  {unit}']
+            for path in ranked[:30]:
+                values = totals[path]
+                out.append(
+                    f"{sum(values) / len(values):14.3f} {max(values):14.3f} {len(values):8d}  {path}"
+                )
+            out += ["```", ""]
+
+        lines += ["Mean and max over the sampled frames, from Bevy's `RenderDiagnosticsPlugin`.", ""]
+        emit(
+            lines,
+            "Pass time, milliseconds:",
+            [path for path in totals if path.endswith(("/elapsed_cpu", "/elapsed_gpu"))],
+            "diagnostic (ms)",
+        )
+        emit(
+            lines,
+            "Pipeline statistics, counts per frame:",
+            [path for path in totals if not path.endswith(("/elapsed_cpu", "/elapsed_gpu"))],
+            "diagnostic (count)",
+        )
+        gpu = sum(1 for path in totals if path.endswith("/elapsed_gpu"))
+        stats = sum(1 for path in totals if not path.endswith(("/elapsed_cpu", "/elapsed_gpu")))
+        lines.append(f"- CPU pass timings: **measured** ({sum(1 for p in totals if p.endswith('/elapsed_cpu'))} spans).")
+        if gpu:
+            lines.append(f"- GPU pass timings: **measured** ({gpu} spans).")
+        else:
+            lines.append(
+                "- GPU pass timings: **supported by Bevy, unavailable on this adapter/backend.** "
+                "Timestamp queries are Vulkan/DX12 only, and a software adapter has none."
+            )
+        if stats:
+            lines.append(f"- Pipeline statistics: **measured** ({stats} diagnostics).")
+        else:
+            lines.append(
+                "- Pipeline statistics (primitive and shader-invocation counts): "
+                "**supported by Bevy, unavailable on this adapter/backend.**"
+            )
+        lines += ["", "Full series: `render_diagnostics.csv`.", ""]
+    elif pass_status:
+        lines += [
+            "UNAVAILABLE — the render diagnostics store held no `render/*` entries.",
+            "That happens when the build has no render app or no pass recorded a span.",
+            "",
+        ]
+    else:
+        lines += [
+            "UNAVAILABLE — no render-pass rows reached this bundle. `RenderDiagnosticsPlugin`",
+            "is installed by the presentation census plugin; a bundle with no rows either",
+            "ran with `--no-census` or never rendered a frame.",
+            "",
+        ]
+
+    # ── Bevy systems (Tracy) ─────────────────────────────────────────────
+    section(lines, "Bevy systems and zones (Tracy)")
+    tracy = bundle.read("tracy_summary.md")
+    skipped = bundle.read("tracy.skipped").strip()
+    caveat = bundle.read("tracy.caveat").strip()
+    if caveat:
+        lines += [f"> **Timer caveat.** {caveat}", ""]
+    if tracy:
+        body = [line for line in tracy.splitlines() if not line.startswith("# ")]
+        lines += body[:70]
+        lines += ["", "Full report: `tracy_summary.md`. Raw trace: `tracy.trace`.", ""]
+    elif skipped:
+        lines += [
+            "UNAVAILABLE — no Tracy capture:",
+            "",
+            "```text",
+            skipped,
+            "```",
+            "",
+            "Without it there are no per-Bevy-system or per-render-pass zone timings;",
+            "`perf` reports native symbols, which cannot be mapped back to a system.",
+            "",
+        ]
+    else:
+        lines += ["UNAVAILABLE — no Tracy artifacts in this bundle.", ""]
+
+    # ── Frame phase breakdown ────────────────────────────────────────────
+    section(lines, "Which phase of the frame owned the time")
+    phases = bundle.rows("schedule_phases.csv")
+    # ⛔⛔ THE GAME ALREADY SAYS WHEN THIS TABLE CANNOT BE READ AS CPU WORK, AND
+    # THE TABLE USED TO PRINT ANYWAY. `[census] phases_warning
+    # untrustworthy=render_blocking` goes to stderr on every rendering run:
+    # "phases attributes wall time between markers, so GPU blocking lands in
+    # whichever phase brackets it." A reader who has the summary in front of
+    # them does not have the stderr, and this table's shape — one phase at 32%
+    # — invites exactly the conclusion the warning forbids: that the phase was
+    # BUSY rather than BLOCKED. Measured 2026-09-01 on an RTX 3090 capture,
+    # where PreUpdate read 3.15 ms and could not be told apart from a wait.
+    render_blocked = "untrustworthy=render_blocking" in bundle.read(
+        "game-stderr-stamped.txt"
+    )
+    if phases:
+        # Column order is schedule order; taking labels off the row keeps this
+        # table honest if a phase is ever added to the census.
+        labels = [key for key in phases[0] if key not in ("wall_s", "t", "frames")]
+        totals = {label: 0.0 for label in labels}
+        frames = 0.0
+        for row in phases:
+            weight = number(row, "frames")
+            frames += weight
+            for label in labels:
+                totals[label] += number(row, label) * weight
+        if frames > 0:
+            per_frame = {label: total / frames for label, total in totals.items()}
+            budget = sum(per_frame.values())
+            lines += [
+                f"Mean milliseconds per frame over {frames:.0f} frames, "
+                f"summing to {budget:.2f}ms:",
+                "",
+                "```text",
+            ]
+            for label, value in sorted(per_frame.items(), key=lambda item: -item[1]):
+                share = (value / budget * 100.0) if budget > 0 else 0.0
+                lines.append(f"{value:8.2f} ms  {share:5.1f}%  {label}")
+            # ⭐ THE CPU CLOCK ANSWERS WHAT THE WALL CLOCK CANNOT. If a phase's
+            # wall time far exceeds the CPU burned inside it, the frame was
+            # WAITING there — which is the whole question a rendering capture
+            # raises and the wall split cannot settle.
+            cpu_rows = bundle.rows("schedule_phases_cpu.csv")
+            if cpu_rows:
+                cpu_totals = {label: 0.0 for label in labels}
+                cpu_frames = 0.0
+                for row in cpu_rows:
+                    weight = number(row, "frames")
+                    cpu_frames += weight
+                    for label in labels:
+                        cpu_totals[label] += number(row, label) * weight
+                if cpu_frames > 0:
+                    lines += [
+                        "```",
+                        "",
+                        "Wall against CPU, per phase. `cpu/wall` is roughly how "
+                        "many cores the phase kept busy: near zero is a STALL "
+                        "(wall time with nothing running), around one is serial "
+                        "work, above one is parallel work.",
+                        "",
+                        "⛔ NOT `wall - cpu`. The census reads "
+                        "`CLOCK_PROCESS_CPUTIME_ID`, which sums EVERY THREAD, so "
+                        "that difference goes negative on any parallel phase and "
+                        "is not a stall. This table printed it as one until "
+                        "2026-09-02.",
+                        "",
+                        "```text",
+                        "    wall      cpu  cpu/wall   phase",
+                    ]
+                    for label, wall in sorted(per_frame.items(), key=lambda kv: -kv[1]):
+                        cpu = cpu_totals[label] / cpu_frames
+                        ratio = f"{cpu / wall:8.2f}" if wall > 0 else "       -"
+                        lines.append(f"{wall:8.2f} {cpu:8.2f} {ratio}   {label}")
+            if render_blocked:
+                lines += [
+                    "```",
+                    "",
+                    "⛔⛔ **THIS SPLIT IS NOT CPU WORK.** The game emitted "
+                    "`untrustworthy=render_blocking` for this run: the census "
+                    "attributes wall time between markers, so time spent BLOCKED "
+                    "on the GPU lands in whichever phase brackets it. A phase at "
+                    "30% here may be waiting, not working, and nothing in the "
+                    "numbers distinguishes the two.",
+                    "",
+                    "Use it for the frame TOTAL and for comparing one run against "
+                    "another taken the same way. To attribute CPU cost to a phase, "
+                    "take a run with no rendering — or get per-system zones, which "
+                    "need Tracy to actually connect.",
+                    "```text",
+                ]
+            lines += [
+                "```",
+                "",
+                "From `[census] phases`, which needs no profiler and works on every",
+                "platform that can write to stderr. `outside` is the gap between the end",
+                "of `Last` and the next `First`: present/vsync wait when windowed, the",
+                "runner loop when headless. A phase with no mark of its own is charged to",
+                "the phase before it, so these are frame shares rather than schedule",
+                "totals. Full series: `schedule_phases.csv`.",
+                "",
+            ]
+    elif meta.get("census_enabled") != "yes":
+        lines += ["OFF — the workload census was disabled with `--no-census`.", ""]
+    else:
+        lines += [
+            "UNAVAILABLE — no `[census] phases` rows in this bundle. The phase marks",
+            "are registered only when `AMBITION_PROFILE_CENSUS` is set at App build",
+            "time, so a run that enabled the census later has none.",
+            "",
+        ]
+
+    # ── Observer effect ──────────────────────────────────────────────────
+    #
+    # This section exists because the DSO tally below CANNOT answer it. Tracy's
+    # worker threads live inside the game binary, so a capture where the
+    # profiler outweighs the game still reports ~100% "game binary" and reads as
+    # a clean profile. Only the per-thread split separates them, and if the
+    # profiler is a large share then every frame time in this bundle is
+    # inflated -- which is a conclusion about the whole report, not a footnote.
+    section(lines, "Observer effect (what the profiler itself cost)")
+    threads = bundle.read("perf-report-by-thread.txt")
+    profiler_share = 0.0
+    if threads:
+        tally: dict[str, float] = {}
+        for line in threads.splitlines():
+            match = re.match(r"\s+([0-9.]+)%\s+(\S.*?)\s*$", line)
+            if not match:
+                continue
+            percent, name = float(match.group(1)), match.group(2)
+            label = GAME_THREADS
+            for bucket, needles in THREAD_BUCKETS:
+                if any(needle.lower() in name.lower() for needle in needles):
+                    label = bucket
+                    break
+            tally[label] = tally.get(label, 0.0) + percent
+        if tally:
+            profiler_share = tally.get("profiler (Tracy)", 0.0)
+            game_share = tally.get(GAME_THREADS, 0.0)
+            compiler_share = tally.get(COMPILER_THREADS, 0.0)
+            launcher_share = tally.get(LAUNCHER_THREADS, 0.0)
+            lines += ["```text"]
+            for label, percent in sorted(tally.items(), key=lambda item: -item[1]):
+                lines.append(f"{percent:6.1f}%  {label}")
+            lines += ["```", ""]
+            lines += native_profile_trust_lines(
+                native_profile_trust(compiler_share, game_share, profiler_share),
+                compiler_share,
+                game_share,
+                profiler_share,
+                headless,
+                launcher_share,
+            )
+    elif bundle.exists("tracy.trace"):
+        lines += [
+            "UNKNOWN — no per-thread `perf` report, so the profiler's own cost could not",
+            "be separated from the game's. A Tracy capture is never free; treat absolute",
+            "frame times here as an upper bound.",
+            "",
+        ]
+    else:
+        lines += [
+            "NOT APPLICABLE — no Tracy capture in this bundle, so nothing but `perf`'s",
+            "own sampling was observing the game.",
+            "",
+        ]
+
+    # ── Native profile ───────────────────────────────────────────────────
+    section(lines, "Where the native time went")
+    dso = bundle.read("perf-report-by-dso.txt")
+    if dso:
+        tally: dict[str, float] = {}
+        for line in dso.splitlines():
+            match = re.match(r"\s+([0-9.]+)%\s+(\S.*?)\s*$", line)
+            if not match:
+                continue
+            percent, name = float(match.group(1)), match.group(2)
+            label = "game binary + its Rust/C deps"
+            for bucket, needles in DSO_BUCKETS:
+                if any(needle.lower() in name.lower() for needle in needles):
+                    label = bucket
+                    break
+            tally[label] = tally.get(label, 0.0) + percent
+        if tally:
+            lines += ["```text"]
+            for label, percent in sorted(tally.items(), key=lambda item: -item[1]):
+                lines.append(f"{percent:6.1f}%  {label}")
+            lines += ["```", ""]
+            total = sum(tally.values())
+            if total > INCLUSIVE_ACCOUNTING_CEILING:
+                # ⛔⛔ THESE ROWS DO NOT PARTITION THE CAPTURE. `perf report`
+                # defaults to `--children`, which credits every frame on the
+                # stack, so a sample inside the game calling into the kernel is
+                # counted by BOTH. `desktop-perf-run-20260901T003332Z` printed
+                # 216.4% game plus 22.8% kernel under a heading that reads like a
+                # breakdown. Say so rather than let a reader subtract them.
+                lines += [
+                    f"⚠⚠ **These rows sum to {total:.0f}%, so they are not a breakdown.**",
+                    "",
+                    "This report was written with `perf report`'s default INCLUSIVE accounting: a",
+                    "sample is credited to every shared object on its call stack, so the game",
+                    "binary and the kernel it called both own the same cycles.",
+                    "",
+                    "Read each row as \"cycles that passed through here\", never as a share of",
+                    "the capture, and never subtract one from another. Captures written after",
+                    "2026-08-31 pass `--no-children` and do partition; this bundle predates it.",
+                    "",
+                ]
+            else:
+                lines += [
+                    "From `perf-report-by-dso.txt`, SELF time (`--no-children`), so the rows",
+                    "partition the capture. If the top bucket is not the game binary, ranking",
+                    "game symbols is ranking the wrong machine layer.",
+                    "",
+                ]
+            lines += [
+                "This split is by SHARED OBJECT, not by thread: statically linked",
+                "profiler, allocator, and runtime code all report as the game binary.",
+                "Read it together with the observer-effect section above.",
+                "",
+            ]
+    report = bundle.read("perf_report.txt")
+    if report:
+        rows = [line[:200] for line in report.splitlines() if PERCENT.match(line)][:35]
+        if rows:
+            lines += ["Top native symbols:", "", "```text"] + rows + ["```", ""]
+    elif not dso:
+        lines += ["UNAVAILABLE — no `perf` report in this bundle.", ""]
+
+    # ── Assets ───────────────────────────────────────────────────────────
+    section(lines, "Assets and render resources")
+    assets = bundle.rows("asset_activity.csv")
+    decodes = bundle.rows("image_decodes.csv")
+    if assets:
+        first, last = assets[0], assets[-1]
+        lines += [
+            f"- Decoded images: {number(first, 'decoded_images'):.0f} → "
+            f"{number(last, 'decoded_images'):.0f} "
+            f"({number(last, 'decoded_megapixels'):.1f} MP, "
+            f"{number(last, 'decoded_bytes') / 1e6:.1f} MB of decode work).",
+            f"- Images resident at end: {number(last, 'images_resident'):.0f}.",
+        ]
+        # ⭐ THE RESIDENT MEGABYTES EXIST NOWHERE ELSE IN THE BUNDLE.
+        # `asset_activity.csv` counts resident IMAGES and carries no byte column,
+        # so without this the only record of how much memory the image set holds
+        # is a line in the raw stderr that nothing reads. Open work 4 of
+        # `asset-preparation-and-residency.md` is waiting on precisely this
+        # number to choose a residency budget, and has been waiting because
+        # every capture had it and no summary showed it.
+        resident_mb = _census_resident_mb(log)
+        if resident_mb is not None:
+            lines += [
+                # ⚠ NOT "images resident" again. The line above already uses
+                # that phrase for a COUNT; repeating it for BYTES is the
+                # count-vs-bytes confusion that made "half the megapixels are
+                # unreachable" read as "half the package is recoverable".
+                f"- **Resident image BYTES at end: {resident_mb:.1f} MB.** This is the "
+                "number a residency budget is chosen against; a room-to-room walk "
+                "gives its shape, and the hall was 2153 MB before sheets went "
+                "render-world-only.",
+            ]
+        lines += [
+            "",
+            "Decode counts only ever rise. A rise with no new room is the same asset",
+            "being decoded again; `image_decodes.csv` names which.",
+            "",
+        ]
+        # ⭐ Say how much of the byte total was DERIVED rather than measured. An
+        # image whose main-world copy was dropped (RenderAssetUsages::RENDER_WORLD)
+        # has no `data` to weigh, and reporting 0 for it would make "decode work"
+        # FALL every time an asset moved to render-world only — a fake win the
+        # readout could not tell from a real one.
+        derived = number(last, "derived_byte_images")
+        if derived > 0:
+            lines += [
+                f"⚠ {derived:.0f} of those images had their bytes DERIVED from the "
+                "texture descriptor rather than measured, because their CPU copy "
+                "was dropped. The decode still happened; the total is no longer "
+                "purely measured.",
+                "",
+            ]
+    # ⭐ THE ARRIVAL RATE IS THE EXTRACT-SPIKE PREDICTOR. Every image that reaches
+    # `Assets<Image>` is extracted into the render world exactly once, and that
+    # extract is what lands on a frame (`extract_render_asset<GpuImage>`, measured
+    # at 454.9ms max against a 0.1ms mean). So the worst WINDOW forecasts the
+    # hitch, where a cumulative total says nothing about when it arrived.
+    arrivals = bundle.rows("image_arrivals.csv")
+    if arrivals:
+        worst = max(arrivals, key=lambda row: number(row, "images_this_window"))
+        lines += [
+            f"- Busiest arrival window: **{number(worst, 'images_this_window'):.0f} "
+            f"images ({number(worst, 'megapixels_this_window'):.1f} MP)** at "
+            f"{number(worst, 'game_s'):.1f}s. Each is extracted into the render "
+            "world once, so this is what a frame spike is made of.",
+            "",
+        ]
+
+    if decodes:
+        # ⭐⭐ THE CONTRACT LINE, AND IT GOES FIRST. A decode that lands while
+        # gameplay is LIVE is a frame the player felt — every one of the five
+        # frame-spike clusters in the 2026-08-29 hardware run was a decode burst,
+        # monotone in megapixels, up to 516ms. An asset a match needs should be
+        # resident before the opening bell, so this count is the one number that
+        # says whether that contract held.
+        during = [row for row in decodes if row.get("during_gameplay") == "1"]
+        # ⛔ SPLIT THEM. A `<runtime-generated>` image has no asset path and no
+        # preparation step to move it to — an atlas or a render target allocated
+        # on demand. Counting it beside content decodes inflates a number whose
+        # whole point is "this could have been demanded earlier".
+        generated = [row for row in during if row.get("path") == "<runtime-generated>"]
+        late = [row for row in during if row.get("path") != "<runtime-generated>"]
+        if generated:
+            gen_mp = sum(number(row, "megapixels") for row in generated)
+            lines += [
+                f"⚠ {len(generated)} GENERATED image(s) were allocated during "
+                f"gameplay ({gen_mp:.1f} MP) — atlases or render targets, not "
+                "content. Real cost, but nothing to demand earlier.",
+                "",
+            ]
+        # ⛔⛔ "DURING GAMEPLAY" ALONE IS NEARLY USELESS AND THE FIRST VERSION OF
+        # THIS SECTION PROVED IT: in a play-through gameplay is live almost
+        # always, so the flag fired on 53 of 53 decodes. What distinguishes an
+        # EXPECTED decode from a contract violation is not whether the player was
+        # playing — it is whether a room was still arriving.
+        #
+        # ⭐ The engine cannot answer that without new coupling (the render census
+        # does not know about rosters or transitions), but the BUNDLE can: the
+        # game's own log carries `room-loaded` with a timestamp. A big decode
+        # seconds after the room settled is the thing worth naming.
+        # ⭐ 3s IS A MEASURED PLATEAU, NOT A GUESS. Sweeping it over the second
+        # hardware run: 1s, 2s, 3s and 5s all give the SAME split (31 boot / 7
+        # streaming / 15 settled). It only moves at 10s (→ 7 settled) and empties
+        # at 20s, because the two offending bursts sit 7.3s and 11.0s after a room
+        # load and straddle that mark.
+        # ⇒ any threshold up to ~7s answers identically, and 7 seconds after a
+        # room finished loading is not "still arriving". A number this section
+        # reports has to survive its own threshold moving, or it is an artifact of
+        # the threshold.
+        settle_s = 3.0
+        # ⭐ FROM THE CSV, NOT A RE-REGEX OF THE LOG. The first version scraped
+        # `room-loaded` out of the raw text because world events were not parsed;
+        # they are now, so this reads the same structured rows every other section
+        # reads. A classifier that depends on a signal should not be the only
+        # thing that knows how to extract it.
+        room_times = sorted(
+            number(row, "wall_s")
+            for row in bundle.rows("world_events.csv")
+            if row.get("kind") == "room-loaded"
+        )
+
+        # ⛔ THREE CATEGORIES, NOT TWO. Anything before the FIRST `room-loaded` is
+        # BOOT — there is no room to be settled after. Treating "no prior room
+        # load" as "settled play" counted every boot decode as a violation and
+        # inflated the number; caught because the first room load in this bundle
+        # is at 48.9s while decoding starts at 2.2s.
+        first_room = room_times[0] if room_times else None
+
+        def phase(row: dict) -> str:
+            at = number(row, "wall_s")
+            if first_room is None or at < first_room:
+                return "boot"
+            prior = [t for t in room_times if t <= at]
+            return "streaming" if at - prior[-1] <= settle_s else "settled"
+
+        boot = [row for row in late if phase(row) == "boot"]
+        streaming = [row for row in late if phase(row) == "streaming"]
+        settled = [row for row in late if phase(row) == "settled"]
+
+        # ⭐ THE FIRST ROOM'S OWN VERDICT, BY FRAME. Every pre-fix host capture
+        # (0155/0159/0205Z, 2026-09-02) decoded the player's 7.6 MP sheet 0.15 s
+        # AFTER the first `room-loaded`, as a 67-79 ms frame: the shell route's
+        # preparation validated everything and decoded nothing. Since
+        # `prepare-first-room-art` the first room's cast and the worn sheet land
+        # BEFORE activation — and the honest test is the FRAME, not the clock:
+        # an image inserted in `PreUpdate` of the activation frame is stamped
+        # in `Last`, after the frame's work, so its wall time reads later than
+        # the `room-loaded` it preceded. Frame ≤ first-room frame = covered.
+        first_room_frame = next(
+            (
+                int(row["frame"])
+                for row in sorted(
+                    bundle.rows("world_events.csv"), key=lambda r: number(r, "wall_s")
+                )
+                if row.get("kind") == "room-loaded" and row.get("frame", "").isdigit()
+            ),
+            None,
+        )
+        if first_room_frame is not None and first_room is not None:
+            stamped = [row for row in late if row.get("frame", "").isdigit()]
+            first_room_window = [
+                row
+                for row in stamped
+                if int(row["frame"]) > first_room_frame
+                and number(row, "wall_s") - first_room <= 1.0
+            ]
+            if stamped and not first_room_window:
+                lines += [
+                    f"✔ FIRST ROOM: no notable decode landed in the second after the "
+                    f"first `room-loaded` (frame {first_room_frame}) with a LATER frame "
+                    "stamp — the first room's art, the player's sheet included, was "
+                    "in before the route activated.",
+                    "",
+                ]
+            elif first_room_window:
+                fr_mp = sum(number(row, "megapixels") for row in first_room_window)
+                lines += [
+                    f"⚠ FIRST ROOM: {len(first_room_window)} notable decode(s) "
+                    f"({fr_mp:.1f} MP) landed AFTER the first `room-loaded` (frame "
+                    f"{first_room_frame}) within a second — in the open. The neighbour "
+                    "PREFETCH is expected here (one ration per neighbouring room, by "
+                    "design; the hub's basement brings `ai_slop`); the player's own "
+                    "sheet or one of the room's placed characters is NOT — that is the "
+                    "first-room cover failing:",
+                    "",
+                    "```text",
+                ]
+                for row in first_room_window[:8]:
+                    lines.append(
+                        f"{number(row, 'megapixels'):6.1f}MP  f{row['frame']:>7}  "
+                        f"{row.get('path', '?')}"
+                    )
+                lines += ["```", ""]
+        if boot:
+            boot_mp = sum(number(row, "megapixels") for row in boot)
+            lines += [
+                f"✔ {len(boot)} decode(s) landed before the first `room-loaded` "
+                f"({boot_mp:.1f} MP) — boot. Not a gameplay hitch.",
+                "",
+            ]
+        if streaming:
+            lines += [
+                f"⚠ {len(streaming)} decode(s) landed WITHIN {settle_s:.0f}s of a "
+                "`room-loaded` — a room still arriving. Expected, and the reason "
+                "\"during gameplay\" alone is not the contract.",
+                "",
+            ]
+        late = settled
+        if late:
+            late_mp = sum(number(row, "megapixels") for row in late)
+            lines += [
+                f"⛔ **{len(late)} of {len(decodes)} notable decodes landed during "
+                f"SETTLED play** ({late_mp:.1f} MP) — more than {settle_s:.0f}s after "
+                "the last room finished loading. Each one cost a frame.",
+                "",
+                "Worst offenders by megapixels:",
+                "",
+                "```text",
+            ]
+            for row in sorted(late, key=lambda r: -number(r, "megapixels"))[:10]:
+                lines.append(
+                    f"{number(row, 'megapixels'):6.1f}MP  at {row.get('game_s', '?')}s  "
+                    f"{row.get('path', '?')}"
+                )
+            lines += ["```", ""]
+        elif any(row.get("during_gameplay") in ("0", "1") for row in decodes):
+            lines += [
+                "✔ No notable texture decoded while gameplay was live.",
+                "",
+            ]
+        else:
+            # An older bundle, recorded before the engine marked late decodes.
+            # Saying so beats printing a reassuring absence.
+            lines += [
+                "⚠ This bundle predates late-decode marking, so whether any decode "
+                "landed during gameplay is UNKNOWN here, not zero.",
+                "",
+            ]
+        seen: dict[str, int] = {}
+        for row in decodes:
+            seen[row.get("path", "?")] = seen.get(row.get("path", "?"), 0) + 1
+        repeats = {path: count for path, count in seen.items() if count > 1}
+        if repeats:
+            lines += ["Textures decoded more than once:", "", "```text"]
+            for path, count in sorted(repeats.items(), key=lambda item: -item[1])[:20]:
+                lines.append(f"{count:4d}x  {path}")
+            lines += ["```", ""]
+        else:
+            lines += [f"{len(decodes)} notable texture decodes, none repeated.", ""]
+    if not assets and not decodes:
+        lines += ["UNAVAILABLE — no asset census rows in this bundle.", ""]
+
+    strace = bundle.read("asset-trace-summary.md")
+    if strace:
+        lines += ["Repeated on-disk opens (`asset-run`): see `asset-trace-summary.md`.", ""]
+
+    # ── Status and file map ──────────────────────────────────────────────
+    section(lines, "Collection status")
+    for name in ("warm-build", "perf-record", "perf_report", "perf-report-by-dso",
+                 "perf-stat", "strace"):
+        if bundle.exists(f"{name}.status"):
+            lines.append(f"- `{name}`: {bundle.status(name)}")
+    if bundle.exists("perf.data"):
+        lines.append(f"- `perf.data`: {os.path.getsize(os.path.join(bundle.path, 'perf.data'))} bytes")
+    lines.append("")
+
+    section(lines, "Files in this bundle")
+    known = [
+        ("summary.md", "this file"),
+        ("metadata.txt / metadata.json", "build, commit, host, and capture settings"),
+        ("host-environment.txt", "CPU, GPU, DRM nodes, Vulkan ICDs, graphics env overrides"),
+        ("timeline.md", "per-window perf symbols labelled with the game's own log markers"),
+        ("frame_times.csv", "per-census-window frame-time percentiles"),
+        ("frame_spikes.csv", "every frame over 33.4ms, with its wall-clock second"),
+        ("frame_windows.csv", "the always-on 5s frame census"),
+        ("camera_views.csv", "one row per camera per sample: role, target, size, layers"),
+        ("view_totals.csv", "camera/active/world-rendering/offscreen counts per sample"),
+        ("runtime_census.csv", "entity, archetype, component, body, and player counts"),
+        ("draw_census.csv", "sprite/text/projection population and visibility"),
+        ("render_target_census.csv", "offscreen image targets and their bytes"),
+        ("render_diagnostics.csv", "Bevy per-pass CPU/GPU times and pipeline statistics"),
+        ("portal_activity.csv", "portal capture rigs and the budget bounding them"),
+        ("asset_activity.csv", "cumulative decode work and resident images"),
+        ("image_decodes.csv", "every notable texture decode, with its path"),
+        ("image_arrivals.csv", "images reaching Assets<Image> per census window"),
+        ("world_events.csv", "room loads and session starts/ends, with game time"),
+        ("schedule_census.csv", "registered system counts per sample"),
+        ("schedule_phases.csv", "per-frame milliseconds in each main-schedule phase"),
+        ("tracy_summary.md / tracy_zones.csv", "per-Bevy-system and per-render-pass zones"),
+        ("tracy_zone_windows.csv", "the same zones bucketed into time windows"),
+        ("tracy.trace", "the raw Tracy trace, for the GUI"),
+        ("perf_windows/", "one flat perf report per time slice"),
+        ("perf_report.txt", "whole-run flat perf report"),
+        ("perf-report-by-dso.txt", "which shared object owned the CPU"),
+        ("game-stderr-stamped.txt", "the game's own log, stamped with seconds since launch"),
+        ("perf.data", "the raw perf capture"),
+    ]
+    lines += ["| file | contents | present |", "| --- | --- | --- |"]
+    for name, description in known:
+        first = name.split(" / ")[0].rstrip("/")
+        present = "yes" if bundle.exists(first) else "no"
+        lines.append(f"| `{name}` | {description} | {present} |")
+    lines.append("")
+    return "\n".join(lines) + "\n"
+
+
+def main(argv: list[str]) -> int:
+    if len(argv) != 2:
+        print("usage: profile_bundle_summary.py <bundle-dir>", file=sys.stderr)
+        return 2
+    bundle = Bundle(argv[1])
+    with open(os.path.join(argv[1], "summary.md"), "w", encoding="utf-8") as handle:
+        handle.write(build_summary(bundle))
+    return 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main(sys.argv))

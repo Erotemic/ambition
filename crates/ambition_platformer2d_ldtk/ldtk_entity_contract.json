@@ -1,0 +1,878 @@
+{
+  "version": 1,
+  "doc": [
+    "THE LDTK AUTHORING CONTRACT \u2014 one file, two readers.",
+    "",
+    "Rust PROVES it: `contract::prover` builds each entity from this table, runs the",
+    "real `entity_to_runtime`, and asserts every claim here in both directions \u2014 a",
+    "`required` field whose removal does NOT fail the converter is a test failure, and",
+    "so is an entity that fails to convert when only its declared-required fields are",
+    "present. So this file cannot claim a requirement the parser does not enforce, and",
+    "the parser cannot enforce a requirement this file does not declare.",
+    "",
+    "Python ENFORCES it: `validate_rules.entity_contract` reads this same file with no",
+    "cargo in sight, which is the whole point \u2014 the agent this engine exists to serve",
+    "has no build lease and could not otherwise discover any of it.",
+    "",
+    "Adding a required field is therefore ONE edit here plus the parser change. There is",
+    "no second list to keep."
+  ],
+  "keys": {
+    "presence": "required = the converter refuses the entity without it. recommended = the converter accepts absence, but every author wants it (authoring warns). optional = silent.",
+    "on_invalid": "what the RUNTIME does with a value this field's declared grammar rejects. refused = the converter returns Err. silent_default = the converter accepts it and quietly substitutes `default` \u2014 authoring treats this as an ERROR anyway, because a typo here is invisible and there is no extension story. open = the fallthrough is a real extension point with real consumers, so authoring says nothing.",
+    "values / patterns": "the closed literal set and the regex grammars that complete it. Both empty means the field has no declared grammar.",
+    "sample / poison": "prober-only. `sample` is a value that must convert; `poison` overrides the default illegal value the prober pokes with.",
+    "undeclared fields": "carry no rule. `name`, free-form ids and pure tuning numbers are deliberately absent."
+  },
+  "entities": [
+    {
+      "identifier": "PlayerStart",
+      "probe_size": [
+        16,
+        32
+      ],
+      "fields": []
+    },
+    {
+      "identifier": "Solid",
+      "probe_size": [
+        32,
+        16
+      ],
+      "fields": []
+    },
+    {
+      "identifier": "OneWayPlatform",
+      "probe_size": [
+        32,
+        16
+      ],
+      "fields": []
+    },
+    {
+      "identifier": "HazardBlock",
+      "probe_size": [
+        32,
+        16
+      ],
+      "note": "the RESET volume (the pit floor). A surface that HURTS is a DamageVolume.",
+      "fields": []
+    },
+    {
+      "identifier": "PogoOrb",
+      "probe_size": [
+        16,
+        16
+      ],
+      "fields": []
+    },
+    {
+      "identifier": "BlinkWall",
+      "probe_size": [
+        16,
+        32
+      ],
+      "fields": [
+        {
+          "name": "tier",
+          "presence": "optional",
+          "values": [
+            "Soft",
+            "Hard"
+          ],
+          "on_invalid": "refused",
+          "default": "Soft",
+          "sample": "Hard",
+          "note": "which blink upgrade dissolves this wall"
+        }
+      ]
+    },
+    {
+      "identifier": "ReboundPad",
+      "probe_size": [
+        16,
+        16
+      ],
+      "fields": [
+        {
+          "name": "impulseX",
+          "presence": "required",
+          "on_invalid": "open",
+          "sample": "600",
+          "note": "horizontal launch impulse; the pad has no default and the converter refuses without it"
+        },
+        {
+          "name": "impulseY",
+          "presence": "required",
+          "on_invalid": "open",
+          "sample": "-700",
+          "note": "vertical launch impulse (negative is UP)"
+        }
+      ]
+    },
+    {
+      "identifier": "BreakablePlatform",
+      "probe_size": [
+        32,
+        16
+      ],
+      "fields": [
+        {
+          "name": "collision",
+          "presence": "optional",
+          "values": [
+            "Solid",
+            "OneWayUp"
+          ],
+          "on_invalid": "refused",
+          "default": "Solid",
+          "sample": "Solid"
+        },
+        {
+          "name": "trigger",
+          "presence": "optional",
+          "values": [
+            "OnHit",
+            "OnStand",
+            "Either"
+          ],
+          "on_invalid": "refused",
+          "default": "OnHit",
+          "sample": "OnHit",
+          "note": "OnStand needs a collision that blocks movement"
+        },
+        {
+          "name": "respawn",
+          "presence": "optional",
+          "values": [
+            "Never",
+            "Persistent",
+            "OnRoomReload",
+            "AfterSeconds"
+          ],
+          "patterns": [
+            "^AfterSeconds:\\s*[-+0-9.eE]+$"
+          ],
+          "on_invalid": "refused",
+          "default": "Never",
+          "sample": "OnRoomReload",
+          "note": "`AfterSeconds` pairs with a positive `respawn_seconds`; `AfterSeconds:<n>` is the legacy inline spelling"
+        },
+        {
+          "name": "respawn_seconds",
+          "presence": "optional",
+          "requires_value_of": {
+            "field": "respawn",
+            "equals": "AfterSeconds"
+          },
+          "positive": true,
+          "on_invalid": "refused",
+          "sample": "2.5"
+        }
+      ]
+    },
+    {
+      "identifier": "BreakablePogoOrb",
+      "probe_size": [
+        16,
+        16
+      ],
+      "fields": [
+        {
+          "name": "respawn",
+          "presence": "optional",
+          "values": [
+            "Never",
+            "Persistent",
+            "OnRoomReload",
+            "AfterSeconds"
+          ],
+          "patterns": [
+            "^AfterSeconds:\\s*[-+0-9.eE]+$"
+          ],
+          "on_invalid": "refused",
+          "default": "Never",
+          "sample": "OnRoomReload"
+        },
+        {
+          "name": "respawn_seconds",
+          "presence": "optional",
+          "requires_value_of": {
+            "field": "respawn",
+            "equals": "AfterSeconds"
+          },
+          "positive": true,
+          "on_invalid": "refused",
+          "sample": "2.5"
+        }
+      ]
+    },
+    {
+      "identifier": "LoadingZone",
+      "probe_size": [
+        32,
+        48
+      ],
+      "note": "target_room / target_zone pairing and arrival geometry are checked by the room-graph rules in validate.py; they are not converter refusals.",
+      "fields": [
+        {
+          "name": "activation",
+          "presence": "optional",
+          "values": [
+            "Door",
+            "EdgeExit",
+            "Walk"
+          ],
+          "on_invalid": "refused",
+          "default": "Door",
+          "sample": "EdgeExit",
+          "note": "REFUSED since 2026-08-21, and the note it replaces said why: `anything the converter does not recognise silently becomes a Door, so edgeexit is a door and nothing says so`. LDtk types this field as free-text String with default Door, so an author spells it from memory -- which is also why the shipped worlds read 127 Door / 24 EdgeExit / 0 Walk. One parse now owns the mapping (LoadingZoneActivation::from_authored); it trims and lowercases, so case and stray whitespace are forgiven and a genuine typo is an error in both the converter and the validator. The old match accepted `walk` but not `edgeexit` -- one variant forgiving, its sibling not."
+        }
+      ]
+    },
+    {
+      "identifier": "DamageVolume",
+      "probe_size": [
+        32,
+        16
+      ],
+      "fields": [
+        {
+          "name": "path_points",
+          "presence": "optional",
+          "min_points": 2,
+          "on_invalid": "silent_default",
+          "default": "no motion at all",
+          "sample": "0,0;100,0",
+          "note": "fewer than two parseable points is not an error at runtime \u2014 the hazard simply never moves"
+        },
+        {
+          "name": "path_mode",
+          "presence": "optional",
+          "values": [
+            "Once",
+            "Loop",
+            "PingPong"
+          ],
+          "normalize": "lowercase_underscore",
+          "on_invalid": "silent_default",
+          "default": "PingPong",
+          "sample": "Loop"
+        }
+      ]
+    },
+    {
+      "identifier": "KinematicPath",
+      "probe_size": [
+        16,
+        16
+      ],
+      "fields": [
+        {
+          "name": "points",
+          "presence": "required",
+          "min_points": 2,
+          "on_invalid": "refused",
+          "sample": "0,0;100,0",
+          "note": "semicolon-separated `x,y` pairs in level-local pixels"
+        },
+        {
+          "name": "speed",
+          "presence": "optional",
+          "positive": true,
+          "on_invalid": "refused",
+          "default": "100",
+          "sample": "110"
+        },
+        {
+          "name": "mode",
+          "presence": "optional",
+          "values": [
+            "Once",
+            "Loop",
+            "PingPong"
+          ],
+          "normalize": "lowercase_underscore",
+          "on_invalid": "silent_default",
+          "default": "PingPong",
+          "sample": "Loop"
+        }
+      ]
+    },
+    {
+      "identifier": "SurfaceChain",
+      "probe_size": [
+        16,
+        16
+      ],
+      "fields": [
+        {
+          "name": "points",
+          "presence": "required",
+          "min_points": 2,
+          "on_invalid": "refused",
+          "sample": "0,0;100,0",
+          "note": "a CLOSED chain needs three; author floors left-to-right, the winding is the one-sidedness"
+        }
+      ]
+    },
+    {
+      "identifier": "SurfaceLoop",
+      "probe_size": [
+        16,
+        16
+      ],
+      "fields": [
+        {
+          "name": "radius",
+          "presence": "required",
+          "positive": true,
+          "on_invalid": "refused",
+          "sample": "200",
+          "note": "the marker's centre is the loop centre; the polygon is generated at conversion"
+        }
+      ]
+    },
+    {
+      "identifier": "SurfaceRamp",
+      "probe_size": [
+        64,
+        64
+      ],
+      "fields": [
+        {
+          "name": "radius",
+          "presence": "required",
+          "positive": true,
+          "on_invalid": "refused",
+          "sample": "48"
+        },
+        {
+          "name": "orientation",
+          "presence": "optional",
+          "values": [
+            "FloorToRightWall",
+            "FloorToLeftWall",
+            "CeilingToRightWall",
+            "CeilingToLeftWall"
+          ],
+          "on_invalid": "refused",
+          "default": "FloorToRightWall",
+          "sample": "FloorToLeftWall",
+          "note": "named by the two surfaces it joins, in travel order"
+        }
+      ]
+    },
+    {
+      "identifier": "Prop",
+      "probe_size": [
+        32,
+        32
+      ],
+      "fields": [
+        {
+          "name": "kind",
+          "presence": "required",
+          "on_invalid": "open",
+          "sample": "lab_power_core",
+          "note": "a PropRegistry sprite id. Decoration only \u2014 a Prop never grows an Interactable."
+        }
+      ]
+    },
+    {
+      "identifier": "NpcSpawn",
+      "probe_size": [
+        16,
+        32
+      ],
+      "fields": [
+        {
+          "name": "character_id",
+          "presence": "recommended",
+          "on_invalid": "open",
+          "sample": "npc_alice",
+          "note": "the catalog character this NPC wears. Unlike EnemySpawn the converter TOLERATES absence \u2014 the display name then stands in \u2014 but every NpcSpawn in the tree authors one."
+        }
+      ]
+    },
+    {
+      "identifier": "PickupSpawn",
+      "probe_size": [
+        16,
+        16
+      ],
+      "fields": [
+        {
+          "name": "kind",
+          "presence": "optional",
+          "values": [],
+          "patterns": [
+            "^health:-?[0-9]+$",
+            "^currency:-?[0-9]+$",
+            "^ability:.+$",
+            "^flag:.+$"
+          ],
+          "on_invalid": "silent_default",
+          "default": "PickupKind::Custom(<the typo>)",
+          "sample": "currency:1",
+          "note": "an unrecognised kind becomes PickupKind::Custom, and `collect_pickups` has NO arm for Custom \u2014 the pickup disappears on touch and grants nothing. `currancy:1` is a working pickup that does nothing."
+        }
+      ]
+    },
+    {
+      "identifier": "ChestSpawn",
+      "probe_size": [
+        16,
+        16
+      ],
+      "fields": [
+        {
+          "name": "reward",
+          "presence": "optional",
+          "values": [],
+          "patterns": [
+            "^health:-?[0-9]+$",
+            "^currency:-?[0-9]+$",
+            "^ability:.+$",
+            "^flag:.+$"
+          ],
+          "on_invalid": "silent_default",
+          "default": "PickupKind::Custom(<the typo>)",
+          "sample": "health:2",
+          "note": "same grammar and the same silent hole as PickupSpawn.kind. Absent is legal: a chest with no reward."
+        }
+      ]
+    },
+    {
+      "identifier": "GroundItem",
+      "probe_size": [
+        16,
+        16
+      ],
+      "fields": [
+        {
+          "name": "held_item",
+          "presence": "required",
+          "on_invalid": "open",
+          "sample": "bomb",
+          "note": "a held-item registry id (`bomb`, `grapple`, `gun_sword`, ...). An UNREGISTERED id is tolerated at spawn \u2014 the item just does not appear \u2014 so only emptiness is refused."
+        }
+      ]
+    },
+    {
+      "identifier": "PortalGunSpawn",
+      "probe_size": [
+        16,
+        16
+      ],
+      "feature": "portal_ldtk",
+      "fields": [
+        {
+          "name": "pair",
+          "presence": "optional",
+          "on_invalid": "silent_default",
+          "default": "0, the classic blue/orange gun",
+          "sample": "1",
+          "note": "which portal pair THIS gun owns. A gun toggles between the two ends of its own pair and never leaves it, so two pickups on different pairs are two independently coloured guns (one blue/orange, one whatever pair 1 renders as). A value outside the range WRAPS rather than refusing the room \u2014 a mistyped number should hand the author a differently coloured gun to notice, not a level that fails to load \u2014 and a value that is not a number at all falls back to the default pair 0.",
+          "patterns": [
+            "^-?[0-9]{1,3}$"
+          ]
+        }
+      ]
+    },
+    {
+      "identifier": "Portal",
+      "probe_size": [
+        16,
+        32
+      ],
+      "feature": "portal_ldtk",
+      "fields": [
+        {
+          "name": "color",
+          "presence": "required",
+          "values": [
+            "purple",
+            "yellow",
+            "teal",
+            "red",
+            "green",
+            "magenta",
+            "cyan",
+            "rose"
+          ],
+          "patterns": [
+            "^[cC][0-9]{1,3}$"
+          ],
+          "normalize": "lowercase",
+          "on_invalid": "refused",
+          "sample": "purple",
+          "note": "names the channel; `c<n>` addresses an indexed channel"
+        },
+        {
+          "name": "normal",
+          "presence": "optional",
+          "values": [
+            "up",
+            "down",
+            "left",
+            "right"
+          ],
+          "on_invalid": "refused",
+          "default": "up",
+          "sample": "up",
+          "note": "the surface the portal sits ON \u2014 up = floor, down = ceiling"
+        }
+      ]
+    },
+    {
+      "identifier": "ShrineSpawn",
+      "probe_size": [
+        16,
+        32
+      ],
+      "fields": []
+    },
+    {
+      "identifier": "GravityZone",
+      "probe_size": [
+        64,
+        64
+      ],
+      "fields": [
+        {
+          "name": "dir",
+          "presence": "optional",
+          "values": [
+            "up",
+            "down",
+            "left",
+            "right"
+          ],
+          "on_invalid": "silent_default",
+          "default": "up",
+          "sample": "down",
+          "note": "an unrecognised direction silently becomes `up`, which is also the value an author most often means, so the mistake is invisible"
+        }
+      ]
+    },
+    {
+      "identifier": "EnemySpawn",
+      "probe_size": [
+        16,
+        32
+      ],
+      "fields": [
+        {
+          "name": "character_id",
+          "presence": "required",
+          "on_invalid": "open",
+          "sample": "goblin",
+          "note": "which catalog creature this placement puts down. The display name is a LABEL; the engine reading it as the art identity was a coincidence, and this field is refused when absent so the next placement cannot inherit that."
+        },
+        {
+          "name": "brain",
+          "presence": "optional",
+          "values": [
+            "Passive"
+          ],
+          "patterns": [
+            "^Guard:[-+0-9.eE]+$"
+          ],
+          "refused_patterns": [
+            "^Patrol:"
+          ],
+          "refused_samples": [
+            "Patrol:lab_patrol_line"
+          ],
+          "conflicts_with": [
+            "path_ref"
+          ],
+          "on_invalid": "open",
+          "sample": "combatant",
+          "note": "a bare id becomes CharacterBrain::Custom(id), which providers really do match on (`mary_o_snake`, `sanic_badnik`, `combatant`) \u2014 so an unrecognised value is an EXTENSION, not a typo, and authoring stays quiet. `Patrol:<id>` is retired: author `path_ref` and clear this."
+        },
+        {
+          "name": "path_ref",
+          "presence": "optional",
+          "entity_ref_target": "KinematicPath",
+          "entity_ref_scope": "active_area",
+          "on_invalid": "refused",
+          "sample": "__probe_kinematic_path__",
+          "note": "a native EntityRef at the KinematicPath this body patrols. A ref that names something that is not a KinematicPath in the SAME active area is refused, never degraded to `stands still`."
+        },
+        {
+          "name": "respawn",
+          "presence": "optional",
+          "values": [
+            "DeadStaysDead",
+            "OnRoomReenter",
+            "OnRest"
+          ],
+          "patterns": [
+            "^InPlace\\(\\s*[-+0-9.eE]+\\s*\\)$"
+          ],
+          "on_invalid": "refused",
+          "sample": "OnRoomReenter",
+          "note": "absent leaves the archetype's policy, which is what every level authored before the field existed"
+        },
+        {
+          "name": "disposition",
+          "presence": "optional",
+          "values": [
+            "Hostile",
+            "Peaceful"
+          ],
+          "on_invalid": "refused",
+          "sample": "Hostile"
+        },
+        {
+          "name": "facing",
+          "presence": "optional",
+          "values": [
+            "Left",
+            "Right"
+          ],
+          "on_invalid": "refused",
+          "sample": "Left",
+          "note": "which way this occurrence starts. Facing is PLACEMENT context: the character and its brain are reusable, and two instances of the same pair may enter a room looking opposite ways. Absent or blank keeps the historical Right/+1 default; a misspelling is refused rather than silently changing initial locomotion."
+        }
+      ]
+    },
+    {
+      "identifier": "BossSpawn",
+      "probe_size": [
+        32,
+        48
+      ],
+      "fields": [
+        {
+          "name": "brain",
+          "presence": "optional",
+          "values": [
+            "Dormant"
+          ],
+          "patterns": [
+            "^PhaseScript:.+$"
+          ],
+          "on_invalid": "open",
+          "default": "Dormant",
+          "sample": "PhaseScript:clockwork_warden",
+          "note": "an unrecognised value becomes BossBrain::Custom(label), which `boss_encounter::behavior` genuinely consumes"
+        }
+      ]
+    },
+    {
+      "identifier": "DebugLabel",
+      "probe_size": [
+        16,
+        16
+      ],
+      "fields": [
+        {
+          "name": "text",
+          "presence": "recommended",
+          "on_invalid": "open",
+          "sample": "creator's basement lab",
+          "note": "absent, the label renders the literal string `DebugLabel`"
+        },
+        {
+          "name": "category",
+          "presence": "optional",
+          "values": [
+            "Room",
+            "LoadingZone",
+            "Hazard",
+            "Enemy",
+            "Boss",
+            "Interactable",
+            "Pickup",
+            "Custom"
+          ],
+          "on_invalid": "silent_default",
+          "default": "Custom",
+          "sample": "Room",
+          "note": "`Custom` is a real category an author picks on purpose, which is exactly why a misspelt `Enmy` landing there is invisible"
+        }
+      ]
+    },
+    {
+      "identifier": "WaterVolume",
+      "probe_size": [
+        64,
+        64
+      ],
+      "fields": []
+    },
+    {
+      "identifier": "MovingPlatform",
+      "probe_size": [
+        64,
+        16
+      ],
+      "note": "a platform states exactly ONE motion. sweep_dx, path_id and loop_dy are three answers to the same question and the converter refuses more than one.",
+      "fields": [
+        {
+          "name": "sweep_dx",
+          "presence": "optional",
+          "conflicts_with": [
+            "path_id",
+            "loop_dy"
+          ],
+          "on_invalid": "open",
+          "sample": "240",
+          "note": "a signed horizontal DELTA, so it takes no level offset"
+        },
+        {
+          "name": "path_id",
+          "presence": "optional",
+          "conflicts_with": [
+            "loop_dy",
+            "speed"
+          ],
+          "on_invalid": "open",
+          "sample": "lift_path",
+          "note": "the path carries its own speed, so authoring `speed` beside it is refused rather than ignored"
+        },
+        {
+          "name": "speed",
+          "presence": "optional",
+          "conflicts_with": [
+            "path_id"
+          ],
+          "on_invalid": "open",
+          "sample": "60",
+          "note": "pixels per second for a sweep or a wrapping shaft. Undeclared until 2026-08-15, when the prover caught `path_id` naming it as a conflict while no field of that name existed \u2014 so the converter read a field the contract could not describe and no authoring tool could offer. `open` with no grammar because the converter genuinely has no rule here: any float parses, and a negative one is carried through rather than refused or defaulted. A path carries its own speed, hence the conflict."
+        },
+        {
+          "name": "loop_dy",
+          "presence": "optional",
+          "nonzero": true,
+          "on_invalid": "refused",
+          "sample": "-640",
+          "note": "the signed height of a wrapping shaft (positive travels DOWN). Zero is refused: a shaft with no span never moves."
+        },
+        {
+          "name": "loop_min_y",
+          "presence": "optional",
+          "requires_fields": [
+            "loop_dy"
+          ],
+          "on_invalid": "open",
+          "sample": "-96",
+          "note": "a POSITION (it takes the level offset), naming where the wrapping shaft starts. On its own it describes no motion, so it is refused without loop_dy."
+        }
+      ]
+    },
+    {
+      "identifier": "CameraZone",
+      "probe_size": [
+        128,
+        96
+      ],
+      "fields": [
+        {
+          "name": "scroll_policy",
+          "presence": "optional",
+          "values": [
+            "free",
+            "forward_only",
+            "forward_only_x",
+            "no_backtrack"
+          ],
+          "normalize": "lowercase_underscore",
+          "on_invalid": "silent_default",
+          "default": "free",
+          "sample": "forward_only"
+        },
+        {
+          "name": "clamp_mode",
+          "presence": "optional",
+          "values": [
+            "room_bounds",
+            "zone",
+            "zone_bounds",
+            "camera_zone",
+            "none",
+            "unclamped",
+            "free"
+          ],
+          "normalize": "lowercase_underscore",
+          "on_invalid": "silent_default",
+          "default": "room_bounds",
+          "sample": "zone_bounds"
+        }
+      ]
+    },
+    {
+      "identifier": "Switch",
+      "probe_size": [
+        16,
+        32
+      ],
+      "fields": [
+        {
+          "name": "action",
+          "presence": "optional",
+          "values": [
+            "ResetEncounter",
+            "FlipGravity",
+            "SetGravityUp",
+            "SetGravityDown",
+            "SetGravityLeft",
+            "SetGravityRight"
+          ],
+          "on_invalid": "open",
+          "default": "ResetEncounter",
+          "sample": "FlipGravity",
+          "note": "the converter passes this straight through into the interaction payload and cares about none of it. `encounter::systems` recognises the listed actions and IGNORES the rest, so an unlisted action is a switch that does nothing \u2014 but the refusal, if one is ever wanted, belongs to that consumer and not here."
+        },
+        {
+          "name": "on_activate",
+          "presence": "optional",
+          "on_invalid": "open",
+          "sample": "encounter.signal encounter:symmetry_attunement gravity_down",
+          "note": "one authored command call \u2014 `<domain>.<verb> <arg>\u2026`, whitespace-separated \u2014 performed when the switch is activated. Read off the raw LdtkProject by `world::authored_switch_commands`, not by this converter, and PREPARED once when the room is read: the id is checked against the published command catalog, the arity against the descriptor, and a `placement:`/`encounter:` reference is minted through SimId's own constructor. ABSENT means the switch belongs to its other consumers (encounter arming, reset, the sand sim) \u2014 which is why it is optional. A line this composition cannot perform is dropped with a warning at prepare time rather than on the tick."
+        }
+      ]
+    },
+    {
+      "identifier": "StitchedBoundary",
+      "probe_size": [
+        16,
+        16
+      ],
+      "consumed_elsewhere": true,
+      "note": "read off the raw LdtkProject by its own consumer; the converter emits nothing, so it declares no field rules.",
+      "fields": []
+    },
+    {
+      "identifier": "EncounterTrigger",
+      "probe_size": [
+        16,
+        16
+      ],
+      "consumed_elsewhere": true,
+      "note": "read off the raw LdtkProject by `crate::encounter`; the converter emits nothing.",
+      "fields": []
+    },
+    {
+      "identifier": "LockWall",
+      "probe_size": [
+        16,
+        16
+      ],
+      "consumed_elsewhere": true,
+      "note": "read off the raw LdtkProject by its own consumers; the converter emits nothing. TWO consumers: the encounter seal (phase-driven, no gated_by) and the authored condition gate (gated_by present).",
+      "fields": [
+        {
+          "name": "gated_by",
+          "presence": "optional",
+          "sample": "bob_field_survey_received",
+          "on_invalid": "open",
+          "note": "names a world-fact flag; the wall stands until `world.flag_set(<gated_by>)` is satisfied. ABSENT means this wall belongs to the encounter consumer or is inert - which is why it is optional and why an unknown flag is not refused: a flag that has never been set is a legitimate authored state, so refusing unknown names would refuse every wall gated on a fact the run has not reached yet."
+        }
+      ]
+    }
+  ]
+}

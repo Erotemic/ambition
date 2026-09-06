@@ -1,0 +1,96 @@
+# ControlFrame allowlist configuration (participant-action/control-authority guardrail).
+#
+# The invariant: the global `ControlFrame` is ONE participant's device frame; only
+# the INPUT LAYER may hold it. A body/sim system that reads it is silently
+# slot-0-only (possession, co-op, netcode slot routing all break quietly).
+#
+# The scanner is Rust (src/custom/control_frame.rs) because holder detection,
+# enclosing-function attribution, whole-word matching, and cfg(test) skipping are
+# too semantic for a generic textual rule. This file only configures the scoped
+# roots, excluded subpaths, review marker, and justified holder allowlist.
+#
+# The allowlist is bidirectional: an unlisted holder fails, and an allowlist entry
+# matching no holder fails so stale input-authority exceptions cannot survive.
+# Roots are scoped so engine and game policy checks can run independently.
+
+source_doc = "docs/planning/engine/participant-action-system.md"
+rationale = "ControlFrame allowlist: only the input layer may hold the global device frame; a body/sim holder is silently slot-0-only and breaks possession/co-op/netcode slot routing (N1). Every allowed holder is a justified input-layer bridge or a named multiplayer TODO."
+review_marker = "AMBITION_REVIEW(control_frame)"
+non_sim_subpaths = ["menu/", "dev/", "audio/", "assets/", "persistence"]
+
+# ── scoped sim roots ──────────────────────────────────────────────────────────
+[[root]]
+path = "crates/ambition_platformer2d_core"
+scope = "engine"
+[[root]]
+path = "crates/ambition_platformer2d_shared_tangle"
+scope = "engine"
+[[root]]
+path = "crates/ambition_time"
+scope = "engine"
+[[root]]
+path = "crates/ambition_entity_catalog"
+scope = "engine"
+[[root]]
+path = "crates/ambition_platformer2d_world"
+scope = "engine"
+[[root]]
+path = "crates/ambition_characters"
+scope = "engine"
+[[root]]
+path = "crates/ambition_combat"
+scope = "engine"
+[[root]]
+path = "crates/ambition_projectiles"
+scope = "engine"
+[[root]]
+path = "crates/ambition_portal2d"
+scope = "engine"
+[[root]]
+path = "crates/ambition_encounter"
+scope = "engine"
+[[root]]
+path = "crates/ambition_items"
+scope = "engine"
+[[root]]
+path = "crates/ambition_cutscene"
+scope = "engine"
+[[root]]
+path = "crates/ambition_interaction"
+scope = "engine"
+[[root]]
+path = "crates/ambition_sim_view"
+scope = "engine"
+[[root]]
+path = "crates/ambition_platformer2d_actor_monolith"
+scope = "engine"
+[[root]]
+path = "crates/ambition_platformer2d_runtime"
+scope = "engine"
+[[root]]
+path = "crates/ambition_platformer2d_rollback_ggrs"
+scope = "engine"
+[[root]]
+path = "game/ambition_content"
+scope = "game"
+
+# ── the justified global-ControlFrame holders ─────────────────────────────────
+# bridge ∈ { device-to-frame, latch, slot-to-frame, intent-bridge }
+
+[[allow]]
+file = "crates/ambition_platformer2d_rollback_ggrs/src/session.rs"
+func = "publish_ggrs_input"
+bridge = "device-to-frame"
+why = "GGRS/network input ingress: publishes each handle's synchronized confirmed input at the head of GgrsSchedule, so every seat's frame is this tick's agreed one before the simulation reads any actor input. Handle zero also lands in ControlFrame, which is that seat's output mirror."
+
+[[allow]]
+file = "crates/ambition_platformer2d_rollback_ggrs/src/session.rs"
+func = "report_input_written_to_the_wrong_seam"
+bridge = "device-to-frame"
+why = "READS it as EVIDENCE, routes nothing. This rule exists because a sim holder is silently slot-0-only and so breaks possession and co-op; this system does not route input to anybody — it compares ControlFrame against PendingLocalInput to detect a consumer writing the seam a GGRS host does not read, which is silently discarded today. It is the diagnostic FOR this rule's failure mode one layer down, and it cannot do its job without holding the resource it is reporting on."
+
+[[allow]]
+file = "crates/ambition_platformer2d_actor_monolith/src/schedule/input_systems.rs"
+func = "mirror_primary_slot_to_control_frame"
+bridge = "slot-to-frame"
+why = "THE ONLY WRITER LEFT, and it writes the resource as an OUTPUT. D175 turned ControlFrame from an input bus into a read-only mirror of SlotControls[PRIMARY]: every seat's raw frame is now shaped in SeatRawFrames and committed by commit_seat_raw_frames, so the six entries this replaces (two latch systems, the seat-zero device producer, the gesture derivation, the interact buffer, and the frame-to-slot copy) hold nothing any more. What still legitimately wants the resource is the forensic trace codec, the harness action encoder, and report_input_written_to_the_wrong_seam — all readers of what seat zero received. A NEW writer of this resource is a bug."

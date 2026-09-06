@@ -1,0 +1,234 @@
+//! Ambition content → neutral music intent.
+//!
+//! This module is the *game-specific* half of the music split. It reads
+//! Ambition gameplay resources (encounter phases, boss/encounter/room track
+//! requests, the radio station, the sandbox default-track config) and resolves
+//! them into the content-agnostic [`MusicIntent`] that the director consumes.
+//!
+//! The director ([`super::director`]) names no encounter, boss, room, or track
+//! and imports none of these gameplay modules — it only looks up cue/state and
+//! track ids that *this* module decided on. That inversion is the reusable-crate
+//! seam: drop the director into another game and supply a different
+//! `compute_music_intent` system.
+
+use bevy::prelude::*;
+
+use std::collections::HashMap;
+
+use ambition_audio::library::RadioStationState;
+use ambition_audio::selection::ActiveAudioSelection;
+use ambition_encounter::{
+    Encounter, EncounterLifecycle, EncounterMusicRequest, EncounterPhase, EncounterWaves,
+};
+use ambition_platformer2d_world::rooms::RoomMusicRequest;
+
+use ambition_audio::music::{
+    AdaptiveCueDirective, MusicDirectorMode, MusicDirectorState, MusicIntent,
+};
+use ambition_audio::music::{AdaptiveMusicCatalogRegistry, EncounterMusicBinding, MusicCueCatalog};
+
+/// Delay after wave 2 starts before the music promotes to its "reinforced"
+/// (large-brute) state. Content tuning — owned here, not by the director.
+pub(super) const LARGE_BRUTE_DELAY_SECONDS: f32 = 3.5;
+
+/// Clear room-scoped narrative music when the active room changes.
+pub fn release_narrative_music_on_room_change(
+    active_room: ambition_platformer2d_shared_tangle::lifecycle::SessionWorldRef<
+        ambition_platformer2d_world::rooms::ActiveRoomMetadata,
+    >,
+    // Conversation support is optional in hosts that still install the audio plugin.
+    narrative_music: Option<ResMut<ambition_conversation::NarrativeMusicRequest>>,
+) {
+    let Some(mut narrative_music) = narrative_music else {
+        return;
+    };
+    if active_room.is_changed() && narrative_music.track().is_some() {
+        narrative_music.clear();
+    }
+}
+
+/// Resolve this frame's [`MusicIntent`] from Ambition gameplay state.
+///
+/// Runs before [`super::drive_music_director`] each frame and is the only
+/// system that bridges encounter/room/content gameplay into the music layer.
+#[allow(clippy::too_many_arguments)]
+pub fn compute_music_intent(
+    catalogs: Res<AdaptiveMusicCatalogRegistry>,
+    director: Option<Res<MusicDirectorState>>,
+    encounters: Query<(&Encounter, &EncounterLifecycle, &EncounterWaves)>,
+    mut encounter_music: ambition_platformer2d_shared_tangle::lifecycle::SessionWorldMut<
+        EncounterMusicRequest,
+    >,
+    room_music: ambition_platformer2d_shared_tangle::lifecycle::SessionWorldRef<RoomMusicRequest>,
+    narrative_music: Option<Res<ambition_conversation::NarrativeMusicRequest>>,
+    radio: Option<Res<RadioStationState>>,
+    audio_selection: Res<ActiveAudioSelection>,
+    mut intent: ResMut<MusicIntent>,
+) {
+    // The music director keys adaptive cues by encounter id; build the id →
+    // live-state lookup from the encounter entities (E1 — the registry is now
+    // just an index, so the state is read from the entities directly). The
+    // lifecycle supplies the generic phase; the wave policy supplies the
+    // wave index/clock the adaptive states key on.
+    let states: HashMap<&str, (EncounterPhase, &EncounterWaves)> = encounters
+        .iter()
+        .map(|(enc, lifecycle, waves)| (enc.id.as_str(), (lifecycle.phase(), waves)))
+        .collect();
+    let active_catalog = audio_selection
+        .provider_id()
+        .and_then(|provider| catalogs.catalog_for(provider));
+    let adaptive = match (active_catalog, director.as_ref()) {
+        (Some(catalog), Some(director)) => resolve_adaptive_directive(catalog, &states, director),
+        _ => None,
+    };
+
+    let candidates = simple_track_candidates(
+        &room_music,
+        narrative_music.as_deref(),
+        radio.as_deref(),
+        &audio_selection,
+        &encounter_music,
+    );
+
+    // Mirror the resolved priority winner back into the request resource's
+    // `last_applied` for diagnostics and tests. The director itself never
+    // touches this gameplay resource.
+    if let Some(top) = candidates.first().cloned() {
+        encounter_music.last_applied = Some(top);
+    }
+
+    intent.provider_id = audio_selection.provider_id().map(str::to_owned);
+    intent.adaptive = adaptive;
+    intent.simple_track_candidates = candidates;
+    // Provider-relative authority: the director may only play tracks this
+    // session's provider authored. No selection is ungoverned (frontend); a
+    // provider with no music is deliberate silence.
+    let mut authority = audio_selection.music_authority();
+    // The actual selected provider catalog supplies both definitions and the
+    // cue-id authority. A cue cached for another provider is never visible.
+    if let Some(catalog) = active_catalog {
+        authority.authorize_cues(catalog.cue_ids().map(str::to_owned));
+    }
+    intent.authority = authority;
+}
+
+/// Build the simple-track priority list. Priority: encounter music (boss beats
+/// wave, resolved inside `EncounterMusicRequest::desired_track`) > a track a
+/// conversation asked for > radio > room default > sandbox default. The director
+/// plays the first id that exists in its `AudioLibrary`, so this stays a pure
+/// list of candidate ids (no audio backend access here).
+
+pub(super) fn simple_track_candidates(
+    room_music: &RoomMusicRequest,
+    narrative_music: Option<&ambition_conversation::NarrativeMusicRequest>,
+    radio: Option<&RadioStationState>,
+    audio_selection: &ActiveAudioSelection,
+    encounter_music: &EncounterMusicRequest,
+) -> Vec<String> {
+    let mut candidates = Vec::new();
+    if let Some(track) = encounter_music.desired_track() {
+        candidates.push(track.to_string());
+    }
+    if let Some(track) = narrative_music.and_then(|music| music.track()) {
+        candidates.push(track.to_string());
+    }
+    if let Some(track) = radio.and_then(|radio| radio.selected_track()) {
+        candidates.push(track.to_string());
+    }
+    if let Some(track) = &room_music.desired_track {
+        candidates.push(track.clone());
+    }
+    // The ACTIVE provider's default track closes the priority list. No
+    // selection (frontend routes) or a provider with no authored music means
+    // deliberate silence — never a fallback to whichever registry happens to
+    // be process-resident.
+    if let Some(music) = audio_selection.music() {
+        candidates.push(music.default_track.clone());
+    }
+    candidates
+}
+
+/// Iterate the catalog's encounter bindings and return the first live
+/// adaptive directive. (Iterating bindings rather than hardcoding an
+/// encounter id lets future boss / mini-boss cues drop in by adding a
+/// binding.)
+pub(super) fn resolve_adaptive_directive(
+    catalog: &MusicCueCatalog,
+    states: &HashMap<&str, (EncounterPhase, &EncounterWaves)>,
+    director: &MusicDirectorState,
+) -> Option<AdaptiveCueDirective> {
+    for binding in catalog.encounter_bindings() {
+        if let Some(directive) = resolve_directive_for_binding(binding, states, director) {
+            return Some(directive);
+        }
+    }
+    None
+}
+
+/// Resolve a single encounter binding's adaptive cue directive.
+/// Returns:
+/// - `Some(StopNow)` when the encounter no longer exists but the
+///   binding's cue is still active.
+/// - `Some(Play { cue_id, state_id })` when the encounter is in a
+///   phase mapped to a cue state.
+/// - `None` when the encounter is unknown / inactive AND its cue is
+///   not playing — the binding doesn't claim audio this frame.
+pub(super) fn resolve_directive_for_binding(
+    binding: &EncounterMusicBinding,
+    states: &HashMap<&str, (EncounterPhase, &EncounterWaves)>,
+    director: &MusicDirectorState,
+) -> Option<AdaptiveCueDirective> {
+    let cue_active = director.active_cue_id.as_deref() == Some(binding.cue_id.as_str());
+    let Some((phase, waves)) = states.get(binding.encounter_id.as_str()) else {
+        if cue_active {
+            return Some(AdaptiveCueDirective::StopNow);
+        }
+        return None;
+    };
+
+    match phase {
+        EncounterPhase::Starting { .. } => Some(AdaptiveCueDirective::Play {
+            cue_id: binding.cue_id.clone(),
+            state_id: binding.starting_state.clone(),
+        }),
+        EncounterPhase::Active => {
+            let wave_index = waves.run.wave_index.unwrap_or(0);
+            let mut state_id = binding
+                .wave_states
+                .get(wave_index)
+                .or_else(|| binding.wave_states.last())
+                .cloned()
+                .unwrap_or_else(|| binding.starting_state.clone());
+            if wave_index == 1 && waves.run.wave_elapsed >= LARGE_BRUTE_DELAY_SECONDS {
+                if let Some(reinforced) = &binding.wave2_reinforced_state {
+                    state_id = reinforced.clone();
+                }
+            }
+            Some(AdaptiveCueDirective::Play {
+                cue_id: binding.cue_id.clone(),
+                state_id,
+            })
+        }
+        EncounterPhase::Completed => Some(AdaptiveCueDirective::Play {
+            cue_id: binding.cue_id.clone(),
+            state_id: binding.cleared_state.clone(),
+        }),
+        EncounterPhase::Inactive => {
+            // The encounter often resets to Inactive immediately after clear;
+            // if this adaptive cue is already active, continue into its outro
+            // instead of hard-cutting to room music.
+            if cue_active
+                && director.mode != MusicDirectorMode::AdaptiveFinished
+                && director.mode != MusicDirectorMode::Idle
+            {
+                Some(AdaptiveCueDirective::Play {
+                    cue_id: binding.cue_id.clone(),
+                    state_id: binding.cleared_state.clone(),
+                })
+            } else {
+                None
+            }
+        }
+        EncounterPhase::Failed => Some(AdaptiveCueDirective::StopNow),
+    }
+}

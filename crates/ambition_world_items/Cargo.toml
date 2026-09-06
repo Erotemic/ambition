@@ -1,0 +1,32 @@
+[package]
+name = "ambition_world_items"
+version = "0.1.0"
+edition.workspace = true
+license.workspace = true
+authors.workspace = true
+description = "The physical life of a collectible in the world: its presence, its motion, and touch-to-collect."
+
+[lib]
+crate-type = ["rlib"]
+
+[dependencies]
+# Geometry, the world, and the shared `BodyKinematics` body component. The
+# motion step resolves against `ae::World` per axis, so this is not optional.
+ambition_platformer2d_core = { path = "../ambition_platformer2d_core" }
+# `EquipmentRow` / `WornEquipment` — a collected `WorldItem` RECORDS a row and
+# nothing more; what the row grants is derived by `reconcile_equipment_grants`,
+# which stays in the kernel.
+ambition_characters = { path = "../ambition_characters" }
+# `TouchCollectorFilter`, the spawn-scope extension, and the deterministic
+# selection helpers the collect pass orders its winners with.
+ambition_platformer2d_shared_tangle = { path = "../ambition_platformer2d_shared_tangle" }
+# `WorldTime` — the motion step advances on the SIMULATION's clock, not a
+# wall clock, so a dilated world moves its pickups at the dilated rate.
+ambition_time = { path = "../ambition_time" }
+
+# ⛔ NO RENDER, UI, OR AUDIO. A world item's SPRITE is an art id (`Option<String>`)
+# that a game maps through its own `WorldItemArt`; drawing it belongs to
+# `ambition_render`, which reads this crate rather than the other way round.
+bevy = { version = "0.19.1", default-features = false, features = [
+    "bevy_state",
+] }

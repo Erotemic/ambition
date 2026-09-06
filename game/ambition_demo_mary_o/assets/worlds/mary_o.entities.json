@@ -1,0 +1,53 @@
+{
+  "entities": [
+    {
+      "identifier": "MaryOBlock",
+      "color": "#E8A33D",
+      "width": 32,
+      "height": 32,
+      "docs": "One of Mary-O's REACTIVE blocks — the ones that answer a head-bonk from below.\n\nWhat it LOOKS like and what it HOLDS are separate fields, on purpose: a block that looks like a brick but really has a powerup is a thing you should be able to author. A block's look never announces its contents — that is why `Quasar` is no longer a look.\n\n`kind` — what it looks like:\n\n  Question  a ?-block. Wears its own texture, and an inert one once spent. A quasar comes out of an ORDINARY ?-block.\n  Power     the old spelling of Question, kept in the list only so a file that already says it still loads. Prefer Question.\n  Brick     masonry. Breakable ONLY when it holds nothing — a loaded brick behaves like a ?-block wearing brick art, which is the classic behaviour.\n  Hidden    nothing at all until it is struck. It is NOT a floor: only a head coming up into it from below collides, so she cannot stand on it and cannot bump it from the side. (Becoming a visible solid once discovered is the classic behaviour and is NOT implemented yet.)\n\n`contents` — what it holds. Leave it BLANK for the sensible default for that look (a Question levels toward the lantern, a Brick holds nothing, a Hidden holds a coin), or say:\n\n  Empty           nothing. A Brick that holds nothing is the one that breaks.\n  AlwaysWand      always the star wand, whatever form she is in.\n  AlwaysLantern   always the cinder beacon.\n  AlwaysQuasar    always a pocket quasar.\n  Coin            a coin, credited on the strike — no item to catch.\n  TowardWand      the next rung on the way to the wand.\n  TowardLantern   the next rung on the way to the lantern — small gets the wand, tall gets the lantern. This is what every ?-block in 1-1 does.\n\nA pickup never makes her WEAKER: a wand collected by fire Mary-O pays coins instead of demoting her, whether it came from a block or was authored on the floor.\n\nOne tile, floating at bonk height over ground she can stand on. The block's collision and art come from this entity; nothing else has to be authored for it to work.\n\nAn unknown kind or an unknown contents is REFUSED at load rather than becoming a plain wall — a block that silently stopped being special still stops the player, so the level would look whole with one bonus quietly gone. `Quasar` as a kind is refused by name, and the message says what to write instead.",
+      "fields": [
+        {
+          "name": "kind",
+          "type": "Enum",
+          "enum": "MaryOBlockKind",
+          "values": ["Question", "Brick", "Hidden", "Power"],
+          "default": "Question"
+        },
+        {
+          "name": "contents",
+          "type": "String",
+          "default": ""
+        }
+      ]
+    },
+    {
+      "identifier": "MaryOPipe",
+      "color": "#3FA34D",
+      "width": 96,
+      "height": 64,
+      "docs": "One half of a WARP TUBE — the green pipe you press into and come out of somewhere else.\n\nTwo halves that share a `link` are ONE tube. That is the whole pairing, and it is explicit: nothing about where a pipe sits, what it is called, or what order it was drawn in decides who its partner is. A link with only one half is REFUSED at load, naming the pipe and the partner it is missing — which is exactly what the old `warp_pipe_<link>_<up|down>` naming convention could not do, because a typo simply produced a green box that had quietly stopped being a pipe.\n\n`link` — the pair id. Any word you like; both halves must spell it the same. 1-1 uses `descent` (surface down into the vault) and `ascent` (vault back up to the surface).\n\n`mouth` — which way this half's OPEN FACE points:\n\n  Up    the lip is on TOP. You stand on it and press DOWN to enter; you arrive standing on it.\n  Down  the lip is UNDERNEATH — a pipe hanging from a ceiling. You stand under it and press UP to enter; you arrive falling out of it.\n\nA pipe answers UP or DOWN and never a generic Interact, so the mouth is what decides the press. It also decides which end wears the lip art, and the lip is mirrored for a Down mouth so a hanging pipe reads as hanging.\n\n`role` — which end of the trip this is. Each link needs exactly one of each:\n\n  Entrance  the mouth you press into.\n  Exit      the mouth you come out of.\n\nA tube is directed, unlike a portal pair: 1-1's two vault halves are identical boxes hanging in the same ceiling, and `role` is the only thing that says which one you may press UP into. Author a two-way route as two links, the way 1-1 does.\n\nDrag the box to the pipe's real size — the collision, the mouth you touch and the lip/shaft art are all derived from it, so a pipe moved in the editor takes its warp with it.",
+      "fields": [
+        {
+          "name": "link",
+          "type": "String",
+          "default": ""
+        },
+        {
+          "name": "mouth",
+          "type": "Enum",
+          "enum": "MaryOPipeMouth",
+          "values": ["Up", "Down"],
+          "default": "Up"
+        },
+        {
+          "name": "role",
+          "type": "Enum",
+          "enum": "MaryOPipeRole",
+          "values": ["Entrance", "Exit"],
+          "default": "Entrance"
+        }
+      ]
+    }
+  ]
+}

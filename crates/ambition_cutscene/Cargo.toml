@@ -1,0 +1,18 @@
+[package]
+name = "ambition_cutscene"
+version = "0.1.0"
+edition.workspace = true
+license.workspace = true
+authors.workspace = true
+description = "Reusable, content-free cutscene SCRIPT format + runtime stepper: the CutsceneBeat vocabulary, a CutsceneScript (ordered beats + seen-flag), and CutsceneRuntime (ticks beats into CutsceneEvents) with NO renderer attached. A game authors scripts as content; the presentation layer plays the emitted events. Extracted from ambition_platformer2d_actor_monolith."
+
+[lib]
+crate-type = ["rlib"]
+
+[dependencies]
+serde = { workspace = true }
+# The rollback wire format.
+ambition_platformer2d_core = { path = "../ambition_platformer2d_core" }
+# The live playback-state Resources (ActiveCutscene / CutsceneAdvanceRequest) +
+# Vec2. The format/stepper is bevy-free; only the running state needs the ECS.
+bevy = { version = "0.19.1", default-features = false }

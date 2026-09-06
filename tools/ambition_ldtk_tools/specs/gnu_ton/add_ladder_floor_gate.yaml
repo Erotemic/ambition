@@ -1,0 +1,21 @@
+# Add a named Solid entity that the gnu_ton arena's runtime gating
+# system can find and remove from `world.blocks` when the boss is
+# defeated, so the player can climb up the ladder and back out to
+# the hall_of_bosses door.
+#
+# Geometry: 48×16 px slot above the ladder (px 120..152 wide ladder
+# is centered between IntGrid cells 7..9 on the 16-px grid; the
+# matching IntGrid slot at px=[112, 208] size=[48, 16] was erased
+# in the same wave, so this Solid entity is the only collider in
+# that slot. Removing it (or leaving it) is the gate.
+#
+# Why a named entity instead of IntGrid: LdtkSurface entity
+# instances preserve their `name` field into `ae::Block::name`,
+# which is what the runtime gate looks up. IntGrid cells become
+# generic "ldtk solid" blocks with no per-cell identity.
+level_id: gnu_ton_arena
+entities:
+  - type: Solid
+    px: [112, 208]
+    size: [48, 16]
+    fields: { name: ladder_floor_gate }

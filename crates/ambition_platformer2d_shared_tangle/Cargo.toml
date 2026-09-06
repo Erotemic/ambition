@@ -1,0 +1,41 @@
+[package]
+name = "ambition_platformer2d_shared_tangle"
+version = "0.1.0"
+edition.workspace = true
+license.workspace = true
+authors.workspace = true
+description = "Reusable, content-free platformer runtime primitives (lifecycle vocabulary + schedule sets) extracted from ambition_platformer2d_actor_monolith. See docs/planning/status.md and docs/architecture/architecture-boundaries.md."
+
+[lib]
+# rlib only: a library consumed by ambition_platformer2d_actor_monolith (and future runtime
+# crates). Packaging is the consuming binary's responsibility.
+crate-type = ["rlib"]
+
+[dependencies]
+# Authored projectile intent lives on a lower floor than projectile physics.
+# This crate re-exports it for compatibility; authoritative spawn requests are
+# owned by `ambition_projectiles`, not by the VFX domain.
+ambition_projectile_spec = { path = "../ambition_projectile_spec" }
+ambition_binding = { path = "../ambition_binding" }
+# Only the ECS/state/input surface is needed: Component / Bundle / Commands /
+# EntityCommands / Entity / SystemSet / States / Reflect (via bevy::prelude). No render,
+# audio, or asset features — this crate stays reusable and headless.
+# `bevy_input_focus` is what puts `KeyCode`/`ButtonInput` in the facade for
+# `developer_hotkeys`; without it this crate only compiled when a co-built
+# sibling happened to unify the feature in (same trap game_shell documents).
+bevy = { version = "0.19.1", default-features = false, features = [
+    "bevy_state",
+    "bevy_input_focus",
+] }
+
+# The content-free pure-logic foundation (geometry / world / movement / the shared BodyKinematics
+# body component). Foundation-only — still NEVER ambition_platformer2d_actor_monolith.
+ambition_platformer2d_core = { path = "../ambition_platformer2d_core" }
+# The registration protocol the construction registry answers (identity meta,
+# new/idempotent/conflict, canonical rows). Dependency-free.
+ambition_registry_core = { path = "../ambition_registry_core" }
+
+# Logging facade (bevy logs through tracing). The binding report is the ONE sink
+# for "content named something that does not exist", so it emits here rather than
+# leaving each consumer to invent its own warn!.
+tracing = "0.1"

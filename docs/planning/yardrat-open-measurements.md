@@ -1,0 +1,1196 @@
+# Yardrat's open measurements
+
+Numbers this machine took that are executable by someone else, kept out of
+[`queue.md`](queue.md) because that file is worked by several sessions at once
+and a measurement is not yet a task with an owner. Each row states what was
+measured, how to reproduce it, and what is NOT yet decided. When a row acquires
+an owner and an acceptance criterion, promote it into `queue.md` and delete it
+here.
+
+⛔ This is not a staffing table and not a second review ledger. If a row here
+stops being reproducible, delete it rather than annotating it.
+
+---
+
+## ✔ CLOSED — path citations in Rust comments (2026-09-03)
+
+`check_planning_citations.py`'s bare-path class runs over `docs/planning/` only,
+so the same blind spot existed one level down in `.rs` comments. Measured on
+`79262265a`: **252 path citations, 21 distinct unresolved in 28 places.** All
+triaged and fixed; the asset half needed no change.
+
+⛔ **THE STANDING LESSONS, which is all that survives:**
+
+- **Triage, never `sed`.** Two of the seven code paths were NOT repoints:
+  `rendering/foreground.rs` and `player/systems.rs` name things that were ENDED  <!-- cite-ok: this row's subject IS the dead citation -->
+  (`d09229ceb`, `5ba894709`), so their sentences wanted re-deriving. A third,
+  `dialog/yarn_bindings.rs`, had a plausible-looking wrong target  <!-- cite-ok: this row's subject IS the dead citation -->
+  (`yarn_harness.rs`) that is not the same thing.
+- ⛔ **A file's history is not its function's home.** The mapping recorded here
+  said `features/ecs/bosses.rs` → `game/ambition_content/src/bosses/mod.rs` from  <!-- cite-ok: this row's subject IS the dead citation -->
+  basename history; the comment names `tick_boss_brains_system`, which is in
+  `ambition_boss_encounter/src/ecs/tick.rs`. Verify at the DEFINITION SITE.
+- ⚠ **Repointing moves any claim attached to the path with it.**
+  `dialog/yarn_bindings.rs`'s sentence asserted "both are `ui`-gated"; the new  <!-- cite-ok: this row's subject IS the dead citation -->
+  target had to be checked for that before the sentence could follow it.
+- ⇒ **If the comment lane is ever extended, skip by `git check-ignore`, not by a
+  `target/` prefix.** Confirmed empirically: the sprite manifests it would
+  otherwise flag are on disk and ignored after a clean regen — generated files a
+  built tree has and a checkout does not.
+
+## Checked and CLEAN: cross-links between planning pages (do not build a checker)
+
+Recorded so the next person does not build the tool this obviously suggests.
+After the bare-path class landed, the natural follow-up is "validate the
+`[text](other.md#anchor)` links too". ⇒ **Measured 2026-09-03: 328 internal
+links across `docs/planning/**/*.md`, 0 dead files, 0 dead anchors — and only
+ONE link carries an anchor at all.** A checker for that class would be a
+permanent maintenance surface guarding a single citation.
+
+⭐ The anchors that DO rot are the ones in policy `source_doc` fields (239 of
+them, 15 repointed off dead `decomposition.md#…` anchors on 2026-09-02), and
+those are guarded now by `every_source_doc_names_a_real_file_and_heading` in
+`tests/ambition_workspace_policy/tests/policy.rs`. That is where the class
+lives; the prose links are not it.
+
+---
+
+## Retiring `planning/engine/architecture.md` is a CONTENT job, not a path edit
+
+`docs/planning/engine/architecture.md` is a redirect receipt: the canonical
+architecture moved to `docs/architecture/engine-architecture.md`, and the
+receipt says it *"remains temporarily because policy metadata, code comments,
+ADRs, and historical documents still link here"*. Measured 2026-09-03 — it is
+earning its keep, and the retirement is bigger than it looks.
+
+**12 files reference it: 7 archived, 5 live.** The live ones are
+`dev/journals/code_smells.md` and the workspace-policy set —
+**15 `source_doc` citations** (10 in `engine.toml`, 2 in `game.toml`, 1 in
+`repository.toml`, 2 custom metas in `src/custom/session_world.rs`).
+
+⛔ **DO NOT BULK-REPOINT THEM, and the reason is a trap I nearly walked into.**
+The obvious move is `sed` the path to the durable doc; it would keep
+`every_source_doc_names_a_real_file_and_heading` GREEN and make the citations
+worse. The durable doc is 283 lines and does not mention `ambition_load`,
+`ambition_game_shell` or `ambition_load_presentation` **at all** — so the row
+naming those three would cite a page that RESOLVES and does not state its rule,
+which is strictly worse than citing a redirect that leads to the right place.
+
+⇒ The order is: the durable doc absorbs the rules these rows cite, THEN the
+paths move, THEN the receipt retires. ⚠ And the guard cannot help with step one
+— it verifies that a document exists at the other end, never that the rule is
+written there. That limitation is now recorded next to the guard itself.
+
+⛔ **AND STEP ONE MAY BE THE WRONG MOVE, which a measurement 2026-09-03 makes
+concrete.** All five durable docs together are **817 lines carrying 34 backticked
+tokens and TWO distinct `ambition_*` crate names** (`engine-architecture.md` and
+`package-and-capability-boundaries.md`, one each; the other three name none).
+That is not an oversight — it is the register those documents are written in.
+So "absorb the rules these rows cite" means teaching crate-level specifics to
+pages whose whole style is crate-free, and the result would read like planning
+status pasted into doctrine. ⇒ Before doing it, ask whether those 15 rows want a
+durable doc AT ALL: a rule about `ambition_load`'s dependency direction may
+belong in that crate's own `MODULES.md`, where it stays next to the code that
+can falsify it. The retirement is blocked on a DESTINATION question, not on
+writing effort.
+
+⭐ **Corollary, measured at the same time: do NOT extend
+`check_planning_citations.py` to `docs/architecture/`.** Ran it there — **5
+citations across 5 files, all resolved.** A doctrine page states principles, so
+there is almost nothing concrete for a citation checker to judge, and the guard
+would cost a permanent lane to watch five references.
+
+---
+
+## ✔ CLOSED — "this box cannot run its own suite without a clean" (2026-09-03, re-measured 2026-09-04)
+
+⛔ **NOT REPRODUCIBLE, in both halves.** This file's rule is that a row which
+stops being reproducible goes, so it is collapsed to what survives — the same
+shape as the citation row above.
+
+⇒ **The capacity fact is dead.** Re-measured 2026-09-04: `target/debug/deps` is
+**70 GB**, not the 141 GB recorded; the volume is **915 GB with 188 GB free**, not
+a 290 GB volume being exhausted mid-run. A `cargo check --workspace --all-targets`
+and several crate suites ran the same day without incident.
+
+⇒ **And the gap it named is FIXED.** The row's finding was that
+`check_disk_headroom.py` runs twice — before the first job and after the last —
+and never between, so a long suite could exhaust the disk halfway and die
+incoherently. `scripts/run_tests.py:1232` now calls `free_gb_on_target()` **before
+each job** against a hard `ABORT_FREE_GB` floor, and its comment names the exact
+failure this row described: *"`clang failed` whose reason line never reached the
+log, under a job header that belonged to something else entirely."*
+
+⭐ **THE ONE LESSON THAT SURVIVES BOTH, because it is not about disk:**
+**free `target/`, never the evidence.** Reclaiming space during the first ENOSPC
+deleted the exhaustive plan's log, and with it the runner's own
+`disk: N GB free (±M this run)` line — the measured spend for a full plan, which
+is the number the whole row existed to report. ⇒ A cleanup that removes the
+measurement is worse than the condition it was clearing.
+
+## ⚠ A BARE FILENAME CITATION DECAYS WITHOUT ANYONE TOUCHING IT
+
+Found 2026-09-03, and the mechanism is new this week: **a carve can make an
+existing citation ambiguous by adding a file nobody edited.**
+`actor-monolith-decomposition.md:1105` cites `systems.rs:177` and now  <!-- cite-ok: this row's subject IS the ambiguous citation -->
+matches TEN tracked files, because calculex's `ambition_encounter_features`
+carve added one more `src/systems.rs`. The sentence was fine when written and is
+unreadable now.
+
+⇒ Measured across all of `docs/planning`: **17 distinct `file.rs:NN` citations,
+and only two filenames are non-unique** — `systems.rs` (10 matches) and
+`options.rs` (2). So the class is SMALL and the checker already reports it as
+AMBIGUOUS rather than resolving it wrongly, which is the right behaviour. No new
+tool is wanted.
+
+⛔ **But the population is growing on the wrong side.** Five crates were carved
+out of the actor monolith on 2026-09-03 alone, and generic module names
+(`systems.rs`, `mod.rs`, `options.rs`, `tests.rs`) are exactly what a new crate
+brings.
+
+⚠⚠ **RE-MEASURED 2026-09-04, ONE DAY LATER, AND IT ROUGHLY DOUBLED.** Same method
+— every `` `file.rs:NN` `` in `docs/planning`, matched against `git ls-files
+'*.rs'` basenames:
+
+| | 2026-09-03 | 2026-09-04 |
+|---|---:|---:|
+| distinct bare `file.rs:NN` citations | 17 | **35** |
+| of those, non-unique filenames | 2 | **5** |
+
+⇒ The five are now `systems.rs` (10 tracked files), `world.rs` (3),
+`duel_arena.rs` (2), `facts.rs` (2), `options.rs` (2). ⭐ **So the prediction in
+this row was right and the doubling took a single day**, which is a stronger
+argument for the habit than the original measurement was.
+
+⭐ **And I supplied one of the instances myself, which is the useful part.** A
+citation I wrote on 2026-09-04 — `snapshot_impls.rs:451` <!-- cite-ok: this row's
+subject IS the ambiguous citation --> — was flagged AMBIGUOUS
+by the checker against **twelve** tracked files with that name, and I only learned
+because the checker said so. ⇒ The guard is doing its job and the habit is what is
+missing: I knew this row existed, had written it, and still typed a bare filename
+the next day. Repointed to the crate-qualified path.
+
+⭐⭐ **AND IT HAPPENED A THIRD TIME, INSIDE THIS PARAGRAPH.** Quoting the bad
+citation above created a fresh ambiguous citation, which the checker flagged on
+the very next run — so the row about decaying filenames decayed the moment it
+described itself. ⇒ Marked `cite-ok`, which is exactly what that marker is for
+(*"a row quoting a mistake it is recording"*), and left visible because **three
+instances in two days by the person who wrote the warning** is the strongest
+evidence available that this is a habit problem and not a knowledge one. ⇒ **In planning prose, cite a crate-qualified path** —
+`crates/<crate>/src/systems.rs:177`, which the checker resolves unambiguously —
+and treat a bare filename as a citation with a shelf life. That is a HABIT, not
+a check: the guard exists and is already doing its job.
+
+⚠ And the same finding names a defect I did not fix, because the file is held:
+line 1105's own subject is a corrected measurement (*"five and two, not four and
+one"*), and the crate it credits, `ambition_characters`, has **no `systems.rs`
+anywhere in its source**. The ambiguity report is what surfaced it. Passed to
+the session that owns the file.
+
+## ✔ CLOSED — three music-renderer tests were wrong, and the manifest was right
+
+⛔⛔ **THE DIAGNOSIS BELOW NAMES THE RIGHT MODULE AND THE WRONG DEFECT, and
+acting on it would have changed a contract to satisfy a test.** `matplotlib` is
+undeclared **on purpose**. `write_spectrograms` says so in its own docstring —
+*"Matplotlib is intentionally optional. If it is not installed, write a clear
+note and let the rest of the bundle succeed"* — and the production code does
+exactly that, writing `spectrograms_skipped.txt` and returning. ⇒ Adding
+`matplotlib` to `pyproject.toml` would have made an intentionally-optional
+dependency mandatory: **fixing a guard by changing the contract it guards.**
+
+✔ **The three tests were asserting an optional path unconditionally, and they
+skip now** — the move this suite already makes four times, for `librosa`,
+`pyloudnorm`, `PySide6` and `pedalboard`. ⇒ Fixed on
+`agent/sfizz-source-fallback-and-cue-fanout` (`486f5fb`, also in `tools/ambition_music_renderer`); suite goes from
+**258 passed / 3 failed** to **259 passed / 4 skipped / 0 failed**.
+
+⭐ **And the fallback the docstring promises had NO test — the one path a fresh
+machine actually takes.** It has one now: no plots written, the note present, and
+the note naming its CAUSE, because *"skipped"* alone sends a reader looking for a
+renderer defect, which is precisely the trip that produced the wrong diagnosis
+below. ⚠ The arm forces the `ImportError` through `sys.modules` rather than
+relying on the module being absent, so it exercises the same branch on a machine
+that HAS matplotlib — otherwise it would pass **vacuously** exactly where
+somebody would run it to check the claim.
+
+ⓘ **The entry's stated reasons for not taking it were all true when written and
+none survived**: the box could not run the suite (it can — 20s), the submodule
+was another session's slice (the fix is on my own branch), and it needed a
+pointer bump (it does not; it rides the branch).
+
+ⓘ **The superseded diagnosis follows, kept because the symptom it describes is
+real and the reasoning from symptom to cause is the interesting part.**
+
+ⓘ **Re-verified 2026-09-04 late: still open.** `matplotlib` is absent from
+`tools/ambition_music_renderer/pyproject.toml`. ⚠ Not taken here: that submodule
+belongs to the other session's slice, editing it means a commit inside the
+submodule plus a superproject pointer bump — the exact move that went wrong
+earlier today — and this box cannot run the suite to confirm a fix.
+
+⭐ **Jon's standing ask is that a fresh clone reaches a runnable game.** Checking
+the other standing ask — no General-MIDI stand-ins — turned this up beside it.
+
+⇒ **`tools/ambition_music_renderer` suite: 252 passed, 1 skipped, 3 FAILED.** All
+three fail the same way: an assertion that a plot file exists
+(`plots/stem_loudness_timeline.jpg`, and the spectrogram equivalent).
+
+⛔ **The cause is `matplotlib`, which the package does not declare.**
+`tools/ambition_music_renderer/pyproject.toml` lists twelve dependencies and two
+`optional-dependencies` (`pedalboard`, `dawdreamer`) — **`matplotlib` is in
+neither**. `import matplotlib` in that venv is `ModuleNotFoundError`. ⇒ So a
+machine set up exactly as `python_tools.sh` intends gets a renderer whose own
+suite is three red, and the three name a missing FILE rather than a missing
+module, which is why nobody has traced it to a dependency.
+
+✔ **What is NOT affected, checked separately because it is the ask that matters:**
+the General-MIDI guard family is fully green — **38 passed, 1 skipped** across
+`test_refuses_the_general_midi_fallback.py`,
+`test_preflight_refuses_a_missing_named_library.py`, `test_bulk_render_preflight.py`
+and the MIDI marker tests. And this machine's instrument environment is present
+(2,351 sfz files, `sfizz_render` installed). ⇒ The fallback ask is guarded and
+holding.
+
+⛔ **NOT FIXED HERE, deliberately: `ambition_music_renderer` is a SUBMODULE**, so
+declaring the dependency is a commit in another repository, and the parent's
+recorded commit already differs from that submodule's HEAD. ⚠ The submodule's own
+working tree is clean, so this is a committed state and not somebody's scratch
+edit.
+
+⇒ **Reproduce:**
+`tools/ambition_music_renderer/.venv/bin/python -m pytest tools/ambition_music_renderer/tests/ -q`
+
+⇒ **Not decided:** whether `matplotlib` becomes a real dependency (it is imported
+on a path three tests assert) or the three tests learn to skip without it. The
+second is cheaper; the first is honest if those plots are part of the artefact.
+
+## ⚠ NEEDS RE-VERIFICATION — a portal test harness `.chain()`d where production `.after()`d
+
+⛔ **THE SYMBOLS THIS ENTRY NAMES HAVE MOVED, re-checked 2026-09-04 late.**
+`portal_projectile_step` now survives only inside a doc comment; the production
+plugin has `step_portal_shot` / `PortalShotStep`, and its one `.chain()` is in
+`PortalSet::Transit` — a different set from the `PortalSet::WeaponAndProjectiles`
+this entry is about. ⇒ **So this is neither confirmed nor closed**: the area was
+refactored under it, and saying "still true" or "fixed" would both be guesses.
+⚠ Outside this session's slice, so it is flagged rather than chased.
+
+⭐ **And it is an instance of the trap two entries above** — *"a bare filename
+citation decays without anyone touching it"*. This one decayed by SYMBOL rather
+than by path, which no link checker looks at, and it decayed in under a day.
+
+⇒ The original finding, kept verbatim below for whoever re-derives it:
+
+⭐ **Verified, and it is a difference in FLUSH SEMANTICS rather than in order.**
+
+| | how the two systems are wired |
+|---|---|
+| test (`portal/tests.rs`, `app_with_the_shot_adapter`) | `(portal_fire_system, portal_projectile_step).chain()` |
+| production (`portal/plugin.rs:136`) | `portal_projectile_step.after(portal_fire_system)` |
+
+⇒ `.chain()` inserts an `ApplyDeferred` between them; `.after()` does not, and the
+sets involved (`PortalSet::WeaponAndProjectiles`,
+`Platformer2dSimulationPhaseMonolith::PlayerSimulation`) are configured with
+ordering relations only — **no `.chain()` on the sets** in
+`portal_schedule.rs:49`. ⚠ `portal_fire_system` spawns the shot through
+`Commands`, so the entity does not exist until a flush.
+
+⛔ **THE QUESTION, and it is worth an answer because a guard rests on it.**
+`two_same_channel_shots_landing_on_one_tick_leave_exactly_one_portal` documents a
+real defect — two same-channel shots resolving in one tick each despawned the old
+portal and spawned a new one, leaving two — and its own comment says *"both
+origins are 25px from the left wall, inside one 31.7px step, so both resolve on
+the same tick."* ⇒ That requires the shot entity to be VISIBLE to
+`portal_projectile_step` on the tick it was fired, which the test's `.chain()`
+guarantees and production's `.after()` may not.
+
+✔✔ **ANSWERED BY EXPERIMENT, and the answer is (1).** I switched the harness from
+`.chain()` to production's exact `.after(portal_fire_system)` and re-ran: **the
+test still passes.** ⇒ The two shots still resolve on the tick they are fired, so
+a sync point IS reached between the two systems — Bevy inserts one automatically
+when a `Commands` writer is ordered before a reader of the affected data. ⭐ The
+guard defends a reachable state and the harness is NOT stricter than production.
+
+⛔⛔ **AND IT INVERTS WHAT I EXPECTED ON THE OTHER SIDE, which is why it was worth
+running.** Because a shot fired within one step's travel of a wall spawns AND
+despawns inside a single `sim.step()`, **portal shots ARE an instance of S4's
+residual** (*"an anchor spawned and despawned inside one step is invisible to a
+between-steps census"*), not an exception to it. ⇒ Such a shot genuinely exists at
+an internal system boundary — so save/load inside that step can see it — while a
+census walking the world BETWEEN steps never can.
+
+⚠ **Which makes it the sharpest known example of that residual**, because it is
+not hypothetical: it needs only a player firing within ~32px of a wall, and that
+entity carries a minted `SimId` precisely so that it rewinds correctly.
+
+✔ **CONFIRMED FROM THE OTHER SIDE, and it bounds the claim.** A census ordered
+`.after(portal_fire_system)` INSIDE the simulated frame sees that shot on
+**exactly 1 frame**; the same census left unordered sees it on **0**; an
+open-space shot is seen on **371**. ⇒ So the entity is *not* invisible in
+principle — it is visible for one frame to an instrument standing on the right
+edge, and invisible to every instrument that walks the world between steps.
+
+⛔ **I had told the S4 author the stronger version** — that the shot is invisible
+to a between-steps census *and therefore* a case no census can witness. The first
+half is right and the second does not follow. ⚠ And the correction came from
+varying the INSTRUMENT (the scan's ordering), not the subject: **a negative result
+is a claim about the instrument until you have varied the instrument**, which is
+the clamp rule pointed the other way.
+
+⭐ **Method note.** I wrote "two possibilities and I have not separated them" and
+was about to leave it there. Separating them cost one edit and one test run, and
+the result reversed my expectation on the second half. ⇒ The reproduction I
+recorded — *do not answer this by reading the schedule* — was right, and I nearly
+took my own bad advice by filing the question instead of answering it.
+
+## ⛔ AN IDENTIFIER THAT DOES NOT RESOLVE IS USUALLY HISTORY, NOT ROT
+
+Two sweeps, both of which looked like rich seams and both of which were almost
+entirely false positives. Recorded together because the SHAPE is the finding and
+a third session will otherwise try a third one.
+
+| swept | places | real findings |
+|---|---:|---:|
+| bare file paths in prose | 460 | 1 |
+| policy `source_doc` anchors | 239 | 0 (ratchet added) |
+| **absence claims — "no X exists"** | **26** | **4** |
+| SHA-shaped citations in `docs/planning` | 371 | 0 |
+| `D<number>` queue-row citations | 78 | 0 |
+
+⭐ **THE ABSENCE-CLAIM SWEEP IS THE BEST YIELD OF THE FIVE — 4 in 26** — and the
+reason generalises: a sentence saying "no X exists" is written to justify an
+open row, so it stops being true exactly when someone does the work the row
+asked for. Nothing re-reads it at that moment. The four:
+`ambition_registry_core` "does not exist" in TWO pages (it landed `479f9d3e4`,
+and the crate cites one of those pages as its own justification); "no
+residency-state type exists anywhere in `crates/`", true about ROOMS and
+falsifiable by a grep since `FxResidency` arrived; and two comment citations
+whose fix shipped in the same commit that found them. ⇒ Sweep this class after
+any week of landings, and grep the claim as written — half the value is finding
+sentences that are RIGHT and now read as wrong.
+
+⚠ **AND THE RE-SWEEP THE SAME NIGHT FOUND NOTHING, which sharpens the advice
+rather than repeating it.** The rule above says to sweep this class after any
+week of landings. 2026-09-03 was a night of landings — the pickup carve, the
+`string_id!` consolidation, S2, registry_core R2–R4 — so the class was re-swept
+across all of `docs/planning` a few hours later. **Zero new findings**, and
+every crate-existence claim still held on BOTH trees (`ambition_test_support`,
+`ambition_snapshot`, `ambition_platformer2d_input` absent locally and on
+`origin/main`; `ambition_registry_core` present). ⇒ The mechanism matters: a
+sentence goes stale when someone does the work and *nobody re-reads the page*,
+so the sweep pays across a gap in attention, not across a volume of commits. On
+a night when the sessions doing the landings were also working the pages, there
+is nothing for it to find. Sweep after an unattended week, not after a busy
+night.
+
+⭐ **BOTH CLASSES ARE STABLE HISTORICAL IDENTIFIERS BY DESIGN.** `queue.md`
+names only 8 D-numbers because *"a closed row is a receipt, not a case file"* —
+the README's own closed-row template is `✔ **D123 — …**`, so a D-number
+deliberately OUTLIVES the row and resolves through `git log`, not through the
+current file. And a SHA that resolves nowhere in this checkout is routinely a
+submodule commit or an unpushed branch elsewhere.
+
+⇒ **Before building a checker for an identifier class, measure its false-positive
+rate against the tree — not its finding count.** Both of these would have shipped
+a worklist of 78 and 33 entries that a reader must dismiss one at a time, which
+is the "teaches its reader to skim" failure `check_planning_citations.py`'s own
+docstring warns about. ⚠ The classes that DID pay were the ones where the
+identifier is supposed to resolve NOW: bare file paths in prose (1 real finding
+in 460, and it had been dead since `00030e603`) and policy `source_doc` anchors.
+
+---
+
+## ⛔ A SHA you cite for your OWN unmerged commit does not survive your rebase
+
+Cost me ten dead citations and would have shipped them. Writing
+*"Fixed in `<sha>`"* about a commit on your own branch is a citation to an
+object that the next `git rebase` REWRITES — the commit survives, its hash does
+not, and nothing warns you. Ten citations across seven files (the D33 rule,
+`ambition_world_items/MODULES.md`, `queue.md`, four verification receipts) all
+pointed at orphans after one rebase onto main. ⚠ They still `git cat-file`
+successfully, which is what makes this invisible: the object is reachable in the
+reflog, just not from `HEAD`. **The test is
+`git merge-base --is-ancestor <sha> HEAD`, not `git cat-file -t`.**
+
+⇒ **Either cite after the merge, or leave the slot blank and say why.** The D33
+rule did the second — *"SHA deliberately not cited here … Fill it in when it
+does"* — and that turns out to be the robust habit rather than a courtesy.
+
+⚠ **AND A CHECKER FOR THIS WOULD BE NOISY, measured before proposing one:** 238
+distinct SHA-shaped citations in `docs/planning`, 371 places. A
+`` `[0-9a-f]{7,40}` `` sweep reports 33 "unresolvable", and MOST ARE NOT SHAS —
+32-hex asset ids in `bevy-0.19-leverage-campaign.md`, 16-hex scenario ids in
+`engine/runtime-frame-history.md`. Of the genuine ones, two resolve inside
+SUBMODULES (`db7e72f` in the map assets, `5e1ee9b` in the sprite renderer) and
+are correct cross-repo citations; three resolve nowhere on this machine, which
+is NOT evidence they are wrong — an unpushed branch elsewhere resolves them.
+⛔ **AND THE ONE I CALLED "PROVABLY STALE" WAS NOT — I made the same mistake the
+paragraph above warns about, one line later.** `queue.md:1930` cites
+`2d623308f`; it resolves here and is unreachable from HEAD, which is the exact
+signature of a rebase orphan. It is not one. The row says so in its own words:
+*"fix written, ON ITS OWN BRANCH `web-gpu-wait` (`2d623308f`), DELIBERATELY NOT
+MERGED."* An unmerged branch in the SAME repository resolves and is unreachable
+from `HEAD`, and that is correct.
+
+⇒ **So "resolves but unreachable from HEAD" is AMBIGUOUS**: it is a rebase
+orphan OR a deliberate unmerged-branch citation, and only the row's own prose
+distinguishes them. A checker cannot. That takes the class from "one real
+finding in thirty-three" to **zero**, and settles it — this is a habit, not a
+check, and the habit is: cite after the merge, or say in the row why the SHA is
+not on `HEAD` (which `queue.md:1930` does, and is why it reads correctly to a
+person and wrongly to a grep).
+
+---
+
+## The `zero_duration_pump` bisect recipe, and the correction to it
+
+Kept because the recipe worked and the correction is the part that would be
+re-learned the hard way.
+
+Bisect only the commits in the range that touch COMPILED files — a docs commit
+cannot change behaviour, and on the 2026-09-02 range that was 21 of 70, turning
+7 builds into 5. Each probe is a full `cargo test` of one test, so the saving is
+real (roughly 20 minutes a probe on this VM).
+
+⛔ **BUT BISECT THE ANCESTRY CHAIN, NOT THE `rev-list` INDEX.** On a branch with
+merges the two are different, and I reported an exclusion that did not hold
+because of it: a GOOD result at one index bounded nothing, because that commit
+sat on a side branch that merged in later and was an ancestor of neither
+candidate. Check with `git merge-base --is-ancestor A B` before treating a
+result as a bound. The verdict survived — `06a494f4e`, confirmed independently
+from the mechanism side — but it survived for a different reason than the index
+suggested.
+
+---
+
+## ⛔ BLOCKED AGAIN 2026-09-04 EVENING — the volume is at 97% and the full lane REFUSES
+
+⛔⛔ **`./run_tests.sh --rust` will not start: *"REFUSING: 10.2 GB free on
+`…/target`, and a full suite needs about 40."*** Measured, not recalled:
+`target_bindmount.sh --status` says **BOUND** to `/dev/vda1`
+(`~/.cache/ambition-tools/…` backing), `target` itself **177 G**, and `df -h
+target` reads **290 G total, 280 G used, 11 G free, 97%**.
+
+⭐ **The reference point, because the number crossed a document boundary:** this
+same volume read **61.3 GB free against its 40 GB floor** at 19:50 the same
+evening, before a day of `--all-targets` checks across `ambition_render`,
+`ambition_platformer2d_host`, `ambition_demo_smash*` and two `check_no_warnings
+--fresh` runs. ⇒ **The gate's own message names the mechanism**: *"Every feature
+job builds its own variant of the graph and cargo never prunes the last one."*
+
+⇒ **NOT RECLAIMED, deliberately.** `AGENTS.md` is explicit: *"If it is bound and
+genuinely full: report it and STOP — the reclaim is Jon's call on Jon's
+machine."* The cut to reach for when he calls it is
+`clean_workspace_crates.sh --incremental-only`, whose own header measures it as
+*"the largest share of the directory while deleting NO artifact at all…
+invalidates NO fingerprint"* — it took 279 M to 80 G earlier in this run and
+rebuilt nothing.
+
+⚠ **What still works meanwhile, from the refusal's own advice:** `./run_tests.sh
+-p <crate>` fits, and every per-crate `cargo test` used this evening ran fine.
+⇒ So this blocks the LANE, not the work — but it blocks the one thing that would
+have caught the four guards that went red today, which is exactly the wrong thing
+to have blocked.
+
+## ✔ CLOSED — the composed app could not be built on this VM, and `df` said otherwise
+
+✔✔✔ **ALL RUN 2026-09-04 — Jon cleared the disk work and every queued measurement
+completed. This entry is CLOSED.**
+
+| # | result |
+|---|---|
+| 1 | `ambition_demo_smash` **153 passed**, including the guard restored blind (`the_side_special_...`) — green, as predicted |
+| 2 | `ambition_demo_smash_app --lib` **11 passed**, including the rig's row-level guard |
+| 3 | **The four ladder cells came back UNCHANGED**: `3 vs 1` higher and `5 vs 3` LOWER both significant, `6 vs 5` / `9 vs 6` within spread. The `5 vs 3` inversion is CONFIRMED |
+| 4 | **The roster census PASSED**: 20 selectable fighters, every one `22/22 presses`, none "not its own" |
+| 5 | **George's control arm reproduced**: 14 of 28 moves start, `george_booul_dash_attack` 98, no tilt or smash |
+| 6 | ⭐ **(added later the same day) The CANDIDATE tuning ladder re-ran too — both arms, one binary.** The headline holds, but `5 vs 3` does NOT flip direction under the candidate; it stays LOWER and loses significance. And the monotonicity support is withdrawn: `85 → 98 → 114 → 113` reproduces from no shipped-ladder run. See [`awaiting-maintainer-decision.md`](awaiting-maintainer-decision.md) |
+
+⇒ Disk went **279M → 80G** via `clean_workspace_crates.sh --incremental-only`,
+which rebuilt nothing. ⓘ The ordered list is kept below because it is the recipe,
+and the stop condition in it is still the one that matters.
+
+⭐⭐ **THE ORDER TO RUN THEM IN.** Everything below was
+prepared while blocked, so none of it needs re-deriving:
+
+| # | command | what it settles | why this order |
+|---|---|---|---|
+| **0** | `scripts/setup/target_bindmount.sh --status` | ⭐ **whether a build can happen at all** — prints the repo's filesystem, whether `target/` is BOUND and to what, and its size, in six lines | `AGENTS.md` says to run it before the first build of every session. I did not, and re-derived its entire output by hand with `findmnt`, `stat`, `du` and `dd`. |
+| 1 | `cargo test -p ambition_demo_smash` | the three guards touched 2026-09-04, one of which (`the_side_special_...`) was restored WITHOUT ever being run | cheapest, and a red here invalidates reasoning below it |
+| 2 | `cargo test -p ambition_demo_smash_app` | the rig's own poison arms, including the row-level one | the instrument must be trusted before its output is |
+| 3 | `cargo run --release -p ambition_demo_smash_app --bin smash_tool -- ladder-rig --ladder game/ambition_content/assets/data/fighter_brain_ladder.ron --paired --seeds 12` | **the four held ladder cells** — ✔ RAN 2026-09-04; `3 vs 1` and `5 vs 3` are now CONFIRMED (this column states what the command settled, not what is still open) | the single biggest open question on the fighter surface |
+| 4 | `cargo test -p ambition_app --test app_it report_the_smash_kit -- --nocapture` | the composed roster's kit census | now corroboration, not load-bearing — the type argument answered it |
+| 5 | `cargo run --release -p ambition_demo_smash_app --bin smash_tool -- capture-probe --character smash_george_booul --ladder <same ron>` | `D-BRAIN-MENU`'s control arm | only needed if somebody takes decision 5 |
+
+⛔ **Read the header line of (3) before its table.** If the clock does not say the
+shipped eight minutes, or the ladder line does not say AUTHORED, stop — those two
+misconfigurations produced every superseded number on
+[`engine/fighter-brain.md`](engine/fighter-brain.md).
+
+**What is blocked:** every measurement that needs `ambition_app`. Concretely
+`report_the_smash_kit_every_selectable_fighter_has`
+(`game/ambition_app/tests/smash_roster_movesets.rs`), which hard-asserts that
+every composition-selectable fighter reaches the full 16-press genre kit and
+prints a per-fighter census as it goes. ⇒ That single command answers the open
+roster question in [`awaiting-maintainer-decision.md`](awaiting-maintainer-decision.md),
+so this is not a niche blocker.
+
+```
+cargo test -p ambition_app --test app_it report_the_smash_kit -- --nocapture
+```
+
+**The failure, and it lied twice before it told the truth:**
+
+| attempt | what it said | what it was |
+|---|---|---|
+| 1 (incremental) | ~40 × `mold: error: undefined symbol: anon.<hash>.llvm.<n>` | truncated rlibs — reads exactly like stale incremental codegen, and I diagnosed it as that. **Wrong.** |
+| 2 (`CARGO_INCREMENTAL=0`) | `No space left on device (os error 28)` | the real class, stated plainly for the first time |
+| 3 (sequential) | `mold: error: undefined symbol: <bevy_ggrs::…>::Rollback` | a *named* symbol — the rlib attempt 1 truncated was still cached, and cargo's fingerprint called it fresh |
+| 4 (after `touch`ing that crate's `lib.rs`) | `mold: failed to write to an output file. Disk full?` | the rlib rebuilt clean; the final `libambition_app.so` is what cannot be written |
+
+⛔⛔⛔ **BEFORE ANY OF THIS: `AGENTS.md` ALREADY DOCUMENTED IT, AND I DID NOT READ
+IT.** Its instruction is unambiguous — *"RUN `scripts/setup/target_bindmount.sh
+--status` BEFORE YOUR FIRST BUILD, EVERY SESSION, AND ACT ON WHAT IT SAYS"* — and
+the paragraph under it states, for **this VM by name**: *"on a VM where the bind
+target lives on the same device as `/` (the calculex VM: `/dev/vda1`), a full
+`target/` is a full ROOT. The symptom is not a cargo error: the harness's own task
+files start failing with `ENOSPC` and command output is lost mid-session, which
+looks like tooling breakage."* It even names the biggest consumer
+(`target/debug/incremental`, 156G in a previous instance) and says to run
+`df -h /tmp` before starting a second profile.
+
+⇒ **So the hours spent diagnosing this were spent re-deriving the project's own
+instructions.** ⚠ The lesson is not "read the docs" in the abstract: it is that a
+session's FIRST build is the moment the instruction exists for, and I invoked
+`cargo` directly before ever consulting the file that `CLAUDE.md` says to treat as
+`CLAUDE.md`. ⭐ `run_tests.sh` already calls `target_bindmount.sh --check`, so the
+lane I did not use would have refused and told me why.
+
+ⓘ **What is genuinely additive below**, and the reason this entry survives rather
+than being deleted: the bind is PRESENT here (`findmnt` confirms it), so this is
+NOT the absent-bind case `AGENTS.md` describes — the space is really in use — and
+the `df .` versus `df target` distinction is stated here in a form the instruction
+does not give.
+
+⭐⭐ **THE MECHANISM, PINNED 2026-09-04 LATE — and it is sharper than "the disk is
+full".** `target/` is **BIND-MOUNTED FROM A DIFFERENT FILESYSTEM than the repo it
+sits in**:
+
+```
+findmnt --target target  →  /dev/vda1[/home/agent/.cache/ambition-targets/ambition--a3386a669b]  ext4
+findmnt --target .       →  aivm-persistent-root[/hostcode-ambition-a3386a66]                    virtiofs
+```
+
+⇒ Same `device:inode` as that cache directory (`64769:5056595`), so it is one
+store under two paths.
+
+✔ **AND THIS IS DELIBERATE, not an accident to be undone** — `scripts/setup/target_bindmount.sh`
+exists to do it, and its reasoning is good: *"the repo may live on a shared
+filesystem, but Cargo still sees its ordinary per-worktree target directory, so no
+`CARGO_TARGET_DIR` coordination is required and parallel worktrees do not share
+locks or artifacts."* ⇒ **What is new here is not the mount, it is the
+CONSEQUENCE**: the volume a build writes to is not the one `df .` describes, and
+that one fact accounts for every confusing measurement in this entry. **The repo's build output physically lives on the ROOT
+filesystem**, and `/home/agent/.cache/ambition-targets` is **187G of a 290G root**.
+
+⇒ **That explains every symptom at once**: `df .` answers for virtiofs and says
+188G because those are the HOST's numbers; `df target` answers for `/dev/vda1` and
+says the truth.
+
+⛔ **AND "JUST USE `df -h target`" IS ITSELF AN OVER-CORRECTION — `AGENTS.md` says
+CHECK BOTH, and it is right.** Its words: *"`--status` reports the MAIN target
+only, so it says BOUND while a nested workspace fills the shared disk. Check
+`df -h .` as well as `df -h target`."* ⇒ The two answer different questions and
+**both are load-bearing**:
+
+| command | the volume | what fills it |
+|---|---|---|
+| `df -h target` | `/dev/vda1`, via the bind | the main workspace's build output — **187G** here, and the reason builds fail |
+| `df -h .` | the shared virtiofs worktree | **nested workspace targets, which are NOT bound** |
+
+✔ **And the nested case is live here, 33G of it**, found by taking that sentence
+seriously: `examples/capability_demo/target` is **21G** and
+`fixtures/minimal_game/target` is **12G**, both on the shared virtiofs mount
+(`findmnt` confirms), neither bound. ⇒ `--status` says `BOUND` and is telling the
+truth about the main target while 33G sits outside its view — exactly the shape the
+instruction warns about.
+
+ⓘ So total build artifacts are **~220G**, not the 187G quoted below: 187G on root
+plus 33G on the shared tree. The 187G is what blocks a build; the 33G is not, which
+is why one number was enough to explain the symptom and is not enough to describe
+the tree. ⓘ [`status.md`](status.md)
+already carries the mechanism and warns that `df` lies on the worktree, and its
+own advice is *"run `scripts/setup/target_bindmount.sh --status` and `df -h .`"* —
+the first is right and the second is the misleading half. ⚠ Reported rather than
+edited: that page is the other session's.
+
+✔ **And the repo's own guard was already correct** — `check_disk_headroom.py`
+measures `free_gb_on_target()`, i.e. the TARGET directory, not the cwd. ⇒ The
+ENOSPC in this session came from invoking `cargo` directly rather than through the
+lane that consults it, which is a fact about how I ran it, not about the guard. A write into `target/` lands on the full disk while the number a
+reader checks describes the other one. ⭐ **And it means the sanctioned reclaim
+under `target/` frees ROOT space directly** — the ~116G is not merely tidying a
+worktree, it is the fix for this volume.
+
+ⓘ The original wording is kept because the reasoning is still right as far as it
+went: `df` on the worktree reports **188G free, inodes at 5%**, and those numbers
+are the HOST's, because the worktree is a **virtiofs** passthrough. Measured against the
+filesystem instead of asked of it:
+
+- 50MB write: fine, 953 MB/s.
+- 300MB write: fine.
+- 1GB write: fails.
+- 2GB write: stops at **576MB**.
+- 800MB write: killed with no message at all.
+
+⇒ **The usable ceiling for a single file is somewhere near half a gigabyte**, and
+a debug `.so` for the composed app is far past it. ⚠ Nothing about the repository
+is wrong: `ambition_demo_smash` builds in seconds and its 154 tests pass, and
+attempt 4 proves the dependency graph links right up to the final artifact.
+
+⛔⛔ **AND THIS IS A RE-DISCOVERY, which I should have checked before writing it
+up as a finding.** [`status.md`](status.md) recorded the same constraint a day
+earlier — *"THE BINDING CONSTRAINT ON THIS BOX IS NOW DISK, measured 2026-09-03"*
+and *"AS OF 2026-09-03 LATE THIS VOLUME CANNOT RUN A RUST LANE AT ALL: 12 GB free
+of 290"*. ⇒ **What is genuinely new here is only the virtiofs half**: that `df` on
+the worktree answers with the HOST's figures, that the single-file write ceiling
+sits near half a gigabyte, and the ENOSPC → truncated-rlib → *undefined symbol*
+chain. The headline was already written by someone who got there first.
+
+⚠ **AND THE ORIENTATION FIGURE HAS MOVED SINCE, BY A LOT.** [`status.md`](status.md)
+reads *"12 GB free of 290"* (2026-09-03 late); measured 2026-09-04 it is **~359M**
+— roughly **34× worse**, on the page a newcomer orients from. ⇒ Not corrected
+there by me: that file is another session's hot set and the standing split says
+not to edit it. Reported to its owner instead, and recorded here so the two pages
+disagree visibly rather than silently.
+
+⛔ **NOT ATTEMPTED, deliberately — and the repo reaches the same conclusion from
+the other side.** `rm -rf` under `target/` is a standing rule for this session,
+and `cargo clean` is the same deletion wearing a nicer name. ⭐
+`scripts/check_disk_headroom.py` says it in its own output: *"THE VOLUME IS SHARED
+with the main checkout and every other agent worktree… That is a reason to report
+rather than reclaim — the biggest directory is usually someone else's live
+build."*
+
+⇒ **So: reporting.** `status.md` publishes a reclaim order, *"all regenerable"*,
+and past it *"the only lever is `cargo clean`, which costs every session's warm
+tree and is a coordination decision rather than a local one."* Measured on this
+tree 2026-09-04:
+
+| directory, in the sanctioned order | size |
+|---|---:|
+| `target/debug/incremental` | **77G** |
+| `target/profiling` | absent |
+| `target/release` | **17G** |
+| `target/wasm32-unknown-unknown` | **2.4G** |
+| `target/outlander` | **20G** |
+| **total, without `cargo clean`** | **≈116G** |
+
+⚠ `target/debug/incremental` alone is **77G** — nearly half of `target/debug`'s
+148G, pure incremental cache, and first in that order.
+
+⭐ **AND THE VOLUME HAS A SECOND, UNRELATED TENANT worth knowing before anyone
+decides what to delete.** `/dev/vda1` is 290G; the ambition target bind mount is
+**187G** of it, and roughly **30G more is stale cache belonging to other work**:
+
+| path | size | last modified |
+|---|---:|---|
+| `~/.elan` (Lean toolchain) | **12G** | 2026-07-29 |
+| `~/lake-cache` (Lean builds) | **12G** | 2026-07-29 |
+| `~/.cache/huggingface` | **4.2G** | 2026-07-31 |
+| `~/.cache/mathlib` | **1.3G** | 2026-08-20 |
+
+⇒ **~30G reclaimable without touching a single ambition build artifact**, none of
+it modified in five weeks.
+
+⛔⛔ **AND THE SANCTIONED REMEDY IS DEADLOCKED, which is why an ordered path
+matters.** `scripts/sweep_cargo_target.sh` is the repo's tool for this — dry-run by
+default, keeps incremental state, preserves the graphs `run_game.sh` and
+`run_tests.sh` use, and targets the real consumer the 2026-08-07 journal
+identified: **duplicate fingerprint variants**, where every distinct
+feature/profile combination leaves a complete artifact set that cargo never
+collects (`app_it` alone had four variants at 3.1G). ⇒ But it requires
+`cargo-mark-sweep`, which is **NOT INSTALLED** here — the same gap that journal
+recorded a month ago, *"the tool you reach for when the disk fills was itself
+unavailable, which is part of why it kept filling"* — and `cargo mark-sweep`
+determines reachability by RUNNING BUILDS. **A full disk cannot build, so the
+remedy for a full disk cannot run.**
+
+⭐ **The ordered way out, each step making the next possible:**
+1. **Free the ~30G of unrelated stale caches above.** Touches no ambition
+   artifact, needs no build, and is the only step available at 280M.
+2. **`cargo install cargo-mark-sweep`** — now possible.
+3. **`scripts/sweep_cargo_target.sh`** (dry-run first, then `--apply`). ⭐ This is
+   strictly better than the manual reclaim order because it removes UNREACHABLE
+   variants rather than whole directories, and its safe default **keeps
+   incremental** — which `.cargo/config.toml` enables deliberately, worth
+   **104.9s → 21.3s** on the agent loop per the same journal.
+
+⛔⛔ **AND THE ABOVE IS SUPERSEDED — `scripts/clean_workspace_crates.sh` is the
+right tool and needs none of it.** Its contract: *"Drop OUR crates' build
+artifacts from `target/`, keeping every dependency … the 'recompile ambition, not
+bevy' cut."* It wraps `cargo clean --workspace`, needs no `cargo-mark-sweep`, and
+therefore **needs no build** — which breaks the deadlock above entirely.
+
+⛔ **AND IT CORRECTS ME TWICE ON INCREMENTAL, so read the script's own measurement
+rather than either of my claims.** Verbatim: *"INCREMENTAL IS MOST OF THE BLOAT AND
+COSTS ALMOST NOTHING TO DROP. Measured 2026-08-30: 70G of a 112G target was
+`target/*/incremental`, 915 dirs for ~70 crates — roughly thirteen stale
+generations each, because a new hash is minted per feature/flag shape and the old
+one is never reaped. **Deleting it invalidates NO fingerprint**: a fresh crate
+stays fresh and is skipped on the next build. The only cost is that the next EDIT
+to a given crate recompiles it whole instead of incrementally."*
+
+⇒ **So both of my positions were wrong.** *"Delete incremental first, it is 77G"*
+was right for the wrong reason; *"that is the wrong first move because incremental
+is worth 104.9s → 21.3s"* confused **having incremental ENABLED** (which is worth
+that, and is a `.cargo/config.toml` setting nothing here changes) with **retaining
+thirteen stale generations of it** (which is worth almost nothing). ⭐ The script
+even has `--incremental-only`, *"which reclaims the largest share of the directory
+while deleting no artifact at all."*
+
+✔✔ **MEASURED ON THIS BOX 2026-09-04 — the script's DRY RUN is the default, needs
+no build, and deletes nothing:**
+
+```text
+debug:   would remove workspace-member artifacts (dependencies kept)
+         Summary 180503 files, 116.7GiB total
+release: would remove workspace-member artifacts (dependencies kept)
+         Summary  47465 files,  14.6GiB total
+```
+
+⇒ **131.3 GiB reclaimable with the dependency wall left standing**, on a volume
+with **279M free**.
+
+⭐ **And the cheaper variant measured too** (`--incremental-only`, same dry run):
+
+```text
+debug/incremental:   would remove 77G across 1186 crate sessions
+release/incremental: would remove 11G across  137 crate sessions
+```
+
+| option | frees | what it costs |
+|---|---:|---|
+| `--incremental-only` | **88G** | ⭐ **nothing rebuilds** — per the script, deleting incremental *"invalidates NO fingerprint: a fresh crate stays fresh and is skipped on the next build"*; only the next EDIT to a crate recompiles it whole |
+| full run | **131.3 GiB** | every workspace crate rebuilds from source; the dependency wall (bevy et al.) stays warm |
+
+⇒ **88G is enough to unblock every measurement queued here, and it is the option
+with no rebuild cost.** ⭐ Both numbers came from a command that takes no risk to
+run — `./scripts/clean_workspace_crates.sh` with no flags is a dry run.
+
+⇒ **The actual path, one command and no build**:
+`scripts/clean_workspace_crates.sh --incremental-only` first, then a full
+`--apply` if more is wanted. ⚠ **Not run here — deletion under `target/` is a
+standing rule for this session, and a sibling session being directed to run it is
+not authorisation for this one.** On that session's box the full form freed
+**337.3 GiB** across 323,782 files with the dependency wall left standing. ⛔ Not deleted, and not this session's to delete — it is
+the maintainer's environment and the Lean toolchain may belong to other work. ⓘ
+Recorded only because the ambition reclaim and this one are independent: either
+alone would restore a workable volume, and one of them costs no warm build tree at
+all. ⇒ **~116G is reclaimable
+without touching one artifact another session links against**, by someone holding
+the coordination context this session does not.
+
+**Two things worth knowing before pulling it:**
+
+1. ⚠ **The corrupt-cache trap will outlive the disk problem.** Once a write is
+   truncated by ENOSPC, cargo keeps serving the broken rlib because its
+   fingerprint is still valid — so the build fails with *undefined symbols* long
+   after space is restored, and the error names a linker problem, not a disk one.
+   `touch`ing that crate's `lib.rs` fixes it without deleting anything, and that
+   is what moved attempt 3 to attempt 4.
+2. ⭐ **Cheapest non-destructive thing to try first is a smaller artifact**, not a
+   bigger disk: `CARGO_PROFILE_DEV_DEBUG=0` drops the debug info that makes the
+   `.so` enormous.
+
+ⓘ **Relevant to the standing "a fresh clone must reach a runnable game" ask** —
+but as a MACHINE finding, not a repo one. A fresh clone on a host with room is
+untouched by any of this. What it does mean is that a fresh clone *on this VM*
+would fail at the final link, and would report it as an undefined symbol.
+
+---
+
+## ✔ CLOSED — a submodule pointer rode into an unrelated commit of mine
+
+✔ **RESOLVED the same day by the session that owns that submodule**: the two
+unpushed commits were pushed to its `origin/main` and the superproject re-pointed
+at `4e5695c` (`469184d84`), which is on that submodule's `main` rather than a
+deletable agent branch. ⇒ Kept here for the reasoning, not the incident — the
+part worth reading is the two wrong explanations below, and the ~30 dirty entries
+neither of us had counted.
+
+**Mine to own.** I staged with `git add -A`, and it swept
+`tools/ambition_music_renderer` into `e2fe33e2e` — a commit whose message is
+entirely about George's movesets and does not mention a submodule. The bump is
+`4e5695c38 → 8b10c5a0d`. ⇒ I have stopped using `-A` and stage explicit paths.
+
+⭐ **I did not revert it, and the checks are why.** In order:
+
+- `8b10c5a` (in `tools/ambition_music_renderer`) is the sibling session's music work — *"The refusal was
+  all-or-nothing; one missing family still shipped wrong music"*, sitting on
+  *"The refusal that protects Jon's no-GM-fallbacks ask had no test"*.
+- It **is** pushed: `git branch -r --contains` finds it on
+  `origin/agent/sfizz-source-fallback-and-cue-fanout`. ⇒ A fresh clone can fetch
+  it, so the standing no-fallbacks ask is not broken by the pointer itself.
+- ⚠ **The pointer it REPLACED did not exist in this clone** —
+  `git cat-file -t 4e5695c38` → *"could not get object info"* — so I argued that
+  reverting would aim the superproject at an unresolvable object, and left it.
+
+⛔⛔ **AND MY CORRECTION TO THAT WAS ALSO WRONG — twice around, so both attempts
+are kept, because the shape of the error is the same each time and the truth was
+neither of my guesses.**
+
+- **First I said:** leave it, because `4e5695c38` cannot be resolved here.
+- **Then I said:** that was a local artifact and the object was simply unfetched.
+- ⭐ **Measured by the sibling session, and it is neither:** `4e5695c38` was on
+  **no remote branch at all**. The submodule's local `main` was **two commits
+  ahead of its own `origin/main` and had never been pushed**. ⇒ There was nothing
+  to fetch. **The pointer the superproject recorded was already dangling for every
+  clone except this one**, and my `add -A` accident made it resolvable for the
+  first time.
+
+⇒ **So the fix was a PUSH, not a revert** — `26b87bf..4e5695c` to the submodule's
+`origin/main`, after which the superproject was re-pointed at `4e5695c`
+(`469184d84`), since it now sits on that submodule's `main` while `8b10c5a` lives
+only on a deletable agent branch.
+
+⚠⚠ **AND THE THING THAT MATTERED MOST WAS COUNTED BY NEITHER OF US: that
+submodule's working tree holds ~30 dirty entries belonging to a third party's work
+in progress.** While the recorded pointer disagreed with the checkout, any routine
+`git submodule update` would have moved that checkout and taken the uncommitted
+rows with it. ⇒ The pointer now matches the checkout, so that command is a no-op.
+
+⭐ **The transferable lesson survives all three versions and is not about
+submodules.** I twice produced a confident causal story — *"the object does not
+exist"*, then *"it exists and I just had not fetched it"* — from a `git` command
+whose answer is scoped to one machine's object store, and each story was good
+enough to act on. ⇒ **Two different wrong explanations of one observation should
+have been the signal to go and measure the remote**, which is a single
+`git branch -r --contains` and which neither of my explanations required. When the
+second story arrives to rescue the first, stop explaining and start measuring.
+and I talked myself out of it with a local artifact.**
+
+**What is still open, and it is not mine to close:** the new pointer names a
+commit on an **agent feature branch**, not the submodule's `main` (which is at
+`26b87bf`). A superproject pointing into a branch that may later be deleted is a
+dangling pointer waiting to happen. ⇒ Landing that work on the submodule's `main`
+and re-pointing is the durable form; if it is not meant to land yet, the
+superproject should not point at it at all. Raised with the session that owns it.
+
+ⓘ **The transferable bit:** `git add -A` in a superproject stages submodule
+pointer moves, and they are invisible in a diff that scrolls — one line, no
+content. A commit can silently change which version of another repository the
+build uses. ⇒ Stage paths, and read `git status --porcelain` for ` M <submodule>`
+lines before committing.
+
+---
+
+## ✔ CLOSED — a checker for "the deleted `#[test]`", tried and NOT built
+
+**The gap was real and the tool was not worth it**, which is the useful half of
+this row: a `#[test]` that is simply deleted leaves one attribute short and one
+dead function that **looks exactly like an ordinary helper**. The sibling
+session's guard — a pytest check, in the guard set that runs in every lane, that
+no function carries two test attributes — catches the
+*stolen* attribute — two attributes on one function — and named this as the shape
+it cannot see.
+
+⇒ **Prototyped, measured, discarded.** Scoping to `#[cfg(test)]` modules and using
+*"the name never appears again in this file"* as the caller proxy produced **2,425**
+candidates once cross-file callers were admitted. And the residue at the strict
+end was almost entirely a legitimate pattern: `#[allow(dead_code)]` exhaustive
+destructuring — `every_field_declares_whether_reset_clears_it` and four siblings —
+which exist to be **type-checked, never called**, and whose attribute is the author
+saying so.
+
+⛔ **The load-bearing reason not to build it: `rustc` already reports this.** The
+failure was never detection; it was ATTENTION. `function ... is never used` sat in
+the crate's warning stream for a day while the claim that function guarded was
+being published. ⇒ **A second tool restating a warning nobody read does not fix
+the not-reading.** Treat `never used` and `duplicated attribute` on a test module
+as **guard outages** rather than lint noise — that is a habit, and a checker with a
+2,425-line false-positive tail would have taught the opposite one.
+
+⭐ **One transferable defect DID come out of the prototype, and it applies to the
+guard that was kept.** A backward walk from a `fn` over "doc or attribute" lines
+**stops early at a multi-line attribute**: in
+
+```rust
+    #[test]
+    #[cfg_attr(
+        not(has_baked_packs),
+        ignore = "..."
+    )]
+    fn intro_cart_pack_spec_resolves_at_two_tiers() {   // sprite_packs.rs:174
+```
+
+the lines above the `fn` are `)]`, a bare string, and `not(has_baked_packs),` —
+none of which begin `#[` or `//`. ⇒ My prototype read this test as having **no**
+attribute. ⚠ **The direction differs by checker**: a false positive here, but a
+false NEGATIVE for an attribute COUNT, because stopping early reports *fewer*
+attributes and a stolen one would count 1 instead of 2. Fix: collapse logical
+attributes (join from `#[` until the brackets balance) before walking.
+
+⇒ **QUANTIFIED, so it is not left as a hypothetical: FIVE sites in the repository
+have a `#[test]` separated from its `fn` by a multi-line attribute** — two in
+`sprite_packs.rs`, one in `character/sheets/tests.rs`, and two in
+`d71_transaction_census.rs`. ⚠ None of them is currently a stolen attribute, so
+nothing is being missed today; what is real is the **blind spot** — a stolen
+attribute at any of those five would count 1 instead of 2 and pass. Reported to
+the guard's owner with a fixture.
+
+---
+
+## ⛔⛔ REOPENED 2026-09-04 EVENING — THE REFUSAL IS REAL AND IT IS NOT IN WHAT A FRESH CLONE GETS
+
+⛔ **The entry below concluded "yes, the ask is guarded" and it is TRUE OF A
+BRANCH NOBODY IS ON.** Measured, not recalled:
+
+| where | `test_refuses_the_general_midi_fallback.py` | the refusal in `cli.py` |
+|---|---|---|
+| `agent/sfizz-source-fallback-and-cue-fanout` (mine) | ✔ present, green | ✔ **10** matches — the `AMBITION_MUSIC_ALLOW_GM_FALLBACK` gate, its message, its exit |
+| the submodule's `main` — **what the superproject pins** (`4e5695c`) | ⛔ absent | ⛔ **1** match, and it is a **COMMENT** — line 528 of the renderer's `cli.py`, inside the submodule, which is why it carries no repo-relative citation: the superproject does not track submodule files and the citation checker cannot resolve one |
+
+⇒ **A fresh clone today gets a renderer that will render General-MIDI stand-ins
+and report success**, which is the exact outcome Jon's standing ask names. ⛔ And
+the entry below is what makes this dangerous rather than merely open: it
+establishes that `scripts/regen/music.sh` **warns and continues**, and *"defers
+entirely to the renderer refusing"*. That deferral is correct reasoning about a
+renderer that refuses. The pinned renderer does not.
+
+✔ **The work is done and integrated, and landing it is now one command.** The
+branch merged the submodule's `main` cleanly (`a5d9f3a` — a commit in `tools/ambition_music_renderer`, not in this repository), `main` is an ancestor
+so it **fast-forwards**, and both sides' guards pass together: 14 tests — the
+GM refusal, the missing-named-library preflight, main's mirror-symlink publish
+guard and its CLI-entry guard. ⓘ Three failures in the full 262-test suite are
+**pre-existing** — verified by running them on `origin/main` itself, where they
+fail identically. They are spectrogram/plot tests.
+
+⏳ **NOT LANDED — Jon's call**, because it changes what every clone gets and the
+superproject pointer with it. ⚠ The pin is deliberate on its own terms: the
+sibling session re-pointed the superproject at `4e5695c` — the music renderer's own `main` — precisely because the
+previous pin was on **no remote branch at all**, so a dangling pointer was
+traded for a correct-but-unguarded one. ⇒ The remaining decision is only
+*"fast-forward the submodule's main and re-pin"*, and the reason to take it is
+that the ask is unprotected until somebody does.
+
+⛔⛔ **A SUBMODULE SHA IN PLANNING PROSE RESOLVES OR NOT DEPENDING ON THE
+READER'S FETCH STATE, and that cost a red on the sibling's machine while this one
+was green — 2026-09-04.** `a5d9f3a` is a commit in
+`tools/ambition_music_renderer`. It exists here because this checkout created it,
+and it did **not** exist there, because a superproject `git fetch` does not fetch
+submodule branches. ⇒ **The same superproject commit produced two different
+verdicts from `test_the_live_planning_tree_has_no_fabricated_commit`**, which is
+worse than a wrong citation: the guard is answering a question about the reader.
+ⓘ The checker already warns about exactly this — *"a submodule's objects can
+simply be stale, so run `git submodule foreach git fetch` before believing this
+one"* — so a fetch clears it. ⭐ **But the durable fix is to QUALIFY**: name the
+repository a SHA lives in whenever it is not this one. A fetch fixes one machine;
+qualification fixes every reader, including one who never fetches. ⚠ Distinct
+from the rebase trap recorded above, which has the identical symptom and the
+opposite fix — a rewritten SHA wants **replacing**, a foreign one wants
+**naming**.
+ⓘ **Swept the whole planning tree rather than fixing the one that fired:
+26 cited SHAs resolve ONLY inside a submodule**, across four of the five
+(`ambition_music_renderer` 14, `ambition_sprite2d_renderer` 5,
+`ambition_dev_measurements` 4, `ambition_map_assets` 3). Most already name their
+repository; **three did not in any way a reader could infer** and now do —
+`5e1ee9b` in `demos/sanic.md` (*"generator bump"*), `8b10c5a` here, and this
+paragraph's own `4e5695c`. ⇒ Every one of the 26 is a latent red for a reader
+who has not fetched that submodule, and **not one of them is red for anybody
+today** — which is exactly why the class needed sweeping rather than patching:
+the symptom appears on somebody else's machine, at a time nobody chose.
+
+⛔⛔ **DO NOT "FIX" THIS BY REVERTING THE PIN, which is the move it invites.**
+The guarded commit lives on a **deletable agent branch**; `4e5695c` is on the
+submodule's `main`. ⇒ Pointing back would trade an **unguarded-but-durable**
+pointer for a **guarded-but-dangling** one — the exact defect the re-pin was
+made to fix, re-introduced in the name of the ask. The fast-forward is the only
+move that gets both, which is why the obstacle to it was worth removing before
+raising the question.
+
+⭐ **And the shape is worth carrying past this file: RIGHT REASONING ATTACHED TO
+THE WRONG SUBJECT.** Nothing in the closed entry below is false. `music.sh` does
+warn and continue; it does defer to the renderer; a renderer that refuses does
+make that deferral sound. Every link holds and the chain does not, because the
+renderer it reasons about is not the renderer that ships. ⇒ Sibling instances
+found the same day: `boss_cleared("mockingbird")` asks by behaviour id and the
+save is keyed by placement id — every link true, the branch permanently closed;
+and this page's own matplotlib entry, where the module named was right and the
+defect was not. **A closed entry whose reasoning is right about the wrong
+artifact is worse than an open one**, because its correctness is what stops the
+next reader checking.
+
+---
+
+## ✔ (superseded by the entry above — the conclusion holds for the branch, not for the pin) — is the "no General-MIDI fallbacks on new machines" ask actually guarded?
+
+**Checked 2026-09-04 without a compiler, because the whole path is shell and
+Python.** The answer is yes, and it is worth writing down where the protection
+lives, because the obvious place is not it.
+
+- `run_developer_setup.sh` runs `audio_libraries.sh` **before**
+  `generated_content.sh`, with a comment explaining why: `scripts/regen/music.sh`
+  sources that phase's `env.sh` to find the instruments, so installing them
+  afterwards would already have rendered the fallback. ⚠ Correct — and **held by a
+  comment**, with no guard on the phase order.
+- ⛔ **`scripts/regen/music.sh` WARNS AND CONTINUES.** With no instruments it
+  prints a loud block and then calls the renderer anyway. ⇒ So the repo-level
+  script is *not* the protection; **it defers entirely to the renderer refusing**,
+  which its own comment says outright.
+- ✔ **And the renderer does refuse, at two levels**, both with tests in
+  `tools/ambition_music_renderer/tests/`: one for a machine with **no** sampled
+  library at all, and — added 2026-09-04 by the sibling session — one for a
+  machine missing a **single named** library. ⚠ That second one existed because
+  the refusal *"was all-or-nothing; one missing family still shipped wrong
+  music"*, which is precisely the gap a whole-or-nothing check cannot see.
+
+⇒ **The load-bearing fact for anyone touching this: the refusal is the guard, and
+the setup ordering is a convenience.** A reordering of the setup phases would not
+silently produce General-MIDI cues — it would fail at the renderer. ⓘ Which also
+means the thing to protect in review is the REFUSAL's completeness, not the
+phase list.
+
+---
+
+## ⭐ CLOSED — the smash demo has NINE instruments and the planning surface knew three
+
+**Measured 2026-09-04, and it explains a pattern rather than just filling a gap.**
+Several times this session, measuring something looked harder than it was — and
+each time a tool for it already existed. So I counted: `smash_tool` carries **nine
+subcommands**, and a sweep of `docs/planning/` (excluding
+[`modal-cli-binary-collapse.md`](modal-cli-binary-collapse.md), which is about the
+binary merge rather than about using them) finds **three**.
+
+| subcommand | what it answers | in planning? |
+|---|---|---|
+| `capture-probe` | what two CPUs do to each other, including a **census of moves STARTED** | ✔ |
+| `ladder-rig` | does rung N beat rung M — the difficulty ladder's own question | ✔ |
+| `select-walkthrough` | what the select screen BELIEVES, driven through the real layout and the real text functions | ✔ (added today) |
+| `match-report` | counts what two CPUs actually do over a match | ✗ |
+| `ladder-probe` | a quick fighter-depth smoke probe | ✗ |
+| `roll-probe` | how far a shield roll actually travels | ✗ |
+| `match-diagram` | draws a RUNNING match | ✗ |
+| `stage-diagram` | draws the stage, including the blastzones | ✗ |
+| `match-shots` | a burst of screenshots from a CPU-versus-CPU match | ✗ |
+
+⇒ **Six instruments are unreachable from the pages where fighter work is planned.**
+⚠ Not a criticism of the tools — every one is documented at its own module head,
+often extremely well. The gap is that a planner reads `queue.md` and the demo
+pages, and nothing there says these exist.
+
+⭐ **The concrete cost, from today:** `match-report` *"counts what two CPUs
+actually DO to each other over a match"* — which is a second, independent census
+beside `capture-probe`'s. `D-BRAIN-MENU`'s whole argument is a census, and I built
+its acceptance test around one tool without knowing a sibling existed. ⇒ Two
+instruments answering one question is worth knowing BEFORE designing the
+measurement, not after; see the *two authors of one number* class recorded in
+`queue.md` for what happens when nobody notices.
+
+⛔⛔ **AND AUDITING THEM FOUND ONE THAT MEASURES THE WRONG CONFIGURATION SILENTLY.**
+Having listed them, I checked which install an `AuthoredFighterLadder`:
+
+| instrument | ladder | verdict |
+|---|---|---|
+| `capture-probe` | `--ladder`, and prints which is in play | ✔ |
+| `ladder-rig` | `--ladder`, and prints which is in play | ✔ |
+| `ladder-probe` | none — **and its own module doc says so**, and names the ladder before printing any number (*"a calibration table that does not name its ladder is worse than no ladder"*) | ✔ honest |
+| `match-report` | ✔ **`--ladder`, and declares which is in play** (added and verified end-to-end 2026-09-04) | ✔ |
+| `roll-probe` | none — measures how far a shield roll travels, which is body physics and ladder-independent | ✔ n/a |
+| `stage-diagram` | builds no app at all | ✔ n/a |
+
+⇒ **`match-report` was the only one measuring the floor without declaring it**, and
+it is the instrument [`demos/smash-parity-inventory.md`](demos/smash-parity-inventory.md)
+tells a reader to run before marking a row shipped. ⭐ The fix already existed as a
+pattern one file over: `ladder-probe` has no ladder either and is fine, **because
+it says so in its output**. Declaring the configuration is what separates the two,
+not having the flag — so `match-report` now declares it.
+
+✔ **INVARIANT NOW HOLDS ACROSS THE FOUR BRAIN INSTRUMENTS**: `capture-probe`,
+`ladder-rig`, `ladder-probe` and `match-report` each name which ladder is in play
+before printing a number. ⇒ **A reader can no longer take a floor number for a
+shipped one without the tool having told them**, which is the failure that
+produced five superseded tables on
+[`engine/fighter-brain.md`](engine/fighter-brain.md). ✔ **And `match-report` gained the flag itself**, so it can now
+measure the shipped rows rather than only naming the floor — verified by running
+it both ways.
+
+ⓘ Deliberately recorded here rather than in `docs/tools/index.md`: that index is
+scoped to *"author-time tools … provider/engine inputs"*, and these are
+measurement instruments for one demo. The fix that matches how they are reached is
+a line in the page that plans the work — which is what naming
+`select-walkthrough` in checkpoint 3 did.
+
+---
+
+## ⭐⭐ WHAT 2026-09-04 TAUGHT ABOUT MEASURING THIS FIGHTER — six findings, one shape
+
+Recorded together because they are not six coincidences. **Every one is an
+instrument answering a different question than the one asked, and none was
+visible in its output.**
+
+| # | the instrument | the question it actually answered |
+|---|---|---|
+| 1 | `ladder_rig::report_row` | direction from POOLED medians, significance from a PAIRED sign test — a row could print `LOWER` unqualified while its own evidence favoured `HIGHER` |
+| 2 | `median()` | the upper-middle order statistic, on runs that are even-sized by construction |
+| 3 | `capture-probe`'s census | the top 12 moves, on a fighter that uses exactly 12 — a thirteenth was dropped silently |
+| 4 | `match-report`'s census | the same truncation, in a sibling tool |
+| 5 | `match-report`'s configuration | the ENGINE FLOOR — no ladder, level 5/5 — while the page that recommends it asks about the shipped game |
+| 6 | the rig's column header | a decision rule that had been replaced |
+
+⇒ **The general guard, and it is cheap: an instrument prints its own configuration
+before its first number.** The repo already argued for it, in a tool that has no
+ladder and is fine *because it says so*: *"a calibration table that does not name
+its ladder is worse than no ladder."* ⭐ Declaring the configuration is what
+separates an honest floor measurement from a misleading one — **not having the
+flag.**
+
+**Four habits that found these, in the order they paid:**
+
+1. ⭐ **Check the instrument before trusting its answer, and BEFORE designing a
+   test around it.** Finding (3) came from verifying the census behind an
+   acceptance criterion I had just written — the tool would have hidden the fix
+   working, and the arm would have read as a negative result.
+2. ⭐ **Make a partition sum to its whole.** *"19 movesets — 14 directly, the rest
+   derived"* and the rest was 4. 14 + 4 = 18. The missing one was a real exception
+   to a claim I had already published; `grep -rl` counts FILES, and one file held
+   two functions.
+3. ⭐ **Two contradicting sources are evidence about neither.** A source comment
+   said a CPU could not pick up an item; a planning row said the carve shipped.
+   ⇒ Neither smelled wrong — the SIGNATURE settled it in one grep, and it was the
+   comment that had rotted. ⚠ Staleness runs both ways; assuming the doc lags the
+   code is a habit, not a rule.
+4. ⭐ **A question parked behind a build may be decidable from the TYPE.** *"Do the
+   composed fighters have full kits"* sat open behind a test needing a running
+   registry. `SmashRepertoire` has nineteen fields and no `Option`s — the struct
+   will not compile without every slot. **Measuring instances of a property a type
+   enforces is measuring the compiler.**
+
+⚠ **And the one that cost the most: a stolen `#[test]`.** Inserting a test between
+an existing test's doc block and its function body leaves the old attribute on the
+NEW function; the displaced one becomes dead code wearing a test's name. Two of
+mine were dead for a day — one guarding the exact claim published above it — and
+the suite stayed green. ⇒ Walk back from every `fn` over docs and attributes and
+count the `#[test]`s; anything but exactly one is a bug.
+
+
+---
+
+## ⓘ MINOR — assertion messages print runs of blank space, repo-wide
+
+**Cosmetic, recorded rather than swept.** A long `assert!` message written as one
+source line with padding — or joined from a generator that keeps the continuation
+lines' indentation — prints its gaps verbatim:
+*"the press below is&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;about some other button"*.
+⇒ A guard's failure text is the whole reason to write a long one, so this is a poor
+advertisement for reading it.
+
+⚠ **Measured, with the denominator stated**: a naive scan for 3+ spaces inside a
+literal returns **93** lines across the files touched on 2026-09-04, and **almost
+all are deliberate column alignment** in report output (`"  damage      {}"`).
+Narrowing to a lowercase word, a gap, and another lowercase word — a mid-SENTENCE
+run — gives **61**, spread across both sessions' files and mostly pre-existing.
+
+⇒ **Four were mine, in guards I wrote today, and are fixed.** The rest are left
+alone deliberately: they are cosmetic, they span files this session does not own,
+and a mechanical sweep of 61 string literals on a box that cannot compile is a
+worse trade than the defect. ⓘ The check, for anyone who wants it:
+`[a-z,.]{2} {3,}[a-z]{2}` applied after the first quote on a line.

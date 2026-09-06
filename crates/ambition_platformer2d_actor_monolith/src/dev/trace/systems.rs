@@ -1,0 +1,285 @@
+//! Trace recorder Bevy systems + the headless entry point.
+//!
+//! `record_simulation_frame` is the sim-side core (callable from the headless
+//! driver); `record_frame_system` wires it into the live app, `handle_trace_hotkey`
+//! arms a manual dump, and `flush_pending_dump` writes the ring buffer to disk.
+
+use super::*;
+use ambition_gameplay_trace::GameplayTraceBuffer;
+use ambition_gameplay_trace::default_dump_dir;
+use ambition_gameplay_trace::write_dump;
+use ambition_gameplay_trace::DumpReason;
+
+/// SystemParam-friendly bundle: gives the player tick everything it
+/// needs to record one frame and (if requested) write a dump.
+///
+/// `timeline` is `(the host's confirmed-frame boundary, is this a re-simulation
+/// of a frame already recorded)`. `(None, false)` for every host that does not
+/// speculate, which is what the headless driver passes.
+#[allow(clippy::too_many_arguments)]
+pub fn record_simulation_frame(
+    buffer: &mut GameplayTraceBuffer,
+    clusters: &ae::BodyClustersMut<'_>,
+    facts: &ae::BodyMotionFacts,
+    combat: &ambition_characters::actor::BodyCombat,
+    // AC3.1.B: the melee AUTHORITY.
+    melee: &ambition_combat::BodyMelee,
+    clock: &ambition_time::ClockState,
+    safety: &ambition_platformer2d_shared_tangle::safe_position::PlayerSafetyState,
+    world: &ae::World,
+    controls: ControlFrame,
+    real_dt: f32,
+    sim_dt: f32,
+    game_mode: &str,
+    active_area: &str,
+    moving_platforms: &[ambition_platformer2d_world::platforms::MovingPlatformState],
+    locomotion: &str,
+    body_mode: &str,
+    timeline: (Option<ae::ConfirmedFrameBoundary>, bool),
+) {
+    let (boundary, replaying) = timeline;
+    let oob = detect_oob_from_kinematics(
+        clusters.kinematics.pos,
+        clusters.kinematics.vel,
+        clusters.kinematics.aabb(),
+        world,
+        OOB_MARGIN,
+    );
+    let mut frame = build_frame(
+        clusters,
+        facts,
+        combat,
+        melee,
+        clock,
+        safety,
+        world,
+        controls,
+        real_dt,
+        sim_dt,
+        game_mode,
+        active_area,
+        buffer.sequence,
+        buffer.tick,
+        moving_platforms,
+        locomotion,
+        body_mode,
+    );
+    frame.sim_session = boundary.map(|boundary| boundary.session);
+    frame.sim_frame = boundary.map(|boundary| boundary.current);
+    record_frame(
+        buffer,
+        frame,
+        oob.as_ref(),
+        replaying,
+        boundary.map(|boundary| boundary.confirmed),
+    );
+}
+
+/// Bevy system: drains pending dump requests, writes JSON+MD if any.
+/// Ordered after the player tick so manual F8 presses recorded earlier
+/// in the frame still see the latest snapshot.
+///
+/// Wasm (`target_arch = "wasm32"`): drains + clears the dump request
+/// (so the buffer doesn't accumulate stale requests) but skips
+/// `write_dump`. The dump path uses `std::fs` and `SystemTime::now()`,
+/// neither of which is supported under `wasm32-unknown-unknown` —
+/// `SystemTime::now()` panics with "time not implemented on this
+/// platform" exactly like `Instant::now()`. Reports a single warning
+/// per drop so the user knows F8 was received but ignored.
+pub fn flush_pending_dump(
+    mut buffer: ResMut<GameplayTraceBuffer>,
+    policy: Res<ambition_gameplay_trace::TraceDumpPolicy>,
+) {
+    let Some(_reason) = buffer.dump_request.take() else {
+        return;
+    };
+    // Taken before the gate on purpose: a suppressed request must still be
+    // consumed, or it would sit in the buffer and fire the instant someone
+    // enabled automatic dumps, reporting an anomaly from minutes earlier.
+    if !policy.allows(_reason.is_automatic()) {
+        buffer.last_dump_status = Some(format!(
+            "skipped: automatic dumps are off (set {}=1 to enable)",
+            ambition_gameplay_trace::AUTO_DUMP_ENV
+        ));
+        return;
+    }
+    #[cfg(target_arch = "wasm32")]
+    {
+        let msg = "trace dump skipped: file IO + SystemTime::now() not supported on wasm32";
+        buffer.last_dump_status = Some(msg.to_string());
+        bevy::log::warn!(target: "ambition_platformer2d::trace", "{msg}");
+    }
+    #[cfg(not(target_arch = "wasm32"))]
+    {
+        let dir = default_dump_dir();
+        match write_dump(&buffer, &_reason, &dir) {
+            Ok(path) => {
+                let path_str = path.to_string_lossy().to_string();
+                buffer.last_dump_path = Some(path_str.clone());
+                buffer.last_dump_status = Some(format!("OK: {path_str}"));
+                eprintln!("ambition trace dumped: {path_str}");
+            }
+            Err(err) => {
+                buffer.last_dump_status = Some(format!("error: {err}"));
+                eprintln!("ambition trace dump failed: {err}");
+            }
+        }
+    }
+}
+
+/// Presentation-side hotkey reader: F8 sets a manual dump request.
+/// Lives in `trace.rs` rather than `app.rs` so the lookup is grep-able
+/// near the rest of the recorder code.
+pub fn handle_trace_hotkey(
+    mut actions: MessageReader<
+        ambition_platformer2d_shared_tangle::developer_hotkeys::DeveloperAction,
+    >,
+    mut buffer: ResMut<GameplayTraceBuffer>,
+) {
+    if actions.read().any(|action| {
+        *action
+            == ambition_platformer2d_shared_tangle::developer_hotkeys::DeveloperAction::DumpGameplayTrace
+    }) {
+        buffer.request_dump(DumpReason::Manual);
+    }
+}
+
+/// Bevy system: when in scope, writes one trace frame per Update tick by
+/// reading the resources the player tick already consumes. We keep this
+/// outside the phase pipeline so the recorder stays out of the player tick's
+/// 16-system-param budget. Synthesizes per-frame events by diffing
+/// against the previous tick's snapshot (input edges, locomotion
+/// changes, dash/jump/blink heuristics, room transitions, resets,
+/// damage, and unexplained position deltas).
+///
+/// The trace's collision view (`nearby_collision`, `detect_oob`'s
+/// inside-solid check) uses the same `world_with_sandbox_solids` view
+/// that the player tick feeds to the engine. Without that, the trace
+/// would miss feature-runtime solids the player can collide with —
+/// which is exactly what happened in the May 2026 wall-cling teleport
+/// trace, where `nearby_collision` was empty even though the player
+/// was clinging to a wall.
+pub fn record_frame_system(
+    mut buffer: ResMut<GameplayTraceBuffer>,
+    boundary: Option<Res<ae::ConfirmedFrameBoundary>>,
+    replay: Option<Res<ambition_platformer2d_shared_tangle::schedule::SimulationReplayState>>,
+    clock: Res<ambition_time::ClockState>,
+    platform_set: Res<ambition_platformer2d_world::collision::MovingPlatformSet>,
+    slots: Res<ambition_characters::control::SlotControls>,
+
+    time: Res<Time>,
+    rooms: Option<
+        ambition_platformer2d_shared_tangle::lifecycle::SessionWorldRef<
+            ambition_platformer2d_world::rooms::RoomSet,
+        >,
+    >,
+    mode: Res<State<ambition_platformer2d_shared_tangle::schedule::GameMode>>,
+    // The composed collision read-API. `platform_set` stays a separate param:
+    // the trace records the platform STATES themselves, which is a different
+    // question from what a body collides against.
+    collision: ambition_platformer2d_world::collision::CollisionWorld,
+    mut player_q: Query<
+        (
+            ae::BodyClusterQueryData,
+            // The movement policy + its published projection (ADR 0024): the
+            // locomotion label reads the model; the maneuver flags read facts.
+            &ae::MotionModel,
+            &ae::BodyMotionFacts,
+            Option<&ambition_characters::actor::BodyHealth>,
+            &ambition_platformer2d_shared_tangle::safe_position::PlayerSafetyState,
+            &ambition_characters::actor::BodyCombat,
+            // AC3.1.B: the melee authority, read directly rather than through the
+            // deleted `BodyCombat.attacking` mirror.
+            &ambition_combat::BodyMelee,
+        ),
+        // SLOT-0 BY DESIGN: the deterministic replay trace records ONE body's
+        // trajectory, and the replay harness drives slot 0's input stream. A
+        // per-slot trace is netcode N3's concern, not this dev tool's.
+        ambition_platformer2d_shared_tangle::markers::PrimaryPlayerOnly,
+    >,
+    #[cfg(feature = "portal")] mut teleported: MessageReader<ambition_portal2d::BodyTeleported>,
+) {
+    // A portal jump is an intentional teleport — open a short suppression window
+    // so neither the position-delta snap nor the exit-side inside-solid check
+    // auto-dumps a trace for a normal crossing. Only the primary player emits
+    // `BodyTeleported`. The window (not a one-frame flag) covers the transfer plus
+    // the exit-side settle; it counts down in `record_frame`. With portal compiled
+    // out there are no teleports to expect.
+    #[cfg(feature = "portal")]
+    if teleported.read().next().is_some() {
+        buffer.teleport_suppress_ticks = ambition_gameplay_trace::PORTAL_TELEPORT_SUPPRESS_FRAMES;
+    }
+    let Ok((mut cluster_item, model, facts, player_health, safety, combat, melee)) =
+        player_q.single_mut()
+    else {
+        return;
+    };
+    // Trace recording is read-only. Walks the cluster components
+    // directly through `BodyClustersMut`.
+    let clusters = cluster_item.as_clusters_mut();
+    let control_frame = slots.get(ambition_characters::control::PlayerSlot::PRIMARY);
+    let real_dt = time.delta_secs();
+    let sim_dt = real_dt * clock.time_scale;
+    let active_area = rooms
+        .as_ref()
+        .map(|r| r.active_spec().id.clone())
+        .unwrap_or_else(|| "<unknown>".into());
+    let mode_label = format!("{:?}", mode.get());
+    let hp_current = player_health.map_or(0, |h| h.health.current);
+    let locomotion_state =
+        ae::LocomotionState::from_body(model, clusters.ground, clusters.wall, clusters.flight);
+    let body_mode_state = ae::BodyMode::from_clusters(clusters.body_mode);
+    let locomotion = locomotion_state.label().to_string();
+    let body_mode = body_mode_state.label().to_string();
+
+    let Some(augmented_world) = collision.solids() else {
+        return;
+    };
+
+    synthesize_events_from_diff(
+        &mut buffer,
+        &clusters,
+        facts,
+        hp_current,
+        control_frame,
+        real_dt,
+        &active_area,
+        locomotion_state,
+        body_mode_state,
+        &augmented_world,
+    );
+
+    record_simulation_frame(
+        &mut buffer,
+        &clusters,
+        facts,
+        combat,
+        melee,
+        &clock,
+        safety,
+        &augmented_world,
+        control_frame,
+        real_dt,
+        sim_dt,
+        &mode_label,
+        &active_area,
+        &platform_set.0,
+        &locomotion,
+        &body_mode,
+        (
+            boundary.as_deref().copied(),
+            replay.is_some_and(|replay| replay.replaying_history),
+        ),
+    );
+
+    update_previous_snapshot(
+        &mut buffer,
+        &clusters,
+        facts,
+        hp_current,
+        control_frame,
+        &active_area,
+        locomotion_state,
+        body_mode_state,
+    );
+}

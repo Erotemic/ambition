@@ -1,0 +1,43 @@
+[package]
+name = "ambition_demo_twintrack_app"
+version = "0.1.0"
+edition.workspace = true
+license.workspace = true
+authors.workspace = true
+description = "Standalone shell and acceptance tests for the TwinTrack special-relativity festival."
+publish = false
+
+[[bin]]
+name = "twintrack_demo"
+path = "src/main.rs"
+test = false
+bench = false
+
+[features]
+default = []
+# Offscreen capture: the `capture_twintrack` binary. Implies `visible` and adds
+# the engine's capture module + its PNG encoder. Off by default so nothing that
+# ships links an encoder.
+capture = ["visible", "ambition_platformer2d/capture"]
+visible = [
+    "ambition_demo_twintrack/visible",
+    "ambition_platformer2d/visible",
+    "ambition_platformer2d/basic_shell_presentation",
+    "ambition_platformer2d/input",
+]
+
+[dependencies]
+ambition_platformer2d = { path = "../../crates/ambition_platformer2d", default-features = false, features = ["all_capabilities", "relativity"] }
+ambition_demo_twintrack = { path = "../ambition_demo_twintrack" }
+bevy = { version = "0.19.1", default-features = false }
+
+[[test]]
+name = "twintrack_it"
+path = "tests/twintrack_it.rs"
+
+# `required-features`, or `cargo check --all-targets` builds this against a
+# crate whose windowed builder is behind `visible`.
+[[bin]]
+name = "capture_twintrack"
+path = "src/bin/capture_twintrack.rs"
+required-features = ["capture"]

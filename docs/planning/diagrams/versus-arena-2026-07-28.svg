@@ -1,0 +1,29 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="-220.0 -60.0 1400.0 756.0" width="1100" font-family="ui-monospace,monospace">
+<rect x="-220" y="-60" width="1400" height="756" fill="#0d1117"/>
+<rect x="0" y="0" width="960.0" height="540.0" fill="#161b22" stroke="#8b949e" stroke-width="2" stroke-dasharray="8 6"/>
+<text x="8" y="-14" fill="#8b949e" font-size="18">world 960x540 — the dashed box is the room, not the kill line</text>
+<line x1="-160.0" y1="-60.0" x2="-160.0" y2="696.0" stroke="#ff7043" stroke-width="3" stroke-dasharray="14 8"/>
+<line x1="1120.0" y1="-60.0" x2="1120.0" y2="696.0" stroke="#ff7043" stroke-width="3" stroke-dasharray="14 8"/>
+<line x1="-220.0" y1="636.0" x2="1180.0" y2="636.0" stroke="#ff4040" stroke-width="4"/>
+<text x="-210.0" y="624.0" fill="#ff4040" font-size="20">FALL blast zone — 96px past the floor (always live)</text>
+<text x="1128.0" y="-20.0" fill="#ff7043" font-size="18" transform="rotate(90 1128.0 -20.0)">SIDE blast zone — 160px (opt-in)</text>
+<text x="-168.0" y="-20.0" fill="#ff7043" font-size="18" text-anchor="end" transform="rotate(-90 -168.0 -20.0)">SIDE blast zone — 160px (opt-in)</text>
+<text x="480.0" y="-26.0" fill="#6e7681" font-size="18" text-anchor="middle">no CEILING blast zone: nothing launches hard enough up for one to be anything but a surprise</text>
+<rect x="240.0" y="400.0" width="480.0" height="40.0" fill="#4a9eff" stroke="#a5d6ff" stroke-width="2"/>
+<text x="480.0" y="392.0" fill="#a5d6ff" font-size="16" text-anchor="middle">arena_platform_main</text>
+<rect x="96.0" y="304.0" width="128.0" height="20.0" fill="#4a9eff" stroke="#a5d6ff" stroke-width="2"/>
+<text x="160.0" y="296.0" fill="#a5d6ff" font-size="16" text-anchor="middle">arena_platform_left</text>
+<rect x="736.0" y="304.0" width="128.0" height="20.0" fill="#4a9eff" stroke="#a5d6ff" stroke-width="2"/>
+<text x="800.0" y="296.0" fill="#a5d6ff" font-size="16" text-anchor="middle">arena_platform_right</text>
+<circle cx="384.0" cy="356.0" r="13" fill="none" stroke="#ffd479" stroke-width="3"/>
+<text x="384.0" y="334.0" fill="#ffd479" font-size="16" text-anchor="middle">seat 0</text>
+<circle cx="576.0" cy="356.0" r="13" fill="none" stroke="#ffd479" stroke-width="3"/>
+<text x="576.0" y="334.0" fill="#ffd479" font-size="16" text-anchor="middle">seat 1</text>
+<circle cx="336.0" cy="356.0" r="13" fill="none" stroke="#ffd479" stroke-width="3"/>
+<text x="336.0" y="334.0" fill="#ffd479" font-size="16" text-anchor="middle">seat 2</text>
+<circle cx="624.0" cy="356.0" r="13" fill="none" stroke="#ffd479" stroke-width="3"/>
+<text x="624.0" y="334.0" fill="#ffd479" font-size="16" text-anchor="middle">seat 3</text>
+<circle cx="480.0" cy="376.0" r="5" fill="#7ee787"/>
+<text x="492.0" y="382.0" fill="#7ee787" font-size="16">spawn</text>
+<text x="-210.0" y="680.0" fill="#8b949e" font-size="17">a fighter leaving the main platform falls 236px before the floor zone takes them; sideways they get 160px past the room — further, because a horizontal launch is the one you can act on</text>
+</svg>

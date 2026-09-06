@@ -1,0 +1,13 @@
+# `combat_calibration_lab_area.ron` — the GENERATOR this room is authored from —
+# carries the same migration, so regenerating the room writes the native ref
+# rather than putting the string back.
+#
+# run `def update-entity EnemySpawn <ldtk> --add-entity-ref-field path_ref`
+# on this world FIRST; set-field refuses a field the entity def does not declare.
+level_id: combat_calibration_lab
+edits:
+  - target:
+      iid: EnemySpawn-104851
+    fields:
+      path_ref: KinematicPath-104852
+      brain: null

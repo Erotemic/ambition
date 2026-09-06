@@ -1,0 +1,86 @@
+// portal_bridge — purposes the PORTAL GUN flagship the way wall_run/ceiling_cross
+// purpose vector gravity. Story: "the gun doesn't cross the gap — it removes it.
+// Shoot a door on the far wall, a door on the near wall, and step through." A
+// HazardBlock death-strip splits the floor too wide to jump (~280px); the only way
+// across is to pick up the portal gun, fire a portal onto the far (right) wall over
+// the gap, fire one onto the near (left) wall, and walk into the near portal to
+// exit on the far side.
+//
+// Layout (1280x512): left floor x[16,500], death strip x[500,780], right floor
+// x[780,1264]. Left + right walls are the portal-fire surfaces.
+//   y=16   [================= ceiling =================]
+//   y=464  [ left floor ][##### DEATH #####][ right floor ]   (walls L/R: fire here)
+(
+    id: "portal_bridge",
+    level_id: "portal_bridge",
+    world_x: 102000,
+    world_y: 1024,
+    px_wid: 1280,
+    px_hei: 512,
+    fill_collision: "empty",
+    bg_color: "#0C1018",
+    biome: "lab",
+    entities: [
+        // Bounding box. Left + right walls are the portal-fire surfaces.
+        ( type: "Solid", px: [0, 0], size: [1280, 16], fields: ( name: "ceiling" ) ),
+        ( type: "Solid", px: [0, 16], size: [16, 448], fields: ( name: "left_wall" ) ),
+        ( type: "Solid", px: [1264, 16], size: [16, 448], fields: ( name: "right_wall" ) ),
+        // Floor split by a death strip too wide to jump.
+        ( type: "Solid", px: [16, 464], size: [484, 48], fields: ( name: "left_floor" ) ),
+        ( type: "HazardBlock", px: [500, 464], size: [280, 48], fields: ( name: "the_gap" ) ),
+        ( type: "Solid", px: [780, 464], size: [484, 48], fields: ( name: "right_floor" ) ),
+        // The portal gun, on the left floor — pick it up (walk over + Attack).
+        ( type: "PortalGunSpawn", px: [160, 424], size: [40, 40], fields: ( id: "portal_bridge_gun", name: "Portal gun" ) ),
+        // Spawn + entry door on the left floor.
+        ( type: "PlayerStart", px: [80, 418], size: [28, 46], fields: ( name: "portal_bridge_spawn" ) ),
+        (
+            type: "LoadingZone",
+            px: [16, 368],
+            size: [48, 96],
+            fields: (
+                id: "portal_bridge_entry",
+                name: "portal_bridge_entry",
+                activation: "Door",
+                target_room: "ceiling_cross",
+                target_zone: "portal_bridge_door",
+                bidirectional: true,
+            ),
+        ),
+        (
+            type: "CameraZone",
+            px: [0, 0],
+            size: [1280, 512],
+            fields: ( id: "portal_bridge_camera", name: "portal_bridge_camera", mode: "Default" ),
+        ),
+        (
+            type: "DebugLabel",
+            px: [40, 110],
+            size: [680, 24],
+            fields: (
+                name: "portal_bridge_intro",
+                text: "Portal Bridge: grab the gun (Attack), shoot a portal on each wall, step through to cross.",
+                category: "Custom",
+            ),
+        ),
+        (
+            type: "DebugLabel",
+            px: [880, 380],
+            size: [300, 24],
+            fields: ( name: "portal_bridge_goal", text: "Across — you removed the gap, not jumped it.", category: "Custom" ),
+        ),
+    ],
+    // Reciprocal door on ceiling_cross's right ledge (its crossing goal), so the
+    // advanced-mechanics rooms chain: gradient_ascent -> ceiling_cross -> portal_bridge.
+    connect_to: [
+        (
+            target_room: "ceiling_cross",
+            px: [900, 400],
+            size: [16, 96],
+            id: "portal_bridge_door",
+            target_zone: "portal_bridge_entry",
+            activation: "Door",
+            bidirectional: true,
+            snap_to_surface: true,
+        ),
+    ],
+)

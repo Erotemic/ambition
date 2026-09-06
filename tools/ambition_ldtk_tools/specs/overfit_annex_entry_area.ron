@@ -1,0 +1,35 @@
+// Overfit Annex — room A (combat gate). Off the hub: two ranged+dash goblins
+// (medium_striker) contest the entry; a door onward leads to the climb (room B,
+// which adds the A→B door via its connect_to). Part of a 3-room connected
+// gridvania slice: hub → annex_entry → annex_climb → annex_vault.
+(
+    id: "overfit_annex_entry",
+    level_id: "overfit_annex_entry",
+    world_x: 56000,
+    world_y: 1024,
+    px_wid: 1280,
+    px_hei: 512,
+    fill_collision: "empty",
+    bg_color: "#141C18",
+    biome: "lab",
+    entities: [
+        ( type: "Solid", px: [0, 480], size: [1280, 32], fields: ( name: "floor" ) ),
+        ( type: "Solid", px: [0, 0], size: [1280, 16], fields: ( name: "ceiling" ) ),
+        ( type: "Solid", px: [0, 16], size: [16, 464], fields: ( name: "left_wall" ) ),
+        ( type: "Solid", px: [1264, 16], size: [16, 464], fields: ( name: "right_wall" ) ),
+        ( type: "PlayerStart", px: [70, 434], size: [28, 46], fields: ( name: "overfit_annex_entry_spawn" ) ),
+        ( type: "EnemySpawn", px: [620, 432], size: [32, 48], fields: ( name: "annex_goblin_a", brain: "medium_striker" ) ),
+        ( type: "EnemySpawn", px: [820, 432], size: [32, 48], fields: ( name: "annex_goblin_b", brain: "medium_striker" ) ),
+        (
+            type: "LoadingZone",
+            px: [16, 384],
+            size: [48, 96],
+            fields: ( id: "overfit_annex_entry_to_hub", name: "overfit_annex_entry_to_hub", activation: "Door", target_room: "central_hub_complex", target_zone: "overfit_annex_hub_door", bidirectional: true ),
+        ),
+        ( type: "CameraZone", px: [0, 0], size: [1280, 512], fields: ( id: "overfit_annex_entry_camera", name: "overfit_annex_entry_camera", mode: "Default" ) ),
+        ( type: "DebugLabel", px: [70, 70], size: [640, 24], fields: ( name: "overfit_annex_entry_label", text: "Overfit Annex — goblins throw rocks and dash. Push through to the climb.", category: "Custom" ) ),
+    ],
+    connect_to: [
+        ( target_room: "central_hub_main", px: [560, 600], size: [16, 96], id: "overfit_annex_hub_door", target_zone: "overfit_annex_entry_to_hub", activation: "Door", bidirectional: true ),
+    ],
+)

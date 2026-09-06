@@ -1,0 +1,103 @@
+title: goblin_cantina_chieftain
+---
+Fretjaw: No real fights in the cantina. Break a chair, buy two. Fretjaw hates paperwork.
+-> What goes on here?
+    <<jump goblin_cantina_chieftain__1>>
+-> Why a training pit?
+    <<jump goblin_cantina_chieftain__2>>
+-> Walk away.
+===
+
+title: goblin_cantina_chieftain__1
+---
+Fretjaw: Jump the tables if you want. Duck by the bar. Bleed on floor, buy a round. And leave those three under the dais alone; they paid already.
+-> Ask another question.
+    <<jump goblin_cantina_chieftain>>
+-> Walk away.
+===
+
+title: goblin_cantina_chieftain__2
+---
+Fretjaw: Walls cost money. Pit was already here. Also the floor gets beer on it. You learn fast on beer.
+-> Ask another question.
+    <<jump goblin_cantina_chieftain>>
+-> Walk away.
+===
+
+title: military_general
+---
+General: AT EASE, RECRUIT. You are in the Iron Bastion. Parade deck below, offices above. Keep your hands off the medals.
+-> What is this place?
+    <<jump military_general__1>>
+-> Why so many medals?
+    <<jump military_general__2>>
+-> Salute and withdraw.
+===
+
+title: military_general__1
+---
+General: Iron Bastion, Faction of Steel. We drill downstairs. The upper floors are offices. Avoid the upper floors unless somebody outranks you enough to make it unavoidable.
+-> Ask another question.
+    <<jump military_general>>
+-> Salute and withdraw.
+===
+
+title: military_general__2
+---
+General: Three for punctuality. Two for meetings about punctuality. This large one? I authorized it personally.
+-> Ask another question.
+    <<jump military_general>>
+-> Salute and withdraw.
+===
+
+title: pulse_voyager_captain
+---
+Captain Pulse: Tie off there, drifter. The stones drift about half a beat every cycle. Miss the timing and you come up under the next one.
+-> Where do these stones lead?
+    <<jump pulse_voyager_captain__1>>
+-> Why park up in the sky?
+    <<jump pulse_voyager_captain__2>>
+-> Cast off.
+===
+
+title: pulse_voyager_captain__1
+---
+Captain Pulse: Step on the bright one, then the cracked one. Skip either and the third stone is gone before you reach it.
+-> Ask another question.
+    <<jump pulse_voyager_captain>>
+-> Cast off.
+===
+
+title: pulse_voyager_captain__2
+---
+Captain Pulse: We moor up here because the lower current tears anchors loose. Up here the ship only drifts a few feet an hour.
+-> Ask another question.
+    <<jump pulse_voyager_captain>>
+-> Cast off.
+===
+
+title: tech_bros_disruptor
+---
+Chadwick III: Welcome to the basement! We're not failing — we're SUBTERRANEAN. Premium iteration depth. We've vertically integrated gravity into the runway. Very capital-efficient.
+-> What is this place pivoting toward?
+    <<jump tech_bros_disruptor__1>>
+-> Why does the boardroom face up?
+    <<jump tech_bros_disruptor__2>>
+-> Touch grass.
+===
+
+title: tech_bros_disruptor__1
+---
+Chadwick III: Disruption-as-a-service, friend. We disrupt anything that holds still long enough. Our roadmap is a slope. Our slope is the roadmap. Both are pivots. That's a flywheel.
+-> Ask another question.
+    <<jump tech_bros_disruptor>>
+-> Touch grass.
+===
+
+title: tech_bros_disruptor__2
+---
+Chadwick III: The boardroom faces up because vision is a direction. Looking down is for accountants. We do not look down. We are the down. It's category-defining.
+-> Ask another question.
+    <<jump tech_bros_disruptor>>
+-> Touch grass.
+===

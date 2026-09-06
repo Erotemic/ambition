@@ -1,0 +1,27 @@
+type: ipfs-sidecar
+cid: bafybeibeddl3ingd4q6zaqo6sd7fga4qh4lpoz7pvbyeeehgg4ojr54bna
+rel_path: backgrounds
+size: 48.77 KiB
+num_items: 7
+add_config:
+  path: assets/backgrounds/
+  name: null
+  recursive: true
+  progress: true
+  cid_version: 1
+  raw_leaves: false
+  only_hash: false
+  pin: true
+  sidecar: true
+  update_gitignore: true
+  git_add_sidecar: true
+  dry_run: false
+add_datetime: 2026-07-12T083753-5
+add_duration: 3.375459776027128
+local_quickstat:
+  kind: dir
+  bytes: 49938
+  mtime: 1783653433.669191
+  nfiles: 5
+pin_name: pkg:github/Erotemic/ambition#assets/backgrounds
+pin_name_source: generated

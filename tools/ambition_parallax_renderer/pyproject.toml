@@ -1,0 +1,13 @@
+[project]
+name = "ambition-parallax-renderer"
+version = "0.1.0"
+description = "Procedural background and parallax layer renderer for Ambition."
+requires-python = ">=3.11"
+dependencies = ["Pillow>=10"]
+
+[project.scripts]
+ambition-parallax-renderer = "ambition_parallax_renderer.cli:main"
+
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"

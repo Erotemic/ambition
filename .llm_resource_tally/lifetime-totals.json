@@ -1,0 +1,153 @@
+{
+  "schema": "llm-resource-tally/v3",
+  "through": "2026-09-05T17:56:31.752817+00:00",
+  "ledger_rows": 7645,
+  "commits_accounted": 7132,
+  "turns": 232428,
+  "tokens": {
+    "input": 35341302,
+    "cache_write": 627679634,
+    "cache_read": 93953329443,
+    "output": 178670630,
+    "billable_input": 94616350379
+  },
+  "by_model": {
+    "claude-opus-4-8": {
+      "input": 6458796,
+      "cache_write": 181324657,
+      "cache_read": 20347330505,
+      "output": 66469030
+    },
+    "claude-fable-5": {
+      "input": 1812903,
+      "cache_write": 39019750,
+      "cache_read": 4329531558,
+      "output": 11610709
+    },
+    "<synthetic>": {
+      "input": 0,
+      "cache_write": 0,
+      "cache_read": 0,
+      "output": 0
+    },
+    "claude-sonnet-4-6": {
+      "input": 243,
+      "cache_write": 445075,
+      "cache_read": 16798008,
+      "output": 107211
+    },
+    "gpt-5.5": {
+      "input": 14729673,
+      "cache_write": 0,
+      "cache_read": 364886656,
+      "output": 1032559
+    },
+    "gpt-5.4-mini": {
+      "input": 7612152,
+      "cache_write": 0,
+      "cache_read": 179945344,
+      "output": 833268
+    },
+    "claude-opus-5": {
+      "input": 317555,
+      "cache_write": 390364342,
+      "cache_read": 66245655041,
+      "output": 94710273
+    },
+    "claude-sonnet-5": {
+      "input": 2228,
+      "cache_write": 4838203,
+      "cache_read": 122430112,
+      "output": 1137830
+    },
+    "gpt-5.6-luna": {
+      "input": 1746757,
+      "cache_write": 0,
+      "cache_read": 101934592,
+      "output": 210260
+    },
+    "claude-fable-5-1": {
+      "input": 8230,
+      "cache_write": 11687607,
+      "cache_read": 2156996571,
+      "output": 2261598
+    },
+    "gpt-5.6-sol": {
+      "input": 1292805,
+      "cache_write": 0,
+      "cache_read": 56384768,
+      "output": 187417
+    },
+    "gpt-5.6-terra": {
+      "input": 1272884,
+      "cache_write": 0,
+      "cache_read": 28743936,
+      "output": 95386
+    },
+    "gpt-6-astra": {
+      "input": 87076,
+      "cache_write": 0,
+      "cache_read": 2692352,
+      "output": 15089
+    }
+  },
+  "by_activity": {
+    "unlabeled": {
+      "input": 13184884,
+      "cache_write": 499846971,
+      "cache_read": 79402186389,
+      "output": 132910177
+    },
+    "backfill": {
+      "input": 21552517,
+      "cache_write": 126385114,
+      "cache_read": 14395460841,
+      "output": 45165737
+    },
+    "implementation": {
+      "input": 603895,
+      "cache_write": 1444180,
+      "cache_read": 154200940,
+      "output": 592320
+    },
+    "test-organization-campaign": {
+      "input": 4,
+      "cache_write": 2072,
+      "cache_read": 752383,
+      "output": 1779
+    },
+    "review-followup": {
+      "input": 2,
+      "cache_write": 1297,
+      "cache_read": 728890,
+      "output": 617
+    }
+  },
+  "by_agent": {
+    "claude-code": {
+      "input": 8599955,
+      "cache_write": 627679634,
+      "cache_read": 93218741795,
+      "output": 176296651
+    },
+    "codex": {
+      "input": 26741347,
+      "cache_write": 0,
+      "cache_read": 734587648,
+      "output": 2373979
+    }
+  },
+  "server_tool_calls": {
+    "web_search": 0,
+    "web_fetch": 0
+  },
+  "time": {
+    "wall_clock_s": 9762600.2
+  },
+  "compaction_signals": {
+    "events": 285,
+    "peak_context_tokens": 208360627,
+    "summary_chars": 4869449
+  },
+  "modeled_post_hoc": "inference_seconds, energy_kwh, carbon_gco2e, usd — derived from the measurements above by `estimate`; not stored here."
+}

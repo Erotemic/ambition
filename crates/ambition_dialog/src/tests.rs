@@ -1,0 +1,216 @@
+//! `DialogState` unit tests: activation, typewriter reveal (multibyte-safe),
+//! confirm/advance, option selection, and the visible-window math.
+
+use super::runtime::DialogSpeechStyle;
+use super::*;
+use crate::context::DialogueContext;
+use ambition_ui_nav::visible_window_start;
+
+const DIALOG_VISIBLE_OPTIONS: usize = 4;
+
+#[test]
+fn default_state_is_inactive() {
+    let s = DialogState::default();
+    assert!(!s.active());
+}
+
+#[test]
+fn start_activates_dialogue() {
+    let mut s = DialogState::default();
+    s.start("guide", "Guide", DialogueContext::scripted());
+    assert!(s.active());
+    assert_eq!(s.dialogue_id(), "guide");
+    assert_eq!(s.speaker_label(), "Guide");
+    assert_eq!(s.conversation_label(), "Guide");
+}
+
+#[test]
+fn close_deactivates() {
+    let mut s = DialogState::default();
+    s.start("guide", "Guide", DialogueContext::scripted());
+    s.close();
+    assert!(!s.active());
+}
+
+#[test]
+fn stable_portrait_identity_defaults_to_listener_and_resets_cleanly() {
+    let mut s = DialogState::default();
+    s.start(
+        "guide",
+        "Guide",
+        DialogueContext::between("player", "npc_guide"),
+    );
+    assert_eq!(s.speaker_character_id(), "npc_guide");
+    assert_eq!(s.portrait_clip(), "");
+
+    s.set_portrait_clip("speaking");
+    assert_eq!(s.portrait_clip(), "speaking");
+    s.set_presented_speaker_character_id("npc_second_voice");
+    assert_eq!(s.speaker_character_id(), "npc_second_voice");
+    assert_eq!(s.portrait_clip(), "", "speaker switches reset expression");
+
+    s.set_portrait_clip("annoyed");
+    s.set_portrait_clip("default");
+    assert_eq!(s.portrait_clip(), "");
+
+    s.set_presented_speaker_character_id("");
+    assert_eq!(s.speaker_character_id(), "npc_guide");
+    s.close();
+    assert_eq!(s.speaker_character_id(), "");
+    assert_eq!(s.portrait_clip(), "");
+}
+
+#[test]
+fn body_does_not_panic_when_no_node() {
+    let mut s = DialogState::default();
+    s.start(
+        "nonexistent_dialogue_id_for_test",
+        "X",
+        DialogueContext::scripted(),
+    );
+    // The runtime returns an empty string when no PresentLine has
+    // arrived yet — the UI treats that as "loading" and shows the
+    // title bar with no body. The contract for this case is "don't
+    // panic"; whether the body is populated depends on whether a
+    // yarn-runner stub raced ahead of the assertion.
+    let _ = s.body();
+}
+
+#[test]
+fn selected_option_starts_at_zero() {
+    let mut s = DialogState::default();
+    s.start("guide", "Guide", DialogueContext::scripted());
+    assert_eq!(s.selected_option(), 0);
+}
+
+#[test]
+fn confirm_while_typing_reveals_the_full_line_first() {
+    let mut s = DialogState::default();
+    s.start("guide", "Guide", DialogueContext::scripted());
+    s.start_revealing_line("Hello world".to_string());
+    s.tick_reveal(0.01);
+    assert!(!s.line_reveal_complete());
+
+    s.confirm_or_advance();
+
+    assert!(s.line_reveal_complete());
+    assert_eq!(s.body(), "Hello world");
+    assert!(!s.pending_advance);
+}
+
+#[test]
+fn confirm_after_line_complete_advances_when_no_options_exist() {
+    let mut s = DialogState::default();
+    s.start("guide", "Guide", DialogueContext::scripted());
+    s.start_revealing_line("Hello world".to_string());
+    s.reveal_full_line();
+
+    s.confirm_or_advance();
+
+    assert!(s.pending_advance);
+    assert!(!s.runner_done_pending_close);
+}
+
+#[test]
+fn confirm_with_options_preserves_option_selection() {
+    let mut s = DialogState::default();
+    s.start("guide", "Guide", DialogueContext::scripted());
+    s.start_revealing_line("Pick one".to_string());
+    s.reveal_full_line();
+    s.current_options = vec![
+        DialogChoice {
+            label: "A".to_string(),
+            ..Default::default()
+        },
+        DialogChoice {
+            label: "B".to_string(),
+            ..Default::default()
+        },
+    ];
+    s.reveal_full_options();
+    s.selected_option = 1;
+
+    s.confirm_or_advance();
+
+    assert_eq!(s.pending_select, Some(1));
+    assert!(!s.pending_advance);
+}
+
+#[test]
+fn options_are_visible_immediately() {
+    let mut s = DialogState::default();
+    s.start("guide", "Guide", DialogueContext::scripted());
+    s.start_revealing_line("Pick one".to_string());
+    s.reveal_full_line();
+    s.current_options = vec![
+        DialogChoice {
+            label: "A".to_string(),
+            ..Default::default()
+        },
+        DialogChoice {
+            label: "B".to_string(),
+            ..Default::default()
+        },
+    ];
+    s.reveal_full_options();
+
+    assert_eq!(s.options().len(), 2);
+}
+
+#[test]
+fn typewriter_reveal_respects_multibyte_char_boundaries() {
+    let mut s = DialogState::default();
+    s.start("guide", "Guide", DialogueContext::scripted());
+    // 'é' is two bytes; a reveal that used the char COUNT as a byte
+    // INDEX would slice mid-codepoint and panic. Tick incrementally
+    // and assert every partial reveal is a valid char-boundary prefix
+    // — speed-independent (works regardless of the tuned chars/sec).
+    s.start_revealing_line("éclair".to_string());
+    for _ in 0..100 {
+        let partial = s.body();
+        assert!(
+            "éclair".starts_with(&partial),
+            "partial reveal must be a char-boundary prefix, got {partial:?}",
+        );
+        s.tick_reveal(0.01);
+    }
+    // And it fully reveals eventually.
+    assert_eq!(s.body(), "éclair");
+}
+
+#[test]
+fn visible_dialog_window_keeps_selected_option_in_range() {
+    assert_eq!(visible_window_start(0, 8, DIALOG_VISIBLE_OPTIONS), 0);
+    assert_eq!(visible_window_start(4, 8, DIALOG_VISIBLE_OPTIONS), 2);
+    assert_eq!(visible_window_start(7, 8, DIALOG_VISIBLE_OPTIONS), 4);
+}
+
+#[test]
+fn dialogue_speech_style_resets_between_lines_and_sessions() {
+    let mut s = DialogState::default();
+    s.start("guide", "Guide", DialogueContext::scripted());
+    s.set_speech_style(DialogSpeechStyle::Whisper);
+    assert_eq!(s.speech_style(), DialogSpeechStyle::Whisper);
+
+    s.close();
+    assert_eq!(s.speech_style(), DialogSpeechStyle::Normal);
+
+    s.start("guide", "Guide", DialogueContext::scripted());
+    assert_eq!(s.speech_style(), DialogSpeechStyle::Normal);
+}
+
+#[test]
+fn shout_markup_takes_typewriter_priority_over_whisper() {
+    assert_eq!(
+        DialogSpeechStyle::from_markup(false, false),
+        DialogSpeechStyle::Normal,
+    );
+    assert_eq!(
+        DialogSpeechStyle::from_markup(false, true),
+        DialogSpeechStyle::Whisper,
+    );
+    assert_eq!(
+        DialogSpeechStyle::from_markup(true, true),
+        DialogSpeechStyle::Shout,
+    );
+}

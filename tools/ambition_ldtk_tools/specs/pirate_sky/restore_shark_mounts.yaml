@@ -1,0 +1,34 @@
+# The pirates in the pirate sky stopped riding their sharks, and this puts the
+# four `mounted_on` refs back.
+#
+# this is a PASTE, not a re-authoring judgement: each `entityIid` below is
+# read straight out of the blob at `5e4d6448e`, and all eight iids still exist
+# in today's file at the same `px`. The rider and its shark share a top-left
+# pixel, which is the invariant
+# `scripts/tests/test_rider_enemies_keep_their_mounts.py` checks (as overlap —
+# GNU-ton rides his mount's back rather than its corner).
+#
+#   rider              px          mount              px
+#   EnemySpawn-4480    (192, 240)  EnemySpawn-6806    (192, 240)   Pirate Raider
+#   EnemySpawn-4481    (560, 160)  EnemySpawn-6807    (560, 160)   Pirate Raider
+#   EnemySpawn-4482    (960, 240)  EnemySpawn-6808    (960, 240)   Pirate Raider
+#   EnemySpawn-4505    (720, 320)  EnemySpawn-6809    (720, 320)   Iron Mary
+#
+# only the `entityIid` comes from history. `entity set-field` derives the
+# `layerIid` / `levelIid` / `worldIid` from the file it is editing, because a
+# container iid pasted out of an old blob produces a ref that looks authored and
+# resolves to nothing.
+#
+#   PYTHONPATH=tools/ambition_ldtk_tools python -m ambition_ldtk_tools entity set-field \
+#       tools/ambition_ldtk_tools/specs/pirate_sky/restore_shark_mounts.yaml \
+#       --ldtk game/ambition_content/assets/worlds/sandbox.ldtk --in-place
+level_id: pirate_sky_lookout
+edits:
+  - target: { iid: EnemySpawn-4480 }
+    fields: { mounted_on: EnemySpawn-6806 }
+  - target: { iid: EnemySpawn-4481 }
+    fields: { mounted_on: EnemySpawn-6807 }
+  - target: { iid: EnemySpawn-4482 }
+    fields: { mounted_on: EnemySpawn-6808 }
+  - target: { iid: EnemySpawn-4505 }
+    fields: { mounted_on: EnemySpawn-6809 }

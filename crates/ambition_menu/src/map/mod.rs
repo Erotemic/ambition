@@ -1,0 +1,119 @@
+//! Map / minimap state AND the Map tab that renders it.
+//!
+//! `MapMenuState` holds the visited-room set, per-room geometry
+//! (`MapRoomNode`), open/minimap toggles, and the clamped zoom level
+//! (`MAP_ZOOM_MIN`..`MAP_ZOOM_MAX`). `summary_lines` produces the text the HUD
+//! shows; a host-owned UI adapter can render it as a full map, minimap, or menu tab.
+
+use std::collections::BTreeSet;
+
+use bevy::prelude::*;
+
+#[derive(Clone, Debug)]
+pub struct MapRoomNode {
+    pub id: String,
+    pub world_min: Vec2,
+    pub world_size: Vec2,
+}
+
+#[derive(Resource)]
+pub struct MapMenuState {
+    pub open: bool,
+    pub minimap_enabled: bool,
+    pub visited: BTreeSet<String>,
+    pub rooms: Vec<MapRoomNode>,
+    pub zoom: f32,
+}
+
+impl Default for MapMenuState {
+    fn default() -> Self {
+        Self {
+            open: false,
+            minimap_enabled: false,
+            visited: BTreeSet::new(),
+            rooms: Vec::new(),
+            zoom: 1.0,
+        }
+    }
+}
+
+pub const MAP_ZOOM_STEP: f32 = 1.25;
+pub const MAP_ZOOM_MIN: f32 = 0.5;
+pub const MAP_ZOOM_MAX: f32 = 4.0;
+
+impl MapMenuState {
+    pub fn toggle_open(&mut self) {
+        self.open = !self.open;
+    }
+
+    pub fn toggle_minimap(&mut self) {
+        self.minimap_enabled = !self.minimap_enabled;
+    }
+
+    pub fn zoom_in(&mut self) {
+        self.zoom = (self.zoom * MAP_ZOOM_STEP).clamp(MAP_ZOOM_MIN, MAP_ZOOM_MAX);
+    }
+
+    pub fn zoom_out(&mut self) {
+        self.zoom = (self.zoom / MAP_ZOOM_STEP).clamp(MAP_ZOOM_MIN, MAP_ZOOM_MAX);
+    }
+
+    pub fn zoom_reset(&mut self) {
+        self.zoom = 1.0;
+    }
+
+    pub fn record_visit(&mut self, room_id: &str) {
+        self.visited.insert(room_id.to_string());
+    }
+
+    pub fn summary_lines(&self, current_room: &str) -> Vec<String> {
+        if !self.open {
+            if self.minimap_enabled {
+                return vec![format!(
+                    "minimap: {} visited / current = {}",
+                    self.visited.len(),
+                    current_room
+                )];
+            }
+            return Vec::new();
+        }
+        let mut lines = vec![format!("MAP — {} visited", self.visited.len())];
+        for id in &self.visited {
+            let marker = if id == current_room { "→" } else { " " };
+            lines.push(format!("{marker} {id}"));
+        }
+        lines
+    }
+}
+
+/// The map-menu DOMAIN's sim-state plugin (track 6, decision #9): the crate
+/// owns its own visited-rooms/map state; the sim assembly only adds the
+/// plugin. Deliberately a bare resource init — the menu-host reusable/product
+/// line is drawn by the second consumer (decision #7), not in advance.
+pub struct MapStatePlugin;
+
+impl bevy::prelude::Plugin for MapStatePlugin {
+    fn build(&self, app: &mut bevy::prelude::App) {
+        app.init_resource::<MapMenuState>();
+    }
+}
+
+// Nothing in the simulation ever called them: their only consumers are the runtime's progression
+// schedule and the app's shell host, both of which reach this crate directly.
+mod input;
+mod pointer;
+mod systems;
+mod ui;
+
+#[cfg(test)]
+mod tests;
+
+pub use input::handle_map_menu_hotkeys;
+pub use pointer::map_menu_pointer_dismiss;
+#[cfg(feature = "ldtk")]
+pub use systems::populate_map_rooms;
+pub use systems::{sync_map_from_save, track_room_visits};
+pub use ui::{spawn_map_menu_with_scope, sync_map_menu, MapMenuRoot};
+
+#[cfg(test)]
+use ui::short_room_label;

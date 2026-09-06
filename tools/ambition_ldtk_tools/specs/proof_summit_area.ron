@@ -1,0 +1,90 @@
+// proof_summit — the gauntlet's synthesis climax (story: "the proof combines
+// every lemma: climb the one-way plates, then leap the gap over the
+// counterexample to QED"). One room that chains the mechanics: a 3-plate one-way
+// climb (64px steps, under the 88px jump), then a 120px flat leap OVER a
+// HazardBlock to the summit (under the ~150px running-jump reach; a miss drops
+// onto the hazard and respawns). The gauntlet's finale, off live_floor.
+//
+// Layout (896x640), floor y=608, climb x≈140-300, summit y=352 right of a hazard:
+//   y=352  [ ledge ]  (120px gap / hazard)  [====== summit (QED) ======]
+//   y=416  [ ow_3 ]
+//   y=480  [ ow_2 ]
+//   y=544  [ ow_1 ]
+//   y=608  [== start floor ==]................................................
+(
+    id: "proof_summit",
+    level_id: "proof_summit",
+    world_x: 96000,
+    world_y: 1024,
+    px_wid: 896,
+    px_hei: 640,
+    fill_collision: "empty",
+    bg_color: "#12161C",
+    biome: "lab",
+    entities: [
+        // Bounding box.
+        ( type: "Solid", px: [0, 608], size: [896, 32], fields: ( name: "floor" ) ),
+        ( type: "Solid", px: [0, 0], size: [896, 16], fields: ( name: "ceiling" ) ),
+        ( type: "Solid", px: [0, 16], size: [16, 592], fields: ( name: "left_wall" ) ),
+        ( type: "Solid", px: [880, 16], size: [16, 592], fields: ( name: "right_wall" ) ),
+        // One-way climb (left): three plates 64px apart up to a solid ledge.
+        ( type: "OneWayPlatform", px: [140, 544], size: [160, 12], fields: ( name: "ow_1" ) ),
+        ( type: "OneWayPlatform", px: [140, 480], size: [160, 12], fields: ( name: "ow_2" ) ),
+        ( type: "OneWayPlatform", px: [140, 416], size: [160, 12], fields: ( name: "ow_3" ) ),
+        ( type: "Solid", px: [140, 352], size: [160, 16], fields: ( name: "ledge" ) ),
+        // The counterexample: a hazard in the gap between the ledge and the summit.
+        ( type: "HazardBlock", px: [316, 404], size: [100, 24], fields: ( name: "counterexample" ) ),
+        // QED — the summit, 120px across from the ledge (over the hazard).
+        ( type: "Solid", px: [420, 352], size: [300, 16], fields: ( name: "summit" ) ),
+        // Spawn + entry door on the start floor (left).
+        ( type: "PlayerStart", px: [70, 562], size: [28, 46], fields: ( name: "proof_summit_spawn" ) ),
+        (
+            type: "LoadingZone",
+            px: [16, 512],
+            size: [48, 96],
+            fields: (
+                id: "proof_summit_entry",
+                name: "proof_summit_entry",
+                activation: "Door",
+                target_room: "live_floor",
+                target_zone: "proof_summit_door",
+                bidirectional: true,
+            ),
+        ),
+        (
+            type: "CameraZone",
+            px: [0, 0],
+            size: [896, 640],
+            fields: ( id: "proof_summit_camera", name: "proof_summit_camera", mode: "Default" ),
+        ),
+        (
+            type: "DebugLabel",
+            px: [80, 110],
+            size: [620, 24],
+            fields: (
+                name: "proof_summit_intro",
+                text: "Proof Summit: climb the plates, then leap the gap over the counterexample to QED.",
+                category: "Custom",
+            ),
+        ),
+        (
+            type: "DebugLabel",
+            px: [460, 320],
+            size: [220, 24],
+            fields: ( name: "proof_summit_qed", text: "QED — gauntlet cleared.", category: "Custom" ),
+        ),
+    ],
+    // Reciprocal door inserted at live_floor's last platform (plat_5), snapped on.
+    connect_to: [
+        (
+            target_room: "live_floor",
+            px: [1200, 200],
+            size: [16, 96],
+            id: "proof_summit_door",
+            target_zone: "proof_summit_entry",
+            activation: "Door",
+            bidirectional: true,
+            snap_to_surface: true,
+        ),
+    ],
+)

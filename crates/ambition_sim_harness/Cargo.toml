@@ -1,0 +1,43 @@
+[package]
+name = "ambition_sim_harness"
+version = "0.1.0"
+edition.workspace = true
+license.workspace = true
+authors.workspace = true
+description = "Programmatic simulation harness: reset/step, typed AgentAction, AgentObservation, example reward shaping, and a random-walk policy over a headless Bevy sim App. The harness composes the engine foundation and accepts a caller-supplied content/plugin composition, so a demo, test, or RL driver runs a sim WITHOUT linking Ambition's product shell (ambition_app)."
+
+[lib]
+crate-type = ["rlib"]
+
+[features]
+default = []
+# ⛔ THE OFFSCREEN CAPTURE SESSION IS OPTIONAL, and it must stay that way. It
+# reaches `ambition_platformer2d/capture`, which links the render crate — and the
+# harness's whole point is that a test, a fuzz driver or an RL agent runs a sim
+# WITHOUT paying for the product shell or a renderer. A developer tool that wants
+# pictures asks for them.
+#
+# ⛔⛔ A FEATURE-GATED MODULE IS INVISIBLE TO A PLAIN `cargo test -p`: run
+# `cargo test -p ambition_sim_harness --features capture` or the capture module's
+# own tests silently do not exist.
+capture = ["ambition_platformer2d/capture"]
+
+[dependencies]
+# The engine surface: runtime foundation, actor/world/input/characters/items
+# vocabulary. The harness reaches these through the facade exactly as the moved
+# code did; the facade does NOT depend on ambition_app/ambition_content, so the
+# harness stays below the product shell.
+ambition_platformer2d = { path = "../ambition_platformer2d" }
+# Bevy App/World/Time — the sim the harness owns and steps.
+bevy = { version = "0.19.1", default-features = false }
+# The observation artifact's own format. `combat_observation` is the ONE place a
+# recorded tick becomes JSON; a tool that serialized it itself would be the
+# second answer that module exists to prevent.
+serde_json = "1"
+
+[dev-dependencies]
+# The exit-gate test composes a minimal sim (a one-room session) through the
+# harness using only the reusable engine surface — proving a sim runs through the
+# harness WITHOUT linking `ambition_app` (the product shell).
+ambition_platformer2d = { path = "../ambition_platformer2d" }
+bevy = { version = "0.19.1", default-features = false }

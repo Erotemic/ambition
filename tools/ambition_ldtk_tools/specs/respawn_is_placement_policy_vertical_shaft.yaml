@@ -1,0 +1,34 @@
+# A migrated creature's placement authors its own respawn policy, so the dead
+# brain key beside it decides nothing.
+#
+# Every creature here became a CHARACTER and its archetype row was deleted; the `brain` string
+# survives on the placement and is read for exactly one field -- respawn -- which is PLACEMENT
+# policy, the third authority.
+#
+# It is ALSO what the `combatant` fallback answers, which is the reason this edit is not a
+# no-op: these placements have had the right policy BY COINCIDENCE since their rows went, and
+# would inherit a different one silently the day somebody retunes the fallback.
+#
+#   PYTHONPATH=tools/ambition_ldtk_tools python -m ambition_ldtk_tools entity set-field \
+#       tools/ambition_ldtk_tools/specs/respawn_is_placement_policy_vertical_shaft.yaml \
+#       --ldtk game/ambition_content/assets/worlds/sandbox.ldtk --in-place
+level_id: vertical_shaft
+edits:
+  # was `brain: "puppy_slug"`, whose row is deleted
+  - target: { iid: EnemySpawn-4513 }
+    fields: { respawn: "OnRoomReenter" }
+  # was `brain: "puppy_slug"`, whose row is deleted
+  - target: { iid: EnemySpawn-4514 }
+    fields: { respawn: "OnRoomReenter" }
+  # was `brain: "puppy_slug"`, whose row is deleted
+  - target: { iid: 31cb7f90-48b0-11f1-9982-ed1ee077caa5 }
+    fields: { respawn: "OnRoomReenter" }
+  # was `brain: "puppy_slug"`, whose row is deleted
+  - target: { iid: 379b6200-48b0-11f1-9982-ffa470a08328 }
+    fields: { respawn: "OnRoomReenter" }
+  # was `brain: "puppy_slug"`, whose row is deleted
+  - target: { iid: 3b8853a0-48b0-11f1-9982-29e19ca92d46 }
+    fields: { respawn: "OnRoomReenter" }
+  # was `brain: "puppy_slug"`, whose row is deleted
+  - target: { iid: 41561330-48b0-11f1-9982-27ef72fb46a2 }
+    fields: { respawn: "OnRoomReenter" }

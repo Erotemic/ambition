@@ -1,0 +1,34 @@
+// Boss arena for Mode Collapse (a floating summoner). A simple bounded box —
+// the FIGHT is the content (data-driven in boss_profiles.ron); the arena just
+// needs a floor + walls + a BossSpawn + a hall-of-bosses door. Off the
+// hall_of_bosses (the boss hub), like the FSM/T-Rex arenas.
+(
+    id: "mode_collapse_arena",
+    level_id: "mode_collapse_arena",
+    world_x: 52000,
+    world_y: 1024,
+    px_wid: 1280,
+    px_hei: 640,
+    fill_collision: "empty",
+    bg_color: "#10131C",
+    biome: "lab",
+    entities: [
+        ( type: "Solid", px: [0, 608], size: [1280, 32], fields: ( name: "floor" ) ),
+        ( type: "Solid", px: [0, 0], size: [1280, 16], fields: ( name: "ceiling" ) ),
+        ( type: "Solid", px: [0, 16], size: [16, 592], fields: ( name: "left_wall" ) ),
+        ( type: "Solid", px: [1264, 16], size: [16, 592], fields: ( name: "right_wall" ) ),
+        ( type: "PlayerStart", px: [120, 562], size: [28, 46], fields: ( name: "mode_collapse_arena_spawn" ) ),
+        ( type: "BossSpawn", px: [600, 360], size: [140, 132], fields: ( name: "Mode Collapse", brain: "PhaseScript:mode_collapse_boss" ) ),
+        (
+            type: "LoadingZone",
+            px: [16, 512],
+            size: [48, 96],
+            fields: ( id: "mode_collapse_arena_entry", name: "mode_collapse_arena_entry", activation: "Door", target_room: "hall_of_bosses", target_zone: "mode_collapse_arena_door", bidirectional: true ),
+        ),
+        ( type: "CameraZone", px: [0, 0], size: [1280, 640], fields: ( id: "mode_collapse_arena_camera", name: "mode_collapse_arena_camera", mode: "Encounter" ) ),
+        ( type: "DebugLabel", px: [120, 80], size: [620, 24], fields: ( name: "mode_collapse_arena_label", text: "Mode Collapse — a summoner that floods the arena with copies of itself.", category: "Custom" ) ),
+    ],
+    connect_to: [
+        ( target_room: "hall_of_bosses", px: [900, 384], size: [16, 96], id: "mode_collapse_arena_door", target_zone: "mode_collapse_arena_entry", activation: "Door", bidirectional: true ),
+    ],
+)

@@ -1,0 +1,21 @@
+[package]
+name = "ambition_sfx"
+version = "0.1.0"
+edition.workspace = true
+license.workspace = true
+authors.workspace = true
+description = "SFX runtime contract for Ambition: SfxId, SfxClip, SfxProvider trait, and Bank/Filesystem/Silent/Layered providers."
+
+[features]
+# `bevy` (default) enables the gameplay-facing request vocabulary plus the
+# exact-owner `OwnedSfxMessage` queue and `SfxWriter` SystemParam. Disable
+# (`default-features = false`) to keep the crate Bevy-free for headless /
+# RL / benchmarking use — only `SfxId` / providers / ids remain.
+default = ["bevy"]
+bevy = ["dep:bevy_ecs", "dep:bevy_math"]
+
+[dependencies]
+ambition_sfx_bank = { path = "../ambition_sfx_bank" }
+thiserror = { workspace = true }
+bevy_ecs = { version = "0.19.1", default-features = false, optional = true }
+bevy_math = { version = "0.19.1", optional = true }

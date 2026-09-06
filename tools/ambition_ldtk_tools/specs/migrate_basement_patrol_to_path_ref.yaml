@@ -1,0 +1,13 @@
+# Replaces `fix_basement_patrol_brain.yaml`, which authored the string this
+# retires. `brain` is cleared because a `path_ref` IS the patrol brain, and
+# `convert_enemy_spawn` refuses a placement that says it twice.
+#
+# run `def update-entity EnemySpawn <ldtk> --add-entity-ref-field path_ref`
+# on this world FIRST; set-field refuses a field the entity def does not declare.
+level_id: basement_enemies
+edits:
+  - target:
+      iid: EnemySpawn-0140
+    fields:
+      path_ref: KinematicPath-0139
+      brain: null

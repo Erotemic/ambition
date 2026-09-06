@@ -1,0 +1,217 @@
+// mary_o_1_3 — "The Cinder Ferry", Super Mary-O's third level.
+//
+// Authored 2026-08-15 as the ACCEPTANCE EXERCISE for "is LDtk a natural level
+// editor for an agent?" — the room design is deliberately ordinary; what is
+// being tested is whether a whole Mary-O room can be described in authored data
+// with no Rust edits that describe LEVEL CONTENT.
+//
+// The grammar, left to right, one existing verb per beat:
+//
+//   1. The bonk row — a Question/Brick run at bonk height over the spawn
+//      ledge, so the first thing the room teaches is the block vocabulary.
+//   2. The short pit (96px) — a plain running jump, calibrated against 1-1's
+//      64/96/160px pits.
+//   3. The cellar mouth — a warp tube down into a coin cellar. The cellar's
+//      far pipe surfaces PAST the chasm, so the tube is a genuine alternate
+//      route rather than a detour that returns you where you started (which is
+//      what 1-1's vault does).
+//   4. The chasm (304px) — impassable on foot. The Cinder Ferry is the only
+//      way across for a player who skipped the cellar, so the room's one
+//      borrowed mechanism is load-bearing exactly once.
+//   5. The pole — the same three-block flagpole 1-1 and 1-2 end on.
+//
+//  THE NAMED STATIC-COLLISION PIECES ARE NOT IN THIS FILE, AND THAT IS NOT A
+// STYLE CHOICE. `area create` LOWERS every `Solid` / `OneWayPlatform` /
+// `BlinkWall` entity into IntGrid cells, and an IntGrid-derived block is named
+// `"ldtk solid"` — the author's `name` is DROPPED. Mary-O dresses its flagpole
+// and its cellar masonry BY NAME (`goal_pole`, `goal_pole_knob`,
+// `goal_pole_banner`, `vault_*` in `game/ambition_demo_mary_o/src/lib.rs`), so
+// authoring them here would silently produce an undressed, ungrabbable pole.
+// They are added as entity instances in the second pass:
+//
+//   tools/ambition_ldtk_tools/specs/mary_o_1_3_named_blocks.yaml
+//
+// Geometry metrics, copied off 1-1 rather than invented:
+//   floor top            y = 384      (1-1: 416)
+//   bonk row             floor - 128  (1-1: blocks at 288 over a 416 floor)
+//   enemy spawn y        floor - 64   (1-1: 352 over a 416 floor)
+//   coin y               floor - 48   (1-1: 656 over a 704 vault floor)
+//   spawn y              floor - 64   (1-1: 352, feet 18px clear of the floor)
+//   pipe mouth (Up)      floor - 64, 96x64      (1-1: [832,352] 96x64)
+//   pipe mouth (Down)    cellar ceiling, 96x148 (1-1: [832,480] 96x148)
+(
+    id: "mary_o_1_3",
+    level_id: "mary_o_1_3",
+    // 1-1 occupies y 0..768 and 1-2 y 1024..1472; this clears both.
+    world_x: 0,
+    world_y: 1600,
+    px_wid: 2048,
+    px_hei: 768,
+    grid_size: 16,
+    // Every surface is painted explicitly below — a border fill would seal the
+    // pits, which are the point.
+    fill_collision: "empty",
+    // 1-1's daylight: this is a surface level with a cellar under it, not 1-2's
+    // cavern.
+    bg_color: "#5c94fc",
+    entities: [
+        // ── Terrain ────────────────────────────────────────────────────────
+        // Three floor segments. Unnamed on purpose: nothing dresses them, so
+        // lowering to IntGrid loses nothing and gains per-cell editing.
+        ( type: "Solid", px: [0, 384],    size: [640, 96] ),
+        ( type: "Solid", px: [736, 384],  size: [480, 96] ),
+        ( type: "Solid", px: [1520, 384], size: [528, 96] ),
+        // A ledge on segment B that puts the hidden block in reach.
+        ( type: "Solid", px: [1024, 320], size: [96, 64] ),
+        // The stair up to the pole, three steps of one tile.
+        ( type: "Solid", px: [1856, 352], size: [32, 32] ),
+        ( type: "Solid", px: [1888, 320], size: [32, 64] ),
+        ( type: "Solid", px: [1920, 288], size: [32, 96] ),
+        // A pass-through shelf over the first pit — the one-way is the point,
+        // you can jump up through it.
+        ( type: "OneWayPlatform", px: [592, 288], size: [128, 16] ),
+
+        // ── Spawn ──────────────────────────────────────────────────────────
+        (
+            type: "PlayerStart",
+            px: [64, 320],
+            size: [28, 46],
+            fields: ( name: "mary_o_1_3_start" ),
+        ),
+
+        // ── The bonk row ───────────────────────────────────────────────────
+        // A Question that levels her toward the lantern (blank `contents` = the
+        // sensible default for the look), then a brick trio with one loaded
+        // brick in the middle — a brick that HOLDS something does not break,
+        // which is the classic behaviour and the thing the vocabulary doc says
+        // out loud.
+        ( type: "MaryOBlock", px: [256, 256], size: [32, 32], fields: ( kind: "Question" ) ),
+        ( type: "MaryOBlock", px: [320, 256], size: [32, 32], fields: ( kind: "Brick" ) ),
+        (
+            type: "MaryOBlock",
+            px: [352, 256],
+            size: [32, 32],
+            fields: ( kind: "Brick", contents: "AlwaysQuasar" ),
+        ),
+        ( type: "MaryOBlock", px: [384, 256], size: [32, 32], fields: ( kind: "Brick" ) ),
+        // The reward for finding the ledge: an invisible block over it.
+        ( type: "MaryOBlock", px: [1056, 192], size: [32, 32], fields: ( kind: "Hidden" ) ),
+        // Past the chasm, the wand — a run-up reward on the last segment.
+        (
+            type: "MaryOBlock",
+            px: [1696, 256],
+            size: [32, 32],
+            fields: ( kind: "Question", contents: "AlwaysWand" ),
+        ),
+
+        // ── The cellar tube ────────────────────────────────────────────────
+        // `descent` drops from segment B into the cellar; `ascent` surfaces on
+        // segment C, PAST the chasm. Two links, four halves, one of each role —
+        // a tube is directed, so a round trip is authored as two links.
+        //
+        //  AUTHORED, AND INERT UNTIL THE TUBE TABLE IS ROOM-SCOPED.
+        // `warp_through_secret_pipe` (game/ambition_demo_mary_o/src/lib.rs)
+        // reads `authored_tubes()`, a process-global `LazyLock` built from
+        // `pipe_tubes(&authored_room(LEVEL_1_1_ROOM_ID))` — every tube in the
+        // game is 1-1's. Its own comment promises *"a third tube Jon draws works
+        // with no line of Rust"*, and that is true WITHIN 1-1 and false across
+        // rooms. Nothing in the vocabulary, the validator or the entity docs
+        // says so, which is why this level authors the tube in good faith.
+        // The cellar is a locked bonus rather than a soft-lock until then: the
+        // masonry starts at 736 so the pit falls PAST it (see the named-blocks
+        // spec), and no route leads in that cannot lead back out.
+        (
+            type: "MaryOPipe",
+            px: [800, 320],
+            size: [96, 64],
+            fields: ( link: "cellar_descent", mouth: "Up", role: "Entrance" ),
+        ),
+        (
+            type: "MaryOPipe",
+            // Hung under segment B (736..1216), not under the pit at 640..736 —
+            // a pipe reads as hanging from a ceiling only if there is a ceiling.
+            px: [768, 480],
+            size: [96, 148],
+            fields: ( link: "cellar_descent", mouth: "Down", role: "Exit" ),
+        ),
+        (
+            type: "MaryOPipe",
+            px: [1024, 480],
+            size: [96, 148],
+            fields: ( link: "cellar_ascent", mouth: "Down", role: "Entrance" ),
+        ),
+        (
+            type: "MaryOPipe",
+            px: [1600, 320],
+            size: [96, 64],
+            fields: ( link: "cellar_ascent", mouth: "Up", role: "Exit" ),
+        ),
+
+        // ── The Cinder Ferry ───────────────────────────────────────────────
+        // 304px of chasm; 96px of platform sweeping 208px covers it with the
+        // ends flush. `id` is the authored handle — NOT `name`, which is
+        // presentation and renaming it in the editor would break every lookup.
+        (
+            type: "MovingPlatform",
+            px: [1216, 352],
+            size: [96, 16],
+            fields: (
+                id: "mary_o_1_3_ferry",
+                name: "Cinder Ferry",
+                sweep_dx: 208.0,
+                speed: 80.0,
+            ),
+        ),
+
+        // ── Enemies ────────────────────────────────────────────────────────
+        //  `character_id` IS REQUIRED and its absence is a HARD REFUSAL at
+        // conversion (`convert_enemy_spawn`, entity_converters.rs) — but
+        // `area create`, `repair` and `validate` all pass a spawn without one,
+        // so the whole authoring loop reports green and the game panics on load.
+        // The brain is the AI; `character_id` is which creature is standing
+        // there. Every spawn in 1-1 and 1-2 authors both plus `OnRoomReenter`.
+        ( type: "EnemySpawn", px: [352, 320], size: [28, 28], fields: ( name: "AI Slop", brain: "mary_o_ai_slop", character_id: "ai_slop", respawn: "OnRoomReenter" ) ),
+        ( type: "EnemySpawn", px: [512, 320], size: [28, 32], fields: ( name: "Solid Snake", brain: "mary_o_snake", character_id: "solid_snake", respawn: "OnRoomReenter" ) ),
+        ( type: "EnemySpawn", px: [928, 320], size: [28, 28], fields: ( name: "AI Slop", brain: "mary_o_ai_slop", character_id: "ai_slop", respawn: "OnRoomReenter" ) ),
+        ( type: "EnemySpawn", px: [1760, 320], size: [28, 32], fields: ( name: "Solid Snake", brain: "mary_o_snake", character_id: "solid_snake", respawn: "OnRoomReenter" ) ),
+        // Two flyers over the chasm, so the ferry ride is not free.
+        (
+            type: "EnemySpawn",
+            px: [1280, 224],
+            size: [43, 21],
+            fields: (
+                name: "Snakes on a Paper Plane",
+                brain: "mary_o_snakes_on_a_paper_plane",
+                character_id: "npc_snakes_on_a_paper_plane",
+                respawn: "OnRoomReenter",
+            ),
+        ),
+        (
+            type: "EnemySpawn",
+            px: [1424, 176],
+            size: [43, 18],
+            fields: (
+                name: "Snakes on a Cartesian Plane",
+                brain: "mary_o_snakes_on_a_cartesian_plane",
+                character_id: "npc_snakes_on_a_cartesian_plane",
+                respawn: "OnRoomReenter",
+            ),
+        ),
+
+        // ── Coins ──────────────────────────────────────────────────────────
+        // A short arc over the first pit, on the way to the one-way shelf.
+        ( type: "PickupSpawn", px: [608, 240], size: [24, 24], fields: ( name: "ferry_coin_0", kind: "currency:1" ) ),
+        ( type: "PickupSpawn", px: [640, 224], size: [24, 24], fields: ( name: "ferry_coin_1", kind: "currency:1" ) ),
+        ( type: "PickupSpawn", px: [672, 224], size: [24, 24], fields: ( name: "ferry_coin_2", kind: "currency:1" ) ),
+        ( type: "PickupSpawn", px: [704, 240], size: [24, 24], fields: ( name: "ferry_coin_3", kind: "currency:1" ) ),
+        // The cellar's payout — the reason to take the tube. Between the cellar
+        // walls (768..1120), clear of both hanging pipe shafts' 480..628 span.
+        ( type: "PickupSpawn", px: [784, 656], size: [24, 24], fields: ( name: "cellar_coin_0", kind: "currency:1" ) ),
+        ( type: "PickupSpawn", px: [832, 656], size: [24, 24], fields: ( name: "cellar_coin_1", kind: "currency:1" ) ),
+        ( type: "PickupSpawn", px: [880, 656], size: [24, 24], fields: ( name: "cellar_coin_2", kind: "currency:1" ) ),
+        ( type: "PickupSpawn", px: [928, 656], size: [24, 24], fields: ( name: "cellar_coin_3", kind: "currency:1" ) ),
+        ( type: "PickupSpawn", px: [976, 656], size: [24, 24], fields: ( name: "cellar_coin_4", kind: "currency:1" ) ),
+        ( type: "PickupSpawn", px: [1024, 656], size: [24, 24], fields: ( name: "cellar_coin_5", kind: "currency:1" ) ),
+        ( type: "PickupSpawn", px: [1072, 656], size: [24, 24], fields: ( name: "cellar_coin_6", kind: "currency:1" ) ),
+    ],
+)

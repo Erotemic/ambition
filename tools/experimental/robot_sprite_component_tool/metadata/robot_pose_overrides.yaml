@@ -1,0 +1,16 @@
+version: '0.4'
+defaults:
+  torso_scale: 1.0
+  head_scale: 1.0
+  face_scale: 1.0
+  front_arm_scale: 1.0
+  back_arm_scale: 1.0
+  front_hand_scale: 0.5
+  back_hand_scale: 0.5
+  front_leg_scale: 0.8
+  back_leg_scale: 0.8
+  front_foot_scale: 1.0
+  back_foot_scale: 1.0
+animations: {}
+canonical_atlas_note: Canonical atlas is metadata/robot_components.refined.yaml; legacy
+  atlas remains in metadata/robot_components_legacy.refined.yaml.

@@ -1,0 +1,73 @@
+{
+  "_doc": [
+    "Mary-O's own half of `asset editor-art`: the nouns this game invented, and",
+    "the engine art they should wear in the LDtk editor. Everything shared with",
+    "the rest of Ambition (Solid, OneWayPlatform, PickupSpawn, the IntGrid",
+    "values) is mapped by the tool itself — this file only says what the tool",
+    "cannot know.",
+    "",
+    "A bare name is an engine entity sprite (assets/sprites/entities/<name>.png);",
+    "anything with a slash is a path under the sprite folder; and",
+    "{sheet, animation, frame} is one frame of a generated sheet, which is how",
+    "you name a CHARACTER or a construction prop. Re-run after editing:",
+    "",
+    "  PYTHONPATH=tools/ambition_ldtk_tools python3 -m ambition_ldtk_tools \\",
+    "      asset editor-art game/ambition_demo_mary_o/assets/worlds/mary_o.ldtk --in-place"
+  ],
+  "atlas_identifier": "EngineArt",
+  "_entity_art_doc": [
+    "⛔ pipes come from the SHEET, not from assets/sprites/props/mary_o_pipe_*.png.",
+    "Those files are a July leftover under a name nothing loads any more, and they",
+    "are still the old GREEN pipe — which is why the editor showed a green pipe",
+    "months after the game turned copper. `super_mary_o_pipe_top` is the target",
+    "`register_mary_o_construction_props` actually loads."
+  ],
+  "entity_art": {
+    "MaryOBlock": "bonus_block_tile",
+    "MaryOPipe": { "sheet": "super_mary_o_pipe_top", "frame": 0 },
+    "PickupSpawn": "pickup_currency"
+  },
+  "_field_art_doc": [
+    "Art that follows a FIELD, per placed instance. LDtk can only vary an",
+    "entity's tile by an ENUM value, so the field has to be one — either declared",
+    "in mary_o.entities.json (a noun this game owns, like MaryOBlock.kind) or",
+    "here via `enum` + `values` (an ENGINE def no per-world manifest declares,",
+    "like EnemySpawn.brain).",
+    "",
+    "Closing a field is refused if the level already authors a value the enum",
+    "does not spell — the tool names it rather than dropping it."
+  ],
+  "field_art": {
+    "MaryOBlock.kind": {
+      "Question": "bonus_block_tile",
+      "Power": "bonus_block_tile",
+      "Brick": "solid_tile",
+      "Hidden": "spent_block_tile"
+    },
+    "MaryOPipe.mouth": {
+      "Up": { "sheet": "super_mary_o_pipe_top", "frame": 0 },
+      "Down": { "sheet": "super_mary_o_pipe_top", "frame": 0, "flip_y": true }
+    },
+    "EnemySpawn.brain": {
+      "enum": "MaryOEnemyBrain",
+      "values": {
+        "mary_o_ai_slop": { "sheet": "ai_slop", "frame": 0 },
+        "mary_o_snake": { "sheet": "solid_snake", "frame": 0 },
+        "mary_o_snakes_on_a_paper_plane": { "sheet": "snakes_on_a_paper_plane", "frame": 0 },
+        "mary_o_snakes_on_a_cartesian_plane": { "sheet": "snakes_on_a_cartesian_plane", "frame": 0 }
+      }
+    }
+  },
+  "_field_display_doc": [
+    "Fields the EDITOR should say out loud. A block's look deliberately never",
+    "announces its contents — that is the game's rule and it stays — but an",
+    "author is not a player, and the editor is where you need to see which brick",
+    "is the one with the quasar in it. `editorDisplayMode` is editor-only; the",
+    "game never reads it."
+  ],
+  "field_display": {
+    "MaryOBlock.contents": "NameAndValue",
+    "MaryOPipe.link": "NameAndValue",
+    "MaryOPipe.role": "NameAndValue"
+  }
+}

@@ -1,0 +1,262 @@
+[package]
+name = "ambition_app"
+version = "0.1.0"
+edition.workspace = true
+license.workspace = true
+authors.workspace = true
+description = "Ambition app shell: assembly, binaries, host glue, headless/RL drivers."
+# Integration tests are aggregated into a single `app_it` binary (tests/app_it.rs)
+# instead of one linked binary per `tests/*.rs`. Disable target auto-discovery so
+# the per-file modules aren't ALSO built as standalone targets. See tests/app_it.rs.
+autotests = false
+
+[lib]
+crate-type = ["rlib", "cdylib"]
+
+[features]
+# Personas mirror the pre-split ambition_platformer2d_actor_monolith graph; each forwards to the
+# machinery lib (ambition_platformer2d_actor_monolith) and the content crate so one selection
+# configures the whole stack. Command lines change from
+# `-p ambition_platformer2d_actor_monolith` to `-p ambition_app` and keep the same feature names.
+default = ["desktop_dev"]
+desktop_dev = [
+    "visible",
+    "desktop_platform",
+    "dev_tools",
+    "mobile_touch",
+    "rl_sim",
+    "mimalloc_alloc",
+]
+
+# Swap the game binary's global allocator to mimalloc. Opt-in so profiling
+# can A/B it: `./run_game.sh --features mimalloc_alloc`.
+mimalloc_alloc = ["dep:mimalloc"]
+
+visible = [
+    "ambition_platformer2d/visible",
+    "ambition_content/portal",
+    "ambition_content/portal_render",
+    "ambition_content/ui",
+    "ambition_content/audio",
+    "ldtk_runtime",
+    "input",
+    "audio",
+    "ui",
+    "physics_debris",
+    "portal",
+    "portal_render",
+    "frame_pacing",
+    "bevy_ui_menu",
+    "kaleidoscope_menu",
+    "basic_shell_presentation",
+]
+
+# The universal shell pause menu + its `ShellPauseMenuSuppressed` bridge ship
+# with the umbrella's `basic_shell_presentation`. Declaring it locally lets
+# `ambition_app` code `#[cfg(feature = "basic_shell_presentation")]` the bridge
+# (see `app/shell_host.rs`); the minimal `web` build omits it.
+basic_shell_presentation = ["ambition_platformer2d/basic_shell_presentation"]
+
+portal = ["ambition_platformer2d/portal", "ambition_content/portal"]
+portal_render = ["portal", "ambition_platformer2d/portal_render", "ambition_content/portal_render"]
+portal_ldtk = ["portal", "ambition_platformer2d/portal_ldtk"]
+
+desktop_platform = ["ambition_platformer2d/desktop_platform"]
+android_platform = ["ambition_platformer2d/android_platform"]
+web_platform = [
+    "ambition_platformer2d/web_platform",
+    "dep:console_error_panic_hook",
+    "dep:wasm-bindgen",
+]
+
+visible_web_base = [
+    "ambition_platformer2d/visible_web_base",
+    "ambition_content/portal",
+    "ambition_content/portal_render",
+    "ldtk_runtime",
+    "input",
+    "static_map",
+    "static_content",
+    "portal",
+    "portal_render",
+    "bevy_ui_menu",
+    # A SHELL HOST ROUTES; IT DOES NOT PAINT. `MinimalShellPlugins` adds
+    # `BasicShellPresentationPlugin` only under this feature, so without it the browser composes a
+    # perfectly correct host, boots to the launcher route, and renders NOTHING — a blank canvas with
+    # a live simulation behind it.
+    #
+    # this is the SIMPLE UI, which is what the web build wants: kaleidoscope
+    # stays excluded (`KALEIDOSCOPE_MENU_BACKEND_ENABLED` is false on wasm) and
+    # this is the plain-Bevy-UI shell that replaces it.
+    "basic_shell_presentation",
+]
+visible_web = ["visible_web_base", "static_core_assets"]
+visible_web_served = ["visible_web_base", "web_served", "web_audio"]
+web = ["visible_web", "web_platform"]
+web_served_assets = ["visible_web_served", "web_platform"]
+web_served = ["ambition_platformer2d/web_served"]
+web_audio = ["audio", "ambition_platformer2d/web_audio"]
+
+# The ONE real rl_sim switch: pulls the programmatic harness and gates the rl_sim-only integration
+# tests + `rl_*`/`trace_replay` binaries.
+rl_sim = ["dep:ambition_sim_harness"]
+# The per-crate feature jobs kept the unit tests honest, which is why this looked
+# fine: `ambition_causal --features bevy` and the monolith's `causal` job both
+# pass. They exercise the substrate, never the app.
+#
+# opt-in, not default. Recording costs work per tick and the shipped game has
+# no use for it; what it needed was a DOOR, not a default.
+causal = ["ambition_platformer2d/causal", "dep:ambition_causal"]
+headless = ["ambition_platformer2d/headless", "ldtk_runtime", "input"]
+dev_tools = ["ambition_platformer2d/dev_tools", "dep:bevy-inspector-egui"]
+dev_hot_reload = ["ambition_platformer2d/dev_hot_reload"]
+static_map = ["ambition_platformer2d/static_map", "ambition_content/static_map"]
+# Embed generated content RON. Rides with every build that embeds the world
+# JSON, for the same reason: no filesystem (web/Android) or no source tree
+# alongside the binary (Steam Deck). Desktop dev leaves it off so a music
+# regen does not rebuild the content crate and everything downstream.
+static_content = ["ambition_content/static_content"]
+static_core_assets = ["ambition_platformer2d/static_core_assets"]
+static_sfx_bank = ["ambition_platformer2d/static_sfx_bank"]
+android = [
+    "visible",
+    "android_platform",
+    "mobile_touch",
+    "rl_sim",
+    "static_map",
+    "static_content",
+    "mimalloc_alloc",
+]
+android_dev = ["android", "dev_tools"]
+
+ldtk_runtime = ["ambition_platformer2d/ldtk_runtime", "dep:bevy_ecs_ldtk", "dep:bevy_asset_loader"]
+audio = [
+    "ambition_platformer2d/audio",
+    "ambition_content/audio",
+    "dep:bevy_kira_audio",
+]
+# `ui` is the DIALOGUE/YARN umbrella, not a widget-framework switch. What `ui` still buys is the
+# Yarn runtime and `ambition_dialog/ui` downstream. Ambition's own UI is plain Bevy UI.
+ui = ["ambition_platformer2d/ui", "ambition_content/ui", "dep:bevy_yarnspinner"]
+physics_debris = ["ambition_platformer2d/physics_debris"]
+input = ["ambition_platformer2d/input", "dep:leafwing-input-manager"]
+mobile_touch = ["input", "ambition_platformer2d/mobile_touch"]
+falling_sand = ["ambition_content/falling_sand"]
+bevy_ui_menu = ["ambition_platformer2d/bevy_ui_menu"]
+kaleidoscope_menu = ["ambition_platformer2d/kaleidoscope_menu", "dep:ambition_menu_kaleidoscope"]
+frame_pacing = ["ambition_platformer2d/frame_pacing", "dep:bevy_framepace"]
+profile = ["ambition_platformer2d/profile"]
+
+[dependencies]
+# The linked game providers of the multi-game shell host. The HOST depends on
+# providers; providers never depend on hosts (each also runs unchanged in its
+# own standalone demo app).
+ambition_demo_sanic = { path = "../ambition_demo_sanic" }
+ambition_demo_mary_o = { path = "../ambition_demo_mary_o" }
+ambition_demo_smash = { path = "../ambition_demo_smash" }
+ambition_platformer2d = { path = "../../crates/ambition_platformer2d" }
+ambition_content = { path = "../ambition_content" }
+# The reusable programmatic sim harness (reset/step/action/observation/reward).
+# ambition_app supplies the Ambition-specific composition (see rl_sim::AmbitionSim).
+ambition_sim_harness = { path = "../../crates/ambition_sim_harness", optional = true }
+# The causal log, for the  feature above. Optional for the same reason
+# the feature is opt-in: a shipped build records nothing and should not link it.
+ambition_causal = { path = "../../crates/ambition_causal", optional = true }
+# Optional with the feature that reaches it: the cube renderer pulls bevy_lunex
+# + bevy_rich_text3d (cosmic-text), which a headless/CI build never touches.
+ambition_menu_kaleidoscope = { path = "../ambition_menu_kaleidoscope", optional = true }
+# ⭐ `bevy_dev_tools` IS NOT A DEV-ONLY DEPENDENCY HERE, and that is deliberate:
+# it owns `fps_overlay` (the FPS counter is a shipped, persisted player setting)
+# and `diagnostics_overlay` (the F1 numeric panel). ⭐ IT COSTS NO NEW SUBGRAPH —
+# measured 2026-08-31, every one of its 24 dependencies including `bevy_pbr` is
+# already in all three personas (`bevy_gizmos_render` pulls `bevy_pbr` into the
+# shipping web build), so this adds one leaf crate, not a renderer.
+bevy = { version = "0.19.1", default-features = false, features = ["ui_api", "bevy_dev_tools"] }
+bevy_common_assets = { version = "0.17", features = ["ron"] }
+bevy_yarnspinner = { version = "0.9", optional = true }
+bevy_asset_loader = { version = "0.27", optional = true }
+bevy_ecs_ldtk = { version = "0.15", optional = true }
+bevy-inspector-egui = { version = "0.37", optional = true }
+bevy_kira_audio = { version = "0.26", default-features = false, features = ["wav", "ogg"], optional = true }
+bevy_framepace = { version = "0.22", default-features = false, optional = true }
+leafwing-input-manager = { version = "0.21", optional = true }
+console_error_panic_hook = { version = "0.1", optional = true }
+wasm-bindgen = { version = "0.2", optional = true }
+serde = { workspace = true }
+serde_json = "1"
+ron = { workspace = true }
+image = { version = "0.25", default-features = false, features = ["png"] }
+# A/B lever for the allocator-churn optimization track: desktop profiling
+# (target/profiles/desktop-lifecycle-1) shows glibc malloc at 5-8% of
+# self-time in every phase. default-features off = plain fast mode.
+mimalloc = { version = "0.1", default-features = false, optional = true }
+
+[target.'cfg(target_os = "android")'.dependencies]
+# The app died before a line of Rust ran, and the allocator was why.
+#
+# `libmimalloc-sys` compiles mimalloc with `-ftls-model=initial-exec` unless
+# `local_dynamic_tls` is set (its build.rs picks one or the other). That is the
+# right default for an executable, and fatal here: `android` turns on
+# `mimalloc_alloc`, so those initial-exec TLS relocations
+# (3 × R_AARCH64_TLS_TPREL64, read out of the built .so) land in a library the
+# platform opens with `dlopen` — which is what `System.loadLibrary` does. The
+# loader refuses the IE access model there and the process dies at launch with
+# `UnsatisfiedLinkError: ... TLS symbol "(null)" ... using IE access model`.
+#
+# Scoped to Android on purpose. Desktop links mimalloc into an executable,
+# where initial-exec is both safe and the faster access path, and speed is the
+# entire reason `mimalloc_alloc` exists (see the note on the dep below).
+#
+# this entry exists to ADD a feature to the dependency declared in
+# `[dependencies]`; Cargo unifies the two. Keep `optional` on both or
+# `mimalloc_alloc`'s `dep:mimalloc` stops controlling whether it is linked.
+mimalloc = { version = "0.1", default-features = false, features = ["local_dynamic_tls"], optional = true }
+
+# `oboe-sys` (cpal's Android audio backend, via bevy_kira_audio) links
+# `libc++_static` unless told otherwise, putting a second, private copy of the
+# C++ runtime inside this cdylib while `build_for_android.sh` separately copies
+# `libc++_shared.so` into jniLibs. Two C++ runtimes in one process is its own
+# hazard, and the static one was pure weight. This did NOT cause the TLS crash
+# above — measured, the relocation count was unchanged — it is just correct.
+oboe = { version = "0.6", features = ["shared-stdcxx"] }
+
+[target.'cfg(target_arch = "wasm32")'.dependencies]
+# Browser builds intentionally opt getrandom into the JS/Web Crypto backend.
+# Several transitive deps use different getrandom major versions; enabling the
+# features here makes Cargo feature-unify the already-pinned versions for the
+# wasm target without affecting native builds.
+#
+# This file supplied the `getrandom/js` half from the top of the graph and nothing supplied the
+# `instant/wasm-bindgen` half, so the RNG worked and the CLOCK did not: the web build compiled and
+# then died at `rust-lld: undefined symbol: now`. The dedicated rollback-backend crate that owns
+# `bevy_ggrs` enables the whole feature through the facade's weak `web_platform` forwarding, which
+# supplies both when rollback is selected — so this line's job is done by its rightful owner and the
+# line is gone.
+#
+# the 0.3/0.4 entries stay: their `wasm_js` comes from deps that publish no
+# equivalent forwarding feature, so this IS their nearest owner. That they read
+# like the deleted line is the smell worth remembering, not a licence to delete
+# them too.
+getrandom_03 = { package = "getrandom", version = "=0.3.4", features = ["wasm_js"] }
+getrandom_04 = { package = "getrandom", version = "=0.4.2", features = ["wasm_js"] }
+
+[[bin]]
+name = "ambition_game_bin"
+path = "src/bin/ambition_game_bin.rs"
+test = false
+bench = false
+
+
+[[test]]
+name = "app_it"
+path = "tests/app_it.rs"
+
+[dev-dependencies]
+# ⭐ A TEST DEPENDENCY, NOT A SHIPPED ONE. Pocket is the FOURTH-PROVIDER
+# ARCHITECTURE PROOF — it is deliberately `unlisted` in the launcher (see
+# `shell_host_lifecycle`) and exists to show a provider can compose, register a
+# character, and decline to declare presentation. That proof is worth keeping and
+# the crate is not worth shipping, so it builds for tests and not for the game.
+ambition_demo_pocket = { path = "../ambition_demo_pocket" }
+insta = { version = "1", features = ["ron"] }
+proptest = "1"

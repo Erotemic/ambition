@@ -1,0 +1,288 @@
+//! THE per-body frame resolution phase (ADR 0024 frame law).
+//!
+//! [`resolve_body_motion_frames`] publishes every integrated body's
+//! [`ResolvedMotionFrame`] exactly once per sim tick, after the environment's
+//! zone snapshot ([`super::GravitySet::ZoneSnapshot`]) and before
+//! `Platformer2dSimulationPhaseMonolith::CoreSimulation` — so controller interpretation (the player brain
+//! in `PlayerInput`, actor/possessed brains in `WorldPrep`), body integration,
+//! and every combat/ability consumer read the SAME value for the tick.
+//!
+//! One system, one composition rule ([`FrameEnv::resolve`]), three archetype
+//! queries — player bodies (primary + clones), actors, and bosses differ only in
+//! where their authored gravity response lives, never in how the frame is
+//! composed. No driver, brain, or combat system resolves a frame itself.
+
+use bevy::prelude::*;
+
+use ambition_platformer2d_shared_tangle::frame_env::{FrameEnv, ResolvedMotionFrame};
+
+use ambition_platformer2d_core::body_clusters::ActorSurfaceState;
+use ambition_boss_encounter::BossConfig;
+use ambition_combat::actor_tuning::ActorConfig;
+
+/// Resolve and publish the frame for every integrated body.
+///
+/// - Player bodies (primary, clones, demo avatars): the authored gravity
+///   response is the live movement tuning's `gravity`.
+/// - Actors and bosses (both carry the unified actor cluster): the response
+///   is `config.tuning.movement.gravity × surface.gravity_scale` — an aerial or
+///   mounted body's 0 scale is the zero-acceleration-with-retained-orientation
+///   case.
+pub fn resolve_body_motion_frames(
+    env: FrameEnv,
+    tuning: Res<ambition_platformer2d_core::ActiveMovementTuning>,
+    mut players: Query<
+        (
+            &ambition_platformer2d_core::BodyKinematics,
+            &mut ResolvedMotionFrame,
+        ),
+        With<ambition_platformer2d_shared_tangle::markers::PlayerEntity>,
+    >,
+    mut actors: Query<
+        (
+            &ambition_platformer2d_core::BodyKinematics,
+            &ActorConfig,
+            &ActorSurfaceState,
+            &mut ResolvedMotionFrame,
+        ),
+        Without<ambition_platformer2d_shared_tangle::markers::PlayerEntity>,
+    >,
+) {
+    // ⚠ THE PLAYER ARM DOES NOT MULTIPLY BY `surface.gravity_scale`, AND THAT IS
+    // NOT AN OVERSIGHT — it is why the two arms exist. MEASURED 2026-09-05, after
+    // the fighter session read this as a hazard: a player entity has NO
+    // `ActorSurfaceState` at all. `PlayerSimulationBundle` does not carry one and
+    // no avatar or ability path inserts one, so there is no scale here to apply.
+    //
+    // ⇒ Every writer of `gravity_scale` — the mount saddle pin, capture, the body
+    // seed — targets bodies that DO have the component, and those match the
+    // `Without<PlayerEntity>` arm below, where the scale IS applied. Possession
+    // does not change that: it queries `Without<PlayerEntity>` and leaves the
+    // marker on the player box, so a possessed body keeps resolving as an actor.
+    //
+    // ⛔ IF A PLAYER EVER GAINS `ActorSurfaceState`, THIS ARM SILENTLY IGNORES IT,
+    // and NOTHING HERE WILL TELL YOU — said plainly because I tried to guard it
+    // and the guards I could write were worse than the gap. A runtime test can
+    // only spawn a bare marker (that tests Bevy, not this repo); the real bundle's
+    // helpers are private to `avatar/bundles.rs`; and an absence contract greps a
+    // single token, which cannot express "these two things must not co-occur"
+    // without banning the component's legitimate uses. ⇒ The honest artifact is
+    // this measurement, dated, with the mechanism — not a green test that could
+    // never go red.
+    let player_response = tuning.gravity;
+    for (kin, mut resolved) in &mut players {
+        resolved.publish_resolved_frame(env.resolve(kin.aabb(), player_response));
+    }
+    for (kin, config, surface, mut resolved) in &mut actors {
+        let response = config.tuning.movement.gravity * surface.gravity_scale;
+        resolved.publish_resolved_frame(env.resolve(kin.aabb(), response));
+    }
+}
+
+/// Compile-time reminder that bosses resolve through the actor query above:
+/// a boss carries the unified actor cluster (`ActorConfig` + surface), so the
+/// `Without<PlayerEntity>` query matches it — no third arm exists.
+#[allow(dead_code)]
+fn bosses_resolve_through_the_actor_arm(_: &BossConfig) {}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+
+    use ambition_platformer2d_core as ae;
+    use ambition_platformer2d_shared_tangle::frame_env::{collect_force_zones, ForceZones};
+    use ambition_platformer2d_shared_tangle::gravity::{
+        collect_gravity_zones, BaseGravity, GravityField, GravityZone, GravityZones,
+    };
+
+    fn resolver_app() -> App {
+        let mut app = App::new();
+        app.init_resource::<GravityField>();
+        app.init_resource::<BaseGravity>();
+        app.init_resource::<GravityZones>();
+        app.init_resource::<ForceZones>();
+        app.init_resource::<ambition_platformer2d_core::ActiveMovementTuning>();
+        app.add_systems(
+            Update,
+            (
+                collect_gravity_zones,
+                collect_force_zones,
+                resolve_body_motion_frames,
+                ambition_platformer2d_shared_tangle::gravity::resolve_active_gravity,
+            )
+                .chain(),
+        );
+        app
+    }
+
+    fn spawn_player(app: &mut App, pos: ae::Vec2) -> Entity {
+        app.world_mut()
+            .spawn((
+                ambition_platformer2d_shared_tangle::markers::PlayerEntity,
+                ambition_platformer2d_core::BodyKinematics {
+                    pos,
+                    vel: ae::Vec2::ZERO,
+                    size: ae::Vec2::new(24.0, 40.0),
+                    facing: 1.0,
+                },
+                ResolvedMotionFrame::default(),
+            ))
+            .id()
+    }
+
+    fn frame_of(app: &App, body: Entity) -> ae::MotionFrame {
+        app.world()
+            .get::<ResolvedMotionFrame>(body)
+            .expect("integrated bodies carry a resolved frame")
+            .get()
+    }
+
+    #[test]
+    fn a_zone_straddling_body_resolves_by_overlap_for_every_consumer() {
+        let mut app = resolver_app();
+        app.world_mut().spawn(GravityZone {
+            aabb: ae::Aabb::new(ae::Vec2::new(200.0, 0.0), ae::Vec2::new(30.0, 60.0)),
+            dir: ae::Vec2::new(0.0, -1.0),
+        });
+        // The body's CENTER is outside the zone; its AABB overlaps it.
+        let body = spawn_player(&mut app, ae::Vec2::new(160.0, 0.0));
+        app.update();
+        let frame = frame_of(&app, body);
+        assert_eq!(
+            frame.down(),
+            ae::Vec2::new(0.0, -1.0),
+            "the one published frame uses the body-overlap rule; a consumer \
+             cannot see a different (center-point) frame because none exists"
+        );
+    }
+
+    #[test]
+    fn two_bodies_in_different_fields_each_get_their_own_frame() {
+        let mut app = resolver_app();
+        app.world_mut().spawn(GravityZone {
+            aabb: ae::Aabb::new(ae::Vec2::new(300.0, 0.0), ae::Vec2::new(40.0, 120.0)),
+            dir: ae::Vec2::new(1.0, 0.0),
+        });
+        let inside = spawn_player(&mut app, ae::Vec2::new(300.0, 0.0));
+        let outside = spawn_player(&mut app, ae::Vec2::new(0.0, 0.0));
+        app.update();
+        assert_eq!(frame_of(&app, inside).down(), ae::Vec2::new(1.0, 0.0));
+        assert_eq!(frame_of(&app, outside).down(), ae::Vec2::new(0.0, 1.0));
+    }
+
+    #[test]
+    fn actor_response_scales_gravity_but_keeps_orientation_at_zero() {
+        use ambition_combat::actor_tuning::ActorConfig;
+
+        let mut app = resolver_app();
+        let mut tuning = ambition_combat::actor_tuning::ActorTuning::default();
+        tuning.movement.gravity = 800.0;
+        let config = ActorConfig {
+            id: "aerial".into(),
+            name: "aerial".into(),
+            tuning,
+            brain_profile: ambition_combat::actor_tuning::BrainProfile::default(),
+            brain: ambition_entity_catalog::placements::CharacterBrain::Passive,
+            sprite_override_npc_name: None,
+            sprite_character_id: None,
+            // A fixture body, not a seated CPU twin.
+            preserves_mirror_symmetry: false,
+        };
+        let aerial = app
+            .world_mut()
+            .spawn((
+                ambition_platformer2d_core::BodyKinematics {
+                    pos: ae::Vec2::new(50.0, 50.0),
+                    vel: ae::Vec2::ZERO,
+                    size: ae::Vec2::new(20.0, 20.0),
+                    facing: 1.0,
+                },
+                config,
+                ActorSurfaceState {
+                    surface_normal: ae::Vec2::new(0.0, -1.0),
+                    gravity_scale: 0.0,
+                },
+                ResolvedMotionFrame::default(),
+            ))
+            .id();
+        app.update();
+        let frame = frame_of(&app, aerial);
+        assert_eq!(frame.acceleration(), ae::Vec2::ZERO, "aerial: zero pull");
+        assert_eq!(
+            frame.down(),
+            ae::Vec2::new(0.0, 1.0),
+            "zero acceleration retains the environment-defined orientation"
+        );
+    }
+
+    /// Schedule-ordering evidence (ADR 0024): the frame resolution phase runs
+    /// BEFORE `Platformer2dSimulationPhaseMonolith::PlayerInput` — the earliest CoreSimulation consumer —
+    /// so a probe there observes THIS tick's zone-resolved frame, not last
+    /// tick's. Uses the real `configure_platformer2d_simulation_phases` + `GravityPlugin` wiring.
+    #[test]
+    fn the_frame_is_resolved_before_the_first_core_simulation_consumer() {
+        use ambition_platformer2d_shared_tangle::schedule::Platformer2dSimulationPhaseMonolith;
+
+        #[derive(Resource, Default)]
+        struct ProbeSawZoneFrame(bool);
+
+        fn player_input_probe(
+            mut saw: ResMut<ProbeSawZoneFrame>,
+            frames: Query<
+                &ResolvedMotionFrame,
+                With<ambition_platformer2d_shared_tangle::markers::PlayerEntity>,
+            >,
+        ) {
+            if let Ok(frame) = frames.single() {
+                saw.0 = frame.down() == ae::Vec2::new(0.0, -1.0);
+            }
+        }
+
+        let mut app = App::new();
+        crate::schedule::configure_platformer2d_simulation_phases(&mut app);
+        app.world_mut()
+            .spawn(ambition_platformer2d_shared_tangle::lifecycle::SessionRoot(
+                ambition_platformer2d_shared_tangle::lifecycle::SessionScopeId(0),
+            ));
+        app.insert_resource(ambition_platformer2d_shared_tangle::time::SimDt { dt: 0.016 });
+        app.add_message::<ambition_combat::events::RoomReplayAdmitted>();
+        app.add_plugins(crate::gravity::GravityPlugin);
+        app.init_resource::<ambition_platformer2d_core::ActiveMovementTuning>();
+        app.init_resource::<ProbeSawZoneFrame>();
+        app.add_systems(
+            Update,
+            player_input_probe.in_set(Platformer2dSimulationPhaseMonolith::PlayerInput),
+        );
+
+        app.world_mut().spawn(GravityZone {
+            aabb: ae::Aabb::new(ae::Vec2::ZERO, ae::Vec2::new(60.0, 60.0)),
+            dir: ae::Vec2::new(0.0, -1.0),
+        });
+        spawn_player(&mut app, ae::Vec2::ZERO);
+        app.update();
+        assert!(
+            app.world().resource::<ProbeSawZoneFrame>().0,
+            "a PlayerInput consumer must observe the SAME tick's resolved frame"
+        );
+    }
+
+    #[test]
+    fn the_gravity_field_mirror_agrees_with_the_primary_bodys_frame() {
+        let mut app = resolver_app();
+        app.world_mut().spawn(GravityZone {
+            aabb: ae::Aabb::new(ae::Vec2::new(0.0, 0.0), ae::Vec2::new(60.0, 60.0)),
+            dir: ae::Vec2::new(-1.0, 0.0),
+        });
+        let body = spawn_player(&mut app, ae::Vec2::ZERO);
+        app.world_mut()
+            .entity_mut(body)
+            .insert(ambition_platformer2d_shared_tangle::body::PrimaryBody);
+        app.update();
+        assert_eq!(
+            app.world().resource::<GravityField>().dir,
+            frame_of(&app, body).down(),
+            "presentation mirror derives from the SAME resolved artifact"
+        );
+    }
+}

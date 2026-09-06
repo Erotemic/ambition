@@ -1,0 +1,22 @@
+# The plane swarms' respawn policy moves onto their placements.
+#
+# Respawn is SPAWN-CONTEXT (ADR 0022) — the field's own doc in the LDtk definition says so:
+# "Spawn-context (ADR 0022), not a property of the character." These four placements authored
+# none and inherited `OnRoomReenter` from the `mary_o_snakes_on_a_*` roster rows — the archetype
+# table's LAST live job anywhere.
+#
+# same values the rows carried: no behaviour change, one authority fewer.
+#
+#   PYTHONPATH=tools/ambition_ldtk_tools python3 -m ambition_ldtk_tools entity set-field \
+#       tools/ambition_ldtk_tools/specs/plane_swarms_author_their_respawn.yaml \
+#       --ldtk game/ambition_map_assets/ambition_demo_mary_o/worlds/mary_o.ldtk --in-place
+level_id: mary_o_1_2
+edits:
+  - target: { iid: EnemySpawn-107062 }
+    fields: { respawn: "OnRoomReenter" }
+  - target: { iid: EnemySpawn-107063 }
+    fields: { respawn: "OnRoomReenter" }
+  - target: { iid: EnemySpawn-107064 }
+    fields: { respawn: "OnRoomReenter" }
+  - target: { iid: EnemySpawn-107065 }
+    fields: { respawn: "OnRoomReenter" }

@@ -1,0 +1,32 @@
+//! Ambition-game music adapters over the `ambition_audio` music core.
+//!
+//! Game-side music glue: [`intent`] (encounter / room / radio state ->
+//! [`MusicIntent`]), authored goblin cue data, and settings ->
+//! [`ambition_audio::MusicMix`] sync.
+
+#![cfg(feature = "audio")]
+
+use bevy::prelude::*;
+
+use ambition_persistence::settings::UserSettings;
+
+mod intent;
+
+#[cfg(test)]
+mod tests;
+
+#[cfg(test)]
+use intent::{
+    resolve_adaptive_directive, resolve_directive_for_binding, LARGE_BRUTE_DELAY_SECONDS,
+};
+
+#[cfg(test)]
+pub(crate) use ambition_audio::music::EncounterMusicBinding;
+pub use intent::{compute_music_intent, release_narrative_music_on_room_change};
+
+/// Mirror the user's effective music volume into the audio crate's
+/// [`ambition_audio::MusicMix`] each frame, BEFORE the director runs,
+/// so the reusable music core never reads the sandbox settings model.
+pub fn sync_music_mix(settings: Res<UserSettings>, mut mix: ResMut<ambition_audio::MusicMix>) {
+    mix.effective_music = settings.audio.effective_music();
+}

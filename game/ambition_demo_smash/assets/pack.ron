@@ -1,0 +1,46 @@
+// This demo's own content pack — the character package half of D166.
+//
+//  a SECOND pack in the workspace, and that is the point. Ambition's own
+// pack (`game/ambition_content/assets/pack.ron`) was the only one, which made
+// the content pipeline indistinguishable from that crate's private loader. A
+// demo that authors its own fighter's values through the same
+// `ambition_platformer2d::content` facade — with no dependency on the game crate
+// and no plumbing of its own — is what shows it is a capability.
+//
+//  the manifest is the pack's EXPLICIT source list, not a directory glob,
+// for the same reason it is next door: a glob makes the pack's contents depend
+// on filesystem enumeration order. Adding a fighter is one line here plus one
+// line in `embedded_sources` (src/smash_pack.rs), and missing either is a loud
+// refusal rather than a silently absent kit.
+//
+// Validate without rebuilding Rust:
+//
+//     cargo run -p ambition_content_cli --bin ambition_content -- \
+//         game/ambition_demo_smash/assets
+(
+    id: "ambition_demo_smash",
+    version: "0.1.0",
+    // Every identity this pack mints is `smash_demo:<schema>/<name>`, so the
+    // demo's George cannot collide with the main game's cast.
+    namespace: "smash_demo",
+    // Nothing beyond the schema owners. `smash_fighter` brings the
+    // platform-fighter capability with it.
+    requires: [],
+    //  THE PATH LEAVES THIS DIRECTORY ON PURPOSE — the demo SELECTS
+    // George, it does not own his values (2026-08-19 GPT review: *"Smash
+    // should select George; it should not own George's values."*). The facet
+    // lives in the character-authoring submodule, whose README claims exactly
+    // this material: "game/ruleset-specific character FACET VALUES".
+    //
+    //  a source path is `root.join(path)` + `canonicalize`, so escaping the
+    // pack root is expressible and readable; what it costs is that the pack no
+    // longer validates from a checkout with the submodule uninitialised, which
+    // is the honest consequence of the values living where they belong.
+    sources: [
+        (
+            path: "../../../tools/ambition_sprite2d_renderer/ambition_sprite2d_renderer/data/characters/george_booul/smash_fighter.ron",
+            schema: "smash_fighter",
+            version: 1,
+        ),
+    ],
+)

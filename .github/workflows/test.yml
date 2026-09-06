@@ -1,0 +1,140 @@
+name: Tests
+
+# To re-enable: switch the trigger back to the original push/pull_request
+# block (kept commented below). The structure of the jobs stays intact
+# so re-enabling is a one-line change.
+on:
+  workflow_dispatch:
+  # push:
+  #   branches: [main]
+  # pull_request:
+  #   branches: [main]
+
+env:
+  CARGO_TERM_COLOR: always
+  RUSTFLAGS: -D warnings
+
+jobs:
+  engine-tests:
+    name: ambition_platformer2d_core library + integration tests
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+        with:
+          shared-key: engine
+      - name: cargo test -p ambition_platformer2d_core
+        # Library + integration tests (proptest_foundation, body_shape_fits_at, wall_jump_fuzz).
+        # The engine has no system libraries so this is a cheap smoke gate.
+        run: cargo test -p ambition_platformer2d_core
+      - name: cargo test -p ambition_workspace_policy
+        # It belongs in THIS job rather than the headless one because it
+        # inspects the workspace as parsed manifests and source text and
+        # deliberately links no production crate — its own manifest says
+        # "running the policy suite must not compile `ambition_app`" — so it
+        # needs a toolchain and nothing else. ~5s.
+        run: cargo test -p ambition_workspace_policy
+
+  sandbox-headless-smoke:
+    name: ambition_platformer2d_actor_monolith headless smoke
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+        with:
+          shared-key: sandbox-headless
+      - name: Install Bevy system dependencies
+        # Bevy's default-features dragsalsa-bus-1 / wayland; the
+        # `--features headless` build path of the sandbox doesn't need
+        # them today, but the lib build does until subsystem gates are
+        # complete (see crates/ambition_platformer2d_actor_monolith/Cargo.toml).
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libasound2-dev libudev-dev pkg-config \
+            libwayland-dev libxkbcommon-dev
+      - name: cargo test -p ambition_platformer2d_actor_monolith --lib
+        # Library tests cover the headless module (run_headless ticks,
+        # sim → presentation message seam) plus encounter/cutscene/quest
+        # logic. Integration tests (repro_walls.rs) run as part of this.
+        run: cargo test -p ambition_platformer2d_actor_monolith --lib && cargo test -p ambition_content --all-features
+      - name: cargo test -p ambition_app --test repro_walls
+        run: cargo test -p ambition_app --test repro_walls
+      - name: cargo run --bin headless (smoke 60 ticks)
+        # End-to-end smoke: the headless binary boots the full
+        # sim plugin chain, runs 60 sandbox ticks, and exits 0.
+        # Catches plugin-init regressions the lib tests miss (e.g. a
+        # missing add_message that only fires when the visible plugin
+        # path runs).
+        run: cargo run -p ambition_app_tools --bin headless -- 60
+  format-and-clippy:
+    name: rustfmt + clippy
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt, clippy
+      - uses: Swatinem/rust-cache@v2
+        with:
+          shared-key: lint
+      - name: Install Bevy system dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libasound2-dev libudev-dev pkg-config \
+            libwayland-dev libxkbcommon-dev
+      - name: cargo fmt -- --check
+        # ADVISORY, and that is the repository's stated policy, not a
+        # concession: AGENTS.md says "Formatting is advisory, never an
+        # acceptance gate." This step was a HARD failure and contradicted it,
+        # invisibly, because this workflow is `workflow_dispatch` only.
+        # Measured 2026-09-04: 358 files fail `cargo fmt --all -- --check` at
+        # HEAD. So the day anyone re-enables the push trigger — which the
+        # comment at the top of this file correctly calls a one-line change —
+        # the first run would have failed on formatting alone and produced no
+        # test verdict at all.
+        #
+        # Same treatment as clippy below, for the same reason: run it for
+        # visibility, do not let it stand between a push and its answer.
+        run: cargo fmt --all -- --check || true
+      - name: cargo clippy
+        # Don't fail on warnings here yet — the codebase has ~14 known
+        # warnings (unused imports in feature-gated paths). Run clippy
+        # for visibility but with `--message-format=short` so PR reviews
+        # can spot regressions without blocking on them.
+        run: cargo clippy --workspace --all-targets --message-format=short || true
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.x'
+      - name: broken doc-link ratchet
+        # THE PROJECT GATE CANNOT SEE THIS CLASS. `cargo check --all-targets` compiles code; an
+        # unresolved `[`Item`]` is a RUSTDOC lint, so a deletion that leaves its references behind
+        # rots in the space between the two commands.
+        #
+        # a RATCHET, not a sweep: the per-crate counts may fall and must not
+        # rise. Lower them and bank it with `--update` in the same commit.
+        # It also fails when a crate produces NO rustdoc output, because zero
+        # warnings from a build that did not happen is not a score.
+        run: python scripts/check_doc_link_ratchet.py --check
+      - name: loading-zone name ratchet
+        # a RATCHET, per world, so the developer sandbox's remaining 102
+        # cannot mask a rise in a shipped one. It also fails when it observes NO
+        # zones at all, because a moved directory reads as a perfect score.
+        run: python scripts/check_zone_name_ratchet.py --check
+
+  agent-kb-check:
+    name: agent knowledge-base check
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.x'
+      # ⛔ THE INDEX IS GENERATED AND GIT-IGNORED, so a clean checkout does not
+      # have it and `check_agent_kb.py` fails on its absence before it can check
+      # anything. The job could never pass as written.
+      - name: python scripts/generate_agent_index.py
+        run: python scripts/generate_agent_index.py
+      - name: python scripts/check_agent_kb.py
+        run: python scripts/check_agent_kb.py

@@ -1,0 +1,151 @@
+[package]
+name = "ambition_app_tools"
+version = "0.1.0"
+edition.workspace = true
+license.workspace = true
+authors.workspace = true
+description = "Ambition's non-game binaries: headless/RL drivers, trace replay, scene capture, previews."
+
+# WHY THIS PACKAGE EXISTS, and it is not "the app crate got big".
+#
+# Cargo builds every `[[bin]]` of a package before running that package's
+# integration tests, because a test may exec one through `CARGO_BIN_EXE_*`. That
+# is correct and unavoidable — there is no flag for "build the test but not the
+# bins". `ambition_app` had SEVEN bins and no test that execs any of them, so
+# every filtered `cargo test -p ambition_app --test app_it` relinked all seven.
+#
+# MEASURED, after an `ambition_app` source edit:
+#   lib alone 9.2s · lib + 7 bins 16.4s · lib + bins + `app_it` 21.7s
+#   lib + `ambition_game_bin` only 10.8s
+# so the six non-game binaries were 5.6s of a 21.7s answer — 26%, forever, on
+# work nothing consumed.
+#
+# `ambition_game_bin` deliberately STAYS in `ambition_app`. It is 1.6s of the
+# 7.2s and it is THE GAME: moving it would change how the game is launched to
+# recover a fifth of the saving.
+#
+# and `required-features` was not the cheaper fix, though every one of these
+# already carries it: they name `rl_sim` and `visible`, which are DEFAULT features
+# the tests themselves need. The gate was never off during a test run.
+#
+# This package has no lib and no tests on purpose. It is a place for binaries to
+# live, not a layer.
+
+[features]
+# `causal` must exist HERE or it silently stops existing. `rl_random_walker`
+# has four `#[cfg(feature = "causal")]` arms; a feature the package does not
+# declare is not an error, it is permanently FALSE — so the walker would have gone
+# on building and quietly recorded nothing. Forwarded rather than redefined, so
+# there is one switch and it is the app's.
+default = []
+causal = ["ambition_app/causal"]
+# Tracy zones and Bevy's render diagnostics, forwarded for the SAME reason
+# `causal` is: a feature this package does not declare is not an error here, it
+# is permanently FALSE. `scripts/profile_desktop.sh` passes `--features profile`
+# to whatever `run_game.sh` resolves to, and without this line the one command
+# that profiles a live Smash match would fail at cargo with "package
+# `ambition_app_tools` does not have feature `profile`".
+profile = ["ambition_app/profile"]
+
+[dependencies]
+ambition_app = { path = "../ambition_app" }
+ambition_platformer2d = { path = "../../crates/ambition_platformer2d", features = ["capture"] }
+# ⭐ THE MOVE-EXERCISE AND CAPTURE MACHINERY, which used to be a `#[path]`-included
+# source file in `src/bin/support/`. `capture` is opt-in on the harness so a test
+# or RL driver keeps paying for no renderer; a picture-taking tool asks for it.
+ambition_sim_harness = { path = "../../crates/ambition_sim_harness", features = ["capture"] }
+bevy = { version = "0.19.1", default-features = false, features = ["ui_api"] }
+# `capture_scene` stages real rooms and `preview_vanity_card` plays a real shell
+# segment, so both reach the content crate directly rather than through the app.
+ambition_content = { path = "../ambition_content" }
+# `shark_ride_probe` seats a real smash match and drives a real press, which is
+# the demo's own vocabulary (its roster builder, its route id).
+ambition_demo_smash = { path = "../ambition_demo_smash" }
+ambition_demo_smash_app = { path = "../ambition_demo_smash_app" }
+serde_json = "1"
+image = { version = "0.25", default-features = false, features = ["png"] }
+
+[[bin]]
+name = "shark_ride_probe"
+path = "src/bin/shark_ride_probe.rs"
+test = false
+
+[[bin]]
+name = "trap_probe"
+path = "src/bin/trap_probe.rs"
+test = false
+
+# The up-B's twin. ⛔ NOT a mode on `trap_probe`: the two moves share a stage
+# and a driver (`src/probe_stage.rs`, included by both) and share nothing about
+# what is worth printing — one is five stages under the boards, the other is six
+# clauses on a rope.
+[[bin]]
+name = "wire_probe"
+path = "src/bin/wire_probe.rs"
+test = false
+
+[[bin]]
+name = "capture_scene"
+path = "src/bin/capture_scene.rs"
+test = false
+bench = false
+
+[[bin]]
+name = "smash_match_profile"
+path = "src/bin/smash_match_profile.rs"
+test = false
+
+[[bin]]
+name = "headless"
+path = "src/bin/headless.rs"
+test = false
+bench = false
+
+[[bin]]
+name = "rl_random_walker"
+path = "src/bin/rl_random_walker.rs"
+test = false
+bench = false
+
+[[bin]]
+name = "rl_smoke"
+path = "src/bin/rl_smoke.rs"
+test = false
+bench = false
+
+[[bin]]
+name = "trace_replay"
+path = "src/bin/trace_replay.rs"
+test = false
+bench = false
+
+[[bin]]
+name = "preview_vanity_card"
+path = "src/bin/preview_vanity_card.rs"
+test = false
+bench = false
+
+# The moveset inspector's data source. It boots the composed host and reports
+# what the SHIPPED cast resolves to, which is the only version of the numbers a
+# balance decision can be made against.
+[[bin]]
+name = "moveset_export"
+path = "src/bin/moveset_export.rs"
+test = false
+bench = false
+
+# The engine-take recorder. A frame-data table reports what a move DECLARES; a
+# take reports what the engine DID with it.
+[[bin]]
+name = "moveset_takes"
+path = "src/bin/moveset_takes.rs"
+test = false
+bench = false
+
+[[bin]]
+name = "zero_time_capture_spike"
+path = "src/bin/zero_time_capture_spike.rs"
+
+[[bin]]
+name = "moveset_render"
+path = "src/bin/moveset_render.rs"

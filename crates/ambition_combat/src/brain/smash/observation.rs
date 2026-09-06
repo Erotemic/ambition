@@ -1,0 +1,262 @@
+//! Stage 1 — observation.
+//!
+//! Snapshots the per-tick view the brain reads downstream. Everything
+//! the modes / actions / difficulty stages need has to be here; they
+//! never read the world directly. That keeps the brain testable
+//! against a hand-built [`ObservationFrame`] and replayable
+//! deterministically.
+
+use ambition_characters::brain::smash::{CrowdingSignal, TerrainAwareness};
+use ambition_platformer2d_core as ae;
+
+use ambition_characters::brain::snapshot::BrainSnapshot;
+
+/// Per-tick read-only view of the world the brain consumes. Layout
+/// stays flat (no nested Options inside Options) so the cost of
+/// passing it through pure stages is a memcpy.
+#[derive(Clone, Copy, Debug)]
+#[allow(
+    dead_code,
+    reason = "every field is read by stage 2-5; rustc cross-module dead-code analysis trips over the pure-function chain"
+)]
+pub struct ObservationFrame {
+    // --- Self ---
+    pub self_pos: ae::Vec2,
+    pub self_vel: ae::Vec2,
+    pub self_facing: f32,
+    pub self_on_ground: bool,
+    /// This body is a gravity-free flyer — the brain steers 2D
+    /// `velocity_target` instead of grounded locomotion + jump.
+    pub self_aerial: bool,
+    pub self_alive: bool,
+    /// Somebody is holding this fighter. Its ordinary options are gone.
+    pub self_captured: bool,
+    /// This fighter is holding somebody — the capture context.
+    pub self_holding_captive: bool,
+    /// Pummels landed on the hold this fighter owns; `0` when it holds nobody.
+    pub self_pummels_landed: u8,
+    /// Mid-air jumps the actor has left until next landing. Reads
+    /// straight off `BrainSnapshot.air_jumps_remaining`. The action
+    /// stage uses this to decide whether `SpecificAction::Jump`
+    /// fired in the air will actually launch a double-jump.
+    pub self_air_jumps_remaining: u8,
+    /// True when the actor is mid-windup / mid-active / mid-recover of an attack.
+    pub self_attacking: bool,
+    pub attack_cooldown_remaining: f32,
+    pub stun_remaining: f32,
+    /// Own health fraction in `[0, 1]`, carried through so the regroup trigger can
+    /// watch it drop. See [`BrainSnapshot::health_fraction`].
+    pub self_health_fraction: f32,
+
+    // --- Target ---
+    pub target_pos: ae::Vec2,
+    pub target_alive: bool,
+    /// Signed offset target.x - self_pos.x. Positive = target to the
+    /// right. Cached so downstream stages don't recompute.
+    pub to_target_x: f32,
+    /// Signed offset target.y - self_pos.y. Positive = target below
+    /// (engine y grows downward). NOTE: `y` is screen-space, not
+    /// gravity-relative — use [`ObservationFrame::to_target_up`] for
+    /// "is the target above me" so the read stays correct under rotated
+    /// (C4) gravity (invariant I10).
+    pub to_target_y: f32,
+    pub distance_to_target: f32,
+    /// Local gravity direction (unit). The brain's vertical reasoning
+    /// (jump-to-chase, dive/perch, up/down attacks, evade-up) is framed
+    /// against this, not against screen `-y`, so it is correct under any
+    /// gravity orientation and through portals. Defaults to screen-down
+    /// `(0, 1)`, under which every frame-local accessor below reduces to
+    /// the screen-space reads it replaced.
+    pub down: ae::Vec2,
+
+    // --- Crowding (anti-clump pressure) ---
+    pub crowding: CrowdingSignal,
+
+    // --- Terrain awareness (stub today; populated when ledge data
+    // surfaces in BrainSnapshot) ---
+    pub terrain: TerrainAwareness,
+
+    // --- Time ---
+    pub sim_time: f32,
+    pub dt: f32,
+}
+
+impl ObservationFrame {
+    /// Unit "up" — directly against local gravity. The direction an evade or a
+    /// perch climbs into the open vertical space, whatever the gravity
+    /// orientation. Under screen-down gravity this is `(0, -1)`.
+    pub fn up_axis(&self) -> ae::Vec2 {
+        -self.down
+    }
+
+    pub fn side_axis(&self) -> ae::Vec2 {
+        ae::Vec2::new(self.down.y, -self.down.x)
+    }
+
+    /// Target offset projected onto [`Self::up_axis`]: `> 0`  the target is
+    /// *above* me (against gravity). The frame-agnostic replacement for the old
+    /// `to_target_y < 0` "above" test. Under screen-down gravity equals
+    /// `-to_target_y`.
+    pub fn to_target_up(&self) -> f32 {
+        ae::Vec2::new(self.to_target_x, self.to_target_y).dot(self.up_axis())
+    }
+
+    /// Target offset projected onto [`Self::side_axis`]: signed strafe distance
+    /// toward the target along the gravity-perpendicular axis. Under screen-down
+    /// gravity equals `to_target_x`.
+    pub fn to_target_side(&self) -> f32 {
+        ae::Vec2::new(self.to_target_x, self.to_target_y).dot(self.side_axis())
+    }
+
+    /// My own velocity projected onto [`Self::up_axis`]: `> 0`  I am rising
+    /// (moving against gravity). Under screen-down gravity equals `-self_vel.y`.
+    pub fn self_vel_up(&self) -> f32 {
+        self.self_vel.dot(self.up_axis())
+    }
+
+    /// Signed lateral RUN step toward the target along the side axis: `-1`, `0`,
+    /// or `+1`. Returns `0` inside [`SIDE_ALIGN_DEADZONE_PX`] — the target is
+    /// essentially stacked on the gravity axis, so a grounded run can't close the
+    /// gap laterally and must NOT jitter its sign (the gravity-axis component is
+    /// the jump-to-chase / fall's job). This is the single seam the grounded run /
+    /// footsies / dash read for "which way is the target", so none of them
+    /// rapid-flip when gravity rotates and two fighters collapse into a vertical
+    /// stack. Frame-agnostic (built on [`Self::to_target_side`]); byte-identical
+    /// to the old `signum` whenever the side offset exceeds the deadzone — i.e. in
+    /// all normal screen-down spacing (fighters engage at 50-80 px, well outside
+    /// the band).
+    pub fn side_run_toward_target(&self) -> f32 {
+        let s = self.to_target_side();
+        if s.abs() < SIDE_ALIGN_DEADZONE_PX {
+            0.0
+        } else {
+            s.signum()
+        }
+    }
+
+    /// Signed lateral FACING toward the target: like [`Self::side_run_toward_target`]
+    /// but never `0` — inside the alignment deadzone it HOLDS the current facing
+    /// instead of flipping. For verbs that always need a direction (facing, a melee
+    /// swing, a dash, a retreat). Holding (rather than flipping on jitter) is what
+    /// kills the rapid side-to-side flip when the target aligns on the gravity axis.
+    pub fn side_face_toward_target(&self) -> f32 {
+        let s = self.side_run_toward_target();
+        if s != 0.0 {
+            s
+        } else if self.self_facing >= 0.0 {
+            1.0
+        } else {
+            -1.0
+        }
+    }
+}
+
+/// Body-scale lateral deadzone (px). Inside this side-offset band the target is
+/// stacked on the gravity axis; a grounded fighter holds its facing / run sign
+/// rather than flipping on sub-body jitter. Comfortably above physics jitter, far
+/// below the engage band so normal screen-down spacing is unaffected. See
+/// [`ObservationFrame::side_run_toward_target`].
+pub const SIDE_ALIGN_DEADZONE_PX: f32 = 22.0;
+
+/// Build an `ObservationFrame` from a `BrainSnapshot`. Pure — no
+/// Bevy world access. The driver system populates the snapshot's
+/// extension fields (`crowding`, eventual `terrain`); this function
+/// just packs them into the flat shape downstream stages read.
+pub fn observe(snap: &BrainSnapshot) -> ObservationFrame {
+    let to_target = snap.target_pos - snap.actor_pos;
+    let distance = to_target.length();
+    let self_attacking = snap.attack_windup_remaining > 0.0
+        || snap.attack_active_remaining > 0.0
+        || snap.attack_recover_remaining > 0.0;
+    ObservationFrame {
+        self_pos: snap.actor_pos,
+        self_vel: snap.actor_vel,
+        self_facing: snap.actor_facing,
+        self_on_ground: snap.actor_on_ground,
+        self_aerial: snap.actor_aerial,
+        self_alive: snap.alive,
+        self_captured: snap.captured,
+        self_holding_captive: snap.holding_captive,
+        self_pummels_landed: snap.pummels_landed,
+        self_air_jumps_remaining: snap.air_jumps_remaining,
+        self_attacking,
+        attack_cooldown_remaining: snap.attack_cooldown_remaining,
+        stun_remaining: snap.stun_remaining,
+        self_health_fraction: snap.health_fraction,
+        target_pos: snap.target_pos,
+        target_alive: snap.target_alive,
+        to_target_x: to_target.x,
+        to_target_y: to_target.y,
+        distance_to_target: distance,
+        down: snap.control_down.normalize_or(ae::Vec2::new(0.0, 1.0)),
+        crowding: snap.crowding.unwrap_or_default(),
+        terrain: snap.terrain.unwrap_or_default(),
+        sim_time: snap.sim_time,
+        dt: snap.dt,
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn compute_pressure_single_ally_triggers_default_threshold() {
+        // 1 ally → 0.70, above STRIKER_DEFAULT.crowding_threshold = 0.65.
+        // This is the load-bearing case for the 2-goblin encounter
+        // (each actor sees exactly one nearby ally).
+        let p = CrowdingSignal::compute_pressure(1, 0);
+        assert!(p > 0.65, "got {p}");
+    }
+
+    #[test]
+    fn compute_pressure_two_allies_passes_default_threshold() {
+        // 2 allies → 1.40, well above threshold.
+        let p = CrowdingSignal::compute_pressure(2, 0);
+        assert!(p > 0.65, "got {p}");
+    }
+
+    #[test]
+    fn compute_pressure_non_faction_count_floor() {
+        // 2 non-faction characters alone shouldn't pressure.
+        assert_eq!(CrowdingSignal::compute_pressure(0, 2), 0.0);
+        // 3 non-faction → starts to pressure: (3-2) * 0.15 = 0.15.
+        assert!(
+            (CrowdingSignal::compute_pressure(0, 3) - 0.15).abs() < f32::EPSILON,
+            "got {}",
+            CrowdingSignal::compute_pressure(0, 3)
+        );
+    }
+
+    #[test]
+    fn compute_pressure_caps_at_2_0() {
+        assert!(CrowdingSignal::compute_pressure(10, 10) <= 2.0);
+    }
+
+    #[test]
+    fn observe_packs_distance_correctly() {
+        let mut snap = BrainSnapshot::idle();
+        snap.actor_pos = ae::Vec2::new(100.0, 50.0);
+        snap.target_pos = ae::Vec2::new(160.0, 130.0);
+        let obs = observe(&snap);
+        assert_eq!(obs.to_target_x, 60.0);
+        assert_eq!(obs.to_target_y, 80.0);
+        let expected = (60.0_f32 * 60.0 + 80.0 * 80.0).sqrt();
+        assert!((obs.distance_to_target - expected).abs() < 1e-3);
+    }
+
+    #[test]
+    fn observe_self_attacking_when_any_attack_timer_active() {
+        let mut snap = BrainSnapshot::idle();
+        snap.attack_windup_remaining = 0.1;
+        assert!(observe(&snap).self_attacking);
+        snap.attack_windup_remaining = 0.0;
+        snap.attack_active_remaining = 0.05;
+        assert!(observe(&snap).self_attacking);
+        snap.attack_active_remaining = 0.0;
+        snap.attack_recover_remaining = 0.2;
+        assert!(observe(&snap).self_attacking);
+        snap.attack_recover_remaining = 0.0;
+        assert!(!observe(&snap).self_attacking);
+    }
+}

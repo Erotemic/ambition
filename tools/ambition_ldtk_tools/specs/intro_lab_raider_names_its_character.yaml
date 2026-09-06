@@ -1,0 +1,23 @@
+# The intro raid corridor's raider names the character it was already named
+# after, and becomes the SECOND creature pointing at the shared `medium_striker`
+# policy.
+#
+# this is the half that makes `medium_striker` a ROLE. A shared
+# `autonomous_profiles` entry with one adopter is that adopter's private policy
+# wearing a general name; with a goblin band and a lab raider pointing at it, the
+# indirection is doing the job it was introduced for -- one controller policy,
+# several bodies.
+#
+#   body        -> npc_lab_raider's CharacterDefinition (5 HP, 170 run, 0.70/1
+#                  contact) -- the goblin's numbers, because the archetype gave
+#                  both creatures the same ones
+#   controller  -> `medium_striker`, named and provider-relative
+#   placement   -> stays here
+#
+#   PYTHONPATH=tools/ambition_ldtk_tools python -m ambition_ldtk_tools entity set-field \
+#       tools/ambition_ldtk_tools/specs/intro_lab_raider_names_its_character.yaml \
+#       --ldtk game/ambition_content/assets/worlds/intro.ldtk --in-place
+level_id: intro_raid_corridor
+edits:
+  - target: { iid: EnemySpawn-104369 }
+    fields: { character_id: "npc_lab_raider" }

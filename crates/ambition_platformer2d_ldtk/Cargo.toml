@@ -1,0 +1,29 @@
+[package]
+name = "ambition_platformer2d_ldtk"
+version = "0.1.0"
+edition.workspace = true
+license.workspace = true
+authors.workspace = true
+description = "LDtk backend adapter for Ambition authored world IR."
+
+[features]
+default = ["ldtk_runtime", "portal_ldtk"]
+static_map = ["ambition_asset_manager/static_map"]
+ldtk_runtime = ["dep:bevy_asset_loader", "dep:bevy_ecs_ldtk"]
+portal = []
+portal_ldtk = ["portal", "ldtk_runtime"]
+
+[dependencies]
+ambition_asset_manager = { path = "../ambition_asset_manager", features = ["bevy"] }
+ambition_platformer2d_core = { path = "../ambition_platformer2d_core" }
+ambition_entity_catalog = { path = "../ambition_entity_catalog" }
+# Schedule vocabulary only: `LdtkRuntimeSpinePlugin` is a SIM plugin, so it must
+# register into the app's sim schedule (`SimSchedule`) rather than name `Update`.
+ambition_platformer2d_shared_tangle = { path = "../ambition_platformer2d_shared_tangle" }
+ambition_platformer2d_world = { path = "../ambition_platformer2d_world", default-features = false }
+bevy = { version = "0.19.1", default-features = false }
+bevy_asset_loader = { version = "0.27", optional = true }
+bevy_ecs_ldtk = { version = "0.15", optional = true }
+ron = { workspace = true }
+serde = { workspace = true }
+serde_json = "1"

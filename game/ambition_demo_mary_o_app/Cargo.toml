@@ -1,0 +1,56 @@
+[package]
+name = "ambition_demo_mary_o_app"
+version = "0.1.0"
+edition.workspace = true
+license.workspace = true
+authors.workspace = true
+description = "The Super Mary-O demo's thin SHELL: foundation + PlatformerEnginePlugins + PlatformerHostPlugins + the demo's content and rules crates. Playbook exit 3, executable."
+autotests = false
+
+[[bin]]
+name = "mary_o_demo"
+path = "src/main.rs"
+test = false
+bench = false
+
+[features]
+default = []
+# Draw the world AND make it playable. Adds the engine's generic presentation
+# face (OV1), the renderer's `visible` chain, AND the standard host input path
+# (`input`) — a windowed demo you cannot control is not a playable demo. Without
+# it the shell steps the sim headlessly (`tests/exit_3.rs`, the `mary_o_demo`
+# bin default).
+# Offscreen capture: the `capture_mary_o` binary. Implies `visible`, because a
+# capture of a game with no renderer is a blank file, and adds the engine's
+# capture module + its PNG encoder. Off by default so nothing that ships links
+# an encoder.
+capture = ["visible", "ambition_platformer2d/capture"]
+visible = ["ambition_platformer2d/visible", "ambition_platformer2d/basic_shell_presentation", "ambition_platformer2d/audio", "input", "dep:bevy_kira_audio"]
+# Folded into `visible` so the windowed binary is interactive.
+input = ["ambition_platformer2d/input"]
+
+[dependencies]
+# The engine, host, and vocabulary — through the ONE umbrella surface. A demo app
+# depends on `ambition_platformer2d`, never on `ambition_app`. That is the demo gate.
+ambition_platformer2d = { path = "../../crates/ambition_platformer2d", default-features = false, features = ["all_capabilities"] }
+# The demo's own content + rules. The shell names nothing else.
+ambition_demo_mary_o = { path = "../ambition_demo_mary_o" }
+# Bevy's derives cannot be reached through a re-export (see the content crate's
+# manifest). The shell needs none, but `App`/`Update` come from here.
+bevy = { version = "0.19.1", default-features = false }
+# The windowed shell's audio face (jump SFX + music) uses the Kira backend, exactly
+# like the Sanic demo shell. Optional: the sim-only bin and exit-3 test never link it.
+bevy_kira_audio = { version = "0.26", default-features = false, features = ["ogg"], optional = true }
+
+# ONE aggregated integration-test binary instead of 11. See tests/mary_o_it.rs.
+[[test]]
+name = "mary_o_it"
+path = "tests/mary_o_it.rs"
+
+# `required-features`, or `cargo check --all-targets` (the no-warnings job)
+# tries to build this against a crate whose `build_windowed_demo_app` and
+# `RenderMode` are both behind `visible` and fails on a binary nobody asked for.
+[[bin]]
+name = "capture_mary_o"
+path = "src/bin/capture_mary_o.rs"
+required-features = ["capture"]

@@ -1,0 +1,57 @@
+[package]
+name = "ambition_portal2d_presentation"
+version = "0.1.0"
+edition.workspace = true
+license.workspace = true
+authors.workspace = true
+description = "Reusable default renderer for the ambition_portal2d mechanic: placed-portal quads + labels, the held/pickup gun sprite, mid-transit body pieces, the disorientation indicator, and the through-portal view cones (render-to-texture with 1-frame-lag infinite recursion). A host tags PortalSceneBody / syncs PortalWorldFrame / loads PortalGunArt and adds PortalPresentationPlugin; each visual is a separately registered public system so hosts can disable one flag and register their own in the same set. Pure presentation: reads the portal sim, never mutates it."
+
+[lib]
+crate-type = ["rlib"]
+
+[features]
+# The view-window effect compiles in by default; a size/perf-constrained persona (e.g. Android) can
+# build without it and the runtime cycle (`PortalEffectSelection`, surfaced in the host's developer
+# menu) only offers what was compiled. The texture-clipped body PIECES are not a feature — they are
+# shared by every mode.
+#
+# `effect_view_cones` — the render-to-texture view windows (capture cameras).
+default = ["effect_view_cones"]
+effect_view_cones = []
+
+[dependencies]
+# Render-facing by definition (this crate IS the render adapter the headless
+# `ambition_portal2d` mechanic refuses to own): the 2D render pipeline for
+# sprites + Mesh2d/ColorMaterial (view cones), cameras + render-to-texture
+# (`bevy_image`/`bevy_asset`), and `bevy_text` for the portal channel labels.
+# Still no audio / windowing / scene / picking — narrower than `default`.
+bevy = { version = "0.19.1", default-features = false, features = [
+    "2d_bevy_render",
+    "bevy_asset",
+    "bevy_image",
+    "bevy_text",
+    "bevy_log",
+] }
+
+# The content-free foundation: `Aabb` + the canonical `world_size_to_bevy`
+# centering/y-flip transform and the shared z-layer constants.
+ambition_platformer2d_core = { path = "../ambition_platformer2d_core" }
+
+# The reusable platformer runtime: `BodyKinematics`, `ActorRoll`, the
+# `PlayerEntity`/`PrimaryPlayer` markers, and the `GravityField` the somersault
+# roll reads. Same stack position as `ambition_portal2d` (ADR 0019).
+ambition_platformer2d_shared_tangle = { path = "../ambition_platformer2d_shared_tangle" }
+
+# The portal mechanic this crate draws: placed portals, gun, shot, transit
+# components, and the pieces/view-cone geometry (the Core invariant math every
+# visual derives from). Presentation sits directly above the mechanic; never a
+# host crate (ambition_platformer2d_actor_monolith / ambition_content).
+ambition_portal2d = { path = "../ambition_portal2d" }
+# The sprite-effect concept (hue shift for a gun on a non-default pair) and
+# `sprite_frame_basis`, which this crate wrote first and no longer owns.
+ambition_sprite_fx = { path = "../ambition_sprite_fx" }
+
+[dev-dependencies]
+# Parse + validate the embedded WGSL in `cargo test` (same naga wgpu uses at
+# runtime), so a shader syntax error fails CI instead of the first real launch.
+naga = { version = "29.0.4", features = ["wgsl-in"] }

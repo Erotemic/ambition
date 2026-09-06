@@ -1,0 +1,332 @@
+title: architect_intro
+---
+Architect: This basement is where I test movement and combat. If a hit looks wrong, turn on debug view and compare the boxes.
+-> What is this place?
+    <<jump architect_intro__1>>
+-> Why show the debug boxes?
+    <<jump architect_intro__2>>
+-> Enough architecture for now.
+===
+
+title: architect_intro__1
+---
+Architect: The Kernel's maintenance rooms are down here. Enemy tests, boss patterns, breakable floors, unfinished shop rules. Most of it is still wired for inspection.
+-> Ask another question.
+    <<jump architect_intro>>
+-> Return to the room.
+===
+
+title: architect_intro__2
+---
+Architect: Keep the hitboxes, seeds, timers, graphs, and costs visible in debug mode. When a generated fight goes wrong, I want to see why.
+-> Ask another question.
+    <<jump architect_intro>>
+-> Return to the room.
+===
+
+title: generic_npc
+---
+Sandbox NPC: No named dialogue here yet. This is the fallback line.
+-> Close.
+===
+
+title: hub_guide
+---
+Kernel Guide: Back in the Kernel. Doors use Interact. Double-tap Up is the fallback if you want to test it.
+-> Why is Interact separate from Up?
+    <<jump hub_guide__1>>
+-> What should I test next?
+    <<jump hub_guide__2>>
+-> I would like to test dialog.
+    <<jump hub_guide__test>>
+-> Back to the hub.
+===
+
+title: hub_guide__1
+---
+Kernel Guide: Up already aims, climbs, and flies. A single Up press should not open a door by accident. Use Interact for doors, shops, and conversations.
+-> Ask another hub question.
+    <<jump hub_guide>>
+-> Return to movement.
+===
+
+title: hub_guide__2
+---
+Kernel Guide: Try the basement labs, then turn on debug mode. Check combo state, hitstun, invulnerability, health bars, and hurtboxes after any hit that looks wrong.
+-> Ask another hub question.
+    <<jump hub_guide>>
+-> Return to movement.
+===
+
+title: merchant_seed
+---
+Merchant Prototype: Shop's open. Anything you can't afford is greyed out.
+-> Buy Axe — 25g <<if can_afford(25)>>
+    <<buy_item "axe" 25>>
+    <<jump merchant_seed>>
+-> Buy Health Cell — 8g <<if can_afford(8)>>
+    <<buy_item "healthcell" 8>>
+    <<jump merchant_seed>>
+-> Buy Mana Cell — 8g <<if can_afford(8)>>
+    <<buy_item "manacell" 8>>
+    <<jump merchant_seed>>
+-> Buy Gun-Sword — 35g <<if can_afford(35)>>
+    <<buy_item "gunsword" 35>>
+    <<jump merchant_seed>>
+-> Buy Puppy-Slug Gun — 30g <<if can_afford(30)>>
+    <<buy_item "puppysluggun" 30>>
+    <<jump merchant_seed>>
+-> Buy Bomb — 6g <<if can_afford(6)>>
+    <<buy_item "bomb" 6>>
+    <<jump merchant_seed>>
+-> Buy Fireball — 40g <<if can_afford(40)>>
+    <<buy_item "fireball" 40>>
+    <<jump merchant_seed>>
+-> Buy Blink — 45g <<if can_afford(45)>>
+    <<buy_item "blink" 45>>
+    <<jump merchant_seed>>
+-> Buy Grapple — 45g <<if can_afford(45)>>
+    <<buy_item "grapple" 45>>
+    <<jump merchant_seed>>
+-> Buy Mark/Recall — 45g <<if can_afford(45)>>
+    <<buy_item "markrecall" 45>>
+    <<jump merchant_seed>>
+-> Sell Gun-Sword — 17g <<if condition("inventory.holds", "gunsword")>>
+    <<sell_item "gunsword" 17>>
+    <<jump merchant_seed>>
+-> Sell Axe — 12g <<if condition("inventory.holds", "axe")>>
+    <<sell_item "axe" 12>>
+    <<jump merchant_seed>>
+-> Sell Health Cell — 4g <<if condition("inventory.holds", "healthcell")>>
+    <<sell_item "healthcell" 4>>
+    <<jump merchant_seed>>
+-> Ask about refunds.
+    <<jump merchant_seed__1>>
+-> Leave.
+===
+
+title: merchant_seed__1
+---
+Merchant Prototype: Refunds stay available until a purchase changes a route, boss, or story flag. After that, the sale is final.
+-> Back to shop stub.
+    <<jump merchant_seed>>
+-> Leave.
+===
+
+title: vault_keeper
+---
+Vault Keeper: Read the whole entry before you buy. Price, source, side effects, whether it persists, and whether I'll take it back are all listed.
+-> Show the merchant plan.
+    <<jump vault_keeper__1>>
+-> What is ethical currency?
+    <<jump vault_keeper__2>>
+-> Not buying anything yet.
+===
+
+title: vault_keeper__1
+---
+Vault Keeper: The draft shop can grant abilities, refill health, open routes, set story flags, or show where an upgrade came from. Each choice carries its price.
+-> Back to the vault menu.
+    <<jump vault_keeper>>
+-> Close the ledger.
+===
+
+title: vault_keeper__2
+---
+Vault Keeper: Check who paid for the upgrade. Some funding opens shortcuts and marks whatever you build with it. Other funding takes longer to earn but leaves a clean source record.
+-> Back to the vault menu.
+    <<jump vault_keeper>>
+-> Close the ledger.
+===
+
+title: hub_guide__test
+---
+<<if visit_count("hub_guide__test") <= 1>>
+    Kernel Guide: Test menu. Each option exercises one dialogue feature: markup, a command, a save-state query, or multi-line output.
+<<else>>
+    Kernel Guide: Test menu again. Pick another entry.
+<<endif>>
+-> Markup: ⟨shout⟩
+    <<jump hub_guide__test_shout>>
+-> Markup: ⟨whisper⟩
+    <<jump hub_guide__test_whisper>>
+-> Multi-line accumulation.
+    <<jump hub_guide__test_multiline>>
+-> Command: world.set_flag
+    <<jump hub_guide__test_flag>>
+-> Command: play_sfx
+    <<jump hub_guide__test_sfx>>
+-> Command: spawn_fireworks
+    <<jump hub_guide__test_fireworks>>
+-> Command: give_item
+    <<jump hub_guide__test_item>>
+-> Command: camera_zoom
+    <<jump hub_guide__test_zoom>>
+-> Command: spawn_chest
+    <<jump hub_guide__test_chest>>
+-> Function: boss_cleared
+    <<jump hub_guide__test_boss>>
+-> Function: visit_count
+    <<jump hub_guide__test_visit>>
+-> Function: quest_active
+    <<jump hub_guide__test_quest>>
+-> Condition: inventory.holds
+    <<jump hub_guide__test_inv>>
+-> Back to the main hub guide.
+    <<jump hub_guide>>
+===
+
+title: hub_guide__test_shout
+---
+Kernel Guide: Next line uses shout markup. The bridge sets YarnPresentationCue.shout for this frame; camera and audio consumers can read it.
+Kernel Guide: [shout]LOUD VOICE — CAMERA SHAKE HOOK FIRES NOW.[/shout]
+Kernel Guide: Normal line. The shout cue clears on the next frame.
+-> Back to test menu.
+    <<jump hub_guide__test>>
+===
+
+title: hub_guide__test_whisper
+---
+Kernel Guide: Next line uses whisper markup. The whisper cue drives the pitch and volume hooks.
+Kernel Guide: [whisper]quiet voice — pitched-down audio hook would fire here[/whisper]
+Kernel Guide: Normal line again.
+-> Back to test menu.
+    <<jump hub_guide__test>>
+===
+
+title: hub_guide__test_multiline
+---
+Kernel Guide: Three lines follow with no options or Confirm press between them.
+Kernel Guide: The bridge advances each PresentLine and joins them with paragraph breaks.
+Kernel Guide: All three should be on one page. The option below comes after the third line.
+-> Back to test menu.
+    <<jump hub_guide__test>>
+===
+
+title: hub_guide__test_flag
+---
+<<if condition("world.flag_set", "kernel_guide_demo_flag")>>
+    Kernel Guide: The condition catalog reads world.flag_set(kernel_guide_demo_flag) = TRUE.
+<<else>>
+    Kernel Guide: The condition catalog reads world.flag_set(kernel_guide_demo_flag) = FALSE.
+<<endif>>
+Kernel Guide: condition() reads the world-fact domain directly. Toggle the flag, return to the menu, then open this test again and check the value.
+-> Set the flag.
+    <<command "world.set_flag" "kernel_guide_demo_flag" true>>
+    <<jump hub_guide__test>>
+-> Clear the flag.
+    <<command "world.set_flag" "kernel_guide_demo_flag" false>>
+    <<jump hub_guide__test>>
+-> Back to test menu (no change).
+    <<jump hub_guide__test>>
+===
+
+title: hub_guide__test_sfx
+---
+Kernel Guide: Sending SfxMessage::Play for ui.notification.discovery.
+<<play_sfx "ui.notification.discovery">>
+Kernel Guide: That chime is ui.notification.discovery from sfx.bank. play_sfx accepts any registered clip id.
+-> Back to test menu.
+    <<jump hub_guide__test>>
+===
+
+title: hub_guide__test_fireworks
+---
+Kernel Guide: Calling spawn_fireworks. Expect staggered explosion sprites and matching explosion audio.
+<<spawn_fireworks>>
+Kernel Guide: If the sequence is silent or all fires at once, inspect ExplosionRequest and FireworksRequest.
+-> Back to test menu.
+    <<jump hub_guide__test>>
+===
+
+title: hub_guide__test_item
+---
+Kernel Guide: Calling give_item HealthPotion 1.
+<<give_item "HealthPotion" 1>>
+Kernel Guide: Stub command. Check stderr for the trace; no item is granted yet.
+-> Back to test menu.
+    <<jump hub_guide__test>>
+===
+
+title: hub_guide__test_zoom
+---
+Kernel Guide: Calling camera_zoom 0.85.
+<<camera_zoom 0.85>>
+Kernel Guide: Stub command. It records the request but does not change the camera yet.
+-> Back to test menu.
+    <<jump hub_guide__test>>
+===
+
+title: hub_guide__test_chest
+---
+Kernel Guide: Calling spawn_chest 'kernel_demo_chest'.
+<<spawn_chest "kernel_demo_chest">>
+Kernel Guide: Stub command. It records the chest id but does not spawn a chest yet.
+-> Back to test menu.
+    <<jump hub_guide__test>>
+===
+
+title: hub_guide__test_boss
+---
+<<if boss_cleared("cove.mockingbird")>>
+    Kernel Guide: boss_cleared("cove.mockingbird") returned TRUE. The cove uses its after-treasure dialogue now.
+<<else>>
+    Kernel Guide: boss_cleared("cove.mockingbird") returned FALSE. The encounter is Dormant or InProgress.
+<<endif>>
+-> Back to test menu.
+    <<jump hub_guide__test>>
+===
+
+title: hub_guide__test_visit
+---
+<<if visit_count("hub_guide") == 1>>
+    Kernel Guide: visit_count("hub_guide") returned 1.
+<<else>>
+    Kernel Guide: visit_count("hub_guide") is greater than 1. DialogState.start increments AmbitionGameSaveData.dialog_visits for this id.
+<<endif>>
+-> Back to test menu.
+    <<jump hub_guide__test>>
+===
+
+title: hub_guide__test_quest
+---
+<<if quest_active("pirate_treasure")>>
+    Kernel Guide: quest_active("pirate_treasure") returned TRUE: Pirate Treasure is InProgress.
+<<else>>
+    Kernel Guide: quest_active("pirate_treasure") returned FALSE: Pirate Treasure is NotStarted or Completed.
+<<endif>>
+-> Back to test menu.
+    <<jump hub_guide__test>>
+===
+
+title: hub_guide__test_inv
+---
+<<if condition("inventory.holds", "HealthPotion")>>
+    Kernel Guide: condition("inventory.holds", "HealthPotion") returned TRUE. The condition catalog read the live inventory.
+<<else>>
+    Kernel Guide: condition("inventory.holds", "HealthPotion") returned FALSE. There is no Health Cell in the inventory.
+<<endif>>
+-> Back to test menu.
+    <<jump hub_guide__test>>
+===
+
+title: smirking_behemoth_victory_npc
+---
+The Rope Appreciator: Oh wow. I'm OUT. I had started naming its stomach noises.
+<<if cut_rope_heavy_object_is("piano")>>
+    The Rope Appreciator: You cut the rope and dropped a piano on it. I saw the whole thing.
+    The Rope Appreciator: A piano. You killed it with a piano. I have no notes.
+<<else>>
+    The Rope Appreciator: You cut the rope and dropped an anvil on it. I saw the whole thing.
+    The Rope Appreciator: An anvil. You killed it with an anvil. Good.
+<<endif>>
+The Rope Appreciator: How are you going to spend the rest of your day?
+-> Maybe watch a video.
+    The Rope Appreciator: Here. Watch this: youtube.com/watch?v=ucLGm27DDL0
+    <<watch_cut_rope_video>>
+-> Press reset and start again.
+    The Rope Appreciator: Fine by me. Hit it. I'm staying out here this time.
+    <<reset_cut_rope_room>>
+-> Just walk away.
+    The Rope Appreciator: Works for me. I'm going to stand here for a while.
+===

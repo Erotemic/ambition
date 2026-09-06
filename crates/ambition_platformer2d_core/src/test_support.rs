@@ -1,0 +1,277 @@
+//! Test helpers that drive bodies through production [`step_motion`] with an
+//! explicit environment frame.
+//!
+//! [`TestTuning`] carries authored tuning plus the fixture's resolved frame
+//! direction. Model-private maneuver state stays in the scratch body's persistent
+//! [`MotionModel`], so multi-tick tests preserve buffers, timers, and ledge state.
+
+use crate::body_clusters::{reset_body_clusters, BodyClusterScratch, BodyClustersMut};
+use crate::movement::{
+    step_motion, AxisSweptParams, FrameEvents, InputState, MotionModel, MotionModelSpec,
+    MotionStepContext, MovementTuning, DEFAULT_GRAVITY_DIR, DEFAULT_TUNING,
+};
+use crate::{LedgeContact, LedgeGrabState, MotionFrame, Vec2, World};
+
+/// Authored tuning + the test's explicit environment frame direction.
+#[derive(Clone, Copy, Debug)]
+pub(crate) struct TestTuning {
+    pub base: MovementTuning,
+    /// The frame direction the environment resolver would supply.
+    pub gravity_dir: Vec2,
+    /// Legacy Y-sign mirror some fixtures still set; derived consumers should
+    /// use `gravity_dir`.
+    pub gravity_sign: f32,
+}
+
+pub(crate) const TEST_TUNING: TestTuning = TestTuning {
+    base: DEFAULT_TUNING,
+    gravity_dir: DEFAULT_GRAVITY_DIR,
+    gravity_sign: 1.0,
+};
+
+impl Default for TestTuning {
+    fn default() -> Self {
+        TEST_TUNING
+    }
+}
+
+impl std::ops::Deref for TestTuning {
+    type Target = MovementTuning;
+    fn deref(&self) -> &MovementTuning {
+        &self.base
+    }
+}
+
+impl std::ops::DerefMut for TestTuning {
+    fn deref_mut(&mut self) -> &mut MovementTuning {
+        &mut self.base
+    }
+}
+
+impl From<MovementTuning> for TestTuning {
+    fn from(base: MovementTuning) -> Self {
+        Self {
+            base,
+            ..TEST_TUNING
+        }
+    }
+}
+
+impl TestTuning {
+    /// The frame the environment resolver would produce for this fixture.
+    pub fn frame(&self) -> MotionFrame {
+        MotionFrame::from_direction(self.gravity_dir, self.base.gravity)
+    }
+
+    pub fn params(&self) -> AxisSweptParams {
+        self.base.axis_swept_params()
+    }
+}
+
+/// Refresh the persistent model's axis params from the fixture tuning through
+/// the production same-variant path (state preserved by construction), and
+/// panic-borrow the axis variant for the phase-level helpers.
+fn refresh_axis<'m>(
+    model: &'m mut MotionModel,
+    tuning: &TestTuning,
+) -> &'m mut crate::movement::AxisSweptMotion {
+    model.apply_spec(MotionModelSpec::AxisSwept(tuning.params()));
+    match model {
+        MotionModel::AxisSwept(axis) => axis,
+        _ => unreachable!("apply_spec(AxisSwept) always installs the axis variant"),
+    }
+}
+
+/// Whole-tick axis-swept step through [`step_motion`] + the home respawn
+/// policy (a flagged reset teleports to `world.spawn`). `model` is the body's
+/// persistent policy — private maneuver state carries across calls.
+pub(crate) fn update_player_with_tuning_clusters(
+    world: &World,
+    model: &mut MotionModel,
+    clusters: &mut BodyClustersMut<'_>,
+    input: InputState,
+    raw_dt: f32,
+    tuning: TestTuning,
+) -> FrameEvents {
+    let _ = refresh_axis(model, &tuning);
+    let result = step_motion(
+        model,
+        clusters,
+        MotionStepContext {
+            world,
+            input,
+            frame: tuning.frame(),
+            facing_intent: 0.0,
+            dt: raw_dt,
+            contact: crate::movement::body_contact::BodyContactField::NONE,
+            pose_owned_externally: false,
+            recovery_commitment_outstanding: false,
+        },
+    );
+    if result.events.reset.is_some() {
+        reset_body_clusters(
+            model,
+            clusters,
+            world.spawn,
+            crate::movement::DEFAULT_TUNING.air_jumps,
+        );
+    }
+    result.events
+}
+
+pub(crate) fn update_player_with_tuning_scratch(
+    world: &World,
+    scratch: &mut BodyClusterScratch,
+    input: InputState,
+    raw_dt: f32,
+    tuning: TestTuning,
+) -> FrameEvents {
+    let (model, mut clusters) = scratch.parts();
+    update_player_with_tuning_clusters(world, model, &mut clusters, input, raw_dt, tuning)
+}
+
+pub(crate) fn update_player_clusters(
+    world: &World,
+    model: &mut MotionModel,
+    clusters: &mut BodyClustersMut<'_>,
+    input: InputState,
+    raw_dt: f32,
+) -> FrameEvents {
+    update_player_with_tuning_clusters(world, model, clusters, input, raw_dt, TEST_TUNING)
+}
+
+/// Control PHASE only (kernel-private phase vocabulary) + the home respawn
+/// policy, for tests that pin phase-level behavior such as the two-clock split.
+pub(crate) fn update_player_control_with_tuning_scratch(
+    world: &World,
+    scratch: &mut BodyClusterScratch,
+    input: InputState,
+    control_dt: f32,
+    tuning: TestTuning,
+) -> FrameEvents {
+    let (model, mut clusters) = scratch.parts();
+    let axis = refresh_axis(model, &tuning);
+    let events = crate::movement::update_body_control_in_frame(
+        world,
+        &mut clusters,
+        &mut axis.state,
+        input,
+        control_dt,
+        tuning.frame(),
+        tuning.params(),
+        false,
+    );
+    if events.reset.is_some() {
+        reset_body_clusters(
+            model,
+            &mut clusters,
+            world.spawn,
+            crate::movement::DEFAULT_TUNING.air_jumps,
+        );
+    }
+    events
+}
+
+/// Simulation PHASE only (kernel-private phase vocabulary) + the home respawn
+/// policy.
+pub(crate) fn update_player_simulation_with_tuning_scratch(
+    world: &World,
+    scratch: &mut BodyClusterScratch,
+    input: InputState,
+    raw_dt: f32,
+    tuning: TestTuning,
+) -> FrameEvents {
+    let (model, mut clusters) = scratch.parts();
+    update_player_simulation_with_clusters(world, model, &mut clusters, input, raw_dt, tuning)
+}
+
+pub(crate) fn update_player_simulation_with_clusters(
+    world: &World,
+    model: &mut MotionModel,
+    clusters: &mut BodyClustersMut<'_>,
+    input: InputState,
+    raw_dt: f32,
+    tuning: TestTuning,
+) -> FrameEvents {
+    let axis = refresh_axis(model, &tuning);
+    let events = crate::movement::update_body_simulation_in_frame(
+        world,
+        clusters,
+        &mut axis.state,
+        input,
+        raw_dt,
+        tuning.frame(),
+        tuning.params(),
+        crate::movement::body_contact::BodyContactField::NONE,
+        false,
+    );
+    if events.reset.is_some() {
+        reset_body_clusters(
+            model,
+            clusters,
+            world.spawn,
+            crate::movement::DEFAULT_TUNING.air_jumps,
+        );
+    }
+    events
+}
+
+/// Scratch-based wrapper over the frame-explicit ledge runtime.
+pub(crate) fn tick_active_ledge_grab_scratch(
+    scratch: &mut BodyClusterScratch,
+    input: InputState,
+    dt: f32,
+    tuning: TestTuning,
+    events: &mut FrameEvents,
+) -> bool {
+    let (model, mut clusters) = scratch.parts();
+    let axis = refresh_axis(model, &tuning);
+    crate::ledge_grab::tick_active_ledge_grab_clusters_in_frame(
+        &mut clusters,
+        &mut axis.state,
+        input,
+        dt,
+        tuning.frame(),
+        tuning.params(),
+        events,
+    )
+}
+
+/// Scratch-based wrapper over the frame-explicit ledge acquisition probe.
+pub(crate) fn try_start_ledge_grab_scratch(
+    world: &World,
+    scratch: &mut BodyClusterScratch,
+    input: InputState,
+    events: &mut FrameEvents,
+) -> bool {
+    let (model, mut clusters) = scratch.parts();
+    let axis = refresh_axis(model, &TEST_TUNING);
+    crate::ledge_grab::try_start_ledge_grab_clusters_in_frame(
+        world,
+        &mut clusters,
+        &mut axis.state,
+        input,
+        TEST_TUNING.frame(),
+        &axis.params,
+        events,
+    )
+}
+
+pub(crate) fn ledge_boost(
+    momentum_at_grab: Vec2,
+    contact: LedgeContact,
+    elapsed_at_initiation: f32,
+    tuning: &TestTuning,
+) -> Vec2 {
+    crate::ledge_grab::ledge_boost_in_frame(
+        momentum_at_grab,
+        contact,
+        elapsed_at_initiation,
+        tuning.frame(),
+        &tuning.params(),
+    )
+}
+
+pub(crate) fn ledge_boost_for_state(state: LedgeGrabState, tuning: &TestTuning) -> Vec2 {
+    crate::ledge_grab::ledge_boost_for_state_in_frame(state, tuning.frame(), &tuning.params())
+}

@@ -1,0 +1,92 @@
+[package]
+name = "ambition_demo_smash_app"
+version = "0.1.0"
+edition.workspace = true
+license.workspace = true
+authors.workspace = true
+description = "The smash demo's thin SHELL. The first place a stock is actually spent in a running session rather than in a unit test."
+autotests = false
+
+# ⭐ ONE MODAL TOOL BINARY, replacing nine (2026-09-03). See
+# `src/tools/mod.rs` for the measurement that motivated it.
+#
+# ⛔ NO `required-features`. The capture burst needs `visible` + `capture`, but
+# declaring them here would make cargo skip the WHOLE tool binary in every other
+# cell — and `--features visible` is not a supported test cell for this crate
+# (see the `visible` comment below). The one subcommand that needs them is gated
+# at its own definition and says so when it is off.
+[[bin]]
+name = "smash_tool"
+path = "src/bin/smash_tool.rs"
+test = false
+bench = false
+
+[[bin]]
+name = "smash_demo"
+path = "src/main.rs"
+test = false
+bench = false
+
+[features]
+default = []
+# Draw it AND make it playable, exactly as the Sanic shell does.
+#
+# ⛔ `cargo test -p ambition_demo_smash_app --features visible` IS NOT A
+# SUPPORTED CELL, and that is a property of the composition rather than a bug to
+# fix. `build_demo_app` starts from `add_headless_foundation` — MinimalPlugins
+# plus assets/images/transforms/states — and has no renderer whatever features
+# are on (its own doc says so). `visible` then adds presentation and debug-viz
+# SYSTEMS whose parameters are render-stack resources.
+#
+# MEASURED 2026-09-02, by fixing each one and finding the next:
+#   1. `Assets<TextureAtlasLayout>` — `ImagePlugin` does not supply it (it is
+#      `TextureAtlasPlugin`'s). FIXED at the source: `PlatformerAssetsPlugin`
+#      now registers what its own Startup system consumes.
+#   2. `GizmoConfigStore` for `draw_debug_viz` — needs bevy's `GizmoPlugin`.
+#      FIXED at the source: that system now carries the same
+#      `run_if(resource_exists::<GizmoConfigStore>)` guard `avatar::trail.rs`
+#      already had.
+#   3. `Assets<Mesh>` + `Assets<HitFlashMaterial>` for the hit-flash pass —
+#      `MeshPlugin`'s, and in this repo only ever hand-registered inside tests.
+# ⇒ Each fix revealed the next. That is the signature of "this composition wants
+# a renderer", not "one registration is missing", so the chain is not worth
+# following further.
+#
+# WHERE IT STANDS: the cell BUILDS and 14 of 39 tests pass; the other 25 step far
+# enough to reach a presentation system and die in bevy's parameter validation.
+# ⚠ That failure names nothing — `<Enable the debug feature to see the name>` —
+# so run it under `RUST_BACKTRACE=1` and read the `run_unsafe<fn(..)>` frame,
+# which is the only place the system's parameters appear.
+#
+# SUPPORTED INSTEAD: the workspace feature union (`nextest --workspace`, which
+# the gate runs), and `build_windowed_demo_app` for anything that must draw.
+# ⛔ `portal_render` IS HERE AND NOT IN THE HEADLESS SET, because it is the
+# PRESENTATION half of a move this demo authors. Simulation lives on the
+# `portal` feature that `ambition_demo_smash` now requires; without this one a
+# visible build simulated Alice's recovery correctly and drew no apertures at
+# all, which is a different bug with the same symptom — the player sees her
+# vanish into nothing.
+visible = ["ambition_platformer2d/visible", "ambition_platformer2d/basic_shell_presentation", "ambition_platformer2d/audio", "ambition_platformer2d/portal_render", "input"]
+input = ["ambition_platformer2d/input"]
+# The causal log, for `ladder_probe`'s seam trace. Off by default (§2e): a demo
+# that never opens an inspector must not link one. With it, the probe reads the
+# typed fact `record_body_control_frame` publishes instead of hand-querying the
+# same components — which is what makes the brain's decision and the body's
+# received frame ONE joined line rather than two streams to correlate by eye.
+causal = ["ambition_platformer2d/causal"]
+# The offscreen capture module and its PNG encoder, for `match_shots`. Off by
+# default and never enabled by anything that ships.
+capture = ["ambition_platformer2d/capture"]
+
+[dependencies]
+# A demo app depends on `ambition_platformer2d`, never on `ambition_app`. That is the demo gate.
+ambition_platformer2d = { path = "../../crates/ambition_platformer2d", default-features = false, features = ["all_capabilities"] }
+ambition_demo_smash = { path = "../ambition_demo_smash" }
+bevy = { version = "0.19.1", default-features = false }
+# Argument parsing for `smash_tool`, the crate's single modal tool binary.
+clap = { workspace = true }
+
+# ONE aggregated integration-test binary instead of 2. See tests/smash_it.rs.
+[[test]]
+name = "smash_it"
+path = "tests/smash_it.rs"

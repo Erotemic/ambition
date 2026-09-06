@@ -1,0 +1,21 @@
+# Companion to `add_ladder_floor_gate.yaml`.
+#
+# `area create` lowers all Solid YAML entries into IntGrid cells. To
+# get a NAMED block the runtime can find by name (and remove on
+# victory), we erase the matching IntGrid slot above the ladder and
+# replace it with a Solid entity instance whose name is preserved
+# into `ae::Block::name`.
+#
+# Apply via:
+#   python -m ambition_ldtk_tools intgrid erase \
+#       --level gnu_ton_arena --px 120,208 --size 32,16
+#
+# The 32×16 rect at px [120, 208] overlaps IntGrid cells 7..9 on
+# row 13 (cell width 16), so the actual erase footprint is 48×16
+# (px 112..160). The companion `add_ladder_floor_gate.yaml` Solid
+# uses the wider 48-px footprint to fill exactly that slot.
+level_id: gnu_ton_arena
+intgrid_erase:
+  - layer: Collision
+    px: [120, 208]
+    size: [32, 16]

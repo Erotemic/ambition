@@ -1,0 +1,30 @@
+[package]
+name = "ambition_load_presentation"
+version = "0.1.0"
+edition.workspace = true
+license.workspace = true
+authors.workspace = true
+description = "Contributor-neutral loading foreground lifecycle with shell adaptation, semantic progress, activities, ready-hold, and deterministic cleanup."
+publish = false
+
+[lib]
+crate-type = ["rlib"]
+
+[features]
+default = []
+# `bevy/x11`: `ui_api` pulls winit, which needs a display backend to compile in an isolated `cargo
+# test -p ambition_load_presentation`.
+basic_presentation = [
+    "bevy/ui_api",
+    "bevy/x11",
+    "ambition_game_shell/basic_presentation",
+]
+
+[dependencies]
+ambition_load = { path = "../ambition_load" }
+ambition_game_shell = { path = "../ambition_game_shell" }
+# The `MenuControlFrame` seam these loading screens hand to `shell_action_edges`
+# so a phone can dismiss a ready-hold without a keyboard. See that function.
+ambition_input = { path = "../ambition_input", default-features = false }
+ambition_platformer2d_shared_tangle = { path = "../ambition_platformer2d_shared_tangle" }
+bevy = { version = "0.19.1", default-features = false }

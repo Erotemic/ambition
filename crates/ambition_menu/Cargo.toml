@@ -1,0 +1,62 @@
+[package]
+name = "ambition_menu"
+version = "0.1.0"
+edition = "2021"
+description = "Reusable Bevy inventory/menu UI data model and interaction primitives."
+license = "MIT OR Apache-2.0"
+publish = false
+
+[features]
+default = []
+bevy_ui_menu = ["bevy/ui_picking"]
+# Forwarded from the host: real keyboard/gamepad hotkeys for the Map tab.
+# Without it the map input system compiles as a no-op stub. Same shape as
+# `ambition_dialog`'s.
+input = ["ambition_input/input"]
+# The LDtk backend supplies the room RECTANGLES `populate_map_rooms` draws.
+ldtk = ["dep:ambition_platformer2d_ldtk", "ambition_platformer2d_ldtk/ldtk_runtime"]
+kaleidoscope_menu = []
+
+[dependencies]
+# `default-features = false` is load-bearing for the WHOLE workspace: this crate
+# is a normal dep of ambition_platformer2d_actor_monolith and ambition_platformer2d_runtime, so Cargo feature
+# unification pushes whatever it asks for into every build of every app —
+# headless, web, Android, CI included. Plain `bevy = "0.19.1"` means
+# `default = [2d, 3d, ui]`, i.e. pbr/gltf/animation/audio/gilrs/hdr/ktx2/
+# reflect_auto_register/winit compiled into all of them, silently nullifying the
+# trimmed feature sets every other manifest carefully declares.
+# `bevy_ui` (NOT `ui_api`) is the right level: it turns on the UI vocabulary this
+# crate's flat grid renderer needs (Node/Button/Interaction/Text/ImageNode)
+# WITHOUT `default_app`, which would drag in bevy_winit and force every consumer
+# to pick a windowing backend. Same choice `ambition_ui_nav` made.
+bevy = { version = "0.19.1", default-features = false, features = [
+    "bevy_ui",
+    # `bevy_picking` (the pointer vocabulary) is needed by the ALWAYS-compiled
+    # part of this crate — `ScrollbarDragState.pressed_by` is a `PointerId` in
+    # the shared model, and the bevy_ui renderer module is not feature-gated.
+    # Only the UI *backend* (`ui_picking`) rides the `bevy_ui_menu` feature.
+    "bevy_picking",
+] }
+# `PressArm` — the release-with-drag-cancel primitive the pointer bridge
+# activates on. It lives there because dialogue and the cube menu already use
+# it, and a fourth copy of "did this press survive as a tap" is exactly the
+# drift this renderer's bridge exists to prevent.
+ambition_ui_nav = { path = "../ambition_ui_nav" }
+# The Map tab's own three edges, arriving with it from the actor monolith
+# . none of them widens what an edit rebuilds: this crate
+# already sat downstream of `ambition_platformer2d_core` through
+# `ambition_ui_nav -> ambition_input`.
+# `MenuControlFrame` — the hotkey/pointer frame the map input systems read.
+ambition_input = { path = "../ambition_input" }
+# `SessionSpawnScope` / `SessionWorldRef` — the map UI is session-scoped.
+ambition_platformer2d_shared_tangle = { path = "../ambition_platformer2d_shared_tangle" }
+# `RoomSet` — the room graph the map draws.
+ambition_platformer2d_world = { path = "../ambition_platformer2d_world" }
+# `AmbitionGameSave` — the visited-room set the Map tab hydrates from; and
+# `UserSettings.controls.menu_tap_mode`, the pointer bridge's activation policy.
+ambition_persistence = { path = "../ambition_persistence" }
+# `ActiveLdtkProject` — room rectangles, behind the `ldtk` feature.
+ambition_platformer2d_ldtk = { path = "../ambition_platformer2d_ldtk", default-features = false, optional = true }
+# The bevy_lunex cube renderer moved to the `ambition_menu_kaleidoscope`
+# extension crate (E1e); this crate is now bevy_lunex-free (the flat bevy_ui
+# grid renderer + the renderer-agnostic page model).

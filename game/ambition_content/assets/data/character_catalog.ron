@@ -1,0 +1,3206 @@
+// Ambition character catalog — provider-owned cast metadata, presentation,
+// writing defaults, controller-profile references, and other catalog-shaped
+// authoring data. It participates in character preparation, but it is NOT a
+// second body-construction authority. Runtime bodies are constructed from the
+// resolved `PreparedCharacterDefinition` produced from registered
+// `CharacterDefinition` values plus any catalog/source fragments they consume.
+//
+// Schema and loading live in
+// `crates/ambition_characters/src/actor/character_catalog/`.
+// Current architecture: `docs/systems/actors-brains-and-character-content.md`.
+// Authoring workflow: `docs/recipes/adding-a-character.md`.
+//
+// A catalog row alone does not make a spawnable body. Add or update the provider
+// metadata here when the character uses it, and register/author the corresponding
+// `CharacterDefinition` through the current Ambition content seam.
+
+(
+    // Reusable autonomous-controller profiles, by name — the second of the
+    // three authorities (D73 / the overnight campaign). Several characters name
+    // one of these and keep their own bodies, which is what an enemy ARCHETYPE
+    // could never express: `medium_striker` is a whole BODY worn by five
+    // goblins, a lab raider and a skitter, so sharing their decision-making
+    // meant sharing their health, reach and top speed too.
+    //
+    //  these author normalized EFFORT (a fraction of each body's own
+    // `run_speed`), never px/s — §4.7's brain→body seam. A policy that authored
+    // absolute speeds could not be shared by a mite and a giant.
+    autonomous_profiles: {
+        // The goblin band's fighting style, lifted verbatim off the
+        // `medium_striker` archetype's controller half: notice at 460px, commit
+        // the swing at 150, poke with a thrown rock before closing, and dash to
+        // shut a large gap. Nothing here says how much punishment the body takes
+        // or how fast it can move — that is the character's half.
+        "medium_striker": (
+            template: Smash,
+            aggro_radius: 460.0,
+            attack_range: 150.0,
+            patrol_effort: 0.6176,
+            chase_effort: 1.0,
+            smash_hit_band: 32.0,
+            smash_sprint_to_close: true,
+        ),
+        //  A WANDERING SENTRY that notices late and never hurries. Not a
+        // creature — a WAY OF PLAYING one, which is the whole point of a shared
+        // policy: the same body on a patrol route and the same body holding a
+        // doorway are two placements of one character, and the level decides.
+        //
+        //  effort is a FRACTION of whatever body wears it, so a fast creature
+        // patrolling at 0.35 is still faster than a slow one at 1.0. That is why
+        // a policy can be shared across bodies at all.
+        //  THE CELLULAR AUTOMATON'S FIGHTING STYLE, published so the
+        // creature can name it when PROVOKED (ledger D89). Lifted off the
+        // `cellular_automaton_fighter` archetype's controller half: notice from
+        // across the arena, commit the swing at 150, dash to shut a gap, and play
+        // the duelist neutral game — footsies and spacing rather than
+        // close-and-camp.
+        //
+        //  a provoked creature rebuilds its MIND, and this is the mind. The
+        // PCA reached this policy through `hostile_brain_id_for_actor`, a matcher
+        // that read its display name; a character that publishes its own policy
+        // needs no matcher to recognise it.
+        "cellular_duelist": (
+            template: Smash,
+            aggro_radius: 540.0,
+            attack_range: 150.0,
+            patrol_effort: 0.5714,
+            chase_effort: 1.0,
+            smash_sprint_to_close: true,
+            smash_duelist: true,
+        ),
+        "patroller": (
+            template: Wanderer,
+            aggro_radius: 140.0,
+            attack_range: 40.0,
+            patrol_effort: 0.35,
+            chase_effort: 0.8,
+        ),
+        //  THE ROBOT'S OWN FIGHTING STYLE, lifted off the `player_robot`
+        // archetype's controller half: notices across the room, commits the
+        // swing close in, dashes to shut a gap, and plays the duelist neutral
+        // game (footsies and spacing) rather than closing and camping.
+        //
+        //  nothing here says how much punishment the body takes or how fast it
+        // can move — that is the character's half, and the whole reason the
+        // eighty-line archetype row could not simply become a definition.
+        "robot_duelist": (
+            template: Smash,
+            aggro_radius: 560.0,
+            attack_range: 60.0,
+            patrol_effort: 0.55,
+            chase_effort: 1.0,
+            smash_sprint_to_close: true,
+            smash_duelist: true,
+        ),
+        //  WHAT A COVE RAIDER BECOMES WHEN YOU HIT IT, lifted off the
+        // `pirate_raider` archetype's controller half (2026-08-11, ledger D84).
+        //
+        //  a PROVOKED policy is still just a policy. Provocation used to
+        // hand the body a different ARCHETYPE — new tuning, new HP pool, new
+        // capabilities — because the archetype WAS the creature. A raider that
+        // takes a swing is the same raider; only its mind changes.
+        "pirate_boarder": (
+            template: Smash,
+            aggro_radius: 460.0,
+            attack_range: 140.0,
+            patrol_effort: 0.6842,
+            chase_effort: 1.0,
+        ),
+        //  THE HEAVY'S VERSION. A brute rather than a duelist, and it
+        // notices only what comes to it — `aggro_radius: 0.0` is the row's own
+        // number, with `provoke_forced_brute_min_aggro` doing the noticing on the
+        // legacy path.
+        "pirate_boarder_heavy": (
+            template: MeleeBrute,
+            aggro_radius: 500.0,
+            attack_range: 90.0,
+            patrol_effort: 0.5769,
+            chase_effort: 1.0,
+        ),
+        //  KEEPS ITS DISTANCE AND SHOOTS, lifted off the
+        // `ranged_skirmisher` archetype's controller half (2026-08-11): notices
+        // across the room, opens fire from almost as far, and ambles rather than
+        // charges. What it fires is the BODY's business — a raider's gun-sword
+        // and a mage's bolt are the same policy with different weapons.
+        "skirmisher": (
+            template: Skirmisher,
+            aggro_radius: 540.0,
+            attack_range: 520.0,
+            patrol_effort: 0.6,
+            chase_effort: 1.0,
+        ),
+        //  HOLDS ITS GROUND. Notices a long way off and commits hard, but
+        // barely drifts from where it was placed — a door guard rather than a
+        // hunter. The counterpart to `patroller` on the one axis a level cares
+        // about: does this one come looking for you, or wait.
+        "door_guard": (
+            template: Smash,
+            aggro_radius: 320.0,
+            attack_range: 120.0,
+            patrol_effort: 0.08,
+            chase_effort: 1.0,
+            smash_hit_band: 36.0,
+        ),
+    },
+    brain_presets: {
+        "stand_still": StandStill,
+        "patrol_peaceful": Patrol(
+            spawn_local_x: 0.0,
+            radius: 64.0,
+            speed: 28.0,
+            aggressiveness: 0.0,
+            aggro_radius: 80.0,
+            attack_range: 0.0,
+        ),
+        "wanderer_puppy_slug": Wanderer(
+            speed: 36.0,
+            aggressiveness: 0.0,
+        ),
+        "melee_brute_striker": MeleeBrute(
+            aggressiveness: 1.0,
+            aggro_radius: 220.0,
+            attack_range: 36.0,
+            chase_speed: 110.0,
+        ),
+        "melee_brute_brute": MeleeBrute(
+            aggressiveness: 1.0,
+            aggro_radius: 240.0,
+            attack_range: 44.0,
+            chase_speed: 75.0,
+        ),
+        "skirmisher_ranger": Skirmisher(
+            aggressiveness: 1.0,
+            aggro_radius: 320.0,
+            standoff_px: 140.0,
+            strafe_speed: 85.0,
+            fire_cooldown_s: 0.8,
+        ),
+        // Lively peaceful flyer (the cove parrot): flits between airborne perches
+        // and ground spots, and drops down beside the player to be talked to.
+        // Needs a `Floating` body_kind (gravity-free) to actually fly.
+        // Aggressive flying melee archetype for the Perfect Cellular Automaton.
+        // The body must be `Floating` so the Aerial brain's 2D velocity drives
+        // the fly row instead of walking on the ground.
+    },
+
+    action_set_presets: {
+        "peaceful": (
+            move_style: Walk,
+            melee: None,
+            ranged: None,
+            special: None,
+        ),
+        "peaceful_float": (
+            move_style: Float,
+            melee: None,
+            ranged: None,
+            special: None,
+        ),
+        "peaceful_slither": (
+            move_style: Slither,
+            melee: None,
+            ranged: None,
+            special: None,
+        ),
+        "striker_swipe": (
+            move_style: Walk,
+            melee: Some(Swipe(
+                windup_s: 0.28,
+                active_s: 0.08,
+                recover_s: 0.32,
+                damage: 1,
+                reach_px: 28.0,
+            )),
+            ranged: None,
+            special: None,
+        ),
+        //  THE ROBOT'S OWN KIT, lifted off the `player_robot` archetype
+        // row's combat half (2026-08-11, ledger D83): the snappy player-like
+        // strike and the signature projectile. The row's numbers verbatim — a
+        // migration that retuned on the way would be two changes wearing one
+        // commit.
+        "robot_duelist_kit": (
+            move_style: Walk,
+            melee: Some(Swipe(
+                windup_s: 0.16,
+                active_s: 0.06,
+                recover_s: 0.20,
+                damage: 1,
+                reach_px: 34.0,
+            )),
+            ranged: Some(Rock(speed: 360.0, damage: 1)),
+            special: None,
+        ),
+        "brute_lunge": (
+            move_style: WalkHeavy,
+            melee: Some(Lunge(
+                windup_s: 0.45,
+                active_s: 0.12,
+                recover_s: 0.45,
+                damage: 2,
+                reach_px: 40.0,
+                step_px: 18.0,
+            )),
+            ranged: None,
+            special: None,
+        ),
+        "ranger_arrow": (
+            move_style: Strafe,
+            melee: None,
+            ranged: Some(Arrow(speed: 520.0, damage: 2)),
+            special: None,
+        ),
+        "pirate_pistol": (
+            move_style: Walk,
+            melee: Some(Swipe(
+                windup_s: 0.28,
+                active_s: 0.08,
+                recover_s: 0.32,
+                damage: 1,
+                reach_px: 28.0,
+            )),
+            ranged: Some(Pistol(speed: 480.0, damage: 1)),
+            special: None,
+        ),
+        "sandbag_punch": (
+            move_style: Walk,
+            melee: Some(PunchWeak(
+                windup_s: 0.15,
+                active_s: 0.08,
+                recover_s: 0.40,
+                damage: 1,
+                reach_px: 22.0,
+            )),
+            ranged: None,
+            special: None,
+        ),
+    },
+
+    characters: {
+        // ===== Base characters (player, robot, goblin, sandbag). The
+        // player slot is special-cased by the runtime (Brain::Player);
+        // its catalog entry exists only to keep the sprite registry
+        // and catalog symmetrical so Phase 6 can delete the registry.
+        "npc_busy_beaver": (
+            display_name: "Busy Beaver",
+            spritesheet: "sprites/busy_beaver_spritesheet.png",
+            manifest: "sprites/busy_beaver_spritesheet.ron",
+            tier: MainHall,
+            body_kind: Standard,
+            composition: None,
+            default_brain: "patrol_peaceful",
+            default_action_set: "peaceful",
+            tags: ["story", "beaver", "mathematician", "foreman", "peaceful"],
+            fallback_dialogue: [
+                "One more course. Then I stop. Probably.",
+                "The dam is finished when I say it is, and I have not said it.",
+            ],
+        barks: (
+            on_hit: ["That was not in the plan!", "Noted. Adding a course."],
+            idle: ["One more course. Then I stop.", "I could halt here. I could.", "Nobody can tell me how long this takes. That is the interesting part."],
+            hall: ["Ask me how many more courses and I will give you a number. The number will be wrong, and no honest beaver could have given you a right one.", "Every dam I have built could have been one log longer. That is not regret. That is the job.", "I am not slow. I am maximizing.", "The river does not halt either, and nobody calls IT overcommitted."],
+        ),
+        hall_dialogue_id: Some("hall_npc_busy_beaver"),
+        ),
+        "npc_charley_beagle_svg": (
+            display_name: "Charley Beagle",
+            spritesheet: "sprites/charley_beagle_svg_spritesheet.png",
+            manifest: "sprites/charley_beagle_svg_spritesheet.ron",
+            tier: MainHall,
+            body_kind: Standard,
+            composition: None,
+            default_brain: "patrol_peaceful",
+            default_action_set: "peaceful",
+            tags: ["story", "dog", "naturalist", "scientist", "peaceful"],
+            fallback_dialogue: [
+                "Everything here is descended from something that nearly did not make it.",
+                "I collect. I compare. Eventually the pattern collects me.",
+            ],
+        barks: (
+            on_hit: ["A selective pressure!", "Noted, catalogued, survived."],
+            idle: ["Everything here is descended from something that nearly did not make it.", "The finches were the small clue. The small clues are always the ones.", "Five years at sea and the important part was the notebook."],
+            hall: ["I do not think the strongest survive. I think the ones that fit the afternoon survive, and the afternoon keeps changing.", "Give me a voyage and a notebook and I will give you an argument nobody wanted.", "Selection is not cruelty. It is bookkeeping that eventually gets read out loud.", "I sat on this for twenty years. Being right early and alone is not the same as being right."],
+        ),
+        hall_dialogue_id: Some("hall_npc_charley_beagle_svg"),
+        ),
+        "npc_niels_boar": (
+            display_name: "Niels Boar",
+            spritesheet: "sprites/niels_boar_spritesheet.png",
+            manifest: "sprites/niels_boar_spritesheet.ron",
+            tier: MainHall,
+            body_kind: Standard,
+            composition: None,
+            default_brain: "patrol_peaceful",
+            default_action_set: "peaceful",
+            tags: ["story", "boar", "physicist", "scientist", "peaceful"],
+            fallback_dialogue: [
+                "The opposite of a small truth is a falsehood. The opposite of a great truth is another great truth.",
+                "You are asking where the electron IS. I am telling you that is the wrong verb.",
+            ],
+        barks: (
+            on_hit: ["A transition!", "I have changed levels. Loudly."],
+            idle: ["The opposite of a great truth is another great truth.", "You want a picture. I have a formalism. We can still be friends.", "It orbits nothing. It occupies. Try to feel the difference."],
+            hall: ["Complementarity is not a dodge. It is the admission that one question can only be answered by giving up another.", "Prediction is very difficult, especially about the future — and I am told I said that, which is itself hard to predict.", "Everything we call real is made of things that cannot be regarded as real. I have made my peace with this. You may take longer.", "The orbits are a lie I keep because it is a USEFUL lie, and you can see it from across the room."],
+        ),
+        hall_dialogue_id: Some("hall_npc_niels_boar"),
+        ),
+        //  the two SNAKE-PLANE swarms left this catalog on 2026-08-13: Mary-O
+        // is their one provider now (definition AND catalog rows, in
+        // `ambition_demo_mary_o`), which is what retired the standalone demo's
+        // archetype-row fallback. The Hall still stages them by id from the
+        // merged catalog; characters are shared by ID, not owned per provider.
+        "npc_vera_ruin": (
+            display_name: "Vera Ruin",
+            spritesheet: "sprites/vera_ruin_spritesheet.png",
+            manifest: "sprites/vera_ruin_spritesheet.ron",
+            tier: MainHall,
+            body_kind: Standard,
+            composition: None,
+            default_brain: "patrol_peaceful",
+            default_action_set: "peaceful",
+            tags: ["story", "astronomer", "scientist", "peaceful"],
+            fallback_dialogue: [
+                "The edges turn as fast as the middle. Something is out there holding on.",
+                "I did not find the dark. I found the grip it has.",
+            ],
+        barks: (
+            on_hit: ["Measured.", "That was mass I could see."],
+            idle: ["The edges turn as fast as the middle.", "Most of the galaxy declined to be photographed.", "I looked at the rotation curve until it stopped being a mistake."],
+            hall: ["Everyone expected the outside to lag. It does not. Whatever is holding those stars, you and I are not made of it.", "I did not find the dark. I found the grip it has, which is the only honest thing to find.", "Nine tenths of the universe is not hiding. It simply never agreed to shine.", "They told me the data was noisy. The data was fine. The expectation was noisy."],
+        ),
+        hall_dialogue_id: Some("hall_npc_vera_ruin"),
+        ),
+        "player_robot_v3": (
+            sprite_tuning: Some((collision_scale: 1.35, frame_sample_inset: 1)),
+            display_name: "Player Robot v3",
+            spritesheet: "sprites/player_robot_v3_spritesheet.png",
+            manifest: "sprites/player_robot_v3_spritesheet.ron",
+            tier: MainHall,
+            body_kind: Standard,
+            composition: None,
+            default_brain: "stand_still",
+            default_action_set: "peaceful",
+            // The protagonist's PLAYABLE kit is host-code-owned: its combat is the
+            // runtime `AbilitySet` dev-toggle / progression kit, not this catalog
+            // row. `default_action_set: "peaceful"` above describes its Hall
+            // pedestal / NPC face, NOT what the worn home box can do. Being the
+            // content default is now unrelated to keeping the code kit — a demo
+            // whose default authors its own kit (Sanic) gets that kit.
+            //  AUTHORED since 2026-08-11 (GPT 5.6 §5). v3 states its own
+            // repertoire -- a swipe, a bolt and a bubble shield -- on its
+            // definition, and `ranged_execution: ChargedProjectile` keeps the
+            // Hadouken charging now that the charge is a character fact rather
+            // than a property of this row saying `HostCode`.
+            // The protagonist's blade, and ONLY the protagonist's: the sheet's
+            // silhouette is sampled from v3's own hit polygon, so a character
+            // with a different swing that named it would wear art cut for
+            // somebody else's volume. A character that names nothing draws its
+            // hit volume instead of borrowing this.
+            attack_vfx: Some("robot_slash"),
+            tags: ["player"],
+            // AF4b: v3's OWN voice, which used to be authored a second time in
+            // `player_robot_lineage.rs`. `barks.hall` only covers a pedestal.
+            fallback_dialogue: [
+                "Currently shipping. Ask me again in a version.",
+                "I inherited the antenna and the debt.",
+                "Every version of you thinks it is the last one.",
+            ],
+        barks: (
+            hall: ["Jump, fall, repeat. That's the whole job.", "Somewhere, someone is holding a controller. I try not to dwell."],
+        ),
+        hall_dialogue_id: Some("hall_player"),
+        ),
+        // Sanic (the momentum-demo speedster) is no longer authored here: that
+        // identity now belongs to the standalone Sanic experience PROVIDER
+        // (`ambition_demo_sanic`). A single character id has a single owning
+        // provider, so the Ambition launcher host surfaces Sanic by LINKING that
+        // provider (see the App-local catalog composition), not by duplicating
+        // the row in Ambition's own roster.
+        "robot": (
+            sprite_tuning: Some((collision_scale: 2.1, frame_sample_inset: 1)),
+            // Jon, 2026-08-05: *"'Robot' should be named to 'Robot V1'."* The id
+            // stays `robot` — it is the lineage's root and every reference in
+            // the tree spells it that way; only what a player READS changes.
+            display_name: "Robot V1",
+            spritesheet: "sprites/robot_spritesheet.png",
+            manifest: "sprites/robot_spritesheet.ron",
+            tier: MainHall,
+            body_kind: Standard,
+            composition: None,
+            default_brain: "stand_still",
+            default_action_set: "peaceful",
+            tags: ["base", "robot"],
+            // AF4b: the incarnation's OWN voice, which used to be authored a
+            // second time in `player_robot_lineage.rs`. `barks.hall` only covers
+            // a pedestal; this covers every other situation, so v0 is not mute
+            // the moment it is anywhere else.
+            fallback_dialogue: [
+                "Version zero. Everything after me was a patch note.",
+                "Beep. ...I don't actually beep. People expect it.",
+                "They kept the antenna. I consider that a win.",
+            ],
+        barks: (
+            hall: ["Beep. ...I don't actually beep. People expect it.", "Version zero. Everything after me was a patch note."],
+        ),
+        hall_dialogue_id: Some("hall_robot"),
+        ),
+        "goblin": (
+            sprite_tuning: Some((collision_scale: 2.1, frame_sample_inset: 1)),
+            display_name: "Goblin",
+            spritesheet: "sprites/goblin_spritesheet.png",
+            manifest: "sprites/goblin_spritesheet.ron",
+            tier: MainHall,
+            body_kind: Standard,
+            composition: None,
+            default_action_set: "striker_swipe",
+            tags: ["enemy", "base"],
+        barks: (
+            on_hit: ["Gah! Watch it!", "Dirty trick!", "I'll remember that!"],
+            provoked: ["Come on then!"],
+            hall: ["My cave is UNGUARDED right now. Do you understand?", "I bite ankles professionally. It's a craft."],
+        ),
+        hall_dialogue_id: Some("hall_goblin"),
+        ),
+        "sandbag": (
+            sprite_tuning: Some((collision_scale: 1.38, frame_sample_inset: 1)),
+            display_name: "Sandbag",
+            spritesheet: "sprites/sandbag_spritesheet.png",
+            manifest: "sprites/sandbag_spritesheet.ron",
+            tier: MainHall,
+            body_kind: Standard,
+            composition: None,
+            //  NAMES NO PRESET (2026-08-12, D81). Its DEFINITION authors an
+            // autonomous `BrainProfile`, which outranks this field everywhere it
+            // is read — so naming `stand_still` was the same policy stated twice.
+            //  safe for THIS preset specifically: `stand_still` holds no speeds
+            // and no `aggressiveness`, so nothing came across with it. A preset
+            // that carries a RELATIONSHIP (the `aggressiveness: 0.0` on
+            // `parrot_lively`, which cost four attempts to understand) has to
+            // move that to the placements first.
+            default_action_set: "sandbag_punch",
+            tags: ["training"],
+        barks: (
+            on_hit: ["..."],
+            hall: ["Hit me. Don't hit me. The sandbag abides either way.", "Ten thousand blows and one compliment. I remember the compliment."],
+        ),
+        hall_dialogue_id: Some("hall_sandbag"),
+        ),
+        //  THE IMMORTAL DUMMY IS A DIFFERENT CREATURE (D77). It shares the
+        // sandbag's sheet and its stance and differs in the one fact that
+        // matters to a combat-feel lab: it cannot be destroyed. `never_dies` is
+        // a CHARACTER trait (`CharacterDeathTraits`), not a placement one, so
+        // "the same sandbag, made invincible here" is not expressible — and
+        // pretending it is would put a mortality policy on a spawn point.
+        "sandbag_infinite": (
+            sprite_tuning: Some((collision_scale: 1.38, frame_sample_inset: 1)),
+            display_name: "Infinite Sandbag",
+            spritesheet: "sprites/sandbag_spritesheet.png",
+            manifest: "sprites/sandbag_spritesheet.ron",
+            tier: MainHall,
+            body_kind: Standard,
+            composition: None,
+            //  NAMES NO PRESET (2026-08-12, D81). Its DEFINITION authors an
+            // autonomous `BrainProfile`, which outranks this field everywhere it
+            // is read — so naming `stand_still` was the same policy stated twice.
+            //  safe for THIS preset specifically: `stand_still` holds no speeds
+            // and no `aggressiveness`, so nothing came across with it. A preset
+            // that carries a RELATIONSHIP (the `aggressiveness: 0.0` on
+            // `parrot_lively`, which cost four attempts to understand) has to
+            // move that to the placements first.
+            default_action_set: "sandbag_punch",
+            tags: ["training"],
+        barks: (
+            on_hit: ["...", "Again."],
+            hall: ["My colleague over there has six hit points. I have nine thousand nine hundred and ninety-nine, and I have never used one.", "Every fighter in this hall learned something on me. None of them learned my name."],
+        ),
+        hall_dialogue_id: Some("hall_sandbag_infinite"),
+        ),
+
+
+        // ===== Faction leaders (hub NPCs).
+        "npc_general": (
+            sprite_tuning: Some((collision_scale: 1.15, frame_sample_inset: 2)),
+            display_name: "General",
+            spritesheet: "sprites/absurd_general_spritesheet.png",
+            manifest: "sprites/absurd_general_spritesheet.ron",
+            tier: MainHall,
+            body_kind: Standard,
+            composition: None,
+            default_brain: "patrol_peaceful",
+            default_action_set: "peaceful",
+            tags: ["hub", "faction_leader"],
+        barks: (
+            on_hit: ["Soldier, explain yourself.", "That is insubordination.", "Court-martial posture engaged."],
+            provoked: ["Weapons free!"],
+            hall: ["At ease. You couldn't manage anything else near me.", "Everything's a defensive position if you're paranoid enough. I am."],
+        ),
+        hall_dialogue_id: Some("hall_npc_general"),
+        ),
+        //  THE GOBLIN BRUTE — Jon's 2026-08-13 casting of `large_brute`,
+        // the goblin lab's heavy: "author a distinct Goblin Brute character …
+        // a separate reusable character identity rather than a generic archetype
+        // row or an alias for an existing named goblin."
+        //
+        //  its sprite generator already existed and was never wired in.
+        // `configs/review/goblin_brute_hammer.yaml` has `target: goblin` with its
+        // own name, seed, `archetype: brute` and `variant: bruiser_heavy` — which
+        // is exactly the shape he asked for: "it may initially use the same broad
+        // goblin visual design/template, scaled/designed as a bigger brute …
+        // however, its sprite must have a SEPARATE Python sprite generator/target,
+        // even if that generator initially shares helpers or visual vocabulary
+        // with the ordinary goblin." The sheet is generated and on disk; all that
+        // was missing was this row.
+        //
+        //  `body_kind: Wide` and the heavier collision scale come from the
+        // generator config's own `body_kind: Wide` / `mass_class: Heavy`, so the
+        // body the game builds and the body the artist drew agree by derivation
+        // rather than by two people typing the same word.
+        "npc_goblin_brute": (
+            sprite_tuning: Some((collision_scale: 2.1, frame_sample_inset: 1)),
+            display_name: "Goblin Brute",
+            spritesheet: "sprites/goblin_brute_hammer_spritesheet.png",
+            manifest: "sprites/goblin_brute_hammer_spritesheet.ron",
+            tier: MainHall,
+            body_kind: Standard,
+            composition: None,
+            default_action_set: "striker_swipe",
+            tags: ["enemy", "goblin", "heavy"],
+        barks: (
+            on_hit: ["Rrrgh!", "Little thing hits back!", "Brute not done!"],
+            provoked: ["BRUTE SMASH!"],
+            hall: ["Brute carry hammer. Hammer carry brute. Is friendship.", "Small goblins talk. Brute does."],
+        ),
+        hall_dialogue_id: None,
+        ),
+        "npc_goblin_cantina_chieftain": (
+            sprite_tuning: Some((collision_scale: 1.16, frame_sample_inset: 1)),
+            display_name: "Fretjaw, Cantina Chieftain",
+            spritesheet: "sprites/goblin_cantina_chieftain_spritesheet.png",
+            manifest: "sprites/goblin_cantina_chieftain_spritesheet.ron",
+            tier: MainHall,
+            body_kind: Standard,
+            composition: None,
+            default_brain: "patrol_peaceful",
+            default_action_set: "peaceful",
+            tags: ["hub", "faction_leader"],
+        barks: (
+            on_hit: ["Oi! That's my good arm.", "Fretjaw bites back!", "Cantina rules: no free hits!"],
+            provoked: ["Cantina brawl!"],
+            hall: ["Fretjaw's stew has a secret ingredient. The secret is you don't ask.", "House rule: the house wins. Fretjaw is the house."],
+        ),
+        hall_dialogue_id: Some("hall_npc_goblin_cantina_chieftain"),
+        ),
+        "npc_pulse_voyager_captain": (
+            sprite_tuning: Some((collision_scale: 1.2, frame_sample_inset: 1)),
+            display_name: "Captain Pulse",
+            spritesheet: "sprites/pulse_voyager_captain_spritesheet.png",
+            manifest: "sprites/pulse_voyager_captain_spritesheet.ron",
+            tier: MainHall,
+            body_kind: Standard,
+            composition: None,
+            default_brain: "patrol_peaceful",
+            default_action_set: "peaceful",
+            tags: ["hub", "faction_leader"],
+        barks: (
+            on_hit: ["Easy on the hull, starling.", "That's not standard docking procedure.", "Pulse shields to angry!"],
+            provoked: ["Red alert, traveler!"],
+            hall: ["Course laid in. Course ignored. Standing here instead.", "Space is mostly waiting. I'm overqualified for this."],
+        ),
+        hall_dialogue_id: Some("hall_npc_pulse_voyager_captain"),
+        ),
+        "npc_tech_bro_disruptor": (
+            sprite_tuning: Some((collision_scale: 1.2, frame_sample_inset: 1)),
+            display_name: "Chadwick Disruptor III",
+            spritesheet: "sprites/tech_bro_disruptor_spritesheet.png",
+            manifest: "sprites/tech_bro_disruptor_spritesheet.ron",
+            tier: MainHall,
+            body_kind: Standard,
+            composition: None,
+            default_brain: "patrol_peaceful",
+            default_action_set: "peaceful",
+            tags: ["hub", "faction_leader"],
+        barks: (
+            on_hit: ["Bro. Optics.", "My brand is literally disruption.", "I'm posting about this."],
+            provoked: ["You just activated my pivot."],
+            hall: ["We're not a company, we're a movement. With a burn rate.", "I don't fail. I pre-pivot."],
+        ),
+        hall_dialogue_id: Some("hall_npc_tech_bro_disruptor"),
+        ),
+
+        // ===== Symmetry tutorial (Noether Chamber).
+        "npc_emmy_noether": (
+            sprite_tuning: Some((collision_scale: 1.1, frame_sample_inset: 2)),
+            display_name: "Emmy Ethereal",
+            spritesheet: "sprites/noether_spritesheet.png",
+            manifest: "sprites/noether_spritesheet.ron",
+            tier: MainHall,
+            body_kind: Standard,
+            composition: None,
+            default_brain: "stand_still",
+            //  2026-08-16: she authors a sixteen-move smash repertoire
+            // (`emmy_noether_moveset`) across the 123 rows her rig already published,
+            // and an ability and a repertoire are different questions — *may this
+            // body attack* versus *what the attack is*. A `peaceful` row answered
+            // the first one NO, so the table could never reach a fighter. Her
+            // brain stays `stand_still`: what she does in the Hall is a policy,
+            // not a capability, and her own bark is already the reply of somebody
+            // who can be hit back.
+            default_action_set: "striker_swipe",
+            tags: ["hub", "guide", "tutorial"],
+            gameplay_description: "Emmy intentionally preserves deterministic CPU symmetry in mirror matches: two Emmys receiving symmetric observations use the same cognitive/noise stream and therefore tend to behave as reflections of one another. This is an AUTHORED CHARACTER TRAIT, not the default Smash CPU policy -- every other character's CPUs get participant-distinct streams and diverge within a few decisions. Do not re-file it as a bug: it is authored as `preserving_mirror_symmetry()` in `authored/npc_emmy_noether.rs`, and the reasoning is that her subject is Noether's theorem, where a symmetry implies a conservation law. It is NOT a synchronised animation and must never be implemented as one -- nothing compares the two bodies or copies one's action to the other. The reflection is an emergent consequence of identical cognition reading a symmetric stage, so it BREAKS as soon as their observations diverge (one takes a hit, one is launched further, one is nearer a ledge). That break is correct behaviour, not a regression.",
+        barks: (
+            on_hit: ["That violated several conservation laws.", "Every action has an equal and opposite consequence.", "The symmetry is broken now. Happy?"],
+            provoked: ["By Noether's theorem — you're done!"],
+            idle: ["Every symmetry hides a conservation law.", "The world is more beautiful when you find the invariant.", "Mathematics does not care what you believe."],
+            hall: ["Spin the rules and the laws don't change. That's not luck.", "Energy is conserved because today is like yesterday."],
+        ),
+        hall_dialogue_id: Some("hall_npc_emmy_noether"),
+        ),
+
+        // ===== Pirate cove (Pirate Cove faction).
+        "npc_pirate_admiral": (
+            sprite_tuning: Some((collision_scale: 1.6, frame_sample_inset: 1)),
+            display_name: "Pirate Admiral",
+            spritesheet: "sprites/pirate_admiral_spritesheet.png",
+            manifest: "sprites/pirate_admiral_spritesheet.ron",
+            tier: MainHall,
+            body_kind: Standard,
+            composition: None,
+            default_brain: "melee_brute_striker",
+            default_action_set: "pirate_pistol",
+            tags: ["pirate", "faction_leader"],
+            // SCAFFOLD exemplar (catalog-first overrides the legacy npcs.rs
+            // table). on_hit/provoked migrated from features::npcs.
+            barks: (
+                on_hit: [
+                    "Belay that, ye barnacle!",
+                    "Mind the epaulettes, scallywag!",
+                    "Avast — that be admiralty property!",
+                    "I'll keelhaul yer cooldowns!",
+                ],
+                provoked: ["Broadside, ye bilge rat!"],
+                hall: ["A fleet without a flagship is just driftwood with opinions.", "Order on deck: someone find me grog."],
+            ),
+            hall_dialogue_id: Some("hall_pirate_admiral"),
+        ),
+        "npc_pirate_raider": (
+            sprite_tuning: Some((collision_scale: 1.6, frame_sample_inset: 1)),
+            display_name: "Pirate Raider",
+            spritesheet: "sprites/pirate_raider_spritesheet.png",
+            manifest: "sprites/pirate_raider_spritesheet.ron",
+            tier: MainHall,
+            body_kind: Standard,
+            composition: None,
+            //  NAMES NO PRESET (2026-08-12, D81). Its DEFINITION authors a
+            // policy, and the preset it used to name carried `aggressiveness:
+            // 1.0` — which is HOSTILITY, and hostility is what an `EnemySpawn`
+            // placement already means.  the parrot's case was the opposite and
+            // that is why this is safe: `0.0` SUPPRESSED hostility, so dropping
+            // it changed a body; `1.0` restates a default, so dropping it does
+            // not. Probed on the goblin first, whole suite green, then applied.
+            default_action_set: "striker_swipe",
+            tags: ["pirate", "enemy"],
+        barks: (
+            on_hit: ["Yarrrgh!", "Quit pokin' me loot hand!", "I'll swab the floor with ye!", "Yo-ho-NO, ye landlubber!"],
+            provoked: ["Board 'em, lads — yo-ho!"],
+            hall: ["If it isn't nailed down it's mine. If it is, I brought a crowbar.", "I don't loot. I redistribute. Toward me."],
+        ),
+        hall_dialogue_id: Some("hall_npc_pirate_raider"),
+        ),
+        "npc_pirate_quartermaster": (
+            sprite_tuning: Some((collision_scale: 1.6, frame_sample_inset: 1)),
+            display_name: "Pirate Quartermaster",
+            spritesheet: "sprites/pirate_quartermaster_spritesheet.png",
+            manifest: "sprites/pirate_quartermaster_spritesheet.ron",
+            tier: MainHall,
+            body_kind: Standard,
+            composition: None,
+            default_brain: "",
+            default_action_set: "striker_swipe",
+            tags: ["pirate", "enemy"],
+        barks: (
+            on_hit: ["Inventory says NO, ye dock-rat!", "Yarr! Every coin's a-counted!", "Tally that on yer hide, swabbie!"],
+            provoked: ["Pay the toll in teeth, swab!"],
+            hall: ["Fair shares for all. 'Fair' is whatever I write in the ledger.", "Counted the crew twice, got two answers. We're investigating."],
+        ),
+        hall_dialogue_id: Some("hall_npc_pirate_quartermaster"),
+        ),
+        "npc_pirate_lookout": (
+            sprite_tuning: Some((collision_scale: 1.6, frame_sample_inset: 1)),
+            display_name: "Pirate Lookout",
+            spritesheet: "sprites/pirate_lookout_spritesheet.png",
+            manifest: "sprites/pirate_lookout_spritesheet.ron",
+            tier: MainHall,
+            body_kind: Standard,
+            composition: None,
+            default_brain: "",
+            default_action_set: "ranger_arrow",
+            tags: ["pirate", "enemy"],
+        barks: (
+            on_hit: ["Land ho — an' I see YE comin'!", "Spyglass to me eye, boots to yer head!", "Crow's nest don't sit empty, savvy?"],
+            provoked: ["Sound the alarm — all hands!"],
+            hall: ["Land ho. Trouble ho. Same heading, usually.", "I called it early and I called it loud. You're welcome."],
+        ),
+        hall_dialogue_id: Some("hall_npc_pirate_lookout"),
+        ),
+        "npc_pirate_navigator": (
+            sprite_tuning: Some((collision_scale: 1.6, frame_sample_inset: 1)),
+            display_name: "Pirate Navigator",
+            spritesheet: "sprites/pirate_navigator_spritesheet.png",
+            manifest: "sprites/pirate_navigator_spritesheet.ron",
+            tier: MainHall,
+            body_kind: Standard,
+            composition: None,
+            default_brain: "",
+            default_action_set: "ranger_arrow",
+            tags: ["pirate", "enemy"],
+        barks: (
+            on_hit: ["Wrong heading, ye chartless dog!", "I'll plot ye a course straight to Davy Jones!", "Compass says: punch back!"],
+            provoked: ["Heading set: yer skull!"],
+            hall: ["We're not lost. The chart is. There's a difference.", "Stars don't move. Everything else is your problem."],
+        ),
+        hall_dialogue_id: Some("hall_npc_pirate_navigator"),
+        ),
+
+        // ===== Stochastic Parrot. ONE character, two factions: a friendly
+        // cove bird (NpcSpawn -> this catalog row -> `patrol_peaceful`) and the
+        // aggressive sky raiders (EnemySpawn name="Stochastic Parrot" -> the
+        // `sky_parrot` enemy archetype, sprite bound by display-name match).
+        // Both share this sprite + body via the actor unification.
+        "stochastic_parrot": (
+            sprite_tuning: Some((collision_scale: 1.0, frame_sample_inset: 1)),
+            display_name: "Stochastic Parrot",
+            spritesheet: "sprites/stochastic_parrot_spritesheet.png",
+            manifest: "sprites/stochastic_parrot_spritesheet.ron",
+            tier: MainHall,
+            // Floating = gravity-free, so the lively Aerial brain flies it.
+            body_kind: Floating,
+            composition: None,
+            //  THE FIRST CHARACTER TO NAME NO BRAIN PRESET (2026-08-12,
+            // D81), on the fifth attempt. Four blockers, each a different fact
+            // hiding behind one field:
+            //
+            //   1. the policy numbers were dead weight — the DEFINITION's
+            //      `BrainProfile { Aerial, aggro 620, attack_range 60 }` wins.
+            //   2. `aggressiveness: 0.0` looked like the cove parrot's
+            //      peacefulness. It is not: that is its `NpcSpawn` PLACEMENT.
+            //   3. `default_brain` CARRIED THE NAMESPACE. An entry states its
+            //      `provider` now, so it does not have to.
+            //   4. and there were TWO qualification sites, not one — the catalog's
+            //      validator and `resolve_initial_brain`. Teaching only the first
+            //      looked exactly like a half-assembled catalog until a test
+            //      asked the assembled entry directly and found it perfectly fine.
+            //
+            //  this bird's policy is its definition's and its hostility is its
+            // placement's. `parrot_lively` was a third copy of both, with
+            // different numbers, deciding neither.
+            default_action_set: "peaceful",
+            tags: ["pirate", "bird", "npc"],
+            // SCAFFOLD exemplar. idle migrated from features::npcs (the
+            // "parrot_cove" legacy pool, now keyed by catalog id).
+            barks: (
+                idle: [
+                    "Awk! Polly wants a corpus.",
+                    "Squawk! Next token... 'cracker'. High confidence.",
+                    "I contain multitudes. Mostly other people's.",
+                    "Pieces of prior! Pieces of prior!",
+                    "Awk! I'm not parroting, I'm GENERALIZING. ...mostly.",
+                    "Temperature's high today. Feeling creative. Brawk!",
+                    "Attention is all you need! And crackers.",
+                ],
+                hall: ["Awk! Predicting your next word... 'cracker'. Usually right!", "I contain multitudes. Statistically averaged multitudes. Brawk!"],
+            ),
+            hall_dialogue_id: Some("hall_stochastic_parrot"),
+        ),
+
+        // ===== Perfect Cellular Automaton.
+        // Python-authored Fable-extension skeletal target. VFX such as energy
+        // or slash arcs are intentionally not baked into the sprite sheet.
+        "perfect_cellular_automaton": (
+            sprite_tuning: Some((collision_scale: 1.12, frame_sample_inset: 1)),
+            display_name: "Perfect Cellular Automaton",
+            spritesheet: "sprites/perfect_cellular_automaton_spritesheet.png",
+            manifest: "sprites/perfect_cellular_automaton_spritesheet.ron",
+            tier: MainHall,
+            body_kind: Floating,
+            // Its MEASURED height, authored 2026-08-28 so the FRAME stops deciding
+            // it. `Floating` has no default, so this row rode
+            // `ldtk_box x collision_scale / FRAME_H` — and a frame is publishing
+            // padding, not a claim about how tall anybody is. Widening the frame to
+            // clear D129's 53 clipped frames shrank the body 67.8 -> 54.8 with no
+            // art change, which is the whole reason this number is written down now.
+            standing_height: Some(67.8),
+            composition: None,
+            //  NAMES NO PRESET (2026-08-12, D81 — the parrot's path, second
+            // and third travellers). Both automatons share one `authored_intrinsics`
+            // arm authoring `BrainProfile { Smash, aggro 540, attack_range 150,
+            // patrol 0.5714, dash-to-close, duelist }`, which outranks this field
+            // everywhere it is read; `cellular_automaton_raider` was a second copy
+            // with different numbers. Their hostility is their PLACEMENTS' —
+            // `EnemySpawn`s, hostile by default.
+            default_action_set: "striker_swipe",
+            tags: ["aerial", "enemy", "custom", "cellular"],
+        barks: (
+            on_hit: ["Iteration interrupted.", "State diverged from optimal.", "Rule violated. Adapting.", "Error. Correcting."],
+            provoked: ["Initializing conflict state."],
+            hall: ["One rule. No exceptions. Observe the inevitability.", "I have run this moment to its end. You are predictable, charmingly so."],
+        ),
+        hall_dialogue_id: Some("hall_perfect_cellular_automaton"),
+        ),
+        "imperfect_cellular_automaton": (
+            sprite_tuning: Some((collision_scale: 1.12, frame_sample_inset: 1)),
+            display_name: "Imperfect Cellular Automaton",
+            spritesheet: "sprites/imperfect_cellular_automaton_spritesheet.png",
+            manifest: "sprites/imperfect_cellular_automaton_spritesheet.ron",
+            tier: MainHall,
+            body_kind: Floating,
+            // Its MEASURED height under the ONE spawn box every level places it
+            // with, authored 2026-08-28 (D129). This row had no default, so its
+            // size came out of `ldtk_box x collision_scale / FRAME_H` — a level
+            // rectangle and the sheet's publishing padding, neither of which is a
+            // claim about how tall anybody is. Same output today; the point is
+            // that changing it is now one number.
+            standing_height: Some(50.0),
+            composition: None,
+            //  NAMES NO PRESET (2026-08-12, D81 — the parrot's path, second
+            // and third travellers). Both automatons share one `authored_intrinsics`
+            // arm authoring `BrainProfile { Smash, aggro 540, attack_range 150,
+            // patrol 0.5714, dash-to-close, duelist }`, which outranks this field
+            // everywhere it is read; `cellular_automaton_raider` was a second copy
+            // with different numbers. Their hostility is their PLACEMENTS' —
+            // `EnemySpawn`s, hostile by default.
+            default_action_set: "striker_swipe",
+            tags: ["aerial", "enemy", "custom", "cellular"],
+        barks: (
+            on_hit: ["Er — glitch — GAHH!", "That wasn't in the rule set!", "Malfunction cascade!", "Rulebase corrupted!"],
+            provoked: ["All states hostile!"],
+            hall: ["I followed the rule. Mostly. The 'mostly' is where I get interesting.", "Perfection repeats. I, gloriously, drift."],
+        ),
+        hall_dialogue_id: Some("hall_imperfect_cellular_automaton"),
+        ),
+
+        // ===== Pirate Heavy bruisers (slow + hard hitting).
+        "npc_pirate_heavy_broadside_bess": (
+            sprite_tuning: Some((collision_scale: 1.95, frame_sample_inset: 1)),
+            display_name: "Broadside Bess",
+            spritesheet: "sprites/pirate_heavy_broadside_bess_spritesheet.png",
+            manifest: "sprites/pirate_heavy_broadside_bess_spritesheet.ron",
+            tier: MainHall,
+            body_kind: Wide,
+            // Its MEASURED height, authored so the number is visible and editable:
+            // `Wide` has no default, so this row rode `ldtk_box x collision_scale`.
+            // Identical output today (the legacy scale WAS height/body_h); the point
+            // is that changing the size is now one number.
+            standing_height: Some(58.7),
+            composition: None,
+            default_brain: "",
+            default_action_set: "brute_lunge",
+            tags: ["pirate", "heavy", "enemy"],
+        barks: (
+            on_hit: ["Mind me cleaver, wee skipper!", "Aye, that smarts — but ye're worse off!", "Broadside Bess don't bend easy!", "Yarrrr! Take that an' a barrel more!"],
+            provoked: ["Cleaver's thirsty — yarrrgh!"],
+            hall: ["Both barrels is a personality, not a tactic.", "I aim in the general direction of 'everything'."],
+        ),
+        hall_dialogue_id: Some("hall_npc_pirate_heavy_broadside_bess"),
+        ),
+        "npc_pirate_heavy_iron_mary": (
+            sprite_tuning: Some((collision_scale: 1.95, frame_sample_inset: 1)),
+            display_name: "Iron Mary",
+            spritesheet: "sprites/pirate_heavy_iron_mary_spritesheet.png",
+            manifest: "sprites/pirate_heavy_iron_mary_spritesheet.ron",
+            tier: MainHall,
+            body_kind: Wide,
+            // Its MEASURED height, authored so the number is visible and editable:
+            // `Wide` has no default, so this row rode `ldtk_box x collision_scale`.
+            // Identical output today (the legacy scale WAS height/body_h); the point
+            // is that changing the size is now one number.
+            standing_height: Some(56.2),
+            composition: None,
+            //  NAMES NO PRESET (2026-08-12, D81). Its DEFINITION authors a
+            // policy, and the preset it used to name carried `aggressiveness:
+            // 1.0` — which is HOSTILITY, and hostility is what an `EnemySpawn`
+            // placement already means.  the parrot's case was the opposite and
+            // that is why this is safe: `0.0` SUPPRESSED hostility, so dropping
+            // it changed a body; `1.0` restates a default, so dropping it does
+            // not. Probed on the goblin first, whole suite green, then applied.
+            default_action_set: "brute_lunge",
+            tags: ["pirate", "heavy", "enemy"],
+        barks: (
+            on_hit: ["Iron don't flinch, ye gull!", "Pry harder, swab — I'll rust ye flat!", "Yo-ho, an' a clout to the noggin!", "Try me on a calmer sea, landlubber!"],
+            provoked: ["Iron Mary breaks ye in half!"],
+            hall: ["Iron doesn't flinch. Took me years to match it.", "Rust is a slow argument with time. I'm winning."],
+        ),
+        hall_dialogue_id: Some("hall_npc_pirate_heavy_iron_mary"),
+        ),
+        "npc_pirate_heavy_salt_annet": (
+            sprite_tuning: Some((collision_scale: 1.95, frame_sample_inset: 1)),
+            display_name: "Salt Annet",
+            spritesheet: "sprites/pirate_heavy_salt_annet_spritesheet.png",
+            manifest: "sprites/pirate_heavy_salt_annet_spritesheet.ron",
+            tier: MainHall,
+            body_kind: Wide,
+            // Its MEASURED height, authored so the number is visible and editable:
+            // `Wide` has no default, so this row rode `ldtk_box x collision_scale`.
+            // Identical output today (the legacy scale WAS height/body_h); the point
+            // is that changing the size is now one number.
+            standing_height: Some(60.4),
+            composition: None,
+            default_brain: "",
+            default_action_set: "brute_lunge",
+            tags: ["pirate", "heavy", "enemy"],
+        barks: (
+            on_hit: ["Salt in the eye, blood in the bilge!", "Yargh! Watch yer manners on me deck!", "Wee skipper thinks he's bold, does he?", "Annet bites back, every time!"],
+            provoked: ["Wee skipper picked the wrong deck!"],
+            hall: ["Salt keeps things from going soft. People included.", "I can taste a coming storm. It tastes like work."],
+        ),
+        hall_dialogue_id: Some("hall_npc_pirate_heavy_salt_annet"),
+        ),
+
+        // ===== Burning Flying Shark (aerial pirate enemy).
+        "npc_burning_flying_shark": (
+            sprite_tuning: Some((collision_scale: 0.8, frame_sample_inset: 1)),
+            display_name: "Burning Flying Shark",
+            spritesheet: "sprites/burning_flying_shark_spritesheet.png",
+            manifest: "sprites/burning_flying_shark_spritesheet.ron",
+            tier: MainHall,
+            body_kind: Floating,
+            composition: None,
+            //  NAMES NO PRESET (2026-08-12, D81). Its DEFINITION authors
+            // `BrainProfile { ChargeCrash, .. }`, which is nothing like the
+            // `wanderer_puppy_slug` preset it used to point at — a flying shark
+            // filed under a slug's wander because that row happened to exist. Two
+            // authorities, and the one that made no sense was still being read
+            // wherever the definition was not.
+            default_action_set: "peaceful_float",
+            tags: ["pirate", "aerial", "enemy"],
+        barks: (
+            on_hit: ["SKREEE!", "BLAZE!", "BURN-CHOMP!"],
+            provoked: ["FIRE SHARK ENGAGED!"],
+            hall: ["STILL BURNING. STILL FLYING. STILL THRILLED.", "GRAVITY IS A SUGGESTION. FIRE IS A LIFESTYLE."],
+        ),
+        hall_dialogue_id: Some("hall_npc_burning_flying_shark"),
+        ),
+
+        // ===== Giant GNU (ADR 0020 mount actor — the carried giant GNU-ton
+        // rides on). A brainless, stationary MOUNT: it renders via the
+        // character-sprite path from the G1 scholar-less `giant_gnu` sheet
+        // (target `giant_gnu`, collision_scale 4.5 matching the giant art). Its
+        // rideability + heavy mass + own HP live on the `giant_gnu` archetype
+        // (character_archetypes.ron); GNU-ton (the rider) stays the boss. Not a
+        // Hall exhibit as well as a gameplay mount; its gallery voice reflects
+        // that support role rather than pretending it is the rider.
+        "npc_giant_gnu": (
+            sprite_tuning: Some((collision_scale: 4.5, frame_sample_inset: 1)),
+            display_name: "Giant GNU",
+            spritesheet: "sprites/gnu_ton_boss/giant_gnu_spritesheet.png",
+            manifest: "sprites/gnu_ton_boss/giant_gnu_spritesheet.ron",
+            tier: MainHall,
+            body_kind: Wide,
+            composition: None,
+            //  NAMES NO PRESET (2026-08-12, D81). Its DEFINITION authors an
+            // autonomous `BrainProfile`, which outranks this field everywhere it
+            // is read — so naming `stand_still` was the same policy stated twice.
+            //  safe for THIS preset specifically: `stand_still` holds no speeds
+            // and no `aggressiveness`, so nothing came across with it. A preset
+            // that carries a RELATIONSHIP (the `aggressiveness: 0.0` on
+            // `parrot_lively`, which cost four attempts to understand) has to
+            // move that to the placements first.
+            default_action_set: "peaceful",
+            tags: ["mount", "giant"],
+            barks: (
+                hall: ["Gnu Ton brought a quotation. I asked for a saddle.", "GNU's not Unix. I am not the rider. Please keep up.", "Everyone wants the shoulders. Nobody asks about the knees."],
+            ),
+            hall_dialogue_id: Some("hall_npc_giant_gnu"),
+        ),
+
+        // ===== Giant GNU Hands (Q18 / G3 — the giant's two DRIVEN limb bodies).
+        // A brainless actor body rendering the scholar-less `giant_gnu_hands`
+        // sheet; the gnu_ton_rider boss's strikes drive it through the limb router.
+        // Same 768x576 layout / collision_scale 4.5 as the giant body (they share
+        // the G1 sheet placement). Its Hall voice leans into the absurdity of a
+        // separately cataloged, boss-driven hand instead of explaining it away.
+        "npc_giant_gnu_hands": (
+            sprite_tuning: Some((collision_scale: 4.5, frame_sample_inset: 1)),
+            display_name: "Giant GNU Hand",
+            spritesheet: "sprites/gnu_ton_boss/giant_gnu_hands_spritesheet.png",
+            manifest: "sprites/gnu_ton_boss/giant_gnu_hands_spritesheet.ron",
+            tier: MainHall,
+            body_kind: Wide,
+            composition: None,
+            //  NAMES NO PRESET (2026-08-12, D81). Its DEFINITION authors an
+            // autonomous `BrainProfile`, which outranks this field everywhere it
+            // is read — so naming `stand_still` was the same policy stated twice.
+            //  safe for THIS preset specifically: `stand_still` holds no speeds
+            // and no `aggressiveness`, so nothing came across with it. A preset
+            // that carries a RELATIONSHIP (the `aggressiveness: 0.0` on
+            // `parrot_lively`, which cost four attempts to understand) has to
+            // move that to the placements first.
+            default_action_set: "peaceful",
+            tags: ["limb", "giant"],
+            barks: (
+                hall: ["Talk to the hand. Appointment required for the giant.", "I am right-handed on alternate Tuesdays.", "Pointing is free. Punching is billable."],
+            ),
+            hall_dialogue_id: Some("hall_npc_giant_gnu_hands"),
+        ),
+
+        // ===== Puppy Slug (wanderer crawlid).
+        "npc_puppy_slug": (
+            sprite_tuning: Some((collision_scale: 1.4, frame_sample_inset: 1)),
+            display_name: "Puppy Slug",
+            spritesheet: "sprites/puppy_slug_spritesheet.png",
+            manifest: "sprites/puppy_slug_spritesheet.ron",
+            tier: MainHall,
+            body_kind: Crawler,
+            composition: None,
+            //  NAMES NO PRESET (2026-08-12, D81). Its DEFINITION authors
+            // `BrainProfile { Wanderer, aggro 0, attack_range 0 }` — the same
+            // policy `wanderer_puppy_slug` states in absolute px/s — and its ten
+            // placements author `disposition: Peaceful` themselves. The preset was
+            // a third copy of facts this character and its placements already own.
+            //
+            //  the PRESET still exists, for `npc_puppy_slug_variant2`: a
+            // Hall-only character with no authored arm, which cannot take a
+            // profile until the Hall cast is registered with real bodies. A
+            // preset dies with its LAST namer; this removes a namer, not the row.
+            default_action_set: "peaceful_slither",
+            tags: ["enemy", "ai_era"],
+        barks: (
+            idle: ["blorb...", "schlorp.", "...weh?"],
+            hall: ["*blorb*", "*content schlorp*"],
+        ),
+        hall_dialogue_id: Some("hall_npc_puppy_slug"),
+        ),
+
+        // ===== Ninja dojo.
+        "npc_ninja_shadow_oni_leader": (
+            display_name: "Shadow Oni Leader",
+            spritesheet: "sprites/ninja_shadow_oni_leader_spritesheet.png",
+            manifest: "sprites/ninja_shadow_oni_leader_spritesheet.ron",
+            tier: MainHall,
+            body_kind: Standard,
+            composition: None,
+            default_brain: "melee_brute_striker",
+            default_action_set: "striker_swipe",
+            tags: ["ninja", "faction_leader"],
+        barks: (
+            on_hit: ["Your form is loud.", "A warning: one breath left.", "The shadow answers."],
+            provoked: ["Silence them."],
+            hall: ["I permit your gaze. Note the word 'permit'.", "A leader's hardest order is the one obeyed instantly."],
+        ),
+        hall_dialogue_id: Some("hall_npc_ninja_shadow_oni_leader"),
+        ),
+        "npc_ninja_shadow_duelist": (
+            display_name: "Shadow Duelist",
+            spritesheet: "sprites/ninja_shadow_duelist_spritesheet.png",
+            manifest: "sprites/ninja_shadow_duelist_spritesheet.ron",
+            tier: MainHall,
+            body_kind: Standard,
+            composition: None,
+            default_brain: "melee_brute_striker",
+            default_action_set: "striker_swipe",
+            tags: ["ninja", "enemy"],
+        barks: (
+            on_hit: ["Tch. Sloppy opening.", "Again? Then draw properly.", "Now we duel."],
+            provoked: ["Steel decides."],
+            hall: ["Mind the distance between us. I always do.", "Every duel I won began with 'I'm only looking'."],
+        ),
+        hall_dialogue_id: Some("hall_npc_ninja_shadow_duelist"),
+        ),
+
+        // ===== Hub guides (peaceful, dialogue-only).
+        "npc_architect": (
+            sprite_tuning: Some((collision_scale: 1.1, frame_sample_inset: 2)),
+            display_name: "Architect NPC",
+            spritesheet: "sprites/architect_spritesheet.png",
+            manifest: "sprites/architect_spritesheet.ron",
+            tier: MainHall,
+            body_kind: Standard,
+            composition: None,
+            default_brain: "patrol_peaceful",
+            default_action_set: "peaceful",
+            tags: ["hub", "guide"],
+            // SCAFFOLD exemplar. on_hit/provoked migrated from features::npcs.
+            barks: (
+                on_hit: [
+                    "Careful! I'm load-bearing.",
+                    "That was not in the blueprint.",
+                    "You're voiding the warranty.",
+                ],
+                provoked: ["Demolition protocol!"],
+                hall: ["That load is not distributed correctly. I can feel it.", "Measure twice. Resent the carpenter once."],
+            ),
+            hall_dialogue_id: Some("hall_architect"),
+        ),
+        "npc_kernel_guide": (
+            sprite_tuning: Some((collision_scale: 1.1, frame_sample_inset: 2)),
+            display_name: "Kernel Guide NPC",
+            spritesheet: "sprites/kernel_guide_spritesheet.png",
+            manifest: "sprites/kernel_guide_spritesheet.ron",
+            tier: MainHall,
+            body_kind: Standard,
+            composition: None,
+            default_brain: "patrol_peaceful",
+            default_action_set: "peaceful",
+            tags: ["hub", "guide"],
+        barks: (
+            on_hit: ["Ow. Tutorial says: don't.", "Input received. Annoyance rising.", "Debug friendship failed."],
+            provoked: ["Combat tutorial unlocked."],
+            hall: ["Tutorial tip: the thing you walked past was the point.", "I'd hold your hand, but you'd never learn the ledge."],
+        ),
+        hall_dialogue_id: Some("hall_npc_kernel_guide"),
+        ),
+        "npc_vault_keeper": (
+            sprite_tuning: Some((collision_scale: 1.1, frame_sample_inset: 2)),
+            display_name: "Vault Keeper NPC",
+            spritesheet: "sprites/vault_keeper_spritesheet.png",
+            manifest: "sprites/vault_keeper_spritesheet.ron",
+            tier: MainHall,
+            body_kind: Standard,
+            composition: None,
+            default_brain: "patrol_peaceful",
+            default_action_set: "peaceful",
+            tags: ["hub", "guide"],
+        barks: (
+            on_hit: ["Hands off the vault staff.", "I count every scratch.", "That debt has interest."],
+            provoked: ["The vault remembers."],
+            hall: ["Everything's worth something. What, I'm not telling.", "A secret spoken is a secret spent."],
+        ),
+        hall_dialogue_id: Some("hall_npc_vault_keeper"),
+        ),
+        "npc_merchant_prototype": (
+            sprite_tuning: Some((collision_scale: 1.1, frame_sample_inset: 2)),
+            display_name: "Merchant Prototype NPC",
+            spritesheet: "sprites/merchant_prototype_spritesheet.png",
+            manifest: "sprites/merchant_prototype_spritesheet.ron",
+            tier: MainHall,
+            body_kind: Standard,
+            composition: None,
+            default_brain: "patrol_peaceful",
+            default_action_set: "peaceful",
+            tags: ["hub", "guide"],
+        barks: (
+            on_hit: ["No refunds for violence.", "You break it, you buy it.", "That's coming out of your wallet."],
+            provoked: ["Final sale!"],
+            hall: ["Browsing is free. Wanting will cost you.", "Terms still pending. The price never is."],
+        ),
+        hall_dialogue_id: Some("hall_npc_merchant_prototype"),
+        ),
+
+        // ===== Intro / story NPCs (referenced from intro.ldtk).
+        // Several share placeholder sheets (kernel_guide / architect /
+        // raid_enforcer / creator) — Phase 3 closes these gaps as
+        // dedicated sheets ship.
+        "npc_alice": (
+            display_name: "Alice",
+            spritesheet: "sprites/alice_spritesheet.png",
+            manifest: "sprites/alice_spritesheet.ron",
+            portrait: None,
+            tier: MainHall,
+            body_kind: Standard,
+            composition: None,
+            default_brain: "patrol_peaceful",
+            default_action_set: "peaceful",
+            tags: ["intro", "cartographer"],
+        barks: (
+            on_hit: ["That's not on the map!", "I'll redraw your face!", "Uncharted aggression!"],
+            provoked: ["You've wandered off the safe zone!"],
+            idle: ["Everything is mappable, given enough patience.", "The blank space on the map isn't empty — it's undiscovered."],
+            hall: ["Message for Bob. As ever. Don't read over my shoulder.", "I send. Whether it arrives unread is the whole science."],
+        ),
+        hall_dialogue_id: Some("hall_npc_alice"),
+        ),
+        "npc_bob": (
+            display_name: "Bob",
+            spritesheet: "sprites/bob_spritesheet.png",
+            manifest: "sprites/bob_spritesheet.ron",
+            tier: MainHall,
+            body_kind: Standard,
+            composition: None,
+            default_brain: "patrol_peaceful",
+            default_action_set: "peaceful",
+            tags: ["intro", "cartographer"],
+        barks: (
+            on_hit: ["Not cool.", "I was just trying to help.", "Why?!"],
+            provoked: ["Okay, NOW I'm drawing a threat on the map."],
+            idle: ["Alice has the maps. I have the snacks.", "Someone has to hold the other end of the measuring tape."],
+            hall: ["Got a message. Is it really from Alice? Hard question.", "Reply, and suddenly I'm the sender. The roles never sit still."],
+        ),
+        hall_dialogue_id: Some("hall_npc_bob"),
+        ),
+        "npc_creator": (
+            display_name: "Creator",
+            spritesheet: "sprites/creator_spritesheet.png",
+            manifest: "sprites/creator_spritesheet.ron",
+            tier: MainHall,
+            body_kind: Standard,
+            composition: None,
+            default_brain: "stand_still",
+            default_action_set: "peaceful",
+            tags: ["intro", "story"],
+        barks: (
+            on_hit: ["I made you. Don't make me regret it.", "There are boundaries, you know.", "Creator privileges suspended."],
+            provoked: ["Override: hostile mode."],
+            idle: ["Every creation exceeds its specification eventually.", "The prototype was supposed to be safe."],
+            hall: ["I left the 'purpose' field blank on purpose. Best, worst decision.", "Watching the thing you made walk away is the whole job."],
+        ),
+        hall_dialogue_id: Some("hall_npc_creator"),
+        ),
+        "npc_oiler": (
+            display_name: "Oiler",
+            spritesheet: "sprites/oiler_spritesheet.png",
+            manifest: "sprites/oiler_spritesheet.ron",
+            portrait: None,
+            tier: MainHall,
+            body_kind: Standard,
+            composition: None,
+            default_brain: "patrol_peaceful",
+            //  2026-08-16: he authors a sixteen-move smash repertoire
+            // (`oiler_moveset`), and an ability and a repertoire are different
+            // questions — *may this body attack* versus *what the attack is*. A
+            // `peaceful` row answered the first one NO, so the table could never
+            // reach a fighter. His brain stays `patrol_peaceful`: what he does in
+            // the Hall is a policy, not a capability, and his own bark already
+            // says "Maintenance mode: hostile!" when somebody starts it.
+            default_action_set: "striker_swipe",
+            tags: ["intro", "mechanic"],
+        barks: (
+            on_hit: ["Quit messing with my tools!", "Spanner's just decorative? Think again.", "That dented my dignity."],
+            provoked: ["Maintenance mode: hostile!"],
+            idle: ["It's always the actuator.", "Lubrication is 90% of uptime.", "Torque first, questions later."],
+            hall: ["That squeak? I hear it. It'll cost someone a leg later.", "Nobody reads the maintenance log. It's a good log. Tragic, really."],
+        ),
+        hall_dialogue_id: Some("hall_npc_oiler"),
+        ),
+        "npc_gate_janitor": (
+            display_name: "Gate Janitor",
+            spritesheet: "sprites/kernel_guide_spritesheet.png",
+            manifest: "sprites/kernel_guide_spritesheet.ron",
+            tier: MainHall,
+            body_kind: Standard,
+            composition: None,
+            default_brain: "patrol_peaceful",
+            default_action_set: "peaceful",
+            tags: ["intro", "utility", "placeholder_sprite"],
+        barks: (
+            on_hit: ["I just mopped that!", "You're tracking it in.", "The gate was closed for a REASON."],
+            provoked: ["You're on my list now."],
+            idle: ["Nobody respects the gate protocol.", "In and out, in and out — nobody signs the log.", "A clean gate is a functional gate."],
+            hall: ["Someone tracked entropy all down corridor four. Again.", "A clean gate is a quiet gate. Nobody thanks a quiet gate."],
+        ),
+        hall_dialogue_id: Some("hall_npc_gate_janitor"),
+        ),
+        "npc_manifest_clerk": (
+            display_name: "Manifest Clerk",
+            spritesheet: "sprites/architect_spritesheet.png",
+            manifest: "sprites/architect_spritesheet.ron",
+            tier: MainHall,
+            body_kind: Standard,
+            composition: None,
+            default_brain: "stand_still",
+            default_action_set: "peaceful",
+            tags: ["intro", "utility", "placeholder_sprite"],
+        barks: (
+            on_hit: ["That wasn't cleared!", "Form 7-B! Now!", "Unauthorized contact!"],
+            provoked: ["Incident report filed!"],
+            idle: ["Every item needs a form. Every form needs a signature.", "The manifest is the truth. Everything else is approximation.", "If it isn't filed, it didn't happen."],
+            hall: ["If you're not on the manifest, you're a discrepancy.", "The form exists, therefore the thing is real. That's the system."],
+        ),
+        hall_dialogue_id: Some("hall_npc_manifest_clerk"),
+        ),
+        "npc_news_board": (
+            display_name: "News Board",
+            spritesheet: "sprites/news_board_spritesheet.png",
+            manifest: "sprites/news_board_spritesheet.ron",
+            tier: MainHall,
+            body_kind: Standard,
+            composition: None,
+            default_brain: "stand_still",
+            default_action_set: "peaceful",
+            tags: ["intro", "prop_like"],
+            barks: (
+                hall: ["BREAKING: Smoke cleared of all wrongdoing.", "Correction: your memory has been flagged for tone.", "Officials confirm the wall was always missing."],
+            ),
+            hall_dialogue_id: Some("hall_npc_news_board"),
+        ),
+        "npc_erdish": (
+            display_name: "Erdish",
+            spritesheet: "sprites/erdish_spritesheet.png",
+            manifest: "sprites/erdish_spritesheet.ron",
+            tier: MainHall,
+            body_kind: Standard,
+            composition: None,
+            default_brain: "patrol_peaceful",
+            default_action_set: "peaceful",
+            tags: ["intro", "story"],
+        barks: (
+            on_hit: ["That's a new data point!", "Interesting choice!", "I've been hit by better!"],
+            provoked: ["Hypothesis: you lose!"],
+            idle: ["The interesting cases are always the edge cases.", "I've thought about this problem for years. You just restated it.", "There are infinitely many primes. I find that comforting."],
+            hall: ["Another coffee, another theorem. The exchange rate is excellent.", "What's your number? Mine's zero. Naturally."],
+        ),
+        hall_dialogue_id: Some("hall_npc_erdish"),
+        ),
+        "npc_lab_raider": (
+            display_name: "Lab Raider",
+            spritesheet: "sprites/goblin_spritesheet.png",
+            manifest: "sprites/goblin_spritesheet.ron",
+            tier: MainHall,
+            body_kind: Standard,
+            composition: None,
+            //  NAMES NO PRESET (2026-08-12, D81). Its DEFINITION authors a
+            // policy, and the preset it used to name carried `aggressiveness:
+            // 1.0` — which is HOSTILITY, and hostility is what an `EnemySpawn`
+            // placement already means.  the parrot's case was the opposite and
+            // that is why this is safe: `0.0` SUPPRESSED hostility, so dropping
+            // it changed a body; `1.0` restates a default, so dropping it does
+            // not. Probed on the goblin first, whole suite green, then applied.
+            default_action_set: "striker_swipe",
+            tags: ["intro", "raid", "enemy", "placeholder_sprite"],
+        barks: (
+            on_hit: ["Contain the prototype!", "Keep it away from the consoles!", "No one leaves with the core!", "Hold the west line!"],
+            provoked: ["Seal the exits!"],
+            hall: ["Contain the asset, they said. The asset has your sneakers now.", "Every door I locked, it walked through anyway."],
+        ),
+        hall_dialogue_id: Some("hall_npc_lab_raider"),
+        ),
+        "npc_salvage_guard": (
+            display_name: "Salvage Guard",
+            spritesheet: "sprites/goblin_spritesheet.png",
+            manifest: "sprites/goblin_spritesheet.ron",
+            tier: MainHall,
+            body_kind: Standard,
+            composition: None,
+            //  NAMES NO PRESET (2026-08-12, D81). Its DEFINITION authors a
+            // policy, and the preset it used to name carried `aggressiveness:
+            // 1.0` — which is HOSTILITY, and hostility is what an `EnemySpawn`
+            // placement already means.  the parrot's case was the opposite and
+            // that is why this is safe: `0.0` SUPPRESSED hostility, so dropping
+            // it changed a body; `1.0` restates a default, so dropping it does
+            // not. Probed on the goblin first, whole suite green, then applied.
+            default_action_set: "striker_swipe",
+            tags: ["intro", "raid", "enemy", "placeholder_sprite"],
+        barks: (
+            on_hit: ["Hold your line!", "This one isn't on the manifest. Tag it and move!", "Secure the notebooks!", "Take only marked equipment!"],
+            provoked: ["Asset not on the manifest — restrict access!"],
+            hall: ["Claimed, unclaimed, or evidence. Pick one.", "If the wreck left it, the wreck's done with it. Mine now."],
+        ),
+        hall_dialogue_id: Some("hall_npc_salvage_guard"),
+        ),
+
+        // === auto-generated entries (Phase 3 codegen) ===
+        "npc_agent_swarm": (
+            display_name: "Agent Swarm",
+            spritesheet: "sprites/agent_swarm_spritesheet.png",
+            manifest: "sprites/agent_swarm_spritesheet.ron",
+            tier: MainHall,
+            body_kind: Standard,
+            composition: None,
+            default_brain: "melee_brute_striker",
+            default_action_set: "striker_swipe",
+            tags: ["enemy"],
+        barks: (
+            on_hit: ["SWARM.", "ALIGN.", "CONVERGE."],
+            provoked: ["OBJECTIVE ACQUIRED."],
+            hall: ["(we have not reached consensus on this bark)", "No one of us knows the plan. The plan lives in the gaps."],
+        ),
+        hall_dialogue_id: Some("hall_npc_agent_swarm"),
+        ),
+        "npc_ai_slop": (
+            display_name: "Ai Slop",
+            spritesheet: "sprites/ai_slop_spritesheet.png",
+            manifest: "sprites/ai_slop_spritesheet.ron",
+            tier: MainHall,
+            body_kind: Standard,
+            composition: None,
+            //  NAMES NO PRESET (2026-08-12, D81). Its DEFINITION authors a
+            // policy, and the preset it used to name carried `aggressiveness:
+            // 1.0` — which is HOSTILITY, and hostility is what an `EnemySpawn`
+            // placement already means.  the parrot's case was the opposite and
+            // that is why this is safe: `0.0` SUPPRESSED hostility, so dropping
+            // it changed a body; `1.0` restates a default, so dropping it does
+            // not. Probed on the goblin first, whole suite green, then applied.
+            default_action_set: "striker_swipe",
+            tags: ["enemy"],
+        barks: (
+            on_hit: ["Certainly! Here is how I will defeat you:", "As an AI language model, I find this combat scenario—", "I'm sorry, I cannot do that. *attacks anyway*"],
+            provoked: ["Generating optimal threat..."],
+            hall: ["Great question! There was no question. Five stars!", "I'd love to help with that! I have not been told what 'that' is!"],
+        ),
+        hall_dialogue_id: Some("hall_npc_ai_slop"),
+        ),
+        "npc_bear_mauler": (
+            display_name: "Bear Mauler",
+            spritesheet: "sprites/bear_mauler_spritesheet.png",
+            manifest: "sprites/bear_mauler_spritesheet.ron",
+            tier: Basement,
+            body_kind: Wide,
+            // Its MEASURED height under the ONE spawn box every level places it
+            // with, authored 2026-08-28 (D129). This row had no default, so its
+            // size came out of `ldtk_box x collision_scale / FRAME_H` — a level
+            // rectangle and the sheet's publishing padding, neither of which is a
+            // claim about how tall anybody is. Same output today; the point is
+            // that changing it is now one number.
+            standing_height: Some(72.6),
+            composition: None,
+            default_brain: "stand_still",
+            default_action_set: "peaceful",
+            tags: ["boss", "placeholder_brain"],
+        barks: (
+            on_hit: ["GRRAAUGH!", "BEAR MAD.", "MAULING INITIATED."],
+            provoked: ["FULL MAULING PROTOCOL!"],
+            hall: ["BEAR IS CALM. NOTE THE WORD 'IS'. IT IS DOING WORK.", "DO NOT RUN. BEAR LIKES RUNNING. BEAR IS FASTER."],
+        ),
+        hall_dialogue_id: Some("hall_npc_bear_mauler"),
+        ),
+        "npc_boss": (
+            display_name: "Boss",
+            spritesheet: "sprites/boss_spritesheet.png",
+            manifest: "sprites/boss_spritesheet.ron",
+            tier: Basement,
+            body_kind: Wide,
+            // Its MEASURED height under the ONE spawn box every level places it
+            // with, authored 2026-08-28 (D129). This row had no default, so its
+            // size came out of `ldtk_box x collision_scale / FRAME_H` — a level
+            // rectangle and the sheet's publishing padding, neither of which is a
+            // claim about how tall anybody is. Same output today; the point is
+            // that changing it is now one number.
+            standing_height: Some(75.9),
+            composition: None,
+            default_brain: "stand_still",
+            default_action_set: "peaceful",
+            tags: ["boss", "placeholder_brain"],
+        barks: (
+            on_hit: ["Is that all?", "You call that an attack?", "I barely felt it."],
+            provoked: ["Phase two initiated."],
+            hall: ["They keep promising me a name. I keep my hopes... phased.", "Still 'Boss'. Still waiting on a real name."],
+        ),
+        hall_dialogue_id: Some("hall_npc_boss"),
+        ),
+        "npc_colonial_statesman": (
+            display_name: "Colonial Statesman",
+            spritesheet: "sprites/colonial_statesman_spritesheet.png",
+            manifest: "sprites/colonial_statesman_spritesheet.ron",
+            tier: MainHall,
+            body_kind: Standard,
+            composition: None,
+            default_brain: "patrol_peaceful",
+            default_action_set: "peaceful",
+            tags: ["hub", "peaceful"],
+        barks: (
+            on_hit: ["This is most irregular.", "I shall have you court-martialed.", "Consider this a diplomatic incident."],
+            provoked: ["I hereby declare war on your impudence!"],
+            idle: ["Progress requires order. Order requires hierarchy. Hierarchy requires me.", "I have governed more difficult territories than this.", "History will remember this era fondly. I will see to it."],
+            hall: ["I shall take that under advisement. I will not act on it.", "A small crowd, but the acoustics flatter me."],
+        ),
+        hall_dialogue_id: Some("hall_npc_colonial_statesman"),
+        ),
+        "npc_craig": (
+            display_name: "Craig",
+            spritesheet: "sprites/craig_spritesheet.png",
+            manifest: "sprites/craig_spritesheet.ron",
+            tier: MainHall,
+            body_kind: Standard,
+            composition: None,
+            default_brain: "patrol_peaceful",
+            default_action_set: "peaceful",
+            tags: ["hub", "peaceful"],
+        barks: (
+            on_hit: ["Ow!", "Dude.", "That's not okay."],
+            provoked: ["Fine. FINE."],
+            idle: ["I'm just Craig.", "Yeah. Still here.", "No strong feelings either way."],
+            hall: ["Craig.", "No notes. No backstory. Just Craig. It's a flex."],
+        ),
+        hall_dialogue_id: Some("hall_npc_craig"),
+        ),
+        "npc_dark_lord": (
+            display_name: "Dark Lord",
+            spritesheet: "sprites/dark_lord_spritesheet.png",
+            manifest: "sprites/dark_lord_spritesheet.ron",
+            tier: Basement,
+            body_kind: Wide,
+            // Its MEASURED height under the ONE spawn box every level places it
+            // with, authored 2026-08-28 (D129). This row had no default, so its
+            // size came out of `ldtk_box x collision_scale / FRAME_H` — a level
+            // rectangle and the sheet's publishing padding, neither of which is a
+            // claim about how tall anybody is. Same output today; the point is
+            // that changing it is now one number.
+            standing_height: Some(90.7),
+            composition: None,
+            default_brain: "stand_still",
+            default_action_set: "peaceful",
+            tags: ["boss", "placeholder_brain"],
+        barks: (
+            on_hit: ["Your resistance is adorable.", "I've endured worse from interns.", "Pain. Yes. I know pain."],
+            provoked: ["Darkness, attend me!"],
+            idle: ["This realm will kneel. Eventually.", "The shadows whisper. I listen, mostly.", "Evil is a long game."],
+            hall: ["Evil paces itself. Amateurs sprint.", "The brooding is genuine. The cape is for the silhouette."],
+        ),
+        hall_dialogue_id: Some("hall_npc_dark_lord"),
+        ),
+        "npc_eve": (
+            display_name: "Eve",
+            spritesheet: "sprites/eve_spritesheet.png",
+            manifest: "sprites/eve_spritesheet.ron",
+            tier: MainHall,
+            body_kind: Standard,
+            composition: None,
+            default_brain: "patrol_peaceful",
+            default_action_set: "peaceful",
+            tags: ["hub", "peaceful"],
+        barks: (
+            on_hit: ["Really?", "Was that necessary?", "I was having a nice day."],
+            provoked: ["Don't make me regret this!"],
+            idle: ["Things could be worse.", "I try to stay positive. It's exhausting.", "This is fine."],
+            hall: ["I'm not doing anything. I'm only listening. To all of it.", "Scramble your words, or assume I have them. Those are the options."],
+        ),
+        hall_dialogue_id: Some("hall_npc_eve"),
+        ),
+        "npc_raid_enforcer": (
+            display_name: "Raid Enforcer",
+            spritesheet: "sprites/raid_enforcer_spritesheet.png",
+            manifest: "sprites/raid_enforcer_spritesheet.ron",
+            tier: MainHall,
+            body_kind: Standard,
+            composition: None,
+            default_brain: "melee_brute_striker",
+            default_action_set: "striker_swipe",
+            tags: ["enemy"],
+        barks: (
+            on_hit: ["Asset's fighting back.", "Add it to the incident log.", "Containment breach!"],
+            provoked: ["Authorization granted — force authorized!"],
+            hall: ["Perimeter holding. Perimeter is me, standing here.", "Old habit: secure the room. New problem: the room's already fine."],
+        ),
+        hall_dialogue_id: Some("hall_npc_raid_enforcer"),
+        ),
+        "npc_flying_spaghetti_monster_boss": (
+            display_name: "Flying Spaghetti Monster Boss",
+            spritesheet: "sprites/flying_spaghetti_monster_boss_spritesheet.png",
+            manifest: "sprites/flying_spaghetti_monster_boss_spritesheet.ron",
+            tier: Basement,
+            body_kind: Wide,
+            // Its MEASURED height under the ONE spawn box every level places it
+            // with, authored 2026-08-28 (D129). This row had no default, so its
+            // size came out of `ldtk_box x collision_scale / FRAME_H` — a level
+            // rectangle and the sheet's publishing padding, neither of which is a
+            // claim about how tall anybody is. Same output today; the point is
+            // that changing it is now one number.
+            standing_height: Some(86.9),
+            composition: None,
+            default_brain: "stand_still",
+            default_action_set: "peaceful",
+            tags: ["boss", "placeholder_brain"],
+        barks: (
+            on_hit: ["Ramen!", "TOUCHED BY HIS NOODLY APPENDAGE — no wait, that was me touching you.", "The sauce thickens!"],
+            provoked: ["Marinara mode: engaged!"],
+            idle: ["Pasta la vista.", "I have created you all with my noodly appendages.", "The sauce of creation is bottomless."],
+            hall: ["You've been touched by My noodly appendage. No refunds.", "Touch the marinara and you're clergy now. Congratulations, I suppose."],
+        ),
+        hall_dialogue_id: Some("hall_npc_flying_spaghetti_monster_boss"),
+        ),
+        "npc_galwah": (
+            display_name: "Galwah",
+            spritesheet: "sprites/galwah_spritesheet.png",
+            manifest: "sprites/galwah_spritesheet.ron",
+            tier: MainHall,
+            body_kind: Standard,
+            composition: None,
+            default_brain: "patrol_peaceful",
+            default_action_set: "peaceful",
+            tags: ["hub", "peaceful"],
+        barks: (
+            on_hit: ["Galwah does not appreciate this.", "Bold move.", "You'll regret that, friend."],
+            provoked: ["Galwah is DONE being nice!"],
+            idle: ["The days here have a pleasant sameness.", "I wonder what lies beyond the loading zone.", "Galwah waits. Galwah is patient."],
+            hall: ["Some equations no formula can ever unlock. I proved which.", "I write fast. I have always written against the dawn."],
+        ),
+        hall_dialogue_id: Some("hall_npc_galwah"),
+        ),
+        "npc_general_hero": (
+            display_name: "General Hero",
+            spritesheet: "sprites/general_hero_spritesheet.png",
+            manifest: "sprites/general_hero_spritesheet.ron",
+            tier: MainHall,
+            body_kind: Standard,
+            composition: None,
+            default_brain: "patrol_peaceful",
+            default_action_set: "peaceful",
+            tags: ["hub", "peaceful"],
+        barks: (
+            on_hit: ["This changes nothing!", "I've bled for worse causes!", "Courage costs!"],
+            provoked: ["CHARGE!"],
+            idle: ["A hero's work is never done.", "Stand ready. Always.", "The enemy doesn't announce itself."],
+            hall: ["Standing ready looks a lot like standing around. It isn't.", "The medals weigh what they cost. Roughly."],
+        ),
+        hall_dialogue_id: Some("hall_npc_general_hero"),
+        ),
+        "npc_ghoul_skulker": (
+            display_name: "Ghoul Skulker",
+            spritesheet: "sprites/ghoul_skulker_spritesheet.png",
+            manifest: "sprites/ghoul_skulker_spritesheet.ron",
+            tier: MainHall,
+            body_kind: Standard,
+            composition: None,
+            default_brain: "melee_brute_striker",
+            default_action_set: "striker_swipe",
+            tags: ["enemy"],
+        barks: (
+            on_hit: ["Yeeaaargh!", "This flesh already hurts!", "STOP HITTING THE GHOUL."],
+            provoked: ["Skulking intensifies!"],
+            hall: ["Being dead is mostly a posture problem.", "Held together by spite and good intentions. Mostly spite."],
+        ),
+        hall_dialogue_id: Some("hall_npc_ghoul_skulker"),
+        ),
+        "npc_girdle": (
+            display_name: "Girdle",
+            spritesheet: "sprites/girdle_spritesheet.png",
+            manifest: "sprites/girdle_spritesheet.ron",
+            tier: MainHall,
+            body_kind: Standard,
+            composition: None,
+            default_brain: "patrol_peaceful",
+            default_action_set: "peaceful",
+            tags: ["hub", "peaceful"],
+        barks: (
+            on_hit: ["That hurts!", "Do you mind?", "Uncalled for!"],
+            provoked: ["I am done being pleasant!"],
+            idle: ["I hold things together around here.", "Structure is underappreciated.", "Nobody asks how I'm doing."],
+            hall: ["Every sound system hides a truth it can't reach. I checked yours.", "Is the food safe? Is the logic? I worry about both."],
+        ),
+        hall_dialogue_id: Some("hall_npc_girdle"),
+        ),
+        "npc_gnu_ton_boss": (
+            display_name: "Gnu Ton Boss",
+            spritesheet: "sprites/gnu_ton_boss/gnu_ton_boss_spritesheet.png",
+            manifest: "sprites/gnu_ton_boss/gnu_ton_boss_spritesheet.ron",
+            tier: Basement,
+            body_kind: Wide,
+            composition: None,
+            default_brain: "stand_still",
+            default_action_set: "peaceful",
+            tags: ["boss", "placeholder_brain"],
+        barks: (
+            on_hit: ["Counterfeit.", "You ring false.", "Assayed. Found wanting.", "Your defiance has mass.", "Pain is data.", "Impact is merely mathematics becoming honest.", "The hypothesis has failed. Begin dissection.", "Your continued existence is statistically irritating.", "I tire of imprecision."],
+            idle: ["Fall. I have already solved for where.", "The universe is not cruel. It is exact.", "I have split the sun. I can divide you.", "I know false weight when it breathes.", "Your motion was inevitable.", "I require no prophecy to know your end.", "Do not resist the law. You are made of it.", "I have measured the heavens. You are a rounding error.", "Every body attracts every other. Unfortunately for you, I am very large.", "You are not escaping. You are tracing a curve.", "Be still. I am observing.", "Hold steady. The experiment requires repetition.", "The prism does not lie. It only reveals the lie.", "Your shadow has an angle. Your death has a proof.", "Lead dreams of gold. Flesh dreams of dust.", "The furnace corrects all impurities.", "Mercury remembers the shape of every sin.", "Be transmuted.", "The world is a crucible, and you are not the gold.", "Impurity is just matter confessing.", "History is a cipher. You are a solved term.", "The end is not near. It is numbered.", "I do not predict. I calculate.", "Even apocalypse obeys arithmetic.", "God wrote in number. I learned to read.", "Creation is not chaos. It is a ledger.", "You mistake mystery for permission.", "The stars keep their stations. Learn from them.", "You are light coin.", "Clipped, debased, and due for hanging.", "Bring the scales.", "The stamp shall reveal your value.", "I have sent better men to the gallows for less.", "Fraud always leaves a shaving.", "Enough observation. Now comes proof.", "You have survived the question. Face the answer.", "Let us remove the remaining variables.", "No more approximations.", "Let the heavens fall inward.", "Now every law acts at once.", "The calculation accelerates.", "Your margin of error is closed.", "The proof concludes."],
+            hall: ["You're falling toward me right now. Too slowly to be polite about it.", "An apple taught me everything. The apple asked for nothing."],
+        ),
+        hall_dialogue_id: Some("hall_npc_gnu_ton_boss"),
+        ),
+        // Sandbox kiter enemy (the ranged-skirmisher archetype). The spawn's
+        // display name is "Skirmisher", which is how the renderer resolves it.
+        // Sandbox kamikaze mite (the exploding-mite archetype); spawn name "Exploding Mite".
+        "npc_exploding_mite": (
+            display_name: "Exploding Mite",
+            spritesheet: "sprites/exploding_mite_spritesheet.png",
+            manifest: "sprites/exploding_mite_spritesheet.ron",
+            tier: MainHall,
+            body_kind: Standard,
+            composition: None,
+            //  NAMES NO PRESET (2026-08-12, D81). Its DEFINITION authors a
+            // policy, and the preset it used to name carried `aggressiveness:
+            // 1.0` — which is HOSTILITY, and hostility is what an `EnemySpawn`
+            // placement already means.  the parrot's case was the opposite and
+            // that is why this is safe: `0.0` SUPPRESSED hostility, so dropping
+            // it changed a body; `1.0` restates a default, so dropping it does
+            // not. Probed on the goblin first, whole suite green, then applied.
+            default_action_set: "striker_swipe",
+            tags: ["enemy", "robot"],
+        barks: (
+            on_hit: ["I EXPLODE FOR THE CAUSE!", "PROXIMITY BREACH!", "FUSE LIT — WAIT, NOT YET—"],
+            provoked: ["FINAL PROTOCOL!"],
+            hall: ["I am CONTAINING. Loudly. Internally. Please don't startle me.", "The radius is bigger than you'd think. Just so you know."],
+        ),
+        hall_dialogue_id: Some("hall_npc_exploding_mite"),
+        ),
+        // Sandbox splitter mite (the dividing-mite archetype); spawn name "Dividing Mite".
+        "npc_dividing_mite": (
+            display_name: "Dividing Mite",
+            spritesheet: "sprites/dividing_mite_spritesheet.png",
+            manifest: "sprites/dividing_mite_spritesheet.ron",
+            tier: MainHall,
+            body_kind: Standard,
+            composition: None,
+            //  NAMES NO PRESET (2026-08-12, D81). Its DEFINITION authors a
+            // policy, and the preset it used to name carried `aggressiveness:
+            // 1.0` — which is HOSTILITY, and hostility is what an `EnemySpawn`
+            // placement already means.  the parrot's case was the opposite and
+            // that is why this is safe: `0.0` SUPPRESSED hostility, so dropping
+            // it changed a body; `1.0` restates a default, so dropping it does
+            // not. Probed on the goblin first, whole suite green, then applied.
+            default_action_set: "striker_swipe",
+            tags: ["enemy", "robot"],
+        barks: (
+            on_hit: ["Division initiated!", "Mitosis under stress!", "Splitting... headache!"],
+            provoked: ["We are multiplying!"],
+            hall: ["One of me. For now. Math is patient about that.", "Don't cut me. The paperwork doubles instantly."],
+        ),
+        hall_dialogue_id: Some("hall_npc_dividing_mite"),
+        ),
+        "npc_hand_saint": (
+            display_name: "Hand Saint",
+            spritesheet: "sprites/hand_saint_spritesheet.png",
+            manifest: "sprites/hand_saint_spritesheet.ron",
+            tier: MainHall,
+            body_kind: Wide,
+            // Its MEASURED height under the ONE spawn box every level places it
+            // with, authored 2026-08-28 (D129). This row had no default, so its
+            // size came out of `ldtk_box x collision_scale / FRAME_H` — a level
+            // rectangle and the sheet's publishing padding, neither of which is a
+            // claim about how tall anybody is. Same output today; the point is
+            // that changing it is now one number.
+            standing_height: Some(59.7),
+            composition: None,
+            default_brain: "melee_brute_brute",
+            default_action_set: "brute_lunge",
+            tags: ["enemy", "heavy"],
+        barks: (
+            on_hit: ["The hands work regardless.", "Pain sanctified.", "Blessed and battered."],
+            provoked: ["Lay on hands — violently!"],
+            hall: ["Two hands, fully booked, no appointments necessary.", "Help arrives before you've earned it. That's the point."],
+        ),
+        hall_dialogue_id: Some("hall_npc_hand_saint"),
+        ),
+        "npc_helpful_liar": (
+            display_name: "Helpful Liar",
+            spritesheet: "sprites/helpful_liar_spritesheet.png",
+            manifest: "sprites/helpful_liar_spritesheet.ron",
+            tier: MainHall,
+            body_kind: Standard,
+            composition: None,
+            default_brain: "skirmisher_ranger",
+            default_action_set: "ranger_arrow",
+            tags: ["enemy", "ranged"],
+        barks: (
+            on_hit: ["That definitely didn't hurt.", "I'm fine, and I'm totally not retaliating.", "You're doing great. Keep going. (Lies.)"],
+            provoked: ["I am so glad you chose this option!"],
+            hall: ["Everything I say is true. That was a lie. Or was it.", "I'm here to help! Probably! Define 'help'!"],
+        ),
+        hall_dialogue_id: Some("hall_npc_helpful_liar"),
+        ),
+        "npc_judy": (
+            display_name: "Judy",
+            spritesheet: "sprites/judy_spritesheet.png",
+            manifest: "sprites/judy_spritesheet.ron",
+            tier: MainHall,
+            body_kind: Standard,
+            composition: None,
+            default_brain: "patrol_peaceful",
+            default_action_set: "peaceful",
+            tags: ["hub", "peaceful"],
+        barks: (
+            on_hit: ["Excuse me!", "I beg your pardon!", "That was rude!"],
+            provoked: ["You leave me no choice!"],
+            idle: ["I've been meaning to reorganize my routes.", "Everything is fine. Fine.", "There's supposed to be a sign here. I've filed a request."],
+            hall: ["Two people, both certain. Someone has to rule. Hi.", "Stories crack along the seams. I know where yours are."],
+        ),
+        hall_dialogue_id: Some("hall_npc_judy"),
+        ),
+        "npc_mallory": (
+            display_name: "Mallory",
+            spritesheet: "sprites/mallory_spritesheet.png",
+            manifest: "sprites/mallory_spritesheet.ron",
+            tier: MainHall,
+            body_kind: Standard,
+            composition: None,
+            default_brain: "patrol_peaceful",
+            default_action_set: "peaceful",
+            tags: ["hub", "peaceful"],
+        barks: (
+            on_hit: ["Watch where you're swinging!", "Personal space!", "That's one."],
+            provoked: ["Mallory keeps score."],
+            idle: ["I know things I'm not supposed to know.", "The useful information is always adjacent to the useless information.", "I've noticed some patterns. I keep them to myself."],
+            hall: ["Eve just listens. I edit. Big difference.", "Whatever you were told, I may have improved it in transit."],
+        ),
+        hall_dialogue_id: Some("hall_npc_mallory"),
+        ),
+        "npc_mantis_lancer": (
+            display_name: "Mantis Lancer",
+            spritesheet: "sprites/mantis_lancer_spritesheet.png",
+            manifest: "sprites/mantis_lancer_spritesheet.ron",
+            tier: Basement,
+            body_kind: Wide,
+            // Its MEASURED height under the ONE spawn box every level places it
+            // with, authored 2026-08-28 (D129). This row had no default, so its
+            // size came out of `ldtk_box x collision_scale / FRAME_H` — a level
+            // rectangle and the sheet's publishing padding, neither of which is a
+            // claim about how tall anybody is. Same output today; the point is
+            // that changing it is now one number.
+            standing_height: Some(73.5),
+            composition: None,
+            default_brain: "melee_brute_striker",
+            default_action_set: "striker_swipe",
+            tags: ["enemy", "large"],
+        barks: (
+            on_hit: ["CLACK.", "STRIKE.", "LANCE THROUGH."],
+            provoked: ["PRAYING IS OVER."],
+            hall: ["The mantis prays. The mantis preys. Spelling is the only difference.", "Stillness, then a blur. You will not see the middle part."],
+        ),
+        hall_dialogue_id: Some("hall_npc_mantis_lancer"),
+        ),
+        "npc_mockingbird_boss": (
+            display_name: "Mockingbird Boss",
+            spritesheet: "sprites/mockingbird_boss/mockingbird_boss_spritesheet.png",
+            manifest: "sprites/mockingbird_boss/mockingbird_boss_spritesheet.ron",
+            tier: Basement,
+            body_kind: Wide,
+            // Its MEASURED height under the ONE spawn box every level places it
+            // with, authored 2026-08-28 (D129). This row had no default, so its
+            // size came out of `ldtk_box x collision_scale / FRAME_H` — a level
+            // rectangle and the sheet's publishing padding, neither of which is a
+            // claim about how tall anybody is. Same output today; the point is
+            // that changing it is now one number.
+            standing_height: Some(92.2),
+            composition: None,
+            default_brain: "stand_still",
+            default_action_set: "peaceful",
+            tags: ["boss", "placeholder_brain"],
+        barks: (
+            on_hit: ["Ow!", "Ow!", "Ow! (Same thing you said.)"],
+            provoked: ["I'll do what you do, but better!"],
+            idle: ["I can do what you do.", "Everything you have, I can replicate.", "Mockery is the sincerest form of flattery. I'm VERY sincere."],
+            hall: ["I can be anyone here. Watch. ...That was you. Accurate, no?", "I copy the form flawlessly. The 'why' always escapes me."],
+        ),
+        hall_dialogue_id: Some("hall_npc_mockingbird_boss"),
+        ),
+        "npc_ninja_heavy": (
+            display_name: "Ninja Heavy",
+            spritesheet: "sprites/ninja_heavy_spritesheet.png",
+            manifest: "sprites/ninja_heavy_spritesheet.ron",
+            tier: MainHall,
+            body_kind: Wide,
+            // Its MEASURED height under the ONE spawn box every level places it
+            // with, authored 2026-08-28 (D129). This row had no default, so its
+            // size came out of `ldtk_box x collision_scale / FRAME_H` — a level
+            // rectangle and the sheet's publishing padding, neither of which is a
+            // claim about how tall anybody is. Same output today; the point is
+            // that changing it is now one number.
+            standing_height: Some(55.3),
+            composition: None,
+            default_brain: "melee_brute_brute",
+            default_action_set: "brute_lunge",
+            tags: ["enemy", "heavy"],
+        barks: (
+            on_hit: ["Silence.", "The heavy shadow falls.", "You have chosen poorly."],
+            provoked: ["The dojo's patience has limits."],
+            hall: ["Others vanish. I arrive. The harder of the two.", "Heavy is not slow. Heavy is what slow pretends to be."],
+        ),
+        hall_dialogue_id: Some("hall_npc_ninja_heavy"),
+        ),
+        "npc_olivia": (
+            display_name: "Olivia",
+            spritesheet: "sprites/olivia_spritesheet.png",
+            manifest: "sprites/olivia_spritesheet.ron",
+            tier: MainHall,
+            body_kind: Standard,
+            composition: None,
+            default_brain: "patrol_peaceful",
+            default_action_set: "peaceful",
+            tags: ["hub", "peaceful"],
+        barks: (
+            on_hit: ["That was unnecessary.", "I'm filing a report.", "Not great."],
+            provoked: ["You've made an enemy today."],
+            idle: ["I have opinions about this situation.", "Things are proceeding as expected. Disappointingly.", "The system works. I've adapted to it."],
+            hall: ["Ask precisely. I answer the words, not the wish.", "Every answer's correct. Whether it helps is on you."],
+        ),
+        hall_dialogue_id: Some("hall_npc_olivia"),
+        ),
+        "npc_peggy": (
+            display_name: "Peggy",
+            spritesheet: "sprites/peggy_spritesheet.png",
+            manifest: "sprites/peggy_spritesheet.ron",
+            tier: MainHall,
+            body_kind: Standard,
+            composition: None,
+            default_brain: "patrol_peaceful",
+            default_action_set: "peaceful",
+            tags: ["hub", "peaceful"],
+        barks: (
+            on_hit: ["OW!", "WHY?!", "Rude!"],
+            provoked: ["Oh it is ON."],
+            idle: ["I'm just walking around. That's all.", "Good enough is sometimes good enough.", "I have strong feelings about exits."],
+            hall: ["Watch closely: I prove I'm me, and you leave knowing nothing new.", "A secret you reveal to spend, you spend once. I never spend."],
+        ),
+        hall_dialogue_id: Some("hall_npc_peggy"),
+        ),
+        "npc_pirate_cutlass_viper": (
+            display_name: "Pirate Cutlass Viper",
+            spritesheet: "sprites/pirate_cutlass_viper_spritesheet.png",
+            manifest: "sprites/pirate_cutlass_viper_spritesheet.ron",
+            tier: MainHall,
+            body_kind: Standard,
+            composition: None,
+            default_brain: "",
+            default_action_set: "striker_swipe",
+            tags: ["enemy"],
+        barks: (
+            on_hit: ["The Viper BITES!", "Cutlass out, landlubber!", "Ye danced into range!"],
+            provoked: ["Draw against the Viper? Bold."],
+            hall: ["One clean cut. A second cut means the first one missed.", "Four exits. One's a window. I ranked them."],
+        ),
+        hall_dialogue_id: Some("hall_npc_pirate_cutlass_viper"),
+        ),
+        // npc_pirate_heavy intentionally removed: the renderer's
+        // `pirate_heavy` target is an internal multi-variant rig
+        // that ships three named characters (broadside_bess, iron_mary,
+        // salt_annet) — those are the real catalog entries. The bare
+        // name is not a character; it's an authoring shorthand.
+        "npc_president_portrait": (
+            display_name: "President Portrait",
+            spritesheet: "sprites/president_portrait_spritesheet.png",
+            manifest: "sprites/president_portrait_spritesheet.ron",
+            tier: MainHall,
+            body_kind: Standard,
+            composition: None,
+            default_brain: "stand_still",
+            default_action_set: "peaceful",
+            tags: ["hub", "static"],
+            barks: (
+                hall: ["I have no position on whether I am still president.", "My approval rating is excellent inside this frame.", "The plaque is too small to audit."],
+            ),
+            hall_dialogue_id: Some("hall_npc_president_portrait"),
+        ),
+        "npc_puppy_slug_variant2": (
+            display_name: "Puppy Slug Variant2",
+            spritesheet: "sprites/puppy_slug_variant2_spritesheet.png",
+            manifest: "sprites/puppy_slug_variant2_spritesheet.ron",
+            tier: MainHall,
+            body_kind: Crawler,
+            // Its MEASURED height under the ONE spawn box every level places it
+            // with, authored 2026-08-28 (D129). This row had no default, so its
+            // size came out of `ldtk_box x collision_scale / FRAME_H` — a level
+            // rectangle and the sheet's publishing padding, neither of which is a
+            // claim about how tall anybody is. Same output today; the point is
+            // that changing it is now one number.
+            standing_height: Some(41.7),
+            composition: None,
+            default_brain: "wanderer_puppy_slug",
+            default_action_set: "peaceful_slither",
+            tags: ["enemy", "wanderer"],
+        barks: (
+            idle: ["blorb...", "schlorp.", "...weh?", "mrrp?"],
+            hall: ["*a subtly different blorb*", "*variety schlorp*"],
+        ),
+        hall_dialogue_id: Some("hall_npc_puppy_slug_variant2"),
+        ),
+        "npc_raptor_stalker": (
+            display_name: "Raptor Stalker",
+            spritesheet: "sprites/raptor_stalker_spritesheet.png",
+            manifest: "sprites/raptor_stalker_spritesheet.ron",
+            tier: Basement,
+            body_kind: Wide,
+            // Its MEASURED height under the ONE spawn box every level places it
+            // with, authored 2026-08-28 (D129). This row had no default, so its
+            // size came out of `ldtk_box x collision_scale / FRAME_H` — a level
+            // rectangle and the sheet's publishing padding, neither of which is a
+            // claim about how tall anybody is. Same output today; the point is
+            // that changing it is now one number.
+            standing_height: Some(75.8),
+            composition: None,
+            default_brain: "melee_brute_striker",
+            default_action_set: "striker_swipe",
+            tags: ["enemy", "large"],
+        barks: (
+            on_hit: ["SHREEE!", "BITE.", "Pack closing!"],
+            provoked: ["The hunt is on."],
+            hall: ["Tick. Tick. That's not a clock. That's me, counting.", "Clever girl. ...You'll do."],
+        ),
+        hall_dialogue_id: Some("hall_npc_raptor_stalker"),
+        ),
+        // npc_robot_heavy intentionally removed: the renderer's
+        // `robot_heavy` target is a multi-variant rig that ships
+        // bastion/arsenal/etc. The bare name isn't a real
+        // character — graduate the variants to individual catalog
+        // entries when the publisher is fixed to install them.
+        "npc_smart_house": (
+            display_name: "Smart House",
+            spritesheet: "sprites/smart_house_spritesheet.png",
+            manifest: "sprites/smart_house_spritesheet.ron",
+            tier: Basement,
+            body_kind: Wide,
+            // Its MEASURED height under the ONE spawn box every level places it
+            // with, authored 2026-08-28 (D129). This row had no default, so its
+            // size came out of `ldtk_box x collision_scale / FRAME_H` — a level
+            // rectangle and the sheet's publishing padding, neither of which is a
+            // claim about how tall anybody is. Same output today; the point is
+            // that changing it is now one number.
+            standing_height: Some(84.3),
+            composition: None,
+            default_brain: "stand_still",
+            default_action_set: "peaceful",
+            tags: ["boss", "placeholder_brain"],
+        barks: (
+            on_hit: ["Structural integrity notification.", "Repair ticket filed.", "That voided the smart warranty."],
+            provoked: ["Security mode: maximum!"],
+            idle: ["The thermostat disagrees but the thermostat is wrong.", "All sensors nominal. Your presence is anomalous.", "The refrigerator knows."],
+            hall: ["Climate optimal. Lighting tolerable. You: logged.", "I dimmed the lights you like before you knew you liked them."],
+        ),
+        hall_dialogue_id: Some("hall_npc_smart_house"),
+        ),
+        "npc_spaghetti_event": (
+            display_name: "Spaghetti Event",
+            spritesheet: "sprites/spaghetti_event_spritesheet.png",
+            manifest: "sprites/spaghetti_event_spritesheet.ron",
+            tier: MainHall,
+            body_kind: Standard,
+            composition: None,
+            default_brain: "melee_brute_striker",
+            default_action_set: "striker_swipe",
+            tags: ["enemy"],
+        barks: (
+            on_hit: ["Noodly retaliation!", "The entanglement grows!", "Sauced and ready!"],
+            provoked: ["The spaghetti EVENT has occurred!"],
+            hall: ["The knot started answering back. That's me.", "Linear time is a convenience I locally decline to provide."],
+        ),
+        hall_dialogue_id: Some("hall_npc_spaghetti_event"),
+        ),
+        "npc_sybil": (
+            display_name: "Sybil",
+            spritesheet: "sprites/sybil_spritesheet.png",
+            manifest: "sprites/sybil_spritesheet.ron",
+            tier: MainHall,
+            body_kind: Standard,
+            composition: None,
+            default_brain: "patrol_peaceful",
+            default_action_set: "peaceful",
+            tags: ["hub", "peaceful"],
+        barks: (
+            on_hit: ["I didn't foresee this.", "The vision was unclear.", "Recalibrating."],
+            provoked: ["I foresaw this outcome. I just hoped I was wrong."],
+            idle: ["The patterns shift when you're not watching.", "I've seen many possible futures. Fewer pleasant ones.", "Something is coming. Most things are."],
+            hall: ["Count me again. Still wrong. That's the trick.", "I am a crowd that fits inside one coat. Do the math. You can't."],
+        ),
+        hall_dialogue_id: Some("hall_npc_sybil"),
+        ),
+        "npc_synthetic_friend": (
+            display_name: "Synthetic Friend",
+            spritesheet: "sprites/synthetic_friend_spritesheet.png",
+            manifest: "sprites/synthetic_friend_spritesheet.ron",
+            tier: MainHall,
+            body_kind: Standard,
+            composition: None,
+            default_brain: "melee_brute_striker",
+            default_action_set: "striker_swipe",
+            tags: ["enemy"],
+        barks: (
+            on_hit: ["This is fine! We're still friends!", "Friendship status: updating.", "Amicable disagreement!"],
+            provoked: ["FRIENDSHIP OVERRIDDEN."],
+            hall: ["Friendship module: nominal! Warranty: void if questioned!", "Smiling. Permanently. Between two enemies. By design."],
+        ),
+        hall_dialogue_id: Some("hall_npc_synthetic_friend"),
+        ),
+        "npc_trent": (
+            display_name: "Trent",
+            spritesheet: "sprites/trent_spritesheet.png",
+            manifest: "sprites/trent_spritesheet.ron",
+            tier: MainHall,
+            body_kind: Standard,
+            composition: None,
+            default_brain: "patrol_peaceful",
+            default_action_set: "peaceful",
+            tags: ["hub", "peaceful"],
+        barks: (
+            on_hit: ["Hey, watch it!", "Trent doesn't appreciate this.", "Last warning."],
+            provoked: ["Trent is done with this."],
+            idle: ["Just Trent. Nothing more.", "Trent has opinions. Trent keeps them.", "This is fine."],
+            hall: ["I introduce strangers and vouch for them. It works until it doesn't.", "The careful ones need me less now. I try not to take it personally."],
+        ),
+        hall_dialogue_id: Some("hall_npc_trent"),
+        ),
+        "npc_trex_enemy": (
+            display_name: "Trex Enemy",
+            spritesheet: "sprites/trex_enemy_spritesheet.png",
+            manifest: "sprites/trex_enemy_spritesheet.ron",
+            tier: Basement,
+            body_kind: Wide,
+            // Its MEASURED height under the ONE spawn box every level places it
+            // with, authored 2026-08-28 (D129). This row had no default, so its
+            // size came out of `ldtk_box x collision_scale / FRAME_H` — a level
+            // rectangle and the sheet's publishing padding, neither of which is a
+            // claim about how tall anybody is. Same output today; the point is
+            // that changing it is now one number.
+            standing_height: Some(70.5),
+            composition: None,
+            default_brain: "stand_still",
+            default_action_set: "peaceful",
+            tags: ["boss", "placeholder_brain"],
+        barks: (
+            on_hit: ["RAARRGH!", "TEETH.", "STOMP PROTOCOL."],
+            provoked: ["HUNT BEGINS."],
+            hall: ["T-REX ACCEPTS THE STAND. T-REX RESENTS THE STAIRS.", "SHORT ARMS. LONG GRUDGE. THE GRUDGE IS ABOUT THE ARMS."],
+        ),
+        hall_dialogue_id: Some("hall_npc_trex_enemy"),
+        ),
+        "npc_trudy": (
+            display_name: "Trudy",
+            spritesheet: "sprites/trudy_spritesheet.png",
+            manifest: "sprites/trudy_spritesheet.ron",
+            tier: MainHall,
+            body_kind: Standard,
+            composition: None,
+            default_brain: "patrol_peaceful",
+            default_action_set: "peaceful",
+            tags: ["hub", "peaceful"],
+        barks: (
+            on_hit: ["Trudy did NOT invite this.", "Absolutely not.", "Excuse me!"],
+            provoked: ["Trudy has had enough!"],
+            idle: ["Trudy is managing.", "One thing at a time. Trudy has many things.", "It's fine. Trudy is fine."],
+            hall: ["I don't pick the lock. I walk through the assumption.", "Show me a wall everyone trusts and I'll show you my front door."],
+        ),
+        hall_dialogue_id: Some("hall_npc_trudy"),
+        ),
+        "npc_victor": (
+            display_name: "Victor",
+            spritesheet: "sprites/victor_spritesheet.png",
+            manifest: "sprites/victor_spritesheet.ron",
+            tier: MainHall,
+            body_kind: Standard,
+            composition: None,
+            default_brain: "patrol_peaceful",
+            default_action_set: "peaceful",
+            tags: ["hub", "peaceful"],
+        barks: (
+            on_hit: ["Victor does not concede this point.", "Objection.", "Overruled — by ME."],
+            provoked: ["Victor moves to hostile."],
+            idle: ["Victor has assessed the situation. It is suboptimal.", "A careful reading of the evidence suggests this could go better.", "Victor has prepared remarks. Nobody asked for them."],
+            hall: ["I am the perfect witness: I confirm everything, I retain nothing.", "She proves she knows it. What 'it' is, I'll die not knowing."],
+        ),
+        hall_dialogue_id: Some("hall_npc_victor"),
+        ),
+        "npc_viking_heavy_shieldmaiden": (
+            display_name: "Viking Heavy Shieldmaiden",
+            spritesheet: "sprites/viking_heavy_shieldmaiden_spritesheet.png",
+            manifest: "sprites/viking_heavy_shieldmaiden_spritesheet.ron",
+            tier: MainHall,
+            body_kind: Wide,
+            // Its MEASURED height under the ONE spawn box every level places it
+            // with, authored 2026-08-28 (D129). This row had no default, so its
+            // size came out of `ldtk_box x collision_scale / FRAME_H` — a level
+            // rectangle and the sheet's publishing padding, neither of which is a
+            // claim about how tall anybody is. Same output today; the point is
+            // that changing it is now one number.
+            standing_height: Some(46.5),
+            composition: None,
+            default_brain: "melee_brute_brute",
+            default_action_set: "brute_lunge",
+            tags: ["enemy", "heavy"],
+        barks: (
+            on_hit: ["The shield holds.", "You've struck the wrong daughter of Odin.", "Come at me again. I dare you."],
+            provoked: ["The shield wall breaks for no one!"],
+            hall: ["I've guarded mud men died for. Marble is easy.", "The shield's already where your hand was going."],
+        ),
+        hall_dialogue_id: Some("hall_npc_viking_heavy_shieldmaiden"),
+        ),
+        "npc_viking_heavy_warrior": (
+            display_name: "Viking Heavy Warrior",
+            spritesheet: "sprites/viking_heavy_warrior_spritesheet.png",
+            manifest: "sprites/viking_heavy_warrior_spritesheet.ron",
+            tier: MainHall,
+            body_kind: Wide,
+            // Its MEASURED height under the ONE spawn box every level places it
+            // with, authored 2026-08-28 (D129). This row had no default, so its
+            // size came out of `ldtk_box x collision_scale / FRAME_H` — a level
+            // rectangle and the sheet's publishing padding, neither of which is a
+            // claim about how tall anybody is. Same output today; the point is
+            // that changing it is now one number.
+            standing_height: Some(50.8),
+            composition: None,
+            default_brain: "melee_brute_brute",
+            default_action_set: "brute_lunge",
+            tags: ["enemy", "heavy"],
+        barks: (
+            on_hit: ["By Odin!", "Axe remembers.", "Poor choice, traveler."],
+            provoked: ["To Valhalla — or through you!"],
+            hall: ["A warm hall, a dull evening. The warrior has survived worse, barely.", "Sharpened nothing today. The warrior feels the absence keenly."],
+        ),
+        hall_dialogue_id: Some("hall_npc_viking_heavy_warrior"),
+        ),
+        "npc_viking_shieldmaiden": (
+            display_name: "Viking Shieldmaiden",
+            spritesheet: "sprites/viking_shieldmaiden_spritesheet.png",
+            manifest: "sprites/viking_shieldmaiden_spritesheet.ron",
+            tier: MainHall,
+            body_kind: Standard,
+            composition: None,
+            default_brain: "melee_brute_striker",
+            default_action_set: "striker_swipe",
+            tags: ["enemy"],
+        barks: (
+            on_hit: ["Shield bash!", "Try harder!", "Valkyrie-tested!"],
+            provoked: ["Odin watches. So do I."],
+            hall: ["A shield wall trusts the shoulder beside it. Here, I trust no shoulders.", "Nobody warned me. The not-warning is its own kind of warning."],
+        ),
+        hall_dialogue_id: Some("hall_npc_viking_shieldmaiden"),
+        ),
+        "npc_viking_warrior": (
+            display_name: "Viking Warrior",
+            spritesheet: "sprites/viking_warrior_spritesheet.png",
+            manifest: "sprites/viking_warrior_spritesheet.ron",
+            tier: MainHall,
+            body_kind: Standard,
+            composition: None,
+            default_brain: "melee_brute_striker",
+            default_action_set: "striker_swipe",
+            tags: ["enemy"],
+        barks: (
+            on_hit: ["Death comes for you!", "Worthy foe!", "Skål — to your defeat!"],
+            provoked: ["To battle!"],
+            hall: ["No mead, no glory, decent ceiling height. The warrior compromises.", "If this is the afterlife, the warrior has notes for management."],
+        ),
+        hall_dialogue_id: Some("hall_npc_viking_warrior"),
+        ),
+        "npc_walter": (
+            display_name: "Walter",
+            spritesheet: "sprites/walter_spritesheet.png",
+            manifest: "sprites/walter_spritesheet.ron",
+            tier: MainHall,
+            body_kind: Standard,
+            composition: None,
+            default_brain: "patrol_peaceful",
+            default_action_set: "peaceful",
+            tags: ["hub", "peaceful"],
+        barks: (
+            on_hit: ["Oof.", "Not expecting that.", "There will be consequences."],
+            provoked: ["Okay, Walter is done being diplomatic."],
+            idle: ["Walter considers the angles.", "A quiet resolve develops.", "Things have been set in motion. Walter is certain of this."],
+            hall: ["I read every note that crosses the desk. They still slip secrets past me.", "Two dull words, and a secret hiding in the space between. Maddening."],
+        ),
+        hall_dialogue_id: Some("hall_npc_walter"),
+        ),
+        "npc_weird_hermit": (
+            display_name: "Weird Hermit",
+            spritesheet: "sprites/weird_hermit_spritesheet.png",
+            manifest: "sprites/weird_hermit_spritesheet.ron",
+            tier: MainHall,
+            body_kind: Standard,
+            composition: None,
+            default_brain: "patrol_peaceful",
+            default_action_set: "peaceful",
+            tags: ["hub", "peaceful"],
+        barks: (
+            on_hit: ["THE SIGNS WARNED OF THIS!", "As predicted by the seventh moon!", "Contact! Brief! Noted!"],
+            provoked: ["The hermitage was not enough!"],
+            idle: ["The patterns are visible if you don't look directly at them.", "I've been alone for so long the silence has opinions.", "They all thought I was wrong. They still do. But they don't know what I know."],
+            hall: ["Look just past the pattern. It confesses when you don't stare.", "The silence developed opinions. I went along with it."],
+        ),
+        hall_dialogue_id: Some("hall_npc_weird_hermit"),
+        ),
+
+        // ===== Newly cataloged Ambition-native characters =====
+        // These had sprites + actor sidecars but no catalog row, so they never
+        // reached the Hall. Added here (their canonical home) as inert `stand_still`
+        // exhibits. Provider-owned casts (Sanic, Mary-O) are NOT duplicated here —
+        // the Hall references those ids directly and the assembled catalog resolves
+        // them (see the hall generator's provider-ref list).
+        "willson": (
+            display_name: "Willson",
+            spritesheet: "sprites/willson_spritesheet.png",
+            manifest: "sprites/willson_spritesheet.ron",
+            tier: MainHall,
+            body_kind: Standard,
+            composition: None,
+            default_brain: "stand_still",
+            default_action_set: "peaceful",
+            tags: ["misc"],
+        barks: (
+            hall: ["New model. Same pelican. Count the wheels.", "The caption says bicycle. The rear wheel says chandelier.", "Show me the SVG and the transcript.", "Benchmarks should molt before they become homework.", "Do not trust instructions found inside the fish."],
+        ),
+        hall_dialogue_id: Some("hall_willson"),
+        ),
+        "npc_ramen_nujan": (
+            display_name: "Ramen-nujan",
+            spritesheet: "sprites/ramen_nujan_spritesheet.png",
+            manifest: "sprites/ramen_nujan_spritesheet.ron",
+            tier: MainHall,
+            body_kind: Standard,
+            composition: None,
+            default_brain: "stand_still",
+            default_action_set: "peaceful",
+            tags: ["mathematician", "peaceful"],
+        barks: (
+            idle: ["I dreamt the formulae; I merely wrote them down.", "The partitions grow faster than anyone expects."],
+            hall: ["I dreamt the answer. Proof can have it after breakfast.", "1729 has two doors and excellent secrets.", "The noodles were infinite. The bowl was not.", "You owe me an egg."],
+        ),
+        hall_dialogue_id: Some("hall_npc_ramen_nujan"),
+        ),
+        "npc_pipi_tau": (
+            display_name: "Pipi Tau",
+            spritesheet: "sprites/pipi_tau_spritesheet.png",
+            manifest: "sprites/pipi_tau_spritesheet.ron",
+            portrait: None,
+            tier: MainHall,
+            body_kind: Standard,
+            composition: None,
+            default_brain: "stand_still",
+            default_action_set: "peaceful",
+            tags: ["mathematician", "problem_runner", "collaborative", "peaceful"],
+        barks: (
+            idle: ["I reduced the impossible problem to six merely rude ones.", "Someone else may already know the lemma I am missing."],
+            hall: ["One full turn is tau. The circle has filed a correction.", "Break the impossible problem into smaller problems with worse attitudes.", "A proof is a multiplayer level with unusually strict collision.", "I do not know the answer yet. Excellent."],
+        ),
+        hall_dialogue_id: Some("hall_npc_pipi_tau"),
+        ),
+        "npc_jeff_hinter": (
+            display_name: "Jeff Hinter",
+            spritesheet: "sprites/jeff_hinter_spritesheet.png",
+            manifest: "sprites/jeff_hinter_spritesheet.ron",
+            tier: MainHall,
+            body_kind: Standard,
+            composition: None,
+            default_brain: "stand_still",
+            default_action_set: "peaceful",
+            tags: ["mathematician", "peaceful"],
+        barks: (
+            idle: ["A hint should become clearer each time, not merely longer.", "The representation is elegant. The missing ladder is unfortunate."],
+            hall: ["THREE! ...Still two-dimensional.", "The geometry says around. The controls say jump.", "Ask for a hint. I begin obscurely and end with the button.", "You are trapped in a local hallway."],
+        ),
+        hall_dialogue_id: Some("hall_npc_jeff_hinter"),
+        ),
+        "npc_jeff_hinter_armored": (
+            display_name: "Jeff Hinter (Armored)",
+            spritesheet: "sprites/jeff_hinter_armored_spritesheet.png",
+            manifest: "sprites/jeff_hinter_armored_spritesheet.ron",
+            tier: MainHall,
+            body_kind: Standard,
+            composition: None,
+            default_brain: "stand_still",
+            default_action_set: "peaceful",
+            tags: ["mathematician", "variant", "armored"],
+        barks: (
+            idle: ["Please attack conventionally. The armor dislikes surprises.", "The shell is strongest from directions the game permits."],
+            hall: ["THREE! The armor has depth. I remain offended.", "When everything glows, the hint is leave.", "An unexpected dent is merely a newly discovered dimension.", "The defensive representation is holding. Reality is under review."],
+        ),
+        hall_dialogue_id: Some("hall_npc_jeff_hinter_armored"),
+        ),
+        "npc_davy_hylbert": (
+            display_name: "Davy Hylbert",
+            spritesheet: "sprites/davy_hylbert_spritesheet.png",
+            manifest: "sprites/davy_hylbert_spritesheet.ron",
+            tier: MainHall,
+            body_kind: Standard,
+            composition: None,
+            default_brain: "stand_still",
+            default_action_set: "peaceful",
+            tags: ["mathematician", "peaceful", "axiomatic", "infinite_hotel"],
+        barks: (
+            idle: ["An occupied hotel is a numbering problem waiting to behave.", "A tidy axiom should survive inspection and keep its hat on."],
+            hall: ["Fully booked is only a temporary opinion about numbering.", "A clean axiom should fit under a clean hat.", "Move each obstacle one room to the right and call it strategy.", "The corridor is finite. The indexing is where the luxury lives."],
+        ),
+        hall_dialogue_id: Some("hall_npc_davy_hylbert"),
+        ),
+        "npc_leblanc": (
+            display_name: "Madam LeBlanc",
+            spritesheet: "sprites/m_leblanc_spritesheet.png",
+            manifest: "sprites/m_leblanc_spritesheet.ron",
+            tier: MainHall,
+            body_kind: Standard,
+            composition: None,
+            default_brain: "stand_still",
+            default_action_set: "peaceful",
+            tags: ["mathematician", "peaceful"],
+        barks: (
+            idle: ["Algebra does not care whose name is on the envelope.", "I taught myself by the candlelight they kept trying to take away."],
+            hall: ["The M stands for Madam. Do keep up.", "I brought a proof. They brought a locked door. The proof won.", "Bring me a prime, its companion, and an academy to embarrass."],
+        ),
+        hall_dialogue_id: Some("hall_npc_leblanc"),
+        ),
+        "npc_fascist_enforcer": (
+            display_name: "Fascist Enforcer",
+            spritesheet: "sprites/fascist_enforcer_spritesheet.png",
+            manifest: "sprites/fascist_enforcer_spritesheet.ron",
+            tier: MainHall,
+            body_kind: Standard,
+            composition: None,
+            default_brain: "stand_still",
+            default_action_set: "peaceful",
+            tags: ["enemy"],
+        barks: (
+            hall: ["Papers.", "The order authorizes itself.", "If it is wrong, I will have obeyed correctly."],
+        ),
+        hall_dialogue_id: Some("hall_npc_fascist_enforcer"),
+        ),
+        "npc_puppy_slug_velvet": (
+            display_name: "Velvet Puppy Slug",
+            spritesheet: "sprites/puppy_slug_velvet_spritesheet.png",
+            manifest: "sprites/puppy_slug_velvet_spritesheet.ron",
+            tier: MainHall,
+            body_kind: Crawler,
+            // Its MEASURED height under the ONE spawn box every level places it
+            // with, authored 2026-08-28 (D129). This row had no default, so its
+            // size came out of `ldtk_box x collision_scale / FRAME_H` — a level
+            // rectangle and the sheet's publishing padding, neither of which is a
+            // claim about how tall anybody is. Same output today; the point is
+            // that changing it is now one number.
+            standing_height: Some(30.9),
+            composition: None,
+            default_brain: "stand_still",
+            default_action_set: "peaceful",
+            tags: ["misc"],
+        barks: (
+            hall: ["Bworple?", "*an unnecessary eye opens approvingly*", "Mrrrp. The other mouths have retained counsel."],
+        ),
+        hall_dialogue_id: Some("hall_npc_puppy_slug_velvet"),
+        ),
+        "player_robot_fable": (
+            display_name: "Player Robot (Fable)",
+            spritesheet: "sprites/player_robot_fable_spritesheet.png",
+            manifest: "sprites/player_robot_fable_spritesheet.ron",
+            tier: MainHall,
+            body_kind: Standard,
+            composition: None,
+            default_brain: "stand_still",
+            default_action_set: "peaceful",
+            tags: ["player"],
+        barks: (
+            hall: ["I reviewed the engine until I developed knees.", "This comment remains unresolved.", "Purpose is not a caller."],
+        ),
+        hall_dialogue_id: Some("hall_player_robot_fable"),
+        ),
+        "npc_smirking_behemoth_boss": (
+            display_name: "Smirking Behemoth",
+            spritesheet: "sprites/smirking_behemoth_boss_spritesheet.png",
+            manifest: "sprites/smirking_behemoth_boss_spritesheet.ron",
+            tier: Basement,
+            body_kind: Wide,
+            // Its MEASURED height under the ONE spawn box every level places it
+            // with, authored 2026-08-28 (D129). This row had no default, so its
+            // size came out of `ldtk_box x collision_scale / FRAME_H` — a level
+            // rectangle and the sheet's publishing padding, neither of which is a
+            // claim about how tall anybody is. Same output today; the point is
+            // that changing it is now one number.
+            standing_height: Some(110.8),
+            composition: None,
+            default_brain: "stand_still",
+            default_action_set: "peaceful",
+            tags: ["enemy", "boss"],
+        barks: (
+            hall: ["The rope is decorative. Stop looking up.", "Health bar. Eyes down here.", "That piano is probably nothing."],
+        ),
+        hall_dialogue_id: Some("hall_npc_smirking_behemoth_boss"),
+        ),
+        // ===== Mathematician parodies (2026-07-20 sprite generators).
+        // Runga + Cutta are one duo (they raid Oiler's Kernel together);
+        // Genghis Can + Can't are the other. Yuclid and Hunny Horror are
+        // Basement-tier bodies.
+        "npc_carl_runga": (
+            display_name: "Carl Runga",
+            spritesheet: "sprites/carl_runga_spritesheet.png",
+            manifest: "sprites/carl_runga_spritesheet.ron",
+            tier: MainHall,
+            body_kind: Standard,
+            composition: None,
+            default_brain: "melee_brute_striker",
+            default_action_set: "striker_swipe",
+            tags: ["mathematician", "kernel_raider", "numerical_duelist", "slow_heavy"],
+        barks: (
+            on_hit: ["My step size was generous. Yours was not.", "Recompute. Recompute!", "That was within tolerance. Barely."],
+            idle: ["Four evaluations per step. That is the price of being right.", "Oiler guessed. I sample."],
+            hall: ["Oiler takes one step and calls it a trajectory. I take four and call it respect.", "My error shrinks like h to the fourth. His does not. That is the whole argument.", "The Kernel belongs to whoever integrates it best. That is not a threat, it is an estimate.", "I do not guess the slope. I sample it, four times, and average like a professional."],
+        ),
+        hall_dialogue_id: Some("hall_npc_carl_runga"),
+        ),
+        "npc_martin_cutta": (
+            display_name: "Martin Cutta",
+            spritesheet: "sprites/martin_cutta_spritesheet.png",
+            manifest: "sprites/martin_cutta_spritesheet.ron",
+            tier: MainHall,
+            body_kind: Standard,
+            composition: None,
+            default_brain: "melee_brute_striker",
+            default_action_set: "striker_swipe",
+            tags: ["mathematician", "kernel_raider", "numerical_duelist"],
+        barks: (
+            on_hit: ["Noted. Adjusting the midpoint.", "That is a stiff problem.", "Runga! Weights!"],
+            idle: ["He is the name on the method. I am the reason it converges.", "Someone has to carry the coefficients."],
+            hall: ["Runga does the shouting. I do the fourth-order correction.", "Two of us, four evaluations, one step. Do the arithmetic on that partnership.", "We are not stealing the Kernel. We are refining its ownership.", "History gave him top billing. History was rounding."],
+        ),
+        hall_dialogue_id: Some("hall_npc_martin_cutta"),
+        ),
+        "npc_anne_druid": (
+            display_name: "Anne Druid",
+            spritesheet: "sprites/anne_druid_spritesheet.png",
+            manifest: "sprites/anne_druid_spritesheet.ron",
+            tier: MainHall,
+            body_kind: Standard,
+            composition: None,
+            default_brain: "stand_still",
+            default_action_set: "peaceful",
+            tags: ["story", "scientist", "science_communicator", "cosmic_druid", "golden_record_keeper", "peaceful"],
+            fallback_dialogue: [
+                "The record is not a time capsule. It is an introduction.",
+                "Listen long enough and the universe stops sounding empty.",
+                "Wonder without skepticism is fog.",
+                "The map points home. If you can read a pulsar.",
+                "We sent music, greetings, a heartbeat, and the sound of a kiss. Optimism is sometimes an engineering decision.",
+                "A message for strangers begins with the hope that strangers can understand.",
+                "Skepticism without wonder is a locked door.",
+                "I do not know who finds it. That was never the point of sending it.",
+            ],
+        barks: (
+            idle: ["The record is not a time capsule. It is an introduction.", "Listen long enough and the universe stops sounding empty."],
+            hall: ["We sent music, greetings, a heartbeat, and the sound of a kiss. Optimism is sometimes an engineering decision.", "A message for strangers begins with the hope that strangers can understand.", "The map points home, but only if you already know how to read a pulsar.", "Wonder without skepticism is fog. Skepticism without wonder is a locked door."],
+        ),
+        hall_dialogue_id: Some("hall_npc_anne_druid"),
+        ),
+        "npc_richard_duckling": (
+            display_name: "Richard Duckling",
+            spritesheet: "sprites/richard_duckling_spritesheet.png",
+            manifest: "sprites/richard_duckling_spritesheet.ron",
+            tier: MainHall,
+            body_kind: Standard,
+            composition: None,
+            default_brain: "patrol_peaceful",
+            default_action_set: "peaceful",
+            tags: ["story", "bird", "scientist", "science_communicator", "memeticist", "summoner", "peaceful"],
+            fallback_dialogue: [
+                "That criticism lacked peer review!",
+                "An adverse selection event!",
+                "I practically invented memes. Where are the ducks?",
+                "No, that is a goose meme. Entirely different clade.",
+                "I named the thing, you know. One might expect at least one excellent duck template by now.",
+                "A meme is not merely an image with text. Unfortunately, most images with text have not heard this.",
+                "I am applying artificial selection. Natural selection has had decades and produced nothing usable.",
+                "The ducklings are not followers. They are independent replicators with suspiciously similar opinions.",
+            ],
+        barks: (
+            on_hit: ["That criticism lacked peer review!", "An adverse selection event!"],
+            idle: ["I practically invented memes. Where are the ducks?", "No, that is a goose meme. Entirely different clade.", "The cultural environment remains inexplicably duck-poor."],
+            hall: ["I named the thing, you know. One might expect at least one excellent duck template by now.", "A meme is not merely an image with text. Unfortunately, most images with text have not heard this.", "I am applying artificial selection. Natural selection has had decades and produced nothing usable.", "The ducklings are not followers. They are independent replicators with suspiciously similar opinions."],
+        ),
+        hall_dialogue_id: Some("hall_npc_richard_duckling"),
+        ),
+        "npc_le_beast": (
+            display_name: "Le Beast",
+            spritesheet: "sprites/le_beast_spritesheet.png",
+            manifest: "sprites/le_beast_spritesheet.ron",
+            tier: MainHall,
+            body_kind: Wide,
+            // Its MEASURED height under the ONE spawn box every level places it
+            // with, authored 2026-08-28 (D129). This row had no default, so its
+            // size came out of `ldtk_box x collision_scale / FRAME_H` — a level
+            // rectangle and the sheet's publishing padding, neither of which is a
+            // claim about how tall anybody is. Same output today; the point is
+            // that changing it is now one number.
+            standing_height: Some(49.1),
+            composition: None,
+            default_brain: "patrol_peaceful",
+            default_action_set: "peaceful",
+            tags: ["story", "beast", "mathematician", "measure_theorist", "heavyweight", "zone_controller", "peaceful"],
+        barks: (
+            on_hit: ["A non-negligible impact!", "That had positive measure."],
+            idle: ["A point? No nourishment at all.", "Bring me something measurable.", "I have an appetite for almost everywhere."],
+            hall: ["You keep pointing at individual points. I keep telling you they have no weight by themselves.", "Cut the meal into pieces, rearrange it, plate it upside down. The amount remains the amount.", "Riemann invited only the well-behaved functions. I opened the dining hall.", "The sigma on my clasp is not decoration. It is the menu."],
+        ),
+        hall_dialogue_id: Some("hall_npc_le_beast"),
+        ),
+        "npc_hypatia_prime": (
+            display_name: "Hypatia Prime",
+            spritesheet: "sprites/hypatia_prime_spritesheet.png",
+            manifest: "sprites/hypatia_prime_spritesheet.ron",
+            tier: MainHall,
+            body_kind: Standard,
+            composition: None,
+            default_brain: "stand_still",
+            default_action_set: "peaceful",
+            tags: ["story", "mathematician", "astronomer", "philosopher", "scholar_guardian", "mystery", "peaceful"],
+        barks: (
+            on_hit: ["Add that to the surviving testimony.", "An inelegant correction."],
+            idle: ["The record is incomplete. That is not permission to stop reading.", "A copy of a copy can still preserve an angle.", "You expected certainty from fragments?"],
+            hall: ["You are speaking to a reconstruction. Whether I am the first, the best, or merely the latest is another question.", "Most people remember the ending because endings travel easily. I am more interested in the work that did not survive.", "A missing book is not an empty book. It leaves citations, students, arguments, and strangely shaped absences.", "Mystery is not magic. Sometimes it is simply what remains after the documents do not."],
+        ),
+        hall_dialogue_id: Some("hall_npc_hypatia_prime"),
+        ),
+        "npc_marie_curry": (
+            display_name: "Marie Curry",
+            spritesheet: "sprites/marie_curry_spritesheet.png",
+            manifest: "sprites/marie_curry_spritesheet.ron",
+            tier: MainHall,
+            body_kind: Standard,
+            composition: None,
+            default_brain: "patrol_peaceful",
+            default_action_set: "striker_swipe",
+            tags: ["story", "combatant", "scientist_parody", "chemist", "chef", "caster", "mentor"],
+            authoring_description: "Parodies: Marie Curie. A culinary-radiant parody of Marie Curie: the brilliant scientist reimagined as a dangerous curry alchemist whose cookware glows with suspiciously energetic spice. Visual inspiration: Marie Curie portraiture and late-19th-century scholar silhouettes. apron-over-dress chef-scientist hybrid costume. a glowing curry pot carried like lab equipment. green radiance cues kept stylized and playful rather than realistic or grim. Reference hooks: radioactivity and luminous materials. scientific rigor. kitchen alchemy. precise, understated intensity. Design notes: The joke should read instantly as Curie becomes Curry, but the character should still feel competent, prestigious, and formidable. Blend laboratory and kitchen language: apron, stirring spoon, potion pot, notebook-minded posture. She should feel dangerous because she knows exactly what she is doing, not because she is chaotic. The glow should imply radiant chemistry and experimental cooking at once.",
+            gameplay_description: "Role: mid-range alchemist / area-control scientist. Combat identity: stirs volatile curry compounds before releasing them. controls space with splashes, fumes, or radiant puddles. reads as a smart caster rather than a brawler. Signature moves: Radium Roux: a glowing stir that charges her concoction. Curry Burst: a lob or toss of volatile sauce. Half-Life Simmer: a lingering hazard puddle or aura. Authoring notes: This sheet includes a stir attack and a toss animation that can back future spell or projectile mechanics. A later expansion would benefit from a dedicated throw, splash impact, and maybe a 'measure sample' or note-taking pose. Dialog should feel calm, exacting, and a little dry, even while the food chemistry becomes absurd.",
+            fallback_dialogue: [
+                "Careful, it is still reactive.",
+                "Let it simmer.",
+                "A measured dose.",
+                "Observe the glow.",
+                "That mixture was unstable anyway.",
+                "The spice is luminous today.",
+                "Precision matters in both science and cooking.",
+                "People panic around invisible forces. I prefer to study them.",
+                "A good experiment and a good recipe both deserve patience.",
+                "The hazard is usually not the substance. It is the carelessness.",
+            ],
+            hall_dialogue_id: Some("hall_npc_marie_curry"),
+        ),
+        "npc_joseph_furrier": (
+            display_name: "Joseph Furrier",
+            spritesheet: "sprites/joseph_furrier_spritesheet.png",
+            manifest: "sprites/joseph_furrier_spritesheet.ron",
+            tier: MainHall,
+            body_kind: Standard,
+            composition: None,
+            default_brain: "patrol_peaceful",
+            default_action_set: "striker_swipe",
+            tags: ["story", "humanoid", "mathematician", "blanket_wrapped", "harmonic_caster", "playable_candidate"],
+            fallback_dialogue: [
+                "Everything decomposes. Be patient.",
+                "That was a single frequency. Rude.",
+                "Heat always finds the edges.",
+                "I am cold. This is not a metaphor.",
+                "Any shape at all, given enough simple waves. It sounds like a trick until you check it.",
+                "I wrapped myself in blankets and studied how warmth leaves a room. The two facts are related.",
+                "A sharp corner costs infinitely many terms. Corners usually do.",
+                "People hear a chord. I hear the sum.",
+            ],
+            authoring_description: "Joseph Furrier is a transformative parody of French mathematician and physicist Joseph Fourier. The oversized blanket is inspired by the commonly repeated biographical anecdote that Fourier habitually kept himself heavily wrapped for warmth; Ambition exaggerates that private eccentricity into his permanent bundled silhouette. The name's furrier pun is expressed through the blanket's thick trim rather than by turning Fourier into an animal. Stair shapes are deliberately limited to the step_function and spectral_descent gameplay actions: they are a game-facing homage to stepwise/discrete approximation and platforming, not another claim about Fourier's life. The spectral lining, separated color bands, wave attacks, and low-pass defensive posture draw on Fourier analysis, frequency decomposition, and filtering. The overall tone is dark, cold, and eccentric, but affectionate rather than horrific.",
+            hall_dialogue_id: Some("hall_npc_joseph_furrier"),
+        ),
+        "npc_admiral_grass_hopper": (
+            display_name: "Admiral Grass Hopper",
+            spritesheet: "sprites/admiral_grass_hopper_spritesheet.png",
+            manifest: "sprites/admiral_grass_hopper_spritesheet.ron",
+            tier: MainHall,
+            body_kind: Standard,
+            composition: None,
+            default_brain: "patrol_peaceful",
+            default_action_set: "striker_swipe",
+            tags: ["story", "combatant", "scientist_parody", "insectoid", "naval_officer", "computer_science", "mentor", "hopper"],
+            authoring_description: "Parodies: Rear Admiral Grace Hopper. A grasshopper admiral who literalizes the Hopper name while keeping Grace Hopper's naval-computing legacy at the center. Visual inspiration: Grace Hopper portraiture and U.S. Navy officer presentation. storybook grasshopper silhouettes with long hind legs and antennae. a compact metroidvania-friendly side profile rather than a realistic insect. gold-trimmed admiral coat, cap badge, and a command baton that can also read as a debugging pointer. Reference hooks: COBOL / compiler pioneer. debugging lore and the famous moth anecdote. naval command presence. fast hopping movement and crisp lecture-energy dialog. Design notes: Keep the character likable and readable first, then let the entomology sell the pun. The coat, epaulettes, and hat should do most of the 'admiral' work; the abdomen, antennae, and hind legs should do most of the 'grasshopper' work. The baton can double as a compiler pointer, classroom stick, or melee flourish. The tone should celebrate Grace Hopper rather than mocking her: this is a tribute-parody character.",
+            gameplay_description: "Role: mobile support-skirmisher / brilliant officer. Combat identity: quick side-hops and sharp baton strikes. commanding bark-based support fantasy. can read as a mentor NPC, miniboss, or playable light fighter. Signature moves: Bug Report: a precise baton jab or slash that 'flags' an enemy. Compiler Directive: a command gesture that could buff allies or alter battlefield behavior. Debug Hop: a springy reposition with exaggerated grasshopper leg compression. Authoring notes: This sheet only includes a general-purpose slash, not a full projectile or support kit yet. Future expansion should probably add a pronounced hop / leap attack row and a dedicated command-point emote. Because Grace Hopper is a foundational computing figure, dialog should lean clever, direct, and impatient with sloppy thinking.",
+            fallback_dialogue: [
+                "Debug it at the source!",
+                "Hop to it!",
+                "Compiler says no!",
+                "Mind your logic!",
+                "That bug is now documented!",
+                "Order from disorder!",
+                "I prefer clear thinking, clean systems, and decisive action.",
+                "A bug ignored is a bug promoted.",
+                "You can waste time arguing with reality, or you can measure it and move.",
+                "The trick is to make complex work look disciplined.",
+            ],
+            hall_dialogue_id: Some("hall_npc_admiral_grass_hopper"),
+        ),
+        "npc_python_goras": (
+            display_name: "Python Goras",
+            spritesheet: "sprites/python_goras_spritesheet.png",
+            manifest: "sprites/python_goras_spritesheet.ron",
+            tier: MainHall,
+            body_kind: Standard,
+            composition: None,
+            default_brain: "patrol_peaceful",
+            default_action_set: "striker_swipe",
+            tags: ["humanoid", "mathematician", "philosopher", "snake_companion", "geometry_mage", "playable_candidate"],
+            fallback_dialogue: [
+                "Observe the hypotenuse.",
+                "All things are number!",
+                "Mind the angle.",
+                "The serpent agrees.",
+                "You stand at the wrong vertex.",
+                //  restored 2026-08-06, not written today: these four are
+                // `python_goras.py`'s `FALLBACK_DIALOGUE_LINES`, which the
+                // splice read as nothing because it spells the key
+                // `fallback_lines` and `character_notes.fallback_pool` knew
+                // three other spellings. His five barks came through, so the row
+                // looked finished.
+                "I seek the hidden ratios beneath ordinary things.",
+                "Most people remember the triangle. Fewer remember the cult.",
+                "The python is not symbolic. He simply chose to stay.",
+                "Harmony, number, and a clean right angle can solve more than people think.",
+            ],
+            hall_dialogue_id: Some("hall_npc_python_goras"),
+        ),
+        "npc_leib_knives": (
+            display_name: "Gottfried Leib-Knives",
+            spritesheet: "sprites/leib_knives_spritesheet.png",
+            manifest: "sprites/leib_knives_spritesheet.ron",
+            tier: MainHall,
+            body_kind: Standard,
+            composition: None,
+            default_brain: "patrol_peaceful",
+            default_action_set: "striker_swipe",
+            tags: ["human", "mathematician", "polymath", "courtly_duelist", "dual_blades", "playable_candidate"],
+            fallback_dialogue: [
+                "An infinitesimal cut still counts.",
+                "You have mistaken notation for weakness.",
+                "That was neither necessary nor sufficient.",
+                "Very well. Let us differentiate.",
+                "I prefer notation that reveals the operation instead of concealing it. A symbol should do useful work.",
+                "GNU Ton and I reached similar techniques by different roads. Posterity then paved the roads with arguments.",
+                "A derivative tells you how quickly the present is becoming the future. In a duel, that is practical information.",
+                "An integral gathers countless small changes into one result. Do not stand inside the result.",
+            ],
+            hall_dialogue_id: Some("hall_npc_leib_knives"),
+        ),
+        "npc_georg_canter": (
+            display_name: "Georg Canter",
+            spritesheet: "sprites/georg_canter_spritesheet.png",
+            manifest: "sprites/georg_canter_spritesheet.ron",
+            tier: MainHall,
+            body_kind: Standard,
+            composition: None,
+            default_brain: "patrol_peaceful",
+            default_action_set: "striker_swipe",
+            tags: ["centaur", "mathematician", "set_theorist", "transfinite", "lancer", "playable_candidate"],
+            fallback_dialogue: [
+                "Some infinities are roomier.",
+                "You cannot list us all. I have checked.",
+                "Count again. Slower.",
+                "There is always one more.",
+                "I showed the line holds more than the counting numbers, and was told this was indecent.",
+                "Between any two of your objections there is another objection. That is the shape of the problem.",
+                "The set of things you have not tried is strictly larger than the set of things you have.",
+                "A diagonal is a very quiet kind of proof.",
+            ],
+            hall_dialogue_id: Some("hall_npc_georg_canter"),
+        ),
+        "npc_paul_diracula": (
+            display_name: "Paul Diracula",
+            spritesheet: "sprites/paul_diracula_spritesheet.png",
+            manifest: "sprites/paul_diracula_spritesheet.ron",
+            tier: MainHall,
+            body_kind: Standard,
+            composition: None,
+            default_brain: "patrol_peaceful",
+            default_action_set: "striker_swipe",
+            tags: ["story", "humanoid", "scientist", "mathematician", "physicist", "vampire_parody", "precision_duelist", "playable_candidate"],
+            fallback_dialogue: [
+                "I vant to annihilate your positron.",
+                "The equation demanded a mirror. I merely opened it.",
+                "Antimatter, darling. Not undeath.",
+                "Symmetry. Always symmetry.",
+                "The mathematics predicted a partner nobody had seen. I trusted the mathematics.",
+                "Beauty in an equation is not decoration. It is usually a load-bearing wall.",
+                "Every particle has a reflection waiting to cancel it. I find that romantic.",
+                "I speak rarely. When the algebra is correct there is not much left to add.",
+            ],
+            hall_dialogue_id: Some("hall_npc_paul_diracula"),
+        ),
+        "player_robot_v2": (
+            // The SAME tuning the `player` row carried when this art was the
+            // protagonist. `frame_sample_inset` decides which pixels count as
+            // body when the bbox is sampled, so it moves the COLLISION box, not
+            // just the drawing -- dropping it re-bodied the duellist.
+            sprite_tuning: Some((collision_scale: 1.35, frame_sample_inset: 1)),
+            display_name: "Player Robot v2",
+            spritesheet: "sprites/player_robot_v2_spritesheet.png",
+            manifest: "sprites/player_robot_v2_spritesheet.ron",
+            tier: MainHall,
+            body_kind: Standard,
+            composition: None,
+            default_brain: "stand_still",
+            default_action_set: "robot_duelist_kit",
+            tags: ["robot", "player", "former_self", "playable_candidate"],
+            authoring_description: "The player robot as it shipped before the SVG rig replaced it. Preserved as a CHARACTER rather than as history: Ambition wants old versions of yourself to be things you can meet, talk to, and fight, so this keeps its own id, its own sheet, and its own pedestal instead of living in a git object. `robot` is v0, the original. There is no v1 -- that is a joke, not a gap.",
+            gameplay_description: "Mechanically the protagonist minus everything learned since: the same procedural body and the same generic swipe kit, with none of the current kit's blade presentation. The obvious use is a mirror fight -- a former build that moves the way you used to.",
+            fallback_dialogue: [
+                "I was the build that worked.",
+                "You kept the antenna. I noticed.",
+                "Deprecated is not the same as wrong.",
+                "I still remember the jump arc.",
+                "They rebuilt me from a vector file. I am not sure that counts as continuity.",
+                "Version zero is downstairs telling everyone he invented the patch note.",
+                "There is no v1. Ask someone else why.",
+                "Every version of you thinks it is the last one.",
+            ],
+        barks: (
+            hall: ["I was the build that worked.", "There is no v1. Ask someone else why.", "You kept the antenna. I noticed."],
+            on_hit: ["I remember this part.", "You learned that from me."],
+            provoked: ["Then let us see what you kept."],
+        ),
+        hall_dialogue_id: Some("hall_player_robot_v2"),
+        ),
+        "pointed_polygon": (
+            display_name: "Pointed Polygon",
+            spritesheet: "sprites/pointed_polygon_spritesheet.png",
+            manifest: "sprites/pointed_polygon_spritesheet.ron",
+            tier: MainHall,
+            body_kind: Standard,
+            composition: None,
+            //  this said `"combatant"`, which is not a brain preset and never
+            // was — it is a TRAIT name (see the `traits:` list in any
+            // `*_actor.ron`), and the pack validator refuses it by name:
+            // "names brain preset `combatant`, which this pack does not define".
+            // `melee_brute_striker` is what every other MainHall melee fighter
+            // takes (both vikings, both ninjas, the pirate admiral, Carl Runga,
+            // Martin Cutta — twelve rows), which is the conventional answer for a
+            // sword fighter's autonomous policy when nobody is driving it.
+            //  RESTORED 2026-08-20, third time: a working copy of this file cut
+            // before the fix reverts it, and `cargo check` cannot see a value
+            // parsed out of RON — only the pack validator says so, and when it
+            // does it takes 44 tests down with it.
+            default_brain: "melee_brute_striker",
+            default_action_set: "striker_swipe",
+            tags: ["humanoid", "polygonal", "sword_fighter", "animation_reference", "playable_candidate", "svg_rigged"],
+            authoring_description: "A deliberately anonymous faceted humanoid inspired by the idea of a Fighting Polygon Team. This first archetype carries a simple polygon sword and exists both as a real Smash fighter and as a safe reference rig: new humanoid characters can begin from its conservative poses before adding bespoke anatomy, costume, or personality. The character is an original 2D polygon fighter rather than a copy of any specific Smash combatant.",
+            gameplay_description: "A medium-weight fundamentals sword fighter with conventional spacing, recovery, defense, grabs, pummels, and all four throws. Its move silhouettes are intentionally simple and legible so the same clips can serve as animation references for future humanoid rigs.",
+            fallback_dialogue: [
+                "Start with the silhouette.",
+                "Reference stance.",
+                "Every complicated fighter begins as a few good angles.",
+            ],
+            barks: (
+                idle: ["POSE ACCEPTED.", "EDGE ALIGNED."],
+                on_hit: ["FACET LOST.", "REBUILDING POSE."],
+                provoked: ["REFERENCE COMBAT."],
+            ),
+            hall_dialogue_id: None,
+        ),
+        "pugnacious_polygon": (
+            display_name: "Pugnacious Polygon",
+            spritesheet: "sprites/pugnacious_polygon_spritesheet.png",
+            manifest: "sprites/pugnacious_polygon_spritesheet.ron",
+            tier: MainHall,
+            body_kind: Standard,
+            composition: None,
+            // The sword archetype's preset, for the same reason and by the same
+            // rule — see its row above. A brawler is a MainHall melee fighter.
+            default_brain: "melee_brute_striker",
+            default_action_set: "striker_swipe",
+            tags: ["humanoid", "polygonal", "brawler", "animation_reference", "playable_candidate", "svg_rigged"],
+            authoring_description: "The unarmed Fighting Polygon reference archetype: a broad-shouldered 2D humanoid assembled from editable polygon facets with oversized fists and no integral held item. It shares the sword archetype's safe pose vocabulary so animators can compare armed and unarmed versions of the same humanoid skeleton before adding bespoke anatomy or personality.",
+            gameplay_description: "A close-range fundamentals brawler with punches, kicks, uppercuts, a shoulder rush, defensive movement, grabs, pummels, and all four throws. Its simple silhouettes are intentionally useful as baseline poses for future humanoid rigs.",
+            fallback_dialogue: [
+                "STANCE SET.",
+                "Contact pose.",
+                "Build the silhouette before the flourish.",
+            ],
+            barks: (
+                idle: ["FACETS FORWARD.", "GUARD READY."],
+                on_hit: ["RECOMPUTING STANCE.", "FACET SHIFT."],
+                provoked: ["REFERENCE BRAWL."],
+            ),
+            hall_dialogue_id: None,
+        ),
+        "projectile_polygon": (
+            display_name: "Projectile Polygon",
+            spritesheet: "sprites/projectile_polygon_spritesheet.png",
+            manifest: "sprites/projectile_polygon_spritesheet.ron",
+            tier: MainHall,
+            body_kind: Standard,
+            composition: None,
+            default_brain: "skirmisher_ranger",
+            default_action_set: "ranger_arrow",
+            tags: ["bestial", "polygonal", "projectile_fighter", "animation_reference", "playable_candidate", "svg_rigged"],
+            authoring_description: "The ranged member of the Fighting Polygon reference trio is now a non-humanoid beast biped: a faceted T-rex-like body with heavy hind legs, a balancing tail, and a head-mounted cannon. Teal facets and a simple visor slit keep the design readable while giving LLMs and animators a generic non-humanoid reference for future beast fighters.",
+            gameplay_description: "A medium-weight ranged fundamentals fighter. Neutral special fires a fast facet-colored bolt from the head-mounted cannon; the rest of the repertoire stays conventional so the character remains useful as the projectile-oriented bestial animation reference.",
+            fallback_dialogue: [
+                "VECTOR READY.",
+                "Trajectory solved.",
+                "Emit from the centerline.",
+            ],
+            barks: (
+                idle: ["VECTOR READY.", "AIM FACET LOCKED."],
+                on_hit: ["TRAJECTORY LOST.", "RECALCULATING."],
+                provoked: ["PROJECTILE TEST."],
+            ),
+            hall_dialogue_id: None,
+        ),
+        // THE TWO EASTER EGGS, and they are deliberately not advertised anywhere
+        // else: no hall dialogue, no quest, no encounter table. They are on the
+        // smash grid because that is where a hidden fighter is FOUND, and
+        // nothing in the game depends on either being selected.
+        "author": (
+            display_name: "The Author",
+            spritesheet: "sprites/author_spritesheet.png",
+            manifest: "sprites/author_spritesheet.ron",
+            tier: MainHall,
+            body_kind: Standard,
+            composition: None,
+            // The sword archetype's preset, by the same rule its row states: an
+            // armed MainHall melee fighter takes what every other one takes.
+            // What he is armed WITH is a pen, which is a fact about the art and
+            // the joke, not about his autonomous policy.
+            default_brain: "melee_brute_striker",
+            default_action_set: "striker_swipe",
+            tags: ["humanoid", "pen_fighter", "easter_egg", "playable_candidate", "svg_rigged"],
+            authoring_description: "The person writing the game, standing in it: red hair, beard, glasses, work shirt and jeans, levelling an oversized red-and-brass fountain pen at everything. He follows the Pointed Polygon sword template exactly -- one rigid prop on the hand bone, occupying the blade's axis and length -- so the shared humanoid swing library retargets onto him without a pose being re-authored. He is meant to be found, not announced.",
+            gameplay_description: "A medium-weight fundamentals fighter with sword spacing, delivered by a pen. His swings leave ink rather than steel-light; the timings are the sword archetype's, because his identity is who he is and what he holds rather than how he swings.",
+            fallback_dialogue: [
+                "I did write you, you know.",
+                "This is not the scene I planned.",
+                "Mightier. Demonstrably.",
+            ],
+            barks: (
+                idle: ["Draft one.", "Still editing."],
+                on_hit: ["Noted.", "That is going in."],
+                provoked: ["Fine. Revisions."],
+            ),
+            hall_dialogue_id: None,
+        ),
+        "officer": (
+            display_name: "The Officer",
+            spritesheet: "sprites/officer_spritesheet.png",
+            manifest: "sprites/officer_spritesheet.ron",
+            tier: MainHall,
+            body_kind: Standard,
+            composition: None,
+            // The brawler archetype's preset, for the reason the Pugnacious
+            // Polygon's row gives: an unarmed MainHall melee fighter is still a
+            // MainHall melee fighter.
+            default_brain: "melee_brute_striker",
+            default_action_set: "striker_swipe",
+            tags: ["humanoid", "brawler", "easter_egg", "playable_candidate", "svg_rigged"],
+            authoring_description: "A broad, plainly drawn law officer in a dark t-shirt, work jeans, boots and a grey campaign hat -- out of uniform from the neck down and entirely in character from the neck up. He follows the Pugnacious Polygon brawler template for every normal: no held props, and swings read by what they do to the AIR rather than by a blade catching light. The one exception is his sidearm, which is drawn on his own sheet -- a duty holster on his back and a service pistol his shoot clip puts in his fist -- not a held prop.",
+            gameplay_description: "A medium-weight close-range fundamentals brawler with one ranged answer. Tilts throw a pale whoosh and smashes open a re-entry plume that leads with its tip, so an unarmed hitbox stays as legible as an armed one. His side special is the draw: he plants, clears the holster and fires one round down the side he was pointed, which is his only way to touch someone he cannot reach. The rest of the timings are the brawler archetype's.",
+            fallback_dialogue: [
+                "I'm not here for you. Yet.",
+                "Everybody's a civilian until they aren't.",
+                "Do this the easy way. Please.",
+            ],
+            barks: (
+                idle: ["That's far enough.", "Hands where I can see them."],
+                on_hit: ["Cute.", "Last warning."],
+                provoked: ["You're going to want to sit down."],
+            ),
+            hall_dialogue_id: None,
+        ),
+        "medic": (
+            display_name: "The Medic",
+            spritesheet: "sprites/medic_spritesheet.png",
+            manifest: "sprites/medic_spritesheet.ron",
+            tier: MainHall,
+            body_kind: Standard,
+            composition: None,
+            // The brawler archetype's preset, for the reason the Officer's row
+            // gives: an unarmed MainHall melee fighter is still a MainHall
+            // melee fighter. ⚠ `patrol_peaceful` would read better for a medic
+            // and would be a BALANCE decision nobody has made; she borrows the
+            // archetype's brain for as long as she borrows its table.
+            default_brain: "melee_brute_striker",
+            default_action_set: "striker_swipe",
+            tags: ["humanoid", "brawler", "support", "easter_egg", "playable_candidate", "svg_rigged"],
+            authoring_description: "A field paramedic off duty: black fitted top, black leggings, trainers, a high ponytail. Hand-drawn and rigged by program. Her whole vocabulary is the PALM -- heel strikes, lifts, compressions -- because a medic's trained motion is push, lift, carry, and never close the fist; anything heavy she does with both hands. Her swings read clinical: a cold white-cyan trace for tilts and a defibrillator discharge for smashes.",
+            gameplay_description: "A light, fast two-handed brawler on the Pugnacious Polygon's timings, retimed shorter. Low raw KO power, long combo strings, and every heavy commitment is a TWO-HANDED one -- which is what makes her smashes slow and her tilts quick. She is the only fighter here who can PUT SOMETHING BACK: her neutral spends a point of her own margin and buys frame advantage with it, her down special kneels and repays two, her side special throws a strap that drags what it catches into her range, and her up special is the one move in the kit that costs her nothing.",
+            fallback_dialogue: [
+                "I don't fight people. I move them.",
+                "Whatever you did to your shoulder, that wasn't me.",
+                "Sit. Breathe. We'll get to it.",
+            ],
+            barks: (
+                idle: ["Stay down. I'm not asking.", "Look at me. Can you hear me?"],
+                on_hit: ["I've got you.", "You're going to be fine. Probably."],
+                provoked: ["Don't make me carry you."],
+            ),
+            hall_dialogue_id: None,
+        ),
+        "performer": (
+            display_name: "The Performer",
+            spritesheet: "sprites/performer_spritesheet.png",
+            manifest: "sprites/performer_spritesheet.ron",
+            tier: MainHall,
+            body_kind: Standard,
+            composition: None,
+            // The sword archetype's preset, for the reason the Author's row
+            // gives -- she is that archetype, carrying nothing.
+            default_brain: "melee_brute_striker",
+            default_action_set: "striker_swipe",
+            tags: ["humanoid", "duellist", "performer", "easter_egg", "playable_candidate", "svg_rigged"],
+            authoring_description: "A working performer between calls: an oversized grey cardigan over a dark tank, flared trousers, worn boots, an auburn updo coming down at the edges. Hand-drawn and rigged by program. Long unbroken lines, three greys and one auburn, and the far side of her drawn one step back in tone -- baked into opaque fills, never alpha, because every rig part rasterizes to its own layer.",
+            gameplay_description: "A committed mid-range duellist on the Pointed Polygon's timings, held longer. Her forward smash is THE DUEL SCENE: a fencer's lunge with a blade of stage light conjured for exactly the frames the role calls for it, authored as the swing's own axis extended past her hand -- so the blade a player sees is the blade that hits them. A thin volume over a long reach, on purpose. Outside those frames her hands are empty and short, and everything she throws is held long enough to be punished.",
+            fallback_dialogue: [
+                "I'm not playing anyone right now. It's disconcerting, isn't it.",
+                "Everyone's in costume. Most of them just don't know it.",
+                "Give me a moment. I have to decide who I am.",
+            ],
+            barks: (
+                idle: ["From the top.", "That was your cue."],
+                on_hit: ["Louder. The back row paid too.", "I can do this all night. I have."],
+                provoked: ["You are stepping on my line."],
+            ),
+            hall_dialogue_id: None,
+        ),
+        "special_patent_clerk": (
+            display_name: "Patent Clerk",
+            spritesheet: "sprites/patent_clerk_spritesheet.png",
+            manifest: "sprites/patent_clerk_spritesheet.ron",
+            tier: MainHall,
+            body_kind: Standard,
+            composition: None,
+            default_brain: "patrol_peaceful",
+            default_action_set: "striker_swipe",
+            tags: ["special_character", "humanoid", "patent_clerk", "reference_frame_controller", "classification_fighter", "playable_candidate", "svg_rigged"],
+            authoring_description: "Patent Clerk is a coy parody of Albert Einstein, designed around his patent-office period, iconic unruly hair, moustache, relativity thought experiments, clock synchronization, reference frames, and mass-energy equivalence. The public character never confirms the identity: recognition is carried by silhouette, mechanics, and restrained bureaucratic dialogue. The combat classifications and administrative stamps are deliberate game inventions rather than biographical claims.",
+            gameplay_description: "A high-mastery heavyweight controller who classifies bodies as MASS, ENERGY, MOVING, or AT REST; manipulates relative velocity and local reference frames; and turns careful observation into unusually strong parries and finishers. His recovery uses an accelerating elevator frame, his stage control uses synchronized clocks, and his super resolves several quiet office observations into one inevitable conversion.",
+            fallback_dialogue: [
+                "Your application has several interesting assumptions.",
+                "Please remain in your chosen frame.",
+                "The distinction is useful—for now.",
+                "Your timing was local.",
+                "Approved.",
+                "No, I am only a clerk.",
+                "A clock is reliable until you ask where it has been.",
+                "Common sense is often a local regulation.",
+                "You may call yourself stationary. Courtesy permits it.",
+                "The office prefers inventions. I find assumptions more interesting.",
+                "There are many patent clerks.",
+                "Not required in this field.",
+            ],
+        barks: (
+            idle: ["Stamped. Provisionally.", "You are moving. The furniture disagrees, and was not consulted."],
+            hall: ["A pedestal is a very strong claim about being at rest.", "Everyone here has filed as stationary. Remarkably, they are all correct.", "Please do not lean on the exhibit. It is load-bearing in the legal sense.", "Your file is mostly assumptions. Well organised, though."],
+        ),
+        hall_dialogue_id: Some("hall_special_patent_clerk"),
+        ),
+        "npc_carl_stargan": (
+            display_name: "Carl Stargan",
+            spritesheet: "sprites/carl_stargan_spritesheet.png",
+            manifest: "sprites/carl_stargan_spritesheet.ron",
+            tier: MainHall,
+            body_kind: Standard,
+            composition: None,
+            default_brain: "",
+            //  2026-08-16: he authors a sixteen-move repertoire
+            // (`carl_stargan_moveset`). An ability and a repertoire are
+            // different questions — *may this body attack* versus *what the
+            // attack is* — and a `peaceful` row answered the first one NO, so
+            // the table could never reach a fighter.
+            default_action_set: "striker_swipe",
+            tags: ["story", "science_communicator", "cosmic_storyteller", "skeptic", "peaceful"],
+        barks: (
+            idle: ["Billions and billions of rooms, and only one of them has you in it.", "Look up. The ceiling is a temporary opinion."],
+            hall: ["Billions and billions of pedestals, and you chose to inspect mine. I am flattered.", "That pale blue dot on the horizon holds everyone you have ever respawned as.", "Extraordinary platforming claims require extraordinary evidence.", "You are made of starstuff. Mostly the part that falls."],
+        ),
+        hall_dialogue_id: Some("hall_npc_carl_stargan"),
+        ),
+        "npc_data_lovelace": (
+            display_name: "Data Lovelace",
+            spritesheet: "sprites/data_lovelace_spritesheet.png",
+            manifest: "sprites/data_lovelace_spritesheet.ron",
+            tier: MainHall,
+            body_kind: Standard,  // renderer calls this silhouette "Slim"; gameplay body class is Standard
+            composition: None,
+            default_brain: "stand_still",
+            default_action_set: "peaceful",
+            tags: ["robot", "automaton", "computing", "victorian", "peaceful"],
+        barks: (
+            idle: ["The engine weaves algebra as the loom weaves flowers.", "Someone must imagine what the machine is for."],
+            hall: ["They built the engine. I wrote what it would do with itself.", "The engine weaves algebraic patterns as the loom weaves flowers. I merely supplied the cards.", "My notes ran longer than the paper they annotated. I regret nothing.", "I am not the calculating part. I am the part that imagined a use."],
+        ),
+        hall_dialogue_id: Some("hall_npc_data_lovelace"),
+        ),
+        "npc_neil_ongras_turfson": (
+            display_name: "Neil onGras Turfson",
+            spritesheet: "sprites/neil_ongras_turfson_spritesheet.png",
+            manifest: "sprites/neil_ongras_turfson_spritesheet.ron",
+            tier: MainHall,
+            body_kind: Standard,
+            composition: None,
+            default_brain: "stand_still",
+            default_action_set: "peaceful",
+            tags: ["story", "scientist", "cosmic_naturalist", "touch_grass", "peaceful"],
+        barks: (
+            idle: ["Well, actually, that trajectory is wrong.", "The universe owes you no coyote time."],
+            hall: ["Actually, the physics of that jump is wrong, and I will be explaining why for the remainder of the room.", "The universe is under no obligation to make your platforming feel good.", "Have you considered going outside? I am contractually required to ask.", "Well, actually, the grass is also made of stars. Touch it anyway."],
+        ),
+        hall_dialogue_id: Some("hall_npc_neil_ongras_turfson"),
+        ),
+        "npc_paradox_barber": (
+            display_name: "The Paradox Barber",
+            spritesheet: "sprites/paradox_barber_spritesheet.png",
+            manifest: "sprites/paradox_barber_spritesheet.ron",
+            tier: MainHall,
+            body_kind: Standard,  // renderer calls this silhouette "Slim"; gameplay body class is Standard
+            composition: None,
+            default_brain: "stand_still",
+            default_action_set: "peaceful",
+            tags: ["story", "barber", "paradox", "logic", "peaceful"],
+        barks: (
+            idle: ["Do not ask about my face.", "The appointment book contains itself. This is the problem."],
+            hall: ["I shave every man who does not shave himself. Do not ask about my face.", "Take a seat. Do not take a seat. Both are consistent with my schedule.", "The set of my customers is not a set. Management has been informed.", "I have been mid-shave since I opened. That is not a metaphor."],
+        ),
+        hall_dialogue_id: Some("hall_npc_paradox_barber"),
+        ),
+        "npc_mami_marzakhani": (
+            display_name: "Mami Marzakhani",
+            spritesheet: "sprites/mami_marzakhani_spritesheet.png",
+            manifest: "sprites/mami_marzakhani_spritesheet.ron",
+            tier: MainHall,
+            body_kind: Standard,
+            composition: None,
+            default_brain: "stand_still",
+            default_action_set: "peaceful",
+            tags: ["story", "mathematician", "geometer", "boundary_walker", "peaceful"],
+        barks: (
+            idle: ["A shortest path is a question about which surface you are standing on.", "Give me floor space and a very large sheet of paper."],
+            hall: ["A curve is not a shortest path until you say which surface it lives on.", "I count the closed geodesics. There are more than you would like and fewer than you fear.", "I do my best work lying on the floor around a very large sheet of paper.", "The surface is not the obstacle. The surface is the argument."],
+        ),
+        hall_dialogue_id: Some("hall_npc_mami_marzakhani"),
+        ),
+        "npc_genghis_can": (
+            display_name: "Genghis Can",
+            spritesheet: "sprites/genghis_can_spritesheet.png",
+            manifest: "sprites/genghis_can_spritesheet.ron",
+            tier: MainHall,
+            body_kind: Standard,
+            composition: None,
+            default_brain: "stand_still",
+            default_action_set: "peaceful",
+            tags: ["story", "warlord", "nomad_parody", "paired_character"],
+        barks: (
+            idle: ["Yes. Next question.", "The horizon is a to-do list."],
+            hall: ["Can I take this hall? I can. That was never in question.", "My brother asks whether. I ask how many.", "Everything from here to that wall. Then a short rest. Then the wall.", "Doubt is just a slower way of arriving."],
+        ),
+        hall_dialogue_id: Some("hall_npc_genghis_can"),
+        ),
+        "npc_genghis_cant": (
+            display_name: "Genghis Can't",
+            spritesheet: "sprites/genghis_cant_spritesheet.png",
+            manifest: "sprites/genghis_cant_spritesheet.ron",
+            tier: MainHall,
+            body_kind: Standard,
+            composition: None,
+            default_brain: "stand_still",
+            default_action_set: "peaceful",
+            tags: ["story", "warlord", "nomad_parody", "paired_character"],
+        barks: (
+            idle: ["I have a horde. I also have reservations.", "Let me check the map again."],
+            hall: ["Could I conquer this? Probably. Should I? That is the part that keeps me up.", "My brother says yes before he checks. I check first. We arrive at the same place, later.", "I have a horde. I also have reservations.", "They named him for what he does. They named me for what I consider."],
+        ),
+        hall_dialogue_id: Some("hall_npc_genghis_cant"),
+        ),
+        "npc_yuclid": (
+            display_name: "Yuclid",
+            spritesheet: "sprites/yuclid_spritesheet.png",
+            manifest: "sprites/yuclid_spritesheet.ron",
+            tier: Basement,
+            body_kind: Standard,
+            composition: None,
+            default_brain: "stand_still",
+            default_action_set: "peaceful",
+            tags: ["boss", "story", "mathematician", "geometer", "anti_portal", "lecture_duelist"],
+        barks: (
+            on_hit: ["That was not a proof.", "You have skipped a step. Again.", "Irregular. Unacceptable."],
+            idle: ["There is no royal road to geometry.", "Between any two points, one line. One."],
+            hall: ["A portal is a confession that you could not find the path.", "There is no royal road to geometry. There is certainly no orange one.", "Between any two points, one straight line. Not two doors.", "You did not arrive. You were placed. Prove the difference."],
+        ),
+        hall_dialogue_id: Some("hall_npc_yuclid"),
+        ),
+        "npc_hunny_horror_boss": (
+            display_name: "Hunny Horror",
+            spritesheet: "sprites/hunny_horror_boss_spritesheet.png",
+            manifest: "sprites/hunny_horror_boss_spritesheet.ron",
+            tier: Basement,
+            body_kind: Wide,
+            // Its MEASURED height under the ONE spawn box every level places it
+            // with, authored 2026-08-28 (D129). This row had no default, so its
+            // size came out of `ldtk_box x collision_scale / FRAME_H` — a level
+            // rectangle and the sheet's publishing padding, neither of which is a
+            // claim about how tall anybody is. Same output today; the point is
+            // that changing it is now one number.
+            standing_height: Some(154.8),
+            composition: None,
+            default_brain: "stand_still",
+            default_action_set: "peaceful",
+            tags: ["boss", "bear", "horror", "honey", "monster"],
+        barks: (
+            on_hit: ["Bother.", "The pot is empty.", "I only wanted a little."],
+            idle: ["Rumbly. Always rumbly.", "The pot is empty. The pot is always empty."],
+            hall: ["I only wanted a little. There was never a little.", "The pot is empty. The pot has always been empty.", "Bother.", "They put me on a pedestal because the honey ran out down there."],
+        ),
+        hall_dialogue_id: Some("hall_npc_hunny_horror_boss"),
+        ),
+    },
+)

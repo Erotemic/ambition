@@ -1,0 +1,218 @@
+# Slower Light — future 3D observer-relativity game
+
+> **Status: deferred until Ambition has a 3D game/runtime surface. TwinTrack is the separate 2D SR foundation and observer laboratory, not a reduced version of this game.**
+>
+> Original directive (2026-07-05): Jon:
+> *"I would also like to add a 'slower speed of light' mechanic where you can
+> lower the speed of light. I'm not sure how feasible this is in 2D but I
+> think we could use shaders to modify light — the trick is how to warp
+> space. This is again a stretch goal but I want the core system to make it
+> easy when the time comes. (and it will)"*
+>
+> Adjudicated as **AJ14** in the archived 07-05 plan
+> (`../../archive/reviews/fable-demo-plan-2026-07-05.md` (docs/archive/reviews/fable-demo-plan-2026-07-05.md — removed from the checkout 2026-09-05; still in git history));
+> the live queue is [`../tracks.md`](../tracks.md).
+> Nothing here builds the mechanic today; it fixes the SEAMS so building it
+> later is a content-plus-shader arc, not an engine rewrite.
+>
+> ⭐ **RE-CHECKED against `0d71dd9bb` (2026-09-02): THE 2D HALF OF THAT SEAM IS
+> DONE, and it is the load-bearing half of Jon's directive.** The invariant
+> speed is not a constant anywhere in the stack — `ambition_relativity` takes an
+> `InvariantSpeed` newtype as an explicit parameter to `minkowski_interval`,
+> `minkowski_clock_rate` and `lorentz_boost_event`, constructed through a
+> validating `InvariantSpeed::new(f64) -> Result<_, InvariantSpeedError>` that
+> rejects non-finite and non-positive values. TwinTrack threads an authored one
+> through its own light-delay and observer maths
+> (`dual_observer.rs`), including `light_delay = range / invariant_speed`.
+>
+> ⇒ **So "lower the speed of light" is already expressible in 2D — it is a
+> number a provider authors, not an engine rewrite**, which is exactly the
+> outcome this page was holding the seam open for. ⛔ What remains deferred is
+> unchanged and is the other two thirds of the directive: the 3D runtime
+> surface, and *"the trick is how to warp space"* — the shader work that makes a
+> lowered speed VISIBLE rather than merely simulated. Nothing here should be
+> read as the mechanic being built. Direct kin of
+> [`frame-awareness.md`](frame-awareness.md) ("future relativity-inspired
+> mechanics") and the north star ("every biome a math world model").
+
+## Relationship to TwinTrack
+
+TwinTrack implements flat-spacetime clocks, proper-velocity 2D flight, event transforms, identity-bearing light messages, exact null-signal propagation, local Doppler measurements, bounded worldlines, a past-light-cone solver for compact emitters, an exact aberrated/Doppler-shifted point-source observatory, and observer-local causal interception of moving compact characters. Slower Light is a later **3D** game centered on light-delayed presentation of extended nearby geometry, full-field observer optics, and richer finite-signal gameplay. It should reuse those foundations, but it is not the same demo and is not ready while the engine lacks a 3D game surface.
+
+## Feasibility
+
+Prior art exists: MIT Game Lab's *A Slower Speed of Light* / OpenRelativity
+does this in 3D with vertex + fragment shaders. Every piece maps to 2D, and
+several get simpler:
+
+| Effect | What it is | 2D difficulty |
+|---|---|---|
+| Speed cap `c` | nothing exceeds c; bodies asymptote toward it | **foundation built** — proper-velocity flight in the shared movement limb |
+| Time dilation | a fast body's proper time runs slow by `γ = 1/√(1−v²/c²)` | **already built** — ADR 0010/0011 proper time |
+| Length contraction | moving bodies squash along motion | a sprite/vertex scale along the velocity axis |
+| Doppler shift | blue ahead / red behind when the OBSERVER moves | a full-screen color LUT post pass |
+| Aberration ("warp") | the view compresses ahead, dilates behind | a full-screen UV remap post pass |
+| Light delay | you see light-delayed source events | **compact-source foundation built** — bounded worldlines plus past-light-cone solving |
+
+**The key adjudication — "how to warp space":** you don't. The SIM keeps one
+honest, unwarped world (one Galilean sim + a speed cap + per-body time
+dilation). The "warp" is what the **observer sees** — an observer-frame view
+transform applied at the camera boundary, exactly the AJ13 discipline
+(*a camera is not the world; it is an observer*). This is also how the MIT
+game does it. Sim-side space warping (light-cone-limited collision,
+per-observer geometry) is explicitly out of scope — it would fork the sim
+and buys almost no gameplay the observational version doesn't.
+
+That makes the mechanic's gameplay come from three REAL sim effects — the
+cap (proper-velocity control makes coordinate speed crowd toward c), dilation
+(moving fast slows your own clocks: cooldowns and local mechanisms), and
+delayed information (you and the AI react to what light has delivered) —
+while the drama (warp, Doppler, contraction) is presentation.
+
+## Why Ambition is unusually ready for this
+
+- **Per-body proper time is load-bearing already**: `ProperTimeScale` +
+  `WorldTime` + the moveset's proper-time clock (ADR 0010/0011). Relativistic
+  dilation is a small system writing `γ(v, c)` through the EXISTING seam
+  (`ClockScaleRequest` discipline — never mutate time_scale directly).
+- **Perception is a typed policy** (`Perception::Omniscient/Sighted`, R1.2b).
+  Light-limited AI is a third variant (`LightLimited { c }`) whose WorldView
+  is built from retarded state — brains chase where you WERE. Same seam,
+  new policy.
+- **Camera-as-observer is becoming structural** (AJ13 + the E4
+  `ambition_sim_view` carve): the renderer already will consume a read-model
+  snapshot, which is exactly where an observer-frame transform plugs in.
+- **Zones-as-fields precedent**: `GravityZone` shows the shape — `c` is a
+  world/zone parameter (`LightZone { aabb, c }`), infinite by default, so
+  every existing room is the classical limit and pays nothing.
+- **Frame discipline** (frame-awareness.md) is the mental model: γ is a
+  relationship between a body's frame and the zone's rest frame; the Doppler
+  and aberration passes are functions of the OBSERVER's velocity in that
+  frame.
+
+## The staged plan (each tier independently shippable)
+
+- **Tier 0 — the seams (NOW, cost ≈ zero; see "now-obligations")**: no code,
+  just requirements on in-flight work so nothing hardcodes against this.
+- **Tier L1 — sim kinematics [opus, ~1 session when scheduled]**:
+  `LightZone { aabb, c }` (+ a world default, `f32::INFINITY` = classical);
+  a velocity clamp toward c applied at the shared integrate seams (relax
+  rule like the fall cap — never brake an already-over-c fling, asymptote
+  new acceleration); a `relativistic_time_dilation` system computing
+  `γ = 1/√(1−v²/c²)` and writing the body's proper-time scale through the
+  ClockScaleRequest/ProperTimeScale seam. **Headless-testable, C4-style: the
+  twin test** — two bodies, one loops at 0.9c, assert its accumulated proper
+  time = the stationary twin's × 1/γ within tolerance. Frame-agnostic by
+  construction (all dot products).
+- **Tier L2 — light-limited information [opus after L1]**: a short
+  `KinematicHistory` ring buffer (opt-in component, only inserted inside a
+  finite-c zone) + `Perception::LightLimited { c }` building the WorldView
+  from each peer's light-delayed position (`t_emit` solved by 2–3 fixed-point
+  iterations of `|x_peer(t_ret) − x_self| = c·(t − t_ret)`). AI now dodges
+  your PAST. HUD/targeting for a player body reads the same retarded view.
+- **Tier L3 — the observer shaders [opus + BLIND feel; the "warp"]**: a
+  full-screen post pass fed by the sim_view observer velocity:
+  (a) **aberration/contraction UV remap** — remap screen x (and optionally y)
+  by the relativistic aberration map for v_observer/c (this warps EVERYTHING
+  — tiles, sprites, background — in one shader, which is why the post-pass
+  beats per-sprite warps); (b) **Doppler LUT** — hue shift by the per-pixel
+  approach velocity sign/magnitude (cheap approximation: screen-space
+  direction relative to observer motion); (c) optional per-body length
+  contraction on sprites moving relative to the observer (vertex squash
+  along their velocity — reads the read-model velocities). Light-delayed
+  RENDERING (drawing bodies from the L2 history) is the last, most
+  disorienting toggle — ship each sub-effect behind its own knob for Jon's
+  feel pass.
+- **Tier L4 — content**: the relativity biome/zone ("every biome a math
+  world model"; the ability-as-theorem here is literally γ), puzzles built
+  on dilation (outrun a timer by moving fast), delayed-information combat,
+  and a boss that exploits your light cone.
+
+## The now-obligations (Tier 0 — folded into the live plan)
+
+1. **E4 (`ambition_sim_view`) requirement**: the read-model carries, per
+   rendered body, **position AND velocity** (world-frame, named per AJ13) and
+   exposes the **observer's velocity** (the controlled body's, or the camera
+   rig's) as part of the camera snapshot. Rationale recorded in the E4 spec:
+   L3's post passes are pure functions of these; if the read-model ships
+   position-only, the warp arc starts with a schema break.
+2. **History-sourced views stay possible**: `WorldView` construction and the
+   sim_view snapshot builder must not be written in a way that assumes
+   "state == live ECS state this frame" is the ONLY source (no new global
+   singletons that alias live state; keep the build funnels — `build_world_view`,
+   the snapshot builder — as functions OF inputs). No code change today;
+   this is a review-flag note (it is ALREADY true; keep it true).
+3. **Speed caps stay seam-shaped**: new movement code keeps caps as
+   parameters/rules at the shared integrate seams (the existing pattern),
+   never scattered magic constants — L1's c-clamp lands at those seams.
+4. **Post-process hook**: the render stack keeps (or gains, when E4 lands) a
+   single full-screen post seam where ordered passes can be registered —
+   L3 registers there. (Bevy supports this natively; the obligation is just
+   not to bury the camera output where a post pass can't see it.)
+5. **Naming**: the mechanic's code vocabulary may use standard causal terms,
+   while player-facing teaching text uses `LightZone` / `c` / `LightLimited` /
+   light-delayed state — recorded here so slices don't invent
+   competing terms.
+
+### Re-measured 2026-09-03 — the Tier 0 obligations are intact, and #4 is already met
+
+These are preservation obligations ("it is ALREADY true; keep it true"), which
+is the kind that rots without anyone editing them. Three of the five are
+checkable state; re-checked against HEAD:
+
+| # | obligation | verdict |
+|---|---|---|
+| 1 | per-body position AND velocity; observer velocity in the camera snapshot | ✔ BOTH halves |
+| 2 | build funnels stay functions OF inputs, no global aliasing live state | ✔ |
+| 4 | a single full-screen post seam exists (or is gained when E4 lands) | ⭐ ALREADY EXISTS |
+
+* **#1** — `BodyPoseView` carries `pos` and `vel` as adjacent fields
+  (`crates/ambition_sim_view/src/pose_view.rs:26`), and the observer's own
+  velocity is `CameraFocus2d::velocity_world`
+  (`crates/ambition_sim_view/src/camera_snapshot.rs:179`), inside the camera
+  snapshot exactly as the obligation requires. The perception path carries it
+  too (`SelfView { pos, vel }`). ⇒ The schema break this obligation exists to
+  prevent is not pending.
+* **#2** — `build_world_view`
+  (`crates/ambition_platformer2d_actor_monolith/src/features/ecs/perception.rs:583`)
+  takes eight explicit inputs and returns a `WorldView`. No resource, no global,
+  no live-state alias: a history-sourced view remains constructible by handing it
+  different arguments, which is the whole point of the obligation.
+* **#4** — the doc hedges ("keeps, **or gains, when E4 lands**"). It does not
+  need to: `crates/ambition_render/src/screen_effects.rs` is that seam today —
+  *"the pass runs after the 2D main pass, samples the already-rendered view
+  texture, and writes a fullscreen filtered result back into Bevy's post-process
+  destination."* L3 has somewhere to register whenever it arrives.
+
+#3 (speed caps stay seam-shaped) and #5 (naming) are conventions for future
+code, not state a check can read; they are not evaluated here rather than
+silently counted as passing.
+
+*Method note.* The search for #4 first came back EMPTY and would have supported
+"the post seam does not exist yet, as the doc allows". It failed because it used
+the DOC's vocabulary — `post_process`, `fullscreen` — and the code's is
+`ScreenEffects`, with "post-processing" only ever appearing hyphenated in a
+module comment. ⇒ When a plan and the code were written by different hands,
+an absence result is a claim about the SEARCH TERM first and the repository
+second.
+
+## Non-goals (explicit)
+
+- No sim-side space warping, no per-observer collision geometry, no
+  light-cone causality in the SIM. One honest world; observers see it bent.
+- No general-relativity (curved-spacetime) mechanics in this game — gravity zones already
+  cover the gameplay want there; if a curved-space biome ever matters it is
+  its own manifesto.
+- Multiplayer + finite c interactions (whose observer frame wins?) —
+  deferred until multiplayer scope (roadmap Q5) is real; single-observer
+  (the controlled body) is the design center.
+
+## Pointers
+
+- Proper time: ADR 0010/0011, `WorldTime`, `ProperTimeScale`, the moveset's
+  `entity_dt` (combat/moveset/mod.rs — the proper-time clock).
+- Perception policy: `features/ecs/perception.rs` (`Perception` enum).
+- Zone precedent: `GravityZone` (platformer_primitives gravity.rs).
+- Observer boundary: E4 / `ambition_sim_view` in the demo plan (track E).
+- Prior art: MIT OpenRelativity / *A Slower Speed of Light* (Unity, open
+  source) — the effect decomposition above mirrors theirs.

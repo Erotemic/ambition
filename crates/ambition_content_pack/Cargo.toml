@@ -1,0 +1,14 @@
+[package]
+name = "ambition_content_pack"
+version = "0.1.0"
+edition = "2024"
+
+# The content compiler is a FOUNDATION crate: no Bevy, no engine domain types,
+# no game content. It owns the pipeline, the schema registry, the diagnostic
+# vocabulary and the fingerprint. Capabilities own their schemas and register
+# them here, which is the whole point — a new content family must not mean an
+# edit to one central closed enum.
+[dependencies]
+ron = { workspace = true }
+serde = { workspace = true }
+thiserror = { workspace = true }

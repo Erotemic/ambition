@@ -1,0 +1,315 @@
+//! The `GameplayTraceBuffer` resource: a rolling ring buffer of per-frame
+//! snapshots and discrete events that the game's recorder systems push into. Owns
+//! capacity/tick/sequence bookkeeping; the dump writers live in `dump`.
+
+use crate::{
+    DumpReason, GameplayTraceEvent, GameplayTraceFrame, PreviousFrameSnapshot,
+    DEFAULT_EVENT_CAPACITY, DEFAULT_FRAME_CAPACITY,
+};
+use bevy::prelude::*;
+use std::collections::{BTreeMap, VecDeque};
+
+#[derive(Clone, Debug)]
+struct PendingOobAssessment {
+    tick: u64,
+    anomaly: Option<(String, crate::TracePoint)>,
+    auto_dump_eligible: bool,
+}
+
+/// Top-level rolling buffer.
+#[derive(Resource, Debug)]
+pub struct GameplayTraceBuffer {
+    pub capacity_frames: usize,
+    pub capacity_events: usize,
+    pub frames: VecDeque<GameplayTraceFrame>,
+    pub events: VecDeque<GameplayTraceEvent>,
+    pub sequence: u64,
+    pub tick: u64,
+    pub last_dump_path: Option<String>,
+    pub last_dump_status: Option<String>,
+    pub dump_request: Option<DumpReason>,
+    /// Once an OOB has auto-dumped we suppress further auto-dumps until
+    /// the player is no longer OOB; otherwise a single broken frame would
+    /// produce 60 dump files per second.
+    pub auto_dump_armed: bool,
+    /// True after the very first frame has been recorded; lets us produce
+    /// useful "first OOB frame" output without indexing into an empty
+    /// buffer.
+    pub has_recorded_any: bool,
+    /// Frame-to-frame diff source for synthetic events.
+    pub previous: Option<PreviousFrameSnapshot>,
+    /// Frames remaining in the portal-transit suppression WINDOW. Set to a few frames when a
+    /// `BodyTeleported` fires; while > 0 BOTH the position-delta and the OOB auto-dumps are
+    /// suppressed, so a normal transit never spams a trace dump. Decremented once per frame in
+    /// `record_frame`.
+    pub teleport_suppress_ticks: u32,
+    /// Auto-dumps (OOB + teleport) are suppressed until the buffer holds at least this many
+    /// frames. Manual (F8) dumps are never gated. Mirrors the actor trace's gate (see
+    /// `DEFAULT_MIN_CONTEXT_FRAMES`).
+    pub min_context_frames: usize,
+    /// Per-frame anomaly truth held until the rollback host confirms it. A
+    /// corrected pass replaces this entry exactly like it replaces the frame
+    /// row, so a speculative OOB cannot arm a permanent dump and a corrected
+    /// OOB cannot disappear merely because the first pass looked healthy.
+    pending_oob: BTreeMap<(u64, i32), PendingOobAssessment>,
+    pending_oob_session: Option<u64>,
+}
+
+/// How many frames a portal transit suppresses trace auto-dumps for: long enough
+/// to cover the transfer snap plus the exit-side settle (carve opening + any
+/// collision push-out), short enough that a genuinely stuck body still dumps.
+pub const PORTAL_TELEPORT_SUPPRESS_FRAMES: u32 = 8;
+
+impl Default for GameplayTraceBuffer {
+    fn default() -> Self {
+        Self::with_capacity(DEFAULT_FRAME_CAPACITY, DEFAULT_EVENT_CAPACITY)
+    }
+}
+
+impl GameplayTraceBuffer {
+    pub fn with_capacity(frames: usize, events: usize) -> Self {
+        Self {
+            capacity_frames: frames.max(1),
+            capacity_events: events.max(1),
+            frames: VecDeque::with_capacity(frames.max(1)),
+            events: VecDeque::with_capacity(events.max(1)),
+            sequence: 0,
+            tick: 0,
+            last_dump_path: None,
+            last_dump_status: None,
+            dump_request: None,
+            auto_dump_armed: true,
+            has_recorded_any: false,
+            previous: None,
+            teleport_suppress_ticks: 0,
+            min_context_frames: crate::DEFAULT_MIN_CONTEXT_FRAMES,
+            pending_oob: BTreeMap::new(),
+            pending_oob_session: None,
+        }
+    }
+
+    /// True once the buffer holds enough lead-up frames for an auto-dump to be
+    /// worth taking (see [`Self::min_context_frames`]).
+    pub fn has_min_context(&self) -> bool {
+        self.frames.len() >= self.min_context_frames
+    }
+
+    pub fn frame_count(&self) -> usize {
+        self.frames.len()
+    }
+
+    pub fn event_count(&self) -> usize {
+        self.events.len()
+    }
+
+    pub fn current_tick(&self) -> u64 {
+        self.tick
+    }
+
+    pub fn request_dump(&mut self, reason: DumpReason) {
+        if self.dump_request.is_none() {
+            self.dump_request = Some(reason);
+        }
+    }
+
+    /// Tick assigned to the row this pass will append or replace.
+    pub fn recording_tick_for(&self, frame: &GameplayTraceFrame) -> u64 {
+        frame
+            .simulation_identity()
+            .and_then(|identity| {
+                self.frames
+                    .iter()
+                    .rfind(|row| row.simulation_identity() == Some(identity))
+                    .map(|row| row.tick)
+            })
+            .unwrap_or(frame.tick)
+    }
+
+    /// Record this pass's OOB assessment and publish only confirmed truth.
+    ///
+    /// Non-rollback hosts have no identity and are applied immediately. Under a
+    /// rollback host, the assessment is keyed by `(session, frame)` and held
+    /// until `confirmed` reaches it; a corrected pass replaces the pending value.
+    pub fn record_oob_assessment(
+        &mut self,
+        identity: Option<(u64, i32)>,
+        confirmed: Option<i32>,
+        tick: u64,
+        anomaly: Option<(String, crate::TracePoint)>,
+        auto_dump_eligible: bool,
+    ) {
+        let assessment = PendingOobAssessment {
+            tick,
+            anomaly,
+            auto_dump_eligible,
+        };
+        let Some((session, frame)) = identity else {
+            if self.pending_oob_session.take().is_some() {
+                self.pending_oob.clear();
+                self.auto_dump_armed = true;
+            }
+            self.apply_oob_assessment(assessment);
+            return;
+        };
+
+        if self.pending_oob_session != Some(session) {
+            self.pending_oob.clear();
+            self.pending_oob_session = Some(session);
+            self.auto_dump_armed = true;
+        }
+        self.pending_oob.insert((session, frame), assessment);
+
+        let Some(confirmed) = confirmed else {
+            return;
+        };
+        let ready: Vec<_> = self
+            .pending_oob
+            .range((session, i32::MIN)..=(session, confirmed))
+            .map(|(identity, _)| *identity)
+            .collect();
+        for identity in ready {
+            if let Some(assessment) = self.pending_oob.remove(&identity) {
+                self.apply_oob_assessment(assessment);
+            }
+        }
+    }
+
+    fn apply_oob_assessment(&mut self, assessment: PendingOobAssessment) {
+        if let Some((reason, pos)) = assessment.anomaly {
+            self.push_event(GameplayTraceEvent::OobDetected {
+                tick: assessment.tick,
+                reason: reason.clone(),
+                pos,
+            });
+            if self.auto_dump_armed && self.dump_request.is_none() && assessment.auto_dump_eligible
+            {
+                self.dump_request = Some(DumpReason::OobAuto { reason });
+                self.auto_dump_armed = false;
+            }
+        } else if !self.auto_dump_armed {
+            self.auto_dump_armed = true;
+        }
+    }
+
+    /// Append a frame, or REPLACE the row already describing the same
+    /// simulation frame.
+    ///
+    /// A rollback host re-simulates a frame it guessed wrong about. A forensic
+    /// record that appended both passes would contain two contradictory rows
+    /// for one instant; one that ignored the second pass would keep the guess
+    /// and discard the truth. Neither is what someone reading a dump wants, so
+    /// the corrected pass overwrites its predecessor in place.
+    ///
+    /// The row keeps its original `seq`/`tick`, because those describe *where
+    /// in the recording it sits*, which correcting its contents does not
+    /// change. Scanning from the back finds the slot in a handful of steps: a
+    /// rollback reaches back at most the host's prediction window.
+    pub fn push_frame(&mut self, frame: GameplayTraceFrame) {
+        if let Some(identity) = frame.simulation_identity() {
+            if let Some(slot) = self
+                .frames
+                .iter()
+                .rposition(|row| row.simulation_identity() == Some(identity))
+            {
+                let (seq, tick) = (self.frames[slot].seq, self.frames[slot].tick);
+                self.frames[slot] = GameplayTraceFrame { seq, tick, ..frame };
+                return;
+            }
+        }
+
+        if self.frames.len() == self.capacity_frames {
+            self.frames.pop_front();
+        }
+        self.frames.push_back(frame);
+        self.sequence = self.sequence.saturating_add(1);
+        self.tick = self.tick.saturating_add(1);
+        self.has_recorded_any = true;
+    }
+
+    pub fn push_event(&mut self, event: GameplayTraceEvent) {
+        if self.events.len() == self.capacity_events {
+            self.events.pop_front();
+        }
+        self.events.push_back(event);
+    }
+
+    /// Drain `events` into the buffer in order.
+    pub fn extend_events<I: IntoIterator<Item = GameplayTraceEvent>>(&mut self, events: I) {
+        for ev in events {
+            self.push_event(ev);
+        }
+    }
+
+    pub fn frames(&self) -> impl Iterator<Item = &GameplayTraceFrame> {
+        self.frames.iter()
+    }
+
+    pub fn events(&self) -> impl Iterator<Item = &GameplayTraceEvent> {
+        self.events.iter()
+    }
+}
+
+#[cfg(test)]
+mod buffer_tests {
+    //! The trace ring buffer: capacity is clamped to >=1, push is a
+    //! bounded ring that evicts the oldest entry, and request_dump keeps
+    //! the first request (so a later auto-dump can't clobber a pending
+    //! reason). push_event shares the eviction logic with push_frame.
+    use super::*;
+
+    fn jump(tick: u64) -> GameplayTraceEvent {
+        GameplayTraceEvent::Jump { tick }
+    }
+
+    fn event_ticks(b: &GameplayTraceBuffer) -> Vec<u64> {
+        b.events()
+            .map(|e| match e {
+                GameplayTraceEvent::Jump { tick } => *tick,
+                _ => 0,
+            })
+            .collect()
+    }
+
+    #[test]
+    fn with_capacity_clamps_to_at_least_one() {
+        let b = GameplayTraceBuffer::with_capacity(0, 0);
+        assert_eq!(b.capacity_frames, 1);
+        assert_eq!(b.capacity_events, 1);
+    }
+
+    #[test]
+    fn push_event_is_a_bounded_ring_dropping_oldest() {
+        let mut b = GameplayTraceBuffer::with_capacity(8, 2);
+        b.push_event(jump(1));
+        b.push_event(jump(2));
+        b.push_event(jump(3)); // evicts tick 1
+        assert_eq!(b.event_count(), 2);
+        assert_eq!(
+            event_ticks(&b),
+            vec![2, 3],
+            "oldest evicted, order preserved"
+        );
+    }
+
+    #[test]
+    fn extend_events_drains_in_order_within_capacity() {
+        let mut b = GameplayTraceBuffer::with_capacity(8, 3);
+        b.extend_events([jump(1), jump(2), jump(3), jump(4)]);
+        assert_eq!(b.event_count(), 3);
+        assert_eq!(event_ticks(&b), vec![2, 3, 4]);
+    }
+
+    #[test]
+    fn request_dump_keeps_the_first_request() {
+        let mut b = GameplayTraceBuffer::with_capacity(4, 4);
+        assert!(b.dump_request.is_none());
+        b.request_dump(DumpReason::Manual);
+        b.request_dump(DumpReason::Programmatic {
+            label: "later".into(),
+        });
+        assert!(
+            matches!(b.dump_request, Some(DumpReason::Manual)),
+            "the first dump request wins"
+        );
+    }
+}

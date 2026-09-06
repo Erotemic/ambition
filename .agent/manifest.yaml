@@ -1,0 +1,61 @@
+schema_version: 4
+
+generator: scripts/generate_agent_index.py
+lint: scripts/check_agent_kb.py
+
+entrypoints:
+  canonical: AGENTS.md
+  claude: CLAUDE.md
+
+policy:
+  human_maintained:
+    - docs/adr
+    - docs/current
+    - docs/concepts
+    - docs/systems
+    - docs/recipes
+    - docs/tools
+    - docs/mechanics
+    - docs/vision
+    - docs/planning
+    - docs/history
+    - docs/brainstorms
+    - dev/journals
+    - dev/benchmark-candidates
+  generated:
+    - .agent/index/file_summaries.json
+    - .agent/index/symbol_index.json
+    - .agent/index/test_map.json
+    - .agent/index/concept_index.json
+    - .agent/index/adr_index.json
+    - .agent/index/tool_index.json
+    - .agent/index/archive_index.json
+    - .agent/index/doc_health.json
+    - .agent/README.md
+    - .agent/index/catalog.json
+    - .agent/index/crates/*.json
+
+indexes:
+  file_summaries: .agent/index/file_summaries.json
+  symbol_index: .agent/index/symbol_index.json
+  test_map: .agent/index/test_map.json
+  concept_index: .agent/index/concept_index.json
+  adr_index: .agent/index/adr_index.json
+  tool_index: .agent/index/tool_index.json
+  archive_index: .agent/index/archive_index.json
+  doc_health: .agent/index/doc_health.json
+  catalog: .agent/index/catalog.json
+  crate_index: .agent/index/crates/index.json
+
+query:
+  command: python scripts/agent_query.py
+  guide: .agent/README.md
+
+evals: .agent/retrieval_evals.yaml
+
+notes:
+  - Generated indexes are navigation aids, not authority.
+  - Regenerate when files, symbols, tests, tools, ADRs, archive entries, or concept pages move.
+  - Keep AGENTS.md small; route to docs/dev/.agent instead of dumping knowledge there.
+  - Brainstorms are active design incubation and are not touched by cleanup scripts.
+  - Top-level docs should contain only docs/README.md and docs/reviewer-guide.md.

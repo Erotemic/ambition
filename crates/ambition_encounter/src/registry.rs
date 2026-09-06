@@ -1,0 +1,198 @@
+//! `EncounterRegistry` resource: the `id -> Entity` INDEX into the live
+//! encounter entities (E1 — the live state lives on the entity's
+//! [`EncounterState`](crate::EncounterState) component, not here). Keyed by id
+//! (matching LDtk `EncounterTrigger.id`) so consumers resolve an id to its
+//! entity in one hop. Also `SwitchActivation` — the typed
+//! `switch:<id>:<action>:<target>` payload parsed once at LDtk→ECS spawn and
+//! consumed by the switch-arming gate (`switches.rs`) and the encounter tick.
+
+use std::collections::BTreeMap;
+
+use bevy::prelude::*;
+
+/// Index from encounter id → the live encounter entity that owns its
+/// [`EncounterState`](crate::EncounterState). Reduced from the old
+/// state-holding map to a pure index at E1: the entity is the sole live-state
+/// authority, so nothing is duplicated here.
+#[derive(Resource, Default, Clone)]
+pub struct EncounterRegistry {
+    /// Encounter id → live encounter entity.
+    pub ids: BTreeMap<String, Entity>,
+    /// Tracks whether the current LDtk file has been scanned for
+    /// encounter triggers yet. Reset by hot reload so an edited LDtk
+    /// re-populates the specs.
+    pub specs_loaded: bool,
+}
+
+impl bevy::ecs::entity::MapEntities for EncounterRegistry {
+    fn map_entities<M: bevy::ecs::entity::EntityMapper>(&mut self, mapper: &mut M) {
+        for entity in self.ids.values_mut() {
+            *entity = mapper.get_mapped(*entity);
+        }
+    }
+}
+
+impl EncounterRegistry {
+    /// The live entity for an encounter id, if one is spawned.
+    pub fn entity(&self, id: &str) -> Option<Entity> {
+        self.ids.get(id).copied()
+    }
+
+    /// Point an encounter id at its live entity, REPLACING any previous one.
+    ///
+    /// ⭐⭐ REPLACEMENT IS THE POLICY, ON PURPOSE, and this registry is named in
+    /// the 2026-09-02 registry inventory as one of seven whose second
+    /// registration overwrites silently. Six of those want refusal. This one
+    /// does NOT: it is an INDEX from id to a live `Entity`, not an authored
+    /// table, and an encounter that despawns and respawns legitimately gets a
+    /// new entity. Refusing the second write would pin the index to a dead
+    /// entity — the opposite of the defect the inventory is about.
+    ///
+    /// ⇒ So it says so here rather than adopting
+    /// `ambition_registry_core::classify`, which is exactly what that function
+    /// asks of a registry whose policy is genuinely different: `classify` has no
+    /// "replace" answer so that a silent overwrite can never be an ACCIDENTAL
+    /// default — but a deliberate one, stated, is a legitimate choice.
+    ///
+    /// ⚠ The name carries the policy. It used to be `insert`, which reads like a
+    /// map operation and says nothing about what a second call means.
+    pub fn point_at_live_entity(&mut self, id: impl Into<String>, entity: Entity) {
+        self.ids.insert(id.into(), entity);
+    }
+
+    /// Forget an encounter id (its entity despawned / room changed).
+    pub fn remove(&mut self, id: &str) -> Option<Entity> {
+        self.ids.remove(id)
+    }
+}
+
+/// One activation request from a switch interaction.
+///
+/// Built once when an LDtk `Switch` entity is converted into an
+/// `ambition_interaction::Interactable` payload and spawned through
+/// the host crate's switch feature component. The encounter pipeline, switch
+/// activation queue, and switch index all consume the typed fields
+/// directly — only the engine-side `InteractionKind::Custom(String)`
+/// boundary still carries the wire format.
+#[derive(Clone, Debug, Default, PartialEq, Eq)]
+pub struct SwitchActivation {
+    pub id: String,
+    pub action: String,
+    pub target_encounter: String,
+}
+
+impl SwitchActivation {
+    /// Parse the `Custom("switch:<id>:<action>:<target>")` payload
+    /// produced by `entity_to_runtime` for `Switch` LDtk entities.
+    ///
+    /// Called exactly once per switch — at LDtk-to-ECS spawn — so
+    /// downstream systems can read the typed fields without re-parsing
+    /// the wire format every frame.
+    pub fn parse_custom(payload: &str) -> Option<Self> {
+        let mut parts = payload.split(':');
+        if parts.next()? != "switch" {
+            return None;
+        }
+        let id = parts.next()?.to_string();
+        let action = parts.next()?.to_string();
+        let target_encounter = parts.next().unwrap_or("").to_string();
+        Some(Self {
+            id,
+            action,
+            target_encounter,
+        })
+    }
+
+    /// Inverse of [`Self::parse_custom`]. Used by the LDtk converter to
+    /// keep the engine-boundary string format in sync with the typed
+    /// fields and by tests that round-trip through the payload form.
+    pub fn to_custom_payload(&self) -> String {
+        format!(
+            "switch:{}:{}:{}",
+            self.id, self.action, self.target_encounter
+        )
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn switch_activation_round_trips_through_the_custom_payload() {
+        let s = SwitchActivation {
+            id: "gate_a".into(),
+            action: "open".into(),
+            target_encounter: "goblin_encounter".into(),
+        };
+        assert_eq!(
+            SwitchActivation::parse_custom(&s.to_custom_payload()),
+            Some(s)
+        );
+    }
+
+    #[test]
+    fn parse_custom_allows_an_empty_target() {
+        let parsed = SwitchActivation::parse_custom("switch:gate_a:open").unwrap();
+        assert_eq!(parsed.id, "gate_a");
+        assert_eq!(parsed.action, "open");
+        assert_eq!(parsed.target_encounter, "");
+    }
+
+    #[test]
+    fn parse_custom_rejects_non_switch_and_truncated_payloads() {
+        assert_eq!(SwitchActivation::parse_custom("door:gate_a:open:x"), None);
+        assert_eq!(SwitchActivation::parse_custom("switch:gate_a"), None);
+        assert_eq!(SwitchActivation::parse_custom(""), None);
+    }
+}
+
+/// The encounter DOMAIN's plugin (track 6, decision #9): the crate owns its
+/// `id -> Entity` index, its cross-crate presentation read-model, the generic
+/// command/event ingress, and the lifecycle reducer (registered into the
+/// public [`EncounterLifecycleSet`](crate::EncounterLifecycleSet), which the
+/// sim assembly positions). Live encounter state stays on the encounter
+/// ENTITIES.
+pub struct EncounterRegistryPlugin;
+
+impl bevy::prelude::Plugin for EncounterRegistryPlugin {
+    fn build(&self, app: &mut bevy::prelude::App) {
+        use ambition_platformer2d_shared_tangle::schedule::SimScheduleExt;
+        use bevy::prelude::IntoScheduleConfigs;
+        app.init_resource::<EncounterRegistry>();
+        app.init_resource::<crate::entity::EncounterView>();
+        // The generic clock mirror the reducer reads (the host overwrites it
+        // each frame; init never clobbers a pre-inserted resource).
+        app.init_resource::<ambition_platformer2d_shared_tangle::time::SimDt>();
+        app.add_message::<crate::lifecycle::EncounterCommand>();
+        app.add_message::<crate::events::EncounterEventMsg>();
+        // this domain's authored VERB, published beside the message it writes.
+        // Adding it edited no central enum — see `authored_commands`.
+        crate::authored_commands::publish_authored_commands(app);
+        let sim = app.sim_schedule();
+        app.init_resource::<crate::rewards::ClearedEncounters>();
+        app.init_resource::<crate::switches::ResolvedSwitchActivations>();
+        // THE one drain of the activation queue, published for every policy
+        // that used to read the queue itself. It owns the persisted switch
+        // write; see `switches::drain_switch_activations`.
+        app.add_systems(
+            sim,
+            crate::switches::drain_switch_activations
+                .in_set(crate::switches::SwitchActivationDrained),
+        );
+        app.add_systems(
+            sim,
+            // The publisher is CHAINED after the reducer and inside the same
+            // set, so anything ordering `.after(EncounterLifecycleSet)` reads a
+            // cleared list that agrees with the phases it can observe. It is
+            // this domain answering "which encounters owe a reward" instead of
+            // the actor kernel reading our phase representation to work it out.
+            (
+                crate::lifecycle::reduce_encounter_lifecycles,
+                crate::rewards::publish_cleared_encounters,
+            )
+                .chain()
+                .in_set(crate::EncounterLifecycleSet),
+        );
+    }
+}

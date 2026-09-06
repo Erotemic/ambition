@@ -1,0 +1,30 @@
+[package]
+name = "ambition_portal_tutorial"
+version = "0.1.0"
+edition = "2021"
+license = "Apache-2.0"
+authors = ["Jon Crall + ChatGPT + Claude"]
+description = "Small, self-contained Bevy tutorial for Ambition's portal simulation and presentation crates."
+publish = false
+
+# Keep the visual tutorial outside Ambition's main workspace. This prevents its
+# desktop/window/render feature set from feature-unifying into headless crate
+# checks or making every `cargo check --workspace` build the tutorial.
+[workspace]
+
+[[bin]]
+name = "portal_tutorial"
+path = "src/main.rs"
+
+[dependencies]
+ambition_platformer2d_core = { path = "../../crates/ambition_platformer2d_core" }
+ambition_platformer2d_shared_tangle = { path = "../../crates/ambition_platformer2d_shared_tangle" }
+ambition_portal2d = { path = "../../crates/ambition_portal2d" }
+ambition_portal2d_presentation = { path = "../../crates/ambition_portal2d_presentation" }
+bevy = { version = "0.19.1", default-features = false, features = [
+    "default_app",
+    "default_platform",
+    "2d_bevy_render",
+    "bevy_text",
+    "bevy_log",
+] }

@@ -1,0 +1,387 @@
+//! The steered bolt: a thing you fly with the same stick you walk with.
+//!
+//! ⭐⭐ THE STICK IS READ FROM THE CASTER, WHO NEVER STOPS BEING THE CASTER.
+//! `ActorControlFrame::steer_axis()` is *"what the PLAYER is HOLDING, as opposed
+//! to what this body is ALLOWED to move by"* — it exists because the damped
+//! frame is republished after integration, so a rooted move reads `locomotion`
+//! as zero. ⇒ No seat is redirected, no brain is masked, nothing owns the
+//! player's input but the player. The move COORDINATES two authorities and
+//! becomes neither.
+//!
+//! ⛔ THE OWNER IS A SEAT, for the same reason the mine's is: `MatchSeat` is
+//! rollback-registered, survives a rewind unchanged, and needs no entity
+//! remapping. "Whose bolt is this" is a `usize` comparison.
+
+use bevy::prelude::*;
+
+use ambition_platformer2d::characters::brain::action_set::{ActionRequest, SpecialActionSpec};
+use ambition_platformer2d::characters::brain::ActorActionMessage;
+use ambition_platformer2d::characters::smash_bolt::{SteeredBoltParams, STEERED_BOLT};
+use ambition_platformer2d::engine_core as ae;
+
+/// A bolt in flight, and everything about it that moves.
+///
+/// ⛔ ROLLBACK STATE. Position, velocity and clock all outlive the tick that made
+/// them, so a rewind that restored the bolt without them would fly a different
+/// bolt from the confirmed one — and since the bolt LAUNCHES ITS CASTER, that is
+/// a divergence in where a fighter is standing.
+#[derive(Component, Clone, Debug, PartialEq)]
+pub struct SteeredBolt {
+    /// The cosmetic row drawn along its path — see
+    /// `SteeredBoltParams::trail_vfx`. A bolt with none is one the caster cannot
+    /// fly.
+    pub trail_vfx: String,
+    /// Seconds between trail marks, and the countdown to the next one.
+    pub trail_every_s: f32,
+    pub trail_in_s: f32,
+    /// Which seat is flying it.
+    pub owner_seat: usize,
+    /// Where it is.
+    pub pos: ae::Vec2,
+    /// Where it is going. Its LENGTH is the authored speed and never changes —
+    /// the stick rotates this and cannot lengthen it.
+    pub vel: ae::Vec2,
+    /// Seconds before it fades on its own.
+    pub remaining_s: f32,
+    /// Radians per second the stick may turn it.
+    pub turn_rate: f32,
+    /// Contact half-extent.
+    pub radius: f32,
+    pub damage: i32,
+    pub knockback: f32,
+    /// How hard it throws the caster when it comes home.
+    pub self_launch: f32,
+    /// Has this bolt got CLEAR of its caster yet?
+    ///
+    /// ⛔⛔ WITHOUT THIS THE MOVE IS UNPLAYABLE, and a guard found it on the
+    /// first run rather than a player finding it in a match: the bolt spawns at
+    /// a body-local offset, which is INSIDE its caster's contact box, so it came
+    /// home on the very tick it was fired and threw him instantly. ⇒ Every press
+    /// was a self-launch and the bolt was never seen.
+    ///
+    /// ⭐ IT IS ALSO THE GENRE'S RULE, arrived at from the bug rather than from
+    /// the reference: the bolt cannot answer its caster until it has left him,
+    /// so flying it back is a MANOEUVRE and not an accident of where it starts.
+    ///
+    /// ⛔ ROLLBACK STATE, and it earns its place in the probe: it is a latch that
+    /// flips once and changes what the next contact MEANS, so a restore that lost
+    /// it turns a resimulated recovery into a whiff.
+    pub clear_of_caster: bool,
+}
+
+/// Checksum probe: everything that moves, which for a bolt is most of it.
+///
+/// ⛔ POSITION AND VELOCITY BOTH, unlike the mine's clock-only probe. A bolt is
+/// STEERED, so two peers can disagree about where it is going while agreeing
+/// about how long it has left — and the divergence that matters is the one that
+/// decides whether it comes home.
+pub fn steered_bolt_probe(bolt: &SteeredBolt) -> u64 {
+    let mut h = (bolt.remaining_s.to_bits() as u64) ^ u64::from(bolt.clear_of_caster);
+    for f in [bolt.pos.x, bolt.pos.y, bolt.vel.x, bolt.vel.y] {
+        h = h.rotate_left(13) ^ (f.to_bits() as u64);
+    }
+    h
+}
+
+/// Put a bolt on the stage where a move asked for one.
+pub fn fire_authored_bolts(
+    mut commands: Commands,
+    mut actions: MessageReader<ActorActionMessage>,
+    casters: Query<(&ae::BodyKinematics, &ambition_platformer2d::actor::MatchSeat)>,
+    // ⛔ WHICH MATCH IS RUNNING, so what this spawns dies with it. See
+    // `crate::match_scope`: the lifetime belongs to the match, not to the move.
+    active_match: Option<Res<ambition_platformer2d::versus_match::ActiveMatch>>,
+) {
+    for message in actions.read() {
+        let ActionRequest::Special { spec, params } = &message.request else {
+            continue;
+        };
+        let SpecialActionSpec::Special(key) = spec;
+        if key.as_str() != STEERED_BOLT {
+            continue;
+        }
+        let params: SteeredBoltParams = match params.hydrate() {
+            Ok(p) => p,
+            Err(err) => {
+                warn!("steered-bolt params did not hydrate: {err}");
+                continue;
+            }
+        };
+        // ⛔ NO SEAT, NO BOLT. A bolt whose owner cannot be named is one nobody
+        // can steer and nobody can be launched by — it would fly straight out of
+        // the world on its opening velocity forever.
+        let Ok((kin, seat)) = casters.get(message.actor) else {
+            error!(
+                "a bolt was fired by {:?}, which has no MatchSeat — nobody could \
+                 steer it, so it is not fired at all",
+                message.actor
+            );
+            continue;
+        };
+        let facing = kin.facing.signum();
+        let at = kin.pos + ae::Vec2::new(params.offset.0 * facing, params.offset.1);
+        // ⭐ IT LEAVES FORWARD, not upward. The stick takes over on the very next
+        // tick, so the opening direction only has to be somewhere the caster can
+        // steer FROM — and forward is the one that reads as "he threw it".
+        let vel = ae::Vec2::new(facing * params.speed, 0.0);
+        info!(
+            target: "ambition::moves",
+            "bolt fired: seat={} at {at:?} speed={} turn={}deg/s",
+            seat.0, params.speed, params.turn_rate_deg,
+        );
+        let spawned = commands.spawn((
+            Name::new("Steered bolt"),
+            SteeredBolt {
+                trail_vfx: params.trail_vfx.clone(),
+                trail_every_s: params.trail_every_s,
+                // ⛔ ZERO SO THE FIRST MARK LANDS ON THE SPAWN TICK. A trail that
+                // waited a full interval would leave the bolt invisible for its
+                // first frames, which is exactly when the caster is looking for
+                // it.
+                trail_in_s: 0.0,
+                owner_seat: seat.0,
+                pos: at,
+                vel,
+                remaining_s: params.lifetime_s,
+                turn_rate: params.turn_rate_deg.to_radians(),
+                radius: params.radius,
+                damage: params.damage,
+                knockback: params.knockback,
+                self_launch: params.self_launch,
+                // It starts inside him, by construction.
+                clear_of_caster: false,
+            },
+        )).id();
+        // The match owns this object's end. See `crate::match_scope`.
+        crate::match_scope::stamp(&mut commands, spawned, active_match.as_deref());
+    }
+}
+
+/// Fly every bolt: turn it by its owner's stick, move it, and answer whatever it
+/// reaches.
+///
+/// ⛔⛔ ONE SYSTEM, because steering, flight and contact are one decision about
+/// one tick. A bolt that turned in one system and moved in another would answer
+/// contact against a position no frame ever drew.
+pub fn steer_and_fly_bolts(
+    mut commands: Commands,
+    time: Res<ambition_platformer2d::time::WorldTime>,
+    mut effects: MessageWriter<ambition_platformer2d::vfx::EffectRequest>,
+    mut bolts: Query<(Entity, &mut SteeredBolt)>,
+    // ⛔⛔ CONTACT DOES NOT REQUIRE A CONTROL FRAME, and joining them would have
+    // been a silent no-op waiting to happen: a query wanting `ActorControl` skips
+    // any body that lacks one ENTIRELY, so a seated fighter without a control
+    // frame would be invisible to the bolt rather than merely unable to steer it.
+    // ⇒ Two queries, because they answer two questions — "who is standing here"
+    // and "what is that seat holding" — and only the second needs the frame.
+    mut bodies: Query<(
+        Entity,
+        &mut ae::BodyKinematics,
+        &ambition_platformer2d::actor::MatchSeat,
+    )>,
+    steering: Query<(
+        &ambition_platformer2d::actor::MatchSeat,
+        &ambition_platformer2d::characters::control::ActorControl,
+    )>,
+    // The bolt's own trail — see `SteeredBoltParams::trail_vfx`.
+    mut cues: MessageWriter<ambition_platformer2d::vfx::vfx::VfxMessage>,
+) {
+    let dt = time.sim_dt();
+    if dt <= 0.0 {
+        return;
+    }
+    for (entity, mut bolt) in &mut bolts {
+        bolt.remaining_s -= dt;
+        if bolt.remaining_s <= 0.0 {
+            commands.entity(entity).despawn();
+            continue;
+        }
+
+        // ⭐ THE LIVE STICK, and `steer_axis()` is right in both regimes. While
+        // the move is damping him it returns the value recorded BEFORE the damp;
+        // once the move ends — which happens LONG before the bolt fades, by
+        // design — nothing damped it and it returns the live axis. ⇒ Reading
+        // `locomotion` would have been correct only in the second case, and
+        // silently zero in the first.
+        //
+        // ⚠ SO ONE STICK DOES BOTH once he is free: walking right also steers
+        // the bolt right. That is the move's real cost and it is not a bug.
+        let steer = steering
+            .iter()
+            .find(|(seat, _)| seat.0 == bolt.owner_seat)
+            .map(|(_, control)| control.0.steer_axis().vec())
+            .unwrap_or(ae::Vec2::ZERO);
+        if steer.length() > 0.2 {
+            // ⛔ ROTATE TOWARD, NEVER SNAP TO. A bolt that took the stick's
+            // direction outright would be a cursor, and the whole tension of the
+            // move is that a turn costs distance.
+            let want = steer.normalize();
+            let have = bolt.vel.normalize_or_zero();
+            if have != ae::Vec2::ZERO {
+                let cross = have.x * want.y - have.y * want.x;
+                let dot = have.dot(want).clamp(-1.0, 1.0);
+                let step = (bolt.turn_rate * dt).min(dot.acos());
+                let (sin, cos) = (step * cross.signum()).sin_cos();
+                let speed = bolt.vel.length();
+                bolt.vel = ae::Vec2::new(
+                    have.x * cos - have.y * sin,
+                    have.x * sin + have.y * cos,
+                ) * speed;
+            }
+        }
+        let step = bolt.vel * dt;
+        bolt.pos += step;
+
+        // WHO DID IT REACH?
+        //
+        // ⭐ THE CASTER'S OWN CLEARANCE IS CHECKED FIRST AND SEPARATELY, because
+        // "is it still inside me" has to be answered every tick whether or not
+        // anything else is in range.
+        let mut spent = false;
+        if !bolt.clear_of_caster {
+            let still_inside = bodies.iter().any(|(_, kin, seat)| {
+                if seat.0 != bolt.owner_seat {
+                    return false;
+                }
+                // The SAME reach the contact test uses — two different answers to
+                // "is it inside him" is how a bolt clears and then immediately
+                // reports a hit.
+                let reach = ae::Vec2::splat(bolt.radius) + kin.size * 0.5;
+                let offset = (kin.pos - bolt.pos).abs();
+                offset.x <= reach.x && offset.y <= reach.y
+            });
+            if !still_inside {
+                bolt.clear_of_caster = true;
+            }
+        }
+        // ⛔⛔ WHICH BODY THE BOLT MEETS WAS DECIDED BY QUERY ORDER, and the two
+        // answers are completely different moves. If the returning caster and a
+        // rival overlap the bolt on the same tick, Bevy's iteration order chose
+        // between the Thunder Jacket (a recovery) and an offensive hit — not
+        // stable across a rollback resimulation, and not a decision anybody
+        // authored.
+        //
+        // ⭐ A RIVAL BEATS THE CASTER, and that is a design statement rather than
+        // a coin-toss made deterministic: a bolt that COULD connect does the
+        // offensive thing, and the jacket is what happens when it finds nobody
+        // else. Rivals tie-break on the lowest `MatchSeat`, which is
+        // rollback-registered, so both peers resimulate the same contact.
+        let mut caster_hit: Option<Entity> = None;
+        let mut rival_hit: Option<(usize, Entity)> = None;
+        // ⭐ DRAW IT. The whole move is that the player steers this, and until
+        // 2026-09-05 nothing rendered it at all — see `SteeredBoltParams::trail_vfx`.
+        bolt.trail_in_s -= dt;
+        if bolt.trail_in_s <= 0.0 {
+            bolt.trail_in_s = bolt.trail_every_s;
+            cues.write(ambition_platformer2d::vfx::vfx::VfxMessage::Effect {
+                pos: bolt.pos,
+                fx: ambition_platformer2d::vfx::fx::FxId::new(&bolt.trail_vfx),
+                scale: 1.0,
+                pose: ambition_platformer2d::vfx::FxPose::UPRIGHT,
+            });
+        }
+        for (body, kin, seat) in bodies.iter() {
+            let reach = ae::Vec2::splat(bolt.radius) + kin.size * 0.5;
+            let offset = (kin.pos - bolt.pos).abs();
+            if offset.x > reach.x || offset.y > reach.y {
+                continue;
+            }
+            if seat.0 == bolt.owner_seat {
+                if bolt.clear_of_caster {
+                    caster_hit = Some(body);
+                }
+            } else if rival_hit.is_none_or(|(best, _)| seat.0 < best) {
+                rival_hit = Some((seat.0, body));
+            }
+        }
+        let chosen = rival_hit.map(|(_, e)| e).or(caster_hit);
+        // ⛔⛔ WHO IS CREDITED IS NOT WHO WAS HIT, and this used to pass the
+        // VICTIM as the blast's owner. Attribution is a different question from
+        // geometry and from the damage relationship — a kill, a grudge and a
+        // staleness record all key on the owner, so crediting the body that was
+        // struck makes a fighter their own attacker.
+        //
+        // ⇒ The CASTER owns the blast. Resolved by seat rather than kept as an
+        // `Entity` for the reason the seat exists: bevy_ggrs recreates entities
+        // across a rollback and `MatchSeat` is registered state.
+        let caster_entity = bodies
+            .iter()
+            .find(|(_, _, seat)| seat.0 == bolt.owner_seat)
+            .map(|(e, _, _)| e);
+        for (body, mut kin, seat) in &mut bodies {
+            if Some(body) != chosen {
+                continue;
+            }
+            // ⛔⛔ THE BODY'S OWN HALF-SIZE, NOT A NUMBER I PICKED. This read
+            // `bolt.radius + 16.0 / + 24.0` — two constants approximating a
+            // fighter's extent, on a component that CARRIES that extent. ⇒ A
+            // bigger or smaller fighter got a contact box sized for somebody
+            // else, and nothing would ever have said so.
+            //
+            // ⭐ THE GENERAL SHAPE, named by a peer reviewing the spring: TWO
+            // THINGS AGREE ON A POSITION AND DISAGREE ON A TOLERANCE. The
+            // emitter's offset is authored per move; the consumer's radius was
+            // invented here. That is the same defect as the spawn-point one,
+            // one level up.
+            let reach = ae::Vec2::splat(bolt.radius) + kin.size * 0.5;
+            let offset = (kin.pos - bolt.pos).abs();
+            if offset.x > reach.x || offset.y > reach.y {
+                continue;
+            }
+            if seat.0 == bolt.owner_seat {
+                // ⛔ NOT YET. It has not left him, so this is the frame it was
+                // fired on rather than the frame it came home.
+                if !bolt.clear_of_caster {
+                    continue;
+                }
+                // ⭐⭐ THE THUNDER JACKET. He flies his own bolt into his back and
+                // it carries him — which is why this move is a recovery as much
+                // as an attack, and why `self_launch` is the number that decides
+                // whether it is worth using offstage.
+                //
+                // ⛔ THE BOLT'S OWN DIRECTION, not the stick's: the player aimed
+                // by flying it, and re-reading the stick at the impact would let
+                // them aim twice.
+                let push = bolt.vel.normalize_or_zero() * bolt.self_launch;
+                crate::motion::command_body_velocity(&mut kin, push, "thunder jacket");
+                info!(target: "ambition::moves", "bolt came home: seat={} push={push:?}", seat.0);
+            } else {
+                effects.write(ambition_platformer2d::vfx::EffectRequest {
+                    // The CASTER, not the body it struck — see `caster_entity`.
+                    // Falling back to the victim only if the caster has left the
+                    // match, which is the one case where no better answer exists.
+                    owner: caster_entity.unwrap_or(body),
+                    effect: ambition_platformer2d::vfx::Effect::DamageBox(
+                        ambition_platformer2d::vfx::DamageBoxEffect {
+                            center: bolt.pos,
+                            // ⭐ AND A CASTER STANDING IN THEIR OWN BLAST IS
+                            // CAUGHT BY IT, which is the honest reading of being
+                            // there — `Environment` consults no self-exclusion,
+                            // so the blast does not check whose it is.
+                            // ⛔⛔ `Environment`, NOT `Neutral`. This read `Neutral` with a comment
+                            // saying Neutral hurts everybody; the resolver says the exact opposite
+                            // — `melee_source` excludes it from the body path and its terminal arm
+                            // is empty, with the contract that Neutral never spawns a damaging
+                            // hitbox. ⇒ This blast damaged NOBODY, and the test only asked whether
+                            // the effect request existed.
+                            faction: ambition_platformer2d::vfx::HitSide::Environment,
+                            half_extent: ae::Vec2::splat(bolt.radius),
+                            damage: bolt.damage,
+                            knockback: bolt.knockback,
+                            lifetime_s: 0.06,
+                            name: Some("bolt"),
+                        },
+                    ),
+                });
+            }
+            spent = true;
+            break;
+        }
+        if spent {
+            commands.entity(entity).despawn();
+        }
+    }
+}
+
+#[cfg(test)]
+mod tests;

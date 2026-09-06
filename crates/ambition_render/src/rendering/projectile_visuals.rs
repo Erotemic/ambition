@@ -1,0 +1,427 @@
+//! Persistent Bevy sprites for every in-flight projectile — player AND enemy —
+//! plus the per-player charge indicator.
+//!
+//! There is ONE art-selection path: each projectile entity carries an open
+//! [`ProjectileVisualId`] component (set at spawn), and the renderer resolves it
+//! through the content-owned [`ProjectileVisualCatalog`] to a data
+//! [`ProjectileArt`] descriptor. The renderer matches only on the descriptor's
+//! generic `source` / `size` / `rotation` — never on a named identity, and never
+//! on `owner_id`. A new projectile look that reuses existing render capabilities
+//! needs no edit here (the engine-for-other-games test).
+//!
+//! Animated sheet kinds (e.g. the PCA's glider) cycle their frames from the
+//! sheet manifest's row metadata via a per-projectile [`ProjectileFrameAnim`]
+//! timer — the frame rects come from the [`SheetRegistry`], not hardcoded.
+
+use bevy::math::{Rect, Vec2};
+use bevy::prelude::*;
+use bevy::sprite::Anchor;
+
+use ambition_platformer2d_shared_tangle::gravity::gravity_upright_angle;
+use ambition_platformer2d_shared_tangle::gravity::GravityCtx;
+use ambition_platformer2d_shared_tangle::lifecycle::{
+    ActiveSessionScope, SessionSpawnScope, SpawnSessionScopedExt,
+};
+use ambition_projectiles::{
+    ProjectileArt, ProjectileArtSource, ProjectileKind, ProjectileRenderSize, ProjectileRotation,
+    ProjectileVisualCatalog, ProjectileVisualId,
+};
+use ambition_sim_view::ProjectileView;
+use ambition_sprite_sheet::game_assets::{load_sheet_image, EntitySprite, GameAssets};
+use ambition_sprite_sheet::SheetRegistry;
+
+/// Marker on the persistent per-projectile sprite entity.
+#[derive(Component)]
+pub struct ProjectileVisual;
+
+#[derive(Component, Clone, Copy)]
+pub struct VisualProjectile(pub Entity);
+
+/// Forward link from a projectile entity to its spawned visual entity, so the
+/// "spawn a visual for projectiles that don't have one yet" pass is idempotent
+/// (a projectile is only matched while it lacks this component).
+#[derive(Component, Clone, Copy)]
+pub struct ProjectileVisualLink(#[allow(dead_code)] pub Entity);
+
+/// Per-projectile frame cycler for an animated spritesheet kind. Holds the row's
+/// source rects (read once from the manifest at spawn) and steps them on the
+/// row's authored cadence, scaled by `PresentationTime` so bullet-time slows the
+/// animation with the sim.
+#[derive(Component)]
+pub struct ProjectileFrameAnim {
+    frames: Vec<Rect>,
+    frame_dur: f32,
+    elapsed: f32,
+    index: usize,
+}
+
+/// Marker on the transient charge-indicator sprite in front of the player.
+#[derive(Component)]
+pub struct PlayerChargeVisual;
+
+/// Projectile sprites render just in front of the player plane.
+fn projectile_z() -> f32 {
+    ambition_platformer2d_core::config::WORLD_Z_PLAYER + 2.0
+}
+
+/// One resolved, ready-to-spawn sprite for a projectile, plus the per-frame
+/// behavior the refresh pass needs.
+struct BuiltVisual {
+    sprite: Sprite,
+    anchor: Option<Anchor>,
+    anim: Option<ProjectileFrameAnim>,
+}
+
+/// Bevy `Rect` for a manifest frame rect.
+fn frame_rect(r: &ambition_sprite_sheet::FrameRect) -> Rect {
+    Rect::from_corners(
+        Vec2::new(r.x as f32, r.y as f32),
+        Vec2::new((r.x + r.w) as f32, (r.y + r.h) as f32),
+    )
+}
+
+/// Render size in px for the given descriptor + live body.
+fn render_size(size: ProjectileRenderSize, body: Vec2, frame_aspect: f32) -> Vec2 {
+    match size {
+        ProjectileRenderSize::Body { min, scale } => {
+            Vec2::new(body.x.max(min), body.y.max(min)) * scale
+        }
+        ProjectileRenderSize::FixedWidth(w) => Vec2::new(w, w / frame_aspect.max(0.0001)),
+    }
+}
+
+/// Pommel-anchor pivot (normalized, Bevy y-up) for a velocity-aligned blade, read
+/// from the frame's `"pommel"` manifest anchor (frame-local px). Falls back to
+/// center when absent.
+///
+/// AMBITION_REVIEW(spatial): frame-local pixel anchor → normalized sprite
+/// anchor; y is negated because the sheet is y-down while Bevy anchors are y-up.
+fn pommel_anchor(rect: &ambition_sprite_sheet::FrameRect) -> Anchor {
+    let (fw, fh) = (rect.w as f32, rect.h as f32);
+    match rect.anchors.get("pommel") {
+        Some(p) if fw > 0.0 && fh > 0.0 => {
+            Anchor(Vec2::new((p.x - fw * 0.5) / fw, -(p.y - fh * 0.5) / fh))
+        }
+        _ => Anchor::CENTER,
+    }
+}
+
+/// Z-rotation that aligns a sprite's +X axis with `vel` (world, y-down).
+///
+/// AMBITION_REVIEW(spatial): Bevy +Y is up, sim +Y is down — flip Y before atan2.
+fn velocity_aligned_angle(vel: ambition_platformer2d_core::Vec2) -> f32 {
+    let (dx, dy) = (vel.x, -vel.y);
+    if dx == 0.0 && dy == 0.0 {
+        0.0
+    } else {
+        dy.atan2(dx)
+    }
+}
+
+/// Build the sprite (and optional anchor / frame animator) for a freshly-spawned
+/// projectile from its resolved art descriptor.
+fn build_visual(
+    view: &ProjectileView,
+    art: &ProjectileArt,
+    asset_server: &AssetServer,
+    sheets: &SheetRegistry,
+    energy: Option<&Handle<Image>>,
+) -> BuiltVisual {
+    let body = Vec2::new(view.size.x, view.size.y);
+    let rgba = |c: [f32; 4]| Color::srgba(c[0], c[1], c[2], c[3]);
+
+    match &art.source {
+        ProjectileArtSource::EnergyTinted { rgba: c } => {
+            let size = render_size(art.size, body, 1.0);
+            let mut sprite = match energy.cloned() {
+                Some(image) => Sprite {
+                    image,
+                    color: rgba(*c),
+                    custom_size: Some(size),
+                    ..Default::default()
+                },
+                None => Sprite::from_color(rgba(*c), size),
+            };
+            sprite.flip_x = view.vel.x < 0.0;
+            BuiltVisual {
+                sprite,
+                anchor: None,
+                anim: None,
+            }
+        }
+        ProjectileArtSource::SolidColor { rgba: c } => {
+            let size = render_size(art.size, body, 1.0);
+            let mut sprite = Sprite::from_color(rgba(*c), size);
+            sprite.flip_x = view.vel.x < 0.0;
+            BuiltVisual {
+                sprite,
+                anchor: None,
+                anim: None,
+            }
+        }
+        ProjectileArtSource::Image { path } => {
+            let mut sprite = Sprite::from_image(load_sheet_image(
+                asset_server,
+                "projectile-art",
+                path.clone(),
+            ));
+            sprite.custom_size = Some(render_size(art.size, body, 1.0));
+            BuiltVisual {
+                sprite,
+                anchor: None,
+                anim: None,
+            }
+        }
+        ProjectileArtSource::Sheet {
+            target,
+            animation,
+            animate,
+        } => build_sheet_visual(
+            art.size,
+            art.rotation,
+            target,
+            animation,
+            *animate,
+            view,
+            asset_server,
+            sheets,
+        ),
+    }
+}
+
+/// Build a spritesheet-backed visual: clip to the row's first frame (static) or
+/// attach a [`ProjectileFrameAnim`] that cycles the row (animated). The image
+/// path + frame rects come from the manifest, never hardcoded.
+#[allow(clippy::too_many_arguments)]
+fn build_sheet_visual(
+    size: ProjectileRenderSize,
+    rotation: ProjectileRotation,
+    target: &str,
+    animation: &str,
+    animate: bool,
+    view: &ProjectileView,
+    asset_server: &AssetServer,
+    sheets: &SheetRegistry,
+) -> BuiltVisual {
+    // Resolve the sheet + the requested animation row from the manifest.
+    let record = sheets.get(target);
+    let row = record.and_then(|rec| rec.rows.iter().find(|r| r.animation == animation));
+    let Some((record, row)) = record.zip(row) else {
+        // Missing sheet / row: fall back to a small magenta quad so the shot is
+        // still visible (and the mistake obvious) rather than invisible.
+        let size = render_size(size, Vec2::new(view.size.x, view.size.y), 1.0);
+        return BuiltVisual {
+            sprite: Sprite::from_color(Color::srgb(1.0, 0.0, 1.0), size),
+            anchor: None,
+            anim: None,
+        };
+    };
+    let frames: Vec<Rect> = row.rects.iter().map(frame_rect).collect();
+    let first = frames.first().copied().unwrap_or(Rect::from_corners(
+        Vec2::ZERO,
+        Vec2::new(record.frame_width as f32, record.frame_height as f32),
+    ));
+    let frame_aspect = (first.width() / first.height()).max(0.0001);
+    let mut sprite = Sprite::from_image(load_sheet_image(
+        asset_server,
+        "projectile-art",
+        format!("sprites/{}", record.image),
+    ));
+    sprite.custom_size = Some(render_size(
+        size,
+        Vec2::new(view.size.x, view.size.y),
+        frame_aspect,
+    ));
+    sprite.rect = Some(first);
+
+    let anchor = matches!(rotation, ProjectileRotation::VelocityAligned)
+        .then(|| pommel_anchor(&row.rects[0]));
+
+    let anim = (animate && frames.len() > 1).then(|| ProjectileFrameAnim {
+        frames,
+        frame_dur: row.duration_secs.max(1.0 / 1000.0),
+        elapsed: 0.0,
+        index: 0,
+    });
+
+    BuiltVisual {
+        sprite,
+        anchor,
+        anim,
+    }
+}
+
+/// Spawn + maintain one persistent sprite for each in-flight projectile (player and enemy alike).
+/// Runs after `step_projectiles`.
+#[allow(clippy::too_many_arguments)]
+pub fn sync_projectile_visuals(
+    mut commands: Commands,
+    world: ambition_platformer2d_shared_tangle::lifecycle::SessionWorldRef<
+        ambition_platformer2d_core::RoomGeometry,
+    >,
+    presentation_time: ambition_time::PresentationTime,
+    gravity: GravityCtx,
+    asset_server: Res<AssetServer>,
+    sheets: Res<SheetRegistry>,
+    visual_catalog: Res<ProjectileVisualCatalog>,
+    game_assets: Option<Res<GameAssets>>,
+    active_session: Option<Res<ActiveSessionScope>>,
+    // Projectiles that don't have a visual yet get one spawned.
+    new_projectiles: Query<(Entity, &ProjectileView), Without<ProjectileVisualLink>>,
+    // Live views for the per-frame transform refresh.
+    bodies: Query<&ProjectileView>,
+    mut visuals: Query<
+        (
+            Entity,
+            &VisualProjectile,
+            &ProjectileVisualId,
+            Option<&mut ProjectileFrameAnim>,
+            &mut Transform,
+            &mut Sprite,
+        ),
+        With<ProjectileVisual>,
+    >,
+) {
+    let Some(session_scope) =
+        SessionSpawnScope::for_optional_active_session(active_session.as_deref())
+    else {
+        return;
+    };
+    let energy = game_assets
+        .as_deref()
+        .and_then(|a| a.entities.get(EntitySprite::ProjectileEnergy));
+
+    // Spawn one persistent visual per NEW projectile entity.
+    for (proj_entity, view) in &new_projectiles {
+        let art = visual_catalog.resolve(&view.visual_id);
+        let built = build_visual(view, &art, &asset_server, &sheets, energy);
+        let translation =
+            ambition_platformer2d_core::config::world_to_bevy(&world.0, view.pos, projectile_z());
+        let mut visual = commands.spawn_session_scoped(
+            session_scope,
+            (
+                built.sprite,
+                Transform::from_translation(translation),
+                ProjectileVisual,
+                ProjectileVisualId(view.visual_id.clone()),
+                VisualProjectile(proj_entity),
+                Name::new(format!("Projectile visual: {}", art.label)),
+            ),
+        );
+        if let Some(anchor) = built.anchor {
+            visual.insert(anchor);
+        }
+        if let Some(anim) = built.anim {
+            visual.insert(anim);
+        }
+        let visual = visual.id();
+        commands
+            .entity(proj_entity)
+            .insert(ProjectileVisualLink(visual));
+    }
+
+    // Refresh existing visuals from their live view; despawn orphans.
+    let dt = presentation_time.scaled_dt();
+    for (visual_entity, link, visual_id, anim, mut transform, mut sprite) in &mut visuals {
+        let Ok(view) = bodies.get(link.0) else {
+            commands.entity(visual_entity).despawn();
+            continue;
+        };
+        transform.translation =
+            ambition_platformer2d_core::config::world_to_bevy(&world.0, view.pos, projectile_z());
+
+        match visual_catalog.rotation(visual_id.as_str()) {
+            ProjectileRotation::FlipToTravel => {
+                sprite.flip_x = view.vel.x < 0.0;
+            }
+            ProjectileRotation::GravityUpright => {
+                transform.rotation =
+                    Quat::from_rotation_z(gravity_upright_angle(gravity.dir_at(view.pos)));
+            }
+            ProjectileRotation::VelocityAligned => {
+                transform.rotation = Quat::from_rotation_z(velocity_aligned_angle(view.vel));
+            }
+        }
+
+        // Advance the frame animation (if any) and clip the sprite to it.
+        if let Some(mut anim) = anim {
+            if !anim.frames.is_empty() {
+                anim.elapsed += dt;
+                while anim.elapsed >= anim.frame_dur {
+                    anim.elapsed -= anim.frame_dur;
+                    anim.index = (anim.index + 1) % anim.frames.len();
+                }
+                sprite.rect = Some(anim.frames[anim.index]);
+            }
+        }
+    }
+}
+
+/// Draw the per-player charge indicator: a growing tinted quad in front of the
+/// player while the fire button is held (before a Hadouken motion commits).
+/// Rebuilt each frame; player-only (it is not projectile art).
+pub fn sync_projectile_charge_visuals(
+    mut commands: Commands,
+    world: ambition_platformer2d_shared_tangle::lifecycle::SessionWorldRef<
+        ambition_platformer2d_core::RoomGeometry,
+    >,
+    active_session: Option<Res<ActiveSessionScope>>,
+    // Sim-built pose read-model (E4): charge tier + body geometry facts, no
+    // live cluster / projectile-state reads.
+    player_q: Query<
+        (
+            &ambition_sim_view::BodyPoseView,
+            Option<&ambition_sim_view::PresentedPose>,
+        ),
+        With<ambition_platformer2d_shared_tangle::markers::PlayerEntity>,
+    >,
+    existing_charge: Query<Entity, With<PlayerChargeVisual>>,
+) {
+    for entity in &existing_charge {
+        commands.entity(entity).despawn();
+    }
+    let Some(session_scope) =
+        SessionSpawnScope::for_optional_active_session(active_session.as_deref())
+    else {
+        return;
+    };
+    for (pose, presented) in &player_q {
+        let Some(tier) = pose.charge_tier else {
+            continue;
+        };
+        // The charge orb hangs off the hand, so it tracks the presented body.
+        let body_pos = ambition_sim_view::presented_pose::draw_pos(pose, presented);
+        let base = ProjectileKind::Fireball.half_extent();
+        let (size_mult, alpha) = match tier {
+            0 => (0.7, 0.55),
+            1 => (1.1, 0.78),
+            _ => (1.5, 0.95),
+        };
+        let render_size = Vec2::new(base.x * 2.0 * size_mult, base.y * 2.0 * size_mult);
+        let facing = if pose.facing.abs() < f32::EPSILON {
+            1.0
+        } else {
+            pose.facing.signum()
+        };
+        let charge_pos = ambition_platformer2d_core::Vec2::new(
+            body_pos.x + facing * (pose.size.x * 0.5 + 6.0),
+            body_pos.y - pose.size.y * 0.20,
+        );
+        commands.spawn_session_scoped(
+            session_scope,
+            (
+                Sprite::from_color(
+                    Color::srgba(1.0, 0.74, 0.30, alpha),
+                    Vec2::new(render_size.x, render_size.y),
+                ),
+                Transform::from_translation(ambition_platformer2d_core::config::world_to_bevy(
+                    &world.0,
+                    charge_pos,
+                    ambition_platformer2d_core::config::WORLD_Z_PLAYER + 1.5,
+                )),
+                PlayerChargeVisual,
+                Name::new("Player projectile charge indicator"),
+            ),
+        );
+    }
+}

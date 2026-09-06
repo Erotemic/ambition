@@ -1,0 +1,407 @@
+#!/usr/bin/env python3
+"""Shipped sprite PNGs that nothing names.
+
+`package_asset_guard.py` records "every regular file" from the asset roots, so
+a PNG left in `assets/sprites*/` ships whether or not anything can load it.
+Nothing decodes it — no manifest names it — so the cost is package size only,
+not decode or residency. That is exactly why it is invisible: every runtime
+measurement says the tree is fine.
+
+TWO BUCKETS, AND THEY DO NOT DESERVE THE SAME CONFIDENCE
+--------------------------------------------------------
+
+⭐ STRANDED PAGES (high confidence). `<base>_spritesheet.<n>.png` sitting beside
+a `<base>_spritesheet.ron` that does not name it. A sheet's pages are resolved
+ONLY through its manifest — an `images:` list, or a single `image:` — so a
+numbered page the manifest omits is unreachable by construction. There is no
+other road to it.
+
+⚠ ALL FOUR SHEETS THAT HAVE THESE TODAY ARE SINGLE-PAGE MANIFESTS WITH NO
+`images:` LIST AT ALL. I first described this bucket as "a list that shrank",
+which is not what the tree shows: the manifest names one image and the numbered
+siblings are left from a time the sheet was multi-page. The reachability
+conclusion is stronger that way, not weaker — there is no list to consult.
+
+⭐ SHEETS WITH NO MANIFEST (high confidence). `<base>_spritesheet.png` with no
+`<base>_spritesheet.ron` beside it. `ambition_sprite_sheet/build.rs` bakes the
+spec index by scanning these four tier dirs for `*_spritesheet.ron`, and every
+loader goes through a spec (`try_load_spec_for_target(target)?`), so a sheet
+with no manifest has no spec and therefore no road. ⚠ A build made while the
+`.ron` still existed would carry a stale embedded spec; this says what a fresh
+build can reach.
+
+⭐ REDUCED-TIER PORTRAITS (high confidence, and NOT measured by claimedness).
+`bake_portrait_manifests` in `ambition_sprite_sheet/build.rs` collects portrait
+manifests from `assets/sprites` ONLY — the reduced tier dirs are never scanned —
+and says why: *"Portraits are presentation products and currently have no
+quality-tier variants"*. So every `*_portraits.png` under a reduced tier has no
+baked manifest and no road, and the generator produces them anyway.
+
+⛔ THIS BUCKET DELIBERATELY IGNORES `claimed`. A handful of reduced tiers do
+carry a `*_portraits.ron`, which would mark their PNG claimed — but that `.ron`
+is never baked either (`PortraitSheetRegistry::from_baked_table` reads only the
+baked table), so claimedness is the WRONG question here and counting only
+unclaimed files understates the population.
+
+ⓘ THE MISSING MANIFESTS ARE POLICY; THE PRESENT IMAGES ARE THE ANOMALY.
+`check_quality_variants_are_fresh.py::absent_variants` already records that
+portraits are *"published SELECTIVELY, so their absence is policy"* — 160
+`_portraits.ron` at full against 9 per reduced tier. This bucket is not
+contradicting that. It asks the other half of the question: why is the PNG
+generated at a tier where the manifest is deliberately not published, and why
+are the 9 that ARE published unreadable by a build that bakes only full-res?
+
+⚠ UNMENTIONED FILES (upper bound only). Every other PNG under `sprites*/` whose
+filename appears in no baked manifest and in no committed `.rs`/`.ron`/`.ldtk`/
+`.toml`/`.json`/`.py`. A path assembled at runtime — `format!("sprites/{name}.png")`
+— is named nowhere and would land here while being perfectly live. This bucket
+is a research prompt, NOT a delete list.
+
+⭐ EACH BUCKET CARRIES AN AGE SIGNAL, because "stale leftover" and "the
+pipeline makes this every time" are different problems with different fixes and
+they look identical in a file listing. Each file is compared against a reference
+the same run should have written — a stranded page against its own manifest, an
+unmanifested sheet against a manifested sibling, a reduced-tier portrait against
+its full-resolution counterpart. A file OLDER than its reference was left behind
+by an earlier render; one written in the SAME run is being produced now.
+
+⚠ mtimes are per-machine and a copy or rsync rewrites them. The signal is the
+CONTRAST BETWEEN BUCKETS in one tree with one history, not the absolute dates.
+
+⛔⛔ EVERYTHING HERE IS GITIGNORED, GENERATED, PER-MACHINE. `assets/sprites*/` is
+generated output, and a worktree SYMLINKS the main checkout's copies
+(`mirror_assets_for_worktree.py`) — so a second worktree agreeing is not a
+second source, and `Path.resolve()` on any of these escapes the worktree
+entirely. Whether these are stale outputs or a live defect in the generator is
+what a clean regen on another machine decides. This script deletes nothing.
+
+Usage:
+    scripts/measure_orphan_shipped_pages.py
+    scripts/measure_orphan_shipped_pages.py --json
+"""
+
+from __future__ import annotations
+
+import argparse
+import json
+import os
+import re
+import subprocess
+import sys
+import tempfile
+from pathlib import Path
+
+REPO = Path(
+    subprocess.run(
+        ["git", "rev-parse", "--show-toplevel"], capture_output=True, text=True
+    ).stdout.strip()
+)
+ASSETS = REPO / "crates/ambition_platformer2d_actor_monolith/assets"
+TIER_DIRS = ["sprites", "sprites_0_5x", "sprites_0_25x", "sprites_potato"]
+
+IMAGES_LIST_RE = re.compile(r"images:\s*\[([^\]]*)\]")
+IMAGE_RE = re.compile(r'(?<!s)image:\s*"([^"]+)"')
+QUOTED_RE = re.compile(r'"([^"]+)"')
+# `<base>_spritesheet.<n>.png` — the numbered sibling shape.
+NUMBERED_PAGE_RE = re.compile(r"^(?P<base>.+_spritesheet)\.(?P<index>\d+)\.png$")
+
+
+def key(path: Path) -> str:
+    """⛔ NOT `resolve()`. A worktree's assets are symlinks into the main
+    checkout, so resolving turns every path into main's and silently compares
+    another tree. Normalising is enough: manifests name siblings, not links."""
+    return os.path.normpath(str(path))
+
+
+def manifest_pages(manifest: Path) -> list[str]:
+    text = manifest.read_text(errors="ignore")
+    listed = IMAGES_LIST_RE.search(text)
+    names = QUOTED_RE.findall(listed.group(1)) if listed else []
+    return names + IMAGE_RE.findall(text)
+
+
+def scan(assets: Path, tiers: list[str]) -> tuple[list[Path], set[str]]:
+    """Every PNG under the tier dirs, and the set of paths a manifest claims."""
+    claimed: set[str] = set()
+    pngs: list[Path] = []
+    for tier in tiers:
+        tier_dir = assets / tier
+        if not tier_dir.is_dir():
+            continue
+        for manifest in tier_dir.rglob("*.ron"):
+            for name in manifest_pages(manifest):
+                claimed.add(key(manifest.parent / name))
+        pngs.extend(sorted(tier_dir.rglob("*.png")))
+    return pngs, claimed
+
+
+def stranded_pages(pngs: list[Path], claimed: set[str]) -> list[Path]:
+    """Numbered siblings of a manifest that exists and does not list them.
+
+    The manifest must EXIST: a numbered page whose `.ron` was removed entirely
+    is a different story (the whole sheet went away) and belongs in the weaker
+    bucket, where a reader will not be tempted to treat it as proven.
+    """
+    out = []
+    for png in pngs:
+        if key(png) in claimed:
+            continue
+        match = NUMBERED_PAGE_RE.match(png.name)
+        if match and (png.parent / f"{match.group('base')}.ron").exists():
+            out.append(png)
+    return out
+
+
+def sheets_without_manifest(pngs: list[Path], claimed: set[str]) -> list[Path]:
+    """`x_spritesheet.png` with no `x_spritesheet.ron` beside it.
+
+    Distinct from a stranded page: there is no manifest at all, so the whole
+    sheet is unreachable rather than one of its pages. `build.rs` bakes the
+    spec index from the `.ron` files on disk, and every loader needs a spec.
+    """
+    out = []
+    for png in pngs:
+        if key(png) in claimed or not png.name.endswith("_spritesheet.png"):
+            continue
+        if not (png.parent / f"{png.name[:-4]}.ron").exists():
+            out.append(png)
+    return out
+
+
+def reduced_tier_portraits(pngs: list[Path], assets: Path) -> list[Path]:
+    """`*_portraits.png` under a tier dir other than the full-resolution one."""
+    return [
+        png
+        for png in pngs
+        if png.name.endswith("_portraits.png")
+        and png.relative_to(assets).parts[0] != "sprites"
+    ]
+
+
+#: Submodules whose tracked source can DECLARE an asset. The sprite generator is
+#: the load-bearing one; the rest are cheap to ask and wrong to omit for the same
+#: reason. Names rather than a discovery walk, so an added submodule is a
+#: deliberate edit here instead of a silent change in what the census believes.
+SUBMODULES = (
+    "tools/ambition_sprite2d_renderer",
+    "game/ambition_map_assets",
+    "tools/ambition_music_renderer",
+    "tools/ambition_sfx_renderer",
+    "dev/ambition_dev_measurements",
+)
+
+
+def unmentioned(pngs: list[Path], claimed: set[str], skip: set[str]) -> list[Path]:
+    """Unclaimed PNGs whose filename appears in no committed source file.
+
+    `git grep` over TRACKED files only: the tier dirs are gitignored, so a hit
+    is a real declaration rather than one generated file naming another.
+
+    ⛔⛔ AND IT MUST ASK THE SUBMODULES, WHICH IT DID NOT UNTIL 2026-09-04.
+    A superproject `git grep` sees no submodule content, and the sprite
+    GENERATOR — the one source that necessarily names every file it emits —
+    lives in `tools/ambition_sprite2d_renderer`. So every generated asset whose
+    only declaration is its own generator read as "nothing mentions this".
+
+    ⇒ Measured: **112 files before, 28 after** — a 75% false-positive cut, and
+    every one of the 84 was declared by the sprite generator naming its own
+    output.
+
+    ⚠ THE REMAINING 28 ARE SEVEN ASSETS x FOUR TIERS AND ARE ALSO DECLARED —
+    by `target_name="super_mary_o_star_wand"` rather than by
+    `"super_mary_o_star_wand.png"`. This grep matches FILENAMES, so a target
+    named without its extension is invisible to it. ⛔ Deliberately NOT widened
+    to stems: a stem match lets any mention of `save_point` vouch for
+    `save_point.png`, including a local variable, which is exactly the
+    "something generated vouching for something generated" looseness the
+    paragraph above exists to prevent. ⇒ The strict proxy with a KNOWN residue
+    beats a loose one with an unknown one.
+    ⛔ The hazard is what a reader DOES with it: the obvious action on "nothing
+    references this" is deletion, and deleting these breaks
+    `scripts/regen/sprites.sh` — the road a fresh clone takes to a runnable game.
+
+    ⚠ The docstring above was not wrong, it was narrow: it reasons about
+    gitignored TIER DIRS and the intent is right — do not let one generated file
+    vouch for another. Submodule source is not a generated file; it is the
+    authoritative declaration, and it was invisible for the same reason.
+    """
+    candidates = [p for p in pngs if key(p) not in claimed and key(p) not in skip]
+    if not candidates:
+        return []
+    names = sorted({p.name for p in candidates})
+    handle = tempfile.NamedTemporaryFile("w", suffix=".txt", delete=False)
+    handle.write("\n".join(names))
+    handle.close()
+    try:
+        globs = ["*.rs", "*.ron", "*.toml", "*.ldtk", "*.json", "*.py"]
+        found = subprocess.run(
+            ["git", "grep", "-hoF", "-f", handle.name, "--", *globs],
+            capture_output=True, text=True, cwd=REPO,
+        ).stdout.split()
+        # ⭐ EACH INITIALISED SUBMODULE, ASKED SEPARATELY. `git grep` in the
+        # superproject does not descend into them, and an uninitialised one is
+        # simply skipped rather than failing the census — a missing submodule
+        # makes this OVER-report, which is the safe direction for a list whose
+        # reader may delete what it names.
+        for sub in SUBMODULES:
+            if not (REPO / sub / ".git").exists():
+                continue
+            found += subprocess.run(
+                ["git", "grep", "-hoF", "-f", handle.name, "--", *globs],
+                capture_output=True, text=True, cwd=REPO / sub,
+            ).stdout.split()
+    finally:
+        os.unlink(handle.name)
+    declared = set(found)
+    return [p for p in candidates if p.name not in declared]
+
+
+def age_signal(paths: list[Path], reference) -> dict:
+    """How many of `paths` predate the file `reference(path)` says they should
+    match. `older` means an earlier render left them; `same_run` means the
+    pipeline still produces them, and a clean regen elsewhere will too."""
+    older = same_run = 0
+    deltas: list[float] = []
+    for path in paths:
+        ref = reference(path)
+        if ref is None or not ref.exists():
+            continue
+        delta = (path.stat().st_mtime - ref.stat().st_mtime) / 86400
+        deltas.append(delta)
+        if delta < 0:
+            older += 1
+        else:
+            same_run += 1
+    if not deltas:
+        return {"comparable": 0}
+    deltas.sort()
+    return {
+        "comparable": len(deltas),
+        "older_than_reference": older,
+        "same_run_or_newer": same_run,
+        "median_delta_days": round(deltas[len(deltas) // 2], 2),
+    }
+
+
+def census(assets: Path = ASSETS, tiers: list[str] | None = None) -> dict:
+    pngs, claimed = scan(assets, tiers or TIER_DIRS)
+    stranded = stranded_pages(pngs, claimed)
+    unmanifested = sheets_without_manifest(pngs, claimed)
+    portraits = reduced_tier_portraits(pngs, assets)
+    seen = (
+        {key(p) for p in stranded}
+        | {key(p) for p in unmanifested}
+        | {key(p) for p in portraits}
+    )
+    rest = unmentioned(pngs, claimed, seen)
+    def rows(paths):
+        return [
+            {"path": str(p.relative_to(assets)), "bytes": p.stat().st_size}
+            for p in sorted(paths, key=lambda q: -q.stat().st_size)
+        ]
+    def own_manifest(png: Path) -> Path | None:
+        return png.parent / f"{png.name.split('_spritesheet.')[0]}_spritesheet.ron"
+
+    def manifested_sibling(png: Path) -> Path | None:
+        return next(iter(sorted(png.parent.glob("*_spritesheet.ron"))), None)
+
+    def full_resolution_twin(png: Path) -> Path | None:
+        return assets / "sprites" / png.name
+
+    return {
+        "total_pngs": len(pngs),
+        "claimed": len([p for p in pngs if key(p) in claimed]),
+        "ages": {
+            "stranded_pages": age_signal(stranded, own_manifest),
+            "sheets_without_manifest": age_signal(unmanifested, manifested_sibling),
+            "reduced_tier_portraits": age_signal(portraits, full_resolution_twin),
+        },
+        "stranded_pages": rows(stranded),
+        "sheets_without_manifest": rows(unmanifested),
+        "reduced_tier_portraits": rows(portraits),
+        "unmentioned": rows(rest),
+    }
+
+
+def main(argv: list[str]) -> int:
+    ap = argparse.ArgumentParser(description=__doc__)
+    ap.add_argument("--json", action="store_true")
+    args = ap.parse_args(argv)
+
+    if not (ASSETS / "sprites").is_dir():
+        print(
+            "NO `assets/sprites/` IN THIS CHECKOUT. The sprite tree is gitignored\n"
+            "generated output; run the regen before reading this as 'no orphans'.\n"
+            "⛔ Absent is not zero."
+        )
+        return 2
+
+    out = census()
+    if args.json:
+        print(json.dumps(out, indent=2))
+        return 0
+
+    def show(title, rows, note, age_key=None):
+        total = sum(r["bytes"] for r in rows)
+        print(f"\n=== {title}: {len(rows)} file(s), {total / 1e6:.1f} MB ===")
+        age = (out.get("ages") or {}).get(age_key or "")
+        if age and age.get("comparable"):
+            verdict = (
+                "STALE — every one predates its reference"
+                if age["same_run_or_newer"] == 0
+                else "STILL PRODUCED — a clean regen will make these again"
+                if age["older_than_reference"] == 0
+                else "MIXED"
+            )
+            print(
+                f"   age: {age['older_than_reference']} older / "
+                f"{age['same_run_or_newer']} same-run of {age['comparable']} "
+                f"comparable, median {age['median_delta_days']:+} days → {verdict}"
+            )
+        print(note)
+        for row in rows[:10]:
+            print(f"   {row['bytes'] / 1e6:7.2f} MB  {row['path']}")
+        if len(rows) > 10:
+            print(f"   ... and {len(rows) - 10} more")
+
+    print(f"{out['total_pngs']} PNG(s) under {'/'.join(TIER_DIRS)}; "
+          f"{out['claimed']} claimed by a baked manifest.")
+    show(
+        "STRANDED PAGES", out["stranded_pages"],
+        "⭐ A numbered sibling its own manifest does not name. A sheet's pages\n"
+        "   resolve only through its manifest, so there is no other road to\n"
+        "   these — unreachable by construction.",
+        age_key="stranded_pages",
+    )
+    show(
+        "SHEETS WITH NO MANIFEST", out["sheets_without_manifest"],
+        "⭐ No `<base>_spritesheet.ron` beside it. build.rs bakes the spec index\n"
+        "   from the .ron files on disk and every loader needs a spec, so a fresh\n"
+        "   build has no road to these at all.",
+        age_key="sheets_without_manifest",
+    )
+    show(
+        "REDUCED-TIER PORTRAITS", out["reduced_tier_portraits"],
+        "⭐ build.rs bakes portrait manifests from `assets/sprites` ONLY, saying\n"
+        "   portraits have no quality-tier variants. The generator makes them\n"
+        "   anyway, and nothing can reach them. Counted regardless of claimedness:\n"
+        "   a reduced-tier .ron is never baked either.",
+        age_key="reduced_tier_portraits",
+    )
+    show(
+        "UNMENTIONED", out["unmentioned"],
+        "⚠ UPPER BOUND. Named in no manifest and in no committed source, but a\n"
+        "   runtime-assembled path is also named nowhere. A research prompt, not\n"
+        "   a delete list.",
+    )
+    print(
+        "\n⛔ These are gitignored generated files, and this is ONE machine's\n"
+        "   tree — a worktree symlinks the main checkout's copies. Whether they\n"
+        "   are stale outputs or a live generator defect is what a clean regen\n"
+        "   elsewhere decides. Nothing here is deleted."
+    )
+    return 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main(sys.argv[1:]))

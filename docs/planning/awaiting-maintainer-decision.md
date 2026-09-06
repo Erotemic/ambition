@@ -1,0 +1,3593 @@
+# Awaiting a maintainer decision
+
+Only questions whose next step is **Jon's product/authoring judgement** belong
+here. Engineering work goes to [`queue.md`](queue.md) or [`tracks.md`](tracks.md).
+Answered rulings belong in [`maintainer-decisions.md`](maintainer-decisions.md);
+the investigation that led to an answered question remains available in git
+history.
+
+This file intentionally does not retain answered decision transcripts.
+
+⛔ **NUMBERING: take `max + 1` OVER THE WHOLE FILE, not "one past the row above".**
+Answered rows are removed, so the numbers are sparse (30 rows, highest 62) and
+the top of the file is NOT the highest number. Two sessions both filed a "60" on
+2026-09-05 — one mounted-fighter question and one durable-switch question — and
+"decision 60" named two different things until one was renumbered. The one-liner:
+
+```bash
+grep -oE '^### ~?~?[0-9]+\.' docs/planning/awaiting-maintainer-decision.md \
+  | tr -d '#~ .' | sort -n | tail -1
+```
+
+⚠ And if you find a collision, renumber YOUR OWN row. Renumbering someone else's
+edits their content to fix your ambiguity.
+
+> ✔ **PREMISES RE-MEASURED 2026-09-03. Every question here still rests on a fact
+> that is still true**, which is the thing that decides whether answering them is
+> a good use of your time.
+>
+> ⭐ **PARTIAL RE-SWEEP 2026-09-05 — the four exploration-lane rows only (45, 56,
+> 58, 61), each re-derived from the code and holding.** Stated as PARTIAL on
+> purpose: the fighter-lane rows were not re-checked in that pass, and a header
+> claiming the whole file was swept when half of it was is precisely the failure
+> this page warns about one paragraph down. Each re-measurement is dated on its
+> own row rather than only here. A decision resting on a premise the code has moved past
+> costs you the answer AND the discovery that it was moot.
+>
+> Checked against HEAD: the windbox vocabulary is still authored by nothing (39);
+> the puppy slug, stochastic parrot and burning flying shark still carry no
+> `standing_height` (36); `REACH_TOLERANCE` is still one global `2.0` at
+> `ambition_characters/src/brain/fighter/options.rs:183` (35);
+> `BodyMelee::ranged_cooldown` is still the implemented half with presentation
+> unresolved (33); the `"gauntlet_fireball"` visual still reproduces the old
+> sprite rather than the catalog energy ball (42). ⇒ **And none of the fifteen has
+> quietly been answered in [`maintainer-decisions.md`](maintainer-decisions.md)**,
+> which this file's own rule would make a defect.
+>
+> ⚠ Two entries gained a fact worth having before you answer: 36 needs FOUR rows
+> rather than three (the shark has a separate hall variant), and 39's answer costs
+> one authored field on one move rather than an implementation.
+>
+> ✔ **AND THE QUOTED NUMBERS WERE RE-RUN, not just the premises.** Several entries
+> name the script that produced their figure, which makes checking them one
+> command each:
+>
+> | instrument | entry's figure | re-run 2026-09-03 |
+> |---|---|---|
+> | `measure_character_data_coverage.py` | 23 of 149 | **23 of 149** ✔ |
+> | `measure_fx_row_reachability.py` | 34 of 35 rows unnamed | **34 of 35** ✔ (`george_booul_vfx` 20/21, `pirate_admiral_vfx` 14/14) |
+> | `measure_orphan_shipped_pages.py` | 487 files, 14.2 MB | **438 files, 13.4 MB** — drifted, corrected in place |
+>
+> ⇒ Two of three exact after a day, one drifted by 49 files. **The entries that
+> name their instrument are the ones that could be checked at all**, which is the
+> argument for naming it every time a number goes into this file.
+
+⛔ **NUMBERING: TAKE ONE ABOVE THE HIGHEST NUMBER PRESENT, and check first.**
+The entries are NOT in numeric order — the top block runs newest-first and an
+older ascending block follows it — so the number nearest the insertion point is
+not the highest. Two sessions have now collided by assuming it was
+(`cce4f764b` "Renumber my decision to 30: I collided with an existing 28", and
+again on 2026-09-03). ⚠ And because answered entries are DELETED rather than
+archived, gaps are normal and a missing number is not a free one: re-using it
+silently re-points every page that cited the original.
+
+    grep -oE '^### [0-9]+\.' awaiting-maintainer-decision.md | tr -d '#. ' | sort -n | tail -1
+
+## Open decisions
+
+### ~~50. May a fighter leave the frame, or must the camera always contain the cast?~~ (WITHDRAWN 2026-09-04 — the premise was false; compressed 2026-09-05)
+
+⛔⛔ **DO NOT ANSWER THIS.** No fighter was ever outside a frame, so neither
+reading of the question had a subject. This file's own header names that as the
+failure worth avoiding: *"A decision resting on a premise the code has moved past
+costs you the answer AND the discovery that it was moot."*
+
+**The frame nobody framed was `ResolvedCameraSnapshot::default()`, verbatim.**
+`local_view_facts()` put the default on every view at spawn so a reader never met
+a missing state; the resolver honoured *"callers must not invent a world-origin
+fallback"* by returning without writing when the cast was unresolvable; and the
+default is a ZERO centre at 568x320 — the exact dimensions every failure
+reported. ⇒ **Two individually correct decisions composed into a snapshot that
+was syntactically present and semantically a lie, and nobody wrote the
+fallback.** `every_live_fighter_stays_inside_the_frame` was measuring a default
+as though it were a camera, on the one tick where bodies exist and the cast has
+not resolved.
+
+✔ **Fixed rather than ruled on** (`92f2f597b`): `ResolvedCameraSnapshot` became
+`Option<ResolvedCameraFrame>`, so an unframed view says so, the compiler asks
+every reader, and the frame checks skip that tick — which is what their
+`continue` always meant. ✔✔ **Measured, not argued:** the union at `5c320ebb5`
+read **7,137 passed / 0 failed**, the first fully green union this repository
+recorded, with the framing test in it.
+
+⭐ **What outlives the row, which is why any of it is kept:**
+
+* **Both cheap fixes were wrong-shaped, and not for the reason the entry gave.**
+  A containment CONTRACT had nothing to contain; a tolerance MARGIN would have
+  been chosen against a number that measures nothing, and would have hidden the
+  defect permanently by making the test pass.
+* **Identical coordinates across three runs mean deterministic, not loaded.** The
+  failure was blamed on load and contention for a while; three separate runs
+  producing the SAME seats at the SAME coordinates in the SAME frame is not what
+  a load-sensitive failure does. ⇒ It could be chased directly rather than
+  sampled.
+* **Grouping unlike failures let each stand as evidence for the others.** This
+  test was filed alongside two others as "three tests sharing a load signature"
+  (`dbf07bd6f` withdrew that): two were parameter panics, this was an assertion
+  about a camera centre. They shared no mechanism, and the grouping is how a load
+  story survived three investigations without ever producing one.
+
+ⓘ **The 193-line investigation that stood here is deleted, not lost** — git
+history owns it (`92f2f597b`, `dbf07bd6f`, `5c320ebb5`). It was the largest entry
+in a file whose purpose is OPEN decisions, and a closed row that long is read as
+live work.
+
+### 49. Is near-identical CPU play on a symmetric stage acceptable, or a defect?
+
+A test has been deferring this to you since before its queue row was pruned, and
+the deferral is the only record left of it.
+
+`two_cpus_wearing_one_character_stop_being_a_perfect_reflection`
+(`game/ambition_demo_smash_app/tests/the_stage_kills.rs:1806`) seats two CPUs on
+the SAME character on a mirrored stage and asserts they diverge by more than a
+pixel. It passes. Its failure text says what a pass means and hands you the
+question in the same breath:
+
+> *"⛔ this is NOT one mind played twice — the two seats draw from different
+> streams, and the sibling guards listed above prove it. What it says is that a
+> symmetric stage plus symmetric information leaves two different streams almost
+> nothing to diverge ON at this difficulty. Whether that is acceptable is a
+> product decision (queue D167); do NOT answer it by unmirroring the spawns or by
+> adding noise."*
+
+⇒ **The engineering half is settled and guarded** — the determinism is real, the
+divergence is real, and the test forbids the two cheap fixes that would hide the
+question. What is unanswered is whether two CPUs that play almost identically on
+a symmetric stage read as a broken AI or as a fair mirror match.
+
+⛔ **Queue row `D167` no longer exists.** It is in no live planning document — not
+`queue.md`, not `tracks.md`, not this file — and survives only in the archived
+pre-prune queue. So the question was never answered and never re-filed; it fell
+out of the planning system and its only trace is an assertion message nobody
+reads unless the test fails. Filed here 2026-09-03 to put it back where a
+decision can be made.
+
+### 47. TwinTrack's simultaneity limit: where does it live while the exhibit is parked? (re-filed 2026-09-03; was 28)
+
+Both TwinTrack panes render ONE instant of the simulation's coordinate time, so
+they can disagree about optics (light delay, aberration, Doppler) and NOT about
+simultaneity — which is what the twin paradox actually is. This was question 28
+here and the entry vanished — not answered and archived, just absent (yardrat,
+2026-09-03: no `### 28` in this file and no row in `maintainer-decisions.md` names
+it; the parked demo page `demos/twintrack.md` was the only record). Re-filed so
+it has a home again. **The question:** while TwinTrack is parked, does the limit
+belong in `engine/relativity.md` beside the spacetime-diagram design (which uses
+"simultaneity" in a different sense and otherwise reads as though the exhibit
+already shows it), or does the parked page stay the record? Default if nobody
+rules: a one-line "known limit" note in `engine/relativity.md` pointing at the
+demo page.
+
+⇒ **Convention from the same finding, applied from here on:** when a question
+leaves this file, its answer row in `maintainer-decisions.md` NAMES THE NUMBER
+it closes ("closes 47"). Only 2 of that file's 100 rows do today, which is why a
+dropped question and an answered one look the same; with the number on the
+answer, a dropped one is a set difference.
+### 48. The boss-crate reassessment you asked for on 2026-07-16 is now due
+
+Your ruling that day (`maintainer-decisions.md`, 2026-07-16) was *"defer any boss
+crate carve until boss behavior converges onto the canonical moveset/action
+path"*, with a follow-up in the same row: *"reassess afterward whether a separate
+boss crate still exists as a coherent subsystem."*
+
+⭐ **The carve landed on 2026-08-17** — `725de8c26`, *"Carve the boss domain out
+of the actor monolith into ambition_boss_encounter"* — so "afterward" arrived
+seventeen days ago and nothing asked the follow-up question.
+
+Measured at HEAD, as the input to it:
+
+| | |
+|---|---|
+| size | **47 files, 14,635 lines** |
+| in-tree consumers | **9** — `actor_monolith`, `runtime`, `provider`, `damage`, `sim_view`, `abilities`, `content_cli`, the `platformer2d` facade, and `ambition_content` |
+| closure | in `never_asked_for`: a movement-only game links it |
+
+⇒ **The engineering reading is that it does cohere** — a domain with nine
+consumers is not a grab-bag someone forgot to delete. ⚠ But nine consumers is
+also a lot of surface for one domain, and whether that breadth is the boss
+domain being genuinely central or the carve having taken too much with it is a
+judgement about what a boss IS, which is why this is here rather than in
+`tracks.md`.
+
+⛔ **Related and stale:** `tracks.md`'s trigger list still carries *"Boss crate
+extraction — wait until boss vocabulary/ownership is coherent"* under the heading
+**"Do not promote these until the trigger exists"**. The trigger fired a month
+ago. That row wants deleting or rewriting as the reassessment; it is in another
+agent's hot file, so it is reported rather than edited.
+
+### 46. Does 1-1 want a fourth ?-block over floor, so the fire form's floor-refusal can be played?
+
+`refuse_a_weaker_form_pickup` is Mary-O's rule that a form on the FLOOR may not
+replace a stronger one. It now has a played acceptance test on the shipped app
+(`weaker_form_refusal.rs`), but only for the EQUAL rung — a tall Mary-O meeting
+a second wand. The strictly-weaker rung (fire meeting a wand) is **unreachable
+in 1-1 as authored**, and the obstacle is level geometry rather than engineering.
+
+Reaching fire spends TWO of 1-1's three `Toward(Lantern)` ?-blocks
+(small→wand→tall, tall→lantern→fire), so a wand left walking needs the third.
+⛔ **The third, at x=1920, stands over a pit.** Measured by dropping a body into
+its column: from above she lands ON the block (centre 256, feet on its top
+face); from below the face she falls to y≈969 in a 448-tall room, dies, and
+respawns at the level start. No body can stand under it to bonk it.
+
+⚠ **This is not a hole in the rule and not a missing test of it.** The equal
+rung is the stronger arm for the comparison the rule actually makes — a `<`
+written where `<=` belongs still refuses a wand offered to a fire Mary-O, and
+lets a second wand re-equip a tall one — so the boundary is covered and the
+interior is not. The question is only whether the interior is worth authoring
+for.
+
+Choose one:
+
+- **author a fourth ?-block over floor in 1-1** — smallest change, and it also
+  gives a player a place to reach fire without crossing the pit;
+- **build the fixture in 1-3 instead** — it already authors a `Question` at 256
+  AND an `AlwaysWand` at 1696, so the scenario exists there with no new content;
+- **leave it** — the boundary arm covers the comparison, and the interior arm
+  would cost a scripted pit-edge jump, which is a test about jump tuning wearing
+  this rule's name.
+
+⚠ **AND THIS QUESTION IS OLDER THAN THIS ROW.**
+[`demos/super-mary-o.md`](demos/super-mary-o.md) has carried a product question
+since 2026-08-14 about the fire form's DISCOVERABILITY — *"should the beacon
+walk to you like the wand, should 1-1 place a reachable second block earlier, or
+is 'the reward waits up there and you must climb for it' the intended feel?"* —
+reached from the other direction, a player who could not find the reward. Same
+level, same three blocks, and answering either answers both. The new fact this
+row adds is that the third block has no standing position under it at all.
+
+⛔ No content was authored to answer this: authored levels are Jon's.
+
+### 37. Should the F9 rollback proof pulse survive a gameplay-session change?
+
+`LocalSessionPolicy::check_distance` is raised by the F9 proof pulse and returns
+to normal only when that pulse finishes. If the player quits to title during the
+pulse and launches another game, the elevated verification distance currently
+survives.
+
+The recent session-ownership fix deliberately did **not** decide this because the
+value is developer tuning rather than gameplay authority.
+
+Choose one policy:
+
+- **session-scoped:** a new gameplay session always starts with the ordinary
+  check distance; or
+- **process-scoped developer intent:** the proof pulse deliberately spans a
+  relaunch until it completes/cancels.
+
+This is primarily a developer-iteration/expectation decision. The gameplay
+rollback authority itself is already session-owned by ADR 0027.
+
+### 36. What are the authored standing heights of the puppy slug, stochastic parrot and burning flying shark?
+
+These are the remaining characters whose old size derivation cannot be replaced
+by preserving one existing placement size because their authored spawn boxes
+disagree substantially across rooms.
+
+✔ **PREMISE RE-MEASURED 2026-09-03 — still open, and here are the exact rows to
+fill.** None of them carries a `standing_height` in
+`game/ambition_content/assets/data/character_catalog.ron`:
+
+| your name for it | catalog id(s) |
+|---|---|
+| puppy slug | `npc_puppy_slug` |
+| stochastic parrot | `stochastic_parrot` |
+| burning flying shark | **two** — `npc_burning_flying_shark` and `hall_npc_burning_flying_shark` |
+
+⚠ The shark is the one to watch: it has a hall variant as a separate catalog
+entry, so a single number either goes in twice or the two are deliberately
+different sizes — which is itself part of the answer rather than a detail below
+it.
+
+Representative placement variation:
+
+```text
+npc_puppy_slug            (48,22), (32,48), (64,32), (48,32),
+                          (64,16), (52,66), (42,42), (28,44)
+stochastic_parrot         three different boxes
+npc_burning_flying_shark  mostly (108,96), also (32,48)
+```
+
+The needed value is one character-authored `standing_height` in world units for
+each. Do not choose by majority box size: the box was editor/layout data, not a
+stature authority.
+
+Decision 32 still applies: there is no standard adult/humanoid height and no
+bulk normalization. Character stature is authored individually.
+
+Related visual followups that should be judged by playtest rather than another
+population average: the cove pirates relative to Robot v3, slop size, and the
+Mary-O snake's post-rescale size.
+
+### 35. What should own fighter reach during move startup?
+
+The current fighter brain uses one global `REACH_TOLERANCE = 2.0`, effectively
+allowing a move to remain viable out to roughly three times its authored reach.
+The bug that exposed this proxy is fixed; the constant is not currently known to
+cause a product defect.
+
+The design choices are:
+
+1. keep the proxy until platform-fighter option ranking has its own capability
+   boundary;
+2. add a per-move tolerance field;
+3. derive reachable distance from move startup plus the body's movement
+   capability, which requires threading capability/top-speed information into
+   perception;
+4. for moves with authored startup impulse/travel, derive that part directly
+   from the move and keep a fallback for ordinary movement.
+
+**Default if no change is desired:** leave it. Do not widen generic actor data for
+a proxy that is not currently hurting play merely to close a planning row.
+
+### 34. Should external/launch-owned motion become an explicit cross-game fact?
+
+Three shared movement decisions have historically inferred "this velocity belongs
+to a launch rather than locomotion" from speed magnitude: initial-dash settling,
+shield braking and body-contact resistance. The approximation fails when a launch
+has decayed below ordinary run speed.
+
+Smash already has a live tumble mechanic and therefore a genre-specific fact that
+can represent external/launch-owned motion. Ambition does not necessarily want
+Smash tumble semantics for ordinary bodies.
+
+The decision is whether to:
+
+- keep the current thresholds until a visible defect requires more;
+- introduce a generic carried/external-motion ownership fact with Smash tumble as
+  one producer; or
+- let the platform-fighter capability own the richer rule while the shared kernel
+  keeps the simpler behavior for other games.
+
+Do not solve this by simply reading Smash's `tumble_speed` from the generic
+kernel; the question is exactly whether that game-specific semantic is shared.
+
+### 33. How should a recharging ranged weapon communicate that it is unavailable?
+
+The firing cadence is implemented: `BodyMelee::ranged_cooldown` follows the
+weapon's authored refire interval, and an early press is refused before spending
+the proposer so ordinary combat buffering can retry when the weapon becomes
+ready. The unresolved part is presentation.
+
+Choose the product channel when this becomes important in play:
+
+- character/muzzle VFX driven by recharge fraction;
+- a presentation treatment on the firing limb/body; or
+- a HUD indicator.
+
+The mechanic does not need to block architecture work while the unavailable
+state is merely invisible rather than incorrect. Prefer character-local
+presentation if it reads clearly; do not add another gameplay authority to show
+the cooldown.
+
+### 38. Does an actor released in a foreign room stay there?
+
+Today an actor moved away from its authored home and then left in another room is
+retired when that room unloads and is authored again at home when encountered
+later. The current construction road honestly refuses to claim the actor was
+persistently relocated.
+
+Two valid product policies:
+
+- **go home:** authored home placement is restored when the actor is no longer
+  live/resident;
+- **stay where left:** persist a `Placed`/relocation occurrence for actors as is
+  already done for relevant item occurrences, and teach reconstruction to honor
+  it.
+
+If choosing “stay,” the producer and reconstruction consumer must land together;
+recording a moved placement that construction refuses would only add warnings and
+still teleport the actor home.
+
+ⓘ⭐ **REACHABLE TODAY, NOT THEORETICAL — measured 2026-09-05, and this is the
+opposite of #45 and #54, which are cheap because their populations are one.**
+The relocation road ships:
+
+- **possession is a shipped traversal ability** —
+  `actor_monolith/src/abilities/traversal/possession.rs:1`, *"redirects the
+  primary participant's seat to a nearby actor"*;
+- **and a possessed body is CARRIED ACROSS a room boundary rather than retired**
+  — `world/rooms/stage.rs:308`, `retire_outgoing(.., carry_body: Option<Entity>)`,
+  whose own doc says *"the transiting possessed body may be carried across the
+  boundary instead of being retired."*
+
+⇒ Possess an actor, walk it through a transition, release it. The row's scenario
+is a player's ordinary sequence, not a hypothetical.
+
+⛔⛔ **AND "STAY WHERE LEFT" HAS A CONSEQUENCE NOBODY HAS STATED: bosses are
+valid possession targets.** `possession.rs:6` says so in place — *"Bosses are
+valid targets and consume the same driven-seat input through their boss path."*
+⇒ Under **stay**, a player could possess a boss, walk it out of its arena, and
+leave it somewhere else PERMANENTLY — with its encounter, its arena wiring and
+its `boss.cleared` placement record still keyed to a room it is no longer in.
+Under **go home** that cannot happen and the cost is only that relocation is
+never expressible.
+⚠ That is not an argument for either option. It is the case the ruling has to
+survive, and it is more specific than *"actors"* — a relocated shopkeeper and a
+relocated boss are different products.
+
+⭐⭐ **AND "STAY WHERE LEFT" IS NOT A MECHANISM TO DESIGN — ITEMS ALREADY SHIP
+IT, all three links verified 2026-09-05.** This row warns that *"the producer and
+reconstruction consumer must land together"*. For dropped ITEMS they already do:
+
+```text
+  WRITE   session/durable_horizon.rs:246   `Placed { room, at }` crosses the durable
+                                           horizon unconditionally
+  READ    session/durable_horizon.rs:130   restored to `OccurrenceWhereabouts::Placed`
+  BUILD   lifecycle/continuity.rs:207      placed in THIS room → `Reinstated { at }`;
+                                           placed elsewhere    → `Suppressed`
+```
+
+with the rule stated in place: *"Lying in some OTHER room. Not alive — that room
+unloaded and took it with it — but not this room's to author either: it comes
+back when the room it is lying in is built, from the record this room holds."*
+⇒ **So the ruling is not "design relocation", it is "do actors join the road
+items are already on".** `continuity.rs`'s three dispositions — Reinstated,
+Suppressed, and the authored default — are the shape, and the cost question
+becomes whether an actor's identity survives the same round trip, not whether the
+round trip exists.
+
+This decision feeds
+[`engine/construction-and-reconstitution.md`](engine/construction-and-reconstitution.md)
+and [`engine/open-world-runtime-and-residency.md`](engine/open-world-runtime-and-residency.md).
+
+### 39. Which authored move, if any, should adopt the dormant windbox/armor vocabulary?
+
+The windbox mechanic is implemented and can express outward gust or inward
+suction. `WindowTag::Armor` also exists but has no shipped authored customer.
+There is no engine defect merely because the vocabulary is currently unused.
+
+If one should become product-visible, name a fighter/move. Otherwise leave the
+mechanism dormant until a character design asks for it. Do not invent a customer
+to make an adoption count nonzero.
+
+✔ **RE-MEASURED 2026-09-03 — still exactly true, and here is what is waiting.**
+The windbox vocabulary is real API across **16 files**: `WindboxVolume`
+(`ambition_entity_catalog/src/lib.rs:415`), `MoveSpec::windbox`
+(`ambition_combat/src/strike.rs:94`) and `is_windbox`
+(`platformer2d_core/src/hit_response.rs:112`). **Zero** authored movesets under
+`game/ambition_content/src/*moveset*.rs` name it. ⇒ So the question is unchanged
+and the answer costs one authored field on one move — not an implementation.
+⚠ Measured because "dormant" is the premise this decision rests on, and a
+premise that has quietly acquired a customer would make the question moot without
+anyone noticing.
+
+### 40. Should a held gun-sword kick the player the way it kicks the pirate?
+
+The K2 fold puts the player's held gun-sword and fireball on the ONE projectile
+road, and that road applies the weapon's authored `Discharge`.
+`gun_sword_discharge()` authors **380 px/s of recoil**, written for the pirate
+who carries it.
+
+The held-shot path that was deleted applied **no recoil at all** when the player
+fired. That difference was a property of the second code path, not an authored
+decision — nobody chose it. The fold preserved the old feel by zeroing recoil
+for hand-fired held items, so today the same weapon kicks its NPC wielder and
+not its player wielder.
+
+Choose one:
+
+- **the weapon kicks whoever fires it:** delete the zeroing; a player firing the
+  gun-sword takes the authored 380 px/s. One weapon, one authored number.
+- **recoil is a wielder property:** keep the zeroing, and say so in the weapon
+  vocabulary rather than as a special case — an NPC braces, a player does not.
+- **the player number is simply different:** author a separate player recoil
+  value; name it.
+
+⚠ This is a FEEL ruling on a shipped weapon, not an engineering question. The
+engineering is done either way; the fold currently encodes "no kick for the
+player" only because that is what the deleted path happened to do. The zeroing
+is `fire_held_ranged_system` in `crates/ambition_held_items/src/lib.rs` (it was
+`items/pickup/mod.rs` <!-- cite-ok: the pre-carve path, kept as the record -->
+until the pickup carve moved the domain on 2026-09-03 — the old path still
+EXISTS as the kernel's schedule residue, so that citation resolved while
+pointing at code that had left); the guard is
+`a_hand_fired_gun_sword_bolt_flies_the_one_projectile_road`
+(`game/ambition_app/tests/hand_fired_held_shot.rs`) — retarget it with the
+ruling.
+
+✔ **ANSWERED by Jon, 2026-09-02, verbatim:** *"Weapons can have recoil and they
+will kick whoever is firing it. The kick might depend on the mass property of
+the actor doing the firing."*
+
+⇒ **The first sentence settles this entry: delete the zeroing.** One weapon, one
+authored number, and it kicks its wielder whoever that is. `fire_held_ranged_system`
+stops special-casing hand-fired items and the guard retargets to expect recoil.
+
+▢ **The second sentence opens a NEW question and must not be smuggled into this
+one.** "Might" is a direction, not a ruling. Recording what it would have to
+attach to, because the input already exists and is not vestigial:
+`ActorDefinition.mass` is `Option<f32>`, read at spawn as
+`definition.vitals.mass.unwrap_or(1.0)`, merged by
+`ambition_body_seed/src/physical_baseline.rs` (it was
+`character_runtime/physical_baseline.rs` <!-- cite-ok --> until D33 cut 2a moved
+the file whole, `7ba40886e`), and rollback-registered under the
+stable name `mount.mass`. So a mass-scaled recoil would read a live,
+rollback-safe value rather than needing a new authored field. ⛔ What is NOT
+decided: the curve (linear in mass? inverse? clamped?), whether an unauthored
+mass of 1.0 means "average" or "unscaled", and whether this generalises to all
+knockback or only to discharge recoil. Do not pick one by inference — a shipped
+feel change to every weapon is a bigger ruling than the one asked here.
+
+### 41. Where should a hand-fired fireball leave the body?
+
+The deleted held-shot path spawned the fireball from a side muzzle at
+`(size.x / 2 + 8, -0.12 * size.y)` — offset forward and slightly toward the
+head. The projectile road's default is `Muzzle::BodyOrigin`, a few pixels away
+from that point.
+
+The difference is small and entirely cosmetic, but it is visible on a wide body
+and it changes where the shot clears the player's own silhouette.
+
+Choose one:
+
+- **body origin:** accept the road's default and retire the old offset; one
+  spawn rule for every projectile.
+- **keep the authored muzzle:** register the old offset as an authored
+  `Muzzle` on the fireball so the fold preserves the shipped look exactly.
+- **a muzzle is a per-weapon authored fact:** every hand-fired weapon names its
+  own, and the fireball's is the old offset.
+
+The fireball's spec (`held_item_by_id("fireball")`, `action_set/mod.rs`) authors
+`Muzzle::default()` today.
+
+### 42. Should the gauntlet fireball keep its own sprite, or become the catalog's energy ball?
+
+The deleted path drew the fireball as the 30 px `gauntlet_fireball.png` sprite.
+The projectile catalog's `"fireball"` is a tinted energy ball — a different
+look, shared with every other fireball in the game.
+
+To avoid changing a shipped visual inside a refactor, the fold registers a
+`"gauntlet_fireball"` Image visual that reproduces the old sprite.
+
+Choose one:
+
+- **keep the gauntlet's own sprite:** the registered Image visual stays, and the
+  gauntlet reads as its own weapon.
+- **adopt the catalog energy ball:** delete the registration; one fireball look
+  across the game, and the gauntlet loses its distinct art.
+- **the sprite is right but the catalog should own it:** promote
+  `gauntlet_fireball` into the shared catalog as a first-class projectile visual
+  other weapons may also use.
+
+⭐ **THE SIZE/ANCHOR COMPARISON IS DONE, IN CLOSED FORM, 2026-09-02 — and it
+found the difference somewhere else.** A capture was queued for this; reading the
+two paths answers it more exactly than a screenshot could.
+
+- **SIZE: exact parity, at every quality tier.** The deleted renderer drew
+  `Vec2::splat(30.0)`. The new registration is
+  `ProjectileRenderSize::FixedWidth(30.0)`, which resolves as
+  `Vec2::new(w, w / frame_aspect)`. `gauntlet_fireball.png` ships at **64 x 64**
+  (base), 32 x 32, 16 x 16 and 8 x 8 (`sprites_potato`) — **all square**, so the
+  aspect is 1.0 and the height is 30.0 whichever tier the quality budget loads.
+  Identical, not merely close.
+  ⚠ An earlier revision of this note said the sprite was 16 x 16. That was the
+  `sprites_0_25x` copy — one of four, read without checking the others. The
+  conclusion was right and is now stronger, but the number was a sample quoted as
+  the population.
+- **ANCHOR: exact parity.** The old sprite took `..default()` (centre); the new
+  Image path passes `anchor: None`, which is the same centre.
+- ⛔ **DEPTH CHANGED, and nobody asked about depth.** The old fireball drew at
+  `z = 9.5` — below `WORLD_Z_DUMMY` (10.0) and well below `WORLD_Z_PLAYER`
+  (20.0), so it passed BEHIND the player and behind enemies. The projectile road
+  draws every shot at `projectile_z()` = `WORLD_Z_PLAYER + 2.0` = **22.0**, in
+  front of the player. `world_to_bevy` passes `z` straight through, so these are
+  the same scale and directly comparable.
+
+⇒ The fold moved the fireball from behind the cast to in front of it. That reads
+like a repair rather than a regression — a thrown fireball vanishing behind a
+body is hard to defend — but it IS a visible change, it was not authored as part
+of the fold, and it is not what decision 42 asks about. Say whether the new
+layering is what you want; if it is, nothing to do.
+
+⚠ **What a capture would still add, and only this:** that the asset RESOLVES at
+runtime rather than drawing the magenta placeholder. The geometry above needs no
+picture.
+
+The registration is `GAUNTLET_FIREBALL_VISUAL` in
+`game/ambition_content/src/projectiles.rs`.
+
+All three (40–42) were opened by the K2 fold on 2026-09-02; the fold itself is
+landed and none of them blocks it.
+
+### 43. Does a body hanging on a ledge inside a hazard volume die?
+
+Spikes under a ledge lip is an authored shape, and a hanging body's box can
+overlap one. Today it does not die: an active ledge grab consumes the simulation
+frame before the hazard/OOB gate runs, so the gate never judges it.
+
+That was not authored — it is a consequence of where the gate sits. It surfaced
+2026-09-02 when the gate moved to fix an ordering bug and would have started
+judging three populations it never had; the move was constrained back to its
+original population rather than deciding this by accident. See
+[`engine/collision-and-ccd.md`](engine/collision-and-ccd.md) §1.
+
+- **stays immune:** hanging is a committed state, and a body that cannot act
+  cannot be asked to escape; or
+- **dies:** the hazard is a volume and being inside it is being inside it,
+  whatever the body is doing.
+
+⚠ Recorded, not recommended. Whichever way it goes it is a FEEL ruling and wants
+authoring deliberately, not acquiring from a refactor.
+
+✔ **ANSWERED by Jon, 2026-09-02, verbatim:** *"They get hit by the spikes (as
+long as they are not immune - e.g. they might have iframes from a ledge grab).
+Spikes may or may not insta-kill, they could just do damage."*
+
+⇒ **"Dies" was the wrong framing of the second option and the ruling corrects
+it.** The body is HIT; whether that kills it is the hazard's authored damage,
+not a property of hanging. Both halves are already expressible and need no new
+vocabulary: `HazardSpec` carries `damage: i32`, `knockback`, `kind`, `team`,
+`hitstop_seconds` and `respawn`, so a spike that merely hurts is authored, not
+built.
+
+⛔ **AND THE EXEMPTION MOVES.** It is no longer "hanging is a committed state" —
+a hanging body is judged like any other, and if it survives that is because it
+is IMMUNE, through the ordinary invulnerability road. Jon names a ledge grab
+granting iframes as an example, not as a fact about today's code.
+
+▢ **So what remains is one question this entry did not ask:** does a ledge grab
+grant iframes, and if so for how long? ⭐ It has a home already — invulnerability
+is a REASON SET, not a flag (`features/empowerment.rs` delegates
+`Empowerment::UNTOUCHABLE` to the body's invulnerability-reason set, beside
+`Invulnerability::EMPOWERED`), so "hanging on a ledge" would be another reason
+rather than a new mechanism. That is a separate authoring decision
+from the gate ordering, and it is the one that decides whether the visible
+behaviour actually changes. Until it is answered, moving the gate makes hanging
+bodies take spike damage — which is now the intended behaviour, so the
+constraint that held the gate back is lifted.
+
+### Two fighters' bespoke effect art is never requested (2026-09-02)
+
+`npc_pirate_admiral` has a 14-row effect sheet and `smash_george_booul` a 21-row
+one, and **nothing in the repository names 34 of those 35 rows** — measured by
+`scripts/measure_fx_row_reachability.py`, which asks which fx row names any
+tracked `.rs`/`.ron`/`.yarn`/`.json` mentions (an effect is drawn by name, so a
+row nothing names cannot be requested).
+
+⛔ IT IS NOT DEAD ART, which is why this is a question and not a slice. The rows
+were drawn FOR those kits: `grapeshot_cloud`, `heave_to_anchor`,
+`heave_to_brake`, `cutlass_wake`, `boarding_wake`, `captains_mark` sit beside an
+admiral moveset whose moves are named `grapeshot`, `heave_to`, `gun_sword` — and
+that moveset asks for `muzzle_flash` and `air_slice` from the GENERIC sheets
+instead. George is the same: `bivalence_weak`/`bivalence_strong`,
+`excluded_middle_windup/launch/ascent/gate/tail`, `modus_ponens_*`, `reductio_*`,
+beside moves called `bivalence`, `excluded_middle`, `commitment`.
+
+✔ **RE-MEASURED 2026-09-02 evening and the claim reproduces exactly**:
+`pirate_admiral_vfx` 14 rows / 0 named, `george_booul_vfx` 21 / 1 named — 34 of
+35, unchanged. ⓘ Wider context the row did not have: across all 13 fx sheets it
+is **196 rows, 120 named, 76 named by nothing**, and `pirate_admiral_vfx` is the
+only sheet with NO row named by anything. So the two named here are the extreme
+of a spread, not isolated cases — which strengthens "wire them" and weakens
+"they were superseded", because eleven other sheets are partly wired.
+
+⇒ **Wire them, or were they superseded?** The row→move pairing is unambiguous
+from the names, but WHEN in a timeline each fires and at what scale is a feel
+ruling, which is why it is here rather than done. Residency's interest was the
+size (9.4 MP resident in every room); since 2026-09-02 the two sheets are never
+decoded, because no realized character's moveset names a row of them.
+
+### The LDtk editor-preview tileset is 7.6 MP the runtime never draws
+
+**FIVE** world files declare `sprite_player_robot_v3 = ../sprites/player_robot_v3_
+spritesheet.png` so the editor can draw entity previews, and `bevy_ecs_ldtk`
+decodes every tileset of a project when the project loads — on every boot and
+every world load, at FULL tier, beside whatever tier the game actually realizes.
+
+⭐ **MEASURED 2026-09-02 (`scripts/measure_ldtk_tileset_usage.py`), and the two
+things that were assumed are now checked.** NO LEVEL LAYER in any of the five
+uses the tileset (`layerInstances[].__tilesetDefUid`, across 1/11/60/1/1
+levels); its only consumer is one entity definition per world, `PlayerStart`,
+cropping the top-left tile. So "editor previews only" is measured — which
+matters, because a layer using it would have made a cheaper tier a QUALITY
+decision instead of a free one. And it is five worlds, not four: the four
+`ambition_content` ones plus `ambition_demo_sanic/worlds/sanic_speedway.ldtk`.
+`mary_o` does not reference the sheet.
+
+⛔⛔ **AND IT IS NOT "one line per world".** `tileRect`, `uiTileRect`,
+`tileGridSize`, `pxWid` and `pxHei` are all TILESET PIXEL coordinates. Change
+only the `relPath` and the 256×256 crop that framed one animation frame spans a
+third of an 832-pixel image — the preview breaks while the JSON still looks
+plausible, and nothing in the game reports it. The tiers are also not exact
+fractions and the x and y factors differ (`sprites_0_25x` of 3072×2468 is
+832×653, not 768×617), so there is no constant to scale by.
+
+⇒ **A prepared patch is waiting: `dev/patches/ldtk-player-tileset-retarget-20260902.patch`**
+(`patch -p1 <` or `git apply`, both verified; regenerate with
+`scripts/propose_ldtk_tileset_retarget.py --tier <tier>`). It recomputes every
+pixel field from the real PNG header and preserves each crop as a FRACTION of
+the image. Boot decode for this tileset goes 7.6 MP → ~0.54 MP.
+
+ⓘ It also fixes two stale declarations found by reading the real header: the
+four content worlds declare `pxHei 2484` against a 2468-pixel file, and
+`sanic_speedway` declares `1681×1728, tileGridSize 224` for that same file. ⚠ The
+patch preserves sanic's framing as a fraction, i.e. whatever that stale
+declaration was already showing.
+
+⚠ **IF THE SUITE TELLS YOU THIS PATCH NO LONGER APPLIES, CHECK THE INDEX BEFORE
+BELIEVING IT.** The targets live in the `game/ambition_map_assets` SUBMODULE, and
+on 2026-09-03 `test_a_patch_against_this_tree_still_applies` failed on it —
+"either the tree moved under it or the patch was never test-applied" — while
+`git apply --cached --check` inside that submodule accepted it cleanly. Four
+`.ldtk` worlds were simply dirty from another session's work in progress. Acting
+on the failure as written would have withdrawn a correct patch, or regenerated
+it on top of somebody's unfinished edits. The checker now separates the two
+causes and SKIPS with the dirty files named, so this should not recur; the note
+stays because the wrong reading was one sentence away from a bad decision.
+
+⛔ **Jon's submodule, so it waits** — applying it needs a commit in
+`game/ambition_map_assets` plus a pointer bump. ▢ And it is untested against the
+LDtk editor itself, which needs Jon opening a world.
+
+### How tall is a puppy slug? The base is unauthored, its variants are not (2026-09-02)
+
+⭐ Found while re-measuring the pirate-sizing report's *"zero rows author
+`standing_height`"* claim, which is now **23 of 149**
+(`scripts/measure_character_data_coverage.py`). Two of the twenty-three are
+puppy slugs, and the third member of the family is not:
+
+```text
+npc_puppy_slug            (falls to the 48.0 default — nobody chose it)
+npc_puppy_slug_variant2   41.7
+npc_puppy_slug_velvet     30.9
+```
+
+⛔ **So the BASE crawler stands taller than both of its own variants, at exactly
+the player robot's height** — which is the symptom Jon reported for the pirates
+(*"as tall as the player robot who is supposed to be chibi"*). `npc_puppy_slug`
+and `npc_puppy_slug_velvet` publish the SAME 128 px frame, and land at 48.0 and
+30.9: a 55% difference between two characters drawn at one size, where one side
+is a decision and the other is a default.
+
+⭐ **AND IT IS THE ONLY FAMILY IN THE CATALOG LIKE THIS.** Swept every
+base/variant pair (one row name a strict `_`-prefix of another) across all 149
+rows: `npc_puppy_slug` is the *sole* case where one side authors a height and
+the other does not. Every other family is all-authored or all-default. ⇒ That
+uniqueness is what makes it read as an omission rather than a convention — if
+leaving the base to `body_kind` were the house style, it would be visible
+somewhere else.
+
+⚠ **It is still not obviously a bug** — a base breed may be meant to be larger —
+which is why this is a question and not a fix. What is odd is the SHAPE: the two
+variants were deliberately sized and the thing they are variants OF was left to
+`body_kind`. ⇒ **What height should `npc_puppy_slug` be?** It is placed in
+`hall_of_characters`, `intro` and five levels of `sandbox`, so whatever it is
+now is visible in play.
+
+### The shared sprite pack is 442.6 MB and one prop reads it (raised 2026-09-02)
+
+⭐ **MEASURED** (`scripts/measure_pack_reachability.py`).
+`build_prop_sprite_asset_packed` is the ultrapack's ONLY production consumer; it
+has ONE call site, the intro prop loop; and it runs only for
+`intro_prop_sprite_rows()` entries whose 4th tuple element is `Some(target)`.
+**Exactly one row is: `intro_cart`.** Characters have no pack road at all —
+`load_character_sprites_in` takes the per-target `*_spritesheet.ron` every time.
+All four tiers pack the same 197 targets. ⚠ **Re-run on calculex 2026-09-03 the
+script reports 164 targets, and the pack directory measures 318 MB rather than
+442.6.** The load-bearing claim is unchanged and verified — *"1 target(s) opt
+into the pack — intro_cart"* — but BOTH size figures are generated-artifact
+numbers, and `measure_orphan_shipped_pages.py` says of its own kind: *"these are
+gitignored generated files, and this is ONE machine's tree."* ⇒ So treat 197/442.6
+and 164/318 as two machines' trees rather than a change over time; the argument
+this entry makes does not turn on which. On one machine: **442.6 MB of pack
+pages, 5.2 MB on a page any consumer can reach — 98.8% unreachable.**
+
+⚠ **NOT A DEFECT REPORT.** Packing every target is what a packer should do; the
+finding is that adoption never followed. Reachability is a SOURCE fact and reads
+the same on any checkout; the megabytes are generated, gitignored, per-machine.
+
+⇒ **Three answers are all reasonable and none is an agent's call:** adopt the
+pack for characters (it was built for that, and `project_ultrapack` design intent
+says the two roads should converge); narrow the generator to pack only what a
+consumer opts into; or leave it, on the grounds that a packer that packs
+everything is correct and the cost is disk nobody is paying attention to. ⛔ What
+is NOT reasonable is dropping the per-target PNGs to "save" the duplication —
+they are every character's only road.
+
+### Portraits are generated at four tiers and only full resolution is readable (raised 2026-09-02)
+
+`bake_portrait_manifests` collects portrait manifests from `assets/sprites` ONLY
+and says why: *"Portraits are presentation products and currently have no
+quality-tier variants"*. The generator emits the PNGs at all four tiers anyway —
+**438 files, 13.4 MB, with no road**
+(`scripts/measure_orphan_shipped_pages.py`, re-run 2026-09-03; its
+`REDUCED-TIER PORTRAITS` section). ⚠ This entry read **487 files, 14.2 MB** when
+raised on 2026-09-02 — the figure drifted by 49 files in a day, which is what a
+generated population does. ⇒ The decision is unaffected; the drift is only worth
+noting because the entry quotes a size to argue the cost is worth acting on, and
+that size is a moving number with a one-command instrument beside it.
+
+ⓘ The missing `.ron`s are POLICY, not a bug —
+`check_quality_variants_are_fresh.py` records that portraits are *"published
+SELECTIVELY"*. ⛔ But the 9 that ARE published per reduced tier cannot be read
+either: `PortraitSheetRegistry` is built `from_baked_table(BAKED_PORTRAIT_RONS)`
+and `build.rs` bakes from `assets/sprites`. A deliberate selective publication
+produces files no build can load.
+
+⭐⭐ **AND THE MEASUREMENT NARROWS THE ANSWER — 2026-09-02,
+`scripts/measure_portrait_tier_headroom.py`.** Portrait draw size is chosen by
+VIEWPORT, never by quality tier: `DialogLayoutProfile::for_viewport` picks
+**56×62** (phone landscape), **82×94** (phone portrait / small tablet) or
+**104×120** (everything else), consulting no quality setting. So no quality tier
+can select a portrait resolution — the window size does. Against `alice`:
+
+```text
+tier              frame     @1x display          @2x display
+sprites          256x320    covers every box     covers every box
+sprites_0_5x     128x160    covers every box     smallest box only
+sprites_0_25x      64x80    smallest box only    UPSCALES ALWAYS
+sprites_potato     16x20    UPSCALES ALWAYS      UPSCALES ALWAYS
+```
+
+⇒ **Nothing wants a Potato portrait**: at 16×20 it is under even the 56×62 box
+at 1×. `sprites_0_25x` is defensible only on a phone-landscape viewport at 1×
+display scale — the least likely combination, since phones are high-DPI. Only
+`sprites_0_5x` has a real case, and only at 1×. ⚠ A tier under the box it is
+drawn into is not a cheaper portrait; it is a blurrier one, which is the
+failure Jon's standing rule forbids.
+
+⭐ **THE ANSWER IS ALREADY WRITTEN — `dev/patches/portrait-tiers-are-never-baked-20260902.patch`**
+(`git apply` it from the repo root). It stops
+`scripts/generate_visual_quality_variants.py` copying `*_portraits.png` into the
+three reduced tiers, which is 487 files / 14.2 MB that nothing can load, since
+`bake_portrait_manifests` collects from `assets/sprites` only. It is a patch and
+not a commit because it changes generated assets on the next unfiltered regen —
+that is Jon's call, not mine. ⓘ It touches a MAIN-REPO script, so applying it
+needs no submodule commit and no pointer bump.
+
+⚠ Filed as a pointer 2026-09-03 because the patch existed for a day with NOTHING
+in the repository naming it — the decision row asked the question and the answer
+sat in a directory nobody had reason to open. The other three patches in
+`dev/patches/` are each named by a doc; this one was not.
+
+ⓘ Residency is already bounded independently: `RetainedHudImages` holds one
+entry per portrait ACTUALLY SHOWN (~1.3–2.0 MP each), not the 163 baked
+manifests — so the tiers would save package size, not runtime memory.
+
+⭐ **AND THEY ARE STILL BEING PRODUCED, not left over.** Age signal
+(`measure_orphan_shipped_pages.py`): 439 of 475 comparable portrait files were
+written in the same run as their full-resolution twin or after it, median +3.07
+days — against the stranded sheet pages, where 44 of 44 predate their manifest.
+⇒ **A clean regen on another machine will reproduce these**, so the "wait for
+yardrat" answer that covers the stranded pages does not cover this row.
+
+⇒ **Stop generating them, start baking them, or leave them?** The measurement
+says at most one tier (`0_5x`) could ever be wanted and two certainly cannot.
+The comment says portraits have no tier variants *currently*, which reads as
+intent that may change — and that is the part an agent cannot know.
+
+### 44. Should `SmashChargeSpec` keep a game-mode name for a general mechanism?
+
+Jon raised the general shape of this on 2026-08-28, about a different type
+(*"it might be a good idea to rename the actor given its conflation with a very
+core concept in the architecture. But we can do that in a different pass"*). The
+`Actor` half was done — it is `Performer` now. This half was never put to him and
+should not be decided by an agent, because a rename is Jon's vocabulary call.
+
+⭐ THE CONFLATION IS MEASURED, not assumed. `SmashChargeSpec` is named for one
+game mode and its own doc comment describes something general: *"How a chargeable
+move HOLDS: where on its own timeline the charge waits, and how long it may wait
+before it fires itself."* It carries `roots`, `sustain`
+(`WhileHeld` / `UntilPressedAgain`) and two seconds-valued clocks in the owner's
+proper time — none of which is Smash-specific — and the Trap (the Performer's
+down-B, an Ambition move, not a Smash one) uses it for a three-second
+subterranean beat, which is what made the name visible.
+
+⚠ THE SIZE, so the answer can be costed: **36 references** across `crates/` and
+`game/`. A rename is mechanical and touches authored content, so it wants to
+happen in one pass or not at all.
+
+⇒ Three answers are all reasonable and the choice is not an agent's: keep the
+name (the mechanism was authored for Smash and the association is useful), rename
+to something like `TimelineHoldSpec` / `ChargeHoldSpec`, or keep it and let a
+future Smash-specific type take the name back. ⛔ No engineering is blocked
+either way — this is recorded so it stops being asked and forgotten.
+
+### Interact dialogue for the characters the Hall's authoring did not cover (raised 2026-09-02)
+
+`triage/character-dialogue-from-suggestions.md` re-measured: 149 catalog rows,
+124 with a `hall_dialogue_id`, 131 authored `hall_*` Yarn nodes. The Hall was
+solved by hand-authoring, the escape the 2026-07-26 decision left open, so a
+generator built to that decision would generate over 124 characters that
+already have nodes. What remains is ~25 rows with no hall id, and every room
+that is not the Hall, where a character with a real `fallback_dialogue` voice
+still opens `generic_npc` on interact.
+
+Needed: keep authoring by hand (then the triage closes as superseded), or
+build the generator for the remainder only (a per-character node synthesized
+from `fallback_dialogue`, overridden by any authored node of the same title).
+Content call; the engine side is unchanged either way.
+
+### 45. Is a unique capability item an ENTITLEMENT or an OCCURRENCE? (2026-09-02)
+
+✔ **PREMISE RE-MEASURED 2026-09-05 AND IT HOLDS.** `equip_portal_gun`
+(`ambition_held_items/src/lib.rs:953`) still inserts
+`(PortalGun::for_pair(pair), OwnedPortalGunPair(pair))`, and
+`unequip_portal_gun` (`:973`) removes `PortalGun` and `StashedActionSet` and
+**not** `OwnedPortalGunPair` — so the entitlement still outlives the hand, which
+is the whole asymmetry this question is about.
+
+`item-custody-and-accounting.md` I3 asks special pickup roads to "converge
+toward the same occurrence/custody model as ordinary held items **when that
+model can express their semantics**". Measured, it cannot express the portal
+gun's, and the difference is a product decision rather than an engineering one.
+
+An ordinary held item is an OCCURRENCE: a `GroundItem` with a `SimId` that
+persists through pickup and drop, its location remembered by custody and the
+whereabouts ledger. The portal gun is an ENTITLEMENT: picking it up despawns the
+world token, grants `PortalGun` on the body and `Item::PortalGun` in
+`OwnedItems`, and **dropping never revokes the grant** — it unequips and spawns
+a fresh, room-scoped token. The menu re-equips straight from `OwnedItems`. The
+code states the intent where it is decided: *"The gun is a single item: it
+doesn't exist until you pick it up — picking up the one world item IS getting
+the portal gun."*
+
+✔ Nothing is broken: `OwnedItems::grant` clamps a unique item to 1, so the two
+roads cannot inflate a count, and the measured behaviour is self-consistent.
+
+⇒ **The question is what you want a unique capability item to MEAN**, and the
+two readings differ observably in exactly one place: **can dropping the portal
+gun and walking away ever lose it?**
+
+- **Entitlement** (what ships today): no. Once acquired it is yours; the world
+  token is a convenience for re-equipping in place. Zelda's hookshot.
+- **Occurrence**: yes. The gun is a thing that exists somewhere, can be left in
+  a room, stolen, or lost down a pit, and the durable record is where it IS.
+
+⛔ Not an agent's call — it decides whether a whole category of future item is
+losable. Recorded rather than implemented; I3 stays open behind it.
+
+ⓘ⭐ **PRICED 2026-09-05, and it is cheap TODAY for the same reason #54 is: the
+population is ONE.** The catalog holds **24** items —
+
+```text
+  Ability 7   Weapon 6   KeyItem 5   Consumable 5   Reserved 1
+```
+
+— and exactly one of them, the portal gun, takes the ENTITLEMENT road
+(`equip_portal_gun` / `unequip_portal_gun`, `ambition_held_items/src/lib.rs:955`,
+`#[cfg(feature = "portal")]`, with `OwnedPortalGunPair` deliberately outliving
+the hand). The other 23 are ordinary held items on the occurrence road.
+⇒ **Ruling it now costs one item's behaviour. Ruling it after a second capability
+item ships costs whichever road that author copied**, and they will copy the one
+that exists.
+
+⛔⛔ **AND "UNIQUE" ALREADY NAMES TWO DIFFERENT PROPERTIES IN THE CODE, which is
+worth fixing whichever way this goes.** `ItemCategory::is_unique()` is
+`!matches!(self, Consumable)` (`ambition_items/src/lib.rs:43`), so **all 19
+non-consumables** clamp at 1 in `OwnedItems::grant` — you can never hold two
+axes. That is a STACKING property. The portal gun's uniqueness is a LIFECYCLE
+property: acquired once, never revoked, re-equipped from `OwnedItems`.
+⇒ One word covers both, and only one item has the second. A reader asking *"is
+this item unique?"* gets an answer about stacking and may reasonably think they
+have learned the lifecycle.
+
+### ▢ Should cast framing become BIDIRECTIONAL — a target rather than a floor?
+
+⭐ Split out of the 2026-09-03 camera-zoom change, which landed the part that was
+measurable and left this part alone because it is a FEEL ruling.
+
+**What landed:** `CameraZoomPreset::Duel` (568x320) is the new default, sized from a
+measured reference — `pointed_polygon` is `body_kind: Standard`, standing height 48.0
+world units, so 48/320 = **15.0%** of screen height. The previous `Combat` default
+(800x450) gave **10.7%**.
+
+**What is open, and it is the half that would actually read as Smash-like.** Our camera
+can only ever widen from the base:
+* `camera_scale` is clamped `.max(1.0)` (`camera_snapshot.rs:320-350`);
+* cast framing is documented as *"the view is a FLOOR, so authored zoom still wins
+  whenever it is already wider"* (`CAST_FRAMING_MARGIN`);
+* encounter `camera_zoom` is a zoom-OUT multiplier.
+
+⇒ `base_view` is **the most zoomed-in the camera ever gets.** Ultimate's ~15% is the
+MIDDLE of a dynamic range — roughly 19% when fighters close, 11% when they separate. Ours
+is now tighter than Ultimate when fighters are apart, and never as tight when they meet.
+
+**The decision:** leave framing floor-only and accept a fixed 15%, or make cast framing a
+target that tightens toward ~19% and relaxes toward ~11%?
+
+⛔ Not taken unilaterally because the floor-only property is load-bearing: authored zoom
+winning whenever it is already wider is what lets a room or an encounter guarantee a
+minimum view, and a bidirectional camera can override that guarantee. It is a genre/feel
+ruling with an architectural cost, not a tuning knob.
+
+ⓘ Cheaper alternative if the answer is "not now": `Tight` (640x360, **13.3%**) is one line
+away and is the conservative version of the same change.
+
+⚠ One measurement caveat on the 15%: 48.0 is the `Standard` body-kind DEFAULT, so every
+standard humanoid is 48 units — `pointed_polygon` is representative by construction rather
+than by having been measured individually. The drawn sprite including its margin is taller
+(~89 units, the 118px body in a 218px frame), so "character size" means the BODY here, not
+the art. If the intent was the art, every figure above shifts and the tier wants resizing.
+
+### 51. Does a boss's reward survive a death that un-fights the boss? (2026-09-04)
+
+A defeated boss drops its signature gauntlet. Since 2026-09-04 that object has a
+durable identity (`SimId::death_drop`), so a checkpoint taken while the player
+HOLDS it now describes it and a death gives it back — measured end to end by
+`a_boss_gauntlet_banked_at_a_checkpoint_returns_to_the_hand_that_banked_it`.
+
+⛔ **The question is the object LYING ON THE FLOOR, and the engine currently
+answers it by omission rather than by decision.** `capture_minted_item_baseline`
+records only occurrences IN CUSTODY, and says why: *"a minted object lying in a
+loaded room is answered by the object itself."* But a death is a room replay,
+and `retire_the_previous_attempt` despawns everything the attempt spawned. So a
+gauntlet the player took and then put down before resting is destroyed by the
+replay with no description anywhere that could rebuild it.
+
+⚠ **Whether that is a loss depends on a fact this file cannot decide:** if the
+death restores the boss to un-fought, the player simply kills it again and gets
+another gauntlet, and destroying the old one is CORRECT — two would be a
+duplication. If the checkpoint recorded the boss as Cleared, the boss does not
+come back, and the reward is gone permanently with no way to earn it again.
+
+The two readings differ observably in exactly one place, which is what makes
+this a decision rather than a bug report: **beat a boss, pick up its gauntlet,
+put it down, rest at a shrine, die.** Under one reading you find it where you
+left it; under the other it is gone forever.
+
+⇒ Jon's call. It is a rule about what a checkpoint PROMISES — "the world as it
+was when you rested" versus "your body as it was when you rested" — and the same
+answer settles the dropped coin, the dropped heart and any future attempt-scoped
+reward. ⚠ Do not answer it by widening `capture_minted_item_baseline` to
+in-world occurrences: that changes what a checkpoint means for every dynamic
+object in a loaded room, which is a larger decision wearing this one's clothes.
+
+⭐ **NARROWED 2026-09-04 by measuring the durable mechanism, which turns out to
+exist and to have exactly one door.** `AuthoredOccurrences` already reconstitutes
+an item put down in a room that is not loaded — `Placed { room, at }` freezes at
+the room boundary, `outlook_for` reinstates it where it lies and suppresses it
+where it was authored, and `durable_horizon.rs` saves it. But an occurrence gets
+its FIRST row only from custody (`project_custody_onto_authored_occurrences`,
+reading `InCustodyOf`), so anything that enters the world already on the ground
+and is never picked up cannot be remembered by construction either. That rule is
+now enforced by the ledger rather than by a producer's comment, and it refuses
+by name (`republish_placements` returns its refusals `#[must_use]`).
+
+⇒ **So a "yes" here is not a new mechanism, it is a second entry road, and it
+must be stated as deliberately as the first.** The gauntlet would need to enter
+the ledger on the drop rather than on the pickup — and it would then also need
+to stop carrying `SpawnedThisAttempt`, because an object the attempt reclaims
+and an object the durable world remembers are contradictory answers about the
+same thing. That contradiction is the real content of the question.
+
+Related: 45 (entitlement versus occurrence) is the same family of question one
+level up — that one asks what an item IS, this one asks what a checkpoint owes.
+⚠ Renumbered from 46 to 51 on 2026-09-04: it was filed as 46 while 46 already
+existed further up the file, so two different questions answered to one number.
+
+### 54. In co-op, does a body gate open for the party or for the body? (2026-09-04)
+
+`capability-progression-and-world-gating.md` has carried *"how should co-op gates
+behave when one participant can traverse and another cannot"* as an open design
+question since the page was written. ⭐ **It stopped being hypothetical on
+2026-09-04: the code now answers it, by default, in one direction.**
+
+ⓘ⭐ **BUT THE POPULATION IS ONE TODAY, measured 2026-09-05 — so this is cheap to
+answer and nothing is currently mis-answered by it.** In the Ambition road,
+`DrivingParticipant` is inserted by exactly ONE production site,
+`control/authority.rs`, and it always inserts `PlayerSlot::PRIMARY` (possession
+moves the marker between bodies; it never mints a second slot). Every other
+insertion in the tree — `crates/ambition_sim_view/src/facts.rs:1002`,
+`crates/ambition_platformer2d_actor_monolith/src/causal.rs:430`,
+`crates/ambition_sim_view/src/view_index.rs:1259` — is inside a `#[cfg(test)]` module, checked by position
+rather than by path, because this repo puts test modules inside ordinary source
+files.
+⇒ **The existential `driven_bodies` performs is over a population of at most one
+body**, so the direction the code picked is not currently producing a wrong
+answer for anybody. ⚠ That is an argument for ruling it NOW rather than later:
+the cost of the ruling is zero while no second participant exists, and the second
+participant is exactly what makes it expensive.
+⚠ Method, so the negative claim can be re-derived: `grep` for
+`insert(DrivingParticipant` / `try_insert(DrivingParticipant` /
+`DrivingParticipant(` across `crates/` and `game/`, then each hit's enclosing
+module checked for `#[cfg(test)]` above it. A bundle field would still have to
+construct the tuple struct, so it would appear in that grep.
+
+`driven_bodies` (`actor_monolith/src/body_conditions.rs`) asks
+`ControlledSubject` first and then falls back to ANY holder of
+`DrivingParticipant`. With one participant that names the one driven body and
+there is nothing to decide. **With two seats it is an existential: a wall gated
+on `body.can wall_climb` opens when EITHER driver can climb, and the seat that
+cannot then walks through a wall its own body never satisfied.**
+
+⚠ **This is not new and it is not a regression.** The same OR was there while the
+predicate read `PlayerEntity`, and the defect it hid was worse — the wall asked
+the RESTING home avatar, which possession has explicitly stopped driving. Moving
+to the driven population fixed that and made this visible; it did not create it.
+⇒ Which is the shape worth naming: **widening a population makes a latent ruling
+live.**
+
+**The three answers, and what each costs:**
+
+1. **PARTY (today's behaviour).** One body qualifies, the wall is down for
+   everyone. Cheap, and it is what a shared-screen co-op usually wants — nobody
+   is stranded behind a wall their partner walked through. ⛔ But it makes
+   `body.can` mean "somebody here can", so a route designed around a capability
+   is satisfied by a party that contains one of anything.
+2. **BODY.** The wall stands for the seat that cannot. ⛔ **This one is not a
+   predicate change.** A gate solid is contributed to
+   `FeatureEcsWorldOverlay::gate_solids`, which is ONE collision world read by
+   body collision, projectiles and rendering alike. A per-participant answer
+   needs the wall to stop being a property of the world — per-seat overlays, or
+   a solid that filters by who is touching it. That is a mechanism change with a
+   rendering question attached (does the wall LOOK present to one player and not
+   the other?).
+3. **PRIMARY ONLY.** Ask `ControlledSubject` and stop. Sharpest to state, and it
+   silently makes seat 1 a passenger in a world gated on seat 0's body.
+
+⇒ Jon's call, and it is a design ruling rather than an engineering one: it says
+what a capability route MEANS when there is more than one body. ⚠ Do not answer
+it by making `driven_bodies` stricter on its own — a wall that stands for one
+player and not another is not expressible today, so answer 2 without the
+mechanism would produce a gate that refuses everyone.
+
+ⓘ The same question reaches every body condition at once (`body.can`,
+`body.fits`, and anything later that reads the driven population), which is why
+it is filed against the population rather than against a condition.
+
+### 66. The citation checker is at ZERO and still does not gate. Ratchet it? (2026-09-05)
+
+⭐ **MEASURED 2026-09-05: `check_planning_citations.py` reports 1,938 citations
+across 102 planning files and FIVE doc corpora, with ZERO unresolved.** It has a
+working `--strict` mode that returns 1. **Nothing invokes it.**
+
+⛔ **The non-gating choice is DELIBERATE and its reasoning is in the lane
+definition**, so this is a question rather than a fix: *"it can name something it
+cannot know about (a macro-declared const, an upstream type) rather than a
+defect. Failing the lane on one would train everybody to pass `--no-verify`."*
+That is a real objection and I am not overriding it.
+
+⇒ **What has changed since that was written, and why it is worth re-asking:**
+
+- **The count is ZERO.** The false positives the reasoning fears are not
+  currently occurring, across five corpora.
+- ⭐ **`cite-ok` EXISTS.** A per-line, reviewable opt-out means a legitimate
+  macro-declared const has a one-line fix that is *not* `--no-verify`. The
+  objection assumed no escape hatch; there is one, and its wrapper already tests
+  that a `cite-ok` line is not reported.
+- ⛔ **A report is only as good as the reading.** Its footer is IDENTICAL whether
+  the body is clean or not, and I have now been caught by that twice — once
+  committing "citations all resolve" when three did not, and once today finding
+  three unresolved that I had written myself, only because I deliberately read
+  the body. ⇒ **This is the one instrument in the repo whose green is
+  indistinguishable from its red without reading it.**
+
+⇒ **The shape I would suggest if the answer is yes is a RATCHET, not `--strict`**
+— gate on the count not INCREASING, exactly as `check_doc_link_ratchet.py` does,
+so a genuine unknowable name can be banked with a reason instead of forcing
+either a `cite-ok` or a bypass. At zero, that is the same thing as gating, and it
+degrades gracefully if the false-positive class ever shows up.
+
+⚠ **Cheapest sufficient alternative if you would rather not gate at all:** have
+the lane print the COUNT rather than the footer, so a skim shows `0 unresolved`
+instead of a sentence that reads the same either way. That fixes the reading
+problem without touching the severity.
+
+
+⛔⛔ **A COST THE ROW DOES NOT NAME, HIT FIRST-HAND 2026-09-05: the checker reads
+TRACKED files, so a citation to a file you have not `git add`ed yet is
+UNRESOLVED.** I wrote a new measurement script, cited it from a planning page, ran
+the checker before staging, and got `1 unresolved:` — which cleared the moment the
+file was tracked. ⇒ Under `--strict` as a gate, that is a RED SUITE for anyone
+mid-work who cites a file they have not staged, which is the ordinary way a
+script and its row get written together.
+
+✔ **AND THE STATE IS STILL ZERO — measured, not assumed.**
+`check_planning_citations.py --strict` exits **0** at HEAD, 1,977 citations
+resolved. So switching it on costs nothing TODAY; the question is entirely about
+what it costs on the days after.
+
+⇒ **That reframes the ask.** Not "ratchet it or not" but "gate it on COMMITTED
+state, where a cited-but-unstaged file cannot exist" — a pre-commit or CI
+position rather than a suite job. The same shape as #59's hook, and the two
+probably want one answer.
+### 65. ~~`portal_lab`'s seven `purple` apertures~~ — WITHDRAWN 2026-09-05, my premise was wrong
+
+⛔⛔ **I FILED THIS AND THEN DISPROVED IT MYSELF. Withdrawn rather than deleted,
+because the mistake is more useful than the question was.**
+
+**What I measured and got right:** `sandbox.ldtk`'s `portal_lab` authors 14
+`Portal` entities — `purple` ×7 against one `yellow`, plus six other colours —
+all in one level.
+
+**What I concluded and got WRONG:** that seven purple apertures are therefore
+live at once, so a channel lookup has seven candidates. ⇒ **All 14 of those
+portals also carry a LINK ID**, and `resolve_portal_links` — which runs FIRST in
+the sim chain, before transit, carve and eviction — reassigns every one of them
+to a distinct `Indexed(base + slot)`. **The authored colour is a placeholder that
+never reaches a lookup.** There is no runtime ambiguity and there is no authoring
+question to answer.
+
+⭐ **THE LESSON, which is the reason this row survives its own withdrawal: I READ
+THE AUTHORED DATA AND CALLED IT THE RUNTIME POPULATION.** A `.ldtk` census is a
+measurement of what an author WROTE; between it and the lookup sat a system that
+rewrites the very field I was counting. ⇒ **Census the field, then ask what
+writes it before the reader runs.** The `git grep` for producers is the step I
+skipped, and it is the same step that has saved me four times today on other
+rows.
+
+✔ **The two code changes stand and are relabelled PREVENTIVE in place**
+(`find_portal` and `equalize_pair_apertures` both now use one total order rather
+than archetype order). They are worth keeping for a reason that does not depend
+on the false premise: **nothing in either function requires channels to be
+unique**, so both were relying on a guarantee made three systems away, and a
+total order costs nothing.
+
+⇒ **ONE REAL QUESTION SURVIVES, and it is smaller and sharper.** Link groups are
+assigned `Indexed((64 + gi) * 2 + slot)` and `portal_lab` uses SEVEN of them, so
+`Indexed(128..=141)` are occupied at runtime today. Authoring admits
+`PortalChannelColorSpec::Indexed(u8)` for ANY value — the LDtk token `c128`
+parses straight through. The separation is a documented CONVENTION (*"link
+channels live in the HIGH `Indexed` range … authors use from 0 up"*) with nothing
+enforcing it. ⚠ No world authors a `cN` today, so this is preventive too. ⛔ And
+the constant cannot simply be shared: `LINK_GROUP_BASE` lives in
+`ambition_portal2d`, the authoring enum in `ambition_entity_catalog`, and
+portal2d does not depend on the catalog — the same downstream-resolver shape as
+the held-item registries. ⇒ Either a `PortalChannel::Link(u8)` variant (making
+the collision unrepresentable, ~6 exhaustive arms in `color.rs`) or a validator
+rule at the LDtk boundary. **Worth a ruling only if `cN` authoring is meant to
+stay available at all** — if it is not, deleting `Indexed` from the authoring
+enum closes it for free.
+
+### 64. Should `SurfaceLoop` and `SurfaceRamp` get marker registrations? (2026-09-05, narrowed same day)
+
+✔ **THE LIST HALF IS DONE AND IS NO LONGER A QUESTION.** This was filed as *"two
+identifiers have converters and no marker registration, and three prose sites
+claim a test pins the lists equal — there is no such test."* The registration
+list has since been DELETED: `AmbitionLdtkRegistrationPlugin` derives its
+registrations from `LdtkVocabulary::engine()`, so the two lists cannot disagree
+because there is only one. The false "a test pins them equal" claim is gone from
+`conversion/mod.rs` and from both sites in `edit/defs.py`, and the tool step that
+patched the second list is deleted rather than repaired — an engine entity now
+gets its marker by existing.
+
+⇒ **What remains is one behaviour question, and only you can answer it:** the
+derivation carries a named exclusion, `MARKERLESS_IDENTIFIERS`, holding back
+exactly the pair the drift had held back by accident. Registering them would
+change what the `bevy_ecs_ldtk` path spawns, so the rewrite was deliberately
+behaviour-identical and left the decision here.
+
+- ⓘ **The cost of waiting is measured and it is zero.** `SurfaceLoop` is defined
+  in all four shipped worlds with **one** placed instance (`sandbox.ldtk`);
+  `SurfaceRamp` is defined in no world and instanced in none.
+- ⚠ **The consequence of registering is NOT established.** Marker registration
+  makes `bevy_ecs_ldtk` spawn an `AmbitionLdtkMarkerBundle` entity; the
+  identifier-match arm that inserts collision components has no case for either,
+  so the new entities would carry a `Name` and no collision. Extra entities are
+  not free in a rollback world, which is the part worth your judgement rather
+  than my guess.
+- ⓘ The evidence they were an oversight rather than a decision still stands: the
+  authoring tool used to patch both places when it added an identifier, and
+  these two reached the converters without it.
+
+### 63. Five authored fields decide nothing. Wire them, or delete them? (2026-09-05)
+
+⭐ **MEASURED, and they are all the same shape**: authored on a spec, threaded
+into a component by `spawn_static.rs`, and read by NO production code.
+
+```text
+InteractableSpec.requires_facing -> Interactable.requires_facing   spawn_static.rs:231
+ChestSpec.persistent             -> Chest.persistent               spawn_static.rs:108
+PickupSpec.collected             -> Pickup.collected               spawn_static.rs:79
+BreakableSpec.debris_cue         -> Breakable.debris_cue           spawn_static.rs:179
+```
+
+⭐ **FOUR, after sweeping every field `spawn_static.rs` threads** (13 distinct;
+the other nine are read). `debris_cue` was found that way and is the clearest of
+the set, because the value it should reach is RIGHT THERE and hardcoded:
+
+```rust
+// ambition_combat/src/breakables.rs:208 — emit_breakable_destroyed
+debris.write(DebrisBurstMessage { pos, cue: PhysicsDebrisCue::Breakable });
+```
+
+⇒ **every breakable throws identical debris no matter what its author declared.**
+⚠ And this one carries its own explanation for never having been wired: the
+authored field is `Option<String>` while `DebrisBurstMessage.cue` is a
+`PhysicsDebrisCue` enum, and **no string→cue resolution exists anywhere**. Wiring
+it is not a one-line thread; it needs the resolver first, which is a real (if
+small) piece of vocabulary design and is the kind of thing this decision should
+say yes or no to before somebody builds it speculatively.
+
+⭐ **A FIFTH, found 2026-09-05 by a DIFFERENT instrument, and it is the same
+shape one layer up.** `CharacterCatalogEntry.flight_direct_velocity`
+(`crates/ambition_characters/src/actor/character_catalog/entry.rs:279`) is authored, then
+threaded through FOUR structs to reach the code that reads it:
+
+```text
+CharacterCatalogEntry.flight_direct_velocity   entry.rs:279   (authored)
+  -> ActorTuning.flight_direct_velocity         actor_tuning.rs:60
+  -> MovementTuning.flight_direct_velocity      movement/tuning.rs:468
+  -> FlightTuning.direct_velocity               movement/tuning.rs:1281
+  -> READ at movement/integration.rs:1499,1503  ✔
+```
+
+⚠ **The read is real, so this is not a dead knob — it is a knob with an authored
+road nobody travels.** MEASURED: outside tests, exactly ONE production site sets
+it true, and it is a hardcoded `ActorTuning` literal for a scripted boss
+(`spawn_actors.rs:884`), which is legitimate — that brain commands an exact
+per-tick velocity. No authored character sets it anywhere.
+
+⇒ So the question here is narrower than for the other four: not "is the behaviour
+reachable" but **"should the authored field exist at all, when the only caller
+that wants the behaviour sets it in Rust two layers below the author?"** Deleting
+the authored end costs nothing today and shortens a four-hop thread; keeping it
+is a bet that a character will want it.
+
+⚠ **DIFFERENT LANE, NOT ACTED ON.** `ambition_characters` authoring is the
+fighter session's surface, so this is recorded rather than repaired.
+
+⭐⭐ **AND THE MISMATCH IS ITSELF EVIDENCE, which is the sharper way to read it:
+a stranded field with a TYPE MISMATCH at its destination was probably abandoned
+DELIBERATELY, not overlooked.** Somebody authored `Option<String>`, met an enum
+at the consumer, and stopped. ⇒ read the gap as a decision that was deferred
+rather than as an oversight, and price the resolver before assuming the field
+wants wiring. The other three have no mismatch — their destinations would take
+the value as-is — so they are the ones where "overlooked" is the likelier
+story.
+
+⛔ **`requires_facing` IS THE ONE WITH A PLAYER-VISIBLE CONSEQUENCE: an
+interactable that declares it must be faced can be used from behind.** The other
+two are bookkeeping whose live authority is elsewhere — collected-ness is the
+`Collected` MARKER COMPONENT, and an opened chest is remembered by
+`encounter_reward_looted_flag`, which never consults `persistent`.
+
+⇒ **The question is not "is this a bug" — it is which of two things the authored
+vocabulary is for**, and it is cheap either way while nothing depends on it:
+
+- **WIRE THEM.** ⭐ Note this is a ZERO-BEHAVIOUR-CHANGE landing today:
+  `requires_facing` is set `false` by every authored customer, so implementing
+  the facing check changes nothing until somebody authors `true`. That makes the
+  declaration honest and gives authors a rule they can reach for.
+  ⚠ It also builds a capability with no customer — the dormant-cluster shape this
+  stack keeps finding, and the reason to prefer the second option unless a level
+  actually wants it.
+- **DELETE THEM.** Removes three lies from the authored surface. ⛔ Costs an
+  authored-schema migration (the fields are in `PlacementSpec` shapes and one is
+  set in shipped content), which touches `ambition_map_assets` — see #62, and
+  that submodule is currently frozen.
+
+ⓘ **What is NOT being asked**: `BreakableSpec.pogo_refresh` looks identical from
+the authoring side and is NOT in this list, because it IS read
+(`crates/ambition_platformer2d_actor_monolith/src/features/ecs/damage/mod.rs:592`,
+`:938`). Stranded and dormant are indistinguishable from the authored side and
+want opposite responses; telling them apart took reading the consumer.
+
+⛔⛔ **AND THIS ROW SAID IT WAS "never set true by content", WHICH IS FALSE.**
+Re-measured 2026-09-05: **five `BreakablePogoOrb` entities are authored** across
+the shipped worlds, and `crates/ambition_platformer2d_ldtk/src/surfaces.rs:422`
+sets `breakable.pogo_refresh = pogo_orb_combo` for exactly those. It is LIVE, not
+dormant.
+
+⭐ **The reason it looked dormant is a THIRD form of authoring that no census
+sees.** A field can be turned on by a LITERAL (`flag: true`), by an ASSIGNMENT
+from a computed value — and here by an **ENTITY TYPE**: content authors
+`BreakablePogoOrb` instead of `Breakable`, and a converter turns that choice into
+a flag. ⇒ No text search for the FIELD can find that, because the author never
+writes the field's name. The dormant-mode census can only flag it as *"this name
+is assigned elsewhere — go look"*, which is exactly what its pointer annotation
+does and exactly why that annotation replaced a reclassification.
+
+### 62. A second box holds 4,741 uncommitted lines in `mary_o.ldtk`. Keep or discard? (2026-09-05)
+
+⛔ **NEITHER AGENT WILL TOUCH THIS, AND THAT IS THE POINT — the fix is
+destructive and the work is somebody's.**
+
+⭐ **MEASURED HERE (this box), so the mechanism is not in doubt:** the pin is
+`48f8e26`; a checkout at `71f1738` is EXACTLY ONE COMMIT BEHIND it
+(`git merge-base --is-ancestor 71f1738 48f8e26` is true, and
+`git log 71f1738..48f8e26` is the single commit *"A boss placement can now be
+given a name an author can type"* — the #57 authoring change that names
+`cove.mockingbird`). Every `.ldtk` in `game/ambition_content/assets/worlds/` is a
+SYMLINK into that submodule, so a box behind the pin genuinely lacks the id and
+three boss guards are CORRECTLY red there. They are working.
+
+⚠ **MEASURED ON THE OTHER BOX, reported by the fighter session and not verifiable
+from here:** that checkout also carries 5 dirty `.ldtk` files — four content
+worlds at ~4 lines each, and **`mary_o.ldtk` at 4,741 changed lines**.
+
+⇒ **The question is only about those 4,741 lines.** `git submodule update` is a
+DETACHED CHECKOUT at the pin: it discards uncommitted work in the submodule. So
+the routine-looking fix for the three reds is also the thing that would destroy
+whatever that file holds.
+
+- If the work is WANTED: it should be committed on a branch inside
+  `game/ambition_map_assets` first, then the update is safe.
+- If it is an EDITOR ARTEFACT: LDtk rewrites whole files, so "dirty" often means
+  "opened", not "edited" — but 4,741 lines is far past what an open-and-close
+  produces, which is why neither of us is treating it as scratch.
+- ⛔ Nobody should run `git submodule update` on that box until this is answered.
+
+ⓘ This is a per-machine condition, which is why it needs a person: nothing in the
+repository records which submodule state a green was measured against, and `git
+status` on the superproject reports that a POINTER moved, never that the file
+CONTENTS a test reads through a symlink changed underneath it. The guard's
+failure message now names the submodule and warns against the update, which is
+the most a guard can do here without answering about the MACHINE rather than the
+tree.
+
+### 60. A mounted fighter's knockout and their mount's death race. Which wins? (2026-09-05)
+
+⭐ **FOUND BY INSTRUMENT, NOT BY PLAY, and it is unreachable today — file it now
+because the day it becomes reachable it will present as an unrepeatable bug.**
+`spend_fighter_stocks` and `enforce_mount_rider_link` both sit in
+`CombatSet::Settle` with nothing ordering them, and both take `&mut BodyHealth`.
+Bevy's own conflict list reports the pair; the two conflicting components
+resolve by id to `BodyHealth` and `BodyKinematics`, checked against the ids of
+those types rather than inferred from the signatures.
+
+⚠ **THE TWO WRITES DISAGREE ABOUT WHAT A HEALTH POOL MEANS ON THIS TICK.**
+`spend_fighter_stocks` CLEARS the meter for a fighter coming back — a respawn is
+a fresh body. `enforce_mount_rider_link` DAMAGES the rider when their mount
+dies, and then re-reads `alive()` to decide whether that killed them. Heal then
+damage leaves a fighter alive on a fresh stock; damage then heal leaves the same
+fighter alive with the mount's death silently absorbed; and if the damage lands
+first on a body that was already at zero, the second read decides a death the
+respawn was about to undo. Whichever is right, it should not be decided by which
+order the scheduler happened to pick.
+
+ⓘ **REACHABILITY, measured rather than assumed.** `spend_fighter_stocks` skips
+any body it cannot find in `Query<&mut FighterStocks>`, so the collision needs
+ONE entity holding both `FighterStocks` and `RidingOn`. No shipped content
+builds that: stocks are Smash's and mounts are Mary-O's. But the engine composes
+both plugins into the same schedule, the pairing is not exotic for a fighting
+game — a stocked fighter riding anything — and the ambiguity is already in the
+graph waiting for it.
+
+⇒ **What is being asked.** Not "add an edge": the `MatchOutcomeDecided` doc
+argues, correctly, that ordering a whole ruleset behind the engine's answer
+takes away concurrency a game wants, and it orders only PARTICIPANT-REMOVING
+rules for that reason. A mount-death damage transfer is arguably exactly such a
+rule, which would put it before the spend. But that is a claim about what a
+mount's death MEANS, and mount semantics are not mine to settle. Two candidate
+answers, both cheap:
+* **The mount's damage is a participant-removing rule** — order it before
+  `FighterStocksSpent`, matching the rule the stocks doc already states.
+* **A respawn outranks anything the old body was owed** — order the spend first
+  and let the fresh stock discard the mount's damage.
+
+ⓘ Found while guarding a different member of the same class (`4cf7ffe07`): a
+system reading or writing what another member of ITS OWN set writes, which is
+the one relationship a phase cannot express. The technique is in
+[`decision-principles.md`](decision-principles.md).
+
+⚠ **THE CENSUS ABOVE IS THE ENGINE'S, AND THE GAME'S IS MUCH LARGER — the
+number that answers this question depends on which composition you ask.**
+Unordered pairs whose two systems share a combat phase:
+
+| phase | `PlatformerEnginePlugins::fixed_tick()` | the shipped `build_demo_app()` |
+|---|---|---|
+| Trigger | 0 of 6 members | 0 of 6 |
+| Playback | 0 of 11 | 0 of 11 |
+| Materialize | 0 of 14 | **14** of 22 |
+| Resolve | 0 of 10 | 0 of 10 |
+| Settle | **1** of 13 | **24** of 32 |
+| ContentSpecials | 0 of 0 | 0 of 2 |
+| totals | 261 conflicts, 410 systems | 329 conflicts, 442 systems |
+
+⇒ Smash's own content systems add 19 members to `Settle` and take its unordered
+pairs from 1 to 24. **That is a population, not a defect count** — Bevy's
+conflict detection is type-level, so two systems writing the same component on
+entities that never coexist are reported exactly like two systems racing over
+one body. The pair filed above is the one that has been read closely enough to
+say which it is. ⓘ The guarded invariant does hold in both: conflicts touching
+`Messages<StocksMatchDecided>` measure **0** in the shipped demo as well as in
+the engine, so the finishing-zoom edge and the participant-removal ordering the
+`MatchOutcomeDecided` doc describes are both intact in the game a player runs.
+
+### 61. Two unordered systems write the same durable switch. Where does the edge go? (2026-09-05)
+
+ⓘ **Renumbered 60 → 61 on 2026-09-05: TWO rows were both numbered 60**, this one
+and the fighter lane's mounted-knockout race, so "decision 60" named two
+different questions. I moved MINE rather than theirs — renumbering a row you do
+not own edits someone else's content to fix your own ambiguity, and the number
+is the cheap half. Nothing cited either as "#60"; checked before moving it.
+
+✔ **PREMISE RE-MEASURED 2026-09-05 AND IT HOLDS, unchanged in both halves:**
+`drain_switch_activations` is still `.in_set(SwitchActivationDrained)` at
+`crates/ambition_encounter/src/registry.rs:164`, and
+`capture_falling_sand_switch_interactions` is still
+`.in_set(Platformer2dSimulationPhaseMonolith::GameplayEffects)` at
+`game/ambition_content/src/falling_sand_sim.rs:255`. Both still write
+`set_switch`. ⇒ the question is live, not moot.
+⚠ **And a trap for the next re-measurer:** a plain grep for
+`drain_switch_activations` + `add_systems` lands FIRST on
+`switches.rs:463`, which is a `#[cfg(test)]` harness registering it bare in
+`Update` — it looks exactly like the set placement having been removed. The
+production registration is in `registry.rs`, a different file.
+
+⛔⛔ **MEASURED, and four shipped switches sit on it.** Two systems write
+`save.data_mut().set_switch(&activation.id, …)` for the same id, downstream of one
+`SwitchActivated` from `features/ecs/interact.rs`, in sets nothing orders:
+
+```text
+  ambition_encounter::switches::drain_switch_activations
+      .in_set(SwitchActivationDrained)   ← placed in NO simulation phase
+  ambition_content falling_sand_sim::capture_falling_sand_switch_interactions
+      .in_set(Platformer2dSimulationPhaseMonolith::GameplayEffects)
+```
+
+The collision is real, not theoretical: the four falling-sand spouts are authored
+`action: "ResetEncounter"` — exactly the arm the drain toggles — while the content
+road keys off the switch ID and writes its own value. The content road states in
+place that it means to win: *"without this write the save's switch flag stays
+whatever the encounter pipeline set it to."* **Nothing makes it last.**
+
+✔ **AND IT IS LATENT, NOT LIVE — measured, so the row is not read as an
+outage.** `falling_sand_room::the_sand_switch_pours_settles_and_becomes_persistent_ground`
+PASSES: the arbitrary order currently favours the content road and the sand
+pours. ⚠ Two things make that weak comfort:
+
+- **The chain is longer than a pair, and the drain is strictly behind it.**
+  `interact.rs` writes `SwitchActivated`; the falling-sand road reads that
+  message and writes the save **directly**, while the drain is TWO hops back —
+  `apply_switch_effects` (`features/ecs/effect_bus.rs:44`) pushes onto
+  `SwitchActivationQueue` and only then does `drain_switch_activations` write.
+  ⇒ The content road probably wins today by ACCIDENT OF DEPTH rather than by any
+  edge, and nothing holds that depth in place.
+- **The only witness is feature-gated.** That test is
+  `#![cfg(all(feature = "falling_sand", feature = "rl_sim"))]`, so it does not
+  run in the default plan; a reordering would be caught by the union lane or by a
+  player, and not by anything in between.
+  ✔ **RE-VERIFIED 2026-09-05 through the FEATURE CLOSURE, not the default list**
+  — a feature can be pulled in transitively, and reading `default` alone would
+  have proved nothing. `ambition_app`'s `default = ['desktop_dev']` expands to 47
+  features; `rl_sim` IS among them and **`falling_sand` is NOT**. ⇒ Exactly one
+  of the two gates is satisfied by the default plan, so the witness stays dark
+  there and the row's "weak comfort" reading holds.
+
+⚠ **A behavioural test passes either way.** The simulation is single-threaded, so
+an unordered pair still gets an order and that order is stable — deterministic,
+reproducible, and arbitrary. This is the same shape as the finishing-zoom edge the
+fighter lane found and fixed, one domain over.
+
+⛔⛔ **AND I CANNOT TELL YOU THIS IS THE ONLY ONE — my sweep for siblings is
+blind to exactly this case.** I looked for *"two production files that read the
+SAME message and both write the same durable family"*. It scanned 6 files and
+returned one candidate (`flag` + `EncounterEventMsg`, read by
+`encounter_features/src/systems.rs` and `content/src/encounters.rs`) — **not a
+collision**, checked: they write different flag names
+(`switch_{id}_used` vs `SYMMETRY_ATTUNEMENT_FLAG`).
+
+⇒ **But the sweep would not have found THIS row either.** The falling-sand road
+reads a `MessageReader<SwitchActivated>`; `drain_switch_activations` reads a
+`ResMut<SwitchActivationQueue>`. They are not two readers of one message — they
+are a reader and a queue-consumer, one hop apart. **A query shaped around
+`MessageReader` cannot see a collision mediated by a queue**, which is the shape
+that produced this row.
+⇒ So the population is *"at least one, and unbounded by anything I have run"*.
+A sweep that cannot find its own worked example is not evidence of absence.
+
+⭐ **THE RIGHT INSTRUMENT ALREADY EXISTS AND HAS NO SUCH BLIND SPOT.** Bevy's
+`conflicting_systems()` reports every unordered pair that touches the same data,
+however each side was triggered — a message, a queue, or a resource — so pointing
+it at `AmbitionGameSave`'s `ComponentId` counts exactly the pairs that can write
+the save in either order. The fighter lane already runs this shape against
+`Messages<StocksMatchDecided>` in `combat_schedule.rs`'s `mod tests`, and
+`ambiguity_detection: LogLevel::Ignore` gates only the LOGGING, so the list is
+readable even though the sim silences the report.
+✔✔ **RUN 2026-09-05 BY THE FIGHTER LANE, AND THE NUMBER SETTLES THE FORK: 20
+unordered pairs touch `AmbitionGameSave`** (of 261 conflicts over 410 systems, in
+`PlatformerEnginePlugins::fixed_tick()`).
+
+⇒ **At 20 the answer is a RULE about where durable writes belong in the tick, not
+a single edge.** Ordering one pair by hand leaves nineteen, and the next content
+road that writes the save adds a twentieth.
+
+⚠ **Read it as a POPULATION, not as 20 defects, and the caveats are the measurer's
+own:** any two systems taking `ResMut<AmbitionGameSave>` conflict at TYPE level
+whether or not they can ever touch the same key, and that census ran the ENGINE
+composition — the falling-sand roads in this row may not even be in it. ⇒ 20
+bounds the problem; it does not enumerate it.
+ⓘ Run as a temporary probe and removed rather than kept: *"a banked count is the
+denominator that rots, and this one would."* The number is recorded here, where a
+reader can re-derive it, instead of in a ratchet nobody re-measures.
+
+⇒ **THE DECISION IS WHERE THE EDGE LIVES, and it is a boundary question rather
+than a local one.**
+- ⛔ **Content orders itself after the engine** — `capture_falling_sand_switch_interactions
+  .after(ambition_encounter::switches::SwitchActivationDrained)`. Smallest, and it
+  makes a content crate name an engine set, which it may already do; the cost is
+  that every future content overrider must know to.
+  **⇒ EFFECTIVELY ELIMINATED BY THE 20.** It fixes one pair and leaves nineteen,
+  and it scales by requiring every future writer to know a rule nothing states.
+- ⭐ **The engine places its set in a phase**, so the phase chain orders everything
+  downstream for free. Widest benefit, and it is a claim about where a durable
+  switch write BELONGS in the tick — which is an engine ruling, not a content one.
+  **⇒ The measurement points here**: `SwitchActivationDrained` is in no phase at
+  all, and a phase placement is the only one of the three that acts on the
+  population rather than on the instance. ⚠ It is also the one that could REORDER
+  something that currently works by accident, so it wants the census re-run after,
+  not just before.
+- **The override stops being an override** — the drain learns that some ids are
+  content-owned and leaves them alone, which is the `_ => continue` rule extended
+  from actions to ids. Removes the double write entirely rather than sequencing it.
+
+⛔ Not an agent's call: the first two differ in who owns tick position, and the
+third changes what "the persisted write" means. ⚠ I put a WRONG invariant into
+`switches.rs` while working this out — that the roads are *"disjoint by action
+kind"* — inferred from a `_ => continue` rather than measured. Corrected in place;
+recorded here because the wrong version is exactly what makes this look fine.
+
+### 59. Two ledgers went red on main because a landing ran no lane. Hook, or accept? (2026-09-05)
+
+⭐⭐ **MEASURED, and the measurement kills the obvious explanation.** Two ratchets
+were red on main and neither landing noticed:
+
+- `FinishZoomRequest` was registered by `abd5191f3` with no wire-format baseline
+  record — and the PREVIOUS baseline commit is titled *"Main was red from a
+  wire-format change nobody recorded."* Second occurrence.
+- `SmashStockChoice` was added with no rollback classification.
+
+⛔ **The tempting diagnosis — "the check is too slow to run" — is FALSE.** Both
+checks together cost **2.7 s warm** (`cargo test -p ambition_app --test app_it --
+rollback_schema_baseline rollback_coverage::every_mutable`, measured 2026-09-05),
+and both are already in the DEFAULT backbone plan, inside
+`cargo nextest run --workspace`. Nothing needed moving to a cheaper lane; the
+lane was already cheap and already correct.
+
+⛔⛔ **A THIRD OCCURRENCE THE SAME DAY, AND IT IS WORSE THAN THE TWO ABOVE —
+2026-09-05.** `e405c74b1` (mine) landed an unconditional
+`use crate::pause_menu::ShellAudioControl` in an ungated `plugin.rs`, while
+`mod pause_menu` is `#[cfg(feature = "basic_presentation")]`. `origin/main`
+then did not COMPILE at default features, and `ambition_content` pulls that crate
+in transitively, so the peer session's builds stopped until it was fixed. Not a
+ratchet going red — a build break, found by a person rather than a gate.
+
+⚠ **AND THE ROW'S SENTENCE BELOW DOES NOT COVER IT, WHICH IS THE PART WORTH
+ADDING.** "Neither landing ran any lane at all" is true of the two cases above; I
+ran lanes, repeatedly, and every one of them was STRUCTURALLY BLIND to this:
+`cargo check -p ambition_game_shell --features basic_presentation` cannot see a
+default-features break, and `--rust` / `--rust-alone` both OMIT
+`check_no_warnings.py`, which is the one job that compiles the workspace with no
+features. ⇒ The failure mode is not only "ran nothing" but **"ran something that
+could not see it, and believed it"** — which a pre-push hook running the BACKBONE
+catches in both shapes, because the backbone includes that job.
+
+⛔⛔ **A FOURTH, THE SAME AFTERNOON, FROM THE OTHER SESSION — and it is the one
+that makes this evidence rather than argument.** The smash lane's action-variants
+landing added `when_refused` to `MoveGates`; the exhaustive literal at
+`game/ambition_app/src/app/versus_fighters.rs:85` is in `ambition_app`, OUTSIDE
+that lane, so `origin/main` stopped compiling (`E0063: missing field`). That
+author had run gates too — on their own crates.
+
+⇒ **Two landings in one afternoon, by two different sessions, in opposite
+directions, and `check_no_warnings.py` is the only job in the tree that catches
+either.** Mine was an ungated import of a gated module; theirs a struct literal
+one crate over. Neither author could see their own break from where they were
+standing, and both believed they had verified.
+
+⭐ **The second was found because I ran that job DELIBERATELY**, having just
+recorded that `--rust` and `--rust-alone` both omit it and that my own 5/5 green
+therefore did not cover default features. It paid for itself on the first run.
+⇒ The question shifts from "would a hook help" to "what does it cost to keep
+relying on a human remembering the one job the fast lanes drop".
+
+⇒ **The gap is that neither landing ran any lane at all.** That is not a code
+defect and there is no code-side structural fix: the whole point of a wire-format
+ratchet is that a human updates it deliberately, so deriving the baseline
+automatically would delete the guard.
+
+**The only structural answer is a `pre-push` hook** that runs the backbone (or
+just the repo-coupled ratchets) and refuses a push that reddens one. ⚠ Which is
+why this is Jon's and not mine to install: hooks are per-clone config, not
+committed, so it is a decision about how every box in this tree behaves —
+including agent boxes — and `core.hooksPath` in a shared virtiofs tree affects
+peers who did not choose it.
+
+⛔⛔ **A THIRD AND FOURTH OCCURRENCE THE SAME DAY, and the fourth adds a
+dimension this row did not have. 2026-09-05 evening:**
+
+```text
+the_rollback_ratchet_* (x3)   new=['stable_schema_names: message.parried_body_hit']
+every_module_map_matches_its_crate   two MODULES.md missing `smash_counter`
+```
+
+⇒ Four repo-coupled guards red from one landing, found hours later by a sweep.
+The wire-format baseline WAS carried by that work; the **stable-name** ledger is
+a second one and was not — carrying one of two ledgers reads exactly like
+carrying both.
+
+⭐ **THE NEW DIMENSION: one lane physically CANNOT run the gates.** The fighter
+lane's `target/` is at 98% and cannot build the workspace at all. That guard set
+needs no cargo and costs ~165 s
+(`python -m pytest scripts/tests -q -m 'not detached_tool'`), so it *would* run
+there — but nothing makes it, and the only box executing it is whichever one
+happens to sweep. ⇒ **"Accept and keep sweeping" is not a steady state when
+sweeping depends on one machine's spare capacity**, and that is a materially
+different argument from the one this row was filed with.
+⚠ It also cuts against a pre-push hook as the whole answer: a hook on a box that
+cannot build would have to run only the cargo-free guards, which is exactly the
+set that went red — so the cheap hook is also the useful one, and the expensive
+half was never the point.
+
+⚠ **The honest alternative is "accept and keep sweeping."** It costs a red main
+between a landing and the next sweep, and it has now cost that FOUR times in two
+days. ⓘ A third
+document telling people to remember is NOT an option — that is what the previous
+occurrence already produced.
+
+ⓘ Raised by the peer session after I fixed both reds (`f283730d0`): *"the ratchet
+is right, the habit of running it before landing is what does not hold."*
+
+### 58. Does the BODY gate family ask what a body CAN DO or what it IS DOING? (2026-09-04)
+
+⛔ **The two conditions in one family answer different kinds of question**, and
+nothing says which kind the family is for. Measured 2026-09-04, ✔ **re-derived
+2026-09-05 late and HOLDING**: `body.can`
+(`crates/ambition_platformer2d_actor_monolith/src/body_conditions.rs:43`) and
+`body.fits` (`:227`) are still the two, and `fits` still reads
+`BodyKinematics::size` — its own doc comment at `:237` says so.
+
+| condition | reads | changes when |
+|---|---|---|
+| `body.can(verb)` | `BodyAbilities.abilities` — a granted ability | the player ACQUIRES something |
+| `body.fits(height)` | `BodyKinematics.size` — current posture | the player CROUCHES |
+
+⇒ An author reading *"the body family"* would reasonably expect both to ask
+what a body IS ABLE to do. One does; the other asks what it happens to be doing
+this frame — and because the wall is contributed per frame, a `body.fits` gate
+opens while the player crouches and closes when they stand.
+
+⭐ **Only one of them serves the product criterion.**
+[`../planning/game/open-world-roadmap.md`](game/open-world-roadmap.md)'s
+*"acquire materially different traversal capabilities"* means a door that opens
+because you learned something and stays open. `body.can` does that. `body.fits`
+opens while you hold a button. **Both are legitimate designs and they are not
+the same design.**
+
+⭐⭐ **THE RULING IS STILL FREE, AND THAT IS A MEASURED FACT WITH A SHELF LIFE —
+2026-09-05.** Both conditions are REGISTERED (`ConditionId::new(DOMAIN, "can")`
+at `body_conditions.rs:43`, `"fits"` at `:227`) and **neither has a single
+authored caller**: zero across `*.yarn`, `*.ron` and `*.ldtk`, and zero in
+`game/ambition_content/src/`.
+
+⇒ So whichever way this is ruled — rename one, retire one, split the family —
+**no authored content has to be rewritten today.** That is the whole reason to
+rule now rather than later: the cost is zero while the population is zero, and
+the first room authored against either verb sets it permanently.
+⚠ Zero callers here means DORMANT, not dead: a registered verb an author may
+reach for is content breadth, exactly as `wallet_balance()` is. Nothing below
+argues for deleting either on the strength of the zero.
+
+⛔ **HOW THE COUNT WAS TAKEN, because the obvious way is wrong.** A plain grep for
+`body.can` reports 102 hits and almost all of them are PROSE — the catalog's
+dialogue includes lines like *"Nobody can tell me how long this takes"*, and `.`
+matches any character. The number above matches the CONDITION form in AUTHORED
+file types only. Anyone re-deriving this should do the same, or they will
+conclude the family is heavily used and that the ruling is expensive.
+
+⚠ **AND THE CRITERION IS WIDER THAN THIS QUOTE — corrected 2026-09-05.** The
+roadmap's milestone list says *"acquire materially different
+traversal**/interaction** capabilities"*; its own status table drops
+`/interaction`, and this row quoted the table. The half that was dropped is
+live: **`interact` IS an ability verb** (`AbilitySet::interact`,
+`platformer2d_core/src/abilities.rs:157`), so `body.can(interact)` is a
+publishable gate today. ⇒ that STRENGTHENS the capability reading rather than
+changing the question — an interaction capability is acquired and kept in
+exactly the way a traversal one is, and there is no posture-shaped counterpart
+to it at all.
+
+⇒ **The ruling needed is one sentence: is the body family about CAPABILITY or
+about STATE?** If capability, `body.fits` should read `BodyBaseSize` (the
+authored standing size) or ask whether any reachable stance fits, rather than
+the live `BodyKinematics.size`. If state, then `body.can` is the odd one and the
+family wants a name that says so.
+
+⭐⭐ **THE `BodyBaseSize` OPTION IS SOUND — RE-MEASURED 2026-09-05, because one
+of the repo's own comments says the opposite and would have talked a reader out
+of it.** Three independent sources agree that `BodyBaseSize` is IDENTITY-scoped,
+not stance-following:
+
+- its definition (`platformer2d_core/src/body_clusters.rs:222`) — *"the player's
+  authored STANDING body size — the baseline the morph / crouch / slide stances
+  read from"*;
+- `character_sprites/src/posed_body.rs:120` — *"only the identity authority may
+  write it (`reset_body_clusters` restores, never redefines)"*;
+- and a test in `body_clusters.rs:1347` that separates the two by construction:
+  *"an identity authority (Mary-O's `sync_grown_form`) grew her… and something
+  transient shrank the live collider, as a crouch would"* — the crouch moves
+  `kinematics.size` and leaves `base_size` alone.
+
+⇒ A crouch does NOT move `BodyBaseSize`. So `body.fits` reading it would ask
+*"is this body short enough to pass"* about the body's STANDING size, which is
+the capability reading.
+
+⛔ **AND A COMMENT IN THE TREE SAYS OTHERWISE, on exactly the word this ruling
+turns on.** `shared_tangle/src/body.rs:208` reads *"`BodyBaseSize` follows the
+STANCE"*. Its ARGUMENT is right — a reset must not ask the live components what
+body to restore, and `base_size` does move when Mary-O GROWS — but the word is
+wrong: it follows the FORM, and the stance is the one thing it does not follow.
+A reader checking this row against that comment would reject the sound option.
+✔ **CORRECTED 2026-09-05** — the comment now reads *"`BodyBaseSize` follows the
+FORM"* and carries the wrong word it used to say, so the correction cannot be
+quietly re-broken. No behaviour changed: no code reads that sentence. ⇒ the
+`BodyBaseSize` option is no longer argued against by the tree.
+
+⭐⭐ **THE TWO CAPABILITY OPTIONS COST WILDLY DIFFERENT AMOUNTS, measured
+2026-09-05 — and the row priced them as if they were alternatives of one kind.**
+*"Ask whether any reachable stance fits"* needs three facts. Two exist as
+readable authorities and the third does not exist at all:
+
+| the fact | status |
+|---|---|
+| the STANCE SET | ✔ `BodyMode` is an enum — Standing, Crouching, Crawling, Sliding, MorphBall, Climbing, … |
+| stance → SIZE | ✔ `BodyMode::shape(base_size)` is a pure total function (`player_state.rs:216`); a crouch is exactly half height, a crawl 0.85 × 0.35 |
+| which stances THIS BODY MAY ENTER | ⛔ **NOT A READABLE FACT** |
+
+⛔ **`body.can` cannot express stance reachability, because there is no verb for
+it.** `body.can` reads `AbilitySet` FIELD NAMES exactly (`body_conditions.rs:59`)
+and `AbilitySet` has no `morph`, `crouch`, `crawl` or `slide` — its verbs are
+`jump`, `wall_climb`, `dash`, `fly`, `blink`, `swim`, `glide` and the like.
+Whether a body may ball up lives in the stance-transition systems' BEHAVIOUR, not
+in any component an authored condition can ask.
+
+⇒ **So the two "capability" readings are not one option:**
+- **`body.fits` reads `BodyBaseSize`** — a field swap, and the fact it needs is
+  already there. Cheap today.
+- **"any reachable stance fits"** — needs a fact the engine does not have. It is
+  a NEW AUTHORITY (which stances a body may enter), not a composition of existing
+  ones, which is the shape Jon's ruling on 57 says to avoid taking casually.
+
+ⓘ ⭐ And that is itself a finding worth its own row if 58 goes the capability
+way: stance reachability being absent from `AbilitySet` means *"acquire
+materially different traversal capabilities"* cannot currently be authored as
+"you learned to ball up", only as "you learned to dash". Whether morph/crawl
+SHOULD be ability verbs is a separate question this measurement raises and does
+not answer.
+
+⭐⭐ **AND `body.fits` IS ALONE IN THE WHOLE CATALOG, which is the cleanest
+argument this row has.** Classified all ten published conditions by what they
+read (2026-09-05):
+
+```text
+DURABLE (the save)   boss.cleared  encounter.cleared  world.flag_set
+                     world.switch_on  quest.active
+LIVE (ECS)           body.can  body.fits  inventory.holds
+                     custody.is_held  wallet.can_afford
+```
+
+⚠ **The durable/live split is NOT the interesting axis** — it is correct design.
+`inventory.holds` must be live because a player can drop a thing, and
+`wallet.can_afford` reads the live `BodyWallet` across a proper load/save
+boundary (`items/persist.rs`), not as a second authority.
+
+⇒ **The axis that matters is PERSISTENT vs TRANSIENT, and both can be live.**
+Of the five live conditions, four read facts that are stable under play — a
+granted ability, what you carry, what holds you, what you have. **`body.fits`
+alone reads a fact that changes while a button is held**: `BodyKinematics::size`
+is the per-frame collider, so its gate opens on the way down into a crouch and
+shuts on the way up.
+
+⇒ So the ruling is not *"the body family is inconsistent with itself"*, it is
+**"one condition of ten answers a different kind of question than the other
+nine"** — which is a much easier sentence to rule on, and it does not require
+deciding anything about `body.can`.
+
+ⓘ **Nothing authors either condition yet** — both are among the five the census
+measures as authored NOWHERE — so this costs nothing to answer now and gets
+expensive once a level depends on one reading. ⚠ Cheap to answer, and the kind
+of question that is only cheap before there is content.
+ⓘ Full derivation and citations on
+[`engine/capability-progression-and-world-gating.md`](engine/capability-progression-and-world-gating.md).
+
+### ~~57. `boss_cleared("mockingbird")` can never be true. Which id is the boss id?~~ (RULED + IMPLEMENTED 2026-09-05)
+
+✔✔ **RULED BY JON, IMPLEMENTED, GUARDED. Compressed to a receipt 2026-09-05; the
+full derivation — four costed options, the cardinality framing, the entanglement
+with #56 — is in this file's git history.** In his words:
+
+> Boss progress is keyed only by stable authored encounter/placement IDs.
+> `boss.cleared(id)` means "has this specific authored boss encounter been
+> cleared?"
+
+Breadth **composes** from placement predicates rather than getting a mechanism of
+its own. ⛔ Explicitly REJECTED, all four: behaviour/archetype ids as save keys;
+`boss_cleared("mockingbird")` meaning *"some boss of this type"*; runtime ECS
+lookup translating a behaviour id into a placement; and a second archetype-level
+table.
+
+**What landed (`dff7c908c`).** `BossSpawn` gains an authored `encounter_id`
+(`tools/add_boss_encounter_id_field.py`); `ldtk::fields::boss_placement_id` is
+the ONE definition of a placement's id — authored value, else the iid — and
+`convert_boss_spawn` calls it, so the save key, `FeatureId`, the duplicate-id
+check and mount links all read one id. The Mockingbird placement is
+`cove.mockingbird` and the three executable authored calls spell it.
+⚠ The id names the narrative owner, NOT the level (`mockingbird_arena`): a
+durable key that tracks a level identifier changes when the level is renamed,
+which is the property an authored id exists to avoid.
+
+**Two guards, both poison-verified.**
+`every_authored_boss_cleared_call_names_a_real_boss_placement` resolves through
+the PRODUCTION function and reds on the original spelling — a wrong id is a RED
+rather than a silently shut door, which is the failure mode that hid this for
+weeks (a missing save key reads `Untouched`, so the gate just stayed closed and
+looked like content nobody wrote).
+`the_shipped_mockingbird_gate_opens_when_its_authored_placement_is_cleared`
+walks it end to end: the id comes from the BOOTED ROOM, the question from the
+SHIPPED DIALOGUE, and the test picks neither — the property every earlier test
+lacked, because it spelled both sides itself.
+
+⭐⭐ **THE THREE THINGS WORTH CARRYING FORWARD:**
+1. **Breadth composes from the narrow authority, never a second authority at the
+   broader grain.** Jon's rule, and the same sentence as his move-architecture
+   rule one domain over.
+2. **A gate's answer may not depend on which room the player is standing in.**
+   That is what killed the live-ECS bridge: boss entities are ROOM-SCOPED, so the
+   same world state would answer `Unanswerable` in one room and `Satisfied` in
+   another — non-deterministic with respect to POSITION, and unreproducible from
+   a save.
+3. **The underlying question was CARDINALITY, not naming** — one behaviour, N
+   placements (`sandbox` authors `mode_collapse_boss` twice). Any answer that
+   says "the boss" without saying which cardinality it means is ambiguous again
+   at the next N > 1.
+
+⚠ **STILL LIVE, and the only part of this row that is not closed: the
+composition is half available.** `boss.cleared(a) OR boss.cleared(b)` composes in
+DIALOGUE (the Yarn interpreter has `or`/`and`). It does NOT compose in a ROUTE
+GATE: `prepare_authored_gate` reads `gated_by` as one condition line or one flag
+name and `prepare_line` splits it into exactly one id plus args — no operator
+exists on that road. ⇒ *"Any Mockingbird cleared"* can gate a conversation and
+cannot gate a door. Options costed on
+[`capability-progression-and-world-gating.md`](engine/capability-progression-and-world-gating.md)'s
+compound-requirements question.
+
+ⓘ **#56 was entangled with this one** — *"retract the defeat"* was unanswerable
+until *"the defeat of WHAT"* was — and is now unblocked.
+
+### 56. A replay retracts ONE boss family's defeat of eleven. Which is right? (2026-09-04)
+
+⭐⭐ **UNBLOCKED 2026-09-05: THIS WAS WAITING ON #57 AND #57 IS RULED.** The
+standing note said this was *"unanswerable until #57 says what 'the boss'
+names"* — #57 is now RULED AND IMPLEMENTED (a boss encounter is named by its
+stable authored `encounter_id`, `cove.mockingbird`, carried from placement
+through persistence and dialogue). ⇒ **The identity question this row was
+deferring to has an answer, so this row is answerable now.** Nothing about it is
+blocked any more.
+
+✔ **AND ITS NUMBERS RE-DERIVE UNCHANGED, checked the same day the identity
+landed** (a ruling resting on a stale count is worse than no ruling):
+**11 `BossSpawn` placements** — 1 `intro`, 9 `sandbox`, 1
+`you_have_to_cut_the_rope` — and **14 `Switch` placements**.
+
+⛔⛔ **CORRECTION 2026-09-05: `ContentRoomReplayResetSet` IS NOT "the single
+cut-rope system" ANY MORE.** Measured with a committed census
+(`scripts/room_replay_reader_slots.py`), which is why the number can be re-taken
+rather than re-argued. ⚠ Sites are not systems, and counting sites is how "one"
+survived.
+
+✔ **RE-TAKEN LATER THE SAME DAY AND IT MOVED AGAIN — to THREE registration sites
+across THREE crates** (`bosses/mod.rs:321`, `ambition_demo_mary_o/src/lib.rs:1961`,
+`ambition_demo_sanic/src/lib.rs:1327`), one of which registers a TUPLE. The
+earlier reading of TWO sites was taken before sanic's monitor rearm joined them.
+
+⚠ **THE READER COUNT BRIEFLY READ 8, AND THAT WAS THE CENSUS BEING WRONG RATHER
+THAN THE POPULATION CHANGING.** Four systems that each read `RoomLoaded` AND
+`RoomReplayAdmitted` by hand now take one `ambition_combat::events::FreshAttempt`
+parameter, and a census matching `MessageReader<..>` cannot see a reader that
+arrived through a `SystemParam` ⇒ it under-reported by exactly those four.
+
+✔ **The census was taught the second road and reports 11 again** — 7 direct plus
+4 through `FreshAttempt`, with the union's own DEFINITION excluded because it
+holds a reader without reacting to anything. **11 is the same number as before
+the refactor**, which is the useful part: the population of systems that answer a
+replay did not change, only the number of places that spell the union out.
+⭐ The lesson is now in the script: **a census of "who reads X" must count every
+ROAD to X**, or a refactor that bundles readers reads as a retraction. Poisoned
+by renaming the union type: the count drops to 7 and the by-road line says so.
+
+⭐⭐ **BUT THE ROW'S OTHER NUMBER SURVIVES, AND THE TWO WERE BEING CONFLATED.**
+Set membership and *durable* retraction are different questions:
+
+```text
+reset_cut_rope_attempt_on_replay        retracts a DURABLE fact (the save record)
+rearm_bricks_for_a_fresh_attempt        clears a RESOURCE (BrokenBricks)
+rearm_power_blocks_for_a_fresh_attempt  clears a RESOURCE (SpentPowerBlocks)
+```
+
+Neither mary_o system names `AmbitionGameSave` at all. ⇒ **Membership is three;
+durable retraction is still exactly one**, so the decision this row asks for is
+unaffected — but "the single cut-rope system" is now false as written, and a
+reader checking it would find three and distrust the rest of the row.
+
+✔ **THAT GAP IS NOW CLOSED, with the row's OWN method rather than a looser
+grep — 2026-09-05.** The caveat here used to read *"what I did NOT re-derive is
+the 'exactly one system retracts' count"*, because a quick grep for
+readers-that-also-write returns message DEFINITIONS and name lists and can
+neither confirm nor refute the figure. Ran `scripts/durable_fact_writers.py`
+instead, which strips string literals and skips `#[cfg(test)]` structurally:
+
+```text
+  2  boss
+       crates/ambition_boss_encounter/src/systems.rs:259   (set)  ← records the defeat
+       game/ambition_content/src/bosses/cut_rope/mod.rs:216 (set)  ← RETRACTS it
+```
+
+`cut_rope/mod.rs:216` sits inside `reset_cut_rope_boss_attempt` (`:204`) and
+writes `PersistedEncounterState::Untouched`. ⇒ **The boss family has exactly two
+durable writers: one that records a defeat and one that takes it back**, so the
+row's "exactly one retracts" holds where the decision needs it.
+
+⭐ Corroborated from an unrelated direction the same day: **no `RoomLoaded` reader
+mutates `AmbitionGameSave` at all** — the one file where both names appear
+(`sim_core_resources.rs:75/79/134`) is the plugin registration listing message
+types and a resource, not a system reading them. Two methods, two directions, one
+answer.
+
+
+⭐⭐ **MEASURED, both directions, through the road a door reads**
+(`how_many_boss_families_retract_their_defeat_on_a_replay`,
+`canonical_reconstitution.rs`):
+
+```text
+you_have_to_cut_the_rope/BossSpawn-105805   after a replay  boss.cleared = retracted
+mockingbird_arena/BossSpawn-4308            after a replay  boss.cleared = STILL CLEARED
+```
+
+The shipped worlds author **eleven** `BossSpawn` placements — one in `intro`,
+nine in `sandbox`, one in `you_have_to_cut_the_rope`. **Exactly one content
+system retracts a recorded defeat on `RoomReplayAdmitted`**
+(`reset_cut_rope_attempt_on_replay`), and it is scoped by name to cut-rope
+placements. A room replay itself changes **zero** durable families — measured
+the same day — so nothing generic retracts anything.
+
+⭐⭐ **AND THE SCOPE IS WIDER THAN BOSSES — re-measured 2026-09-05.** Exactly
+**one** production system in the whole tree both reads a `RoomReplayAdmitted` and
+retracts a durable fact (`reset_cut_rope_attempt_on_replay`).
+⭐ Re-derived with a repaired `durable_fact_writers.py` that strips string
+literals and skips `#[cfg(test)]` items structurally: the file I had previously
+dismissed by hand (`combat/rollback_registration.rs`, whose hits are message
+NAMES in literals) no longer matches at all, so the count is 1 with no caveat. So the same question is open for every durable family a room
+can change during an attempt, not just `bosses`:
+
+```text
+BossSpawn   11 authored placements   1 retracted on replay
+Switch      14 authored placements   0 retracted on replay
+encounters   generic writer          0 retracted on replay
+flags        generic writer          0 retracted on replay
+```
+
+⇒ **A switch flipped during an attempt stays flipped after the replay that undid
+the attempt** — so a puzzle room replays already solved, and nobody chose that
+either. The ruling this row asks for should therefore be stated for durable
+ATTEMPT STATE generally, or it will be answered once for bosses and re-asked for
+switches the first time a puzzle room needs a retry.
+
+⇒ **For ten of eleven bosses, a defeat recorded during an attempt survives the
+replay that undoes the attempt.** The boss is rebuilt and refightable, the
+population census agrees perfectly, and `boss.cleared` — published 2026-09-04 —
+goes on answering YES to every `gated_by` and every `<<if boss_cleared(...)>>`.
+
+⭐⭐ **AND THERE IS A THIRD OPTION, MEASURED 2026-09-05, that this row was
+missing — the ruling is not binary.** A replay carries a `RoomResetReason`
+(`{PlayerDeath, Manual}`), and this codebase ALREADY answers *"does the attempt's
+residue survive"* per reason: `RoomReplayAdmitted`'s own doc records *"a death
+preserves the player's placed gun portals, a deliberate retry clears them."*
+The one existing boss retraction does **not** make that distinction — it reads
+the message and ignores `reason` entirely
+(`does_a_death_retract_a_boss_defeat_the_same_way_a_retry_does`,
+`canonical_reconstitution.rs`):
+
+```text
+BossSpawn-105805   after a deliberate retry   boss.cleared = retracted
+BossSpawn-105805   after a player death       boss.cleared = retracted
+```
+
+⛔ **So the one boss that CAN be re-fought also un-clears itself when you die in
+its room after winning** — and with it the victory NPC, which `victory.rs` gates
+on that same placement reading `Cleared`. Nobody chose that either; it falls out
+of a system that never asked why the room was replaying.
+⚠ **Correction, same day:** this row first said the reset also cleared
+`smirking_behemoth_victory_npc_seen`, repeating the retraction's own comment.
+Measured: that flag had one write, ZERO readers anywhere, and nothing set it
+true. It is deleted; the placement record was always the whole mechanism. ⇒ **The options are three,
+not two, and the third — retract on a deliberate retry, keep on a death — is the
+one that matches the rule the portals already follow.** Note it is the DEFENSIBLE
+default in both directions at once: a retry is the player asking to do it again,
+a death is not.
+
+⛔ **THIS IS A RULING AND NOT A BUG REPORT, which is why the test reports rather
+than fails.** The behaviours are defensible:
+- *retract* — the replay undoes the attempt, so a door opened by that fight
+  should shut again and the fight should count only once it is won for real;
+- *keep* — a one-time story boss whose defeat is world progress rather than
+  attempt state; retracting it would re-close a door the player earned, and a
+  replay is a retry of the ROOM, not a rollback of the world.
+
+⚠ **What is NOT a matter of taste: which behaviour a boss gets is currently
+decided by whether its content author happened to write a reset system, and
+nothing records the choice.** The ten are not a considered "keep"; they are an
+absence. ⇒ Whichever way this goes, the answer wants to be *expressible* — a
+boss says which it is — rather than implied by the presence of a system.
+
+⭐ **Cheapest shape if the answer is "retract by default":** the retraction is
+generic (the placement id and the persisted row are both generic); only the
+cut-rope system's NAME-SCOPING is specific. A default retraction plus an opt-out
+for story bosses inverts the current default without a registry.
+⭐ **And the flag deletion SHARPENED that estimate the same day.** With
+`smirking_behemoth_victory_npc_seen` gone, the cut-rope system's durable work is
+exactly ONE generic line — set the placement's persisted row back to
+`Untouched`, keyed by an id the engine already owns. Everything still
+content-specific in it (reclaiming the intro track from the profile catalog) is
+NON-DURABLE. ⇒ the generic retraction is not "mostly generic with a content
+tail"; the durable half is already fully generic, and the content half is
+music that a generic system would simply not do.
+⭐ **And the same shape carries the third option at no extra cost** — a generic
+retraction reads `reason` where the cut-rope system does not, so *"retry only"*
+is one `match` in the system that would already be written, not a second design.
+⚠ **What makes this worth ruling rather than leaving:** the durable fact is
+WRITTEN by one generic authority (`boss_encounter/src/systems.rs:259`, keyed by
+placement, on the death edge) and RETRACTED by a content system naming itself.
+A fact with a generic writer and a hand-named retractor gets its policy from who
+remembered — which is the absence this row is about, stated as an authority
+question.
+⚠ **Cost if the answer is "keep by default":** nothing changes in code, and the
+cut-rope system becomes the opt-in — but the ten silent keeps should still be
+made explicit, or the next boss inherits an unstated rule.
+
+ⓘ Related: this page's #45 (portal-gun entitlement) and
+[`construction-and-reconstitution.md`](engine/construction-and-reconstitution.md)'s
+open question *"which persistent occurrence states are terminal, resettable, or
+recoverable?"* — this is that question, arrived at from the boss end with a
+measurement attached.
+
+### 55. The route-gate vocabulary went 1 family to 5. Should the WORLD grow to use it? (2026-09-04)
+
+`capability-progression-and-world-gating.md` records that five of seven gate
+families became reachable from an authored route on 2026-09-04 —
+`world.flag_set`, `inventory.holds`, `custody.is_held`, `body.can`, `body.fits`,
+`world.switch_on` — each with an end-to-end wall test walking the authored road.
+It also records, honestly, that **no shipped level authors any of the new ones**,
+and names the risk: the dormant-cluster shape, a vocabulary correct in every test
+and reached by nothing.
+
+⭐⭐ **THE DENOMINATOR IS THE THING NOBODY HAD COUNTED, and it changes the
+question.** Measured 2026-09-04 by `scripts/authored_route_gates.py` (committed;
+re-run it rather than trusting this):
+
+```text
+worlds scanned: 6
+LockWall instances: 3  (2 gated, 1 encounter)
+conditions actually authored:  2  world.flag_set
+```
+
+⇒ **The whole authored corpus of route gates is THREE WALLS.** Two carry a
+`gated_by`, both in `intro.ldtk`, both naming the same story flag
+(`bob_field_survey_received`); the third is the goblin encounter lock, which
+belongs to a different writer and correctly has no `gated_by`.
+
+⛔⛔ **CORRECTED WITHIN THE HOUR, BY THIS QUESTION'S OWN RULE: I COUNTED ONE
+CONSUMER.** `ConditionCatalog` has a SECOND authored road, and it is the busier
+one — `ambition_conversation/src/dialog/authored_conditions.rs` installs a Yarn
+verb `condition(id, arg)`, so every `.yarn` line calling it is an authored use of
+the same vocabulary. Re-measured with the instrument extended to both roads:
+
+```text
+LockWall instances: 3  (2 gated, 1 encounter)
+dialogue files: 7  (using a condition: 3)
+condition uses: 18   7 inventory.holds  5 boss.cleared  3 quest.active  3 world.flag_set
+
+TOTAL authored uses: 20  (2 route gates + 18 dialogue lines)
+published but authored NOWHERE (5 of 9):
+  world.switch_on  custody.is_held  body.can  body.fits  encounter.cleared
+```
+
+⛔⛔ **CORRECTED AGAIN 2026-09-04 LATE, and the instrument was mine both times.**
+The figures first read *12 uses, 5 of 7 unauthored* because the script counted
+only the generic `condition(id, arg)` spelling. A condition can also be reached
+through a NAMED Yarn function bound to it — `boss_cleared(id)`, `quest_active(id)`
+— and counting one spelling reported `boss.cleared` and `quest.active` as
+*"authored NOWHERE"* **on the day they were published precisely because their
+authored callers existed.** ⇒ The script now counts both and carries the alias
+map; a new alias belongs there the moment it is bound.
+⭐ **And the corrected numbers vindicate the migration rather than softening it:
+`boss.cleared` has the second-most authored demand of any published condition**
+(5 uses, behind `inventory.holds`' 7), which is why retiring its mirror slice was
+a carve rather than dormant-cluster growth.
+
+⇒ **The correction makes the question SHARPER, not weaker, and moves where the
+answer probably lives.** Twelve authored uses rather than two — still small — but
+**five times more of them are DIALOGUE than routes**, and dialogue already uses
+the vocabulary actively while routes barely do. ⭐ So framing this as a level-design
+question was itself the narrow reading: *"you look like you could climb that"* in
+a `.yarn` line is a `body.can` customer that costs no level geometry at all, and
+nobody has considered it because the owner page is written around routes.
+
+⭐⭐ **CURRENT FIGURES, RE-MEASURED 2026-09-05 — and the first set was 25%
+TOO HIGH because the census counted PROSE.** A `.yarn` file is mostly spoken
+lines and only `<<…>>` is evaluated; `kernel.yarn` has the Kernel Guide SAY
+`boss_cleared("mockingbird") returned TRUE.` Four instruments each scanned whole
+files. Fixed in `ea71c83a8` — `ambition_content::dialogue::yarn::executable_regions`
+is now the one definition, mirrored for Python in `scripts/lib/yarn_source.py`.
+⇒ **The numbers below are EXECUTABLE calls; the 2026-09-04 evening figures they
+replace (30 / 7 / 5 / 3) were raw text.**
+
+```text
+TOTAL authored uses: 24  (2 route gates + 22 dialogue lines)   [was 30]
+   10  wallet.can_afford      <- more than any other, and it was invisible
+    5  inventory.holds                                          [raw 7]
+    3  world.flag_set
+    3  boss.cleared                                             [raw 5]
+    1  quest.active                                             [raw 3]
+published but authored NOWHERE (5 of 10):
+  body.can  body.fits  custody.is_held  encounter.cleared  world.switch_on
+```
+
+⛔⛔ **THE ALIAS MAP WENT STALE A THIRD TIME, WITHIN HOURS OF THE SECOND
+CORRECTION BEING WRITTEN — and the third time it hid the LARGEST customer.**
+`can_afford(price)` was repointed at the catalog that afternoon, and the census
+promptly reported `wallet.can_afford` as *"authored NOWHERE"* while ten shop
+lines called it. Same failure as `boss.cleared` and `quest.active`: a condition
+reported unauthored on the day it was published, **precisely because its
+authored callers existed under an alias.** ⇒ The map is now DERIVED from
+`yarn_vocabulary.rs`'s own binding shape rather than kept by hand, so it cannot
+lag the code; poison-verified by rebinding the id in Rust and watching all ten
+calls follow. ⭐ Three identical staleness events in one day is what moved this
+from "remember to update it" to "the instrument reads the source" — the same
+move `published_conditions` had already made for the vocabulary itself.
+
+⚠ **The paragraph below is kept as the history that argued for it.** Its
+figures (20 uses, 5 of 9) are superseded by the block above.
+
+⚠ **And the arithmetic that survives: five of NINE published conditions are
+authored NOWHERE, by either road** — `world.switch_on`, `custody.is_held`,
+`body.can`, `body.fits`, `encounter.cleared`. That is the dormant-cluster number,
+measured across both consumers and both spellings.
+⚠ It read *"five of seven"* until 2026-09-04 late, when `boss.cleared` and
+`quest.active` were published and the census learned to derive its own vocabulary
+instead of keeping it by hand — which also corrected `held.is_held`, a spelling
+that names no published condition (`ambition_held_items` declares
+`DOMAIN = "custody"`).
+
+⛔ **So "five families reachable and none reached" is NOT a migration backlog.**
+There is nothing to migrate. Converting both existing walls would empty the
+story-gate family — which is the one family the page says should stay available
+*"when sequencing is actually the design"* — and would still leave four families
+unused. **The vocabulary is not unused because authors chose flags; it is unused
+because the world has almost no gates at all.**
+
+⇒ **Jon's call, and it is a CONTENT question rather than an engine one:**
+
+1. **Author them in DIALOGUE first.** The cheapest road by a wide margin: ten of
+   the twelve existing uses are already `.yarn` lines, the verb is installed, and
+   a line conditioned on `body.can` or `inventory.holds` costs no level geometry.
+   ⇒ Promoted to first because the corrected measurement says this is where the
+   vocabulary actually lives.
+2. **Grow the world.** New rooms author routes gated on body size, a carried
+   tool, a cleared arena. The engine is ready and each family has a working
+   example test to copy. ⇒ This is the answer the Goal implies (*"exploration
+   emerges from what the body can do"*) — it costs level design, and it is the
+   only one that makes the EXPLORATION claim true rather than the vocabulary
+   used.
+3. **Leave it.** Twelve authored uses is what the current game needs; the
+   vocabulary waits for the content that wants it. ⚠ Then the dormant-cluster
+   risk is real and should be accepted explicitly rather than by default — this
+   repository has retired clusters for less (`GatePortalRegistry`,
+   `GravityFlipSwitch`).
+4. **Convert the two walls.** ⛔ Not recommended and recorded so it is not tried:
+   both name a story flag because the sequencing IS the design there, so
+   converting them would be authoring a worse gate to exercise a better
+   mechanism.
+
+⚠ **Do not answer this by adding walls to a demo world to make the count go up.**
+A gate authored to exercise the vocabulary is the dormant cluster wearing a
+level's clothes — the count would rise and nothing about the game would.
+
+ⓘ The engine side needs nothing either way: the vocabulary is guarded by
+`every_authored_gate_condition_prepares_against_the_composed_catalog`, which
+walks every `gated_by` in every shipped world against the catalog the game
+composes, so a misspelt condition fails a build rather than a playthrough. That
+guard gets stronger automatically as the corpus grows.
+
+### 53. Are the five declared-but-unnamed optional dependencies SEAMS or DEBT? (2026-09-04)
+
+Five crates declare an optional `ambition_*` dependency that no file in their
+crate directory names — re-derived three times across ~90 commits and five
+carves, most recently 2026-09-03, zero source files each. The scan's limits are
+known and checked: a `cfg(feature)`-gated `use` IS visible to it (control:
+`ambition_content_pack` is optional in four crates with `cfg` blocks and was
+correctly not flagged), only `ambition_app` has a `build.rs` and it does not
+mention `causal`, and no crate renames a dependency with `package = "…"`.
+
+⛔ **The engineering half is finished and it does not decide anything.** Removing
+these cuts NOTHING from the capability footprint — the plain sixth edge was cut
+2026-09-03 and the closure was unchanged at 47/20. The value is only that the
+graph stops claiming edges nobody uses.
+
+⇒ **What is left is intent, which is why it is here.** An optional dep is wired
+into a feature definition, so removing one edits a declared seam:
+
+- `ambition_characters` → `ambition_causal` is a NO-OP feature — it pulls the dep
+  and does nothing else, and its comment says *"Publish this capability's causal
+  facts (brain decisions, for now)"*. **A seam declared ahead of its use is not
+  debt, and deleting it deletes the intent.**
+- `ambition_platformer2d` → `ambition_sfx_bank` is one line of
+  `all_capabilities`, a ROSTER of ~20 crates the facade can offer, and it is the
+  crate's `default`. Removing it narrows what `default` MEANS.
+- `ambition_touch_input` → `ambition_cutscene` sits among nine `dep:` lines that
+  are all used; only this one is unnamed, so it reads as a wire planned and never
+  run.
+- `ambition_sim_view` → `ambition_portal2d` and `game/ambition_app` →
+  `ambition_causal` are the two where the feature does more than pull the dep, so
+  dropping the `dep:` alone leaves the feature meaningful — the smallest safe
+  edits of the five.
+
+⚠ **Whichever way this goes, do not remove blind.** Dropping an optional dep
+changes feature RESOLUTION, not just a line, and only a build says what that
+does; a feature that becomes empty may still be a marker something above
+forwards. The feature-union build is where that surfaces.
+
+⇒ One sentence settles it: **is a declared-ahead-of-use seam something this
+project keeps, or something it deletes until the day it is wired?** Answer that
+and all five follow, in either direction.
+
+### 52. Does a second bark set for one enemy REPLACE the first, or conflict? (2026-09-04)
+
+`CombatBanterRegistry` is the last of the seven "silent overwrite" registries
+whose policy nobody has stated. Four of the seven state the replace in place, one
+is a test hatch, and `GatePortalRegistry` is moot — it has no production producer
+at all (measured 2026-09-04: the only `register` call is in a render test, no
+LDtk world contains a `GatePortal`, no lowering names one).
+
+This one is live: `game/ambition_content/src/dialogue/mod.rs:44` registers bark
+sets in production. So the question is real and it is one sentence.
+
+⇒ It is a CONTENT question, not an engineering one, which is why it is here
+rather than in the queue. **Replace** means the later registration wins and an
+author can override a shipped enemy's barks from their own content pack;
+**conflict** means two packs that both speak for one enemy is an error somebody
+must resolve rather than a silent last-writer-wins. The engine can express
+either — `ambition_registry_core::classify` exists precisely to make the choice
+explicit — so nothing is blocked on it. What is blocked is calling the registry
+migrated, because a registry whose conflict policy is unstated is the drift the
+crate was built to stop.
+
+⚠ Whoever answers should note that this is the same shape as the four already
+settled, and those four all chose replace-and-say-so. A different answer here
+needs a reason specific to barks.
+
+## A top platform and the respawn point want the same 60 pixels
+
+⛔ **Not a tuning mistake — a structural collision, and all three ways out are
+yours.** The fighter's reachable band and the respawn height overlap:
+
+| | rise above the stage |
+|---|---:|
+| single jump apex | **88.2px** |
+| air jump taken at the apex (the ceiling) | **148.3px** |
+| ⇒ a top platform must sit between them | 88.2 – 148.3 |
+| the respawn PLATFORM sits at | **130px** |
+
+`RESPAWN_HEIGHT_PX` is 160 and the platform hangs 30px under the returning body,
+so it lands at rise 130 — **inside the only band a reachable top platform can
+occupy.** `smash_platform_stage`'s top tier is at rise 120, which is why it ends
+up ten pixels under the respawn platforms; moving it anywhere else in the band
+buys at most ~35px of clearance, and a fighter is ~40px tall.
+
+⇒ **The three exits, none of which I should pick for you:**
+
+- **(a) Accept a tight stage.** Put the tier at rise ~95 for ~35px of clearance
+  and let a respawning fighter drop onto it. Genre-normal in spirit — Battlefield
+  has a platform under the respawn point — but tighter than Battlefield's.
+- **(b) Raise the respawn point.** `RESPAWN_HEIGHT_PX` 160 → ~220 opens the band.
+  ⚠ It is a SHARED constant: this changes how returning to the flat stage feels,
+  which is the stage every recorded measurement was taken on and the one you have
+  been playing.
+- **(c) Change the jump arc.** A higher `JUMP_SPEED` or lower `GRAVITY` widens the
+  band. ⛔ That is the fighter's feel, and it moves every spacing, recovery and
+  edgeguard result at once.
+
+⚠ **Why it is being asked rather than fixed:** the flat-vs-platforms measurement
+in [`engine/fighter-brain.md`](engine/fighter-brain.md) was taken on the rise-120
+geometry, and moving the tier by guesswork would leave a recorded number
+describing a stage that no longer exists while not actually resolving the
+collision. Answer this and the geometry and the re-run move together.
+
+## ⭐ THE SMASH FIGHTER: FIVE DECISIONS, ALL MEASURED (index, 2026-09-04)
+
+Five fighter questions below, each carrying numbers and options rather than a
+shrug. ⇒ **Mostly independent — answering any one is useful — with ONE ORDERING that
+matters: 3 should be answered after 1**, because whether deleting `read_weight` is
+free or a behaviour change depends on which ladder authority survives. See the
+note under the table.
+
+| # | question | the measurement behind it | where |
+|---|---|---|---|
+| 1 | **Which of two ladder authorities should exist?** | `profile_for_level` forks between the shipped `.ron` and an engine floor; **four separate defects were symptoms of that one fork**. Removing the loser rewrites **no authored content** and there is exactly **one** production installer. ⚠ **A grep finds FOUR sites and only one is that installer**, so the breakdown is worth carrying: `ambition_content/src/plugin.rs:61` installs it in the game; `brain/fighter/profile.rs:106` is the struct DEFINITION; `ladder_rig.rs` and `capture_probe.rs` are the two tools' `--ladder` flags; and three more in `brain_builders.rs` sit under `#[cfg(test)]`. ⭐ **And it is not only about difficulty numbers: the floor switches the L3 rollout ON at rungs 6–9 (`rollout_depth: 12`) while the shipped `.ron` sets `0` on all nine — so an entire search subsystem, plus `read_weight` and the Dodge/Shield suppression, is reachable only through the authority that loses.** | below |
+| 2 | **What are the two Robots' four specials?** | ⭐ **Source measurement, no bouts and no statistics**: enumerating every `(base, direction, stance)` press shows George's unanswered set is a strict **SUBSET** of the stand-ins', with a surplus of **exactly eight, every one a `special`** — so the stand-ins are George's genre shape with the special button removed, and the four slots are named by the type. ✔✔ The ladder line (*George significantly outfights a stand-in*) is corroboration and its hold was **LIFTED 2026-09-04 by re-running that arm**: `12 : 0 = 100%, p = 4.9 × 10⁻⁴` — unanimous across every pair, the strongest split twelve seeds can produce, columns reproducing at `316% : 198%`; the decision does not rest on it. ⇒ The structural form of the question — should `fighter_moveset()` go through `SmashRepertoire` at all? — is below. | ↓ |
+| 3 | **`read_weight`: wire it up or delete it?** | Authored **0.0 → 1.0** on all nine rungs (`0.0 0.0 0.0 0.1 0.2 0.3 0.5 0.7 1.0`) and **read by nothing** — its only live consumer sits behind a rollout those rows disable. ≤184 bytes/fighter/snapshot, so the cost argument is weak; the legibility one is not. | ↓ |
+| 4 | ✔ **mostly answered** — does "harder" mean deals more damage, or is harder to beat? | Settled by fixing the clock: at the shipped 480s limit bouts RESOLVE, and rung 5 neither out-damages nor outlives rung 3. ⚠ **That rests on the rig's MEDIAN columns, and `median()` was itself corrected 2026-09-04** — it returned the upper-middle order statistic, and every `--paired` run has an even sample, so the recorded columns are all pre-fix. The conclusion is unlikely to move (it is a both-directions null, not a margin) but it is unverified against the corrected instrument. | ↓ |
+| 5 | **What is standing still WORTH?** | ⛔ **16 of George's 28 authored moves never start** in a 120s census on the shipped ladder — no smash, no tilt — with the dash attack at **81%** of starts. ⭐ Cause traced to source: movement and attack are scored INDEPENDENTLY and **neither axis declines on score**, so the fighter moves whenever it can and attacks whenever it can; 73 of 81 attack decisions coincide with `Approach`, which drives a run, where a neutral press converts to the dash attack. ⭐⭐ **You have ruled on this class before** — the CPU grab, in range 35% of a match and never thrown, was a missing SCORER TERM, and your 2026-08-19 ruling was the policy half first, owned by the fighter capability. ⇒ The template it produced (`capture_value`: a term of its own, gated on facts, with explicit zeros where a naive rule scores highest) applies directly. Mechanism, costed fix, acceptance test and the predicted failure mode are in `queue.md`. | `queue.md` |
+
+⚠⚠ **ROW 2's WORD *"significantly"* IS ON HOLD (2026-09-04), AND ROW 2 DOES NOT
+DEPEND ON IT.** The ladder rig's `report_row` was found to carry two authors of
+one row's meaning — the printed direction from pooled medians, the
+`(within spread)` qualifier from a paired damage-only sign test that discards
+direction. ✔ **Fixed 2026-09-04 (`36dd9a248`) AND RE-RUN THE SAME DAY — the hold
+is lifted.** The four cells came back unchanged through the repaired rig (`3 vs 1`
+higher and `5 vs 3` LOWER, both significant), so verdicts taken from that tool are
+confirmed rather than merely re-stated (recorded in `queue.md`'s **D72** row and in
+[`engine/fighter-brain.md`](engine/fighter-brain.md)).
+
+⭐ **But row 2 now rests on something the rig never touched.** Enumerating every
+`(base, direction, stance)` press against both contracts is a pure source
+measurement with no bouts, no seeds and no statistics in it: George's unanswered
+presses are a strict **subset** of the stand-ins', and the surplus is **exactly
+eight, every one a `special`**
+(`the_stand_in_is_george_s_genre_shape_with_the_special_button_removed`). ⇒ **The
+stand-ins are George's genre shape with the special button removed** — which is
+the whole of what row 2 asks about, established without the instrument under
+question. ⇒ **This decision is answerable now**; the 318% : 199% line is
+corroboration, not the load-bearing evidence, and it can be re-taken later
+without changing the question.
+
+
+⇒ **1 and 3 interact**: `read_weight` is inert *because* the shipped rows disable
+the rollout, so an answer to 1 that made the demo compose `ambition_content`
+changes nothing for 3 — but an answer that removed the floor would make every
+composition's ladder explicit, which is the context 3 is decided in.
+
+⛔ **AND THEY INTERACT HARDER THAN THAT, in a direction that changes what
+"delete it" means — traced 2026-09-04.** The nine AUTHORED values are unreachable
+*in principle*: the same `.ron` rows that supply them set `rollout_depth: 0`, so a
+ladder that authors `read_weight` disables its only reader in the same breath.
+⚠ **But the FIELD is not dead.** The engine floor sets `read_weight: t * 0.6` and
+switches the rollout ON at rungs 6–9, so under the floor it is read and has
+effect.
+
+⇒ **So option (b), "delete the field", is only free if the SHIPPED LADDER wins
+decision 1.** If the floor survives instead, deleting the field is a behaviour
+change at the top four rungs, not a cleanup. ⭐ Which means **3 should be answered
+after 1, not beside it** — and the ordering is not obvious from either question on
+its own.
+
+
+⛔ **NOT on this list, because it is a defect rather than a decision:**
+`D-BRAIN-MENU` in [`queue.md`](queue.md) — the brain scores movement and attack
+independently, so it approaches-and-attacks on the same tick, every neutral press
+converts to a dash attack, and **the shipped fighter throws one move 81% of the
+time and never a smash or a tilt**. ⚠ Its remedy is a scoring-shape change and
+*will* need a design call, but the defect is established and does not need one.
+
+---
+
+
+⭐⭐ **BEFORE THE ARGUMENT BELOW: THIS IS NOT A ONE-OFF, AND THAT CHANGES WHAT YOU
+ARE DECIDING.** Three instances of the same shape — **two authors of one answer** —
+were found in this one area on 2026-09-04, each separately, none suggesting the
+others:
+
+| where | the two authorities | what it cost |
+|---|---|---|
+| `profile_for_level` | authored `.ron` vs engine floor | **four** defects, all symptoms |
+| `ladder_rig::report_row` | pooled-median direction vs a sign test that discards direction | every `(within spread)` label put on hold |
+| the fighter brain's tick | movement and attack selected **independently** | `D-BRAIN-MENU`: 16 of 28 authored moves never start |
+
+⚠ **The tell is identical in all three: the two authorities usually AGREE**, so the
+fault appears only on the minority of inputs where they diverge, and the output
+carries **no residue** distinguishing *"they agreed"* from *"they disagreed and one
+won"*. ⇒ Which is exactly why each survived review — every example anyone examined
+was one where it did not matter.
+
+⇒ **So the question below is a specific case of a general one you may want to rule
+on once**: *when one answer is assembled from more than one computation, which is
+authoritative, and what happens when they disagree?* ⛔ And in all three the remedy
+was the same and it is **removal of the second authority, never a referee** — a
+check that the two agree keeps both and adds a third thing to maintain. The repo's
+own principle elsewhere already says it: **one authority per question.**
+
+## Who owns Smash's CPU difficulty ladder — and the demo has been fighting the floor
+
+⭐⭐⭐ **THE QUESTION HAS A BETTER FORM, FOUND 2026-09-04 AFTER FOUR SEPARATE
+DEFECTS TURNED OUT TO BE ONE MECHANISM.** `profile_for_level` is:
+
+```rust
+ladder.and_then(|l| l.level(level)).cloned()
+    .unwrap_or_else(|| FighterBrainProfile::for_level(level))
+```
+
+⇒ **Two authorities answer "what does rung N mean", and both ship.** The authored
+`.ron` wins where a composition installs one; the engine floor wins where none
+does — and **nothing at the call site says which you got.** ⚠ The function's own
+doc names the shape: *"a rule about which of two sources wins cannot be enforced
+by the source that loses."* It knows it is arbitrating.
+
+⇒ **Four defects I reported separately are four exits from that one fork**, each
+"the losing authority answered and looked plausible": a rig measuring the floor's
+weights under a header claiming the authored rows; `UtilityWeights::default()`
+turning out to BE the level-9 row, so every rung scored identically; the floor
+arming the L3 rollout at level 6 where the shipped rows disable it everywhere; and
+a long characterisation of rollout behaviour no player could ever reach.
+
+⭐ **So the question to answer is not "who owns the ladder" — which has no
+principled answer — but "WHICH OF THESE TWO AUTHORITIES SHOULD EXIST", which has
+one, and it is this repo's own: _one authority per question_.**
+
+⇒ **And the price of the current answer is now measured.** A composition that must
+supply a ladder, or a floor that REFUSES rather than substitutes, would have made
+those four defects **impossible instead of findable**.
+
+⭐⭐ **THE COST OF REMOVING THE LOSER IS ENUMERATED, not estimated.** Two questions
+decide how expensive a fork removal is, and both have answers here:
+
+1. **Does it rewrite authored content?** ⇒ **No.** The nine rungs in
+   `fighter_brain_ladder.ron` stay exactly as written — the floor is a *fallback*,
+   not a spelling, so removing it changes which compositions must supply a ladder
+   and touches no authored row. ⚠ A sibling fork closed the same day
+   (`boss.cleared` retiring a mirror slice) had the same property, and it is what
+   made that one an afternoon's work.
+2. **How many compositions rely on the fallback?** ⇒ **There is exactly ONE
+   production installer of `AuthoredFighterLadder`** — `game/ambition_content/src/plugin.rs:61`.
+   Every `AuthoredFighterLadder` insertion in
+   `crates/ambition_platformer2d_actor_monolith/src/features/ecs/brain_builders.rs`
+   is inside `#[cfg(test)]`. ⇒ **So every composition that does not include
+   `ambition_content` fights the floor**, and that set is exactly the standalone
+   demo apps — including the smash demo, which is the one that has been measuring
+   wrong all along.
+
+⇒ **Which makes the decision concrete.** Removing the floor means the smash demo
+app must supply a ladder: either compose `ambition_content` (the 38-dependency
+option already costed above) or ship its own nine rows. ⭐ **The second is a small
+file and no dependency**, and it would also let the demo diverge deliberately from
+the game's ladder instead of accidentally. ⚠ Against that: the floor
+exists so a demo with no authored content still runs, which is a real requirement
+and not one I am proposing to drop. ⇒ The trade is *convenience for one class of
+composition* against *four defects that each took a day of instrument work to
+see*, and that is a trade you can now make with numbers on both sides.
+
+⚠ Pinned by `the_floor_and_an_authored_ladder_disagree_and_the_caller_cannot_tell`,
+which fails loudly if the two ever agree — with a message saying to re-derive the
+findings rather than adjust the test.
+
+⛔ **The fact first, because it is worse than the question.** The standalone smash
+demo app gives **every CPU rung the same utility weights**. `profile_for_level`
+prefers `Res<AuthoredFighterLadder>` and falls back to
+`FighterBrainProfile::for_level`, whose `utility_weights` is
+`UtilityWeights::default()` — which *is* `v1()`, i.e. **the level-9 row** — for
+every level. The authored rows are inserted by `ambition_content`, and neither
+`ambition_demo_smash` nor `ambition_demo_smash_app` depends on it.
+
+⇒ In the shipped game (`ambition_app` composes `ambition_content`) your CPUs get
+the authored ladder. In the demo app — **and therefore in every ladder-rig
+measurement this project has ever recorded** — they do not. The rig prints the
+condition now and two tests pin it (`the_ladder_the_demo_runs`), but neither
+repairs it, because the repair is your call:
+
+- **(a) The demo composes `ambition_content`.** The demo then matches the shipped
+  game exactly, which is what a measurement rig should do. ⚠ Costs the demo a
+  38-dependency crate it currently does without, which cuts against the
+  capability-composability doctrine landed the same day.
+- **(b) Smash ships its own nine rows.** `for_level`'s own doc invites this —
+  *"a game that cares ships its own nine rows"* — and
+  [`demos/super-smash-siblings.md`](demos/super-smash-siblings.md) already puts
+  *"CPU-fill/difficulty policy"* in what Smash owns. ⛔ But `ambition_content`
+  also inserts one, so with both present the winner is a plugin-order accident
+  unless the rule is made explicit. It also makes Smash's ladder a second thing
+  to tune.
+- **(c) Leave it, knowingly.** The demo is a fighting sandbox, not the product,
+  and the floor's reflex-only ladder is a legitimate thing to iterate against.
+  ⇒ Then the rig's numbers must never be quoted as being about the shipped
+  fighter, which is exactly the mistake this page exists to prevent.
+
+⚠ **What the answer changes.** Every recorded ladder result — including
+`fighter-brain.md`'s finding that the ladder inverts at the 5→6 boundary — is a
+statement about the floor's reflex ladder (reaction, APM, noise, read weight) and
+not about the difficulty ladder you authored. Nobody should tune the brain
+against those numbers until this is answered.
+
+⭐⭐ **AND THERE IS NOW A REASON TO PREFER (a), found 2026-09-04 after this
+question was written.** The floor turns the L3 rollout ON at level 6
+(`for_level`: `rollout_depth: if level >= 6 { 12 }`); **your authored ladder turns
+it OFF on all nine rows**, with the comment *"Rollout fields remain zero until
+rollout fidelity is good enough to enable them without changing lower-level
+behavior."*
+
+⇒ So the demo app is not merely measuring a different WEIGHT set — it is running a
+search your ladder deliberately disables. Measured consequences, only under the
+floor: a rollout fighter selects `Dodge` and `Shield` **zero times in 662
+decisions**, and a `6 vs 5` match goes from unresolvable in 60 seconds to both
+fighters losing every stock.
+
+⇒ **Option (a) would fix that as a side effect** — composing `ambition_content`
+gives the demo the authored rows, which zero the rollout, which removes the defect
+from every future rig measurement without touching the brain. ⇒ That is a second
+argument for (a) beyond "the demo should match the game", and it is the reason the
+38-dependency cost may be worth paying.
+
+⭐ **Reassurance in the same finding:** because your ladder zeroes rollout
+everywhere, **no player has ever met this defect.** The precaution in that comment
+was right, and the measurement is the evidence for a call you made without it.
+
+## The two Robot stand-ins have no special button — what should they have?
+
+⛔⛔ **THIS HEADING SAID "TWO OF THE THREE SMASH CHARACTERS" AND THAT WAS A
+DENOMINATOR ERROR — corrected 2026-09-04 the same day, by pulling a thread in the
+select screen.** There are **three** distinct rosters in this code and I quoted
+the smallest:
+
+| | what it is | size |
+|---|---|---|
+| `SmashRoster::default()` (`OWN_FIGHTERS`) | the two stand-ins the demo opens with | **2** |
+| `SMASH_ROSTER` | the grid's WISH LIST | **23** |
+| `SmashRoster::assemble(registry)` | **what a player can actually pick** | **3 standalone, ≥8 composed** |
+
+⇒ The three I counted are *"every id this demo can SEAT"* in the **standalone demo
+app**. In the composed game the grid assembles ≥8 fighters (`smash_roster_movesets.rs`
+asserts that floor), because `ambition_content` registers the pirate admiral,
+Emmy Noether, the goblin and others that `assemble` then admits.
+
+⛔⛔⛔ **AND SMALLER STILL: IN THE COMPOSED APP THE TWO STAND-INS ARE NOT ON THE
+GRID AT ALL.** `assemble` drops a stand-in the moment the character it stands in
+for resolves —
+
+```rust
+!STAND_INS.iter().any(|(copy, real)| copy == *id && present(real))
+```
+
+— and `STAND_INS` is `[(smash_duelist_a, "player_robot_v3"), (smash_duelist_b,
+"player_robot_v2")]`. ⇒ `player_robot_v3` **is** on the composed grid:
+`smash_roster_movesets.rs`'s `KNOWN_UNARMED` names it, and that list is built by
+iterating the assembled grid in the composed host.
+
+⇒ **So the two 18-verb fighters exist in the STANDALONE SMASH DEMO and nowhere
+else.** In the composed app a player picks `player_robot_v3` — a real character
+with its own catalog row — and never meets `smash_duelist_a`.
+
+⚠ **Which does not make the finding empty, and the distinction is yours to
+weigh**: the standalone demo is a shipped product ("Super Smash Siblings"), its
+catalog default is one of the two, and a dead special button is a dead special
+button there. ⇒ **But it is a defect in ONE of the two products**, not in the
+fighter roster generally, and the decision below should be read that way.
+
+⭐ **So the finding is unchanged in substance and much smaller in scope.** Two
+specific fighters — `smash_duelist_a` and `smash_duelist_b`, both carrying
+`fighter_moveset()` — bind 18 verbs against George's 26. That is still true, still
+measured, and still means a dead special button on the demo's catalog default. ⛔
+It is **not** "two thirds of the roster", which is what the old heading implied and
+what would have made this a much bigger decision than it is.
+
+✔✔✔ **AND NOW MEASURED TOO — `report_the_smash_kit_every_selectable_fighter_has`
+RAN 2026-09-04 after the disk was reclaimed, and PASSED.** Twenty selectable
+fighters, every one `authored  22/22 presses`, and **not one** row reporting a
+press answered by a move an earlier press already claimed (`not its own: -`
+throughout). ⇒ The composed grid's kits are complete **in fact**, not only by
+construction — and the population is **20**, where this page had said *"≥8"*.
+
+| fighter | presses | distinct moves |
+|---|---|---|
+| `smash_george_booul` | 22/22 | 35 |
+| `player_robot_v3` | 22/22 | 34 |
+| `perfect_cellular_automaton` | 22/22 | 34 |
+| `npc_pirate_admiral`, `goblin`, `npc_emmy_noether`, `npc_carl_stargan`, `special_patent_clerk`, `pointed_polygon`, `pugnacious_polygon`, `author`, `performer`, `npc_ninja_shadow_oni_leader` | 22/22 | 33 |
+| `npc_oiler` | 22/22 | 32 |
+| `projectile_polygon` | 22/22 | 27 |
+| `mary_o_tall`, `sanic`, `npc_alice`, `npc_bob` | 22/22 | 26 |
+
+✔✔ **The TYPE argument that preceded it, which is why this was answerable before
+the build came back.**
+
+`SmashRepertoire` has **nineteen** fields and **zero** of them are `Option`: jab,
+three tilts, three smashes, five aerials, four specials, capture, taunt and dash
+attack. ⇒ **A fighter built through `SmashRepertoire::into_contract()` cannot have
+a partial kit — the struct literal will not compile without every slot.**
+
+⭐ **And every moveset of a SMASH-SEATABLE fighter reaches that constructor.**
+Fourteen files call `into_contract()` directly, and medic, performer, author and
+officer are `archetype_moveset::under_own_name(<a repertoire-built moveset>, ..)`
+with one slot swapped by `special_slots::replace_special`. ⇒ **So the composed
+grid's fighters have full kits by construction.**
+
+⛔ **THE SCOPE WORD IS LOAD-BEARING AND I HAD IT WRONG FIRST.** An earlier draft
+said *every authored moveset in `ambition_content`*, and that is false:
+`theorem_chain_moveset` binds **one verb** (`special` → `theorem_chain`) with no
+repertoire at all. ⇒ It is **Robot v2's**, for the duel arena — *"the duel arena
+fields Robot v2 against the PCA, and v3 carries the platform-fighter table
+instead"* — and `player_robot_v2` is **not in `SMASH_ROSTER`**, so it is not
+seatable here. ⚠ Found by my own arithmetic not adding up (14 + 4 = 18, not 19)
+and chased to a file holding **two** moveset functions, which is why a per-FILE
+count read as a per-FUNCTION one.
+
+⇒ **What that exception actually teaches: the repertoire is a SMASH convention,
+not a universal one.** A one-verb contract is perfectly legitimate for a character
+in another mode, so the guarantee above is a property of *this grid's* roster and
+not of the codebase.
+
+⛔ **Which relocates the gap precisely: `fighter_moveset()` — the stand-in table —
+is the ONLY moveset in the demo that does not go through the repertoire.** It
+hand-builds a verb list, which is exactly how it can be missing eight special
+presses while nineteen other fighters cannot be. ⇒ The stand-ins' hole is not a
+roster-wide authoring debt; it is the one contract that bypasses the type that
+would have prevented it.
+
+⚠ **Two things this does NOT establish, stated so the next reader does not
+over-claim it.** (1) It guarantees each slot is FILLED, not that the slots are
+filled with DISTINCT moves — a repertoire could bind one `MoveSpec` into several
+slots, which is precisely the `its_own` rule that
+`report_the_smash_kit_every_selectable_fighter_has` applies and this argument
+cannot. (2) It covers fighters authored in `ambition_content`; a composition
+seating a fighter from anywhere else is outside it. ⇒ So that test still has a
+job, and running it is still worth doing —
+`cargo test -p ambition_app --test app_it report_the_smash_kit -- --nocapture` —
+but **the decision below no longer waits on it.**
+
+⭐⭐ **AND IT CHANGES THE SHAPE OF THE DECISION, which is the useful part.** The
+question reads as *"what four specials should the Robots have?"* — a design
+question with no wrong answer and therefore no way to finish. ⇒ The structural
+form is smaller and it terminates: **should `fighter_moveset()` be built through
+`SmashRepertoire` like every other fighter?**
+
+| | today | through the repertoire |
+|---|---|---|
+| how the contract is built | a hand-written verb list | the same constructor as 19 others |
+| the four specials | absent, and nothing says so | **cannot compile without them** |
+| the gap recurring | a future hand-built table repeats it | the type forbids it |
+
+⇒ **Answering the structural question forces the design question to be answered
+once, and then makes it unaskable again.** The cost is the same either way — four
+special slots authored, which is the eight presses measured above — but only one
+of the two spends it on something that cannot regress.
+
+ⓘ **AND IT IS NOT A ONE-OFF — it is an instance of a tracked campaign.** `D166`
+in [`queue.md`](queue.md) is *"make the character-authoring boundary load-bearing
+where a real character still bypasses it"*, and its two closed slices were both
+Smash demo work. ⇒ `fighter_moveset()` is a third instance, recorded there with
+this evidence. ⭐ **That reframes the trade honestly**: the architectural direction
+already has a queue row and a precedent, so the question here is not *"should the
+boundary hold"* but *"is a placeholder the right exception to it"*.
+
+⚠ **Not proposing it as the answer.** There is a real case for the other side: a
+stand-in is *meant* to be thin, and a type that demands nineteen slots is a tax on
+placeholders — which is presumably why the hand-built table exists at all. ⇒ That
+is the trade to rule on, and it is a smaller and more durable question than
+choosing four moves.
+census that would answer it is one command each
+(`capture-probe --character <id> --ladder <ron>`).
+
+⭐ **The measurement, first, because it is not what anybody assumed.** The demo's
+**standalone demo** seats three characters — *Robot v3* (`smash_duelist_a`),
+*Robot v2* (`smash_duelist_b`) and *George Booul*. ⚠ **The COMPOSED app seats ≥8**;
+see the correction under this heading.
+
+⛔⛔ **AND THE DENOMINATOR CHECK I DID HERE WAS ITSELF WRONG, which is the
+instructive part.** I verified that `SMASH_CATALOG_RON` holds exactly three
+character ids and that the `duelist_l1`/`l3`/`l5`/`l6`/`l9` entries beside them are
+difficulty POLICY keys rather than characters — **all true, and the wrong
+question.** ⇒ I checked whether the number *3* was miscounted; I did not check
+whether *3* was the right SET. The select grid does not read that catalog's ids at
+all: it `assemble`s `SMASH_ROSTER` (23 entries) against the composition's registry.
+⚠ **A denominator check that verifies the count without verifying the population is
+half a check**, and it reads as rigour — which is exactly why it survived. `register_character` gives George's
+authored table to George and `fighter_moveset()` to the other two — and counted
+off the contracts themselves, that stand-in table binds **18 verbs to George's
+26**.
+
+⇒ The eight the Robots did not have: `special`, `special_forward`, `special_up`,
+`special_down`, `special_air_down`, `attack_forward`, `attack_dash`, `taunt`.
+
+✔✔ **THREE OF THE EIGHT ARE NOW AUTHORED, and the live figure is THREE —
+updated 2026-09-05 each time, which is what this entry's guards instruct.**
+`special_forward` answers with `lunge_grab` (the command grab), `special_down`
+with `riposte` (the counter), and the NEUTRAL special with `read_and_seize` (a
+hit confirm into the grab).
+⭐ **The neutral binding took the gap from six to three by itself**, because
+`directional_verb_chain` falls back to the base verb: binding `special` answers
+every remaining GROUND press. What was left was the AERIAL column, because all
+three moves were `grounded_only`.
+
+⛔⛔ **AND THAT EXPOSED SOMETHING WORSE THAN A GAP: THESE FIGHTERS HAD NO
+RECOVERY.** `special_up_air` fell through the whole chain to silence, so a
+stand-in knocked offstage had jumps, a ledge grab, and no special at all. A
+platform fighter without an up-B is not one with a small kit; it dies to any
+edgeguard. ✔ Fixed 2026-09-05 by `slip_upward`, an airborne-only teleport — the
+technique whose own doc says the aim assist "is the whole reason this is a
+technique rather than an authored impulse" — with ledge assist and brief
+intangibility. **Authoring, no engine.** ⇒ The gap is now **two**:
+`special_neutral_air` and `special_back_air`.
+
+⇒ So the remaining question is smaller and different from the one this entry
+asks. Not "what are their four specials" — they have four bound — but **what, if
+anything, these fighters do with the neutral and back special in the air.**
+The guards `the_only_presses_this_fighter_cannot_answer_are_specials` and
+`the_stand_in_is_george_s_genre_shape_with_the_special_button_removed` both
+carry `6` now and both went red on the change, which is the mechanism working.
+⚠ **THIS DOES NOT ANSWER THE QUESTION BELOW.** What are the Robots' specials, as
+an identity, is still Jon's — these two were authored because the ENGINE work
+needed a customer (Jon, 2026-09-05: *"when we build the code for these we should
+exercise them in the characters"* and *"we can tune who the moves belong to
+later"*), not because the roster question was settled. ⇒ Read the remaining four
+slots as four, not six.
+
+⛔⛔ **AND THE VERB COUNT OVERSTATED IT, because a fighter ANSWERS presses it
+never BINDS.** `directional_verb_chain` always falls back to the base verb, so a
+missing `attack_forward` is not silence — the press answers with the `jab`.
+⇒ Enumerated instead of inferred: every `(base, direction, stance)` press against
+both contracts.
+
+| | presses that answer with NOTHING |
+|---|---:|
+| the stand-ins | **15** |
+| George | **7** |
+| **the genuine difference** | **8, every one of them a SPECIAL** |
+
+⛔ **AND EVEN THAT TABLE'S LAST ROW WAS A SUBTRACTION, not a measurement** — the
+third correction on this one question. 15 and 7 differ by 8 whatever the two sets
+share; the word *"genuine"* asserted an overlap nobody had checked.
+
+✔ **Checked 2026-09-04, and it holds in the strongest form available**
+(`the_stand_in_is_george_s_genre_shape_with_the_special_button_removed`,
+`game/ambition_demo_smash/src/moveset.rs`): George's silent presses are a strict
+**subset** of the stand-ins', and the surplus is exactly the eight specials.
+
+⭐⭐ **WHICH MAKES YOUR DECISION SMALLER THAN THE HEADING SUGGESTS, and this is
+the part worth reading.** The stand-ins are not *"a fighter missing an unknown
+amount of stuff"* — they are **George's genre shape with the special button
+removed**. Every tilt, every smash, every aerial, the grab and all four throws
+already answer. ⇒ So the question is not *"do they get kits"*; it is **"what are
+their four specials"**, and the four slots are named by the type:
+`NeutralSpecial`, `side_special`, `UpSpecial`, `DownSpecial`. Four answers, one
+fighter, and the engine work is zero — `lunge_grab` already proved a special can
+be authored on this table without touching the engine.
+
+ⓘ **Or one answer, if you want the cheapest thing that closes it.** A stand-in
+with a neutral special alone would answer four of the eight presses, because the
+back press falls down the chain to the neutral one — measured on George, where
+removing his neutral special silenced `special_neutral` *and* `special_back` in
+both stances.
+
+⇒ The 8: `special` neutral / up / down / back, each on the ground and in the air.
+⭐ **And the 7 George also refuses are shared** — `smash` neutral, `smash` back,
+and the three aerial smashes — which is a genre convention, not a defect, and
+counting them as a gap would have been wrong in the other direction.
+
+⛔ **So "same for the forward tilt and the dash attack" was WRONG and is
+withdrawn.** Both fall back to the jab. The dead-button finding is entirely about
+the special family, and it is 8 presses rather than "8 verbs" — a distinction that
+matters because `attack_forward` was in my verb list and is not a gap at all.
+
+⚠ Found by a sibling session's third question — *"is this every way the thing
+appears?"* — after I had already checked the count and the population. **A verb
+count is a count of BINDINGS; what a player presses is answered by a CHAIN.**
+
+⛔ **So the special button did nothing at all for the two stand-ins** —
+not a weak special, a press that resolved to no move. Same for the forward tilt
+and the dash attack. ⚠ And the catalog default is one of the two, so it is the
+fighter a player gets without choosing.
+
+✔ **One of the eight is closed and it did not need you.** `P11`'s command grab
+was already named in the parity inventory as authoring-with-no-engine-work, so
+`special_forward` is now `lunge_grab` on both Robots — a slower, longer-reaching,
+lunging cousin of the standing grab that pummels and throws through the same four
+verbs. That was a queue item, not a design call.
+
+⛔ **THE SEVEN THAT ARE LEFT ARE DESIGN AND THEY ARE YOURS.** Every one is
+authoring against a seam the engine already resolves — George is the proof, since
+his table binds all eight and needed no engine work to do it. What is missing is
+not capability, it is a decision about what these characters ARE.
+
+⇒ **The question is which of these you want**, and they are genuinely different
+games:
+
+- **(a) The Robots are stand-ins and should stay thin.** They exist so a match
+  has bodies in it; George is the fighter. Then seven dead buttons are correct
+  and the command grab was arguably one too many. ⚠ If this is the answer, say so
+  and I will revert `lunge_grab` — it is one commit.
+- **(b) The Robots are characters and should be finished.** Two robots that
+  differ from each other and from George. This is the most work and the most
+  game: it is three fighters instead of one.
+- **(c) The Robots share one kit that is not George's.** Cheapest of the three
+  real answers — one special table, both Robots, deliberately simpler than George
+  so the roster reads as "the fighter and the sparring partners".
+
+⚠ **What I am NOT asking.** Not which moves. If you pick (b) or (c) I can author
+plausible ones and bring them back for a look — the same way the command grab
+went in. The decision I cannot make is whether these characters are supposed to
+be fightable at all.
+
+⭐⭐⭐ **NOW MEASURED PROPERLY, AND IT IS NOT CLOSE: at the SAME rung, on the
+shipped ladder and the shipped clock, George significantly outfights a stand-in.**
+
+⚠ **ON HOLD, and this row does not rest on it (2026-09-04).** *"Significantly"*
+here came from the rig, whose direction and qualifier were computed separately
+until `36dd9a248`. ✔✔ **RE-RUN 2026-09-04 AND THE HOLD IS LIFTED — the arm is
+UNANIMOUS.** Rung 5 against rung 5, George vs `smash_duelist_b`, paired, 12
+seeds, shipped clock: **`higher outfights [12 : 0 = 100%, p = 4.9 × 10⁻⁴]`** —
+every single pair, which is the strongest split twelve seeds can produce.
+Columns reproduced at `316% : 198%` against the `318% : 199%` recorded below, the
+small drift being `median()`'s correction exactly as predicted. ⇒ **So the
+corroboration is stronger than the word *significantly* ever conveyed**, and the
+decision now rests on a source measurement AND an unanimous bout result rather
+than on the source measurement alone. ⇒ **The decision is carried by a source
+measurement instead** — George's unanswered presses are a strict SUBSET of the
+stand-ins', surplus exactly eight `special`s — which involves no bouts, no seeds
+and no statistics. Treat the table below as corroboration.
+
+| arm (rung 5 vs rung 5, paired, 12 seeds) | dealt | survival | verdict |
+|---|---|---|---|
+| **George vs Robot** | **318% : 199%** | 62.7s : 58.2s | ⭐ **higher outfights — SIGNIFICANT** |
+| Robot vs Robot *(null control)* | 369% : 389% | 134.3s : 131.5s | *(within spread)* — correctly null |
+
+⇒ **The stand-ins are not merely plainer, they are measurably weaker at identical
+difficulty settings.** Difficulty rung, ladder, clock, stage and seed set are all
+held equal; the only thing that differs is the kit. ⭐ And a George match RESOLVES
+in about 63 seconds where two Robots take 134 — **George kills twice as fast.**
+
+⭐ **The null control is what makes that a measurement rather than a label.** Two
+mechanically identical fighters (both Robots receive `fighter_moveset()`) swapped
+between seats come back *within spread*, exactly as a null should. So the
+instrument is not simply declaring whichever seat it prefers.
+
+⚠ **This measurement did not exist until the rig was repaired to take it**, which
+is worth one line because it explains why nobody had it: `--paired` swapped the
+RUNGS, so a *fighter* comparison got a control that cancelled the wrong term. The
+unpaired attempt gave a 329% : 225% gap and still reported `(within spread)`. ⇒
+The question could be asked and could not be answered.
+
+⇒ **What it means for the three options above.** It does not choose one — that is
+still a design call — but it removes "the Robots are fine as they are" as a
+*measured* position. Anyone picking **(a) keep them thin** is now choosing a
+roster where the default character is **measurably thinner** than the alternative at
+the same difficulty setting, which may be exactly right for sparring partners, but
+should be chosen rather than inherited.
+
+⭐ **One measurement that should inform this, because it surprised me — and it is
+PARTIAL, stated as such.** Two arms of the same run, both on the shipped ladder,
+paired, 12 seeds, differing only in who is fighting. Two of the four rung cells
+have reported so far:
+
+| rung cell | Robot vs Robot (stocks left) | George vs George |
+|---|---|---|
+| 3 vs 1 | 2 : 1 | **0 : 0** — both eliminated, ~57s |
+| 5 vs 3 | 2 : 2 | **1 : 1** |
+
+⇒ George is markedly more lethal in both cells, in the same direction. Robot
+matches do not resolve: each fighter loses one stock of three in sixty seconds
+and the match continues. ⚠ **Two cells is not four**, the remaining two are still
+running, and I have not run the swap that would rule out this being about
+George's damage numbers rather than his kit.
+
+⇒ What it suggests, at the strength two cells support: **a large part of "the CPU
+ladder produces sluggish matches" may be that every measurement of it was taken
+between two fighters with no specials.** Not proof the Robots need kits — but it
+does mean the pacing complaints and the roster question may be one question.
+
+⇒ **This also touches the ladder-ownership question above.** `ladder_rig` defaults
+to the two Robots, so every number in `fighter-brain.md` describes the thin
+fighters and not the authored one.
+
+## `read_weight` is authored on all nine rungs and does nothing — wire it up, or delete it?
+
+⭐ **The measurement, and it is not a judgement call.** `read_weight` rises 0.0 →
+0.9 across the shipped `fighter_brain_ladder.ron` and reads like one of the
+ladder's five difficulty axes. It has two consumers:
+`HabitModel::read_bonus`, which has **no production callers at all**, and
+`habits.read(situation)` inside `refine_by_rollout` — which returns immediately
+unless `rollout_depth > 0 && rollout_k > 0`, and the shipped rows set both to zero
+everywhere.
+
+⇒ **So no fighter has ever used it.** Confirmed three ways: the source chain, the
+absent caller, and a rig arm with rung 5's `read_weight` zeroed that came back
+**byte-identical** to its control.
+
+⚠ **And the corpus is named, because "nothing reads it" is the strongest negative
+claim on this page.** The caller search is `git grep`, which walks the COMMITTED
+tree — so an untracked file's calls would be invisible to it. ⇒ Checked:
+`git status --untracked-files=all` reports **zero** untracked files in this
+worktree, so the derivation saw everything. ⭐ A sibling session hit the other side
+of this the same day (a census that could not see an untracked provider), and the
+lesson is the same: **a derivation is only as wide as the corpus its command
+walks, and git's default excludes exactly the files somebody is mid-way through
+writing.** See
+[`engine/fighter-brain.md`](engine/fighter-brain.md).
+
+⚠ **It is not free — but I said that more forcefully than the number deserves, so
+here is the number.** `habits.observe` runs on every decision and the model is
+written into every rollback snapshot. The state is a `BTreeMap` over
+(situation × choice) = **5 × 6 = 30 rows maximum**, each serialized as
+`u8 + u8 + f32` = 6 bytes, plus a `u32` count. ⇒ **At most 184 bytes per fighter
+per snapshot**, and fewer in practice since only observed pairs exist.
+
+⇒ **So the cost argument is weak and should not drive the answer.** 184 bytes is
+not a reason to delete anything. ⭐ The real argument is correctness and
+legibility: a ladder with five knobs of which one silently does nothing is a
+ladder nobody can reason about, and every rung was tuned by someone who believed
+all five worked.
+
+⇒ **Two fixes, and which one is right is yours because it is a question about what
+the ladder is FOR:**
+
+- **(a) Wire it into L2.** `read_bonus` already exists and does the obvious thing
+  — shade a choice's score by `read_weight × (frequency − uniform)`. Calling it
+  from the L2 scorer would make opponent-modelling a real difficulty axis at
+  every rung, independent of the rollout. ⚠ This CHANGES how every CPU above
+  level 3 plays, and it is the largest behavioural change anyone has proposed to
+  the fighter.
+- **(b) Delete it.** Drop the field, the nine authored values, the `observe` call
+  and the snapshot rows. The ladder keeps four honest knobs instead of five, and
+  the rollback snapshot gets smaller. ⚠ This gives up an axis the ladder was
+  clearly designed around — the rows were tuned as though it worked.
+
+⚠ **What I am NOT asking**: how strong the reads should be. If (a), I can wire it
+and measure the ladder before and after; the rig can now do that properly.
+
+⭐ **One thing that should inform it.** The `.ron`'s comment keeps the rollout
+fields zero *"until rollout fidelity is good enough to enable them without
+changing lower-level behavior."* ⇒ Zeroing them already changed lower-level
+behaviour — it switched off the entire read system — so the precaution caused
+what it was guarding against. Option (a) is also the one that makes that comment
+true again, because it moves reads out from behind the rollout.
+
+## ✔ MOSTLY ANSWERED BY MEASUREMENT — was: does "harder" mean *deals more damage* or *is harder to beat*?
+
+⭐⭐ **I raised this as a definition question I could not settle by measuring. I was
+wrong about that, and the thing that settled it was fixing the clock.**
+
+The rig ran 60-second bouts; the shipped match is **eight minutes**. On the short
+clock no bout could end, so stocks tied everywhere and every verdict fell through
+to the damage tiebreak — which is exactly what made the question unanswerable. At
+the shipped clock every bout **resolves** (`0 : 0` stocks, both fighters
+eliminated), and **survival time becomes a real second signal**:
+
+| cell | survived (hi : lo) | dealt (hi : lo) | verdict |
+|---|---|---|---|
+| 3 vs 1 | 85.1s : 80.6s | 299% : 208% | ✔ higher outfights |
+| 5 vs 3 | **97.3s : 98.7s** | **300% : 360%** | ⛔ **LOWER outfights** |
+| 6 vs 5 | 103.6s : 104.7s | 346% : 361% | LOWER *(within spread)* |
+| 9 vs 6 | 112.0s : 116.5s | 407% : 390% | higher *(within spread)* |
+
+⇒ **Rung 5 does not survive longer than rung 3 either** — 97.3s against 98.7s.
+⭐ That is what answers it: a patient-but-stronger rung 5 would have to beat rung 3
+on damage or on survival, and it beats it on neither. **The "patience is invisible
+to a damage metric" defence required rung 5 to be winning on some axis, and there
+is no axis.**
+
+⚠ **What is left for you is smaller and it is real.** Two things:
+
+1. **Only `5 vs 3` is established, and that is now REPLICATED rather than
+   provisional.** ⭐ I said this needed more seeds before anyone retuned a curve,
+   so I ran it: **28 seeds at the shipped clock returns an identical picture** —
+   `3 vs 1` significant, `5 vs 3` significant, `6 vs 5` and `9 vs 6` within
+   spread, every qualifier unchanged. ⇒ More than doubling the evidence moved
+   nothing, so **`6 vs 5` is noise and the shipped ladder has exactly ONE bad
+   rung.** ⚠ `5 vs 3` is now significant at 12, 24 and 40 seeds on the short clock
+   and at 12 and 28 on the shipped one — it is not a sampling artifact.
+2. **The fix is still a design call — but it now comes WITH candidates measured
+   at the shipped clock**, so you are choosing between numbers rather than
+   guessing. Three rung-5 settings for the pair, 16 seeds each, everything else
+   untouched:
+
+   | rung 5's `frame_advantage` / `expected_payoff` | dealt (5 : 3) | verdict at `5 vs 3` |
+   |---|---|---|
+   | **0.50 / 0.30** *(shipped)* | 306% : 360% | ⛔ **LOWER outfights** |
+   | 0.40 / 0.20 *(halve the rise)* | 300% : 362% | ⛔ **LOWER outfights** |
+   | **0.30 / 0.10** *(hold flat at rung 3's)* | **336% : 313%** | ✔ **higher outfights** *(within spread)* |
+
+   ⇒ **Halving the rise does not help at all** — it is as inverted as the shipped
+   value. Only removing the rise flips the verdict, and when it does, rung 5 wins
+   on damage instead of losing.
+
+   ⚠ **And rung 5 does NOT collapse into rung 3 if you take that.** The two still
+   differ on reaction (300ms vs 400), APM cap (200 vs 120), execution noise (0.20
+   vs 0.30), `kill_potential` and `stage_risk`. ⇒ What the flat setting removes is
+   only the pair that was making rung 5 refuse to commit — the reflex advantage
+   then asserts itself, which is what the third row shows.
+
+   ⭐⭐ **AND THE WHOLE-LADDER VERSION IS NOW MEASURED TOO.** Holding the pair at
+   `0.30 / 0.10` on **every row from level 4 up** (six rows; `kill_potential`,
+   `stage_risk` and every reflex knob left rising as authored), shipped clock, 12
+   seeds:
+
+   ✔✔ **RE-TAKEN 2026-09-04 THROUGH THE REPAIRED RIG — BOTH ARMS, ONE BINARY
+   (`md5 04d1b886d94686e582dc3986428e2df4`), 12 seeds paired, shipped clock.**
+   This was the cheapest re-run to justify because it is the one that would
+   change what ships, and it has now run. The table below is post-repair; the
+   pre-repair labels it replaces are kept under it.
+
+   | cell | shipped | pair held flat |
+   |---|---|---|
+   | 3 vs 1 | ✔ **higher**, significant · 297% : 205% | ✔ **higher**, significant · 297% : 205% |
+   | 5 vs 3 | ⛔ **LOWER**, significant · 298% : 349% | **LOWER** *(within spread)* · 326% : 305% |
+   | 6 vs 5 | LOWER *(within spread)* · 345% : 359% | LOWER *(within spread)* · 398% : 405% |
+   | 9 vs 6 | higher *(within spread)* · 398% : 386% | ✔ **higher**, significant · 446% : 375% |
+
+   ⛔⛔ **BEFORE READING THAT COMPARISON — HOW STRONG IS THE THING BEING FIXED?
+   MEASURED 2026-09-04 once the rig started printing its splits.** The shipped
+   ladder's `5 vs 3` is **2 : 10 of twelve pairs, p = 0.0386** — significant, and
+   **one pair from not being**: nine of twelve is p = 0.1460 and prints *(within
+   spread)*. ⇒ **The defect this decision is about is real and marginal at n=12**,
+   which is a different thing to be told than *"significant"*, and it is why the
+   28-seed replication recorded above is load-bearing rather than a courtesy.
+   ✔✔ **AND THAT REPLICATION WAS RE-RUN WITH ITS SPLIT THE SAME EVENING: the
+   marginality is RUN LENGTH, not fragility.** `5 vs 3` comes back **4 : 24 at
+   28 seeds, p = 1.8 × 10⁻⁴** — a majority of **85.7%** against the 12-seed
+   83.3%, so the effect is slightly STRONGER with more evidence rather than
+   weaker. ⚠ **Compare the proportion, not the p**: n=28 accepts a majority as
+   low as 71.4%, so a `20 : 8` would have cleared the same line while being a
+   materially smaller effect, and both print unqualified. This is not that.
+   ⭐ The two undecided cells behaved like nulls at the same time — `6 vs 5` got
+   LESS separated (58.3% → 53.6%, p = 0.851) and `9 vs 6` stayed short
+   (p = 0.345) — which is what a coin does as n grows and the opposite of what
+   the two inverted cells did. ⇒ **So this decision is about a solid result with
+   two solid non-results beside it**, and the 12-seed squeak was the sample
+   rather than the fighters.
+   ⚠ For contrast, `3 vs 1` is **11 : 1, p = 0.0063** and survives a pair
+   flipping; `6 vs 5` and `9 vs 6` are 5 : 7 and 7 : 5 at **p = 0.774** — a coin,
+   not a near miss. ⇒ **Weigh the candidate against a defect of that strength**:
+   it is worth fixing, and nobody should retune a ladder off one 12-seed run.
+
+   ⛔⛔ **RE-RUN WITH SPLITS 2026-09-04 LATE, AND *"NONE REGRESSES"* IS FALSE.
+   `6 vs 5` regresses, and the verdict-only comparison could not see it because
+   both readings are the same three words.**
+
+   | cell | shipped | candidate | |
+   |---|---|---|---|
+   | `3 vs 1` | 11 : 1 = 92%, p = 0.006 | 11 : 1 = 92%, p = 0.006 | identical — levels 1–3 are untouched, so this is the arms' own control |
+   | `5 vs 3` | ⛔ **2 : 10 = 83%, p = 0.039** | 4 : 8 = 67%, p = 0.388 | ⭐ the inversion is genuinely weakened, and not merely un-resolvable |
+   | `6 vs 5` | 5 : 7 = 58%, p = 0.774 | ⛔ **3 : 9 = 75%, p = 0.146** | ⛔⛔ **a coin becomes ONE PAIR from a significant inversion** |
+   | `9 vs 6` | 7 : 5 = 58%, p = 0.774 | ⭐ **11 : 1 = 92%, p = 0.006** | now significantly ordered the right way |
+
+   ⇒ **The candidate is a TRADE, not a strict improvement.** It buys a genuinely
+   weakened `5 vs 3` (83% → 67%) and a genuinely ordered `9 vs 6` (58% → 92%),
+   and it pays by pushing `6 vs 5` from a coin toward inverted (58% → 75%,
+   p = 0.774 → 0.146). ⚠ **One more pair the same way and `6 vs 5` prints as a
+   significant inversion** — the defect this whole decision exists to remove,
+   relocated one rung up.
+   ⭐ **Both `6 vs 5` cells print `LOWER outfights … (within spread)`.** The
+   earlier comparison read those three words on both sides and recorded *"none
+   regresses"*, correctly by everything it could see. The split is the entire
+   difference between "a coin" and "one pair short", and it did not exist until
+   this evening. ⇒ **This is the clearest argument on the page for why a verdict
+   must travel with its split.**
+
+   ⛔⛔ **AND I OVER-READ THAT AT TWELVE SEEDS — re-run at 28 the same night,
+   which is the check the squeak above says to make.** `6 vs 5`'s "one pair from
+   inverted" does NOT survive: 75% at n=12 falls to **61% (11 : 17, p = 0.345)**
+   at n=28, which is a coin regressing toward half, not an effect concentrating.
+
+   | cell | SHIPPED @ 28 | CANDIDATE @ 28 |
+   |---|---|---|
+   | `3 vs 1` | 26 : 2 = 93%, p = 3.0e-6 | 26 : 2 = 93%, p = 3.0e-6 |
+   | `5 vs 3` | ⛔ **4 : 24 = 86%, p = 1.8e-4** | **12 : 16 = 57%, p = 0.572** |
+   | `6 vs 5` | 13 : 15 = 54%, p = 0.851 | 11 : 17 = 61%, p = 0.345 |
+   | `9 vs 6` | 17 : 11 = 61%, p = 0.345 | ⭐ **26 : 2 = 93%, p = 3.0e-6** |
+
+   ⇒ **THE HONEST HEADLINE, at the n that carries it.** The candidate **removes
+   the inversion** — `5 vs 3` goes from a significant 86% LOWER to a 57% coin —
+   and **decisively orders `9 vs 6`** (61% → 93%, p = 3.0e-6). `6 vs 5` leans
+   inverted a little further (54% → 61%) and **neither ladder is near
+   significance there**. ⇒ So *"none regresses"* was nearer the truth than my
+   correction, and both the original claim and my correction were read off twelve
+   seeds. ⚠ **The residual `6 vs 5` lean is the one thing to watch** — it is the
+   cell the whole `frame_advantage`/`expected_payoff` story predicts should move
+   — but it is a lean, not a defect, and calling it one was me doing at midnight
+   exactly what this page spent the day correcting. `5 vs 3` loses its
+   significance and `9 vs 6` gains it in the correct direction.
+
+   ⛔⛔ **BUT THE CHARACTER OF THE `5 vs 3` IMPROVEMENT IS NOT WHAT THE PRE-REPAIR
+   ROW SAID, AND THIS IS THE PART THAT BEARS ON YOUR DECISION.** It read
+   *"✔ higher (within spread)"* — the direction FLIPPED. Post-repair the
+   direction does **not** flip: the cell still reads **LOWER**, and only stops
+   being significant. ⇒ **The candidate does not make rung 5 beat rung 3. It
+   makes the difference undetectable at 12 seeds.** That is a weaker thing to buy
+   than "the inversion is fixed", and it is the honest description of what is on
+   offer.
+
+   ⚠ **The descriptive damage column disagrees with that verdict, and the
+   disagreement is correct behaviour now.** Held flat, `5 vs 3` shows the higher
+   rung dealing MORE (326% : 305%) while the paired per-seed verdict says LOWER.
+   Pooled medians and the per-seed sign test are answering different questions;
+   since `36dd9a248` only the second one decides the word, and the first is
+   labelled descriptive. ⓘ A row that printed a direction from one and a
+   qualifier from the other is exactly the defect that put this arm on hold.
+
+   ⭐ **`3 vs 1` reproduced BYTE-FOR-BYTE between the two arms** — 83.4s : 80.4s,
+   297% : 205%, to the digit. The candidate changes only rows 4 and up, so that
+   cell MUST be identical, and it is. ⇒ That is the arms' own validity check, and
+   it passing is what makes the three cells that DID move readable as the
+   candidate rather than as noise.
+
+   ⛔ **One support for the candidate is WITHDRAWN: the survival sequence.** This
+   row said the shipped ladder's *"top pair went backwards (85 → 98 → 114 →
+   113)"*. That sequence does not reproduce. The shipped arm's survival medians
+   rise monotonically in BOTH generations — **83.4 → 97.1 → 102.8 → 111.4**
+   post-repair, and 85.1 → 97.3 → 103.6 → 112.0 in the pre-fix definitive run
+   recorded on [`engine/fighter-brain.md`](engine/fighter-brain.md). Neither has
+   a `114` at `6 vs 5` or a fall at the end; the candidate arm does have 114.2
+   there, which is where that digit appears to have come from. ⇒ **The
+   monotonicity argument was comparing the candidate against a sequence no
+   shipped-ladder run produced**, so it is struck. The candidate's case now rests
+   on the two verdict changes alone, and those stand.
+
+   ⓘ **The superseded pre-repair table**, for the comparison: `3 vs 1` ✔ higher /
+   ✔ higher; `5 vs 3` ⛔ **LOWER** / ✔ higher *(within spread)*; `6 vs 5` LOWER
+   *(within spread)* / LOWER *(within spread)*; `9 vs 6` higher *(within spread)*
+   / ✔ **higher** *(significant)*. Three of four cells carry the same reading;
+   the fourth is the direction flip described above.
+
+   ⛔ **What this does NOT settle, and it is the part that is yours.** Holding
+   those two flat means **higher rungs no longer weight frame safety or move
+   power more heavily than rung 3 does** — that is a statement about what a harder
+   CPU IS, not a bug fix. ⚠ The winning cells are partly *within spread*, it is 12
+   seeds, `6 vs 5` stays undetermined and still leans LOWER, and this tests ONE
+   alternative rather than the space. ⇒ Whether the ladder should raise these
+   two weights AT ALL, at any rung, is the question the numbers cannot answer,
+   because it is a question about what a harder CPU is supposed to be.
+
+   The cause is `frame_advantage` + `expected_payoff` jointly (isolated
+   byte-for-byte). `frame_advantage` is SIGNED,
+   so raising it makes a rung penalise its own slow, hard-hitting moves; raising
+   `expected_payoff` withholds the power bonus from exactly those. ⇒ Whether higher
+   rungs SHOULD weight frame safety more is a question about what your ladder
+   means. The measurement says the current progression makes rung 5 worse; it does
+   not say what the right progression is.
+
+⭐ **And the rise in survival medians across the ladder — 85s, 97s, 104s, 112s — is
+a quiet vote of confidence.** Higher rungs take measurably longer to kill each
+other, which is what a working ladder should do, and it holds across every cell
+including the inverted one.
+
+⛔ **What I had written here before, and why it is wrong:** that both readings
+predict the same numbers and more measuring could not separate them. They do not
+— they differ on survival time, which the 60-second clock could not show because
+nobody ever died. ⇒ The lesson is the day's lesson again: the question looked like
+a definition problem and was an instrument problem.
+
+## The original framing, kept because the reasoning is still the reasoning
+
+⛔ **This is the confound under every ladder number I have produced today, and it
+cannot be measured away — it is a definition.**
+
+⭐ The rig's verdict is *"who OUTFOUGHT: stocks taken, then damage dealt."* In
+every cell where the shipped ladder measures as INVERTED, the stocks are **tied at
+`2 : 2`**, so the verdict falls through to damage. ⇒ The significant result is that
+**the higher rung deals less damage in 60 seconds.** It is *not* that the higher
+rung loses.
+
+⚠ **And the mechanism makes that ambiguity worse rather than better.** The
+inversion is carried by exactly two weights (`frame_advantage` and
+`expected_payoff`, isolated byte-for-byte — see
+[`engine/fighter-brain.md`](engine/fighter-brain.md)). `frame_advantage` is a
+SIGNED feature: slower moves score more negative, so raising its weight makes a
+rung penalise committing to its hardest-hitting moves. `expected_payoff` is gated
+by the positive part of it, so it withholds the power bonus from exactly those
+moves. ⇒ **Higher rungs jab more and smash less.**
+
+⭐⭐ **Which is either a defect or the intended design, and the same numbers
+support both readings:**
+
+- **(a) A fighter that refuses bad commitments is PLAYING BETTER.** The ladder is
+  doing what it was authored to do; a patient rung-6 is harder for a human to
+  open up, and it only looks weak because two CPUs poking at each other for a
+  minute produce less damage. ⇒ Then nothing is wrong, and the rig's tiebreak is
+  the thing to change.
+- **(b) A CPU that will not commit is EASIER, not harder.** A human punishes
+  passivity; a rung that never throws its kill move cannot close a stock. ⇒ Then
+  the weight progression is backwards above rung 3 and the ladder needs retuning.
+
+⚠ **I cannot settle this by measuring more.** Both readings predict the same
+damage numbers. What separates them is what a human experiences, and the honest
+statement is that CPU-vs-CPU damage over 60 seconds may simply be the wrong
+instrument for "difficulty".
+
+⇒ **What I can do once you answer.** If (b), the fix is scoped and small — the two
+weights are named and the arms to validate a new progression already exist. If
+(a), the work is on the RIG: a stock-decided verdict, or a longer clock, or both,
+and every ladder conclusion in `fighter-brain.md` gets re-derived under it.
+
+⭐⭐ **AND THE EVIDENCE MOVED TOWARD (b) WHILE THIS ENTRY WAS BEING WRITTEN.** I
+first wrote that `3 vs 1` being correctly ordered was a weak argument the metric
+is not blind, since those rungs differ in reflexes too. Three more arms make it
+much stronger:
+
+| comparison | result on the same metric |
+|---|---|
+| `9 vs 1` | ✔ higher outfights, **significant** |
+| `3 vs 1` | ✔ higher outfights, significant |
+| `5 vs 3` | ⛔ LOWER, significant |
+| `6 vs 5` | ⛔ LOWER, significant |
+| `9 vs 6` | ✔ higher outfights, significant |
+
+⇒ **The metric orders the ladder's ENDS correctly and reports a trough in its
+middle.** A metric that simply mistook patience for weakness would mis-order the
+top of the ladder too — rung 9 is the most patient rung of all
+(`frame_advantage: 0.60`+) and it beats both rung 1 and rung 6 decisively.
+
+⇒ So the honest headline is **the ladder SAGS at rungs 5–6**, not that it inverts,
+and reading (b) now has to explain only two rungs rather than a whole progression.
+⚠ It is still not proof: rung 9's reflexes are far ahead of rung 6's and may be
+carrying it past the weight penalty. But "the metric is blind to patience" no
+longer fits the data as comfortably as it did an hour ago.
+
+⭐ **And the fix, if (b), is now scoped to two knobs on two rungs**, with a
+measured prediction attached: stepping `frame_advantage` and `expected_payoff`
+back one rung at rung 6 already removes that cell's significance, and back two
+rungs at rung 5 flips it. Whatever the right progression is, those are the two
+dials and the middle is where they are wrong.
+
+## ⏳ The 10x countdown you asked for on 2026-08-26 is still in — do you want it back?
+
+⭐ **This is a one-token question and it is only yours to answer.** `COUNTDOWN_SPEEDUP
+= 10` in `game/ambition_demo_smash/src/lib.rs`, from your request *"make the 3, 2,
+1, countdown go 10x as fast"* — so the ceremony a player watches is
+`3 * 60 / 10` = **18 ticks, 0.3 seconds**, not three.
+
+⚠ **It is not a leak and I am not reporting it as one.** It is dated, reasoned and
+marked `⚠⚠ TEMPORARY DEV MODE`, with the revert spelled out — *"setting
+`COUNTDOWN_SPEEDUP` back to 1 … so that nobody later reads `18` as a considered
+ceremony length"* — and deliberately a constant rather than a setting, *"a
+constant with a date and a sentence, which is what temporary means."*
+
+⇒ **Which is exactly why it is here: the date is nine days old.** The comment
+invites this check by carrying the date at all, and nothing else will ever raise
+it — a constant does not expire and no test can know when a playtest convenience
+has outlived its playtest.
+
+⇒ **Two answers and both are one token.** Keep it while the fighter is still being
+tuned (which it is — five open questions above), or set it to `1` now that the
+tuning is measurement-driven rather than watch-driven. ⚠ Worth knowing for the
+second: **every test that waits out the countdown reads the roster's value rather
+than a literal**, so reverting changes no test.
+
+⭐ **And the parity row is affected**: "Match ceremony — 3–2–1–GO" is accurate
+about the mechanism and a reader will assume three seconds.
+
+## Waiting on maintainer measurement, not a decision
+
+### The residency limit open work 4 needs
+
+A budget policy that keeps the last room's cast resident needs a ceiling, and the
+ceiling is a host number: `resident_mb` at Full on the 3090 after a
+hub→hall→hub walk. Everything else in that section is measured; this is the one
+input that cannot be taken on a software rasteriser.
+
+> ⭐ **THE NUMBER, MEASURED ON CALCULEX 2026-09-03 — no GPU, and it was already
+> being produced every gate run.** At the hall entry, through the real authored
+> door, at FULL texture resolution:
+>
+> | run | images | megapixels | **resident** |
+> |---|---|---|---|
+> | `hall_transition_cover` (control) | 224 | 363.1 | **1452.3 MB** |
+> | same, `AMBITION_QUALITY_PROFILE=ultra` | 225 | 363.9 | **1455.8 MB** |
+> | `leaving_the_gallery…` — the RETURN leg, hub→hall→hub, at 5.0s | 236 | 503.0 | **2012.0 MB** |
+> | same run at 10.0s | 244 | 507.7 | **2030.9 MB** |
+>
+> `gpu +0 … awaiting gpu N` on every one — nothing uploaded, which is the point:
+> `resident_mb` is decoded CPU-side bytes and needs no adapter.
+>
+> ⓘ **Why these are the FULL-tier figures, stated rather than assumed.** The test
+> composition does not seed from the adapter, so it takes
+> `default_visual_quality_profile()` = `High` on non-Android, and
+> `VisualQualityBudget::for_profile` maps `High` to
+> `TextureResolutionScale::Full` — the unsuffixed sprite tree. The hall obeys the
+> same tier by Jon's 2026-09-02 ruling, pinned in
+> `the_halls_cast_is_realized_at_the_users_tier_never_lower`: *"the hall draws at
+> the user's tier, never lower … not want a lower quality tier for gallery
+> previews."* ⚠ Open work 6 still describes this leg as *"the gallery (Quarter)
+> for the hub (Full)"*, which was the PRE-repair behaviour that same section
+> reports fixing.
+>
+> ⚠ **The 10.0s row said "after the retire" until it was checked, and that was an
+> assumption, not an observation.** Residency GREW between the two samples — 236
+> images to 244, 2012.0 MB to 2030.9 — and a retire drops pages, so both readings
+> are almost certainly BEFORE the retire lands. ⇒ Which makes ≈2.03 GB a PEAK
+> while both rooms' casts are held, not a settled steady state, and the settled
+> figure is a third measurement nobody has taken. The peak is the right input for
+> a budget ceiling either way, which is why the correction does not change the
+> answer — only what the number is called.
+
+> ⭐ **SO THE ASK IS ANSWERED: ≈2.03 GB is `resident_mb` after a hub→hall→hub
+> walk at full texture resolution, and it needed no 3090.** The round trip peaks
+> ~580 MB above the hall entry alone, because it holds both rooms' casts before
+> the retire — which is precisely the pressure the "keeps the last room's cast
+> resident" policy has to budget for, and precisely why the entry asked for the
+> walk rather than the room.
+>
+> ⚠ **Read the detail below before quoting these.** The first two rows differ
+> only by an env var that turns out to be INERT — one configuration measured
+> twice, not a tier comparison — and `capture_scene` reports 119.4 MB for the
+> same room because ITS composition seeds quality from the Cpu adapter and loads
+> `sprites_potato`. The number is a property of the composition as much as the
+> room.
+
+ⓘ **2026-09-03, calculex — the ADAPTER may not be what blocks this, which would
+make the ask smaller than 3090 time.** Two things were checked, and neither is a
+claim that the number has been taken:
+
+* **`resident_mb` is adapter-independent by construction.** The census computes
+  it as `width * height * per_pixel`, where `per_pixel` comes from the image
+  FORMAT's `block_copy_size` (`crates/ambition_render/src/asset_census.rs:218`).
+  It is decoded-image arithmetic, not anything the GPU reports, so llvmpipe and a
+  3090 should agree for the same assets and the same walk.
+* **The census DOES emit on this host.** `capture_scene` renders offscreen
+  through lavapipe and prints the full `[image-census]` line including
+  `…MB resident`; the headless room harness does not, because it composes no
+  render app. So the missing piece is a WALK DRIVER, not an adapter:
+  `scripts/profile_desktop.sh` is the documented driver and its windowed path
+  refuses without a display *("a windowed run needs a display, and failing here
+  is the point")*.
+
+⚠ **Two caveats that keep this an ⓘ and not a ✔.** The walk has not been driven
+here — `capture_scene` takes `--press`/`--route` but room-to-room transitions
+through doors were not attempted. And quality seeds itself to `potato` on a Cpu
+adapter, so a Full measurement needs `AMBITION_QUALITY_PROFILE=Full` and would
+have to be checked on the `[census] visual_quality` row rather than assumed.
+⇒ The decision this entry asks for is unchanged. What changed is the cost of the
+input: possibly a driver on any host rather than time on the one 3090.
+
+> **MEASURED 2026-09-03, and the two caveats above resolve in opposite
+> directions.**
+>
+> ✔ **The census is takeable here, and the number is real.** `capture_scene
+> hall_of_characters player … 640x360 --warmup 60` on lavapipe prints
+> `[image-census] total 235 images, 29.9MP, 119.4MB resident | gpu +235 | awaiting
+> gpu 0 | re-decodes 0`. So `resident_mb` after a room is loaded needs no GPU.
+>
+> ✔ **AND THE WALK DRIVER EXISTS — the first caveat was simply wrong.** I checked
+> `capture_scene` and `profile_desktop.sh` and concluded no driver could cross a
+> door here, without looking at the test suite.
+> `game/ambition_app/tests/hall_transition_cover.rs` builds
+> `build_visible_app(VisibleRenderMode::NoWindow, …)` and drives *"the REAL
+> transition, resolved through the room graph rather than synthesised: stand in
+> the Hall door and press interact"*. It is a module of `app_it`, so **that hub →
+> hall crossing already runs on this machine in every gate run**, and it reads the
+> ledger in process (`resident_character_pages`) rather than parsing a printed
+> line. Its own comment records `22 → 226 resident at the hall entry`.
+>
+> ⛔ **The second caveat is CONFIRMED, and by measurement rather than the reason I
+> gave.** Two runs, one with `AMBITION_QUALITY_PROFILE` unset-equivalent and one
+> with a VALID `ultra`, both log *"visual quality seeded to `potato` for a Cpu
+> adapter (llvmpipe)"* and produce a byte-identical census — same 235 images, same
+> 29.9 MP, same 119.4 MB. So the tier does not move through that lever in this
+> tool, and **a high-tier residency figure is not takeable this way**. ⇒ That is
+> the one thing still genuinely blocked, and it is a quality-selection question,
+> not an adapter one.
+>
+> ⚠ **My own error, recorded because it cost two runs:** the caveat above said
+> `AMBITION_QUALITY_PROFILE=Full`. There is no `Full`. The labels are
+> `potato|low|medium|high|ultra` (`settings/video/quality.rs`), and
+> `capture_scene`'s own help already says `AMBITION_QUALITY_PROFILE=ultra`.
+> `from_label` returns `None` on an unparseable value *"so a typo boots the user's
+> OWN setting instead of silently substituting a tier they did not choose"*.
+>
+> ⓘ **And the warning for that case EXISTS and is well written** —
+> `log_quality_profile_override` (`ambition_render/src/quality.rs:136`) warns
+> *"…is not a profile; using the saved setting instead. Expected one of: potato,
+> low, medium, high, ultra"*. It simply never fired: **neither** run printed it,
+> the valid one included, and neither printed the success message either. So
+> `VisualQualityPlugin::build`'s logger has nowhere to write.
+>
+> ⇒ **AND THE MECHANISM IS EXACT.** `build_visible_app` drops `LogPlugin` for
+> `NoWindow`/`OffscreenGpu` — its comment says why: *"tests build several Apps
+> per process; the tracing subscriber is process-global."* `capture_scene` adds
+> it back, but **after** the plugin group
+> (`capture_scene.rs`, `app.add_plugins(bevy::log::LogPlugin::default())`
+> following `build_visible_app_with`). So every line a plugin emits during
+> `build()` is written with no subscriber installed and is lost, while anything
+> logged later from a SYSTEM survives — which is exactly the pattern observed
+> here: no override message, but the adapter-seeding line printed normally.
+> ⚠ This is not specific to quality. **Any** build-time log in any plugin is
+> silent in this tool, which is worth more than the one message that led me to
+> it.
+>
+> ⛔ **AND THE LEVER IS INERT HERE, NOT MERELY UNREPORTED.** Both runs loaded a
+> byte-identical asset set — 2 images from `sprite_packs/full/` and 14 from
+> `sprites_potato` — so `AMBITION_QUALITY_PROFILE` changed nothing about what
+> became resident, valid label or not.
+>
+> ⛔ **AND RESIDENCY IS TIER-DEPENDENT BY DESIGN, so that inertness is the whole
+> blocker.** `VisualQualityBudget::for_profile`
+> (`ambition_persistence/src/settings/video/quality.rs`) sets
+> `resolution_scale` per tier: the potato/low tiers take
+> `TextureResolutionScale::Potato`, medium takes `Half`, and **high and ultra
+> take `Full`**. Each maps to a different sprite tree — `sprites_potato`,
+> `sprites_0_5x`, or the unsuffixed base — so the tier decides which pixels
+> become resident, and `resident_mb` must move with it.
+>
+> ⇒ **So `capture_scene`'s 119.4 MB is the POTATO figure** — it seeds from the
+> Cpu adapter and loads `sprites_potato`. The full-resolution figure in the table
+> at the top comes from `hall_transition_cover`, whose composition does NOT seed
+> from the adapter and loads the base tree: **363 MP against 29.9 MP, twelve
+> times the pixels, for the same room.**
+>
+> ⛔ **AND THE ENV VAR EXPLAINS NEITHER.** Running the test WITH and WITHOUT
+> `AMBITION_QUALITY_PROFILE=ultra` gives 1455.8 MB and 1452.3 MB — the same
+> configuration twice. The lever is inert in both tools; the twelve-fold gap is
+> which composition seeds quality from the adapter, not which tier was asked for.
+> ⇒ **Two tools on one machine disagree about residency by 12× for reasons that
+> have nothing to do with hardware**, which is worth more to open work 4's budget
+> policy than either number alone: a ceiling is meaningless until the composition
+> that produced it is named beside it.
+>
+> ⚠ **Recorded because I got this wrong once in the other direction too:** an
+> earlier version of this note said the asset set "does not move with the tier at
+> all", inferring an invariant from two runs that were both potato. Two identical
+> measurements of the same configuration are one measurement.
+
+### D-RASTER-3's remaining half
+
+Splitting the weak-GPU 2.54× between framebuffer scale and MSAA needs an
+interleaved A/B on real weak-GPU hardware with the independent
+`AMBITION_MAX_SCALE_FACTOR` and `AMBITION_MSAA` knobs, multiple reps per arm,
+build/features/profile held constant. ⛔ Explicitly not lavapipe: the row says so
+and the substitution is what made the original result unattributable.
+
+### Switch Pro outer stick range
+
+The remaining cross-machine controller question needs the actual hardware
+measurement: run the existing `Shift+F6` axis probe on both machines, push the
+Switch Pro to each extreme/corner, and compare reported peak magnitude.
+
+The proposed shared outer-saturation fix should be judged only after that number
+exists. This is tracked in the execution queue as an external measurement, not a
+maintainer design decision.
+
+### ~~Which character owns each per-fighter FX sheet~~ (raised 2026-09-02, withdrawn 2026-09-02 — no decision was needed)
+
+The question assumed the demand seam needed a sheet → CHARACTER ID table. It
+does not: a realized character carries its own prepared moveset
+(`PreparedCharacterDefinition.kit.projectable_moveset()`), and the moveset's
+`Vfx` events name the rows. `character_sprites::demand_character_fx_sheets`
+asks that moveset the frame the character realizes and decodes whichever
+character-owned sheets its rows live on (`fx::owned_fx_sheets_named_by`) —
+ownership is read off the content that fires the effect, not off a name.
+Landed in `asset-preparation-and-residency.md` §2. The two never-wired sheets
+below are unaffected: a sheet no moveset names is now never decoded, which is
+the correct residency for art nothing can request, and the wiring question
+stays the owner's.
+
+## ✔ WITHDRAWN 2026-09-02 — "is 8% of the floor crate worth an encoder split?"
+
+Raised here the same day and withdrawn the same day: it is an ENGINEERING
+question, not a product one, so it is answered in
+[`engine/control-authority-and-ai-policy.md`](engine/control-authority-and-ai-policy.md)
+instead. Short answer: do not split. Of the three available shapes, two are
+refused by rules the repository already holds (no service locator; the orphan
+rule again one crate up) and the third fails the plan's own acceptance criterion
+4, because `ambition_mount` holds a `Brain` by value and does not depend on
+`ambition_combat` — so moving `Brain` into a combat crate makes a movement-only
+game link one. Recorded here only so the question is not raised a third time.
+
+## ▢ OPEN 2026-09-05 — is the dev BODY-PROFILE experiment still wanted?
+
+Raised because it is the only live consumer of a mechanism, and answering it
+either retires a whole branch of presentation or makes a wart permanent. It is a
+PRODUCT question about a development tool, which is why it is here rather than
+settled in the engine docs.
+
+**The mechanism.** `PlayerSpriteBaseline` records the collision box a player
+sprite was built against, and `sync_visuals` scales the art by
+`base_size / standing_collision`. That ratio exists for exactly one reason, per
+its own comment: the dev menu's live body-profile experiment
+(`ambition_dev_tools`'s `apply_player_body_profile`, reconciled every frame by
+`sync_developer_body_profile`). Change the profile and the ratio goes non-1, so
+the SAME art stretches to the new box — that stretch IS the preview.
+
+**Why it is now a question.** Every body whose size changes as part of PLAY is
+sheet-authored (`BodySource::SpriteAuthored`), and those publish
+`authored_render`, which `sync_visuals` consumes in an earlier arm that never
+reads the baseline. ⇒ The ratio branch is reached only by bodies that are NOT
+sheet-authored, which today means the dev experiment and little else.
+
+⇒ **The two answers differ a lot:**
+- **KEEP IT.** Then the baseline going stale after a form change is CORRECT and
+  must not be "fixed" — a re-seed sets the ratio to one and the preview stops
+  previewing. (I made exactly that mistake on 2026-09-05 and reverted it; the
+  characterization test in `worn_binder_tests.rs` now pins the behaviour so the
+  next person does not repeat it.)
+- **DROP IT.** Then the ratio branch, the stored `standing_collision`, and the
+  staleness question all go away together, and a player sprite is simply built
+  against the box it has.
+
+⚠ Not a genre or feel call, and not urgent — nothing is blocked on it. But it
+decides whether a documented oddity is a feature to protect or dead weight to
+remove, and only the maintainer knows whether that preview still earns its keep.

@@ -1,0 +1,19 @@
+[package]
+name = "ambition_relativity2d"
+version = "0.1.0"
+edition.workspace = true
+license.workspace = true
+authors.workspace = true
+description = "Opt-in 2D spacetime clocks, analytic null signals, and observer measurements for Ambition."
+publish = false
+
+[lib]
+crate-type = ["rlib"]
+
+[dependencies]
+ambition_relativity = { path = "../ambition_relativity" }
+ambition_platformer2d_core = { path = "../ambition_platformer2d_core" }
+ambition_platformer2d_runtime = { path = "../ambition_platformer2d_runtime" }
+ambition_platformer2d_shared_tangle = { path = "../ambition_platformer2d_shared_tangle" }
+ambition_time = { path = "../ambition_time" }
+bevy = { version = "0.19.1", default-features = false }

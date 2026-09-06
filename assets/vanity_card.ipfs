@@ -1,0 +1,27 @@
+type: ipfs-sidecar
+cid: bafybeihhajb3zpywrwlckl4xhhgc3cfpu4cf4noyt2uowets6dgbcx4vsi
+rel_path: vanity_card
+size: 12.67 MiB
+num_items: 51
+add_config:
+  path: assets/vanity_card/
+  name: null
+  recursive: true
+  progress: true
+  cid_version: 1
+  raw_leaves: false
+  only_hash: false
+  pin: true
+  sidecar: true
+  update_gitignore: true
+  git_add_sidecar: true
+  dry_run: false
+add_datetime: 2026-07-12T083810-5
+add_duration: 10.070347750908695
+local_quickstat:
+  kind: dir
+  bytes: 13290319
+  mtime: 1783653433.6781907
+  nfiles: 43
+pin_name: pkg:github/Erotemic/ambition#assets/vanity_card
+pin_name_source: generated

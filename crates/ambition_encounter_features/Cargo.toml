@@ -1,0 +1,34 @@
+[package]
+name = "ambition_encounter_features"
+version = "0.1.0"
+edition = "2021"
+publish = false
+
+# The ROOM-FEATURE side of encounters: LDtk loading, ECS spawning, banners,
+# save/quest projection, switch indexing and lock-wall contribution.
+#
+# ⛔ IT MAY NEVER NAME `ambition_platformer2d_actor_monolith`. That edge is what
+# the 2026-09-03 carve removed — this code ran inside the actor kernel — and
+# `engine.ambition_encounter_features-source-purity` exists to keep it removed.
+# It sits ABOVE `ambition_encounter`, whose own purity rows forbid exactly this
+# material ("the LDtk loader, ECS spawning, banners, and save/quest adapters stay
+# above it"), which is why this is a sibling crate rather than a module there.
+[dependencies]
+ambition_encounter = { path = "../ambition_encounter" }
+ambition_platformer2d_shared_tangle = { path = "../ambition_platformer2d_shared_tangle" }
+ambition_platformer2d_core = { path = "../ambition_platformer2d_core" }
+ambition_platformer2d_world = { path = "../ambition_platformer2d_world" }
+ambition_combat = { path = "../ambition_combat" }
+ambition_characters = { path = "../ambition_characters" }
+ambition_persistence = { path = "../ambition_persistence" }
+ambition_entity_catalog = { path = "../ambition_entity_catalog" }
+ambition_interaction = { path = "../ambition_interaction" }
+ambition_gameplay_trace = { path = "../ambition_gameplay_trace" }
+ambition_time = { path = "../ambition_time" }
+bevy = { version = "0.19.1", default-features = false }
+# The authored encounter fixtures are RON, parsed here and in the tests.
+ron = { workspace = true }
+
+[dev-dependencies]
+ambition_platformer2d_ldtk = { path = "../ambition_platformer2d_ldtk" }
+ambition_asset_manager = { path = "../ambition_asset_manager" }

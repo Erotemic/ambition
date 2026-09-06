@@ -1,0 +1,40 @@
+[package]
+name = "ambition_platformer2d_provider"
+version = "0.1.0"
+edition.workspace = true
+license.workspace = true
+authors.workspace = true
+description = "The platformer experience-provider protocol: authored catalog identity, one shared preparation/activation lifecycle, and session construction for shell-hosted platformer providers."
+
+[features]
+# Forwarded: a game with an LDtk world enables this and the runtime installs
+# `LdtkWorldPlugin`. Default-OFF, so a movement-only game links no LDtk.
+ldtk = ["ambition_platformer2d_runtime/ldtk"]
+default = []
+# Adaptive-music readiness checks name the Kira-side catalog registry.
+audio = ["ambition_audio/kira"]
+
+[dependencies]
+# Declaring an edge to unbind a laundered one is right; leaving it after the last consumer goes is a
+# lie the graph tells. If this crate ever needs the backend again, add the line back WITH the use.
+ambition_platformer2d_actor_monolith = { path = "../ambition_platformer2d_actor_monolith", default-features = false }
+# `BossCatalog` — the lifecycle staging params read the boss catalog directly now that the boss
+# domain is its own crate, instead of through the monolith facade it used to sit behind.
+ambition_boss_encounter = { path = "../ambition_boss_encounter" }
+# No new edge in the graph -- actors already pulls engine_core in.
+ambition_platformer2d_core = { path = "../ambition_platformer2d_core" }
+ambition_audio = { path = "../ambition_audio", default-features = false }
+ambition_characters = { path = "../ambition_characters" }
+ambition_dev_tools = { path = "../ambition_dev_tools" }
+ambition_game_shell = { path = "../ambition_game_shell", default-features = false }
+ambition_load = { path = "../ambition_load" }
+ambition_load_presentation = { path = "../ambition_load_presentation", default-features = false }
+ambition_platformer2d_shared_tangle = { path = "../ambition_platformer2d_shared_tangle" }
+ambition_platformer2d_runtime = { path = "../ambition_platformer2d_runtime" }
+ambition_sprite_sheet = { path = "../ambition_sprite_sheet" }
+ambition_platformer2d_world = { path = "../ambition_platformer2d_world" }
+bevy = { version = "0.19.1", default-features = false, features = ["bevy_asset"] }
+ron = { workspace = true }
+
+[dev-dependencies]
+ambition_sfx = { path = "../ambition_sfx" }

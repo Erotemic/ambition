@@ -1,0 +1,77 @@
+[package]
+name = "ambition_render"
+version = "0.1.0"
+edition.workspace = true
+license.workspace = true
+authors.workspace = true
+description = "Ambition's Bevy presentation layer: the sandbox's default renderer (sprite/world sync, parallax, HUD overlay, screen-space FX, cutscene UI, fonts). Consumes sim read-models and lower presentation vocabulary; never depends on or mutates actor machinery."
+
+[lib]
+crate-type = ["rlib"]
+
+[features]
+# Offscreen capture — the `capture` module and its PNG encoder. Enabled by the
+# capture binaries, and by nothing that ships.
+capture = ["dep:image"]
+default = []
+# Forwarders: cfg(feature = "...") gates inside this crate key off OUR feature
+# names; app/content composition chooses the matching producer-side features so
+# mismatched combinations are a compile error, never a silent missing system.
+input = ["ambition_sim_view/input"]
+# The reusable portal renderer the world-sync code installs when portals draw.
+portal_render = ["dep:ambition_portal2d_presentation"]
+
+[dependencies]
+# OPTIONAL, and the ratchets are why. `image` is a PNG ENCODER and it is
+# only ever used by the offscreen `capture` module — a development tool. Landing
+# it unconditionally widened the linked closure of every consumer of this crate,
+# including `fixtures/minimal_game` and `fixtures/external_consumer`, whose whole
+# purpose is to be small. The capability-footprint ratchet and three sub-workspace
+# lockfiles all went red within one suite run, which is the guard
+# doing exactly its job: a debug tool must not be in a shipped game's dependency
+# graph.
+image = { version = "0.25", default-features = false, features = ["png"], optional = true }
+# ⭐ THE ONE PLACE A GRAPHICS-API TYPE IS NAMED, and it is named here on purpose.
+# The tier POLICY lives in `ambition_persistence` with the tiers it decides
+# between and knows nothing of `wgpu`; this crate already links wgpu through
+# Bevy's renderer, so classifying the adapter at the render seam adds a name,
+# not a dependency. `default-features = false` because Cargo unions features
+# and Bevy already asks for the ones the renderer needs.
+wgpu = { version = "29", default-features = false }
+ambition_sim_view = { path = "../ambition_sim_view" }
+ambition_ui_nav = { path = "../ambition_ui_nav" }
+ambition_projectiles = { path = "../ambition_projectiles" }
+ambition_platformer2d_shared_tangle = { path = "../ambition_platformer2d_shared_tangle" }
+ambition_platformer2d_core = { path = "../ambition_platformer2d_core" }
+ambition_entity_catalog = { path = "../ambition_entity_catalog" }
+ambition_platformer2d_world = { path = "../ambition_platformer2d_world" }
+ambition_characters = { path = "../ambition_characters" }
+ambition_persistence = { path = "../ambition_persistence" }
+# The VFX message vocabulary `fx` re-exports (`ambition_vfx::vfx::*`).
+ambition_vfx = { path = "../ambition_vfx" }
+ambition_sfx = { path = "../ambition_sfx" }
+ambition_time = { path = "../ambition_time" }
+ambition_sprite_sheet = { path = "../ambition_sprite_sheet" }
+ambition_dev_tools = { path = "../ambition_dev_tools" }
+# The cutscene format + live state the cutscene UI plays back.
+ambition_cutscene = { path = "../ambition_cutscene" }
+# Font id resolution for the UI font loader (`ui_fonts`).
+ambition_asset_manager = { path = "../ambition_asset_manager", features = ["bevy"] }
+# The reusable portal renderer (portal_render only); world-sync installs it.
+ambition_portal2d_presentation = { path = "../ambition_portal2d_presentation", optional = true }
+# The sprite-effect capability. Declared here rather than leaned on through
+# the portal presentation crate: any sprite may carry a `SpriteEffect`, so
+# this is a real prerequisite of the render layer and not a portal detail.
+ambition_sprite_fx = { path = "../ambition_sprite_fx" }
+
+# Render-facing by definition: the 2D + UI render pipeline for sprites, Mesh2d,
+# bevy_ui nodes, and text. `ui_api` matches the sandbox baseline; the render
+# features (`2d_bevy_render`, `ui_bevy_render`, `scene`, `png`) are what a
+# headless sandbox drops — this crate always needs them because it draws.
+bevy = { version = "0.19.1", default-features = false, features = [
+    "ui_api",
+    "2d_bevy_render",
+    "ui_bevy_render",
+    "scene",
+    "png",
+] }

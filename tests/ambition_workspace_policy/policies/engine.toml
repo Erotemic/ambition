@@ -1,0 +1,3216 @@
+# Engine-scope policies: crates/* layering, foundation purity, determinism,
+# control-frame ownership, module-size.
+#
+# Run: cargo test -p ambition_workspace_policy engine_policies
+#
+# The custom scanners (module-size, determinism, control-frame) also run under
+# `engine_policies`; they carry their own config files and are invoked from
+# tests/policy.rs. Anchor policy below keeps the declarative scan non-vacuous;
+# real ratchets are appended by Tasks 4/6/9.
+
+[[policy]]
+id = "engine.engine-core-is-foundation-clean"
+scope = "engine"
+kind = "forbidden-source-reference"
+owners = ["ambition_platformer2d_core"]
+watch_paths = ["crates/ambition_platformer2d_core/src"]
+rationale = "ambition_platformer2d_core is the bottom foundation crate: geometry, body contract, control-frame vocabulary. It must never name the headless composition tier, the content crate, or the app shell — those are strictly above it."
+source_doc = "docs/planning/engine/architecture.md"
+severity = "error"
+roots = ["crates/ambition_platformer2d_core/src"]
+forbid = ["ambition_content", "ambition_app", "ambition_platformer2d_runtime"]
+
+# ── migrated from crates/ambition_platformer2d_host/tests/host_names_no_content.rs (Task 4) ──
+
+# was: manifest_does_not_depend_on_ambition_content
+[[policy]]
+id = "engine.host-names-no-content"
+scope = "engine"
+kind = "dependency-denylist"
+owners = ["ambition_platformer2d_host"]
+watch_paths = ["crates/ambition_platformer2d_host/Cargo.toml"]
+rationale = "The windowed host is the ENGINE face's presentation companion, not a game: it must never depend on ambition_content. Locks the E5-step-5 exit invariant from the scaffold onward."
+source_doc = "docs/architecture/package-and-capability-boundaries.md#layering"
+severity = "error"
+manifest = "crates/ambition_platformer2d_host/Cargo.toml"
+deny = ["ambition_content"]
+
+# was: sources_name_no_content_crate
+[[policy]]
+id = "engine.host-source-names-no-content"
+scope = "engine"
+kind = "forbidden-source-reference"
+owners = ["ambition_platformer2d_host"]
+watch_paths = ["crates/ambition_platformer2d_host/src"]
+rationale = "The moment the host moves a system that reaches for a content type, this fails instead of the boundary rotting. Docs deliberately MENTION the forbidden crate, so comments are exempt."
+source_doc = "docs/architecture/package-and-capability-boundaries.md#layering"
+severity = "error"
+roots = ["crates/ambition_platformer2d_host/src"]
+forbid = ["ambition_content"]
+
+# ── migrated from crates/ambition_render/tests/observation_boundary.rs (Task 4) ──
+
+# was: render_never_names_live_sim_state (E4 observation boundary)
+[[policy]]
+id = "engine.render-never-names-live-sim-state"
+scope = "engine"
+kind = "forbidden-source-reference"
+owners = ["ambition_render"]
+watch_paths = ["crates/ambition_render/src"]
+rationale = "Presentation reads ONLY the ambition_sim_view read-model — never the sim heart's live Body* clusters, actor/boss cluster refs, control seams, or item/ability sim components. Reintroducing a Query<&BodyKinematics> in render fails here. Whole-identifier match so GroundItemVisual does not trip GroundItem; vocabulary/data types (FeatureView, CharacterAnim, Health-as-data) are deliberately NOT forbidden."
+source_doc = "docs/architecture/package-and-capability-boundaries.md#layering"
+severity = "error"
+whole_ident = true
+roots = ["crates/ambition_render/src"]
+forbid = [
+    "BodyKinematics", "BodyGroundState", "BodyWallState", "BodyBlinkState",
+    "BodyFlightState", "BodyDashState", "BodyLedgeState", "BodyModeState",
+    "BodyEnvironmentContact", "BodyAbilities", "BodyDodgeState", "BodyShieldState",
+    "BodyCombat", "BodyHealth", "BodyMana", "BodyWallet", "BodyMelee",
+    "BodyAnimFacts", "BodyBaseSize",
+    "ControlledSubject", "ActorControl", "SlotControls", "PlayerBlinkCameraState",
+    "ActorSpriteData", "BossClusterRef", "BossAttackState", "BossPhase",
+    "ActorDisposition", "ActorIdentity", "ActorStatus", "ActorConfig", "ActorRoll",
+    "MeleeSwing", "CenteredAabb", "FeatureSimEntity", "FeatureName",
+    "HeldItem", "GroundItem", "HeldProjectile", "PlayerMark", "HealShrine",
+    "GravityFlipSwitch", "LiveProjectile", "PlayerProjectileState",
+]
+
+# was: render_has_no_actor_crate_dependency_after_f15 (manifest half)
+[[policy]]
+id = "engine.render-no-actor-crate-dependency"
+scope = "engine"
+kind = "dependency-denylist"
+owners = ["ambition_render"]
+watch_paths = ["crates/ambition_render/Cargo.toml"]
+rationale = "F1.5 complete: ambition_render must not depend on or feature-forward to ambition_platformer2d_actor_monolith. Render and the machinery meet only through lower view/vocabulary crates."
+source_doc = "docs/architecture/package-and-capability-boundaries.md#actor-residual-kernel"
+severity = "error"
+manifest = "crates/ambition_render/Cargo.toml"
+deny = ["ambition_platformer2d_actor_monolith"]
+
+# was: render_has_no_actor_crate_dependency_after_f15 (source half)
+[[policy]]
+id = "engine.render-source-names-no-actors"
+scope = "engine"
+kind = "forbidden-source-reference"
+owners = ["ambition_render"]
+watch_paths = ["crates/ambition_render/src"]
+rationale = "F1.5 complete: render source must not name ambition_platformer2d_actor_monolith in code, even where the manifest dep is already gone."
+source_doc = "docs/architecture/package-and-capability-boundaries.md#actor-residual-kernel"
+severity = "error"
+roots = ["crates/ambition_render/src"]
+forbid = ["ambition_platformer2d_actor_monolith"]
+
+# ── migrated from crates/ambition_platformer2d_world/src/lib.rs dependency ratchet (Task 4) ──
+
+# was: ambition_world_dependency_allowlist_ratchets_world_ir_purity
+[[policy]]
+id = "engine.world-ir-dependency-allowlist"
+scope = "engine"
+kind = "dependency-allowlist"
+owners = ["ambition_platformer2d_world"]
+watch_paths = ["crates/ambition_platformer2d_world/Cargo.toml"]
+rationale = "ambition_platformer2d_world owns the backend-agnostic world IR (room graph, placements, platform math, composited collision world, and the manifest declaring which authored world documents a game ships). It may name only explicit world-IR dependencies; the exact ratchet forces a legacy entry out of the allow-list as each placement branch dissolves. `ambition_asset_manager` was added 2026-08-16 by a deliberate architecture change (D136): `WorldManifest`/`WorldSource` moved DOWN out of `ambition_platformer2d_ldtk`, because a declaration of which files a game ships is an asset catalog and not an authoring format's vocabulary — its sibling `ron_room::RonRoomSource` was already here, and leaving it in the LDtk crate is what forced `ambition_platformer2d`'s own LDtk edge to be unconditional. The entry does not weaken this crate's purity claim: `ambition_asset_manager` is a LEAF with zero `ambition_*` dependencies, and it is taken WITHOUT its `bevy` feature, so the world IR gains an id vocabulary and no engine, app or backend."
+source_doc = "docs/architecture/package-and-capability-boundaries.md#layering"
+severity = "error"
+exact = true
+manifest = "crates/ambition_platformer2d_world/Cargo.toml"
+allow = [
+    "ambition_asset_manager",
+    "ambition_platformer2d_core",
+    "ambition_entity_catalog",
+    "ambition_platformer2d_shared_tangle",
+    # The registration protocol PlacementLoweringRegistry answers (2026-09-03,
+    # registry_core R4a): dependency-free, below every registry.
+    "ambition_registry_core",
+]
+
+# ── architecture_boundaries.rs decomposition, batch 1 (Task 6) ─────────────────
+# Repetitive crate-purity rules only (workspace-member / dependency-denylist /
+# forbidden-source-reference). Bespoke semantic assertions stay in the legacy
+# file until Task 9. Stable IDs derive from the old test names.
+
+# was: architecture_boundaries_render_and_actor_crates_are_decoupled
+# (the render→actor half is covered by engine.render-no-actor-crate-dependency +
+#  engine.render-source-names-no-actors from Task 4; these cover the rest)
+[[policy]]
+id = "engine.render-decoupled-member"
+scope = "engine"
+kind = "workspace-member"
+owners = ["ambition_render"]
+watch_paths = ["Cargo.toml"]
+rationale = "ambition_render is the sandbox's renderer and must stay a registered workspace member; the sim machinery and render meet only through lower vocabulary/read-model crates."
+source_doc = "docs/architecture/package-and-capability-boundaries.md#actor-residual-kernel"
+severity = "error"
+members = ["ambition_render"]
+
+[[policy]]
+id = "engine.actor-manifest-no-render"
+scope = "engine"
+kind = "dependency-denylist"
+owners = ["ambition_platformer2d_actor_monolith"]
+watch_paths = ["crates/ambition_platformer2d_actor_monolith/Cargo.toml"]
+rationale = "The sim machinery must not depend on its renderer (render depends on the sim, never the reverse)."
+source_doc = "docs/architecture/package-and-capability-boundaries.md#actor-residual-kernel"
+severity = "error"
+manifest = "crates/ambition_platformer2d_actor_monolith/Cargo.toml"
+deny = ["ambition_render"]
+
+[[policy]]
+id = "engine.actor-source-no-render"
+scope = "engine"
+kind = "forbidden-source-reference"
+owners = ["ambition_platformer2d_actor_monolith"]
+watch_paths = ["crates/ambition_platformer2d_actor_monolith/src"]
+rationale = "ambition_platformer2d_actor_monolith must not reference the render crate in code either."
+source_doc = "docs/architecture/package-and-capability-boundaries.md#actor-residual-kernel"
+severity = "error"
+roots = ["crates/ambition_platformer2d_actor_monolith/src"]
+forbid = ["ambition_render"]
+
+# was: architecture_boundaries_menu_crate_stays_content_free
+[[policy]]
+id = "engine.menu-crate-manifest-no-actors"
+scope = "engine"
+kind = "dependency-denylist"
+owners = ["ambition_menu"]
+watch_paths = ["crates/ambition_menu/Cargo.toml"]
+rationale = "ambition_menu is the reusable menu renderer; the game owns menu content, so it must not depend on the actor machinery."
+source_doc = "docs/architecture/package-and-capability-boundaries.md"
+severity = "error"
+manifest = "crates/ambition_menu/Cargo.toml"
+deny = ["ambition_platformer2d_actor_monolith"]
+
+[[policy]]
+id = "engine.menu-crate-source-no-actors"
+scope = "engine"
+kind = "forbidden-source-reference"
+owners = ["ambition_menu"]
+watch_paths = ["crates/ambition_menu/src"]
+rationale = "ambition_menu must stay content-free — no ambition_platformer2d_actor_monolith references in code."
+source_doc = "docs/architecture/package-and-capability-boundaries.md"
+severity = "error"
+roots = ["crates/ambition_menu/src"]
+forbid = ["ambition_platformer2d_actor_monolith"]
+
+# was: architecture_boundaries_persistence_crate_owns_stored_shapes_only
+[[policy]]
+id = "engine.persistence-crate-member"
+scope = "engine"
+kind = "workspace-member"
+owners = ["ambition_persistence"]
+watch_paths = ["Cargo.toml"]
+rationale = "ambition_persistence owns stored shapes and must stay a registered workspace member."
+source_doc = "docs/architecture/package-and-capability-boundaries.md"
+severity = "error"
+members = ["ambition_persistence"]
+
+[[policy]]
+id = "engine.persistence-crate-manifest-purity"
+scope = "engine"
+kind = "dependency-denylist"
+owners = ["ambition_persistence"]
+watch_paths = ["crates/ambition_persistence/Cargo.toml"]
+rationale = "ambition_persistence owns stored shapes, not menu/UI/game machinery."
+source_doc = "docs/architecture/package-and-capability-boundaries.md"
+severity = "error"
+manifest = "crates/ambition_persistence/Cargo.toml"
+deny = ["ambition_platformer2d_actor_monolith", "ambition_menu", "ambition_render", "ambition_content", "ambition_app"]
+
+[[policy]]
+id = "engine.persistence-crate-source-purity"
+scope = "engine"
+kind = "forbidden-source-reference"
+owners = ["ambition_persistence"]
+watch_paths = ["crates/ambition_persistence/src"]
+rationale = "ambition_persistence source must stay free of menu/UI/game machinery imports."
+source_doc = "docs/architecture/package-and-capability-boundaries.md"
+severity = "error"
+roots = ["crates/ambition_persistence/src"]
+forbid = ["ambition_platformer2d_actor_monolith", "ambition_menu", "ambition_render", "ambition_content", "ambition_app"]
+
+# was: architecture_boundaries_encounter_crate_is_state_only
+[[policy]]
+id = "engine.encounter-crate-member"
+scope = "engine"
+kind = "workspace-member"
+owners = ["ambition_encounter"]
+watch_paths = ["Cargo.toml"]
+rationale = "ambition_encounter owns reusable encounter state/vocabulary and must stay a registered workspace member."
+source_doc = "docs/architecture/package-and-capability-boundaries.md#layering"
+severity = "error"
+members = ["ambition_encounter"]
+
+[[policy]]
+id = "engine.encounter-crate-manifest-purity"
+scope = "engine"
+kind = "dependency-denylist"
+owners = ["ambition_encounter"]
+watch_paths = ["crates/ambition_encounter/Cargo.toml"]
+rationale = "ambition_encounter is reusable encounter state/vocabulary; the LDtk loader, ECS spawning, banners, and save/quest adapters stay above it, so it must not reach into sim/content/render/host crates."
+source_doc = "docs/architecture/package-and-capability-boundaries.md#layering"
+severity = "error"
+manifest = "crates/ambition_encounter/Cargo.toml"
+deny = ["ambition_platformer2d_actor_monolith", "ambition_characters", "ambition_platformer2d_ldtk", "ambition_sim_view", "ambition_platformer2d_runtime", "ambition_render", "ambition_content", "ambition_app"]
+
+[[policy]]
+id = "engine.encounter-crate-source-purity"
+scope = "engine"
+kind = "forbidden-source-reference"
+owners = ["ambition_encounter"]
+watch_paths = ["crates/ambition_encounter/src"]
+rationale = "ambition_encounter source must not reach into sim/content/render/host crates."
+source_doc = "docs/architecture/package-and-capability-boundaries.md#layering"
+severity = "error"
+roots = ["crates/ambition_encounter/src"]
+# `ambition_content::` with the PATH SEPARATOR, not the bare crate name. A bare
+# `ambition_content` is a substring of `ambition_content_pack`, which is a
+# different crate — the engine's content COMPILER, which `ambition_characters`
+# and `ambition_items` already depend on to own their schemas. Forbidding it here
+# by accident blocked this capability from owning `encounter_waves` at all
+# . The terminator convention is the same one
+# `engine.actor-monolith-*` uses for `ambition_portal2d::` below.
+forbid = ["ambition_platformer2d_actor_monolith", "ambition_characters", "ambition_platformer2d_ldtk", "ambition_sim_view", "ambition_platformer2d_runtime", "ambition_render", "ambition_content::", "ambition_content;", "ambition_app"]
+
+# was: architecture_boundaries_host_does_not_depend_on_actors
+[[policy]]
+id = "engine.host-crate-member"
+scope = "engine"
+kind = "workspace-member"
+owners = ["ambition_platformer2d_host"]
+watch_paths = ["Cargo.toml"]
+rationale = "ambition_platformer2d_host, the windowed-host face, must stay a registered workspace member."
+source_doc = "docs/architecture/package-and-capability-boundaries.md#actor-residual-kernel"
+severity = "error"
+members = ["ambition_platformer2d_host"]
+
+[[policy]]
+id = "engine.host-manifest-no-actors"
+scope = "engine"
+kind = "dependency-denylist"
+owners = ["ambition_platformer2d_host"]
+watch_paths = ["crates/ambition_platformer2d_host/Cargo.toml"]
+rationale = "F1.10: the windowed host wires presentation/input/runtime seams, not the actor-systems crate."
+source_doc = "docs/architecture/package-and-capability-boundaries.md#actor-residual-kernel"
+severity = "error"
+manifest = "crates/ambition_platformer2d_host/Cargo.toml"
+deny = ["ambition_platformer2d_actor_monolith"]
+
+[[policy]]
+id = "engine.host-source-no-actors"
+scope = "engine"
+kind = "forbidden-source-reference"
+owners = ["ambition_platformer2d_host"]
+watch_paths = ["crates/ambition_platformer2d_host/src", "crates/ambition_platformer2d_host/tests"]
+rationale = "F1.10: host source and smoke fixtures should reach actor-owned setup only through runtime facades, never name ambition_platformer2d_actor_monolith:: directly."
+source_doc = "docs/architecture/package-and-capability-boundaries.md#actor-residual-kernel"
+severity = "error"
+roots = ["crates/ambition_platformer2d_host/src", "crates/ambition_platformer2d_host/tests"]
+forbid = ["ambition_platformer2d_actor_monolith::"]
+
+# ── architecture_boundaries.rs decomposition, batch 2 (Task 9): crate-purity +
+#    consumer-vocab rules migrated declaratively (generated). ─────────────────
+
+# ⛔⛔ THE PORTAL MAP CONVENTION WAS A `static AtomicBool`, 2026-08-30. It was
+# mirrored from `PortalTuning::convention` by a per-frame system, so every
+# consumer read the global instead of the resource that owns it: two providers
+# in one process could not disagree, load order decided who won, and a static is
+# not rollback state — a convention the inspector changed mid-session did not
+# rewind with the world. Its DEFAULT also disagreed with the tuning's
+# (Reflection vs Rotation), which every fixture that never ran the mirror
+# silently inherited.
+#
+# The convention is a threaded parameter now. This forbids the shape coming
+# back: process-global mutable state in the crate that owns the pure math.
+[[policy]]
+id = "engine.platformer-math-holds-no-process-state"
+scope = "engine"
+kind = "forbidden-source-reference"
+owners = ["ambition_platformer2d_shared_tangle"]
+watch_paths = ["crates/ambition_platformer2d_shared_tangle/src/math.rs"]
+rationale = "portal map math is pure; its convention is session authority threaded as a value, never a process global"
+source_doc = "docs/planning/engine/simulation-authority-and-determinism.md"
+severity = "error"
+roots = ["crates/ambition_platformer2d_shared_tangle/src/math.rs"]
+forbid = ["AtomicBool", "AtomicU8", "AtomicUsize", "static mut", "OnceLock", "thread_local"]
+
+# was: architecture_boundaries_platformer_runtime_stays_content_free
+#
+# FOUR POLICIES DESCRIBED THE SHAPE OF A COMPATIBILITY SHIM
+# (`.../src/platformer_runtime`): that it stayed content-free, that it had
+# shrunk to the right files, and that two of those files re-exported the
+# extracted crate. All four went away with the shim on 2026-08-30, at the
+# instruction of its own TODO: *"migrate the callers to their owning crates,
+# then delete those re-export modules and leave no generic runtime facade
+# inside the actor monolith."* Two of them were RED because the migration had
+# finished and the re-exports were gone — a policy asking a deleted forwarding
+# module to come back, exactly like `engine.actor-physics-facade` before it.
+#
+# What replaces them is the rule they were standing in for. A shim's shape is
+# not a boundary; "the actor crate does not hold a generic runtime facade" is.
+[[policy]]
+id = "engine.no-generic-runtime-facade-in-the-actor-crate"
+scope = "engine"
+kind = "forbidden-path"
+owners = ["ambition_platformer2d_shared_tangle"]
+watch_paths = ["crates/ambition_platformer2d_actor_monolith/src"]
+rationale = "generic platformer-runtime vocabulary lives in its own crate; the actor monolith may not re-export it under a facade"
+source_doc = "docs/architecture/architecture-boundaries.md"
+severity = "error"
+paths = ["crates/ambition_platformer2d_actor_monolith/src/platformer_runtime", "crates/ambition_platformer2d_actor_monolith/src/physics.rs"]
+
+
+# was: architecture_boundaries_world_ir_and_ldtk_backend_are_split
+[[policy]]
+id = "engine.ambition_platformer2d_world-member"
+scope = "engine"
+kind = "workspace-member"
+owners = ["ambition_platformer2d_world"]
+watch_paths = ["Cargo.toml"]
+rationale = "ambition_platformer2d_world must stay a registered workspace member"
+source_doc = "docs/architecture/architecture-boundaries.md"
+severity = "error"
+members = ["ambition_platformer2d_world"]
+
+[[policy]]
+id = "engine.ambition_platformer2d_world-manifest-deny"
+scope = "engine"
+kind = "dependency-denylist"
+owners = ["ambition_platformer2d_world"]
+watch_paths = ["crates/ambition_platformer2d_world/Cargo.toml"]
+rationale = "ambition_platformer2d_world is the backend-agnostic world IR"
+source_doc = "docs/architecture/architecture-boundaries.md"
+severity = "error"
+deny = ["ambition_platformer2d_ldtk", "ambition_platformer2d_actor_monolith", "ambition_platformer2d_runtime", "ambition_render", "ambition_content", "ambition_app", "ambition_combat", "ambition_interaction", "ambition_portal2d", "bevy_ecs_ldtk"]
+manifest = "crates/ambition_platformer2d_world/Cargo.toml"
+
+[[policy]]
+id = "engine.ambition_platformer2d_world-source-purity"
+scope = "engine"
+kind = "forbidden-source-reference"
+owners = ["ambition_platformer2d_world"]
+watch_paths = ["crates/ambition_platformer2d_world/src"]
+rationale = "ambition_platformer2d_world source stays free of forbidden refs"
+source_doc = "docs/architecture/architecture-boundaries.md"
+severity = "error"
+roots = ["crates/ambition_platformer2d_world/src"]
+forbid = ["ambition_platformer2d_ldtk", "ambition_combat", "ambition_interaction", "ambition_portal2d", "bevy_ecs_ldtk"]
+
+[[policy]]
+id = "engine.ldtk-map-member"
+scope = "engine"
+kind = "workspace-member"
+owners = ["ambition_platformer2d_world"]
+watch_paths = ["Cargo.toml"]
+rationale = "ambition_platformer2d_ldtk registered"
+source_doc = "docs/architecture/architecture-boundaries.md"
+severity = "error"
+members = ["ambition_platformer2d_ldtk"]
+
+[[policy]]
+id = "engine.ldtk-map-manifest-deny"
+scope = "engine"
+kind = "dependency-denylist"
+owners = ["ambition_platformer2d_world"]
+watch_paths = ["crates/ambition_platformer2d_ldtk/Cargo.toml"]
+rationale = "ambition_platformer2d_ldtk converts into world IR without depending on the sim heart"
+source_doc = "docs/architecture/architecture-boundaries.md"
+severity = "error"
+deny = ["ambition_platformer2d_actor_monolith", "ambition_platformer2d_runtime", "ambition_render", "ambition_content", "ambition_app"]
+manifest = "crates/ambition_platformer2d_ldtk/Cargo.toml"
+
+[[policy]]
+id = "engine.ldtk-map-source-purity"
+scope = "engine"
+kind = "forbidden-source-reference"
+owners = ["ambition_platformer2d_world"]
+watch_paths = ["crates/ambition_platformer2d_ldtk/src"]
+rationale = "ambition_platformer2d_ldtk source must not reach upward into sim/app/render/content (test fixture path string exempt)"
+source_doc = "docs/architecture/architecture-boundaries.md"
+severity = "error"
+roots = ["crates/ambition_platformer2d_ldtk/src"]
+forbid = ["ambition_platformer2d_actor_monolith", "ambition_platformer2d_runtime", "ambition_render", "ambition_content", "ambition_app"]
+allow_lines = ["../../game/ambition_content/assets"]
+
+
+# was: architecture_boundaries_items_crate_is_catalog_and_shop_only
+[[policy]]
+id = "engine.ambition_items-member"
+scope = "engine"
+kind = "workspace-member"
+owners = ["ambition_items"]
+watch_paths = ["Cargo.toml"]
+rationale = "ambition_items must stay a registered workspace member"
+source_doc = "docs/architecture/architecture-boundaries.md"
+severity = "error"
+members = ["ambition_items"]
+
+[[policy]]
+id = "engine.ambition_items-absent-paths"
+scope = "engine"
+kind = "forbidden-path"
+owners = ["ambition_items"]
+watch_paths = ["crates/ambition_items"]
+rationale = "ambition_items: removed facades stay gone"
+source_doc = "docs/architecture/architecture-boundaries.md"
+severity = "error"
+paths = ["crates/ambition_items/src/inventory_ui", "crates/ambition_items/src/inventory_ui/mod.rs", "crates/ambition_items/src/inventory_ui/model.rs", "crates/ambition_platformer2d_actor_monolith/src/inventory_ui", "crates/ambition_platformer2d_actor_monolith/src/inventory_ui/mod.rs", "crates/ambition_platformer2d_actor_monolith/src/inventory_ui/model.rs"]
+
+[[policy]]
+id = "engine.ambition_items-manifest-deny"
+scope = "engine"
+kind = "dependency-denylist"
+owners = ["ambition_items"]
+watch_paths = ["crates/ambition_items/Cargo.toml"]
+rationale = "ambition_items owns reusable catalog/shop data; UI state lives in ambition_inventory_ui"
+source_doc = "docs/architecture/architecture-boundaries.md"
+severity = "error"
+deny = ["ambition_platformer2d_actor_monolith", "ambition_render", "ambition_content", "ambition_app", "ambition_ui_nav", "ambition_inventory_ui"]
+manifest = "crates/ambition_items/Cargo.toml"
+
+[[policy]]
+id = "engine.ambition_items-source-purity"
+scope = "engine"
+kind = "forbidden-source-reference"
+owners = ["ambition_items"]
+watch_paths = ["crates/ambition_items/src"]
+rationale = "ambition_items source stays free of forbidden refs"
+source_doc = "docs/architecture/architecture-boundaries.md"
+severity = "error"
+roots = ["crates/ambition_items/src"]
+# `ambition_content::`, not `ambition_content` — the bare form also matches
+# `ambition_content_pack`, which is the ENGINE's schema/compile
+# infrastructure that engine crates legitimately define their own content
+# schemas through (combat, characters and items each have a
+# `content_schema.rs`). The sibling `engine.combat-kit-content-free` policy
+# already uses the precise form (`crate::ambition_content`), so this is the
+# established shape in this file rather than a loosening: what the rationale
+# forbids is reaching into the ambition_content GAME crate, and that is what
+# the qualified path names.
+forbid = ["ambition_platformer2d_actor_monolith", "ambition_render", "ambition_content::", "ambition_app", "ambition_ui_nav", "ambition_inventory_ui"]
+
+
+# was: architecture_boundaries_inventory_ui_crate_is_menu_state_only
+[[policy]]
+id = "engine.ambition_inventory_ui-member"
+scope = "engine"
+kind = "workspace-member"
+owners = ["ambition_inventory_ui"]
+watch_paths = ["Cargo.toml"]
+rationale = "ambition_inventory_ui must stay a registered workspace member"
+source_doc = "docs/architecture/architecture-boundaries.md"
+severity = "error"
+members = ["ambition_inventory_ui"]
+
+[[policy]]
+id = "engine.ambition_inventory_ui-manifest-allow"
+scope = "engine"
+kind = "dependency-allowlist"
+owners = ["ambition_inventory_ui"]
+watch_paths = ["crates/ambition_inventory_ui/Cargo.toml"]
+rationale = "ambition_inventory_ui is reusable menu-navigation state over ambition_ui_nav. It also DECLARES that an open inventory owns the seat's input (ambition_input::participant), which is why the vocabulary is allowed here."
+source_doc = "docs/architecture/architecture-boundaries.md"
+severity = "error"
+# I'll think about it in more detail later." The open question is what this crate IS — a pure view
+# crate that never participates in input arbitration, in which case the claim belongs in whatever
+# composes the inventory rather than here.
+#
+# The case for allowing it, so the later decision starts from the facts:
+# * it adds NOTHING to the dependency graph. `ambition_ui_nav` already depends
+#   on `ambition_input`, so this edge existed transitively; naming it directly
+#   says the claim is this crate's own fact rather than a re-export it reaches.
+# * it buys one system, `declare_inventory_input_context`, which raises
+#   `INVENTORY_CONTEXT` while the inventory is open.
+# * what it REPLACED is the derivation `ambition_input::participant` forbids in
+#   its own header — "nothing derives input ownership from `GameMode` or from
+#   the presence of a controlled body". "The inventory has the controls" used to
+#   be spelled `GameMode::Paused && inventory.visible` at every site that needed
+#   it: two authorities for one question, and the mode is the wrong one, because
+#   `Paused` is a fact about the WORLD and owning input is a fact about a SEAT.
+# * the gap was real, not hypothetical: a composition that never registers
+#   `GameMode` (a demo, a capture harness) had the inventory open with gameplay
+#   still routing underneath it, so navigation keys also drove the actor behind
+#   it — and no router could be told otherwise.
+#
+# the two alternatives are both worse: re-export the vocabulary through
+# `ambition_ui_nav` to launder the same edge, or go back to deriving ownership
+# from `GameMode`, which is the bug.
+allow = ["ambition_ui_nav", "ambition_input"]
+manifest = "crates/ambition_inventory_ui/Cargo.toml"
+
+[[policy]]
+id = "engine.ambition_inventory_ui-source-purity"
+scope = "engine"
+kind = "forbidden-source-reference"
+owners = ["ambition_inventory_ui"]
+watch_paths = ["crates/ambition_inventory_ui/src"]
+rationale = "ambition_inventory_ui source stays free of forbidden refs"
+source_doc = "docs/architecture/architecture-boundaries.md"
+severity = "error"
+roots = ["crates/ambition_inventory_ui/src"]
+forbid = ["ambition_items::", "ambition_platformer2d_actor_monolith", "ambition_render", "ambition_content", "ambition_app"]
+
+
+# was: architecture_boundaries_settings_menu_ir_is_foundation_only
+[[policy]]
+id = "engine.ambition_settings_menu-member"
+scope = "engine"
+kind = "workspace-member"
+owners = ["ambition_settings_menu"]
+watch_paths = ["Cargo.toml"]
+rationale = "ambition_settings_menu must stay a registered workspace member"
+source_doc = "docs/architecture/architecture-boundaries.md"
+severity = "error"
+members = ["ambition_settings_menu"]
+
+[[policy]]
+id = "engine.ambition_settings_menu-manifest-allow"
+scope = "engine"
+kind = "dependency-allowlist"
+owners = ["ambition_settings_menu"]
+watch_paths = ["crates/ambition_settings_menu/Cargo.toml"]
+rationale = "ambition_settings_menu is the pure, renderer-agnostic settings IR"
+source_doc = "docs/architecture/architecture-boundaries.md"
+severity = "error"
+allow = ["ambition_persistence", "ambition_input"]
+manifest = "crates/ambition_settings_menu/Cargo.toml"
+
+[[policy]]
+id = "engine.ambition_settings_menu-source-purity"
+scope = "engine"
+kind = "forbidden-source-reference"
+owners = ["ambition_settings_menu"]
+watch_paths = ["crates/ambition_settings_menu/src"]
+rationale = "ambition_settings_menu source stays free of forbidden refs"
+source_doc = "docs/architecture/architecture-boundaries.md"
+severity = "error"
+roots = ["crates/ambition_settings_menu/src"]
+forbid = ["ambition_platformer2d_actor_monolith", "ambition_menu", "ambition_render", "ambition_content", "ambition_app", "bevy_lunex", "bevy::"]
+
+
+# was: architecture_boundaries_dev_tools_crate_is_foundation_only
+[[policy]]
+id = "engine.ambition_dev_tools-member"
+scope = "engine"
+kind = "workspace-member"
+owners = ["ambition_dev_tools"]
+watch_paths = ["Cargo.toml"]
+rationale = "ambition_dev_tools must stay a registered workspace member"
+source_doc = "docs/architecture/architecture-boundaries.md"
+severity = "error"
+members = ["ambition_dev_tools"]
+
+[[policy]]
+id = "engine.ambition_dev_tools-manifest-allow"
+scope = "engine"
+kind = "dependency-allowlist"
+owners = ["ambition_dev_tools"]
+watch_paths = ["crates/ambition_dev_tools/Cargo.toml"]
+rationale = "ambition_dev_tools is foundational dev-tool state; overlays/sim stay out. ambition_time was added 2026-08-31 for the clock seam: developer slow-motion PUBLISHES a ClockScaleRequest instead of the simulation kernel reading DeveloperRuntimeState, which is the edge this list exists to protect. ambition_time depends only on ambition_platformer2d_core, so it is foundation rather than sim"
+source_doc = "docs/architecture/architecture-boundaries.md"
+severity = "error"
+allow = ["ambition_platformer2d_core", "ambition_characters", "ambition_platformer2d_shared_tangle", "ambition_persistence", "ambition_time"]
+manifest = "crates/ambition_dev_tools/Cargo.toml"
+
+[[policy]]
+id = "engine.ambition_dev_tools-source-purity"
+scope = "engine"
+kind = "forbidden-source-reference"
+owners = ["ambition_dev_tools"]
+watch_paths = ["crates/ambition_dev_tools/src"]
+rationale = "ambition_dev_tools source stays free of forbidden refs"
+source_doc = "docs/architecture/architecture-boundaries.md"
+severity = "error"
+roots = ["crates/ambition_dev_tools/src"]
+forbid = ["ambition_platformer2d_actor_monolith", "ambition_menu", "ambition_render", "ambition_content", "ambition_app", "bevy_inspector_egui"]
+
+
+# was: architecture_boundaries_dialog_crate_is_runtime_only
+[[policy]]
+id = "engine.ambition_dialog-member"
+scope = "engine"
+kind = "workspace-member"
+owners = ["ambition_dialog"]
+watch_paths = ["Cargo.toml"]
+rationale = "ambition_dialog must stay a registered workspace member"
+source_doc = "docs/architecture/architecture-boundaries.md"
+severity = "error"
+members = ["ambition_dialog"]
+
+[[policy]]
+id = "engine.ambition_dialog-manifest-allow"
+scope = "engine"
+kind = "dependency-allowlist"
+owners = ["ambition_dialog"]
+watch_paths = ["crates/ambition_dialog/Cargo.toml"]
+rationale = "ambition_dialog is the reusable dialogue runtime; game bindings stay host-side"
+source_doc = "docs/architecture/architecture-boundaries.md"
+severity = "error"
+allow = ["ambition_platformer2d_core", "ambition_ui_nav", "ambition_input", "ambition_sfx", "ambition_persistence"]
+manifest = "crates/ambition_dialog/Cargo.toml"
+
+[[policy]]
+id = "engine.ambition_dialog-source-purity"
+scope = "engine"
+kind = "forbidden-source-reference"
+owners = ["ambition_dialog"]
+watch_paths = ["crates/ambition_dialog/src"]
+rationale = "ambition_dialog source stays free of forbidden refs"
+source_doc = "docs/architecture/architecture-boundaries.md"
+severity = "error"
+roots = ["crates/ambition_dialog/src"]
+forbid = ["ambition_platformer2d_actor_monolith", "ambition_menu", "ambition_render", "ambition_content", "ambition_app", "ambition_characters"]
+
+
+# was: architecture_boundaries_interaction_crate_is_foundation_only
+[[policy]]
+id = "engine.ambition_interaction-manifest-deny"
+scope = "engine"
+kind = "dependency-denylist"
+owners = ["ambition_interaction"]
+watch_paths = ["crates/ambition_interaction/Cargo.toml"]
+rationale = "ambition_interaction is a content-free data model over the actor/geometry foundations"
+source_doc = "docs/architecture/architecture-boundaries.md"
+severity = "error"
+deny = ["ambition_platformer2d_actor_monolith", "ambition_content", "ambition_render", "bevy"]
+manifest = "crates/ambition_interaction/Cargo.toml"
+
+[[policy]]
+id = "engine.ambition_interaction-source-purity"
+scope = "engine"
+kind = "forbidden-source-reference"
+owners = ["ambition_interaction"]
+watch_paths = ["crates/ambition_interaction/src"]
+rationale = "ambition_interaction source stays free of forbidden refs"
+source_doc = "docs/architecture/architecture-boundaries.md"
+severity = "error"
+roots = ["crates/ambition_interaction/src"]
+forbid = ["ambition_platformer2d_actor_monolith", "ambition_content", "gnu_ton", "gradient_sentinel"]
+
+
+# was: architecture_boundaries_effects_crate_is_foundation_only
+[[policy]]
+id = "engine.ambition_vfx-manifest-deny"
+scope = "engine"
+kind = "dependency-denylist"
+owners = ["ambition_vfx"]
+watch_paths = ["crates/ambition_vfx/Cargo.toml"]
+rationale = "ambition_vfx is the reusable non-projectile effect substrate; projectile spawning is a sibling authoritative domain, not effect transport"
+source_doc = "docs/architecture/architecture-boundaries.md"
+severity = "error"
+deny = ["ambition_platformer2d_actor_monolith", "ambition_characters", "ambition_projectiles", "ambition_projectile_spec"]
+manifest = "crates/ambition_vfx/Cargo.toml"
+
+[[policy]]
+id = "engine.ambition_vfx-source-purity"
+scope = "engine"
+kind = "forbidden-source-reference"
+owners = ["ambition_vfx"]
+watch_paths = ["crates/ambition_vfx/src"]
+rationale = "ambition_vfx source stays free of forbidden refs"
+source_doc = "docs/architecture/architecture-boundaries.md"
+severity = "error"
+roots = ["crates/ambition_vfx/src"]
+forbid = ["ambition_platformer2d_actor_monolith", "ambition_characters", "ambition_projectiles", "ambition_projectile_spec"]
+
+
+# was: architecture_boundaries_projectiles_crate_is_model_only
+[[policy]]
+id = "engine.ambition_projectiles-member"
+scope = "engine"
+kind = "workspace-member"
+owners = ["ambition_projectiles"]
+watch_paths = ["Cargo.toml"]
+rationale = "ambition_projectiles must stay a registered workspace member"
+source_doc = "docs/architecture/architecture-boundaries.md"
+severity = "error"
+members = ["ambition_projectiles"]
+
+[[policy]]
+id = "engine.ambition_projectiles-manifest-deny"
+scope = "engine"
+kind = "dependency-denylist"
+owners = ["ambition_projectiles"]
+watch_paths = ["crates/ambition_projectiles/Cargo.toml"]
+rationale = "ambition_projectiles is the projectile MODEL \u2014 no sim-heart/combat/brain/host/content coupling"
+source_doc = "docs/architecture/architecture-boundaries.md"
+severity = "error"
+deny = ["ambition_platformer2d_actor_monolith", "ambition_combat", "ambition_characters", "ambition_sim_view", "ambition_platformer2d_runtime", "ambition_render", "ambition_content", "ambition_app"]
+manifest = "crates/ambition_projectiles/Cargo.toml"
+
+[[policy]]
+id = "engine.ambition_projectiles-source-purity"
+scope = "engine"
+kind = "forbidden-source-reference"
+owners = ["ambition_projectiles"]
+watch_paths = ["crates/ambition_projectiles/src"]
+rationale = "ambition_projectiles source stays free of forbidden refs"
+source_doc = "docs/architecture/architecture-boundaries.md"
+severity = "error"
+roots = ["crates/ambition_projectiles/src"]
+forbid = ["ambition_platformer2d_actor_monolith", "ambition_combat", "ambition_characters", "ambition_sim_view", "ambition_platformer2d_runtime", "ambition_render", "ambition_content", "ambition_app"]
+
+[[policy]]
+id = "engine.projectiles-actor-stepper-generic"
+scope = "engine"
+kind = "file-omits"
+owners = ["ambition_projectiles"]
+watch_paths = ["crates/ambition_platformer2d_actor_monolith/src/projectile/systems.rs"]
+rationale = "projectile-kind-specific expiry VFX policy belongs in ambition_projectiles::visual_kind"
+source_doc = "docs/architecture/architecture-boundaries.md"
+severity = "error"
+forbid = ["fn lasersword_detonation", "ExplosionKind::ClassicBurst"]
+file = "crates/ambition_platformer2d_actor_monolith/src/projectile/systems.rs"
+
+[[policy]]
+id = "engine.projectiles-visual-owns-expiry"
+scope = "engine"
+kind = "file-contains"
+owners = ["ambition_projectiles"]
+watch_paths = ["crates/ambition_projectiles/src/visual.rs"]
+rationale = "ambition_projectiles::visual owns the GENERIC projectile expiry-VFX seam (ProjectileExpiryBurst, an authored data field on ProjectileArt); a game's content authors the named detonation, and the actor stepper reads it generically"
+source_doc = "docs/architecture/architecture-boundaries.md"
+severity = "error"
+contains = ["pub struct ProjectileExpiryBurst"]
+file = "crates/ambition_projectiles/src/visual.rs"
+
+[[policy]]
+id = "engine.projectiles-tests-travel-with-kit"
+scope = "engine"
+kind = "required-path"
+owners = ["ambition_projectiles"]
+watch_paths = ["crates/ambition_projectiles/src"]
+rationale = "projectile model tests travel with the projectile kit"
+source_doc = "docs/architecture/architecture-boundaries.md"
+severity = "error"
+paths = ["crates/ambition_projectiles/src/engine_tests.rs"]
+
+[[policy]]
+id = "engine.projectiles-no-actor-facade-tests"
+scope = "engine"
+kind = "forbidden-path"
+owners = ["ambition_projectiles"]
+watch_paths = ["crates/ambition_platformer2d_actor_monolith/src/projectile"]
+rationale = "pure projectile primitive tests do not live under the actor facade"
+source_doc = "docs/architecture/architecture-boundaries.md"
+severity = "error"
+paths = ["crates/ambition_platformer2d_actor_monolith/src/projectile/engine_tests.rs"]
+
+[[policy]]
+id = "engine.projectiles-actor-mod-no-engine-tests"
+scope = "engine"
+kind = "file-omits"
+owners = ["ambition_projectiles"]
+watch_paths = ["crates/ambition_platformer2d_actor_monolith/src/projectile/mod.rs"]
+rationale = "actor projectile mod exposes only steppers"
+source_doc = "docs/architecture/architecture-boundaries.md"
+severity = "error"
+forbid = ["engine_tests"]
+file = "crates/ambition_platformer2d_actor_monolith/src/projectile/mod.rs"
+
+
+# was: architecture_boundaries_portal_crate_is_extracted
+[[policy]]
+id = "engine.ambition_portal2d-member"
+scope = "engine"
+kind = "workspace-member"
+owners = ["ambition_portal2d"]
+watch_paths = ["Cargo.toml"]
+rationale = "ambition_portal2d must stay a registered workspace member"
+source_doc = "docs/architecture/architecture-boundaries.md"
+severity = "error"
+members = ["ambition_portal2d"]
+
+[[policy]]
+id = "engine.ambition_portal2d-extracted-paths"
+scope = "engine"
+kind = "required-path"
+owners = ["ambition_portal2d"]
+watch_paths = ["crates/ambition_portal2d"]
+rationale = "ambition_portal2d extracted-crate files exist"
+source_doc = "docs/architecture/architecture-boundaries.md"
+severity = "error"
+paths = ["crates/ambition_portal2d/Cargo.toml", "crates/ambition_portal2d/src/lib.rs"]
+
+[[policy]]
+id = "engine.ambition_portal2d-manifest-deny"
+scope = "engine"
+kind = "dependency-denylist"
+owners = ["ambition_portal2d"]
+watch_paths = ["crates/ambition_portal2d/Cargo.toml"]
+rationale = "ambition_portal2d must stay host-free"
+source_doc = "docs/architecture/architecture-boundaries.md"
+severity = "error"
+deny = ["ambition_platformer2d_actor_monolith", "ambition_content", "ambition_input", "ambition_sfx", "ambition_menu"]
+manifest = "crates/ambition_portal2d/Cargo.toml"
+
+[[policy]]
+id = "engine.ambition_portal2d-manifest-allow"
+scope = "engine"
+kind = "dependency-allowlist"
+owners = ["ambition_portal2d"]
+watch_paths = ["crates/ambition_portal2d/Cargo.toml"]
+rationale = "ambition_portal2d must stay host-free"
+source_doc = "docs/architecture/architecture-boundaries.md"
+severity = "error"
+allow = ["ambition_platformer2d_core", "ambition_platformer2d_shared_tangle"]
+manifest = "crates/ambition_portal2d/Cargo.toml"
+
+[[policy]]
+id = "engine.ambition_portal2d-source-purity"
+scope = "engine"
+kind = "forbidden-source-reference"
+owners = ["ambition_portal2d"]
+watch_paths = ["crates/ambition_portal2d/src"]
+rationale = "ambition_portal2d source stays free of forbidden refs"
+source_doc = "docs/architecture/architecture-boundaries.md"
+severity = "error"
+roots = ["crates/ambition_portal2d/src"]
+forbid = ["ambition_platformer2d_actor_monolith"]
+
+[[policy]]
+id = "engine.portal-exposes-plugin"
+scope = "engine"
+kind = "file-contains"
+owners = ["ambition_portal2d"]
+watch_paths = ["crates/ambition_portal2d/src/lib.rs"]
+rationale = "portal exposes a drop-in PortalPlugin"
+source_doc = "docs/architecture/architecture-boundaries.md"
+severity = "error"
+# this required the literal `pub use plugin::{PortalPlugin`, which pinned
+# `PortalPlugin`'s POSITION IN A BRACE LIST rather than the fact it is exported.
+# The moment the crate gained `PortalGunPlugin` and `PortalSimulationPlugin` the
+# list sorted alphabetically, `PortalGunPlugin` took the front, and a policy whose
+# rationale is "portal exposes a drop-in PortalPlugin" started failing a crate
+# that still exposes exactly that. ⇒ two needles instead of one: the re-export
+# exists, and the plugin is named in it. Neither `PortalGunPlugin` nor
+# `PortalSimulationPlugin` contains the substring `PortalPlugin`, so the second
+# needle still identifies the real symbol.
+contains = ["pub use plugin::{", "PortalPlugin"]
+file = "crates/ambition_portal2d/src/lib.rs"
+
+[[policy]]
+id = "engine.portal-plugin-impl"
+scope = "engine"
+kind = "file-contains"
+owners = ["ambition_portal2d"]
+watch_paths = ["crates/ambition_portal2d/src/plugin.rs"]
+rationale = "portal plugin impl"
+source_doc = "docs/architecture/architecture-boundaries.md"
+severity = "error"
+contains = ["impl Plugin for PortalPlugin"]
+file = "crates/ambition_portal2d/src/plugin.rs"
+
+[[policy]]
+id = "engine.actors-no-portal-facade"
+scope = "engine"
+kind = "file-omits"
+owners = ["ambition_portal2d"]
+watch_paths = ["crates/ambition_platformer2d_actor_monolith/src/lib.rs"]
+rationale = "ambition_platformer2d_actor_monolith must not reintroduce a portal facade"
+source_doc = "docs/architecture/architecture-boundaries.md"
+severity = "error"
+forbid = ["pub mod portal"]
+file = "crates/ambition_platformer2d_actor_monolith/src/lib.rs"
+
+
+# was: architecture_boundaries_portal_presentation_crate_is_extracted
+[[policy]]
+id = "engine.ambition_portal2d_presentation-member"
+scope = "engine"
+kind = "workspace-member"
+owners = ["ambition_portal2d_presentation"]
+watch_paths = ["Cargo.toml"]
+rationale = "ambition_portal2d_presentation must stay a registered workspace member"
+source_doc = "docs/architecture/architecture-boundaries.md"
+severity = "error"
+members = ["ambition_portal2d_presentation"]
+
+[[policy]]
+id = "engine.ambition_portal2d_presentation-extracted-paths"
+scope = "engine"
+kind = "required-path"
+owners = ["ambition_portal2d_presentation"]
+watch_paths = ["crates/ambition_portal2d_presentation"]
+rationale = "ambition_portal2d_presentation extracted-crate files exist"
+source_doc = "docs/architecture/architecture-boundaries.md"
+severity = "error"
+paths = ["crates/ambition_portal2d_presentation/Cargo.toml"]
+
+[[policy]]
+id = "engine.ambition_portal2d_presentation-manifest-deny"
+scope = "engine"
+kind = "dependency-denylist"
+owners = ["ambition_portal2d_presentation"]
+watch_paths = ["crates/ambition_portal2d_presentation/Cargo.toml"]
+rationale = "ambition_portal2d_presentation must stay host-free"
+source_doc = "docs/architecture/architecture-boundaries.md"
+severity = "error"
+deny = ["ambition_platformer2d_actor_monolith", "ambition_content", "ambition_input", "ambition_sfx", "ambition_menu"]
+manifest = "crates/ambition_portal2d_presentation/Cargo.toml"
+
+[[policy]]
+id = "engine.ambition_portal2d_presentation-manifest-allow"
+scope = "engine"
+kind = "dependency-allowlist"
+owners = ["ambition_portal2d_presentation"]
+watch_paths = ["crates/ambition_portal2d_presentation/Cargo.toml"]
+rationale = "ambition_portal2d_presentation must stay host-free"
+source_doc = "docs/architecture/architecture-boundaries.md"
+severity = "error"
+# ⭐ `ambition_sprite_fx` added 2026-09-04, and it SATISFIES this policy's stated
+# rationale rather than being excused from it: that crate depends on `bevy` and
+# NOTHING ELSE — no `ambition_*` edge at all — so it cannot pull in a host, a
+# window, or any Ambition domain. It is the most host-free thing this allowlist
+# names.
+#
+# ⛔ The edge is real and it is the consolidation that crate exists for:
+# `clip_material.rs` re-exports `SpriteFrameBasis`/`sprite_frame_basis`, which
+# MOVED DOWN out of this crate into `ambition_sprite_fx`, and `gun_visuals.rs`
+# inserts `SpriteEffect::HueShift`. Refusing the edge would mean keeping a
+# private copy of a floor concept, which is the defect the extraction removed.
+#
+# ⚠ This gate was RED ON MAIN AT DEFAULT FEATURES from `cf3ee3953` until this
+# line — an allowlist goes stale the moment a shared floor crate is extracted
+# beneath it, and nothing about extracting one prompts you to look here.
+allow = [
+    "ambition_platformer2d_core",
+    "ambition_platformer2d_shared_tangle",
+    "ambition_portal2d",
+    "ambition_sprite_fx",
+]
+manifest = "crates/ambition_portal2d_presentation/Cargo.toml"
+
+[[policy]]
+id = "engine.ambition_portal2d_presentation-source-purity"
+scope = "engine"
+kind = "forbidden-source-reference"
+owners = ["ambition_portal2d_presentation"]
+watch_paths = ["crates/ambition_portal2d_presentation/src"]
+rationale = "ambition_portal2d_presentation source stays free of forbidden refs"
+source_doc = "docs/architecture/architecture-boundaries.md"
+severity = "error"
+roots = ["crates/ambition_portal2d_presentation/src"]
+forbid = ["ambition_platformer2d_actor_monolith", "ambition_content"]
+
+[[policy]]
+id = "engine.portal-presentation-plugin"
+scope = "engine"
+kind = "file-contains"
+owners = ["ambition_portal2d_presentation"]
+watch_paths = ["crates/ambition_portal2d_presentation/src/lib.rs"]
+rationale = "exposes PortalPresentationPlugin"
+source_doc = "docs/architecture/architecture-boundaries.md"
+severity = "error"
+contains = ["PortalPresentationPlugin"]
+file = "crates/ambition_portal2d_presentation/src/lib.rs"
+
+[[policy]]
+id = "engine.portal-mechanic-no-renderer-dep"
+scope = "engine"
+kind = "file-omits"
+owners = ["ambition_portal2d_presentation"]
+watch_paths = ["crates/ambition_portal2d/Cargo.toml"]
+rationale = "headless portal must not depend on its renderer"
+source_doc = "docs/architecture/architecture-boundaries.md"
+severity = "error"
+forbid = ["ambition_portal2d_presentation"]
+file = "crates/ambition_portal2d/Cargo.toml"
+
+[[policy]]
+id = "engine.actors-no-portal-presentation-dep"
+scope = "engine"
+kind = "file-omits"
+owners = ["ambition_portal2d_presentation"]
+watch_paths = ["crates/ambition_platformer2d_actor_monolith/Cargo.toml"]
+rationale = "actors must not depend on portal presentation"
+source_doc = "docs/architecture/architecture-boundaries.md"
+severity = "error"
+forbid = ["ambition_portal2d_presentation"]
+file = "crates/ambition_platformer2d_actor_monolith/Cargo.toml"
+
+
+# was: architecture_boundaries_time_crate_is_extracted
+[[policy]]
+id = "engine.ambition_time-member"
+scope = "engine"
+kind = "workspace-member"
+owners = ["ambition_time"]
+watch_paths = ["Cargo.toml"]
+rationale = "ambition_time must stay a registered workspace member"
+source_doc = "docs/architecture/architecture-boundaries.md"
+severity = "error"
+members = ["ambition_time"]
+
+[[policy]]
+id = "engine.ambition_registry_core-member"
+scope = "engine"
+kind = "workspace-member"
+owners = ["ambition_registry_core"]
+watch_paths = ["Cargo.toml"]
+rationale = "ambition_registry_core is the registration protocol every canonical registry reads (identity meta, new/idempotent/conflict classification, canonical rows); it must stay a registered workspace member so the two pilot registries (construction, rollback) and every later adopter resolve it"
+source_doc = "docs/planning/triage/ambition-registry-core.md"
+severity = "error"
+members = ["ambition_registry_core"]
+
+[[policy]]
+id = "engine.ambition_registry_core-dependency-free"
+scope = "engine"
+kind = "file-omits"
+owners = ["ambition_registry_core"]
+watch_paths = ["crates/ambition_registry_core/Cargo.toml"]
+rationale = "ambition_registry_core sits below every registry and changes rarely; ANY dependency here is rebuild fanout for thirty crates, and a Bevy dependency is what the triage page forbids until a shared adapter proves worth it. The manifest names no ambition crate and no bevy crate — spelled as an omission because an allowlist that allows nothing reads as a blank"
+source_doc = "docs/planning/triage/ambition-registry-core.md"
+severity = "error"
+forbid = ["path = \"../ambition", "bevy ="]
+file = "crates/ambition_registry_core/Cargo.toml"
+
+[[policy]]
+id = "engine.ambition_time-extracted-paths"
+scope = "engine"
+kind = "required-path"
+owners = ["ambition_time"]
+watch_paths = ["crates/ambition_time"]
+rationale = "ambition_time extracted-crate files exist"
+source_doc = "docs/architecture/architecture-boundaries.md"
+severity = "error"
+paths = ["crates/ambition_time/Cargo.toml", "crates/ambition_time/src/lib.rs"]
+
+[[policy]]
+id = "engine.ambition_time-manifest-deny"
+scope = "engine"
+kind = "dependency-denylist"
+owners = ["ambition_time"]
+watch_paths = ["crates/ambition_time/Cargo.toml"]
+rationale = "ambition_time is the reusable time layer"
+source_doc = "docs/architecture/architecture-boundaries.md"
+severity = "error"
+deny = ["ambition_platformer2d_actor_monolith"]
+manifest = "crates/ambition_time/Cargo.toml"
+
+[[policy]]
+id = "engine.ambition_time-source-purity"
+scope = "engine"
+kind = "forbidden-source-reference"
+owners = ["ambition_time"]
+watch_paths = ["crates/ambition_time/src"]
+rationale = "ambition_time source stays free of forbidden refs"
+source_doc = "docs/architecture/architecture-boundaries.md"
+severity = "error"
+roots = ["crates/ambition_time/src"]
+forbid = ["ambition_platformer2d_actor_monolith"]
+
+[[policy]]
+id = "engine.time-exposes-plugin"
+scope = "engine"
+kind = "file-contains"
+owners = ["ambition_time"]
+watch_paths = ["crates/ambition_time/src/lib.rs"]
+rationale = "ambition_time exposes a TimePlugin"
+source_doc = "docs/architecture/architecture-boundaries.md"
+severity = "error"
+contains = ["pub struct TimePlugin", "impl Plugin for TimePlugin"]
+file = "crates/ambition_time/src/lib.rs"
+
+[[policy]]
+id = "engine.time-facades-removed"
+scope = "engine"
+kind = "forbidden-path"
+owners = ["ambition_time"]
+watch_paths = ["crates/ambition_platformer2d_actor_monolith/src/time"]
+rationale = "clock_state/camera_ease facades removed"
+source_doc = "docs/architecture/architecture-boundaries.md"
+severity = "error"
+paths = ["crates/ambition_platformer2d_actor_monolith/src/time/clock_state.rs", "crates/ambition_platformer2d_actor_monolith/src/time/camera_ease.rs"]
+
+[[policy]]
+id = "engine.time-world-time-bridge"
+scope = "engine"
+kind = "file-contains"
+owners = ["ambition_time"]
+watch_paths = ["crates/ambition_platformer2d_actor_monolith/src/time/world_time.rs"]
+rationale = "world_time.rs is the sim-dt bridge naming ambition_time directly"
+source_doc = "docs/architecture/architecture-boundaries.md"
+severity = "error"
+contains = ["mirror_sim_dt_into_runtime", "ambition_time::"]
+file = "crates/ambition_platformer2d_actor_monolith/src/time/world_time.rs"
+
+[[policy]]
+id = "engine.time-sandbox-policy-exists"
+scope = "engine"
+kind = "required-path"
+owners = ["ambition_time"]
+watch_paths = ["crates/ambition_platformer2d_actor_monolith/src/time", "crates/ambition_combat/src"]
+# The claim is unchanged (a game-specific time/feel policy exists somewhere a composition can
+# reach); only the address was stale.
+rationale = "sandbox game-specific time policy exists"
+source_doc = "docs/architecture/architecture-boundaries.md"
+severity = "error"
+paths = ["crates/ambition_platformer2d_actor_monolith/src/time/time_control", "crates/ambition_combat/src/feel.rs"]
+
+
+# was: architecture_boundaries_input_crate_is_extracted
+[[policy]]
+id = "engine.ambition_input-extracted-paths"
+scope = "engine"
+kind = "required-path"
+owners = ["ambition_input"]
+watch_paths = ["crates/ambition_input"]
+rationale = "ambition_input extracted-crate files exist"
+source_doc = "docs/architecture/architecture-boundaries.md"
+severity = "error"
+paths = ["crates/ambition_input/Cargo.toml", "crates/ambition_input/src/lib.rs", "crates/ambition_input/src/actions.rs", "crates/ambition_input/src/control.rs", "crates/ambition_input/src/menu.rs", "crates/ambition_input/src/presets.rs", "crates/ambition_input/src/settings.rs"]
+
+[[policy]]
+id = "engine.ambition_input-absent-paths"
+scope = "engine"
+kind = "forbidden-path"
+owners = ["ambition_input"]
+watch_paths = ["crates/ambition_input"]
+rationale = "ambition_input: removed facades stay gone"
+source_doc = "docs/architecture/architecture-boundaries.md"
+severity = "error"
+paths = ["crates/ambition_platformer2d_actor_monolith/src/input.rs", "crates/ambition_platformer2d_actor_monolith/src/input", "crates/ambition_platformer2d_actor_monolith/src/persistence/settings/controls.rs"]
+
+[[policy]]
+id = "engine.ambition_input-manifest-deny"
+scope = "engine"
+kind = "dependency-denylist"
+owners = ["ambition_input"]
+watch_paths = ["crates/ambition_input/Cargo.toml"]
+rationale = "ambition_input must stay decoupled from sandbox content and reusable brains"
+source_doc = "docs/architecture/architecture-boundaries.md"
+severity = "error"
+deny = ["ambition_platformer2d_actor_monolith", "ambition_characters"]
+manifest = "crates/ambition_input/Cargo.toml"
+
+[[policy]]
+id = "engine.actors-no-input-shim"
+scope = "engine"
+kind = "file-omits"
+owners = ["ambition_input"]
+watch_paths = ["crates/ambition_platformer2d_actor_monolith/src/lib.rs"]
+rationale = "the ambition_platformer2d_actor_monolith::input compat shim was removed"
+source_doc = "docs/architecture/architecture-boundaries.md"
+severity = "error"
+forbid = ["pub use ambition_input as input"]
+file = "crates/ambition_platformer2d_actor_monolith/src/lib.rs"
+
+[[policy]]
+id = "engine.persistence-reexports-input-controls"
+scope = "engine"
+kind = "file-contains"
+owners = ["ambition_input"]
+watch_paths = ["crates/ambition_persistence/src/settings/mod.rs"]
+rationale = "persistence::settings::controls re-exports ambition_input::settings"
+source_doc = "docs/architecture/architecture-boundaries.md"
+severity = "error"
+contains = ["pub use ambition_input::settings as controls"]
+file = "crates/ambition_persistence/src/settings/mod.rs"
+
+[[policy]]
+id = "engine.actors-persistence-facade-gone"
+scope = "engine"
+kind = "forbidden-path"
+owners = ["ambition_persistence"]
+watch_paths = ["crates/ambition_platformer2d_actor_monolith/src"]
+# The guard therefore changed SIDES instead of being deleted — the re-surfacing must not come
+# back.
+rationale = "the actor monolith re-surfaces no persistence facade; consumers name ambition_persistence"
+source_doc = "docs/architecture/architecture-boundaries.md"
+severity = "error"
+paths = ["crates/ambition_platformer2d_actor_monolith/src/persistence"]
+
+
+# was: architecture_boundaries_touch_input_render_edge_is_intentional
+[[policy]]
+id = "engine.ambition_touch_input-member"
+scope = "engine"
+kind = "workspace-member"
+owners = ["ambition_touch_input"]
+watch_paths = ["Cargo.toml"]
+rationale = "ambition_touch_input must stay a registered workspace member"
+source_doc = "docs/architecture/architecture-boundaries.md"
+severity = "error"
+members = ["ambition_touch_input"]
+
+[[policy]]
+id = "engine.ambition_touch_input-manifest-deny"
+scope = "engine"
+kind = "dependency-denylist"
+owners = ["ambition_touch_input"]
+watch_paths = ["crates/ambition_touch_input/Cargo.toml"]
+rationale = "ambition_touch_input is a reusable touch presentation/input adapter; render edge is intentional"
+source_doc = "docs/architecture/architecture-boundaries.md"
+severity = "error"
+deny = ["ambition_app", "ambition_content", "ambition_platformer2d_host", "ambition_platformer2d_ldtk", "ambition_asset_manager", "bevy_ecs_ldtk"]
+manifest = "crates/ambition_touch_input/Cargo.toml"
+
+[[policy]]
+id = "engine.ambition_touch_input-manifest-allow"
+scope = "engine"
+kind = "dependency-allowlist"
+owners = ["ambition_touch_input"]
+watch_paths = ["crates/ambition_touch_input/Cargo.toml"]
+rationale = "ambition_touch_input is a reusable touch presentation/input adapter; render edge is intentional"
+source_doc = "docs/architecture/architecture-boundaries.md"
+severity = "error"
+allow = ["ambition_input", "ambition_geometry", "ambition_platformer2d_shared_tangle", "ambition_platformer2d_actor_monolith", "ambition_sim_view", "ambition_render", "ambition_cutscene", "ambition_ui_nav", "ambition_persistence"]
+manifest = "crates/ambition_touch_input/Cargo.toml"
+
+[[policy]]
+id = "engine.ambition_touch_input-source-purity"
+scope = "engine"
+kind = "forbidden-source-reference"
+owners = ["ambition_touch_input"]
+watch_paths = ["crates/ambition_touch_input/src"]
+rationale = "ambition_touch_input source stays free of forbidden refs"
+source_doc = "docs/architecture/architecture-boundaries.md"
+severity = "error"
+roots = ["crates/ambition_touch_input/src"]
+forbid = ["ambition_app::", "ambition_content::", "ambition_platformer2d_host::", "ambition_platformer2d_ldtk::", "bevy_ecs_ldtk::"]
+
+[[policy]]
+id = "engine.touch-input-render-edge"
+scope = "engine"
+kind = "file-contains"
+owners = ["ambition_touch_input"]
+watch_paths = ["crates/ambition_touch_input/Cargo.toml"]
+rationale = "F1.11: intentional render edge (visible touch HUD)"
+source_doc = "docs/architecture/architecture-boundaries.md"
+severity = "error"
+contains = ["ambition_render"]
+file = "crates/ambition_touch_input/Cargo.toml"
+
+
+# was: architecture_boundaries_f2_schedule_labels_use_primitive_home
+[[policy]]
+id = "engine.f2-schedule-labels-primitive-home"
+scope = "engine"
+kind = "forbidden-source-reference"
+owners = ["ambition_platformer2d_actor_monolith"]
+watch_paths = ["crates/ambition_platformer2d_runtime/src", "crates/ambition_sim_view/src", "crates/ambition_sim_view/tests", "game/ambition_content/src", "game/ambition_app/src"]
+rationale = "F2 schedule-label pass: pure schedule labels live in ambition_platformer2d_shared_tangle::schedule"
+source_doc = "docs/architecture/architecture-boundaries.md"
+severity = "error"
+roots = ["crates/ambition_platformer2d_runtime/src", "crates/ambition_sim_view/src", "crates/ambition_sim_view/tests", "game/ambition_content/src", "game/ambition_app/src"]
+forbid = ["ambition_platformer2d_actor_monolith::schedule::Platformer2dSimulationPhaseMonolith", "ambition_platformer2d_actor_monolith::schedule::CombatSet", "ambition_platformer2d_actor_monolith::schedule::BossSteerSlot", "ambition_platformer2d_actor_monolith::schedule::PresentationSetupSet", "ambition_platformer2d_actor_monolith::schedule::SimulationSetupSet"]
+
+
+# was: architecture_boundaries_f2_asset_vocab_consumers_use_lower_crates
+[[policy]]
+id = "engine.f2-asset-vocab-lower-crates"
+scope = "engine"
+kind = "forbidden-source-reference"
+owners = ["ambition_platformer2d_actor_monolith"]
+watch_paths = ["crates/ambition_sim_view/src", "game/ambition_content/src", "game/ambition_content/tests", "game/ambition_app/src"]
+rationale = "F2 assets pass: pure asset vocabulary owned by ambition_sprite_sheet/ambition_asset_manager"
+source_doc = "docs/architecture/architecture-boundaries.md"
+severity = "error"
+roots = ["crates/ambition_sim_view/src", "game/ambition_content/src", "game/ambition_content/tests", "game/ambition_app/src"]
+forbid = ["ambition_platformer2d_actor_monolith::assets::game_assets::GameAssetConfig", "ambition_platformer2d_actor_monolith::assets::game_assets::GameAssets", "ambition_platformer2d_actor_monolith::assets::game_assets::EntitySprite", "ambition_platformer2d_actor_monolith::assets::platformer_assets::Platformer2dAssetCatalog", "ambition_platformer2d_actor_monolith::assets::platformer_assets::ids"]
+
+
+# was: architecture_boundaries_f2_character_anim_vocab_consumers_use_sprite_sheet
+[[policy]]
+id = "engine.f2-character-anim-sprite-sheet"
+scope = "engine"
+kind = "forbidden-source-reference"
+owners = ["ambition_platformer2d_actor_monolith"]
+watch_paths = ["crates/ambition_sim_view/src", "crates/ambition_render/src", "game/ambition_content/src", "game/ambition_app/src"]
+rationale = "F2 character-sprites pass: CharacterAnim vocabulary lives in ambition_sprite_sheet"
+source_doc = "docs/architecture/architecture-boundaries.md"
+severity = "error"
+roots = ["crates/ambition_sim_view/src", "crates/ambition_render/src", "game/ambition_content/src", "game/ambition_app/src"]
+forbid = ["ambition_platformer2d_actor_monolith::character_sprites::CharacterAnim"]
+
+
+# was: architecture_boundaries_f2_encounter_vocab_consumers_use_encounter_crate
+[[policy]]
+id = "engine.f2-encounter-vocab-encounter-crate"
+scope = "engine"
+kind = "forbidden-source-reference"
+owners = ["ambition_platformer2d_actor_monolith"]
+watch_paths = ["crates/ambition_platformer2d_runtime/src", "crates/ambition_sim_view/src", "game/ambition_content/src", "game/ambition_app/src", "game/ambition_app/tests/boss_lifecycle.rs"]
+rationale = "F2 encounter pass: pure encounter vocabulary lives in ambition_encounter"
+source_doc = "docs/architecture/architecture-boundaries.md"
+severity = "error"
+roots = ["crates/ambition_platformer2d_runtime/src", "crates/ambition_sim_view/src", "game/ambition_content/src", "game/ambition_app/src", "game/ambition_app/tests/boss_lifecycle.rs"]
+forbid = ["ambition_platformer2d_actor_monolith::encounter::EncounterEvent", "ambition_platformer2d_actor_monolith::encounter::EncounterMobSpec", "ambition_platformer2d_actor_monolith::encounter::EncounterMusicRequest", "ambition_platformer2d_actor_monolith::encounter::BossEncounterMusicRequest", "ambition_platformer2d_actor_monolith::encounter::EncounterPhase", "ambition_platformer2d_actor_monolith::encounter::EncounterRegistry", "ambition_platformer2d_actor_monolith::encounter::EncounterRun", "ambition_platformer2d_actor_monolith::encounter::EncounterSpec", "ambition_platformer2d_actor_monolith::encounter::EncounterState", "ambition_platformer2d_actor_monolith::encounter::EncounterWaveSpec", "ambition_platformer2d_actor_monolith::encounter::LockWallSpec", "ambition_platformer2d_actor_monolith::encounter::encounter_reward_chest_pos", "ambition_platformer2d_actor_monolith::encounter::encounter_reward_looted_flag", "ambition_platformer2d_actor_monolith::encounter::install_encounter_waves"]
+
+
+# was: architecture_boundaries_menu_backend_vocab_consumers_use_menu_crate
+[[policy]]
+id = "engine.menu-backend-vocab-menu-crate"
+scope = "engine"
+kind = "forbidden-source-reference"
+owners = ["ambition_platformer2d_actor_monolith"]
+watch_paths = ["game/ambition_app/src", "crates/ambition_platformer2d_actor_monolith/src"]
+rationale = "F2 menu-backend pass: InventoryUiBackend + availability constants live in ambition_menu::backend"
+source_doc = "docs/architecture/architecture-boundaries.md"
+severity = "error"
+roots = ["game/ambition_app/src", "crates/ambition_platformer2d_actor_monolith/src"]
+forbid = ["ambition_platformer2d_actor_monolith::menu::backend", "crate::menu::backend::InventoryUiBackend", "crate::menu::backend::BEVY_UI_MENU_BACKEND_ENABLED", "crate::menu::backend::KALEIDOSCOPE_MENU_BACKEND_ENABLED"]
+
+
+# was: architecture_boundaries_dialog_vocab_consumers_use_dialog_crate
+[[policy]]
+id = "engine.dialog-vocab-dialog-crate"
+scope = "engine"
+kind = "forbidden-source-reference"
+owners = ["ambition_platformer2d_actor_monolith"]
+watch_paths = ["crates/ambition_platformer2d_runtime/src", "game/ambition_content/src", "game/ambition_app/src"]
+rationale = "F2 dialog pass: reusable dialog vocabulary lives in ambition_dialog"
+source_doc = "docs/architecture/architecture-boundaries.md"
+severity = "error"
+roots = ["crates/ambition_platformer2d_runtime/src", "game/ambition_content/src", "game/ambition_app/src"]
+forbid = ["ambition_platformer2d_actor_monolith::dialog::DialogState", "ambition_platformer2d_actor_monolith::dialog::DialogChoice", "ambition_platformer2d_actor_monolith::dialog::DialogChoiceSlot", "ambition_platformer2d_actor_monolith::dialog::dialog_input", "ambition_platformer2d_actor_monolith::dialog::dialog_pointer_input", "ambition_platformer2d_actor_monolith::dialog::dialog_reveal_tick", "ambition_platformer2d_actor_monolith::dialog::yarn_bindings::YarnContentBindings", "ambition_platformer2d_actor_monolith::dialog::yarn_bindings::YarnStateMirror", "ambition_platformer2d_actor_monolith::dialog::yarn_bindings::YarnStateMirrorData", "ambition_platformer2d_actor_monolith::dialog::yarn_bindings::YarnPresentationCue", "ambition_platformer2d_actor_monolith::dialog::yarn_bindings::clear_yarn_presentation_cue"]
+
+
+# was: architecture_boundaries_developer_persistence_uses_dev_tools_crate
+[[policy]]
+id = "engine.developer-persistence-dev-tools"
+scope = "engine"
+kind = "forbidden-source-reference"
+owners = ["ambition_platformer2d_actor_monolith"]
+watch_paths = ["game/ambition_app/src"]
+rationale = "F2 developer-persistence pass: DeveloperTools disk persistence scheduled through ambition_dev_tools"
+source_doc = "docs/architecture/architecture-boundaries.md"
+severity = "error"
+roots = ["game/ambition_app/src"]
+forbid = ["ambition_platformer2d_actor_monolith::persistence::DeveloperPersistenceSchedulePlugin"]
+
+
+# was: architecture_boundaries_audio_facade_consumers_use_audio_crate
+[[policy]]
+id = "engine.audio-facade-audio-crate"
+scope = "engine"
+kind = "forbidden-source-reference"
+owners = ["ambition_platformer2d_actor_monolith"]
+watch_paths = ["game/ambition_app/src", "crates/ambition_platformer2d_runtime/src"]
+rationale = "F2 audio pass: pure playback vocabulary owned by ambition_audio::library"
+source_doc = "docs/architecture/architecture-boundaries.md"
+severity = "error"
+roots = ["game/ambition_app/src", "crates/ambition_platformer2d_runtime/src"]
+forbid = ["ambition_platformer2d_actor_monolith::audio::AudioLibrary", "ambition_platformer2d_actor_monolith::audio::MusicPlaybackState", "ambition_platformer2d_actor_monolith::audio::RadioStationState", "ambition_platformer2d_actor_monolith::audio::MusicChannel", "ambition_platformer2d_actor_monolith::audio::SfxChannel", "ambition_platformer2d_actor_monolith::audio::set_radio_track"]
+
+
+# was: architecture_boundaries_machinery_does_not_import_content
+[[policy]]
+id = "engine.machinery-imports-no-content"
+scope = "engine"
+kind = "forbidden-source-reference"
+owners = ["ambition_platformer2d_actor_monolith"]
+watch_paths = ["crates/ambition_platformer2d_actor_monolith/src"]
+rationale = "machinery (all of ambition_platformer2d_actor_monolith/src) must not import the content module in code; comments/prose exempt"
+source_doc = "docs/architecture/architecture-boundaries.md"
+severity = "error"
+roots = ["crates/ambition_platformer2d_actor_monolith/src"]
+forbid = ["crate::content::", "ambition_content::"]
+skip_tests = true
+
+
+# was: architecture_boundaries_combat_kit_stays_content_free
+[[policy]]
+id = "engine.combat-kit-content-free"
+scope = "engine"
+kind = "forbidden-source-reference"
+owners = ["ambition_combat"]
+watch_paths = ["crates/ambition_combat/src"]
+rationale = "generic combat kit (now the ambition_combat crate) must not name Ambition content"
+source_doc = "docs/architecture/architecture-boundaries.md"
+severity = "error"
+roots = ["crates/ambition_combat/src"]
+forbid = ["crate::content", "crate::ambition_content", "CharacterArchetype", "CutRope", "cut_rope", "GnuTon", "GNU_TON", "gnu_ton", "Pirate", "Mockingbird", "BurningFlyingShark", "ExplodingMite", "DividingMite", "clockwork_warden"]
+
+
+# was: architecture_boundaries_presentation_does_not_use_the_archetype_enum
+[[policy]]
+id = "engine.presentation-no-archetype-enum"
+scope = "engine"
+kind = "forbidden-source-reference"
+owners = ["ambition_render"]
+watch_paths = ["crates/ambition_render/src"]
+rationale = "presentation (now the ambition_render crate) should consume authored visual data, not the archetype enum"
+source_doc = "docs/architecture/architecture-boundaries.md"
+severity = "error"
+roots = ["crates/ambition_render/src"]
+forbid = ["CharacterArchetype", "is_composite_spawn", "sandbag_"]
+skip_tests = true
+
+
+# was: architecture_boundaries_enemy_sim_reads_data_not_the_archetype_enum
+[[policy]]
+id = "engine.enemy-sim-reads-data"
+scope = "engine"
+kind = "forbidden-source-reference"
+owners = ["ambition_platformer2d_actor_monolith"]
+watch_paths = ["crates/ambition_platformer2d_actor_monolith/src/features/ecs/damage/mod.rs", "crates/ambition_render/src/rendering/features.rs"]
+rationale = "per-frame enemy sim reads projected tuning/capabilities, not named archetypes"
+source_doc = "docs/architecture/architecture-boundaries.md"
+severity = "error"
+roots = ["crates/ambition_platformer2d_actor_monolith/src/features/ecs/damage/mod.rs", "crates/ambition_render/src/rendering/features.rs"]
+forbid = ["CharacterArchetype", ".archetype"]
+production_only = true
+
+
+# was: architecture_boundaries_actor_crate_is_content_free_and_foundation_clean
+[[policy]]
+id = "engine.characters-content-free"
+scope = "engine"
+kind = "forbidden-source-reference"
+owners = ["ambition_characters"]
+watch_paths = ["crates/ambition_characters/src"]
+rationale = "ambition_characters must stay content-free with no upward imports"
+source_doc = "docs/architecture/architecture-boundaries.md"
+severity = "error"
+roots = ["crates/ambition_characters/src"]
+whole_ident = true
+forbid = ["ambition_platformer2d_actor_monolith", "ambition_content", "ambition_app", "GnuTon", "gnu_ton", "Mockingbird", "mockingbird", "cut_rope", "CutRope", "Pirate", "BurningFlyingShark", "PuppySlug", "clockwork_warden", "CharacterArchetype"]
+
+
+# was: architecture_boundaries_sim_does_not_import_presentation
+[[policy]]
+id = "engine.sim-no-presentation-import"
+scope = "engine"
+kind = "forbidden-source-reference"
+owners = ["ambition_platformer2d_actor_monolith"]
+watch_paths = ["crates/ambition_platformer2d_actor_monolith/src"]
+rationale = "pure gameplay/sim code must not import crate::presentation (render depends on sim, not the reverse)"
+source_doc = "docs/architecture/architecture-boundaries.md"
+severity = "error"
+roots = ["crates/ambition_platformer2d_actor_monolith/src"]
+forbid = ["crate::presentation"]
+# THREE of the four exemptions here named files that NO LONGER EXIST — `dialog/ui.rs`,
+# `runtime/setup.rs`, `runtime/reset/` — killed by the crate reorganisation and never removed. They
+# exempted nothing, and they lied about the rule's real shape: they implied three gameplay files
+# legitimately import presentation, when none does.
+#
+# `presentation/` is KEPT even though it also matches no offending file today.
+# It is the module this rule is about, and presentation code referring to
+# `crate::presentation` is the one case that would be legitimate — a
+# forward-looking exemption, not a fossil. That is the distinction worth drawing:
+# a path naming a DELETED file is stale by definition; a live path holding no
+# forbidden token may simply be waiting.
+skip_paths = ["presentation/"]
+
+
+# was: architecture_boundaries_game_mode_lives_with_schedule_vocabulary
+[[policy]]
+id = "engine.game-mode-schedule-vocab"
+scope = "engine"
+kind = "forbidden-source-reference"
+owners = ["ambition_platformer2d_actor_monolith"]
+watch_paths = ["crates/ambition_platformer2d_actor_monolith/src", "crates/ambition_platformer2d_runtime/src", "crates/ambition_sim_view/src", "crates/ambition_touch_input/src", "crates/ambition_render/src", "game/ambition_content/src", "game/ambition_app/src"]
+rationale = "all code should name GameMode through ambition_platformer2d_shared_tangle::schedule"
+source_doc = "docs/architecture/architecture-boundaries.md"
+severity = "error"
+roots = ["crates/ambition_platformer2d_actor_monolith/src", "crates/ambition_platformer2d_runtime/src", "crates/ambition_sim_view/src", "crates/ambition_touch_input/src", "crates/ambition_render/src", "game/ambition_content/src", "game/ambition_app/src"]
+forbid = ["ambition_platformer2d_actor_monolith::GameMode", "ambition_platformer2d_actor_monolith::game_mode", "ambition_platformer2d_actor_monolith::session::game_mode", "ambition_platformer2d_actor_monolith::gameplay_allowed", "ambition_platformer2d_actor_monolith::gameplay_suspended", "crate::GameMode", "crate::gameplay_allowed", "crate::game_mode", "crate::session::game_mode"]
+
+# ── architecture_boundaries.rs decomposition, batch 3 (Task 9): composition +
+#    facade/file-content rules migrated declaratively (generated). ────────────
+
+# was: architecture_boundaries_platformer_runtime_crate_is_extracted
+[[policy]]
+id = "engine.platformer-primitives-extracted"
+scope = "engine"
+kind = "required-path"
+owners = ["ambition_platformer2d_shared_tangle"]
+watch_paths = ["crates/ambition_platformer2d_shared_tangle"]
+rationale = "ambition_platformer2d_shared_tangle extracted-crate files exist"
+source_doc = "docs/architecture/architecture-boundaries.md"
+severity = "error"
+paths = ["crates/ambition_platformer2d_shared_tangle/Cargo.toml", "crates/ambition_platformer2d_shared_tangle/src/lib.rs", "crates/ambition_platformer2d_shared_tangle/src/prelude.rs", "crates/ambition_platformer2d_shared_tangle/src/schedule.rs", "crates/ambition_platformer2d_shared_tangle/src/lifecycle/mod.rs", "crates/ambition_platformer2d_shared_tangle/src/lifecycle/markers.rs", "crates/ambition_platformer2d_shared_tangle/src/lifecycle/spawn_ext.rs", "crates/ambition_platformer2d_shared_tangle/src/lifecycle/cleanup.rs", "crates/ambition_platformer2d_shared_tangle/src/math.rs", "crates/ambition_platformer2d_shared_tangle/src/transit.rs", "crates/ambition_platformer2d_shared_tangle/src/body.rs", "crates/ambition_platformer2d_shared_tangle/src/gravity.rs", "crates/ambition_platformer2d_shared_tangle/src/orientation.rs"]
+
+[[policy]]
+id = "engine.platformer-primitives-no-actors"
+scope = "engine"
+kind = "dependency-denylist"
+owners = ["ambition_platformer2d_shared_tangle"]
+watch_paths = ["crates/ambition_platformer2d_shared_tangle/Cargo.toml"]
+rationale = "ambition_platformer2d_shared_tangle stays reusable and content-free"
+source_doc = "docs/architecture/architecture-boundaries.md"
+severity = "error"
+deny = ["ambition_platformer2d_actor_monolith"]
+manifest = "crates/ambition_platformer2d_shared_tangle/Cargo.toml"
+
+[[policy]]
+id = "engine.platformer-primitives-projectile-generic-spec"
+scope = "engine"
+kind = "file-omits"
+owners = ["ambition_platformer2d_shared_tangle"]
+watch_paths = ["crates/ambition_platformer2d_shared_tangle/src/projectile/spec.rs"]
+rationale = "generic projectile primitive names no game projectile kinds"
+source_doc = "docs/architecture/architecture-boundaries.md"
+severity = "error"
+forbid = ["ProjectileKind", "Fireball", "Hadouken"]
+file = "crates/ambition_platformer2d_shared_tangle/src/projectile/spec.rs"
+
+[[policy]]
+id = "engine.platformer-primitives-projectile-generic-body"
+scope = "engine"
+kind = "file-omits"
+owners = ["ambition_platformer2d_shared_tangle"]
+watch_paths = ["crates/ambition_platformer2d_shared_tangle/src/projectile/body.rs"]
+rationale = "generic projectile body names no game projectile kinds"
+source_doc = "docs/architecture/architecture-boundaries.md"
+severity = "error"
+forbid = ["ProjectileKind", "Fireball", "Hadouken"]
+file = "crates/ambition_platformer2d_shared_tangle/src/projectile/body.rs"
+
+[[policy]]
+id = "engine.platformer-primitives-projectile-generic-collision"
+scope = "engine"
+kind = "file-omits"
+owners = ["ambition_platformer2d_shared_tangle"]
+watch_paths = ["crates/ambition_platformer2d_shared_tangle/src/projectile/collision.rs"]
+rationale = "generic projectile collision names no game projectile kinds"
+source_doc = "docs/architecture/architecture-boundaries.md"
+severity = "error"
+forbid = ["ProjectileKind", "Fireball", "Hadouken"]
+file = "crates/ambition_platformer2d_shared_tangle/src/projectile/collision.rs"
+
+[[policy]]
+id = "engine.platformer-primitives-projectile-generic-mod"
+scope = "engine"
+kind = "file-omits"
+owners = ["ambition_platformer2d_shared_tangle"]
+watch_paths = ["crates/ambition_platformer2d_shared_tangle/src/projectile/mod.rs"]
+rationale = "generic projectile mod names no game projectile kinds"
+source_doc = "docs/architecture/architecture-boundaries.md"
+severity = "error"
+forbid = ["ProjectileKind", "Fireball", "Hadouken"]
+file = "crates/ambition_platformer2d_shared_tangle/src/projectile/mod.rs"
+
+# `engine.actor-physics-facade` was here. It required
+# `crates/ambition_platformer2d_actor_monolith/src/physics.rs` to re-export
+# `ambition_platformer2d_shared_tangle::gravity` — and 6e39ac0a5 (2026-08-26)
+# DELETED that file on purpose, as one of three monolith re-export facades whose
+# removal was the point of the commit. The policy guarded a forwarding module
+# that no longer exists, so it was not a boundary any more; it was a requirement
+# that the deleted file come back. `every_watch_path_exists` had been red since.
+
+
+# was: architecture_boundaries_asset_manager_is_backend_generic
+[[policy]]
+id = "engine.asset-manager-member"
+scope = "engine"
+kind = "workspace-member"
+owners = ["ambition_asset_manager"]
+watch_paths = ["Cargo.toml"]
+rationale = "ambition_asset_manager registered"
+source_doc = "docs/architecture/architecture-boundaries.md"
+severity = "error"
+members = ["ambition_asset_manager"]
+
+[[policy]]
+id = "engine.asset-manager-no-audio"
+scope = "engine"
+kind = "dependency-denylist"
+owners = ["ambition_asset_manager"]
+watch_paths = ["crates/ambition_asset_manager/Cargo.toml"]
+rationale = "asset manager resolves logical locations; audio/SFX providers stay in their layer"
+source_doc = "docs/architecture/architecture-boundaries.md"
+severity = "error"
+deny = ["ambition_sfx", "ambition_audio"]
+manifest = "crates/ambition_asset_manager/Cargo.toml"
+
+[[policy]]
+id = "engine.asset-manager-no-backend-providers"
+scope = "engine"
+kind = "forbidden-source-reference"
+owners = ["ambition_asset_manager"]
+watch_paths = ["crates/ambition_asset_manager/src"]
+rationale = "asset manager source must not construct audio/SFX backend providers"
+source_doc = "docs/architecture/architecture-boundaries.md"
+severity = "error"
+roots = ["crates/ambition_asset_manager/src"]
+forbid = ["ambition_sfx::", "BankProvider", "SfxBankResolveError"]
+
+[[policy]]
+id = "engine.asset-manager-no-sfx-adapter"
+scope = "engine"
+kind = "forbidden-path"
+owners = ["ambition_asset_manager"]
+watch_paths = ["crates/ambition_asset_manager/src"]
+rationale = "F1.8 removes the asset-manager SFX adapter"
+source_doc = "docs/architecture/architecture-boundaries.md"
+severity = "error"
+paths = ["crates/ambition_asset_manager/src/sfx_integration.rs"]
+
+[[policy]]
+id = "engine.asset-manager-no-sfx-feature"
+scope = "engine"
+kind = "file-omits"
+owners = ["ambition_asset_manager"]
+watch_paths = ["crates/ambition_asset_manager/Cargo.toml"]
+rationale = "asset manager exposes no sfx feature reintroducing an audio backend edge"
+source_doc = "docs/architecture/architecture-boundaries.md"
+severity = "error"
+forbid = ["dep:ambition_sfx", "sfx ="]
+file = "crates/ambition_asset_manager/Cargo.toml"
+
+
+# was: architecture_boundaries_projectile_schedule_wiring_lives_in_runtime
+[[policy]]
+id = "engine.projectile-schedule-facade"
+scope = "engine"
+kind = "required-path"
+owners = ["ambition_platformer2d_runtime"]
+watch_paths = ["crates/ambition_platformer2d_runtime/src"]
+rationale = "F2 projectile residual scheduling facade exists"
+source_doc = "docs/architecture/architecture-boundaries.md"
+severity = "error"
+paths = ["crates/ambition_platformer2d_runtime/src/projectile_schedule.rs"]
+
+[[policy]]
+id = "engine.projectile-schedule-facade-owns"
+scope = "engine"
+kind = "file-contains"
+owners = ["ambition_platformer2d_runtime"]
+watch_paths = ["crates/ambition_platformer2d_runtime/src/projectile_schedule.rs"]
+rationale = "runtime owns the projectile schedule facade and composes both timing faces of the single projectile-domain materialization seam"
+source_doc = "docs/architecture/architecture-boundaries.md"
+severity = "error"
+contains = ["ambition_platformer2d_actor_monolith::projectile", "ambition_projectiles::materialize_projectiles_for_this_tick", "ambition_projectiles::materialize_projectiles_for_next_tick"]
+file = "crates/ambition_platformer2d_runtime/src/projectile_schedule.rs"
+
+[[policy]]
+id = "engine.projectile-schedule-facade-omits"
+scope = "engine"
+kind = "file-omits"
+owners = ["ambition_platformer2d_runtime"]
+watch_paths = ["crates/ambition_platformer2d_runtime/src/projectile_schedule.rs"]
+rationale = "projectile materialization is substrate-owned and never routed back through the actor monolith"
+source_doc = "docs/architecture/architecture-boundaries.md"
+severity = "error"
+forbid = ["ambition_platformer2d_actor_monolith::enemy_projectile"]
+file = "crates/ambition_platformer2d_runtime/src/projectile_schedule.rs"
+
+[[policy]]
+id = "engine.app-no-actor-projectile-steppers"
+scope = "engine"
+kind = "forbidden-source-reference"
+owners = ["ambition_platformer2d_runtime"]
+watch_paths = ["game/ambition_app/src"]
+rationale = "app schedules projectile steppers through ambition_platformer2d_runtime::projectile_schedule"
+source_doc = "docs/architecture/architecture-boundaries.md"
+severity = "error"
+roots = ["game/ambition_app/src"]
+forbid = ["ambition_platformer2d_actor_monolith::projectile::", "ambition_platformer2d_actor_monolith::enemy_projectile::"]
+
+[[policy]]
+id = "engine.content-no-actor-projectile-steppers"
+scope = "engine"
+kind = "forbidden-source-reference"
+owners = ["ambition_platformer2d_runtime"]
+watch_paths = ["game/ambition_content/src"]
+rationale = "production content emits projectile messages, not actor stepper refs"
+source_doc = "docs/architecture/architecture-boundaries.md"
+severity = "error"
+roots = ["game/ambition_content/src"]
+forbid = ["ambition_platformer2d_actor_monolith::projectile::", "ambition_platformer2d_actor_monolith::enemy_projectile::"]
+skip_tests = true
+
+[[policy]]
+id = "engine.runtime-actor-projectile-centralized"
+scope = "engine"
+kind = "forbidden-source-reference"
+owners = ["ambition_platformer2d_runtime"]
+watch_paths = ["crates/ambition_platformer2d_runtime/src"]
+rationale = "the actor-side projectile stepper edge is centralized in projectile_schedule.rs"
+source_doc = "docs/architecture/architecture-boundaries.md"
+severity = "error"
+roots = ["crates/ambition_platformer2d_runtime/src"]
+forbid = ["ambition_platformer2d_actor_monolith::projectile::", "ambition_platformer2d_actor_monolith::enemy_projectile::"]
+skip_paths = ["projectile_schedule.rs"]
+
+
+# was: architecture_boundaries_runtime_is_headless_composition_tier
+[[policy]]
+id = "engine.runtime-member"
+scope = "engine"
+kind = "workspace-member"
+owners = ["ambition_platformer2d_runtime"]
+watch_paths = ["Cargo.toml"]
+rationale = "ambition_platformer2d_runtime registered"
+source_doc = "docs/architecture/architecture-boundaries.md"
+severity = "error"
+members = ["ambition_platformer2d_runtime"]
+
+[[policy]]
+id = "engine.runtime-required-deps"
+scope = "engine"
+kind = "file-contains"
+owners = ["ambition_platformer2d_runtime"]
+watch_paths = ["crates/ambition_platformer2d_runtime/Cargo.toml"]
+rationale = "runtime is the headless composition tier: these direct deps are intentional"
+source_doc = "docs/architecture/architecture-boundaries.md"
+severity = "error"
+contains = ["ambition_platformer2d_actor_monolith", "ambition_combat", "ambition_projectiles", "ambition_encounter", "ambition_dialog", "ambition_menu"]
+file = "crates/ambition_platformer2d_runtime/Cargo.toml"
+
+[[policy]]
+id = "engine.runtime-manifest-allow"
+scope = "engine"
+kind = "dependency-allowlist"
+owners = ["ambition_platformer2d_runtime"]
+watch_paths = ["crates/ambition_platformer2d_runtime/Cargo.toml"]
+rationale = "runtime composes sim/mechanic/model/dev-state crates, not app/content/host/render"
+source_doc = "docs/architecture/architecture-boundaries.md"
+severity = "error"
+allow = ["ambition_platformer2d_actor_monolith", "ambition_projectiles", "ambition_combat", "ambition_encounter", "ambition_dialog", "ambition_characters", "ambition_portal2d", "ambition_sim_view", "ambition_vfx", "ambition_time", "ambition_input", "ambition_platformer2d_core", "ambition_sfx", "ambition_persistence", "ambition_menu", "ambition_items", "ambition_platformer2d_shared_tangle", "ambition_dev_tools", "ambition_platformer2d_world", "ambition_load",
+    # Causal vocabulary is a foundation dependency used by runtime-side recording.
+    "ambition_causal",
+    # Cutscene mechanics are lower-tier simulation state composed by the runtime.
+    "ambition_cutscene",
+    # Runtime snapshots provider-authored sheet vocabulary from this leaf crate.
+    "ambition_sprite_sheet",
+    "ambition_character_sprites",
+    # Runtime composes the LDtk adapter and owns its rollback/session integration.
+    "ambition_platformer2d_ldtk",
+    # The registration protocol the rollback registry answers (2026-09-03):
+    # dependency-free, below every registry.
+    "ambition_registry_core",
+    # Conversation continuity is lower-tier domain state composed by the runtime.
+    "ambition_conversation",
+    # Boss-encounter state is lower-tier domain state composed by the runtime.
+    "ambition_boss_encounter",
+    # Player/victim hit resolution: the runtime schedules `apply_player_hit_events`
+    # and `stage_player_victim_hit_events` into its player/combat chains and
+    # registers `WalletShieldSpent` beside them. Same relationship as
+    # `ambition_combat`; the row was simply never added when damage was carved out.
+    "ambition_damage",
+    # Mount/rider link enforcement plus the four dismount/ride message channels.
+    "ambition_mount",
+    # The room-feature side of encounters (2026-09-03): LDtk loading, ECS
+    # spawning, banners, save/quest projection. Composed by the runtime for the
+    # same reason as `ambition_world_items` below — a domain carved out of the
+    # actor kernel is added HERE, so no registration for it lands back in the
+    # kernel. The runtime additionally owns the two orderings that span the
+    # carve (`encounter_spawn_service`, `world_gating`), because after the cut
+    # it is the only crate that can name both sides.
+    "ambition_encounter_features",
+    # The TOUCHED collectible (D33, 2026-09-02), composed here for the same
+    # reason as `ambition_mount` and `ambition_damage` above: a domain carved out
+    # of the actor monolith is added by the RUNTIME, so no registration for it
+    # lands back in the kernel. `WorldItemSimulationPlugin` sits beside
+    # `ItemPickupSimulationPlugin`, its sibling across the touched/pressed split.
+    "ambition_world_items",
+    # The PRESSED collectible (D33, 2026-09-03), the other half of that split:
+    # `HeldItemSimulationPlugin` owns `ItemPickupSet::CoreHeldItems` end to end
+    # and the runtime adds it beside the kernel's `ItemPickupSimulationPlugin`,
+    # which keeps the other two variants and the three-variant chain.
+    "ambition_held_items",
+    # The WIELDED kit (D33, the abilities carve, 2026-09-03).
+    # `AbilitySimulationPlugin` owns `ItemPickupSet::ThrownItemEffects` and
+    # `ItemPickupSet::WieldedAbilities` end to end, and the runtime adds it
+    # beside the other two. ⛔ After this carve the kernel's
+    # `ItemPickupSimulationPlugin` configures NO variant at all — it keeps only
+    # the three-variant chain, which orders sets owned by two other crates and
+    # so can live nowhere else.
+    "ambition_abilities",
+    # One diagnostic resource, `GameplayTraceBuffer` — the same shape as the
+    # `ambition_causal` row above.
+    "ambition_gameplay_trace"]
+manifest = "crates/ambition_platformer2d_runtime/Cargo.toml"
+
+[[policy]]
+id = "engine.runtime-manifest-deny"
+scope = "engine"
+kind = "dependency-denylist"
+owners = ["ambition_platformer2d_runtime"]
+watch_paths = ["crates/ambition_platformer2d_runtime/Cargo.toml"]
+rationale = "runtime is headless composition, not app/content/host/render/backend ownership"
+source_doc = "docs/architecture/architecture-boundaries.md"
+severity = "error"
+# Runtime may compose the LDtk adapter, but must not depend directly on the LDtk
+# backend or concrete rollback backend crates.
+deny = ["ambition_app", "ambition_content", "ambition_platformer2d_host", "ambition_render", "ambition_touch_input", "ambition_inventory_ui", "ambition_platformer2d_rollback_ggrs", "bevy_ecs_ldtk", "bevy_ggrs"]
+manifest = "crates/ambition_platformer2d_runtime/Cargo.toml"
+
+[[policy]]
+id = "engine.runtime-source-no-upper"
+scope = "engine"
+kind = "forbidden-source-reference"
+owners = ["ambition_platformer2d_runtime"]
+watch_paths = ["crates/ambition_platformer2d_runtime/src"]
+rationale = "runtime source composes without reaching into app/content/host/render tiers"
+source_doc = "docs/architecture/architecture-boundaries.md"
+severity = "error"
+roots = ["crates/ambition_platformer2d_runtime/src"]
+# Runtime may name the adapter crate, never the third-party/backend implementation beneath it.
+forbid = ["ambition_render::", "ambition_platformer2d_host::", "ambition_content::", "ambition_app::", "ambition_touch_input::", "ambition_inventory_ui::", "ambition_platformer2d_rollback_ggrs::", "bevy_ecs_ldtk::", "bevy_ggrs::"]
+# Stable rollback descriptor text is fingerprinted metadata, not a backend dependency.
+allow_lines = ["component presence automatically installs bevy_ggrs::Rollback"]
+
+[[policy]]
+id = "engine.rollback-ggrs-backend-member"
+scope = "engine"
+kind = "workspace-member"
+owners = ["ambition_platformer2d_rollback_ggrs"]
+watch_paths = ["Cargo.toml"]
+rationale = "The concrete GGRS host is a dedicated composition/backend crate rather than an implementation detail owned by the generic platformer runtime."
+source_doc = "docs/planning/engine/simulation-authority-and-determinism.md"
+severity = "error"
+members = ["ambition_platformer2d_rollback_ggrs"]
+
+[[policy]]
+id = "engine.rollback-ggrs-backend-no-product-deps"
+scope = "engine"
+kind = "dependency-denylist"
+owners = ["ambition_platformer2d_rollback_ggrs"]
+watch_paths = ["crates/ambition_platformer2d_rollback_ggrs/Cargo.toml"]
+rationale = "The rollback backend adapts the engine simulation to GGRS. It may depend downward on simulation/domain vocabulary, but never upward on the public facade, product content, app shell, renderer, or windowed host."
+source_doc = "docs/planning/engine/simulation-authority-and-determinism.md"
+severity = "error"
+manifest = "crates/ambition_platformer2d_rollback_ggrs/Cargo.toml"
+deny = ["ambition_platformer2d", "ambition_content", "ambition_app", "ambition_render", "ambition_platformer2d_host"]
+
+
+# was: architecture_boundaries_control_frame_lives_with_engine_body_contract
+[[policy]]
+id = "engine.control-frame-home"
+scope = "engine"
+kind = "required-path"
+owners = ["ambition_platformer2d_core"]
+watch_paths = ["crates/ambition_platformer2d_core/src"]
+rationale = "engine-owned ControlFrame vocabulary exists"
+source_doc = "docs/architecture/architecture-boundaries.md"
+severity = "error"
+paths = ["crates/ambition_platformer2d_core/src/control_frame.rs"]
+
+[[policy]]
+id = "engine.control-frame-exported"
+scope = "engine"
+kind = "file-contains"
+owners = ["ambition_platformer2d_core"]
+watch_paths = ["crates/ambition_platformer2d_core/src/lib.rs"]
+rationale = "ControlFrame exported from ambition_platformer2d_core"
+source_doc = "docs/architecture/architecture-boundaries.md"
+severity = "error"
+contains = ["pub mod control_frame", "pub use control_frame::ControlFrame"]
+file = "crates/ambition_platformer2d_core/src/lib.rs"
+
+[[policy]]
+id = "engine.characters-no-input-dep"
+scope = "engine"
+kind = "dependency-denylist"
+owners = ["ambition_platformer2d_core"]
+watch_paths = ["crates/ambition_characters/Cargo.toml"]
+rationale = "brains consume engine-owned control vocabulary; input is only a device adapter"
+source_doc = "docs/architecture/architecture-boundaries.md"
+severity = "error"
+deny = ["ambition_input"]
+manifest = "crates/ambition_characters/Cargo.toml"
+
+[[policy]]
+id = "engine.characters-no-input-source"
+scope = "engine"
+kind = "forbidden-source-reference"
+owners = ["ambition_platformer2d_core"]
+watch_paths = ["crates/ambition_characters/src"]
+rationale = "ambition_characters does not depend on the input adapter for ControlFrame"
+source_doc = "docs/architecture/architecture-boundaries.md"
+severity = "error"
+roots = ["crates/ambition_characters/src"]
+forbid = ["ambition_input", "ambition_input::ControlFrame"]
+
+[[policy]]
+id = "engine.input-reexports-control-frame"
+scope = "engine"
+kind = "file-contains"
+owners = ["ambition_platformer2d_core"]
+watch_paths = ["crates/ambition_input/src/lib.rs"]
+rationale = "ambition_input keeps the old import path as a compat re-export"
+source_doc = "docs/architecture/architecture-boundaries.md"
+severity = "error"
+contains = ["pub use ambition_platformer2d_core::ControlFrame"]
+file = "crates/ambition_input/src/lib.rs"
+
+
+# was: architecture_boundaries_f2_actor_facades_burned_down
+[[policy]]
+id = "engine.f2-actor-facades-gone"
+scope = "engine"
+kind = "forbidden-path"
+owners = ["ambition_platformer2d_actor_monolith"]
+watch_paths = ["crates/ambition_platformer2d_actor_monolith/src"]
+rationale = "F1-era actor compatibility facades removed"
+source_doc = "docs/architecture/architecture-boundaries.md"
+severity = "error"
+paths = ["crates/ambition_platformer2d_actor_monolith/src/session/camera_layers.rs", "crates/ambition_platformer2d_actor_monolith/src/session/game_mode.rs", "crates/ambition_platformer2d_actor_monolith/src/time/camera_ease.rs"]
+
+[[policy]]
+id = "engine.f2-actor-lib-no-facades"
+scope = "engine"
+kind = "file-omits"
+owners = ["ambition_platformer2d_actor_monolith"]
+watch_paths = ["crates/ambition_platformer2d_actor_monolith/src/lib.rs"]
+rationale = "actor crate root keeps no F1 compatibility facades"
+source_doc = "docs/architecture/architecture-boundaries.md"
+severity = "error"
+forbid = ["pub use session::game_mode", "pub use game_mode", "CameraEaseState", "CameraEaseTuning", "DeveloperRuntimeState"]
+file = "crates/ambition_platformer2d_actor_monolith/src/lib.rs"
+
+[[policy]]
+id = "engine.f2-possession-no-controlled-subject-reexport"
+scope = "engine"
+kind = "file-omits"
+owners = ["ambition_platformer2d_actor_monolith"]
+watch_paths = ["crates/ambition_platformer2d_actor_monolith/src/abilities/traversal/possession.rs"]
+rationale = "ControlledSubject is named from ambition_platformer2d_shared_tangle::markers"
+source_doc = "docs/architecture/architecture-boundaries.md"
+severity = "error"
+forbid = ["pub use ambition_platformer2d_shared_tangle::markers::ControlledSubject"]
+file = "crates/ambition_platformer2d_actor_monolith/src/abilities/traversal/possession.rs"
+
+[[policy]]
+id = "engine.f2-consumers-use-canonical-crates"
+scope = "engine"
+kind = "forbidden-source-reference"
+owners = ["ambition_platformer2d_actor_monolith"]
+watch_paths = ["crates/ambition_platformer2d_runtime/src", "crates/ambition_sim_view/src", "crates/ambition_render/src", "game/ambition_content/src", "game/ambition_app/src"]
+rationale = "F2.1 consumers use canonical lower crates, not actor facades"
+source_doc = "docs/architecture/architecture-boundaries.md"
+severity = "error"
+roots = ["crates/ambition_platformer2d_runtime/src", "crates/ambition_sim_view/src", "crates/ambition_render/src", "game/ambition_content/src", "game/ambition_app/src"]
+forbid = ["ambition_platformer2d_actor_monolith::DeveloperRuntimeState", "ambition_platformer2d_actor_monolith::CameraEaseState", "ambition_platformer2d_actor_monolith::CameraEaseTuning", "ambition_platformer2d_actor_monolith::time::camera_ease", "ambition_platformer2d_actor_monolith::session::camera_layers", "ambition_platformer2d_actor_monolith::abilities::traversal::possession::ControlledSubject", "ambition_platformer2d_actor_monolith::features::FeatureEcsWorldOverlay"]
+
+
+# was: architecture_boundaries_actor_dialog_keeps_only_game_bindings
+[[policy]]
+id = "engine.actor-dialog-no-runtime-reexport"
+scope = "engine"
+kind = "file-omits"
+owners = ["ambition_conversation"]
+# **the file MOVED, so the watch moved with it.** The host
+# glue left the actor monolith for `ambition_conversation`, the crate that owns
+# the conversation authority this dialogue runtime is driven by. Re-pointing is
+# the only correct edit: a `file-omits` policy whose file does not exist is not a
+# passing guard, it is a panic — exactly what the retired
+# `engine.actor-yarn-no-runtime-reexport` note below records.
+watch_paths = ["crates/ambition_conversation/src/dialog.rs"]
+rationale = "actor dialog does not re-export reusable dialog runtime vocabulary"
+source_doc = "docs/architecture/architecture-boundaries.md"
+severity = "error"
+# **the three system NAMES came out, and this is a narrowing of
+# the rule rather than an exemption for a file.** The rationale is about
+# RE-EXPORTING vocabulary; `kind = "file-omits"` is a flat substring search and
+# cannot tell `pub use ambition_dialog::dialog_input` — the thing forbidden —
+# from `add_systems(Update, ambition_dialog::dialog_input)`, which is a plugin
+# REGISTERING a system it does not own and is the whole point of the 08-02 move
+# (`ambition_app` hand-registered the dialogue presentation pair, so any other
+# composition installed dialogue and got no input handling and no typewriter
+# reveal). `pub use ambition_dialog` still catches every actual re-export,
+# including of these three, because a re-export must name the module path.
+# the alternative — adding `dialog.rs` to an exemption list — would have
+# switched the whole policy off for the one file it watches.
+forbid = ["pub use ambition_dialog", "DialogChoice", "DialogChoiceSlot", "DialogueRunnerEntity"]
+file = "crates/ambition_conversation/src/dialog.rs"
+
+# It watched `…/src/dialog/yarn_bindings.rs` and forbade `pub use ambition_dialog` there.
+# `73873491b` moved this game's Yarn vocabulary — give_item, buy_item, sell_item, challenge,
+# use_brain, restore_brain and the save-state mirror — out to `ambition_content` through
+# `ambition_dialog`'s `YarnContentBindings` installer seam, and `dialog/` is now empty of content.
+# **A file-omits policy whose file does not exist is not a passing guard, it is a panic**, which is
+# how this surfaced: `every_watch_path_exists` and `engine_policies` both failed on the one missing
+# path. the boundary it defended is now STRUCTURAL and stronger than the rule: an engine crate
+# cannot re-export vocabulary it no longer contains. Nothing in `crates/` or `game/` re-exports
+# `ambition_dialog` except the umbrella facade (`ambition_platformer2d`), which is deliberately the
+# public API surface. Re-pointing it at `ambition_content` would be a DIFFERENT policy — different
+# scope, different owner, and guarding a game crate rather than an engine one.
+
+
+# It forbade `DeveloperPersistenceSchedulePlugin` inside `…/src/persistence/mod.rs` — an eleven-line
+# compatibility adapter that re-exported `ambition_persistence::{save, save_data,
+# PersistenceSchedulePlugin}` on the historical path. **The whole module is deleted**: its only real
+# content, the `settings::model` pause-menu vocabulary, had no consumer anywhere in the workspace
+# (all eight of its public names were referenced only by doc comments), and every
+# `crate::persistence::settings::…` path was repointed at `ambition_persistence::settings`. the
+# boundary it defended is now STRUCTURAL and stronger than the rule: a module that does not exist
+# cannot alias anything. What replaces it is `engine.actors-persistence-facade-gone`, which forbids
+# the DIRECTORY, so the adapter cannot come back under a different filename either.
+
+
+# was: architecture_boundaries_touch_input_crate_is_extracted
+[[policy]]
+id = "engine.touch-input-extracted"
+scope = "engine"
+kind = "required-path"
+owners = ["ambition_touch_input"]
+watch_paths = ["crates/ambition_touch_input"]
+rationale = "ambition_touch_input extracted-crate files exist"
+source_doc = "docs/architecture/architecture-boundaries.md"
+severity = "error"
+paths = ["crates/ambition_touch_input/Cargo.toml", "crates/ambition_touch_input/src/lib.rs", "crates/ambition_touch_input/src/state.rs", "crates/ambition_touch_input/src/bevy_plugin.rs", "crates/ambition_touch_input/src/menu_bridge.rs", "crates/ambition_touch_input/src/layout.rs", "crates/ambition_touch_input/src/placement.rs"]
+
+[[policy]]
+id = "engine.touch-input-not-in-app"
+scope = "engine"
+kind = "forbidden-path"
+owners = ["ambition_touch_input"]
+watch_paths = ["game/ambition_app/src/host"]
+rationale = "in-app touch adapter removed (moved to ambition_touch_input)"
+source_doc = "docs/architecture/architecture-boundaries.md"
+severity = "error"
+paths = ["game/ambition_app/src/host/mobile_input", "game/ambition_app/src/host/mobile_input/mod.rs"]
+
+[[policy]]
+id = "engine.app-wires-touch-plugin"
+scope = "engine"
+kind = "file-contains"
+owners = ["ambition_touch_input"]
+watch_paths = ["game/ambition_app/src/app/plugins.rs"]
+rationale = "app adds the touch plugin through the umbrella touch_input facade"
+source_doc = "docs/architecture/architecture-boundaries.md"
+severity = "error"
+contains = ["ambition_platformer2d::touch_input::TouchControlsPlugin"]
+file = "game/ambition_app/src/app/plugins.rs"
+
+[[policy]]
+id = "engine.app-no-in-app-mobile-input"
+scope = "engine"
+kind = "file-omits"
+owners = ["ambition_touch_input"]
+watch_paths = ["game/ambition_app/src/app/plugins.rs"]
+rationale = "app must not reference the removed in-app mobile_input module path"
+source_doc = "docs/architecture/architecture-boundaries.md"
+severity = "error"
+forbid = ["crate::host::mobile_input"]
+file = "game/ambition_app/src/app/plugins.rs"
+
+
+# was: architecture_boundaries_non_portal_mechanics_use_runtime_raycast_seam
+[[policy]]
+id = "engine.non-portal-mechanics-runtime-raycast"
+scope = "engine"
+kind = "forbidden-source-reference"
+owners = ["ambition_platformer2d_actor_monolith"]
+watch_paths = ["crates/ambition_abilities/src/traversal/blink.rs", "crates/ambition_abilities/src/traversal/dive.rs", "crates/ambition_abilities/src/traversal/grapple.rs", "crates/ambition_platformer2d_actor_monolith/src/items/pickup/mod.rs"]
+rationale = "non-portal mechanics use the proto-runtime raycast seam, not the portal mechanic"
+source_doc = "docs/architecture/architecture-boundaries.md"
+severity = "error"
+roots = ["crates/ambition_abilities/src/traversal/blink.rs", "crates/ambition_abilities/src/traversal/dive.rs", "crates/ambition_abilities/src/traversal/grapple.rs", "crates/ambition_platformer2d_actor_monolith/src/items/pickup/mod.rs"]
+forbid = ["ambition_portal2d::raycast_solids"]
+
+
+# was: architecture_boundaries_portal_orders_against_item_set_not_function
+[[policy]]
+id = "engine.portal-plugin-no-host-item-subsystem"
+scope = "engine"
+kind = "forbidden-source-reference"
+owners = ["ambition_portal2d"]
+watch_paths = ["crates/ambition_portal2d/src/plugin.rs"]
+rationale = "portal/plugin.rs must not name the host item subsystem in code"
+source_doc = "docs/architecture/architecture-boundaries.md"
+severity = "error"
+roots = ["crates/ambition_portal2d/src/plugin.rs"]
+forbid = ["ambition_platformer2d_actor_monolith::items::pickup"]
+
+[[policy]]
+id = "engine.portal-wiring-orders-against-set"
+scope = "engine"
+kind = "file-omits"
+owners = ["ambition_portal2d"]
+watch_paths = ["crates/ambition_platformer2d_runtime/src/portal_schedule.rs"]
+rationale = "portal wiring orders against ItemPickupSet, not a concrete function"
+source_doc = "docs/architecture/architecture-boundaries.md"
+severity = "error"
+forbid = ["after(ambition_platformer2d_actor_monolith::items::pickup::ground_item_physics)"]
+file = "crates/ambition_platformer2d_runtime/src/portal_schedule.rs"
+
+[[policy]]
+id = "engine.portal-wiring-uses-item-set"
+scope = "engine"
+kind = "file-contains"
+owners = ["ambition_portal2d"]
+watch_paths = ["crates/ambition_platformer2d_runtime/src/portal_schedule.rs"]
+rationale = "portal wiring orders on the held-item/ground-item simulation SET rather than on a concrete system function -- that is what this row asserts, and the path is only how the set is spelled today. Repointed 2026-09-02 when ItemPickupSet moved to ambition_platformer2d_shared_tangle::schedule beside ActorDecisionSet, because three packages outside the monolith order against it and had to name the kernel to say when their own systems run. If the set moves again, update the string; a break here is a stale spelling, not a boundary violation"
+source_doc = "docs/architecture/architecture-boundaries.md"
+severity = "error"
+contains = ["ambition_platformer2d_shared_tangle::schedule::ItemPickupSet::CoreHeldItems"]
+file = "crates/ambition_platformer2d_runtime/src/portal_schedule.rs"
+
+
+# was: architecture_boundaries_portal_core_does_not_import_ambition_content_roster
+[[policy]]
+id = "engine.portal-core-no-content-roster"
+scope = "engine"
+kind = "forbidden-source-reference"
+owners = ["ambition_portal2d"]
+watch_paths = ["crates/ambition_portal2d/src", "crates/ambition_portal2d_presentation/src"]
+rationale = "portal core/presentation consume reusable seams, not Ambition content roster names"
+source_doc = "docs/architecture/architecture-boundaries.md"
+severity = "error"
+roots = ["crates/ambition_portal2d/src", "crates/ambition_portal2d_presentation/src"]
+forbid = ["ambition_platformer2d_actor_monolith::items", "Item::PortalGun", "OwnedItems", "ambition_inventory_ui", "ambition_platformer2d_actor_monolith::menu::effects", "StashedActionSet", "ambition_platformer2d_actor_monolith::content", "ambition_platformer2d_actor_monolith::quest", "ambition_platformer2d_ldtk", "ambition_platformer2d_actor_monolith::persistence", "ambition_input::ControlFrame", "ambition_platformer2d_actor_monolith::items::pickup::GroundItem"]
+allow_lines = ["ambition_platformer2d_actor_monolith::items::pickup::ItemPickupSet", "ambition_platformer2d_actor_monolith::items::pickup::axe_spec"]
+skip_tests = true
+
+
+# was: architecture_boundaries_portal_core_does_not_name_host_world_or_reset
+[[policy]]
+id = "engine.portal-core-no-host-world-reset"
+scope = "engine"
+kind = "forbidden-source-reference"
+owners = ["ambition_portal2d"]
+watch_paths = ["crates/ambition_portal2d/src"]
+rationale = "portal core reaches host collision/reset/input through portal-owned resources and content adapters"
+source_doc = "docs/architecture/architecture-boundaries.md"
+severity = "error"
+roots = ["crates/ambition_portal2d/src"]
+forbid = ["ambition_platformer2d_actor_monolith::features", "ambition_platformer2d_core::RoomGeometry", "Res<RoomGeometry>", "FeatureEcsWorldOverlay", "ResetRoomFeaturesEvent", "ambition_input::ControlFrame", "ambition_platformer2d_actor_monolith::avatar"]
+skip_paths = ["presentation.rs"]
+skip_tests = true
+
+
+# was: architecture_boundaries_music_director_is_content_agnostic
+[[policy]]
+id = "engine.music-director-content-agnostic"
+scope = "engine"
+kind = "forbidden-source-reference"
+owners = ["ambition_platformer2d_actor_monolith"]
+watch_paths = ["crates/ambition_platformer2d_actor_monolith/src/music"]
+rationale = "music director consumes neutral MusicIntent; content mapping belongs in music::intent"
+source_doc = "docs/architecture/architecture-boundaries.md"
+severity = "error"
+roots = ["crates/ambition_platformer2d_actor_monolith/src/music"]
+forbid = ["crate::encounter", "crate::rooms", "crate::content"]
+skip_paths = ["intent.rs"]
+skip_tests = true
+
+
+# was: architecture_boundaries_gravity_zone_mechanic_left_portal
+[[policy]]
+id = "engine.gravity-mechanic-extracted"
+scope = "engine"
+kind = "required-path"
+owners = ["ambition_platformer2d_actor_monolith"]
+watch_paths = ["crates/ambition_platformer2d_actor_monolith/src/gravity"]
+rationale = "extracted gravity mechanic files exist"
+source_doc = "docs/architecture/architecture-boundaries.md"
+severity = "error"
+paths = ["crates/ambition_platformer2d_actor_monolith/src/gravity/mod.rs", "crates/ambition_platformer2d_actor_monolith/src/gravity/plugin.rs", "crates/ambition_platformer2d_actor_monolith/src/gravity/lifecycle.rs"]
+
+[[policy]]
+id = "engine.gravity-visuals-in-render"
+scope = "engine"
+kind = "required-path"
+owners = ["ambition_platformer2d_actor_monolith"]
+watch_paths = ["crates/ambition_render/src/rendering"]
+rationale = "gravity visuals live in the render crate"
+source_doc = "docs/architecture/architecture-boundaries.md"
+severity = "error"
+paths = ["crates/ambition_render/src/rendering/gravity_visuals.rs"]
+
+[[policy]]
+id = "engine.gravity-owns-plugin"
+scope = "engine"
+kind = "file-contains"
+owners = ["ambition_platformer2d_actor_monolith"]
+watch_paths = ["crates/ambition_platformer2d_actor_monolith/src/gravity/plugin.rs"]
+rationale = "gravity mechanic owns a GravityPlugin"
+source_doc = "docs/architecture/architecture-boundaries.md"
+severity = "error"
+contains = ["pub struct GravityPlugin"]
+file = "crates/ambition_platformer2d_actor_monolith/src/gravity/plugin.rs"
+
+[[policy]]
+id = "engine.gravity-portal-independent"
+scope = "engine"
+kind = "forbidden-source-reference"
+owners = ["ambition_platformer2d_actor_monolith"]
+watch_paths = ["crates/ambition_platformer2d_actor_monolith/src/gravity"]
+rationale = "gravity mechanic is portal-independent"
+source_doc = "docs/architecture/architecture-boundaries.md"
+severity = "error"
+roots = ["crates/ambition_platformer2d_actor_monolith/src/gravity"]
+forbid = ["ambition_portal2d::", "ambition_portal2d;", "ambition_portal2d}", "ambition_platformer2d_actor_monolith::portal,", "ambition_portal2d "]
+
+[[policy]]
+id = "engine.portal-no-gravity-symbols"
+scope = "engine"
+kind = "forbidden-source-reference"
+owners = ["ambition_platformer2d_actor_monolith"]
+watch_paths = ["crates/ambition_portal2d/src"]
+rationale = "portal must not own gravity-zone mechanic symbols"
+source_doc = "docs/architecture/architecture-boundaries.md"
+severity = "error"
+roots = ["crates/ambition_portal2d/src"]
+forbid = ["GravityFlipSwitch", "gravity_flip_switch_system", "GravityZoneVisual", "GravitySwitchVisual", "sync_gravity_zone_visual", "sync_gravity_switch_visual", "reset_gravity_on_room_reset"]
+allow_lines = ["ambition_platformer2d_actor_monolith::gravity"]
+skip_tests = true
+
+
+# was: architecture_boundaries_portal_has_plugin_and_schedule_files_without_actor_facade
+[[policy]]
+id = "engine.portal-mechanic-crate-files"
+scope = "engine"
+kind = "required-path"
+owners = ["ambition_portal2d"]
+watch_paths = ["crates/ambition_portal2d/src"]
+rationale = "portal mechanic crate files exist"
+source_doc = "docs/architecture/architecture-boundaries.md"
+severity = "error"
+paths = ["crates/ambition_portal2d/src/lib.rs", "crates/ambition_portal2d/src/plugin.rs", "crates/ambition_portal2d/src/schedule.rs", "crates/ambition_portal2d/src/color.rs", "crates/ambition_portal2d/src/types.rs", "crates/ambition_portal2d/src/gun.rs", "crates/ambition_portal2d/src/gun_pickup.rs", "crates/ambition_portal2d/src/gun_projectile.rs", "crates/ambition_portal2d/src/placement.rs", "crates/ambition_portal2d/src/transit.rs", "crates/ambition_portal2d/src/lifecycle.rs", "crates/ambition_portal2d/src/messages.rs", "crates/ambition_portal2d/src/pieces.rs"]
+
+[[policy]]
+id = "engine.actor-portal-facade-gone"
+scope = "engine"
+kind = "forbidden-path"
+owners = ["ambition_portal2d"]
+watch_paths = ["crates/ambition_platformer2d_actor_monolith/src"]
+rationale = "actor crate portal facade deleted"
+source_doc = "docs/architecture/architecture-boundaries.md"
+severity = "error"
+paths = ["crates/ambition_platformer2d_actor_monolith/src/portal/mod.rs", "crates/ambition_platformer2d_actor_monolith/src/portal/plugin.rs", "crates/ambition_platformer2d_actor_monolith/src/portal/transit.rs", "crates/ambition_platformer2d_actor_monolith/src/portal/gun.rs", "crates/ambition_platformer2d_actor_monolith/src/portal/presentation.rs", "crates/ambition_platformer2d_actor_monolith/src/portal.rs"]
+
+[[policy]]
+id = "engine.portal-plugin-labels-transit"
+scope = "engine"
+kind = "file-contains"
+owners = ["ambition_portal2d"]
+watch_paths = ["crates/ambition_portal2d/src/plugin.rs"]
+rationale = "portal plugin labels transit systems with PortalSet"
+source_doc = "docs/architecture/architecture-boundaries.md"
+severity = "error"
+contains = ["PortalSet::Transit"]
+file = "crates/ambition_portal2d/src/plugin.rs"
+
+
+# was: architecture_boundaries_f3_2_swept_movers_use_kernel_sweep_sample
+[[policy]]
+id = "engine.actor-clusters-require-sweep"
+scope = "engine"
+kind = "file-contains"
+owners = ["ambition_platformer2d_actor_monolith"]
+watch_paths = ["crates/ambition_platformer2d_actor_monolith/src/features/ecs/actor_clusters.rs"]
+rationale = "ECS ActorClusterQueryData requires the shared SweepSample"
+source_doc = "docs/architecture/architecture-boundaries.md"
+severity = "error"
+contains = ["pub sweep: &'static mut ae::SweepSample"]
+file = "crates/ambition_platformer2d_actor_monolith/src/features/ecs/actor_clusters.rs"
+
+[[policy]]
+id = "engine.actor-clusters-no-optional-sweep"
+scope = "engine"
+kind = "file-omits"
+owners = ["ambition_platformer2d_actor_monolith"]
+watch_paths = ["crates/ambition_platformer2d_actor_monolith/src/features/ecs/actor_clusters.rs"]
+rationale = "runtime actor/boss queries do not make SweepSample optional"
+source_doc = "docs/architecture/architecture-boundaries.md"
+severity = "error"
+forbid = ["pub sweep: Option<&'static mut ae::SweepSample>"]
+file = "crates/ambition_platformer2d_actor_monolith/src/features/ecs/actor_clusters.rs"
+
+[[policy]]
+id = "engine.portal-transit-uses-sweep"
+scope = "engine"
+kind = "file-contains"
+owners = ["ambition_platformer2d_actor_monolith"]
+watch_paths = ["crates/ambition_portal2d/src/transit.rs"]
+rationale = "portal transit CCD consumes the canonical SweepSample"
+source_doc = "docs/architecture/architecture-boundaries.md"
+severity = "error"
+contains = ["Option<&ae::SweepSample>", "portal_sweep_sample"]
+file = "crates/ambition_portal2d/src/transit.rs"
+
+[[policy]]
+id = "engine.portal-transit-no-anchor"
+scope = "engine"
+kind = "file-omits"
+owners = ["ambition_platformer2d_actor_monolith"]
+watch_paths = ["crates/ambition_portal2d/src/transit.rs"]
+rationale = "portal-local sweep anchors retired"
+source_doc = "docs/architecture/architecture-boundaries.md"
+severity = "error"
+forbid = ["PortalSweepAnchor"]
+file = "crates/ambition_portal2d/src/transit.rs"
+
+[[policy]]
+id = "engine.portal-lib-no-anchor"
+scope = "engine"
+kind = "file-omits"
+owners = ["ambition_platformer2d_actor_monolith"]
+watch_paths = ["crates/ambition_portal2d/src/lib.rs"]
+rationale = "PortalSweepAnchor not part of the portal public surface"
+source_doc = "docs/architecture/architecture-boundaries.md"
+severity = "error"
+forbid = ["PortalSweepAnchor"]
+file = "crates/ambition_portal2d/src/lib.rs"
+
+
+# was: architecture_boundaries_clock_resets_use_time_control_owner
+[[policy]]
+id = "engine.clock-resets-owner-only"
+scope = "engine"
+kind = "forbidden-source-reference"
+owners = ["ambition_platformer2d_actor_monolith"]
+watch_paths = ["crates/ambition_platformer2d_actor_monolith/src", "game/ambition_app/src"]
+rationale = "reset/respawn/transition code emits ClockResetRequest; only the time-control owner snaps time_scale to 1.0"
+source_doc = "docs/architecture/architecture-boundaries.md"
+severity = "error"
+roots = ["crates/ambition_platformer2d_actor_monolith/src", "game/ambition_app/src"]
+forbid = ["time_scale = 1.0", "time_scale=1.0"]
+skip_paths = ["time/time_control/mod.rs", "time/time_control/tests.rs"]
+
+[[policy]]
+id = "engine.runtime-applies-clock-reset"
+scope = "engine"
+kind = "file-contains"
+owners = ["ambition_platformer2d_actor_monolith"]
+watch_paths = ["crates/ambition_platformer2d_runtime/src/player_schedule.rs"]
+rationale = "the runtime time-control chain applies queued ClockResetRequest messages"
+source_doc = "docs/architecture/architecture-boundaries.md"
+severity = "error"
+# ⛔ IT USED TO ASK FOR `run_if(gameplay_allowed)` AND THE GATE MOVED. The
+# schedule stopped repeating that predicate on system after system and named
+# the rule instead: every gameplay system joins `GameplayGated`, a set a host
+# with `SessionGatedSimulation` gates once. The policy was pinning the old
+# spelling of the gate, so it went red for a change that made the gating
+# STRONGER — one declaration a reader can find, rather than a predicate a call
+# site can forget. What the rule is about is that the clock-reset applier is
+# gated at all.
+contains = ["apply_clock_reset_requests", "GameplayGated"]
+file = "crates/ambition_platformer2d_runtime/src/player_schedule.rs"
+
+
+# was: architecture_boundaries_player_fallbacks_are_slot_ordered
+[[policy]]
+id = "engine.player-fallbacks-no-raw-query"
+scope = "engine"
+kind = "forbidden-source-reference"
+owners = ["ambition_platformer2d_actor_monolith"]
+watch_paths = ["crates/ambition_platformer2d_actor_monolith/src/features/ecs/save_sync.rs", "crates/ambition_platformer2d_actor_monolith/src/features/ecs/actors/update.rs"]
+rationale = "player fallbacks are deterministic by PlayerSlot, not raw Bevy query order"
+source_doc = "docs/architecture/architecture-boundaries.md"
+severity = "error"
+roots = ["crates/ambition_platformer2d_actor_monolith/src/features/ecs/save_sync.rs", "crates/ambition_platformer2d_actor_monolith/src/features/ecs/actors/update.rs"]
+forbid = ["primary_player.iter().next()", "player_query.iter().next()"]
+
+[[policy]]
+id = "engine.player-fallback-save-sync-documented"
+scope = "engine"
+kind = "file-contains"
+owners = ["ambition_platformer2d_actor_monolith"]
+watch_paths = ["crates/ambition_platformer2d_actor_monolith/src/features/ecs/save_sync.rs"]
+rationale = "save_sync documents the deterministic PlayerSlot fallback"
+source_doc = "docs/architecture/architecture-boundaries.md"
+severity = "error"
+contains = ["PlayerSlot", "AMBITION_REVIEW(determinism)"]
+file = "crates/ambition_platformer2d_actor_monolith/src/features/ecs/save_sync.rs"
+
+# **`engine.player-fallback-update-documented` WAS HERE AND IS DELETED
+# — ITS SUBJECT WAS DELETED FIRST.**
+#
+# The file now carries the tombstone for that deletion and nothing that needs a determinism
+# waiver.
+#
+# ⇒ this is the DELETE case, not the fix case. A `file-contains` rule cannot say
+# "document it IF you have one", so demanding the marker meant re-adding a
+# review note about machinery that no longer exists — a marker asserting a
+# property of absent code, which is the shape of a check that cannot fail
+# usefully. the actual hazard in that file is still covered:
+# `engine.player-fallbacks-no-raw-query` above watches `update.rs` for
+# `player_query.iter().next()` and is green, and
+# `engine.player-fallback-save-sync-documented` still guards the ONE surviving
+# slot-ordered fallback (`save_sync.rs:51`, verified live).
+
+# ── Loading and game-shell core carve ─────────────────────────────────────────
+[[policy]]
+id = "engine.load-shell-core-members"
+scope = "engine"
+kind = "workspace-member"
+owners = ["ambition_load", "ambition_game_shell", "ambition_load_presentation"]
+watch_paths = ["Cargo.toml"]
+rationale = "The load truth, top-level shell router, and replaceable load presentation are independent reusable engine concerns, not app-local behavior."
+source_doc = "docs/planning/engine/architecture.md"
+severity = "error"
+members = ["ambition_load", "ambition_game_shell", "ambition_load_presentation"]
+
+[[policy]]
+id = "engine.load-core-dependency-purity"
+scope = "engine"
+kind = "dependency-denylist"
+owners = ["ambition_load"]
+watch_paths = ["crates/ambition_load/Cargo.toml"]
+rationale = "ambition_load owns headless evidence and barriers; it must not reach into shell, presentation, app, content, menu, render, or subsystem-specific loaders."
+source_doc = "docs/planning/engine/architecture.md"
+severity = "error"
+manifest = "crates/ambition_load/Cargo.toml"
+deny = ["ambition_game_shell", "ambition_load_presentation", "ambition_render", "ambition_menu", "ambition_asset_manager", "ambition_persistence", "ambition_platformer2d_world", "ambition_content", "ambition_app"]
+
+[[policy]]
+id = "engine.game-shell-dependency-purity"
+scope = "engine"
+kind = "dependency-denylist"
+owners = ["ambition_game_shell"]
+watch_paths = ["crates/ambition_game_shell/Cargo.toml"]
+rationale = "The shell may consume load truth but must not depend on the load presentation, renderer, game content, app shell, or any named demo."
+source_doc = "docs/planning/engine/architecture.md"
+severity = "error"
+manifest = "crates/ambition_game_shell/Cargo.toml"
+deny = ["ambition_load_presentation", "ambition_render", "ambition_content", "ambition_app", "ambition_demo_sanic", "ambition_demo_sanic_app", "ambition_demo_mary_o", "ambition_demo_mary_o_app"]
+
+[[policy]]
+id = "engine.load-presentation-dependency-direction"
+scope = "engine"
+kind = "dependency-denylist"
+owners = ["ambition_load_presentation"]
+watch_paths = ["crates/ambition_load_presentation/Cargo.toml"]
+rationale = "The reusable load presentation depends downward on load and shell contracts, never upward on game content, app shells, or demo identities."
+source_doc = "docs/planning/engine/architecture.md"
+severity = "error"
+manifest = "crates/ambition_load_presentation/Cargo.toml"
+deny = ["ambition_render", "ambition_content", "ambition_app", "ambition_demo_sanic", "ambition_demo_sanic_app", "ambition_demo_mary_o", "ambition_demo_mary_o_app"]
+
+[[policy]]
+id = "engine.load-shell-source-content-free"
+scope = "engine"
+kind = "forbidden-source-reference"
+owners = ["ambition_load", "ambition_game_shell", "ambition_load_presentation"]
+watch_paths = ["crates/ambition_load/src", "crates/ambition_game_shell/src", "crates/ambition_load_presentation/src"]
+rationale = "Core load and shell crates must stay free of Ambition-specific content, app, and demo route identities."
+source_doc = "docs/planning/engine/architecture.md"
+severity = "error"
+roots = ["crates/ambition_load/src", "crates/ambition_game_shell/src", "crates/ambition_load_presentation/src"]
+forbid = ["ambition_content", "ambition_app", "ambition_demo_sanic", "ambition_demo_mary_o"]
+
+# ── App-local audio authority ratchet (audio process-global retirement) ──
+# The former process-global audio install/override seam is retired: authored
+# music and SFX are App-local (a provider registers an
+# `ambition_audio::catalog::AudioCatalogFragment`; hosts read the assembled
+# `AudioCatalogRegistry` resource or pass a selected registry explicitly). This
+# rejects re-introduction of the retired global seam anywhere in runtime source.
+[[policy]]
+id = "engine.audio-authority-is-app-local"
+scope = "engine"
+kind = "forbidden-source-reference"
+owners = ["ambition_audio", "ambition_platformer2d_actor_monolith"]
+watch_paths = ["crates/ambition_platformer2d_actor_monolith/src", "crates/ambition_audio/src", "game/ambition_content/src", "game/ambition_app/src", "game/ambition_demo_sanic/src", "game/ambition_demo_mary_o/src"]
+rationale = "Authored audio is App-local via AudioCatalogRegistry. The retired process-global install/override seam (install_music_registry / install_sfx_registry / authored_music_registry / authored_sfx_registry / *_REGISTRY_OVERRIDE) must never return; a new host reads the registry resource instead."
+source_doc = "docs/planning/engine/architecture.md"
+severity = "error"
+roots = ["crates/ambition_platformer2d_actor_monolith/src", "crates/ambition_audio/src", "game/ambition_content/src", "game/ambition_app/src", "game/ambition_demo_sanic/src", "game/ambition_demo_mary_o/src"]
+forbid = ["install_music_registry", "install_sfx_registry", "authored_music_registry", "authored_sfx_registry", "MUSIC_REGISTRY_OVERRIDE", "SFX_REGISTRY_OVERRIDE"]
+
+# ── One frame-aware movement kernel (ADR 0024) ── Every integrated movable body carries exactly ONE
+# explicit `MotionModel`; absence is never a policy. An `Option<&MotionModel>` or
+# `Without<MotionModel>` query is the "missing model means axis-swept" convention returning — the
+# exact ambiguity the unified kernel removed.
+[[policy]]
+id = "engine.movement-model-is-never-optional"
+scope = "engine"
+kind = "forbidden-source-reference"
+owners = ["ambition_platformer2d_core", "ambition_platformer2d_actor_monolith"]
+watch_paths = ["crates", "game"]
+rationale = "ADR 0024 §1: absence is never a movement policy. No production query may treat MotionModel as optional or filter on its absence; every integrated body carries a variant from spawn and dispatch happens inside step_motion. KNOWN BLIND SPOT (2026-08-16): the list below is a set of SPELLINGS, and `ae::` is the alias most of the workspace imports engine-core under — `Option<&ae::MotionModel>` escaped it entirely. The escape hid the actual §1 violation behind the one site this rule DID catch: `actors/update.rs` passed its optional read down to `perception_body_for`, whose `None` arm read a missing component as `AxisSweptMotion::default()`. Both are non-optional now. ⛔ the spelling is NOT added to `forbid` yet because one further site survives it — `ambition_sim_view/src/combat_geometry_view.rs:152`, an observation read-model whose whole body-cluster group is optional — and widening the rule tonight would have reddened a crate this slice did not analyse. That is a queue row, not a waiver."
+source_doc = "docs/adr/0024-frame-aware-unified-movement-kernel.md"
+severity = "error"
+production_only = true
+skip_tests = true
+roots = ["crates", "game"]
+forbid = [
+    "Option<&MotionModel>", "Option<&mut MotionModel>", "Without<MotionModel>",
+    "Option<&crate::features::MotionModel>", "Option<&mut crate::features::MotionModel>",
+    "Without<crate::features::MotionModel>",
+    "Option<&'static MotionModel>", "Option<&'static mut MotionModel>",
+    "Option<&'static mut crate::features::MotionModel>",
+]
+
+# The crawler is an explicit movement POLICY dispatched inside the kernel; the
+# authored `surface_walker` flag exists only as the spawn-time selector in
+# `ActorTuning::motion_model`. Any other production read is a hidden third
+# integrator (or a policy branch outside the kernel) growing back.
+[[policy]]
+id = "engine.crawler-flag-is-spawn-selection-only"
+scope = "engine"
+kind = "forbidden-source-reference"
+owners = ["ambition_platformer2d_actor_monolith"]
+watch_paths = ["crates/ambition_platformer2d_actor_monolith/src"]
+rationale = "ADR 0024 §8: the former surface_walker integrator is the AdhesiveCrawler policy. The authored boolean selects the MotionModel once at spawn (ActorTuning::motion_model); runtime dispatch reads the body's explicit model, never the flag."
+source_doc = "docs/adr/0024-frame-aware-unified-movement-kernel.md"
+severity = "error"
+production_only = true
+skip_tests = true
+skip_paths = ["features/ecs/actor_tuning.rs", "features/enemies/mod.rs"]
+roots = ["crates/ambition_platformer2d_actor_monolith/src"]
+forbid = ["tuning.surface_walker", ".config.tuning.surface_walker"]
+
+# ADR 0024 authority model: every production write to authoritative body pose
+# belongs to a NAMED authority — the movement kernel (continuous integration),
+# `transit_body` (discrete teleports), `carry_body`/`constrain_body_pose`
+# (external kinematic constraints), or a domain integrator (projectiles, free
+# items, the portal core's aperture transit). A bare `kin.pos = …` anywhere
+# else is an authority leak: it moves a body without reconciling contacts,
+# attachment, model-private state, or the §3.1 motion record.
+[[policy]]
+id = "engine.pose-writes-are-authority-only"
+scope = "engine"
+kind = "forbidden-source-reference"
+owners = ["ambition_platformer2d_core", "ambition_platformer2d_actor_monolith"]
+watch_paths = ["crates", "game"]
+rationale = "ADR 0024 authority model: body pose writes go through the kernel, transit_body, carry_body/constrain_body_pose, or a sanctioned domain integrator — never a bare field write. SECOND KNOWN BLIND SPOT (2026-08-16): it cannot tell a LIVE body from a PRE-SPAWN SEED. `ActorClusterSeed` has a `kin` field and no entity, no MotionModel and no frame, so `transit_body` cannot be called on it at all and there is no authority to route through — yet `seed.kin.pos = ` reads identically to relocating a simulated body. The one such site now goes through `ActorClusterSeed::place_at`, which is worth having on its own merits (the placement is TWO coupled fields), but a future seed constructor will hit this again and the honest answer there is a construction seam, not a waiver."
+source_doc = "docs/adr/0024-frame-aware-unified-movement-kernel.md"
+severity = "error"
+production_only = true
+skip_tests = true
+roots = ["crates", "game"]
+forbid = [
+    "kin.pos = ", "kin.pos += ", "kin.pos -= ",
+    "kinematics.pos = ", "kinematics.pos += ", "kinematics.pos -= ",
+    "kin.pos.x = ", "kin.pos.y = ", "kinematics.pos.x = ", "kinematics.pos.y = ",
+    # `body.` TOO. This rule matches the RECEIVER'S NAME, not its type, so a
+    # `BodyKinematics` bound to any other identifier is invisible to it. The
+    # TwinTrack demo bound one as `body` and relocated the traveler with a bare
+    # `body.pos = ` for two days; a human reviewer found it, this did not.
+    # `body` is the one other name actually in use — every non-test hit is
+    # already inside a sanctioned skip path below — but see the rationale: the
+    # blind spot is the shape of the check, and closing one name is not closing it.
+    # LEADING SPACE, deliberately. Bare `body.pos` also matches the TAIL of
+    # `player_body.pos`, which is how `camera_snapshot.rs` — writing a SimView
+    # snapshot, not a body — turned up as two violations on the first run. An
+    # indented statement always has whitespace before it; a suffix never does.
+    " body.pos = ", " body.pos += ", " body.pos -= ",
+    " body.pos.x = ", " body.pos.y = ",
+]
+skip_paths = [
+    # The authorities themselves + kernel-internal solvers.
+    "ambition_platformer2d_core/src/movement/",
+    "ambition_platformer2d_core/src/ledge_grab/",
+    # Engine body-shape ops (feet-planted resize recenters).
+    "ambition_platformer2d_core/src/player_state.rs",
+    # Sanctioned domain integrators: generic kinematic bodies, projectile
+    # physics, free thrown items, and the portal core's aperture transit
+    # (whose kernel-body reconciliation is completed by the content adapter).
+    "ambition_platformer2d_shared_tangle/src/kinematic.rs",
+    "ambition_platformer2d_shared_tangle/src/projectile/",
+    "ambition_projectiles/src/",
+    "ambition_portal2d/src/transit.rs",
+    "ambition_platformer2d_actor_monolith/src/items/pickup/",
+    # Dev tooling body-profile resize (feet-planted recenter).
+    "ambition_dev_tools/src/dev_tools/editable.rs",
+    # Domain integrator, and the third crate in a set of three: the ECS system
+    # that steps projectiles snaps a shot's endpoint back to the first solid on
+    # the leg it just flew. Its `kin` is `&mut BodyKinematics` under
+    # `With<LiveProjectile>` — the shared position component on a body that has
+    # no `MotionModel` and no contact clusters, so `transit_body` cannot be
+    # called on it at all. Exactly the "cannot tell a live body from a thing
+    # that merely carries BodyKinematics" blind spot this rule's own rationale
+    # describes, and the same class as `ambition_projectiles/src/` above.
+    # Scoped to the FILE, not the directory, so an actor-body write elsewhere
+    # in the module still fails.
+    "ambition_platformer2d_actor_monolith/src/projectile/systems.rs",
+    # A PRESCRIBED CONTENT WORLDLINE, and the one file that is allowed to be
+    # one. TwinTrack's chase beacon is a marker + `BodyKinematics` + `SimId`: no
+    # `MotionModel`, no contact clusters, so there is nothing for `transit_body`
+    # to reconcile and it cannot be called on the entity at all. Its position is
+    # evaluated analytically from the pursuit's start event because the optics
+    # solver's null tolerance is a measurement OF THE SOLVER only while the
+    # worldline is exactly the line the solver assumes.
+    # scoped to this file rather than to the demo ON PURPOSE: `lib.rs` moves
+    # the TRAVELER, a full actor, and has lost its `transit_body` fix twice to
+    # successive SR overlays. It stays covered.
+    "ambition_demo_twintrack/src/chase_beacon.rs",
+]
+
+# `ResolvedMotionFrame::publish`'s doc said "ONLY the frame resolution phase may
+# call this (guarded by workspace policy, not just convention)". No such policy
+# existed. The invariant happened to hold — two production callers, both in
+# `gravity/resolve.rs` — but nothing was checking, and ADR 0024's frame law is
+# built on the resolved frame being published exactly once per tick by one phase.
+#
+# **the method's NAME is why no rule could exist.** A forbidden-source rule matches text, and
+# `.publish(` collides with `sprites.publish`, `damageable.publish`, `sessions.publish` and
+# `registry.publish` — so any rule naming it would have fired on four unrelated seams. A claim
+# of enforcement that cannot be written down is a claim nobody can keep.
+[[policy]]
+id = "engine.only-the-frame-phase-publishes-the-resolved-frame"
+scope = "engine"
+kind = "forbidden-source-reference"
+owners = ["ambition_platformer2d_shared_tangle", "ambition_platformer2d_actor_monolith"]
+watch_paths = ["crates", "game"]
+rationale = "ADR 0024 frame law: the per-tick ResolvedMotionFrame is published ONCE, by the frame resolution phase. A second publisher is a second frame authority, and every mechanic downstream reads whichever ran last."
+source_doc = "docs/adr/0024-frame-aware-unified-movement-kernel.md"
+severity = "error"
+production_only = true
+skip_tests = true
+roots = ["crates", "game"]
+forbid = ["publish_resolved_frame("]
+skip_paths = [
+    # The frame resolution phase itself — the one authority.
+    "ambition_platformer2d_actor_monolith/src/gravity/",
+    # The accessor's own definition.
+    "ambition_platformer2d_shared_tangle/src/frame_env.rs",
+]
+
+# `authority.rs`'s own module doc says "every production write to authoritative
+# body pose/VELOCITY belongs to exactly one named authority", and lists impulses
+# as authority #4. The rule above enforced `pos` and nothing enforced `vel` — so
+# half a documented contract was a habit, and the sentence "guarded by workspace
+# policy" was true of one noun in it.
+#
+# That gap is why "who wrote this velocity" was expensive to answer: the
+# ladder investigation spent six wrong readings on a `-99`/tick ramp whose author
+# was a `vel -=` the log could not see, and the eventual answer (the fighter's own
+# slash recoil) came from an operation the kernel already emitted rather than from
+# anything a velocity write announced.
+#
+# AGENTS.md's "avoid bullshit guardrails" bar, answered rather than assumed: this is not a new
+# CATEGORY of machinery, it is the missing half of a policy that already exists and is already
+# sanctioned. The more natural enforcement — making `BodyKinematics.vel` private behind
+# authority-only setters — is genuinely better and genuinely bigger: the field is READ across the
+# whole engine, so it is accessor churn on a scale this does not justify alone. If that refactor
+# ever happens, DELETE this rule rather than keep both.
+#
+# the skip list is deliberately the SAME set as the pose rule. Those are the
+# named authorities of ADR 0024; if a path is a sanctioned pose authority it is a
+# sanctioned velocity authority, and any divergence between the two lists would be
+# a claim that a site may move a body but not change how it is moving, which the
+# ADR does not say about anything.
+[[policy]]
+id = "engine.velocity-writes-are-authority-only"
+scope = "engine"
+kind = "forbidden-source-reference"
+owners = ["ambition_platformer2d_core", "ambition_platformer2d_actor_monolith"]
+watch_paths = ["crates", "game"]
+rationale = "ADR 0024 authority model: body VELOCITY writes go through the kernel, transit_body, an impulse seam, or a sanctioned domain integrator — never a bare field write. The pose half was enforced; this is the half that was not. KNOWN BLIND SPOT: matching is by receiver NAME (kin/kinematics/body), not by type, so a BodyKinematics bound to a fourth identifier passes unseen — which is how the TwinTrack demo relocated a body outside the authority for two days. SECOND KNOWN BLIND SPOT (2026-08-16): matching by name also cannot tell a SIMULATED body from a SCRATCH one. `BodyClusterScratch` is an owned bag with no entity, no resolved frame and no integrator — the fighter brain's recovery lens builds one to ask 'what would this body do' — so its initial velocity is state being STATED, not a body being changed, and there is no authority to route it through. That site now says it at construction (`BodyClusterScratch::with_velocity`); see the pose rule for the same distinction on the seed side."
+source_doc = "docs/adr/0024-frame-aware-unified-movement-kernel.md"
+severity = "error"
+production_only = true
+skip_tests = true
+roots = ["crates", "game"]
+forbid = [
+    "kin.vel = ", "kin.vel += ", "kin.vel -= ",
+    "kinematics.vel = ", "kinematics.vel += ", "kinematics.vel -= ",
+    "kin.vel.x = ", "kin.vel.y = ", "kinematics.vel.x = ", "kinematics.vel.y = ",
+    # See the pose rule: this matches a NAME, and TwinTrack's traveler was bound
+    # as `body`. Both halves of the authority had the same hole.
+    " body.vel = ", " body.vel += ", " body.vel -= ",
+    " body.vel.x = ", " body.vel.y = ",
+]
+skip_paths = [
+    # The authorities themselves + kernel-internal solvers.
+    "ambition_platformer2d_core/src/movement/",
+    "ambition_platformer2d_core/src/ledge_grab/",
+    # Engine body-shape ops (feet-planted resize recenters).
+    "ambition_platformer2d_core/src/player_state.rs",
+    # Sanctioned domain integrators: generic kinematic bodies, projectile
+    # physics, free thrown items, and the portal core's aperture transit.
+    "ambition_platformer2d_shared_tangle/src/kinematic.rs",
+    "ambition_platformer2d_shared_tangle/src/projectile/",
+    "ambition_projectiles/src/",
+    "ambition_portal2d/src/transit.rs",
+    "ambition_platformer2d_actor_monolith/src/items/pickup/",
+    # Dev tooling body-profile resize (feet-planted recenter).
+    "ambition_dev_tools/src/dev_tools/editable.rs",
+    # ── velocity-only, each NAMED rather than blanket-skipped ──
+    # ADR 0024 authority #4, verbatim: "Impulses — typed velocity operations that
+    # consume the body's resolved frame: `set_jump_velocity`,
+    # `AccelerationFrame::launch`, and frame-rotated `vel +=` writes at
+    # combat/ability seams." These are those seams.
+    "ambition_combat/src/moveset/mod.rs",
+    "ambition_platformer2d_actor_monolith/src/features/ecs/damage/actor_hit.rs",
+    # Traversal abilities that SET a velocity rather than adding an impulse: a
+    # grapple pull is a commanded speed toward the anchor, not a nudge.
+    "ambition_abilities/src/traversal/grapple.rs",
+    # Domain integrator: a projectile reflecting off a surface, mirroring its own
+    # velocity. The same class as the projectile paths already listed above.
+    "ambition_platformer2d_actor_monolith/src/projectile/systems.rs",
+    # ⭐ THE SAME WRITE, MOVED — and the guard catching that is the ledger
+    # working exactly as designed. `intercept_projectile` lifted the reflection
+    # out of `systems.rs` so a reflector and an absorber could share it, and the
+    # sanctioned write went with it while the waiver did not. The justification
+    # is unchanged and is the one above verbatim: this is the projectile domain
+    # re-aiming its own body, not a foreign system relocating somebody else's.
+    # ⇒ Waived at the OPERATION rather than at its callers, which is the point of
+    # having an operation: the next interception adds no entry here.
+    "ambition_platformer2d_actor_monolith/src/projectile/intercept.rs",
+    # GAME bodies with their own motion rules, not engine bodies: Mary-O's
+    # snake segments and Sanic's ball dash. Listed individually rather than
+    # skipping `game/`, so a NEW game reaching for a bare velocity write still
+    # fails and has to argue for itself.
+    "ambition_demo_mary_o/src/snake.rs",
+    "ambition_demo_sanic/src/ball_dash.rs",
+    # ⭐ THE SMASH RULESET'S COMMANDED-VELOCITY SEAM, and it is ONE entry for
+    # what arrived as three bare writes (a steered bolt's self-launch, a launch
+    # plate, a homing dash). Same class as `grapple.rs` two entries up: a
+    # commanded speed, not a nudge — every caller needs the arrival velocity
+    # OVERWRITTEN, which is exactly what an impulse seam will not do.
+    # ⇒ Waived at the OPERATION rather than at its callers, for the reason
+    # `intercept.rs` gives below: the next smash move that launches somebody
+    # adds no entry here, and a bare `kin.vel =` anywhere else in that demo
+    # still fails and still has to argue for itself.
+    # ⚠ It gives up frame-awareness and says so in its own header:
+    # `AccelerationFrame::launch` is the frame-aware operation and is scalar
+    # away-from-feet, which would delete the ANGLED plate that
+    # `PlaceSpringParams::launch` exists to author.
+    "ambition_demo_smash/src/motion.rs",
+    # ── three more of authority #4, added 2026-08-30 ──
+    # ⭐ THE OWNERSHIP RULE DID NOT CHANGE; THE LEDGER LAGGED THE SEAMS. Each of
+    # these is one of the forms quoted above, in a file that was never listed.
+    #   clank rebound — a combat seam. Two attacks trade and both bodies take an
+    #   impulse along the axis between them; the same class as
+    #   `features/ecs/damage/actor_hit.rs` already listed.
+    "ambition_combat/src/clank.rs",
+    #   ledge trump pop — a FRAME-ROTATED `vel +=` in the literal sense the ADR
+    #   means: it projects out the component along the body's own `side` axis
+    #   and re-adds the pop there, because under sideways gravity a fighter's
+    #   outward IS world Y and a bare `vel.x` popped it along the axis it falls
+    #   on.
+    "ambition_combat/src/ledge_trump.rs",
+    #   trapdoor entry — a traversal ability that SETS a velocity rather than
+    #   adding an impulse, the same distinction `grapple.rs` above is listed
+    #   under. Entering `Submerged` switches collision off, so a leftover fall
+    #   would carry the body through the world for the one tick before the
+    #   submerged integrator overwrites it.
+    "ambition_platformer2d_actor_monolith/src/abilities/traversal/trapdoor.rs",
+    # The same prescribed content worldline the pose rule above waives, and for
+    # the same reason: a clusterless beacon whose velocity IS the authored fact
+    # the pursuit is about. Its file, not its demo.
+    "ambition_demo_twintrack/src/chase_beacon.rs",
+]
+
+# ADR 0024 frame law: body-relative MECHANICS consume the body's per-tick
+# ResolvedMotionFrame — published once by the frame resolution phase — never a
+# reconstructed frame. Point sampling (`dir_at`) and the presentation
+# `GravityField` mirror remain legal ONLY for observation: rendering, sprite
+# roll easing, dev overlays, touch glyph labels, and the gravity machinery
+# itself. A mechanics-side read is a second frame resolver growing back.
+[[policy]]
+id = "engine.mechanics-consume-the-resolved-frame"
+scope = "engine"
+kind = "forbidden-source-reference"
+owners = ["ambition_platformer2d_core", "ambition_platformer2d_actor_monolith"]
+watch_paths = ["crates", "game"]
+rationale = "ADR 0024 frame law: gameplay mechanics read ResolvedMotionFrame; dir_at/GravityField are observation-only (render, roll easing, dev, the gravity machinery)."
+source_doc = "docs/adr/0024-frame-aware-unified-movement-kernel.md"
+severity = "error"
+production_only = true
+skip_tests = true
+roots = [
+    "crates/ambition_platformer2d_actor_monolith/src",
+    "crates/ambition_combat/src",
+    "crates/ambition_characters/src",
+    "game",
+]
+forbid = [".dir_at(", "Res<GravityField>", "gravity_dir_or_default("]
+skip_paths = [
+    # The gravity machinery + frame resolution phase itself.
+    "ambition_platformer2d_actor_monolith/src/gravity/",
+    # Free-body integrators resolve per body inline (dir_for) and feed the
+    # shared world-forces seam through a local field value.
+    "ambition_platformer2d_actor_monolith/src/items/pickup/",
+    # Presentation, dev tooling, and the RL observation port.
+    "ambition_app/src/dev/",
+    "ambition_app/src/rl_sim/",
+    # The portal adapters orient exits from the presentation mirror (the
+    # portal core moves cluster-less bodies too); recorded residual debt.
+    "ambition_content/src/portal/",
+]
+
+# ── Complete App-local character authority ratchet ──
+# Provider fragments assemble one validated CharacterCatalog per Bevy App.
+# Production systems require that resource or an explicit reference; authored
+# attack geometry is selected through an App-local resolver resource. The old
+# process-global roster/install APIs and implicit catalog helpers are retired.
+[[policy]]
+id = "engine.character-authority-is-app-local"
+scope = "engine"
+kind = "forbidden-source-reference"
+owners = ["ambition_characters", "ambition_platformer2d_actor_monolith", "ambition_combat", "ambition_platformer2d_runtime", "ambition_content", "ambition_app"]
+watch_paths = ["crates", "game"]
+rationale = "Playable-character definitions, hostile archetypes, boss behavior/encounters/art, presentation, dialogue, bark, collision, and authored attack geometry must come from validated resources assembled in each Bevy App. Production code may not reinstall process-global authority, silently substitute an empty catalog, make those resources optional, or use retired implicit lookup wrappers."
+source_doc = "docs/planning/engine/architecture.md"
+severity = "error"
+production_only = true
+skip_tests = true
+roots = ["crates", "game"]
+forbid = [
+    "install_character_catalog",
+    "install_default_character_id",
+    "character_roster_plugin",
+    "install_authored_attack_volumes",
+    "OnceLock<AuthoredAttackVolumeFn>",
+    "character_roster::",
+    "sheet_for_character_id(",
+    "sprite_body_collision_for_character_id(",
+    "all_character_sprite_filenames(",
+    "Option<Res<CharacterCatalog>>",
+    "Option<Res<ambition_characters::actor::character_catalog::CharacterCatalog>>",
+    "Option<Res<CharacterRoster>>",
+    "Option<Res<ambition_platformer2d_actor_monolith::features::CharacterRoster>>",
+    "install_enemy_roster",
+    "ENEMY_ROSTER_OVERRIDE",
+    "OnceLock<CharacterRoster>",
+    "LazyLock<CharacterRoster>",
+    "fn enemy_roster(",
+    "install_boss_roster",
+    "install_boss_profiles",
+    "install_boss_special_anim_keys",
+    "install_boss_sheets",
+    "BOSS_PROFILE_OVERRIDE",
+    "BOSS_SHEET_OVERRIDE",
+    "boss_sheet_override(",
+    "boss_sheet_for_key(",
+    "all_boss_sprite_filenames(",
+    "dedicated_boss_sheets(",
+    "sprite_render_size_for(target: &str",
+    "Option<Res<BossCatalog>>",
+    "Option<Res<ambition_boss_encounter::BossCatalog>>",
+    "pub struct CharacterCatalog(pub",
+]
+
+# Shell audio is activation-owned. Gameplay and frontend experiences may both
+# author music/SFX, but every emitted SFX command captures the exact current
+# audio owner through SfxWriter. Raw message-channel access would lose that
+# ownership and allow delayed work to cross route/session boundaries.
+[[policy]]
+id = "engine.sfx-emission-captures-exact-audio-owner"
+scope = "engine"
+kind = "forbidden-source-reference"
+owners = ["ambition_sfx", "ambition_audio", "ambition_game_shell"]
+watch_paths = ["crates", "game"]
+rationale = "All SFX emission must go through SfxWriter so frontend and gameplay work captures its exact AudioContextOwner; raw SfxMessage channels permit stale cross-activation playback."
+source_doc = "docs/planning/engine/architecture.md"
+severity = "error"
+production_only = true
+skip_tests = true
+roots = ["crates", "game"]
+forbid = [
+    "MessageWriter<SfxMessage>",
+    "MessageReader<SfxMessage>",
+    "Messages<SfxMessage>",
+    "add_message::<SfxMessage>",
+]
+
+# Absence of a gameplay session is not an ungoverned audio mode. A frontend
+# shell activation owns an explicit host profile; direct apps install an
+# explicit direct profile; gameplay owns a scope-qualified provider profile.
+[[policy]]
+id = "engine.shell-audio-authority-is-explicit"
+scope = "engine"
+kind = "forbidden-source-reference"
+owners = ["ambition_audio", "ambition_game_shell"]
+watch_paths = ["crates", "game"]
+rationale = "Every shell activation has an explicit frontend/gameplay/direct audio context. Ungoverned authority or an optional audio registry would conflate missing composition with legitimate frontend or silent-provider policy."
+source_doc = "docs/planning/engine/architecture.md"
+severity = "error"
+production_only = true
+skip_tests = true
+roots = ["crates", "game"]
+forbid = [
+    "MusicAuthority::Ungoverned",
+    "SfxAuthority::Ungoverned",
+    "Option<Res<AudioCatalogRegistry>>",
+    "Option<Res<ambition_audio::AudioCatalogRegistry>>",
+]
+
+# So a test in the carved crate could reach back into the monolith for a fixture, compile green, and
+# quietly restore the coupling the carve removed: this crate's own tests would then build the whole
+# monolith and its ~40-crate closure.
+[[policy]]
+id = "engine.conversation-does-not-depend-on-what-it-left"
+scope = "engine"
+kind = "dependency-denylist"
+owners = ["ambition_conversation"]
+watch_paths = ["crates/ambition_conversation/Cargo.toml"]
+rationale = "ambition_conversation was carved OUT of ambition_platformer2d_actor_monolith (D33 step 2), and a carve that depends back on what it left is a rename. Cargo's acyclicity already forbids the production edge; what this guards is the DEV-dependency edge, which cargo permits and which would drag the monolith's whole closure back in to build this crate's tests. The runtime/render/content/app entries are the same rule for the layers above it."
+source_doc = "docs/planning/engine/actor-monolith-decomposition.md"
+severity = "error"
+manifest = "crates/ambition_conversation/Cargo.toml"
+deny = [
+    "ambition_platformer2d_actor_monolith",
+    "ambition_platformer2d_runtime",
+    "ambition_render",
+    "ambition_content",
+    "ambition_app",
+]
+
+[[policy]]
+id = "engine.ambition_world_items-manifest-allow"
+scope = "engine"
+kind = "dependency-allowlist"
+owners = ["ambition_world_items"]
+watch_paths = ["crates/ambition_world_items/Cargo.toml"]
+rationale = "ambition_world_items owns the PHYSICAL life of a touched collectible -- where it is, whether it is moving, and that walking into it collects it (D33, 2026-09-02). The list is the carve: geometry and the world from platformer2d_core, the equipment ROW it records from ambition_characters, the touch-collect rule and spawn scope from shared_tangle, and the simulation clock from ambition_time so a dilated world moves its pickups at the dilated rate. It must NEVER regain ambition_platformer2d_actor_monolith -- that edge is what the carve removed, and the sibling it split from (items::pickup, the PRESSED pickup) still lives there"
+source_doc = "docs/architecture/architecture-boundaries.md"
+severity = "error"
+allow = ["ambition_platformer2d_core", "ambition_characters", "ambition_platformer2d_shared_tangle", "ambition_time"]
+manifest = "crates/ambition_world_items/Cargo.toml"
+
+[[policy]]
+id = "engine.ambition_world_items-source-purity"
+scope = "engine"
+kind = "forbidden-source-reference"
+owners = ["ambition_world_items"]
+watch_paths = ["crates/ambition_world_items/src"]
+rationale = "A collectible's PRESENCE is this crate's; its MEANING and its PICTURE are not. The equipment row it records is interpreted by reconcile_equipment_grants in the actor kernel, and its sprite is an art id a game resolves through WorldItemArt in ambition_render -- so naming either would be this crate reaching back up into the two consumers that read it. ambition_dev_tools is forbidden for the same reason it is forbidden of the kernel: a simulation crate must not read developer state"
+source_doc = "docs/architecture/architecture-boundaries.md"
+severity = "error"
+roots = ["crates/ambition_world_items/src"]
+forbid = ["ambition_platformer2d_actor_monolith", "ambition_render", "ambition_menu", "ambition_app", "ambition_content", "ambition_dev_tools"]
+
+[[policy]]
+id = "engine.ambition_abilities-manifest-allow"
+scope = "engine"
+kind = "dependency-allowlist"
+owners = ["ambition_abilities"]
+watch_paths = ["crates/ambition_abilities/Cargo.toml"]
+rationale = "ambition_abilities owns the WIELDED kit -- ranged (beam, meteor, shockwave, volley, vortex, sentry, bomb), thrown gravity grenades, the traversal verbs a held item fires (blink, dive, grapple, mark/recall), and the cooldown they share (D33, the abilities carve, 2026-09-03). The list is the carve, measured by compiling. It must NEVER regain ambition_platformer2d_actor_monolith -- that edge is what the carve removed; the kernel depends on this crate for its rollback ledger and for the three-variant chain, never the reverse. The one fixture that needed the reverse edge did not get it: the sentry bolt's end-to-end damage proof chains two KERNEL projectile systems, so it MOVED to the kernel instead"
+source_doc = "docs/architecture/architecture-boundaries.md"
+severity = "error"
+allow = ["ambition_platformer2d_core", "ambition_platformer2d_shared_tangle", "ambition_platformer2d_world", "ambition_characters", "ambition_combat", "ambition_held_items", "ambition_items", "ambition_projectiles", "ambition_boss_encounter", "ambition_gameplay_trace", "ambition_sfx", "ambition_vfx", "ambition_time"]
+manifest = "crates/ambition_abilities/Cargo.toml"
+
+[[policy]]
+id = "engine.ambition_abilities-source-purity"
+scope = "engine"
+kind = "forbidden-source-reference"
+owners = ["ambition_abilities"]
+watch_paths = ["crates/ambition_abilities/src"]
+rationale = "What an ability DOES is this crate's; where it sits in the schedule relative to the held-item core is the kernel's (the three-variant chain orders sets owned by two other crates, so only the kernel can name both sides), and its PICTURE is ambition_render's. Naming any of them would be this crate reaching back up into its consumers. ambition_dev_tools is forbidden for the same reason it is forbidden of the kernel: a simulation crate must not read developer state"
+source_doc = "docs/architecture/architecture-boundaries.md"
+severity = "error"
+roots = ["crates/ambition_abilities/src"]
+forbid = ["ambition_platformer2d_actor_monolith", "ambition_render", "ambition_menu", "ambition_app", "ambition_content", "ambition_dev_tools"]
+
+[[policy]]
+id = "engine.ambition_held_items-manifest-allow"
+scope = "engine"
+kind = "dependency-allowlist"
+owners = ["ambition_held_items"]
+watch_paths = ["crates/ambition_held_items/Cargo.toml"]
+rationale = "ambition_held_items owns the PRESSED collectible -- a GroundItem in the world, the empty hand that takes it, the held spec it overlays on the action set, use, throw, ground physics and custody-driven residency (D33, 2026-09-03). The list is the carve, measured by compiling: bodies and geometry from platformer2d_core, the action set and held specs from ambition_characters, the HeldItem component from ambition_combat, the item vocabulary from ambition_items, the rider hand position from ambition_mount, lifecycle/schedule/custody vocabulary from shared_tangle, the room set the whereabouts ledger reads from platformer2d_world, the simulation clock from ambition_time, and the portal gun behind the `portal` feature. It must NEVER regain ambition_platformer2d_actor_monolith -- that edge is what the carve removed; the kernel depends on this crate for checkpoint policy over its components, never the reverse"
+source_doc = "docs/architecture/architecture-boundaries.md"
+severity = "error"
+allow = ["ambition_platformer2d_core", "ambition_characters", "ambition_combat", "ambition_items", "ambition_mount", "ambition_platformer2d_shared_tangle", "ambition_platformer2d_world", "ambition_time", "ambition_portal2d", "ambition_entity_catalog", "ambition_input", "ambition_sfx"]
+manifest = "crates/ambition_held_items/Cargo.toml"
+
+[[policy]]
+id = "engine.ambition_held_items-source-purity"
+scope = "engine"
+kind = "forbidden-source-reference"
+owners = ["ambition_held_items"]
+watch_paths = ["crates/ambition_held_items/src"]
+rationale = "A held item's PHYSICS and CUSTODY are this crate's; the checkpoint policy that restores custody, the shrine, the guns and the match spawn that attach to its steps are the kernel's, and its PICTURE is ambition_render's -- so naming any of them would be this crate reaching back up into its consumers. ambition_dev_tools is forbidden for the same reason it is forbidden of the kernel: a simulation crate must not read developer state"
+source_doc = "docs/architecture/architecture-boundaries.md"
+severity = "error"
+roots = ["crates/ambition_held_items/src"]
+forbid = ["ambition_platformer2d_actor_monolith", "ambition_render", "ambition_menu", "ambition_app", "ambition_content", "ambition_dev_tools"]
+
+# ── the 2026-08-31 carves get the guards the 2026-09-02 one already had ──
+#
+# ⚠ `ambition_world_items` was carved on 2026-09-02 with a manifest-allow AND a
+# source-purity row of its own. `ambition_mount` and `ambition_damage` were
+# carved two days EARLIER and got neither — they appear only in
+# `engine.runtime-manifest-allow`, which says the runtime may depend on them and
+# nothing about what they may depend on. A carve whose boundary is unguarded is
+# a carve that can silently grow back.
+#
+# Both pass these rules today: their only mentions of a forbidden crate are
+# provenance comments (`//! ⭐⭐ CARVED OUT OF ...`), which the scanner excludes.
+
+[[policy]]
+id = "engine.ambition_mount-manifest-allow"
+scope = "engine"
+kind = "dependency-allowlist"
+owners = ["ambition_mount"]
+watch_paths = ["crates/ambition_mount/Cargo.toml"]
+source_doc = "docs/architecture/architecture-boundaries.md"
+severity = "error"
+rationale = "The mount PAIR is two linked bodies and the control grant between them. Its closure is the same four as ambition_world_items: body/geometry vocabulary, actor components, the shared tangle, and time. Anything wider means the pair has started to know about the world it is mounted in."
+allow = [
+  "ambition_platformer2d_core",
+  "ambition_characters",
+  "ambition_platformer2d_shared_tangle",
+  "ambition_time",
+]
+manifest = "crates/ambition_mount/Cargo.toml"
+
+[[policy]]
+id = "engine.ambition_mount-source-purity"
+scope = "engine"
+kind = "forbidden-source-reference"
+owners = ["ambition_mount"]
+watch_paths = ["crates/ambition_mount/src"]
+source_doc = "docs/architecture/architecture-boundaries.md"
+severity = "error"
+rationale = "Mount source must not reach up into the monolith it was carved from, nor into presentation, app, content or developer tooling."
+roots = ["crates/ambition_mount/src"]
+forbid = [
+  "ambition_platformer2d_actor_monolith",
+  "ambition_render",
+  "ambition_menu",
+  "ambition_app",
+  "ambition_content",
+  "ambition_dev_tools",
+]
+
+[[policy]]
+id = "engine.ambition_damage-source-purity"
+scope = "engine"
+kind = "forbidden-source-reference"
+owners = ["ambition_damage"]
+watch_paths = ["crates/ambition_damage/src"]
+source_doc = "docs/architecture/architecture-boundaries.md"
+severity = "error"
+rationale = "Damage resolution is domain vocabulary that presentation consumes, never the reverse. ⚠ No manifest allowlist beside this one: its closure is eleven crates (combat, boss_encounter, projectiles, sfx, vfx, persistence and more), and pinning that list is a real ownership decision rather than a copy of the world_items row — it belongs to whoever finishes the damage carve."
+roots = ["crates/ambition_damage/src"]
+forbid = [
+  "ambition_platformer2d_actor_monolith",
+  "ambition_render",
+  "ambition_menu",
+  "ambition_app",
+  "ambition_content",
+  "ambition_dev_tools",
+]
+
+# ⛔⛔ THE PUREST CRATE IN THE WORKSPACE HAD NOTHING HOLDING IT THAT WAY.
+# `engine/relativity.md` states the boundary as ownership — *"`ambition_relativity`
+# owns dimension-independent Minkowski interval, proper-time, rapidity,
+# velocity-composition, event-boost, and photon-frequency mathematics. It has no
+# Bevy dependency."* — and that is the load-bearing half of the layering diagram
+# beneath it: the maths is dimension-independent BECAUSE it knows nothing about
+# an engine, which is what lets `ambition_relativity2d` be the only 2D-aware
+# layer and a later GR provider slot in beside it.
+#
+# ⚠ Measured 2026-09-03: the claim holds and NOTHING ENFORCED IT. The crate's
+# `Cargo.toml` has no `[dependencies]` section at all and its 722 lines carry a
+# single `use core::fmt`. That is purity by nobody having spent it yet, not
+# purity by a ratchet — the same shape as the two carves that shipped without
+# boundary rows earlier tonight.
+#
+# ⛔ AND A `dependency-allowlist` ROW WOULD NOT HAVE GUARDED THIS ONE, which is
+# why the rule kind here is the source scan. `ambition_deps` reads only
+# `ambition*` entries, so an allowlist says nothing about `bevy`; and an EMPTY
+# allow list is refused by the rule on purpose ("that forbids ALL ambition deps;
+# if that is intended, say so explicitly"). Forbidding the two tokens in SOURCE
+# says both halves at once and needs no ceiling to keep in step.
+#
+# Substring rather than `whole_ident` deliberately: `bevy` must also catch
+# `bevy_math`, `bevy_ecs` and friends, which a whole-identifier match would let
+# through.
+[[policy]]
+id = "engine.ambition_relativity-stays-engine-free"
+scope = "engine"
+kind = "forbidden-source-reference"
+owners = ["ambition_relativity"]
+watch_paths = ["crates/ambition_relativity/src"]
+source_doc = "docs/planning/engine/relativity.md"
+severity = "error"
+rationale = "The dimension-independent relativity maths is dimension-independent because it knows about no engine and no dimension. A `bevy` reference makes it a Bevy crate and collapses the provider seam; an `ambition_` reference makes it a consumer of the layer that is supposed to consume IT."
+roots = ["crates/ambition_relativity/src"]
+forbid = [
+  "bevy",
+  "ambition_",
+]
+
+# ── the relativity cost contract, guarded (2026-09-03) ────────────────────────
+
+[[policy]]
+id = "engine.facade-all-capabilities-omits-relativity"
+scope = "engine"
+kind = "file-omits"
+owners = ["ambition_platformer2d"]
+watch_paths = ["crates/ambition_platformer2d/Cargo.toml"]
+rationale = "docs/planning/engine/relativity.md states a cost contract -- games that do not enable the `relativity` feature do not link either relativity crate -- and that contract was FALSE for the three weeks after it was written. `relativity` sat inside the facade's `all_capabilities` aggregate until 2026-09-01, and `game/ambition_content` takes `all_capabilities`, so the shipped game linked `ambition_relativity` + `ambition_relativity2d` for weeks WITHOUT naming the feature. Verified fixed 2026-09-03: of the six shipped apps only `ambition_demo_twintrack_app` links them. A cost contract phrased as `games that do not opt in do not pay` is not enforced by the feature flag it names; it is enforced by every AGGREGATE feature that could contain it, and nothing asserted that until this row. The forbidden string is the quoted list-entry form and nothing else: the legitimate mentions in this manifest are a comment (backticked), the bare feature key `relativity = [..]`, and `dep:ambition_relativity` -- none of which contain a double-quoted `relativity`. So this trips if and only if the feature is added to some feature array, which is the regression. TwinTrack names the capability from ITS OWN manifest, which this row does not touch."
+source_doc = "docs/planning/engine/relativity.md"
+severity = "error"
+forbid = ["\"relativity\""]
+file = "crates/ambition_platformer2d/Cargo.toml"
+
+# ── the body seed (D33, character preparation versus actor simulation, 2026-09-03) ──
+
+[[policy]]
+id = "engine.ambition_body_seed-manifest-allow"
+scope = "engine"
+kind = "dependency-allowlist"
+owners = ["ambition_body_seed"]
+watch_paths = ["crates/ambition_body_seed/Cargo.toml"]
+rationale = "ambition_body_seed owns the actor body seed: what a construction path spawns from (ActorClusterSeed, its two constructors, the component bundle it becomes, the patrol-path cursor encoder). Measured before it moved: the seed region of the kernel's actor_clusters.rs named nothing in the kernel, so the list is exactly what that file already depended on -- bodies and clusters from platformer2d_core, the catalog and prepared blueprint from ambition_characters, tuning/melee/path-motion/capabilities from ambition_combat, the placement brain from ambition_entity_catalog, the NPC interactable from ambition_interaction, the spawn baseline and ancillary bundle from shared_tangle, the authored-sheet collision join from ambition_sprite_sheet, hurt feedback from ambition_vfx. It must NEVER gain ambition_platformer2d_actor_monolith: the kernel CONSUMES the seed (into_components; the SeedActorMut binding), never the reverse"
+source_doc = "docs/architecture/architecture-boundaries.md"
+severity = "error"
+allow = ["ambition_platformer2d_core", "ambition_characters", "ambition_combat", "ambition_entity_catalog", "ambition_interaction", "ambition_platformer2d_shared_tangle", "ambition_sprite_sheet", "ambition_vfx"]
+manifest = "crates/ambition_body_seed/Cargo.toml"
+
+[[policy]]
+id = "engine.ambition_body_seed-source-purity"
+scope = "engine"
+kind = "forbidden-source-reference"
+owners = ["ambition_body_seed"]
+watch_paths = ["crates/ambition_body_seed/src"]
+rationale = "A seed names no simulation: the per-tick view (ActorMut), the systems that spawn it and the picture it gets are all its consumers'. Naming the kernel, the renderer, the menu, the app, content or developer state from here would be the seed reaching up into what consumes it"
+source_doc = "docs/architecture/architecture-boundaries.md"
+severity = "error"
+roots = ["crates/ambition_body_seed/src"]
+forbid = ["ambition_platformer2d_actor_monolith", "ambition_render", "ambition_menu", "ambition_app", "ambition_content", "ambition_dev_tools"]
+
+# ── the versus match, prepared (D33, character preparation versus actor simulation, 2026-09-03) ──
+
+[[policy]]
+id = "engine.ambition_match-manifest-allow"
+scope = "engine"
+kind = "dependency-allowlist"
+owners = ["ambition_match"]
+watch_paths = ["crates/ambition_match/Cargo.toml"]
+rationale = "ambition_match owns the versus match, prepared: the participant roster and its three staging shapes, the rules of the stage, prepare_match (every fallible seat question answered before a body exists) and the rollback-safe receipt of the live match. Measured before it moved: the preparation half of the kernel's character_runtime named nothing in the kernel once the worn kit, the body seed and the physical baseline had left, so the list is what those files already depended on -- bodies and abilities from platformer2d_core, the seed each seat is built around from ambition_body_seed, the prepared registry/catalog/brains from ambition_characters, movesets/kits/teams from ambition_combat, placement brains from ambition_entity_catalog, participant channels from ambition_input, lifecycle/session vocabulary from shared_tangle, the authored sheets from ambition_sprite_sheet. It must NEVER gain ambition_platformer2d_actor_monolith: the kernel ACTIVATES the plan this crate prepares, never the reverse"
+source_doc = "docs/architecture/architecture-boundaries.md"
+severity = "error"
+allow = ["ambition_platformer2d_core", "ambition_body_seed", "ambition_characters", "ambition_combat", "ambition_entity_catalog", "ambition_input", "ambition_platformer2d_shared_tangle", "ambition_sprite_sheet"]
+manifest = "crates/ambition_match/Cargo.toml"
+
+[[policy]]
+id = "engine.ambition_match-source-purity"
+scope = "engine"
+kind = "forbidden-source-reference"
+owners = ["ambition_match"]
+watch_paths = ["crates/ambition_match/src"]
+rationale = "A prepared match names no simulation: spawning the seats, binding their control, the opening hold and the view are the kernel's; the picture, the menu, the app and content are further up. Naming any of them from here would be preparation reaching into what activates it. ambition_dev_tools is forbidden for the same reason it is forbidden of the kernel"
+source_doc = "docs/architecture/architecture-boundaries.md"
+severity = "error"
+roots = ["crates/ambition_match/src"]
+forbid = ["ambition_platformer2d_actor_monolith", "ambition_render", "ambition_menu", "ambition_app", "ambition_content", "ambition_dev_tools"]
+# ── the encounter room-feature carve (2026-09-03) ─────────────────────────────
+
+[[policy]]
+id = "engine.ambition_encounter_features-manifest-allow"
+scope = "engine"
+kind = "dependency-allowlist"
+owners = ["ambition_encounter_features"]
+watch_paths = ["crates/ambition_encounter_features/Cargo.toml"]
+rationale = "ambition_encounter_features owns the ROOM-FEATURE side of encounters -- LDtk loading, ECS spawning, banners, save/quest projection, switch indexing and lock-wall contribution. It was ~2,000 lines inside the actor kernel until 2026-09-03. It sits ABOVE `ambition_encounter`, whose own purity rows forbid exactly this material (`the LDtk loader, ECS spawning, banners, and save/quest adapters stay above it`), which is why this is a sibling crate and not a module there. The list is the carve: the encounter domain it adapts, the shared schedule/lifecycle vocabulary, the world IR it loads specs from, combat components for chests and banners, characters for body health, persistence for save/quest, the entity catalog for brains, interaction for chest state, the trace sink, and the sim clock"
+source_doc = "docs/planning/engine/actor-monolith-decomposition.md"
+severity = "error"
+exact = false
+manifest = "crates/ambition_encounter_features/Cargo.toml"
+allow = [
+    "ambition_encounter",
+    "ambition_platformer2d_shared_tangle",
+    "ambition_platformer2d_core",
+    "ambition_platformer2d_world",
+    "ambition_combat",
+    "ambition_characters",
+    "ambition_persistence",
+    "ambition_entity_catalog",
+    "ambition_interaction",
+    "ambition_gameplay_trace",
+    "ambition_time",
+    "ambition_platformer2d_ldtk",
+    "ambition_asset_manager",
+]
+
+[[policy]]
+id = "engine.ambition_encounter_features-source-purity"
+scope = "engine"
+kind = "forbidden-source-reference"
+owners = ["ambition_encounter_features"]
+watch_paths = ["crates/ambition_encounter_features/src"]
+rationale = "THE EDGE THIS CARVE REMOVED. This code ran inside `ambition_platformer2d_actor_monolith`; naming it again would put it back. The runtime composes this crate's plugin beside the kernel's, and the two cross-crate orderings that remain (the spawn server, the gate_solids pair) live in the RUNTIME for that reason -- see `ambition_platformer2d_runtime::encounter_spawn_service` and `::world_gating`"
+source_doc = "docs/planning/engine/actor-monolith-decomposition.md"
+severity = "error"
+roots = ["crates/ambition_encounter_features/src"]
+forbid = ["ambition_platformer2d_actor_monolith"]

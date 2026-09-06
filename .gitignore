@@ -1,0 +1,237 @@
+# Rust build output
+/target/
+# The two external-consumer fixtures are SEPARATE WORKSPACES (deliberately: they
+# may name only the SDK facade), so each builds its own multi-gigabyte target
+# outside the root one above. ⛔ they are also outside the repository gate — see
+# `fixtures/minimal_game/src/minimal_experience.rs` for the eight days that cost.
+fixtures/*/target/
+# `examples/capability_demo` and `examples/portal_tutorial` are separate
+# workspaces for the same reason, and were missing from this list until the
+# Bevy 0.19 port actually built them.
+examples/*/target/
+
+# Generated browser bundle (wasm-bindgen output from ./build_for_web.sh).
+game/ambition_app/web/pkg/
+# The composed asset tree `./build_for_web.sh --served` publishes (via
+# scripts/package_asset_guard.py) so the served browser persona can fetch
+# `/assets/...` over HTTP, plus the byte contract that publication proves.
+game/ambition_app/web/assets
+game/ambition_app/web/.assets_contract.json
+game/ambition_app/web/.assets_sha256
+
+# proptest writes regression seeds when a property fails. Useful
+# locally to reproduce a flake but shouldn't go to git.
+**/*.proptest-regressions
+
+# Keep Cargo.lock for this game/application workspace.
+# Cargo.lock
+
+# Local editor / IDE state
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS junk
+.DS_Store
+Thumbs.db
+
+# Logs and crash dumps
+*.log
+*.dmp
+
+# Local env/config files
+.env
+.env.*
+*.local
+
+# Generated captures / recordings / profiling output
+captures/
+recordings/
+profiles/
+# Bundles now live in dev/ambition_dev_measurements/profiles/ (ignored there too);
+# this line stays so an older bundle left at the repo root is still ignored.
+screenshots/
+traces/
+
+# Temporary files
+tmp/
+temp/
+.cache/
+
+# Backup / patch artifacts
+*.bak
+*.orig
+*.rej
+**/*.rs.bk
+
+# Rust analyzer local project file
+rust-project.json
+
+debug_traces
+__pycache__
+*.png
+tools/experimental/robot_sprite_component_tool/output
+tools/experimental/robot_sprite_component_tool/assets
+
+assets/fonts
+crates/ambition_platformer2d_actor_monolith/assets/fonts/
+crates/ambition_platformer2d_actor_monolith/assets/audio/
+
+# Standalone tool projects: generated outputs and per-tool venvs/caches.
+target/generated-audio/
+tools/ambition_music_renderer/bundles/
+tools/ambition_music_renderer/output/
+tools/ambition_music_renderer/generated/
+tools/ambition_sprite2d_renderer/generated/
+tools/ambition_sprite2d_renderer/.parity-baseline/
+tools/experimental/**/generated/
+tools/experimental/**/assets/
+tools/experimental/**/output/
+tools/**/.venv/
+tools/**/__pycache__/
+tools/**/*.egg-info/
+*.ogg
+*.wav
+*.mid
+*.flac
+*.mp3
+*.tar.gz
+*.AppImage
+.cargo/*
+!.cargo/config.toml
+.x86_64
+
+# Local Godot editor/runtime binaries
+tools/ambition_sprite2d_renderer/generated/
+tools/ambition_sprite2d_renderer/.parity-baseline/
+/tools/ambition_sprite2d_renderer/tpl/Godot_v*-stable_linux.x86_64
+
+# Local Godot editor/runtime binaries
+/tools/ambition_sprite2d_renderer/tpl/Godot_v*-stable_linux.x86_64
+.agent/reports
+.agent/ecs_inventory
+.agent/README.md
+.agent/index/
+.agent/dirstats*
+
+
+# Generated sprite metadata. Existing tracked files require `git rm --cached`
+# before this ignore rule can prevent diffs; keep source-of-truth edits in
+# tools/ambition_sprite2d_renderer targets/configs instead.
+crates/ambition_platformer2d_actor_monolith/assets/sprites/*.ron
+crates/ambition_platformer2d_actor_monolith/assets/sprites/**/*.ron
+
+# Sprite renderer generated package outputs
+tools/ambition_sprite2d_renderer/ambition_sprite2d_renderer/generated/
+tools/ambition_sprite2d_renderer/ambition_sprite2d_renderer/targets/generated/
+
+# Generated sprite YAML sidecars (manifests/tilesets); runtime uses the
+# *_spritesheet.ron. The renderer still EMITS yaml as a throwaway dev-tool
+# intermediate (debug-hitbox overlay, gif exporter) — it's just never
+# tracked. All yaml under assets/sprites is generated output; authored
+# input yaml lives in tools/ambition_sprite2d_renderer/configs/.
+crates/ambition_platformer2d_actor_monolith/assets/sprites/*.yaml
+crates/ambition_platformer2d_actor_monolith/assets/sprites/**/*.yaml
+crates/ambition_platformer2d_actor_monolith/assets/sprites_0_5x/
+crates/ambition_platformer2d_actor_monolith/assets/sprites_0_25x/
+crates/ambition_platformer2d_actor_monolith/assets/sprites_potato/
+# Quality-tiered shared-page sprite packs (regen ultrapack step output).
+crates/ambition_platformer2d_actor_monolith/assets/sprite_packs/
+
+# ⛔⛔ THE SAME SIX PATHS AGAIN, WITHOUT THE TRAILING SLASH.
+#
+# A trailing slash matches a DIRECTORY ONLY. On 2026-08-20 all six of these were
+# committed to main as SYMLINKS — directory links pointing at the main checkout's
+# copy, made in a worktree, which check out in the main tree as links to
+# themselves. `git check-ignore` reported them NOT IGNORED, so an ordinary
+# `git add` took them and six ignore rules watched it happen.
+#
+# ⚠ a directory link here is a defect in its own right, not just an ignore
+# escape: `scripts/mirror_assets_for_worktree.py` mirrors these trees FILE BY
+# FILE on purpose, because "directory links would send that write straight into
+# main's assets, which is exactly the accident this exists to prevent."
+crates/ambition_platformer2d_actor_monolith/assets/audio
+crates/ambition_platformer2d_actor_monolith/assets/fonts
+crates/ambition_platformer2d_actor_monolith/assets/sprite_packs
+crates/ambition_platformer2d_actor_monolith/assets/sprites_0_25x
+crates/ambition_platformer2d_actor_monolith/assets/sprites_0_5x
+crates/ambition_platformer2d_actor_monolith/assets/sprites_potato
+crates/ambition_platformer2d_actor_monolith/assets/backgrounds/parallax_layers_0_5x/
+crates/ambition_platformer2d_actor_monolith/assets/backgrounds/parallax_layers_0_25x/
+crates/ambition_platformer2d_actor_monolith/assets/backgrounds/parallax_layers_potato/
+
+# Agent/worktree scratch (must never be committed)
+.worktrees/
+# ⛔ BOTH SPELLINGS. This was `.tmp-ambition-agent-source-*/` only, and the
+# handoff snapshots are actually named WITHOUT the `.tmp-` prefix — so the rule
+# read as protection and had never matched anything. 11 files of a duplicate
+# Mary-O sprite generator were tracked for three days behind it.
+.tmp-ambition-agent-source-*/
+ambition-agent-source-*/
+
+coverage-reports/
+untracked
+
+# Repo-root scripts venv (tree-sitter for ecs_inventory etc.)
+.venv/
+
+# Armed goal state for scripts/goal_guard.py (per-run, never shared)
+.goal/
+
+# Zips dropped at the repo root. Standing rule: an overlay is never APPLIED — a
+# change lands as reviewed edits or not at all — so these are inputs to read, not
+# artifacts to track (and never binaries to commit).
+#
+# ⛔ this was `/*_overlay_*.zip`, matching UNDERSCORES, and every zip Jon has
+# actually dropped here is hyphenated
+# (`ambition-super-mary-o-quasar-buttons-overlay-20260802 (2).zip`). The rule
+# never matched once. Nothing at the repo root is a zip that belongs in history,
+# so the pattern is now the whole class rather than a guess at the name.
+/*.zip
+
+# Emulator artifacts dropped in the repo root by a REFERENCE session — an SM64
+# config + save appeared here on 2026-07-28 while somebody was looking at what
+# classic physics actually feels like. They are runtime state of another
+# program, not project files: nothing here reads them, and one is a binary.
+#
+# Ignored rather than deleted. They belong to whoever ran the emulator, and a
+# clean `git status` is not worth throwing away somebody's keybindings.
+/sm64config.txt
+/sm64_save_file.bin
+
+# >>> llm_resource_tally local state (managed) >>>
+/.llm_resource_tally/local/
+# <<< llm_resource_tally local state (managed) <<<
+
+# The compile-telemetry report — generated by `scripts/compile_report.py` from the
+# five ledgers in `dev/ambition_dev_measurements/`, in well under a second. Tracking
+# it would put a 236 KB diff in history every time a ledger gained a row, and the
+# copy in the tree would be stale the moment one did. The LEDGERS are the record;
+# this is a view of them, which is also why it stays in THIS repo rather than
+# following the ledgers into the submodule.
+/dev/compile_report.html
+
+# Profiler output, dropped at the repository root by whichever run asked for it
+# (`line_profiler`'s `.lprof` binary plus its rendered text, and the timestamped
+# copies a comparison run leaves behind). A profile is a MEASUREMENT of one run
+# on one machine — the thing worth keeping from it is the finding, which belongs
+# in `dev/` where the engineering memory lives, not an 80 KB dump of line timings
+# whose numbers mean nothing without the machine that produced them.
+/profile_output.lprof
+/profile_output.txt
+/profile_output_*.txt
+
+# The `cargo-sweep` mark file. `cargo sweep --stamp` writes it before a build
+# and `cargo sweep --file` cleans everything older than it afterwards, which is
+# how this checkout keeps a 484G target from filling. It is a TIMESTAMP of one
+# build on one machine — the next agent to run the mark/sweep pair overwrites it,
+# and a committed one would be a stale mark that sweeps a live working set.
+/sweep.timestamp
+
+git-of-theseus
+
+# Machine-local launcher config (see ambition.local.toml.example).
+# Describes ONE machine: what it can afford to draw and what it boots into.
+ambition.local.toml

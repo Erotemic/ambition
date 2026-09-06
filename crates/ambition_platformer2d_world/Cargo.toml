@@ -1,0 +1,30 @@
+[package]
+name = "ambition_platformer2d_world"
+version = "0.1.0"
+edition.workspace = true
+license.workspace = true
+authors.workspace = true
+description = "Backend-agnostic authored world IR: room graph, placement records, moving-platform math, and room metadata."
+
+[features]
+default = []
+
+[dependencies]
+ambition_registry_core = { path = "../ambition_registry_core" }
+# `AssetId` — the identity of one authored world document in
+# `world_manifest::WorldSource`. A LEAF crate whose own dependency list is
+# serde/ron/thiserror and no `ambition_*` at all, taken WITHOUT its `bevy`
+# feature, so the world IR stays Bevy-app-free. See the rationale on
+# `engine.world-ir-dependency-allowlist`.
+ambition_asset_manager = { path = "../ambition_asset_manager", default-features = false }
+ambition_platformer2d_core = { path = "../ambition_platformer2d_core" }
+ambition_entity_catalog = { path = "../ambition_entity_catalog" }
+# `FeatureEcsWorldOverlay` — the per-frame dynamic contribution `CollisionWorld`
+# composites onto the authored room (R3). Content-free vocabulary; this crate
+# depends on nothing but `engine_core` itself, so the edge stays downward.
+ambition_platformer2d_shared_tangle = { path = "../ambition_platformer2d_shared_tangle" }
+bevy_app = { version = "0.19.1", default-features = false }
+bevy_ecs = { version = "0.19.1", default-features = false }
+petgraph = "0.8"
+ron = { workspace = true }
+serde = { workspace = true }

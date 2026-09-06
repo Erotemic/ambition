@@ -1,0 +1,493 @@
+{
+  "target": "mockingbird_boss",
+  "schema_version": 2,
+  "scene": "mockingbird_boss_scene.yaml",
+  "frame_size": {
+    "w": 576,
+    "h": 216
+  },
+  "canonical_size": {
+    "w": 864,
+    "h": 324
+  },
+  "frame_fill_frac": [
+    0.82,
+    0.8
+  ],
+  "canonical_fill_frac": [
+    0.94,
+    0.88
+  ],
+  "quick": false,
+  "source_urls": [
+    "https://archive.org/download/htkam/TKAM%28www.albinoblacksheep.com%29.swf",
+    "https://archive.org/download/how-to-kill-a-mockingbird/how-to-kill-a-mockingbird.swf"
+  ],
+  "authoring_description": "The Mockingbird Boss adapts the old How to Kill a Mockingbird Flash-animation creature, itself a violent literalization of the famous book title, into a giant mimic antagonist. In this game the bird steals songs, voices, fighting styles, and visible form while remaining one surprise behind the original; copying the surface without reaching the reason underneath is the central joke.",
+  "gameplay_description": "Use as a multipart aerial boss that observes and reproduces player or NPC actions. Its copied attacks should be recognizable but imperfectly timed, leaving a small novelty gap where the player can escape or counter. Song theft, voice mimicry, dive attacks, and stolen techniques all fit the character.",
+  "dialogue_hints": {
+    "barks": [
+      "I've learned every fighter in this hall by heart.",
+      "My version of you is always one surprise behind.",
+      "You can copy the form forever and never reach the why."
+    ]
+  },
+  "rows": [
+    {
+      "animation": "rest",
+      "row_index": 0,
+      "frame_count": 6,
+      "duration_ms": 110,
+      "duration_secs": 0.11,
+      "page": 0,
+      "rects": [
+        {
+          "x": 1,
+          "y": 979,
+          "w": 405,
+          "h": 160,
+          "fpage": 0,
+          "off": [
+            97,
+            34
+          ]
+        },
+        {
+          "x": 1219,
+          "y": 979,
+          "w": 400,
+          "h": 160,
+          "fpage": 0,
+          "off": [
+            99,
+            34
+          ]
+        },
+        {
+          "x": 1,
+          "y": 1141,
+          "w": 400,
+          "h": 160,
+          "fpage": 0,
+          "off": [
+            97,
+            34
+          ]
+        },
+        {
+          "x": 1,
+          "y": 817,
+          "w": 409,
+          "h": 160,
+          "fpage": 0,
+          "off": [
+            95,
+            34
+          ]
+        },
+        {
+          "x": 831,
+          "y": 655,
+          "w": 412,
+          "h": 160,
+          "fpage": 0,
+          "off": [
+            93,
+            34
+          ]
+        },
+        {
+          "x": 1234,
+          "y": 817,
+          "w": 407,
+          "h": 160,
+          "fpage": 0,
+          "off": [
+            93,
+            34
+          ]
+        }
+      ]
+    },
+    {
+      "animation": "thrust",
+      "row_index": 1,
+      "frame_count": 6,
+      "duration_ms": 90,
+      "duration_secs": 0.09,
+      "page": 0,
+      "rects": [
+        {
+          "x": 1283,
+          "y": 169,
+          "w": 422,
+          "h": 160,
+          "fpage": 0,
+          "off": [
+            87,
+            34
+          ]
+        },
+        {
+          "x": 843,
+          "y": 331,
+          "w": 417,
+          "h": 160,
+          "fpage": 0,
+          "off": [
+            89,
+            34
+          ]
+        },
+        {
+          "x": 1,
+          "y": 331,
+          "w": 419,
+          "h": 160,
+          "fpage": 0,
+          "off": [
+            88,
+            34
+          ]
+        },
+        {
+          "x": 429,
+          "y": 169,
+          "w": 425,
+          "h": 160,
+          "fpage": 0,
+          "off": [
+            84,
+            34
+          ]
+        },
+        {
+          "x": 1,
+          "y": 169,
+          "w": 426,
+          "h": 160,
+          "fpage": 0,
+          "off": [
+            84,
+            34
+          ]
+        },
+        {
+          "x": 856,
+          "y": 169,
+          "w": 425,
+          "h": 160,
+          "fpage": 0,
+          "off": [
+            86,
+            34
+          ]
+        }
+      ]
+    },
+    {
+      "animation": "bite",
+      "row_index": 2,
+      "frame_count": 6,
+      "duration_ms": 90,
+      "duration_secs": 0.09,
+      "page": 0,
+      "rects": [
+        {
+          "x": 1262,
+          "y": 331,
+          "w": 415,
+          "h": 160,
+          "fpage": 0,
+          "off": [
+            91,
+            34
+          ]
+        },
+        {
+          "x": 1,
+          "y": 493,
+          "w": 414,
+          "h": 160,
+          "fpage": 0,
+          "off": [
+            89,
+            34
+          ]
+        },
+        {
+          "x": 412,
+          "y": 817,
+          "w": 409,
+          "h": 160,
+          "fpage": 0,
+          "off": [
+            88,
+            34
+          ]
+        },
+        {
+          "x": 422,
+          "y": 331,
+          "w": 419,
+          "h": 160,
+          "fpage": 0,
+          "off": [
+            87,
+            34
+          ]
+        },
+        {
+          "x": 417,
+          "y": 493,
+          "w": 413,
+          "h": 160,
+          "fpage": 0,
+          "off": [
+            93,
+            34
+          ]
+        },
+        {
+          "x": 832,
+          "y": 493,
+          "w": 413,
+          "h": 160,
+          "fpage": 0,
+          "off": [
+            93,
+            34
+          ]
+        }
+      ]
+    },
+    {
+      "animation": "slash",
+      "row_index": 3,
+      "frame_count": 6,
+      "duration_ms": 88,
+      "duration_secs": 0.088,
+      "page": 0,
+      "rects": [
+        {
+          "x": 403,
+          "y": 1141,
+          "w": 398,
+          "h": 160,
+          "fpage": 0,
+          "off": [
+            100,
+            34
+          ]
+        },
+        {
+          "x": 803,
+          "y": 1141,
+          "w": 393,
+          "h": 160,
+          "fpage": 0,
+          "off": [
+            103,
+            34
+          ]
+        },
+        {
+          "x": 1198,
+          "y": 1141,
+          "w": 389,
+          "h": 160,
+          "fpage": 0,
+          "off": [
+            101,
+            34
+          ]
+        },
+        {
+          "x": 1245,
+          "y": 655,
+          "w": 411,
+          "h": 160,
+          "fpage": 0,
+          "off": [
+            93,
+            34
+          ]
+        },
+        {
+          "x": 1247,
+          "y": 493,
+          "w": 413,
+          "h": 160,
+          "fpage": 0,
+          "off": [
+            93,
+            34
+          ]
+        },
+        {
+          "x": 1,
+          "y": 655,
+          "w": 413,
+          "h": 160,
+          "fpage": 0,
+          "off": [
+            93,
+            34
+          ]
+        }
+      ]
+    },
+    {
+      "animation": "hit",
+      "row_index": 4,
+      "frame_count": 4,
+      "duration_ms": 80,
+      "duration_secs": 0.08,
+      "page": 0,
+      "rects": [
+        {
+          "x": 408,
+          "y": 979,
+          "w": 405,
+          "h": 160,
+          "fpage": 0,
+          "off": [
+            97,
+            34
+          ]
+        },
+        {
+          "x": 815,
+          "y": 979,
+          "w": 402,
+          "h": 160,
+          "fpage": 0,
+          "off": [
+            98,
+            34
+          ]
+        },
+        {
+          "x": 823,
+          "y": 817,
+          "w": 409,
+          "h": 160,
+          "fpage": 0,
+          "off": [
+            95,
+            34
+          ]
+        },
+        {
+          "x": 416,
+          "y": 655,
+          "w": 413,
+          "h": 160,
+          "fpage": 0,
+          "off": [
+            93,
+            34
+          ]
+        }
+      ]
+    },
+    {
+      "animation": "death",
+      "row_index": 5,
+      "frame_count": 8,
+      "duration_ms": 105,
+      "duration_secs": 0.105,
+      "page": 0,
+      "rects": [
+        {
+          "x": 344,
+          "y": 1303,
+          "w": 375,
+          "h": 158,
+          "fpage": 0,
+          "off": [
+            109,
+            35
+          ]
+        },
+        {
+          "x": 1,
+          "y": 1303,
+          "w": 341,
+          "h": 159,
+          "fpage": 0,
+          "off": [
+            126,
+            35
+          ]
+        },
+        {
+          "x": 1299,
+          "y": 1,
+          "w": 325,
+          "h": 161,
+          "fpage": 0,
+          "off": [
+            133,
+            34
+          ]
+        },
+        {
+          "x": 984,
+          "y": 1,
+          "w": 313,
+          "h": 162,
+          "fpage": 0,
+          "off": [
+            140,
+            33
+          ]
+        },
+        {
+          "x": 700,
+          "y": 1,
+          "w": 282,
+          "h": 164,
+          "fpage": 0,
+          "off": [
+            155,
+            32
+          ]
+        },
+        {
+          "x": 451,
+          "y": 1,
+          "w": 247,
+          "h": 165,
+          "fpage": 0,
+          "off": [
+            173,
+            31
+          ]
+        },
+        {
+          "x": 1,
+          "y": 1,
+          "w": 223,
+          "h": 166,
+          "fpage": 0,
+          "off": [
+            185,
+            31
+          ]
+        },
+        {
+          "x": 226,
+          "y": 1,
+          "w": 223,
+          "h": 166,
+          "fpage": 0,
+          "off": [
+            185,
+            31
+          ]
+        }
+      ]
+    }
+  ]
+}

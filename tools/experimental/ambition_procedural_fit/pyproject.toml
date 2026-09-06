@@ -1,0 +1,29 @@
+[project]
+name = "ambition-procedural-fit"
+version = "0.1.0"
+description = "Experimental differentiable optimizer that fits procedural PIL-like primitives to reference concept art crops"
+requires-python = ">=3.10"
+dependencies = [
+  "Pillow>=9",
+  "PyYAML>=6",
+  "numpy>=1.23",
+  "torch>=2",
+  "rich>=13",
+]
+
+[project.optional-dependencies]
+dev = ["pytest>=7"]
+
+[project.scripts]
+ambition-procfit = "ambition_procedural_fit.cli:main"
+
+[tool.pytest.ini_options]
+addopts = "-ra"
+testpaths = ["tests"]
+
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools]
+packages = ["ambition_procedural_fit"]

@@ -1,0 +1,94 @@
+// ceiling_cross — wall-walking as a TRAVERSAL TOOL, not just a demo (companion to
+// wall_run's showcase). Story: "the floor between you and the exit is death —
+// invert into the field and cross on the ceiling." The middle of the floor is a
+// HazardBlock; an UPWARD GravityZone fills the air above it, so a player who walks
+// off the left ledge into the field falls UP onto the ceiling, walks across it
+// (the move-axis stays horizontal under vertical gravity), exits the field over
+// the right ledge, and drops back down safe. The ledges stay normal-gravity so
+// entry/exit read normally.
+//
+// Layout (1024x512): ledges + hazard at y=464; up-field covers x[270,750] of the
+// air above. y=16 ceiling is the crossing surface.
+//   y=16   [================ ceiling (your road) ================]
+//          (   up-gravity field x270..750: fall UP, walk across   )
+//   y=464  [ left ledge ][##### HAZARD #####][ right ledge ]
+(
+    id: "ceiling_cross",
+    level_id: "ceiling_cross",
+    world_x: 100000,
+    world_y: 1024,
+    px_wid: 1024,
+    px_hei: 512,
+    fill_collision: "empty",
+    bg_color: "#0E1322",
+    biome: "lab",
+    entities: [
+        // Bounding box: solid ceiling (the crossing road), walls, no continuous floor.
+        ( type: "Solid", px: [0, 0], size: [1024, 16], fields: ( name: "ceiling" ) ),
+        ( type: "Solid", px: [0, 16], size: [16, 448], fields: ( name: "left_wall" ) ),
+        ( type: "Solid", px: [1008, 16], size: [16, 448], fields: ( name: "right_wall" ) ),
+        // Floor level: safe ledges flanking a death strip.
+        ( type: "Solid", px: [16, 464], size: [284, 48], fields: ( name: "left_ledge" ) ),
+        ( type: "HazardBlock", px: [300, 464], size: [420, 48], fields: ( name: "death_floor" ) ),
+        ( type: "Solid", px: [720, 464], size: [288, 48], fields: ( name: "right_ledge" ) ),
+        // Upward gravity field over the death strip: walk in off the left ledge and
+        // you fall UP onto the ceiling, then walk across it to the right ledge.
+        (
+            type: "GravityZone",
+            px: [270, 16],
+            size: [480, 448],
+            fields: ( id: "ceiling_cross_field", name: "Inversion field (gravity up)", dir: "up" ),
+        ),
+        // Spawn + entry door on the left ledge (normal gravity).
+        ( type: "PlayerStart", px: [70, 418], size: [28, 46], fields: ( name: "ceiling_cross_spawn" ) ),
+        (
+            type: "LoadingZone",
+            px: [16, 368],
+            size: [48, 96],
+            fields: (
+                id: "ceiling_cross_entry",
+                name: "ceiling_cross_entry",
+                activation: "Door",
+                target_room: "gradient_ascent",
+                target_zone: "ceiling_cross_door",
+                bidirectional: true,
+            ),
+        ),
+        (
+            type: "CameraZone",
+            px: [0, 0],
+            size: [1024, 512],
+            fields: ( id: "ceiling_cross_camera", name: "ceiling_cross_camera", mode: "Default" ),
+        ),
+        (
+            type: "DebugLabel",
+            px: [40, 110],
+            size: [620, 24],
+            fields: (
+                name: "ceiling_cross_intro",
+                text: "Ceiling Cross: the floor is death — walk into the field, fall UP, cross on the ceiling.",
+                category: "Custom",
+            ),
+        ),
+        (
+            type: "DebugLabel",
+            px: [760, 380],
+            size: [240, 24],
+            fields: ( name: "ceiling_cross_goal", text: "Safe — you crossed on the ceiling.", category: "Custom" ),
+        ),
+    ],
+    // Reciprocal door inserted into gradient_ascent's left floor (clear of the hub
+    // door at x=16, wall_run's at x=120, and the steps which start at x=180).
+    connect_to: [
+        (
+            target_room: "gradient_ascent",
+            px: [152, 400],
+            size: [16, 96],
+            id: "ceiling_cross_door",
+            target_zone: "ceiling_cross_entry",
+            activation: "Door",
+            bidirectional: true,
+            snap_to_surface: true,
+        ),
+    ],
+)

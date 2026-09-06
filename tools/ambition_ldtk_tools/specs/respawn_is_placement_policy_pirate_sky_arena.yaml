@@ -1,0 +1,25 @@
+# A migrated creature's placement authors its own respawn policy, so the dead
+# brain key beside it decides nothing.
+#
+# Every creature here became a CHARACTER and its archetype row was deleted; the `brain` string
+# survives on the placement and is read for exactly one field -- respawn -- which is PLACEMENT
+# policy, the third authority.
+#
+# It is ALSO what the `combatant` fallback answers, which is the reason this edit is not a
+# no-op: these placements have had the right policy BY COINCIDENCE since their rows went, and
+# would inherit a different one silently the day somebody retunes the fallback.
+#
+#   PYTHONPATH=tools/ambition_ldtk_tools python -m ambition_ldtk_tools entity set-field \
+#       tools/ambition_ldtk_tools/specs/respawn_is_placement_policy_pirate_sky_arena.yaml \
+#       --ldtk game/ambition_content/assets/worlds/intro.ldtk --in-place
+level_id: pirate_sky_arena
+edits:
+  # was `brain: "burning_flying_shark"`, whose row is deleted
+  - target: { iid: EnemySpawn-104914 }
+    fields: { respawn: "OnRoomReenter" }
+  # was `brain: "burning_flying_shark"`, whose row is deleted
+  - target: { iid: EnemySpawn-104915 }
+    fields: { respawn: "OnRoomReenter" }
+  # was `brain: "burning_flying_shark"`, whose row is deleted
+  - target: { iid: EnemySpawn-104916 }
+    fields: { respawn: "OnRoomReenter" }

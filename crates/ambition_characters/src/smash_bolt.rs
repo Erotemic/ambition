@@ -1,0 +1,153 @@
+//! A bolt the caster steers with the same stick they walk with.
+//!
+//! ⭐⭐ JON'S ASSIGNMENT, 2026-09-05: *"I want the author to have side-b be the
+//! pk-thunder style 'mind' attack."*
+//!
+//! ⭐⭐ AND IT NEEDS NO INPUT LEASE, which is what the campaign plan expected to
+//! build first. `ActorControlFrame::steer_axis()` already publishes *"what the
+//! PLAYER is HOLDING, as opposed to what this body is ALLOWED to move by"* — it
+//! exists because `update.rs` republishes the DAMPED frame after integration, so
+//! a rooted move reads `locomotion` as zero for its whole duration. ⇒ The caster
+//! keeps their own seat; a system reads their live stick and turns the bolt with
+//! it, and `steer_axis()` is right whether the move is damping them or not — it
+//! returns the value recorded BEFORE damping, or the live one when nothing
+//! damped.
+//!
+//! ⛔⛔ AND THE CASTER IS NOT ROOTED FOR THE BOLT'S WHOLE LIFE — I wrote that it
+//! was and it is not. `hitless_special` roots the MOVE, and the bolt is authored
+//! to OUTLIVE it deliberately (a whiff must not pin the caster through their own
+//! punish window). ⇒ So for most of the flight he is free, and **one stick does
+//! both**: walking right also steers the bolt right.
+//!
+//! ⭐ THAT IS THE MOVE'S REAL COST, and it is better than the commitment I
+//! thought I had authored. He is not helpless — he is DIVIDED. Repositioning
+//! himself and aiming the thought are the same input, so every step he takes is
+//! a turn he did not choose.
+//!
+//! ⛔ STEERING IS NOT POSSESSION, and only the first is wanted here. Possession
+//! is "my input drives another body through ITS OWN action set while my avatar
+//! goes inert" — that is what `TemporaryControl` and a per-seat driver are for,
+//! and this move asks for none of it.
+//!
+//! The ruleset half — the object, its flight, and what it does to whoever it
+//! reaches — is `ambition_demo_smash::bolt`.
+
+use serde::{Deserialize, Serialize};
+
+use ambition_entity_catalog::{EffectRef, MoveEvent, MoveEventKind, MoveSpec, ParamValue};
+
+/// The authored effect key. Namespaced like every other smash technique.
+pub const STEERED_BOLT: &str = "smash.steered_bolt";
+
+/// Authored parameters of one steered bolt.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct SteeredBoltParams {
+    /// How fast it travels, in world px per second. CONSTANT — the stick turns
+    /// it and never speeds it up, which is what makes the move about aim rather
+    /// than about mashing.
+    pub speed: f32,
+    /// How hard the stick can turn it, in degrees per second.
+    ///
+    /// ⭐ THIS NUMBER IS THE MOVE. Too low and it is a slow straight shot; too
+    /// high and it is a homing missile the caster cannot miss with. It is the
+    /// only thing separating a bolt you fly from a bolt you fire.
+    pub turn_rate_deg: f32,
+    /// Seconds before it fades on its own.
+    pub lifetime_s: f32,
+    /// The cosmetic row drawn along its path, redrawn every
+    /// [`Self::trail_every_s`] while it flies.
+    ///
+    /// ⛔⛔ REQUIRED, BECAUSE THE BOLT WAS INVISIBLE AND THE MOVE IS "YOU FLY
+    /// IT". Measured 2026-09-05: `SteeredBolt` emitted a `DamageBox` on contact
+    /// and NOTHING ELSE — no sprite, no effect, no trail. ⇒ A projectile whose
+    /// entire mechanic is that the player steers it with the stick, which the
+    /// player could not see. That is worse than an invisible trap: a trap the
+    /// opponent cannot see is unfair, a TOOL the CASTER cannot see is unusable.
+    ///
+    /// ⭐ Not optional, for the reason the plate's cue is not: a field that
+    /// exists to end an invisible object must not default to the invisible
+    /// object. See `smash_spring::PlaceSpringParams::vfx`.
+    pub trail_vfx: String,
+    /// How often the trail row is redrawn, in seconds.
+    ///
+    /// ⚠ NOT EVERY TICK. A 60Hz trail is sixty effect requests a second for one
+    /// projectile, and the bolt lives for seconds — an authored interval keeps
+    /// the path readable without making one move the loudest thing on the
+    /// channel. Authors want roughly a body-width of travel between marks.
+    pub trail_every_s: f32,
+    /// Damage to whoever it reaches — the caster excepted, who gets
+    /// [`Self::self_launch`] instead.
+    pub damage: i32,
+    /// Half-extent of the bolt's contact box.
+    pub radius: f32,
+    /// How hard it throws whoever it reaches, as a FEEL MULTIPLIER.
+    ///
+    /// ⛔⛔ NOT A LAUNCH SPEED, AND THIS DOC SAID IT WAS. The bolt's contact is
+    /// published as a `DamageBoxEffect`, and `spawn_damage_box` maps that field
+    /// to `HitboxKnockback::FeelScale` — a DIMENSIONLESS multiplier over the
+    /// victim's feel-tuned launch, whose own comment gives the band as "values
+    /// such as 1.0 or 1.6". Every other author in the workspace sits in it: the
+    /// shockwave 1.3, the beam 1.1, the boss 1.6, the exploder 1.6.
+    ///
+    /// ⇒ Authored against the old doc, this shipped at **92.0** — a fifty-seven
+    /// times launch, and the doc is why. `f32` cannot tell a multiplier from a
+    /// speed, so the sentence beside the field IS the type.
+    pub knockback: f32,
+    /// How hard the CASTER is thrown when the bolt comes back to them.
+    ///
+    /// ⭐⭐ THE WHOLE POINT OF THE MOVE, and the reason it is a recovery as well
+    /// as an attack: you fly the bolt into your own back and it carries you.
+    /// `0.0` is a bolt that simply fizzles on its owner, which is a different
+    /// and much poorer move.
+    pub self_launch: f32,
+    /// Where it appears, body-local (`+x` toward facing, `+y` gravity-down).
+    pub offset: (f32, f32),
+}
+
+/// Author a steered bolt onto a move's timeline.
+///
+/// # Panics
+///
+/// If `at_s` is past the move's own duration — the bolt would never appear and
+/// the move would spend its recovery to do nothing. And if `turn_rate_deg` is
+/// not positive, because a bolt nobody can turn is a slow projectile wearing a
+/// steering move's startup.
+pub fn author_steered_bolt(mut spec: MoveSpec, at_s: f32, params: SteeredBoltParams) -> MoveSpec {
+    // ⛔ AN INVISIBLE BOLT IS AN UNPLAYABLE MOVE, not merely an unpolished one:
+    // the stick steers what the player can see.
+    assert!(
+        !params.trail_vfx.trim().is_empty(),
+        "move `{}` fires a bolt that draws nothing — the whole move is flying it, \
+         and the caster cannot fly what they cannot see",
+        spec.id,
+    );
+    assert!(
+        params.trail_every_s > 0.0,
+        "move `{}` redraws its bolt every {}s, which is never",
+        spec.id,
+        params.trail_every_s,
+    );
+    assert!(
+        at_s <= spec.duration_s,
+        "move `{}` fires its bolt at {at_s}s but only lasts {}s, so the bolt \
+         would never appear and the move would spend a recovery to do nothing",
+        spec.id,
+        spec.duration_s,
+    );
+    assert!(
+        params.turn_rate_deg > 0.0,
+        "move `{}` authors a bolt that turns at {}°/s — a bolt nobody can steer \
+         is a slow projectile wearing a steering move's startup",
+        spec.id,
+        params.turn_rate_deg,
+    );
+    spec.events.push(MoveEvent {
+        at_s,
+        kind: MoveEventKind::Effect(EffectRef {
+            key: STEERED_BOLT.to_string(),
+            params: ParamValue::from_typed(&params).expect("steered-bolt params serialize"),
+        }),
+    });
+    spec
+}

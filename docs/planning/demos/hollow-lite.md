@@ -1,0 +1,75 @@
+# Track H — Hollow Lite (exploration-combat + boss-quality acceptance demo)
+
+Inspired by Hollow Knight's opening area (Forgotten Crossroads energy)
+ending in a real boss fight (False Knight energy). Parody-original: a
+small errant automaton in the ruins of a dead machine-colony.
+
+> **Re-checked against `008b44120` (2026-09-02): STILL ENTIRELY UNBUILT, as this
+> plan expects.** No `hollow` crate, target or module exists anywhere in the
+> workspace — the built demo customers are `ambition_demo_{mary_o,sanic,smash,twintrack}`
+> (plus `ambition_demo_pocket`, which is a provider FIXTURE and not a customer;
+> see [`README.md`](README.md)). Nothing here has been superseded by code.
+
+**Purpose:** two proofs in one. (1) The exploration-combat loop —
+interconnected rooms, melee-first combat with pogo, benches/saves,
+currency-loss-on-death — is content on the engine. (2) **The boss-design
+pipeline produces a fight Jon rates as actually fun, authored by an
+opus-level agent** ([`../engine/boss-design.md`](../engine/boss-design.md)
+BD8 — this demo is that pipeline's acceptance test).
+
+## Consumes (by role) / Owns
+
+**Consumes:** [the sim assembly]+[the windowed host] · [the movement
+kernel] (axis-swept + pogo) · [the sim heart] (respawn policy: mobs
+respawn OnRest, the boss dies forever — this demo is ADR 0022's real
+consumer) · [the combat resolver] (melee/pogo/recoil, CM5 per-move
+presentation, the focus/heal channel technique seam) · [the actor
+vocabulary] (enemy brains; the boss pattern vocabulary + BD1 control-flow
+atoms) · [the set-piece kit] (arena beats, encounter/phase state) ·
+[the saved shapes] (bench saves, currency flags) · [the space IR]+[the
+LDtk backend] (its ~10-room world) · the boss pipeline BD1–BD7 as
+PROCESS (seeds, validator, playtester rig).
+
+**Owns (`hollow_content`):** the world (well, loop, shortcuts, bench,
+boss door), the rules plugin (currency, shade-drop-on-death, bench
+respawn policy — mode-scoped), the focus/heal technique registration,
+four enemy rows, the BOSS (authored through the pipeline — the BD8
+acceptance), HUD, title/results.
+
+**Engine prerequisites:** the provider/session lifecycle tracks, encounter lifecycle convergence, boss action convergence onto the shared moveset path, the fighter-brain/boss-quality foundations, and authored respawn/save policy.
+
+## Design (v1 scope)
+
+- **World:** ~10 interconnected rooms, one .ldtk world: a vertical well
+  entrance, a loop with two shortcuts that unlock backward (the
+  metroidvania contract), one bench (shrine=save vocabulary exists), a
+  currency cache, the boss arena behind a heavy door.
+- **Combat feel:** nail-analog melee with pogo (exists), directional
+  slashes (exists), hit recoil both ways (exists via knockback), soul-
+  analog meter charged by hits → one heal channel (a technique with a
+  channel window — the focus/heal is the one new technique; [opus]).
+- **Death rule:** drop currency as a shade-analog pickup at death site;
+  bench respawn (respawn-policy: the PLAYER'S death policy is authored
+  content, exercising the same enum actors use).
+- **Enemies:** 4 archetypes on existing brains (crawler, lunger, flyer,
+  shielded) — each teaching one verb, per the boss pipeline's
+  answer-coverage philosophy applied to trash design.
+- **THE BOSS:** authored by an opus agent through the full pipeline —
+  seeds + control-flow atoms + telegraph grammar + validator + playtester
+  metrics in band + BLIND ship → Jon's verdict. Target: 3 phases, one
+  arena beat (BD2), one signature move contributed back to the seed
+  library. A failed objective function, legible: it optimizes for
+  something (guarding its hoard; repeating what last hit you) and
+  over-commits.
+
+## Slices
+
+H1 world + traversal loop + bench/death rules [opus]; H2 enemy quartet +
+focus/heal technique [opus]; H3 the boss (the BD8 acceptance) [opus +
+Jon]; H4 hosting wing in ambition [opus].
+
+**Exit:** doctrine exits + the quality one: the playtester rig report is
+in band at 3 difficulty levels, the fight validator is green, AND Jon's
+taste pass says the fight is fun (recorded verdict; a NO loops H3 with
+his feedback banked into the seed library — the pipeline improving is
+part of the exit).

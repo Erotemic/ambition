@@ -1,0 +1,12 @@
+# Move `tech_bros_door` from the right side of central_hub_main
+# (px=[1538, 880]) to the leftmost available slot on the same
+# door row (px=[77, 880]) to free the right-side slot for the
+# new sandbox-side dimension gate (`gate_stack_portal`).
+
+level_id: central_hub_main
+moves:
+  - target:
+      identifier: LoadingZone
+      match:
+        id: tech_bros_door
+    px: [77, 880]

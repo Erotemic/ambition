@@ -1,0 +1,20 @@
+[package]
+name = "ambition_causal"
+version = "0.1.0"
+edition = "2024"
+description = "Structured causal facts and the tick explainer. Domains publish typed facts; `explain_tick` composes them into one chain for one actor on one tick."
+
+# A FOUNDATION crate: no Bevy, no engine domain types, no content. Every domain
+# can depend on it without depending on each other, which is what lets the
+# explainer tolerate a composition that has movement and no combat.
+[dependencies]
+# `bevy_ecs` ONLY, and only for the `Resource` impl on the log. The crate
+# stays free of Bevy's renderer, its app, and every domain type — the property
+# that lets any domain publish facts without depending on any other domain.
+bevy_ecs = { version = "0.19.1", optional = true }
+
+[features]
+# Make the log a Bevy `Resource`, so a system can publish through
+# `ResMut<CausalRecording>` — which is the SOUND way to record from an ECS.
+# The thread-local sink is not: Bevy runs systems across worker threads.
+bevy = ["dep:bevy_ecs"]

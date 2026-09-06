@@ -1,0 +1,672 @@
+//! Portal-aware geometry and the surface-fit / aperture-crossing decision logic.
+//!
+//! Plain solid raycasts live in `ambition_platformer2d_core::cast`; this
+//! module keeps only the portal-specific traversal, the fit check, and the pure
+//! `transit_step` decision machine shared by all opted-in actor transit.
+
+use bevy::prelude::*;
+
+use crate::pieces::{self as pp, MapConvention, PortalFrame};
+use ambition_platformer2d_core::{self as ae, AabbExt};
+use ambition_platformer2d_shared_tangle::transit::rotate_velocity_between_normals as portal_transform_velocity;
+
+use super::color::PortalChannel;
+use super::transit::PortalTransit;
+use super::tuning::PortalTuning;
+use super::types::{find_portal, PlacedPortal};
+
+/// Recursive, portal-aware raycast: cast from `origin` along `dir`, and if the
+/// ray crosses a portal aperture (entering from its front, within the opening)
+/// before hitting a solid, transform the remaining ray through the linked
+/// portal and continue — so line of sight, beams, grapples, and aim traces
+/// "see through" a portal pair. The returned `(hit, normal)` is in the chart
+/// where the ray finally lands. Bounded by `max_depth` so two portals facing
+/// each other can't loop forever.
+///
+/// THE GAMEPLAY WRAPPER (CC5): the traversal itself is engine geometry —
+/// [`ae::cast::ray_through_apertures`] — this function supplies the aperture
+/// pairs from the placed portals, and the caller supplies the map convention
+/// its session is playing under.
+#[allow(clippy::too_many_arguments)]
+pub fn raycast_through_portals(
+    world: &ae::World,
+    portals: &[PlacedPortal],
+    origin: Vec2,
+    dir: Vec2,
+    max_dist: f32,
+    include_one_way: bool,
+    max_depth: u32,
+    convention: MapConvention,
+) -> Option<(Vec2, Vec2)> {
+    let pairs: Vec<(ae::frame::PortalAperture, ae::frame::PortalAperture)> = portals
+        .iter()
+        .filter_map(|enter| {
+            let exit = find_portal(portals, enter.channel.partner())?;
+            Some((enter.aperture(), exit.aperture()))
+        })
+        .collect();
+    ae::cast::ray_through_apertures(
+        world,
+        &pairs,
+        origin,
+        dir,
+        max_dist,
+        include_one_way,
+        max_depth,
+        convention,
+    )
+}
+
+/// Portal-aware raycast using the editable portal recursion budget.
+pub fn raycast_through_portals_tuned(
+    world: &ae::World,
+    portals: &[PlacedPortal],
+    origin: Vec2,
+    dir: Vec2,
+    max_dist: f32,
+    include_one_way: bool,
+    tuning: &PortalTuning,
+) -> Option<(Vec2, Vec2)> {
+    raycast_through_portals(
+        world,
+        portals,
+        origin,
+        dir,
+        max_dist,
+        include_one_way,
+        tuning.raycast_recursion_depth,
+        tuning.convention.map_convention(),
+    )
+}
+
+pub fn portal_transit_roll(n_in: Vec2, n_out: Vec2) -> f32 {
+    // Approach direction (-n_in) and exit direction (n_out), each flipped into
+    // render space; the body turns by the signed angle between them.
+    let into_render = Vec2::new(-n_in.x, n_in.y);
+    let out_render = Vec2::new(n_out.x, -n_out.y);
+    let dot = into_render.dot(out_render);
+    let cross = into_render.x * out_render.y - into_render.y * out_render.x;
+    cross.atan2(dot)
+}
+
+fn wall_to_wall(n_in: Vec2, n_out: Vec2, gravity_dir: Vec2) -> bool {
+    let g = gravity_dir.normalize_or_zero();
+    let in_wall = n_in.normalize_or_zero().dot(g).abs() < 0.5;
+    let out_wall = n_out.normalize_or_zero().dot(g).abs() < 0.5;
+    in_wall && out_wall
+}
+
+/// Convention-aware somersault policy.
+///
+/// Rotation convention (det +1) is a proper orientation map, so the body picks
+/// up exactly the render-space rotation of the map. Reflection convention
+/// (det -1) cannot be represented by roll alone; it keeps the historical
+/// gravity-platformer accommodation where wall↔wall crossings stay upright and
+/// express their mirror through [`portal_facing_flips_for_convention`].
+pub fn somersault_roll_for_convention(
+    convention: MapConvention,
+    n_in: Vec2,
+    n_out: Vec2,
+    gravity_dir: Vec2,
+) -> f32 {
+    if convention == MapConvention::Reflection && wall_to_wall(n_in, n_out, gravity_dir) {
+        return 0.0;
+    }
+    portal_transit_roll(n_in, n_out)
+}
+
+/// Whether the body's horizontal FACING flips through this portal pair.
+///
+/// This is needed only under the reflection convention. A same-wall reflection
+/// is a horizontal mirror, but the visual policy suppresses wall↔wall roll to
+/// keep actors gravity-upright; the facing flip supplies the missing mirror so
+/// the leading side still leads out. Under rotation convention the map is a
+/// proper rotation, so facing is carried by roll and no separate mirror applies.
+pub fn portal_facing_flips_for_convention(
+    convention: MapConvention,
+    n_in: Vec2,
+    n_out: Vec2,
+    gravity_dir: Vec2,
+) -> bool {
+    convention == MapConvention::Reflection
+        && wall_to_wall(n_in, n_out, gravity_dir)
+        && portal_transit_roll(n_in, n_out).abs() > std::f32::consts::FRAC_PI_2
+}
+
+/// Whether held horizontal movement should be temporarily mapped through the
+/// portal after a transfer. This is an input-feel accommodation, but the gate is
+/// mathematical: apply it only when the active map sends screen-horizontal input
+/// to the opposite screen-horizontal direction. Floor↔wall turns map horizontal
+/// input into vertical movement, which the platformer controller cannot express
+/// as ordinary movement, so they stay on the emergence guard alone.
+pub fn portal_input_warp_flips_horizontal_for_convention(
+    convention: MapConvention,
+    n_in: Vec2,
+    n_out: Vec2,
+) -> bool {
+    let mapped = pp::portal_map_vec(Vec2::X, n_in, n_out, convention);
+    mapped.x < -0.5 && mapped.y.abs() < 0.5
+}
+
+/// Does an actor of `size` fit through `portal`? The opening the actor must
+/// pass through is the portal extent perpendicular to its normal: a wall
+/// portal (horizontal normal) is a vertical doorway, so the actor's *height*
+/// must fit; a floor / ceiling portal (vertical normal) gates on *width*. This
+/// keeps big bosses out of small portals while staying fully general — make a
+/// huge portal (or shrink the boss) and it passes.
+pub fn portal_fits(size: Vec2, portal: &PlacedPortal) -> bool {
+    let normal_is_horizontal = portal.normal.x.abs() >= portal.normal.y.abs();
+    let (opening, cross) = if normal_is_horizontal {
+        (portal.half_extent.y * 2.0, size.y)
+    } else {
+        (portal.half_extent.x * 2.0, size.x)
+    };
+    cross <= opening
+}
+
+/// Margin (px) added to a portal's thin face so a body resting against the
+/// surface registers as "entering" before it has visibly sunk in (the carve
+/// only opens once transit has begun, so begin must trigger on contact).
+pub(crate) const TRANSIT_BEGIN_MARGIN: f32 = 6.0;
+
+/// The ray-parameter interval where `origin + t*dir` is inside `aabb` (slab
+/// method), or `None` if the ray never enters it.
+fn ray_interval(origin: Vec2, dir: Vec2, aabb: ae::Aabb) -> Option<(f32, f32)> {
+    let inv = Vec2::new(1.0 / dir.x, 1.0 / dir.y);
+    let t1 = (aabb.min - origin) * inv;
+    let t2 = (aabb.max - origin) * inv;
+    let near = t1.min(t2);
+    let far = t1.max(t2);
+    let t_near = near.x.max(near.y);
+    let t_far = far.x.min(far.y);
+    (t_near <= t_far).then_some((t_near, t_far))
+}
+
+/// How much solid host material sits directly behind `frame`'s face along `-normal`, probed at the
+/// aperture center: the merged extent of consecutive solid intervals starting at (or within
+/// [`pp::SURFACE_GRACE`] of — the authored face can sit a grid-snap off the collision edge) the
+/// face. Exactly-adjacent blocks (merged tiles) extend the material; a real gap behind the wall
+/// ends it.
+///
+/// The HOST measures this each frame (it owns the collision world) and
+/// publishes it via [`PortalHostDepths`](crate::types::PortalHostDepths); the
+/// transit rescue, the carve, and the view-window depth all bound their
+/// behind-the-face reach by it so a THIN wall's aperture volume ends where
+/// the wall does.
+pub fn measure_host_depth(occluders: &[ae::Aabb], frame: &PortalFrame, probe_depth: f32) -> f32 {
+    if occluders.is_empty() {
+        return probe_depth;
+    }
+    let dir = -frame.normal;
+    let mut intervals: Vec<(f32, f32)> = occluders
+        .iter()
+        .filter_map(|a| ray_interval(frame.origin, dir, *a))
+        .filter(|(near, far)| *far > 0.0 && *near < probe_depth)
+        .collect();
+    intervals.sort_by(|a, b| a.0.total_cmp(&b.0));
+    let mut depth: f32 = 0.0;
+    let mut found = false;
+    for (near, far) in intervals {
+        let reach = if found {
+            depth + 0.5
+        } else {
+            pp::SURFACE_GRACE
+        };
+        if near <= reach {
+            depth = depth.max(far);
+            found = true;
+        } else {
+            break;
+        }
+    }
+    if found {
+        depth.min(probe_depth)
+    } else {
+        probe_depth
+    }
+}
+
+/// The capture box for a portal: the thin face grown by [`TRANSIT_BEGIN_MARGIN`].
+pub(crate) fn capture_box(portal: &PlacedPortal) -> ae::Aabb {
+    ae::Aabb::new(
+        portal.pos,
+        portal.half_extent + Vec2::splat(TRANSIT_BEGIN_MARGIN),
+    )
+}
+
+/// Budget: Ambition clamps controlled actor sim steps to 1/30 s, so 1900 px/s terminal fall
+/// (`MAX_FALL_SPEED`)  ~63px/frame — 96px covers it with slack. A body even faster on a hard
+/// hitch may see the carve closed for ONE frame, but the carve-volume rescue in `transit_step`
+/// recovers the crossing regardless. Opening a few frames early is harmless: the approach carve
+/// is gated on the body MOVING INTO the portal, and a hole only ever opens where a placed,
+/// paired portal already is.
+pub(crate) const APPROACH_CARVE_REACH: f32 = 96.0;
+
+/// The capture box extended [`APPROACH_CARVE_REACH`] px OUTWARD along the
+/// portal's normal (into the room): the region in which an inbound body must
+/// already see the surface open. Purely geometric — no dt, no velocity — so the
+/// carve decision is immune to frame-time jitter; the caller pairs it with a
+/// "moving into the portal" velocity gate.
+pub(crate) fn approach_box(portal: &PlacedPortal) -> ae::Aabb {
+    let capture = capture_box(portal);
+    let n = portal.normal.normalize_or_zero();
+    ae::Aabb::new(
+        capture.center() + n * (APPROACH_CARVE_REACH * 0.5),
+        capture.half_size() + n.abs() * (APPROACH_CARVE_REACH * 0.5),
+    )
+}
+
+/// One step of the aperture / centroid-crossing transit machine for ANY body.
+/// Pure: given the body's geometry + current transit/cooldown state + the portal
+/// pair, it returns the action the caller applies. Shared by every opted-in
+/// actor/body so portal crossings use one invariant path.
+#[derive(Clone, Copy, Debug)]
+pub enum TransitStep {
+    /// Not touching a portal (or latched) — do nothing.
+    Idle,
+    /// Begin transit into this portal: insert [`PortalTransit`], play ENTER sfx.
+    Begin {
+        channel: PortalChannel,
+        portal_pos: Vec2,
+    },
+    /// The centroid crossed: move the body to `pos`, set velocity `vel`, add
+    /// `roll_delta` to its roll (the somersault), latch the cooldown, flip the
+    /// straddled portal to `exit_channel`, mark crossed, play EXIT sfx. `warp_rot`
+    /// is the `(cos, sin)` portal map (same rotation applied to velocity) — the
+    /// host input layer warps held movement input by it so the held direction
+    /// keeps carrying the body OUT instead of fighting the warped velocity.
+    Transfer {
+        pos: Vec2,
+        vel: Vec2,
+        roll_delta: f32,
+        /// Mirror the body's horizontal facing (the wall↔wall "face out" rule).
+        facing_flip: bool,
+        /// Whether the held-input warp maps horizontal movement to the opposite
+        /// horizontal direction for this transfer.
+        input_warp: bool,
+        /// Entry + exit portal normals — the held-input warp maps through them.
+        enter_normal: Vec2,
+        /// Outward normal of the exit portal — the direction the body emerges.
+        /// Used by emission protection so held input can't cancel the emergence.
+        exit_normal: Vec2,
+        exit_channel: PortalChannel,
+        exit_pos: Vec2,
+    },
+    /// The body fully cleared the plane — remove [`PortalTransit`].
+    Clear,
+    /// Mid-transit, nothing to apply this frame.
+    Continue,
+}
+
+/// Build the [`TransitStep::Transfer`] for a body crossing `enter` → `exit`.
+/// Shared by the mid-transit centroid crossing and the cooldown-bypassing rescue
+/// so both emerge identically.
+///
+/// The exit position is the plain portal map of the centroid ([`pp::map_point`]):
+/// a reversible topological glue — the depth the centroid has sunk PAST the entry
+/// plane becomes the depth it emerges in FRONT of the exit plane, and the
+/// along-surface offset is preserved. So a centroid that just barely crossed
+/// emerges just barely in front of the exit, and an equal step back inverts the
+/// move exactly (`map_point` is its own inverse with enter/exit swapped). No
+/// artificial push-out: the centroid transfer (and the rescue) fire the frame the
+/// centroid crosses, so the sink depth is small and the body emerges right at the
+/// exit face rather than embedded behind it — the small-ε case is the common one,
+/// and a large-dt crossing still maps to (a large) depth IN FRONT, never behind.
+fn transfer_step(
+    center: Vec2,
+    vel: Vec2,
+    enter: PlacedPortal,
+    exit: PlacedPortal,
+    gravity_dir: Vec2,
+    tuning: &PortalTuning,
+) -> TransitStep {
+    let convention = tuning.convention.map_convention();
+    let ef = enter.frame();
+    let xf = exit.frame();
+    // Galilean composition (CC6, §7): map the body's velocity RELATIVE to the
+    // entry aperture, then ride out on the exit aperture's own motion —
+    // v_out = map(v − v_enter) + v_exit. Static portals (both velocities
+    // zero) reduce to the pre-CC6 arithmetic exactly.
+    let mut vel_out =
+        portal_transform_velocity(vel - ef.velocity, enter.normal, exit.normal, convention)
+            + xf.velocity;
+    // Floor the exit speed along the exit normal so a slow walk-in still emerges
+    // instead of stalling in the opening. The floor applies in the EXIT
+    // aperture's REST frame (§5-P2): a moving exit must neither trivially
+    // satisfy nor never satisfy it on frame velocity alone.
+    let rel_out = vel_out - xf.velocity;
+    if rel_out.dot(exit.normal) < tuning.min_exit_speed {
+        let tangential = rel_out - rel_out.dot(exit.normal) * exit.normal;
+        vel_out = tangential + exit.normal * tuning.min_exit_speed + xf.velocity;
+    }
+    TransitStep::Transfer {
+        pos: pp::map_point(center, &ef, &xf, convention),
+        vel: vel_out,
+        // The body picks up the on-screen turn it travels through (a tumble for floor/ceiling,
+        // nothing for a wall↔wall turn-around); `update_actor_roll` then eases it back to
+        // gravity-upright (feet-in → reorient). the convention comes from TUNING, not from a
+        // process global. `PortalTuning::convention` is right here in the argument list, and the
+        // pure helpers already expose `*_for_convention` forms that take it.
+        roll_delta: somersault_roll_for_convention(
+            convention,
+            enter.normal,
+            exit.normal,
+            gravity_dir,
+        ),
+        facing_flip: portal_facing_flips_for_convention(
+            convention,
+            enter.normal,
+            exit.normal,
+            gravity_dir,
+        ),
+        input_warp: portal_input_warp_flips_horizontal_for_convention(
+            convention,
+            enter.normal,
+            exit.normal,
+        ),
+        enter_normal: enter.normal,
+        exit_normal: exit.normal,
+        exit_channel: exit.channel,
+        exit_pos: exit.pos,
+    }
+}
+
+/// The body's authoritative movement-kernel sample for the swept (CCD) transit tier: where the
+/// sim step started and how fast the body was moving then.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct SweptSample {
+    /// Authoritative body center at the previous transit step.
+    pub pos: Vec2,
+    /// Body velocity at the previous transit step (gates the sweep to
+    /// segments that look like one frame of ballistic motion).
+    pub vel: Vec2,
+}
+
+/// The largest sim step (s) one swept segment may represent. Mirrors the
+/// Ambition 1/30 s controlled-body sim-step clamp (the same host budget
+/// [`APPROACH_CARVE_REACH`] is sized against): a prev→now displacement longer
+/// than `|prev_vel| * MAX_SWEPT_STEP_S` (+ slack) is NOT one frame of ballistic
+/// motion — it is a respawn / reset / scripted teleport — and must never be
+/// treated as travel that can cross a portal plane.
+const MAX_SWEPT_STEP_S: f32 = 1.0 / 30.0;
+
+/// Compute the transit step for a body. See [`TransitStep`]. `cooldown_pair`
+/// is the body's post-jump latch, scoped to the pair it just crossed
+/// ([`super::types::PortalTransitCooldown`]); `gravity_dir` selects whether a
+/// transit tumbles or just turns around. The discrete convenience — no swept
+/// sample, default depths/tuning.
+pub fn transit_step(
+    center: Vec2,
+    size: Vec2,
+    vel: Vec2,
+    transit: Option<PortalTransit>,
+    cooldown_pair: Option<PortalChannel>,
+    portals: &[PlacedPortal],
+    gravity_dir: Vec2,
+) -> TransitStep {
+    transit_step_with_tuning(
+        center,
+        size,
+        vel,
+        None,
+        transit,
+        cooldown_pair,
+        portals,
+        gravity_dir,
+        &super::types::PortalHostDepths::default(),
+        &PortalTuning::default(),
+    )
+}
+
+/// The SWEPT (CCD) crossing scan shared by the unlatched and post-transfer
+/// arms of [`transit_step_with_tuning`]: did the prev→now SEGMENT cross a
+/// paired portal's plane front→behind through its opening? If so, the body
+/// physically fell through the aperture this frame — build its Transfer.
+#[allow(clippy::too_many_arguments)]
+fn swept_crossing_step(
+    sweep: Option<SweptSample>,
+    center: Vec2,
+    size: Vec2,
+    vel: Vec2,
+    portals: &[PlacedPortal],
+    gravity_dir: Vec2,
+    tuning: &PortalTuning,
+) -> Option<TransitStep> {
+    let prev = sweep?;
+    let seg = center - prev.pos;
+    let seg_len = seg.length();
+    // One frame of ballistic motion, or a teleport? (See MAX_SWEPT_STEP_S.)
+    // The guard reads the BODY segment only — a moving aperture sweeping over
+    // a stationary body is legitimate relative motion, not a teleport.
+    let max_step = prev.vel.length() * MAX_SWEPT_STEP_S * 1.5 + TRANSIT_BEGIN_MARGIN;
+    if seg_len > max_step {
+        return None;
+    }
+    for enter in portals {
+        let Some(exit) = find_portal(portals, enter.channel.partner()) else {
+            continue;
+        };
+        if !portal_fits(size, enter) {
+            continue;
+        }
+        // THE RELATIVE SWEEP (§5-P2 step 5): both the body and the aperture
+        // are linear over the frame, so the crossing test is one subtraction —
+        // shift the body's start-of-frame sample by the aperture's own frame
+        // displacement and test the shifted segment against the aperture's
+        // END-of-frame plane. Static portals (delta zero) reduce to the
+        // pre-CC6 segment exactly; a moving aperture sweeping over a
+        // stationary body produces a nonzero relative segment and transits it
+        // (the designed "scoop").
+        let rel_prev = prev.pos + enter.frame_delta();
+        let rel_seg = center - rel_prev;
+        if rel_seg.length_squared() <= 1e-6 {
+            continue;
+        }
+        let ap = enter.aperture();
+        let f0 = pp::front_distance(rel_prev, &ap.frame);
+        let f1 = pp::front_distance(center, &ap.frame);
+        // Crossed the plane INTO the wall this step.
+        if f0 <= 0.0 || f1 > 0.0 {
+            continue;
+        }
+        // Where along the (relative) segment the plane was crossed, and
+        // whether that point is within the opening.
+        let t = f0 / (f0 - f1);
+        let at = rel_prev + rel_seg * t;
+        let offset = (at - ap.frame.origin).dot(ap.frame.tangent()).abs();
+        if offset <= ap.half_length + TRANSIT_BEGIN_MARGIN {
+            // Carry the velocity that PRODUCED the crossing: the live `vel`
+            // when it still points into the portal (unobstructed fast
+            // crossing), else the previous sample's (the integrator
+            // stopped/zeroed the body at the carve bottom AFTER it crossed —
+            // the exit must still get the entry momentum).
+            let carried = if vel.dot(enter.normal) < 0.0 {
+                vel
+            } else {
+                prev.vel
+            };
+            return Some(transfer_step(
+                center,
+                carried,
+                enter.clone(),
+                exit,
+                gravity_dir,
+                tuning,
+            ));
+        }
+    }
+    None
+}
+
+/// Compute the transit step with editable portal tuning and the host-measured
+/// wall depths (see [`PortalHostDepths`](super::types::PortalHostDepths) — the
+/// rescue's aperture volume is bounded by the host material so a thin wall
+/// never grabs a body in the open room behind it).
+#[allow(clippy::too_many_arguments)]
+pub fn transit_step_with_tuning(
+    center: Vec2,
+    size: Vec2,
+    vel: Vec2,
+    sweep: Option<SweptSample>,
+    transit: Option<PortalTransit>,
+    cooldown_pair: Option<PortalChannel>,
+    portals: &[PlacedPortal],
+    gravity_dir: Vec2,
+    host_depths: &super::types::PortalHostDepths,
+    tuning: &PortalTuning,
+) -> TransitStep {
+    let body = ae::Aabb::new(center, size * 0.5);
+    // Resolve `(straddled, its linked exit)` for a color — both must be placed.
+    let pair_for = |c: PortalChannel| -> Option<(PlacedPortal, PlacedPortal)> {
+        Some((find_portal(portals, c)?, find_portal(portals, c.partner())?))
+    };
+    match transit {
+        None => {
+            // RESCUE / commit (runs EVEN on cooldown): if the body's centroid has reached or
+            // passed a portal plane while the body still straddles its opening, it is
+            // physically in the act of falling through — transfer it NOW. The host-surface
+            // carve opens on geometric overlap (so the floor is non-solid while a body is in
+            // the opening), but the gentle Begin below is cooldown-blocked for a short window
+            // after a jump. a quick floor↔floor bounce whose airtime is shorter than the
+            // cooldown) sinks to the bottom of the open hole and grounds there — "stuck in the
+            // middle of the floor", its momentum killed. The gate is the OPEN aperture volume
+            // itself (the carve hole): the body must intersect it with its centroid past the
+            // plane. This bounds the rescue to the opening — a body legitimately below the
+            // surface elsewhere is never teleported — while staying dt-robust: the old
+            // `straddles` gate required the plane to pass THROUGH the body on a sampled frame,
+            // which a fast fall (1900 px/s terminal ≈ 63 px at the 1/30 s sim-step clamp, vs a
+            // ~40 px body) can skip entirely, grounding the body at the bottom of the open hole
+            // with its momentum killed. Inside the carve volume the only way in was through the
+            // aperture, so a deep crossing is still a crossing. The body must also be moving
+            // INTO the portal (`vel · normal < 0`): that distinguishes a body falling THROUGH
+            // the opening (rescue it) from one that JUST EMERGED from this portal and is moving
+            // back out (do NOT re-grab it — the transfer maps the centroid right onto the exit
+            // plane, so without the velocity gate the rescue would immediately fire again and
+            // ping-pong).
+            for enter in portals {
+                if find_portal(portals, enter.channel.partner()).is_none() {
+                    continue;
+                }
+                if !portal_fits(size, enter) {
+                    continue;
+                }
+                let ap = enter.aperture();
+                // The hole is bounded by the measured host material: on a
+                // thin wall the aperture volume ends at the wall's far face,
+                // so a body in the open room BEHIND it is never grabbed.
+                let hole = pp::carve_hole_with_depth(&ap, host_depths.depth(enter.channel));
+                if pp::front_distance(center, &ap.frame) <= 0.0
+                    && body.strict_intersects(hole)
+                    && vel.dot(enter.normal) < 0.0
+                {
+                    let exit = find_portal(portals, enter.channel.partner())
+                        .expect("partner checked above");
+                    return transfer_step(center, vel, enter.clone(), exit, gravity_dir, tuning);
+                }
+            }
+            // Solid blocks already sweep; this makes the transit TRIGGER swept too: if the
+            // prev→now SEGMENT crossed the entry plane front→behind and the crossing point lies
+            // within the aperture, the body physically fell through the opening this frame —
+            // transfer it, however deep it ended up. `transfer_step`'s `map_point` glue handles
+            // any depth continuously (depth past the entry plane = depth in front of the exit),
+            // so a deep crossing emerges correspondingly far along its path — momentum
+            // preserved, which is the point ("speedy thing goes in, speedy thing comes out").
+            //
+            // Two guards keep this honest:
+            // * The crossing DIRECTION is the segment's own (front → behind);
+            //   the live `vel` gate is deliberately NOT used — the integrator
+            //   may already have stopped the body at the carve bottom and
+            //   zeroed it, which is exactly the failure being fixed.
+            // * The segment must look like ONE frame of ballistic motion:
+            //   length ≤ `|prev_vel| * MAX_SWEPT_STEP_S` (+ slack). A respawn /
+            //   reset / scripted teleport produces an arbitrary segment that
+            //   must never read as travel through an aperture.
+            if let Some(step) =
+                swept_crossing_step(sweep, center, size, vel, portals, gravity_dir, tuning)
+            {
+                return step;
+            }
+            // Begin into the first portal (across ALL pairs) the body is
+            // entering. The post-crossing cooldown latch is PAIR-scoped: it
+            // only blocks re-Begin into the pair just crossed — entering a
+            // different pair immediately is legitimate (chained rooms).
+            for enter in portals {
+                if cooldown_pair.is_some_and(|c| c == enter.channel || c == enter.channel.partner())
+                {
+                    continue;
+                }
+                // Need the partner placed, or there's no exit to transit to.
+                if find_portal(portals, enter.channel.partner()).is_none() {
+                    continue;
+                }
+                if !portal_fits(size, enter) {
+                    continue;
+                }
+                let frame = enter.frame();
+                // Begin when the leading face reaches the opening, FROM THE
+                // FRONT: the centroid must be on the room side of the plane
+                // (a dip of TRANSIT_BEGIN_MARGIN is tolerated — by then a
+                // legit entry has already latched). Without the front-side
+                // gate, a body pressed against the BACK of a thin host wall
+                // could reach the capture box through the material and
+                // "enter" a portal it cannot even see.
+                let capture = capture_box(enter);
+                let front = pp::front_distance(center, &frame);
+                let entering = front > 0.0 || vel.dot(enter.normal) < 0.0;
+                if front >= -TRANSIT_BEGIN_MARGIN && entering && body.strict_intersects(capture) {
+                    return TransitStep::Begin {
+                        channel: enter.channel,
+                        portal_pos: enter.pos,
+                    };
+                }
+            }
+            TransitStep::Idle
+        }
+        Some(t) => {
+            // The straddled portal or its partner was removed → end transit.
+            let Some((enter, exit)) = pair_for(t.straddling) else {
+                return TransitStep::Clear;
+            };
+            let ef = enter.frame();
+            // The CENTROID crossing the plane is the authoritative transfer —
+            // the body jumps to the exit; gameplay sees no discontinuity because
+            // every query uses the portal pieces.
+            if !t.crossed && pp::front_distance(center, &ef) <= 0.0 {
+                return transfer_step(center, vel, enter, exit, gravity_dir, tuning);
+            }
+            // SWEPT re-crossing while the POST-transfer latch is still clearing
+            // (§7.6): on a fast portal loop the flight time between the exit and
+            // the next entry can shrink BELOW one frame, so the body swept-crosses
+            // the next aperture while `crossed` is still latched and the trailing
+            // edge hasn't cleared. Without this arm the machine spends that frame
+            // on Clear, the crossing is behind the plane by the time the None arm
+            // sees it, and the body embeds. A pre-crossing latch (`!crossed`) is
+            // NOT swept: its own centroid sign-test above already fires at any
+            // depth.
+            if t.crossed {
+                if let Some(step) =
+                    swept_crossing_step(sweep, center, size, vel, portals, gravity_dir, tuning)
+                {
+                    return step;
+                }
+            }
+            // Stay engaged so the carve persists long enough to sink + cross — clearing on "not
+            // straddling yet" would drop the carve every other frame and the body would never
+            // sink in (it re-grounds on the solid frame). The cooldown latch (set on transfer)
+            // stops a re-entry.
+            let still_engaged = if t.crossed {
+                pp::straddles(body, &enter.aperture())
+            } else {
+                body.strict_intersects(capture_box(&enter))
+            };
+            if still_engaged {
+                TransitStep::Continue
+            } else {
+                TransitStep::Clear
+            }
+        }
+    }
+}
+
+#[cfg(test)]
+mod tests;

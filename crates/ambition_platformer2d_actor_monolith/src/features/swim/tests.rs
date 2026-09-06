@@ -1,0 +1,168 @@
+use ambition_platformer2d_core as ae;
+
+fn step_axis_player(
+    world: &ae::World,
+    scratch: &mut ae::BodyClusterScratch,
+    model: &mut ae::MotionModel,
+    input: ae::InputState,
+    dt: f32,
+) -> ae::FrameEvents {
+    let frame = ae::MotionFrame::from_direction(ae::DEFAULT_GRAVITY_DIR, ae::GRAVITY);
+    let mut clusters = scratch.as_mut();
+    let result = ae::step_motion(
+        model,
+        &mut clusters,
+        ae::MotionStepContext {
+            world,
+            input,
+            frame,
+            facing_intent: input.axes.x,
+            dt,
+            contact: ambition_platformer2d_core::BodyContactField::NONE,
+            pose_owned_externally: false,
+            recovery_commitment_outstanding: false,
+        },
+    );
+    let events = result.events;
+    if events.reset.is_some() {
+        let mut model = ae::MotionModel::default();
+        ae::reset_body_clusters(
+            &mut model,
+            &mut clusters,
+            world.spawn,
+            ae::DEFAULT_TUNING.air_jumps,
+        );
+    }
+    events
+}
+
+fn pool_world(kind: ae::WaterKind, spawn: ae::Vec2) -> ae::World {
+    let mut world = ae::World::new(
+        "swim_test",
+        ae::Vec2::new(2000.0, 2000.0),
+        spawn,
+        Vec::new(),
+    );
+    world.water_regions.push(ae::WaterRegion::new(
+        ae::Aabb::new(ae::Vec2::new(500.0, 500.0), ae::Vec2::new(400.0, 400.0)),
+        kind,
+        ae::WaterVolumeSpec::default(),
+    ));
+    world
+}
+
+fn scratch_with(abilities: ae::AbilitySet, spawn: ae::Vec2) -> ae::BodyClusterScratch {
+    ae::BodyClusterScratch::new_with_abilities(spawn, abilities)
+}
+
+/// Without the `swim` ability, contacting water triggers the same
+/// reset/respawn the existing hazard path uses.
+#[test]
+fn no_swim_ability_water_contact_triggers_reset() {
+    let mut world = pool_world(ae::WaterKind::Clear, ae::Vec2::new(50.0, 50.0));
+    // Force the hazard reset path to win over OOB (player parked
+    // safely inside world bounds).
+    world.size = ae::Vec2::new(2000.0, 2000.0);
+    let mut abilities = ae::AbilitySet::sandbox_all();
+    abilities.swim = false;
+    let mut scratch = scratch_with(abilities, world.spawn);
+    scratch.kinematics.pos = ae::Vec2::new(500.0, 500.0);
+    let mut model = ae::MotionModel::axis_swept(ae::DEFAULT_AXIS_SWEPT_PARAMS);
+    let events = step_axis_player(
+        &world,
+        &mut scratch,
+        &mut model,
+        ae::InputState::default(),
+        0.016,
+    );
+    assert_eq!(
+        events.reset,
+        Some(ae::ResetCause::Drowned),
+        "water without swim drowns her, and the gate must name the water"
+    );
+    assert_eq!(scratch.kinematics.pos, world.spawn);
+}
+
+/// With swim, jump_pressed becomes a single upward stroke. The
+/// engine never delivers a normal jump from the same press.
+#[test]
+fn swim_ability_jump_press_becomes_upward_impulse() {
+    let world = pool_world(ae::WaterKind::Clear, ae::Vec2::new(500.0, 100.0));
+    let mut abilities = ae::AbilitySet::sandbox_all();
+    abilities.swim = true;
+    let mut scratch = scratch_with(abilities, world.spawn);
+    scratch.kinematics.pos = ae::Vec2::new(500.0, 500.0);
+    scratch.kinematics.vel = ae::Vec2::new(0.0, 600.0);
+    let input = ae::InputState {
+        movement: ambition_platformer2d_core::ActionEdges::EMPTY.with(
+            ambition_platformer2d_core::MovementAction::Jump,
+            ambition_platformer2d_core::Edge {
+                pressed: true,
+                held: true,
+                released: false,
+            },
+        ),
+        control_dt: 0.016,
+        ..ae::InputState::default()
+    };
+    let mut model = ae::MotionModel::axis_swept(ae::DEFAULT_AXIS_SWEPT_PARAMS);
+    // The unified kernel owns both intent and simulation phases. The buffered
+    // jump must be consumed as a swim stroke, not a normal jump.
+    step_axis_player(&world, &mut scratch, &mut model, input, 0.016);
+    assert!(
+        scratch.kinematics.vel.y < 0.0,
+        "expected upward (negative) vel.y after swim stroke; got {}",
+        scratch.kinematics.vel.y
+    );
+    // Buffer must be cleared so the same press can't fire again. The jump
+    // buffer is the axis policy's private maneuver state (ADR 0024).
+    let ae::MotionModel::AxisSwept(axis) = &model else {
+        panic!("test body is not axis-swept");
+    };
+    assert_eq!(axis.state.buffer_jump, 0.0);
+}
+
+/// Without a fresh press, water still applies passive buoyancy
+/// (drag) and clamps fall speed.
+#[test]
+fn swim_ability_passive_buoyancy_clamps_fall() {
+    let world = pool_world(ae::WaterKind::Clear, ae::Vec2::new(500.0, 100.0));
+    let mut abilities = ae::AbilitySet::sandbox_all();
+    abilities.swim = true;
+    let mut scratch = scratch_with(abilities, world.spawn);
+    scratch.kinematics.pos = ae::Vec2::new(500.0, 500.0);
+    scratch.kinematics.vel = ae::Vec2::new(40.0, 1500.0);
+    let input = ae::InputState {
+        control_dt: 0.016,
+        ..ae::InputState::default()
+    };
+    let mut model = ae::MotionModel::axis_swept(ae::DEFAULT_AXIS_SWEPT_PARAMS);
+    step_axis_player(&world, &mut scratch, &mut model, input, 0.016);
+    let spec = ae::WaterVolumeSpec::default();
+    assert!(
+        scratch.kinematics.vel.x.abs() < 40.0,
+        "expected horizontal drag in water"
+    );
+    assert!(
+        scratch.kinematics.vel.y <= spec.max_fall_speed + 1.0,
+        "fall speed must clamp; got {}",
+        scratch.kinematics.vel.y
+    );
+}
+
+/// Out-of-water frames must not register a water contact.
+#[test]
+fn out_of_water_leaves_water_contact_none() {
+    let world = pool_world(ae::WaterKind::Clear, ae::Vec2::new(50.0, 100.0));
+    let mut abilities = ae::AbilitySet::sandbox_all();
+    abilities.swim = true;
+    let mut scratch = scratch_with(abilities, world.spawn);
+    scratch.kinematics.pos = ae::Vec2::new(50.0, 50.0); // outside the pool
+    let input = ae::InputState {
+        control_dt: 0.016,
+        ..ae::InputState::default()
+    };
+    let mut model = ae::MotionModel::axis_swept(ae::DEFAULT_AXIS_SWEPT_PARAMS);
+    step_axis_player(&world, &mut scratch, &mut model, input, 0.016);
+    assert!(scratch.env_contact.water.is_none());
+}

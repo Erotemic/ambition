@@ -1,0 +1,28 @@
+# The Bevy ceiling: the fastest THIS machine can run a Bevy 0.19 window that
+# does nothing. Every game frame-time is a number to compare against this one.
+#
+# Deliberately OUTSIDE the engine workspace (own `[workspace]`, own lockfile,
+# own `target/`): the point is a Bevy app with none of Ambition's crates, so
+# nothing from the workspace dependency table may leak in.
+[package]
+name = "bevy_ceiling"
+version = "0.1.0"
+edition = "2021"
+publish = false
+
+[workspace]
+
+[dependencies]
+# Same bevy release the game pins (Cargo.lock at the repo root: 0.19.1).
+# Default features so the renderer, winit, UI, and font are the stock ones;
+# `bevy_dev_tools` for the 0.19 `FpsOverlayPlugin`.
+bevy = { version = "=0.19.1", features = ["bevy_dev_tools"] }
+
+[profile.release]
+debug = false
+strip = "debuginfo"
+
+# The game's dev build gives dependencies opt-level 3; mirror that so a
+# `cargo run` without `--release` is still a fair ceiling.
+[profile.dev.package."*"]
+opt-level = 3

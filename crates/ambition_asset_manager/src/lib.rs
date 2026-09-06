@@ -1,0 +1,73 @@
+//! Ambition asset catalog + source/profile policy.
+//!
+//! This crate owns Ambition's logical asset layer: stable [`AssetId`]s,
+//! a [`manifest`] of [`AssetEntry`] records, [`profile::AssetProfile`]
+//! personas, [`policy::MissingAssetPolicy`] / [`policy::CachePolicy`]
+//! rules, [`preload::PreloadGroup`] tagging, and a [`resolver`] that
+//! maps `(id, profile)` to a concrete [`location::AssetLocation`].
+//!
+//! It deliberately does NOT re-implement async loading, handles,
+//! dependencies, or hot reload — Bevy's `AssetServer` /
+//! `AssetReader` / `AssetPath` already cover those. The optional
+//! [`bevy_integration`] module exposes a thin Bevy plugin/resource pair
+//! that turns resolved locations into `AssetServer::load` calls.
+//!
+//! For non-Bevy byte consumers (the SFX bank, manifest preload, raw
+//! shader bytes), callers resolve a logical id here and construct their
+//! backend-specific provider in the owning subsystem.
+//!
+//! See `docs/systems/asset-manager.md` for the full per-profile contract,
+//! hot-reload availability, and Bevy `AssetSource` wiring recommendations.
+
+pub mod asset_publish;
+pub mod id;
+pub mod kind;
+pub mod location;
+pub mod manifest;
+pub mod policy;
+pub mod preload;
+pub mod profile;
+pub mod resolver;
+
+#[cfg(feature = "bevy")]
+pub mod bevy_integration;
+
+/// A game's own asset tree, layered over the engine's (recorded SDK leak #3).
+#[cfg(all(feature = "bevy", not(target_arch = "wasm32")))]
+pub mod consumer_source;
+
+#[cfg(feature = "bevy")]
+pub mod platformer_assets;
+
+pub use id::AssetId;
+pub use kind::AssetKind;
+pub use location::{ipfs_gateway_url, AssetLocation};
+pub use manifest::{AssetEntry, AssetManifest, AssetManifestBuilder, LocationCandidate};
+pub use policy::{CachePolicy, MissingAssetPolicy};
+pub use preload::PreloadGroup;
+pub use profile::{AssetProfile, AssetSourceProfile};
+pub use resolver::{resolve, resolve_all, AssetResolutionError, ResolvedAsset};
+
+#[cfg(feature = "bevy")]
+/// ⛔⛔ `image_stages` AND ITS 16 TESTS EXIST ONLY UNDER `--features bevy`, WHICH
+/// IS NOT A DEFAULT FEATURE OF THIS CRATE. `cargo test -p ambition_asset_manager`
+/// runs 56 tests; `--features bevy` runs 83. The gate's feature-union job covers
+/// the difference — but that job is built inside `if everything:` in
+/// `scripts/run_tests.py`, so it is EXHAUSTIVE-PLAN ONLY, and an ordinary
+/// `./run_tests.sh` executes none of these.
+///
+/// That matters more here than for a typical feature-gated module: the tests
+/// behind this flag include the reveal-readiness guard
+/// (`the_gpu_readiness_term_wants_the_gpu_stamp_while_a_render_world_is_present`),
+/// which decides whether a room's cover may lift. Found 2026-09-02 when a new
+/// test in this module printed "running 0 tests" and PASSED. See
+/// `docs/recipes/checks-that-did-not-run.md` member #9.
+pub mod image_stages;
+
+#[cfg(feature = "bevy")]
+pub use bevy_integration::{
+    path_for_active, AmbitionAssetCatalog, AmbitionAssetManagerPlugin, AmbitionAssetProfile,
+};
+
+#[cfg(feature = "bevy")]
+pub use platformer_assets::actors_desktop_asset_root;

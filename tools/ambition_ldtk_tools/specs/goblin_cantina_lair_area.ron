@@ -1,0 +1,267 @@
+// Goblin Cantina faction lair — a horizontal training-pit (rowdy
+// combat lair). Reuses the parade-yard layout shape that was first
+// drafted for the military faction; the military lair is already
+// served by `military_tower` (with the General), so this layout
+// moves to the Goblin Cantina instead. Marker rev: see
+// docs/systems/factions.md for which sprite + music belongs to whom.
+//
+// Layout (800 wide × 480 tall):
+//
+//   +----------------------------------------------------------------+
+//   |  ▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒ ceiling ▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒  |
+//   |                                                                |
+//   |  [Fretjaw]   ▒▒▒                  ▒▒▒                          |
+//   |   chieftain  table                bar stack                    |
+//   |  ▒▒▒▒▒▒▒▒  ▒▒▒        ▒▒▒        ▒▒▒        ▒▒▒                |
+//   |                                                  [PlayerStart] |
+//   |▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒|
+//   |                                            [Ent door, top of   |
+//   |                                             right pillar]      |
+//   +----------------------------------------------------------------+
+//
+// Movement contract: a noisy training-pit corridor — you walk left
+// from spawn, vaulting low pillar tables and ducking under the
+// central bar shelf to reach Fretjaw, the cantina chieftain, on the
+// leftmost dais.
+
+(
+    id: "goblin_cantina_lair",
+    level_id: "goblin_cantina_lair",
+    world_x: 33008,
+    world_y: 1024,
+    px_wid: 800,
+    px_hei: 480,
+    fill_collision: "empty",
+    biome: "cantina",
+    music_track: "first_goblin_tune_v2_radio",
+    ambient_profile: "rowdy",
+    visual_theme: "orange",
+    connect_to: [
+        (
+            target_room: "central_hub_main",
+            px: [
+                202,
+                880,
+            ],
+            size: [
+                48,
+                96,
+            ],
+            snap_to_surface: true,
+            id: "goblin_cantina_door",
+            target_zone: "goblin_cantina_entry",
+            activation: "Door",
+            bidirectional: true,
+        ),
+    ],
+    entities: [
+        (
+            type: "Solid",
+            px: [
+                0,
+                432,
+            ],
+            size: [
+                800,
+                48,
+            ],
+            fields: (
+                name: "floor",
+            ),
+        ),
+        (
+            type: "Solid",
+            px: [
+                0,
+                0,
+            ],
+            size: [
+                16,
+                432,
+            ],
+            fields: (
+                name: "left_wall",
+            ),
+        ),
+        (
+            type: "Solid",
+            px: [
+                784,
+                0,
+            ],
+            size: [
+                16,
+                432,
+            ],
+            fields: (
+                name: "right_wall",
+            ),
+        ),
+        (
+            type: "Solid",
+            px: [
+                16,
+                0,
+            ],
+            size: [
+                768,
+                16,
+            ],
+            fields: (
+                name: "ceiling",
+            ),
+        ),
+        (
+            type: "Solid",
+            px: [
+                560,
+                384,
+            ],
+            size: [
+                48,
+                48,
+            ],
+            fields: (
+                name: "table_right",
+            ),
+        ),
+        (
+            type: "Solid",
+            px: [
+                400,
+                384,
+            ],
+            size: [
+                48,
+                48,
+            ],
+            fields: (
+                name: "table_mid",
+            ),
+        ),
+        (
+            type: "Solid",
+            px: [
+                240,
+                384,
+            ],
+            size: [
+                48,
+                48,
+            ],
+            fields: (
+                name: "table_left",
+            ),
+        ),
+        (
+            type: "Solid",
+            px: [
+                336,
+                192,
+            ],
+            size: [
+                128,
+                16,
+            ],
+            fields: (
+                name: "bar_shelf",
+            ),
+        ),
+        (
+            type: "Solid",
+            px: [
+                16,
+                384,
+            ],
+            size: [
+                144,
+                16,
+            ],
+            fields: (
+                name: "chieftain_dais",
+            ),
+        ),
+        (
+            type: "PlayerStart",
+            px: [
+                720,
+                386,
+            ],
+            size: [
+                28,
+                46,
+            ],
+            fields: (
+                name: "goblin_cantina_spawn",
+            ),
+        ),
+        (
+            type: "LoadingZone",
+            px: [
+                720,
+                336,
+            ],
+            size: [
+                48,
+                96,
+            ],
+            fields: (
+                id: "goblin_cantina_entry",
+                name: "goblin_cantina_entry",
+                activation: "Door",
+                target_room: "central_hub_complex",
+                target_zone: "goblin_cantina_door",
+                bidirectional: true,
+            ),
+        ),
+        (
+            type: "NpcSpawn",
+            px: [
+                56,
+                314,
+            ],
+            size: [
+                42,
+                70,
+            ],
+            fields: (
+                name: "Fretjaw, Cantina Chieftain",
+                prompt: "Talk",
+                dialogue_id: "goblin_cantina_chieftain",
+                patrol_radius: 0,
+            ),
+        ),
+        (
+            type: "CameraZone",
+            px: [
+                0,
+                0,
+            ],
+            size: [
+                800,
+                480,
+            ],
+            fields: (
+                id: "goblin_cantina_camera",
+                name: "goblin_cantina_camera",
+                mode: "Default",
+            ),
+        ),
+        (
+            type: "DebugLabel",
+            px: [
+                40,
+                60,
+            ],
+            size: [
+                400,
+                20,
+            ],
+            fields: (
+                name: "goblin_cantina_intro_label",
+                text: "Goblin Cantina — vault the tables to the chieftain.",
+                category: "Custom",
+            ),
+        ),
+    ],
+)

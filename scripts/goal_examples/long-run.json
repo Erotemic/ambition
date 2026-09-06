@@ -1,0 +1,16 @@
+{
+  "_comment": [
+    "Template for a long unattended run. Copy, edit the two fields, then:",
+    "  python3 scripts/goal_guard.py --arm <your-goal>.json",
+    "",
+    "A goal is TEXT and CLOCKS. The guard runs no commands: it blocks Stop and",
+    "prints `goal` so the agent keeps working. Only a clock ends a run.",
+    "",
+    "`deadline_utc` is not optional in spirit — it is what makes 24 hours mean",
+    "24 hours in both directions."
+  ],
+
+  "goal": "work docs/planning continuously; there is always an open row",
+  "deadline_utc": "2026-01-02T00:00:00Z",
+  "max_stalled_blocks": 3
+}

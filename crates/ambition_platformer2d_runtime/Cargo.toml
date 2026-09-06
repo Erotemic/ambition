@@ -1,0 +1,105 @@
+[package]
+name = "ambition_platformer2d_runtime"
+version = "0.1.0"
+edition.workspace = true
+license.workspace = true
+authors.workspace = true
+description = "The platformer ENGINE face (demo plan E5): a `PlatformerEnginePlugins` plugin group that assembles the content-free simulation plugins, so a game (Ambition, or a demo) builds an engine App by adding this group + its own content crate. The demo gate — S5/M-track apps depend on this, not on ambition_app."
+
+[dependencies]
+# Optional LDtk runtime support. The `ldtk_runtime` feature is required for
+# `LdtkRuntimeIndex` / `LdtkRuntimeSpinePlugin`; movement-only games leave this
+# dependency disabled and avoid linking the LDtk backend.
+ambition_platformer2d_ldtk = { path = "../ambition_platformer2d_ldtk", default-features = false, optional = true }
+# The MOUNT PAIR's schedule, carved out of the monolith (D33). This crate
+# already wired those two systems; it names their owner now.
+ambition_mount = { path = "../ambition_mount" }
+ambition_platformer2d_actor_monolith = { path = "../ambition_platformer2d_actor_monolith", default-features = false, features = [
+    "headless",
+    "input",
+] }
+# `WorldItemSimulationPlugin`, composed beside `ItemPickupSimulationPlugin`
+# above so neither item domain registers the other.
+ambition_world_items = { path = "../ambition_world_items" }
+ambition_abilities = { path = "../ambition_abilities" }
+ambition_held_items = { path = "../ambition_held_items" }
+# The registration protocol the rollback registry answers (blank identity
+# refused, new/idempotent/conflict, canonical rows). Dependency-free.
+ambition_registry_core = { path = "../ambition_registry_core" }
+# Conversation continuity, named directly since it left the actor monolith
+# . The domain now owns its rollback declaration; this host composes
+# that offer and `room_transition/commit.rs` reads whether a conversation is live.
+ambition_conversation = { path = "../ambition_conversation" }
+ambition_boss_encounter = { path = "../ambition_boss_encounter" }
+ambition_causal = { path = "../ambition_causal", features = ["bevy"], optional = true }
+ambition_dialog = { path = "../ambition_dialog", features = ["input"] }
+ambition_projectiles = { path = "../ambition_projectiles" }
+ambition_combat = { path = "../ambition_combat" }
+ambition_damage = { path = "../ambition_damage" }
+ambition_encounter = { path = "../ambition_encounter" }
+ambition_encounter_features = { path = "../ambition_encounter_features" }
+ambition_characters = { path = "../ambition_characters" }
+# Optional for the same reason the LDtk edge above is: a portal is a
+# capability a game HAS. The monolith and the host already declare it this way.
+ambition_portal2d = { path = "../ambition_portal2d", optional = true }
+ambition_sim_view = { path = "../ambition_sim_view", features = ["input"] }
+# The combat-phase chain's effect seam (`EffectRequest`/`apply_effects`) —
+# sim-side effect vocabulary, not presentation.
+ambition_vfx = { path = "../ambition_vfx" }
+# The per-frame player/room schedule wiring (E5 step 5): the world-clock
+# refresh, the input-set vocabulary, and the body-cluster component types the
+# player frame registers as required components.
+ambition_time = { path = "../ambition_time" }
+ambition_input = { path = "../ambition_input" }
+ambition_platformer2d_core = { path = "../ambition_platformer2d_core" }
+# The engine sim messages/resource defaults (E5 step 6, SimCoreResourcesPlugin).
+ambition_sfx = { path = "../ambition_sfx" }
+ambition_persistence = { path = "../ambition_persistence" }
+ambition_menu = { path = "../ambition_menu" }
+ambition_gameplay_trace = { path = "../ambition_gameplay_trace" }
+ambition_items = { path = "../ambition_items" }
+ambition_platformer2d_shared_tangle = { path = "../ambition_platformer2d_shared_tangle" }
+# Cutscene PLAYBACK is rollback state (it gates participant input). The cutscene
+# crate owns that declaration through the backend-neutral registrar; this host
+# names the crate only to compose the installed domain's offer. The stepper
+# itself remains backend-agnostic.
+ambition_cutscene = { path = "../ambition_cutscene" }
+# The room-transition readiness transaction is an `ambition_load` plan: the
+# barrier, its work items, and the one-shot commit authorization. `ambition_load`
+# is a leaf (bevy only), so this adds no graph depth.
+ambition_load = { path = "../ambition_load" }
+ambition_dev_tools = { path = "../ambition_dev_tools" }
+# The authored world IR — `ActiveRoomMetadata` is what the mode-scope seam
+# (D-C) reads to decide which hosted ruleset is awake.
+ambition_platformer2d_world = { path = "../ambition_platformer2d_world" }
+# `AuthoredSheets`, the provider-authored sheet registry the combat schedule
+# snapshots into `AuthoredAttackVolumeResolver`. This edge was always here — it
+# was laundered through `ambition_platformer2d_actor_monolith::character_sprites`,
+# a facade that re-exported 22 `ambition_sprite_sheet` names purely so consumers
+# would not have to name the owner. The facade is gone; the edge is
+# now visible. `ambition_sprite_sheet` is a leaf asset/vocabulary crate below the
+# monolith this crate already depends on, so it adds no graph depth.
+ambition_sprite_sheet = { path = "../ambition_sprite_sheet" }
+ambition_character_sprites = { path = "../ambition_character_sprites" }
+bevy_common_assets = { version = "0.17", features = ["ron"] }
+blake3 = "1"
+bevy = { version = "0.19.1", default-features = false, features = [
+    # add_headless_foundation: asset/image registries + states for a
+    # windowless engine app (bevy_ecs_ldtk touches Image handles).
+    "bevy_asset",
+    "bevy_image",
+    "bevy_state",
+] }
+
+[features]
+# Structured causal facts. Optional and default-OFF for the same §2e reason the
+# character capability's is: a game that never opens an inspector must not link
+# one. `ambition_causal` has zero dependencies of its own.
+causal = ["dep:ambition_causal", "ambition_platformer2d_actor_monolith/causal", "ambition_combat/causal"]
+# Forward the sim-relevant feature gates so a consumer can opt into the same
+# optional subsystems the plugin group conditionally bundles. Kept minimal for
+# the first assembly; widened as more plugins migrate in.
+portal = ["dep:ambition_portal2d", "ambition_held_items/portal", "ambition_platformer2d_actor_monolith/portal"]
+# The LDtk runtime spine and its rollback row, offered to a game that has an
+# LDtk world. Default-OFF: see the dependency's own note.
+ldtk = ["dep:ambition_platformer2d_ldtk", "ambition_platformer2d_ldtk/ldtk_runtime"]

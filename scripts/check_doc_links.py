@@ -1,0 +1,188 @@
+#!/usr/bin/env python3
+"""Check local Markdown links in active Ambition docs.
+
+This intentionally scans active knowledge-base docs and root entrypoints, not
+historical archives or patch files. Archives preserve stale paths on purpose.
+"""
+
+from __future__ import annotations
+
+import argparse
+import re
+import sys
+from pathlib import Path
+from urllib.parse import unquote, urlparse
+
+LINK_RE = re.compile(r"(?<!!)\[[^\]]+\]\(([^)]+)\)")
+REF_RE = re.compile(r"^\s*\[[^\]]+\]:\s*(\S+)", re.MULTILINE)
+
+SKIP_DIR_PARTS = {
+    ".git",
+    ".agent",
+    "target",
+    "debug_traces",
+    "docs/archive",
+    "docs/patches",
+}
+
+ROOT_MARKDOWN = {
+    "AGENTS.md",
+    "CLAUDE.md",
+    "README.md",
+    "TODO.md",
+}
+
+STALE_PATH_HINTS = [
+    "docs/moving_platforms.md",
+    "docs/progression_systems_2026-05-05.md",
+    "docs/crate_split_plan.md",
+    "tools/audio/",
+    "tools/validate_ambition_ldtk.py",
+    "tools/author_ldtk_area.py",
+]
+
+
+def should_skip(path: Path) -> bool:
+    rel = path.as_posix()
+    if path.name.startswith(".") and path.name not in ROOT_MARKDOWN:
+        return True
+    return any(rel == part or rel.startswith(part + "/") for part in SKIP_DIR_PARTS)
+
+
+def iter_markdown(root: Path):
+    for name in sorted(ROOT_MARKDOWN):
+        p = root / name
+        if p.exists():
+            yield p
+    docs = root / "docs"
+    if docs.exists():
+        for p in sorted(docs.rglob("*.md")):
+            rel = p.relative_to(root)
+            if not should_skip(rel):
+                yield p
+
+
+def strip_angle(target: str) -> str:
+    target = target.strip()
+    if target.startswith("<") and target.endswith(">"):
+        target = target[1:-1]
+    return target
+
+
+def is_external(target: str) -> bool:
+    parsed = urlparse(target)
+    return bool(
+        parsed.scheme and parsed.scheme not in {"", "file"}
+    ) or target.startswith("mailto:")
+
+
+def local_target_exists(root: Path, source: Path, target: str) -> bool:
+    target = strip_angle(target).split()[0]
+    if not target or target.startswith("#") or is_external(target):
+        return True
+    target = target.split("#", 1)[0]
+    if not target:
+        return True
+    target = unquote(target)
+    if target.startswith("/"):
+        candidate = root / target.lstrip("/")
+    else:
+        candidate = source.parent / target
+    return candidate.exists()
+
+
+# ⛔ A LINK INSIDE A CODE SPAN IS AN EXAMPLE, NOT A LINK, and this checker used
+# to fail on one. `docs/planning/yardrat-open-measurements.md` explains why a
+# link checker for anchors is not worth building, and quotes the syntax it is
+# talking about as `` `[text](other.md#anchor)` `` — inside backticks, which is
+# how a document names a construct rather than uses it. The gate reported it as
+# a broken local link, so the page could not say what it was about.
+#
+# ⚠ Fenced blocks are covered by the same rule: a ```` ``` ```` block full of
+# example markdown is documentation of a form, never navigation.
+# ⛔⛔ A DOUBLE-BACKTICK SPAN MAY CONTAIN BACKTICKS -- that is what it is FOR.
+# The old pattern was `{1,3}[^`]*`{1,3}, whose `[^`]*` stops at the first inner
+# backtick, so `` `[text](x.md)` `` -- the standard way to quote a code span --
+# was not blanked and its example link was reported broken. Found 2026-09-03 in
+# the journal entry ABOUT that same false positive, which is the natural place
+# to hit it: a page discussing code spans is a page full of quoted ones.
+# ⇒ Match an opening RUN of backticks and the closing run of the SAME length,
+# via a backreference, so a span can hold shorter runs.
+CODE_SPAN_RE = re.compile(r"^```.*?^```|(`+)(?:(?!\1)[\s\S])*?\1", re.S | re.M)
+
+
+def _blank_code_spans(text: str) -> str:
+    """Replace code spans with spaces, PRESERVING OFFSETS.
+
+    Offsets matter: `line_for_offset` counts newlines up to the match, so
+    deleting the spans would report every later finding on the wrong line —
+    a checker that points at the wrong line is worse than one that stays quiet.
+    """
+    return CODE_SPAN_RE.sub(lambda m: " " * len(m.group(0)), text)
+
+
+def collect_links(text: str):
+    scannable = _blank_code_spans(text)
+    for match in LINK_RE.finditer(scannable):
+        target = match.group(1)
+        if target:
+            yield match.start(1), target
+    # ⛔ `scannable`, NOT `text`. The rule above -- a fenced block of example
+    # markdown is documentation of a FORM, never navigation -- was applied to
+    # inline links only, so `[label]: nowhere.md` inside a ``` block was
+    # collected and reported broken while `[text](nowhere.md)` beside it was
+    # correctly ignored. Latent rather than live when found (2026-09-03): no doc
+    # in the tree demonstrated a reference definition. Blanking preserves
+    # offsets, so the reported line number is unaffected.
+    for match in REF_RE.finditer(scannable):
+        yield match.start(1), match.group(1)
+
+
+def line_for_offset(text: str, offset: int) -> int:
+    return text.count("\n", 0, offset) + 1
+
+
+def main() -> int:
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--root", default=".", help="repository root")
+    args = parser.parse_args()
+
+    root = Path(args.root).resolve()
+    errors: list[str] = []
+    documents = 0
+    links = 0
+
+    for path in iter_markdown(root):
+        documents += 1
+        text = path.read_text(encoding="utf8")
+        rel = path.relative_to(root)
+        for offset, target in collect_links(text):
+            links += 1
+            if not local_target_exists(root, path, target):
+                errors.append(
+                    f"{rel}:{line_for_offset(text, offset)} broken local link: {target}"
+                )
+        for stale in STALE_PATH_HINTS:
+            if stale in text:
+                errors.append(f"{rel}: stale path hint still present: {stale}")
+
+    if errors:
+        print("Documentation link check failed:", file=sys.stderr)
+        for err in errors:
+            print(f"  - {err}", file=sys.stderr)
+        return 1
+
+    if documents == 0:
+        print(
+            f"Documentation link check examined NO documents under {root} — the "
+            "collection is broken, not the docs. A pass here would mean nothing.",
+            file=sys.stderr,
+        )
+        return 1
+
+    print(f"Documentation link check passed ({documents} documents, {links} local links)")
+    return 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())

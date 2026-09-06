@@ -1,0 +1,134 @@
+# Ambition documentation map
+
+Use this page to choose the smallest trustworthy packet. Do not read the whole
+documentation tree.
+
+## Ten-minute orientation
+
+1. Read [`../README.md`](../README.md) and [`../AGENTS.md`](../AGENTS.md).
+2. Read [`.agent/README.md`](../.agent/README.md), then run:
+
+   ```bash
+   python scripts/agent_query.py overview
+   python scripts/agent_query.py "<the user's task words>"
+   ```
+
+3. Read [`concepts/engine-mental-model.md`](concepts/engine-mental-model.md).
+4. Read [`planning/vision.md`](planning/vision.md) and the relevant entry in
+   [`planning/tracks.md`](planning/tracks.md).
+5. Inspect one crate packet, one focused source owner, and the narrowest tests.
+
+That is normally enough to begin useful work.
+
+## Authority ladder
+
+| Need | Authority |
+|---|---|
+| User intent for this task | the current user request |
+| Project direction and live queue | [`planning/`](planning/README.md) |
+| Accepted architectural decisions | [`adr/`](adr/README.md) |
+| Durable vocabulary and invariants | [`concepts/`](concepts/index.md) |
+| How other engines solve the same problem | [`related-work/`](related-work/README.md) |
+| Current subsystem implementation notes | [`systems/`](systems/index.md), then source |
+| Repeatable procedures | [`recipes/`](recipes/index.md) |
+| Author-time tools | [`tools/`](tools/index.md) |
+| Current implementation fact | source, manifests, and tests |
+| Localization | generated `.agent/` indexes |
+| Failure history and engineering lessons | [`../dev/`](../dev/README.md) |
+| Superseded evidence | git history |
+
+Generated indexes locate likely owners; they do not override source. Planning
+wins for intended direction. Source and tests win for current implementation.
+
+## Durable engine concepts
+
+Start with:
+
+- [`concepts/engine-mental-model.md`](concepts/engine-mental-model.md) — the
+  stable layer/data-flow picture.
+- [`concepts/content-and-provider-boundaries.md`](concepts/content-and-provider-boundaries.md)
+  — what providers own and how sessions activate.
+- [`concepts/input-and-game-modes.md`](concepts/input-and-game-modes.md) — one
+  control/action/prompt path.
+- [`concepts/sim-presentation-seam.md`](concepts/sim-presentation-seam.md) —
+  authoritative simulation versus derived presentation.
+- [`concepts/testing-and-validation.md`](concepts/testing-and-validation.md) —
+  how to prove a change.
+
+Use [`concepts/index.md`](concepts/index.md) for the full focused list.
+
+## Durable architecture
+
+Architecture pages hold settled cross-domain boundaries rather than execution
+plans:
+
+- [`architecture/engine-architecture.md`](architecture/engine-architecture.md) — canonical current engine roles, dependency direction, authority/lifetime and composition model.
+- [`architecture/architecture-boundaries.md`](architecture/architecture-boundaries.md) — policy/guardrail ownership.
+- [`architecture/bevy-system-boundaries.md`](architecture/bevy-system-boundaries.md) — ECS query/SystemParam/phase boundary doctrine without parameter-ceiling packing.
+- [`architecture/package-and-capability-boundaries.md`](architecture/package-and-capability-boundaries.md) — package extraction, Bevy plugin maturity, capability composition and residual actor-kernel doctrine.
+- [`architecture/spatial-model.md`](architecture/spatial-model.md) — backend-neutral world/spatial representation, geometry policy and reopen triggers.
+
+Active migration/extraction work stays in `planning/`; once a campaign settles a
+boundary, distill the rule here/concepts/systems/ADRs and remove its execution
+diary from the live planning surface.
+
+## Current system docs
+
+System docs are intentionally fewer and shorter than the source. They explain a
+current cross-crate flow or authority boundary that cannot be discovered from a
+single module map. Exact symbol inventories belong in `.agent/`, not prose.
+
+- [`systems/camera-reference-frames.md`](systems/camera-reference-frames.md) — shipped world-fixed/subject-relative camera policy and per-view authority.
+
+See [`systems/index.md`](systems/index.md). If a system page reads like a
+migration ledger, future plan, or dated audit, DELETE it.
+
+## Procedures and tools
+
+- [`recipes/index.md`](recipes/index.md) — commands and repeatable workflows.
+- [`tools/index.md`](tools/index.md) — author-time generators, validators, and
+  reports.
+- [`concepts/agent-native-authoring.md`](concepts/agent-native-authoring.md) — cross-tool contract for LLM-native content discovery, inspection, mutation, validation, provenance, and review.
+- [`mechanics/index.md`](mechanics/index.md) — stable gameplay-mechanic contracts
+  and expressibility tests.
+
+A recipe must work on the current tree. A tool doc must name its real launcher,
+dependencies, outputs, and whether it mutates checked-in content.
+
+## Planning, incubation, and history
+
+- [`planning/`](planning/README.md) is the master plan and live queue.
+- [`brainstorms/`](brainstorms/) is Jon's active design-incubation space;
+  agents do not write there.
+- [`vision/`](vision/index.md) contains auxiliary vision notes; binding direction
+  lives in `planning/vision.md`.
+- ⛔ THERE IS NO `archive/` ANY MORE, and "move it to the archive" is no longer
+  an available answer. Jon removed the tree on 2026-09-05 — 221 files, 6.3 MB of
+  a checkout everyone clones — on the grounds that it already lives in the
+  history: *"It lives in the history it doesn't need to bloat our checkout."*
+  ⇒ Superseded reviews, migrations and handoffs are DELETED when they stop being
+  authority. `git log --diff-filter=D -- docs/archive` finds the removal, and
+  `git show <sha>^:<path>` reads any of it back.
+
+`docs/current/` and `docs/archive/` are retired and should not be recreated.
+
+## Freshness rule
+
+Prefer stable contracts over path-heavy inventories. A durable doc should state:
+
+- who owns authority;
+- the data flow and invariants;
+- how another provider/controller/platform participates;
+- how reset/restore/headless execution behaves;
+- how to localize the current implementation and tests.
+
+When exact paths are useful, verify them in the same patch and include a
+`last_verified` date. Delete completed migration narratives rather than keeping
+them in `systems/`.
+
+Run after documentation changes:
+
+```bash
+python scripts/check_doc_links.py
+python scripts/generate_agent_index.py
+```

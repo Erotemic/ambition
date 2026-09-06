@@ -1,0 +1,28 @@
+[package]
+name = "ambition_menu_kaleidoscope"
+version = "0.1.0"
+edition = "2021"
+description = "The bevy_lunex 3D OoT-style cube renderer for the ambition_menu page model — the FIRST engine extension crate (E1e). Optional for any game: a host installs KaleidoscopeMenuPlugin to render the same backend-agnostic MenuPageModel as a rotating cube instead of the flat bevy_ui grid. Engine-only deps (ambition_menu + bevy + bevy_lunex); names no game content."
+license = "MIT OR Apache-2.0"
+publish = false
+
+[lib]
+crate-type = ["rlib"]
+
+[dependencies]
+# The backend-agnostic page model this renderer draws (MenuPageModel + the
+# AmbitionMenu* control/page/root vocabulary + scrollbar layout helpers).
+ambition_menu = { path = "../../crates/ambition_menu" }
+# Trimmed like every other manifest: plain `bevy = "0.19.1"` would enable bevy's
+# full default set (2d+3d+ui), and Cargo feature unification would push that
+# superset into every workspace build. This renderer needs the 3D mesh/material
+# pipeline (Camera3d/Mesh3d/MeshMaterial3d/StandardMaterial) plus the UI
+# vocabulary it shares with ambition_menu. The camera explicitly uses
+# `Tonemapping::None`: this is an unlit UI scene, so it does not need Bevy's
+# LUT/KTX2/Zstandard payload or the LUT-backed color transform.
+bevy = { version = "0.19.1", default-features = false, features = [
+    "bevy_pbr",
+    "bevy_ui",
+] }
+# The 3D cube UI toolkit (pulls bevy_rich_text3d / Text3d transitively).
+bevy_lunex = "0.7"

@@ -1,0 +1,647 @@
+# The check that was correct and did not run
+
+A test that fails is information. A test that never executed and reports green
+is worse than no test at all, because it also spends the attention that would
+have found the defect by hand.
+
+⭐ **AND IT HAS A SIBLING FAMILY, which #10 below already notices when it calls
+itself "a DIFFERENT SPECIES from 1-9"** — the check that ran perfectly and could
+not have failed. It has its own section below, and its instances live in a
+journal.
+
+This page is the dual of
+[`cheapest-sufficient-check.md`](cheapest-sufficient-check.md). That page asks
+*what is the least I can run to settle this change*. This one asks *did what I
+ran actually run* — and it exists because on 2026-09-02 a single day's work
+turned up SEVEN members of the same family in one gate script; an eighth was
+already sitting in the backlog unrecognised, and a ninth surfaced the same night.
+Several more followed on 2026-09-03, from two agents on the same day.
+
+⭐ **THE FINDING IS NOT THE COUNT. It is that seven of the first ten were found
+by accident** — by running a suite for an unrelated reason, by an external reviewer
+reading source, by running `cargo check` by hand before the gate. ⭐ **#12 IS
+THE FIRST ONE FOUND ON PURPOSE**, by the audit in "Running this audit yourself"
+below — asking of every `scripts/check_*.py` whether the gate, the pytest lane
+or CI names it. That is what a deliberate search buys, and it is why the ratio
+above is a fact about the past rather than a law. Not one was
+found by the checking system noticing its own hole. A gate cannot audit its own
+coverage, because the same assumption that makes a job skip also makes the
+report say it ran.
+
+⚠ **AND THIS PAGE ROTS.** Member #3 was live when the first draft of this
+sentence was written and fixed by `234bcc686` about an hour later, while the
+draft was still open. That is not an embarrassment to correct quietly — it is
+the argument for the rule at the bottom of this page. Re-check a member against
+the current `HEAD` before you repeat it to anybody; a catalogue of gate holes is
+a claim about a changing repository, exactly like a queue row.
+
+## The question before the four
+
+⛔ **DID ANYONE RUN A CHECK AT ALL?** Everything below assumes a check ran and
+lied about its coverage. The plainer failure underneath the whole family is a
+check that was simply never run in the window where it mattered, and it produces
+an identical outcome: nobody knows.
+
+On 2026-09-02 `main` could not compile for several commits. `perception_census.rs`
+was renamed out of `ambition_dev_tools` in one commit and its
+`pub mod perception_census;` line in `lib.rs` was not removed until `01b7c7ca0`,
+so every commit in between failed with **E0583, file not found for module** — the
+loudest, least subtle error Rust has. It survived because the commits in that
+window were documentation-shaped and nobody compiled that crate.
+
+⭐ **AND IT SURVIVED A CONFLICT-FREE MERGE, WHICH IS THE PART TO REMEMBER.** A
+branch based before the rename merged `main` cleanly: its side kept the `lib.rs`
+line because it had never touched it, the other side deleted the file, and git
+was correct both times. A `rename … => …` in a merge's stat output for a file
+whose module is declared elsewhere is a semantic conflict a textual merge cannot
+see — and the merge reports success.
+
+So: "the gate is slow, I'll run it later" and "the gate is blind" have the same
+consequence. The four questions below are for the second case; this one is
+answered by running something at all, on the crate the merge just renamed.
+
+## The four questions
+
+Ask these of any check you are about to trust. They are cheap, and each one
+found at least one member below.
+
+1. **What does this flag skip?** A scope flag is a promise about what you are
+   NOT running, and that promise is usually only in the help text.
+2. **Which plan is this job in?** A job that exists in the exhaustive plan and
+   not the default one does not run on the command anybody actually types.
+3. **Does it re-derive, or does it reuse a cache?** A scan over incremental
+   build output sees only what recompiled.
+4. **What would this look like if the feature were silently off?** If the answer
+   is "exactly the same, and green", the check is measuring the harness.
+
+⛔ **ASK THEM TOGETHER, NOT SEPARATELY.** Member #6 below is blind in two
+independent ways at once, and each question in isolation returned a locally
+reassuring answer. "Which plan is this in" and "which branch does this compile"
+were both asked of that job, months apart, and it stayed broken.
+
+⛔ **AND CITE THE JOB NAME, NOT THE LINE NUMBER.** The first draft of this page
+cited `run_tests.py:368`, `:588` and `:590`. One merge later they were `:375`,
+`:595` and `:597` — three dead citations in a page whose whole subject is
+claims that quietly stop being true. Grep for the job's name string or its gate
+expression; those survive edits that line numbers do not.
+
+## The fourteen, and what each one teaches
+
+| # | the check | how it lied | status |
+|---|---|---|---|
+| 1 | `./run_tests.sh --rust` | skipped the whole Python lane, so the rollback stable-name ratchet, the codec-shape baseline and a stale `MODULES.md` sat red **for a day** behind a gate reporting 4/4 GREEN | fixed `2945f3381` |
+| 2 | the wasm build job | gated on `if not only and everything` — the exhaustive plan only, so a default run never checked `wasm32` at all | fixed `b85b4db20` |
+| 3 | `check_no_warnings.py` | parses diagnostics instead of setting `-D warnings`, so it reuses the build fingerprint — and **cached crates do not re-emit warnings**. In a warm tree it reports clean while real warnings exist | fixed `234bcc686` — the gate job is now `check_no_warnings.py --fresh`, and the price of the cold re-fingerprint is stated at the job |
+| 4 | the repo-tooling lane | simply not invoked by the flag anybody was using | fixed `2945f3381` |
+| 5 | the wasm CHECK | is **TYPE-ONLY**. `cargo check` cannot see a `#[cfg]` that removes BEHAVIOUR rather than breaking a build | ⛔ **STRUCTURALLY LIVE** |
+| 6 | "web persona BOOTS" | runs the web composition **NATIVELY** (`--features visible_web_base`, native target), so it compiles the `not(wasm32)` branch — and its `if not only and everything:` gate puts it in the exhaustive plan only | ⛔ **STRUCTURALLY LIVE, TWICE.** ✔ **RUN 2026-09-03 on the calculex host (no GPU): it SURVIVES startup** — route `ambition_launcher`, 23 UI nodes, 10 UI texts, 0 sprites, 2 cameras, simulation host `Rollback`; 16 m 01 s to build. ⚠ That closes NEITHER half: the run is still native, so it still compiles the `not(wasm32)` branch, and the gate still plans it only in the exhaustive plan. What it does establish is that the job passes when someone runs it, which had not been checked |
+| 8 | the Bevy 0.19 **Android font path** | is TYPECHECKED, NEVER RUN. The port deleted the hand-rolled `seed_android_system_fonts` and turned on Bevy's `system_font_discovery` for `android_platform` instead. ⛔ Its whole job is to find fonts the HOST does not have, so a desktop green says nothing about it | ⛔ **STRUCTURALLY LIVE.** Recorded in `../planning/tracks.md`; closing it needs a device, not a build | <!-- cite-ok: member 8 records this deleted function by name -->
+| 9 | the **16 `image_stages` tests**, including the reveal-readiness guard | exist only under `--features bevy`. `ambition_asset_manager`'s DEFAULT features exclude `bevy`, so the module does not exist in `cargo test -p ambition_asset_manager`: **56 tests run, not 83**. The gate's feature-union job would cover them — but it is built inside `if everything:`, so it is EXHAUSTIVE-PLAN ONLY | ⛔ **STRUCTURALLY LIVE, AND FAR BIGGER THAN THIS ROW — 783 TESTS ACROSS 29 CRATES**, measured 2026-09-03 (⚠ 784 by the evening of the same day — one test joined; the count is a moving target by construction, which is why the gate footer is ratcheted and this row is not the place to read it) with `scripts/feature_gated_tests.py` (which already existed): the 16 here are one module of a class that includes 53 in `ambition_content`'s `portal`, 26 in `ambition_input`'s `local_seats` and 25 in `ambition_app`'s `grid_backend`. The union job that runs them is inside `if not only and everything` in `run_tests.py`, so a DEFAULT green says nothing about any of them. The gate's coverage footer named the gap qualitatively and gave no magnitude; it now states the count, and `test_the_gate_states_how_many_tests_it_skips.py` ratchets it so the figure cannot rot. Found 2026-09-02 when a new test in that module printed `running 0 tests` and PASSED. ✔ **RUN 2026-09-03 on the calculex host, and every number reproduces: 83 with `--features bevy`, 56 without, 16 of the difference in `image_stages` — and all 83 PASS.** So the blindness is not currently hiding a failure, which is worth knowing and is NOT the same as it being fixed: the gate still does not run them, and the next break here is still invisible to it |
+| 10 | `[census] owners` (and its sibling `owners_in`) | is a **TOP-20**. The row prints `crates=82` and then names twenty, so a reader who greps it for a crate and finds nothing cannot tell *registers no systems* from *ranked 21st* — and the emitter's own doc comment says the row answers *"should a shipped title carry this at all"*, which is an ABSENCE question. Absence was uninformative for 62 of 82 crates while looking authoritative | fixed 2026-09-03 — both emitters now append `+N_more_not_shown`. ⚠ A DIFFERENT SPECIES from 1-9: not a gate that skipped, an instrument that answered a narrower question than it appeared to |
+| 11 | `./run_tests.sh --rust` itself | **exits 2 having run NOTHING** when the Python lane's `tree_sitter_rust` is missing, and says so in a voice that reads as informational: *"this interpreter cannot run the Python lane … affected: 1 planned job(s) … fix: scripts/setup/python_tools.sh"*. One affected job aborts the whole RUST lane, and the header it prints is indistinguishable from a normal preamble — a reader who does not check `$?` sees a run that appears to have started | fixed on this host by `scripts/setup/python_tools.sh`; the lane then ran 6957 tests. ⚠ **STRUCTURALLY LIVE ELSEWHERE**: any host missing that tool gets the same silent no-op |
+| 7 | the coverage footer | said `- the wasm/web build LINK (the wasm CHECK ran)` **unconditionally**, while the job is appended only `if wasm_target_installed()`. No target → no web job, all green, exit 0, and a report that it was checked | fixed `159e76ba8` |
+| 12 | the two **CI-ONLY ratchets** (`check_doc_link_ratchet`, `check_zone_name_ratchet`) | are invoked by `.github/workflows/test.yml --check` and by NOTHING ELSE — not the gate, not the pytest lane. Measured 2026-09-03 by asking, for every `scripts/check_*.py`, whether the gate, the pytest lane or CI names it: 14 of 16 are reachable locally and these two are not. ⛔ So a developer never sees them, and the doc-link one had accumulated TWO unseen regressions (`ambition_characters` 24→26, `ambition_platformer2d_core` 34→35). ⚠ It is also the slowest guard in the repo — a cold `cargo doc` over 9 crates, which TIMED OUT at 300 s in the sweep that found it, so "run every guard" quietly skips it unless you budget for it | ✔ **FIXED the same day.** The two regressions are repaired and `ambition_body_seed` added to its tracked crates (`bf4e6f353`), and both ratchets now run in `./run_tests.sh --maintenance` — the lane that exists for periodic hygiene and already owned `check_agent_kb`. 3/3 jobs, 147 s, of which the doc-link ratchet is 133 s. ⭐ NOT in the default plan on purpose: a cold `cargo doc` over nine crates is the wrong price on every dev cycle, and "reachable by one local command" was the actual gap, not "runs constantly". ✔ **RE-MEASURED 2026-09-03 late: 16 of 16 now reachable, and the shape of the answer changed.** Four (`check_engine_systems_are_engine_installed`, `check_retired_crate_names`, `check_rollback_mutators_run_in_sim`, `check_set_pins_have_engine_members`) are named by no lane and no workflow — their only caller is a test module. ⚠ That is the exact shape `--vanished` had in member 14 before it was aimed, so each was opened rather than counted: **all four carry a real-tree arm** (`test_the_live_tree_names_no_retired_crate`, `test_the_real_tree_has_no_unwaived_rows`, `app_only_systems(REPO)`, and a `collect()` that defaults to REPO), so the corpus is covered and not only the function. ⛔ **AND THE FIRST MEASUREMENT SAID FOUR WERE UNREACHABLE, WRONGLY** — it grepped for the `.py` FILENAME while the callers `import check_retired_crate_names` by module name. A reachability census is only as good as the shape of reference it looks for, which is the same failure this table records everywhere else, arriving in the tool used to audit it |
+| 13 | `./run_tests.sh --heavy` | is re-enabled wholesale by `--heavy`, which runs `cargo test --workspace --include-ignored`. `#[ignore]` conflates TWO unrelated reasons — *slow, run on demand* and **invalid unless run alone** — and `--include-ignored` cannot tell them apart. `parallax_theme_retires_on_walk` says so in its own header: `ambition_app` has ONE `[[test]]` target, so every file under `tests/` is a module of `app_it` sharing a process, and *"a sibling booting its own app would populate `Assets<Image>` underneath this one's assertions"*. Under `--heavy` it runs beside 6957 others | ⛔ **STRUCTURALLY LIVE, AND THE LANE CANNOT BE GREEN.** `#[ignore]` in this repo carries at least three unrelated meanings and `--include-ignored` honours none of them: (a) **must run alone** — `parallax_theme_retires_on_walk`, `hall_redecode_census`, whose assertions a sibling's `Assets<Image>` can satisfy, so the failure is a GREEN result that measured nothing; (b) **panics BY DESIGN to print a census** — `d71_transaction_census`'s two probes end in `panic!`, VERIFIED 2026-09-03 by running one with `--ignored`: `test result: FAILED. 0 passed; 1 failed`; (c) print-only probes and audit listings across 7 files whose own reasons say *"read it, do not assert on it"*. ⇒ So the plan that exists to run EVERYTHING was red the moment it ran, for reasons all by design. ✔ **FIXED 2026-09-03**: probes are named `probe_*` and the heavy job runs `--include-ignored --skip probe_ --test-threads=1` — the skip removes the by-design red, the serial run makes the isolation-required ones mean what they say. Guarded by `scripts/tests/test_probe_tests_are_named_probe.py`, poisoned both ways, matching on the ignore REASON rather than a name list because the reason is where the intent is written |
+| 14 | `scripts/check_planning_citations.py --vanished REF` | is invoked by **NOTHING but its own unit test**. `scripts/tests/test_planning_citation_vanished_mode.py` exercises `vanished_report` six ways and proves the instrument WORKS; no gate, no CI job and no lane ever points it at the real `docs/planning` with a real baseline. ⭐ A DISTINCT SPECIES AGAIN: not a gate that skipped (1-9) and not an instrument answering a narrower question than it looks (10-12), but a **correct, tested instrument that has never been aimed**. The tests are the trap — a green suite makes it look covered, and what is covered is the function, not the corpus | ⛔ **OPEN, and it has a measured yield.** Run 2026-09-03 against a 2026-08-13 baseline it reports **45 bare citations across 16 planning documents** naming something that WAS a definition in that tree and is not one at HEAD. For scale, a hand sweep of the same corpus the same day — every sentence-shaped backticked identifier, minus every `fn` in the tree — found **2 in 162**; the differential asks the precise question and yields twenty times more. ✔ **WIRED 2026-09-03, into `./run_tests.sh --maintenance`**, beside the two ratchets that arrived there for the same reason — with a FIXED baseline ref in `PLANNING_VANISHED_BASELINE`, never a rolling window, because a sliding baseline lets a finding stop being one without anyone deciding that; advancing the constant IS the act of accepting a triage and belongs in the commit that clears the rows. ⛔ **AND THE WIRING NEEDED `--strict` TO MEAN ANYTHING**: bare, the check prints its findings and exits **0** — 13 findings, exit 0 without it, exit 1 with it — so the first attempt at fixing this member would have recreated it one level down, as a maintenance job that lists real problems and reports success. Guarded by `scripts/tests/test_maintenance_vanished_job.py`, poisoned. ⚠ The original note read: it would be red on arrival, and the 45 need triage first — some rows RECORD an old name on purpose and want the `cite-ok` marker, not a repoint. Choosing the baseline (a fixed ref? a rolling 30 days?) is a maintainer call, because the answer changes what the check MEANS. ⭐ **TRIAGED 2026-09-03, 45 → 17**, and the breakdown is the useful part: **25 were rows RECORDING a deleted name on purpose** — deletion inventories under `Delete:`, `This should remove:` and `## Original plan`, and dated decision/investigation rows naming the code as it stood that day — all now carrying `cite-ok`; **2 were real renames** worth repointing (`sync_moving_platform` → `sync_moving_platform_visuals`, and `body_is_corpse`, whose intangibility promise moved to the `OutOfPlay` marker and `is_intangible`); **4 were FALSE POSITIVES** on names that are still definitions at HEAD — `attacks`, `grounded`, `conversation` and `combat` — every one of them a short generic name that is a **FIELD** now and was an ITEM at the baseline. ✔ **FIXED THE SAME DAY, in the instrument rather than in the rows.** `item_names` drops the `FIELD` rule so a field cannot INVENT a vanished name (a documented earlier bug: `ambition_demo_pocket` reported vanished while the crate was alive); dropping it on HEAD's side too created the mirror error. `still_a_field` now subtracts HEAD's field names from the differential — asymmetric ON PURPOSE, because subtracting can only REMOVE findings and so cannot resurrect the earlier bug. Pinned by `test_an_item_that_became_a_field_is_not_reported`, poisoned both ways. ⇒ **13 remained and every one was a true positive**, all in hot files another agent owned — and that agent triaged them the same day (`e2aadd36a`, *"the thirteen names --vanished found in my rows are removal records, marked as such"*). ✔ **`./run_tests.sh --maintenance` is now 5/5 green and the check reports 0.** ⛔ **AND THE CHECK HAS A RUNNING COST, MEASURED THE SAME DAY: it reddens on
+CORRECT prose.** Hours after it went green, a new line — *"…the per-frame despawn
+sweep, the `DebugOverlayLabel` marker…"*, a true sentence about something the <!-- cite-ok: this row RECORDS a name the 0.19 port deleted; that is the point of the sentence -->
+0.19 port deleted — turned the lane red again. That will happen every time
+somebody writes accurately about a removal, and the `cite-ok` marker is the toll.
+⇒ **If that cost ever outweighs the catch, narrow the CORPUS, not the baseline.**
+Advancing the baseline to quiet it would hide the real findings in the same
+range, which is the one thing the pinned ref exists to prevent.
+⭐⭐ **AND THE OBVIOUS NEXT MOVE — AIM IT AT THE REMAINING DOC TREES — IS THE
+WRONG ONE, MEASURED 2026-09-03 late.** The maintenance job scans five corpora;
+`docs/` has seventeen subdirectories. Aimed at the six substantive ones it does
+not cover (`adr`, `mechanics`, `sdk`, `tools`, `vision`, `learning`) it reports
+**12 bare citations**, and every one of them is a reason NOT to widen the job:
+
+* **7 are in `docs/adr/`** — `LegacyConstructionRoot`, `Unmigrated`, <!-- cite-ok: this paragraph is an INVENTORY of names that vanished; naming them is its content -->
+  `ProjectileOwnerId` (twice), `PendingLocalInput`, `RollbackSessionContract`, <!-- cite-ok: this paragraph is an INVENTORY of names that vanished; naming them is its content -->
+  `RoomReplayApplied`, `platformer_runtime`. All are true removals, and an <!-- cite-ok: this paragraph is an INVENTORY of names that vanished; naming them is its content -->
+  **architecture decision record describes the code as it stood on the day the
+  decision was made** — that is the genre's whole contract. Aiming a
+  currency check at a corpus that is deliberately historical would mean
+  `cite-ok` on essentially every finding forever, which is not triage, it is a
+  tax with no yield.
+* **2 are historical by the same logic in `docs/tools/`** — `BROKEN` is a <!-- cite-ok: this paragraph is an INVENTORY of names that vanished; naming them is its content -->
+  status string a tool now prints, and `run_checks` appears in a sentence <!-- cite-ok: this paragraph is an INVENTORY of names that vanished; naming them is its content -->
+  explaining what the goal guard *used to* do.
+* **3 are FALSE POSITIVES of the documented generic-name class** — `where` (a <!-- cite-ok: this paragraph is an INVENTORY of names that vanished; naming them is its content -->
+  Rust keyword, in a page teaching `where` clauses), `RenderApp` (a **Bevy** <!-- cite-ok: this paragraph is an INVENTORY of names that vanished; naming them is its content -->
+  type the page correctly says a headless app omits), and `BROKEN` again. Two <!-- cite-ok: this paragraph is an INVENTORY of names that vanished; naming them is its content -->
+  of the three are in `docs/learning/`, which teaches Rust and Bevy
+  vocabulary — a corpus where the check's premise (a backticked identifier
+  names something in THIS tree) is false by construction.
+
+⇒ **The five corpora it scans are the ones that describe CURRENT behaviour, and
+that is not an accident of what someone got round to — it is the check's actual
+domain.** The genre of a document predicts the verdict before the check runs:
+records of past decisions want `cite-ok` by default, teaching material about
+other people's APIs wants exclusion. ⛔ So the answer to "the check has never
+been aimed at eleven of seventeen doc trees" is that it should not be, and this
+paragraph exists so nobody spends an evening discovering that a fourth time.
+
+✔ **AND THE TOLL WAS PAID, on this very line, 2026-09-03 late.** The
+`--maintenance` lane came back 4/5 with that one finding — the sentence above,
+reporting itself. It is marked rather than reworded: the row's subject IS the
+deleted name, so rewording to dodge the check would destroy the record it
+exists to keep. ⭐ Two things this priced that the prediction did not: the toll
+falls on the page DESCRIBING the check as often as on any other, and the lane
+stays red until somebody marks it — nothing degrades gracefully, which is
+correct and is also why the marker has to be cheap to apply.
+⛔ **THREE TIMES IN ONE EVENING, AND ALL THREE WERE PROSE ABOUT THE CHECK
+ITSELF** (this line; the paragraph below arguing against widening the corpus,
+which is an inventory of vanished names and so is made of them; and a queue row
+citing `demote_stale_realizations` <!-- cite-ok: the reroute's own example, named here for the same reason --> as the motivating case for the orphan
+census). ⇒ **Writing about removals reddens this lane essentially every time**,
+so budget the marker into the edit rather than treating each one as a surprise.
+That is a stable, cheap toll and not an argument against the check — but it is
+the reason the marker must never become expensive to apply.
+⇒ Note which half of the choice closed it: the rows were MARKED, not the baseline advanced. Marking says *this name is gone on purpose*; advancing the baseline would have said *stop looking before here*, and hidden anything else in the same range. ⭐ **AND THE SAME INSTRUMENT HAD A SECOND UNAIMED HALF:** it takes `paths` and its default is `docs/planning`, so the pages describing CURRENT behaviour had never been scanned. Aimed at `docs/{concepts,systems,architecture,recipes}` the same day it found `HitSource` documented with seven role-shaped variants that do not exist — on the page whose subject is the unification that replaced them — and a deleted message still listed among current ones in a sentence I had hand-corrected in that very file twice. ⇒ **A check can be aimed and still be aimed at only part of its subject**, and the tell is a default argument nobody has ever overridden. ⭐ The lesson worth keeping: a check nobody has aimed has never had its false-positive rate measured either, so the first real run prices BOTH — and its docstring's *"almost no false positives"* was a reasonable claim that one run turned into a number |
+
+Between #5 and #6 the web path had **zero behavioural coverage**: one job could
+not execute code, and the other executed the wrong branch of it. The hole that
+exposed them was real — the web reveal barrier never waited for the GPU, because
+the entire render-world half was `#[cfg(not(wasm32))]`. The commit that fixed it
+names the mechanism exactly: *"The web reveal never waited for the GPU, because
+the FACT was gated with the CLOCK"* (`2d623308f`, branch `web-gpu-wait`). A
+`#[cfg]` that removes a timing concern took the fact it was timing with it, and
+no type check can see that shape.
+
+⭐ **#9 IS #2 WEARING DIFFERENT CLOTHES, AND THAT IS THE POINT OF LISTING IT.**
+The wasm CHECK was exhaustive-plan-only until `b85b4db20` moved it; the
+feature-union job that runs every gated test still is. So a correctness guard on
+whether a room's cover may lift — `the_gpu_readiness_term_wants_the_gpu_stamp_while_a_render_world_is_present`
+— does not run on the command anybody types. ⛔ The failure is not that the tests
+are bad or missing. They exist, they pass, and they are thorough. They are simply
+not in the plan.
+
+⚠ **HOW BIG IS IT? UPPER BOUND ONLY, AND THE BOUND IS STATED AS ONE ON PURPOSE.**
+Applying `run_tests.py`'s own selection rules by hand — non-default features, not
+in `DENY_EXACT`, no denied prefix, crate not in `SKIP_FEATURE_JOB`, crate
+contains `#[test]` — **31 workspace crates qualify** for the exhaustive-only
+feature-union job. ⛔ That is a count of CRATES THAT COULD BE AFFECTED, not of
+blind tests: "the crate has tests" and "the crate has tests behind those
+features" are different questions and I measured the first. For the one crate I
+measured properly, `--features bevy` adds 27 tests, 16 of them in the module that
+mattered. The other 30 are unmeasured.
+
+⇒ **The question this adds to the four: does the thing I am about to trust exist
+in the DEFAULT plan, or only in the one nobody runs?** A test that only the
+exhaustive plan executes is a test that runs when somebody already suspects a
+problem.
+
+### The negative result #10 was hiding, now that the instrument reports honestly
+
+Worth finishing, because the aborted version of this was going to be a dramatic
+finding. With every owner named, the shipped headless composition in
+`hall_of_characters` bills systems to **12 of the 17** capability crates in the
+facade's `all_capabilities`. The five that bill none are
+`ambition_cutscene`, `ambition_settings_menu`, `ambition_sfx`,
+`ambition_sfx_bank` and `ambition_ui_nav`.
+
+⇒ **And all five are correctly absent.** None of them defines a Bevy `Plugin`,
+and the only `add_systems` calls anywhere in the five are two inside
+`ambition_sfx`'s own unit tests (`World::new()`, `Schedule::default()`). They are
+data and vocabulary crates; a system census has nothing to say about them. Audio
+itself is composed here — `ambition_audio` bills 10 systems — so their silence is
+not a headless artifact either.
+
+⭐ **The finding is that there is no finding.** Read through the truncated row
+the same evidence said 16 of 17 capabilities were dead. Read through the fixed
+row it says twelve do work, five are the wrong shape of thing to ask about, and
+nothing is unaccounted for. An instrument that narrows silently does not just
+lose precision — it manufactures the more interesting answer.
+
+## The sibling family: it RAN, and it could not have failed
+
+Everything above is a check that did not execute. The other half of the family
+executed perfectly and asked the wrong question, and it is the larger half:
+forty-seven instances, each with the commit that fixed it, are tabulated in
+[`../../dev/journals/blind-checks-2026-09-03.md`](../../dev/journals/blind-checks-2026-09-03.md).
+⇒ **Do not add that count to the fourteen above** — different question,
+different population. #10 is the boundary case and belongs to both lists, and so
+is #14: the vanished check both never ran anywhere AND, once wired, would have
+run and reported success. ⚠ This sentence said *"the ten above"* until
+2026-09-03 while the list had grown to fourteen — a heading-style tally going
+stale under an appended list, which is
+[shape 2 in the sibling recipe](re-measuring-a-planning-claim.md). Prefer not to
+restate a count that another agent appends to.
+
+⭐ **THE RECURRING SHAPE.** An emitter tells you what a line CONTAINS; it never
+tells you what to compare it against. A parser written from the emitter
+reproduces its vocabulary and inherits none of its ordering, thresholds or
+population bounds — so the parse succeeds, the number prints, and the number is
+about a different question. The green is real. The question is not the one you
+asked.
+
+Worked examples of each: a census ordered by game clock when the emitter added a
+frame column for exactly that reason; "images decoded at boot" counted from a
+line that prints only decodes ≥ 1.0 MP, so 7 lines stood for 252; a rollback
+guard reporting "4 systems, none unsafe" whose population was 1 canonical type
+of 113.
+
+### Running this audit yourself
+
+It found eight real defects in one evening, so it is worth repeating rather than
+rediscovering. Four passes, cheapest first:
+
+1. **Run every guard and read its REAL exit code.**
+   ```bash
+   for f in scripts/check_*.py; do
+     out=$(timeout 240 python3 "$f" 2>&1); code=$?     # NOT `| head`
+     printf '%-42s exit=%-3s %s\n' "$(basename "$f" .py)" "$code" "$(printf '%s' "$out" | head -1)"
+   done
+   ```
+   ⛔ The first pass piped into `head` and captured `tr`'s status, so every
+   check read `exit=0` — the bug being hunted, in the tool hunting it. Look for
+   a traceback, an EMPTY success, and any message saying it checked nothing.
+
+2. **Compare each guard's denominator against the repository's.** Ask what
+   SOURCE produced the population, not whether the check passed. A guard that
+   reads one file in a repo whose convention is one-file-per-crate is the shape
+   to expect.
+
+3. **Ask which guards assert against the LIVE tree**, not only on fixtures. Most
+   do; the exceptions are where the coverage gaps hide.
+
+4. **Poison it — and check the poison landed in the guard's POPULATION.** Two of
+   three poisons on the sheet-presence check hit files it deliberately ignores,
+   and each printed a green that could have been taken for proof.
+
+5. **Ask WHICH LANE names each guard.** For every `scripts/check_*.py`, does the
+   gate, the pytest lane, or CI mention it? On 2026-09-03: 14 of 16 reachable
+   locally, and the two that were not (`check_doc_link_ratchet`,
+   `check_zone_name_ratchet`) were CI-only — one of them holding two unread
+   regressions. This is the pass that found entry #12, and it is the first
+   entry on this page found on purpose rather than by accident.
+
+7. **Build a crate under its OWN defaults.** `cargo check -p <crate>` with no
+   feature flags is a build NO LANE PERFORMS: the workspace check unifies
+   features on, and the union enables everything. On 2026-09-03, of 25 crates
+   with an empty `default` and cfg-gated source, FOUR warned this way and every
+   lane was clean. ⭐ It is the jab-string lesson in reverse — that test was
+   green per-crate and red under the union; these are green under the union and
+   red per-crate. Both say the same thing: a feature set is a PROGRAM.
+
+6. **Ask which guards have a TEST OF THEIR OWN.** Three of sixteen had none,
+   including `check_doc_links`, which the DEFAULT GATE runs. Writing one found a
+   rule the module applied to one matcher of two. ⭐ Prioritise the guards whose
+   best possible score is ZERO — they cannot distinguish "nothing is wrong" from
+   "I measured nothing", so their population floor is the arm to test, and the
+   floor is exactly what nobody writes a test for.
+
+⛔⛔ **AND WHEN YOU LOOSEN A GUARD TO ADMIT A LEGITIMATE CASE, RE-RUN THE
+POISON AFTERWARDS.** This is how a working guard quietly stops working, and it
+happened on 2026-09-03 inside an hour of the guard being written. A carve-table
+check required every path in a row to resolve; a row that named a HISTORICAL
+path beside the live one failed for being more informative, so the rule was
+loosened to "at least one path must resolve". ⇒ The original defect stopped
+firing: that row's prose says *"NOT under `brain/`"*, and `brain/` counted as a
+path that resolves, so the rule was satisfiable by the very word the row uses to
+say where the file ISN'T. Only re-poisoning AFTER the change caught it.
+⭐ The generalisation: a loosened predicate is a NEW predicate, and it inherits
+none of the old one's evidence. Ask which of its old failures it still catches
+before you believe it.
+
+⛔⛔ **AND THE GUARD DOES NOT HAVE TO CHANGE FOR ITS POISON VERDICT TO GO
+STALE — THE CODE UNDER IT IS ENOUGH.** Later the same day, an unmodified guard
+had its implementation replaced beneath it, and the person holding it said so
+before anyone asked: *"my earlier poison verdict was stale the moment the
+implementation under the guard changed, and I would have been carrying it
+forward as if it still meant something."* ⇒ A poison result is evidence about a
+PAIR — this assertion against that implementation — and replacing either half
+retires it. The loosening rule above is the special case where you changed the
+assertion; this is the commoner one, where you did not touch the test at all
+and it stopped meaning what it meant.
+
+⭐⭐ **THE SHARPEST FORM, AND THE ONE WORTH REMEMBERING: A TEST ASSERTING THAT
+TWO THINGS AGREE IS SILENTLY A TEST OF WHATEVER MAKES THEM AGREE.** The guard in
+question asserted that a detector's verdict and its stated reason match. They
+matched *usually* — both functions shelled out to the same external checker,
+separately, over a mutable generated tree, so anything regenerating between the
+two calls would have made them disagree for no defect at all. The guard did not
+catch that; **it was resting on it.** ⇒ When a test asserts a relationship
+rather than a value, ask what enforces the relationship, and whether that thing
+is guaranteed or merely usual. If it is merely usual, the guard has a hidden
+dependency and will one day fail for a reason that is not a defect.
+
+⚠ Two habits that make it cheaper: a tool one call away beats an hour of reading
+(`discover_all_targets()`, `grep -l <shared module>`), and when two of your own
+measurements disagree, the coherent one is not automatically the true one.
+
+## The three remedies, and which one you are actually reaching for
+
+Reading the fixes together is more useful than reading any one of them, because
+they are not the same kind of fix.
+
+- **Make the job run.** #2 moved the wasm CHECK into the default plan; #3 made
+  the no-warnings job pay for `--fresh`. This is the only remedy that adds
+  coverage, and it is the most expensive, because it costs time on every run —
+  505 s cold and 26 s warm for the wasm CHECK, and the team took that for the
+  CHECK and refused it for the LINK. ⭐ Both fixes state the price **at the job**
+  rather than in a commit message, which is what lets the next person re-decide
+  it instead of rediscovering why it is slow.
+- **Make the silence audible.** The dominant remedy. #7's footer now derives
+  from the *planned* jobs rather than asserting; #2's `elif not only:` branch
+  exists for no purpose but to print that the web build is UNCHECKED; and #1's
+  fix kept a `--rust-alone` that still skips everything — but its help text now
+  reads *"those went red unnoticed for a day the last time that happened."*
+  ⭐ Note what that means: the blindness was not removed, it was **named and made
+  loud**. That is a legitimate outcome, and it is the one to aim for when
+  coverage is genuinely too expensive.
+- **Accept that it cannot be fixed, and compensate elsewhere.** #5 and #6. A
+  type check will never execute code and a native run will never be a wasm run.
+  The only defence is a human knowing the gap exists, which is why it is written
+  down here instead of filed as a bug.
+
+## The machine you are on decides which of these are live
+
+Members #2, #7 and #8 are not properties of the code alone — they fire or do not
+fire depending on what is installed where you are standing.
+
+⛔ **AND A STALE SUBMODULE CHECKOUT LOOKS EXACTLY LIKE REPOSITORY ROT.** Measured
+2026-09-03: `test_the_committed_report_matches_a_fresh_generation` failed here
+for a day — the committed runtime-frame-history reports **43** records and
+regenerating produced **41** — and its failure message says the committed file is
+stale and prints the command to regenerate it. ⇒ **Running that command would
+have deleted two Ultra host captures and gone green doing it.** The report was
+not stale; this checkout's `dev/ambition_dev_measurements` was, sitting at
+`8a35405` while the superproject recorded `0255e29` on both the branch and
+`main`. `git submodule update` fixed it and the Python lane went 1-failed →
+**780 passed, 0 failed**.
+
+⇒ **The tell is one character.** `git submodule status` prints `+` before the
+SHA when the checked-out commit differs from the one the superproject records —
+that `+` is the whole diagnosis, and it is easy to read past. ⚠ I reported this
+failure to a coordinator FOUR times as a pre-existing repository defect before
+looking at it. It was never in the repository; everyone else's gate was green.
+⇒ Before calling a generated-artifact mismatch repo rot, check whether the
+generator's INPUT is at the commit the repository asked for.
+
+⚠ **And check every submodule, not the one that failed.** The same `git
+submodule status` on calculex 2026-09-03 showed **two more** off-pointer —
+`tools/ambition_music_renderer` (checkout `a113b786`, recorded `b2c005b5`, on a
+branch named `agent/…`) and `tools/ambition_sprite2d_renderer` (`125adf81` vs
+`aba1c1eb`). Neither breaks the default lane, because detached developer-tool
+tests are omitted from it. ⇒ **But `./run_tests.sh --tool-tests` on this machine
+is not testing what the repository records**, and a green or red result from it
+here would describe somebody's work-in-progress branch. Left alone deliberately:
+an `agent/` branch in a submodule is someone's state, and syncing it to the
+pointer would discard work no failure asked me to touch.
+
+On the calculex VM on 2026-09-02, `rustup target list --installed` returned
+exactly one target, `x86_64-unknown-linux-gnu`. No `wasm32-unknown-unknown`, no
+`aarch64-linux-android`, `ANDROID_NDK_HOME` unset. A full green gate on that box
+therefore carried **zero** web and **zero** Android coverage — and said so out
+loud rather than in a footer claiming otherwise, which is #7's fix working on a
+machine it was not written on:
+
+```text
+run_tests: SKIPPING the web build CHECK — the wasm32-unknown-unknown target is
+not installed … The web build is UNCHECKED in this run, and a #[cfg] break on
+that target is invisible to every other job.
+```
+
+⭐ **THEN `rustup target add wasm32-unknown-unknown` CHANGED THE ANSWER, in about
+a minute.** The same commit, the same command, the same repository — different
+coverage, because the machine changed. Nothing in the code moved. The Android
+path (#8) did not change with it: it needs a device, not a toolchain, which is
+what makes it the structural member and the web one the situational member.
+
+⛔ **SO "THE GATE PASSED" IS NOT A PORTABLE CLAIM.** It is a claim about one
+machine's installed toolchains at one moment. When you report a green gate to
+somebody on different hardware, say which targets were installed, or you have
+handed them member #7 in social form — a report that something was checked when
+it was skipped. And when a target is cheap to install, installing it is a better
+answer than documenting the gap.
+
+## ⛔⛔ A CORRECT FIX CAN RAISE THE FAILURE COUNT — diff the CAUSES, not the total
+
+When a schedule dies on the first bad system it meets, every later bad system is
+INVISIBLE until you fix the first one. So failures are LAYERED, and the count is
+a bad instrument for progress.
+
+Measured on the feature union, 2026-09-03:
+
+```text
+before                            6,968 passed   48 failed
+guard sync_portal_view_cones      6,980 passed   49 failed   ← UP, and correct
+guard debug_portal_view_zones     6,991 passed   38 failed
+guard attach_hit_flash_overlays   7,016 passed   13 failed
+```
+
+⛔ **Round one removed 37 failures and exposed 37 more.** On the total that is
+"no progress"; to anyone watching only the number it is a REGRESSION, and the
+obvious response — revert the fix — is exactly wrong. The right reading was in
+the CAUSE MIX: `ConeRigAssets` had gone to zero and a new system had appeared.
+
+⇒ **After any fix to a suite that dies on first failure, diff the causes:**
+
+```bash
+grep -oE "in system \`[^\`]+\`" run.log | sort | uniq -c | sort -rn
+```
+
+One line, every round, and it is the only thing that distinguished progress from
+regression here.
+
+⭐ **AND THE LAYERS CAN BE WRITTEN DOWN IN ADVANCE.**
+[`../planning/engine/headless-verification.md`](../planning/engine/headless-verification.md)
+records three of these hiding in succession — *"a missing
+`Assets<TextureAtlasLayout>`, then `GizmoConfigStore`, then `Assets<Mesh>` …
+each looking identical to the last"*. Those are the three systems above, in that
+order. The agent who walked them had quoted that sentence in the commit that
+fixed the first one and still guarded a single system out of a four-system
+chain. ⇒ When a doc says failures come in succession, fix the whole CHAIN in one
+pass and check every member's parameters — not the member that happened to fail.
+
+⚠ **The corollary about deferred measurement.** "37 are fixed" was filed as an
+inference from the class, with its bound stated honestly (verified on one
+target; the union not re-run, because the run was expensive). The bound was
+honest and the inference was still wrong — 48 went to 49, not to 11. An
+expensive measurement deferred is not a measurement, and the case an inference
+cannot see is precisely the layered one.
+
+## Before you believe an error list, diff it against a clean checkout
+
+`check_agent_kb.py` could not pass in an agent worktree. It used
+`Path.resolve()`, which follows symlinks, and worktree seeding makes
+`.agent/README.md` a symlink into the primary tree — so two phantom "links
+outside repo" errors appeared **in every worktree and in no clean checkout**.
+
+An external reviewer saw three errors. The session in the worktree saw five. Two
+of them were its environment.
+
+⭐ **A THIRD INSTANCE, 2026-09-03, and it is the purest form of this heading:**
+`test_the_committed_report_matches_a_fresh_generation` failed here for a day and
+in no clean checkout, because `dev/ambition_dev_measurements` was two commits
+behind the pointer the superproject records. Reported to a coordinator four
+times as a repository defect before anyone looked at the submodule. Full account
+under [the machine-dependent section](#the-machine-you-are-on-decides-which-of-these-are-live),
+including why the failure message's own suggested fix would have deleted data
+and gone green.
+
+⭐ **AND THE SAME TRAP HAS A FLAGS-SHAPED TWIN, met the same day.** The wasm32
+CHECK was run here by hand — `cargo check -p ambition_app --lib --target
+wasm32-unknown-unknown --no-default-features --features web_served_assets`. It
+passed in 5m02s and emitted three warnings that looked like real rot:
+
+| warning | why it is NOT a defect |
+|---|---|
+| unused imports `ITEM_GRID_COLS`, `ITEM_GRID_ROWS` | they ARE used, in code gated `#[cfg(feature = "kaleidoscope_menu")]` — a feature this invocation's `--no-default-features` did not enable |
+| unused import `VisualQualityProfile` | same feature gate |
+| `prefetch_preparations` is never used | it IS used, by `tests/neighbor_prefetch_prepares_rooms.rs` — which `--lib` does not build, and which the gate's `cargo check --all-targets` does |
+
+Three warnings, zero defects, produced entirely by running a narrower command
+than the gate runs. ⛔ The mirror of member #3 exactly: there, a WARMER build
+hid warnings that existed; here, a NARROWER build invented warnings that did
+not. Both are the same mistake — reading a diagnostic list without knowing what
+produced it.
+
+⛔ **THE GENERAL RULE: your error list is a property of your environment until
+you have compared it with one you did not build** — and "environment" includes
+your flags, not just your machine. This cuts both ways — the
+extras may be phantom, and a clean checkout may also show you something your
+warm tree has been hiding since member #3.
+
+## ⛔⛔ And your OTHER WORK is part of that environment
+
+The section above says an error list is a property of your environment until you
+compare it with one you did not build. **Your own concurrent commands are in that
+environment**, and this is the form that produces the most confident wrong
+answer, because the failures name repository facts rather than machine ones.
+
+⭐ **MEASURED 2026-09-04.** A feature-union run reported **7,104 passed / 32
+failed**. Every one of the 32 was caused by recursive `grep`s run beside it,
+which exhausted file descriptors. Thirty of them came from
+`ambition_workspace_policy`, and the loudest read:
+
+```text
+could not find the workspace root above <repo>/tests/ambition_workspace_policy
+ — no ancestor Cargo.toml declares [workspace]
+```
+
+of a workspace whose root manifest declares it on line one. **Nothing in the
+output said "I could not read a file."**
+
+⇒ **The two lessons are separable and both are load-bearing.**
+
+1. **Do not read a long run you are sharing the machine with.** A union run is
+   thousands of processes and file handles; a recursive search over the same tree
+   is thousands more. "I was only reading" is not true of the operating system.
+2. ⛔⛔ **A GUARD THAT SWALLOWS A READ ERROR REPORTS ITS OWN FINDING.** Every rule
+   in a policy or census crate reports an ABSENCE — a missing owner, an unscanned
+   root, a legacy function that is gone. So `if let Ok(text) =
+   read_to_string(..)` makes the guard announce exactly what it exists to detect
+   whenever the MACHINE, not the code, is what failed. The worst instance
+   returned an EMPTY set on a read error with the comment *"a deleted legacy file
+   has no pending functions"* — an IO failure reading as **"the migration is
+   complete."** Fixed by `0b58767f2`: one reader owns the message, it names the
+   path and the OS error and says *"do not read any policy verdict from this
+   run"*, and only `ErrorKind::NotFound` is tolerated where deletion is a real
+   answer.
+
+⚠ **A "the scan reached no sources — vacuous" guard is the right instinct and is
+NOT enough**, which two of the five sites had: a run where SOME files are
+unreadable still contributes and silently under-scans. ⭐ The best-behaved of the
+three failure messages in that run was
+`the_reaction_timer_clock_forks_on_purpose`'s — *"the scan is broken, not the
+code"* — which is the sentence every source-scanning assertion should be able to
+print.
+
+ⓘ This is the third instance in one day of the instrument sitting inside the
+population it measures: a binary measured before it was rebuilt, a `pgrep -f`
+that matched the shell containing its own pattern, and this. The family is worth
+naming as one.
+
+## ⛔ The filter you wrote yourself is the one you will not suspect
+
+The section above says your error list is a property of your environment. The
+sharper form, learned four separate times on 2026-09-02 by the person writing
+this page:
+
+> **A search that finds nothing has told you about your PATTERN until you have
+> checked that the pattern can match what you are looking for.**
+
+All four had the same shape and none of them looked alike at the time:
+
+| what was searched | what the search could not find | what it "proved" |
+|---|---|---|
+| `check_planning_citations.py` poisoned with a bare `` `path.rs` `` | the checker only reads `` `path.rs:123` `` and `` `foo::bar` `` | "the checker ignores table cells" — it does not | <!-- cite-ok: a poison EXAMPLE, not a citation -->
+| planning docs for `scripts/…` paths that exist | bare basenames (`tests.rs`, `fx.rs`) used as prose shorthand | "186 broken citations" — there were none |
+| `cargo check --workspace` output through `\| tail` | the exit status, which a pipeline takes from its LAST command | "the lane is green" — it was RED |
+| `(./run_tests.sh --rust > log 2>&1; echo "EXIT=$?" >> log)` **2026-09-03** | the LANE's status: a subshell exits with its LAST command, and that was the `echo`. The harness reported the wrapper's **0** while the log's own last line read `EXIT=1` | "the full Rust lane passed" — it was 5/6 jobs, and I had already told the coordinator it would be an exit code |
+| asset paths matched with `sprites_[a-z0-9_]+/` | `sprites/`, the Full path, which has no underscore | "`AMBITION_QUALITY_PROFILE` does not work" — it works |
+
+⛔ **AND THE EXIT-STATUS ROW HAPPENED TWICE, A DAY APART, TO THE SAME PERSON WHO
+WROTE THIS PAGE** — first through `| tail`, then through a subshell ending in
+`echo`. ⇒ Knowing the trap did not prevent it, because the second shape did not
+look like the first: there was no pipeline. The invariant is not "beware pipes",
+it is **the status you read belongs to the last thing that ran, which is rarely
+the thing you care about**. Write the command's own status down before anything
+else runs — `s=$?` on the next line, or `${PIPESTATUS[0]}` — and never after a
+convenience `echo`.
+
+⭐ **Three of the first four produced a FALSE NEGATIVE that read as a finding**, which
+is the dangerous direction: a missing result feels like evidence of absence, and
+absence is what this whole page is about. The fourth produced a false positive
+and was caught in seconds.
+
+⇒ **The cheap defence is a positive control.** Before believing a search found
+nothing, run it against something you KNOW it should match. `grep -c` on a
+pattern you expect to hit; poison the checker with the form it actually reads;
+capture `PIPESTATUS` instead of trusting a pipeline's exit. Every one of the four
+above would have taken under a minute to catch and cost between ten minutes and
+a twenty-minute build.
+
+⚠ And note where these landed: two of them were reported to a coordinator before
+being caught. A wrong finding sent to somebody acting on it costs more than the
+time to check it.
+
+⛔⛔ **A SIXTH, 2026-09-03, AND IT IS THE WORST SHAPE: A CONFIRMER WHOSE FAILURE
+READS AS A CLEARANCE.** The unused-dependency census uses a two-stage
+instrument — a default-features lint that over-reports, then an `--all-features`
+run to clear the deps that are only used behind a `cfg`. The confirmer was:
+
+```
+allf=$(timeout 900 cargo rustc -p "$crate" --lib --all-features -- -W unused_crate_dependencies 2>&1 | sed -n 's/…unused…/\1/p')
+if echo "$allf" | grep -qx "$dep"; then CONFIRMED; else FEATURE-ONLY; fi
+```
+
+⇒ It captures only the WARNING LINES, so **an empty result cannot be told apart
+from a clean build**. A crate that failed to compile, or hit the 900 s timeout,
+yields no warnings — and every one of its flagged deps is then silently written
+down as "used behind a feature, not removable". ⚠ The direction is what makes it
+bad: the failure mode CLEARS things, and a cleared row is one nobody
+re-examines. Had `ambition_dialog --all-features` timed out (it was 15 minutes
+into a cold `ui`-feature graph when I noticed), three deps would have been
+recorded as feature-conditional on the strength of a build that never finished.
+
+⇒ **The fix is to read the STATUS, not the output** — the same invariant as the
+exit-status rows above, arriving for a third time in a shape that again did not
+look like the first two:
+
+```
+timeout 900 cargo rustc … > "$log" 2>&1; rc=$?
+if [ $rc -ne 0 ]; then mark every dep UNKNOWN(rc); continue; fi
+```
+
+⭐ **What caught it was not a control.** No positive control would have fired —
+the confirmer works perfectly on every crate that compiles. It was noticing that
+the run had been going for fifteen minutes and asking *what does this script do
+if that timeout expires?* ⇒ **For any two-stage instrument, ask which stage's
+failure looks like a PASS.** A detector that dies is loud, because you get no
+findings at all; a confirmer that dies is silent, because "nothing to report"
+is also what success looks like.
+
+## What this page cannot do
+
+It cannot make a gate honest. Every member above was found by a person asking
+one of the four questions about a specific job, and the gate is still the thing
+that will tell you it is green. The honest claim is narrow: these are the shapes
+that have actually lied in this repository, so that the next one is recognised
+rather than rediscovered.
+
+Related: [`cheapest-sufficient-check.md`](cheapest-sufficient-check.md),
+[`../reviewer-guide.md`](../reviewer-guide.md) (§Testing).

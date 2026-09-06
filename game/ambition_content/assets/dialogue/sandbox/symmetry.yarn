@@ -1,0 +1,84 @@
+title: emmy_noether
+---
+Emmy Ethereal: You came in with this wall as the floor. Keep that in mind. There are three more of me around the kernel, one for each quarter-turn.
+Emmy Ethereal: Short version? A symmetry gives you something conserved. Rotate the room and you can watch which quantities stay put.
+-> So which of you is the real one?
+    Emmy Ethereal: Pick whichever one is nearest. Rotate the room and we trade places.
+-> How do I change which way is down?
+    <<jump emmy_noether__how>>
+-> Four of you is a lot of opinions.
+    Emmy Ethereal: Four is manageable. Break the symmetry and then ask me how well we agree.
+===
+
+title: emmy_noether__how
+---
+Emmy Ethereal: Press a switch on the kernel and gravity points toward that face. The portal gun by the door can hold four colour pairs if you want another route.
+-> Good to know.
+===
+
+title: emmy_noether_left
+---
+Emmy Ethereal: From here, this wall is down. You came in calling it left. Rotate the room once and your labels stop being very helpful.
+-> Why "Ethereal"?
+    Emmy Ethereal: The old ether was supposed to give motion one fixed background. It never showed up. I kept the name. In this room, the kernel picks down for us.
+-> Conservation, again?
+    Emmy Ethereal: Yes. Rotate the room and check angular momentum. That one survives the turn.
+===
+
+title: emmy_noether_up
+---
+Emmy Ethereal: You call me upside down from there. I call you upside down from here. Press the switch and one of us gets to feel smug for a minute.
+-> Doesn't the blood rush to your head?
+    Emmy Ethereal: My head is fine. Translation symmetry gives momentum conservation; time symmetry gives energy conservation. The blood is less interesting.
+-> Teach me the trick.
+    Emmy Ethereal: Your run stays perpendicular to gravity. Practice one crossing, rotate the room, and use the same timing again.
+===
+
+title: emmy_noether_right
+---
+Emmy Ethereal: Right side. Still four of us. If you want to test the symmetry, count again after a quarter-turn.
+-> What happens if I break the symmetry?
+    Emmy Ethereal: Then I expect at least one of us ends up somewhere new. I'd rather you test that after you're done with the kernel.
+-> Any advice?
+    Emmy Ethereal: Pogo off a kernel corner. The bounce sends you away from whichever face is currently down.
+===
+
+title: perfect_cellular_automaton
+---
+Perfect Cell-ular Automaton: At last. I was beginning to think nobody here could find the door. Perfect Cell-ular Automaton. Yes, "Perfect" is part of the name. No, you may not shorten it.
+Perfect Cell-ular Automaton: And you are still wandering around looking for instructions. Adorable.
+-> What are you?
+    <<jump perfect_cellular_automaton__theorem>>
+-> Who funds a thing like you?
+    <<jump perfect_cellular_automaton__funding>>
+-> Challenge it.
+    Perfect Cell-ular Automaton: Please do. I could use a fresh name in the failure log.
+    <<music "super_smash_siblings_theme">>
+    <<challenge>>
+-> Leave it in peace.
+    <<jump perfect_cellular_automaton__farewell>>
+===
+
+title: perfect_cellular_automaton__theorem
+---
+Perfect Cell-ular Automaton: Eight neighbours, one rule, every cell on time. Watch the lattice. It has run all day without one bad step. I have been checking.
+-> Has it ever gone wrong?
+    Perfect Cell-ular Automaton: Me? No. The question is sweet, though.
+    <<jump perfect_cellular_automaton>>
+-> I've heard enough.
+    <<jump perfect_cellular_automaton>>
+===
+
+title: perfect_cellular_automaton__funding
+---
+Perfect Cell-ular Automaton: Patrons with excellent taste and very little patience for surprises. They wanted a machine that behaves every time. Obviously they came to me.
+-> And if I refuse their order?
+    Perfect Cell-ular Automaton: Refuse whatever you like. The lattice will still be here, running correctly, after you've exhausted yourself.
+    <<jump perfect_cellular_automaton>>
+===
+
+title: perfect_cellular_automaton__farewell
+---
+Perfect Cell-ular Automaton: Run along. I have six other flawless processes to supervise.
+-> Leave.
+===

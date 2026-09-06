@@ -1,0 +1,283 @@
+//! Tests for boss sprite-metrics derivation (the pure, App-free path) and the
+//! boss tick/sync systems.
+
+use super::*;
+use crate::behavior::BossBehaviorProfileExt;
+use ambition_platformer2d_core as ae;
+
+/// It pins a non-obvious structural fact discovered while extracting it: GNU-ton's combat
+/// geometry comes entirely from its per-animation hurtboxes (the `animations` map), not
+/// from static `body_pixel_parts`/`bbox` — so the derivation finds no body bbox, leaves
+/// `combat_offset` at zero, and derives no combat size. A subtly-broken wiring (no move, wrong
+/// faction, no geometry) would deal no strike damage and escape the contact-only
+/// `boss_contact_iframes` test; this guards it.
+#[test]
+fn boss_strike_spawns_a_boss_hitbox_through_the_moveset() {
+    use ambition_characters::brain::{BossAttackIntent, BossAttackProfile, BossCapability};
+    use bevy::prelude::*;
+
+    let combat_size = ae::Vec2::new(80.0, 80.0);
+    let behavior = crate::pattern::profile::BossBehaviorProfile::clockwork_warden();
+    // The boss's attack moveset: a FloorSlam geometry strike → an Active-window move.
+    let cap = BossCapability {
+        specials: vec![(BossAttackProfile::Strike("floor_slam".to_string()), 0.5)],
+    };
+    let moveset = crate::attack_moveset::boss_attack_moveset(&cap, &behavior, combat_size, &[])
+        .expect("a boss with a strike → a moveset");
+
+    let mut app = App::new();
+    app.insert_resource(ambition_characters::actor::character_catalog::CharacterCatalog::empty());
+    app.init_resource::<ambition_sprite_sheet::character::sheets::AuthoredSheets>();
+    app.init_resource::<ambition_combat::authored_volumes::AuthoredAttackVolumeResolver>();
+    app.init_resource::<ambition_time::WorldTime>();
+    app.world_mut()
+        .resource_mut::<ambition_time::WorldTime>()
+        .scaled_dt = 0.016;
+    app.world_mut()
+        .resource_mut::<ambition_time::WorldTime>()
+        .raw_dt = 0.016;
+    app.add_message::<ambition_combat::moveset::MoveEventMessage>();
+    app.add_message::<ambition_vfx::vfx::VfxMessage>();
+    app.add_systems(
+        Update,
+        (
+            crate::ecs::trigger_boss_attack_moves,
+            ambition_combat::moveset::advance_move_playback,
+        )
+            .chain(),
+    );
+    // §A1 split: the driver's fire INTENT names FloorSlam → the trigger starts the move.
+    let intent = BossAttackIntent {
+        active_profile: Some(BossAttackProfile::Strike("floor_slam".to_string())),
+        ..Default::default()
+    };
+    app.world_mut().spawn((
+        ambition_combat::components::ActorFaction::Boss,
+        ambition_platformer2d_core::BodyKinematics {
+            pos: ae::Vec2::new(300.0, 300.0),
+            vel: ae::Vec2::ZERO,
+            size: combat_size,
+            facing: 1.0,
+        },
+        intent,
+        moveset,
+        ambition_platformer2d_shared_tangle::lifecycle::FeatureSimEntity,
+    ));
+    // Frame 1 triggers the move; frame 2 advances it into its Active window.
+    app.update();
+    app.update();
+
+    let mut q = app.world_mut().query::<&ambition_combat::hitbox::Hitbox>();
+    let hits: Vec<_> = q.iter(app.world()).collect();
+    assert!(
+        !hits.is_empty(),
+        "a live boss strike should spawn at least one Boss hitbox via the moveset"
+    );
+    let hb = hits[0];
+    assert_eq!(
+        hb.source,
+        ambition_vfx::HitSide::Boss,
+        "boss strike hitbox must carry the Boss side so apply_hitbox_damage routes it"
+    );
+    assert!(hb.damage >= 1, "strike hitbox should deal damage");
+    // The hit volume (FloorSlam sits below the body) is non-degenerate.
+    assert!(
+        hb.half_extent.x > 0.0 && hb.half_extent.y > 0.0,
+        "strike hitbox should have a real extent from the move's hit volume"
+    );
+}
+
+#[test]
+fn boss_spawn_hurtboxes_resolves_without_panicking() {
+    // The headless renderer helper builds a transient boss + baked
+    // registry and returns its rest-pose hurtboxes. Smoke-guard that
+    // it resolves a non-empty volume (real metrics or the combat-size
+    // fallback) and never panics.
+    let aabb = ae::Aabb::new(ae::Vec2::new(500.0, 400.0), ae::Vec2::new(110.0, 110.0));
+    let hbs = boss_spawn_hurtboxes(
+        crate::test_boss_catalog(),
+        "boss_gnu_ton",
+        "GNU-ton",
+        aabb,
+        ambition_entity_catalog::placements::BossBrain::Dormant,
+    );
+    assert!(!hbs.is_empty(), "a boss should expose at least one hurtbox");
+}
+
+/// A sheet whose body geometry is authored PER ANIMATION (a head hurtbox that
+/// bobs with the idle, dives with the head-descent) resolves through
+/// `boss_sprite_metrics_from_registry` as an animation map with no static parts
+/// — the opposite of the mockingbird's single alpha-bbox below.
+///
+/// The scholar's own trimmed `gnu_ton_rider` sheet authors no body metrics at all, which the second
+/// half pins: a boss can be a rider whose hurtboxes live on the body it rides.
+#[test]
+fn a_per_animation_hurtbox_sheet_yields_animation_metrics_not_static_parts() {
+    use crate::pattern::profile::BossBehaviorProfile;
+
+    let registry = ambition_sprite_sheet::baked_sheet_registry();
+    let pos = ae::Vec2::new(500.0, 400.0);
+    let mut behavior = BossBehaviorProfile::gnu_ton_rider();
+    // Aim the lookup at the mount's sheet: the giant is what carries the head.
+    behavior.sprite_target = Some("giant_gnu".to_string());
+    let combat_size = ae::Vec2::new(220.0, 220.0);
+    let mut boss = crate::BossClusterScratch::new(
+        crate::test_boss_catalog(),
+        "boss_giant_gnu",
+        "Giant GNU",
+        ae::Aabb::new(pos, combat_size * 0.5),
+        ambition_entity_catalog::placements::BossBrain::Dormant,
+    );
+    boss.config.behavior = behavior;
+
+    let (metrics, derived_size) =
+        boss_sprite_metrics_from_registry(crate::test_boss_catalog(), boss.as_ref(), &registry)
+            .expect("the giant_gnu sheet has body metrics in the baked registry");
+    // The head/hand hurtboxes (what damageable_volumes consumes) live
+    // in the per-animation map.
+    assert!(
+        !metrics.animations.is_empty(),
+        "the giant should carry per-animation hurtboxes"
+    );
+    assert!(
+        metrics.animations.contains_key("rest"),
+        "the giant should have a 'rest' animation hurtbox"
+    );
+    // No static body bbox → no offset / derived size.
+    assert_eq!(
+        metrics.combat_offset,
+        ae::Vec2::ZERO,
+        "the giant has no static body_pixel_parts, so combat_offset stays zero"
+    );
+    assert!(
+        metrics.body_pixel_parts.is_empty() && metrics.body_pixel_bbox.is_none(),
+        "the giant's body geometry is per-animation, not static parts"
+    );
+    assert!(
+        derived_size.is_none(),
+        "with no static body bbox, no combat_size is derived"
+    );
+
+    // The rider, on its own tight sheet, has no body metrics to resolve — his
+    // damageable volume falls back to his authored `combat_size`.
+    let mut rider = crate::BossClusterScratch::new(
+        crate::test_boss_catalog(),
+        "boss_gnu_ton_rider",
+        "GNU-ton",
+        ae::Aabb::new(pos, ae::Vec2::new(27.0, 48.0)),
+        ambition_entity_catalog::placements::BossBrain::Dormant,
+    );
+    rider.config.behavior = BossBehaviorProfile::gnu_ton_rider();
+    assert!(
+        boss_sprite_metrics_from_registry(crate::test_boss_catalog(), rider.as_ref(), &registry)
+            .is_none(),
+        "the scholar's trimmed sheet authors no body metrics — the giant carries them",
+    );
+}
+
+#[test]
+fn mockingbird_resolves_a_body_hurtbox_from_the_baked_registry() {
+    use crate::pattern::profile::BossBehaviorProfile;
+
+    let registry = ambition_sprite_sheet::baked_sheet_registry();
+    let behavior = BossBehaviorProfile::mockingbird();
+    // The behavior must map to the sheet target the RON declares (its authored
+    // `sprite_target`), otherwise the registry lookup misses (the masked half of
+    // the bug).
+    assert_eq!(
+        sprite_target_for_boss(&behavior),
+        "mockingbird_boss",
+        "mockingbird behavior must map to its 'mockingbird_boss' sheet target",
+    );
+    let combat_size = behavior.combat_size.unwrap_or(ae::Vec2::new(500.0, 185.0));
+    let pos = ae::Vec2::new(500.0, 400.0);
+    let mut boss = crate::BossClusterScratch::new(
+        crate::test_boss_catalog(),
+        "boss_mockingbird",
+        "Mockingbird",
+        ae::Aabb::new(pos, combat_size * 0.5),
+        ambition_entity_catalog::placements::BossBrain::Dormant,
+    );
+    boss.config.behavior = behavior;
+
+    let (metrics, derived_size) =
+        boss_sprite_metrics_from_registry(crate::test_boss_catalog(), boss.as_ref(), &registry)
+            .expect("mockingbird sheet target should have body metrics in the baked registry");
+    // Unlike GNU-ton (per-animation hurtboxes), the mockingbird's body
+    // comes from a single static alpha bbox.
+    assert!(
+        metrics.body_pixel_bbox.is_some(),
+        "mockingbird should carry a static body_pixel_bbox hurtbox",
+    );
+    assert!(
+        derived_size.is_some(),
+        "a static body bbox should derive a combat_size from the visible body",
+    );
+}
+
+#[test]
+fn front_wall_clearance_ignores_floor_below_body_lane() {
+    let body = ae::Aabb::new(ae::Vec2::new(100.0, 100.0), ae::Vec2::new(40.0, 80.0));
+    let world = ae::World::new(
+        "test",
+        ae::Vec2::new(400.0, 300.0),
+        ae::Vec2::ZERO,
+        vec![ae::Block::solid(
+            "floor",
+            // Floor tile whose top just touches the boss feet.  This is
+            // support geometry, not a side wall the boss would run into.
+            ae::Vec2::new(100.0, 204.0),
+            ae::Vec2::new(260.0, 24.0),
+        )],
+    );
+    assert_eq!(
+        horizontal_front_wall_clearance(&world, body, 1.0, 200.0),
+        None
+    );
+}
+
+#[test]
+fn front_wall_clearance_ignores_small_floor_skin_overlap() {
+    let body = ae::Aabb::new(ae::Vec2::new(100.0, 100.0), ae::Vec2::new(40.0, 80.0));
+    let world = ae::World::new(
+        "test",
+        ae::Vec2::new(400.0, 300.0),
+        ae::Vec2::ZERO,
+        vec![ae::Block::solid(
+            "floor_skin",
+            // Top is 2 px above the body bottom.  Integration/contact
+            // tolerance can create this tiny overlap, but it should not
+            // block horizontal approach.
+            ae::Vec2::new(100.0, 202.0),
+            ae::Vec2::new(260.0, 24.0),
+        )],
+    );
+    assert_eq!(
+        horizontal_front_wall_clearance(&world, body, 1.0, 200.0),
+        None
+    );
+}
+
+#[test]
+fn front_wall_clearance_reports_side_wall_in_direction_of_player() {
+    let body = ae::Aabb::new(ae::Vec2::new(100.0, 100.0), ae::Vec2::new(40.0, 80.0));
+    let world = ae::World::new(
+        "test",
+        ae::Vec2::new(400.0, 300.0),
+        ae::Vec2::ZERO,
+        // Block::solid is (name, min, size), so this wall spans
+        // x:[180, 200]. The body right edge sits at 140, so the
+        // edge-to-edge clearance toward the player is 180 - 140 = 40.
+        vec![ae::Block::solid(
+            "wall",
+            ae::Vec2::new(180.0, 100.0),
+            ae::Vec2::new(20.0, 160.0),
+        )],
+    );
+    let clearance = horizontal_front_wall_clearance(&world, body, 1.0, 200.0).unwrap();
+    assert!((clearance - 40.0).abs() < 0.01, "clearance = {clearance}");
+    assert_eq!(
+        horizontal_front_wall_clearance(&world, body, -1.0, 200.0),
+        None
+    );
+}

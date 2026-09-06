@@ -1,0 +1,28 @@
+[package]
+name = "ambition_platformer2d_core"
+version = "0.1.0"
+edition.workspace = true
+license.workspace = true
+authors.workspace = true
+description = "ECS-native, content-free pure-logic core (geometry / movement / collision / player_state / abilities / ledge_grab / world / player_clusters + the shared BodyKinematics body component) extracted from ambition_platformer2d_actor_monolith. The build-time foundation everything rebuilds against. See docs/planning/status.md and docs/architecture/architecture-boundaries.md."
+
+[lib]
+# rlib only: the foundation library consumed by ambition_platformer2d_actor_monolith (and the
+# platformer runtime). Packaging is the consuming binary's responsibility.
+crate-type = ["rlib"]
+
+[dependencies]
+# Minimal foundation deps only. The ECS surface is just the `Component` derive
+# and `QueryData` derive (no Bundle / Commands / systems), so depend on
+# `bevy_ecs` directly rather than the full `bevy` umbrella to keep this crate's
+# compile time small — everything rebuilds against it.
+ambition_geometry = { path = "../ambition_geometry" }
+bevy_ecs = { version = "0.19.1", default-features = false }
+bevy_math = { version = "0.19.1", features = ["serialize"] }
+parry2d = "0.26"
+serde = { workspace = true }
+
+[dev-dependencies]
+# The input-stream round-trip tests need a concrete serde format. The crate
+# itself stays format-agnostic: only the derives ship.
+serde_json = "1"

@@ -1,0 +1,220 @@
+[package]
+name = "ambition_platformer2d"
+version = "0.1.0"
+edition.workspace = true
+license.workspace = true
+authors.workspace = true
+description = "Facade crate for composing Ambition-derived platformer games from one engine surface."
+
+[features]
+# Optional LDtk integration; movement-only games leave it disabled.
+ldtk = ["ambition_platformer2d_provider/ldtk"]
+# The causal inspector, off by default: a game that never opens one must not
+# link one. Forwards to the runtime's host half and the foundation vocabulary.
+causal = ["ambition_platformer2d_runtime/causal", "dep:ambition_causal"]
+# Offscreen capture, off by default for the same reason as everything else here:
+# it links a PNG encoder, and a shipped game has nothing to encode.
+capture = ["ambition_render/capture"]
+# The content compiler, off by default for the same reason: a game that ships
+# its content embedded and never validates at runtime must not link one.
+# `ambition_items?/content_pack`: the `?` means "only if that optional edge is
+# already enabled". A movement-only game with `default-features = false` gets
+# the compiler without being forced to link the items capability to have it.
+content_pack = [
+    "dep:ambition_content_pack",
+    "ambition_characters/content_pack",
+    "ambition_items?/content_pack",
+    # Same `?` rule: the encounter capability owns `encounter_waves`, and a
+    # composition without that optional edge must not try to compile it.
+    "ambition_encounter?/content_pack",
+    "ambition_audio/content_pack",
+    "ambition_combat/content_pack",
+    # ⭐ the boss schemas moved here with the boss thinking (D168, 2026-08-27).
+    "ambition_boss_encounter/content_pack",
+]
+# Slice H: the facade's dependency edges are optional CAPABILITIES, and the
+# default is all of them — a consumer with default features gets exactly the
+# pre-slice-H facade. `default-features = false` is how a game says "only what
+# I ask for"; each optional crate edge is an implicit feature named after the
+# crate (`ambition_render`, `ambition_menu`, …), listed in `all_capabilities`.
+#
+#  Two unwanted edges deliberately did NOT become optional, and the reasons
+# are results, not oversights (slice-g-selection.json, slice_h_result):
+#   - `ambition_audio`: declaring SILENCE is an audio-catalog registration
+#     (`ModuleDraft::no_audio` → `AudioCatalogFragment`), so the composition
+#     path needs the crate even for a game with no sound. It also arrives via
+#     `ambition_platformer2d_actor_monolith` regardless, so gating the facade edge would cut nothing.
+#   - 13 more of the 19 "never asked for" crates arrive through
+#     `ambition_platformer2d_actor_monolith` alone; making their facade edges optional would change
+#     no measurement. They wait on the §4 carve, not on this manifest.
+default = ["all_capabilities"]
+# Every optional edge on: the facade exactly as it was when every edge was
+# unconditional.
+all_capabilities = [
+    "rollback",
+    # ⛔ `relativity` is NOT here. It is a real capability with a real consumer —
+    # the TwinTrack demo, which names it explicitly alongside
+    # `all_capabilities` — but nothing in the shipped game asks for spacetime,
+    # and listing it here put `ambition_relativity` + `ambition_relativity2d`
+    # into every build that took the default features. Removed 2026-09-01 after
+    # TwinTrack left the launcher.
+    # A game asking for EVERY capability has an LDtk world; a movement-only
+    # game asks for neither this nor the crate behind it.
+    "ldtk",
+    "ambition_cutscene",
+    "ambition_dialog",
+    "ambition_encounter",
+    "ambition_inventory_ui",
+    "ambition_items",
+    "ambition_menu",
+    "ambition_persistence",
+    # This closes the FACADE's own edge, which is one of the four that hold it, not the footprint.
+    "ambition_platformer2d_ldtk",
+    "ambition_portal2d",
+    "ambition_portal2d_presentation",
+    "ambition_projectiles",
+    "ambition_render",
+    "ambition_settings_menu",
+    "ambition_sfx",
+    "ambition_sfx_bank",
+    "ambition_touch_input",
+    "ambition_ui_nav",
+    "ambition_vfx",
+]
+rollback = ["dep:ambition_platformer2d_rollback_ggrs"]
+# Window/input/presentation forwarders for downstream game crates and for the
+# app-shell collapse. Games opt into the same engine/host/render/actor gates
+# through one facade instead of copying every lower crate into their manifests.
+# `visible` implies the render edge: a visible face draws through
+# `ambition_platformer2d::presentation`, which is `ambition_render`.
+visible = ["ambition_platformer2d_actor_monolith/visible", "ambition_render"]
+visible_web_base = ["ambition_platformer2d_actor_monolith/visible_web_base"]
+desktop_platform = ["ambition_platformer2d_actor_monolith/desktop_platform"]
+android_platform = ["ambition_platformer2d_actor_monolith/android_platform"]
+web_platform = [
+    "ambition_platformer2d_actor_monolith/web_platform",
+    # The rollback backend owns the wasm clock requirement.
+    "ambition_platformer2d_rollback_ggrs?/web_platform",
+]
+web_served = ["ambition_platformer2d_actor_monolith/web_served"]
+web_audio = ["ambition_platformer2d_actor_monolith/web_audio"]
+headless = ["ambition_platformer2d_actor_monolith/headless"]
+dev_tools = [
+    "ambition_platformer2d_actor_monolith/dev_tools",
+    # Weak: developer tooling configures the settings capability when present;
+    # it must not pull the settings/system-menu IR into a composition that did
+    # not select that capability.
+    "ambition_settings_menu?/dev_tools",
+]
+dev_hot_reload = ["ambition_platformer2d_actor_monolith/dev_hot_reload"]
+static_map = ["ambition_platformer2d_actor_monolith/static_map"]
+static_core_assets = ["ambition_platformer2d_actor_monolith/static_core_assets"]
+static_sfx_bank = ["ambition_platformer2d_actor_monolith/static_sfx_bank"]
+ldtk_runtime = ["ambition_platformer2d_actor_monolith/ldtk_runtime"]
+physics_debris = ["ambition_platformer2d_actor_monolith/physics_debris"]
+frame_pacing = ["ambition_platformer2d_actor_monolith/frame_pacing"]
+profile = ["ambition_platformer2d_actor_monolith/profile"]
+portal_ldtk = ["ambition_platformer2d_actor_monolith/portal_ldtk"]
+input = [
+    "ambition_platformer2d_actor_monolith/input",
+    "ambition_menu?/input",
+    "ambition_platformer2d_host/input",
+    # Weak: input does not FORCE the render edge; it configures it if present.
+    "ambition_render?/input",
+    "ambition_sim_view/input",
+]
+mobile_touch = ["ambition_platformer2d_actor_monolith/mobile_touch", "ambition_touch_input/mobile_touch"]
+portal = [
+    "ambition_portal2d",
+    "ambition_held_items/portal",
+    "ambition_platformer2d_actor_monolith/portal",
+    "ambition_platformer2d_runtime/portal",
+    "ambition_platformer2d_host/portal",
+]
+portal_render = [
+    "portal",
+    "ambition_platformer2d_host/portal_render",
+    "ambition_render/portal_render",
+]
+audio = [
+    "ambition_platformer2d_actor_monolith/audio",
+    "ambition_audio/kira",
+    "ambition_platformer2d_provider/audio",
+]
+ui = ["ambition_platformer2d_actor_monolith/ui", "ambition_conversation/ui"]
+bevy_ui_menu = ["ambition_platformer2d_actor_monolith/bevy_ui_menu", "ambition_menu/bevy_ui_menu"]
+kaleidoscope_menu = ["ambition_platformer2d_actor_monolith/kaleidoscope_menu", "ambition_menu/kaleidoscope_menu"]
+relativity = ["dep:ambition_relativity", "dep:ambition_relativity2d"]
+basic_shell_presentation = [
+    "ambition_game_shell/basic_presentation",
+    "ambition_load_presentation/basic_presentation",
+]
+
+[dependencies]
+ambition_damage = { path = "../ambition_damage" }
+ambition_mount = { path = "../ambition_mount" }
+ambition_platformer2d_actor_monolith = { path = "../ambition_platformer2d_actor_monolith", default-features = false }
+# Re-exported as `world_items`: the touched-collectible domain the kernel gave
+# up in D33. A game names this rather than `actors::items`.
+ambition_world_items = { path = "../ambition_world_items" }
+ambition_abilities = { path = "../ambition_abilities" }
+ambition_held_items = { path = "../ambition_held_items" }
+ambition_body_seed = { path = "../ambition_body_seed" }
+ambition_match = { path = "../ambition_match" }
+ambition_asset_manager = { path = "../ambition_asset_manager", features = ["bevy"] }
+ambition_audio = { path = "../ambition_audio" }
+ambition_characters = { path = "../ambition_characters" }
+ambition_content_pack = { path = "../ambition_content_pack", optional = true }
+ambition_combat = { path = "../ambition_combat" }
+ambition_boss_encounter = { path = "../ambition_boss_encounter" }
+ambition_gameplay_trace = { path = "../ambition_gameplay_trace" }
+ambition_conversation = { path = "../ambition_conversation" }
+ambition_cutscene = { path = "../ambition_cutscene", optional = true }
+ambition_dev_tools = { path = "../ambition_dev_tools" }
+ambition_dialog = { path = "../ambition_dialog", features = ["input"], optional = true }
+ambition_encounter = { path = "../ambition_encounter", optional = true }
+ambition_encounter_features = { path = "../ambition_encounter_features" }
+ambition_platformer2d_core = { path = "../ambition_platformer2d_core" }
+ambition_entity_catalog = { path = "../ambition_entity_catalog" }
+ambition_platformer2d_host = { path = "../ambition_platformer2d_host" }
+ambition_input = { path = "../ambition_input" }
+ambition_inventory_ui = { path = "../ambition_inventory_ui", optional = true }
+ambition_items = { path = "../ambition_items", optional = true }
+ambition_platformer2d_ldtk = { path = "../ambition_platformer2d_ldtk", optional = true }
+ambition_game_shell = { path = "../ambition_game_shell", default-features = false }
+ambition_load = { path = "../ambition_load" }
+ambition_load_presentation = { path = "../ambition_load_presentation", default-features = false }
+ambition_menu = { path = "../ambition_menu", features = ["ldtk"], optional = true }
+ambition_persistence = { path = "../ambition_persistence", optional = true }
+ambition_platformer2d_shared_tangle = { path = "../ambition_platformer2d_shared_tangle" }
+ambition_platformer2d_provider = { path = "../ambition_platformer2d_provider" }
+ambition_portal2d = { path = "../ambition_portal2d", optional = true }
+ambition_portal2d_presentation = { path = "../ambition_portal2d_presentation", optional = true }
+ambition_projectiles = { path = "../ambition_projectiles", optional = true }
+ambition_relativity = { path = "../ambition_relativity", optional = true }
+ambition_relativity2d = { path = "../ambition_relativity2d", optional = true }
+ambition_render = { path = "../ambition_render", optional = true }
+ambition_causal = { path = "../ambition_causal", features = ["bevy"], optional = true }
+ambition_platformer2d_runtime = { path = "../ambition_platformer2d_runtime" }
+ambition_platformer2d_rollback_ggrs = { path = "../ambition_platformer2d_rollback_ggrs", optional = true }
+ambition_settings_menu = { path = "../ambition_settings_menu", optional = true }
+ambition_sfx = { path = "../ambition_sfx", optional = true }
+ambition_sfx_bank = { path = "../ambition_sfx_bank", optional = true }
+ambition_sim_view = { path = "../ambition_sim_view", features = ["input"] }
+ambition_sprite_sheet = { path = "../ambition_sprite_sheet" }
+# The sheet DERIVATIONS (`posed_body_geometry`, `authored_body_pixel_size`, the animation
+# pickers), re-exported as `ambition_platformer2d::character_sprites`.  a game may NOT name
+# this crate directly — `game.demo-*-umbrella-only` and `game.app-reaches-lower-through-facade`
+# say so — which is exactly why the facade alias exists.
+ambition_character_sprites = { path = "../ambition_character_sprites" }
+ambition_time = { path = "../ambition_time" }
+ambition_touch_input = { path = "../ambition_touch_input", optional = true }
+ambition_ui_nav = { path = "../ambition_ui_nav", optional = true }
+ambition_vfx = { path = "../ambition_vfx", optional = true }
+ambition_platformer2d_world = { path = "../ambition_platformer2d_world" }
+bevy = { version = "0.19.1", default-features = false, features = [
+    "bevy_asset",
+    "bevy_image",
+    "bevy_state",
+    "ui_api",
+] }

@@ -1,0 +1,43 @@
+// Additive provider draft for George Boo'l.
+// This is intentionally not merged into character_catalog.ron by the overlay.
+(
+    id: "npc_george_booul",
+    display_name: "George Boo'l",
+    spritesheet: "sprites/george_booul_spritesheet.png",
+    manifest: "sprites/george_booul_spritesheet.ron",
+    portrait: None,
+    tier: MainHall,
+    body_kind: Standard,
+    composition: None,
+    default_brain: "patrol_peaceful",
+    default_action_set: "peaceful",
+    tags: ["story", "ghost", "logic", "boolean", "playable_candidate"],
+    barks: (
+        on_hit: [
+            "An invalid operation!",
+            "You wrinkled the proof!",
+        ],
+        provoked: [
+            "Then let us test your premise.",
+            "That does not follow.",
+        ],
+        idle: [
+            "True. False. Boo.",
+            "A tidy proposition, at last.",
+            "Mind the operator.",
+        ],
+        hall: [
+            "A proposition does not become true merely because it is loud.",
+            "I haunt the space between yes and no. It is busier than one expects.",
+        ],
+    ),
+    authoring_description: "George Boo'l parodies George Boole, whose algebra of true and false values became foundational to logic and computing. He is intentionally a classic Halloween bedsheet ghost rather than a costumed spectral scholar. TRUE is a pale sheet, FALSE is a charcoal inversion, NOT flips the state, AND combines two inputs, and defeat leaves an empty sheet on the floor. Humans, animals, machines, ghosts, and other beings coexist normally in Ambition, so nobody explains why he is a ghost.",
+    gameplay_description: "Suggested gameplay role: lightweight hovering trap-zoner. Boo'l drifts smoothly, changes between TRUE and FALSE states, and converts placed logic marks into compact bursts. TRUE favors setup and readable control; FALSE favors fades and feints. His effects should remain clean and binary rather than visually noisy.",
+    fallback_dialogue: [
+        "A proposition does not become true merely because it is loud.",
+        "Elegant systems survive contact with inconvenient examples.",
+        "Most confusion is only a missing operator wearing a dramatic hat.",
+        "I haunt the space between yes and no. It is busier than one expects.",
+    ],
+    hall_dialogue_id: Some("hall_npc_george_booul"),
+)

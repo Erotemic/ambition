@@ -1,0 +1,53 @@
+//! Frame pacing (battery saver) — wires [`bevy_framepace`] to the Video setting
+//! [`ambition_platformer2d::persistence::settings::video::VideoSettings::frame_cap`].
+//!
+//! See [`FramePaceCap`].
+//!
+//! This whole module is gated behind the `frame_pacing` feature because the
+//! limiter lives in the render sub-app; headless builds have no render app and
+//! don't compile it. The *setting* itself lives in `UserSettings` and persists on
+//! every platform — only the effect is visible-build-only.
+
+use bevy::prelude::*;
+use bevy_framepace::{FramepacePlugin, FramepaceSettings, Limiter};
+
+use ambition_platformer2d::persistence::settings::video::FramePaceCap;
+use ambition_platformer2d::persistence::settings::UserSettings;
+
+/// Installs `bevy_framepace` and keeps its limiter mirrored to the Video setting.
+pub struct FramePacePlugin;
+
+impl Plugin for FramePacePlugin {
+    fn build(&self, app: &mut App) {
+        // bevy_framepace's limiter lives in the render sub-app; the no-window
+        // render recipe (rendered ownership tests) has none, and pacing a
+        // headless test app is meaningless anyway.
+        if app.get_sub_app_mut(bevy::render::RenderApp).is_none() {
+            return;
+        }
+        app.add_plugins(FramepacePlugin)
+            .add_systems(Update, sync_framepace_from_settings);
+    }
+}
+
+/// Mirror `UserSettings::video::frame_cap` into `bevy_framepace`'s limiter
+/// whenever settings change. `Auto` caps to the display refresh (battery saver);
+/// `Off` renders unthrottled.
+fn sync_framepace_from_settings(
+    settings: Res<UserSettings>,
+    mut framepace: ResMut<FramepaceSettings>,
+) {
+    // Only react when settings actually change (cycle from the Video menu, or the
+    // initial load) — pacing isn't a per-frame decision.
+    if !settings.is_changed() {
+        return;
+    }
+    framepace.limiter = match settings.video.frame_cap {
+        FramePaceCap::Auto => Limiter::Auto,
+        FramePaceCap::Off => Limiter::Off,
+        cap => match cap.target_fps() {
+            Some(fps) => Limiter::from_framerate(fps),
+            None => Limiter::Auto,
+        },
+    };
+}

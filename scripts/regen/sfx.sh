@@ -1,0 +1,65 @@
+#!/usr/bin/env bash
+# Re-render every SFX cue, then repack the binary .sfxbank consumed by
+# the runtime.
+#
+# Pipeline:
+#   1. ambition_sfx_renderer render-all  →  tools/ambition_sfx_renderer/output/<cue>/
+#   2. ambition_sfx_pack                 →  crates/ambition_platformer2d_actor_monolith/assets/audio/sfx.bank
+#
+# Usage:
+# ./scripts/regen/sfx.sh              # render (incremental) + repack (default)
+# ./scripts/regen/sfx.sh --force      # force re-render every cue, then repack
+# ./scripts/regen/sfx.sh --skip-render  # only repack from existing renders
+#
+# Environment:
+#   AMBITION_SFX_PYTHON=/path/to/python  Override the tool-local .venv.
+set -euo pipefail
+
+# ⚠ TWO LEVELS UP: this script lives in `scripts/regen/`, not the repo root.
+repo_root="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/../.." && pwd)"
+cd "$repo_root"
+
+renderer_dir="$repo_root/tools/ambition_sfx_renderer"
+pack_script="$repo_root/tools/ambition_sfx_pack/pack.py"
+
+# shellcheck disable=SC1091
+source "$repo_root/scripts/lib/tool_python.sh"
+
+print_help() {
+    awk '
+        NR == 1 { next }
+        /^set -euo pipefail$/ { exit }
+        /^#$/ { print ""; next }
+        /^# / { sub(/^# /, ""); print }
+    ' "$0"
+}
+
+force=0
+skip_render=0
+for arg in "$@"; do
+    case "$arg" in
+        --force) force=1 ;;
+        --skip-render) skip_render=1 ;;
+        -h|--help) print_help; exit 0 ;;
+        *) echo "unknown arg: $arg" >&2; exit 2 ;;
+    esac
+done
+
+renderer_py="$(ambition_select_tool_python "$renderer_dir" AMBITION_SFX_PYTHON)"
+ambition_require_python_module \
+    "$renderer_py" ambition_sfx_renderer \
+    "run ./run_developer_setup.sh or set AMBITION_SFX_PYTHON=/path/to/python"
+
+if [ "$skip_render" -eq 0 ]; then
+    echo "==> render-all sfx cues (jobs=auto$([ "$force" -eq 1 ] && echo ', force'))"
+    render_args=(render-all --jobs auto)
+    if [ "$force" -eq 1 ]; then
+        render_args+=(--force)
+    fi
+    (cd "$renderer_dir" && "$renderer_py" -m ambition_sfx_renderer "${render_args[@]}")
+fi
+
+echo "==> pack → crates/ambition_platformer2d_actor_monolith/assets/audio/sfx.bank"
+"$renderer_py" "$pack_script" --dump
+
+echo "==> done"

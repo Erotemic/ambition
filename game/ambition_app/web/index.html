@@ -1,0 +1,338 @@
+<!doctype html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+    <title>Ambition — Web (first-pass)</title>
+    <style>
+        html, body {
+            margin: 0;
+            padding: 0;
+            width: 100%;
+            height: 100%;
+            background: #05060a;
+            color: #d6d8e6;
+            font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
+            overflow: hidden;
+        }
+        #stage {
+            position: fixed;
+            inset: 0;
+            display: flex;
+            align-items: stretch;
+            justify-content: stretch;
+        }
+        /*
+         * `fit_canvas_to_parent: true` in run_web() resizes the canvas to
+         * track this parent's size, so the canvas fills the viewport
+         * without a JS resize observer.
+         */
+        canvas#bevy {
+            width: 100%;
+            height: 100%;
+            display: block;
+            outline: none;
+            background: #0a0c14;
+        }
+        /*
+         * The page shell's OWN status line, and nothing more.
+         *
+         * ⛔ it must never claim the GAME is ready. The page can observe three
+         * things — whether the wasm module instantiated, whether the canvas has
+         * keyboard focus, and whether startup threw — and it knows nothing
+         * whatsoever about whether a room is loaded or a route has resolved.
+         * It said "loaded · click the canvas to capture keyboard" the whole time
+         * the app was showing a blank canvas, which is worse than saying nothing.
+         */
+        #status {
+            position: fixed;
+            left: 12px;
+            bottom: 10px;
+            font-size: 12px;
+            opacity: 0.65;
+            pointer-events: none;
+            transition: opacity 220ms ease;
+        }
+        /* Nothing to say: fade out rather than sit there being read as news. */
+        #status[data-state="quiet"] {
+            opacity: 0;
+        }
+        /* A startup failure is the one thing worth interrupting for. */
+        #status[data-state="error"] {
+            left: 50%;
+            top: 50%;
+            bottom: auto;
+            transform: translate(-50%, -50%);
+            max-width: min(40rem, 90vw);
+            padding: 1rem 1.25rem;
+            font-size: 14px;
+            line-height: 1.5;
+            opacity: 1;
+            border: 1px solid #7a3b46;
+            border-radius: 6px;
+            background: #1a0e12;
+            color: #f0c8ce;
+            pointer-events: auto;
+        }
+    </style>
+</head>
+<body>
+    <div id="stage">
+        <canvas id="bevy" tabindex="0"></canvas>
+    </div>
+    <div id="status" data-state="loading">Ambition · loading…</div>
+
+    <!--
+        AudioContext unlock shim. Browsers create the Web Audio
+        `AudioContext` in the `suspended` state and only let
+        `ctx.resume()` succeed if the call originates from a user
+        gesture handler. Kira (via cpal's webaudio backend) creates
+        the AudioContext at startup — well before any gesture — and
+        cpal calls `ctx.resume()` lazily from inside `Stream::play()`.
+        Those play calls are dispatched from Bevy's RAF loop, not from
+        the gesture handler, so `resume()` silently fails and audio
+        stays muted forever.
+
+        Standard fix: patch the AudioContext constructor so we can
+        track every context cpal creates, and resume them ourselves
+        from a real DOM gesture handler. This is run BEFORE the wasm
+        module so the patch wraps cpal's eventual `new AudioContext()`.
+
+        Source-link this in `docs/recipes/web-audio-manual-test.md` when
+        debugging silent audio.
+    -->
+    <script>
+        (function () {
+            const Orig = window.AudioContext || window.webkitAudioContext;
+            if (!Orig) {
+                console.warn("[ambition-audio] no AudioContext on this browser; audio will be silent");
+                return;
+            }
+            const tracked = [];
+            const Patched = function (...args) {
+                const ctx = new Orig(...args);
+                tracked.push(ctx);
+                console.info(
+                    "[ambition-audio] AudioContext created (state=" + ctx.state +
+                    ", sampleRate=" + ctx.sampleRate + "). " +
+                    (ctx.state === "suspended"
+                        ? "Waiting for first user gesture to resume."
+                        : "Already running.")
+                );
+                return ctx;
+            };
+            Patched.prototype = Orig.prototype;
+            window.AudioContext = Patched;
+            if (window.webkitAudioContext) {
+                window.webkitAudioContext = Patched;
+            }
+
+            const status = () =>
+                tracked.map((c) => c.state).join(", ") || "<none>";
+
+            const resumeAll = (evtType) => {
+                if (tracked.length === 0) {
+                    return;
+                }
+                let attempted = 0;
+                for (const ctx of tracked) {
+                    if (ctx.state === "suspended") {
+                        attempted++;
+                        ctx.resume()
+                            .then(() =>
+                                console.info(
+                                    "[ambition-audio] resume() succeeded via " + evtType +
+                                    " (now state=" + ctx.state + ")"
+                                )
+                            )
+                            .catch((err) =>
+                                console.warn(
+                                    "[ambition-audio] resume() failed via " + evtType + ":",
+                                    err
+                                )
+                            );
+                    }
+                }
+                if (attempted > 0) {
+                    console.info(
+                        "[ambition-audio] attempted resume on " + attempted +
+                        " suspended context(s); current states=[" + status() + "]"
+                    );
+                }
+            };
+
+            const events = ["pointerdown", "keydown", "touchstart", "click"];
+            for (const evt of events) {
+                document.addEventListener(evt, () => resumeAll(evt), {
+                    capture: true,
+                    passive: true,
+                });
+            }
+            console.info(
+                "[ambition-audio] AudioContext unlock hook installed (listeners: " +
+                events.join(", ") + ")"
+            );
+        })();
+    </script>
+
+    <!--
+        First-pass JS bootstrap. The wasm-bindgen `--target web` pipeline
+        emits `pkg/ambition_app.js` (the JS shim) and
+        `pkg/ambition_app_bg.wasm` (the module) next to this HTML file.
+        `init()` instantiates the module; the `#[wasm_bindgen(start)]`
+        hook in `lib.rs` (`web_start`) then fires on its own and boots
+        `app::run_web()`.
+
+        See `docs/recipes/web-build.md` for the build command that produces `pkg/`.
+    -->
+    <script type="module">
+        import init from "./pkg/ambition_app.js";
+
+        const status = document.getElementById("status");
+        const canvas = document.getElementById("bevy");
+
+        /*
+         * ⛔ **THE STATUS LINE REPORTS THE PAGE, NEVER THE GAME.**
+         *
+         * ⛔⛔ **AND IT MUST NOT WAIT ON `init()`, WHICH NEVER RESOLVES.**
+         * `run_web` ends in `App::run()`, and winit-on-web hands the browser its
+         * event loop and never returns — so the promise from the
+         * `#[wasm_bindgen(start)]` shim stays pending for the whole life of the
+         * page. Every line after `await init()` is DEAD CODE.
+         *
+         * That is the real story of the original bug report. The page appeared
+         * to say "loaded · click the canvas to capture keyboard" forever; in
+         * fact that string was the INITIAL HTML and the success path that would
+         * have replaced it never ran. The status was not stale — it had never
+         * been written at all. (Reported 2026-08-14; the second report, of
+         * "Ambition loading… and then nothing", was this same hang under the new
+         * initial text.)
+         *
+         * So the page OBSERVES instead of awaiting: winit sizes the canvas
+         * backing store when it configures its surface, which is a fact the DOM
+         * can see and which no promise is needed to learn.
+         *
+         * There is also no capture here: Ambition takes ordinary DOM keyboard
+         * focus. Nothing requests Pointer Lock, so describing it as "capture"
+         * promised a mode the app does not have and never exits.
+         */
+        const setStatus = (state, text) => {
+            status.dataset.state = state;
+            status.textContent = text;
+        };
+
+        const canvasHasFocus = () => document.activeElement === canvas;
+
+        /* winit sets the backing store size once it owns the surface. Before
+         * that the canvas is 300x150 (the HTML default) or 0. */
+        const canvasIsLive = () => canvas.width > 1 && canvas.height > 1;
+
+        const reportFocus = () => {
+            if (status.dataset.state === "error" || !canvasIsLive()) {
+                return;
+            }
+            if (canvasHasFocus()) {
+                setStatus("quiet", "Ambition");
+            } else {
+                setStatus("hint", "Ambition · click the canvas to give it keyboard focus");
+            }
+        };
+
+        canvas.addEventListener("focus", reportFocus);
+        canvas.addEventListener("blur", reportFocus);
+
+        /* ⭐ **BOOT PROGRESS, on the page and in the console.** A browser that
+         * shows nothing gives a maintainer nothing to report, and the console
+         * `info!` lines Bevy emits are easy to miss among asset warnings. These
+         * name the two milestones the page can actually witness. */
+        const t0 = performance.now();
+        const log = (message) => {
+            const at = Math.round(performance.now() - t0);
+            console.info(`[ambition-boot] +${at}ms ${message}`);
+        };
+
+        log("page ready; instantiating the wasm module");
+        setStatus("loading", "Ambition · loading the module…");
+
+        let live = false;
+        const watch = setInterval(() => {
+            if (canvasIsLive()) {
+                live = true;
+                clearInterval(watch);
+                clearTimeout(stall);
+                clearTicks();
+                log(`canvas is live (${canvas.width}x${canvas.height}) — winit owns the surface`);
+                canvas.focus();
+                reportFocus();
+            }
+        }, 100);
+
+        /* Say something at intervals, so a long wait is distinguishable from a
+         * dead one. Silence is what made the first two reports so hard to act
+         * on: "nothing happens" covers both "still compiling" and "panicked",
+         * and those need opposite responses. */
+        const ticks = [5000, 15000, 30000].map((at) =>
+            setTimeout(() => {
+                if (live) {
+                    return;
+                }
+                const seconds = at / 1000;
+                log(`still waiting for the canvas at ${seconds}s`);
+                setStatus(
+                    "loading",
+                    `Ambition \u00b7 starting\u2026 (${seconds}s \u2014 a large wasm module ` +
+                    "can take a while to compile on first load)"
+                );
+            }, at)
+        );
+
+        /* If the surface never comes up at all, SAY SO with the next thing to
+         * look at, and name both causes rather than guessing between them. */
+        const stall = setTimeout(() => {
+            if (live) {
+                return;
+            }
+            clearInterval(watch);
+            log("the canvas never came up");
+            setStatus(
+                "error",
+                "Ambition never took the canvas after 60s. Open the browser console " +
+                "\u2014 the last message there decides which of these it is: a Rust " +
+                "panic (a line with RUST_BACKTRACE or 'panicked at'), a wgpu adapter " +
+                "failure (no WebGL2/WebGPU context), or no Rust output at all, which " +
+                "means the module never finished compiling. The wasm artifact is " +
+                "unoptimized and very large; ./build_for_web.sh prints its size."
+            );
+        }, 60000);
+        function clearTicks() {
+            ticks.forEach(clearTimeout);
+        }
+
+        /* ⚠ this `await` is expected NEVER to resolve — see above. It is here
+         * only to catch a module that fails to INSTANTIATE, which does reject. */
+        try {
+            await init();
+            log("init() returned; the app loop exited");
+        } catch (err) {
+            /* winit unwinds the stack by throwing to escape its event loop; that
+             * is a normal control flow signal on web, not a failure. */
+            const text = String(err && err.message ? err.message : err);
+            if (text.includes("Using exceptions for control flow")) {
+                log("winit took the event loop (control-flow unwind, expected)");
+            } else {
+                console.error(err);
+                clearInterval(watch);
+                clearTimeout(stall);
+                clearTicks();
+                setStatus(
+                    "error",
+                    "Ambition failed to start: the WebAssembly module did not load. " +
+                    "Open the browser console for the underlying error. A stale " +
+                    "`pkg/` from an older build, or a wasm-bindgen CLI whose version " +
+                    "differs from the one Cargo.lock pins, are the two common causes."
+                );
+            }
+        }
+    </script>
+</body>
+</html>

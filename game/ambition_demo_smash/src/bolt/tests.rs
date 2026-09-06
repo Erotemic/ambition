@@ -1,0 +1,377 @@
+//! ⛔⛔ THE RATE LIMIT IS THE MOVE. "Holding a direction turns it" would pass
+//! against a bolt that SNAPS to the stick — which is a cursor, not a bolt, and
+//! removes the one cost the move has: a turn spends distance.
+
+use super::*;
+use ambition_platformer2d::actor::MatchSeat;
+use ambition_platformer2d::characters::control::ActorControl;
+use ambition_platformer2d::vfx::{Effect, EffectRequest};
+
+fn app() -> App {
+    let mut app = App::new();
+    app.init_resource::<ambition_platformer2d::time::WorldTime>();
+    app.add_message::<EffectRequest>();
+    // ⛔⛔ THE TRAIL CHANNEL, AND WITHOUT IT `steer_and_fly_bolts` DOES NOT RUN.
+    // A world that does not register a message a system WRITES fails that
+    // system's parameter validation and drops it silently — every bolt test went
+    // red at once when the bolt learned to draw itself. FOURTH time this shape
+    // has appeared in this demo today, and it is always a whole file at once.
+    app.add_message::<ambition_platformer2d::vfx::vfx::VfxMessage>();
+    app.add_message::<ActorActionMessage>();
+    let mut time = app
+        .world_mut()
+        .resource_mut::<ambition_platformer2d::time::WorldTime>();
+    time.scaled_dt = 1.0 / 60.0;
+    time.raw_dt = 1.0 / 60.0;
+    app.add_systems(Update, (fire_authored_bolts, steer_and_fly_bolts).chain());
+    app
+}
+
+fn fighter(app: &mut App, seat: usize, x: f32) -> Entity {
+    app.world_mut()
+        .spawn((
+            ae::BodyKinematics {
+                pos: ae::Vec2::new(x, 0.0),
+                facing: 1.0,
+                ..Default::default()
+            },
+            MatchSeat(seat),
+            ActorControl(
+                ambition_platformer2d::characters::actor::control::ActorControlFrame::neutral(),
+            ),
+        ))
+        .id()
+}
+
+fn params() -> SteeredBoltParams {
+    SteeredBoltParams {
+        trail_vfx: "test_trail".to_string(),
+        trail_every_s: 0.05,
+        speed: 300.0,
+        turn_rate_deg: 220.0,
+        lifetime_s: 2.0,
+        damage: 8,
+        radius: 10.0,
+        knockback: 90.0,
+        self_launch: 640.0,
+        offset: (18.0, -10.0),
+    }
+}
+
+fn fire(app: &mut App, actor: Entity) {
+    let request = ActionRequest::Special {
+        spec: SpecialActionSpec::Special(STEERED_BOLT.to_string()),
+        params: ambition_platformer2d::entity_catalog::ParamValue::from_typed(&params())
+            .expect("bolt params serialize"),
+    };
+    app.world_mut()
+        .write_message(ActorActionMessage { actor, request });
+    app.update();
+}
+
+/// Hold `stick` on `who` from now on.
+fn hold(app: &mut App, who: Entity, stick: ae::Vec2) {
+    let mut control = app.world_mut().get_mut::<ActorControl>(who).unwrap();
+    // ⭐ `undamped_locomotion` IS what `steer_axis()` returns — the field that
+    // survives the damped republish, and the reason a rooted move can be aimed
+    // at all.
+    control.0.undamped_locomotion = Some(ae::LocalAxes::new(stick.x, stick.y));
+}
+
+fn bolts(app: &mut App) -> Vec<SteeredBolt> {
+    app.world_mut()
+        .query::<&SteeredBolt>()
+        .iter(app.world())
+        .cloned()
+        .collect()
+}
+
+#[test]
+fn the_bolt_leaves_forward_and_belongs_to_the_seat_that_fired_it() {
+    let mut app = app();
+    let caster = fighter(&mut app, 1, 0.0);
+    fire(&mut app, caster);
+    let out = bolts(&mut app);
+    assert_eq!(out.len(), 1);
+    assert_eq!(out[0].owner_seat, 1);
+    assert!(out[0].vel.x > 0.0, "it left backwards: {:?}", out[0].vel);
+}
+
+/// ⭐ THE TURN IS RATE-LIMITED, WHICH IS THE WHOLE COST OF STEERING. At 220°/s
+/// one tick turns it under 4°, so a bolt that snapped to the stick would be
+/// pointing the other way immediately and this test is what tells them apart.
+#[test]
+fn the_stick_turns_the_bolt_gradually_and_never_snaps_it() {
+    let mut app = app();
+    let caster = fighter(&mut app, 1, 0.0);
+    fire(&mut app, caster);
+    let opening = bolts(&mut app)[0].vel;
+
+    // Ask for a hard reversal, and keep asking.
+    hold(&mut app, caster, ae::Vec2::new(-1.0, 0.0));
+    app.update();
+    let after_one = bolts(&mut app)[0].vel;
+    assert!(
+        after_one.x > 0.0,
+        "one tick of stick reversed the bolt, so it snaps rather than turns: {after_one:?}"
+    );
+    assert!(
+        after_one.y.abs() > 0.0 || after_one.x < opening.x,
+        "the bolt did not turn at all"
+    );
+
+    // ⛔ AND THE SPEED IS UNCHANGED BY TURNING. A rotation that also scaled the
+    // velocity would make a steered bolt faster or slower than an authored one.
+    assert!(
+        (after_one.length() - opening.length()).abs() < 0.5,
+        "turning changed the speed from {} to {}",
+        opening.length(),
+        after_one.length()
+    );
+
+    // Given enough ticks it does come around.
+    for _ in 0..60 {
+        app.update();
+        if bolts(&mut app).is_empty() {
+            break;
+        }
+    }
+}
+
+/// ⭐⭐ THE THUNDER JACKET: it comes home and throws him.
+#[test]
+fn the_bolt_launches_its_caster_and_does_not_damage_him() {
+    let mut app = app();
+    let caster = fighter(&mut app, 1, 0.0);
+    fire(&mut app, caster);
+    // ⭐ IT MUST LEAVE HIM FIRST, which is the move's own rule and not a fixture
+    // convenience: a bolt that has not got clear cannot answer its caster, or
+    // every press would be an instant self-launch. Ten ticks at 300px/s is
+    // 50px, comfortably outside his box.
+    for _ in 0..10 {
+        app.update();
+    }
+    assert!(
+        bolts(&mut app)[0].clear_of_caster,
+        "the bolt never got clear of its caster"
+    );
+    // Now bring it home.
+    {
+        let mut bolt = app
+            .world_mut()
+            .query::<&mut SteeredBolt>()
+            .iter_mut(app.world_mut())
+            .next()
+            .expect("a bolt is out");
+        bolt.pos = ae::Vec2::ZERO;
+    }
+    app.update();
+    let kin = app.world().get::<ae::BodyKinematics>(caster).unwrap();
+    assert!(
+        kin.vel.length() > 300.0,
+        "the bolt came home and did not throw him: {:?}",
+        kin.vel
+    );
+    assert!(bolts(&mut app).is_empty(), "the bolt survived coming home");
+
+    let messages = app.world().resource::<Messages<EffectRequest>>();
+    let mut cursor = messages.get_cursor();
+    assert!(
+        !cursor.read(messages).any(|r| matches!(
+            &r.effect,
+            Effect::DamageBox(b) if b.name == Some("bolt")
+        )),
+        "the caster took the bolt's damage as well as its launch"
+    );
+}
+
+/// ⛔ AND A FOE TAKES THE HIT INSTEAD, which is the other half: a bolt that only
+/// ever answered its caster would be a recovery with no offence at all.
+#[test]
+fn the_bolt_damages_somebody_else_and_is_spent() {
+    let mut app = app();
+    let caster = fighter(&mut app, 1, 0.0);
+    let rival = fighter(&mut app, 0, 400.0);
+    fire(&mut app, caster);
+    {
+        let mut bolt = app
+            .world_mut()
+            .query::<&mut SteeredBolt>()
+            .iter_mut(app.world_mut())
+            .next()
+            .expect("a bolt is out");
+        bolt.pos = ae::Vec2::new(400.0, 0.0);
+    }
+    app.update();
+    let messages = app.world().resource::<Messages<EffectRequest>>();
+    let mut cursor = messages.get_cursor();
+    assert_eq!(
+        cursor
+            .read(messages)
+            .filter(|r| matches!(&r.effect, Effect::DamageBox(b) if b.name == Some("bolt")))
+            .count(),
+        1,
+        "the bolt reached a foe and did nothing"
+    );
+    assert!(bolts(&mut app).is_empty(), "the bolt was not spent");
+    assert!(
+        app.world()
+            .get::<ae::BodyKinematics>(rival)
+            .unwrap()
+            .vel
+            .length()
+            < 1.0,
+        "the foe was launched directly rather than through the damage box"
+    );
+}
+
+#[test]
+fn the_bolt_fades_on_its_own_clock() {
+    let mut app = app();
+    let caster = fighter(&mut app, 1, 0.0);
+    fire(&mut app, caster);
+    for _ in 0..(2.0 * 60.0) as usize + 4 {
+        app.update();
+    }
+    assert!(bolts(&mut app).is_empty(), "the bolt outlived its lifetime");
+}
+
+#[test]
+fn a_caster_with_no_seat_fires_nothing() {
+    let mut app = app();
+    let unseated = app
+        .world_mut()
+        .spawn(ae::BodyKinematics::default())
+        .id();
+    fire(&mut app, unseated);
+    assert!(bolts(&mut app).is_empty());
+}
+
+/// ⛔⛔ CASTER AND RIVAL IN ONE BOLT: THE SAME THING HAPPENS IN EITHER SPAWN
+/// ORDER, AND IT IS THE OFFENSIVE HIT.
+///
+/// This loop broke on the first overlapping body, so when the returning bolt
+/// found its caster and a rival on the same tick, Bevy's iteration order chose
+/// between the Thunder Jacket (a recovery, launching the caster) and an
+/// offensive hit (a `DamageBox` on the rival). ⇒ Two completely different moves,
+/// selected by nothing anybody authored, and not stable across a rollback
+/// resimulation.
+///
+/// ⭐ A RIVAL BEATS THE CASTER — the design statement, not just a stabilised
+/// coin-toss: a bolt that COULD connect does the offensive thing, and the jacket
+/// is what it does when it finds nobody else.
+#[test]
+fn a_bolt_touching_both_prefers_the_rival_in_either_spawn_order() {
+    let meeting = ae::Vec2::new(0.0, 0.0);
+
+    let outcome = |reversed: bool| -> (bool, bool) {
+        let mut app = app();
+        let seats: [usize; 2] = if reversed { [1, 0] } else { [0, 1] };
+        let mut caster = Entity::PLACEHOLDER;
+        for &s in &seats {
+            let e = fighter(&mut app, s, 0.0);
+            if s == 0 {
+                caster = e;
+            }
+        }
+        app.world_mut().spawn(SteeredBolt {
+            trail_vfx: "test_trail".to_string(),
+            trail_every_s: 0.05,
+            trail_in_s: 0.0,
+            owner_seat: 0,
+            pos: meeting,
+            vel: ae::Vec2::new(300.0, 0.0),
+            remaining_s: 1.0,
+            turn_rate: 3.0,
+            radius: 10.0,
+            damage: 8,
+            knockback: 90.0,
+            self_launch: 640.0,
+            // It has left him: the jacket is legal this tick, which is what
+            // makes the two outcomes genuinely available at once.
+            clear_of_caster: true,
+        });
+        app.update();
+        let caster_launched = app
+            .world()
+            .get::<ae::BodyKinematics>(caster)
+            .is_some_and(|k| k.vel.length() > 1.0);
+        let damaged = !app
+            .world()
+            .resource::<bevy::ecs::message::Messages<EffectRequest>>()
+            .is_empty();
+        (caster_launched, damaged)
+    };
+
+    let forward = outcome(false);
+    let backward = outcome(true);
+    assert_eq!(
+        forward, backward,
+        "the bolt did {forward:?} in one spawn order and {backward:?} in the \
+         other (caster_launched, damaged) — iteration order is choosing between \
+         a recovery and an attack"
+    );
+    assert_eq!(
+        forward,
+        (false, true),
+        "a bolt touching a rival AND its caster must take the rival: the jacket \
+         is what it does when it finds nobody else"
+    );
+}
+
+/// ⛔⛔ THE BOLT DRAWS ITSELF WHILE IT FLIES, AND THE MOVE IS UNPLAYABLE WITHOUT
+/// IT.
+///
+/// `SteeredBolt` emitted a `DamageBox` on contact and NOTHING ELSE — no sprite,
+/// no effect, no trail. ⇒ A projectile whose entire mechanic is that the player
+/// steers it with the stick, which the player could not see. **That is worse than
+/// an invisible trap: a trap the opponent cannot see is unfair, a TOOL THE CASTER
+/// CANNOT SEE is unusable.**
+///
+/// ⭐ THE INTERVAL IS ASSERTED, NOT JUST THE PRESENCE. A 60Hz trail is sixty
+/// effect requests a second for one projectile that lives for seconds — the
+/// authored `trail_every_s` is what keeps the path readable without making one
+/// move the loudest thing on the channel. Counting marks over a known span is the
+/// only way to tell "it draws" from "it floods".
+#[test]
+fn the_bolt_marks_its_path_on_the_authored_interval_rather_than_every_tick() {
+    let mut app = app();
+    let caster = fighter(&mut app, 0, 0.0);
+    fire(&mut app, caster);
+
+    // One cursor across the whole flight — a fresh one per tick re-reads the
+    // double buffer and counts every mark twice.
+    let mut seen =
+        bevy::ecs::message::MessageCursor::<ambition_platformer2d::vfx::vfx::VfxMessage>::default();
+    let mut marks = 0usize;
+    // 30 ticks at 1/60s = 0.5s of flight against a 0.05s interval.
+    for _ in 0..30 {
+        app.update();
+        let messages = app
+            .world()
+            .resource::<Messages<ambition_platformer2d::vfx::vfx::VfxMessage>>();
+        marks += seen
+            .read(messages)
+            .filter(|m| {
+                matches!(
+                    m,
+                    ambition_platformer2d::vfx::vfx::VfxMessage::Effect { .. }
+                )
+            })
+            .count();
+    }
+
+    assert!(
+        marks > 0,
+        "the bolt flew for half a second and drew nothing — the caster is \
+         steering something invisible"
+    );
+    // 0.5s / 0.05s = 10, with a tick of slack either way.
+    assert!(
+        (8..=12).contains(&marks),
+        "the bolt drew {marks} marks in half a second against an authored 0.05s \
+         interval — under eight is a path the player cannot follow, over twelve \
+         means the interval is being ignored and one move is flooding the cue \
+         channel"
+    );
+}

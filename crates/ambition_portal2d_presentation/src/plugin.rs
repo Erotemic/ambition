@@ -1,0 +1,211 @@
+//! The drop-in presentation plugin + its schedule label.
+//!
+//! Mirrors the `PortalPlugin` seam contract: systems register `.in_set
+//! (PortalPresentationSet)` with no host schedule knowledge; the HOST places
+//! the set (typically after its sim→sprite mirror system) and bridges the
+//! seam resources/markers (see the crate docs).
+
+use bevy::prelude::*;
+
+use crate::far_side;
+use crate::gun_visuals;
+#[cfg(feature = "effect_view_cones")]
+use crate::source_visibility;
+use crate::view_cones;
+use crate::visuals;
+#[cfg(feature = "effect_view_cones")]
+use crate::PortalDebugOverlay;
+use crate::{
+    PortalAimHint, PortalCameraContinuityConfig, PortalCameraContinuityHostView,
+    PortalCameraContinuitySelection, PortalCameraContinuityState, PortalEffectSelection,
+    PortalWorldFrame,
+};
+
+/// The one schedule label every portal visual runs in. Hosts order this set
+/// against their own presentation systems (e.g. `.after(sync_visuals)`); the
+/// crate declares no cross-set edges of its own.
+#[derive(SystemSet, Clone, Copy, Debug, Hash, PartialEq, Eq)]
+pub struct PortalPresentationSet;
+
+/// Registers the default portal visuals. Each flag gates one independently
+/// registered public system, so a host can turn one visual off and register
+/// its own replacement in [`PortalPresentationSet`] — extend by subtraction,
+/// not by forking.
+#[derive(Clone, Copy, Debug)]
+pub struct PortalPresentationPlugin {
+    /// Placed-portal quads + channel labels. For compatibility, this system
+    /// still calls sequestered gun helpers for in-flight shot and pickup
+    /// markers; split that flag after behavior is stable.
+    pub portal_quads: bool,
+    /// The mid-transit body pieces over the host-tagged
+    /// [`crate::PortalSceneBody`] ([`visuals::sync_portal_body_pieces`]):
+    /// while the body straddles a pair its sprite draws as two texture-clipped
+    /// charts (here-slice at the entry, emerged slice at the exit), rebuilt
+    /// from the real sprite each frame via [`crate::PortalClipMaterial`].
+    pub body_pieces: bool,
+    /// Far-side compositing ([`far_side::composite_far_side_bodies`]): a body
+    /// standing BEHIND an aperture is redrawn as the part the pane leaves
+    /// visible, so the covered pixels are never submitted and no depth ordering
+    /// can bring them back.
+    ///
+    /// ⛔ Turning this off restores the punch-through Jon reported on
+    /// 2026-09-05: a pane draws at [`crate::PORTAL_WINDOW_Z`] (`9.5`) and every
+    /// actor above it, so a far-side body wins the depth test against the
+    /// captured image that should hide it.
+    pub far_side_compositing: bool,
+    /// The held portal-gun sprite aimed by [`PortalAimHint`]
+    /// ([`gun_visuals::sync_portal_mode_indicator`]).
+    pub gun_indicator: bool,
+    /// The input-warp disorientation glyph
+    /// ([`visuals::sync_portal_disorientation_indicator`]).
+    pub disorientation: bool,
+    /// The through-portal view windows: each portal shows a render-to-texture
+    /// capture of the world in front of its partner, receding into its host
+    /// surface, with 1-frame-lag recursion when portals face each other
+    /// ([`view_cones::sync_portal_view_cones`]; tune via
+    /// [`crate::PortalViewConeConfig`]).
+    pub view_cones: bool,
+}
+
+impl Default for PortalPresentationPlugin {
+    fn default() -> Self {
+        Self {
+            portal_quads: true,
+            body_pieces: true,
+            far_side_compositing: true,
+            gun_indicator: true,
+            disorientation: true,
+            view_cones: true,
+        }
+    }
+}
+
+impl Plugin for PortalPresentationPlugin {
+    fn build(&self, app: &mut App) {
+        // Crate-owned seam resources. `PortalAimHint` is render-only state, so
+        // it is initialised HERE, not by the headless mechanic's plugin; the
+        // host's input adapter writes it each frame.
+        app.init_resource::<PortalWorldFrame>();
+        app.init_resource::<PortalAimHint>();
+        // The live effect choice (view cones / off), cycled from the host's
+        // developer menu for in-session A/B profiling.
+        app.init_resource::<PortalEffectSelection>();
+        // Optional camera/viewpoint continuity is controlled by this resource.
+        // It is the single source of truth surfaced by hosts; its resource
+        // default currently enables Continuous for portal-lab debugging.
+        app.init_resource::<PortalCameraContinuitySelection>();
+        app.init_resource::<PortalCameraContinuityConfig>();
+        app.init_resource::<PortalCameraContinuityState>();
+        app.init_resource::<PortalCameraContinuityHostView>();
+
+        if self.portal_quads {
+            app.add_systems(
+                Update,
+                visuals::sync_portal_visuals.in_set(PortalPresentationSet),
+            );
+        }
+        if self.body_pieces {
+            // Texture-clipped transit pieces. No-op on hosts without an asset
+            // registry (headless tests); the system then uses its unclipped
+            // sprite-copy fallback.
+            crate::clip_material::add_portal_clip_material_plugin(app);
+            app.add_systems(
+                Update,
+                visuals::sync_portal_body_pieces.in_set(PortalPresentationSet),
+            );
+        }
+        if self.far_side_compositing {
+            // Shares the clip material with the transit pieces; the adder is
+            // idempotent precisely because both flags default to on.
+            crate::clip_material::add_portal_clip_material_plugin(app);
+            app.add_systems(
+                Update,
+                far_side::composite_far_side_bodies.in_set(PortalPresentationSet),
+            );
+        }
+        // ⭐ THE ONE WRITER of a portal-presented body's `Visibility`, after every
+        // system that states a reason to hide it. Registered UNCONDITIONALLY:
+        // the reason-staters are behind feature flags and either may be off, but
+        // a body whose only hide reason just went away still has to be given
+        // back — and with both off the resolver's query matches nothing, which
+        // costs a filtered iteration and keeps the invariant in one place.
+        //
+        // ⚠ `.after` on a system that is not registered is not an error; it
+        // simply constrains nothing, which is the correct meaning here.
+        app.add_systems(
+            Update,
+            source_visibility::resolve_portal_source_visibility
+                .in_set(PortalPresentationSet)
+                .after(visuals::sync_portal_body_pieces)
+                .after(far_side::composite_far_side_bodies),
+        );
+        if self.gun_indicator {
+            app.add_systems(
+                Update,
+                gun_visuals::sync_portal_mode_indicator.in_set(PortalPresentationSet),
+            );
+        }
+        if self.disorientation {
+            app.add_systems(
+                Update,
+                visuals::sync_portal_disorientation_indicator.in_set(PortalPresentationSet),
+            );
+        }
+        #[cfg(feature = "effect_view_cones")]
+        if self.view_cones {
+            app.add_message::<ambition_platformer2d_shared_tangle::developer_hotkeys::DeveloperAction>();
+            app.init_resource::<view_cones::PortalViewConeConfig>();
+            app.init_resource::<view_cones::PortalCaptureQualityBudget>();
+            app.init_resource::<view_cones::PortalViewConeDebugDumpRequest>();
+            // The viewer seam (host-synced each frame); empty/absent  static
+            // window fallback. Init here so the host can `ResMut` it.
+            app.init_resource::<view_cones::PortalViewer>();
+            app.init_resource::<PortalDebugOverlay>();
+            app.add_systems(
+                Update,
+                (
+                    view_cones::handle_portal_view_cone_dump_hotkey,
+                    // ⛔⛔ GUARDED BECAUSE BEVY 0.19 MADE A MISSING PARAMETER
+                    // FATAL. `ConeRigAssets` takes `ResMut<Assets<Image>>`,
+                    // `<Mesh>` and `<ColorMaterial>`; 0.18 skipped a system whose
+                    // params were absent, 0.19 panics the schedule. A composition
+                    // that installs portal presentation without a render stack —
+                    // every headless demo app — took the whole app down with it:
+                    // 37 of the feature union's 48 failures were this one line.
+                    //
+                    // ⭐ NOT A NEW POLICY. `engine/headless-verification.md`
+                    // already ruled on this class: *"the fix is usually NOT to
+                    // register the resource. A gizmo or mesh system with no
+                    // render stack should be `run_if(resource_exists::<..>)`-
+                    // guarded so it skips … because registering render assets one
+                    // at a time into a headless app is fitting the app to the
+                    // test."* `avatar::trail.rs` is the named pattern.
+                    //
+                    // ⚠ ALL THREE, not the one that happened to fail first. That
+                    // doc records three of these hiding in succession on
+                    // 2026-09-02 — a missing `Assets<TextureAtlasLayout>`, then
+                    // `GizmoConfigStore`, then `Assets<Mesh>` — each looking
+                    // identical to the last. Chained `run_if`s are ANDed.
+                    view_cones::sync_portal_view_cones
+                        .run_if(resource_exists::<Assets<Image>>)
+                        .run_if(resource_exists::<Assets<Mesh>>)
+                        .run_if(resource_exists::<Assets<ColorMaterial>>),
+                    // ⛔⛔ AND THE NEXT ONE IN THE CHAIN NEEDED IT TOO, which
+                    // is the thing headless-verification.md warns about in as
+                    // many words: three of these hid in succession, "each
+                    // looking identical to the last". Guarding
+                    // `sync_portal_view_cones` alone moved all 37 union
+                    // failures onto THIS system within one run.
+                    // `Gizmos` requires `GizmoConfigStore`, and this is
+                    // `avatar::trail.rs`'s pattern verbatim.
+                    view_cones::debug_portal_view_zones.run_if(
+                        resource_exists::<bevy::gizmos::config::GizmoConfigStore>,
+                    ),
+                    view_cones::flush_portal_view_cone_debug_dump,
+                )
+                    .chain()
+                    .in_set(PortalPresentationSet),
+            );
+        }
+    }
+}

@@ -1,0 +1,130 @@
+//! ECS components/bundles for plugin-spawned Ambition LDtk entities.
+//!
+//! `AmbitionLdtkMarkerBundle` registers every authored entity with
+//! bevy_ecs_ldtk (so it owns lifecycle without drawing placeholders);
+//! `AmbitionLdtkEntity`/`AmbitionLdtkMarker` carry identity. `LdtkRuntimeRole`
+//! classifies an identifier (with `promoted()`/`label()`), and `LdtkSolid`/
+//! `LdtkOneWayPlatform`/`LdtkDamageVolume` are the typed collision tags read by
+//! sibling `systems`/`indices`.
+
+use bevy::prelude::{Bundle, Component};
+use bevy_ecs_ldtk::prelude::{EntityInstance as PluginEntityInstance, LdtkEntity};
+
+/// Lightweight bundle registered for every Ambition-authored LDtk entity.
+///
+/// This makes `bevy_ecs_ldtk` the owner of LDtk entity lifecycle/identity
+/// without letting the plugin render its default unregistered-entity
+/// placeholders. Ambition systems then consume the spawned `EntityInstance`
+/// component and attach gameplay semantics deliberately.
+#[derive(Bundle, LdtkEntity, Default)]
+pub struct AmbitionLdtkMarkerBundle {
+    #[from_entity_instance]
+    pub entity_instance: PluginEntityInstance,
+    pub marker: AmbitionLdtkMarker,
+}
+
+#[derive(Component, Default, Clone, Copy, Debug)]
+pub struct AmbitionLdtkMarker;
+
+#[derive(Component, Clone, Debug)]
+pub struct AmbitionLdtkEntity {
+    pub iid: String,
+    pub identifier: String,
+    pub px: [i32; 2],
+    pub size: [i32; 2],
+    pub world: Option<[i32; 2]>,
+}
+
+impl AmbitionLdtkEntity {
+    pub fn summary(&self) -> String {
+        let world = self
+            .world
+            .map(|world| format!(" world=({}, {})", world[0], world[1]))
+            .unwrap_or_default();
+        format!(
+            "{} {} px=({}, {}) size={}x{}{}",
+            self.identifier, self.iid, self.px[0], self.px[1], self.size[0], self.size[1], world
+        )
+    }
+}
+
+/// Ambition-facing role for a plugin-spawned LDtk entity.
+///
+/// These are deliberately narrower than the full LDtk identifier set.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord)]
+pub enum LdtkRuntimeRole {
+    PlayerStart,
+    LoadingZone,
+    DebugLabel,
+    CameraZone,
+    Solid,
+    OneWayPlatform,
+    DamageVolume,
+    Other,
+}
+
+impl LdtkRuntimeRole {
+    pub fn from_identifier(identifier: &str) -> Self {
+        match identifier {
+            "PlayerStart" => Self::PlayerStart,
+            "LoadingZone" => Self::LoadingZone,
+            "DebugLabel" => Self::DebugLabel,
+            "CameraZone" => Self::CameraZone,
+            "Solid" => Self::Solid,
+            "OneWayPlatform" => Self::OneWayPlatform,
+            "DamageVolume" | "HazardBlock" => Self::DamageVolume,
+            _ => Self::Other,
+        }
+    }
+
+    pub fn label(self) -> &'static str {
+        match self {
+            Self::PlayerStart => "player starts",
+            Self::LoadingZone => "loading zones",
+            Self::DebugLabel => "debug labels",
+            Self::CameraZone => "camera zones",
+            Self::Solid => "solids",
+            Self::OneWayPlatform => "one-way platforms",
+            Self::DamageVolume => "damage volumes",
+            Self::Other => "other",
+        }
+    }
+
+    pub fn promoted(self) -> bool {
+        !matches!(self, Self::Other)
+    }
+}
+
+/// Typed collision data attached to plugin-spawned `Solid` entities. The JSON
+/// adapter currently publishes the matching runtime block during parity rollout.
+#[derive(Component, Clone, Debug, Default)]
+pub struct LdtkSolid {
+    /// Top-left corner in LDtk-level-local pixel coordinates.
+    pub level_px: [i32; 2],
+    /// Width and height in pixels.
+    pub size: [i32; 2],
+}
+
+/// Typed collision data for plugin-spawned one-way platforms. The JSON adapter
+/// currently publishes the matching runtime block as well.
+#[derive(Component, Clone, Debug, Default)]
+pub struct LdtkOneWayPlatform {
+    pub level_px: [i32; 2],
+    pub size: [i32; 2],
+}
+
+/// Typed Ambition component attached to plugin-spawned `DamageVolume`
+/// (and the legacy `HazardBlock`) entities.
+///
+/// The JSON adapter still produces the matching `ae::Block::hazard(...)`
+/// for the runtime collision world; this component is the typed
+/// sibling for ECS-side query and the parity overlay.
+#[derive(Component, Clone, Debug, Default)]
+pub struct LdtkDamageVolume {
+    pub level_px: [i32; 2],
+    pub size: [i32; 2],
+    /// Damage amount (1 by default) — sandbox doesn't yet expose
+    /// per-volume damage in the LDtk schema, so this defaults to 1
+    /// and future LDtk field reads can populate it.
+    pub damage: i32,
+}

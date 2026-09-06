@@ -1,0 +1,86 @@
+# The Phase-6 external-architecture proof (campaign doc §Phase 6): a consumer
+# game that lives OUTSIDE the engine workspace — its own [workspace], its own
+# lockfile, no workspace dependency table, no policy exemptions — so what
+# compiles here is exactly what a third party gets from the `ambition_platformer2d`
+# umbrella. The dependency rule is the same one the in-repo demos prove:
+# `ambition_platformer2d` + `bevy`, nothing else (bevy only because component derives
+# resolve `bevy_ecs` through the CONSUMER's manifest).
+[package]
+name = "outlander"
+version = "0.1.0"
+edition = "2021"
+publish = false
+
+[workspace]
+
+[lib]
+crate-type = ["rlib"]
+
+[[bin]]
+name = "outlander_headless"
+path = "src/bin/headless.rs"
+test = false
+bench = false
+
+[[bin]]
+name = "outlander_dump"
+path = "src/bin/dump.rs"
+test = false
+bench = false
+
+# The windowed face. Feature-gated exactly like the in-repo demo shells: the
+# default build stays headless-lean, and `--features visible` adds the render
+# chain, the basic shell presentation, and the standard host input path.
+[[bin]]
+name = "outlander_visible"
+path = "src/bin/visible.rs"
+required-features = ["visible"]
+test = false
+bench = false
+
+[features]
+default = []
+visible = [
+    "ambition_platformer2d/visible",
+    "ambition_platformer2d/basic_shell_presentation",
+    "ambition_platformer2d/input",
+    "bevy/default",
+]
+
+[dependencies]
+# Slice H: capability edges are features now. Outlander DRAWS and its library /
+# integration tests explicitly exercise the public rollback promise, so it asks
+# for those two capabilities by name. What else still links is the carve's
+# problem, not this manifest's. `fixtures/minimal_game` is the sentinel that asks
+# for no rollback backend at all.
+ambition_platformer2d = { path = "../../crates/ambition_platformer2d", default-features = false, features = [
+    "ambition_render",
+    # Outlander exercises the public rollback promise in its library/tests.
+    # Rollback is now an explicit backend capability rather than an unconditional
+    # cost of naming the facade, so this consumer must ask for what it uses.
+    "rollback",
+] }
+bevy = { version = "0.19.1", default-features = false }
+
+# `[patch]` DOES NOT CROSS A WORKSPACE BOUNDARY, and this fixture is its
+# own workspace. The engine pins `bevy_ggrs` to the upstream commit that merged
+# the `GgrsFrameTiming` accessor (#134), patched in at the repo root.
+# A separate workspace resolves the bare `bevy_ggrs = "0.22"` requirement from
+# crates.io instead, and the released crate has no such type — so
+# `ambition_platformer2d_rollback_ggrs`, which this consumer links through the
+# facade's `rollback` feature, fails to compile with
+# `cannot find type GgrsFrameTiming in crate bevy_ggrs`.
+#
+# this was invisible for two reasons at once: the fixture's `Cargo.lock`
+# is gitignored, so nobody's committed state carried the wrong resolution, and
+# the lock that existed locally had been resolved against the fork — which is
+# also why the sub-workspace lockfile check was failing rather than the build.
+# A FRESH CLONE has no lock at all and resolves crates.io, so this consumer
+# could not have built for anybody who had not already run it.
+#
+#  the patch is repeated here rather than inherited, because there is no
+# mechanism to inherit it. RETIRE this WITH the root entry, in the same change:
+# two copies of one decision are a fork, and the root's comment already names
+# the retirement condition (#134 shipping in a released `bevy_ggrs`).
+[patch.crates-io]
+bevy_ggrs = { git = "https://github.com/gschup/bevy_ggrs", rev = "f1853823bfb888fcd9d468a136bb81fd6b9ed481" }

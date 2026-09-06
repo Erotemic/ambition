@@ -1,0 +1,63 @@
+[package]
+name = "ambition_characters"
+version = "0.1.0"
+edition.workspace = true
+license.workspace = true
+authors.workspace = true
+description = "Unified actor system for Ambition: actor control/AI vocabulary + the universal brain (player, NPC, enemy, boss) + the character catalog. Bosses are actors (ADR 0016)."
+
+[dependencies]
+ambition_platformer2d_core = { path = "../ambition_platformer2d_core" }
+# The content-free ability vocabulary (MoveSpec / EffectRef / ParamValue). A
+# downward edge (entity_catalog is a leaf): the universal-brain `Special` action
+# carries an `EffectRef`'s opaque `ParamValue` so a content technique hydrates
+# its own params (fable review A1 / R2.2).
+ambition_entity_catalog = { path = "../ambition_entity_catalog" }
+# The binding-resolution boundary (`Resolver` / `BindingReport` / `Namespace`),
+# which is what character PREPARATION is written in terms of.
+# the BOUNDARY, not the platformer. This named
+# `ambition_platformer2d_shared_tangle` for one item (`Namespace`) and got 18k
+# lines of platformer lifecycle, camera, transit and schedules underneath the
+# canonical character domain for it. The edge was LEGAL — the absence contracts
+# passed — and legality is not the same question as floor.
+ambition_binding = { path = "../ambition_binding" }
+# The content compiler. A downward edge to a foundation crate with no Bevy and
+# no domain types: the character capability OWNS its authored schema, so the
+# registration lives here rather than in a central content enum.
+#
+# OPTIONAL and default-OFF, and the footprint ratchet is what said so: a
+# movement-only game (`fixtures/minimal_game`) must not link a content compiler
+# it never asked for — §2e, "a perfectly semantic API can still force a game to
+# link every unrelated domain". Nothing at RUNTIME consumes a prepared pack yet;
+# the compiler is a build-time and tooling concern, so the honest default is
+# off. Turn it on when a composition wants its content validated (see
+# `ambition_content_cli`), and again when the runtime starts reading a
+# `PreparedContentPack` instead of an `include_str!`.
+ambition_content_pack = { path = "../ambition_content_pack", optional = true }
+# Structured causal facts. Zero dependencies of its own, and OPTIONAL for the
+# same §2e reason as the compiler above: a movement-only game must not link an
+# instrument it never turns on. Its cost when linked-and-off is one thread-local
+# load per decision — the same cost the `AMBITION_FIGHTER_TRACE` env check it
+# replaces already paid.
+ambition_causal = { path = "../ambition_causal", optional = true }
+bevy = { version = "0.19.1", default-features = false, features = ["bevy_log"] }
+ron = { workspace = true }
+serde = { workspace = true }
+
+[features]
+# TEST FIXTURES ONLY, and it must never be enabled by a production
+# dependency. It exposes `prepare_and_finalize_for_test` and
+# `PreparedCharacterRegistry::insert_prepared`, both of which BYPASS the
+# finalization barrier — folding a character against whatever catalog happens to
+# exist at that moment, which is the ordering hazard `CharacterPreparationPlugin`
+# exists to remove. They were `#[cfg(test)] pub(crate)` while their callers lived
+# in the same crate as the implementation; the P1.7 move put ~1,750 lines of
+# model and preparation down here and left eighteen monolith fixtures up there,
+# and `#[cfg(test)]` does not cross a crate boundary. A feature + dev-dependency
+# is the narrowest thing that does. Widening them to ordinary `pub` instead would
+# be the relocation deciding the architecture.
+test-support = []
+# The authored-content schema this capability owns. See the dependency note.
+content_pack = ["dep:ambition_content_pack"]
+# Publish this capability's causal facts (brain decisions, for now).
+causal = ["dep:ambition_causal"]

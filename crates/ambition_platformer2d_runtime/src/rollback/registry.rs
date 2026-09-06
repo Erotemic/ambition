@@ -1,0 +1,942 @@
+//! Backend-neutral rollback schema metadata.
+//!
+//! Gameplay domains declare typed rollback obligations through
+//! `ambition_platformer2d_core::snapshot::RollbackRegistrar`. This module records the exact
+//! managed schema those declarations describe; concrete rollback hosts install storage/checksum
+//! machinery separately.
+
+use std::collections::BTreeMap;
+use std::fmt;
+
+use bevy::prelude::*;
+
+use crate::content_identity::SnapshotSchemaFingerprint;
+
+/// Managed same-build version of the rollback schema contract.
+///
+/// Bump when the registered state set, wire type identity, encoded payload, or
+/// checksum projection changes incompatibly. Peers with different versions must
+/// not treat their snapshots as compatible.
+/// ⛔ v131: `actor.move_playback` gained its AIM LATCH — the direction the
+/// player asked for while the move was coming out. An aimed teleport resolves
+/// its destination from it, so two peers that disagree about it put the same
+/// fighter in two places: one on the ledge, one under it.
+/// ⛔ v130: the same projection gained `ChargeSustain` — whether the freeze is
+/// held by the button or by the move. Two peers agreeing on the elapsed hold and
+/// disagreeing about what ends it resume the move on different ticks.
+/// ⛔ v129: `actor.move_playback`'s charge projection gained the policy's two
+/// BOOLEANS. `stores` was never encoded and `roots` is new; both decide what a
+/// hold buys — whether reaching maximum fires, and whether the body may steer
+/// while it holds — so two peers agreeing on the elapsed hold could disagree
+/// about the move it produces.
+/// ⛔ v127: `BodyMode` gained `Submerged = 6`. The bytes an OLDER peer writes are
+/// unchanged — every existing mode keeps its discriminant, which is why the
+/// variant went on the end — but a peer on 126 cannot decode a `6`, and a
+/// fighter under the stage is exactly the state a desync would hide: invisible
+/// and intangible on one machine, standing in the open on the other.
+/// ⛔ v132: `resource.sandbox_save` and `resource.quest_registry` gained CHECKSUM
+/// PROJECTIONS. The snapshot bytes are unchanged — both are still clone
+/// snapshots — but a peer that checksums them and one that does not compute
+/// different checksums over identical state, so the two cannot agree. They were
+/// registered with `rollback_resource_clone`, whose probe is PRESENCE-ONLY: a
+/// rewind that lost a visited-room flag or a `RoomEntered` push moved no
+/// checksum at all, which is exactly the divergence the sync test exists to
+/// report, and exactly what the systems pairing a non-rewinding `Local`
+/// edge-detector with these resources would produce.
+/// ⛔ v133: `resource.switch_activation_queue` gained a CHECKSUM PROJECTION, for
+/// the reason its own type doc already gives — "a rewind keeps predicted
+/// activations and resimulation pushes them again, double-applying an encounter
+/// reset". The clone registration PREVENTS that (it restores); the presence-only
+/// probe could not SEE it, and presence cannot tell one queued entry from five.
+/// Bytes unchanged; a peer that checksums it and one that does not disagree.
+/// ⛔ v136: `marker.posed_body` — the opt-in that publishes a body's pose read
+/// model (which row, which clip, which frame). A construction-time marker on a
+/// simulated body, so a rewind that dropped it would stop publishing mid-match.
+/// ⛔ v138: `item.released_as` — the throw/drop decision made durable, so the
+/// bomb and grenade fuses stop inferring "somebody threw this" from a nonzero
+/// velocity. It decides whether an object in the world is going to explode and
+/// lives on a `GroundItem`, which is already an anchor.
+/// ⛔⛔ v137: THE ANCHOR IS A SEPARATE FACT FROM THE CODEC, and five dynamic
+/// archetypes were missing one or the other. `portal.shot` and
+/// `encounter.falling_hazard` had a codec and NO anchor — the registry listed
+/// them, the census counted them accounted, and nothing restored them, because
+/// nothing put the ENTITY in the envelope. `ability.sentry`,
+/// `ability.vortex_well`, `gravity.temporary_zone` and `gravity.zone` were not
+/// in the vocabulary at all. All five are spawned MID-MATCH by an ability, a
+/// fuse or an encounter beat, so a one-shot census of a booted world could
+/// never see them. Reported by a GPT re-review 2026-08-30.
+/// ⛔ v135: eight EVENT-CREATED components joined the schema —
+/// `ability.player_mark`, `ability.bomb_fuse`, `ability.gravity_grenade_fuse`,
+/// `ability.puppy_slug_ally`, `feature.falling_chest`,
+/// `encounter.commanded_move`, `encounter.falling_hazard` (+ its entity
+/// mapping) and `item.held_projectile`. None existed in a boot world, which is why the coverage census —
+/// which sweeps the INITIAL world — never asked whether they rewind.
+/// ⛔ v134: `content.cut_rope_heavy_object_cycle` gained a checksum projection.
+/// One index decides which prop the arena rebuilds, and a presence-only probe
+/// cannot see WHICH — while `reset_cut_rope_boss_arena_on_room_reset` advances
+/// it on the sim schedule, so a resimulation can move it.
+/// ⛔⛔ v140: `PendingLifecycleCommit`'s ENCODING changed and the readable dump
+/// could not see it. Four `LifecycleIntent` variants were deleted
+/// (`DeathReset`, `ManualReset`, `Replay`, `FullReset`), so tags 0, 1, 2 and 4
+/// no longer decode — a snapshot from a v139 build carrying one of them now
+/// refuses. Nothing about the registry LIST changed: same stable name, same
+/// encoder type, same projection, so `schema_dump()` was byte-identical and
+/// every ledger stayed green. That is the class this constant exists for. A
+/// codec body is part of the wire format even when the registry row is not.
+/// ⛔ v141: `InputStreamRecorder` LEFT the snapshot. It was
+/// `rollback_resource_clone`, so every GGRS save cloned the whole recorded
+/// input history and saving frame N cost N. It was only registered because
+/// `InputStream::push` was append-only and a resimulated tick recorded itself
+/// twice; `push` is tick-addressed now, so a rewind rewrites its own tail and
+/// the recorder reproduces its state instead of being restored to it. A peer
+/// that snapshots the recorder and one that does not cannot agree about a
+/// snapshot, so this is a wire change even though it only REMOVES bytes.
+/// ⛔ v142: `CheckpointResumeProgress` ENTERED the snapshot. It was two `Local`s
+/// on `restore_checkpoint_on_session_start`, which runs in `PlayerSimulation` —
+/// so the once-per-session resume memory did not rewind with the world it is
+/// about. Unreachable today because a confirmed transition rebases GGRS onto a
+/// new frame zero; registered anyway, because a correctness that holds only
+/// because some other layer rebases moves when the rebase does.
+/// ⛔ v143: `ActorControl`'s strength hint became a BYTE. It was a bool that
+/// could only ever ADD a smash, so a right-stick tilt mode's full deflection
+/// armed a flick and came out Smash anyway — a full deflection could not be a
+/// tilt. `AttackStrengthHint` is `Auto`/`Tilt`/`Smash` and encodes as one byte.
+/// A peer reading the old bool would round `Tilt` onto whichever value it
+/// aliased, so the two cannot share a stream.
+/// ⛔ v144: `MovePlayback` gained TWO CONTACT FACTS in its checksum projection.
+/// `landed_hit` means OVERLAP — the hitbox sweep's channel — so an ordinary held
+/// guard set it and the move's `OnHit` cancel confirmed on a blocked strike.
+/// `connected_hit` and `blocked_hit` are the damage road's verdict, and they are
+/// state: two peers whose in-flight move disagrees about whether it connected or
+/// was blocked take DIFFERENT cancels out of the same recovery. A message
+/// (`BlockedBodyHit`) also entered the cleared-on-rollback set.
+/// ⛔ v145: `MovePlayback` carries an INSTANCE. A self-cancel replaces a
+/// playback with a fresh one of the same move in the same update, so two peers
+/// agreeing on the move id and its clock could still disagree about whether this
+/// is the first jab or the second — which is a different move to staling, to
+/// hit-once memory, and to anything reading the instance. Seeded from the
+/// playback it replaces, so it needs no counter of its own.
+/// ⛔ v146: `LifecycleIntent` gained a SECOND VARIANT, `ReconstituteRoom` — a
+/// room rebuild with nobody in it, which a crossing cannot describe. It encodes
+/// under tag 5 rather than 4: tags 0-4 all belonged to the four reset variants
+/// deleted in v140, so reusing 4 would decode an old `FullReset` as a
+/// reconstitution instead of refusing it. A peer on v145 meets tag 5, finds no
+/// arm, and refuses the snapshot — which is correct, because it has no executor
+/// for the operation.
+/// ⛔ v147: A brain DECLARES the perception it needs (ADR 0034), and a brain
+/// that needs none stops maintaining `actor.perception_memory`. The wire FORMAT
+/// is unchanged — this is a VALUE change, and that is exactly why it needs a
+/// version. Two peers on either side of it compute different remembered sets
+/// from the same inputs: the old build tracks every peer a `StandStill` body can
+/// see, the new one leaves that body's store empty because nothing reads it.
+/// Deterministic on both sides (the gate reads `StateMachineCfg`, which is
+/// rollback state), and irreconcilable ACROSS them, which is what a schema
+/// version is for. Saves and replays taken before it decode to a different
+/// world than ones taken after.
+/// ⛔ v148: TWINTRACK LEFT THE LAUNCHER, and took 27 registrations with it. The
+/// relativity components and the two relativity message buffers were registered
+/// by `TwinTrackExperiencePlugin`, so removing it from the shell's provider list
+/// removes `relativity.*` from the schema entirely. The crate is still compiled
+/// — `ambition_platformer2d`'s `all_capabilities` names the `relativity` feature
+/// — but nothing registers its state any more. A peer that still lists the demo
+/// has 27 entries this one does not, which is a different snapshot layout.
+/// ⛔ v149: THE QUEST ROOM-ENTRY MEMORY IS ROLLBACK STATE. `push_room_entered_
+/// quest_events` remembered the previous room in a system `Local`, which a
+/// rewind does not touch, so a resimulation across a room change could skip the
+/// `RoomEntered` push (S2 in the determinism plan; the same defect
+/// `LastCutsceneRoom` closed for cutscenes). It is now `LastQuestRoom`,
+/// registered and checksummed beside `QuestRegistry` — one more entry in the
+/// snapshot layout, so a peer without it disagrees about every snapshot.
+/// ⛔ v150: THE PARALLEL HELD-SHOT SIMULATION IS GONE (K2). A hand-fired
+/// gun-sword bolt or fireball is now an `ActionRequest::Ranged` on the one
+/// projectile road, so `item.held_projectile` leaves the layout, and
+/// `ProjectileGameplay` gains `splash_half_extent` (the fireball's burst,
+/// formerly a `HeldProjectile` flag) — one more f32 in every encoded
+/// projectile. Layout AND value change: a peer on v149 has an entry this one
+/// lacks and decodes a projectile four bytes short.
+/// ⛔ v151: `portal.owned_gun_pair` JOINS THE SNAPSHOT LAYOUT. `OwnedPortalGunPair`
+/// became rollback-registered at `cf3ee3953`, so the layout gained an entry: a
+/// peer without it saves and restores a world one component short, and a load
+/// puts the two hosts in different states even though every checksum they
+/// compare still agrees.
+/// ⚠ NOT a checksum change, and the distinction matters — `rollback_component_clone_probed`
+/// records `RollbackEntryKind::ComponentClone`, the same kind as a bare clone,
+/// and its own note says *"value-probed for localization, not in the session
+/// checksum"*. The probe is a DESYNC-LOCALIZATION aid; what obliges this bump is
+/// the entry, not the projection.
+/// ⚠ The entry landed at `bf8cbadb4` with the txt baseline updated and this
+/// constant left at 150, and the guard that says so —
+/// `rollback-wire-format-changes-are-declared` — could not run at all, because a
+/// stale sentinel `Cargo.lock` was crashing the checker before it reported.
+/// ⛔ v152: `message.parried_body_hit` JOINS THE CLEARED-ON-ROLLBACK SET. A
+/// successful parry is now published as a fact naming its attacker, and a
+/// counter stance answers it — so the message is not decoration, it drives a
+/// move. Two peers that disagree about whether a rewound frame's parry survives
+/// disagree about whether a counter fires: one replays the retaliation, the
+/// other does not, and the divergence appears a tick later as a checksum
+/// mismatch with no obvious cause. ⇒ The buffer is cleared on rollback beside
+/// `blocked_body_hit` and `resolved_body_hit`, and a peer without that clear
+/// cannot share this stream.
+/// ⛔ v153: `MovePlayback` CARRIES A FLOW CURSOR. A move may now author a
+/// `TechniqueFlow` — what happens next, based on what happened before — and the
+/// node it is on plus that node's wait clock are per-occurrence state. This is
+/// v145's reasoning one rung up: two peers agreeing on the move id AND its
+/// clock can still disagree about which BRANCH the move took, and from there
+/// they resimulate different moves under one name. ⓘ The component is a CLONE
+/// snapshot, so the cursor is restored either way; what the projection buys is
+/// that the divergence is caught at the checksum rather than when the world
+/// shows it.
+/// ⛔ v154: `BodyCombat` CARRIES A SLEEP. A move may now put a body to sleep —
+/// a fifth named cause in the control lock's `max()`, beside the recoil and
+/// landing locks it sits with and the guard-break dizzy and shieldstun the
+/// shield owes. It is state for the same reason every lock beside it is: two
+/// peers disagreeing about how long a fighter stays helpless resimulate
+/// different matches from that moment. ⓘ Cleared by `reset()` (a fighter who
+/// respawns still asleep is helpless on arrival with nothing explaining why) and
+/// by a real hit (`hit_reaction`), which is the move's whole counterplay.
+/// ⛔ v155: `BodyShieldState` CARRIES THE PARRY'S MODE. A stance may now absorb a
+/// caught projectile instead of returning it, and `absorb_window_timer` is a
+/// MODE on the existing parry window rather than a second window — `parrying()`
+/// still decides whether a shot is caught. It is state because two peers
+/// disagreeing about which response a stance is running send the same shot two
+/// different ways: one has a bolt flying back at the firer and the other has no
+/// bolt at all. ⓘ Decayed beside `parry_window_timer` in the movement kernel, so
+/// a stance that stops re-arming stops absorbing on the same tick it stops
+/// parrying.
+/// ⛔ v156: `SmashHoldState` CARRIES WHETHER THE HOLD IS A CARGO CARRY. A carry
+/// is an ordinary hold with two terms changed — where the captive rides, and
+/// whether its captor may walk — so `carrying` rides the RULESET's half of the
+/// hold rather than `CapturedBy`, which is the generic relation and has no
+/// opinion about locomotion. It is state despite being decided once and constant
+/// after, and that is exactly the reason: a restore that put the hold back
+/// without it hands the resimulated captor a hold they can no longer walk with,
+/// so the two peers' captors stand in different places from that moment.
+/// ⓘ Also v156: `smash.placed_mine`, a clone-snapshotted arming clock, and
+/// `message.capture_carry_requested`, a same-frame transient beside the three
+/// capture requests it joins.
+/// ⛔ v158: `SteeredBolt`, a bolt the caster flies with the stick. Position,
+/// velocity, clock AND the latch that says it has cleared its caster all rewind
+/// — more than the mine's clock-only row, because a bolt is STEERED: two peers
+/// can agree on its lifetime and disagree about its HEADING, and the heading is
+/// what decides whether it comes home and throws a fighter across the stage.
+/// ⛔ v159: `PlacedSpring`, a plate on the floor that throws whoever steps on it.
+/// THREE clocks and a use count all rewind — the lifetime, the per-body re-arm,
+/// and the arming delay that stops it launching the fighter who dropped it. ⇒ A
+/// restore that lost any of them hands the resimulated timeline a launch the
+/// confirmed one had already spent, and a launch is a fighter standing
+/// somewhere else.
+/// ⛔ v160: `HomingDash`, a fighter being carried at whoever they were pointing
+/// at. Its clock and its COMMITTED direction both rewind: the direction is
+/// remembered at the press rather than re-read, so a restore that lost it would
+/// let the resimulated dash re-aim from a facing the confirmed one never used.
+/// ⛔ v161: `AxisManeuverState` CARRIES A TIMED GRAVITY MULTIPLIER — the pair
+/// `gravity_modifier_scale` + `gravity_modifier_timer`, appended to the motion
+/// codec beside `blink_grace_timer`. A move asks for a locomotion regime (a
+/// parasol, a float, a slow-fall) and the MOVEMENT domain owns the clock, so
+/// the state is where every other maneuver timer already lives. ⇒ It rewinds
+/// because gravity is integrated every tick: two peers disagreeing about how
+/// much longer a float lasts do not disagree about a flag, they disagree about
+/// where the body IS, and the gap widens for as long as the modifier runs.
+/// ⓘ The TIMER is the activation switch and the scale is read only while it is
+/// positive, so a restore that lands on a zeroed pair means "no modifier"
+/// rather than "zero gravity" — the dangerous state is unrepresentable rather
+/// than merely avoided.
+/// ⛔ v162: `TimeDilated`, the clock a body was put on and the one it gets back.
+/// `ProperTimeScale` was already canonical as `actor.proper_time_scale`; what was
+/// missing is the REMAINDER — how much longer the victim's moves, hurtbox
+/// resolution and animation run slow — and the PRIOR scale to restore. ⇒ Two
+/// peers disagreeing about the remainder do not disagree about a flag; from that
+/// tick on they resimulate different swings, because move playback advances on
+/// `WorldTime::entity_dt`. And a restore that lost `prior` would put the body
+/// back on the wrong clock permanently, since nothing else owes it a reset.
+/// ⓘ The scale itself needs no new row: this row is the smash ruleset's clock
+/// over the engine's existing one.
+/// ⛔ v163: `MatchScoped`, which MATCH an object was created by.
+/// A player found a mine laid in one match still standing in the next: the smash
+/// ruleset spawns at five sites (bomb, bolt, mine, portal, spring) and every one
+/// ended only by its own rule — a fuse, a trigger, a lifetime — so a match ending
+/// was not among them. ⇒ The marker is stamped at spawn and swept by whoever owns
+/// the match, which puts that lifetime in ONE place instead of five that must
+/// each remember.
+/// ⭐ IT IS REGISTERED BECAUSE BOTH SIDES OF THE COMPARISON MUST REWIND. The
+/// sweep asks "is this object's match the active one", and `ActiveMatch` already
+/// rewinds; an unregistered marker would be LOST on any restore, leaving the
+/// objects it marks permanently unsweepable — cleanup that silently stops working
+/// after the first rollback. ⓘ `component-clone` like the four objects it marks:
+/// a stable identity copied at spawn has nothing for a codec to normalise.
+pub const GGRS_ROLLBACK_SCHEMA_VERSION: u32 = 163;
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq, Ord, PartialOrd, Hash)]
+pub enum RollbackEntryKind {
+    ComponentCanonical,
+    ComponentCloneCursor,
+    ComponentCloneResolved,
+    ComponentClone,
+    ComponentCloneCanonicalChecksum,
+    ComponentCloneCustomChecksum,
+    ResourceCanonical,
+    ResourceCloneCursor,
+    ResourceClone,
+    ResourceCloneCustomChecksum,
+    MessageClear,
+    EntityMapping,
+    ResourceEntityMapping,
+    RequiredRollback,
+    Derived,
+    DynamicAnchor,
+}
+
+impl RollbackEntryKind {
+    /// Whether this registration carries or reconstructs a value that rollback
+    /// localization must observe. `Derived` counts because its reconstruction
+    /// contract must also be checked across a resimulation boundary; message-clear,
+    /// remapping helpers, required markers, and dynamic anchors do not carry values.
+    pub fn carries_state(self) -> bool {
+        match self {
+            Self::ComponentCanonical
+            | Self::ComponentCloneCursor
+            | Self::ComponentCloneResolved
+            | Self::ComponentClone
+            | Self::ComponentCloneCanonicalChecksum
+            | Self::ComponentCloneCustomChecksum
+            | Self::ResourceCanonical
+            | Self::ResourceCloneCursor
+            | Self::ResourceClone
+            | Self::ResourceCloneCustomChecksum
+            | Self::Derived => true,
+            Self::MessageClear
+            | Self::EntityMapping
+            | Self::ResourceEntityMapping
+            | Self::RequiredRollback
+            | Self::DynamicAnchor => false,
+        }
+    }
+
+    pub fn canonical_name(self) -> &'static str {
+        match self {
+            Self::ComponentCanonical => "component-canonical",
+            Self::ComponentCloneCursor => "component-clone-cursor",
+            Self::ComponentCloneResolved => "component-clone-resolved",
+            Self::ComponentClone => "component-clone",
+            Self::ComponentCloneCanonicalChecksum => "component-clone-canonical-checksum",
+            Self::ComponentCloneCustomChecksum => "component-clone-custom-checksum",
+            Self::ResourceCanonical => "resource-canonical",
+            Self::ResourceCloneCursor => "resource-clone-cursor",
+            Self::ResourceClone => "resource-clone",
+            Self::ResourceCloneCustomChecksum => "resource-clone-custom-checksum",
+            Self::MessageClear => "message-clear",
+            Self::EntityMapping => "entity-mapping",
+            Self::ResourceEntityMapping => "resource-entity-mapping",
+            Self::RequiredRollback => "required-rollback",
+            Self::Derived => "derived",
+            Self::DynamicAnchor => "dynamic-anchor",
+        }
+    }
+}
+
+#[derive(Clone, Debug, Eq, PartialEq, Ord, PartialOrd, Hash)]
+pub struct RollbackRegistrationDescriptor {
+    pub name: String,
+    pub owner: String,
+    pub kind: RollbackEntryKind,
+    pub type_name: String,
+    pub detail: String,
+}
+
+#[derive(Resource, Debug, Default)]
+pub struct RollbackRegistry {
+    entries: BTreeMap<String, RollbackRegistrationDescriptor>,
+    /// Memoised [`Self::schema_fingerprint`]. See that method for why.
+    ///
+    /// ⭐ SOUND BECAUSE `entries` HAS EXACTLY ONE MUTATION SITE — the `insert` in
+    /// `try_register` — which clears this. A second mutation path would have to
+    /// clear it too, which is why `entries` stays private.
+    fingerprint: std::sync::OnceLock<SnapshotSchemaFingerprint>,
+}
+
+// ⛔ HAND-WRITTEN because `OnceLock` is not `Clone`. A clone starts with an EMPTY
+// memo rather than copying it: same value on next demand, and no risk of a clone
+// carrying a fingerprint its own entries no longer justify.
+impl Clone for RollbackRegistry {
+    fn clone(&self) -> Self {
+        Self {
+            entries: self.entries.clone(),
+            fingerprint: std::sync::OnceLock::new(),
+        }
+    }
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub enum RollbackRegistrationError {
+    EmptyName,
+    EmptyOwner,
+    Conflict {
+        name: String,
+        existing: RollbackRegistrationDescriptor,
+        incoming: RollbackRegistrationDescriptor,
+    },
+    /// Two DIFFERENT Rust types reduce to the same [`wire_type_identity`].
+    ///
+    /// This is what keeps v20's narrower identity sound. The fingerprint hashes
+    /// the type's final segment so that relocating a type is not a wire-format
+    /// change — and that is only truthful while final segments are unique. Two
+    /// crates each registering a `Cooldown` would hash equal, and a peer that
+    /// had them the other way round would be declared compatible.
+    ///
+    ///  registering ONE type under several stable names is not this. The whole
+    /// point of a stable name is that it identifies the registration; 39 of the
+    /// live rows do exactly that, and they carry identical type names.
+    TypeIdentityCollision {
+        identity: String,
+        existing: RollbackRegistrationDescriptor,
+        incoming: RollbackRegistrationDescriptor,
+    },
+}
+
+impl fmt::Display for RollbackRegistrationError {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Self::EmptyName => write!(f, "rollback registration name must not be empty"),
+            Self::EmptyOwner => write!(f, "rollback registration owner must not be empty"),
+            Self::Conflict {
+                name,
+                existing,
+                incoming,
+            } => write!(
+                f,
+                "conflicting rollback registration '{name}': existing {existing:?}, incoming {incoming:?}"
+            ),
+            Self::TypeIdentityCollision {
+                identity,
+                existing,
+                incoming,
+            } => write!(
+                f,
+                "two different types share the rollback wire identity '{identity}', which the \
+                 schema fingerprint cannot tell apart: existing {existing:?}, incoming {incoming:?}. \
+                 Since v20 the fingerprint hashes a type's FINAL SEGMENT so that moving a type \
+                 between crates or modules is not a wire-format change, and that stays sound only \
+                 while final segments are unique. Rename one of the two types."
+            ),
+        }
+    }
+}
+
+impl std::error::Error for RollbackRegistrationError {}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub enum RollbackRegistrationOutcome {
+    /// The descriptor was inserted and the active GGRS host should install its
+    /// runtime snapshot/checksum machinery.
+    Inserted,
+    /// The exact descriptor was already present.
+    Idempotent,
+    /// The descriptor was inserted for schema/content identity, but this host
+    /// does not run GGRS and therefore must not install rollback machinery.
+    RecordedOnly,
+}
+
+/// The part of a type's name that a CARVE leaves alone.
+///
+///  the final segment, and not the module path below the crate, which is what the answer
+/// was until the diff it cited was read.
+///
+/// Every path INSIDE the name is shortened, not only the outermost one, so a
+/// generic keeps its constructor: `Vec<foo::Bar>` is `Vec<Bar>` and not `Bar>`.
+/// No registration is generic today; taking a single `rsplit` would quietly give
+/// `Vec<X>` and `VecDeque<X>` one identity, and this is a hash whose entire job
+/// is telling wire formats apart.
+fn wire_type_identity(type_name: &str) -> String {
+    let mut out = String::with_capacity(type_name.len());
+    let mut path = String::new();
+    for ch in type_name.chars() {
+        if ch.is_alphanumeric() || ch == '_' || ch == ':' {
+            path.push(ch);
+        } else {
+            out.push_str(final_segment(&path));
+            path.clear();
+            out.push(ch);
+        }
+    }
+    out.push_str(final_segment(&path));
+    out
+}
+
+fn final_segment(path: &str) -> &str {
+    path.rsplit("::").next().unwrap_or(path)
+}
+
+impl RollbackRegistry {
+    pub fn try_register(
+        &mut self,
+        descriptor: RollbackRegistrationDescriptor,
+    ) -> Result<RollbackRegistrationOutcome, RollbackRegistrationError> {
+        // The protocol every canonical registry answers, read from
+        // `ambition_registry_core` (2026-09-03): blank identity refused by
+        // name, a second registration classified as idempotent or conflict,
+        // never silently replaced. The wire-identity collision below is this
+        // registry's own extra rule on top of it.
+        if let Err(empty) = ambition_registry_core::require_non_empty(&[
+            ("name", &descriptor.name),
+            ("owner", &descriptor.owner),
+        ]) {
+            return Err(match empty.field {
+                "name" => RollbackRegistrationError::EmptyName,
+                _ => RollbackRegistrationError::EmptyOwner,
+            });
+        }
+        match ambition_registry_core::classify(self.entries.get(&descriptor.name), &descriptor) {
+            ambition_registry_core::Classification::Idempotent => {
+                return Ok(RollbackRegistrationOutcome::Idempotent);
+            }
+            ambition_registry_core::Classification::Conflict { existing } => {
+                return Err(RollbackRegistrationError::Conflict {
+                    name: descriptor.name.clone(),
+                    existing: existing.clone(),
+                    incoming: descriptor,
+                });
+            }
+            ambition_registry_core::Classification::New => {}
+        }
+        // What keeps v20's narrower identity sound. The fingerprint hashes
+        // [`wire_type_identity`] so that relocating a type is not a wire-format
+        // change; two crates each registering a `Cooldown` would then hash equal,
+        // and a peer that had the two the other way round would be declared
+        // compatible with this one. The duplicate-NAME refusal above does not
+        // reach it — these arrive under different stable names, which is exactly
+        // the case that looks legitimate.
+        let identity = wire_type_identity(&descriptor.type_name);
+        let collision = self
+            .entries
+            .values()
+            .find(|existing| {
+                existing.type_name != descriptor.type_name
+                    && wire_type_identity(&existing.type_name) == identity
+            })
+            .cloned();
+        if let Some(existing) = collision {
+            return Err(RollbackRegistrationError::TypeIdentityCollision {
+                identity,
+                existing,
+                incoming: descriptor,
+            });
+        }
+        self.entries.insert(descriptor.name.clone(), descriptor);
+        // The memo describes the entry set that just changed.
+        self.fingerprint = std::sync::OnceLock::new();
+        Ok(RollbackRegistrationOutcome::Inserted)
+    }
+
+    pub fn descriptors(&self) -> impl Iterator<Item = &RollbackRegistrationDescriptor> {
+        self.entries.values()
+    }
+
+    /// Stable human-readable representation; byte-identical under equivalent
+    /// plugin/registration insertion orders.
+    pub fn deterministic_dump(&self) -> String {
+        let rows: Vec<String> = self
+            .entries
+            .values()
+            .map(|entry| {
+                ambition_registry_core::canonical_row(&[
+                    &entry.name,
+                    &entry.owner,
+                    entry.kind.canonical_name(),
+                    &entry.type_name,
+                    &entry.detail,
+                ])
+            })
+            .collect();
+        ambition_registry_core::canonical_section(
+            Some(&format!("ggrs-rollback-schema-v{GGRS_ROLLBACK_SCHEMA_VERSION}")),
+            rows.iter().map(String::as_str),
+        )
+    }
+
+    /// What the schema actually IS, with every organisational label removed.
+    ///
+    /// [`Self::deterministic_dump`] carries `owner` and the type's full path because a human
+    /// reading a conflict wants to know which module registered a thing and where the type
+    /// lives.
+    ///
+    /// Both moves require the schema fingerprint to stay unchanged — which was impossible while
+    /// the fingerprint hashed who registered a row. `owner` left in v5; [`wire_type_identity`]
+    /// is the second half of that decision, in v20.
+    pub fn schema_dump(&self) -> String {
+        let rows: Vec<String> = self
+            .entries
+            .values()
+            .map(|entry| {
+                ambition_registry_core::canonical_row(&[
+                    &entry.name,
+                    entry.kind.canonical_name(),
+                    &wire_type_identity(&entry.type_name),
+                    &entry.detail,
+                ])
+            })
+            .collect();
+        ambition_registry_core::canonical_section(
+            Some(&format!("ggrs-rollback-schema-v{GGRS_ROLLBACK_SCHEMA_VERSION}")),
+            rows.iter().map(String::as_str),
+        )
+    }
+
+    /// Which of these requirements is NOT installed.
+    ///
+    /// A capability offers its rollback state and the composition installs it,
+    /// which keeps the capability's dependency closure to foundations. The hole
+    /// that leaves is that nothing forces the composition to accept the offer —
+    /// and a skipped registration is a DESYNC, not a missing feature.
+    ///
+    /// This closes it the way the content compiler closes the same shape: the
+    /// obligation is declared next to the thing that has it
+    /// ([`ambition_platformer2d_core::snapshot::RequiredRollbackState`]) and the
+    /// assembler can refuse when it is unmet.
+    ///
+    ///  it checks the OWNER too. A name registered by somebody else is not
+    /// this capability's state — two capabilities may reasonably both want a
+    /// `cooldown`, and only the owner distinguishes them.
+    pub fn missing_required_state<'a>(
+        &self,
+        required: &'a [ambition_platformer2d_core::snapshot::RequiredRollbackState],
+    ) -> Vec<&'a ambition_platformer2d_core::snapshot::RequiredRollbackState> {
+        required
+            .iter()
+            .filter(|req| {
+                !self
+                    .entries
+                    .values()
+                    .any(|entry| entry.name == req.name && entry.owner == req.owner)
+            })
+            .collect()
+    }
+
+    /// ⛔⛔ MEMOISED SINCE 2026-08-29, BECAUSE IT WAS COSTING 292us OF EVERY FRAME.
+    /// `enforce_session_contract` calls this once per frame to notice a schema
+    /// that changed under a live session. Uncached that meant building the entire
+    /// schema DUMP as a ~40KB `String` — the same table
+    /// `rollback_schema_baseline.txt` records — and blake3ing it, 60+ times a
+    /// second, to detect a change that can only happen when `entries` is mutated:
+    /// **8.29s of a four-minute hardware run, the second largest recurring zone
+    /// in the trace.**
+    ///
+    /// ⭐ The VALUE is unchanged, which is the point — this is a pure memo, so
+    /// every existing schema/baseline test still pins the same fingerprint and
+    /// no new correctness surface appears. `try_register` clears it.
+    pub fn schema_fingerprint(&self) -> SnapshotSchemaFingerprint {
+        if let Some(memo) = self.fingerprint.get() {
+            return memo.clone();
+        }
+        let computed = self.compute_schema_fingerprint();
+        // A racing caller may have filled it first; either value is identical.
+        let _ = self.fingerprint.set(computed.clone());
+        computed
+    }
+
+    /// HAS THIS REGISTRY ALREADY COMPUTED ITS FINGERPRINT?
+    ///
+    /// ⭐ THE INSTRUMENT THAT CATCHES A DEFEATED MEMO. The memo is per-instance
+    /// and a clone starts empty, so a hot-path caller that reads the fingerprint
+    /// off a CLONE recomputes it every single time while every value-based test
+    /// still passes. Asking the world's own registry whether it is memoised is
+    /// the one question that separates "the cache exists" from "the cache is the
+    /// thing being read". Callers outside a test have no reason for it.
+    pub fn fingerprint_is_memoised(&self) -> bool {
+        self.fingerprint.get().is_some()
+    }
+
+    fn compute_schema_fingerprint(&self) -> SnapshotSchemaFingerprint {
+        let mut hasher = blake3::Hasher::new();
+        hasher.update(b"ambition.ggrs-rollback-schema\0");
+        hasher.update(&GGRS_ROLLBACK_SCHEMA_VERSION.to_le_bytes());
+        let dump = self.schema_dump();
+        hasher.update(&(dump.len() as u64).to_le_bytes());
+        hasher.update(dump.as_bytes());
+        SnapshotSchemaFingerprint::from_bytes(*hasher.finalize().as_bytes())
+    }
+}
+
+pub fn descriptor<T: 'static>(
+    owner: &'static str,
+    name: &'static str,
+    kind: RollbackEntryKind,
+    detail: &'static str,
+) -> RollbackRegistrationDescriptor {
+    descriptor_owned::<T>(owner, name, kind, detail.to_string())
+}
+
+/// [`descriptor`] for a detail this crate COMPOSES rather than quotes.
+///
+/// The recorded `detail` is two halves: how the value is stored (the backend's
+/// half — "bevy_ggrs clone snapshot") and what the checksum sees (the domain's
+/// half). A domain that registers its own state through
+/// [`ambition_platformer2d_core::snapshot::RollbackRegistrar`] supplies only the
+/// second half, precisely so a crate with no `bevy_ggrs` dependency never has to
+/// write the word; this joins them back into the exact string the schema baseline
+/// records.
+pub fn descriptor_owned<T: 'static>(
+    owner: &'static str,
+    name: &'static str,
+    kind: RollbackEntryKind,
+    detail: String,
+) -> RollbackRegistrationDescriptor {
+    RollbackRegistrationDescriptor {
+        name: name.to_string(),
+        owner: owner.to_string(),
+        kind,
+        type_name: std::any::type_name::<T>().to_string(),
+        detail,
+    }
+}
+
+/// Record one schema descriptor on an app, independent of the active rollback backend.
+///
+/// Backend installation deliberately has a separate idempotence authority: a row may
+/// already have been recorded by a capability plugin before a concrete rollback host
+/// installs its typed snapshot machinery. Therefore callers must not interpret an
+/// `Idempotent` schema row as evidence that a backend registration already exists.
+pub fn record_descriptor(
+    app: &mut App,
+    descriptor: RollbackRegistrationDescriptor,
+) -> RollbackRegistrationOutcome {
+    app.init_resource::<RollbackRegistry>();
+    app.world_mut()
+        .resource_mut::<RollbackRegistry>()
+        .try_register(descriptor)
+        .unwrap_or_else(|error| panic!("{error}"))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// ⭐⭐ THE GUARD ON THE FINGERPRINT MEMO, AND IT IS THE WHOLE REASON THE MEMO
+    /// IS SAFE. `schema_fingerprint` caches into a `OnceLock`; if `try_register`
+    /// ever stops clearing it, this registry would keep reporting a fingerprint
+    /// its own entries no longer justify — and a stale schema fingerprint is
+    /// exactly what `enforce_session_contract` exists to catch, so the failure
+    /// would be silent AND load-bearing.
+    #[test]
+    fn registering_after_reading_the_fingerprint_changes_it() {
+        let mut registry = RollbackRegistry::default();
+        registry
+            .try_register(entry("a", "owner", "detail"))
+            .expect("first registration");
+        // Read it FIRST, so the memo is populated before the mutation.
+        let before = registry.schema_fingerprint();
+        // ...and reading twice must agree, or the memo is not a memo.
+        assert_eq!(
+            before,
+            registry.schema_fingerprint(),
+            "two reads with no mutation between them disagreed"
+        );
+
+        registry
+            .try_register(entry("b", "owner", "detail"))
+            .expect("second registration");
+        assert_ne!(
+            before,
+            registry.schema_fingerprint(),
+            "a registration after the fingerprint was memoised did not change it — \
+             the memo is stale, and a stale schema fingerprint is what \
+             enforce_session_contract cannot afford to be wrong about"
+        );
+    }
+
+    /// A CLONE must not inherit a memo, because a clone that is then mutated
+    /// would otherwise answer for entries it no longer has.
+    #[test]
+    fn a_clone_agrees_with_its_source_and_still_notices_its_own_changes() {
+        let mut registry = RollbackRegistry::default();
+        registry
+            .try_register(entry("a", "owner", "detail"))
+            .expect("registration");
+        let _ = registry.schema_fingerprint();
+        let mut copy = registry.clone();
+        assert_eq!(
+            registry.schema_fingerprint(),
+            copy.schema_fingerprint(),
+            "a clone of the same entries must fingerprint the same"
+        );
+        copy.try_register(entry("b", "owner", "detail"))
+            .expect("registration on the clone");
+        assert_ne!(
+            registry.schema_fingerprint(),
+            copy.schema_fingerprint(),
+            "the clone changed and still reported the source's fingerprint"
+        );
+    }
+
+    fn entry(name: &str, owner: &str, detail: &str) -> RollbackRegistrationDescriptor {
+        RollbackRegistrationDescriptor {
+            name: name.to_owned(),
+            owner: owner.to_owned(),
+            kind: RollbackEntryKind::Derived,
+            type_name: "test::Type".to_owned(),
+            detail: detail.to_owned(),
+        }
+    }
+
+    #[test]
+    fn schema_is_insertion_order_independent() {
+        let mut a = RollbackRegistry::default();
+        a.try_register(entry("z", "provider-b", "second")).unwrap();
+        a.try_register(entry("a", "provider-a", "first")).unwrap();
+
+        let mut b = RollbackRegistry::default();
+        b.try_register(entry("a", "provider-a", "first")).unwrap();
+        b.try_register(entry("z", "provider-b", "second")).unwrap();
+
+        assert_eq!(a.deterministic_dump(), b.deterministic_dump());
+        assert_eq!(a.schema_fingerprint(), b.schema_fingerprint());
+    }
+
+    #[test]
+    fn identical_registration_is_idempotent() {
+        let descriptor = entry("same", "provider", "same");
+        let mut registry = RollbackRegistry::default();
+        assert_eq!(
+            registry.try_register(descriptor.clone()).unwrap(),
+            RollbackRegistrationOutcome::Inserted
+        );
+        assert_eq!(
+            registry.try_register(descriptor).unwrap(),
+            RollbackRegistrationOutcome::Idempotent
+        );
+        assert_eq!(registry.descriptors().count(), 1);
+    }
+
+    fn typed_entry(name: &str, type_name: &str) -> RollbackRegistrationDescriptor {
+        RollbackRegistrationDescriptor {
+            name: name.to_owned(),
+            owner: "test-owner".to_owned(),
+            kind: RollbackEntryKind::Derived,
+            type_name: type_name.to_owned(),
+            detail: "test-only descriptor".to_owned(),
+        }
+    }
+
+    fn registry_of(rows: &[(&str, &str)]) -> RollbackRegistry {
+        let mut registry = RollbackRegistry::default();
+        for (name, type_name) in rows {
+            registry.try_register(typed_entry(name, type_name)).unwrap();
+        }
+        registry
+    }
+
+    /// Where a type LIVES is not part of the wire format (v20).
+    ///
+    /// Only the final segment survived either move.
+    #[test]
+    fn relocating_a_type_leaves_the_fingerprint_alone() {
+        let before = registry_of(&[
+            (
+                "actor.anim_override",
+                "ambition_platformer2d_actor_monolith::features::ecs::actor_clusters::ActorAnimOverride",
+            ),
+            (
+                "player.blink_camera_state",
+                "ambition_platformer2d_actor_monolith::avatar::components::PlayerBlinkCameraState",
+            ),
+        ]);
+        let after = registry_of(&[
+            (
+                "actor.anim_override",
+                "ambition_sprite_sheet::character::anim::ActorAnimOverride",
+            ),
+            (
+                "player.blink_camera_state",
+                "ambition_platformer2d_shared_tangle::camera_ease::PlayerBlinkCameraState",
+            ),
+        ]);
+        assert_eq!(
+            before.schema_fingerprint(),
+            after.schema_fingerprint(),
+            "moving a rollback-registered type to another crate and another \
+             module moved the schema fingerprint. Nothing a peer can observe \
+             changed, so two peers running byte-identical snapshot logic would \
+             refuse to agree — which makes every carve in the decomposition \
+             campaign a netplay compatibility break."
+        );
+
+        // POISON. Without it this test is equally green for a fingerprint that
+        // hashes nothing about the type at all, and dropping `type_name` from
+        // the dump entirely was a real alternative — it costs the last signal
+        // that a DIFFERENT Rust type got registered under an existing name.
+        let renamed = registry_of(&[
+            (
+                "actor.anim_override",
+                "ambition_sprite_sheet::character::anim::ActorAnimOverride",
+            ),
+            (
+                "player.blink_camera_state",
+                "ambition_platformer2d_shared_tangle::camera_ease::PlayerBlinkEaseState",
+            ),
+        ]);
+        assert_ne!(
+            after.schema_fingerprint(),
+            renamed.schema_fingerprint(),
+            "a stable name that changed which TYPE it registers left the \
+             fingerprint alone, so the dump is no longer hashing the type in \
+             any form."
+        );
+    }
+
+    /// What makes the narrower identity sound.
+    ///
+    /// Two `Cooldown`s in two crates hash equal once the final segment is the
+    /// identity, so a peer holding them the other way round would be declared
+    /// compatible. The second half asserts the guard is not merely strict: one
+    /// type registered under two stable names is the ordinary case, and 39 of
+    /// the live rows are it.
+    #[test]
+    fn two_types_sharing_a_final_segment_are_rejected_and_one_type_twice_is_not() {
+        let mut registry = RollbackRegistry::default();
+        registry
+            .try_register(typed_entry(
+                "ability.cooldown",
+                "ambition_combat::ability::Cooldown",
+            ))
+            .unwrap();
+
+        let error = registry
+            .try_register(typed_entry(
+                "weapon.cooldown",
+                "ambition_projectiles::weapon::Cooldown",
+            ))
+            .unwrap_err();
+        assert!(
+            matches!(
+                error,
+                RollbackRegistrationError::TypeIdentityCollision { .. }
+            ),
+            "two different types whose names end in `Cooldown` were accepted, \
+             and the fingerprint cannot tell them apart: {error}"
+        );
+
+        registry
+            .try_register(typed_entry(
+                "ability.cooldown_mirror",
+                "ambition_combat::ability::Cooldown",
+            ))
+            .expect(
+                "registering ONE type under a second stable name is not a \
+                 collision — the stable name is what identifies a registration, \
+                 and refusing this would reject 39 of the live rows",
+            );
+    }
+
+    #[test]
+    fn conflicting_registration_is_transactional() {
+        let mut registry = RollbackRegistry::default();
+        registry
+            .try_register(entry("same", "provider-a", "old"))
+            .unwrap();
+        let before = registry.deterministic_dump();
+        let error = registry
+            .try_register(entry("same", "provider-b", "new"))
+            .unwrap_err();
+        assert!(matches!(error, RollbackRegistrationError::Conflict { .. }));
+        assert_eq!(registry.deterministic_dump(), before);
+    }
+}

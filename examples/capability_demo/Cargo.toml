@@ -1,0 +1,94 @@
+
+[package]
+name = "capability_demo"
+version = "0.1.0"
+edition = "2024"
+description = "A SENTINEL capability: one self-contained mechanic that contributes an authored schema, a semantic action, rollback state and causal facts without editing any central enum or the actor crate."
+
+# its OWN workspace root, like `examples/portal_tutorial` and
+# `fixtures/minimal_game`. That is not tidiness: a capability that proves an
+# OUTSIDE author can write one must be built the way an outsider builds it —
+# resolving `ambition_*` as ordinary path dependencies, with its own lock and no
+# feature unification from the engine's workspace.
+#
+# leaving the workspace would silently drop this crate from
+# `cargo test --workspace`, which is how a move like this loses its coverage
+# without anyone noticing. `scripts/run_tests.py` runs it explicitly, the same
+# way it runs the two fixtures.
+[workspace]
+
+
+# THE DEPENDENCY LIST IS THE PROOF.
+#
+# No `ambition_platformer2d_actor_monolith`, no `ambition_content`, no game. A capability that had to
+# reach into the actor crate to exist would tell us the seams are not seams —
+# so this one deliberately cannot, and the compiler enforces it.
+#
+# It sits ABOVE `ambition_platformer2d_runtime` on purpose: R1's recorded decision is that a
+# domain BELOW the runtime has its rollback schema registered on its behalf
+# (see `ambition_vfx::register_rollback_state`); the domain owns the declaration
+# and the host supplies the rollback backend.
+# "A capability registers its own rollback state" is only testable up here.
+[dependencies]
+ambition_content_pack = { path = "../../crates/ambition_content_pack" }
+ambition_causal = { path = "../../crates/ambition_causal", features = ["bevy"] }
+ambition_input = { path = "../../crates/ambition_input" }
+ambition_platformer2d_core = { path = "../../crates/ambition_platformer2d_core" }
+# the SIM SCHEDULE seam, and it costs exactly ONE crate (7 → 8 in the
+# closure). `SimScheduleExt` lives here and this crate depends only on
+# `ambition_platformer2d_core`, which was already present.
+#
+# the first version registered into bare `Update`, which is what a Bevy habit produces and what
+# this crate's own recipe warns against — so the WORKED EXAMPLE contradicted the documentation
+# it exists to illustrate. The eighth crate is the honest price of being a rollback-safe
+# capability rather than claiming to be.
+ambition_platformer2d_shared_tangle = { path = "../../crates/ambition_platformer2d_shared_tangle" }
+bevy = { version = "0.19.1", default-features = false }
+# declared explicitly, not inherited. Outside the engine's workspace there
+# is no `workspace.dependencies` to inherit from — which is the point: this is
+# what an outside capability author's manifest actually looks like.
+ron = "0.11"
+serde = { version = "1", features = ["derive"] }
+
+# A DEV-DEPENDENCY, and that is the whole fix.
+#
+# The first version of this crate depended on `ambition_platformer2d_runtime` so its plugin
+# could register its own rollback state — which dragged the entire simulation
+# into a mechanic that uses none of it. It also broke the pattern the other two
+# contributions already follow: a capability OFFERS a content schema and OFFERS
+# a semantic action, and the composition installs them. Rollback is the same
+# kind of thing and now behaves the same way.
+#
+# As a dev-dependency it stays out of `cargo tree --edges normal`, so the
+# capability's real closure is foundations only — and the test that proves the
+# registration works still runs.
+[dev-dependencies]
+ambition_platformer2d_rollback_ggrs = { path = "../../crates/ambition_platformer2d_rollback_ggrs" }
+ambition_platformer2d_runtime = { path = "../../crates/ambition_platformer2d_runtime" }
+# The harness, for the GGRS round-trip in `tests/rollback_round_trip.rs`. Also a
+# dev-dependency: the queue deferred that test because "building a host inside
+# the sentinel would make it a host", and a dev-dep is precisely what makes that
+# false — the footprint ratchet reads `cargo tree --edges normal`.
+ambition_sim_harness = { path = "../../crates/ambition_sim_harness" }
+
+# The harness, for the GGRS round-trip in `tests/rollback_round_trip.rs`. Also a
+# dev-dependency: the queue deferred that test because "building a host inside
+# the sentinel would make it a host", and a dev-dep is precisely what makes that
+# false — the footprint ratchet reads `cargo tree --edges normal`.
+
+# The public SDK, for the composition proof in `tests/`. A dev-dependency, so
+# the capability's own closure is unaffected: a mechanic must not depend on the
+# facade that mounts it.
+ambition_platformer2d = { path = "../../crates/ambition_platformer2d", features = ["content_pack"] }
+
+# The engine pins a forked rev in its own `[patch.crates-io]`. Any consumer that
+# selects `ambition_platformer2d/rollback` or names the GGRS backend directly — as
+# this crate does in dev-dependencies to prove a host can install its rollback
+# state — has to repeat it. That is a real
+# cost of the fork, and it was invisible while this crate lived inside the
+# workspace and inherited the patch for free.
+#
+# keep this rev IDENTICAL to the root `Cargo.toml`'s. Two revs would compile
+# and desync.
+[patch.crates-io]
+bevy_ggrs = { git = "https://github.com/gschup/bevy_ggrs", rev = "f1853823bfb888fcd9d468a136bb81fd6b9ed481" }

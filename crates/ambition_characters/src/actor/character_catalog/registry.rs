@@ -1,0 +1,713 @@
+//! App-local composition of independently authored character catalogs.
+//!
+//! Each experience provider registers one fragment. The registry rebuilds the
+//! assembled [`CharacterCatalog`] deterministically after every registration,
+//! so plugin order is not authority. Local preset names are namespaced during
+//! assembly; character ids remain the cross-provider identity and therefore
+//! must be globally unique within one `App`.
+
+use std::collections::BTreeMap;
+use std::fmt;
+
+use bevy::prelude::{App, Resource};
+
+use super::{try_parse_catalog, validator, CharacterCatalog, CharacterCatalogData};
+
+/// One provider's immutable character definitions.
+#[derive(Clone, Debug)]
+pub struct CharacterCatalogFragment {
+    provider_id: String,
+    default_character_id: Option<String>,
+    catalog: CharacterCatalogData,
+    source_ron: String,
+    /// WHERE the RON came from, for diagnostics — a path, an `include_str!`
+    /// argument, any label the author recognises.
+    ///
+    /// Optional because a fragment can legitimately be built from a literal in
+    /// a test, and `None` reads as "no file to name" rather than as a lie.
+    source: Option<String>,
+}
+
+impl CharacterCatalogFragment {
+    pub fn from_ron(
+        provider_id: impl Into<String>,
+        default_character_id: Option<impl Into<String>>,
+        catalog_ron: &str,
+    ) -> Result<Self, CharacterCatalogAssemblyError> {
+        Self::build(None, provider_id, default_character_id, catalog_ron)
+    }
+
+    /// The same, plus WHERE the text came from.
+    ///
+    /// Milestone E asked authoring diagnostics to name "which FILE, which ID,
+    /// and which FIELD". The id and the field were already there — the
+    /// validator says `character 'x' has empty spritesheet path` — but nothing
+    /// could name a file, because the API took an anonymous `&str` and there was
+    /// no filename anywhere in it to report. A caller
+    /// holding an `include_str!` knows the path; this is where it says so.
+    ///
+    /// ```ignore
+    /// CharacterCatalogFragment::from_ron_at(
+    ///     "assets/data/outlander_catalog.ron",
+    ///     "outlander",
+    ///     Some("outlander_wanderer"),
+    ///     include_str!("../assets/data/outlander_catalog.ron"),
+    /// )
+    /// ```
+    pub fn from_ron_at(
+        source: impl Into<String>,
+        provider_id: impl Into<String>,
+        default_character_id: Option<impl Into<String>>,
+        catalog_ron: &str,
+    ) -> Result<Self, CharacterCatalogAssemblyError> {
+        Self::build(
+            Some(source.into()),
+            provider_id,
+            default_character_id,
+            catalog_ron,
+        )
+    }
+
+    /// Build a fragment from a catalog the CONTENT COMPILER already prepared.
+    ///
+    /// this exists so production registration and the compiler are not two
+    /// authorities. `from_ron` reparses and re-validates the same bytes
+    /// through the legacy path, so a pack could pass `compile()` and still be
+    /// assembled by a different reader with different defaults — the exact
+    /// "validated but the game loaded something else" split the compiler was
+    /// built to close, surviving one layer above it.
+    ///
+    /// No re-parse and no second validation: the compiler already refused everything
+    /// `validator::validate` would have, and running it again would only create a second place
+    /// for the two to disagree.
+    pub fn from_prepared(
+        source: impl Into<String>,
+        provider_id: impl Into<String>,
+        default_character_id: Option<impl Into<String>>,
+        catalog: CharacterCatalogData,
+    ) -> Result<Self, CharacterCatalogAssemblyError> {
+        let provider_id = provider_id.into();
+        if provider_id.trim().is_empty() {
+            return Err(CharacterCatalogAssemblyError::EmptyProviderId);
+        }
+        let source = Some(source.into());
+        let default_character_id = default_character_id.map(Into::into);
+        if let Some(default_id) = default_character_id.as_deref() {
+            // The ONE check the compiler cannot make: which row this PROVIDER
+            // treats as its default is a composition fact, not a content fact.
+            if !catalog.characters.contains_key(default_id) {
+                return Err(CharacterCatalogAssemblyError::MissingDefaultCharacter {
+                    provider_id,
+                    source,
+                    character_id: default_id.to_string(),
+                });
+            }
+        }
+        Ok(Self {
+            provider_id,
+            default_character_id,
+            // The fragment keeps a RON rendering for diagnostics only. It is
+            // re-serialised from the PREPARED value rather than carried from the
+            // authored text, so it cannot drift from what was registered.
+            source_ron: ron::ser::to_string(&catalog).unwrap_or_default(),
+            catalog,
+            source,
+        })
+    }
+
+    fn build(
+        source: Option<String>,
+        provider_id: impl Into<String>,
+        default_character_id: Option<impl Into<String>>,
+        catalog_ron: &str,
+    ) -> Result<Self, CharacterCatalogAssemblyError> {
+        let provider_id = provider_id.into();
+        if provider_id.trim().is_empty() {
+            return Err(CharacterCatalogAssemblyError::EmptyProviderId);
+        }
+        let catalog = try_parse_catalog(catalog_ron).map_err(|message| {
+            CharacterCatalogAssemblyError::MalformedFragment {
+                provider_id: provider_id.clone(),
+                source: source.clone(),
+                message,
+            }
+        })?;
+        let validation = validator::validate(&catalog);
+        if !validation.is_empty() {
+            return Err(CharacterCatalogAssemblyError::InvalidFragment {
+                provider_id,
+                source,
+                errors: validation,
+            });
+        }
+        let default_character_id = default_character_id.map(Into::into);
+        if let Some(default_id) = default_character_id.as_deref() {
+            if !catalog.characters.contains_key(default_id) {
+                return Err(CharacterCatalogAssemblyError::MissingDefaultCharacter {
+                    provider_id,
+                    source,
+                    character_id: default_id.to_string(),
+                });
+            }
+        }
+        Ok(Self {
+            provider_id,
+            default_character_id,
+            catalog,
+            source_ron: catalog_ron.to_string(),
+            source,
+        })
+    }
+
+    pub fn provider_id(&self) -> &str {
+        &self.provider_id
+    }
+
+    pub fn default_character_id(&self) -> Option<&str> {
+        self.default_character_id.as_deref()
+    }
+
+    pub fn catalog(&self) -> &CharacterCatalogData {
+        &self.catalog
+    }
+
+    fn validate(&self) -> Result<(), CharacterCatalogAssemblyError> {
+        if self.provider_id.trim().is_empty() {
+            return Err(CharacterCatalogAssemblyError::EmptyProviderId);
+        }
+        let errors = validator::validate(&self.catalog);
+        if !errors.is_empty() {
+            return Err(CharacterCatalogAssemblyError::InvalidFragment {
+                provider_id: self.provider_id.clone(),
+                source: self.source.clone(),
+                errors,
+            });
+        }
+        if let Some(default_id) = self.default_character_id.as_deref() {
+            if !self.catalog.characters.contains_key(default_id) {
+                return Err(CharacterCatalogAssemblyError::MissingDefaultCharacter {
+                    provider_id: self.provider_id.clone(),
+                    source: self.source.clone(),
+                    character_id: default_id.to_string(),
+                });
+            }
+        }
+        Ok(())
+    }
+}
+
+/// All linked provider fragments for one Bevy `App`.
+#[derive(Resource, Clone, Debug, Default)]
+pub struct CharacterCatalogRegistry {
+    fragments: BTreeMap<String, CharacterCatalogFragment>,
+}
+
+impl CharacterCatalogRegistry {
+    pub fn register(
+        &mut self,
+        fragment: CharacterCatalogFragment,
+    ) -> Result<(), CharacterCatalogAssemblyError> {
+        fragment.validate()?;
+        if let Some(existing) = self.fragments.get(&fragment.provider_id) {
+            if existing.default_character_id == fragment.default_character_id
+                && existing.source_ron == fragment.source_ron
+            {
+                return Ok(());
+            }
+            return Err(CharacterCatalogAssemblyError::DuplicateProvider {
+                provider_id: fragment.provider_id,
+            });
+        }
+        self.fragments
+            .insert(fragment.provider_id.clone(), fragment);
+        Ok(())
+    }
+
+    pub fn providers(&self) -> impl Iterator<Item = &str> {
+        self.fragments.keys().map(String::as_str)
+    }
+
+    /// Canonical provider-owned authored fragments for prepared-content
+    /// fingerprinting. Provider order is the `BTreeMap` order; raw source is
+    /// included because it is the exact validated definition assembled by this
+    /// same-build contract.
+    pub fn canonical_fragments(&self) -> Vec<(String, Option<String>, String)> {
+        self.fragments
+            .iter()
+            .map(|(provider, fragment)| {
+                let canonical_catalog = ron::ser::to_string(&fragment.catalog)
+                    .expect("validated character catalog must serialize canonically");
+                (
+                    provider.clone(),
+                    fragment.default_character_id.clone(),
+                    canonical_catalog,
+                )
+            })
+            .collect()
+    }
+
+    pub fn deterministic_dump(&self) -> String {
+        let mut out = String::new();
+        for (provider, default, source) in self.canonical_fragments() {
+            out.push_str(&format!(
+                "provider\t{provider}\t{}\t{}\n",
+                default.as_deref().unwrap_or("-"),
+                source.len()
+            ));
+        }
+        out
+    }
+
+    pub fn assemble(&self) -> Result<AssembledCharacterCatalog, CharacterCatalogAssemblyError> {
+        let mut autonomous_profiles = BTreeMap::new();
+        let mut brain_presets = BTreeMap::new();
+        let mut action_set_presets = BTreeMap::new();
+        let mut characters = BTreeMap::new();
+        let mut defaults = BTreeMap::new();
+        let mut owners: BTreeMap<String, String> = BTreeMap::new();
+
+        for (provider_id, fragment) in &self.fragments {
+            let brain_names: BTreeMap<String, String> = fragment
+                .catalog
+                .brain_presets
+                .keys()
+                .map(|name| (name.clone(), namespaced(provider_id, name)))
+                .collect();
+            let action_names: BTreeMap<String, String> = fragment
+                .catalog
+                .action_set_presets
+                .keys()
+                .map(|name| (name.clone(), namespaced(provider_id, name)))
+                .collect();
+
+            // Namespaced like every other preset map: a name is local to the
+            // provider that authored it, so two games may both say "striker".
+            for (local_name, profile) in &fragment.catalog.autonomous_profiles {
+                autonomous_profiles.insert(namespaced(provider_id, local_name), *profile);
+            }
+            for (local_name, preset) in &fragment.catalog.brain_presets {
+                brain_presets.insert(brain_names[local_name].clone(), preset.clone());
+            }
+            for (local_name, preset) in &fragment.catalog.action_set_presets {
+                action_set_presets.insert(action_names[local_name].clone(), preset.clone());
+            }
+
+            for (character_id, entry) in &fragment.catalog.characters {
+                if let Some(existing_provider) = owners.get(character_id) {
+                    return Err(CharacterCatalogAssemblyError::DuplicateCharacter {
+                        character_id: character_id.clone(),
+                        first_provider: existing_provider.clone(),
+                        second_provider: provider_id.clone(),
+                    });
+                }
+                let mut entry = entry.clone();
+                // the provider, stated rather than inferred later. See
+                // `CharacterCatalogEntry::provider`: this is the one moment the
+                // pairing is known for certain, so it is written down here
+                // instead of being recovered from a neighbouring key.
+                entry.provider = provider_id.clone();
+                if !entry.default_brain.is_empty() {
+                    entry.default_brain = brain_names
+                        .get(&entry.default_brain)
+                        .expect("fragment validation guarantees the brain preset")
+                        .clone();
+                }
+                entry.default_action_set = action_names
+                    .get(&entry.default_action_set)
+                    .expect("fragment validation guarantees the action-set preset")
+                    .clone();
+                owners.insert(character_id.clone(), provider_id.clone());
+                characters.insert(character_id.clone(), entry);
+            }
+
+            if let Some(default_id) = &fragment.default_character_id {
+                defaults.insert(provider_id.clone(), default_id.clone());
+            }
+        }
+
+        // Same values, same keys, so the two cannot disagree.
+        let autonomous_profiles_for_registry = autonomous_profiles.clone();
+        let catalog = CharacterCatalog::from_data(CharacterCatalogData {
+            autonomous_profiles,
+            brain_presets,
+            action_set_presets,
+            characters,
+        });
+        let validation = validator::validate(catalog.data());
+        if !validation.is_empty() {
+            return Err(CharacterCatalogAssemblyError::InvalidAssembly(validation));
+        }
+        let brain_profiles = BrainProfileRegistry {
+            profiles: autonomous_profiles_for_registry,
+        };
+        Ok(AssembledCharacterCatalog {
+            brain_profiles,
+            catalog,
+            defaults: CharacterCatalogDefaults(defaults),
+            owners: CharacterCatalogOwners(owners),
+        })
+    }
+}
+
+fn namespaced(provider_id: &str, local_name: &str) -> String {
+    format!("{provider_id}::{local_name}")
+}
+
+/// Provider-specific default character ids.
+#[derive(Resource, Clone, Debug, Default, PartialEq, Eq)]
+pub struct CharacterCatalogDefaults(pub BTreeMap<String, String>);
+
+impl CharacterCatalogDefaults {
+    pub fn for_provider(&self, provider_id: &str) -> Option<&str> {
+        self.0.get(provider_id).map(String::as_str)
+    }
+}
+
+/// Which provider authored each globally visible character id.
+#[derive(Resource, Clone, Debug, Default, PartialEq, Eq)]
+pub struct CharacterCatalogOwners(pub BTreeMap<String, String>);
+
+impl CharacterCatalogOwners {
+    pub fn provider_for(&self, character_id: &str) -> Option<&str> {
+        self.0.get(character_id).map(String::as_str)
+    }
+}
+
+#[derive(Clone, Debug)]
+pub struct AssembledCharacterCatalog {
+    pub catalog: CharacterCatalog,
+    pub defaults: CharacterCatalogDefaults,
+    pub owners: CharacterCatalogOwners,
+    /// Controller policy, as its own authority. See [`BrainProfileRegistry`].
+    pub brain_profiles: BrainProfileRegistry,
+}
+
+/// The reusable autonomous-controller policies a composition published,
+/// keyed by canonical [`BrainProfileId`](crate::brain::BrainProfileId).
+///
+/// The profiles arrive in the same RON document during the migration — a provider ships one
+/// catalog fragment — but sharing a file is not the same as sharing an owner. A character
+/// catalog answers *who exists and what are they*; this answers *what decision policies may
+/// drive a body*, and a controller policy is not a property of any character.
+///
+/// it is deliberately NOT a second `CharacterRosterFragment`-shaped hierarchy.
+/// One flat registry, assembled where the catalog is assembled, published beside
+/// it: a provider registers both, and the reader that wants a policy asks the
+/// policy authority.
+#[derive(bevy::prelude::Resource, Clone, Debug, Default, PartialEq)]
+pub struct BrainProfileRegistry {
+    profiles: BTreeMap<String, crate::brain::BrainProfile>,
+}
+
+impl BrainProfileRegistry {
+    /// The policy under this canonical id, or `None` for a name nobody authored.
+    ///
+    /// callers hold a [`BrainProfileId`](crate::brain::BrainProfileId) by the
+    /// time they get here: a provider-relative reference that skipped resolution
+    /// misses silently, which is the whole reason the two are different types.
+    pub fn get(&self, id: &crate::brain::BrainProfileId) -> Option<&crate::brain::BrainProfile> {
+        self.profiles.get(id.as_str())
+    }
+
+    /// Every published policy, in canonical-id order — for diagnostics that have
+    /// to say what WAS available when a lookup missed.
+    pub fn ids(&self) -> impl Iterator<Item = &str> {
+        self.profiles.keys().map(String::as_str)
+    }
+
+    pub fn is_empty(&self) -> bool {
+        self.profiles.is_empty()
+    }
+
+    /// The registry a catalog implies, for fixtures that build a catalog
+    /// directly instead of going through assembly.
+    ///
+    /// not a production seam. Assembly publishes both from one pass; this
+    /// exists so a test that hands preparation a hand-written catalog is still
+    /// modelling a composition where the two agree, rather than one where the
+    /// policy authority is silently absent.
+    ///
+    /// IT TAKES A PROVIDER BECAUSE ASSEMBLY DOES. This copied the catalog's map VERBATIM, so
+    /// fixture registries were keyed by BARE name and production ones by `provider::name` — and a
+    /// lookup that works on one shape silently misses on the other. A fixture that cannot reproduce
+    /// the production key is not a fixture.
+    pub fn from_catalog_for_test(provider_id: &str, catalog: &CharacterCatalog) -> Self {
+        Self {
+            profiles: catalog
+                .data()
+                .autonomous_profiles
+                .iter()
+                // a fixture that already authored a QUALIFIED name means it,
+                // the same rule `BrainProfileRef::resolve_in` follows — some
+                // fixtures hand over catalog data that assembly already keyed.
+                .map(|(name, profile)| {
+                    let key = if name.contains("::") {
+                        name.clone()
+                    } else {
+                        namespaced(provider_id, name)
+                    };
+                    (key, *profile)
+                })
+                .collect(),
+        }
+    }
+}
+
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub enum CharacterCatalogAssemblyError {
+    EmptyProviderId,
+    DuplicateProvider {
+        provider_id: String,
+    },
+    MalformedFragment {
+        provider_id: String,
+        source: Option<String>,
+        message: String,
+    },
+    InvalidFragment {
+        provider_id: String,
+        source: Option<String>,
+        errors: Vec<String>,
+    },
+    MissingDefaultCharacter {
+        provider_id: String,
+        source: Option<String>,
+        character_id: String,
+    },
+    DuplicateCharacter {
+        character_id: String,
+        first_provider: String,
+        second_provider: String,
+    },
+    InvalidAssembly(Vec<String>),
+}
+
+/// `" (assets/data/x.ron)"`, or nothing when the fragment was built from a
+/// literal and there is no file to name. Never invents a location.
+fn named(source: &Option<String>) -> String {
+    source
+        .as_deref()
+        .map(|source| format!(" ({source})"))
+        .unwrap_or_default()
+}
+
+impl fmt::Display for CharacterCatalogAssemblyError {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Self::EmptyProviderId => write!(f, "character catalog provider id must not be empty"),
+            Self::DuplicateProvider { provider_id } => {
+                write!(f, "character catalog provider '{provider_id}' registered twice")
+            }
+            Self::MalformedFragment {
+                provider_id,
+                source,
+                message,
+            } => write!(
+                f,
+                "character catalog fragment '{provider_id}'{} is malformed RON: {message}",
+                named(source)
+            ),
+            Self::InvalidFragment {
+                provider_id,
+                source,
+                errors,
+            } => write!(
+                f,
+                "character catalog fragment '{provider_id}'{} is invalid:\n  - {}",
+                named(source),
+                errors.join("\n  - ")
+            ),
+            Self::MissingDefaultCharacter {
+                provider_id,
+                source,
+                character_id,
+            } => write!(
+                f,
+                "character catalog fragment '{provider_id}'{} names missing default character '{character_id}'",
+                named(source)
+            ),
+            Self::DuplicateCharacter {
+                character_id,
+                first_provider,
+                second_provider,
+            } => write!(
+                f,
+                "character id '{character_id}' is authored by both '{first_provider}' and '{second_provider}'"
+            ),
+            Self::InvalidAssembly(errors) => write!(
+                f,
+                "assembled character catalog is invalid:\n  - {}",
+                errors.join("\n  - ")
+            ),
+        }
+    }
+}
+
+impl std::error::Error for CharacterCatalogAssemblyError {}
+
+/// App build-time registration seam used by experience providers.
+pub trait CharacterCatalogAppExt {
+    fn try_register_character_catalog_fragment(
+        &mut self,
+        fragment: CharacterCatalogFragment,
+    ) -> Result<&mut Self, CharacterCatalogAssemblyError>;
+
+    fn register_character_catalog_fragment(
+        &mut self,
+        fragment: CharacterCatalogFragment,
+    ) -> &mut Self {
+        self.try_register_character_catalog_fragment(fragment)
+            .unwrap_or_else(|error| panic!("{error}"))
+    }
+}
+
+impl CharacterCatalogAppExt for App {
+    fn try_register_character_catalog_fragment(
+        &mut self,
+        fragment: CharacterCatalogFragment,
+    ) -> Result<&mut Self, CharacterCatalogAssemblyError> {
+        let (registry, assembled) = {
+            let mut candidate = self
+                .world()
+                .get_resource::<CharacterCatalogRegistry>()
+                .cloned()
+                .unwrap_or_default();
+            candidate.register(fragment)?;
+            let assembled = candidate.assemble()?;
+            (candidate, assembled)
+        };
+        self.insert_resource(registry)
+            .insert_resource(assembled.catalog)
+            .insert_resource(assembled.defaults)
+            .insert_resource(assembled.owners)
+            .insert_resource(assembled.brain_profiles);
+        Ok(self)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    const A: &str = r#"(
+        brain_presets: { "idle": StandStill },
+        action_set_presets: { "peaceful": (move_style: Walk) },
+        characters: {
+            "alpha": (
+                display_name: "Alpha", spritesheet: "a.png", manifest: "a.ron",
+                tier: MainHall, body_kind: Standard, composition: None,
+                default_brain: "idle", default_action_set: "peaceful", tags: [],
+            ),
+        },
+    )"#;
+    const B: &str = r#"(
+        brain_presets: { "idle": StandStill },
+        action_set_presets: { "peaceful": (move_style: Walk) },
+        characters: {
+            "beta": (
+                display_name: "Beta", spritesheet: "b.png", manifest: "b.ron",
+                tier: MainHall, body_kind: Standard, composition: None,
+                default_brain: "idle", default_action_set: "peaceful", tags: [],
+            ),
+        },
+    )"#;
+
+    fn fragment(provider: &str, default_id: &str, ron: &str) -> CharacterCatalogFragment {
+        CharacterCatalogFragment::from_ron(provider, Some(default_id), ron).unwrap()
+    }
+
+    #[test]
+    fn malformed_ron_is_a_structured_error() {
+        let error = CharacterCatalogFragment::from_ron("broken", None::<String>, "not ron")
+            .expect_err("malformed provider data must not panic");
+        assert!(matches!(
+            error,
+            CharacterCatalogAssemblyError::MalformedFragment { provider_id, .. }
+                if provider_id == "broken"
+        ));
+    }
+
+    #[test]
+    fn provider_order_does_not_change_the_assembly() {
+        let mut first = CharacterCatalogRegistry::default();
+        first.register(fragment("a", "alpha", A)).unwrap();
+        first.register(fragment("b", "beta", B)).unwrap();
+        let first = first.assemble().unwrap();
+
+        let mut second = CharacterCatalogRegistry::default();
+        second.register(fragment("b", "beta", B)).unwrap();
+        second.register(fragment("a", "alpha", A)).unwrap();
+        let second = second.assemble().unwrap();
+
+        assert_eq!(first.catalog, second.catalog);
+        assert_eq!(first.defaults, second.defaults);
+        assert_eq!(first.owners, second.owners);
+        assert!(first.catalog.data().brain_presets.contains_key("a::idle"));
+        assert!(first.catalog.data().brain_presets.contains_key("b::idle"));
+    }
+
+    #[test]
+    fn duplicate_character_ids_fail_with_stable_provider_names() {
+        let mut registry = CharacterCatalogRegistry::default();
+        registry.register(fragment("a", "alpha", A)).unwrap();
+        registry.register(fragment("b", "alpha", A)).unwrap();
+        assert_eq!(
+            registry.assemble().unwrap_err(),
+            CharacterCatalogAssemblyError::DuplicateCharacter {
+                character_id: "alpha".to_string(),
+                first_provider: "a".to_string(),
+                second_provider: "b".to_string(),
+            }
+        );
+    }
+
+    #[test]
+    fn failed_registration_leaves_the_previous_assembly_intact() {
+        let mut app = App::new();
+        app.register_character_catalog_fragment(fragment("a", "alpha", A));
+        let before = app
+            .world()
+            .resource::<CharacterCatalog>()
+            .iter()
+            .map(|(id, _)| id.clone())
+            .collect::<Vec<_>>();
+
+        let error = app
+            .try_register_character_catalog_fragment(fragment("b", "alpha", A))
+            .err()
+            .expect("registration should fail");
+        assert!(matches!(
+            error,
+            CharacterCatalogAssemblyError::DuplicateCharacter { .. }
+        ));
+        let after = app
+            .world()
+            .resource::<CharacterCatalog>()
+            .iter()
+            .map(|(id, _)| id.clone())
+            .collect::<Vec<_>>();
+        assert_eq!(before, after);
+        assert_eq!(
+            app.world()
+                .resource::<CharacterCatalogRegistry>()
+                .providers()
+                .collect::<Vec<_>>(),
+            vec!["a"]
+        );
+    }
+
+    #[test]
+    fn separate_apps_hold_independent_catalogs() {
+        let mut app_a = App::new();
+        app_a.register_character_catalog_fragment(fragment("a", "alpha", A));
+        let mut app_b = App::new();
+        app_b.register_character_catalog_fragment(fragment("b", "beta", B));
+
+        let catalog_a = app_a.world().resource::<CharacterCatalog>();
+        let catalog_b = app_b.world().resource::<CharacterCatalog>();
+        assert!(catalog_a.get("alpha").is_some());
+        assert!(catalog_a.get("beta").is_none());
+        assert!(catalog_b.get("beta").is_some());
+        assert!(catalog_b.get("alpha").is_none());
+    }
+}

@@ -1,0 +1,23 @@
+# Convert pirate_sky_arena's `sky_arrival` LoadingZone (currently
+# a mid-room Door at px=[1120, 920]) into a proper bottom-edge
+# EdgeExit aligned with gate_stack_lower's top-edge pirate_sky_up
+# zone (level-local x=160..256). The retrofit:
+#   - Renames the zone to `sky_arrival` (kept) but flips
+#     activation Door → EdgeExit.
+#   - Moves it to the bottom edge so the gridvania up-seam works.
+#   - Updates target to gate_stack_lower/pirate_sky_up so the
+#     reciprocal pair lines up by id.
+#
+# Use `entity move` for the px relocation and `entity set-field`
+# for the field edits — applied in sequence by the caller.
+
+level_id: pirate_sky_arena
+edits:
+  - target:
+      identifier: LoadingZone
+      match:
+        id: sky_arrival
+    fields:
+      activation: EdgeExit
+      target_zone: pirate_sky_up
+      bidirectional: true

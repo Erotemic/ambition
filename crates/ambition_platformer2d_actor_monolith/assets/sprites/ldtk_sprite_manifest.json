@@ -1,0 +1,24 @@
+{
+  "entity_icons": {
+    "PlayerStart": {
+      "tile": [
+        0,
+        0,
+        256,
+        256
+      ],
+      "tileset": "sprite_player_robot_v3"
+    }
+  },
+  "tilesets": [
+    {
+      "identifier": "sprite_player_robot_v3",
+      "path": "crates/ambition_platformer2d_actor_monolith/assets/sprites/player_robot_v3_spritesheet.png",
+      "tags": [
+        "sprite"
+      ],
+      "tile_height": 256,
+      "tile_width": 256
+    }
+  ]
+}

@@ -1,0 +1,664 @@
+//! Coherent first reveal for the visible direct-entry sandbox.
+//!
+//! Direct entry constructs the canonical session world synchronously, but most
+//! presentation handles resolve asynchronously through Bevy's `AssetServer`.
+//! Without a reveal boundary, the window exposes a black/partial world while
+//! sprites, LDtk layers, fonts, and music arrive independently. This module
+//! keeps gameplay dormant behind an opaque product-owned cover, reports honest
+//! asset progress, and reveals only after one complete covered ready frame.
+
+use bevy::asset::{LoadState, UntypedAssetId};
+use bevy::ecs::system::SystemParam;
+use bevy::prelude::*;
+use bevy::window::PrimaryWindow;
+
+use ambition_platformer2d::actors::features::RoomContentStagingRegistry;
+use ambition_platformer2d::ldtk_map::LdtkWorldAssets;
+use ambition_platformer2d::platformer::lifecycle::{InitialGameplayReadiness, SessionRoot};
+use ambition_platformer2d::render::ui_fonts::{UiFontWeight, UiFonts};
+use ambition_platformer2d::sprite_sheet::game_assets::GameAssets;
+use ambition_platformer2d::world::rooms::RoomSet;
+
+use super::world_flow::{
+    build_loaded_room_asset_manifest, inspect_room_asset_manifest, RoomAssetManifest,
+};
+use super::PresentationSetupSet;
+
+#[derive(Component)]
+struct DirectStartupLoadingRoot;
+
+#[derive(Component)]
+struct DirectStartupLoadingProgressFill;
+
+#[derive(Component)]
+struct DirectStartupLoadingProgressText;
+
+#[derive(Component)]
+struct DirectStartupLoadingStatusText;
+
+#[derive(Clone, Debug)]
+struct StartupAssetDependency {
+    label: String,
+    asset_id: UntypedAssetId,
+}
+
+#[derive(Clone, Debug, Default)]
+struct StartupAssetManifest {
+    room: RoomAssetManifest,
+    supporting: Vec<StartupAssetDependency>,
+    /// What the room manifest was built from, so it can be REBUILT as the
+    /// per-frame ration realizes sheets whose pages the first build never saw
+    /// — the same gap the room transition closed (`inspect_demanded_characters`).
+    room_spec: Option<std::sync::Arc<ambition_platformer2d::world::rooms::RoomSpec>>,
+    staged_names: Vec<String>,
+    demanded_characters: Vec<String>,
+    realized_at_build: usize,
+}
+
+#[derive(Clone, Debug, Default)]
+struct StartupReadinessSummary {
+    settled: usize,
+    total: usize,
+    pending: Vec<String>,
+    failed: Vec<String>,
+}
+
+impl StartupReadinessSummary {
+    fn is_ready(&self) -> bool {
+        self.pending.is_empty() && self.failed.is_empty()
+    }
+}
+
+#[derive(Resource, Debug, Default)]
+struct DirectStartupLoadingState {
+    manifest: Option<StartupAssetManifest>,
+    update_serial: u64,
+    ready_observed_at: Option<u64>,
+    revealed: bool,
+    /// Updates spent with every pending asset decoded and only its GPU upload
+    /// owed — the upload half of the boot, measured under the cover.
+    waited_on_gpu_updates: u32,
+}
+
+impl DirectStartupLoadingState {
+    /// Returns true exactly when the cover may retire.
+    fn observe_readiness(&mut self, ready: bool, failed: bool) -> bool {
+        if failed || !ready {
+            self.ready_observed_at = None;
+            return false;
+        }
+        match self.ready_observed_at {
+            None => {
+                self.ready_observed_at = Some(self.update_serial);
+                false
+            }
+            Some(observed_at) => self.update_serial > observed_at,
+        }
+    }
+}
+
+#[derive(SystemParam)]
+struct StartupAssetInputs<'w, 's> {
+    asset_server: Res<'w, AssetServer>,
+    images: Res<'w, Assets<Image>>,
+    /// This App's render world, for the GPU-upload readiness term. Absent means
+    /// none — the resource is per-App on purpose.
+    render_world:
+        Option<Res<'w, ambition_platformer2d::asset_manager::image_stages::RenderWorldPresent>>,
+    /// And what it has uploaded. Per-App for the same reason: asset ids are
+    /// local to an App, so a process-wide "prepared" set let a sibling App's
+    /// upload settle this one's startup readiness.
+    prepared_here:
+        Option<Res<'w, ambition_platformer2d::asset_manager::image_stages::AppGpuPreparedImages>>,
+    game_assets: ResMut<'w, GameAssets>,
+    asset_catalog:
+        Res<'w, ambition_platformer2d::asset_manager::platformer_assets::Platformer2dAssetCatalog>,
+    character_catalog:
+        Res<'w, ambition_platformer2d::characters::actor::character_catalog::CharacterCatalog>,
+    layouts: ResMut<'w, Assets<TextureAtlasLayout>>,
+    quality: Res<'w, ambition_platformer2d::render::quality::ResolvedVisualQuality>,
+    boss_catalog: Option<Res<'w, ambition_platformer2d::boss_encounter::BossCatalog>>,
+    worn: Query<
+        'w,
+        's,
+        &'static ambition_platformer2d::characters::actor::WornCharacter,
+        Or<(
+            With<ambition_platformer2d::platformer::markers::PlayerEntity>,
+            With<ambition_platformer2d::characters::control::DrivingParticipant>,
+        )>,
+    >,
+    room_sets: Query<'w, 's, &'static RoomSet, With<SessionRoot>>,
+    content_staging: Res<'w, RoomContentStagingRegistry>,
+    character_load_states:
+        ResMut<'w, ambition_platformer2d::actors::character_runtime::CharacterLoadStates>,
+    character_load_demand:
+        ResMut<'w, ambition_platformer2d::characters::load_demand::CharacterLoadDemand>,
+    /// Sheets this app's providers authored — the other real source
+    /// of sheet metadata, and the only one a game outside this workspace can
+    /// write to.
+    authored_sheets:
+        Res<'w, ambition_platformer2d::sprite_sheet::character::sheets::AuthoredSheets>,
+    /// Registered character definitions: a real source of sheets, since a
+    /// character may be declared only through `register_character`.
+    prepared_characters:
+        Option<Res<'w, ambition_platformer2d::characters::prepared::PreparedCharacterRegistry>>,
+    ldtk_worlds: Option<Res<'w, LdtkWorldAssets>>,
+    ui_fonts: Option<Res<'w, UiFonts>>,
+    #[cfg(feature = "audio")]
+    audio_library: Option<Res<'w, ambition_platformer2d::audio::library::AudioLibrary>>,
+    #[cfg(feature = "audio")]
+    music_state: Option<Res<'w, ambition_platformer2d::audio::library::MusicPlaybackState>>,
+}
+
+#[derive(SystemParam)]
+struct StartupUi<'w, 's> {
+    windows: Query<'w, 's, &'static mut Window, With<PrimaryWindow>>,
+    roots: Query<'w, 's, Entity, With<DirectStartupLoadingRoot>>,
+    progress_fill: Query<'w, 's, &'static mut Node, With<DirectStartupLoadingProgressFill>>,
+    texts: Query<
+        'w,
+        's,
+        (
+            &'static mut Text,
+            Option<&'static DirectStartupLoadingProgressText>,
+            Option<&'static DirectStartupLoadingStatusText>,
+        ),
+        Or<(
+            With<DirectStartupLoadingProgressText>,
+            With<DirectStartupLoadingStatusText>,
+        )>,
+    >,
+}
+
+/// Install the product-specific boot reveal used only by the visible direct
+/// sandbox. Shell-hosted startup has its own route/load lifecycle, and no-window
+/// harnesses deliberately do not need a presentation cover.
+pub(super) fn install_direct_startup_loading(app: &mut App) {
+    app.init_resource::<DirectStartupLoadingState>()
+        .add_systems(
+            Startup,
+            spawn_direct_startup_loading_screen.after(PresentationSetupSet),
+        );
+    #[cfg(feature = "audio")]
+    app.add_systems(
+        Update,
+        drive_direct_startup_loading
+            .before(ambition_platformer2d::platformer::schedule::GameplaySimulationRoot)
+            .before(ambition_platformer2d::audio::library::DefaultMusicStart),
+    );
+    #[cfg(not(feature = "audio"))]
+    app.add_systems(
+        Update,
+        drive_direct_startup_loading
+            .before(ambition_platformer2d::platformer::schedule::GameplaySimulationRoot),
+    );
+}
+
+fn spawn_direct_startup_loading_screen(mut commands: Commands) {
+    // The loading surface deliberately uses Bevy's built-in font. Depending on
+    // an asynchronously loaded product font would make the loading screen
+    // itself pop in late, defeating its immediate-response purpose.
+    let font = |size: f32, _weight: UiFontWeight| TextFont {
+        font_size: FontSize::Px(size),
+        ..default()
+    };
+
+    commands
+        .spawn((
+            Node {
+                position_type: PositionType::Absolute,
+                left: Val::Px(0.0),
+                right: Val::Px(0.0),
+                top: Val::Px(0.0),
+                bottom: Val::Px(0.0),
+                padding: UiRect::all(Val::Px(28.0)),
+                flex_direction: FlexDirection::Column,
+                justify_content: JustifyContent::Center,
+                align_items: AlignItems::Center,
+                ..default()
+            },
+            BackgroundColor(Color::srgb(0.012, 0.014, 0.024)),
+            GlobalZIndex(10_000),
+            DirectStartupLoadingRoot,
+            Name::new("Ambition Direct Startup Loading Cover"),
+        ))
+        .with_children(|root| {
+            root.spawn((
+                Text::new("AMBITION"),
+                font(54.0, UiFontWeight::Semibold),
+                TextColor(Color::srgb(0.92, 0.72, 0.28)),
+                TextLayout::new(Justify::Center, LineBreak::NoWrap),
+                Name::new("Ambition Startup Wordmark"),
+            ));
+            root.spawn((
+                Text::new("TANGENT SPACE SANDBOX"),
+                font(18.0, UiFontWeight::Regular),
+                TextColor(Color::srgb(0.66, 0.70, 0.82)),
+                TextLayout::new(Justify::Center, LineBreak::NoWrap),
+                Node {
+                    margin: UiRect {
+                        top: Val::Px(4.0),
+                        ..default()
+                    },
+                    ..default()
+                },
+                Name::new("Ambition Startup Subtitle"),
+            ));
+            root.spawn((
+                Node {
+                    width: Val::Percent(72.0),
+                    min_width: Val::Px(220.0),
+                    max_width: Val::Px(720.0),
+                    height: Val::Px(12.0),
+                    margin: UiRect {
+                        top: Val::Px(42.0),
+                        ..default()
+                    },
+                    border: UiRect::all(Val::Px(1.0)),
+                    ..default()
+                },
+                BackgroundColor(Color::srgb(0.075, 0.082, 0.12)),
+                BorderColor::all(Color::srgb(0.22, 0.24, 0.34)),
+                Name::new("Ambition Startup Progress Track"),
+            ))
+            .with_children(|track| {
+                track.spawn((
+                    Node {
+                        width: Val::Percent(0.0),
+                        height: Val::Percent(100.0),
+                        ..default()
+                    },
+                    BackgroundColor(Color::srgb(0.92, 0.66, 0.20)),
+                    DirectStartupLoadingProgressFill,
+                    Name::new("Ambition Startup Progress Fill"),
+                ));
+            });
+            root.spawn((
+                Text::new("Preparing sandbox…"),
+                font(17.0, UiFontWeight::Semibold),
+                TextColor(Color::srgb(0.90, 0.91, 0.96)),
+                TextLayout::new(Justify::Center, LineBreak::WordBoundary),
+                Node {
+                    width: Val::Percent(72.0),
+                    min_width: Val::Px(220.0),
+                    max_width: Val::Px(720.0),
+                    margin: UiRect {
+                        top: Val::Px(16.0),
+                        ..default()
+                    },
+                    ..default()
+                },
+                DirectStartupLoadingProgressText,
+                Name::new("Ambition Startup Progress Text"),
+            ));
+            root.spawn((
+                Text::new("Building the first coherent frame"),
+                font(14.0, UiFontWeight::Regular),
+                TextColor(Color::srgb(0.56, 0.60, 0.72)),
+                TextLayout::new(Justify::Center, LineBreak::WordBoundary),
+                Node {
+                    width: Val::Percent(72.0),
+                    min_width: Val::Px(220.0),
+                    max_width: Val::Px(720.0),
+                    min_height: Val::Px(24.0),
+                    margin: UiRect {
+                        top: Val::Px(6.0),
+                        ..default()
+                    },
+                    ..default()
+                },
+                DirectStartupLoadingStatusText,
+                Name::new("Ambition Startup Status Text"),
+            ));
+        });
+}
+
+fn drive_direct_startup_loading(
+    mut commands: Commands,
+    mut state: ResMut<DirectStartupLoadingState>,
+    mut gameplay: ResMut<InitialGameplayReadiness>,
+    mut assets: StartupAssetInputs,
+    mut ui: StartupUi,
+) {
+    if state.revealed {
+        return;
+    }
+    state.update_serial = state.update_serial.saturating_add(1);
+
+    // The OS window is created hidden. Expose it only after Startup has built
+    // the opaque cover, eliminating the compositor's uninitialized/ghost frame.
+    if !ui.roots.is_empty() {
+        for mut window in &mut ui.windows {
+            window.visible = true;
+        }
+    }
+
+    if state.manifest.is_none() {
+        match build_startup_manifest(&mut assets) {
+            Ok(manifest) => state.manifest = Some(manifest),
+            Err(message) => {
+                update_startup_ui(&mut ui, 0, 1, "Startup preparation failed", &message);
+                return;
+            }
+        }
+    }
+
+    let summary = inspect_startup_manifest(
+        &assets.asset_server,
+        &assets.images,
+        ambition_platformer2d::asset_manager::image_stages::RenderWorldPresent::from_option(
+            assets.render_world.as_deref(),
+        ),
+        assets.prepared_here.as_deref(),
+        &assets.game_assets,
+        &assets.character_load_states,
+        state
+            .manifest
+            .as_mut()
+            .expect("startup manifest was just initialized"),
+    );
+    let failed = !summary.failed.is_empty();
+    let ready = summary.is_ready();
+
+    let headline = if failed {
+        "A required asset failed to load"
+    } else if ready {
+        "Ready"
+    } else {
+        "Loading the Ambition sandbox"
+    };
+    let detail = if failed {
+        format!("Failed: {}", summary.failed.join(", "))
+    } else if ready {
+        "Finalizing the first complete frame…".to_owned()
+    } else {
+        summary
+            .pending
+            .first()
+            .map(|label| format!("Loading {label}"))
+            .unwrap_or_else(|| "Preparing presentation".to_owned())
+    };
+    update_startup_ui(
+        &mut ui,
+        summary.settled,
+        summary.total.max(1),
+        headline,
+        &detail,
+    );
+
+    if !state.observe_readiness(ready, failed) {
+        // The last stage the cover is still waiting on, so a log can tell a
+        // decode wait from an upload wait. `(gpu upload)` labels come from
+        // `inspect_room_asset_manifest`'s render-world term.
+        if let Some(first) = summary.pending.first() {
+            if summary
+                .pending
+                .iter()
+                .all(|label| label.ends_with("(gpu upload)"))
+            {
+                state.waited_on_gpu_updates = state.waited_on_gpu_updates.saturating_add(1);
+            }
+            bevy::log::debug!(
+                target: "ambition_app::startup_cover",
+                "startup cover waiting: {} pending, first `{first}`",
+                summary.pending.len()
+            );
+        }
+        return;
+    }
+
+    // Open simulation first, then retire the cover so the first exposed world is also the first
+    // live tick.
+    eprintln!(
+        "[startup-cover] revealed after {} updates ({} of them waiting only on GPU uploads), {} assets",
+        state.update_serial, state.waited_on_gpu_updates, summary.total
+    );
+    gameplay.mark_ready();
+    for entity in &ui.roots {
+        commands.entity(entity).despawn();
+    }
+    state.revealed = true;
+}
+
+fn build_startup_manifest(
+    inputs: &mut StartupAssetInputs<'_, '_>,
+) -> Result<StartupAssetManifest, String> {
+    let room_set = inputs
+        .room_sets
+        .single()
+        .map_err(|_| "expected exactly one canonical session room set".to_owned())?;
+    let room = room_set.active_spec();
+    let staged = inputs
+        .content_staging
+        .try_requests_for(room)
+        .map_err(|error| format!("content staging failed: {error}"))?;
+    let mut staged_names = staged
+        .iter()
+        .map(|request| request.name.clone())
+        .collect::<Vec<_>>();
+    // Deferred character sheets for the FIRST room materialize here, behind
+    // the startup cover — the same barrier semantics room transitions get.
+    // Sheets beyond the per-frame ration go to the global demand, exactly as
+    // a room transition hands them over (see `demand_room_character_sheets`).
+    let worn: Vec<String> = inputs
+        .worn
+        .iter()
+        .map(|worn| worn.0.as_str().to_string())
+        .collect();
+    // The worn characters join the staged list so ONE list demands them,
+    // waits for their realization and puts their pages in the manifest — the
+    // room's placements never name the player, and a body's own demand
+    // (`demand_worn_character_sheets`) realizes a sheet the manifest would
+    // otherwise never list, so the cover could lift on its page still loading.
+    staged_names.extend(worn.iter().cloned());
+    staged_names.sort();
+    staged_names.dedup();
+    let remainder = super::world_flow::demand_room_character_sheets(
+        room,
+        &staged_names,
+        &mut inputs.game_assets,
+        &inputs.asset_catalog,
+        &inputs.character_catalog,
+        &inputs.asset_server,
+        &mut inputs.layouts,
+        &inputs.quality,
+        &mut inputs.character_load_states,
+        inputs
+            .prepared_characters
+            .as_deref()
+            .unwrap_or(&Default::default()),
+        &inputs.authored_sheets,
+        &worn,
+        // A fresh process has nothing an earlier room realized; the first
+        // room commit (`RoomResidencyOwners`) is where ownership is applied.
+        None,
+    );
+    remainder.forward_into(&mut inputs.character_load_demand);
+    // A first room that authors a boss demands the dedicated boss sheets now,
+    // behind the cover; no room without one pays for them (asset open work 2).
+    if !room.boss_spawns.is_empty() {
+        if let Some(boss_catalog) = inputs.boss_catalog.as_deref() {
+            let keys = ambition_platformer2d::actors::assets::game_assets::boss_sheet_keys_for_room(
+                room,
+                boss_catalog,
+            );
+            ambition_platformer2d::actors::assets::game_assets::ensure_boss_sheets_loaded(
+                &mut inputs.game_assets,
+                boss_catalog,
+                Some(&keys),
+                &inputs.asset_catalog,
+                &inputs.asset_server,
+                &mut inputs.layouts,
+                Some(&inputs.quality.budget),
+            );
+        }
+    }
+    let room_manifest = build_loaded_room_asset_manifest(room, &staged_names, &inputs.game_assets);
+    let demanded_characters = super::world_flow::room_character_tokens(room, &staged_names);
+    let realized_at_build =
+        super::world_flow::realized_character_count(&demanded_characters, &inputs.game_assets);
+    let room_spec = Some(std::sync::Arc::new(room.clone()));
+
+    let mut supporting = Vec::new();
+    if let Some(worlds) = inputs.ldtk_worlds.as_deref() {
+        for (index, handle) in worlds.0.iter().enumerate() {
+            supporting.push(StartupAssetDependency {
+                label: format!("world data {}", index + 1),
+                asset_id: UntypedAssetId::from(handle),
+            });
+        }
+    }
+    if let Some(fonts) = inputs.ui_fonts.as_deref() {
+        for (label, handle) in [
+            ("dialogue font", fonts.regular.as_ref()),
+            ("display font", fonts.semibold.as_ref()),
+            ("debug font", fonts.mono.as_ref()),
+        ] {
+            if let Some(handle) = handle {
+                supporting.push(StartupAssetDependency {
+                    label: label.to_owned(),
+                    asset_id: UntypedAssetId::from(handle),
+                });
+            }
+        }
+    }
+    #[cfg(feature = "audio")]
+    if let (Some(library), Some(music_state)) = (
+        inputs.audio_library.as_deref(),
+        inputs.music_state.as_deref(),
+    ) {
+        if let Some(handle) = library.resolved_track_handle(music_state.active_track()) {
+            supporting.push(StartupAssetDependency {
+                label: format!("music '{}'", music_state.active_track()),
+                asset_id: UntypedAssetId::from(&handle),
+            });
+        }
+    }
+
+    // De-duplicate aliases by runtime asset identity while keeping deterministic
+    // first-label ordering for the progress display.
+    let mut seen = Vec::<UntypedAssetId>::new();
+    supporting.retain(|dependency| {
+        if seen.iter().any(|asset_id| asset_id == &dependency.asset_id) {
+            false
+        } else {
+            seen.push(dependency.asset_id.clone());
+            true
+        }
+    });
+
+    Ok(StartupAssetManifest {
+        room: room_manifest,
+        supporting,
+        room_spec,
+        staged_names,
+        demanded_characters,
+        realized_at_build,
+    })
+}
+
+fn inspect_startup_manifest(
+    asset_server: &AssetServer,
+    images: &Assets<Image>,
+    render_world: ambition_platformer2d::asset_manager::image_stages::RenderWorldPresent,
+    prepared_here: Option<
+        &ambition_platformer2d::asset_manager::image_stages::AppGpuPreparedImages,
+    >,
+    game_assets: &GameAssets,
+    character_load_states: &ambition_platformer2d::actors::character_runtime::CharacterLoadStates,
+    manifest: &mut StartupAssetManifest,
+) -> StartupReadinessSummary {
+    // Sheets realize one per frame after the first build; each brings pages
+    // the first manifest never saw. Rebuild the description when the count moved.
+    if let Some(room_spec) = manifest.room_spec.clone() {
+        let realized =
+            super::world_flow::realized_character_count(&manifest.demanded_characters, game_assets);
+        if realized != manifest.realized_at_build {
+            manifest.room =
+                build_loaded_room_asset_manifest(&room_spec, &manifest.staged_names, game_assets);
+            manifest.realized_at_build = realized;
+        }
+    }
+    let mut room = inspect_room_asset_manifest(
+        asset_server,
+        Some(images),
+        render_world,
+        prepared_here,
+        &manifest.room,
+    );
+    super::world_flow::inspect_demanded_characters(
+        &manifest.demanded_characters,
+        game_assets,
+        Some(character_load_states),
+        &mut room,
+    );
+    let mut summary = StartupReadinessSummary {
+        settled: room.settled,
+        total: room.total + manifest.supporting.len(),
+        pending: room.pending,
+        failed: room.failed,
+    };
+    for dependency in &manifest.supporting {
+        if asset_server.is_loaded_with_dependencies(dependency.asset_id.clone()) {
+            summary.settled += 1;
+            continue;
+        }
+        match asset_server.load_state(dependency.asset_id.clone()) {
+            LoadState::Failed(_) => {
+                summary.settled += 1;
+                summary.failed.push(dependency.label.clone());
+            }
+            LoadState::NotLoaded | LoadState::Loading | LoadState::Loaded => {
+                summary.pending.push(dependency.label.clone());
+            }
+        }
+    }
+    summary
+}
+
+fn update_startup_ui(
+    ui: &mut StartupUi<'_, '_>,
+    settled: usize,
+    total: usize,
+    headline: &str,
+    detail: &str,
+) {
+    let percent = ((settled as f32 / total.max(1) as f32) * 100.0).clamp(0.0, 100.0);
+    for mut node in &mut ui.progress_fill {
+        node.width = Val::Percent(percent);
+    }
+    for (mut text, progress, status) in &mut ui.texts {
+        if progress.is_some() {
+            text.0 = format!("{headline}  ·  {settled}/{total}");
+        } else if status.is_some() {
+            text.0 = detail.to_owned();
+        }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn ready_assets_must_survive_a_later_update_before_reveal() {
+        let mut state = DirectStartupLoadingState::default();
+        state.update_serial = 4;
+        assert!(!state.observe_readiness(true, false));
+        state.update_serial = 5;
+        assert!(state.observe_readiness(true, false));
+    }
+
+    #[test]
+    fn a_pending_or_failed_asset_resets_the_ready_latch() {
+        let mut state = DirectStartupLoadingState::default();
+        state.update_serial = 4;
+        assert!(!state.observe_readiness(true, false));
+        state.update_serial = 5;
+        assert!(!state.observe_readiness(false, false));
+        state.update_serial = 6;
+        assert!(!state.observe_readiness(true, false));
+        state.update_serial = 7;
+        assert!(!state.observe_readiness(true, true));
+    }
+}

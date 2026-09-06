@@ -1,0 +1,159 @@
+//! Mockingbird echo fan boss-special Technique.
+
+use bevy::prelude::*;
+
+use ambition_boss_encounter::BossClusterRef;
+use ambition_characters::brain::{
+    action_set::ActionRequest, ActorActionMessage, SpecialActionSpec,
+};
+use ambition_combat::components::ActorTarget;
+use ambition_platformer2d::actor::FeatureSimEntity;
+use ambition_platformer2d_core::BodyKinematics;
+use ambition_platformer2d_core::{self as ae, AabbExt};
+use ambition_platformer2d_shared_tangle::markers::PlayerEntity;
+use ambition_projectiles::{ProjectileSpawn, ProjectileSpawnRequest, ProjectileStart};
+
+// ---- Mockingbird's echo fan (content-only, open-seam; mimic spread) ----
+
+/// Content key for the Mockingbird echo fan — matches the `Special("echo_fan")`
+/// beats in `boss_profiles.ron`.
+pub const ECHO_FAN_KEY: &str = "echo_fan";
+
+const ECHO_FAN_COUNT: u32 = 7;
+const ECHO_FAN_SPREAD_RAD: f32 = 0.9; // total cone width (~52°)
+const ECHO_FAN_SPEED: f32 = 300.0;
+const ECHO_FAN_DAMAGE: i32 = 1;
+const ECHO_FAN_HALF_EXTENT: ae::Vec2 = ae::Vec2::new(9.0, 9.0);
+const ECHO_FAN_LIFETIME: f32 = 2.0;
+
+/// Per-boss gate for the echo fan. One spread per strike.
+#[derive(Component, Clone, Copy, Debug, Default)]
+pub struct EchoFanState {
+    pub fired_this_strike: bool,
+}
+
+/// Pure: `count` unit directions evenly fanned across a `spread` cone centered on
+/// `aim` — the same shot mimicked across the fan. A single shot when `count == 1`
+/// flies straight along `aim`. Deterministic — the testable core of the Technique.
+fn echo_fan(aim: ae::Vec2, count: u32, spread: f32) -> Vec<ae::Vec2> {
+    let n = count.max(1);
+    let base = if aim.length_squared() < 1e-6 {
+        0.0
+    } else {
+        aim.y.atan2(aim.x)
+    };
+    (0..n)
+        .map(|i| {
+            // Even spread across [-spread/2, +spread/2]; single shot → straight.
+            let t = if n == 1 {
+                0.0
+            } else {
+                (i as f32) / ((n - 1) as f32) - 0.5
+            };
+            let theta = base + t * spread;
+            ae::Vec2::new(theta.cos(), theta.sin())
+        })
+        .collect()
+}
+
+/// Technique: Mockingbird echo fan — copies one shot across a cone aimed at the
+/// player (content-only; open-seam special).
+pub fn spawn_echo_fan_from_special_messages(
+    mut projectiles: MessageWriter<ProjectileSpawnRequest>,
+    mut messages: MessageReader<ActorActionMessage>,
+    player_query: Query<&BodyKinematics, With<PlayerEntity>>,
+    mut bosses: Query<
+        (
+            Entity,
+            BossClusterRef,
+            &ambition_characters::actor::BodyHealth,
+            &mut EchoFanState,
+            Option<&ActorTarget>,
+        ),
+        With<FeatureSimEntity>,
+    >,
+) {
+    let mut firing: std::collections::HashSet<Entity> = std::collections::HashSet::new();
+    for msg in messages.read() {
+        if let ActionRequest::Special {
+            spec: SpecialActionSpec::Special(key),
+            ..
+        } = &msg.request
+        {
+            if key == ECHO_FAN_KEY {
+                firing.insert(msg.actor);
+            }
+        }
+    }
+    for (entity, boss_feature, health, mut state, actor_target) in &mut bosses {
+        let boss = boss_feature.as_boss_ref();
+        if !firing.contains(&entity) {
+            state.fired_this_strike = false;
+            continue;
+        }
+        if !health.alive() || state.fired_this_strike {
+            continue;
+        }
+        let origin = boss.kin.pos + boss.config.behavior.projectile_origin_offset;
+        let player_pos = actor_target.and_then(|t| {
+            t.entity
+                .and_then(|e| player_query.get(e).ok())
+                .map(|kin| kin.aabb().center())
+                .or(Some(t.pos))
+        });
+        // Aim at the player; fall back to straight-ahead by facing if untracked.
+        let aim = player_pos
+            .map(|p| p - origin)
+            .filter(|d| d.length_squared() > 1e-4)
+            .unwrap_or_else(|| ae::Vec2::new(boss.kin.facing.signum(), 0.0));
+        for dir in echo_fan(aim, ECHO_FAN_COUNT, ECHO_FAN_SPREAD_RAD) {
+            projectiles.write(ProjectileSpawnRequest::open(
+                entity,
+                ProjectileSpawn {
+                    origin,
+                    dir,
+                    speed: ECHO_FAN_SPEED,
+                    damage: ECHO_FAN_DAMAGE,
+                    max_lifetime: ECHO_FAN_LIFETIME,
+                    half_extent: ECHO_FAN_HALF_EXTENT,
+                    gravity: 0.0,
+                    visual_id: String::new(),
+                    // Straight shot: this ability authors no bounce.
+                    bounces: 0,
+                    bounce_on_world_contact: false,
+                    splash_half_extent: 0.0,
+                    boomerang_return_s: None,
+                },
+                ProjectileStart::StepThisTick,
+            ));
+        }
+        state.fired_this_strike = true;
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn echo_fan_spreads_evenly_around_the_aim() {
+        let aim = ae::Vec2::new(1.0, 0.0); // straight right
+        let fan = echo_fan(aim, 7, 0.9);
+        assert_eq!(fan.len(), 7);
+        for d in &fan {
+            assert!((d.length() - 1.0).abs() < 1e-3, "unit dirs");
+        }
+        // Middle shot flies straight along the aim; ends are symmetric about it.
+        let mid = fan[3];
+        assert!(mid.y.abs() < 1e-3 && mid.x > 0.0, "center shot is the aim");
+        assert!(
+            (fan[0].y + fan[6].y).abs() < 1e-3,
+            "fan symmetric about aim"
+        );
+        assert!(fan[0].y * fan[6].y < 0.0, "ends straddle the aim");
+        // A single shot flies straight along the aim (no spread).
+        let one = echo_fan(aim, 1, 0.9);
+        assert_eq!(one.len(), 1);
+        assert!(one[0].y.abs() < 1e-3 && one[0].x > 0.0);
+    }
+}

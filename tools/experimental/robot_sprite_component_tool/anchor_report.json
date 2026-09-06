@@ -1,0 +1,71 @@
+{
+  "metadata": "/mnt/data/gui_feature_work/metadata/robot_components.refined.yaml",
+  "sprites": [
+    {
+      "sprite": "hand_fist",
+      "image": "/mnt/data/gui_feature_work/output/slices/hand_fist.png",
+      "size": [
+        97,
+        97
+      ],
+      "rect": [
+        992,
+        577,
+        97,
+        97
+      ],
+      "pivot": [
+        78,
+        70
+      ],
+      "pivot_anchor": null,
+      "anchors": {
+        "wrist": [
+          78,
+          70
+        ]
+      }
+    },
+    {
+      "sprite": "torso_lean_forward",
+      "image": "/mnt/data/gui_feature_work/output/slices/torso_lean_forward.png",
+      "size": [
+        148,
+        170
+      ],
+      "rect": [
+        494,
+        351,
+        148,
+        170
+      ],
+      "pivot": [
+        55,
+        140
+      ],
+      "pivot_anchor": null,
+      "anchors": {
+        "neck": [
+          104,
+          28
+        ],
+        "shoulder_left": [
+          55,
+          46
+        ],
+        "shoulder_right": [
+          123,
+          50
+        ],
+        "hip_left": [
+          40,
+          135
+        ],
+        "hip_right": [
+          70,
+          145
+        ]
+      }
+    }
+  ]
+}

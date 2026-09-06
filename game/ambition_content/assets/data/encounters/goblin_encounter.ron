@@ -1,0 +1,52 @@
+// Authored wave timeline for the goblin mob-lab encounter — content data,
+// installed into the engine's `EncounterWaveBook` holder by
+// `ambition_content::install_encounter_waves`. The engine's encounter loader
+// reads this by trigger id; any encounter NOT in this book falls back to one
+// wave assembled from its LDtk `EnemySpawn` markers. Keys are encounter trigger
+// ids; values are the ordered waves (active-area-local coords; arena floor
+// y≈608, doorway x=480–704, so wave mobs sit deeper at x≈1180/1500).
+//
+// A mob answers three questions with three fields, and until 2026-08-09 it had
+// only two: `character` is WHO it is (a `character_catalog.ron` id, resolved to
+// sheet / body geometry / barks), `kind` is HOW IT THINKS (a
+// `character_archetypes.ron` size-and-role row), and the wave director mints
+// WHICH instance at spawn. Without `character` the spawner had nowhere to put
+// the first, so every mob here wore its own instance id as a costume, no sheet
+// resolved, and the whole encounter drew unclaimed-body placeholders.
+//
+//  `character` is checked at COMPILE time against the pack's cast — a
+// misspelling is an unresolved reference, not a magenta box discovered by
+// walking into the room.
+{
+    "goblin_encounter": [
+        (
+            label: "wave 1 — flank the doorway",
+            mobs: [
+                (kind: "medium_striker", character: Some("goblin"), spawn: (1180.0, 580.0), size: (22.0, 38.0), delay: 0.0),
+                (kind: "medium_striker", character: Some("goblin"), spawn: (1500.0, 580.0), size: (22.0, 38.0), delay: 0.0),
+            ],
+        ),
+        (
+            label: "wave 2 — goblins + heavy",
+            mobs: [
+                (kind: "medium_striker", character: Some("goblin"), spawn: (1180.0, 580.0), size: (22.0, 38.0), delay: 0.0),
+                (kind: "medium_striker", character: Some("goblin"), spawn: (1500.0, 580.0), size: (22.0, 38.0), delay: 0.70),
+                //  `character: None` — deliberate, not an oversight. No catalog
+                // row is the goblin lab's heavy: `npc_hand_saint` and
+                // `npc_ninja_heavy` carry the matching `melee_brute_brute` brain
+                // but neither belongs in a goblin cave. Casting one is a content
+                // decision, so the brute keeps drawing the placeholder until
+                // somebody makes it — which is the point of having no fallback
+                // sheet: visible debt beats a body borrowing someone else's art.
+                (kind: "npc_goblin_brute", spawn: (1340.0, 562.0), size: (32.0, 56.0), delay: 2.60),
+            ],
+        ),
+        (
+            label: "wave 3 — heavy duo",
+            mobs: [
+                (kind: "npc_goblin_brute", spawn: (1180.0, 562.0), size: (32.0, 56.0), delay: 0.0),
+                (kind: "npc_goblin_brute", spawn: (1500.0, 562.0), size: (32.0, 56.0), delay: 0.0),
+            ],
+        ),
+    ],
+}

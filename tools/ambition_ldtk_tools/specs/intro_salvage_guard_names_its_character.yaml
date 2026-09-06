@@ -1,0 +1,29 @@
+# The intro raid corridor's guard stops being a "gradient seeker" and becomes
+# the character it was always named after.
+#
+# A generic role with one creature in it was never a role; it was that creature's body filed under a
+# different name, with its controller policy and its placement policy mixed into the same row.
+#
+# The three authorities separate as they always do:
+#
+#   body        -> `npc_salvage_guard`'s CharacterDefinition (health 4, run 225,
+#                  contact 0.80/1, the swipe) in `character_catalog.rs`
+#   controller  -> an inline BrainProfile on that definition (Smash, aggro 900,
+#                  attack 150, patrol 0.5778) — inline and not a shared
+#                  `autonomous_profiles` entry, because one adopter does not earn
+#                  the indirection and would leave a second empty role behind
+#   placement   -> stays here, on the spawn: WHERE it stands, and `respawn`,
+#                  which is the engine default for a room-scoped enemy
+#
+# `brain` is left alone on purpose. The definition now supplies the controller
+# policy, and the key stays until `gradient_seeker`'s row is gone from
+# `character_archetypes.ron` in the same change — after which the key resolves
+# nothing and the character answers for the whole body.
+#
+#   PYTHONPATH=tools/ambition_ldtk_tools python -m ambition_ldtk_tools entity set-field \
+#       tools/ambition_ldtk_tools/specs/intro_salvage_guard_names_its_character.yaml \
+#       --ldtk game/ambition_content/assets/worlds/intro.ldtk --in-place
+level_id: intro_raid_corridor
+edits:
+  - target: { iid: EnemySpawn-104371 }
+    fields: { character_id: "npc_salvage_guard" }

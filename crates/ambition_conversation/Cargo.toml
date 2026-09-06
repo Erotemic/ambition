@@ -1,0 +1,56 @@
+[package]
+name = "ambition_conversation"
+version = "0.1.0"
+edition.workspace = true
+license.workspace = true
+authors.workspace = true
+description = "Conversation continuity: the rollback-owned ActiveConversation authority, the hold projected from it, the break rule and its cast port, the narrative-input ledger, and the dialogue-opening seam. Carved out of ambition_platformer2d_actor_monolith (D33 step 2); content-free — it decides WHO is talking and for how long, never what anyone says."
+
+[lib]
+# rlib only: a library consumed by ambition_platformer2d_actor_monolith, the
+# runtime's rollback registration, and the content crate's Yarn commands.
+crate-type = ["rlib"]
+
+[features]
+default = []
+# The Yarn runtime half of `dialog`: the binding-installer seam and the
+# bevy_yarnspinner bridge. Without it this crate is the conversation authority
+# alone. Mirrors `ambition_dialog`'s own `ui` feature.
+ui = ["dep:bevy_yarnspinner", "ambition_dialog/ui"]
+
+[dependencies]
+# `BodyCombat` (the hit that breaks a conversation) and `ScriptedControl` (the
+# body a conversation holds still).
+ambition_characters = { path = "../ambition_characters" }
+# `ActorIdentity` / `ActorInteraction` — who is in reach of whom.
+ambition_combat = { path = "../ambition_combat" }
+# `DialogState` and the pure `DialogueBreak` rule: the runtime this crate
+# projects the live conversation onto. THE edge that justifies the crate — see
+# `docs/planning/engine/actor-monolith-decomposition.md` C4b/C4e.
+ambition_dialog = { path = "../ambition_dialog" }
+# `ParticipantId`, the seat a conversation's input owner is named by. this
+# crate must never re-derive the ParticipantId <-> PlayerSlot correspondence
+# (`opening` takes the owner as a parameter for exactly that reason); that
+# correspondence stays with the monolith's `participant_seat`.
+ambition_input = { path = "../ambition_input" }
+# `Interactable` / `InteractionKind::Npc` — the authored hook a conversation
+# opens from.
+ambition_interaction = { path = "../ambition_interaction" }
+# `CenteredAabb` / `Vec2` / `ConfirmedFrameBoundary`.
+ambition_platformer2d_core = { path = "../ambition_platformer2d_core" }
+# `SimId`, `SimScheduleExt`, and `FeatureInteractionSet` — the named phase
+# vocabulary this crate's systems place themselves in. it lives here, BELOW
+# the monolith, precisely so this crate could leave: a set enum in `features`
+# would have re-pinned this module by the SCHEDULE the moment it stopped
+# importing `features`.
+ambition_platformer2d_shared_tangle = { path = "../ambition_platformer2d_shared_tangle" }
+# `SimTick` — the tick a narrative input applies from.
+ambition_time = { path = "../ambition_time" }
+# `ui_api` (+ `x11`, which `ui_api`'s winit needs to compile a crate in
+# isolation) mirrors `ambition_dialog` and the monolith's base bevy dep so
+# feature unification stays headless.
+bevy = { version = "0.19.1", default-features = false, features = [
+    "ui_api",
+    "x11",
+] }
+bevy_yarnspinner = { version = "0.9", optional = true }

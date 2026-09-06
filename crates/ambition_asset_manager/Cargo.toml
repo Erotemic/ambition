@@ -1,0 +1,55 @@
+[package]
+name = "ambition_asset_manager"
+version = "0.1.0"
+edition.workspace = true
+license.workspace = true
+authors.workspace = true
+description = "Ambition logical asset catalog + source/profile policy + Bevy integration. See docs/systems/asset-manager.md."
+
+[lib]
+# Stays an rlib only — the crate is a library consumed by other crates,
+# not a shared/native artifact. Web/Android packaging is the consuming
+# binary's responsibility (sandbox).
+crate-type = ["rlib"]
+
+[features]
+# Default keeps the crate Bevy-free so headless / CLI tooling can use the
+# core resolver layer (id/manifest/profile/policy) with zero Bevy deps.
+# Sandbox / visible builds opt into `bevy` from their Cargo.toml.
+default = []
+
+# Bevy integration: AmbitionAssetManagerPlugin, AmbitionAssetCatalog
+# resource, AssetServer load helpers, and AssetPath generation.
+bevy = ["dep:bevy", "dep:futures-lite"]
+
+# Optional embedded bundles consumed by the sandbox catalog/source plugin.
+# The consuming game crate forwards these from its platform persona features.
+static_map = ["bevy"]
+static_core_assets = ["bevy"]
+
+# The asset manager stays backend-generic. Audio/SFX consumers resolve the
+# logical `audio.sfx_bank` id here, then construct their provider in the audio
+# layer rather than through an asset-manager feature.
+
+[dependencies]
+serde = { workspace = true }
+ron = { workspace = true }
+thiserror = { workspace = true }
+# Only the asset subset is needed — the catalog/plugin uses
+# `AssetServer`, `Handle`, `App`, `Plugin`, `Resource`. Consumers
+# already pull the larger Bevy feature set; we don't double-include
+# rendering / audio just to expose a plugin trait.
+bevy = { version = "0.19.1", default-features = false, features = [
+    "bevy_asset",
+    "bevy_state",
+], optional = true }
+# Only for `stream::iter`, to hand `read_directory` a MERGED listing of both
+# layers. Same crate `bevy_asset` already builds its own `PathStream`s with, so
+# this adds nothing to the dependency graph.
+futures-lite = { version = "2", optional = true }
+
+[dev-dependencies]
+# Tests exercise the core layer without Bevy by default; a small set
+# behind `#[cfg(feature = "bevy")]` covers the Bevy adapter.
+serde_json = "1"
+tempfile = "3"

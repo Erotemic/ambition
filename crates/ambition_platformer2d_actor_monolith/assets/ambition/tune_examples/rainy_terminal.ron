@@ -1,0 +1,63 @@
+(
+    id: "still_awake_before_dawn",
+    display_name: "Still Awake Before Dawn",
+    arrangement: (
+        bpm: 74.0,
+        total_beats: 160.0,
+        root_hz: 440.0,
+        bass_root_hz: 65.0,
+        key_root_hz: 440.0,
+        master_gain: 0.62,
+        lowpass_alpha: 0.088,
+        tape_hiss: 0.0022,
+        gains: (
+            chord_pad: 0.013,
+            lead: 0.85,
+            soft_keys: 0.019,
+            bass: 0.042,
+            drums: 0.70,
+        ),
+        lead: [
+            (start: 0.5, duration: 1.0, semitone: 3, volume: 0.009),
+            (start: 2.0, duration: 1.0, semitone: 0, volume: 0.008),
+            (start: 4.0, duration: 1.5, semitone: -2, volume: 0.010),
+            (start: 6.0, duration: 1.0, semitone: 2, volume: 0.009),
+            (start: 8.5, duration: 0.75, semitone: 5, volume: 0.011),
+            (start: 10.0, duration: 1.0, semitone: 3, volume: 0.009),
+            (start: 12.0, duration: 1.5, semitone: -1, volume: 0.010),
+            (start: 14.0, duration: 0.5, semitone: 0, volume: 0.008),
+            (start: 16.0, duration: 1.0, semitone: -3, volume: 0.009),
+            (start: 18.0, duration: 1.0, semitone: 2, volume: 0.010),
+            (start: 20.0, duration: 1.5, semitone: 4, volume: 0.011),
+            (start: 22.0, duration: 0.75, semitone: 0, volume: 0.008),
+            (start: 24.0, duration: 1.0, semitone: -2, volume: 0.009),
+            (start: 26.0, duration: 1.0, semitone: 5, volume: 0.010),
+            (start: 28.0, duration: 1.5, semitone: 3, volume: 0.011),
+            (start: 30.0, duration: 1.0, semitone: -1, volume: 0.009),
+        ],
+        chords: [
+            (0, 3, 7, 10),   // Cmin7
+            (-3, 0, 3, 6),   // Abmaj7
+            (2, 5, 9, 12),   // Dm9
+            (-1, 2, 5, 8),   // Bm7b5
+            (0, 3, 6, 10),   // Cmin6
+            (-5, -2, 2, 5),  // Fm7
+            (4, 7, 11, 14),  // Ebmaj7
+            (-3, 0, 4, 7),   // Abmaj9
+            (0, 3, 7, 11),   // Cmin/maj7
+            (-7, -4, 0, 3),  // Dbmaj7
+            (2, 5, 8, 12),   // Dm7
+            (-1, 2, 6, 9),   // Bmin9
+            (0, 4, 7, 10),   // Cm7add4
+            (-3, 0, 3, 7),   // Abmaj7
+            (2, 5, 9, 13),   // Dm11
+            (0, 3, 7, 10),   // Cmin7
+        ],
+        bass_roots: [
+            0, -3, 2, -1,
+            0, -5, 4, -3,
+            0, -7, 2, -1,
+            0, -3, 2, 0,
+        ],
+    ),
+)

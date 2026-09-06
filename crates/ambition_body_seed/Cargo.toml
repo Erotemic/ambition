@@ -1,0 +1,30 @@
+[package]
+name = "ambition_body_seed"
+version = "0.1.0"
+edition.workspace = true
+license.workspace = true
+authors.workspace = true
+description = "The actor body seed: the prepared body facts every construction path spawns from (ActorClusterSeed, its two constructors, the component bundle it becomes). A value over the character, combat and body-cluster vocabularies; the actor kernel consumes it. Carved from the actor kernel (D33, character preparation versus actor simulation, 2026-09-03)."
+
+[lib]
+crate-type = ["rlib"]
+
+[features]
+# The neutral fixture body and the catalog-free constructors engine unit tests
+# build actors from.
+test-support = ["ambition_characters/test-support"]
+
+[dependencies]
+ambition_platformer2d_core = { path = "../ambition_platformer2d_core" }
+ambition_characters = { path = "../ambition_characters" }
+ambition_combat = { path = "../ambition_combat" }
+ambition_entity_catalog = { path = "../ambition_entity_catalog" }
+ambition_interaction = { path = "../ambition_interaction" }
+ambition_platformer2d_shared_tangle = { path = "../ambition_platformer2d_shared_tangle" }
+ambition_sprite_sheet = { path = "../ambition_sprite_sheet" }
+ambition_vfx = { path = "../ambition_vfx" }
+# ⛔ NEVER ambition_platformer2d_actor_monolith: the seed is what the kernel consumes.
+bevy = { version = "0.19.1", default-features = false }
+
+[dev-dependencies]
+ambition_characters = { path = "../ambition_characters", features = ["test-support"] }

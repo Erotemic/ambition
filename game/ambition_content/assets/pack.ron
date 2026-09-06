@@ -1,0 +1,57 @@
+// Ambition's own content pack.
+//
+// The manifest is the pack's EXPLICIT source list — not a directory glob.
+// A glob would make the pack's contents depend on filesystem enumeration order
+// and on whatever a tool happened to leave in the tree, which is the opposite
+// of a fingerprint that means something. Adding content is one line here, and
+// that line is also where the file's schema is declared, so a content file
+// never has to carry a header and its existing shape survives migration
+// unchanged.
+//
+// Validate without rebuilding Rust:
+//
+//     cargo run -p ambition_content_cli --bin ambition_content -- \
+//         game/ambition_content/assets
+//
+// The binary is built ONCE. After that, editing any file listed below and
+// re-running it costs milliseconds — that is the whole point, and
+// `validating_a_character_edit_does_not_rebuild_rust` in
+// crates/ambition_content_cli/tests/ is what keeps it true.
+(
+    id: "ambition",
+    version: "0.1.0",
+    // Every identity this pack mints is `ambition:<schema>/<name>`. A third
+    // party's cast can define its own `goblin` without colliding.
+    namespace: "ambition",
+    // Capabilities the content cannot work without, beyond the ones its
+    // schemas' owners bring. Empty is honest today: the only migrated family is
+    // the character catalog, whose owner (`characters`) is implied by the
+    // schema. This grows as families migrate.
+    requires: [],
+    sources: [
+        (path: "data/character_catalog.ron", schema: "character_catalog", version: 1),
+        (path: "data/items.ron", schema: "item_catalog", version: 1),
+        (path: "data/encounters/goblin_encounter.ron", schema: "encounter_waves", version: 1),
+        // Nine difficulty rungs.  authored since 2026-07 and read by NOTHING until
+        // this line: the engine floor (`for_level`) was consulted instead, so every
+        // rung scored moves with the level-9 weight set.
+        (path: "data/fighter_brain_ladder.ron", schema: "fighter_brain_ladder", version: 1),
+        // Nine difficulty rungs.  authored since 2026-07 and read by NOTHING until
+        // this line: the engine floor (`for_level`) was consulted instead, so every
+        // rung scored moves with the level-9 weight set.
+        (path: "data/boss_profiles.ron", schema: "boss_profiles", version: 1),
+        (path: "data/boss_encounters/clockwork_warden.ron", schema: "boss_encounter", version: 1),
+        (path: "data/boss_encounters/mockingbird.ron", schema: "boss_encounter", version: 1),
+        (path: "data/boss_encounters/gnu_ton_rider.ron", schema: "boss_encounter", version: 1),
+        (path: "data/boss_encounters/smirking_behemoth_boss.ron", schema: "boss_encounter", version: 1),
+        (path: "data/boss_encounters/flying_spaghetti_monster_boss.ron", schema: "boss_encounter", version: 1),
+        (path: "data/boss_encounters/trex_boss.ron", schema: "boss_encounter", version: 1),
+        (path: "data/boss_encounters/mode_collapse_boss.ron", schema: "boss_encounter", version: 1),
+        (path: "data/boss_encounters/exploding_gradient_boss.ron", schema: "boss_encounter", version: 1),
+        (path: "data/boss_encounters/overflow_boss.ron", schema: "boss_encounter", version: 1),
+        (path: "data/boss_seeds.ron", schema: "boss_seed_library", version: 1),
+        (path: "data/boss_validator_bands.ron", schema: "boss_validator_bands", version: 1),
+        (path: "audio/music_registry.ron", schema: "music_registry", version: 1),
+        (path: "audio/sfx_registry.ron", schema: "sfx_registry", version: 1),
+    ],
+)

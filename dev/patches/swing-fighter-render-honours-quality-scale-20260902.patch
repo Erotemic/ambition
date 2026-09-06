@@ -1,0 +1,212 @@
+PROPOSED AND ⛔ UNVALIDATED — make the swing-fighter sheet render REFUSE a
+quality scale it cannot honour, instead of silently discarding it
+
+    cd <repo root> && patch -p1 < dev/patches/swing-fighter-render-honours-quality-scale-20260902.patch
+
+⛔ THE FILES ARE IN `tools/ambition_sprite2d_renderer`, A SUBMODULE. Applying
+needs a commit there plus a pointer bump here. ⛔⛔ AND IT HAS NOT BEEN RUN: the
+five touched files compile and the new helper's behaviour is exercised directly,
+but no sheet has been rendered with it. Validate with one render on a box that
+can run the renderer.
+
+HOW YOU KNOW IT WORKED (one render each way, on a box that can run the renderer):
+
+  1. THE DEFECT, now loud — this must FAIL with a ValueError naming the target,
+     instead of writing a full-resolution sheet into a reduced tier directory:
+
+       ambition_sprite2d_renderer publish --target medic \
+           --quality-scale 0.25 --dest-root <...>/assets/sprites_0_25x
+
+  2. THE ORDINARY PATH, unchanged — a publish with no `--quality-scale` (or 1.0)
+     must render and install exactly as before. The guard returns early on
+     `None` and on 1.0, so a normal regen must not notice this patch at all.
+     `scripts/regen/sprites.sh --target medic` is the realistic form.
+
+⚠ If (1) still succeeds, the helper is not reached — check that the target's
+`render` calls it rather than opening with `del opts`. If (2) fails, the guard
+is rejecting a scale it should pass through.
+
+WHAT IT DOES. `performer`, `author`, `medic` and `officer` — the four targets
+that import `_authored_swing_fighter.py`, and no others — each opened their
+`render` with `del opts`. A caller that passed a scale:
+
+    ambition_sprite2d_renderer publish --target medic \
+        --quality-scale 0.25 --dest-root <...>/assets/sprites_0_25x
+
+got a FULL-RESOLUTION sheet installed into a reduced tier, with nothing
+indicating that anything had been ignored. Four sheets on one machine sat that
+way for days — 67.2 MP where the tier promised ~10.5 — and nothing looked wrong
+on screen, because the art is correct and merely larger than asked for.
+
+⚠ IT DOES NOT IMPLEMENT SCALING, AND THAT IS DELIBERATE. `render_portraits` in
+the same class scales by shrinking its `output_size`; the sheet path has no
+equivalent single knob. `frame_size()` is derived from
+`doc.frame["render_scale"]` while the frames themselves come from `_raw_frame`,
+so scaling `frame_size` alone would shrink the LAYOUT and not the art —
+cropping every frame at its new edge. **That is the one failure Jon's standing
+rule forbids, and it would look like a successful render.** Implementing real
+scaling needs a rasterisation review by someone who can run the renderer;
+making the discard loud does not, and removes the silence that let this sit.
+
+ⓘ AND THE TIERS DO NOT NEED THIS PATH. `generate_visual_quality_variants.py`
+sends every `module`-kind target — which is all four of these — to
+`build_sheet_variant`, which RESIZES the published full sheet from isolated
+frames. That is the road every correctly-scaled variant already comes from, and
+it is why a fresh-clone generation produces correct tiers for all four while a
+box that ran the per-tier CLI does not. After this patch, that CLI invocation
+fails loudly instead of publishing full-size art into a tier directory.
+
+⇒ Companion reading: the reconciliation paragraph in
+`docs/planning/engine/asset-preparation-and-residency.md` (Open work 5), which
+names which road produces which tier file and why two boxes disagreed.
+
+diff --git a/ambition_sprite2d_renderer/targets/characters/_authored_swing_fighter.py b/ambition_sprite2d_renderer/targets/characters/_authored_swing_fighter.py
+index 919e80a..adb5266 100644
+--- a/tools/ambition_sprite2d_renderer/ambition_sprite2d_renderer/targets/characters/_authored_swing_fighter.py
++++ b/tools/ambition_sprite2d_renderer/ambition_sprite2d_renderer/targets/characters/_authored_swing_fighter.py
+@@ -33,6 +33,45 @@ from ...authoring.sheet_build import build_sheet
+ DATA = Path(__file__).resolve().parents[2] / "data" / "characters"
+ 
+ 
++def reject_unsupported_quality_scale(target: str, opts: dict) -> None:
++    """Refuse a quality scale this family's SHEET render cannot honour.
++
++    ⛔ THE BUG THIS REPLACES WAS SILENCE, NOT THE MISSING FEATURE. All four
++    swing-fighter modules opened their `render` with `del opts`, so a caller
++    that passed `quality_scale` — `ambition_sprite2d_renderer publish --target
++    medic --quality-scale 0.25 --dest-root <...>/sprites_0_25x` — got a
++    FULL-RESOLUTION sheet installed into a reduced tier and no indication that
++    anything had been ignored. Four sheets on one machine sat that way for days
++    (67.2 MP where the tier promised ~10.5) and nothing on screen looked wrong,
++    because the art is correct and merely larger than asked for.
++
++    ⚠ THIS DOES NOT IMPLEMENT SCALING, DELIBERATELY. `render_portraits` scales
++    by shrinking its `output_size`, but the sheet path has no equivalent single
++    knob: `frame_size()` is derived from `doc.frame["render_scale"]` while the
++    frames themselves come from `_raw_frame`, so scaling `frame_size` alone
++    would shrink the LAYOUT and not the art — cropping every frame at its new
++    edge. That is the one failure Jon's standing rule forbids, and it would look
++    like a successful render. Making the discard loud is the change that can be
++    made safely without a rasterisation review.
++
++    ⇒ Tiers do not need this path anyway: `generate_visual_quality_variants.py`
++    sends every `module`-kind target to `build_sheet_variant`, which RESIZES the
++    published full sheet from isolated frames and is the road every correctly
++    scaled variant already comes from.
++    """
++    scale = opts.get("quality_scale")
++    if scale is None:
++        return
++    if float(scale) == 1.0:
++        return
++    raise ValueError(
++        f"{target}: this target's sheet render cannot honour quality_scale="
++        f"{scale}; it would publish full-resolution art into a reduced tier. "
++        "Publish tiers with scripts/generate_visual_quality_variants.py, which "
++        "resizes the full sheet, rather than rendering per tier."
++    )
++
++
+ class AuthoredSwingFighter:
+     """One SVG-rigged fighter, published with its authored effects and volumes."""
+ 
+diff --git a/ambition_sprite2d_renderer/targets/characters/author.py b/ambition_sprite2d_renderer/targets/characters/author.py
+index ec710a2..c9add7d 100644
+--- a/tools/ambition_sprite2d_renderer/ambition_sprite2d_renderer/targets/characters/author.py
++++ b/tools/ambition_sprite2d_renderer/ambition_sprite2d_renderer/targets/characters/author.py
+@@ -34,7 +34,10 @@ from ambition_sprite2d_renderer.authoring import strike_axis, swing_effects
+ from ambition_sprite2d_renderer.authoring.rig_gameplay_body import gameplay_body_metrics
+ from ambition_sprite2d_renderer.authoring.rigdoc import RigDocument
+ from ambition_sprite2d_renderer.authoring.sheet_build import build_sheet
+-from ._authored_swing_fighter import AuthoredSwingFighter
++from ._authored_swing_fighter import (
++    AuthoredSwingFighter,
++    reject_unsupported_quality_scale,
++)
+ 
+ TARGET_NAME = "author"
+ MOTION_PATH = (
+@@ -419,7 +422,7 @@ def _body_metrics(fw: int, fh: int):
+ 
+ 
+ def render(out_dir: str | Path, **opts):
+-    del opts
++    reject_unsupported_quality_scale(TARGET_NAME, opts)
+     doc = _doc()
+     outputs = build_sheet(
+         target=TARGET_NAME,
+diff --git a/ambition_sprite2d_renderer/targets/characters/medic.py b/ambition_sprite2d_renderer/targets/characters/medic.py
+index 297db6c..ff0d643 100644
+--- a/tools/ambition_sprite2d_renderer/ambition_sprite2d_renderer/targets/characters/medic.py
++++ b/tools/ambition_sprite2d_renderer/ambition_sprite2d_renderer/targets/characters/medic.py
+@@ -35,7 +35,10 @@ from __future__ import annotations
+ 
+ from pathlib import Path
+ 
+-from ._authored_swing_fighter import AuthoredSwingFighter
++from ._authored_swing_fighter import (
++    AuthoredSwingFighter,
++    reject_unsupported_quality_scale,
++)
+ 
+ TARGET_NAME = "medic"
+ _FIGHTER = AuthoredSwingFighter(TARGET_NAME)
+@@ -169,7 +172,7 @@ ACTOR_METADATA = {
+ 
+ 
+ def render(out_dir: str | Path, **opts):
+-    del opts
++    reject_unsupported_quality_scale(TARGET_NAME, opts)
+     return _FIGHTER.render(out_dir, ACTOR_METADATA)
+ 
+ #: Extra stills a UI can address by name: `(clip, frame)`.
+diff --git a/ambition_sprite2d_renderer/targets/characters/officer.py b/ambition_sprite2d_renderer/targets/characters/officer.py
+index 60ed778..a471d94 100644
+--- a/tools/ambition_sprite2d_renderer/ambition_sprite2d_renderer/targets/characters/officer.py
++++ b/tools/ambition_sprite2d_renderer/ambition_sprite2d_renderer/targets/characters/officer.py
+@@ -42,7 +42,10 @@ from ambition_sprite2d_renderer.authoring import strike_axis, swing_effects
+ from ambition_sprite2d_renderer.authoring.rig_gameplay_body import gameplay_body_metrics
+ from ambition_sprite2d_renderer.authoring.rigdoc import RigDocument
+ from ambition_sprite2d_renderer.authoring.sheet_build import build_sheet
+-from ._authored_swing_fighter import AuthoredSwingFighter
++from ._authored_swing_fighter import (
++    AuthoredSwingFighter,
++    reject_unsupported_quality_scale,
++)
+ 
+ TARGET_NAME = "officer"
+ MOTION_PATH = (
+@@ -424,7 +427,7 @@ def _body_metrics(fw: int, fh: int):
+ 
+ 
+ def render(out_dir: str | Path, **opts):
+-    del opts
++    reject_unsupported_quality_scale(TARGET_NAME, opts)
+     doc = _doc()
+     outputs = build_sheet(
+         target=TARGET_NAME,
+diff --git a/ambition_sprite2d_renderer/targets/characters/performer.py b/ambition_sprite2d_renderer/targets/characters/performer.py
+index 6a32a42..fc1be61 100644
+--- a/tools/ambition_sprite2d_renderer/ambition_sprite2d_renderer/targets/characters/performer.py
++++ b/tools/ambition_sprite2d_renderer/ambition_sprite2d_renderer/targets/characters/performer.py
+@@ -34,7 +34,10 @@ from __future__ import annotations
+ 
+ from pathlib import Path
+ 
+-from ._authored_swing_fighter import AuthoredSwingFighter
++from ._authored_swing_fighter import (
++    AuthoredSwingFighter,
++    reject_unsupported_quality_scale,
++)
+ 
+ TARGET_NAME = "performer"
+ _FIGHTER = AuthoredSwingFighter(TARGET_NAME)
+@@ -167,7 +170,7 @@ ACTOR_METADATA = {
+ 
+ 
+ def render(out_dir: str | Path, **opts):
+-    del opts
++    reject_unsupported_quality_scale(TARGET_NAME, opts)
+     return _FIGHTER.render(out_dir, ACTOR_METADATA)
+ 
+ #: Extra stills a UI can address by name: `(clip, frame)`.

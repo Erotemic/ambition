@@ -1,0 +1,19 @@
+# The combat-feel lab's two indestructible dummies name the character they are.
+#
+#   body        -> `sandbag_infinite`'s CharacterDefinition: practice target,
+#                  155 run / Walk, 9999 health, `never_dies`, no contact damage
+#   controller  -> an inline StandStill BrainProfile (notices nobody, swings at
+#                  nobody), same as the finite sandbag's
+#   placement   -> stays here: which room, and where in it
+#
+# ONE spec per LEVEL — `entity set-field` takes a single `level_id`, and the
+# two dummies live in different rooms. The sibling file is
+# `lab_sandbags_name_their_character_square_arena.yaml`.
+#
+#   PYTHONPATH=tools/ambition_ldtk_tools python -m ambition_ldtk_tools entity set-field \
+#       tools/ambition_ldtk_tools/specs/lab_sandbags_name_their_character.yaml \
+#       --ldtk game/ambition_content/assets/worlds/sandbox.ldtk --in-place
+level_id: scroll_lab
+edits:
+  - target: { iid: EnemySpawn-0041 }
+    fields: { character_id: "sandbag_infinite" }

@@ -1,0 +1,366 @@
+use bevy::ecs::system::SystemParam;
+use bevy::prelude::*;
+use bevy::window::PrimaryWindow;
+
+use ambition_platformer2d::world::rooms as world_rooms;
+
+use ambition_platformer2d::dev_tools::dev_tools::DeveloperTools;
+use ambition_platformer2d::dev_tools::DeveloperRuntimeState;
+use ambition_platformer2d::engine_core as ae;
+use ambition_platformer2d::engine_core::RoomGeometry;
+use ambition_platformer2d::input::KeyboardPreset;
+use ambition_platformer2d::platformer::schedule::GameMode;
+use ambition_platformer2d::render::rendering::HudText;
+
+use super::feedback::ProgressionResources;
+use crate::host::windowing;
+
+#[derive(SystemParam)]
+pub(super) struct HudCameraParams<'w, 's> {
+    user_settings: Res<'w, ambition_platformer2d::persistence::settings::UserSettings>,
+    player: bevy::prelude::Query<
+        'w,
+        's,
+        (
+            &'static ambition_platformer2d::engine_core::BodyKinematics,
+            &'static ambition_platformer2d::engine_core::BodyGroundState,
+            &'static ambition_platformer2d::engine_core::BodyWallState,
+            &'static ambition_platformer2d::engine_core::BodyDashState,
+            &'static ambition_platformer2d::engine_core::BodyJumpState,
+            &'static ambition_platformer2d::engine_core::BodyMana,
+            &'static ambition_platformer2d::engine_core::BodyModeState,
+            // The movement policy: the locomotion label + the debug ledge
+            // readout (climb progress) come from the model — this dev HUD
+            // deliberately reads the policy's internals (ADR 0024).
+            &'static ae::MotionModel,
+            &'static ambition_platformer2d::engine_core::BodyFlightState,
+            &'static ambition_platformer2d::engine_core::BodyComboTrace,
+            &'static ambition_platformer2d::characters::actor::BodyHealth,
+            &'static ambition_platformer2d::characters::actor::BodyCombat,
+            &'static ambition_platformer2d::combat::BodyMelee,
+        ),
+        ambition_platformer2d::platformer::markers::PrimaryPlayerOnly,
+    >,
+    ecs_actors: bevy::prelude::Query<
+        'w,
+        's,
+        (
+            &'static ambition_platformer2d::combat::components::FeatureName,
+            &'static ambition_platformer2d::combat::components::ActorDisposition,
+            &'static ambition_platformer2d::characters::actor::BodyHealth,
+            &'static ambition_platformer2d::characters::actor::BodyCombat,
+        ),
+        bevy::prelude::Without<ambition_platformer2d::boss_encounter::BossConfig>,
+    >,
+}
+
+/// HUD reads stats from `HudCameraParams`, which now filters on
+/// `PrimaryPlayerOnly` (`With<PlayerEntity> + With<PrimaryPlayer>`).
+/// In a future co-op build, the HUD intentionally tracks the primary
+/// player; per-`PlayerSlot` panels would be a separate UI surface
+/// rather than a generalization of this one.
+pub(super) fn update_hud(
+    dev_state: Res<DeveloperRuntimeState>,
+    mode: Res<State<GameMode>>,
+    world: ambition_platformer2d::platformer::lifecycle::SessionWorldRef<RoomGeometry>,
+    room_set: ambition_platformer2d::platformer::lifecycle::SessionWorldRef<world_rooms::RoomSet>,
+    display_mode: Res<windowing::DisplayModeState>,
+    developer_tools: Res<DeveloperTools>,
+    camera_params: HudCameraParams,
+    _ldtk_reload: Res<ambition_platformer2d::dev_tools::WorldSourceHotReload>,
+    progression: ProgressionResources,
+    windows: Query<&Window, With<PrimaryWindow>>,
+    // R2: the boss HUD is a view bound to ENCOUNTER ENTITY progress, not the
+    // global `BossEncounterRegistry`. A boss with no encounter ⇒ no HUD line.
+    boss_encounters: Query<(
+        &ambition_platformer2d::boss_encounter::EncounterDef,
+        &ambition_platformer2d::boss_encounter::EncounterProgress,
+    )>,
+    // E12: the encounter status line reads the generic LIFECYCLE on the live
+    // encounter entities — one line per in-flight encounter that is not
+    // already HUD-bound through `EncounterDef` (the member-progress line
+    // above). Wave detail is optional flavor, not a requirement.
+    lifecycle_encounters: Query<
+        (
+            &ambition_platformer2d::encounter::Encounter,
+            &ambition_platformer2d::encounter::EncounterLifecycle,
+            Option<&ambition_platformer2d::encounter::EncounterWaves>,
+            Option<&ambition_platformer2d::encounter::EncounterParticipants>,
+        ),
+        Without<ambition_platformer2d::boss_encounter::EncounterDef>,
+    >,
+    mut query: Query<&mut Text, With<HudText>>,
+) {
+    let _quest_registry = &progression.quests;
+    let cutscene = &progression.cutscene;
+    let map_state = &progression.map;
+    let Ok(mut text) = query.single_mut() else {
+        return;
+    };
+    if !developer_tools.show_hud || !camera_params.user_settings.gameplay.debug_hud_visible {
+        **text = String::new();
+        return;
+    }
+    if !dev_state.debug {
+        **text = "F1 debug | F3 inspector".to_string();
+        return;
+    }
+    let preset =
+        KeyboardPreset::by_index(camera_params.user_settings.controls.keyboard_preset_index);
+    let enemy_health = camera_params
+        .ecs_actors
+        .iter()
+        .filter(|(_, disposition, _, _)| disposition.is_hostile())
+        .map(|(name, _, health, _combat)| {
+            let name = &name.0;
+            let cur = health.health.current.max(0);
+            let max = health.health.max;
+            // AC3.1.A: from the authority the two numbers beside it come from.
+            let alive = health.alive();
+            format!("{name} hp {cur}/{max} alive {alive}")
+        })
+        .collect::<Vec<_>>()
+        .join(" | ");
+    let window_line = windows
+        .single()
+        .map(|w| {
+            let width = w.width();
+            let height = w.height();
+            let mode = display_mode.label();
+            format!("window: {width:.0}x{height:.0} {mode}")
+        })
+        .unwrap_or_else(|_| {
+            let mode = display_mode.label();
+            format!("window: unknown {mode}")
+        });
+    let Ok((
+        hud_kin,
+        hud_ground,
+        hud_wall,
+        hud_dash,
+        hud_jump,
+        hud_mana,
+        hud_body_mode,
+        hud_model,
+        hud_flight,
+        hud_combo,
+        hud_health,
+        hud_combat,
+        hud_attack,
+    )) = camera_params.player.single()
+    else {
+        return;
+    };
+    let player_hp_current = hud_health.current().max(0);
+    let player_hp_max = hud_health.max();
+    let player_vel = hud_kin.vel;
+    let player_on_ground = hud_ground.on_ground;
+    let player_dash_charges = hud_dash.charges_available;
+    let player_air_jumps = hud_jump.air_jumps_available;
+    let player_mana_current = hud_mana.meter.current as i32;
+    let player_hitstun = hud_combat.hitstun_timer;
+    let player_invuln = hud_combat.damage_invuln_timer;
+    let player_hitstop = hud_combat.hitstop_timer;
+
+    let feature_banner = if progression.banner.visible() {
+        let text = &progression.banner.text;
+        format!("\nFEATURE: {text}")
+    } else {
+        String::new()
+    };
+    // Cutscene UI lives in the dedicated overlay
+    // (`ambition_platformer2d::render::cutscene::sync_cutscene_ui`) — a proper Bevy Node panel
+    // with speaker / body / continue prompt and a skip-hold progress
+    // bar. The debug HUD just notes that one is active so testers
+    // can correlate skip-hold state with the floating overlay; the
+    // detailed beat content stays out of the debug text line.
+    let cutscene_line = if let Some(rt) = cutscene.runtime.as_ref() {
+        let beat_label = match cutscene.presentation.dialogue.as_ref() {
+            Some((speaker, _)) => format!("dialogue @ {speaker}"),
+            None => match cutscene.presentation.banner.as_ref() {
+                Some((_, remaining)) => format!("banner ({remaining:.1}s)"),
+                None => format!("beat {}", rt.beat_index),
+            },
+        };
+        format!("\nCUTSCENE: {beat_label}")
+    } else {
+        String::new()
+    };
+    // Boss HUD: one line per HUD-bound encounter member, read from the
+    // member-derived `EncounterProgress` (R2). No encounter → no line.
+    let boss_line = {
+        let mut lines = Vec::new();
+        for (def, progress) in &boss_encounters {
+            if !def.hud {
+                continue;
+            }
+            for member in &progress.members {
+                // Health bar: 16-tick string that shrinks as boss HP drops
+                // so the player gets a glanceable progress signal even
+                // before a real HUD lands.
+                let frac = member.hp_fraction();
+                let filled = (frac * 16.0).round().clamp(0.0, 16.0) as usize;
+                let empty = 16usize.saturating_sub(filled);
+                let bar_filled = "=".repeat(filled);
+                let bar_empty = "-".repeat(empty);
+                let id = &def.placement_id;
+                let phase = member.phase.label();
+                let hp = member.hp;
+                let max_hp = member.max_hp;
+                let pct = frac * 100.0;
+                lines.push(format!(
+                    "BOSS [{id}] {phase} hp {hp}/{max_hp} [{bar_filled}{bar_empty}] {pct:.0}%"
+                ));
+            }
+        }
+        if lines.is_empty() {
+            String::new()
+        } else {
+            format!("\n{}", lines.join("\n"))
+        }
+    };
+    let encounter_line = {
+        let mut bits = Vec::new();
+        for (enc, lifecycle, waves, participants) in &lifecycle_encounters {
+            if lifecycle.phase().in_flight() {
+                bits.push(match (waves, participants) {
+                    (Some(waves), Some(participants)) => {
+                        waves.hud_summary(lifecycle.phase(), participants)
+                    }
+                    // A non-wave encounter (signal puzzle, timed section)
+                    // reads its generic lifecycle status.
+                    _ => format!("[{}] {}", enc.id, lifecycle.phase().label()),
+                });
+            }
+        }
+        if bits.is_empty() {
+            String::new()
+        } else {
+            let joined = bits.join("  ::  ");
+            format!("\nENCOUNTER {joined}")
+        }
+    };
+    let map_lines = map_state.summary_lines(&room_set.active_spec().id);
+    let map_line = if map_lines.is_empty() {
+        String::new()
+    } else {
+        let joined = map_lines.join("\n");
+        format!("\nMAP\n{joined}")
+    };
+    // The engine ships a body-native `LocomotionState::from_body` that
+    // classifies these states from the policy + shared contact clusters.
+    let locomotion =
+        ae::LocomotionState::from_body(hud_model, hud_ground, hud_wall, hud_flight).label();
+    let body_mode = hud_body_mode.body_mode.label();
+    let movement_line = format!("\nLOCO: {locomotion}  BODY: {body_mode}");
+    let attack_line = hud_attack
+        .swing
+        .as_ref()
+        .map(|attack| {
+            let intent = attack.spec.intent.label();
+            let phase = attack.phase().map(|phase| phase.label()).unwrap_or("done");
+            let pct = attack.progress() * 100.0;
+            let hits = attack.hit_targets.len();
+            format!("\nATTACK: {intent} {phase} {pct:.0}% hits={hits}")
+        })
+        .unwrap_or_default();
+    // Debug readout of the axis policy's private hang state (dev-tool read).
+    let ledge_line = match hud_model {
+        ae::MotionModel::AxisSwept(axis) => axis
+            .state
+            .ledge_grab
+            .as_ref()
+            .map(|ledge| {
+                if ledge.climbing {
+                    let pct = (ledge.climb_elapsed / ae::LEDGE_CLIMB_TIME).clamp(0.0, 1.0) * 100.0;
+                    format!("\nLEDGE: climb {pct:.0}%")
+                } else {
+                    "\nLEDGE: hang".to_string()
+                }
+            })
+            .unwrap_or_default(),
+        _ => String::new(),
+    };
+    if developer_tools.compact_hud {
+        let world_name = &world.0.name;
+        let mode_label = mode.get().label();
+        let room_index = room_set.active + 1;
+        let room_count = room_set.rooms.len();
+        let vx = player_vel.x;
+        let vy = player_vel.y;
+        let combo_symbols = hud_combo.symbols();
+        let preset_name = &preset.name;
+        **text = format!(
+            "{world_name} | {mode_label} | room {room_index}/{room_count} | \
+             hp {player_hp_current}/{player_hp_max} | vel ({vx:+.0},{vy:+.0}) | \
+             grounded {player_on_ground} | dash {player_dash_charges} | jumps {player_air_jumps}\n\
+             combo: {combo_symbols}\n\
+             hitstun {player_hitstun:.2} invuln {player_invuln:.2} hitstop {player_hitstop:.2} | \
+             preset {preset_name} | {window_line} | \
+             {feature_banner}{cutscene_line}{boss_line}\
+             {encounter_line}{map_line}{attack_line}{ledge_line}{movement_line}\n"
+        );
+        return;
+    }
+    let flash_line = if dev_state.preset_flash > 0.0 {
+        let name = &preset.name;
+        format!("\nPRESET: {name}")
+    } else {
+        String::new()
+    };
+    // Verbose HUD: high-level gameplay readout. Low-level player physics
+    // (velocities, timers, blink/fly flags, hitstop/hitstun/invuln,
+    // time_scale, inspector visibility) live in `bevy-inspector-egui`
+    // (F3) — surfacing them again here just clutters the screen during
+    // play. The compact HUD branch (above) keeps a single-screen
+    // diagnostic dump for when you want everything at once. Niche
+    // dev-tool telemetry (room metadata, mechanics counts, trace
+    // buffer size, LDtk spine entity counts, camera-view diagnostics,
+    // gamepad mapping table) intentionally lives elsewhere — promote
+    // it to this panel only when there's a gameplay reason to glance
+    // at it during play.
+    let world_name = &world.0.name;
+    let mode_label = mode.get().label();
+    let room_index = room_set.active + 1;
+    let room_count = room_set.rooms.len();
+    let combo_symbols = hud_combo.symbols();
+    let preset_name = &preset.name;
+    **text = format!(
+        "{world_name}  mode: {mode_label}  room {room_index}/{room_count}\n\
+         hp {player_hp_current}/{player_hp_max}  dash {player_dash_charges}  \
+         air_jumps {player_air_jumps}  mana {player_mana_current}  combo: {combo_symbols}\n\
+         preset: {preset_name}\n\
+         {window_line}\n\
+         enemies: {enemy_health}\
+         {attack_line}{ledge_line}{movement_line}{flash_line}{feature_banner}\
+         {cutscene_line}{boss_line}{encounter_line}{map_line}\n"
+    );
+}
+
+/// Update the dedicated quest-panel text widget.
+///
+/// Lives separately from `update_hud` so the quest log doesn't trail
+/// the giant debug stats dump and can be styled / positioned
+/// independently. Writes empty string when there are no active
+/// quests, which collapses the panel visually.
+pub fn update_quest_panel(
+    quests: Res<ambition_content::quest::QuestRegistry>,
+    user_settings: Res<ambition_platformer2d::persistence::settings::UserSettings>,
+    mut query: Query<&mut Text, With<ambition_platformer2d::render::rendering::QuestPanelText>>,
+) {
+    // The quest panel is the one session-scoped `QuestPanelText` entity; no live
+    // session means no such entity and the update simply no-ops.
+    let Ok(mut text) = query.single_mut() else {
+        return;
+    };
+    if !user_settings.gameplay.quest_hud_visible {
+        **text = String::new();
+        return;
+    }
+    let lines = quests.quest_log_lines();
+    if lines.is_empty() {
+        **text = String::new();
+    } else {
+        **text = format!("QUESTS\n  {}", lines.join("\n  "));
+    }
+}

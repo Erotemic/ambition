@@ -1,0 +1,57 @@
+//! Module-local Bevy [`Plugin`] for the gameplay trace recorder.
+//!
+//! The trace runs in [`ambition_platformer2d_shared_tangle::schedule::Platformer2dSimulationPhaseMonolith::Trace`] (configured by
+//! `app/schedule.rs`), which orders after `CoreSimulation` so the
+//! per-frame snapshot captures the resolved player state. Both the
+//! visible binary and the headless driver install this plugin via
+//! `add_simulation_plugins`, so trace dumps work in either build.
+
+use bevy::prelude::*;
+
+use ambition_platformer2d_shared_tangle::schedule::Platformer2dSimulationPhaseMonolith;
+use ambition_platformer2d_shared_tangle::schedule::SimScheduleExt;
+
+pub struct TraceSchedulePlugin;
+
+impl Plugin for TraceSchedulePlugin {
+    fn build(&self, app: &mut App) {
+        let sim = app.sim_schedule();
+        // `record_frame_system` reads the portal teleport fact when the
+        // feature is compiled in; register the message here too (idempotent)
+        // so the trace works in apps that compile portal support without
+        // adding `PortalPlugin` (e.g. the demo shell).
+        #[cfg(feature = "portal")]
+        app.add_message::<ambition_portal2d::BodyTeleported>();
+        // Automatic dumps are OFF unless the environment opts in. The recorder
+        // still records — ring buffer, events, OOB detection, on-screen status
+        // are all unaffected — it just stops writing files into `debug_traces/`
+        // that nobody asked for and nothing prunes. Manual F8 dumps are never
+        // gated. See `TraceDumpPolicy`.
+        app.insert_resource(ambition_gameplay_trace::TraceDumpPolicy::from_env())
+            .init_resource::<ambition_gameplay_trace::ActorTraceBuffer>()
+            .add_systems(
+                sim,
+                (
+                    super::record_frame_system,
+                    // Non-player-centric OOB recorder: samples every body and
+                    // requests a dump when any character leaves the world.
+                    super::record_actor_oob_frame_system,
+                )
+                    .in_set(Platformer2dSimulationPhaseMonolith::Trace),
+            )
+            // Disk writes are irreversible host effects, so they stay outside
+            // the simulation schedule.
+            //
+            // A forensic record that quietly preserves the wrong version of history is worse than
+            // one that lags.
+            //
+            // Rows and anomaly assessments are keyed by session generation +
+            // simulation frame. A re-simulation REPLACES both. Automatic dump
+            // arming waits for GGRS confirmation, so the irreversible file write
+            // reflects corrected truth rather than whichever pass happened first.
+            .add_systems(
+                PostUpdate,
+                (super::flush_pending_dump, super::flush_actor_dump).chain(),
+            );
+    }
+}

@@ -1,0 +1,20 @@
+# Add the pirate-sky LoadingZone to gate_stack_lower.
+#
+# Placed on the left balcony (OneWayPlatform at y=320) at x=160..256,
+# right under the existing "[pirate sky route — blocked]" DebugLabel.
+# Activation = Door (Interact-press) because this is a mid-room
+# cross-map transition, not a side-scroll edge exit. See
+# `feedback_loading_zone_activation` memory for the activation rules.
+
+level_id: gate_stack_lower
+entities:
+  - type: LoadingZone
+    px: [160, 224]
+    size: [96, 96]
+    fields:
+      id: pirate_sky_door
+      name: pirate_sky_door
+      activation: Door
+      target_room: pirate_sky_arena
+      target_zone: sky_arrival
+      bidirectional: false

@@ -1,0 +1,26 @@
+type: ipfs-sidecar
+cid: bafybeibsw3ay6xmouzhgpoxahipptrvd75t6pm7c3wxnjkodmt3lurjbwm
+rel_path: LDtk-1.5.3-installer.AppImage
+size: 108.83 MiB
+num_items: 1
+add_config:
+  path: LDtk-1.5.3-installer.AppImage
+  name: null
+  recursive: true
+  progress: true
+  cid_version: 1
+  raw_leaves: false
+  only_hash: false
+  pin: true
+  sidecar: true
+  update_gitignore: true
+  git_add_sidecar: true
+  dry_run: false
+add_datetime: 2026-07-12T110039-5
+add_duration: 6.386243074899539
+local_quickstat:
+  kind: file
+  bytes: 114115276
+  mtime: 1705345804.0
+pin_name: pkg:github/Erotemic/ambition#tools/LDtk-1.5.3-installer.AppImage
+pin_name_source: generated

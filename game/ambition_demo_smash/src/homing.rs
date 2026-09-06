@@ -1,0 +1,242 @@
+//! The homing dash: the fighter is carried at whoever they were pointing at.
+//!
+//! ⭐⭐ THIS MODULE OWNS NO TARGETING. Every tick it asks
+//! `ambition_combat::targeting::assisted_fire_direction` — the same call the
+//! pirate's gun-sword uses — and steers on the answer. ⇒ That keeps the one
+//! property a homing move must not get wrong: the tie-break is the stable
+//! `SimId`, never the `Entity`, because bevy_ggrs recreates rollback entities
+//! and a tie decided by a raw id picks a DIFFERENT target mid-resimulation than
+//! the confirmed timeline did.
+//!
+//! ⛔ IT ASKS EVERY TICK RATHER THAN LATCHING A TARGET, and that is the design:
+//! a latched target is a homing missile, and re-asking makes the dash follow the
+//! cone rather than a person. A foe who leaves the cone stops attracting it, so
+//! the move can still be dodged by moving — which is what makes it a read.
+
+use bevy::prelude::*;
+
+use ambition_platformer2d::characters::brain::action_set::{ActionRequest, SpecialActionSpec};
+use ambition_platformer2d::characters::brain::ActorActionMessage;
+use ambition_platformer2d::characters::smash_homing::{HomingDashParams, HOMING_DASH};
+use ambition_platformer2d::engine_core as ae;
+
+/// A fighter currently being carried at a target.
+///
+/// ⛔ ROLLBACK STATE. The clock outlives the tick that made it and it decides
+/// where a fighter IS, so a rewind that restored the dash without its clock
+/// leaves the two peers' fighters in different places.
+#[derive(Component, Clone, Debug, PartialEq)]
+pub struct HomingDash {
+    /// Seconds of homing left.
+    pub remaining_s: f32,
+    /// How fast it carries.
+    pub speed: f32,
+    /// The cone, in radians.
+    pub cone_rad: f32,
+    /// How far a foe may be and still attract it.
+    pub max_range: f32,
+    /// The direction the fighter committed to when the dash began.
+    ///
+    /// ⭐ REMEMBERED, NOT RE-READ. The cone is measured from what the player
+    /// COMMANDED at the press — re-reading the stick each tick would let them
+    /// sweep the cone across the stage and turn a read into a search.
+    pub commanded: ae::Vec2,
+}
+
+/// Checksum probe: the clock and the committed direction — the two facts a peer
+/// can disagree about. ⛔ Speed, cone and range are constants copied off the
+/// move and cannot diverge.
+pub fn homing_dash_probe(dash: &HomingDash) -> u64 {
+    (dash.remaining_s.to_bits() as u64).rotate_left(19)
+        ^ (dash.commanded.x.to_bits() as u64)
+        ^ (dash.commanded.y.to_bits() as u64).rotate_left(7)
+}
+
+/// Begin a homing dash where a move asked for one.
+pub fn begin_authored_homing_dashes(
+    mut commands: Commands,
+    mut actions: MessageReader<ActorActionMessage>,
+    bodies: Query<&ae::BodyKinematics>,
+) {
+    for message in actions.read() {
+        let ActionRequest::Special { spec, params } = &message.request else {
+            continue;
+        };
+        let SpecialActionSpec::Special(key) = spec;
+        if key.as_str() != HOMING_DASH {
+            continue;
+        }
+        let params: HomingDashParams = match params.hydrate() {
+            Ok(p) => p,
+            Err(err) => {
+                warn!("homing-dash params did not hydrate: {err}");
+                continue;
+            }
+        };
+        let Ok(kin) = bodies.get(message.actor) else {
+            continue;
+        };
+        // ⭐ THE FACING IS THE COMMAND. A special is authored with a direction
+        // the fighter is already committed to — the same reading every
+        // body-local `offset` in this repository uses — so the cone opens the
+        // way they are pointing rather than the way the stick happens to be.
+        let commanded = ae::Vec2::new(kin.facing.signum(), 0.0);
+        info!(
+            target: "ambition::moves",
+            "homing dash: from {:?} toward {commanded:?} for {}s",
+            kin.pos, params.duration_s,
+        );
+        commands.entity(message.actor).try_insert(HomingDash {
+            remaining_s: params.duration_s,
+            speed: params.speed,
+            cone_rad: params.cone_degrees.to_radians(),
+            max_range: params.max_range,
+            commanded,
+        });
+    }
+}
+
+/// Carry each homing fighter, and stop when its clock runs out.
+pub fn carry_homing_dashes(
+    mut commands: Commands,
+    time: Res<ambition_platformer2d::time::WorldTime>,
+    // ⛔⛔ ONE QUERY OVER ALL BODIES, NOT A DASHER QUERY BESIDE A CANDIDATE ONE.
+    // The dasher IS a body, so two queries both touching `BodyKinematics` — one
+    // `&mut`, one `&` — are a `B0001` access conflict. ⇒ Merging is the right
+    // fix rather than `Without<HomingDash>`, which would quietly make one
+    // homing fighter unable to target another.
+    mut bodies: Query<(
+        Entity,
+        &mut ae::BodyKinematics,
+        Option<&mut HomingDash>,
+        Option<&ambition_platformer2d::platformer::sim_id::SimId>,
+        // ⛔⛔ ELIGIBILITY, BECAUSE "NOT ME" IS NOT "A FOE". This filtered only
+        // `other != entity` and handed the raw body population to
+        // `assisted_fire_direction` — which is deliberately GEOMETRIC and
+        // assumes its caller supplied foes. ⇒ Carl's slingshot could bend toward
+        // a KO'd fighter (`OutOfPlay`, health reset full on respawn) or, in team
+        // versus, toward a teammate. Neither is a target and both look like the
+        // move working.
+        Option<&ambition_platformer2d::characters::actor::BodyHealth>,
+        bevy::prelude::Has<ambition_platformer2d::combat::death_rules::OutOfPlay>,
+        Option<&ambition_platformer2d::combat::components::ActorFaction>,
+        Option<&ambition_platformer2d::combat::targeting::MatchTeam>,
+    )>,
+    // ⛔ THE FACTION MATRIX, WHICH IS THE TARGETING SIDE'S INPUT AND NOT THE
+    // DAMAGE SIDE'S. `combat_relation`'s own doc says `None` "is what the DAMAGE
+    // side passes", because damage is physical and lands on a stranger whether or
+    // not the two are declared enemies. Targeting is relational and wants the
+    // matrix's opinion, so a ruleset that declares two factions hostile gets a
+    // dash that bends between them.
+    relations: Option<Res<ambition_platformer2d::combat::targeting::FactionRelations>>,
+) {
+    let dt = time.sim_dt();
+    if dt <= 0.0 {
+        return;
+    }
+    // ⭐ GATHER FIRST, APPLY SECOND. The candidate set is read from the same
+    // query, immutably, before anything moves — so every dash this tick steers
+    // against the SAME world rather than against the partially-updated one its
+    // predecessors left.
+    #[allow(clippy::type_complexity)]
+    let candidates: Vec<(
+        Entity,
+        Option<ambition_platformer2d::platformer::sim_id::SimId>,
+        ae::Vec2,
+        // Everything the eligibility question needs, captured with the position
+        // so the answer is asked against the SAME tick the geometry is.
+        bool,
+        Option<ambition_platformer2d::combat::components::ActorFaction>,
+        Option<ambition_platformer2d::combat::targeting::MatchTeam>,
+    )> = bodies
+        .iter()
+        .map(|(entity, kin, _, sim_id, health, out_of_play, faction, team)| {
+            (
+                entity,
+                sim_id.cloned(),
+                kin.pos,
+                ambition_platformer2d::combat::util::body_is_untouchable(health, out_of_play),
+                faction.copied(),
+                team.cloned(),
+            )
+        })
+        .collect();
+    for (entity, mut kin, dash, _, _, _, self_faction, self_team) in &mut bodies {
+        let Some(mut dash) = dash else {
+            continue;
+        };
+        dash.remaining_s -= dt;
+        if dash.remaining_s <= 0.0 {
+            commands.entity(entity).try_remove::<HomingDash>();
+            continue;
+        }
+        let from = kin.pos;
+        // ⛔⛤ A FOE, NOT MERELY SOMEBODY ELSE — AND "FOE" IS THE TARGETING
+        // QUESTION, NOT THE DAMAGE ONE. `assisted_fire_direction` is deliberately
+        // geometric and assumes its caller supplied targets. This first filtered
+        // only `other != entity`; it then asked `damage_lands_between`, which was
+        // closer but still the WRONG AUTHORITY.
+        //
+        // ⛔⛔ THE TWO QUESTIONS DISAGREE ON EXACTLY ONE RELATION, AND IT IS A
+        // RELATION THIS GAME CAN PRODUCE. `CombatRelation::damage_lands` answers
+        // `true` for `Foe` AND `Neutral` — "physical: anything not an ally can be
+        // hit". `is_target` answers `true` for `Foe` alone — "relational: only a
+        // declared foe. A neutral bystander is left alone." ⇒ A different-faction
+        // body with no team and no matrix hostility is DAMAGEABLE and NOT A
+        // TARGET, and the dash would bend at it: a nearer bystander could win the
+        // cone over the actual opponent standing further away.
+        //
+        // ⭐ THE SEATED CASE IS UNAFFECTED, WHICH IS WHY THIS IS SAFE. A match
+        // gives every seat its OWN `MatchTeam` (`prepared::team_for`: "each seat
+        // gets its own team, producing free-for-all relationships"), and team
+        // relation outranks faction — so two humans are `Foe` and `is_target`
+        // holds. The teammate case is unaffected too: a shared team is `Ally`,
+        // which neither question targets.
+        //
+        // ⚠ FRIENDLY FIRE NO LONGER PARTICIPATES, deliberately. It decides
+        // whether a swing HURTS an ally, not whether a dash should HUNT one; a
+        // teams ruleset that enables it wants allies damageable by accident, not
+        // auto-aimed at on purpose.
+        let self_faction = self_faction.copied().unwrap_or_default();
+        let others: Vec<_> = candidates
+            .iter()
+            .filter(|(other, _, _, untouchable, faction, team)| {
+                *other != entity
+                    && !*untouchable
+                    && ambition_platformer2d::combat::targeting::combat_relation(
+                        relations.as_deref(),
+                        self_faction,
+                        None,
+                        self_team,
+                        None,
+                        *other,
+                        faction.unwrap_or_default(),
+                        None,
+                        team.as_ref(),
+                    )
+                    .is_target()
+            })
+            .map(|(other, sim_id, pos, _, _, _)| (*other, sim_id.clone(), *pos))
+            .collect();
+        let heading = ambition_platformer2d::combat::targeting::assisted_fire_direction(
+            from,
+            dash.commanded,
+            ambition_platformer2d::characters::brain::action_set::AimAssist {
+                max_angle_rad: dash.cone_rad,
+                max_range: dash.max_range,
+            },
+            others,
+        );
+        // ⛔ SET, NOT ADD — the dash IS the fighter's motion for its duration,
+        // and adding would make a running start into a faster homing move. See
+        // `motion::command_body_velocity` for the ownership claim.
+        crate::motion::command_body_velocity(
+            &mut kin,
+            heading.normalize_or_zero() * dash.speed,
+            "homing dash",
+        );
+    }
+}
+
+#[cfg(test)]
+mod tests;

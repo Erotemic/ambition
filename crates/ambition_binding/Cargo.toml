@@ -1,0 +1,17 @@
+[package]
+name = "ambition_binding"
+version = "0.1.0"
+edition.workspace = true
+license.workspace = true
+authors.workspace = true
+description = "The binding resolution boundary: an authored reference resolves through the authority that knows it, and what fails to resolve is named out loud. Generic, dependency-free, and BELOW every domain that uses it."
+
+[lib]
+crate-type = ["rlib"]
+
+[dependencies]
+# the whole dependency list, and it is the point of this crate. The
+# boundary is generic Rust — `PhantomData`, `Arc`, a `BTreeMap` — plus one line
+# of reporting. It carried an 18k-line platformer utility crate underneath it for
+# no reason but where the file happened to live.
+tracing = "0.1"

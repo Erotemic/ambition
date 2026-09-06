@@ -1,0 +1,385 @@
+//! Monitor boxes — Sanic's power-up crates, pure content on two engine seams.
+//!
+//! A monitor is an LDtk-authored NAMED solid block (`monitor_*`); the demo
+//! identifies each by its authored block name — the same durable-identity
+//! discipline as Mary-O's `GeoId` bonks, minus the contact seam, because a
+//! monitor breaks on Sanic's verbs: land on it while FALLING or touch it while
+//! ROLLING. (A riding body never sweeps against solid blocks — code smell #13
+//! — so an un-rolled runner passes through; that is survivable here and the
+//! smell entry tracks the real fix.)
+//!
+//! A broken monitor is a mid-run World SUBTRACTION done the established way:
+//! its name joins the collision overlay's per-frame `removed_block_names`
+//! (the immutable authored base is never edited), so it stops colliding and —
+//! via the render reconcile — stops drawing. Re-arms on room (re)load.
+//!
+//! Grants:
+//! - `monitor_speed`  → SPEED SHOES: a timed multiplier on the body's OWN
+//!   `MomentumParams` (top speed + ground accel), restored exactly on expiry.
+//!   Skipped while super — the form's params are identity-authored.
+//!
+//! There is a key for it."* The transformation lives on the Utility action (`toggle_sanic_form`)
+//! and nowhere else, so this file has no super grant to gate, defer or make deliberate — the whole
+//! `monitor_super` block, its placement and its stomp-only rule are gone rather than tuned.
+
+use bevy::prelude::*;
+
+use ambition_platformer2d::world::FeatureEcsWorldOverlay;
+use ambition_platformer2d::engine_core as ae;
+use ambition_platformer2d::platformer::lifecycle::SessionWorldRef;
+use ambition_platformer2d::platformer::markers::PrimaryPlayer;
+
+use crate::{SPEEDWAY_ROOM_ID, SUPER_SANIC_CHARACTER_ID};
+
+/// Authored block-name prefix that marks a block as a monitor.
+pub const MONITOR_PREFIX: &str = "monitor_";
+/// The one authored monitor (block name in the LDtk file).
+pub const SPEED_MONITOR: &str = "monitor_speed";
+
+/// How long the speed shoes last (sim seconds) and what they multiply.
+const SPEED_SHOES_SECONDS: f32 = 8.0;
+const SPEED_SHOES_TOP_SPEED_FACTOR: f32 = 1.4;
+const SPEED_SHOES_ACCEL_FACTOR: f32 = 1.5;
+
+/// Vertical tolerance (px) for "feet on the monitor's lid".
+const STOMP_BAND: f32 = 16.0;
+
+/// Which monitors are broken this run. A Vec, not a HashSet: the overlay
+/// contribution iterates it every frame and the sim determinism contract bans
+/// std-hash iteration order.
+/// `Clone` because it is ROLLBACK STATE, for the same reason Mary-O's
+/// broken bricks are: the overlay subtracts these names from collision every
+/// frame, so a rewind that does not restore the set disagrees with the world
+/// about which monitors are still solid.
+#[derive(Resource, Default, Clone)]
+pub struct SpentMonitors(pub Vec<String>);
+
+impl SpentMonitors {
+    /// A checksum over WHICH monitors are spent.
+    ///
+    /// order-independent even though this is a `Vec`. The vector's order is
+    /// the order they broke in, which is genuine information — but two peers
+    /// running identical simulations break them in the same order anyway, so
+    /// XORing per-name hashes loses nothing a desync check needs and survives a
+    /// later switch to a set. (Its Mary-O siblings are a `BTreeSet` and a
+    /// `HashSet`; all three answer the same way now.)
+    pub fn checksum(&self) -> u64 {
+        use std::hash::{Hash, Hasher};
+        self.0.iter().fold(0u64, |acc, name| {
+            let mut hasher = std::collections::hash_map::DefaultHasher::new();
+            name.hash(&mut hasher);
+            acc ^ hasher.finish()
+        })
+    }
+
+    fn is_broken(&self, name: &str) -> bool {
+        self.0.iter().any(|broken| broken == name)
+    }
+}
+
+/// The timed speed-shoes grant riding on the player body. Carries the saved
+/// authored params so expiry restores EXACTLY what the catalog authored.
+#[derive(Component, Debug)]
+pub struct SpeedShoes {
+    pub remaining: f32,
+    saved_top_speed: f32,
+    saved_ground_accel: f32,
+}
+
+/// The break. A falling player whose feet land on a monitor's lid, or a
+/// rolling player overlapping it, breaks it once: burst + cue + the grant.
+///
+/// Every monitor pops on a roll-through, the classic Sonic feel.
+pub fn break_monitor_boxes(
+    mut commands: Commands,
+    mut spent: ResMut<SpentMonitors>,
+    geometry: SessionWorldRef<ae::RoomGeometry>,
+    mut vfx: MessageWriter<ambition_platformer2d::vfx::VfxMessage>,
+    mut sfx: ambition_platformer2d::sfx::BodySfxWriter,
+    mut players: Query<
+        (
+            Entity,
+            &ae::BodyKinematics,
+            &ambition_platformer2d::characters::actor::WornCharacter,
+            &mut ae::MotionModel,
+            Option<&crate::ball_dash::Rolling>,
+            Option<&SpeedShoes>,
+        ),
+        With<PrimaryPlayer>,
+    >,
+) {
+    let Ok((entity, kin, worn, mut model, rolling, shoes)) = players.single_mut() else {
+        return;
+    };
+    let rolling = rolling.is_some();
+    let falling = kin.vel.y > 0.0;
+    if !rolling && !falling {
+        return;
+    }
+    let p = kin.aabb();
+    for block in &geometry.0.blocks {
+        if !block.name.starts_with(MONITOR_PREFIX) || spent.is_broken(&block.name) {
+            continue;
+        }
+        let b = block.aabb;
+        let overlap_x = p.min.x < b.max.x && p.max.x > b.min.x;
+        let overlap_y = p.min.y < b.max.y && p.max.y > b.min.y;
+        let feet = p.max.y;
+        let stomp =
+            falling && overlap_x && feet >= b.min.y - STOMP_BAND && feet <= b.min.y + STOMP_BAND;
+        let roll = rolling && overlap_x && overlap_y;
+        if !(stomp || roll) {
+            continue;
+        }
+        spent.0.push(block.name.clone());
+        let center = (b.min + b.max) * 0.5;
+        vfx.write(ambition_platformer2d::vfx::VfxMessage::Burst {
+            pos: center,
+            count: 16,
+            speed: 170.0,
+            color: [0.55, 0.75, 0.95, 1.0],
+            kind: ambition_platformer2d::vfx::ParticleKind::Shard,
+        });
+        // The monitor's own pop (the super grant's transform sound fires
+        // separately from the worn-identity edge in `sync_super_form_traits`).
+        //
+        // H2/I3: the COURSE's. A monitor is a world PROP authored into this
+        // course — not a body, so it has no character to sound like, but it is
+        // still Sanic's prop and not the host's. The BREAKER's cue (the roll, the
+        // stomp bounce) is emitted by the breaker.
+        sfx.write_from(
+            crate::provider::SANIC_EXPERIENCE,
+            ambition_platformer2d::sfx::SfxMessage::Play {
+                id: ambition_platformer2d::sfx::SfxId::from_static(crate::SFX_MONITOR),
+                pos: center,
+            },
+        );
+        match block.name.as_str() {
+            SPEED_MONITOR => {
+                // Never stack: a second pair of shoes while one is live would
+                // save the already-multiplied params and "restore" them — and
+                // shoes over the SUPER form would save the form's authored
+                // params and "restore" them after the form is toggled off.
+                if shoes.is_none() && worn.id() != SUPER_SANIC_CHARACTER_ID {
+                    if let ae::MotionModel::SurfaceMomentum(momentum) = &mut *model {
+                        commands.entity(entity).insert(SpeedShoes {
+                            remaining: SPEED_SHOES_SECONDS,
+                            saved_top_speed: momentum.params.top_speed,
+                            saved_ground_accel: momentum.params.ground_accel,
+                        });
+                        momentum.params.top_speed *= SPEED_SHOES_TOP_SPEED_FACTOR;
+                        momentum.params.ground_accel *= SPEED_SHOES_ACCEL_FACTOR;
+                    }
+                }
+            }
+            other => {
+                // An authored monitor with no grant is a level-authoring bug.
+                //
+                // The authoring mistake is exactly the kind nobody finds by reading a level
+                // file.
+                debug_assert!(false, "monitor block '{other}' has no authored grant");
+                bevy::log::error!(
+                    target: "ambition_platformer2d::sanic",
+                    "monitor block '{other}' has no authored grant; breaking it \
+                     does nothing"
+                );
+            }
+        }
+    }
+}
+
+/// Count the shoes down on the SIM clock and restore the authored params
+/// exactly on expiry.
+pub fn tick_speed_shoes(
+    mut commands: Commands,
+    time: Res<ambition_platformer2d::time::WorldTime>,
+    mut bodies: Query<(Entity, &mut ae::MotionModel, &mut SpeedShoes)>,
+) {
+    for (entity, mut model, mut shoes) in &mut bodies {
+        shoes.remaining -= time.scaled_dt;
+        if shoes.remaining > 0.0 {
+            continue;
+        }
+        if let ae::MotionModel::SurfaceMomentum(momentum) = &mut *model {
+            momentum.params.top_speed = shoes.saved_top_speed;
+            momentum.params.ground_accel = shoes.saved_ground_accel;
+        }
+        commands.entity(entity).remove::<SpeedShoes>();
+    }
+}
+
+/// Contribute each broken monitor's authored NAME to the collision overlay's
+/// per-frame `removed_block_names` — the engine's immutable-base subtraction
+/// seam. Runs AFTER the overlay rebuild clears the list (its clean-slate
+/// contract), the same slot Mary-O's bricks take.
+pub fn contribute_broken_monitors_to_overlay(
+    spent: Res<SpentMonitors>,
+    mut overlay: ResMut<FeatureEcsWorldOverlay>,
+) {
+    overlay.removed_block_names.extend(spent.0.iter().cloned());
+}
+
+/// Re-arm every monitor when the speedway (re)loads OR replays, so the next
+/// LIFE starts against a full set of boxes. Mirrors Mary-O's
+/// `rearm_bricks_for_a_fresh_attempt`, which documents why both signals are
+/// needed.
+///
+/// ⛔⛔ THE REPLAY HALF WAS MISSING AND IT WAS A PLAYER-VISIBLE BUG. Sanic
+/// declares `DeathRules::replay_level_after(0.0)`, so a pit death REPLAYS the
+/// room in place -- and an in-place replay does NOT emit [`RoomLoaded`], which
+/// "is written from exactly one place, an actual room load". A monitor broken
+/// before the death therefore stayed broken after the respawn, and its grant was
+/// unreachable for the rest of the run.
+///
+/// ⇒ Per-attempt CONTENT state has to answer the ADMITTED replay, which is what
+/// `ContentRoomReplayResetSet` is for. The two messages are different on purpose
+/// and reading only one of them is the whole defect.
+pub fn rearm_monitors_for_a_fresh_attempt(
+    // The ADMITTED replay, not the ask: re-arming for an attempt the lifecycle
+    // slot refused would restock a room that nothing rebuilt.
+    mut attempt: ambition_platformer2d::combat::events::FreshAttempt,
+    mut spent: ResMut<SpentMonitors>,
+) {
+    if attempt.began_in(SPEEDWAY_ROOM_ID) {
+        spent.0.clear();
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use ambition_platformer2d::world::rooms::RoomLoaded;
+
+    #[test]
+    fn a_broken_monitor_is_subtracted_from_the_collision_overlay() {
+        let mut app = App::new();
+        app.init_resource::<FeatureEcsWorldOverlay>();
+        app.insert_resource(SpentMonitors(vec![SPEED_MONITOR.to_string()]));
+        app.add_systems(Update, contribute_broken_monitors_to_overlay);
+        app.update();
+        let removed = &app
+            .world()
+            .resource::<FeatureEcsWorldOverlay>()
+            .removed_block_names;
+        assert!(
+            removed.contains(&SPEED_MONITOR.to_string()),
+            "broken monitors are named in removed_block_names: {removed:?}"
+        );
+    }
+
+    #[test]
+    fn a_reload_rearms_the_monitors() {
+        let mut app = App::new();
+        app.insert_resource(SpentMonitors(vec![SPEED_MONITOR.to_string()]));
+        app.add_message::<RoomLoaded>();
+        // ⛔⛔ REQUIRED EVEN THOUGH THIS ARM NEVER WRITES IT. A world that does
+        // not register a message a system READS fails parameter validation and
+        // DROPS the system silently -- the test then passes or fails for a
+        // reason that has nothing to do with its subject. Adding the replay
+        // reader broke this arm exactly that way.
+        app.add_message::<ambition_platformer2d::combat::events::RoomReplayAdmitted>();
+        app.add_systems(Update, rearm_monitors_for_a_fresh_attempt);
+        app.world_mut()
+            .resource_mut::<bevy::ecs::message::Messages<RoomLoaded>>()
+            .write(RoomLoaded {
+                room_id: SPEEDWAY_ROOM_ID.to_string(),
+            });
+        app.update();
+        assert!(
+            app.world().resource::<SpentMonitors>().0.is_empty(),
+            "a level (re)load restocks the monitors"
+        );
+    }
+
+    /// ⛔⛔ THE DEFECT THIS SYSTEM SHIPPED WITH. Sanic declares
+    /// `DeathRules::replay_level_after(0.0)`, so a pit death REPLAYS the room in
+    /// place -- and an in-place replay never emits `RoomLoaded`. A monitor
+    /// broken before the death stayed broken after the respawn, and its grant
+    /// was unreachable for the rest of the run.
+    ///
+    /// ⚠ The old test asserted a RELOAD rearms, and passed throughout. The two
+    /// messages are different on purpose, so covering one proves nothing about
+    /// the other.
+    #[test]
+    fn a_death_replay_rearms_the_monitors() {
+        let mut app = App::new();
+        app.insert_resource(SpentMonitors(vec![SPEED_MONITOR.to_string()]));
+        app.add_message::<RoomLoaded>();
+        app.add_message::<ambition_platformer2d::combat::events::RoomReplayAdmitted>();
+        app.add_systems(Update, rearm_monitors_for_a_fresh_attempt);
+        app.world_mut()
+            .resource_mut::<bevy::ecs::message::Messages<
+                ambition_platformer2d::combat::events::RoomReplayAdmitted,
+            >>()
+            .write(ambition_platformer2d::combat::events::RoomReplayAdmitted {
+                reason: ambition_platformer2d::combat::events::RoomResetReason::PlayerDeath,
+                // No controlled body in a rules-only harness; the re-arm is a
+                // room-wide restock and does not read the subject.
+                subject: None,
+            });
+        app.update();
+        assert!(
+            app.world().resource::<SpentMonitors>().0.is_empty(),
+            "a death replay must restock the monitors; only a room LOAD did"
+        );
+    }
+
+    /// ⚠ And nothing rearms them when neither signal fires -- otherwise the two
+    /// arms above would pass on a system that simply clears every frame, which
+    /// would hand the player an infinite supply mid-run.
+    #[test]
+    fn a_quiet_frame_leaves_broken_monitors_broken() {
+        let mut app = App::new();
+        app.insert_resource(SpentMonitors(vec![SPEED_MONITOR.to_string()]));
+        app.add_message::<RoomLoaded>();
+        app.add_message::<ambition_platformer2d::combat::events::RoomReplayAdmitted>();
+        app.add_systems(Update, rearm_monitors_for_a_fresh_attempt);
+        app.update();
+        assert_eq!(
+            app.world().resource::<SpentMonitors>().0.len(),
+            1,
+            "a broken monitor must stay broken until the room reloads or replays"
+        );
+    }
+
+    #[test]
+    fn expired_speed_shoes_restore_the_authored_params() {
+        let mut app = App::new();
+        app.insert_resource(ambition_platformer2d::time::WorldTime {
+            scaled_dt: 10.0,
+            ..Default::default()
+        });
+        app.add_systems(Update, tick_speed_shoes);
+        let params = ae::MomentumParams {
+            top_speed: 1200.0,
+            ground_accel: 900.0,
+            ..Default::default()
+        };
+        let mut boosted = params;
+        boosted.top_speed *= SPEED_SHOES_TOP_SPEED_FACTOR;
+        boosted.ground_accel *= SPEED_SHOES_ACCEL_FACTOR;
+        let body = app
+            .world_mut()
+            .spawn((
+                ae::MotionModel::surface_momentum(boosted),
+                SpeedShoes {
+                    remaining: 1.0,
+                    saved_top_speed: params.top_speed,
+                    saved_ground_accel: params.ground_accel,
+                },
+            ))
+            .id();
+        app.update();
+        let ae::MotionModel::SurfaceMomentum(momentum) =
+            app.world().get::<ae::MotionModel>(body).unwrap()
+        else {
+            panic!("body keeps its momentum policy");
+        };
+        assert_eq!(momentum.params.top_speed, 1200.0, "top speed restored");
+        assert_eq!(momentum.params.ground_accel, 900.0, "accel restored");
+        assert!(
+            app.world().get::<SpeedShoes>(body).is_none(),
+            "expired shoes come off"
+        );
+    }
+}

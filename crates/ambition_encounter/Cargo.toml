@@ -1,0 +1,31 @@
+[package]
+name = "ambition_encounter"
+version = "0.1.0"
+edition.workspace = true
+license.workspace = true
+authors.workspace = true
+description = "Reusable encounter wave/lockdown vocabulary and headless state machine."
+
+[lib]
+crate-type = ["rlib"]
+
+[dependencies]
+ambition_platformer2d_core = { path = "../ambition_platformer2d_core" }
+# The wave-mob request vocabulary names `placements::CharacterBrain`. A LEAF
+# with zero `ambition_*` dependencies, so this adds no closure beyond itself.
+ambition_entity_catalog = { path = "../ambition_entity_catalog" }
+# The content compiler, OPTIONAL and default-OFF for the same reason as
+# `ambition_items`: a game that never validates its content must not link a
+# compiler. The encounter capability OWNS the `encounter_waves` schema, so the
+# registration lives here rather than in a central content enum.
+ambition_content_pack = { path = "../ambition_content_pack", optional = true }
+ambition_interaction = { path = "../ambition_interaction" }
+ambition_persistence = { path = "../ambition_persistence" }
+ambition_platformer2d_shared_tangle = { path = "../ambition_platformer2d_shared_tangle" }
+bevy = { version = "0.19.1", default-features = false }
+ron = { workspace = true }
+serde = { workspace = true }
+
+[features]
+# The authored-content schema this capability owns.
+content_pack = ["dep:ambition_content_pack"]

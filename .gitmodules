@@ -1,0 +1,15 @@
+[submodule "tools/ambition_sfx_renderer"]
+	path = tools/ambition_sfx_renderer
+	url = https://github.com/Erotemic/ambition_sfx_renderer.git
+[submodule "tools/ambition_music_renderer"]
+	path = tools/ambition_music_renderer
+	url = https://github.com/Erotemic/ambition_music_renderer.git
+[submodule "tools/ambition_sprite2d_renderer"]
+	path = tools/ambition_sprite2d_renderer
+	url = https://github.com/Erotemic/ambition_sprite2d_renderer.git
+[submodule "dev/ambition_dev_measurements"]
+	path = dev/ambition_dev_measurements
+	url = https://github.com/Erotemic/ambition_dev_measurements.git
+[submodule "game/ambition_map_assets"]
+	path = game/ambition_map_assets
+	url = https://github.com/Erotemic/ambition_map_assets.git

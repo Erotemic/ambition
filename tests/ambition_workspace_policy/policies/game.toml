@@ -1,0 +1,591 @@
+# Game-scope policies: game/* content ownership, app composition, named-content
+# registration.
+#
+# Run: cargo test -p ambition_workspace_policy game_policies
+#
+# Anchor policy below keeps the scan non-vacuous; real ratchets decomposed from
+# architecture_boundaries.rs are appended by Tasks 6/9.
+
+[[policy]]
+id = "game.content-and-app-homes-exist"
+scope = "game"
+kind = "required-path"
+owners = ["ambition_content"]
+watch_paths = ["game"]
+rationale = "The named-content crate and the app-assembly shell are the two game-tier homes the composition root depends on; a missing src root means a move went wrong."
+source_doc = "docs/architecture/package-and-capability-boundaries.md"
+severity = "error"
+paths = [
+    "game/ambition_content/src",
+    "game/ambition_app/src",
+    "game/ambition_app/Cargo.toml",
+]
+
+# ── migrated from game/ambition_app/tests/legacy_runtime_guardrail.rs (Task 6) ──
+
+# was: no_legacy_runtime_references_in_production_src
+[[policy]]
+id = "game.no-legacy-runtime-in-app-src"
+scope = "game"
+kind = "forbidden-source-reference"
+owners = ["ambition_app"]
+watch_paths = ["game/ambition_app/src"]
+rationale = "The ECS migration deleted the SandboxRuntime/FeatureRuntime god-objects, the runtime.player shadow cache, the feature_runtime_phase helper, and the monolithic ae::Player aggregate. Canonical replacements live on dedicated Body* components/systems. Re-introducing any of these spellings means a shadow scratchpad crept back in. Test code and archived doc refs are exempt; a single reviewed occurrence opts out with ALLOW_LEGACY_RUNTIME."
+source_doc = "docs/concepts/one-body-one-path.md"
+severity = "error"
+production_only = true
+skip_tests = true
+allow_marker = "ALLOW_LEGACY_RUNTIME"
+roots = ["game/ambition_app/src"]
+forbid = [
+    "SandboxRuntime",
+    "FeatureRuntime",
+    "feature_runtime_phase",
+    "runtime.player",
+    "ae::Player::new",
+    "BodyClustersMut::to_player",
+    "::from_player(",
+    "update_player_with_tuning(",
+    "update_player_control_with_tuning(",
+    "update_player_simulation_with_tuning(",
+]
+
+# ── architecture_boundaries.rs decomposition, batch 3 (Task 9): app/content/
+#    umbrella composition rules migrated declaratively (generated). ────────────
+
+# was: architecture_boundaries_umbrella_crate_and_demo_homes_exist
+[[policy]]
+id = "game.umbrella-and-demo-members"
+scope = "game"
+kind = "workspace-member"
+owners = ["ambition_platformer2d"]
+watch_paths = ["Cargo.toml"]
+rationale = "umbrella + demo homes are registered members"
+source_doc = "docs/architecture/architecture-boundaries.md"
+severity = "error"
+members = ["ambition_platformer2d", "ambition_demo_pocket", "ambition_demo_sanic", "ambition_demo_mary_o"]
+
+[[policy]]
+id = "game.umbrella-not-app-shell"
+scope = "game"
+kind = "dependency-denylist"
+owners = ["ambition_platformer2d"]
+watch_paths = ["crates/ambition_platformer2d/Cargo.toml"]
+rationale = "the ambition facade is an engine surface, not an app/content shell"
+source_doc = "docs/architecture/architecture-boundaries.md"
+severity = "error"
+deny = ["ambition_app", "ambition_content", "ambition_menu_kaleidoscope"]
+manifest = "crates/ambition_platformer2d/Cargo.toml"
+
+[[policy]]
+id = "game.umbrella-exposes-engine-surface"
+scope = "game"
+kind = "file-contains"
+owners = ["ambition_platformer2d"]
+watch_paths = ["crates/ambition_platformer2d/src/lib.rs"]
+rationale = "ambition facade exposes the engine surface"
+source_doc = "docs/architecture/architecture-boundaries.md"
+severity = "error"
+contains = ["PlatformerEnginePlugins", "PlatformerHostPlugins", "pub use ambition_platformer2d_runtime as runtime", "pub use ambition_render as render", "pub use ambition_platformer2d_world as world"]
+file = "crates/ambition_platformer2d/src/lib.rs"
+
+[[policy]]
+id = "game.demo-sanic-umbrella-only"
+scope = "game"
+kind = "dependency-allowlist"
+owners = ["ambition_platformer2d"]
+watch_paths = ["game/ambition_demo_sanic/Cargo.toml"]
+rationale = "Sanic demo depends on the umbrella plus its own content only"
+source_doc = "docs/architecture/architecture-boundaries.md"
+severity = "error"
+allow = ["ambition_platformer2d"]
+manifest = "game/ambition_demo_sanic/Cargo.toml"
+
+[[policy]]
+id = "game.demo-pocket-umbrella-only"
+scope = "game"
+kind = "dependency-allowlist"
+owners = ["ambition_platformer2d"]
+watch_paths = ["game/ambition_demo_pocket/Cargo.toml"]
+rationale = "Pocket proves a fourth provider depends only on the umbrella"
+source_doc = "docs/planning/engine/architecture.md"
+severity = "error"
+allow = ["ambition_platformer2d"]
+manifest = "game/ambition_demo_pocket/Cargo.toml"
+
+[[policy]]
+id = "game.demo-mary-o-umbrella-only"
+scope = "game"
+kind = "dependency-allowlist"
+owners = ["ambition_platformer2d"]
+watch_paths = ["game/ambition_demo_mary_o/Cargo.toml"]
+rationale = "Mary-O demo depends on the umbrella plus its own content only"
+source_doc = "docs/architecture/architecture-boundaries.md"
+severity = "error"
+allow = ["ambition_platformer2d"]
+manifest = "game/ambition_demo_mary_o/Cargo.toml"
+
+[[policy]]
+id = "game.demos-reach-engine-through-facade"
+scope = "game"
+kind = "forbidden-source-reference"
+owners = ["ambition_platformer2d"]
+watch_paths = ["game/ambition_demo_pocket/src", "game/ambition_demo_sanic/src", "game/ambition_demo_mary_o/src"]
+rationale = "demos reach the engine through the ambition facade"
+source_doc = "docs/architecture/architecture-boundaries.md"
+severity = "error"
+roots = ["game/ambition_demo_pocket/src", "game/ambition_demo_sanic/src", "game/ambition_demo_mary_o/src"]
+forbid = ["ambition_platformer2d_actor_monolith::", "ambition_platformer2d_runtime::", "ambition_render::", "ambition_app::"]
+
+
+# was: architecture_boundaries_app_uses_umbrella_manifest_surface
+[[policy]]
+id = "game.app-umbrella-plus-local"
+scope = "game"
+kind = "dependency-allowlist"
+owners = ["ambition_app"]
+watch_paths = ["game/ambition_app/Cargo.toml"]
+rationale = "ambition_app uses the umbrella plus app-local content/extension crates, the reusable game providers it hosts, and the reusable programmatic sim harness (below the shell) that it binds to Ambition's content"
+source_doc = "docs/architecture/architecture-boundaries.md"
+severity = "error"
+allow = [
+    "ambition_platformer2d",
+    "ambition_content",
+    "ambition_menu_kaleidoscope",
+    "ambition_demo_sanic",
+    "ambition_demo_pocket",
+    "ambition_demo_mary_o",
+    "ambition_demo_smash",
+    "ambition_demo_twintrack",
+    "ambition_sim_harness",
+    "ambition_causal",
+]
+manifest = "game/ambition_app/Cargo.toml"
+
+[[policy]]
+id = "game.app-reaches-lower-through-facade"
+scope = "game"
+kind = "forbidden-source-reference"
+owners = ["ambition_app"]
+watch_paths = ["game/ambition_app/src"]
+rationale = "ambition_app code should reach reusable lower crates through the ambition facade"
+source_doc = "docs/architecture/architecture-boundaries.md"
+severity = "error"
+roots = ["game/ambition_app/src"]
+forbid = ["ambition_platformer2d_actor_monolith::", "ambition_platformer2d_runtime::", "ambition_render::", "ambition_platformer2d_host::", "ambition_sim_view::", "ambition_platformer2d_core::", "ambition_platformer2d_shared_tangle::", "ambition_sprite_sheet::", "ambition_asset_manager::", "ambition_audio::", "ambition_sfx::", "ambition_vfx::", "ambition_menu::", "ambition_settings_menu::", "ambition_persistence::", "ambition_dialog::", "ambition_encounter::", "ambition_projectiles::", "ambition_portal2d::", "ambition_portal2d_presentation::", "ambition_characters::", "ambition_input::", "ambition_touch_input::", "ambition_items::", "ambition_inventory_ui::", "ambition_combat::", "ambition_cutscene::", "ambition_time::", "ambition_entity_catalog::", "ambition_platformer2d_world::", "ambition_platformer2d_ldtk::", "ambition_interaction::", "ambition_ui_nav::"]
+allow_lines = ["ambition_content::", "ambition_menu_kaleidoscope::", "\"ambition_sim_view::", "\"ambition_platformer2d_ldtk::", "\"ambition_time::"]
+
+
+# was: architecture_boundaries_kaleidoscope_is_an_engine_extension
+[[policy]]
+id = "game.kaleidoscope-member"
+scope = "game"
+kind = "workspace-member"
+owners = ["ambition_menu_kaleidoscope"]
+watch_paths = ["Cargo.toml"]
+rationale = "kaleidoscope is a registered member"
+source_doc = "docs/architecture/architecture-boundaries.md"
+severity = "error"
+members = ["ambition_menu_kaleidoscope"]
+
+[[policy]]
+id = "game.kaleidoscope-menu-model-only"
+scope = "game"
+kind = "dependency-allowlist"
+owners = ["ambition_menu_kaleidoscope"]
+watch_paths = ["game/ambition_menu_kaleidoscope/Cargo.toml"]
+rationale = "kaleidoscope is an engine extension over the menu model"
+source_doc = "docs/architecture/architecture-boundaries.md"
+severity = "error"
+allow = ["ambition_menu"]
+manifest = "game/ambition_menu_kaleidoscope/Cargo.toml"
+
+[[policy]]
+id = "game.kaleidoscope-no-game-machinery"
+scope = "game"
+kind = "forbidden-source-reference"
+owners = ["ambition_menu_kaleidoscope"]
+watch_paths = ["game/ambition_menu_kaleidoscope/src"]
+rationale = "kaleidoscope names no game/app/content machinery"
+source_doc = "docs/architecture/architecture-boundaries.md"
+severity = "error"
+roots = ["game/ambition_menu_kaleidoscope/src"]
+forbid = ["ambition_platformer2d_actor_monolith", "ambition_render", "ambition_content", "ambition_app", "ambition_settings_menu"]
+
+[[policy]]
+id = "game.menu-crate-lunex-free"
+scope = "game"
+kind = "file-omits"
+owners = ["ambition_menu_kaleidoscope"]
+watch_paths = ["crates/ambition_menu/Cargo.toml"]
+rationale = "ambition_menu is bevy_lunex-free; the cube renderer is the extension crate"
+source_doc = "docs/architecture/architecture-boundaries.md"
+severity = "error"
+forbid = ["bevy_lunex ="]
+file = "crates/ambition_menu/Cargo.toml"
+
+
+# was: architecture_boundaries_named_content_registers_through_content_plugin
+[[policy]]
+id = "game.named-content-paths"
+scope = "game"
+kind = "required-path"
+owners = ["ambition_content"]
+watch_paths = ["game/ambition_content/src"]
+rationale = "named Ambition content crate paths exist"
+source_doc = "docs/architecture/architecture-boundaries.md"
+severity = "error"
+paths = ["game/ambition_content/src/lib.rs", "game/ambition_content/src/plugin.rs", "game/ambition_content/src/quests/mod.rs", "game/ambition_content/src/bosses/mod.rs", "game/ambition_content/src/dialogue/mod.rs", "game/ambition_content/src/items/mod.rs"]
+
+[[policy]]
+id = "game.content-plugin-composes"
+scope = "game"
+kind = "file-contains"
+owners = ["ambition_content"]
+watch_paths = ["game/ambition_content/src/plugin.rs"]
+rationale = "AmbitionContentPlugin composes the content sub-plugins"
+source_doc = "docs/architecture/architecture-boundaries.md"
+severity = "error"
+contains = ["pub struct AmbitionContentPlugin", "AmbitionQuestContentPlugin", "AmbitionBossContentPlugin", "AmbitionDialogueContentPlugin", "crate::intro::IntroPlugin"]
+file = "game/ambition_content/src/plugin.rs"
+
+[[policy]]
+id = "game.app-installs-content-plugin"
+scope = "game"
+kind = "file-contains"
+owners = ["ambition_content"]
+watch_paths = ["game/ambition_app/src/app/plugins.rs"]
+rationale = "app installs AmbitionContentPlugin"
+source_doc = "docs/architecture/architecture-boundaries.md"
+severity = "error"
+contains = ["ambition_content::AmbitionContentPlugin"]
+file = "game/ambition_app/src/app/plugins.rs"
+
+[[policy]]
+id = "game.app-sim-resources-no-inline-content"
+scope = "game"
+kind = "file-omits"
+owners = ["ambition_content"]
+watch_paths = ["game/ambition_app/src/app/sim_resources.rs"]
+rationale = "app/sim_resources.rs must not construct named content inline"
+source_doc = "docs/architecture/architecture-boundaries.md"
+severity = "error"
+forbid = ["QuestRegistry::default()", "BossEncounterRegistry::default()", "default_cutscene_library()", "default_room_cutscene_bindings()", "install_boss_banter", "install_pirate_banter", "crate::intro::IntroPlugin"]
+file = "game/ambition_app/src/app/sim_resources.rs"
+
+[[policy]]
+id = "game.app-plugins-no-inline-item-roster"
+scope = "game"
+kind = "file-omits"
+owners = ["ambition_content"]
+watch_paths = ["game/ambition_app/src/app/plugins.rs"]
+rationale = "item roster installs through the content plugin"
+source_doc = "docs/architecture/architecture-boundaries.md"
+severity = "error"
+forbid = ["ambition_items::OwnedItems::starter()"]
+file = "game/ambition_app/src/app/plugins.rs"
+
+
+# was: architecture_boundaries_app_plugins_does_not_reown_moved_subsystems
+[[policy]]
+id = "game.app-plugins-no-reown"
+scope = "game"
+kind = "file-omits"
+owners = ["ambition_app"]
+watch_paths = ["game/ambition_app/src/app/plugins.rs"]
+rationale = "app/plugins.rs must not reintroduce subsystem-owned registrations"
+source_doc = "docs/architecture/architecture-boundaries.md"
+severity = "error"
+forbid = ["fn register_portal_systems", "fn register_item_pickup_systems", "ambition_portal2d::portal_fire_system", "ambition_portal2d::portal_projectile_step", "ambition_portal2d::portal_transit", "ambition_platformer2d_actor_monolith::item_pickup::pickup_held_item_system", "ambition_platformer2d_actor_monolith::item_pickup::throw_held_item_system", "ambition_platformer2d_actor_monolith::item_pickup::ground_item_physics"]
+file = "game/ambition_app/src/app/plugins.rs"
+
+
+# was: architecture_boundaries_input_timer_systems_moved_to_actors
+[[policy]]
+id = "game.app-sim-systems-no-redefine"
+scope = "game"
+kind = "file-omits"
+owners = ["ambition_app"]
+watch_paths = ["game/ambition_app/src/app/sim_systems.rs"]
+rationale = "app/sim_systems.rs must not re-define library-owned systems"
+source_doc = "docs/architecture/architecture-boundaries.md"
+severity = "error"
+forbid = ["fn sync_live_player_dev_edits_system", "fn apply_suspended_time_scale_system", "fn tick_room_transition_cooldown", "fn tick_home_body_reaction_timers", "fn derive_slot_direction_gestures", "fn interaction_input_system", "fn cleanup_timers_system"]
+file = "game/ambition_app/src/app/sim_systems.rs"
+
+[[policy]]
+id = "game.engine-schedule-references-moved"
+scope = "game"
+kind = "file-contains"
+owners = ["ambition_app"]
+watch_paths = ["crates/ambition_platformer2d_runtime/src/player_schedule.rs"]
+rationale = "engine player schedule references the moved systems via library paths (dev-tools live-edit is ordered as its domain SET per decision #9, not by leaf-system name). The three input-timer entries were one `input_timer_system` until 2026-08-22, when its unrelated jobs were split; they are named as leaves rather than as `InputTimersAdvanced` because what this proves is that the systems are LIBRARY-owned, which a set reference would not show"
+source_doc = "docs/architecture/architecture-boundaries.md"
+severity = "error"
+contains = ["ambition_dev_tools::DevEditApplySet", "ambition_time::time_control::apply_suspended_time_scale_system", "ambition_platformer2d_actor_monolith::control::tick_room_transition_cooldown", "ambition_platformer2d_actor_monolith::control::tick_home_body_reaction_timers", "ambition_platformer2d_actor_monolith::control::derive_slot_direction_gestures", "ambition_platformer2d_actor_monolith::control::interaction_input_system", "ambition_platformer2d_actor_monolith::control::cleanup_timers_system"]
+file = "crates/ambition_platformer2d_runtime/src/player_schedule.rs"
+
+[[policy]]
+id = "game.app-keeps-host-reset-input"
+scope = "game"
+kind = "file-contains"
+owners = ["ambition_app"]
+watch_paths = ["game/ambition_app/src/app/sim_systems.rs"]
+# That system is the ONE consumer of `RoomReplayRequested`, and keeping it app-side is exactly what
+# made a demo app's restart inert: `ambition_demo_*_app` depends on `ambition_platformer2d`, never
+# on `ambition_app`, so the message went into a channel nothing drained. It now lives in
+# `ambition_platformer2d_runtime::sandbox_reset` and rides `PlatformerEnginePlugins` into every
+# host. What genuinely stays app-side is the reset INPUT system, because the button binding is
+# Ambition's own.
+rationale = "the reset-input binding is the app's; the replay consumer is the engine's"
+source_doc = "docs/architecture/architecture-boundaries.md"
+severity = "error"
+contains = ["fn apply_player_reset_input_system"]
+file = "game/ambition_app/src/app/sim_systems.rs"
+
+[[policy]]
+id = "engine.runtime-owns-the-room-replay-consumer"
+scope = "game"
+kind = "file-contains"
+owners = ["ambition_platformer2d_runtime"]
+watch_paths = ["crates/ambition_platformer2d_runtime/src/sandbox_reset.rs"]
+rationale = "every host must drain RoomReplayRequested, so its one ADMISSION is engine-side. `apply_room_replay_request_system` became `admit_room_replay` when the replay became a lifecycle operation that can be REFUSED: the consumer no longer performs a reset and then discovers the pending slot was taken, it decides first and announces `RoomReplayAdmitted` only on acceptance. `return_the_replay_subject_to_spawn` is the consequence half, named here so a host cannot quietly keep its own copy of either."
+source_doc = "docs/architecture/architecture-boundaries.md"
+severity = "error"
+contains = [
+    "fn admit_room_replay",
+    "fn return_the_replay_subject_to_spawn",
+    "fn reset_sandbox",
+]
+file = "crates/ambition_platformer2d_runtime/src/sandbox_reset.rs"
+
+
+# was: architecture_boundaries_abilities_live_under_abilities_layer
+[[policy]]
+id = "game.abilities-under-layer"
+scope = "game"
+kind = "required-path"
+owners = ["ambition_platformer2d_actor_monolith"]
+watch_paths = ["crates/ambition_abilities/src"]
+rationale = "player abilities live under src/abilities/"
+source_doc = "docs/architecture/architecture-boundaries.md"
+severity = "error"
+paths = ["crates/ambition_abilities/src/traversal/blink.rs", "crates/ambition_abilities/src/traversal/dive.rs", "crates/ambition_abilities/src/traversal/grapple.rs", "crates/ambition_platformer2d_actor_monolith/src/abilities/traversal/possession.rs", "crates/ambition_abilities/src/traversal/mark_recall.rs", "crates/ambition_abilities/src/ranged/beam.rs", "crates/ambition_abilities/src/ranged/meteor.rs", "crates/ambition_abilities/src/ranged/shockwave.rs", "crates/ambition_abilities/src/ranged/vortex.rs", "crates/ambition_abilities/src/ranged/volley.rs", "crates/ambition_abilities/src/ranged/bomb.rs", "crates/ambition_abilities/src/ranged/sentry.rs", "crates/ambition_abilities/src/thrown/gravity_grenade.rs", "crates/ambition_platformer2d_actor_monolith/src/abilities/thrown/puppy_slug_gun.rs"]
+
+[[policy]]
+id = "game.abilities-not-at-crate-root"
+scope = "game"
+kind = "forbidden-path"
+owners = ["ambition_platformer2d_actor_monolith"]
+watch_paths = ["crates/ambition_platformer2d_actor_monolith/src"]
+rationale = "abilities must not live at the crate root"
+source_doc = "docs/architecture/architecture-boundaries.md"
+severity = "error"
+paths = ["crates/ambition_platformer2d_actor_monolith/src/blink.rs", "crates/ambition_platformer2d_actor_monolith/src/dive.rs", "crates/ambition_platformer2d_actor_monolith/src/grapple.rs", "crates/ambition_platformer2d_actor_monolith/src/possession.rs", "crates/ambition_platformer2d_actor_monolith/src/mark_recall.rs", "crates/ambition_platformer2d_actor_monolith/src/beam.rs", "crates/ambition_platformer2d_actor_monolith/src/meteor.rs", "crates/ambition_platformer2d_actor_monolith/src/shockwave.rs", "crates/ambition_platformer2d_actor_monolith/src/vortex.rs", "crates/ambition_platformer2d_actor_monolith/src/volley.rs", "crates/ambition_platformer2d_actor_monolith/src/bomb.rs", "crates/ambition_platformer2d_actor_monolith/src/sentry.rs", "crates/ambition_platformer2d_actor_monolith/src/gravity_grenade.rs", "crates/ambition_platformer2d_actor_monolith/src/puppy_slug_gun.rs"]
+
+[[policy]]
+id = "game.app-composes-engine-plugins"
+scope = "game"
+kind = "file-contains"
+owners = ["ambition_platformer2d_actor_monolith"]
+watch_paths = ["game/ambition_app/src/app/plugins.rs"]
+rationale = "app composes the engine sim through the umbrella PlatformerEnginePlugins"
+source_doc = "docs/architecture/architecture-boundaries.md"
+severity = "error"
+contains = ["ambition_platformer2d::runtime::PlatformerEnginePlugins"]
+file = "game/ambition_app/src/app/plugins.rs"
+
+[[policy]]
+id = "game.engine-composes-abilities"
+scope = "game"
+kind = "file-contains"
+owners = ["ambition_platformer2d_actor_monolith"]
+watch_paths = ["crates/ambition_platformer2d_runtime/src/lib.rs"]
+rationale = "PlatformerEnginePlugins composes abilities through AmbitionAbilitiesPlugin"
+source_doc = "docs/architecture/architecture-boundaries.md"
+severity = "error"
+contains = ["ambition_platformer2d_actor_monolith::abilities::AmbitionAbilitiesPlugin"]
+file = "crates/ambition_platformer2d_runtime/src/lib.rs"
+
+
+# was: architecture_boundaries_lib_menu_keeps_only_the_coupled_pieces
+[[policy]]
+id = "game.lib-menu-no-host-files"
+scope = "game"
+kind = "forbidden-path"
+owners = ["ambition_platformer2d_actor_monolith"]
+# the directory itself is gone (see `game.lib-menu-gone`), so the watch has to
+# name the parent that still exists — the forbidden paths below are unchanged
+# and now also cover the directory never coming back with these files in it.
+watch_paths = ["crates/ambition_platformer2d_actor_monolith/src"]
+rationale = "lib menu should not regain app-host/backend menu files"
+source_doc = "docs/architecture/architecture-boundaries.md"
+severity = "error"
+paths = ["crates/ambition_platformer2d_actor_monolith/src/menu/model.rs", "crates/ambition_platformer2d_actor_monolith/src/menu/dispatch.rs", "crates/ambition_platformer2d_actor_monolith/src/menu/effects.rs", "crates/ambition_platformer2d_actor_monolith/src/menu/grid_backend.rs", "crates/ambition_platformer2d_actor_monolith/src/menu/kaleidoscope_app.rs", "crates/ambition_platformer2d_actor_monolith/src/menu/backend.rs"]
+
+[[policy]]
+id = "game.lib-menu-gone"
+scope = "game"
+kind = "forbidden-path"
+owners = ["ambition_menu"]
+watch_paths = ["crates/ambition_platformer2d_actor_monolith/src"]
+# moved that adapter into `ambition_menu:map`, beside the `MapMenuState` it always rendered, so
+# the requirement became false and the guard had to change SIDES rather than be deleted: the
+# monolith now owns no menu at all.
+rationale = "the actor monolith owns no menu; the Map tab lives in ambition_menu::map"
+source_doc = "docs/architecture/architecture-boundaries.md"
+severity = "error"
+paths = ["crates/ambition_platformer2d_actor_monolith/src/menu"]
+
+[[policy]]
+id = "game.app-menu-host-stack"
+scope = "game"
+kind = "required-path"
+owners = ["ambition_platformer2d_actor_monolith"]
+watch_paths = ["game/ambition_app/src/menu"]
+rationale = "app menu host stack exists"
+source_doc = "docs/architecture/architecture-boundaries.md"
+severity = "error"
+paths = ["game/ambition_app/src/menu/kaleidoscope_app.rs", "game/ambition_app/src/menu/grid_backend.rs", "game/ambition_app/src/menu/model.rs"]
+
+
+# was: architecture_boundaries_dev_overlays_live_in_app
+[[policy]]
+id = "game.lib-dev-no-overlays"
+scope = "game"
+kind = "forbidden-path"
+owners = ["ambition_platformer2d_actor_monolith"]
+watch_paths = ["crates/ambition_platformer2d_actor_monolith/src/dev"]
+rationale = "presentation-only overlays + dev-tool state/profiling moved out of the lib"
+source_doc = "docs/architecture/architecture-boundaries.md"
+severity = "error"
+paths = ["crates/ambition_platformer2d_actor_monolith/src/dev/debug_overlay.rs", "crates/ambition_platformer2d_actor_monolith/src/dev/fps_overlay.rs", "crates/ambition_platformer2d_actor_monolith/src/dev/dev_tools", "crates/ambition_platformer2d_actor_monolith/src/dev/profiling.rs"]
+
+[[policy]]
+id = "game.lib-dev-keeps-trace"
+scope = "game"
+kind = "required-path"
+owners = ["ambition_platformer2d_actor_monolith"]
+watch_paths = ["crates/ambition_platformer2d_actor_monolith/src/dev"]
+rationale = "sim-coupled trace recorder stays sim-side"
+source_doc = "docs/architecture/architecture-boundaries.md"
+severity = "error"
+paths = ["crates/ambition_platformer2d_actor_monolith/src/dev/trace.rs", "crates/ambition_platformer2d_actor_monolith/src/dev/trace"]
+
+[[policy]]
+id = "game.dev-tools-owns-state"
+scope = "game"
+kind = "required-path"
+owners = ["ambition_platformer2d_actor_monolith"]
+watch_paths = ["crates/ambition_dev_tools/src"]
+rationale = "ambition_dev_tools owns dev-tool state/profiler/persistence"
+source_doc = "docs/architecture/architecture-boundaries.md"
+severity = "error"
+paths = ["crates/ambition_dev_tools/src/dev_tools", "crates/ambition_dev_tools/src/profiling.rs", "crates/ambition_dev_tools/src/persistence.rs"]
+
+[[policy]]
+id = "game.app-dev-overlays"
+scope = "game"
+kind = "required-path"
+owners = ["ambition_platformer2d_actor_monolith"]
+watch_paths = ["game/ambition_app/src/dev"]
+rationale = "app dev overlay files exist"
+source_doc = "docs/architecture/architecture-boundaries.md"
+severity = "error"
+paths = ["game/ambition_app/src/dev/debug_overlay.rs", "game/ambition_app/src/dev/fps_overlay.rs"]
+
+[[policy]]
+id = "game.dev-consumers-use-dev-tools"
+scope = "game"
+kind = "forbidden-source-reference"
+owners = ["ambition_platformer2d_actor_monolith"]
+watch_paths = ["game/ambition_app/src", "crates/ambition_platformer2d_runtime/src", "crates/ambition_sim_view/src"]
+rationale = "external consumers name ambition_dev_tools directly; ambition_platformer2d_actor_monolith::dev keeps only trace"
+source_doc = "docs/architecture/architecture-boundaries.md"
+severity = "error"
+roots = ["game/ambition_app/src", "crates/ambition_platformer2d_runtime/src", "crates/ambition_sim_view/src"]
+forbid = ["ambition_platformer2d_actor_monolith::dev::dev_tools", "ambition_platformer2d_actor_monolith::dev::profiling", "ambition_platformer2d_actor_monolith::dev::sync_live_player_dev_edits_system"]
+
+
+# was: architecture_boundaries_map_state_consumers_use_menu_crate
+[[policy]]
+id = "game.menu-map-state-home"
+scope = "game"
+kind = "required-path"
+owners = ["ambition_menu"]
+watch_paths = ["crates/ambition_menu/src"]
+rationale = "renderer-agnostic MapMenuState lives in ambition_menu::map"
+source_doc = "docs/architecture/architecture-boundaries.md"
+severity = "error"
+paths = ["crates/ambition_menu/src/map/mod.rs"]
+
+[[policy]]
+id = "game.actor-menu-map-model-gone"
+scope = "game"
+kind = "forbidden-path"
+owners = ["ambition_menu"]
+watch_paths = ["crates/ambition_platformer2d_actor_monolith/src"]
+rationale = "actor-side map model facade deleted"
+source_doc = "docs/architecture/architecture-boundaries.md"
+severity = "error"
+paths = ["crates/ambition_platformer2d_actor_monolith/src/menu/map/model.rs"]
+
+[[policy]]
+id = "game.map-state-consumers-menu-crate"
+scope = "game"
+kind = "forbidden-source-reference"
+owners = ["ambition_menu"]
+watch_paths = ["game/ambition_app/src", "crates/ambition_sim_view/src", "crates/ambition_platformer2d_runtime/src"]
+rationale = "consumers name ambition_menu::map::MapMenuState"
+source_doc = "docs/architecture/architecture-boundaries.md"
+severity = "error"
+roots = ["game/ambition_app/src", "crates/ambition_sim_view/src", "crates/ambition_platformer2d_runtime/src"]
+forbid = ["ambition_platformer2d_actor_monolith::menu::map::MapMenuState"]
+
+
+# was: architecture_boundaries_app_menu_settings_vocab_consumers_use_lower_crates
+[[policy]]
+id = "game.actor-menu-ir-gone"
+scope = "game"
+kind = "forbidden-path"
+owners = ["ambition_app"]
+watch_paths = ["crates/ambition_platformer2d_actor_monolith/src"]
+rationale = "actor-side settings/menu IR facade deleted"
+source_doc = "docs/architecture/architecture-boundaries.md"
+severity = "error"
+paths = ["crates/ambition_platformer2d_actor_monolith/src/menu/ir"]
+
+[[policy]]
+id = "game.app-menu-settings-lower-crates"
+scope = "game"
+kind = "forbidden-source-reference"
+owners = ["ambition_app"]
+watch_paths = ["game/ambition_app/src", "crates/ambition_platformer2d_actor_monolith/src"]
+rationale = "app menu hosts import stored settings from ambition_persistence and menu IR from ambition_settings_menu"
+source_doc = "docs/architecture/architecture-boundaries.md"
+severity = "error"
+roots = ["game/ambition_app/src", "crates/ambition_platformer2d_actor_monolith/src"]
+forbid = ["ambition_platformer2d_actor_monolith::persistence::settings", "ambition_platformer2d_actor_monolith::menu::ir"]
+
+
+[[policy]]
+id = "game.providers-are-host-ignorant"
+scope = "game"
+kind = "forbidden-source-reference"
+owners = ["ambition_demo_sanic", "ambition_demo_mary_o"]
+watch_paths = ["game/ambition_demo_pocket/src", "game/ambition_demo_sanic/src", "game/ambition_demo_mary_o/src"]
+rationale = "A provider expresses one game; the HOST decides home/initial routes, launcher, and process exit. A provider that names the Ambition launcher route, the shell-hosted marker, a host crate, or issues QuitToHome/ExitProcess routing itself has grown a host dependency — the exact coupling the host-relative return contract exists to prevent. (Providers' own *_LAUNCHER_ROUTE consts are conventions their standalone hosts choose to use; naming ANOTHER host's home is the defect.)"
+source_doc = "docs/planning/engine/architecture.md"
+severity = "error"
+production_only = true
+skip_tests = true
+roots = ["game/ambition_demo_pocket/src", "game/ambition_demo_sanic/src", "game/ambition_demo_mary_o/src"]
+forbid = [
+    "ambition_launcher",
+    "AmbitionShellHosted",
+    "ambition_app::",
+    "ambition_demo_sanic_app",
+    "ambition_demo_mary_o_app",
+    "ShellCompletionPolicy::GoTo",
+    "ShellCommand::ExitProcess",
+]

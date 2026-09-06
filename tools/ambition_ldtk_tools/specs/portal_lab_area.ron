@@ -1,0 +1,93 @@
+// portal_lab — dedicated portal-physics test room (Jon 2026-06-05).
+//
+// Pre-placed, LDtk-authored static portal pairs (NOT gun-fired) for eyeballing
+// the aperture transit / partial-render math across orientations. Each station
+// is a distinct complementary color pair so it's clear which two are linked.
+// Reached from central_hub_basement via a door on a ONE-WAY PLATFORM (the ground
+// floor door row is packed) — the reciprocal door is authored by `connect_to`.
+//
+// Stations (left → right), floor top at y=900:
+//   A. Ground↔ground  (purple↔yellow) — both normals up; feet-in → tumble + reorient.
+//   B. Wall↔wall same wall (teal↔red) — both normals right; turn-around, NO somersault.
+//   C. Ground↔ceiling (green↔magenta) — opposite normals; straight through, no rotation.
+//   D. Ground↔wall    (cyan↔rose)     — perpendicular normals; feet-in floor, out the wall.
+//
+(
+    id: "portal_lab",
+    level_id: "portal_lab",
+    world_x: 46000,
+    world_y: 0,
+    px_wid: 1792,
+    px_hei: 1008,
+    fill_collision: "empty",
+    bg_color: "#141821",
+    biome: "lab",
+    connect_to: [
+        (
+            target_room: "central_hub_basement",
+            px: [1308, 512],
+            size: [48, 96],
+            id: "portal_lab_door",
+            target_zone: "portal_lab_exit",
+            activation: "Door",
+            bidirectional: true,
+        ),
+    ],
+    entities: [
+        // --- Room shell ---
+        ( type: "Solid", px: [0, 900], size: [1792, 108], fields: ( name: "floor" ) ),
+        ( type: "Solid", px: [0, 0], size: [16, 900], fields: ( name: "left_wall" ) ),
+        ( type: "Solid", px: [1776, 0], size: [16, 1008], fields: ( name: "right_wall" ) ),
+        ( type: "Solid", px: [16, 0], size: [1760, 16], fields: ( name: "ceiling" ) ),
+
+        // --- Station C: ground↔ceiling needs an overhead block ---
+        ( type: "Solid", px: [800, 180], size: [300, 40], fields: ( name: "c_ceiling_block" ) ),
+
+        // --- Station B: a free-standing pillar (a wall) for wall↔wall ---
+        ( type: "Solid", px: [1150, 360], size: [40, 540], fields: ( name: "b_pillar" ) ),
+
+        // --- Spawn + door back to the basement ---
+        ( type: "PlayerStart", px: [80, 852], size: [24, 48], fields: ( name: "start" ) ),
+        (
+            type: "LoadingZone",
+            px: [40, 804],
+            size: [48, 96],
+            fields: (
+                id: "portal_lab_exit",
+                name: "portal_lab_exit",
+                activation: "Door",
+                target_room: "central_hub_complex",
+                target_zone: "portal_lab_door",
+                bidirectional: true,
+            ),
+        ),
+
+        // ===================== Test-case portal pairs =====================
+
+        // A. Ground↔ground (both normals up) — purple↔yellow.
+        ( type: "Portal", px: [254, 891], size: [92, 18],
+          fields: ( id: "a_purple", name: "A ground-ground", color: "purple", normal: "up" ) ),
+        ( type: "Portal", px: [554, 891], size: [92, 18],
+          fields: ( id: "a_yellow", name: "A ground-ground", color: "yellow", normal: "up" ) ),
+
+        // B. Wall↔wall, SAME wall, both normals right — teal↔red. Walk into the
+        //    pillar's right face: red (standing height) → teal (up high), upright.
+        ( type: "Portal", px: [1181, 804], size: [18, 92],
+          fields: ( id: "b_red", name: "B wall-wall", color: "red", normal: "right" ) ),
+        ( type: "Portal", px: [1181, 504], size: [18, 92],
+          fields: ( id: "b_teal", name: "B wall-wall", color: "teal", normal: "right" ) ),
+
+        // C. Ground↔ceiling (opposite normals) — green↔magenta.
+        ( type: "Portal", px: [854, 891], size: [92, 18],
+          fields: ( id: "c_green", name: "C ground-ceiling", color: "green", normal: "up" ) ),
+        ( type: "Portal", px: [854, 211], size: [92, 18],
+          fields: ( id: "c_magenta", name: "C ground-ceiling", color: "magenta", normal: "down" ) ),
+
+        // D. Ground↔wall (perpendicular) — cyan↔rose. Feet into the floor, out the
+        //    right wall.
+        ( type: "Portal", px: [1404, 891], size: [92, 18],
+          fields: ( id: "d_cyan", name: "D ground-wall", color: "cyan", normal: "up" ) ),
+        ( type: "Portal", px: [1767, 654], size: [18, 92],
+          fields: ( id: "d_rose", name: "D ground-wall", color: "rose", normal: "left" ) ),
+    ],
+)

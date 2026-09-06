@@ -1,0 +1,130 @@
+[package]
+name = "ambition_content"
+version = "0.1.0"
+edition.workspace = true
+license.workspace = true
+authors.workspace = true
+description = "Ambition's named game content: quests, bosses, items, dialogue, intro, banter."
+autotests = false
+
+[features]
+default = []
+# Forwarders: the cfg(feature = "...") gates inside this crate's code key off
+# OUR feature names; each forwards to the matching ambition_platformer2d_actor_monolith machinery
+# feature so a mismatched combination is a compile error, never a silent
+# missing-registration.
+portal = ["ambition_platformer2d_actor_monolith/portal"]
+portal_render = ["portal", "dep:ambition_portal2d_presentation"]
+ui = ["ambition_platformer2d_actor_monolith/ui", "ambition_dialog/ui", "dep:bevy_yarnspinner"]
+audio = ["ambition_platformer2d_actor_monolith/audio"]
+# Embed the LDtk world JSON into the binary (web / Android / bundled builds
+# + the desktop disk-failure fallback). Forwards to the machinery feature so
+# the loader's embedded paths light up together.
+static_map = ["ambition_platformer2d_actor_monolith/static_map"]
+# Embed GENERATED content RON into the binary, the same way `static_map` embeds
+# the world JSON. OFF by default so desktop development reads it off disk: an
+# `include_str!` is a compilation input, so embedding the tool-generated music
+# registry made every `scripts/regen/music.sh` rebuild this crate and everything
+# downstream of it. Turn this ON wherever there is no filesystem to read from
+# (web, Android) or the binary ships without the source tree (Steam Deck).
+static_content = []
+# The falling-sand prototype room (bridges bevy_falling_sand into the
+# movement world). Off by default; the room plugin self-gates on its
+# authored room at runtime.
+falling_sand = ["dep:bevy_falling_sand"]
+
+[dependencies]
+# `content_pack`: this crate's own content goes through the compiler, and the facade's
+# `content::engine_schemas()` is the ONE list of engine-owned schemas it compiles against.
+ambition_platformer2d = { path = "../../crates/ambition_platformer2d", default-features = false, features = ["all_capabilities", "content_pack"] }
+# Baseline machinery features: the sandbox lib was never built fully bare
+# (ldtk/input/portal code is not end-to-end cfg-gated), so the content crate
+# pins the same always-on baseline every persona used pre-split.
+ambition_dialog = { path = "../../crates/ambition_dialog", default-features = false }
+ambition_conversation = { path = "../../crates/ambition_conversation" }
+ambition_boss_encounter = { path = "../../crates/ambition_boss_encounter" }
+# The LDtk backend, named directly. This crate reached it through the actor
+# monolith's `ldtk_world` compatibility facade, whose own doc says callers
+# should repoint to the owning crate; the edge was already here transitively.
+ambition_platformer2d_ldtk = { path = "../../crates/ambition_platformer2d_ldtk", default-features = false }
+# The MOUNT PAIR's `Mountable`, carved out of the monolith (D33): dormancy asks
+# whether a body is somebody's mount before it retires it.
+ambition_mount = { path = "../../crates/ambition_mount" }
+ambition_platformer2d_actor_monolith = { path = "../../crates/ambition_platformer2d_actor_monolith", default-features = false, features = [
+    "ldtk_runtime",
+    "input",
+    "portal",
+] }
+# The pressed collectible (D33, 2026-09-03): the portal adapters equip/unequip
+# the gun through its held-spec road and order against its throw.
+ambition_held_items = { path = "../../crates/ambition_held_items", features = ["portal"] }
+ambition_body_seed = { path = "../../crates/ambition_body_seed" }
+ambition_sprite_sheet = { path = "../../crates/ambition_sprite_sheet" }
+ambition_projectiles = { path = "../../crates/ambition_projectiles" }
+ambition_render = { path = "../../crates/ambition_render" }
+# Identity read-model for the content-owned actor overlay presentation
+# (the puppy-slug deep-dream pass reads dream participation from it).
+ambition_sim_view = { path = "../../crates/ambition_sim_view" }
+ambition_ui_nav = { path = "../../crates/ambition_ui_nav" }
+ambition_combat = { path = "../../crates/ambition_combat", features = ["content_pack"] }
+ambition_encounter = { path = "../../crates/ambition_encounter" }
+ambition_encounter_features = { path = "../../crates/ambition_encounter_features" }
+# N3.1: this crate's boss specials hold SIM STATE, so they register their own
+# snapshot codecs (`SnapshotRegistry` is a resource). netcode.md: "each sim crate
+# registers its components' serialization."
+ambition_platformer2d_runtime = { path = "../../crates/ambition_platformer2d_runtime" }
+ambition_cutscene = { path = "../../crates/ambition_cutscene" }
+ambition_asset_manager = { path = "../../crates/ambition_asset_manager", features = ["bevy"] }
+ambition_sfx = { path = "../../crates/ambition_sfx" }
+ambition_vfx = { path = "../../crates/ambition_vfx" }
+ambition_time = { path = "../../crates/ambition_time" }
+ambition_audio = { path = "../../crates/ambition_audio", features = ["content_pack"] }
+ambition_platformer2d_shared_tangle = { path = "../../crates/ambition_platformer2d_shared_tangle" }
+# `MovingPlatformSet` + `world_with_sandbox_solids` — the composited collision
+# world the portal host adapter and the arena-gate tests read (R3).
+ambition_platformer2d_world = { path = "../../crates/ambition_platformer2d_world" }
+ambition_portal2d = { path = "../../crates/ambition_portal2d" }
+ambition_portal2d_presentation = { path = "../../crates/ambition_portal2d_presentation", optional = true }
+ambition_input = { path = "../../crates/ambition_input" }
+ambition_platformer2d_core = { path = "../../crates/ambition_platformer2d_core" }
+ambition_entity_catalog = { path = "../../crates/ambition_entity_catalog" }
+ambition_characters = { path = "../../crates/ambition_characters", features = ["content_pack"] }
+# The content compiler. This provider LOADS through it: the bytes the
+# validator judged and the bytes the game runs are one read.
+ambition_content_pack = { path = "../../crates/ambition_content_pack" }
+ambition_persistence = { path = "../../crates/ambition_persistence" }
+ambition_interaction = { path = "../../crates/ambition_interaction" }
+ambition_items = { path = "../../crates/ambition_items", features = ["content_pack"] }
+bevy = { version = "0.19.1", default-features = false, features = ["ui_api"] }
+bevy_yarnspinner = { version = "0.9", optional = true }
+# Drop bevy_falling_sand's default `physics` feature: it bundles its OWN
+# avian2d `PhysicsPlugins`, which collides with Ambition's `AmbitionPhysicsPlugin`
+# ("plugin already added" panic when the falling_sand feature is on). Ambition
+# bridges particles into its own movement world (project_particles_to_movement_world),
+# not avian rigid bodies, so it only needs render/movement/reactions.
+bevy_falling_sand = { version = "0.8", optional = true, default-features = false, features = [
+    "render",
+    "movement",
+    "reactions",
+] }
+serde = { workspace = true }
+ron = { workspace = true }
+serde_json = "1"
+
+[dev-dependencies]
+# Downstream crates are unaffected; only content's dev/test profile gets the feature.
+ambition_content = { path = ".", features = ["portal"] }
+# The CLI's schema composition, so `content_pack_registry` can check it against the one the GAME
+# compiles with. Test-only: the CLI links no content and no renderer, so this costs the dev
+# profile nothing it does not already have.
+ambition_content_cli = { path = "../../crates/ambition_content_cli" }
+insta = { version = "1", features = ["ron"] }
+# The standalone Yarn compiler (same version bevy_yarnspinner pulls) for the
+# `yarn_compile` guard test — compiles the authored sources the way the
+# game's asset loader would at startup.
+yarnspinner = "0.9"
+
+# ONE aggregated integration-test binary instead of 6. See tests/content_it.rs.
+[[test]]
+name = "content_it"
+path = "tests/content_it.rs"

@@ -1,0 +1,1989 @@
+# Expressive moves — engine acceptance campaign (opened 2026-09-05)
+
+**State:** OPEN. **This file is execution order, not feature status.** The
+mechanics authority stays [`../smash-parity-inventory.md`](../smash-parity-inventory.md);
+the capability/authority map is
+[`../../engine/expressive-move-capabilities.md`](../../engine/expressive-move-capabilities.md).
+⚠ The previous campaign in this directory closed with the warning that replaying
+a campaign's chronology is actively harmful once the inventory has moved on.
+Same rule here: when a row lands, the fact goes to the inventory and this row
+becomes a receipt.
+
+Jon, 2026-09-05: **get the moveset so a 1v1 human vs human match is excellent.**
+⛔ **Explicitly deprioritised: great CPU AI.** The ladder/fighter-brain
+measurement campaign is not the work; a human opponent is.
+
+## Why these twelve
+
+Jon's list is chosen so that together they force most of the expressive surface,
+each one as an **engine acceptance fixture** rather than a character feature:
+
+| # | Proof move | What it proves |
+|---|---|---|
+| 1 ✔ | **PK-Thunder parody** — **LANDED 2026-09-05** on the Author's side-B (`author_train_of_thought`) | ⭐⭐ **IT NEEDED NEITHER INPUT DELEGATION NOR FIGHTER-CONTROL SUPPRESSION.** ⛔ And **he is NOT rooted while it flies** — I wrote that he was, in three files, and the code never agreed: the move roots him to 0.46s and the bolt lives 2.2s, a gap the guard REQUIRES so a whiff cannot pin him through his own punish window. ⇒ So **one stick does both**: walking right also steers the bolt right. The cost is not helplessness, it is DIVISION. `steer_axis()` already publishes what the PLAYER is holding as distinct from what the BODY may move by, so the caster stays rooted, keeps his own seat, and the bolt reads his live stick — steering, not possession. ⇒ The rung this row was blocked behind (A2) is not on its path. ⛔ And it did NOT need `TechniqueFlow` either: one technique, one component, one system |
+| 2 ✔ | **Counter + Revenge variant** — the stand-ins' `riposte`, and **2026-09-05 the Author's `author_second_draft`** | ⭐⭐ **"COUNTER" TURNED OUT NOT TO BE A MOVE TYPE AT ALL.** `answer_a_parry_with_the_authored_counter` dispatches `SpecialActionSpec::Special(stance.response.clone())` — fully generic — so a counter is **ANY TECHNIQUE, TRIGGERED BY A SUCCESSFUL PARRY**. Counter-into-grab (George), counter-into-teleport (the Author), counter-into-mine or -sleep are all authorable today with zero engine work. ⇒ I built this seam and then under-read it for a day |
+| 3 ✔ | **Reflector + absorber** — **LANDED 2026-09-05** as Track B's B3 | projectile interception is a projectile authority and supports more than parry reversal. ⭐ **The reflector cost NOTHING**: `step_projectiles` and the melee seam gate on the same `parrying()` window, so a stance that could counter could already return shots. The absorber cost one enum and one shield field, and is the Officer's riot shield. ⚠ This row sat unticked while its own Track B row said complete — corrected 2026-09-05 |
+| 4 ◐ | **Tether recovery + aerial tether grab** — **GROUND HALF LANDED** as Track B's B2 | terrain/body tethering composes with ledge and capture authorities. ✔ **Ground tether**: Projectile Polygon's grab reaches 150px and draws a line on both roads, for one read-model field. ▢ **The AERIAL half is NOT done** — a tether that catches a LEDGE and pulls her back is the recovery half of this row. ⭐ **AND IT IS MOSTLY ASSEMBLED ALREADY**: `TeleportParams::ledge_assist` is a shipped, authored parameter whose doc calls it *"the aim assist… the difference between a recovery and a coin flip"* — within its radius an arrival is placed STANDING on the ledge. ⇒ So "a recovery that catches a ledge" EXISTS; what a tether adds is the visible line, and `TetherVisual` landed in B2. ⚠ Its one gap: `TetherVisual` names a `body: Entity` and draws to *"where its GRAB actually reaches"*, so drawing to a teleport destination is a small extension rather than a reuse. ⛔⛔ **AND THE ROW'S TITLE NAMES TWO HALVES WITH TWO DIFFERENT BLOCKERS, which this row had been treating as one — measured 2026-09-05.** *Tether RECOVERY* (catch the stage and pull back) is the one described above, and it is mostly assembled. *Aerial tether GRAB* (catch a BODY while airborne) is blocked by something else entirely and much more specific: **every capture verb is bound `GROUNDED` at the repertoire level**, in one place — `smash_repertoire.rs`, `for (verb, spec) in capture.bound() { bound.push((verb, spec, GROUNDED)) }` — under a comment that already names this work: *"Capture moves are GROUNDED for v1 — aerial and command grabs are named future techniques, and a capture that answered an airborne press would be one of them by accident."* ⇒ So the grab half is not waiting on geometry queries at all; it is waiting on a per-fighter OPT-IN to that binding, because making every fighter's grab airborne is the accident the comment refuses. ⚠ **The opt-in is the cheap part and it is not the whole cost**: a capture that begins in the air has to say what the hold and the four throws mean with no ground under either body, and `author_standing_grab`'s name is the reminder that nobody has answered that. ⭐ Worth separating because the two halves are now unblockable in different ORDERS, and the recovery's blocker is **NOT** where this row first said it was. ⛔ I recorded it as *"`TetherVisual` needs to draw to a POINT rather than a `body: Entity`"* and that is wrong: `TetherVisual`'s `body` names the REACHER, and `place_wire` already draws to a point. ⇒ The recovery draws nothing because it PUBLISHES no reach — `MovePlayback::live_capture_reach` (`moveset/mod.rs:659`) returns `Some` only for a window whose sustain effect is `smash.capture_attempt`, and a ledge-assist recovery rides `smash.teleport`. The fix is in `ambition_combat`, not `ambition_render`. ⭐⭐ **AND THE GENERAL SHAPE IS THE FINDING**: *"where is this body reaching this frame"* is ONE fact whose derivation is a hand-kept match on ONE effect key living in the PRESENTATION read-model, so every new reaching verb — a recovery, a command grab, a wire — must be remembered there or it silently draws nothing. Effect keys are strings, so no type can make that exhaustive; the honest repairs are that a sustain effect STATES its reach, or that one guard classifies every key placing a world volume as reaching-or-not. ✔ **RELATED, AND LANDED 2026-09-05**: the capture reach formula was written **three** times, not two — `actors/update.rs` for the brain's `AttackCandidate::reach`, plus `pose_view.rs` AND `view_index.rs` for the drawn line's two roads — so the line a player reads could part company with the distance the AI aims at, with both numbers staying self-consistent and nothing failing. ⇒ `CaptureAttemptParams::reach_x()` is now the one formula, with `coverage()` beside it because a `MoveCoverage`'s `max.0` IS the reach; `live_capture_reach` hands out the REACH rather than the box, so the view sites cannot re-derive it. ⚠ The recount changed the shape: two sites read as a one-liner, three spanned three crates. The grab half, separately, wants a capture-binding gate. Neither half needs the other. ⓘ Both corrections re-derived by ToothbrushAmbition, who checked my diagnosis before spending their own crate's time on it.
+
+⛔⛔ **AND I OVER-ESTIMATED HOW ASSEMBLED IT IS — correcting my own estimate from an hour earlier on this same page.** `acquire_captures` catches BODIES and a ledge is not one, so her 150px grab cannot become a ledge tether by reach alone. The probe exists (`probe_ledge_grab_in_frame`, which could be called at a VIRTUAL position — *"could a body standing there catch a ledge"* — a legitimate reuse) ⚠ **but it has NO production caller outside its own tests**, and it wants a `&World`, so wiring it into a move is engine work rather than composition. ⇒ The honest cost of this row is a technique plus a probe adapter plus the visual extension — comparable to the bolt, not to the mine. ⭐⭐ **RE-MEASURED 2026-09-05 and the blocker SURVIVES — the first of this week's five that did.** Precisely: `probe_ledge_grab_in_frame` still has no production caller; **`ae::World` is a `Resource` nowhere in the tree**; and the ONE place `ambition_combat` builds one is the fighter brain's recovery lens (`brain/fighter/recovery.rs:149`), which assembles a *"perceived stage"* out of the AI PERCEPTION layer — deprioritised by the goal, and the wrong geometry for a human-facing move besides. ⇒ The LDtk road does publish `LdtkRuntimeSolidIndex` as a `Res`, but a smash stage is built programmatically and never passes through it. ⛔ **So the real shape of the row is not "call the probe": it is PUBLISH THE STAGE'S SOLIDS where a system can read them, or reformulate the probe to take a solid query instead of a `&World`.** That is engine work in the movement crate and it is correctly sized as such — the row was right, and now it says why. ⭐ `ledge_assist` on a TELEPORT remains the cheap way to get *"a recovery that catches a ledge"*; what it cannot give you is a tether. ⚠ Marked ◐ rather than ✔ deliberately: B2's own row says "ground tether", and reading that as the whole row is how a half-built capability gets reported as finished |
+| 5 ✔ | **Cargo command grab** — **LANDED 2026-09-05** on the goblin's down-throw | ⭐ **MOVEMENT WAS NEVER TOUCHED.** The claim was "capture and movement cooperate", and what actually happened is that capture RESTRICTS LESS: `restrict_captor_control` zeroed `locomotion` for every captor, and a carry is a hold that does not. ⇒ `carrying` rides `SmashHoldState` (the ruleset's half) rather than `CapturedBy` (the generic relation), on that component's own argument that platform-fighter rules do not belong on the relation |
+| 6 ✔ | **Remote mine** — **LANDED 2026-09-05** on Projectile Polygon's down-smash | persistent spawned identity, owner lookup, remote triggering, rollback. ⭐ **It cost one component with four fields and no new authority**: the object is a `GroundItem`, the blast is a `DamageBoxEffect`, and "where is it, whoever holds it" is `ItemWorldPos`. The mine contributes an arming clock and a decision |
+| 7 ✔ | **Parasol** — **LANDED 2026-09-05** on Pugnacious Polygon's up-B | temporary movement modifiers/controllers are expressive enough for a long-lived post-move locomotion regime. ⛔ **MEASURED 2026-09-05 AND GENUINELY MISSING** — the one open row where the search found nothing. `ActorSurfaceState::gravity_scale` is per-body but **no TIMED modifier exists**: nothing owns "this scale, for N seconds, then back". ⛔⛔ **AND THE REAL BLOCKER IS SHARPER THAN THAT, re-measured after a first pass called it "the smallest new-state row": THREE domains already write `gravity_scale` with the same save-set-restore pattern** — capture (`prior_gravity_scale`), mount (restoring from a spawn baseline) and body-seed at construction. ⇒ A fourth writer cannot simply join them: a fighter who is floating AND then grabbed has two saved priors and the restore order decides which one wins. ⭐ So the honest shape is not "add a timer" — it is **a modifier the MOVEMENT domain owns and multiplies**, which the existing writers would then compose against instead of overwriting. That is engine work in `ambition_platformer2d_core`, and it is the row where this campaign's rule bites hardest: a move may ASK for a locomotion regime and must never become the authority for it. ⛔⛔ **AND THE BLOCKER DISSOLVED ON RE-MEASUREMENT 2026-09-05 — the fourth instance this week of an obstacle that was a sentence nobody re-read.** **THE KERNEL ALREADY COMPOSES GRAVITY SCALES BY MULTIPLICATION, and has two of them:** `crates/ambition_platformer2d_core/src/movement/integration.rs:798` is `*kin_vel += frame.gravity_acceleration() * (water_gravity_scale * jump_gravity_scale) * dt` ⚠ (cited as `:773` when measured; **this row's own landing moved it 25 lines down** and put `ctx.gravity_modifier` into that very product — a citation invalidated by the commit it describes). ⇒ The *"modifier the movement domain owns and multiplies"* this row asks for is not a new mechanism — **it is a third factor in a product that already exists**, resolved onto `NormalSpineCtx` (a `Copy` read-only gating struct whose fields the caller resolves, which is exactly how `water` and `crouching` already arrive). ⭐⭐ **AND THAT IS WHY THE RESTORE-ORDER ARGUMENT ABOVE DOES NOT APPLY TO IT.** The three save-set-restore writers all feed `ActorSurfaceState::gravity_scale`, which `gravity/resolve.rs:56` folds into the frame BEFORE the kernel's product. A timed move modifier joins at the OTHER end and **saves no prior at all**, so there is nothing to restore and no order to get wrong. ⇒ The row's stated blocker was a property of the approach it assumed (become a fourth writer of that field), not of the problem. ⚠⚠ **ONE REAL HAZARD FOUND WHILE MEASURING, AND IT IS THE FAMILIAR SHAPE:** `resolve.rs` has two arms, and the PLAYER arm is `let player_response = tuning.gravity;` — **`surface.gravity_scale` is not in it.** So that field does nothing on a `PlayerEntity`. ⇒ Smash fighters are safe (measured: nothing in `ambition_demo_smash` or its app carries `PlayerEntity`, so they resolve through the actor arm), but a Parasol authored against `surface.gravity_scale` would be **inert on an exploration player** — authored, paid for, and unreachable on one of the two paths, which is this campaign's most repeated finding |
+| 8 ✔ | **Homing Attack** — **LANDED 2026-09-05** on Carl Stargan's slingshot side-B | deterministic semantic target queries and target-directed fighter motion. ⭐⭐ **AND THE TARGET QUERY WAS ALREADY PUBLIC** — `ambition_combat::targeting::assisted_fire_direction`, cone- and range-bounded, **tie-broken on the stable `SimId` rather than the `Entity`** because bevy_ggrs recreates rollback entities. ⇒ The move ASKS it every tick and owns no targeting; only the MOTION was new. ⚠ My earlier note that the query was "private to `teleport.rs`" was about `may_ambush` specifically and misread the general case. ⚠ **THE ROW SPLITS, AND THE CHEAP HALF DODGES WHAT IT WAS MEANT TO PROVE.** The TARGET QUERY exists — the teleport's ambush arrival does deterministic foe selection through `combat_relation`, *"the same call the damage side makes, so a teammate cannot become a target here after ceasing to be one there"* — but it is PRIVATE to `teleport.rs` (`fn may_ambush`), so it is built and not reusable. ⇒ A "homing attack" is authorable today as an ambush teleport plus a strike window, and **that would tick the row while skipping target-directed MOTION**, which is the half worth having. ⛔ Not doing it that way |
+| 9 ✔ | **Sing** — **COMPLETE 2026-09-05** on the Performer's neutral special | `BodyCombat::sleep_timer`, the `smash.sleep` technique and the area adapter, all guarded — and now with a customer. ⭐ **ADDED TO `the_monologue`, NOT SUBSTITUTED FOR IT**: her strike is 58×34 out in front and is unchanged to the number; the sleep is 26×26 centred on HER, wholly inside it. Everyone still gets the speech; only whoever stood next to her goes under |
+| 10 ◐ | **Limit** | character-local resource state, threshold transitions, timeout, action variants, stat modifiers. ⭐⭐ **THE METER IS SHIPPED AND I HAD THE WRONG NEAREST NEIGHBOUR.** `BodyMana { meter: ResourceMeter { current, max, regen_rate, decay_rate } }` is per-body, **rollback-canonical as `body.mana`**, published to presentation through `sim_view::facts`, ~~and already regenerating — so a first rung needs NO fill system at all.~~ ⛔⛔ **STRUCK 2026-09-05, AND IT WAS WRONG IN THE DIRECTION THAT FLATTERED THE ROW.** Measured, not read: **every `BodyMana` in the workspace is `ResourceMeter::new(100.0, 0.0, 0.0)` — regen ZERO** — and its only refill is the platformer's shrine, which no smash stage has. ⇒ A cost today buys a fixed number of uses per life and no way to earn another. **The gate was the cheap half; the FILL is a design decision and it is Jon's.** ⇒ **What is missing is the GATE**, and its shape is now located: the cost is authoring data and belongs on `MoveGates`, but the CHECK cannot go in `MoveGates::permits` — that is called from `ambition_entity_catalog`, a data crate which must not learn about body state. The check belongs at ACCEPTANCE in `ambition_combat::moveset`, where the body is in hand. ⛔ **AND THE OBSTACLE I NAMED WAS OVERSTATED — CHECKED BY COUNTING.** The sixteen-limit had already been hit and SOLVED: the body QUERY tuple reached it and nested a gesture triple to fit (now 14), while the SYSTEM itself carries 12 params. There was room, and the elegant answer Jon asked for was already sitting in the file — `guards: Query<&mut BodyShieldState>` and `jumps: Query<&mut BodyJumpState>` are BOTH spend-sites looked up by entity, so the meter became the third of exactly that shape rather than a fifteenth query member. ⇒ The earlier note said the acceptance authority is AT BEVY'S 16-PARAMETER CEILING and that its own comment says so — *"Bevy's `QueryData` tuple runs out at sixteen and this query reached it"* — so a `BodyMana` reader has to JOIN an existing grouped param rather than become a new one. ✔ **LANDED 2026-09-05 — the ENGINE half, deliberately without a priced move.** `MoveGates::meter_cost` (`#[serde(default)]`, so every move authored before it still costs nothing); `afford_meter`, the **third sibling** of `afford_recovery` and `permitted_while_held`, shaped like both on purpose — read-only, asked BEFORE any teardown, returning a plain bool; the spend at `start_move`, the one point both roads meet. ⛔ **REFUSES, NEVER SILENTLY NO-OPS** — `MoveGates`' own doc names that failure from the pirate's shark up-B: *"a rule enforced after acceptance is not a rule, it is a silent failure with a comment."* ⭐ **ROLLBACK: no schema bump.** `body.mana` is already `component-canonical` (codec snapshot + checksum projection); the cost is authored data and the spend mutates a field the codec already carries. ⚠ **NO AUTHORED CUSTOMER, AND THAT IS THE HONEST STATE OF THE ROW** — pricing a move before anything fills the meter would ship a special that works twice and then never again. The field is what any fill rule would spend. ⓘ `StoredMoveCharge` was my earlier guess at the nearest neighbour and it is the wrong one — a per-move CHARGE BANK, not a character meter ✔ **THE FILL LANDED 2026-09-05** on Jon's ruling — four independent sources (clock, damage dealt, damage taken, an authored move that charges its owner) so *"the meter doesn't push future uses of it into a box"* — and the goblin's air-down-B is priced at exactly the cap, which makes "usable when it fills" a NUMBER rather than a mechanism. ⛔⛔ **AND THE FILL SHIPPED A ROLLBACK DIVERGENCE, which is the part worth keeping:** `fill_limit_meters` sat in `ContentSpecials`, INSIDE `Materialize` and therefore BEFORE `Resolve`, so it read `ResolvedBodyHit` out of Bevy's SECOND buffer — the previous frame's. GGRS clears that buffer at load, so the leftover the original pass consumed was absent from the resimulation and `BodyMana` diverged at frames 22/23/24. ⭐ `clear_message_on_rollback` does NOT rescue it, and the channel WAS registered: clearing makes a LATCHING reader safe, not an ACCUMULATING one. Setting a bool twice is setting it once; `+=` twice is not. ⇒ The damage half now lives in `ContentFlavor` (between `Resolve` and `Settle`), the authored half stays in `ContentSpecials`, and each is wrong in the other's phase. ✔ **AND "ACTION VARIANTS", the fourth item in this row's own proof list, LANDED 2026-09-05** as `MoveGates::when_refused`: a refused press runs the move its author named instead of producing silence. One hop, gated like any other move, on BOTH acceptance roads through a single shared predicate. Its authored customer is the goblin's UNCHARGED dive — the Limit dive's own earlier self, cloned before the price and the buff — so a player who never fills the meter has exactly the goblin they always had. ⇒ The dead button this row's earlier text called *"the next rung"* is closed. ✔ **AND THE TIMEOUT LANDED 2026-09-05** as `LimitMeterFill::decay_per_second`, the fifth independent source and the only one that SUBTRACTS — the Limit that must be spent rather than banked. ⛔⛔ **IT IS NOT `ResourceMeter::decay_rate`, WHICH IS THE OBVIOUS HOME AND IS INERT.** `ResourceMeter` implements decay in `tick_decay`, and measured 2026-09-05 **nothing ticks a fighter's `BodyMana` at all** — the only `tick_regen` caller in the workspace is a PROJECTILE's own meter. ⇒ Authoring `decay_rate` on a body would write a rule no system reads, and `LimitMeterFill::problems()` said the opposite in as many words until this row corrected it. The fill system IS this meter's tick, so the rate lives beside the rate it mirrors. ⚠ **ZERO IN JON'S BASELINE** — he asked for four rising sources and no decay, so the shipped goblin still banks; this is a lever, not a change to what the demo does. Its validator refuses only the UNARGUABLE dead meter (a decay at least as fast as the clock with no damage source), because against damage the question is a match rather than a number. ⚠ **WHAT THIS ROW STILL OWES:** **STAT MODIFIERS** — the Limit buys a bigger MOVE, not a temporarily stronger FIGHTER. That is the one item of the five in this row's proof list with no customer, and it is ◐ rather than blocked because a 1v1 does not need it.|
+| 11 ◐ | **Free-standing ally summon** | summon is not synonymous with mount; first owned-secondary-actor contract. ⭐⭐ **THE ENGINE ALREADY AGREES — measured 2026-09-05.** `Effect::Summon`'s spec carries `ridden_by_summoner: Option<SummonedRide>`, so **`None` IS a free-standing summon**, with `faction`, `health` and `keeps_contact_damage` already on it. The shark is the `Some(..)` case. ⇒ Summon and mount were never synonymous in the ENGINE; they are synonymous in the AUTHORING, because `author_summon_ride` is the only path and it always rides. ⇒ What is actually owed: a technique that asks for the un-ridden case, plus a LIFETIME (the spec has none — the shark's `seconds` is the RIDE's) which the mine and plate show costs one component with a clock. ⛔ **NOT BUILT, and the reason is the goal rather than the cost:** a summoned ally's value in a 1v1 human match is whatever its own BRAIN does, and CPU AI is explicitly deprioritised. A cheap row whose payoff sits behind a deprioritised one is not the next row |
+| 12 ✔ | **Reusable launch object** — **LANDED 2026-09-05** on Bob's down-B, additive to his slam | a fighter can create a persistent world actuator another fighter interacts with. ⭐ **AND THE WORD THAT MATTERS IS *ANOTHER***: the plate throws ANYBODY who steps on it, its dropper and his opponent alike — a plate that served only its owner would be a second recovery wearing an object's clothes. ⛔ THREE clocks and a use count, all rollback state. ⓘ Originally: **no placed launcher exists.** `PogoPolicy` is the nearest and is a different thing — bouncing off a body you HIT, not off an object somebody placed. ⭐ But the mine proves the spawning half is cheap (`GroundItem` + a seat-owned component), so what this row really needs is the ACTUATOR contract: a thing that launches whoever touches it, including its owner |
+| 13 ✔✔ | **Portal recovery** (Jon, added same day) — **LANDED 2026-09-05** on Alice's up-B, **and the ANGLED half completed the same day** | an authored customer places linked world portals and traverses them. ⭐⭐ **Jon's second sentence is now built too**: *"we can even exercise angled portals with directional input on the up b as a flavor that isn't actually in smash and is ours."* `tilt_degrees` was `0.0` in every literal in the tree — the parameter existed, the code applied it, nobody ever set it — and the player's own stick now leans the shaft ±32°. ⇒ **It reuses `MovePlayback::aimed_stick`, the LATCHED UNDAMPED aim the teleport already reads**, so no new authority: an aimed special is rooted, and a live stick read would be neutral for the whole move |
+
+⭐ **Sanic's spring analogue is a SPEED BUMP** (Jon): he slams down a ridiculous
+yellow-and-black speed bump that catapults anyone who touches it. On the ground
+it stays as the reusable launcher; in the air he drops it and it falls as an
+object/hazard. Same mechanical role, its own joke.
+
+## Roster assignments — who each proof move is FOR
+
+Jon, 2026-09-05, in the same breath as *"we have a lot of characters with boring
+specials, and when we build the code for these we should exercise them in the
+characters."* ⇒ **Every rung lands on a real fighter.** That is acceptance
+clause 2 for each row, pre-answered.
+
+⇒ **Whose moves these are is recorded in [`../moveset-reviews.md`](../moveset-reviews.md)** — the maintainer-authored list, the agent-designed list, and what he has asked for that is not done. A roster slot moving between those lists changes what a polish pass may do to it.
+
+| Fighter | Move | Proof rung |
+|---|---|---|
+| **Swordies** | **counter** | 2 — successful-defense consequence (B1) |
+| **Projectile Polygon** | **tether**, and probably the **remote mine** as down-smash | 4 and 6 |
+| **Performer** | **Sing** | 9 |
+| **Author** | **side-B: the "mind" attack**, PK-Thunder style | 1 — the keystone |
+| **Alice** (provisional) | **up-B: a portal recovery** | ✔ LANDED 2026-09-05 (`9444800b7`) |
+
+⚠ **PLACEMENT IS PROVISIONAL AND SAID SO** — Jon: *"We can tune who the moves
+belong to later. The important thing is that they can be expressed and authored
+easily and creatively."* ⇒ A rung is finished when the move is EASY TO AUTHOR,
+not when it is on the right fighter. Do not spend a decision on the roster slot;
+do spend it on whether a second fighter could take the same move by authoring
+alone.
+
+### Sing is one field, because the control lock is already generic
+
+⭐⭐ **MEASURED 2026-09-05, and it confirms Jon's hypothesis exactly.** He wrote
+that a Disable-style *"you cannot act for this duration"* may already be
+expressible through the existing combat/control lock machinery. It is, and the
+seam has a name: `attack_support.rs`'s `hard_lock_timer` is a `max()` over four
+NAMED causes — the knockback/landing locks a body owns, the dizzy a broken guard
+owes, the shieldstun a blocked hit charges, and shield-drop lag. Its comment
+calls them *"three facts that remove control outright"* and then adds a fourth,
+which is a seam that has already been extended once.
+
+⇒ **So a sleep is a fifth timer joined to that max.** `BodyCombat::hard_lock_timer()`
+is itself `recoil_lock_timer.max(landing_lag_timer)`, and
+`decay_reaction_timers` already ticks every reaction timer on that component —
+so a `sleep_timer` field costs one line in each and inherits the decay.
+
+⭐ **Wake-on-damage falls out too**: the hit path already touches `BodyCombat`,
+so clearing the timer there is where a wake belongs, next to the reaction timers
+it sits beside.
+
+⚠ **WHAT THIS DOES NOT BUY, and Jon named both:** the specific POSE and the MASH
+escape. Those are what make a sleep richer than a Disable, and neither is
+expressible as a timer in a max. ⇒ A first version without them is honest and
+playable; it is a Disable wearing Sing's name, and the row should say so rather
+than claim the mechanic is finished.
+
+✔ **BUILT 2026-09-05 exactly as costed** — `BodyCombat::sleep_timer` folded into
+`hard_lock_timer()`, ticked by the shared decay, cleared by `reset()`, and woken
+by a real hit inside the windbox guard (a flinchless gust declines to charge
+stun, so it must not discharge a sleep either). `smash.sleep` is the authored
+key; `apply_authored_sleep` finds the bodies in range. Three poisons fire: the
+singer caught by their own song, songs that STACK instead of taking the longer,
+and an ignored area.
+
+⛔⛔ **AND IT HAS NO AUTHORED CUSTOMER, WHICH MEANS THIS ROW IS NOT DONE BY THIS
+PAGE'S OWN BAR.** Jon assigned Sing to the Performer, and she already has all
+five specials — including `the_monologue`, which is a proto-Sing that holds the
+room with FIXED KNOCKBACK and holds her too. ⇒ Turning that into a real status is
+a BALANCE change to shipped, documented content: adding the sleep on top makes
+the move much stronger, and replacing the knockback removes the hit. Neither is
+mine to decide, so the seam is registered and tested and the move is not
+authored. ⚠ Do not read the ✔ as "Sing ships".
+
+⛔ **Do NOT reach for `break_timer`.** It is the shield-break dizzy, presentation
+draws it as one, and overloading it would make "why is this fighter helpless"
+have two answers — the one-authority failure this campaign keeps finding. The
+lock seam is generic; the CAUSE must stay its own fact.
+
+### The portal recovery — Jon's, and not a Smash move at all
+
+> *"up b opens a portal under him, and a portal at the very top of the stage, and
+> when he falls into it he comes out the higher portal (or vice versa, it's a
+> portal so just use the portal crate rules, we can even exercise angled portals
+> with directional input on the up b as a flavor that isn't actually in smash and
+> is ours)."*
+
+⭐ **This is the "author a customer for a shipped primitive" pattern in its
+purest form**, which the D72 row measured as almost always the real next slice.
+`ambition_portal2d` exists with link groups and portal rules; a recovery that
+places a linked pair and falls through it should be authoring plus a technique
+key, not portal physics. ⇒ **Use the portal crate's rules rather than
+re-deriving recovery behaviour** — if the fighter's traversal through a portal
+does not already work, that is a finding about the portal seam, and it is worth
+more than the move.
+
+✔ **COSTED 2026-09-05 — it really is authoring plus a technique key, checked
+against the crate rather than hoped.** `PlacedPortal` is a **Component**, so
+placing one is a `spawn`; `PlacedPortal::fixed(channel, pos, normal, half_extent)`
+is the static (unhosted) constructor that fixtures and placement sites already
+use; and `PortalChannelColor::Indexed(n)` documents its own pairing rule —
+*"even = slot A, odd = slot B; the partner is `Indexed(n ^ 1)`"*, with indices
+`8..` reserved for exactly this kind of extra pair. ⇒ **A move-placed pair is two
+spawns on `Indexed(n)` and `Indexed(n ^ 1)`**, and the portal crate's own transit
+rules carry the fighter through — which is the point of using it rather than
+writing a recovery.
+
+⇒ **The slice, in the order it should be built:** a `smash.portal_pair` technique
+carrying rise, half-extent and (later) an angle; a smash-side adapter that spawns
+the two apertures — one under the fighter with an upward normal, one at the stage
+top facing down; and a LIFETIME, because a recovery that leaves a permanent hole
+in the stage is a different move. ⚠ The lifetime is the part with no obvious
+answer yet: close on move end, on first transit, or on a timer are three
+different mechanics, and that is a design call rather than a wiring one.
+
+ⓘ The angled variant (directional input on the up-B tilting the pair) is
+explicitly OURS rather than genre parity. It is also the cheapest possible test
+of whether the portal placement seam takes an authored orientation, so author
+the straight version first and let the angle be the second commit.
+
+## Sequencing — two tracks, because the keystone is not the fun
+
+The twelve are not in build order. **1 is the architectural keystone and 2–5 are
+the fun**, and they do not depend on each other, so they run as two tracks.
+
+### Track B — playable depth that needs NO new engine rung
+
+Taken first, because each lands as something two humans can feel in a match and
+none of them waits on `TechniqueFlow`.
+
+- ✔ **B1. Successful-defense consequence — THE PARRY HALF IS DONE AND GENERAL,
+  and the row's ▢ was stale.** `ParriedBodyHit` is published and rollback-registered;
+  `answer_a_parry_with_the_authored_counter` finds the window under the clock and
+  dispatches the stance's authored `response` with its own params. ⭐⭐ **And the
+  generality is proven by CONTENT, not by argument: four shipped stances answer
+  with four different KINDS** — the Author with a teleport (reposition), the
+  ninja with sleep (status), Emmy with vitality (a heal), the Officer with a
+  capture (a grab). `CounterParams::response`'s own doc says why there is no
+  `CounterKind`: *"A KEY, NOT A KIND… nothing in the engine needs to know which
+  of those it is."* ⇒ The row's *"unlocks ordinary counters, Revenge-style
+  stacking and Witch-Time-style application as pure composition"* is not a
+  promise; it is four authored fighters. Guarded on the SHIPPED riposte with an
+  outside-the-stance control.
+  - ⛔⛔ **BUT "DEFENSE" IS BROADER THAN "PARRY", AND THE BLOCK HALF IS GENUINELY
+    ABSENT.** `BlockedBodyHit` exists and is read in exactly ONE place — to set
+    `blocked_hit` on the **attacker's** playback for `OnBlock` cancels. **Nothing
+    gives the DEFENDER a consequence for a successful block**, so the soft read
+    (a shield that punishes chip pressure) has no vocabulary at all where the
+    hard read has four.
+  - ⚠ **I BUILT IT AS A MOVE WINDOW AND THEN REVERTED IT, and the measurement is
+    the deliverable.** A `DefenseAnswered::{Parry, Block}` field on
+    `CounterParams` compiles and dispatches cleanly — but a counter stance is a
+    MOVE, and in this engine a move and a raised guard are alternative states.
+    Measured: `BodyShieldState::active` is driven by `input.shield_held` alone and by no
+    move; `spend_out_of_shield` drops AND locks the guard whenever a body acts
+    from one. ⇒ The only input that reaches a live stance window with a raised
+    shield is *"cast the stance from neutral, THEN hold guard"* — reachable
+    (`shield_blocks_hit` never consults `MovePlayback`), and odd enough that
+    nobody would find it.
+  - ⭐ **So the finding is the carrier, not the field: a block-answer is
+    SHIELD-scoped and a counter stance is MOVE-scoped, and they do not compose.**
+    The right home is a character-level defensive property — *"while this
+    fighter guards, a successful block does X"* — which is a bigger row than a
+    param and deserves to be sized as one rather than smuggled in as a field
+    whose only reachable input is a curiosity. ⇒ Shipping it as a window would
+    have been the fourth *"authored, paid for, and unreachable"* on this page,
+    and this time before anyone else had to find it.
+- ▢ **B2. Ground tether grab** — authoring plus line presentation only.
+  `CaptureAttemptRequested` already takes an authored reach volume.
+  ✔ **THE REACH LANDED 2026-09-05** on Projectile Polygon — her grab, not a
+  special, because in the genre a tether IS the grab and she is the roster's
+  ranged identity. 150px along the facing, with the vertical extent cut from
+  16px to 10px so the reward is distance and the price is precision.
+  ⛔ **The guard that was supposed to catch it could not see her**: the demo's
+  ceiling walks two movesets and `ambition_demo_smash` does not depend on
+  `ambition_content`. A sibling now walks `authored_movesets::tables()` and holds
+  a named TETHER allowlist rather than a raised ceiling — so one fighter having
+  a tether is a reviewed fact, not a loosened rule for everybody.
+  ✔ **THE LINE LANDED 2026-09-05**, and it is the fourth customer of
+  `flyline.rs`'s procedural-visual shape exactly as this row predicted — same
+  sprite, same `place_wire`. ⭐ Published as a POINT
+  (`BodyPoseView::grab_reach` / `FeatureView::grab_reach`) resolved from
+  `MovePlayback::live_capture_reach()`, so presentation never re-derives the
+  reach from authored params it should not read. ⛔ Drawn on BOTH roads, with
+  the actor arm poison-verified against the trapdoor's own defect.
+- ✔ **B3. Projectile interception as a projectile-domain operation** (proof move
+  3). ✔ **THE OPERATION LANDED 2026-09-05** (`projectile/intercept.rs`):
+  `ProjectileInterception::{Reflect, Consume}` and `intercept_projectile`, with
+  the parry as its first caller. It touches exactly three of the six axes —
+  combat owner, allegiance, trajectory — and emits NO cues, because a parry
+  clangs where a reflector hums and an absorber swallows. Returns whether the
+  shot SURVIVED, which is the distinction an absorber needs on its first line.
+  ⛔ `Redirect` deliberately absent: no customer, no test, and a third variant
+  nothing calls is the speculative peer authority this campaign exists to avoid.
+  ⭐⭐ **AND THE REFLECTOR TURNS OUT TO BE ALREADY SHIPPED, BY COMPOSITION —
+  found 2026-09-05, no work.** `step_projectiles` gates its parry on
+  `shield.parrying()`, and its comment says so in place: *"The SAME catch the
+  melee strike seam resolves, from the other route a strike arrives on: one
+  fact, both roads."* The counter stance (`smash.counter`) opens exactly that
+  window. ⇒ **A fighter standing in `riposte` reflects an incoming shot**, with
+  the projectile re-owned and its velocity reversed, because both roads read one
+  predicate. Proof move 3's reflector half needed no move and no engine change;
+  it fell out of proof move 2.
+  ~~⚠ **BY CONSTRUCTION, NOT BY TEST**~~ ✔ **THE JOIN IS GUARDED, and this
+  warning is now stale** — `an_open_parry_window_reflects_a_shot_and_takes_it_over`
+  drives the real `step_projectiles` against an open window and asserts both the
+  reversed velocity AND the taken-over `ProjectileOwner`. ⛔ **Poisoned with the
+  row's own named mistake** — `caught = shield.parrying() && shield.active` — and
+  it reddens.
+  ⭐⭐ **AND A CONTROL WAS STILL MISSING, ADDED 2026-09-05 AT A PEER'S ASKING:
+  a CLOSED window must not reflect.** The reflect and absorb arms control each
+  other on the MODE, but both stand in front of an OPEN window — so neither could
+  see a gate that became always-true. **Demonstrated, not argued:** with
+  `caught = true` the open-window test still prints `ok` and only the new arm
+  fails, *"so the gate is not the window and every fighter reflects for free"*.
+  ✔ **And `Consume` has FOUR authored customers**, not none — the ninja, the
+  Officer, the Author and Emmy all arm `absorbs_projectiles`, and
+  `an_absorbing_parry_consumes_the_shot_rather_than_returning_it` uses the
+  reflect arm as its control. ⇒ **B3 is complete: operation, reflector, join,
+  control, customers.**
+- ✔ **B4. Per-action muzzle transform + sustained charge presentation** — **SMASH HALF COMPLETE**; what remains is exploration-scoped.
+  ✔ **THE MUZZLE LANDED 2026-09-05.** `Muzzle::Offset { x, y }` joins `BodyOrigin`
+  and `Hand`, as FRACTIONS of body height (the decision `HAND_OFFSET_NORM` already
+  made), facing-flipped and resolved through the acceleration frame. Projectile
+  Polygon's charge shot now leaves the head-mounted cannon that this repository
+  described in three separate files while the code fired from her midriff.
+  ⭐ **The resolution is a function (`muzzle_world_pos`) so it can be ASKED** —
+  inline in the fire system, the only way to check that an authored muzzle moved
+  anything was to stand up an app, a body, a weapon and a shot, which is why
+  nothing did.
+  ▢ **AND THE SECOND HALF TURNS OUT TO BE THE SAME DEFICIENCY, not a separate
+  one — measured, and it revises the row's premise.** The charge presentation is
+  ALREADY sustained: `draw_player_projectile_charge` despawns and respawns the orb
+  every frame from `BodyPoseView::charge_tier`, tracking the presented body and
+  scaling by tier. It is not a point VFX event. ⇒ What is wrong with it is the
+  same thing that was wrong with the shot: it draws at a HARDCODED body offset
+  (`size.x * 0.5 + 6.0`, `size.y * 0.20`), so the orb forms at the hip while the
+  shot now leaves the cannon.
+  ⛔⛔ **ANSWERED 2026-09-05 — AS TWO DEFECTS, NOT ONE, AND MY FIRST ANSWER
+  CONFLATED THEM.** This repository has THREE charge concepts and I read one as
+  another:
+  * the **exploration fireball** — `PlayerProjectileState::charging`, published as
+    `BodyPoseView::charge_tier`, drawn as the orb by
+    `sync_projectile_charge_visuals`;
+  * the **smash-attack** charge — `MovePlayback`'s, published as
+    `BodyPoseView::smash_charge`, which drives audio cues in `body_cues.rs`;
+  * the **ranged-action** charge — `RangedCharge` on a `RangedActionSpec`, which
+    is Projectile Polygon's.
+  ⇒ **The orb was never hers.** `RangedCharge::visuals` is documented as "one
+  `ProjectileVisualId` per tier": it changes how the FIRED SHOT looks, not how the
+  fighter looks while holding it.
+
+  ▢ **DEFECT ONE — the orb never renders in a versus match.** It is gated
+  `With<PlayerEntity>`, and every PRODUCTION insertion of that marker is
+  `PlayerIdentityBundle` inside `PlayerSimulationBundle`, which hardcodes
+  `PlayerSlot::PRIMARY` and `PrimaryPlayer`; the four others are all inside
+  `#[cfg(test)]` modules, checked one at a time. There is no `FeatureVisual`
+  counterpart. ⭐ This is exactly the defect `flyline.rs` names in bold — *"what
+  happened to the trapdoor, and every test it had spawned a `PlayerVisual`, so
+  none of them could fail."* Real, and about the fireball rather than about smash.
+
+  ⛔⛔ **"DEFECT TWO" WAS WRONG AND IS RETRACTED — the fact IS published.**
+  I claimed a held ranged charge publishes nothing. It does.
+  `charge_shot()` authors `smash_charge: Some(SmashChargeSpec { … })` with
+  `ChargeGesture::Special`, so `MovePlayback.charge` is populated while she holds;
+  `smash_charge_fraction()` reads that same `MoveCharge`; and
+  `BodyPoseView::smash_charge` publishes the fraction every tick she is charging.
+  ⇒ The name is smash-flavoured and the FACT is general — which is the second time
+  in this same investigation I read a name as a scope.
+
+  ~~▢ **WHAT IS ESTABLISHED**~~ ⛔⛔ **AND THAT PREMISE IS WRONG TOO — MEASURED
+  2026-09-05.** `FeatureView` does carry no charge field. But **a match fighter
+  does not take the feature road for its pose**: `rebuild_body_pose_views` filters
+  `Or<(With<PlayerVisual>, With<PosedBody>)>`, and
+  `character_runtime/presentation.rs` inserts `PosedBody` on **every granted
+  character body** — its own comment says *"EVERY GRANTED CHARACTER BODY PUBLISHES
+  ITS POSE READ MODEL… without this marker the read model was gated on
+  `PlayerVisual`, which only the exploration player's avatar ever receives, so no
+  match fighter had one."* ⇒ **The fact reaches every fighter, on `BodyPoseView`,
+  and has since that widening.**
+
+  ✔ **SO THE SMASH-RELEVANT HALF OF B4 IS COMPLETE, and the charge is READABLE
+  by an opponent at both ends:** `body_cues.rs` turns `smash_charge` into audio,
+  and `SMASH_CHARGE_CLIP` is a sheet row — **authored in all seven humanoid clip
+  sets** (`smash_charge.clip.json`) and present in the generated sheets. ⇒ A
+  charging fighter both sounds and looks like one.
+
+  ⚠⚠ **AND I NEARLY PUBLISHED "ZERO FIGHTERS HAVE A CHARGE TELL" FROM THE WRONG
+  CORPUS.** Grepping `game/ambition_content/assets/**.json` for `smash_charge`
+  returns **0** — the clips live in `tools/ambition_sprite2d_renderer/.../clips/`,
+  which is where the art pipeline authors them. ⇒ Same shape as the `tests.rs`
+  census earlier on this page: **a count is a statement about the corpus you
+  chose**, and a zero is the cheapest possible way to be confidently wrong.
+
+  ⇒ **What genuinely remains is EXPLORATION-scoped, not smash-scoped** — the
+  fireball orb's `PlayerEntity` gate, and `FeatureView`'s missing field for things
+  that really are features. Neither blocks a 1v1 match, and the row should not be
+  read as if they did.
+  Consumers of `smash_charge` today: `emit_smash_charge_cues` (audio) and a
+  `hit_flash` overlay fed from anim frames.
+
+  ⛔⛔ **AND THE HONEST LIMIT: I DID NOT ESTABLISH WHAT A PLAYER ACTUALLY SEES.**
+  Three times in this one thread I inferred a user-visible outcome from code
+  structure and was wrong twice — the orb was the fireball's, and the "unpublished"
+  fact was published under another name. ⇒ **Whether a charging fighter reads as
+  charging in a versus match is a question for RUNNING THE DEMO**, not for another
+  grep, and the next person on this row should start there. The structural finding
+  above stands on its own and does not need that answer.
+
+### ✔ CLOSED 2026-09-05: a match now owns the end of what it created
+
+Jon, 2026-09-05, playing it: *"I also notice that a mine laid in a match still
+persists into the next match, that sounds like an issue with architecture
+expression. Ending a match should be cleaning everything up, don't hack in a
+solution to this, we need to find the right solution."*
+
+**Measured the same day, and it is all five rather than the mine alone.** The
+smash ruleset spawns into the world at
+`game/ambition_demo_smash/src/bomb.rs:115`, `bolt.rs:129`, `mine.rs:212`,
+`game/ambition_demo_smash/src/portal.rs:187` and `spring.rs:120`, and **no system despawns any
+of them at a match boundary** — a grep for a despawn keyed on a match, round,
+reset or end finds nothing. Each object ends only by its own rule: a fuse, a
+trigger, a lifetime, a caster's next cast. A match ending is not one of those
+rules, so anything still waiting when the match ends is still waiting when the
+next one starts.
+
+⭐⭐ **AND THE VOCABULARY ALREADY EXISTS — measured 2026-09-05, which makes Jon's
+"issue with architecture expression" exactly right in a sharper way than first
+recorded.** `ambition_platformer2d_shared_tangle::lifecycle::SpawnScopedExt` is
+described in its own doc as *"Spawn helpers that make entity lifecycle policy part
+of the CALL SITE"*, and it ships two lifetimes: `spawn_room_scoped` (retired when
+the room unloads) and `spawn_mode_scoped` (despawned when the active room's mode
+changes). ⇒ **All five smash spawn sites use a plain `commands.spawn` and opted
+out of that vocabulary entirely.** A MATCH is finer than a MODE — the smash mode
+persists across matches — so even a site that had used the existing helper would
+still leak. The missing rung is a match-grained lifetime beside the room- and
+mode-grained ones, expressed the same way.
+
+⭐ **THE DIAGNOSIS IS THE ONE JON NAMED: nothing expresses "this belongs to the
+match".** The identity already exists and is already rollback-registered —
+`ambition_match::MatchInstance`, with `ActiveMatch` beside it — and the codebase
+already uses it for exactly this KIND of question: `MatchAbandonRequest` is
+waived from rollback with the reasoning that it is *"scoped by `MatchInstance`
+instead of rewound"*. What is missing is not an identity. It is that a spawned
+object never records which match it belongs to.
+
+⛔ **AND THE HACK TO REFUSE IS THE OBVIOUS ONE**: adding a despawn to each of the
+five systems, or one sweep that knows the five component types. Both put the end
+of a match's objects in N places that must each remember, which is how the mine
+came to outlive a match while the fighters did not. The next technique authored
+would be the sixth thing to forget.
+
+⇒ **THE SHAPE THAT FITS THIS CODEBASE** (proposed, not built): a match-scoped
+lifetime the MATCH authority owns — a marker carrying the `MatchInstance` that
+created the entity, stamped once at spawn, and ONE system that despawns anything
+whose instance is not the active one. Then a new technique gets cleanup by
+spawning with the marker rather than by remembering a rule, and the question
+"what ends when a match ends" has a single answer to read.
+
+⚠ **WHAT IT COSTS, honestly:** the marker is new rollback state — a component
+registration, a schema bump and the five ledger rows that go with it — and the
+despawn rule has to be deterministic under rewind (comparing to the active
+instance is, since both sides rewind). ⚠ It also needs a decision this page
+cannot make: whether the rule is "not the active match" or an explicit teardown
+beat, which differ when a match is abandoned mid-frame rather than decided.
+
+✔ **LANDED THE SAME DAY as `MatchScoped` (schema v163).** The marker is stamped
+at each of the five spawn sites and swept by `sweep_objects_from_ended_matches` in
+`CombatSet::Trigger` — the earliest combat phase, so a stale object is gone before
+a fighter can trip it rather than being removed during a tick that already used
+it. ⭐ Registered because BOTH sides of the comparison must rewind: `ActiveMatch`
+already did, and an unregistered marker would be lost on any restore, leaving the
+objects it marks permanently unsweepable — cleanup that silently stops working
+after the first rollback. ⚠ The rule is *"not the active match"* rather than *"a
+match ended"*, which also answers the abandonment case this row flagged as
+undecided: an identity comparison does not care how the last match finished, and
+between matches nothing belongs at all.
+
+✔ **THE ACCEPTANCE CRITERION IS NOW A LIVE GUARD**:
+`a_match_cleans_up_what_it_created::nothing_a_match_created_survives_into_the_next_one`
+(`ambition_demo_smash_app`, no longer ignored). It places a mine through the
+authored technique during a one-stock match, runs the match out, starts another,
+and asserts the object is gone. ⛔ It failed once for the WRONG reason and that is
+the lesson: the first version SPAWNED a bare `PlacedMine` by hand in the name of
+being fix-agnostic, and kept failing after the fix landed — correctly, because an
+entity the ruleset never created carries none of what the ruleset stamps on its
+own objects. A test that plants its subject outside the mechanism is asking about
+a different object.
+
+⭐ **FIX-AGNOSTIC ON PURPOSE.** It plants the object by hand and asks only whether
+it survived the boundary, so it holds whatever mechanism is chosen — the marker
+proposed above, an explicit teardown beat, or something neither of us has thought
+of. A test written against the proposed marker would need rewriting if the design
+changed, which is the wrong thing to ask of an acceptance criterion.
+
+⚠ `#[ignore]` rather than a red suite, because a permanently failing gate teaches
+people to skip it. Both its vacuity holes are closed: it asserts the FIRST match
+seated before planting, and the SECOND seated before concluding anything
+survived — without those, "the object is still there" is equally true of a world
+where no match ever started.
+
+### ▢ NEW ROW (Jon, 2026-09-05): a minimap when the camera zooms out
+
+> *"Also thinking about the off the stage issue with the camera. In smash if the
+> camera zooms out too much a minimap appears. Do we have that feature on our
+> list? If not we should add it."*
+
+**Answer: no, not for a stage.** ⇒ Added here.
+
+⭐ **AND AN AUTHORITY ALREADY EXISTS, but it is not obviously the right one and
+that is the first question rather than an assumption.** `ambition_menu::map`'s own
+doc: *"Map / minimap state AND the Map tab that renders it… the visited-room set,
+per-room geometry (`MapRoomNode`), open/minimap toggles, and the clamped zoom
+level… a host-owned UI adapter can render it as a full map, minimap, or menu
+tab."* It already has a minimap toggle and a zoom, and the rule for this campaign
+is to reuse an authority rather than add a peer.
+
+⚠ **What does not obviously fit**: its content is a VISITED-ROOM GRAPH, and a
+platform-fighter overview is one stage's geometry plus where four fighters are
+right now. The shape a player wants is closer to Smash's own answer — the camera
+zooms to hold everyone, and past some limit a fighter is drawn as a marker
+instead of a body.
+
+⇒ **The row's first job is therefore a measurement, not a build**: does
+`MapMenuState` carry a stage as a room node with live actor positions, or is its
+geometry authored-room-shaped only? If the former, this is an adapter; if the
+latter, the honest question is whether a stage overview is the same feature at
+all.
+
+ⓘ **Related and already true**: the smash ruleset's blast margins are its own
+(`CEILING_BLAST_MARGIN_PX` 240, `SIDE_BLAST_MARGIN_PX` 400,
+`FALL_BLAST_MARGIN_PX` 240), so "how far offstage can a fighter be" is a number
+this ruleset already owns and any overview threshold can read.
+
+### The acceptance test, answered with a number
+
+Jon set it: **"EASE OF AUTHORING is the acceptance test."** The campaign has been
+reporting what each rung COST TO BUILD and never what it costs to USE, which is
+the half he actually named.
+
+**Measured 2026-09-05 at `b2acd849f`, re-derivable with `python3 scripts/authoring_surface.py`:**
+
+> **19 authored technique params across 16 modules; 1–10 fields, median 4.**
+
+⇒ To give a fighter a remote mine, a portal recovery, a counter, a sleep, a
+steered bolt or a Limit fill, an author names the technique's key and fills a
+params struct whose median size is **four fields**. Nothing else is owed: no new
+system, no schedule row, no rollback registration, no new component. That is what
+"the authorities were there and what was missing was coordination" cashes out to
+at the authoring surface.
+
+⚠ **IT IS A FLOOR, NOT THE WHOLE COST, and the page should not pretend otherwise.**
+A move still authors its own timeline, windows and volumes like any other move,
+and a technique whose fields are cheap can still be hard to TUNE — Jon's own
+standing note is that almost every move needs work. What this measures is the
+SEAM: what using an existing authority costs an author who has decided to use it.
+
+⛔ **AND FIELD COUNT RATHER THAN LINE COUNT, deliberately.** This repo's authored
+moves are mostly prose — the goblin's Limit dive is nine lines of data under forty
+of reasoning — so a line count would measure how much a contributor explained
+rather than how much the engine required. The params struct is the requirement.
+
+### ✔ TRACK B IS COMPLETE (2026-09-05), and what it cost
+
+| rung | landed as | engine cost |
+|---|---|---|
+| B1 successful-defense consequence | `ParriedBodyHit` + `smash.counter`; stand-ins' `riposte` | one message |
+| B2 ground tether | Projectile Polygon's grab at 150px + a line on both roads | one read-model field |
+| B3 interception | `intercept_projectile`; reflector FREE by composition; Officer's riot shield absorbs | one enum, one shield field |
+| B4 per-action muzzle | `Muzzle::Offset`; Projectile Polygon fires from her cannon | one enum variant |
+
+⭐ **Three of the four cost one field or less, and one cost nothing at all.** The
+reflector was already shipped the moment the counter existed, because both roads
+gate on `parrying()`. That is the campaign's thesis surviving contact: the
+authorities were there and what was missing was coordination.
+
+### ✔ THE ONE BLOCKING DECISION IS MADE (and here is who made it)
+
+⭐⭐ **THIS SECTION SAID THE SINGLE MOST UNBLOCKING ANSWER WAS WHAT THE
+PERFORMER'S NEUTRAL SHOULD BE. It is answered, and I answered it**, on Jon's
+standing grant in the same brief that assigned Sing to her: *"you can pick where
+to put the proof of concept for the other moves in the roster"*, and *"we can
+tune who the moves belong to later."*
+
+⇒ **The answer that made it a non-decision: Sing did not have to displace
+anything.** I had framed it as *upgrade `the_monologue` or give Sing its own
+fighter*, and both are design calls. The third option is neither — ADD the pulse
+to the move she already has, at a strictly smaller radius, so the existing
+balance is untouched and the new thing costs position to land. ⚠ Same shape as
+the mine on the down-smash, one hour earlier, and I did not notice it was the
+same shape until after I had shipped both.
+
+⚠ **Still Jon's to overrule** — it is his fighter and his numbers (1.4s asleep,
+26×26). The guard names the design so a change to it is loud.
+
+### ⛔ WHAT WAS BLOCKED, AND IT IS ONE DECISION RATHER THAN FOUR
+
+Three separate rows are stuck on the same thing — **the roster is full**, and
+filling a slot is a design call rather than engineering:
+
+* **Sing** — engine landed and guarded; the Performer has all five specials, and
+  her neutral (`the_monologue`) is ALREADY a proto-Sing that holds the room with
+  fixed knockback. Upgrading it is a balance change to shipped, documented
+  content: adding the sleep makes it much stronger, replacing the knockback
+  removes the hit.
+* **The stand-ins' last two presses** — `special_neutral_air` and
+  `special_back_air`. Four specials have been authored onto them this campaign
+  and each one narrows the open question of what they ARE. ⇒ Stopping there
+  deliberately.
+* **Any further absorber/reflector variants** — same reason; the Officer took the
+  one slot that was a borrowed generic rather than an authored move.
+
+⇒ **The single most unblocking answer is what the Performer's neutral should
+be**, because it decides whether Sing upgrades an existing move or wants a
+fighter of its own.
+
+---
+
+✔✔ **AND EVERY WORD ABOVE IS SUPERSEDED — kept because being wrong in a
+particular way is the finding, not because the section is still true.** All three
+rows were called blocked on "the roster is full", and none of them was:
+
+* **Sing** landed the same day on `the_monologue`. ⛔ The framing was a FALSE
+  DICHOTOMY — "upgrade her move OR give Sing its own fighter" — and the third
+  option displaced nothing: ADD the pulse at a strictly smaller radius, so her
+  strike is untouched to the number and only whoever stood next to her goes under.
+* **Further absorber/reflector variants** were not blocked either. Three more
+  counters landed (the Author, the Shadow Oni, Emmy), each answering with a
+  DIFFERENT technique, because the response was always an arbitrary one.
+* **The stand-ins' two presses** is the one row that stands — and it stands for
+  the reason given, which was never scarcity: authoring more onto a fighter whose
+  identity is an open question narrows that question by default.
+
+⭐ **The lesson, and it is the same one this campaign kept re-learning: "blocked"
+was a claim about the ROSTER when it was really a claim about my own framing.**
+Twelve roster decisions later, eleven of them found a seam nobody had to lose
+something for. ⇒ Before recording a row as blocked on a design call, look for the
+version that costs nothing — it existed here three times out of three.
+
+### ⛔ AND TRACK A IS BLOCKED DIFFERENTLY — ordering, not permission
+
+~~`TechniqueFlow` runs with an authored customer. The next rung is NOT slots: a
+slot binds a symbol to a spawned OCCURRENCE, and projectiles carry no stable
+identity.~~
+
+⛔⛔ **THAT PARAGRAPH WAS WRONG AND IT IS STRUCK RATHER THAN QUIETLY EDITED,
+because it was published as a blocker and somebody could have planned around it.**
+Projectiles carry a stable, deterministic, ROLLBACK-CANONICAL identity:
+
+    ProjectileSeq(u64)      "Monotonic spawn-sequence id", registered as
+                            `projectile.seq` — component-canonical
+    ProjectileOwner(Entity) with `MapEntities`, remapped across a restore
+
+⇒ **Slots are NOT blocked on identity work.** A slot can bind to a spawned
+projectile today, by `ProjectileSeq`, which the step loop already sorts on so
+that iteration order is deterministic.
+
+⚠ **How the claim went wrong is the useful part: it was true about the word I
+searched and false about the thing I meant.** `SimId` genuinely is unused in
+`ambition_projectiles` — I checked that and reported it accurately — but "no
+`SimId`" is not "no identity", and I published the second as though I had
+measured it. ⇒ **This is the THIRD wrong absence claim in this campaign** (after
+the trap's owner identity and the input lease), and all three were assertions
+that something did not exist, made from one spelling.
+
+ⓘ The input lease is control-authority work outside the `ambition_combat`
+moveset / `ambition_demo_smash` lane — and, per the A2 note below, is not on
+PK-Thunder's path at all.
+
+⛔⛔ **AND ONE CORRECTION TO THIS SECTION, FOUND BY BUILDING THE THING.** When
+this was first written it grouped the **remote mine** with slots, on the reading
+that both wanted "a spawned occurrence with a stable identity its owner can look
+up". ⇒ **That grouping was wrong, and the mine shipped the same day without any
+of it.** `MatchSeat` is already rollback-registered and is already how this
+codebase names a fighter durably — so "my mine" is a `usize` comparison.
+
+⭐ **The distinction that was missing: a TRAP needs to name its OWNER, and a SLOT
+needs to name the SPAWNED THING.** Those are different questions, and only the
+second one is open. A fighter has had a durable name in this codebase for a long
+time; a projectile has not.
+
+⚠ The general shape, and it is the same one the reflector produced: **"this row
+needs a new capability" is a claim, and the cheapest way to test it is to build
+the row.** Two of the three capability gaps this campaign predicted turned out to
+be already-shipped authorities under a name I had not searched for.
+
+### ⛔⛔ A DEFERRAL IS A MEASUREMENT, AND THIS CAMPAIGN EXPIRED TWO OF ITS OWN
+
+A comment that says *"the engine cannot do X, so this move does Y instead"* is a
+measurement of the engine on the day it was written. **This campaign's whole
+output is invalidating those**, and nothing goes back to update them:
+
+| where | what it said | why it is now false |
+|---|---|---|
+| Emmy's `conservation_law` ✔ **and her counter has since landed on `invariant_field`** | *"not the counter the sheet's blueprint imagined — `MoveSpec` has no absorb or reflect, and inventing one for one character would be the wrong shape"* | `smash.counter` carries `absorbs_projectiles` and an arbitrary response, authored on **three** fighters — shared, not bespoke, so both halves of the objection are answered |
+| Projectile Polygon's `charge_shot` | *"a per-action MUZZLE offset would fix both ends at once; **it does not exist**, and inventing one here would be a fighter reaching into the shared fire site"* | `Muzzle::Offset` landed as Track B's B4 **with her as its customer**, two files away in `authored/projectile_polygon.rs` |
+
+⚠ **The second is the worse one: her own sibling file already uses the thing her
+moveset file says does not exist.** Both are corrected in place rather than
+deleted, because the reasoning was RIGHT when written — the muzzle did belong in
+the shared fire site, and a bespoke counter would have been the wrong shape.
+
+⇒ **The rule this earns: when a capability lands, grep the content crates for the
+deferral that asked for it.** A deferral records who was waiting; shipping without
+telling them leaves a comment that reads as checked and is not. ⭐ And Emmy's is
+now an OPPORTUNITY rather than a refusal — her blueprint wanted a counter and the
+engine offers one, which is a design call for Jon rather than a limit.
+
+### ⭐⭐ FIVE MOVES WHOSE OWN COMMENT OR ART DESCRIBED A MECHANIC THEY DID NOT HAVE
+
+Not documentation drift — **the reader here is the PLAYER**, told the wrong thing
+every time the move came out. Found by reading each fighter's design comments and
+cues against what the move actually did:
+
+| move | what its art and comment said | what it did | now |
+|---|---|---|---|
+| the Shadow Oni's `command_seal` | a `counter_ring` effect and a `faction.ninja.parry_flash` sound | a plain damage-10 poke | a counter that answers with smoke |
+| the automaton's `generation_collapse` | *"everything inside it arrives at the same cell"*, drawing a `causal_cone_collapse` | ⛔ **INVERTED** — `launch_dir: (0.7, -0.68)` threw victims AWAY | three autolink pulses that gather, then the finisher launches |
+| Alice's portal | Jon's *"angled portals with directional input"* | `tilt_degrees: 0.0` everywhere | the player's stick leans it ±32° |
+| Bob's `rivet_gun` | *"it is not one hit, it is **the tool running**"* | ⛔ one `strike` with a single contiguous `active_s: 0.14` — which the re-hit rule lands **exactly once** | three separated holding pulses, then the same finisher |
+| Carl's `planetary_orbit` | draws **`orbit_lock`** at 0.36s — a LOCK | ⛔ a straight `impulse(700, 0)` that locks onto nothing | a homing dash inside a 60° cone; an unaimed pass is the same straight dash it always was |
+
+⛔ **THREE OF THE FIVE NEEDED NO ENGINE WORK AT ALL.** `smash.counter`,
+`VolumeReaction::Autolink` + `multihit`, and `Pulse`'s separation rule were all
+already shipped, so the ninja's, the automaton's and Bob's were not redesign —
+each became what it already looked like. ⚠ **The other two were not free, and
+saying so is the point:** Alice's tilt was authored-but-inert until the `portal`
+FEATURE was added to the demo's build, and Carl's `orbit_lock` needed a NEW
+technique (`smash.homing_dash`), because nothing shipped could bend a dash toward
+a target. ⇒ **Reading found all five; only three were cheap to answer.**
+
+⭐ **The method, and it is cheap enough to run on any fighter:** read the design
+comment and the authored cues, then check the mechanics against them. A comment
+that names a feeling ("the order is obeyed instantly", "the cone closes", "the
+tool running") is a SPECIFICATION somebody wrote and nothing verifies.
+
+⭐⭐ **THE SWEEP IS COMPLETE ACROSS THE SMASH ROSTER: five flagged moves, all five
+fixed, and the rest positively CLEARED.**
+⚠⚠ **AND THE ORIGINAL SENTENCE SAID "ALL NINETEEN FIGHTERS" WHEN WHAT I HAD
+SWEPT WAS NINETEEN FILES — corrected 2026-09-05 by a census that found a name I
+did not recognise.** `authored_movesets::tables()` lists **twenty** movesets:
+`theorem_chain_moveset()` lives INSIDE `player_robot_moveset.rs`, so one file
+holds two. ⇒ It is Robot **v2**'s DUEL-ARENA table (v3 carries the
+platform-fighter one), so the smash sweep really was complete — **but I had been
+counting files and saying fighters, which is the same class as every corpus error
+on this page.** ⓘ Swept it anyway: its doc claims *"a light poke into a heavier
+follow-up"* and it authors two volumes at damage 2/knockback 90 then damage
+3/knockback 160. Honest. **Cleared, twenty of twenty.** ⛔ Count MOVES, not fighters —
+**Bob and Carl each appear in BOTH lists**, so a fighter with one move that lies
+can own another that is scrupulous, and stopping at the fighter would have missed
+one of each. ⚠ Oiler's `convergence` is the model: its comment
+does not merely claim a multi-hit, it explains the GAP that makes one work. **A
+comment that says WHY is one that was checked.**
+
+⇒ **The four cleared hardest, because each LOOKED like a hit:**
+`slick_dash` (*"he oils the floor under himself"* — the oil is him sliding, and
+its second paragraph names the unlocked `motion_scale: 1.0` tail that makes it
+so), `pressure_vent` (*"everything in the seal goes at once"* — and the paragraph
+below names `start_impulse` ADDING rather than setting), `bulkhead_drop` (*"he
+drops a plate"* — an animation, and its `shockwave`/`landing_puff` cues agree),
+and Carl's `cosmic_calendar`. ⚠ **A method that only ever flags is a suspicion.**
+
+### ⭐⭐ THE READABILITY SWEEP, COMPLETE — CAN A PLAYER SEE WHAT THESE MOVES MAKE?
+
+Every object a smash move puts into the world, and what a player actually sees of
+it. ⇒ Three tiers, and only the first was a bug I could fix.
+
+| object | seen as | why |
+|---|---|---|
+| `PlacedSpring` | ⛔ **nothing** → ✔ fixed | a bare component has no render seam at all |
+| `SteeredBolt` | ⛔ **nothing** → ✔ fixed | same, and the move's entire mechanic is steering it |
+| `PlacedMine`, the bomb, the ponytail | ⚠ **a placeholder quad** | `GroundItem` resolves through `HeldItemArt`, whose doc says *"absent / unmatched → the placeholder quad"* |
+| Alice's portals | ✔ drawn | the portal presentation owns them |
+| a dilated clock, a parasol float, a homing dash | ✔ the FIGHTER is the tell | no object exists; the body's own animation and motion carry it |
+
+⭐ **THE DISTINCTION THAT MATTERS IS SEAM VERSUS ART, and it is why the mine was
+fine and the plate was not.** `GroundItem` has a resolution seam WITH A FALLBACK,
+so an item with no authored art still draws *something*. A bare gameplay
+component has no seam, so it draws *nothing* — and nothing is not a degraded
+version of something, it is a different failure.
+
+⚠ **TIER TWO IS JON'S AND I AM NOT INVENTING IT.** `ambition_demo_smash`
+contributes **no `HeldItemArtEntry` at all**, so its mine, bomb and ponytail are
+grey quads: visible as *"a thing is there"*, unidentifiable as *"that is a mine"*.
+For a 1v1 read that is the difference between knowing to jump and knowing what you
+are jumping over. ⇒ It is an ART ask — somebody has to draw three icons — and the
+seam to hang them on already exists and needs no render dependency.
+
+### ⛔⛔⛔ AND THE STEERED BOLT WAS INVISIBLE TOO — THE MOVE WHOSE MECHANIC *IS* SEEING IT
+
+Asking the same question of the other objects found a worse one. **`SteeredBolt`
+emitted a `DamageBox` on contact and nothing else** — no sprite, no effect, no
+trail — while the entire move is *"you fly your own bolt with the stick"*. ⇒ **A
+trap the opponent cannot see is unfair; a TOOL THE CASTER CANNOT SEE is
+unusable.** And it is PK-Thunder, one of Track A's four named rows.
+
+✔ `SteeredBoltParams::trail_vfx` + `trail_every_s`, both **required and asserted
+at the authoring seam** — the lesson from the plate applied on the first try
+rather than after a peer read my own default back to me. The Author draws his own
+`four_point_glint` every 0.05s.
+
+⭐ **THE INTERVAL IS ASSERTED, NOT JUST THE PRESENCE, and that is the half a
+"does it draw" test would have missed.** A 60Hz trail is sixty effect requests a
+second for one projectile that lives for seconds. ⇒ The guard counts marks over a
+known flight — 8 to 12 across half a second against an authored 0.05s — so it
+reddens for *"the player cannot follow the path"* AND for *"one move is flooding
+the cue channel"*. Poisoned both ways; the flood arm prints 31.
+
+⛔ **FOURTH TIME TODAY: adding a message writer broke every test in the file at
+once.** A world that does not register a message a system WRITES fails that
+system's parameter validation and drops it silently. ⇒ The mitigation is
+mechanical and I should have reached for it before the third repetition:
+**when a system gains a writer, grep its fixtures for `add_message` before
+running anything.**
+
+### ⛔⛔ THE LAUNCH PLATE WAS INVISIBLE, AND ONLY THE INVISIBLE OBJECT THROWS YOU
+
+Found while asking whether the new moves are READABLE, which for a 1v1 match is
+not a polish question. **`PlacedSpring` draws nothing — no sprite, no effect, no
+cue.** The remote mine is visible for free because it is a `GroundItem` and
+`item_visuals` gives those a sprite; the plate is a bare component with no art
+road at all. ⇒ **Two objects a fighter puts on the floor, one readable and one
+invisible, and only the invisible one launches you.**
+
+✔ **The announcement half landed**: `PlaceSpringParams::vfx` draws at PLACEMENT
+and again at FIRE, and both of Bob's plate and Oiler's new pool author one. ⭐
+**Two moments, two audiences** — placement is what the OTHER player must see;
+firing is what the LAUNCHED player must be able to attribute, since without it a
+fighter is thrown by nothing.
+
+⛔⛔ **AND THE FIRST VERSION OF THE FIX HAD THE BUG AS ITS DEFAULT — caught by a
+peer, in a sentence I wrote myself.** `vfx` was `Option<String>` with
+`#[serde(default)]`, and my own doc said *"`None` draws nothing, which is what
+every plate authored before this field existed did."* ⇒ **The default value of the
+new field was exactly the invisible-ambush state the field exists to end.** Both
+shipped authors set it and nothing made a third; worse, `serde(default)` meant a
+plate arriving by deserialization was silent with nobody typing anything.
+
+⭐ **Now required and asserted non-empty at the authoring seam**, which turns *"an
+author remembered"* into *"an author could not omit it"* — the same move as
+gating the gravity modifier on its timer and deriving `overlapped` rather than
+mirroring it. ⚠ The blast radius was four construction sites, which is as cheap
+as that change was ever going to be.
+
+⭐⭐ **AND AUDITING THE OTHER FOUR GAVE THE RULE A SHARPER FORM THAN "CHECK YOUR
+DEFAULTS".** Five fields gained defaults on this campaign in one day —
+`meter_cost` (0.0 = free), `answers_the_attacker` (false = the owner), the
+gravity modifier's timer-gated pair (inert), `TimeDilationParams` (no defaults at
+all), and this one. **Four were right for the same reason: their default means
+exactly what every value authored before them meant.**
+
+⇒ **The fifth was different in kind, and that is the finding: a
+`#[serde(default)]` that preserves the old behaviour is correct for a field that
+ADDS AN OPTION and wrong for one that REPAIRS A DEFECT.** The cue field existed
+because plates drew nothing; defaulting it to "draws nothing" shipped the defect
+as the path of least resistance. ⭐ **The tell is in the justification: if a
+default's doc sentence is a description of the bug, the default IS the bug** —
+mine read *"None draws nothing, which is what every plate authored before this
+field existed did"*, and a peer simply read it back to me.
+
+⚠ **PERSISTENT VISIBILITY IS STILL OPEN AND THIS DOES NOT CLOSE IT.** A cue at
+each end does not draw the plate while it sits there.
+
+⛔⛔ **AND I NAMED THE WRONG ROAD FOR IT — struck after checking, one commit
+later.** I wrote that the fix was *"the mine's: a `GroundItem` with authored
+art."* `GroundItem`'s own doc says what that type IS: *"a held item resting in the
+world, **pick-up-able with `Attack` when the player is empty-handed**."* ⇒ That
+road would let a fighter **pick the launch plate up and throw it**, which is
+coherent for a mine and absurd for a plate. **The mine is visible because it is an
+ITEM, not because items are how you draw things** — I read a working example and
+generalised its mechanism instead of its property.
+
+⇒ The real requirement is narrower: **a persistent, positioned, non-custodial
+visual for a gameplay object that is neither an item nor an authored room prop.**
+⭐ **Both shipped candidates were checked before saying that, because this
+paragraph has already been wrong once:**
+
+| candidate | why it does not fit |
+|---|---|
+| `GroundItem` (the mine's road) | *"pick-up-able with `Attack` when the player is empty-handed"* — a fighter could carry the plate off |
+| `PropVisual` (the portals' road) | *"marker for sprites spawned from `RoomSpec.props`"* — authored room furniture, not a thing a move creates mid-match |
+
+⇒ **A genuine gap, sized as one**, and the announcement cue is what stands in for
+it until somebody rules. ⚠ **The mine is visible because it is an ITEM, not
+because items are how you draw things** — the first version of this paragraph read
+a working example and generalised its MECHANISM instead of its PROPERTY, which is
+the same shape as every corpus and predicate error on this page.
+
+⛔⛔ **AND THE GUARD TOOK FOUR ATTEMPTS, EVERY ONE A FIXTURE DEFECT I HAVE
+ALREADY WRITTEN DOWN:**
+1. Adding a message writer to a system **broke all seven existing spring tests at
+   once** — a world that does not register a message a system writes fails
+   parameter validation and drops the system silently. Third appearance of that
+   shape in this demo, and it is always a whole file.
+2. I left the dropper standing on his own plate, which spends the single use
+   before the victim exists — **the wrinkle this very file documents** and which
+   `arm_s` exists because of.
+3. Reading cues once at the end saw nothing: `Messages` are double-buffered and
+   the fire cue, emitted the moment the plate arms, was gone by the last tick.
+   **Second time today.**
+4. Harvesting with a FRESH cursor each tick then counted every cue twice (3 for
+   1). ⇒ **The cursor is the thing that remembers what has been seen**, and
+   making a new one each tick throws that away.
+
+⭐ Same head as the flow guard's three attempts: **the fixture is where these
+live, not the code**, and every one of them produced a confident, wrong,
+well-worded failure message.
+
+### ⭐⭐ "MANY HAVE BORING SPECIALS" IS NOW FOUR, AND IT IS A RATCHET RATHER THAN A FEELING
+
+The goal's own complaint has been argued from readings all campaign. ⇒ Measured
+from the authored DATA — a special is expressive when it carries a technique, a
+stance, a flow, or a gravity regime; a strike with cues is not:
+
+**18 expressive, 1 plain — and the one is `theorem_chain`, the DUEL ARENA's
+robot, which is a deliberately data-only two-hit combo demo.** ⇒ **Every fighter
+on the smash grid now has a special that does something a strike cannot.** The
+goal's complaint — *"many have boring specials"* — is closed, and closed as a
+number rather than an impression.
+
+⭐ **Oiler was the last one, and the art asked for it first**, which is how every
+good move on this roster arrived. His geyser already drew `oil_geyser_emerge`,
+three `oil_geyser_stream` rows *"so the column reads as continuous rather than as
+one puff"*, and `oil_geyser_impact` at the crest — **a column that reads as
+continuous and then leaves nothing behind is a column only its caster ever met.**
+It now leaves a one-use pool for 2.2s, thrown at less than his own climb, because
+a plate stronger than the move that made it is a recovery that improves by being
+used twice. **Roster decision #20.** ⛔ The ratchet caught its own removal on the
+first poison: deleting the pool drops the count to 17 and reddens the census.
+
+⛔⛔ **AND THE FIRST VERSION OF THIS CENSUS SAID FOUR, BECAUSE MY OWN DEFINITION
+WAS TOO NARROW.** It counted techniques, stances, flows and gravity regimes — and
+**not `VolumeReaction`**. So it called the cellular automaton plain while its
+`generation_collapse` autolinks victims into one cell, which is the most
+characterful move that fighter has and which I authored myself earlier in this
+campaign. Same for the pointed polygon. ⇒ **I was one step from authoring a
+second mechanic for a fighter that already had one, on the strength of my own
+guard's definition.** A census is a statement about its predicate as much as its
+corpus, and the predicate is the half I keep writing and not auditing.
+
+⛔ **IT IS A RATCHET, NOT A TARGET.** Asserting every fighter must be expressive
+would be a design claim nobody has made — a plain-strike brawler is legitimate.
+What is not legitimate is going BACKWARDS silently, so the floor sits at today's
+count and the failure message prints the two lists. ⇒ **When it fails it answers
+the question the complaint was actually asking:** which fighters are carrying the
+roster and which are not.
+
+⚠ **And finding the floor was itself the measurement.** I set it to 99 on purpose
+to make the test fail and print the real number, rather than picking a figure and
+asserting it. That is how `theorem_chain` surfaced — **a name in the output I did
+not recognise**, which is what corrected the sweep's own headline two sections up.
+
+### ⭐⭐ THE SWEEP FINISHED, AND THE HYPOTHESIS IT SUGGESTED WAS REFUTED
+
+**Six fighters were still unread when this section first claimed to be complete**
+— `archetype`, `medic`, `pirate_admiral`, `player_robot`, `pointed_polygon`,
+`pugnacious_polygon`. ⇒ The claim was written from the thirteen I had touched.
+Finishing them cleared all six, so the sentence is now true; it was not when I
+wrote it, and the check that caught it was counting the files.
+
+⛔⛔ **AND THE OBVIOUS PREDICTOR IS WRONG. MEASURED, NOT ASSUMED.** The tempting
+rule after five hits — *"the liars are the ones without tests"* — does not
+survive contact: **`#[test]` count per file averages 4.0 for the five that lied
+and 5.4 for the fourteen clean**, which is noise. **Carl had SEVEN tests and
+still drew `orbit_lock` over a straight impulse.**
+
+⭐ **The variable is not how many tests a fighter has; it is whether ANY test
+names the mechanic the ART asserts.** Measured on Carl at the commit before the
+fix: `orbit_lock` appears **five times in his authoring code and zero times in
+his seven tests**. His suite asserted frames, budgets and shapes — every one of
+them true — and nothing connected the effect name to the impulse under it.
+
+⇒ **So the instrument is a census, not a reading.** Every effect name authored in
+`ambition_content`, checked against whether any test anywhere names it:
+**110 distinct names, 100 of them named by no test.** Most of that 100 is
+decoration and needs none — `oil_drip`, `landing_puff`, `sand_burst`. The
+harvest is the subset whose NAME asserts an engine behaviour, and that list is
+short enough to read by hand.
+
+⚠⚠ **AND EVERY ONE OF THE FOUR IT SURFACED SURVIVED THE CHECK — which is the
+result that makes the method trustworthy rather than the result I wanted.**
+
+| suspect | why it looked like a hit | what cleared it |
+|---|---|---|
+| `stamp_at_rest` / `stamp_moving` (clerk) | a PAIR implies the move branches on the target's motion | they track the CLERK's own motion per move — jab and back-air at rest, forward-air and forward-tilt moving. Coherent relativity flavour, no branch claimed |
+| `ether_cancel` (Emmy) | "cancel" is a real engine feature and she authors no `cancelable` | Michelson–Morley, not a cancel window — and the file explicitly considered one and rejected it with a reason |
+| `still_life_lock` (automaton) | a LOCK, in the file that already held one inversion | a jab, and a still life is a Life pattern that does not change. No prose claims a lock |
+| `fixed_point_acquire` (automaton) | its comment says *"and **holds it there**"* over `knockback_growth: 1.65`, which sends a hurt victim FARTHER | **measured against the roster**: 1.65 growth / 84 kb sits mid-range of fourteen up-airs (1.55–1.90), slightly BELOW median. An ordinary juggling up-air is what "holds it there" describes |
+
+⭐ **The last one is the one worth keeping.** Reading flagged it and the
+comparison cleared it — and the comparison took one script. ⇒ **A single move's
+numbers mean nothing without the column they sit in**, which is the same rule as
+the balance guard that caught the plate at 860 against `steam_lift`'s 800.
+
+⛔ **What the sweep does NOT find: boredom.** `pugnacious_polygon` has ten
+comment lines, zero claim markers and five specials that are a haymaker, a
+shoulder rush, an uppercut, a ground slam and a body drop. Perfectly honest, and
+exactly the *"many have boring specials"* the goal names. ⇒ **Honest and dull is
+a different defect from dishonest, and this instrument is blind to it.**
+
+⛔ Bob's `rivet_gun` is the sharpest of the five flagged, because its comment names the precise
+property the engine REFUSES. `Pulse`'s own doc says it: *"a multi-hit that
+authored one long window, or windows that touch, lands exactly once."* ⇒ Nobody
+writing "it is not one hit" had read that, and nothing connected the two.
+
+### ⛔⛔ THE BOLT'S FIRST GUARD RUN FOUND A MOVE THAT COULD NOT BE PLAYED
+
+Not a test artefact — a defect the first run exposed and a player would have hit
+on every single press. **The bolt spawns at a body-local offset, which is INSIDE
+its caster's contact box, so it came home on the tick it was fired and threw him
+instantly.** Every use was a self-launch and the bolt was never seen.
+
+⇒ The fix is a latch (`clear_of_caster`), and it is also the genre's rule arrived
+at from the bug rather than from the reference: **a bolt cannot answer its caster
+until it has left him**, so flying it back is a manoeuvre instead of an accident
+of where it starts. ⭐ Removing that latch again fails THREE of the six guards,
+which is the shape of a fact the suite actually depends on rather than one test's
+private assumption.
+
+⚠ **The general form, for anything a move spawns AT a fighter:** the spawn point
+is inside the spawner. Contact logic that does not say so is not "usually fine",
+it is wrong on frame one — and frame one is the only frame that matters, because
+it happens before anything else can.
+
+### ⓘ WHERE THE ROSTER STANDS, AND WHY THE OBVIOUS METRIC IS WRONG
+
+**Nine fighters gained an expressive move on 2026-09-05**: Projectile Polygon
+(mine), the Performer (Sing), the goblin (cargo carry), the Author (counter AND
+the steered bolt), Alice (portal aim), the Officer (gust), the Patent Clerk
+(armour), the Shadow Oni (counter, plus a cue repair), and the cellular automaton
+(the collapse that finally collapses).
+
+⛔⛔ **DO NOT MEASURE THIS BY COUNTING `smash_*::` CALLS PER FIGHTER. I tried, and
+it reports the goblin and the automaton at ZERO** — the goblin's carry is a
+CAPTURE-family technique and the automaton's collapse is a `VolumeReaction`, not
+a `smash_*` helper at all. Alice's angled portal is a PARAMETER on a technique she
+already had. ⇒ Three of the nine are invisible to the obvious grep, so a count
+that looks objective would rank the two fighters improved most recently as the
+least improved.
+
+⭐ **The real signal is not countable and should not be faked:** whether a
+fighter's four specials do four DIFFERENT KINDS of thing. That needs reading the
+moves, which is how every one of today's finds was made.
+
+▢ **Four fighters remain as candidates** — `bob`, `carl_stargan`, `emmy_noether`
+and `oiler` — none of which author a technique yet. ⚠ `pointed_polygon` and
+`pugnacious_polygon` are deliberately excluded: they are the sword and brawler
+REFERENCE fighters, and their own comments say a new humanoid should copy them
+before it has a reason to differ. Giving them a bespoke technique would corrupt
+the template.
+
+⭐ **And Emmy is the best of the four**, because her file already says what she
+wants: her blueprint asked for a counter and the deferral recording why she could
+not have one has now expired.
+
+### ⚠⚠ FIFTEEN ROSTER DECISIONS MADE UNDER DELEGATION — EVERY ONE IS JON'S TO OVERRULE
+
+Jon's grant was *"you can pick where to put the proof of concept for the other
+moves in the roster… we can tune who the moves belong to later."* ⇒ Here is
+everything spent against it on 2026-09-05, with what each one COST, so a review
+is a table rather than a git log. ⚠ **This table was written at EIGHT, corrected at TWELVE and FOURTEEN, and is
+now FIFTEEN — updated in the SAME commit as the decision this time, which is the
+rule I had already broken twice.**
+⇒ I have now had to bring it current twice, which is the point rather than an
+apology: **the artefact whose whole purpose is to be current is the one that reads
+as complete when it is not**, and its reader is by construction somebody who will
+not check the log. The rule I keep failing and re-learning: update it in the same
+commit as the decision.
+
+**Eight cost nothing; six displaced something; one is presentation only.**
+
+| fighter · slot | change | cost |
+|---|---|---|
+| Projectile Polygon · down-smash | **+ remote mine** | ⭐ none. Every number on the swing is unchanged; `smash_charge_mult` 1.75 intact |
+| the Performer · neutral (`the_monologue`) | **+ Sing pulse**, 26×26 centred on her | ⭐ none. Her 58×34 strike is untouched and the pulse sits wholly inside it — only whoever stood next to her goes under |
+| the Patent Clerk · side-B (`reference_frame`) | **+ super armour** over the crossing | ⭐ none. Armour covers `0.20..0.31` only; his startup is still punishable and his locked tail still a free hit |
+| Alice · up-B | **+ ±32° aim** on the portal | ⭐ none. Base tilt stays `0.0`, so a neutral stick recovers exactly as before |
+| the goblin · down-throw | throw → **cargo carry** | ⚠ the roster's weakest throw (damage 4, fallback clip). No empty slot existed — every fighter authors all four |
+| the Author · down-B | archetype low arc → **counter into ambush teleport** | ⚠ a borrowed poke that was never his. Gains a second slot of his own; his `owned_slots` went 1 → 2 |
+| the Shadow Oni · down-B | damage-10 poke → **counter into sleep** | ⚠ 10 damage. ⭐ But the move already carried a `counter_ring` and a `parry_flash` sound: the art always said counter |
+| **the Officer · neutral** | haymaker → **damageless gust** | ⛔⛔ **THE BIGGEST ONE, and the only KO move lost.** `damage: 13, knockback: 142` becomes a move that does no damage at all. He keeps every smash and `the_draw`; what a player trades is a button that kills for a button that creates space |
+| the cellular automaton · down-B | strike → **the same strike with three autolink pulses in front** | ⭐ none — the finisher is unchanged; the pulses are 2 chip each. It only does what its own comment always claimed |
+| the Author · **side-B** | archetype `vector_lunge` → **PK-Thunder** | ⚠ a borrowed poke that was never his. ⭐ Jon's own assignment, and his third owned slot |
+| the Shadow Oni · aerial down-B | `counter_ring` + `parry_flash` cues **removed** | ⚠ presentation only, and it is MY DEBT: converting his grounded seal to a real counter made the dive's borrowed parry cues a trap |
+| Emmy Noether · down-B | `invariant_field` → **counter that conserves the blow** | ⚠ her CHEAPEST special (`damage: 6`), and she keeps a second ground-claiming field. ⭐ Her own blueprint asked for a counter; the deferral saying she could not have one expired this morning |
+| Bob · neutral (`rivet_gun`) | one long window → **three separated windows, then the same finisher** | ⭐ none — the finisher is unchanged and the pulses are 2 chip. It only does what its comment always claimed: *"it is not one hit, it is the tool running"* |
+| Bob · down-B (`bulkhead_drop`) | **+ a plate that throws whoever steps on it** | ⭐ none — the slam is untouched. ⚠ It throws HIM too, which is the row's point (a persistent actuator ANOTHER fighter interacts with) and not an oversight |
+| Carl Stargan · side-B (`planetary_orbit`) | straight `impulse(700, 0)` → **a homing dash in a 60° cone** | ⚠ replaces the impulse, not the move — the swing is untouched, and an UNAIMED pass is the same straight 700px/s dash it always was. ⭐ Its own `orbit_lock` effect had been drawing a lock the move did not have |
+
+⛔ **If exactly one of these is wrong, it is the Officer's** — it is the only
+change that removes a way to finish a stock rather than replacing filler or
+adding on top. It is also the one that makes his kit a single idea (gun, shove,
+shield), so it is a real design choice rather than an oversight, and it is stated
+here to be argued with.
+
+### ⛔⛔ A POISON THAT DID NOT FIRE WAS THE MOST USEFUL RESULT OF THE ROW
+
+The Parasol landed with two guards — one on the integrator's product, one on the
+authored beat reaching the owner's movement policy — and both were green. Then a
+poison that **zeroed the modifier's countdown every tick left BOTH of them
+green.**
+
+⇒ Neither fixture ran the body step that owns the clock. Between them they proved
+a modifier can be SET and READ, and never that it ENDS. **A regime that never
+expires is the precise failure a duration exists to prevent, and it was the one
+thing untested.**
+
+⭐⭐ **THE RULE, and it is a real sharpening of this morning's:** *a poison that
+does not fire is a FINDING, not a badly-aimed poison.* The tempting reading was
+"wrong poison for this test, the clock isn't in that fixture" — which is true,
+and is exactly the sentence that would have left the gap in place. The right
+reading is that **no test anywhere ran that code**, and the poison is how I
+learned it. ⇒ Third guard added (`a_gravity_modifier_expires_on_the_movement_clock`),
+driving the real `update_body_simulation_in_frame`, and it now reddens in BOTH
+directions: a clock that clears instantly (*"every duration an author writes is a
+lie"*) and a clock that never decrements (*"a body that floats past its timer
+floats forever"*).
+
+⚠ Together with the cancel-road finding this morning, that is **two coverage holes
+in one day found by poisons rather than by failures**, both in guards I had just
+written and believed. The pair share a shape: *the fixture answered a smaller
+question than the assertion claimed*, and nothing in a green run distinguishes
+those.
+
+### ⛔⛔⛔ THE BOMB, THE MINE AND THE BOLT DO ZERO DAMAGE TO A BODY — AND MY OWN RULE PREDICTED IT
+
+A GPT review Jon commissioned found it; **I re-derived every mechanical claim
+against current source before accepting any of it**, and all of them hold.
+
+| claim | re-derived |
+|---|---|
+| `HitSide::Neutral` damages nobody | ✔ `hitbox/mod.rs:556` — `melee_source` is `None` for `(HitSide::Neutral, _)`, and the terminal dispatch at 853 is literally `HitSide::Neutral => {}` with the comment *"Neutral never spawns a damaging hitbox"* |
+| all three author it | ✔ `game/ambition_demo_smash/src/bomb.rs:199`, `bolt.rs:285`, `mine.rs:166` — every one is `HitSide::Neutral` ⚠ (the demo path is spelled out because the bare filename matched TWO tracked files — `crates/ambition_abilities/src/ranged/bomb.rs:199` is `let mut app = App::new();`. ⭐ And writing that parenthetical with the bare form still in it reddened the gate a second time, which is the citation checker earning its keep on the sentence explaining the citation checker) |
+| `DamageTeam` pins the same rule independently | ✔ `(Self::Neutral, _) => false`; **`Environment`** is the arm that damages Player, Enemy and Neutral |
+| a despawned owner makes the blast a ghost | ✔ the owner's position is resolved at the TOP of the loop and `continue`s when it fails — **before any world-anchor check**, so a World-anchored box still needs an owner that exists |
+| bomb/mine own the exploding item; bolt owns the victim | ✔ `owner: entity` on both items (a `GroundItem` despawned as it emits) and `owner: body` on the bolt, which is the CONTACTED RIVAL — so making it damaging would trip self-exclusion and skip the very body it hit |
+
+⛔⛔ **AND THE REASON NONE OF MY GUARDS CAUGHT IT IS THE RULE I WROTE THIS
+MORNING, APPLIED TO ME.** `mine/tests.rs` asserts `blasts(&mut app).len() == 1` —
+**that a `DamageBoxEffect` request EXISTS.** Nothing drives it through
+`apply_effects` → `apply_hitbox_damage` → a victim's health. ⇒ *The third cause
+for a silent poison: no fixture runs that code at all.* I formulated that
+sentence hours before this review landed, about a gravity clock, and it was
+already true of three moves I had shipped.
+
+⭐ **The tell I should have taken: I asserted on a MESSAGE, not on an OUTCOME.**
+A test that stops at "the request was written" is testing my own authoring, not
+the engine's answer to it — and the engine's answer here is *no*.
+
+⚠ **THE FIX IS FOUR QUESTIONS AND JON SAID SO EXPLICITLY — do not relabel
+everything `Player`, and do not conflate them:**
+
+1. **geometry anchor** — where the box IS. `World` is right for a blast, and the
+   resolver's owner-position `continue` is wrong for a World anchor: it does not
+   need one.
+2. **attribution** — who is credited. Should be the placing FIGHTER, not the
+   object that exploded.
+3. **damage relationship** — who may be hurt. A smash item blast hurts BOTH
+   fighters, which is `DamageTeam::Environment`'s meaning; `HitSide` has no such
+   variant, and that gap is the actual design question.
+4. **self-exclusion** — `victim.entity == hitbox.owner`. ⛔ **This COLLIDES with
+   (2)**: making the placer the owner for credit makes the placer immune, and
+   your own bomb hurting you is the genre's rule. That collision is why the four
+   cannot be answered with one field.
+
+#### ✔ AND THEN IT WAS ANSWERED — `HitSide::Environment`, FOUR QUESTIONS, FOUR ANSWERS
+
+⭐⭐ **A peer supplied the half that unlocked it, and it is worth quoting because
+it dissolves the collision rather than trading it off:** *"If Environment damage
+simply does not consult self-exclusion, the collision dissolves without touching
+attribution at all."* ⇒ `hitbox.owner` was answering two questions — **who is
+credited** and **who is immune** — and the genre wants them to disagree. Your own
+bomb hurts you, and you still placed it. That is one field doing two jobs, which
+is the shape this whole campaign has been removing.
+
+| question | answer |
+|---|---|
+| geometry anchor | `World`, and it no longer needs a living owner (fixed above) |
+| attribution | the placing **fighter**. ⛔ The bolt was crediting **the body it hit**, so a kill made a fighter their own attacker; it now resolves the caster by seat |
+| damage relationship | **`HitSide::Environment`**, the presentation-side name for `DamageTeam::Environment` — a relationship that was **already settled and guarded** (`placements.rs` asserts both `Environment.can_damage(Player)` and `.can_damage(Enemy)`), used by exploration hazards today |
+| self-exclusion | **a hazard consults none.** That is what lets attribution stay honest |
+
+⛔ **IT COULD NOT SIMPLY REUSE `DamageTeam`, and the reason is worth recording:**
+the exploration hazard road never passes through `Hitbox`, which carries `owner`,
+`source: HitSide` and a bare `damage: i32` and has **no `DamageTeam` at all**.
+Two mechanisms, one relationship — so the new variant maps onto the existing
+meaning rather than inventing a second, which would have left the repo with two
+answers to *"what is a hazard to a fighter"* that must agree forever.
+
+⭐ **The blast radius was three compile errors, not the twenty-eight files the
+name-count suggested** — the exhaustive matches named every site that had to
+decide. ⭐ **And no schema bump:** `combat.hitbox` is `component-clone`, so a
+clone snapshot restores the new variant with no codec.
+
+⛔ **The guard asserts the CONTROL as well as the fix**: a `Neutral` box reaches
+`(0, 0)` bodies and an `Environment` box reaches both — **including its owner** —
+so the test can tell the broken vocabulary from the fixed one. Poisoned three
+ways: hazard consulting self-exclusion (*"the blast spared the body that OWNS
+it"*), hazard back on the no-damage path, and the mine re-authoring `Neutral`
+(*"it would explode and hurt nobody"*).
+
+⚠ **And the demo-side test now asserts the FACTION, not the request.** That is
+the actual repair to my method: asking whether a `DamageBoxEffect` exists is a
+question about my own authoring, and the engine's answer to it was *no*.
+
+⭐⭐ **AND A PEER CHECKED THE SEAM BETWEEN THE TWO HALVES, WHICH I HAD NOT.** A
+demo-side faction assertion plus a resolver-side behaviour assertion is a JOIN,
+not the end-to-end road the review asked for — **if anything between them rewrote
+the side, both halves would pass and the road would still be broken.** Re-derived:
+`spawn_damage_box(source: HitSide, ..)` at `strike.rs:198` passes `source`
+straight into `Hitbox.source` at `:208` with no remapping. ⇒ **The join is
+honest, and saying so is part of the claim** — two tests that meet are only
+evidence if somebody has checked that they meet.
+
+⛔⛔ **AND THE BOLT'S DEFECT WAS NASTIER THAN THE REVIEW DESCRIBED, which I found
+by fixing attribution rather than by being told.** The review said the bolt named
+the contacted rival as owner and that self-exclusion would therefore skip it. True
+— but the same field is what a kill, a grudge and a staleness record key on. ⇒ Had
+the vocabulary been fixed without attribution, **every bolt kill would have been
+credited to the fighter who died of it.** "The review said `Neutral`" undersells
+what was wrong with that line.
+
+#### ✔ AND THE ONE UNAMBIGUOUS ENGINE BUG IN FINDING 1 IS FIXED
+
+`apply_hitbox_damage` resolved the owner's position at the top of its loop and
+`continue`d on failure **before consulting the anchor** — but `world_volume`
+reads `HitboxAnchor::World { center }` and ignores that position entirely, so the
+requirement was never real for a world box. ⇒ Every thrown-item blast in the
+demo was a ghost: the exploding `GroundItem` despawns as it emits the effect, so
+the blast it had just spawned was skipped on the very next tick, every time.
+
+⭐ The box's own centre is the substitute rather than a placeholder, because the
+value is still read for the launch direction and `source_pos` — a blast radiates
+from the blast, and a zero would have thrown every victim at the world origin.
+⛔ Poisoned in BOTH directions, and the second is the one worth having:
+"resolve everything" reddens the `FollowOwner` arm, which is the plausible wrong
+fix a reader reaches for.
+
+⚠⚠ **AND A SECOND THING FELL OUT THAT NOBODY HAS ASKED YET, WHICH IS PART OF
+JON'S QUESTION 1.** Inside that same loop the IMPACT POINT is
+`midpoint(victim.center, world_volume.center())` while the KNOCKBACK DIRECTION is
+measured from `owner_pos`. **For a `FollowOwner` box those nearly coincide; for a
+world box they can be anywhere relative to each other** — so a blast currently
+throws victims away from the FIGHTER rather than away from the explosion.
+
+⇒ I tried the principled version (a world box always radiates from its own
+centre) and **zero tests changed.** ⛔ By this page's own rule that is a COVERAGE
+finding, not a green light: **nothing in the suite asserts the knockback
+direction of a world-anchored box whose owner is somewhere else.** ⇒ Reverted
+rather than banked — changing a shared resolver's launch direction on the
+strength of "no test complained" is the gamble this campaign keeps writing down.
+
+✔ **AND THE SECOND REVIEW SUPPLIED THE CUSTOMER, SO IT LANDED — WITH THE TEST
+FIRST.** The steered bolt is the named case: its `DamageBox` is centred at
+`bolt.pos` while the owner is the CASTER, so a curved bolt struck from one side
+and launched its victim away from Carl on the other. ⇒ `spatial_source` now
+splits from attribution — `World` takes the authored centre, `FollowOwner` takes
+the owner — and **`hitbox.owner` keeps answering only "who is credited"**, which
+is Jon's own separation of the four questions.
+
+⭐ **Written as a FAILING test before the fix**, which is the repair to the
+earlier gamble: two victims placed symmetrically about a blast must be thrown
+APART, and before the split they were both thrown the same way (`1.0` vs `1.0`)
+because the direction was measured from an owner standing off to one side.
+
+⛔⛔ **AND THE OVER-CORRECTION POISON DID NOT FIRE — the third time today a
+silent poison found a hole.** Making `spatial_source` the volume centre for BOTH
+anchors left all 613 tests green: **nothing asserted the `FollowOwner` half at
+all**, so somebody could have "simplified" the split away in one line. ⇒ Control
+added, and it is a real property rather than a formality: a reaching strike's
+volume sits well in front of the body, and a victim standing BETWEEN the two must
+still be thrown away from the ATTACKER — measuring from the volume centre throws
+them backwards *through* the fighter who hit them, which the poison now prints
+verbatim (`-1`).
+
+#### ✔ FINDING 3 IS FIXED — THE PAIR HAS AN OCCURRENCE IDENTITY NOW
+
+`channel_index` is AUTHORING data — the same `8` for every Alice — and it was
+stored as `pair_index` as though it named a live pair. ⇒ Two Alices recovering at
+once put two entrances on channel 8 and two exits on 9; `find_portal` returns the
+FIRST match, so one could leave through the other's aperture, and the expiry
+sweep despawns every move portal carrying the index, so **one Alice's clock
+running out shut the other's pair mid-recovery.** A 2.5s lifetime makes that
+ordinary, not exotic.
+
+⭐ **The authored index is now a BASE and the SEAT makes it an occurrence** —
+each seat gets its own two-channel window above it, so two Alices open on 8/9 and
+10/11. ⛔ `MatchSeat`, not an `Entity`, exactly as the review asked: the seat is
+rollback-registered (`actor.match_seat`) so both peers derive the same channel
+for the same fighter, where bevy_ggrs recreates entities.
+
+⚠ **It saturates rather than wraps**, because a base near the top of the `u8`
+channel space with many seats could roll over onto somebody else's window — the
+precise collision this exists to prevent. An overflowing seat degrades to the old
+shared-channel behaviour rather than to a silent swap.
+
+⛔ **Requiring the seat broke FOUR existing portal fixtures, and that was the
+right answer rather than a reason to make it optional**: each spawned a caster
+with no `MatchSeat`, which is a body that cannot exist in a match. An `Option`
+with a default would have kept them green while hiding that they were asking the
+system a question about nobody. ⇒ Poisoned by restoring the static index, which
+prints the defect literally: `[Indexed(8), Indexed(9), Indexed(8), Indexed(9)]`.
+
+#### ✔ THE REVIEW'S FOURTH FINDING IS FIXED — BOLT AND SPRING PICKED WINNERS BY QUERY ORDER
+
+Both broke on the first overlapping body. **The spring ignored the seat outright
+(`_seat`)** and had one use to give; **the bolt's two answers are different
+MOVES** — the Thunder Jacket (a recovery that launches the caster) versus an
+offensive hit on a rival. ⇒ Bevy's iteration order chose, which is not stable
+across a rollback resimulation: two peers can resimulate one tick and launch
+different fighters, or turn one peer's attack into the other peer's recovery.
+
+⭐ **The spring takes the lowest `MatchSeat`** — rollback-registered, so both
+peers agree. ⚠ Arbitrary as FAIRNESS (seat 0 wins a tie) and accepted as such:
+two bodies inside one plate on one tick is rare, and **a rare unfair outcome both
+peers agree on beats a rare desync.** ⭐ **The bolt prefers a RIVAL over its
+caster**, which is a design statement rather than a stabilised coin-toss: a bolt
+that could connect does the offensive thing, and the jacket is what it does when
+it finds nobody else.
+
+⛔ **Guarded in the review's own shape — identical geometry, REVERSED SPAWN
+ORDER, same outcome** — because "somebody was launched" passes on the broken
+code. Poisoned by restoring first-wins: the spring's guard fails with *"launched
+seat 0 in one order and seat 1 in the other"*, reproducing the defect
+mechanically rather than by argument.
+
+### ⭐⭐ "MAKE IT REFUSE AND COUNT WHAT FALLS" IS A MEASUREMENT, AND IT SAVED ME FROM THE OBVIOUS FIX
+
+Two registries in the moveset lane were on a peer's silent-overwrite inventory.
+Applying the obvious ruling — adopt refusal — would have been wrong on one of
+them, and the thing that said so was **running the refusal and reading the names
+of the tests that broke.**
+
+| registry | verdict | what decided it |
+|---|---|---|
+| `PreparedCharacterRegistry` (production door) | **already done** | `register_character` refuses with `CharacterRegistrationError::DuplicateId`, whose own doc argues it: *"a stable id is the thing saves, replays, and the network key on."* The inventory row was stale |
+| `PreparedCharacterRegistry` (test-support hatch) | ⛔ **REPLACE, and now it SAYS so** | I sealed it. **Four tests fell**, and their names are the argument: `deleting_an_override_in_a_hot_reload…`, `a_new_cast_generation_refreshes_a_seated_fighters_kit`, `a_character_that_stops_authoring_hurtboxes_has_them_retracted`, `replacing_the_cast_reprojects_a_body_wearing_the_same_character`. ⇒ Every one re-registers ONE id deliberately, because **that is what a hot reload IS** |
+| `MovePrefabRegistry` | ✔ **refuse** — landed | Measured first: the only three registrations in the workspace are the engine seeds, under three distinct literal keys. **Nothing overrode anything**, so "(or override)" documented a capability no caller used and a hazard every caller inherited |
+
+⛔⛔ **THE ONE I WOULD HAVE GOT WRONG IS THE MIDDLE ROW, and I got it wrong for
+about four minutes.** The two roads into that registry answer DIFFERENTLY and
+both are right: at the production door a second write means two PROVIDERS claimed
+one stable id and somebody has to lose; at the hatch it means the SAME author
+published again, which is a republication. **A rule applied to the registry
+rather than to the road is wrong on one of them.**
+
+⭐ **And the count was the signal, not the failure.** Four tests falling said the
+road is exercised deliberately and for a reason; one falling would have said only
+that a fixture touched it. ⇒ This is the positive form of the poison rule two
+sections up — **when you poison a shared authority, the NUMBER that reddens tells
+you how many roads your fixtures actually reach.** A peer put it in exactly those
+words the same afternoon, from the opposite direction: emptying a shared table
+reddened three tests, and the three was the point.
+
+⚠ `MovePrefabRegistry` also does NOT adopt the shared `classify` helper, for a
+reason worth stating rather than inheriting: `classify` decides its three answers
+with `PartialEq`, and the value there is a `fn` POINTER. The compiler may merge
+identical functions or not, so "the same entry" is a question that depends on
+optimisation settings. ⇒ **A registry that cannot soundly recognise idempotence
+has no honest Idempotent arm**, and any second registration is a conflict.
+
+### ⚠ ROSTER DECISION #16 — PUGNACIOUS POLYGON GETS THE PARASOL, AND HE WAS PICKED BY MEASUREMENT
+
+His up-B was `impulse(0, -745, Set)` and nothing else. It now opens a 0.35-gravity
+float for 1.1s at 0.20s — after the hit, so the uppercut stays a committal rising
+attack that can be beaten, and the reward for landing or surviving it is the way
+home.
+
+⭐ **He is the fighter the comment-vs-mechanics sweep scored LAST**: the only
+moveset in the crate with **zero claim markers across ten comment lines**, five
+specials that are a haymaker, a shoulder rush, an uppercut, a ground slam and a
+body drop. ⇒ The sweep is blind to boredom and said so; this is the first row to
+act on what it could not see, by using its own ranking in the other direction.
+**Honest-and-dull was measurable all along — I just had to read the column I
+already had.**
+
+⚠ **It is a BUFF to a recovery and that is a balance decision, not a neutral
+one.** Jon's to overrule like the other fifteen; the move it replaces was dull
+rather than balanced, which is the argument for doing it here rather than on a
+fighter whose recovery is already load-bearing.
+
+### ⭐⭐ THE THIRD COUNTER FINALLY EXISTS, AND AN ENUM IN A PARAMS STRUCT NEARLY ATE EVERY COUNTER IN THE GAME
+
+`smash_counter`'s header has always named three counters a platform fighter
+wants — *"an ordinary counter answers with an attack; a Revenge-style counter
+answers with a lasting character modifier; a Witch-Time-style counter answers by
+SLOWING THE ATTACKER"* — and the third had **no vocabulary at all** while the
+first two shipped. Two things were missing and neither was an authority.
+
+⭐ **`smash.time_dilation`, which adds no time authority.**
+`ambition_time::ProperTimeScale` is a per-body component the engine ALREADY
+integrates against — `WorldTime::entity_dt` is what move playback, hurtbox
+resolution and the animation clock all read (ADR 0011), and it is already
+rollback-canonical. ⇒ **Nothing could SAY a number into it.** The technique
+writes a scale and a duration; the adapter owns the clock and puts the world
+back, exactly as the parasol's gravity modifier does. ⚠ Measured limit stated in
+the module: the movement kernel does not read `entity_dt`, so a dilated body
+still WALKS normally — its moves, hurtboxes and animation slow. For a counter
+that is the effect that matters; for a move that dilated in neutral it would look
+wrong, and the doc is where the next author learns that instead of the playtest.
+
+⭐ **`CounterParams::answers_the_attacker`, which adds no fact.**
+`ParriedBodyHit::attacker` already exists and its own doc says why the parry road
+has it. Every response was dispatched to the stance's OWNER, so a Witch-Time
+could only have slowed its own caster. ⇒ The third counter needed a TARGET, not
+an authority.
+
+✔ **The customer is the Patent Clerk's `synchronize_clocks`, and it is the SIXTH
+move on this roster whose art asserted a mechanic the code lacked.** It has drawn
+`clock_sync` on one side and `clock_desync` on the other since it was written,
+over a plain strike where both clocks ran at the same rate. The stance rides the
+WINDUP only, so a fighter who swings into it has their clock desynced and one who
+waits eats an ordinary down-special. **Roster decision #19.**
+
+⛔⛔ **AND THE FIELD WAS A TWO-VARIANT ENUM FOR ONE AFTERNOON, DURING WHICH EVERY
+COUNTER IN THE GAME SILENTLY STOPPED ANSWERING.** `ParamValue` is a `ron::Value`
+and a Rust enum does not survive the round trip — **including a plain unit
+variant**. `from_typed` succeeds; `hydrate` returns
+`InvalidValueForType { expected: "enum …", found: "a unit value" }`;
+`live_counter_stance` reads that as "no stance" and warns into a logger nobody
+reads. ⇒ **Five tests fell and the cause was invisible in all five messages** — I
+found it by writing a four-line round-trip probe rather than by reading any of
+them.
+
+⭐ **The repair is three things, and the last is the one that lasts:** the field
+became a `bool`; `round_trip_probe` is in the tree; and the constraint is now on
+`ParamValue` itself — the type every technique author touches — instead of only
+in the teleport's params doc where it had been sitting all along. ⇒ **A warning
+in the wrong file is a warning nobody reads**, which is this page's oldest
+finding wearing new clothes.
+
+#### ✔ AND THE JOIN IS TESTED, IN THE ORDER THE SHIPPED SCHEDULE RUNS IT
+
+The counter's tests prove it dispatches to the attacker; the adapter's tests
+prove it applies a scale. ⛔ **Neither asks whether they MEET** — which is the
+shape that has hidden four defects on this page already. ⇒ In `lib.rs` the
+dilation adapter is registered BEFORE the counter's answer (`ContentSpecials`,
+991 vs 1035), so the `ActorActionMessage` is read on the FOLLOWING tick. That is
+a real property of the composition: it works only because Bevy messages survive a
+frame, and it matches the Officer's capture counter, which has the same shape.
+
+⭐ **The fixture adds the systems in the SHIPPED order rather than a convenient
+one**, because one that ran them the other way round would prove something the
+game does not do. Poisoned at both ends — the counter aiming at its owner, and
+the adapter ignoring the request — and each reddens the same assertion from the
+opposite side, which is what a join test is for.
+
+### ⛔ THE PORTAL FIX WAS PER-SEAT SEPARATION, NOT OCCURRENCE IDENTITY
+
+A second review caught the difference and it is a real one. `channel_index +
+seat*2` separates two DIFFERENT Alices; **it does not identify one ACTIVATION.**
+A pair lives 2.5s while the move finishes far sooner, and landing, a ledge catch
+or an accepted flinching strike all refresh the recovery — so **one seat could
+hold two live pairs on one channel window**, which brings the cross-link back
+inside a seat and makes the expiry sweep retire the NEWER pair when the older one
+runs out. ⚠ A peer's deterministic `find_portal` only made the wrong answer
+reproducible, and they said so themselves.
+
+✔ **CHOSEN: one live pair per caster — opening a second retires the first.** The
+review offered that or a rollback-stable per-activation `PortalPairId`, and this
+is the better move as well as the cheaper one: *you have one pair of portals* is
+the genre's own rule, legible without a tutorial, and it makes the seat-derived
+channel **true instead of approximately true** — with one live pair per seat,
+`pair_index` names the live pair exactly. ⇒ The alternative buys a second
+simultaneous pair that no authored move asks for.
+
+⚠ **ROSTER DECISION #17, Jon's to overrule:** recasting the up-B while your shaft
+is still open closes it. A player who wants the old exit keeps it by not pressing
+again.
+
+⛔ **THE SECOND ASSERTION IS THE ONE THAT MATTERS:** the survivors must be the NEW
+pair. A rule that merely CAPPED the count could satisfy "two apertures" by
+dropping the fresh cast — which is worse than the bug it replaces, since the
+player would press the button and get nothing. Poisoned both ways: not retiring
+prints four apertures on `Indexed(8)`/`Indexed(9)` twice, and refusing the new
+cast prints a surviving pair at the old position.
+
+### ⛔⛔ A SECOND REVIEW: THE HOMING DASH TARGETED BODIES, NOT FOES
+
+`carry_homing_dashes` gathered every `BodyKinematics` and filtered **only**
+`other != entity`, then handed that raw population to `assisted_fire_direction`
+— which is deliberately GEOMETRIC and assumes its caller supplied foes. ⇒ Carl's
+slingshot could bend toward a **KO'd fighter** (`OutOfPlay`, and health RESET
+FULL by the respawn, so nothing about their numbers says they are gone) or,
+in team versus, toward a **teammate**.
+
+⭐ **REUSED, NOT APPROXIMATED, and the review was explicit about that.** The fix
+calls `body_is_untouchable` — whose own doc says out-of-play belongs there
+precisely so TARGET SELECTION sees it, and that folding it into invulnerability
+would leave *"a hunter going on chasing a body it merely could not damage"* — and
+`damage_lands_between`, the same relation the damage road asks. ⛔ **A `MatchSeat`
+comparison would have been shorter and would have called a teammate a foe** the
+day this runs in team versus.
+
+⚠⚠ **THE FIXTURE WAS THE REAL FINDING, AND THE REVIEW SAW IT FIRST:** every body
+in `homing/tests.rs` carried `BodyKinematics` + `MatchSeat` and **nothing else**,
+so *nothing in that file could tell an ally from a corpse.* A real match gives a
+seated fighter `ActorFaction::Player` and its own `MatchTeam` — the smash rules
+keep global friendly fire OFF and say why in place: *"teams already decide who
+may hit whom."* ⇒ **A fixture without them was modelling a body that cannot
+legally fight anybody**, which is exactly why the bug was invisible.
+
+⛔ **AND MY FIRST POISON CHANGED TWO THINGS AT ONCE**, so the KO arm passed for
+the wrong reason — inverting the relation excluded the (foe) corpse anyway.
+Re-poisoned each gate ALONE: dropping the untouchable check reddens only the KO
+arm, dropping the relation check reddens only the teammate arm. **A poison that
+moves two variables cannot tell you which one the test is watching.**
+
+### ✔ JON RULED THE PORTAL PRESENTATION, AND IT WAS ONE RESOURCE EACH
+
+Jon, 2026-09-05: *"because it is not a 1 player game, we can't use the seamless
+portal presentation. This will be a good check to make sure that it can be
+disabled on a case by case basis. I think we can use the static small cone
+presentation though."*
+
+⭐⭐ **THE REASON IS THE CAMERA, AND IT GENERALISES PAST PORTALS.**
+`PortalCameraTransitMode::Continuous` maps the viewpoint through an aperture
+while a CONTROLLED BODY straddles it — a single-subject effect by construction.
+A smash camera frames the whole cast, so there is no one body whose transit the
+view should follow, and **a continuity roll taken on one fighter's behalf moves
+the frame the other player is reading.** ⇒ `Pop`, and a portal becomes something
+that happens inside the shot rather than to it.
+
+⭐ **`Static` RATHER THAN `Off` IS THE MORE INTERESTING HALF.** The view window
+still draws — Alice's up-B opens two apertures and a player has to see where the
+far one leads — it simply stops being viewer-dependent. `Dynamic` gates the cone
+on one viewer's line of sight, **which asks the camera's unanswerable question
+again: WHOSE.** The authored cone is identical for both players, and small
+because a fighter-sized aperture is what she opens.
+
+✔ **THE CASE-BY-CASE CHECK PASSED, and it cost one `insert_resource` each.** Both
+are plain host overwrites, which `camera_continuity`'s own module doc names as
+the sanctioned road: *"the single source of truth for the live mode… hosts should
+not mirror the default into a second `DeveloperTools` or settings field."* ⇒ **The
+smash demo gained no portal-presentation setting of its own**; it states its
+answer to the one that already exists. ⚠ Applied AFTER
+`PlatformerPresentationPlugin` deliberately — an override placed before it would
+survive or not depending on whether the plugin used `init_resource` or
+`insert_resource`, which is not a detail a host should need to know.
+
+⛔ **THE GUARD ASSERTS THE ENGINE DEFAULT AS ITS CONTROL, and that is the whole
+test.** Checking only that the host holds `Pop`/`Static` would pass identically if
+those were the engine defaults and the function did nothing — the case-by-case
+claim would be untested, and silently false the day a default flips. So it
+asserts both: the engine ships `Continuous`/`Dynamic`, and the host ships
+neither. ⇒ It also fails loudly if `Pop` is ever promoted to the default, which is
+correct — at that moment this stops being a per-case decision and somebody should
+have to look.
+
+### ✔ JON RULED THE LIMIT FILL, AND THE RULING WAS ABOUT SHAPE RATHER THAN NUMBERS
+
+> *"It will depend on the mechanic. There could be a cloud like meter, where a
+> move fills it. Or a damage only meter, or whatever, **make sure the meter
+> doesn't push future uses of it into a box.**"*
+
+⇒ So the answer is not a fill RULE. `LimitMeterFill` is a set of **independent
+sources, every one of which may be zero**, and the guard proves each works
+ALONE — not that the baseline is right:
+
+| a mechanic that wants | authors |
+|---|---|
+| a slow inevitability | `per_second` |
+| a reward for offence | `on_damage_dealt` / `per_damage_dealt` |
+| a comeback | `on_damage_taken` / `per_damage_taken` |
+| *"a cloud like meter, where a move fills it"* | `smash.fill_meter`, an ordinary technique |
+
+⭐ His numbers ship as `JONS_BASELINE` — cap 60, a tick every 2s, `1 + 0.1×`
+dealt, `2 + 0.2×` taken — **labelled an example in his own words**, so they
+demonstrate that all four express rather than ruling on balance. Taking damage
+fills roughly twice as fast as dealing it, which is what makes it a comeback
+meter rather than a snowball.
+
+⛔ **`ResolvedBodyHit` GAINED THE FACT IT HAD ALWAYS PROMISED.** Its doc says a
+resolved hit is one where *"damage applied, defences asked, reaction chosen"* —
+and it carried WHO and how long the hitlag was, and **never how much**. A consumer
+scaling by hit size had no channel and would have re-derived it from health
+deltas, which is a second authority on a number the resolver already knows. No
+schema bump: that message is `message-clear`.
+
+⛔⛔ **AND A GUARD FOUND A REAL DESIGN BUG IN THE FIRST FIVE MINUTES: A LIMIT THAT
+STARTS FULL.** `BodyMana::default()` is a MANA POOL, and a mana pool starts full —
+`ResourceMeter::new` sets `current` to `max`. ⇒ Adopting the match cap without
+emptying it opened every match with every fighter's Limit already spendable.
+Found by expecting `1.0` after two seconds of clock and reading `60.0`.
+
+⭐ **The goblin's air down-B is the Limit, priced at EXACTLY the cap**, which is
+why it needs no new gate: *"usable when it fills"* is a number, and `afford_meter`
+already refuses it otherwise. Its four other specials stay free — a poison arm
+enforces that, so charging changes what one button does rather than handing the
+goblin a kit it cannot use. **Roster decision #21.**
+
+⚠⚠ **AND AN UNCHARGED PRESS IS A DEAD BUTTON — stated rather than discovered.**
+The meter check lives at ACCEPTANCE, not in `MoveGates::permits`, because
+`permits` is called from a data crate that must not read body state. ⇒ Unlike a
+posture gate, a refused metered move does **not** fall through the directional
+chain to a cheaper variant: `if let Some(spec) = spec.filter(…)` yields `None` and
+nothing happens. That is legible for a Limit (the button IS the meter) and it is
+**not what the genre does**, where a Limit REPLACES a special rather than gating
+it. ⇒ **The fall-through is the next rung**, and it belongs in
+`trigger_moveset_moves`.
+
+### ⛔ ~~JON'S CALL — WHAT FILLS THE LIMIT METER~~ (answered above)
+
+`MoveGates::meter_cost` ships defaulted to `0.0`, so nothing in the game costs
+meter today and no authored move changed. **The engine half is done and the
+design half is one question:** *what earns it?*
+
+⛔ **The premise this row was written on turned out to be false, and correcting it
+is what surfaced the question.** The row said the meter was *"already
+regenerating — so a first rung needs NO fill system at all."* Measured instead of
+read: **every `BodyMana` in the workspace is `ResourceMeter::new(100.0, 0.0, 0.0)`
+— regen ZERO**, and its only refill anywhere is the platformer's shrine, which no
+smash stage has. ⇒ Price a move today and it works a fixed number of times per
+life and then never again.
+
+| option | what it feels like | cost |
+|---|---|---|
+| **damage dealt AND taken both fill it** (the genre's own answer) | the comeback mechanic: the player who is losing gets there first | a fill rule at the hit seam, plus a number |
+| damage TAKEN only | purely a comeback tool; a winning player never sees it | same |
+| a slow clock | a rhythm, not a comeback — closer to a cooldown than a Limit | cheapest; also the least interesting |
+| leave it at zero fill | a once-per-life resource, which is a real design (one Final Smash) | nothing — it already behaves this way |
+
+⭐ **My recommendation is the first**, because it is the one that makes the meter
+worth showing the player, and because "the fighter who is behind gets the tool
+first" is the reason the mechanic exists in the genre at all. ⚠ I did not build
+it: the fill rule decides the whole feel, it is the half a player actually
+experiences, and every option above spends the same field.
+
+### ⛔⛔ THREE VELOCITY WRITES I SHIPPED TODAY BROKE ADR 0024, AND A PEER FOUND THEM
+
+`engine.velocity-writes-are-authority-only` went red on `bolt.rs:268`,
+`homing.rs:158` and `spring.rs:165` — all three mine, all three from today.
+⇒ **Three new moves, three bare `kin.vel =` writes, and I did not run the
+workspace policy suite between writing them and pushing.**
+
+⭐ **The fix is one entry, not three, and the policy asked for that shape in its
+own words** — on `intercept.rs`: *"Waived at the OPERATION rather than at its
+callers, which is the point of having an operation: the next interception adds no
+entry here."* ⇒ `ambition_demo_smash/src/motion.rs` now owns
+`command_body_velocity`, all three call it, and the next smash move that launches
+somebody adds no policy entry. **Poisoned by restoring the bare write in
+`bolt.rs`: red, naming file and line** — so the waiver is scoped to the operation
+and did NOT blanket-skip the demo.
+
+⚠ **`AccelerationFrame::launch` was tried first and rejected for a stated reason,
+which is recorded in the module rather than lost:** it is the frame-aware
+authority, but it is scalar and always throws AWAY FROM THE FEET, which would
+have deleted the ANGLED plate that `PlaceSpringParams::launch` exists to author.
+⇒ The seam gives up frame-awareness and says so in its own header.
+
+### ⛔⛔ THE GUARD I WROTE COVERED ONE OF THE TWO ROADS, AND THE POISON FOUND IT
+
+The meter gate's first test drove `trigger_moveset_moves` and passed. **Then
+deleting the cancel road's copy of the check left all 605 tests in
+`ambition_combat` GREEN.**
+
+⇒ That is the exact defect the trigger site's own comment warns about — *"a gate
+enforced on only one of two entry paths is a gate somebody will walk around
+without meaning to"* — **except on the GUARD side, which is the half nobody
+notices**, because a one-road guard and a two-road guard both print `ok`.
+
+⭐ **The general form, and it is cheap to apply:** when the code you are guarding
+has N entry paths, poison EACH ONE separately. A single poison on the path you
+happened to write the fixture for proves only that the fixture works. The test
+now spawns a body mid-move whose window cancels into the priced one, and the
+re-run of that same poison fails with the message naming the cheaper road.
+
+### ⛔⛔ A GUARD THAT VALIDATES WHAT SURVIVED A FILTER CANNOT SEE WHAT IT ATE
+
+Four instances in one day, three of them in guards somebody else wrote and one in
+a guard I wrote the same afternoon:
+
+| guard | what it validated | what it was blind to |
+|---|---|---|
+| the citation checker | every cited FILE exists | a drifted LINE number, forever |
+| the rollback schema ledger | the file's rows match the runtime | a row I had just added and never compared — until I poisoned it |
+| the select-grid test | everything ON the grid is named and seatable | a fighter the filter silently DROPPED |
+| my technique census | a key is NAMED by a ruleset crate | that the naming was in a **test**, not production |
+
+⇒ **"Everything present is valid" and "everything that should be present is
+present" are different assertions, and the first is the one that is easy to
+write.** A non-empty check does not close the gap: a grid missing one fighter is
+still non-empty.
+
+⭐ **The fix is to assert the POPULATION**: enumerate what should be there from
+the source of truth, subtract the documented exceptions, and require the
+remainder to be empty. `every_fighter_this_composition_can_build_reaches_the_grid`
+does that — and it matters here because **all ten fighters improved today are
+only worth anything if a player can pick them.**
+
+### ⛔⛔ A SPAWN POINT IS INSIDE THE SPAWNER — THREE TIMES, THREE DIFFERENT MOVES
+
+The same defect found by the first guard run on three unrelated objects, each
+time before a player could:
+
+| move | what happened on frame one | the fix |
+|---|---|---|
+| the remote mine | placing and detonating on consecutive presses | `arm_s`, an arming delay |
+| the steered bolt | it came home on the tick it was fired and threw the caster instantly | `clear_of_caster`, a latch |
+| the placed plate | it launched the engineer who dropped it, spending a use before anyone saw it | `arm_s` again |
+
+⇒ **A move that spawns something AT a fighter spawns it INSIDE that fighter.** The
+body-local offset is smaller than the contact tolerance every time, so contact
+logic that does not say so is not "usually fine" — it is wrong on frame one, and
+frame one runs before anything else can.
+
+⭐⭐ **AND THE GENERALISATION, named by the peer reviewing this work, is bigger
+than the frame-one case: TWO THINGS AGREE ON A POSITION AND DISAGREE ON A
+TOLERANCE.** The emitter's offset is authored per move by somebody thinking in
+sprite pixels; the consumer's radius is written by somebody thinking "about a body
+wide". ⇒ Applied to my own new code it found a live defect immediately:
+
+    the bolt   `offset.x > bolt.radius + 16.0 || offset.y > bolt.radius + 24.0`
+    the plate  `offset.x > half_extents.x + 14.0 || offset.y > half_extents.y + 26.0`
+
+⛔ **Four invented constants approximating a fighter's extent — on a component
+that CARRIES that extent.** `BodyKinematics` has `size: Vec2` and both systems
+were already reading it for `pos`. Every fighter but the default-sized one got a
+contact box built for somebody else, and nothing would ever have said so: no test
+fails, because the fixtures spawn default bodies. ⇒ Both now read
+`half_extents + kin.size * 0.5`.
+
+⚠ **The bolt had the same tolerance written TWICE** — once for contact and once
+for its "have I cleared my caster" latch — which is the second-order version:
+two answers to one question inside one system, so a bolt could clear itself under
+one and report a hit under the other.
+
+⭐ **All three were found by a guard, none by reading**, and in each case the fix
+turned out to be the genre's own rule arrived at from the bug: a mine you cannot
+instantly detonate, a bolt that must leave before it can come home, a plate you
+step off before it works.
+
+### ⭐⭐ A COUNTER IS NOT A MOVE TYPE — THREE ON ONE ROSTER, THREE DIFFERENT MOVES
+
+`answer_a_parry_with_the_authored_counter` dispatches
+`SpecialActionSpec::Special(stance.response.clone())`. The response is an
+ARBITRARY TECHNIQUE, so "counter" is a trigger, not a reaction:
+
+| fighter | answers a parry with | reads as |
+|---|---|---|
+| George (stand-in) | `smash.capture_attempt` | a riposte into a grab; reflects shots |
+| the Author | `smash.teleport`, **ambush mode** | you commit, and he is behind you; absorbs shots |
+| the Shadow Oni | `smash.sleep` | a smoke seal — you wake up on the floor; absorbs shots |
+| Emmy Noether | `smash.vitality` | ⭐ **the theorem as a move**: a symmetry implies a CONSERVED QUANTITY, so the energy you put in is kept. She is simply better off for having been hit |
+
+⇒ **FOUR counters now, none needing engine work, and no two feel alike.** That is the
+campaign's thesis at its cheapest: the composition seam was already there, and
+what the roster lacked was somebody spending it.
+
+⛔⛔ **AND THE NINJA'S WAS ALREADY DRESSED AS A COUNTER.** `command_seal` carried
+a `counter_ring` effect and a `faction.ninja.parry_flash` sound on top of a plain
+damage-10 poke. ⇒ **The presentation announced a parry the mechanics did not
+have** — the same class as prose describing code that is not there, except the
+reader is the PLAYER, who was told the wrong thing every time the move came out.
+Converting it was not a redesign; it was the move becoming what it already looked
+like. ⚠ The guard holds both halves: it is a counter now, AND it still wears the
+cues that always claimed it was one.
+
+### ⭐⭐ THE CENSUS PAID FOR ITSELF TWICE — TWO MOVES, ZERO ENGINE WORK
+
+Running the "what is built and unused" query as a JOIN rather than a list turned
+up **two complete, tested engine capabilities with no authored customer**, and
+both became fighters' moves the same day:
+
+| capability | state found in | now |
+|---|---|---|
+| `VolumeReaction::Windbox` | shipped down to a `WindboxWithDamage` validation error; `hit_reaction` already sets `flinchless` from it — *"this is a push, not a hit"*. **Zero authored windboxes on the roster** | the Officer's neutral: a sustained wall of air that hurts nobody |
+| `WindowTag::Armor` | consumed end to end — `MovePlayback` republishes `BodyCombat::armored` every tick, `hit_reaction` gates the launch on `!combat.armored`, tests either side. **No authored move had ever opened one** | the Patent Clerk's pass, armoured for exactly its crossing |
+
+⛔ **IN BOTH CASES WHAT WAS MISSING WAS A WAY TO *SAY* IT.** The engine was
+finished; `moveset_authoring` had no verb. `invuln()` existed and `armor()` did
+not, one enum variant apart — and the module's own comment on `invuln` already
+told the story: *"`WindowTag::Invuln` HAS BEEN AUTHORING VOCABULARY WITH NO WAY
+TO SAY IT."* Nobody wrote the sequel.
+
+⇒ **That is this campaign's thesis in its cheapest possible form.** Jon's
+acceptance test is *"a move must be expressible and AUTHORABLE easily and
+creatively"* — and here the whole gap between an unused engine and two new
+fighters' moves was two helper functions.
+
+⚠ **A field census could not have found the second one.** It counts leaves:
+`WindboxVolume.repeating` was visible, but a whole reaction with no customer is
+not a bool and so is invisible. The BRANCH axis — authored enum variants never
+named in content, 149 of 543 — is what surfaced `VolumeReaction::Windbox` and
+`WindowTag::Armor`. ⇒ **Ask about variants, not just fields.**
+
+### ⛔⛔ AND ITS WORSE SIBLING: COMPILED IN, NEVER INSTALLED
+
+**The portal recovery was inert in one of the two apps that ship it, and every
+test passed.** Found 2026-09-05 by chasing `close_on_transit` — a field that was
+not merely dormant but **DEAD**: authored, stored, snapshotted into rollback
+state, and read by nothing.
+
+| app | `ambition_platformer2d_runtime` `portal` feature |
+|---|---|
+| `ambition_app` | ✔ on |
+| `ambition_demo_smash_app` | ⛔ **off** |
+
+⇒ **`all_capabilities` turns on the optional `ambition_portal2d` DEPENDENCY; a
+separate `portal` FEATURE installs `PortalSchedulePlugin`. Two switches, one
+name-shaped concept** — and without the second everything still COMPILES, because
+`PlacedPortal` is just a type and the spawn system spawns two of them happily. A
+fighter's recovery opened two apertures they fell straight through.
+
+⛔ **Every guard passed because every fixture registers its own systems by hand.**
+A hand-built `App` cannot detect a missing PLUGIN: the fixture IS the plugin. The
+guards proved the systems work; nothing proved they RUN in a shipped composition.
+
+⭐ **The check, and it belongs in this campaign's acceptance list:** a row is not
+landed until `cargo tree -p <each shipping app> -e features -i <providing crate>`
+shows the feature on in EVERY app. And the requirement goes in the Cargo.toml of
+the crate that REGISTERS the systems, not in each app that composes it.
+
+⛔⛔ **NAME THE FEATURE SET OR THE NUMBER IS ABOUT NOTHING.** `ambition_demo_smash_app`
+has `default = []`, so a `cargo tree` with no `--features` measures a composition
+nobody runs and reports nearly every capability off. ⇒ My original `0` was
+**right by luck**; the peer re-measurement that caught it also showed `audio`
+absent from three demos that ship it. Re-measured after the fix, under both:
+
+    smash_app [default]            portal=1  portal_render=0
+    smash_app [--features visible] portal=1  portal_render=3
+
+⭐ **And that shape is the fix, not an accident of it.** Simulation is
+unconditional — `portal` rides `ambition_demo_smash`'s own dependency, because
+that crate registers the systems in every composition including headless tests.
+Presentation is not — `portal_render` rides the app's `visible` feature, because
+a headless build has no business linking a renderer. ⚠ Stopping at `portal=1`
+would have shipped a demo that simulates the recovery correctly and draws no
+apertures at all: the same symptom, a different bug.
+
+⚠ **What made it findable was adding the first HARD dependency** — a
+`MessageReader` for a message the plugin registers, where the old code only
+spawned a component. The breakage had been shipping quietly until something
+needed the plugin to actually be there.
+
+### ⭐⭐ A CAPABILITY WITH NO CUSTOMER IS ONE NOBODY CAN TELL IS BROKEN
+
+Twice in one day a technique turned out to be **fully built, guarded, and used by
+nobody**:
+
+| capability | state found in |
+|---|---|
+| `smash.sleep` (Sing) | engine landed the same morning, no authored customer until the Performer got it |
+| `TeleportParams::behind_nearest_foe` — the ambush arrival, its foe selection and its facing rule | **no authored customer anywhere in the tree**, until the Author's counter |
+| `MovePrefabRegistry` — the whole `key + params -> MoveSpec` seam (A2 / R2.3) | ⛔⛔ **a THIRD and a worse kind, found 2026-09-05 while triaging the registry inventory: EVERY `.expand()` call in the workspace is in `moveset/tests.rs`.** Not "no authored customer" — **no production caller at all.** It is `pub use`d, `Default`s to three engine prefabs, is fully tested, and nothing in the game has ever asked it for a move |
+
+⇒ **This is a job for O4's installed-technique catalog, and it is a bigger one
+than the catalog was scoped for**: the useful census is not "what techniques
+exist" but **"which techniques, and which PARAMETER MODES, no authored content
+reaches"**. A list of what exists cannot find these; a JOIN against authored
+content can. ⚠ All three were found by accident, which is the argument — nobody was
+looking, and nothing would have complained.
+
+⭐⭐ **AND THE THIRD SHARPENS WHAT THE CENSUS HAS TO JOIN AGAINST.** The first two
+are techniques with no authored customer, which a content-side join finds. The
+prefab registry is a whole SEAM with no production caller, which that join cannot
+see at all — it is not a technique, it appears in no moveset, and its own tests
+exercise it thoroughly enough to look healthy. ⇒ **The two questions are
+different: "what does authored content never reach" and "what does the SHIPPED
+GAME never call".** A capability can pass the first and fail the second, and this
+one does.
+
+⚠ **It is not a defect and I am not deleting it** — built-ahead infrastructure is
+a legitimate thing to have, and the seam's argument (*"a content roster names a
+prefab + params to mint a move with ZERO new code"*) is one this campaign is
+actively making. ⇒ The finding is that **nobody knew**, and that a silent-overwrite
+hazard in it was being triaged as though it were reachable.
+
+### Track A — the keystone
+
+- ◐ **A1. `TechniqueFlow` minimum** — ⭐⭐ **THE ENGINE HALF WAS ALREADY BUILT,
+  AND THE ROW'S ▢ WAS THE LAST STALE ONE ON THIS PAGE. Measured 2026-09-05.**
+  `FlowNode::{Emit, Wait, Branch, Finish}` and `FlowSignal::{Overlapped,
+  Connected, Blocked}` are in `ambition_entity_catalog`; `MovePlayback` carries
+  `flow_node` and `flow_wait_s`; `advance_move_playback` executes it with a hard
+  step budget (*"one visit per node per tick lets every straight-line flow
+  complete and stops every cycle"*), on proper time, owning its cursor and
+  nothing else. ⭐ **Rollback is free**: `actor.move_playback` is
+  `component-clone-resolved`, so a clone snapshot restores the cursor with no
+  codec and no schema bump.
+  - ⛔ **What it had was NO AUTHORED CUSTOMER — the thirteenth on this page, and
+    the keystone itself.** ✔ **Fixed: the Shadow Oni's `iaijutsu` is the game's
+    first flow.** Wait for the swing to touch anything, branch on whether a guard
+    ate it, and if so spend his own teleport. ⇒ **Block it and he is already
+    gone; don't block it and you eat 11 and a launch.** A shielded dash used to
+    leave him in front of a guard with 0.30s of recovery, and the only fix
+    available before a flow was to make the move safe for everybody — which is a
+    worse move. **That is the thing a timeline cannot say**, and it is the
+    attacker-side answer to a block that B1's defender-side half could not give.
+  - ✔ **A SECOND FLOW, DELIBERATELY THE OPPOSITE SHAPE, AND IT NEEDED NOTHING
+    NEW.** The oni branches on a FAILURE (`Blocked`) to escape; the goblin's
+    `headlong_charge` now waits for a SUCCESS (`Connected`) and commits —
+    a landed tackle emits the grab the goblin already authors. ⇒ **If the four
+    nodes only ever expressed "get out of trouble" the vocabulary would be a
+    defensive gadget rather than a general one**; the same `Wait`/`Emit` pair read
+    the other way round is the whole difference, with no new node, no new signal
+    and no engine change. ⭐ It is also the move the comment already described:
+    *"It runs at you"* — and then, before a flow, bounced off and stood there.
+    ⛔ On the CONNECT, never the overlap: an `Overlapped` charge includes one a
+    guard ate, so waiting on it would reward the goblin for running into a
+    shield. **Roster decision #18.**
+  - ▢ **Symbolic slots are the one part genuinely absent** — zero matches. The
+    four nodes and the three signals are all shipped, and two authored moves now
+    exercise both readings of them.
+  - ⛔⛔ **AND THE GUARD TOOK THREE ATTEMPTS, EACH DEFECT INVISIBLE TO A
+    NEGATIVE-ONLY ASSERTION.** (1) With only the escape observable, poisoning the
+    timeout to never fire left the test GREEN — *"the escape did not fire"* is
+    equally true of a flow that timed out correctly and one FROZEN at the wait.
+    (2) Giving each road its own marker revealed the fixture ran **one tick**,
+    0.05s against a 0.20s patience, so the whiff arm was unreachable. (3) Fixing
+    that revealed `Messages` are double-buffered — an effect emitted on tick 1 is
+    gone by tick 8, so reading once at the end saw nothing. ⇒ **Three fixture
+    defects in a row, and every one of them satisfied "the escape did not
+    fire".** A branch is only tested when each road has a POSITIVE observable.
+- ◐ **A2. Input lease** — ⭐⭐ **THE SUBSTRATE IS ALREADY BUILT AND ALREADY
+  ROLLBACK-SAFE; WHAT IS MISSING IS A SECOND DRIVER FOR IT.** Read 2026-09-05,
+  and this row was written before that read:
+  - `DrivingParticipant(PlayerSlot)` — a per-body component, *"the authoritative
+    driver identity"*, rollback state *"because no upstream component can
+    reconstruct the seat assignment after rewind"*.
+  - `ActorControl` — the per-tick control frame, *"a separate component rather
+    than a field on `Brain` precisely so a brain swap cannot disturb the frame"*.
+    ⇒ That sentence is the input lease's hardest requirement, already met.
+  - `TemporaryControl` — which controller masks a body's autonomous brain,
+    named by **stable `SimId`, never a raw `Entity`**, with `Player` and
+    `Mounted` variants already shipped.
+  - ⭐ And **combat already reads `DrivingParticipant` for attribution**:
+    `causal::seat_of` resolves a body to a seat, so a body driven by seat N
+    already has its hits attributed to seat N. Nothing to build for that.
+
+  ⛔ **THE ONE DRIVER OF ALL THAT IS SINGLE-SEAT AND EXPLORATION-ONLY.**
+  `project_driving_participant` is the documented SOLE writer, and it reads one
+  resource (`PossessionState`, one `possessed` and one `home`) and hard-wires
+  `PlayerSlot::PRIMARY`. Its own comment closes the case: *"A session that never
+  possesses — a versus match whose seat-0 fighter legitimately holds PRIMARY —
+  never reaches here at all."*
+
+  ⇒ **So A2 is not "build an input lease" and not "it already exists". It is:
+  give the existing substrate a per-seat driver a MOVE can operate.** ⚠ And the
+  hard constraint that shapes it: a move must FEED that projection, never write
+  `DrivingParticipant` itself — the system's own comment describes the failure
+  when two holders answer one seat's press, which is *"the exact two-writer state
+  this whole component exists to make impossible"*.
+
+  ✔ **NOW MEASURED (2026-09-05), AND IT HOLDS.** The only PRODUCTION setter of
+  `PossessionState.home` is `possession.rs:253`, inside the possession ability —
+  and **neither `ambition_demo_smash` nor its app references `PossessionState` or
+  possession at all.** `control/authority.rs:76` is production but only CLEARS it;
+  the other three writes are `#[cfg(test)]` fixtures. ⇒ A versus match never sets
+  it, so the system's quoted claim about itself is true and A2's shape stands.
+
+  ⚠⚠ **AND THE FIRST VERSION OF THAT MEASUREMENT WAS WRONG IN THE USUAL WAY.** My
+  opening grep found ONE writer because I filtered it by the word *possession*;
+  widening it found **five**, across two files, and only reading each one
+  separated production-set from production-clear from test-fixture. ⇒ **A census
+  is a statement about the grep, not about the field** — the same correction a
+  peer published about a portal-channel census within the hour, from the opposite
+  direction: they had censused what an AUTHOR wrote without checking what a
+  SYSTEM rewrote before the reader saw it. **Census the field, then find every
+  writer, then ask which of them can actually run here.**
+
+- ⛔⛔ **AND A2 IS NOT ON PK-THUNDER'S PATH AT ALL — measured 2026-09-05.**
+  `ActorControlFrame::steer_axis()` already publishes **"what the PLAYER is
+  HOLDING, as opposed to what this body is ALLOWED to move by"**, and its doc
+  says why it exists: *"`update.rs` PUBLISHES THE DAMPED FRAME back onto the
+  component after integration, so a consumer reading `locomotion` off an actor's
+  `ActorControl` sees zero for the whole of a rooted move."* The B-reverse flick
+  already reads it. ⇒ **A move-scoped system can read the caster's live,
+  undamped stick every tick, while the caster stays rooted and keeps their own
+  seat.** No `DrivingParticipant` rewrite, no `TemporaryControl`, no two-writer
+  hazard, no lease.
+
+  ⭐⭐ **THE DISTINCTION THE PLAN WAS MISSING: STEERING IS NOT POSSESSION.**
+  · *Steering* — I stay put and my stick moves something else. Needs only
+    `steer_axis()`, which is shipped. **This is PK-Thunder.**
+  · *Possession* — my input drives another body through ITS OWN action set, and
+    my avatar goes inert. That is what `TemporaryControl` and a per-seat driver
+    are for, and no move in this campaign asks for it.
+
+  ⇒ **So Jon's stated order (lease → steerable projectile → PK-Thunder) can drop
+  its first rung.** A2 stays open as real work for a genuine possession move; it
+  is simply not a blocker for the Author's side-B.
+
+- ✔ **A3. Steerable projectile control source** + authored self-contact
+  eligibility — **LANDED 2026-09-05** as the Author's side-B. ⛔ **AND BOTH
+  PREMISES BELOW WERE WRONG**, kept for the record: this row was never blocked on
+  identity (`ProjectileSeq` is rollback-canonical — see the struck paragraph
+  above), and it did not need the actor route either. `steer_axis()` was enough.
+  ⇒ What follows is the reasoning as it stood BEFORE the read, and it is exactly
+  the shape of over-pricing this campaign kept producing:
+
+  ~~This row is blocked on projectiles carrying no stable identity — but
+  `TemporaryControl` names its controlled body by `SimId`, and **actors already
+  have one**. ⇒ If PK-Thunder's bolt is a short-lived owned ACTOR rather than a
+  projectile, it arrives with a `SimId`, a body, a control frame and rollback
+  participation already attached, and A3 stops being identity work. ⚠ **NOT
+  MEASURED**: what spawning an actor mid-match costs, and whether an actor's body
+  is too heavy for something that lives about a second. Price it before choosing
+  it — this is a candidate, not a decision.~~
+- ▢ **A4. PK-Thunder parody** as the acceptance fixture that consumes A1–A3.
+
+### Then
+
+Proof moves 4–12 in inventory order, each re-costed when reached. ⛔ Do not
+schedule them now — the capability page's rule is that a move earns an engine
+change only by introducing a new semantic primitive, and half of these will turn
+out to be authoring once the rungs above exist.
+
+## Acceptance, per row
+
+Every row lands with all four or it is not done:
+
+1. the semantic operation is owned by the domain the capability map names, and
+   the move does not become the authority for that state;
+2. an authored customer exists — a real move in the smash demo, not a fixture;
+3. a guard that has been **run red** before it was trusted, with the poison
+   named in the commit;
+4. rollback participation stated: what per-occurrence memory exists, who owns
+   it, and what a rewind does to it.
+
+## The move → composition table
+
+Jon's target expression for each named move, kept here so a builder does not
+re-derive it:
+
+| Move | Composition to aim for |
+|---|---|
+| Peach parasol | recovery move + scoped glide movement modifier + open/close input transitions + ordinary hitboxes |
+| Limit meter | character-local resource + full-state timeout + movement/stat modifier + conditional move resolution |
+| Ground tether grab | long-reach capture attempt + procedural tether visual |
+| Air tether grab | same + generalized aerial capture eligibility |
+| Ledge tether | spatial/ledge acquisition + movement-owned tether/reel + recovery route |
+| Puff Sing | area/query or hit volume → explicit sleep/control status |
+| Disable | targeted hit/query → existing or generalized stun/control lock |
+| Reflector | active projectile-interaction volume → projectile-owned reflect/transfer |
+| Absorber | same volume → projectile consumes itself → semantic resource/heal effect |
+| Thunder from above | transient hazard/projectile at an authored or query-derived spatial relation; it exists whether or not it connects |
+| PK Thunder | controlled projectile + input lease + fighter control restriction + correlated self-hit/expire branch + movement launch |
+| Nikita | controlled projectile + input lease + control-release transition to ballistic/drop |
+| Summon ally | generic spawn + `SummonedBy` + lifecycle + autonomous/commanded control policy |
+| Transform | flow requests form change; character-form authority changes the resolved form |
+| Sanic Homing Attack | deterministic target acquisition + temporary guided fighter-motion controller + hit/whiff branch |
+| Spring Jump analogue | spawn reusable stage actuator + self launch; the aerial version is a falling actuator/hazard |
+| Remote mine ✔ | ⭐ **THE TAG TURNED OUT TO BE A SEAT.** `MatchSeat` is already rollback-registered and is already how this codebase names a fighter durably — so "my mine" is a `usize` comparison, not an occurrence-identity scheme, and **this row did NOT need the `SimId` work Track A is blocked on.** ⚠ The scope that bought: ONE mine per seat, which is the rule that makes the arming delay a brake rather than a decoration |
+| Revenge-style counter | defensive contact interception → persistent character resource/modifier |
+| Cargo carry ✔ | ⭐ **NO "CONSTRAINT CONTRACT" WAS NEEDED.** One bool on the ruleset's half of the hold, one branch in one system, one authored event on a throw-shaped beat. ⚠ **AND THE AUTHORING SEAM, NOT THE MECHANISM, IS WHAT PRICED IT**: the flag could not go on `CaptureAttemptParams` because that struct is constructed literally at 29 sites, so the carry had to be entered from a THROW instead of the grab — which is the genre's own shape anyway. ⇒ Worth recording as the general lesson: in this codebase a shared authored-params struct is the expensive place to add a field, and a new authored EVENT is the cheap one |
+| Pocket | projectile interception → immutable stored payload → later projectile respawn |
+| Corrin-like pin | directed movement/hit → terrain query → spatial attachment → input branch |
+| Sonic-Blade chaining | flow waits for repeat direction/input, reacquires target, runs another scoped motion segment |
+| Stone / Withdraw | body/form mode + modified collision/movement + explicit exit conditions |
+| Shadow-Flare delayed mark | persistent gameplay occurrence attached to victim + timer/remote trigger |
+| Pikmin-like latch | owned secondary entity + body attachment + periodic effect |
+| Wind / vacuum ✔ | **LANDED 2026-09-05** on the Officer's neutral special (`officer_disperse`), plus a `moveset_authoring::gust` helper. ⛔ **THE ENGINE HALF WAS ALREADY COMPLETE AND NO FIGHTER USED IT**: `VolumeReaction::Windbox` ships down to a validation error for `WindboxWithDamage`, the push is an ordinary `knockback` + `launch_dir` with `flinchless` set, and `WindboxVolume::repeating` opts a gust out of the hit-once set so it pushes every frame you stand in it. ⇒ Not the flag, the whole reaction — **zero authored windboxes on the entire roster**, so this row's *"generalize to a sustained field"* was pricing work nobody needs. ⭐ What was actually missing was a way to SAY it: three silent invariants (damage must be zero or the catalog rejects it; growth must be fixed or wind obeys a hit's rule; the slash arc must go or a damageless blade swings), now held by the helper and guarded by three poisons |

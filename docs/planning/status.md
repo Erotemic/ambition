@@ -1,0 +1,778 @@
+# HEAD orientation
+
+**Reviewed baseline:** `aa106cbe7` (2026-09-03 ~00:30Z, the second night's
+gate: workspace 6933/6933, five of six jobs green, the sixth three Python tests
+red on a missing Pillow in the tool venv — fixed in setup at `75fab498f`). The
+asset and performance sections were re-verified at this baseline (Jon's
+ruling on the room tier cap, the reveal barrier's host confirmation, the
+attention budget); the rollback and item paragraphs at `881310ec7`
+(2026-09-02) plus the world-item phase repair (`d220accee`); other sections
+were last reviewed at `4e5f59cf` (2026-08-30). All five of those SHAs are
+ancestors of HEAD, re-checked 2026-09-03 with `git merge-base --is-ancestor`
+rather than `git cat-file` — an orphaned commit resolves under the second and
+not the first.
+
+⭐⭐ **EVERY LIVE NUMBER IN THIS TABLE RE-DERIVED 2026-09-05, so a reader
+orienting today has something current to stand on rather than only the caveats
+below.** Each was run, not carried forward — and the sweep is worth its own
+sentence because FOUR of them were wrong:
+
+```text
+rollback wire format    v152 -> v157   five bumps of drift in a day
+feature-gated tests      813 -> 812    this page disagreed with run_tests.py AND the tool
+capability footprint     51/23 correct, SOURCE wrong (the ratchet prints no such line)
+"now 819 passed / 1 failed"            a live adverb inside a frozen 2026-09-03 receipt;
+                                       the named red has since been fixed
+```
+
+⚠ The pattern across all four: **the copy that goes stale is the one in a page
+nobody executes.** The tool, the footer and the constant all agreed with each
+other; only the prose drifted. ⇒ a row states a CLAIM and names WHERE the number
+lives — the rule this stack adopted on `tracks.md` the same day, arrived at from
+three directions.
+
+The 2026-09-03 receipt further down is history and is deliberately NOT updated.
+
+| what | figure | how |
+|---|---|---|
+| `ambition_app` integration suite | **567 passed** (re-derived 2026-09-05 late, counted inside the whole-workspace run; was 558 on 09-04) | `cargo test -p ambition_app --test app_it`, or count `ambition_app::app_it` lines in a `--workspace` run |
+| `examples/capability_demo` | **21 passed / 0 failed** | its rollback round trip had been dying in Bevy on frame one; `GgrsBackendPlugin` (`fa8656028`) closed six faults at once |
+| actor monolith lib | **1091 passed / 0 failed / 1 ignored** (re-derived 2026-09-05 late; was 1075 on 09-04 — the delta is the day's landings, not drift) | `cargo test -p ambition_platformer2d_actor_monolith --lib` |
+| `ambition_platformer2d_shared_tangle` lib | **258 passed / 0 failed** (re-derived 2026-09-05 late; was 252 on 09-04) | same shape |
+| whole-workspace nextest | **7,198 run / 7,198 passed / 0 failed / 33 skipped** (2026-09-05, 351 s, `[lane: cargo nextest run --workspace]`, exit 0) — run after the day's TWO FIELD SEALS (`EncounterLifecycle::phase`, `AmbitionGameSaveData`'s fourteen fact fields, ~90 rewritten call sites across nine crates) and its TWO LIFETIME FIXES (`ProjectileSeqCounter` and `PendingLifecycleCommit` are session-scoped now) | ⭐ This one INCLUDES `every_durable_family_is_reported_under_its_own_name` (seen at 4064/7198), which the earlier 7,187 run could not — its binaries were compiled before that test existed, and the row said so rather than letting the total absorb it. ⚠ A green names its SUBMODULE STATE as well as its lane: `game/ambition_map_assets` is at the pin `48f8e26`, clean. A box one commit behind reddens three boss guards correctly, which is how the fighter session's tree reads today. |
+| absence + dependency contracts | **38 of 38 hold** | `scripts/check_absence_contracts.py` |
+| capability footprint | **51 crates linked, 23 a movement-only game never asked for** (re-derived 2026-09-05, unchanged) | ⚠ NOT the ratchet, which this row used to name and which prints no such line: it is `check_absence_contracts.py`'s `capability-footprint-may-not-grow` contract |
+| workspace cargo receipt | ✔ **7,303 passed / 0 failed, exit 0, at `e41d4c651`** (2026-09-05, `cargo test --workspace`) — ⭐ **and this one had NO DRIFT AT ALL**: HEAD identical before and after, zero files changed under it. Covers the portal-compositing work AND the portal determinism collapse (three query-order winner-picking sites in `ambition_portal2d` reduced to one `stable_portal_order` applied at the collection point). ⓘ Supersedes 7,291 at `f9c283dcb`, 7,290 at `4b9e684d9` and 7,264 at `ea28cc7b9`. ⚠ The method stands whether or not drift happens: record HEAD both sides and DIFF the range — other agents commit into this working tree, so equality is a lucky outcome, not a standard you can hold. | `cargo test --workspace`, HEAD diffed before and after |
+| rollback wire format | **v161** (re-derived 2026-09-05 after the GPT review flagged the row as stale; it has now read v152, v157 and v159 on one day while the constant moved to 161 — ⇒ ⛔ THIS ROW CANNOT BE KEPT CURRENT BY HAND at the rate registrations land, so treat any number written here as EVIDENCE OF WHEN IT WAS WRITTEN and ask the constant. That is the same lesson the registry triage taught today, on a faster clock) — for the stable-name and encoded-type counts ASK the checker; they move with every registration and this row has carried 409, 410 and 412 on three different days, while the baseline file now lists **475** | `GGRS_ROLLBACK_SCHEMA_VERSION` in `runtime/src/rollback/registry.rs`, and the first line of `rollback_schema_baseline.txt` |
+| feature-gated tests | **447 hidden behind OPT-IN features across 27 crates** (re-derived 2026-09-05; ⛔ THE DROP FROM 812/29 IS AN INSTRUMENT CORRECTION, NOT TESTS APPEARING — the scanner counted any `#[cfg(feature = "…")]` without asking whether the feature is in `default`, so it reported `ambition_platformer2d_ldtk` as *51 of 53 run bare* while cargo answers **53 of 53**; a gate whose feature is on by default hides nothing from a default run) ⚠ the consumer was the expensive half: the ledger test told whoever moved the number that their test *"does NOT run in the default gate plan"*, which was FALSE for a default-on gate — measured two ways, the two tests that moved the count run under `cargo test --workspace` and cargo lists them in a bare `cargo test -p`; ⇒ "behind a cfg(feature)" and "absent from a default run" are DIFFERENT CLAIMS and the survey now makes the second one | `scripts/feature_gated_tests.py` |
+| `cargo fmt --all -- --check` | **422 files / 886 hunks fail** (re-derived 2026-09-05 late; was 358 / 710 on 09-04, and the growth is exactly what the policy predicts) | and that is POLICY, not drift — AGENTS.md: *"Formatting is advisory, never an acceptance gate."* ⇒ the number rises monotonically and carries no information beyond "still policy"; do not read a bigger figure as a worsening |
+| the workspace FEATURE UNION | ◐ **49/53 jobs at `e13d36163`** (2026-09-05, `[lane: exhaustive]`, 2,669 s) — ⭐ **and unlike the run before it, this one IS attributable to a single HEAD**: only docs commits landed while it ran, checked with `git log <start>..HEAD` for `.rs`/`.toml` before writing this line. Four failing jobs, and **three are already repaired since it ran**: the 9 damage/hurtbox panics (`Parameter StrikeOutcomeWriters<'_>::parried failed validation: Message not initialized` — fixed by the fighter lane's `register_strike_outcome_messages`, verified here at 129 passed), the rollback stable-name ratchet (`message.parried_body_hit`, paid with its schema-version bump), and two stale `MODULES.md`. ⇒ **The residual is the compile-cost ratchet alone, which is red BY DESIGN during D33.** ✔ **Its "needs a carve owner" blocker is CLOSED 2026-09-05** — that was a property of the TOOL, not the problem: `--update` did two jobs, so banking a win meant banking the `critical_path_crates` 14 → 16 regression with it. `--adopt-wins` takes only improved numbers and leaves every regression frozen at its old tighter value, still red. Wins banked (monolith 108,364 → 100,742 lines, 1,264.9s → 1,216.8s) against the three carves that earned them; 7 findings remain, all of them still genuinely open. ⭐⭐ **AND THAT DECISION IS SMALLER THAN IT LOOKS — re-measured 2026-09-05 LATE: the ratchet now reports NINE findings and FIVE of them are workspace growth.** (It read 6 earlier the same day; the tree grew, not the instrument — both the report and the gate use the weights FROZEN in the baseline, so appending to the ledger cannot move either.) Two of them (`worst_edit_cost_lines` geometry, `edit_cost_lines` platformer2d_core) are flagged REGRESSED on an ABSOLUTE line count while their SHARE of the workspace FELL in the same report (95.7→95.5, 95.2→95.0); the workspace grew ~564,500 → 614,016 lines, growth alone predicts +47,386/+47,148, and the actuals are SMALLER. ⇒ those rows are growth-tracking and can never go green again by any carve short of one that shrinks the workspace — they want the GUARD changed, not a carve. ⛔ And the sharpest of them now says the OPPOSITE of what happened: `actor_monolith`'s edit cost is flagged REGRESSED while its share of the workspace fell **3.1 points**, which is a large real decoupling win. ✔ UNPRICED's measurement was TAKEN 2026-09-05 in a coordinated quiet window (`--phase first-party`, 245s, 675 fresh / 67 dirty, `backfilled=0`): six of the eight crates now carry measured rates and `unit_weights()` went 56 → 68 crates. ⛔ It does NOT clear the finding — the gate reads the weights FROZEN in the baseline, so UNPRICED is a re-freeze finding like the others. What it buys is that the re-freeze no longer has to spend the build. Details on [`engine/performance-and-iteration.md`](engine/performance-and-iteration.md). | ⛔⛔ **THE RUN BEFORE THIS ONE (50/53 at `bf748dd5a`) IS NOT A SINGLE-HEAD RECEIPT and is retained only as a lesson.** It took ~5 h and I merged `origin/main` into the tree repeatedly while it ran; the fighter lane's commits landed at 00:43 against a run whose HEAD was 00:18. Its nextest job tested a tree WITHOUT them and its union job one WITH them — which manufactured a *"passes at default, panics under the union"* asymmetry, and I used that fake constraint to RETRACT a correct diagnosis. ⇒ *"Do not edit while the suite runs"* was never only about my own edits: **a mid-run `git merge` is the same act and is the one you forget.** A receipt naming one SHA while the tree moved underneath is false even when every number in it is real. |
+
+⚠ **The union figure is the one to re-run rather than quote.** It moved by 38 in
+a day because a single unguarded system was taking whole demo binaries down on
+frame one, and a number that can move that far on one commit describes a tree,
+not a trend.
+
+⛔⛔ **AND THE DEFAULT GATE WAS NOT GREEN WHILE ALL OF THAT WAS MEASURED.**
+✔ **GREEN AT HEAD, re-run 2026-09-05: 36 passed / 0 failed in 4.8 s.** The
+paragraph below is the RECORD OF A PAST RED and is kept for its lesson, not as
+current status — it read present-tense ("fails") above its own "Fixed
+2026-09-04" line, which is exactly how a closed finding goes on scaring
+readers. What follows describes the state on 2026-09-03:
+`cargo test -p ambition_workspace_policy --test policy` failed at default features
+in 4.6 s on a clean checkout — `ambition_portal2d_presentation` gained a
+dependency its allowlist did not name — and `tests/ambition_workspace_policy` IS
+a workspace member (the workspace root `Cargo.toml`, `members` list), so the plan's own
+`workspace (default features)` job (`cargo nextest run --workspace`) covers it.
+⇒ **Either the default gate has not been run to completion since `cf3ee3953`, or
+its failure was not acted on.** Fixed 2026-09-04 (`f0e30289f`), and recorded here
+because a red default gate is the one condition under which every other number on
+this page means less than it appears to.
+
+⛔ **AND ONE THING THAT WAS NOT A NUMBER AT ALL:** `check_absence_contracts.py`
+had been CRASHING rather than failing — a stale `fixtures/minimal_game/Cargo.lock`
+made `cargo tree --locked` exit 101, and the script died on a traceback before
+most contracts ran. Two REDs were behind it (an undeclared rollback wire-format
+entry and an undeclared footprint rise), both now declared. ⇒ When a checker is
+the gate, confirm it printed a VERDICT LINE PER CONTRACT, not merely that it
+exited: a guard whose measurement crashes looks nothing like one that fails.
+
+⚠ **AND THE DISTANCE FROM THAT BASELINE IS NOW THE THING TO KNOW.** All five
+SHAs are still ancestors (re-checked 2026-09-03 late, after this branch merged
+`origin/main` at `867567a79`), which is the weakest of the guarantees this
+header can offer: it says the reviews HAPPENED in this history, not that what
+they concluded is still true. Roughly ninety commits landed between the
+`aa106cbe7` gate and that merge, including the five actor-monolith carves and
+the `hurtbox` move — so treat every section below as reviewed-at-its-SHA and
+re-measure before quoting a number, rather than reading the header as a
+statement about HEAD. ⇒ Where a section carries its own dated re-measurement,
+that date wins over this one.
+
+⚠ **THE GATE LINE ABOVE IS NO LONGER REPRODUCIBLE, and the reason was never a
+regression in what it measured.** For most of 2026-09-03 the workspace job was
+RED on two schedule tests added that morning
+(`world_gating::tests::both_gate_solids_writers_are_scheduled_after_the_overlay_rebuild`
+and `encounter_spawn_service::spawn_request_service_order::the_spawn_server_runs_after_the_wave_driver`,
+`b67c1348f`). ⛔ **The systems they name were scheduled correctly all along** —
+`WorldGatingSchedulePlugin` registers `contribute_encounter_lock_walls` — but the
+tests looked systems up by `system.name()`, which Bevy 0.19 strips to a
+placeholder unless `bevy_ecs`'s `debug` feature is on, and it is enabled nowhere
+in this workspace.
+
+✅ **Both were rewritten by shape at `32a5cd0c3` and are green.** Re-run
+2026-09-03 late, not taken on report: `cargo test -p
+ambition_platformer2d_runtime --lib` → 52 passed, 0 failed, both names present
+in the output. ⚠ **That does not restore the 6933 above as a live number.** The
+figure is a COUNT of a composition that changed the same day — five crates left
+the actor monolith — so it describes a workspace that no longer exists, and the
+right replacement is a measured run rather than an arithmetic adjustment. The
+most recent one is the exhaustive plan on `c2b7f83c7` (an ancestor of HEAD):
+**48 of 52 jobs in 84.9 minutes**, every failure of which is filed in
+[`queue.md`](queue.md) with the run it was reproduced on.
+
+⛔ **SUPERSEDED 2026-09-05 — the Rust lane HAS been run, twice, and this
+receipt's standing instruction to quote it has expired.** Today's readings, all
+on the 484 GB box: `scripts/tests` **727 passed / 3 skipped / 0 failed**;
+`check_absence_contracts.py` **38 of 38**; `check_doc_links` **283 documents /
+1077 local links**; `check_planning_citations` ~1,805 checked, **0 unresolved**;
+`cargo nextest run --workspace` **7,166 run / 7,164 passed** at a frozen HEAD,
+whose two failures (the wire baseline's version line, and an ADR-0024 policy
+violation) are both since repaired.
+⚠ **And this receipt's RED is resolved in the other direction**:
+`test_the_known_list_does_not_rot` PASSES here with all four names still listed,
+which is the per-box variance `queue.md` records rather than a fix — do not read
+it as either.
+
+ⓘ The 2026-09-03 receipt is kept below as history, because the instruction it
+carried is the thing worth seeing expire: `scripts/tests` **802
+passed / 13 skipped / 0 failed** — ⚠ **819 passed / 3 skipped / 1 failed as of
+2026-09-04**, because `scripts/lib/canonical_assets.py` landed and switched on
+ten asset ratchets that no lane had ever evaluated. The red was one of them
+(`test_the_known_list_does_not_rot`, four names that no longer strand pages) and
+it was a real finding rather than a regression — see [`queue.md`](queue.md).
+✔ **RESOLVED: re-run 2026-09-05 late, `scripts/tests` is 867 passed / 3 skipped
+/ 0 failed, and `test_the_known_list_does_not_rot` passes.**
+⚠ The word that had to go was *"now"*: this paragraph is kept as a DATED
+RECEIPT, and a live adverb inside a frozen record goes stale while everything
+around it stays correct — the receipt's own numbers were fine, and only the
+annotation on top of them was describing a tree that no longer exists.
+The 2026-09-03 figures below are history and are deliberately not updated: `check_absence_contracts.py` **37 of 37**,
+with the capability footprint at 50 crates linked and 23 a movement-only game
+never asked for, and the rollback wire format at 409 stable names / 123 encoded
+types across 12 crates; `check_planning_citations` all resolved and `--vanished`
+0 across all five corpora; `check_doc_links` 278 documents / 961 local links;
+`./run_tests.sh --maintenance` 4/4 on the audits a 12 GB volume permits, with
+the cold `cargo doc` ratchet dropped and named. ⛔ **The Rust lane is NOT among
+them** — this volume is below the runner's own floor and it refuses to start —
+so nothing here is a statement about compilation or about any Rust test.
+
+⭐ Re-verified at `6d2327903` (2026-09-03): the actor-monolith section below, the
+only part of this page this pass re-read against the code. Everything else keeps
+the baseline it was last reviewed at.
+
+This file is a current orientation page. It intentionally does not preserve the
+chronology of how the repository reached this state. Use git history, dated
+reviews, and `dev/ambition_dev_measurements` for that evidence.
+
+Immediate execution lives in [`queue.md`](queue.md). Standing deferred work lives
+in [`tracks.md`](tracks.md). Focused plans own design details.
+
+
+## ✔ RECEIPT 2026-09-05 — 5/5 jobs, 1,133 s, lane `--rust-alone`
+
+The first clean workspace run of the day, after two rounds of mutual breakage:
+the peer's rollback/dilation/homing fixes and my portal, shell and sanic work all
+in one tree.
+
+```text
+  workspace (default features)                     ok   919.9 s
+  workspace doctests                               ok    12.0 s
+  acceptance: the render composition draws a frame ok   156.2 s
+  external consumer: outlander COMPILES            ok    20.3 s
+  web build check [web_served_assets]              ok    25.0 s
+  5/5 jobs passed in 1133 s                             [lane: --rust-alone]
+```
+
+⚠ **WHAT THIS GREEN DOES NOT COVER, because a green result names its lane.**
+`--rust-alone` drops the repo-coupled Python guard set AND
+`check_no_warnings.py` — the one job that compiles the workspace at DEFAULT
+features, which is exactly the break I shipped earlier today. It also does not run
+the compile-cost ratchet, which gates the DEFAULT lane and is still red on six
+findings (four of them the baseline disagreeing with itself).
+
+✔ **AND THE LANE IT DROPPED WAS RUN SEPARATELY, AT HEAD.**
+`scripts/check_no_warnings.py` (the workspace `cargo check --all-targets` at
+DEFAULT features) reports *"OK: workspace --all-targets compiled with no
+warnings, under DEFAULT features"* at `4d90a7463`, and the only commit since is
+docs — so this one DOES carry to HEAD. ⇒ Both compile configurations are now
+covered: default features by this job, the union's gated code by neither.
+
+⭐ **It earned its place immediately: it is what caught `ambition_app` failing to
+compile** after `MoveGates` gained `when_refused` and an exhaustive literal in
+`versus_fighters.rs` was left behind. Two landings in one afternoon, from two
+sessions, that only this job could see.
+
+⚠ **A trap worth naming, because the repo already warns about it and I walked in
+anyway.** Waiting on that job with `until ! pgrep -f check_no_warnings` never
+exits: the WAITER's own command line contains the string, so `pgrep` matches
+itself. `run_tests.py`'s docs say exactly this about polling for `run_tests.py`.
+⇒ Read the status file or the log's verdict line; do not poll for a name your own
+command contains.
+
+⚠ **AND IT STANDS FOR `d6ffbed7b`, NOT FOR HEAD.** The tree moved to `ea3df4364`
+during the run and **8 `.rs` files changed** in that range — every one from a
+single peer commit, `7fd6abf0a` (the action-variants rung), in the smash lane. A
+cargo receipt only carries to a sha whose range touches no `.rs`/`.toml`, so the
+peer's landing is NOT covered by this run and wants its own.
+
+## Current architecture model
+
+### Gameplay lifetime has three distinct scopes
+
+The engine now distinguishes:
+
+```text
+process
+  -> gameplay session          SessionScopeId
+       -> rollback timeline    RollbackTimelineGeneration
+```
+
+This distinction is load-bearing. A rollback diagnosis may carry across a GGRS
+rebase inside the same gameplay session, but it is not authority for a different
+gameplay session. `ActiveRollbackAuthority` owns the gameplay-session scope,
+timeline generation, content/schema contract, and timeline health together.
+Gameplay reads confirmation through `SessionRollbackConfirmation`, which must
+name the live scope. A foreign authority answers `Unavailable`, not `Unhealthy`.
+
+Session-scoped process resources that remain during migration are re-established
+on `SessionScopeActivated`; retirement cleanup remains hygiene rather than the
+only protection against cross-session contamination. ADR 0027 is the durable
+rollback/lifetime authority.
+
+### Rollback correctness is broader than component serialization
+
+The current model has separate questions:
+
+1. **codec** — what authoritative state rewinds;
+2. **participation** — which authoritative entities exist on the rollback
+   timeline;
+3. **semantic identity** — which logical simulation object an entity represents;
+4. **deterministic composition** — how multiple valid peers select/compose when
+   order affects an outcome;
+5. **lifetime ownership** — which gameplay session/timeline may treat a piece of
+   state as authority.
+
+Rollback registration is federated by domain and the concrete GGRS backend lives
+in `ambition_platformer2d_rollback_ggrs`; the generic runtime no longer owns a
+census of concrete gameplay component types. Closed 2026-09-02: non-rewinding
+memory (S2), the three named selection sites (S3 — projectile victims now
+tie-break on `SimId`), and the populated-timeline half of S1
+(`rollback_populated_timeline.rs`: the event-created families resimulate
+identically under BOTH oracles — the session checksum, which is blind to the 47
+probed-only registrations, and `RollbackRestoreAudit`, which is not). The
+remaining work is semantic identity across a rewind (only indirect today), S4–S6,
+and the confirmed/external lifecycle boundary.
+
+See [`engine/simulation-authority-and-determinism.md`](engine/simulation-authority-and-determinism.md)
+and [`engine/netcode.md`](engine/netcode.md).
+
+### Construction is transactional; reconstruction still has more than one road
+
+Prepared content and room construction use typed domain lanes under one
+plan/preflight/commit/verify/publish transaction. Confirmed rollback room
+transitions already wait for the same readiness/authorization transaction and
+rebase onto a new frame-zero baseline; speculative rollback frames do not cross a
+room boundary.
+
+**Reconstitution** runs one constructor on every road: fresh construction, room
+transition, same-room replay, new-game reset, and — since 2026-08-31 — a save
+load, which informs its first construction with the file's occurrence ledger at
+the activation edge instead of building a room and correcting it
+(`engine/construction-and-reconstitution.md` C3). The same-room replay's
+hand-kept reset ledger is deleted.
+
+See [`engine/construction-and-reconstitution.md`](engine/construction-and-reconstitution.md).
+
+### The actor program is now a residual-kernel program
+
+The first controlled-character decision-authority decomposition is largely
+complete. Generic simulation no longer needs the old primary-player combat-slot
+arbitration, observation/decision phases are separated more clearly, and several
+player-centric forks have disappeared.
+
+The actor monolith remains a major ownership/dependency boundary. Its purpose is
+no longer “reduce LOC” or “win frame time.” Carves should leave behind the
+smallest coherent actor/body simulation kernel while moving unrelated domain
+ownership, plugin registration, dependencies, and tests to their natural homes.
+
+⚠ **THE PLUGIN-REGISTRATION HALF OF THAT SENTENCE IS SPENT (2026-09-02).** The
+kernel makes five foreign plugin registrations and all five are accounted for, so
+there is no misplaced one left to move; and the developer-tools edge — the last
+production dependency the kernel held on a crate above it — is gone, enforced by
+the manifest rather than a test. ⛔ What remains is INTERNAL decomposition (the
+kernel's own `items/` module), which ends with no edge to point at, so do not
+size it against the earlier slices. The owner doc carries the measurement and
+why a reference count cannot find this.
+
+⚠ **THAT PARAGRAPH WAS OVERTAKEN THE NEXT DAY. Five crates left the kernel on
+2026-09-03**, and the one it named as "internal, no edge to point at" — the
+`items/` module — was the first of them:
+
+| crate | what left |
+|---|---|
+| `ambition_held_items` (`bbfa38a3d`) | the PRESSED collectible: `items/pickup` |
+| `ambition_body_seed` (`962dba34d`) | `ActorClusterSeed`/`ActorMotionPath`/`ActorBody` |
+| `ambition_match` (`7e625e5a5`) | the versus match, prepared |
+| `ambition_encounter_features` (`b67c1348f`) | the room-feature side of encounters |
+| `ambition_abilities` (`4c31111f9`) | the WIELDED ability kit |
+
+**The kernel's own source went 112,733 → 101,042 lines in that day, −11,691.**
+⚠ **IT IS A RAW `src/` LINE COUNT, AND THE DIFFERENT-LOOKING PAIR IN
+[`queue.md`](queue.md) IS THE SAME RULER FROM A DIFFERENT STARTING POINT.**
+That row reads `108,364 → 98,808` because 108,364 is the compile ratchet's
+STORED BASELINE, not where the crate stood at the start of the day; 112,733 is.
+⭐ Confirmed by running the ratchet 2026-09-03 late: it reports
+`largest_unit_lines … 108,364 -> 98,509`; a `wc -l` over the crate's `src/`
+gives **98,509**; and a `git ls-files`-driven count, which sees only TRACKED
+files and so would differ if anything untracked were sitting in the tree, gives
+98,509 as well — three methods, no spread — so the two agree to the line once you
+stop comparing a day's delta with a ratchet's drift-from-baseline. (Both fell
+further after `hurtbox` followed its owner out.) ⚠ **I first wrote this note
+saying they were different INSTRUMENTS. They are not** — a wrong explanation of
+a real confusion, corrected the same hour by running the tool instead of
+reasoning about it. ⇒ Quote the reference point with the number, not just the
+method.
+
+⛔ **AND THE METRIC THIS PAGE USED TO WATCH MOVES THE WRONG WAY.** The monolith's
+`[dependencies]` table went 29 → 33 across those same carves, because a kernel
+that stops CONTAINING a domain starts DEPENDING on it — it keeps the rollback
+ledger, the checkpoint policy, or an inter-crate schedule edge, each of which
+needs the crate named in the manifest. ⇒ Reading the dependency table for carve
+progress reports every success as a regression. What shrinks is the SOURCE; what
+grows is the manifest; both are the same event.
+
+⇒ So the honest statement is the opposite of the one above: **the carve had
+plenty of edge left, and finding it needed a per-module ownership question
+rather than a reference count.** Two of those five also proved a directory can
+hold two unrelated families —
+[`engine/actor-monolith-decomposition.md`](engine/actor-monolith-decomposition.md)
+carries the measurements, including why `possession`/`teleport`/`trapdoor`/
+`flyline` stayed behind in a directory named `abilities/`.
+
+See [`engine/actor-monolith-decomposition.md`](engine/actor-monolith-decomposition.md)
+and [`engine/controlled-character-actor-kernel.md`](engine/controlled-character-actor-kernel.md).
+
+### Capabilities are an architecture boundary, not a measured CPU optimization
+
+Capability/runtime composition remains important for dependency closure, test
+isolation, reusable engine packages, platform composition, and the public SDK.
+A measured removal of several experiences produced no material frame-time or
+plugin-registration startup win, so capability work should not be justified by
+those claims without new evidence.
+
+See [`architecture/package-and-capability-boundaries.md`](../architecture/package-and-capability-boundaries.md)
+and [`engine/capability-and-runtime-composition.md`](engine/capability-and-runtime-composition.md).
+
+## Engine-product posture
+
+Ambition is targeting a **Godot-class 2D engine capability surface**, but not a
+Godot-style editor product. The comparison is engine expressiveness, runtime/build
+efficiency, composition, diagnostics, portability and the ability for another
+serious 2D game to use supported capabilities.
+
+The preferred authoring surface is LLM-first and semantic: machine-readable
+discovery, structured inspection, transactional mutation where formats are
+fragile, validation/preparation, deterministic test scenarios, concise visual
+review artifacts and noninteractive build/package commands. Human visual editors
+are optional frontends for genuinely visual/manual tasks.
+
+Current strengths include specialized platformer movement/collision, deterministic
+headless/rollback-oriented simulation, prepared content and construction, strong
+secondary-game pressure, generated sprite/music/SFX pipelines, LDtk semantic
+tooling, and an increasingly semantic public facade.
+
+The largest product-level completeness gaps are persistent/open-world
+reconstitution, public SDK/capability closure, asset materialization/residency and
+weak-GPU quality, external project build/package, structured provenance/why-not
+diagnostics, authored gameplay orchestration, and remaining multiplayer/multiview
+maturity. Ordinary rendering/UI/audio capability should be audited from real game
+needs and composed from Bevy/ecosystem facilities where that is the cleaner path.
+
+See
+[`engine/godot-class-2d-capability.md`](engine/godot-class-2d-capability.md).
+
+## Current performance model
+
+### The frame, measured on the shipped program (2026-09-02)
+
+The shipped build (release optimisation, no Tracy, V-Sync Off) runs **250-310
+fps in every room** on the reference desktop (i9-11900K + RTX 3090), including
+the Hall of Characters once its art is resident. "Under 100 fps" was three
+things stacked and none of them the shipped program: the dev build
+(opt-level 1), `Fifo` v-sync at 144 Hz (any frame over 6.9 ms shows as 72; an
+unfocused window shows 60), and — while profiling — the Tracy build's ~2.5x
+per-frame span cost. There is no frame-rate campaign. See the top of
+[`engine/performance-and-iteration.md`](engine/performance-and-iteration.md).
+
+### Simulation CPU
+
+The production rollback host ticks the full hall (129 actors) in 1.9 ms, linear
+at ~7 us per actor per tick (`scripts/sim_scaling_curve.py`); the decision
+pipeline is closed. The shipped host's whole main-world frame is ~3.4-4.5 ms
+of which ~3.4 ms is a floor independent of the cast: `bevy_ecs` bookkeeping
+over ~2400 system runs per frame, no hotspot, not the executor. Current
+evidence does not fund physics rewrites or parallelizing `GgrsSchedule`; the
+only lever on the floor is running fewer systems, and it is not needed at
+144 Hz.
+
+### Asset loading — the one user-visible performance problem
+
+Entering the hall cost nine frames of 89-355 ms while 434 MP of Full-tier art
+arrived AFTER the cover lifted. Root cause found and fixed 2026-09-02: the
+reveal barrier never waited for the cast beyond the per-frame load ration
+(`2c8f27b32`). ⊙ **A SECOND CAUSE was measured 2026-09-03 and the barrier is
+NOT it**: `converge_character_residency_to_active_quality` DID demote every
+IN-USE sheet Ready→Declared when the profile converged, un-claiming each body's
+render family and re-demanding at one character per frame at Full.
+✔ **FIXED 2026-09-03 (`6c9fb2b58`, ambition-df): a quality transition is a SWAP.**
+The worn set is re-demanded WITHOUT retiring its realizations, so the old tier
+keeps drawing until the new one lands; only the unworn set is retired.
+⚠ **The fix is landed and guarded but NOT confirmed on a live reveal, and the
+headless capture cannot supply that confirmation** — `AMBITION_QUALITY_PROFILE`
+is never written back to `UserSettings` while the adapter seeds it at
+`PostStartup`, so the override can only produce an EARLY transition DOWN to the
+seeded tier, 371 ms in, with nothing worn to protect. Measured three times,
+`scripts/measure_quality_ramp.sh`. The remaining confirmation is a host run. Host-confirmed the same evening on the two supposedly tier-independent
+tells (0 placeholders, 0 frames over 33 ms after the transition, Ultra, 3090,
+`desktop-timeline-run-20260902T215256Z`). ⛔ The room tier cap that shipped
+beside it (`dc3cd0d91`, gallery → Quarter) blurred the hall at Ultra and Jon
+rejected it on sight — "no lower quality tier for gallery previews"; removed
+in `06a494f4e`, and the standing rule is that nothing draws fewer pixels than
+the user's setting for any room, view or distance reason. Room exits now
+retire realizations by OWNERSHIP (destination cast ∪ worn ∪ one-hop
+neighbours) instead of by tier mismatch; a fighter's own vfx sheets follow its
+realization (4 core sheets at boot, was 13); parallax themes retire the same
+way. Still owed on the host: the hall's cover hold and post-reveal frame count
+at FULL (the confirmed run was under the cap), and the UNCOVERED startup burst
+Jon's run shows instead (98 images / 83 MB, 203 + 125 ms frames before the
+first `room-loaded`). See
+[`engine/asset-preparation-and-residency.md`](engine/asset-preparation-and-residency.md).
+
+### Weak-GPU rendering
+
+The corrected feature-matched Intel HD 630 comparison is:
+
+```text
+51.045 ms p50  ->  20.101 ms p50
+about 2.54x
+about 19.6 FPS -> 49.7 FPS
+```
+
+Framebuffer/display scale and MSAA moved together, so their independent shares
+remain unmeasured. The faster 18.467 ms no-Tracy run is useful evidence but is
+not the matched headline.
+
+### Asset hitching and residency
+
+The demonstrated large desktop hitch was dominated by render asset
+extraction/device materialization after image work completed, not by synchronous
+source decode. The follow-up work on early demand, bounded materialization,
+retained handles, registry preparation, and avoiding unnecessary uploads reduced
+large observed stalls substantially, while also showing that loaded image
+population/residency needs explicit ownership and budgets.
+
+Since 2026-09-02 an image's three stages are one ledger
+(`ambition_asset_manager::image_stages`): demand → insertion → GPU
+preparation, with `[image]` / `[image-gpu]` / `[image-dropped]` lines and
+re-decode / dropped-before-upload counts on the census line. Its first hall
+reading: every sheet the reveal demanded was prepared in ONE render frame
+(the upload half of the hitch, unlimited `RenderAssetBytesPerFrame`), and the
+intro cast's startup preload decoded ~26 MP on every boot that nothing draws.
+⚠ **THAT PRELOAD ROAD IS GONE as of `301a07009` (2026-09-02, after this file's
+stated baseline).** `load_intro_npc_sprites_system` published every intro NPC <!-- cite-ok: deleted 301a07009; the row records it -->
+sheet under its DISPLAY NAME while the world authors only `character_id`, so no
+lookup could reach them; the system and the manifest rows it fed are both
+deleted, and `extend_with_intro_sprite_entries` now adds intro PROPS only. ⛔ The
+~26 MP is therefore a number for a road that no longer exists — it has NOT been
+re-measured, so treat it as "was", not as current waste, until a host boot says
+what the figure is now.
+✔ **The reveal barrier's COUNT tells are CONFIRMED on the host (2026-09-02
+evening, `desktop-timeline-run-20260902T215256Z`)**: placeholder warnings
+111 → **0**, and `asset_wait_ms` 3 → **292** — the cover is up for the wait.
+⛔ **BUT "both are tier-independent" IS FALSE, MEASURED 2026-09-03.** Two headless
+`capture_scene hall_of_characters` runs differing only in
+`AMBITION_QUALITY_PROFILE` gave **0 placeholders at Potato and 129 at Ultra**.
+The count is tier-SCALED, because `materialization_units` charges Full 16 against
+Quarter/Potato 1 against a per-frame budget of 16 — one character per frame at
+Full, sixteen at Potato — and the warning trips after 5 consecutive unclaimed
+frames, so only a long ramp trips it. ⇒ The host run read 0 while the gallery tier
+cap was shortening that ramp by 16×, which is the same confound this section
+already flags for the TIMING tell. `asset_wait_ms` is unaffected and remains a
+genuine tell. See `engine/asset-preparation-and-residency.md` for the mechanism
+and for ambition-df's code reading of what un-claims the bodies
+(`converge_character_residency_to_active_quality`, not the barrier).
+
+⚠ **THE TIMING TELL IS NOT CONFIRMED FOR THE SHIPPED PROGRAM, and this is not a
+formality.** That run also had the gallery tier cap, which was cutting the very
+decode load the barrier holds the cover for — the two fixes were measured
+together and only one of them survives Jon's ruling. So "frames over 33.4 ms
+after the last transition 9 → 0" is a fact about a program that no longer
+exists, and a re-walk at the user's tier owes that number. `queue.md` carries
+the checklist. Detail in `engine/asset-preparation-and-residency.md`.
+⛔ **And the "gallery tier cap" half of this sentence is spent**: Jon removed the
+room-level sprite tier cap on 2026-09-02 (*"I DO NOT WANT A LOWER QUALITY TIER
+FOR GALLERY PREVIEWS"*), so there is no tier-cap change left to confirm. The
+tier is the user's setting everywhere.
+⇒ What the same run says is still open is STARTUP, not the hall.
+
+Later the same day: sheet images load render-world-only by default
+(`68d38076e`; captures byte-identical, peak RSS −141 MB in the hall at
+Quarter on llvmpipe, `=0` restores the CPU copy for an A/B); a resident
+character page must be owned by a live realization, guarded on the hall exit
+(`124684f56`, 0 orphans); and ⛔ the headless composition had never decoded
+an image — Bevy registers the `ImageLoader` in `Plugin::finish`, which
+`App::update()` never calls — so every headless readiness/residency number
+before `124684f56` was a number about the table, not the art. The no-window
+builder finishes its plugins now; 746/746 app tests pass under it.
+And the shell route's FIRST room decodes its cast and the player's own sheet
+BEFORE the route activates (`aca57e636`, work item `prepare-first-room-art`
+on the standard platformer plan; host captures showed the 7.6 MP player sheet
+decoding 0.15 s after every first `room-loaded` as a 67-79 ms frame); the
+GPU readiness term is positive proof (`8bd19f890`); two hub↔hall laps return
+the identical working set (6 realizations / 16 pages / 13.4 MP) and a quality
+round trip converges back with every page loaded (`a1c03c179`).
+
+⭐⭐ **AND THE LEDGER HAS A FOURTH STAGE SINCE 2026-09-02: RESIDENT USE.**
+`first_drawn` is stamped from the render world's `ExtractedSprites` (first write
+wins, or the stage's own cost lands in what it measures), so the census can say
+what was DRAWN and not only what arrived — `[image-drawn] … demand→draw NNNms via
+<road>` and `never drawn N (M MP: by owner)`. Two rules a reader must carry: the
+row prints `-` rather than `0` without a render world, because "nobody could draw
+anything" is not "nothing was drawn"; and `PROCEDURAL` rows can never be
+extracted at all, so their megapixels on that row are the instrument, not waste.
+
+Its first findings, all Potato tier (llvmpipe classifies as `Cpu`, so these
+megapixels are NOT comparable with the 434 MP Full / 38 MP Quarter figures above
+— the SHAPE is what carries across):
+
+- **the hall draws 14 of 138 resident cast pages** — the headroom neither tier
+  mechanism may now spend. ⛔⛔ **RULED 2026-09-02, and the ruling is wider than
+  the two mechanisms it settles:** *"I DO NOT WANT A LOWER QUALITY TIER FOR
+  GALLERY PREVIEWS."* Jon saw blur in an Ultra host run where the hall drew from
+  `sprites_0_25x` — the room-level cap doing exactly what it was built to do. The
+  cap is being removed and the view-scoped tier that was *"blocked on a feel
+  ruling"* is answered NO, not pending. ⇒ **The standing rule: nothing may draw
+  fewer pixels than the user's quality setting asks for, for any room, view or
+  distance reason, without Jon's explicit yes.** ⚠ The headroom is still real and
+  still measured; what it licenses is deciding what to KEEP RESIDENT, never what
+  to draw at lower resolution;
+- **the FX set is 13 sheets / 9.4 MP loaded at boot in every room, and 76 of its
+  196 rows are named by nothing** — including all 14 of the admiral's and 20 of
+  George's, whose art was plainly drawn for their kits while their movesets ask
+  for generic effects. A missing-wiring finding, not dead art;
+- ⛔ **two road MIS-STAMPS have now been found this way** (vfx as
+  `character-sheet`, and 28 entity icons as `fx-sheet` — which is why the FX
+  number read 41 before it read 13). The remaining stamps were swept and are
+  correct. Nothing else in the pipeline notices a bad stamp: the art loads, draws
+  and frees correctly, and only the ATTRIBUTION is wrong — which is the entire
+  product of the residency work.
+
+See [`engine/performance-and-iteration.md`](engine/performance-and-iteration.md)
+and [`engine/asset-preparation-and-residency.md`](engine/asset-preparation-and-residency.md).
+
+### Build/test iteration
+
+Build and test throughput is an independent engineering concern. Recent evidence
+supports resource-aware test concurrency, supported feature-combination checks,
+clean-checkout/generated-artifact guarantees, targeted touched-crate sweeps, and
+revisiting expensive dev-profile choices when the rebuild cost is small relative
+to runtime/debug value.
+
+⛔ **AND THE BINDING CONSTRAINT ON THIS BOX IS NOW DISK, measured 2026-09-03.**
+`target/debug/deps` alone is **141 GB**: every feature job builds its own variant
+of the graph, cargo never prunes the last one, and five crates were carved out of
+the actor monolith in a single day — each multiplying the variants a feature job
+resolves. The decomposition campaign pays for itself in disk.
+
+| what | cost |
+|---|---|
+| `check_disk_headroom.py` floor | **40 GB** (refused at 39.1) |
+| `./run_tests.sh --rust` (5 jobs) | ~5 GB, 42 → 37 GB |
+| one `cargo test --workspace` | **14 GB in under 3 minutes** |
+| the exhaustive plan (49 jobs) | **68 minutes**, and it exhausted a 290 GB volume mid-run |
+| the exhaustive plan (52 jobs, `c2b7f83c7`) | **84.9 minutes**, 48 passed — measured 2026-09-03 |
+
+⭐ **THE GUARD NOW RE-CHECKS BETWEEN JOBS** (2026-09-03), against a hard 6 GB
+floor rather than the 40 GB one: a suite that has dipped below the full-suite
+floor is normal and finishing it is usually right, but below the hard floor the
+next job is about to fail for a reason nobody can read. It stops, NAMES the job
+it would not start, exits nonzero, and writes `state: "aborted"` with
+`never_ran` into the status file. ⚠ **Only `state: done` means the plan ran** —
+an aborted suite's `failed` list is EMPTY, because every job that started
+passed. `scripts/last_test_run.py` applies that rule and refuses rather than
+answering. (Both ends had to be fixed; the first version returned 1 to its shell
+and serialized `done`/`0`, so every reader but the shell saw a green run.)
+
+⚠ Before that, the guard ran once before the first job and once after the last
+and never between — which is the shape of three of the earlier exhaustive run's
+seven failures, the loudest a bare `error: linking with clang failed` under a
+job header belonging to something else.
+
+⛔⛔ **DISK IS PER-MACHINE STATE AND THIS PAGE USED TO ASSERT IT AS A FACT.**
+It read *"AS OF 2026-09-03 LATE THIS VOLUME CANNOT RUN A RUST LANE AT ALL: 12
+GB free of 290"* — one number, no machine named, in the file a newcomer
+orients from. ⇒ Measured 2026-09-04, the same sentence was wrong in **both**
+directions at once: the peer session's box was at **359 MB** free of 290 GB
+(nothing compiles, 34× worse than the page said), while this box was at **65
+GB free of 484** and ran the full feature union. A reader on either machine
+who trusted the page would have been misdirected — one into thinking it was
+merely tight, the other into not trying at all.
+
+⭐ **So the durable content here is the MECHANISM, and the number is yours to
+take.** `df` free space, `du -sh target`, and which volume `/tmp` is on differ
+per box and per hour; nothing in the repository can know them. Run
+`scripts/setup/target_bindmount.sh --status` and **`df -h target`** before the
+session's first build, and believe those over this paragraph.
+
+⛔⛔ **`df -h .` IS THE MISLEADING HALF AND THIS PAGE USED TO RECOMMEND IT.**
+`target/` is BIND-MOUNTED from a different filesystem than the worktree it sits
+in — measured 2026-09-04 with `findmnt`:
+
+```text
+findmnt --target target  ->  /dev/vda1[/home/agent/.cache/ambition-targets/...]  ext4
+findmnt --target .       ->  aivm-persistent-root[/hostcode-ambition-...]        virtiofs
+```
+
+⇒ **Neither `df` answer is wrong; they are about different filesystems.** A
+build writes into `target/`, which lands on `/dev/vda1`, while the number a
+reader naturally checks describes the virtiofs mount. That is why a 600 MB
+write can truncate while `df .` cheerfully reports 188 GB free. `df -h target`
+resolves through the bind and names the volume the build actually writes to,
+with no reasoning about which mount carries what. (Found by `YardratAmbition`,
+who traced it while their box was wedged.)
+⭐ **`check_disk_headroom.py` was already right** — it measures the TARGET
+directory, not the cwd — so this is a documentation fix, not a guard fix.
+
+⚠ **AND ~29 GB OF PROFILER CACHE IS OUTSIDE EVERY CLEANUP SCRIPT THE REPO
+HAS.** `~/.debug` is `perf`'s build-id cache, written by `perf record` in
+`scripts/profile_desktop.sh`. Its shape looks alarming and is not: `.build-id/`
+holds symlinks keyed by build id, pointing into a mirror of each binary's
+ORIGINAL absolute path (`~/.debug/home/joncrall/code/ambition/target/...`),
+which is perf's own convention rather than a script writing targets to a second
+place. ⛔ **What IS a real problem: it keeps one full COPY of every profiled
+binary and never reaps.** Measured 2026-09-04: **twelve** generations of
+`ambition_game_bin` at ~1.6 GB each = 19 GB, 29 GB total, 46 build-id entries.
+⇒ It lives on `/dev/vda1` — the volume that fills — and `clean_workspace_crates.sh`,
+`sweep_target.py` and `sweep_cargo_target.sh` all operate on `target/`, so
+**none of them can see it**. Cargo never reads it, so dropping it costs only a
+re-copy on the next profiling run: `perf buildid-cache --purge-all`, or
+`rm -rf ~/.debug`.
+
+⚠ **AND `df` ITSELF LIES ON ONE OF THE TWO FILESYSTEMS THIS REPO SPANS.** The
+worktree is a **virtiofs** passthrough, so `df` there answers with the HOST's
+figures — the peer measured 188 GB free with inodes at 5% on a tree where a
+1 GB write failed. The volume that tells the truth is the one carrying `/tmp`
+and the build outputs. A headroom check keyed on `df` alone will wave through
+a job that cannot possibly link, on exactly the box where it matters.
+
+When a volume IS full: the up-front 40 GB refusal fires, so `./run_tests.sh
+--rust` does not start; `--tool-tests` and `--maintenance` are exempt and
+still run. ⚠ **But the exemption is now conditional, because one
+"pure Python" lane was not.** `--maintenance`'s intra-doc-link ratchet shells
+out to `cargo doc -p <crate> --no-deps` for every crate, three frames below an
+argv that reads `python3 scripts/check_doc_link_ratchet.py`. Jobs carry a
+`builds` flag and both guards key on that instead of on which lane asked, so an
+exempt lane loses its exemption exactly when its plan contains a building job —
+and a lane that only reads still runs on a full volume, which matters because
+those audits are the only checks that CAN run when the disk is gone. The volume is SHARED with other sessions' worktrees,
+so `du` your own target before reclaiming anything — deleting artifacts under
+somebody's active build is worse than an ungated lane.
+
+⇒ Practical consequence for anyone orienting here: **prefer `cargo test -p` over
+a lane.** Tonight's abilities carve was verified crate by crate for exactly this
+reason, and it gave a sharper answer than the lane would have — the lane's one
+red belongs to somebody else's tests. Reclaim order, all regenerable:
+`target/debug/incremental`, `profiling`, `release`, `wasm32-unknown-unknown`,
+`outlander`. Past those the only lever is `cargo clean`, which costs every
+session's warm tree and is a coordination decision rather than a local one.
+
+## Highest-value architecture fronts
+
+The current strategic order is:
+
+1. **authoritative-state correctness** — rollback participation, semantic
+   identity, deterministic composition, non-rewinding memory, and session/timeline
+   lifetime boundaries;
+2. **canonical construction/reconstitution** — remove second constructors and
+   make transition/replay/restore consume one construction model;
+3. **persistent-world semantics** — occurrences, residency, custody, and
+   reload/re-entry behavior built on those foundations;
+4. **measured presentation/runtime quality** — weak-GPU raster budgets, asset
+   preparation/materialization/residency, and useful hitch observability;
+5. **developer iteration** — build/test/profile configuration and supported
+   composition gates. ⚠ Ranked fifth by VALUE and currently first by
+   CONSTRAINT: as of 2026-09-03 this box cannot run its own full suite without a
+   clean (see Build/test iteration above), so the gates that would validate 1–4
+   are the thing that does not fit. Recorded rather than reordered — the
+   strategic order is Jon's, and a constraint is not a priority.
+   ⛔⛔ **SHARPER AS OF 2026-09-04 EVENING, and it is no longer "without a
+   clean": `./run_tests.sh --rust` REFUSES TO START.** *"10.2 GB free on
+   `target`, and a full suite needs about 40"* — the volume is 97% used and
+   `target` alone is 177 G. ⇒ The constraint has crossed from *expensive* to
+   *unavailable*, and it cost something the same day: a commit landed **four red
+   guards** that the lane would have caught, found by the sibling session instead.
+   ⚠ Not reclaimed: `AGENTS.md` says a bound-and-full volume is reported and left
+   for Jon. Reference point and the reclaim to reach for are in
+   [`yardrat-open-measurements.md`](yardrat-open-measurements.md);
+6. **residual actor-kernel, capability, and SDK boundaries** — continue from real
+   ownership/dependency pressure rather than size or speculative performance.
+   ⭐ **TWO AXES, NOT ONE, AND THIS ITEM NAMES BOTH IN ONE BREATH.** *Residual
+   actor-kernel* is authority decomposition; *capability boundaries* is
+   composability — **can this capability be ABSENT** — and the second does not
+   follow from the first. ⇒ Measured, and it is why the distinction earns a line
+   here: the capability-footprint count **rises** when a carve succeeds, because
+   extraction makes an always-linked domain a visible crate, and **falls** only
+   when a domain becomes optional. A run of slices on axis one drives the axis-two
+   number the wrong way while doing exactly the right work. The rule's home is
+   [`engine/decomposition.md`](engine/decomposition.md);
+7. **multiview/multiplayer, reactive world, and richer authoring** — advance from
+   concrete Ambition/TwinTrack/Smash customers.
+
+The detailed ordering is in [`roadmap.md`](roadmap.md) and the Engine 1.0
+capability map is in
+[`engine/engine-1.0-architecture-program.md`](engine/engine-1.0-architecture-program.md).
+
+## Current execution and decisions
+
+The queue has been reduced to current work; completed investigations live in git
+history rather than in the live ledger. Start with [`queue.md`](queue.md).
+
+Questions that genuinely need Jon rather than engineering inference are in
+[`awaiting-maintainer-decision.md`](awaiting-maintainer-decision.md). Answered
+rulings live in [`maintainer-decisions.md`](maintainer-decisions.md).
+
+⭐ **NONE OF THE OPEN ROWS IS WAITING ON MEASUREMENT (2026-09-05 late).** Every
+premise was re-derived at HEAD on the day, so a ruling can be made from the page
+as written: **#57 RULED AND IMPLEMENTED** (a boss is named by its stable authored
+`encounter_id`); **#56 UNBLOCKED BY that ruling** — it had been deferring the
+identity question — with its counts re-derived unchanged (11 `BossSpawn`, 14
+`Switch`); **#58's premise re-derived and holding**. #62 (a second box's 4,741
+uncommitted `mary_o.ldtk` lines), #63 (five authored fields that decide nothing),
+#64 (two LDtk identifiers with converters and no marker), #65 (an authoring
+namespace two allocators share) and #66 (a citation checker at zero that does not
+gate) are all measured and stated with their cheapest-sufficient options. ⇒ **The
+constraint on all of them is a decision, not more work.**
+
+Dated GPT review files are evidence, not status. Phase 3 removes the closed dated
+review reports from live planning; git history retains them. Any review finding
+that still needs work must be promoted directly to the queue, tracks, a focused
+plan, a maintainer decision, or Jon's direct-observation file. The routing rule is
+part of [`README.md`](README.md), not a second review-status ledger.
+
+## Product and engine customers
+
+- **Ambition** is the flagship and primary architecture driver.
+- **Super Smash Siblings** is a serious platform-fighter customer; current
+  product truth belongs in its parity inventory rather than historical campaign
+  diaries.
+- **TwinTrack** pressures independent view/reference-frame and multiview
+  architecture.
+- **Sanic, Super Mary-O, Hollow Lite, and focused demos** remain useful acceptance
+  customers for movement, collision, authoring, encounters, and presentation.
+  Their acceptance lists are owned by [`demos/sanic.md`](demos/sanic.md),
+  [`demos/super-mary-o.md`](demos/super-mary-o.md) and
+  [`demos/hollow-lite.md`](demos/hollow-lite.md) — this page defers to them and
+  must not restate their status.
+- The external-consumer fixture is the proof that public capability/package
+  boundaries work outside the flagship composition.
+
+## Where to look next
+
+1. [`queue.md`](queue.md) — executable current work.
+2. The focused plan linked by the selected row.
+3. [`tracks.md`](tracks.md) — standing reservoir when the queue needs another
+   verified item.
+4. [`roadmap.md`](roadmap.md) — strategic ordering.
+5. [`../README.md`](../README.md) — durable documentation map.
+6. [`../reviewer-guide.md`](../reviewer-guide.md) — review procedure; current
+   finding status must still be re-verified against HEAD.

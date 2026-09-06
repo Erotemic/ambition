@@ -1,0 +1,1502 @@
+use super::*;
+
+fn body(pos: ae::Vec2, faction: ActorFaction) -> PerceptionBody {
+    PerceptionBody {
+        // A fixture hands in a peer list it built itself, with no row for the
+        // viewer; there is nobody to exclude.
+        viewer: None,
+        captured: false,
+        captured_for: 0.0,
+        holding_captive: false,
+        pummels_landed: 0,
+        pos,
+        vel: ae::Vec2::ZERO,
+        facing: 1.0,
+        half_extent: ae::Vec2::new(12.0, 18.0),
+        faction,
+        gravity_down: ae::Vec2::new(0.0, 1.0),
+        on_ground: true,
+        aerial: false,
+        alive: true,
+        can_fire: true,
+        can_blink: false,
+        burst: ae::BurstManeuver::None,
+        can_shield: false,
+        // A fresh body with its air game intact; the fixture is about what a
+        // viewer SEES, and a recovery budget of zero would be a different test.
+        air_jumps_left: 1,
+        team: None,
+        phase: BodyPhase::Neutral,
+        phase_remaining: 0.0,
+        invulnerable: false,
+        tumbling: false,
+        damage_taken: 0,
+        health_max: 100,
+        grudge: None,
+    }
+}
+
+fn peer(id: &str, pos: ae::Vec2, faction: ActorFaction) -> PerceptionPeer {
+    PerceptionPeer {
+        team: None,
+        entity: bevy::prelude::Entity::PLACEHOLDER,
+        id: id.to_string(),
+        pos,
+        vel: ae::Vec2::ZERO,
+        facing: -1.0,
+        half_extent: ae::Vec2::new(12.0, 18.0),
+        faction,
+        alive: true,
+        on_ground: true,
+        shield_raised: false,
+        phase: BodyPhase::Neutral,
+        phase_remaining: 0.0,
+        invulnerable: false,
+        tumbling: false,
+        ledge_hanging: false,
+        damage_taken: 0,
+        health_max: 100,
+    }
+}
+
+/// A real room: a floor and a wall between two combatants standing on it.
+fn arena_world() -> ae::World {
+    let blocks = vec![
+        ae::Block::solid(
+            "floor",
+            ae::Vec2::new(-500.0, 200.0),
+            ae::Vec2::new(1000.0, 40.0),
+        ),
+        // A wall at x≈300, between a body at x=100 and one at x=500.
+        ae::Block::solid(
+            "wall",
+            ae::Vec2::new(292.0, 40.0),
+            ae::Vec2::new(16.0, 160.0),
+        ),
+    ];
+    ae::World::new(
+        "perception_arena",
+        ae::Vec2::new(1000.0, 400.0),
+        ae::Vec2::new(100.0, 180.0),
+        blocks,
+    )
+}
+
+/// Body-generic + relational: an Enemy body and a Boss body, made mutually
+/// hostile, each perceive the other as a hostile target — and the SAME builder
+/// runs for a Player-faction body (guardrail #1: no enemy-only path).
+#[test]
+fn builds_relational_view_for_any_faction() {
+    let mut relations = FactionRelations::default();
+    relations.set_mutual_hostile(ActorFaction::Enemy, ActorFaction::Boss, true);
+    let world = arena_world();
+
+    let enemy = body(ae::Vec2::new(100.0, 180.0), ActorFaction::Enemy);
+    let peers = vec![peer("pca", ae::Vec2::new(180.0, 180.0), ActorFaction::Boss)];
+    let view = build_world_view(
+        &enemy,
+        &peers,
+        &[],
+        &[],
+        &world,
+        &relations,
+        Perception::Sighted {
+            viewport_half: DEFAULT_VIEWPORT_HALF,
+        },
+        0.0,
+    );
+    // The Boss peer is in view and resolved hostile to the Enemy viewer.
+    assert_eq!(view.actors.len(), 1);
+    assert!(view.actors[0].hostile_to_self);
+    assert_eq!(view.nearest_hostile().map(|a| a.id.as_str()), Some("pca"));
+    // The floor + wall are clipped into the local terrain.
+    assert!(
+        view.terrain.iter().any(|s| s.kind == SolidKind::Solid),
+        "the real floor/wall geometry is carried into the view"
+    );
+
+    // The exact same function builds a view for a PLAYER-faction body — the
+    // player-robot body perceives identically (no player-centric branch). It
+    // sees an Npc peer (which neither faction fights by default), and resolves
+    // it as NOT a target — proving hostility is data, not the viewer's type.
+    let player = body(ae::Vec2::new(100.0, 180.0), ActorFaction::Player);
+    let npc_peers = vec![peer(
+        "bystander",
+        ae::Vec2::new(180.0, 180.0),
+        ActorFaction::Npc,
+    )];
+    let player_view = build_world_view(
+        &player,
+        &npc_peers,
+        &[],
+        &[],
+        &world,
+        &relations,
+        Perception::Sighted {
+            viewport_half: DEFAULT_VIEWPORT_HALF,
+        },
+        0.0,
+    );
+    assert_eq!(player_view.actors.len(), 1);
+    assert!(!player_view.actors[0].hostile_to_self);
+    assert_eq!(player_view.nearest_hostile().count_or_none(), 0);
+}
+
+/// §A7 grudge: a SAME-faction peer the viewer holds a grudge against is
+/// perceived as hostile (so `nearest_hostile` finds a grudge-duel opponent that
+/// faction hostility alone would miss) — matching `select_actor_targets`' foe set.
+#[test]
+fn a_grudge_makes_a_same_faction_peer_hostile() {
+    let relations = FactionRelations::default(); // no Npc↔Npc hostility
+    let world = arena_world();
+    // Two distinct real entity handles from a throwaway ECS world.
+    let mut ecs = bevy::prelude::World::new();
+    let foe_entity = ecs.spawn_empty().id();
+    let other_entity = ecs.spawn_empty().id();
+    // Two same-faction NPCs; without a grudge neither is a foe.
+    let mut viewer = body(ae::Vec2::new(100.0, 180.0), ActorFaction::Npc);
+    let mut foe = peer("duel_foe", ae::Vec2::new(180.0, 180.0), ActorFaction::Npc);
+    foe.entity = foe_entity;
+
+    // No grudge → the same-faction peer is NOT a target.
+    let view = build_world_view(
+        &viewer,
+        std::slice::from_ref(&foe),
+        &[],
+        &[],
+        &world,
+        &relations,
+        Perception::Sighted {
+            viewport_half: DEFAULT_VIEWPORT_HALF,
+        },
+        0.0,
+    );
+    assert_eq!(view.actors.len(), 1);
+    assert!(
+        !view.actors[0].hostile_to_self,
+        "same faction, no grudge → not a foe"
+    );
+    assert!(view.nearest_hostile().is_none());
+
+    // Grudge against that exact entity → it becomes the perceived hostile.
+    viewer.grudge = Some(foe_entity);
+    let view = build_world_view(
+        &viewer,
+        std::slice::from_ref(&foe),
+        &[],
+        &[],
+        &world,
+        &relations,
+        Perception::Sighted {
+            viewport_half: DEFAULT_VIEWPORT_HALF,
+        },
+        0.0,
+    );
+    assert!(view.actors[0].hostile_to_self, "the grudge entity is a foe");
+    assert_eq!(
+        view.nearest_hostile().map(|a| a.id.as_str()),
+        Some("duel_foe"),
+        "nearest_hostile resolves the grudge opponent (the duel mechanism)"
+    );
+    // A grudge against a DIFFERENT entity does not implicate this peer.
+    viewer.grudge = Some(other_entity);
+    let view = build_world_view(
+        &viewer,
+        std::slice::from_ref(&foe),
+        &[],
+        &[],
+        &world,
+        &relations,
+        Perception::Sighted {
+            viewport_half: DEFAULT_VIEWPORT_HALF,
+        },
+        0.0,
+    );
+    assert!(
+        !view.actors[0].hostile_to_self,
+        "a grudge against someone else spares this peer"
+    );
+}
+
+/// Line-of-fire over the REAL clipped geometry: a wall between two bodies
+/// blocks the shot; an unobstructed shot is clear. This is the query reusing
+/// the same solids the physics collides against.
+#[test]
+fn line_of_fire_uses_real_clipped_terrain() {
+    let relations = FactionRelations::default();
+    let world = arena_world();
+    let shooter = body(ae::Vec2::new(100.0, 120.0), ActorFaction::Enemy);
+    let view = build_world_view(
+        &shooter,
+        &[],
+        &[],
+        &[],
+        &world,
+        &relations,
+        Perception::Sighted {
+            viewport_half: DEFAULT_VIEWPORT_HALF,
+        },
+        0.0,
+    );
+    // Target on the far side of the x≈300 wall, same height → blocked.
+    assert!(!view.line_of_fire(ae::Vec2::new(500.0, 120.0)));
+    // Target straight up (clear of floor + wall) → in line of fire.
+    assert!(view.line_of_fire(ae::Vec2::new(100.0, 60.0)));
+}
+
+/// ⭐ AN OMNISCIENT BODY PERCEIVES A PEER ANYWHERE, which is what the policy has
+/// always claimed and did not do: the view was built at the default extent under
+/// both modes, and only the `ActorTarget` derivation ignored the box. A brain
+/// that reaches its foe through `view.actors` — the fighter brain does — saw an
+/// "omniscient" body as sighted at 480px.
+///
+/// ⛔ The twin below is the other half of the same rule and they must be read
+/// together: same viewer, same peer, same distance, opposite policy, opposite
+/// answer. A change that made this pass by clipping nothing at all would take
+/// `peers_outside_viewport_are_not_perceived` down with it.
+#[test]
+fn an_omniscient_body_perceives_a_peer_far_outside_its_tactical_extent() {
+    let mut relations = FactionRelations::default();
+    relations.set_mutual_hostile(ActorFaction::Enemy, ActorFaction::Boss, true);
+    let world = arena_world();
+    let viewer = body(ae::Vec2::new(100.0, 180.0), ActorFaction::Enemy);
+    let peers = vec![peer(
+        "far",
+        ae::Vec2::new(2000.0, 180.0),
+        ActorFaction::Boss,
+    )];
+    let view = build_world_view(
+        &viewer,
+        &peers,
+        &[],
+        &[],
+        &world,
+        &relations,
+        Perception::Omniscient,
+        0.0,
+    );
+    assert_eq!(
+        view.actors.len(),
+        1,
+        "an omniscient body knows where every hostile is, at any distance"
+    );
+    assert!(
+        view.nearest_hostile().is_some(),
+        "and the brain reaches it through the view, not only through ActorTarget"
+    );
+    // The TACTICAL extent is unchanged — omniscience is a claim about where
+    // bodies are, not a licence to fold a whole room's geometry into one tick.
+    assert_eq!(view.viewport.half_extent, DEFAULT_VIEWPORT_HALF);
+}
+
+/// A body only perceives what is inside its viewport — a peer far outside is
+/// not in the actor list (it would instead be retained by `WorldMemory`).
+#[test]
+fn peers_outside_viewport_are_not_perceived() {
+    let mut relations = FactionRelations::default();
+    relations.set_mutual_hostile(ActorFaction::Enemy, ActorFaction::Boss, true);
+    let world = arena_world();
+    let viewer = body(ae::Vec2::new(100.0, 180.0), ActorFaction::Enemy);
+    // Far beyond DEFAULT_VIEWPORT_HALF.x = 480.
+    let peers = vec![peer(
+        "far",
+        ae::Vec2::new(2000.0, 180.0),
+        ActorFaction::Boss,
+    )];
+    let view = build_world_view(
+        &viewer,
+        &peers,
+        &[],
+        &[],
+        &world,
+        &relations,
+        Perception::Sighted {
+            viewport_half: DEFAULT_VIEWPORT_HALF,
+        },
+        0.0,
+    );
+    assert!(view.actors.is_empty(), "an out-of-viewport peer is unseen");
+}
+
+/// A hostile projectile in view is flagged as a threat; a same-side one is not.
+#[test]
+fn projectile_threat_resolved_relationally() {
+    let relations = FactionRelations::default();
+    let world = arena_world();
+    let player = body(ae::Vec2::new(100.0, 180.0), ActorFaction::Player);
+    let shots = vec![
+        // Enemy shot near the player → threatens the player.
+        PerceptionProjectile {
+            pos: ae::Vec2::new(160.0, 180.0),
+            vel: ae::Vec2::new(-200.0, 0.0),
+            damage: 1,
+            faction: Some(ActorFaction::Enemy),
+            team: None,
+        },
+        // Player's own shot → does not threaten the player.
+        PerceptionProjectile {
+            pos: ae::Vec2::new(160.0, 180.0),
+            vel: ae::Vec2::new(200.0, 0.0),
+            damage: 1,
+            faction: Some(ActorFaction::Player),
+            team: None,
+        },
+        // Environmental/ownerless shot → indiscriminate, matching damage routing.
+        PerceptionProjectile {
+            pos: ae::Vec2::new(140.0, 180.0),
+            vel: ae::Vec2::new(-50.0, 0.0),
+            damage: 1,
+            faction: None,
+            team: None,
+        },
+    ];
+    // Same authored faction but a different match team: team authority
+    // outranks faction exactly as projectile damage does.
+    let mut team_player = body(ae::Vec2::new(100.0, 180.0), ActorFaction::Player);
+    team_player.team = Some(ambition_combat::targeting::MatchTeam::new("blue"));
+    let team_shot = PerceptionProjectile {
+        pos: ae::Vec2::new(150.0, 180.0),
+        vel: ae::Vec2::ZERO,
+        damage: 1,
+        faction: Some(ActorFaction::Player),
+        team: Some(ambition_combat::targeting::MatchTeam::new("red")),
+    };
+    let team_view = build_world_view(
+        &team_player,
+        &[],
+        &[team_shot],
+        &[],
+        &world,
+        &relations,
+        Perception::Sighted {
+            viewport_half: DEFAULT_VIEWPORT_HALF,
+        },
+        0.0,
+    );
+    assert!(
+        team_view.projectiles[0].hostile_to_self,
+        "different match teams make the projectile threatening even when factions match"
+    );
+
+    let view = build_world_view(
+        &player,
+        &[],
+        &shots,
+        &[],
+        &world,
+        &relations,
+        Perception::Sighted {
+            viewport_half: DEFAULT_VIEWPORT_HALF,
+        },
+        0.0,
+    );
+    assert_eq!(view.projectiles.len(), 3);
+    assert_eq!(
+        view.projectiles
+            .iter()
+            .filter(|p| p.hostile_to_self)
+            .count(),
+        2
+    );
+    assert_eq!(
+        view.incoming_threats().count(),
+        2,
+        "both the hostile enemy shot and the ownerless environmental shot are closing; \
+         the friendly shot is receding and must not be a dodge candidate",
+    );
+}
+
+/// Portals are clipped to the viewport and the paired exit is resolvable from
+/// the perceived value (the data S5 routes through).
+#[test]
+fn portals_in_view_link_to_their_pair() {
+    let relations = FactionRelations::default();
+    let world = arena_world();
+    let viewer = body(ae::Vec2::new(100.0, 180.0), ActorFaction::Enemy);
+    let near = PerceptionPortal {
+        pos: ae::Vec2::new(140.0, 180.0),
+        normal: ae::Vec2::new(-1.0, 0.0),
+        half_extent: ae::Vec2::new(4.0, 24.0),
+        channel_key: 3,
+    };
+    let near_pair = PerceptionPortal {
+        pos: ae::Vec2::new(260.0, 180.0),
+        normal: ae::Vec2::new(1.0, 0.0),
+        half_extent: ae::Vec2::new(4.0, 24.0),
+        channel_key: 3,
+    };
+    // Far outside DEFAULT_VIEWPORT_HALF.x = 480 — clipped out.
+    let far = PerceptionPortal {
+        pos: ae::Vec2::new(3000.0, 180.0),
+        normal: ae::Vec2::new(0.0, -1.0),
+        half_extent: ae::Vec2::new(24.0, 4.0),
+        channel_key: 5,
+    };
+    let view = build_world_view(
+        &viewer,
+        &[],
+        &[],
+        &[near, near_pair, far],
+        &world,
+        &relations,
+        Perception::Sighted {
+            viewport_half: DEFAULT_VIEWPORT_HALF,
+        },
+        0.0,
+    );
+    assert_eq!(
+        view.portals.len(),
+        2,
+        "the far portal is clipped out of view"
+    );
+    let entry = view
+        .portals
+        .iter()
+        .find(|p| p.pos == ae::Vec2::new(140.0, 180.0))
+        .unwrap();
+    assert_eq!(
+        view.linked_portal(entry).map(|p| p.pos),
+        Some(ae::Vec2::new(260.0, 180.0)),
+        "entering one aperture resolves to its same-channel exit"
+    );
+}
+
+/// §A7 peers-wiring: `collect_perception_peers` snapshots EVERY body (player,
+/// actor, boss — all carry `BodyKinematics`) into the resource `build_world_view`
+/// reads, with its source `Entity` (so a viewer excludes itself). A body without a
+/// `FeatureId` still gets a stable non-empty id.
+#[test]
+fn collect_perception_peers_snapshots_every_body() {
+    use ambition_characters::actor::{BodyHealth, Health};
+    use bevy::prelude::*;
+
+    let mut app = App::new();
+    app.init_resource::<PerceptionPeers>();
+    app.add_systems(Update, collect_perception_peers);
+    let kin = |x: f32| ambition_platformer2d_core::BodyKinematics {
+        pos: ae::Vec2::new(x, 20.0),
+        vel: ae::Vec2::ZERO,
+        size: ae::Vec2::new(14.0, 22.0),
+        facing: 1.0,
+    };
+    let alice = app
+        .world_mut()
+        .spawn((
+            ambition_combat::components::FeatureId::new("alice"),
+            kin(10.0),
+            BodyHealth::new(Health::new(5)),
+            ActorFaction::Enemy,
+        ))
+        .id();
+    // No FeatureId → the snapshot derives a stable entity id.
+    let bob = app
+        .world_mut()
+        .spawn((
+            kin(90.0),
+            BodyHealth::new(Health::new(5)),
+            ActorFaction::Boss,
+        ))
+        .id();
+    app.update();
+
+    let peers = app.world().resource::<PerceptionPeers>();
+    assert_eq!(peers.0.len(), 2, "every body is snapshotted");
+    let a = peers.0.iter().find(|p| p.entity == alice).unwrap();
+    assert_eq!(a.id, "alice");
+    assert_eq!(a.pos, ae::Vec2::new(10.0, 20.0));
+    assert_eq!(a.faction, ActorFaction::Enemy);
+    assert!(a.alive);
+    let b = peers.0.iter().find(|p| p.entity == bob).unwrap();
+    assert!(
+        !b.id.is_empty(),
+        "a FeatureId-less body still gets a stable id"
+    );
+}
+
+/// §A7 projectiles-wiring: `collect_perception_projectiles` snapshots the single
+/// live-projectile occurrence family exactly once and reads side from the frozen
+/// allegiance rather than from the shot's presentation vocabulary.
+#[test]
+fn collect_perception_projectiles_snapshots_live_projectiles_once_with_frozen_side() {
+    use bevy::prelude::*;
+
+    let mut app = App::new();
+    app.init_resource::<PerceptionProjectiles>();
+    app.add_systems(Update, collect_perception_projectiles);
+    let kin = |x: f32| ambition_platformer2d_core::BodyKinematics {
+        pos: ae::Vec2::new(x, 0.0),
+        vel: ae::Vec2::new(-100.0, 0.0),
+        size: ae::Vec2::new(8.0, 8.0),
+        facing: -1.0,
+    };
+    let game = |dmg: i32| ambition_projectiles::ProjectileGameplay {
+        age: 0.0,
+        max_lifetime: 2.0,
+        gravity: 0.0,
+        damage: dmg,
+        bounces_remaining: 0,
+        world_hit: ambition_projectiles::WorldHitPolicy::ExpireOnContact,
+        accel: ae::Vec2::ZERO,
+        hits_cleared_on_leg: 0,
+        splash_half_extent: 0.0,
+    };
+    app.world_mut().spawn((
+        ambition_projectiles::LiveProjectile,
+        kin(200.0),
+        game(3),
+        crate::projectile::ProjectileAllegiance {
+            faction: ActorFaction::Enemy,
+            team: Some(ambition_combat::targeting::MatchTeam::new("red")),
+        },
+    ));
+    app.world_mut()
+        .spawn((ambition_projectiles::LiveProjectile, kin(50.0), game(2)));
+    app.update();
+
+    let shots = app.world().resource::<PerceptionProjectiles>();
+    assert_eq!(shots.0.len(), 2, "one row per live projectile");
+    assert!(
+        shots.0.iter().any(|p| {
+            p.faction == Some(ActorFaction::Enemy)
+                && p.team.as_ref().is_some_and(|team| team.as_str() == "red")
+                && p.damage == 3
+        }),
+        "the sided shot carries its frozen allegiance"
+    );
+    assert!(
+        shots
+            .0
+            .iter()
+            .any(|p| p.faction.is_none() && p.team.is_none() && p.damage == 2),
+        "an ownerless shot remains explicitly unsided rather than defaulting to Player"
+    );
+}
+
+// ── FB1: the view-audit regressions ──
+
+/// Both fill sites passed `size` straight through, so every body perceived itself and everyone
+/// else as twice its real box.
+///
+/// This test pins the CONTRACT rather than the call sites: the view's
+/// half-extent must equal the body's real `aabb()` half-extent.
+#[test]
+fn the_views_half_extent_is_a_half_extent() {
+    let kin_size = ae::Vec2::new(24.0, 36.0);
+    let real_half = ae::Aabb::new(ae::Vec2::ZERO, kin_size * 0.5).half_size();
+    assert_eq!(
+        real_half,
+        kin_size * 0.5,
+        "if this ever changes, both perception fill sites must change with it"
+    );
+    let mut b = body(ae::Vec2::new(0.0, 100.0), ActorFaction::Enemy);
+    b.half_extent = kin_size * 0.5;
+    let world = corridor_world(50.0);
+    let view = build_world_view(
+        &b,
+        &[],
+        &[],
+        &[],
+        &world,
+        &FactionRelations::default(),
+        Perception::Sighted {
+            viewport_half: DEFAULT_VIEWPORT_HALF,
+        },
+        0.0,
+    );
+    // The observable consequence, on the value the builder actually published:
+    // a HALF, never the full size, and never doubled on the way through.
+    assert_eq!(
+        view.self_view.half_extent, real_half,
+        "the builder published {:?} for a body whose real half-extent is \
+         {real_half:?} — the 2x bug is back",
+        view.self_view.half_extent
+    );
+    // And it is a half of the SIZE, which is the mistake that was made: a fill
+    // site passing `size` straight through would produce this value instead.
+    assert_ne!(
+        view.self_view.half_extent, kin_size,
+        "poison: the view is carrying the FULL body size as a half-extent"
+    );
+}
+
+/// A corridor at y=100 whose vertical opening is `gap` px, walled above/below.
+fn corridor_world(gap: f32) -> ae::World {
+    let half = gap * 0.5;
+    let blocks = vec![
+        ae::Block::solid(
+            "ceil",
+            ae::Vec2::new(-500.0, 100.0 - half - 200.0),
+            ae::Vec2::new(1000.0, 200.0),
+        ),
+        ae::Block::solid(
+            "floor",
+            ae::Vec2::new(-500.0, 100.0 + half),
+            ae::Vec2::new(1000.0, 200.0),
+        ),
+    ];
+    ae::World::new(
+        "corridor",
+        ae::Vec2::new(1000.0, 600.0),
+        ae::Vec2::ZERO,
+        blocks,
+    )
+}
+
+/// The stage is not viewport-clipped. A fighter can see the blastzones;
+/// L1's `Recovery`/`EdgeGuard` are undecidable otherwise. The viewport here is
+/// far smaller than the room.
+#[test]
+fn the_view_carries_the_whole_stage_not_the_viewport() {
+    let world = arena_world();
+    let view = build_world_view(
+        &body(ae::Vec2::new(0.0, 180.0), ActorFaction::Enemy),
+        &[],
+        &[],
+        &[],
+        &world,
+        &FactionRelations::default(),
+        Perception::Sighted {
+            viewport_half: ae::Vec2::splat(40.0), // a tiny viewport
+        },
+        0.0,
+    );
+    assert_eq!(view.stage.bounds.min, ae::Vec2::ZERO);
+    assert_eq!(view.stage.bounds.max, world.size);
+    assert!(view.stage.bounds.max.x > view.viewport.half_extent.x * 2.0);
+}
+
+/// The move-phase reader's priority order: hitstun beats a swing (a body
+/// knocked out of its own attack is reeling, not attacking), and a swing beats
+/// a raised shield.
+#[test]
+fn hitstun_outranks_a_swing_and_a_swing_outranks_a_shield() {
+    use ambition_characters::actor::BodyCombat;
+    let shield_up = ae::BodyShieldState {
+        active: true,
+        ..Default::default()
+    };
+
+    let mut reeling = BodyCombat::default();
+    reeling.hitstun_timer = 0.4;
+    assert_eq!(
+        body_phase(Some(&reeling), None, Some(&shield_up)),
+        (BodyPhase::Hitstun, 0.4)
+    );
+
+    assert_eq!(
+        body_phase(Some(&BodyCombat::default()), None, Some(&shield_up)),
+        (BodyPhase::Shielding, 0.0)
+    );
+    assert_eq!(
+        body_phase(None, None, None),
+        (BodyPhase::Neutral, 0.0),
+        "a body with no combat components is neutral, not unknown"
+    );
+}
+
+#[test]
+fn i_frames_are_perceivable_because_the_body_flashes() {
+    use ambition_characters::actor::BodyCombat;
+    let mut c = BodyCombat::default();
+    assert!(!body_invulnerable(Some(&c)));
+    c.damage_invuln_timer = 0.2;
+    assert!(body_invulnerable(Some(&c)));
+}
+
+trait CountOrNone {
+    /// Tiny test helper: count an `Option<&T>` as 0 or 1 without importing extra
+    /// machinery — keeps the `nearest_hostile() == None` assertion terse.
+    fn count_or_none(self) -> usize;
+}
+
+impl<T> CountOrNone for Option<T> {
+    fn count_or_none(self) -> usize {
+        self.map(|_| 1).unwrap_or(0)
+    }
+}
+
+/// Two seats on different teams are foes even when they share a faction.
+///
+/// `damage_lands_between` gives the TEAM relation precedence over factions;
+/// perception did not, so it disagreed with the damage rule about who the enemy
+/// is. In a free-for-all — every seat its own team, which is what a 4-player
+/// smash authors — `faction_for` alternates Player/Enemy by seat index, so seats
+/// 0 and 2 share a faction on different teams. They could hit each other and
+/// could not SEE each other, and a brain with no perceived foe stands still.
+#[test]
+fn a_different_team_is_hostile_even_on_the_same_faction() {
+    use ambition_combat::targeting::MatchTeam;
+
+    let world = arena_world();
+    let relations = FactionRelations::default();
+
+    let mut me = body(ae::Vec2::new(0.0, 0.0), ActorFaction::Player);
+    me.team = Some(MatchTeam::new("seat 1"));
+    let mut them = peer("them", ae::Vec2::new(50.0, 0.0), ActorFaction::Player);
+    them.team = Some(MatchTeam::new("seat 3"));
+
+    let view = build_world_view(
+        &me,
+        &[them.clone()],
+        &[],
+        &[],
+        &world,
+        &relations,
+        Perception::Sighted {
+            viewport_half: DEFAULT_VIEWPORT_HALF,
+        },
+        0.0,
+    );
+    assert!(
+        view.actors[0].hostile_to_self,
+        "a different team is a foe; the damage rule already says so"
+    );
+
+    // And the converse: the same team is NOT, whatever the factions say.
+    let mut ally = peer("ally", ae::Vec2::new(50.0, 0.0), ActorFaction::Enemy);
+    ally.team = Some(MatchTeam::new("seat 1"));
+    let view = build_world_view(
+        &me,
+        &[ally],
+        &[],
+        &[],
+        &world,
+        &relations,
+        Perception::Sighted {
+            viewport_half: DEFAULT_VIEWPORT_HALF,
+        },
+        0.0,
+    );
+    assert!(
+        !view.actors[0].hostile_to_self,
+        "a teammate is not a target, and reading factions instead would make \
+         every 2v2 a free-for-all in the brain's eyes"
+    );
+}
+
+/// ⛔⛔ **A VIEWER MUST NOT PERCEIVE ITSELF.**
+///
+/// This is the entire job the deleted `peers_seen_by` was doing, and deleting it
+/// is what removed ~16.8k struct-and-`String` clones per tick from the hall.
+/// Every viewer now reads the SAME shared snapshot — which contains its own row
+/// — and self-exclusion is one comparison against `PerceptionBody::viewer`
+/// inside `build_world_view`.
+///
+/// Get it wrong and a body perceives itself as another actor: `nearest_hostile`
+/// can return the viewer, a grudge-holder becomes hostile to itself, and every
+/// distance query has a zero in it. Nothing panics. The brains simply act on a
+/// world with a duplicate of themselves in it.
+mod a_viewer_is_not_its_own_peer {
+    use super::*;
+    use bevy::prelude::*;
+
+    /// Two REAL entities, because `Entity::PLACEHOLDER` is what every other
+    /// fixture in this file uses and a test where viewer and peer are the same
+    /// placeholder cannot tell exclusion from an empty list.
+    fn two_entities() -> (Entity, Entity) {
+        let mut world = World::new();
+        (world.spawn_empty().id(), world.spawn_empty().id())
+    }
+
+    #[test]
+    fn the_viewers_own_row_is_excluded_from_the_shared_snapshot() {
+        let (me, other) = two_entities();
+        let world = arena_world();
+        let relations = FactionRelations::default();
+
+        let mut viewer = body(ae::Vec2::new(100.0, 180.0), ActorFaction::Enemy);
+        viewer.viewer = Some(me);
+
+        // The shared snapshot, exactly as `PerceivedWorld::peers()` hands it
+        // over: it contains the viewer.
+        let mut my_row = peer("me", ae::Vec2::new(100.0, 180.0), ActorFaction::Enemy);
+        my_row.entity = me;
+        let mut their_row = peer("them", ae::Vec2::new(180.0, 180.0), ActorFaction::Player);
+        their_row.entity = other;
+        let snapshot = vec![my_row, their_row];
+
+        let view = build_world_view(
+            &viewer,
+            &snapshot,
+            &[],
+            &[],
+            &world,
+            &relations,
+            Perception::Omniscient,
+            0.0,
+        );
+
+        assert_eq!(
+            view.actors.len(),
+            1,
+            "the viewer's own row must not reach the brain; got {:?}",
+            view.actors.iter().map(|a| &a.id).collect::<Vec<_>>()
+        );
+        assert_eq!(view.actors[0].id, "them");
+    }
+
+    /// Premise guard: exclusion must remove ONE row, not the population.
+    ///
+    /// Without this, a filter that dropped everything — or a `viewer` that
+    /// matched every peer because they all share `Entity::PLACEHOLDER` — would
+    /// pass the arm above.
+    #[test]
+    fn a_viewer_with_no_row_in_the_snapshot_excludes_nobody() {
+        let (me, other) = two_entities();
+        let world = arena_world();
+        let relations = FactionRelations::default();
+
+        let mut viewer = body(ae::Vec2::new(100.0, 180.0), ActorFaction::Enemy);
+        viewer.viewer = Some(me);
+
+        let mut their_row = peer("them", ae::Vec2::new(180.0, 180.0), ActorFaction::Player);
+        their_row.entity = other;
+
+        let view = build_world_view(
+            &viewer,
+            &[their_row],
+            &[],
+            &[],
+            &world,
+            &relations,
+            Perception::Omniscient,
+            0.0,
+        );
+        assert_eq!(view.actors.len(), 1, "nobody to exclude, so nobody is");
+    }
+}
+
+/// ⛔⛔ A BRAIN THAT STOPS PERCEIVING MUST NOT KEEP WHAT IT LAST BELIEVED.
+///
+/// ⚠ **AND THIS IS A UNIT TEST ON PURPOSE — the behavioural one was PRICED AND
+/// DECLINED, not forgotten.** The regression a reviewer would want is
+/// end-to-end: observe a hostile, `BrainCommand` to StandStill, tick, switch
+/// back, assert the old hostile is not recovered. Running the invariant in situ
+/// means driving `tick_actor_brains`, whose parameter list alone is **145 lines**
+/// (`update.rs:223-368`) — `PerceivedWorld`, `WorldTime`, `GameplayElapsed` and
+/// a dozen more authorities — and NOTHING in the tree drives it today: the only
+/// mentions outside its own file are three comments and one registration. The
+/// `BrainCommand` harness next door runs `apply_brain_commands` alone and cannot
+/// reach it.
+///
+/// ⇒ A fixture for that is out of proportion to a three-line helper, and a
+/// fixture built badly would assert less than the arms below while looking like
+/// more. What it would take to make it cheap, so this is actionable rather than
+/// refused: a harness that can tick ONE actor through `ActorDecisionSet::Decide`.
+/// If someone builds that for another reason, this is the first test to add to it.
+///
+/// `believed_target` is the only thing that ages a `PerceptionMemory`, and the
+/// `None` gate skips it — so before this invariant existed, a body switched to
+/// StandStill mid-match froze its belief, and switching back resurrected a
+/// hostile that had died or left the room. Deterministic, so not a desync; a
+/// cognition-lifecycle defect, which is worse because it looks like the AI
+/// remembering something.
+#[test]
+fn a_requirement_of_none_empties_a_belief_it_stopped_maintaining() {
+    use ambition_characters::perception::PerceptionRequirement as Need;
+
+    let mut memory = PerceptionMemory::default();
+    // Populate it the way the real road does: a hostile in view, remembered.
+    let view = ambition_characters::perception::WorldView {
+        self_view: ambition_characters::perception::SelfView {
+            pos: ae::Vec2::ZERO,
+            faction: ActorFaction::Enemy,
+            ..Default::default()
+        },
+        viewport: ambition_characters::perception::Viewport::around(
+            ae::Vec2::ZERO,
+            ae::Vec2::splat(300.0),
+        ),
+        actors: vec![ambition_characters::perception::PerceivedActor {
+            id: "boss".into(),
+            pos: ae::Vec2::new(100.0, 0.0),
+            faction: ActorFaction::Boss,
+            hostile_to_self: true,
+            ..Default::default()
+        }],
+        ..Default::default()
+    };
+    memory.0.update(&view, 1.0 / 60.0);
+    assert!(
+        memory.0.last_known_hostile().is_some(),
+        "premise: the body believes in a hostile before its brain changes"
+    );
+
+    // ── A requirement that still perceives leaves the belief alone ───────────
+    assert!(!super::enforce_empty_belief_for_none(
+        Need::TargetBelief,
+        Some(&mut memory)
+    ));
+    assert!(
+        memory.0.last_known_hostile().is_some(),
+        "a body that still perceives must keep pursuing what it remembers"
+    );
+
+    // ── `None` empties it ───────────────────────────────────────────────────
+    assert!(super::enforce_empty_belief_for_none(
+        Need::None,
+        Some(&mut memory)
+    ));
+    assert!(
+        memory.0.is_empty(),
+        "a brain that stopped perceiving must not keep a stale hostile to \
+         resurrect when it starts again"
+    );
+
+    // ⚠ AND IT MUST NOT WRITE AGAIN. `PerceptionMemory` arrives as a `Mut<_>`;
+    // an unconditional clear would mark the component changed every tick for
+    // every `None` body — 129 of them in the hall — for a no-op.
+    assert!(
+        !super::enforce_empty_belief_for_none(Need::None, Some(&mut memory)),
+        "an already-empty belief must not be rewritten"
+    );
+}
+
+/// ⭐⭐ THE ACCEPTANCE ROOM THE ATTENTION PLAN ASKS FOR — *"a room where `kept`
+/// tracks population"* — and the proof that the HALL is not it.
+///
+/// `bounded-perception-and-attention.md` states the criterion and forbids
+/// justifying attention work without it: *"A sparse gallery of 200 would still
+/// keep ~14 each and prove nothing. The criterion is not '200 bodies', it is a
+/// room where kept tracks population."* GPT 5.6's 2026-09-02 review reached the
+/// same conclusion independently and asked for the benchmark before any
+/// top-K/group compression is built.
+///
+/// This is that instrument at the cheapest honest level: `build_world_view` is a
+/// pure function over slices, so a dense population needs no `App`, no schedule
+/// and no fixture of `tick_actor_brains`'s 145-line signature. It measures the
+/// ONE number the criterion is about — how many actors a viewer keeps — across
+/// populations, in both a SPARSE arrangement (bodies spread far apart, the
+/// hall's shape) and a DENSE one (bodies inside one another's viewports).
+///
+/// ⛔ IT ASSERTS THE SHAPE, NOT A CONSTANT. `offered` (visible peers)
+/// saturating in the sparse arm is what makes hall measurements
+/// uninformative; `offered` growing in the dense arm is the regime a budget is
+/// for — and since 2026-09-03 the budget EXISTS, so the dense arm also shows it
+/// working: `kept` (actors carried exactly) stays at `TACTICAL_ATTENTION`
+/// while `offered` climbs, and the difference is counted in the remainder. A
+/// test that pinned exact counts would break on any viewport tuning and would
+/// say nothing about either.
+#[test]
+fn offered_saturates_when_bodies_are_spread_grows_when_dense_and_the_budget_caps_kept() {
+    use ambition_characters::perception::TACTICAL_ATTENTION;
+    let relations = {
+        let mut r = FactionRelations::default();
+        r.set_mutual_hostile(ActorFaction::Enemy, ActorFaction::Boss, true);
+        r
+    };
+    let world = arena_world();
+    let viewer = body(ae::Vec2::new(0.0, 180.0), ActorFaction::Enemy);
+
+    // (offered, kept) for the viewer, given `count` peers laid out `spacing`
+    // apart along the floor, centred on the viewer: offered = visible peers,
+    // kept = the actors the view carries exactly.
+    let attend = |count: usize, spacing: f32| -> (usize, usize) {
+        let peers: Vec<_> = (0..count)
+            .map(|i| {
+                let offset = (i as f32 - count as f32 / 2.0) * spacing;
+                peer(
+                    &format!("p{i}"),
+                    ae::Vec2::new(offset, 180.0),
+                    ActorFaction::Boss,
+                )
+            })
+            .collect();
+        let view = build_world_view(
+            &viewer,
+            &peers,
+            &[],
+            &[],
+            &world,
+            &relations,
+            Perception::Sighted {
+                viewport_half: DEFAULT_VIEWPORT_HALF,
+            },
+            0.0,
+        );
+        (view.actors.len() + view.remainder.actors, view.actors.len())
+    };
+
+    // ── SPARSE: the hall's shape. The viewport bounds the offered set, so
+    //    population stops mattering long before 200. ───────────────────────────
+    let sparse: Vec<(usize, usize)> = [16usize, 64, 130, 200]
+        .iter()
+        .map(|n| attend(*n, 120.0))
+        .collect();
+    assert!(
+        sparse[3].0 <= sparse[1].0 + 2,
+        "a SPARSE room's offered set must saturate -- that is why a hall \
+         measurement cannot justify attention work. (offered, kept) at 16/64/130/200 = {sparse:?}"
+    );
+
+    // ── DENSE: bodies inside one another's viewports. Offered tracks
+    //    population — the room the plan says must exist — and the budget caps
+    //    what is carried exactly. ──────────────────────────────────────────────
+    let dense: Vec<(usize, usize)> = [16usize, 64, 130, 200]
+        .iter()
+        .map(|n| attend(*n, 4.0))
+        .collect();
+    assert!(
+        dense[3].0 > dense[0].0 * 4,
+        "the DENSE arrangement must make OFFERED track population, or this \
+         instrument cannot show a budget flattening it. (offered, kept) at 16/64/130/200 = {dense:?}"
+    );
+    assert!(
+        dense[3].0 > sparse[3].0 * 3,
+        "dense must differ from sparse at the same population, or the two arms \
+         are measuring the same room: dense {} vs sparse {}",
+        dense[3].0,
+        sparse[3].0
+    );
+    assert!(
+        dense.iter().all(|(_, kept)| *kept <= TACTICAL_ATTENTION)
+            && dense[3].1 == TACTICAL_ATTENTION,
+        "the budget flattens KEPT at TACTICAL_ATTENTION while offered climbs: {dense:?}"
+    );
+
+    println!(
+        "attention acceptance -- (offered, kept) per viewer at 16/64/130/200\n  \
+         sparse (120px apart): {sparse:?}\n  dense  (4px apart):   {dense:?}"
+    );
+}
+
+/// The density knob reaches the bodies it is meant to, and is INERT unset.
+///
+/// ⭐⭐ THE KNOB EXISTS BECAUSE THE ROOM CANNOT ASK THE QUESTION.
+/// `bounded-perception-and-attention.md` measures `kept` saturating at ~14.4
+/// across 65 → 130 bodies and says the hall *"CANNOT demonstrate why attention
+/// is needed — its geometry already solves it"*. Density is the regime the
+/// budget is for, and widening the viewport at fixed population is how an
+/// existing room reaches it.
+///
+/// ⛔ THE INERT ARM IS THE ONE THAT MATTERS. A measurement knob that changed the
+/// shipped default would silently re-tune every actor in the game, and the tell
+/// would be a behaviour change nobody attributed to a benchmark.
+#[test]
+fn the_perception_extent_knob_is_inert_unset_and_reaches_every_body_when_set() {
+    use ambition_characters::perception::PerceptionExtentOverride;
+    use ambition_platformer2d_core::Vec2;
+
+    fn extent_given(published: Option<PerceptionExtentOverride>) -> Vec2 {
+        let mut app = bevy::prelude::App::new();
+        if let Some(published) = published {
+            app.insert_resource(published);
+        }
+        app.add_systems(bevy::prelude::Update, super::ensure_perception);
+        let body = app
+            .world_mut()
+            .spawn((
+                ambition_characters::brain::Brain::stand_still(),
+                ambition_platformer2d_shared_tangle::lifecycle::FeatureSimEntity,
+            ))
+            .id();
+        app.update();
+        match app
+            .world()
+            .entity(body)
+            .get::<Perception>()
+            .expect("ensure_perception attached a policy")
+        {
+            Perception::Sighted { viewport_half } => *viewport_half,
+            Perception::Omniscient => panic!("ensure_perception grants Sighted"),
+        }
+    }
+
+    // No resource at all — every shipped run.
+    assert_eq!(
+        extent_given(None),
+        DEFAULT_VIEWPORT_HALF,
+        "with nothing published the body must get the shipped viewport"
+    );
+    // Published but empty — the knob installed and not asked for.
+    assert_eq!(
+        extent_given(Some(PerceptionExtentOverride::NONE)),
+        DEFAULT_VIEWPORT_HALF,
+        "an override of None is not an override"
+    );
+    // Asked for.
+    let wide = Vec2::new(1920.0, 1280.0);
+    assert_eq!(
+        extent_given(Some(PerceptionExtentOverride(Some(wide)))),
+        wide,
+        "the published extent must reach the body, or a density sweep measures \
+         the shipped viewport at every point and reports a flat curve"
+    );
+    assert_ne!(
+        wide, DEFAULT_VIEWPORT_HALF,
+        "premise: the wide arm differs from the default, so the assertion above \
+         cannot pass by both being the same number"
+    );
+}
+
+/// ⛔⛔ THE CHEAP BELIEF ROAD MUST AGREE WITH THE VIEW IT REPLACES, ALWAYS.
+///
+/// Seven of the nine brain templates declare `PerceptionRequirement::TargetBelief`
+/// and read only `target_pos` / `target_alive`, so increment 2 answers them from
+/// `nearest_hostile_peer` instead of building a whole `WorldView`. The saving is
+/// real — at the hall's density ~14 `PerceivedActor` constructions to use one,
+/// and 113 at the density a melee reaches — and it is worth NOTHING if the two
+/// roads can disagree.
+///
+/// ⛔ THE DIVERGENCE THIS PINS IS NOT HYPOTHETICAL. "In view" and "hostile" are
+/// two rules with, between them, a viewport, a self-exclusion, a team
+/// precedence, a faction relation and a personal grudge. A cheap road that
+/// restated any of them would be a second authority; this test is what says
+/// they were EXTRACTED rather than copied.
+#[test]
+fn a_cheap_belief_agrees_with_the_view_it_replaces() {
+    let mut relations = FactionRelations::default();
+    relations.set_mutual_hostile(ActorFaction::Enemy, ActorFaction::Boss, true);
+    let world = arena_world();
+    let perception = Perception::Sighted {
+        viewport_half: DEFAULT_VIEWPORT_HALF,
+    };
+
+    let viewer = body(ae::Vec2::new(100.0, 180.0), ActorFaction::Enemy);
+    let peers = vec![
+        // An ally, in view: never the answer.
+        peer("friend", ae::Vec2::new(110.0, 180.0), ActorFaction::Enemy),
+        // The nearest hostile IN VIEW — 450 away, inside the 480x320 half-extent.
+        peer(
+            "in_view_foe",
+            ae::Vec2::new(550.0, 180.0),
+            ActorFaction::Boss,
+        ),
+        // ⛔⛔ NEARER THAN THAT (340) AND OUTSIDE THE VIEWPORT (dy 340 > 320).
+        // The geometry is the whole point of this row: an out-of-view peer that
+        // is also the FARTHEST cannot detect a forgotten viewport filter, because
+        // `min_by` rejects it anyway. A first version of this test put the
+        // out-of-view foe at x=5000 and claimed to catch exactly that — poisoning
+        // the filter away left it GREEN. It has to be closer than the right
+        // answer for its exclusion to be observable.
+        peer(
+            "out_of_view_foe",
+            ae::Vec2::new(100.0, 520.0),
+            ActorFaction::Boss,
+        ),
+    ];
+
+    let view = build_world_view(
+        &viewer,
+        &peers,
+        &[],
+        &[],
+        &world,
+        &relations,
+        perception,
+        0.0,
+    );
+    let full = view.nearest_hostile().map(|a| a.pos);
+    let cheap = super::nearest_hostile_peer(&viewer, &peers, &relations, perception)
+        .nearest_hostile
+        .map(|p| p.pos);
+
+    assert_eq!(
+        full,
+        Some(ae::Vec2::new(550.0, 180.0)),
+        "premise: the full road picks the nearest IN-VIEW foe, not the nearer \
+         one outside the viewport"
+    );
+    assert_eq!(
+        cheap, full,
+        "the cheap belief road and the WorldView must name the SAME hostile; \
+         they share `peer_is_visible_to_body` and `peer_is_hostile_to_body` \
+         precisely so this cannot drift"
+    );
+
+    // ⛔⛔ AND THE CENSUS COUNT MUST AGREE TOO. `[census] perception`'s `kept` IS
+    // `world_view.actors.len()` — everything VISIBLE, allies included, not the
+    // hostiles. Routing seven of nine templates onto a road that reported only
+    // its target would silently drop `kept` toward zero, and the instrument that
+    // priced this whole increment would start understating the population it
+    // measures. This is the arm that keeps the measurement honest after the
+    // optimisation it justified.
+    let cheap_kept =
+        super::nearest_hostile_peer(&viewer, &peers, &relations, perception).visible_count;
+    assert_eq!(
+        cheap_kept,
+        view.actors.len(),
+        "the cheap road's visible count is the census's `kept`; it counts \
+         everything in view, not just the foe"
+    );
+    assert!(
+        cheap_kept > 1,
+        "premise: the fixture has an ally and two foes in view, so a road that \
+         counted only hostiles — or only the target — would differ here"
+    );
+
+    // ⭐ AND AGREEING ON "NOBODY" IS HALF THE CONTRACT. Perceiving no foe is a
+    // real answer (idle), not a missing one, and a cheap road that returned the
+    // nearest PEER rather than the nearest HOSTILE would still pass the arm
+    // above while failing here.
+    let only_allies = vec![peer(
+        "friend",
+        ae::Vec2::new(110.0, 180.0),
+        ActorFaction::Enemy,
+    )];
+    let empty_view = build_world_view(
+        &viewer,
+        &only_allies,
+        &[],
+        &[],
+        &world,
+        &relations,
+        perception,
+        0.0,
+    );
+    assert_eq!(empty_view.nearest_hostile().map(|a| a.pos), None, "premise");
+    assert_eq!(
+        super::nearest_hostile_peer(&viewer, &only_allies, &relations, perception)
+            .nearest_hostile
+            .map(|p| p.pos),
+        None,
+        "an ally is not a target on either road"
+    );
+}
+
+/// A GRUDGE crosses faction, on the cheap road too.
+///
+/// ⭐ THE ARM A HAND-WRITTEN HOSTILITY CHECK FAILS. Faction hostility alone
+/// would miss a same-faction duel opponent, and `select_actor_targets` and the
+/// damage road both honour the grudge — so a belief road that did not would
+/// point a brain at nobody while it was being attacked.
+#[test]
+fn a_cheap_belief_sees_a_same_faction_grudge_the_way_the_view_does() {
+    let relations = FactionRelations::default();
+    let world = arena_world();
+    let perception = Perception::Sighted {
+        viewport_half: DEFAULT_VIEWPORT_HALF,
+    };
+
+    let rival = bevy::prelude::Entity::from_raw_u32(77).expect("a valid test entity");
+    let mut viewer = body(ae::Vec2::new(100.0, 180.0), ActorFaction::Enemy);
+    viewer.grudge = Some(rival);
+
+    // Same faction as the viewer, and no faction hostility is configured.
+    let mut foe = peer(
+        "duel_rival",
+        ae::Vec2::new(160.0, 180.0),
+        ActorFaction::Enemy,
+    );
+    foe.entity = rival;
+    let peers = vec![foe];
+
+    let view = build_world_view(
+        &viewer,
+        &peers,
+        &[],
+        &[],
+        &world,
+        &relations,
+        perception,
+        0.0,
+    );
+    assert_eq!(
+        view.nearest_hostile().map(|a| a.pos),
+        Some(ae::Vec2::new(160.0, 180.0)),
+        "premise: the full road honours the grudge across faction"
+    );
+    assert_eq!(
+        super::nearest_hostile_peer(&viewer, &peers, &relations, perception)
+            .nearest_hostile
+            .map(|p| p.pos),
+        Some(ae::Vec2::new(160.0, 180.0)),
+        "and so must the cheap one — this is the rule a restated check loses"
+    );
+}
+
+/// ⛔⛔ PURSUIT MUST SURVIVE THE CHEAP ROAD — the defect the routing invites.
+///
+/// `actors/update.rs` now composes two steps for a `TargetBelief` body: fold
+/// memory from borrowed peers, then `belief_from_nearest`. The old road composed
+/// `build_world_view` + `believed_target`, which did the fold internally. This
+/// asserts the two COMPOSITIONS agree, not just their pieces — including the arm
+/// that matters, where the foe has LEFT the viewport and only memory can answer.
+///
+/// ⚠ A body that can still SEE its foe agrees on both roads no matter how badly
+/// the fold is wired, because `nearest_hostile` answers before memory is
+/// consulted. Only the lost-sight arm can catch a dropped fold.
+#[test]
+fn a_target_belief_body_still_pursues_a_foe_it_has_lost_sight_of() {
+    let mut relations = FactionRelations::default();
+    relations.set_mutual_hostile(ActorFaction::Enemy, ActorFaction::Boss, true);
+    let world = arena_world();
+    let perception = Perception::Sighted {
+        viewport_half: DEFAULT_VIEWPORT_HALF,
+    };
+    let dt = 1.0 / 60.0;
+
+    let viewer = body(ae::Vec2::new(100.0, 180.0), ActorFaction::Enemy);
+    let in_view = vec![peer("foe", ae::Vec2::new(300.0, 180.0), ActorFaction::Boss)];
+    // Far outside the 480x320 half-extent: the same foe, no longer perceivable.
+    let gone = vec![peer(
+        "foe",
+        ae::Vec2::new(4000.0, 180.0),
+        ActorFaction::Boss,
+    )];
+
+    // ── the road update.rs used to take ─────────────────────────────────────
+    let full_belief = |peers: &[PerceptionPeer], memory: &mut PerceptionMemory| {
+        let view = build_world_view(
+            &viewer,
+            peers,
+            &[],
+            &[],
+            &world,
+            &relations,
+            perception,
+            0.0,
+        );
+        super::believed_target(perception, &view, Some(memory), dt)
+    };
+    // ── the road it takes now ───────────────────────────────────────────────
+    let cheap_belief = |peers: &[PerceptionPeer], memory: &mut PerceptionMemory| {
+        let cheap = super::nearest_hostile_peer(&viewer, peers, &relations, perception);
+        memory.0.update_from_seen(
+            0.0,
+            dt,
+            peers
+                .iter()
+                .filter(|p| super::peer_is_visible_to_body(perception, &cheap.viewport, &viewer, p))
+                .map(|p| ambition_characters::perception::SeenActor {
+                    id: p.id.as_str(),
+                    pos: p.pos,
+                    vel: p.vel,
+                    faction: p.faction,
+                    hostile_to_self: super::peer_is_hostile_to_body(&viewer, &relations, p),
+                }),
+        );
+        super::belief_from_nearest(
+            perception,
+            cheap.nearest_hostile.map(|p| p.pos),
+            Some(memory),
+        )
+    };
+
+    let mut full_mem = PerceptionMemory::default();
+    let mut cheap_mem = PerceptionMemory::default();
+
+    // Seen: both roads name the foe where it stands.
+    let seen_full = full_belief(&in_view, &mut full_mem);
+    let seen_cheap = cheap_belief(&in_view, &mut cheap_mem);
+    assert_eq!(
+        seen_full,
+        Some(Some(ae::Vec2::new(300.0, 180.0))),
+        "premise: a visible foe is believed where it is"
+    );
+    assert_eq!(seen_cheap, seen_full, "in view, the roads must agree");
+
+    // ⭐ LOST: only the remembered position can answer, and it must still be the
+    // place the foe was last SEEN — not its current, unperceived position.
+    let lost_full = full_belief(&gone, &mut full_mem);
+    let lost_cheap = cheap_belief(&gone, &mut cheap_mem);
+    assert_eq!(
+        lost_full,
+        Some(Some(ae::Vec2::new(300.0, 180.0))),
+        "premise: the old road pursues the last known position (invariant I6)"
+    );
+    assert_eq!(
+        lost_cheap, lost_full,
+        "the cheap road must pursue too — a dropped fold shows up HERE and \
+         nowhere else, because a body that can see its foe never consults memory"
+    );
+}
+
+/// THE ATTENTION BUDGET BINDS: a crowd of forty visible peers yields exactly
+/// `TACTICAL_ATTENTION` actors, hostiles before friends and nearer before
+/// farther, and the remainder counts what was left out — with the nearest
+/// hostile the capped view names being the one the uncapped scan names.
+///
+/// Poison: drop the hostile-first key and a near friend displaces the
+/// farthest kept foe (the hostile count below moves); drop the id tiebreak
+/// and the shuffled arm differs.
+#[test]
+fn a_crowd_is_attended_to_hostiles_first_and_the_rest_is_counted() {
+    use ambition_characters::perception::TACTICAL_ATTENTION;
+    let mut relations = FactionRelations::default();
+    relations.set_mutual_hostile(ActorFaction::Enemy, ActorFaction::Boss, true);
+    let world = arena_world();
+    let perception = Perception::Sighted {
+        viewport_half: DEFAULT_VIEWPORT_HALF,
+    };
+    let viewer = body(ae::Vec2::new(0.0, 0.0), ActorFaction::Enemy);
+    // 20 foes at 10, 20, ... 200 px and 20 friends at 5, 15, ... 195 px —
+    // every friend NEARER than the foe after it, so distance alone would keep
+    // ten of each and hostile-first keeps sixteen foes.
+    let mut peers: Vec<PerceptionPeer> = (1..=20)
+        .map(|i| {
+            peer(
+                &format!("foe_{i:02}"),
+                ae::Vec2::new(10.0 * i as f32, 0.0),
+                ActorFaction::Boss,
+            )
+        })
+        .chain((1..=20).map(|i| {
+            peer(
+                &format!("pal_{i:02}"),
+                ae::Vec2::new(10.0 * i as f32 - 5.0, 0.0),
+                ActorFaction::Enemy,
+            )
+        }))
+        .collect();
+    let view = build_world_view(&viewer, &peers, &[], &[], &world, &relations, perception, 0.0);
+    assert_eq!(view.actors.len(), TACTICAL_ATTENTION);
+    assert!(
+        view.actors.iter().all(|a| a.hostile_to_self),
+        "sixteen foes outrank every nearer friend: {:?}",
+        view.actors.iter().map(|a| a.id.as_str()).collect::<Vec<_>>()
+    );
+    assert_eq!(
+        view.nearest_hostile().map(|a| a.pos),
+        Some(ae::Vec2::new(10.0, 0.0)),
+        "the capped view names the same nearest foe the uncapped scan would"
+    );
+    assert_eq!(view.remainder.actors, 40 - TACTICAL_ATTENTION);
+    assert_eq!(view.remainder.hostiles, 20 - TACTICAL_ATTENTION);
+    assert_eq!(
+        view.remainder.nearest_unattended_hostile_dist_sq,
+        Some(170.0 * 170.0),
+        "foe_17 is the nearest foe that did not make the cut"
+    );
+
+    // Input order does not change who is kept, or in what order.
+    let kept: Vec<String> = view.actors.iter().map(|a| a.id.clone()).collect();
+    peers.reverse();
+    peers.swap(3, 29);
+    let shuffled = build_world_view(&viewer, &peers, &[], &[], &world, &relations, perception, 0.0);
+    assert_eq!(
+        shuffled.actors.iter().map(|a| a.id.clone()).collect::<Vec<_>>(),
+        kept,
+        "attention is a deterministic function of the peers, not of their order"
+    );
+    assert_eq!(shuffled.remainder, view.remainder);
+}
+
+/// Below the cap nothing changes: every visible peer is carried, in the
+/// peers' own order, and the remainder is zero — which is every shipped room
+/// today (`kept` saturates at ~14).
+#[test]
+fn below_the_attention_cap_the_view_is_what_it_always_was() {
+    let mut relations = FactionRelations::default();
+    relations.set_mutual_hostile(ActorFaction::Enemy, ActorFaction::Boss, true);
+    let world = arena_world();
+    let perception = Perception::Sighted {
+        viewport_half: DEFAULT_VIEWPORT_HALF,
+    };
+    let viewer = body(ae::Vec2::new(0.0, 0.0), ActorFaction::Enemy);
+    let peers: Vec<PerceptionPeer> = [
+        ("far_foe", 200.0, ActorFaction::Boss),
+        ("near_pal", 20.0, ActorFaction::Enemy),
+        ("near_foe", 40.0, ActorFaction::Boss),
+    ]
+    .into_iter()
+    .map(|(id, x, faction)| peer(id, ae::Vec2::new(x, 0.0), faction))
+    .collect();
+    let view = build_world_view(&viewer, &peers, &[], &[], &world, &relations, perception, 0.0);
+    assert_eq!(
+        view.actors.iter().map(|a| a.id.as_str()).collect::<Vec<_>>(),
+        vec!["far_foe", "near_pal", "near_foe"],
+        "uncapped: the peers' own order, friends included"
+    );
+    assert_eq!(view.remainder, Default::default());
+}

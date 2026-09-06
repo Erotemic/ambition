@@ -1,0 +1,50 @@
+{
+  "target": "gnu_ton_boss",
+  "frame_size": [
+    768,
+    576
+  ],
+  "rows": [
+    {
+      "name": "rest",
+      "row": 0,
+      "frames": 10,
+      "duration_ms": 110
+    },
+    {
+      "name": "hand_slam",
+      "row": 1,
+      "frames": 10,
+      "duration_ms": 72
+    },
+    {
+      "name": "hand_sweep",
+      "row": 2,
+      "frames": 10,
+      "duration_ms": 65
+    },
+    {
+      "name": "head_down",
+      "row": 3,
+      "frames": 9,
+      "duration_ms": 90
+    },
+    {
+      "name": "hit",
+      "row": 4,
+      "frames": 6,
+      "duration_ms": 80
+    },
+    {
+      "name": "death",
+      "row": 5,
+      "frames": 10,
+      "duration_ms": 105
+    }
+  ],
+  "layers": [
+    "full",
+    "body",
+    "hands"
+  ]
+}

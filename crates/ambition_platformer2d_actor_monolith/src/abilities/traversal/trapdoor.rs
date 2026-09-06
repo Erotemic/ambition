@@ -1,0 +1,203 @@
+//! A move that takes its owner under the stage, and one that brings her back.
+//!
+//! ⭐⭐ THE OTHER HALF OF `ambition_characters::smash_trapdoor`. It sits beside
+//! the authored teleport because it needs the same two things that file already
+//! owns: a collision view of the stage, and
+//! [`ledge_assisted_arrival`](super::teleport::ledge_assisted_arrival), which is
+//! already the rule for *"find the surface above this point and stand the body
+//! on it"*. Surfacing through a floor and a recovery catching a ledge are the
+//! same question asked by two moves.
+//!
+//! ⛔ WHAT "UNDER THE STAGE" MEANS IS NOT HERE. No gravity, no geometry, no
+//! hurtbox, and the stick still steers — every one of those is a property of
+//! `BodyMode::Submerged`, stated once in the movement kernel and in the
+//! invulnerability projection. This file only moves her between modes.
+
+use bevy::prelude::*;
+
+use ambition_characters::brain::{ActionRequest, ActorActionMessage, SpecialActionSpec};
+use ambition_characters::smash_trapdoor::{TrapdoorParams, TRAPDOOR};
+use ambition_platformer2d_core::{self as ae};
+
+/// Recognise an authored trapdoor beat and move the body between modes.
+///
+/// ⛔ IT RUNS WHERE EVERY OTHER `ActorActionMessage` CONSUMER RUNS, so a beat
+/// authored on a move's timeline lands on the frame the move says.
+pub fn apply_authored_trapdoors(
+    world: ambition_platformer2d_world::collision::CollisionWorld,
+    mut commands: Commands,
+    mut actions: MessageReader<ActorActionMessage>,
+    mut bodies: Query<(
+        ae::BodyClusterQueryData,
+        // ⭐ THE BODY'S OWN FRAME, because "which way is up" is not a constant.
+        // The surfacing search looks for a floor along this body's gravity, so
+        // a stage that rotates gravity rotates which side of her the boards are
+        // on — the same reason the teleport's ledge assist takes it.
+        &ambition_platformer2d_shared_tangle::frame_env::ResolvedMotionFrame,
+        &mut ae::movement::MotionModel,
+    )>,
+    // ⛔⛔ THE MOVE THAT AUTHORED THE BEAT, so a refused submerge can END it.
+    // Without this the timeline runs on regardless — including the three-second
+    // `smash_charge` freeze, which knows nothing about whether she went under —
+    // and a fighter who pressed down-B a frame after walking off a ledge hangs
+    // motionless in mid-air for three seconds. See the refusal below.
+    mut playbacks: Query<&mut ambition_combat::moveset::MovePlayback>,
+    mut vfx: MessageWriter<ambition_vfx::vfx::VfxMessage>,
+    mut sfx: ambition_sfx::BodySfxWriter,
+    // ⛔⛔ THE SURFACING IS A CLASS-B REMAP AND WENT UNRECORDED. It picks a
+    // position with `ledge_assisted_arrival` — up to `surface_reach` px from
+    // where she was — and writes it with `transit_body`, which is exactly what
+    // blink, dive, mark-recall and the authored teleport all declare. Without
+    // the record an instrument cannot tell this deliberate relocation from
+    // unexplained displacement, and same-frame contention with another Class-B
+    // writer cannot see this one at all.
+    //
+    // ⚠ `Option`, like every other writer here: a minimal test app installs no
+    // log, and a traversal that refuses to run without an instrument would be an
+    // instrument deciding gameplay.
+    mut class_b: Option<ResMut<ambition_platformer2d_shared_tangle::class_b::ClassBRemapLog>>,
+) {
+    let mut collision = None;
+    for message in actions.read() {
+        let ActionRequest::Special { spec, params } = &message.request else {
+            continue;
+        };
+        let SpecialActionSpec::Special(key) = spec;
+        if key.as_str() != TRAPDOOR {
+            continue;
+        }
+        let params: TrapdoorParams = match params.hydrate() {
+            Ok(params) => params,
+            Err(err) => {
+                warn!("trapdoor params did not hydrate: {err}");
+                continue;
+            }
+        };
+        let Ok((mut cluster_item, resolved_frame, mut motion_model)) =
+            bodies.get_mut(message.actor)
+        else {
+            continue;
+        };
+        let gravity_dir = resolved_frame.down();
+        let mut clusters = cluster_item.as_clusters_mut();
+        // The door is drawn where the body is on the frame it opens: going
+        // under, that is her feet on the boards; coming up, it is wherever she
+        // steered to. Taken BEFORE the surfacing move so the exit door opens at
+        // the floor she comes through and not at the point she came from.
+        let mut door = clusters.kinematics.pos;
+
+        if params.submerge {
+            // ⛔⛔ THERE IS NO FLOOR TO CUT A HATCH IN. Jon, 2026-08-29: *"if she
+            // isn't on the ground the trap door can't open and she can't go
+            // subterranian, so the move cancels."*
+            //
+            // ⭐⭐ ASKED OF THE BODY AT THE BEAT, NOT OF WHICH MOVE RAN. The
+            // posture chain already routes an airborne PRESS to the air form, so
+            // this is not that rule restated — it is the case the chain cannot
+            // see: a press made on the boards by a fighter who is off them by
+            // the time the door opens, one tenth of a second later. Walking off
+            // a ledge, a platform dropped through, a footstool taken. The
+            // authored variant answers where she pressed; only the live body
+            // answers where she IS.
+            //
+            // ⛔ AND THE MOVE ENDS RATHER THAN CONTINUING WITHOUT ITS MIDDLE.
+            // The rest of this timeline is written for a body under the stage —
+            // the freeze, the exit door, the emergence strike — and running it
+            // over a body standing in the air is three seconds of nothing
+            // followed by a firework out of empty space.
+            //
+            // ⭐ THE SMOKE HAS ALREADY GONE OFF, and that is the point of it
+            // being on the move's own timeline rather than emitted here: the
+            // misdirection is spent whether or not the trick worked, which is
+            // what makes the airborne press a feint instead of a dead button.
+            if !clusters.ground.on_ground {
+                if let Ok(mut playback) = playbacks.get_mut(message.actor) {
+                    ambition_combat::moveset::cancel_move_playback(
+                        &mut commands,
+                        message.actor,
+                        &mut playback,
+                        ambition_combat::moveset::MoveEnd::Interrupted,
+                    );
+                }
+                continue;
+            }
+            clusters.body_mode.body_mode = ae::player_state::BodyMode::Submerged;
+            // ⛔⛔ THE FALL IS ENDED, NOT INHERITED. She may have pressed this
+            // out of a run or a drop, and a submerged body integrates its own
+            // velocity outright — a leftover fall would be overwritten on the
+            // next tick anyway, but the tick BETWEEN this write and that one
+            // would carry her down through the world with collision already
+            // switched off.
+            clusters.kinematics.vel = ae::Vec2::ZERO;
+        } else {
+            // ⭐ SHE COMES UP THROUGH A FLOOR. `ledge_assisted_arrival` finds
+            // the surface above a point and stands the body on it, refusing a
+            // placement that would embed — which is exactly the surfacing rule,
+            // and is why this file borrows it rather than restating it.
+            let half = clusters.kinematics.size * 0.5;
+            let from = clusters.kinematics.pos;
+            let solids = collision.get_or_insert_with(|| world.solids());
+            let surfaced = match solids.as_ref() {
+                Some(w) => super::teleport::ledge_assisted_arrival(
+                    &**w,
+                    from,
+                    half,
+                    params.surface_reach,
+                    gravity_dir,
+                ),
+                // No collision world (a minimal test app): she comes up where
+                // she is, which is what every other traversal does here.
+                None => from,
+            };
+            door = surfaced;
+            // ⛔ THE MODE FIRST, THEN THE PLACE. `transit_body` reconciles
+            // departure contacts against the body's CURRENT mode, and a body
+            // still marked submerged is one the contact pass believes nothing
+            // touches.
+            clusters.body_mode.body_mode = ae::player_state::BodyMode::Standing;
+            // ⛔⛔ THE LAUNCH IS PART OF THE PLACEMENT, not a second write. A
+            // `Zero` here is what silently deleted the authored leap: the move's
+            // own `Impulse` event lands inline on this same instant and this
+            // system runs after it. One write, so the two cannot race.
+            //
+            // Against gravity, so a leap stays a leap under a flipped frame —
+            // the same reasoning the authored impulse's body-local `(0, -speed)`
+            // was written with.
+            let exit = if params.leap_speed > 0.0 {
+                ae::movement::TransitVelocity::Set(gravity_dir * -params.leap_speed)
+            } else {
+                ae::movement::TransitVelocity::Zero
+            };
+            ae::movement::transit_body(&mut motion_model, &mut clusters, surfaced, exit);
+            // ⛔ AT THE WRITE, not beside it. Recording where the position is
+            // actually set is what makes the log a record of what happened
+            // rather than of what a system intended.
+            if let Some(log) = class_b.as_mut() {
+                log.record(
+                    message.actor,
+                    ambition_platformer2d_shared_tangle::class_b::ClassBRemap::ScriptedTeleport,
+                );
+            }
+        }
+
+        // The look and the sound are the MOVE's, not this system's — the same
+        // rule the authored teleport follows, so a mole and a stagehand can use
+        // one technique and share nothing else.
+        vfx.write(ambition_vfx::vfx::VfxMessage::Effect {
+            pos: door,
+            fx: ambition_vfx::fx::FxId::new(&params.vfx),
+            scale: 1.0,
+            pose: ambition_vfx::FxPose::UPRIGHT,
+        });
+        sfx.write_for(
+            message.actor,
+            ambition_sfx::SfxMessage::Play {
+                id: ambition_sfx::SfxId::new(&params.sfx),
+                pos: door,
+            },
+        );
+    }
+}
+
+#[cfg(test)]
+mod tests;

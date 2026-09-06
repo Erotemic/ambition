@@ -1,0 +1,258 @@
+//! Pure portal-piece geometry — the Core invariant of the portal system.
+//!
+//! > Every gameplay-relevant volume is representable as zero, one, or two
+//! > portal-aware spatial pieces. Every system that asks "where is this thing?"
+//! > uses those pieces instead of the raw body AABB.
+//!
+//! A portal pair topologically glues two parts of the world together. A body
+//! straddling a portal plane is ONE logical object with TWO spatial pieces: the
+//! part still on the entry side (`here`), and the part that has crossed the
+//! plane, mapped through to emerge from the linked exit portal (`through`).
+//!
+//! This module is the pure, deterministic, allocation-light heart of that math:
+//! the portal map (point / AABB / velocity), half-space clipping, the
+//! piece-decomposition ([`compute_body_pieces`]), and the host-surface carve
+//! HOLE ([`carve_hole`] — the rectangle set-difference it feeds is
+//! `ambition_platformer2d_core::geometry::subtract_aabb`, plain AABB algebra that lives
+//! in the foundation). It has no ECS, no Bevy systems, no RNG — so the headless
+//! sim and the unit tests exercise the exact same geometry the game runs.
+//!
+//! Current implementation note: gameplay pieces are still AABB-backed, so production use is
+//! restricted to cardinal floor / wall / ceiling portals.
+
+use ambition_platformer2d_core::{self as ae, AabbExt};
+use bevy::math::Vec2;
+
+// The engine-level aperture vocabulary (CC5): the frame type and pair map live
+// in `ambition_platformer2d_core::frame`; this module builds the AABB piece/carve
+// geometry ON them.
+pub use ambition_platformer2d_core::frame::{PortalAperture, PortalFrame};
+
+// The pure portal-map vector math (orientation-between-two-normals transforms)
+// lives in the content-free `ambition_platformer2d_shared_tangle` crate (delegating
+// to `engine_core::frame`), including the game-wide convention dispatch.
+// Re-export it here so portal_pieces' AABB/piece geometry and every other
+// in-sandbox user (world_overlay, debug_overlay, portal/*) keep referencing
+// `crate::pieces::{portal_rotation, rotate, portal_tangent,
+// portal_map_vec}` unchanged.
+pub use ambition_platformer2d_shared_tangle::math::{
+    portal_map_vec, portal_map_vec_reflection, portal_map_vec_rotation, portal_rotation,
+    portal_tangent, rotate, MapConvention,
+};
+
+/// Map a world point near `enter` to the corresponding point near `exit`: the
+/// depth a point has sunk *into* the entry wall becomes the depth it emerges
+/// *out* of the exit portal (so `enter.origin` maps to `exit.origin`), and its
+/// along-surface offset follows the stated `convention` (see
+/// [`portal_map_vec`]).
+pub fn map_point(
+    p: Vec2,
+    enter: &PortalFrame,
+    exit: &PortalFrame,
+    convention: MapConvention,
+) -> Vec2 {
+    exit.origin + portal_map_vec(p - enter.origin, enter.normal, exit.normal, convention)
+}
+
+/// Map an axis-aligned AABB through the portal pair. The map is axis-aligned for
+/// axis-aligned portals (a 90° turn swaps the half-extents), so the image stays
+/// an axis-aligned AABB.
+pub fn map_aabb(
+    b: ae::Aabb,
+    enter: &PortalFrame,
+    exit: &PortalFrame,
+    convention: MapConvention,
+) -> ae::Aabb {
+    let center = map_point(b.center(), enter, exit, convention);
+    // Transform the half-extent through the (axis-aligned) map: each output axis
+    // gets |contribution| from each input axis.
+    let col_x = portal_map_vec(Vec2::new(1.0, 0.0), enter.normal, exit.normal, convention);
+    let col_y = portal_map_vec(Vec2::new(0.0, 1.0), enter.normal, exit.normal, convention);
+    let h = b.half_size();
+    let half = Vec2::new(
+        col_x.x.abs() * h.x + col_y.x.abs() * h.y,
+        col_x.y.abs() * h.x + col_y.y.abs() * h.y,
+    );
+    ae::Aabb::new(center, half)
+}
+
+/// (Cardinal-only, like the whole AABB piece layer — P3b generalizes.)
+pub fn clip_halfspace(b: ae::Aabb, point: Vec2, dir: Vec2) -> Option<ae::Aabb> {
+    let (mut x0, mut y0, mut x1, mut y1) = (b.min.x, b.min.y, b.max.x, b.max.y);
+    if dir.x > 0.5 {
+        x0 = x0.max(point.x);
+    } else if dir.x < -0.5 {
+        x1 = x1.min(point.x);
+    } else if dir.y > 0.5 {
+        y0 = y0.max(point.y);
+    } else if dir.y < -0.5 {
+        y1 = y1.min(point.y);
+    }
+    ae::geometry::aabb_from_min_max(x0, y0, x1, y1)
+}
+
+/// Clip `b` laterally to a portal's opening span (so a body wider than the
+/// aperture only shows the slice that fits through the doorway).
+fn clip_to_aperture(b: ae::Aabb, ap: &PortalAperture) -> Option<ae::Aabb> {
+    let along = ap.frame.tangent();
+    let half = ap.half_length;
+    if along.x.abs() > 0.5 {
+        ae::geometry::aabb_from_min_max(
+            b.min.x.max(ap.frame.origin.x - half),
+            b.min.y,
+            b.max.x.min(ap.frame.origin.x + half),
+            b.max.y,
+        )
+    } else {
+        ae::geometry::aabb_from_min_max(
+            b.min.x,
+            b.min.y.max(ap.frame.origin.y - half),
+            b.max.x,
+            b.max.y.min(ap.frame.origin.y + half),
+        )
+    }
+}
+
+/// A body's representation in one local chart (one side of a portal pair).
+#[derive(Clone, Copy, Debug)]
+pub struct ThroughPiece {
+    /// The clipped piece on the EXIT side, in exit-local world space.
+    pub aabb: ae::Aabb,
+    /// The portal the body is sinking into (its plane clips `here`).
+    pub enter: PortalAperture,
+    /// The linked portal the piece emerges from.
+    pub exit: PortalAperture,
+}
+
+/// The portal-aware decomposition of one body: always a `here` piece on the
+/// body's current side, plus an optional `through` piece on the far side of a
+/// straddled portal. Their union reconstructs the whole body across two charts.
+#[derive(Clone, Copy, Debug)]
+pub struct BodyPieces {
+    /// The piece on the body's authoritative side — clipped to the front of the
+    /// straddled portal when mid-transit, else the whole body.
+    pub here: ae::Aabb,
+    /// The piece that has crossed the portal plane, mapped to the exit side.
+    /// `None` when the body straddles no portal.
+    pub through: Option<ThroughPiece>,
+}
+
+impl BodyPieces {
+    /// A body that straddles no portal: a single, whole piece.
+    pub fn whole(body: ae::Aabb) -> Self {
+        Self {
+            here: body,
+            through: None,
+        }
+    }
+}
+
+/// Does `body` straddle `ap`'s plane within the opening? True when the plane
+/// passes through the body's extent AND the body overlaps the aperture span.
+pub fn straddles(body: ae::Aabb, ap: &PortalAperture) -> bool {
+    let half = ap.half_length;
+    let origin = ap.frame.origin;
+    if ap.frame.normal.x.abs() > 0.5 {
+        // Vertical-plane (wall) portal: plane is a vertical line at origin.x.
+        body.min.x < origin.x
+            && body.max.x > origin.x
+            && body.max.y > origin.y - half
+            && body.min.y < origin.y + half
+    } else {
+        // Horizontal-plane (floor / ceiling) portal: plane is a horizontal line.
+        body.min.y < origin.y
+            && body.max.y > origin.y
+            && body.max.x > origin.x - half
+            && body.min.x < origin.x + half
+    }
+}
+
+/// Decompose `body` against a linked portal pair. Finds the portal whose plane
+/// the body straddles (within its opening), keeps the front slice as `here`, and
+/// maps the crossed slice through to the linked exit as `through`. If the body
+/// straddles neither portal, returns the whole body.
+///
+/// Direction-agnostic: it works the same before the centroid crosses (body on
+/// the entry side, trailing nothing) and after (body on the exit side, its
+/// trailing slice mapped back to the entry) — whichever plane it currently
+/// straddles is the "entry" for the decomposition.
+pub fn compute_body_pieces(
+    body: ae::Aabb,
+    pair: Option<(PortalAperture, PortalAperture)>,
+    convention: MapConvention,
+) -> BodyPieces {
+    let Some((a, b)) = pair else {
+        return BodyPieces::whole(body);
+    };
+    for (enter, exit) in [(a, b), (b, a)] {
+        if !straddles(body, &enter) {
+            continue;
+        }
+        // Front slice stays here (clipped at the plane so it never shows inside
+        // the wall); the back slice is what has crossed.
+        let here = clip_halfspace(body, enter.frame.origin, enter.frame.normal).unwrap_or(body);
+        let through = clip_halfspace(body, enter.frame.origin, -enter.frame.normal)
+            .map(|back| map_aabb(back, &enter.frame, &exit.frame, convention))
+            // The emerged piece shows only what is in front of the exit and
+            // within its opening.
+            .and_then(|mapped| clip_halfspace(mapped, exit.frame.origin, exit.frame.normal))
+            .and_then(|mapped| clip_to_aperture(mapped, &exit))
+            .map(|aabb| ThroughPiece { aabb, enter, exit });
+        return BodyPieces { here, through };
+    }
+    BodyPieces::whole(body)
+}
+
+/// Signed distance of `point` from `frame`'s plane along its outward normal:
+/// positive = in front (room side), negative = behind (into the wall). The
+/// centroid transfer fires when this changes sign. (This IS
+/// `frame.to_local(point).y` — kept as the named domain verb.)
+pub fn front_distance(point: Vec2, frame: &PortalFrame) -> f32 {
+    (point - frame.origin).dot(frame.normal)
+}
+
+// ---------------------------------------------------------------------------
+// Host-surface carve: the floor / wall must become non-solid in the opening.
+//
+// The rectangle set-difference itself is `ae::geometry::subtract_aabb` — plain AABB algebra, so
+// it lives in the foundation (refactor-chain R3). The portal-specific part — how deep and how
+// wide the hole is — is below.
+
+/// How deep (px) into the host surface a portal carves its doorway. Just past a
+/// body's half-depth so the leading slice can sink in up to the centroid before
+/// the transfer fires; small enough that it never punches through to far-side
+/// geometry on a thick wall.
+pub const CARVE_DEPTH: f32 = 60.0;
+
+/// How far OUTWARD of the portal face (px) the carve also reaches. A portal
+/// authored on a surface can land a few px off the grid-snapped collision edge
+/// (e.g. a floor whose IntGrid top is y=896 but the portal face is y=900); the
+/// carve must reach back across that gap or a thin solid LIP survives in the
+/// opening and the body rests on it instead of sinking in. One grid cell covers
+/// any realistic snap; for a floor it only removes the lip (open room is above).
+pub const SURFACE_GRACE: f32 = 16.0;
+
+/// The carve hole for a portal: the opening width along the surface, cut from a
+/// little OUTWARD of the face ([`SURFACE_GRACE`], to clear any grid-snap lip)
+/// through [`CARVE_DEPTH`] inward.
+pub fn carve_hole(ap: &PortalAperture) -> ae::Aabb {
+    carve_hole_with_depth(ap, f32::INFINITY)
+}
+
+pub fn carve_hole_with_depth(ap: &PortalAperture, host_depth: f32) -> ae::Aabb {
+    let depth = CARVE_DEPTH.min(host_depth.max(0.0));
+    let along = ap.frame.tangent();
+    let open = ap.half_length;
+    let n = ap.frame.normal;
+    // Span from `+SURFACE_GRACE` outward of the face to `depth` inward.
+    let through = (SURFACE_GRACE + depth) * 0.5;
+    let center = ap.frame.origin + n * (SURFACE_GRACE * 0.5) - n * (depth * 0.5);
+    let half = Vec2::new(
+        along.x.abs() * open + n.x.abs() * through,
+        along.y.abs() * open + n.y.abs() * through,
+    );
+    ae::Aabb::new(center, half)
+}
+
+#[cfg(test)]
+mod tests;

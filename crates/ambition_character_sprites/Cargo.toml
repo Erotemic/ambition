@@ -1,0 +1,37 @@
+[package]
+name = "ambition_character_sprites"
+version = "0.1.0"
+edition.workspace = true
+license.workspace = true
+authors.workspace = true
+description = "Reusable, content-free derivations FROM a character sheet: the animation-row picker over body state, the sheet-authored collision/quad geometry (and the sim pass that keeps a body equal to the pose it shows), and the manifest attack hitbox in world space. Extracted from ambition_platformer2d_actor_monolith, which does NOT depend on it — everything here answers upward."
+
+[lib]
+crate-type = ["rlib"]
+
+[dependencies]
+# `BodyAnimFacts` (the player picker's input) and `CharacterCatalog` (the
+# render-size spec the attack hitbox scales by).
+ambition_characters = { path = "../ambition_characters" }
+# `ActorRenderSize` / `ActorSpriteOffset` (what the posed-body pass writes),
+# `MeleeSwing` + `AttackPhase` / `AttackIntent` (what the picker reads).
+ambition_combat = { path = "../ambition_combat" }
+# Vec2 / Aabb / the Body* clusters / `resize_feet_planted`.
+ambition_platformer2d_core = { path = "../ambition_platformer2d_core" }
+# The sim schedule seam (`SimScheduleExt` + `WorldPrepSet`), the gravity field
+# the feet-planted resize needs, and `PlayerBlinkCameraState`.
+ambition_platformer2d_shared_tangle = { path = "../ambition_platformer2d_shared_tangle" }
+# The sheet vocabulary this crate derives FROM: `CharacterAnim`, `SheetRecord`,
+# `SpritePosedBody`, `record_for_target`, the baked table, and the
+# catalog→sheet join.
+ambition_sprite_sheet = { path = "../ambition_sprite_sheet" }
+# ECS surface only (App / Plugin / Commands / Query / Res) — no render, no
+# windowing. The posed-body pass is a SIM system.
+bevy = { version = "0.19.1", default-features = false }
+
+[dev-dependencies]
+# `DamageKind`, named by the `AttackSpec` literals in the picker's tests. A
+# DEV-dependency on purpose: the production code here never touches the authored
+# placement schema, and `cargo tree --edges normal` is what the capability
+# footprint reads.
+ambition_entity_catalog = { path = "../ambition_entity_catalog" }

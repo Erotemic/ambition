@@ -1,0 +1,21 @@
+# The mites author their own respawn policy, so nothing reads their dead brain key.
+#
+# IT HAS SOMEWHERE TO LIVE. The shark riders proved it the same day: their seven
+# placements author `respawn: OnRest` themselves, and that is where a respawn
+# policy belongs — it is PLACEMENT policy, the third authority, not a fact about
+# what a mite IS.
+#
+# `OnRoomReenter` is the value the deleted rows authored, carried across
+# verbatim. It is ALSO what the `combatant` fallback answers, which is exactly the
+# problem: the behaviour has been right BY COINCIDENCE since the rows went, and
+# would have changed silently the day somebody retuned `combatant`.
+#
+#   PYTHONPATH=tools/ambition_ldtk_tools python -m ambition_ldtk_tools entity set-field \
+#       tools/ambition_ldtk_tools/specs/mites_author_their_respawn_proving_grounds.yaml \
+#       --ldtk game/ambition_content/assets/worlds/sandbox.ldtk --in-place
+level_id: proving_grounds
+edits:
+  - target: { iid: EnemySpawn-5910 }
+    fields: { respawn: "OnRoomReenter" }
+  - target: { iid: EnemySpawn-5911 }
+    fields: { respawn: "OnRoomReenter" }

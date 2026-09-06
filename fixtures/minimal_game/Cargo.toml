@@ -1,0 +1,40 @@
+# It originated as consumer-matrix row 2 of the archived API 1.0 campaign.
+#
+# Outlander proves external composition. It cannot prove what this one is for:
+# *optional-capability closure* — does a SMALL game still link menus,
+# persistence, audio, LDtk and bosses? An API proven against one consumer is an
+# API shaped like that consumer, and Outlander authors a character, an enemy, a
+# room, a recipe and a transition. This game authors as close to nothing as a
+# game can and still be one.
+#
+# Its own `[workspace]` and lockfile, exactly like Outlander: what compiles here
+# is what a third party gets, not what the engine's dev-dependency graph
+# happens to provide.
+[package]
+name = "minimal_game"
+version = "0.1.0"
+edition = "2021"
+publish = false
+
+[workspace]
+
+[lib]
+crate-type = ["rlib"]
+
+[features]
+default = []
+# No `bevy` entry, and that is a RESULT rather than an omission: this game
+# derives no components or resources, so it never needs Bevy's derive macros to
+# resolve `::bevy_ecs` through its own manifest. `ambition_platformer2d::bevy` is enough.
+# Outlander needs the dependency; a game this small does not — which is exactly
+# the kind of difference only a second consumer can show.
+visible = ["ambition_platformer2d/visible", "ambition_platformer2d/basic_shell_presentation"]
+
+[dependencies]
+# Slice H: the facade's edges are capabilities, and this game names the ONE it uses.
+# `ambition_render` is here because this game's own slice-B exit criterion composes the windowed
+# face (`the_minimal_game_boots_windowed`), and the windowed face draws. A game with no windowed
+# face drops this line and the render chain with it.
+ambition_platformer2d = { path = "../../crates/ambition_platformer2d", default-features = false, features = [
+    "ambition_render",
+] }

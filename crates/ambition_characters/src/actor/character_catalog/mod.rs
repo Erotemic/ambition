@@ -1,0 +1,850 @@
+//! Character catalog schema, validation, resolution, and App-local assembly.
+//!
+//! Experience providers own immutable RON fragments. A host composes those
+//! fragments through [`CharacterCatalogAppExt`], which transactionally rebuilds
+//! one deterministic [`CharacterCatalog`] resource for that Bevy `App`. Runtime
+//! systems consume the resource or an explicit shared reference; provider-local
+//! preset names are namespaced during assembly, while character IDs remain the
+//! cross-provider identity.
+//!
+//! Architectural posture: Rust = behavior, RON = content, LDtk = space.
+//! Brain and action variants remain typed in Rust for exhaustive behavior, while
+//! provider-authored configurations and character definitions live in RON.
+
+use bevy::prelude::*;
+
+pub mod binding;
+#[cfg(feature = "content_pack")]
+pub mod content_schema;
+pub mod entry;
+pub mod loader;
+pub mod registry;
+pub mod resolver;
+pub mod validator;
+
+pub use binding::{
+    qualify_in_provider, qualify_preset_like, resolve_initial_brain, AuthoredBrainContext,
+    AutonomousDefault, AutonomousSource, BossAutonomyId, BrainBinding, BrainBuildContext,
+    BrainBuildError, BrainPresetId, BrainPresetRef, PresetSource,
+};
+#[allow(
+    unused_imports,
+    reason = "public surface; downstream phases consume these as they land"
+)]
+#[cfg(feature = "content_pack")]
+pub use content_schema::{
+    character_catalog_schema, lowered_catalog, ActionSetPresetRef, BrainPresetRefFacet, Character,
+    ACTION_SET_PRESET_SCHEMA, BRAIN_PRESET_SCHEMA, CHARACTERS_CAPABILITY, CHARACTER_CATALOG_SCHEMA,
+    CHARACTER_CATALOG_VERSION, CHARACTER_SCHEMA,
+};
+pub use entry::{
+    ActionSetPreset, AxisTuningSpec, BarkSituation, BrainPreset, CharacterBarks, CharacterBodyKind,
+    CharacterCatalogData, CharacterCatalogEntry, CharacterPortraitRef, CharacterTier,
+    CompositionLayer, MeleePreset, MomentumParamsSpec, MoveStylePreset, RangedPreset,
+    SpecialPreset, SpriteTuningSpec,
+};
+#[allow(
+    unused_imports,
+    reason = "CHARACTER_CATALOG_ASSET used by tooling that loads off disk"
+)]
+pub use loader::{parse_catalog, try_parse_catalog};
+pub use registry::{
+    AssembledCharacterCatalog, BrainProfileRegistry, CharacterCatalogAppExt,
+    CharacterCatalogAssemblyError, CharacterCatalogDefaults, CharacterCatalogFragment,
+    CharacterCatalogOwners, CharacterCatalogRegistry,
+};
+pub use resolver::{action_set_from_preset, brain_from_preset, brain_from_preset_with_context};
+
+/// Bevy resource holding the parsed catalog. Inserted at Startup by
+/// [`CharacterCatalogPlugin`].
+#[derive(Resource, Clone, Debug, PartialEq)]
+pub struct CharacterCatalog(CharacterCatalogData);
+
+#[allow(
+    dead_code,
+    reason = "Public catalog API for future spawn-site consumers (EnemySpawn / BossSpawn migrations, custom spawn paths). Tested but not yet wired into a runtime call site."
+)]
+impl CharacterCatalog {
+    /// Construct an assembled or fixture catalog from validated data. Provider
+    /// registration should normally use [`CharacterCatalogFragment`]; this
+    /// constructor exists for focused tests and tools that already own the data.
+    pub fn from_data(data: CharacterCatalogData) -> Self {
+        Self(data)
+    }
+
+    /// Read-only access to the complete catalog data. The field is private so
+    /// callers cannot invalidate an assembled App resource after registration.
+    pub fn data(&self) -> &CharacterCatalogData {
+        &self.0
+    }
+
+    /// An empty catalog (no characters/presets) for explicitly content-free
+    /// fixtures. Production systems that consume authored characters should
+    /// require the App-local resource instead of silently substituting this.
+    /// Every lookup returns `None`.
+    pub fn empty() -> Self {
+        Self(CharacterCatalogData {
+            autonomous_profiles: Default::default(),
+            brain_presets: Default::default(),
+            action_set_presets: Default::default(),
+            characters: Default::default(),
+        })
+    }
+
+    /// Look up a character by id. Returns `None` if the id is not
+    /// in the catalog — callers fall back to a placeholder spawn.
+    pub fn get(&self, id: &str) -> Option<&CharacterCatalogEntry> {
+        self.0.characters.get(id)
+    }
+
+    /// Resolve the independently published portrait product for a stable
+    /// character id. Explicit catalog metadata may override the conventional
+    /// sibling paths, but ordinary characters derive them from
+    /// `<stem>_spritesheet.png` without a second hand-maintained registry.
+    pub fn portrait_ref(&self, id: &str) -> Option<CharacterPortraitRef> {
+        let entry = self.get(id)?;
+        if let Some(portrait) = &entry.portrait {
+            return Some(portrait.clone());
+        }
+        let stem = entry.spritesheet.strip_suffix("_spritesheet.png")?;
+        Some(CharacterPortraitRef {
+            image: format!("{stem}_portraits.png"),
+            manifest: format!("{stem}_portraits.ron"),
+            default_clip: "default".to_string(),
+            still_clip: String::new(),
+        })
+    }
+
+    /// Iterate every (id, entry) pair. Stable order — `BTreeMap`.
+    pub fn iter(&self) -> impl Iterator<Item = (&String, &CharacterCatalogEntry)> {
+        self.0.characters.iter()
+    }
+
+    /// Count of registered characters.
+    pub fn len(&self) -> usize {
+        self.0.characters.len()
+    }
+
+    /// True iff the catalog has no characters. Pretty much never
+    /// the case in a real build; included so `clippy::len_without_is_empty`
+    /// stays quiet without `allow(missing_is_empty)`.
+    pub fn is_empty(&self) -> bool {
+        self.0.characters.is_empty()
+    }
+
+    /// Resolve a character_id into a runtime [`crate::brain::Brain`]
+    /// using its catalog default. `spawn_world_x` becomes the patrol
+    /// center for `Patrol`-brain characters.
+    pub fn build_default_brain(
+        &self,
+        character_id: &str,
+        spawn_world_x: f32,
+    ) -> Option<crate::brain::Brain> {
+        let entry = self.get(character_id)?;
+        // A character that names no preset has no default brain to build — its
+        // definition's autonomous profile is the answer, and this road is not it.
+        if entry.default_brain.is_empty() {
+            return None;
+        }
+        let preset = self.0.brain_presets.get(&entry.default_brain)?;
+        Some(brain_from_preset(preset, spawn_world_x))
+    }
+
+    /// Build a runtime [`crate::brain::Brain`] from a NAMED brain preset,
+    /// threading the per-spawn [`BrainBuildContext`] (patrol lane center / radius
+    /// / path). `None` if the preset name is not in `brain_presets`.
+    ///
+    /// This is the single seam `preset name → Brain`. Both
+    /// [`resolve_initial_brain`] (spawn) and the runtime `BrainCommand` reducer
+    /// call it, so a preset resolves identically at spawn and at a later runtime
+    /// switch. It never inspects the built brain.
+    pub fn build_brain_from_preset(
+        &self,
+        preset_name: &str,
+        ctx: &BrainBuildContext,
+    ) -> Option<crate::brain::Brain> {
+        let preset = self.0.brain_presets.get(preset_name)?;
+        Some(brain_from_preset_with_context(preset, ctx))
+    }
+
+    /// Whether a named (already-qualified) brain preset exists in this catalog.
+    pub fn has_brain_preset(&self, preset_name: &str) -> bool {
+        self.0.brain_presets.contains_key(preset_name)
+    }
+
+    /// Prepared-content validation for a placement's `brain_override`, WITHOUT
+    /// building a brain. Applies the same deterministic namespace rule as spawn
+    /// ([`qualify_preset_like`]): a raw override resolves within the character's
+    /// own provider namespace, a fully-qualified override is used exactly.
+    ///
+    /// `None`/empty means the character default (already validated at catalog
+    /// assembly) → `Ok(None)`. An unknown character, or an override that does not
+    /// resolve, is a loud [`BrainBuildError`] — never a silent pass. Returns the
+    /// resolved preset key so a caller can log what it validated.
+    pub fn validate_brain_override(
+        &self,
+        character_id: &str,
+        authored_override: Option<&str>,
+    ) -> Result<Option<BrainPresetId>, BrainBuildError> {
+        let entry = self
+            .get(character_id)
+            .ok_or_else(|| BrainBuildError::UnknownCharacter(character_id.to_string()))?;
+        let Some(name) = authored_override.map(str::trim).filter(|s| !s.is_empty()) else {
+            return Ok(None);
+        };
+        // Falling back to the `default_brain` inference keeps an UNASSEMBLED fragment working,
+        // where `provider` is empty because nothing has registered it yet — and that fallback
+        // is what the assembled catalog no longer needs. not every path does: the ASSEMBLY sets
+        // it, and a catalog lowered straight from compiled pack bytes carries whatever was
+        // serialized — so this degrades rather than assuming.
+        //
+        //  the fallbacks are both "a neighbouring key that is namespaced the same way", which
+        // is the smell `qualify_preset_like`'s doc names. Each disappears as its authority
+        // arrives.
+        let namespace_carrier = if !entry.provider.is_empty() {
+            format!("{}::_", entry.provider)
+        } else if !entry.default_action_set.is_empty() {
+            entry.default_action_set.clone()
+        } else {
+            entry.default_brain.clone()
+        };
+        let key = qualify_preset_like(&namespace_carrier, name);
+        if self.has_brain_preset(&key) {
+            Ok(Some(BrainPresetId::new(key)))
+        } else {
+            Err(BrainBuildError::UnknownPreset {
+                character_id: character_id.to_string(),
+                preset: name.to_string(),
+                resolved: key,
+                source: PresetSource::Override,
+            })
+        }
+    }
+
+    /// Resolve a character_id into a runtime [`crate::brain::action_set::ActionSet`]
+    /// using its catalog default.
+    pub fn build_default_action_set(
+        &self,
+        character_id: &str,
+    ) -> Option<crate::brain::action_set::ActionSet> {
+        let entry = self.get(character_id)?;
+        let preset = self.0.action_set_presets.get(&entry.default_action_set)?;
+        Some(action_set_from_preset(preset))
+    }
+
+    pub fn display_name(&self, character_id: &str) -> Option<&str> {
+        self.get(character_id)
+            .map(|entry| entry.display_name.as_str())
+    }
+
+    /// Behind-the-scenes design context for authoring tools. Legacy rows with
+    /// an empty description return `None` rather than an unhelpful empty string.
+    pub fn authoring_description(&self, character_id: &str) -> Option<&str> {
+        let description = self.get(character_id)?.authoring_description.as_str();
+        (!description.is_empty()).then_some(description)
+    }
+
+    /// Suggested gameplay identity for authoring tools. This is guidance, not
+    /// a replacement for the live action-set and brain authorities.
+    pub fn gameplay_description(&self, character_id: &str) -> Option<&str> {
+        let description = self.get(character_id)?.gameplay_description.as_str();
+        (!description.is_empty()).then_some(description)
+    }
+
+    /// Generic conversation lines available when no bespoke scene dialogue is
+    /// authored. The returned slice may be empty for legacy characters.
+    ///
+    /// Unlike the two description accessors, an unwritten pool stays `Some(&[])`
+    /// rather than collapsing to `None`: an authoring tool asking "does this
+    /// character exist, and has anyone given it lines yet" needs those two
+    /// answers apart. To simply GET a line, call [`Self::bark_line`] — it
+    /// already consults this pool.
+    pub fn fallback_dialogue(&self, character_id: &str) -> Option<&[String]> {
+        Some(self.get(character_id)?.fallback_dialogue.as_slice())
+    }
+
+    /// Resolve an authored display name to its stable character id.
+    ///
+    /// Catalog validation rejects duplicate display names across the assembled
+    /// App, so this authoring-boundary conversion is deterministic. Runtime
+    /// components carry the returned id; presentation never remains keyed by the
+    /// display label.
+    pub fn id_for_display_name(&self, display_name: &str) -> Option<&str> {
+        self.iter()
+            .find(|(_, entry)| entry.display_name == display_name)
+            .map(|(id, _)| id.as_str())
+    }
+
+    /// The character an AUTHORED PLACEMENT names — id first, display name
+    /// second.
+    ///
+    /// an authored enemy's art identity is a display-name string.
+    /// `ActorClusterSeed` resolves an enemy's sprite by scanning for a matching
+    /// `display_name`, so RENAMING a character silently un-arts every level that
+    /// placed it — and two demos carry the same hand-written workaround (a brain
+    /// → display-name map applied after conversion) to feed this lookup the
+    /// string it wants.
+    ///
+    /// preferring the id is the seam, and it is purely additive: a
+    /// placement carrying a display name keeps resolving through the fallback,
+    /// while one naming a `character_id` — which `NpcSpawn` has always been able
+    /// to author — resolves directly and survives a rename. Identity over
+    /// presentation, the rule this repo has twice paid to learn.
+    pub fn id_for_authored_identity(&self, authored: &str) -> Option<&str> {
+        if self.get(authored).is_some() {
+            return self
+                .iter()
+                .find(|(id, _)| id.as_str() == authored)
+                .map(|(id, _)| id.as_str());
+        }
+        self.id_for_display_name(authored)
+    }
+
+    /// THE bark authority: what this character says in `situation`. Resolves
+    /// through [`CharacterCatalogEntry::bark`], so a character with no pool for
+    /// this situation still speaks its own `fallback_dialogue` rather than the
+    /// engine-generic line. Every bark consumer goes through here.
+    pub fn bark_line(
+        &self,
+        character_id: &str,
+        situation: BarkSituation,
+        rotation: u32,
+    ) -> Option<&str> {
+        self.get(character_id)?.bark(situation, rotation)
+    }
+
+    /// The sheet this character's melee draws from, if it authored one.
+    ///
+    /// `None` covers both "no such character" and "authored no attack VFX", and
+    /// the caller treats them the same: draw the hit volume rather than
+    /// borrowing somebody else's blade.
+    pub fn attack_vfx(&self, character_id: &str) -> Option<&str> {
+        self.get(character_id)
+            .and_then(|entry| entry.attack_vfx.as_deref())
+    }
+
+    /// Does this catalog know `character_id`?
+    pub fn knows(&self, character_id: &str) -> bool {
+        self.get(character_id).is_some()
+    }
+
+    pub fn momentum_params(
+        &self,
+        character_id: &str,
+    ) -> Option<ambition_platformer2d_core::MomentumParams> {
+        self.get(character_id)?
+            .momentum
+            .as_ref()
+            .map(|spec| spec.to_kernel())
+    }
+
+    /// The authored axis-swept movement tuning for `character_id`'s playable
+    /// body. `Some` means the row authors its own feel (its live axis parameters
+    /// come from here, not the global F3 dev tuning); `None` keeps the body on
+    /// the shared editable tuning. The axis analogue of [`momentum_params`].
+    ///
+    /// [`momentum_params`]: Self::momentum_params
+    /// A named autonomous profile, or `None` for a key nobody authored.
+    ///
+    /// The reusable-policy half of the three authorities: several characters
+    /// name one profile, and the profile says nothing about what any of their
+    /// bodies can do. See [`CharacterCatalogData::autonomous_profiles`].
+    pub fn autonomous_profile(&self, key: &str) -> Option<&crate::brain::BrainProfile> {
+        self.data().autonomous_profiles.get(key)
+    }
+
+    pub fn axis_tuning(
+        &self,
+        character_id: &str,
+    ) -> Option<ambition_platformer2d_core::MovementTuning> {
+        self.get(character_id)?
+            .axis_tuning
+            .as_ref()
+            .map(|spec| spec.to_kernel())
+    }
+
+    /// The authored capability set for `character_id`'s playable body: the
+    /// `union` of the grants the row lists. `None` means the row declared no
+    /// grants, so "use the session's shared `EditableAbilitySet`".
+    pub fn ability_set(
+        &self,
+        character_id: &str,
+    ) -> Option<ambition_platformer2d_core::AbilitySet> {
+        let grants = self.get(character_id)?.abilities.as_deref()?;
+        Some(ambition_platformer2d_core::AbilitySet::compose(grants))
+    }
+
+    /// The authored health pool for `character_id`'s playable body. `None` means
+    /// the row declared none, so the host's standard pool stands.
+    pub fn max_health(&self, character_id: &str) -> Option<i32> {
+        self.get(character_id)?.max_health
+    }
+
+    /// Resolve the movement model requested by this catalog row: momentum when
+    /// momentum parameters are authored, otherwise axis-swept seeded with authored
+    /// axis feel. Unauthored characters use the shared default.
+    pub fn motion_model_spec(
+        &self,
+        character_id: &str,
+    ) -> ambition_platformer2d_core::MotionModelSpec {
+        match self.momentum_params(character_id) {
+            Some(params) => ambition_platformer2d_core::MotionModelSpec::SurfaceMomentum(params),
+            None => ambition_platformer2d_core::MotionModelSpec::AxisSwept(
+                self.axis_tuning(character_id)
+                    .map(|tuning| tuning.axis_swept_params())
+                    .unwrap_or_default(),
+            ),
+        }
+    }
+
+    pub fn body_kind(&self, character_id: &str) -> Option<CharacterBodyKind> {
+        self.get(character_id).map(|entry| entry.body_kind)
+    }
+
+    pub fn hall_dialogue_id(&self, character_id: &str) -> Option<&str> {
+        self.get(character_id)?.hall_dialogue_id.as_deref()
+    }
+}
+
+/// Plugin: load the catalog at app build, install it as a resource,
+/// and run the validator on Startup. Pre-release stance is fail-loud:
+/// the validator panics on internal inconsistency rather than
+/// degrading silently.
+pub struct CharacterCatalogPlugin {
+    /// The catalog RON text (the game embeds its roster and passes it
+    /// in — this crate owns schema + parsing, never the data).
+    pub catalog_ron: &'static str,
+}
+
+impl Plugin for CharacterCatalogPlugin {
+    fn build(&self, app: &mut App) {
+        app.register_character_catalog_fragment(
+            CharacterCatalogFragment::from_ron("default", None::<String>, self.catalog_ron)
+                .expect("single character catalog should be valid"),
+        );
+        app.add_systems(Startup, validate_catalog_on_startup);
+    }
+}
+
+/// Startup system: validate the catalog and panic with the joined
+/// errors if any. Runs once.
+pub fn validate_catalog_on_startup(catalog: Res<CharacterCatalog>) {
+    let errors = validator::validate(catalog.data());
+    if !errors.is_empty() {
+        panic!(
+            "character_catalog.ron has {} reference error(s):\n  - {}",
+            errors.len(),
+            errors.join("\n  - "),
+        );
+    }
+}
+
+// The roster-data tests (catalog parses, validator passes over the real
+// roster, every entry's presets resolve, renderer coverage, display
+// names, plugin install) live in `ambition_platformer2d_actor_monolith::character_roster` —
+// they pin the GAME's data, which lives there. This crate keeps only
+// the synthetic resolver-math tests below.
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::brain::{Brain, StateMachineCfg};
+
+    fn portrait_catalog_fixture(portrait: &str) -> CharacterCatalog {
+        let data = parse_catalog(&format!(
+            r#"(
+                brain_presets: {{ "idle": StandStill }},
+                action_set_presets: {{ "peaceful": (move_style: Walk) }},
+                characters: {{
+                    "npc_sample": (
+                        display_name: "Sample",
+                        spritesheet: "sprites/sample_spritesheet.png",
+                        manifest: "sprites/sample_spritesheet.ron",
+                        portrait: {portrait},
+                        tier: MainHall,
+                        body_kind: Standard,
+                        composition: None,
+                        default_brain: "idle",
+                        default_action_set: "peaceful",
+                        tags: [],
+                    ),
+                }},
+            )"#
+        ));
+        CharacterCatalog::from_data(data)
+    }
+
+    #[test]
+    fn portrait_paths_derive_from_the_gameplay_sheet() {
+        let catalog = portrait_catalog_fixture("None");
+        assert_eq!(
+            catalog.portrait_ref("npc_sample"),
+            Some(CharacterPortraitRef {
+                image: "sprites/sample_portraits.png".to_string(),
+                manifest: "sprites/sample_portraits.ron".to_string(),
+                default_clip: "default".to_string(),
+                still_clip: String::new(),
+            })
+        );
+    }
+
+    #[test]
+    fn explicit_portrait_metadata_overrides_the_convention() {
+        let catalog = portrait_catalog_fixture(
+            r#"Some((
+                image: "sprites/custom.png",
+                manifest: "sprites/custom.ron",
+                default_clip: "calm",
+                still_clip: "portrait",
+            ))"#,
+        );
+        assert_eq!(
+            catalog.portrait_ref("npc_sample"),
+            Some(CharacterPortraitRef {
+                image: "sprites/custom.png".to_string(),
+                manifest: "sprites/custom.ron".to_string(),
+                default_clip: "calm".to_string(),
+                still_clip: "portrait".to_string(),
+            })
+        );
+    }
+
+    #[test]
+    fn character_barks_pick_rotates_and_empty_is_none() {
+        let barks = CharacterBarks {
+            on_hit: vec!["a".into(), "b".into()],
+            ..Default::default()
+        };
+        // Rotation cycles the pool.
+        assert_eq!(barks.pick(BarkSituation::OnHit, 0), Some("a"));
+        assert_eq!(barks.pick(BarkSituation::OnHit, 1), Some("b"));
+        assert_eq!(barks.pick(BarkSituation::OnHit, 2), Some("a"));
+        // An empty pool yields no line (caller falls back).
+        assert_eq!(barks.pick(BarkSituation::Hall, 0), None);
+        assert_eq!(barks.pick(BarkSituation::Idle, 7), None);
+    }
+
+    #[test]
+    fn character_authoring_guidance_defaults_and_round_trips() {
+        let legacy = portrait_catalog_fixture("None");
+        assert_eq!(legacy.authoring_description("npc_sample"), None);
+        assert_eq!(legacy.gameplay_description("npc_sample"), None);
+        assert!(legacy
+            .fallback_dialogue("npc_sample")
+            .expect("fixture row")
+            .is_empty());
+
+        let data = parse_catalog(
+            r#"(
+                brain_presets: { "idle": StandStill },
+                action_set_presets: { "peaceful": (move_style: Walk) },
+                characters: {
+                    "npc_authored": (
+                        display_name: "Authored",
+                        spritesheet: "sprites/authored_spritesheet.png",
+                        manifest: "sprites/authored_spritesheet.ron",
+                        tier: MainHall,
+                        body_kind: Standard,
+                        composition: None,
+                        default_brain: "idle",
+                        default_action_set: "peaceful",
+                        tags: [],
+                        authoring_description: "Behind the scenes.",
+                        gameplay_description: "Precision fighter.",
+                        fallback_dialogue: ["A reusable line."],
+                    ),
+                },
+            )"#,
+        );
+        let catalog = CharacterCatalog::from_data(data);
+        assert_eq!(
+            catalog.authoring_description("npc_authored"),
+            Some("Behind the scenes.")
+        );
+        assert_eq!(
+            catalog.gameplay_description("npc_authored"),
+            Some("Precision fighter.")
+        );
+        let fallback = catalog
+            .fallback_dialogue("npc_authored")
+            .expect("authored row");
+        assert_eq!(fallback.len(), 1);
+        assert_eq!(fallback[0], "A reusable line.");
+    }
+
+    /// The point of shipping suggested lines with the art: a character authored
+    /// with `fallback_dialogue` and no situation pools still speaks in its own
+    /// voice everywhere, and an authored pool takes that situation back.
+    #[test]
+    fn fallback_dialogue_answers_every_situation_a_pool_does_not() {
+        let data = parse_catalog(
+            r#"(
+                brain_presets: { "idle": StandStill },
+                action_set_presets: { "peaceful": (move_style: Walk) },
+                characters: {
+                    "npc_only_fallback": (
+                        display_name: "Only Fallback",
+                        spritesheet: "sprites/of_spritesheet.png",
+                        manifest: "sprites/of_spritesheet.ron",
+                        tier: MainHall, body_kind: Standard, composition: None,
+                        default_brain: "idle", default_action_set: "peaceful", tags: [],
+                        fallback_dialogue: ["Measured.", "Reactive."],
+                        barks: (),
+                    ),
+                    "npc_pool_wins": (
+                        display_name: "Pool Wins",
+                        spritesheet: "sprites/pw_spritesheet.png",
+                        manifest: "sprites/pw_spritesheet.ron",
+                        tier: MainHall, body_kind: Standard, composition: None,
+                        default_brain: "idle", default_action_set: "peaceful", tags: [],
+                        fallback_dialogue: ["Generic."],
+                        barks: ( on_hit: ["Ow, specifically."] ),
+                    ),
+                    "npc_mute": (
+                        display_name: "Mute",
+                        spritesheet: "sprites/m_spritesheet.png",
+                        manifest: "sprites/m_spritesheet.ron",
+                        tier: MainHall, body_kind: Standard, composition: None,
+                        default_brain: "idle", default_action_set: "peaceful", tags: [],
+                        barks: (),
+                    ),
+                },
+            )"#,
+        );
+        let catalog = CharacterCatalog::from_data(data);
+
+        for situation in [
+            BarkSituation::OnHit,
+            BarkSituation::Provoked,
+            BarkSituation::Idle,
+            BarkSituation::Hall,
+        ] {
+            assert_eq!(
+                catalog.bark_line("npc_only_fallback", situation, 0),
+                Some("Measured."),
+                "{situation:?} should reach the fallback pool"
+            );
+        }
+        // Rotation cycles the fallback pool the same way a situation pool cycles.
+        assert_eq!(
+            catalog.bark_line("npc_only_fallback", BarkSituation::Idle, 1),
+            Some("Reactive.")
+        );
+        // An authored pool takes back its own situation, and only its own.
+        assert_eq!(
+            catalog.bark_line("npc_pool_wins", BarkSituation::OnHit, 0),
+            Some("Ow, specifically.")
+        );
+        assert_eq!(
+            catalog.bark_line("npc_pool_wins", BarkSituation::Hall, 0),
+            Some("Generic.")
+        );
+        // Nothing authored at all stays `None`, so callers keep their generic.
+        assert_eq!(catalog.bark_line("npc_mute", BarkSituation::Idle, 0), None);
+    }
+
+    #[test]
+    fn brain_preset_patrol_offsets_spawn_world_x() {
+        // The patrol lane center is `spawn_world_x + spawn_local_x`.
+        // Pin the offset arithmetic so a refactor that drops the add
+        // breaks here rather than at first-spawn.
+        let preset = BrainPreset::Patrol {
+            spawn_local_x: 5.0,
+            radius: 64.0,
+            speed: 32.0,
+            aggressiveness: 0.0,
+            aggro_radius: 80.0,
+            attack_range: 0.0,
+        };
+        let brain = brain_from_preset(&preset, 100.0);
+        match brain {
+            Brain::StateMachine(StateMachineCfg::Patrol { cfg, .. }) => {
+                assert_eq!(cfg.lane.center_x, 105.0);
+                assert_eq!(cfg.lane.radius_px, 64.0);
+            }
+            other => panic!("expected Patrol, got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn brain_preset_smash_threads_cfg_and_difficulty() {
+        // The data-exposed Smash fighter preset must resolve to a
+        // StateMachineCfg::Smash with its tuning + difficulty floats
+        // threaded through — this is the seam the PCA encounter swaps in.
+        let preset = BrainPreset::Smash {
+            aggro_radius: 460.0,
+            engage_distance: 76.0,
+            attack_range: 52.0,
+            too_close_distance: 34.0,
+            chase_speed: 150.0,
+            retreat_speed: 120.0,
+            crowding_threshold: 0.65,
+            sprint_to_close: true,
+            reaction_delay_s: 0.12,
+            commit_probability: 0.85,
+            accuracy: 0.9,
+            mash_speed_hz: 6.0,
+        };
+        let brain = brain_from_preset(&preset, 0.0);
+        match brain {
+            Brain::StateMachine(StateMachineCfg::Smash { cfg, .. }) => {
+                assert_eq!(cfg.attack_range, 52.0);
+                assert!(cfg.sprint_to_close);
+                assert_eq!(cfg.difficulty.reaction_delay_s, 0.12);
+                assert_eq!(cfg.difficulty.commit_probability, 0.85);
+                assert_eq!(cfg.difficulty.accuracy, 0.9);
+            }
+            other => panic!("expected Smash, got {other:?}"),
+        }
+        // Smash brains are hostile by construction (the encounter only
+        // arms them on the explicit challenge choice).
+        assert!(brain_from_preset(&preset, 0.0).is_hostile());
+    }
+
+    /// Prepared-content validation of `brain_override` against a MULTI-PROVIDER
+    /// assembled catalog (the real Hall composition: `default`/`sanic`/`mary_o`
+    /// each own their own `stand_still`). Proves the deterministic namespace rule:
+    /// a raw override resolves ONLY within the character's own provider namespace,
+    /// a qualified override is used exactly, and nothing leaks across providers.
+    mod brain_override_validation {
+        use super::*;
+
+        fn frag(provider: &str, ron: &str) -> CharacterCatalogFragment {
+            CharacterCatalogFragment::from_ron(provider, None::<String>, ron)
+                .expect("fragment parses")
+        }
+
+        fn character(id: &str, default_brain: &str) -> String {
+            format!(
+                r#""{id}": (
+                    display_name: "{id}", spritesheet: "x.png", manifest: "x_spritesheet.ron",
+                    tier: MainHall, body_kind: Standard, composition: None,
+                    default_brain: "{default_brain}", default_action_set: "peaceful", tags: [],
+                )"#
+            )
+        }
+
+        // The assembled host. `default` also owns a `shared_only` preset that the
+        // other providers do NOT — the cross-provider-leak probe.
+        fn host() -> CharacterCatalog {
+            let mut reg = CharacterCatalogRegistry::default();
+            reg.register(frag(
+                "default",
+                &format!(
+                    r#"(
+                    brain_presets: {{ "stand_still": StandStill, "shared_only": StandStill }},
+                    action_set_presets: {{ "peaceful": (move_style: Walk) }},
+                    characters: {{ {} }},
+                )"#,
+                    character("amb_hero", "stand_still")
+                ),
+            ))
+            .unwrap();
+            reg.register(frag(
+                "sanic",
+                &format!(
+                    r#"(
+                    brain_presets: {{
+                        "stand_still": StandStill,
+                        "sanic_special": Wanderer(speed: 9.0, aggressiveness: 0.0),
+                    }},
+                    action_set_presets: {{ "peaceful": (move_style: Walk) }},
+                    characters: {{ {} }},
+                )"#,
+                    character("sanic", "stand_still")
+                ),
+            ))
+            .unwrap();
+            reg.register(frag(
+                "mary_o",
+                &format!(
+                    r#"(
+                    brain_presets: {{ "stand_still": StandStill }},
+                    action_set_presets: {{ "peaceful": (move_style: Walk) }},
+                    characters: {{ {} }},
+                )"#,
+                    character("mary_o", "stand_still")
+                ),
+            ))
+            .unwrap();
+            reg.assemble().expect("assembles").catalog
+        }
+
+        #[test]
+        fn each_provider_resolves_its_own_stand_still() {
+            let cat = host();
+            // Ambition-owned, Sanic, and Mary-O each resolve the RAW "stand_still"
+            // into their OWN provider namespace.
+            for (character, provider) in [
+                ("amb_hero", "default"),
+                ("sanic", "sanic"),
+                ("mary_o", "mary_o"),
+            ] {
+                assert_eq!(
+                    cat.validate_brain_override(character, Some("stand_still"))
+                        .unwrap(),
+                    Some(BrainPresetId::new(format!("{provider}::stand_still"))),
+                    "{character}'s raw stand_still resolves in {provider}",
+                );
+            }
+        }
+
+        #[test]
+        fn a_fully_qualified_override_is_used_exactly() {
+            let cat = host();
+            // Sanic authored with a fully-qualified preset from ANOTHER provider —
+            // used verbatim (it exists in the assembled catalog).
+            assert_eq!(
+                cat.validate_brain_override("sanic", Some("default::stand_still"))
+                    .unwrap(),
+                Some(BrainPresetId::new("default::stand_still")),
+            );
+        }
+
+        #[test]
+        fn a_provider_local_preset_resolves() {
+            let cat = host();
+            assert_eq!(
+                cat.validate_brain_override("sanic", Some("sanic_special"))
+                    .unwrap(),
+                Some(BrainPresetId::new("sanic::sanic_special")),
+            );
+        }
+
+        #[test]
+        fn a_raw_override_does_not_leak_across_providers() {
+            let cat = host();
+            // `shared_only` exists ONLY under `default`. Sanic authoring it raw must
+            // NOT silently resolve to `default::shared_only` — it fails, because a
+            // raw override resolves only in the character's own namespace.
+            let err = cat
+                .validate_brain_override("sanic", Some("shared_only"))
+                .unwrap_err();
+            assert!(
+                matches!(&err, BrainBuildError::UnknownPreset { resolved, .. } if resolved == "sanic::shared_only"),
+                "a raw cross-provider preset must fail, not leak: {err:?}",
+            );
+        }
+
+        #[test]
+        fn a_missing_preset_fails_and_empty_is_ok() {
+            let cat = host();
+            assert!(matches!(
+                cat.validate_brain_override("amb_hero", Some("no_such"))
+                    .unwrap_err(),
+                BrainBuildError::UnknownPreset { .. }
+            ));
+            // Absent / empty override is always valid (the character default).
+            assert_eq!(cat.validate_brain_override("amb_hero", None).unwrap(), None);
+            assert_eq!(
+                cat.validate_brain_override("amb_hero", Some("  ")).unwrap(),
+                None
+            );
+            // An unknown character is a loud error.
+            assert!(matches!(
+                cat.validate_brain_override("nobody", Some("stand_still"))
+                    .unwrap_err(),
+                BrainBuildError::UnknownCharacter(_)
+            ));
+        }
+    }
+}

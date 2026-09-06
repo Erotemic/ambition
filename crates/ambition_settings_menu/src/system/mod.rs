@@ -1,0 +1,722 @@
+//! Renderer-agnostic SYSTEM-menu intermediate representation.
+//!
+//! [`SystemMenuModel`] composes the shared settings IR with host-facing screens
+//! such as Radio, Language, Developer, and reset actions. Settings screens reuse
+//! [`super::settings::SettingsOption`] and the same mutation path as every other
+//! settings renderer; non-settings screens use the small vocabularies defined
+//! here.
+//!
+//! Developer-only entries are omitted when the `dev_tools` feature is absent.
+
+use super::settings::{settings_menu_model, SettingsOption, SettingsOptionId, SettingsOptionKind};
+use ambition_persistence::settings::UserSettings;
+use std::borrow::Cow;
+
+/// True in builds that ship developer tooling; gates Developer and reset rows.
+pub const DEV_BUILD: bool = cfg!(feature = "dev_tools");
+
+/// One developer toggle/cycle surfaced by the Developer screen. Each id maps to a
+/// field (or pair) of the host's `DeveloperTools` resource. Kept here (not in
+/// `dev_tools.rs`) so the System IR owns the menu vocabulary; the cube applies
+/// them through the app's kaleidoscope host's dev-toggle path, which is the single
+/// place that touches `DeveloperTools`.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+pub enum DevToggleId {
+    // Global dev flags (sourced from `DeveloperRuntimeState`, not `DeveloperTools`).
+    DebugOverlay,
+    SlowMotion,
+    // Inspectors.
+    Inspector,
+    WorldInspector,
+    Gizmos,
+    // Debug visuals.
+    ShowHud,
+    ShowHitboxes,
+    HideSprites,
+    PlaceholderSprites,
+    FillDebugBoxes,
+    MicroGrid,
+    CameraFrame,
+    // Camera.
+    OverviewCamera,
+    // Profiles (cycles).
+    DebugViewMode,
+    DebugArtMode,
+    PlayerBodyProfile,
+    MovementProfile,
+    // LDtk hot-reload (sourced from `WorldSourceHotReload`, not `DeveloperTools`).
+    LdtkAutoApply,
+    // Menu frontend (sourced from `InventoryUiBackend`, not `DeveloperTools`): the
+    // in-menu equivalent of the `\` hotkey, cycling Grid ↔ Cube. A toggle (two
+    // states) so SELECT flips it; works from BOTH backends since the Developer
+    // screen is shared.
+    MenuBackend,
+    // Portal transit visual effect (sourced from the portal presentation
+    // crate's `PortalEffectSelection`, not `DeveloperTools`): cycles the
+    // compiled-in effects (view cones / legacy masks / off) for in-session
+    // A/B comparison and profiling.
+    PortalEffect,
+    // Optional camera continuity mode for portal transits. Sourced from the
+    // portal presentation crate's `PortalCameraContinuitySelection` resource,
+    // not `DeveloperTools`, so the resource default is the only default.
+    PortalCamera,
+    // Ambient gravity direction (sourced from `BaseGravity`, not `DeveloperTools`):
+    // cycles down → left → up → right. The in-menu equivalent of the `\` hotkey, so
+    // sideways/inverted gravity is testable on mobile (no keyboard).
+    Gravity,
+}
+
+impl DevToggleId {
+    /// Every developer toggle/cycle, grouped Global Flags → Inspectors → Debug
+    /// Visuals → Camera → Profiles → LDtk, in display order. The first two
+    /// (DebugOverlay/SlowMotion) and the trailing LdtkAutoApply are sourced from
+    /// `DeveloperRuntimeState` / `WorldSourceHotReload` (not `DeveloperTools`). Physical
+    /// keyboard chords are owned by the central developer-hotkey registry.
+    pub const ALL: [Self; 22] = [
+        // Pinned FIRST so it lands under the cursor the instant you drill into
+        // Developer — the menu-frontend toggle is the one developers flip most.
+        Self::MenuBackend,
+        Self::DebugOverlay,
+        Self::SlowMotion,
+        Self::Inspector,
+        Self::WorldInspector,
+        Self::Gizmos,
+        Self::ShowHud,
+        Self::ShowHitboxes,
+        Self::HideSprites,
+        Self::PlaceholderSprites,
+        Self::FillDebugBoxes,
+        Self::MicroGrid,
+        Self::CameraFrame,
+        Self::OverviewCamera,
+        Self::DebugViewMode,
+        Self::DebugArtMode,
+        Self::PlayerBodyProfile,
+        Self::MovementProfile,
+        Self::LdtkAutoApply,
+        Self::PortalEffect,
+        Self::PortalCamera,
+        Self::Gravity,
+    ];
+
+    pub fn label(self) -> &'static str {
+        match self {
+            Self::DebugOverlay => "Debug Overlay",
+            Self::SlowMotion => "Slow Motion",
+            Self::Inspector => "Inspector",
+            Self::WorldInspector => "World Inspector",
+            Self::Gizmos => "Gizmos",
+            Self::ShowHud => "Debug HUD",
+            Self::ShowHitboxes => "Custom Hitboxes",
+            Self::HideSprites => "Hide Sprites",
+            Self::PlaceholderSprites => "Placeholder Art",
+            Self::FillDebugBoxes => "Fill Debug Boxes",
+            Self::MicroGrid => "Micro Grid",
+            Self::CameraFrame => "Camera Frame",
+            Self::OverviewCamera => "Overview Camera",
+            Self::DebugViewMode => "View Mode",
+            Self::DebugArtMode => "Art Mode",
+            Self::PlayerBodyProfile => "Body Profile",
+            Self::MovementProfile => "Movement Profile",
+            Self::LdtkAutoApply => "LDtk Auto-Reload",
+            Self::MenuBackend => "Menu Backend",
+            Self::PortalEffect => "Portal FX",
+            Self::PortalCamera => "Portal Camera",
+            Self::Gravity => "Gravity",
+        }
+    }
+
+    pub fn description(self) -> &'static str {
+        match self {
+            Self::DebugOverlay => "Toggle the debug overlay (state, timers, gizmos).",
+            Self::SlowMotion => "Toggle slow-motion for inspecting fast motion.",
+            Self::Inspector => "Show the reflected resource inspector windows.",
+            Self::WorldInspector => "Show the full-world entity/resource inspector.",
+            Self::Gizmos => "Master switch for Bevy gizmo overlays.",
+            Self::ShowHud => "Toggle the debug HUD overlay.",
+            Self::ShowHitboxes => "Draw the custom feature + player collision hitboxes.",
+            Self::HideSprites => "Suppress sprite rendering so only gizmos show.",
+            Self::PlaceholderSprites => "Replace textured sprites with sized rectangles.",
+            Self::FillDebugBoxes => "Fill gizmo AABBs with a translucent tint.",
+            Self::MicroGrid => "Draw an 8px subdivision grid over the tile grid.",
+            Self::CameraFrame => "Draw the requested/actual camera frame rectangles.",
+            Self::OverviewCamera => "Zoom out to inspect large or stitched areas.",
+            Self::DebugViewMode => "Cycle the debug view preset.",
+            Self::DebugArtMode => "Cycle the debug art preset.",
+            Self::PlayerBodyProfile => "Cycle the player body-size feel preset.",
+            Self::MovementProfile => "Cycle the movement tuning preset.",
+            Self::LdtkAutoApply => "Auto-apply validated LDtk file changes.",
+            Self::MenuBackend => {
+                "Switch the menu frontend: Grid (flat) or Cube (3D). Same as the \\ key."
+            }
+            Self::PortalEffect => {
+                "Cycle the portal transit visual (view cones / masks / off) for A/B profiling."
+            }
+            Self::PortalCamera => {
+                "Cycle portal camera transit behavior: Pop / Continuous. Presentation-only."
+            }
+            Self::Gravity => "Cycle ambient gravity: Down / Left / Up / Right. Same as the \\ key.",
+        }
+    }
+
+    /// Whether this id is a cycle (vs a toggle). Cycles step value in place on
+    /// LEFT/RIGHT; toggles flip on select.
+    pub fn is_cycle(self) -> bool {
+        matches!(
+            self,
+            Self::DebugViewMode
+                | Self::DebugArtMode
+                | Self::PlayerBodyProfile
+                | Self::MovementProfile
+                // MenuBackend cycles Grid ↔ Cube so its value label (the active
+                // frontend name) shows in the row, like the other cycles.
+                | Self::MenuBackend
+                // PortalEffect cycles the compiled-in portal transit visuals
+                // (view cones / masks / off) for A/B profiling.
+                | Self::PortalEffect
+                // PortalCamera cycles Pop ↔ Continuous from the portal presentation resource.
+                | Self::PortalCamera
+                // Gravity cycles the ambient direction (down/left/up/right).
+                | Self::Gravity
+        )
+    }
+}
+
+/// A locale row in the Language stub. Only [`LocaleId::English`] is selectable;
+/// the rest are listed (so the slot reads as "more coming") but disabled. Real
+/// i18n is a later foundational pass — see `TODO.md`.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+pub enum LocaleId {
+    English,
+    Spanish,
+    French,
+    German,
+    Japanese,
+}
+
+impl LocaleId {
+    pub const ALL: [Self; 5] = [
+        Self::English,
+        Self::Spanish,
+        Self::French,
+        Self::German,
+        Self::Japanese,
+    ];
+
+    /// The locale's display name (in its own language, the convention for a
+    /// language picker).
+    pub fn display_name(self) -> &'static str {
+        match self {
+            Self::English => "English",
+            Self::Spanish => "Español",
+            Self::French => "Français",
+            Self::German => "Deutsch",
+            Self::Japanese => "日本語",
+        }
+    }
+
+    /// Only English is wired today; the rest are placeholders.
+    pub fn is_available(self) -> bool {
+        matches!(self, Self::English)
+    }
+}
+
+/// Identity of a top-level SYSTEM row, in display order. `Copy` so it rides a
+/// renderer's cursor / dispatched action without allocation.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+pub enum SystemMenuEntryId {
+    Radio,
+    Video,
+    Audio,
+    Controls,
+    Gameplay,
+    Language,
+    /// Reset every persisted settings/dev resource back to defaults. Always
+    /// present (mirrors the pause menu's Top-page `ResetAllSettings`).
+    ResetAllSettings,
+    /// Retire the live gameplay session and return to the multi-game host's
+    /// title screen (the launcher), without quitting the process. Immediate
+    /// action, placed just above Quit to Desktop — the softer of the two exits.
+    QuitToHome,
+    /// Quit the application to the desktop. Always present, immediate action
+    /// (no drill screen), placed after Reset All Settings. Mirrors the pause
+    /// menu's Top-page `Quit` (which is removed in a later phase).
+    Quit,
+    /// Dev-build only.
+    Developer,
+    /// Dev-build only.
+    ResetNewGame,
+    /// Per-action key/button rebinding.
+    ///
+    ///  a screen, not a settings category. It appears only where a
+    /// composition supplies the bindings to rebind
+    /// ([`SystemMenuModel::with_rebind`]), which is why it is not in
+    /// `curated_options`: a build with no input stack has nothing to list and
+    /// should show no row rather than an empty one.
+    Rebind,
+}
+
+impl SystemMenuEntryId {
+    pub fn label(self) -> &'static str {
+        match self {
+            Self::Radio => "Radio",
+            Self::Video => "Video",
+            Self::Audio => "Audio",
+            Self::Controls => "Controls",
+            Self::Rebind => "Rebind Controls",
+            Self::Gameplay => "Gameplay",
+            Self::Language => "Language",
+            Self::ResetAllSettings => "Reset All Settings",
+            Self::QuitToHome => "Quit to Title",
+            Self::Quit => "Quit to Desktop",
+            Self::Developer => "Developer",
+            Self::ResetNewGame => "Reset Sandbox",
+        }
+    }
+
+    pub fn description(self) -> &'static str {
+        match self {
+            Self::Radio => "Pick the sandbox radio station (music plays as you browse).",
+            Self::Video => "Display, FPS, camera zoom, and the shader / post-process stack.",
+            Self::Audio => "Master / music / SFX volume and mute.",
+            Self::Controls => "Touch overlay, burst input, and stick deadzone.",
+            Self::Rebind => "Put an action on a different key or button.",
+            Self::Gameplay => "Debug and quest HUD overlays.",
+            Self::Language => "Interface language (English only for now).",
+            Self::ResetAllSettings => "Restore every setting and developer tool to its default.",
+            Self::QuitToHome => "Leave this session and return to the title screen.",
+            Self::Quit => "Exit the game and return to the desktop.",
+            Self::Developer => "Developer inspectors, debug visuals, and feel profiles.",
+            Self::ResetNewGame => "Wipe the save and respawn at the start room.",
+        }
+    }
+}
+
+/// A non-settings option row that lives only inside a System screen (Radio /
+/// Language / Developer). Settings rows reuse [`SettingsOptionId`] instead.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+pub enum SystemOptionId {
+    /// Select a radio station by track index (auditions it, keeps the menu open).
+    Radio(usize),
+    /// Select a locale (only English is enabled).
+    Locale(LocaleId),
+    /// Toggle/cycle a developer tool.
+    Dev(DevToggleId),
+    /// Arm the rebind capture for the row at this INDEX into the screen's
+    /// [`RebindRow`] list.
+    ///
+    ///  an index, not the action name, because this id is `Copy` and an action
+    /// name is a `String`. That is the same row-identity choice
+    /// `ambition_ui_nav::RowPress` documents: within one screen build the order
+    /// is canonical (`ActionBindings` sorts), so the index resolves back to the
+    /// row the player is looking at.
+    Rebind(usize),
+}
+
+/// A momentary, screen-less SYSTEM action.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+pub enum SystemMenuAction {
+    /// Wipe the save and respawn at the start room, then close the menu.
+    ResetNewGame,
+    /// Reset every persisted settings/dev resource to defaults, then close the
+    /// menu. Mirrors the pause menu's `SettingsItem::ResetAllSettings`.
+    ResetAllSettings,
+    /// Retire the live session and return to the host title screen (the app's
+    /// dispatch writes `ShellCommand::QuitToHome`), then close the menu. The
+    /// enum stays a pure semantic marker — the shell dependency lives in the
+    /// app's dispatcher, not this engine crate.
+    QuitToHome,
+    /// Quit the application to the desktop (writes `AppExit::Success`), then
+    /// close the menu. Mirrors the pause menu's Top-page `Quit`.
+    Quit,
+}
+
+/// What a top-level [`SystemMenuEntry`] does when selected.
+#[derive(Clone, Debug, PartialEq)]
+pub enum SystemMenuTarget {
+    /// Drill into a curated settings category: its option rows are
+    /// [`SettingsOption`]s pulled live from the settings IR.
+    Settings(Vec<SettingsOption>),
+    /// Drill into the radio station list.
+    Radio(Vec<RadioRow>),
+    /// Drill into the language picker.
+    Language(Vec<LocaleRow>),
+    /// Drill into the developer toggles.
+    Developer(Vec<DevRow>),
+    /// Drill into the per-action rebind list.
+    Rebind(Vec<RebindRow>),
+    /// Fire an immediate action (no screen).
+    Action(SystemMenuAction),
+}
+
+/// One rebindable action in the Rebind screen.
+///
+///  not a [`SettingsOption`], and that is the shape decision. The settings
+/// IR is one option per settings FIELD; there are twenty-odd rebindable actions
+/// and they are not fields. They are rows over the seat's LIVE map, which is why
+/// `binding` is a rendered label rather than a value the row owns — a rebind
+/// that did not follow the projection would be the hand-maintained table
+/// `SeatBindings` exists to delete.
+#[derive(Clone, Debug, PartialEq)]
+pub struct RebindRow {
+    /// The action's stable name — the string the projection publishes and a
+    /// settings file stores, so a row, a trace line and an override all agree.
+    pub action: String,
+    /// What to call it on screen.
+    pub label: String,
+    /// The control it is on now, already spelled in the seat's own pad
+    /// vocabulary. Empty when nothing binds it.
+    pub binding: String,
+    /// Other actions this control also drives. Reported, never refused — Escape
+    /// is deliberately both `Start` and `MenuBack`.
+    pub also: Vec<String>,
+}
+
+/// One radio station row in the Radio screen.
+#[derive(Clone, Debug, PartialEq)]
+pub struct RadioRow {
+    /// Track index into the audio library (what `set_radio_track` resolves).
+    pub index: usize,
+    pub label: String,
+    /// Whether this is the currently-playing station.
+    pub active: bool,
+}
+
+/// One locale row in the Language screen.
+#[derive(Clone, Debug, PartialEq)]
+pub struct LocaleRow {
+    pub id: LocaleId,
+    pub label: String,
+    pub available: bool,
+    pub active: bool,
+}
+
+/// One developer toggle/cycle row in the Developer screen.
+#[derive(Clone, Debug, PartialEq)]
+pub struct DevRow {
+    pub id: DevToggleId,
+    pub label: String,
+    pub value_label: String,
+    pub kind: SettingsOptionKind,
+}
+
+/// One top-level SYSTEM row.
+#[derive(Clone, Debug, PartialEq)]
+pub struct SystemMenuEntry {
+    pub id: SystemMenuEntryId,
+    pub label: String,
+    pub description: String,
+    pub target: SystemMenuTarget,
+}
+
+/// The whole SYSTEM menu as data: an ordered list of top-level entries. Build it
+/// with [`SystemMenuModel::build`].
+#[derive(Clone, Debug, Default, PartialEq)]
+pub struct SystemMenuModel {
+    pub entries: Vec<SystemMenuEntry>,
+}
+
+/// A live snapshot of the radio station list, passed into [`SystemMenuModel::build`]
+/// so the IR stays ECS-free. The cube fills this from `RadioStationState` +
+/// `AudioLibrary` (under the `audio` feature); in audio-less builds it is empty
+/// and the Radio screen lists nothing.
+#[derive(Clone, Debug, Default, PartialEq)]
+pub struct RadioSnapshot {
+    /// `(track_index, display_name)` in library order.
+    pub stations: Vec<(usize, String)>,
+    /// The currently-active track index, if any.
+    pub active: Option<usize>,
+}
+
+/// A live snapshot of the developer toggles, passed into [`SystemMenuModel::build`]
+/// so the IR does not depend on `DeveloperTools` directly. The cube fills this from
+/// the `DeveloperTools` resource.
+#[derive(Clone, Debug, Default, PartialEq)]
+pub struct DevSnapshot {
+    pub values: Vec<(DevToggleId, bool, Cow<'static, str>)>,
+}
+
+impl DevSnapshot {
+    /// `(toggle, on)` for a bool toggle.
+    pub fn toggle(id: DevToggleId, on: bool) -> (DevToggleId, bool, Cow<'static, str>) {
+        (id, on, Cow::Borrowed(if on { "ON" } else { "OFF" }))
+    }
+    /// `(cycle, value_label)` for a cycle.
+    ///
+    /// ⚠ `Cow`, not `String`, and the whole point is the BORROWED arm: every
+    /// caller passes a `&'static str` (`"ON"`, `"OFF"`, a `label()` constant),
+    /// and this snapshot is rebuilt EVERY FRAME on EVERY face because the cube's
+    /// rebuild key carries it. Taking `impl Into<String>` heap-allocated all 22
+    /// entries per frame to answer "did anything change?" — the answer being
+    /// "no" almost every time. `Into<Cow>` keeps a static label free while an
+    /// owned label still works.
+    pub fn cycle(
+        id: DevToggleId,
+        value_label: impl Into<Cow<'static, str>>,
+    ) -> (DevToggleId, bool, Cow<'static, str>) {
+        (id, false, value_label.into())
+    }
+}
+
+/// The settings-option ids surfaced by each settings category on the SYSTEM face, in pause-menu
+/// page order.
+fn curated_options(id: SystemMenuEntryId) -> &'static [SettingsOptionId] {
+    match id {
+        // Video includes the basic rows followed by all shader controls.
+        SystemMenuEntryId::Video => &[
+            SettingsOptionId::VisualQuality,
+            SettingsOptionId::DisplayMode,
+            SettingsOptionId::CameraZoom,
+            SettingsOptionId::CameraAspect,
+            SettingsOptionId::CameraFraming,
+            SettingsOptionId::Flashes,
+            SettingsOptionId::Colorblind,
+            SettingsOptionId::ShowFps,
+            SettingsOptionId::FramePacing,
+            SettingsOptionId::Vsync,
+            SettingsOptionId::ShaderStrength,
+            SettingsOptionId::ShaderCrtStrength,
+            SettingsOptionId::ShaderCrtScanlines,
+            SettingsOptionId::ShaderCrtMask,
+            SettingsOptionId::ShaderCrtCurvature,
+            SettingsOptionId::ShaderCrtBloom,
+            SettingsOptionId::ShaderCrtChroma,
+            SettingsOptionId::ShaderFilmGrainStrength,
+            SettingsOptionId::ShaderFilmGrainSize,
+            SettingsOptionId::ShaderFilmGrainFps,
+            SettingsOptionId::ShaderFilmGrainLumaBias,
+            SettingsOptionId::ShaderRobotDeathStrength,
+            SettingsOptionId::ShaderRobotStatic,
+            SettingsOptionId::ShaderRobotTear,
+            SettingsOptionId::ShaderRobotDesaturate,
+            SettingsOptionId::ShaderRobotScanlines,
+            SettingsOptionId::ShaderUnderwaterStrength,
+            SettingsOptionId::ShaderUnderwaterDistortion,
+            SettingsOptionId::ShaderDeepDreamStrength,
+            SettingsOptionId::ShaderVignetteStrength,
+        ],
+        SystemMenuEntryId::Audio => &[
+            SettingsOptionId::MasterVolume,
+            SettingsOptionId::MusicVolume,
+            SettingsOptionId::SfxVolume,
+            SettingsOptionId::Mute,
+        ],
+        SystemMenuEntryId::Controls => &[
+            SettingsOptionId::KeyboardPreset,
+            SettingsOptionId::ControllerProfile,
+            SettingsOptionId::LeftStickDeadzone,
+            SettingsOptionId::RightStickDeadzone,
+            SettingsOptionId::TriggerPress,
+            SettingsOptionId::TriggerRelease,
+            SettingsOptionId::DpadMenuNav,
+            SettingsOptionId::InvertAimY,
+            SettingsOptionId::BurstInputMode,
+            SettingsOptionId::RightStickMode,
+            SettingsOptionId::TouchControls,
+            SettingsOptionId::MenuTapMode,
+            SettingsOptionId::ResetControlFiltering,
+        ],
+        SystemMenuEntryId::Gameplay => &[
+            SettingsOptionId::Difficulty,
+            SettingsOptionId::Assist,
+            SettingsOptionId::PlayerDamage,
+            SettingsOptionId::CameraReferenceFrame,
+            SettingsOptionId::MovementFrameMode,
+            SettingsOptionId::AimFrameMode,
+            SettingsOptionId::PortalReverseFacing,
+            SettingsOptionId::DebugHud,
+            SettingsOptionId::QuestHud,
+            SettingsOptionId::TraceAutoDump,
+            SettingsOptionId::PauseInputUnfocused,
+        ],
+        _ => &[],
+    }
+}
+
+impl SystemMenuModel {
+    /// Build the live SYSTEM menu. `radio` / `dev` are host snapshots (see their
+    /// docs); pass defaults where those subsystems are absent (audio-less / non-dev
+    /// builds). Developer + Reset Sandbox are included only in dev builds
+    /// ([`DEV_BUILD`]).
+    /// Attach the per-action REBIND screen, built from a seat's live bindings.
+    ///
+    ///  attached rather than a fourth `build` parameter, and the reason is
+    /// not churn. `build` has forty-odd call sites and every one of them would
+    /// have had to name a snapshot it does not have — but more than that, a
+    /// composition with no input stack has no bindings to rebind and should show
+    /// no row rather than an empty screen. Attaching makes the screen's presence
+    /// FOLLOW the capability instead of being asserted beside it.
+    ///
+    /// Placed immediately after `Controls`, because that is where a player looks
+    /// for it; appended if this build has no Controls entry.
+    pub fn with_rebind(mut self, rows: Vec<RebindRow>) -> Self {
+        if rows.is_empty() {
+            return self;
+        }
+        let entry = SystemMenuEntry {
+            id: SystemMenuEntryId::Rebind,
+            label: SystemMenuEntryId::Rebind.label().to_string(),
+            description: SystemMenuEntryId::Rebind.description().to_string(),
+            target: SystemMenuTarget::Rebind(rows),
+        };
+        match self
+            .entries
+            .iter()
+            .position(|e| e.id == SystemMenuEntryId::Controls)
+        {
+            Some(index) => self.entries.insert(index + 1, entry),
+            None => self.entries.push(entry),
+        }
+        self
+    }
+
+    pub fn build(settings: &UserSettings, radio: &RadioSnapshot, dev: &DevSnapshot) -> Self {
+        let model = settings_menu_model(settings);
+        let settings_entry = |id: SystemMenuEntryId| -> SystemMenuEntry {
+            let wanted = curated_options(id);
+            // Pull each wanted option's LIVE IR entry (value label + kind) so the
+            // System face can never drift from the pause menu's settings.
+            let options: Vec<SettingsOption> = wanted
+                .iter()
+                .filter_map(|want| {
+                    model
+                        .categories
+                        .iter()
+                        .flat_map(|c| c.options.iter())
+                        .find(|o| o.id == *want)
+                        .cloned()
+                })
+                .collect();
+            SystemMenuEntry {
+                id,
+                label: id.label().to_string(),
+                description: id.description().to_string(),
+                target: SystemMenuTarget::Settings(options),
+            }
+        };
+
+        let mut entries = Vec::new();
+
+        // Radio.
+        let radio_rows: Vec<RadioRow> = radio
+            .stations
+            .iter()
+            .map(|(index, name)| RadioRow {
+                index: *index,
+                label: name.clone(),
+                active: radio.active == Some(*index),
+            })
+            .collect();
+        entries.push(SystemMenuEntry {
+            id: SystemMenuEntryId::Radio,
+            label: SystemMenuEntryId::Radio.label().to_string(),
+            description: SystemMenuEntryId::Radio.description().to_string(),
+            target: SystemMenuTarget::Radio(radio_rows),
+        });
+
+        // Settings categories (curated subsets). Shaders are no longer a sibling
+        // entry: they ride UNDER Video (see `curated_options`).
+        entries.push(settings_entry(SystemMenuEntryId::Video));
+        entries.push(settings_entry(SystemMenuEntryId::Audio));
+        entries.push(settings_entry(SystemMenuEntryId::Controls));
+        entries.push(settings_entry(SystemMenuEntryId::Gameplay));
+
+        // Language (stub).
+        let locale_rows: Vec<LocaleRow> = LocaleId::ALL
+            .iter()
+            .map(|id| LocaleRow {
+                id: *id,
+                label: id.display_name().to_string(),
+                available: id.is_available(),
+                // English is the only active locale today.
+                active: matches!(id, LocaleId::English),
+            })
+            .collect();
+        entries.push(SystemMenuEntry {
+            id: SystemMenuEntryId::Language,
+            label: SystemMenuEntryId::Language.label().to_string(),
+            description: SystemMenuEntryId::Language.description().to_string(),
+            target: SystemMenuTarget::Language(locale_rows),
+        });
+
+        // Reset All Settings: an immediate Action entry, ALWAYS present (it
+        // mirrors the pause menu's Top-page `ResetAllSettings`, which is not
+        // dev-gated). Placed just before the dev-only entries so it sits near
+        // Reset Sandbox.
+        entries.push(SystemMenuEntry {
+            id: SystemMenuEntryId::ResetAllSettings,
+            label: SystemMenuEntryId::ResetAllSettings.label().to_string(),
+            description: SystemMenuEntryId::ResetAllSettings
+                .description()
+                .to_string(),
+            target: SystemMenuTarget::Action(SystemMenuAction::ResetAllSettings),
+        });
+
+        // Quit to Title: return to the host's title screen (retire the session),
+        // the softer exit — placed just above Quit to Desktop.
+        entries.push(SystemMenuEntry {
+            id: SystemMenuEntryId::QuitToHome,
+            label: SystemMenuEntryId::QuitToHome.label().to_string(),
+            description: SystemMenuEntryId::QuitToHome.description().to_string(),
+            target: SystemMenuTarget::Action(SystemMenuAction::QuitToHome),
+        });
+
+        // Quit to Desktop: always present, immediate action, placed right after
+        // Reset All Settings (and before the dev-only entries).
+        entries.push(SystemMenuEntry {
+            id: SystemMenuEntryId::Quit,
+            label: SystemMenuEntryId::Quit.label().to_string(),
+            description: SystemMenuEntryId::Quit.description().to_string(),
+            target: SystemMenuTarget::Action(SystemMenuAction::Quit),
+        });
+
+        // Developer + Reset Sandbox: DEV-BUILD GATED.
+        if DEV_BUILD {
+            let dev_rows: Vec<DevRow> = DevToggleId::ALL
+                .iter()
+                .map(|id| {
+                    let (on, value_label) = dev
+                        .values
+                        .iter()
+                        .find(|(d, _, _)| d == id)
+                        .map(|(_, on, label)| (*on, label.to_string()))
+                        .unwrap_or((false, if id.is_cycle() { "—" } else { "OFF" }.to_string()));
+                    let kind = if id.is_cycle() {
+                        SettingsOptionKind::Cycle { index: 0, count: 1 }
+                    } else {
+                        SettingsOptionKind::Toggle(on)
+                    };
+                    DevRow {
+                        id: *id,
+                        label: id.label().to_string(),
+                        value_label,
+                        kind,
+                    }
+                })
+                .collect();
+            entries.push(SystemMenuEntry {
+                id: SystemMenuEntryId::Developer,
+                label: SystemMenuEntryId::Developer.label().to_string(),
+                description: SystemMenuEntryId::Developer.description().to_string(),
+                target: SystemMenuTarget::Developer(dev_rows),
+            });
+            entries.push(SystemMenuEntry {
+                id: SystemMenuEntryId::ResetNewGame,
+                label: SystemMenuEntryId::ResetNewGame.label().to_string(),
+                description: SystemMenuEntryId::ResetNewGame.description().to_string(),
+                target: SystemMenuTarget::Action(SystemMenuAction::ResetNewGame),
+            });
+        }
+
+        SystemMenuModel { entries }
+    }
+
+    /// The entry with the given id, if present (absent dev entries return `None`
+    /// in non-dev builds).
+    pub fn entry(&self, id: SystemMenuEntryId) -> Option<&SystemMenuEntry> {
+        self.entries.iter().find(|e| e.id == id)
+    }
+}
+
+#[cfg(test)]
+mod tests;

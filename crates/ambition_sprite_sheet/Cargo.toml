@@ -1,0 +1,53 @@
+[package]
+name = "ambition_sprite_sheet"
+version = "0.1.0"
+edition.workspace = true
+license.workspace = true
+authors.workspace = true
+description = "Reusable, content-free sprite-sheet metadata vocabulary: the SheetRecord / AnimationMetrics / PixelRect / FrameRect schema + the SheetRegistry resource that parses a baked `(filename_root, ron_text)` table. The host game owns where its sprite assets live and passes the baked table in. Extracted from ambition_platformer2d_actor_monolith."
+
+[lib]
+crate-type = ["rlib"]
+
+[features]
+default = []
+# Select WebServedAssets as the wasm default in GameAssetConfig. Forwarded by
+# the app/actor composition features that serve loose assets over HTTP.
+web_served = []
+# Enable authored embedded-core image candidates in the game-asset manifest.
+static_core_assets = ["ambition_asset_manager/static_core_assets"]
+
+[dependencies]
+# ECS surface only (Resource / Component / App via prelude) + logging macros.
+# No render/audio/windowing — this crate stays reusable and headless.
+bevy = { version = "0.19.1", default-features = false, features = [
+    "2d_bevy_render",
+] }
+
+# RON manifest schema + parsing of the baked sheet table.
+serde = { workspace = true }
+ron = { workspace = true }
+# The ultrapack SpritePackCatalog is emitted as JSON by the Python packer
+# (drift-free interchange — Python-authored RON parses looser than Rust's ron).
+serde_json = "1"
+
+
+# Render-facing asset resource/model helpers moved below ambition_render.
+ambition_asset_manager = { path = "../ambition_asset_manager", features = ["bevy"] }
+ambition_platformer2d_core = { path = "../ambition_platformer2d_core" }
+# The catalog SCHEMA, for `character::catalog_join` and nothing else — the join
+# from a catalog row to the sheet a character renders from. Already linked here
+# transitively (`ambition_interaction` depends on it), so the direct edge adds no
+# crate to any consumer's closure and cannot lengthen the serial build chain; it
+# only stops the join from having to live above both crates. this is a
+# dependency on the catalog's TYPES, never on a catalog: nothing in this crate
+# may load, bake or own character content.
+ambition_characters = { path = "../ambition_characters" }
+ambition_entity_catalog = { path = "../ambition_entity_catalog" }
+ambition_interaction = { path = "../ambition_interaction" }
+ambition_platformer2d_shared_tangle = { path = "../ambition_platformer2d_shared_tangle" }
+ambition_persistence = { path = "../ambition_persistence" }
+ambition_platformer2d_world = { path = "../ambition_platformer2d_world" }
+
+# Logging facade (bevy logs through tracing); used for the load diagnostics.
+tracing = "0.1"

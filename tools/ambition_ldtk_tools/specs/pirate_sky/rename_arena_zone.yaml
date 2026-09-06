@@ -1,0 +1,15 @@
+# Rename the pirate_sky_arena return-LoadingZone to `sky_arrival`
+# so the gate_stack_lower → pirate_sky_arena door's `target_zone`
+# resolves cleanly. (target_zone must point to a LoadingZone, not a
+# PlayerStart; the player still spawns at the `sky_arrival`
+# LoadingZone's position, which we placed adjacent to the
+# `sky_arrival` PlayerStart at the south of the arena.)
+level_id: pirate_sky_arena
+edits:
+  - target:
+      identifier: LoadingZone
+      match:
+        id: sky_to_gate_stack
+    fields:
+      id: sky_arrival
+      name: sky_arrival

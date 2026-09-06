@@ -1,0 +1,28 @@
+target: robot
+seed: 7
+archetype: scout_bot
+animations:
+- idle
+- walk
+- run
+- jump
+- fly
+- dash
+- slash
+- hit
+render:
+  frame_width: 128
+  frame_height: 128
+  supersample: 1
+  downsample: lanczos
+  background: transparent
+  sheet_background: '#F4F4F4'
+  border: 0
+  label_width: 112
+  single_width: 640
+  single_height: 640
+  blender_executable: null
+  engine: BLENDER_EEVEE
+notes: >-
+  Cute cel-shaded robot rendered in Blender from a side-scroller-friendly 3/4
+  side view. Canonicals and sprite sheets use the same backend and camera.

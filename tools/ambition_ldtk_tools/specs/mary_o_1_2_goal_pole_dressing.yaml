@@ -1,0 +1,28 @@
+# mary_o_1_2's flagpole had a shaft and nothing else on it.
+#
+# `scenery_for_authored_room` (game/ambition_demo_mary_o/src/lib.rs) dresses a pole from three
+# authored blocks — `goal_pole` -> shaft art, `goal_pole_knob` -> finial, `goal_pole_banner` -> flag
+# — and its `_ => {}` arm means an unauthored name draws nothing and says nothing.
+#
+# The offsets are copied from 1-1, where they are relative to the shaft rather
+# than absolute: knob at shaft_top - 16, banner at shaft_top + 16, both at the
+# shaft's x, both 16 wide. 1-2's shaft is px [1600, 192] 16x192, so:
+#
+#   goal_pole_knob    px [1600, 176]  16x16
+#   goal_pole_banner  px [1600, 208]  16x32
+#
+#   PYTHONPATH=tools/ambition_ldtk_tools python -m ambition_ldtk_tools entity add \
+#       tools/ambition_ldtk_tools/specs/mary_o_1_2_goal_pole_dressing.yaml \
+#       --ldtk game/ambition_demo_mary_o/assets/worlds/mary_o.ldtk --in-place
+level_id: mary_o_1_2
+entities:
+  - type: OneWayPlatform
+    px: [1600, 176]
+    size: [16, 16]
+    fields:
+      name: goal_pole_knob
+  - type: OneWayPlatform
+    px: [1600, 208]
+    size: [16, 32]
+    fields:
+      name: goal_pole_banner

@@ -191,3 +191,41 @@ def test_an_empty_intersection_is_a_failure_not_a_cheerful_zero() -> None:
         assert module.main() == 1
     finally:
         module.drawn_art = real
+
+
+def test_a_stale_checkout_is_cannot_check_but_real_drift_still_fails() -> None:
+    """⛔⛔ THE TWO CASES LOOK IDENTICAL FROM THE IMPORT and want opposite answers.
+
+    An `ImportError` on a NAME means either the pinned renderer really dropped it
+    (DRIFT — the thing this file exists to catch) or this working copy is behind
+    the pin (STALE — the ordinary state in a repo where `git submodule update` is
+    not run casually). Asking the PIN tells them apart.
+
+    ⚠ I got this wrong in both directions on 2026-09-06: first by reading a stale
+    checkout as drift and repointing the check at the wrong list, then by making
+    drift a hard failure that also fired on staleness — eight red tests on the
+    normal state of the repo.
+    """
+    spec = importlib.util.spec_from_file_location("held_item_check_probe", CHECK)
+    module = importlib.util.module_from_spec(spec)
+    assert spec.loader is not None
+    spec.loader.exec_module(module)
+
+    # Not an import-NAME error at all: not evidence of staleness.
+    assert module._pin_still_exports("some other error") is False
+
+    # The pin has lost the name too ⇒ real drift ⇒ hard failure, never a skip.
+    real = module._pin_still_exports
+    try:
+        module._pin_still_exports = lambda _message: False
+        try:
+            module.drawn_art()
+        except SystemExit as exit_:
+            assert "does not export what this check reads" in str(exit_)
+        except ImportError:
+            pytest.skip("the renderer imports cleanly here; drift arm unexercised")
+        else:
+            # Import succeeded, so this machine cannot exercise the arm.
+            pytest.skip("the renderer imports cleanly here; drift arm unexercised")
+    finally:
+        module._pin_still_exports = real

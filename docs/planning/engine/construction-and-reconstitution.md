@@ -399,10 +399,44 @@ about one field's plumbing:
   IS the authority.
 
 ⇒ **So the replay path has NO durable-fact policy of its own.** Every
-attempt-scoped fact that must be retracted is retracted by a CONTENT system
-that names it — today, exactly one: `reset_cut_rope_attempt_on_replay`. That
-sharpens the risk above rather than relieving it: the hand-kept list is not one
-consumer's shortcut, it is the only mechanism there is.
+attempt-scoped DURABLE fact that must be retracted is retracted by a CONTENT
+system that names it — today, exactly one: `reset_cut_rope_attempt_on_replay`.
+
+⛔ **THIS ROW USED TO SAY "the only mechanism there is", AND THAT WAS FALSE.
+RE-MEASURED 2026-09-06: there is a general mechanism, it is well made, and it
+has THREE instantiations.** `AttemptScoped` (`session/reset/mod.rs:67`) is a
+trait a content resource implements — it names WHAT to re-arm and WHICH ROOM,
+nothing else — and `rearm_attempt_scoped::<T>` is the one system that asks
+`FreshAttempt` and calls `rearm()`. Content registers it in the engine-published
+`ContentRoomReplayResetSet`, which the host anchors before its generic replay
+consumer. In use today:
+
+| user | state | mechanism |
+|---|---|---|
+| `ambition_demo_sanic` | `SpentMonitors` | `rearm_attempt_scoped::<T>` |
+| `ambition_demo_mary_o` | `BrokenBricks`, `SpentPowerBlocks` | `rearm_attempt_scoped::<T>` |
+| `ambition_content` (cut-rope) | persisted "cleared" record + intro music | **bespoke system** |
+
+⭐ **AND THE TRAIT ALREADY SOLVED THE HARD PART OF THE SIGNAL.** Its doc records
+the defect it exists for: `replay_level_after(0.0)` means a pit death replays the
+room IN PLACE and never emits a load, so a re-arm reading only `RoomLoaded` never
+ran on a death. `FreshAttempt` unifies both legs, and *"an implementor has no way
+to spell 'the load only', which is the whole defect."* That is (B) — the wrong
+signal is not expressible.
+
+⇒ **SO THE REAL GAP IS NARROWER AND SHARPER THAN THIS PAGE CLAIMED: the generic
+covers attempt-scoped RESOURCES, because `AttemptScoped: Resource`. Nothing
+generic covers an attempt-scoped DURABLE fact.** Cut-rope is bespoke for exactly
+that reason — it retracts a persisted save record, which no `rearm()` on a
+resource can express. ⇒ The hand-kept list is real, it is ONE row long, and the
+next boss that needs durable retraction will copy cut-rope rather than implement
+a trait, because there is no trait to implement.
+
+⚠ **That is a design question, not a build task, and it is Q56's.** "Does a
+replay retract a defeat" has to be answered before a durable equivalent of
+`AttemptScoped` can name what it retracts — and Q57 has to say what "the boss"
+means before either. ⇒ Do not build the trait first; the shape follows the
+ruling.
 
 ⛔ **THE ATTEMPT SIDE IS DELIBERATELY NOT ASSERTED, and the reason is scoping
 rather than caution.** The one production consumer clears the persisted record

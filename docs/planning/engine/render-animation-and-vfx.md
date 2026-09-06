@@ -932,6 +932,29 @@ WORN FORM AND DOES NOT CHANGE HER COLLISION BOX AT ALL.** Driven through
 `course_playthrough`'s real wand grab: `worn_form` becomes `mary_o_tall`, and
 `BodyKinematics.size` reads `Vec2(21.33, 32.0)` both before and after.
 
+⛔⛔ **CORRECTION, SAME DAY, TO THE PARAGRAPH BELOW: THAT MEASUREMENT MAY BE ABOUT
+THE FIXTURE'S SCALE, NOT ABOUT THE SWAP.** `form_world_per_pixel` ignores its
+target and returns ONE shared scale, `MARY_O_STANDING_HEIGHT / small_form_pixel_height()`
+— and that function has an explicit arm: *"No baked art (a headless fixture). Any
+scale is arbitrary here because nothing will resolve a body from it; 1.0 keeps the
+arithmetic honest."* ⇒ If the demo app's fixture takes that arm, a box that does
+not move is the DEGENERATE SCALE, not a failed swap, and reading it as a swap
+defect is reading the instrument. **Establish which arm runs before building on
+the number below.**
+
+⭐ **AND A DOC/CODE DISAGREEMENT FOUND ON THE WAY, WHICH IS THE BETTER LEAD.** The
+registration comment says each form *"scales its own art to its own AUTHORED height
+(16 units small, 32 grown)"*, and `form_world_per_pixel` explicitly does NOT scale
+per form — it says so itself, with the reasoning: *"Reaching grown = 32 at an
+unchanged width needs the grown sheet REDRAWN to twice the small form's pixel
+height… one shared scale keeps her proportions honest and grown lands where the art
+puts it (**22.3 at a 16-unit small form**)."* ⚠ But `SMALL_FORM_HEIGHT = T = 32.0`,
+not 16. **Two comments reason about a 16-unit small form while the constant is 32**,
+and the sheets are 84px small / 168px tall. ⇒ Whether the shipped numbers are the
+intended ones is the question to put to Jon; a form whose art and box were sized by
+two different assumptions is exactly what "the sprite doesn't fill the box" looks
+like.
+
 ⇒ **That is a strong pointer, because the sheet data is NOT the missing piece.**
 `posed_body_geometry` reads a BAKED manifest — compile-time data, which is why
 `ambition_character_sprites`' own tests call it with no `App` at all — so the tall

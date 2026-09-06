@@ -12,7 +12,6 @@ use ambition_characters::control::ActorControl;
 use ambition_characters::control::{DrivingParticipant, PlayerSlot};
 
 use ambition_platformer2d_shared_tangle::sim_id::SimId;
-use ambition_platformer2d_shared_tangle::temporary_control::TemporaryControl;
 
 use ambition_platformer2d_shared_tangle::lifecycle::FeatureSimEntity;
 use ambition_combat::components::CenteredAabb;
@@ -254,14 +253,17 @@ pub fn possession_trigger_system(
     state.possessed = Some(target);
 
     commands.entity(home_entity).insert(ActorControl::default());
-    commands
-        .entity(target)
-        .insert(ActorControl::default())
-        // Record the possession by stable id so a snapshot restores the control
-        // MODE across a rewind (the home avatar is always the primary player).
-        .insert(TemporaryControl::Player {
-            controller: SimId::player_slot(0),
-        });
+    commands.entity(target).insert(ActorControl::default());
+    // ⭐ A CLAIM, NOT AN ASSIGNMENT. Recorded by stable id so a snapshot restores
+    // the control MODE across a rewind (the home avatar is always the primary
+    // player) — but filed as possession's own claim, so a ride running underneath
+    // this possession is shadowed rather than erased.
+    ambition_platformer2d_shared_tangle::temporary_control::file_claim(
+        &mut commands,
+        target,
+        ambition_platformer2d_shared_tangle::temporary_control::ControlClaimant::Possession,
+        SimId::player_slot(0),
+    );
     // Body custody is derived from rollback-authoritative `PossessionState` by
     // `project_body_custody`; do not write `InCustodyOf` at the possession site.
 }
@@ -301,9 +303,18 @@ fn release_possession(
     // whatever room is active NOW — `RoomScopedEntity` carries no room id, so a body released
     // two rooms later is resident THERE and the next transition out retires it correctly.
     if let Ok(mut ec) = commands.get_entity(target) {
-        ec.insert(ActorControl::default())
-            .insert(TemporaryControl::Autonomous);
+        ec.insert(ActorControl::default());
     }
+    // ⛔ RELEASE DROPS ONE CLAIM; IT DOES NOT DECLARE THE BODY AUTONOMOUS. This
+    // line used to write `Autonomous` unconditionally, which is correct exactly
+    // when possession is the only claimant — and wrong the moment the body was
+    // already riding something, because it announced an autonomy the ride had not
+    // agreed to. The projection decides what the body is now.
+    ambition_platformer2d_shared_tangle::temporary_control::drop_claim(
+        commands,
+        target,
+        ambition_platformer2d_shared_tangle::temporary_control::ControlClaimant::Possession,
+    );
 
     // The home avatar sheds its stale edges and vacate-exits to the actor's spot.
     if let Some(home) = state.home {

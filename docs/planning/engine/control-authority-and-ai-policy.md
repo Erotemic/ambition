@@ -49,24 +49,98 @@ claims with an owner and releases only what it still holds; a peer found the
 *identical* defect in the script half **on the same day** — a claim with no arbiter
 and a release arm that does not ask whether somebody else still wants it.
 
+## ✔ LANDED 2026-09-06 — the claim arbiter
+
+⭐⭐ **`ControlClaims` in `shared_tangle::temporary_control`.** Both domains file a
+claim instead of assigning the enum; `project_control_claims` decides the winner,
+ordered by set after `PlayerSimulationSet::Possession` and `CombatSet::Settle` so
+every claim filed this tick is counted.
+
+| the review asked for | how it is answered |
+|---|---|
+| semantic owner identity, never `Entity` | `ControlClaimant` is a role; the subject is a `SimId` |
+| deterministic precedence | the ENUM'S ORDER, in one place, nowhere else |
+| multiple simultaneous claims | two named `Option<SimId>` fields, both live at once |
+| release reveals the remaining winner | `release` clears ONE field; the projection re-reads what is left |
+| rollback coverage | `actor.control_claims`, own codec, schema v164 → v165 |
+
+⚠ **NAMED FIELDS RATHER THAN A COLLECTION, and the reason is not laziness.** Two
+claimants exist, the precedence is total and known, and a fixed struct is
+trivially clonable with no allocation and no ordering ambiguity — which matters
+because a non-deterministic control mode is a rollback desync. A third claimant is
+a field and a match arm, both of which the compiler makes you visit.
+
+⛔⛔ **THE FIXTURE FOUND A SECOND DEFECT THE FIRST FIX WOULD HAVE HIDDEN.** The
+production poison failed at SETUP, not at its assertion: the possession claim was
+present and the ride claim was not. `ambition_mount` filed its claim only on the
+tick the pair was ARMED, and `pirate_sky_lookout` authors a rider that is
+*already* mounted — so it held a live ride with no claim to show for it, and the
+steady-state arm was literally `(true, true) => {}`. ⇒ **The claim is the RIDE,
+not the moment the ride began.** Reconciled in the steady-state arm now. A
+constructed fixture would have boarded the rider and never shown this.
+
+⇒ **STILL OWED:** a production test that rewinds ACROSS each transition and
+asserts the effective authority comes back the same. The codec round-trip is
+covered by a unit test and the schema is registered, but "restores the same
+effective authority" is a claim about the rollback machinery, not about the codec,
+and only a rewind proves it.
+
+---
+
 ⇒ **The named authority is a control-custody CLAIM, not a new component.** It owns
 `claim(owner, mode)` and `release(owner)` over the existing enum; `possession` and
 `ambition_mount` become consumers that never assign `TemporaryControl` themselves.
 ⛔ The owner must be a **semantic identity** — `SimId` is already in both variants
 — never a Bevy `Entity`.
 
-⚠ **AND NO CURRENT TEST CAN FAIL ON THIS**, which is why it survived: every fixture
-exercises one mechanism at a time, and each is correct alone. The acceptance it
-owes is a **two-mechanism poison** — mount a body, possess it, release one, assert
-the other still holds — in the same shape the script-music row owes a two-script
-poison.
+⛔⛔ **CORRECTION, 2026-09-06 — I WROTE TWO THINGS HERE THAT WERE FALSE, AND A
+REVIEWER CHECKED WHAT I ASSERTED.** Both are struck through below with what the
+tree actually says, because the wrong version of this page was the reason the
+row read as *latent* and got sequenced behind C2.
 
-⚠ **WHAT I HAVE NOT MEASURED:** whether a body can be mounted and possessed in a
-shipped composition today. Possession is exploration and the mount is the pirate
-admiral's shark; they may never co-occur. That question decides whether this is a
-live bug or a latent one, and it does **not** change the carve — the review's point
-is that these become independently composed crates, and an unowned transition
-between two of them cannot be composed at all.
+~~AND NO CURRENT TEST CAN FAIL ON THIS~~ — the accurate statement is narrower and
+much less comfortable: no current test DRIVES the conflicting transition, but the
+fixture that would host one is already authored and already runs.
+`game/ambition_app/tests/carried_item_crosses_rooms.rs::a_mount_you_are_riding_crosses_the_door_with_you`
+queries the assembled host for an entity carrying `RidingOn`, possesses that
+rider, and asserts `PossessionState.possessed == Some(rider)` before carrying the
+pair through a door. ⇒ The two-mechanism poison is not blocked on new content; it
+is three lines away from a fixture that ships.
+
+⇒ The acceptance it owes is still a **two-mechanism poison** — mount a body,
+possess it, release one, assert the other still holds — but it can be written
+today, on authored content, which changes it from a design note into a bug with a
+reproduction.
+
+⛔⛔ ~~WHAT I HAVE NOT MEASURED: whether a body can be mounted and possessed in a
+shipped composition today~~ — **MEASURED: THEY CO-OCCUR IN A SHIPPING TEST.** My
+guess in this paragraph ("possession is exploration and the mount is the pirate
+admiral's shark; they may never co-occur") was wrong, and it was wrong in the
+direction that let me defer the row. The authored `pirate_sky_lookout` produces a
+mounted rider and the test above possesses it.
+
+⭐ **THE THREE WRITERS, RE-DERIVED RATHER THAN QUOTED**, because the shape of the
+bug depends on exactly which variant each one writes:
+
+| site | writes | when |
+|---|---|---|
+| `ambition_mount/src/lib.rs:1152` | `Mounted { mount }` | boarding, only if the mount carries a `SimId` |
+| `ambition_mount/src/lib.rs:1220` | `Autonomous` | the mount dies |
+| `possession.rs:262` | `Player { controller }` | possession begins |
+| `possession.rs:305` | `Autonomous` | possession releases |
+
+⇒ **Neither release arm asks whether the other claim is still live.** Possess a
+mounted rider, then let the mount die: mount writes `Autonomous` while
+`PossessionState.possessed` still names that rider and the primary driving
+participant still points at it.
+
+⛔ **AND IT IS PLAYER-VISIBLE, THROUGH A CONSUMER NEITHER WRITER KNOWS ABOUT.**
+`shared_tangle::markers::body_collects_on_touch` returns true for
+`TemporaryControl::Player { .. }` — that is how a possessed non-player body
+qualifies as a pickup collector. So after the mount dies underneath a possession,
+the player is still driving the rider and the rider silently stops picking things
+up. `TemporaryControl` is rollback-canonical, so the disagreement is saved and
+restored rather than being a presentation-only glitch.
 
 ## ⭐⭐ PREREQUISITE B, MEASURED 2026-09-06 — THE SIX QUESTIONS, ANSWERED FROM THE TREE
 

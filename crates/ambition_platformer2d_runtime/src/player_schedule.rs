@@ -278,6 +278,26 @@ impl Plugin for PlayerSchedulePlugin {
                 .chain()
                 .in_set(PlayerSimulationSet::Possession),
         );
+        // ⭐⭐ THE CONTROL ARBITER, AND IT IS A PROJECTION RATHER THAN A WRITER.
+        // Possession and `ambition_mount` each file a CLAIM on a body now; this
+        // decides which claim wins and writes the one `TemporaryControl` both used
+        // to assign independently. Neither domain can erase the other's claim any
+        // more, and releasing one reveals whatever is still underneath it.
+        //
+        // ⇒ ORDERED AFTER BOTH CLAIMANTS, by set, so the winner a consumer reads
+        // is computed from every claim filed this tick. `Possession` is the
+        // possession road; `CombatSet::Settle` is where the mount link is enforced
+        // and dismounts are applied. If those two ever become unorderable the
+        // schedule build fails loudly, which is the right way to find out.
+        app.add_systems(
+            sim,
+            ambition_platformer2d_shared_tangle::temporary_control::project_control_claims
+                .in_set(
+                    ambition_platformer2d_shared_tangle::temporary_control::ControlClaimsProjected,
+                )
+                .after(PlayerSimulationSet::Possession)
+                .after(ambition_platformer2d_shared_tangle::schedule::CombatSet::Settle),
+        );
         app.add_systems(
             sim,
             (

@@ -343,7 +343,8 @@ fn configure_actor_decision_phases(app: &mut App) {
 #[cfg(test)]
 mod actor_decision_phase_tests {
     use super::*;
-    use bevy::ecs::schedule::{NodeId, ScheduleGraph, Schedules, SystemKey};
+    use bevy::ecs::schedule::graph::Direction;
+    use bevy::ecs::schedule::{NodeId, ScheduleGraph, Schedules, SystemKey, SystemSetKey};
 
     const DECISION_PHASES: [ActorDecisionSet; 6] = [
         ActorDecisionSet::Targeting,
@@ -441,11 +442,110 @@ mod actor_decision_phase_tests {
             .get_key(set.intern())
             .unwrap_or_else(|| panic!("{set:?} must be a registered SystemSet"));
         assert!(
-            graph
-                .hierarchy()
-                .graph()
-                .contains_edge(NodeId::Set(set_key), NodeId::System(system_key)),
-            "{leaf} must be a direct member of {set:?}"
+            phase_ancestors(graph, system_key).contains(&set_key),
+            "{leaf} must run in {set:?}, and no chain of set memberships puts it there"
+        );
+    }
+
+    /// Every set that contains `system`, directly or through other sets.
+    ///
+    /// ⛔⛔ THIS USED TO BE A SINGLE `contains_edge`, AND THE DIFFERENCE IS THE
+    /// WHOLE CAPABILITY-PLUGIN PATTERN. When `ambition_mount` grew its own
+    /// `install_mount_pose_systems`, `steer_mount_from_rider` stopped being a
+    /// direct member of `BeforeIntegrate` and became a member of
+    /// `MountsSteeredByRiders`, which this layer places IN `BeforeIntegrate`. It
+    /// runs in exactly the same phase; only the number of hops changed. A
+    /// one-edge check reads that as the system having left the phase.
+    ///
+    /// ⇒ The question worth guarding is "does this run in that phase", and
+    /// membership is transitive. ⚠ What is NOT relaxed: a system in no phase at
+    /// all still fails, and so does one whose set is placed in a DIFFERENT phase
+    /// — see `a_system_outside_the_phase_is_still_caught`.
+    fn phase_ancestors(graph: &ScheduleGraph, system: SystemKey) -> Vec<SystemSetKey> {
+        let hierarchy = graph.hierarchy().graph();
+        let mut seen: Vec<SystemSetKey> = Vec::new();
+        let mut frontier = vec![NodeId::System(system)];
+        while let Some(node) = frontier.pop() {
+            for parent in hierarchy.neighbors_directed(node, Direction::Incoming) {
+                if let NodeId::Set(key) = parent {
+                    if !seen.contains(&key) {
+                        seen.push(key);
+                        frontier.push(parent);
+                    }
+                }
+            }
+        }
+        seen
+    }
+
+    /// ⭐⭐ THE POISON FOR THE RELAXATION ABOVE, and it is the reason the
+    /// relaxation is allowed to exist.
+    ///
+    /// `assert_membership` was widened from ONE hierarchy edge to any chain of
+    /// them, so that a capability installing its own systems into its own
+    /// published set still counts as running in the phase this layer places that
+    /// set in. ⛔ A widened check is the classic way a guard dies quietly: the
+    /// obvious over-widening — "walk far enough and everything is inside
+    /// everything" — would make it pass for any system in the schedule at all.
+    ///
+    /// ⇒ So this pins the two failures that must survive: a system that belongs
+    /// to NO set anywhere, and a system whose set sits in a DIFFERENT phase. If
+    /// either of these ever passes, the transitive walk has stopped
+    /// discriminating and every assertion above it is decoration.
+    #[test]
+    fn a_system_outside_the_phase_is_still_caught() {
+        use ambition_platformer2d_shared_tangle::schedule::WorldPrepSet;
+        use bevy::prelude::IntoScheduleConfigs as _;
+
+        #[derive(bevy::prelude::SystemSet, Clone, Copy, Debug, PartialEq, Eq, Hash)]
+        struct SomeOtherSet;
+
+        fn orphan_system() {}
+        fn wrongly_placed_system() {}
+
+        let mut app = composed_app();
+        let sim = app.sim_schedule();
+        app.add_systems(sim, orphan_system);
+        app.add_systems(sim, wrongly_placed_system.in_set(SomeOtherSet));
+        app.configure_sets(sim, SomeOtherSet.in_set(WorldPrepSet::ContactDamage));
+
+        let schedules = app.world().resource::<Schedules>();
+        let schedule = schedules.get(sim).expect("sim schedule must exist");
+        let graph = schedule.graph();
+
+        let before_integrate = graph
+            .system_sets
+            .get_key(WorldPrepSet::BeforeIntegrate.intern())
+            .expect("the phase is registered");
+
+        // ⚠ NOT "has no ancestors at all" — the first draft of this asserted that
+        // and failed, correctly. Bevy gives EVERY system its own automatic
+        // `SystemTypeSet`, so a system in no authored set still reports one
+        // ancestor. ⇒ The claim worth making is about AUTHORED PHASES, which is
+        // also the only thing `assert_membership` is ever asked about.
+        let orphan = system_key(graph, "orphan_system");
+        assert!(
+            !phase_ancestors(graph, orphan).contains(&before_integrate),
+            "a system in no authored set is being reported as a member of a phase, \
+             so the walk is inventing membership"
+        );
+
+        let misplaced = system_key(graph, "wrongly_placed_system");
+        let ancestors = phase_ancestors(graph, misplaced);
+        assert!(
+            !ancestors.contains(&before_integrate),
+            "a system placed in ContactDamage is being reported as a member of \
+             BeforeIntegrate, so the transitive walk no longer discriminates \
+             between phases"
+        );
+        let contact_damage = graph
+            .system_sets
+            .get_key(WorldPrepSet::ContactDamage.intern())
+            .expect("the phase is registered");
+        assert!(
+            ancestors.contains(&contact_damage),
+            "and the positive half: a two-hop membership must still be FOUND, or \
+             the walk has been narrowed back to one edge"
         );
     }
 

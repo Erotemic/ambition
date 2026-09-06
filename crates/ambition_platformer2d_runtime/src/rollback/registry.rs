@@ -276,7 +276,12 @@ use crate::content_identity::SnapshotSchemaFingerprint;
 /// could latch a DIFFERENT ledge — a divergence that grows with every tick
 /// instead of correcting itself. ⓘ `component-clone`: two floats and a point,
 /// with nothing for a codec to normalise.
-pub const GGRS_ROLLBACK_SCHEMA_VERSION: u32 = 164;
+/// ⭐ 164 -> 165 (2026-09-06): `actor.control_claims` joined the schema. It is
+/// the CLAIM COLLECTION behind `actor.temporary_control` — prerequisite B's
+/// arbiter — and the projection alone is not enough to restore, because a rewind
+/// that dropped a shadowed claim would resume with a possession or a ride the
+/// simulation had forgotten. New state on the wire, so peers must agree on it.
+pub const GGRS_ROLLBACK_SCHEMA_VERSION: u32 = 165;
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq, Ord, PartialOrd, Hash)]
 pub enum RollbackEntryKind {

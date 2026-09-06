@@ -997,6 +997,9 @@ pub fn enforce_mount_rider_link(
             &mut CenteredAabb,
             Option<&MountedBrainCache>,
             Option<&Mounted>,
+            // ⭐ THE RIDE'S CLAIM, read so it can be kept in step with the ride
+            // itself rather than only with the tick the ride was ARMED.
+            Option<&ambition_platformer2d_shared_tangle::temporary_control::ControlClaims>,
             // The same four columns the saddle sync names, plus the rider's
             // AUTHORED baseline — the body a reset hands back.
             //
@@ -1076,6 +1079,7 @@ pub fn enforce_mount_rider_link(
         mut rider_aabb,
         cache,
         was_mounted,
+        rider_claims,
         mut rider_kin,
         mut rider_surface,
         mut rider_health,
@@ -1129,7 +1133,26 @@ pub fn enforce_mount_rider_link(
         match (alive, was_mounted.is_some()) {
             // Mount alive, rider already mounted → steady state. The
             // sync system snaps each frame; nothing to do here.
-            (true, true) => {}
+            // ⛔⛔ NOT QUITE NOTHING ANY MORE. The ride's CLAIM used to be filed
+            // only on the tick the pair was armed, so a rider authored already
+            // mounted — which is what `pirate_sky_lookout` ships — held a live
+            // ride and no claim to show for it. The claim is the RIDE, not the
+            // moment the ride began, so it is reconciled here where the ride is
+            // known to be true.
+            (true, true) => {
+                let wanted = sim_ids.get(riding.mount).ok();
+                let held = rider_claims.and_then(|c| c.mount());
+                if let Some(wanted) = wanted {
+                    if held != Some(wanted) {
+                        ambition_platformer2d_shared_tangle::temporary_control::file_claim(
+                            &mut commands,
+                            rider_entity,
+                            ambition_platformer2d_shared_tangle::temporary_control::ControlClaimant::Mount,
+                            wanted.clone(),
+                        );
+                    }
+                }
+            }
             // Mount alive, rider missing the Mounted marker → we
             // either just spawned without the marker (first tick)
             // or the same-room reset path brought the mount back to
@@ -1147,11 +1170,18 @@ pub fn enforce_mount_rider_link(
                     // Record the mount by stable id for snapshot restore. Only when
                     // the mount carries a `SimId` (otherwise the link isn't
                     // reconstructible); the marker above still tracks live state.
+                    // ⭐ A CLAIM, NOT AN ASSIGNMENT. Recorded by stable id for
+                    // snapshot restore, and only when the mount carries a `SimId`
+                    // (otherwise the link isn't reconstructible); the marker above
+                    // still tracks live state. Filing it as the MOUNT's claim means a
+                    // possession taken while this ride is live shadows it instead of
+                    // erasing it.
                     if let Ok(mount_id) = sim_ids.get(riding.mount) {
-                        commands.entity(rider_entity).insert(
-                            ambition_platformer2d_shared_tangle::temporary_control::TemporaryControl::Mounted {
-                                mount: mount_id.clone(),
-                            },
+                        ambition_platformer2d_shared_tangle::temporary_control::file_claim(
+                            &mut commands,
+                            rider_entity,
+                            ambition_platformer2d_shared_tangle::temporary_control::ControlClaimant::Mount,
+                            mount_id.clone(),
                         );
                     }
                 }
@@ -1215,13 +1245,19 @@ pub fn enforce_mount_rider_link(
                     // locomotion of a body this same statement just declared
                     // autonomous.
                     .remove::<RideConstraints>()
-                    // Back to autonomous control for snapshot purposes (a boss rider
-                    // keeps its authored brain but is no longer mount-controlled).
-                    .insert(ambition_platformer2d_shared_tangle::temporary_control::TemporaryControl::Autonomous)
+                    // ⛔ THE `Autonomous` WRITE THAT USED TO SIT HERE WAS THE BUG.
+                    // A dead mount ends the RIDE's claim; it does not make the body
+                    // autonomous, and saying so erased a live possession. The claim
+                    // is dropped below and the projection decides what remains.
                     // Sprite-binding refresh so the rider's sheet
                     // re-resolves on the next presentation pass.
                     .remove::<ambition_platformer2d_shared_tangle::feature_kind::BoundFeatureKind>(
                     );
+                ambition_platformer2d_shared_tangle::temporary_control::drop_claim(
+                    &mut commands,
+                    rider_entity,
+                    ambition_platformer2d_shared_tangle::temporary_control::ControlClaimant::Mount,
+                );
             }
             // Mount dead, rider already dissolved → steady state.
             (false, false) => {}

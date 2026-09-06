@@ -183,6 +183,18 @@ where
         OWNER,
         "actor.temporary_control",
     );
+    // ⛔⛔ AND THE CLAIMS BEHIND IT. `actor.temporary_control` above is the
+    // PROJECTION — the winning claim — and restoring only the winner loses every
+    // shadowed one, so a rewind across "possessed while riding" would come back
+    // with the ride forgotten and releasing the possession would announce
+    // `Autonomous` on a body still on a mount. Registered here beside the
+    // projection for the same reason that one is: the monolith is what installs
+    // the control modes both record.
+    registrar
+        .rollback_component_canonical::<ambition_platformer2d_shared_tangle::temporary_control::ControlClaims>(
+            OWNER,
+            "actor.control_claims",
+        );
     registrar.rollback_component_canonical::<ambition_platformer2d_core::body_clusters::ActorSurfaceState>(
         OWNER,
         "actor.surface_state",

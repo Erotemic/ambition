@@ -1936,3 +1936,132 @@ fn an_actor_released_in_a_foreign_room_leaves_one_of_it_and_a_body_to_drive() {
         id.as_str()
     );
 }
+
+/// ⛔⛔ THE MOUNT DIES UNDER A LIVE POSSESSION AND THE PLAYER KEEPS THE BODY.
+///
+/// This is prerequisite B's production poison, and it runs on authored content
+/// rather than a constructed fixture: `pirate_sky_lookout` ships a rider on a
+/// mount, and the test above already proves a player can possess that rider while
+/// the ride is live. So "mounted AND possessed" is not a future crate composition
+/// — it is a composition this repository boots today.
+///
+/// ⛔ WHAT USED TO HAPPEN. `TemporaryControl` is one enum and two domains assigned
+/// it independently: possession wrote `Player`, and `ambition_mount`'s death arm
+/// wrote `Autonomous`. The second writer erased the first CLAIM rather than
+/// shadowing it, so a mount dying under a possession left `PossessionState` naming
+/// the rider, `DrivingParticipant` pointing at it, and `TemporaryControl` saying
+/// nobody was driving.
+///
+/// ⇒ AND THE CONSEQUENCE WAS PLAYER-VISIBLE THROUGH A THIRD PARTY.
+/// `body_collects_on_touch` qualifies a possessed non-player body as a pickup
+/// collector by matching `TemporaryControl::Player`. After the mount died, the
+/// player went on driving a body that had quietly stopped picking things up —
+/// with no message, no state change either domain could see, and the wrong answer
+/// saved into the rollback stream because the component is canonical.
+#[test]
+fn a_mount_dying_under_a_possession_leaves_the_player_driving() {
+    use ambition_platformer2d::actors::abilities::traversal::possession::PossessionState;
+    use ambition_platformer2d::characters::brain::Brain;
+    use ambition_platformer2d::engine_core::BodyKinematics;
+    use ambition_platformer2d::mount::RidingOn;
+    use ambition_platformer2d::platformer::temporary_control::{
+        ControlClaimant, ControlClaims, TemporaryControl,
+    };
+
+    let mut sim = fixed_60hz_room_sim("pirate_sky_lookout");
+    for _ in 0..30 {
+        sim.step(base());
+    }
+
+    let (rider, mount) = {
+        let world = sim.world_mut();
+        let mut q = world.query::<(Entity, &SimId, &RidingOn, &Brain)>();
+        q.iter(world)
+            .next()
+            .map(|(entity, _, riding, _)| (entity, riding.mount))
+            .expect("'pirate_sky_lookout' authors a rider on a mount")
+    };
+
+    // Possess the rider the same way the sibling test does: stand on it and hold
+    // interact until `PossessionState` names it.
+    let mut possessed = false;
+    for i in 0..900 {
+        if let Some(here) = sim
+            .world()
+            .get::<BodyKinematics>(rider)
+            .map(|k| (k.pos.x, k.pos.y))
+        {
+            sim.teleport_player(here);
+        }
+        sim.step(AgentAction {
+            move_y: 1.0,
+            interact: i == 0,
+            interact_held: true,
+            ..base()
+        });
+        if sim.world_mut().resource::<PossessionState>().possessed == Some(rider) {
+            possessed = true;
+            break;
+        }
+    }
+    assert!(possessed, "setup: the rider was never possessed");
+
+    // ⭐ BOTH CLAIMS LIVE AT ONCE, which is the state the old enum could not hold.
+    let claims = sim
+        .world()
+        .get::<ControlClaims>(rider)
+        .cloned()
+        .expect("a possessed rider has filed claims");
+    assert!(
+        claims.holds(ControlClaimant::Possession) && claims.holds(ControlClaimant::Mount),
+        "setup: expected a live possession AND a live ride on the same body, got {claims:?}"
+    );
+    assert_eq!(
+        sim.world().get::<TemporaryControl>(rider),
+        Some(&TemporaryControl::Player {
+            controller: SimId::player_slot(0)
+        }),
+        "possession outranks the ride while both are live"
+    );
+
+    // Kill the mount. `enforce_mount_rider_link` reads `BodyHealth::alive()`.
+    {
+        let world = sim.world_mut();
+        let mut health = world
+            .get_mut::<ambition_platformer2d::characters::actor::BodyHealth>(mount)
+            .expect("the authored mount carries a health pool");
+        let current = health.current();
+        health.damage(current);
+        assert!(!health.alive(), "setup: the mount did not actually die");
+    }
+    for _ in 0..10 {
+        sim.step(base());
+    }
+
+    // ⛔ THE POISON. Before the claim arbiter this read `Autonomous`.
+    let after = sim
+        .world()
+        .get::<TemporaryControl>(rider)
+        .cloned()
+        .expect("the rider still carries a control mode");
+    assert_eq!(
+        after,
+        TemporaryControl::Player {
+            controller: SimId::player_slot(0)
+        },
+        "the mount died; the PLAYER did not stop driving. A dead mount ends the \
+         RIDE's claim, and saying `Autonomous` here erases a possession that is \
+         still live"
+    );
+    assert!(
+        ambition_platformer2d::platformer::markers::body_collects_on_touch(false, Some(&after)),
+        "the possessed body must still qualify as a pickup collector after its \
+         mount dies — this is the consequence the old code silently lost"
+    );
+    assert_eq!(
+        sim.world_mut().resource::<PossessionState>().possessed,
+        Some(rider),
+        "and possession itself was never in question — it is the control mode that \
+         used to disagree with it"
+    );
+}

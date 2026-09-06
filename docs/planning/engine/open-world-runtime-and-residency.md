@@ -678,3 +678,41 @@ The pattern that connects them: **a deferral records what its author knew at the
 moment they stopped, and is then QUOTED rather than re-derived.** Two of these
 three even named the condition that would expire them. Re-deriving a deferral costs
 minutes; this one cost an afternoon of not having a net.
+
+### ✔ TWO RETRACTORS FOR ONE FACT MADE EACH OTHER UNTESTABLE — `d472f516b`, and it is the best argument for (A) this page has
+
+Two systems cleared `CutRopeBossArenaState` on the SAME `RoomReplayAdmitted`:
+`detect_cut_rope_rope_cut` (the trigger) and `reset_cut_rope_boss_arena_on_room_reset`
+(the system NAMED for the job, registered in `ContentRoomResetSet`). The named one
+keeps it.
+
+⭐⭐ **A POISON THAT REFUSED TO FIRE IS WHAT FOUND IT.** I added the reset arm, then
+poisoned the reset to prove the arm could fail, and it stayed GREEN. The usual
+readings — weak guard, dead code, nothing runs it — were all wrong:
+
+```text
+delete retractor A alone  ->  GREEN
+delete retractor B alone  ->  GREEN
+delete BOTH               ->  RED
+```
+
+⇒ **TWO COPIES OF A FACT DO NOT MERELY RISK DRIFTING APART; EACH HIDES THE OTHER'S
+ABSENCE, SO NEITHER CAN BE TESTED.** This is the answer to "why not just keep the
+two copies in sync" as a MEASUREMENT rather than a preference. After the removal,
+poisoning the single retractor reddens the arm — **the fact became guardable by
+becoming singular.**
+
+✔ **The same experiment priced the fix.** The objection to removing the duplicate
+was that the surviving system might run too late, letting the trigger observe stale
+state for one frame. The A-alone poison run IS that configuration and it passed, so
+no schedule reading was needed.
+
+⚠ **Keep the READ when you delete the ACTION** — a `MessageReader` that skips a
+frame carries its backlog forward, and this system's early return already drains
+for that reason.
+
+⇒ **STILL OPEN, and now safe to take:** `CutRopeBossArenaState.active_room`
+hand-rolls a room-change detector that `FreshAttempt::began_in` already is, spelled
+three times, with a fourth site checking the same condition and BAILING instead of
+resetting (an unexpressed ordering dependency). `a_replay_lets_the_rope_be_cut_again`
+is the arm that would catch a mistake, and it exists now.

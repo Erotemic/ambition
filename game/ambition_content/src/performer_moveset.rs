@@ -260,9 +260,18 @@ pub fn performer_moveset() -> MovesetContract {
 ///
 /// ⛔ AND THE LAUNCH IS SHALLOW ON PURPOSE. Hitstun scales off knockback
 /// magnitude, so a hold is bought with enough launch to buy the frames and a
-/// direction that spends them going nowhere in particular — the genre has no
-/// separate stun channel and inventing one for a neutral-B would be a mechanic
-/// bolted to a single move.
+/// direction that spends them going nowhere in particular.
+///
+/// ⚠ ~~the genre has no separate stun channel and inventing one for a neutral-B
+/// would be a mechanic bolted to a single move~~ — TRUE WHEN WRITTEN AND FALSE
+/// SIXTY LINES BELOW, where this same function now authors `smash_sleep`. The
+/// channel exists (`BodyCombat::sleep_timer`, a named cause inside
+/// `hard_lock_timer`'s `max`) and it is NOT bolted to one move: the Shadow Oni's
+/// seal is its second customer. ⇒ The launch is still shallow for the reason
+/// above, which is why this sentence is corrected rather than deleted — but a
+/// reader taking the struck half at face value would conclude no status channel
+/// exists, and that is exactly the wrong conclusion somebody nearly designed a
+/// duplicate authority on top of.
 fn the_monologue() -> MoveSpec {
     let mut spec = strike(Strike {
         id: "performer_monologue",

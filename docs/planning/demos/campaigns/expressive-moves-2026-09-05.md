@@ -2130,6 +2130,39 @@ in a guard break — five causes, one silhouette — so in a 1v1 neither player 
 which is holding them. Filed as presentation, not mechanics; the field's doc names
 it and now names only it.
 
+### ✔ B1'S ABSENT HALF IS CLOSED — A SUCCESSFUL BLOCK NOW DOES SOMETHING
+
+The row above measured it and could not close it: *"Nothing gives the DEFENDER a
+consequence for a successful block, so the soft read has no vocabulary at all
+where the hard read has four."* ⇒ It does now.
+
+⛔⛔ **AND THE REASON A FIVE-SOURCE METER DID NOT ALREADY COVER IT IS THE WHOLE
+FINDING: a blocked strike is not a damage instance.** It writes no
+`ResolvedBodyHit`, so `taken()` and `dealt()` are never consulted and every
+existing Limit source reads zero. The meter looked complete.
+`a_block_moves_nothing_at_all_unless_the_block_source_is_authored` pins that —
+the same exchange under the FULL baseline still moves nothing.
+
+⚠ **THIS IS DELIBERATELY NOT THE CHARACTER-LEVEL CARRIER THE ROW ASKED FOR.**
+`MovesetContract` has exactly two fields (`verbs`, `moves`), so a general
+`guard_answer` is a new authored-property road — a real rung, and this campaign's
+rule is that a rung earns itself by having a customer. ⇒ The condition that
+reopens it, stated so it can be checked rather than re-argued: **a second fighter
+wanting a DIFFERENT consequence for a block.** One wanting the same one authors a
+number.
+
+⛔ **AND THE ROAD WAS ONLY EVER ASSERTED NEGATIVELY**, which is the transferable
+part. The nearest test said *"a blocked strike publishes no `ResolvedBodyHit`"* —
+equally true of a road that publishes **nothing at all**. Harmless while nothing
+depended on it; load-bearing the moment a consequence did. The actor road now has
+a positive arm naming victim and attacker, with an unguarded premise first.
+
+⭐ **ONE RELATIONSHIP BETWEEN TWO SOURCES IS A RULE AND NOT A NUMBER**, and it is
+a predicate now: `guarding_is_the_safe_option`. A meter paying more for blocking
+than for eating the hit makes guarding the greedy play and stops damage being a
+cost. Asserted against the SHIPPED baseline, because the way it breaks is
+somebody tuning `on_block` up and nothing noticing.
+
 ### Track A — the keystone
 
 - ◐ **A1. `TechniqueFlow` minimum** — ⭐⭐ **THE ENGINE HALF WAS ALREADY BUILT,

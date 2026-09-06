@@ -1602,3 +1602,86 @@ mod saddle_tests {
         );
     }
 }
+
+/// The set [`board_reserved_mounts`] runs in.
+///
+/// ⭐ PUBLISHED SO THE ORDER BETWEEN THIS CAPABILITY'S OWN STAGES IS SAYABLE
+/// WITHOUT NAMING ITS FUNCTIONS. Boarding must precede the lease tick — a ride
+/// that boards this tick gets its full lease, and the alternative spends a frame
+/// of a five-second clock before the rider is even welded.
+#[derive(bevy::prelude::SystemSet, Clone, Copy, Debug, PartialEq, Eq, Hash)]
+pub struct MountsBoarded;
+
+/// The set [`tick_ride_leases`] runs in.
+#[derive(bevy::prelude::SystemSet, Clone, Copy, Debug, PartialEq, Eq, Hash)]
+pub struct RideLeasesTicked;
+
+/// ⭐⭐ THE CAPABILITY INSTALLS ITSELF — prerequisite C2's shape, on the smallest
+/// complete instance in the tree.
+///
+/// Before this, every one of this crate's systems was installed by somebody else:
+/// four by `ambition_platformer2d_runtime`'s combat schedule, two by the actor
+/// monolith's feature module, plus its three message channels. A capability whose
+/// systems are added by two other crates cannot be composed away from either, and
+/// "move mount into its own crate" was already done — the carve that remained was
+/// the schedule.
+///
+/// ⛔ IT CLAIMS *WHERE*, NEVER *WHEN*. The plugin puts each system into a set this
+/// crate publishes and states the order BETWEEN those sets, because that order is
+/// this domain's own fact: board, then tick leases, then apply dismounts. It does
+/// NOT say which schedule those sets live in or which phase contains them — the
+/// composition still decides that, and still decides whether to add the plugin at
+/// all. That is the distinction `ambition_combat`'s no-plugin note is about, and
+/// the reason this one is safe to write: nothing here decides when the host runs.
+///
+/// ⚠ MESSAGES COME WITH IT. `DismountRequested`, `RiderDismounted` and
+/// `RideRefused` are this crate's vocabulary; a composition that adds the plugin
+/// should not also have to remember three `add_message` calls, and one that does
+/// not add it should not carry the channels.
+pub struct MountPlugin;
+
+impl bevy::prelude::Plugin for MountPlugin {
+    fn build(&self, app: &mut bevy::prelude::App) {
+        app.add_message::<DismountRequested>();
+        app.add_message::<RiderDismounted>();
+        // A summon that asked to be ridden and was refused. Written by the
+        // construction road inside its exclusive command, read by whichever
+        // ruleset decides what an unclaimed mount is for.
+        app.add_message::<RideRefused>();
+    }
+}
+
+/// Install this crate's simulation systems into the schedule the host names.
+///
+/// ⛔ A FUNCTION AND NOT A SECOND `Plugin`, because the SCHEDULE is the host's
+/// choice and a `Plugin` has no way to take one. The composition passes the label
+/// it runs its simulation in; everything about the ORDER inside is decided here.
+///
+/// ⚠ `enforce_mount_rider_link` is deliberately NOT chained to
+/// `actor_monolith::rebuild_dismounted_rider_brains` any more. That chain — one
+/// crate fixing the relative order of two OTHER crates' private systems — is the
+/// instance the architecture program names as its reference defect. The rebuild
+/// answers the `MountDied` this crate announces, so the consumer orders itself
+/// `.after(MountRiderLinkEnforced)` and neither crate names the other's function.
+pub fn install_mount_simulation_systems(
+    app: &mut bevy::prelude::App,
+    schedule: impl bevy::ecs::schedule::ScheduleLabel + Clone,
+) {
+    use bevy::prelude::IntoScheduleConfigs as _;
+    app.configure_sets(
+        schedule.clone(),
+        (MountsBoarded, RideLeasesTicked, DismountRequestsApplied)
+            .chain()
+            .after(MountRiderLinkEnforced),
+    );
+    app.add_systems(
+        schedule.clone(),
+        enforce_mount_rider_link.in_set(MountRiderLinkEnforced),
+    );
+    app.add_systems(schedule.clone(), board_reserved_mounts.in_set(MountsBoarded));
+    app.add_systems(schedule.clone(), tick_ride_leases.in_set(RideLeasesTicked));
+    app.add_systems(
+        schedule,
+        apply_dismount_requests.in_set(DismountRequestsApplied),
+    );
+}

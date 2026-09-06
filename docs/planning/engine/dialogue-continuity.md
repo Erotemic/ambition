@@ -236,7 +236,7 @@ save for every unnamed cutscene.
 the mistake this page should not make.** Several are plainly CORRECT to survive a
 close: `pending_start` is a request for the NEXT dialogue and resetting it would
 drop the conversation about to begin; `line_reveal` and `speech_style` are set at
-LINE START (`runtime.rs:194`), so a close has nothing to say about them. The
+LINE START (`crates/ambition_dialog/src/runtime.rs:194`), so a close has nothing to say about them. The
 pointer/focus group is input state whose lifetime is the widget, not the
 conversation.
 

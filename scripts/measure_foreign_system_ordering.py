@@ -96,17 +96,50 @@ def workspace_crates() -> set[str]:
     return names
 
 
-# ⛔⛔ THE CHAIN BETWEEN THEM IS THE POINT. A system is rarely written
-# `name.in_set(S)`; it is written `name.after(X).in_set(S)`, across lines, and a
-# regex demanding adjacency reports "in no set" for the commonest spelling. That
-# is how this hint told me `commit_seat_raw_frames` belonged to nothing while
-# `ambition_platformer2d_host` installs it into `PrimarySlotInputCommit` three
-# lines down. ⇒ Allow any run of chained calls between the name and `.in_set(`.
-IN_SET = re.compile(
-    r"\b([a-z_][A-Za-z_0-9]*)\s*((?:\s*\.\w+\([^()]*(?:\([^()]*\))?[^()]*\))*?)"
-    r"\s*\.in_set\(\s*([A-Za-z_][A-Za-z_0-9:]*)",
-    re.DOTALL,
-)
+# ⛔⛔ THE CHAIN BETWEEN THEM IS THE POINT, AND A REGEX IS THE WRONG TOOL FOR IT.
+# A system is rarely written `name.in_set(S)`; it is written
+# `name.after(X).in_set(S)`, across lines, so a matcher demanding adjacency
+# reports "in no set" for the commonest spelling — which is how this hint told me
+# `commit_seat_raw_frames` belonged to nothing while `ambition_platformer2d_host`
+# installs it into `PrimarySlotInputCommit` three lines down.
+#
+# ⚠ AND MY FIRST FIX FOR THAT WAS A NESTED-QUANTIFIER REGEX THAT BACKTRACKED THE
+# SCRIPT PAST TWO MINUTES. A tool nobody can run is a tool nobody runs. This
+# scans backwards from each `.in_set(` over the chained calls instead — linear,
+# bounded, and it says in code what the regex said in punctuation.
+IN_SET_CALL = re.compile(r"\.in_set\(\s*([A-Za-z_][A-Za-z_0-9:]*)")
+IDENT_TAIL = re.compile(r"([A-Za-z_][A-Za-z_0-9]*)\s*$")
+
+
+def _system_before(text: str, at: int) -> str | None:
+    """The identifier a chain of `.method(...)` calls hangs off, scanning back."""
+    i = at
+    for _ in range(12):  # bounded: a real chain is a handful of calls
+        head = text[:i]
+        match = IDENT_TAIL.search(head)
+        if not match:
+            return None
+        name = match.group(1)
+        before = head[: match.start(1)].rstrip()
+        if not before.endswith("."):
+            return name
+        # `name` was a method in the chain — step over its argument list
+        close = before[:-1].rstrip()
+        if not close.endswith(")"):
+            return name
+        depth, j = 0, len(close) - 1
+        while j >= 0:
+            if close[j] == ")":
+                depth += 1
+            elif close[j] == "(":
+                depth -= 1
+                if depth == 0:
+                    break
+            j -= 1
+        if j < 0:
+            return None
+        i = j
+    return None
 
 
 def sets_by_system() -> dict[str, set[str]]:
@@ -138,8 +171,11 @@ def sets_by_system() -> dict[str, set[str]]:
         for path in base.rglob("*.rs"):
             if "tests" in path.name or "/tests/" in str(path):
                 continue
-            for system, _chain, group in IN_SET.findall(raw_text(path)):
-                found.setdefault(system, set()).add(group.split("::")[-1])
+            text = raw_text(path)
+            for match in IN_SET_CALL.finditer(text):
+                system = _system_before(text, match.start())
+                if system:
+                    found.setdefault(system, set()).add(match.group(1).split("::")[-1])
     return found
 
 

@@ -164,6 +164,29 @@ pub fn resolve_hurtboxes(
 /// Deliberately NOT a query for `CharacterAnimator`, `Sprite`, or anything in
 /// `ambition_render`. This crate cannot even name them, which is the strongest
 /// available form of §4.11's prohibition.
+/// The set [`resolve_body_hurtboxes`] runs in — **published so a consumer can
+/// order against a PHASE instead of against this function's identity.**
+///
+/// ⭐⭐ IT EXISTS BECAUSE A CONSUMER WAS NAMING THE SYSTEM, and the consumer said
+/// so in its own words: *"the one intra-crate edge that is genuinely between two
+/// systems: the character runtime resolves the silhouette this reads."* The edge
+/// is real — `refresh_body_damageable_volumes` reads what this publishes — but
+/// expressing it required `ambition_platformer2d_actor_monolith` to name a
+/// function in this crate, which is private cross-domain ordering authority.
+/// It did so because there was nothing else to name.
+///
+/// ⛔ THE MEMBERSHIP IS THE INSTALLER'S TO DECLARE. This crate publishes the
+/// vocabulary; whoever composes the schedule decides which phase it sits in and
+/// what shares it — the same split `HazardTickSet` above states, and the reason
+/// this is a bare marker with no `configure_sets` beside it.
+///
+/// ⚠ ONE MEMBER TODAY, so `.after(BodyHurtboxesResolved)` is exactly
+/// `.after(resolve_body_hurtboxes)` — and that is the point rather than a
+/// caveat: the consumer gets the same guarantee it had, expressed in vocabulary
+/// this crate can widen later without every consumer being rewritten.
+#[derive(bevy::prelude::SystemSet, Clone, Copy, Debug, PartialEq, Eq, Hash)]
+pub struct BodyHurtboxesResolved;
+
 pub fn resolve_body_hurtboxes(
     mut bodies: Query<(
         &AuthoredHurtboxes,

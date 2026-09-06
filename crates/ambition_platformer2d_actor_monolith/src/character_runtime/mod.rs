@@ -981,7 +981,12 @@ impl Plugin for CharacterRuntimePlugin {
                             ambition_time::WorldTime,
                         >,
                     ),
-                    ambition_combat::hurtbox_resolution::resolve_body_hurtboxes,
+                    // ⭐ INTO THE PUBLISHED SET, so the volume refresher in
+                    // `features` can order against a phase rather than against
+                    // this function's identity. The domain owns the vocabulary;
+                    // this composition decides which window it sits in.
+                    ambition_combat::hurtbox_resolution::resolve_body_hurtboxes
+                        .in_set(ambition_combat::hurtbox_resolution::BodyHurtboxesResolved),
                 )
                     .chain()
                     // Pinned to one exact window inside `Combat`: AFTER the move

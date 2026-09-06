@@ -243,9 +243,14 @@ pub fn register_damage_facing_volume_publication(app: &mut bevy::prelude::App) {
             // volumes, and BEFORE `Resolve`, because that is what reads them.
             .after(ambition_platformer2d_shared_tangle::schedule::CombatSet::Playback)
             .before(ambition_platformer2d_shared_tangle::schedule::CombatSet::Resolve)
-            // The one intra-crate edge that is genuinely between two systems: the
-            // character runtime resolves the silhouette this reads.
-            .after(ambition_combat::hurtbox_resolution::resolve_body_hurtboxes),
+            // ⛔ ~~The one intra-crate edge that is genuinely between two
+            // systems~~ — IT IS A PHASE NOW. The dependency is unchanged and
+            // real (the character runtime resolves the silhouette this reads);
+            // what changed is that `ambition_combat` publishes
+            // `BodyHurtboxesResolved` and the runtime installs the resolver into
+            // it, so this states a MEMBERSHIP rather than reaching into another
+            // crate's private system list for a name.
+            .after(ambition_combat::hurtbox_resolution::BodyHurtboxesResolved),
     );
 }
 

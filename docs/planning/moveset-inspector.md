@@ -1162,6 +1162,41 @@ production render systems:
 consumer re-derives the part it needs. That is a small helper plus a decision
 about who owns it — incremental work, which is exactly what criterion 10 asserts
 — rather than a render-side publish the inspector has to wait for.
+
+⛔⛔ **AND THE HELPER SHOULD NOT BE BUILT — RE-MEASURED 2026-09-06, and this
+paragraph would have cost somebody a day.** Two corrections, one small and one
+that changes the plan:
+
+* ⚠ **The grep missed a spelling.** `camera_snapshot.rs:611` defines a
+  `to_screen`. ⇒ It is NOT this seam — a rotation-only local closure applying
+  `cos`/`sin`, with no centre, zoom or viewport — so the paragraph's conclusion
+  survives its narrow search. Recorded because a future reader who greps
+  `to_screen` will find it and reasonably think the seam already exists.
+  ⭐ **And it could not be the seam even in principle** (re-derived independently
+  by a peer session, 2026-09-06): every call site feeds it a DELTA rather than a
+  position — `to_screen(desired - anchor)`,
+  `to_screen(velocity_world * look_ahead_seconds)` — so it never sees an absolute
+  world point at all.
+* ⛔⛔ **BEVY ALREADY COMPOSES IT, AND THE RENDERER OWNS IT:
+  `Camera::world_to_viewport`.** It is in production use here — `ambition_menu_
+  kaleidoscope`, and decisively `capture_sanic.rs:230`, which projects a world
+  subject to viewport pixels and checks it against `logical_viewport_size()` to
+  prove the subject is IN FRAME for a capture. **That is M3's job, already done,
+  with the renderer's own projection.**
+
+⇒ **Composing the published sim-view components into a parallel `world_to_screen`
+would be a SECOND source of truth for a mapping the renderer already owns.** And
+for agreement measured against a RENDERED frame that is not merely redundant, it
+is wrong-shaped: the sim-view components are the simulation's INTENT, so a
+prediction built from them can disagree with the picture, and the disagreement
+would be scored as an art/geometry failure. **Measure the frame with the camera
+that drew it.**
+
+⭐ **The real remainder is the paragraph directly below this one, which everybody
+quotes past:** *"deciding what 'agreement' means in pixels (which anchor, what
+tolerance, at which zoom)"*. That is a DEFINITION, not a seam, and building the
+helper first ships a knob with nothing to turn — the reasoning that kept
+`ProjectileInterception::Redirect` out for want of a customer.
 ⚠ It does NOT follow that the agreement measurement is free: composing the
 mapping is the easy half, and deciding what "agreement" means in pixels (which
 anchor, what tolerance, at which zoom) is the half this page still owes.

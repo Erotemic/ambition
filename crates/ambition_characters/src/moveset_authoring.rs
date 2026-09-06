@@ -1537,6 +1537,11 @@ pub fn wake(mut m: MoveSpec, wake: Wake) -> MoveSpec {
 /// ⭐ THE GENRE'S SWORD MECHANIC. A thrust whose TIP hits harder than its base
 /// rewards spacing: the same button is a poke up close and a kill at range, and
 /// the fighter's distance from you becomes the read.
+///
+/// ⇒ Compare [`Wake`], which is this shape inverted: a tip is INSERTED at rank 0
+/// so the far volume wins wherever both reach, and a wake is APPENDED so the hit
+/// stays ahead of the shove. The cross-reference is here because a reader who
+/// finds `tipper` first would otherwise never learn the other exists.
 pub struct Tip {
     /// Where the tip sits, body-local, and how big it is.
     pub offset: (f32, f32),

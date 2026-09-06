@@ -257,14 +257,20 @@ actual product requirement.
   [`engine/inspection-diagnostics-and-workbench.md`](engine/inspection-diagnostics-and-workbench.md).
 - ▢ **Moveset observatory M3 — art/geometry agreement.** Six of seven milestones
   are closed and ten of ten exit criteria hold;
-  [`moveset-inspector.md`](moveset-inspector.md) is the owner. ⭐ Re-measured
-  2026-09-03, the remainder is **a COMPOSITION, not a publication**: the camera
-  transform's components are already published per view and consumed by
-  production render systems (`CameraViewState`'s `center_world`,
-  `visible_view`, `orthographic_scale`, `zoom_multiplier`, `target_world`, plus
-  `CameraViewport`'s rect), and a grep for `world_to_screen`/`screen_from_world`
-  finds nothing — no helper composes them. So this is a small seam to add, not a
-  renderer change to negotiate.
+  [`moveset-inspector.md`](moveset-inspector.md) is the owner. ~~⭐ Re-measured
+  2026-09-03, the remainder is **a COMPOSITION, not a publication** … a small seam
+  to add.~~ ⛔⛔ **RE-MEASURED 2026-09-06 AND THE SEAM SHOULD NOT BE BUILT.**
+  Bevy already composes it — `Camera::world_to_viewport`, in production use here
+  and decisively in `capture_sanic.rs:230`, which projects a world subject to
+  viewport pixels and checks `logical_viewport_size()` to prove the subject is in
+  frame FOR A CAPTURE. That is M3's job with the renderer's own projection.
+  ⇒ Composing the published sim-view components into a parallel helper would be a
+  second source of truth for a mapping the renderer owns, and a prediction built
+  from the simulation's INTENT can disagree with the picture — the disagreement
+  then scores as an art/geometry failure. **Measure the frame with the camera that
+  drew it.** ⇒ The real remainder is a DEFINITION the inspector page already names
+  one paragraph below the part everyone quotes: which anchor, what tolerance, at
+  which zoom. Filed as a maintainer question rather than guessed.
   ⛔ **LISTED HERE BECAUSE IT HAD NO INBOUND LINK AT ALL.** Its only referrer was
   `overnight-goal-agent3.md`, a closed receipt retired on 2026-09-03 — and
   retiring it left an OPEN plan unreachable by the README's route. Do not remove

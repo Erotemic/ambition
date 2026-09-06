@@ -18,7 +18,7 @@ use ambition_characters::smash_repertoire::{
 use ambition_platformer2d::entity_catalog::{ImpulseMode, MoveSpec, MovesetContract, WindowTag};
 
 use ambition_characters::moveset_authoring::{
-    committed_tail, impulse, on_contact, strike, strike_tag, vfx_at, vfx_cued,
+    committed_tail, impulse, on_contact, strike, strike_tag, tipper, vfx_at, vfx_cued, Tip,
 };
 
 /// Burst sizes, as multiples of the presentation default. See
@@ -349,6 +349,34 @@ pub fn carl_stargan_moveset() -> MovesetContract {
         launch_dir: Some((0.8, -0.60)),
         on_hit: None,
     });
+    // ⭐⭐ A CHARGE, BECAUSE THE MOVE IS ABOUT COMPRESSED TIME AND HAD NO TIME IN
+    // IT. Fourteen billion years on one page, authored as a slow sweep that is
+    // the same sweep however long you look at it — one of the roster's specials
+    // carrying no mechanic at all. Holding it now buys the reach's worth of
+    // damage.
+    //
+    // ⛔ IT DOES NOT STORE. A stored charge is a threat you carry into the next
+    // exchange, which is the brawler's haymaker and a different character; his
+    // is a thing you commit to on the page you are on.
+    let mut n_b = n_b;
+    n_b.smash_charge = Some(ambition_platformer2d::entity_catalog::SmashChargeSpec {
+        // Just after the sweep's own cue at 0.04s, so the wind-up reads before
+        // the freeze rather than a statue appearing.
+        hold_at_s: 0.08,
+        // Long, and shorter than the brawler's 1.2s: Carl is not a threat you
+        // have to respect from across the stage, he is a slow swing you can
+        // choose to make slower.
+        max_hold_s: 0.9,
+        stores: false,
+        // ⭐ ROOTED, the rule every charge in the game follows: a wind-up you
+        // could walk around with is a threat with no commitment behind it.
+        roots: true,
+        sustain: ambition_platformer2d::entity_catalog::ChargeSustain::WhileHeld,
+    });
+    n_b.charge_gesture = ambition_platformer2d::entity_catalog::ChargeGesture::Special;
+    // 1.45x at a full hold: 11 damage becomes 15, and the knockback with it.
+    // Below the haymaker's 1.6 because this already covers the whole page.
+    n_b.smash_charge_mult = 1.45;
     let n_b = vfx_at(n_b, 0.04, "cosmic_calendar_sweep", (0.0, -6.0), COSMIC_FX);
     let n_b = vfx_at(n_b, 0.30, "perspective_shift", (36.0, -4.0), SWING_FX);
     let n_b = on_contact(n_b, "player.hit");
@@ -444,25 +472,60 @@ pub fn carl_stargan_moveset() -> MovesetContract {
     );
     let up_b = on_contact(up_b, "player.hit");
 
-    // DOWN — `pale_blue_dot`. A pixel, at distance. The SMALLEST box in the
-    // table on the end of the second-longest reach: it hits almost nothing, and
-    // it hits it from over there.
+    // DOWN — `pale_blue_dot`. A pixel, at distance.
+    //
+    // ⭐⭐ THE NAME IS THE MECHANIC AND THE MOVE DID NOT CARRY IT. Voyager turned
+    // round past Neptune and Earth was one pixel; the whole point of the
+    // photograph is the DISTANCE, not the dot. This was authored as a single 7×7
+    // box at 62px — the smallest box in the table on the second-longest reach —
+    // which reads the idea in the numbers and says nothing in play, because one
+    // volume cannot be strong somewhere and weak somewhere else. It was one of
+    // the roster's 13 specials carrying no mechanic at all.
+    //
+    // ⇒ A TIPPER, so the distance is the read. Up close he sweeps the ground and
+    // it is a poke; at the very end of the reach the pixel is a kill. Same
+    // button, and where you are standing decides which move it was.
+    //
+    // ⛔ THE NEAR HALF IS NEW AND IT IS A COST, not a free addition: the old
+    // version whiffed entirely inside 55px, and a player who mistimed their
+    // spacing got nothing rather than a weak hit. Now they get 7 and no launch,
+    // which is worse for them than a whiff at neutral — a landed sourspot ends
+    // the exchange without the reward, and Carl is left in his 0.32s recovery
+    // having earned almost nothing.
     let down_b = strike(Strike {
         id: "pale_blue_dot",
         clip: "pale_blue_dot",
         startup_s: 0.24,
         active_s: 0.07,
         recover_s: 0.32,
-        offset: (62.0, -2.0),
-        half_extents: (7.0, 7.0),
-        damage: 12,
-        knockback: 116.0,
-        knockback_growth: 1.90,
+        // The base: the ground he is actually standing on, which is the part of
+        // the photograph nobody frames.
+        offset: (44.0, -2.0),
+        half_extents: (20.0, 10.0),
+        damage: 7,
+        knockback: 92.0,
+        knockback_growth: 1.42,
         launch_dir: Some((0.6, -0.80)),
         on_hit: None,
     });
+    // ⭐ THE PIXEL, ranked first so it wins wherever both reach. `tipper` inserts
+    // at index 0 and the strike seam takes the first-authored volume that
+    // reaches — see its doc for why appending would silently invert the move.
+    let down_b = tipper(
+        down_b,
+        Tip {
+            offset: (66.0, -2.0),
+            half_extents: (7.0, 7.0),
+            damage: 14,
+            knockback: 132.0,
+            knockback_growth: Some(2.05),
+            launch_dir: Some((0.6, -0.80)),
+        },
+    );
     let down_b = strike_tag(down_b, SLASH_POKE_VFX);
-    let down_b = vfx_at(down_b, 0.24, "pale_blue_dot_ping", (62.0, -2.0), POKE_FX);
+    // The ping is the dot, so it draws where the dot is rather than where the
+    // sweep is.
+    let down_b = vfx_at(down_b, 0.24, "pale_blue_dot_ping", (66.0, -2.0), POKE_FX);
     let down_b = on_contact(down_b, "player.hit");
 
     // effect on ground. Think of bowser down b. In the air he just does a
@@ -693,6 +756,78 @@ mod tests {
             .find(|m| m.id == id)
             .unwrap_or_else(|| panic!("{id} exists"))
             .clone()
+    }
+
+    /// ⭐⭐ TIME IS THE MOVE, SO IT HOLDS AND DOES NOT KEEP.
+    ///
+    /// ⛔ `stores` IS THE ASSERTION THAT MATTERS. A stored charge is a threat
+    /// carried into the NEXT exchange — that is the brawler's haymaker and a
+    /// different character. Carl's is a thing you commit to on the page you are
+    /// on, and a guard that only found a `smash_charge` passes against the
+    /// version that changes who he is.
+    #[test]
+    fn the_cosmic_calendar_is_held_on_the_page_it_is_thrown_on() {
+        let calendar = find(&carl_stargan_moveset(), "cosmic_calendar");
+        let charge = calendar
+            .smash_charge
+            .as_ref()
+            .expect("fourteen billion years is a hold");
+        assert!(!charge.stores, "a stored calendar is somebody else's move");
+        assert!(charge.roots, "a wind-up you can walk around with is not a commitment");
+        assert!(
+            charge.hold_at_s > 0.0 && charge.hold_at_s < calendar.duration_s,
+            "the freeze must sit inside the move"
+        );
+        assert!(
+            calendar.smash_charge_mult > 1.0,
+            "holding it must buy something"
+        );
+    }
+
+    /// ⭐⭐ THE PIXEL IS THE KILL, AND ITS RANK IS THE MECHANIC.
+    ///
+    /// `pale_blue_dot` is a tipper: one Active window carrying two volumes, with
+    /// the far one written FIRST. `StrikeRank` is the move's own reading order
+    /// and the strike seam takes *"the FIRST-AUTHORED volume that reaches it and
+    /// no other"* — so a body standing where both boxes reach is hit by whichever
+    /// appears first in the source.
+    ///
+    /// ⛔⛔ THIS ASSERTS THE ORDER, NOT THE PRESENCE, and the distinction is the
+    /// whole test. Appending the tip instead of inserting it leaves a move that
+    /// reads correctly in this file and plays backwards: the near sourspot would
+    /// outrank the pixel and win every exchange where both reach, so spacing —
+    /// the entire point of the move — would be punished instead of rewarded. A
+    /// test that only counted two volumes passes against exactly that.
+    #[test]
+    fn the_pale_blue_dot_kills_at_the_pixel_and_pokes_up_close() {
+        let dot = find(&carl_stargan_moveset(), "pale_blue_dot");
+        let window = dot
+            .windows
+            .iter()
+            .find(|w| w.tag == WindowTag::Active && !w.volumes.is_empty())
+            .expect("the dot has an active window");
+        assert_eq!(
+            window.volumes.len(),
+            2,
+            "the dot is a sweetspot and a sourspot: {:?}",
+            window.volumes.len()
+        );
+        let tip = &window.volumes[0];
+        let base = &window.volumes[1];
+        assert!(
+            tip.shape.leading_edge_x() > base.shape.leading_edge_x(),
+            "rank 0 must be the FAR volume, or spacing is punished rather than \
+             rewarded: tip reaches {}, base reaches {}",
+            tip.shape.leading_edge_x(),
+            base.shape.leading_edge_x(),
+        );
+        assert!(
+            tip.damage > base.damage,
+            "the pixel must hit harder than the ground he is standing on: \
+             tip {} vs base {}",
+            tip.damage,
+            base.damage,
+        );
     }
 
     // Fourteen fighters each carried a copy of it: every bound verb names a move

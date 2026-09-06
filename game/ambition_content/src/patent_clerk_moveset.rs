@@ -17,7 +17,7 @@ use ambition_characters::smash_repertoire::{
 use ambition_platformer2d::entity_catalog::{ImpulseMode, MoveSpec, MovesetContract};
 
 use ambition_characters::moveset_authoring::{
-    committed_tail, impulse, on_contact, strike, vfx_at, vfx_cued,
+    committed_tail, fixed_knockback, impulse, on_contact, strike, vfx_at, vfx_cued,
 };
 
 const STAMP_FX: f32 = 0.55;
@@ -319,6 +319,23 @@ pub fn patent_clerk_moveset() -> MovesetContract {
         launch_dir: Some((0.9, -0.45)),
         on_hit: None,
     });
+    // ⭐⭐ SET KNOCKBACK, BECAUSE THE COMMENT ABOVE ALREADY PROMISED IT AND THE
+    // NUMBERS SAID OTHERWISE. "The speed of light is the same in every frame"
+    // was authored against `knockback_growth: 2.05` — a launch that depends
+    // entirely on how damaged the observer is, which is the one thing the
+    // postulate says cannot happen. It was one of the roster's specials carrying
+    // no mechanic at all, and the mechanic it was missing was the one written
+    // above it.
+    //
+    // ⇒ `fixed_knockback` zeroes the growth on every volume: the same launch at
+    // 0% and at 150%. That makes this his SET-UP rather than his finisher — it
+    // will never kill, and it sends them exactly where he wants at any percent,
+    // which is what a man who argues from invariants should have in his hand.
+    //
+    // ⛔ AND IT IS A REAL TRADE. He loses a neutral-B that scaled into a kill
+    // move; a clerk who can no longer finish with his best-reaching special has
+    // to earn the stock somewhere else in the kit.
+    let n_b = fixed_knockback(n_b);
     let n_b = committed_tail(n_b, 0.66, 0.0);
     let n_b = vfx_at(n_b, 0.22, "light_cone", (36.0, -6.0), PROOF_FX);
     let n_b = on_contact(n_b, "player.hit");
@@ -643,6 +660,38 @@ pub fn patent_clerk_moveset() -> MovesetContract {
 
 #[cfg(test)]
 mod tests {
+
+    /// ⭐⭐ THE SAME LAUNCH FOR EVERY OBSERVER, AS AN ASSERTION.
+    ///
+    /// `light_argument`'s comment says "the speed of light is the same in every
+    /// frame" and the move was authored with `knockback_growth: 2.05`, which is
+    /// a launch that depends entirely on how damaged the victim is. The
+    /// postulate is now the mechanic: `fixed_knockback` zeroes the growth on
+    /// every volume the move lands.
+    ///
+    /// ⛔ ASSERTS ZERO, NOT "SMALL". A guard reading `growth < 1.0` passes
+    /// against a move that still scales, which is the whole defect it exists to
+    /// prevent — invariance is not a low number, it is no number.
+    #[test]
+    fn the_light_argument_launches_the_same_at_every_percent() {
+        let set = patent_clerk_moveset();
+        let argument = set
+            .move_by_id("light_argument")
+            .expect("light_argument exists");
+        let volumes: Vec<_> = argument
+            .windows
+            .iter()
+            .flat_map(|w| w.volumes.iter())
+            .collect();
+        assert!(!volumes.is_empty(), "it is still a strike");
+        for volume in volumes {
+            assert_eq!(
+                volume.knockback_growth,
+                Some(0.0),
+                "a frame-dependent launch is the one thing the postulate forbids"
+            );
+        }
+    }
     /// ⭐⭐ THE CLERK'S TWO CLOCKS FINALLY DISAGREE — the third counter
     /// `smash_counter` names, and the sixth move on this roster whose ART
     /// asserted a mechanic the code did not have.

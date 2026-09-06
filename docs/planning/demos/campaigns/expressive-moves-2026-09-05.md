@@ -937,7 +937,13 @@ ALREADY WRITTEN DOWN:**
 live, not the code**, and every one of them produced a confident, wrong,
 well-worded failure message.
 
-### ⭐⭐ "MANY HAVE BORING SPECIALS" IS NOW FOUR, AND IT IS A RATCHET RATHER THAN A FEELING
+### ⭐⭐ "MANY HAVE BORING SPECIALS" — MEASURED THREE TIMES, AND ONLY THE THIRD COUNT IS TRUE
+
+⛔ **READ THE CORRECTION AT THE FOOT OF THIS SECTION BEFORE QUOTING ANY NUMBER IN
+IT.** The per-fighter figures below (*"18 expressive, 1 plain"*, *"the complaint
+is closed"*) came from an instrument whose unit saturated and whose predicate
+counted two of four mechanical event kinds. The honest number in the unit the
+complaint uses is **80 of 88 specials with a mechanic, 8 without** (2026-09-06).
 
 The goal's own complaint has been argued from readings all campaign. ⇒ Measured
 from the authored DATA — a special is expressive when it carries a technique, a
@@ -980,6 +986,53 @@ roster and which are not.
 to make the test fail and print the real number, rather than picking a figure and
 asserting it. That is how `theorem_chain` surfaced — **a name in the output I did
 not recognise**, which is what corrected the sweep's own headline two sections up.
+
+⛔⛔⛔ **AND THE SECTION ABOVE IS WRONG ON BOTH ITS NUMBER AND ITS UNIT —
+corrected 2026-09-06 (`86f49928b`, `d117338cc`). "18 expressive,
+1 plain" and *"the goal's complaint is closed"* were reported from an instrument
+with three defects, and I repeated the headline to Jon in a status report.**
+
+| what it said | what was wrong | measured |
+|---|---|---|
+| *18 expressive, 1 plain* | **the unit is the FIGHTER.** It passes when each fighter has AT LEAST ONE interesting special | a fighter with one technique and three bare swings scored the same as one whose whole kit reads |
+| *and it is a ratchet* | it reached **19/19 against a floor of 18** on 2026-09-05 | **a ratchet at its ceiling is not a ratchet** — after that day no authoring could move it in either direction, and it was still being quoted as progress |
+| *a strike with cues is not [expressive]* | the DOC said that; the ARITHMETIC did not | the plain verdict read `extras.is_empty() && reasons.is_empty()` and `extras` was padded with `format!("{} event(s)", …)`, so any cue rescued a special |
+| the predicate | counted **two of four** mechanical `MoveEventKind` variants | `Effect` and `GravityModifier` counted; `Impulse` and `Ranged` were lumped in with the cues |
+
+⇒ **THE HONEST NUMBER, in the unit Jon's sentence uses: 13 of 88 specials across
+19 fighters carried no mechanic at all — 15%, not 0%.** Method:
+`expressive_reasons` in `game/ambition_content/src/authored_movesets.rs`, one
+definition consulted by both the per-special census and the per-special ratchet;
+a special is expressive when it carries a flow, a stance, a sweetspot, a volume
+reaction, a charge, an impulse (field OR event), a second hit window, a technique,
+a ranged event, a gravity regime, an armour / invulnerable / cancel window, an
+on-hit technique, set knockback, or a loop. Cues are printed and never counted.
+Reference point: `86f49928b`, whole roster, `tables()`.
+
+⭐ **AND MY FIRST CORRECTION WAS WRONG IN THE SAME WAY, WHICH IS THE PART WORTH
+KEEPING.** I first reported **48**, by filtering the printout for "events only"
+without asking what an event can be — so Alice's `key_exchange`, a **640 px/s
+committed lunge**, sat in the cue-only bucket beside moves whose whole authoring
+is a sound. ⇒ **0 → 48 → 13, and only the last is a measurement.** All three were
+counts over a closed set made without enumerating the set. The definition now
+matches `WindowTag`, `MoveEventKind` and `HitVolume` exhaustively, so a new
+variant is a compile error rather than a silent miscount.
+
+⚠ **What actually caught it was not a better instrument.** I opened
+`alice_moveset.rs` to pick a move to work on, saw `impulse(side_b, 0.13, (640.0,
+0.0), Set)` on a move my own census had just called cue-only, and the two facts
+could not both be true. Re-running a census confirms the census; **a single
+authored customer contradicts it.**
+
+⇒ **THE COMPLAINT IS NOT CLOSED, AND THAT SENTENCE SHOULD NOT HAVE BEEN WRITTEN.**
+It is 80 of 88 with a mechanic as of `d117338cc`, after five specials were
+authored on 2026-09-06 (`pale_blue_dot` a tipper, `hash_collision` a gather,
+`light_argument` set knockback, `one_time_pad` armour, `cosmic_calendar` a
+charge). ⛔ **Three of the remaining eight are DELIBERATE and must not be
+"fixed":** the goblin's `scrap_flail` (*"no technique at all: it turns its whole
+body into the swing and hopes"*), `cellular_pulse` (a migration promise not to
+retune it), and `performer_the_line` (an explicit refusal of
+`MoveEventKind::Ranged`). **A plain list is not a to-do list.**
 
 ### ⭐⭐ THE SWEEP FINISHED, AND THE HYPOTHESIS IT SUGGESTED WAS REFUTED
 

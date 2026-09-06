@@ -1021,6 +1021,120 @@ mod multihit_tests {
     }
 }
 
+/// ⛔⛔ `tipper` SHIPPED WITH NO TEST IN ITS OWN CRATE, 2026-09-06.
+///
+/// Its one load-bearing decision — the tip goes in at index 0, because
+/// `StrikeRank` is the move's reading order and the seam takes the first volume
+/// that reaches — was held only by an authored fighter in `ambition_content`.
+/// Found by poisoning `insert(0, ..)` to `insert(1, ..)`: that crate went red
+/// while `cargo test -p ambition_characters tipper` matched ZERO tests.
+///
+/// ⇒ A verb's invariant belongs where the verb lives. A customer can be
+/// re-authored, re-tuned or deleted, and the day it is, the mechanic it was
+/// silently holding up goes with it.
+#[cfg(test)]
+mod tipper_tests {
+    use super::*;
+
+    fn poke() -> MoveSpec {
+        strike(Strike {
+            id: "test_tipper",
+            clip: "attack",
+            startup_s: 0.10,
+            active_s: 0.08,
+            recover_s: 0.20,
+            offset: (30.0, 0.0),
+            half_extents: (14.0, 10.0),
+            damage: 6,
+            knockback: 80.0,
+            knockback_growth: 1.40,
+            launch_dir: Some((0.8, -0.5)),
+            on_hit: None,
+        })
+    }
+
+    fn far_tip() -> Tip {
+        Tip {
+            offset: (52.0, 0.0),
+            half_extents: (6.0, 6.0),
+            damage: 13,
+            knockback: 130.0,
+            knockback_growth: Some(2.0),
+            launch_dir: Some((0.8, -0.5)),
+        }
+    }
+
+    /// ⭐ RANK, NOT PRESENCE. Appending the tip leaves a move that reads right in
+    /// the source and plays backwards, and a test that counted two volumes would
+    /// pass against it.
+    #[test]
+    fn the_tip_is_ranked_ahead_of_the_base() {
+        let m = tipper(poke(), far_tip());
+        let window = m
+            .windows
+            .iter()
+            .find(|w| w.tag == WindowTag::Active && !w.volumes.is_empty())
+            .expect("an active window");
+        assert_eq!(window.volumes.len(), 2, "a tipper is base plus tip");
+        assert!(
+            window.volumes[0].shape.leading_edge_x()
+                > window.volumes[1].shape.leading_edge_x(),
+            "index 0 must be the FAR volume: {} vs {}",
+            window.volumes[0].shape.leading_edge_x(),
+            window.volumes[1].shape.leading_edge_x(),
+        );
+        assert!(window.volumes[0].damage > window.volumes[1].damage);
+    }
+
+    /// The move keeps its own timeline: a sweetspot is a second volume on a
+    /// window, never a second window.
+    #[test]
+    fn a_tip_adds_no_window_and_moves_no_timing() {
+        let base = poke();
+        let m = tipper(base.clone(), far_tip());
+        assert_eq!(m.windows.len(), base.windows.len());
+        assert_eq!(m.duration_s, base.duration_s);
+    }
+
+    #[test]
+    #[should_panic(expected = "reach")]
+    fn a_tip_that_does_not_outreach_the_base_is_refused() {
+        let mut near = far_tip();
+        near.offset = (10.0, 0.0);
+        let _ = tipper(poke(), near);
+    }
+
+    /// ⚠ STRONGER IS AN **OR**, AND THIS TEST WAS WRONG ABOUT IT FIRST. The
+    /// guard reads `tip.damage > base.damage || tip.knockback > base.knockback`,
+    /// so a tip that trades damage for launch — chips less, kills earlier — is
+    /// allowed, and that is a real sword design rather than a hole. The refusal
+    /// is only for a tip that is weaker on BOTH counts, which is a sourspot at
+    /// the far end wearing a sweetspot's helper.
+    #[test]
+    #[should_panic(expected = "sourspot")]
+    fn a_tip_weaker_on_both_counts_is_refused() {
+        let mut weak = far_tip();
+        weak.damage = 1;
+        weak.knockback = 10.0;
+        let _ = tipper(poke(), weak);
+    }
+
+    /// The other side of that OR, stated so nobody "fixes" it into an AND: a tip
+    /// may hit for LESS and launch for MORE.
+    #[test]
+    fn a_tip_may_trade_damage_for_launch() {
+        let mut trade = far_tip();
+        trade.damage = 3;
+        let m = tipper(poke(), trade);
+        let window = m
+            .windows
+            .iter()
+            .find(|w| w.tag == WindowTag::Active && !w.volumes.is_empty())
+            .expect("an active window");
+        assert_eq!(window.volumes.len(), 2);
+    }
+}
+
 /// The far half of a swing, authored to outrank the near half.
 ///
 /// ⭐ THE GENRE'S SWORD MECHANIC. A thrust whose TIP hits harder than its base
@@ -1054,8 +1168,14 @@ pub struct Tip {
 /// # Panics
 ///
 /// If the move has no Active volume to be the base; if the tip does not reach
-/// FURTHER than the base; or if it does not hit HARDER (a tipper whose tip is
-/// weaker is a sourspot with extra steps).
+/// FURTHER than the base; or if it is weaker on BOTH damage and knockback (a
+/// tipper whose tip loses on every count is a sourspot with extra steps).
+///
+/// ⚠ THAT LAST ONE IS AN **OR**, and this sentence said "does not hit HARDER"
+/// until 2026-09-06, which reads as an AND and is not what the code does. A tip
+/// may hit for LESS damage and launch for MORE — chips less, kills earlier — and
+/// that is an ordinary sword design rather than a hole in the guard. A test
+/// written from the old sentence expected a panic that correctly never came.
 ///
 /// ⚠ THE REACH RULE IS ABOUT THE NAME, NOT ABOUT REACHABILITY, and the first
 /// version of this doc said the opposite. A tip the base entirely contains is

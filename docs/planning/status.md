@@ -173,6 +173,16 @@ in [`tracks.md`](tracks.md). Focused plans own design details.
 was failing deterministically earlier today until the fighter lane route-scoped
 `SmashLimitFill`. Re-derived here rather than accepted on report.
 
+⛔⛔ **CORRECTED WITHIN THE HOUR: the eight reds were MY GUARD'S RESPONSE to Q65,
+not Q65.** They are gone — repo tooling on this box now reads **967 passed, 0
+failed, 12 skipped**, the eight held-item tests SKIPPING honestly. I had made an
+`ImportError` on a NAME a hard failure (right for renderer DRIFT), and it also
+fired on a checkout merely BEHIND the pin — the ordinary state here. The check
+asks the PIN now and tells the two apart. ⇒ Q65 is still real and still open; what
+was red was my reaction to it. The paragraph below is kept as filed rather than
+rewritten, because a receipt that quietly changes its own numbers is worth less
+than one that shows the correction.
+
 ⛔ **THE EIGHT REDS ARE ALL ONE FILE AND ONE MACHINE**:
 `test_held_item_props_are_rendered.py`, which cannot import the sprite renderer
 because THIS CHECKOUT'S submodule is divergent from the pin — Q65 in

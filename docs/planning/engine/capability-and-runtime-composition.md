@@ -119,8 +119,8 @@ identities."* Turned from a principle into a work list.
 
 | population | count | meaning |
 |---|---|---|
-| ORDERING a foreign system | **85** (was 87) | a crate fixing the relative order of systems it does not own |
-| — written by a capability / ruleset | **13** (was 15) | no defence: not composing anything, just reaching in |
+| ORDERING a foreign system | **79** (was 87) | a crate fixing the relative order of systems it does not own |
+| — written by a capability / ruleset | **7** (was 15) | no defence: not composing anything, just reaching in |
 | — written by a composition layer | 72 | ⚠ **still the defect** — see below |
 | INSTALLING a foreign system | 203 | the broader *"who installs it"* question |
 
@@ -189,7 +189,70 @@ part of the contract.
 `a_flinch_leaves_the_admiral_aboard_and_a_launch_takes_him_off`) pass, and
 `ambition_demo_smash` is 249 green.
 
-### The 13 remaining with no defence
+### ⭐ A SECOND EXAMPLE, AND IT NEEDED NO NEW SET AT ALL
+
+`ambition_demo_smash` also wrote `.before(...features::apply_summon_effects)`, and
+its own comment said why: *"`ContentSpecials.before(EffectExecutionSet)` orders
+this ahead of `apply_effects`, and `apply_summon_effects` is CHAINED after that
+system without being IN the set — so the summon executor inherited no order from
+the phase at all."*
+
+⇒ **The phase existed and the executor was not in it.** A summon executor IS an
+effect executor; the runtime now installs it into `EffectExecutionSet` and the
+ruleset's hand-written edge is gone. ⭐ **Cheaper than publishing a set: check
+first whether the right phase already exists and the system simply is not a
+member.** Verified by the shark-summon integration tests, 13 green.
+
+### ⛔ AND TWO OF THE REMAINING WERE NEVER REAL — A THIRD MEASUREMENT CORRECTION
+
+`features/ecs/fighter_harness.rs` carries `#![cfg(test)]` — a FILE-level gate,
+invisible both to a filename heuristic and to the inline-`mod` stripper, which are
+the two exclusions that look like they cover tests. It was counted as production
+and contributed two capability violations that do not exist. **Exactly one file in
+the tree carries that attribute**, which is why it survived: a rule with a single
+instance is one nobody trips over until the instance matters. Both instruments
+fixed; the kernel SCC is unaffected and stays at 12.
+
+### ⭐⭐ THE ROWS ARE AT LEAST FOUR JOBS, AND THE CENSUS NOW SORTS THEM
+
+A peer taking one of these found the shapes read identically in the report and are
+not the same work at all. The census prints the discriminator now — whether the
+named system is ALREADY in a published set:
+
+| shape | fix | cost |
+|---|---|---|
+| **ABSENCE** — nothing to name (shark ride) | publish a marker set, install into it, order against it | 3 crates |
+| **WRONG MEMBERSHIP** — the phase exists, the system is not in it (`apply_summon_effects`) | one `.in_set(...)` where it is installed | 1 line, engine side |
+| **UNUSED PUBLISHED SET** — the vocabulary exists and the author did not use it (dormancy) | order against the set | 1 line, consumer side |
+| **REDUNDANT** — the consumer ALREADY orders against the set and states system edges beside it | delete the system edges | 1 line, consumer side |
+
+⛔⛔ **AND THE FOURTH SHAPE NEARLY BECAME A WRONG EXEMPTION, WHICH IS THE PART
+WORTH KEEPING.** The two `scripted_input.rs` rows were read — by a peer, carefully
+— as *fixture-only targets*: systems with no production registration, where no set
+edge can substitute and the row is permanently correct. That conclusion would have
+put a floor of 2 into the ratchet.
+
+⇒ **Both legs of it were false, and each needed a different check:**
+· `host_input::…` is a **re-export**; both systems ARE registered in production
+  and both ARE in `PrimarySlotInputCommit` (`ambition_platformer2d_host` installs
+  one, the runtime's player schedule the other).
+· the one fixture that composes either system **without** the set
+  (`avatar/systems/tests.rs`) has **zero** references to `write_scripted_controls`,
+  `ScriptedControls` or `drive_the_local_participant` — so the edge was vacuous
+  there too, not protective.
+
+⭐ **THE DISCRIMINATOR IS NOT "is the target registered" BUT "is the ORDERED-FROM
+system present in that composition".** An edge protects nothing in a fixture that
+never installs its left-hand side, and that is a different question from the one
+the target's registration answers.
+
+⚠ **AND MY OWN HINT SAID "in no set" FOR ONE OF THEM.** The matcher required the
+system name adjacent to `.in_set(`, and the commonest spelling is
+`name.after(X).in_set(S)` across lines — so it reported nothing for a system
+installed into the set three lines down. Fixed to allow the chain. **Seventh
+instrument correction of the day, same direction as the other six.**
+
+### The 7 remaining with no defence
 
 `ambition_content -> actor_monolith::features::ecs::dormancy::assess_dormancy`;
 `ambition_demo_smash -> platformer2d::actors::features::apply_summon_effects`;

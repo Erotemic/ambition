@@ -96,6 +96,57 @@ def workspace_crates() -> set[str]:
     return names
 
 
+# ⛔⛔ THE CHAIN BETWEEN THEM IS THE POINT. A system is rarely written
+# `name.in_set(S)`; it is written `name.after(X).in_set(S)`, across lines, and a
+# regex demanding adjacency reports "in no set" for the commonest spelling. That
+# is how this hint told me `commit_seat_raw_frames` belonged to nothing while
+# `ambition_platformer2d_host` installs it into `PrimarySlotInputCommit` three
+# lines down. ⇒ Allow any run of chained calls between the name and `.in_set(`.
+IN_SET = re.compile(
+    r"\b([a-z_][A-Za-z_0-9]*)\s*((?:\s*\.\w+\([^()]*(?:\([^()]*\))?[^()]*\))*?)"
+    r"\s*\.in_set\(\s*([A-Za-z_][A-Za-z_0-9:]*)",
+    re.DOTALL,
+)
+
+
+def sets_by_system() -> dict[str, set[str]]:
+    """Which published set, if any, each system is already installed into.
+
+    ⭐⭐ A PEER'S SUGGESTION AND IT SORTS THE CHEAP FIXES OUT FOR FREE. The rows
+    in this report read identically and are at least THREE different jobs:
+
+      ABSENCE            nothing to name, so the consumer named a system.
+                         Fix: publish a marker set, install into it, order
+                         against it — three crates.
+      WRONG MEMBERSHIP   the right phase exists and the system is not IN it.
+                         Fix: one `.in_set(...)` where the system is installed.
+      UNUSED SET         the system is ALREADY in a published set and the
+                         consumer did not use it. Fix: ONE LINE, in the
+                         consumer's own crate, touching nobody else's lane.
+
+    ⇒ Printing the set a named system already belongs to turns the third case
+    into a visible one-liner instead of something each reader rediscovers. ⚠ It
+    does NOT mean the fix is automatic: a set is usually WIDER than the system,
+    so ordering against it is strictly stronger, and a consumer that must
+    interleave *within* the set cannot take it.
+    """
+    found: dict[str, set[str]] = {}
+    for root in ROOTS:
+        base = REPO / root
+        if not base.is_dir():
+            continue
+        for path in base.rglob("*.rs"):
+            if "tests" in path.name or "/tests/" in str(path):
+                continue
+            for system, _chain, group in IN_SET.findall(raw_text(path)):
+                found.setdefault(system, set()).add(group.split("::")[-1])
+    return found
+
+
+def raw_text(path: pathlib.Path) -> str:
+    return path.read_text(encoding="utf-8", errors="ignore")
+
+
 def crate_of(path: pathlib.Path) -> str:
     rel = path.relative_to(REPO)
     return rel.parts[1] if len(rel.parts) > 1 else "?"
@@ -147,6 +198,16 @@ def findings(include_local: bool) -> list[tuple[str, str, str, str, str]]:
         for path in sorted(base.rglob("*.rs")):
             name = path.name
             if "tests" in name or "/tests/" in str(path):
+                continue
+            # ⛔⛔ A WHOLE FILE CAN BE TEST-ONLY. `#![cfg(test)]` is an INNER
+            # attribute gating the entire module, and it is invisible both to a
+            # filename heuristic and to the inline-`mod` stripper below — the two
+            # exclusions that look like they cover tests. Measured 2026-09-06:
+            # `features/ecs/fighter_harness.rs` carries one, and counting it put
+            # TWO false capability violations in this report. There is exactly one
+            # such file in the tree, which is why it hid: a rule with a single
+            # instance is one nobody trips over until it matters.
+            if re.search(r"^\s*#!\[\s*cfg\s*\(\s*test\s*\)\s*\]", raw_text(path), re.MULTILINE):
                 continue
             crate = crate_of(path)
             body = strip_comments_and_tests(
@@ -228,9 +289,18 @@ def main() -> int:
     print("⛔ FOREIGN SYSTEMS NAMED IN A SCHEDULE — every one is the prerequisite's subject.")
     print("   (writer role is information, not an exemption: the runtime owns PHASES,")
     print("    not the pairwise order of two capabilities' private systems.)\n")
+    memberships = sets_by_system()
     print(f"-- written by a capability / ruleset: {len(capability)}")
     for crate, target, where, _, _k in sorted(set(capability)):
-        print(f"   {crate}\n       -> {target}\n          {where}")
+        system = target.split("::")[-1]
+        already = memberships.get(system, set())
+        hint = (
+            f"\n          ⭐ ALREADY IN A PUBLISHED SET: {', '.join(sorted(already))}"
+            "  — one-line fix in the consumer"
+            if already
+            else "\n          ⛔ in no set — needs one published before it can be named"
+        )
+        print(f"   {crate}\n       -> {target}\n          {where}{hint}")
     print(f"\n-- written by a composition layer: {len(composition)}")
     for crate, target, where, _, _k in sorted(set(composition)):
         print(f"   {crate}\n       -> {target}\n          {where}")

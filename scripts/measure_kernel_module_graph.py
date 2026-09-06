@@ -72,6 +72,24 @@ def strip_inline_test_modules(text: str) -> str:
         i = j + 1
 
 
+FILE_LEVEL_TEST = re.compile(r"^\s*#!\[\s*cfg\s*\(\s*test\s*\)\s*\]", re.MULTILINE)
+
+
+def is_file_level_test(path: Path) -> bool:
+    """A whole file gated `#![cfg(test)]`.
+
+    ⛔ THE THIRD EXCLUSION THIS FILE NEEDED AND THE SECOND IT SHIPPED WITHOUT.
+    A filename heuristic misses it, and `strip_inline_test_modules` misses it too
+    because the attribute is an INNER one on the module rather than a `mod` block.
+    Exactly one file in the tree carries it — which is why it survived: a rule
+    with one instance is one nobody trips over until the instance matters.
+    """
+    try:
+        return bool(FILE_LEVEL_TEST.search(path.read_text(errors="replace")))
+    except OSError:
+        return False
+
+
 def is_test_file(path: Path) -> bool:
     name = path.name
     return name == "tests.rs" or name.endswith("_tests.rs") or "tests" in path.parent.parts[-1:]
@@ -99,7 +117,7 @@ def measure() -> tuple[dict[str, int], dict[str, int], dict[str, collections.Cou
     edges: dict[str, collections.Counter] = collections.defaultdict(collections.Counter)
     for m, fs in mods.items():
         for f in fs:
-            if is_test_file(f):
+            if is_test_file(f) or is_file_level_test(f):
                 continue
             # ⛔ INLINE `#[cfg(test)] mod` BLOCKS TOO, not only test FILES — see
             # `strip_inline_test_modules`. The docstring above always claimed

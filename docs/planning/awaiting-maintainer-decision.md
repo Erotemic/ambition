@@ -3973,3 +3973,50 @@ apart, they should at least be answered in the same unit.
 choose is a design claim nobody has made, and the roster would be measured against
 my taste. ⇒ The measurement harness is cheap once the numbers exist; the numbers
 are the deliverable.
+
+### 67. The compile ratchet's baseline holds one fact twice. Derive it, or keep storing it? (2026-09-06)
+
+⚠ **THIS IS A GATE-MEANING QUESTION, WHICH IS WHY IT IS HERE AND NOT IN
+`queue.md`.** The engineering is ten lines; what it changes is which number six
+findings compare against, and that is a judgement about what the guard PROMISES.
+
+`--adopt-wins` refreshes the baseline's `crates` table from the CURRENT snapshot
+and writes the derived scalars (`worst_edit_cost`, `watched_edit_cost`) back from
+the OLD one. So the frozen file holds one fact twice, with different values:
+
+```text
+ambition_geometry                      stored 540,227   its own table 592,091   (+51,864)
+ambition_platformer2d_core             stored 537,395   its own table 588,780   (+51,385)
+ambition_platformer2d_actor_monolith   stored 285,213   its own table 294,327   (+ 9,114)
+```
+
+The findings compare against the STORED copy, so most of each reported regression
+predates the baseline it is measured against — `worst_edit_cost_lines` reads
+"+68,648 against a +10,804 budget" where the movement since the baseline is
++16,784. ⚠ Still over budget; this is not an all-clear.
+
+✔ **ALREADY DONE, and it needs no ruling:** every affected finding now carries the
+disclosure inline (`6de30f272`), so the number is readable where it is read. The
+script has said the baseline disagrees with itself since 2026-09-05; it printed
+twenty lines above the findings and in different words.
+
+⇒ **THE QUESTION.** The stored scalars are DERIVATIONS of the `crates` table — a
+max and a selection over it. Two options:
+* **(a) DERIVE THEM AT READ TIME and stop storing them.** They then cannot
+  disagree, and `--adopt-wins` has one fact to write instead of two. ⇒ Today's six
+  regressions immediately shrink to their true deltas (three of which are still
+  over budget). This is the one-authority answer.
+* **(b) KEEP STORING THEM and fix `--adopt-wins` to write both halves from the same
+  snapshot.** Preserves today's verdicts exactly; keeps two copies that a future
+  writer can desynchronise again.
+
+⚠ **WHAT (a) COSTS, stated plainly so it is not a surprise:** the guard gets
+LOOSER on the day it lands, because three findings stop being reported at their
+inflated size. That is a real reduction in reported pressure, and if the intent was
+"hold the line at the stricter reading", (b) is the honest choice and the
+disclosure now makes it readable.
+
+⛔ **I have not implemented either.** `compile_ratchet.py`'s own comment reserves
+this: *"Changing which number the findings compare against is a change to what the
+gate MEANS, and that belongs to whoever owns the carve programme — not to the run
+that noticed."*

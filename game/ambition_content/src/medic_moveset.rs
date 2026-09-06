@@ -22,7 +22,7 @@
 //! than shared or copied.
 
 use ambition_characters::moveset_authoring::{
-    hitless_special, impulse, sfx, strike, vfx, Strike,
+    fixed_knockback, hitless_special, impulse, sfx, strike, vfx, Strike,
 };
 use ambition_characters::smash_vitality::{author_vitality, VitalityParams};
 use ambition_platformer2d::entity_catalog::{ImpulseMode, MoveSpec, MovesetContract};
@@ -155,6 +155,15 @@ fn tourniquet() -> MoveSpec {
         // launches a hurt fighter FARTHER, which for a drag would mean the more
         // she has softened someone up the less she can pull them in — the move
         // getting worse exactly as it starts to matter.
+        //
+        // ⛔⛔ AND THIS LINE DID NOT ACHIEVE THAT, 2026-09-05 to 2026-09-06.
+        // `strike` stores the builder's growth as
+        // `(knockback_growth > 0.0).then_some(knockback_growth)`, so a ZERO here
+        // becomes `None`, and `None` on a volume means *"this stage decides"* —
+        // the ruleset's growth, applied. ⇒ The drag has been getting weaker with
+        // the victim's damage this whole time, which is the exact failure the
+        // paragraph above says it prevents. `fixed_knockback` below is what
+        // actually says it, and the builder's own comment points there.
         knockback_growth: 0.0,
         // Back along her own axis and slightly down: toward her, and onto the
         // ground where her normals live.
@@ -162,6 +171,10 @@ fn tourniquet() -> MoveSpec {
         on_hit: None,
     });
     spec.display_name = Some("Tourniquet".to_string());
+    // ⭐ THE DRAG IS FLAT, AND THIS IS THE LINE THAT MAKES IT SO. See the note on
+    // `knockback_growth` above: the builder's zero means "the stage decides", and
+    // only a volume carrying `Some(0.0)` is actually fixed.
+    let spec = fixed_knockback(spec);
     let spec = sfx(spec, STRAP_STARTUP_S, "player.slash");
     ambition_characters::moveset_authoring::on_contact(spec, "player.hit")
 }
@@ -230,6 +243,42 @@ fn rescue_lift() -> MoveSpec {
     let spec = sfx(spec, 0.0, "player.attack.charge");
     let spec = vfx(spec, LIFT_AT_S, "classic_burst");
     ambition_characters::smash_repertoire::UpSpecial::Standard(spec).into_spec()
+}
+
+#[cfg(test)]
+mod tourniquet_tests {
+    use super::*;
+
+    /// ⭐⭐ THE DRAG DOES NOT WEAKEN AS THE VICTIM SOFTENS — WHICH IT DID, SILENTLY,
+    /// FOR AS LONG AS THE MOVE HAS EXISTED.
+    ///
+    /// The spec authored `knockback_growth: 0.0` under a bold paragraph saying
+    /// the move must not grow with damage. `strike` stores that as
+    /// `(g > 0.0).then_some(g)`, so the zero became `None`, and `None` on a hit
+    /// volume means the RULESET's growth applies. ⇒ The comment and the data said
+    /// opposite things and the data won, so a pull that exists to take away an
+    /// opponent's spacing got worse exactly as it started to matter.
+    ///
+    /// ⛔ ASSERTS `Some(0.0)`, NOT "small". `None` is the bug and `None` is not a
+    /// number — a test comparing magnitudes would have to unwrap it first and
+    /// would pass the moment somebody wrote a plausible small growth instead.
+    #[test]
+    fn the_tourniquet_pulls_the_same_at_every_percent() {
+        let strap = medic_moveset()
+            .move_by_id("medic_tourniquet")
+            .expect("medic_tourniquet exists")
+            .clone();
+        let volumes: Vec<_> = strap.windows.iter().flat_map(|w| w.volumes.iter()).collect();
+        assert!(!volumes.is_empty(), "the strap still has a hitbox");
+        for volume in volumes {
+            assert_eq!(
+                volume.knockback_growth,
+                Some(0.0),
+                "`None` here means the stage decides, which is the bug this \
+                 move's own comment describes"
+            );
+        }
+    }
 }
 
 #[cfg(test)]

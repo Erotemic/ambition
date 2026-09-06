@@ -1119,6 +1119,60 @@ mod tipper_tests {
         let _ = tipper(poke(), weak);
     }
 
+    /// ⛔⛔ THE BUILDER'S ZERO IS NOT FIXED KNOCKBACK, AND A SHIPPED MOVE GOT
+    /// THIS WRONG.
+    ///
+    /// `strike` stores `(knockback_growth > 0.0).then_some(knockback_growth)`, so
+    /// writing `knockback_growth: 0.0` in a [`Strike`] yields `None` on the
+    /// volume — and `None` means *"this stage decides"*, which is the RULESET's
+    /// growth rather than no growth. The medic's `medic_tourniquet` authored that
+    /// zero under a bold paragraph explaining that a drag must not weaken as its
+    /// victim softens, and it weakened anyway from the day it shipped until
+    /// 2026-09-06.
+    ///
+    /// ⇒ This test exists so the next author meets the trap at the builder rather
+    /// than in a census months later. A move that wants a flat launch says so on
+    /// the VOLUME, via [`fixed_knockback`].
+    #[test]
+    fn a_zero_growth_in_the_builder_means_the_stage_decides() {
+        let m = strike(Strike {
+            id: "test_zero_growth",
+            clip: "attack",
+            startup_s: 0.10,
+            active_s: 0.08,
+            recover_s: 0.20,
+            offset: (30.0, 0.0),
+            half_extents: (14.0, 10.0),
+            damage: 6,
+            knockback: 80.0,
+            knockback_growth: 0.0,
+            launch_dir: Some((0.8, -0.5)),
+            on_hit: None,
+        });
+        let volume = m
+            .windows
+            .iter()
+            .flat_map(|w| w.volumes.iter())
+            .next()
+            .expect("a volume");
+        assert_eq!(
+            volume.knockback_growth, None,
+            "the builder's zero is 'stage decides', NOT flat"
+        );
+        let flat = fixed_knockback(m);
+        let volume = flat
+            .windows
+            .iter()
+            .flat_map(|w| w.volumes.iter())
+            .next()
+            .expect("a volume");
+        assert_eq!(
+            volume.knockback_growth,
+            Some(0.0),
+            "`fixed_knockback` is the only thing that authors a flat launch"
+        );
+    }
+
     /// The other side of that OR, stated so nobody "fixes" it into an AND: a tip
     /// may hit for LESS and launch for MORE.
     #[test]

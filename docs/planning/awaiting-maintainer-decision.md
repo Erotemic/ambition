@@ -3714,6 +3714,32 @@ this is a call and not a defect.
 
 ## Q65 — the sprite-renderer submodule has TWO divergent lines and one of them is UNPUSHED
 
+⚠⚠ **UPDATED 2026-09-06: THE MUSIC RENDERER NOW CARRIES THREE UNPUSHED COMMITS,
+AND ONE OF THEM IS A REVIEW FIX.** `tools/ambition_music_renderer` is `ahead 3` of
+`origin/main`:
+
+```text
+d911d1f  minimize_motion meant "inside this clip", not "through this voice"   <- a GPT-review MEDIUM
+f2ae21f  Update music
+42336c9  Fix v3 renderer bundle integration
+```
+
+⇒ **This raises what the question is holding.** It was filed as a data-loss risk;
+it now also holds a shipped-defect repair, and a reader prices those differently.
+⛔ I did NOT bump the parent's submodule pointer — a pointer bump is what arms
+`git submodule update` to discard another checkout's work, which is this question's
+whole subject. The parent still shows ` M tools/ambition_music_renderer`.
+
+⭐ **AND ONE OF THOSE UNPUSHED COMMITS QUIETLY INVALIDATED A REVIEW WITNESS.**
+`f2ae21f` "Update music" replaced `scores/active/standing_on_shoulders.music.yaml`
+— a v3 parity source at `ff26b4f`, carrying the "Parity-first v3 source" header the
+review quotes — with a `schema: ambition.musicir.v1` score. Measured:
+`_expand_generator_clips` now runs **zero** times for it, so the song cannot
+witness the v3 bridge either way. ⇒ An unpushed commit changed what a review's
+evidence meant, and nothing announced that. That is the cost of the state this
+question describes, in a form that is not data loss.
+
+
 ⛔⛔ **This is a data-loss risk, not a question about design, and it is one command
 from happening.** Measured 2026-09-06 in this checkout.
 

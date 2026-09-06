@@ -631,6 +631,12 @@ mod expressiveness_census {
         if mv.windows.iter().any(|w| w.sustain_effect.is_some()) {
             why.push("stance");
         }
+        // A window with TWO volumes is a sweetspot: `StrikeRank` is the move's
+        // own reading order and the strike seam takes the first that reaches, so
+        // authoring a second volume is authoring where the move is strong.
+        if mv.windows.iter().any(|w| w.volumes.len() > 1) {
+            why.push("sweetspot");
+        }
         // `VolumeReaction::{Autolink, Windbox}` change what a hit DOES — a
         // gather, a shove — which is authoring a plain strike cannot express.
         if mv

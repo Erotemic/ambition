@@ -145,6 +145,22 @@ pub use ecs::{
     RoomContentStagingRegistry, RoomFeatureConstructionError, RoomFeatureConstructionPlan,
     RoomFeatureConstructionReceipt, SpawnActorKind, SpawnActorRequest, CHALLENGE_GRACE_S,
 };
+
+/// The actor read model has been rebuilt for this tick.
+///
+/// ⭐⭐ PUBLISHED BECAUSE TWO OTHER DOMAINS ALREADY DEPENDED ON IT AND HAD
+/// NOTHING TO NAME. `ambition_mount`'s rider mirror and `ambition_combat`'s
+/// capture pose both have to run after this module rebuilds its read model, and
+/// both were saying so by naming `sync_actor_read_model` — a private function of
+/// this crate. ⇒ That is a contract with no signature: splitting the system in
+/// two, renaming it, or moving it behind a wrapper breaks a promise to two
+/// crates that never agreed to it and cannot see it break.
+///
+/// ⚠ ONE MEMBER TODAY, deliberately, so `.after(ActorReadModelSynced)` means
+/// exactly what `.after(sync_actor_read_model)` meant. The point is not to add a
+/// stage; it is to give the existing stage a name its dependents may hold.
+#[derive(bevy::prelude::SystemSet, Clone, Copy, Debug, PartialEq, Eq, Hash)]
+pub struct ActorReadModelSynced;
 pub(crate) use ecs::{
     maintain_actor_pre_decision_state, observe_actor_decision_inputs,
     publish_actor_decision_frames, ActorDecisionFacts, ActorDecisionFrames,
@@ -940,14 +956,17 @@ impl bevy::prelude::Plugin for WorldPrepSchedulePlugin {
         // `.chain()` around them as well would say the same thing twice, in two
         // vocabularies, and the system-level one is the half that cannot be
         // reasoned about from either domain's crate.
+        // ⛔⛔ AND `steer_mount_from_rider` IS NOT INSTALLED HERE ANY MORE — it
+        // arrives with `install_mount_pose_systems` below, already in its own set.
+        // Installing it in both places is not a duplicate DECLARATION that a
+        // compiler would reject; Bevy adds a SECOND INSTANCE and the mount steers
+        // twice a tick. ⇒ Moving an install is not additive: the old site has to go
+        // in the same edit, and a census that reports the row as MOVED cannot tell
+        // you it was COPIED — both spellings score identically.
         app.add_systems(
             sim,
-            (
-                ambition_combat::capture::systems::tick_capture_holds
-                    .in_set(ambition_combat::capture::systems::CaptureHoldsTicked),
-                ambition_mount::steer_mount_from_rider
-                    .in_set(ambition_mount::MountsSteeredByRiders),
-            )
+            ambition_combat::capture::systems::tick_capture_holds
+                .in_set(ambition_combat::capture::systems::CaptureHoldsTicked)
                 .in_set(
                     ambition_platformer2d_shared_tangle::schedule::WorldPrepSet::BeforeIntegrate,
                 ),
@@ -986,30 +1005,42 @@ impl bevy::prelude::Plugin for WorldPrepSchedulePlugin {
         // `PoseOwnedExternally` is the fact it will read.
         app.add_systems(
             sim,
-            sync_actor_read_model.in_set(
+            sync_actor_read_model.in_set(ActorReadModelSynced).in_set(
                 ambition_platformer2d_shared_tangle::schedule::WorldPrepSet::AfterIntegrate,
             ),
         );
-        // ⭐ AND IT FOLLOWS THE READ MODEL, exactly as the capture constraint
-        // below does: the coarse-box mirror runs first so an external pose
-        // authority gets the last word.
-        app.add_systems(
+        // ⭐⭐ THE MOUNT CRATE POSES ITSELF (prerequisite C2). This block used
+        // to install `ambition_mount::sync_riders_to_mounts` by name and order it
+        // after a function private to this module. Now the mount crate installs
+        // its own pose stage and this layer says only WHICH PHASE each half
+        // belongs to and that the mirror follows our read model — two set names,
+        // no foreign function.
+        ambition_mount::install_mount_pose_systems(app, sim);
+        app.configure_sets(
             sim,
-            ambition_mount::sync_riders_to_mounts
-                .after(sync_actor_read_model)
-                .in_set(
-                    ambition_platformer2d_shared_tangle::schedule::WorldPrepSet::AfterIntegrate,
+            (
+                ambition_mount::MountsSteeredByRiders.in_set(
+                    ambition_platformer2d_shared_tangle::schedule::WorldPrepSet::BeforeIntegrate,
                 ),
+                ambition_mount::RidersSyncedToMounts
+                    .after(ActorReadModelSynced)
+                    .in_set(
+                        ambition_platformer2d_shared_tangle::schedule::WorldPrepSet::AfterIntegrate,
+                    ),
+            ),
         );
         // A body already in somebody's hands is put back after it moved. The
         // coarse-box mirror runs first so this external constraint is the last
         // word. (A body grabbed THIS tick is posed by the ruleset's own
         // `finalize_new_capture_pose`, later in the tick — two named phases, one
         // rule.)
+        // ⇒ AND IT ORDERS AGAINST THE PUBLISHED SET NOW, not against this
+        // module's private `sync_actor_read_model`. Same guarantee; a name the
+        // capture domain is allowed to depend on.
         app.add_systems(
             sim,
             ambition_combat::capture::systems::maintain_existing_capture_pose
-                .after(sync_actor_read_model)
+                .after(ActorReadModelSynced)
                 .in_set(
                     ambition_platformer2d_shared_tangle::schedule::WorldPrepSet::AfterIntegrate,
                 ),

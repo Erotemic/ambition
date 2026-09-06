@@ -1685,3 +1685,38 @@ pub fn install_mount_simulation_systems(
         apply_dismount_requests.in_set(DismountRequestsApplied),
     );
 }
+
+/// The rider's pose mirrored onto its mount, after whatever moved either of them.
+///
+/// ⭐ THE SECOND HALF OF THE MOUNT CRATE'S POSE STAGE, and it is published for
+/// one reason: `sync_riders_to_mounts` must run AFTER its host's actor read
+/// model, and the host was saying so by naming the read model's FUNCTION. A
+/// function is not a contract — it can be split, renamed or reordered inside its
+/// own crate without anyone noticing that a foreign ordering depended on it.
+/// ⇒ The host publishes a set for its read model, this set orders against it,
+/// and neither crate names the other's private system.
+#[derive(bevy::prelude::SystemSet, Clone, Copy, Debug, PartialEq, Eq, Hash)]
+pub struct RidersSyncedToMounts;
+
+/// Install the mount crate's POSE stage into `schedule`.
+///
+/// ⚠ SEPARATE FROM `install_mount_simulation_systems` ON PURPOSE, because these
+/// two run in different PHASES of the same schedule and the phase is the
+/// composition's call, not this crate's. What this crate owns and states here is
+/// that steering happens before integration and the mirror happens after it —
+/// facts about what a mount IS, which no composition should have to rediscover.
+///
+/// ⇒ The caller places `MountsSteeredByRiders` and `RidersSyncedToMounts` into
+/// its own phases and orders the latter after its read model. It never names
+/// `steer_mount_from_rider` or `sync_riders_to_mounts`.
+pub fn install_mount_pose_systems(
+    app: &mut bevy::prelude::App,
+    schedule: impl bevy::ecs::schedule::ScheduleLabel + Clone,
+) {
+    use bevy::prelude::IntoScheduleConfigs as _;
+    app.add_systems(
+        schedule.clone(),
+        steer_mount_from_rider.in_set(MountsSteeredByRiders),
+    );
+    app.add_systems(schedule, sync_riders_to_mounts.in_set(RidersSyncedToMounts));
+}

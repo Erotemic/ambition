@@ -4,7 +4,7 @@
 //! invariants — all driven through the cluster scratch views without a renderer.
 
 use super::*;
-use crate::features::ecs::actor_clusters::SeedActorMut;
+use crate::actor_spawn::actor_clusters::SeedActorMut;
 use ambition_combat::events::{FeatureCombatTuning};
 
 /// Build a peaceful actor (the unified cluster) with a patrol radius and a

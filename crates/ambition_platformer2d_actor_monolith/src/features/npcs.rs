@@ -1,7 +1,7 @@
 //! Peaceful-actor (NPC) glue for the unified actor simulation: the catalog
 //! brain resolver ([`resolve_npc_brain`]) and the hit/hostile/dialogue/
 //! idle-bark line resolvers. Peaceful actors are the SAME ECS cluster as hostile
-//! enemies now (see [`crate::features::ecs::actor_clusters`]); this module no
+//! enemies now (see [`crate::actor_spawn::actor_clusters`]); this module no
 //! longer owns a separate NPC runtime view — only the dialogue/bark selection and
 //! the peaceful brain selection. Talk/hostility tuning consts
 //! ([`NPC_TALK_RADIUS`], [`NPC_HOSTILE_STRIKE_THRESHOLD`]) live here.

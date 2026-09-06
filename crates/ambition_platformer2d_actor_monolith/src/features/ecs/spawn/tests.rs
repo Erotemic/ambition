@@ -1,7 +1,7 @@
 //! Tests for the ECS feature spawn paths: authored actors/bosses, dynamic
 //! encounter mobs, and mounted-rider archetypes (ADR 0020).
 
-use super::super::brain_builders::enemy_default_brain;
+use crate::actor_spawn::brain_builders::enemy_default_brain;
 use crate::actor_spawn::spawn_boss_with_overrides_into;
 use super::*;
 use ambition_characters::actor::{BodyCombat, BodyHealth};
@@ -678,7 +678,7 @@ mod authored_enemy_reads_its_character {
                 ambition_characters::prepared::PreparedCharacterRegistry,
             >| {
                 let root = commands.spawn_empty().id();
-                crate::features::spawn_enemy_with_faction_into(
+                crate::actor_spawn::spawn_enemy_with_faction_into(
                     &mut commands,
                     &catalog,
                     &Default::default(),
@@ -754,7 +754,7 @@ mod authored_enemy_reads_its_character {
                 ambition_characters::prepared::PreparedCharacterRegistry,
             >| {
                 let root = commands.spawn_empty().id();
-                crate::features::spawn_enemy_with_faction_into(
+                crate::actor_spawn::spawn_enemy_with_faction_into(
                     &mut commands,
                     &catalog,
                     &Default::default(),
@@ -879,7 +879,7 @@ mod authored_enemy_reads_its_character {
                 ambition_characters::prepared::PreparedCharacterRegistry,
             >| {
                 let root = commands.spawn_empty().id();
-                crate::features::spawn_enemy_with_faction_into(
+                crate::actor_spawn::spawn_enemy_with_faction_into(
                     &mut commands,
                     &catalog,
                     &Default::default(),
@@ -1025,7 +1025,7 @@ mod authored_enemy_reads_its_character {
                 ambition_characters::prepared::PreparedCharacterRegistry,
             >| {
                 let root = commands.spawn_empty().id();
-                crate::features::spawn_enemy_with_faction_into(
+                crate::actor_spawn::spawn_enemy_with_faction_into(
                     &mut commands,
                     &catalog,
                     &Default::default(),
@@ -1166,7 +1166,7 @@ mod authored_enemy_reads_its_character {
                 ambition_characters::prepared::PreparedCharacterRegistry,
             >| {
                 let root = commands.spawn_empty().id();
-                crate::features::spawn_enemy_with_faction_into(
+                crate::actor_spawn::spawn_enemy_with_faction_into(
                     &mut commands,
                     &catalog,
                     &Default::default(),
@@ -1229,7 +1229,7 @@ mod authored_enemy_reads_its_character {
                 ambition_characters::prepared::PreparedCharacterRegistry,
             >| {
                 let root = commands.spawn_empty().id();
-                crate::features::spawn_enemy_with_faction_into(
+                crate::actor_spawn::spawn_enemy_with_faction_into(
                     &mut commands,
                     &catalog,
                     &Default::default(),
@@ -1284,7 +1284,7 @@ mod authored_enemy_reads_its_character {
                 ambition_characters::prepared::PreparedCharacterRegistry,
             >| {
                 let root = commands.spawn_empty().id();
-                crate::features::spawn_enemy_with_faction_into(
+                crate::actor_spawn::spawn_enemy_with_faction_into(
                     &mut commands,
                     &catalog,
                     &Default::default(),

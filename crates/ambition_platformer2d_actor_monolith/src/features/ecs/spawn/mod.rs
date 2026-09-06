@@ -18,16 +18,13 @@ mod gravity_construction;
 mod portal_construction;
 
 pub(crate) mod character_spawn_plan;
-pub(crate) use character_spawn_plan::{
-    report_unprepared_character, CharacterSpawnPlan, SpawnContext,
-};
 
 mod content_staging;
 pub use content_staging::{
     RoomContentStagingError, RoomContentStagingRegistrationError, RoomContentStagingRegistry,
 };
 
-pub(crate) use crate::actor_spawn::{spawn_runtime_minion, spawn_runtime_minion_into};
+pub(crate) use crate::actor_spawn::{spawn_runtime_minion};
 
 /// Spawn ECS-native feature entities for every authored static
 /// feature in a room. One loop per family.

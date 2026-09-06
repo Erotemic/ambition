@@ -33,13 +33,21 @@ SRC = REPO / "crates" / "ambition_platformer2d_actor_monolith" / "src"
 # would otherwise count are prose explaining the cut itself.
 LINE_COMMENT = re.compile(r"//.*$", re.MULTILINE)
 
-#  the residual reach measured 2026-09-06, immediately after the primitives
-# moved out of `features::ecs::spawn_actors` into `crate::actor_spawn`. It stands
-# on six modules — `npcs`, `ecs::held_items`, `ecs::brain_builders`,
-# `ecs::spawn_static`, `ecs::actors::conversion` and
-# `ecs::spawn::character_spawn_plan` — of which three make no `crate::` reference
-# at all and are the cheap half of finishing this.
-PRIMITIVE_UPWARD_REACH_CEILING = 16
+#  the residual reach measured 2026-09-06, after two PURE LEAVES
+# (`brain_builders`, `actor_clusters` — no `crate::` and no `super::` reference
+# between them) and `conversion` came down with the primitives. 16 -> 13.
+#
+# ⚠ AND THE FIRST VERSION OF THIS NUMBER RESTED ON A BAD MEASUREMENT: I called
+# three modules "pure leaves" having counted only `crate::` paths, and
+# `conversion.rs` reaches `autonomous_reconcile` through `super::super::`. A
+# relative path is a reference. Two of the three were genuinely pure; the third
+# traded two references for one and is still worth having moved.
+#
+# What is left stands on five: `ecs::spawn::character_spawn_plan` (3),
+# `ecs::held_items` (3), `npcs` (3, one of them a re-exported constant),
+# `ecs::spawn_static` (1), `ecs::autonomous_reconcile` (1), plus
+# `ecs::boss_component_snapshot` and the `EnemyActorBundle` pair.
+PRIMITIVE_UPWARD_REACH_CEILING = 13
 
 
 def _production_files(root: pathlib.Path) -> list[pathlib.Path]:
@@ -92,9 +100,16 @@ def test_the_spawn_primitives_upward_reach_only_shrinks() -> None:
     grow, the edge would simply have relocated and the test above would keep
     passing while the cycle got longer. ⇒ This is the ratchet on the relocation:
     the number may fall to zero (which finishes the carve) and may not rise."""
-    primitives = SRC / "actor_spawn.rs"
-    assert primitives.exists(), f"{primitives} moved; re-point this guard"
-    reach = _references(primitives, "features")
+    primitives = SRC / "actor_spawn"
+    assert primitives.is_dir(), f"{primitives} moved; re-point this guard"
+    # ⛔ THE WHOLE MODULE, NOT ONE FILE. It became a directory the moment leaf
+    # helpers came down with it, and a guard reading `actor_spawn.rs` would have
+    # measured a file that no longer exists — or, worse, one of several.
+    reach = [
+        ref
+        for path in _production_files(primitives)
+        for ref in _references(path, "features")
+    ]
     assert len(reach) <= PRIMITIVE_UPWARD_REACH_CEILING, (
         f"the spawn primitives now reach {len(reach)} times into `features` "
         f"(ceiling {PRIMITIVE_UPWARD_REACH_CEILING}). F1's cycle is not closed "

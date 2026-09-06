@@ -87,12 +87,8 @@ pub use ecs::effect_bus::{
 pub use ecs::{actor_component_snapshot, boss_component_snapshot};
 // Runtime minion/summon spawner, re-exported so non-feature modules (e.g. the
 // puppy-slug gun) can summon actors without reaching into the private `ecs` tree.
-pub(crate) use ecs::spawn_staged_actor_into;
 pub use ecs::GiantHandPlan;
-pub(crate) use ecs::{
-    giant_hand_plans, is_limbed_host, spawn_boss_with_overrides_into, spawn_enemy_with_faction_into,
-};
-pub(crate) use ecs::{spawn_runtime_minion, spawn_runtime_minion_into};
+pub(crate) use ecs::spawn_runtime_minion;
 // the CAST half of the conversation port: a bark line for a character in
 // a situation. Named explicitly rather than opening the whole `npcs` module,
 // because when the conversation module is carved out this single function is
@@ -115,7 +111,7 @@ pub use ecs::actor_bundles::{
     ChestBundle, EnemyActorBundle, FeatureBaseBundle, FeatureLifecycleBundle,
     FeatureRenderedBundle, PickupBundle,
 };
-pub use ecs::actor_clusters::ActorMut;
+pub use crate::actor_spawn::actor_clusters::ActorMut;
 // ⭐ NAMED FROM `ambition_combat`, where the actor's kit vocabulary and its
 // config now live (D33, 2026-08-27). Re-exported here only because the
 // monolith's own module tree is a public surface many callers still walk.

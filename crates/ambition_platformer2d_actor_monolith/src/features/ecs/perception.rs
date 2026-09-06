@@ -825,7 +825,7 @@ mod tests;
 /// won each argument.
 #[allow(clippy::too_many_arguments)]
 pub(crate) fn perception_body_for(
-    body: &super::actor_clusters::ActorClusterQueryDataReadOnlyItem<'_, '_>,
+    body: &crate::actor_spawn::actor_clusters::ActorClusterQueryDataReadOnlyItem<'_, '_>,
     faction: ActorFaction,
     gravity_down: ae::Vec2,
     action_set: Option<&ambition_characters::brain::ActionSet>,

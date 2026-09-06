@@ -388,3 +388,40 @@ Ambition content request and, without repository archaeology:
 Manual editor operation is not a prerequisite for this acceptance test. The
 authoring loop should be benchmarked by successful intent-to-validated-change
 work, not by editor-feature parity.
+
+## ⛔⛔ The agent NAVIGATION packets were five weeks stale because their generator SEGFAULTED — 2026-09-06
+
+`.agent/ecs_inventory/` holds 156 per-crate packets plus a `project.json` that
+`.agent/README.md` quotes as the repo's headline ECS numbers. **Every packet was
+dated Aug 1.** `scripts/ecs_inventory.py --crate <anything>` dumped core — small
+crates included, so not size or memory.
+
+⭐ **CAUSE: a version constraint stated in the SCRIPT and installed BARE.** The
+script's PEP-723 header declares `tree-sitter>=0.25,<0.26`;
+`scripts/setup/python_tools.sh` installed `tree_sitter` with no constraint, and the
+environment had picked up **0.26.0 against tree-sitter-rust 0.24.2** — an ABI pair
+that crashes. Downgrading to 0.25.2 makes it run on the first try. Setup now
+installs the range the script declares, for `tree-sitter-rust` too.
+
+⚠ **NOTHING SAID SO, and that is the reusable half.** A segfault prints no
+finding; no lane read that tool's exit code; and the data it feeds is UNTRACKED,
+so it did not rot loudly — it just aged while every agent kept navigating by it.
+`scripts/tests/test_ecs_inventory_can_actually_run.py` now fails if the version
+drifts out of the declared range OR the tool stops producing an inventory
+(a positive control — "did not error" is not "produced the thing").
+
+⭐ **The regenerated numbers, and the drift is large enough to matter to anyone
+planning from them:**
+
+```text
+                         Aug 1    2026-09-06
+registered systems         795          1108
+ECS resources              395           493
+message channels           261           393
+spawn sites                186           312
+```
+
+⚠ **These are MACHINE state, not repo state.** `.agent/` is untracked: a fresh
+checkout has no packets at all, and one that ran the regeneration long ago has old
+packets with nothing marking them old. ⇒ read the mtimes before trusting a number
+from them, and prefer a committed census when one exists.

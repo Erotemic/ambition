@@ -216,7 +216,17 @@ pub fn report_visual_quality_census(
             .map(|n| n.to_string())
             .unwrap_or_else(|| "unbounded".to_string()),
         budget.parallax.resolution_scale,
-        budget.raster.msaa_samples,
+        // ⛔⛔ THE SANITIZED COUNT, NOT THE REQUESTED ONE. `sanitized_msaa_samples`
+        // rounds DOWN to a tier Bevy names (3 -> 2, 5 -> 4, 16 -> 8) and it is what
+        // `ambition_render::quality` actually configures, so logging the raw field
+        // would have this census NAME AN ARM THAT NEVER RAN — `AMBITION_MSAA=3`
+        // renders at 2 samples and used to be recorded as 3.
+        //
+        // ⚠ That matters most where it is hardest to notice: D-RASTER-3 splits a
+        // weak-GPU 2.54x between framebuffer scale and MSAA on real hardware, and
+        // this line is the record of which arm was which. A mislabelled arm is
+        // worse than a missing one, because it is still analysable.
+        budget.raster.sanitized_msaa_samples(),
         budget
             .raster
             .max_scale_factor

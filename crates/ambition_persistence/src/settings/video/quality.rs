@@ -401,7 +401,19 @@ pub struct RasterBudget {
     /// Above 1 this also adds a `msaa_writeback` pass over the whole frame,
     /// which is why it compounds with `max_scale_factor` rather than adding
     /// to it.
-    pub msaa_samples: u8,
+    /// ⛔⛔ `pub(crate)` DELIBERATELY: THIS IS THE REQUEST, NOT THE FACT.
+    /// `AMBITION_MSAA` accepts any `u8`, and [`Self::sanitized_msaa_samples`]
+    /// rounds an off-tier one DOWN to a count Bevy names (3 -> 2, 16 -> 8), so
+    /// this field and the number actually rendered are different things.
+    ///
+    /// ⇒ Every consumer outside this crate must go through the accessor, because
+    /// one did not: `ambition_render`'s runtime census logged THIS field while
+    /// the render stack configured the sanitized one, so `AMBITION_MSAA=3`
+    /// rendered at 2 samples and was recorded as 3. ⚠ The rounding contract was
+    /// already tested and correct — the defect was a consumer reading the wrong
+    /// side of a well-guarded boundary, which no test of the boundary can catch.
+    /// Narrowing the visibility is what makes it unrepresentable.
+    pub(crate) msaa_samples: u8,
 }
 
 impl Default for RasterBudget {

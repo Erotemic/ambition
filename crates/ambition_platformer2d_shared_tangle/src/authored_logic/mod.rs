@@ -150,22 +150,33 @@ pub enum ParamKind {
     /// the tree, and which one is right turns on ONE question — *is the roster
     /// reachable where the check would go?*
     ///
-    /// 1. **REFUSE AT EVALUATE, because the roster is a Rust type.** `body.can`
-    ///    alone: `AbilitySet`'s fields are compiled in, so `Default::default()`
-    ///    is a complete roster needing no world.
+    /// 1. **REFUSE AT EVALUATE, because the roster is reachable.** `body.can`
+    ///    (`AbilitySet`'s fields are compiled in, so `default()` is a complete
+    ///    roster needing no world), `inventory.holds` (`Item::from_dialog_id`
+    ///    resolves the spelling or refuses), and `quest.active` (the runtime
+    ///    `QuestRegistry`, consulted only once `initialized` — a roster is not
+    ///    authoritative until something has filled it).
     /// 2. **DEFER TO CONTENT VALIDATION, stated.** `world.switch_on` rules
     ///    exactly this and says so — *"a MISSPELT id is indistinguishable from
     ///    an unflipped one; that is a content-validation question about authored
     ///    ids, not a runtime one."* `world.flag_set` needs no roster at all: a
     ///    save flag is genuinely free-form, which is the honest escape hatch this
     ///    kind was named for.
-    /// 3. **UNEXAMINED** — `boss.cleared`, `encounter.cleared`, `inventory.holds`,
-    ///    `quest.active`, and the encounter command's `key`. Each names a subject
-    ///    authored in a roster elsewhere, and none says which of (1) or (2) it
-    ///    intends. `boss.cleared` comes closest and still splits the wrong
-    ///    absence: it reasons carefully that an unrecorded boss really is
-    ///    un-beaten — true — without noticing that the same `NotSatisfied` is
-    ///    also what a boss that does not exist returns.
+    /// 3. **UNEXAMINED** — `boss.cleared` and `encounter.cleared`. Both read a
+    ///    save whose accessor reconstructs ANY string as an "untouched" row, and
+    ///    neither says which of (1) or (2) it intends. `boss.cleared` comes
+    ///    closest and still splits the wrong absence: it reasons carefully that
+    ///    an unrecorded boss really is un-beaten — true — without noticing that
+    ///    the same `NotSatisfied` is what a boss that does not exist returns.
+    ///
+    /// ⛔ **I MISCOUNTED THIS TWICE, IN THE SAME DIRECTION, AND THE REASON IS
+    /// WORTH MORE THAN THE TALLY.** First draft called `world.switch_on` an
+    /// oversight when it had ruled; second called `inventory.holds` unexamined
+    /// when it already refuses in its third line and says so in its doc. Both
+    /// times I classified from the `ParamSpec` — which is where the KIND is —
+    /// without reading the evaluator to its end, which is where the CHOICE is.
+    /// ⇒ A param's kind tells you what preparation could not check; only the
+    /// evaluator tells you whether anyone checked it anyway.
     ///
     /// ⇒ Stance 2 is not a shrug; it names an owner. The fallback for a roster a
     /// type cannot hold is an authored-integrity guard, which is why this project

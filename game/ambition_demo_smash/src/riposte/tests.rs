@@ -71,6 +71,9 @@ fn params() -> RiposteStrikeParams {
         reach: 46.0,
         half_extents: (30.0, 16.0),
         lifetime_s: 0.08,
+        // The default fixture stays unvoiced, so every existing assertion in this
+        // file keeps testing what it tested. The voice has its own test below.
+        hit_sfx: None,
     }
 }
 
@@ -111,6 +114,49 @@ fn damage_to(hits: &[(Entity, i32)], body: Entity) -> Vec<i32> {
         .filter(|(who, _)| *who == body)
         .map(|(_, damage)| *damage)
         .collect()
+}
+
+/// ⭐⭐ TWO TECHNIQUES WITH DIFFERENT VOICES ARE HEARD APART.
+///
+/// `spawn_body_strike` hard-coded `strike_sfx: None` until 2026-09-06, so every
+/// technique-spawned strike in the game fell back to the VICTIM's material sound.
+/// That is not silence — `resolve_strike_sfx` has that fallback deliberately —
+/// but it meant a swordfighter's counter and a brawler's ground shock, which are
+/// the same mechanic here, were the same EVENT to anybody not watching the
+/// animation.
+///
+/// ⛔⛔ THIS ASSERTS THE TWO IDS DIFFER, NOT THAT A FIELD IS SET. A test that only
+/// found `Some(_)` passes against a seam that ignores the authored string and
+/// stamps one constant on everything, which is exactly the bug in a different
+/// costume. ⇒ Name the edit that would make this false: hard-coding any single
+/// id, or dropping the `.map()` at the call site.
+#[test]
+fn two_voices_spawn_two_different_strike_sounds() {
+    let voice = |name: &str| {
+        let mut app = app();
+        let defender = fighter(&mut app, 0, ae::Vec2::new(100.0, 50.0), 1.0);
+        let _attacker = fighter(&mut app, 1, ae::Vec2::new(146.0, 50.0), -1.0);
+        answer(
+            &mut app,
+            defender,
+            &RiposteStrikeParams {
+                hit_sfx: Some(name.to_string()),
+                ..params()
+            },
+        );
+        app.world_mut()
+            .query::<&ambition_platformer2d::combat::hitbox::Hitbox>()
+            .iter(app.world())
+            .find_map(|hitbox| hitbox.strike_sfx)
+            .expect("the cut carries the voice it was authored with")
+    };
+    let blade = voice("player.slash");
+    let blunt = voice("world.rock.hit");
+    assert_ne!(
+        blade, blunt,
+        "a blade and a rock resolved to the same sound, so the authored name is \
+         not reaching the hitbox",
+    );
 }
 
 /// ⭐⭐ THE TECHNIQUE'S WHOLE CLAIM, AS AN OUTCOME: the fighter who swung takes

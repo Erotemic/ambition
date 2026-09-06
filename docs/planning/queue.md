@@ -772,8 +772,41 @@ and run that one. `cargo check -p <crate>` with no features is seconds.
 
 ## Current execution order
 
-- ▢ **D-CUT-VOICE — a technique's hit cannot be voiced by its author, and the
-  missing half is an ASSET rather than code. Measured 2026-09-06, small.**
+- ✔ **D-CUT-VOICE — LANDED 2026-09-06, and EVERY BLOCKING CLAIM BELOW WAS
+  WRONG.** I filed this row the same day and re-checked it before deferring it
+  again, which is the only reason it is closed rather than sitting behind an
+  asset that already exists.
+
+  | the row said | measured |
+  |---|---|
+  | *"there is no name→id resolver"* | `SfxId::new(s: &str)` is a plain runtime hash of any string, and `hazard_sfx_id` already resolves hazard names through it |
+  | *"authored params cannot supply a name"* | `HitVolume::hit_sfx` is `Option<String>` and its doc says *"the `SfxId` name (lowered via `SfxId::new` at spawn)"* — the exact authored-string road this row calls impossible |
+  | *"there is no blunt counterpart in `ids.rs` at all"* | **`world.rock.hit` is at `ids.rs:158`**, is named in `hit_sfx`'s own doc as the bludgeon example, and is RENDERED (`tools/ambition_sfx_renderer/output/world.rock.hit/`) |
+
+  ⇒ **The real gap was one hard-coded `None`.** `spawn_body_strike` wrote
+  `strike_sfx: None` on every hitbox it made, so the two techniques that use it —
+  the swordfighter's riposte and the brawler's ground shock, mechanically the same
+  move — were the same EVENT to anybody not watching the animation. It now takes
+  the voice, `RiposteStrikeParams` carries `hit_sfx: Option<String>`, and the two
+  are authored apart: `player.slash` and `world.rock.hit`.
+
+  ⛔ **The guard asserts the two ids DIFFER, not that a field is set.** A test
+  finding `Some(_)` passes against a seam that ignores the authored string and
+  stamps one constant on everything — the same bug in a different costume.
+  Poisoned both ways: dropping the `.map()` reddens on "the cut carries the voice
+  it was authored with"; stamping one id reddens on "a blade and a rock resolved
+  to the same sound".
+
+  ⚠ **What I got right and should keep doing:** the row recorded that this was
+  *not* a silence bug, because `resolve_strike_sfx` falls back to the victim's
+  material. That check was worth more than the three that were wrong — it is why
+  the fix is a distinction rather than a repair.
+
+  ⭐ **AND THE FAILURE MODE IS THE DAY'S OWN:** three claims of absence, none
+  measured against the DEFINITION side. Same as `key_exchange` and
+  `medic_tourniquet` — the thing was already there.
+
+  ~~Original reasoning, kept because it is the mistake:~~
   ⚠ **NOT a silence bug, and I checked before filing**: `resolve_strike_sfx`
   falls back to `hurt.sfx` when a hitbox carries `strike_sfx: None`, so the
   riposte cut and the brawler's shock DO make the victim's material sound. What
@@ -814,6 +847,21 @@ and run that one. `cargo check -p <crate>` with no features is seconds.
   straight up, because it is the Performer's flyline lift. A diagonal ledge
   tether does not fit that shape, and widening it is changing an engine
   authority for one move.
+  ⛔⛔ **A THIRD ROAD WAS CHECKED ON 2026-09-06 AND IT FAILS ON ASSETS, recorded
+  so nobody re-explores it.** The demo crate already writes `VfxMessage::Effect`
+  at arbitrary world points — the steered bolt marks its own path that way — so a
+  BEADED line from her to the anchor would need no layering change at all and no
+  published view state. ⇒ It fails because **there is no fx row that reads as a
+  taut line**: the bank's families are explosion-shaped (`classic_burst`,
+  `shockwave`, `smoke_burst`, `starburst`), and a row of those along a rope reads
+  as a string of detonations rather than a wire. The visual this move wants is
+  the one `flyline.rs::place_wire` already draws, which is why the choice really
+  is between the two roads below.
+  ⚠ **AND `sync_tether_visuals` TAKES NO REQUEST** — checked rather than assumed:
+  it is driven by `FeatureViewIndex` and body queries, so there is no "draw a wire
+  between these two points" message a ruleset could write. That is what makes this
+  a layering decision instead of a plumbing one.
+
   ⇒ **Two roads, both real, and the choice is a layering decision rather than a
   drawing one:** (A) a ruleset-owned visual, which asks where ruleset-specific
   presentation lives when rendering is an engine crate — the mine and the bomb

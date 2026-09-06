@@ -438,6 +438,12 @@ pub fn pugnacious_polygon_moveset() -> MovesetContract {
             // slam is for.
             reach: 60.0,
             half_extents: (44.0, 10.0),
+            // ⭐ BLUNT, and it is the other half of the same fix: this shock and
+            // the swordfighter's riposte are the SAME mechanic — a technique-
+            // spawned body strike — so the only thing that makes them different
+            // events to a player is this string. The floor answering a slam is
+            // not a blade.
+            hit_sfx: Some("world.rock.hit".to_string()),
             lifetime_s: 0.10,
         },
     );

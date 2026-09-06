@@ -307,6 +307,18 @@ pub fn simple_ranged(p: &SimpleRangedParams) -> MoveSpec {
     let windup = p.windup_s.max(0.0);
     let recover = p.recover_s.max(0.0);
     let duration = windup + recover;
+    // ⛔ THE FOURTH WINDOW OF THIS SHAPE, and the only one not built by a verb.
+    // The `Cancelable` window below runs `windup..duration`, so a caller passing
+    // `recover_s: 0.0` — which the clamp above permits — advertises a follow-up
+    // that can never be taken. Measured 2026-09-06: no caller passes zero, so
+    // this is the guard for a hazard rather than a repair of a live one.
+    crate::moveset_authoring::refuse_a_window_that_never_opens(
+        RANGED_VERB,
+        windup,
+        duration,
+        "a cancel window",
+        "the follow-up the move advertises can never actually be taken",
+    );
     MoveSpec {
         display_name: None,
         landing_lag_s: None,

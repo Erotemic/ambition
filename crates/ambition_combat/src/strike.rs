@@ -311,6 +311,15 @@ pub fn spawn_body_strike(
     damage: i32,
     feel_scale: f32,
     lifetime_s: f32,
+    // What THIS attack sounds like when it lands, or `None` for the victim's own
+    // default hurt sound.
+    //
+    // ⭐⭐ A TECHNIQUE'S HIT CAN BE VOICED BY ITS AUTHOR — this was `None`,
+    // hard-coded, and it made every technique-spawned strike in the game sound
+    // identical. `resolve_strike_sfx` falls back to the victim's material when
+    // this is `None`, so the old behaviour was not silence: it was a
+    // swordfighter's counter and a brawler's ground shock heard as one event.
+    strike_sfx: Option<ambition_sfx::SfxId>,
 ) -> Entity {
     // Same contract, same check, same reason as the world-anchored road above.
     if !plausible_feel_scale(feel_scale) {
@@ -322,7 +331,7 @@ pub fn spawn_body_strike(
     commands
         .spawn((
             Hitbox {
-                strike_sfx: None,
+                strike_sfx,
                 owner,
                 source: HitSide::Player,
                 anchor: HitboxAnchor::FollowOwner { local_offset },

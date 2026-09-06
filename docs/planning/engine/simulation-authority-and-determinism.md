@@ -1049,8 +1049,41 @@ indexes — engine per-attempt state is entity-shaped or lives in the rollback
 registry. Asking the content question of that population would bury three answers
 in two hundred non-answers, which is why the script scopes itself and says so.
 
-⚠ **The other half stays open and is worth stating precisely**: state that is
-never cleared by ANY room signal is still invisible. This guard sees only systems
+### ✔ And the OTHER half is closed too — by making the question unavoidable
+
+**2026-09-06.** The half that stayed open was *"state that is never cleared by ANY
+room signal is invisible"* — a resource nothing resets matches no pattern, and
+finding Sanic's took reading a resource NAME and knowing the demo's death rules.
+
+⭐ **It is invisible only while nobody has to ANSWER.** So the census stopped
+having an "everything else" pile: all 17 collection-holding content resources are
+now classified, and a resource in neither `KNOWN_PER_ATTEMPT` nor
+`NOT_PER_ATTEMPT` FAILS with the question spelled out and both fixes named. The
+cost of adding one is a line and a sentence.
+
+```text
+3   per-attempt, retracted through `AttemptScoped`
+14  triaged NOT per-attempt, each with its reason:
+      rollback state (VersusMatch — its own doc says so)
+      caches that re-seed on their subject (AmbitionDialogPortraitPlayback:
+        `if self.key == Some(&key) { return }`)
+      authored catalogs and rosters, which must SURVIVE a death
+      per-transition load/asset plumbing, and a bounded telemetry ring
+      four developer probes
+```
+
+⛔⛔ **AND THE TRIAGE LIST ROTTED INSIDE THE HOUR, which is why it has its own
+check.** My first pass listed `AttemptsSeen` and `Forced` — the two `(u32)` tuple
+structs that only ever entered the population through the 40-line-window bug this
+same file fixed (19 → 17). A stale-entry arm caught both immediately: a triage
+entry for a resource the sweep cannot see is a claim nothing checks. Both arms are
+poison-verified and unit-tested.
+
+⚠ **What this does NOT cover, stated so the next reader does not over-read it**:
+the sweep's subject is a `Resource` holding a COLLECTION, in `game/`. A
+per-attempt scalar, or one in `crates/`, is still outside it — and the `crates/`
+population is 217, dominated by registries and views, so widening it needs a
+different question, not a bigger list. This guard sees only systems
 that already answer the LOAD; a resource nothing resets at all matches no
 pattern, and finding Sanic's needed reading a resource NAME and knowing what the
 demo's death rules were.

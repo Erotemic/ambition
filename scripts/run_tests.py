@@ -1124,7 +1124,7 @@ def coverage_notice(
             f"\n  ⚠ this was {scope}, which does NOT cover:\n"
             "      - tests behind an OPT-IN #[cfg(feature = \"...\")] — MEASURED\n"
             "        2026-09-06 at\n"
-            "        469 tests across 27 crates, the largest single omission this\n"
+            "        416 tests across 27 crates, the largest single omission this\n"
             "        footer names. `python3 scripts/feature_gated_tests.py` prints\n"
             "        the current figure per crate (it says itself that the count is\n"
             "        approximate); `--verify <crate>` asks cargo for the exact pair.\n"

@@ -68,3 +68,35 @@ def test_the_sweep_requires_a_collection_field_not_just_the_derive(tmp_path, mon
     monkeypatch.setattr(module, "REPO", tmp_path)
     names = [row[2] for row in module.collection_resources()]
     assert names == ["HasOne"], names
+
+
+def test_an_untriaged_resource_fails_rather_than_landing_in_the_everything_else_pile(
+    monkeypatch, capsys
+) -> None:
+    """⭐ THE ROW'S REAL OPEN HALF, made structural: 'state that is never cleared
+    by ANY room signal is invisible'. It is invisible only while nobody has to
+    answer. A collection-holding content resource in neither list now fails."""
+    module = _module()
+    real = module.collection_resources
+    monkeypatch.setattr(
+        module,
+        "collection_resources",
+        lambda: real() + [("game/demo/src/lib.rs", 7, "SpentSomethingNew")],
+    )
+    assert module.main() == 1
+    assert "SpentSomethingNew" in capsys.readouterr().err
+
+
+def test_a_triage_entry_for_a_resource_that_is_gone_fails(monkeypatch, capsys) -> None:
+    """⛔ A hand-kept list rots toward its author's memory of the tree. This
+    caught two of my own entries within the hour: `AttemptsSeen` and `Forced`
+    were tuple structs that only ever entered the population through the sweep
+    bug this file fixed."""
+    module = _module()
+    monkeypatch.setattr(
+        module,
+        "NOT_PER_ATTEMPT",
+        dict(module.NOT_PER_ATTEMPT, AResourceThatWasDeleted="stale"),
+    )
+    assert module.main() == 1
+    assert "AResourceThatWasDeleted" in capsys.readouterr().err

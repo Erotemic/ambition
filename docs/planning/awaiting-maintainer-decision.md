@@ -3771,6 +3771,18 @@ deletion anyone would notice.
 repaired today to split the empty case from the populated one. **The hazard is not
 hypothetical in this tree; it is live in three of five submodules right now.**
 
+✔ **AND THE SETUP PATH IS ALREADY SAFE — checked rather than assumed, because
+"half the guards say it" invited a bigger sweep than the evidence supports.**
+`scripts/setup/submodules.sh` initialises what is MISSING and never moves what is
+there, says so in a header comment, and records the incident that taught it:
+*"Measured 2026-09-02: a setup run silently reverted an in-progress fix in
+`ambition_music_renderer`."* ⚠ **That is the same submodule the sweep above finds
+AHEAD with an unpushed commit today** — so the file's warning is not historical
+colour, it is describing the state the tree is in right now.
+⇒ **The gap was only ever in the GUARD REMEDIES**, which are the messages a person
+reads while already frustrated, and those are fixed. Setup, `AGENTS.md` and the
+planning rows all describe the hazard correctly.
+
 ⛔⛔ **AND NEITHER SIDE OF THIS IS VISIBLE IN A SUPERPROJECT DIFF.** Confirmed
 from the peer session 2026-09-06: the superproject pointer is `0828fae` on BOTH
 boxes, and `git log origin/main..HEAD` inside the submodule is EMPTY on theirs.

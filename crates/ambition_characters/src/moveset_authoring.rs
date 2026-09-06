@@ -1020,3 +1020,88 @@ mod multihit_tests {
         assert_eq!(actives(&m).len(), 1);
     }
 }
+
+/// The far half of a swing, authored to outrank the near half.
+///
+/// ⭐ THE GENRE'S SWORD MECHANIC. A thrust whose TIP hits harder than its base
+/// rewards spacing: the same button is a poke up close and a kill at range, and
+/// the fighter's distance from you becomes the read.
+pub struct Tip {
+    /// Where the tip sits, body-local, and how big it is.
+    pub offset: (f32, f32),
+    pub half_extents: (f32, f32),
+    pub damage: i32,
+    pub knockback: f32,
+    pub knockback_growth: Option<f32>,
+    pub launch_dir: Option<(f32, f32)>,
+}
+
+/// Give a strike a SWEETSPOT: a stronger volume at its far end.
+///
+/// ⭐⭐ EVERYTHING THIS NEEDS WAS ALREADY IN THE ENGINE AND NO FIGHTER USED IT —
+/// the same sentence `gust` carries, for the same reason. `StrikeRank { window,
+/// volume }` is the move's own reading order, and the strike seam arbitrates on
+/// it: *"The victim takes the FIRST-AUTHORED volume that reaches it and no
+/// other"*, so a body standing where both reach is hit once, by whichever the
+/// author wrote first. ⇒ A tipper is one Active window with TWO volumes and the
+/// tip written first. What was missing was a way to SAY it: authoring one meant
+/// hand-building a `MoveWindow`, and nobody did.
+///
+/// ⛔ THE TIP IS INSERTED AT INDEX 0, which IS the mechanic. Appending it would
+/// rank it BELOW the base, and the sourspot would win every exchange where both
+/// reach — a tipper that reads correctly in the source and is backwards in play.
+///
+/// # Panics
+///
+/// If the move has no Active volume to be the base; if the tip does not reach
+/// FURTHER than the base (a sweetspot inside the sourspot is unreachable, since
+/// anything the tip covers the base covers too); or if it does not hit HARDER
+/// (a tipper whose tip is weaker is a sourspot with extra steps).
+pub fn tipper(mut m: MoveSpec, tip: Tip) -> MoveSpec {
+    let id = m.id.clone();
+    let window = m
+        .windows
+        .iter_mut()
+        .find(|w| w.tag == WindowTag::Active && !w.volumes.is_empty())
+        .unwrap_or_else(|| {
+            panic!("move `{id}` has no active volume for a tip to outrank")
+        });
+    let base = &window.volumes[0];
+    let base_edge = base.shape.leading_edge_x();
+    let tip_edge = tip.offset.0 + tip.half_extents.0;
+    assert!(
+        tip_edge > base_edge,
+        "move `{id}` authors a tip reaching {tip_edge}px and a base reaching \
+         {base_edge}px — a sweetspot the sourspot entirely contains can never be \
+         the only volume that reaches, so it would never be felt",
+    );
+    assert!(
+        tip.damage > base.damage || tip.knockback > base.knockback,
+        "move `{id}` authors a tip that is no stronger than its base ({} damage \
+         / {} knockback against {} / {}) — that is a sourspot with extra steps, \
+         and the spacing it asks the player to learn buys them nothing",
+        tip.damage,
+        tip.knockback,
+        base.damage,
+        base.knockback,
+    );
+    // ⛔ INSERT, NOT PUSH. See the note above: rank is authored order.
+    window.volumes.insert(
+        0,
+        HitVolume {
+            shape: VolumeShape::Rect {
+                offset: tip.offset,
+                half_extents: tip.half_extents,
+            },
+            damage: tip.damage,
+            knockback: tip.knockback,
+            knockback_growth: tip.knockback_growth,
+            launch_dir: tip.launch_dir,
+            reaction: None,
+            on_hit: None,
+            vfx: None,
+            hit_sfx: None,
+        },
+    );
+    m
+}

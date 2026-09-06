@@ -200,6 +200,22 @@ pub fn pointed_polygon_moveset() -> MovesetContract {
     down_air.landing_lag_s = Some(0.24);
 
     // Specials deliberately teach common sword archetype motion.
+    // NEUTRAL — `polygon_point`, and it now has a TIP.
+    //
+    // ⭐⭐ THE GENRE'S SWORD MECHANIC, ON THE FIGHTER WHOSE HEADER SAYS REACH IS
+    // ITS DISTINCTION. A thrust whose far end hits harder rewards spacing: the
+    // same button is a poke up close and a kill at range, so the distance he
+    // keeps becomes the read. `the_census_of_specials_that_carry_no_technique`
+    // named this move as one of only two in the roster carrying no authoring of
+    // any kind — and the engine has ranked sweetspots all along (`StrikeRank`
+    // is the move's own reading order, and the strike seam takes "the
+    // FIRST-AUTHORED volume that reaches and no other"). Nothing could SAY it
+    // until `tipper`.
+    //
+    // ⚠ AND THIS ONE EDIT REACHES TWO FIGHTERS. `author_moveset` borrows this
+    // whole table and renames the prefix, so the Author's `author_point` is this
+    // move — which is why it was worth doing here rather than authoring a
+    // separate thrust for each.
     let neutral_special = committed_tail(
         strike(Strike {
             id: "polygon_point",
@@ -217,6 +233,25 @@ pub fn pointed_polygon_moveset() -> MovesetContract {
         }),
         0.52,
         0.20,
+    );
+    let neutral_special = ambition_characters::moveset_authoring::tipper(
+        neutral_special,
+        ambition_characters::moveset_authoring::Tip {
+            // The far 28px of the thrust: it reaches 80px where the base reaches
+            // 76, so there is a band only the tip covers — which is the whole
+            // move. A tip the base contains could never be the only volume that
+            // reaches, and the helper refuses one.
+            offset: (66.0, -3.0),
+            half_extents: (14.0, 10.0),
+            // ⛔ ENGINE-UNIT LAUNCH, like the `Strike` above it and NOT like a
+            // `DamageBoxEffect`'s feel multiplier. The base launches at 112; the
+            // tip is the reward for spacing, so it launches harder and grows
+            // faster.
+            damage: 14,
+            knockback: 132.0,
+            knockback_growth: Some(2.4),
+            launch_dir: Some((1.0, -0.22)),
+        },
     );
 
     let side_special = impulse(
@@ -525,6 +560,56 @@ pub fn pointed_polygon_moveset() -> MovesetContract {
 
 #[cfg(test)]
 mod tests {
+
+    /// ⭐⭐ HIS THRUST HAS A TIP, AND THE TIP IS AUTHORED FIRST — which is not a
+    /// style point. `StrikeRank { window, volume }` is the move's own reading
+    /// order and the strike seam takes "the FIRST-AUTHORED volume that reaches
+    /// it and no other", so a tip appended after the base would LOSE every
+    /// exchange where both reach: a move that reads as a tipper in the source
+    /// and behaves as a sourspot in play.
+    #[test]
+    fn his_thrusts_tip_outranks_its_base_and_is_worth_spacing_for() {
+        let set = pointed_polygon_moveset();
+        let thrust = set
+            .moves
+            .iter()
+            .find(|m| m.id == "polygon_point")
+            .expect("his neutral-B");
+        let window = thrust
+            .windows
+            .iter()
+            .find(|w| {
+                w.tag == ambition_platformer2d::entity_catalog::WindowTag::Active
+                    && !w.volumes.is_empty()
+            })
+            .expect("the thrust has an active window");
+        assert_eq!(
+            window.volumes.len(),
+            2,
+            "the thrust authors {} volume(s); a tipper is two — a tip and the \
+             base it outranks",
+            window.volumes.len(),
+        );
+        let tip = &window.volumes[0];
+        let base = &window.volumes[1];
+        assert!(
+            tip.shape.leading_edge_x() > base.shape.leading_edge_x(),
+            "the FIRST-authored volume reaches {}px and the second {}px — the \
+             tip is the far one, so authoring them the other way round makes the \
+             sourspot win every exchange where both reach",
+            tip.shape.leading_edge_x(),
+            base.shape.leading_edge_x(),
+        );
+        assert!(
+            tip.damage > base.damage && tip.knockback > base.knockback,
+            "the tip ({} dmg / {} kb) is not stronger than the base ({} / {}), \
+             so the spacing it asks the player to learn buys them nothing",
+            tip.damage,
+            tip.knockback,
+            base.damage,
+            base.knockback,
+        );
+    }
 
     /// ⭐⭐ JON ASKED FOR THIS ONE BY NAME — *"Swordies will get a counter."*
     /// The mechanic shipped elsewhere and the row was marked done, so the only

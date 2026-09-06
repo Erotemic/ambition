@@ -605,6 +605,74 @@ mod flow_tests {
 mod expressiveness_census {
     use super::tables;
 
+    /// Why this move does something a strike cannot — empty when it is a strike.
+    ///
+    /// ⛔⛔ ONE DEFINITION FOR TWO CENSUSES, AND EXTRACTING IT IS A REPAIR. This
+    /// file holds two: `the_roster_does_not_get_less_expressive` counts FIGHTERS
+    /// and ratchets; `the_census_of_specials_that_carry_no_technique` lists
+    /// SPECIALS and reads. They were written with two different ideas of
+    /// "expressive", and the second repeated the mistake the first had already
+    /// fixed in a comment a few lines below — it did not count VOLUME REACTIONS,
+    /// so it reported `officer_disperse`, "the first authored windbox on the
+    /// roster", as carrying no authoring at all. ⇒ I read my own output and went
+    /// looking for a way to improve that move, which is the second time this
+    /// file records somebody about to author a mechanic for a fighter that
+    /// already had one, on the strength of a guard's definition.
+    ///
+    /// ⭐ The GRAINS stay different on purpose — fighters against specials, a
+    /// floor against a list. What cannot differ is what counts.
+    fn expressive_reasons(
+        mv: &ambition_platformer2d::entity_catalog::MoveSpec,
+    ) -> Vec<&'static str> {
+        let mut why = Vec::new();
+        if mv.flow.is_some() {
+            why.push("flow");
+        }
+        if mv.windows.iter().any(|w| w.sustain_effect.is_some()) {
+            why.push("stance");
+        }
+        // A window with TWO volumes is a sweetspot: `StrikeRank` is the move's
+        // own reading order and the strike seam takes the first that reaches, so
+        // authoring a second volume is authoring where the move is strong.
+        if mv.windows.iter().any(|w| w.volumes.len() > 1) {
+            why.push("sweetspot");
+        }
+        // `VolumeReaction::{Autolink, Windbox}` change what a hit DOES — a
+        // gather, a shove — which is authoring a plain strike cannot express.
+        if mv
+            .windows
+            .iter()
+            .any(|w| w.volumes.iter().any(|v| v.reaction.is_some()))
+        {
+            why.push("volume reaction");
+        }
+        if mv
+            .events
+            .iter()
+            .any(|e| {
+                matches!(
+                    e.kind,
+                    ambition_platformer2d::entity_catalog::MoveEventKind::Effect(_)
+                )
+            })
+        {
+            why.push("technique");
+        }
+        if mv
+            .events
+            .iter()
+            .any(|e| {
+                matches!(
+                    e.kind,
+                    ambition_platformer2d::entity_catalog::MoveEventKind::GravityModifier { .. }
+                )
+            })
+        {
+            why.push("gravity regime");
+        }
+        why
+    }
+
     /// ⭐⭐ HOW MANY FIGHTERS HAVE A SPECIAL THAT DOES SOMETHING A STRIKE CANNOT —
     /// the goal's own complaint, measured instead of felt.
     ///
@@ -634,7 +702,6 @@ mod expressiveness_census {
     /// question "many have boring specials" was actually asking.
     #[test]
     fn the_roster_does_not_get_less_expressive() {
-        use ambition_entity_catalog::MoveEventKind;
 
         /// The floor, raised deliberately as fighters gain techniques. Bumping it
         /// is a decision; watching it silently fall is the failure.
@@ -652,31 +719,8 @@ mod expressiveness_census {
                 .map(|(_, id)| id)
                 .collect();
             let rich = contract.moves.iter().any(|mv| {
-                if !special_ids.iter().any(|id| **id == mv.id) {
-                    return false;
-                }
-                mv.flow.is_some()
-                    || mv.windows.iter().any(|w| {
-                        w.sustain_effect.is_some()
-                            // ⛔⛔ A VOLUME REACTION IS EXPRESSIVE AND THIS TEST
-                            // SAID IT WAS NOT. `VolumeReaction::{Autolink,
-                            // Windbox}` change what a hit DOES — a gather, a
-                            // shove — and the first version of this census
-                            // counted only techniques, stances, flows and
-                            // gravity. ⇒ It called the cellular automaton plain
-                            // while its `generation_collapse` autolinks victims
-                            // into one cell, which is the most characterful move
-                            // on that fighter. I was one step from authoring a
-                            // second mechanic for a fighter that already had one,
-                            // on the strength of my own guard's definition.
-                            || w.volumes.iter().any(|v| v.reaction.is_some())
-                    })
-                    || mv.events.iter().any(|e| {
-                        matches!(
-                            e.kind,
-                            MoveEventKind::Effect(_) | MoveEventKind::GravityModifier { .. }
-                        )
-                    })
+                special_ids.iter().any(|id| **id == mv.id)
+                    && !expressive_reasons(mv).is_empty()
             });
             if rich {
                 expressive.push(fighter);
@@ -702,11 +746,12 @@ mod expressiveness_census {
             expressive.len()
         );
     }
-}
 
-#[cfg(test)]
-mod tests {
-    use super::*;
+    // ⛔ THE PER-SPECIAL CENSUS LIVES HERE, in the module that already owned
+    // this question, and it did not when it was written: it was a second
+    // `mod tests` at the foot of the same file with its own idea of what
+    // counts as authoring. Two modules, two definitions, one subject — which
+    // is how it came to report the roster's first authored windbox as plain.
     use ambition_platformer2d::entity_catalog::MoveEventKind;
 
     /// Does this move carry a TECHNIQUE, or is it a hitbox and nothing else?
@@ -799,9 +844,14 @@ mod tests {
                 if !spec.events.is_empty() {
                     extras.push(format!("{} event(s)", spec.events.len()));
                 }
+                // ⛔ THE PLAIN VERDICT USES THE SHARED DEFINITION, not this
+                // test's own idea of authoring. `expressive_reasons` counts a
+                // VOLUME REACTION, which this census did not — and so it called
+                // the roster's first authored windbox plain.
+                let reasons = expressive_reasons(spec);
                 if keys.is_empty() {
                     bare_total += 1;
-                    if extras.is_empty() {
+                    if extras.is_empty() && reasons.is_empty() {
                         plain_total += 1;
                     }
                 }
@@ -811,6 +861,8 @@ mod tests {
                     id,
                     if !keys.is_empty() {
                         keys.join(", ")
+                    } else if !reasons.is_empty() {
+                        format!("— no technique, but {}", reasons.join(" + "))
                     } else if extras.is_empty() {
                         "— PLAIN (no technique, no other authoring)".to_string()
                     } else {

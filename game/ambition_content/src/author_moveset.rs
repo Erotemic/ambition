@@ -411,8 +411,15 @@ mod tests {
     #[test]
     fn the_counter_displaced_the_ground_low_arc_and_spared_the_falling_edge() {
         let set = author_moveset();
+        // ⛔⛔ THE INHERITED ID, NOT A HISTORICAL ONE, AND THIS ASSERTION WENT
+        // VACUOUS ONCE ALREADY. It named `author_low_arc`, which is what the
+        // Pointed Polygon's grounded down-B was called until that fighter's
+        // slot became a counter (`polygon_riposte`, 2026-09-06). The renamed id
+        // could no longer exist, so the check passed without asking anything —
+        // a test that borrows a table has to name what that table CURRENTLY
+        // hands it, or the rename it is protecting against silences it.
         assert!(
-            !set.moves.iter().any(|m| m.id == "author_low_arc"),
+            !set.moves.iter().any(|m| m.id == "author_riposte"),
             "the displaced grounded down-B is still in the table, where every \
              census that walks `moves` reports it as part of his kit"
         );

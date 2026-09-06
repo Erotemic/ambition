@@ -602,15 +602,12 @@ mod tests {
             .windows
             .iter()
             .flat_map(|window| window.volumes.iter())
-            .filter_map(|volume| match volume.shape {
-                // A `Rect`'s leading edge. The slam authors no discs, and a
-                // `Circle` arm that guessed at one would be inventing geometry.
-                ambition_platformer2d::entity_catalog::VolumeShape::Rect {
-                    offset,
-                    half_extents,
-                } => Some(offset.0 + half_extents.0),
-                _ => None,
-            })
+            // ⛔ `leading_edge_x`, NOT THE SUM. This spelled
+            // `offset.0 + half_extents.0` and `test_the_grab_reach_is_one_formula`
+            // caught it: the same arithmetic on a different type is the same
+            // duplication, and this file names `CaptureAttemptParams` elsewhere
+            // so it is squarely in that guard's population.
+            .map(|volume| volume.shape.leading_edge_x())
             .fold(f32::MIN, f32::max);
         assert!(
             fists_reach > f32::MIN,

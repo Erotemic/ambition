@@ -68,7 +68,19 @@ def _rust_sources():
             if "/target/" in str(path):
                 continue
             text = path.read_text()
-            if any(name in text for name in MENTIONS):
+            # ⛔⛔ THE POPULATION IS DECIDED BY CODE, NOT BY PROSE, and this file
+            # already learned that lesson once — the COPY scan strips comments so
+            # a doc comment quoting the formula cannot satisfy it. The POPULATION
+            # test did not, and a single sentence naming `CaptureAttemptParams`
+            # in a doc comment was enough to pull an entire crate into scope: it
+            # dragged `ambition_entity_catalog` in and reported two of its
+            # pre-existing volume sums, neither of which is a capture reach and
+            # neither of which had changed.
+            #
+            # ⇒ A file can only DUPLICATE the capture reach if its CODE can name
+            # it. Explaining the rule must never enlarge the rule's subject.
+            code = "\n".join(line.split("//", 1)[0] for line in text.splitlines())
+            if any(name in code for name in MENTIONS):
                 yield path, text
 
 

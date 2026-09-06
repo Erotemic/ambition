@@ -345,6 +345,27 @@ pub enum VolumeShape {
     Circle { offset: (f32, f32), radius: f32 },
 }
 
+impl VolumeShape {
+    /// How far in front of the body this volume reaches, body-local.
+    ///
+    /// ⭐ THE SAME REASON `CaptureAttemptParams::reach_x` EXISTS, for the other
+    /// geometry. A leading edge is `offset + half_extent` on x, and a sum spelled
+    /// at a call site is a second answer to "how far does this reach" that drifts
+    /// from the first without failing. ⇒ `test_the_grab_reach_is_one_formula`
+    /// forbids that spelling for capture params, and it caught a moveset TEST
+    /// re-inlining it for a hit volume — which is the same mistake on a
+    /// different type, so this is the same repair.
+    pub fn leading_edge_x(&self) -> f32 {
+        match *self {
+            VolumeShape::Rect {
+                offset,
+                half_extents,
+            } => offset.0 + half_extents.0,
+            VolumeShape::Circle { offset, radius } => offset.0 + radius,
+        }
+    }
+}
+
 /// A per-volume override of what a hit DOES to the body it lands on.
 ///
 /// The two arms are the two ways a volume can decline the ordinary

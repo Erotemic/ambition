@@ -674,13 +674,40 @@ struct ProjectionScratch {
 }
 
 impl ProjectionScratch {
+    /// Empty every buffer before a frame projects into them.
+    ///
+    /// ⭐ THE DESTRUCTURE HAS NO `..`, because this is SCRATCH: the type's whole
+    /// contract is that a frame starts from empty. A sixth field added here and
+    /// not cleared would carry the previous frame's tiles forward silently —
+    /// sand that will not fall, or visuals for particles that are gone — and it
+    /// would look like a simulation bug, not a missing `.clear()`. Adding one is
+    /// now `E0027` and lands its author on this line.
     fn reset_per_frame(&mut self) {
-        self.sand_tiles.clear();
-        self.water_tiles.clear();
-        self.oil_tiles.clear();
-        self.dense_sand.clear();
-        self.desired_visuals.clear();
+        let Self {
+            sand_tiles,
+            water_tiles,
+            oil_tiles,
+            dense_sand,
+            desired_visuals,
+        } = self;
+        sand_tiles.clear();
+        water_tiles.clear();
+        oil_tiles.clear();
+        dense_sand.clear();
+        desired_visuals.clear();
     }
+
+    // ⚠ THE BIGGER FIX IS MEASURED AND DELIBERATELY NOT TAKEN. The three per-kind
+    // maps are parallel to `MaterialKind`'s three variants and kept in sync BY
+    // HAND: adding a fourth material gives `E0004` at `tiles_for` (guarded), but
+    // the matching field and its `.clear()` are two more steps that nothing
+    // checks. Indexing by kind — `[HashMap<(i32, i32), usize>; 3]` — would remove
+    // that parallel authority entirely.
+    // ⇒ It touches **37 sites** naming the three maps, in a per-frame content
+    // path, to guard a fourth material nobody has asked for. The destructure above
+    // covers the bug class that actually bites (a scratch field nobody empties) at
+    // a fraction of the cost, and the count is here so the next reader can price
+    // the other one rather than re-derive it.
 
     fn tiles_for(&mut self, kind: MaterialKind) -> &mut HashMap<(i32, i32), usize> {
         match kind {

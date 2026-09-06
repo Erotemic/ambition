@@ -2298,12 +2298,57 @@ fn the_stage_always_plays_by_smash_rules(
 /// changed how Ambition draws its portals merely because Smash was linked into
 /// the same binary. ⇒ One system, three resources, one lifetime: what Smash
 /// declares, Smash gives back.
+/// What Smash's presentation override REPLACED, so leaving can put it back.
+///
+/// ⛔⛔ THIS EXISTS BECAUSE THE FIRST VERSION REMOVED RESOURCES SMASH DID NOT
+/// OWN. `PortalPresentationPlugin` calls `init_resource` for both
+/// `PortalCameraContinuitySelection` (`plugin.rs:96`) and `PortalViewConeConfig`
+/// (`:157`), and `sync_portal_view_cones` takes `config: Res<PortalViewConeConfig>`
+/// — REQUIRED, not `Option`. In the aggregate app the portal plugin is installed
+/// globally, so leaving Smash deleted a resource a live system needs.
+///
+/// ⚠ AND "REMOVE" IS NOT "RESTORE" even where nothing fails: a developer-selected
+/// or Ambition-owned portal configuration was destroyed rather than put back, so
+/// entering and leaving Smash silently reset someone else's settings.
+///
+/// ⭐ `Option` PER FIELD, because ABSENCE IS A REAL PRIOR. A composition with no
+/// portal plugin has no cone config, and the platformer states no mana rate at
+/// all — `regen_player_mana` reads absence as its own default. Restoring `None`
+/// by REMOVING is how a body of state gets put back exactly as it was found,
+/// rather than replaced with a default that merely looks like it.
+#[derive(bevy::prelude::Resource, Clone, Debug)]
+struct SmashPresentationPrior {
+    mana: Option<ambition_platformer2d::actors::avatar::systems::PlayerManaRegen>,
+    transit: Option<ambition_platformer2d::portal_presentation::PortalCameraContinuitySelection>,
+    cone: Option<ambition_platformer2d::portal_presentation::PortalViewConeConfig>,
+}
+
+/// Smash's presentation and meter policy, for as long as Smash is on the stage.
+///
+/// ⛔ THE RULESET OWNS THESE ANSWERS, NOT THE BINARY. The portal cone was once
+/// selected in `ambition_demo_smash_app`, so the standalone demo drew the static
+/// cone and the versus route a player actually reaches drew the engine default.
+/// Stated here, both compositions get it.
+///
+/// ⛔⛔ AND THE LIFETIME IS THE ACTIVE ROUTE, NOT PLUGIN INSTALL. `ambition_app`
+/// installs this plugin beside Ambition, Sanic and Mary-O, so a build-time
+/// `insert_resource` set the mana rate to zero for the whole process — a player
+/// in ordinary Ambition lost every charge attack because Smash was LINKED.
+///
+/// ⚠ THE PRESENCE OF THE SAVED PRIOR IS WHAT "ALREADY DECLARED" MEANS. Inferring
+/// it from one of the three policies was wrong: a single resource's presence
+/// decided whether three unrelated things were installed or removed, so anything
+/// else touching that one resource would have made the inference wrong for the
+/// other two.
 fn the_stage_declares_smashs_presentation_and_gives_it_back(
     mut commands: bevy::prelude::Commands,
     router: bevy::prelude::Res<ambition_platformer2d::game_shell::ShellRouter>,
-    policy: Option<
-        bevy::prelude::Res<ambition_platformer2d::actors::avatar::systems::PlayerManaRegen>,
+    prior: Option<bevy::prelude::Res<SmashPresentationPrior>>,
+    mana: Option<bevy::prelude::Res<ambition_platformer2d::actors::avatar::systems::PlayerManaRegen>>,
+    transit: Option<
+        bevy::prelude::Res<ambition_platformer2d::portal_presentation::PortalCameraContinuitySelection>,
     >,
+    cone: Option<bevy::prelude::Res<ambition_platformer2d::portal_presentation::PortalViewConeConfig>>,
 ) {
     use ambition_platformer2d::portal_presentation as portal_view;
 
@@ -2311,8 +2356,14 @@ fn the_stage_declares_smashs_presentation_and_gives_it_back(
         .active
         .as_ref()
         .is_some_and(|active| active.route_id.as_str() == SMASH_GAMEPLAY_ROUTE);
-    let declared = policy.is_some();
+    let declared = prior.is_some();
+
     if on_stage && !declared {
+        commands.insert_resource(SmashPresentationPrior {
+            mana: mana.map(|r| *r),
+            transit: transit.map(|r| *r),
+            cone: cone.map(|r| r.clone()),
+        });
         commands.insert_resource(
             ambition_platformer2d::actors::avatar::systems::PlayerManaRegen(0.0),
         );
@@ -2326,11 +2377,22 @@ fn the_stage_declares_smashs_presentation_and_gives_it_back(
             ..Default::default()
         });
     } else if !on_stage && declared {
-        commands.remove_resource::<
-            ambition_platformer2d::actors::avatar::systems::PlayerManaRegen,
-        >();
-        commands.remove_resource::<portal_view::PortalCameraContinuitySelection>();
-        commands.remove_resource::<portal_view::PortalViewConeConfig>();
+        let prior = prior.expect("checked").clone();
+        match prior.mana {
+            Some(value) => commands.insert_resource(value),
+            None => commands.remove_resource::<
+                ambition_platformer2d::actors::avatar::systems::PlayerManaRegen,
+            >(),
+        }
+        match prior.transit {
+            Some(value) => commands.insert_resource(value),
+            None => commands.remove_resource::<portal_view::PortalCameraContinuitySelection>(),
+        }
+        match prior.cone {
+            Some(value) => commands.insert_resource(value),
+            None => commands.remove_resource::<portal_view::PortalViewConeConfig>(),
+        }
+        commands.remove_resource::<SmashPresentationPrior>();
     }
 }
 

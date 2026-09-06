@@ -122,6 +122,55 @@ pub enum ParamKind {
     /// A short authored name that is not a reference — a save flag id, a
     /// mechanism channel.  this is the escape hatch, and every use of it is a
     /// small bet that the thing named will never need renaming.
+    ///
+    /// ⛔⛔ **AND A SECOND BET NOBODY WROTE DOWN: THAT A MISSPELLING IS
+    /// DISTINGUISHABLE FROM A "NO".** `prepare_one` accepts any string for a
+    /// `Name`, so this kind is the one hole in the promise
+    /// [`ConditionCatalog::ask`] makes — *"everything that could have been wrong
+    /// about the call was already wrong at prepare time."* `Number`, `Truth` and
+    /// `Reference` all parse and can refuse; `Name` cannot, because
+    /// preparation holds no `World` and the roster it would check lives in one.
+    ///
+    /// ⇒ **So the refusal has to happen in the EVALUATOR, and the evaluator must
+    /// want to.** A name drawn from an authored roster has two absences in it —
+    /// *"no such subject"* and *"that subject, and the answer is no"* — and
+    /// answering both with `NotSatisfied` is the permissive default that makes a
+    /// typo a gate which never opens, silently, forever. Split them:
+    /// [`ConditionOutcome::unanswerable`] is the "no such subject" arm and it
+    /// reaches a content diagnostic; `false` is an answer about a real thing.
+    ///
+    /// ⭐ **`body.can` IS THE SHAPE TO COPY** (`actor_monolith/src/body_conditions.rs`).
+    /// It resolves the verb against a DEFAULT `AbilitySet` *before* looking at
+    /// any body, and its comment says why: *"so an unknown verb is a content
+    /// diagnostic even in a composition with no body in it. Resolving the body
+    /// first would report 'nothing is driving' for a misspelling."*
+    ///
+    /// ⚠ **AND THE CHOICE IS NOT ALWAYS THE EVALUATOR'S TO MAKE. MEASURED
+    /// 2026-09-06 across all 12 published `ParamSpec`s**, three stances are in
+    /// the tree, and which one is right turns on ONE question — *is the roster
+    /// reachable where the check would go?*
+    ///
+    /// 1. **REFUSE AT EVALUATE, because the roster is a Rust type.** `body.can`
+    ///    alone: `AbilitySet`'s fields are compiled in, so `Default::default()`
+    ///    is a complete roster needing no world.
+    /// 2. **DEFER TO CONTENT VALIDATION, stated.** `world.switch_on` rules
+    ///    exactly this and says so — *"a MISSPELT id is indistinguishable from
+    ///    an unflipped one; that is a content-validation question about authored
+    ///    ids, not a runtime one."* `world.flag_set` needs no roster at all: a
+    ///    save flag is genuinely free-form, which is the honest escape hatch this
+    ///    kind was named for.
+    /// 3. **UNEXAMINED** — `boss.cleared`, `encounter.cleared`, `inventory.holds`,
+    ///    `quest.active`, and the encounter command's `key`. Each names a subject
+    ///    authored in a roster elsewhere, and none says which of (1) or (2) it
+    ///    intends. `boss.cleared` comes closest and still splits the wrong
+    ///    absence: it reasons carefully that an unrecorded boss really is
+    ///    un-beaten — true — without noticing that the same `NotSatisfied` is
+    ///    also what a boss that does not exist returns.
+    ///
+    /// ⇒ Stance 2 is not a shrug; it names an owner. The fallback for a roster a
+    /// type cannot hold is an authored-integrity guard, which is why this project
+    /// already runs several. Adding a `Name` param means picking 1, 2 or 3, and
+    /// only the first two are choices.
     Name,
     Number,
     Truth,

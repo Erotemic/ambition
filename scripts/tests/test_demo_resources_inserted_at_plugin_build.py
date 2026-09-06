@@ -59,3 +59,21 @@ def test_the_body_stops_at_its_own_closing_brace() -> None:
     start = module.BUILD.search(src).end() - 1
     names = [m.group(1) for m in module.INSERT.finditer(module.body_of(src, start))]
     assert names == ["Inside"], names
+
+
+def test_an_overwriting_insert_of_a_foreign_type_is_flagged_and_a_variable_is_not() -> None:
+    """⭐ `insert_resource` OVERWRITES; `init_resource` is a no-op when the
+    resource is already there. On a type the demo does NOT define, that
+    difference is Jon's `99ab15e32` ("Smash was deleting another plugin's
+    resources on the way out") arriving from the other direction.
+
+    ⚠ And the false positive that arm shipped with first: `insert_resource(goal_pole)`
+    passes a VARIABLE, not a type, and lowercase is how you tell.
+    """
+    module = _module()
+    out = []
+    for _crate, hits in module.inserted_at_build().items():
+        out += [label for _f, label in hits]
+    flagged = [o for o in out if "OVERWRITING" in o]
+    assert any(o.startswith("RespawnInterval") for o in flagged), flagged
+    assert not any("goal_pole" in o for o in flagged), flagged

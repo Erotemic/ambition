@@ -80,17 +80,45 @@ def body_of(src: str, start: int) -> str:
     return src[start:]
 
 
+def own_types(demo: pathlib.Path) -> set[str]:
+    #: Type names this demo defines, so a FOREIGN one can be told apart.
+    names: set[str] = set()
+    for path in demo.rglob("*.rs"):
+        names |= set(
+            re.findall(
+                r"(?:pub )?struct (\w+)",
+                path.read_text(encoding="utf-8", errors="replace"),
+            )
+        )
+    return names
+
+
 def inserted_at_build() -> dict[str, list[tuple[str, str]]]:
     found: dict[str, list[tuple[str, str]]] = {}
     for demo in sorted(REPO.glob("game/ambition_demo_*/src")):
         crate = demo.parent.name
+        mine = own_types(demo)
         for path in sorted(demo.rglob("*.rs")):
             src = path.read_text(encoding="utf-8", errors="replace")
             for match in BUILD.finditer(src):
-                for hit in INSERT.finditer(body_of(src, match.end() - 1)):
-                    found.setdefault(crate, []).append(
-                        (path.name, hit.group(1).split("::")[-1])
+                body = body_of(src, match.end() - 1)
+                for hit in INSERT.finditer(body):
+                    name = hit.group(1).split("::")[-1]
+                    # ⭐ `insert_resource` OVERWRITES; `init_resource` is a no-op
+                    # when the resource is already present. On a type the demo
+                    # does NOT define, that difference is Jon's `99ab15e32`
+                    # ("Smash was deleting another plugin's resources on the way
+                    # out") arriving from the other direction.
+                    # ⚠ Lowercase names are VARIABLES, not types
+                    # (`insert_resource(goal_pole)`) — counting them as foreign
+                    # types was this arm's first false positive.
+                    overwrites = (
+                        hit.group(0).startswith("insert_resource")
+                        and name not in mine
+                        and name[:1].isupper()
                     )
+                    label = name + ("  ⚠ OVERWRITING insert of a foreign type" if overwrites else "")
+                    found.setdefault(crate, []).append((path.name, label))
     return found
 
 

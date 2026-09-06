@@ -1085,3 +1085,79 @@ fn completing_a_two_switch_encounter_greens_both_and_leaves_it_disarmed() {
          driver restarts the fight under the player"
     );
 }
+
+
+/// ⛔⛔ THE ENCOUNTER'S MUSIC CLEARS WITH NO PLAYER BODY — a death and a room
+/// transition are both frames where there is none.
+///
+/// `base_track` is documented as "written every frame — including `None`", and
+/// that is what makes it safe for `desired_track()` to rank it below
+/// `priority_track`. But the write sat BELOW `if player_body_q.is_empty() {
+/// return; }`, so on exactly the frames a body is absent it was not written at
+/// all — and those are the frames an encounter stops being in flight. The track
+/// LATCHED at its last value and kept playing into the next room.
+///
+/// ⭐ THE GUARD WAS NEVER PROTECTING THIS PROJECTION. It reads only `staged`;
+/// nothing between the guard and the write touches the player body. The guard was
+/// sequencing, and the music projection had been filed after it.
+///
+/// Jon 2026-09-06: "the music changes in a way I was not expecting and seems to
+/// get into some sort of stuck state."
+#[test]
+fn the_encounter_track_clears_even_on_a_frame_with_no_player_body() {
+    use bevy::prelude::*;
+
+    let mut app = App::new();
+    app.add_message::<ambition_encounter::EncounterEventMsg>();
+    app.add_message::<ambition_combat::events::GameplayBannerRequested>();
+    app.init_resource::<ambition_persistence::save::AmbitionGameSave>();
+    app.init_resource::<ambition_gameplay_trace::GameplayTraceBuffer>();
+    app.init_resource::<ambition_encounter::EncounterView>();
+    app.init_resource::<ambition_persistence::quest::QuestRegistry>();
+    app.insert_resource(switch_index(&[]));
+
+    let mut active =
+        ambition_platformer2d_shared_tangle::lifecycle::ActiveSessionScope::default();
+    let scope = active.begin();
+    app.insert_resource(active);
+    let root = app
+        .world_mut()
+        .spawn((
+            ambition_platformer2d_shared_tangle::lifecycle::SessionRoot(scope),
+            ambition_encounter::EncounterMusicRequest::default(),
+        ))
+        .id();
+
+    // An encounter that is NOT in flight — so the correct base track is `None`.
+    app.world_mut().spawn((
+        Encounter {
+            id: "quiet_arena".into(),
+        },
+        EncounterLifecycle::default(),
+        EncounterWaves::new(lab_spec()),
+        EncounterParticipants::default(),
+    ));
+
+    // ⚠ DELIBERATELY NO PLAYER BODY. That is the state under test.
+
+    // What a previous in-flight frame left behind.
+    app.world_mut()
+        .entity_mut(root)
+        .get_mut::<ambition_encounter::EncounterMusicRequest>()
+        .unwrap()
+        .base_track = Some("first_goblin_tune_v2".to_string());
+
+    app.add_systems(Update, crate::apply_wave_encounter_effects);
+    app.update();
+
+    assert_eq!(
+        app.world()
+            .entity(root)
+            .get::<ambition_encounter::EncounterMusicRequest>()
+            .expect("the session root carries the request")
+            .base_track,
+        None,
+        "the encounter track survived a frame with no player body, so it latches \
+         through a death and a room transition and plays on into the next room"
+    );
+}

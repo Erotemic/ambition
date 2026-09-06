@@ -497,6 +497,34 @@ pub fn apply_wave_encounter_effects(
             }
         }
     }
+    // ⛔⛔ ABOVE THE PLAYER-BODY GUARD, AND THAT IS THE POINT. This sat BELOW
+    // it, so the sentence above — "writing the base source every frame,
+    // including `None`" — described a property the code did not have.
+    // `player_body_q` is empty during a DEATH and across a ROOM TRANSITION,
+    // which is exactly when an encounter stops being in flight, so the track
+    // LATCHED at its last value and kept playing into the next room.
+    // ⇒ It reads only `staged`; nothing between the guard and here touched the
+    // player body, so the guard never protected this projection — it only
+    // sequenced it.
+    // Jon 2026-09-06: "the music changes in a way I was not expecting and
+    // seems to get into some sort of stuck state."
+
+    // Music: pick the first encounter currently in flight with an authored
+    // track and request it (the base-priority source of the shared
+    // `EncounterMusicRequest`); otherwise clear it. Generic over the
+    // lifecycle + staging policy (E12). Writing the base source every frame —
+    // including `None` — is safe: `desired_track()` ranks `priority_track`
+    // above `base_track`, so this can't clobber a concurrent focused fight's
+    // music.
+    let active_track = staged.iter().find_map(|(lifecycle, _, track)| {
+        if lifecycle.phase().in_flight() {
+            track.map(|t| t.0.clone())
+        } else {
+            None
+        }
+    });
+    music_request.base_track = active_track;
+
     if player_body_q.is_empty() {
         return;
     }
@@ -527,21 +555,6 @@ pub fn apply_wave_encounter_effects(
     // layer's own `EncounterRewardSyncPlugin` reads it, so the kernel no longer
     // has to know how an encounter says "completed".
 
-    // Music: pick the first encounter currently in flight with an authored
-    // track and request it (the base-priority source of the shared
-    // `EncounterMusicRequest`); otherwise clear it. Generic over the
-    // lifecycle + staging policy (E12). Writing the base source every frame —
-    // including `None` — is safe: `desired_track()` ranks `priority_track`
-    // above `base_track`, so this can't clobber a concurrent focused fight's
-    // music.
-    let active_track = staged.iter().find_map(|(lifecycle, _, track)| {
-        if lifecycle.phase().in_flight() {
-            track.map(|t| t.0.clone())
-        } else {
-            None
-        }
-    });
-    music_request.base_track = active_track;
 
     // Publish the presentation read-model (§6): the camera zoom the active
     // encounters want, from the authored staging policy (E12). Cross-crate

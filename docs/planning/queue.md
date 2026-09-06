@@ -993,9 +993,140 @@ and run that one. `cargo check -p <crate>` with no features is seconds.
   the robot control, pointing the flat claim at the robot reddens the second, and
   making the crouch set the standing set reddens the third.
 
-  ⇒ **NEXT ACTION IS A SHEET REGENERATION, not a code hunt:** her generator must
-  measure the body box per animation the way the robot's does. ⚠ That is the
-  sprite-renderer submodule under the Q65 hold, so it wants Jon's call first.
+  ⛔⛔ **AND SHE IS NOT ALONE — a SECOND selectable fighter has it, found by
+  reading the census as a RATIO rather than as a flag, 2026-09-06.** The
+  cross-sheet census flags *"one box for every pose"*, which catches only the
+  degenerate case. Ranked by distinct boxes per pose, the roster splits cleanly:
+
+  | sheet | poses | distinct | |
+  |---|---|---|---|
+  | `boss` | 6 | 1 | ⛔ one box |
+  | `mary_o_v2` | 9 | 1 | ⛔ one box |
+  | `mary_o_v2_tall` | 12 | 2 | ⛔ stance only |
+  | `mary_o_v2_fire` | 12 | 3 | ⛔ stance, plus one 1px outlier |
+  | **`perfect_cellular_automaton`** | **136** | **7** | ⛔⛔ **5% — the same defect at scale, and the flag misses it entirely** |
+  | `noether` | 123 | 111 | ✔ 90% |
+  | `player_robot_v3` | 133 | 95 | ✔ 71% |
+
+  ⇒ **`perfect_cellular_automaton` is on `SMASH_ROSTER`**, so this is a second
+  fighter a player can pick in a 1v1 whose body box barely moves across 136 poses.
+  ✔✔ **AND THE WITNESS HAS NOW BEEN MEASURED — it is a finding after all, and the
+  walk-back below is kept because being right to doubt it and right about it are
+  different things.** The discriminator named there is distinct frame OFFSETS
+  against distinct body BOXES: how far the art moves versus how far the box
+  follows.
+
+  | sheet | frames | offsets | boxes | art/body |
+  |---|---|---|---|---|
+  | `player_robot_v3` | 892 | 393 | 95 | 4.1× |
+  | `noether` | 875 | 519 | 111 | 4.7× |
+  | `mary_o_v2_fire` | | | | 7.3× |
+  | `mary_o_v2_tall` | | | | 10.0× |
+  | `mary_o_v2` | 25 | 24 | 1 | 24.0× |
+  | `boss` | | | | 37.0× |
+  | `perfect_cellular_automaton` | 913 | **390** | **7** | **55.7×** |
+
+  ⇒ **Its art moves through 390 distinct positions while its body box takes seven
+  values** — thirteen times the healthy sheets. ⛔ **Its own file does not save
+  it**: *"a cellular automaton does not punch — it applies a rule and the
+  neighbourhood changes"* describes a silhouette that does not change, **and a
+  silhouette that did not change would not need 390 offsets.**
+  ⚠ **This RANKS suspicion rather than proving intent** — a character could
+  deliberately move art over a fixed collision box — but "candidate, nobody has
+  looked" is no longer the state.
+  ⭐ **And it catches the false negative above**: `mary_o_v2_fire` reads 7.3×, well
+  inside the affected group, while tier-invariance clears it for the 1px reason.
+  ⇒ **The witness sees what neither threshold-free signal can, because it is a
+  different KIND of evidence rather than a second measure of the same property.**
+
+  ⛔ **The doubt below is kept, because it was correct when written.** Mary-O's case is settled because her per-pose frame offsets DO vary —
+  the art moves and the box does not. For the automaton that comparison has not
+  been made, and its own moveset header says *"a cellular automaton does not punch
+  — it applies a rule and the neighbourhood changes"*: a character whose silhouette
+  genuinely does not change between poses is CORRECTLY described by one box, and
+  seven would be generous. ⇒ **The flag says "look here", not "this is broken".**
+  ⚠ The discriminator is the same one that settled Mary-O: do its per-pose frame
+  offsets vary while the body box does not? Until that is measured this is a
+  candidate, not a finding — and it is only a gap if nobody chose it.
+  ⚠ **ITS SHAPE IS UNMEASURED AND DELIBERATELY NOT GUESSED.** Mary-O's seven-box
+  sibling partitions by STANCE, and it would be natural to assume the same here —
+  but three separate hand-written parsers of that `.ron` gave me three wrong
+  answers (0 animations, then 1 hurtbox, against the tested script's 136 and 7),
+  so I did not publish a grouping I could not derive. ⇒ Whoever prices the
+  regeneration should get the partition from
+  `scripts/pose_body_box_distinctness.py`, which has a hand-built corpus behind
+  it, rather than from a fresh regex. It reads "7 distinct" and looks healthy beside a flag that only
+  fires at 1. ⭐ **A count of 1 is not the defect; a ratio near zero is** — and the
+  same regeneration presumably fixes both, which makes the Q65 decision worth more
+  than one row.
+
+  ⭐⭐ **AND TIER-INVARIANCE IS A SHARPER SIGNAL THAN THE RATIO — measured, and it
+  turns the tier caveat into the instrument.** Healthy sheets LOSE distinctness as
+  the tiers quantise boxes together; a sheet that is not measuring finely enough
+  has nothing to lose:
+
+  | sheet | 1x | 0_5x | 0_25x |
+  |---|---|---|---|
+  | `noether` | 111 | 110 | 103 |
+  | `player_robot_v3` | 95 | 92 | 83 |
+  | `perfect_cellular_automaton` | **7** | **7** | **7** |
+
+  ⇒ **A distinctness that does not move with resolution is authored coarse, not
+  quantised coarse.** That is a one-sheet test needing no comparison against a
+  healthy peer and no threshold at all — better than the ratio proposed above, and
+  it comes from taking the tier warning seriously rather than working around it.
+  ⛔⛔ **KEEP BOTH INSTRUMENTS, AND FOR A HARDER REASON THAN "different questions":
+  THEY FAIL IN OPPOSITE DIRECTIONS, and each is wrong about a sheet the other gets
+  right.** Established by two sessions re-deriving each other's claim rather than
+  agreeing with it:
+
+  * **The ratio has a false POSITIVE.** `player_robot_v3` at `sprites_potato` is
+    27/133 = **0.20** — inside the very gap that was offered as the threshold's
+    justification, on a HEALTHY sheet. ⇒ The "nothing sits between 0.25 and 0.71"
+    argument was an artifact of sampling ONE tier, which is the mistake the tier
+    caveat in the same file warns about.
+  * **Invariance has a false NEGATIVE.** `mary_o_v2_fire` reads **3 / 2 / 3 / 2**
+    across the tiers, so it "moves" and invariance clears it — while it is
+    genuinely affected. ⚠ **The wobble is the 1px `CrouchJump` rounding
+    differently between tiers**: the single per-pose measurement in her three
+    sheets is also the thing that hides one of them from a tier-invariance test.
+
+  ⇒ **Neither alone finds both fighters.** Invariance answers *"authored coarse?"*
+  with no cut to defend; the ratio RANKS, and is what puts
+  `perfect_cellular_automaton` at the bottom of the tree. Print both.
+  ⚠ And exclude sheets whose distinct count already EQUALS their pose count —
+  those are invariant for the opposite reason, having nothing left to quantise,
+  and would otherwise flag the healthiest sheets in the tree.
+
+  Current invariance report: `boss` 1/1/1/1 (6 poses), `mary_o_v2` 1/1/1/1 (9),
+  `mary_o_v2_tall` 2/2/2/2 (12), `perfect_cellular_automaton` 7/7/7/7 (136).
+
+  ⭐ **Two instruments on one question earned their keep by each catching the
+  other's blind side, not by agreeing.** ⇒ That is a better argument for a second
+  road than "disjoint roads" — agreement between two measures of the same property
+  is closer to re-running a census than to a second witness.
+  ⚠ `imperfect_cellular_automaton` publishes NO hurtbox whatsoever, reported as
+  its own line by the census: absent, coarse and fine are three states, not two.
+
+  ⛔ **AND THE POPULATION IS SMALL — say so, or a reader prices this against 852.**
+  Of the 852 sheets the census walks, **the overwhelming majority publish no
+  per-pose boxes at all** and are reported on that separate line, outside the ratio
+  entirely. The table above IS roughly the population that HAS per-pose metrics.
+  ⇒ So the rows at or below the threshold are a handful of SHEETS times four
+  TIERS, not a handful of dozens of characters, and the regeneration this row asks
+  for is correspondingly small. ⚠ A tier count read as a character count would
+  make this look like a project rather than a job.
+
+  ⇒ **NEXT ACTION IS A SHEET REGENERATION, not a code hunt:** these generators must
+  measure the body box per animation the way the robot's and Noether's do. ⚠ That
+  is the sprite-renderer submodule under the Q65 hold, so it wants Jon's call
+  first. ⇒ **Two selectable fighters, one decision** — Mary-O's three forms and
+  `perfect_cellular_automaton`.
+  ⭐ **And the art/body ratio is the number to re-run afterwards**, because it is
+  the one that says whether the regeneration worked: healthy sheets sit near 4×,
+  and anything still above ~7× has art moving where its box does not follow. ⚠ That
+  is the sprite-renderer submodule under the Q65 hold, so it wants Jon's call
+  first.
 
   ⭐ **The shape both sessions hit today: the source read coherently and the DATA
   said something else.** I nearly hardened a fallback that never fires; a peer

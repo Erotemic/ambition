@@ -253,9 +253,20 @@ install_scripts_env() {
     # amount of care about `scripts/` could have found it. `resvg-py>=0.3` is
     # declared in the renderer's own `pyproject.toml`; it is pinned here because
     # this environment is what the repo-tooling lane runs in.
+    # ⛔⛔ PIN `tree-sitter` TO THE RANGE `ecs_inventory.py` DECLARES, because
+    # installing it BARE let a new release segfault the tool. Measured 2026-09-06:
+    # the env held tree-sitter 0.26.0 against tree-sitter-rust 0.24.2, and
+    # `ecs_inventory.py --crate <anything>` DUMPED CORE on every crate — small
+    # ones included, so it was not size. That script regenerates the
+    # `.agent/ecs_inventory` packets an agent navigates by, and its own PEP-723
+    # header says `tree-sitter>=0.25,<0.26`; nothing enforced it, so the
+    # navigation data silently stopped being regenerable.
+    # ⭐ A version constraint stated in the SCRIPT and installed BARE here is the
+    # same fact in two places with one of them empty. Downgrading to 0.25.2 makes
+    # the tool run again on the first try.
     uv pip install --python "$venv_python" \
-        pytest tree_sitter tree_sitter_rust numpy soundfile rich pillow \
-        "resvg-py>=0.3"
+        pytest "tree-sitter>=0.25,<0.26" "tree-sitter-rust>=0.24,<0.25" \
+        numpy soundfile rich pillow "resvg-py>=0.3"
     # The moveset inspector is imported directly out of `tools/` by
     # `scripts/tests/test_moveset_inspector_renderer.py`, so it belongs in THIS
     # environment rather than one of its own. Installed editable so its

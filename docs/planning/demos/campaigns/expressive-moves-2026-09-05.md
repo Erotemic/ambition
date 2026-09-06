@@ -943,7 +943,13 @@ well-worded failure message.
 IT.** The per-fighter figures below (*"18 expressive, 1 plain"*, *"the complaint
 is closed"*) came from an instrument whose unit saturated and whose predicate
 counted two of four mechanical event kinds. The honest number in the unit the
-complaint uses is **80 of 88 specials with a mechanic, 8 without** (2026-09-06).
+complaint uses is **84 of 88 specials with a mechanic, 4 without** (2026-09-06),
+and all four of those are deliberate and say so in their own files.
+⚠ **This paragraph itself said 80/8 for several hours after the number moved** —
+the correction at the foot was updated and the summary at the head was not, which
+is the same head/foot split this whole section is about. A number that appears
+twice in a document will disagree with itself eventually; the one a reader
+QUOTES is the one nearest the top.
 
 The goal's own complaint has been argued from readings all campaign. ⇒ Measured
 from the authored DATA — a special is expressive when it carries a technique, a

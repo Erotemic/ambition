@@ -1918,6 +1918,30 @@ actors (`dev/ambition_dev_measurements/journal/2026-09-02-the-overdraw-is-the-ba
 queue row D-RASTER-3). What remains is the weak-GPU measurement itself, which
 needs that machine.
 
+✔ **AND THE INSTRUMENT IS NOW SAFE TO POINT AT IT (2026-09-06, `8d567080a`).**
+Before spending a hardware session, both independent variables were checked
+rather than assumed. `AMBITION_MAX_SCALE_FACTOR` validates its input and writes
+one field; `AMBITION_MSAA` accepts ANY `u8` while `sanitized_msaa_samples` rounds
+an off-tier request DOWN to a count Bevy names (3 → 2, 5 → 4, 16 → 8).
+
+⛔ **The render stack used the sanitized value and the runtime census logged the
+RAW one**, so `AMBITION_MSAA=3` would render at 2 samples and be RECORDED as 3 —
+this row's own experiment naming an arm that never ran. ⚠ A mislabelled arm is
+worse than a missing one: it still analyses, and nothing in the resulting numbers
+would have looked wrong.
+
+⇒ The census now logs the effective count, and the raw field is `pub(crate)` so no
+crate outside `ambition_persistence` can read the request instead of the fact —
+`error[E0616]` at the moment someone tries. ⭐ Note what this was NOT: the rounding
+contract was already tested and correct across 0,1,2,3,4,6,8,16. **The defect was a
+consumer reading the wrong side of a well-guarded boundary, which no test of the
+boundary can catch.**
+
+⚠ Still open for whoever runs it: the row requires multiple reps per arm with
+build/features/profile held constant, and explicitly NOT lavapipe. Use only the
+tiers `1`, `2`, `4`, `8` — an off-tier value is now recorded honestly, but it is
+still not the arm you meant to run.
+
 ### P1 — build/test iteration
 
 Resolve dev profile policy, optimized-incremental policy, resource-aware test

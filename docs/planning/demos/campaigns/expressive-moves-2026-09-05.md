@@ -1024,15 +1024,32 @@ variant is a compile error rather than a silent miscount.
 could not both be true. Re-running a census confirms the census; **a single
 authored customer contradicts it.**
 
-⇒ **THE COMPLAINT IS NOT CLOSED, AND THAT SENTENCE SHOULD NOT HAVE BEEN WRITTEN.**
-It is 80 of 88 with a mechanic as of `d117338cc`, after five specials were
-authored on 2026-09-06 (`pale_blue_dot` a tipper, `hash_collision` a gather,
-`light_argument` set knockback, `one_time_pad` armour, `cosmic_calendar` a
-charge). ⛔ **Three of the remaining eight are DELIBERATE and must not be
-"fixed":** the goblin's `scrap_flail` (*"no technique at all: it turns its whole
-body into the swing and hopes"*), `cellular_pulse` (a migration promise not to
-retune it), and `performer_the_line` (an explicit refusal of
-`MoveEventKind::Ranged`). **A plain list is not a to-do list.**
+⇒ **AND THE HONEST VERSION OF "CLOSED" IS NOT A NUMBER — corrected to this on
+2026-09-06 (`ef3c02b62`). It is 84 of 88 with a mechanic, and every one of the
+four without is a DECISION somebody made and wrote down:**
+
+| special | why it carries no mechanic, in its own file |
+|---|---|
+| goblin `scrap_flail` | *"No technique at all: it turns its whole body into the swing and hopes"* |
+| `cellular_pulse` | hand-built from an archetype row; *"the migration that brought them here promised not to retune them"* |
+| `performer_the_line` | an explicit refusal of `MoveEventKind::Ranged` — *"she would need a weapon to state one, and the point of the move is that there is nothing in her hand"* |
+| `performer_trapdoor_air` | a deliberate FAKE — the same first frames as the real trapdoor and no door; *"it spends no recovery and grants no i-frames"*, and its whole benefit is that an opponent must read which one it was |
+
+⇒ **"Plain" was never the defect. Plain that nobody chose was.** ⭐ Nine specials
+were authored on 2026-09-06 to get here: `pale_blue_dot` a tipper,
+`hash_collision` a gather, `light_argument` set knockback, `one_time_pad` armour,
+`cosmic_calendar` a charge, `medic_tourniquet` a repair (its comment forbade a
+growth its data carried), `dirt_kick` a wake, `stabilizer_slam` armour, and
+`shadow_answer` a hit-confirm into the draw.
+
+⛔⛔ **AND THE RATCHET GAINED THE HALF IT WAS MISSING.** A floor catches a mechanic
+being REMOVED and is blind to a plain special being ADDED — a new bare swing
+raises the roster's total and leaves the expressive count exactly where it was. ⇒
+`PLAIN_CEILING = 4`, **a count and never an allowlist of names**, because a name
+list absorbs the guard's own weaknesses the moment somebody adds a row to quiet
+it. Poisoned with an ADDITION rather than a removal, which is the case a floor
+cannot see: widening the corpus took plainness to **57** and reddened the ceiling
+while the floor stayed green throughout.
 
 ### ⭐⭐ THE SWEEP FINISHED, AND THE HYPOTHESIS IT SUGGESTED WAS REFUTED
 

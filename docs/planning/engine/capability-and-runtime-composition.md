@@ -4,6 +4,51 @@
 
 
 
+
+## ✔ PREREQUISITE E, 2026-09-06 — THE PATTERN ALREADY EXISTS AND NOW HAS ITS GUARD
+
+The program asks: *"How does an active experience provide policy to a shared
+capability without becoming permanent process-global authority?"* ⇒ The answer is
+shipping and it is worth naming, because it will recur for mana regen, respawn
+rules, camera behaviour, stocks, damage rules, HUD, persistence, input maps and
+audio — the program's own list.
+
+### The pattern: a PRIOR SNAPSHOT
+
+On activation the ruleset captures each shared resource it is about to override
+into one `…Prior` struct; on deactivation it puts each one back, **or removes it
+if there was none**. `SmashPresentationPrior` is the worked instance, covering
+`PlayerManaRegen`, two portal-presentation resources, and `SmashLimitFill`.
+
+⭐ The `None => remove_resource` arm is the half that makes it correct rather than
+approximate: a ruleset that overrode a resource **nobody had set** must leave the
+App with nobody having set it, not with a default it invented.
+
+### ⛔⛔ THE FAILURE MODE IS NOT THE PATTERN, IT IS THE FIFTH FIELD
+
+Adding an override means editing THREE places — the struct, the capture, the
+restore — and **the restore is the one no compiler asks for**. A `…Prior` field
+nobody reads back is a warning at most, and the ruleset silently keeps its policy
+installed after it deactivates.
+
+That has happened three times. The struct's own comment keeps the tally:
+*"Jon's `99ab15e32` and this morning's `PlayerManaRegen` fix are the other two;
+**three fixes and no guard is how a shape stays broken**."*
+
+⇒ ✔ `scripts/tests/test_scoped_ruleset_policy_restores_everything.py`, written
+from that sentence: every field of any `struct …Prior` in a game crate must be
+declared, captured and restored — the three lists have to agree. Poisoned three
+ways: a fifth field captured but never restored, an existing field's restore arm
+deleted, and the struct matcher blinded.
+
+⚠ **SHAPE-BASED, NOT NAME-BASED, ON PURPOSE.** Any `…Prior` in `game/` is checked,
+so the second ruleset to adopt the pattern is covered the day it is written rather
+than the day somebody remembers to extend the guard. ⭐ And the positive control
+matters more here than usual: there is exactly ONE instance in the tree, so the
+discovered set collapsing to empty is a single edit away — and an empty set
+satisfies the main assertion silently.
+
+
 ## ⭐⭐ PREREQUISITE D, ANSWERED 2026-09-06 — THE DECISION IS COMPILE-TIME, AND IT IS ALREADY MADE
 
 The program says the composition-aware rollback declaration *"needs an actual

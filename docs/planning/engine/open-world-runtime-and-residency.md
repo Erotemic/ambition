@@ -586,3 +586,39 @@ surgery on a working boss, the disjunction is correct today, and this page would
 rather carry a measured finding than a rushed edit. The room-alias commit
 (`ef3e864de`) is the same shape with a clean removal available; this one is not
 clean, and saying which is which is the point of writing it down.
+
+### ⭐⭐ THE RULE THESE THREE CASES YIELD: a second name is fine when the ALIAS SET has one authority; it is a defect when each lookup spells its own disjunction
+
+Removing the room caption alias raised the obvious objection — the engine accepts a
+second name for kinematic paths ON PURPOSE, so is "one name per thing" even the
+rule? It is not. **The rule is about where the alias set is DEFINED**, and the tree
+holds all three cases at once:
+
+| | how the alias is spelled | shared by | tested |
+|---|---|---|---|
+| kinematic paths | `kinematic_path_aliases(id, name)`, one named fn | validation, LDtk conversion, runtime lookup, binding | yes, by name |
+| rooms *(was)* | an inline `\|\|` inside one lookup | nothing — the disjunction WAS the rule | no |
+| cut-rope props | an inline `\|\|` in three closures | nothing | no |
+
+✔ **KINEMATIC PATHS ARE THE MODEL AND THEY ARE DONE RIGHT.**
+`KinematicPathSpec::resolution_aliases` documents itself as the single set —
+*"Validation, conversion, and runtime lookup must use this same alias set"* — and
+`kinematic_path_aliases` exists as a free function precisely so raw-content
+validation can share it *before world IR exists*. Measured: **every** consumer goes
+through it (`crates/ambition_platformer2d_world/src/platforms/mod.rs:176` `matches_id`, `crates/ambition_platformer2d_actor_monolith/src/world/rooms/binding.rs:160`
+`resolution_aliases`, `crates/ambition_platformer2d_ldtk/src/conversion/mod.rs:1603` `kinematic_path_aliases`) and
+**nobody** re-spells the disjunction. A path is legitimately reachable by id or by
+its normalized display-name slug, and one place decides that.
+
+⛔ **THE ROOM ALIAS HAD THE OPPOSITE SHAPE.** No named rule, no shared set, no
+test, no doc — a bare `|| room.world.name == id` inside `room_index_by_id`. So
+there was nothing for a second reader to share, which is exactly how
+`same_destination` came to compare raw ids one seam away and not know it was
+comparing something that had two spellings.
+
+⇒ **THE DIAGNOSTIC, and it is cheaper than judging each alias on merit: grep for a
+lookup that spells `a.x == q || a.y == q` INLINE.** An alias set worth having has a
+name; an alias set spelled at the point of use is a rule that only one caller obeys.
+Measured 2026-09-06: after the room removal, the tree contains **exactly one**
+remaining inline disjunction of this shape — the cut-rope props above — and it is
+the one this page already flags as needing a different fix.

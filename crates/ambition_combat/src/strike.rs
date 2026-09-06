@@ -218,6 +218,11 @@ pub fn plausible_feel_scale(knockback: f32) -> bool {
 /// with `source` faction. Returns the entity so callers that track the box (the
 /// rotating-cross arms) can despawn it later. The single spawn point for
 /// world-anchored damage boxes.
+///
+/// ⚠ AND "WORLD-ANCHORED" IS THE WHOLE SCOPE OF THAT SENTENCE. For a swing that
+/// belongs to a BODY — hurts the people in front of it and not the fighter who
+/// threw it — see [`spawn_body_strike`], which is the sibling road and exists
+/// because no spelling of a world-anchored box can express that.
 pub fn spawn_damage_box(
     commands: &mut Commands,
     owner: Entity,

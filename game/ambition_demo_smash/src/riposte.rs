@@ -1,10 +1,9 @@
 //! The answering cut: a parry's response that hits back.
 //!
-//! ⭐⭐ THIS MODULE OWNS NO DAMAGE. It writes one `EffectRequest::DamageBox` —
-//! the same request a mine's blast and a bomb's blast write — and the single
-//! hitbox authority every strike in the workspace goes through resolves it. What
-//! is decided here is WHERE the box goes: in front of the fighter who answered,
-//! at the reach their move authored.
+//! ⭐⭐ THIS MODULE OWNS NO DAMAGE. It spawns one ordinary body strike through
+//! `strike::spawn_body_strike`, and the single hitbox authority every swing in
+//! the workspace goes through resolves it. What is decided here is WHERE the cut
+//! goes: in front of the fighter who answered, at the reach their move authored.
 //!
 //! ⛔⛔ IT IS AN ORDINARY BODY STRIKE, AND THE FIRST DRAFT GOT THAT WRONG IN A
 //! WAY NOTHING WOULD HAVE CAUGHT. It wrote an `EffectRequest::DamageBox`, the
@@ -29,6 +28,17 @@
 //! and that test's own title is the correction. Its tests assert DAMAGE for
 //! exactly this reason: a request-shaped assertion is a question about my own
 //! authoring, not about the engine's answer to it.
+//!
+//! ⛔ ROLLBACK: THIS TECHNIQUE ADDS NO STATE, and that is worth stating rather
+//! than leaving a reader to check. The cut is three components that are already
+//! registered — `Hitbox` (`component-clone-entity-ref`, with `map_entities`
+//! because it carries its owner), `HitboxHits` (`component-clone-entity-set`,
+//! likewise mapped) and `HitboxLifetime` (`component-clone-probed`) — the exact
+//! set `spawn_damage_box` has always spawned. ⇒ No new component, no probe, and
+//! no schema bump: `GGRS_ROLLBACK_SCHEMA_VERSION` is untouched by this row.
+//! ⚠ The owner it stores is a FIGHTER, which is itself rollback-managed, so the
+//! entity mapping that already exists is what keeps the cut pointing at the
+//! same body after a restore.
 
 use bevy::prelude::*;
 

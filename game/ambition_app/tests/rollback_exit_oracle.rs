@@ -1620,6 +1620,15 @@ fn every_gameplay_message_channel_is_rewound_on_rollback_or_named() {
             "bevy's asset lifecycle, delivered on the frame clock",
         ),
         (
+            "ambition_menu::MenuTabActivated",
+            "a menu tab click: both readers are MENU systems (`grid_menu_tab_activated` \
+             switches flat-menu tabs, `basic_shell_pointer` drives the launcher), and \
+             neither runs in the simulation. Named rather than cleared for the same \
+             reason as the state transition below — a frame-level UI fact the sim never \
+             reads has no rewound cursor to lose. ⚠ Added 2026-09-06 when the tab-strip \
+             pointer road landed; verified by reading both readers, not by the name.",
+        ),
+        (
             "bevy_state::state::transitions::StateTransitionEvent<ambition_platformer2d_shared_tangle::schedule::GameMode>",
             "bevy's state machinery; a mode transition is a frame-level fact the sim              never reads",
         ),

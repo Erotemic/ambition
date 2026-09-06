@@ -40,7 +40,7 @@ fn meter(app: &App, who: Entity) -> f32 {
 fn jons_baseline_keeps_guarding_the_safe_option_and_not_the_greedy_one() {
     let fill = LimitMeterFill::JONS_BASELINE;
     assert!(
-        fill.guarding_is_the_safe_option(),
+        guarding_is_the_safe_option(&fill),
         "a block pays {} and eating the hit pays {} — so a fighter maximises \
          the Limit by blocking, which inverts the defensive read",
         fill.on_block,
@@ -468,5 +468,41 @@ fn a_meter_that_arrives_as_a_full_mana_pool_is_not_spendable_when_a_move_is_pric
         current, 0.0,
         "the meter read {current} when a move's cost would be priced — a \
          fighter who just died could spend the Limit for free",
+    );
+}
+
+/// ⭐⭐ THE MECHANISM MUST PERMIT WHAT THIS RULESET REFUSES, and that separation
+/// is the whole point of the split.
+///
+/// ⛔ `on_block >= on_damage_taken` WAS BRIEFLY A VALIDITY RULE inside
+/// `LimitMeterFill::problems()` — the generic vocabulary of independent meter
+/// sources. A review caught it: a coherent future meter may deliberately reward
+/// defensive play (parry 10, damage taken 0), and the mechanism would have
+/// refused to let it exist. **The generic type validates that a fill is WELL
+/// FORMED; whether one source should outrank another is a balance doctrine and
+/// belongs to whoever owns the balance.**
+///
+/// ⇒ So this asserts BOTH halves at once: the mechanism accepts the
+/// defence-rewarding fill, and this ruleset's predicate still calls it greedy.
+/// Either half alone would pass against a version that had simply deleted the
+/// rule instead of relocating it.
+#[test]
+fn the_generic_meter_permits_a_fill_this_ruleset_calls_greedy() {
+    let fill = LimitMeterFill {
+        cap: 60.0,
+        on_block: 10.0,
+        on_damage_taken: 0.0,
+        ..Default::default()
+    };
+    assert!(
+        fill.problems().is_empty(),
+        "the generic mechanism refused a defence-rewarding meter, so a ruleset's \
+         balance doctrine is back inside the vocabulary: {:?}",
+        fill.problems(),
+    );
+    assert!(
+        !guarding_is_the_safe_option(&fill),
+        "the ruleset predicate stopped recognising the inversion, so moving it \
+         out of `problems()` lost the rule rather than relocating it",
     );
 }

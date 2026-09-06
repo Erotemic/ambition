@@ -2031,6 +2031,19 @@ replay did not change, only the number of places that spell the union out.
 ROAD to X**, or a refactor that bundles readers reads as a retraction. Poisoned
 by renaming the union type: the count drops to 7 and the by-road line says so.
 
+⚠ **RE-TAKEN 2026-09-06: 9, NOT 11 — and this is the bundling the paragraph above
+predicts, happening.** `room_replay_reader_slots.py` now reports **9 readers (5
+engine, 4 content), 2 through `FreshAttempt`**, down from 11 (7 + 4). Three of the
+four `FreshAttempt` users became `AttemptScoped` impls behind ONE engine-side
+generic (`rearm_attempt_scoped::<T>`), so three content readers became one engine
+reader. ⇒ **the population that ANSWERS a replay is unchanged; the number of
+places that spell it fell.** Registration SITES are still 3.
+⛔ Recorded here because this row QUOTES the count, and I updated
+`engine/simulation-authority-and-determinism.md` when the refactor landed and
+missed this page — the exact "diff the census output against every page that names
+one" failure. A ruling resting on 11 when the tool says 9 is the thing this row's
+own first correction was about.
+
 ⭐⭐ **BUT THE ROW'S OTHER NUMBER SURVIVES, AND THE TWO WERE BEING CONFLATED.**
 Set membership and *durable* retraction are different questions:
 

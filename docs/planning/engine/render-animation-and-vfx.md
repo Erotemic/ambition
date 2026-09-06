@@ -799,3 +799,68 @@ again with no manual visibility repair (**already guarded** —
 from the pane stays visible while its body overlaps (**already guarded** —
 `a_sprite_dependant_disjoint_from_the_pane_is_not_hidden_by_its_owner`); morph ball
 and the two-visible-portals poison stay correct.
+
+## ◐ THREE holds have no published presentation fact — not five (measured 2026-09-06)
+
+The fighter lane raised it as *"a slept fighter stands identically to one in
+shieldstun, landing lag, a recoil lock or a guard break, so in a 1v1 neither player
+can tell which of five causes is holding them"*. ⇒ **The concern is real and the
+count is not**, which changes what the fix has to cover.
+
+✔ **TWO OF THE FIVE ARE ALREADY DISTINGUISHED, by published facts with presentation
+readers:**
+* **shieldstun** — the sim publishes its timer and
+  `crates/ambition_render/src/rendering/bubble_shield.rs` normalises it into a
+  flare. That file's own comment states the split: the SIM publishes the timer, the
+  RENDERER owns how long the flare is spent.
+* **guard break** — `crates/ambition_character_sprites/src/anim/mod.rs:247` carries
+  a `GuardBreakBeat`.
+* **launch/hitstun** is a third: `pose_view` publishes `LaunchedBodyFact` whenever
+  `tumbling` or `hitstun_timer > 0`, and it deliberately ORs the two so a consumer
+  does not drop the row the instant a launched body stops tumbling.
+
+⛔ **WHAT THE POSE CANNOT SEE: `sleep_timer`, `landing_lag_timer` and
+`recoil_lock_timer`** — and each is unreachable for a DIFFERENT reason, which is
+what a fix has to respect:
+* `sleep_timer` — **zero** hits across `sim_view`, `render` and
+  `character_sprites`. Genuinely unpublished.
+* `landing_lag_timer` — ⚠ **IS published**, as `landing_lag_s`
+  (`crates/ambition_sim_view/src/combat_geometry_view.rs:240`). But that read-model
+  opens by saying it "answers the two questions a combat debugger needs", and it
+  feeds debug overlays rather than the pose. So the plumbing exists and the POSE is
+  what is missing — a weaker and more useful claim than "nothing publishes it",
+  which the next reader would falsify in one grep.
+* `recoil_lock_timer` — reaches presentation only as
+  `LaunchedBodyFact::launch_beat_secs`, a field OF the launch row, so it cannot
+  answer for a body that is not launched.
+
+⛔⛔ **CORRECTION, SAME DAY, BEFORE ANYONE ACTED ON IT: I FIRST WROTE THAT THE FIX
+WAS A NEW `HoldReason` PUBLISHED BY THE SIM. That is wrong, and it would have built
+a parallel mechanism beside one that already exists.**
+
+⇒ **THE RANKING ALREADY HAS ONE AUTHORITY: `pick_body_anim(&BodyAnimView)`**
+(`crates/ambition_character_sprites/src/anim/mod.rs:357`). It is a single ordered
+ladder — `dead` → `held` → `knocked_down` → `getting_up` → `hit | tumbling |
+guard_broken` → `dodge_roll` → `air_dodge` — and its comments already argue about
+RANK for exactly the reason a new reason type would have had to re-argue ("the floor
+game outranks the hit flash… reading `hit` first would draw the struck pose for the
+whole prone beat"). The renderer draws `pose.anim` (`animation.rs:183`); it does no
+ranking and must not start.
+
+⇒ **So the sleep pose is ONE FLAG ON `BodyAnimView` PLUS ONE ARM AT THE RIGHT RANK**,
+not a new published fact. ⚠ And the rank is the whole design question, not a
+detail: sleep must outrank `hit` (a slept body is still inside hitstun, the same
+argument the knockdown arm won) while losing to `dead` and `held`.
+
+⚠ **THERE IS ALSO A SECOND LEVEL TO USE RATHER THAN DUPLICATE.** The `guard_broken`
+arm returns `Hit` and says why: *"`body_state_clip` asks the sheet for `dizzy`
+first, and a fighter sheet has that row. This arm is what a sheet without one lands
+on."* ⇒ A sleep gets the same treatment — a sheet-specific clip when the sheet has
+one, and a ladder arm as the floor — so a character without sleep art degrades
+instead of drawing nothing.
+
+⭐ **WHY I NEARLY GOT IT WRONG IS THE REUSABLE PART**: I measured which FACTS were
+published, found none for sleep, and concluded a fact was missing. The fact was not
+missing — the INPUT to an existing ranking was. Asking "what is published?" and
+asking "who already decides this?" are different questions, and only the second
+finds a ladder.

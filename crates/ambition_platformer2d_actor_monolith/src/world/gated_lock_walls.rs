@@ -292,11 +292,14 @@ fn publish_gated_lock_wall_verdicts(world: &mut World, walls: Vec<CachedWall>) {
     // and pushing needs `&mut` on the overlay; a borrow that spanned both would
     // not compile, and cloning a handful of rows once a frame is not the cost
     // worth contorting the code to avoid.
+    // ⛔ THE WALLS ARE THE ARGUMENT, NOT A SECOND READ. The extraction that
+    // created this function left a `let walls = world.get_resource::<GatedLockWallCache>()..`
+    // here, SHADOWING the parameter — so the caller decided which walls to publish
+    // and this half went back to the cache to ask again. That is the exact
+    // duplication the extraction existed to remove, reintroduced by the
+    // extraction. `unused variable: walls` was the compiler saying so, and I
+    // missed it by grepping `cargo check` for `^error` only.
     let catalog = world.resource::<ConditionCatalog>().clone();
-    let walls = world
-        .get_resource::<GatedLockWallCache>()
-        .map(|cache| cache.walls.clone())
-        .unwrap_or_default();
     let mut verdicts = std::collections::BTreeMap::new();
     let standing: Vec<&GatedLockWall> = walls
         .iter()

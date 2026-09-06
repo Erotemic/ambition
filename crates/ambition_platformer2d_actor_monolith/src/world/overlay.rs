@@ -33,15 +33,15 @@ pub fn rebuild_feature_ecs_world_overlay(
         (With<FeatureSimEntity>, With<PogoTargetContributor>),
     >,
 ) {
-    overlay.blocks.clear();
     // Gate contributors (encounter / intro lock walls, gnu_ton arena gate)
     // re-extend these after we run; clearing them here gives them the same
-    // clean-slate-per-frame contract the breakable blocks above have. (Portal
+    // clean-slate-per-frame contract the breakable blocks below have. (Portal
     // carves are owned + cleared by the portal subsystem, so not touched here.)
-    overlay.gate_solids.clear();
-    overlay.removed_block_names.clear();
-    overlay.climbable_carves.clear();
-    overlay.water_regions.clear();
+    //
+    // ⭐ The five clears this replaces were a HAND-KEPT LIST. The method
+    // destructures the overlay with no `..`, so a seventh field cannot be added
+    // without its author saying which owner clears it.
+    overlay.clear_engine_contributions();
     for (name, aabb, feature) in &breakables {
         if feature.broken() {
             continue;

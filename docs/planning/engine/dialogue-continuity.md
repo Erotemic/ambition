@@ -222,3 +222,35 @@ single ending there is one place to guard instead of two. The second pins that a
 script with NO `seen_flag` writes NOTHING, because ending unrecorded differs from
 ending unmarked and a helper that invented an id would put a durable row in the
 save for every unnamed cutscene.
+
+## ◐ `DialogState`'s close path is a hand-kept list over 24 fields — measured 2026-09-06, and NOT turned into a guard
+
+`close_dialogue` (`crates/ambition_dialog/src/bridge.rs:237`) resets by hand, and
+`reset_presentation_identity` covers three more. Measured against the struct: of
+**24 fields, 11 are not reset when a conversation closes** —
+`npc_name`, `dialogue_id`, `line_reveal`, `speech_style`, `pointer_armed`, `focus`,
+`last_pointer_position`, `row_press`, `pending_start`, `pending_select`,
+`pending_advance`.
+
+⛔ **THAT IS A SHORTLIST AND NOT A DEFECT LIST, and publishing it as one would be
+the mistake this page should not make.** Several are plainly CORRECT to survive a
+close: `pending_start` is a request for the NEXT dialogue and resetting it would
+drop the conversation about to begin; `line_reveal` and `speech_style` are set at
+LINE START (`crates/ambition_dialog/src/runtime.rs:194`), so a close has nothing to say about them. The
+pointer/focus group is input state whose lifetime is the widget, not the
+conversation.
+
+⭐ **THE DISCRIMINATOR IS THE SAME ONE THE OVERLAY CASE PRODUCED**: a field is a
+leak only if something READS it before the next writer sets it. `DialogView`'s
+rebuild already blanks its own row whenever `active` is false, so the fields that
+reach the SCREEN are covered regardless — which is why this is not a player-visible
+row today.
+
+⇒ **SO THE EXHAUSTIVE-DESTRUCTURE GUARD IS NOT MECHANICAL HERE, and that is why it
+is recorded rather than written.** The same trick that fit
+`FeatureEcsWorldOverlay`, `DialogView` and `ProjectionScratch` (five, nine and five
+fields with ONE correct answer each) needs **eleven judgements** here, several of
+which are "survives on purpose". A destructure whose arms are mostly
+`// intentionally kept` is a worse artifact than the hand list, because it reads as
+enforcement while encoding guesses. ⇒ Whoever takes it should classify the eleven
+FIRST — the guard is the cheap half.

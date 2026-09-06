@@ -114,6 +114,20 @@ impl bevy::prelude::Plugin for MapStatePlugin {
         // exists. No new dependency edge — `Platformer2dSimulationPhaseMonolith`
         // and `session_world_exists` both live in `shared_tangle`.
 
+        // ⛔ ONE SYSTEM OF THIS DOMAIN IS STILL INSTALLED BY THE HOST, and the
+        // reason is a real prerequisite rather than an oversight.
+        // `populate_map_rooms` sits in the app's STARTUP chain, bracketed by
+        // profiling marks (`after_map_menu_spawn` exists to time it) and ordered
+        // `.after(setup_simulation_system)` — a host FUNCTION, which this crate
+        // cannot name and should not.
+        //
+        // ⭐ THE PATTERN TO FOLLOW IS THREE LINES ABOVE IT IN THAT FILE: *"the
+        // plugin publishes `AudioInitSet` and the host brackets it here"*. ⇒ The
+        // carve wants this plugin to publish a `MapMenuSpawnSet`, install
+        // `populate_map_rooms` into it, and the host to order its phase mark
+        // `.after(MapMenuSpawnSet)` — plus a published set standing where
+        // `setup_simulation_system` stands today, which is the host's to make.
+        // ⚠ It is also `#[cfg(feature = "ldtk")]`, so the install carries the gate.
         app.add_systems(
             bevy::prelude::Update,
             (

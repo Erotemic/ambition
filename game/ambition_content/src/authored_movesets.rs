@@ -670,6 +670,50 @@ mod expressiveness_census {
         {
             why.push("gravity regime");
         }
+        // ⛔⛔ THE OTHER TWO MECHANICAL EVENT KINDS, AND LEAVING THEM OUT IS HOW
+        // THIS DEFINITION UNDERCOUNTED. `MoveEventKind` has exactly six variants:
+        // `Sfx` and `Vfx` are cosmetic, and `Effect`, `GravityModifier`, `Ranged`
+        // and `Impulse` are mechanics. Counting the first two of the mechanics
+        // and calling the rest "events" put Alice's `key_exchange` — a 640 px/s
+        // committed lunge, authored as `MoveEventKind::Impulse` — in the same
+        // bucket as a move whose whole authoring is a sound.
+        // ⇒ A census over a closed enum should name every variant, so that adding
+        // a seventh is a compile error here rather than a silent miscount.
+        if mv.events.iter().any(|e| {
+            matches!(
+                e.kind,
+                ambition_platformer2d::entity_catalog::MoveEventKind::Impulse { .. }
+            )
+        }) {
+            why.push("impulse");
+        }
+        if mv.events.iter().any(|e| {
+            matches!(
+                e.kind,
+                ambition_platformer2d::entity_catalog::MoveEventKind::Ranged
+            )
+        }) {
+            why.push("ranged");
+        }
+        // ⛔⛔ THESE THREE LIVED ONLY IN THE PER-SPECIAL CENSUS BELOW, as its own
+        // private `extras` list, and that is how this file came to state one
+        // definition of "expressive" and compute another. A charge, a launch
+        // impulse and a second hit window are mechanics by anyone's reading;
+        // they belong to the SHARED definition, not to one caller's idea of it.
+        // Moved here 2026-09-06 so there is exactly one of this number in the
+        // file — the same failure a peer found the same day in a planning table
+        // that disagreed with the prose six lines above it.
+        if mv.smash_charge.is_some() {
+            why.push("charge");
+        }
+        if mv.start_impulse.is_some() {
+            why.push("impulse");
+        }
+        // Two windows that both strike is a move with a rhythm — a jab-jab, a
+        // hit that sets up its own second hit. One window is a swing.
+        if mv.windows.iter().filter(|w| !w.volumes.is_empty()).count() > 1 {
+            why.push("hit windows");
+        }
         why
     }
 
@@ -744,6 +788,96 @@ mod expressiveness_census {
             "the roster's expressive-special count fell to {} (floor {FLOOR}).\n  \
              expressive: {expressive:?}\n  plain: {plain:?}",
             expressive.len()
+        );
+    }
+
+    /// ⭐⭐ THE SAME QUESTION IN THE UNIT JON ASKED IT IN — the SPECIAL, not the
+    /// fighter.
+    ///
+    /// ⛔⛔ THE RATCHET ABOVE SATURATED AND WENT BLIND, and it was being reported
+    /// as this campaign's progress while it did. It passes when every fighter has
+    /// AT LEAST ONE interesting special, and the roster reached that on
+    /// 2026-09-05: 19 of 19, floor 18. ⇒ From that day on, a fighter carrying one
+    /// technique and three bare swings scored exactly the same as one whose whole
+    /// kit reads, and no authoring could move the number in either direction.
+    /// A ratchet at its ceiling is not a ratchet.
+    ///
+    /// ⇒ Jon's words were *"a lot of characters have boring specials"*. The
+    /// SPECIAL is the unit of that sentence, and counting it changes the answer
+    /// from "0 plain" to this: measured 2026-09-06, **75 of 88 specials carry a
+    /// mechanic and 13 do not**. Both numbers come from `expressive_reasons`, the
+    /// one definition in this file, so this test and the per-special census
+    /// cannot drift apart the way the census and its own doc comment did.
+    ///
+    /// ⚠⚠ AND THE ONE THING THIS CANNOT CATCH, SAID PLAINLY BECAUSE IT IS THE
+    /// EXACT DEFECT THAT PRODUCED THE WRONG HEADLINE: a ratchet holds a FLOOR, so
+    /// it sees the number fall and never sees it INFLATE. Padding
+    /// `expressive_reasons` with something cosmetic — which is what `extras` did
+    /// to the plain verdict — would raise this count and pass. ⇒ The defence is
+    /// not here. It is that there is now exactly ONE definition, sited next to
+    /// its own bold sentence about cues, so inflating the number means editing
+    /// the paragraph that forbids it.
+    ///
+    /// ⛔⛔ AND THE FIRST NUMBER THIS TEST SHIPPED WITH WAS 40, WHICH WAS WRONG
+    /// IN THE SAME WAY AS THE THING IT WAS WRITTEN TO FIX. It read "48 specials
+    /// carry no mechanic" because the definition counted two of `MoveEventKind`'s
+    /// four mechanical variants and lumped `Impulse` and `Ranged` in with the
+    /// cues — so Alice's `key_exchange`, a 640 px/s committed lunge, was counted
+    /// as a move whose whole authoring is a sound. ⇒ A census over a closed enum
+    /// must name every variant. Naming all six moved the answer from 48 to 13,
+    /// and the correction was found by reading one authored move against the
+    /// number rather than by re-reading the census.
+    ///
+    /// ⭐ POISONED 2026-09-06, one reason at a time, and the counts are the
+    /// evidence that each is load-bearing rather than decorative:
+    /// technique → 61, the event-kind impulse → 43, both impulse roads → 42,
+    /// ranged → 74, charge → 74, and pointing the corpus at a verb prefix
+    /// nothing uses → 0. All RED. ⚠ Two attempts had to be re-run before they
+    /// meant anything: one pushed an empty string (a non-empty vec of nothing,
+    /// still GREEN) and one matched a string that appears twice and edited
+    /// neither, printing GREEN for a file it never touched.
+    #[test]
+    fn the_specials_do_not_get_less_expressive() {
+        /// Raised deliberately as specials gain mechanics. ⛔ Raising it is a
+        /// decision with a commit behind it; watching it fall silently is the
+        /// failure this exists to catch.
+        const FLOOR: usize = 75;
+
+        let mut rich: Vec<String> = Vec::new();
+        let mut bare: Vec<String> = Vec::new();
+        for (fighter, contract) in tables() {
+            let special_ids: Vec<&String> = contract
+                .verbs
+                .iter()
+                .filter(|(verb, _)| verb.starts_with("special"))
+                .map(|(_, id)| id)
+                .collect();
+            for mv in &contract.moves {
+                if !special_ids.iter().any(|id| **id == mv.id) {
+                    continue;
+                }
+                let named = format!("{fighter}/{}", mv.id);
+                if expressive_reasons(mv).is_empty() {
+                    bare.push(named);
+                } else {
+                    rich.push(named);
+                }
+            }
+        }
+
+        // ⭐ NAMED, like its sibling, because "which special next" is the
+        // question anybody running this actually has — and unlike its sibling
+        // this list is long enough to choose from.
+        println!(
+            "[expressiveness/special] {} with a mechanic, {} without\n  without: {bare:#?}",
+            rich.len(),
+            bare.len(),
+        );
+        assert!(
+            rich.len() >= FLOOR,
+            "specials carrying a mechanic fell to {} (floor {FLOOR}).\n  \
+             without a mechanic: {bare:?}",
+            rich.len(),
         );
     }
 
@@ -826,23 +960,29 @@ mod expressiveness_census {
                 let keys = techniques(spec);
                 // What a move carries besides a technique. Every one of these is
                 // authoring a reader would call expressive.
+                // ⛔⛔ CUES ONLY, AND THEY DO NOT COUNT TOWARDS THE VERDICT.
+                // This list used to also carry charge / impulse / hit windows and
+                // was consulted by the plain test below, which meant a special
+                // whose entire authoring was a SOUND counted as not-plain — while
+                // `expressive_reasons`, in this same file, says in bold that "a
+                // strike with cues is not". The mechanics moved to the shared
+                // definition; what is left here is colour for the printout, which
+                // is worth keeping because "it at least has a cue" is a genuinely
+                // different state from "nothing at all" when you are deciding
+                // which special to work on next.
                 let mut extras: Vec<String> = Vec::new();
-                let hitbox_windows = spec
-                    .windows
+                let cues = spec
+                    .events
                     .iter()
-                    .filter(|window| !window.volumes.is_empty())
+                    .filter(|e| {
+                        matches!(
+                            e.kind,
+                            MoveEventKind::Sfx { .. } | MoveEventKind::Vfx { .. }
+                        )
+                    })
                     .count();
-                if hitbox_windows > 1 {
-                    extras.push(format!("{hitbox_windows} hit windows"));
-                }
-                if spec.smash_charge.is_some() {
-                    extras.push("charge".to_string());
-                }
-                if spec.start_impulse.is_some() {
-                    extras.push("impulse".to_string());
-                }
-                if !spec.events.is_empty() {
-                    extras.push(format!("{} event(s)", spec.events.len()));
+                if cues > 0 {
+                    extras.push(format!("{cues} cue(s)"));
                 }
                 // ⛔ THE PLAIN VERDICT USES THE SHARED DEFINITION, not this
                 // test's own idea of authoring. `expressive_reasons` counts a
@@ -851,7 +991,9 @@ mod expressiveness_census {
                 let reasons = expressive_reasons(spec);
                 if keys.is_empty() {
                     bare_total += 1;
-                    if extras.is_empty() && reasons.is_empty() {
+                    // ⛔ THE SHARED DEFINITION AND NOTHING ELSE. `extras` is a
+                    // cue count and a cue is not a mechanic.
+                    if reasons.is_empty() {
                         plain_total += 1;
                     }
                 }
@@ -866,7 +1008,9 @@ mod expressiveness_census {
                     } else if extras.is_empty() {
                         "— PLAIN (no technique, no other authoring)".to_string()
                     } else {
-                        format!("— no technique, but {}", extras.join(" + "))
+                        // Reached only when `reasons` is EMPTY, so this move is
+                        // plain and the cue count says how it is plain.
+                        format!("— PLAIN (no mechanic; {} only)", extras.join(" + "))
                     },
                 );
             }

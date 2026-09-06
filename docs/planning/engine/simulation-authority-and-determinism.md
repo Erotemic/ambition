@@ -955,6 +955,22 @@ reader returned the doc block and the parameters as ONE string, so naming
 defect shape would have passed on its prose. Doc and parameters are now separate;
 only the `ALLOW_LOAD_ONLY` escape reads prose, which is what it is for.
 
+✔ **AND THE DURABLE HALF IS NOW A QUESTION NOBODY CAN SKIP — 2026-09-06.** The
+mechanism stays exactly one system (below), because making a family start
+retracting is a gameplay ruling and not a refactor. What changed is that the
+QUESTION is unavoidable: `AmbitionGameSaveData` carries an exhaustive destructure
+with no `..`, so a fourteenth durable field does not compile until its author has
+answered *"when the player dies and the room replays, is this still true?"* — the
+goal's own (B) pattern, E0027 rather than a hand list, applied to the one question
+the save had no policy for.
+⚠ Behaviour is unchanged and the answers are written down: `bosses` is the only
+family with a retraction and it is content-scoped to cut-rope; the other twelve
+survive; `version` is not a world fact.
+⚠ It is the THIRD exhaustive destructure over that type (compare / clear /
+retract) and the doc says they must not be merged — a merged one answers whichever
+question its author had in mind and silently stops asking the others.
+⭐ Poison-verified: a fourteenth field yields THREE `E0027`s and an `E0063`.
+
 ⚠ **The DURABLE half is still one system, and that is now measured rather than
 assumed.** `reset_cut_rope_attempt_on_replay` clears a persisted `cleared` record
 and is the only content system that retracts a durable fact on a replay. Checked

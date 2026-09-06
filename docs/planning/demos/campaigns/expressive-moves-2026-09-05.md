@@ -1005,8 +1005,12 @@ with three defects, and I repeated the headline to Jon in a status report.**
 | *a strike with cues is not [expressive]* | the DOC said that; the ARITHMETIC did not | the plain verdict read `extras.is_empty() && reasons.is_empty()` and `extras` was padded with `format!("{} event(s)", …)`, so any cue rescued a special |
 | the predicate | counted **two of four** mechanical `MoveEventKind` variants | `Effect` and `GravityModifier` counted; `Impulse` and `Ranged` were lumped in with the cues |
 
-⇒ **THE HONEST NUMBER, in the unit Jon's sentence uses: 13 of 88 specials across
-19 fighters carried no mechanic at all — 15%, not 0%.** Method:
+⇒ **THE HONEST NUMBER AT THE MOMENT THE INSTRUMENT BECAME HONEST — 2026-09-06,
+`ef3c02b62`, and BEFORE the nine specials authored later the same day: 13 of 88
+specials across 19 fighters carried no mechanic at all — 15%, not 0%.** ⚠ The
+current figure is **84 of 88** and it is at the head of this section; 13 is kept
+because it is what the corrected instrument first read, and a number that has
+moved needs its reference point or the next reader takes the wrong one. Method:
 `expressive_reasons` in `game/ambition_content/src/authored_movesets.rs`, one
 definition consulted by both the per-special census and the per-special ratchet;
 a special is expressive when it carries a flow, a stance, a sweetspot, a volume

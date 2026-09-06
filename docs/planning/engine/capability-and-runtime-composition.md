@@ -252,6 +252,43 @@ system name adjacent to `.in_set(`, and the commonest spelling is
 installed into the set three lines down. Fixed to allow the chain. **Seventh
 instrument correction of the day, same direction as the other six.**
 
+### ⇒ C2 — THE REMAINING HALF, AND ITS WORK LIST BY TRUE OWNER (2026-09-06)
+
+A review's sequencing: *"stop looking for more capability-private ordering edges:
+that count is already zero. The remaining problem is composition ownership — the
+composition layer still orders 72 foreign systems and installs roughly 200. Move
+installation into capability-owned plugins that place private systems into the
+public sets/phases already established."* And, importantly: **C2 does not have to
+reach zero before the crate-composition wave starts, because moving installation
+into capability plugins IS that work.**
+
+⛔⛔ **BUT THE FIRST WORK LIST I BUILT WAS ABOUT SPELLINGS, NOT OWNERSHIP.** By the
+path each caller wrote, the biggest target was `ambition_platformer2d` with **101**
+rows — the UMBRELLA crate, which owns none of them. Resolving each system to the
+crate that DEFINES it: **31 of those 101 are `ambition_platformer2d_runtime`
+installing its OWN systems through a re-export**, counted as reaching into
+somebody else's crate. ⇒ **Seventh time in one day a re-export split a name from
+what it owns**, and the first time it inflated a plan rather than a measurement.
+
+⇒ The census resolves by definition now. **By true owner — this is the C2 list:**
+
+| capability | foreign rows | note |
+|---|---|---|
+| `ambition_combat` | 53 | |
+| `ambition_platformer2d_actor_monolith` | 53 | |
+| `ambition_platformer2d_shared_tangle` | 45 | floor crate — some of these may be correct as installs |
+| `ambition_render` | 34 | |
+| `ambition_platformer2d_runtime` | 31 | ⚠ the INVERSE case: systems the runtime defines that others install |
+| `ambition_input` 13, `ambition_dev_tools` 12, `ambition_mount` 7, `ambition_time` 7, `ambition_menu` 6 | | the tractable tail |
+
+⚠ **AND THE TOTAL WENT 72 → 78 WITHOUT THE TREE GETTING WORSE.** The instrument
+changed under the ratchet: dropping 31 self-installs and catching more whose head
+looked local, net +6. ⇒ **A ratchet is only meaningful while the instrument is
+fixed**, and re-baselining after an instrument change is indistinguishable from
+laundering a regression unless the reason sits next to the number. It does, in the
+guard. ⭐ The invariant that matters survived the change: **capability-written is
+still 0, measured the new way.**
+
 ### ✔ THE CAPABILITY-WRITTEN HALF IS ZERO — 15 → 0
 
 Every row a ruleset or capability wrote is now published-set vocabulary. The last

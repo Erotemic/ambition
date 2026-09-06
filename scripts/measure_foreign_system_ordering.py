@@ -72,6 +72,36 @@ def add_systems_blocks(text: str) -> list[str]:
 COMPOSITION_SUFFIXES = ("_runtime", "_host", "_provider", "_app")
 
 
+DEFINES = re.compile(r"^\s*(?:pub(?:\([^)]*\))?\s+)?fn\s+([a-z_][A-Za-z_0-9]*)\s*[(<]", re.MULTILINE)
+
+
+def defining_crate() -> dict[str, set[str]]:
+    """Which crate DEFINES each system name.
+
+    ⛔⛔ WITHOUT THIS THE REPORT IS ABOUT SPELLINGS, NOT OWNERSHIP. Measured
+    2026-09-06: 101 of the "foreign" rows named a system through
+    `ambition_platformer2d`, the UMBRELLA crate — and **31 of those resolve to
+    `ambition_platformer2d_runtime` itself**, which is the writer. A composition
+    installing its OWN system through a re-export path was being counted as
+    reaching into somebody else's crate.
+    ⇒ Seventh time in one day that a re-export split a name from what it owns.
+    A census keyed on the path a caller wrote answers a question about the caller's
+    import style; ownership needs the definition.
+    """
+    homes: dict[str, set[str]] = {}
+    for root in ROOTS:
+        base = REPO / root
+        if not base.is_dir():
+            continue
+        for path in base.rglob("*.rs"):
+            if "tests" in path.name or "/tests/" in str(path):
+                continue
+            crate = crate_of(path)
+            for name in DEFINES.findall(raw_text(path)):
+                homes.setdefault(name, set()).add(crate)
+    return homes
+
+
 def workspace_crates() -> set[str]:
     """Every crate name in the workspace, read from the tree.
 
@@ -242,6 +272,7 @@ def strip_comments_and_tests(text: str) -> str:
 
 def findings(include_local: bool) -> list[tuple[str, str, str, str, str]]:
     crates = workspace_crates()
+    homes = defining_crate()
     rows: list[tuple[str, str, str, str, str]] = []
     for root in ROOTS:
         base = REPO / root
@@ -309,8 +340,14 @@ def findings(include_local: bool) -> list[tuple[str, str, str, str, str]]:
                     if not last[:1].islower():
                         continue
                     head = target.split("::")[0]
-                    # FOREIGN means "another crate", not "not `crate::`".
-                    local = head not in crates or head == crate
+                    # ⭐ OWNERSHIP IS WHERE THE SYSTEM IS DEFINED, not where the
+                    # caller spelled it. A path through an umbrella re-export
+                    # names a crate that owns nothing in it — see
+                    # `defining_crate`. Fall back to the head when the definition
+                    # is ambiguous or absent (a macro, a trait method).
+                    owners = homes.get(last, set())
+                    owner = next(iter(owners)) if len(owners) == 1 else head
+                    local = owner not in crates or owner == crate
                     if local and not include_local:
                         continue
                     kind = "ordering" if target in ordered else "install"

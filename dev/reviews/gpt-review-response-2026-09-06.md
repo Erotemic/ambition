@@ -43,7 +43,7 @@ including that **every existing riposte test installs
 `ResolvedMotionFrame::default()`**, so the 90° poison with a non-square hitbox and
 two victims is what the acceptance needs.
 
-## MEDIUM — v3 stateful constraints · FIXED (`d911d1f`, submodule)
+## MEDIUM — v3 stateful constraints · FIXED (in the music-renderer submodule, UNPUSHED)
 
 One score-scoped `voicing_state` dict carried across generator clips; generic
 two-clip parity test; poison-verified. `docs/musicir_v3.md` corrected: `intensity`
@@ -52,10 +52,16 @@ is a positive gain, not a bounded 0..1 intent, and the reviewed v1 values
 
 ⛔⛔ **THE REVIEW'S OWN WITNESS NO LONGER EXISTS, AND THAT IS THE MOST USEFUL THING
 HERE.** It cited v1's `E4-G4-B5` against the bridge's `E4-G4-B4`. At HEAD,
-`scores/active/standing_on_shoulders.music.yaml` is `schema: ambition.musicir.v1`:
-`git show ff26b4f:` still carries the "Parity-first v3 source" header the review
-quotes, and the **unpushed** `f2ae21f` "Update music" replaced it with a v1 score.
-Measured: `_expand_generator_clips` runs **zero** times for that song now.
+`scores/active/standing_on_shoulders.music.yaml` opens with
+`schema: ambition.musicir.v1`, and an earlier revision of that same file carried the
+"Parity-first v3 source" header the review quotes. Measured:
+`_expand_generator_clips` runs **zero** times for that song now.
+
+⚠ **STATED AS FILE CONTENT, NOT AS A SHA, AND THAT IS THE POINT.** This paragraph
+first cited the two music-renderer commits by hash. Those live in a SUBMODULE and
+one of them is **unpushed**, so the hash resolves on the machine that wrote it and
+nowhere else — it is not a shared address. A reader can check the schema line; they
+cannot check my local object.
 ⇒ The defect was real and is fixed; its published evidence stopped meaning anything
 and nothing announced that. ⚠ I nearly reported "fixed — 2,340 notes, multisets
 identical" off that comparison **with my own fix poisoned out**.

@@ -309,11 +309,10 @@ pub fn setup_cut_rope_encounter(
 
     // The script needs the authored anvil's position + size to author the lure
     // target + the falling hazard. Wait for the prop to load.
-    let Some(anvil) = room_set
-        .active_props()
-        .iter()
-        .find(|prop| prop.kind == ANVIL_KIND || prop.name == ANVIL_KIND)
-    else {
+    // One authority for "the authored anvil": this re-spelled `authored_prop`'s
+    // body by hand, so the two could drift and one of them did carry the caption
+    // alias the other has now dropped.
+    let Some(anvil) = arena::authored_prop(room_set.active_props(), ANVIL_KIND) else {
         return;
     };
 
@@ -370,6 +369,86 @@ pub use victory::*;
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// The authored anvil is found by its KIND, not by its caption.
+    ///
+    /// ⭐ GUARDS THE GAP, NOT THE FIX. `authored_prop` also matched
+    /// `PropSpec.name` — the LDtk display name, which `PropSpec`'s own doc says
+    /// the renderer uses "only for entity naming / debug overlay". Both authored
+    /// cut-rope props happen to carry `kind == name`, so the caption half never
+    /// changed an answer; it only meant a caption edit could silently rename the
+    /// prop this whole fight is built on, or claim a prop that is not it.
+    #[test]
+    fn the_authored_anvil_is_found_by_kind_and_not_by_its_caption() {
+        let props = vec![
+            prop_spec("iid-rope", ROPE_KIND, "cut_rope_rope"),
+            // ⚠ THE DECOY IS AUTHORED BEFORE THE REAL ANVIL, AND THAT ORDERING IS
+            // THE TEST. `find` returns the FIRST match, so a decoy placed after
+            // the anvil is never reached and this passes with the caption alias
+            // restored — a guard that cannot fail. Authored order is the
+            // author's choice, so this is a real arrangement, not a contrivance.
+            prop_spec("iid-poster", "wall_poster", ANVIL_KIND),
+            prop_spec("iid-anvil", ANVIL_KIND, "a lovely anvil"),
+        ];
+        let found = arena::authored_prop(&props, ANVIL_KIND).expect("the anvil is authored");
+        assert_eq!(
+            found.id, "iid-anvil",
+            "a decoration CAPTIONED `cut_rope_anvil` was taken for the anvil the \
+             fight drops on the boss"
+        );
+    }
+
+    /// The heavy object keeps its identity across its own re-skin.
+    ///
+    /// ⛔⛔ THIS IS THE INVARIANT THE OLD CODE COULD NOT EXPRESS.
+    /// `apply_cut_rope_heavy_object_sprite` WRITES `PropVisual.kind` when the
+    /// trap cycles anvil → piano, so a `kind`-keyed match had to be told about
+    /// every skin the prop might be wearing (`ANVIL || PIANO`) and still leaned
+    /// on the caption. Keyed by the authored iid, the entity is the same entity
+    /// no matter what it is drawn as — and adding a THIRD heavy object needs no
+    /// new arm here, which is the part a disjunction could never promise.
+    #[test]
+    fn the_heavy_object_is_the_same_prop_after_it_is_re_skinned() {
+        let anvil = prop_spec("iid-anvil", ANVIL_KIND, "a lovely anvil");
+        let mut visual = PropVisual {
+            id: anvil.id.clone(),
+            kind: anvil.kind.clone(),
+            name: anvil.name.clone(),
+            size: bevy::prelude::Vec2::new(anvil.size.x, anvil.size.y),
+            draw: anvil.draw,
+            flip_y: anvil.flip_y,
+        };
+        assert!(
+            arena::is_heavy_object(&visual, &anvil),
+            "it starts as the authored anvil"
+        );
+
+        // Exactly what the cycle does to it: only `kind` moves.
+        visual.kind = PIANO_KIND.to_string();
+
+        assert_ne!(
+            visual.kind, anvil.kind,
+            "anti-vacuity: if the re-skin left `kind` alone, the assertion below \
+             would pass without exercising anything"
+        );
+        assert!(
+            arena::is_heavy_object(&visual, &anvil),
+            "the re-skin changed which prop the arena thinks this IS, so it would \
+             stop moving and hiding the object it just dropped on the boss"
+        );
+    }
+
+    fn prop_spec(id: &str, kind: &str, name: &str) -> PropSpec {
+        PropSpec {
+            id: id.to_string(),
+            name: name.to_string(),
+            kind: kind.to_string(),
+            pos: ae::Vec2::new(0.0, 0.0),
+            size: ae::Vec2::new(16.0, 16.0),
+            flip_y: false,
+            draw: Default::default(),
+        }
+    }
 
     #[test]
     fn is_cut_rope_boss_matches_only_the_cut_rope_id() {

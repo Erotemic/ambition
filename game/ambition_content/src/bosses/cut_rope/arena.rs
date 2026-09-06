@@ -250,10 +250,34 @@ fn pulse_waiting_rope_explosions(
     );
 }
 
-fn authored_prop<'a>(props: &'a [PropSpec], kind: &str) -> Option<&'a PropSpec> {
-    props
-        .iter()
-        .find(|prop| prop.kind == kind || prop.name == kind)
+/// Is this visual the trap's heavy object — the thing that hangs, drops and
+/// squashes the boss?
+///
+/// ⛔⛔ BY THE AUTHORED IID, NEVER BY `kind`.
+/// `apply_cut_rope_heavy_object_sprite` WRITES `PropVisual.kind` when the trap
+/// cycles anvil → piano, so `kind` answers "what is it drawn as right now" — true
+/// to its own doc, and useless as an identity. Asking it who the prop IS needed
+/// two compensations, both now gone: an `|| prop.name ==` caption alias (the
+/// re-skin leaves the caption alone) and a `key_matches(ANVIL) ||
+/// key_matches(PIANO)` disjunction naming every skin it might wear.
+///
+/// ⇒ A THIRD heavy object needs no new arm here. That is the part a disjunction
+/// could never promise, and the reason this is a named rule rather than a
+/// condition spelled at the point of use.
+pub(super) fn is_heavy_object(prop: &PropVisual, anvil: &PropSpec) -> bool {
+    prop.id == anvil.id
+}
+
+/// The authored prop of a given kind.
+///
+/// ⭐ `PropSpec.kind` IS THE IDENTITY HERE and `PropSpec.name` is not. This also
+/// matched `prop.name`, which `PropSpec`'s own doc calls the "LDtk display name —
+/// authors edit this; the renderer uses it only for entity naming / debug
+/// overlay". Measured against the authored world: the two cut-rope props both
+/// carry `kind == name`, so the caption half never added a match — it only made a
+/// caption able to name a prop the fight depends on.
+pub(super) fn authored_prop<'a>(props: &'a [PropSpec], kind: &str) -> Option<&'a PropSpec> {
+    props.iter().find(|prop| prop.kind == kind)
 }
 
 fn prop_aabb(prop: &PropSpec) -> ae::Aabb {
@@ -278,9 +302,24 @@ fn sync_cut_rope_prop_visuals(
     for (mut prop, mut transform, mut sprite, animator, anchor, visibility) in
         prop_visuals.iter_mut()
     {
-        let key_matches =
-            |needle: &str, prop: &PropVisual| prop.kind == needle || prop.name == needle;
-        if key_matches(ROPE_KIND, &prop) {
+        // ⛔⛔ THE HEAVY OBJECT IS MATCHED BY ITS AUTHORED ID, NOT BY `kind`.
+        // `apply_cut_rope_heavy_object_sprite` WRITES `prop.kind` when the trap
+        // cycles anvil -> piano, so `kind` answers "what is it drawn as right
+        // now", which is honest for its stated job and useless as an identity.
+        // Matching on it needed two compensations that are now both gone: an
+        // `|| prop.name ==` alias (the caption, which the re-skin leaves alone)
+        // and a `key_matches(ANVIL) || key_matches(PIANO)` disjunction covering
+        // whichever skin it happened to be wearing.
+        //
+        // ⭐ `PropVisual.id` is the LDtk iid the renderer copies straight off the
+        // authored `PropSpec`. It is the one field here that is BOTH stable and
+        // unique, which is why it is the identity and why the two disjunctions
+        // could exist without anyone noticing they were patching over a mutation.
+        //
+        // The rope keeps a `kind` test: nothing ever re-skins the rope, so it
+        // needs no compensation and inventing an id lookup for it would suggest
+        // otherwise.
+        if prop.kind == ROPE_KIND {
             if let Some(mut visibility) = visibility {
                 *visibility = if state.rope_cut {
                     Visibility::Hidden
@@ -288,7 +327,7 @@ fn sync_cut_rope_prop_visuals(
                     Visibility::Visible
                 };
             }
-        } else if key_matches(ANVIL_KIND, &prop) || key_matches(PIANO_KIND, &prop) {
+        } else if is_heavy_object(&prop, anvil) {
             apply_cut_rope_heavy_object_sprite(
                 &mut prop,
                 &mut sprite,

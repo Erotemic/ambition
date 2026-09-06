@@ -76,3 +76,34 @@ def test_a_generic_parameter_is_not_a_message_type() -> None:
     module = _module()
     assert module.is_generic_parameter("M")
     assert not module.is_generic_parameter("LoadEvent")
+
+
+def test_a_messages_handle_that_is_written_is_not_a_reader() -> None:
+    """⛔⛔ THE OVER-CORRECTION. Counting every `Messages<T>` as a read road
+    resolved two entries wrongly: `select_screen.rs:2520` takes
+    `Messages<TouchInput>` to `.write(..)` it — the OPPOSITE of a read."""
+    module = _module()
+    written = "app.world_mut().resource_mut::<Messages<TouchInput>>().write(x);"
+    drained = "world.get_resource_mut::<Messages<RunAuthoredCommand>>().drain();"
+    assert module.messages_read_directly(written) == []
+    assert [name for name, _ in module.messages_read_directly(drained)] == [
+        "RunAuthoredCommand"
+    ]
+
+
+def test_a_read_inside_a_cfg_test_helper_is_not_a_production_reader() -> None:
+    """`semantic.rs:926` drains `SemanticActionPressed` in a `#[cfg(test)]`
+    helper. A test draining a channel does not make it a wired one."""
+    module = _module()
+    source = (
+        "pub fn live() {}\n"
+        "#[cfg(test)]\n"
+        "mod tests {\n"
+        "    fn drain(app: &mut App) {\n"
+        "        app.world_mut().resource_mut::<Messages<Ping>>().drain();\n"
+        "    }\n"
+        "}\n"
+    )
+    kept, _unclosed = module.production_lines(source)
+    body = "\n".join(line for _number, line in kept)
+    assert module.messages_read_directly(body) == []

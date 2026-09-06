@@ -41,9 +41,22 @@ CHECK ONE BEFORE BELIEVING THE LIST.
 """
 from __future__ import annotations
 
+import importlib.util
 import pathlib
 import re
 import sys
+
+#: ⭐ ONE AUTHORITY FOR "WHAT IS PRODUCTION CODE". `durable_fact_writers.py`
+#: already excludes `#[cfg(test)]` items BY POSITION (this repo puts
+#: `#[cfg(test)] mod tests` inside ordinary source files, so a path filter is
+#: not enough) and it has already had its own truncation bug found and fixed.
+#: Re-deriving that here would be a second, worse copy of the same rule.
+_SPEC = importlib.util.spec_from_file_location(
+    "durable_fact_writers", pathlib.Path(__file__).resolve().parent / "durable_fact_writers.py"
+)
+_DFW = importlib.util.module_from_spec(_SPEC)
+_SPEC.loader.exec_module(_DFW)
+production_lines = _DFW.production_lines
 
 REPO = pathlib.Path(__file__).resolve().parent.parent
 #: The population must clear this or the sweep, not the tree, is broken.
@@ -106,6 +119,29 @@ def payload(inner: str) -> str:
     return parts[-1].split("::")[-1].strip()
 
 
+#: What you can do to a `Messages<T>` handle that makes it a READER.
+_READ_VERBS = ("drain", "iter", "get_cursor", "read")
+
+
+def messages_read_directly(text: str) -> list[tuple[str, int]]:
+    """`Messages<T>` handles that are actually READ, not written."""
+    found: list[tuple[str, int]] = []
+    for match in re.finditer(r"\bMessages\s*<", text):
+        end = balance_angle_end(text, match.end() - 1)
+        if end is None:
+            continue
+        name = payload(text[match.end() : end])
+        if not name:
+            continue
+        # The verb may sit lines below through a `let` binding, so look at the
+        # statement this handle belongs to rather than the same line.
+        tail = text[end : end + 400]
+        statement = tail.split(";", 1)[0]
+        if any(f".{verb}" in statement for verb in _READ_VERBS):
+            found.append((name, text[: match.start()].count("\n") + 1))
+    return found
+
+
 def is_generic_parameter(name: str) -> bool:
     """Rust's convention for a type parameter: one or two capitals, no lowercase.
 
@@ -120,7 +156,9 @@ def main() -> int:
     declared: dict[str, list[str]] = {}
     read: dict[str, list[str]] = {}
     for path in rust_files():
-        text = strip_line_comments(path.read_text(encoding="utf-8", errors="replace"))
+        raw = path.read_text(encoding="utf-8", errors="replace")
+        kept, _unclosed = production_lines(raw)
+        text = strip_line_comments("\n".join(line for _number, line in kept))
         rel = str(path.relative_to(REPO))
         for inner in generic_inners(text, "add_message"):
             name = payload(inner)
@@ -130,10 +168,24 @@ def main() -> int:
             # A sweep that reports it names a type that does not exist.
             if name and name.isidentifier() and not is_generic_parameter(name):
                 declared.setdefault(name, []).append(rel)
+        # ⭐⭐ TWO ROADS, AND THE SECOND ONE COST ME A FALSE POSITIVE IN PRINT.
+        # `RunAuthoredCommand` was published as unread. It IS read — by
+        # `authored_logic/commands.rs:312`, which takes
+        # `world.get_resource_mut::<Messages<RunAuthoredCommand>>()` and
+        # `.drain()`s it, with a comment saying why a `MessageReader` cursor
+        # would be wrong there (the cursor is `Local` state GGRS never rewinds).
         for inner in generic_inners(text, "MessageReader"):
             name = payload(inner)
             if name:
                 read.setdefault(name, []).append(rel)
+        # ⛔⛔ BUT `Messages<T>` IS NOT A READ ROAD BY ITSELF, and counting it as
+        # one over-corrected in two directions at once: `select_screen.rs:2520`
+        # takes `Messages<TouchInput>` to `.write(..)` it — the opposite of a
+        # read — and `semantic.rs:926` drains `SemanticActionPressed` inside a
+        # `#[cfg(test)]` helper. So the handle must be followed by a READ verb,
+        # and the whole sweep runs on production lines only.
+        for name, _where in messages_read_directly(text):
+            read.setdefault(name, []).append(rel)
 
     if len(declared) < MIN_DECLARED:
         print(

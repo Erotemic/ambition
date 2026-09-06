@@ -289,10 +289,34 @@ LoadEvent              ambition_load/src/plugin.rs
 MenuClosedRequested    ambition_menu/src/lib.rs
 MenuModelChanged       ambition_menu/src/lib.rs
 PortalGunEquipped      ambition_portal2d/src/plugin.rs
-RunAuthoredCommand     ambition_conversation/.../authored_commands/tests.rs
-SemanticActionPressed  ambition_input/src/semantic.rs
-TouchInput             ambition_demo_smash/src/select_screen.rs
+SemanticActionPressed  ambition_platformer2d_host/src/lib.rs
 ```
+
+⛔⛔ **THAT LIST READ SEVEN WHEN FIRST PUBLISHED, AND TWO OF THE SEVEN WERE
+FALSE.** `RunAuthoredCommand` and `TouchInput` came off it within the hour, which
+is a 29% error rate in something I had already committed. Both were missed ROADS,
+and neither is exotic:
+
+```text
+RunAuthoredCommand   read by `authored_logic/commands.rs:312`, which takes
+                     `world.get_resource_mut::<Messages<T>>()` and DRAINS it —
+                     with a comment saying why a `MessageReader` would be wrong
+                     there (its cursor is `Local` state GGRS never rewinds)
+TouchInput           `Messages<TouchInput>` at select_screen.rs:2520, but the
+                     verb is `.write(..)` — the OPPOSITE of a read
+```
+
+⚠ **And the first correction OVER-corrected.** Counting every `Messages<T>` as a
+read road resolved `TouchInput` for the wrong reason and would have hidden any
+write-only channel behind its own writer. The rule is now: a `Messages<T>` handle
+counts only when a READ VERB (`drain`/`iter`/`get_cursor`/`read`) appears in the
+same statement, and the whole sweep runs on PRODUCTION lines — `semantic.rs:926`
+drains `SemanticActionPressed` inside a `#[cfg(test)]` helper, and a test draining
+a channel does not make it a wired one.
+⭐ `#[cfg(test)]` exclusion is IMPORTED from `durable_fact_writers.py` rather than
+re-derived: that file already excludes test items BY POSITION (this repo puts
+`#[cfg(test)] mod tests` inside ordinary source files) and has already had its own
+truncation bug found and fixed. A second copy of that rule would be a worse copy.
 
 ⛔⛔ **THE LIST IS NOT A BACKLOG, AND PUBLISHING IT AS ONE WOULD BE THE ERROR.**
 An unread message is PUBLISHED (the reader is downstream, outside this repo — the

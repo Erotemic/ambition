@@ -74,6 +74,86 @@ fn picking_up_the_portal_gun_activates_it() {
     assert_eq!(remaining, 0, "the pickup is consumed");
 }
 
+/// ⛔⛔ `PortalGunEquipped` HAS NO READER ANYWHERE IN THIS TREE, which is exactly
+/// why its EMISSION is asserted here.
+///
+/// Measured 2026-09-06 (`scripts/messages_nothing_reads.py`): no
+/// `MessageReader<PortalGunEquipped>` and no direct `Messages<..>` drain, in
+/// production or test — the five other mentions in this file are all
+/// `add_message` REGISTRATION. It is a published notification, like
+/// `PulseFired`'s "for anyone who wants to react to it", and it carries a
+/// rollback schema row (`message.portal_gun_equipped`), so it is not free.
+///
+/// ⇒ A channel with no in-tree reader cannot regress downstream in a way anything
+/// here would notice. Nothing but this test stands between the write at
+/// `inventory_adapter.rs:219` and its silent removal.
+///
+/// ⚠ The `player` field is asserted, not just the count: a notification that
+/// names the wrong body is worse than none, and an emission test that only counts
+/// would pass on it.
+#[test]
+fn picking_up_the_gun_announces_who_equipped_it() {
+    let mut app = App::new();
+    app.add_message::<ambition_sfx::OwnedSfxMessage>();
+    app.add_message::<PickUpPortalGun>();
+    app.add_message::<PortalGunEquipped>();
+    app.add_systems(Update, pickup_portal_gun_system);
+    let player = app
+        .world_mut()
+        .spawn((
+            PlayerEntity,
+            PrimaryPlayer,
+            BodyKinematics {
+                pos: Vec2::new(50.0, 50.0),
+                vel: Vec2::ZERO,
+                size: Vec2::new(24.0, 40.0),
+                facing: 1.0,
+            },
+            BodyBaseSize {
+                base_size: Vec2::new(24.0, 40.0),
+            },
+            ActionSet::default(),
+        ))
+        .id();
+    app.world_mut().spawn(PortalGunPickup {
+        pos: Vec2::new(50.0, 50.0),
+        half_extent: Vec2::splat(20.0),
+        arm_timer: 0.0,
+        pair: 0,
+    });
+
+    // A quiet frame first: the announcement is caused by the pickup, not by the
+    // system merely running.
+    app.update();
+    let quiet = app
+        .world_mut()
+        .resource_mut::<bevy::ecs::message::Messages<PortalGunEquipped>>()
+        .drain()
+        .count();
+    assert_eq!(
+        quiet, 0,
+        "no pickup intent, so nothing was equipped"
+    );
+
+    app.world_mut()
+        .write_message(PickUpPortalGun { body: player });
+    app.update();
+    // ⚠ Compared by FIELD, not by value: `PortalGunEquipped` derives no
+    // `PartialEq`, and adding one to a rollback-registered message to satisfy a
+    // test would be the test changing the wire type to suit itself.
+    let announced: Vec<Entity> = app
+        .world_mut()
+        .resource_mut::<bevy::ecs::message::Messages<PortalGunEquipped>>()
+        .drain()
+        .map(|message| message.player)
+        .collect();
+    assert_eq!(
+        announced,
+        vec![player],
+        "equipping the gun announces the body that got it"
+    );
+}
+
 /// Holding it and the catalog saying so are ONE fact, so they move together.
 ///
 /// `throw_held_item_system` cleared its slot on the equivalent release; this hand-written copy

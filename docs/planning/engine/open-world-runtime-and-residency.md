@@ -289,10 +289,26 @@ LoadEvent              ambition_load/src/plugin.rs         PUBLISHED — tested 
 SemanticActionPressed  platformer2d_host/src/lib.rs        PUBLISHED — by design
 PulseFired             examples/capability_demo/src/lib.rs PUBLISHED — "for anyone
                                                            who wants to react to it"
-PortalGunEquipped      ambition_portal2d/src/plugin.rs     ⚠ OPEN, costs a schema row
+PortalGunEquipped      ambition_portal2d/src/plugin.rs     PUBLISHED — tested 09-06
 MenuClosedRequested    ambition_menu/src/lib.rs            ✔ DELETED 2026-09-06
 MenuModelChanged       ambition_menu/src/lib.rs            ✔ DELETED 2026-09-06
 ```
+
+✔ **`PortalGunEquipped` IS PUBLISHED TOO, AND IT SAYS SO ITSELF** — 2026-09-06.
+I had it as the one that "looks wrong": written in production, read by nothing,
+carrying a rollback schema row. Reading the type settled it. Its own doc calls it
+a *"Compatibility outcome emitted when an entity acquires a portal-gun pickup"*
+and its `player` field carries `FIXME(portal-gun-seam): rename this field to
+`carrier` when the HOST ADAPTER MIGRATION can tolerate the API break`. A message
+whose field cannot be renamed because a host adapter depends on it is not an
+unread message; it is a published one.
+⇒ So it owed what the published class owes, and it now has it:
+`picking_up_the_gun_announces_who_equipped_it` asserts the emission AND the body
+it names, with a quiet frame first so the announcement is caused by the pickup
+rather than by the system running. Poison-verified — removing the write fails on
+`equipping the gun announces the body that got it`.
+⚠ Deliberately NOT deleted, and no schema move: nothing here touches
+`message.portal_gun_equipped`.
 
 ⚠ **`SemanticActionPressed` is PUBLISHED BY DESIGN and must not be chased.**
 `examples/capability_demo` exists to demonstrate that seam and states the reason

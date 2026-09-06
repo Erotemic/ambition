@@ -16,6 +16,17 @@
 //! specific + headless-hard (R5 rewrites cut-rope as an EncounterScript); they
 //! remain an explicit in-game verification item, but cut-rope's death
 //! consequences share the generic entity-death path pinned here.
+//!
+//! ⚠ **THAT PARAGRAPH'S CONDITION HAS SINCE BEEN MET — re-derived 2026-09-06.**
+//! It defers cut-rope as "headless-hard" and names R5 as the thing that would
+//! change that. **R5 HAS LANDED**: `setup_cut_rope_encounter` is registered in
+//! `ContentEncounterScriptSet` and its own doc says the fight is now the generic
+//! encounter pieces with "no cut-rope-specific physics or steering". Measured:
+//! the room boots headlessly in **0.87 s** with both authored props present, and
+//! `mod cut_rope_arena` now drives the rope-cut end to end. ⇒ The deferral was
+//! correct when written and expired without anyone re-deriving it; what remains
+//! genuinely unpinned here is the victory NPC and the in-place replay, not the
+//! fight's trigger.
 
 #![cfg(feature = "rl_sim")]
 

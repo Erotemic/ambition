@@ -47,6 +47,7 @@ mod collision_invariant_oracle;
 mod composes_through_the_sdk;
 mod content_dormancy;
 mod crouch_stability;
+mod cut_rope_arena;
 mod d71_transaction_census;
 mod dash_stability;
 mod death_restores_the_checkpoint;

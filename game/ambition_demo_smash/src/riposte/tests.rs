@@ -277,3 +277,89 @@ fn another_technique_does_not_cut() {
     );
 }
 
+
+/// ⭐⭐ THE SEAM: A PARRY REACHES THE BLADE.
+///
+/// The counter's tests prove a parry in a live stance emits the technique its
+/// author named. The tests above prove that technique, once requested, damages
+/// the fighter in front and not the one who threw it. Between them is the
+/// question a player asks — does a counter actually CUT? — and each half can be
+/// green while the key one WRITES and the key the other READS have drifted.
+///
+/// ⚠ THE STANCE IS AUTHORED HERE AND THE SHIPPED ONE IS PINNED ELSEWHERE, which
+/// is a deliberate split rather than a shortcut. `counter.rs`'s own fixture
+/// argues for testing the move a player presses, and the move that presses this
+/// key is the Pointed Polygon's `polygon_riposte` — in `ambition_content`, which
+/// this crate does not depend on and should not grow a dependency on to reach
+/// one moveset. ⇒ The Swordie's own numbers are pinned where they live
+/// (`his_down_b_is_a_counter_that_answers_with_the_blade` checks his response
+/// key and that his cut is usable); what THIS test owns is the wiring between
+/// the two systems, and for that any stance naming the key will do.
+#[test]
+fn a_parry_answered_with_the_blade_cuts_the_attacker() {
+    use ambition_platformer2d::characters::smash_counter::{counter_move, CounterParams};
+    use ambition_platformer2d::combat::hitbox::{LandedBodyHit, ParriedBodyHit};
+    use ambition_platformer2d::combat::moveset::MovePlayback;
+
+    let stance_spec = counter_move(
+        "a_stance_that_answers_with_the_blade",
+        "attack_down",
+        0.07,
+        0.15,
+        0.42,
+        CounterParams {
+            window_s: 0.05,
+            answers_the_attacker: false,
+            response: RIPOSTE_STRIKE.to_string(),
+            response_params: ambition_platformer2d::entity_catalog::ParamValue::from_typed(
+                &params(),
+            )
+            .expect("riposte params serialize"),
+            absorbs_projectiles: false,
+        },
+    );
+    // Mid-stance: the Active window is the second of the three `counter_move`
+    // builds, and a parry only counts while it is under the clock.
+    let stance = stance_spec.windows[1].clone();
+    let mut playback = MovePlayback::new(stance_spec, 1.0);
+    playback.t = (stance.start_s + stance.end_s) * 0.5;
+
+    let mut app = app();
+    app.add_message::<ParriedBodyHit>();
+    app.add_message::<LandedBodyHit>();
+    app.add_systems(
+        Update,
+        (
+            crate::counter::hold_counter_parry_windows,
+            crate::counter::answer_a_parry_with_the_authored_counter,
+        )
+            .before(cut_where_a_riposte_answers),
+    );
+
+    let defender = fighter(&mut app, 0, ae::Vec2::new(100.0, 50.0), 1.0);
+    app.world_mut().entity_mut(defender).insert(playback);
+    let attacker = fighter(&mut app, 1, ae::Vec2::new(146.0, 50.0), -1.0);
+
+    app.world_mut().write_message(ParriedBodyHit {
+        defender,
+        attacker,
+        hitbox: attacker,
+        contact: ae::Vec2::new(120.0, 50.0),
+    });
+    // The response is written on the first tick and the cut it spawns resolves
+    // on the second.
+    app.update();
+    app.update();
+
+    let hits = body_hits(&mut app);
+    assert_eq!(
+        damage_to(&hits, attacker),
+        vec![11],
+        "the parry did not reach the blade — the counter and the cut agree on a \
+         key or they do not, and nothing between them said so",
+    );
+    assert!(
+        damage_to(&hits, defender).is_empty(),
+        "his own counter cut him",
+    );
+}

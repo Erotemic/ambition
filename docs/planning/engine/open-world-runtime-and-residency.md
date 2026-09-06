@@ -309,6 +309,31 @@ closure (`mutate_plan(load_id, events, |plan| ..)`) keeps each arm's own
 condition and announces on success; comparing a plan REVISION before and after
 and announcing once removes the question entirely but is a redesign of what a
 plan is. The second is the (A) answer and the first is the cheap one.
-⛔ **Not started.** `ambition_load` is claimed by neither lane, and the standing
-rule is to say so to the peer before taking generic architecture. Recorded with
-its line numbers so whoever takes it starts from the population.
+✔ **DONE 2026-09-06, the cheap shape.** `mutate_plan(load_id, &mut events,
+|plan| ..)` holds the rule once; seven arms became calls and each keeps its own
+condition as the closure's `bool` return. The pushes go 8 → 2 (the helper, plus
+`Begin`, which CREATES a plan rather than mutating one and is deliberately left
+out — folding it in means a helper whose first job is deciding which of two
+things it is doing).
+
+⛔⛔ **AND THE POISON FOUND SOMETHING LARGER THAN THE DUPLICATION.** Deleting
+every `PlanChanged` push left **all 13 tests of the crate green**. Chasing that:
+`MessageReader<LoadEvent>` returns **ZERO hits in the whole tree**, and the only
+in-tree writers of any variant are two `CommitAuthorized`/`CommitRejected` sites
+in `platformer2d_runtime/src/room_transition/loading.rs`.
+
+⚠ **THAT IS NOT DEAD CODE, AND THE DISTINCTION IS THE POINT.** `ambition_load` is
+composed by EXTERNAL consumers — its own plugin test exists because *"the external
+consumer, invisible to a repo grep, sat red until somebody read the panic"*. So
+`LoadEvent` is a published API surface with no in-tree reader, which is precisely
+why its emissions need a test HERE: no downstream failure can ever report a
+regression in it.
+✔ `a_command_that_changes_a_plan_announces_it_and_one_that_does_not_stays_quiet`
+walks all six mutating commands and both quiet cases (a re-removal that finds the
+plan and changes nothing; an unknown load with no plan at all). Poison-verified in
+BOTH directions — never emitting fails on `upsert`, emitting unconditionally fails
+on the re-removal.
+
+⚠ The revision-counter redesign named above is still the (A) answer and is still
+not done; what landed removes the restatement, not the question of what a plan
+revision is.

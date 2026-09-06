@@ -772,6 +772,39 @@ and run that one. `cargo check -p <crate>` with no features is seconds.
 
 ## Current execution order
 
+- ▢ **D-TETHER-LINE — the ledge tether draws no line, and the one line renderer
+  that exists cannot show it. Measured 2026-09-06 after landing the aerial
+  tether.**
+  ⚠ **NOT "invisible", and the overstatement matters**: the reel MOVES her, so
+  the motion is a read. What is missing is the line that says she ATTACHED, and
+  `rendering/tether.rs` exists because exactly that was judged necessary one move
+  over — *"a 150px grab that draws nothing is the mechanic without the read… in a
+  1v1 neither player can respect a threat they cannot see."* The same argument
+  applies to a recovery an opponent may want to contest at the ledge.
+  ⛔ **AND THE EXISTING RENDERER CANNOT BE POINTED AT IT WITHOUT A LAYERING
+  VIOLATION, which is the actual finding.** It draws from `BodyPoseView::grab_reach`
+  / `FeatureViewIndex::grab_reach`, a WORLD POINT published in
+  `ambition_sim_view::pose_view` from `MovePlayback::live_capture_reach()`. The
+  reel's anchor is the same KIND of fact and the same units — but it lives on
+  `TetherReel`, a `ambition_demo_smash` component, and the view crate must not
+  learn about a ruleset. ⇒ Publishing it through `grab_reach` would invert the
+  dependency.
+  ⛔ **THE KERNEL'S WIRE IS NOT THE ANSWER EITHER, checked rather than assumed.**
+  `BodyMotionFacts::wire_anchor` is a PROJECTION of `state.wire`, and the one
+  attach point computes its anchor as `pos - frame.down() * rope_length` —
+  straight up, because it is the Performer's flyline lift. A diagonal ledge
+  tether does not fit that shape, and widening it is changing an engine
+  authority for one move.
+  ⇒ **Two roads, both real, and the choice is a layering decision rather than a
+  drawing one:** (A) a ruleset-owned visual, which asks where ruleset-specific
+  presentation lives when rendering is an engine crate — the mine and the bomb
+  answer it with HELD-ITEM ART, which is a registry, not a line; or (B) a
+  GENERIC "this body is reaching to this point" fact on an engine component that
+  any ruleset may set, which `grab_reach` already is in everything but its
+  publisher. ⚠ (B) is the smaller change and the one that would also give the
+  goblin's cargo throw and any future tether a line for free, but it means the
+  engine growing a field for a ruleset's benefit, which is the judgement call.
+
 - ✔ **D-LIMIT-RESPAWN — CLOSED 2026-09-06, same day. A respawned fighter could
   spend the Limit for free on the frame after dying.** Not a maintainer question: whichever
   way Q67 is ruled, this is a bug, because the behaviour is neither answer.

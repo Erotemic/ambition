@@ -31,21 +31,29 @@
             mobs: [
                 (kind: "medium_striker", character: Some("goblin"), spawn: (1180.0, 580.0), size: (22.0, 38.0), delay: 0.0),
                 (kind: "medium_striker", character: Some("goblin"), spawn: (1500.0, 580.0), size: (22.0, 38.0), delay: 0.70),
-                //  `character: None` — deliberate, not an oversight. No catalog
-                // row is the goblin lab's heavy: `npc_hand_saint` and
-                // `npc_ninja_heavy` carry the matching `melee_brute_brute` brain
-                // but neither belongs in a goblin cave. Casting one is a content
-                // decision, so the brute keeps drawing the placeholder until
-                // somebody makes it — which is the point of having no fallback
-                // sheet: visible debt beats a body borrowing someone else's art.
-                (kind: "npc_goblin_brute", spawn: (1340.0, 562.0), size: (32.0, 56.0), delay: 2.60),
+                // ⛔⛔ THIS ROW USED TO SAY `character: None` — DELIBERATELY, and
+                // its premise expired. The note read: "No catalog row is the
+                // goblin lab's heavy… the brute keeps drawing the placeholder
+                // until somebody makes it — visible debt beats a body borrowing
+                // someone else's art." ⇒ SOMEBODY MADE IT. `npc_goblin_brute` is
+                // a catalog row with its own art
+                // (`goblin_brute_hammer_spritesheet`) and an authored module that
+                // states its locomotion. The casting decision the note was
+                // waiting for has been taken.
+                //
+                // ⚠ AND THE DEBT STOPPED BEING VISIBLE AND BECAME A CRASH. The
+                // note assumed a placeholder fallback; AC6 later removed that
+                // fallback because it "WAS A LIE", so a wave naming no character
+                // now REFUSES. Two correct changes, made apart, whose collision
+                // is a panic in the goblin fight — reported by Jon 2026-09-06.
+                (kind: "npc_goblin_brute", character: Some("npc_goblin_brute"), spawn: (1340.0, 562.0), size: (32.0, 56.0), delay: 2.60),
             ],
         ),
         (
             label: "wave 3 — heavy duo",
             mobs: [
-                (kind: "npc_goblin_brute", spawn: (1180.0, 562.0), size: (32.0, 56.0), delay: 0.0),
-                (kind: "npc_goblin_brute", spawn: (1500.0, 562.0), size: (32.0, 56.0), delay: 0.0),
+                (kind: "npc_goblin_brute", character: Some("npc_goblin_brute"), spawn: (1180.0, 562.0), size: (32.0, 56.0), delay: 0.0),
+                (kind: "npc_goblin_brute", character: Some("npc_goblin_brute"), spawn: (1500.0, 562.0), size: (32.0, 56.0), delay: 0.0),
             ],
         ),
     ],

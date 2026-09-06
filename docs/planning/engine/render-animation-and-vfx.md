@@ -1120,6 +1120,31 @@ that moved. ⇒ **A/B ON A PICTURE REQUIRES PINNING EVERY OTHER VARIABLE**, and 
 existed for exactly that the whole time. The numbers were unambiguous the moment
 one input varied instead of three.
 
+## ⭐ THE BLAST RADIUS, MEASURED ACROSS ALL 198 SHEETS (2026-09-06)
+
+`scripts/measure_sheet_body_offsets.py` reports how far each sheet's authored body
+sits from its frame centre — which IS the offset applied to it, so the table is the
+blast radius of any fix. **Seven sheets move more than a quarter of their own body
+height, and Mary-O leads by a wide margin:**
+
+| sheet | offset | body | as % of body |
+|---|---|---|---|
+| `mary_o_v2` | −52px | 84px | **61.9%** |
+| `actor` / `performer` | −63px | 130px | 48.5% |
+| `super_mary_o_pipe` | −21.5px | 49px | 43.9% |
+| `officer` | −33px | 125px | 26.4% |
+| **`mary_o_v2_tall`** | −12px | 168px | **7.1%** |
+| median character | | | **~2–10%** |
+
+⇒ **THAT IS WHY THIS READS AS ONE BROKEN CHARACTER RATHER THAN A SYSTEMIC TILT.**
+The same wrong correction reaches every sheet-authored body; at 2–10% of body height
+nobody sees it, and at 61.9% it is unmissable.
+
+⚠ **AND IT COMPLICATES THE REPORT RATHER THAN CONFIRMING IT: small Mary-O is the
+outlier at 61.9% while her TALL form is 7.1%**, so *"it gets worse when she grabs a
+wand"* points the opposite way from the sheets. Worth re-checking with Jon before
+anyone designs around it.
+
 ⇒ **THE FIX SHAPE: one writer owns size+anchor+offset together.** Where the animator
 owns the first two, it must own the third, or `sync_visuals` must not apply a
 translation computed for a quad it no longer set. ⛔ Which of the two is

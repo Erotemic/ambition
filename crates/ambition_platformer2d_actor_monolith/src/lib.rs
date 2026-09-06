@@ -36,6 +36,20 @@ mod character_roster;
 /// starts needing a `ConstructionPlan`, a receipt or a request builder belongs
 /// one layer up in `construction`, and the cycle this cut removed is what that
 /// mistake looks like when it is left alone.
+/// Actor BUNDLES — the component sets a spawned body is assembled from.
+///
+/// ⭐⭐ TOP-LEVEL BECAUSE TWO LAYERS NEED IT AND NEITHER IS BELOW THE OTHER.
+/// It was `features::ecs::actor_bundles`, which made the spawn primitives reach
+/// up into the feature layer for it. Moving it under `actor_spawn` would have
+/// been worse, not better: `character_runtime` also consumes these bundles and
+/// `actor_spawn` already depends on `character_runtime`, so the "fix" would have
+/// built a fresh two-module cycle. ⇒ A definition two peers share belongs BELOW
+/// both of them, not inside whichever one happens to be nearest.
+///
+/// ⚠ ITS ONLY INTRA-CRATE DEPENDENCY IS `presentation`, which is outside the
+/// kernel's cyclic component — measured, not assumed, because a leaf that
+/// reaches back into the knot would carry the knot with it.
+pub mod actor_bundles;
 pub mod actor_spawn;
 pub mod construction;
 /// The local control seam: device frame -> slot -> the body carrying that slot's

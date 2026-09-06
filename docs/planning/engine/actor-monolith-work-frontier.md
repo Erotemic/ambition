@@ -237,11 +237,30 @@ three references, and nothing in the code looked wrong — the same shape as
 foreign-ordering census see half its registrations. **Check what a path RESOLVES
 to before believing the edge it draws.**
 
-⇒ **The last seven, all singletons:** `npcs::{resolve_npc_brain, NPC_TALK_RADIUS}`
-and `NPC_HOSTILE_STRIKE_THRESHOLD` (3), `ecs::boss_component_snapshot`,
-`ecs::spawn_static::interactable_from_authored`,
-`ecs::autonomous_reconcile::provoked_projection`, and the
-`{EnemyActorBundle, FeatureBaseBundle}` pair.
+⭐⭐ **FOUR OF THE SIXTEEN WERE RE-EXPORTS, NOT DEPENDENCIES — and that is the
+single most useful thing this packet produced.** `HeldItem` (`ambition_combat`),
+`boss_component_snapshot` (`ambition_boss_encounter`), and the
+`EnemyActorBundle`/`FeatureBaseBundle` pair (`crate::actor_bundles` after the
+hoist) were all reached through a `features` re-export of something `features`
+does not own. **Four one-line edits, no code moved, and nothing looked wrong at
+any of the four sites.** ⇒ Before pricing a module move, resolve the paths: an
+edge drawn through a re-export is an edge to a module that owns nothing in it.
+
+⇒ **The last five, all singletons, and they ARE real dependencies:** `npcs::{resolve_npc_brain, NPC_TALK_RADIUS}` and `NPC_HOSTILE_STRIKE_THRESHOLD`
+(3), `ecs::spawn_static::interactable_from_authored`, and
+`ecs::autonomous_reconcile::provoked_projection`.
+
+⛔ **THESE WILL NOT YIELD TO A MOVE AND THE PACKET SHOULD STOP PRETENDING THEY
+MIGHT.** Spawning an interactable NPC genuinely needs NPC constants and brain
+resolution; `npcs.rs` is 915 lines of NPC behaviour and does not belong under a
+spawn-primitives module because the primitives happen to call three things in it.
+⇒ **The remaining question is a PLACEMENT decision, not a mechanical one**: do
+`NPC_TALK_RADIUS`, `resolve_npc_brain`, `interactable_from_authored` and
+`provoked_projection` belong in the feature layer at all, or are they lower-level
+definitions filed with their first caller — the shape that has now accounted for
+four of the sixteen and for the cheapest cut in the whole kernel graph? That is a
+question for whoever owns NPC authoring, and it is the honest end of this packet's
+mechanical half.
 
 ⇒ ~~16 → 13 refs.~~ `construction -> actor_spawn` is 15 and one-way;
 `features -> actor_spawn` rose 8 → 33, which is the correct direction and is what

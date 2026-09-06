@@ -107,7 +107,7 @@ pub use brain_command::{
     apply_brain_commands, apply_release_provocations, BrainCommand, BrainCommandKind,
     BrainCommandPlugin, ReleaseProvocation,
 };
-pub use ecs::actor_bundles::{
+pub use crate::actor_bundles::{
     ChestBundle, EnemyActorBundle, FeatureBaseBundle, FeatureLifecycleBundle,
     FeatureRenderedBundle, PickupBundle,
 };
@@ -906,15 +906,57 @@ impl bevy::prelude::Plugin for WorldPrepSchedulePlugin {
         // Finished intent may now be gated/routed, then the common contact
         // snapshot is taken. These operations have real same-tick dependencies,
         // so their short chain is the contract inside `BeforeIntegrate`.
+        //
+        // ⭐⭐ THE CONTRACT IS A CHAIN OF SETS NOW, NOT A CHAIN OF SYSTEMS, and
+        // that is the whole difference the schedule-authority prerequisite asks
+        // for. Chaining `tick_capture_holds` directly to `steer_mount_from_rider`
+        // was this crate fixing the relative order of two OTHER crates' private
+        // systems — the named form of private cross-domain ordering authority.
+        // `ambition_combat` and `ambition_mount` publish `CaptureHoldsTicked` and
+        // `MountsSteeredByRiders`; the order between them is stated here, where
+        // the composition belongs, in vocabulary both crates own.
+        //
+        // ⛔ THE SAME-TICK DEPENDENCIES ARE UNCHANGED AND SO IS THE ORDER. Each
+        // published set covers ONE system today, which is why the substitution is
+        // exact rather than approximate — and each set's own doc says the chain
+        // is the INSTALLER's contract, so widening one later is an argument
+        // somebody has to make against that text.
+        app.configure_sets(
+            sim,
+            (
+                ambition_combat::capture::systems::CaptureHoldsTicked,
+                ambition_mount::MountsSteeredByRiders,
+            )
+                .chain()
+                .in_set(
+                    ambition_platformer2d_shared_tangle::schedule::WorldPrepSet::BeforeIntegrate,
+                ),
+        );
+        // ⛔ AND THE FOREIGN PAIR IS NOT CHAINED HERE ANY MORE — the set chain
+        // above is the only statement of their relative order. Leaving the
+        // `.chain()` around them as well would say the same thing twice, in two
+        // vocabularies, and the system-level one is the half that cannot be
+        // reasoned about from either domain's crate.
         app.add_systems(
             sim,
             (
-                ambition_combat::capture::systems::tick_capture_holds,
-                ambition_mount::steer_mount_from_rider,
-                crate::avatar::advance_moving_platforms,
-                snapshot_body_contact,
+                ambition_combat::capture::systems::tick_capture_holds
+                    .in_set(ambition_combat::capture::systems::CaptureHoldsTicked),
+                ambition_mount::steer_mount_from_rider
+                    .in_set(ambition_mount::MountsSteeredByRiders),
             )
+                .in_set(
+                    ambition_platformer2d_shared_tangle::schedule::WorldPrepSet::BeforeIntegrate,
+                ),
+        );
+        // ⭐ THE LOCAL TAIL KEEPS ITS CHAIN AND HANGS OFF THE LAST PUBLISHED SET,
+        // so the four-step contract is unchanged end to end: capture holds, then
+        // mount steering, then platforms, then the contact snapshot.
+        app.add_systems(
+            sim,
+            (crate::avatar::advance_moving_platforms, snapshot_body_contact)
                 .chain()
+                .after(ambition_mount::MountsSteeredByRiders)
                 .in_set(
                     ambition_platformer2d_shared_tangle::schedule::WorldPrepSet::BeforeIntegrate,
                 ),
@@ -1029,7 +1071,7 @@ impl bevy::prelude::Plugin for WorldPrepSchedulePlugin {
             sim,
             (route_boss_strikes_to_limbs, fan_out_limb_intents)
                 .chain()
-                .after(ambition_mount::steer_mount_from_rider)
+                .after(ambition_mount::MountsSteeredByRiders)
                 .in_set(
                     ambition_platformer2d_shared_tangle::schedule::WorldPrepSet::BeforeIntegrate,
                 ),

@@ -32,7 +32,11 @@ pub(crate) mod conversion;
 // The list below IS the argument: these are spawn primitives, and what they
 // reach for is bundles, brains and component snapshots, never a construction
 // plan, a receipt or a request builder.
-use crate::features::ecs::boss_component_snapshot;
+// ⛔ THE DEFINITION AGAIN. `boss_component_snapshot` is
+// `ambition_boss_encounter::ecs::sync`'s — a crate below this one — and
+// `features::ecs` re-exports it. Second of the thirteen that turned out to be a
+// re-export rather than a dependency.
+use ambition_boss_encounter::ecs::boss_component_snapshot;
 // ⛔⛔ THE DEFINITION, NOT THE RE-EXPORT. `HeldItem` lives in
 // `ambition_combat::held_items` — a crate BELOW this one — and
 // `features::ecs` merely re-exports it. Naming the re-export made these
@@ -41,7 +45,10 @@ use crate::features::ecs::boss_component_snapshot;
 // costs nothing to fix. ⇒ A re-export hides where a thing lives, and a
 // dependency drawn through one is an edge to a module that owns nothing in it.
 use ambition_combat::held_items::HeldItem;
-use crate::features::{EnemyActorBundle, FeatureBaseBundle};
+// ⛔ THE MODULE, NOT THE RE-EXPORT — third time today. `actor_bundles` is a
+// top-level module now; `features` still re-exports it, and importing through
+// that re-export would keep an edge to a module that no longer owns the types.
+use crate::actor_bundles::{EnemyActorBundle, FeatureBaseBundle};
 use ambition_platformer2d_core as ae;
 // The platformer-strict AABB semantics (edge-touching boxes do not overlap).
 use ae::AabbExt as _;

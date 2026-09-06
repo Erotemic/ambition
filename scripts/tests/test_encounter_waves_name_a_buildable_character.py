@@ -77,8 +77,19 @@ def test_every_named_character_is_a_catalog_row():
         f"only {len(catalog)} catalog rows parsed; the catalog's shape moved and "
         f"this guard would pass every id"
     )
+    # ⛔⛔ THIS TEST FLOORED THE CATALOG AND NOT THE MOB ROWS, so a collapsed row
+    # classifier left it GREEN over an empty set while its sibling reddened.
+    # Found 2026-09-06 by poisoning `_MOB` to match nothing — the fighter lane's
+    # rule: POISON WHAT DEFINES A SUBSET, not only what fills it. An anti-vacuity
+    # floor on one population says nothing about the other, and a guard that
+    # inspects zero rows reports perfect compliance.
+    rows = _mob_rows()
+    assert len(rows) >= 7, (
+        f"only {len(rows)} mob row(s) parsed; this test would pass by inspecting "
+        f"nothing"
+    )
     unknown = []
-    for f, lineno, kind, rest in _mob_rows():
+    for f, lineno, kind, rest in rows:
         m = _CHARACTER.search(rest)
         if m and m.group("id") not in catalog:
             unknown.append(f"{f}:{lineno} character={m.group('id')}")

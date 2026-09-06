@@ -4733,6 +4733,31 @@ OPTIONAL dep + feature, never used:
   every other instrument today: a negative is a claim about the tool until it
   matches the tool it is standing in for.
 
+  ⛔⛔ **AND THE DEEPER CHECK THIS SUGGESTS IS MEASURED AND DEAD — recorded as a
+  negative so nobody builds it** (measured by a peer session, 2026-09-06). The
+  tempting next step is to verify the cited line's CONTENT: does it mention the
+  code token the sentence names? The population is ample — **490 `file:line`
+  citations across 103 planning docs, 210 of them (43%) on a line that also names
+  a backticked token** — and the pairing is what fails:
+
+  | window | confirmed | not found | miss |
+  |---|---|---|---|
+  | ± 0 lines | 83 | 111 | 57% |
+  | ± 3 lines | 104 | 90 | 46% |
+  | ±10 lines | 123 | 71 | 37% |
+  | ±30 lines | 150 | 44 | 23% |
+
+  ⚠ **And sampling the misses says they are NOT rot.** `combat-model.md` cites a
+  line for the MODULE it declares while the sentence also names a type; a decision
+  row cites `pub fn windbox` on a sentence that also names the function it
+  CONTRASTS that with; table rows pair a citation in one column against tokens
+  from another. All correct.
+  ⇒ **The general shape, and why no window size rescues it: A PROSE LINE NAMES
+  SEVERAL THINGS AND CITES ONE.** Any checker pairing "the citation here" with
+  "the identifiers here" is guessing which, and guesses wrong often enough to be
+  noise. A real checker would need the citation to say what it is FOR — a change
+  to how citations are WRITTEN, which is a maintainer's call.
+
   ⇒ **So the row's ask is smaller than "sweep the docs": run it on the DIFF at
   write time.** It catches the citation while the author still remembers which
   line they read, which is the only moment the right answer is free. ⚠ It cannot

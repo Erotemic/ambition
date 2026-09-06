@@ -16,7 +16,7 @@ use ambition_characters::smash_repertoire::{
 use ambition_platformer2d::entity_catalog::MovesetContract;
 
 use ambition_characters::moveset_authoring::{
-    committed_tail, impulse, on_contact, sfx, strike, vfx_at,
+    committed_tail, impulse, on_contact, sfx, strike, vfx_at, wake, Wake,
 };
 use ambition_platformer2d::entity_catalog::ImpulseMode;
 
@@ -381,6 +381,32 @@ pub fn goblin_moveset() -> MovesetContract {
         launch_dir: Some((0.70, -0.60)),
         on_hit: None,
     });
+    // ⭐⭐ THE DIRT IS IN THE NAME AND WAS NOT IN THE MOVE. "It kicks the ground
+    // at you" was authored as one hitbox and nothing else — one of the roster's
+    // specials carrying no mechanic at all. What it was missing is the half the
+    // name is about: the kick connects, and what the kick MISSES gets a face full
+    // of dirt.
+    //
+    // ⛔ THE WAKE IS APPENDED, so the hit wins wherever both reach. Standing in
+    // both means you were kicked; being shoved instead is the consolation for
+    // being out of range — which is what makes this a spacing tool for a fighter
+    // whose whole problem is that everything else it has is short.
+    //
+    // ⚠ ONE-SHOT, NOT SUSTAINED. A repeating windbox is a wall you cannot walk
+    // through, and a goblin scuffing the floor for 0.08s is a shove.
+    let down_b = wake(
+        down_b,
+        Wake {
+            offset: (58.0, 14.0),
+            half_extents: (24.0, 8.0),
+            // Firm enough to break an approach and take somebody off a ledge they
+            // were about to grab, well short of a launch that kills.
+            push: 62.0,
+            // Along the floor and barely up: dirt travels, it does not lift.
+            push_dir: (1.0, -0.15),
+            repeating: false,
+        },
+    );
     let down_b = committed_tail(down_b, 0.55, 0.0);
     let down_b = vfx_at(down_b, 0.12, "sand_burst", (18.0, 16.0), 1.0);
     let down_b = sfx(down_b, 0.12, "enemy.goblin.attack");
@@ -615,6 +641,51 @@ pub fn goblin_moveset() -> MovesetContract {
     // `when_refused`, so it joins the moves without claiming a verb.
     contract.moves.push(uncharged_dive);
     contract
+}
+
+#[cfg(test)]
+mod dirt_tests {
+    use super::*;
+
+    /// ⭐⭐ THE KICK WINS WHERE BOTH REACH, AND THAT ORDER IS THE MOVE.
+    ///
+    /// `dirt_kick` is a hit that trails a shove. The damaging volume is ranked
+    /// FIRST because the strike seam takes the first-authored volume that reaches
+    /// and no other — so standing in both means you were kicked, and being shoved
+    /// instead is what happens when you were out of range.
+    ///
+    /// ⛔ A WAKE RANKED FIRST WOULD SHOVE THE PEOPLE THE MOVE WAS ABOUT TO HIT,
+    /// turning the goblin's only spacing tool into a worse gust that does no
+    /// damage at all. A test that only found a windbox passes against exactly
+    /// that, which is why this asserts the ORDER and the damage on each side.
+    #[test]
+    fn the_dirt_kick_hits_what_it_reaches_and_shoves_what_it_misses() {
+        use ambition_platformer2d::entity_catalog::{VolumeReaction, WindowTag};
+        let kick = goblin_moveset()
+            .move_by_id("dirt_kick")
+            .expect("dirt_kick exists")
+            .clone();
+        let window = kick
+            .windows
+            .iter()
+            .find(|w| w.tag == WindowTag::Active && !w.volumes.is_empty())
+            .expect("it still strikes");
+        assert_eq!(window.volumes.len(), 2, "a kick and its dust");
+        assert!(window.volumes[0].damage > 0, "the KICK is ranked first");
+        assert_eq!(window.volumes[1].damage, 0, "dirt does not wound");
+        assert!(
+            matches!(
+                window.volumes[1].reaction,
+                Some(VolumeReaction::Windbox(_))
+            ),
+            "the dust must be a push, not a weak second hitbox"
+        );
+        assert!(
+            window.volumes[1].shape.leading_edge_x()
+                > window.volumes[0].shape.leading_edge_x(),
+            "the dust travels BEYOND the boot"
+        );
+    }
 }
 
 #[cfg(test)]

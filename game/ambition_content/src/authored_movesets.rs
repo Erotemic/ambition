@@ -634,7 +634,15 @@ mod expressiveness_census {
         // A window with TWO volumes is a sweetspot: `StrikeRank` is the move's
         // own reading order and the strike seam takes the first that reaches, so
         // authoring a second volume is authoring where the move is strong.
-        if mv.windows.iter().any(|w| w.volumes.len() > 1) {
+        // ⛔ TWO DAMAGING VOLUMES, not two volumes. `wake` appends a windbox that
+        // does no damage, so a plain `len() > 1` reported the goblin's dirt kick
+        // as a "sweetspot" — which it is not, and the printed reason is what a
+        // reader picks their next move from.
+        if mv
+            .windows
+            .iter()
+            .any(|w| w.volumes.iter().filter(|v| v.damage > 0).count() > 1)
+        {
             why.push("sweetspot");
         }
         // `VolumeReaction::{Autolink, Windbox}` change what a hit DOES — a
@@ -868,7 +876,7 @@ mod expressiveness_census {
     /// ⇒ Jon's words were *"a lot of characters have boring specials"*. The
     /// SPECIAL is the unit of that sentence, and counting it changes the answer
     /// from "0 plain" to this: measured 2026-09-06, **75 of 88 specials carry a
-    /// mechanic and 7 do not** (it opened at 75/13 and six specials have been
+    /// mechanic and 6 do not** (it opened at 75/13 and seven specials have been
     /// authored since). Both numbers come from `expressive_reasons`, the
     /// one definition in this file, so this test and the per-special census
     /// cannot drift apart the way the census and its own doc comment did.
@@ -905,7 +913,7 @@ mod expressiveness_census {
         /// Raised deliberately as specials gain mechanics. ⛔ Raising it is a
         /// decision with a commit behind it; watching it fall silently is the
         /// failure this exists to catch.
-        const FLOOR: usize = 81;
+        const FLOOR: usize = 82;
 
         let mut rich: Vec<String> = Vec::new();
         let mut bare: Vec<String> = Vec::new();

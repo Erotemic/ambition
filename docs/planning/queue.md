@@ -1198,10 +1198,30 @@ and run that one. `cargo check -p <crate>` with no features is seconds.
   ..._actor_monolith              294,327       285,213    298,030    +3,703    +12,817    +5,704
 ```
 
-  ⇒ **Against the table the same file already updated, all three are WITHIN
+  ⇒ **Against the table the same file already updated, all three were WITHIN
   budget.** The reported +60,303 is ~51,864 of movement from BEFORE the adopting
   commit plus ~8,439 since; the gate attributes the whole of it to the range it
   names, and the seconds findings are the same three crates counted again.
+
+  ⛔⛔ **RE-MEASURED 2026-09-06 AND THAT CONCLUSION HAS FLIPPED — the inconsistency
+  is no longer the whole story.** The held scalars and the `crates` table are
+  unchanged; TODAY has moved:
+
+```text
+  crate                      crates[] table   held scalar    today    vs TABLE   budget   verdict
+  ambition_geometry               592,091       540,227    607,550    +15,459   10,804   OVER by 4,655
+  ambition_platformer2d_core      588,780       537,395    604,239    +15,459   10,747   OVER by 4,712
+  ..._actor_monolith              294,327       285,213    302,914     +8,587    5,704   OVER by 2,883
+```
+
+  ⇒ **All three now exceed budget against the TABLE too**, by ~4.7k / 4.7k / 2.9k
+  lines. ⚠ So the reading "these findings are entirely the file's self-disagreement"
+  was true on 2026-09-05 and is FALSE today: roughly 7,000 lines per metric have
+  landed since, and that part is real growth the ratchet is right about.
+  ⭐ The diagnosis below still holds and is what makes this readable — without the
+  table comparison the report says +67,323 and a reader cannot tell 15,459 of real
+  movement from 51,864 of pre-baseline drift. **Both halves have to be quoted
+  together; either alone misleads.**
   ✔ **AND THE ROT IS BOUNDED — checked, because "the baseline is inconsistent"
   invites a bigger repair than the evidence supports.** Only the metrics
   `adopt_wins` HOLDS can drift. The unheld derivations agree exactly:

@@ -550,7 +550,9 @@ format changes the test loses its realism, not its meaning.
 Found by grepping for the shape the room alias had (`a.id == x || a.name == x`).
 Three sites in the cut-rope arena match a prop with
 `prop.kind == needle || prop.name == needle`
-(`arena.rs:256`, `arena.rs:282`, `mod.rs:315`).
+(`game/ambition_content/src/bosses/cut_rope/arena.rs:256`,
+`game/ambition_content/src/bosses/cut_rope/arena.rs:282`,
+`game/ambition_content/src/bosses/cut_rope/mod.rs:315`).
 
 ✔ **THE AUTHORED DATA SAYS THE FALLBACK IS REDUNDANT.** Parsing
 `you_have_to_cut_the_rope.ldtk`: exactly **2** `Prop` entities carry a cut-rope
@@ -561,7 +563,7 @@ as the room alias, twice in one hour.
 
 ⛔⛔ **`PropVisual.kind` IS MUTATED AT RUNTIME.** The arena cycles the hanging
 weight anvil → piano, and `apply_cut_rope_heavy_object_sprite` does
-`prop.kind = desired_kind.to_string()` (`arena.rs:341`). `name` is never mutated.
+`prop.kind = desired_kind.to_string()` (`game/ambition_content/src/bosses/cut_rope/arena.rs:341`). `name` is never mutated.
 ⇒ After one cycle the SAME entity reads `kind = "cut_rope_piano"`,
 `name = "cut_rope_anvil"`. The `|| name ==` half is therefore not dead
 defensiveness: it is what keeps the entity findable **across its own re-skin**,

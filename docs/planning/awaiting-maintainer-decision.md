@@ -1148,6 +1148,30 @@ cannot know about (a macro-declared const, an upstream type) rather than a
 defect. Failing the lane on one would train everybody to pass `--no-verify`."*
 That is a real objection and I am not overriding it.
 
+⚠⚠ **EVIDENCE FROM 2026-09-06, AND IT IS AGAINST MY OWN DISCIPLINE RATHER THAN
+FOR THE TOOL.** I introduced ambiguous citations **three separate times in one day**
+while knowing this rule, and the three failed in three different ways:
+
+1. `a6ffef8ec` — appended to a page TWICE and ran the checker after the FIRST
+   append only. The verification covered a state that no longer existed.
+2. `073b41557` — three citations that were CORRECT WHEN WRITTEN and were rotted by
+   **my own later edits to the same file**, two hours apart.
+3. `00395440f` — the checker RAN, over the right state, printed `1`, **and I pushed
+   anyway**, because the number scrolled past inside a compound command whose last
+   line was the push.
+
+⇒ **The third is the one that bears on this question.** The first two are arguments
+for care; the third is an argument that care is not the mechanism. A check whose
+result a human has to notice, positioned before the action it gates, is a check that
+will eventually not be read — and the transcript looks green either way.
+
+⚠ **It does NOT dispose of the standing objection**, which is about FALSE reds
+(a macro-declared const, an upstream type) training everybody to `--no-verify`.
+Both things are true at once, and the shape that satisfies both is a RATCHET on the
+count rather than a hard zero: a false red costs one allowlist line and never blocks
+a lane, while a regression from N to N+1 is refused. That is the same instrument
+this repo already uses for compile cost.
+
 ⇒ **What has changed since that was written, and why it is worth re-asking:**
 
 - **The count is ZERO.** The false positives the reasoning fears are not

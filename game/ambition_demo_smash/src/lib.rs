@@ -27,7 +27,9 @@ pub mod mine;
 pub mod motion;
 pub mod moveset;
 pub mod portal;
+pub mod riposte;
 pub mod sing;
+pub mod tether;
 pub mod spring;
 pub mod select;
 pub mod select_screen;
@@ -972,6 +974,30 @@ impl bevy::prelude::Plugin for SmashRulesPlugin {
         app.add_systems(
             sim,
             (crate::homing::begin_authored_homing_dashes, crate::homing::carry_homing_dashes)
+                .chain()
+                .in_set(ambition_platformer2d::platformer::schedule::CombatSet::ContentSpecials),
+        );
+        // THE ANSWERING CUT. ⭐ `ContentSpecials` like every other technique.
+        // ⛔ It reads the SAME `ActorActionMessage` the counter writes, so it
+        // needs no counter-specific wiring: a parry's response is an ordinary
+        // special request, and any move that names the key gets a cut.
+        app.add_systems(
+            sim,
+            crate::riposte::cut_where_a_riposte_answers
+                .in_set(ambition_platformer2d::platformer::schedule::CombatSet::ContentSpecials),
+        );
+        // THE TETHER REEL. ⭐ `ContentSpecials` beside the homing dash, and the
+        // THROW is chained before the REEL for the same reason: a line that bit
+        // a ledge should start pulling on the tick it bit, not the frame after.
+        // ⛔ The reel does NOT catch the ledge — the movement kernel's own ledge
+        // authority does, one phase later, from her real position. See
+        // `crate::tether` for why that separation is the point of the row.
+        app.add_systems(
+            sim,
+            (
+                crate::tether::begin_authored_tether_pulls,
+                crate::tether::reel_tethered_fighters,
+            )
                 .chain()
                 .in_set(ambition_platformer2d::platformer::schedule::CombatSet::ContentSpecials),
         );
@@ -2847,6 +2873,19 @@ impl bevy::prelude::Plugin for SmashSelectPlugin {
                 "ambition_demo_smash",
                 "smash.homing_dash",
                 crate::homing::homing_dash_probe,
+            );
+
+            // The tether reel's clock and the anchor it latched. ⛔ Same
+            // reasoning as the dash above and one step stronger: the anchor is
+            // not merely where she is going, it is a POINT ON THE STAGE she
+            // committed to on one frame. A peer that restored the reel without
+            // it would re-run the probe against its own view of the solids and
+            // could latch a DIFFERENT ledge, which is a divergence that grows
+            // rather than one that corrects.
+            app.rollback_component_clone_probed::<crate::tether::TetherReel>(
+                "ambition_demo_smash",
+                "smash.tether_reel",
+                crate::tether::tether_reel_probe,
             );
         }
         // ⛔ BEFORE the preparation source can ask for it. `Res<SmashStageChoice>`

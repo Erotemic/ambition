@@ -277,6 +277,67 @@ pub fn spawn_damage_box(
     e.id()
 }
 
+/// Spawn an ordinary BODY strike: player-sided, anchored to `owner`, resolved by
+/// the same melee path a move's own volume takes. Returns the entity.
+///
+/// ⛔⛔ THE SIBLING OF [`spawn_damage_box`], AND THE DIFFERENCE IS NOT COSMETIC.
+/// A `DamageBox` is anchored `World`, and the resolver's table reads
+/// `(HitSide::Player, HitboxAnchor::World { .. }) => None` — a player-sided world
+/// box takes NO melee path and damages nobody. The only side that reaches bodies
+/// from a world anchor is `Environment`, which by design consults **no
+/// self-exclusion**: *"your own bomb hurts you, and you still placed it."*
+/// ⇒ So a technique that wants "a swing that hurts THEM and not ME" cannot be
+/// spelled as a `DamageBox` at all. It needs this: `Player` + `FollowOwner`,
+/// where the owner is excluded by identity and `damage_lands_between` still
+/// decides teams, factions and friendly fire.
+///
+/// ⚠ WHICH IS WHY IT EXISTS. The first draft of the riposte technique authored a
+/// world box on `Environment` and would have cut the fighter who threw it — a
+/// counter that damages its own owner — and the mistake was invisible until the
+/// citation in `a_hazard_hits_bystander_and_owner_alike_where_a_neutral_box_hits_neither`
+/// was actually read.
+pub fn spawn_body_strike(
+    commands: &mut Commands,
+    owner: Entity,
+    local_offset: ae::Vec2,
+    facing: f32,
+    frame_down: ae::Vec2,
+    half_extent: ae::Vec2,
+    damage: i32,
+    feel_scale: f32,
+    lifetime_s: f32,
+) -> Entity {
+    // Same contract, same check, same reason as the world-anchored road above.
+    if !plausible_feel_scale(feel_scale) {
+        bevy::prelude::warn!(
+            "a body strike was spawned with knockback {feel_scale} — that field              is a FEEL MULTIPLIER (the shipped band is 1.1–1.6, ceiling {}), not              an engine-unit launch speed.",
+            MAX_PLAUSIBLE_FEEL_SCALE,
+        );
+    }
+    commands
+        .spawn((
+            Hitbox {
+                strike_sfx: None,
+                owner,
+                source: HitSide::Player,
+                anchor: HitboxAnchor::FollowOwner { local_offset },
+                half_extent,
+                shape: None,
+                facing,
+                damage,
+                knockback: HitboxKnockback::FeelScale(feel_scale),
+                launch_dir: None,
+                frame_down,
+                reaction: None,
+            },
+            HitboxLifetime {
+                remaining_s: lifetime_s,
+            },
+            HitboxHits::default(),
+        ))
+        .id()
+}
+
 /// Generic effect executor: drains [`EffectRequest`]s and spawns each
 /// `DamageBox`. Pure executor — every effect carries its own geometry, so this
 /// needs no actor queries. Reads in message order (unsorted) to match the

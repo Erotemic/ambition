@@ -338,23 +338,71 @@ pub fn pointed_polygon_moveset() -> MovesetContract {
     up_special.sprite_spin_hz = Some(12.0);
     let up_special = impulse(up_special, 0.09, (0.0, -760.0), ImpulseMode::Set);
 
-    let grounded_down_special = committed_tail(
-        strike(Strike {
-            id: "polygon_low_arc",
-            clip: "attack_down",
-            startup_s: 0.12,
-            active_s: 0.09,
-            recover_s: 0.25,
-            offset: (18.0, 13.0),
-            half_extents: (34.0, 11.0),
-            damage: 8,
-            knockback: 82.0,
-            knockback_growth: 1.55,
-            launch_dir: Some((0.8, -0.55)),
-            on_hit: None,
-        }),
-        0.52,
-        0.05,
+    // DOWN (grounded) — `polygon_riposte`. ⭐⭐ JON, IN AS MANY WORDS:
+    // *"Swordies will get a counter."* The mechanic shipped on the stand-ins and
+    // on the Author last week; the sword archetype it was assigned to never got
+    // one, and this table's five specials were five plain hitboxes. It replaces
+    // `polygon_low_arc`, a conventional low swipe that said nothing about him —
+    // and a counter IS the conventional answer for this archetype, so the
+    // table's own "fundamentals rather than a gimmick" rule is kept rather than
+    // broken.
+    //
+    // ⭐ AND IT ANSWERS WITH THE BLADE, which nothing could do until today. The
+    // six shipped counters answer with a grab, a teleport, a sleep, a heal, an
+    // absorb and a slow, because `counter_move` builds a stance with no volumes
+    // and the whole answer is its response technique. `smash.riposte_strike` is
+    // that missing answer, and this is its first customer.
+    //
+    // ⛔ THE REACH IS WHY IT IS HIS. This table's header says the distinctive
+    // choice is reach — "the sword extends ordinary humanoid spacing" — so the
+    // cut is centred 52px out and spans 18..86px in front of him. The swipe it
+    // replaces reached 52px (an 18px offset plus 34px of half-width), so the
+    // answer extends further than the move it took the slot from, which is the
+    // whole argument for giving the counter to THIS fighter. A counter that
+    // answered at body range would be a different fighter's with his animation.
+    //
+    // ⚠ IT STARTS 18px OUT, so it does not overlap his own body at all — and
+    // that is belt-and-braces rather than the rule. `HitSide::Player` +
+    // `FollowOwner` excludes the owner by identity, which is what a hazard-sided
+    // cut would NOT have done.
+    //
+    // ⚠ THE RECOVERY IS THE PRICE, at 0.42s against a 0.15s stance — within a
+    // frame of the riposte's own 0.44/0.16, deliberately: a counter you can
+    // throw out on reaction to nothing is a defensive option with no downside.
+    let grounded_down_special = ambition_characters::smash_counter::counter_move(
+        "polygon_riposte",
+        "attack_down",
+        0.07,
+        0.15,
+        0.42,
+        ambition_characters::smash_counter::CounterParams {
+            // A HEARTBEAT, not a duration — `parry_window_timer` decays and the
+            // stance re-arms it every live frame. Three ticks of slack at 60Hz.
+            window_s: 0.05,
+            // His own answer: the cut comes from HIS blade, so it is aimed by
+            // his facing rather than planted on the attacker.
+            answers_the_attacker: false,
+            response: ambition_characters::smash_riposte::RIPOSTE_STRIKE.to_string(),
+            response_params: ambition_platformer2d::entity_catalog::ParamValue::from_typed(
+                &ambition_characters::smash_riposte::RiposteStrikeParams {
+                    // Harder than the swipe it replaces (8), because it is paid
+                    // for by having to READ the swing rather than throw it out.
+                    damage: 12,
+                    // ⛔ A FEEL MULTIPLIER, NOT A LAUNCH SPEED. The move it
+                    // replaced authored `knockback: 82.0` — that field on a
+                    // `Strike` IS a speed, and copying it here would be the
+                    // units error three shipped moves already made.
+                    knockback: 1.4,
+                    reach: 52.0,
+                    half_extents: (34.0, 14.0),
+                    lifetime_s: 0.08,
+                },
+            )
+            .expect("the riposte cut's params serialize"),
+            // ⛔ HE RETURNS SHOTS. A swordfighter batting a projectile back is
+            // the reward the crowd can see; absorbing is the officer's stance.
+            absorbs_projectiles: false,
+        },
     );
     let mut airborne_down_special = strike(Strike {
         id: "polygon_falling_edge",
@@ -477,6 +525,61 @@ pub fn pointed_polygon_moveset() -> MovesetContract {
 
 #[cfg(test)]
 mod tests {
+
+    /// ⭐⭐ JON ASKED FOR THIS ONE BY NAME — *"Swordies will get a counter."*
+    /// The mechanic shipped elsewhere and the row was marked done, so the only
+    /// thing that can keep it true for THIS fighter is a test that names him.
+    ///
+    /// ⛔ AND IT CHECKS THE ANSWER, not just the stance. A counter whose
+    /// response key was retuned to something harmless would still be "a
+    /// counter" to any test that only asked whether `smash.counter` is present —
+    /// which is exactly the shape of assertion that let five bare specials sit
+    /// on this table while the roster page read "shipped".
+    #[test]
+    fn his_down_b_is_a_counter_that_answers_with_the_blade() {
+        use ambition_characters::smash_riposte::{RiposteStrikeParams, RIPOSTE_STRIKE};
+
+        let set = pointed_polygon_moveset();
+        let stance = set
+            .moves
+            .iter()
+            .find(|m| m.id == "polygon_riposte")
+            .expect("his grounded down-B is the riposte");
+        let counter: ambition_characters::smash_counter::CounterParams = stance
+            .windows
+            .iter()
+            .filter_map(|window| window.sustain_effect.as_ref())
+            .find(|effect| effect.key == ambition_characters::smash_counter::COUNTER)
+            .and_then(|effect| effect.params.hydrate().ok())
+            .expect("the stance carries a counter");
+
+        assert_eq!(
+            counter.response, RIPOSTE_STRIKE,
+            "his counter answers with `{}` rather than the blade",
+            counter.response,
+        );
+        let cut: RiposteStrikeParams = counter
+            .response_params
+            .hydrate()
+            .expect("the cut's params hydrate");
+
+        // ⭐ THE AUTHORING CHECK, RUN AT TEST TIME. The ruleset refuses an
+        // unusable cut at runtime and logs it; asking the same question here is
+        // what turns "the player sees nothing happen" into a red build.
+        assert!(
+            cut.problems().is_empty(),
+            "his riposte authors an unusable cut: {}",
+            cut.problems().join("; "),
+        );
+        // The swipe it replaced covered 18 + 34 = 52px of ground. His counter
+        // must not answer at less reach than the move it took the slot from —
+        // reach is this table's stated distinction.
+        assert!(
+            cut.reach + cut.half_extents.0 >= 52.0,
+            "his counter reaches {}px, less than the low arc it replaced",
+            cut.reach + cut.half_extents.0,
+        );
+    }
     use super::*;
 
     /// ⭐⭐ THE AUTHORED FIGHTER REACHES THE RECOVERY BUDGET — through the real
@@ -725,7 +828,7 @@ mod tests {
             "polygon_point",
             "polygon_vector_lunge",
             "polygon_rising_edge",
-            "polygon_low_arc",
+            "polygon_riposte",
             "polygon_falling_edge",
             "polygon_grab",
             "polygon_pummel",

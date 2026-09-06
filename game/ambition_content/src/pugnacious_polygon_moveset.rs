@@ -258,29 +258,43 @@ pub fn pugnacious_polygon_moveset() -> MovesetContract {
         0.58,
         0.18,
     );
-    let side_special = impulse(
-        committed_tail(
-            strike(Strike {
-                id: "polygon_brawler_shoulderrush",
-                clip: "attack_side",
-                startup_s: 0.11,
-                active_s: 0.11,
-                recover_s: 0.23,
-                offset: (24.0, -2.0),
-                half_extents: (26.0, 22.0),
-                damage: 11,
-                knockback: 116.0,
-                knockback_growth: 2.18,
-                launch_dir: Some((1.0, -0.23)),
-                on_hit: None,
-            }),
-            0.55,
-            0.10,
-        ),
-        0.11,
-        (590.0, 0.0),
-        ImpulseMode::Set,
+    // SIDE — `polygon_brawler_collar`. A COMMAND GRAB, replacing a shoulder rush
+    // that was a dash with a hitbox on it.
+    //
+    // ⭐⭐ IT IS THE ARCHETYPE'S MISSING VERB. A brawler's identity in this genre
+    // is that blocking is not safe against them: the grab that travels is what
+    // makes shielding a decision instead of a default, and this table had five
+    // specials that were all hitboxes — every one of them answerable by holding
+    // shield. ⇒ The census (`the_census_of_specials_that_carry_no_technique`)
+    // named this fighter as five-for-five bare, which is what sent me here.
+    //
+    // ⛔ IT COSTS NOTHING NEW. `smash.capture_attempt` is shipped, the stand-in's
+    // `lunge_grab` already authors a travelling one, and this fighter already has
+    // a pummel and all four throws — so the follow-ups exist the moment the grab
+    // does. That is the whole ease-of-authoring claim in one move: name the key,
+    // fill three fields, keep the hold.
+    //
+    // ⚠ THE HOLD MATCHES HIS STANDING GRAB, deliberately and for the reason the
+    // stand-in's does: the throws are SHARED, so a captive held somewhere else
+    // would make them read differently depending on which grab caught them.
+    //
+    // ⛔ THE PRICE IS THE RECOVERY, at 0.42s against a 0.07s catch. A command
+    // grab that is safe on whiff removes the shield mixup it exists to create,
+    // because there is then no reason to ever not throw it.
+    let mut side_special = author_standing_grab(
+        grab_shell("polygon_brawler_collar", "attack_side", 0.16, 0.07, 0.42),
+        CaptureAttemptParams {
+            // 58px of reach against his standing grab's 34: it has to catch
+            // somebody the lunge is arriving at, not somebody already in range.
+            offset: (32.0, 0.0),
+            half_extents: (26.0, 20.0),
+            hold_offset: (14.0, 3.0),
+        },
     );
+    // ⛔ ADDITIVE, for the reason the stand-in's carries: a grab that deleted
+    // your run would make dashing into it worse than walking, and a
+    // dash-cancelled command grab covering more ground is correct.
+    side_special.start_impulse = Some((360.0, 0.0));
     let mut uppercut = strike(Strike {
         id: "polygon_brawler_uppercut",
         clip: "attack_up",
@@ -462,6 +476,60 @@ pub fn pugnacious_polygon_moveset() -> MovesetContract {
 
 #[cfg(test)]
 mod tests {
+
+    /// Every capture attempt a move authors, by move id.
+    fn capture_of(set: &MovesetContract, id: &str) -> CaptureAttemptParams {
+        set.moves
+            .iter()
+            .find(|m| m.id == id)
+            .unwrap_or_else(|| panic!("`{id}` is not in this table"))
+            .windows
+            .iter()
+            .filter_map(|window| window.sustain_effect.as_ref())
+            .find(|effect| effect.key == ambition_characters::smash_capture::CAPTURE_ATTEMPT)
+            .and_then(|effect| effect.params.hydrate().ok())
+            .unwrap_or_else(|| panic!("`{id}` carries no capture attempt"))
+    }
+
+    /// ⭐⭐ HIS SIDE-B IS A COMMAND GRAB, WHICH IS THE POINT OF THIS FIGHTER.
+    /// Five specials that are all hitboxes are five specials answerable by
+    /// holding shield; the grab that travels is what makes shielding a decision.
+    ///
+    /// ⛔ AND THE HOLD IS THE ASSERTION THAT WAS ONLY PROSE. Both grabs feed the
+    /// SAME four throws, so a captive held somewhere else would make the throws
+    /// read differently depending on which grab caught them. That sentence is in
+    /// the stand-in's comment, in this move's comment, and until now in no test.
+    #[test]
+    fn his_side_b_is_a_command_grab_that_shares_the_hold_with_his_standing_one() {
+        let set = pugnacious_polygon_moveset();
+        let standing = capture_of(&set, "polygon_brawler_grab");
+        let command = capture_of(&set, "polygon_brawler_collar");
+
+        assert_eq!(
+            command.hold_offset, standing.hold_offset,
+            "the command grab holds captives at {:?} and the standing grab at \
+             {:?} — the throws are shared, so they would read differently \
+             depending on which grab caught you",
+            command.hold_offset, standing.hold_offset,
+        );
+        assert!(
+            command.reach_x() > standing.reach_x(),
+            "the command grab reaches {}px and the standing grab {}px — a \
+             command grab that closes no distance is a worse standing grab",
+            command.reach_x(),
+            standing.reach_x(),
+        );
+        let travels = set
+            .moves
+            .iter()
+            .find(|m| m.id == "polygon_brawler_collar")
+            .and_then(|m| m.start_impulse);
+        assert!(
+            travels.is_some_and(|(x, _)| x > 0.0),
+            "his command grab does not travel ({travels:?}), so it is a standing \
+             grab on a different button",
+        );
+    }
     use super::*;
 
     /// ⭐⭐ HIS UP-B OPENS A PARASOL THAT OUTLIVES IT, and the DURATION is the
@@ -523,7 +591,7 @@ mod tests {
             "polygon_brawler_air_up",
             "polygon_brawler_air_down",
             "polygon_brawler_haymaker",
-            "polygon_brawler_shoulderrush",
+            "polygon_brawler_collar",
             "polygon_brawler_uppercut",
             "polygon_brawler_ground_slam",
             "polygon_brawler_body_drop",

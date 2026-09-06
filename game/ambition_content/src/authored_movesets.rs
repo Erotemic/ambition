@@ -703,3 +703,94 @@ mod expressiveness_census {
         );
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use ambition_platformer2d::entity_catalog::MoveEventKind;
+
+    /// Does this move carry a TECHNIQUE, or is it a hitbox and nothing else?
+    ///
+    /// Both roads count: a technique fired at an instant is an `Effect` event,
+    /// and one that is live for a window (a capture attempt, a charge) hangs off
+    /// the window as a `sustain_effect`. Counting only the first is how a census
+    /// reports a grab as featureless — see the tether row, where exactly that
+    /// scan came up empty against a move whose whole point is its capture.
+    fn techniques(spec: &ambition_platformer2d::entity_catalog::MoveSpec) -> Vec<String> {
+        let mut keys: Vec<String> = spec
+            .events
+            .iter()
+            .filter_map(|event| match &event.kind {
+                MoveEventKind::Effect(effect) => Some(effect.key.clone()),
+                _ => None,
+            })
+            .collect();
+        keys.extend(
+            spec.windows
+                .iter()
+                .filter_map(|window| window.sustain_effect.as_ref())
+                .map(|effect| effect.key.clone()),
+        );
+        keys.sort();
+        keys.dedup();
+        keys
+    }
+
+    /// ⭐⭐ THE CENSUS JON ASKED FOR IN AS MANY WORDS: *"we have a lot of
+    /// characters with boring specials, and when we build the code for these we
+    /// should exercise them in the characters."* A special with no technique is
+    /// a hitbox on a different button — it may be perfectly tuned, but nothing
+    /// about it is the fighter's own.
+    ///
+    /// ⛔ IT ASSERTS ONLY THAT IT MEASURED SOMETHING. There is no correct number
+    /// of bare specials: a brawler's up-B that is honestly just a rising hitbox
+    /// is a legitimate design, and a floor on "techniques per fighter" would be
+    /// this file inventing a quota. What it is for is READING — run it with
+    /// `--nocapture` and the roster sorts itself by how much of each fighter is
+    /// actually authored.
+    #[test]
+    fn the_census_of_specials_that_carry_no_technique() {
+        let tables = tables();
+        let mut bare_total = 0usize;
+        let mut special_total = 0usize;
+        println!("\n{:<22} {:<34} {}", "FIGHTER", "SPECIAL", "TECHNIQUE");
+        for (name, table) in &tables {
+            let specials: Vec<&str> = table
+                .verbs
+                .iter()
+                .filter(|(verb, _)| verb.starts_with("special"))
+                .map(|(_, id)| id.as_str())
+                .collect();
+            for id in specials {
+                let Some(spec) = table.moves.iter().find(|m| m.id == id) else {
+                    continue;
+                };
+                special_total += 1;
+                let keys = techniques(spec);
+                if keys.is_empty() {
+                    bare_total += 1;
+                }
+                println!(
+                    "{:<22} {:<34} {}",
+                    name,
+                    id,
+                    if keys.is_empty() {
+                        "— bare".to_string()
+                    } else {
+                        keys.join(", ")
+                    },
+                );
+            }
+        }
+        println!(
+            "\n{bare_total} of {special_total} specials across {} fighters carry no technique.",
+            tables.len(),
+        );
+        assert!(
+            special_total >= 20,
+            "the census found only {special_total} specials across {} fighters, \
+             so it has lost its corpus rather than found a tidy roster",
+            tables.len(),
+        );
+    }
+}

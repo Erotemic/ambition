@@ -1050,3 +1050,52 @@ moves behind the facade.
   follow crate topology;
 - any claimed performance/startup benefit is backed by a new comparable
   measurement rather than inferred from fewer plugins/crates.
+
+## ⭐ A DEMO PLUGIN'S `build` REACHES THE AGGREGATE APP, and `run_if` cannot gate it — 2026-09-06
+
+**Three bugs in one day, by three different people, all the same shape:**
+
+```text
+99ab15e32  Smash was deleting another plugin's resources on the way out
+03e6f6638  a stock loss wipes the Limit
+0d6ace5a7  dying granted the Limit for a frame
+```
+
+Each was smash-plugin state reaching `ambition_app`, Ambition's own game.
+
+⛔⛔ **AND A MODE GATE CANNOT HELP, WHICH IS THE MECHANISM.** A demo gates its
+SYSTEMS by mode — smash binds `in_mode(SMASH_MODE)` to a `gate` and reuses it,
+mary_o spells it inline eleven times — but `app.insert_resource(..)` inside
+`Plugin::build` runs when the plugin is ADDED, and **there is no run condition on
+a plugin's build**. So every resource inserted there exists in whatever app
+composes the demo, for the whole process, in every mode.
+
+⭐ **MEASURED** (`scripts/demo_resources_inserted_at_plugin_build.py`), and the
+SPREAD is the finding:
+
+```text
+ambition_demo_smash      14        ← every known instance of the leak is here
+ambition_demo_mary_o      5
+ambition_demo_sanic       3
+ambition_demo_twintrack   2
+```
+
+⚠ **Not all 14 are wrong, and the census says so rather than failing.** A demo's
+own tuning and its own select-screen state belong there; so does
+`FeatureEcsWorldOverlay`, which mary_o and sanic both insert because a composition
+without the engine's plugin still needs the overlay to exist. The ones to look at
+are types the demo does NOT define which another system in the aggregate app also
+reads — `SeatMenuFrames`, `ActiveUiCues` and `LocalSeatOffer` are in smash's
+column and in the engine's resource population both.
+
+⇒ **The fix the fighter lane already named for its own case is the general one:
+route-scope the insertion** rather than gating the readers. That is their lane;
+this row is the census and the pattern, so the next instance is recognised as the
+fourth rather than diagnosed from scratch.
+
+⛔ **A measurement note that is half the value here.** This file's matcher was
+wrong twice, and the failure direction is the dangerous one: `fn build` is written
+both `&mut App` and `&mut bevy::prelude::App`, and the short spelling ALONE
+reported smash as **zero** — the demo with the most insertions and every known
+instance of the bug. An under-matching census reports the cleanest possible answer
+about the dirtiest crate. Both spellings are pinned by a unit test.

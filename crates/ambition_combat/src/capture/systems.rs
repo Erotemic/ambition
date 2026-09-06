@@ -504,6 +504,34 @@ pub fn arm_smash_throw_edge(
 ///
 ///  scaled seconds, so a hold does not age during hitstop. A pummel's own
 /// freeze frames would otherwise buy the captor time it did not earn.
+/// The set [`tick_capture_holds`] runs in — **published so a consumer can order
+/// against a PHASE instead of against this function's identity.**
+///
+/// ⭐⭐ IT EXISTS BECAUSE A CONSUMER WAS NAMING THE SYSTEM.
+/// `ambition_platformer2d_actor_monolith` listed this function by name inside its
+/// `BeforeIntegrate` chain, which is one crate asserting the position of another
+/// crate's private system — the private cross-domain ordering authority the
+/// architecture program refuses. It did so because there was nothing else to name.
+///
+/// ⛔ THE MEMBERSHIP IS THE INSTALLER'S TO DECLARE. This crate publishes the
+/// vocabulary; whoever composes the schedule decides which phase it sits in and
+/// what shares it. That split is why this is a bare marker with no
+/// `configure_sets` beside it, matching [`BodyHurtboxesResolved`].
+///
+/// ⚠ IT COVERS THIS SYSTEM ALONE, NOT THE CHAIN IT SITS IN. The installer chains
+/// capture holds with mount steering, moving platforms and the contact snapshot
+/// because *"these operations have real same-tick dependencies"* — that chain is
+/// the installer's contract and stays the installer's. Widening this marker to
+/// cover the neighbours would silently promote every consumer's edge to mean more
+/// than it did.
+///
+/// ⚠ ONE MEMBER TODAY, so `.after(CaptureHoldsTicked)` is exactly
+/// `.after(tick_capture_holds)` — the point rather than a caveat: the consumer
+/// keeps the guarantee it had, in vocabulary this crate can widen later without
+/// rewriting a single consumer.
+#[derive(bevy::prelude::SystemSet, Clone, Copy, Debug, PartialEq, Eq, Hash)]
+pub struct CaptureHoldsTicked;
+
 pub fn tick_capture_holds(
     mut commands: Commands,
     time: Res<ambition_time::WorldTime>,

@@ -291,6 +291,31 @@ pub struct MountedSize(pub ae::Vec2);
 /// Runs after `tick_actor_brains` (so the rider's control frame is fresh)
 /// and before `integrate_sim_bodies` (so the mount integrates the routed
 /// intent). Rider/mount queries are disjoint via `With`/`Without<MountSlot>`.
+/// The set [`steer_mount_from_rider`] runs in — **published so a consumer can
+/// order against a PHASE instead of against this function's identity.**
+///
+/// ⭐⭐ IT EXISTS BECAUSE A CONSUMER WAS NAMING THE SYSTEM, in two places:
+/// `actor_monolith` lists it inside its `BeforeIntegrate` chain and separately
+/// hangs `(route_boss_strikes_to_limbs, fan_out_limb_intents).after(...)` off it.
+/// Both are one crate asserting the position of another crate's private system.
+///
+/// ⛔ THE MEMBERSHIP IS THE INSTALLER'S TO DECLARE — the same split
+/// [`DismountRequestsApplied`] states in its own words, and the reason this is a
+/// bare marker with no `configure_sets` beside it.
+///
+/// ⚠ IT COVERS STEERING ALONE, NOT THE CHAIN IT SITS IN, and not dismounting.
+/// A consumer that wants "after riders have steered their mounts" means this; one
+/// that wants "before riders are put down" means [`DismountRequestsApplied`]; and
+/// the installer's chain with capture holds, moving platforms and the contact
+/// snapshot is the installer's contract, not this crate's. One set spanning them
+/// would let a future caller take the wrong half without noticing — the hazard
+/// [`DismountRequestsApplied`] already records.
+///
+/// ⚠ ONE MEMBER TODAY, deliberately, so `.after(MountsSteeredByRiders)` is exactly
+/// `.after(steer_mount_from_rider)`.
+#[derive(bevy::prelude::SystemSet, Clone, Copy, Debug, PartialEq, Eq, Hash)]
+pub struct MountsSteeredByRiders;
+
 pub fn steer_mount_from_rider(
     riders: Query<
         (&RidingOn, &ambition_characters::control::ActorControl),

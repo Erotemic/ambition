@@ -15,6 +15,13 @@
 // construction plan or a feature system belongs where it is and the primitives
 // should stop calling it instead.
 pub(crate) mod actor_clusters;
+// ⭐ THE CHARACTER SPAWN PLAN CAME DOWN TOO. Measured before moving: it makes
+// no `super::` reference and its only `crate::` dependency is
+// `character_runtime`, which this module already needs — so it added no edge
+// here and removed three from `actor_spawn -> features`. It is the mechanism a
+// primitive uses to place a body, not a feature system: nothing in it reads a
+// message, owns a schedule slot or consumes a construction plan.
+pub(crate) mod character_spawn_plan;
 pub(crate) mod brain_builders;
 pub(crate) mod conversion;
 
@@ -26,7 +33,14 @@ pub(crate) mod conversion;
 // reach for is bundles, brains and component snapshots, never a construction
 // plan, a receipt or a request builder.
 use crate::features::ecs::boss_component_snapshot;
-use crate::features::ecs::HeldItem;
+// ⛔⛔ THE DEFINITION, NOT THE RE-EXPORT. `HeldItem` lives in
+// `ambition_combat::held_items` — a crate BELOW this one — and
+// `features::ecs` merely re-exports it. Naming the re-export made these
+// primitives depend on the feature layer for a type the feature layer does not
+// own, which is three of the thirteen references F1 still has to remove and
+// costs nothing to fix. ⇒ A re-export hides where a thing lives, and a
+// dependency drawn through one is an edge to a module that owns nothing in it.
+use ambition_combat::held_items::HeldItem;
 use crate::features::{EnemyActorBundle, FeatureBaseBundle};
 use ambition_platformer2d_core as ae;
 // The platformer-strict AABB semantics (edge-touching boxes do not overlap).
@@ -504,7 +518,7 @@ impl EnemyActorSpawnPlan {
             )
             .id();
         if let Some(item) = self.held_item {
-            commands.entity(entity).insert(crate::features::ecs::HeldItem::new(item));
+            commands.entity(entity).insert(HeldItem::new(item));
         }
         // Data-driven signature moves: the body carries its authored repertoire as
         // an `ActorMoveset`; `trigger_moveset_moves` starts a move on a control verb
@@ -619,7 +633,7 @@ impl NpcActorSpawnPlan {
             Some(character) => match prepared.get(character) {
                 Some(prepared) => prepared.kit.action_set(),
                 None => {
-                    crate::features::ecs::spawn::character_spawn_plan::report_unprepared_character(
+                    self::character_spawn_plan::report_unprepared_character(
                         character,
                         &format!("NPC `{}`", id),
                         prepared,
@@ -1447,9 +1461,9 @@ pub(crate) fn spawn_enemy_with_faction_into(
     // no archetype. So the question is no longer *which road builds this body*
     // but simply *which character is it*, and the answer is required.
     let character = authored.payload.gameplay_character_id();
-    let plan = crate::features::ecs::spawn::character_spawn_plan::CharacterSpawnPlan::new(
+    let plan = self::character_spawn_plan::CharacterSpawnPlan::new(
         character,
-        crate::features::ecs::spawn::character_spawn_plan::SpawnContext {
+        self::character_spawn_plan::SpawnContext {
             feature_id: &authored.id,
             aabb: authored.aabb,
         },
@@ -1595,7 +1609,7 @@ pub(crate) fn spawn_enemy_with_faction_into(
         if let Some(id) = definition.held_item.as_deref() {
             match ambition_characters::brain::held_item_by_id(id) {
                 Some(spec) => {
-                    commands.entity(root).insert(crate::features::ecs::HeldItem::new(spec));
+                    commands.entity(root).insert(HeldItem::new(spec));
                 }
                 None => bevy::log::warn!(
                     "character `{}` holds `{id}`, which is not a registered held item",

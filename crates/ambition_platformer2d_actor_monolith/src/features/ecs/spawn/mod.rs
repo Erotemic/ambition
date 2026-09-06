@@ -17,7 +17,6 @@ mod gravity_construction;
 #[cfg(feature = "portal")]
 mod portal_construction;
 
-pub(crate) mod character_spawn_plan;
 
 mod content_staging;
 pub use content_staging::{

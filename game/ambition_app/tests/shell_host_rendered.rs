@@ -1273,3 +1273,83 @@ fn the_fps_counter_has_a_shadow_to_read_against_pale_ground() {
         );
     }
 }
+
+
+/// ⛔⛔ THE TITLE SCREEN'S TAB STRIP IS WIRED FOR A POINTER — in the SHIPPED host.
+///
+/// Jon, 2026-09-06: "in the title screen there is no way for me to select the
+/// settings menu. I can't click, tap, nothing." `install_bevy_ui_menu_tabs` had
+/// exactly ONE caller in the workspace and it was the kaleidoscope menu, so the
+/// system that turns a tab press into `MenuTabActivated` was never registered on
+/// this screen: the renderer drew real `Button`s that nothing listened to.
+///
+/// ⚠ WHAT THIS TEST CANNOT DO, stated rather than faked: drive a real click.
+/// Bevy's UI focus system RECOMPUTES `Interaction` every frame from live pointer
+/// state, so a test that writes `Interaction::Pressed` has it overwritten with
+/// `None` before any consumer sees it — measured here, and the reason an earlier
+/// version of this test failed while the shipped chain was fine. A headless app
+/// has no pointer, so the press edge itself is out of reach.
+///
+/// ⇒ SO IT ASSERTS THE THREE LINKS THAT ARE REACHABLE, which are exactly the
+/// three that were broken or absent:
+///   1. the strip is drawn as real `Button`s carrying `BevyUiMenuTab`;
+///   2. the tab road is INSTALLED in this composition (`MenuTabActivated`
+///      exists — the half that was missing);
+///   3. the shell CONSUMES it: the message the renderer publishes moves the
+///      strip. Link 3 is where `SelectTab` lives.
+#[test]
+fn the_shipped_title_screen_is_wired_for_a_pointer() {
+    use ambition_platformer2d::game_shell::{LauncherTab, ShellLauncherState};
+
+    let mut app = rendered_app();
+    settle(&mut app);
+
+    assert_eq!(
+        app.world().resource::<ShellLauncherState>().tab,
+        LauncherTab::Home,
+        "premise: the title screen starts on the game list"
+    );
+
+    // 1. Real buttons, not decoration.
+    let tabs: Vec<Entity> = {
+        let mut q = app
+            .world_mut()
+            .query_filtered::<Entity, (
+                With<ambition_platformer2d::menu::render::bevy_ui::BevyUiMenuTab>,
+                With<bevy::prelude::Button>,
+            )>();
+        q.iter(app.world()).collect()
+    };
+    assert!(
+        tabs.len() >= 2,
+        "the shipped title screen drew {} tab button(s); a strip with fewer than \
+         two has nothing to navigate to",
+        tabs.len()
+    );
+
+    // 2. The road is installed. This is the link that was missing entirely.
+    assert!(
+        app.world()
+            .get_resource::<bevy::ecs::message::Messages<
+                ambition_platformer2d::menu::MenuTabActivated,
+            >>()
+            .is_some(),
+        "the shipped host does not install the tab pointer road, so every press \
+         on a tab reaches no system at all"
+    );
+
+    // 3. The shell consumes what the renderer publishes.
+    app.world_mut()
+        .resource_mut::<bevy::ecs::message::Messages<
+            ambition_platformer2d::menu::MenuTabActivated,
+        >>()
+        .write(ambition_platformer2d::menu::MenuTabActivated { index: 1 });
+    app.update();
+    app.update();
+    assert_eq!(
+        app.world().resource::<ShellLauncherState>().tab,
+        LauncherTab::Settings,
+        "the renderer's tab activation reached nothing in the shipped host, so \
+         the Settings tab stays unreachable by pointer"
+    );
+}

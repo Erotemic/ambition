@@ -3669,6 +3669,23 @@ The proposed shared outer-saturation fix should be judged only after that number
 exists. This is tracked in the execution queue as an external measurement, not a
 maintainer design decision.
 
+✔ **THE PROBE ITSELF WAS VERIFIED BEFORE ASKING FOR THE HARDWARE (2026-09-06).**
+It reads Bevy's `Gamepad` directly rather than through the action layer, keeps a
+peak-hold per pad (nobody can hold a stick at maximum and read a screen at once),
+and states the two thresholds it compares against. ⚠ Those two are MIRRORED
+constants, not imports — deliberately, so the overlay prints the number it is
+checking — and `a_probe_states_the_same_thresholds_the_gesture_uses` asserts both
+against `AttackGestureTuning::default()`. **Poison-verified 2026-09-06:** moving
+`TILT_THRESHOLD` 0.5 → 0.55 reddens that guard AND the Switch-Pro contrast test;
+restored, 5 pass. ⇒ The mirror cannot rot, so the number the overlay shows Jon is
+the number the gesture uses.
+
+⚠ Checked because the SIBLING external measurement was not safe: D-RASTER-3's
+`AMBITION_MSAA` arm was being recorded from the requested value while the renderer
+used the rounded-down one, so an off-tier request named an arm that never ran
+(fixed `8d567080a`). **Both hardware-blocked rows have now had their instruments
+checked; this one needed no repair.**
+
 ### ~~Which character owns each per-fighter FX sheet~~ (raised 2026-09-02, withdrawn 2026-09-02 — no decision was needed)
 
 The question assumed the demand seam needed a sheet → CHARACTER ID table. It

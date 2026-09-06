@@ -71,6 +71,7 @@ pub mod pickups;
 mod save_sync;
 mod spawn;
 mod spawn_actors;
+mod summon;
 pub mod spawn_static;
 mod target_volumes;
 
@@ -160,9 +161,13 @@ pub use spawn::{
 };
 pub(crate) use spawn::{spawn_runtime_minion, spawn_runtime_minion_into};
 pub use spawn_actors::{
-    apply_spawn_actor_requests, apply_summon_effects, GiantHandPlan,
-    SpawnActorKind, SpawnActorRequest,
+    apply_spawn_actor_requests, GiantHandPlan, SpawnActorKind, SpawnActorRequest,
 };
+// ⭐ THE SUMMON ROAD IS RE-EXPORTED FROM ITS OWN MODULE, and the path callers use
+// is unchanged (`features::apply_summon_effects`) — the schedule in
+// `ambition_platformer2d_runtime` and an ordering in `ambition_demo_smash` both
+// name it, so a move that renamed the path would be a carve with a blast radius.
+pub use summon::apply_summon_effects;
 pub(crate) use spawn_actors::{
     giant_hand_plans, is_limbed_host, spawn_boss_with_overrides_into,
     spawn_enemy_with_faction_into, spawn_staged_actor_into,

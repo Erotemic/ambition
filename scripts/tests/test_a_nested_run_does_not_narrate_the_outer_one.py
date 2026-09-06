@@ -32,6 +32,34 @@ sys.path.insert(0, str(REPO / "scripts"))
 import run_tests  # noqa: E402
 
 
+
+def _ran_far_enough(proc) -> None:
+    """Fail only for reasons this file is ABOUT.
+
+    ⛔⛔ THESE TESTS USED TO ASSERT `returncode == 0`, WHICH MADE THEM FAIL FOR
+    REASONS THAT HAVE NOTHING TO DO WITH NESTING. `--maintenance` exits non-zero
+    when the disk is under the suite's free-space floor — it refuses a job and
+    says so — and on 2026-09-06 that reported itself as a NESTING-GUARD failure
+    while the real cause was 40 GB free. The message a red test prints is the
+    first thing its reader believes, and this one pointed at the wrong subsystem.
+
+    ⇒ What these tests actually need is that the run got far enough to decide
+    WHERE to narrate. A run refused for the environment never reached that
+    decision and has nothing to say about it, so it skips with the real reason
+    instead of failing with a false one.
+    """
+    import pytest
+
+    if proc.returncode != 0:
+        tail = (proc.stdout or "")[-1500:] + (proc.stderr or "")[-1500:]
+        for reason in ("below the", "floor", "INCOMPLETE"):
+            if reason in tail:
+                pytest.skip(
+                    "the suite refused for an environmental reason, not a nesting "
+                    f"one, so this test has no subject: ...{tail[-300:]}"
+                )
+        raise AssertionError(tail)
+
 def test_the_marker_names_the_outer_pid_so_a_run_knows_its_own() -> None:
     """The value is the OUTER pid: a run must not mistake its own marker for a
     parent's, or the top-level invocation would classify itself as nested."""
@@ -52,7 +80,7 @@ def test_a_nested_invocation_leaves_the_shared_status_file_alone(tmp_path) -> No
         [sys.executable, str(REPO / "scripts" / "run_tests.py"), "--maintenance"],
         cwd=REPO, env=env, capture_output=True, text=True,
     )
-    assert proc.returncode == 0, proc.stdout[-600:] + proc.stderr[-600:]
+    _ran_far_enough(proc)
 
     after = shared.read_text(encoding="utf-8") if shared.exists() else None
     assert after == before, (
@@ -73,6 +101,6 @@ def test_an_explicit_status_json_is_still_honoured_when_nested(tmp_path) -> None
         ],
         cwd=REPO, env=env, capture_output=True, text=True,
     )
-    assert proc.returncode == 0, proc.stdout[-600:] + proc.stderr[-600:]
+    _ran_far_enough(proc)
     assert target.exists(), "an explicit --status-json was not written"
     assert json.loads(target.read_text())["state"] == "done"

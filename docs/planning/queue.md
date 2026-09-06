@@ -14,7 +14,23 @@ There is **one row shape**:
 use git history. A focused plan owns technical design and should be linked rather
 than copied into this file.
 
-Before implementing a row, re-check the named gap against current source/tests.
+Before implementing a row, re-check the named gap against current source/tests —
+**and re-check its BLOCKERS, which is a separate act and the one that gets
+skipped.** A gap is written by somebody who looked; a blocker is written by
+somebody who STOPPED, so it records the moment they were least informed about it
+and is then quoted rather than re-derived.
+⇒ Measured on 2026-09-06: `D-CUT-VOICE` was filed that morning as blocked on a
+missing sound asset and **all three of its blocking claims were false** — the
+name→id resolver existed (`SfxId::new`), authored params could supply a name
+(`HitVolume::hit_sfx` is a `String`), and the "missing" blunt sound was in
+`ids.rs` and rendered. It closed in about forty minutes once re-derived.
+⭐ And the campaign page records the same shape three times out of three from a
+different direction — rows called blocked on "the roster is full", none of which
+was ([`demos/campaigns/expressive-moves-2026-09-05.md`](demos/campaigns/expressive-moves-2026-09-05.md)):
+*"before recording a row as blocked on a design call, look for the version that
+costs nothing."* ⇒ Four instances, two causes — a framing mistaken for scarcity,
+and a measurement never taken — and one habit fixes both.
+
 Direct new maintainer observations outrank this ordering when they are
 reproducible.
 

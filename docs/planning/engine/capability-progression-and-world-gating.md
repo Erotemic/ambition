@@ -520,8 +520,7 @@ portal use, environmental resistance, tools, keys, powered machinery and other
 mechanical facts. Explicit narrative gates remain available when sequencing is
 actually the design.
 
-## ⭐ The authored-gate integrity story is now complete, and the last piece was
-## about the FACT rather than the condition (2026-09-04)
+## ⭐ The authored-gate integrity story is now complete, and the last piece was about the FACT rather than the condition (2026-09-04)
 
 Four guards stand between an author and a gate that can never open, and they
 fail at four different moments:
@@ -715,8 +714,7 @@ sets it at runtime, and the looseness is in the safe direction: it under-reports
 rather than over-reports, and the failure it exists for is a TYPO, where the
 misspelling appears in exactly one place in the repository.
 
-## ⚠ `body.fits` answers from POSTURE, not from capability — for the first
-## author of one (found 2026-09-04, LATENT: no shipped level authors it)
+## ⚠ `body.fits` answers from POSTURE, not from capability — for the first author of one (found 2026-09-04, LATENT: no shipped level authors it)
 
 **MEASURED.** `fits` compares `BodyKinematics.size.y` against the authored
 opening (`body_conditions.rs:275`), and `size` is the body's CURRENT size:

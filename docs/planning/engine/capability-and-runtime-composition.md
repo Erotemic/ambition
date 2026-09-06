@@ -289,6 +289,53 @@ laundering a regression unless the reason sits next to the number. It does, in t
 guard. ⭐ The invariant that matters survived the change: **capability-written is
 still 0, measured the new way.**
 
+### ⚠ C2 FEASIBILITY, MEASURED — GOOD NEWS AND ONE DOCUMENTED REFUSAL
+
+**The precondition holds where it matters.** A capability plugin can only install
+itself if it can NAME the published phases, so I checked whether the targets depend
+on the phase-vocabulary crate:
+
+| capability | depends on `shared_tangle` | has a `Plugin` |
+|---|---|---|
+| `ambition_mount` | ✔ | ✗ — **none at all** |
+| `ambition_combat` | ✔ | ✗ — see below |
+| `ambition_menu` | ✔ | ✔ |
+| `ambition_time` | ✗ | ✔ (publishes its own) |
+
+⇒ **The two biggest tractable targets already depend on the vocabulary, so C2
+needs no new dependency for them.** `ambition_mount` is the exemplar: **seven rows,
+no plugin, and all seven installed by two other crates** (the runtime's combat
+schedule × 4, the actor monolith × 2, plus 2 orderings). One plugin absorbs the
+whole capability.
+
+⛔⛔ **BUT THE OTHER BIG TARGET CARRIES A STATED REFUSAL, AND IT IS ARGUED RATHER
+THAN ASSUMED.** `ambition_combat`, on `EffectExecutionSet`:
+
+> *"this crate has no `Plugin` and deliberately keeps none: it is an effect
+> VOCABULARY plus one executor, and the host decides when to run it. **A set is the
+> smaller thing that makes the host's decision expressible** — it says WHERE the
+> executor sits without claiming when the host should install it."*
+
+⇒ That is a direct tension with C2's *"move installation into capability-owned
+plugins"*, and it is the `ProjectileAllegiance` shape again: **a deliberate
+placement that a structural census cannot distinguish from a gap.** 53 rows sit
+behind it.
+
+⭐ **A SYNTHESIS MAY EXIST AND IT IS NOT MINE TO PICK.** The refusal objects to a
+capability claiming *when* it runs. A plugin that installs its systems into a
+PUBLISHED SET claims where, not when — the host still decides whether to compose
+the plugin at all, and which schedule the set lives in. If that reading is
+accepted the refusal and C2 are compatible; if not, `ambition_combat` stays a
+vocabulary and its 53 rows are correct as they are. ⇒ **Filed as a question for
+whoever owns the carve, not resolved here** — the comment is the only record that
+the decision was ever made, and overruling it silently is how a considered choice
+becomes an accident.
+
+⇒ **Recommended order regardless of that answer:** `ambition_mount` first (7 rows,
+no plugin, no dependency change, and a worked example of the whole pattern), then
+`menu`/`time`/`input`/`dev_tools`, and `combat` only after the refusal is
+readdressed.
+
 ### ✔ THE CAPABILITY-WRITTEN HALF IS ZERO — 15 → 0
 
 Every row a ruleset or capability wrote is now published-set vocabulary. The last

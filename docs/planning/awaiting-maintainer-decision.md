@@ -74,6 +74,32 @@ silently re-points every page that cited the original.
     grep -oE '^### [0-9]+\.' awaiting-maintainer-decision.md | tr -d '#. ' | sort -n | tail -1
 
 
+
+## ⊙ Q73 — does a capability plugin that installs into a PUBLISHED SET violate `ambition_combat`'s no-plugin stance? (2026-09-06)
+
+A review's prerequisite C2 asks that foreign system INSTALLATION move out of the
+composition layer and into capability-owned plugins. **53 of those rows belong to
+`ambition_combat`, which has a written refusal:**
+
+> *"this crate has no `Plugin` and deliberately keeps none: it is an effect
+> VOCABULARY plus one executor, and the host decides when to run it. A set is the
+> smaller thing that makes the host's decision expressible — it says WHERE the
+> executor sits without claiming when the host should install it."*
+
+⇒ **The two may be compatible.** The refusal objects to a capability claiming
+*when* it runs; a plugin installing into a published set claims *where*, and the
+host still decides whether to compose the plugin and which schedule the set lives
+in. ⛔ Or they may not: a plugin that adds systems has decided they exist in this
+App, which is a stronger claim than a set.
+
+⚠ **I have not overruled it either way, because the comment is the only record
+that the decision was ever made** — the same shape as `ProjectileAllegiance`, where
+a structural census could not tell a considered placement from a gap.
+
+⇒ C2 can proceed on `ambition_mount` (7 rows, no plugin, no dependency change)
+and the small tail without this answer. `ambition_combat`'s 53 need it.
+
+
 ## ⊙ Q71 — what is a successful BLOCK worth on the Limit meter? (2026-09-06)
 
 <!-- ⛔ RENUMBERED FROM Q70 THE SAME DAY: a peer independently took Q70 for the

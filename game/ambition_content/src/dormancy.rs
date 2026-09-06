@@ -144,6 +144,27 @@ pub fn register(app: &mut App) {
         sim,
         declare_ambition_dormancy
             .in_set(Platformer2dSimulationPhaseMonolith::WorldPrep)
-            .before(ambition_platformer2d_actor_monolith::features::ecs::dormancy::assess_dormancy),
+            // ⛔⛔ ORDER AGAINST THE PUBLISHED SET, NOT A FOREIGN SYSTEM. This
+            // named `actor_monolith::features::ecs::dormancy::assess_dormancy`
+            // directly — a CONTENT crate reaching into an engine crate's private
+            // system list to state a dependency. A ruleset may say WHEN it needs
+            // to run relative to a published phase; it must not know which
+            // function implements one, because then every rename or split in the
+            // engine is a content edit.
+            //
+            // ⭐ AND THE VOCABULARY WAS ALREADY THERE. `assess_dormancy` is
+            // registered `.in_set(ActorDecisionSet::Prepare)`, that set is public
+            // in `shared_tangle::schedule`, and `ambition_dev_tools` already
+            // orders against it. This was an UNUSED published set rather than a
+            // missing one — cheaper than the absences the ordering census mostly
+            // finds, and worth checking for first.
+            //
+            // ⚠ STRICTLY STRONGER, deliberately: `Prepare` also holds
+            // `ensure_perception` and `project_authored_fighter_ladder`, so this
+            // now runs before all three rather than before one. That is the
+            // honest reading of what a stance declaration is — it must stand
+            // before anything in the decision pass looks at a body, not merely
+            // before the one system that reads it today.
+            .before(ambition_platformer2d_shared_tangle::schedule::ActorDecisionSet::Prepare),
     );
 }

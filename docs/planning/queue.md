@@ -772,6 +772,42 @@ and run that one. `cargo check -p <crate>` with no features is seconds.
 
 ## Current execution order
 
+- ▢ **D-LIMIT-RESPAWN — a respawned fighter appears to hold a FULL Limit for one
+  frame, found 2026-09-06 while filing Q67.** Not a maintainer question: whichever
+  way Q67 is ruled, this is a bug, because the behaviour is neither answer.
+  ⭐ **Measured, not inferred, from three registrations.** A stock loss keeps the
+  body ENTITY (`place_respawning_fighters` queries `event.body` and repositions
+  it) and calls `reset_body_clusters`, which does
+  `*clusters.mana = BodyMana::default()` — a 100-point pool that starts FULL,
+  because `ResourceMeter::new` sets `current` to `max`. The Limit's own emptying
+  lives in `fill_limit_meters`, whose `max != cap` branch sets the cap and zeroes
+  the meter. ⇒ The two run in different PHASES: respawn placement is in
+  `CombatSet::Settle` (the last), and `fill_limit_meters` is in
+  `CombatSet::ContentFlavor` — which is AFTER `CombatSet::Trigger`, where a
+  move's cost is checked. So on the frame after a respawn the meter reads
+  100/100 against a Limit priced at the match's cap, and a fighter who can act
+  (respawn protection permits a swing — `a_swing_spends_the_respawn_protection`)
+  gets the comeback move for free. **Dying would GRANT the Limit rather than cost
+  it.**
+  ⇒ **The fix is the class, not the instance:** split the CAP ADOPTION (the
+  `max != cap` branch) out of `fill_limit_meters` into a system that runs before
+  costs are checked, so ANY path that resets mana is corrected before `Trigger`
+  reads it — not only the respawn I happened to find. Precedent: the damage half
+  of this same system was already split out of `ContentSpecials` for a rollback
+  reason, and the adoption reads no hits, so an earlier phase is safe for it.
+  ⚠ **AND THAT SYSTEM'S OWN DOC ARGUES AGAINST SPLITTING IT**, so the fix has to
+  answer it rather than walk past it: *"ONE SYSTEM FOR THREE SOURCES, because they
+  are one decision about one tick's worth of meter. Splitting them would make 'did
+  this fighter cross the cap this frame' a question with three answers."* ⇒ That
+  argument is about the three FILL SOURCES — the clock, the hits, the authored
+  fill — and the cap adoption is none of them: it is a one-time normalisation of a
+  meter that arrived wearing another rule's shape, and it answers no question
+  about crossing the cap this frame. Extracting it leaves the three sources
+  together, which is what the comment is protecting.
+  ⚠ **Not yet reproduced by a test**, and that is the first step rather than the
+  fix: the reasoning is from registrations and phase order, which is exactly the
+  kind of chain that has been wrong before in this file.
+
 - ✔ **D-TITLE-MENU — CLOSED 2026-09-05.** Jon: the title screen stacked the
   settings menu over the game picker, both live, the winner apparently random.
   ⭐ **Cause, measured:** `ShellPauseMenuSuppressed` is set from `in_base_mode`

@@ -3672,7 +3672,28 @@ gets the limit meter some move they can use when it fills."*), and the meter
 fills, decays and gates a move. What nothing ever decided is what a STOCK LOSS
 does to it, and the current answer was arrived at by accident rather than
 authored: the meter lives on the body, a KO'd fighter respawns as a fresh body,
-so **the meter resets and nobody wrote that down**.
+so **the meter resets and nobody wrote that down** — see the corrected mechanism
+below, which I got wrong on the first filing and which matters because the way it
+resets is where the interesting problem is.
+
+⛔ **AND THE MECHANISM IS NOT THE ONE I FIRST WROTE HERE.** The body ENTITY
+survives a stock loss — `place_respawning_fighters` queries `event.body` and
+repositions it — so "a fresh body" was wrong. What resets the meter is explicit:
+`reset_body_clusters` does `*clusters.mana = BodyMana::default()`, and
+`fill_limit_meters` then re-adopts the match's cap on its next run, emptying it
+because `max != cap`. ⇒ The answer today is still RESET, arrived at through two
+systems neither of which was thinking about this question.
+
+⚠ **AND THAT PAIR LEAVES A WINDOW I HAVE NOT YET CLOSED, raised here because it
+may change the answer.** `BodyMana::default()` is a 100-point pool that starts
+FULL (`ResourceMeter::new` sets `current` to `max`), and the re-emptying happens
+in `CombatSet::ContentFlavor`/`ContentSpecials` — AFTER `CombatSet::Trigger`,
+where a move's cost is checked. So for at least one frame a respawned fighter
+appears to hold a full 100-point meter against a Limit priced at the match's cap.
+If that frame is reachable by input, dying GRANTS the comeback move rather than
+costing it, which is the opposite of both answers below. ⇒ I am writing the test
+that decides it; if it confirms, that is a bug to fix regardless of the ruling,
+and the ruling then applies to a behaviour somebody chose.
 
 **Why it is a product question and not an engineering one.** Both answers are
 cheap and both are defensible genre positions, which is exactly why I will not

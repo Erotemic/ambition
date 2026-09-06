@@ -382,7 +382,13 @@ pub(crate) fn lower_interactable_placement(
         &ctx.context.prepared,
         ctx.session_scope,
         ctx.root,
-        &authored,
+        // ⭐ THE CONVERSION HAPPENS HERE NOW, where it always belonged: this file
+        // both defines `interactable_from_authored` and calls the primitive, so
+        // the primitive was reaching up for a function sitting beside its own
+        // caller. It takes the runtime component and the authored name; the
+        // authored SPEC does not cross the layer any more.
+        &interactable_from_authored(&authored),
+        &authored.name,
         ctx.paths,
         &ctx.context.forced_brains,
     );

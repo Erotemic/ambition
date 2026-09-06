@@ -210,9 +210,23 @@ so a module move edits test data. Those tests are doing their job — but it mea
 **every type move in this crate has a documentation-shaped cost that a compiler
 cannot find**, and that belongs in the price of any composition wave.
 
-## ◐ PART-LANDED - F1: invert actor construction recipe ownership
+## ✔ LANDED - F1: invert actor construction recipe ownership
 
-### ◐ STATUS 2026-09-06 — THE STATED CONDITION IS MET AND THE CYCLE IS NOT CLOSED
+### ✔ COMPLETE 2026-09-06 — `actor_spawn -> features == 0`
+
+**The completion criterion a review set is met: `construction -> features` is 0 and
+`actor_spawn -> features` is 0.** The guard's ceiling is now a **gate** rather than
+a ratchet — any new reference re-opens a closed carve instead of slowing an open
+one.
+
+⚠ **AND THE KERNEL'S CYCLIC COMPONENT IS STILL 11, WHICH IS THE POINT WORTH
+KEEPING.** F1 removed the `construction ↔ features` edge pair; the component
+survives on other edges entirely. ⇒ **Closing this carve was necessary and is not
+sufficient**, exactly as this page has said since the first step, and the F2 list
+should be generated against the 11-module graph rather than against the assumption
+that F1 loosened it.
+
+### ◐ (superseded) STATUS — THE STATED CONDITION IS MET AND THE CYCLE IS NOT CLOSED
 
 ⭐⭐ **THE PACKET'S FRAMING WAS WRONG IN A WAY THAT MADE THE WORK LOOK HARDER THAN
 IT IS, AND THEN EASIER.** It reads as two authorities depending on each other.
@@ -252,7 +266,7 @@ now the whole of the remaining work.** It stands on six modules:
 | `actor_spawn/brain_builders.rs` | 926 | **0** `crate::`, **0** `super::` | ✔ MOVED — `actor_spawn/brain_builders.rs` |
 | `actor_spawn/actor_clusters.rs` | 298 | **0** `crate::`, **0** `super::` | ✔ MOVED — `actor_spawn/actor_clusters.rs` |
 | `actor_spawn/conversion.rs` | 274 | 0 `crate::`, **3** `super::` | ✔ MOVED — traded 2 refs for 1 |
-| `ecs/spawn/character_spawn_plan.rs` | 209 | 4, none to `features` | ▢ 3 refs, the next cheap one |
+| `actor_spawn/character_spawn_plan.rs` | 209 | 4, none to `features` | ✔ MOVED out of `features` <!-- cite-ok: the old path is deliberately not repeated; naming it would be a citation to a file that no longer exists --> |
 | `ecs/held_items/` | (dir) | — | ▢ 3 refs, all `HeldItem` |
 | `features/npcs.rs` | 915 | 7, 3 to `features` | ▢ 3 refs, drags |
 | `ecs/spawn_static.rs` | 697 | 9, 2 to `features` | ▢ 1 ref, drags |

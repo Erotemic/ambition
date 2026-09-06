@@ -393,7 +393,7 @@ fn apply_catalog_mode(
     if let Some(profile) = character_profile {
         if let Some(mut config) = config {
             config.brain_profile = profile;
-            config.brain = config_brain_for(brain);
+            config.brain = crate::actor_spawn::conversion::config_brain_for(brain);
             config.sprite_override_npc_name = None;
         }
         return;
@@ -401,7 +401,7 @@ fn apply_catalog_mode(
     let character_id = config.as_ref().and_then(|c| c.sprite_character_id.clone());
     let Some(kit) = kit else {
         if let Some(mut config) = config {
-            config.brain = config_brain_for(brain);
+            config.brain = crate::actor_spawn::conversion::config_brain_for(brain);
         }
         return;
     };
@@ -514,21 +514,6 @@ fn update_source_only(
     true
 }
 
-/// The `ActorConfig.brain` read-model derived from a live autonomous brain, shared
-/// by the spawn plan, the runtime switch, and the post-restore reconcile so the
-/// classification can never disagree with the actual brain.
-pub(crate) fn config_brain_for(
-    brain: &Brain,
-) -> ambition_entity_catalog::placements::CharacterBrain {
-    use ambition_characters::brain::StateMachineCfg;
-    if matches!(brain, Brain::StateMachine(StateMachineCfg::Patrol { .. })) {
-        // The `path_id` is cosmetic in the read-model (no read site inspects it —
-        // the real path is a separate `ActorMotionPath`), so a derived one is None.
-        ambition_entity_catalog::placements::CharacterBrain::Patrol { path_id: None }
-    } else {
-        ambition_entity_catalog::placements::CharacterBrain::Passive
-    }
-}
 
 /// Registers the [`BrainCommand`] + [`ReleaseProvocation`] channels and their
 /// reducers. Runs in the gameplay effects window of the sim schedule.

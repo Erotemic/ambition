@@ -1034,12 +1034,20 @@ a first run and read from saved settings afterwards** — so the first session a
 fresh profile draws at one tier and later ones at another. *"Usually just the first
 time"* is a settings seed, not a cache.
 
-⛔⛔ **SEPARATE BUG FOUND IN THE SAME LINE: `AMBITION_QUALITY_PROFILE` IS ANNOUNCED
-AND THEN OVERRIDDEN.** The run logs *"visual quality forced to `ultra` by
-AMBITION_QUALITY_PROFILE; the settings menu cannot change it this run"* and then,
-0.3s later, *"visual quality seeded to `potato` for a Cpu adapter"*. The knob that
-says it wins does not. ⇒ A profile override and an adapter seed are two writers of
-one setting, and the seed runs last.
+⛔⛔ **A "SECOND BUG" I REPORTED HERE WAS FALSE, AND IS RETRACTED.** I read two log
+lines — *"visual quality forced to `ultra` by AMBITION_QUALITY_PROFILE"* followed
+0.3s later by *"visual quality seeded to `potato` for a Cpu adapter"* — as an
+override being announced and then defeated. **It is not.** `resolved_budget`
+matches on `profile_override_from_env()` FIRST (`quality.rs:818` and `:833`), and a
+test in that file states the contract outright: *"The forced-profile env var wins
+over settings by design."*
+
+⇒ **The two lines are two DIFFERENT facts**: the ACTIVE profile for this process
+(forced, and genuinely used) and the SAVED seed written for future runs
+(`log_quality_profile_override` only logs; it applies nothing). ⚠ **The evidence
+was in my own capture and I read past it** — the sprite size CHANGED between the
+two runs, which is the override working. ⇒ *Two log lines about one subject are not
+two writers until you have found the writes.*
 
 **REPRODUCTION, both pictures in one command each:**
 ```bash

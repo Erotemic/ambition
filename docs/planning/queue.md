@@ -951,48 +951,56 @@ and run that one. `cargo check -p <crate>` with no features is seconds.
   Acceptance: the offset is gone AND the mechanism explains the snake's varying
   size, or the two are shown to be separate with evidence.
 
-  ⭐⭐ **THE MECHANISM, MEASURED 2026-09-06 — AND IT IS AN ASSET GAP, WHICH IS WHY
-  EVERY CODE ROAD BELOW WAS CORRECTLY RULED OUT.**
+  ⭐⭐ **THE MECHANISM, MEASURED 2026-09-06: THE GENERATOR MEASURES HER STANCE AND
+  CALLS IT A POSE.** It is an ASSET gap, which is why every code road below was
+  correctly ruled out one at a time.
 
-  `SpriteSheetRecord::pose_body_bbox` resolves a pose's OWN hurtbox and then falls
-  back: `.or(self.body_pixel_bbox)`. So a sheet that publishes no per-pose metrics
-  still yields `Some(..)` — the SHEET-WIDE rectangle — for every pose.
+  | poses | `mary_o_v2` | `_tall` | `_fire` |
+  |---|---|---|---|
+  | Idle, Walk, Run, Jump, Fall, Slash, Hit, Dash, LedgeGrab | 56×84, one box | 56×168, one box | 56×168, one box |
+  | Crouch, CrouchWalk, CrouchJump | the SAME 56×84 | 56×84 | 56×84, and CrouchJump 56×**85** |
 
-  | sheet | distinct boxes across 10 poses |
-  |---|---|
-  | `player_robot_v3` | **10** — one per pose, which is what the system is for |
-  | `mary_o_v2` | **1** |
-  | `mary_o_v2_tall` | **1** |
-  | `mary_o_v2_fire` | **1** |
+  ⇒ **Nine poses that look nothing alike — a run, a jump, a slash, a ledge hang —
+  are all measured as one rectangle.** `sync_sprite_posed_bodies` then places her
+  quad with `geometry.sprite_offset`, whose job its own comment states as *"where
+  does the frame go so the POSE's rectangle lands on the box"*. Her per-pose frame
+  offsets DO vary, so the art moves and the box does not: a misposition that
+  changes with the pose, over a collider that looks plausible because it comes
+  from the same box. ⭐ The single pixel on fire's `CrouchJump` is the only
+  per-POSE measurement anywhere in her three sheets.
 
-  ⇒ **Idle, Walk, Run, Jump, Fall, Slash, Hit, Dash, LedgeGrab and Taunt all
-  resolve the SAME rectangle on all three of her sheets.** And
-  `sync_sprite_posed_bodies` positions her quad with `geometry.sprite_offset`,
-  whose whole job its own comment states as *"where does the frame go so the
-  POSE's rectangle lands on the box"*. For her there is no this-pose rectangle, so
-  the art is placed against one generic box no matter what she is doing — a
-  persistent misposition that changes with the pose, exactly as reported. ⭐ The
-  collider is derived from the same fallback, which is why *"collision looks
-  correct"*: it is a plausible box, just not this pose's.
+  ⛔⛔ **TWO CORRECTIONS, BOTH MINE, AND EACH ONE CHANGED THE FIX.**
+  * I first blamed `pose_body_bbox`'s `.or(self.body_pixel_bbox)` fallback. **Her
+    per-pose entries are POPULATED** — read out of the authored `.ron` by a peer
+    session rather than by re-running my probe — so that `.or()` is never reached.
+    ⇒ Deleting or fail-louding the fallback, which is what the fallback theory
+    recommends, **would have produced no signal here at all.**
+  * I then pinned all three sheets at ONE box. `_tall` and `_fire` publish a
+    standing box AND a crouch box; my population was locomotion plus combat and
+    contained **no crouch pose**, the only pose that separates them. ⚠ **A widened
+    population that finds nothing is only as good as the axis it was widened
+    along** — I had gone five poses → nine and concluded "all clear".
 
-  ⛔⛔ **AND THE GUARD THAT SHOULD HAVE CAUGHT IT ASSERTS THE OPPOSITE OF WHAT ITS
-  MESSAGE SAYS.** `every_pose_she_plays_resolves_in_every_form` fails with *"these
-  poses publish no body metrics"* — but it tests `.is_some()`, which the fallback
-  satisfies. It is green **because** the thing it names is true of her. ⇒ Same
-  defect class as the specials census: the predicate cannot distinguish the
-  failure the message describes.
+  ⚠ **AND DISTINCTNESS VARIES BY TIER**: `player_robot_v3` reads 27 / 83 / 92 / 95
+  across potato / 0_25x / 0_5x / 1x, because low tiers quantise boxes together.
+  A bare distinctness number is meaningless without its tier; the conclusion here
+  is tier-independent because her standing set is one box at every tier.
 
-  ✔ **Pinned by `mary_o_has_no_per_pose_body_metrics_and_the_robot_does`**, a
-  characterization test with a stated exit: the robot arm is the positive control
-  (without it, the assertions pass against a probe returning a constant — poisoned,
-  RED), and when her sheets gain per-pose hurtboxes the test goes red and THAT is
-  the signal to close this row. Its sibling's population was also widened from the
-  five locomotion poses to the nine a match actually drives her through.
+  ✔ **Pinned by `her_body_box_tracks_her_stance_and_not_her_pose`**, which asserts
+  a PARTITION rather than a magnitude for that reason: the standing set collapses
+  to one box, the crouch set is disjoint from it, and the robot's standing set
+  does not collapse. Three arms, poisoned separately — a constant probe reddens
+  the robot control, pointing the flat claim at the robot reddens the second, and
+  making the crouch set the standing set reddens the third.
 
-  ⇒ **NEXT ACTION IS NOW A SHEET REGENERATION, not a code hunt:** her generator
-  must emit per-animation `hurtbox` metrics the way the robot's does. ⚠ That is
-  the sprite-renderer submodule, which is under the Q65 hold — so it wants Jon's
-  call before anybody regenerates anything.
+  ⇒ **NEXT ACTION IS A SHEET REGENERATION, not a code hunt:** her generator must
+  measure the body box per animation the way the robot's does. ⚠ That is the
+  sprite-renderer submodule under the Q65 hold, so it wants Jon's call first.
+
+  ⭐ **The shape both sessions hit today: the source read coherently and the DATA
+  said something else.** I nearly hardened a fallback that never fires; a peer
+  nearly deleted a round trip that was doing real work. **Ask the artifact, not
+  the function.**
 
   ◐ **MAPPED 2026-09-05, not yet reproduced. The map is the deliverable so far;
   every road below was read, and the two that could be checked headlessly were.**

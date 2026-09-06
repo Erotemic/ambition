@@ -1196,7 +1196,7 @@ that drew it.**
 quotes past:** *"deciding what 'agreement' means in pixels (which anchor, what
 tolerance, at which zoom)"*. That is a DEFINITION, not a seam, and building the
 helper first ships a knob with nothing to turn — the reasoning that kept
-`ProjectileInterception::Redirect` out for want of a customer.
+`ProjectileInterception::Redirect` out for want of a customer. <!-- cite-ok: never built, deliberately; the variant is named here as the precedent, and its absence IS the point -->
 ⚠ It does NOT follow that the agreement measurement is free: composing the
 mapping is the easy half, and deciding what "agreement" means in pixels (which
 anchor, what tolerance, at which zoom) is the half this page still owes.

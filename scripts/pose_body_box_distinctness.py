@@ -41,12 +41,47 @@ import pathlib
 import re
 import sys
 
-# One authored animation entry: the pose name, then its hurtbox bbox if it has one.
+# One authored animation entry: the pose name, its parts, and its own `bbox` if it
+# publishes one.
+#
+# ⛔⛔ THE `bbox` IS OPTIONAL AND AN EARLIER VERSION OF THIS FILE REQUIRED IT.
+# A DISJOINT-PIECE character publishes `parts: [head, upper_torso, pelvis, arms,
+# legs]` and NO `bbox` -- its box is the parts' union, which is what
+# `SheetBodyMetrics` derives at runtime. Requiring the literal field made this
+# script report `noether` -- 875 frames, seven authored body parts per pose, the
+# RICHEST body data in the tree -- as "NO per-pose hurtbox bbox at all".
+#
+# ⇒ A NEGATIVE RESULT WAS A CLAIM ABOUT THE INSTRUMENT. The census then said "the
+# overwhelming majority publish no per-pose boxes", and that sentence was partly
+# this regex talking about itself. Union the parts.
 _POSE = re.compile(
-    r'"(?P<pose>[a-z_0-9]+)": \(hurtbox: Some\(\(parts: \[.*?\], '
-    r"bbox: Some\(\((?P<bbox>x: -?\d+, y: -?\d+, w: \d+, h: \d+)\)\)"
+    r'"(?P<pose>[a-z_0-9]+)": \(hurtbox: Some\(\(parts: \[(?P<parts>.*?)\]'
+    r"(?:, bbox: Some\(\((?P<bbox>x: -?\d+, y: -?\d+, w: \d+, h: \d+)\)\))?"
 )
+_PART = re.compile(r"x: (-?\d+), y: (-?\d+), w: (\d+), h: (\d+)")
+
+
+def _union_of_parts(parts_text: str) -> str | None:
+    """The extent of everything the sheet calls this pose's body.
+
+    Mirrors what the runtime does for a parts-only character. Returned in the same
+    `x: _, y: _, w: _, h: _` spelling an authored `bbox` uses, so the two roads
+    are comparable and a caller cannot tell which one answered.
+    """
+    rects = [tuple(int(v) for v in m) for m in _PART.findall(parts_text)]
+    if not rects:
+        return None
+    x0 = min(r[0] for r in rects)
+    y0 = min(r[1] for r in rects)
+    x1 = max(r[0] + r[2] for r in rects)
+    y1 = max(r[1] + r[3] for r in rects)
+    return f"x: {x0}, y: {y0}, w: {x1 - x0}, h: {y1 - y0}"
 _SHEET_BOX = re.compile(r"body_pixel_bbox: Some\(\((x: -?\d+, y: -?\d+, w: \d+, h: \d+)\)\)")
+# Where each drawn FRAME sits. A DIFFERENT KIND of evidence from the boxes -- it
+# describes the art, not the body -- which is the only reason it can witness for
+# them. Two measures of DISTINCTNESS agreeing is closer to re-running the census
+# than to a second opinion.
+_FRAME_OFFSET = re.compile(r"off: \((-?\d+), (-?\d+)\)")
 _SEARCH_ROOTS = ("crates", "game")
 
 
@@ -58,13 +93,20 @@ def read_sheet(path: pathlib.Path) -> dict:
     boxes", which is the exact claim this script exists to adjudicate.
     """
     text = path.read_text(encoding="utf-8")
-    poses = {m.group("pose"): m.group("bbox") for m in _POSE.finditer(text)}
+    poses: dict[str, str] = {}
+    for m in _POSE.finditer(text):
+        box = m.group("bbox") or _union_of_parts(m.group("parts") or "")
+        if box is not None:
+            poses[m.group("pose")] = box
     sheet_box = _SHEET_BOX.search(text)
+    offsets = _FRAME_OFFSET.findall(text)
     return {
         "path": path,
         "poses": poses,
         "distinct": len(set(poses.values())),
         "sheet_box": sheet_box.group(1) if sheet_box else None,
+        "frames": len(offsets),
+        "art_offsets": len(set(offsets)),
     }
 
 
@@ -118,9 +160,11 @@ def report(row: dict, ratio_cut: float = FLAT_RATIO) -> str:
     same_as_sheet = ""
     if distinct == 1 and len(poses) > 1 and next(iter(poses.values())) == row["sheet_box"]:
         same_as_sheet = " (identical to the sheet-level body_pixel_bbox)"
+    witness = art_vs_body(row)
+    art = f", art/body {witness:.1f}x" if witness is not None else ""
     return (
         f"{row['path']}: {len(poses)} poses, {distinct} distinct, "
-        f"ratio {ratio:.2f}{flag}{same_as_sheet}"
+        f"ratio {ratio:.2f}{art}{flag}{same_as_sheet}"
     )
 
 
@@ -135,6 +179,31 @@ def find_all() -> list[pathlib.Path]:
                 continue
             found.append(p)
     return sorted(set(found))
+
+
+def art_vs_body(row: dict) -> float | None:
+    """How many distinct positions the ART takes per distinct BODY box.
+
+    ⭐⭐ THE WITNESS, and the only figure here that is not another reading of
+    distinctness. A sheet whose silhouette genuinely does not change between poses
+    is CORRECTLY described by one body box -- so a low box count is not by itself a
+    defect, and "it is only a gap if nobody chose it" applies. What settles it is
+    whether the ART MOVES while the box does not.
+
+        player_robot_v3              892 frames, 393 offsets,  95 boxes ->   4.1x
+        mary_o_v2                     25 frames,  24 offsets,   1 box   ->  24.0x
+        perfect_cellular_automaton   913 frames, 390 offsets,   7 boxes ->  55.7x
+
+    ⇒ The automaton's art moves through 390 distinct positions while its body box
+    takes 7 values. Its own moveset file argues the other way -- "a cellular
+    automaton does not punch, it applies a rule and the neighbourhood changes" --
+    but a silhouette that truly did not change would not need 390 offsets either.
+    ⚠ This RANKS suspicion; it does not prove intent. A character could move its
+    art over a deliberately fixed collision box.
+    """
+    if not row["poses"] or not row["distinct"]:
+        return None
+    return row["art_offsets"] / row["distinct"]
 
 
 def main(argv: list[str]) -> int:
@@ -193,8 +262,8 @@ def main(argv: list[str]) -> int:
     print(
         f"\n{len(rows)} sheet(s); {len(flat)} row(s) at or below ratio {args.ratio}"
         "\n(rows are FILES: one sheet appears once per tier, so divide by ~4 for"
-        "\n characters). Most sheets publish no per-pose boxes at all and are"
-        "\n outside this population entirely -- a different defect, different fix."
+        "\n characters). 824 of 852 publish no per-pose boxes at all and sit"
+        "\n outside this population -- a different defect wanting a different fix."
         "\n⇒ These resolve fine and pass any `bbox.is_some()` guard: the box is"
         "\n  plausible, it is just not THIS pose's. READ BOTH SIGNALS -- the ratio"
         "\n  ranks but false-positives a quantised tier; invariance is threshold-free"

@@ -122,6 +122,70 @@ def test_the_flag_moves_with_the_ratio_argument(tmp_path):
     assert "BARELY MOVES" in mod.report(row, 0.6)
 
 
+def test_a_parts_only_pose_is_read_as_the_union_of_its_parts(tmp_path):
+    """⛔⛔ THE BUG THIS SCRIPT SHIPPED WITH: requiring a literal `bbox:`.
+
+    A disjoint-piece character publishes `parts: [...]` and NO `bbox` -- the box is
+    their union, which is what the runtime derives. Requiring the field made the
+    census report `noether` (123 poses, seven authored body parts each, the
+    richest body data in the tree) as "NO per-pose hurtbox bbox at all". A negative
+    result was a claim about the instrument.
+    """
+    text = (
+        '(target: "t", body_metrics: Some((body_pixel_bbox: Some((x: 0, y: 0, w: 9, h: 9)), '
+        'animations: {'
+        '"idle": (hurtbox: Some((parts: [(name: "head", x: 10, y: 4, w: 6, h: 6), '
+        '(name: "legs", x: 12, y: 20, w: 4, h: 10)]))), '
+        '"walk": (hurtbox: Some((parts: [(name: "head", x: 30, y: 4, w: 6, h: 6), '
+        '(name: "legs", x: 32, y: 20, w: 4, h: 10)])))'
+        '}, authored_body: true)))'
+    )
+    p = tmp_path / "parts_spritesheet.ron"
+    p.write_text(text, encoding="utf-8")
+    row = mod.read_sheet(p)
+    assert len(row["poses"]) == 2, "a parts-only pose must still be a pose"
+    # head spans x 10..16, legs x 12..16, y 4..30 -> union x:10 y:4 w:6 h:26
+    assert row["poses"]["idle"] == "x: 10, y: 4, w: 6, h: 26"
+    assert row["distinct"] == 2, "two poses in different places are two boxes"
+
+
+def test_an_authored_bbox_wins_over_the_parts_union(tmp_path):
+    """⚠ When a sheet publishes both, the authored box is the answer -- the union
+    is the FALLBACK road, not a second authority competing with it."""
+    text = (
+        '(target: "t", body_metrics: Some((body_pixel_bbox: Some((x: 0, y: 0, w: 9, h: 9)), '
+        'animations: {'
+        '"idle": (hurtbox: Some((parts: [(name: "head", x: 10, y: 4, w: 6, h: 6)], '
+        "bbox: Some((x: 1, y: 2, w: 3, h: 4)))))"
+        '}, authored_body: true)))'
+    )
+    p = tmp_path / "both_spritesheet.ron"
+    p.write_text(text, encoding="utf-8")
+    assert mod.read_sheet(p)["poses"]["idle"] == "x: 1, y: 2, w: 3, h: 4"
+
+
+def test_the_art_witness_is_a_different_kind_of_evidence(tmp_path):
+    """⭐ art/body counts DRAWN positions per body box -- the one figure here that
+    is not another reading of distinctness, and so the only one that can witness
+    for the others."""
+    box = "x: 1, y: 1, w: 4, h: 8"
+    text = (
+        '(target: "t", body_metrics: Some((body_pixel_bbox: Some((x: 0, y: 0, w: 9, h: 9)), '
+        'animations: {"idle": (hurtbox: Some((parts: [(name: "b", ' + box + ")], "
+        "bbox: Some((" + box + ')))), "walk": (hurtbox: Some((parts: [(name: "b", '
+        + box + ")], bbox: Some((" + box + ")))))}, authored_body: true)), "
+        "rows: [(animation: \"idle\", rects: [(x: 0, y: 0, w: 1, h: 1, page: 0, off: (1, 1)), "
+        "(x: 0, y: 0, w: 1, h: 1, page: 0, off: (2, 2)), "
+        "(x: 0, y: 0, w: 1, h: 1, page: 0, off: (3, 3))])])"
+    )
+    p = tmp_path / "witness_spritesheet.ron"
+    p.write_text(text, encoding="utf-8")
+    row = mod.read_sheet(p)
+    assert row["distinct"] == 1 and row["art_offsets"] == 3
+    assert mod.art_vs_body(row) == 3.0, "three drawn positions over one body box"
+    assert "art/body 3.0x" in mod.report(row)
+
+
 def test_an_unreadable_sheet_raises_rather_than_reporting_zero(tmp_path):
     """⛔ A swallowed read error would report itself as 'no per-pose boxes'."""
     missing = tmp_path / "gone_spritesheet.ron"

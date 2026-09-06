@@ -457,11 +457,40 @@ right now. The shape a player wants is closer to Smash's own answer — the came
 zooms to hold everyone, and past some limit a fighter is drawn as a marker
 instead of a body.
 
-⇒ **The row's first job is therefore a measurement, not a build**: does
-`MapMenuState` carry a stage as a room node with live actor positions, or is its
-geometry authored-room-shaped only? If the former, this is an adapter; if the
-latter, the honest question is whether a stage overview is the same feature at
-all.
+✔ **MEASURED 2026-09-06, AND IT CHANGES THE FEATURE.**
+
+**1. `MapMenuState` is the wrong reuse.** It holds
+`rooms: Vec<MapRoomNode>` where `MapRoomNode { id, world_min, world_size }` — a
+room's world-space RECTANGLE — plus a visited set, a zoom and a minimap toggle.
+**It carries no actor position of any kind and nothing per-frame.** A stage
+overview's entire content is where the fighters are, so reusing this would give a
+rectangle that never moves.
+
+**2. NOTHING LEAVES THE SCREEN, so the Smash trigger does not exist here.**
+`camera_snapshot::frame_the_cast` bounds a box over EVERY cast member, and
+`every_live_fighter_stays_inside_the_frame` (`the_stage_kills.rs:1011`, passing)
+enforces containment — its own doc records refusing an exclusion that looked
+clean because *"a frame that does not contain it is a frame with a live fighter
+outside it"*. ⛔ And there is no zoom CLAMP in `camera_snapshot` to break that
+guarantee. ⇒ Smash needs its magnifying bubble because Smash clamps and lets
+players leave the view; this camera does not clamp, so no fighter is ever
+off-frame.
+
+⇒ **So the feature Jon is describing is READABILITY, not visibility.** What
+degrades when two fighters run to opposite blast zones is SCALE — everyone is on
+screen and everyone is tiny. That is a different trigger (the framing box's size
+against a legibility floor) and a different remedy (draw markers at true scale)
+than "the player left the view".
+
+**3. THE TWO AUTHORITIES IT NEEDS BOTH EXIST**, which is what keeps this from
+being a new peer authority: `CastFraming` already computes the cast's bounding
+box every frame, and `ambition_sim_view`'s `ControlledBodiesView` already
+publishes `ControlledBodyFact { center, … }` per controlled body. An overview
+reads those two and draws; it owns no state either of them owns.
+
+⚠ **What is NOT settled and is Jon's**: the legibility floor. "Too zoomed out" is
+a number about how small a fighter may be drawn before a marker replaces the
+body, and nothing in the repo has an opinion about it yet.
 
 ⓘ **Related and already true**: the smash ruleset's blast margins are its own
 (`CEILING_BLAST_MARGIN_PX` 240, `SIDE_BLAST_MARGIN_PX` 400,

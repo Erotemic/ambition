@@ -19,39 +19,35 @@ use ambition_content_pack::{
 /// which is the same act, in the same vocabulary, as installing it in an app.
 pub fn default_registry() -> SchemaRegistry {
     let mut registry = SchemaRegistry::new();
-    registry
-        .register(ambition_characters::actor::character_catalog::character_catalog_schema())
-        .expect("the default registry installs each schema once");
-    registry
-        .register(ambition_items::content_schema::item_catalog_schema())
-        .expect("the default registry installs each schema once");
-    registry
-        .register(ambition_combat::brain::fighter::content_schema::fighter_brain_ladder_schema())
-        .expect("the default registry installs each schema once");
-    registry
-        .register(ambition_characters::smash_fighter::content_schema::smash_fighter_schema())
-        .expect("the default registry installs each schema once");
-    registry
-        .register(ambition_encounter::content_schema::encounter_waves_schema())
-        .expect("the default registry installs each schema once");
-    registry
-        .register(ambition_boss_encounter::pattern::content_schema::boss_seed_library_schema())
-        .expect("the default registry installs each schema once");
-    registry
-        .register(ambition_boss_encounter::pattern::content_schema::boss_validator_bands_schema())
-        .expect("the default registry installs each schema once");
-    registry
-        .register(ambition_boss_encounter::pattern::content_schema::boss_profiles_schema())
-        .expect("the default registry installs each schema once");
-    registry
-        .register(ambition_boss_encounter::pattern::content_schema::boss_encounter_schema())
-        .expect("the default registry installs each schema once");
-    registry
-        .register(ambition_audio::content_schema::music_registry_schema())
-        .expect("the default registry installs each schema once");
-    registry
-        .register(ambition_audio::content_schema::sfx_registry_schema())
-        .expect("the default registry installs each schema once");
+    // ⭐ ONE LIST, ONE INVARIANT. This used to be eleven
+    // `.register(..).expect(..)` stanzas, each restating "the default registry
+    // installs each schema once" — a rule about the REGISTRY repeated once per
+    // schema, so a twelfth entry could state it differently or not at all.
+    // `register` fails only on a DUPLICATE id, which is a fact about this list
+    // rather than about any one member of it.
+    //
+    // ⚠ The SET is load-bearing and is not free to drift:
+    // `content_pack_registry::the_tools_composition_and_the_games_composition_are_the_same_set`
+    // asserts it equals the GAME's, because the CLI must judge Ambition's content
+    // by the same rules the game applies. A schema added to one belongs in the
+    // other in the same commit, and that test is what says so.
+    for schema in [
+        ambition_characters::actor::character_catalog::character_catalog_schema(),
+        ambition_items::content_schema::item_catalog_schema(),
+        ambition_combat::brain::fighter::content_schema::fighter_brain_ladder_schema(),
+        ambition_characters::smash_fighter::content_schema::smash_fighter_schema(),
+        ambition_encounter::content_schema::encounter_waves_schema(),
+        ambition_boss_encounter::pattern::content_schema::boss_seed_library_schema(),
+        ambition_boss_encounter::pattern::content_schema::boss_validator_bands_schema(),
+        ambition_boss_encounter::pattern::content_schema::boss_profiles_schema(),
+        ambition_boss_encounter::pattern::content_schema::boss_encounter_schema(),
+        ambition_audio::content_schema::music_registry_schema(),
+        ambition_audio::content_schema::sfx_registry_schema(),
+    ] {
+        registry
+            .register(schema)
+            .expect("the default registry installs each schema once");
+    }
     registry
 }
 

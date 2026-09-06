@@ -32,6 +32,8 @@
 
 use serde::{Deserialize, Serialize};
 
+use ambition_entity_catalog::{EffectRef, MoveEvent, MoveEventKind, MoveSpec, ParamValue};
+
 /// The authored effect key.
 pub const RIPOSTE_STRIKE: &str = "smash.riposte_strike";
 
@@ -116,3 +118,49 @@ impl RiposteStrikeParams {
         problems
     }
 }
+
+/// Author a cut onto a move's own timeline.
+///
+/// ⭐⭐ THE COUNTER IS NOT THE ONLY CUSTOMER, and this helper is what makes that
+/// true in practice rather than in a comment. A counter reaches this technique
+/// by naming it as its `response`; a MOVE reaches it by putting the key on its
+/// timeline, and both arrive as the same `ActorActionMessage`. ⇒ Anything that
+/// wants a second, differently-shaped hit at a chosen instant — a slam whose
+/// shock runs along the ground, a swing with a late tip — can have one without a
+/// new technique and without hand-building windows.
+///
+/// ⛔ WHY NOT `multihit`: its pulses are a LEAD-IN. Its own implementation shifts
+/// the finisher back by the pulse train's length, because a multi-hit is a
+/// wind-up into a finisher. A follow-up is the other direction and it cannot be
+/// spelled that way.
+///
+/// # Panics
+///
+/// If `at_s` is past the move's duration, or if the cut is unusable — the same
+/// list [`RiposteStrikeParams::problems`] gives the ruleset at runtime, asked
+/// here where the MOVE'S NAME is in hand and the failure is a build error rather
+/// than a log line nobody reads.
+pub fn author_cut(mut spec: MoveSpec, at_s: f32, params: RiposteStrikeParams) -> MoveSpec {
+    assert!(
+        at_s <= spec.duration_s,
+        "move `{}` cuts at {at_s}s but only lasts {}s",
+        spec.id,
+        spec.duration_s,
+    );
+    let problems = params.problems();
+    assert!(
+        problems.is_empty(),
+        "move `{}` authors an unusable cut: {}",
+        spec.id,
+        problems.join("; "),
+    );
+    spec.events.push(MoveEvent {
+        at_s,
+        kind: MoveEventKind::Effect(EffectRef {
+            key: RIPOSTE_STRIKE.to_string(),
+            params: ParamValue::from_typed(&params).expect("riposte-strike params serialize"),
+        }),
+    });
+    spec
+}
+

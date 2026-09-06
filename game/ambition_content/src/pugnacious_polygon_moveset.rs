@@ -398,6 +398,49 @@ pub fn pugnacious_polygon_moveset() -> MovesetContract {
         0.54,
         0.05,
     );
+    // ⭐⭐ AND THE SLAM SENDS A SHOCK ALONG THE GROUND. The fists were the whole
+    // move: one box under him, on the fighter whose archetype is the size of an
+    // impact. `the_census_of_specials_that_carry_no_technique` named this as one
+    // of only four specials in the roster carrying no technique AND no other
+    // authoring — a hitbox on a different button.
+    //
+    // ⛔ IT COSTS NO NEW ENGINE. `smash.riposte_strike` spawns an ordinary body
+    // strike at an authored reach, and its own module says it is not limited to
+    // counters: a counter reaches it as a `response`, a MOVE reaches it from its
+    // timeline, and both arrive as the same `ActorActionMessage`. This is that
+    // second road's first customer.
+    //
+    // ⛔ AND `multihit` COULD NOT SAY THIS. Its pulses are a LEAD-IN — it shifts
+    // the finisher back by the pulse train's length, because a multi-hit is a
+    // wind-up into a finisher. A shock that follows the impact is the other
+    // direction.
+    //
+    // ⚠ THE SHOCK RUNS THE WAY HE FACES, not both ways, because the technique
+    // places one box at a facing-relative reach. That is a real limitation and
+    // it is also the right move here: a directional slam that covered both sides
+    // would beat a shield in front AND punish a wake-up behind, which is two
+    // options on one button.
+    let grounded_down_special = ambition_characters::smash_riposte::author_cut(
+        grounded_down_special,
+        // Just after the fists land (startup 0.13 + the tail's shift): the shock
+        // is a consequence of the impact and must read as one.
+        0.24,
+        ambition_characters::smash_riposte::RiposteStrikeParams {
+            // Weaker than the 11 the slam itself deals: the shock is the reach,
+            // not the payoff.
+            damage: 6,
+            // ⛔ A FEEL MULTIPLIER, NOT A LAUNCH SPEED. The slam above authors
+            // `knockback: 105.0` on a `Strike`, where that field IS a speed;
+            // copying it here is the units error three shipped moves made.
+            knockback: 1.15,
+            // Out in front, spanning x 16..104 body-local: it covers the ground
+            // a shielding opponent was standing on, which is what a brawler's
+            // slam is for.
+            reach: 60.0,
+            half_extents: (44.0, 10.0),
+            lifetime_s: 0.10,
+        },
+    );
     let mut airborne_down_special = strike(Strike {
         id: "polygon_brawler_body_drop",
         clip: "air_down",
@@ -521,6 +564,85 @@ pub fn pugnacious_polygon_moveset() -> MovesetContract {
 
 #[cfg(test)]
 mod tests {
+
+    /// ⭐⭐ THE SLAM'S SHOCK REACHES GROUND THE SLAM ITSELF CANNOT, which is the
+    /// entire reason it exists — and the pair of numbers that says so is split
+    /// across two different authoring vocabularies, so nothing but a test holds
+    /// them together.
+    ///
+    /// ⛔ AND IT MUST STAY THE WEAKER HALF. A follow-up that hit harder than the
+    /// impact it follows would make the slam a delivery mechanism for its own
+    /// tail, and the fists are the move.
+    #[test]
+    fn his_ground_slam_sends_a_shock_that_outreaches_the_fists_and_hits_softer() {
+        use ambition_characters::smash_riposte::{RiposteStrikeParams, RIPOSTE_STRIKE};
+
+        let set = pugnacious_polygon_moveset();
+        let slam = set
+            .moves
+            .iter()
+            .find(|m| m.id == "polygon_brawler_ground_slam")
+            .expect("his grounded down-B");
+
+        let shock: RiposteStrikeParams = slam
+            .events
+            .iter()
+            .find_map(|event| match &event.kind {
+                ambition_platformer2d::entity_catalog::MoveEventKind::Effect(effect)
+                    if effect.key == RIPOSTE_STRIKE =>
+                {
+                    effect.params.hydrate().ok()
+                }
+                _ => None,
+            })
+            .expect("his slam sends a shock");
+
+        // The fists: the widest volume the move authors on its own timeline.
+        let fists_reach = slam
+            .windows
+            .iter()
+            .flat_map(|window| window.volumes.iter())
+            .filter_map(|volume| match volume.shape {
+                // A `Rect`'s leading edge. The slam authors no discs, and a
+                // `Circle` arm that guessed at one would be inventing geometry.
+                ambition_platformer2d::entity_catalog::VolumeShape::Rect {
+                    offset,
+                    half_extents,
+                } => Some(offset.0 + half_extents.0),
+                _ => None,
+            })
+            .fold(f32::MIN, f32::max);
+        assert!(
+            fists_reach > f32::MIN,
+            "the slam has no hitbox of its own any more, so this test is \
+             comparing the shock against nothing",
+        );
+        assert!(
+            shock.reach + shock.half_extents.0 > fists_reach,
+            "the shock reaches {}px and the fists {fists_reach}px — a follow-up \
+             that covers no new ground is a second hit on the same square",
+            shock.reach + shock.half_extents.0,
+        );
+
+        let fists_damage = slam
+            .windows
+            .iter()
+            .flat_map(|window| window.volumes.iter())
+            .map(|volume| volume.damage)
+            .max()
+            .expect("the slam deals damage");
+        assert!(
+            (shock.damage as i32) < fists_damage,
+            "the shock deals {} against the fists' {fists_damage}: the tail \
+             must not outhit the impact it follows",
+            shock.damage,
+        );
+        assert!(
+            shock.problems().is_empty(),
+            "the shock is authored unusably: {}",
+            shock.problems().join("; "),
+        );
+    }
 
     /// ⭐⭐ HIS PUNCH CHARGES, AND IT DOES NOT STORE — the second half is the
     /// design claim, and it is about TWO fighters at once.

@@ -763,3 +763,39 @@ implement is reporting its own shape.
 `` `([\w./-]+\.rs):(\d+)` `` from a diff, open each file, print the line. Seconds,
 no build — small enough to run at the moment of writing rather than at some later
 sweep.
+
+### ✔ A NEGATIVE, and it is the counterweight this page needs: SIX writers of one flag, and it is CORRECT (2026-09-06)
+
+I swept my lane the way the fighter lane swept theirs — every `ResMut<T>` written
+from more than one file. **49 types, 10 written from >1 file.** Chasing the two
+best candidates rather than publishing the list:
+
+* `SlotInteractionState` (2 crates) — **clean.** One writer consumes-and-clears a
+  buffered gesture, the other resets it on a replay. Two jobs, not two authorities.
+* `ActiveRoomTransitionLoad::asset_readiness_complete` — **six `= true` sites
+  across two crates, and FOUR distinct meanings**: no asset contributor at all
+  (runtime), this host cannot answer, assets failed, genuinely ready. The flag
+  records none of them, and the difference is *implicitly* visible only in whether
+  `asset_ready_at` was also set.
+
+⇒ **That looks exactly like the cut-rope duplicate-retractor, and it is not the
+same thing.** The decisive question is not how many writers a fact has — it is
+whether the DECISION downstream reads the ambiguous fact or an authoritative one.
+`commit.rs` never reads `asset_readiness_complete`. The commit is gated by `phase`,
+and every failure path sets `phase = Failed`. ⇒ The flag means "stop waiting", the
+outcome lives in `phase`, and `phase` has one authority. **The four meanings
+collapse correctly because the meaning that matters is carried elsewhere.**
+
+⛔ **SO I DID NOT BUILD THE ENUM.** Replacing the bool with `Ready | Failed |
+Unanswerable` is the reflex — it is (B)-shaped and it would even be pretty — but
+**nothing consumes the reason.** `asset_ready_at` is read in exactly one place, for
+a telemetry timing sample. An enum here would be speculative generality wearing an
+elegance argument, and the "make it impossible" test asks what defect becomes
+inexpressible, not what type is more expressive.
+
+⭐ **THE RULE TO CARRY: a fact written from N places is not an (A) violation by
+count.** Ask what READS it, and whether an ambiguity in it can reach a decision. In
+the cut-rope case two retractors made each other untestable and the test proved it;
+here six writers feed a flag no decision depends on. Same grep, opposite verdicts —
+which is the fighter lane's own discriminator (two branches of one function vs two
+systems) arriving from the reader's side instead of the writer's.

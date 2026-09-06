@@ -128,7 +128,10 @@ pub fn open_ecs_chests(
             });
             if let Some(encounter_id) = id.as_str().strip_prefix("encounter_chest_") {
                 set_flag.write(SetFlagRequested {
-                    id: format!("encounter_{encounter_id}_reward_dropped"),
+                    // The flag NAME has one authority; this used to spell the
+                    // same `format!` by hand, which is a second one that agrees
+                    // only until somebody edits the helper.
+                    id: ambition_encounter::encounter_reward_looted_flag(encounter_id),
                     on: true,
                 });
             }

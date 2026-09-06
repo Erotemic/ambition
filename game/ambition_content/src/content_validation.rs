@@ -548,7 +548,6 @@ fn authored_flag_ids(project: &LdtkProject) -> BTreeSet<String> {
                     .map(|id| id.trim().to_string())
                     .filter(|id| !id.is_empty())
                     .unwrap_or_else(|| level.active_area());
-                flags.insert(format!("encounter_{encounter_id}_reward_dropped"));
                 flags.insert(encounter_reward_looted_flag(&encounter_id));
             }
             if entity.identifier == "Switch" {
@@ -576,7 +575,6 @@ fn authored_flag_ids(project: &LdtkProject) -> BTreeSet<String> {
         }
     }
     for boss in authored_boss_encounter_ids(project) {
-        flags.insert(format!("encounter_{boss}_reward_dropped"));
         flags.insert(encounter_reward_looted_flag(&boss));
     }
     flags

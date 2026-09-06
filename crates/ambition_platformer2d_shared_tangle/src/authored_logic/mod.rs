@@ -162,12 +162,20 @@ pub enum ParamKind {
     ///    ids, not a runtime one."* `world.flag_set` needs no roster at all: a
     ///    save flag is genuinely free-form, which is the honest escape hatch this
     ///    kind was named for.
-    /// 3. **UNEXAMINED** — `boss.cleared` and `encounter.cleared`. Both read a
-    ///    save whose accessor reconstructs ANY string as an "untouched" row, and
-    ///    neither says which of (1) or (2) it intends. `boss.cleared` comes
-    ///    closest and still splits the wrong absence: it reasons carefully that
-    ///    an unrecorded boss really is un-beaten — true — without noticing that
-    ///    the same `NotSatisfied` is what a boss that does not exist returns.
+    /// 3. **UNEXAMINED** — `encounter.cleared` alone. It reads a save whose
+    ///    accessor reconstructs ANY string as an "untouched" row and does not
+    ///    say which of (1) or (2) it intends.
+    ///
+    /// ⚠ **`boss.cleared` BELONGS IN (2) AND I FILED IT WRONG — twice in one
+    /// day, on the same condition.** It is the worked example of this whole
+    /// entry: authored dialogue asked `boss_cleared("mockingbird")`, a real
+    /// BEHAVIOUR id, against a save keyed by PLACEMENT, and three branches could
+    /// never open for weeks with no error anywhere. Jon ruled it (decision 57,
+    /// 2026-09-05), the callers were migrated, and TWO guards hold it — one
+    /// resolving through the production `boss_placement_id` so a behaviour id is
+    /// a RED. ⇒ Its roster lives in the authored worlds, which no `&World` here
+    /// can reach, so deferring is not a shrug: the check runs where the roster
+    /// is.
     ///
     /// ⛔ **I MISCOUNTED THIS TWICE, IN THE SAME DIRECTION, AND THE REASON IS
     /// WORTH MORE THAN THE TALLY.** First draft called `world.switch_on` an

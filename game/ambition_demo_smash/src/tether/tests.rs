@@ -196,6 +196,53 @@ fn the_reel_stops_on_the_anchor_and_hands_her_to_gravity() {
     );
 }
 
+/// ⭐⭐ THE HANDOVER, PUT TO THE AUTHORITY'S OWN PROBE RATHER THAN TO A MODEL OF
+/// IT. The other tests prove the reel arrives; this one asks the question that
+/// actually matters at the seam — is where it LET GO a place
+/// `probe_ledge_grab_in_frame` accepts? That is the same function the movement
+/// kernel calls every frame from `try_start_ledge_grab_clusters_in_frame`, so a
+/// reel that delivered her a few pixels wrong would fail here rather than in a
+/// playtest.
+///
+/// ⚠ THIS IS THE GEOMETRIC HALF ONLY, and the file header says why the other
+/// half needs the kernel: catching also wants a stick-requested wall normal or
+/// `FALL_SNAP_MIN_VY` of descent, and gravity is what supplies the descent.
+#[test]
+fn where_the_reel_releases_her_is_a_place_the_authority_would_catch() {
+    let mut app = app(stage());
+    let her = fighter(&mut app, START, false);
+    throw(&mut app, her, 150.0);
+    for _ in 0..30 {
+        if reel(&app, her).is_none() {
+            break;
+        }
+        app.update();
+    }
+    assert!(reel(&app, her).is_none(), "the reel never let go");
+    let kin = body(&app, her);
+    let world = ae::World::new(
+        "tether",
+        ae::Vec2::new(800.0, 600.0),
+        ae::Vec2::ZERO,
+        stage(),
+    );
+    let contact = ae::ledge_grab::probe_ledge_grab_in_frame(
+        kin.pos,
+        kin.size,
+        // She faces right, so the wall she caught is on her right and its face
+        // points back at her: the same -1.0 the reference probe test uses.
+        -1.0,
+        &world,
+        ambition_platformer2d::world::ResolvedMotionFrame::default().down(),
+    );
+    assert!(
+        contact.is_some(),
+        "the reel released her at {:?}, and the ledge authority's own probe does \
+         not find a ledge from there",
+        kin.pos,
+    );
+}
+
 /// ⛔ GIVING UP IS NOT ARRIVING. The first draft collapsed the two exits, which
 /// meant an expired reel also stopped her dead — deleting the recovery she had
 /// left and reading as the game freezing her in the air.

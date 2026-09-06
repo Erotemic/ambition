@@ -138,8 +138,16 @@ An edge list says which modules reference which. It does not say which
 `Platformer2dGameplayDefaults` — a two-field `Deserialize + Asset` struct with a
 `load_embedded`, naming nothing in `session` and nothing in the crate. It had been
 filed beside the system that first registered a handle for it. Moved to
-`assets::gameplay_defaults`, where it always belonged, and **the knot lost two
-modules for eleven lines of housekeeping.**
+`assets::gameplay_defaults`, where it always belonged, for eleven lines of
+housekeeping.
+
+⚠ **AND THE PRECISE RESULT IS NOT "two modules fell out", which is how I first
+wrote it and how a peer correctly read it back to me.** What the cut bought is
+**one 14-knot → one 12-knot PLUS one 2-knot**: `assets` and `character_sprites`
+left the big component and now cycle with each other. Neither is extractable
+alone. ⇒ The sentence matters because "fell out" reads, to somebody planning a
+carve, as "those two are ready", and they are not — they are a smaller, separate
+problem, which is still a strictly better position than being inside the twelve.
 
 ⚠ **THE REMAINING THREE ARE CHEAP AND NOT ALL OF THEM ARE RIGHT, which is the
 distinction the ranking cannot make.** `avatar -> control` is a bundle carrying

@@ -18,6 +18,38 @@ Capability closure:
 > pinned by a check, not only by intent — green today, and it would go red the
 > moment a slice moved something the wrong way.
 
+
+## ⭐⭐ A DATA TYPE FILED BESIDE ITS FIRST CONSUMER IS HOW A GRAPH ACQUIRES AN EDGE NOBODY INTENDED
+
+Measured 2026-09-06, and it generalises well past the instance that produced it.
+
+`assets -> session` was a **single `use`** in the residual kernel — of
+`Platformer2dGameplayDefaults`, a two-field `Deserialize + Asset` struct with a
+`load_embedded`, naming nothing in `session` and nothing in the crate. It had been
+filed beside the system that first registered a handle for it. Moving it to
+`assets::gameplay_defaults` took the module graph from one 14-module cyclic
+component to a 12-module one plus a 2-module one, for eleven lines.
+
+⛔ **THE REASON THIS KIND OF EDGE SURVIVES REVIEW IS THAT EVERY PART OF IT IS
+CORRECT.** The `use` is correct. The type is correct. The consumer is correct.
+Nothing is wrong locally, and only a component analysis over the whole crate shows
+what the placement costs. ⇒ *Where a type LIVES is an architectural decision even
+when nothing about the type is.*
+
+⭐ **THE CHECK IS CHEAP AND WORTH MAKING A HABIT:** when a type has no
+dependencies of its own — no `crate::`, no `super::` — its module is a free
+choice, so it should live with its OWN kind rather than with its first caller.
+`python3 scripts/measure_kernel_module_graph.py --scc --cuts` names the edges
+where that choice is currently costing a component.
+
+⚠ **AND THE CHEAPEST CUT IS NOT ALWAYS THE CORRECT ONE.** The same tool ranks
+`avatar -> control` and `features -> projectile` as equally cheap single
+references, and both are RIGHT as they stand: one is a bundle carrying
+`LocalPlayer`, the other a perception query reading `ProjectileAllegiance`, and
+both types belong where they are. Removing those edges would mean changing what
+the consumer does. The instrument ranks by cost; reading the edge decides.
+
+
 ## Goal
 
 Reduce `ambition_platformer2d_actor_monolith` to an honest reusable actor/body

@@ -261,7 +261,11 @@ implementation that stores one ordering per actor.
 `ambition_render` — the only crate that can see both bands — behind
 `#[cfg(feature = "portal_render")]`, and that crate declares `default = []`, so
 it executed only under `--run-everything`. The gated-test ledger going 447 → 449
-is what caught it. **A guard that stops a two-line wrong fix is worthless if it
+is what caught it. ⚠ **Those digits are the ledger as the instrument read it THEN**;
+the same survey reports 416 since 2026-09-06, after two corrections that are
+instrument rather than tests moving (see `status.md`'s feature-gated row). The
+MOVEMENT of +2 is what caught the guard, and a movement survives a recalibration
+that its endpoints do not. **A guard that stops a two-line wrong fix is worthless if it
 does not run in the plan the person making that fix will run.**
 
 ⭐ **Fixed by splitting the claim on a shared term rather than adding a feature.**

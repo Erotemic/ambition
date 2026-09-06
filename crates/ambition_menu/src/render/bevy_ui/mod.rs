@@ -861,11 +861,33 @@ impl bevy::prelude::Plugin for BevyUiMenuRestylePlugin {
 /// render several action types, while the shared tab component/message must be
 /// installed exactly once.
 pub fn install_bevy_ui_menu_tabs(app: &mut App) {
+    // ⭐⭐ IDEMPOTENT, BECAUSE "INSTALLED EXACTLY ONCE" WAS A RULE THE CALLER HAD
+    // TO OBEY. The doc above states the requirement; nothing enforced it, and a
+    // second call would have added `publish_bevy_ui_menu_tabs` TWICE — two
+    // publications per press, so one click changes tab and changes back.
+    //
+    // ⇒ That is not hypothetical now. This was called by exactly ONE composition
+    // (the kaleidoscope menu), which is why the shell's title screen had no
+    // pointer road to its tabs at all — its buttons were drawn and no system
+    // published their presses. Adding the shell as a second caller is what makes
+    // the "exactly once" rule reachable, so the rule stops being prose here.
+    //
+    // ⚠ The MESSAGE alone is not the witness: `add_message` is already idempotent,
+    // so keying off it would be a check that cannot fail. The SYSTEM is what must
+    // not double-register, so the marker states that directly.
+    if app.world().contains_resource::<BevyUiMenuTabsInstalled>() {
+        return;
+    }
+    app.init_resource::<BevyUiMenuTabsInstalled>();
     app.add_message::<crate::MenuTabActivated>().add_systems(
         Update,
         publish_bevy_ui_menu_tabs.in_set(BevyUiMenuInteractionSet),
     );
 }
+
+/// Marker: [`install_bevy_ui_menu_tabs`] has registered its system in this App.
+#[derive(bevy::prelude::Resource, Default)]
+struct BevyUiMenuTabsInstalled;
 
 /// Install the flat `bevy_ui` scrollbar drag handling (Feature C): registers the
 /// neutral [`MenuScrollDragged`](crate::MenuScrollDragged)

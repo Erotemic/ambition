@@ -651,6 +651,13 @@ fn process_launcher_commands(
                 // at its first row.
                 state.selected = 0;
             }
+            // The pointer's answer to the same question `CycleTab` answers for a
+            // gesture. Both clear the row cursor for the same reason, stated
+            // above: the cursor is per-tab in meaning but shared in storage.
+            ShellLauncherCommand::SelectTab(index) => {
+                state.tab = crate::launcher::LauncherTab::at_index(*index);
+                state.selected = 0;
+            }
             ShellLauncherCommand::SelectRow(row) => {
                 state.selected = *row;
             }

@@ -486,6 +486,45 @@ Ambition pain it would remove.
   presentation and similar content fixes remain product work unless a reproduced
   defect demonstrates a reusable renderer/authoring-system problem.
 
+## ✔ Two player-visible defects Jon hit in one session, and what they share (2026-09-06)
+
+Both were **invisible to a green suite for STRUCTURAL reasons**, not for want of
+testing, and both are fixed with the guard on the class rather than the instance.
+
+**① The goblin fight PANICKED** (`951d0034d`). All three `npc_goblin_brute` wave
+rows named no `character`, and `kind` is a brain — the spawn road refuses rather
+than substituting a body. ⇒ **Two correct changes, made apart.** The
+`character: None` was deliberate and said so: *"the brute keeps drawing the
+placeholder until somebody makes it — visible debt beats a body borrowing someone
+else's art."* That depended on a placeholder FALLBACK, which AC6 later deleted
+because it "WAS A LIE". Neither author could have seen the collision. ⚠ And the
+note's premise had expired: `npc_goblin_brute` had become a catalog row with art
+and locomotion. Guard: every authored encounter mob names a character that is a
+catalog row — `character: None` and an absent field fail separately, because they
+crash identically.
+
+**② The title screen's SETTINGS TAB could not be clicked or tapped**
+(`288d51913`). `install_bevy_ui_menu_tabs` had **one caller in the workspace** and
+it was the kaleidoscope menu, so the system that turns a tab press into a message
+was never registered on that screen. The renderer drew each tab as a real `Button`
+and nothing listened.
+
+⭐⭐ **WHAT THEY SHARE, and it is worth more than either fix: A SURFACE CAN LOSE AN
+ENTIRE INPUT DEVICE WITH ITS SUITE GREEN.** Every menu test drives
+`MenuControlFrame` edges — the keyboard/controller road — which was never broken.
+Two devices reaching one surface **share no seam**, so a complete suite for one says
+nothing about the other. ⇒ The same shape as ①: two things that are each correct,
+with nothing checking the pair.
+
+⚠ **AND MY FIRST TESTS COULD NOT HAVE CAUGHT IT EITHER** — their fixture registered
+the message and the system itself, proving the handler works once wired and saying
+nothing about wiring. Only a test that builds the REAL plugin and asks the world
+can. Guard: any surface drawing more than one tab must install the road; a
+single-tab strip is a TITLE and is exempt, which the pause menu proves.
+
+⇒ **The question to carry: for each surface, which input devices reach it, and does
+each have its own test?**
+
 ## Trigger-based work
 
 Do not promote these until the trigger exists:

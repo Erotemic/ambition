@@ -103,6 +103,15 @@ pub struct BasicShellPresentationPlugin;
 impl Plugin for BasicShellPresentationPlugin {
     fn build(&self, app: &mut App) {
         install_bevy_ui_menu_actions::<BasicLauncherAction>(app);
+        // ⛔⛔ WITHOUT THIS THE TAB STRIP IS DECORATION. The renderer draws each
+        // tab as a real `Button`, but `publish_bevy_ui_menu_tabs` — the system
+        // that turns a press into `MenuTabActivated` — was installed by the
+        // kaleidoscope menu and by nothing else. So on the title screen a click
+        // or tap on `Settings` reached no system at all, and the tab was
+        // available ONLY to Escape/Start. Reported by Jon 2026-09-06: "in the
+        // title screen there is no way for me to select the settings menu. I
+        // can't click, tap, nothing."
+        ambition_menu::render::bevy_ui::install_bevy_ui_menu_tabs(app);
         install_bevy_ui_menu_actions::<ShellCardAction>(app);
         app.add_message::<OwnedSfxMessage>()
             .init_resource::<ambition_sfx::SfxEmissionContext>()
@@ -180,6 +189,7 @@ fn basic_shell_pointer(
     launcher: Res<ShellLauncherState>,
     mut activated: MessageReader<MenuActionActivated<BasicLauncherAction>>,
     mut previewed: MessageReader<MenuActionPreviewed<BasicLauncherAction>>,
+    mut tab_activated: MessageReader<ambition_menu::MenuTabActivated>,
     mut launcher_commands: MessageWriter<ShellLauncherCommand>,
     mut sfx: SfxWriter,
 ) {
@@ -209,6 +219,30 @@ fn basic_shell_pointer(
         launcher_commands.write(ShellLauncherCommand::Activate(activation.action.0));
         sfx.write(SfxMessage::Play {
             id: ids::UI_MENU_ACCEPT,
+            pos: Vec2::ZERO,
+        });
+    }
+
+    // ⛔⛔ THE TAB STRIP IS CLICKABLE AND NOBODY WAS LISTENING.
+    // `publish_bevy_ui_menu_tabs` draws each tab as a real `Button`, arms it on
+    // press and publishes `MenuTabActivated` — and its ONLY reader was the
+    // kaleidoscope menu's grid backend. So on the title screen a click or tap on
+    // `Settings` produced a message nothing consumed, and the tab was reachable
+    // ONLY by Escape/Start. Reported by Jon 2026-09-06: "in the title screen
+    // there is no way for me to select the settings menu. I can't click, tap,
+    // nothing."
+    //
+    // ⚠ THE GESTURE ROAD WAS NEVER BROKEN, which is why this survived: the arm
+    // above it deliberately kept Start reaching settings when the pause-menu road
+    // was removed, and a test pins that. A keyboard-driven test cannot see that
+    // the POINTER has no road at all.
+    for tab in tab_activated.read() {
+        if !launcher.active {
+            continue;
+        }
+        launcher_commands.write(ShellLauncherCommand::SelectTab(tab.index));
+        sfx.write(SfxMessage::Play {
+            id: ids::UI_MENU_MOVE,
             pos: Vec2::ZERO,
         });
     }
@@ -1013,13 +1047,6 @@ mod semantic_input_tests {
         *app.world_mut().resource_mut::<MenuControlFrame>() = MenuControlFrame::default();
     }
 
-    fn drained(app: &mut App) -> Vec<ShellLauncherCommand> {
-        app.world_mut()
-            .resource_mut::<Messages<ShellLauncherCommand>>()
-            .drain()
-            .collect()
-    }
-
     /// ⭐⭐ JON'S DESIGN, 2026-09-05: *"choose game be one menu tab, and then
     /// have the settings menu be in a second tab. There really isn't a notion of
     /// 'paused' in the title screen."* The bumpers cycle the strip, the same
@@ -1133,6 +1160,13 @@ mod semantic_input_tests {
         let mut app = app_with_launcher(false);
         intent(&mut app, |f| f.page_right = true);
         assert!(drained(&mut app).is_empty());
+    }
+
+    fn drained(app: &mut App) -> Vec<ShellLauncherCommand> {
+        app.world_mut()
+            .resource_mut::<Messages<ShellLauncherCommand>>()
+            .drain()
+            .collect()
     }
 
     fn drained_sfx(app: &mut App) -> Vec<OwnedSfxMessage> {
@@ -1321,6 +1355,11 @@ mod pointer_hover_tests {
         app.add_message::<MenuActionActivated<BasicLauncherAction>>();
         app.add_message::<MenuActionPreviewed<BasicLauncherAction>>();
         app.add_message::<OwnedSfxMessage>();
+        // ⚠ `basic_shell_pointer` READS this, so a fixture without it PANICS —
+        // a `MessageReader` whose `Messages<T>` is absent is not a silent no-op.
+        // The plugin installs it via `install_bevy_ui_menu_tabs`; this fixture
+        // stands in for the plugin and must state the same thing.
+        app.add_message::<ambition_menu::MenuTabActivated>();
         app.init_resource::<ambition_sfx::SfxEmissionContext>();
         app.world_mut()
             .resource_mut::<ambition_sfx::SfxEmissionContext>()
@@ -1329,6 +1368,92 @@ mod pointer_hover_tests {
         app.add_systems(Update, basic_shell_pointer);
         app.world_mut().resource_mut::<ShellLauncherState>().active = active;
         app
+    }
+
+    /// ⛔⛔ THE PLUGIN INSTALLS THE TAB ROAD — the arm the two below cannot give.
+    ///
+    /// `app_with_pointer` registers `MenuTabActivated` and `basic_shell_pointer`
+    /// ITSELF, so those tests prove the handler behaves once it is wired and say
+    /// NOTHING about whether anything wires it. That is exactly the shipped bug:
+    /// the handler's absence was never the problem, the INSTALL was
+    /// (`install_bevy_ui_menu_tabs` had one caller in the whole workspace, and it
+    /// was the kaleidoscope menu). ⇒ This one builds the real plugin and asks the
+    /// world.
+    #[test]
+    fn the_shell_plugin_installs_the_tab_pointer_road() {
+        let mut app = App::new();
+        app.add_plugins(BasicShellPresentationPlugin);
+        assert!(
+            app.world()
+                .contains_resource::<bevy::ecs::message::Messages<ambition_menu::MenuTabActivated>>(),
+            "the shell plugin does not install the tab pointer road, so its tab \
+             strip is drawn as buttons that reach no system — reachable only by \
+             Escape/Start"
+        );
+    }
+
+    /// ⛔⛔ CLICKING OR TAPPING THE SETTINGS TAB REACHES IT — Jon, 2026-09-06:
+    /// *"in the title screen there is no way for me to select the settings menu.
+    /// I can't click, tap, nothing."*
+    ///
+    /// The renderer already drew each tab as a real `Button` and
+    /// `publish_bevy_ui_menu_tabs` already published `MenuTabActivated`. Its ONLY
+    /// consumer was the kaleidoscope menu's grid backend, so on this screen the
+    /// message went nowhere and the tab was reachable ONLY by Escape/Start.
+    ///
+    /// ⭐ WHY EVERY EXISTING TEST WAS GREEN THROUGH IT, and this is the part
+    /// worth keeping: the two tests above drive `MenuControlFrame` edges — the
+    /// keyboard/controller road — and the gesture road was never broken. A
+    /// surface can lose an entire INPUT DEVICE while every test of its other
+    /// devices passes, because they do not share a seam. This one publishes what
+    /// a POINTER publishes and nothing else.
+    #[test]
+    fn clicking_the_settings_tab_reaches_it() {
+        let mut app = app_with_pointer(true);
+        // What `publish_bevy_ui_menu_tabs` writes when a tab is pressed and
+        // released on itself. Index 1 is Settings (`LauncherTab::ALL`).
+        app.world_mut()
+            .resource_mut::<bevy::ecs::message::Messages<ambition_menu::MenuTabActivated>>()
+            .write(ambition_menu::MenuTabActivated { index: 1 });
+        app.update();
+        let commands = drained(&mut app);
+        assert!(
+            commands
+                .iter()
+                .any(|c| matches!(c, ShellLauncherCommand::SelectTab(1))),
+            "a pointer activation of the Settings tab produced no command, so the \
+             tab is reachable only by Escape/Start: {commands:?}"
+        );
+    }
+
+    /// ⚠ AND A CLICK NAMES THE TAB RATHER THAN STEPPING TOWARDS IT.
+    ///
+    /// Answering a pointer with a `CycleTab` delta would need the CURRENT tab to
+    /// compute the step, putting tab arithmetic in the pointer handler as well as
+    /// on `LauncherTab` — the second copy the `CycleTab` arm warns about in as
+    /// many words. Clicking the tab you are already on must therefore be a no-op,
+    /// not a cycle away from it.
+    #[test]
+    fn clicking_the_tab_you_are_on_does_not_move_the_strip() {
+        let mut app = app_with_pointer(true);
+        app.world_mut()
+            .resource_mut::<bevy::ecs::message::Messages<ambition_menu::MenuTabActivated>>()
+            .write(ambition_menu::MenuTabActivated { index: 0 });
+        app.update();
+        let commands = drained(&mut app);
+        assert!(
+            !commands
+                .iter()
+                .any(|c| matches!(c, ShellLauncherCommand::CycleTab(_))),
+            "a click was answered with a CYCLE, so the strip steps from wherever \
+             the cursor happened to be instead of going where it was pointed"
+        );
+        assert!(
+            commands
+                .iter()
+                .any(|c| matches!(c, ShellLauncherCommand::SelectTab(0))),
+            "clicking the active tab published nothing at all"
+        );
     }
 
     fn drained(app: &mut App) -> Vec<ShellLauncherCommand> {

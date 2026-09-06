@@ -213,6 +213,24 @@ pub struct ShellPauseMenuPlugin;
 impl Plugin for ShellPauseMenuPlugin {
     fn build(&self, app: &mut App) {
         install_bevy_ui_menu_actions::<PauseEntry>(app);
+        // ⛔⛔ THE MENU THAT EDITS A SETTING MUST OWN THE SETTING, or it draws
+        // values it cannot change. `UserSettings` was inserted by exactly ONE
+        // place in the tree — `ambition_app`'s `init_sandbox_resources` — while
+        // THIS plugin is what any game installs to get a pause menu. So in the
+        // Sanic and Mary-O binaries the resource was ABSENT, and the audio rows:
+        //   * DISPLAYED plausible numbers, because the page falls back to
+        //     `unwrap_or_default()` for drawing;
+        //   * CHANGED NOTHING, because every adjust is gated on `Some(settings)`
+        //     and silently did nothing when it was `None`.
+        // ⇒ A row showing "Master Volume 85%" that cannot move is worse than an
+        // absent row: it looks like a broken mixer rather than a missing
+        // resource. Reported by Jon 2026-09-06: "in sanic pressing master volume
+        // or music volume does nothing."
+        //
+        // ⚠ `init_resource`, NOT `insert_resource`: a composition that already
+        // installed settings — or LOADED them from disk — must keep its own. This
+        // supplies the default only where nobody else did.
+        app.init_resource::<ambition_persistence::settings::UserSettings>();
         // The three rows a stray touch must not spend. `MenuTapMode`'s shipped
         // default guards exactly these and nothing else — Resume and the audio
         // rows stay one tap, because a guard on a reversible row is only a tax.
@@ -700,6 +718,32 @@ fn play(sfx: &mut SfxWriter, id: ambition_sfx::SfxId) {
 
 #[cfg(test)]
 mod tests {
+
+    /// ⛔⛔ THE PLUGIN SUPPLIES THE SETTINGS IT EDITS — Jon, 2026-09-06: "in sanic
+    /// pressing master volume or music volume does nothing."
+    ///
+    /// `UserSettings` was inserted by exactly one place in the tree,
+    /// `ambition_app`'s `init_sandbox_resources`, while THIS plugin is what any
+    /// game installs to get a pause menu. In the Sanic and Mary-O binaries the
+    /// resource was absent, so the audio rows DISPLAYED defaults (the page falls
+    /// back to `unwrap_or_default()` for drawing) and CHANGED NOTHING (every
+    /// adjust is gated on `Some(settings)`).
+    ///
+    /// ⭐ THE TWO HALVES DISAGREEING IS WHAT MADE IT LOOK LIKE A BROKEN MIXER
+    /// RATHER THAN A MISSING RESOURCE: draw tolerated the absence, edit did not.
+    #[test]
+    fn the_pause_menu_plugin_supplies_the_settings_it_edits() {
+        let mut app = App::new();
+        app.add_plugins(ShellPauseMenuPlugin);
+        assert!(
+            app.world()
+                .contains_resource::<ambition_persistence::settings::UserSettings>(),
+            "the pause menu draws audio rows but does not supply `UserSettings`, so \
+             in any composition that does not install it separately those rows show \
+             defaults and cannot be changed"
+        );
+    }
+
     use super::*;
     use ambition_input::MenuControlFrame;
 

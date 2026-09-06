@@ -112,6 +112,21 @@ impl LauncherTab {
 
     /// Cycle by `bump`, wrapping — the shared `MenuControlFrame` bumper
     /// contract, spelled the same way the kaleidoscope's tab strip spells it.
+    /// The tab at an exact index, clamped to the strip.
+    ///
+    /// ⭐ WHAT A CLICK MEANS, and it is a different act from cycling. `cycled`
+    /// answers "one step from where I am"; a pointer landing on a tab names the
+    /// tab and knows nothing about where the cursor was. The same distinction
+    /// `SelectRow` draws against `Previous`/`Next` one strip over.
+    ///
+    /// ⚠ Clamped rather than `Option`: the index comes from the rendered tab
+    /// strip, which is built FROM `ALL`, so an out-of-range value means the
+    /// renderer and this enum disagree — and falling back to the last real tab
+    /// is a better answer than dropping the only gesture a mouse has.
+    pub fn at_index(index: usize) -> Self {
+        Self::ALL[index.min(Self::ALL.len() - 1)]
+    }
+
     pub fn cycled(self, bump: i32) -> Self {
         let n = Self::ALL.len() as i32;
         let at = Self::ALL.iter().position(|t| *t == self).unwrap_or(0) as i32;
@@ -125,6 +140,21 @@ pub enum ShellLauncherCommand {
     Next,
     /// Cycle the tab strip. `-1` left, `+1` right; wraps.
     CycleTab(i32),
+    /// Put the strip on an EXACT tab — what clicking or tapping a tab means.
+    ///
+    /// ⛔⛔ THE TITLE SCREEN HAD NO POINTER ROAD TO ITS SETTINGS TAB AT ALL.
+    /// The renderer already draws tabs as real `Button`s and
+    /// `publish_bevy_ui_menu_tabs` already publishes `MenuTabActivated` — but its
+    /// ONLY consumer was the kaleidoscope menu, so a click on the shell's
+    /// Settings tab produced a message nobody read. Reported by Jon 2026-09-06:
+    /// *"in the title screen there is no way for me to select the settings menu.
+    /// I can't click, tap, nothing."*
+    ///
+    /// ⚠ Deliberately not expressed as a `CycleTab` delta: computing the delta
+    /// needs the CURRENT tab, which would put tab arithmetic in the pointer
+    /// handler as well as on `LauncherTab` — the second copy this command's
+    /// neighbour warns about in as many words.
+    SelectTab(usize),
     /// Put the cursor on an exact row — the settings tab's rows are a fixed
     /// list, so its cursor is computed by the caller rather than nudged.
     SelectRow(usize),

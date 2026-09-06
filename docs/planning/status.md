@@ -158,6 +158,31 @@ Immediate execution lives in [`queue.md`](queue.md). Standing deferred work live
 in [`tracks.md`](tracks.md). Focused plans own design details.
 
 
+## ✔✔ RECEIPT 2026-09-06 LATE — 6/6 jobs, lane `--rust`, at `cc4e523ed`, EXIT 0
+
+```text
+850.3s  ok    workspace (default features)
+206.1s  ok    acceptance: the render composition draws a frame
+ 57.4s  ok    repo tooling (scripts/tests; repo-coupled)
+ 23.7s  ok    web build check [web_served_assets]
+ 18.6s  ok    external consumer: outlander COMPILES against the umbrella
+ 11.6s  ok    workspace doctests
+```
+
+⭐ **Repo tooling is green now** — the eight held-item reds in the receipt below
+were this checker treating a STALE submodule checkout as renderer DRIFT; it asks
+the pin and skips honestly. And the workspace job carries
+`dive_drill_lunges_through_the_targets`, which failed deterministically earlier
+today until the fighter lane route-scoped `SmashLimitFill`.
+
+⚠ **THE OTHER TWO LANES, run separately, because `--rust` is not the gate:**
+`--maintenance` **5/5 ok** (agent index, agent KB, intra-doc links, zone names,
+vanished citations) — it had been RED all day on ten dangling `docs/archive`
+references and six vanished-name rows, in a lane no receipt had ever covered.
+`--tool-tests` **2/2 ok**. ⛔ Still not covered by any of the three: the
+compile-cost ratchet, which is the documented six findings with a standing ruling
+against re-freezing.
+
 ## ✔ RECEIPT 2026-09-06 — 5/6 jobs, lane `--rust`, at `e8bb682b1`
 
 ```text

@@ -15,6 +15,59 @@ construction work. ⛔ **the review also REFUSED the obvious version of it**, an
 that refusal is the first thing to read.
 
 
+## ⭐⭐ PREREQUISITE B — THE AUTHORITY, NAMED (2026-09-06)
+
+A review asks: *"Who owns transfer of control/custody between bodies? It should not
+be: mount owns one version; possession owns another; abilities happen to host the
+shared transition state."*
+
+⇒ **The STATE authority already exists and is correctly placed.**
+`ambition_platformer2d_shared_tangle::temporary_control::TemporaryControl` is a
+closed enum in the floor crate, carried across rewind by `SimId`, with exactly one
+variant per mechanism:
+
+```text
+Autonomous                      the body runs its own brain
+Player   { controller: SimId }  written by abilities::traversal::possession
+Mounted  { mount: SimId }       written by ambition_mount
+```
+
+⛔⛔ **WHAT IS UNOWNED IS THE TRANSITION, AND THAT IS THE WHOLE OF PREREQUISITE B.**
+Two crates each `insert` their own variant directly, and **both release paths clear
+to `Autonomous` unconditionally** — `possession.rs` on ending a possession,
+`ambition_mount` on dismount — with no arbiter and no check that the other
+mechanism has let go.
+
+| failure | mechanism |
+|---|---|
+| a body both mounted and possessed | last writer wins; the other claim is silently discarded |
+| releasing either one | sets `Autonomous` while the other claim is still live, so the body reverts to its own brain mid-ride or mid-possession |
+
+⭐⭐ **SO IT IS A PRIORITY-CLAIM PROBLEM WEARING AN ENUM — and this repo already
+has the pattern.** The music owner (`BOSS_MUSIC_OWNER` / `SCRIPT_MUSIC_OWNER`)
+claims with an owner and releases only what it still holds; a peer found the
+*identical* defect in the script half **on the same day** — a claim with no arbiter
+and a release arm that does not ask whether somebody else still wants it.
+
+⇒ **The named authority is a control-custody CLAIM, not a new component.** It owns
+`claim(owner, mode)` and `release(owner)` over the existing enum; `possession` and
+`ambition_mount` become consumers that never assign `TemporaryControl` themselves.
+⛔ The owner must be a **semantic identity** — `SimId` is already in both variants
+— never a Bevy `Entity`.
+
+⚠ **AND NO CURRENT TEST CAN FAIL ON THIS**, which is why it survived: every fixture
+exercises one mechanism at a time, and each is correct alone. The acceptance it
+owes is a **two-mechanism poison** — mount a body, possess it, release one, assert
+the other still holds — in the same shape the script-music row owes a two-script
+poison.
+
+⚠ **WHAT I HAVE NOT MEASURED:** whether a body can be mounted and possessed in a
+shipped composition today. Possession is exploration and the mount is the pirate
+admiral's shark; they may never co-occur. That question decides whether this is a
+live bug or a latent one, and it does **not** change the carve — the review's point
+is that these become independently composed crates, and an unowned transition
+between two of them cannot be composed at all.
+
 ## ⭐⭐ PREREQUISITE B, MEASURED 2026-09-06 — THE SIX QUESTIONS, ANSWERED FROM THE TREE
 
 The frontier marks control / possession / custody **DESIGN NEEDED** and the

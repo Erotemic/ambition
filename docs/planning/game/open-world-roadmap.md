@@ -14,6 +14,28 @@ it means traversal alone and the list above should say so. ⓘ It also bears on
 gate family is about CAPABILITY or about STATE — the answer changes what
 "acquire" can mean for the interaction half too.
 
+⭐⭐ **MEASURED 2026-09-06, AND IT MOVES THE QUESTION: NO AUTHORED GATE NAMES A
+BODY CAPABILITY AT ALL — neither half.** Across every shipped `.ldtk`, the entire
+authored condition surface is **six `gated_by` values, all of them the same quest
+flag** (`bob_field_survey_received`). Zero `body.can`, zero `body.fits`, zero of
+any other condition field. `sync_authored_gated_lock_walls` reads exactly that
+field, so the lock-wall road is the same six.
+
+⇒ **So the row is not under-tracking interaction relative to traversal; it is
+tracking a criterion the authored world does not yet exercise in EITHER half.**
+The capability vocabulary is real and publishable — `body.can` resolves,
+`AbilitySet::interact` is a field (`platformer2d_core/src/abilities.rs:157`,
+verified), and the gated-lock-wall machinery is built and tested — but no author
+has written a gate against it. ⚠ That is a CONTENT gap, not an engine one, and it
+is the kind that reads as an engine gap from a status row.
+
+⚠ **What this does NOT settle**: whether the milestone means "the player can
+ACQUIRE materially different capabilities" (they can — the dive, the blink and the
+portal gun are all authored pickups) or "the WORLD gates on them" (nothing does).
+Both readings survive the measurement, and the wording is the maintainer's to
+pick — but the choice is now between two things that have been counted rather than
+two that have not.
+
 **State:** OPEN — this is the flagship product direction, not a linear quest checklist.
 
 ## North star

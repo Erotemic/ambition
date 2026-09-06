@@ -2025,6 +2025,12 @@ rearm_bricks_for_a_fresh_attempt        clears a RESOURCE (BrokenBricks)
 rearm_power_blocks_for_a_fresh_attempt  clears a RESOURCE (SpentPowerBlocks)
 ```
 
+⚠ **The two mary_o names are HISTORICAL as of 2026-09-06** — they, and Sanic's
+`rearm_monitors_for_a_fresh_attempt`, are now three `AttemptScoped` impls behind
+one generic `rearm_attempt_scoped::<T>`. The distinction the table draws is
+unchanged and is the reason the collapse was safe: the resource half is a
+mechanical rule, the durable half is a judgement about progress the player kept.
+
 Neither mary_o system names `AmbitionGameSave` at all. ⇒ **Membership is three;
 durable retraction is still exactly one**, so the decision this row asks for is
 unaffected — but "the single cut-rope system" is now false as written, and a

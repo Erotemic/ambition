@@ -1212,14 +1212,11 @@ pub fn dress_power_blocks(
     }
 }
 
-/// Re-arm every power block when its room loads or replays.
-pub fn rearm_power_blocks_for_a_fresh_attempt(
-    // See `bricks::rearm_bricks_for_a_fresh_attempt`.
-    mut attempt: ambition_platformer2d::combat::events::FreshAttempt,
-    mut spent: ResMut<SpentPowerBlocks>,
-) {
-    if attempt.began() {
-        spent.rearm_all();
+/// Spent power blocks are per-attempt. See [`crate::bricks::BrokenBricks`] for
+/// why the scope is every room rather than a named one.
+impl ambition_platformer2d::actors::session::reset::AttemptScoped for SpentPowerBlocks {
+    fn rearm(&mut self) {
+        self.rearm_all();
     }
 }
 

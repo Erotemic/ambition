@@ -45,6 +45,61 @@ pub struct ContentDialogueFollowupSet;
 #[derive(SystemSet, Debug, Clone, PartialEq, Eq, Hash)]
 pub struct ContentRoomReplayResetSet;
 
+/// Per-attempt state a room rebuild CANNOT retract, and the one way to retract
+/// it.
+///
+/// ⭐⭐ THE RULE THAT CREATES THIS CLASS, measured 2026-09-05: an admitted replay
+/// records a transition back to the SAME room, and that rebuild despawns every
+/// `RoomScopedEntity`. So ENTITY-shaped per-attempt state is retracted FOR FREE
+/// — the entity is despawned and respawned whole. Nothing despawns a RESOURCE,
+/// so resource-shaped per-attempt state has to retract ITSELF. Every known
+/// instance is a resource feeding the collision overlay's `removed_block_names`.
+///
+/// ⛔⛔ AND THE OBVIOUS WRONG IMPLEMENTATION IS A SHIPPED, PLAYER-VISIBLE BUG.
+/// Sanic's `SpentMonitors` re-armed on `RoomLoaded` only, and Sanic declares
+/// `DeathRules::replay_level_after(0.0)`: a pit death replays the room IN PLACE
+/// and never emits a load. A monitor broken before the death stayed broken after
+/// the respawn and its grant was unreachable for the rest of the run. ⇒ this
+/// trait names WHAT to re-arm and WHICH ROOM it belongs to, and leaves the
+/// SIGNAL to [`rearm_attempt_scoped`], which asks
+/// [`FreshAttempt`](ambition_combat::events::FreshAttempt). An implementor has
+/// no way to spell "the load only", which is the whole defect.
+pub trait AttemptScoped: Resource<Mutability = bevy::ecs::component::Mutable> {
+    /// The room whose fresh attempt re-arms this, or `None` when ANY fresh
+    /// attempt does.
+    ///
+    /// `None` is the right answer for state that is per-attempt but not
+    /// per-room: you can only stand in one room, so any boundary re-arms
+    /// everything. Name a room when the state is authored in that room alone.
+    ///
+    /// ⚠ It filters the LOAD leg only. A replay is always in the room you are
+    /// in, so it re-arms whatever the constant says.
+    const ROOM: Option<&'static str> = None;
+
+    /// Return to the state a fresh attempt starts from.
+    fn rearm(&mut self);
+}
+
+/// Re-arm one [`AttemptScoped`] resource when a fresh attempt begins.
+///
+/// ⚠ REGISTER IT IN [`ContentRoomReplayResetSet`]: the host anchors that set
+/// BEFORE its generic replay consumer, so the re-arm lands the same frame the
+/// request does. The set is the slot; this function is what goes in it. Content
+/// still chooses the SCHEDULE and any mode gate, because those genuinely differ
+/// per demo — what must not differ is which signal counts as a fresh attempt.
+pub fn rearm_attempt_scoped<T: AttemptScoped>(
+    mut attempt: ambition_combat::events::FreshAttempt,
+    mut state: ResMut<T>,
+) {
+    let began = match T::ROOM {
+        Some(room) => attempt.began_in(room),
+        None => attempt.began(),
+    };
+    if began {
+        state.rearm();
+    }
+}
+
 /// ASK for the ACTIVE room to be replayed: the controlled body back at the room
 /// spawn, the room's scoped population rebuilt, progress outside the room
 /// untouched. CONTENT emits this (a "try again" beat, a challenge retry, a

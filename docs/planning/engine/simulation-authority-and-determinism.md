@@ -963,6 +963,65 @@ registration listing message types and a resource, not a system reading them. �
 There is no sibling missing a retraction, so a general durable-retraction
 mechanism would be architecture ahead of demand: N is genuinely 1.
 
+### ✔ The RESOURCE half is now a TYPE too — 2026-09-06
+
+The three re-arms above were three copies of one rule: *"if a fresh attempt
+began, clear my per-attempt resource."* Each spelled the signal itself, and one
+of them (Sanic's) spelled it WRONG and shipped. That rule now has one home,
+`session::reset::AttemptScoped` + `rearm_attempt_scoped::<T>`, next to the
+`ContentRoomReplayResetSet` slot it belongs in — the slot and the correct way to
+fill it in one place.
+
+⭐ **The implementor names WHAT and WHICH ROOM; it cannot name WHEN.** `rearm()`
+returns the state to its fresh value and `const ROOM` scopes the LOAD leg (a
+replay is always in the room you are in, so it is deliberately unfiltered). There
+is no way to write "the load only" — which was the entire Sanic defect — because
+the signal is not the implementor's to choose.
+
+⭐ MEASURED via `scripts/room_replay_reader_slots.py`, run in a detached
+worktree at the parent commit for BEFORE and in the tree for AFTER:
+
+```text
+                              before   after
+readers of RoomReplayAdmitted    11       9
+  engine                          4       5
+  content                         7       4
+  through FreshAttempt            4       2
+registration SITES                3       3
+```
+
+Three content systems became three trait impls and one engine-side generic —
+which is why engine goes UP by one as content goes down by three. The SITES stay
+at 3 because placement (schedule, mode gate) genuinely differs per demo and stays
+local; only the rule moved.
+
+⛔ **AND THE BEFORE NUMBER IN THIS ROW WAS STALE, which is why it was re-run
+rather than quoted.** The prose above says "the 10 non-test readers (4 engine, 6
+content)"; at the parent commit it is ELEVEN (4 engine, 7 content). The
+population grew after that sentence was written and nothing re-derived it. A
+diff computed from the remembered figure would have reported the wrong delta in
+both columns.
+
+⛔⛔ **AND THE POISON DID NOT FIRE THE FIRST TIME, WHICH WAS THE REAL FIND.**
+Replacing the `T::ROOM` branch with a bare `began()` left all 79 Sanic tests
+green: the room scope was a behavioural claim with NO test behind it, in the
+hand-written system just as much as in its replacement. Making the scope a
+`const` is what made it visible enough to ask about.
+`a_load_of_another_room_leaves_the_speedways_monitors_spent` now pins it, and the
+same poison reddens it.
+
+⛔⛔ **AND THE GUARD BUILT FOR THIS FAMILY WENT RED ON THE ABSTRACTION WINNING.**
+`check_reload_resets_also_answer_replay.py` floors on ADOPTERS of `FreshAttempt`
+— a presence, deliberately, because the population it used to count was
+legitimately emptied. But it counted PARAMETER declarations, and three of the
+four adopters stopped declaring one: they implement the trait, and the engine's
+generic asks on their behalf. ⇒ `only 2 call site(s), expected at least 4` on a
+change that spread the type. The floor now counts BOTH ROADS (2 direct + 3 impls
+= 5), poison-verified by dropping the second term.
+⭐ Worth keeping as a shape: **an adopter floor has to count every road to the
+abstraction, exactly as the reader census already had to** — the same lesson, one
+file over, arriving from the other direction.
+
 ⚠ **The other half stays open and is worth stating precisely**: state that is
 never cleared by ANY room signal is still invisible. This guard sees only systems
 that already answer the LOAD; a resource nothing resets at all matches no

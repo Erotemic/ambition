@@ -1955,8 +1955,8 @@ impl Plugin for MaryORulesPlugin {
         // consumer, so a death clears them the same frame the request lands. The cut-rope boss
         // reaches this slot the same way.
         let fresh_attempt = (
-            bricks::rearm_bricks_for_a_fresh_attempt,
-            powerups::rearm_power_blocks_for_a_fresh_attempt,
+            ambition_platformer2d::actors::session::reset::rearm_attempt_scoped::<bricks::BrokenBricks>,
+            ambition_platformer2d::actors::session::reset::rearm_attempt_scoped::<powerups::SpentPowerBlocks>,
         )
             .in_set(ambition_platformer2d::actors::session::reset::ContentRoomReplayResetSet);
         let brick_overlay = (

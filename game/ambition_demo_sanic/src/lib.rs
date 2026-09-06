@@ -1323,7 +1323,7 @@ impl Plugin for SanicRulesPlugin {
         // before its generic replay consumer -- a pit death replays the room in
         // place and never emits `RoomLoaded`, so a re-arm sitting in
         // `GameplayEffects` reading only that message never ran on a death.
-        let monitor_rearm = monitors::rearm_monitors_for_a_fresh_attempt
+        let monitor_rearm = ambition_platformer2d::actors::session::reset::rearm_attempt_scoped::<monitors::SpentMonitors>
             .in_set(ambition_platformer2d::actors::session::reset::ContentRoomReplayResetSet);
         let monitor_rules = (
             monitors::break_monitor_boxes,

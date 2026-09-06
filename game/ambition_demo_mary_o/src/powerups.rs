@@ -2761,41 +2761,59 @@ mod scale_fallback_tests {
     /// lookup returns `None` for that frame and the body keeps whatever box and
     /// quad it last had. The state that "varies" would then be WHICH ANIMATION IS
     /// PLAYING — walking off a ledge would change her size.
-    /// ⭐⭐ HER ART IS PLACED AGAINST ONE GENERIC RECTANGLE IN EVERY POSE, AND
-    /// THAT IS A MEASUREMENT RATHER THAN A READING — 2026-09-06.
+    /// ⭐⭐ THE GENERATOR MEASURES HER **STANCE** AND CALLS IT A POSE — measured
+    /// 2026-09-06, and corrected TWICE before it said this.
     ///
-    /// `pose_body_bbox` resolves a pose's OWN hurtbox and then falls back:
-    /// `.or(self.body_pixel_bbox)`. So `posed_body_geometry(...).is_some()` — the
-    /// thing the sibling guard below asserts — is satisfied by the SHEET-WIDE box,
-    /// and a sheet that publishes no per-pose metrics at all passes it.
+    /// `sync_sprite_posed_bodies` places her quad with `geometry.sprite_offset`,
+    /// whose job its own comment states as *"where does the frame go so the
+    /// POSE's rectangle lands on the box"*. Her per-pose frame offsets DO vary —
+    /// the art moves — while the body box does not, so the art is positioned
+    /// against a rectangle that only knows whether she is standing or crouching.
+    /// That is D-MARYO-SPRITE's mechanism: a misposition that changes with the
+    /// pose, over a collider that looks plausible because it comes from the same
+    /// box.
     ///
-    /// ⛔⛔ MEASURED, TEN POSES EACH: `player_robot_v3` resolves **10 distinct
-    /// boxes**, one per pose, which is what the system is for. All three of
-    /// Mary-O's sheets resolve **ONE** — Idle, Walk, Run, Jump, Fall, Slash, Hit,
-    /// Dash, LedgeGrab and Taunt every one of them the same rectangle. ⇒ Her
-    /// quad is positioned by a term (`geometry.sprite_offset`) whose whole job is
-    /// "where does the frame go so THIS POSE's rectangle lands on the box", and
-    /// for her there is no this-pose rectangle.
+    /// ⛔⛔ **TWO CORRECTIONS ARE BAKED INTO THIS TEST AND BOTH WERE MINE.**
+    /// * I first attributed it to `pose_body_bbox`'s `.or(self.body_pixel_bbox)`
+    ///   fallback. **Her per-pose entries are POPULATED**, so that `.or()` is
+    ///   never reached — read out of the authored `.ron` by a peer session rather
+    ///   than by re-running my probe. ⇒ Deleting or fail-louding the fallback
+    ///   would give no signal here at all.
+    /// * I then pinned all three sheets at ONE box. **`_tall` and `_fire` publish
+    ///   more** — a standing box and a crouch box. My population was locomotion
+    ///   plus combat and contained **no crouch pose**, which is the only pose
+    ///   that separates them. ⇒ `mary_o_v2` reads 1 because every one of its
+    ///   poses, crouch included, is the same 56x84 — the small form is already
+    ///   short — not because it is differently broken.
     ///
-    /// ⇒ **This is the mechanism D-MARYO-SPRITE was missing, and it is an ASSET
-    /// gap rather than a placement bug** — which is why every code road in that
-    /// row was ruled out one at a time. The collider is derived from the same
-    /// fallback, so it looks plausible while the art does not sit on it.
+    /// ⚠ **A WIDENED POPULATION THAT FINDS NOTHING IS ONLY AS GOOD AS THE AXIS IT
+    /// WAS WIDENED ALONG.** I went from five locomotion poses to nine by adding
+    /// combat, it found nothing, and the pose that would have found something was
+    /// outside both sets.
     ///
-    /// ⚠ A CHARACTERIZATION TEST WITH A STATED EXIT. It pins the defect so it
-    /// cannot be lost, and the robot arm is the POSITIVE CONTROL proving the
-    /// per-pose road works at all. **When her sheets gain per-pose hurtboxes this
-    /// goes red, and that is the signal to close D-MARYO-SPRITE** — update the
-    /// expectation in the same commit that regenerates the sheet.
+    /// ⚠ **AND DISTINCTNESS VARIES BY TIER** — `player_robot_v3` reads 27 / 83 /
+    /// 92 / 95 across potato / 0_25x / 0_5x / 1x, because low tiers quantise
+    /// boxes together. So a bare distinctness number is meaningless without its
+    /// tier. This test reads whatever `record_for_sheet_key` resolves in THIS
+    /// composition; it asserts a PARTITION rather than a magnitude for exactly
+    /// that reason, and the partition is tier-independent.
+    ///
+    /// ⇒ **The exit: when the generator measures per POSE, the standing set stops
+    /// sharing one box and this goes red. That is the signal to close
+    /// D-MARYO-SPRITE**, and the fix is a sheet regeneration inside the submodule
+    /// Q65 holds.
     #[test]
-    fn mary_o_has_no_per_pose_body_metrics_and_the_robot_does() {
+    fn her_body_box_tracks_her_stance_and_not_her_pose() {
         use ambition_platformer2d::sprite_sheet::character::CharacterAnim;
-        let poses = [
+        let standing = [
             CharacterAnim::Idle, CharacterAnim::Walk, CharacterAnim::Run,
             CharacterAnim::Jump, CharacterAnim::Fall, CharacterAnim::Slash,
             CharacterAnim::Hit, CharacterAnim::Dash, CharacterAnim::LedgeGrab,
         ];
-        let distinct = |target: &str| -> usize {
+        let crouching = [
+            CharacterAnim::Crouch, CharacterAnim::CrouchWalk, CharacterAnim::CrouchJump,
+        ];
+        let boxes = |target: &str, poses: &[CharacterAnim]| -> std::collections::BTreeSet<String> {
             poses
                 .iter()
                 .filter_map(|anim| {
@@ -2804,15 +2822,16 @@ mod scale_fallback_tests {
                     )
                 })
                 .map(|g| format!("{:?}|{:?}", g.collision, g.sprite_offset))
-                .collect::<std::collections::BTreeSet<_>>()
-                .len()
+                .collect()
         };
 
-        // ⭐ THE POSITIVE CONTROL FIRST. Without it, the assertions below pass
-        // just as well against a `posed_body_geometry` that returned a constant.
+        // ⭐ THE POSITIVE CONTROL FIRST. Without it every assertion below passes
+        // against a probe that returns a constant — which is not hypothetical:
+        // poisoning the map to a constant string reddens THIS line and nothing
+        // else would have caught it.
         assert!(
-            distinct("player_robot_v3") > 1,
-            "the robot's sheet publishes per-pose hurtboxes; if this is 1 the \
+            boxes("player_robot_v3", &standing).len() > 1,
+            "the robot measures its standing poses apart; if this collapses the \
              probe is broken rather than Mary-O being fixed",
         );
 
@@ -2822,12 +2841,34 @@ mod scale_fallback_tests {
             super::FIRE_SHEET_TARGET,
         ] {
             assert_eq!(
-                distinct(target),
+                boxes(target, &standing).len(),
                 1,
-                "`{target}` now resolves more than one box across poses — her \
-                 sheet has gained per-pose hurtboxes, which is the fix \
-                 D-MARYO-SPRITE is waiting for. Update this expectation in the \
-                 commit that regenerates the sheet.",
+                "`{target}` now measures its STANDING poses apart — the generator \
+                 has started measuring pose rather than stance, which is the fix \
+                 D-MARYO-SPRITE waits for. Update this expectation in the commit \
+                 that regenerates the sheet.",
+            );
+        }
+
+        // ⛔ AND THE CROUCH IS THE AXIS IT DOES MEASURE, which is what makes
+        // "stance, not pose" a statement rather than a guess: the tall and fire
+        // forms carry a crouch box DISJOINT from the standing one.
+        //
+        // ⚠ ASSERTS DISJOINTNESS, NOT A COUNT. Measured: `_tall` publishes exactly
+        // one crouch box (56x84), and `_fire` publishes TWO because its
+        // `CrouchJump` is 56x85 — one pixel taller than its other two crouch
+        // poses. That single pixel is the only per-POSE measurement anywhere in
+        // her three sheets, and it is far too small to be the report; pinning a
+        // count here would pin that pixel and fail on any re-render that rounded
+        // differently.
+        for target in [super::TALL_SHEET_TARGET, super::FIRE_SHEET_TARGET] {
+            let crouched = boxes(target, &crouching);
+            let stood = boxes(target, &standing);
+            assert!(!crouched.is_empty(), "`{target}` publishes crouch poses");
+            assert!(
+                crouched.is_disjoint(&stood),
+                "`{target}`'s crouch box equals its standing box, so not even \
+                 stance is being measured",
             );
         }
     }

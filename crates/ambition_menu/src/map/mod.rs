@@ -142,6 +142,13 @@ impl bevy::prelude::Plugin for MapStatePlugin {
                 //
                 // ⇒ MOVING AN INSTALL MOVES ITS POPULATION, and a system's params
                 // are a claim about the composition it runs in.
+                //
+                // ✔ THE OTHER TWO WERE CHECKED THE SAME WAY rather than trusted to
+                // a green suite: `map_menu_pointer_dismiss` and `sync_map_menu`
+                // need only `MapMenuState` -- which this plugin supplies itself --
+                // plus queries, and a query that matches nothing is an empty
+                // iteration rather than a panic. The hotkey was the only one
+                // reaching outside the plugin's own resources.
                 input::handle_map_menu_hotkeys
                     .run_if(bevy::prelude::resource_exists::<bevy::input::ButtonInput<bevy::prelude::KeyCode>>),
                 pointer::map_menu_pointer_dismiss,

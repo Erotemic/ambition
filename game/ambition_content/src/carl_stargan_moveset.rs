@@ -18,7 +18,7 @@ use ambition_characters::smash_repertoire::{
 use ambition_platformer2d::entity_catalog::{ImpulseMode, MoveSpec, MovesetContract, WindowTag};
 
 use ambition_characters::moveset_authoring::{
-    committed_tail, impulse, on_contact, strike, strike_tag, vfx_at, vfx_cued,
+    committed_tail, impulse, on_contact, strike, strike_tag, tipper, vfx_at, vfx_cued, Tip,
 };
 
 /// Burst sizes, as multiples of the presentation default. See
@@ -444,25 +444,60 @@ pub fn carl_stargan_moveset() -> MovesetContract {
     );
     let up_b = on_contact(up_b, "player.hit");
 
-    // DOWN — `pale_blue_dot`. A pixel, at distance. The SMALLEST box in the
-    // table on the end of the second-longest reach: it hits almost nothing, and
-    // it hits it from over there.
+    // DOWN — `pale_blue_dot`. A pixel, at distance.
+    //
+    // ⭐⭐ THE NAME IS THE MECHANIC AND THE MOVE DID NOT CARRY IT. Voyager turned
+    // round past Neptune and Earth was one pixel; the whole point of the
+    // photograph is the DISTANCE, not the dot. This was authored as a single 7×7
+    // box at 62px — the smallest box in the table on the second-longest reach —
+    // which reads the idea in the numbers and says nothing in play, because one
+    // volume cannot be strong somewhere and weak somewhere else. It was one of
+    // the roster's 13 specials carrying no mechanic at all.
+    //
+    // ⇒ A TIPPER, so the distance is the read. Up close he sweeps the ground and
+    // it is a poke; at the very end of the reach the pixel is a kill. Same
+    // button, and where you are standing decides which move it was.
+    //
+    // ⛔ THE NEAR HALF IS NEW AND IT IS A COST, not a free addition: the old
+    // version whiffed entirely inside 55px, and a player who mistimed their
+    // spacing got nothing rather than a weak hit. Now they get 7 and no launch,
+    // which is worse for them than a whiff at neutral — a landed sourspot ends
+    // the exchange without the reward, and Carl is left in his 0.32s recovery
+    // having earned almost nothing.
     let down_b = strike(Strike {
         id: "pale_blue_dot",
         clip: "pale_blue_dot",
         startup_s: 0.24,
         active_s: 0.07,
         recover_s: 0.32,
-        offset: (62.0, -2.0),
-        half_extents: (7.0, 7.0),
-        damage: 12,
-        knockback: 116.0,
-        knockback_growth: 1.90,
+        // The base: the ground he is actually standing on, which is the part of
+        // the photograph nobody frames.
+        offset: (44.0, -2.0),
+        half_extents: (20.0, 10.0),
+        damage: 7,
+        knockback: 92.0,
+        knockback_growth: 1.42,
         launch_dir: Some((0.6, -0.80)),
         on_hit: None,
     });
+    // ⭐ THE PIXEL, ranked first so it wins wherever both reach. `tipper` inserts
+    // at index 0 and the strike seam takes the first-authored volume that
+    // reaches — see its doc for why appending would silently invert the move.
+    let down_b = tipper(
+        down_b,
+        Tip {
+            offset: (66.0, -2.0),
+            half_extents: (7.0, 7.0),
+            damage: 14,
+            knockback: 132.0,
+            knockback_growth: Some(2.05),
+            launch_dir: Some((0.6, -0.80)),
+        },
+    );
     let down_b = strike_tag(down_b, SLASH_POKE_VFX);
-    let down_b = vfx_at(down_b, 0.24, "pale_blue_dot_ping", (62.0, -2.0), POKE_FX);
+    // The ping is the dot, so it draws where the dot is rather than where the
+    // sweep is.
+    let down_b = vfx_at(down_b, 0.24, "pale_blue_dot_ping", (66.0, -2.0), POKE_FX);
     let down_b = on_contact(down_b, "player.hit");
 
     // effect on ground. Think of bowser down b. In the air he just does a
@@ -693,6 +728,52 @@ mod tests {
             .find(|m| m.id == id)
             .unwrap_or_else(|| panic!("{id} exists"))
             .clone()
+    }
+
+    /// ⭐⭐ THE PIXEL IS THE KILL, AND ITS RANK IS THE MECHANIC.
+    ///
+    /// `pale_blue_dot` is a tipper: one Active window carrying two volumes, with
+    /// the far one written FIRST. `StrikeRank` is the move's own reading order
+    /// and the strike seam takes *"the FIRST-AUTHORED volume that reaches it and
+    /// no other"* — so a body standing where both boxes reach is hit by whichever
+    /// appears first in the source.
+    ///
+    /// ⛔⛔ THIS ASSERTS THE ORDER, NOT THE PRESENCE, and the distinction is the
+    /// whole test. Appending the tip instead of inserting it leaves a move that
+    /// reads correctly in this file and plays backwards: the near sourspot would
+    /// outrank the pixel and win every exchange where both reach, so spacing —
+    /// the entire point of the move — would be punished instead of rewarded. A
+    /// test that only counted two volumes passes against exactly that.
+    #[test]
+    fn the_pale_blue_dot_kills_at_the_pixel_and_pokes_up_close() {
+        let dot = find(&carl_stargan_moveset(), "pale_blue_dot");
+        let window = dot
+            .windows
+            .iter()
+            .find(|w| w.tag == WindowTag::Active && !w.volumes.is_empty())
+            .expect("the dot has an active window");
+        assert_eq!(
+            window.volumes.len(),
+            2,
+            "the dot is a sweetspot and a sourspot: {:?}",
+            window.volumes.len()
+        );
+        let tip = &window.volumes[0];
+        let base = &window.volumes[1];
+        assert!(
+            tip.shape.leading_edge_x() > base.shape.leading_edge_x(),
+            "rank 0 must be the FAR volume, or spacing is punished rather than \
+             rewarded: tip reaches {}, base reaches {}",
+            tip.shape.leading_edge_x(),
+            base.shape.leading_edge_x(),
+        );
+        assert!(
+            tip.damage > base.damage,
+            "the pixel must hit harder than the ground he is standing on: \
+             tip {} vs base {}",
+            tip.damage,
+            base.damage,
+        );
     }
 
     // Fourteen fighters each carried a copy of it: every bound verb names a move

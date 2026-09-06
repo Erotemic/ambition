@@ -27,10 +27,10 @@ use ambition_characters::smash_capture::{
 use ambition_characters::smash_repertoire::{
     DownSpecial, NeutralSpecial, SmashRepertoire, UpSpecial,
 };
-use ambition_platformer2d::entity_catalog::{ImpulseMode, MovesetContract};
+use ambition_platformer2d::entity_catalog::{AutolinkVolume, ImpulseMode, MovesetContract};
 
 use ambition_characters::moveset_authoring::{
-    committed_tail, impulse, on_contact, sfx, strike, vfx_at,
+    committed_tail, impulse, multihit, on_contact, sfx, strike, vfx_at, Pulse,
 };
 
 /// How big a cipher's burst draws.
@@ -415,6 +415,45 @@ pub fn alice_moveset() -> MovesetContract {
         launch_dir: Some((0.75, -0.62)),
         on_hit: None,
     });
+    // ⭐⭐ TWO INPUTS, ONE OUTPUT — AUTHORED, NOT JUST NAMED. A hash collision is
+    // distinct inputs landing on the same digest, and the move was a single
+    // sweep: the comment above says "two inputs, one output" and the timeline
+    // said one hit. It was one of the roster's 13 specials carrying no mechanic.
+    //
+    // ⇒ TWO holding pulses and then the launch. The count is the name's: two
+    // things arrive, and what leaves is one. The pulses hold with
+    // `VolumeReaction::Autolink`, which is the genre's rule for a multi-hit —
+    // intermediate hits keep the victim inside the next box and only the last
+    // one sends anything anywhere.
+    //
+    // ⛔ THE ANCHOR'S x IS ZERO, for the reason Bob's rig states: the hold point
+    // is mirrored by facing, and this move is symmetric about her. A non-zero x
+    // would make a floor sweep either side of her depend on which way she
+    // happened to be looking.
+    let down_b = multihit(
+        down_b,
+        2,
+        Pulse {
+            // Tighter than the sweep that finishes it: the collision happens at
+            // the digest, not across the whole domain.
+            offset: (0.0, 16.0),
+            half_extents: (28.0, 12.0),
+            damage: 2,
+            // ⛔ SEPARATED. Touching windows are one hit wearing two windows'
+            // timing — the runtime's re-hit rule refuses a second hit across a
+            // contiguous track.
+            active_s: 0.030,
+            gap_s: 0.028,
+            autolink: AutolinkVolume {
+                anchor: (0.0, 6.0),
+                // She is planted for it, so there is no motion of her own to
+                // hand on and the hold is entirely the correction's.
+                carry: 0.0,
+                pull: 19.0,
+                max_speed: 900.0,
+            },
+        },
+    );
     let down_b = committed_tail(down_b, 0.62, 0.0);
     let down_b = vfx_at(down_b, 0.15, "magic_seal_break", (0.0, 16.0), SEAL_FX);
     let down_b = on_contact(down_b, "player.hit");
@@ -563,6 +602,60 @@ pub fn alice_moveset() -> MovesetContract {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// ⭐⭐ TWO INPUTS, ONE OUTPUT — AS AN ASSERTION RATHER THAN AS A COMMENT.
+    ///
+    /// `hash_collision` holds twice and launches once. The holds are
+    /// `VolumeReaction::Autolink`, which keeps the victim inside the next box;
+    /// the finisher carries no reaction at all, which is what makes it the thing
+    /// that sends them anywhere.
+    ///
+    /// ⛔ THE SEPARATION IS LOAD-BEARING, NOT SPACING. The move runtime's re-hit
+    /// rule refuses a second hit across a CONTIGUOUS track, so pulses whose
+    /// windows touch land exactly once — a move that looks like a multi-hit in
+    /// this file and is a single weak poke in play. Asserting a gap between them
+    /// is the only way that failure is visible from here.
+    #[test]
+    fn her_hash_collision_holds_twice_and_launches_once() {
+        use ambition_platformer2d::entity_catalog::VolumeReaction;
+        let collision = alice_moveset()
+            .move_by_id("hash_collision")
+            .expect("hash_collision exists")
+            .clone();
+        let striking: Vec<_> = collision
+            .windows
+            .iter()
+            .filter(|w| !w.volumes.is_empty())
+            .collect();
+        assert_eq!(
+            striking.len(),
+            3,
+            "two inputs and one output: {} striking window(s)",
+            striking.len()
+        );
+        for (index, window) in striking[..2].iter().enumerate() {
+            assert!(
+                window
+                    .volumes
+                    .iter()
+                    .all(|v| matches!(v.reaction, Some(VolumeReaction::Autolink(_)))),
+                "input {index} must HOLD, or the finisher swings at nobody"
+            );
+        }
+        assert!(
+            striking[2].volumes.iter().all(|v| v.reaction.is_none()),
+            "the output must launch: a held finisher is a move that never lets go"
+        );
+        for pair in striking.windows(2) {
+            assert!(
+                pair[0].end_s < pair[1].start_s,
+                "the windows must be SEPARATED or the runtime lands one hit: \
+                 {} then {}",
+                pair[0].end_s,
+                pair[1].start_s,
+            );
+        }
+    }
 
     // Fourteen fighters each carried a copy of it: every bound verb names a move
     // this table defines, and the table binds the whole vocabulary. Both are now

@@ -291,12 +291,20 @@ pub struct BodyCombat {
     /// off `ActorControl` because `apply_post_hit_input_gates` blanks the
     /// derived input while this is positive).
     ///
-    /// ⛔ WHAT IS STILL MISSING IS THE POSE, and it is the half a PLAYER sees:
-    /// a slept fighter stands exactly like one in shieldstun, in landing lag or
-    /// in a recoil lock, so in a 1v1 neither player can tell which of the five
-    /// causes is holding them. That is a presentation row and it is not
-    /// expressible as a timer in a `max` — which is the sentence this comment
-    /// has always been making, now about one thing instead of two.
+    /// ⛔ WHAT IS STILL MISSING IS THE POSE, and it is the half a PLAYER sees.
+    /// ⚠ MEASURED RATHER THAN COUNTED OFF THIS `max`, because my first draft
+    /// said "five causes, one silhouette" — a count of the SIM causes folded
+    /// here, offered as a claim about presentation. **Three** of them lack a
+    /// player-visible fact: this one, `landing_lag_timer` (published only to
+    /// `combat_geometry_view`, a debugger's read-model) and `recoil_lock_timer`
+    /// (which reaches presentation only as `LaunchedBodyFact::launch_beat_secs`,
+    /// a field OF the launch row, so it cannot answer for a body that is not
+    /// launched). Shieldstun has a shield flare, a guard break has a
+    /// `GuardBreakBeat`, and launch/hitstun share one published fact.
+    /// ⇒ So a slept fighter stands like one in landing lag or a recoil lock, and
+    /// a 1v1 cannot tell those three apart. That is a presentation row and it is
+    /// not expressible as a timer in a `max` — which is the sentence this
+    /// comment has always been making, now about one thing instead of two.
     ///
     /// `0.0` for every body nothing has put to sleep, which is all of them
     /// until a move says otherwise.

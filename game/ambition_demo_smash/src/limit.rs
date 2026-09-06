@@ -77,6 +77,7 @@ pub fn fill_limit_meters(
     rule: Option<Res<SmashLimitFill>>,
     time: Res<ambition_platformer2d::time::WorldTime>,
     mut hits: MessageReader<ambition_platformer2d::combat::hitbox::ResolvedBodyHit>,
+    mut blocks: MessageReader<ambition_platformer2d::combat::hitbox::BlockedBodyHit>,
     mut meters: Query<&mut ae::BodyMana>,
 ) {
     let Some(rule) = rule else {
@@ -142,6 +143,27 @@ pub fn fill_limit_meters(
                     mana.meter.refill(fill.dealt(hit.damage));
                 }
             }
+        }
+    }
+
+    // ⭐⭐ A SUCCESSFUL BLOCK PAYS THE FIGHTER WHO BLOCKED, and until 2026-09-06
+    // it paid nobody. `BlockedBodyHit` was read in exactly one place — to arm an
+    // `OnBlock` cancel on the ATTACKER — so the defender's half of a defensive
+    // exchange had no consequence at all.
+    //
+    // ⛔ THE DEFENDER ONLY, NEVER THE ATTACKER, and this is the one arm that
+    // needs saying. The loop above pays an attacker through `dealt()` for damage
+    // they actually did; a blocked strike did none. Paying them here would mean
+    // throwing attacks INTO a shield charges your own meter, which rewards the
+    // pressure this source exists to make costly.
+    //
+    // ⚠ AND NOT GATED ON KNOWING THE ATTACKER. `BlockedBodyHit::attacker` is an
+    // `Option` because a hazard has no striker — but the guard still ate it, and
+    // a fighter who blocks a stage spike blocked something. The defender is the
+    // half this road always knows.
+    for block in blocks.read() {
+        if let Ok(mut mana) = meters.get_mut(block.victim) {
+            mana.meter.refill(fill.blocked());
         }
     }
 }

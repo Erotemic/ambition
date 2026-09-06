@@ -73,6 +73,26 @@ silently re-points every page that cited the original.
 
     grep -oE '^### [0-9]+\.' awaiting-maintainer-decision.md | tr -d '#. ' | sort -n | tail -1
 
+
+## ⊙ Q70 — what is a successful BLOCK worth on the Limit meter? (2026-09-06)
+
+⭐ **THE SHAPE IS ALREADY YOUR RULING; ONLY THE NUMBER IS MINE.** You said *"make
+sure the meter doesn't push future uses of it into a box"*, so `LimitMeterFill`
+is a set of independent sources each of which may be zero. A successful block was
+the one defensive outcome with no source at all — it deals no damage, so it
+writes no `ResolvedBodyHit` and every existing source reads zero.
+
+⇒ Shipped as `on_block: 1.0` in `JONS_BASELINE`, beside `on_damage_dealt: 1.0`
+and `on_damage_taken: 2.0`. **One good block is worth one landed hit and half of
+eating one.** Zero turns the source off entirely and is a legitimate setting.
+
+⚠ **ONE CONSTRAINT IS A RULE RATHER THAN TASTE AND IS ALREADY GUARDED**: it must
+stay BELOW `on_damage_taken`, or a fighter maximises the meter by blocking and
+taking damage stops being a cost. `guarding_is_the_safe_option` refuses the
+inversion and the shipped baseline is asserted against it, so any number you pick
+under 2.0 needs no other change.
+
+
 ## Open decisions
 
 ### ~~50. May a fighter leave the frame, or must the camera always contain the cast?~~ (WITHDRAWN 2026-09-04 — the premise was false; compressed 2026-09-05)

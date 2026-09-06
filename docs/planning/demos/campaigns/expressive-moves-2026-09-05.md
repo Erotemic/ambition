@@ -435,6 +435,51 @@ seated before planting, and the SECOND seated before concluding anything
 survived — without those, "the object is still there" is equally true of a world
 where no match ever started.
 
+### ⛔ MEASURED DEFECT (2026-09-06): a stock loss WIPES the Limit
+
+Found by `probe_how_long_the_limit_takes`, a print-only probe written to answer a
+different question — *does a real match ever reach a move priced at the whole
+cap?* It does: **first full at tick 911, 15.2 s**, so the goblin's dive is
+reachable. But the same trace shows the charge falling to zero twice.
+
+```
+seat 0 charge FALLS (2 of them):
+  tick 2080 (34.7s): 100.0 -> 0.0   same entity (reset in place)
+  tick 4110 (68.5s): 100.0 -> 0.0   same entity (reset in place)
+peak meter reached: 100.0            ⛔ the cap is 60
+```
+
+**The sequence, measured rather than guessed.** A dead fighter is respawned into
+the SAME entity — the probe compares entity ids and reports "reset in place" —
+and `body_clusters::reset_body_clusters` writes `*clusters.mana =
+BodyMana::default()`, which is a **100-point pool at FULL**. It cannot know the
+ruleset's cap. On the next tick `fill_limit_meters` sees `max != cap`, adopts 60,
+and zeroes `current`.
+
+⇒ **Two facts fall out, and only the second is a judgement call.**
+
+**1. A one-tick window above the cap.** At tick 2079 seat 0 read `100.0 with max
+100.0` — more than the 60 a Limit move costs. Whether anything can spend during
+respawn is a separate question, but the state is reachable.
+
+**2. LOSING A STOCK DESTROYS THE CHARGE, and that inverts the stated design.**
+Jon's baseline fills roughly twice as fast from damage TAKEN as from damage
+DEALT — recorded on `LimitMeterFill` as *"what makes it a comeback meter rather
+than a snowball"*. A player who falls behind loses the comeback tool at the
+moment they earned it.
+
+⭐ **The fix needs per-SEAT memory, because the body is reset in place and the
+seat is what persists.** `MatchSeat` is already the durable name. The shape: the
+ruleset restores a seat's charge on adoption instead of zeroing it, which means a
+charge store that survives the frames where a fighter is dead — real state, so a
+registration and a schema bump.
+
+⚠ **NOT BUILT, because the ruling is Jon's**: should a Limit survive death? Both
+answers are defensible and the code currently answers "no" by accident rather
+than by decision. ⓘ The probe is committed and `#[ignore]`d, so the evidence is
+re-runnable: `--test smash_it -- --ignored probe_how_long_the_limit_takes
+--nocapture`.
+
 ### ▢ NEW ROW (Jon, 2026-09-05): a minimap when the camera zooms out
 
 > *"Also thinking about the off the stage issue with the camera. In smash if the

@@ -19,6 +19,7 @@
 //! ⇒ So this one composes the REAL demo app and asks the meter.
 
 use ambition_demo_smash_app::build_demo_app;
+use ambition_platformer2d::actor::MatchSeat;
 use ambition_platformer2d::engine_core::BodyMana;
 use bevy::prelude::*;
 
@@ -149,6 +150,121 @@ fn the_platformers_mana_regen_does_not_reach_a_fighters_limit() {
          attacks — does not also fill an authored Limit. Jon's 60-point meter is \
          written to take 120 s of clock; with the leak it fills in about four."
     );
+}
+
+/// ⭐ PROBE, PRINT-ONLY: does a real match ever REACH the Limit?
+///
+/// The goblin's dive is priced at `cap` — 60, the whole meter — which is what
+/// makes "usable when it fills" a number rather than a mechanism. But a price
+/// nobody can pay inside a match is a move that does not exist, and nothing has
+/// measured the fill against a match's actual LENGTH.
+///
+/// Jon's baseline: 0.5/s of clock (120 s to fill on the clock ALONE), plus 1.0
+/// and 0.1x per damage instance DEALT and 2.0 and 0.2x per instance TAKEN. Three
+/// stocks. So the answer depends entirely on how much damage a real match trades,
+/// which is not a number anybody has written down.
+///
+/// ⚠ NOT AN ASSERTION. What "reachable enough" means is Jon's call, and a
+/// threshold invented here would be a balance ruling smuggled in as a test. This
+/// prints what happened and stops.
+///
+/// Run: `--test smash_it -- --ignored probe_how_long_the_limit_takes --nocapture`
+#[test]
+#[ignore = "PROBE, print-only: how long a real match takes to fill the Limit"]
+fn probe_how_long_the_limit_takes() {
+    const WINDOW: usize = 5_400;
+    let mut app = a_live_match(None);
+
+    let cap = app
+        .world()
+        .get_resource::<ambition_demo_smash::limit::SmashLimitFill>()
+        .map(|fill| fill.0.cap)
+        .unwrap_or(0.0);
+
+    let mut peak = 0.0f32;
+    let mut first_full: Option<usize> = None;
+    // Seat 0's charge, sampled every tick, so a WIPE is visible as a fall that
+    // no spend explains.
+    let mut seat0_prev = 0.0f32;
+    let mut seat0_entity: Option<Entity> = None;
+    let mut drops: Vec<(usize, f32, f32, bool)> = Vec::new();
+    for tick in 0..WINDOW {
+        app.update();
+        let (highest, seated) = meters(&mut app);
+        if seated == 0 {
+            println!("[limit-probe] the cast left the world at tick {tick}");
+            break;
+        }
+        if highest > peak {
+            peak = highest;
+            if highest > cap {
+                // ⛔ ABOVE THE CAP IS NOT SUPPOSED TO HAPPEN. Report WHO and what
+                // their meter's own max says, because "current above cap" and
+                // "this body was never adopted" look identical from the outside.
+                let world = app.world_mut();
+                let mut q = world.query::<(
+                    &ambition_platformer2d::engine_core::BodyMana,
+                    Option<&MatchSeat>,
+                )>();
+                for (mana, seat) in q.iter(world) {
+                    if mana.meter.current > cap {
+                        println!(
+                            "[limit-probe] tick {tick}: seat {:?} reads {:.1} with max {:.1}",
+                            seat.map(|s| s.0),
+                            mana.meter.current,
+                            mana.meter.max
+                        );
+                    }
+                }
+            }
+        }
+        if first_full.is_none() && cap > 0.0 && highest >= cap {
+            first_full = Some(tick);
+        }
+        {
+            let world = app.world_mut();
+            let mut q = world.query::<(
+                Entity,
+                &ambition_platformer2d::engine_core::BodyMana,
+                &MatchSeat,
+            )>();
+            if let Some((entity, mana, _)) = q.iter(world).find(|(_, _, seat)| seat.0 == 0) {
+                let now = mana.meter.current;
+                // ⛔ THE DISCRIMINATOR: did the ENTITY change? A new entity means
+                // the fighter was respawned fresh; the same entity means
+                // something RESET the meter in place. The fix differs.
+                let new_body = seat0_entity.is_some_and(|was| was != entity);
+                if seat0_prev - now > 1.0 {
+                    drops.push((tick, seat0_prev, now, new_body));
+                }
+                seat0_entity = Some(entity);
+                seat0_prev = now;
+            }
+        }
+    }
+
+    let secs = |ticks: usize| ticks as f32 / 60.0;
+    println!("[limit-probe] seat 0 charge FALLS ({} of them):", drops.len());
+    for (tick, before, after, new_body) in drops.iter().take(8) {
+        println!(
+            "[limit-probe]   tick {tick} ({:.1}s): {before:.1} -> {after:.1}  {}",
+            secs(*tick),
+            if *new_body { "NEW ENTITY (respawned fresh)" } else { "same entity (reset in place)" }
+        );
+    }
+    println!("[limit-probe] cap {cap}, window {WINDOW} ticks ({:.1}s)", secs(WINDOW));
+    println!("[limit-probe] peak meter reached: {peak:.1}");
+    match first_full {
+        Some(tick) => println!(
+            "[limit-probe] first full at tick {tick} ({:.1}s) — the dive is reachable",
+            secs(tick)
+        ),
+        None => println!(
+            "[limit-probe] NEVER filled in {:.1}s. On the clock alone 60 points takes 120s, so \
+             whether this is a problem depends on how long a stock match runs.",
+            secs(WINDOW)
+        ),
+    }
 }
 
 /// ⛔⛔ WHAT SMASH DECLARES, SMASH GIVES BACK — and composing it declares nothing.

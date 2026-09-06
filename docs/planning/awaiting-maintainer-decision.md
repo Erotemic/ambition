@@ -1769,6 +1769,21 @@ what a body IS ABLE to do. One does; the other asks what it happens to be doing
 this frame — and because the wall is contributed per frame, a `body.fits` gate
 opens while the player crouches and closes when they stand.
 
+⭐⭐ **AND NEITHER IS AUTHORED ANYWHERE — MEASURED 2026-09-06, which makes this
+ruling cheap while it stays that way.** Across every shipped `.ldtk`, the entire
+authored condition surface is **six `gated_by` values and all six are the same
+QUEST FLAG** (`bob_field_survey_received`), on six `LockWall` entities in two
+`intro.ldtk` rooms. **Zero `body.can`, zero `body.fits`, zero of any other
+condition field.**
+
+⇒ **So no content has to change whichever way this falls.** The two conditions
+are published, resolvable and tested; nothing authored consults either. A ruling
+today renames, merges, splits or deletes a vocabulary with no customers — and the
+same ruling after the first authored capability gate has to migrate one.
+⚠ Note what that does NOT say: the gated-lock-wall MACHINERY is live and has six
+customers, so this is not a dormant cluster to delete. What is absent is any gate
+whose condition names a body capability rather than a quest flag.
+
 ⭐ **Only one of them serves the product criterion.**
 [`../planning/game/open-world-roadmap.md`](game/open-world-roadmap.md)'s
 *"acquire materially different traversal capabilities"* means a door that opens

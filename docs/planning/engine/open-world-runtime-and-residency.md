@@ -248,13 +248,32 @@ out. The cycle is not a stray reference, it is the shape.
 ⛔ **AND THE MODULE IS NOT SESSION-LOCAL — that is the actual finding.** References
 to `lifecycle_commit` from OUTSIDE it:
 
-| dependent | refs |
-| --- | --- |
-| `world` | 13 |
-| `shrine` | 7 |
-| `snapshot_impls` | 7 |
-| `session` (its own parent) | 6 |
-| `rollback_registration` | 2 |
+| dependent | PRODUCTION refs | in tests |
+| --- | --- | --- |
+| `snapshot_impls` | 7 | 0 |
+| `shrine` | 6 | 7 |
+| `session` (its own parent) | 4 | 2 |
+| `world` | 3 | 10 |
+| `rollback_registration` | 2 | 0 |
+| **total** | **22** | **19** |
+
+⛔⛔ **RE-DERIVED 2026-09-06 AND THE TABLE HAD TO BE SPLIT — the headline was the
+wrong way round.** It listed `world` as the heaviest dependent at 13. Three of
+those are production; **ten are in its tests**. `snapshot_impls`, listed joint
+second, is the heaviest PRODUCTION dependent and has no test references at all.
+⇒ For a CARVE the production column is the cost — test references move with the
+tests they live in — so the sizing this row exists to hand the next attempt was
+overstated for `world` by 4× and understated for `snapshot_impls` relative to it.
+
+⭐ **The prose above already had the right number and the table disagreed with
+it**: *"the three `world → session` references are all in
+`world/rooms/systems.rs`"* — three, not thirteen. One row, two counts of the same
+thing, and the table is the one a planner reads.
+⚠ And `shrine` is BOTH a file and a directory (`shrine.rs` 6 production,
+`shrine/tests.rs` 7), which is how a per-module tally silently merges them. My
+first re-count said "shrine nearly doubled, 7 → 13"; `shrine.rs` has not changed
+since the epoch. **A different number is a different INSTRUMENT until proven
+otherwise.**
 
 plus two crates beyond the monolith entirely —
 `ambition_platformer2d_rollback_ggrs` (which carries its OWN `lifecycle_commit.rs`)

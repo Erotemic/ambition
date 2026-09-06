@@ -81,7 +81,7 @@ def report_the_authoring_verbs() -> None:
     ⛔⛔ A TECHNIQUE COUNT IS NOT AN AUTHORING SURFACE. Everything above measures
     what it costs to reach for a keyed technique — but most of what a move IS
     gets written with verbs that are not techniques at all: `multihit`, `gust`,
-    `tipper`, `invuln`, `armor`, `committed_tail`, `cancelable`. A reader asking
+    `tipper`, `wake`, `invuln`, `armor`, `committed_tail`, `cancelable`. A reader asking
     "what can I author?" got half an answer, and the half it got was the smaller
     one.
 

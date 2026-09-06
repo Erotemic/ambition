@@ -201,6 +201,41 @@ pub fn active_start(m: &MoveSpec) -> f32 {
 
 /// A CANCEL WINDOW. The timeline IS the cancel table, so a combo route is
 /// authored here and nowhere else.
+/// The refusal the three window-pushing verbs share.
+///
+/// ⭐⭐ ONE CONSTRAINT ON THE SHAPE, NOT THREE COPIES ON THREE VERBS — and it was
+/// on exactly one of them until 2026-09-06. [`armor`], [`invuln`] and
+/// [`cancelable`] are the same move: each takes `(spec, start_s, end_s, …)` and
+/// pushes a window carrying no volumes, whose entire content is its TAG and its
+/// bounds. `armor` refused a window that never opens; the other two accepted one
+/// in silence.
+///
+/// ⛔ AND THIS FAMILY IS THE ONE MOST PRONE TO IT, because an empty window has
+/// nothing else about it that could look wrong. A strike with a bad time draws in
+/// the wrong place and somebody sees it; a zero-width armour window is invisible
+/// in the source, invisible on screen, and shows up only as trades the move
+/// looked like it should win and did not.
+///
+/// ⇒ A constraint filed on the first case that suffered it is a constraint the
+/// second and third cases never read.
+///
+/// # Panics
+///
+/// If the window would never be open.
+pub(crate) fn refuse_a_window_that_never_opens(
+    id: &str,
+    start_s: f32,
+    end_s: f32,
+    what: &str,
+    consequence: &str,
+) {
+    assert!(
+        end_s > start_s,
+        "{what} on `{id}` runs {start_s}s..{end_s}s, which is never open — and a \
+         window that never opens is invisible in play: {consequence}",
+    );
+}
+
 pub fn cancelable(
     mut m: MoveSpec,
     start_s: f32,
@@ -208,6 +243,13 @@ pub fn cancelable(
     into: &[&str],
     condition: CancelCondition,
 ) -> MoveSpec {
+    refuse_a_window_that_never_opens(
+        &m.id,
+        start_s,
+        end_s,
+        "a cancel window",
+        "the follow-up the move advertises can never actually be taken",
+    );
     m.windows.push(MoveWindow {
         start_s,
         end_s,
@@ -230,6 +272,13 @@ pub fn cancelable(
 /// by hand. `project_move_defense_windows` has consumed the tag for a while;
 /// this is the other end of it.
 pub fn invuln(mut m: MoveSpec, start_s: f32, end_s: f32) -> MoveSpec {
+    refuse_a_window_that_never_opens(
+        &m.id,
+        start_s,
+        end_s,
+        "an invulnerable window",
+        "the move simply takes hits it looked like it should pass through",
+    );
     m.windows.push(MoveWindow {
         start_s,
         end_s,
@@ -256,12 +305,12 @@ pub fn invuln(mut m: MoveSpec, start_s: f32, end_s: f32) -> MoveSpec {
 /// against one big hit, where i-frames do the opposite — which is why a fighter
 /// wants both words and not a switch between them.
 pub fn armor(mut m: MoveSpec, start_s: f32, end_s: f32) -> MoveSpec {
-    assert!(
-        end_s > start_s,
-        "armor window on `{}` runs {start_s}s..{end_s}s, which is never open — \
-         and an armour window that never opens is invisible in play: the move \
-         simply loses trades it looked like it should win",
-        m.id,
+    refuse_a_window_that_never_opens(
+        &m.id,
+        start_s,
+        end_s,
+        "an armour window",
+        "the move simply loses trades it looked like it should win",
     );
     m.windows.push(MoveWindow {
         start_s,
@@ -1032,6 +1081,107 @@ mod multihit_tests {
 /// ⇒ A verb's invariant belongs where the verb lives. A customer can be
 /// re-authored, re-tuned or deleted, and the day it is, the mechanic it was
 /// silently holding up goes with it.
+#[cfg(test)]
+mod refusal_tests {
+    //! ⭐⭐ THE `# Panics` SECTIONS NOBODY HAD EVER REACHED.
+    //!
+    //! Measured 2026-09-06 across this module: 19 of 23 verbs had no test in
+    //! their own crate, and three carried a documented `assert!` that no test
+    //! has ever run. A promise in a `# Panics` section is a specification, and an
+    //! unreached one is prose.
+    //!
+    //! ⛔ Not ceremony: `tipper` shipped the same morning with its one
+    //! load-bearing decision held only by an authored fighter in ANOTHER crate,
+    //! and that surfaced only because a poison reddened `ambition_content` while
+    //! `-p ambition_characters tipper` matched zero tests.
+    //!
+    //! ⭐ POISONED PER ENTRY PATH, 2026-09-06, because a shared helper called from
+    //! three sites is a ONE-ROAD guard wearing three coats unless each road is
+    //! poisoned alone. Removing the refusal from `armor` reddens only
+    //! `armour_that_never_opens_is_refused`; from `invuln`, only
+    //! `i_frames_that_never_open_are_refused`; from `cancelable`, only
+    //! `a_cancel_window_that_never_opens_is_refused`. And making the helper refuse
+    //! EVERYTHING reddens only `all_three_accept_a_window_that_opens` — which is
+    //! why that positive control is here: three `should_panic` tests with no
+    //! positive control pass just as well against three verbs that always panic.
+    use super::*;
+
+    #[test]
+    #[should_panic(expected = "never open")]
+    fn armour_that_never_opens_is_refused() {
+        let _ = armor(taunt("test_armor_window", 0.5), 0.20, 0.20);
+    }
+
+    /// The twin, and the reason the refusal moved to a shared helper: `invuln`
+    /// accepted a never-open window until 2026-09-06 because the constraint had
+    /// been filed on `armor` alone.
+    #[test]
+    #[should_panic(expected = "never open")]
+    fn i_frames_that_never_open_are_refused() {
+        let _ = invuln(taunt("test_invuln_window", 0.5), 0.30, 0.10);
+    }
+
+    /// The third of the same shape.
+    #[test]
+    #[should_panic(expected = "never open")]
+    fn a_cancel_window_that_never_opens_is_refused() {
+        let _ = cancelable(
+            taunt("test_cancel_window", 0.5),
+            0.20,
+            0.20,
+            &["special"],
+            CancelCondition::OnHit,
+        );
+    }
+
+    /// ⛔ AND ALL THREE STILL ACCEPT AN ORDINARY WINDOW, so the refusals above are
+    /// about the bound rather than about the verbs having been broken by the
+    /// extraction. A `should_panic` trio with no positive control passes just as
+    /// well against three verbs that panic unconditionally.
+    #[test]
+    fn all_three_accept_a_window_that_opens() {
+        use ambition_entity_catalog::WindowTag;
+        let armoured = armor(taunt("test_armor_ok", 0.5), 0.05, 0.20);
+        let invulnerable = invuln(taunt("test_invuln_ok", 0.5), 0.05, 0.20);
+        let cancelling = cancelable(
+            taunt("test_cancel_ok", 0.5),
+            0.05,
+            0.20,
+            &["special"],
+            CancelCondition::OnHit,
+        );
+        assert!(armoured.windows.iter().any(|w| w.tag == WindowTag::Armor));
+        assert!(invulnerable.windows.iter().any(|w| w.tag == WindowTag::Invuln));
+        assert!(cancelling
+            .windows
+            .iter()
+            .any(|w| matches!(w.tag, WindowTag::Cancelable { .. })));
+    }
+
+    #[test]
+    #[should_panic(expected = "commits at")]
+    fn a_special_that_commits_after_it_ends_is_refused() {
+        let _ = hitless_special("test_commit", "attack", 0.9, 0.4);
+    }
+
+    #[test]
+    #[should_panic(expected = "nothing visible to anybody")]
+    fn a_gust_that_does_not_shove_is_refused() {
+        let _ = gust(Gust {
+            id: "test_gust",
+            clip: "attack_side",
+            startup_s: 0.20,
+            active_s: 0.30,
+            recover_s: 0.30,
+            offset: (30.0, 0.0),
+            half_extents: (30.0, 22.0),
+            push: 0.0,
+            push_dir: (1.0, -0.2),
+            sustained: true,
+        });
+    }
+}
+
 #[cfg(test)]
 mod wake_tests {
     use super::*;

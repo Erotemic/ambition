@@ -273,6 +273,9 @@ fn report_body_against_sprite(
         &Sprite,
         Has<ambition_platformer2d::platformer::lifecycle::PlayerVisual>,
         Option<&ambition_platformer2d::platformer::lifecycle::PresentationOf>,
+        // The ANCHOR, because size and anchor arrive together from the trimmed
+        // basis and only one of them can be checked against the box by eye.
+        Option<&bevy::sprite::Anchor>,
     )>,
     // ⭐ WHICH BRANCH `sync_visuals` TOOK. `authored_render` and `authored_offset`
     // are both gated on one `sheet_authored_body` flag, so they are Some together
@@ -309,13 +312,14 @@ fn report_body_against_sprite(
     // EVERY drawable, with its markers — because "the player's sprite" turned out
     // to name more than one entity, and a diagnostic that reports `single()` hides
     // exactly that.
-    for (entity, transform, sprite, visual, presented) in &drawn {
+    for (entity, transform, sprite, visual, presented, anchor) in &drawn {
         let t = transform.translation();
         eprintln!(
-            "[align]   {entity:?} xy=({:.2},{:.2}) quad={:?} player_visual={} presentation_of={:?}",
+            "[align]   {entity:?} xy=({:.2},{:.2}) quad={:?} anchor={:?} player_visual={} presentation_of={:?}",
             t.x,
             t.y,
             sprite.custom_size,
+            anchor.map(|a| a.0),
             visual,
             presented.map(|p| p.0),
         );

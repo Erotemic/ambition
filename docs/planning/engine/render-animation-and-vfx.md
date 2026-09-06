@@ -1099,19 +1099,26 @@ packed sheet from flashing at the full logical size."* So for a trimmed sheet th
 ANIMATOR is the authority on size and anchor, and `sync_visuals`' `authored_render`
 / `authored_offset` pair is a second authority for the same placement.
 
-⛔⛔ **AND THE OFFSET IS ELIMINATED BY EXPERIMENT, NOT BY ARGUMENT.** Suppressed it
-(`pose.authored_offset.filter(|_| animator.is_none())`), rebuilt, re-photographed:
-**she floats exactly as before, unmoved.** A 19.8-unit correction that is genuinely
-applied cannot be removed with no visible change. ⇒ **The offset never reaches the
-screen** — `sync_visuals` writes `transform.translation` and something later
-rewrites it — so it is not the cause, and the "two frames of reference" story is
-wrong about WHICH half is broken.
+✔ **AND A CONTROLLED A/B CONFIRMS THE OFFSET IS THE CAUSE.** Pinned her with
+`--at 150,350` so both runs share one body position (150, 400), and suppressed
+`authored_offset`:
 
-⇒ **THAT LEAVES THE ANIMATOR'S ANCHOR, which is the other thing `animate_player`
-writes** (`anchor.0 = anchor_v` from `current_render()`). Size and anchor arrive
-together from the trimmed basis; the size is demonstrably right (24×32.76 matches
-her 21.33×32 box), so the anchor is where the vertical error lives. **That is now
-the one remaining suspect rather than one of several.**
+| `authored_offset` | drawn `transform.y` |
+|---|---|
+| suppressed | **−16.00** |
+| applied | **+3.81** |
+
+**Difference 19.81 — exactly the offset.** With it suppressed she sits at
+`−16.00` with a centre anchor and a 32.76 quad against a 32.00 box: **centred on
+her own body.** With it applied she is 19.81 units higher, which on a 32-unit body
+is 62% of her height — the float, in numbers.
+
+⛔ **I FIRST ELIMINATED THE OFFSET AND WAS WRONG.** The earlier check compared two
+PHOTOGRAPHS taken after different `--walk` counts, so the camera and her position
+differed between them and a 19.81-unit shift was invisible against everything else
+that moved. ⇒ **A/B ON A PICTURE REQUIRES PINNING EVERY OTHER VARIABLE**, and `--at`
+existed for exactly that the whole time. The numbers were unambiguous the moment
+one input varied instead of three.
 
 ⇒ **THE FIX SHAPE: one writer owns size+anchor+offset together.** Where the animator
 owns the first two, it must own the third, or `sync_visuals` must not apply a

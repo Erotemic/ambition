@@ -63,9 +63,39 @@ def _run(capsys, **kwargs):
     return code, capsys.readouterr().out
 
 
+def _why(code, out):
+    """The assertion message, with the PRECONDITION checked before the subject.
+
+    ⛔⛔ THESE TESTS INHERIT A PRECONDITION THEY ARE NOT ABOUT, AND THE FAILURE
+    TEXT POINTED AWAY FROM IT. `run_tests.run` aborts when `free_gb_on_target()`
+    is under `MIN_FREE_GB`; the probe job then returns non-zero, `assert code == 0`
+    fires, and the captured output printed alongside it is the PREVIOUS case's cap
+    line — so the failure reads as a cap leaking between tests. The fighter lane
+    hit this at 39.0 GB against a 40.0 floor and spent the diagnosis before
+    finding the disk.
+    ⇒ Ask the precondition first and say so, so the next person does not go
+    looking at cap logic for a full disk.
+    """
+    # ⚠ Through `run_tests`, which imported them: this module does not, and the
+    # first version referenced them bare. The suite still passed 6/6, because the
+    # branch only runs on a full disk — a `NameError` hiding behind an untaken
+    # path, in the very helper written to make a rare path legible.
+    free_gb = run_tests.free_gb_on_target()
+    if free_gb < run_tests.MIN_FREE_GB:
+        return (
+            f"run_tests ABORTED on disk headroom, not on caps: "
+            f"{free_gb:.1f} GB free on {run_tests.target_dir()} against a "
+            f"{run_tests.MIN_FREE_GB:.0f} "
+            "GB floor.\n  This test is not about disk; free space and re-run "
+            "(`scripts/clean_workspace_crates.sh`, or sweep `debug/incremental`).\n"
+            f"  Captured output follows and may be a PREVIOUS case's:\n{out}"
+        )
+    return out
+
+
 def test_a_cap_reaches_the_child_for_both_compile_and_test_threads(capsys):
     code, out = _run(capsys, job_limit=5)
-    assert code == 0, out
+    assert code == 0, _why(code, out)
     assert "CAP 5 5 5" in out, (
         "the cap did not reach the child; an argv-only cap would look like this"
     )
@@ -75,7 +105,7 @@ def test_without_the_flag_nothing_is_capped(capsys):
     """⚠ The default must stay 'every core'. A cap that leaked in unasked would
     silently halve everyone's suite and read as a machine getting slower."""
     code, out = _run(capsys)
-    assert code == 0, out
+    assert code == 0, _why(code, out)
     assert "CAP None None None" in out, out
 
 

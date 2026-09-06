@@ -723,7 +723,7 @@ pub fn commit_ready_room_transition_system(
     };
     let room_set_active = room_set.active;
     let target_still_matches = room_set.rooms.get(active.target_room).is_some_and(|room| {
-        room.id == active.target_room_id
+        room.id == active.target_room_id()
             && active
                 .construction_plan
                 .as_ref()
@@ -742,7 +742,7 @@ pub fn commit_ready_room_transition_system(
             active.session_scope,
             active.source_room_id,
             active.source_room,
-            active.target_room_id,
+            active.target_room_id(),
             content_epoch.get(),
             current_session,
             room_set_active,
@@ -770,7 +770,7 @@ pub fn commit_ready_room_transition_system(
         return;
     };
     if construction_plan.target_index() != active.target_room
-        || construction_plan.room_id() != active.target_room_id
+        || construction_plan.room_id() != active.target_room_id()
     {
         super::loading::fail_room_transition_commit_precondition(
             &mut transition_state,
@@ -782,7 +782,7 @@ pub fn commit_ready_room_transition_system(
                 construction_plan.id().as_str(),
                 construction_plan.room_id(),
                 construction_plan.target_index(),
-                active.target_room_id,
+                active.target_room_id(),
                 active.target_room,
             ),
         );

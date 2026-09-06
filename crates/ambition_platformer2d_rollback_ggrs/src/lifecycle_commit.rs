@@ -517,7 +517,6 @@ mod tests {
             session_scope: None,
             source_room: 0,
             source_room_id: "a".to_string(),
-            target_room_id: intent.target_room().to_string(),
             target_room: 1,
             intent,
             construction_plan: None,

@@ -465,7 +465,7 @@ fn drive_room_transition_presentation(
              slowly than the deadline allows. Undrawn: {:?}",
             active_snapshot.sequence,
             active_snapshot.source_room_id,
-            active_snapshot.target_room_id,
+            active_snapshot.target_room_id(),
             since_commit.as_secs_f64() * 1000.0,
             unclaimed.ids().collect::<Vec<_>>(),
         );
@@ -487,7 +487,7 @@ fn drive_room_transition_presentation(
         RoomTransitionTimingSample {
             sequence: active_snapshot.sequence,
             source_room: active_snapshot.source_room_id.clone(),
-            target_room: active_snapshot.target_room_id.clone(),
+            target_room: active_snapshot.target_room_id().to_string(),
             construction_preflight: active_snapshot.construction_preflight_duration,
             asset_manifest_build: active_snapshot.asset_manifest_duration,
             asset_wait: active_snapshot

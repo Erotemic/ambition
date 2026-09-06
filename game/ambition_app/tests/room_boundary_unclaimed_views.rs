@@ -281,7 +281,7 @@ fn transaction_report(app: &mut App) -> String {
              assets_complete={} asset_progress={:?} plan={} committed_at={:?}",
             active.sequence,
             active.source_room_id,
-            active.target_room_id,
+            active.target_room_id(),
             active.phase,
             active.failure,
             active.cover_required,

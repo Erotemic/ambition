@@ -115,10 +115,34 @@ impl RoomSet {
         links
     }
 
+    /// A room is found by its AUTHORED ID and by nothing else.
+    ///
+    /// ⛔⛔ THIS ALSO MATCHED `room.world.name`, WHICH IS A DISPLAY TITLE, NOT A
+    /// NAME. The LDtk converter builds it as
+    /// `format!("Ambition: {}", area_id.replace('_', " "))`, so EVERY authored
+    /// room has a `world.name` that differs from its `id` — `lab_genesis` is
+    /// titled `Ambition: lab genesis`. The alias therefore was not a synonym
+    /// kept for convenience: it made a room's human-facing caption a second,
+    /// equally authoritative way to name it, and a title is a string a
+    /// non-programmer edits.
+    ///
+    /// ⭐ THE POINT IS NOT THE LOOKUP, IT IS WHAT A SECOND NAME COSTS ITS
+    /// READERS. `same_destination` — the room transition dedup key — compares
+    /// two intents with `intent.target_room() == intent.target_room()`, raw. Two
+    /// intents naming ONE room, one by id and one by title, read as two
+    /// destinations and open TWO transactions into it, which is the exact defect
+    /// that key's own comment records having already been fixed once. With one
+    /// name per room that comparison cannot be wrong.
+    ///
+    /// ⚠ MEASURED BEFORE REMOVAL, not assumed: the alias half was exercised by
+    /// NO test. A positive control (this function returning `None` always) fells
+    /// 4 tests, so the function is genuinely covered; making it exact fells
+    /// none. Every documented `--start-room` value is an id (`goblin_encounter`,
+    /// `hall_of_characters`). It dated to git epoch 1, when a world's name
+    /// plausibly WAS its id — the converter's title format arrived later and
+    /// turned a synonym into an alias behind it.
     pub fn room_index_by_id(&self, id: &str) -> Option<usize> {
-        self.rooms
-            .iter()
-            .position(|room| room.id == id || room.world.name == id)
+        self.rooms.iter().position(|room| room.id == id)
     }
 
     /// ⚠ `#[must_use]`: FALSE MEANS THE START ROOM WAS NOT SET, and a caller that
@@ -436,5 +460,61 @@ impl RoomSet {
             }
         }
         warnings
+    }
+}
+
+#[cfg(test)]
+mod room_identity_tests {
+    use super::*;
+
+    /// The authored id is a room's ONLY name; its display title is not a second
+    /// one.
+    ///
+    /// ⚠ THE TITLE HERE IS NOT INVENTED — it is spelled exactly as
+    /// `ambition_platformer2d_ldtk`'s converter builds it,
+    /// `format!("Ambition: {}", area_id.replace('_', " "))`, so this test's
+    /// subject is the string every authored room actually carries. That crate
+    /// depends on this one, so the format cannot be imported; if it ever
+    /// changes, what this test loses is its REALISM, not its meaning, and the
+    /// first assertion below is what says so out loud.
+    ///
+    /// ⭐ THE GAP, NOT THE FIX: the removed alias let a room be found by its
+    /// caption, which made the room-transition dedup key
+    /// (`same_destination`, comparing two intents' raw `target_room()`) read one
+    /// room named two ways as two destinations. This asserts the caption does
+    /// NOT resolve, so re-adding the alias reddens here rather than surfacing as
+    /// a double transition three crates away.
+    #[test]
+    fn a_rooms_display_title_is_not_a_second_name_for_it() {
+        let id = "lab_genesis";
+        let title = format!("Ambition: {}", id.replace('_', " "));
+        // Anti-vacuity: if these were equal the rest would pass for the wrong
+        // reason, and the converter's format is exactly what keeps them apart.
+        assert_ne!(
+            id, title,
+            "the converter's title format no longer differs from the id, so this \
+             test would prove nothing"
+        );
+
+        let world = ae::World::new(
+            title.clone(),
+            ae::Vec2::new(320.0, 240.0),
+            ae::Vec2::new(16.0, 16.0),
+            Vec::new(),
+        );
+        let rooms = vec![RoomSpec::new(id, world)];
+        let set = RoomSet::from_parts(id, rooms, Vec::new());
+
+        assert_eq!(
+            set.room_index_by_id(id),
+            Some(0),
+            "a room must still resolve by its authored id"
+        );
+        assert_eq!(
+            set.room_index_by_id(&title),
+            None,
+            "a room's display title resolved as its id: the second name is back, \
+             and `same_destination` can now read one room as two destinations"
+        );
     }
 }

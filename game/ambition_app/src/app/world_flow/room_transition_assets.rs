@@ -1087,7 +1087,7 @@ pub(crate) fn contribute_room_transition_assets_system(
             target: "ambition_platformer2d::room_transition",
             "room '{}': {} character(s) beyond the per-frame ration have no global \
              CharacterLoadDemand to be handed to; they will load when their actors spawn",
-            active.target_room_id,
+            active.target_room_id(),
             remainder.tokens.len(),
         );
     }
@@ -1128,7 +1128,7 @@ pub(crate) fn contribute_room_transition_assets_system(
     if !readiness.failed.is_empty() {
         let detail = format!(
             "room '{}' failed to load {} activation-critical asset(s): {}",
-            active.target_room_id,
+            active.target_room_id(),
             readiness.failed.len(),
             readiness.failed.join(", "),
         );
@@ -1237,7 +1237,7 @@ pub(crate) fn poll_room_transition_asset_readiness_system(
     if !readiness.failed.is_empty() {
         let detail = format!(
             "room '{}' failed to load {} activation-critical asset(s): {}",
-            active.target_room_id,
+            active.target_room_id(),
             readiness.failed.len(),
             readiness.failed.join(", "),
         );
@@ -1301,7 +1301,7 @@ pub(crate) fn poll_room_transition_asset_readiness_system(
         .unwrap_or_default();
     if active.asset_stall_report.is_none() && stalled_for >= ASSET_READINESS_STALL_REPORT {
         let report = asset_stall_report(
-            &active.target_room_id,
+            active.target_room_id(),
             stalled_for,
             &readiness.pending,
             readiness.total,

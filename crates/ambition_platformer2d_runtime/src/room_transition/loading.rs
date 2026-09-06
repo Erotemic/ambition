@@ -140,7 +140,6 @@ pub struct ActiveRoomTransitionLoad {
     pub session_scope: Option<ambition_platformer2d_shared_tangle::lifecycle::SessionScopeId>,
     pub source_room: usize,
     pub source_room_id: String,
-    pub target_room_id: String,
     /// The destination's INDEX in the live `RoomSet`, resolved once from
     /// [`Self::intent`]'s authored room id. Host-side only — the intent names the
     /// room by id because it is rollback state and an index is not stable across
@@ -203,6 +202,22 @@ pub struct ActiveRoomTransitionLoad {
 }
 
 impl ActiveRoomTransitionLoad {
+    /// The destination room's authored id.
+    ///
+    /// ⭐ DERIVED, NOT STORED, and that is the point. This was a `String` field
+    /// sitting beside `intent`, set once from `intent.target_room()` — one fact
+    /// in two places on ONE struct, held in agreement by nothing but the
+    /// constructor happening to be its only writer. Nothing enforced that, and a
+    /// second writer would have been invisible.
+    ///
+    /// ⚠ IT IS NOT A CACHE. Sibling `target_room` (the `usize` index) IS one and
+    /// stays a field: resolving it needs the live `RoomSet`, which this has no
+    /// access to. The id needs nothing — the intent is right there — so storing
+    /// it bought a copy and no lookup.
+    pub fn target_room_id(&self) -> &str {
+        self.intent.target_room()
+    }
+
     /// Record settled asset progress and restart the stall clock only when the
     /// progress key changes. All writers use this method so progress and its
     /// timestamp cannot diverge.
@@ -603,7 +618,7 @@ pub fn begin_room_transition_load_system(
                 (
                     active.sequence,
                     active.source_room_id.clone(),
-                    active.target_room_id.clone(),
+                    active.target_room_id().to_string(),
                     active.barrier.load_id.clone(),
                 )
             });
@@ -746,10 +761,14 @@ pub fn begin_room_transition_load_system(
         // state and an index is not stable across a content reload. Resolving it
         // is this transaction's first job — and its first way to fail.
         let target_index = room_set.room_index_by_id(intent.target_room());
-        let target_label = target_index
-            .and_then(|index| room_set.rooms.get(index))
-            .map(|room| room.id.clone())
-            .unwrap_or_else(|| intent.target_room().to_string());
+        // ⭐ THE INTENT'S OWN ID IS THE LABEL, and that is now a fact rather than
+        // a coincidence. This used to resolve the index and read `rooms[i].id`
+        // back out, falling back to the intent — a round trip that CANONICALISED,
+        // because the lookup also accepted a room's display title. It matches the
+        // authored id and nothing else now (`RoomSet::room_index_by_id`), so both
+        // branches produced this string and the round trip only hid that a room
+        // could arrive here under a second name.
+        let target_label = intent.target_room().to_string();
         let load_id = LoadId::new(format!(
             "room-transition:{sequence}:{source_room_id}->{target_label}"
         ));
@@ -858,7 +877,6 @@ pub fn begin_room_transition_load_system(
             session_scope: current_session,
             source_room,
             source_room_id,
-            target_room_id: target_label,
             target_room: target_index.unwrap_or(usize::MAX),
             intent: intent.clone(),
             construction_plan: None,
@@ -1324,7 +1342,6 @@ mod tests {
             session_scope: None,
             source_room: 0,
             source_room_id: "a".to_string(),
-            target_room_id: "b".to_string(),
             target_room: 1,
             intent: request("b"),
             construction_plan: None,
@@ -1458,7 +1475,6 @@ mod tests {
             session_scope: None,
             source_room: 0,
             source_room_id: "a".to_string(),
-            target_room_id: "b".to_string(),
             target_room: 1,
             intent: request("b"),
             construction_plan: None,

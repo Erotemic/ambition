@@ -159,6 +159,68 @@ fn two_voices_spawn_two_different_strike_sounds() {
     );
 }
 
+/// ⭐⭐ THE CUT IS BODY-LOCAL, WHICH MEANS BOTH ITS REACH AND ITS SHAPE ROTATE
+/// WITH THE FIGHTER'S FRAME.
+///
+/// ⛔⛔ NEITHER DID, AND NO EXISTING TEST IN THIS FILE COULD SEE IT: every other
+/// fixture leaves `ResolvedMotionFrame::default()` installed, where the body
+/// frame and the world axes agree and an un-rotated offset is indistinguishable
+/// from a body-local one. `riposte.rs` built `Vec2::new(facing * reach, 0.0)`
+/// and handed it, with raw `half_extents`, to `spawn_body_strike`, which stores
+/// them as a `FollowOwner` offset — owner position PLUS that vector, never
+/// rotated. The authored path (`place_body_local_volume`) rotates BOTH through
+/// `AccelerationFrame::to_world` / `to_world_half`.
+///
+/// ⚠ THREE VICTIMS, EACH REFUTING A DIFFERENT WRONG ANSWER, because a fix that
+/// rotates the centre and forgets the extents is the likely partial:
+///
+/// | victim | reached when |
+/// |---|---|
+/// | `in_front` | the OFFSET is rotated (any fix at all) |
+/// | `beside` | it is NOT — this is where the shipped bug cut |
+/// | `past_the_tip` | the EXTENTS are rotated too, so the blade is long |
+///
+/// The frame is a 90° one, so `to_world_half` is exact (it swaps 30×16 for
+/// 16×30) rather than the bounding over-approximation an off-axis frame gets.
+#[test]
+fn the_cut_lands_body_local_when_the_frame_is_rotated() {
+    let mut app = app();
+    let defender = fighter(&mut app, 0, ae::Vec2::new(100.0, 100.0), 1.0);
+    // Normal gravity here is down=(0,1) — this world's y grows toward the feet.
+    // Turning down to +x turns her side axis, which is `to_world`'s x, to -y.
+    {
+        let rotated = ae::MotionFrame::from_direction(ae::Vec2::new(1.0, 0.0), 0.0);
+        let mut defender_mut = app.world_mut().entity_mut(defender);
+        let mut frame = defender_mut
+            .get_mut::<ambition_platformer2d::world::ResolvedMotionFrame>()
+            .expect("the fixture gives every fighter a frame");
+        frame.publish_resolved_frame(rotated);
+    }
+    // Body-forward of her: reach 46 along world -y. Cut spans y 24..84, x 84..116.
+    let in_front = fighter(&mut app, 1, ae::Vec2::new(100.0, 54.0), -1.0);
+    // World +x, where the un-rotated offset used to put the cut.
+    let beside = fighter(&mut app, 2, ae::Vec2::new(146.0, 100.0), -1.0);
+    // Body y -9..31: inside the rotated blade's 30-long half, outside the 16
+    // an un-rotated one would have. Only a fix that turns the extents reaches him.
+    let past_the_tip = fighter(&mut app, 3, ae::Vec2::new(100.0, 11.0), -1.0);
+    answer(&mut app, defender, &params());
+
+    let hits = body_hits(&mut app);
+    assert!(
+        !damage_to(&hits, in_front).is_empty(),
+        "the cut missed the fighter standing in front of her OWN frame: {hits:?}",
+    );
+    assert!(
+        damage_to(&hits, beside).is_empty(),
+        "the cut reached along WORLD x instead of her body forward: {hits:?}",
+    );
+    assert!(
+        !damage_to(&hits, past_the_tip).is_empty(),
+        "the blade kept its un-rotated 16px reach across her forward axis, so it \
+         stopped short of a fighter the 30px blade covers: {hits:?}",
+    );
+}
+
 /// ⭐⭐ THE TECHNIQUE'S WHOLE CLAIM, AS AN OUTCOME: the fighter who swung takes
 /// the cut, and the fighter who answered does not.
 #[test]

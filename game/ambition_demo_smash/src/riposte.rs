@@ -87,9 +87,12 @@ pub fn cut_where_a_riposte_answers(
         let Ok((kin, frame)) = bodies.get(message.actor) else {
             continue;
         };
-        // ⭐ BODY-LOCAL, NOT WORLD. `FollowOwner` offsets are in the fighter's
-        // own space, so the cut tracks them for its whole life instead of
-        // hanging in the air where they were standing when they parried.
+        // ⭐ BODY-LOCAL, NOT WORLD, IN BOTH SENSES. The cut tracks the fighter
+        // for its whole life instead of hanging in the air where they were
+        // standing when they parried — and `+x` here means THEIR forward, not
+        // the world's. `spawn_body_strike` rotates it through the frame below;
+        // this line said "body-local" for a fortnight while passing a world
+        // vector, and only a rotated-frame fixture could tell the two apart.
         let local_offset = ae::Vec2::new(kin.facing.signum() * params.reach, 0.0);
         info!(
             target: "ambition::moves",
@@ -101,7 +104,7 @@ pub fn cut_where_a_riposte_answers(
             message.actor,
             local_offset,
             kin.facing.signum(),
-            frame.down(),
+            frame.basis(),
             ae::Vec2::new(params.half_extents.0, params.half_extents.1),
             params.damage as i32,
             params.knockback,

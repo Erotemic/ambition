@@ -301,12 +301,28 @@ pub fn spawn_damage_box(
 /// counter that damages its own owner — and the mistake was invisible until the
 /// citation in `a_hazard_hits_bystander_and_owner_alike_where_a_neutral_box_hits_neither`
 /// was actually read.
+///
+/// ⛔⛔ `body_frame` IS NOT DECORATION AND THE ROTATION HAPPENS HERE, NOT AT THE
+/// CALL SITE. `HitboxAnchor::FollowOwner`'s field is *named* `local_offset` and
+/// is resolved as `owner_pos + local_offset` — a WORLD displacement. Every
+/// caller therefore has to rotate before it stores, and until 2026-09-06 the one
+/// caller did not: the riposte handed over `(facing * reach, 0)` and raw
+/// half-extents, so under any non-identity gravity the counter cut along world
+/// +x while the swordfighter faced somewhere else. Taking the frame instead of a
+/// bare `down` makes that impossible to forget and makes the parameter name
+/// true. The authored road does the same two transforms in
+/// `place_body_local_volume`; a technique and a volume must not disagree about
+/// which way "forward" points.
 pub fn spawn_body_strike(
     commands: &mut Commands,
     owner: Entity,
+    // In the OWNER'S OWN SPACE: `+x` is toward their facing, `+y` toward
+    // their feet. Rotated into the world below.
     local_offset: ae::Vec2,
     facing: f32,
-    frame_down: ae::Vec2,
+    body_frame: ae::AccelerationFrame,
+    // Also body-local. A 90° frame swaps width for height; an off-axis frame
+    // gets `to_world_half`'s bounding over-approximation.
     half_extent: ae::Vec2,
     damage: i32,
     feel_scale: f32,
@@ -334,14 +350,16 @@ pub fn spawn_body_strike(
                 strike_sfx,
                 owner,
                 source: HitSide::Player,
-                anchor: HitboxAnchor::FollowOwner { local_offset },
-                half_extent,
+                anchor: HitboxAnchor::FollowOwner {
+                    local_offset: body_frame.to_world(local_offset),
+                },
+                half_extent: body_frame.to_world_half(half_extent),
                 shape: None,
                 facing,
                 damage,
                 knockback: HitboxKnockback::FeelScale(feel_scale),
                 launch_dir: None,
-                frame_down,
+                frame_down: body_frame.down,
                 reaction: None,
             },
             HitboxLifetime {

@@ -1078,6 +1078,7 @@ ambition_demo_smash      14        ← every known instance of the leak is here
 ambition_demo_mary_o      5
 ambition_demo_sanic       3
 ambition_demo_twintrack   2
+ambition_demo_pocket      0   ← defines a plugin, inserts NOTHING
 ```
 
 ⚠ **Not all 14 are wrong, and the census says so rather than failing.** A demo's
@@ -1094,10 +1095,18 @@ this row is the census and the pattern, so the next instance is recognised as th
 fourth rather than diagnosed from scratch.
 
 ✔ **AND THE FIRST ONE IS DONE, MEASURED HERE RATHER THAN REPORTED.**
-`SmashLimitFill` is route-scoped: the census reads **23 across 4 demos, smash 13**,
+`SmashLimitFill` is route-scoped: the census reads **23 across FIVE demos, smash 13**,
 down from 24/14, and the resource now moves through the stage route's
 insert-on-arrival / restore-prior-on-leave pair. ⇒ the count is a receipt, which
 is why it is worth having a census for a pattern rather than only fixes.
+⚠ **AND THE POPULATION IS FIVE, NOT FOUR — the fifth was invisible until a
+count floor was replaced by MEMBERSHIP.** `ambition_demo_pocket` defines a
+`Plugin::build` and inserts nothing in it, so it never appeared in a report that
+only listed demos WITH insertions — and a reader seeing four rows concludes there
+are four demos. Zero is printed now. ⇒ the floor that found it also could not have
+caught this file's own spelling bug (`MIN_DEMOS = 3` against four passes when
+exactly one drops out, which is what losing `&mut bevy::prelude::App` did).
+
 ⚠ **AND THE NARROWING RULE I PROPOSED WOULD HAVE MISSED IT.** "Inserted at build
 AND defined outside the demo" catches six of smash's remaining thirteen
 (`RespawnInterval`, `SmashStageChoice`, `SmashStockChoice`, `SeatMenuFrames`,

@@ -128,3 +128,38 @@ def test_an_over_matching_reader_detector_fails_rather_than_reporting_a_clean_ze
         assert module.main() == 1
     finally:
         module.generic_inners = real
+
+
+def test_a_read_through_a_binding_two_lines_down_counts() -> None:
+    """⛔⛔ The production reader of `RunAuthoredCommand` binds the handle and
+    drains it on the NEXT statement, with a `;` inside an `else` block between —
+    so a window cut at the first `;` never saw the verb. It only looked resolved
+    while a `tests.rs` elsewhere drained the same type in one statement."""
+    module = _module()
+    source = (
+        "let Some(mut messages) = world.get_resource_mut::<Messages<Ping>>() else {\n"
+        "    return;\n"
+        "};\n"
+        "let requests: Vec<Ping> = messages.drain().collect();\n"
+    )
+    assert [name for name, _ in module.messages_read_directly(source)] == ["Ping"]
+
+
+def test_a_binding_that_is_only_written_is_still_not_a_reader() -> None:
+    """The binding road must not become a blanket amnesty for `Messages<T>`."""
+    module = _module()
+    source = (
+        "let mut msgs = app.world_mut().resource_mut::<Messages<Pong>>();\n"
+        "msgs.write(Pong::default());\n"
+    )
+    assert module.messages_read_directly(source) == []
+
+
+def test_a_whole_file_test_module_is_not_production() -> None:
+    """`#[cfg(test)] mod tests;` puts the module in its own `tests.rs`, where
+    NOTHING inside the file says it is test code — so the positional stripper
+    cannot see it and the file name is the signal. An emission test of mine
+    drained a message here and the census read it as a production reader."""
+    module = _module()
+    names = {p.name for p in module.rust_files()}
+    assert "tests.rs" not in names

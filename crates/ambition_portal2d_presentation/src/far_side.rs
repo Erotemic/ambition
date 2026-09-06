@@ -792,6 +792,29 @@ mod tests {
             "the body is drawn as clipped pieces but its silhouette still draws \
              whole, so a far-side character shows its outline over the pane"
         );
+
+        // ⭐ AND THE DEPARTURE, WHICH IS "DO NOTHING" AND THEREFORE HAS NO LINE
+        // TO POISON. When the owner stops being far-side, this pass simply stops
+        // overriding the dependant -- it must NOT latch it hidden, because the
+        // drawable's own writer (`overlay_look` for a hit flash) sets its value
+        // every frame and that value is the right one.
+        // ⚠ Asserted by writing VISIBLE and checking it survives: a latch would
+        // stamp `Hidden` back over it, and nothing else in this fixture writes
+        // the silhouette. Without this the release is a claim nothing checks --
+        // the same gap the body's own release had, found the same day.
+        {
+            let mut entity = app.world_mut().entity_mut(body);
+            entity.get_mut::<PortalCompositingCandidate>().unwrap().drawn_centre =
+                Vec2::new(495.0, 300.0);
+        }
+        *app.world_mut().get_mut::<Visibility>(silhouette).unwrap() = Visibility::Visible;
+        app.update();
+        assert_eq!(
+            visibility(&app, silhouette),
+            Visibility::Visible,
+            "the owner is no longer far-side, so this pass must stop overriding \
+             its dependants rather than latching them hidden"
+        );
     }
 
     /// ⛔⛔ RELEASING THE PORTAL'S CLAIM MUST NOT RESURRECT A BODY SOMEBODY ELSE
@@ -832,6 +855,26 @@ mod tests {
             "the portal released its own hide and overwrote another owner's -- a \
              morphed or submerged body would pop back into view the frame it \
              stopped being far-side"
+        );
+
+        // ⛔⛔ AND THE RELEASE ITSELF, WHICH THIS TEST DID NOT ASSERT. Deleting
+        // `commands.entity(entity).remove::<PortalSourceHidden>()` left all 87
+        // tests of this crate GREEN: the visibility assertion above is satisfied
+        // by the OTHER owner's hide whether the claim is dropped or not. A pair
+        // of arms for arrival is not a pair for departure -- the fighter lane's
+        // formulation, found the same way, by a poison that walked out unharmed.
+        //
+        // ⚠ A STALE CLAIM IS NOT COSMETIC. `PortalSourceHidden` is what tells the
+        // render publisher that a `Hidden` body is hidden BY THE PORTAL and may
+        // still be composited (`portal_hid_it.is_none()`), and what makes this
+        // resolver hide the body's `PresentationOf` dependants. Left behind, a
+        // body hidden by a morph or a submerge keeps publishing compositing
+        // candidates and keeps its silhouette suppressed, for as long as it
+        // lives.
+        assert!(
+            app.world().get::<crate::source_visibility::PortalSourceHidden>(body).is_none(),
+            "the portal's reason ended, so its CLAIM must end too -- a stale claim \
+             tells the publisher this body is portal-hidden forever"
         );
     }
 }

@@ -3672,11 +3672,18 @@ from happening.** Measured 2026-09-06 in this checkout.
 superproject pin (git ls-tree HEAD)   0828fae   pushed; adds 161 lines to
                                                 targets/icons/item_icons.py
                                                 (HELD_ITEM_ICON_SPECS + 3 drawings)
-working checkout HEAD                 2b4d59f   NOT PUSHED; "Get rid of old stuff
+working checkout HEAD                 <unpushed>  NOT PUSHED; "Get rid of old stuff
                                                 that was not supposed to be
                                                 committed" — 33 files, −54,730 lines
 merge base                            2b15cc8   "Start git epoch 1"
 ```
+
+⚠ The diagram says `<unpushed>` rather than the sha ON PURPOSE. `cite-ok` is a
+PER-LINE opt-in, and putting scanner syntax inside a fenced block would render
+literally to a reader — while teaching the checker to skip fences would create a
+standing block-level exemption in exactly the place a table of shas lives. The
+sha is `2b4d59f`, carried in the four marked rulings below where it can be acted
+on.  <!-- cite-ok -->
 
 ⇒ **They are DIVERGENT, sharing only the epoch root.** Neither is an ancestor of
 the other, so:

@@ -2032,7 +2032,8 @@ hazard in it was being triaged as though it were reachable.
 
     ⛔ **Cost of building it anyway, stated because it is small and that is the
     trap:** `MovePlayback` is `rollback_component_resolved` (re-derived from
-    `rollback_registration.rs:153`, not quoted from this page), so an
+    `crates/ambition_combat/src/rollback_registration.rs:153`, not quoted from
+    this page), so an
     `Option<Vec2>` slot is carried by clone with no codec and no schema bump. **A
     rung being cheap is not a reason to build it** — that is exactly the
     speculative peer authority this campaign exists to avoid, and A2 and A3 both

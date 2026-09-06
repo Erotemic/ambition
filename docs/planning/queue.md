@@ -781,7 +781,7 @@ and run that one. `cargo check -p <crate>` with no features is seconds.
   |---|---|
   | *"there is no name→id resolver"* | `SfxId::new(s: &str)` is a plain runtime hash of any string, and `hazard_sfx_id` already resolves hazard names through it |
   | *"authored params cannot supply a name"* | `HitVolume::hit_sfx` is `Option<String>` and its doc says *"the `SfxId` name (lowered via `SfxId::new` at spawn)"* — the exact authored-string road this row calls impossible |
-  | *"there is no blunt counterpart in `ids.rs` at all"* | **`world.rock.hit` is at `ids.rs:158`**, is named in `hit_sfx`'s own doc as the bludgeon example, and is RENDERED (`tools/ambition_sfx_renderer/output/world.rock.hit/`) |
+  | *"there is no blunt counterpart in `ids.rs` at all"* | **`world.rock.hit` is at `crates/ambition_sfx/src/ids.rs:158`**, is named in `hit_sfx`'s own doc as the bludgeon example, and is RENDERED (`tools/ambition_sfx_renderer/output/world.rock.hit/`) |
 
   ⇒ **The real gap was one hard-coded `None`.** `spawn_body_strike` wrote
   `strike_sfx: None` on every hitbox it made, so the two techniques that use it —
